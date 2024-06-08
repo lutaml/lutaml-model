@@ -17,7 +17,18 @@ module Lutaml
           root_element = build_element(root)
           doc.children << root_element
           xml_data = doc.to_xml
-          options[:pretty] ? doc.to_xml(encoding: "UTF-8", indent: 2) : doc.to_xml
+          xml_data = pretty_print(xml_data) if options[:pretty]
+
+          if options[:declaration]
+            version = options[:declaration].is_a?(String) ? options[:declaration] : "1.0"
+            encoding = options[:encoding].is_a?(String) ? options[:encoding] : (options[:encoding] ? "UTF-8" : nil)
+            declaration = "<?xml version=\"#{version}\""
+            declaration += " encoding=\"#{encoding}\"" if encoding
+            declaration += "?>\n"
+            xml_data = declaration + xml_data
+          end
+
+          xml_data
         end
 
         private
@@ -33,6 +44,11 @@ module Lutaml
 
           oga_element.inner_text = element.text if element.text
           oga_element
+        end
+
+        def pretty_print(xml)
+          doc = Oga.parse_xml(xml)
+          doc.to_xml(encoding: "UTF-8", indent: 2)
         end
       end
 

@@ -17,7 +17,18 @@ module Lutaml
             build_element(xml, root)
           end
           xml_data = builder.to_xml
-          options[:pretty] ? Nokogiri::XML(xml_data).to_xml(indent: 2) : xml_data
+          xml_data = Nokogiri::XML(xml_data).to_xml(indent: 2) if options[:pretty]
+
+          if options[:declaration]
+            version = options[:declaration].is_a?(String) ? options[:declaration] : "1.0"
+            encoding = options[:encoding].is_a?(String) ? options[:encoding] : (options[:encoding] ? "UTF-8" : nil)
+            declaration = "<?xml version=\"#{version}\""
+            declaration += " encoding=\"#{encoding}\"" if encoding
+            declaration += "?>\n"
+            xml_data = declaration + xml_data
+          end
+
+          xml_data
         end
 
         private

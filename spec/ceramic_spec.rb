@@ -60,4 +60,35 @@ RSpec.describe Ceramic do
 
     expect(ceramic.to_xml(pretty: true).strip).to eq(expected_pretty_xml.strip)
   end
+
+  it "does not provide XML declaration if no declaration option provided" do
+    xml_data = ceramic.to_xml(pretty: true)
+    expect(xml_data).not_to include("<?xml")
+  end
+
+  it "provides XML declaration with default version if declaration: true option provided" do
+    xml_data = ceramic.to_xml(pretty: true, declaration: true)
+    expect(xml_data).to include('<?xml version="1.0"?>')
+  end
+
+  it "provides XML declaration with specified version if declaration: '1.1' option provided" do
+    xml_data = ceramic.to_xml(pretty: true, declaration: "1.1")
+    expect(xml_data).to include('<?xml version="1.1"?>')
+  end
+
+  it "provides XML declaration without encoding if encoding option not provided" do
+    xml_data = ceramic.to_xml(pretty: true, declaration: true)
+    expect(xml_data).to include('<?xml version="1.0"?>')
+    expect(xml_data).not_to include("encoding=")
+  end
+
+  it "provides XML declaration with UTF-8 encoding if encoding: true option provided" do
+    xml_data = ceramic.to_xml(pretty: true, declaration: true, encoding: true)
+    expect(xml_data).to include('<?xml version="1.0" encoding="UTF-8"?>')
+  end
+
+  it "provides XML declaration with specified encoding if encoding: 'ASCII' option provided" do
+    xml_data = ceramic.to_xml(pretty: true, declaration: true, encoding: "ASCII")
+    expect(xml_data).to include('<?xml version="1.0" encoding="ASCII"?>')
+  end
 end

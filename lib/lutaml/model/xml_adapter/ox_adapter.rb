@@ -14,7 +14,18 @@ module Lutaml
 
         def to_xml(options = {})
           ox_element = build_element(root)
-          Ox.dump(ox_element, indent: options[:pretty] ? 2 : -1)
+          xml_data = Ox.dump(ox_element, indent: options[:pretty] ? 2 : -1)
+
+          if options[:declaration]
+            version = options[:declaration].is_a?(String) ? options[:declaration] : "1.0"
+            encoding = options[:encoding].is_a?(String) ? options[:encoding] : (options[:encoding] ? "UTF-8" : nil)
+            declaration = "<?xml version=\"#{version}\""
+            declaration += " encoding=\"#{encoding}\"" if encoding
+            declaration += "?>\n"
+            xml_data = declaration + xml_data
+          end
+
+          xml_data
         end
 
         private
