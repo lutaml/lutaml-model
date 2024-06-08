@@ -17,45 +17,35 @@ require_relative "json_adapter"
 module Lutaml
   module Model
     class Serializable
-      def self.attributes
-        @attributes ||= {}
-      end
+      class << self
+        attr_accessor :attributes, :mappings
 
-      def self.attribute(name, type, options = {})
-        attr = Attribute.new(name, type, options)
-        attributes[name] = attr
+        def attribute(name, type, options = {})
+          self.attributes ||= {}
+          attr = Attribute.new(name, type, options)
+          attributes[name] = attr
 
-        if attr.collection?
-          define_method(name) do
-            instance_variable_get("@#{name}") || instance_variable_set("@#{name}", [])
+          if attr.collection?
+            define_method(name) do
+              instance_variable_get("@#{name}") || instance_variable_set("@#{name}", [])
+            end
+
+            define_method("#{name}=") do |value|
+              instance_variable_set("@#{name}", value || [])
+            end
+          else
+            attr_accessor name
           end
-
-          define_method("#{name}=") do |value|
-            instance_variable_set("@#{name}", value || [])
-          end
-        else
-          attr_accessor name
         end
-      end
 
-      def self.xml(&block)
-        @xml_mappings = XmlMapping.new
-        @xml_mappings.instance_eval(&block) if block_given?
-      end
-
-      def self.yaml(&block)
-        @yaml_mappings = KeyValueMapping.new
-        @yaml_mappings.instance_eval(&block) if block_given?
-      end
-
-      def self.toml(&block)
-        @toml_mappings = KeyValueMapping.new
-        @toml_mappings.instance_eval(&block) if block_given?
-      end
-
-      def self.json(&block)
-        @json_mappings = KeyValueMapping.new
-        @json_mappings.instance_eval(&block) if block_given?
+        %i[xml yaml toml json].each do |format|
+          define_method(format) do |&block|
+            self.mappings ||= {}
+            klass = format == :xml ? XmlMapping : KeyValueMapping
+            self.mappings[format] = klass.new
+            self.mappings[format].instance_eval(&block)
+          end
+        end
       end
 
       def self.xml_mappings
@@ -164,11 +154,12 @@ module Lutaml
       private
 
       def ensure_utf8(value)
-        if value.is_a?(String)
+        case value
+        when String
           value.encode("UTF-8", invalid: :replace, undef: :replace, replace: "")
-        elsif value.is_a?(Array)
+        when Array
           value.map { |v| ensure_utf8(v) }
-        elsif value.is_a?(Hash)
+        when Hash
           value.transform_keys { |k| ensure_utf8(k) }.transform_values { |v| ensure_utf8(v) }
         else
           value
