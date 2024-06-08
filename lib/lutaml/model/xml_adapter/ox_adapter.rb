@@ -13,6 +13,10 @@ module Lutaml
         end
 
         def to_xml(options = {})
+          if options[:namespace] || options[:prefix]
+            raise "Namespaces are not supported with the Ox adapter."
+          end
+
           ox_element = build_element(root)
           xml_data = Ox.dump(ox_element, indent: options[:pretty] ? 2 : -1)
 

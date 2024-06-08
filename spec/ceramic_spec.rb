@@ -91,4 +91,86 @@ RSpec.describe Ceramic do
     xml_data = ceramic.to_xml(pretty: true, declaration: true, encoding: "ASCII")
     expect(xml_data).to include('<?xml version="1.0" encoding="ASCII"?>')
   end
+
+  it "sets the default namespace of <ceramic>" do
+    ceramic_class = Class.new(Ceramic) do
+      xml do
+        root "ceramic"
+        namespace "https://example.com/ceramic/1.2"
+        map_element "type", to: :type
+        map_element "color", to: :color, delegate: :glaze
+        map_element "finish", to: :finish, delegate: :glaze
+      end
+    end
+
+    ceramic = ceramic_class.from_yaml(yaml_data)
+    xml_data = ceramic.to_xml(pretty: true, declaration: true, encoding: "UTF-8")
+    expect(xml_data).to include('<ceramic xmlns="https://example.com/ceramic/1.2">')
+  end
+
+  it "sets the namespace of <ceramic> with a prefix" do
+    ceramic_class = Class.new(Ceramic) do
+      xml do
+        root "ceramic"
+        namespace "https://example.com/ceramic/1.2", prefix: "cera"
+        map_element "type", to: :type
+        map_element "color", to: :color, delegate: :glaze
+        map_element "finish", to: :finish, delegate: :glaze
+      end
+    end
+
+    ceramic = ceramic_class.from_yaml(yaml_data)
+    xml_data = ceramic.to_xml(pretty: true, declaration: true, encoding: "UTF-8")
+    expect(xml_data).to include('<cera:ceramic xmlns:cera="https://example.com/ceramic/1.2">')
+  end
+
+  it "sets the namespace of a particular element inside Ceramic" do
+    ceramic_class = Class.new(Ceramic) do
+      xml do
+        root "ceramic"
+        map_element "type", to: :type, namespace: "https://example.com/type/1.2", prefix: "type"
+        map_element "color", to: :color, delegate: :glaze
+        map_element "finish", to: :finish, delegate: :glaze
+      end
+    end
+
+    ceramic = ceramic_class.from_yaml(yaml_data)
+    xml_data = ceramic.to_xml(pretty: true, declaration: true, encoding: "UTF-8")
+    expect(xml_data).to include('<ceramic xmlns:type="https://example.com/type/1.2">')
+    expect(xml_data).to include("<type:type>Vase</type:type>")
+  end
+
+  it "sets the namespace of <ceramic> and also a particular element inside using :inherit" do
+    ceramic_class = Class.new(Ceramic) do
+      xml do
+        root "ceramic"
+        namespace "https://example.com/ceramic/1.2", prefix: "cera"
+        map_element "type", to: :type, namespace: :inherit
+        map_element "color", to: :color, delegate: :glaze
+        map_element "finish", to: :finish, delegate: :glaze
+      end
+    end
+
+    ceramic = ceramic_class.from_yaml(yaml_data)
+    xml_data = ceramic.to_xml(pretty: true, declaration: true, encoding: "UTF-8")
+    expect(xml_data).to include('<cera:ceramic xmlns:cera="https://example.com/ceramic/1.2">')
+    expect(xml_data).to include("<cera:type>Vase</cera:type>")
+  end
+
+  it "raises an error when namespaces are used with Ox" do
+    ceramic_class = Class.new(Ceramic) do
+      xml do
+        root "ceramic"
+        namespace "https://example.com/ceramic/1.2", prefix: "cera"
+        map_element "type", to: :type
+        map_element "color", to: :color, delegate: :glaze
+        map_element "finish", to: :finish, delegate: :glaze
+      end
+    end
+
+    ceramic = ceramic_class.from_yaml(yaml_data)
+    allow(Lutaml::Model::Config).to receive(:xml_adapter).and_return(Lutaml::Model::XmlAdapter::OxDocument)
+
+    expect { ceramic.to_xml(pretty: true, declaration: true, encoding: "UTF-8") }.to raise_error("Namespaces are not supported with the Ox adapter.")
+  end
 end

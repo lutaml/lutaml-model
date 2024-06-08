@@ -14,7 +14,7 @@ module Lutaml
 
         def to_xml(options = {})
           builder = Nokogiri::XML::Builder.new do |xml|
-            build_element(xml, root)
+            build_element(xml, root, options)
           end
           xml_data = builder.to_xml
           xml_data = Nokogiri::XML(xml_data).to_xml(indent: 2) if options[:pretty]
@@ -33,8 +33,9 @@ module Lutaml
 
         private
 
-        def build_element(xml, element)
-          xml.send(element.name, build_attributes(element.attributes)) do
+        def build_element(xml, element, options = {})
+          ns = element.namespace ? { element.namespace_prefix => element.namespace } : {}
+          xml.send(element.name, build_attributes(element.attributes), ns) do
             element.children.each do |child|
               build_element(xml, child)
             end
@@ -48,7 +49,11 @@ module Lutaml
       end
 
       class NokogiriElement < Element
+        attr_reader :namespace, :namespace_prefix
+
         def initialize(node)
+          @namespace = node.namespace ? node.namespace.href : nil
+          @namespace_prefix = node.namespace ? node.namespace.prefix : nil
           super(node.name, node.attributes.transform_values(&:value), node.children.map { |child| NokogiriElement.new(child) }, node.text)
         end
       end

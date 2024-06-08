@@ -14,7 +14,7 @@ module Lutaml
 
         def to_xml(options = {})
           doc = Oga::XML::Document.new
-          root_element = build_element(root)
+          root_element = build_element(root, options)
           doc.children << root_element
           xml_data = doc.to_xml
           xml_data = pretty_print(xml_data) if options[:pretty]
@@ -33,7 +33,7 @@ module Lutaml
 
         private
 
-        def build_element(element)
+        def build_element(element, options = {})
           oga_element = Oga::XML::Element.new(element.name)
           element.attributes.each { |attr| oga_element.set(attr.name, attr.value) }
 
@@ -43,6 +43,11 @@ module Lutaml
           end
 
           oga_element.inner_text = element.text if element.text
+
+          if element.namespace
+            oga_element.set_namespace(element.namespace_prefix, element.namespace)
+          end
+
           oga_element
         end
 
@@ -53,7 +58,11 @@ module Lutaml
       end
 
       class OgaElement < Element
+        attr_reader :namespace, :namespace_prefix
+
         def initialize(node)
+          @namespace = node.namespace ? node.namespace.href : nil
+          @namespace_prefix = node.namespace ? node.namespace.prefix : nil
           super(node.name, node.attributes.map { |attr| [attr.name, attr.value] }.to_h, node.children.map { |child| OgaElement.new(child) }, node.text)
         end
       end
