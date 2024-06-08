@@ -9,26 +9,35 @@ require "json"
 module Lutaml
   module Model
     module Type
-      String = "String"
-      Integer = "Integer"
-      Float = "Float"
-      Date = "Date"
-      # DateTime = "DateTime"
-      Time = "Time"
-      # TimeWithoutDate = "TimeWithoutDate"
-      Boolean = "Boolean"
-      Decimal = "Decimal"
-      Array = "Array"
-      Hash = "Hash"
-      UUID = "UUID"
-      Symbol = "Symbol"
-      BigInteger = "BigInteger"
-      Binary = "Binary"
-      URL = "URL"
-      Email = "Email"
-      IPAddress = "IPAddress"
-      JSON = "JSON"
-      Enum = "Enum"
+      class Boolean; end
+
+      %w(String
+         Integer
+         Float
+         Date
+         Time
+         Boolean
+         Decimal
+         Array
+         Hash
+         UUID
+         Symbol
+         BigInteger
+         Binary
+         URL
+         Email
+         IPAddress
+         JSON
+         Enum).each do |t|
+        class_eval <<~HEREDOC
+                      class #{t}
+                        def self.cast(value)
+                         Type.cast(value, #{t})
+                       end
+                     end
+
+                   HEREDOC
+      end
 
       class TimeWithoutDate
         def self.cast(value)

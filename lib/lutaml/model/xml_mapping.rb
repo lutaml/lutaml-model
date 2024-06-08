@@ -39,6 +39,18 @@ module Lutaml
       def mappings
         elements + attributes
       end
+
+      def element(name)
+        elements.detect do |rule|
+          name == rule.to
+        end
+      end
+
+      def attribute(name)
+        attributes.detect do |rule|
+          name == rule.to
+        end
+      end
     end
   end
 end

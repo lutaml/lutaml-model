@@ -141,9 +141,9 @@ module Lutaml
 
           hash[rule.from] = case value
             when Array
-              value.map { |v| v.is_a?(Serializable) ? v.hash_representation(format, options) : v }
+              value.map { |v| v.is_a?(Serialize) ? v.hash_representation(format, options) : v }
             else
-              value.is_a?(Serializable) ? value.hash_representation(format, options) : value
+              value.is_a?(Serialize) ? value.hash_representation(format, options) : value
             end
         end
       end

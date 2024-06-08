@@ -24,8 +24,12 @@ module Lutaml
           builder = Nokogiri::XML::Builder.new do |xml|
             build_element(xml, @root, options)
           end
-          xml_data = builder.to_xml
-          xml_data = Nokogiri::XML(xml_data).to_xml(indent: 2) if options[:pretty]
+
+          xml_data = if options[:pretty]
+              builder.to_xml(indent: 2)
+            else
+              builder.to_xml
+            end
 
           if options[:declaration]
             version = options[:declaration].is_a?(String) ? options[:declaration] : "1.0"
@@ -42,29 +46,77 @@ module Lutaml
         private
 
         def build_element(xml, element, options = {})
-          attributes = build_attributes(element.class.attributes)
-          if element.class.namespace
-            attributes["xmlns:#{element.namespace_prefix}"] = element.namespace if element.namespace_prefix
-            attributes["xmlns"] = element.namespace unless element.namespace_prefix
+          xml_mapping = element.class.mappings_for(:xml)
+          return xml unless xml_mapping
+
+          attributes = build_attributes(element, xml_mapping)
+
+          if xml_mapping.namespace_uri
+            if xml_mapping.namespace_prefix
+              attributes["xmlns:#{xml_mapping.namespace_prefix}"] = xml_mapping.namespace_uri
+            else
+              attributes["xmlns"] = xml_mapping.namespace_uri
+            end
           end
 
-          xml.send(element.name, attributes) do
-            element.children.each do |child|
-              build_element(xml, child)
+          xml.send(xml_mapping.root_element, attributes) do
+            xml_mapping.elements.each do |element_rule|
+              attribute_def = element.class.attributes[element_rule.to]
+              value = element.send(element_rule.to)
+
+              puts "_" * 30
+              pp element_rule
+              pp element.class.attributes
+              pp value
+              pp attribute_def
+              pp attribute_def.type
+              puts "_" * 30
+
+              puts "is attribute_def.type a Serialize(#{attribute_def.type.is_a?(Lutaml::Model::Serialize)})? Serializable? (#{attribute_def.type.is_a?(Lutaml::Model::Serializable)})"
+
+              pp attribute_def.type.ancestors
+
+              if attribute_def.type <= Lutaml::Model::Serialize
+                case value
+                when Array
+                  puts "case 1: XML serialize as an array of Serialize objects! #{element_rule.name}"
+                  xml.send(element_rule.name) do
+                    value.each do |val|
+                      build_element(xml, val)
+                    end
+                  end
+                else
+                  puts "case 2: XML serialize as a single Serialize object! #{element_rule.name}"
+                  xml.send(element_rule.name) do
+                    build_element(xml, value)
+                  end
+                end
+              else
+                puts "case 3: XML serialize as a non-Serialize object! #{element_rule.name}"
+                xml.send(element_rule.name) do
+                  xml.text value
+                end
+              end
             end
-            xml.text element.text unless element.children.any?
+
+            unless xml_mapping.elements.any?
+              puts "case 4: writing text... #{element_rule.name}"
+              xml.text element.text
+            end
           end
         end
 
-        def build_attributes(attributes)
-          attributes.each_with_object({}) do |(name, attr), hash|
-            if attr.namespace
-              namespace_prefix = attr.namespace_prefix ? "#{attr.namespace_prefix}:" : ""
-              full_name = "#{namespace_prefix}#{name}"
-            else
-              full_name = name
+        def build_attributes(element, xml_mapping)
+          xml_mapping.attributes.each_with_object({}) do |mapping_rule, hash|
+            if mapping_rule
+              if mapping_rule.namespace
+                namespace_prefix = mapping_rule.prefix ? "#{mapping_rule.prefix}:" : ""
+                full_name = "#{namespace_prefix}#{mapping_rule.name}"
+              else
+                full_name = mapping_rule.name
+              end
+              hash[full_name] = element.send(rule.to)
             end
-            hash[full_name] = attr.value
           end
         end
 
