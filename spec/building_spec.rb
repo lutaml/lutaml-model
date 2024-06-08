@@ -53,12 +53,18 @@ RSpec.describe Building do
     expect(building.room_name).to eq(["Living Room", "Kitchen"])
   end
 
+  let(:attributes_yaml) {
+    {
+      "name" => "my_building",
+      "room_name" => ["Living Room", "Kitchen"],
+    }
+  }
   it "serializes to YAML with default mappings" do
-    expect(model.to_yaml).to eq(attributes.to_yaml)
+    expect(model.to_yaml).to eq(attributes_yaml.to_yaml)
   end
 
   it "deserializes from YAML with default mappings" do
-    yaml = attributes.to_yaml
+    yaml = attributes_yaml.to_yaml
     building = Building.from_yaml(yaml)
     expect(building.name).to eq("my_building")
     expect(building.room_name).to eq(["Living Room", "Kitchen"])

@@ -46,22 +46,32 @@ module Lutaml
             self.mappings[format].instance_eval(&block)
           end
         end
-      end
 
-      def self.xml_mappings
-        @xml_mappings || default_xml_mappings
-      end
+        def mappings_for(format)
+          self.mappings[format] || default_mappings(format)
+        end
 
-      def self.yaml_mappings
-        @yaml_mappings || default_key_value_mappings
-      end
+        def default_mappings(format)
+          klass = format == :xml ? XmlMapping : KeyValueMapping
+          klass.new.tap do |mapping|
+            attributes.each do |name, attr|
+              mapping.map_element(name.to_s, to: name, render_nil: attr.render_nil?)
+            end
+          end
+        end
 
-      def self.toml_mappings
-        @toml_mappings || default_key_value_mappings
-      end
-
-      def self.json_mappings
-        @json_mappings || default_key_value_mappings
+        def apply_mappings(doc, format)
+          mappings = mappings_for(format).mappings
+          mappings.each_with_object({}) do |rule, hash|
+            value = doc[rule.name]
+            if attributes[rule.to].collection?
+              value = (value || []).map { |v| attributes[rule.to].type <= Serializable ? attributes[rule.to].type.new(v) : v }
+            elsif value.is_a?(Hash) && attributes[rule.to].type <= Serializable
+              value = attributes[rule.to].type.new(value)
+            end
+            hash[rule.to] = value
+          end
+        end
       end
 
       def initialize(attrs = {})
@@ -128,10 +138,10 @@ module Lutaml
         except = options[:except]
 
         mappings = case format
-          when :json then self.class.json_mappings.mappings
-          when :yaml then self.class.yaml_mappings.mappings
-          when :toml then self.class.toml_mappings.mappings
-          when :xml then self.class.xml_mappings.elements + self.class.xml_mappings.attributes
+          when :json then self.class.mappings_for(:json).mappings
+          when :yaml then self.class.mappings_for(:yaml).mappings
+          when :toml then self.class.mappings_for(:toml).mappings
+          when :xml then self.class.mappings_for(:xml).elements + self.class.mappings_for(:xml).attributes
           else raise ArgumentError, "Unsupported format: #{format}"
           end
 
@@ -163,54 +173,6 @@ module Lutaml
           value.transform_keys { |k| ensure_utf8(k) }.transform_values { |v| ensure_utf8(v) }
         else
           value
-        end
-      end
-
-      def self.apply_mappings(doc, format)
-        mappings = case format
-          when :json then json_mappings.mappings
-          when :yaml then yaml_mappings.mappings
-          when :toml then toml_mappings.mappings
-          when :xml then xml_mappings.elements + xml_mappings.attributes
-          else raise ArgumentError, "Unsupported format: #{format}"
-          end
-
-        mappings.each_with_object({}) do |rule, hash|
-          if format == :xml
-            elements = doc.children.select { |child| child.name == rule.name }
-            if elements.any?
-              if self.attributes[rule.to].collection?
-                hash[rule.to] = elements.map { |element| self.attributes[rule.to].type.new(parse_element(element)) }
-              else
-                hash[rule.to] = self.attributes[rule.to].type.new(parse_element(elements.first))
-              end
-            end
-          else
-            value = doc[rule.name]
-            if self.attributes[rule.to].collection?
-              value = (value || []).map { |v| self.attributes[rule.to].type <= Serializable ? self.attributes[rule.to].type.new(v) : v }
-            elsif value.is_a?(Hash) && self.attributes[rule.to].type <= Serializable
-              value = self.attributes[rule.to].type.new(value)
-            end
-            hash[rule.to] = value
-          end
-        end
-      end
-
-      def self.default_key_value_mappings
-        proc do
-          attributes.each do |name, attr|
-            map name.to_s, to: name, render_nil: attr.render_nil?
-          end
-        end
-      end
-
-      def self.default_xml_mappings
-        proc do
-          root name.downcase
-          attributes.each do |name, attr|
-            map_element name.to_s, to: name, render_nil: attr.render_nil?
-          end
         end
       end
     end

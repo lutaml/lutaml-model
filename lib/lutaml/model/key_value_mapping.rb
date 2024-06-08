@@ -13,6 +13,8 @@ module Lutaml
       def map(name, to:, render_nil: false, with: {}, delegate: nil)
         @mappings << KeyValueMappingRule.new(name, to: to, render_nil: render_nil, with: with, delegate: delegate)
       end
+
+      alias map_element map
     end
   end
 end

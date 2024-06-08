@@ -52,7 +52,7 @@ module Lutaml
             element.children.each do |child|
               build_element(xml, child)
             end
-            xml.text element.text if element.text
+            xml.text element.text unless element.children.any?
           end
         end
 
@@ -69,12 +69,12 @@ module Lutaml
         end
 
         def parse_element(element)
-          result = { "_text" => element.text }
-          element.children.each do |child|
+          result = element.children.each_with_object({}) do |child, hash|
             next if child.text?
-            result[child.name] ||= []
-            result[child.name] << parse_element(child)
+            hash[child.name] ||= []
+            hash[child.name] << parse_element(child)
           end
+          result["_text"] = element.text if element.text?
           result
         end
       end
@@ -90,6 +90,10 @@ module Lutaml
                 node.text,
                 namespace: node.namespace&.href,
                 namespace_prefix: node.namespace&.prefix)
+        end
+
+        def text?
+          false
         end
       end
     end
