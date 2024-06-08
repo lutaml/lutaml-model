@@ -6,8 +6,8 @@ require_relative "fixtures/address"
 RSpec.describe Address do
   let(:persons) do
     [
-      { first_name: "Tom", last_name: "Warren", age: 40, height: 5.8, birthdate: "1980-02-15", last_login: "2023-06-10T10:00:00Z", wakeup_time: "07:30:00", active: true },
-      { first_name: "Jack", last_name: "Warren", age: 35, height: 5.9, birthdate: "1985-05-20", last_login: "2023-06-11T09:00:00Z", wakeup_time: "06:45:00", active: false },
+      { first_name: "Tom", last_name: "Warren", age: 40, height: 5.8, birthdate: "1980-02-15", last_login: "2023-06-10T10:00:00+00:00", wakeup_time: "07:30:00", active: true },
+      { first_name: "Jack", last_name: "Warren", age: 35, height: 5.9, birthdate: "1985-05-20", last_login: "2023-06-11T09:00:00+00:00", wakeup_time: "06:45:00", active: false },
     ]
   end
 
@@ -26,8 +26,8 @@ RSpec.describe Address do
       country: "USA",
       postCode: "01001",
       persons: [
-        { firstName: "Tom", lastName: "Warren", age: 40, height: 5.8, birthdate: "1980-02-15", lastLogin: "2023-06-10T10:00:00Z", wakeupTime: "07:30:00", active: true },
-        { firstName: "Jack", lastName: "Warren", age: 35, height: 5.9, birthdate: "1985-05-20", lastLogin: "2023-06-11T09:00:00Z", wakeupTime: "06:45:00", active: false },
+        { firstName: "Tom", lastName: "Warren", age: 40, height: 5.8, birthdate: "1980-02-15", lastLogin: "2023-06-10T10:00:00+00:00", wakeupTime: "07:30:00", active: true },
+        { firstName: "Jack", lastName: "Warren", age: 35, height: 5.9, birthdate: "1985-05-20", lastLogin: "2023-06-11T09:00:00+00:00", wakeupTime: "06:45:00", active: false },
       ],
     }.to_json
 
@@ -39,8 +39,8 @@ RSpec.describe Address do
       country: "USA",
       postCode: "01001",
       persons: [
-        { firstName: "Tom", lastName: "Warren", age: 40, height: 5.8, birthdate: "1980-02-15", lastLogin: "2023-06-10T10:00:00Z", wakeupTime: "07:30:00", active: true },
-        { firstName: "Jack", lastName: "Warren", age: 35, height: 5.9, birthdate: "1985-05-20", lastLogin: "2023-06-11T09:00:00Z", wakeupTime: "06:45:00", active: false },
+        { firstName: "Tom", lastName: "Warren", age: 40, height: 5.8, birthdate: "1980-02-15", lastLogin: "2023-06-10T10:00:00+00:00", wakeupTime: "07:30:00", active: true },
+        { firstName: "Jack", lastName: "Warren", age: 35, height: 5.9, birthdate: "1985-05-20", lastLogin: "2023-06-11T09:00:00+00:00", wakeupTime: "06:45:00", active: false },
       ],
     }.to_json
 
@@ -63,7 +63,7 @@ RSpec.describe Address do
             xml.Age "40"
             xml.Height "5.8"
             xml.Birthdate "1980-02-15"
-            xml.LastLogin "2023-06-10T10:00:00Z"
+            xml.LastLogin "2023-06-10T10:00:00+00:00"
             xml.WakeupTime "07:30:00"
             xml.Active "true"
           }
@@ -73,7 +73,7 @@ RSpec.describe Address do
             xml.Age "35"
             xml.Height "5.9"
             xml.Birthdate "1985-05-20"
-            xml.LastLogin "2023-06-11T09:00:00Z"
+            xml.LastLogin "2023-06-11T09:00:00+00:00"
             xml.WakeupTime "06:45:00"
             xml.Active "false"
           }
@@ -96,7 +96,7 @@ RSpec.describe Address do
             xml.Age "40"
             xml.Height "5.8"
             xml.Birthdate "1980-02-15"
-            xml.LastLogin "2023-06-10T10:00:00Z"
+            xml.LastLogin "2023-06-10T10:00:00+00:00"
             xml.WakeupTime "07:30:00"
             xml.Active "true"
           }
@@ -106,7 +106,7 @@ RSpec.describe Address do
             xml.Age "35"
             xml.Height "5.9"
             xml.Birthdate "1985-05-20"
-            xml.LastLogin "2023-06-11T09:00:00Z"
+            xml.LastLogin "2023-06-11T09:00:00+00:00"
             xml.WakeupTime "06:45:00"
             xml.Active "false"
           }

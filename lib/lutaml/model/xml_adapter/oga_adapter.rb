@@ -8,73 +8,63 @@ module Lutaml
       class OgaDocument < Document
         def self.parse(xml)
           parsed = Oga.parse_xml(xml)
-          root = OgaElement.new(parsed.root)
+          root = OgaElement.new(parsed)
           new(root)
         end
 
+        def initialize(root)
+          @root = root
+        end
+
+        def to_h
+          { @root.name => parse_element(@root) }
+        end
+
         def to_xml(options = {})
-          builder = Oga::XML::Builder.new do |xml|
-            build_element(xml, root, options)
-          end
+          builder = Oga::XML::Builder.new
+          build_element(builder, @root, options)
           xml_data = builder.to_xml
-
-          if options[:pretty]
-            xml_data = Oga::XML::Document.new(xml_data).to_xml(indent: 2)
-          end
-
-          if options[:declaration]
-            version = options[:declaration].is_a?(String) ? options[:declaration] : "1.0"
-            encoding = options[:encoding].is_a?(String) ? options[:encoding] : (options[:encoding] ? "UTF-8" : nil)
-            declaration = "<?xml version=\"#{version}\""
-            declaration += " encoding=\"#{encoding}\"" if encoding
-            declaration += "?>\n"
-            xml_data = declaration + xml_data
-          end
-
           xml_data
         end
 
         private
 
-        def build_element(xml, element, options = {})
+        def build_element(builder, element, options = {})
           attributes = build_attributes(element.attributes)
-          if element.namespace
-            attributes["xmlns:#{element.namespace_prefix}"] = element.namespace if element.namespace_prefix
-            attributes["xmlns"] = element.namespace unless element.namespace_prefix
-          end
-
-          xml.send(element.name, attributes) do
+          builder.element(element.name, attributes) do
             element.children.each do |child|
-              build_element(xml, child)
+              build_element(builder, child, options)
             end
-            xml.text element.text if element.text
+            builder.text(element.text) if element.text
           end
         end
 
         def build_attributes(attributes)
-          attributes.each_with_object({}) do |attr, hash|
-            if attr.namespace
-              namespace_prefix = attr.namespace_prefix ? "#{attr.namespace_prefix}:" : ""
-              name = "#{namespace_prefix}#{attr.name}"
-            else
-              name = attr.name
-            end
+          attributes.each_with_object({}) do |(name, attr), hash|
             hash[name] = attr.value
           end
+        end
+
+        def parse_element(element)
+          result = { "_text" => element.text }
+          element.children.each do |child|
+            next if child.is_a?(Oga::XML::Text)
+            result[child.name] ||= []
+            result[child.name] << parse_element(child)
+          end
+          result
         end
       end
 
       class OgaElement < Element
         def initialize(node)
-          attributes = node.attributes.transform_values do |attr|
-            Attribute.new(attr.name, attr.value, namespace: attr.namespace&.uri, namespace_prefix: attr.namespace&.prefix)
+          attributes = node.attributes.each_with_object({}) do |attr, hash|
+            hash[attr.name] = Attribute.new(attr.name, attr.value)
           end
           super(node.name,
                 attributes,
-                node.children.select(&:element?).map { |child| OgaElement.new(child) },
-                node.text,
-                namespace: node.namespace&.uri,
-                namespace_prefix: node.namespace&.prefix)
+                node.children.select { |child| child.is_a?(Oga::XML::Element) }.map { |child| OgaElement.new(child) },
+                node.text)
         end
       end
     end

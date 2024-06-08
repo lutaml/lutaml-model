@@ -94,7 +94,9 @@ module Lutaml
 
       def self.from_xml(xml)
         adapter = Lutaml::Model::Config.xml_adapter
-        adapter.from_xml(xml, self)
+        doc = adapter.parse(xml)
+        mapped_attrs = apply_mappings(doc.root, :xml)
+        new(mapped_attrs)
       end
 
       def to_json(options = {})
@@ -105,12 +107,13 @@ module Lutaml
       def self.from_json(json)
         adapter = Lutaml::Model::Config.json_adapter
         doc = adapter.parse(json)
-        new(doc.to_h)
+        mapped_attrs = apply_mappings(doc.to_h, :json)
+        new(mapped_attrs)
       end
 
       def to_yaml(options = {})
         adapter = Lutaml::Model::Config.yaml_adapter
-        adapter.to_yaml(hash_representation(:yaml, options), options)
+        adapter.to_yaml(self, options)
       end
 
       def self.from_yaml(yaml)
@@ -126,7 +129,8 @@ module Lutaml
       def self.from_toml(toml)
         adapter = Lutaml::Model::Config.toml_adapter
         doc = adapter.parse(toml)
-        new(doc.to_h)
+        mapped_attrs = apply_mappings(doc.to_h, :toml)
+        new(mapped_attrs)
       end
 
       def hash_representation(format, options = {})
@@ -137,6 +141,7 @@ module Lutaml
           when :json then self.class.json_mappings.mappings
           when :yaml then self.class.yaml_mappings.mappings
           when :toml then self.class.toml_mappings.mappings
+          when :xml then self.class.xml_mappings.mappings
           else raise ArgumentError, "Unsupported format: #{format}"
           end
 
@@ -170,6 +175,37 @@ module Lutaml
         end
       end
 
+      def self.apply_mappings(doc, format)
+        mappings = case format
+          when :json then json_mappings.mappings
+          when :yaml then yaml_mappings.mappings
+          when :toml then toml_mappings.mappings
+          when :xml then xml_mappings.mappings
+          else raise ArgumentError, "Unsupported format: #{format}"
+          end
+
+        mappings.each_with_object({}) do |rule, hash|
+          if format == :xml
+            elements = doc.children.select { |child| child.name == rule.name }
+            if elements.any?
+              if self.attributes[rule.to].collection?
+                hash[rule.to] = elements.map { |element| self.attributes[rule.to].type.new(parse_element(element)) }
+              else
+                hash[rule.to] = self.attributes[rule.to].type.new(parse_element(elements.first))
+              end
+            end
+          else
+            value = doc[rule.name]
+            if self.attributes[rule.to].collection?
+              value = (value || []).map { |v| self.attributes[rule.to].type <= Serializable ? self.attributes[rule.to].type.new(v) : v }
+            elsif value.is_a?(Hash) && self.attributes[rule.to].type <= Serializable
+              value = self.attributes[rule.to].type.new(value)
+            end
+            hash[rule.to] = value
+          end
+        end
+      end
+
       def self.default_key_value_mappings
         proc do
           attributes.each do |name, attr|
@@ -185,25 +221,6 @@ module Lutaml
             map_element name.to_s, to: name, render_nil: attr.render_nil?
           end
         end
-      end
-
-      def self.apply_mappings(doc, mappings, model)
-        mappings.each do |rule|
-          if rule.delegate
-            delegate_instance = model.send(rule.delegate)
-            value = rule.deserialize(delegate_instance, doc)
-            delegate_instance.send("#{rule.to}=", value)
-          else
-            value = rule.deserialize(model, doc)
-            model.send("#{rule.to}=", value)
-          end
-        end
-      end
-
-      def self.from_document(doc, mappings)
-        model = new
-        apply_mappings(doc, mappings, model)
-        model
       end
     end
   end

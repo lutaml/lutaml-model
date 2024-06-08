@@ -75,7 +75,7 @@ glaze:
     YAML
 
     pottery = Pottery.from_yaml(yaml)
-    expect(pottery.name).to be_nil
+    expect(pottery.name).to eq("Unnamed Pottery")
     expect(pottery.glaze).to be_nil
   end
 end

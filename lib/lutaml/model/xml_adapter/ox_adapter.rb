@@ -12,58 +12,59 @@ module Lutaml
           new(root)
         end
 
+        def initialize(root)
+          @root = root
+        end
+
+        def to_h
+          { @root.name => parse_element(@root) }
+        end
+
         def to_xml(options = {})
-          xml = Ox::Document.new(version: options[:declaration] || "1.0", encoding: options[:encoding] || "UTF-8")
-          xml << Ox::Element.new(root.name).tap do |element|
-            build_element(element, root, options)
-          end
-          Ox.dump(xml, indent: options[:pretty] ? 2 : -1)
+          builder = Ox::Builder.new
+          build_element(builder, @root, options)
+          xml_data = Ox.dump(builder)
+          xml_data
         end
 
         private
 
-        def build_element(xml, element, options = {})
+        def build_element(builder, element, options = {})
           attributes = build_attributes(element.attributes)
-          if element.namespace
-            attributes["xmlns:#{element.namespace_prefix}"] = element.namespace if element.namespace_prefix
-            attributes["xmlns"] = element.namespace unless element.namespace_prefix
+          builder.element(element.name, attributes) do
+            element.children.each do |child|
+              build_element(builder, child, options)
+            end
+            builder.text(element.text) if element.text
           end
-
-          xml.attributes = xml.attributes.merge(attributes)
-          element.children.each do |child|
-            child_element = Ox::Element.new(child.name)
-            build_element(child_element, child, options)
-            xml << child_element
-          end
-          xml << Ox::CData.new(element.text) if element.text
         end
 
         def build_attributes(attributes)
-          attributes.each_with_object({}) do |attr, hash|
-            if attr.namespace
-              namespace_prefix = attr.namespace_prefix ? "#{attr.namespace_prefix}:" : ""
-              name = "#{namespace_prefix}#{attr.name}"
-            else
-              name = attr.name
-            end
+          attributes.each_with_object({}) do |(name, attr), hash|
             hash[name] = attr.value
           end
+        end
+
+        def parse_element(element)
+          result = { "_text" => element.text }
+          element.nodes.each do |child|
+            next if child.is_a?(Ox::Raw) || child.is_a?(Ox::Comment)
+            result[child.name] ||= []
+            result[child.name] << parse_element(child)
+          end
+          result
         end
       end
 
       class OxElement < Element
         def initialize(node)
-          attributes = node.attributes.transform_values do |value|
-            namespace = node.namespace ? node.namespace.href : nil
-            namespace_prefix = node.namespace ? node.namespace.prefix : nil
-            Attribute.new(node.name, value, namespace: namespace, namespace_prefix: namespace_prefix)
+          attributes = node.attributes.each_with_object({}) do |(name, value), hash|
+            hash[name.to_s] = Attribute.new(name.to_s, value)
           end
-          super(node.name,
+          super(node.name.to_s,
                 attributes,
                 node.nodes.select { |child| child.is_a?(Ox::Element) }.map { |child| OxElement.new(child) },
-                node.text,
-                namespace: node.namespace&.href,
-                namespace_prefix: node.namespace&.prefix)
+                node.text)
         end
       end
     end

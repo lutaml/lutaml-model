@@ -6,7 +6,7 @@ module Lutaml
     module YamlAdapter
       module Standard
         def self.to_yaml(model, *args)
-          YAML.dump(model.hash_representation, *args)
+          YAML.dump(model.hash_representation(:yaml), *args)
         end
 
         def self.from_yaml(yaml, klass)

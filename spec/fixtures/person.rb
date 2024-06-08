@@ -8,7 +8,7 @@ class Person < Lutaml::Model::Serializable
   attribute :height, Lutaml::Model::Type::Float
   attribute :birthdate, Lutaml::Model::Type::Date
   attribute :last_login, Lutaml::Model::Type::DateTime
-  attribute :wakeup_time, Lutaml::Model::Type::Time
+  attribute :wakeup_time, Lutaml::Model::Type::TimeWithoutDate
   attribute :active, Lutaml::Model::Type::Boolean
 
   xml do

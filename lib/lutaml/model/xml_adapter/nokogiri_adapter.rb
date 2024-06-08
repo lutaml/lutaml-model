@@ -12,9 +12,17 @@ module Lutaml
           new(root)
         end
 
+        def initialize(root)
+          @root = root
+        end
+
+        def to_h
+          { @root.name => parse_element(@root) }
+        end
+
         def to_xml(options = {})
           builder = Nokogiri::XML::Builder.new do |xml|
-            build_element(xml, root, options)
+            build_element(xml, @root, options)
           end
           xml_data = builder.to_xml
           xml_data = Nokogiri::XML(xml_data).to_xml(indent: 2) if options[:pretty]
@@ -49,15 +57,25 @@ module Lutaml
         end
 
         def build_attributes(attributes)
-          attributes.each_with_object({}) do |attr, hash|
+          attributes.each_with_object({}) do |(name, attr), hash|
             if attr.namespace
               namespace_prefix = attr.namespace_prefix ? "#{attr.namespace_prefix}:" : ""
-              name = "#{namespace_prefix}#{attr.name}"
+              full_name = "#{namespace_prefix}#{name}"
             else
-              name = attr.name
+              full_name = name
             end
-            hash[name] = attr.value
+            hash[full_name] = attr.value
           end
+        end
+
+        def parse_element(element)
+          result = { "_text" => element.text }
+          element.children.each do |child|
+            next if child.text?
+            result[child.name] ||= []
+            result[child.name] << parse_element(child)
+          end
+          result
         end
       end
 

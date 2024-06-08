@@ -5,6 +5,7 @@ require "securerandom"
 require "uri"
 require "ipaddr"
 require "json"
+require_relative "type/time_without_date"
 
 module Lutaml
   module Model
@@ -43,6 +44,8 @@ module Lutaml
           ::DateTime.parse(value.to_s)
         when Time
           ::Time.parse(value.to_s)
+        when TimeWithoutDate
+          TimeWithoutDate.cast(value)
         when Boolean
           to_boolean(value)
         when Decimal

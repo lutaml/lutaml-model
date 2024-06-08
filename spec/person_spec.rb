@@ -10,11 +10,12 @@ RSpec.describe Person do
       age: 30,
       height: 5.9,
       birthdate: "1990-01-01",
-      last_login: "2023-06-08T10:00:00Z",
+      last_login: "2023-06-08T10:00:00+00:00",
       wakeup_time: "07:00:00",
       active: true,
     }
   }
+
   let(:model) { Person.new(attributes) }
 
   it "serializes to XML" do
@@ -25,7 +26,7 @@ RSpec.describe Person do
         xml.Age "30"
         xml.Height "5.9"
         xml.Birthdate "1990-01-01"
-        xml.LastLogin "2023-06-08T10:00:00Z"
+        xml.LastLogin "2023-06-08T10:00:00+00:00"
         xml.WakeupTime "07:00:00"
         xml.Active "true"
       }
@@ -41,7 +42,7 @@ RSpec.describe Person do
         xml.Age "30"
         xml.Height "5.9"
         xml.Birthdate "1990-01-01"
-        xml.LastLogin "2023-06-08T10:00:00Z"
+        xml.LastLogin "2023-06-08T10:00:00+00:00"
         xml.WakeupTime "07:00:00"
         xml.Active "true"
       }
@@ -51,13 +52,25 @@ RSpec.describe Person do
     expect(person.age).to eq(30)
     expect(person.height).to eq(5.9)
     expect(person.birthdate).to eq(Date.parse("1990-01-01"))
-    expect(person.last_login).to eq(DateTime.parse("2023-06-08T10:00:00Z"))
+    expect(person.last_login).to eq(DateTime.parse("2023-06-08T10:00:00+00:00"))
     expect(person.wakeup_time).to eq(Time.parse("07:00:00"))
     expect(person.active).to be true
   end
 
+  let(:attributes_json) {
+    {
+      firstName: "John",
+      lastName: "Doe",
+      age: 30,
+      height: 5.9,
+      birthdate: "1990-01-01",
+      lastLogin: "2023-06-08T10:00:00+00:00",
+      wakeupTime: "07:00:00",
+      active: true,
+    }
+  }
   it "serializes to JSON" do
-    expect(model.to_json).to eq(attributes.to_json)
+    expect(model.to_json).to eq(attributes_json.to_json)
   end
 
   it "deserializes from JSON" do
@@ -67,13 +80,19 @@ RSpec.describe Person do
     expect(person.age).to eq(30)
     expect(person.height).to eq(5.9)
     expect(person.birthdate).to eq(Date.parse("1990-01-01"))
-    expect(person.last_login).to eq(DateTime.parse("2023-06-08T10:00:00Z"))
+    expect(person.last_login).to eq(DateTime.parse("2023-06-08T10:00:00+00:00"))
     expect(person.wakeup_time).to eq(Time.parse("07:00:00"))
     expect(person.active).to be true
   end
 
+  let(:attributes_yaml) {
+    {
+      "firstName" => "John",
+      "lastName" => "Doe",
+    }
+  }
   it "serializes to YAML" do
-    expect(model.to_yaml).to eq(attributes.to_yaml)
+    expect(model.to_yaml).to eq(attributes_yaml.to_yaml)
   end
 
   it "deserializes from YAML" do
@@ -83,7 +102,7 @@ RSpec.describe Person do
     expect(person.age).to eq(30)
     expect(person.height).to eq(5.9)
     expect(person.birthdate).to eq(Date.parse("1990-01-01"))
-    expect(person.last_login).to eq(DateTime.parse("2023-06-08T10:00:00Z"))
+    expect(person.last_login).to eq(DateTime.parse("2023-06-08T10:00:00+00:00"))
     expect(person.wakeup_time).to eq(Time.parse("07:00:00"))
     expect(person.active).to be true
   end
