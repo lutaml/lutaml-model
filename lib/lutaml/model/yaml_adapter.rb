@@ -10,7 +10,7 @@ module Lutaml
         end
 
         def self.from_yaml(yaml, klass)
-          data = YAML.safe_load(yaml, permitted_classes: [Date, Time, DateTime, Symbol])
+          data = YAML.safe_load(yaml, permitted_classes: [Date, Time, DateTime, Symbol, BigDecimal, Hash, Array])
           klass.new(data)
         end
       end

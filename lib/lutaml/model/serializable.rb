@@ -17,6 +17,8 @@ require_relative "json_adapter"
 module Lutaml
   module Model
     class Serializable
+      FORMATS = %i[xml json yaml toml].freeze
+
       class << self
         attr_accessor :attributes, :mappings
 
@@ -25,25 +27,35 @@ module Lutaml
           attr = Attribute.new(name, type, options)
           attributes[name] = attr
 
-          if attr.collection?
-            define_method(name) do
-              instance_variable_get("@#{name}") || instance_variable_set("@#{name}", [])
-            end
+          define_method(name) do
+            instance_variable_get("@#{name}")
+          end
 
-            define_method("#{name}=") do |value|
-              instance_variable_set("@#{name}", value || [])
-            end
-          else
-            attr_accessor name
+          define_method("#{name}=") do |value|
+            instance_variable_set("@#{name}", value)
           end
         end
 
-        %i[xml yaml toml json].each do |format|
+        FORMATS.each do |format|
           define_method(format) do |&block|
             self.mappings ||= {}
             klass = format == :xml ? XmlMapping : KeyValueMapping
             self.mappings[format] = klass.new
             self.mappings[format].instance_eval(&block)
+          end
+
+          # TODO: Make this work
+          # define_method("to_#{format}") do |options = {}|
+          #   adapter = Lutaml::Model::Config.send("#{format}_adapter")
+          #   representation = format == :yaml ? self : hash_representation(format, options)
+          #   adapter.new(representation).send("to_#{format}", options)
+          # end
+
+          define_singleton_method("from_#{format}") do |data|
+            adapter = Lutaml::Model::Config.send("#{format}_adapter")
+            doc = adapter.parse(data)
+            mapped_attrs = apply_mappings(doc.to_h, format)
+            new(mapped_attrs)
           end
         end
 
@@ -77,12 +89,11 @@ module Lutaml
       def initialize(attrs = {})
         self.class.attributes.each do |name, attr|
           value = attrs.key?(name) ? attrs[name] : attr.default
-          if attr.collection?
-            value = (value || []).map { |v| Lutaml::Model::Type.cast(v, attr.type) }
-          else
-            value = Lutaml::Model::Type.cast(value, attr.type)
-          end
-
+          value = if attr.collection?
+              (value || []).map { |v| Lutaml::Model::Type.cast(v, attr.type) }
+            else
+              Lutaml::Model::Type.cast(value, attr.type)
+            end
           send("#{name}=", ensure_utf8(value))
         end
       end
@@ -92,23 +103,9 @@ module Lutaml
         adapter.new(self).to_xml(options)
       end
 
-      def self.from_xml(xml)
-        adapter = Lutaml::Model::Config.xml_adapter
-        doc = adapter.parse(xml)
-        mapped_attrs = apply_mappings(doc.root, :xml)
-        new(mapped_attrs)
-      end
-
       def to_json(options = {})
         adapter = Lutaml::Model::Config.json_adapter
         adapter.new(hash_representation(:json, options)).to_json(options)
-      end
-
-      def self.from_json(json)
-        adapter = Lutaml::Model::Config.json_adapter
-        doc = adapter.parse(json)
-        mapped_attrs = apply_mappings(doc.to_h, :json)
-        new(mapped_attrs)
       end
 
       def to_yaml(options = {})
@@ -116,48 +113,29 @@ module Lutaml
         adapter.to_yaml(self, options)
       end
 
-      def self.from_yaml(yaml)
-        adapter = Lutaml::Model::Config.yaml_adapter
-        adapter.from_yaml(yaml, self)
-      end
-
       def to_toml(options = {})
         adapter = Lutaml::Model::Config.toml_adapter
         adapter.new(hash_representation(:toml, options)).to_toml
       end
 
-      def self.from_toml(toml)
-        adapter = Lutaml::Model::Config.toml_adapter
-        doc = adapter.parse(toml)
-        mapped_attrs = apply_mappings(doc.to_h, :toml)
-        new(mapped_attrs)
-      end
-
       def hash_representation(format, options = {})
         only = options[:only]
         except = options[:except]
-
-        mappings = case format
-          when :json then self.class.mappings_for(:json).mappings
-          when :yaml then self.class.mappings_for(:yaml).mappings
-          when :toml then self.class.mappings_for(:toml).mappings
-          when :xml then self.class.mappings_for(:xml).elements + self.class.mappings_for(:xml).attributes
-          else raise ArgumentError, "Unsupported format: #{format}"
-          end
+        mappings = self.class.mappings_for(format).mappings
 
         mappings.each_with_object({}) do |rule, hash|
           name = rule.to
-          next if except&.include?(name)
-          next if only && !only.include?(name)
+          next if except&.include?(name) || (only && !only.include?(name))
 
           value = send(name)
-          if value.nil? && !rule.render_nil
-            next
-          elsif value.is_a?(Array)
-            hash[rule.from] = value.map { |v| v.is_a?(Serializable) ? v.hash_representation(format, options) : v }
-          else
-            hash[rule.from] = value.is_a?(Serializable) ? value.hash_representation(format, options) : value
-          end
+          next if value.nil? && !rule.render_nil
+
+          hash[rule.from] = case value
+            when Array
+              value.map { |v| v.is_a?(Serializable) ? v.hash_representation(format, options) : v }
+            else
+              value.is_a?(Serializable) ? value.hash_representation(format, options) : value
+            end
         end
       end
 

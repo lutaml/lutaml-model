@@ -35,6 +35,10 @@ module Lutaml
       def attributes
         @attributes
       end
+
+      def mappings
+        elements + attributes
+      end
     end
   end
 end
