@@ -5,7 +5,6 @@ require "securerandom"
 require "uri"
 require "ipaddr"
 require "json"
-require_relative "type/time_without_date"
 
 module Lutaml
   module Model
@@ -14,8 +13,9 @@ module Lutaml
       Integer = "Integer"
       Float = "Float"
       Date = "Date"
-      DateTime = "DateTime"
+      # DateTime = "DateTime"
       Time = "Time"
+      # TimeWithoutDate = "TimeWithoutDate"
       Boolean = "Boolean"
       Decimal = "Decimal"
       Array = "Array"
@@ -30,6 +30,23 @@ module Lutaml
       JSON = "JSON"
       Enum = "Enum"
 
+      class TimeWithoutDate
+        def self.cast(value)
+          parsed_time = ::Time.parse(value.to_s)
+          parsed_time.strftime("%H:%M:%S")
+        end
+
+        def self.serialize(value)
+          value.strftime("%H:%M:%S")
+        end
+      end
+
+      class DateTime
+        def self.cast(value)
+          ::DateTime.parse(value.to_s).new_offset(0).iso8601
+        end
+      end
+
       def self.cast(value, type)
         case type
         when String
@@ -39,9 +56,13 @@ module Lutaml
         when Float
           value.to_f
         when Date
-          ::Date.parse(value.to_s)
+          begin
+            ::Date.parse(value.to_s)
+          rescue ArgumentError
+            nil
+          end
         when DateTime
-          ::DateTime.parse(value.to_s)
+          DateTime.cast(value)
         when Time
           ::Time.parse(value.to_s)
         when TimeWithoutDate

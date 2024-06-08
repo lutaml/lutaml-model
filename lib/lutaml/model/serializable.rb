@@ -141,7 +141,7 @@ module Lutaml
           when :json then self.class.json_mappings.mappings
           when :yaml then self.class.yaml_mappings.mappings
           when :toml then self.class.toml_mappings.mappings
-          when :xml then self.class.xml_mappings.mappings
+          when :xml then self.class.xml_mappings.elements + self.class.xml_mappings.attributes
           else raise ArgumentError, "Unsupported format: #{format}"
           end
 
@@ -180,7 +180,7 @@ module Lutaml
           when :json then json_mappings.mappings
           when :yaml then yaml_mappings.mappings
           when :toml then toml_mappings.mappings
-          when :xml then xml_mappings.mappings
+          when :xml then xml_mappings.elements + xml_mappings.attributes
           else raise ArgumentError, "Unsupported format: #{format}"
           end
 
