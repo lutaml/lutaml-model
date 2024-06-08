@@ -26,8 +26,8 @@ require "lutaml/model/toml_adapter/toml_rb_adapter"
 require "lutaml/model/toml_adapter/tomlib_adapter"
 
 Lutaml::Model::Config.configure do |config|
-  config.xml_adapter = Lutaml::Model::XmlAdapter::NokogiriAdapter
+  config.xml_adapter = Lutaml::Model::XmlAdapter::NokogiriDocument
   config.json_adapter = Lutaml::Model::JsonAdapter::StandardDocument
   config.yaml_adapter = Lutaml::Model::YamlAdapter::Standard
-  config.toml_adapter = Lutaml::Model::TomlAdapter::TomlRbDocument # or use TomlAdapter::TomlibDocument
+  config.toml_adapter = Lutaml::Model::TomlAdapter::TomlRbDocument
 end

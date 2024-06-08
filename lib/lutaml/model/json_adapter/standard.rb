@@ -7,12 +7,12 @@ module Lutaml
     module JsonAdapter
       class StandardDocument < Document
         def self.parse(json)
-          data = JSON.parse(json)
-          new(data)
+          attributes = JSON.parse(json, create_additions: false)
+          new(attributes)
         end
 
         def to_json(*args)
-          JSON.generate(to_h, *args)
+          JSON.generate(@attributes, *args)
         end
       end
     end

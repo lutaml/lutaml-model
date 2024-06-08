@@ -1,6 +1,6 @@
 # spec/schema/xsd_schema_spec.rb
 require "spec_helper"
-require_relative "../../fixtures/vase"
+require_relative "../../../fixtures/vase"
 require "lutaml/model/schema"
 
 RSpec.describe Lutaml::Model::Schema::XsdSchema do

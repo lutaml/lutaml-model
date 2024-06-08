@@ -24,16 +24,16 @@ class Pottery < Lutaml::Model::Serializable
   end
 
   json do
-    map_element "name", to: :name, render_nil: true
-    map_element "clay_type", to: :clay_type, render_nil: false
-    map_element "glaze", to: :glaze, render_nil: true
-    map_element "dimensions", to: :dimensions, render_nil: false
+    map "name", to: :name, render_nil: true
+    map "clay_type", to: :clay_type, render_nil: false
+    map "glaze", to: :glaze, render_nil: true
+    map "dimensions", to: :dimensions, render_nil: false
   end
 
   toml do
-    map_element "name", to: :name, render_nil: true
-    map_element "clay_type", to: :clay_type, render_nil: false
-    map_element "glaze", to: :glaze, render_nil: true
-    map_element "dimensions", to: :dimensions, render_nil: false
+    map "name", to: :name, render_nil: true
+    map "clay_type", to: :clay_type, render_nil: false
+    map "glaze", to: :glaze, render_nil: true
+    map "dimensions", to: :dimensions, render_nil: false
   end
 end

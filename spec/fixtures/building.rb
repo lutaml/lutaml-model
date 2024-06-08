@@ -11,7 +11,7 @@ class Building < Lutaml::Model::Serializable
   end
 
   json do
-    map_element "name", to: :name
-    map_element "room_name", to: :room_name
+    map "name", to: :name
+    map "room_name", to: :room_name
   end
 end

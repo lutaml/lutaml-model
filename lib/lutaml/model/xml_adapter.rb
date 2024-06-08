@@ -20,13 +20,15 @@ module Lutaml
       end
 
       class Element
-        attr_reader :name, :attributes, :children, :text
+        attr_reader :name, :attributes, :children, :text, :namespace, :namespace_prefix
 
-        def initialize(name, attributes = {}, children = [], text = nil)
+        def initialize(name, attributes = {}, children = [], text = nil, namespace: nil, namespace_prefix: nil)
           @name = name
           @attributes = attributes.map { |k, v| Attribute.new(k, v) }
           @children = children
           @text = text
+          @namespace = namespace
+          @namespace_prefix = namespace_prefix
         end
 
         def document
@@ -35,11 +37,13 @@ module Lutaml
       end
 
       class Attribute
-        attr_reader :name, :value
+        attr_reader :name, :value, :namespace, :namespace_prefix
 
-        def initialize(name, value)
+        def initialize(name, value, namespace: nil, namespace_prefix: nil)
           @name = name
           @value = value
+          @namespace = namespace
+          @namespace_prefix = namespace_prefix
         end
       end
     end

@@ -3,7 +3,7 @@ require "spec_helper"
 require "lutaml/model/xml_adapter/nokogiri_adapter"
 require "lutaml/model/xml_adapter/ox_adapter"
 require "lutaml/model/xml_adapter/oga_adapter"
-require_relative "../fixtures/sample_model"
+require_relative "../../fixtures/sample_model"
 
 RSpec.shared_examples "an XML adapter" do |adapter_class|
   let(:attributes) { { name: "John Doe", age: 30 } }

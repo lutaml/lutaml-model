@@ -12,6 +12,7 @@ require_relative "attribute"
 require_relative "mapping_rule"
 require_relative "xml_mapping"
 require_relative "key_value_mapping"
+require_relative "json_adapter"
 
 module Lutaml
   module Model
@@ -28,6 +29,10 @@ module Lutaml
           define_method(name) do
             instance_variable_get("@#{name}") || instance_variable_set("@#{name}", [])
           end
+
+          define_method("#{name}=") do |value|
+            instance_variable_set("@#{name}", value || [])
+          end
         else
           attr_accessor name
         end
@@ -35,22 +40,22 @@ module Lutaml
 
       def self.xml(&block)
         @xml_mappings = XmlMapping.new
-        @xml_mappings.instance_eval(&block)
+        @xml_mappings.instance_eval(&block) if block_given?
       end
 
       def self.yaml(&block)
         @yaml_mappings = KeyValueMapping.new
-        @yaml_mappings.instance_eval(&block)
+        @yaml_mappings.instance_eval(&block) if block_given?
       end
 
       def self.toml(&block)
         @toml_mappings = KeyValueMapping.new
-        @toml_mappings.instance_eval(&block)
+        @toml_mappings.instance_eval(&block) if block_given?
       end
 
       def self.json(&block)
         @json_mappings = KeyValueMapping.new
-        @json_mappings.instance_eval(&block)
+        @json_mappings.instance_eval(&block) if block_given?
       end
 
       def self.xml_mappings
@@ -72,16 +77,19 @@ module Lutaml
       def initialize(attrs = {})
         self.class.attributes.each do |name, attr|
           value = attrs.key?(name) ? attrs[name] : attr.default
-          value = value.map { |v| Lutaml::Model::Type.cast(v, attr.type) } if attr.collection?
-          value = Lutaml::Model::Type.cast(value, attr.type) unless attr.collection?
+          if attr.collection?
+            value = (value || []).map { |v| Lutaml::Model::Type.cast(v, attr.type) }
+          else
+            value = Lutaml::Model::Type.cast(value, attr.type)
+          end
 
-          send("#{name}=", value)
+          send("#{name}=", ensure_utf8(value))
         end
       end
 
       def to_xml(options = {})
         adapter = Lutaml::Model::Config.xml_adapter
-        adapter.to_xml(self, options)
+        adapter.new(self).to_xml(options)
       end
 
       def self.from_xml(xml)
@@ -91,7 +99,7 @@ module Lutaml
 
       def to_json(options = {})
         adapter = Lutaml::Model::Config.json_adapter
-        adapter.new(hash_representation(options), options).to_json
+        adapter.new(hash_representation(:json, options)).to_json(options)
       end
 
       def self.from_json(json)
@@ -102,7 +110,7 @@ module Lutaml
 
       def to_yaml(options = {})
         adapter = Lutaml::Model::Config.yaml_adapter
-        adapter.to_yaml(hash_representation(options), options)
+        adapter.to_yaml(hash_representation(:yaml, options), options)
       end
 
       def self.from_yaml(yaml)
@@ -112,7 +120,7 @@ module Lutaml
 
       def to_toml(options = {})
         adapter = Lutaml::Model::Config.toml_adapter
-        adapter.new(hash_representation(options)).to_toml
+        adapter.new(hash_representation(:toml, options)).to_toml
       end
 
       def self.from_toml(toml)
@@ -121,24 +129,44 @@ module Lutaml
         new(doc.to_h)
       end
 
-      private
-
-      def hash_representation(options = {})
+      def hash_representation(format, options = {})
         only = options[:only]
         except = options[:except]
 
-        self.class.attributes.each_with_object({}) do |(name, attr), hash|
+        mappings = case format
+          when :json then self.class.json_mappings.mappings
+          when :yaml then self.class.yaml_mappings.mappings
+          when :toml then self.class.toml_mappings.mappings
+          else raise ArgumentError, "Unsupported format: #{format}"
+          end
+
+        mappings.each_with_object({}) do |rule, hash|
+          name = rule.to
           next if except&.include?(name)
           next if only && !only.include?(name)
 
           value = send(name)
-          if value.nil? && !attr.render_nil?
+          if value.nil? && !rule.render_nil
             next
           elsif value.is_a?(Array)
-            hash[name] = value.map { |v| v.is_a?(Serializable) ? v.hash_representation(options) : v }
+            hash[rule.from] = value.map { |v| v.is_a?(Serializable) ? v.hash_representation(format, options) : v }
           else
-            hash[name] = value.is_a?(Serializable) ? value.hash_representation(options) : value
+            hash[rule.from] = value.is_a?(Serializable) ? value.hash_representation(format, options) : value
           end
+        end
+      end
+
+      private
+
+      def ensure_utf8(value)
+        if value.is_a?(String)
+          value.encode("UTF-8", invalid: :replace, undef: :replace, replace: "")
+        elsif value.is_a?(Array)
+          value.map { |v| ensure_utf8(v) }
+        elsif value.is_a?(Hash)
+          value.transform_keys { |k| ensure_utf8(k) }.transform_values { |v| ensure_utf8(v) }
+        else
+          value
         end
       end
 

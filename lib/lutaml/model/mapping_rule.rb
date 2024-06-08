@@ -12,6 +12,8 @@ module Lutaml
         @delegate = delegate
       end
 
+      alias from name
+
       def serialize(model, value)
         if custom_methods[:to]
           model.send(custom_methods[:to], model, value)

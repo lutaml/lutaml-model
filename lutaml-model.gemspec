@@ -5,36 +5,45 @@ require_relative "lib/lutaml/model/version"
 Gem::Specification.new do |spec|
   spec.name = "lutaml-model"
   spec.version = Lutaml::Model::VERSION
-  spec.authors = ["Ronald Tse"]
-  spec.email = ["ronald.tse@ribose.com"]
+  spec.authors = ["Ribose Inc."]
+  spec.email = ["open.source@ribose.com"]
 
-  spec.summary = "TODO: Write a short summary, because RubyGems requires one."
-  spec.description = "TODO: Write a longer description or delete this line."
-  spec.homepage = "TODO: Put your gem's website or public repo URL here."
-  spec.required_ruby_version = ">= 3.0.0"
+  spec.summary = "LutaML creating data models in Ruby"
+  spec.description = <<~DESCRIPTION
+    LutaML creating data models in Ruby
+  DESCRIPTION
 
-  spec.metadata["allowed_push_host"] = "TODO: Set to your gem server 'https://example.com'"
+  spec.homepage = "https://github.com/lutaml/lutaml-model"
+  spec.license = "BSD-2-Clause"
 
-  spec.metadata["homepage_uri"] = spec.homepage
-  spec.metadata["source_code_uri"] = "TODO: Put your gem's public repo URL here."
-  spec.metadata["changelog_uri"] = "TODO: Put your gem's CHANGELOG.md URL here."
+  spec.bindir = "bin"
+  spec.require_paths = ["lib"]
+  spec.files = `git ls-files`.split("\n")
+  spec.test_files = `git ls-files -- {spec}/*`.split("\n")
+  spec.required_ruby_version = Gem::Requirement.new(">= 3.0.0")
 
   # Specify which files should be added to the gem when it is released.
   # The `git ls-files -z` loads the files in the RubyGem that have been added into git.
-  gemspec = File.basename(__FILE__)
-  spec.files = IO.popen(%w[git ls-files -z], chdir: __dir__, err: IO::NULL) do |ls|
-    ls.readlines("\x0", chomp: true).reject do |f|
-      (f == gemspec) ||
-        f.start_with?(*%w[bin/ test/ spec/ features/ .git .github appveyor Gemfile])
+  spec.files = Dir.chdir(File.expand_path(__dir__)) do
+    `git ls-files -z`.split("\x0").reject do |f|
+      f.match(%r{^(test|spec|features)/})
     end
   end
   spec.bindir = "exe"
-  spec.executables = spec.files.grep(%r{\Aexe/}) { |f| File.basename(f) }
+  spec.executables = spec.files.grep(%r{^exe/}) { |f| File.basename(f) }
   spec.require_paths = ["lib"]
 
-  # Uncomment to register a new dependency of your gem
-  # spec.add_dependency "example-gem", "~> 1.0"
-
-  # For more information and examples about making a new gem, check out our
-  # guide at: https://bundler.io/guides/creating_gem.html
+  # spec.add_runtime_dependency "expressir"
+  # spec.add_runtime_dependency "metanorma-cli"
+  # spec.add_runtime_dependency "shale"
+  # spec.add_runtime_dependency "thor", ">= 0.20"
+  spec.add_development_dependency "multi_json"
+  spec.add_development_dependency "tomlib"
+  spec.add_development_dependency "toml-rb"
+  spec.add_development_dependency "oga"
+  spec.add_development_dependency "ox"
+  spec.add_development_dependency "nokogiri"
+  spec.add_development_dependency "rubocop"
+  spec.add_development_dependency "rubocop-performance"
+  spec.add_development_dependency "rubocop-rails"
 end

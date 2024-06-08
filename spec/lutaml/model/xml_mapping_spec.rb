@@ -1,0 +1,82 @@
+# spec/lutaml/model/xml_mapping_spec.rb
+require "spec_helper"
+require_relative "../../../lib/lutaml/model/xml_mapping"
+require_relative "../../../lib/lutaml/model/xml_mapping_rule"
+
+RSpec.describe Lutaml::Model::XmlMapping do
+  let(:mapping) { described_class.new }
+
+  context "with default namespace" do
+    before do
+      mapping.root("ceramic")
+      mapping.namespace("https://example.com/ceramic/1.2")
+      mapping.map_element("type", to: :type)
+      mapping.map_element("color", to: :color, delegate: :glaze)
+      mapping.map_element("finish", to: :finish, delegate: :glaze)
+    end
+
+    it "sets the default namespace for the root element" do
+      expect(mapping.namespace_uri).to eq("https://example.com/ceramic/1.2")
+      expect(mapping.namespace_prefix).to be_nil
+    end
+
+    it "maps elements correctly" do
+      expect(mapping.elements.size).to eq(3)
+      expect(mapping.elements[0].name).to eq("type")
+      expect(mapping.elements[1].delegate).to eq(:glaze)
+    end
+  end
+
+  context "with prefixed namespace" do
+    before do
+      mapping.root("ceramic")
+      mapping.namespace("https://example.com/ceramic/1.2", "cera")
+      mapping.map_element("type", to: :type)
+      mapping.map_element("color", to: :color, delegate: :glaze)
+      mapping.map_element("finish", to: :finish, delegate: :glaze)
+    end
+
+    it "sets the namespace with prefix for the root element" do
+      expect(mapping.namespace_uri).to eq("https://example.com/ceramic/1.2")
+      expect(mapping.namespace_prefix).to eq("cera")
+    end
+
+    it "maps elements correctly" do
+      expect(mapping.elements.size).to eq(3)
+      expect(mapping.elements[0].name).to eq("type")
+      expect(mapping.elements[1].delegate).to eq(:glaze)
+    end
+  end
+
+  context "with element-level namespace" do
+    before do
+      mapping.root("ceramic")
+      mapping.map_element("type", to: :type, namespace: "https://example.com/ceramic/1.2", prefix: "cera")
+      mapping.map_element("color", to: :color, delegate: :glaze)
+      mapping.map_element("finish", to: :finish, delegate: :glaze)
+    end
+
+    it "sets the namespace for individual elements" do
+      expect(mapping.elements.size).to eq(3)
+      expect(mapping.elements[0].namespace).to eq("https://example.com/ceramic/1.2")
+      expect(mapping.elements[0].prefix).to eq("cera")
+      expect(mapping.elements[1].delegate).to eq(:glaze)
+    end
+  end
+
+  context "with attribute-level namespace" do
+    before do
+      mapping.root("ceramic")
+      mapping.map_attribute("date", to: :date, namespace: "https://example.com/ceramic/1.2", prefix: "cera")
+      mapping.map_element("type", to: :type)
+      mapping.map_element("color", to: :color, delegate: :glaze)
+      mapping.map_element("finish", to: :finish, delegate: :glaze)
+    end
+
+    it "sets the namespace for individual attributes" do
+      expect(mapping.attributes.size).to eq(1)
+      expect(mapping.attributes[0].namespace).to eq("https://example.com/ceramic/1.2")
+      expect(mapping.attributes[0].prefix).to eq("cera")
+    end
+  end
+end

@@ -13,11 +13,14 @@ module Lutaml
         end
 
         def to_xml(options = {})
-          doc = Oga::XML::Document.new
-          root_element = build_element(root, options)
-          doc.children << root_element
-          xml_data = doc.to_xml
-          xml_data = pretty_print(xml_data) if options[:pretty]
+          builder = Oga::XML::Builder.new do |xml|
+            build_element(xml, root, options)
+          end
+          xml_data = builder.to_xml
+
+          if options[:pretty]
+            xml_data = Oga::XML::Document.new(xml_data).to_xml(indent: 2)
+          end
 
           if options[:declaration]
             version = options[:declaration].is_a?(String) ? options[:declaration] : "1.0"
@@ -33,43 +36,45 @@ module Lutaml
 
         private
 
-        def build_element(element, options = {})
-          oga_element = Oga::XML::Element.new(element.name)
-          element.attributes.each do |attr|
-            if attr.namespace
-              oga_element.set("#{attr.namespace_prefix}:#{attr.name}", attr.value)
-            else
-              oga_element.set(attr.name, attr.value)
-            end
-          end
-
-          element.children.each do |child|
-            child_element = build_element(child)
-            oga_element.children << child_element
-          end
-
-          oga_element.inner_text = element.text if element.text
-
+        def build_element(xml, element, options = {})
+          attributes = build_attributes(element.attributes)
           if element.namespace
-            oga_element.set_namespace(element.namespace_prefix, element.namespace)
+            attributes["xmlns:#{element.namespace_prefix}"] = element.namespace if element.namespace_prefix
+            attributes["xmlns"] = element.namespace unless element.namespace_prefix
           end
 
-          oga_element
+          xml.send(element.name, attributes) do
+            element.children.each do |child|
+              build_element(xml, child)
+            end
+            xml.text element.text if element.text
+          end
         end
 
-        def pretty_print(xml)
-          doc = Oga.parse_xml(xml)
-          doc.to_xml(encoding: "UTF-8", indent: 2)
+        def build_attributes(attributes)
+          attributes.each_with_object({}) do |attr, hash|
+            if attr.namespace
+              namespace_prefix = attr.namespace_prefix ? "#{attr.namespace_prefix}:" : ""
+              name = "#{namespace_prefix}#{attr.name}"
+            else
+              name = attr.name
+            end
+            hash[name] = attr.value
+          end
         end
       end
 
       class OgaElement < Element
-        attr_reader :namespace, :namespace_prefix
-
         def initialize(node)
-          @namespace = node.namespace ? node.namespace.href : nil
-          @namespace_prefix = node.namespace ? node.namespace.prefix : nil
-          super(node.name, node.attributes.map { |attr| [attr.name, attr.value] }.to_h, node.children.map { |child| OgaElement.new(child) }, node.text)
+          attributes = node.attributes.transform_values do |attr|
+            Attribute.new(attr.name, attr.value, namespace: attr.namespace&.uri, namespace_prefix: attr.namespace&.prefix)
+          end
+          super(node.name,
+                attributes,
+                node.children.select(&:element?).map { |child| OgaElement.new(child) },
+                node.text,
+                namespace: node.namespace&.uri,
+                namespace_prefix: node.namespace&.prefix)
         end
       end
     end

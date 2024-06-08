@@ -2,7 +2,7 @@
 require "spec_helper"
 require "lutaml/model/json_adapter/standard"
 require "lutaml/model/json_adapter/multi_json"
-require_relative "../fixtures/sample_model"
+require_relative "../../fixtures/sample_model"
 
 RSpec.shared_examples "a JSON adapter" do |adapter_class|
   let(:attributes) { { name: "John Doe", age: 30 } }

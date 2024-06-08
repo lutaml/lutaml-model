@@ -34,8 +34,13 @@ module Lutaml
         private
 
         def build_element(xml, element, options = {})
-          ns = element.namespace ? { element.namespace_prefix => element.namespace } : {}
-          xml.send(element.name, build_attributes(element.attributes), ns) do
+          attributes = build_attributes(element.attributes)
+          if element.namespace
+            attributes["xmlns:#{element.namespace_prefix}"] = element.namespace if element.namespace_prefix
+            attributes["xmlns"] = element.namespace unless element.namespace_prefix
+          end
+
+          xml.send(element.name, attributes) do
             element.children.each do |child|
               build_element(xml, child)
             end
@@ -46,21 +51,27 @@ module Lutaml
         def build_attributes(attributes)
           attributes.each_with_object({}) do |attr, hash|
             if attr.namespace
-              hash["#{attr.namespace_prefix}:#{attr.name}"] = attr.value
+              namespace_prefix = attr.namespace_prefix ? "#{attr.namespace_prefix}:" : ""
+              name = "#{namespace_prefix}#{attr.name}"
             else
-              hash[attr.name] = attr.value
+              name = attr.name
             end
+            hash[name] = attr.value
           end
         end
       end
 
       class NokogiriElement < Element
-        attr_reader :namespace, :namespace_prefix
-
         def initialize(node)
-          @namespace = node.namespace ? node.namespace.href : nil
-          @namespace_prefix = node.namespace ? node.namespace.prefix : nil
-          super(node.name, node.attributes.transform_values(&:value), node.children.map { |child| NokogiriElement.new(child) }, node.text)
+          attributes = node.attributes.transform_values do |attr|
+            Attribute.new(attr.name, attr.value, namespace: attr.namespace&.href, namespace_prefix: attr.namespace&.prefix)
+          end
+          super(node.name,
+                attributes,
+                node.children.select(&:element?).map { |child| NokogiriElement.new(child) },
+                node.text,
+                namespace: node.namespace&.href,
+                namespace_prefix: node.namespace&.prefix)
         end
       end
     end

@@ -8,9 +8,9 @@ class Address < Lutaml::Model::Serializable
   attribute :persons, Person, collection: true
 
   json do
-    map_element "country", to: :country
-    map_element "postCode", to: :post_code
-    map_element "persons", to: :persons
+    map "country", to: :country
+    map "postCode", to: :post_code
+    map "persons", to: :persons
   end
 
   xml do
@@ -18,5 +18,17 @@ class Address < Lutaml::Model::Serializable
     map_element "Country", to: :country
     map_element "PostCode", to: :post_code
     map_element "Persons", to: :persons
+  end
+
+  yaml do
+    map "country", to: :country
+    map "postCode", to: :post_code
+    map "persons", to: :persons
+  end
+
+  toml do
+    map "country", to: :country
+    map "post_code", to: :post_code
+    map "persons", to: :persons
   end
 end

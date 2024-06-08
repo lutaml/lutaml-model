@@ -1,7 +1,7 @@
 # spec/lutaml/model/yaml_adapter_spec.rb
 require "spec_helper"
 require "lutaml/model/yaml_adapter"
-require_relative "../fixtures/sample_model"
+require_relative "../../fixtures/sample_model"
 
 RSpec.describe Lutaml::Model::YamlAdapter::Standard do
   let(:attributes) { { name: "John Doe", age: 30 } }

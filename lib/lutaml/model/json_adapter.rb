@@ -1,4 +1,5 @@
 # lib/lutaml/model/json_adapter.rb
+require "json"
 
 module Lutaml
   module Model
