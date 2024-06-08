@@ -44,7 +44,13 @@ module Lutaml
         end
 
         def build_attributes(attributes)
-          attributes.map { |attr| [attr.name, attr.value] }.to_h
+          attributes.each_with_object({}) do |attr, hash|
+            if attr.namespace
+              hash["#{attr.namespace_prefix}:#{attr.name}"] = attr.value
+            else
+              hash[attr.name] = attr.value
+            end
+          end
         end
       end
 

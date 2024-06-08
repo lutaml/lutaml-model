@@ -157,6 +157,40 @@ RSpec.describe Ceramic do
     expect(xml_data).to include("<cera:type>Vase</cera:type>")
   end
 
+  it "sets the namespace of a particular attribute inside <ceramic>" do
+    ceramic_class = Class.new(Ceramic) do
+      xml do
+        root "ceramic"
+        map_attribute "date", to: :date, namespace: "https://example.com/ceramic/1.2", prefix: "cera"
+        map_element "type", to: :type
+        map_element "color", to: :color, delegate: :glaze
+        map_element "finish", to: :finish, delegate: :glaze
+      end
+    end
+
+    ceramic = ceramic_class.new(type: "Vase", glaze: Glaze.new(color: "Blue", finish: "Glossy"), date: "2024-06-08")
+    xml_data = ceramic.to_xml(pretty: true, declaration: true, encoding: "UTF-8")
+    expect(xml_data).to include('<ceramic xmlns:cera="https://example.com/ceramic/1.2" cera:date="2024-06-08">')
+  end
+
+  it "sets the namespace of <ceramic> and also a particular attribute inside using :inherit" do
+    ceramic_class = Class.new(Ceramic) do
+      xml do
+        root "ceramic"
+        namespace "https://example.com/ceramic/1.1", prefix: "cera1"
+        map_attribute "date", to: :date, namespace: "https://example.com/ceramic/1.2", prefix: "cera2"
+        map_element "type", to: :type, namespace: :inherit
+        map_element "color", to: :color, delegate: :glaze
+        map_element "finish", to: :finish, delegate: :glaze
+      end
+    end
+
+    ceramic = ceramic_class.new(type: "Vase", glaze: Glaze.new(color: "Blue", finish: "Glossy"), date: "2024-06-08")
+    xml_data = ceramic.to_xml(pretty: true, declaration: true, encoding: "UTF-8")
+    expect(xml_data).to include('<cera1:ceramic xmlns:cera1="https://example.com/ceramic/1.1" xmlns:cera2="https://example.com/ceramic/1.2" cera2:date="2024-06-08">')
+    expect(xml_data).to include("<cera1:type>Vase</cera1:type>")
+  end
+
   it "raises an error when namespaces are used with Ox" do
     ceramic_class = Class.new(Ceramic) do
       xml do

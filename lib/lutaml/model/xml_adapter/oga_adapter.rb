@@ -35,7 +35,13 @@ module Lutaml
 
         def build_element(element, options = {})
           oga_element = Oga::XML::Element.new(element.name)
-          element.attributes.each { |attr| oga_element.set(attr.name, attr.value) }
+          element.attributes.each do |attr|
+            if attr.namespace
+              oga_element.set("#{attr.namespace_prefix}:#{attr.name}", attr.value)
+            else
+              oga_element.set(attr.name, attr.value)
+            end
+          end
 
           element.children.each do |child|
             child_element = build_element(child)
