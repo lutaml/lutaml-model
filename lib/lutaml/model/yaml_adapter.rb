@@ -10,8 +10,13 @@ module Lutaml
         end
 
         def self.from_yaml(yaml, klass)
-          data = YAML.safe_load(yaml, permitted_classes: [Date, Time, DateTime, Symbol, BigDecimal, Hash, Array])
-          klass.new(data)
+          data = parse(yaml)
+          mapped_attrs = klass.send(:apply_mappings, data, :yaml)
+          klass.new(mapped_attrs)
+        end
+
+        def self.parse(yaml)
+          YAML.safe_load(yaml, permitted_classes: [Date, Time, DateTime, Symbol, BigDecimal, Hash, Array])
         end
       end
     end

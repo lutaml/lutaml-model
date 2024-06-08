@@ -42,8 +42,8 @@ module Lutaml
         private
 
         def build_element(xml, element, options = {})
-          attributes = build_attributes(element.attributes)
-          if element.namespace
+          attributes = build_attributes(element.class.attributes)
+          if element.class.namespace
             attributes["xmlns:#{element.namespace_prefix}"] = element.namespace if element.namespace_prefix
             attributes["xmlns"] = element.namespace unless element.namespace_prefix
           end

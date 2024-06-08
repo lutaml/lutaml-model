@@ -14,7 +14,7 @@ class SampleModel < Lutaml::Model::BaseModel
   attribute :website, Lutaml::Model::Type::URL, default: -> { URI.parse("http://example.com") }
   attribute :email, Lutaml::Model::Type::Email, default: -> { "example@example.com" }
   attribute :ip_address, Lutaml::Model::Type::IPAddress, default: -> { IPAddr.new("127.0.0.1") }
-  attribute :metadata, Lutaml::Model::Type::JSON, default: -> { {} }
+  attribute :metadata, Lutaml::Model::Type::JSON, default: -> { "{}" }
   attribute :role, Lutaml::Model::Type::Enum, options: %w[user admin guest], default: -> { "user" }
 
   xml do
@@ -33,5 +33,10 @@ class SampleModel < Lutaml::Model::BaseModel
     map_element "IPAddress", to: :ip_address
     map_element "Metadata", to: :metadata
     map_element "Role", to: :role
+  end
+
+  yaml do
+    map "name", to: :name
+    map "age", to: :age
   end
 end

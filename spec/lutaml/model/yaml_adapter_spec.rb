@@ -4,7 +4,7 @@ require "lutaml/model/yaml_adapter"
 require_relative "../../fixtures/sample_model"
 
 RSpec.describe Lutaml::Model::YamlAdapter::Standard do
-  let(:attributes) { { name: "John Doe", age: 30 } }
+  let(:attributes) { { "name" => "John Doe", "age" => 30 } }
   let(:model) { SampleModel.new(attributes) }
 
   it "serializes to YAML" do
