@@ -81,8 +81,7 @@ module Lutaml
 
       def to_xml(options = {})
         adapter = Lutaml::Model::Config.xml_adapter
-        xml_data = adapter.to_xml(self, options)
-        options[:pretty] ? adapter.pretty_print(xml_data) : xml_data
+        adapter.to_xml(self, options)
       end
 
       def self.from_xml(xml)
@@ -92,8 +91,7 @@ module Lutaml
 
       def to_json(options = {})
         adapter = Lutaml::Model::Config.json_adapter
-        json_data = adapter.new(hash_representation(options)).to_json
-        options[:pretty] ? JSON.pretty_generate(JSON.parse(json_data)) : json_data
+        adapter.new(hash_representation(options), options).to_json
       end
 
       def self.from_json(json)

@@ -12,11 +12,12 @@ module Lutaml
           new(root)
         end
 
-        def to_xml(*args)
+        def to_xml(options = {})
           builder = Nokogiri::XML::Builder.new do |xml|
             build_element(xml, root)
           end
-          builder.to_xml(*args)
+          xml_data = builder.to_xml
+          options[:pretty] ? Nokogiri::XML(xml_data).to_xml(indent: 2) : xml_data
         end
 
         private

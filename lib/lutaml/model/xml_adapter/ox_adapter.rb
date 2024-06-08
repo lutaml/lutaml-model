@@ -12,9 +12,9 @@ module Lutaml
           new(root)
         end
 
-        def to_xml(*args)
+        def to_xml(options = {})
           ox_element = build_element(root)
-          Ox.dump(ox_element, *args)
+          Ox.dump(ox_element, indent: options[:pretty] ? 2 : -1)
         end
 
         private

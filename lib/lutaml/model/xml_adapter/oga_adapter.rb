@@ -12,11 +12,12 @@ module Lutaml
           new(root)
         end
 
-        def to_xml(*args)
+        def to_xml(options = {})
           doc = Oga::XML::Document.new
           root_element = build_element(root)
           doc.children << root_element
-          doc.to_xml(*args)
+          xml_data = doc.to_xml
+          options[:pretty] ? doc.to_xml(encoding: "UTF-8", indent: 2) : doc.to_xml
         end
 
         private

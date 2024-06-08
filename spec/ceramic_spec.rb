@@ -28,4 +28,36 @@ RSpec.describe Ceramic do
     YAML
     expect(ceramic.to_yaml.strip).to eq(expected_yaml.strip)
   end
+
+  it "serializes to JSON with delegation and filtering" do
+    expected_json = {
+      type: "Vase",
+      color: "Blue",
+    }.to_json
+
+    expect(JSON.parse(ceramic.to_json(only: [:type, :color]))).to eq(JSON.parse(expected_json))
+  end
+
+  it "serializes to JSON with pretty formatting" do
+    expected_pretty_json = <<-JSON
+{
+  "type": "Vase",
+  "color": "Blue"
+}
+    JSON
+
+    expect(ceramic.to_json(only: [:type, :color], pretty: true).strip).to eq(expected_pretty_json.strip)
+  end
+
+  it "serializes to XML with pretty formatting" do
+    expected_pretty_xml = <<-XML
+<ceramic>
+  <type>Vase</type>
+  <color>Blue</color>
+  <finish>Glossy</finish>
+</ceramic>
+    XML
+
+    expect(ceramic.to_xml(pretty: true).strip).to eq(expected_pretty_xml.strip)
+  end
 end
