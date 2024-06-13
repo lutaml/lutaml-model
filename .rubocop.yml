@@ -1,8 +1,12 @@
+inherit_from:
+  - https://raw.githubusercontent.com/riboseinc/oss-guides/master/ci/rubocop.yml
+
+# local repo-specific modifications
+# ...
+
 AllCops:
-  TargetRubyVersion: 3.0
-
-Style/StringLiterals:
-  EnforcedStyle: double_quotes
-
-Style/StringLiteralsInInterpolation:
-  EnforcedStyle: double_quotes
+  TargetRubyVersion: 2.6
+  NewCops: enable
+  Exclude:
+    - 'lib/sts/mapper.rb'
+    - 'vendor/**/*'
