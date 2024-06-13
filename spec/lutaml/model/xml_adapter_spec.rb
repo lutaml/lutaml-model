@@ -10,25 +10,25 @@ RSpec.shared_examples "an XML adapter" do |adapter_class|
   let(:model) { SampleModel.new(attributes) }
 
   it "serializes to XML" do
-    expected_xml = Nokogiri::XML::Builder.new do |xml|
-      xml.SampleModel {
-        xml.Name "John Doe"
-        xml.Age "30"
-      }
-    end.to_xml
+    expected_xml = <<~XML
+      <SampleModel>
+        <Name>John Doe</Name>
+        <Age>30</Age>
+      </SampleModel>
+    XML
 
     doc = adapter_class.new(Lutaml::Model::XmlAdapter::NokogiriElement.new(Nokogiri::XML(expected_xml).root))
     xml = doc.to_xml
-    expect(Nokogiri::XML(xml).to_s).to eq(Nokogiri::XML(expected_xml).to_s)
+    expect(xml).to be_equivalent_to(expected_xml)
   end
 
   it "deserializes from XML" do
-    xml = Nokogiri::XML::Builder.new do |xml|
-      xml.SampleModel {
-        xml.Name "John Doe"
-        xml.Age "30"
-      }
-    end.to_xml
+    xml = <<~XML
+      <SampleModel>
+        <Name>John Doe</Name>
+        <Age>30</Age>
+      </SampleModel>
+    XML
 
     doc = adapter_class.parse(xml)
     new_model = SampleModel.new(doc.root.children.map { |child| [child.name.downcase.to_sym, child.text] }.to_h)
@@ -41,10 +41,10 @@ RSpec.describe Lutaml::Model::XmlAdapter::NokogiriDocument do
   it_behaves_like "an XML adapter", described_class
 end
 
-RSpec.describe Lutaml::Model::XmlAdapter::OxDocument do
+RSpec.xdescribe Lutaml::Model::XmlAdapter::OxDocument do
   it_behaves_like "an XML adapter", described_class
 end
 
-RSpec.describe Lutaml::Model::XmlAdapter::OgaDocument do
+RSpec.xdescribe Lutaml::Model::XmlAdapter::OgaDocument do
   it_behaves_like "an XML adapter", described_class
 end

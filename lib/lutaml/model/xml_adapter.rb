@@ -17,6 +17,15 @@ module Lutaml
         def children
           @root.children
         end
+
+        def declaration(options)
+          version = options[:declaration].is_a?(String) ? options[:declaration] : "1.0"
+          encoding = options[:encoding].is_a?(String) ? options[:encoding] : (options[:encoding] ? "UTF-8" : nil)
+          declaration = "<?xml version=\"#{version}\""
+          declaration += " encoding=\"#{encoding}\"" if encoding
+          declaration += "?>\n"
+          declaration
+        end
       end
 
       class Element

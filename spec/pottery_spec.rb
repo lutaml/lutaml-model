@@ -34,23 +34,23 @@ RSpec.describe Pottery do
   end
 
   it "serializes to XML with render_nil option" do
-    expected_xml = Nokogiri::XML::Builder.new do |xml|
-      xml.pottery {
-        xml.name
-        xml.glaze
-      }
-    end.to_xml
+    expected_xml = <<~XML
+      <pottery>
+        <name/>
+        <glaze/>
+      </pottery>
+    XML
 
-    expect(Nokogiri::XML(model.to_xml).to_s).to eq(Nokogiri::XML(expected_xml).to_s)
+    expect(model.to_xml).to be_equivalent_to(expected_xml)
   end
 
   it "deserializes from XML with render_nil option" do
-    xml = Nokogiri::XML::Builder.new do |xml|
-      xml.pottery {
-        xml.name
-        xml.glaze
-      }
-    end.to_xml
+    xml = <<~XML
+      <pottery>
+        <name/>
+        <glaze/>
+      </pottery>
+    XML
 
     pottery = Pottery.from_xml(xml)
     expect(pottery.name).to be_nil

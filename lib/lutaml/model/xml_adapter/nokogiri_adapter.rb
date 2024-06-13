@@ -25,22 +25,8 @@ module Lutaml
             build_element(xml, @root, options)
           end
 
-          xml_data = if options[:pretty]
-              builder.to_xml(indent: 2)
-            else
-              builder.to_xml
-            end
-
-          if options[:declaration]
-            version = options[:declaration].is_a?(String) ? options[:declaration] : "1.0"
-            encoding = options[:encoding].is_a?(String) ? options[:encoding] : (options[:encoding] ? "UTF-8" : nil)
-            declaration = "<?xml version=\"#{version}\""
-            declaration += " encoding=\"#{encoding}\"" if encoding
-            declaration += "?>\n"
-            xml_data = declaration + xml_data
-          end
-
-          xml_data
+          xml_data = builder.to_xml(options[:pretty] ? { indent: 2 } : {})
+          options[:declaration] ? declaration(options) + xml_data : xml_data
         end
 
         private
@@ -51,78 +37,55 @@ module Lutaml
 
           attributes = build_attributes(element, xml_mapping)
 
-          if xml_mapping.namespace_uri
-            if xml_mapping.namespace_prefix
-              attributes["xmlns:#{xml_mapping.namespace_prefix}"] = xml_mapping.namespace_uri
-            else
-              attributes["xmlns"] = xml_mapping.namespace_uri
-            end
-          end
-
           xml.send(xml_mapping.root_element, attributes) do
             xml_mapping.elements.each do |element_rule|
               attribute_def = element.class.attributes[element_rule.to]
               value = element.send(element_rule.to)
 
-              puts "_" * 30
-              pp element_rule
-              pp element.class.attributes
-              pp value
-              pp attribute_def
-              pp attribute_def.type
-              puts "_" * 30
-
-              puts "is attribute_def.type a Serialize(#{attribute_def.type.is_a?(Lutaml::Model::Serialize)})? Serializable? (#{attribute_def.type.is_a?(Lutaml::Model::Serializable)})"
-
-              pp attribute_def.type.ancestors
-
-              if attribute_def && attribute_def.type <= Lutaml::Model::Serialize
-                case value
-                when Array
-                  puts "case 1: XML serialize as an array of Serialize objects! #{element_rule.name}"
-                  xml.send(element_rule.name) do
-                    value.each do |val|
-                      build_element(xml, val)
-                    end
-                  end
-                else
-                  puts "case 2: XML serialize as a single Serialize object! #{element_rule.name}"
-                  xml.send(element_rule.name) do
-                    build_element(xml, value)
-                  end
-                end
+              if attribute_def&.type <= Lutaml::Model::Serialize
+                handle_nested_elements(xml, element_rule, value)
               else
-                puts "case 3: XML serialize as a non-Serialize object! #{element_rule.name}"
-                xml.send(element_rule.name) do
-                  xml.text value
-                end
+                xml.send(element_rule.name) { xml.text value }
               end
             end
-
-            unless xml_mapping.elements.any?
-              puts "case 4: writing text... #{element_rule.name}"
-              xml.text element.text
-            end
+            xml.text element.text unless xml_mapping.elements.any?
           end
         end
 
         def build_attributes(element, xml_mapping)
-          xml_mapping.attributes.each_with_object({}) do |mapping_rule, hash|
-            if mapping_rule
-              if mapping_rule.namespace
-                namespace_prefix = mapping_rule.prefix ? "#{mapping_rule.prefix}:" : ""
-                full_name = "#{namespace_prefix}#{mapping_rule.name}"
+          xml_mapping.attributes.each_with_object(namespace_attributes(xml_mapping)) do |mapping_rule, hash|
+            full_name = if mapping_rule.namespace
+                "#{mapping_rule.prefix ? "#{mapping_rule.prefix}:" : ""}#{mapping_rule.name}"
               else
-                full_name = mapping_rule.name
+                mapping_rule.name
               end
-              hash[full_name] = element.send(mapping_rule.to)
-            end
+            hash[full_name] = element.send(mapping_rule.to)
+          end
+        end
+
+        def namespace_attributes(xml_mapping)
+          return {} unless xml_mapping.namespace_uri
+
+          if xml_mapping.namespace_prefix
+            { "xmlns:#{xml_mapping.namespace_prefix}" => xml_mapping.namespace_uri }
+          else
+            { "xmlns" => xml_mapping.namespace_uri }
+          end
+        end
+
+        def handle_nested_elements(xml, element_rule, value)
+          case value
+          when Array
+            value.each { |val| build_element(xml, val) }
+          else
+            build_element(xml, value)
           end
         end
 
         def parse_element(element)
           result = element.children.each_with_object({}) do |child, hash|
             next if child.text?
+
             hash[child.name] ||= []
             hash[child.name] << parse_element(child)
           end
@@ -136,16 +99,17 @@ module Lutaml
           attributes = node.attributes.transform_values do |attr|
             Attribute.new(attr.name, attr.value, namespace: attr.namespace&.href, namespace_prefix: attr.namespace&.prefix)
           end
-          super(node.name,
-                attributes,
-                node.children.select(&:element?).map { |child| NokogiriElement.new(child) },
-                node.text,
-                namespace: node.namespace&.href,
-                namespace_prefix: node.namespace&.prefix)
+          super(node.name, attributes, parse_children(node), node.text, namespace: node.namespace&.href, namespace_prefix: node.namespace&.prefix)
         end
 
         def text?
           false
+        end
+
+        private
+
+        def parse_children(node)
+          node.children.select(&:element?).map { |child| NokogiriElement.new(child) }
         end
       end
     end
