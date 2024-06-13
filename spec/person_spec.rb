@@ -19,34 +19,36 @@ RSpec.describe Person do
   let(:model) { Person.new(attributes) }
 
   it "serializes to XML" do
-    expected_xml = Nokogiri::XML::Builder.new do |xml|
-      xml["p"].Person("xmlns:p" => "http://example.com/person") {
-        xml["p"].FirstName "John"
-        xml["p"].LastName "Doe"
-        xml.Age "30"
-        xml.Height "5.9"
-        xml.Birthdate "1990-01-01"
-        xml.LastLogin "2023-06-08T10:00:00+00:00"
-        xml.WakeupTime "07:00:00"
-        xml.Active "true"
-      }
-    end.to_xml
-    expect(Nokogiri::XML(model.to_xml).to_s).to eq(Nokogiri::XML(expected_xml).to_s)
+    expected_xml = <<~XML
+      <p:Person xmlns:p="http://example.com/person">
+        <p:FirstName>John</p:FirstName>
+        <p:LastName>Doe</p:LastName>
+        <Age>30</Age>
+        <Height>5.9</Height>
+        <Birthdate>1990-01-01</Birthdate>
+        <LastLogin>2023-06-08T10:00:00+00:00</LastLogin>
+        <WakeupTime>07:00:00</WakeupTime>
+        <Active>true</Active>
+      </p:Person>
+    XML
+
+    expect(model.to_xml).to be_equivalent_to(expected_xml)
   end
 
   it "deserializes from XML" do
-    xml = Nokogiri::XML::Builder.new do |xml|
-      xml["p"].Person("xmlns:p" => "http://example.com/person") {
-        xml["p"].FirstName "John"
-        xml["p"].LastName "Doe"
-        xml.Age "30"
-        xml.Height "5.9"
-        xml.Birthdate "1990-01-01"
-        xml.LastLogin "2023-06-08T10:00:00+00:00"
-        xml.WakeupTime "07:00:00"
-        xml.Active "true"
-      }
-    end.to_xml
+    xml = <<~XML
+      <p:Person xmlns:p="http://example.com/person">
+        <p:FirstName>John</p:FirstName>
+        <p:LastName>Doe</p:LastName>
+        <Age>30</Age>
+        <Height>5.9</Height>
+        <Birthdate>1990-01-01</Birthdate>
+        <LastLogin>2023-06-08T10:00:00+00:00</LastLogin>
+        <WakeupTime>07:00:00</WakeupTime>
+        <Active>true</Active>
+      </p:Person>
+    XML
+
     person = Person.from_xml(xml)
     expect(person.first_name).to eq("John")
     expect(person.age).to eq(30)

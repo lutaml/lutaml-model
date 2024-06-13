@@ -17,7 +17,7 @@ module Lutaml
 
         def self.generate_mapping(klass)
           klass.attributes.each_with_object({}) do |(name, attr), mapping|
-            mapping[name] = { "type" => get_yaml_type(attr.type) }
+            mapping[name.to_s] = { "type" => get_yaml_type(attr.type) }
           end
         end
 
@@ -31,6 +31,8 @@ module Lutaml
             "bool"
           when Lutaml::Model::Type::Float
             "float"
+          when Lutaml::Model::Type::Decimal
+            "float" # YAML does not have a separate decimal type, so we use float
           when Lutaml::Model::Type::Array
             "seq"
           when Lutaml::Model::Type::Hash

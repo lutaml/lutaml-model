@@ -3,6 +3,7 @@ require "spec_helper"
 require_relative "fixtures/ceramic"
 require_relative "fixtures/glaze"
 
+# This tests against `delegate`
 RSpec.describe Ceramic do
   let(:yaml_data) {
     <<~YAML
@@ -58,7 +59,7 @@ RSpec.describe Ceramic do
 </ceramic>
     XML
 
-    expect(ceramic.to_xml(pretty: true).strip).to eq(expected_pretty_xml.strip)
+    expect(ceramic.to_xml(pretty: true).strip).to be_equivalent_to(expected_pretty_xml.strip)
   end
 
   it "does not provide XML declaration if no declaration option provided" do

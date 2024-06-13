@@ -24,7 +24,7 @@ module Lutaml
           builder = Oga::XML::Builder.new
           build_element(builder, @root, options)
           xml_data = builder.to_xml
-          xml_data
+          options[:declaration] ? declaration(options) + xml_data : xml_data
         end
 
         private
@@ -61,10 +61,13 @@ module Lutaml
           attributes = node.attributes.each_with_object({}) do |attr, hash|
             hash[attr.name] = Attribute.new(attr.name, attr.value)
           end
-          super(node.name,
-                attributes,
-                node.children.select { |child| child.is_a?(Oga::XML::Element) }.map { |child| OgaElement.new(child) },
-                node.text)
+          super(node.name, attributes, parse_children(node), node.text)
+        end
+
+        private
+
+        def parse_children(node)
+          node.children.select { |child| child.is_a?(Oga::XML::Element) }.map { |child| OgaElement.new(child) }
         end
       end
     end

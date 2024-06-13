@@ -1,5 +1,5 @@
 # lib/lutaml/model/schema/xsd_schema.rb
-require 'nokogiri'
+require "nokogiri"
 
 module Lutaml
   module Model
@@ -38,6 +38,8 @@ module Lutaml
             "xs:boolean"
           when Lutaml::Model::Type::Float
             "xs:float"
+          when Lutaml::Model::Type::Decimal
+            "xs:decimal"
           when Lutaml::Model::Type::Array
             "xs:array"
           when Lutaml::Model::Type::Hash

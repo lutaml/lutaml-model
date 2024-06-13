@@ -62,7 +62,7 @@ module Lutaml
         def default_mappings(format)
           klass = format == :xml ? XmlMapping : KeyValueMapping
           klass.new.tap do |mapping|
-            attributes.each do |name, attr|
+            attributes&.each do |name, attr|
               mapping.map_element(name.to_s, to: name, render_nil: attr.render_nil?)
             end
           end

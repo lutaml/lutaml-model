@@ -24,7 +24,7 @@ module Lutaml
           builder = Ox::Builder.new
           build_element(builder, @root, options)
           xml_data = Ox.dump(builder)
-          xml_data
+          options[:declaration] ? declaration(options) + xml_data : xml_data
         end
 
         private
@@ -61,10 +61,13 @@ module Lutaml
           attributes = node.attributes.each_with_object({}) do |(name, value), hash|
             hash[name.to_s] = Attribute.new(name.to_s, value)
           end
-          super(node.name.to_s,
-                attributes,
-                node.nodes.select { |child| child.is_a?(Ox::Element) }.map { |child| OxElement.new(child) },
-                node.text)
+          super(node.name.to_s, attributes, parse_children(node), node.text)
+        end
+
+        private
+
+        def parse_children(node)
+          node.nodes.select { |child| child.is_a?(Ox::Element) }.map { |child| OxElement.new(child) }
         end
       end
     end

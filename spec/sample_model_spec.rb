@@ -42,46 +42,48 @@ RSpec.describe SampleModel do
   end
 
   it "serializes to XML" do
-    expected_xml = Nokogiri::XML::Builder.new do |xml|
-      xml.SampleModel {
-        xml.Name "John Doe"
-        xml.Age "30"
-        xml.Balance "1234.56"
-        xml.Tags '["ruby","developer"]'
-        xml.Preferences '{"theme":"dark","notifications":true}'
-        xml.UUID "123e4567-e89b-12d3-a456-426614174000"
-        xml.Status "active"
-        xml.LargeNumber "12345678901234567890"
-        xml.Avatar "binary data"
-        xml.Website "http://example.com"
-        xml.Email "john.doe@example.com"
-        xml.IPAddress "192.168.1.1"
-        xml.Metadata '{"key":"value"}'
-        xml.Role "admin"
-      }
-    end.to_xml
-    expect(Nokogiri::XML(model.to_xml).to_s).to eq(Nokogiri::XML(expected_xml).to_s)
+    expected_xml = <<~XML
+      <SampleModel>
+        <Name>John Doe</Name>
+        <Age>30</Age>
+        <Balance>1234.56</Balance>
+        <Tags>["ruby","developer"]</Tags>
+        <Preferences>{"theme":"dark","notifications":true}</Preferences>
+        <UUID>123e4567-e89b-12d3-a456-426614174000</UUID>
+        <Status>active</Status>
+        <LargeNumber>12345678901234567890</LargeNumber>
+        <Avatar>binary data</Avatar>
+        <Website>http://example.com</Website>
+        <Email>john.doe@example.com</Email>
+        <IPAddress>192.168.1.1</IPAddress>
+        <Metadata>{"key":"value"}</Metadata>
+        <Role>admin</Role>
+      </SampleModel>
+    XML
+
+    expect(model.to_xml).to be_equivalent_to(expected_xml)
   end
 
   it "deserializes from XML" do
-    xml = Nokogiri::XML::Builder.new do |xml|
-      xml.SampleModel {
-        xml.Name "John Doe"
-        xml.Age "30"
-        xml.Balance "1234.56"
-        xml.Tags '["ruby","developer"]'
-        xml.Preferences '{"theme":"dark","notifications":true}'
-        xml.UUID "123e4567-e89b-12d3-a456-426614174000"
-        xml.Status "active"
-        xml.LargeNumber "12345678901234567890"
-        xml.Avatar "binary data"
-        xml.Website "http://example.com"
-        xml.Email "john.doe@example.com"
-        xml.IPAddress "192.168.1.1"
-        xml.Metadata '{"key":"value"}'
-        xml.Role "admin"
-      }
-    end.to_xml
+    xml = <<~XML
+      <SampleModel>
+        <Name>John Doe</Name>
+        <Age>30</Age>
+        <Balance>1234.56</Balance>
+        <Tags>["ruby","developer"]</Tags>
+        <Preferences>{"theme":"dark","notifications":true}</Preferences>
+        <UUID>123e4567-e89b-12d3-a456-426614174000</UUID>
+        <Status>active</Status>
+        <LargeNumber>12345678901234567890</LargeNumber>
+        <Avatar>binary data</Avatar>
+        <Website>http://example.com</Website>
+        <Email>john.doe@example.com</Email>
+        <IPAddress>192.168.1.1</IPAddress>
+        <Metadata>{"key":"value"}</Metadata>
+        <Role>admin</Role>
+      </SampleModel>
+    XML
+
     sample = SampleModel.from_xml(xml)
     expect(sample.name).to eq("John Doe")
     expect(sample.age).to eq(30)
