@@ -1,7 +1,4 @@
-= Lutaml::Model
-
-:toc:
-:toclevels: 2
+= LutaML Ruby modeller: `Lutaml::Model`
 
 https://github.com/lutaml/lutaml-model[image:https://img.shields.io/github/stars/lutaml/lutaml-model.svg?style=social[GitHub Stars]]
 https://github.com/lutaml/lutaml-model[image:https://img.shields.io/github/forks/lutaml/lutaml-model.svg?style=social[GitHub Forks]]
@@ -11,25 +8,41 @@ image:https://img.shields.io/gem/v/lutaml-model.svg[RubyGems Version]
 
 == What is Lutaml::Model
 
-Lutaml::Model is a lightweight library for serializing and deserializing Ruby objects to and from various formats such as JSON, XML, YAML, and TOML. It uses an adapter pattern to support multiple libraries for each format, providing flexibility and extensibility for your data modeling needs.
+Lutaml::Model is a lightweight library for serializing and deserializing Ruby
+objects to and from various formats such as JSON, XML, YAML, and TOML. It uses
+an adapter pattern to support multiple libraries for each format, providing
+flexibility and extensibility for your data modeling needs.
 
-The name "Lutaml" comes from the Latin word "Lutum," which means clay. Just as clay can be molded and modeled into beautiful and practical end products, the Lutaml::Model gem is used for data modeling, allowing you to shape and structure your data into useful forms.
+The name "LutaML" comes from the Latin word "Lutum," which means clay, and "ML"
+for Markup Language. Just as clay can be molded and modeled into beautiful and
+practical end products, the Lutaml::Model gem is used for data modeling,
+allowing you to shape and structure your data into useful forms.
+
+
+
+NOTE: Lutaml::Model is designed to be compatible with the Shale data modeling
+API. Shale is an amazing Ruby data modeller. Lutaml::Model is meant to address
+needs that are not currently addresed by Shale.
 
 == Introduction to Data Modeling
 
-Data modeling is the process of creating a data model for the data to be stored in a database or used in an application. It helps in defining the structure, relationships, and constraints of the data, making it easier to manage and use.
+Data modeling is the process of creating a data model for the data to be stored
+in a database or used in an application. It helps in defining the structure,
+relationships, and constraints of the data, making it easier to manage and use.
 
-Lutaml::Model simplifies data modeling in Ruby by allowing you to define models with attributes and serialize/deserialize them to/from various formats seamlessly.
+Lutaml::Model simplifies data modeling in Ruby by allowing you to define models
+with attributes and serialize/deserialize them to/from various formats
+seamlessly.
 
 == Features
 
-- Define models with attributes and types
-- Serialize and deserialize models to/from JSON, XML, YAML, and TOML
-- Support for multiple libraries (e.g., `toml-rb`, `tomlib`)
-- Configurable adapters for different serialization formats
-- Support for collections and default values
-- Custom serialization/deserialization methods
-- XML namespaces and mappings
+* Define models with attributes and types
+* Serialize and deserialize models to/from JSON, XML, YAML, and TOML
+* Support for multiple libraries (e.g., `toml-rb`, `tomlib`)
+* Configurable adapters for different serialization formats
+* Support for collections and default values
+* Custom serialization/deserialization methods
+* XML namespaces and mappings
 
 == Installation
 
@@ -69,145 +82,144 @@ class Kiln < Lutaml::Model::Serializable
 end
 ----
 
+== Translating a Data Model into Different Serialization Models
+
+Lutaml::Model allows you to translate a data model into various serialization
+formats including XML, JSON, YAML, and TOML.
+
+=== XML: Element, Attribute, Namespaces
+
+Define XML mappings using `map_element`, `map_attribute`, and `map_content`.
+
+[source,ruby]
+----
+class Example < Lutaml::Model::Serializable
+  attribute :name, Lutaml::Model::Type::String
+  attribute :value, Lutaml::Model::Type::Integer
+
+  xml do
+    root 'example'
+    map_element 'name', to: :name
+    map_attribute 'value', to: :value
+  end
+end
+----
+
+=== Key Value Data Models: JSON, YAML, TOML
+
+Define key-value data models like JSON, YAML, and TOML using the `map` method.
+
+[source,ruby]
+----
+class Example < Lutaml::Model::Serializable
+  attribute :name, Lutaml::Model::Type::String
+  attribute :value, Lutaml::Model::Type::Integer
+
+  json do
+    map 'name', to: :name
+    map 'value', to: :value
+  end
+
+  yaml do
+    map 'name', to: :name
+    map 'value', to: :value
+  end
+
+  toml do
+    map 'name', to: :name
+    map 'value', to: :value
+  end
+end
+----
+
 == Develop Serialization and Deserialization Mappings
 
-You can serialize and deserialize objects to and from JSON, XML, YAML, and TOML formats. Below are examples for each format.
+Lutaml::Model supports various methods for defining serialization and deserialization mappings.
 
-=== XML
+=== XML (`map_element`, `map_attribute`, `map_content`)
 
-[source,ruby]
-----
-kiln = Kiln.new(brand: 'Skutt', capacity: 10, temperature: 1200)
-xml = kiln.to_xml
-puts xml
-# => <Kiln><brand>Skutt</brand><capacity>10</capacity><temperature>1200</temperature></Kiln>
-
-kiln_from_xml = Kiln.from_xml(xml)
-puts kiln_from_xml.brand
-# => Skutt
-----
-
-=== JSON
+Use `map_element` to map XML elements, `map_attribute` to map XML attributes, and `map_content` to map text content within an XML element.
 
 [source,ruby]
 ----
-kiln = Kiln.new(brand: 'Skutt', capacity: 10, temperature: 1200)
-json = kiln.to_json
-puts json
-# => {"brand":"Skutt","capacity":10,"temperature":1200}
+class Example < Lutaml::Model::Serializable
+  attribute :name, Lutaml::Model::Type::String
+  attribute :description, Lutaml::Model::Type::String
 
-kiln_from_json = Kiln.from_json(json)
-puts kiln_from_json.brand
-# => Skutt
+  xml do
+    root 'example'
+    map_element 'name', to: :name
+    map_content to: :description
+  end
+end
+----
+
+=== JSON (`map` method)
+
+Use the `map` method to define JSON mappings.
+
+[source,ruby]
+----
+class Example < Lutaml::Model::Serializable
+  attribute :name, Lutaml::Model::Type::String
+  attribute :value, Lutaml::Model::Type::Integer
+
+  json do
+    map 'name', to: :name
+    map 'value', to: :value
+  end
+end
 ----
 
 === YAML
 
+Use the `map` method to define YAML mappings.
+
 [source,ruby]
 ----
-kiln = Kiln.new(brand: 'Skutt', capacity: 10, temperature: 1200)
-yaml = kiln.to_yaml
-puts yaml
-# => ---
-# => brand: Skutt
-# => capacity: 10
-# => temperature: 1200
+class Example < Lutaml::Model::Serializable
+  attribute :name, Lutaml::Model::Type::String
+  attribute :value, Lutaml::Model::Type::Integer
 
-kiln_from_yaml = Kiln.from_yaml(yaml)
-puts kiln_from_yaml.brand
-# => Skutt
+  yaml do
+    map 'name', to: :name
+    map 'value', to: :value
+  end
+end
 ----
 
 === TOML
 
-[source,ruby]
-----
-kiln = Kiln.new(brand: 'Skutt', capacity: 10, temperature: 1200)
-toml = kiln.to_toml
-puts toml
-# => brand = "Skutt"
-# => capacity = 10
-# => temperature = 1200
-
-kiln_from_toml = Kiln.from_toml(toml)
-puts kiln_from_toml.brand
-# => Skutt
-----
-
-== Collections
-
-You can define attributes as collections (arrays or hashes) to store multiple values. Below is an example demonstrating how to define a collection of `Potter` objects within a `Studio` model.
+Use the `map` method to define TOML mappings.
 
 [source,ruby]
 ----
-require 'lutaml/model'
+class Example < Lutaml::Model::Serializable
+  attribute :name, Lutaml::Model::Type::String
+  attribute :value, Lutaml::Model::Type::Integer
 
-class Potter < Lutaml::Model::Serializable
-  attribute :first_name, Lutaml::Model::Type::String
-  attribute :last_name, Lutaml::Model::Type::String
-
-  json do
-    map_element 'firstName', to: :first_name
-    map_element 'lastName', to: :last_name
-  end
-
-  xml do
-    root 'Potter'
-    map_element 'FirstName', to: :first_name
-    map_element 'LastName', to: :last_name
+  toml do
+    map 'name', to: :name
+    map 'value', to: :value
   end
 end
+----
 
+== Attribute Collections Using the `collection` Option
+
+You can define attributes as collections (arrays or hashes) to store multiple values.
+
+[source,ruby]
+----
 class Studio < Lutaml::Model::Serializable
   attribute :location, Lutaml::Model::Type::String
-  attribute :kiln_capacity, Lutaml::Model::Type::Integer
-  attribute :potters, Potter, collection: true
-
-  json do
-    map_element 'location', to: :location
-    map_element 'kilnCapacity', to: :kiln_capacity
-    map_element 'potters', to: :potters
-  end
-
-  xml do
-    root 'Studio'
-    map_element 'Location', to: :location
-    map_element 'KilnCapacity', to: :kiln_capacity
-    map_element 'Potters', to: :potters
-  end
+  attribute :potters, Lutaml::Model::Type::String, collection: true
 end
-
-my_studio = <<-JSON
-{
-  "location": "New York",
-  "kilnCapacity": 20,
-  "potters": [
-    {
-      "firstName": "Tom",
-      "lastName": "Warren"
-    },
-    {
-      "firstName": "Jack",
-      "lastName": "Warren"
-    }
-  ]
-}
-JSON
-
-require 'bundler/setup'
-require 'lutaml/model'
-require_relative 'studio' # Adjust the path as necessary
-
-studio = Studio.from_json(my_studio)
-puts studio.kiln_capacity
-# => 20
-puts studio.potters.first.first_name
-# => Tom
 ----
 
-== Defaults
+== Attribute Defaults Using the `default` Option
 
-You can specify default values for attributes using the `default` option.
+Specify default values for attributes using the `default` option.
 
 [source,ruby]
 ----
@@ -215,40 +227,28 @@ class Glaze < Lutaml::Model::Serializable
   attribute :color, Lutaml::Model::Type::String, default: -> { 'Clear' }
   attribute :temperature, Lutaml::Model::Type::Integer, default: -> { 1050 }
 end
-
-glaze = Glaze.new
-puts glaze.color
-# => Clear
-puts glaze.temperature
-# => 1050
 ----
 
-== XML Namespaces
+== Attribute Delegation Using the `delegate` Option
 
-You can define XML namespaces for your models to handle namespaced XML elements.
+Delegate attribute mappings to nested objects using the `delegate` option.
 
 [source,ruby]
 ----
 class Ceramic < Lutaml::Model::Serializable
   attribute :type, Lutaml::Model::Type::String
-  attribute :glaze, Lutaml::Model::Type::String
+  attribute :glaze, Glaze
 
-  xml do |xml|
-    xml.namespace 'http://example.com/ceramic'
-    xml.map_element 'Type', to: :type
-    xml.map_element 'Glaze', to: :glaze
+  json do
+    map 'type', to: :type
+    map 'color', to: :color, delegate: :glaze
   end
 end
-
-ceramic = Ceramic.new(type: 'Vase', glaze: 'Matte')
-xml = ceramic.to_xml
-puts xml
-# => <Ceramic xmlns="http://example.com/ceramic"><Type>Vase</Type><Glaze>Matte</Glaze></Ceramic>
 ----
 
-== Custom Serialization/Deserialization Methods
+== Attribute Serialization with Custom `from` and `to` Methods
 
-You can define custom methods for specific attribute mappings using the `with:` key for each serialization mapping block.
+Define custom methods for specific attribute mappings using the `with:` key for each serialization mapping block.
 
 [source,ruby]
 ----
@@ -257,8 +257,8 @@ class CustomCeramic < Lutaml::Model::Serializable
   attribute :size, Lutaml::Model::Type::Integer
 
   json do
-    map_element :name, to: :name, with: { to: :name_to_json, from: :name_from_json }
-    map_element :size, to: :size
+    map 'name', to: :name, with: { to: :name_to_json, from: :name_from_json }
+    map 'size', to: :size
   end
 
   def name_to_json(model, value)
@@ -269,20 +269,68 @@ class CustomCeramic < Lutaml::Model::Serializable
     doc['name'].sub('Masterpiece: ', '')
   end
 end
+----
 
-ceramic = CustomCeramic.new(name: 'Vase', size: 12)
-json = ceramic.to_json
-puts json
-# => {"name":"Masterpiece: Vase","size":12}
+== Using XML Namespaces
 
-ceramic_from_json = CustomCeramic.from_json(json)
-puts ceramic_from_json.name
-# => Vase
+Define XML namespaces for your models to handle namespaced XML elements.
+
+=== XML Namespace on Element
+
+[source,ruby]
+----
+class Ceramic < Lutaml::Model::Serializable
+  attribute :type, Lutaml::Model::Type::String
+  attribute :glaze, Lutaml::Model::Type::String
+
+  xml do
+    root 'Ceramic'
+    namespace 'http://example.com/ceramic'
+    map_element 'Type', to: :type
+    map_element 'Glaze', to: :glaze
+  end
+end
+----
+
+=== XML Namespace on Attribute
+
+[source,ruby]
+----
+class Ceramic < Lutaml::Model::Serializable
+  attribute :type, Lutaml::Model::Type::String
+  attribute :glaze, Lutaml::Model::Type::String
+
+  xml do
+    root 'Ceramic'
+    map_element 'Type', to: :type
+    map_element 'Glaze', to: :glaze
+    map_attribute 'xmlns', to: :namespace, namespace: 'http://example.com/ceramic'
+  end
+end
+----
+
+=== XML Namespace with `inherit` Option
+
+[source,ruby]
+----
+class Ceramic < Lutaml::Model::Serializable
+  attribute :type, Lutaml::Model::Type::String
+  attribute :glaze, Lutaml::Model::Type::String
+
+  xml do
+    root 'Ceramic'
+    namespace 'http://example.com/ceramic', prefix: 'cera'
+    map_element 'Type', to: :type, namespace: :inherit
+    map_element 'Glaze', to: :glaze
+  end
+end
 ----
 
 == Adapters
 
-Lutaml::Model uses an adapter pattern to support multiple libraries for each serialization format. You can configure the adapters used for serialization and deserialization.
+Lutaml::Model uses an adapter pattern to support multiple libraries for each serialization format.
+
+=== XML: Nokogiri, Oga, Ox
 
 [source,ruby]
 ----
@@ -290,17 +338,38 @@ require 'lutaml/model'
 require 'lutaml/model/xml_adapter/nokogiri_adapter'
 require 'lutaml/model/xml_adapter/ox_adapter'
 require 'lutaml/model/xml_adapter/oga_adapter'
+
+Lutaml::Model::Config.configure do |config|
+  config.xml_adapter = Lutaml::Model::XmlAdapter::NokogiriAdapter
+  # Or use OxAdapter or OgaAdapter
+end
+----
+
+=== JSON: `JSON` and `MultiJson`
+
+[source,ruby]
+----
+require 'lutaml/model'
 require 'lutaml/model/json_adapter/standard'
 require 'lutaml/model/json_adapter/multi_json'
-require 'lutaml/model/yaml_adapter'
+
+Lutaml::Model::Config.configure do |config|
+  config.json_adapter = Lutaml::Model::JsonAdapter::StandardDocument
+  # Or use MultiJsonDocument
+end
+----
+
+=== TOML: `Tomlib` and `Toml-rb`
+
+[source,ruby]
+----
+require 'lutaml/model'
 require 'lutaml/model/toml_adapter/toml_rb_adapter'
 require 'lutaml/model/toml_adapter/tomlib_adapter'
 
 Lutaml::Model::Config.configure do |config|
-  config.xml_adapter = Lutaml::Model::XmlAdapter::NokogiriAdapter
-  config.json_adapter = Lutaml::Model::JsonAdapter::StandardDocument
-  config.yaml_adapter = Lutaml::Model::YamlAdapter::Standard
-  config.toml_adapter = Lutaml::Model::TomlAdapter::TomlRbDocument # or use TomlAdapter::TomlibDocument
+  config.toml_adapter = Lutaml::Model::TomlAdapter::TomlRbDocument
+  # Or use TomlibDocument
 end
 ----
 
