@@ -3,6 +3,16 @@ require "spec_helper"
 require_relative "../../../lib/lutaml/model/xml_mapping"
 require_relative "../../../lib/lutaml/model/xml_mapping_rule"
 
+# Define a sample class for testing map_content
+class Italic < Lutaml::Model::Serializable
+  attribute :text, Lutaml::Model::Type::String, collection: true
+
+  xml do
+    root "i"
+    map_content to: :text
+  end
+end
+
 RSpec.describe Lutaml::Model::XmlMapping do
   let(:mapping) { described_class.new }
 
@@ -77,6 +87,15 @@ RSpec.describe Lutaml::Model::XmlMapping do
       expect(mapping.attributes.size).to eq(1)
       expect(mapping.attributes[0].namespace).to eq("https://example.com/ceramic/1.2")
       expect(mapping.attributes[0].prefix).to eq("cera")
+    end
+  end
+
+  context "with content mapping" do
+    let(:xml_data) { "<i>my text <b>bold</b> is in italics</i>" }
+    let(:italic) { Italic.from_xml(xml_data) }
+
+    it "parses the textual content of an XML element" do
+      expect(italic.text).to eq(["my text ", " is in italics"])
     end
   end
 end

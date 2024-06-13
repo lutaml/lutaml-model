@@ -9,6 +9,7 @@ module Lutaml
       def initialize
         @elements = []
         @attributes = []
+        @content_mapping = nil
       end
 
       def root(name)
@@ -28,6 +29,10 @@ module Lutaml
         @attributes << XmlMappingRule.new(name, to: to, render_nil: render_nil, with: with, delegate: delegate, namespace: namespace, prefix: prefix)
       end
 
+      def map_content(to:, render_nil: false, with: {}, delegate: nil)
+        @content_mapping = XmlMappingRule.new(nil, to: to, render_nil: render_nil, with: with, delegate: delegate)
+      end
+
       def elements
         @elements
       end
@@ -36,8 +41,12 @@ module Lutaml
         @attributes
       end
 
+      def content_mapping
+        @content_mapping
+      end
+
       def mappings
-        elements + attributes
+        elements + attributes + [content_mapping].compact
       end
 
       def element(name)

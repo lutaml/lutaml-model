@@ -51,6 +51,7 @@ module Lutaml
             adapter = Lutaml::Model::Config.send("#{format}_adapter")
             doc = adapter.parse(data)
             mapped_attrs = apply_mappings(doc.to_h, format)
+            apply_content_mapping(doc, mapped_attrs) if format == :xml
             new(mapped_attrs)
           end
         end
@@ -82,6 +83,14 @@ module Lutaml
             end
             hash[rule.to] = value
           end
+        end
+
+        def apply_content_mapping(doc, mapped_attrs)
+          content_mapping = mappings_for(:xml).content_mapping
+          return unless content_mapping
+
+          content = doc.root.children.select(&:text?).map(&:text)
+          mapped_attrs[content_mapping.to] = content
         end
       end
 

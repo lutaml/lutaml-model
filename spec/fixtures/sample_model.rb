@@ -1,11 +1,20 @@
 # spec/fixtures/sample_model.rb
 require "lutaml/model"
 
-class SampleModel < Lutaml::Model::BaseModel
+class SampleModelTag < Lutaml::Model::Serializable
+  attribute :text, Lutaml::Model::Type::String, default: -> { "" }
+
+  xml do
+    root "Tag"
+    map_content to: :text
+  end
+end
+
+class SampleModel < Lutaml::Model::Serializable
   attribute :name, Lutaml::Model::Type::String, default: -> { "Anonymous" }
   attribute :age, Lutaml::Model::Type::Integer, default: -> { 18 }
   attribute :balance, Lutaml::Model::Type::Decimal, default: -> { BigDecimal("0.0") }
-  attribute :tags, Lutaml::Model::Type::Array, default: -> { [] }
+  attribute :tags, SampleModelTag, collection: true
   attribute :preferences, Lutaml::Model::Type::Hash, default: -> { { notifications: true } }
   attribute :uuid, Lutaml::Model::Type::UUID, default: -> { SecureRandom.uuid }
   attribute :status, Lutaml::Model::Type::Symbol, default: -> { :active }
