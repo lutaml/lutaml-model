@@ -18,7 +18,6 @@ module Lutaml
          Time
          Boolean
          Decimal
-         Array
          Hash
          UUID
          Symbol
@@ -80,8 +79,6 @@ module Lutaml
           to_boolean(value)
         when Decimal
           BigDecimal(value.to_s)
-        when Array
-          Array(value)
         when Hash
           Hash(value)
         when UUID

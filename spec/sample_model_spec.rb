@@ -23,6 +23,26 @@ RSpec.describe SampleModel do
   }
   let(:model) { SampleModel.new(attributes) }
 
+  let(:model_xml) {
+    <<~XML
+      <SampleModel>
+        <Name>John Doe</Name>
+        <Age>30</Age>
+        <Balance>1234.56</Balance>
+        <Tags><Tag>ruby</Tag><Tag>developer</Tag></Tags>
+        <Preferences><theme>dark</theme><notifications>true</notifications></Preferences>
+        <UUID>123e4567-e89b-12d3-a456-426614174000</UUID>
+        <Status>active</Status>
+        <LargeNumber>12345678901234567890</LargeNumber>
+        <Avatar>binary data</Avatar>
+        <Website>http://example.com</Website>
+        <Email>john.doe@example.com</Email>
+        <IPAddress>192.168.1.1</IPAddress>
+        <Metadata>{"key":"value"}</Metadata>
+        <Role>admin</Role>
+      </SampleModel>
+    XML
+  }
   it "initializes with default values" do
     default_model = SampleModel.new
     expect(default_model.name).to eq("Anonymous")
@@ -42,54 +62,17 @@ RSpec.describe SampleModel do
   end
 
   it "serializes to XML" do
-    expected_xml = <<~XML
-      <SampleModel>
-        <Name>John Doe</Name>
-        <Age>30</Age>
-        <Balance>1234.56</Balance>
-        <Tags>["ruby","developer"]</Tags>
-        <Preferences>{"theme":"dark","notifications":true}</Preferences>
-        <UUID>123e4567-e89b-12d3-a456-426614174000</UUID>
-        <Status>active</Status>
-        <LargeNumber>12345678901234567890</LargeNumber>
-        <Avatar>binary data</Avatar>
-        <Website>http://example.com</Website>
-        <Email>john.doe@example.com</Email>
-        <IPAddress>192.168.1.1</IPAddress>
-        <Metadata>{"key":"value"}</Metadata>
-        <Role>admin</Role>
-      </SampleModel>
-    XML
-
+    expected_xml = model_xml
     expect(model.to_xml).to be_equivalent_to(expected_xml)
   end
 
   it "deserializes from XML" do
-    xml = <<~XML
-      <SampleModel>
-        <Name>John Doe</Name>
-        <Age>30</Age>
-        <Balance>1234.56</Balance>
-        <Tags>["ruby","developer"]</Tags>
-        <Preferences>{"theme":"dark","notifications":true}</Preferences>
-        <UUID>123e4567-e89b-12d3-a456-426614174000</UUID>
-        <Status>active</Status>
-        <LargeNumber>12345678901234567890</LargeNumber>
-        <Avatar>binary data</Avatar>
-        <Website>http://example.com</Website>
-        <Email>john.doe@example.com</Email>
-        <IPAddress>192.168.1.1</IPAddress>
-        <Metadata>{"key":"value"}</Metadata>
-        <Role>admin</Role>
-      </SampleModel>
-    XML
-
-    sample = SampleModel.from_xml(xml)
+    sample = SampleModel.from_xml(model_xml)
     expect(sample.name).to eq("John Doe")
     expect(sample.age).to eq(30)
     expect(sample.balance).to eq(BigDecimal("1234.56"))
     expect(sample.tags).to eq(["ruby", "developer"])
-    expect(sample.preferences).to eq({ "theme" => "dark", "notifications" => true })
+    expect(sample.preferences).to eq({ theme: "dark", notifications: true })
     expect(sample.uuid).to eq("123e4567-e89b-12d3-a456-426614174000")
     expect(sample.status).to eq(:active)
     expect(sample.large_number).to eq(12345678901234567890)
@@ -112,7 +95,7 @@ RSpec.describe SampleModel do
     expect(sample.age).to eq(30)
     expect(sample.balance).to eq(BigDecimal("1234.56"))
     expect(sample.tags).to eq(["ruby", "developer"])
-    expect(sample.preferences).to eq({ "theme" => "dark", "notifications" => true })
+    expect(sample.preferences).to eq({ theme: "dark", notifications: true })
     expect(sample.uuid).to eq("123e4567-e89b-12d3-a456-426614174000")
     expect(sample.status).to eq(:active)
     expect(sample.large_number).to eq(12345678901234567890)
