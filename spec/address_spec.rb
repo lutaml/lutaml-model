@@ -104,67 +104,67 @@ RSpec.describe Address do
   end
 
   it "serializes to XML with a collection of persons" do
-    expected_xml = Nokogiri::XML::Builder.new do |xml|
-      xml.Address {
-        xml.Country "USA"
-        xml.PostCode "01001"
-        xml.Persons {
-          xml.Person {
-            xml.FirstName "Tom"
-            xml.LastName "Warren"
-            xml.Age 40
-            xml.Height 5.8
-            xml.Birthdate "1980-02-15"
-            xml.LastLogin "1980-02-15T10:00:00Z"
-            xml.WakeupTime "07:30:00"
-            xml.Active true
-          }
-          xml.Person {
-            xml.FirstName "Jack"
-            xml.LastName "Warren"
-            xml.Age 35
-            xml.Height 5.9
-            xml.Birthdate "1985-05-20"
-            xml.LastLogin "1985-05-20T09:00:00Z"
-            xml.WakeupTime "06:45:00"
-            xml.Active false
-          }
-        }
-      }
-    end.to_xml
+    expected_xml = <<~XML
+      <Address>
+        <Country>USA</Country>
+        <PostCode>01001</PostCode>
+        <Persons>
+          <Person>
+            <FirstName>Tom</FirstName>
+            <LastName>Warren</LastName>
+            <Age>40</Age>
+            <Height>5.8</Height>
+            <Birthdate>1980-02-15</Birthdate>
+            <LastLogin>1980-02-15T10:00:00Z</LastLogin>
+            <WakeupTime>07:30:00</WakeupTime>
+            <Active>true</Active>
+          </Person>
+          <Person>
+            <FirstName>Jack</FirstName>
+            <LastName>Warren</LastName>
+            <Age>35</Age>
+            <Height>5.9</Height>
+            <Birthdate>1985-05-20</Birthdate>
+            <LastLogin>1985-05-20T09:00:00Z</LastLogin>
+            <WakeupTime>06:45:00</WakeupTime>
+            <Active>false</Active>
+          </Person>
+        </Persons>
+      </Address>
+    XML
 
-    expect(Nokogiri::XML(address.to_xml).to_s).to eq(Nokogiri::XML(expected_xml).to_s)
+    expect(address.to_xml).to be_equivalent_to(expected_xml)
   end
 
   it "deserializes from XML with a collection of persons" do
-    xml = Nokogiri::XML::Builder.new do |xml|
-      xml.Address {
-        xml.Country "USA"
-        xml.PostCode "01001"
-        xml.Persons {
-          xml.Person {
-            xml.FirstName "Tom"
-            xml.LastName "Warren"
-            xml.Age 40
-            xml.Height 5.8
-            xml.Birthdate "1980-02-15"
-            xml.LastLogin "1980-02-15T10:00:00Z"
-            xml.WakeupTime "07:30:00"
-            xml.Active true
-          }
-          xml.Person {
-            xml.FirstName "Jack"
-            xml.LastName "Warren"
-            xml.Age 35
-            xml.Height 5.9
-            xml.Birthdate "1985-05-20"
-            xml.LastLogin "1985-05-20T09:00:00Z"
-            xml.WakeupTime "06:45:00"
-            xml.Active false
-          }
-        }
-      }
-    end.to_xml
+    xml = <<~XML
+      <Address>
+        <Country>USA</Country>
+        <PostCode>01001</PostCode>
+        <Persons>
+          <Person>
+            <FirstName>Tom</FirstName>
+            <LastName>Warren</LastName>
+            <Age>40</Age>
+            <Height>5.8</Height>
+            <Birthdate>1980-02-15</Birthdate>
+            <LastLogin>1980-02-15T10:00:00Z</LastLogin>
+            <WakeupTime>07:30:00</WakeupTime>
+            <Active>true</Active>
+          </Person>
+          <Person>
+            <FirstName>Jack</FirstName>
+            <LastName>Warren</LastName>
+            <Age>35</Age>
+            <Height>5.9</Height>
+            <Birthdate>1985-05-20</Birthdate>
+            <LastLogin>1985-05-20T09:00:00Z</LastLogin>
+            <WakeupTime>06:45:00</WakeupTime>
+            <Active>false</Active>
+          </Person>
+        </Persons>
+      </Address>
+    XML
 
     address_from_xml = Address.from_xml(xml)
     expect(address_from_xml.country).to eq("USA")
