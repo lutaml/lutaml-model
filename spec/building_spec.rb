@@ -28,25 +28,25 @@ RSpec.describe Building do
   end
 
   it "serializes to XML with default mappings" do
-    expected_xml = Nokogiri::XML::Builder.new do |xml|
-      xml.building {
-        xml.name "my_building"
-        xml.room_name "Living Room"
-        xml.room_name "Kitchen"
-      }
-    end.to_xml
+    expected_xml = <<~XML
+      <building>
+        <name>my_building</name>
+        <room_name>Living Room</room_name>
+        <room_name>Kitchen</room_name>
+      </building>
+    XML
 
-    expect(Nokogiri::XML(model.to_xml).to_s).to eq(Nokogiri::XML(expected_xml).to_s)
+    expect(model.to_xml).to be_equivalent_to(expected_xml)
   end
 
   it "deserializes from XML with default mappings" do
-    xml = Nokogiri::XML::Builder.new do |xml|
-      xml.building {
-        xml.name "my_building"
-        xml.room_name "Living Room"
-        xml.room_name "Kitchen"
-      }
-    end.to_xml
+    xml = <<~XML
+      <building>
+        <name>my_building</name>
+        <room_name>Living Room</room_name>
+        <room_name>Kitchen</room_name>
+      </building>
+    XML
 
     building = Building.from_xml(xml)
     expect(building.name).to eq("my_building")

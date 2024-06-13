@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
-require "lutaml/model"
+require "rspec/matchers"
+require "equivalent-xml"
 
 RSpec.configure do |config|
   # Enable flags like --only-failures and --next-failure
@@ -15,15 +16,15 @@ RSpec.configure do |config|
 end
 
 # configuration example
-require "lutaml/model"
-require "lutaml/model/xml_adapter/nokogiri_adapter"
-require "lutaml/model/xml_adapter/ox_adapter"
-require "lutaml/model/xml_adapter/oga_adapter"
-require "lutaml/model/json_adapter/standard"
-require "lutaml/model/json_adapter/multi_json"
-require "lutaml/model/yaml_adapter"
-require "lutaml/model/toml_adapter/toml_rb_adapter"
-require "lutaml/model/toml_adapter/tomlib_adapter"
+require_relative "../lib/lutaml/model"
+require_relative "../lib/lutaml/model/xml_adapter/nokogiri_adapter"
+require_relative "../lib/lutaml/model/xml_adapter/ox_adapter"
+require_relative "../lib/lutaml/model/xml_adapter/oga_adapter"
+require_relative "../lib/lutaml/model/json_adapter/standard"
+require_relative "../lib/lutaml/model/json_adapter/multi_json"
+require_relative "../lib/lutaml/model/yaml_adapter"
+require_relative "../lib/lutaml/model/toml_adapter/toml_rb_adapter"
+require_relative "../lib/lutaml/model/toml_adapter/tomlib_adapter"
 
 Lutaml::Model::Config.configure do |config|
   config.xml_adapter = Lutaml::Model::XmlAdapter::NokogiriDocument

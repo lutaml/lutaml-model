@@ -76,7 +76,7 @@ module Lutaml
 
               pp attribute_def.type.ancestors
 
-              if attribute_def.type <= Lutaml::Model::Serialize
+              if attribute_def && attribute_def.type <= Lutaml::Model::Serialize
                 case value
                 when Array
                   puts "case 1: XML serialize as an array of Serialize objects! #{element_rule.name}"
@@ -115,7 +115,7 @@ module Lutaml
               else
                 full_name = mapping_rule.name
               end
-              hash[full_name] = element.send(rule.to)
+              hash[full_name] = element.send(mapping_rule.to)
             end
           end
         end

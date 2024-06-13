@@ -71,11 +71,14 @@ module Lutaml
         def apply_mappings(doc, format)
           mappings = mappings_for(format).mappings
           mappings.each_with_object({}) do |rule, hash|
+            attr = attributes[rule.to]
+            raise "Attribute '#{rule.to}' not found in #{self}" unless attr
+
             value = doc[rule.name]
-            if attributes[rule.to].collection?
-              value = (value || []).map { |v| attributes[rule.to].type <= Serializable ? attributes[rule.to].type.new(v) : v }
-            elsif value.is_a?(Hash) && attributes[rule.to].type <= Serializable
-              value = attributes[rule.to].type.new(value)
+            if attr.collection?
+              value = (value || []).map { |v| attr.type <= Serialize ? attr.type.new(v) : v }
+            elsif value.is_a?(Hash) && attr.type <= Serialize
+              value = attr.type.new(value)
             end
             hash[rule.to] = value
           end
