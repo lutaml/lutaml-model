@@ -2,42 +2,44 @@
 require "spec_helper"
 require "lutaml/model"
 
-class Glaze < Lutaml::Model::Serializable
-  attribute :color, Lutaml::Model::Type::String
-  attribute :finish, Lutaml::Model::Type::String
+module Delegation
+  class Glaze < Lutaml::Model::Serializable
+    attribute :color, Lutaml::Model::Type::String
+    attribute :finish, Lutaml::Model::Type::String
+  end
+
+  class Ceramic < Lutaml::Model::Serializable
+    attribute :type, Lutaml::Model::Type::String
+    attribute :glaze, Glaze
+
+    json do
+      map "type", to: :type
+      map "color", to: :color, delegate: :glaze
+      map "finish", to: :finish, delegate: :glaze
+    end
+
+    yaml do
+      map "type", to: :type
+      map "color", to: :color, delegate: :glaze
+      map "finish", to: :finish, delegate: :glaze
+    end
+
+    toml do
+      map "type", to: :type
+      map "color", to: :color, delegate: :glaze
+      map "finish", to: :finish, delegate: :glaze
+    end
+
+    xml do
+      root "delegation"
+      map_element "type", to: :type
+      map_element "color", to: :color, delegate: :glaze
+      map_element "finish", to: :finish, delegate: :glaze
+    end
+  end
 end
 
-class Ceramic < Lutaml::Model::Serializable
-  attribute :type, Lutaml::Model::Type::String
-  attribute :glaze, Glaze
-
-  json do
-    map "type", to: :type
-    map "color", to: :color, delegate: :glaze
-    map "finish", to: :finish, delegate: :glaze
-  end
-
-  yaml do
-    map "type", to: :type
-    map "color", to: :color, delegate: :glaze
-    map "finish", to: :finish, delegate: :glaze
-  end
-
-  toml do
-    map "type", to: :type
-    map "color", to: :color, delegate: :glaze
-    map "finish", to: :finish, delegate: :glaze
-  end
-
-  xml do
-    root "delegation"
-    map_element "type", to: :type
-    map_element "color", to: :color, delegate: :glaze
-    map_element "finish", to: :finish, delegate: :glaze
-  end
-end
-
-RSpec.describe Ceramic do
+RSpec.describe Delegation do
   let(:yaml_data) {
     <<~YAML
       type: Vase
@@ -46,7 +48,7 @@ RSpec.describe Ceramic do
     YAML
   }
 
-  let(:delegation) { Ceramic.from_yaml(yaml_data) }
+  let(:delegation) { Delegation::Ceramic.from_yaml(yaml_data) }
 
   it "deserializes from YAML with delegation" do
     expect(delegation.type).to eq("Vase")
@@ -127,7 +129,7 @@ RSpec.describe Ceramic do
   end
 
   it "sets the default namespace of <delegation>" do
-    delegation_class = Class.new(Ceramic) do
+    delegation_class = Class.new(Delegation::Ceramic) do
       xml do
         root "delegation"
         namespace "https://example.com/delegation/1.2"
@@ -143,7 +145,7 @@ RSpec.describe Ceramic do
   end
 
   it "sets the namespace of <delegation> with a prefix" do
-    delegation_class = Class.new(Ceramic) do
+    delegation_class = Class.new(Delegation::Ceramic) do
       xml do
         root "delegation"
         namespace "https://example.com/delegation/1.2", prefix: "del"
@@ -159,7 +161,7 @@ RSpec.describe Ceramic do
   end
 
   it "sets the namespace of a particular element inside Ceramic" do
-    delegation_class = Class.new(Ceramic) do
+    delegation_class = Class.new(Delegation::Ceramic) do
       xml do
         root "delegation"
         map_element "type", to: :type, namespace: "https://example.com/type/1.2", prefix: "type"
@@ -175,7 +177,7 @@ RSpec.describe Ceramic do
   end
 
   it "sets the namespace of <delegation> and also a particular element inside using :inherit" do
-    delegation_class = Class.new(Ceramic) do
+    delegation_class = Class.new(Delegation::Ceramic) do
       xml do
         root "delegation"
         namespace "https://example.com/delegation/1.2", prefix: "del"
@@ -192,7 +194,7 @@ RSpec.describe Ceramic do
   end
 
   it "sets the namespace of a particular attribute inside <delegation>" do
-    delegation_class = Class.new(Ceramic) do
+    delegation_class = Class.new(Delegation::Ceramic) do
       xml do
         root "delegation"
         map_attribute "date", to: :date, namespace: "https://example.com/delegation/1.2", prefix: "del"
@@ -208,7 +210,7 @@ RSpec.describe Ceramic do
   end
 
   it "sets the namespace of <delegation> and also a particular attribute inside using :inherit" do
-    delegation_class = Class.new(Ceramic) do
+    delegation_class = Class.new(Delegation::Ceramic) do
       xml do
         root "delegation"
         namespace "https://example.com/delegation/1.1", prefix: "del1"
@@ -226,7 +228,7 @@ RSpec.describe Ceramic do
   end
 
   it "raises an error when namespaces are used with Ox" do
-    delegation_class = Class.new(Ceramic) do
+    delegation_class = Class.new(Delegation::Ceramic) do
       xml do
         root "delegation"
         namespace "https://example.com/delegation/1.2", prefix: "del"

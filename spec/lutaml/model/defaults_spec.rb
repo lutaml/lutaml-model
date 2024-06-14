@@ -1,8 +1,56 @@
-# spec/sample_model_spec.rb
 require "spec_helper"
-require_relative "fixtures/sample_model"
+require "lutaml/model"
 
-RSpec.describe SampleModel do
+class SampleModelTag < Lutaml::Model::Serializable
+  attribute :text, Lutaml::Model::Type::String, default: -> { "" }
+
+  xml do
+    root "Tag"
+    map_content to: :text
+  end
+end
+
+class Defaults < Lutaml::Model::Serializable
+  attribute :name, Lutaml::Model::Type::String, default: -> { "Anonymous" }
+  attribute :age, Lutaml::Model::Type::Integer, default: -> { 18 }
+  attribute :balance, Lutaml::Model::Type::Decimal, default: -> { BigDecimal("0.0") }
+  attribute :tags, SampleModelTag, collection: true
+  attribute :preferences, Lutaml::Model::Type::Hash, default: -> { { notifications: true } }
+  attribute :uuid, Lutaml::Model::Type::UUID, default: -> { SecureRandom.uuid }
+  attribute :status, Lutaml::Model::Type::Symbol, default: -> { :active }
+  attribute :large_number, Lutaml::Model::Type::BigInteger, default: -> { 0 }
+  attribute :avatar, Lutaml::Model::Type::Binary, default: -> { "" }
+  attribute :website, Lutaml::Model::Type::URL, default: -> { URI.parse("http://example.com") }
+  attribute :email, Lutaml::Model::Type::Email, default: -> { "example@example.com" }
+  attribute :ip_address, Lutaml::Model::Type::IPAddress, default: -> { IPAddr.new("127.0.0.1") }
+  attribute :metadata, Lutaml::Model::Type::JSON, default: -> { "{}" }
+  attribute :role, Lutaml::Model::Type::Enum, options: %w[user admin guest], default: -> { "user" }
+
+  xml do
+    root "Defaults"
+    map_element "Name", to: :name
+    map_element "Age", to: :age
+    map_element "Balance", to: :balance
+    map_element "Tags", to: :tags
+    map_element "Preferences", to: :preferences
+    map_element "UUID", to: :uuid
+    map_element "Status", to: :status
+    map_element "LargeNumber", to: :large_number
+    map_element "Avatar", to: :avatar
+    map_element "Website", to: :website
+    map_element "Email", to: :email
+    map_element "IPAddress", to: :ip_address
+    map_element "Metadata", to: :metadata
+    map_element "Role", to: :role
+  end
+
+  yaml do
+    map "name", to: :name
+    map "age", to: :age
+  end
+end
+
+RSpec.describe Defaults do
   let(:attributes) {
     {
       name: "John Doe",
@@ -21,11 +69,11 @@ RSpec.describe SampleModel do
       role: "admin",
     }
   }
-  let(:model) { SampleModel.new(attributes) }
+  let(:model) { Defaults.new(attributes) }
 
   let(:model_xml) {
     <<~XML
-      <SampleModel>
+      <Defaults>
         <Name>John Doe</Name>
         <Age>30</Age>
         <Balance>1234.56</Balance>
@@ -40,11 +88,11 @@ RSpec.describe SampleModel do
         <IPAddress>192.168.1.1</IPAddress>
         <Metadata>{"key":"value"}</Metadata>
         <Role>admin</Role>
-      </SampleModel>
+      </Defaults>
     XML
   }
   it "initializes with default values" do
-    default_model = SampleModel.new
+    default_model = Defaults.new
     expect(default_model.name).to eq("Anonymous")
     expect(default_model.age).to eq(18)
     expect(default_model.balance).to eq(BigDecimal("0.0"))
@@ -67,7 +115,7 @@ RSpec.describe SampleModel do
   end
 
   it "deserializes from XML" do
-    sample = SampleModel.from_xml(model_xml)
+    sample = Defaults.from_xml(model_xml)
     expect(sample.name).to eq("John Doe")
     expect(sample.age).to eq(30)
     expect(sample.balance).to eq(BigDecimal("1234.56"))
@@ -90,7 +138,7 @@ RSpec.describe SampleModel do
 
   it "deserializes from JSON" do
     json = attributes.to_json
-    sample = SampleModel.from_json(json)
+    sample = Defaults.from_json(json)
     expect(sample.name).to eq("John Doe")
     expect(sample.age).to eq(30)
     expect(sample.balance).to eq(BigDecimal("1234.56"))
@@ -119,7 +167,7 @@ RSpec.describe SampleModel do
 
   it "deserializes from YAML" do
     yaml = attributes.to_yaml
-    sample = SampleModel.from_yaml(yaml)
+    sample = Defaults.from_yaml(yaml)
     expect(sample.name).to eq("John Doe")
     expect(sample.age).to eq(30)
   end
