@@ -70,6 +70,8 @@ module Lutaml
         end
 
         def apply_mappings(doc, format)
+          return apply_xml_mapping(doc) if format == :xml
+
           mappings = mappings_for(format).mappings
           mappings.each_with_object({}) do |rule, hash|
             attr = attributes[rule.to]
@@ -80,6 +82,27 @@ module Lutaml
               value = (value || []).map { |v| attr.type <= Serialize ? attr.type.new(v) : v }
             elsif value.is_a?(Hash) && attr.type <= Serialize
               value = attr.type.new(value)
+            else
+              value = attr.type.cast(value)
+            end
+            hash[rule.to] = value
+          end
+        end
+
+        def apply_xml_mapping(doc)
+          mappings = mappings_for(:xml).mappings
+
+          mappings.each_with_object({}) do |rule, hash|
+            attr = attributes[rule.to]
+            raise "Attribute '#{rule.to}' not found in #{self}" unless attr
+
+            value = doc[rule.name]
+            if attr.collection?
+              value = (value || []).map { |v| attr.type <= Serialize ? attr.type.from_hash(v) : v }
+            elsif value.is_a?(Hash) && attr.type <= Serialize
+              value = attr.type.cast(value)
+            elsif value.is_a?(Array)
+              value = attr.type.cast(value.first["text"].first)
             end
             hash[rule.to] = value
           end
@@ -98,7 +121,16 @@ module Lutaml
         return self unless self.class.attributes
 
         self.class.attributes.each do |name, attr|
-          value = attrs.key?(name) ? attrs[name] : attr.default
+          value = if attrs.key?(name)
+                    attrs[name]
+                  elsif attrs.key?(name.to_sym)
+                    attrs[name.to_sym]
+                  elsif attrs.key?(name.to_s)
+                    attrs[name.to_s]
+                  else
+                    attr.default
+                  end
+
           value = if attr.collection?
               (value || []).map { |v| Lutaml::Model::Type.cast(v, attr.type) }
             else
@@ -151,11 +183,12 @@ module Lutaml
           value = send(name)
           next if value.nil? && !rule.render_nil
 
+          attribute = self.class.attributes[name]
           hash[rule.from] = case value
             when Array
-              value.map { |v| v.is_a?(Serialize) ? v.hash_representation(format, options) : v }
+              value.map { |v| v.is_a?(Serialize) ? v.hash_representation(format, options) : attribute.type.serialize(v) }
             else
-              value.is_a?(Serialize) ? value.hash_representation(format, options) : value
+              value.is_a?(Serialize) ? value.hash_representation(format, options) : attribute.type.serialize(value)
             end
         end
       end

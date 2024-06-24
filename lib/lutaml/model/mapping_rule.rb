@@ -14,6 +14,14 @@ module Lutaml
 
       alias from name
 
+      def prefixed_name
+        if prefix
+          "#{prefix}:#{name}"
+        else
+          name
+        end
+      end
+
       def serialize(model, value)
         if custom_methods[:to]
           model.send(custom_methods[:to], model, value)

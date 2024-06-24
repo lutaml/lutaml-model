@@ -17,7 +17,8 @@ module Lutaml
         end
 
         def to_h
-          { @root.name => parse_element(@root) }
+          # { @root.name => parse_element(@root) }
+          parse_element(@root)
         end
 
         def to_xml(options = {})
@@ -31,6 +32,7 @@ module Lutaml
 
         def build_element(builder, element, options = {})
           attributes = build_attributes(element.attributes)
+
           builder.element(element.name, attributes) do
             element.children.each do |child|
               build_element(builder, child, options)
@@ -40,8 +42,8 @@ module Lutaml
         end
 
         def build_attributes(attributes)
-          attributes.each_with_object({}) do |(name, attr), hash|
-            hash[name] = attr.value
+          attributes.each_with_object({}) do |attr, hash|
+            hash[attr.name] = attr.value.value
           end
         end
 

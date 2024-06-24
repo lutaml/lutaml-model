@@ -16,6 +16,14 @@ module Lutaml
         @root_element = name
       end
 
+      def prefixed_root
+        if namespace_uri && namespace_prefix
+          "#{namespace_prefix}:#{root_element}"
+        else
+          root_element
+        end
+      end
+
       def namespace(uri, prefix = nil)
         @namespace_uri = uri
         @namespace_prefix = prefix
