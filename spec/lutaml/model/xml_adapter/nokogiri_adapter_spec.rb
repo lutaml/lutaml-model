@@ -22,7 +22,7 @@ RSpec.describe Lutaml::Model::XmlAdapter::NokogiriDocument do
     end
 
     it "parses child element with prefixed namespace" do
-      child = document.root.children.first
+      child = document.root.children[1]
       expect(child.name).to eq("prefix:child")
       expect(child.namespace).to eq("http://example.com/prefixed")
       expect(child.namespace_prefix).to eq("prefix")

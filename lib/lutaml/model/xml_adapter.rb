@@ -29,7 +29,7 @@ module Lutaml
       end
 
       class Element
-        attr_reader :name, :attributes, :children, :text, :namespace, :namespace_prefix
+        attr_reader :attributes, :children, :text, :namespace, :namespace_prefix
 
         def initialize(name, attributes = {}, children = [], text = nil, namespace: nil, namespace_prefix: nil)
           @name = name
@@ -38,6 +38,18 @@ module Lutaml
           @text = text
           @namespace = namespace
           @namespace_prefix = namespace_prefix
+        end
+
+        def name
+          if namespace && namespace_prefix
+            "#{namespace_prefix}:#{@name}"
+          else
+            @name
+          end
+        end
+
+        def unprefixed_name
+          @name
         end
 
         def document

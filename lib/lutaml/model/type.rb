@@ -31,8 +31,16 @@ module Lutaml
         class_eval <<~HEREDOC
                       class #{t}
                         def self.cast(value)
-                         Type.cast(value, #{t})
-                       end
+                          return if value.nil?
+
+                          Type.cast(value, #{t})
+                        end
+
+                        def self.serialize(value)
+                          return "" if value.nil?
+
+                          Type.serialize(value, #{t})
+                        end
                      end
 
                    HEREDOC
@@ -40,8 +48,10 @@ module Lutaml
 
       class TimeWithoutDate
         def self.cast(value)
+          return if value.nil?
+
           parsed_time = ::Time.parse(value.to_s)
-          parsed_time.strftime("%H:%M:%S")
+          parsed_time #.strftime("%H:%M:%S")
         end
 
         def self.serialize(value)
@@ -51,12 +61,20 @@ module Lutaml
 
       class DateTime
         def self.cast(value)
-          ::DateTime.parse(value.to_s).new_offset(0).iso8601
+          return if value.nil?
+
+          ::DateTime.parse(value.to_s).new_offset(0)
+        end
+
+        def self.serialize(value)
+          value.iso8601
         end
       end
 
       def self.cast(value, type)
-        case type
+        return if value.nil?
+
+        case type.new
         when String
           value.to_s
         when Integer
@@ -101,6 +119,22 @@ module Lutaml
           value
         else
           value
+        end
+      end
+
+      def self.serialize(value, type)
+        return "" if value.nil?
+
+        if type == Date
+          value.iso8601
+        elsif type == Integer
+          value.to_i
+        elsif type == Float
+          value.to_f
+        elsif type == Boolean
+          to_boolean(value)
+        else
+          value.to_s
         end
       end
 
