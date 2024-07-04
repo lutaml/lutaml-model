@@ -5,7 +5,7 @@ require "lutaml/model/xml_adapter/ox_adapter"
 require "lutaml/model/xml_adapter/oga_adapter"
 require_relative "../../fixtures/sample_model"
 
-RSpec.shared_examples "an XML adapter" do |adapter_class|
+RSpec.shared_examples "an XML adapter" do |adapter_class, element_class|
   let(:attributes) { { name: "John Doe", age: 30 } }
   let(:model) { SampleModel.new(attributes) }
 
@@ -17,7 +17,7 @@ RSpec.shared_examples "an XML adapter" do |adapter_class|
       </SampleModel>
     XML
 
-    doc = adapter_class.new(Lutaml::Model::XmlAdapter::NokogiriElement.new(Nokogiri::XML(expected_xml).root))
+    doc = adapter_class.parse(expected_xml)
     xml = doc.to_xml
     expect(xml).to be_equivalent_to(expected_xml)
   end
@@ -41,7 +41,7 @@ RSpec.describe Lutaml::Model::XmlAdapter::NokogiriDocument do
   it_behaves_like "an XML adapter", described_class
 end
 
-RSpec.xdescribe Lutaml::Model::XmlAdapter::OxDocument do
+RSpec.describe Lutaml::Model::XmlAdapter::OxDocument do
   it_behaves_like "an XML adapter", described_class
 end
 

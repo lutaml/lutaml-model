@@ -74,18 +74,41 @@ module Lutaml
 
           mappings = mappings_for(format).mappings
           mappings.each_with_object({}) do |rule, hash|
-            attr = attributes[rule.to]
+            attr = if rule.delegate
+                     attributes[rule.delegate].type.attributes[rule.to]
+                   else
+                     attributes[rule.to]
+                   end
+
             raise "Attribute '#{rule.to}' not found in #{self}" unless attr
 
-            value = doc[rule.name]
+            value = if rule.custom_methods[:from]
+                      new.send(rule.custom_methods[:from], self, doc)
+                    elsif doc.has_key?(rule.name) || doc.has_key?(rule.name.to_sym)
+                      doc[rule.name] || doc[rule.name.to_sym]
+                    else
+                      attr.default
+                    end
+            # if attr.collection?
+            #   value = (value || []).map { |v| attr.type <= Serialize ? attr.type.new(v) : v }
+            # elsif value.is_a?(Hash) && attr.type <= Serialize
+            #   value = attr.type.new(value)
+            # else
+            #   value = attr.type.cast(value)
+            # end
+
             if attr.collection?
-              value = (value || []).map { |v| attr.type <= Serialize ? attr.type.new(v) : v }
-            elsif value.is_a?(Hash) && attr.type <= Serialize
-              value = attr.type.new(value)
-            else
-              value = attr.type.cast(value)
+              value = (value || []).map { |v| attr.type <= Serialize ? attr.type.apply_mappings(v, format) : v }
+            elsif value.is_a?(Hash)
+              value = attr.type.apply_mappings(value, format)
             end
-            hash[rule.to] = value
+
+            if rule.delegate
+              hash[rule.delegate] ||= {}
+              hash[rule.delegate][rule.to] = value
+            else
+              hash[rule.to] = value
+            end
           end
         end
 
@@ -96,13 +119,32 @@ module Lutaml
             attr = attributes[rule.to]
             raise "Attribute '#{rule.to}' not found in #{self}" unless attr
 
-            value = doc[rule.name]
+            value = if rule.name
+                      doc[rule.name] || doc[rule.name.to_s] || doc[rule.name.to_sym]
+                    else
+                      doc["text"]
+                    end
+
+            # if attr.collection?
+            #   value = (value || []).map { |v| attr.type <= Serialize ? attr.type.from_hash(v) : v }
+            # elsif value.is_a?(Hash) && attr.type <= Serialize
+            #   value = attr.type.cast(value)
+            # elsif value.is_a?(Array)
+            #   value = attr.type.cast(value.first["text"]&.first)
+            # end
+
             if attr.collection?
-              value = (value || []).map { |v| attr.type <= Serialize ? attr.type.from_hash(v) : v }
-            elsif value.is_a?(Hash) && attr.type <= Serialize
-              value = attr.type.cast(value)
-            elsif value.is_a?(Array)
-              value = attr.type.cast(value.first["text"].first)
+              value = (value || []).map { |v| attr.type <= Serialize ? attr.type.apply_xml_mapping(v) : v["text"] }
+            else
+              if attr.type <= Serialize
+                value = attr.type.apply_xml_mapping(value) if value
+              else
+                if value.is_a?(Hash)
+                  value = value["text"]
+                end
+
+                value = attr.type.cast(value)
+              end
             end
             hash[rule.to] = value
           end
@@ -132,7 +174,9 @@ module Lutaml
                   end
 
           value = if attr.collection?
-              (value || []).map { |v| Lutaml::Model::Type.cast(v, attr.type) }
+              (value || []).map { |v| v.is_a?(Hash) ? attr.type.new(v) : Lutaml::Model::Type.cast(v, attr.type) }
+            elsif value.is_a?(Hash) && attr.type != Lutaml::Model::Type::Hash
+              attr.type.new(value)
             else
               Lutaml::Model::Type.cast(value, attr.type)
             end
@@ -180,10 +224,18 @@ module Lutaml
           name = rule.to
           next if except&.include?(name) || (only && !only.include?(name))
 
-          value = send(name)
+          next handle_delegate(self, rule, hash) if rule.delegate
+
+          value = if rule.custom_methods[:to]
+                    send(rule.custom_methods[:to], self, send(name))
+                  else
+                    send(name)
+                  end
+
           next if value.nil? && !rule.render_nil
 
           attribute = self.class.attributes[name]
+
           hash[rule.from] = case value
             when Array
               value.map { |v| v.is_a?(Serialize) ? v.hash_representation(format, options) : attribute.type.serialize(v) }
@@ -194,6 +246,20 @@ module Lutaml
       end
 
       private
+
+      def handle_delegate(obj, rule, hash)
+        name = rule.to
+        value = send(rule.delegate).send(name)
+        return if value.nil? && !rule.render_nil
+
+        attribute = self.send(rule.delegate).class.attributes[name]
+        hash[rule.from] = case value
+          when Array
+            value.map { |v| v.is_a?(Serialize) ? v.hash_representation(format, options) : attribute.type.serialize(v) }
+          else
+            value.is_a?(Serialize) ? value.hash_representation(format, options) : attribute.type.serialize(value)
+          end
+      end
 
       def ensure_utf8(value)
         case value

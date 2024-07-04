@@ -14,6 +14,7 @@ module Lutaml
 
         def initialize(root)
           @root = root
+          # @root = OxElement.new(ox_node) if ox_node
         end
 
         def to_h
@@ -24,28 +25,79 @@ module Lutaml
         def to_xml(options = {})
           builder = Ox::Builder.new
           build_element(builder, @root, options)
-          xml_data = Ox.dump(builder)
+          # xml_data = Ox.dump(builder)
+          xml_data = builder.to_s
           options[:declaration] ? declaration(options) + xml_data : xml_data
         end
 
         private
 
         def build_element(builder, element, options = {})
-          attributes = build_attributes(element.attributes)
+          return element.to_xml(builder) if element.is_a?(Lutaml::Model::XmlAdapter::OxElement)
 
-          builder.element(element.name, attributes) do
-            element.children.each do |child|
-              build_element(builder, child, options)
+          xml_mapping = element.class.mappings_for(:xml)
+          return xml unless xml_mapping
+
+          attributes = build_attributes(element, xml_mapping)
+
+          builder.element(xml_mapping.root_element, attributes) do |el|
+            xml_mapping.elements.each do |element_rule|
+              if element_rule.delegate
+                attribute_def = element.send(element_rule.delegate).class.attributes[element_rule.to]
+                value = element.send(element_rule.delegate).send(element_rule.to)
+              else
+                attribute_def = element.class.attributes[element_rule.to]
+                value = element.send(element_rule.to)
+              end
+
+              val = if attribute_def.collection?
+                value
+              elsif value || element_rule.render_nil?
+                [value]
+              else
+                []
+              end
+
+              val.each do |v|
+                if attribute_def&.type <= Lutaml::Model::Serialize
+                  handle_nested_elements(el, element_rule, v)
+                else
+                  builder.element(element_rule.name) { |el| el.text(attribute_def.type.serialize(v)) if v }
+                end
+              end
             end
-            builder.text(element.text) if element.text
+            # if element.children.any?
+            #   element.children.each do |child|
+            #     build_element(el, child, options)
+            #   end
+            # elsif element.text
+            #   el.text(element.text)
+            # end
           end
         end
 
-        def build_attributes(attributes)
-          attributes.each_with_object({}) do |attr, hash|
-            hash[attr.name] = attr.value.value
+        def handle_nested_elements(builder, element_rule, value)
+          case value
+          when Array
+            value.each { |val| build_element(builder, val) }
+          else
+            build_element(builder, value)
           end
         end
+
+        # def build_attributes(element, xml_mapping)
+        #   element_attributes = element.class.attributes
+
+        #   attrs = element_attributes.each_with_object({}) do |(name, attr), hash|
+        #     hash[attr.name] = attr.value
+        #   end
+
+        #   element.namespaces.each do |prefix, namespace|
+        #     attrs[namespace.attr_name] = namespace.uri
+        #   end
+
+        #   attrs
+        # end
 
         def parse_element(element)
           result = { "_text" => element.text }
@@ -59,17 +111,64 @@ module Lutaml
       end
 
       class OxElement < Element
-        def initialize(node)
+        def initialize(node, root_node: nil)
           attributes = node.attributes.each_with_object({}) do |(name, value), hash|
-            hash[name.to_s] = Attribute.new(name.to_s, value)
+            if attribute_is_namespace?(name)
+              if root_node
+                root_node.add_namespace(Lutaml::Model::XmlNamespace.new(value, name))
+              else
+                add_namespace(Lutaml::Model::XmlNamespace.new(value, name))
+              end
+            else
+              if root_node && (n = root_node.namespaces[name.to_s.split(":").first])
+                namespace = n.uri
+                prefix = n.prefix
+              end
+
+              hash[name.to_s] = Attribute.new(name.to_s, value, namespace: namespace, namespace_prefix: prefix)
+            end
           end
-          super(node.name.to_s, attributes, parse_children(node), node.text)
+
+          super(
+            node.name.to_s,
+            attributes,
+            parse_children(node, root_node: root_node || self),
+            node.text,
+            parent_document: root_node
+          )
+        end
+
+        def to_xml(builder = nil)
+          builder ||= Ox::Builder.new
+          attrs = build_attributes(self)
+
+          builder.element(name, attrs) do |el|
+            if children.any?
+              children.each do |child|
+                child.to_xml(el)
+              end
+            elsif text
+              el.text(text)
+            end
+          end
+        end
+
+        def build_attributes(node)
+          attrs = node.attributes.each_with_object({}) do |(name, attr), attrs|
+            attrs[name] = attr.value
+          end
+
+          node.own_namespaces.each do |prefix, namespace|
+            attrs[namespace.attr_name] = namespace.uri
+          end
+
+          attrs
         end
 
         private
 
-        def parse_children(node)
-          node.nodes.select { |child| child.is_a?(Ox::Element) }.map { |child| OxElement.new(child) }
+        def parse_children(node, root_node: nil)
+          node.nodes.select { |child| child.is_a?(Ox::Element) }.map { |child| OxElement.new(child, root_node: root_node) }
         end
       end
     end

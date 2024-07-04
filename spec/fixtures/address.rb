@@ -1,11 +1,11 @@
 # spec/fixtures/address.rb
 require "lutaml/model"
-require_relative "person"
+require_relative "persons"
 
 class Address < Lutaml::Model::Serializable
   attribute :country, Lutaml::Model::Type::String
   attribute :post_code, Lutaml::Model::Type::String
-  attribute :persons, Person, collection: true
+  attribute :persons, Persons
 
   json do
     map "country", to: :country

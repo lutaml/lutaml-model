@@ -22,24 +22,15 @@ module Lutaml
         end
 
         def self.get_yaml_type(type)
-          case type
-          when Lutaml::Model::Type::String
-            "str"
-          when Lutaml::Model::Type::Integer
-            "int"
-          when Lutaml::Model::Type::Boolean
-            "bool"
-          when Lutaml::Model::Type::Float
-            "float"
-          when Lutaml::Model::Type::Decimal
-            "float" # YAML does not have a separate decimal type, so we use float
-          when Lutaml::Model::Type::Array
-            "seq"
-          when Lutaml::Model::Type::Hash
-            "map"
-          else
-            "str" # Default to string for unknown types
-          end
+          {
+            Lutaml::Model::Type::String => "str",
+            Lutaml::Model::Type::Integer => "int",
+            Lutaml::Model::Type::Boolean => "bool",
+            Lutaml::Model::Type::Float => "float",
+            Lutaml::Model::Type::Decimal => "float", # YAML does not have a separate decimal type, so we use float
+            Lutaml::Model::Type::Array => "seq",
+            Lutaml::Model::Type::Hash => "map",
+          }[type] || "str" # Default to string for unknown types
         end
       end
     end

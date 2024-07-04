@@ -27,22 +27,14 @@ module Lutaml
         end
 
         def self.get_relaxng_type(type)
-          case type
-          when Lutaml::Model::Type::String
-            "string"
-          when Lutaml::Model::Type::Integer
-            "integer"
-          when Lutaml::Model::Type::Boolean
-            "boolean"
-          when Lutaml::Model::Type::Float
-            "float"
-          when Lutaml::Model::Type::Array
-            "array"
-          when Lutaml::Model::Type::Hash
-            "object"
-          else
-            "string" # Default to string for unknown types
-          end
+          {
+            Lutaml::Model::Type::String => "string",
+            Lutaml::Model::Type::Integer => "integer",
+            Lutaml::Model::Type::Boolean => "boolean",
+            Lutaml::Model::Type::Float => "float",
+            Lutaml::Model::Type::Array => "array",
+            Lutaml::Model::Type::Hash => "object",
+          }[type] || "string" # Default to string for unknown types
         end
       end
     end

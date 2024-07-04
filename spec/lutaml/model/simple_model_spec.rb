@@ -114,52 +114,48 @@ RSpec.describe SimpleModel do
 
   let(:model_yaml) {
     <<~YAML
+      ---
       name: Headquarters
       address:
         street: 123 Main St
         city: Anytown
       rooms:
-        - name: Conference Room
-          size: 30
-        - name: Office
-          size: 20
+      - name: Conference Room
+        size: 30
+      - name: Office
+        size: 20
     YAML
   }
 
   let(:model_json) {
-    <<~JSON
-      {
-        "name": "Headquarters",
-        "address": {
-          "street": "123 Main St",
-          "city": "Anytown"
+    {
+      "name": "Headquarters",
+      "address": {
+        "street": "123 Main St",
+        "city": "Anytown"
+      },
+      "rooms": [
+        {
+          "name": "Conference Room",
+          "size": 30
         },
-        "rooms": [
-          {
-            "name": "Conference Room",
-            "size": 30
-          },
-          {
-            "name": "Office",
-            "size": 20
-          }
-        ]
-      }
-    JSON
+        {
+          "name": "Office",
+          "size": 20
+        }
+      ]
+    }.to_json
   }
 
   let(:model_toml) {
     <<~TOML
       name = "Headquarters"
-
       [address]
-      street = "123 Main St"
       city = "Anytown"
-
+      street = "123 Main St"
       [[rooms]]
       name = "Conference Room"
       size = 30
-
       [[rooms]]
       name = "Office"
       size = 20
@@ -168,18 +164,19 @@ RSpec.describe SimpleModel do
 
   let(:model_yaml_missing_element) {
     <<~YAML
+      ---
       name: Headquarters
       rooms:
-        - name: Conference Room
-          size: 30
-        - name: Office
-          size: 20
+      - name: Conference Room
+        size: 30
+      - name: Office
+        size: 20
     YAML
   }
 
   it "initializes with default values" do
-    default_model = Building.new
-    expect(default_model.name).to eq(nil)
+    default_model = SimpleModel::Building.new
+    expect(default_model.name).to eq("Unnamed building")
     expect(default_model.address).to eq(nil)
     expect(default_model.rooms).to eq([])
   end
@@ -190,7 +187,7 @@ RSpec.describe SimpleModel do
   end
 
   it "deserializes from XML" do
-    sample = Building.from_xml(model_xml)
+    sample = SimpleModel::Building.from_xml(model_xml)
     expect(sample.name).to eq("Headquarters")
     expect(sample.address.street).to eq("123 Main St")
     expect(sample.address.city).to eq("Anytown")
@@ -203,7 +200,7 @@ RSpec.describe SimpleModel do
 
   it "round-trips XML" do
     xml = model.to_xml
-    new_model = Building.from_xml(xml)
+    new_model = SimpleModel::Building.from_xml(xml)
     expect(new_model.name).to eq(model.name)
     expect(new_model.address.street).to eq(model.address.street)
     expect(new_model.address.city).to eq(model.address.city)
@@ -220,7 +217,7 @@ RSpec.describe SimpleModel do
   end
 
   it "deserializes from YAML" do
-    sample = Building.from_yaml(model_yaml)
+    sample = SimpleModel::Building.from_yaml(model_yaml)
     expect(sample.name).to eq("Headquarters")
     expect(sample.address.street).to eq("123 Main St")
     expect(sample.address.city).to eq("Anytown")
@@ -233,7 +230,7 @@ RSpec.describe SimpleModel do
 
   it "round-trips YAML" do
     yaml = model.to_yaml
-    new_model = Building.from_yaml(yaml)
+    new_model = SimpleModel::Building.from_yaml(yaml)
     expect(new_model.name).to eq(model.name)
     expect(new_model.address.street).to eq(model.address.street)
     expect(new_model.address.city).to eq(model.address.city)
@@ -245,7 +242,7 @@ RSpec.describe SimpleModel do
   end
 
   it "serializes to YAML without the omitted element" do
-    model_without_address = Building.new(name: "Headquarters", rooms: rooms)
+    model_without_address = SimpleModel::Building.new(name: "Headquarters", rooms: rooms)
     expected_yaml = model_yaml_missing_element.strip
     expect(model_without_address.to_yaml.strip).to eq(expected_yaml)
   end
@@ -256,7 +253,7 @@ RSpec.describe SimpleModel do
   end
 
   it "deserializes from JSON" do
-    sample = Building.from_json(model_json)
+    sample = SimpleModel::Building.from_json(model_json)
     expect(sample.name).to eq("Headquarters")
     expect(sample.address.street).to eq("123 Main St")
     expect(sample.address.city).to eq("Anytown")
@@ -269,7 +266,7 @@ RSpec.describe SimpleModel do
 
   it "round-trips JSON" do
     json = model.to_json
-    new_model = Building.from_json(json)
+    new_model = SimpleModel::Building.from_json(json)
     expect(new_model.name).to eq(model.name)
     expect(new_model.address.street).to eq(model.address.street)
     expect(new_model.address.city).to eq(model.address.city)
@@ -286,7 +283,7 @@ RSpec.describe SimpleModel do
   end
 
   it "deserializes from TOML" do
-    sample = Building.from_toml(model_toml)
+    sample = SimpleModel::Building.from_toml(model_toml)
     expect(sample.name).to eq("Headquarters")
     expect(sample.address.street).to eq("123 Main St")
     expect(sample.address.city).to eq("Anytown")
@@ -299,7 +296,7 @@ RSpec.describe SimpleModel do
 
   it "round-trips TOML" do
     toml = model.to_toml
-    new_model = Building.from_toml(toml)
+    new_model = SimpleModel::Building.from_toml(toml)
     expect(new_model.name).to eq(model.name)
     expect(new_model.address.street).to eq(model.address.street)
     expect(new_model.address.city).to eq(model.address.city)

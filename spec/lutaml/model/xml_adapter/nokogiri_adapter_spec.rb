@@ -7,7 +7,7 @@ RSpec.describe Lutaml::Model::XmlAdapter::NokogiriDocument do
   let(:xml_string) do
     <<-XML
       <root xmlns="http://example.com/default" xmlns:prefix="http://example.com/prefixed">
-        <prefix:child attr="value" prefix:attr="prefixed_value">Text</prefix:child>
+        <prefix:child attr="value" prefix:attr1="prefixed_value">Text</prefix:child>
       </root>
     XML
   end
@@ -17,24 +17,24 @@ RSpec.describe Lutaml::Model::XmlAdapter::NokogiriDocument do
   context "parsing XML with namespaces" do
     it "parses the root element with default namespace" do
       expect(document.root.name).to eq("root")
-      expect(document.root.namespace).to eq("http://example.com/default")
-      expect(document.root.namespace_prefix).to be_nil
+      expect(document.root.namespace.uri).to eq("http://example.com/default")
+      expect(document.root.namespace.prefix).to be_nil
     end
 
     it "parses child element with prefixed namespace" do
       child = document.root.children[1]
       expect(child.name).to eq("prefix:child")
-      expect(child.namespace).to eq("http://example.com/prefixed")
-      expect(child.namespace_prefix).to eq("prefix")
+      expect(child.namespace.uri).to eq("http://example.com/prefixed")
+      expect(child.namespace.prefix).to eq("prefix")
     end
 
     it "parses attributes with and without namespaces" do
-      child = document.root.children.first
+      child = document.root.children[1]
       expect(child.attributes["attr"].value).to eq("value")
       expect(child.attributes["attr"].namespace).to be_nil
-      expect(child.attributes["prefix:attr"].value).to eq("prefixed_value")
-      expect(child.attributes["prefix:attr"].namespace).to eq("http://example.com/prefixed")
-      expect(child.attributes["prefix:attr"].namespace_prefix).to eq("prefix")
+      expect(child.attributes["prefix:attr1"].value).to eq("prefixed_value")
+      expect(child.attributes["prefix:attr1"].namespace).to eq("http://example.com/prefixed")
+      expect(child.attributes["prefix:attr1"].namespace_prefix).to eq("prefix")
     end
   end
 
@@ -47,11 +47,11 @@ RSpec.describe Lutaml::Model::XmlAdapter::NokogiriDocument do
       expect(root.name).to eq("root")
       expect(root.namespace.href).to eq("http://example.com/default")
 
-      child = root.children.first
-      expect(child.name).to eq("prefix:child")
+      child = root.children[1]
+      expect(child.name).to eq("child")
       expect(child.namespace.href).to eq("http://example.com/prefixed")
       expect(child.attributes["attr"].value).to eq("value")
-      expect(child.attributes["prefix:attr"].value).to eq("prefixed_value")
+      expect(child.attributes["attr1"].value).to eq("prefixed_value")
     end
   end
 end

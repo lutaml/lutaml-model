@@ -10,7 +10,7 @@ class RenderNil < Lutaml::Model::Serializable
 
   json do
     map "name", to: :name, render_nil: true
-    map "clay_type", to: :clay_type, render_nil: false
+    map "clay_type", to: :clay_type, render_nil: true
     map "glaze", to: :glaze, render_nil: true
     map "dimensions", to: :dimensions, render_nil: false
   end
@@ -54,7 +54,7 @@ RSpec.describe RenderNil do
       name: nil,
       clay_type: nil,
       glaze: nil,
-      dimensions: nil,
+      dimensions: [],
     }.to_json
 
     expect(model.to_json).to eq(expected_json)
@@ -66,7 +66,7 @@ RSpec.describe RenderNil do
     expect(pottery.name).to be_nil
     expect(pottery.clay_type).to be_nil
     expect(pottery.glaze).to be_nil
-    expect(pottery.dimensions).to be_nil
+    expect(pottery.dimensions).to eq([])
   end
 
   it "serializes to XML with render_nil option" do
@@ -94,20 +94,20 @@ RSpec.describe RenderNil do
   end
 
   it "serializes to YAML with render_nil option" do
-    expected_yaml = <<-YAML
----
-name:
-glaze:
+    expected_yaml = <<~YAML
+      ---
+      name:
+      glaze:
+      dimensions: []
     YAML
 
     expect(model.to_yaml.strip).to eq(expected_yaml.strip)
   end
 
   it "deserializes from YAML with render_nil option" do
-    yaml = <<-YAML
----
-name:
-glaze:
+    yaml = <<~YAML
+      ---
+      glaze:
     YAML
 
     pottery = RenderNil.from_yaml(yaml)

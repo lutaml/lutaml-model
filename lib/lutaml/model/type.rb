@@ -37,12 +37,11 @@ module Lutaml
                         end
 
                         def self.serialize(value)
-                          return "" if value.nil?
+                          return if value.nil?
 
                           Type.serialize(value, #{t})
                         end
                      end
-
                    HEREDOC
       end
 
@@ -68,6 +67,12 @@ module Lutaml
 
         def self.serialize(value)
           value.iso8601
+        end
+      end
+
+      class Array
+        def initialize(array)
+          Array(array)
         end
       end
 
@@ -123,16 +128,24 @@ module Lutaml
       end
 
       def self.serialize(value, type)
-        return "" if value.nil?
+        return if value.nil?
 
         if type == Date
           value.iso8601
+        elsif type == DateTime
+          DateTime.serialize(value)
         elsif type == Integer
           value.to_i
         elsif type == Float
           value.to_f
         elsif type == Boolean
           to_boolean(value)
+        elsif type == Decimal
+          value.to_s("F")
+        elsif type == Hash
+          Hash(value)
+        elsif type == JSON
+          value.to_json
         else
           value.to_s
         end

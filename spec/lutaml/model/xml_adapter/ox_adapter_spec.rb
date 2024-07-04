@@ -17,15 +17,15 @@ RSpec.describe Lutaml::Model::XmlAdapter::OxDocument do
   context "parsing XML with namespaces" do
     it "parses the root element with default namespace" do
       expect(document.root.name).to eq("root")
-      expect(document.root.namespace).to eq("http://example.com/default")
-      expect(document.root.namespace_prefix).to be_nil
+      expect(document.root.namespace.uri).to eq("http://example.com/default")
+      expect(document.root.namespace.prefix).to be_nil
     end
 
     it "parses child element with prefixed namespace" do
       child = document.root.children.first
       expect(child.name).to eq("prefix:child")
-      expect(child.namespace).to eq("http://example.com/prefixed")
-      expect(child.namespace_prefix).to eq("prefix")
+      expect(child.namespace.uri).to eq("http://example.com/prefixed")
+      expect(child.namespace.prefix).to eq("prefix")
     end
 
     it "parses attributes with and without namespaces" do
@@ -43,15 +43,15 @@ RSpec.describe Lutaml::Model::XmlAdapter::OxDocument do
       xml_output = document.to_xml
       parsed_output = Ox.parse(xml_output)
 
-      root = parsed_output.nodes.first
+      root = parsed_output
       expect(root.name).to eq("root")
-      expect(root.namespace.href).to eq("http://example.com/default")
+      expect(root.attributes[:xmlns]).to eq("http://example.com/default")
+      expect(root.attributes[:"xmlns:prefix"]).to eq("http://example.com/prefixed")
 
       child = root.nodes.first
       expect(child.name).to eq("prefix:child")
-      expect(child.namespace.href).to eq("http://example.com/prefixed")
-      expect(child.attributes["attr"]).to eq("value")
-      expect(child.attributes["prefix:attr"]).to eq("prefixed_value")
+      expect(child.attributes[:attr]).to eq("value")
+      expect(child.attributes[:"prefix:attr"]).to eq("prefixed_value")
     end
   end
 end
