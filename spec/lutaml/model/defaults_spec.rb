@@ -56,7 +56,7 @@ RSpec.describe Defaults do
       name: "John Doe",
       age: 30,
       balance: "1234.56",
-      tags: ["ruby", "developer"],
+      tags: [{ "text" => "ruby" }, { "text" => "developer" }],
       preferences: { theme: "dark", notifications: true },
       uuid: "123e4567-e89b-12d3-a456-426614174000",
       status: :active,

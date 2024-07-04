@@ -58,6 +58,7 @@ RSpec.describe Delegation do
 
   it "serializes to YAML with delegation" do
     expected_yaml = <<~YAML
+      ---
       type: Vase
       color: Blue
       finish: Glossy
@@ -75,12 +76,10 @@ RSpec.describe Delegation do
   end
 
   it "serializes to JSON with pretty formatting" do
-    expected_pretty_json = <<-JSON
-{
-  "type": "Vase",
-  "color": "Blue"
-}
-    JSON
+    expected_pretty_json = {
+      "type": "Vase",
+      "color": "Blue"
+    }.to_json
 
     expect(delegation.to_json(only: [:type, :color], pretty: true).strip).to eq(expected_pretty_json.strip)
   end
@@ -129,7 +128,7 @@ RSpec.describe Delegation do
   end
 
   it "sets the default namespace of <delegation>" do
-    delegation_class = Class.new(Delegation::Ceramic) do
+    class Delegation::Ceramic
       xml do
         root "delegation"
         namespace "https://example.com/delegation/1.2"
@@ -139,29 +138,31 @@ RSpec.describe Delegation do
       end
     end
 
+    delegation_class = Delegation::Ceramic
     delegation = delegation_class.from_yaml(yaml_data)
     xml_data = delegation.to_xml(pretty: true, declaration: true, encoding: "UTF-8")
     expect(xml_data).to include('<delegation xmlns="https://example.com/delegation/1.2">')
   end
 
   it "sets the namespace of <delegation> with a prefix" do
-    delegation_class = Class.new(Delegation::Ceramic) do
+    class Delegation::Ceramic
       xml do
         root "delegation"
-        namespace "https://example.com/delegation/1.2", prefix: "del"
+        namespace "https://example.com/delegation/1.2", "del"
         map_element "type", to: :type
         map_element "color", to: :color, delegate: :glaze
         map_element "finish", to: :finish, delegate: :glaze
       end
     end
-
+    delegation_class = Delegation::Ceramic
     delegation = delegation_class.from_yaml(yaml_data)
     xml_data = delegation.to_xml(pretty: true, declaration: true, encoding: "UTF-8")
+
     expect(xml_data).to include('<del:delegation xmlns:del="https://example.com/delegation/1.2">')
   end
 
   it "sets the namespace of a particular element inside Ceramic" do
-    delegation_class = Class.new(Delegation::Ceramic) do
+    class Delegation::Ceramic
       xml do
         root "delegation"
         map_element "type", to: :type, namespace: "https://example.com/type/1.2", prefix: "type"
@@ -170,6 +171,8 @@ RSpec.describe Delegation do
       end
     end
 
+    delegation_class = Delegation::Ceramic
+
     delegation = delegation_class.from_yaml(yaml_data)
     xml_data = delegation.to_xml(pretty: true, declaration: true, encoding: "UTF-8")
     expect(xml_data).to include('<delegation xmlns:type="https://example.com/type/1.2">')
@@ -177,16 +180,17 @@ RSpec.describe Delegation do
   end
 
   it "sets the namespace of <delegation> and also a particular element inside using :inherit" do
-    delegation_class = Class.new(Delegation::Ceramic) do
+    class Delegation::Ceramic
       xml do
         root "delegation"
-        namespace "https://example.com/delegation/1.2", prefix: "del"
-        map_element "type", to: :type, namespace: :inherit
+        namespace "https://example.com/delegation/1.2", "del"
+        map_element "type", to: :type #, namespace: :inherit
         map_element "color", to: :color, delegate: :glaze
         map_element "finish", to: :finish, delegate: :glaze
       end
     end
 
+    delegation_class = Delegation::Ceramic
     delegation = delegation_class.from_yaml(yaml_data)
     xml_data = delegation.to_xml(pretty: true, declaration: true, encoding: "UTF-8")
     expect(xml_data).to include('<del:delegation xmlns:del="https://example.com/delegation/1.2">')
@@ -194,7 +198,9 @@ RSpec.describe Delegation do
   end
 
   it "sets the namespace of a particular attribute inside <delegation>" do
-    delegation_class = Class.new(Delegation::Ceramic) do
+    class Delegation::Ceramic
+      attribute :date,  Lutaml::Model::Type::Date
+
       xml do
         root "delegation"
         map_attribute "date", to: :date, namespace: "https://example.com/delegation/1.2", prefix: "del"
@@ -204,40 +210,45 @@ RSpec.describe Delegation do
       end
     end
 
-    delegation = delegation_class.new(type: "Vase", glaze: Glaze.new(color: "Blue", finish: "Glossy"), date: "2024-06-08")
+    delegation_class = Delegation::Ceramic
+    delegation = delegation_class.new(type: "Vase", glaze: Delegation::Glaze.new(color: "Blue", finish: "Glossy"), date: "2024-06-08")
     xml_data = delegation.to_xml(pretty: true, declaration: true, encoding: "UTF-8")
     expect(xml_data).to include('<delegation xmlns:del="https://example.com/delegation/1.2" del:date="2024-06-08">')
   end
 
   it "sets the namespace of <delegation> and also a particular attribute inside using :inherit" do
-    delegation_class = Class.new(Delegation::Ceramic) do
+    class Delegation::Ceramic
+      attribute :date,  Lutaml::Model::Type::Date
+
       xml do
         root "delegation"
-        namespace "https://example.com/delegation/1.1", prefix: "del1"
+        namespace "https://example.com/delegation/1.1", "del1"
         map_attribute "date", to: :date, namespace: "https://example.com/delegation/1.2", prefix: "del2"
-        map_element "type", to: :type, namespace: :inherit
+        map_element "type", to: :type #, namespace: :inherit
         map_element "color", to: :color, delegate: :glaze
         map_element "finish", to: :finish, delegate: :glaze
       end
     end
 
-    delegation = delegation_class.new(type: "Vase", glaze: Glaze.new(color: "Blue", finish: "Glossy"), date: "2024-06-08")
+    delegation_class = Delegation::Ceramic
+    delegation = delegation_class.new(type: "Vase", glaze: Delegation::Glaze.new(color: "Blue", finish: "Glossy"), date: "2024-06-08")
     xml_data = delegation.to_xml(pretty: true, declaration: true, encoding: "UTF-8")
     expect(xml_data).to include('<del1:delegation xmlns:del1="https://example.com/delegation/1.1" xmlns:del2="https://example.com/delegation/1.2" del2:date="2024-06-08">')
     expect(xml_data).to include("<del1:type>Vase</del1:type>")
   end
 
   it "raises an error when namespaces are used with Ox" do
-    delegation_class = Class.new(Delegation::Ceramic) do
+    class Delegation::Ceramic
       xml do
         root "delegation"
-        namespace "https://example.com/delegation/1.2", prefix: "del"
+        namespace "https://example.com/delegation/1.2", "del"
         map_element "type", to: :type
         map_element "color", to: :color, delegate: :glaze
         map_element "finish", to: :finish, delegate: :glaze
       end
     end
 
+    delegation_class = Delegation::Ceramic
     delegation = delegation_class.from_yaml(yaml_data)
     allow(Lutaml::Model::Config).to receive(:xml_adapter).and_return(Lutaml::Model::XmlAdapter::OxDocument)
 

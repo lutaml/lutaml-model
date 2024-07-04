@@ -26,72 +26,64 @@ module Lutaml
             build_element(xml, @root, options)
           end
 
-          xml_data = builder.to_xml(options[:pretty] ? { indent: 2 } : {})
+          xml_data = builder.doc.root.to_xml(options[:pretty] ? { indent: 2 } : {})
           options[:declaration] ? declaration(options) + xml_data : xml_data
         end
 
         private
 
         def build_element(xml, element, options = {})
+          return element.to_xml(xml) if element.is_a?(Lutaml::Model::XmlAdapter::NokogiriElement)
+
           xml_mapping = element.class.mappings_for(:xml)
           return xml unless xml_mapping
 
           attributes = build_attributes(element, xml_mapping)
 
           prefixed_xml = xml_mapping.namespace_prefix ? xml[xml_mapping.namespace_prefix] : xml
+
           prefixed_xml.send(xml_mapping.root_element, attributes) do
             xml_mapping.elements.each do |element_rule|
-              attribute_def = element.class.attributes[element_rule.to]
-              value = element.send(element_rule.to)
+              if element_rule.delegate
+                attribute_def = element.send(element_rule.delegate).class.attributes[element_rule.to]
+                value = element.send(element_rule.delegate).send(element_rule.to)
+              else
+                attribute_def = element.class.attributes[element_rule.to]
+                value = element.send(element_rule.to)
+              end
 
               prefixed_xml = element_rule.prefix ? xml[element_rule.prefix] : xml
 
               val = if attribute_def.collection?
                 value
-              else
+              elsif value || element_rule.render_nil?
                 [value]
+              else
+                []
               end
 
               val.each do |v|
                 if attribute_def&.type <= Lutaml::Model::Serialize
                   handle_nested_elements(xml, element_rule, v)
                 else
-                  prefixed_xml.send(element_rule.name) { xml.text attribute_def.type.serialize(v) }
+                  prefixed_xml.send(element_rule.name) { xml.text(attribute_def.type.serialize(v)) if v }
                 end
               end
-            rescue => e
-              # require "pry"; binding.pry
+
+              # if attribute_def&.type <= Lutaml::Model::Serialize
+              #   prefixed_xml.send(element_rule.name) do
+              #     val.each do |v|
+              #       handle_nested_elements(xml, element_rule, v)
+              #     end
+              #   end
+              # else
+              #   val.each do |v|
+              #     prefixed_xml.send(element_rule.name) { xml.text(attribute_def.type.serialize(v)) if v }
+              #   end
+              # end
+
             end
             prefixed_xml.text element.text unless xml_mapping.elements.any?
-          end
-        rescue => e
-          # require "pry"; binding.pry
-        end
-
-        def build_attributes(element, xml_mapping)
-          h = xml_mapping.attributes.each_with_object(namespace_attributes(xml_mapping)) do |mapping_rule, hash|
-            full_name = if mapping_rule.namespace
-                "#{mapping_rule.prefix ? "#{mapping_rule.prefix}:" : ""}#{mapping_rule.name}"
-              else
-                mapping_rule.name
-              end
-            hash[full_name] = element.send(mapping_rule.to)
-          end
-
-          xml_mapping.elements.each_with_object(h) do |mapping_rule, hash|
-            if mapping_rule.namespace
-              hash["xmlns:#{mapping_rule.prefix}"] = mapping_rule.namespace
-            end
-          end
-        end
-
-        def namespace_attributes(xml_mapping)
-          return {} unless xml_mapping.namespace_uri
-
-          if xml_mapping.namespace_prefix
-            { "xmlns:#{xml_mapping.namespace_prefix}" => xml_mapping.namespace_uri }
-          else
-            { "xmlns" => xml_mapping.namespace_uri }
           end
         end
 
@@ -106,13 +98,21 @@ module Lutaml
 
         def parse_element(element)
           result = element.children.each_with_object({}) do |child, hash|
-            hash[child.unprefixed_name] ||= []
+            value = if child.text?
+                      child.text
+                    else
+                      parse_element(child)
+                    end
 
-            hash[child.unprefixed_name] << if child.text?
-                                             child.text
-                                           else
-                                             parse_element(child)
-                                           end
+            if hash[child.unprefixed_name]
+              hash[child.unprefixed_name] = [hash[child.unprefixed_name], value].flatten
+            else
+              hash[child.unprefixed_name] = value
+            end
+          end
+
+          element.attributes.each do |name, attr|
+            result[name] = attr.value
           end
 
           # result["_text"] = element.text if element.text
@@ -121,11 +121,34 @@ module Lutaml
       end
 
       class NokogiriElement < Element
-        def initialize(node)
-          attributes = node.attributes.transform_values do |attr|
-            Attribute.new(attr.name, attr.value, namespace: attr.namespace&.href, namespace_prefix: attr.namespace&.prefix)
+        def initialize(node, root_node: nil)
+          if root_node
+            node.namespaces.each do |prefix, name|
+              namespace = Lutaml::Model::XmlNamespace.new(name, prefix)
+
+              root_node.add_namespace(namespace)
+            end
           end
-          super(node.name, attributes, parse_children(node), node.text, namespace: node.namespace&.href, namespace_prefix: node.namespace&.prefix)
+
+          attributes = {}
+          node.attributes.transform_values do |attr|
+            name = if attr.namespace
+                     "#{attr.namespace.prefix}:#{attr.name}"
+                   else
+                     attr.name
+                   end
+
+            attributes[name] = Attribute.new(name, attr.value, namespace: attr.namespace&.href, namespace_prefix: attr.namespace&.prefix)
+          end
+
+          super(
+            node.name,
+            attributes,
+            parse_all_children(node, root_node: (root_node || self)),
+            node.text,
+            parent_document: root_node,
+            namespace_prefix: node.namespace&.prefix,
+          )
         end
 
         def text?
@@ -133,11 +156,58 @@ module Lutaml
           children.empty? && text.length.positive?
         end
 
+        def to_xml(builder = nil)
+          builder ||= Nokogiri::XML::Builder.new
+
+          if name == "text"
+            builder.text(text)
+          else
+            attrs = build_attributes(self)
+
+            builder.send(name, attrs) do |xml|
+              children.each do |child|
+                child.to_xml(xml)
+              end
+            end
+          end
+
+          builder
+        end
+
         private
 
-        def parse_children(node)
-          # node.children.select(&:element?).map { |child| NokogiriElement.new(child) }
-          node.children.map { |child| NokogiriElement.new(child) }
+        def parse_children(node, root_node: nil)
+          node.children.select(&:element?).map { |child| NokogiriElement.new(child, root_node: root_node) }
+        end
+
+        def parse_all_children(node, root_node: nil)
+          node.children.map { |child| NokogiriElement.new(child, root_node: root_node) }
+        end
+
+        def build_attributes(node)
+          attrs = node.attributes.each_with_object({}) do |(name, attr), attrs|
+            attrs[name] = attr.value
+          end
+
+          attrs = attrs.merge(build_namespace_attributes(node))
+
+          attrs
+        end
+
+        def build_namespace_attributes(node)
+          namespace_attrs = {}
+
+          node.own_namespaces.each do |prefix, namespace|
+            namespace_attrs[namespace.attr_name] = namespace.uri
+          end
+
+          return namespace_attrs if node.children.empty?
+
+          node.children.each do |child|
+            namespace_attrs = namespace_attrs.merge(build_namespace_attributes(child))
+          end
+
+          namespace_attrs
         end
       end
     end

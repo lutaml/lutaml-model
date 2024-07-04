@@ -13,6 +13,7 @@ module Lutaml
       end
 
       alias from name
+      alias render_nil? render_nil
 
       def prefixed_name
         if prefix

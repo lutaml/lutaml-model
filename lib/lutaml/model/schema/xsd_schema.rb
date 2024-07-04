@@ -29,24 +29,15 @@ module Lutaml
         end
 
         def self.get_xsd_type(type)
-          case type
-          when Lutaml::Model::Type::String
-            "xs:string"
-          when Lutaml::Model::Type::Integer
-            "xs:integer"
-          when Lutaml::Model::Type::Boolean
-            "xs:boolean"
-          when Lutaml::Model::Type::Float
-            "xs:float"
-          when Lutaml::Model::Type::Decimal
-            "xs:decimal"
-          when Lutaml::Model::Type::Array
-            "xs:array"
-          when Lutaml::Model::Type::Hash
-            "xs:object"
-          else
-            "xs:string" # Default to string for unknown types
-          end
+          {
+            Lutaml::Model::Type::String => "xs:string",
+            Lutaml::Model::Type::Integer => "xs:integer",
+            Lutaml::Model::Type::Boolean => "xs:boolean",
+            Lutaml::Model::Type::Float => "xs:float",
+            Lutaml::Model::Type::Decimal => "xs:decimal",
+            Lutaml::Model::Type::Array => "xs:array",
+            Lutaml::Model::Type::Hash => "xs:object",
+          }[type] || "xs:string" # Default to string for unknown types
         end
       end
     end

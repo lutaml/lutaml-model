@@ -27,7 +27,7 @@ module CollectionTests
 end
 
 RSpec.describe CollectionTests do
-  let(:pots) { [CollectionTests::Pot.new(material: "clay"), CollectionTests::Pot.new(material: "ceramic")] }
+  let(:pots) { [{ material: "clay" }, { material: "ceramic" }] }
   let(:temperatures) { [1200, 1300, 1400] }
   let(:attributes) { { brand: "Skutt", pots: pots, temperatures: temperatures } }
   let(:model) { CollectionTests::Kiln.new(attributes) }
