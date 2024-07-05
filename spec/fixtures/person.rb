@@ -14,6 +14,7 @@ class Person < Lutaml::Model::Serializable
   xml do
     root "Person"
     namespace "http://example.com/person", "p"
+
     map_element "FirstName", to: :first_name, namespace: "http://example.com/nsp1", prefix: "nsp1"
     map_element "LastName", to: :last_name, namespace: "http://example.com/nsp1", prefix: "nsp1"
     map_element "Age", to: :age

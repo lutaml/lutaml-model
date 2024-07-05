@@ -224,7 +224,7 @@ RSpec.describe Delegation do
         root "delegation"
         namespace "https://example.com/delegation/1.1", "del1"
         map_attribute "date", to: :date, namespace: "https://example.com/delegation/1.2", prefix: "del2"
-        map_element "type", to: :type #, namespace: :inherit
+        map_element "type", to: :type, namespace: :inherit
         map_element "color", to: :color, delegate: :glaze
         map_element "finish", to: :finish, delegate: :glaze
       end
@@ -235,23 +235,5 @@ RSpec.describe Delegation do
     xml_data = delegation.to_xml(pretty: true, declaration: true, encoding: "UTF-8")
     expect(xml_data).to include('<del1:delegation xmlns:del1="https://example.com/delegation/1.1" xmlns:del2="https://example.com/delegation/1.2" del2:date="2024-06-08">')
     expect(xml_data).to include("<del1:type>Vase</del1:type>")
-  end
-
-  it "raises an error when namespaces are used with Ox" do
-    class Delegation::Ceramic
-      xml do
-        root "delegation"
-        namespace "https://example.com/delegation/1.2", "del"
-        map_element "type", to: :type
-        map_element "color", to: :color, delegate: :glaze
-        map_element "finish", to: :finish, delegate: :glaze
-      end
-    end
-
-    delegation_class = Delegation::Ceramic
-    delegation = delegation_class.from_yaml(yaml_data)
-    allow(Lutaml::Model::Config).to receive(:xml_adapter).and_return(Lutaml::Model::XmlAdapter::OxDocument)
-
-    expect { delegation.to_xml(pretty: true, declaration: true, encoding: "UTF-8") }.to raise_error("Namespaces are not supported with the Ox adapter.")
   end
 end

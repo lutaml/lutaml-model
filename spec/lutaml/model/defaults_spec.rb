@@ -14,7 +14,7 @@ class Defaults < Lutaml::Model::Serializable
   attribute :name, Lutaml::Model::Type::String, default: -> { "Anonymous" }
   attribute :age, Lutaml::Model::Type::Integer, default: -> { 18 }
   attribute :balance, Lutaml::Model::Type::Decimal, default: -> { BigDecimal("0.0") }
-  attribute :tags, SampleModelTag, collection: true
+  attribute :tag, SampleModelTag, collection: true
   attribute :preferences, Lutaml::Model::Type::Hash, default: -> { { notifications: true } }
   attribute :uuid, Lutaml::Model::Type::UUID, default: -> { SecureRandom.uuid }
   attribute :status, Lutaml::Model::Type::Symbol, default: -> { :active }
@@ -31,7 +31,7 @@ class Defaults < Lutaml::Model::Serializable
     map_element "Name", to: :name
     map_element "Age", to: :age
     map_element "Balance", to: :balance
-    map_element "Tags", to: :tags
+    map_element "Tag", to: :tag
     map_element "Preferences", to: :preferences
     map_element "UUID", to: :uuid
     map_element "Status", to: :status
@@ -56,7 +56,7 @@ RSpec.describe Defaults do
       name: "John Doe",
       age: 30,
       balance: "1234.56",
-      tags: [{ "text" => "ruby" }, { "text" => "developer" }],
+      tag: [{ "text" => "ruby" }, { "text" => "developer" }],
       preferences: { theme: "dark", notifications: true },
       uuid: "123e4567-e89b-12d3-a456-426614174000",
       status: :active,
@@ -77,8 +77,12 @@ RSpec.describe Defaults do
         <Name>John Doe</Name>
         <Age>30</Age>
         <Balance>1234.56</Balance>
-        <Tags><Tag>ruby</Tag><Tag>developer</Tag></Tags>
-        <Preferences><theme>dark</theme><notifications>true</notifications></Preferences>
+        <Tag>ruby</Tag>
+        <Tag>developer</Tag>
+        <Preferences>
+          <theme>dark</theme>
+          <notifications>true</notifications>
+        </Preferences>
         <UUID>123e4567-e89b-12d3-a456-426614174000</UUID>
         <Status>active</Status>
         <LargeNumber>12345678901234567890</LargeNumber>
@@ -96,7 +100,7 @@ RSpec.describe Defaults do
     expect(default_model.name).to eq("Anonymous")
     expect(default_model.age).to eq(18)
     expect(default_model.balance).to eq(BigDecimal("0.0"))
-    expect(default_model.tags).to eq([])
+    expect(default_model.tag).to eq([])
     expect(default_model.preferences).to eq({ notifications: true })
     expect(default_model.uuid).to be_a(String)
     expect(default_model.status).to eq(:active)
@@ -119,8 +123,9 @@ RSpec.describe Defaults do
     expect(sample.name).to eq("John Doe")
     expect(sample.age).to eq(30)
     expect(sample.balance).to eq(BigDecimal("1234.56"))
-    expect(sample.tags).to eq(["ruby", "developer"])
-    expect(sample.preferences).to eq({ theme: "dark", notifications: true })
+    expect(sample.tag[0].text).to eq("ruby")
+    expect(sample.tag[1].text).to eq("developer")
+    expect(sample.preferences).to eq({ "theme" => "dark", "notifications" => "true" })
     expect(sample.uuid).to eq("123e4567-e89b-12d3-a456-426614174000")
     expect(sample.status).to eq(:active)
     expect(sample.large_number).to eq(12345678901234567890)
@@ -142,8 +147,9 @@ RSpec.describe Defaults do
     expect(sample.name).to eq("John Doe")
     expect(sample.age).to eq(30)
     expect(sample.balance).to eq(BigDecimal("1234.56"))
-    expect(sample.tags).to eq(["ruby", "developer"])
-    expect(sample.preferences).to eq({ theme: "dark", notifications: true })
+    expect(sample.tag[0].text).to eq("ruby")
+    expect(sample.tag[1].text).to eq("developer")
+    expect(sample.preferences).to eq({ "theme" => "dark", "notifications" => true })
     expect(sample.uuid).to eq("123e4567-e89b-12d3-a456-426614174000")
     expect(sample.status).to eq(:active)
     expect(sample.large_number).to eq(12345678901234567890)

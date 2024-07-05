@@ -10,7 +10,11 @@ RSpec.shared_examples "a TOML adapter" do |adapter_class|
 
   it "serializes to TOML" do
     toml = adapter_class.new(attributes).to_toml
-    expected_toml = adapter_class == Lutaml::Model::TomlAdapter::TomlRbDocument ? TomlRB.dump(attributes) : Tomlib::Generator.new(attributes).toml_str
+    expected_toml = <<~TOML
+      age = 30
+      name = "John Doe"
+    TOML
+
     expect(toml).to eq(expected_toml)
   end
 

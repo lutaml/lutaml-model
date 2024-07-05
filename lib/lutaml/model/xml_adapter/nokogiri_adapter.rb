@@ -38,7 +38,7 @@ module Lutaml
           xml_mapping = element.class.mappings_for(:xml)
           return xml unless xml_mapping
 
-          attributes = build_attributes(element, xml_mapping)
+          attributes = build_attributes(element, xml_mapping, root: @root)
 
           prefixed_xml = xml_mapping.namespace_prefix ? xml[xml_mapping.namespace_prefix] : xml
 
@@ -56,7 +56,7 @@ module Lutaml
 
               val = if attribute_def.collection?
                 value
-              elsif value || element_rule.render_nil?
+              elsif !value.nil? || element_rule.render_nil?
                 [value]
               else
                 []
@@ -66,22 +66,21 @@ module Lutaml
                 if attribute_def&.type <= Lutaml::Model::Serialize
                   handle_nested_elements(xml, element_rule, v)
                 else
-                  prefixed_xml.send(element_rule.name) { xml.text(attribute_def.type.serialize(v)) if v }
+                  prefixed_xml.send(element_rule.name) do
+                    if !v.nil?
+                      serialized_value = attribute_def.type.serialize(v)
+
+                      if attribute_def.type == Lutaml::Model::Type::Hash
+                        serialized_value.each do |key, val|
+                          xml.send(key) { xml.text val }
+                        end
+                      else
+                        xml.text(serialized_value)
+                      end
+                    end
+                  end
                 end
               end
-
-              # if attribute_def&.type <= Lutaml::Model::Serialize
-              #   prefixed_xml.send(element_rule.name) do
-              #     val.each do |v|
-              #       handle_nested_elements(xml, element_rule, v)
-              #     end
-              #   end
-              # else
-              #   val.each do |v|
-              #     prefixed_xml.send(element_rule.name) { xml.text(attribute_def.type.serialize(v)) if v }
-              #   end
-              # end
-
             end
             prefixed_xml.text element.text unless xml_mapping.elements.any?
           end
