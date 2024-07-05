@@ -41,7 +41,7 @@ module Lutaml
 
                           Type.serialize(value, #{t})
                         end
-                     end
+                      end
                    HEREDOC
       end
 
@@ -76,52 +76,79 @@ module Lutaml
         end
       end
 
+      class JSON
+        attr_reader :value
+
+        def initialize(value)
+          @value = value
+        end
+
+        def to_json
+          @value.to_json
+        end
+
+        def ==(other)
+          if other.is_a?(::Hash)
+            @value == other
+          else
+            @value == other.value
+          end
+        end
+
+        def self.cast(value)
+          return value if value.is_a?(self)
+
+          new(::JSON.parse(value))
+        end
+
+        def self.serialize(value)
+          value.to_json
+        end
+      end
+
       def self.cast(value, type)
         return if value.nil?
 
-        case type.new
-        when String
+        if type == String
           value.to_s
-        when Integer
+        elsif type == Integer || type == BigInteger
           value.to_i
-        when Float
+        elsif type == Float
           value.to_f
-        when Date
+        elsif type == Date
           begin
             ::Date.parse(value.to_s)
           rescue ArgumentError
             nil
           end
-        when DateTime
+        elsif type == DateTime
           DateTime.cast(value)
-        when Time
+        elsif type == Time
           ::Time.parse(value.to_s)
-        when TimeWithoutDate
+        elsif type == TimeWithoutDate
           TimeWithoutDate.cast(value)
-        when Boolean
+        elsif type == Boolean
           to_boolean(value)
-        when Decimal
+        elsif type == Decimal
           BigDecimal(value.to_s)
-        when Hash
-          Hash(value)
-        when UUID
+        elsif type == Hash
+          normalize_hash(Hash(value))
+        elsif type == UUID
           value =~ /\A[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\z/ ? value : SecureRandom.uuid
-        when Symbol
+        elsif type == Symbol
           value.to_sym
-        when BigInteger
-          value.to_i
-        when Binary
+        elsif type == Binary
           value.force_encoding("BINARY")
-        when URL
+        elsif type == URL
           URI.parse(value.to_s)
-        when Email
+        elsif type == Email
           value.to_s
-        when IPAddress
+        elsif type == IPAddress
           IPAddr.new(value.to_s)
-        when JSON
-          ::JSON.parse(value)
-        when Enum
-          value
+        elsif type == JSON
+          JSON.cast(value)
+        # elsif type == Enum
+        #   value
         else
           value
         end
@@ -155,6 +182,20 @@ module Lutaml
         return true if value == true || value.to_s =~ (/^(true|t|yes|y|1)$/i)
         return false if value == false || value.nil? || value.to_s =~ (/^(false|f|no|n|0)$/i)
         raise ArgumentError.new("invalid value for Boolean: \"#{value}\"")
+      end
+
+      def self.normalize_hash(hash)
+        return hash["text"] if hash.keys == ["text"]
+
+        hash.map do |key, value|
+          next if key == "text"
+
+          if value.is_a?(::Hash)
+            [key, normalize_hash(value)]
+          else
+            [key, value]
+          end
+        end.compact.to_h
       end
     end
   end

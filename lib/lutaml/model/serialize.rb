@@ -99,7 +99,7 @@ module Lutaml
 
             if attr.collection?
               value = (value || []).map { |v| attr.type <= Serialize ? attr.type.apply_mappings(v, format) : v }
-            elsif value.is_a?(Hash)
+            elsif value.is_a?(Hash) && attr.type != Lutaml::Model::Type::Hash
               value = attr.type.apply_mappings(value, format)
             end
 
@@ -139,7 +139,7 @@ module Lutaml
               if attr.type <= Serialize
                 value = attr.type.apply_xml_mapping(value) if value
               else
-                if value.is_a?(Hash)
+                if value.is_a?(Hash) && attr.type != Lutaml::Model::Type::Hash
                   value = value["text"]
                 end
 

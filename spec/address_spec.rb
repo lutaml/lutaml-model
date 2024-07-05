@@ -32,7 +32,7 @@ RSpec.describe Address do
     {
       country: "USA",
       post_code: "01001",
-      persons: [Person.new(person1), Person.new(person2)],
+      person: [person1, person2],
     }
   }
   let(:address) { Address.new(attributes) }
@@ -41,7 +41,7 @@ RSpec.describe Address do
     expected_json = {
       country: "USA",
       postCode: "01001",
-      persons: [
+      person: [
         {
           firstName: "Tom",
           lastName: "Warren",
@@ -72,7 +72,7 @@ RSpec.describe Address do
     json = {
       country: "USA",
       postCode: "01001",
-      persons: [
+      person: [
         {
           firstName: "Tom",
           lastName: "Warren",
@@ -99,37 +99,35 @@ RSpec.describe Address do
     address_from_json = Address.from_json(json)
     expect(address_from_json.country).to eq("USA")
     expect(address_from_json.post_code).to eq("01001")
-    expect(address_from_json.persons.first.first_name).to eq("Tom")
-    expect(address_from_json.persons.last.first_name).to eq("Jack")
+    expect(address_from_json.person.first.first_name).to eq("Tom")
+    expect(address_from_json.person.last.first_name).to eq("Jack")
   end
 
   it "serializes to XML with a collection of persons" do
     expected_xml = <<~XML
-      <Address>
+      <Address xmlns:p="http://example.com/person" xmlns:nsp1="http://example.com/nsp1">
         <Country>USA</Country>
         <PostCode>01001</PostCode>
-        <Persons>
-          <Person>
-            <FirstName>Tom</FirstName>
-            <LastName>Warren</LastName>
-            <Age>40</Age>
-            <Height>5.8</Height>
-            <Birthdate>1980-02-15</Birthdate>
-            <LastLogin>1980-02-15T10:00:00Z</LastLogin>
-            <WakeupTime>07:30:00</WakeupTime>
-            <Active>true</Active>
-          </Person>
-          <Person>
-            <FirstName>Jack</FirstName>
-            <LastName>Warren</LastName>
-            <Age>35</Age>
-            <Height>5.9</Height>
-            <Birthdate>1985-05-20</Birthdate>
-            <LastLogin>1985-05-20T09:00:00Z</LastLogin>
-            <WakeupTime>06:45:00</WakeupTime>
-            <Active>false</Active>
-          </Person>
-        </Persons>
+        <p:Person>
+          <nsp1:FirstName>Tom</nsp1:FirstName>
+          <nsp1:LastName>Warren</nsp1:LastName>
+          <p:Age>40</p:Age>
+          <p:Height>5.8</p:Height>
+          <p:Birthdate>1980-02-15</p:Birthdate>
+          <p:LastLogin>1980-02-15T10:00:00+00:00</p:LastLogin>
+          <p:WakeupTime>07:30:00</p:WakeupTime>
+          <p:Active>true</p:Active>
+        </p:Person>
+        <p:Person>
+          <nsp1:FirstName>Jack</nsp1:FirstName>
+          <nsp1:LastName>Warren</nsp1:LastName>
+          <p:Age>35</p:Age>
+          <p:Height>5.9</p:Height>
+          <p:Birthdate>1985-05-20</p:Birthdate>
+          <p:LastLogin>1985-05-20T09:00:00+00:00</p:LastLogin>
+          <p:WakeupTime>06:45:00</p:WakeupTime>
+          <p:Active>false</p:Active>
+        </p:Person>
       </Address>
     XML
 
@@ -141,35 +139,33 @@ RSpec.describe Address do
       <Address>
         <Country>USA</Country>
         <PostCode>01001</PostCode>
-        <Persons>
-          <Person>
-            <FirstName>Tom</FirstName>
-            <LastName>Warren</LastName>
-            <Age>40</Age>
-            <Height>5.8</Height>
-            <Birthdate>1980-02-15</Birthdate>
-            <LastLogin>1980-02-15T10:00:00Z</LastLogin>
-            <WakeupTime>07:30:00</WakeupTime>
-            <Active>true</Active>
-          </Person>
-          <Person>
-            <FirstName>Jack</FirstName>
-            <LastName>Warren</LastName>
-            <Age>35</Age>
-            <Height>5.9</Height>
-            <Birthdate>1985-05-20</Birthdate>
-            <LastLogin>1985-05-20T09:00:00Z</LastLogin>
-            <WakeupTime>06:45:00</WakeupTime>
-            <Active>false</Active>
-          </Person>
-        </Persons>
+        <Person>
+          <FirstName>Tom</FirstName>
+          <LastName>Warren</LastName>
+          <Age>40</Age>
+          <Height>5.8</Height>
+          <Birthdate>1980-02-15</Birthdate>
+          <LastLogin>1980-02-15T10:00:00Z</LastLogin>
+          <WakeupTime>07:30:00</WakeupTime>
+          <Active>true</Active>
+        </Person>
+        <Person>
+          <FirstName>Jack</FirstName>
+          <LastName>Warren</LastName>
+          <Age>35</Age>
+          <Height>5.9</Height>
+          <Birthdate>1985-05-20</Birthdate>
+          <LastLogin>1985-05-20T09:00:00Z</LastLogin>
+          <WakeupTime>06:45:00</WakeupTime>
+          <Active>false</Active>
+        </Person>
       </Address>
     XML
 
     address_from_xml = Address.from_xml(xml)
     expect(address_from_xml.country).to eq("USA")
     expect(address_from_xml.post_code).to eq("01001")
-    expect(address_from_xml.persons.first.first_name).to eq("Tom")
-    expect(address_from_xml.persons.last.first_name).to eq("Jack")
+    expect(address_from_xml.person.first.first_name).to eq("Tom")
+    expect(address_from_xml.person.last.first_name).to eq("Jack")
   end
 end

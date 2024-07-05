@@ -12,7 +12,8 @@ module Lutaml
         end
 
         def to_toml(*args)
-          Tomlib::Generator.new(to_h).toml_str
+          Tomlib.dump(to_h, *args)
+          # Tomlib::Generator.new(to_h).toml_str
         end
       end
     end

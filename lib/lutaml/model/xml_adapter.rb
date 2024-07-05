@@ -29,14 +29,13 @@ module Lutaml
           declaration
         end
 
-        def build_attributes(element, xml_mapping)
+        def build_attributes(element, xml_mapping, root: nil)
           h = xml_mapping.attributes.each_with_object(namespace_attributes(xml_mapping)) do |mapping_rule, hash|
-            full_name = if mapping_rule.namespace
-                "#{mapping_rule.prefix ? "#{mapping_rule.prefix}:" : ""}#{mapping_rule.name}"
-              else
-                mapping_rule.name
-              end
-            hash[full_name] = element.send(mapping_rule.to)
+            if mapping_rule.namespace
+              hash["xmlns:#{mapping_rule.prefix}"] = mapping_rule.namespace
+            end
+
+            hash[mapping_rule.prefixed_name] = element.send(mapping_rule.to)
           end
 
           xml_mapping.elements.each_with_object(h) do |mapping_rule, hash|
