@@ -7,7 +7,7 @@ module Lutaml
     module TomlAdapter
       class TomlibDocument < Document
         def self.parse(toml)
-          data = Tomlib::Parser.new(toml).parsed
+          data = Tomlib.load(toml)
           new(data)
         end
 
