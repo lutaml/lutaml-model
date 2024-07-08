@@ -83,7 +83,7 @@ module Lutaml
             raise "Attribute '#{rule.to}' not found in #{self}" unless attr
 
             value = if rule.custom_methods[:from]
-                      new.send(rule.custom_methods[:from], self, doc)
+                      new.send(rule.custom_methods[:from], hash, doc)
                     elsif doc.has_key?(rule.name) || doc.has_key?(rule.name.to_sym)
                       doc[rule.name] || doc[rule.name.to_sym]
                     else

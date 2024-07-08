@@ -5,7 +5,7 @@ require_relative "../../../../lib/lutaml/model/xml_adapter/oga_adapter"
 
 RSpec.xdescribe Lutaml::Model::XmlAdapter::OgaDocument do
   let(:xml_string) do
-    <<-XML
+    <<~XML
       <root xmlns="http://example.com/default" xmlns:prefix="http://example.com/prefixed">
         <prefix:child attr="value" prefix:attr="prefixed_value">Text</prefix:child>
       </root>
