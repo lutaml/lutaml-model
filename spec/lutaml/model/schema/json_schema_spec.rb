@@ -5,8 +5,12 @@ require "lutaml/model/schema"
 
 RSpec.describe Lutaml::Model::Schema::JsonSchema do
   it "generates JSON schema for Vase class" do
-    schema_json = described_class.generate(Vase,
-                                           id: "https://example.org/schema/vase/1.0", description: "Vase schema", pretty: true)
+    schema_json = described_class.generate(
+      Vase,
+      id: "https://example.org/schema/vase/1.0",
+      description: "Vase schema",
+      pretty: true,
+    )
 
     expected_json = <<~JSON
       {

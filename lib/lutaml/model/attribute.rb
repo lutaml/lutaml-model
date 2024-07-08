@@ -15,7 +15,9 @@ module Lutaml
       end
 
       def default
-        options[:default].is_a?(Proc) ? options[:default].call : options[:default]
+        return options[:default].call if options[:default].is_a?(Proc)
+
+        options[:default]
       end
 
       def render_nil?

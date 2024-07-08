@@ -21,7 +21,12 @@ module Lutaml
         end
 
         def declaration(options)
-          version = options[:declaration].is_a?(String) ? options[:declaration] : "1.0"
+          version = if options[:declaration].is_a?(String)
+                      options[:declaration]
+                    else
+                      "1.0"
+                    end
+
           encoding = if options[:encoding].is_a?(String)
                        options[:encoding]
                      else
@@ -33,8 +38,10 @@ module Lutaml
           declaration
         end
 
-        def build_attributes(element, xml_mapping, root: nil)
-          h = xml_mapping.attributes.each_with_object(namespace_attributes(xml_mapping)) do |mapping_rule, hash|
+        def build_attributes(element, xml_mapping)
+          attrs = namespace_attributes(xml_mapping)
+
+          xml_mapping.attributes.each_with_object(attrs) do |mapping_rule, hash|
             if mapping_rule.namespace
               hash["xmlns:#{mapping_rule.prefix}"] = mapping_rule.namespace
             end
@@ -42,13 +49,7 @@ module Lutaml
             hash[mapping_rule.prefixed_name] = element.send(mapping_rule.to)
           end
 
-          xml_mapping.elements.each_with_object(h) do |mapping_rule, hash|
-            if mapping_rule.namespace
-              hash["xmlns:#{mapping_rule.prefix}"] = mapping_rule.namespace
-            end
-          end
-
-          xml_mapping.attributes.each_with_object(h) do |mapping_rule, hash|
+          xml_mapping.elements.each_with_object(attrs) do |mapping_rule, hash|
             if mapping_rule.namespace
               hash["xmlns:#{mapping_rule.prefix}"] = mapping_rule.namespace
             end
@@ -58,20 +59,26 @@ module Lutaml
         def namespace_attributes(xml_mapping)
           return {} unless xml_mapping.namespace_uri
 
-          if xml_mapping.namespace_prefix
-            { "xmlns:#{xml_mapping.namespace_prefix}" => xml_mapping.namespace_uri }
-          else
-            { "xmlns" => xml_mapping.namespace_uri }
-          end
+          key = ["xmlns", xml_mapping.namespace_prefix].compact.join(":")
+          { key => xml_mapping.namespace_uri }
         end
       end
 
       class Element
-        attr_reader :attributes, :children, :text, :namespace_prefix,
+        attr_reader :attributes,
+                    :children,
+                    :text,
+                    :namespace_prefix,
                     :parent_document
 
-        def initialize(name, attributes = {}, children = [], text = nil,
-parent_document: nil, namespaces: nil, namespace_prefix: nil)
+        def initialize(
+          name,
+          attributes = {},
+          children = [],
+          text = nil,
+          parent_document: nil,
+          namespace_prefix: nil
+        )
           @name = extract_name(name)
           @namespace_prefix = namespace_prefix || extract_namespace_prefix(name)
           @attributes = attributes # .map { |k, v| Attribute.new(k, v) }

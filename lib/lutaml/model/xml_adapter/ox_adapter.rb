@@ -32,6 +32,7 @@ module Lutaml
 
         private
 
+        # rubocop:disable Metrics/AbcSize, Layout/LineLength
         def build_element(builder, element, _options = {})
           return element.to_xml(builder) if element.is_a?(Lutaml::Model::XmlAdapter::OxElement)
 
@@ -87,20 +88,6 @@ module Lutaml
           end
         end
 
-        # def build_attributes(element, xml_mapping)
-        #   element_attributes = element.class.attributes
-
-        #   attrs = element_attributes.each_with_object({}) do |(name, attr), hash|
-        #     hash[attr.name] = attr.value
-        #   end
-
-        #   element.namespaces.each do |prefix, namespace|
-        #     attrs[namespace.attr_name] = namespace.uri
-        #   end
-
-        #   attrs
-        # end
-
         def parse_element(element)
           result = { "_text" => element.text }
           element.nodes.each do |child|
@@ -111,9 +98,11 @@ module Lutaml
           end
           result
         end
+        # rubocop:enable Metrics/AbcSize, Layout/LineLength
       end
 
       class OxElement < Element
+        # rubocop:disable Metrics/AbcSize, Metrics/MethodLength, Layout/LineLength
         def initialize(node, root_node: nil)
           attributes = node.attributes.each_with_object({}) do |(name, value), hash|
             if attribute_is_namespace?(name)
@@ -124,14 +113,18 @@ module Lutaml
                 add_namespace(Lutaml::Model::XmlNamespace.new(value, name))
               end
             else
-              if root_node && (n = root_node.namespaces[name.to_s.split(":").first])
+              namespace_prefix = name.to_s.split(":").first
+              if root_node && (n = root_node.namespaces[namespace_prefix])
                 namespace = n.uri
                 prefix = n.prefix
               end
 
-              hash[name.to_s] =
-                Attribute.new(name.to_s, value, namespace: namespace,
-                                                namespace_prefix: prefix)
+              hash[name.to_s] = Attribute.new(
+                name.to_s,
+                value,
+                namespace: namespace,
+                namespace_prefix: prefix,
+              )
             end
           end
 
@@ -150,9 +143,7 @@ module Lutaml
 
           builder.element(name, attrs) do |el|
             if children.any?
-              children.each do |child|
-                child.to_xml(el)
-              end
+              children.each { |child| child.to_xml(el) }
             elsif text
               el.text(text)
             end
@@ -179,6 +170,7 @@ module Lutaml
                           root_node: root_node)
           end
         end
+        # rubocop:enable Metrics/AbcSize, Metrics/MethodLength, Layout/LineLength
       end
     end
   end

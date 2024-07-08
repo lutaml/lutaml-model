@@ -17,24 +17,27 @@ class SampleModel < Lutaml::Model::Serializable
                                                                BigDecimal("0.0")
                                                              }
   attribute :tags, SampleModelTag, collection: true
-  attribute :preferences, Lutaml::Model::Type::Hash, default: -> {
-                                                                { notifications: true }
-                                                              }
+  attribute :preferences,
+            Lutaml::Model::Type::Hash,
+            default: -> { { notifications: true } }
   attribute :uuid, Lutaml::Model::Type::UUID, default: -> { SecureRandom.uuid }
   attribute :status, Lutaml::Model::Type::Symbol, default: -> { :active }
   attribute :large_number, Lutaml::Model::Type::BigInteger, default: -> { 0 }
   attribute :avatar, Lutaml::Model::Type::Binary, default: -> { "" }
-  attribute :website, Lutaml::Model::Type::URL, default: -> { URI.parse("http://example.com") }
-  attribute :email, Lutaml::Model::Type::Email, default: -> {
-                                                           "example@example.com"
-                                                         }
-  attribute :ip_address, Lutaml::Model::Type::IPAddress, default: -> {
-                                                                    IPAddr.new("127.0.0.1")
-                                                                  }
+  attribute :website,
+            Lutaml::Model::Type::URL,
+            default: -> { URI.parse("http://example.com") }
+  attribute :email,
+            Lutaml::Model::Type::Email,
+            default: -> { "example@example.com" }
+  attribute :ip_address,
+            Lutaml::Model::Type::IPAddress,
+            default: -> { IPAddr.new("127.0.0.1") }
   attribute :metadata, Lutaml::Model::Type::JSON, default: -> { "{}" }
-  attribute :role, Lutaml::Model::Type::Enum, options: %w[user admin guest], default: -> {
-                                                                                        "user"
-                                                                                      }
+  attribute :role,
+            Lutaml::Model::Type::Enum,
+            options: %w[user admin guest],
+            default: -> { "user" }
 
   xml do
     root "SampleModel"

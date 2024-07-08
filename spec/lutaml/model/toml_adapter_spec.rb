@@ -8,15 +8,26 @@ RSpec.shared_examples "a TOML adapter" do |adapter_class|
   let(:attributes) { { name: "John Doe", age: 30 } }
   let(:model) { SampleModel.new(attributes) }
 
+  let(:expected_toml) do
+    if adapter_class == Lutaml::Model::TomlAdapter::TomlRbDocument
+      TomlRB.dump(attributes)
+    else
+      Tomlib.dump(attributes)
+    end
+  end
+
   it "serializes to TOML" do
-    adapter_class.new(attributes).to_toml
-    expected_toml = toml = adapter_class == Lutaml::Model::TomlAdapter::TomlRbDocument ? TomlRB.dump(attributes) : Tomlib.dump(attributes)
+    toml = adapter_class.new(attributes).to_toml
 
     expect(toml).to eq(expected_toml)
   end
 
   it "deserializes from TOML" do
-    toml = adapter_class == Lutaml::Model::TomlAdapter::TomlRbDocument ? TomlRB.dump(attributes) : Tomlib.dump(attributes)
+    toml = if adapter_class == Lutaml::Model::TomlAdapter::TomlRbDocument
+             TomlRB.dump(attributes)
+           else
+             Tomlib.dump(attributes)
+           end
     doc = adapter_class.parse(toml)
     new_model = SampleModel.new(doc.to_h)
     expect(new_model.name).to eq("John Doe")

@@ -23,8 +23,6 @@ gem "ox"
 
 gem "pry"
 
-gem "rubocop"
-
 gem "rubocop-performance"
 
 gem "rubocop-rails"
@@ -32,4 +30,3 @@ gem "rubocop-rails"
 gem "tomlib"
 
 gem "toml-rb"
-
