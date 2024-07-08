@@ -28,29 +28,29 @@ module Lutaml
          IPAddress
          JSON
          Enum).each do |t|
-        class_eval <<~HEREDOC
-                      class #{t}
-                        def self.cast(value)
-                          return if value.nil?
+        class_eval <<~HEREDOC, __FILE__, __LINE__ + 1
+          class #{t}
+            def self.cast(value)
+              return if value.nil?
 
-                          Type.cast(value, #{t})
-                        end
+              Type.cast(value, #{t})
+            end
 
-                        def self.serialize(value)
-                          return if value.nil?
+            def self.serialize(value)
+              return if value.nil?
 
-                          Type.serialize(value, #{t})
-                        end
-                      end
-                   HEREDOC
+              Type.serialize(value, #{t})
+            end
+          end
+        HEREDOC
       end
 
       class TimeWithoutDate
         def self.cast(value)
           return if value.nil?
 
-          parsed_time = ::Time.parse(value.to_s)
-          parsed_time #.strftime("%H:%M:%S")
+          ::Time.parse(value.to_s)
+          # .strftime("%H:%M:%S")
         end
 
         def self.serialize(value)
@@ -83,16 +83,16 @@ module Lutaml
           @value = value
         end
 
-        def to_json
+        def to_json(*_args)
           @value.to_json
         end
 
         def ==(other)
-          if other.is_a?(::Hash)
-            @value == other
-          else
-            @value == other.value
-          end
+          @value == if other.is_a?(::Hash)
+                      other
+                    else
+                      other.value
+                    end
         end
 
         def self.cast(value)
@@ -111,7 +111,7 @@ module Lutaml
 
         if type == String
           value.to_s
-        elsif type == Integer || type == BigInteger
+        elsif [Integer, BigInteger].include?(type)
           value.to_i
         elsif type == Float
           value.to_f
@@ -134,7 +134,7 @@ module Lutaml
         elsif type == Hash
           normalize_hash(Hash(value))
         elsif type == UUID
-          value =~ /\A[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\z/ ? value : SecureRandom.uuid
+          /\A[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\z/.match?(value) ? value : SecureRandom.uuid
         elsif type == Symbol
           value.to_sym
         elsif type == Binary
@@ -181,6 +181,7 @@ module Lutaml
       def self.to_boolean(value)
         return true if value == true || value.to_s =~ (/^(true|t|yes|y|1)$/i)
         return false if value == false || value.nil? || value.to_s =~ (/^(false|f|no|n|0)$/i)
+
         raise ArgumentError.new("invalid value for Boolean: \"#{value}\"")
       end
 

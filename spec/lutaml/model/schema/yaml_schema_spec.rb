@@ -20,6 +20,6 @@ RSpec.describe Lutaml::Model::Schema::YamlSchema do
           type: str
     YAML
 
-    expect(YAML.load(schema_yaml)).to eq(YAML.load(expected_yaml))
+    expect(YAML.safe_load(schema_yaml)).to eq(YAML.safe_load(expected_yaml))
   end
 end

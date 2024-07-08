@@ -9,7 +9,7 @@ RSpec.shared_examples "a TOML adapter" do |adapter_class|
   let(:model) { SampleModel.new(attributes) }
 
   it "serializes to TOML" do
-    toml = adapter_class.new(attributes).to_toml
+    adapter_class.new(attributes).to_toml
     expected_toml = toml = adapter_class == Lutaml::Model::TomlAdapter::TomlRbDocument ? TomlRB.dump(attributes) : Tomlib.dump(attributes)
 
     expect(toml).to eq(expected_toml)

@@ -5,7 +5,7 @@ module Lutaml
   module Model
     module Schema
       class XsdSchema
-        def self.generate(klass, options = {})
+        def self.generate(klass, _options = {})
           schema = Nokogiri::XML::Builder.new do |xml|
             xml.schema(xmlns: "http://www.w3.org/2001/XMLSchema") do
               xml.element(name: klass.name) do
@@ -19,8 +19,6 @@ module Lutaml
           end
           schema.to_xml
         end
-
-        private
 
         def self.generate_elements(klass, xml)
           klass.attributes.each do |name, attr|

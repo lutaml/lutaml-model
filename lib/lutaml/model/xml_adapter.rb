@@ -22,7 +22,11 @@ module Lutaml
 
         def declaration(options)
           version = options[:declaration].is_a?(String) ? options[:declaration] : "1.0"
-          encoding = options[:encoding].is_a?(String) ? options[:encoding] : (options[:encoding] ? "UTF-8" : nil)
+          encoding = if options[:encoding].is_a?(String)
+                       options[:encoding]
+                     else
+                       (options[:encoding] ? "UTF-8" : nil)
+                     end
           declaration = "<?xml version=\"#{version}\""
           declaration += " encoding=\"#{encoding}\"" if encoding
           declaration += "?>\n"
@@ -63,12 +67,14 @@ module Lutaml
       end
 
       class Element
-        attr_reader :attributes, :children, :text, :namespace_prefix, :parent_document
+        attr_reader :attributes, :children, :text, :namespace_prefix,
+                    :parent_document
 
-        def initialize(name, attributes = {}, children = [], text = nil, parent_document: nil, namespaces: nil, namespace_prefix: nil)
+        def initialize(name, attributes = {}, children = [], text = nil,
+parent_document: nil, namespaces: nil, namespace_prefix: nil)
           @name = extract_name(name)
           @namespace_prefix = namespace_prefix || extract_namespace_prefix(name)
-          @attributes = attributes#.map { |k, v| Attribute.new(k, v) }
+          @attributes = attributes # .map { |k, v| Attribute.new(k, v) }
           @children = children
           @text = text
           @parent_document = parent_document
@@ -121,14 +127,14 @@ module Lutaml
           n = name.to_s.split(":")
           return name if n.length <= 1
 
-          return n[1..-1].join(":")
+          n[1..].join(":")
         end
 
         def extract_namespace_prefix(name)
           n = name.to_s.split(":")
           return if n.length <= 1
 
-          return n.first
+          n.first
         end
       end
 

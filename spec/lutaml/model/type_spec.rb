@@ -64,32 +64,48 @@ RSpec.describe Lutaml::Model::Type do
       end
 
       it "raises ArgumentError for an unrecognized string" do
-        expect { described_class.to_boolean("unrecognized") }.to raise_error(ArgumentError, 'invalid value for Boolean: "unrecognized"')
+        expect do
+          described_class.to_boolean("unrecognized")
+        end.to raise_error(ArgumentError,
+                           'invalid value for Boolean: "unrecognized"')
       end
     end
 
     context "when value is an integer" do
       it "raises ArgumentError" do
-        expect { described_class.to_boolean(123) }.to raise_error(ArgumentError, 'invalid value for Boolean: "123"')
+        expect do
+          described_class.to_boolean(123)
+        end.to raise_error(ArgumentError,
+                           'invalid value for Boolean: "123"')
       end
     end
 
     context "when value is an array" do
       it "raises ArgumentError" do
-        expect { described_class.to_boolean([1, 2, 3]) }.to raise_error(ArgumentError, 'invalid value for Boolean: "[1, 2, 3]"')
+        expect do
+          described_class.to_boolean([1, 2,
+                                      3])
+        end.to raise_error(ArgumentError,
+                           'invalid value for Boolean: "[1, 2, 3]"')
       end
     end
 
     context "when value is a hash" do
       it "raises ArgumentError" do
-        expect { described_class.to_boolean({ key: "value" }) }.to raise_error(ArgumentError, 'invalid value for Boolean: "{:key=>"value"}"')
+        expect do
+          described_class.to_boolean({ key: "value" })
+        end.to raise_error(ArgumentError,
+                           'invalid value for Boolean: "{:key=>"value"}"')
       end
     end
 
     context "when value is an object" do
       it "raises ArgumentError" do
         obj = Object.new
-        expect { described_class.to_boolean(obj) }.to raise_error(ArgumentError, "invalid value for Boolean: \"#{obj}\"")
+        expect do
+          described_class.to_boolean(obj)
+        end.to raise_error(ArgumentError,
+                           "invalid value for Boolean: \"#{obj}\"")
       end
     end
   end

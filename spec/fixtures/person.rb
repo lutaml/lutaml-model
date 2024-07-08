@@ -15,8 +15,10 @@ class Person < Lutaml::Model::Serializable
     root "Person"
     namespace "http://example.com/person", "p"
 
-    map_element "FirstName", to: :first_name, namespace: "http://example.com/nsp1", prefix: "nsp1"
-    map_element "LastName", to: :last_name, namespace: "http://example.com/nsp1", prefix: "nsp1"
+    map_element "FirstName", to: :first_name,
+                             namespace: "http://example.com/nsp1", prefix: "nsp1"
+    map_element "LastName", to: :last_name,
+                            namespace: "http://example.com/nsp1", prefix: "nsp1"
     map_element "Age", to: :age
     map_element "Height", to: :height
     map_element "Birthdate", to: :birthdate
@@ -38,7 +40,8 @@ class Person < Lutaml::Model::Serializable
 
   yaml do
     map "firstName", to: :first_name
-    map "lastName", to: :last_name, with: { to: :yaml_from_last_name, from: :yaml_to_last_name }
+    map "lastName", to: :last_name,
+                    with: { to: :yaml_from_last_name, from: :yaml_to_last_name }
     map "age", to: :age
     map "height", to: :height
     map "birthdate", to: :birthdate
@@ -58,11 +61,11 @@ class Person < Lutaml::Model::Serializable
     map "active", to: :active
   end
 
-  def yaml_from_last_name(model, value)
+  def yaml_from_last_name(_model, value)
     value
   end
 
-  def yaml_to_last_name(model, doc)
+  def yaml_to_last_name(_model, doc)
     doc["lastName"]
   end
 end

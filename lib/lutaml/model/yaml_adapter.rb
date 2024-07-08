@@ -16,7 +16,9 @@ module Lutaml
         end
 
         def self.parse(yaml)
-          YAML.safe_load(yaml, permitted_classes: [Date, Time, DateTime, Symbol, BigDecimal, Hash, Array])
+          YAML.safe_load(yaml,
+                         permitted_classes: [Date, Time, DateTime, Symbol,
+                                             BigDecimal, Hash, Array])
         end
       end
     end

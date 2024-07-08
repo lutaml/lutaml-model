@@ -17,8 +17,6 @@ module Lutaml
           options[:pretty] ? JSON.pretty_generate(schema) : schema.to_json
         end
 
-        private
-
         def self.generate_definitions(klass)
           {
             klass.name => {
@@ -30,8 +28,8 @@ module Lutaml
         end
 
         def self.generate_properties(klass)
-          klass.attributes.each_with_object({}) do |(name, attr), properties|
-            properties[name] = generate_property_schema(attr)
+          klass.attributes.transform_values do |attr|
+            generate_property_schema(attr)
           end
         end
 

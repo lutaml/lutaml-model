@@ -4,7 +4,7 @@ require_relative "fixtures/address"
 require_relative "fixtures/person"
 
 RSpec.describe Address do
-  let(:person1) {
+  let(:person1) do
     {
       first_name: "Tom",
       last_name: "Warren",
@@ -15,8 +15,8 @@ RSpec.describe Address do
       wakeup_time: "07:30:00",
       active: true,
     }
-  }
-  let(:person2) {
+  end
+  let(:person2) do
     {
       first_name: "Jack",
       last_name: "Warren",
@@ -27,14 +27,14 @@ RSpec.describe Address do
       wakeup_time: "06:45:00",
       active: false,
     }
-  }
-  let(:attributes) {
+  end
+  let(:attributes) do
     {
       country: "USA",
       post_code: "01001",
       person: [person1, person2],
     }
-  }
+  end
   let(:address) { Address.new(attributes) }
 
   it "serializes to JSON with a collection of persons" do
