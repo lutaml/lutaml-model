@@ -22,6 +22,11 @@ module Lutaml
         base.extend(ClassMethods)
       end
 
+      # rubocop:disable Metrics/MethodLength
+      # rubocop:disable Metrics/BlockLength
+      # rubocop:disable Metrics/AbcSize
+      # rubocop:disable Metrics/CyclomaticComplexity
+      # rubocop:disable Metrics/PerceivedComplexity
       module ClassMethods
         attr_accessor :attributes, :mappings
 
@@ -85,13 +90,15 @@ module Lutaml
 
             value = if rule.custom_methods[:from]
                       new.send(rule.custom_methods[:from], hash, doc)
-                    elsif doc.has_key?(rule.name) || doc.has_key?(rule.name.to_sym)
+                    elsif doc.key?(rule.name) || doc.key?(rule.name.to_sym)
                       doc[rule.name] || doc[rule.name.to_sym]
                     else
                       attr.default
                     end
             # if attr.collection?
-            #   value = (value || []).map { |v| attr.type <= Serialize ? attr.type.new(v) : v }
+            #   value = (value || []).map do |v|
+            #     attr.type <= Serialize ? attr.type.new(v) : v
+            #   end
             # elsif value.is_a?(Hash) && attr.type <= Serialize
             #   value = attr.type.new(value)
             # else
@@ -123,13 +130,15 @@ module Lutaml
             raise "Attribute '#{rule.to}' not found in #{self}" unless attr
 
             value = if rule.name
-                      doc[rule.name] || doc[rule.name.to_s] || doc[rule.name.to_sym]
+                      doc[rule.name.to_s] || doc[rule.name.to_sym]
                     else
                       doc["text"]
                     end
 
             # if attr.collection?
-            #   value = (value || []).map { |v| attr.type <= Serialize ? attr.type.from_hash(v) : v }
+            #   value = (value || []).map do |v|
+            #     attr.type <= Serialize ? attr.type.from_hash(v) : v
+            #   end
             # elsif value.is_a?(Hash) && attr.type <= Serialize
             #   value = attr.type.cast(value)
             # elsif value.is_a?(Array)
@@ -138,7 +147,11 @@ module Lutaml
 
             if attr.collection?
               value = (value || []).map do |v|
-                attr.type <= Serialize ? attr.type.apply_xml_mapping(v) : v["text"]
+                if attr.type <= Serialize
+                  attr.type.apply_xml_mapping(v)
+                else
+                  v["text"]
+                end
               end
             elsif attr.type <= Serialize
               value = attr.type.apply_xml_mapping(value) if value
@@ -163,7 +176,7 @@ module Lutaml
       end
 
       def initialize(attrs = {})
-        return self unless self.class.attributes
+        return unless self.class.attributes
 
         self.class.attributes.each do |name, attr|
           value = if attrs.key?(name)
@@ -199,7 +212,11 @@ module Lutaml
       # FORMATS.each do |format|
       #   define_method("to_#{format}") do |options = {}|
       #     adapter = Lutaml::Model::Config.send("#{format}_adapter")
-      #     representation = format == :yaml ? self : hash_representation(format, options)
+      #     representation = if format == :yaml
+      #                        self
+      #                      else
+      #                        hash_representation(format, options)
+      #                      end
       #     adapter.new(representation).send("to_#{format}", options)
       #   end
       # end
@@ -250,10 +267,18 @@ module Lutaml
           hash[rule.from] = case value
                             when Array
                               value.map do |v|
-                                v.is_a?(Serialize) ? v.hash_representation(format, options) : attribute.type.serialize(v)
+                                if v.is_a?(Serialize)
+                                  v.hash_representation(format, options)
+                                else
+                                  attribute.type.serialize(v)
+                                end
                               end
                             else
-                              value.is_a?(Serialize) ? value.hash_representation(format, options) : attribute.type.serialize(value)
+                              if value.is_a?(Serialize)
+                                value.hash_representation(format, options)
+                              else
+                                attribute.type.serialize(value)
+                              end
                             end
         end
       end
@@ -269,10 +294,18 @@ module Lutaml
         hash[rule.from] = case value
                           when Array
                             value.map do |v|
-                              v.is_a?(Serialize) ? v.hash_representation(format, options) : attribute.type.serialize(v)
+                              if v.is_a?(Serialize)
+                                v.hash_representation(format, options)
+                              else
+                                attribute.type.serialize(v)
+                              end
                             end
                           else
-                            value.is_a?(Serialize) ? value.hash_representation(format, options) : attribute.type.serialize(value)
+                            if value.is_a?(Serialize)
+                              value.hash_representation(format, options)
+                            else
+                              attribute.type.serialize(value)
+                            end
                           end
       end
 
@@ -290,6 +323,11 @@ module Lutaml
           value
         end
       end
+      # rubocop:enable Metrics/MethodLength
+      # rubocop:enable Metrics/BlockLength
+      # rubocop:enable Metrics/AbcSize
+      # rubocop:enable Metrics/CyclomaticComplexity
+      # rubocop:enable Metrics/PerceivedComplexity
     end
   end
 end

@@ -38,7 +38,7 @@ module Lutaml
           xml_mapping = element.class.mappings_for(:xml)
           return xml unless xml_mapping
 
-          attributes = build_attributes(element, xml_mapping, root: @root)
+          attributes = build_attributes(element, xml_mapping)
 
           prefixed_xml = xml_mapping.namespace_prefix ? xml[xml_mapping.namespace_prefix] : xml
 

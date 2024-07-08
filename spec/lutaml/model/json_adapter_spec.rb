@@ -10,11 +10,21 @@ RSpec.shared_examples "a JSON adapter" do |adapter_class|
 
   it "serializes to JSON" do
     json = adapter_class.new(attributes).to_json
-    expect(json).to eq(adapter_class == Lutaml::Model::JsonAdapter::StandardDocument ? JSON.generate(attributes) : MultiJson.dump(attributes))
+    expected = if adapter_class == Lutaml::Model::JsonAdapter::StandardDocument
+                 JSON.generate(attributes)
+               else
+                 MultiJson.dump(attributes)
+               end
+    expect(json).to eq(expected)
   end
 
   it "deserializes from JSON" do
-    json = adapter_class == Lutaml::Model::JsonAdapter::StandardDocument ? JSON.generate(attributes) : MultiJson.dump(attributes)
+    json = if adapter_class == Lutaml::Model::JsonAdapter::StandardDocument
+             JSON.generate(attributes)
+           else
+             MultiJson.dump(attributes)
+           end
+
     doc = adapter_class.parse(json)
     new_model = SampleModel.new(doc.to_h)
     expect(new_model.name).to eq("John Doe")

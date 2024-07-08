@@ -29,21 +29,54 @@ module Lutaml
         @namespace_prefix = prefix
       end
 
-      def map_element(name, to:, render_nil: false, with: {}, delegate: nil,
-namespace: nil, prefix: nil)
-        @elements << XmlMappingRule.new(name, to: to, render_nil: render_nil,
-                                              with: with, delegate: delegate, namespace: namespace, prefix: prefix)
+      def map_element(
+        name,
+        to:,
+        render_nil: false,
+        with: {},
+        delegate: nil,
+        namespace: nil,
+        prefix: nil
+      )
+        @elements << XmlMappingRule.new(
+          name,
+          to: to,
+          render_nil: render_nil,
+          with: with,
+          delegate: delegate,
+          namespace: namespace,
+          prefix: prefix,
+        )
       end
 
-      def map_attribute(name, to:, render_nil: false, with: {}, delegate: nil,
-namespace: nil, prefix: nil)
-        @attributes << XmlMappingRule.new(name, to: to, render_nil: render_nil,
-                                                with: with, delegate: delegate, namespace: namespace, prefix: prefix)
+      def map_attribute(
+        name,
+        to:,
+        render_nil: false,
+        with: {},
+        delegate: nil,
+        namespace: nil,
+        prefix: nil
+      )
+        @attributes << XmlMappingRule.new(
+          name,
+          to: to,
+          render_nil: render_nil,
+          with: with,
+          delegate: delegate,
+          namespace: namespace,
+          prefix: prefix,
+        )
       end
 
       def map_content(to:, render_nil: false, with: {}, delegate: nil)
-        @content_mapping = XmlMappingRule.new(nil, to: to,
-                                                   render_nil: render_nil, with: with, delegate: delegate)
+        @content_mapping = XmlMappingRule.new(
+          nil,
+          to: to,
+          render_nil: render_nil,
+          with: with,
+          delegate: delegate,
+        )
       end
 
       def elements

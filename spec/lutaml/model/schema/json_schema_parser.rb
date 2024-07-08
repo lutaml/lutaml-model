@@ -32,7 +32,13 @@ module Lutaml
           attributes.map do |name, schema|
             type = schema["type"]
             ruby_type = get_ruby_type(type, schema)
-            "attribute :#{name}, Lutaml::Model::Type::#{ruby_type}, required: #{required_attributes.include?(name).inspect}"
+            attributes = [
+              "attribute :#{name}",
+              "Lutaml::Model::Type::#{ruby_type}",
+              "required: #{required_attributes.include?(name).inspect}",
+            ]
+
+            attributes.join(", ")
           end.join("\n  ")
         end
 
@@ -44,8 +50,6 @@ module Lutaml
 
         def self.get_ruby_type(type, schema)
           case type
-          when "string"
-            "String"
           when "integer"
             "Integer"
           when "boolean"
@@ -57,16 +61,20 @@ module Lutaml
             item_type = get_ruby_type(item_schema["type"], item_schema)
             "Array.of(#{item_type})"
           when "object"
-            nested_class_name = schema["title"] || "NestedObject"
-            nested_class_definition = generate_class_definition(
-              nested_class_name, schema
-            )
-            @nested_classes ||= []
-            @nested_classes << nested_class_definition
-            nested_class_name
+            object_class_name(schema)
           else
             "String" # Default to string for unknown types
           end
+        end
+
+        def self.object_class_name(schema)
+          nested_class_name = schema["title"] || "NestedObject"
+          nested_class_definition = generate_class_definition(
+            nested_class_name, schema
+          )
+          @nested_classes ||= []
+          @nested_classes << nested_class_definition
+          nested_class_name
         end
 
         def self.nested_classes

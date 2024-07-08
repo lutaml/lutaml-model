@@ -61,15 +61,20 @@ RSpec.describe Lutaml::Model::XmlMapping do
   context "with element-level namespace" do
     before do
       mapping.root("ceramic")
-      mapping.map_element("type", to: :type,
-                                  namespace: "https://example.com/ceramic/1.2", prefix: "cera")
+      mapping.map_element(
+        "type",
+        to: :type,
+        namespace: "https://example.com/ceramic/1.2",
+        prefix: "cera",
+      )
       mapping.map_element("color", to: :color, delegate: :glaze)
       mapping.map_element("finish", to: :finish, delegate: :glaze)
     end
 
     it "sets the namespace for individual elements" do
       expect(mapping.elements.size).to eq(3)
-      expect(mapping.elements[0].namespace).to eq("https://example.com/ceramic/1.2")
+      expect(mapping.elements[0].namespace)
+        .to eq("https://example.com/ceramic/1.2")
       expect(mapping.elements[0].prefix).to eq("cera")
       expect(mapping.elements[1].delegate).to eq(:glaze)
     end
@@ -78,8 +83,12 @@ RSpec.describe Lutaml::Model::XmlMapping do
   context "with attribute-level namespace" do
     before do
       mapping.root("ceramic")
-      mapping.map_attribute("date", to: :date,
-                                    namespace: "https://example.com/ceramic/1.2", prefix: "cera")
+      mapping.map_attribute(
+        "date",
+        to: :date,
+        namespace: "https://example.com/ceramic/1.2",
+        prefix: "cera",
+      )
       mapping.map_element("type", to: :type)
       mapping.map_element("color", to: :color, delegate: :glaze)
       mapping.map_element("finish", to: :finish, delegate: :glaze)
@@ -87,7 +96,8 @@ RSpec.describe Lutaml::Model::XmlMapping do
 
     it "sets the namespace for individual attributes" do
       expect(mapping.attributes.size).to eq(1)
-      expect(mapping.attributes[0].namespace).to eq("https://example.com/ceramic/1.2")
+      expect(mapping.attributes[0].namespace)
+        .to eq("https://example.com/ceramic/1.2")
       expect(mapping.attributes[0].prefix).to eq("cera")
     end
   end

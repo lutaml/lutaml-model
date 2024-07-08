@@ -25,7 +25,8 @@ module Lutaml
             Lutaml::Model::Type::Integer => "int",
             Lutaml::Model::Type::Boolean => "bool",
             Lutaml::Model::Type::Float => "float",
-            Lutaml::Model::Type::Decimal => "float", # YAML does not have a separate decimal type, so we use float
+            # YAML does not have a separate decimal type, so we use float
+            Lutaml::Model::Type::Decimal => "float",
             Lutaml::Model::Type::Array => "seq",
             Lutaml::Model::Type::Hash => "map",
           }[type] || "str" # Default to string for unknown types

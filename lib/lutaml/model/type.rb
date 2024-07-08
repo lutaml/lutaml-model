@@ -106,10 +106,15 @@ module Lutaml
         end
       end
 
+      # rubocop:disable Layout/LineLength
+      UUID_REGEX = /\A[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\z/
+      # rubocop:enable Layout/LineLength
+
+      # rubocop:disable Metrics/MethodLength, Layout/LineLength
       def self.cast(value, type)
         return if value.nil?
 
-        if type == String
+        if [String, Email].include?(type)
           value.to_s
         elsif [Integer, BigInteger].include?(type)
           value.to_i
@@ -134,15 +139,13 @@ module Lutaml
         elsif type == Hash
           normalize_hash(Hash(value))
         elsif type == UUID
-          /\A[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\z/.match?(value) ? value : SecureRandom.uuid
+          UUID_REGEX.match?(value) ? value : SecureRandom.uuid
         elsif type == Symbol
           value.to_sym
         elsif type == Binary
           value.force_encoding("BINARY")
         elsif type == URL
           URI.parse(value.to_s)
-        elsif type == Email
-          value.to_s
         elsif type == IPAddress
           IPAddr.new(value.to_s)
         elsif type == JSON
@@ -198,6 +201,7 @@ module Lutaml
           end
         end.compact.to_h
       end
+      # rubocop:enable Metrics/MethodLength, Layout/LineLength
     end
   end
 end
