@@ -19,7 +19,6 @@ Gem::Specification.new do |spec|
   spec.bindir = "bin"
   spec.require_paths = ["lib"]
   spec.files = `git ls-files`.split("\n")
-  spec.test_files = `git ls-files -- {spec}/*`.split("\n")
   spec.required_ruby_version = Gem::Requirement.new(">= 3.0.0")
 
   # Specify which files should be added to the gem when it is released.
@@ -37,14 +36,4 @@ Gem::Specification.new do |spec|
   # spec.add_runtime_dependency "metanorma-cli"
   # spec.add_runtime_dependency "shale"
   # spec.add_runtime_dependency "thor", ">= 0.20"
-  spec.add_development_dependency "multi_json"
-  spec.add_development_dependency "tomlib"
-  spec.add_development_dependency "toml-rb"
-  spec.add_development_dependency "oga"
-  spec.add_development_dependency "ox"
-  spec.add_development_dependency "nokogiri"
-  spec.add_development_dependency "rubocop"
-  spec.add_development_dependency "rubocop-performance"
-  spec.add_development_dependency "rubocop-rails"
-  spec.add_development_dependency "equivalent-xml"
 end

@@ -56,7 +56,9 @@ module SimpleModel
   end
 
   class Building < Lutaml::Model::Serializable
-    attribute :name, Lutaml::Model::Type::String, default: -> { "Unnamed building" }
+    attribute :name, Lutaml::Model::Type::String, default: -> {
+                                                             "Unnamed building"
+                                                           }
     attribute :address, Address
     attribute :rooms, Room, collection: true
 
@@ -88,12 +90,17 @@ module SimpleModel
 end
 
 RSpec.describe SimpleModel do
-  let(:address) { SimpleModel::Address.new(street: "123 Main St", city: "Anytown") }
-  let(:rooms) { [SimpleModel::Room.new(name: "Conference Room", size: 30), SimpleModel::Room.new(name: "Office", size: 20)] }
+  let(:address) do
+    SimpleModel::Address.new(street: "123 Main St", city: "Anytown")
+  end
+  let(:rooms) do
+    [SimpleModel::Room.new(name: "Conference Room", size: 30),
+     SimpleModel::Room.new(name: "Office", size: 20)]
+  end
   let(:attributes) { { name: "Headquarters", address: address, rooms: rooms } }
   let(:model) { SimpleModel::Building.new(attributes) }
 
-  let(:model_xml) {
+  let(:model_xml) do
     <<~XML
       <building name="Headquarters">
         <address>
@@ -110,9 +117,9 @@ RSpec.describe SimpleModel do
         </room>
       </building>
     XML
-  }
+  end
 
-  let(:model_yaml) {
+  let(:model_yaml) do
     <<~YAML
       ---
       name: Headquarters
@@ -125,29 +132,29 @@ RSpec.describe SimpleModel do
       - name: Office
         size: 20
     YAML
-  }
+  end
 
-  let(:model_json) {
+  let(:model_json) do
     {
-      "name": "Headquarters",
-      "address": {
-        "street": "123 Main St",
-        "city": "Anytown"
+      name: "Headquarters",
+      address: {
+        street: "123 Main St",
+        city: "Anytown",
       },
-      "rooms": [
+      rooms: [
         {
-          "name": "Conference Room",
-          "size": 30
+          name: "Conference Room",
+          size: 30,
         },
         {
-          "name": "Office",
-          "size": 20
-        }
-      ]
+          name: "Office",
+          size: 20,
+        },
+      ],
     }.to_json
-  }
+  end
 
-  let(:model_toml) {
+  let(:model_toml) do
     <<~TOML
       name = "Headquarters"
       [address]
@@ -160,9 +167,9 @@ RSpec.describe SimpleModel do
       name = "Office"
       size = 20
     TOML
-  }
+  end
 
-  let(:model_yaml_missing_element) {
+  let(:model_yaml_missing_element) do
     <<~YAML
       ---
       name: Headquarters
@@ -172,7 +179,7 @@ RSpec.describe SimpleModel do
       - name: Office
         size: 20
     YAML
-  }
+  end
 
   it "initializes with default values" do
     default_model = SimpleModel::Building.new
@@ -242,7 +249,8 @@ RSpec.describe SimpleModel do
   end
 
   it "serializes to YAML without the omitted element" do
-    model_without_address = SimpleModel::Building.new(name: "Headquarters", rooms: rooms)
+    model_without_address = SimpleModel::Building.new(name: "Headquarters",
+                                                      rooms: rooms)
     expected_yaml = model_yaml_missing_element.strip
     expect(model_without_address.to_yaml.strip).to eq(expected_yaml)
   end

@@ -6,7 +6,8 @@ module Lutaml
     class XmlMappingRule < MappingRule
       attr_reader :namespace, :prefix
 
-      def initialize(name, to:, render_nil: false, with: {}, delegate: nil, namespace: nil, prefix: nil)
+      def initialize(name, to:, render_nil: false, with: {}, delegate: nil,
+namespace: nil, prefix: nil)
         super(name, to: to, render_nil: render_nil, with: with, delegate: delegate)
         @namespace = if namespace.to_s == "inherit"
                        # we are using inherit_namespace in xml builder by default

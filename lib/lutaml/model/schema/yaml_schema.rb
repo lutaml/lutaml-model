@@ -5,15 +5,13 @@ module Lutaml
   module Model
     module Schema
       class YamlSchema
-        def self.generate(klass, options = {})
+        def self.generate(klass, _options = {})
           schema = {
             "type" => "map",
             "mapping" => generate_mapping(klass),
           }
           YAML.dump(schema)
         end
-
-        private
 
         def self.generate_mapping(klass)
           klass.attributes.each_with_object({}) do |(name, attr), mapping|

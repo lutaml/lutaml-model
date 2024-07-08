@@ -5,7 +5,7 @@ require "lutaml/model/xml_adapter/ox_adapter"
 require "lutaml/model/xml_adapter/oga_adapter"
 require_relative "../../fixtures/sample_model"
 
-RSpec.shared_examples "an XML adapter" do |adapter_class, element_class|
+RSpec.shared_examples "an XML adapter" do |adapter_class, _element_class|
   let(:attributes) { { name: "John Doe", age: 30 } }
   let(:model) { SampleModel.new(attributes) }
 
@@ -31,7 +31,9 @@ RSpec.shared_examples "an XML adapter" do |adapter_class, element_class|
     XML
 
     doc = adapter_class.parse(xml)
-    new_model = SampleModel.new(doc.root.children.map { |child| [child.name.downcase.to_sym, child.text] }.to_h)
+    new_model = SampleModel.new(doc.root.children.to_h do |child|
+                                  [child.name.downcase.to_sym, child.text]
+                                end)
     expect(new_model.name).to eq("John Doe")
     expect(new_model.age).to eq(30)
   end

@@ -32,7 +32,7 @@ module Lutaml
 
         private
 
-        def build_element(xml, element, options = {})
+        def build_element(xml, element, _options = {})
           return element.to_xml(xml) if element.is_a?(Lutaml::Model::XmlAdapter::NokogiriElement)
 
           xml_mapping = element.class.mappings_for(:xml)
@@ -55,15 +55,15 @@ module Lutaml
               prefixed_xml = element_rule.prefix ? xml[element_rule.prefix] : xml
 
               val = if attribute_def.collection?
-                value
-              elsif !value.nil? || element_rule.render_nil?
-                [value]
-              else
-                []
-              end
+                      value
+                    elsif !value.nil? || element_rule.render_nil?
+                      [value]
+                    else
+                      []
+                    end
 
               val.each do |v|
-                if attribute_def&.type <= Lutaml::Model::Serialize
+                if attribute_def&.type&.<= Lutaml::Model::Serialize
                   handle_nested_elements(xml, element_rule, v)
                 else
                   prefixed_xml.send(element_rule.name) do
@@ -86,7 +86,7 @@ module Lutaml
           end
         end
 
-        def handle_nested_elements(xml, element_rule, value)
+        def handle_nested_elements(xml, _element_rule, value)
           case value
           when Array
             value.each { |val| build_element(xml, val) }
@@ -104,7 +104,8 @@ module Lutaml
                     end
 
             if hash[child.unprefixed_name]
-              hash[child.unprefixed_name] = [hash[child.unprefixed_name], value].flatten
+              hash[child.unprefixed_name] =
+                [hash[child.unprefixed_name], value].flatten
             else
               hash[child.unprefixed_name] = value
             end
@@ -137,13 +138,15 @@ module Lutaml
                      attr.name
                    end
 
-            attributes[name] = Attribute.new(name, attr.value, namespace: attr.namespace&.href, namespace_prefix: attr.namespace&.prefix)
+            attributes[name] =
+              Attribute.new(name, attr.value, namespace: attr.namespace&.href,
+                                              namespace_prefix: attr.namespace&.prefix)
           end
 
           super(
             node.name,
             attributes,
-            parse_all_children(node, root_node: (root_node || self)),
+            parse_all_children(node, root_node: root_node || self),
             node.text,
             parent_document: root_node,
             namespace_prefix: node.namespace&.prefix,
@@ -176,27 +179,27 @@ module Lutaml
         private
 
         def parse_children(node, root_node: nil)
-          node.children.select(&:element?).map { |child| NokogiriElement.new(child, root_node: root_node) }
+          node.children.select(&:element?).map do |child|
+            NokogiriElement.new(child, root_node: root_node)
+          end
         end
 
         def parse_all_children(node, root_node: nil)
-          node.children.map { |child| NokogiriElement.new(child, root_node: root_node) }
+          node.children.map do |child|
+            NokogiriElement.new(child, root_node: root_node)
+          end
         end
 
         def build_attributes(node)
-          attrs = node.attributes.each_with_object({}) do |(name, attr), attrs|
-            attrs[name] = attr.value
-          end
+          attrs = node.attributes.transform_values(&:value)
 
-          attrs = attrs.merge(build_namespace_attributes(node))
-
-          attrs
+          attrs.merge(build_namespace_attributes(node))
         end
 
         def build_namespace_attributes(node)
           namespace_attrs = {}
 
-          node.own_namespaces.each do |prefix, namespace|
+          node.own_namespaces.each_value do |namespace|
             namespace_attrs[namespace.attr_name] = namespace.uri
           end
 

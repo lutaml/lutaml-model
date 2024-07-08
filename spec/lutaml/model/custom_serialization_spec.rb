@@ -11,22 +11,22 @@ class CustomSerialization < Lutaml::Model::Serializable
     map "size", to: :size
   end
 
-  def name_to_json(model, value)
+  def name_to_json(_model, value)
     "Masterpiece: #{value}"
   end
 
-  def name_from_json(model, doc)
+  def name_from_json(_model, doc)
     doc["name"].sub("Masterpiece: ", "")
   end
 end
 
 RSpec.describe CustomSerialization do
-  let(:attributes) {
+  let(:attributes) do
     {
       name: "Vase",
       size: 12,
     }
-  }
+  end
   let(:model) { CustomSerialization.new(attributes) }
 
   it "serializes to JSON with custom methods" do

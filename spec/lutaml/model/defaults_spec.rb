@@ -13,18 +13,28 @@ end
 class Defaults < Lutaml::Model::Serializable
   attribute :name, Lutaml::Model::Type::String, default: -> { "Anonymous" }
   attribute :age, Lutaml::Model::Type::Integer, default: -> { 18 }
-  attribute :balance, Lutaml::Model::Type::Decimal, default: -> { BigDecimal("0.0") }
+  attribute :balance, Lutaml::Model::Type::Decimal, default: -> {
+                                                               BigDecimal("0.0")
+                                                             }
   attribute :tag, SampleModelTag, collection: true
-  attribute :preferences, Lutaml::Model::Type::Hash, default: -> { { notifications: true } }
+  attribute :preferences, Lutaml::Model::Type::Hash, default: -> {
+                                                                { notifications: true }
+                                                              }
   attribute :uuid, Lutaml::Model::Type::UUID, default: -> { SecureRandom.uuid }
   attribute :status, Lutaml::Model::Type::Symbol, default: -> { :active }
   attribute :large_number, Lutaml::Model::Type::BigInteger, default: -> { 0 }
   attribute :avatar, Lutaml::Model::Type::Binary, default: -> { "" }
   attribute :website, Lutaml::Model::Type::URL, default: -> { URI.parse("http://example.com") }
-  attribute :email, Lutaml::Model::Type::Email, default: -> { "example@example.com" }
-  attribute :ip_address, Lutaml::Model::Type::IPAddress, default: -> { IPAddr.new("127.0.0.1") }
+  attribute :email, Lutaml::Model::Type::Email, default: -> {
+                                                           "example@example.com"
+                                                         }
+  attribute :ip_address, Lutaml::Model::Type::IPAddress, default: -> {
+                                                                    IPAddr.new("127.0.0.1")
+                                                                  }
   attribute :metadata, Lutaml::Model::Type::JSON, default: -> { "{}" }
-  attribute :role, Lutaml::Model::Type::Enum, options: %w[user admin guest], default: -> { "user" }
+  attribute :role, Lutaml::Model::Type::Enum, options: %w[user admin guest], default: -> {
+                                                                                        "user"
+                                                                                      }
 
   xml do
     root "Defaults"
@@ -51,7 +61,7 @@ class Defaults < Lutaml::Model::Serializable
 end
 
 RSpec.describe Defaults do
-  let(:attributes) {
+  let(:attributes) do
     {
       name: "John Doe",
       age: 30,
@@ -68,10 +78,10 @@ RSpec.describe Defaults do
       metadata: '{"key":"value"}',
       role: "admin",
     }
-  }
+  end
   let(:model) { Defaults.new(attributes) }
 
-  let(:model_xml) {
+  let(:model_xml) do
     <<~XML
       <Defaults>
         <Name>John Doe</Name>
@@ -94,7 +104,7 @@ RSpec.describe Defaults do
         <Role>admin</Role>
       </Defaults>
     XML
-  }
+  end
   it "initializes with default values" do
     default_model = Defaults.new
     expect(default_model.name).to eq("Anonymous")
@@ -125,7 +135,8 @@ RSpec.describe Defaults do
     expect(sample.balance).to eq(BigDecimal("1234.56"))
     expect(sample.tag[0].text).to eq("ruby")
     expect(sample.tag[1].text).to eq("developer")
-    expect(sample.preferences).to eq({ "theme" => "dark", "notifications" => "true" })
+    expect(sample.preferences).to eq({ "theme" => "dark",
+                                       "notifications" => "true" })
     expect(sample.uuid).to eq("123e4567-e89b-12d3-a456-426614174000")
     expect(sample.status).to eq(:active)
     expect(sample.large_number).to eq(12345678901234567890)
@@ -149,7 +160,8 @@ RSpec.describe Defaults do
     expect(sample.balance).to eq(BigDecimal("1234.56"))
     expect(sample.tag[0].text).to eq("ruby")
     expect(sample.tag[1].text).to eq("developer")
-    expect(sample.preferences).to eq({ "theme" => "dark", "notifications" => true })
+    expect(sample.preferences).to eq({ "theme" => "dark",
+                                       "notifications" => true })
     expect(sample.uuid).to eq("123e4567-e89b-12d3-a456-426614174000")
     expect(sample.status).to eq(:active)
     expect(sample.large_number).to eq(12345678901234567890)
@@ -161,12 +173,13 @@ RSpec.describe Defaults do
     expect(sample.role).to eq("admin")
   end
 
-  let(:attributes_yaml) {
+  let(:attributes_yaml) do
     {
       "name" => "John Doe",
       "age" => 30,
     }
-  }
+  end
+
   it "serializes to YAML" do
     expect(model.to_yaml).to eq(attributes_yaml.to_yaml)
   end

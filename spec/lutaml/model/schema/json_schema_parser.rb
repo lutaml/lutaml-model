@@ -13,20 +13,18 @@ module Lutaml
           end.join("\n")
         end
 
-        private
-
         def self.generate_class_definition(class_name, class_schema)
           attributes = class_schema["properties"] || {}
           required_attributes = class_schema["required"] || []
 
-          <<-RUBY
-class #{class_name} < Lutaml::Model::Serializable
-  #{generate_attributes(attributes, required_attributes)}
+          <<~RUBY
+            class #{class_name} < Lutaml::Model::Serializable
+              #{generate_attributes(attributes, required_attributes)}
 
-  json do
-    #{generate_json_mappings(attributes)}
-  end
-end
+              json do
+                #{generate_json_mappings(attributes)}
+              end
+            end
           RUBY
         end
 
@@ -60,7 +58,9 @@ end
             "Array.of(#{item_type})"
           when "object"
             nested_class_name = schema["title"] || "NestedObject"
-            nested_class_definition = generate_class_definition(nested_class_name, schema)
+            nested_class_definition = generate_class_definition(
+              nested_class_name, schema
+            )
             @nested_classes ||= []
             @nested_classes << nested_class_definition
             nested_class_name

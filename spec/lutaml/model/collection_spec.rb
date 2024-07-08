@@ -29,10 +29,16 @@ end
 RSpec.describe CollectionTests do
   let(:pots) { [{ material: "clay" }, { material: "ceramic" }] }
   let(:temperatures) { [1200, 1300, 1400] }
-  let(:attributes) { { brand: "Skutt", pots: pots, temperatures: temperatures } }
+  let(:attributes) do
+    {
+      brand: "Skutt",
+      pots: pots,
+      temperatures: temperatures,
+    }
+  end
   let(:model) { CollectionTests::Kiln.new(attributes) }
 
-  let(:model_xml) {
+  let(:model_xml) do
     <<~XML
       <kiln brand="Skutt">
         <pot>
@@ -46,7 +52,7 @@ RSpec.describe CollectionTests do
         <temperature>1400</temperature>
       </kiln>
     XML
-  }
+  end
 
   it "initializes with default values" do
     default_model = CollectionTests::Kiln.new

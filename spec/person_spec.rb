@@ -3,7 +3,7 @@ require "spec_helper"
 require_relative "fixtures/person"
 
 RSpec.describe Person do
-  let(:attributes) {
+  let(:attributes) do
     {
       first_name: "John",
       last_name: "Doe",
@@ -14,7 +14,7 @@ RSpec.describe Person do
       wakeup_time: "07:00:00",
       active: true,
     }
-  }
+  end
 
   let(:model) { Person.new(attributes) }
 
@@ -59,7 +59,7 @@ RSpec.describe Person do
     expect(person.active).to be true
   end
 
-  let(:attributes_json) {
+  let(:attributes_json) do
     {
       firstName: "John",
       lastName: "Doe",
@@ -70,7 +70,7 @@ RSpec.describe Person do
       wakeupTime: "07:00:00",
       active: true,
     }
-  }
+  end
 
   it "serializes to JSON" do
     expect(model.to_json).to eq(attributes_json.to_json)
@@ -88,7 +88,7 @@ RSpec.describe Person do
     expect(person.active).to be true
   end
 
-  let(:attributes_yaml) {
+  let(:attributes_yaml) do
     {
       "firstName" => "John",
       "lastName" => "Doe",
@@ -99,7 +99,7 @@ RSpec.describe Person do
       "wakeupTime" => "07:00:00",
       "active" => true,
     }
-  }
+  end
 
   it "serializes to YAML" do
     expect(model.to_yaml).to eq(attributes_yaml.to_yaml)

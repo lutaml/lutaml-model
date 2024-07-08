@@ -40,15 +40,14 @@ module Lutaml
         end
 
         def build_attributes(attributes)
-          attributes.each_with_object({}) do |(name, attr), hash|
-            hash[name] = attr.value
-          end
+          attributes.transform_values(&:value)
         end
 
         def parse_element(element)
           result = { "_text" => element.text }
           element.children.each do |child|
             next if child.is_a?(Oga::XML::Text)
+
             result[child.name] ||= []
             result[child.name] << parse_element(child)
           end
@@ -67,7 +66,9 @@ module Lutaml
         private
 
         def parse_children(node)
-          node.children.select { |child| child.is_a?(Oga::XML::Element) }.map { |child| OgaElement.new(child) }
+          node.children.select do |child|
+            child.is_a?(Oga::XML::Element)
+          end.map { |child| OgaElement.new(child) }
         end
       end
     end

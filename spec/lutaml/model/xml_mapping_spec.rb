@@ -61,7 +61,8 @@ RSpec.describe Lutaml::Model::XmlMapping do
   context "with element-level namespace" do
     before do
       mapping.root("ceramic")
-      mapping.map_element("type", to: :type, namespace: "https://example.com/ceramic/1.2", prefix: "cera")
+      mapping.map_element("type", to: :type,
+                                  namespace: "https://example.com/ceramic/1.2", prefix: "cera")
       mapping.map_element("color", to: :color, delegate: :glaze)
       mapping.map_element("finish", to: :finish, delegate: :glaze)
     end
@@ -77,7 +78,8 @@ RSpec.describe Lutaml::Model::XmlMapping do
   context "with attribute-level namespace" do
     before do
       mapping.root("ceramic")
-      mapping.map_attribute("date", to: :date, namespace: "https://example.com/ceramic/1.2", prefix: "cera")
+      mapping.map_attribute("date", to: :date,
+                                    namespace: "https://example.com/ceramic/1.2", prefix: "cera")
       mapping.map_element("type", to: :type)
       mapping.map_element("color", to: :color, delegate: :glaze)
       mapping.map_element("finish", to: :finish, delegate: :glaze)

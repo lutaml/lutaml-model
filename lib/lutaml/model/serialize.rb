@@ -31,11 +31,11 @@ module Lutaml
           attributes[name] = attr
 
           define_method(name) do
-            instance_variable_get("@#{name}")
+            instance_variable_get(:"@#{name}")
           end
 
-          define_method("#{name}=") do |value|
-            instance_variable_set("@#{name}", value)
+          define_method(:"#{name}=") do |value|
+            instance_variable_set(:"@#{name}", value)
           end
         end
 
@@ -47,8 +47,8 @@ module Lutaml
             self.mappings[format].instance_eval(&block)
           end
 
-          define_method("from_#{format}") do |data|
-            adapter = Lutaml::Model::Config.send("#{format}_adapter")
+          define_method(:"from_#{format}") do |data|
+            adapter = Lutaml::Model::Config.send(:"#{format}_adapter")
             doc = adapter.parse(data)
             mapped_attrs = apply_mappings(doc.to_h, format)
             apply_content_mapping(doc, mapped_attrs) if format == :xml
@@ -64,7 +64,8 @@ module Lutaml
           klass = format == :xml ? XmlMapping : KeyValueMapping
           klass.new.tap do |mapping|
             attributes&.each do |name, attr|
-              mapping.map_element(name.to_s, to: name, render_nil: attr.render_nil?)
+              mapping.map_element(name.to_s, to: name,
+                                             render_nil: attr.render_nil?)
             end
           end
         end
@@ -98,7 +99,9 @@ module Lutaml
             # end
 
             if attr.collection?
-              value = (value || []).map { |v| attr.type <= Serialize ? attr.type.apply_mappings(v, format) : v }
+              value = (value || []).map do |v|
+                attr.type <= Serialize ? attr.type.apply_mappings(v, format) : v
+              end
             elsif value.is_a?(Hash) && attr.type != Lutaml::Model::Type::Hash
               value = attr.type.apply_mappings(value, format)
             end
@@ -134,17 +137,17 @@ module Lutaml
             # end
 
             if attr.collection?
-              value = (value || []).map { |v| attr.type <= Serialize ? attr.type.apply_xml_mapping(v) : v["text"] }
-            else
-              if attr.type <= Serialize
-                value = attr.type.apply_xml_mapping(value) if value
-              else
-                if value.is_a?(Hash) && attr.type != Lutaml::Model::Type::Hash
-                  value = value["text"]
-                end
-
-                value = attr.type.cast(value)
+              value = (value || []).map do |v|
+                attr.type <= Serialize ? attr.type.apply_xml_mapping(v) : v["text"]
               end
+            elsif attr.type <= Serialize
+              value = attr.type.apply_xml_mapping(value) if value
+            else
+              if value.is_a?(Hash) && attr.type != Lutaml::Model::Type::Hash
+                value = value["text"]
+              end
+
+              value = attr.type.cast(value)
             end
             hash[rule.to] = value
           end
@@ -174,13 +177,21 @@ module Lutaml
                   end
 
           value = if attr.collection?
-              (value || []).map { |v| v.is_a?(Hash) ? attr.type.new(v) : Lutaml::Model::Type.cast(v, attr.type) }
-            elsif value.is_a?(Hash) && attr.type != Lutaml::Model::Type::Hash
-              attr.type.new(value)
-            else
-              Lutaml::Model::Type.cast(value, attr.type)
-            end
-          send("#{name}=", ensure_utf8(value))
+                    (value || []).map do |v|
+                      if v.is_a?(Hash)
+                        attr.type.new(v)
+                      else
+                        Lutaml::Model::Type.cast(
+                          v, attr.type
+                        )
+                      end
+                    end
+                  elsif value.is_a?(Hash) && attr.type != Lutaml::Model::Type::Hash
+                    attr.type.new(value)
+                  else
+                    Lutaml::Model::Type.cast(value, attr.type)
+                  end
+          send(:"#{name}=", ensure_utf8(value))
         end
       end
 
@@ -237,28 +248,32 @@ module Lutaml
           attribute = self.class.attributes[name]
 
           hash[rule.from] = case value
-            when Array
-              value.map { |v| v.is_a?(Serialize) ? v.hash_representation(format, options) : attribute.type.serialize(v) }
-            else
-              value.is_a?(Serialize) ? value.hash_representation(format, options) : attribute.type.serialize(value)
-            end
+                            when Array
+                              value.map do |v|
+                                v.is_a?(Serialize) ? v.hash_representation(format, options) : attribute.type.serialize(v)
+                              end
+                            else
+                              value.is_a?(Serialize) ? value.hash_representation(format, options) : attribute.type.serialize(value)
+                            end
         end
       end
 
       private
 
-      def handle_delegate(obj, rule, hash)
+      def handle_delegate(_obj, rule, hash)
         name = rule.to
         value = send(rule.delegate).send(name)
         return if value.nil? && !rule.render_nil
 
-        attribute = self.send(rule.delegate).class.attributes[name]
+        attribute = send(rule.delegate).class.attributes[name]
         hash[rule.from] = case value
-          when Array
-            value.map { |v| v.is_a?(Serialize) ? v.hash_representation(format, options) : attribute.type.serialize(v) }
-          else
-            value.is_a?(Serialize) ? value.hash_representation(format, options) : attribute.type.serialize(value)
-          end
+                          when Array
+                            value.map do |v|
+                              v.is_a?(Serialize) ? v.hash_representation(format, options) : attribute.type.serialize(v)
+                            end
+                          else
+                            value.is_a?(Serialize) ? value.hash_representation(format, options) : attribute.type.serialize(value)
+                          end
       end
 
       def ensure_utf8(value)
@@ -268,7 +283,9 @@ module Lutaml
         when Array
           value.map { |v| ensure_utf8(v) }
         when Hash
-          value.transform_keys { |k| ensure_utf8(k) }.transform_values { |v| ensure_utf8(v) }
+          value.transform_keys do |k|
+            ensure_utf8(k)
+          end.transform_values { |v| ensure_utf8(v) }
         else
           value
         end

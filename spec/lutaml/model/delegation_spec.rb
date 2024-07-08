@@ -40,13 +40,13 @@ module Delegation
 end
 
 RSpec.describe Delegation do
-  let(:yaml_data) {
+  let(:yaml_data) do
     <<~YAML
       type: Vase
       color: Blue
       finish: Glossy
     YAML
-  }
+  end
 
   let(:delegation) { Delegation::Ceramic.from_yaml(yaml_data) }
 
@@ -72,25 +72,27 @@ RSpec.describe Delegation do
       color: "Blue",
     }.to_json
 
-    expect(JSON.parse(delegation.to_json(only: [:type, :color]))).to eq(JSON.parse(expected_json))
+    expect(JSON.parse(delegation.to_json(only: %i[type
+                                                  color]))).to eq(JSON.parse(expected_json))
   end
 
   it "serializes to JSON with pretty formatting" do
     expected_pretty_json = {
-      "type": "Vase",
-      "color": "Blue"
+      type: "Vase",
+      color: "Blue",
     }.to_json
 
-    expect(delegation.to_json(only: [:type, :color], pretty: true).strip).to eq(expected_pretty_json.strip)
+    expect(delegation.to_json(only: %i[type color],
+                              pretty: true).strip).to eq(expected_pretty_json.strip)
   end
 
   it "serializes to XML with pretty formatting" do
-    expected_pretty_xml = <<-XML
-<delegation>
-  <type>Vase</type>
-  <color>Blue</color>
-  <finish>Glossy</finish>
-</delegation>
+    expected_pretty_xml = <<~XML
+      <delegation>
+        <type>Vase</type>
+        <color>Blue</color>
+        <finish>Glossy</finish>
+      </delegation>
     XML
 
     expect(delegation.to_xml(pretty: true).strip).to be_equivalent_to(expected_pretty_xml.strip)
@@ -118,121 +120,146 @@ RSpec.describe Delegation do
   end
 
   it "provides XML declaration with UTF-8 encoding if encoding: true option provided" do
-    xml_data = delegation.to_xml(pretty: true, declaration: true, encoding: true)
+    xml_data = delegation.to_xml(pretty: true, declaration: true,
+                                 encoding: true)
     expect(xml_data).to include('<?xml version="1.0" encoding="UTF-8"?>')
   end
 
   it "provides XML declaration with specified encoding if encoding: 'ASCII' option provided" do
-    xml_data = delegation.to_xml(pretty: true, declaration: true, encoding: "ASCII")
+    xml_data = delegation.to_xml(pretty: true, declaration: true,
+                                 encoding: "ASCII")
     expect(xml_data).to include('<?xml version="1.0" encoding="ASCII"?>')
   end
 
   it "sets the default namespace of <delegation>" do
-    class Delegation::Ceramic
-      xml do
-        root "delegation"
-        namespace "https://example.com/delegation/1.2"
-        map_element "type", to: :type
-        map_element "color", to: :color, delegate: :glaze
-        map_element "finish", to: :finish, delegate: :glaze
+    module Delegation
+      class Ceramic
+        xml do
+          root "delegation"
+          namespace "https://example.com/delegation/1.2"
+          map_element "type", to: :type
+          map_element "color", to: :color, delegate: :glaze
+          map_element "finish", to: :finish, delegate: :glaze
+        end
       end
     end
 
     delegation_class = Delegation::Ceramic
     delegation = delegation_class.from_yaml(yaml_data)
-    xml_data = delegation.to_xml(pretty: true, declaration: true, encoding: "UTF-8")
+    xml_data = delegation.to_xml(pretty: true, declaration: true,
+                                 encoding: "UTF-8")
     expect(xml_data).to include('<delegation xmlns="https://example.com/delegation/1.2">')
   end
 
   it "sets the namespace of <delegation> with a prefix" do
-    class Delegation::Ceramic
-      xml do
-        root "delegation"
-        namespace "https://example.com/delegation/1.2", "del"
-        map_element "type", to: :type
-        map_element "color", to: :color, delegate: :glaze
-        map_element "finish", to: :finish, delegate: :glaze
+    module Delegation
+      class Ceramic
+        xml do
+          root "delegation"
+          namespace "https://example.com/delegation/1.2", "del"
+          map_element "type", to: :type
+          map_element "color", to: :color, delegate: :glaze
+          map_element "finish", to: :finish, delegate: :glaze
+        end
       end
     end
     delegation_class = Delegation::Ceramic
     delegation = delegation_class.from_yaml(yaml_data)
-    xml_data = delegation.to_xml(pretty: true, declaration: true, encoding: "UTF-8")
+    xml_data = delegation.to_xml(pretty: true, declaration: true,
+                                 encoding: "UTF-8")
 
     expect(xml_data).to include('<del:delegation xmlns:del="https://example.com/delegation/1.2">')
   end
 
   it "sets the namespace of a particular element inside Ceramic" do
-    class Delegation::Ceramic
-      xml do
-        root "delegation"
-        map_element "type", to: :type, namespace: "https://example.com/type/1.2", prefix: "type"
-        map_element "color", to: :color, delegate: :glaze
-        map_element "finish", to: :finish, delegate: :glaze
+    module Delegation
+      class Ceramic
+        xml do
+          root "delegation"
+          map_element "type", to: :type,
+                              namespace: "https://example.com/type/1.2", prefix: "type"
+          map_element "color", to: :color, delegate: :glaze
+          map_element "finish", to: :finish, delegate: :glaze
+        end
       end
     end
 
     delegation_class = Delegation::Ceramic
 
     delegation = delegation_class.from_yaml(yaml_data)
-    xml_data = delegation.to_xml(pretty: true, declaration: true, encoding: "UTF-8")
+    xml_data = delegation.to_xml(pretty: true, declaration: true,
+                                 encoding: "UTF-8")
     expect(xml_data).to include('<delegation xmlns:type="https://example.com/type/1.2">')
     expect(xml_data).to include("<type:type>Vase</type:type>")
   end
 
   it "sets the namespace of <delegation> and also a particular element inside using :inherit" do
-    class Delegation::Ceramic
-      xml do
-        root "delegation"
-        namespace "https://example.com/delegation/1.2", "del"
-        map_element "type", to: :type #, namespace: :inherit
-        map_element "color", to: :color, delegate: :glaze
-        map_element "finish", to: :finish, delegate: :glaze
+    module Delegation
+      class Ceramic
+        xml do
+          root "delegation"
+          namespace "https://example.com/delegation/1.2", "del"
+          map_element "type", to: :type # , namespace: :inherit
+          map_element "color", to: :color, delegate: :glaze
+          map_element "finish", to: :finish, delegate: :glaze
+        end
       end
     end
 
     delegation_class = Delegation::Ceramic
     delegation = delegation_class.from_yaml(yaml_data)
-    xml_data = delegation.to_xml(pretty: true, declaration: true, encoding: "UTF-8")
+    xml_data = delegation.to_xml(pretty: true, declaration: true,
+                                 encoding: "UTF-8")
     expect(xml_data).to include('<del:delegation xmlns:del="https://example.com/delegation/1.2">')
     expect(xml_data).to include("<del:type>Vase</del:type>")
   end
 
   it "sets the namespace of a particular attribute inside <delegation>" do
-    class Delegation::Ceramic
-      attribute :date,  Lutaml::Model::Type::Date
+    module Delegation
+      class Ceramic
+        attribute :date, Lutaml::Model::Type::Date
 
-      xml do
-        root "delegation"
-        map_attribute "date", to: :date, namespace: "https://example.com/delegation/1.2", prefix: "del"
-        map_element "type", to: :type
-        map_element "color", to: :color, delegate: :glaze
-        map_element "finish", to: :finish, delegate: :glaze
+        xml do
+          root "delegation"
+          map_attribute "date", to: :date,
+                                namespace: "https://example.com/delegation/1.2", prefix: "del"
+          map_element "type", to: :type
+          map_element "color", to: :color, delegate: :glaze
+          map_element "finish", to: :finish, delegate: :glaze
+        end
       end
     end
 
     delegation_class = Delegation::Ceramic
-    delegation = delegation_class.new(type: "Vase", glaze: Delegation::Glaze.new(color: "Blue", finish: "Glossy"), date: "2024-06-08")
-    xml_data = delegation.to_xml(pretty: true, declaration: true, encoding: "UTF-8")
+    delegation = delegation_class.new(type: "Vase",
+                                      glaze: Delegation::Glaze.new(color: "Blue", finish: "Glossy"), date: "2024-06-08")
+    xml_data = delegation.to_xml(pretty: true, declaration: true,
+                                 encoding: "UTF-8")
     expect(xml_data).to include('<delegation xmlns:del="https://example.com/delegation/1.2" del:date="2024-06-08">')
   end
 
   it "sets the namespace of <delegation> and also a particular attribute inside using :inherit" do
-    class Delegation::Ceramic
-      attribute :date,  Lutaml::Model::Type::Date
+    module Delegation
+      class Ceramic
+        attribute :date, Lutaml::Model::Type::Date
 
-      xml do
-        root "delegation"
-        namespace "https://example.com/delegation/1.1", "del1"
-        map_attribute "date", to: :date, namespace: "https://example.com/delegation/1.2", prefix: "del2"
-        map_element "type", to: :type, namespace: :inherit
-        map_element "color", to: :color, delegate: :glaze
-        map_element "finish", to: :finish, delegate: :glaze
+        xml do
+          root "delegation"
+          namespace "https://example.com/delegation/1.1", "del1"
+          map_attribute "date", to: :date,
+                                namespace: "https://example.com/delegation/1.2", prefix: "del2"
+          map_element "type", to: :type, namespace: :inherit
+          map_element "color", to: :color, delegate: :glaze
+          map_element "finish", to: :finish, delegate: :glaze
+        end
       end
     end
 
     delegation_class = Delegation::Ceramic
-    delegation = delegation_class.new(type: "Vase", glaze: Delegation::Glaze.new(color: "Blue", finish: "Glossy"), date: "2024-06-08")
-    xml_data = delegation.to_xml(pretty: true, declaration: true, encoding: "UTF-8")
+    delegation = delegation_class.new(type: "Vase",
+                                      glaze: Delegation::Glaze.new(color: "Blue", finish: "Glossy"), date: "2024-06-08")
+    xml_data = delegation.to_xml(pretty: true, declaration: true,
+                                 encoding: "UTF-8")
     expect(xml_data).to include('<del1:delegation xmlns:del1="https://example.com/delegation/1.1" xmlns:del2="https://example.com/delegation/1.2" del2:date="2024-06-08">')
     expect(xml_data).to include("<del1:type>Vase</del1:type>")
   end

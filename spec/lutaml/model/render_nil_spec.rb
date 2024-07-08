@@ -3,7 +3,9 @@ require "spec_helper"
 require "lutaml/model"
 
 class RenderNil < Lutaml::Model::Serializable
-  attribute :name, Lutaml::Model::Type::String, default: -> { "Unnamed Pottery" }
+  attribute :name, Lutaml::Model::Type::String, default: -> {
+                                                           "Unnamed Pottery"
+                                                         }
   attribute :clay_type, Lutaml::Model::Type::String
   attribute :glaze, Lutaml::Model::Type::String
   attribute :dimensions, Lutaml::Model::Type::String, collection: true
@@ -39,14 +41,14 @@ class RenderNil < Lutaml::Model::Serializable
 end
 
 RSpec.describe RenderNil do
-  let(:attributes) {
+  let(:attributes) do
     {
       name: nil,
       clay_type: nil,
       glaze: nil,
       dimensions: nil,
     }
-  }
+  end
   let(:model) { RenderNil.new(attributes) }
 
   it "serializes to JSON with render_nil option" do
