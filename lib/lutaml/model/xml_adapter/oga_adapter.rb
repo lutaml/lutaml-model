@@ -12,10 +12,6 @@ module Lutaml
           new(root)
         end
 
-        def initialize(root)
-          @root = root
-        end
-
         def to_h
           { @root.name => parse_element(@root) }
         end

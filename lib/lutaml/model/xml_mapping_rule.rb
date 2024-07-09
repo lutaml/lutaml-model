@@ -6,6 +6,8 @@ module Lutaml
     class XmlMappingRule < MappingRule
       attr_reader :namespace, :prefix
 
+      # rubocop:disable Metrics/MethodLength
+      # rubocop:disable Metrics/ParameterLists
       def initialize(
         name,
         to:,
@@ -31,6 +33,8 @@ module Lutaml
                      end
         @prefix = prefix
       end
+      # rubocop:enable Metrics/MethodLength
+      # rubocop:enable Metrics/ParameterLists
     end
   end
 end

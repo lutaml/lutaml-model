@@ -175,6 +175,7 @@ module Lutaml
         end
       end
 
+      # rubocop:disable Layout/LineLength
       def initialize(attrs = {})
         return unless self.class.attributes
 
@@ -207,6 +208,7 @@ module Lutaml
           send(:"#{name}=", ensure_utf8(value))
         end
       end
+      # rubocop:enable Layout/LineLength
 
       # TODO: Make this work
       # FORMATS.each do |format|

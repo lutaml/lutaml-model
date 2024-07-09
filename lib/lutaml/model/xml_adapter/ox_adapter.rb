@@ -12,11 +12,6 @@ module Lutaml
           new(root)
         end
 
-        def initialize(root)
-          @root = root
-          # @root = OxElement.new(ox_node) if ox_node
-        end
-
         def to_h
           # { @root.name => parse_element(@root) }
           parse_element(@root)
@@ -32,7 +27,11 @@ module Lutaml
 
         private
 
-        # rubocop:disable Metrics/AbcSize, Layout/LineLength
+        # rubocop:disable Layout/LineLength
+        # rubocop:disable Layout/MethodLength
+        # rubocop:disable Metrics/AbcSize
+        # rubocop:disable Metrics/CyclomaticComplexity
+        # rubocop:disable Metrics/PerceivedComplexity
         def build_element(builder, element, _options = {})
           return element.to_xml(builder) if element.is_a?(Lutaml::Model::XmlAdapter::OxElement)
 
@@ -78,6 +77,11 @@ module Lutaml
             # end
           end
         end
+        # rubocop:enable Layout/LineLength
+        # rubocop:enable Layout/MethodLength
+        # rubocop:enable Metrics/AbcSize
+        # rubocop:enable Metrics/CyclomaticComplexity
+        # rubocop:enable Metrics/PerceivedComplexity
 
         def handle_nested_elements(builder, _element_rule, value)
           case value
@@ -98,11 +102,14 @@ module Lutaml
           end
           result
         end
-        # rubocop:enable Metrics/AbcSize, Layout/LineLength
       end
 
       class OxElement < Element
-        # rubocop:disable Metrics/AbcSize, Metrics/MethodLength, Layout/LineLength
+        # rubocop:disable Metrics/AbcSize
+        # rubocop:disable Metrics/MethodLength
+        # rubocop:disable Layout/LineLength
+        # rubocop:disable Metrics/CyclomaticComplexity
+        # rubocop:disable Metrics/PerceivedComplexity
         def initialize(node, root_node: nil)
           attributes = node.attributes.each_with_object({}) do |(name, value), hash|
             if attribute_is_namespace?(name)
@@ -136,6 +143,11 @@ module Lutaml
             parent_document: root_node
           )
         end
+        # rubocop:enable Metrics/AbcSize
+        # rubocop:enable Metrics/MethodLength
+        # rubocop:enable Layout/LineLength
+        # rubocop:enable Metrics/CyclomaticComplexity
+        # rubocop:enable Metrics/PerceivedComplexity
 
         def to_xml(builder = nil)
           builder ||= Ox::Builder.new
@@ -166,11 +178,9 @@ module Lutaml
           node.nodes.select do |child|
             child.is_a?(Ox::Element)
           end.map do |child|
-            OxElement.new(child,
-                          root_node: root_node)
+            OxElement.new(child, root_node: root_node)
           end
         end
-        # rubocop:enable Metrics/AbcSize, Metrics/MethodLength, Layout/LineLength
       end
     end
   end
