@@ -103,7 +103,13 @@ RSpec.describe RenderNil do
       dimensions: []
     YAML
 
-    expect(model.to_yaml.strip).to eq(expected_yaml.strip)
+    generated_yaml = model.to_yaml.strip
+
+    # Removing empty spaces from the end of the line because of and issue in
+    # libyaml -> https://github.com/yaml/libyaml/issues/46
+    generated_yaml = generated_yaml.gsub("/ $/", "")
+
+    expect(generated_yaml).to eq(expected_yaml.strip)
   end
 
   it "deserializes from YAML with render_nil option" do
