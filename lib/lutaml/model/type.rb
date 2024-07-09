@@ -9,8 +9,6 @@ require "json"
 module Lutaml
   module Model
     module Type
-      class Boolean; end
-
       %w(String
          Integer
          Float
@@ -29,19 +27,19 @@ module Lutaml
          JSON
          Enum).each do |t|
         class_eval <<~HEREDOC, __FILE__, __LINE__ + 1
-          class #{t}
-            def self.cast(value)
-              return if value.nil?
+          class #{t}                        # class Integer
+            def self.cast(value)            #   def self.cast(value)
+              return if value.nil?          #     return if value.nil?
 
-              Type.cast(value, #{t})
-            end
+              Type.cast(value, #{t})        #     Type.cast(value, Integer)
+            end                             #   end
 
-            def self.serialize(value)
-              return if value.nil?
+            def self.serialize(value)       #   def self.serialize(value)
+              return if value.nil?          #     return if value.nil?
 
-              Type.serialize(value, #{t})
-            end
-          end
+              Type.serialize(value, #{t})   #     Type.serialize(value, Integer)
+            end                             #   end
+          end                               # end
         HEREDOC
       end
 
@@ -110,7 +108,11 @@ module Lutaml
       UUID_REGEX = /\A[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\z/
       # rubocop:enable Layout/LineLength
 
-      # rubocop:disable Metrics/MethodLength, Layout/LineLength
+      # rubocop:disable Metrics/MethodLength
+      # rubocop:disable Layout/LineLength
+      # rubocop:disable Metrics/AbcSize
+      # rubocop:disable Metrics/CyclomaticComplexity
+      # rubocop:disable Metrics/PerceivedComplexity
       def self.cast(value, type)
         return if value.nil?
 
@@ -191,7 +193,7 @@ module Lutaml
       def self.normalize_hash(hash)
         return hash["text"] if hash.keys == ["text"]
 
-        hash.map do |key, value|
+        hash.filter_map do |key, value|
           next if key == "text"
 
           if value.is_a?(::Hash)
@@ -199,9 +201,13 @@ module Lutaml
           else
             [key, value]
           end
-        end.compact.to_h
+        end.to_h
       end
-      # rubocop:enable Metrics/MethodLength, Layout/LineLength
+      # rubocop:enable Metrics/MethodLength
+      # rubocop:enable Layout/LineLength
+      # rubocop:enable Metrics/AbcSize
+      # rubocop:enable Metrics/CyclomaticComplexity
+      # rubocop:enable Metrics/PerceivedComplexity
     end
   end
 end

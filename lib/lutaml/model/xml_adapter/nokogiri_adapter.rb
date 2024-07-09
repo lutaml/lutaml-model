@@ -12,10 +12,6 @@ module Lutaml
           new(root)
         end
 
-        def initialize(root)
-          @root = root
-        end
-
         def to_h
           # { @root.name => parse_element(@root) }
           parse_element(@root)
@@ -26,33 +22,55 @@ module Lutaml
             build_element(xml, @root, options)
           end
 
-          xml_data = builder.doc.root.to_xml(options[:pretty] ? { indent: 2 } : {})
+          xml_options = {}
+          xml_options[:indent] = 2 if options[:pretty]
+
+          xml_data = builder.doc.root.to_xml(xml_options)
           options[:declaration] ? declaration(options) + xml_data : xml_data
         end
 
         private
 
+        # rubocop:disable Metrics/MethodLength
+        # rubocop:disable Metrics/BlockLength
+        # rubocop:disable Metrics/AbcSize
+        # rubocop:disable Metrics/CyclomaticComplexity
+        # rubocop:disable Metrics/PerceivedComplexity
         def build_element(xml, element, _options = {})
-          return element.to_xml(xml) if element.is_a?(Lutaml::Model::XmlAdapter::NokogiriElement)
+          if element.is_a?(Lutaml::Model::XmlAdapter::NokogiriElement)
+            return element.to_xml(xml)
+          end
 
           xml_mapping = element.class.mappings_for(:xml)
           return xml unless xml_mapping
 
           attributes = build_attributes(element, xml_mapping)
 
-          prefixed_xml = xml_mapping.namespace_prefix ? xml[xml_mapping.namespace_prefix] : xml
+          prefixed_xml = if xml_mapping.namespace_prefix
+                           xml[xml_mapping.namespace_prefix]
+                         else
+                           xml
+                         end
 
           prefixed_xml.send(xml_mapping.root_element, attributes) do
             xml_mapping.elements.each do |element_rule|
               if element_rule.delegate
-                attribute_def = element.send(element_rule.delegate).class.attributes[element_rule.to]
-                value = element.send(element_rule.delegate).send(element_rule.to)
+                attribute_def =
+                  element
+                    .send(element_rule.delegate)
+                    .class
+                    .attributes[element_rule.to]
+
+                value =
+                  element
+                    .send(element_rule.delegate)
+                    .send(element_rule.to)
               else
                 attribute_def = element.class.attributes[element_rule.to]
                 value = element.send(element_rule.to)
               end
 
-              prefixed_xml = element_rule.prefix ? xml[element_rule.prefix] : xml
+              nsp_xml = element_rule.prefix ? xml[element_rule.prefix] : xml
 
               val = if attribute_def.collection?
                       value
@@ -66,7 +84,7 @@ module Lutaml
                 if attribute_def&.type&.<= Lutaml::Model::Serialize
                   handle_nested_elements(xml, element_rule, v)
                 else
-                  prefixed_xml.send(element_rule.name) do
+                  nsp_xml.send(element_rule.name) do
                     if !v.nil?
                       serialized_value = attribute_def.type.serialize(v)
 
@@ -85,6 +103,11 @@ module Lutaml
             prefixed_xml.text element.text unless xml_mapping.elements.any?
           end
         end
+        # rubocop:enable Metrics/MethodLength
+        # rubocop:enable Metrics/BlockLength
+        # rubocop:enable Metrics/AbcSize
+        # rubocop:enable Metrics/CyclomaticComplexity
+        # rubocop:enable Metrics/PerceivedComplexity
 
         def handle_nested_elements(xml, _element_rule, value)
           case value
@@ -95,13 +118,11 @@ module Lutaml
           end
         end
 
+        # rubocop:disable Metrics/AbcSize
+        # rubocop:disable Metrics/MethodLength
         def parse_element(element)
           result = element.children.each_with_object({}) do |child, hash|
-            value = if child.text?
-                      child.text
-                    else
-                      parse_element(child)
-                    end
+            value = child.text? ? child.text : parse_element(child)
 
             if hash[child.unprefixed_name]
               hash[child.unprefixed_name] =
@@ -118,9 +139,15 @@ module Lutaml
           # result["_text"] = element.text if element.text
           result
         end
+        # rubocop:enable Metrics/AbcSize
+        # rubocop:enable Metrics/MethodLength
       end
 
       class NokogiriElement < Element
+        # rubocop:disable Metrics/MethodLength
+        # rubocop:disable Metrics/AbcSize
+        # rubocop:disable Metrics/CyclomaticComplexity
+        # rubocop:disable Metrics/PerceivedComplexity
         def initialize(node, root_node: nil)
           if root_node
             node.namespaces.each do |prefix, name|
@@ -138,9 +165,12 @@ module Lutaml
                      attr.name
                    end
 
-            attributes[name] =
-              Attribute.new(name, attr.value, namespace: attr.namespace&.href,
-                                              namespace_prefix: attr.namespace&.prefix)
+            attributes[name] = Attribute.new(
+              name,
+              attr.value,
+              namespace: attr.namespace&.href,
+              namespace_prefix: attr.namespace&.prefix,
+            )
           end
 
           super(
@@ -152,6 +182,10 @@ module Lutaml
             namespace_prefix: node.namespace&.prefix,
           )
         end
+        # rubocop:enable Metrics/MethodLength
+        # rubocop:enable Metrics/AbcSize
+        # rubocop:enable Metrics/CyclomaticComplexity
+        # rubocop:enable Metrics/PerceivedComplexity
 
         def text?
           # false
@@ -164,12 +198,8 @@ module Lutaml
           if name == "text"
             builder.text(text)
           else
-            attrs = build_attributes(self)
-
-            builder.send(name, attrs) do |xml|
-              children.each do |child|
-                child.to_xml(xml)
-              end
+            builder.send(name, build_attributes(self)) do |xml|
+              children.each { |child| child.to_xml(xml) }
             end
           end
 
@@ -203,10 +233,10 @@ module Lutaml
             namespace_attrs[namespace.attr_name] = namespace.uri
           end
 
-          return namespace_attrs if node.children.empty?
-
           node.children.each do |child|
-            namespace_attrs = namespace_attrs.merge(build_namespace_attributes(child))
+            namespace_attrs = namespace_attrs.merge(
+              build_namespace_attributes(child),
+            )
           end
 
           namespace_attrs

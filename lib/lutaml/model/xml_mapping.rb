@@ -29,6 +29,7 @@ module Lutaml
         @namespace_prefix = prefix
       end
 
+      # rubocop:disable Metrics/ParameterLists
       def map_element(
         name,
         to:,
@@ -68,6 +69,7 @@ module Lutaml
           prefix: prefix,
         )
       end
+      # rubocop:enable Metrics/ParameterLists
 
       def map_content(to:, render_nil: false, with: {}, delegate: nil)
         @content_mapping = XmlMappingRule.new(

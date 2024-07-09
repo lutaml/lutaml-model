@@ -21,23 +21,20 @@ module Lutaml
         end
 
         def declaration(options)
-          version = if options[:declaration].is_a?(String)
-                      options[:declaration]
-                    else
-                      "1.0"
-                    end
+          version = "1.0"
+          version = options[:declaration] if options[:declaration].is_a?(String)
 
-          encoding = if options[:encoding].is_a?(String)
-                       options[:encoding]
-                     else
-                       (options[:encoding] ? "UTF-8" : nil)
-                     end
+          encoding = options[:encoding] ? "UTF-8" : nil
+          encoding = options[:encoding] if options[:encoding].is_a?(String)
+
           declaration = "<?xml version=\"#{version}\""
           declaration += " encoding=\"#{encoding}\"" if encoding
           declaration += "?>\n"
           declaration
         end
 
+        # rubocop:disable Metrics/AbcSize
+        # rubocop:disable Metrics/MethodLength
         def build_attributes(element, xml_mapping)
           attrs = namespace_attributes(xml_mapping)
 
@@ -55,6 +52,8 @@ module Lutaml
             end
           end
         end
+        # rubocop:enable Metrics/AbcSize
+        # rubocop:enable Metrics/MethodLength
 
         def namespace_attributes(xml_mapping)
           return {} unless xml_mapping.namespace_uri
@@ -71,6 +70,7 @@ module Lutaml
                     :namespace_prefix,
                     :parent_document
 
+        # rubocop:disable Metrics/ParameterLists
         def initialize(
           name,
           attributes = {},
@@ -86,6 +86,7 @@ module Lutaml
           @text = text
           @parent_document = parent_document
         end
+        # rubocop:enable Metrics/ParameterLists
 
         def name
           if namespace_prefix && namespaces[namespace_prefix]
