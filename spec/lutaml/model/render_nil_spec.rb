@@ -107,7 +107,7 @@ RSpec.describe RenderNil do
 
     # Removing empty spaces from the end of the line because of and issue in
     # libyaml -> https://github.com/yaml/libyaml/issues/46
-    generated_yaml = generated_yaml.gsub(/: \n/, ":\n")
+    generated_yaml = generated_yaml.gsub(": \n", ":\n")
 
     expect(generated_yaml).to eq(expected_yaml.strip)
   end
