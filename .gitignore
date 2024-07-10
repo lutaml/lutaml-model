@@ -1,3 +1,5 @@
+.rubocop-https---*
+
 /.bundle/
 /.yardoc
 /_yardoc/

@@ -23,9 +23,13 @@ gem "ox"
 
 gem "pry"
 
-gem "rubocop-performance"
+gem "rubocop-performance", require: false
 
-gem "rubocop-rails"
+gem "rubocop-rails", require: false
+
+gem "rubocop-rake", require: false
+
+gem "rubocop-rspec", require: false
 
 gem "tomlib"
 
