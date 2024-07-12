@@ -81,7 +81,7 @@ module Lutaml
                     end
 
               val.each do |v|
-                if attribute_def&.type&.<= Lutaml::Model::Serialize
+                if v && attribute_def&.type <= Lutaml::Model::Serialize
                   handle_nested_elements(xml, element_rule, v)
                 else
                   nsp_xml.send(element_rule.name) do
@@ -100,7 +100,13 @@ module Lutaml
                 end
               end
             end
-            prefixed_xml.text element.text unless xml_mapping.elements.any?
+
+            if xml_mapping.content_mapping
+              text = element.send(xml_mapping.content_mapping.to)
+              text = text.join if text.is_a?(Array)
+
+              prefixed_xml.text text
+            end
           end
         end
         # rubocop:enable Metrics/MethodLength

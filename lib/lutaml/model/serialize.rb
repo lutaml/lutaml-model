@@ -30,6 +30,12 @@ module Lutaml
       module ClassMethods
         attr_accessor :attributes, :mappings
 
+        def inherited(subclass)
+          super
+
+          subclass.instance_variable_set('@attributes', @attributes.dup)
+        end
+
         def attribute(name, type, options = {})
           self.attributes ||= {}
           attr = Attribute.new(name, type, options)
@@ -56,7 +62,7 @@ module Lutaml
             adapter = Lutaml::Model::Config.send(:"#{format}_adapter")
             doc = adapter.parse(data)
             mapped_attrs = apply_mappings(doc.to_h, format)
-            apply_content_mapping(doc, mapped_attrs) if format == :xml
+            # apply_content_mapping(doc, mapped_attrs) if format == :xml
             new(mapped_attrs)
           end
         end
@@ -122,8 +128,12 @@ module Lutaml
           end
         end
 
-        def apply_xml_mapping(doc)
+        def apply_xml_mapping(doc, caller_class: nil)
           mappings = mappings_for(:xml).mappings
+
+          if doc.is_a?(Array)
+            raise "Got a collection, May be `collection: true` is missing for #{self} in #{caller_class}"
+          end
 
           mappings.each_with_object({}) do |rule, hash|
             attr = attributes[rule.to]
@@ -146,15 +156,21 @@ module Lutaml
             # end
 
             if attr.collection?
+              if value && !value.is_a?(Array)
+                value = [value]
+              end
+
               value = (value || []).map do |v|
                 if attr.type <= Serialize
-                  attr.type.apply_xml_mapping(v)
-                else
+                  attr.type.apply_xml_mapping(v, caller_class: self)
+                elsif v.is_a?(Hash)
                   v["text"]
+                else
+                  v
                 end
               end
             elsif attr.type <= Serialize
-              value = attr.type.apply_xml_mapping(value) if value
+              value = attr.type.apply_xml_mapping(value, caller_class: self) if value
             else
               if value.is_a?(Hash) && attr.type != Lutaml::Model::Type::Hash
                 value = value["text"]
