@@ -81,7 +81,7 @@ module Lutaml
                     end
 
               val.each do |v|
-                if v && attribute_def&.type <= Lutaml::Model::Serialize
+                if v && (attribute_def&.type&.<= Lutaml::Model::Serialize)
                   handle_nested_elements(xml, element_rule, v)
                 else
                   nsp_xml.send(element_rule.name) do
