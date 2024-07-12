@@ -52,7 +52,7 @@ module Lutaml
                            xml
                          end
 
-          prefixed_xml.send(xml_mapping.root_element, attributes) do
+          prefixed_xml.public_send(xml_mapping.root_element, attributes) do
             xml_mapping.elements.each do |element_rule|
               if element_rule.delegate
                 attribute_def =
@@ -84,13 +84,13 @@ module Lutaml
                 if v && (attribute_def&.type&.<= Lutaml::Model::Serialize)
                   handle_nested_elements(xml, element_rule, v)
                 else
-                  nsp_xml.send(element_rule.name) do
+                  nsp_xml.public_send(element_rule.name) do
                     if !v.nil?
                       serialized_value = attribute_def.type.serialize(v)
 
                       if attribute_def.type == Lutaml::Model::Type::Hash
                         serialized_value.each do |key, val|
-                          xml.send(key) { xml.text val }
+                          xml.public_send(key) { xml.text val }
                         end
                       else
                         xml.text(serialized_value)
