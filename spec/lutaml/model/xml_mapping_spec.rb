@@ -13,6 +13,17 @@ class Italic < Lutaml::Model::Serializable
   end
 end
 
+# Define a sample class for testing p tag
+class Paragraph < Lutaml::Model::Serializable
+  attribute :text, Lutaml::Model::Type::String
+
+  xml do
+    root "p"
+
+    map_content to: :text
+  end
+end
+
 RSpec.describe Lutaml::Model::XmlMapping do
   let(:mapping) { described_class.new }
 
@@ -108,6 +119,26 @@ RSpec.describe Lutaml::Model::XmlMapping do
 
     it "parses the textual content of an XML element" do
       expect(italic.text).to eq(["my text ", " is in italics"])
+    end
+  end
+
+  context "with p object" do
+    describe "convert from xml containing p tag" do
+      let(:xml_data) { "<p>my text for paragraph</p>" }
+      let(:paragraph) { Paragraph.from_xml(xml_data) }
+
+      it "parses the textual content of an XML element" do
+        expect(paragraph.text).to eq("my text for paragraph")
+      end
+    end
+
+    describe "generate xml with p tag" do
+      let(:paragraph) { Paragraph.new(text: "my text for paragraph") }
+      let(:expected_xml) { "<p>my text for paragraph</p>" }
+
+      it "converts to xml correctly" do
+        expect(paragraph.to_xml).to eq(expected_xml)
+      end
     end
   end
 end
