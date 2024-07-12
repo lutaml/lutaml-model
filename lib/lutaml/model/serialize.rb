@@ -33,7 +33,7 @@ module Lutaml
         def inherited(subclass)
           super
 
-          subclass.instance_variable_set('@attributes', @attributes.dup)
+          subclass.instance_variable_set(:@attributes, @attributes.dup)
         end
 
         def attribute(name, type, options = {})
@@ -129,10 +129,13 @@ module Lutaml
         end
 
         def apply_xml_mapping(doc, caller_class: nil)
+          return unless doc
+
           mappings = mappings_for(:xml).mappings
 
           if doc.is_a?(Array)
-            raise "Got a collection, May be `collection: true` is missing for #{self} in #{caller_class}"
+            raise "May be `collection: true` is" \
+                  "missing for #{self} in #{caller_class}"
           end
 
           mappings.each_with_object({}) do |rule, hash|
@@ -170,7 +173,7 @@ module Lutaml
                 end
               end
             elsif attr.type <= Serialize
-              value = attr.type.apply_xml_mapping(value, caller_class: self) if value
+              value = attr.type.apply_xml_mapping(value, caller_class: self)
             else
               if value.is_a?(Hash) && attr.type != Lutaml::Model::Type::Hash
                 value = value["text"]

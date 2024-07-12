@@ -23,21 +23,23 @@ class Child < Parent
   end
 end
 
-RSpec.describe Child do
-  subject do
-    described_class.new({
-      text: "Some text",
-      name: "John Doe",
-      id: "foobar",
-      age: 30,
-    })
+RSpec.describe "Inheritance" do
+  subject(:child_object) do
+    Child.new(
+      {
+        text: "Some text",
+        name: "John Doe",
+        id: "foobar",
+        age: 30,
+      },
+    )
   end
 
   let(:expected_xml) do
     '<child id="foobar"><age>30</age><name>John Doe</name>Some text</child>'
   end
 
-  it "should use parent attributes" do
-    expect(subject.to_xml(pretty: true)).to eq(expected_xml)
+  it "uses parent attributes" do
+    expect(child_object.to_xml(pretty: true)).to eq(expected_xml)
   end
 end
