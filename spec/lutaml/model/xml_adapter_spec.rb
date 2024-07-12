@@ -22,6 +22,18 @@ RSpec.shared_examples "an XML adapter" do |adapter_class, _element_class|
     expect(xml).to be_equivalent_to(expected_xml)
   end
 
+  it "serializes to XML with only content" do
+    expected_xml = <<~XML
+      <Tag>
+        Bug
+      </Tag>
+    XML
+
+    doc = SampleModelTag.from_xml(expected_xml)
+    xml = doc.to_xml
+    expect(xml).to be_equivalent_to(expected_xml)
+  end
+
   it "deserializes from XML" do
     xml = <<~XML
       <SampleModel>

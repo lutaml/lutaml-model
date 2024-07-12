@@ -2,6 +2,16 @@
 require "spec_helper"
 require "lutaml/model"
 
+class RenderNilNested < Lutaml::Model::Serializable
+  attribute :name, Lutaml::Model::Type::String
+
+  xml do
+    root "render_nil_nested"
+
+    map_element "name", to: :name
+  end
+end
+
 class RenderNil < Lutaml::Model::Serializable
   attribute :name, Lutaml::Model::Type::String, default: -> {
                                                            "Unnamed Pottery"
@@ -9,6 +19,7 @@ class RenderNil < Lutaml::Model::Serializable
   attribute :clay_type, Lutaml::Model::Type::String
   attribute :glaze, Lutaml::Model::Type::String
   attribute :dimensions, Lutaml::Model::Type::String, collection: true
+  attribute :render_nil_nested, RenderNilNested
 
   json do
     map "name", to: :name, render_nil: true
@@ -22,6 +33,7 @@ class RenderNil < Lutaml::Model::Serializable
     map_element "name", to: :name, render_nil: true
     map_element "clay_type", to: :clay_type, render_nil: false
     map_element "glaze", to: :glaze, render_nil: true
+    map_element "render_nil_nested", to: :render_nil_nested, render_nil: true
     map_element "dimensions", to: :dimensions, render_nil: false
   end
 
@@ -76,6 +88,7 @@ RSpec.describe RenderNil do
       <render_nil>
         <name/>
         <glaze/>
+        <render_nil_nested/>
       </render_nil>
     XML
 
