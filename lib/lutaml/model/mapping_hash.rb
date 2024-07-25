@@ -3,7 +3,10 @@
 module Lutaml
   module Model
     class MappingHash < Hash
+      attr_accessor :ordered
+
       def initialize
+        @ordered = false
         @item_order = []
 
         super
@@ -28,7 +31,7 @@ module Lutaml
       end
 
       def ordered?
-        !@item_order.empty?
+        @ordered
       end
 
       private
