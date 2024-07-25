@@ -1,6 +1,7 @@
 # lib/lutaml/model/xml_adapter.rb
 
 require_relative "xml_namespace"
+require_relative "mapping_hash"
 
 module Lutaml
   module Model
@@ -33,6 +34,57 @@ module Lutaml
           declaration
         end
 
+        def to_h
+          parse_element(@root)
+        end
+
+        def order
+          @root.order
+        end
+
+        def handle_nested_elements(builder, value)
+          case value
+          when Array
+            value.each { |val| build_element(builder, val) }
+          else
+            build_element(builder, value)
+          end
+        end
+
+        # rubocop:disable Metrics/AbcSize
+        # rubocop:disable Metrics/MethodLength
+        def parse_element(element)
+          result = Lutaml::Model::MappingHash.new
+          result.item_order = element.order
+
+          element.children.each_with_object(result) do |child, hash|
+            value = child.text? ? child.text : parse_element(child)
+
+            if hash[child.unprefixed_name]
+              hash[child.unprefixed_name] =
+                [hash[child.unprefixed_name], value].flatten
+            else
+              hash[child.unprefixed_name] = value
+            end
+          end
+
+          element.attributes.each do |name, attr|
+            result[name] = attr.value
+          end
+
+          result
+        end
+        # rubocop:enable Metrics/AbcSize
+        # rubocop:enable Metrics/MethodLength
+
+        def build_element(xml, element, _options = {})
+          if element.ordered?
+            build_ordered_element(xml, element, _options)
+          else
+            build_unordered_element(xml, element, _options)
+          end
+        end
+
         # rubocop:disable Metrics/AbcSize
         # rubocop:disable Metrics/MethodLength
         def build_attributes(element, xml_mapping)
@@ -54,6 +106,18 @@ module Lutaml
         end
         # rubocop:enable Metrics/AbcSize
         # rubocop:enable Metrics/MethodLength
+
+        def attribute_definition_for(element, rule)
+          return element.class.attributes[rule.to] unless rule.delegate
+
+          element.send(rule.delegate).class.attributes[rule.to]
+        end
+
+        def attribute_value_for(element, rule)
+          return element.send(rule.to) unless rule.delegate
+
+          element.send(rule.delegate).send(rule.to)
+        end
 
         def namespace_attributes(xml_mapping)
           return {} unless xml_mapping.namespace_uri
@@ -143,6 +207,14 @@ module Lutaml
           return if n.length <= 1
 
           n.first
+        end
+
+        def order
+          result = children.each_with_object([]) do |child, arr|
+            arr << child.unprefixed_name
+          end
+
+          result
         end
       end
 

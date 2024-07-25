@@ -2,14 +2,15 @@
 module Lutaml
   module Model
     class MappingRule
-      attr_reader :name, :to, :render_nil, :custom_methods, :delegate
+      attr_reader :name, :to, :render_nil, :custom_methods, :delegate, :mixed_content
 
-      def initialize(name, to:, render_nil: false, with: {}, delegate: nil)
+      def initialize(name, to:, render_nil: false, with: {}, delegate: nil, mixed_content: false)
         @name = name
         @to = to
         @render_nil = render_nil
         @custom_methods = with
         @delegate = delegate
+        @mixed_content = mixed_content
       end
 
       alias from name

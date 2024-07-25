@@ -12,14 +12,13 @@ module Lutaml
           new(root)
         end
 
-        def to_h
-          # { @root.name => parse_element(@root) }
-          parse_element(@root)
-        end
-
         def to_xml(options = {})
           builder = Nokogiri::XML::Builder.new do |xml|
-            build_element(xml, @root, options)
+            if root.is_a?(Lutaml::Model::XmlAdapter::NokogiriElement)
+              root.to_xml(xml)
+            else
+              build_element(xml, @root, options)
+            end
           end
 
           xml_options = {}
@@ -36,11 +35,7 @@ module Lutaml
         # rubocop:disable Metrics/AbcSize
         # rubocop:disable Metrics/CyclomaticComplexity
         # rubocop:disable Metrics/PerceivedComplexity
-        def build_element(xml, element, _options = {})
-          if element.is_a?(Lutaml::Model::XmlAdapter::NokogiriElement)
-            return element.to_xml(xml)
-          end
-
+        def build_unordered_element(xml, element, _options = {})
           xml_mapping = element.class.mappings_for(:xml)
           return xml unless xml_mapping
 
@@ -54,50 +49,16 @@ module Lutaml
 
           prefixed_xml.public_send(xml_mapping.root_element, attributes) do
             xml_mapping.elements.each do |element_rule|
-              if element_rule.delegate
-                attribute_def =
-                  element
-                    .send(element_rule.delegate)
-                    .class
-                    .attributes[element_rule.to]
-
-                value =
-                  element
-                    .send(element_rule.delegate)
-                    .send(element_rule.to)
-              else
-                attribute_def = element.class.attributes[element_rule.to]
-                value = element.send(element_rule.to)
-              end
-
+              attribute_def = attribute_definition_for(element, element_rule)
+              value = attribute_value_for(element, element_rule)
               nsp_xml = element_rule.prefix ? xml[element_rule.prefix] : xml
 
-              val = if attribute_def.collection?
-                      value
-                    elsif !value.nil? || element_rule.render_nil?
-                      [value]
-                    else
-                      []
-                    end
-
-              val.each do |v|
-                if v && (attribute_def&.type&.<= Lutaml::Model::Serialize)
-                  handle_nested_elements(xml, element_rule, v)
-                else
-                  nsp_xml.public_send(element_rule.name) do
-                    if !v.nil?
-                      serialized_value = attribute_def.type.serialize(v)
-
-                      if attribute_def.type == Lutaml::Model::Type::Hash
-                        serialized_value.each do |key, val|
-                          xml.public_send(key) { xml.text val }
-                        end
-                      else
-                        xml.text(serialized_value)
-                      end
-                    end
-                  end
+              if attribute_def.collection?
+                value.each do |v|
+                  add_to_xml(nsp_xml, v, attribute_def, element_rule)
                 end
+              elsif !value.nil? || element_rule.render_nil?
+                add_to_xml(nsp_xml, value, attribute_def, element_rule)
               end
             end
 
@@ -109,44 +70,73 @@ module Lutaml
             end
           end
         end
+
+        def build_ordered_element(xml, element, _options = {})
+          xml_mapping = element.class.mappings_for(:xml)
+          return xml unless xml_mapping
+
+          attributes = build_attributes(element, xml_mapping)
+
+          prefixed_xml = if xml_mapping.namespace_prefix
+                           xml[xml_mapping.namespace_prefix]
+                         else
+                           xml
+                         end
+
+          prefixed_xml.public_send(xml_mapping.root_element, attributes) do
+            index_hash = {}
+
+            element.element_order.each do |name|
+              index_hash[name] ||= -1
+              curr_index = index_hash[name] += 1
+
+              element_rule = xml_mapping.find_by_name(name)
+              next if element_rule.nil?
+
+              attribute_def = attribute_definition_for(element, element_rule)
+              value = attribute_value_for(element, element_rule)
+              nsp_xml = element_rule.prefix ? xml[element_rule.prefix] : xml
+
+              if element_rule == xml_mapping.content_mapping
+                text = element.send(xml_mapping.content_mapping.to)
+                text = text[curr_index] if text.is_a?(Array)
+
+                prefixed_xml.text text
+              elsif attribute_def.collection?
+                value.each do |v|
+                  add_to_xml(nsp_xml, v, attribute_def, element_rule)
+                end
+              elsif !value.nil? || element_rule.render_nil?
+                add_to_xml(nsp_xml, value, attribute_def, element_rule)
+              end
+            end
+          end
+        end
         # rubocop:enable Metrics/MethodLength
         # rubocop:enable Metrics/BlockLength
         # rubocop:enable Metrics/AbcSize
         # rubocop:enable Metrics/CyclomaticComplexity
         # rubocop:enable Metrics/PerceivedComplexity
 
-        def handle_nested_elements(xml, _element_rule, value)
-          case value
-          when Array
-            value.each { |val| build_element(xml, val) }
+        def add_to_xml(xml, value, attribute, rule)
+          if value && (attribute&.type&.<= Lutaml::Model::Serialize)
+            handle_nested_elements(xml, value)
           else
-            build_element(xml, value)
-          end
-        end
+            xml.public_send(rule.name) do
+              if !value.nil?
+                serialized_value = attribute.type.serialize(value)
 
-        # rubocop:disable Metrics/AbcSize
-        # rubocop:disable Metrics/MethodLength
-        def parse_element(element)
-          result = element.children.each_with_object({}) do |child, hash|
-            value = child.text? ? child.text : parse_element(child)
-
-            if hash[child.unprefixed_name]
-              hash[child.unprefixed_name] =
-                [hash[child.unprefixed_name], value].flatten
-            else
-              hash[child.unprefixed_name] = value
+                if attribute.type == Lutaml::Model::Type::Hash
+                  serialized_value.each do |key, val|
+                    xml.public_send(key) { xml.text val }
+                  end
+                else
+                  xml.text(serialized_value)
+                end
+              end
             end
           end
-
-          element.attributes.each do |name, attr|
-            result[name] = attr.value
-          end
-
-          # result["_text"] = element.text if element.text
-          result
         end
-        # rubocop:enable Metrics/AbcSize
-        # rubocop:enable Metrics/MethodLength
       end
 
       class NokogiriElement < Element
