@@ -14,7 +14,7 @@ class MixedContent < Lutaml::Model::Serializable
   attribute :content, Lutaml::Model::Type::String
 
   xml do
-    root "MixedContent", mixed: true
+    root "MixedContent"
 
     map_content to: :content
 
@@ -40,7 +40,7 @@ class WithoutMixedContent < Lutaml::Model::Serializable
 
     map_attribute :id, to: :id
 
-    map_element "MixedContent", to: :mixed_content
+    map_element "MixedContent", to: :mixed_content, mixed: true
     map_element :p, to: :p
   end
 end

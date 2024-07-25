@@ -120,7 +120,7 @@ module Lutaml
           end
         end
 
-        def apply_xml_mapping(doc, caller_class: nil)
+        def apply_xml_mapping(doc, caller_class: nil, mixed_content: false)
           return unless doc
 
           mappings = mappings_for(:xml).mappings
@@ -132,6 +132,7 @@ module Lutaml
 
           mapping_hash = Lutaml::Model::MappingHash.new
           mapping_hash.item_order = doc.item_order
+          mapping_hash.ordered = mappings_for(:xml).mixed_content? || mixed_content
 
           mappings.each_with_object(mapping_hash) do |rule, hash|
             attr = attributes[rule.to]
@@ -151,7 +152,7 @@ module Lutaml
 
               value = (value || []).map do |v|
                 if attr.type <= Serialize
-                  attr.type.apply_xml_mapping(v, caller_class: self)
+                  attr.type.apply_xml_mapping(v, caller_class: self, mixed_content: rule.mixed_content)
                 elsif v.is_a?(Hash)
                   v["text"]
                 else
@@ -159,7 +160,7 @@ module Lutaml
                 end
               end
             elsif attr.type <= Serialize
-              value = attr.type.apply_xml_mapping(value, caller_class: self)
+              value = attr.type.apply_xml_mapping(value, caller_class: self, mixed_content: rule.mixed_content)
             else
               if value.is_a?(Hash) && attr.type != Lutaml::Model::Type::Hash
                 value = value["text"]
