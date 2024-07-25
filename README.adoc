@@ -326,6 +326,60 @@ class Ceramic < Lutaml::Model::Serializable
 end
 ----
 
+== Using XML `mixed` option
+
+In XML there can be some tags that containg content mixed with other tags for example `<description><p>My name is <bold>John Doe</bold>, and I'm <i>28</i> years old</p></description>`
+
+To map this to Lutaml::Model we can use the mixed option when defining the model or when referencing it. 
+
+=== Adding mixed option when defining a Model
+
+This will always treat the content of `<p>` tag as mixed content.
+
+[source,ruby]
+----
+class Paragraph < Lutaml::Model::Serializable
+  attribute :bold, Lutaml::Model::Type::String
+  attribute :italic, Lutaml::Model::Type::String
+
+  xml do
+    root 'p', mixed: true
+
+    map_element 'bold', to: :bold
+    map_element 'i', to: :italic
+  end
+end
+----
+
+=== Adding mixed option when referencing a Model
+
+This will only treat the content of `<p>` tag as mixed content if the `mixed: true` is added when referencing it.
+
+[source,ruby]
+----
+class Paragraph < Lutaml::Model::Serializable
+  attribute :bold, Lutaml::Model::Type::String
+  attribute :italic, Lutaml::Model::Type::String
+
+  xml do
+    root 'p'
+
+    map_element 'bold', to: :bold
+    map_element 'i', to: :italic
+  end
+end
+
+class Description < Lutaml::Model::Serializable
+  attribute :paragraph, Paragraph
+
+  xml do
+    root 'description'
+
+    map_element 'p', to: :paragraph, mixed: true
+  end
+end
+----
+
 == Adapters
 
 Lutaml::Model uses an adapter pattern to support multiple libraries for each serialization format.
