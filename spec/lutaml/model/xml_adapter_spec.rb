@@ -46,12 +46,12 @@ class WithoutMixedContent < Lutaml::Model::Serializable
 end
 
 RSpec.shared_examples "an XML adapter" do |adapter_class|
-  before(:all) do
+  before do
     @old_adapter = Lutaml::Model::Config.xml_adapter
     Lutaml::Model::Config.xml_adapter = adapter_class
   end
 
-  after(:all) do
+  after do
     Lutaml::Model::Config.xml_adapter = @old_adapter
   end
 
@@ -99,7 +99,7 @@ RSpec.shared_examples "an XML adapter" do |adapter_class|
     expect(new_model.age).to eq(30)
   end
 
-  context "mixed content with tags" do
+  context "when mixed: true is set for tags" do
     describe "deserializes from XML" do
       let(:xml) do
         <<~XML
@@ -121,7 +121,7 @@ RSpec.shared_examples "an XML adapter" do |adapter_class|
 
       let(:parsed_xml) { WithoutMixedContent.from_xml(xml) }
 
-      it "should have correct values" do
+      it "output correct XML" do
         expect(parsed_xml.to_xml).to be_equivalent_to(xml)
       end
     end

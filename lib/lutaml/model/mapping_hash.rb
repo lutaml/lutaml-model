@@ -12,16 +12,8 @@ module Lutaml
         super
       end
 
-      def each_in_order(&block)
-        item_order.each do |item|
-          pair = [item, self[item]]
-
-          yield(pair)
-        end
-      end
-
       def item_order
-        @item_order&.map { |key| normalize(key) } || self.keys
+        @item_order&.map { |key| normalize(key) } || keys
       end
 
       def item_order=(order)

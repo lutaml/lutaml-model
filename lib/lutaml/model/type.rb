@@ -122,15 +122,8 @@ module Lutaml
         end
       end
 
-      # rubocop:disable Layout/LineLength
       UUID_REGEX = /\A[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\z/
-      # rubocop:enable Layout/LineLength
 
-      # rubocop:disable Metrics/MethodLength
-      # rubocop:disable Layout/LineLength
-      # rubocop:disable Metrics/AbcSize
-      # rubocop:disable Metrics/CyclomaticComplexity
-      # rubocop:disable Metrics/PerceivedComplexity
       def self.cast(value, type)
         return if value.nil?
 
@@ -221,11 +214,6 @@ module Lutaml
           end
         end.to_h
       end
-      # rubocop:enable Metrics/MethodLength
-      # rubocop:enable Layout/LineLength
-      # rubocop:enable Metrics/AbcSize
-      # rubocop:enable Metrics/CyclomaticComplexity
-      # rubocop:enable Metrics/PerceivedComplexity
     end
   end
 end

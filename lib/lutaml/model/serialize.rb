@@ -166,11 +166,7 @@ module Lutaml
                 value = value["text"]
               end
 
-              value = if is_content_mapping
-                        value
-                      else
-                        attr.type.cast(value)
-                      end
+              value = attr.type.cast(value) unless is_content_mapping
             end
 
             hash[rule.to] = value

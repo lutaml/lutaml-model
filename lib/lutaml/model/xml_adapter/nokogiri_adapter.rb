@@ -30,11 +30,6 @@ module Lutaml
 
         private
 
-        # rubocop:disable Metrics/MethodLength
-        # rubocop:disable Metrics/BlockLength
-        # rubocop:disable Metrics/AbcSize
-        # rubocop:disable Metrics/CyclomaticComplexity
-        # rubocop:disable Metrics/PerceivedComplexity
         def build_unordered_element(xml, element, _options = {})
           xml_mapping = element.class.mappings_for(:xml)
           return xml unless xml_mapping
@@ -112,11 +107,6 @@ module Lutaml
             end
           end
         end
-        # rubocop:enable Metrics/MethodLength
-        # rubocop:enable Metrics/BlockLength
-        # rubocop:enable Metrics/AbcSize
-        # rubocop:enable Metrics/CyclomaticComplexity
-        # rubocop:enable Metrics/PerceivedComplexity
 
         def add_to_xml(xml, value, attribute, rule)
           if value && (attribute&.type&.<= Lutaml::Model::Serialize)
@@ -140,10 +130,6 @@ module Lutaml
       end
 
       class NokogiriElement < Element
-        # rubocop:disable Metrics/MethodLength
-        # rubocop:disable Metrics/AbcSize
-        # rubocop:disable Metrics/CyclomaticComplexity
-        # rubocop:disable Metrics/PerceivedComplexity
         def initialize(node, root_node: nil)
           if root_node
             node.namespaces.each do |prefix, name|
@@ -178,10 +164,6 @@ module Lutaml
             namespace_prefix: node.namespace&.prefix,
           )
         end
-        # rubocop:enable Metrics/MethodLength
-        # rubocop:enable Metrics/AbcSize
-        # rubocop:enable Metrics/CyclomaticComplexity
-        # rubocop:enable Metrics/PerceivedComplexity
 
         def text?
           # false
