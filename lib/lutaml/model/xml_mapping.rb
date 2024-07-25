@@ -4,7 +4,10 @@ require_relative "xml_mapping_rule"
 module Lutaml
   module Model
     class XmlMapping
-      attr_reader :root_element, :namespace_uri, :namespace_prefix, :mixed_content
+      attr_reader :root_element,
+                  :namespace_uri,
+                  :namespace_prefix,
+                  :mixed_content
 
       def initialize
         @elements = []
@@ -52,7 +55,7 @@ module Lutaml
           delegate: delegate,
           namespace: namespace,
           prefix: prefix,
-          mixed_content: mixed
+          mixed_content: mixed,
         )
       end
 
@@ -77,14 +80,20 @@ module Lutaml
       end
       # rubocop:enable Metrics/ParameterLists
 
-      def map_content(to:, render_nil: false, with: {}, delegate: nil, mixed: false)
+      def map_content(
+        to:,
+        render_nil: false,
+        with: {},
+        delegate: nil,
+        mixed: false
+      )
         @content_mapping = XmlMappingRule.new(
           nil,
           to: to,
           render_nil: render_nil,
           with: with,
           delegate: delegate,
-          mixed_content: mixed
+          mixed_content: mixed,
         )
       end
 

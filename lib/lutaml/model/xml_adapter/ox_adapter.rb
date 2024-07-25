@@ -29,11 +29,6 @@ module Lutaml
 
         private
 
-        # rubocop:disable Layout/LineLength
-        # rubocop:disable Layout/MethodLength
-        # rubocop:disable Metrics/AbcSize
-        # rubocop:disable Metrics/CyclomaticComplexity
-        # rubocop:disable Metrics/PerceivedComplexity
         def build_unordered_element(builder, element, _options = {})
           xml_mapping = element.class.mappings_for(:xml)
           return xml unless xml_mapping
@@ -106,11 +101,6 @@ module Lutaml
             end
           end
         end
-        # rubocop:enable Layout/LineLength
-        # rubocop:enable Layout/MethodLength
-        # rubocop:enable Metrics/AbcSize
-        # rubocop:enable Metrics/CyclomaticComplexity
-        # rubocop:enable Metrics/PerceivedComplexity
 
         def add_to_xml(xml, value, attribute, rule)
           if value && (attribute&.type&.<= Lutaml::Model::Serialize)
@@ -134,11 +124,6 @@ module Lutaml
       end
 
       class OxElement < Element
-        # rubocop:disable Metrics/AbcSize
-        # rubocop:disable Metrics/MethodLength
-        # rubocop:disable Layout/LineLength
-        # rubocop:disable Metrics/CyclomaticComplexity
-        # rubocop:disable Metrics/PerceivedComplexity
         def initialize(node, root_node: nil)
           if node.is_a?(String)
             super("text", {}, [], node, parent_document: root_node)
@@ -175,11 +160,6 @@ module Lutaml
             )
           end
         end
-        # rubocop:enable Metrics/AbcSize
-        # rubocop:enable Metrics/MethodLength
-        # rubocop:enable Layout/LineLength
-        # rubocop:enable Metrics/CyclomaticComplexity
-        # rubocop:enable Metrics/PerceivedComplexity
 
         def to_xml(builder = nil)
           builder ||= Ox::Builder.new

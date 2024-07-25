@@ -51,8 +51,6 @@ module Lutaml
           end
         end
 
-        # rubocop:disable Metrics/AbcSize
-        # rubocop:disable Metrics/MethodLength
         def parse_element(element)
           result = Lutaml::Model::MappingHash.new
           result.item_order = element.order
@@ -74,8 +72,6 @@ module Lutaml
 
           result
         end
-        # rubocop:enable Metrics/AbcSize
-        # rubocop:enable Metrics/MethodLength
 
         def build_element(xml, element, _options = {})
           if element.ordered?
@@ -85,8 +81,6 @@ module Lutaml
           end
         end
 
-        # rubocop:disable Metrics/AbcSize
-        # rubocop:disable Metrics/MethodLength
         def build_attributes(element, xml_mapping)
           attrs = namespace_attributes(xml_mapping)
 
@@ -104,8 +98,6 @@ module Lutaml
             end
           end
         end
-        # rubocop:enable Metrics/AbcSize
-        # rubocop:enable Metrics/MethodLength
 
         def attribute_definition_for(element, rule)
           return element.class.attributes[rule.to] unless rule.delegate
@@ -134,7 +126,6 @@ module Lutaml
                     :namespace_prefix,
                     :parent_document
 
-        # rubocop:disable Metrics/ParameterLists
         def initialize(
           name,
           attributes = {},
@@ -150,7 +141,6 @@ module Lutaml
           @text = text
           @parent_document = parent_document
         end
-        # rubocop:enable Metrics/ParameterLists
 
         def name
           if namespace_prefix && namespaces[namespace_prefix]
@@ -210,11 +200,9 @@ module Lutaml
         end
 
         def order
-          result = children.each_with_object([]) do |child, arr|
+          children.each_with_object([]) do |child, arr|
             arr << child.unprefixed_name
           end
-
-          result
         end
       end
 
