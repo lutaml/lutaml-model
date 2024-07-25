@@ -9,6 +9,7 @@ require_relative "config"
 require_relative "type"
 require_relative "attribute"
 require_relative "mapping_rule"
+require_relative "mapping_hash"
 require_relative "xml_mapping"
 require_relative "key_value_mapping"
 require_relative "json_adapter"
@@ -85,7 +86,7 @@ module Lutaml
           return apply_xml_mapping(doc) if format == :xml
 
           mappings = mappings_for(format).mappings
-          mappings.each_with_object({}) do |rule, hash|
+          mappings.each_with_object(Lutaml::Model::MappingHash.new) do |rule, hash|
             attr = if rule.delegate
                      attributes[rule.delegate].type.attributes[rule.to]
                    else
@@ -101,15 +102,6 @@ module Lutaml
                     else
                       attr.default
                     end
-            # if attr.collection?
-            #   value = (value || []).map do |v|
-            #     attr.type <= Serialize ? attr.type.new(v) : v
-            #   end
-            # elsif value.is_a?(Hash) && attr.type <= Serialize
-            #   value = attr.type.new(value)
-            # else
-            #   value = attr.type.cast(value)
-            # end
 
             if attr.collection?
               value = (value || []).map do |v|
@@ -138,25 +130,19 @@ module Lutaml
                   "missing for #{self} in #{caller_class}"
           end
 
-          mappings.each_with_object({}) do |rule, hash|
+          mapping_hash = Lutaml::Model::MappingHash.new
+          mapping_hash.item_order = doc.item_order
+
+          mappings.each_with_object(mapping_hash) do |rule, hash|
             attr = attributes[rule.to]
             raise "Attribute '#{rule.to}' not found in #{self}" unless attr
 
-            value = if rule.name
-                      doc[rule.name.to_s] || doc[rule.name.to_sym]
-                    else
+            is_content_mapping = rule.name.nil?
+            value = if is_content_mapping
                       doc["text"]
+                    else
+                      doc[rule.name.to_s] || doc[rule.name.to_sym]
                     end
-
-            # if attr.collection?
-            #   value = (value || []).map do |v|
-            #     attr.type <= Serialize ? attr.type.from_hash(v) : v
-            #   end
-            # elsif value.is_a?(Hash) && attr.type <= Serialize
-            #   value = attr.type.cast(value)
-            # elsif value.is_a?(Array)
-            #   value = attr.type.cast(value.first["text"]&.first)
-            # end
 
             if attr.collection?
               if value && !value.is_a?(Array)
@@ -179,55 +165,79 @@ module Lutaml
                 value = value["text"]
               end
 
-              value = attr.type.cast(value)
+              value = if is_content_mapping
+                        value
+                      else
+                        attr.type.cast(value)
+                      end
             end
+
             hash[rule.to] = value
           end
         end
-
-        def apply_content_mapping(doc, mapped_attrs)
-          content_mapping = mappings_for(:xml).content_mapping
-          return unless content_mapping
-
-          content = doc.root.children.select(&:text?).map(&:text)
-          mapped_attrs[content_mapping.to] = content
-        end
       end
 
-      # rubocop:disable Layout/LineLength
+      attr_reader :element_order
+
       def initialize(attrs = {})
         return unless self.class.attributes
 
-        self.class.attributes.each do |name, attr|
-          value = if attrs.key?(name)
-                    attrs[name]
-                  elsif attrs.key?(name.to_sym)
-                    attrs[name.to_sym]
-                  elsif attrs.key?(name.to_s)
-                    attrs[name.to_s]
-                  else
-                    attr.default
-                  end
+        if attrs.is_a?(Lutaml::Model::MappingHash)
+          ordered = attrs.ordered?
+          element_order = attrs.item_order
 
-          value = if attr.collection?
-                    (value || []).map do |v|
-                      if v.is_a?(Hash)
-                        attr.type.new(v)
-                      else
-                        Lutaml::Model::Type.cast(
-                          v, attr.type
-                        )
-                      end
-                    end
-                  elsif value.is_a?(Hash) && attr.type != Lutaml::Model::Type::Hash
-                    attr.type.new(value)
-                  else
-                    Lutaml::Model::Type.cast(value, attr.type)
-                  end
+          @ordered = ordered
+          @element_order = if element_order && !element_order.empty?
+                             element_order
+                           end
+        end
+
+        self.class.attributes.each do |name, attr|
+          value = attr_value(attrs, name, attr)
+
           send(:"#{name}=", ensure_utf8(value))
         end
       end
-      # rubocop:enable Layout/LineLength
+
+      def attr_value(attrs, name, attr_rule)
+        value = if attrs.key?(name)
+                  attrs[name]
+                elsif attrs.key?(name.to_sym)
+                  attrs[name.to_sym]
+                elsif attrs.key?(name.to_s)
+                  attrs[name.to_s]
+                else
+                  attr_rule.default
+                end
+
+        if attr_rule.collection? || value.is_a?(Array)
+          (value || []).map do |v|
+            if v.is_a?(Hash)
+              attr_rule.type.new(v)
+            else
+              Lutaml::Model::Type.cast(
+                v, attr_rule.type
+              )
+            end
+          end
+        elsif value.is_a?(Hash) && attr_rule.type != Lutaml::Model::Type::Hash
+          attr_rule.type.new(value)
+        else
+          Lutaml::Model::Type.cast(value, attr_rule.type)
+        end
+      end
+
+      def ordered?
+        @ordered
+      end
+
+      def key_exist?(hash, key)
+        hash.key?(key) || hash.key?(key.to_sym) || hash.key?(key.to_s)
+      end
+
+      def key_value(hash, key)
+        hash[key] || hash[key.to_sym] || hash[key.to_s]
+      end
 
       # TODO: Make this work
       # FORMATS.each do |format|

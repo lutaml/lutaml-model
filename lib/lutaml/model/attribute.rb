@@ -8,6 +8,10 @@ module Lutaml
         @name = name
         @type = type
         @options = options
+
+        if collection? && !options[:default]
+          @options[:default] = -> { [] }
+        end
       end
 
       def collection?

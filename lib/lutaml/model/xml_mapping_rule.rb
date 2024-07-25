@@ -15,14 +15,16 @@ module Lutaml
         with: {},
         delegate: nil,
         namespace: nil,
-        prefix: nil
+        prefix: nil,
+        mixed_content: false
       )
         super(
           name,
           to: to,
           render_nil: render_nil,
           with: with,
-          delegate: delegate
+          delegate: delegate,
+          mixed_content: mixed_content
         )
 
         @namespace = if namespace.to_s == "inherit"

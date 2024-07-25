@@ -74,6 +74,24 @@ module Lutaml
         end
       end
 
+      class TextWithTags
+        attr_reader :content
+
+        def initialize(ordered_text_with_tags)
+          @content = ordered_text_with_tags
+        end
+
+        def self.cast(value)
+          return value if value.is_a?(self)
+
+          new(value)
+        end
+
+        def self.serialize(value)
+          value.content.join
+        end
+      end
+
       class JSON
         attr_reader :value
 
@@ -94,7 +112,7 @@ module Lutaml
         end
 
         def self.cast(value)
-          return value if value.is_a?(self)
+          return value if value.is_a?(self) || value.nil?
 
           new(::JSON.parse(value))
         end

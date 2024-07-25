@@ -12,14 +12,16 @@ module Lutaml
           new(root)
         end
 
-        def to_h
-          # { @root.name => parse_element(@root) }
-          parse_element(@root)
-        end
-
         def to_xml(options = {})
           builder = Ox::Builder.new
-          build_element(builder, @root, options)
+          if @root.is_a?(Lutaml::Model::XmlAdapter::OxElement)
+            @root.to_xml(builder)
+          elsif @root.ordered?
+            build_ordered_element(builder, @root, options)
+          else
+            build_element(builder, @root, options)
+          end
+
           # xml_data = Ox.dump(builder)
           xml_data = builder.to_s
           options[:declaration] ? declaration(options) + xml_data : xml_data
@@ -32,9 +34,7 @@ module Lutaml
         # rubocop:disable Metrics/AbcSize
         # rubocop:disable Metrics/CyclomaticComplexity
         # rubocop:disable Metrics/PerceivedComplexity
-        def build_element(builder, element, _options = {})
-          return element.to_xml(builder) if element.is_a?(Lutaml::Model::XmlAdapter::OxElement)
-
+        def build_unordered_element(builder, element, _options = {})
           xml_mapping = element.class.mappings_for(:xml)
           return xml unless xml_mapping
 
@@ -42,13 +42,8 @@ module Lutaml
 
           builder.element(xml_mapping.root_element, attributes) do |el|
             xml_mapping.elements.each do |element_rule|
-              if element_rule.delegate
-                attribute_def = element.send(element_rule.delegate).class.attributes[element_rule.to]
-                value = element.send(element_rule.delegate).send(element_rule.to)
-              else
-                attribute_def = element.class.attributes[element_rule.to]
-                value = element.send(element_rule.to)
-              end
+              attribute_def = attribute_definition_for(element, element_rule)
+              value = attribute_value_for(element, element_rule)
 
               val = if attribute_def.collection?
                       value
@@ -60,7 +55,7 @@ module Lutaml
 
               val.each do |v|
                 if attribute_def&.type&.<= Lutaml::Model::Serialize
-                  handle_nested_elements(el, element_rule, v)
+                  handle_nested_elements(el, v)
                 else
                   builder.element(element_rule.name) do |el|
                     el.text(attribute_def.type.serialize(v)) if v
@@ -68,13 +63,47 @@ module Lutaml
                 end
               end
             end
-            # if element.children.any?
-            #   element.children.each do |child|
-            #     build_element(el, child, options)
-            #   end
-            # elsif element.text
-            #   el.text(element.text)
-            # end
+
+            if xml_mapping.content_mapping
+              text = element.send(xml_mapping.content_mapping.to)
+              text = text.join if text.is_a?(Array)
+
+              el.text text
+            end
+          end
+        end
+
+        def build_ordered_element(builder, element, _options = {})
+          xml_mapping = element.class.mappings_for(:xml)
+          return xml unless xml_mapping
+
+          attributes = build_attributes(element, xml_mapping)
+
+          builder.element(xml_mapping.root_element, attributes) do |el|
+            index_hash = {}
+
+            element.element_order.each do |name|
+              index_hash[name] ||= -1
+              curr_index = index_hash[name] += 1
+
+              element_rule = xml_mapping.find_by_name(name)
+
+              attribute_def = attribute_definition_for(element, element_rule)
+              value = attribute_value_for(element, element_rule)
+
+              if element_rule == xml_mapping.content_mapping
+                text = element.send(xml_mapping.content_mapping.to)
+                text = text[curr_index] if text.is_a?(Array)
+
+                el.text text
+              elsif attribute_def.collection?
+                value.each do |v|
+                  add_to_xml(el, v, attribute_def, element_rule)
+                end
+              elsif !value.nil? || element_rule.render_nil?
+                add_to_xml(el, value, attribute_def, element_rule)
+              end
+            end
           end
         end
         # rubocop:enable Layout/LineLength
@@ -83,24 +112,24 @@ module Lutaml
         # rubocop:enable Metrics/CyclomaticComplexity
         # rubocop:enable Metrics/PerceivedComplexity
 
-        def handle_nested_elements(builder, _element_rule, value)
-          case value
-          when Array
-            value.each { |val| build_element(builder, val) }
+        def add_to_xml(xml, value, attribute, rule)
+          if value && (attribute&.type&.<= Lutaml::Model::Serialize)
+            handle_nested_elements(xml, value)
           else
-            build_element(builder, value)
-          end
-        end
+            xml.element(rule.name) do |el|
+              if !value.nil?
+                serialized_value = attribute.type.serialize(value)
 
-        def parse_element(element)
-          result = { "_text" => element.text }
-          element.nodes.each do |child|
-            next if child.is_a?(Ox::Raw) || child.is_a?(Ox::Comment)
-
-            result[child.name] ||= []
-            result[child.name] << parse_element(child)
+                if attribute.type == Lutaml::Model::Type::Hash
+                  serialized_value.each do |key, val|
+                    el.element(key) { |child_el| child_el.text val }
+                  end
+                else
+                  el.text(serialized_value)
+                end
+              end
+            end
           end
-          result
         end
       end
 
@@ -111,37 +140,40 @@ module Lutaml
         # rubocop:disable Metrics/CyclomaticComplexity
         # rubocop:disable Metrics/PerceivedComplexity
         def initialize(node, root_node: nil)
-          attributes = node.attributes.each_with_object({}) do |(name, value), hash|
-            if attribute_is_namespace?(name)
-              if root_node
-                root_node.add_namespace(Lutaml::Model::XmlNamespace.new(value,
-                                                                        name))
+          if node.is_a?(String)
+            super("text", {}, [], node, parent_document: root_node)
+          else
+            attributes = node.attributes.each_with_object({}) do |(name, value), hash|
+              if attribute_is_namespace?(name)
+                if root_node
+                  root_node.add_namespace(Lutaml::Model::XmlNamespace.new(value, name))
+                else
+                  add_namespace(Lutaml::Model::XmlNamespace.new(value, name))
+                end
               else
-                add_namespace(Lutaml::Model::XmlNamespace.new(value, name))
-              end
-            else
-              namespace_prefix = name.to_s.split(":").first
-              if root_node && (n = root_node.namespaces[namespace_prefix])
-                namespace = n.uri
-                prefix = n.prefix
-              end
+                namespace_prefix = name.to_s.split(":").first
+                if root_node && (n = root_node.namespaces[namespace_prefix])
+                  namespace = n.uri
+                  prefix = n.prefix
+                end
 
-              hash[name.to_s] = Attribute.new(
-                name.to_s,
-                value,
-                namespace: namespace,
-                namespace_prefix: prefix,
-              )
+                hash[name.to_s] = Attribute.new(
+                  name.to_s,
+                  value,
+                  namespace: namespace,
+                  namespace_prefix: prefix,
+                )
+              end
             end
-          end
 
-          super(
-            node.name.to_s,
-            attributes,
-            parse_children(node, root_node: root_node || self),
-            node.text,
-            parent_document: root_node
-          )
+            super(
+              node.name.to_s,
+              attributes,
+              parse_children(node, root_node: root_node || self),
+              node.text,
+              parent_document: root_node
+            )
+          end
         end
         # rubocop:enable Metrics/AbcSize
         # rubocop:enable Metrics/MethodLength
@@ -153,13 +185,18 @@ module Lutaml
           builder ||= Ox::Builder.new
           attrs = build_attributes(self)
 
-          builder.element(name, attrs) do |el|
-            if children.any?
+          if text?
+            builder.text(text)
+          else
+            builder.element(name, attrs) do |el|
               children.each { |child| child.to_xml(el) }
-            elsif text
-              el.text(text)
             end
           end
+        end
+
+        def text?
+          # false
+          children.empty? && text.length.positive?
         end
 
         def build_attributes(node)
@@ -172,12 +209,14 @@ module Lutaml
           attrs
         end
 
+        def nodes
+          children
+        end
+
         private
 
         def parse_children(node, root_node: nil)
-          node.nodes.select do |child|
-            child.is_a?(Ox::Element)
-          end.map do |child|
+          node.nodes.map do |child|
             OxElement.new(child, root_node: root_node)
           end
         end
