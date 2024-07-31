@@ -36,7 +36,7 @@ class NamespaceNill < Lutaml::Model::Serializable
 end
 
 RSpec.shared_examples "an XML namespace parser" do |adapter_class|
-  around(:each) do |example|
+  around do |example|
     old_adapter = Lutaml::Model::Config.xml_adapter
     Lutaml::Model::Config.xml_adapter = adapter_class
 
@@ -71,14 +71,16 @@ RSpec.shared_examples "an XML namespace parser" do |adapter_class|
 
     doc = adapter_class.parse(xml)
     new_model = SampleNamespacedModel.new(doc.root.children.to_h do |child|
-                                            [child.unprefixed_name.downcase.to_sym, child.text]
+                                            [
+                                              child.unprefixed_name.downcase.to_sym, child.text
+                                            ]
                                           end)
     expect(new_model.name).to eq("John Doe")
     expect(new_model.age).to eq(30)
   end
 
   describe "round-trips from and to XML" do
-    it "should round-trip if namespace is set" do
+    it "round-trips if namespace is set" do
       xml = <<~XML
         <foo:SampleNamespacedModel xml:lang="en" xmlns:foo="http://example.com/foo" xmlns:bar="http://example.com/bar" xmlns:baz="http://example.com/baz">
           <bar:Name>John Doe</bar:Name>
@@ -91,10 +93,10 @@ RSpec.shared_examples "an XML namespace parser" do |adapter_class|
       expect(generated_xml).to be_equivalent_to(xml)
     end
 
-    it "should round-trip if namespace is set to nil in parent" do
+    it "round-trips if namespace is set to nil in parent" do
       xml = <<~XML
-        <NamespaceNill>
-          <SampleNamespacedModel xml:lang="en" xmlns:foo="http://example.com/foo" xmlns:bar="http://example.com/bar" xmlns:baz="http://example.com/baz">
+        <NamespaceNill xmlns:foo="http://example.com/foo" xmlns:bar="http://example.com/bar" xmlns:baz="http://example.com/baz">
+          <SampleNamespacedModel xml:lang="en">
             <bar:Name>John Doe</bar:Name>
             <baz:Age>30</baz:Age>
           </SampleNamespacedModel>

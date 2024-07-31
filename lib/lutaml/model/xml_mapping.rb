@@ -43,7 +43,8 @@ module Lutaml
         render_nil: false,
         with: {},
         delegate: nil,
-        namespace: (namespace_set = false; nil),
+        namespace: (namespace_set = false
+                    nil),
         prefix: nil,
         mixed: false
       )
@@ -66,7 +67,8 @@ module Lutaml
         render_nil: false,
         with: {},
         delegate: nil,
-        namespace: (namespace_set = false; nil),
+        namespace: (namespace_set = false
+                    nil),
         prefix: nil
       )
         @attributes << XmlMappingRule.new(

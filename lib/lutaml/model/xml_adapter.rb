@@ -6,7 +6,7 @@ require_relative "mapping_hash"
 module Lutaml
   module Model
     module XmlAdapter
-      XML_NAMESPACE_URI = 'http://www.w3.org/XML/1998/namespace'
+      XML_NAMESPACE_URI = "http://www.w3.org/XML/1998/namespace".freeze
 
       class Document
         attr_reader :root
@@ -47,7 +47,7 @@ module Lutaml
         def handle_nested_elements(builder, value, rule = nil)
           options = {}
 
-          if rule && rule.namespace_set?
+          if rule&.namespace_set?
             options[:namespace_prefix] = rule.prefix
           end
 
@@ -74,7 +74,7 @@ module Lutaml
             end
           end
 
-          element.attributes.each do |name, attr|
+          element.attributes.each_value do |attr|
             result[attr.unprefixed_name] = attr.value
           end
 
@@ -96,13 +96,15 @@ module Lutaml
           attrs = {}
 
           if xml_mappings.namespace_prefix
-            attrs["xmlns:#{xml_mappings.namespace_prefix}"] = xml_mappings.namespace_uri
+            attrs["xmlns:#{xml_mappings.namespace_prefix}"] =
+              xml_mappings.namespace_uri
           end
 
           xml_mappings.mappings.each do |mapping_rule|
             processed[klass] ||= {}
 
             next if processed[klass][mapping_rule.name]
+
             processed[klass][mapping_rule.name] = true
 
             type = if mapping_rule.delegate
