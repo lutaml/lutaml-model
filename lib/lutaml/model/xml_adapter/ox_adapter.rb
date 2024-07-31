@@ -189,7 +189,7 @@ module Lutaml
 
         def text?
           # false
-          children.empty? && text.length.positive?
+          children.empty? && text&.length&.positive?
         end
 
         def build_attributes(node)
