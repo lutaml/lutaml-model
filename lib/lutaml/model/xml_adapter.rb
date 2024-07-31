@@ -6,6 +6,8 @@ require_relative "mapping_hash"
 module Lutaml
   module Model
     module XmlAdapter
+      XML_NAMESPACE_URI = 'http://www.w3.org/XML/1998/namespace'
+
       class Document
         attr_reader :root
 
@@ -42,12 +44,18 @@ module Lutaml
           @root.order
         end
 
-        def handle_nested_elements(builder, value)
+        def handle_nested_elements(builder, value, rule = nil)
+          options = {}
+
+          if rule && rule.namespace_set?
+            options[:namespace_prefix] = rule.prefix
+          end
+
           case value
           when Array
-            value.each { |val| build_element(builder, val) }
+            value.each { |val| build_element(builder, val, options) }
           else
-            build_element(builder, value)
+            build_element(builder, value, options)
           end
         end
 
@@ -67,7 +75,7 @@ module Lutaml
           end
 
           element.attributes.each do |name, attr|
-            result[name] = attr.value
+            result[attr.unprefixed_name] = attr.value
           end
 
           result
@@ -79,6 +87,40 @@ module Lutaml
           else
             build_unordered_element(xml, element, _options)
           end
+        end
+
+        def build_namespace_attributes(klass, processed = {})
+          xml_mappings = klass.mappings_for(:xml)
+          attributes = klass.attributes
+
+          attrs = {}
+
+          if xml_mappings.namespace_prefix
+            attrs["xmlns:#{xml_mappings.namespace_prefix}"] = xml_mappings.namespace_uri
+          end
+
+          xml_mappings.mappings.each do |mapping_rule|
+            processed[klass] ||= {}
+
+            next if processed[klass][mapping_rule.name]
+            processed[klass][mapping_rule.name] = true
+
+            type = if mapping_rule.delegate
+                     attributes[mapping_rule.delegate].type.attributes[mapping_rule.to].type
+                   else
+                     attributes[mapping_rule.to].type
+                   end
+
+            if type <= Lutaml::Model::Serialize
+              attrs = attrs.merge(build_namespace_attributes(type, processed))
+            end
+
+            if mapping_rule.namespace
+              attrs["xmlns:#{mapping_rule.prefix}"] = mapping_rule.namespace
+            end
+          end
+
+          attrs
         end
 
         def build_attributes(element, xml_mapping)
@@ -143,7 +185,7 @@ module Lutaml
         end
 
         def name
-          if namespace_prefix && namespaces[namespace_prefix]
+          if namespace_prefix
             "#{namespace_prefix}:#{@name}"
           else
             @name
@@ -214,6 +256,14 @@ module Lutaml
           @value = value
           @namespace = namespace
           @namespace_prefix = namespace_prefix
+        end
+
+        def unprefixed_name
+          if namespace_prefix
+            name.split(":").last
+          else
+            name
+          end
         end
       end
     end

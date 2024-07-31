@@ -29,13 +29,21 @@ module Lutaml
 
         private
 
-        def build_unordered_element(builder, element, _options = {})
+        def build_unordered_element(builder, element, options = {})
           xml_mapping = element.class.mappings_for(:xml)
           return xml unless xml_mapping
 
-          attributes = build_attributes(element, xml_mapping)
+          attributes = build_attributes(element, xml_mapping).compact
 
-          builder.element(xml_mapping.root_element, attributes) do |el|
+          prefixed_name = if options.key?(:namespace_prefix)
+                            [options[:namespace_prefix], xml_mapping.root_element].compact.join(":")
+                          elsif xml_mapping.namespace_prefix
+                            "#{xml_mapping.namespace_prefix}:#{xml_mapping.root_element}"
+                          else
+                            xml_mapping.root_element
+                          end
+
+          builder.element(prefixed_name, attributes) do |el|
             xml_mapping.elements.each do |element_rule|
               attribute_def = attribute_definition_for(element, element_rule)
               value = attribute_value_for(element, element_rule)
@@ -50,9 +58,9 @@ module Lutaml
 
               val.each do |v|
                 if attribute_def&.type&.<= Lutaml::Model::Serialize
-                  handle_nested_elements(el, v)
+                  handle_nested_elements(el, v, element_rule)
                 else
-                  builder.element(element_rule.name) do |el|
+                  builder.element(element_rule.prefixed_name) do |el|
                     el.text(attribute_def.type.serialize(v)) if v
                   end
                 end
@@ -72,7 +80,7 @@ module Lutaml
           xml_mapping = element.class.mappings_for(:xml)
           return xml unless xml_mapping
 
-          attributes = build_attributes(element, xml_mapping)
+          attributes = build_attributes(element, xml_mapping).compact
 
           builder.element(xml_mapping.root_element, attributes) do |el|
             index_hash = {}
@@ -92,9 +100,7 @@ module Lutaml
 
                 el.text text
               elsif attribute_def.collection?
-                value.each do |v|
-                  add_to_xml(el, v, attribute_def, element_rule)
-                end
+                add_to_xml(el, value[curr_index], attribute_def, element_rule)
               elsif !value.nil? || element_rule.render_nil?
                 add_to_xml(el, value, attribute_def, element_rule)
               end
@@ -104,7 +110,7 @@ module Lutaml
 
         def add_to_xml(xml, value, attribute, rule)
           if value && (attribute&.type&.<= Lutaml::Model::Serialize)
-            handle_nested_elements(xml, value)
+            handle_nested_elements(xml, value, rule)
           else
             xml.element(rule.name) do |el|
               if !value.nil?
@@ -128,27 +134,30 @@ module Lutaml
           if node.is_a?(String)
             super("text", {}, [], node, parent_document: root_node)
           else
-            attributes = node.attributes.each_with_object({}) do |(name, value), hash|
-              if attribute_is_namespace?(name)
-                if root_node
-                  root_node.add_namespace(Lutaml::Model::XmlNamespace.new(value, name))
-                else
-                  add_namespace(Lutaml::Model::XmlNamespace.new(value, name))
-                end
+            namespace_attributes(node.attributes).each do |(name, value)|
+              if root_node
+                root_node.add_namespace(Lutaml::Model::XmlNamespace.new(value, name))
               else
-                namespace_prefix = name.to_s.split(":").first
-                if root_node && (n = root_node.namespaces[namespace_prefix])
-                  namespace = n.uri
-                  prefix = n.prefix
-                end
-
-                hash[name.to_s] = Attribute.new(
-                  name.to_s,
-                  value,
-                  namespace: namespace,
-                  namespace_prefix: prefix,
-                )
+                add_namespace(Lutaml::Model::XmlNamespace.new(value, name))
               end
+            end
+
+            attributes = node.attributes.each_with_object({}) do |(name, value), hash|
+              next if attribute_is_namespace?(name)
+
+              namespace_prefix = name.to_s.split(":").first
+              if (n = name.to_s.split(":")).length > 1
+                namespace = (root_node || self).namespaces[namespace_prefix]&.uri
+                namespace = Lutaml::Model::XmlAdapter::XML_NAMESPACE_URI unless namespace
+                prefix = n.first
+              end
+
+              hash[name.to_s] = Attribute.new(
+                name.to_s,
+                value,
+                namespace: namespace,
+                namespace_prefix: prefix,
+              )
             end
 
             super(
@@ -172,6 +181,10 @@ module Lutaml
               children.each { |child| child.to_xml(el) }
             end
           end
+        end
+
+        def namespace_attributes(attributes)
+          attributes.select { |attr| attribute_is_namespace?(attr) }
         end
 
         def text?

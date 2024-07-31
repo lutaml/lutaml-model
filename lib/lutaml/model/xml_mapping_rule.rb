@@ -6,8 +6,6 @@ module Lutaml
     class XmlMappingRule < MappingRule
       attr_reader :namespace, :prefix
 
-      # rubocop:disable Metrics/MethodLength
-      # rubocop:disable Metrics/ParameterLists
       def initialize(
         name,
         to:,
@@ -16,7 +14,8 @@ module Lutaml
         delegate: nil,
         namespace: nil,
         prefix: nil,
-        mixed_content: false
+        mixed_content: false,
+        namespace_set: false
       )
         super(
           name,
@@ -24,7 +23,8 @@ module Lutaml
           render_nil: render_nil,
           with: with,
           delegate: delegate,
-          mixed_content: mixed_content
+          mixed_content: mixed_content,
+          namespace_set: namespace_set
         )
 
         @namespace = if namespace.to_s == "inherit"
@@ -35,8 +35,6 @@ module Lutaml
                      end
         @prefix = prefix
       end
-      # rubocop:enable Metrics/MethodLength
-      # rubocop:enable Metrics/ParameterLists
     end
   end
 end
