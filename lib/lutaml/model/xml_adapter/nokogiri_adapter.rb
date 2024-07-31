@@ -17,6 +17,7 @@ module Lutaml
             if root.is_a?(Lutaml::Model::XmlAdapter::NokogiriElement)
               root.to_xml(xml)
             else
+              options[:xml_attributes] = build_namespace_attributes(@root.class)
               build_element(xml, @root, options)
             end
           end
@@ -30,22 +31,32 @@ module Lutaml
 
         private
 
-        def build_unordered_element(xml, element, _options = {})
+        def build_unordered_element(xml, element, options = {})
           xml_mapping = element.class.mappings_for(:xml)
           return xml unless xml_mapping
 
-          attributes = build_attributes(element, xml_mapping)
+          attributes = options[:xml_attributes] ||= {}
+          attributes = build_attributes(element, xml_mapping).merge(attributes)&.compact
 
-          prefixed_xml = if xml_mapping.namespace_prefix
+          prefixed_xml = if options.key?(:namespace_prefix)
+                           options[:namespace_prefix] ? xml[options[:namespace_prefix]] : xml
+                         elsif xml_mapping.namespace_prefix
                            xml[xml_mapping.namespace_prefix]
                          else
                            xml
                          end
 
           prefixed_xml.public_send(xml_mapping.root_element, attributes) do
+            if options.key?(:namespace_prefix) && !options[:namespace_prefix]
+              xml.parent.namespace = nil
+            end
+
             xml_mapping.elements.each do |element_rule|
               attribute_def = attribute_definition_for(element, element_rule)
               value = attribute_value_for(element, element_rule)
+
+              next if value.nil? && !element_rule.render_nil?
+
               nsp_xml = element_rule.prefix ? xml[element_rule.prefix] : xml
 
               if attribute_def.collection?
@@ -66,19 +77,25 @@ module Lutaml
           end
         end
 
-        def build_ordered_element(xml, element, _options = {})
+        def build_ordered_element(xml, element, options = {})
           xml_mapping = element.class.mappings_for(:xml)
           return xml unless xml_mapping
 
-          attributes = build_attributes(element, xml_mapping)
+          attributes = build_attributes(element, xml_mapping)&.compact
 
-          prefixed_xml = if xml_mapping.namespace_prefix
+          prefixed_xml = if options.key?(:namespace_prefix)
+                           options[:namespace_prefix] ? xml[options[:namespace_prefix]] : xml
+                         elsif xml_mapping.namespace_prefix
                            xml[xml_mapping.namespace_prefix]
                          else
                            xml
                          end
 
           prefixed_xml.public_send(xml_mapping.root_element, attributes) do
+            if options.key?(:namespace_prefix) && !options[:namespace_prefix]
+              xml.parent.namespace = nil
+            end
+
             index_hash = {}
 
             element.element_order.each do |name|
@@ -98,9 +115,7 @@ module Lutaml
 
                 prefixed_xml.text text
               elsif attribute_def.collection?
-                value.each do |v|
-                  add_to_xml(nsp_xml, v, attribute_def, element_rule)
-                end
+                add_to_xml(nsp_xml, value[curr_index], attribute_def, element_rule)
               elsif !value.nil? || element_rule.render_nil?
                 add_to_xml(nsp_xml, value, attribute_def, element_rule)
               end
@@ -110,7 +125,7 @@ module Lutaml
 
         def add_to_xml(xml, value, attribute, rule)
           if value && (attribute&.type&.<= Lutaml::Model::Serialize)
-            handle_nested_elements(xml, value)
+            handle_nested_elements(xml, value, rule)
           else
             xml.public_send(rule.name) do
               if !value.nil?

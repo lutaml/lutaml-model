@@ -15,7 +15,8 @@ module Lutaml
         render_nil: false,
         with: {},
         delegate: nil,
-        mixed_content: false
+        mixed_content: false,
+        namespace_set: false
       )
         @name = name
         @to = to
@@ -23,6 +24,7 @@ module Lutaml
         @custom_methods = with
         @delegate = delegate
         @mixed_content = mixed_content
+        @namespace_set = namespace_set
       end
 
       alias from name
@@ -50,6 +52,10 @@ module Lutaml
         else
           doc[name.to_s]
         end
+      end
+
+      def namespace_set?
+        @namespace_set
       end
     end
   end

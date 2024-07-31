@@ -43,7 +43,7 @@ module Lutaml
         render_nil: false,
         with: {},
         delegate: nil,
-        namespace: nil,
+        namespace: (namespace_set = false; nil),
         prefix: nil,
         mixed: false
       )
@@ -56,6 +56,7 @@ module Lutaml
           namespace: namespace,
           prefix: prefix,
           mixed_content: mixed,
+          namespace_set: namespace_set != false,
         )
       end
 
@@ -65,7 +66,7 @@ module Lutaml
         render_nil: false,
         with: {},
         delegate: nil,
-        namespace: nil,
+        namespace: (namespace_set = false; nil),
         prefix: nil
       )
         @attributes << XmlMappingRule.new(
@@ -76,6 +77,7 @@ module Lutaml
           delegate: delegate,
           namespace: namespace,
           prefix: prefix,
+          namespace_set: namespace_set != false,
         )
       end
       # rubocop:enable Metrics/ParameterLists

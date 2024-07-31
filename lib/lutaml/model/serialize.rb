@@ -19,11 +19,6 @@ module Lutaml
         base.extend(ClassMethods)
       end
 
-      # rubocop:disable Metrics/MethodLength
-      # rubocop:disable Metrics/BlockLength
-      # rubocop:disable Metrics/AbcSize
-      # rubocop:disable Metrics/CyclomaticComplexity
-      # rubocop:disable Metrics/PerceivedComplexity
       module ClassMethods
         attr_accessor :attributes, :mappings
 
@@ -53,6 +48,10 @@ module Lutaml
             klass = format == :xml ? XmlMapping : KeyValueMapping
             self.mappings[format] = klass.new
             self.mappings[format].instance_eval(&block)
+
+            if format == :xml && !self.mappings[format].root_element
+              self.mappings[format].root(self.to_s)
+            end
           end
 
           define_method(:"from_#{format}") do |data|
@@ -347,11 +346,6 @@ module Lutaml
           value
         end
       end
-      # rubocop:enable Metrics/MethodLength
-      # rubocop:enable Metrics/BlockLength
-      # rubocop:enable Metrics/AbcSize
-      # rubocop:enable Metrics/CyclomaticComplexity
-      # rubocop:enable Metrics/PerceivedComplexity
     end
   end
 end

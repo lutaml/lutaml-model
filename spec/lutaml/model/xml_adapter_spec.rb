@@ -8,7 +8,7 @@ require_relative "../../fixtures/sample_model"
 class MixedContent < Lutaml::Model::Serializable
   attribute :id, Lutaml::Model::Type::String
   attribute :bold, Lutaml::Model::Type::String
-  attribute :italic, Lutaml::Model::Type::String
+  attribute :italic, Lutaml::Model::Type::String, collection: true
   attribute :underline, Lutaml::Model::Type::String
   attribute :sample_model, SampleModel
   attribute :content, Lutaml::Model::Type::String
@@ -46,13 +46,13 @@ class WithoutMixedContent < Lutaml::Model::Serializable
 end
 
 RSpec.shared_examples "an XML adapter" do |adapter_class|
-  before do
-    @old_adapter = Lutaml::Model::Config.xml_adapter
+  around(:each) do |example|
+    old_adapter = Lutaml::Model::Config.xml_adapter
     Lutaml::Model::Config.xml_adapter = adapter_class
-  end
 
-  after do
-    Lutaml::Model::Config.xml_adapter = @old_adapter
+    example.run
+  ensure
+    Lutaml::Model::Config.xml_adapter = old_adapter
   end
 
   let(:attributes) { { name: "John Doe", age: 30 } }
@@ -108,7 +108,8 @@ RSpec.shared_examples "an XML adapter" do |adapter_class|
 
             <MixedContent id="456">
               This is some <bold>bold</bold> and some <italic>italic</italic> text
-              and some <underline>underlined</underline> text as well.
+              and some <underline>underlined</underline> text as well
+              and <italic>some more italic</italic> text.
               <SampleModel>
                 <Name>John Doe</Name>
                 <Age>30</Age>
