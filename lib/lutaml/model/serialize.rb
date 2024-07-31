@@ -1,10 +1,6 @@
 # lib/lutaml/model/serialize.rb
-require_relative "json_adapter/standard"
-require_relative "json_adapter/multi_json"
 require_relative "yaml_adapter"
 require_relative "xml_adapter"
-require_relative "toml_adapter/toml_rb_adapter"
-require_relative "toml_adapter/tomlib_adapter"
 require_relative "config"
 require_relative "type"
 require_relative "attribute"
