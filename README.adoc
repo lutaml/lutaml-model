@@ -105,6 +105,8 @@ class Example < Lutaml::Model::Serializable
 end
 ----
 
+NOTE: If root is not given then the class name will be used as the root.
+
 === Key Value Data Models: JSON, YAML, TOML
 
 Define key-value data models like JSON, YAML, and TOML using the `map` method.
@@ -294,16 +296,31 @@ end
 
 === XML Namespace on Attribute
 
+If the namespace is defined on an attribute then that will be given priority over the one defined in the class. In the example below `glz` will be used for `Glaze` if it is added inside the `Ceramic` class, and `glaze` will be used otherwise.
+
 [source,ruby]
 ----
+class Glaze < Lutaml::Model::Serializable
+  attribute :color, Lutaml::Model::Type::String
+  attribute :temperature, Lutaml::Model::Type::Integer
+
+  xml do
+    root 'Glaze'
+    namespace 'http://example.com/old_glaze', 'glaze'
+
+    map_element 'color', to: :color
+    map_element 'temperature', to: :temperature
+  end
+end
+
 class Ceramic < Lutaml::Model::Serializable
   attribute :type, Lutaml::Model::Type::String
-  attribute :glaze, Lutaml::Model::Type::String
+  attribute :glaze, Glaze
 
   xml do
     root 'Ceramic'
     map_element 'Type', to: :type
-    map_element 'Glaze', to: :glaze
+    map_element 'Glaze', to: :glaze, namespace: 'http://example.com/glaze', prefix: "glz"
     map_attribute 'xmlns', to: :namespace, namespace: 'http://example.com/ceramic'
   end
 end
