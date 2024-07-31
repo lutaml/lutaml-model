@@ -175,13 +175,8 @@ module Lutaml
         return unless self.class.attributes
 
         if attrs.is_a?(Lutaml::Model::MappingHash)
-          ordered = attrs.ordered?
-          element_order = attrs.item_order
-
-          @ordered = ordered
-          @element_order = if element_order && !element_order.empty?
-                             element_order
-                           end
+          @ordered = attrs.ordered?
+          @element_order = attrs.item_order
         end
 
         self.class.attributes.each do |name, attr|

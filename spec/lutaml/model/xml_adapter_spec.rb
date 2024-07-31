@@ -126,6 +126,24 @@ RSpec.shared_examples "an XML adapter" do |adapter_class|
         expect(parsed_xml.to_xml).to be_equivalent_to(xml)
       end
     end
+
+    describe "only attributes without children" do
+      let(:xml) do
+        <<~XML
+          <WithoutMixedContent id="123">
+            Some text before mixed content
+
+            <MixedContent id="456"></MixedContent>
+          </WithoutMixedContent>
+        XML
+      end
+
+      let(:parsed_xml) { WithoutMixedContent.from_xml(xml) }
+
+      it "output correct XML" do
+        expect(parsed_xml.to_xml).to be_equivalent_to(xml)
+      end
+    end
   end
 end
 
