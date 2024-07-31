@@ -148,7 +148,7 @@ module Lutaml
               namespace_prefix = name.to_s.split(":").first
               if (n = name.to_s.split(":")).length > 1
                 namespace = (root_node || self).namespaces[namespace_prefix]&.uri
-                namespace = Lutaml::Model::XmlAdapter::XML_NAMESPACE_URI unless namespace
+                namespace ||= Lutaml::Model::XmlAdapter::XML_NAMESPACE_URI
                 prefix = n.first
               end
 

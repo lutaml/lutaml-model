@@ -50,7 +50,7 @@ module Lutaml
             self.mappings[format].instance_eval(&block)
 
             if format == :xml && !self.mappings[format].root_element
-              self.mappings[format].root(self.to_s)
+              self.mappings[format].root(to_s)
             end
           end
 

@@ -46,7 +46,7 @@ class WithoutMixedContent < Lutaml::Model::Serializable
 end
 
 RSpec.shared_examples "an XML adapter" do |adapter_class|
-  around(:each) do |example|
+  around do |example|
     old_adapter = Lutaml::Model::Config.xml_adapter
     Lutaml::Model::Config.xml_adapter = adapter_class
 

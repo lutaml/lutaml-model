@@ -36,7 +36,8 @@ module Lutaml
           return xml unless xml_mapping
 
           attributes = options[:xml_attributes] ||= {}
-          attributes = build_attributes(element, xml_mapping).merge(attributes)&.compact
+          attributes = build_attributes(element,
+                                        xml_mapping).merge(attributes)&.compact
 
           prefixed_xml = if options.key?(:namespace_prefix)
                            options[:namespace_prefix] ? xml[options[:namespace_prefix]] : xml
@@ -115,7 +116,8 @@ module Lutaml
 
                 prefixed_xml.text text
               elsif attribute_def.collection?
-                add_to_xml(nsp_xml, value[curr_index], attribute_def, element_rule)
+                add_to_xml(nsp_xml, value[curr_index], attribute_def,
+                           element_rule)
               elsif !value.nil? || element_rule.render_nil?
                 add_to_xml(nsp_xml, value, attribute_def, element_rule)
               end
