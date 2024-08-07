@@ -14,9 +14,10 @@ module Lutaml
 
         def to_xml(options = {})
           builder = Ox::Builder.new
+
           if @root.is_a?(Lutaml::Model::XmlAdapter::OxElement)
             @root.to_xml(builder)
-          elsif @root.ordered?
+          elsif ordered?(@root, options)
             build_ordered_element(builder, @root, options)
           else
             build_element(builder, @root, options)
@@ -30,7 +31,8 @@ module Lutaml
         private
 
         def build_unordered_element(builder, element, options = {})
-          xml_mapping = element.class.mappings_for(:xml)
+          mapper_class = options[:mapper_class] || element.class
+          xml_mapping = mapper_class.mappings_for(:xml)
           return xml unless xml_mapping
 
           attributes = build_attributes(element, xml_mapping).compact
@@ -45,7 +47,7 @@ module Lutaml
 
           builder.element(prefixed_name, attributes) do |el|
             xml_mapping.elements.each do |element_rule|
-              attribute_def = attribute_definition_for(element, element_rule)
+              attribute_def = attribute_definition_for(element, element_rule, mapper_class: mapper_class)
               value = attribute_value_for(element, element_rule)
 
               val = if attribute_def.collection?
@@ -58,7 +60,7 @@ module Lutaml
 
               val.each do |v|
                 if attribute_def&.type&.<= Lutaml::Model::Serialize
-                  handle_nested_elements(el, v, element_rule)
+                  handle_nested_elements(el, v, rule: element_rule, attribute: attribute_def)
                 else
                   builder.element(element_rule.prefixed_name) do |el|
                     el.text(attribute_def.type.serialize(v)) if v
@@ -76,8 +78,9 @@ module Lutaml
           end
         end
 
-        def build_ordered_element(builder, element, _options = {})
-          xml_mapping = element.class.mappings_for(:xml)
+        def build_ordered_element(builder, element, options = {})
+          mapper_class = options[:mapper_class] || element.class
+          xml_mapping = mapper_class.mappings_for(:xml)
           return xml unless xml_mapping
 
           attributes = build_attributes(element, xml_mapping).compact
@@ -91,7 +94,7 @@ module Lutaml
 
               element_rule = xml_mapping.find_by_name(name)
 
-              attribute_def = attribute_definition_for(element, element_rule)
+              attribute_def = attribute_definition_for(element, element_rule, mapper_class: mapper_class)
               value = attribute_value_for(element, element_rule)
 
               if element_rule == xml_mapping.content_mapping
@@ -110,7 +113,12 @@ module Lutaml
 
         def add_to_xml(xml, value, attribute, rule)
           if value && (attribute&.type&.<= Lutaml::Model::Serialize)
-            handle_nested_elements(xml, value, rule)
+            handle_nested_elements(
+              xml,
+              value,
+              rule: rule,
+              attribute: attribute,
+            )
           else
             xml.element(rule.name) do |el|
               if !value.nil?

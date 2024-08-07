@@ -11,8 +11,8 @@ module Lutaml
           new(data)
         end
 
-        def to_toml(*args)
-          TomlRB.dump(to_h, *args)
+        def to_toml(*)
+          TomlRB.dump(to_h)
         end
       end
     end

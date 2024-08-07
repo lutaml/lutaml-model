@@ -4,9 +4,17 @@ require "yaml"
 module Lutaml
   module Model
     module YamlAdapter
-      module Standard
-        def self.to_yaml(model, *args)
-          YAML.dump(model.hash_representation(:yaml), *args)
+      class Standard
+        def initialize(attributes)
+          @attributes = attributes
+        end
+
+        def to_yaml(options = {})
+          YAML.dump(@attributes, options)
+        end
+
+        def self.to_yaml(attributes, *args)
+          new(attributes).to_yaml(*args)
         end
 
         def self.from_yaml(yaml, klass)
