@@ -26,6 +26,15 @@ module Lutaml
           super
 
           subclass.instance_variable_set(:@attributes, @attributes.dup)
+          subclass.instance_variable_set(:@model, subclass)
+        end
+
+        def model(klass = nil)
+          if klass
+            @model = klass
+          else
+            @model
+          end
         end
 
         def attribute(name, type, options = {})
@@ -50,7 +59,7 @@ module Lutaml
             self.mappings[format].instance_eval(&block)
 
             if format == :xml && !self.mappings[format].root_element
-              self.mappings[format].root(to_s)
+              self.mappings[format].root(model.to_s)
             end
           end
 
@@ -59,12 +68,136 @@ module Lutaml
             doc = adapter.parse(data)
             mapped_attrs = apply_mappings(doc.to_h, format)
             # apply_content_mapping(doc, mapped_attrs) if format == :xml
-            new(mapped_attrs)
+            generate_model_object(self, mapped_attrs)
+          end
+
+          define_method(:"to_#{format}") do |instance|
+            unless instance.is_a?(model)
+              msg = "argument is a '#{instance.class}' but should be a '#{model}'"
+              raise Lutaml::Model::IncorrectModelError, msg
+            end
+
+            adapter = Lutaml::Model::Config.public_send(:"#{format}_adapter")
+
+            if format == :xml
+              xml_options = { mapper_class: self }
+
+              adapter.new(instance).public_send(:"to_#{format}", xml_options)
+            else
+              hash = hash_representation(instance, format)
+              adapter.new(hash).public_send(:"to_#{format}")
+            end
           end
         end
 
+        def hash_representation(instance, format, options = {})
+          only = options[:only]
+          except = options[:except]
+          mappings = mappings_for(format).mappings
+
+          mappings.each_with_object({}) do |rule, hash|
+            name = rule.to
+            next if except&.include?(name) || (only && !only.include?(name))
+
+            next handle_delegate(instance, rule, hash) if rule.delegate
+
+            value = if rule.custom_methods[:to]
+                      instance.send(rule.custom_methods[:to], instance, instance.send(name))
+                    else
+                      instance.send(name)
+                    end
+
+            next if value.nil? && !rule.render_nil
+
+            attribute = attributes[name]
+
+            hash[rule.from] = case value
+                              when Array
+                                value.map do |v|
+                                  if attribute.type <= Serialize
+                                    attribute.type.hash_representation(v, format, options)
+                                  else
+                                    attribute.type.serialize(v)
+                                  end
+                                end
+                              else
+                                if attribute.type <= Serialize
+                                  attribute.type.hash_representation(value, format, options)
+                                else
+                                  attribute.type.serialize(value)
+                                end
+                              end
+          end
+        end
+
+        def handle_delegate(instance, rule, hash)
+          name = rule.to
+          value = instance.send(rule.delegate).send(name)
+          return if value.nil? && !rule.render_nil
+
+          attribute = instance.send(rule.delegate).class.attributes[name]
+          hash[rule.from] = case value
+                            when Array
+                              value.map do |v|
+                                if v.is_a?(Serialize)
+                                  hash_representation(v, format, options)
+                                else
+                                  attribute.type.serialize(v)
+                                end
+                              end
+                            else
+                              if value.is_a?(Serialize)
+                                hash_representation(value, format, options)
+                              else
+                                attribute.type.serialize(value)
+                              end
+                            end
+        end
+
         def mappings_for(format)
-          self.mappings[format] || default_mappings(format)
+          self.mappings&.public_send(:[], format) || default_mappings(format)
+        end
+
+        def generate_model_object(type, mapped_attrs)
+          return type.model.new(mapped_attrs) if self == model
+
+          instance = type.model.new
+
+          type.attributes.each do |name, attr|
+            value = attr_value(mapped_attrs, name, attr)
+
+            instance.send(:"#{name}=", ensure_utf8(value))
+          end
+
+          instance
+        end
+
+        def attr_value(attrs, name, attr_rule)
+          value = if attrs.key?(name)
+                    attrs[name]
+                  elsif attrs.key?(name.to_sym)
+                    attrs[name.to_sym]
+                  elsif attrs.key?(name.to_s)
+                    attrs[name.to_s]
+                  else
+                    attr_rule.default
+                  end
+
+          if attr_rule.collection? || value.is_a?(Array)
+            (value || []).map do |v|
+              if v.is_a?(Hash)
+                attr_rule.type.new(v)
+              else
+                Lutaml::Model::Type.cast(
+                  v, attr_rule.type
+                )
+              end
+            end
+          elsif value.is_a?(Hash) && attr_rule.type != Lutaml::Model::Type::Hash
+            generate_model_object(attr_rule.type, value)
+          else
+            Lutaml::Model::Type.cast(value, attr_rule.type)
+          end
         end
 
         def default_mappings(format)
@@ -167,6 +300,21 @@ module Lutaml
             hash[rule.to] = value
           end
         end
+
+        def ensure_utf8(value)
+          case value
+          when String
+            value.encode("UTF-8", invalid: :replace, undef: :replace, replace: "")
+          when Array
+            value.map { |v| ensure_utf8(v) }
+          when Hash
+            value.transform_keys do |k|
+              ensure_utf8(k)
+            end.transform_values { |v| ensure_utf8(v) }
+          else
+            value
+          end
+        end
       end
 
       attr_reader :element_order
@@ -180,37 +328,9 @@ module Lutaml
         end
 
         self.class.attributes.each do |name, attr|
-          value = attr_value(attrs, name, attr)
+          value = self.class.attr_value(attrs, name, attr)
 
-          send(:"#{name}=", ensure_utf8(value))
-        end
-      end
-
-      def attr_value(attrs, name, attr_rule)
-        value = if attrs.key?(name)
-                  attrs[name]
-                elsif attrs.key?(name.to_sym)
-                  attrs[name.to_sym]
-                elsif attrs.key?(name.to_s)
-                  attrs[name.to_s]
-                else
-                  attr_rule.default
-                end
-
-        if attr_rule.collection? || value.is_a?(Array)
-          (value || []).map do |v|
-            if v.is_a?(Hash)
-              attr_rule.type.new(v)
-            else
-              Lutaml::Model::Type.cast(
-                v, attr_rule.type
-              )
-            end
-          end
-        elsif value.is_a?(Hash) && attr_rule.type != Lutaml::Model::Type::Hash
-          attr_rule.type.new(value)
-        else
-          Lutaml::Model::Type.cast(value, attr_rule.type)
+          send(:"#{name}=", self.class.ensure_utf8(value))
         end
       end
 
@@ -226,119 +346,16 @@ module Lutaml
         hash[key] || hash[key.to_sym] || hash[key.to_s]
       end
 
-      # TODO: Make this work
-      # FORMATS.each do |format|
-      #   define_method("to_#{format}") do |options = {}|
-      #     adapter = Lutaml::Model::Config.send("#{format}_adapter")
-      #     representation = if format == :yaml
-      #                        self
-      #                      else
-      #                        hash_representation(format, options)
-      #                      end
-      #     adapter.new(representation).send("to_#{format}", options)
-      #   end
-      # end
+      FORMATS.each do |format|
+        define_method(:"to_#{format}") do |options = {}|
+          adapter = Lutaml::Model::Config.public_send(:"#{format}_adapter")
+          representation = if format == :xml
+                             self
+                           else
+                             self.class.hash_representation(self, format, options)
+                           end
 
-      def to_xml(options = {})
-        adapter = Lutaml::Model::Config.xml_adapter
-        adapter.new(self).to_xml(options)
-      end
-
-      def to_json(options = {})
-        adapter = Lutaml::Model::Config.json_adapter
-        adapter.new(hash_representation(:json, options)).to_json(options)
-      end
-
-      def to_yaml(options = {})
-        adapter = Lutaml::Model::Config.yaml_adapter
-        adapter.to_yaml(self, options)
-      end
-
-      def to_toml(options = {})
-        adapter = Lutaml::Model::Config.toml_adapter
-        adapter.new(hash_representation(:toml, options)).to_toml
-      end
-
-      # TODO: END Make this work
-
-      def hash_representation(format, options = {})
-        only = options[:only]
-        except = options[:except]
-        mappings = self.class.mappings_for(format).mappings
-
-        mappings.each_with_object({}) do |rule, hash|
-          name = rule.to
-          next if except&.include?(name) || (only && !only.include?(name))
-
-          next handle_delegate(self, rule, hash) if rule.delegate
-
-          value = if rule.custom_methods[:to]
-                    send(rule.custom_methods[:to], self, send(name))
-                  else
-                    send(name)
-                  end
-
-          next if value.nil? && !rule.render_nil
-
-          attribute = self.class.attributes[name]
-
-          hash[rule.from] = case value
-                            when Array
-                              value.map do |v|
-                                if v.is_a?(Serialize)
-                                  v.hash_representation(format, options)
-                                else
-                                  attribute.type.serialize(v)
-                                end
-                              end
-                            else
-                              if value.is_a?(Serialize)
-                                value.hash_representation(format, options)
-                              else
-                                attribute.type.serialize(value)
-                              end
-                            end
-        end
-      end
-
-      private
-
-      def handle_delegate(_obj, rule, hash)
-        name = rule.to
-        value = send(rule.delegate).send(name)
-        return if value.nil? && !rule.render_nil
-
-        attribute = send(rule.delegate).class.attributes[name]
-        hash[rule.from] = case value
-                          when Array
-                            value.map do |v|
-                              if v.is_a?(Serialize)
-                                v.hash_representation(format, options)
-                              else
-                                attribute.type.serialize(v)
-                              end
-                            end
-                          else
-                            if value.is_a?(Serialize)
-                              value.hash_representation(format, options)
-                            else
-                              attribute.type.serialize(value)
-                            end
-                          end
-      end
-
-      def ensure_utf8(value)
-        case value
-        when String
-          value.encode("UTF-8", invalid: :replace, undef: :replace, replace: "")
-        when Array
-          value.map { |v| ensure_utf8(v) }
-        when Hash
-          value.transform_keys do |k|
-            ensure_utf8(k)
-          end.transform_values { |v| ensure_utf8(v) }
-        else
-          value
+          adapter.new(representation).public_send(:"to_#{format}", options)
         end
       end
     end

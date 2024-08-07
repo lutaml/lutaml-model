@@ -15,6 +15,12 @@ require_relative "model/toml_adapter"
 
 module Lutaml
   module Model
+    # Error for passing incorrect model type
+    #
+    # @api private
+    class IncorrectModelError < StandardError
+    end
+
     class BaseModel < Serializable
     end
   end

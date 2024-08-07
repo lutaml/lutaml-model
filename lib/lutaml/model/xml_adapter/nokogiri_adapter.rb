@@ -13,11 +13,12 @@ module Lutaml
         end
 
         def to_xml(options = {})
-          builder = Nokogiri::XML::Builder.new do |xml|
+          builder = Nokogiri::XML::Builder.new(encoding: "UTF-8") do |xml|
             if root.is_a?(Lutaml::Model::XmlAdapter::NokogiriElement)
               root.to_xml(xml)
             else
-              options[:xml_attributes] = build_namespace_attributes(@root.class)
+              mapper_class = options[:mapper_class] || @root.class
+              options[:xml_attributes] = build_namespace_attributes(mapper_class)
               build_element(xml, @root, options)
             end
           end
@@ -32,7 +33,8 @@ module Lutaml
         private
 
         def build_unordered_element(xml, element, options = {})
-          xml_mapping = element.class.mappings_for(:xml)
+          mapper_class = options[:mapper_class] || element.class
+          xml_mapping = mapper_class.mappings_for(:xml)
           return xml unless xml_mapping
 
           attributes = options[:xml_attributes] ||= {}
@@ -53,7 +55,7 @@ module Lutaml
             end
 
             xml_mapping.elements.each do |element_rule|
-              attribute_def = attribute_definition_for(element, element_rule)
+              attribute_def = attribute_definition_for(element, element_rule, mapper_class: mapper_class)
               value = attribute_value_for(element, element_rule)
 
               next if value.nil? && !element_rule.render_nil?
@@ -79,7 +81,8 @@ module Lutaml
         end
 
         def build_ordered_element(xml, element, options = {})
-          xml_mapping = element.class.mappings_for(:xml)
+          mapper_class = options[:mapper_class] || element.class
+          xml_mapping = mapper_class.mappings_for(:xml)
           return xml unless xml_mapping
 
           attributes = build_attributes(element, xml_mapping)&.compact
@@ -106,7 +109,7 @@ module Lutaml
               element_rule = xml_mapping.find_by_name(name)
               next if element_rule.nil?
 
-              attribute_def = attribute_definition_for(element, element_rule)
+              attribute_def = attribute_definition_for(element, element_rule, mapper_class: mapper_class)
               value = attribute_value_for(element, element_rule)
               nsp_xml = element_rule.prefix ? xml[element_rule.prefix] : xml
 
@@ -127,7 +130,12 @@ module Lutaml
 
         def add_to_xml(xml, value, attribute, rule)
           if value && (attribute&.type&.<= Lutaml::Model::Serialize)
-            handle_nested_elements(xml, value, rule)
+            handle_nested_elements(
+              xml,
+              value,
+              rule: rule,
+              attribute: attribute,
+            )
           else
             xml.public_send(rule.name) do
               if !value.nil?

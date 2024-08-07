@@ -44,12 +44,8 @@ module Lutaml
           @root.order
         end
 
-        def handle_nested_elements(builder, value, rule = nil)
-          options = {}
-
-          if rule&.namespace_set?
-            options[:namespace_prefix] = rule.prefix
-          end
+        def handle_nested_elements(builder, value, rule: nil, attribute: nil)
+          options = build_options_for_nested_elements(attribute, rule)
 
           case value
           when Array
@@ -57,6 +53,19 @@ module Lutaml
           else
             build_element(builder, value, options)
           end
+        end
+
+        def build_options_for_nested_elements(attribute, rule)
+          return {} unless rule
+
+          options = {}
+
+          options[:namespace_prefix] = rule.prefix if rule&.namespace_set?
+          options[:mixed_content] = rule.mixed_content
+
+          options[:mapper_class] = attribute&.type if attribute
+
+          options
         end
 
         def parse_element(element)
@@ -81,12 +90,21 @@ module Lutaml
           result
         end
 
-        def build_element(xml, element, _options = {})
-          if element.ordered?
-            build_ordered_element(xml, element, _options)
+        def build_element(xml, element, options = {})
+          if ordered?(element, options)
+            build_ordered_element(xml, element, options)
           else
-            build_unordered_element(xml, element, _options)
+            build_unordered_element(xml, element, options)
           end
+        end
+
+        def ordered?(element, options = {})
+          return false unless element.respond_to?(:element_order)
+          return element.ordered? if element.respond_to?(:ordered?)
+          return options[:mixed_content] if options.key?(:mixed_content)
+
+          mapper_class = options[:mapper_class]
+          mapper_class ? mapper_class.mappings_for(:xml).mixed_content? : false
         end
 
         def build_namespace_attributes(klass, processed = {})
@@ -143,8 +161,9 @@ module Lutaml
           end
         end
 
-        def attribute_definition_for(element, rule)
-          return element.class.attributes[rule.to] unless rule.delegate
+        def attribute_definition_for(element, rule, mapper_class: nil)
+          klass = mapper_class || element.class
+          return klass.attributes[rule.to] unless rule.delegate
 
           element.send(rule.delegate).class.attributes[rule.to]
         end
