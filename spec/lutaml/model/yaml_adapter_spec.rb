@@ -8,7 +8,10 @@ RSpec.describe Lutaml::Model::YamlAdapter::Standard do
   let(:model) { SampleModel.new(attributes) }
 
   it "serializes to YAML" do
-    yaml = described_class.to_yaml(model)
+    yaml = described_class.to_yaml(
+      model.class.hash_representation(model, :yaml),
+    )
+
     expect(yaml).to eq(attributes.to_yaml)
   end
 
