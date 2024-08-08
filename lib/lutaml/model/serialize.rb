@@ -38,6 +38,10 @@ module Lutaml
           end
 
           define_method(:"#{name}=") do |value|
+            if options[:values] && !options[:values].include?(value)
+              raise Lutaml::Model::InvalidValueError.new(name, value, options[:values])
+            end
+
             instance_variable_set(:"@#{name}", value)
           end
         end
