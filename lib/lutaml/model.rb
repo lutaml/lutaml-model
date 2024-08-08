@@ -12,6 +12,7 @@ require_relative "model/json_adapter"
 require_relative "model/yaml_adapter"
 require_relative "model/xml_adapter"
 require_relative "model/toml_adapter"
+require_relative "model/error"
 
 module Lutaml
   module Model
