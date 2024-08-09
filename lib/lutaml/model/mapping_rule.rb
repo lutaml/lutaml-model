@@ -7,7 +7,8 @@ module Lutaml
                   :render_nil,
                   :custom_methods,
                   :delegate,
-                  :mixed_content
+                  :mixed_content,
+                  :child_mappings
 
       def initialize(
         name,
@@ -16,7 +17,8 @@ module Lutaml
         with: {},
         delegate: nil,
         mixed_content: false,
-        namespace_set: false
+        namespace_set: false,
+        child_mappings: nil
       )
         @name = name
         @to = to
@@ -25,6 +27,7 @@ module Lutaml
         @delegate = delegate
         @mixed_content = mixed_content
         @namespace_set = namespace_set
+        @child_mappings = child_mappings
       end
 
       alias from name
