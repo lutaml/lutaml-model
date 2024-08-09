@@ -25,7 +25,11 @@ module Lutaml
         def inherited(subclass)
           super
 
+          @mappings ||= {}
+          @attributes ||= {}
+
           subclass.instance_variable_set(:@attributes, @attributes.dup)
+          subclass.instance_variable_set(:@mappings, @mappings.dup)
           subclass.instance_variable_set(:@model, subclass)
         end
 
@@ -38,7 +42,6 @@ module Lutaml
         end
 
         def attribute(name, type, options = {})
-          self.attributes ||= {}
           attr = Attribute.new(name, type, options)
           attributes[name] = attr
 
@@ -57,13 +60,12 @@ module Lutaml
 
         FORMATS.each do |format|
           define_method(format) do |&block|
-            self.mappings ||= {}
             klass = format == :xml ? XmlMapping : KeyValueMapping
-            self.mappings[format] = klass.new
-            self.mappings[format].instance_eval(&block)
+            mappings[format] = klass.new
+            mappings[format].instance_eval(&block)
 
-            if format == :xml && !self.mappings[format].root_element
-              self.mappings[format].root(model.to_s)
+            if format == :xml && !mappings[format].root_element
+              mappings[format].root(model.to_s)
             end
           end
 
@@ -115,8 +117,9 @@ module Lutaml
 
             attribute = attributes[name]
 
-            hash[rule.from] = case value
-                              when Array
+            hash[rule.from] = if rule.child_mappings
+                                generate_hash_from_child_mappings(value, rule.child_mappings)
+                              elsif value.is_a?(Array)
                                 value.map do |v|
                                   if attribute.type <= Serialize
                                     attribute.type.hash_representation(v, format, options)
@@ -124,12 +127,10 @@ module Lutaml
                                     attribute.type.serialize(v)
                                   end
                                 end
+                              elsif attribute.type <= Serialize
+                                attribute.type.hash_representation(value, format, options)
                               else
-                                if attribute.type <= Serialize
-                                  attribute.type.hash_representation(value, format, options)
-                                else
-                                  attribute.type.serialize(value)
-                                end
+                                attribute.type.serialize(value)
                               end
           end
         end
@@ -159,7 +160,7 @@ module Lutaml
         end
 
         def mappings_for(format)
-          self.mappings&.public_send(:[], format) || default_mappings(format)
+          mappings[format] || default_mappings(format)
         end
 
         def generate_model_object(type, mapped_attrs)
@@ -214,6 +215,52 @@ module Lutaml
           end
         end
 
+        def apply_child_mappings(hash, child_mappings)
+          return hash unless child_mappings
+
+          hash.map do |key, value|
+            child_mappings.to_h do |attr_name, path|
+              attr_value = if path == :key
+                             key
+                           elsif path == :value
+                             value
+                           else
+                             path = [path] unless path.is_a?(Array)
+                             value.dig(*path.map(&:to_s))
+                           end
+
+              [attr_name, attr_value]
+            end
+          end
+        end
+
+        def generate_hash_from_child_mappings(value, child_mappings)
+          return value unless child_mappings
+
+          hash = {}
+
+          value.each do |child_obj|
+            map_key = nil
+            map_value = {}
+            child_mappings.each do |attr_name, path|
+              if path == :key
+                map_key = child_obj.send(attr_name)
+              elsif path == :value
+                map_value = child_obj.send(attr_name)
+              else
+                path = [path] unless path.is_a?(Array)
+                path[0...-1].inject(map_value) do |acc, k|
+                  acc[k.to_s] ||= {}
+                end.public_send(:[]=, path.last.to_s, child_obj.send(attr_name))
+              end
+            end
+            # hash[mapping.name] ||= {}
+            hash[map_key] = map_value
+          end
+
+          hash
+        end
+
         def apply_mappings(doc, format)
           return apply_xml_mapping(doc) if format == :xml
 
@@ -234,6 +281,8 @@ module Lutaml
                     else
                       attr.default
                     end
+
+            value = apply_child_mappings(value, rule.child_mappings)
 
             if attr.collection?
               value = (value || []).map do |v|
