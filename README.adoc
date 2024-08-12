@@ -248,6 +248,73 @@ class Ceramic < Lutaml::Model::Serializable
 end
 ----
 
+== Attribute Extraction using `child_mappings` keyword
+
+`child_mappings` can be used to extract the results from `yaml` or `json` or `toml` input into a `lutaml-model` collection. It works by extracting the values from the hash using the list of keys provided. For example for the given json
+
+[source,json]
+----
+{
+  "schemas": {
+    "foo": {
+      "path": {
+        "link": "link one",
+        "name": "one"
+      }
+    },
+    "bar": {
+      "path": {
+        "link": "link two",
+        "name": "two"
+      }
+    }
+  }
+}
+----
+
+The above json contains 2 keys in schema named `foo` and `bar`. We can define a model for this like below
+
+[source,ruby]
+----
+class Schema < Lutaml::Model::Serializable
+  attribute :id, Lutaml::Model::Type::String
+  attribute :link, Lutaml::Model::Type::String
+  attribute :name, Lutaml::Model::Type::String
+end
+
+class ChildMappingClass < Lutaml::Model::Serializable
+  attribute :schemas, Schema, collection: true
+
+  json do
+    map "schemas", to: :schemas,
+                   child_mappings: {
+                     id: :key,
+                     link: %i[path link],
+                     name: %i[path name],
+                   }
+  end
+end
+----
+
+Running `ChildMappingClass.from_json(json)` will generate and output like below
+
+[source,ruby]
+----
+#<ChildMappingClass:0x0000000104ac7240
+ @schemas=
+  [#<Schema:0x0000000104ac6e30 @id="foo", @link="link one", @name="one">,
+   #<Schema:0x0000000104ac58f0 @id="bar", @link="link two", @name="two">]>
+----
+
+In this example:
+
+- The `key` of each schema (`foo` and `bar`) is mapped to the `id` attribute.
+- The nested `path.link` and `path.name` keys are mapped to the `link` and `name` attributes, respectively.
+
+If a specified key is not found, the corresponding attribute in the model will be assigned a `nil` value. For example, if the JSON had a schema with a missing `path.link`, the link attribute for that schema would be `nil` in the generated output
+
+NOTE: `key` and `value` are reserved keywords and are used to assign the `key` or `value` of the hash to the attribute.
+
 == Attribute Serialization with Custom `from` and `to` Methods
 
 Define custom methods for specific attribute mappings using the `with:` key for each serialization mapping block.
