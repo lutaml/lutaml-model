@@ -116,7 +116,7 @@ end
 
 == Defining attributes
 
-=== Attribute collections
+=== Attribute as a collection
 
 Define attributes as collections (arrays or hashes) to store multiple values
 using the `collection` option.
@@ -148,8 +148,44 @@ end
 ----
 ====
 
+=== Attribute as an enumeration
 
-=== Attribute defaults
+An attribute can be defined as an enumeration by using the `values` directive.
+
+The `values` directive is used to define acceptable values in an attribute. If
+any other value is given, a `Lutaml::Model::InvalidValueError` will be raised.
+
+Syntax:
+
+[source,ruby]
+----
+attribute :name_of_attribute, Type, values: [value1, value2, ...]
+----
+
+.Using the `values` directive to define acceptable values for an attribute
+[example]
+====
+[source,ruby]
+----
+class Ceramic < Lutaml::Model::Serializable
+  attribute :type, Lutaml::Model::Type::String,
+    values: ['Porcelain', 'Earthenware', 'Stoneware']
+end
+----
+
+[source,ruby]
+----
+> Ceramic.new(type: 'Porcelain').type
+> # "Porcelain"
+> Ceramic.new(type: 'Earthenware').type
+> # "Earthenware"
+> Ceramic.new(type: 'Bone China').type
+> # Lutaml::Model::InvalidValueError: Invalid value for attribute 'type'
+----
+====
+
+
+=== Attribute value default
 
 Specify default values for attributes using the `default` option.
 The `default` option can be set to a value or a lambda that returns a value.
@@ -435,8 +471,6 @@ end
 
 
 ==== Namespaces
-
-Define XML namespaces for your models to handle namespaced XML elements.
 
 ===== Namespace at root
 
