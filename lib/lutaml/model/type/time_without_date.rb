@@ -1,4 +1,3 @@
-# lib/lutaml/model/type/time_without_date.rb
 module Lutaml
   module Model
     module Type

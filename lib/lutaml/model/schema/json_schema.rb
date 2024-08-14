@@ -1,4 +1,3 @@
-# lib/lutaml/model/schema/json_schema.rb
 require "json"
 
 module Lutaml

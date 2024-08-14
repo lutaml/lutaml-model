@@ -1,4 +1,3 @@
-# spec/lutaml/model/map_content_spec.rb
 require "spec_helper"
 require "lutaml/model"
 

@@ -1,4 +1,3 @@
-# lib/lutaml/model/mapping_rule.rb
 module Lutaml
   module Model
     class MappingRule

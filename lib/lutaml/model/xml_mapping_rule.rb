@@ -1,4 +1,3 @@
-# lib/lutaml/model/xml_mapping_rule.rb
 require_relative "mapping_rule"
 
 module Lutaml

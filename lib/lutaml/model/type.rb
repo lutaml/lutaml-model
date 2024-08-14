@@ -1,4 +1,3 @@
-# lib/lutaml/model/type.rb
 require "date"
 require "bigdecimal"
 require "securerandom"

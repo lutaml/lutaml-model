@@ -1,4 +1,3 @@
-# lib/lutaml/model/config.rb
 module Lutaml
   module Model
     module Config

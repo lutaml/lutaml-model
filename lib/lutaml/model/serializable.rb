@@ -1,4 +1,3 @@
-# lib/lutaml/model/serializable.rb
 require_relative "serialize"
 
 module Lutaml

@@ -1,4 +1,3 @@
-# spec/lutaml/model/collection_spec.rb
 require "spec_helper"
 require "lutaml/model"
 

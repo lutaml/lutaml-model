@@ -1,4 +1,3 @@
-# spec/lutaml/model/xml_mapping_spec.rb
 require "spec_helper"
 require_relative "../../../lib/lutaml/model/xml_mapping"
 require_relative "../../../lib/lutaml/model/xml_mapping_rule"

@@ -1,4 +1,3 @@
-# lib/lutaml/model/attribute.rb
 module Lutaml
   module Model
     class Attribute

@@ -1,4 +1,3 @@
-# spec/lutaml/model/key_value_mapping_spec.rb
 require "spec_helper"
 require_relative "../../../lib/lutaml/model/key_value_mapping"
 require_relative "../../../lib/lutaml/model/key_value_mapping_rule"

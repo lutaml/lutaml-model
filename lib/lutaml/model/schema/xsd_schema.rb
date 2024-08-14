@@ -1,4 +1,3 @@
-# lib/lutaml/model/schema/xsd_schema.rb
 require "nokogiri"
 
 module Lutaml

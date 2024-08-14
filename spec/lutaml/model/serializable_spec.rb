@@ -1,5 +1,3 @@
-# spec/lutaml/model/serializeable_spec.rb
-
 class TestModel
   attr_accessor :name, :age
 

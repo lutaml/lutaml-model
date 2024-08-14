@@ -1,4 +1,3 @@
-# spec/schema/json_schema_spec.rb
 require "spec_helper"
 require_relative "../../../fixtures/vase"
 require "lutaml/model/schema"

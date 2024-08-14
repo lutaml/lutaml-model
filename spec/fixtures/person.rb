@@ -1,4 +1,3 @@
-# spec/fixtures/person.rb
 require "lutaml/model"
 
 class Person < Lutaml::Model::Serializable

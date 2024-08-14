@@ -1,4 +1,3 @@
-# spec/fixtures/address.rb
 require "lutaml/model"
 require_relative "person"
 
