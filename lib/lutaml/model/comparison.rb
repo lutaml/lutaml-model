@@ -2,7 +2,6 @@
 
 module Lutaml
   module Model
-
     # Comparison of two values for ComparableMapper
     class Comparison
       attr_accessor :original, :updated

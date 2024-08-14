@@ -14,7 +14,9 @@ module Lutaml
       # @return [Boolean] True if objects are equal, false otherwise
       def eql?(other)
         other.class == self.class &&
-          self.class.attributes.all? { |attr, _| send(attr) == other.send(attr) }
+          self.class.attributes.all? do |attr, _|
+            send(attr) == other.send(attr)
+          end
       end
 
       alias == eql?
@@ -22,7 +24,9 @@ module Lutaml
       # Generates a hash value for the object
       # @return [Integer] The hash value
       def hash
-        ([self.class] + self.class.attributes.map { |attr, _| send(attr).hash }).hash
+        ([self.class] + self.class.attributes.map do |attr, _|
+                          send(attr).hash
+                        end).hash
       end
 
       # Class methods added to the class that includes ComparableModel
@@ -80,7 +84,12 @@ module Lutaml
           result = "#{indent}#{colorize(prefix + @content, @color)}\n"
           @children.each_with_index do |child, index|
             is_last_child = index == @children.size - 1
-            child_indent = indent + (is_last ? "    " : "#{colorize("│", @color)}   ")
+            child_indent = indent + (if is_last
+                                       "    "
+                                     else
+                                       "#{colorize('│',
+                                                   @color)}   "
+                                     end)
             result += child.to_s(child_indent, is_last_child)
           end
           result
@@ -171,7 +180,7 @@ module Lutaml
         # @param content [String] The content to be displayed in the line
         # @return [String] Formatted tree line
         def tree_line(is_last, content)
-          "#{tree_prefix}#{is_last ? "└── " : "├── "}#{content}\n"
+          "#{tree_prefix}#{is_last ? '└── ' : '├── '}#{content}\n"
         end
 
         # Calculates the diff score for a single attribute
@@ -201,7 +210,8 @@ module Lutaml
               if arr1[i] == arr2[i]
                 0.0
               elsif arr1[i].is_a?(ComparableModel) && arr2[i].is_a?(ComparableModel)
-                DiffContext.new(arr1[i], arr2[i], show_unchanged: @show_unchanged).calculate_diff_score
+                DiffContext.new(arr1[i], arr2[i],
+                                show_unchanged: @show_unchanged).calculate_diff_score
               else
                 calculate_attribute_score(arr1[i], arr2[i])
               end
@@ -248,7 +258,7 @@ module Lutaml
         def format_attribute_diff(name, type, value1, value2, _is_last)
           return if value1 == value2 && !@show_unchanged
 
-          node = Tree.new("#{name} (#{obj1.class.attributes[name].collection? ? "collection" : type_name(type)}):")
+          node = Tree.new("#{name} (#{obj1.class.attributes[name].collection? ? 'collection' : type_name(type)}):")
           @root_tree.add_child(node)
 
           if obj1.class.attributes[name].collection?
@@ -279,11 +289,20 @@ module Lutaml
 
             next if item1 == item2 && !@show_unchanged
 
-            prefix = item2.nil? ? "- " : (item1.nil? ? "+ " : "")
-            color = item2.nil? ? :red : (item1.nil? ? :green : nil)
+            prefix = if item2.nil?
+                       "- "
+                     else
+                       (item1.nil? ? "+ " : "")
+                     end
+            color = if item2.nil?
+                      :red
+                    else
+                      (item1.nil? ? :green : nil)
+                    end
             type = item1&.class || item2&.class
 
-            node = Tree.new("#{prefix}[#{index + 1}] (#{type_name(type)})", color: color)
+            node = Tree.new("#{prefix}[#{index + 1}] (#{type_name(type)})",
+                            color: color)
             parent_node.add_child(node)
 
             if item1.nil?
@@ -352,7 +371,8 @@ module Lutaml
               "" # Skip the first line as it's already been output
             else
               prefix = index == lines.length - 1 && is_last ? "└── " : "├── "
-              tree_line(index == lines.length - 1 && is_last, colorize("#{prefix}#{line}", color))
+              tree_line(index == lines.length - 1 && is_last,
+                        colorize("#{prefix}#{line}", color))
             end
           end.join
         end
@@ -382,7 +402,10 @@ module Lutaml
             attr_type = obj1.class.attributes[attr].collection? ? "collection" : type_name(obj1.class.attributes[attr])
 
             if value1 == value2
-              format_single_value(value1, parent_node, "#{attr} (#{attr_type})") if @show_unchanged
+              if @show_unchanged
+                format_single_value(value1, parent_node,
+                                    "#{attr} (#{attr_type})")
+              end
             else
               format_value_tree(value1, value2, parent_node, attr, attr_type)
             end
@@ -396,16 +419,17 @@ module Lutaml
         # @param label [String] The label for the value
         # @param type_info [String, nil] Additional type information
         # @return [String] Formatted value tree
-        def format_value_tree(value1, value2, parent_node, label, type_info = nil)
+        def format_value_tree(value1, value2, parent_node, label,
+type_info = nil)
           return if value1 == value2 && !@show_unchanged
 
           if value1 == value2
             if @show_unchanged
               return format_single_value(
-                       value1,
-                       parent_node,
-                       "#{label}#{type_info ? " (#{type_info})" : ""}"
-                     )
+                value1,
+                parent_node,
+                "#{label}#{type_info ? " (#{type_info})" : ''}",
+              )
             end
 
             return if @highlight_diff
@@ -419,7 +443,7 @@ module Lutaml
           when ComparableModel
             format_object_attributes(value1, value2, parent_node)
           else
-            node = Tree.new("#{label}#{type_info ? " (#{type_info})" : ""}:")
+            node = Tree.new("#{label}#{type_info ? " (#{type_info})" : ''}:")
             parent_node.add_child(node)
             node.add_child(Tree.new("- #{format_value(value1)}", color: :red))
             node.add_child(Tree.new("+ #{format_value(value2)}", color: :green))
@@ -432,7 +456,7 @@ module Lutaml
         # @param label [String] The label for the value
         # @return [String] Formatted single value
         def format_single_value(value, parent_node, label, color = nil)
-          node = Tree.new("#{label}#{label.empty? ? "" : ":"}", color: color)
+          node = Tree.new("#{label}#{label.empty? ? '' : ':'}", color: color)
           parent_node.add_child(node)
 
           case value
@@ -455,7 +479,8 @@ module Lutaml
         def format_comparable_mapper(obj, parent_node, color = nil)
           obj.class.attributes.each do |attr_name, attr_type|
             attr_value = obj.send(attr_name)
-            attr_node = Tree.new("#{attr_name} (#{type_name(attr_type)}):", color: color)
+            attr_node = Tree.new("#{attr_name} (#{type_name(attr_type)}):",
+                                 color: color)
             parent_node.add_child(attr_node)
             if attr_value.is_a?(ComparableModel)
               format_comparable_mapper(attr_value, attr_node, color)

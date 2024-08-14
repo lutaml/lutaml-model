@@ -30,8 +30,5 @@ Gem::Specification.new do |spec|
   end
   spec.executables = spec.files.grep(%r{^exe/}) { |f| File.basename(f) }
 
-  # spec.add_runtime_dependency "expressir"
-  # spec.add_runtime_dependency "metanorma-cli"
-  # spec.add_runtime_dependency "shale"
-  # spec.add_runtime_dependency "thor", ">= 0.20"
+  spec.add_dependency "thor"
 end
