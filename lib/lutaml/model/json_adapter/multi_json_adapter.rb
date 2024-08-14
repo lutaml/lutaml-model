@@ -1,11 +1,10 @@
-# lib/lutaml/model/json_adapter/multi_json.rb
 require "multi_json"
-require_relative "../json_adapter"
+require_relative "json_document"
 
 module Lutaml
   module Model
     module JsonAdapter
-      class MultiJsonDocument < Document
+      class MultiJsonAdapter < JsonDocument
         def self.parse(json)
           data = MultiJson.load(json)
           new(data)

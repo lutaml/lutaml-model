@@ -1,11 +1,10 @@
-# lib/lutaml/model/xml_adapter/ox_adapter.rb
 require "ox"
-require_relative "../xml_adapter"
+require_relative "xml_document"
 
 module Lutaml
   module Model
     module XmlAdapter
-      class OxDocument < Document
+      class OxAdapter < XmlDocument
         def self.parse(xml)
           parsed = Ox.parse(xml)
           root = OxElement.new(parsed)
@@ -38,12 +37,12 @@ module Lutaml
           attributes = build_attributes(element, xml_mapping).compact
 
           prefixed_name = if options.key?(:namespace_prefix)
-                            [options[:namespace_prefix], xml_mapping.root_element].compact.join(":")
-                          elsif xml_mapping.namespace_prefix
-                            "#{xml_mapping.namespace_prefix}:#{xml_mapping.root_element}"
-                          else
-                            xml_mapping.root_element
-                          end
+              [options[:namespace_prefix], xml_mapping.root_element].compact.join(":")
+            elsif xml_mapping.namespace_prefix
+              "#{xml_mapping.namespace_prefix}:#{xml_mapping.root_element}"
+            else
+              xml_mapping.root_element
+            end
 
           builder.element(prefixed_name, attributes) do |el|
             xml_mapping.elements.each do |element_rule|
@@ -51,12 +50,12 @@ module Lutaml
               value = attribute_value_for(element, element_rule)
 
               val = if attribute_def.collection?
-                      value
-                    elsif value || element_rule.render_nil?
-                      [value]
-                    else
-                      []
-                    end
+                  value
+                elsif value || element_rule.render_nil?
+                  [value]
+                else
+                  []
+                end
 
               val.each do |v|
                 if attribute_def&.type&.<= Lutaml::Model::Serialize
@@ -137,16 +136,16 @@ module Lutaml
         end
       end
 
-      class OxElement < Element
+      class OxElement < XmlElement
         def initialize(node, root_node: nil)
           if node.is_a?(String)
             super("text", {}, [], node, parent_document: root_node)
           else
             namespace_attributes(node.attributes).each do |(name, value)|
               if root_node
-                root_node.add_namespace(Lutaml::Model::XmlNamespace.new(value, name))
+                root_node.add_namespace(XmlNamespace.new(value, name))
               else
-                add_namespace(Lutaml::Model::XmlNamespace.new(value, name))
+                add_namespace(XmlNamespace.new(value, name))
               end
             end
 
@@ -156,11 +155,11 @@ module Lutaml
               namespace_prefix = name.to_s.split(":").first
               if (n = name.to_s.split(":")).length > 1
                 namespace = (root_node || self).namespaces[namespace_prefix]&.uri
-                namespace ||= Lutaml::Model::XmlAdapter::XML_NAMESPACE_URI
+                namespace ||= XML_NAMESPACE_URI
                 prefix = n.first
               end
 
-              hash[name.to_s] = Attribute.new(
+              hash[name.to_s] = XmlAttribute.new(
                 name.to_s,
                 value,
                 namespace: namespace,
@@ -173,7 +172,7 @@ module Lutaml
               attributes,
               parse_children(node, root_node: root_node || self),
               node.text,
-              parent_document: root_node
+              parent_document: root_node,
             )
           end
         end

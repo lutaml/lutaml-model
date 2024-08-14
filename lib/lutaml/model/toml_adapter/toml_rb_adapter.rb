@@ -1,11 +1,10 @@
-# lib/lutaml/model/toml_adapter/toml_rb_adapter.rb
 require "toml-rb"
-require_relative "../toml_adapter"
+require_relative "toml_document"
 
 module Lutaml
   module Model
     module TomlAdapter
-      class TomlRbDocument < Document
+      class TomlRbAdapter < TomlDocument
         def self.parse(toml)
           data = TomlRB.parse(toml)
           new(data)

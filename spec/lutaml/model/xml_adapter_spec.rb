@@ -1,4 +1,3 @@
-# spec/lutaml/model/xml_adapter_spec.rb
 require "spec_helper"
 require "lutaml/model/xml_adapter/nokogiri_adapter"
 require "lutaml/model/xml_adapter/ox_adapter"
@@ -93,8 +92,8 @@ RSpec.shared_examples "an XML adapter" do |adapter_class|
 
     doc = adapter_class.parse(xml)
     new_model = SampleModel.new(doc.root.children.to_h do |child|
-                                  [child.name.downcase.to_sym, child.text]
-                                end)
+      [child.name.downcase.to_sym, child.text]
+    end)
     expect(new_model.name).to eq("John Doe")
     expect(new_model.age).to eq(30)
   end
@@ -147,14 +146,14 @@ RSpec.shared_examples "an XML adapter" do |adapter_class|
   end
 end
 
-RSpec.describe Lutaml::Model::XmlAdapter::NokogiriDocument do
+RSpec.describe Lutaml::Model::XmlAdapter::NokogiriAdapter do
   it_behaves_like "an XML adapter", described_class
 end
 
-RSpec.describe Lutaml::Model::XmlAdapter::OxDocument do
+RSpec.describe Lutaml::Model::XmlAdapter::OxAdapter do
   it_behaves_like "an XML adapter", described_class
 end
 
-RSpec.xdescribe Lutaml::Model::XmlAdapter::OgaDocument do
+RSpec.xdescribe Lutaml::Model::XmlAdapter::OgaAdapter do
   it_behaves_like "an XML adapter", described_class
 end

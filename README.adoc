@@ -1255,8 +1255,8 @@ Lutaml::Model supports the following JSON adapters:
 require 'lutaml/model'
 
 Lutaml::Model::Config.configure do |config|
-  require 'lutaml/model/json_adapter/standard'
-  config.json_adapter = Lutaml::Model::JsonAdapter::StandardDocument
+  require 'lutaml/model/json_adapter/standard_json_adapter'
+  config.json_adapter = Lutaml::Model::JsonAdapter::StandardJsonAdapter
 end
 ----
 
@@ -1266,8 +1266,8 @@ end
 require 'lutaml/model'
 
 Lutaml::Model::Config.configure do |config|
-  require 'lutaml/model/json_adapter/multi_json'
-  config.json_adapter = Lutaml::Model::JsonAdapter::MultiJsonDocument
+  require 'lutaml/model/json_adapter/multi_json_adapter'
+  config.json_adapter = Lutaml::Model::JsonAdapter::MultiJsonAdapter
 end
 ----
 
@@ -1285,7 +1285,7 @@ require 'lutaml/model'
 
 Lutaml::Model::Config.configure do |config|
   require 'lutaml/model/toml_adapter/toml_rb_adapter'
-  config.toml_adapter = Lutaml::Model::TomlAdapter::TomlRbDocument
+  config.toml_adapter = Lutaml::Model::TomlAdapter::TomlRbAdapter
 end
 ----
 
@@ -1295,7 +1295,7 @@ end
 require 'lutaml/model'
 
 Lutaml::Model::Config.configure do |config|
-  config.toml_adapter = Lutaml::Model::TomlAdapter::TomlibDocument
+  config.toml_adapter = Lutaml::Model::TomlAdapter::TomlibAdapter
   require 'lutaml/model/toml_adapter/tomlib_adapter'
 end
 ----

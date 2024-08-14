@@ -1,11 +1,10 @@
-# lib/lutaml/model/json_adapter/standard.rb
 require "json"
-require_relative "../json_adapter"
+require_relative "json_document"
 
 module Lutaml
   module Model
     module JsonAdapter
-      class StandardDocument < Document
+      class StandardJsonAdapter < JsonDocument
         def self.parse(json)
           attributes = JSON.parse(json, create_additions: false)
           new(attributes)
