@@ -1,4 +1,3 @@
-# vase.rb
 require "lutaml/model"
 
 class Vase < Lutaml::Model::Serializable

@@ -1,4 +1,3 @@
-# spec/lutaml/model/custom_serialization_spec.rb
 require "spec_helper"
 require "lutaml/model"
 

@@ -1,4 +1,3 @@
-# spec/lutaml/model/type_spec.rb
 require "spec_helper"
 require_relative "../../../lib/lutaml/model/type"
 

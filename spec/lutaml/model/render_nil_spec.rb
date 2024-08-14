@@ -1,4 +1,3 @@
-# spec/lutaml/model/render_nil_spec.rb
 require "spec_helper"
 require "lutaml/model"
 

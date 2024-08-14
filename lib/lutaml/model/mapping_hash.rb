@@ -1,5 +1,3 @@
-# lib/lutaml/model/type.rb
-
 module Lutaml
   module Model
     class MappingHash < Hash

@@ -1,4 +1,3 @@
-# spec/lutaml/model/inheritance_spec.rb
 require "spec_helper"
 require "lutaml/model"
 

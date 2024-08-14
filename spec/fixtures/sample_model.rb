@@ -1,4 +1,3 @@
-# spec/fixtures/sample_model.rb
 require "lutaml/model"
 
 class SampleModelTag < Lutaml::Model::Serializable

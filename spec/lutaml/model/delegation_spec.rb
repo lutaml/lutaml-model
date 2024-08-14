@@ -1,4 +1,3 @@
-# spec/lutaml/model/delegation_spec.rb
 require "spec_helper"
 require "lutaml/model"
 

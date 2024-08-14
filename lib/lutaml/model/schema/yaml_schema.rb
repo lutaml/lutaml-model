@@ -1,4 +1,3 @@
-# lib/lutaml/model/schema/yaml_schema.rb
 require "yaml"
 
 module Lutaml

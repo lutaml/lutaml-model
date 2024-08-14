@@ -1,4 +1,3 @@
-# lib/lutaml/model/schema/relaxng_schema.rb
 require "nokogiri"
 
 module Lutaml

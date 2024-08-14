@@ -1,4 +1,3 @@
-# spec/lutaml/model/xml_adapter_spec.rb
 require "spec_helper"
 
 class CustomModelChild

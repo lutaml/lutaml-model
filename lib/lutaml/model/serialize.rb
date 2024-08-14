@@ -1,4 +1,3 @@
-# lib/lutaml/model/serialize.rb
 require_relative "yaml_adapter"
 require_relative "xml_adapter"
 require_relative "config"

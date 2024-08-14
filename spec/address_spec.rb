@@ -1,4 +1,3 @@
-# spec/address_spec.rb
 require "spec_helper"
 require_relative "fixtures/address"
 require_relative "fixtures/person"

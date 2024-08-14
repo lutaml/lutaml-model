@@ -1,4 +1,3 @@
-# spec/person_spec.rb
 require "spec_helper"
 require_relative "fixtures/person"
 

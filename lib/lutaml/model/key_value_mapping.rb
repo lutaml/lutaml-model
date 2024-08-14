@@ -1,4 +1,3 @@
-# lib/lutaml/model/key_value_mapping.rb
 require_relative "key_value_mapping_rule"
 
 module Lutaml
