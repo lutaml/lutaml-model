@@ -183,7 +183,7 @@ RSpec.describe SimpleModel do
   it "initializes with default values" do
     default_model = SimpleModel::Building.new
     expect(default_model.name).to eq("Unnamed building")
-    expect(default_model.address).to eq(nil)
+    expect(default_model.address).to be_nil
     expect(default_model.rooms).to eq([])
   end
 

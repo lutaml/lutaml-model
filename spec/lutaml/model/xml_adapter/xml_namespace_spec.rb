@@ -71,7 +71,7 @@ RSpec.shared_examples "an XML namespace parser" do |adapter_class|
     doc = adapter_class.parse(xml)
     new_model = SampleNamespacedModel.new(doc.root.children.to_h do |child|
       [
-        child.unprefixed_name.downcase.to_sym, child.text,
+        child.unprefixed_name.downcase.to_sym, child.text
       ]
     end)
     expect(new_model.name).to eq("John Doe")

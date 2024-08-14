@@ -41,12 +41,12 @@ module Lutaml
                                         xml_mapping).merge(attributes)&.compact
 
           prefixed_xml = if options.key?(:namespace_prefix)
-              options[:namespace_prefix] ? xml[options[:namespace_prefix]] : xml
-            elsif xml_mapping.namespace_prefix
-              xml[xml_mapping.namespace_prefix]
-            else
-              xml
-            end
+                           options[:namespace_prefix] ? xml[options[:namespace_prefix]] : xml
+                         elsif xml_mapping.namespace_prefix
+                           xml[xml_mapping.namespace_prefix]
+                         else
+                           xml
+                         end
 
           prefixed_xml.public_send(xml_mapping.root_element, attributes) do
             if options.key?(:namespace_prefix) && !options[:namespace_prefix]
@@ -87,12 +87,12 @@ module Lutaml
           attributes = build_attributes(element, xml_mapping)&.compact
 
           prefixed_xml = if options.key?(:namespace_prefix)
-              options[:namespace_prefix] ? xml[options[:namespace_prefix]] : xml
-            elsif xml_mapping.namespace_prefix
-              xml[xml_mapping.namespace_prefix]
-            else
-              xml
-            end
+                           options[:namespace_prefix] ? xml[options[:namespace_prefix]] : xml
+                         elsif xml_mapping.namespace_prefix
+                           xml[xml_mapping.namespace_prefix]
+                         else
+                           xml
+                         end
 
           prefixed_xml.public_send(xml_mapping.root_element, attributes) do
             if options.key?(:namespace_prefix) && !options[:namespace_prefix]
@@ -166,10 +166,10 @@ module Lutaml
           attributes = {}
           node.attributes.transform_values do |attr|
             name = if attr.namespace
-                "#{attr.namespace.prefix}:#{attr.name}"
-              else
-                attr.name
-              end
+                     "#{attr.namespace.prefix}:#{attr.name}"
+                   else
+                     attr.name
+                   end
 
             attributes[name] = XmlAttribute.new(
               name,

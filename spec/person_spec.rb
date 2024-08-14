@@ -15,7 +15,32 @@ RSpec.describe Person do
     }
   end
 
-  let(:model) { Person.new(attributes) }
+  let(:model) { described_class.new(attributes) }
+
+  let(:attributes_yaml) do
+    {
+      "firstName" => "John",
+      "lastName" => "Doe",
+      "age" => 30,
+      "height" => 5.9,
+      "birthdate" => "1990-01-01",
+      "lastLogin" => "2023-06-08T10:00:00+00:00",
+      "wakeupTime" => "07:00:00",
+      "active" => true,
+    }
+  end
+  let(:attributes_json) do
+    {
+      firstName: "John",
+      lastName: "Doe",
+      age: 30,
+      height: 5.9,
+      birthdate: "1990-01-01",
+      lastLogin: "2023-06-08T10:00:00+00:00",
+      wakeupTime: "07:00:00",
+      active: true,
+    }
+  end
 
   it "serializes to XML" do
     expected_xml = <<~XML
@@ -48,7 +73,7 @@ RSpec.describe Person do
       </p:Person>
     XML
 
-    person = Person.from_xml(xml)
+    person = described_class.from_xml(xml)
     expect(person.first_name).to eq("John")
     expect(person.age).to eq(30)
     expect(person.height).to eq(5.9)
@@ -56,19 +81,6 @@ RSpec.describe Person do
     expect(person.last_login).to eq(DateTime.parse("2023-06-08T10:00:00+00:00"))
     expect(person.wakeup_time).to eq(Time.parse("07:00:00"))
     expect(person.active).to be true
-  end
-
-  let(:attributes_json) do
-    {
-      firstName: "John",
-      lastName: "Doe",
-      age: 30,
-      height: 5.9,
-      birthdate: "1990-01-01",
-      lastLogin: "2023-06-08T10:00:00+00:00",
-      wakeupTime: "07:00:00",
-      active: true,
-    }
   end
 
   it "serializes to JSON" do
@@ -77,7 +89,7 @@ RSpec.describe Person do
 
   it "deserializes from JSON" do
     json = attributes_json.to_json
-    person = Person.from_json(json)
+    person = described_class.from_json(json)
     expect(person.first_name).to eq("John")
     expect(person.age).to eq(30)
     expect(person.height).to eq(5.9)
@@ -87,26 +99,13 @@ RSpec.describe Person do
     expect(person.active).to be true
   end
 
-  let(:attributes_yaml) do
-    {
-      "firstName" => "John",
-      "lastName" => "Doe",
-      "age" => 30,
-      "height" => 5.9,
-      "birthdate" => "1990-01-01",
-      "lastLogin" => "2023-06-08T10:00:00+00:00",
-      "wakeupTime" => "07:00:00",
-      "active" => true,
-    }
-  end
-
   it "serializes to YAML" do
     expect(model.to_yaml).to eq(attributes_yaml.to_yaml)
   end
 
   it "deserializes from YAML" do
     yaml = attributes_yaml.to_yaml
-    person = Person.from_yaml(yaml)
+    person = described_class.from_yaml(yaml)
     expect(person.first_name).to eq("John")
     expect(person.age).to eq(30)
     expect(person.height).to eq(5.9)

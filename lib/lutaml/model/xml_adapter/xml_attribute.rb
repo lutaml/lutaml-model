@@ -3,7 +3,6 @@
 module Lutaml
   module Model
     module XmlAdapter
-
       # Represents an XML attribute
       class XmlAttribute
         attr_reader :name, :value, :namespace, :namespace_prefix

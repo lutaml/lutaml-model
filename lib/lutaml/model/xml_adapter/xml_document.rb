@@ -124,10 +124,10 @@ module Lutaml
             processed[klass][mapping_rule.name] = true
 
             type = if mapping_rule.delegate
-                attributes[mapping_rule.delegate].type.attributes[mapping_rule.to].type
-              else
-                attributes[mapping_rule.to].type
-              end
+                     attributes[mapping_rule.delegate].type.attributes[mapping_rule.to].type
+                   else
+                     attributes[mapping_rule.to].type
+                   end
 
             if type <= Lutaml::Model::Serialize
               attrs = attrs.merge(build_namespace_attributes(type, processed))

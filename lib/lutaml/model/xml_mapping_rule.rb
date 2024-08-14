@@ -23,12 +23,12 @@ module Lutaml
           with: with,
           delegate: delegate,
           mixed_content: mixed_content,
-          namespace_set: namespace_set
+          namespace_set: namespace_set,
         )
 
         @namespace = if namespace.to_s == "inherit"
-                       # we are using inherit_namespace in xml builder by
-                       # default so no need to do anything here.
+                     # we are using inherit_namespace in xml builder by
+                     # default so no need to do anything here.
                      else
                        namespace
                      end

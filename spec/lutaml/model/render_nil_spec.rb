@@ -60,7 +60,7 @@ RSpec.describe RenderNil do
       dimensions: nil,
     }
   end
-  let(:model) { RenderNil.new(attributes) }
+  let(:model) { described_class.new(attributes) }
 
   it "serializes to JSON with render_nil option" do
     expected_json = {
@@ -75,7 +75,7 @@ RSpec.describe RenderNil do
 
   it "deserializes from JSON with render_nil option" do
     json = attributes.to_json
-    pottery = RenderNil.from_json(json)
+    pottery = described_class.from_json(json)
     expect(pottery.name).to be_nil
     expect(pottery.clay_type).to be_nil
     expect(pottery.glaze).to be_nil
@@ -102,7 +102,7 @@ RSpec.describe RenderNil do
       </render_nil>
     XML
 
-    pottery = RenderNil.from_xml(xml)
+    pottery = described_class.from_xml(xml)
     expect(pottery.name).to be_nil
     expect(pottery.glaze).to be_nil
   end
@@ -130,7 +130,7 @@ RSpec.describe RenderNil do
       glaze:
     YAML
 
-    pottery = RenderNil.from_yaml(yaml)
+    pottery = described_class.from_yaml(yaml)
     expect(pottery.name).to eq("Unnamed Pottery")
     expect(pottery.glaze).to be_nil
   end

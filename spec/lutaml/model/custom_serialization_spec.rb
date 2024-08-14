@@ -26,7 +26,7 @@ RSpec.describe CustomSerialization do
       size: 12,
     }
   end
-  let(:model) { CustomSerialization.new(attributes) }
+  let(:model) { described_class.new(attributes) }
 
   it "serializes to JSON with custom methods" do
     expected_json = {
@@ -43,7 +43,7 @@ RSpec.describe CustomSerialization do
       size: 12,
     }.to_json
 
-    ceramic = CustomSerialization.from_json(json)
+    ceramic = described_class.from_json(json)
     expect(ceramic.name).to eq("Vase")
     expect(ceramic.size).to eq(12)
   end

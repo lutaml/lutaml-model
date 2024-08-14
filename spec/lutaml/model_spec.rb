@@ -6,7 +6,7 @@ end
 
 RSpec.describe Lutaml::Model do
   it "has a version number" do
-    expect(Lutaml::Model::VERSION).not_to be nil
+    expect(Lutaml::Model::VERSION).not_to be_nil
   end
 
   context "when value is not allowed" do

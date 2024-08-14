@@ -5,7 +5,6 @@ require_relative "toml_object"
 module Lutaml
   module Model
     module TomlAdapter
-
       # Base class for TOML documents
       class TomlDocument < TomlObject
         def self.parse(toml)

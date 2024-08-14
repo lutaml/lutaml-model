@@ -27,8 +27,7 @@ end
 RSpec.describe Lutaml::Model::Serializable do
   describe ".model" do
     it "sets the model for the class" do
-      expect { described_class.model("Foo") }
-        .to change(described_class, :model)
+      expect { described_class.model("Foo") }.to change(described_class, :model)
         .from(nil)
         .to("Foo")
     end
