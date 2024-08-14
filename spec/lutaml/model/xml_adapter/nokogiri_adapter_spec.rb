@@ -1,9 +1,8 @@
-# spec/lutaml/model/xml_adapter/nokogiri_adapter_spec.rb
 require "spec_helper"
 require "nokogiri"
 require_relative "../../../../lib/lutaml/model/xml_adapter/nokogiri_adapter"
 
-RSpec.describe Lutaml::Model::XmlAdapter::NokogiriDocument do
+RSpec.describe Lutaml::Model::XmlAdapter::NokogiriAdapter do
   let(:xml_string) do
     <<-XML
       <root xmlns="http://example.com/default" xmlns:prefix="http://example.com/prefixed">

@@ -1,11 +1,10 @@
-# lib/lutaml/model/xml_adapter/nokogiri_adapter.rb
 require "nokogiri"
-require_relative "../xml_adapter"
+require_relative "xml_document"
 
 module Lutaml
   module Model
     module XmlAdapter
-      class NokogiriDocument < Document
+      class NokogiriAdapter < XmlDocument
         def self.parse(xml)
           parsed = Nokogiri::XML(xml)
           root = NokogiriElement.new(parsed.root)
@@ -42,12 +41,12 @@ module Lutaml
                                         xml_mapping).merge(attributes)&.compact
 
           prefixed_xml = if options.key?(:namespace_prefix)
-                           options[:namespace_prefix] ? xml[options[:namespace_prefix]] : xml
-                         elsif xml_mapping.namespace_prefix
-                           xml[xml_mapping.namespace_prefix]
-                         else
-                           xml
-                         end
+              options[:namespace_prefix] ? xml[options[:namespace_prefix]] : xml
+            elsif xml_mapping.namespace_prefix
+              xml[xml_mapping.namespace_prefix]
+            else
+              xml
+            end
 
           prefixed_xml.public_send(xml_mapping.root_element, attributes) do
             if options.key?(:namespace_prefix) && !options[:namespace_prefix]
@@ -88,12 +87,12 @@ module Lutaml
           attributes = build_attributes(element, xml_mapping)&.compact
 
           prefixed_xml = if options.key?(:namespace_prefix)
-                           options[:namespace_prefix] ? xml[options[:namespace_prefix]] : xml
-                         elsif xml_mapping.namespace_prefix
-                           xml[xml_mapping.namespace_prefix]
-                         else
-                           xml
-                         end
+              options[:namespace_prefix] ? xml[options[:namespace_prefix]] : xml
+            elsif xml_mapping.namespace_prefix
+              xml[xml_mapping.namespace_prefix]
+            else
+              xml
+            end
 
           prefixed_xml.public_send(xml_mapping.root_element, attributes) do
             if options.key?(:namespace_prefix) && !options[:namespace_prefix]
@@ -154,11 +153,11 @@ module Lutaml
         end
       end
 
-      class NokogiriElement < Element
+      class NokogiriElement < XmlElement
         def initialize(node, root_node: nil)
           if root_node
             node.namespaces.each do |prefix, name|
-              namespace = Lutaml::Model::XmlNamespace.new(name, prefix)
+              namespace = XmlNamespace.new(name, prefix)
 
               root_node.add_namespace(namespace)
             end
@@ -167,12 +166,12 @@ module Lutaml
           attributes = {}
           node.attributes.transform_values do |attr|
             name = if attr.namespace
-                     "#{attr.namespace.prefix}:#{attr.name}"
-                   else
-                     attr.name
-                   end
+                "#{attr.namespace.prefix}:#{attr.name}"
+              else
+                attr.name
+              end
 
-            attributes[name] = Attribute.new(
+            attributes[name] = XmlAttribute.new(
               name,
               attr.value,
               namespace: attr.namespace&.href,

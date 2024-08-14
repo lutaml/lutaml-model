@@ -1,11 +1,10 @@
-# lib/lutaml/model/xml_adapter/oga_adapter.rb
 require "oga"
-require_relative "../xml_adapter"
+require_relative "xml_document"
 
 module Lutaml
   module Model
     module XmlAdapter
-      class OgaDocument < Document
+      class OgaAdapter < XmlDocument
         def self.parse(xml)
           parsed = Oga.parse_xml(xml)
           root = OgaElement.new(parsed)
@@ -51,10 +50,10 @@ module Lutaml
         end
       end
 
-      class OgaElement < Element
+      class OgaElement < XmlElement
         def initialize(node)
           attributes = node.attributes.each_with_object({}) do |attr, hash|
-            hash[attr.name] = Attribute.new(attr.name, attr.value)
+            hash[attr.name] = XmlAttribute.new(attr.name, attr.value)
           end
           super(node.name, attributes, parse_children(node), node.text)
         end
