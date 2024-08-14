@@ -25,15 +25,15 @@ RSpec.describe Lutaml::Model do
       it "raises error when assigning after creation" do
         object = WithStringEnum.new(first: "one")
 
-        expect {
+        expect do
           object.first = "four"
-        }.to raise_error(Lutaml::Model::InvalidValueError)
+        end.to raise_error(Lutaml::Model::InvalidValueError)
       end
 
       it "raises error when assigning when creation" do
-        expect {
+        expect do
           WithStringEnum.new(first: "five")
-        }.to raise_error(Lutaml::Model::InvalidValueError)
+        end.to raise_error(Lutaml::Model::InvalidValueError)
       end
     end
 
@@ -42,8 +42,8 @@ RSpec.describe Lutaml::Model do
         object = WithStringEnum.new(first: "one")
 
         expect { object.first = "two" }.to change { object.first }
-                                             .from("one")
-                                             .to("two")
+          .from("one")
+          .to("two")
       end
 
       it "assign value when creating" do
@@ -58,31 +58,36 @@ RSpec.describe Lutaml::Model do
   context "when enum is class type" do
     context "when value is not allowed" do
       it "raises error when assigning after creation" do
-        object = WithClassEnum.new(first: TestClassEnum.new(name: "Alan", age: 16))
+        object = WithClassEnum.new(first: TestClassEnum.new(name: "Alan",
+                                                            age: 16))
 
-        expect {
+        # TODO: This fails as we need to make a "#validate" method to check
+        # the Model which calls "#validate" on all its attributes.
+        expect do
           object.first.age = 18
-        }.to raise_error(Lutaml::Model::InvalidValueError)
+        end.to raise_error(Lutaml::Model::InvalidValueError)
       end
 
       it "raises error when assigning when creation" do
-        expect {
+        expect do
           WithClassEnum.new(first: TestClassEnum.new(name: "Alan", age: 22))
-        }.to raise_error(Lutaml::Model::InvalidValueError)
+        end.to raise_error(Lutaml::Model::InvalidValueError)
       end
     end
 
     context "when value is allowed" do
       it "changes value when assigning after creation" do
-        object = WithClassEnum.new(first: TestClassEnum.new(name: "Alan", age: 16))
+        object = WithClassEnum.new(first: TestClassEnum.new(name: "Alan",
+                                                            age: 16))
 
         expect { object.first.name = "Bobby" }.to change { object.first.name }
-                                                    .from("Alan")
-                                                    .to("Bobby")
+          .from("Alan")
+          .to("Bobby")
       end
 
       it "assign value when creating" do
-        object = WithClassEnum.new(first: TestClassEnum.new(name: "Alan", age: 16))
+        object = WithClassEnum.new(first: TestClassEnum.new(name: "Alan",
+                                                            age: 16))
 
         expect(object.first.name).to eq("Alan")
       end
