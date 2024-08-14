@@ -7,3 +7,5 @@ module Lutaml
     end
   end
 end
+
+require_relative "comparable_nil"

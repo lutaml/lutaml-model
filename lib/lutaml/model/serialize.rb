@@ -8,11 +8,14 @@ require_relative "mapping_hash"
 require_relative "xml_mapping"
 require_relative "key_value_mapping"
 require_relative "json_adapter"
+require_relative "comparable_model"
 
 module Lutaml
   module Model
     module Serialize
       FORMATS = %i[xml json yaml toml].freeze
+
+      include ComparableModel
 
       def self.included(base)
         base.extend(ClassMethods)
