@@ -81,6 +81,7 @@ module Lutaml
           namespace_set: namespace_set != false,
         )
       end
+
       # rubocop:enable Metrics/ParameterLists
 
       def map_content(

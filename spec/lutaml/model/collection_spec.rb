@@ -55,7 +55,7 @@ RSpec.describe CollectionTests do
 
   it "initializes with default values" do
     default_model = CollectionTests::Kiln.new
-    expect(default_model.brand).to eq(nil)
+    expect(default_model.brand).to be_nil
     expect(default_model.pots).to eq([])
     expect(default_model.temperatures).to eq([])
   end

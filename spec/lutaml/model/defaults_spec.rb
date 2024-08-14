@@ -82,7 +82,7 @@ RSpec.describe Defaults do
       role: "admin",
     }
   end
-  let(:model) { Defaults.new(attributes) }
+  let(:model) { described_class.new(attributes) }
 
   let(:model_xml) do
     <<~XML
@@ -108,8 +108,15 @@ RSpec.describe Defaults do
       </Defaults>
     XML
   end
+  let(:attributes_yaml) do
+    {
+      "name" => "John Doe",
+      "age" => 30,
+    }
+  end
+
   it "initializes with default values" do
-    default_model = Defaults.new
+    default_model = described_class.new
     expect(default_model.name).to eq("Anonymous")
     expect(default_model.age).to eq(18)
     expect(default_model.balance).to eq(BigDecimal("0.0"))
@@ -132,7 +139,7 @@ RSpec.describe Defaults do
   end
 
   it "deserializes from XML" do
-    sample = Defaults.from_xml(model_xml)
+    sample = described_class.from_xml(model_xml)
     expect(sample.name).to eq("John Doe")
     expect(sample.age).to eq(30)
     expect(sample.balance).to eq(BigDecimal("1234.56"))
@@ -157,7 +164,7 @@ RSpec.describe Defaults do
 
   it "deserializes from JSON" do
     json = attributes.to_json
-    sample = Defaults.from_json(json)
+    sample = described_class.from_json(json)
     expect(sample.name).to eq("John Doe")
     expect(sample.age).to eq(30)
     expect(sample.balance).to eq(BigDecimal("1234.56"))
@@ -176,20 +183,13 @@ RSpec.describe Defaults do
     expect(sample.role).to eq("admin")
   end
 
-  let(:attributes_yaml) do
-    {
-      "name" => "John Doe",
-      "age" => 30,
-    }
-  end
-
   it "serializes to YAML" do
     expect(model.to_yaml).to eq(attributes_yaml.to_yaml)
   end
 
   it "deserializes from YAML" do
     yaml = attributes.to_yaml
-    sample = Defaults.from_yaml(yaml)
+    sample = described_class.from_yaml(yaml)
     expect(sample.name).to eq("John Doe")
     expect(sample.age).to eq(30)
   end

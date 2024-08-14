@@ -8,34 +8,33 @@ require "json"
 module Lutaml
   module Model
     module Type
-      %w(String
-         Integer
-         Float
-         Date
-         Time
-         Boolean
-         Decimal
-         Hash
-         UUID
-         Symbol
-         BigInteger
-         Binary
-         URL
-         Email
-         IPAddress
-         JSON
-         Enum).each do |t|
+      %w(
+        String
+        Integer
+        Float
+        Date
+        Time
+        Boolean
+        Decimal
+        Hash
+        UUID
+        Symbol
+        BigInteger
+        Binary
+        URL
+        Email
+        IPAddress
+        JSON
+      ).each do |t|
         class_eval <<~HEREDOC, __FILE__, __LINE__ + 1
           class #{t}                        # class Integer
             def self.cast(value)            #   def self.cast(value)
               return if value.nil?          #     return if value.nil?
-
               Type.cast(value, #{t})        #     Type.cast(value, Integer)
             end                             #   end
 
             def self.serialize(value)       #   def self.serialize(value)
               return if value.nil?          #     return if value.nil?
-
               Type.serialize(value, #{t})   #     Type.serialize(value, Integer)
             end                             #   end
           end                               # end
@@ -103,11 +102,7 @@ module Lutaml
         end
 
         def ==(other)
-          @value == if other.is_a?(::Hash)
-                      other
-                    else
-                      other.value
-                    end
+          @value == (other.is_a?(::Hash) ? other : other.value)
         end
 
         def self.cast(value)
@@ -162,8 +157,6 @@ module Lutaml
           IPAddr.new(value.to_s)
         elsif type == JSON
           JSON.cast(value)
-        # elsif type == Enum
-        #   value
         else
           value
         end
@@ -194,8 +187,13 @@ module Lutaml
       end
 
       def self.to_boolean(value)
-        return true if value == true || value.to_s =~ (/^(true|t|yes|y|1)$/i)
-        return false if value == false || value.nil? || value.to_s =~ (/^(false|f|no|n|0)$/i)
+        if value == true || value.to_s =~ (/^(true|t|yes|y|1)$/i)
+          return true
+        end
+
+        if value == false || value.nil? || value.to_s =~ (/^(false|f|no|n|0)$/i)
+          return false
+        end
 
         raise ArgumentError.new("invalid value for Boolean: \"#{value}\"")
       end

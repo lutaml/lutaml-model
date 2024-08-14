@@ -37,12 +37,12 @@ module Lutaml
           attributes = build_attributes(element, xml_mapping).compact
 
           prefixed_name = if options.key?(:namespace_prefix)
-              [options[:namespace_prefix], xml_mapping.root_element].compact.join(":")
-            elsif xml_mapping.namespace_prefix
-              "#{xml_mapping.namespace_prefix}:#{xml_mapping.root_element}"
-            else
-              xml_mapping.root_element
-            end
+                            [options[:namespace_prefix], xml_mapping.root_element].compact.join(":")
+                          elsif xml_mapping.namespace_prefix
+                            "#{xml_mapping.namespace_prefix}:#{xml_mapping.root_element}"
+                          else
+                            xml_mapping.root_element
+                          end
 
           builder.element(prefixed_name, attributes) do |el|
             xml_mapping.elements.each do |element_rule|
@@ -50,12 +50,12 @@ module Lutaml
               value = attribute_value_for(element, element_rule)
 
               val = if attribute_def.collection?
-                  value
-                elsif value || element_rule.render_nil?
-                  [value]
-                else
-                  []
-                end
+                      value
+                    elsif value || element_rule.render_nil?
+                      [value]
+                    else
+                      []
+                    end
 
               val.each do |v|
                 if attribute_def&.type&.<= Lutaml::Model::Serialize

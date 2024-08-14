@@ -34,7 +34,7 @@ RSpec.describe Address do
       person: [person1, person2],
     }
   end
-  let(:address) { Address.new(attributes) }
+  let(:address) { described_class.new(attributes) }
 
   it "serializes to JSON with a collection of persons" do
     expected_json = {
@@ -95,7 +95,7 @@ RSpec.describe Address do
       ],
     }.to_json
 
-    address_from_json = Address.from_json(json)
+    address_from_json = described_class.from_json(json)
     expect(address_from_json.country).to eq("USA")
     expect(address_from_json.post_code).to eq("01001")
     expect(address_from_json.person.first.first_name).to eq("Tom")
@@ -161,7 +161,7 @@ RSpec.describe Address do
       </Address>
     XML
 
-    address_from_xml = Address.from_xml(xml)
+    address_from_xml = described_class.from_xml(xml)
     expect(address_from_xml.country).to eq("USA")
     expect(address_from_xml.post_code).to eq("01001")
     expect(address_from_xml.person.first.first_name).to eq("Tom")

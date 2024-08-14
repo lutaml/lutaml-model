@@ -215,8 +215,7 @@ RSpec.describe Delegation do
       declaration: true,
       encoding: "UTF-8",
     )
-    expect(xml_data)
-      .to include('<delegation xmlns:type="https://example.com/type/1.2">')
+    expect(xml_data).to include('<delegation xmlns:type="https://example.com/type/1.2">')
     expect(xml_data).to include("<type:type>Vase</type:type>")
   end
 
@@ -283,8 +282,7 @@ RSpec.describe Delegation do
       'del:date="2024-06-08"',
     ]
 
-    expect(xml_data)
-      .to include("<delegation #{delegation_attributes.join(' ')}>")
+    expect(xml_data).to include("<delegation #{delegation_attributes.join(' ')}>")
   end
 
   it "sets the namespace of <delegation> and also" \
@@ -328,8 +326,7 @@ RSpec.describe Delegation do
       'del2:date="2024-06-08"',
     ]
 
-    expect(xml_data)
-      .to include("<del1:delegation #{delegation_attributes.join(' ')}>")
+    expect(xml_data).to include("<del1:delegation #{delegation_attributes.join(' ')}>")
     expect(xml_data).to include("<del1:type>Vase</del1:type>")
   end
 end

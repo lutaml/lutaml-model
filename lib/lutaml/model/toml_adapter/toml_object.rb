@@ -3,7 +3,6 @@
 module Lutaml
   module Model
     module TomlAdapter
-
       # Base class for TOML objects
       class TomlObject
         attr_reader :attributes
