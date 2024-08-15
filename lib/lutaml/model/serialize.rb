@@ -40,6 +40,7 @@ module Lutaml
           end
         end
 
+        # Define an attribute for the model
         def attribute(name, type, options = {})
           attr = Attribute.new(name, type, options)
           attributes[name] = attr
@@ -49,12 +50,23 @@ module Lutaml
           end
 
           define_method(:"#{name}=") do |value|
-            if options[:values] && !options[:values].include?(value)
+            unless self.class.attr_value_valid?(name, value)
               raise Lutaml::Model::InvalidValueError.new(name, value, options[:values])
             end
 
             instance_variable_set(:"@#{name}", value)
           end
+        end
+
+        # Check if the value to be assigned is valid for the attribute
+        def attr_value_valid?(name, value)
+          attr = attributes[name]
+
+          return true unless attr.options[:values]
+
+          # If value validation failed but there is a default value, do not
+          # raise a validation error
+          attr.options[:values].include?(value || attr.default)
         end
 
         FORMATS.each do |format|
