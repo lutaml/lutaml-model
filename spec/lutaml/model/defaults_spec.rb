@@ -31,7 +31,7 @@ class Defaults < Lutaml::Model::Serializable
     map_element "Name", to: :name
     map_element "Age", to: :age
     map_element "Balance", to: :balance
-    map_element "Tag", to: :tag
+    map_element "Tags", to: :tag
     map_element "Preferences", to: :preferences
     map_element "Uuid", to: :uuid
     map_element "Status", to: :status
@@ -77,8 +77,8 @@ RSpec.describe Defaults do
         <Name>John Doe</Name>
         <Age>30</Age>
         <Balance>1234.56</Balance>
-        <Tag>ruby</Tag>
-        <Tag>developer</Tag>
+        <Tags>ruby</Tags>
+        <Tags>developer</Tags>
         <Preferences>
           <theme>dark</theme>
           <notifications>true</notifications>

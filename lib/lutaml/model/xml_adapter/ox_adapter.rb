@@ -36,12 +36,13 @@ module Lutaml
 
           attributes = build_attributes(element, xml_mapping).compact
 
+          tag_name = options[:tag_name] || xml_mapping.root_element
           prefixed_name = if options.key?(:namespace_prefix)
-                            [options[:namespace_prefix], xml_mapping.root_element].compact.join(":")
+                            [options[:namespace_prefix], tag_name].compact.join(":")
                           elsif xml_mapping.namespace_prefix
-                            "#{xml_mapping.namespace_prefix}:#{xml_mapping.root_element}"
+                            "#{xml_mapping.namespace_prefix}:#{tag_name}"
                           else
-                            xml_mapping.root_element
+                            tag_name
                           end
 
           builder.element(prefixed_name, attributes) do |el|
@@ -84,7 +85,8 @@ module Lutaml
 
           attributes = build_attributes(element, xml_mapping).compact
 
-          builder.element(xml_mapping.root_element, attributes) do |el|
+          tag_name = options[:tag_name] || xml_mapping.root_element
+          builder.element(tag_name, attributes) do |el|
             index_hash = {}
 
             element.element_order.each do |name|

@@ -48,7 +48,8 @@ module Lutaml
                            xml
                          end
 
-          prefixed_xml.public_send(xml_mapping.root_element, attributes) do
+          tag_name = options[:tag_name] || xml_mapping.root_element
+          prefixed_xml.public_send(tag_name, attributes) do
             if options.key?(:namespace_prefix) && !options[:namespace_prefix]
               xml.parent.namespace = nil
             end
@@ -94,7 +95,8 @@ module Lutaml
                            xml
                          end
 
-          prefixed_xml.public_send(xml_mapping.root_element, attributes) do
+          tag_name = options[:tag_name] || xml_mapping.root_element
+          prefixed_xml.public_send(tag_name, attributes) do
             if options.key?(:namespace_prefix) && !options[:namespace_prefix]
               xml.parent.namespace = nil
             end

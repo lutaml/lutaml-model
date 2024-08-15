@@ -9,8 +9,8 @@ module Lutaml
                   :mixed_content
 
       def initialize
-        @elements = []
-        @attributes = []
+        @elements = {}
+        @attributes = {}
         @content_mapping = nil
         @mixed_content = false
       end
@@ -47,7 +47,7 @@ module Lutaml
         prefix: nil,
         mixed: false
       )
-        @elements << XmlMappingRule.new(
+        @elements[name] = XmlMappingRule.new(
           name,
           to: to,
           render_nil: render_nil,
@@ -70,7 +70,7 @@ module Lutaml
                     nil),
         prefix: nil
       )
-        @attributes << XmlMappingRule.new(
+        @attributes[name] = XmlMappingRule.new(
           name,
           to: to,
           render_nil: render_nil,
@@ -102,11 +102,11 @@ module Lutaml
       end
 
       def elements
-        @elements
+        @elements.values
       end
 
       def attributes
-        @attributes
+        @attributes.values
       end
 
       def content_mapping

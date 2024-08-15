@@ -60,6 +60,7 @@ module Lutaml
 
           options[:namespace_prefix] = rule.prefix if rule&.namespace_set?
           options[:mixed_content] = rule.mixed_content
+          options[:tag_name] = rule.name
 
           options[:mapper_class] = attribute&.type if attribute
 
