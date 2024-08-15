@@ -1,7 +1,7 @@
 require "lutaml/model"
 
 class SampleModelTag < Lutaml::Model::Serializable
-  attribute :text, Lutaml::Model::Type::String, default: -> { "" }
+  attribute :text, :string, default: -> { "" }
 
   xml do
     root "Tag"
@@ -10,33 +10,20 @@ class SampleModelTag < Lutaml::Model::Serializable
 end
 
 class SampleModel < Lutaml::Model::Serializable
-  attribute :name, Lutaml::Model::Type::String, default: -> { "Anonymous" }
-  attribute :age, Lutaml::Model::Type::Integer, default: -> { 18 }
-  attribute :balance, Lutaml::Model::Type::Decimal, default: -> {
-                                                               BigDecimal("0.0")
-                                                             }
+  attribute :name, :string, default: -> { "Anonymous" }
+  attribute :age, :integer, default: -> { 18 }
+  attribute :balance, :decimal, default: -> { BigDecimal("0.0") }
   attribute :tags, SampleModelTag, collection: true
-  attribute :preferences,
-            Lutaml::Model::Type::Hash,
-            default: -> { { notifications: true } }
-  attribute :uuid, Lutaml::Model::Type::UUID, default: -> { SecureRandom.uuid }
-  attribute :status, Lutaml::Model::Type::Symbol, default: -> { :active }
-  attribute :large_number, Lutaml::Model::Type::BigInteger, default: -> { 0 }
-  attribute :avatar, Lutaml::Model::Type::Binary, default: -> { "" }
-  attribute :website,
-            Lutaml::Model::Type::URL,
-            default: -> { URI.parse("http://example.com") }
-  attribute :email,
-            Lutaml::Model::Type::Email,
-            default: -> { "example@example.com" }
-  attribute :ip_address,
-            Lutaml::Model::Type::IPAddress,
-            default: -> { IPAddr.new("127.0.0.1") }
-  attribute :metadata, Lutaml::Model::Type::JSON, default: -> { "{}" }
-  attribute :role,
-            Lutaml::Model::Type::Enum,
-            options: %w[user admin guest],
-            default: -> { "user" }
+  attribute :preferences, :hash, default: -> { { notifications: true } }
+  attribute :uuid, :uuid, default: -> { SecureRandom.uuid }
+  attribute :status, :symbol, default: -> { :active }
+  attribute :large_number, :integer, default: -> { 0 }
+  attribute :avatar, :binary, default: -> { "" }
+  attribute :website, :url, default: -> { URI.parse("http://example.com") }
+  attribute :email, :string, default: -> { "example@example.com" }
+  attribute :ip_address, :ip_address, default: -> { IPAddr.new("127.0.0.1") }
+  attribute :metadata, :json, default: -> { "{}" }
+  attribute :role, :string, values: %w[user admin guest], default: -> { "user" }
 
   xml do
     root "SampleModel"
@@ -45,13 +32,13 @@ class SampleModel < Lutaml::Model::Serializable
     map_element "Balance", to: :balance
     map_element "Tags", to: :tags
     map_element "Preferences", to: :preferences
-    map_element "UUID", to: :uuid
+    map_element "Uuid", to: :uuid
     map_element "Status", to: :status
     map_element "LargeNumber", to: :large_number
     map_element "Avatar", to: :avatar
     map_element "Website", to: :website
     map_element "Email", to: :email
-    map_element "IPAddress", to: :ip_address
+    map_element "IpAddress", to: :ip_address
     map_element "Metadata", to: :metadata
     map_element "Role", to: :role
   end

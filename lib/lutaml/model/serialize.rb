@@ -204,6 +204,8 @@ module Lutaml
               if v.is_a?(Hash)
                 attr_rule.type.new(v)
               else
+                # TODO: This code is problematic because Type.cast does not know
+                # about all the types.
                 Lutaml::Model::Type.cast(
                   v, attr_rule.type
                 )
@@ -212,6 +214,8 @@ module Lutaml
           elsif value.is_a?(Hash) && attr_rule.type != Lutaml::Model::Type::Hash
             generate_model_object(attr_rule.type, value)
           else
+            # TODO: This code is problematic because Type.cast does not know
+            # about all the types.
             Lutaml::Model::Type.cast(value, attr_rule.type)
           end
         end
@@ -220,8 +224,11 @@ module Lutaml
           klass = format == :xml ? XmlMapping : KeyValueMapping
           klass.new.tap do |mapping|
             attributes&.each do |name, attr|
-              mapping.map_element(name.to_s, to: name,
-                                             render_nil: attr.render_nil?)
+              mapping.map_element(
+                name.to_s,
+                to: name,
+                render_nil: attr.render_nil?,
+              )
             end
           end
         end

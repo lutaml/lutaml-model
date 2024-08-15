@@ -3,11 +3,14 @@ require "bigdecimal"
 require "securerandom"
 require "uri"
 require "ipaddr"
-require "json"
 
 module Lutaml
   module Model
     module Type
+      # This module provides a set of methods to cast and serialize values
+
+      # TODO: Make Boolean a separate class
+
       %w(
         String
         Integer
@@ -17,17 +20,15 @@ module Lutaml
         Boolean
         Decimal
         Hash
-        UUID
+        Uuid
         Symbol
-        BigInteger
         Binary
-        URL
-        Email
-        IPAddress
-        JSON
+        Url
+        IpAddress
+        Json
       ).each do |t|
         class_eval <<~HEREDOC, __FILE__, __LINE__ + 1
-          class #{t}                        # class Integer
+                     class #{t}                        # class Integer
             def self.cast(value)            #   def self.cast(value)
               return if value.nil?          #     return if value.nil?
               Type.cast(value, #{t})        #     Type.cast(value, Integer)
@@ -41,78 +42,11 @@ module Lutaml
         HEREDOC
       end
 
-      class TimeWithoutDate
-        def self.cast(value)
-          return if value.nil?
-
-          ::Time.parse(value.to_s)
-          # .strftime("%H:%M:%S")
-        end
-
-        def self.serialize(value)
-          value.strftime("%H:%M:%S")
-        end
-      end
-
-      class DateTime
-        def self.cast(value)
-          return if value.nil?
-
-          ::DateTime.parse(value.to_s).new_offset(0)
-        end
-
-        def self.serialize(value)
-          value.iso8601
-        end
-      end
-
+      # TODO: Remove this. The XSD code depends on this but actually should
+      # be converted into a collection, not a specific Array type.
       class Array
         def initialize(array)
           Array(array)
-        end
-      end
-
-      class TextWithTags
-        attr_reader :content
-
-        def initialize(ordered_text_with_tags)
-          @content = ordered_text_with_tags
-        end
-
-        def self.cast(value)
-          return value if value.is_a?(self)
-
-          new(value)
-        end
-
-        def self.serialize(value)
-          value.content.join
-        end
-      end
-
-      class JSON
-        attr_reader :value
-
-        def initialize(value)
-          @value = value
-        end
-
-        def to_json(*_args)
-          @value.to_json
-        end
-
-        def ==(other)
-          @value == (other.is_a?(::Hash) ? other : other.value)
-        end
-
-        def self.cast(value)
-          return value if value.is_a?(self) || value.nil?
-
-          new(::JSON.parse(value))
-        end
-
-        def self.serialize(value)
-          value.to_json
         end
       end
 
@@ -121,42 +55,43 @@ module Lutaml
       def self.cast(value, type)
         return if value.nil?
 
-        if [String, Email].include?(type)
+        case type.to_s.split("::").last
+        when "String"
           value.to_s
-        elsif [Integer, BigInteger].include?(type)
+        when "Integer"
           value.to_i
-        elsif type == Float
+        when "Float"
           value.to_f
-        elsif type == Date
+        when "Date"
           begin
             ::Date.parse(value.to_s)
           rescue ArgumentError
             nil
           end
-        elsif type == DateTime
+        when "DateTime"
           DateTime.cast(value)
-        elsif type == Time
+        when "Time"
           ::Time.parse(value.to_s)
-        elsif type == TimeWithoutDate
+        when "TimeWithoutDate"
           TimeWithoutDate.cast(value)
-        elsif type == Boolean
+        when "Boolean"
           to_boolean(value)
-        elsif type == Decimal
+        when "Decimal"
           BigDecimal(value.to_s)
-        elsif type == Hash
+        when "Hash"
           normalize_hash(Hash(value))
-        elsif type == UUID
+        when "Uuid"
           UUID_REGEX.match?(value) ? value : SecureRandom.uuid
-        elsif type == Symbol
+        when "Symbol"
           value.to_sym
-        elsif type == Binary
+        when "Binary"
           value.force_encoding("BINARY")
-        elsif type == URL
+        when "Url"
           URI.parse(value.to_s)
-        elsif type == IPAddress
+        when "IpAddress"
           IPAddr.new(value.to_s)
-        elsif type == JSON
-          JSON.cast(value)
+        when "Json"
+          Json.cast(value)
         else
           value
         end
@@ -165,21 +100,22 @@ module Lutaml
       def self.serialize(value, type)
         return if value.nil?
 
-        if type == Date
+        case type.to_s.split("::").last
+        when "Date"
           value.iso8601
-        elsif type == DateTime
+        when "DateTime"
           DateTime.serialize(value)
-        elsif type == Integer
+        when "Integer"
           value.to_i
-        elsif type == Float
+        when "Float"
           value.to_f
-        elsif type == Boolean
+        when "Boolean"
           to_boolean(value)
-        elsif type == Decimal
+        when "Decimal"
           value.to_s("F")
-        elsif type == Hash
+        when "Hash"
           Hash(value)
-        elsif type == JSON
+        when "Json"
           value.to_json
         else
           value.to_s
@@ -214,3 +150,7 @@ module Lutaml
     end
   end
 end
+
+require_relative "type/time_without_date"
+require_relative "type/date_time"
+require_relative "type/json"

@@ -116,6 +116,68 @@ end
 
 == Defining attributes
 
+=== Supported attribute value types
+
+Lutaml::Model supports the following attribute types, they can be
+referred by a string, a symbol, or their class constant.
+
+Syntax:
+
+[source,ruby]
+----
+attribute :name_of_attribute, {symbol | string | class}
+----
+
+|===
+| String | Symbol | Class name | Actual value class
+
+| `String` | `:string` | `Lutaml::Model::Type::String` | `::String`
+| `Integer` | `:integer` | `Lutaml::Model::Type::Integer` | `::Integer`
+| `Float` | `:float` | `Lutaml::Model::Type::Float` | `::Float`
+| `Date` | `:date` | `Lutaml::Model::Type::Date` | `::Date`
+| `Time` | `:time` | `Lutaml::Model::Type::Time` | `::Time`
+| `DateTime` | `:date_time` | `Lutaml::Model::Type::DateTime` | `::DateTime`
+| `TimeWithoutDate` | `:time_without_date` | `Lutaml::Model::Type::TimeWithoutDate` | `::Time`
+| `Boolean` | `:boolean` | `Lutaml::Model::Type::Boolean` | `Boolean`
+| `Decimal` | `:decimal` | `Lutaml::Model::Type::Decimal` | `::BigDecimal`
+| `Hash` | `:hash` | `Lutaml::Model::Type::Hash` | `::Hash`
+| `Uuid` | `:uuid` | `Lutaml::Model::Type::Uuid` | `::String`
+| `Symbol` | `:symbol` | `Lutaml::Model::Type::Symbol` | `Symbol`
+| `Binary` | `:binary` | `Lutaml::Model::Type::Binary` | `Binary`
+| `Url` | `:url` | `Lutaml::Model::Type::Url` | `::URI`
+| `IpAddress` | `:ip_address` | `Lutaml::Model::Type::IpAddress` | `::IPAddr`
+| `Json` | `:json` | `Lutaml::Model::Type::Json` | `::JSON`
+
+|===
+
+
+.Defining attributes with supported types via symbol, string and class
+[example]
+====
+[source,ruby]
+----
+class Studio < Lutaml::Model::Serializable
+  # The following are equivalent
+  attribute :location, :string
+  attribute :potter, "String"
+  attribute :kiln, Lutaml::Model::Type::String
+end
+----
+
+[source,ruby]
+----
+> s = Studio.new(location: 'London', potter: 'John Doe', kiln: 'Kiln 1')
+> # <Studio:0x0000000104ac7240 @location="London", @potter="John Doe", @kiln="Kiln 1">
+> s.location
+> # "London"
+> s.potter
+> # "John Doe"
+> s.kiln
+> # "Kiln 1"
+----
+====
+
+
 === Attribute as a collection
 
 Define attributes as collections (arrays or hashes) to store multiple values
