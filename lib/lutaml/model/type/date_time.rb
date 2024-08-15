@@ -1,16 +1,18 @@
+require "date"
+
 module Lutaml
   module Model
     module Type
-      # Time representation without date
-      class TimeWithoutDate
+      # Date and time representation
+      class DateTime
         def self.cast(value)
           return if value.nil?
 
-          ::Time.parse(value.to_s)
+          ::DateTime.parse(value.to_s).new_offset(0)
         end
 
         def self.serialize(value)
-          value.strftime("%H:%M:%S")
+          value.iso8601
         end
       end
     end

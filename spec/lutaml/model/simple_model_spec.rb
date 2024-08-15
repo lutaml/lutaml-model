@@ -3,8 +3,8 @@ require "lutaml/model"
 
 module SimpleModel
   class Address < Lutaml::Model::Serializable
-    attribute :street, Lutaml::Model::Type::String
-    attribute :city, Lutaml::Model::Type::String
+    attribute :street, :string
+    attribute :city, :string
 
     xml do
       root "address"
@@ -29,8 +29,8 @@ module SimpleModel
   end
 
   class Room < Lutaml::Model::Serializable
-    attribute :name, Lutaml::Model::Type::String, default: -> { "Unnamed room" }
-    attribute :size, Lutaml::Model::Type::Integer
+    attribute :name, :string, default: -> { "Unnamed room" }
+    attribute :size, :integer
 
     xml do
       root "room"
@@ -55,9 +55,7 @@ module SimpleModel
   end
 
   class Building < Lutaml::Model::Serializable
-    attribute :name, Lutaml::Model::Type::String, default: -> {
-                                                             "Unnamed building"
-                                                           }
+    attribute :name, :string, default: -> { "Unnamed building" }
     attribute :address, Address
     attribute :rooms, Room, collection: true
 

@@ -2,7 +2,7 @@ require "spec_helper"
 require "lutaml/model"
 
 class SampleModelTag < Lutaml::Model::Serializable
-  attribute :text, Lutaml::Model::Type::String, default: -> { "" }
+  attribute :text, :string, default: -> { "" }
 
   xml do
     root "Tag"
@@ -11,33 +11,20 @@ class SampleModelTag < Lutaml::Model::Serializable
 end
 
 class Defaults < Lutaml::Model::Serializable
-  attribute :name, Lutaml::Model::Type::String, default: -> { "Anonymous" }
-  attribute :age, Lutaml::Model::Type::Integer, default: -> { 18 }
-  attribute :balance, Lutaml::Model::Type::Decimal, default: -> {
-                                                               BigDecimal("0.0")
-                                                             }
+  attribute :name, :string, default: -> { "Anonymous" }
+  attribute :age, "Integer", default: -> { 18 }
+  attribute :balance, "Decimal", default: -> { BigDecimal("0.0") }
   attribute :tag, SampleModelTag, collection: true
-  attribute :preferences,
-            Lutaml::Model::Type::Hash,
-            default: -> { { notifications: true } }
-  attribute :uuid, Lutaml::Model::Type::UUID, default: -> { SecureRandom.uuid }
-  attribute :status, Lutaml::Model::Type::Symbol, default: -> { :active }
-  attribute :large_number, Lutaml::Model::Type::BigInteger, default: -> { 0 }
-  attribute :avatar, Lutaml::Model::Type::Binary, default: -> { "" }
-  attribute :website,
-            Lutaml::Model::Type::URL,
-            default: -> { URI.parse("http://example.com") }
-  attribute :email,
-            Lutaml::Model::Type::Email,
-            default: -> { "example@example.com" }
-  attribute :ip_address,
-            Lutaml::Model::Type::IPAddress,
-            default: -> { IPAddr.new("127.0.0.1") }
-  attribute :metadata, Lutaml::Model::Type::JSON, default: -> { "{}" }
-  attribute :role,
-            Lutaml::Model::Type::Enum,
-            options: %w[user admin guest],
-            default: -> { "user" }
+  attribute :preferences, :hash, default: -> { { notifications: true } }
+  attribute :uuid, :uuid, default: -> { SecureRandom.uuid }
+  attribute :status, :symbol, default: -> { :active }
+  attribute :large_number, :integer, default: -> { 0 }
+  attribute :avatar, :binary, default: -> { "" }
+  attribute :website, :url, default: -> { URI.parse("http://example.com") }
+  attribute :email, :string, default: -> { "example@example.com" }
+  attribute :ip_address, :ip_address, default: -> { IPAddr.new("127.0.0.1") }
+  attribute :metadata, :Json, default: -> { "{}" }
+  attribute :role, :string, values: %w[user admin guest], default: -> { "user" }
 
   xml do
     root "Defaults"
@@ -46,13 +33,13 @@ class Defaults < Lutaml::Model::Serializable
     map_element "Balance", to: :balance
     map_element "Tag", to: :tag
     map_element "Preferences", to: :preferences
-    map_element "UUID", to: :uuid
+    map_element "Uuid", to: :uuid
     map_element "Status", to: :status
     map_element "LargeNumber", to: :large_number
     map_element "Avatar", to: :avatar
     map_element "Website", to: :website
     map_element "Email", to: :email
-    map_element "IPAddress", to: :ip_address
+    map_element "IpAddress", to: :ip_address
     map_element "Metadata", to: :metadata
     map_element "Role", to: :role
   end
@@ -73,7 +60,7 @@ RSpec.describe Defaults do
       preferences: { theme: "dark", notifications: true },
       uuid: "123e4567-e89b-12d3-a456-426614174000",
       status: :active,
-      large_number: "12345678901234567890",
+      large_number: 12345678901234567890,
       avatar: "binary data",
       website: "http://example.com",
       email: "john.doe@example.com",
@@ -96,13 +83,13 @@ RSpec.describe Defaults do
           <theme>dark</theme>
           <notifications>true</notifications>
         </Preferences>
-        <UUID>123e4567-e89b-12d3-a456-426614174000</UUID>
+        <Uuid>123e4567-e89b-12d3-a456-426614174000</Uuid>
         <Status>active</Status>
         <LargeNumber>12345678901234567890</LargeNumber>
         <Avatar>binary data</Avatar>
         <Website>http://example.com</Website>
         <Email>john.doe@example.com</Email>
-        <IPAddress>192.168.1.1</IPAddress>
+        <IpAddress>192.168.1.1</IpAddress>
         <Metadata>{"key":"value"}</Metadata>
         <Role>admin</Role>
       </Defaults>

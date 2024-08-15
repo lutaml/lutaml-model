@@ -5,12 +5,26 @@ module Lutaml
 
       def initialize(name, type, options = {})
         @name = name
-        @type = type
+        @type = cast_type(type)
+
         @options = options
 
         if collection? && !options[:default]
           @options[:default] = -> { [] }
         end
+      end
+
+      def cast_type(type)
+        case type
+        when Class
+          type
+        when String
+          Type.const_get(type)
+        when Symbol
+          Type.const_get(type.to_s.split("_").collect(&:capitalize).join)
+        end
+      rescue NameError
+        raise ArgumentError, "Unknown Lutaml::Model::Type: #{type}"
       end
 
       def collection?
