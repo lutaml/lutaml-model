@@ -1262,6 +1262,28 @@ In this example:
 Lutaml::Model uses an adapter pattern to support multiple libraries for each
 serialization format.
 
+You will need to specify the configuration for the adapter you want to use. The
+easiest way is to copy and paste the following configuration into your code.
+
+The default configuration is as follows:
+
+[source,ruby]
+----
+require 'lutaml/model'
+require 'lutaml/model/xml_adapter/nokogiri_adapter'
+require 'lutaml/model/json_adapter/standard_json_adapter'
+require 'lutaml/model/toml_adapter/toml_rb_adapter'
+require 'lutaml/model/yaml_adapter/standard_yaml_adapter'
+
+Lutaml::Model::Config.configure do |config|
+  config.xml_adapter = Lutaml::Model::XmlAdapter::NokogiriAdapter
+  config.yaml_adapter = Lutaml::Model::YamlAdapter::StandardYamlAdapter
+  config.json_adapter = Lutaml::Model::JsonAdapter::StandardJsonAdapter
+  config.toml_adapter = Lutaml::Model::TomlAdapter::TomlRbAdapter
+end
+----
+
+
 === XML
 
 Lutaml::Model supports the following XML adapters:
@@ -1302,6 +1324,25 @@ Lutaml::Model::Config.configure do |config|
   config.xml_adapter = Lutaml::Model::XmlAdapter::OxAdapter
 end
 ----
+
+
+=== YAML
+
+Lutaml::Model supports only one YAML adapter.
+
+* YAML (default)
+
+.Using the YAML adapter
+[source,ruby]
+----
+require 'lutaml/model'
+
+Lutaml::Model::Config.configure do |config|
+  require 'lutaml/model/yaml_adapter/standard_yaml_adapter'
+  config.yaml_adapter = Lutaml::Model::YamlAdapter::StandardYamlAdapter
+end
+----
+
 
 
 === JSON
