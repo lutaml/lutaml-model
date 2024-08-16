@@ -53,11 +53,8 @@ module Lutaml
           end
 
           define_method(:"#{name}=") do |value|
-            unless self.class.attr_value_valid?(name, value)
-              raise Lutaml::Model::InvalidValueError.new(name, value, options[:values])
-            end
-
             instance_variable_set(:"@#{name}", value)
+            validate
           end
         end
 
@@ -67,9 +64,13 @@ module Lutaml
 
           return true unless attr.options[:values]
 
-          # If value validation failed but there is a default value, do not
-          # raise a validation error
-          attr.options[:values].include?(value || attr.default)
+          # Allow nil values if there's no default
+          return true if value.nil? && !attr.default
+
+          # Use the default value if the value is nil
+          value = attr.default if value.nil?
+
+          attr.options[:values].include?(value)
         end
 
         FORMATS.each do |format|
@@ -122,30 +123,30 @@ module Lutaml
             next handle_delegate(instance, rule, hash) if rule.delegate
 
             value = if rule.custom_methods[:to]
-                      instance.send(rule.custom_methods[:to], instance, instance.send(name))
-                    else
-                      instance.send(name)
-                    end
+                instance.send(rule.custom_methods[:to], instance, instance.send(name))
+              else
+                instance.send(name)
+              end
 
             next if value.nil? && !rule.render_nil
 
             attribute = attributes[name]
 
             hash[rule.from] = if rule.child_mappings
-                                generate_hash_from_child_mappings(value, rule.child_mappings)
-                              elsif value.is_a?(Array)
-                                value.map do |v|
-                                  if attribute.type <= Serialize
-                                    attribute.type.hash_representation(v, format, options)
-                                  else
-                                    attribute.type.serialize(v)
-                                  end
-                                end
-                              elsif attribute.type <= Serialize
-                                attribute.type.hash_representation(value, format, options)
-                              else
-                                attribute.type.serialize(value)
-                              end
+                generate_hash_from_child_mappings(value, rule.child_mappings)
+              elsif value.is_a?(Array)
+                value.map do |v|
+                  if attribute.type <= Serialize
+                    attribute.type.hash_representation(v, format, options)
+                  else
+                    attribute.type.serialize(v)
+                  end
+                end
+              elsif attribute.type <= Serialize
+                attribute.type.hash_representation(value, format, options)
+              else
+                attribute.type.serialize(value)
+              end
           end
         end
 
@@ -156,21 +157,21 @@ module Lutaml
 
           attribute = instance.send(rule.delegate).class.attributes[name]
           hash[rule.from] = case value
-                            when Array
-                              value.map do |v|
-                                if v.is_a?(Serialize)
-                                  hash_representation(v, format, options)
-                                else
-                                  attribute.type.serialize(v)
-                                end
-                              end
-                            else
-                              if value.is_a?(Serialize)
-                                hash_representation(value, format, options)
-                              else
-                                attribute.type.serialize(value)
-                              end
-                            end
+            when Array
+              value.map do |v|
+                if v.is_a?(Serialize)
+                  hash_representation(v, format, options)
+                else
+                  attribute.type.serialize(v)
+                end
+              end
+            else
+              if value.is_a?(Serialize)
+                hash_representation(value, format, options)
+              else
+                attribute.type.serialize(value)
+              end
+            end
         end
 
         def mappings_for(format)
@@ -193,14 +194,14 @@ module Lutaml
 
         def attr_value(attrs, name, attr_rule)
           value = if attrs.key?(name)
-                    attrs[name]
-                  elsif attrs.key?(name.to_sym)
-                    attrs[name.to_sym]
-                  elsif attrs.key?(name.to_s)
-                    attrs[name.to_s]
-                  else
-                    attr_rule.default
-                  end
+              attrs[name]
+            elsif attrs.key?(name.to_sym)
+              attrs[name.to_sym]
+            elsif attrs.key?(name.to_s)
+              attrs[name.to_s]
+            else
+              attr_rule.default
+            end
 
           if attr_rule.collection? || value.is_a?(Array)
             (value || []).map do |v|
@@ -242,13 +243,13 @@ module Lutaml
           hash.map do |key, value|
             child_mappings.to_h do |attr_name, path|
               attr_value = if path == :key
-                             key
-                           elsif path == :value
-                             value
-                           else
-                             path = [path] unless path.is_a?(Array)
-                             value.dig(*path.map(&:to_s))
-                           end
+                  key
+                elsif path == :value
+                  value
+                else
+                  path = [path] unless path.is_a?(Array)
+                  value.dig(*path.map(&:to_s))
+                end
 
               [attr_name, attr_value]
             end
@@ -288,20 +289,20 @@ module Lutaml
           mappings = mappings_for(format).mappings
           mappings.each_with_object(Lutaml::Model::MappingHash.new) do |rule, hash|
             attr = if rule.delegate
-                     attributes[rule.delegate].type.attributes[rule.to]
-                   else
-                     attributes[rule.to]
-                   end
+                attributes[rule.delegate].type.attributes[rule.to]
+              else
+                attributes[rule.to]
+              end
 
             raise "Attribute '#{rule.to}' not found in #{self}" unless attr
 
             value = if rule.custom_methods[:from]
-                      new.send(rule.custom_methods[:from], hash, doc)
-                    elsif doc.key?(rule.name) || doc.key?(rule.name.to_sym)
-                      doc[rule.name] || doc[rule.name.to_sym]
-                    else
-                      attr.default
-                    end
+                new.send(rule.custom_methods[:from], hash, doc)
+              elsif doc.key?(rule.name) || doc.key?(rule.name.to_sym)
+                doc[rule.name] || doc[rule.name.to_sym]
+              else
+                attr.default
+              end
 
             value = apply_child_mappings(value, rule.child_mappings)
 
@@ -342,10 +343,10 @@ module Lutaml
 
             is_content_mapping = rule.name.nil?
             value = if is_content_mapping
-                      doc["text"]
-                    else
-                      doc[rule.name.to_s] || doc[rule.name.to_sym]
-                    end
+                doc["text"]
+              else
+                doc[rule.name.to_s] || doc[rule.name.to_sym]
+              end
 
             if attr.collection?
               if value && !value.is_a?(Array)
@@ -406,6 +407,8 @@ module Lutaml
 
           send(:"#{name}=", self.class.ensure_utf8(value))
         end
+
+        validate
       end
 
       def ordered?
@@ -422,14 +425,24 @@ module Lutaml
 
       FORMATS.each do |format|
         define_method(:"to_#{format}") do |options = {}|
+          validate
           adapter = Lutaml::Model::Config.public_send(:"#{format}_adapter")
           representation = if format == :xml
-                             self
-                           else
-                             self.class.hash_representation(self, format, options)
-                           end
+              self
+            else
+              self.class.hash_representation(self, format, options)
+            end
 
           adapter.new(representation).public_send(:"to_#{format}", options)
+        end
+      end
+
+      def validate
+        self.class.attributes.each do |name, attr|
+          value = send(name)
+          unless self.class.attr_value_valid?(name, value)
+            raise Lutaml::Model::InvalidValueError.new(name, value, attr.options[:values])
+          end
         end
       end
     end

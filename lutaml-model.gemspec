@@ -16,7 +16,7 @@ Gem::Specification.new do |spec|
   spec.homepage = "https://github.com/lutaml/lutaml-model"
   spec.license = "BSD-2-Clause"
 
-  spec.bindir = "bin"
+  spec.bindir = "exe"
   spec.require_paths = ["lib"]
   spec.required_ruby_version = Gem::Requirement.new(">= 3.0.0")
 
