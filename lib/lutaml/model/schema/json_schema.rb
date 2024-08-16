@@ -18,7 +18,7 @@ module Lutaml
 
         def self.generate_definitions(klass)
           defs = { klass.name => generate_class_schema(klass) }
-          klass.attributes.each do |_, attr|
+          klass.attributes.each_value do |attr|
             if attr.type <= Lutaml::Model::Serialize
               defs.merge!(generate_definitions(attr.type))
             end
