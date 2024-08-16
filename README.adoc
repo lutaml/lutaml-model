@@ -401,6 +401,42 @@ end
 ----
 ====
 
+If an element is mapped to a model object with the XML `root` tag name set, the
+mapped tag name will be used as the root name, overriding the root name.
+
+.The mapped tag name is used as the root name
+[example]
+====
+[source,ruby]
+----
+class RecordDate < Lutaml::Model::Serializable
+  attribute :content, :string
+
+  xml do
+    root "recordDate"
+    map_content to: :content
+  end
+end
+
+class OriginInfo < Lutaml::Model::Serializable
+  attribute :date_issued, RecordDate, collection: true
+
+  xml do
+    root "originInfo"
+    map_element "dateIssued", to: :date_issued
+  end
+end
+----
+
+[source,ruby]
+----
+> RecordDate.new(date: "2021-01-01").to_xml
+> #<recordDate>2021-01-01</recordDate>
+> OriginInfo.new(date_issued: [RecordDate.new(date: "2021-01-01")]).to_xml
+> #<originInfo><dateIssued>2021-01-01</dateIssued></originInfo>
+----
+====
+
 ==== Mapping attributes
 
 The `map_attribute` method maps an XML attribute to a data model attribute.
