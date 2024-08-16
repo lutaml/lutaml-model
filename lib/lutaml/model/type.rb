@@ -42,14 +42,6 @@ module Lutaml
         HEREDOC
       end
 
-      # TODO: Remove this. The XSD code depends on this but actually should
-      # be converted into a collection, not a specific Array type.
-      class Array
-        def initialize(array)
-          Array(array)
-        end
-      end
-
       UUID_REGEX = /\A[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\z/
 
       def self.cast(value, type)
