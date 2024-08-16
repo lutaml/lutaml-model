@@ -24,6 +24,24 @@ class TestMapper < Lutaml::Model::Serializable
   end
 end
 
+class RecordDate < Lutaml::Model::Serializable
+  attribute :content, :string
+
+  xml do
+    root "recordDate"
+    map_content to: :content
+  end
+end
+
+class OriginInfo < Lutaml::Model::Serializable
+  attribute :date_issued, RecordDate, collection: true
+
+  xml do
+    root "originInfo"
+    map_element "dateIssued", to: :date_issued
+  end
+end
+
 RSpec.describe Lutaml::Model::Serializable do
   describe ".model" do
     it "sets the model for the class" do
@@ -37,10 +55,15 @@ RSpec.describe Lutaml::Model::Serializable do
     subject(:mapper) { described_class.new }
 
     it "adds the attribute and getter setter for that attribute" do
-      expect { described_class.attribute("foo", Lutaml::Model::Type::String) }
-        .to change { described_class.attributes.keys }.from([]).to(["foo"])
-        .and change { mapper.respond_to?(:foo) }.from(false).to(true)
-        .and change { mapper.respond_to?(:foo=) }.from(false).to(true)
+      expect do
+        described_class.attribute("foo", Lutaml::Model::Type::String)
+      end.to change {
+               described_class.attributes.keys
+             }.from([]).to(["foo"]).and change {
+                                          mapper.respond_to?(:foo)
+                                        }.from(false).to(true).and change {
+                                                                     mapper.respond_to?(:foo=)
+                                                                   }.from(false).to(true)
     end
   end
 
@@ -151,8 +174,24 @@ RSpec.describe Lutaml::Model::Serializable do
     end
 
     it "generates hash based on child_mappings" do
-      expect(described_class.apply_child_mappings(hash, child_mappings))
-        .to eq(expected_value)
+      expect(described_class.apply_child_mappings(hash,
+                                                  child_mappings)).to eq(expected_value)
+    end
+  end
+
+  describe "XML root name override" do
+    it "uses root name defined at the component class" do
+      record_date = RecordDate.new(content: "2021-01-01")
+      expected_xml = "<recordDate>2021-01-01</recordDate>"
+      expect(record_date.to_xml).to eq(expected_xml)
+    end
+
+    it "uses mapped element name at the aggregating class, overriding root name" do
+      origin_info = OriginInfo.new(date_issued: [RecordDate.new(content: "2021-01-01")])
+      expected_xml = <<~XML
+        <originInfo><dateIssued>2021-01-01</dateIssued></originInfo>
+      XML
+      expect(origin_info.to_xml).to be_equivalent_to(expected_xml)
     end
   end
 end
