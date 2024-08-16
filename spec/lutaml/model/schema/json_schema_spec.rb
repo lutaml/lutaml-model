@@ -18,7 +18,8 @@ RSpec.describe Lutaml::Model::Schema::JsonSchema do
 
   describe ".generate" do
     it "generates a JSON schema for nested Serialize objects" do
-      schema = described_class.generate(SchemaGeneration::Vase, id: "https://example.com/vase.schema.json", description: "A vase schema", pretty: true)
+      schema = described_class.generate(SchemaGeneration::Vase,
+                                        id: "https://example.com/vase.schema.json", description: "A vase schema", pretty: true)
 
       expected_schema = <<~JSON.chomp
         {

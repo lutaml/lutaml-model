@@ -46,7 +46,7 @@ module Lutaml
             end
           end
 
-          klass.attributes.each do |_, attr|
+          klass.attributes.each_value do |attr|
             if attr.type <= Lutaml::Model::Serialize
               generate_define(xml, attr.type)
             end
