@@ -69,16 +69,18 @@ Or install it yourself as:
 gem install lutaml-model
 ----
 
-== Defining a data model class
+== Data model class
 
-=== General
+=== Definition
+
+==== General
 
 There are two ways to define a data model in Lutaml::Model:
 
 * Inheriting from the `Lutaml::Model::Serializable` class
 * Including the `Lutaml::Model::Serialize` module
 
-=== Definition through inheritance
+==== Definition through inheritance
 
 The simplest way to define a model is to create a class that inherits from
 `Lutaml::Model::Serializable`.
@@ -90,13 +92,13 @@ The `attribute` class method is used to define attributes.
 require 'lutaml/model'
 
 class Kiln < Lutaml::Model::Serializable
-  attribute :brand, Lutaml::Model::Type::String
-  attribute :capacity, Lutaml::Model::Type::Integer
-  attribute :temperature, Lutaml::Model::Type::Integer
+  attribute :brand, :string
+  attribute :capacity, :integer
+  attribute :temperature, :integer
 end
 ----
 
-=== Definition through inclusion
+==== Definition through inclusion
 
 If the model class already has a super class that it inherits from, the model
 can be extended using the `Lutaml::Model::Serialize` module.
@@ -108,11 +110,37 @@ require 'lutaml/model'
 class Kiln < SomeSuperClass
   include Lutaml::Model::Serialize
 
-  attribute :brand, Lutaml::Model::Type::String
-  attribute :capacity, Lutaml::Model::Type::Integer
-  attribute :temperature, Lutaml::Model::Type::Integer
+  attribute :brand, :string
+  attribute :capacity, :integer
+  attribute :temperature, :integer
 end
 ----
+
+
+=== Comparison
+
+A `Serialize` / `Serializable` object can be compared with another object of the
+same class using the `==` operator. This is implemented through the
+`ComparableModel` module.
+
+Two objects are considered equal if they have the same class and all their
+attributes are equal. This behavior differs from the typical Ruby behavior,
+where two objects are considered equal only if they have the same object ID.
+
+NOTE: Two `Serialize` objects will have the same `hash` value if they have the
+same class and all their attributes are equal.
+
+[source,ruby]
+----
+> a = Kiln.new(brand: 'Kiln 1', capacity: 100, temperature: 1050)
+> b = Kiln.new(brand: 'Kiln 1', capacity: 100, temperature: 1050)
+> a == b
+> # true
+> a.hash == b.hash
+> # true
+----
+
+
 
 == Defining attributes
 
@@ -160,7 +188,7 @@ class Studio < Lutaml::Model::Serializable
   # The following are equivalent
   attribute :location, :string
   attribute :potter, "String"
-  attribute :kiln, Lutaml::Model::Type::String
+  attribute :kiln, :string
 end
 ----
 
@@ -196,8 +224,8 @@ attribute :name_of_attribute, Type, collection: true
 [source,ruby]
 ----
 class Studio < Lutaml::Model::Serializable
-  attribute :location, Lutaml::Model::Type::String
-  attribute :potters, Lutaml::Model::Type::String, collection: true
+  attribute :location, :string
+  attribute :potters, :string, collection: true
 end
 ----
 
@@ -224,25 +252,85 @@ Syntax:
 attribute :name_of_attribute, Type, values: [value1, value2, ...]
 ----
 
-.Using the `values` directive to define acceptable values for an attribute
+The values set inside the `values:` option can be of any type, but they must
+match the type of the attribute. The values are compared using the `==` operator,
+so the type must implement the `==` method.
+
+.Using the `values` directive to define acceptable values for an attribute (basic types)
 [example]
 ====
 [source,ruby]
 ----
-class Ceramic < Lutaml::Model::Serializable
-  attribute :type, Lutaml::Model::Type::String,
-    values: ['Porcelain', 'Earthenware', 'Stoneware']
+class GlazeTechnique < Lutaml::Model::Serializable
+  attribute :name, :string, values: ["Celadon", "Raku", "Majolica"]
 end
 ----
 
 [source,ruby]
 ----
-> Ceramic.new(type: 'Porcelain').type
-> # "Porcelain"
-> Ceramic.new(type: 'Earthenware').type
-> # "Earthenware"
-> Ceramic.new(type: 'Bone China').type
-> # Lutaml::Model::InvalidValueError: Invalid value for attribute 'type'
+> GlazeTechnique.new(name: "Celadon").name
+> # "Celadon"
+> GlazeTechnique.new(name: "Raku").name
+> # "Raku"
+> GlazeTechnique.new(name: "Majolica").name
+> # "Majolica"
+> GlazeTechnique.new(name: "Earthenware").name
+> # Lutaml::Model::InvalidValueError: Invalid value for attribute 'name'
+----
+====
+
+The values can be Serialize objects, which are compared using the `==`
+and the `hash` methods through the Lutaml::Model::ComparableModel module.
+
+
+.Using the `values` directive to define acceptable values for an attribute (Serializable objects)
+[example]
+====
+[source,ruby]
+----
+class Ceramic < Lutaml::Model::Serializable
+  attribute :type, :string
+  attribute :firing_temperature, :integer
+end
+
+class CeramicCollection < Lutaml::Model::Serializable
+  attribute :featured_piece,
+            Ceramic,
+            values: [
+              Ceramic.new(type: "Porcelain", firing_temperature: 1300),
+              Ceramic.new(type: "Stoneware", firing_temperature: 1200),
+              Ceramic.new(type: "Earthenware", firing_temperature: 1000),
+            ]
+end
+----
+
+[source,ruby]
+----
+> CeramicCollection.new(featured_piece: Ceramic.new(type: "Porcelain", firing_temperature: 1300)).featured_piece
+> # Ceramic:0x0000000104ac7240 @type="Porcelain", @firing_temperature=1300
+> CeramicCollection.new(featured_piece: Ceramic.new(type: "Bone China", firing_temperature: 1300)).featured_piece
+> # Lutaml::Model::InvalidValueError: Invalid value for attribute 'featured_piece'
+----
+====
+
+Serialize provides a `validate` method that checks if all its attributes have
+valid values. This is necessary for the case when a value is valid at the
+component level, but not accepted at the aggregation level.
+
+If a change has been made at the component level (a nested attribute has
+changed), the aggregation level needs to call the `validate` method to verify
+acceptance of the newly updated component.
+
+.Using the `validate` method to check if all attributes have valid values
+[example]
+====
+[source,ruby]
+----
+> collection = CeramicCollection.new(featured_piece: Ceramic.new(type: "Porcelain", firing_temperature: 1300))
+> collection.featured_piece.firing_temperature = 1400
+> # No error raised in changed nested attribute
+> collection.validate
+> # Lutaml::Model::InvalidValueError: Invalid value for attribute 'featured_piece'
 ----
 ====
 
@@ -266,8 +354,8 @@ attribute :name_of_attribute, Type, default: -> { value }
 [source,ruby]
 ----
 class Glaze < Lutaml::Model::Serializable
-  attribute :color, Lutaml::Model::Type::String, default: -> { 'Clear' }
-  attribute :temperature, Lutaml::Model::Type::Integer, default: -> { 1050 }
+  attribute :color, :string, default: -> { 'Clear' }
+  attribute :temperature, :integer, default: -> { 1050 }
 end
 ----
 
@@ -378,7 +466,7 @@ end
 [source,ruby]
 ----
 class Example < Lutaml::Model::Serializable
-  attribute :name, Lutaml::Model::Type::String
+  attribute :name, :string
 
   xml do
     root 'example'
@@ -458,7 +546,7 @@ The following class will parse the XML snippet below:
 [source,ruby]
 ----
 class Example < Lutaml::Model::Serializable
-  attribute :value, Lutaml::Model::Type::Integer
+  attribute :value, :integer
 
   xml do
     root 'example'
@@ -506,7 +594,7 @@ The following class will parse the XML snippet below:
 [source,ruby]
 ----
 class Example < Lutaml::Model::Serializable
-  attribute :description, Lutaml::Model::Type::String
+  attribute :description, :string
 
   xml do
     root 'example'
@@ -540,9 +628,9 @@ The following class will parse the XML snippet below:
 [source,ruby]
 ----
 class Example < Lutaml::Model::Serializable
-  attribute :name, Lutaml::Model::Type::String
-  attribute :description, Lutaml::Model::Type::String
-  attribute :value, Lutaml::Model::Type::Integer
+  attribute :name, :string
+  attribute :description, :string
+  attribute :value, :integer
 
   xml do
     root 'example'
@@ -590,8 +678,8 @@ end
 [source,ruby]
 ----
 class Ceramic < Lutaml::Model::Serializable
-  attribute :type, Lutaml::Model::Type::String
-  attribute :glaze, Lutaml::Model::Type::String
+  attribute :type, :string
+  attribute :glaze, :string
 
   xml do
     root 'Ceramic'
@@ -644,8 +732,8 @@ In this example, `glz` will be used for `Glaze` if it is added inside the
 [source,ruby]
 ----
 class Glaze < Lutaml::Model::Serializable
-  attribute :color, Lutaml::Model::Type::String
-  attribute :temperature, Lutaml::Model::Type::Integer
+  attribute :color, :string
+  attribute :temperature, :integer
 
   xml do
     root 'Glaze'
@@ -657,7 +745,7 @@ class Glaze < Lutaml::Model::Serializable
 end
 
 class Ceramic < Lutaml::Model::Serializable
-  attribute :type, Lutaml::Model::Type::String
+  attribute :type, :string
   attribute :glaze, Glaze
 
   xml do
@@ -711,9 +799,9 @@ In this example, the `Type` element will inherit the namespace from the root.
 [source,ruby]
 ----
 class Ceramic < Lutaml::Model::Serializable
-  attribute :type, Lutaml::Model::Type::String
-  attribute :glaze, Lutaml::Model::Type::String
-  attribute :color, Lutaml::Model::Type::String
+  attribute :type, :string
+  attribute :glaze, :string
+  attribute :color, :string
 
   xml do
     root 'Ceramic'
@@ -791,8 +879,8 @@ end
 [source,ruby]
 ----
 class Paragraph < Lutaml::Model::Serializable
-  attribute :bold, Lutaml::Model::Type::String
-  attribute :italic, Lutaml::Model::Type::String
+  attribute :bold, :string
+  attribute :italic, :string
 
   xml do
     root 'p', mixed: true
@@ -835,8 +923,8 @@ end
 [source,ruby]
 ----
 class Paragraph < Lutaml::Model::Serializable
-  attribute :bold, Lutaml::Model::Type::String
-  attribute :italic, Lutaml::Model::Type::String
+  attribute :bold, :string
+  attribute :italic, :string
 
   xml do
     root 'p'
@@ -895,8 +983,8 @@ end
 [source,ruby]
 ----
 class Example < Lutaml::Model::Serializable
-  attribute :name, Lutaml::Model::Type::String
-  attribute :value, Lutaml::Model::Type::Integer
+  attribute :name, :string
+  attribute :value, :integer
 
   json do
     map 'name', to: :name
@@ -943,8 +1031,8 @@ by referring to a Lutaml::Model class as an attribute class.
 [source,ruby]
 ----
 class Glaze < Lutaml::Model::Serializable
-  attribute :color, Lutaml::Model::Type::String
-  attribute :temperature, Lutaml::Model::Type::Integer
+  attribute :color, :string
+  attribute :temperature, :integer
 
   json do
     map 'color', to: :color
@@ -953,7 +1041,7 @@ class Glaze < Lutaml::Model::Serializable
 end
 
 class Ceramic < Lutaml::Model::Serializable
-  attribute :type, Lutaml::Model::Type::String
+  attribute :type, :string
   attribute :glaze, Glaze
 
   json do
@@ -1006,8 +1094,8 @@ The following class will parse the JSON snippet below:
 [source,ruby]
 ----
 class Glaze < Lutaml::Model::Serializable
-  attribute :color, Lutaml::Model::Type::String
-  attribute :temperature, Lutaml::Model::Type::Integer
+  attribute :color, :string
+  attribute :temperature, :integer
 
   json do
     map 'color', to: :color
@@ -1016,7 +1104,7 @@ class Glaze < Lutaml::Model::Serializable
 end
 
 class Ceramic < Lutaml::Model::Serializable
-  attribute :type, Lutaml::Model::Type::String
+  attribute :type, :string
   attribute :glaze, Glaze
 
   json do
@@ -1069,8 +1157,8 @@ The following class will parse the JSON snippet below:
 [source,ruby]
 ----
 class CustomCeramic < Lutaml::Model::Serializable
-  attribute :name, Lutaml::Model::Type::String
-  attribute :size, Lutaml::Model::Type::Integer
+  attribute :name, :string
+  attribute :size, :integer
 
   json do
     map 'name', to: :name, with: { to: :name_to_json, from: :name_from_json }
@@ -1250,9 +1338,9 @@ A model can be defined for this JSON as follows:
 [source,ruby]
 ----
 class Schema < Lutaml::Model::Serializable
-  attribute :id, Lutaml::Model::Type::String
-  attribute :link, Lutaml::Model::Type::String
-  attribute :name, Lutaml::Model::Type::String
+  attribute :id, :string
+  attribute :link, :string
+  attribute :name, :string
 end
 
 class ChildMappingClass < Lutaml::Model::Serializable

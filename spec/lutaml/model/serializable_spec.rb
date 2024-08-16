@@ -24,6 +24,8 @@ class TestMapper < Lutaml::Model::Serializable
   end
 end
 
+### XML root mapping
+
 class RecordDate < Lutaml::Model::Serializable
   attribute :content, :string
 
@@ -42,12 +44,33 @@ class OriginInfo < Lutaml::Model::Serializable
   end
 end
 
+### Enumeration
+
+class Ceramic < Lutaml::Model::Serializable
+  attribute :type, :string
+  attribute :firing_temperature, :integer
+end
+
+class CeramicCollection < Lutaml::Model::Serializable
+  attribute :featured_piece,
+            Ceramic,
+            values: [
+              Ceramic.new(type: "Porcelain", firing_temperature: 1300),
+              Ceramic.new(type: "Stoneware", firing_temperature: 1200),
+              Ceramic.new(type: "Earthenware", firing_temperature: 1000),
+            ]
+end
+
+class GlazeTechnique < Lutaml::Model::Serializable
+  attribute :name, :string, values: ["Celadon", "Raku", "Majolica"]
+end
+
 RSpec.describe Lutaml::Model::Serializable do
   describe ".model" do
     it "sets the model for the class" do
       expect { described_class.model("Foo") }.to change(described_class, :model)
-        .from(nil)
-        .to("Foo")
+          .from(nil)
+          .to("Foo")
     end
   end
 
@@ -192,6 +215,75 @@ RSpec.describe Lutaml::Model::Serializable do
         <originInfo><dateIssued>2021-01-01</dateIssued></originInfo>
       XML
       expect(origin_info.to_xml).to be_equivalent_to(expected_xml)
+    end
+  end
+
+  describe "String enumeration" do
+    context "when assigning an invalid value" do
+      it "raises an error after creation" do
+        glaze = GlazeTechnique.new(name: "Celadon")
+        expect { glaze.name = "Tenmoku" }.to raise_error(Lutaml::Model::InvalidValueError)
+      end
+
+      it "raises an error during creation" do
+        expect { GlazeTechnique.new(name: "Crystalline") }.to raise_error(Lutaml::Model::InvalidValueError)
+      end
+    end
+
+    context "when assigning a valid value" do
+      it "changes the value after creation" do
+        glaze = GlazeTechnique.new(name: "Celadon")
+        glaze.name = "Raku"
+        expect(glaze.name).to eq("Raku")
+      end
+
+      it "assigns the value during creation" do
+        glaze = GlazeTechnique.new(name: "Majolica")
+        expect(glaze.name).to eq("Majolica")
+      end
+    end
+  end
+
+  describe "Serializable object enumeration" do
+    context "when assigning an invalid value" do
+      it "raises an error after creation" do
+        collection = CeramicCollection.new(
+          featured_piece: Ceramic.new(type: "Porcelain", firing_temperature: 1300),
+        )
+        invalid_ceramic = Ceramic.new(type: "Porcelain", firing_temperature: 1500)
+
+        expect { collection.featured_piece = invalid_ceramic }.to raise_error(Lutaml::Model::InvalidValueError)
+      end
+
+      it "raises an error during creation" do
+        invalid_ceramic = Ceramic.new(type: "Porcelain", firing_temperature: 1500)
+        expect { CeramicCollection.new(featured_piece: invalid_ceramic) }.to raise_error(Lutaml::Model::InvalidValueError)
+      end
+
+      it "raises an error when modifying a nested attribute" do
+        collection = CeramicCollection.new(
+          featured_piece: Ceramic.new(type: "Porcelain", firing_temperature: 1300),
+        )
+        collection.featured_piece.firing_temperature = 1400
+        expect { collection.validate }.to raise_error(Lutaml::Model::InvalidValueError)
+      end
+    end
+
+    context "when assigning a valid value" do
+      it "changes the value after creation" do
+        collection = CeramicCollection.new(
+          featured_piece: Ceramic.new(type: "Porcelain", firing_temperature: 1300),
+        )
+        collection.featured_piece = Ceramic.new(type: "Stoneware", firing_temperature: 1200)
+        expect(collection.featured_piece.type).to eq("Stoneware")
+      end
+
+      it "assigns the value during creation" do
+        collection = CeramicCollection.new(
+          featured_piece: Ceramic.new(type: "Earthenware", firing_temperature: 1000),
+        )
+        expect(collection.featured_piece.type).to eq("Earthenware")
+      end
     end
   end
 end
