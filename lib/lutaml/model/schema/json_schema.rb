@@ -17,12 +17,20 @@ module Lutaml
         end
 
         def self.generate_definitions(klass)
+          defs = { klass.name => generate_class_schema(klass) }
+          klass.attributes.each do |_, attr|
+            if attr.type <= Lutaml::Model::Serialize
+              defs.merge!(generate_definitions(attr.type))
+            end
+          end
+          defs
+        end
+
+        def self.generate_class_schema(klass)
           {
-            klass.name => {
-              "type" => "object",
-              "properties" => generate_properties(klass),
-              "required" => klass.attributes.keys,
-            },
+            "type" => "object",
+            "properties" => generate_properties(klass),
+            "required" => klass.attributes.keys,
           }
         end
 
@@ -33,7 +41,16 @@ module Lutaml
         end
 
         def self.generate_property_schema(attr)
-          { "type" => get_json_type(attr.type) }
+          if attr.type <= Lutaml::Model::Serialize
+            { "$ref" => "#/$defs/#{attr.type.name}" }
+          elsif attr.collection?
+            {
+              "type" => "array",
+              "items" => { "type" => get_json_type(attr.type) },
+            }
+          else
+            { "type" => get_json_type(attr.type) }
+          end
         end
 
         def self.get_json_type(type)
@@ -42,7 +59,6 @@ module Lutaml
             Lutaml::Model::Type::Integer => "integer",
             Lutaml::Model::Type::Boolean => "boolean",
             Lutaml::Model::Type::Float => "number",
-            Lutaml::Model::Type::Array => "array",
             Lutaml::Model::Type::Hash => "object",
           }[type] || "string" # Default to string for unknown types
         end
