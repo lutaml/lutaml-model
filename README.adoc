@@ -1071,6 +1071,158 @@ end
 ----
 ====
 
+
+=== Separate serialization model
+
+The `Serialize` module can be used to define only serialization mappings for a
+separately defined model (a Ruby class).
+
+Syntax:
+
+[source,ruby]
+----
+class Foo < Lutaml::Model::Serializable
+  model {DataModelClass}
+
+  # ...
+end
+----
+
+[example]
+.Using the `model` method to define serialization mappings for a separate model
+====
+[source,ruby]
+----
+class Ceramic
+  attr_accessor :type, :glaze
+
+  def name
+    "#{type} with #{glaze}"
+  end
+end
+
+class CeramicSerialization < Lutaml::Model::Serializable
+  model Ceramic
+
+  xml do
+    map_element 'type', to: :type
+    map_element 'glaze', to: :glaze
+  end
+end
+----
+
+[source,ruby]
+----
+> Ceramic.new(type: "Porcelain", glaze: "Clear").name
+> # "Porcelain with Clear"
+> CeramicSerialization.from_xml(xml)
+> #<Ceramic:0x0000000104ac7240 @type="Porcelain", @glaze="Clear">
+> Ceramic.new(type: "Porcelain", glaze: "Clear").to_xml
+> #<Ceramic><type>Porcelain</type><glaze>Clear</glaze></Ceramic>
+----
+====
+
+
+=== Rendering empty attributes and collections
+
+By default, empty attributes and collections are not rendered in the output.
+
+To render empty attributes and collections, use the `render_nil` option.
+
+Syntax:
+
+[source,ruby]
+----
+xml do
+  map_element 'key_value_model_attribute_name', to: :name_of_attribute, render_nil: true
+end
+----
+
+[source,ruby]
+----
+json | yaml | toml do
+  map 'key_value_model_attribute_name', to: :name_of_attribute, render_nil: true
+end
+----
+
+.Using the `render_nil` option to render empty attributes
+[example]
+====
+[source,ruby]
+----
+class Ceramic < Lutaml::Model::Serializable
+  attribute :type, :string
+  attribute :glaze, :string
+
+  xml do
+    map_element 'type', to: :type, render_nil: true
+    map_element 'glaze', to: :glaze
+  end
+
+  json do
+    map 'type', to: :type, render_nil: true
+    map 'glaze', to: :glaze
+  end
+end
+----
+
+[source,ruby]
+----
+> Ceramic.new.to_json
+> # { 'type': null }
+> Ceramic.new(type: "Porcelain", glaze: "Clear").to_json
+> # { 'type': 'Porcelain', 'glaze': 'Clear' }
+----
+
+[source,ruby]
+----
+> Ceramic.new.to_xml
+> # <Ceramic><type></type></Ceramic>
+> Ceramic.new(type: "Porcelain", glaze: "Clear").to_xml
+> # <Ceramic><type>Porcelain</type><glaze>Clear</glaze></Ceramic>
+----
+====
+
+.Using the `render_nil` option to render empty attribute collections
+[example]
+====
+[source,ruby]
+----
+class Ceramic < Lutaml::Model::Serializable
+  attribute :type, :string
+  attribute :glazes, :string, collection: true
+
+  xml do
+    map_element 'type', to: :type, render_nil: true
+    map_element 'glazes', to: :glazes, render_nil: true
+  end
+
+  json do
+    map 'type', to: :type, render_nil: true
+    map 'glazes', to: :glazes, render_nil: true
+  end
+end
+----
+
+[source,ruby]
+----
+> Ceramic.new.to_json
+> # { 'type': null, 'glazes': [] }
+> Ceramic.new(type: "Porcelain", glazes: ["Clear"]).to_json
+> # { 'type': 'Porcelain', 'glazes': ['Clear'] }
+----
+
+[source,ruby]
+----
+> Ceramic.new.to_xml
+> # <Ceramic><type></type><glazes></glazes></Ceramic>
+> Ceramic.new(type: "Porcelain", glazes: ["Clear"]).to_xml
+> # <Ceramic><type>Porcelain</type><glazes>Clear</glazes></Ceramic>
+----
+====
+
+
+
 === Advanced attribute mapping
 
 ==== Attribute mapping delegation
