@@ -71,9 +71,13 @@ module Lutaml
               end
             end
 
-            if xml_mapping.content_mapping
-              text = element.send(xml_mapping.content_mapping.to)
+            if (content_rule = xml_mapping.content_mapping)
+              text = element.send(content_rule.to)
               text = text.join if text.is_a?(Array)
+
+              if content_rule.custom_methods[:to]
+                text = @root.send(content_rule.custom_methods[:to], @root, text)
+              end
 
               prefixed_xml.text text
             end
@@ -130,6 +134,10 @@ module Lutaml
         end
 
         def add_to_xml(xml, value, attribute, rule)
+          if rule.custom_methods[:to]
+            value = @root.send(rule.custom_methods[:to], @root, value)
+          end
+
           if value && (attribute&.type&.<= Lutaml::Model::Serialize)
             handle_nested_elements(
               xml,

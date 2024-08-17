@@ -274,7 +274,7 @@ module Lutaml
                 end.public_send(:[]=, path.last.to_s, child_obj.send(attr_name))
               end
             end
-            # hash[mapping.name] ||= {}
+
             hash[map_key] = map_value
           end
 
@@ -335,6 +335,8 @@ module Lutaml
           mapping_hash.item_order = doc.item_order
           mapping_hash.ordered = mappings_for(:xml).mixed_content? || mixed_content
 
+          mapping_from = []
+
           mappings.each_with_object(mapping_hash) do |rule, hash|
             attr = attributes[rule.to]
             raise "Attribute '#{rule.to}' not found in #{self}" unless attr
@@ -370,8 +372,22 @@ module Lutaml
               value = attr.type.cast(value) unless is_content_mapping
             end
 
+            mapping_from << rule if rule.custom_methods[:from]
+
             hash[rule.to] = value
           end
+
+          mapping_from.each do |rule|
+            value = if rule.name.nil?
+                      mapping_hash[rule.to].join("\n").strip
+                    else
+                      mapping_hash[rule.to]
+                    end
+
+            mapping_hash[rule.to] = new.send(rule.custom_methods[:from], mapping_hash, value)
+          end
+
+          mapping_hash
         end
 
         def ensure_utf8(value)
