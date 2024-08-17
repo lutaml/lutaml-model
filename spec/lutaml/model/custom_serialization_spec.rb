@@ -22,10 +22,14 @@ class CustomSerialization < Lutaml::Model::Serializable
 
   xml do
     root "CustomSerialization"
-    map_element "Name", to: :name, with: { to: :name_to_xml, from: :name_from_xml }
+    map_element "Name", to: :name,
+                        with: { to: :name_to_xml, from: :name_from_xml }
     map_attribute "Size", to: :size
-    map_element "Color", to: :color, with: { to: :color_to_xml, from: :color_from_xml }
-    map_content to: :description, with: { to: :description_to_xml, from: :description_from_xml }
+    map_element "Color", to: :color,
+                         with: { to: :color_to_xml, from: :color_from_xml }
+    map_content to: :description,
+                with: { to: :description_to_xml,
+                        from: :description_from_xml }
   end
 
   def name_to_xml(_model, value)
