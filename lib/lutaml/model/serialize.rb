@@ -210,9 +210,7 @@ module Lutaml
               else
                 # TODO: This code is problematic because Type.cast does not know
                 # about all the types.
-                Lutaml::Model::Type.cast(
-                  v, attr_rule.type
-                )
+                Lutaml::Model::Type.cast(v, attr_rule.type)
               end
             end
           elsif value.is_a?(Hash) && attr_rule.type != Lutaml::Model::Type::Hash
@@ -385,7 +383,9 @@ module Lutaml
           when Hash
             value.transform_keys do |k|
               ensure_utf8(k)
-            end.transform_values { |v| ensure_utf8(v) }
+            end.transform_values do |v|
+              ensure_utf8(v)
+            end
           else
             value
           end
