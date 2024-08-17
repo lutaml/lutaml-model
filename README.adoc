@@ -1291,10 +1291,30 @@ each serialization mapping block for `from` and `to`.
 
 Syntax:
 
+.XML serialization with custom methods
 [source,ruby]
 ----
-xml | json | yaml | toml do
-  map 'key_value_model_attribute_name', to: :name_of_attribute, with: {
+xml do
+  map_element 'element_name', to: :name_of_element, with: {
+    to: :method_name_to_serialize,
+    from: :method_name_to_deserialize
+  }
+  map_attribute 'attribute_name', to: :name_of_attribute, with: {
+    to: :method_name_to_serialize,
+    from: :method_name_to_deserialize
+  }
+  map_content, to: :name_of_content, with: {
+    to: :method_name_to_serialize,
+    from: :method_name_to_deserialize
+  }
+end
+----
+
+.Key-value data model serialization with custom methods
+[source,ruby]
+----
+json | yaml | toml do
+  map 'attribute_name', to: :name_of_attribute, with: {
     to: :method_name_to_serialize,
     from: :method_name_to_deserialize
   }
