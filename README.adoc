@@ -1561,7 +1561,7 @@ serialization format.
 You will need to specify the configuration for the adapter you want to use. The
 easiest way is to copy and paste the following configuration into your code.
 
-The default configuration is as follows:
+The configuration is as follows:
 
 [source,ruby]
 ----
@@ -1579,6 +1579,21 @@ Lutaml::Model::Config.configure do |config|
 end
 ----
 
+You can also provide the adapter type by using symbols like 
+
+[source,ruby]
+----
+require 'lutaml/model'
+
+Lutaml::Model::Config.configure do |config|
+  config.xml_adapter_type = :nokogiri # can be one of [:nokogiri, :ox, :oga]
+  config.yaml_adapter_type = :standard_yaml
+  config.json_adapter_type = :standard_json # can be one of [:standard_json, :multi_json]
+  config.toml_adapter_type = :toml_rb # can be one of [:toml_rb, :tomlib]
+end
+----
+
+NOTE: By default `yaml_adapter_type` and `json_adapter_type` are set to `:standard_yaml` and `:standard_json` respectively.
 
 === XML
 
