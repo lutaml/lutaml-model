@@ -1280,6 +1280,9 @@ end
 ----
 ====
 
+NOTE: The corresponding keyword used by Shale is `receiver:` instead of
+`delegate:`.
+
 
 ==== Attribute serialization with custom methods
 
@@ -1765,6 +1768,11 @@ namespace from the root element.
 |
 
 4+h| Attribute features
+
+| Attribute delegation
+| `:delegate` option to delegate attribute mappings to a model.
+| `:receiver` option to delegate attribute mappings to a model.
+|
 
 | Enumerations
 | Yes. Supports enumerations as value types through the
