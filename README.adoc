@@ -652,6 +652,7 @@ end
 
 ==== Namespaces
 
+[[root-namespace]]
 ===== Namespace at root
 
 The `namespace` method in the `xml` block sets the namespace for the root
@@ -659,12 +660,22 @@ element.
 
 Syntax:
 
+.Setting default namespace at the root element
 [source,ruby]
 ----
 xml do
   namespace 'http://example.com/namespace'
 end
 ----
+
+.Setting a prefixed namespace at the root element
+[source,ruby]
+----
+xml do
+  namespace 'http://example.com/namespace', 'prefix'
+end
+----
+
 
 .Using the `namespace` method to set the namespace for the root element
 [example]
@@ -698,10 +709,43 @@ end
 ----
 ====
 
+.Using the `namespace` method to set a prefixed namespace for the root element
+[example]
+====
+[source,ruby]
+----
+class Ceramic < Lutaml::Model::Serializable
+  attribute :type, :string
+  attribute :glaze, :string
+
+  xml do
+    root 'Ceramic'
+    namespace 'http://example.com/ceramic', 'cer'
+    map_element 'Type', to: :type
+    map_element 'Glaze', to: :glaze
+  end
+end
+----
+
+[source,xml]
+----
+<cer:Ceramic xmlns='http://example.com/ceramic'><cer:Type>Porcelain</cer:Type><cer:Glaze>Clear</cer:Glaze></cer:Ceramic>
+----
+
+[source,ruby]
+----
+> Ceramic.from_xml(xml_file)
+> #<Ceramic:0x0000000104ac7240 @type="Porcelain", @glaze="Clear">
+> Ceramic.new(type: "Porcelain", glaze: "Clear").to_xml
+> #<cer:Ceramic xmlns="http://example.com/ceramic"><cer:Type>Porcelain</cer:Type><cer:Glaze>Clear</cer:Glaze></cer:Ceramic>
+----
+====
+
+
 ===== Namespace on attribute
 
-If the namespace is defined on an XML attribute, then that will be given
-priority over the one defined in the class.
+If the namespace is defined on a model attribute that already has a namespace,
+the mapped namespace will be given priority over the one defined in the class.
 
 Syntax:
 
@@ -725,6 +769,19 @@ In this example, `glz` will be used for `Glaze` if it is added inside the
 
 [source,ruby]
 ----
+class Ceramic < Lutaml::Model::Serializable
+  attribute :type, :string
+  attribute :glaze, Glaze
+
+  xml do
+    root 'Ceramic'
+    namespace 'http://example.com/ceramic'
+
+    map_element 'Type', to: :type
+    map_element 'Glaze', to: :glaze, namespace: 'http://example.com/glaze', prefix: "glz"
+  end
+end
+
 class Glaze < Lutaml::Model::Serializable
   attribute :color, :string
   attribute :temperature, :integer
@@ -735,18 +792,6 @@ class Glaze < Lutaml::Model::Serializable
 
     map_element 'color', to: :color
     map_element 'temperature', to: :temperature
-  end
-end
-
-class Ceramic < Lutaml::Model::Serializable
-  attribute :type, :string
-  attribute :glaze, Glaze
-
-  xml do
-    root 'Ceramic'
-    map_element 'Type', to: :type
-    map_element 'Glaze', to: :glaze, namespace: 'http://example.com/glaze', prefix: "glz"
-    map_attribute 'xmlns', to: :namespace, namespace: 'http://example.com/ceramic'
   end
 end
 ----
@@ -764,6 +809,11 @@ end
 
 [source,ruby]
 ----
+> # Using the original Glaze class namespace
+> Glaze.new(color: "Clear", temperature: 1050).to_xml
+> #<glaze:Glaze xmlns="http://example.com/old_glaze"><color>Clear</color><temperature>1050</temperature></glaze:Glaze>
+
+> # Using the Ceramic class namespace for Glaze
 > Ceramic.from_xml(xml_file)
 > #<Ceramic:0x0000000104ac7240 @type="Porcelain", @glaze=#<Glaze:0x0000000104ac7240 @color="Clear", @temperature=1050>>
 > Ceramic.new(type: "Porcelain", glaze: Glaze.new(color: "Clear", temperature: 1050)).to_xml
@@ -800,7 +850,7 @@ class Ceramic < Lutaml::Model::Serializable
 
   xml do
     root 'Ceramic'
-    namespace 'http://example.com/ceramic', prefix: 'cera'
+    namespace 'http://example.com/ceramic', 'cera'
     map_element 'Type', to: :type, namespace: :inherit
     map_element 'Glaze', to: :glaze
     map_attribute 'color', to: :color, namespace: 'http://example.com/color', prefix: 'clr'
@@ -810,13 +860,13 @@ end
 
 [source,xml]
 ----
-<Ceramic
+<cera:Ceramic
   xmlns:cera='http://example.com/ceramic'
   xmlns:clr='http://example.com/color'
   clr:color="navy-blue">
   <cera:Type>Porcelain</cera:Type>
   <Glaze>Clear</Glaze>
-</Ceramic>
+</cera:Ceramic>
 ----
 
 [source,ruby]
@@ -824,12 +874,12 @@ end
 > Ceramic.from_xml(xml_file)
 > #<Ceramic:0x0000000104ac7240 @type="Porcelain", @glaze="Clear", @color="navy-blue">
 > Ceramic.new(type: "Porcelain", glaze: "Clear", color: "navy-blue").to_xml
-> #<Ceramic xmlns:cera="http://example.com/ceramic"
+> #<cera:Ceramic xmlns:cera="http://example.com/ceramic"
   # xmlns:clr='http://example.com/color'
   # clr:color="navy-blue">
   #  <cera:Type>Porcelain</cera:Type>
   #  <Glaze>Clear</Glaze>
-  # </Ceramic>
+  # </cera:Ceramic>
 ----
 ====
 
@@ -1710,6 +1760,11 @@ differences in implementation.
 | Lutaml::Model does not support CSV.
 
 4+h| XML features
+
+| <<root-namespace,XML default namespace>>
+| Yes. Supports `<root xmlns='http://example.com'>` through the `namespace` option without prefix.
+| No. Only supports `<root xmlns:prefix='http://example.com'>`.
+|
 
 | XML mixed content support
 | Yes. Supports the following kind of XML through <<mixed-content,mixed content>> support.
