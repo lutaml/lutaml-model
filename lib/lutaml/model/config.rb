@@ -50,12 +50,19 @@ module Lutaml
             adapter_file = File.join(adapter, type)
             require_relative adapter_file
           rescue LoadError
-            raise Lutaml::Model::UnknownAdapterTypeError.new(adapter_name, type_name), cause: nil
+            raise(
+              Lutaml::Model::UnknownAdapterTypeError.new(
+                adapter_name,
+                type_name,
+              ),
+              cause: nil,
+            )
           end
 
-          self.instance_variable_set(
+          instance_variable_set(
             :"@#{adapter}",
-            Lutaml::Model.const_get(to_class_name(adapter)).const_get("#{to_class_name(type)}")
+            Lutaml::Model.const_get(to_class_name(adapter))
+                         .const_get(to_class_name(type)),
           )
         end
       end
