@@ -1,8 +1,5 @@
 require "date"
 require "bigdecimal"
-require "securerandom"
-require "uri"
-require "ipaddr"
 
 module Lutaml
   module Model
