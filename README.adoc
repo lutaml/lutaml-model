@@ -168,12 +168,6 @@ attribute :name_of_attribute, {symbol | string | class}
 | `Boolean` | `:boolean` | `Lutaml::Model::Type::Boolean` | `Boolean`
 | `Decimal` | `:decimal` | `Lutaml::Model::Type::Decimal` | `::BigDecimal`
 | `Hash` | `:hash` | `Lutaml::Model::Type::Hash` | `::Hash`
-| `Uuid` | `:uuid` | `Lutaml::Model::Type::Uuid` | `::String`
-| `Symbol` | `:symbol` | `Lutaml::Model::Type::Symbol` | `Symbol`
-| `Binary` | `:binary` | `Lutaml::Model::Type::Binary` | `Binary`
-| `Url` | `:url` | `Lutaml::Model::Type::Url` | `::URI`
-| `IpAddress` | `:ip_address` | `Lutaml::Model::Type::IpAddress` | `::IPAddr`
-| `Json` | `:json` | `Lutaml::Model::Type::Json` | `::JSON`
 
 |===
 
@@ -1727,9 +1721,9 @@ differences in implementation.
 |
 
 | Value types
-| `Lutaml::Model::Type`
-| `Shale::Type`
-| Lutaml::Model uses `Lutaml::Model::Type` for value types.
+| `Lutaml::Model::Type` includes: `Integer`, `String`, `Float`, `Boolean`, `Date`, `DateTime`, `Time`, `Hash`.
+| `Shale::Type` includes: `Integer`, `String`, `Float`, `Boolean`, `Date`, `Time`.
+| Lutaml::Model supports the additional value types `DateTime` and `Hash`.
 
 | Configuration
 | `Lutaml::Model::Config`
@@ -1737,8 +1731,8 @@ differences in implementation.
 | Lutaml::Model uses a configuration block to set the serialization adapters.
 
 | Custom serialization methods
-| `:with`
-| `:using`
+| `:with`, on individual attributes
+| `:using`, on entire object/document
 | Lutaml::Model uses the `:with` keyword for custom serialization methods.
 
 | Serialization formats
@@ -1751,7 +1745,7 @@ differences in implementation.
 | XML (Nokogiri, Ox), YAML, JSON (JSON, MultiJson), TOML (Toml-rb, Tomlib), CSV
 | Lutaml::Model does not support CSV.
 
-4+h| XML
+4+h| XML features
 
 | XML mixed content support
 | Yes. Supports the following kind of XML through <<mixed-content,mixed
@@ -1770,7 +1764,7 @@ namespace from the root element.
 | No.
 |
 
-4+h| Attribute values
+4+h| Attribute features
 
 | Enumerations
 | Yes. Supports enumerations as value types through the

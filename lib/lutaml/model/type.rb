@@ -20,12 +20,6 @@ module Lutaml
         Boolean
         Decimal
         Hash
-        Uuid
-        Symbol
-        Binary
-        Url
-        IpAddress
-        Json
       ).each do |t|
         class_eval <<~HEREDOC, __FILE__, __LINE__ + 1
                      class #{t}                        # class Integer
@@ -72,18 +66,6 @@ module Lutaml
           BigDecimal(value.to_s)
         when "Hash"
           normalize_hash(Hash(value))
-        when "Uuid"
-          UUID_REGEX.match?(value) ? value : SecureRandom.uuid
-        when "Symbol"
-          value.to_sym
-        when "Binary"
-          value.force_encoding("BINARY")
-        when "Url"
-          URI.parse(value.to_s)
-        when "IpAddress"
-          IPAddr.new(value.to_s)
-        when "Json"
-          Json.cast(value)
         else
           value
         end
@@ -107,8 +89,6 @@ module Lutaml
           value.to_s("F")
         when "Hash"
           Hash(value)
-        when "Json"
-          value.to_json
         else
           value.to_s
         end
@@ -145,4 +125,3 @@ end
 
 require_relative "type/time_without_date"
 require_relative "type/date_time"
-require_relative "type/json"
