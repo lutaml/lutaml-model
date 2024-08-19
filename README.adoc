@@ -1756,8 +1756,10 @@ content>> support.
 
 [source,xml]
 ----
-<description>My name is <bold>John Doe</bold>,
-and I'm <i>28</i> years old</description>
+<description>My name is
+<bold>John Doe</bold>,
+and I'm <i>28</i>
+years old</description>
 ----
 | No. Shale's `map_content` only supports the first text node.
 |
