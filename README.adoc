@@ -13,16 +13,13 @@ objects to and from various formats such as JSON, XML, YAML, and TOML. It uses
 an adapter pattern to support multiple libraries for each format, providing
 flexibility and extensibility for your data modeling needs.
 
-The name "LutaML" comes from the Latin word for clay, "Lutum", and "ML"
-for Markup Language. Just as clay can be molded and modeled into beautiful and
-practical end products, the Lutaml::Model gem is used for data modeling,
-allowing you to shape and structure your data into useful forms.
+NOTE: Lutaml::Model is designed to be mostly compatible with the data modeling
+API of https://www.shalerb.org[Shale], an impressive Ruby data modeller.
+Lutaml::Model is meant to address advanced needs not currently addressed by
+Shale.
 
-
-NOTE: Lutaml::Model is designed to be compatible with the
-https://www.shalerb.org[Shale] data modeling API. Shale is an amazing Ruby data
-modeller. Lutaml::Model is meant to address needs that are not currently
-addressed by Shale.
+NOTE: Instructions on how to migrate from Shale to Lutaml::Model are provided in
+<<migrate-from-shale>>.
 
 
 == Data modeling in a nutshell
@@ -80,6 +77,7 @@ There are two ways to define a data model in Lutaml::Model:
 * Inheriting from the `Lutaml::Model::Serializable` class
 * Including the `Lutaml::Model::Serialize` module
 
+[[define-through-inheritance]]
 ==== Definition through inheritance
 
 The simplest way to define a model is to create a class that inherits from
@@ -98,6 +96,7 @@ class Kiln < Lutaml::Model::Serializable
 end
 ----
 
+[[define-through-inclusion]]
 ==== Definition through inclusion
 
 If the model class already has a super class that it inherits from, the model
@@ -238,6 +237,7 @@ end
 ----
 ====
 
+[[attribute-enumeration]]
 === Attribute as an enumeration
 
 An attribute can be defined as an enumeration by using the `values` directive.
@@ -777,6 +777,7 @@ end
 ----
 ====
 
+[[namespace-inherit]]
 ===== Namespace with `inherit` option
 
 The `inherit` option is used at the element level to inherit the namespace from
@@ -838,7 +839,7 @@ end
 ----
 ====
 
-
+[[mixed-content]]
 ==== Mixed content
 
 ===== General
@@ -858,6 +859,8 @@ To map this to Lutaml::Model we can use the `mixed` option in either way:
 
 * when defining the model;
 * when referencing the model.
+
+NOTE: This feature is not supported by Shale.
 
 
 ===== Specifying the `mixed` option at `root`
@@ -1071,7 +1074,7 @@ end
 ----
 ====
 
-
+[[separate-serialization-model]]
 === Separate serialization model
 
 The `Serialize` module can be used to define only serialization mappings for a
@@ -1365,7 +1368,7 @@ end
 ====
 
 
-
+[[attribute-extraction]]
 ==== Attribute extraction
 
 NOTE: This feature is for key-value data model serialization only.
@@ -1698,6 +1701,389 @@ Lutaml::Model::Config.configure do |config|
   require 'lutaml/model/toml_adapter/tomlib_adapter'
 end
 ----
+
+
+== Comparison with Shale
+
+Lutaml::Model is a serialization library that is similar to Shale, but with some
+differences in implementation.
+
+[cols="a,a,a,a",options="header"]
+|===
+| Feature | Lutaml::Model | Shale | Notes
+
+| Data model definition
+|
+3 types:
+
+* <<define-through-inheritance,Inherit from `Lutaml::Model::Serializable`>>
+* <<define-through-inclusion,Include `Lutaml::Model::Serialize`>>
+* <<separate-serialization-model,Separate serialization model class>>
+|
+2 types:
+
+* Inherit from `Shale::Mapper`
+* Custom model class
+|
+
+| Value types
+| `Lutaml::Model::Type`
+| `Shale::Type`
+| Lutaml::Model uses `Lutaml::Model::Type` for value types.
+
+| Configuration
+| `Lutaml::Model::Config`
+| `Shale.{type}_adapter`
+| Lutaml::Model uses a configuration block to set the serialization adapters.
+
+| Custom serialization methods
+| `:with`
+| `:using`
+| Lutaml::Model uses the `:with` keyword for custom serialization methods.
+
+| Serialization formats
+| XML, YAML, JSON, TOML
+| XML, YAML, JSON, TOML, CSV
+| Lutaml::Model does not support CSV.
+
+| Adapter support
+| XML (Nokogiri, Ox, Oga), YAML, JSON (JSON, MultiJson), TOML (Toml-rb, Tomlib)
+| XML (Nokogiri, Ox), YAML, JSON (JSON, MultiJson), TOML (Toml-rb, Tomlib), CSV
+| Lutaml::Model does not support CSV.
+
+4+h| XML
+
+| XML mixed content support
+| Yes. Supports the following kind of XML through <<mixed-content,mixed
+content>> support.
+
+[source,xml]
+----
+<description>My name is <bold>John Doe</bold>, and I'm <i>28</i> years old</description>
+----
+| No. Shale's `map_content` only supports the first text node.
+|
+
+| XML namespace inheritance
+| Yes. Supports the <<namespace-inherit,`inherit`>> option to inherit the
+namespace from the root element.
+| No.
+|
+
+4+h| Attribute values
+
+| Enumerations
+| Yes. Supports enumerations as value types through the
+<<attribute-enumeration,`values:` option>>.
+| No.
+| Lutaml::Model supports enumerations as value types.
+
+| Attribute extraction
+| Yes. Supports <<attribute-extraction,attribute extraction>> from key-value
+data models.
+| No.
+| Lutaml::Model supports attribute extraction from key-value data models.
+
+
+|===
+
+
+[[migrate-from-shale]]
+== Migration steps from Shale
+
+The following sections provide a guide for migrating from Shale to Lutaml::Model.
+
+=== Step 1: Replace inheritance class
+
+`Lutaml::Model` uses `Lutaml::Model::Serializable` as the base inheritance class.
+
+[source,ruby]
+----
+class Example < Lutaml::Model::Serializable
+  # ...
+end
+----
+
+[NOTE]
+====
+`Lutaml::Model` also supports an inclusion method as in the following example,
+which is not supported by Shale. This is useful for cases where you want to
+include the serialization methods in a class that already inherits from another
+class.
+
+[source,ruby]
+----
+class Example
+  include Lutaml::Model::Serialize
+  # ...
+end
+----
+====
+
+Shale uses `Shale::Mapper` as the base inheritance class.
+
+[source,ruby]
+----
+class Example < Shale::Mapper
+  # ...
+end
+----
+
+Actions:
+
+* Replace mentions of `Shale::Mapper` with `Lutaml::Model::Serializable`.
+* Potentially replace inheritance with inclusion for suitable cases.
+
+
+=== Step 2: Replace value type definitions
+
+Value types in `Lutaml::Model` are under the `Lutaml::Model::Type` module.
+
+[source,ruby]
+----
+class Example < Lutaml::Model::Serializable
+  attribute :length, Lutaml::Model::Type::Integer
+  attribute :description, Lutaml::Model::Type::String
+end
+----
+
+[NOTE]
+====
+`Lutaml::Model` also supports specifying predefined value types as strings or
+symbols, which is not supported by Shale.
+
+[source,ruby]
+----
+class Example < Lutaml::Model::Serializable
+  attribute :length, :integer
+  attribute :description, "String"
+end
+----
+====
+
+Value types in Shale are under the `Shale::Type` module.
+
+[source,ruby]
+----
+class Example < Shale::Mapper
+  attribute :length, Shale::Type::Integer
+  attribute :description, Shale::Type::String
+end
+----
+
+Action:
+
+* Replace mentions of `Shale::Type` with `Lutaml::Model::Type`.
+* Potentially replace value type definitions with strings or symbols.
+
+
+=== Step 3: Configure serialization adapters
+
+`Lutaml::Model` uses a configuration block to set the serialization adapters.
+
+[source,ruby]
+----
+require 'lutaml/model/xml_adapter/nokogiri_adapter'
+Lutaml::Model::Config.configure do |config|
+  config.xml_adapter = Lutaml::Model::XmlAdapter::NokogiriAdapter
+end
+----
+
+The equivalent for Shale is this:
+
+[source,ruby]
+----
+require 'shale/adapter/nokogiri'
+Shale.xml_adapter = Shale::Adapter::Nokogiri
+----
+
+
+Here are places that this code may reside at:
+
+* If your code is a standalone Ruby script, this code will be present in your code.
+* If your code is organized in a Ruby gem, this code will be specified somewhere referenced by `lib/your_gem_name.rb`.
+* If your code contains tests or specs, they will be in the test setup file, e.g. RSpec `spec/spec_helper.rb`.
+
+Actions:
+
+* Replace the Shale configuration block with the `Lutaml::Model::Config`
+configuration block.
+
+* Replace the Shale adapter with the `Lutaml::Model` adapter.
+
+
+
+=== Step 4: Rewrite custom serialization methods
+
+There is an implementation difference between Lutaml::Model and Shale for custom
+serialization methods.
+
+Custom serialization methods in `Lutaml::Model` map to individual attributes.
+
+For custom serialization methods, Lutaml::Model uses the `:with` keyword
+instead of the `:using` keyword used by Shale.
+
+[source,ruby]
+----
+class Example < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :size, :integer
+  attribute :color, :string
+  attribute :description, :string
+
+  json do
+    map "name", to: :name, with: { to: :name_to_json, from: :name_from_json }
+    map "size", to: :size
+    map "color", to: :color,
+                 with: { to: :color_to_json, from: :color_from_json }
+    map "description", to: :description,
+                       with: { to: :description_to_json, from: :description_from_json }
+  end
+
+  xml do
+    root "CustomSerialization"
+    map_element "Name", to: :name,
+                        with: { to: :name_to_xml, from: :name_from_xml }
+    map_attribute "Size", to: :size
+    map_element "Color", to: :color,
+                         with: { to: :color_to_xml, from: :color_from_xml }
+    map_content to: :description,
+                with: { to: :description_to_xml,
+                        from: :description_from_xml }
+  end
+
+  def name_to_json(_model, value)
+    "JSON Masterpiece: #{value}"
+  end
+
+  def name_from_json(_model, doc)
+    doc["name"].sub(/^JSON Masterpiece: /, "")
+  end
+
+  def color_to_json(_model, value)
+    value.upcase
+  end
+
+  def color_from_json(_model, doc)
+    doc["color"].downcase
+  end
+
+  def description_to_json(_model, value)
+    "JSON Description: #{value}"
+  end
+
+  def description_from_json(_model, doc)
+    doc["description"].sub(/^JSON Description: /, "")
+  end
+
+  def name_to_xml(_model, value)
+    "XML Masterpiece: #{value}"
+  end
+
+  def name_from_xml(_model, value)
+    value.sub(/^XML Masterpiece: /, "")
+  end
+
+  def color_to_xml(_model, value)
+    value.upcase
+  end
+
+  def color_from_xml(_model, value)
+    value.downcase
+  end
+
+  def description_to_xml(_model, value)
+    "XML Description: #{value}"
+  end
+
+  def description_from_xml(_model, value)
+    value.sub(/^XML Description: /, "")
+  end
+end
+----
+
+Custom serialization methods in Shale do not map to specific attributes, but
+allow the user to specify where the data goes.
+
+[source,ruby]
+----
+class Example < Shale::Mapper
+  attribute :name, Shale::Type::String
+  attribute :size, Shale::Type::Integer
+  attribute :color, Shale::Type::String
+  attribute :description, Shale::Type::String
+
+  json do
+    map "name", using: { from: :name_from_json, to: :name_to_json }
+    map "size", to: :size
+    map "color", using: { from: :color_from_json, to: :color_to_json }
+    map "description", to: :description, using: { from: :description_from_json, to: :description_to_json }
+  end
+
+  xml do
+    root "CustomSerialization"
+    map_element "Name", using: { from: :name_from_xml, to: :name_to_xml }
+    map_attribute "Size", to: :size
+    map_element "Color", using: { from: :color_from_xml, to: :color_to_xml }
+    map_content to: :description, using: { from: :description_from_xml, to: :description_to_xml }
+  end
+
+  def name_to_json(model, doc)
+    doc['name'] = "JSON Masterpiece: #{model.name}"
+  end
+
+  def name_from_json(model, value)
+    model.name = value.sub(/^JSON Masterpiece: /, "")
+  end
+
+  def color_to_json(model, doc)
+    doc['color'] = model.color.upcase
+  end
+
+  def color_from_json(model, doc)
+    model.color = doc['color'].downcase
+  end
+
+  def description_to_json(model, doc)
+    doc['description'] = "JSON Description: #{model.description}"
+  end
+
+  def description_from_json(model, doc)
+    model.description = doc['description'].sub(/^JSON Description: /, "")
+  end
+
+  def name_from_xml(model, node)
+    model.name = node.text.sub(/^XML Masterpiece: /, "")
+  end
+
+  def name_to_xml(model, parent, doc)
+    name_element = doc.create_element('Name')
+    doc.add_text(name_element, model.street.to_s)
+    doc.add_element(parent, name_element)
+  end
+end
+----
+
+NOTE: There are cases where the Shale implementation of custom methods work
+differently from the Lutaml::Model implementation. In these cases, you will need
+to adjust the custom methods accordingly.
+
+Actions:
+
+* Replace the `using` keyword with the `with` keyword.
+* Adjust the custom methods.
+
+
+== About LutaML
+
+The name "LutaML" is pronounced as "Looh-tah-mel".
+
+The name "LutaML" comes from the Latin word for clay, "Lutum", and "ML"
+for "Markup Language". Just as clay can be molded and modeled into beautiful and
+practical end products, the Lutaml::Model gem is used for data modeling,
+allowing you to shape and structure your data into useful forms.
+
+
 
 == License and Copyright
 
