@@ -13,8 +13,6 @@ require_relative "comparable_model"
 module Lutaml
   module Model
     module Serialize
-      FORMATS = %i[xml json yaml toml].freeze
-
       include ComparableModel
 
       def self.included(base)
@@ -73,7 +71,7 @@ module Lutaml
           attr.options[:values].include?(value)
         end
 
-        FORMATS.each do |format|
+        Lutaml::Model::Config::AVAILABLE_FORMATS.each do |format|
           define_method(format) do |&block|
             klass = format == :xml ? XmlMapping : KeyValueMapping
             mappings[format] = klass.new
@@ -432,14 +430,14 @@ module Lutaml
       end
 
       def key_exist?(hash, key)
-        hash.key?(key) || hash.key?(key.to_sym) || hash.key?(key.to_s)
+        hash.key?(key.to_sym) || hash.key?(key.to_s)
       end
 
       def key_value(hash, key)
-        hash[key] || hash[key.to_sym] || hash[key.to_s]
+        hash[key.to_sym] || hash[key.to_s]
       end
 
-      FORMATS.each do |format|
+      Lutaml::Model::Config::AVAILABLE_FORMATS.each do |format|
         define_method(:"to_#{format}") do |options = {}|
           validate
           adapter = Lutaml::Model::Config.public_send(:"#{format}_adapter")
