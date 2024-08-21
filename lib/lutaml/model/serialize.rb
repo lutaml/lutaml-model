@@ -85,9 +85,15 @@ module Lutaml
           define_method(:"from_#{format}") do |data|
             adapter = Lutaml::Model::Config.send(:"#{format}_adapter")
             doc = adapter.parse(data)
-            mapped_attrs = apply_mappings(doc.to_h, format)
+
+            instance = model.new
+
+            # mapped_attrs = apply_mappings(doc.to_h, format, instance)
+            apply_mappings(doc.to_h, format, instance)
+
             # apply_content_mapping(doc, mapped_attrs) if format == :xml
-            generate_model_object(self, mapped_attrs)
+            # generate_model_object(self, mapped_attrs)
+            instance
           end
 
           define_method(:"to_#{format}") do |instance|
@@ -121,7 +127,8 @@ module Lutaml
             next handle_delegate(instance, rule, hash) if rule.delegate
 
             value = if rule.custom_methods[:to]
-                      instance.send(rule.custom_methods[:to], instance, instance.send(name))
+                      instance.send(rule.custom_methods[:to], instance, hash)
+                      next
                     else
                       instance.send(name)
                     end
@@ -279,8 +286,8 @@ module Lutaml
           hash
         end
 
-        def apply_mappings(doc, format)
-          return apply_xml_mapping(doc) if format == :xml
+        def apply_mappings(doc, format, instance)
+          return apply_xml_mapping(doc, instance) if format == :xml
 
           mappings = mappings_for(format).mappings
           mappings.each_with_object(Lutaml::Model::MappingHash.new) do |rule, hash|
@@ -292,34 +299,49 @@ module Lutaml
 
             raise "Attribute '#{rule.to}' not found in #{self}" unless attr
 
-            value = if rule.custom_methods[:from]
-                      new.send(rule.custom_methods[:from], hash, doc)
-                    elsif doc.key?(rule.name) || doc.key?(rule.name.to_sym)
+            value = if doc.key?(rule.name) || doc.key?(rule.name.to_sym)
                       doc[rule.name] || doc[rule.name.to_sym]
                     else
                       attr.default
                     end
 
+            if rule.custom_methods[:from]
+              value = new.send(rule.custom_methods[:from], instance, value)
+              next
+            end
+
             value = apply_child_mappings(value, rule.child_mappings)
 
             if attr.collection?
               value = (value || []).map do |v|
-                attr.type <= Serialize ? attr.type.apply_mappings(v, format) : v
+                child_instance = attr.type.model.new
+                attr.type <= Serialize ? attr.type.apply_mappings(v, format, child_instance) : Lutaml::Model::Type.cast(v, attr.type)
+                child_instance
               end
             elsif value.is_a?(Hash) && attr.type != Lutaml::Model::Type::Hash
-              value = attr.type.apply_mappings(value, format)
+              child_instance = attr.type.model.new
+              attr.type.apply_mappings(value, format, child_instance)
+              value = child_instance
+            else
+              value = Lutaml::Model::Type.cast(value, attr.type)
             end
 
             if rule.delegate
               hash[rule.delegate] ||= {}
               hash[rule.delegate][rule.to] = value
+
+              if instance.public_send(rule.delegate).nil?
+                instance.public_send(:"#{rule.delegate}=", attributes[rule.delegate].type.new)
+              end
+              instance.public_send(rule.delegate).public_send("#{rule.to}=", value)
             else
               hash[rule.to] = value
+              instance.public_send("#{rule.to}=", value)
             end
           end
         end
 
-        def apply_xml_mapping(doc, caller_class: nil, mixed_content: false)
+        def apply_xml_mapping(doc, instance, caller_class: nil, mixed_content: false)
           return unless doc
 
           mappings = mappings_for(:xml).mappings
@@ -332,6 +354,11 @@ module Lutaml
           mapping_hash = Lutaml::Model::MappingHash.new
           mapping_hash.item_order = doc.item_order
           mapping_hash.ordered = mappings_for(:xml).mixed_content? || mixed_content
+
+          if instance.respond_to?(:ordered=)
+            instance.ordered = mapping_hash.ordered
+            instance.element_order = mapping_hash.item_order
+          end
 
           mapping_from = []
 
@@ -353,15 +380,19 @@ module Lutaml
 
               value = (value || []).map do |v|
                 if attr.type <= Serialize
-                  attr.type.apply_xml_mapping(v, caller_class: self, mixed_content: rule.mixed_content)
+                  child_instance = attr.type.model.new
+                  attr.type.apply_xml_mapping(v, child_instance, caller_class: self, mixed_content: rule.mixed_content)
+                  child_instance
                 elsif v.is_a?(Hash)
-                  v["text"]
+                  Lutaml::Model::Type.cast(v["text"], attr.type)
                 else
-                  v
+                  Lutaml::Model::Type.cast(v, attr.type)
                 end
               end
             elsif attr.type <= Serialize
-              value = attr.type.apply_xml_mapping(value, caller_class: self, mixed_content: rule.mixed_content)
+              child_instance = attr.type.model.new
+              attr.type.apply_xml_mapping(value, child_instance, caller_class: self, mixed_content: rule.mixed_content)
+              value = child_instance
             else
               if value.is_a?(Hash) && attr.type != Lutaml::Model::Type::Hash
                 value = value["text"]
@@ -372,6 +403,7 @@ module Lutaml
 
             mapping_from << rule if rule.custom_methods[:from]
 
+            instance.public_send("#{rule.to}=", value)
             hash[rule.to] = value
           end
 
@@ -382,7 +414,8 @@ module Lutaml
                       mapping_hash[rule.to]
                     end
 
-            mapping_hash[rule.to] = new.send(rule.custom_methods[:from], mapping_hash, value)
+            new.send(rule.custom_methods[:from], instance, value)
+            mapping_hash[rule.to] = value
           end
 
           mapping_hash
@@ -406,7 +439,7 @@ module Lutaml
         end
       end
 
-      attr_reader :element_order
+      attr_accessor :element_order
 
       def initialize(attrs = {})
         return unless self.class.attributes
@@ -427,6 +460,10 @@ module Lutaml
 
       def ordered?
         @ordered
+      end
+
+      def ordered=(ordered)
+        @ordered = ordered
       end
 
       def key_exist?(hash, key)

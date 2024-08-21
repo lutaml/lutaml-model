@@ -97,6 +97,86 @@ module Lutaml
           end
         end
 
+        def add_to_xml(xml, prefix, value, attribute, rule)
+          if rule.custom_methods[:to]
+            @root.send(rule.custom_methods[:to], @root, xml.parent, xml)
+            return
+          end
+
+          if value && (attribute&.type&.<= Lutaml::Model::Serialize)
+            handle_nested_elements(
+              xml,
+              value,
+              rule: rule,
+              attribute: attribute,
+            )
+          else
+            xml.create_and_add_element(rule.name, prefix: prefix) do
+              if !value.nil?
+                serialized_value = attribute.type.serialize(value)
+
+                if attribute.type == Lutaml::Model::Type::Hash
+                  serialized_value.each do |key, val|
+                    xml.create_and_add_element(key) { |element| element.text(val) }
+                  end
+                else
+                  xml.add_text(xml, serialized_value)
+                end
+              end
+            end
+          end
+        end
+
+        def build_unordered_element(xml, element, options = {})
+          mapper_class = options[:mapper_class] || element.class
+          xml_mapping = mapper_class.mappings_for(:xml)
+          return xml unless xml_mapping
+
+          attributes = options[:xml_attributes] ||= {}
+          attributes = build_attributes(element,
+                                        xml_mapping).merge(attributes)&.compact
+
+          prefix = if options.key?(:namespace_prefix)
+                     options[:namespace_prefix]
+                   elsif xml_mapping.namespace_prefix
+                     xml_mapping.namespace_prefix
+                   end
+
+          prefixed_xml = xml.add_namespace_prefix(prefix)
+          tag_name = options[:tag_name] || xml_mapping.root_element
+
+          xml.create_and_add_element(tag_name, prefix: prefix, attributes: attributes) do
+            if options.key?(:namespace_prefix) && !options[:namespace_prefix]
+              xml.add_namespace_prefix(nil)
+            end
+
+            xml_mapping.elements.each do |element_rule|
+              attribute_def = attribute_definition_for(element, element_rule, mapper_class: mapper_class)
+              value = attribute_value_for(element, element_rule)
+
+              next if value.nil? && !element_rule.render_nil?
+
+              if attribute_def.collection?
+                value.each do |v|
+                  add_to_xml(xml, element_rule.prefix, v, attribute_def, element_rule)
+                end
+              elsif !value.nil? || element_rule.render_nil?
+                add_to_xml(xml, element_rule.prefix, value, attribute_def, element_rule)
+              end
+            end
+
+            if (content_rule = xml_mapping.content_mapping)
+              if content_rule.custom_methods[:to]
+                @root.send(content_rule.custom_methods[:to], element, prefixed_xml.parent, prefixed_xml)
+              else
+                text = element.send(content_rule.to)
+                text = text.join if text.is_a?(Array)
+                prefixed_xml.add_text(xml, text)
+              end
+            end
+          end
+        end
+
         def ordered?(element, options = {})
           return false unless element.respond_to?(:element_order)
           return element.ordered? if element.respond_to?(:ordered?)

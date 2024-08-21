@@ -4,6 +4,84 @@ require_relative "xml_document"
 module Lutaml
   module Model
     module XmlAdapter
+      class OxXmlBuilder
+        def self.build(options = {})
+          if block_given?
+            Ox::Builder.new(options) do |xml|
+              yield(new(xml))
+            end
+          else
+            new(Ox::Builder.new(options))
+          end
+        end
+
+        attr_reader :xml
+
+        def initialize(xml)
+          @xml = xml
+        end
+
+        def create_element(name, attributes = {})
+          if block_given?
+            xml.element(name, attributes) do |element|
+              yield(OxXmlBuilder.new(element))
+            end
+          else
+            xml.element(name, attributes)
+          end
+        end
+
+        def add_element(element, child)
+          element << child
+        end
+
+        def create_and_add_element(element_name, prefix: nil, attributes: {})
+          prefixed_name = if prefix
+                            "#{prefix}:#{element_name}"
+                          else
+                            element_name
+                          end
+
+          if block_given?
+            xml.element(prefixed_name, attributes) do |element|
+              yield(OxXmlBuilder.new(element))
+            end
+          else
+            xml.element(prefixed_name, attributes)
+          end
+        end
+
+        def <<(text)
+          xml.text(text)
+        end
+
+        def add_text(element, text)
+          element << text
+        end
+
+        # Add XML namespace to document
+        #
+        # Ox doesn't support XML namespaces so this method does nothing.
+        def add_namespace_prefix(prefix)
+          # :noop:
+          self
+        end
+
+        def parent
+          xml
+        end
+
+        # def method_missing(method_name, *args)
+        #   if block_given?
+        #     xml.public_send(method_name, *args) do
+        #       yield(xml)
+        #     end
+        #   else
+        #     xml.public_send(method_name, *args)
+        #   end
+        # end
+      end
+
       class OxAdapter < XmlDocument
         def self.parse(xml)
           parsed = Ox.parse(xml)
@@ -12,7 +90,7 @@ module Lutaml
         end
 
         def to_xml(options = {})
-          builder = Ox::Builder.new
+          builder = OxXmlBuilder.build
 
           if @root.is_a?(Lutaml::Model::XmlAdapter::OxElement)
             @root.to_xml(builder)
@@ -22,65 +100,11 @@ module Lutaml
             build_element(builder, @root, options)
           end
 
-          # xml_data = Ox.dump(builder)
-          xml_data = builder.to_s
+          xml_data = builder.xml.to_s
           options[:declaration] ? declaration(options) + xml_data : xml_data
         end
 
         private
-
-        def build_unordered_element(builder, element, options = {})
-          mapper_class = options[:mapper_class] || element.class
-          xml_mapping = mapper_class.mappings_for(:xml)
-          return xml unless xml_mapping
-
-          attributes = build_attributes(element, xml_mapping).compact
-
-          tag_name = options[:tag_name] || xml_mapping.root_element
-          prefixed_name = if options.key?(:namespace_prefix)
-                            [options[:namespace_prefix], tag_name].compact.join(":")
-                          elsif xml_mapping.namespace_prefix
-                            "#{xml_mapping.namespace_prefix}:#{tag_name}"
-                          else
-                            tag_name
-                          end
-
-          builder.element(prefixed_name, attributes) do |el|
-            xml_mapping.elements.each do |element_rule|
-              attribute_def = attribute_definition_for(element, element_rule, mapper_class: mapper_class)
-              value = attribute_value_for(element, element_rule)
-
-              val = if attribute_def.collection?
-                      value
-                    elsif value || element_rule.render_nil?
-                      [value]
-                    else
-                      []
-                    end
-
-              val.each do |v|
-                if attribute_def&.type&.<= Lutaml::Model::Serialize
-                  handle_nested_elements(el, v, rule: element_rule, attribute: attribute_def)
-                else
-                  builder.element(element_rule.prefixed_name) do |el|
-                    el.text(attribute_def.type.serialize(v)) if v
-                  end
-                end
-              end
-            end
-
-            if (content_rule = xml_mapping.content_mapping)
-              text = element.send(xml_mapping.content_mapping.to)
-              text = text.join if text.is_a?(Array)
-
-              if content_rule.custom_methods[:to]
-                text = @root.send(content_rule.custom_methods[:to], @root, text)
-              end
-
-              el.text text
-            end
-          end
-        end
 
         def build_ordered_element(builder, element, options = {})
           mapper_class = options[:mapper_class] || element.class
@@ -90,7 +114,7 @@ module Lutaml
           attributes = build_attributes(element, xml_mapping).compact
 
           tag_name = options[:tag_name] || xml_mapping.root_element
-          builder.element(tag_name, attributes) do |el|
+          builder.create_and_add_element(tag_name, attributes: attributes) do |el|
             index_hash = {}
 
             element.element_order.each do |name|
@@ -106,17 +130,17 @@ module Lutaml
                 text = element.send(xml_mapping.content_mapping.to)
                 text = text[curr_index] if text.is_a?(Array)
 
-                el.text text
+                el.add_text(el, text)
               elsif attribute_def.collection?
-                add_to_xml(el, value[curr_index], attribute_def, element_rule)
+                add_to_xml_old(el, value[curr_index], attribute_def, element_rule)
               elsif !value.nil? || element_rule.render_nil?
-                add_to_xml(el, value, attribute_def, element_rule)
+                add_to_xml_old(el, value, attribute_def, element_rule)
               end
             end
           end
         end
 
-        def add_to_xml(xml, value, attribute, rule)
+        def add_to_xml_old(xml, value, attribute, rule)
           if rule.custom_methods[:to]
             value = @root.send(rule.custom_methods[:to], @root, value)
           end
@@ -129,7 +153,7 @@ module Lutaml
               attribute: attribute,
             )
           else
-            xml.element(rule.name) do |el|
+            element = xml.create_element(rule.name) do |el|
               if !value.nil?
                 serialized_value = attribute.type.serialize(value)
 
@@ -138,7 +162,7 @@ module Lutaml
                     el.element(key) { |child_el| child_el.text val }
                   end
                 else
-                  el.text(serialized_value)
+                  el.add_text(el, serialized_value)
                 end
               end
             end
@@ -188,13 +212,13 @@ module Lutaml
         end
 
         def to_xml(builder = nil)
-          builder ||= Ox::Builder.new
+          builder ||= OxXmlBuilder.build
           attrs = build_attributes(self)
 
           if text?
-            builder.text(text)
+            builder.add_text(builder, text)
           else
-            builder.element(name, attrs) do |el|
+            builder.create_and_add_element(name, attributes: attrs) do |el|
               children.each { |child| child.to_xml(el) }
             end
           end

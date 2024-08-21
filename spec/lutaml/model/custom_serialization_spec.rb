@@ -28,52 +28,60 @@ class CustomSerialization < Lutaml::Model::Serializable
                         from: :description_from_xml }
   end
 
-  def name_to_json(_model, value)
-    "JSON Masterpiece: #{value}"
+  def name_to_json(model, doc)
+    doc["name"] = "JSON Masterpiece: #{model.name}"
   end
 
-  def name_from_json(_model, doc)
-    doc["name"].sub(/^JSON Masterpiece: /, "")
+  def name_from_json(model, value)
+    model.name = value.sub(/^JSON Masterpiece: /, "")
   end
 
-  def color_to_json(_model, value)
-    value.upcase
+  def color_to_json(model, doc)
+    doc["color"] = model.color.upcase
   end
 
-  def color_from_json(_model, doc)
-    doc["color"].downcase
+  def color_from_json(model, value)
+    model.color = value.downcase
   end
 
-  def description_to_json(_model, value)
-    "JSON Description: #{value}"
+  def description_to_json(model, doc)
+    doc["description"] = "JSON Description: #{model.description}"
   end
 
-  def description_from_json(_model, doc)
-    doc["description"].sub(/^JSON Description: /, "")
+  def description_from_json(model, value)
+    # model.description = doc["description"].sub(/^JSON Description: /, "")
+    model.description = value.sub(/^JSON Description: /, "")
   end
 
-  def name_to_xml(_model, value)
-    "XML Masterpiece: #{value}"
+  def name_to_xml(model, parent, doc)
+    # doc["name"] = "XML Masterpiece: #{model.name}"
+
+    el = doc.create_element('Name')
+    doc.add_text(el, "XML Masterpiece: #{model.name}")
+    doc.add_element(parent, el)
   end
 
-  def name_from_xml(_model, value)
-    value.sub(/^XML Masterpiece: /, "")
+  def name_from_xml(model, value)
+    # value.sub(/^XML Masterpiece: /, "")
+    model.name = value.sub(/^XML Masterpiece: /, "")
   end
 
-  def color_to_xml(_model, value)
-    value.upcase
+  def color_to_xml(model, parent, doc)
+    color_element = doc.create_element("Color")
+    doc.add_text(color_element, model.color.upcase)
+    doc.add_element(parent, color_element)
   end
 
-  def color_from_xml(_model, value)
-    value.downcase
+  def color_from_xml(model, value)
+    model.color = value.downcase
   end
 
-  def description_to_xml(_model, value)
-    "XML Description: #{value}"
+  def description_to_xml(model, parent, doc)
+    doc.add_text(parent, "XML Description: #{model.description}")
   end
 
-  def description_from_xml(_model, value)
-    value.sub(/^XML Description: /, "")
+  def description_from_xml(model, value)
+    model.description = value.sub(/^XML Description: /, "")
   end
 end
 
