@@ -13,17 +13,15 @@ RSpec.shared_examples "a YAML adapter" do |adapter_class|
   end
 
   it "serializes to YAML" do
-    yaml = described_class.to_yaml(
-      model.class.hash_representation(model, :yaml),
-    )
+    yaml = adapter_class.new(attributes).to_yaml
 
     expect(yaml).to eq(expected_yaml)
   end
 
   it "deserializes from YAML" do
-    new_model = described_class.from_yaml(expected_yaml, SampleModel)
-    expect(new_model.name).to eq("John Doe")
-    expect(new_model.age).to eq(30)
+    new_model = adapter_class.parse(expected_yaml)
+    expect(new_model["name"]).to eq("John Doe")
+    expect(new_model["age"]).to eq(30)
   end
 end
 
