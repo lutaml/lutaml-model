@@ -157,6 +157,8 @@ module Lutaml
               next if value.nil? && !element_rule.render_nil?
 
               if attribute_def.collection?
+                value = [value] unless value.is_a?(Array)
+
                 value.each do |v|
                   add_to_xml(xml, element_rule.prefix, v, attribute_def, element_rule)
                 end

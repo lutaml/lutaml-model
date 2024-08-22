@@ -62,9 +62,7 @@ module Lutaml
             cast(v, format, instance: instance)
           end
         elsif type <= Serialize
-          instance ||= type.model.new
-          type.apply_mappings(value, format, instance, options)
-          instance
+          type.apply_mappings(value, format, options)
         else
           Lutaml::Model::Type.cast(value, type)
         end

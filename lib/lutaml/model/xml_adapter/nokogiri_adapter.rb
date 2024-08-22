@@ -64,6 +64,10 @@ module Lutaml
             xml.public_send(method_name, *args)
           end
         end
+
+        def respond_to_missing?(method_name, include_private = false)
+          xml.respond_to?(method_name) || super
+        end
       end
 
       class NokogiriAdapter < XmlDocument
@@ -133,8 +137,12 @@ module Lutaml
 
                 prefixed_xml.text text
               elsif attribute_def.collection?
-                add_to_xml_old(nsp_xml, value[curr_index], attribute_def,
-                           element_rule)
+                add_to_xml_old(
+                  nsp_xml,
+                  value[curr_index],
+                  attribute_def,
+                  element_rule,
+                )
               elsif !value.nil? || element_rule.render_nil?
                 add_to_xml_old(nsp_xml, value, attribute_def, element_rule)
               end
