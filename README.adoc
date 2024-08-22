@@ -1766,8 +1766,7 @@ differences in implementation.
 4+h| XML features
 
 | XML mixed content support
-| Yes. Supports the following kind of XML through <<mixed-content,mixed
-content>> support.
+| Yes. Supports the following kind of XML through <<mixed-content,mixed content>> support.
 
 [source,xml]
 ----
