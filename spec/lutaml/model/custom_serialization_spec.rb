@@ -49,7 +49,6 @@ class CustomSerialization < Lutaml::Model::Serializable
   end
 
   def description_from_json(model, value)
-    # model.description = doc["description"].sub(/^JSON Description: /, "")
     model.description = value.sub(/^JSON Description: /, "")
   end
 
