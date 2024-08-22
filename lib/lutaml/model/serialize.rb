@@ -86,11 +86,7 @@ module Lutaml
             adapter = Lutaml::Model::Config.send(:"#{format}_adapter")
             doc = adapter.parse(data)
 
-            instance = model.new
-
-            apply_mappings(doc.to_h, format, instance)
-
-            instance
+            apply_mappings(doc.to_h, format)
           end
 
           define_method(:"to_#{format}") do |instance|
@@ -237,7 +233,8 @@ module Lutaml
           hash
         end
 
-        def apply_mappings(doc, format, instance, options = {})
+        def apply_mappings(doc, format, options = {})
+          instance = options[:instance] || model.new
           return apply_xml_mapping(doc, instance, options) if format == :xml
 
           mappings = mappings_for(format).mappings
@@ -268,29 +265,28 @@ module Lutaml
               if instance.public_send(rule.delegate).nil?
                 instance.public_send(:"#{rule.delegate}=", attributes[rule.delegate].type.new)
               end
-              instance.public_send(rule.delegate).public_send("#{rule.to}=", value)
+              instance.public_send(rule.delegate).public_send(:"#{rule.to}=", value)
             else
-              instance.public_send("#{rule.to}=", value)
+              instance.public_send(:"#{rule.to}=", value)
             end
           end
+
+          instance
         end
 
         def apply_xml_mapping(doc, instance, options = {})
-          return unless doc
+          return instance unless doc
 
           mappings = mappings_for(:xml).mappings
 
           if doc.is_a?(Array)
             raise "May be `collection: true` is" \
-                  "missing for #{self} in #{caller_class}"
+                  "missing for #{self} in #{options[:caller_class]}"
           end
-
-          caller_class = options[:caller_class]
-          mixed_content = options[:mixed_content]
 
           if instance.respond_to?(:ordered=)
             instance.element_order = doc.item_order
-            instance.ordered = mappings_for(:xml).mixed_content? || mixed_content
+            instance.ordered = mappings_for(:xml).mixed_content? || options[:mixed_content]
           end
 
           mappings.each do |rule|
@@ -306,11 +302,7 @@ module Lutaml
 
             if value.is_a?(Array)
               value = value.map do |v|
-                if v.is_a?(Hash) && !(attr.type <= Serialize)
-                  v["text"]
-                else
-                  v
-                end
+                v.is_a?(Hash) && !(attr.type <= Serialize) ? v["text"] : v
               end
             elsif !(attr.type <= Serialize) && value.is_a?(Hash) && attr.type != Lutaml::Model::Type::Hash
               value = value["text"]
@@ -328,9 +320,11 @@ module Lutaml
             if rule.custom_methods[:from]
               new.send(rule.custom_methods[:from], instance, value)
             else
-              instance.public_send("#{rule.to}=", value)
+              instance.public_send(:"#{rule.to}=", value)
             end
           end
+
+          instance
         end
 
         def ensure_utf8(value)

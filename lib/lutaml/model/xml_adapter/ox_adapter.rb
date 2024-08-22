@@ -62,7 +62,7 @@ module Lutaml
         # Add XML namespace to document
         #
         # Ox doesn't support XML namespaces so this method does nothing.
-        def add_namespace_prefix(prefix)
+        def add_namespace_prefix(_prefix)
           # :noop:
           self
         end
@@ -79,6 +79,10 @@ module Lutaml
           else
             xml.public_send(method_name, *args)
           end
+        end
+
+        def respond_to_missing?(method_name, include_private = false)
+          xml.respond_to?(method_name) || super
         end
       end
 
@@ -153,7 +157,7 @@ module Lutaml
               attribute: attribute,
             )
           else
-            element = xml.create_element(rule.name) do |el|
+            xml.create_element(rule.name) do |el|
               if !value.nil?
                 serialized_value = attribute.type.serialize(value)
 
