@@ -88,11 +88,8 @@ module Lutaml
 
             instance = model.new
 
-            # mapped_attrs = apply_mappings(doc.to_h, format, instance)
             apply_mappings(doc.to_h, format, instance)
 
-            # apply_content_mapping(doc, mapped_attrs) if format == :xml
-            # generate_model_object(self, mapped_attrs)
             instance
           end
 
@@ -124,83 +121,39 @@ module Lutaml
             name = rule.to
             next if except&.include?(name) || (only && !only.include?(name))
 
-            next handle_delegate(instance, rule, hash) if rule.delegate
+            next handle_delegate(instance, rule, hash, format) if rule.delegate
+            next instance.send(rule.custom_methods[:to], instance, hash) if rule.custom_methods[:to]
 
-            value = if rule.custom_methods[:to]
-                      instance.send(rule.custom_methods[:to], instance, hash)
-                      next
-                    else
-                      instance.send(name)
-                    end
+            value = instance.send(name)
 
             next if value.nil? && !rule.render_nil
 
             attribute = attributes[name]
 
+            # require "pry"; binding.pry
             hash[rule.from] = if rule.child_mappings
                                 generate_hash_from_child_mappings(value, rule.child_mappings)
-                              elsif value.is_a?(Array)
-                                value.map do |v|
-                                  if attribute.type <= Serialize
-                                    attribute.type.hash_representation(v, format, options)
-                                  else
-                                    attribute.type.serialize(v)
-                                  end
-                                end
-                              elsif attribute.type <= Serialize
-                                attribute.type.hash_representation(value, format, options)
                               else
-                                attribute.type.serialize(value)
+                                attribute.serialize(value, format, options)
                               end
           end
         end
 
-        def handle_delegate(instance, rule, hash)
+        def handle_delegate(instance, rule, hash, format)
           name = rule.to
           value = instance.send(rule.delegate).send(name)
           return if value.nil? && !rule.render_nil
 
           attribute = instance.send(rule.delegate).class.attributes[name]
-          hash[rule.from] = case value
-                            when Array
-                              value.map do |v|
-                                if v.is_a?(Serialize)
-                                  hash_representation(v, format, options)
-                                else
-                                  attribute.type.serialize(v)
-                                end
-                              end
-                            else
-                              if value.is_a?(Serialize)
-                                hash_representation(value, format, options)
-                              else
-                                attribute.type.serialize(value)
-                              end
-                            end
+          hash[rule.from] = attribute.serialize(value, format)
         end
 
         def mappings_for(format)
           mappings[format] || default_mappings(format)
         end
 
-        def generate_model_object(type, mapped_attrs)
-          return type.model.new(mapped_attrs) if self == model
-
-          instance = type.model.new
-
-          type.attributes.each do |name, attr|
-            value = attr_value(mapped_attrs, name, attr)
-
-            instance.send(:"#{name}=", ensure_utf8(value))
-          end
-
-          instance
-        end
-
         def attr_value(attrs, name, attr_rule)
-          value = if attrs.key?(name)
-                    attrs[name]
-                  elsif attrs.key?(name.to_sym)
+          value = if attrs.key?(name.to_sym)
                     attrs[name.to_sym]
                   elsif attrs.key?(name.to_s)
                     attrs[name.to_s]
@@ -218,8 +171,6 @@ module Lutaml
                 Lutaml::Model::Type.cast(v, attr_rule.type)
               end
             end
-          elsif value.is_a?(Hash) && attr_rule.type != Lutaml::Model::Type::Hash
-            generate_model_object(attr_rule.type, value)
           else
             # TODO: This code is problematic because Type.cast does not know
             # about all the types.
@@ -286,11 +237,11 @@ module Lutaml
           hash
         end
 
-        def apply_mappings(doc, format, instance)
-          return apply_xml_mapping(doc, instance) if format == :xml
+        def apply_mappings(doc, format, instance, options = {})
+          return apply_xml_mapping(doc, instance, options) if format == :xml
 
           mappings = mappings_for(format).mappings
-          mappings.each_with_object(Lutaml::Model::MappingHash.new) do |rule, hash|
+          mappings.each do |rule|
             attr = if rule.delegate
                      attributes[rule.delegate].type.attributes[rule.to]
                    else
@@ -311,37 +262,20 @@ module Lutaml
             end
 
             value = apply_child_mappings(value, rule.child_mappings)
-
-            if attr.collection?
-              value = (value || []).map do |v|
-                child_instance = attr.type.model.new
-                attr.type <= Serialize ? attr.type.apply_mappings(v, format, child_instance) : Lutaml::Model::Type.cast(v, attr.type)
-                child_instance
-              end
-            elsif value.is_a?(Hash) && attr.type != Lutaml::Model::Type::Hash
-              child_instance = attr.type.model.new
-              attr.type.apply_mappings(value, format, child_instance)
-              value = child_instance
-            else
-              value = Lutaml::Model::Type.cast(value, attr.type)
-            end
+            value = attr.cast(value, format)
 
             if rule.delegate
-              hash[rule.delegate] ||= {}
-              hash[rule.delegate][rule.to] = value
-
               if instance.public_send(rule.delegate).nil?
                 instance.public_send(:"#{rule.delegate}=", attributes[rule.delegate].type.new)
               end
               instance.public_send(rule.delegate).public_send("#{rule.to}=", value)
             else
-              hash[rule.to] = value
               instance.public_send("#{rule.to}=", value)
             end
           end
         end
 
-        def apply_xml_mapping(doc, instance, caller_class: nil, mixed_content: false)
+        def apply_xml_mapping(doc, instance, options = {})
           return unless doc
 
           mappings = mappings_for(:xml).mappings
@@ -351,18 +285,15 @@ module Lutaml
                   "missing for #{self} in #{caller_class}"
           end
 
-          mapping_hash = Lutaml::Model::MappingHash.new
-          mapping_hash.item_order = doc.item_order
-          mapping_hash.ordered = mappings_for(:xml).mixed_content? || mixed_content
+          caller_class = options[:caller_class]
+          mixed_content = options[:mixed_content]
 
           if instance.respond_to?(:ordered=)
-            instance.ordered = mapping_hash.ordered
-            instance.element_order = mapping_hash.item_order
+            instance.element_order = doc.item_order
+            instance.ordered = mappings_for(:xml).mixed_content? || mixed_content
           end
 
-          mapping_from = []
-
-          mappings.each_with_object(mapping_hash) do |rule, hash|
+          mappings.each do |rule|
             attr = attributes[rule.to]
             raise "Attribute '#{rule.to}' not found in #{self}" unless attr
 
@@ -373,52 +304,33 @@ module Lutaml
                       doc[rule.name.to_s] || doc[rule.name.to_sym]
                     end
 
-            if attr.collection?
-              if value && !value.is_a?(Array)
-                value = [value]
-              end
-
-              value = (value || []).map do |v|
-                if attr.type <= Serialize
-                  child_instance = attr.type.model.new
-                  attr.type.apply_xml_mapping(v, child_instance, caller_class: self, mixed_content: rule.mixed_content)
-                  child_instance
-                elsif v.is_a?(Hash)
-                  Lutaml::Model::Type.cast(v["text"], attr.type)
+            if value.is_a?(Array)
+              value = value.map do |v|
+                if v.is_a?(Hash) && !(attr.type <= Serialize)
+                  v["text"]
                 else
-                  Lutaml::Model::Type.cast(v, attr.type)
+                  v
                 end
               end
-            elsif attr.type <= Serialize
-              child_instance = attr.type.model.new
-              attr.type.apply_xml_mapping(value, child_instance, caller_class: self, mixed_content: rule.mixed_content)
-              value = child_instance
-            else
-              if value.is_a?(Hash) && attr.type != Lutaml::Model::Type::Hash
-                value = value["text"]
-              end
-
-              value = attr.type.cast(value) unless is_content_mapping
+            elsif !(attr.type <= Serialize) && value.is_a?(Hash) && attr.type != Lutaml::Model::Type::Hash
+              value = value["text"]
             end
 
-            mapping_from << rule if rule.custom_methods[:from]
+            unless is_content_mapping
+              value = attr.cast(
+                value,
+                :xml,
+                caller_class: self,
+                mixed_content: rule.mixed_content,
+              )
+            end
 
-            instance.public_send("#{rule.to}=", value)
-            hash[rule.to] = value
+            if rule.custom_methods[:from]
+              new.send(rule.custom_methods[:from], instance, value)
+            else
+              instance.public_send("#{rule.to}=", value)
+            end
           end
-
-          mapping_from.each do |rule|
-            value = if rule.name.nil?
-                      mapping_hash[rule.to].join("\n").strip
-                    else
-                      mapping_hash[rule.to]
-                    end
-
-            new.send(rule.custom_methods[:from], instance, value)
-            mapping_hash[rule.to] = value
-          end
-
-          mapping_hash
         end
 
         def ensure_utf8(value)

@@ -40,6 +40,35 @@ module Lutaml
       def render_nil?
         options.fetch(:render_nil, false)
       end
+
+      def serialize(value, format, options = {})
+        if value.is_a?(Array)
+          value.map do |v|
+            serialize(v, format, options)
+          end
+        elsif type <= Serialize
+          type.hash_representation(value, format, options)
+        else
+          type.serialize(value)
+        end
+      end
+
+      def cast(value, format, options = {})
+        value ||= [] if collection?
+        instance = options[:instance]
+
+        if value.is_a?(Array)
+          value.map do |v|
+            cast(v, format, instance: instance)
+          end
+        elsif type <= Serialize
+          instance ||= type.model.new
+          type.apply_mappings(value, format, instance, options)
+          instance
+        else
+          Lutaml::Model::Type.cast(value, type)
+        end
+      end
     end
   end
 end

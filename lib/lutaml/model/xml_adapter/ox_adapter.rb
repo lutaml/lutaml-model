@@ -71,15 +71,15 @@ module Lutaml
           xml
         end
 
-        # def method_missing(method_name, *args)
-        #   if block_given?
-        #     xml.public_send(method_name, *args) do
-        #       yield(xml)
-        #     end
-        #   else
-        #     xml.public_send(method_name, *args)
-        #   end
-        # end
+        def method_missing(method_name, *args)
+          if block_given?
+            xml.public_send(method_name, *args) do
+              yield(xml)
+            end
+          else
+            xml.public_send(method_name, *args)
+          end
+        end
       end
 
       class OxAdapter < XmlDocument

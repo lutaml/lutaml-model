@@ -81,7 +81,7 @@ class CustomSerialization < Lutaml::Model::Serializable
   end
 
   def description_from_xml(model, value)
-    model.description = value.sub(/^XML Description: /, "")
+    model.description = value.join.strip.sub(/^XML Description: /, "")
   end
 end
 
