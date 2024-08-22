@@ -836,8 +836,6 @@ end
 [[mixed-content]]
 ==== Mixed content
 
-===== General
-
 In XML there can be tags that contain content mixed with other tags and where
 whitespace is significant, such as to represent rich text.
 
@@ -857,9 +855,8 @@ To map this to Lutaml::Model we can use the `mixed` option in either way:
 NOTE: This feature is not supported by Shale.
 
 
-===== Specifying the `mixed` option at `root`
-
-This will always treat the content of the element itself as mixed content.
+To specify mixed content, the `mixed: true` option needs to be set at the
+`xml` block's `root` method.
 
 Syntax:
 
@@ -876,7 +873,7 @@ end
 [source,ruby]
 ----
 class Paragraph < Lutaml::Model::Serializable
-  attribute :bold, :string
+  attribute :bold, :string, collection: true # allows multiple bold tags
   attribute :italic, :string
 
   xml do
@@ -899,57 +896,6 @@ end
 
 TODO: How to create mixed content from `#new`?
 
-
-===== Specifying the `mixed` option when referencing a model
-
-This will only treat the content of the referenced model as mixed content if the
-`mixed: true` is added when referencing it.
-
-Syntax:
-
-[source,ruby]
-----
-xml do
-  map_element 'xml_element_name', to: :name_of_attribute, mixed: true
-end
-----
-
-.Applying `mixed` to treat an inner element as mixed content
-[example]
-====
-[source,ruby]
-----
-class Paragraph < Lutaml::Model::Serializable
-  attribute :bold, :string
-  attribute :italic, :string
-
-  xml do
-    root 'p'
-
-    map_element 'bold', to: :bold
-    map_element 'i', to: :italic
-  end
-end
-
-class Description < Lutaml::Model::Serializable
-  attribute :paragraph, Paragraph
-
-  xml do
-    root 'description'
-
-    map_element 'p', to: :paragraph, mixed: true
-  end
-end
-----
-
-[source,ruby]
-----
-> Description.from_xml("<description><p>My name is <bold>John Doe</bold>, and I'm <i>28</i> years old</p></description>")
-> #<Description:0x0000000104ac7240 @paragraph=#<Paragraph:0x0000000104ac7240 @bold="John Doe", @italic="28">>
-> Description.new(paragraph: Paragraph.new(bold: "John Doe", italic: "28")).to_xml
-> #<description><p>My name is <bold>John Doe</bold>, and I'm <i>28</i> years old</p></description>
-----
-====
 
 
 === Key value data models
@@ -1579,7 +1525,7 @@ Lutaml::Model::Config.configure do |config|
 end
 ----
 
-You can also provide the adapter type by using symbols like 
+You can also provide the adapter type by using symbols like
 
 [source,ruby]
 ----
