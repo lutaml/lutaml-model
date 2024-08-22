@@ -129,7 +129,6 @@ module Lutaml
 
               attribute_def = attribute_definition_for(element, element_rule, mapper_class: mapper_class)
               value = attribute_value_for(element, element_rule)
-              nsp_xml = element_rule.prefix ? xml[element_rule.prefix] : xml
 
               if element_rule == xml_mapping.content_mapping
                 text = element.send(xml_mapping.content_mapping.to)
@@ -137,44 +136,15 @@ module Lutaml
 
                 prefixed_xml.text text
               elsif attribute_def.collection?
-                add_to_xml_old(
-                  nsp_xml,
+                add_to_xml(
+                  xml,
+                  element_rule.prefix,
                   value[curr_index],
                   attribute_def,
                   element_rule,
                 )
               elsif !value.nil? || element_rule.render_nil?
-                add_to_xml_old(nsp_xml, value, attribute_def, element_rule)
-              end
-            end
-          end
-        end
-
-        def add_to_xml_old(xml, value, attribute, rule)
-          if rule.custom_methods[:to]
-            @root.send(rule.custom_methods[:to], @root, xml.parent, xml)
-            return
-          end
-
-          if value && (attribute&.type&.<= Lutaml::Model::Serialize)
-            handle_nested_elements(
-              xml,
-              value,
-              rule: rule,
-              attribute: attribute,
-            )
-          else
-            xml.public_send(rule.name) do
-              if !value.nil?
-                serialized_value = attribute.type.serialize(value)
-
-                if attribute.type == Lutaml::Model::Type::Hash
-                  serialized_value.each do |key, val|
-                    xml.public_send(key) { xml.text val }
-                  end
-                else
-                  xml.text(serialized_value)
-                end
+                add_to_xml(xml, element_rule.prefix, value, attribute_def, element_rule)
               end
             end
           end
