@@ -126,7 +126,6 @@ module Lutaml
 
             attribute = attributes[name]
 
-            # require "pry"; binding.pry
             hash[rule.from] = if rule.child_mappings
                                 generate_hash_from_child_mappings(value, rule.child_mappings)
                               else

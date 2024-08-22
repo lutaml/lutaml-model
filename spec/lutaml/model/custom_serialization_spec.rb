@@ -54,15 +54,12 @@ class CustomSerialization < Lutaml::Model::Serializable
   end
 
   def name_to_xml(model, parent, doc)
-    # doc["name"] = "XML Masterpiece: #{model.name}"
-
     el = doc.create_element("Name")
     doc.add_text(el, "XML Masterpiece: #{model.name}")
     doc.add_element(parent, el)
   end
 
   def name_from_xml(model, value)
-    # value.sub(/^XML Masterpiece: /, "")
     model.name = value.sub(/^XML Masterpiece: /, "")
   end
 

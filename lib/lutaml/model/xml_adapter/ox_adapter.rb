@@ -136,38 +136,9 @@ module Lutaml
 
                 el.add_text(el, text)
               elsif attribute_def.collection?
-                add_to_xml_old(el, value[curr_index], attribute_def, element_rule)
+                add_to_xml(el, nil, value[curr_index], attribute_def, element_rule)
               elsif !value.nil? || element_rule.render_nil?
-                add_to_xml_old(el, value, attribute_def, element_rule)
-              end
-            end
-          end
-        end
-
-        def add_to_xml_old(xml, value, attribute, rule)
-          if rule.custom_methods[:to]
-            value = @root.send(rule.custom_methods[:to], @root, value)
-          end
-
-          if value && (attribute&.type&.<= Lutaml::Model::Serialize)
-            handle_nested_elements(
-              xml,
-              value,
-              rule: rule,
-              attribute: attribute,
-            )
-          else
-            xml.create_element(rule.name) do |el|
-              if !value.nil?
-                serialized_value = attribute.type.serialize(value)
-
-                if attribute.type == Lutaml::Model::Type::Hash
-                  serialized_value.each do |key, val|
-                    el.element(key) { |child_el| child_el.text val }
-                  end
-                else
-                  el.add_text(el, serialized_value)
-                end
+                add_to_xml(el, nil, value, attribute_def, element_rule)
               end
             end
           end
