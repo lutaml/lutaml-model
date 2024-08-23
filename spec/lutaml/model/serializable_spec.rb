@@ -222,11 +222,15 @@ RSpec.describe Lutaml::Model::Serializable do
     context "when assigning an invalid value" do
       it "raises an error after creation" do
         glaze = GlazeTechnique.new(name: "Celadon")
-        expect { glaze.name = "Tenmoku" }.to raise_error(Lutaml::Model::InvalidValueError)
+        expect do
+          glaze.name = "Tenmoku"
+        end.to raise_error(Lutaml::Model::InvalidValueError)
       end
 
       it "raises an error during creation" do
-        expect { GlazeTechnique.new(name: "Crystalline") }.to raise_error(Lutaml::Model::InvalidValueError)
+        expect do
+          GlazeTechnique.new(name: "Crystalline")
+        end.to raise_error(Lutaml::Model::InvalidValueError)
       end
     end
 
@@ -248,39 +252,52 @@ RSpec.describe Lutaml::Model::Serializable do
     context "when assigning an invalid value" do
       it "raises an error after creation" do
         collection = CeramicCollection.new(
-          featured_piece: Ceramic.new(type: "Porcelain", firing_temperature: 1300),
+          featured_piece: Ceramic.new(type: "Porcelain",
+                                      firing_temperature: 1300),
         )
-        invalid_ceramic = Ceramic.new(type: "Porcelain", firing_temperature: 1500)
+        invalid_ceramic = Ceramic.new(type: "Porcelain",
+                                      firing_temperature: 1500)
 
-        expect { collection.featured_piece = invalid_ceramic }.to raise_error(Lutaml::Model::InvalidValueError)
+        expect do
+          collection.featured_piece = invalid_ceramic
+        end.to raise_error(Lutaml::Model::InvalidValueError)
       end
 
       it "raises an error during creation" do
-        invalid_ceramic = Ceramic.new(type: "Porcelain", firing_temperature: 1500)
-        expect { CeramicCollection.new(featured_piece: invalid_ceramic) }.to raise_error(Lutaml::Model::InvalidValueError)
+        invalid_ceramic = Ceramic.new(type: "Porcelain",
+                                      firing_temperature: 1500)
+        expect do
+          CeramicCollection.new(featured_piece: invalid_ceramic)
+        end.to raise_error(Lutaml::Model::InvalidValueError)
       end
 
       it "raises an error when modifying a nested attribute" do
         collection = CeramicCollection.new(
-          featured_piece: Ceramic.new(type: "Porcelain", firing_temperature: 1300),
+          featured_piece: Ceramic.new(type: "Porcelain",
+                                      firing_temperature: 1300),
         )
         collection.featured_piece.firing_temperature = 1400
-        expect { collection.validate }.to raise_error(Lutaml::Model::InvalidValueError)
+        expect do
+          collection.validate
+        end.to raise_error(Lutaml::Model::InvalidValueError)
       end
     end
 
     context "when assigning a valid value" do
       it "changes the value after creation" do
         collection = CeramicCollection.new(
-          featured_piece: Ceramic.new(type: "Porcelain", firing_temperature: 1300),
+          featured_piece: Ceramic.new(type: "Porcelain",
+                                      firing_temperature: 1300),
         )
-        collection.featured_piece = Ceramic.new(type: "Stoneware", firing_temperature: 1200)
+        collection.featured_piece = Ceramic.new(type: "Stoneware",
+                                                firing_temperature: 1200)
         expect(collection.featured_piece.type).to eq("Stoneware")
       end
 
       it "assigns the value during creation" do
         collection = CeramicCollection.new(
-          featured_piece: Ceramic.new(type: "Earthenware", firing_temperature: 1000),
+          featured_piece: Ceramic.new(type: "Earthenware",
+                                      firing_temperature: 1000),
         )
         expect(collection.featured_piece.type).to eq("Earthenware")
       end

@@ -118,7 +118,11 @@ module Lutaml
             next if except&.include?(name) || (only && !only.include?(name))
 
             next handle_delegate(instance, rule, hash, format) if rule.delegate
-            next instance.send(rule.custom_methods[:to], instance, hash) if rule.custom_methods[:to]
+
+            if rule.custom_methods[:to]
+              next instance.send(rule.custom_methods[:to], instance,
+                                 hash)
+            end
 
             value = instance.send(name)
 
@@ -262,9 +266,11 @@ module Lutaml
 
             if rule.delegate
               if instance.public_send(rule.delegate).nil?
-                instance.public_send(:"#{rule.delegate}=", attributes[rule.delegate].type.new)
+                instance.public_send(:"#{rule.delegate}=",
+                                     attributes[rule.delegate].type.new)
               end
-              instance.public_send(rule.delegate).public_send(:"#{rule.to}=", value)
+              instance.public_send(rule.delegate).public_send(:"#{rule.to}=",
+                                                              value)
             else
               instance.public_send(:"#{rule.to}=", value)
             end
@@ -329,7 +335,8 @@ module Lutaml
         def ensure_utf8(value)
           case value
           when String
-            value.encode("UTF-8", invalid: :replace, undef: :replace, replace: "")
+            value.encode("UTF-8", invalid: :replace, undef: :replace,
+                                  replace: "")
           when Array
             value.map { |v| ensure_utf8(v) }
           when Hash
@@ -386,7 +393,8 @@ module Lutaml
           representation = if format == :xml
                              self
                            else
-                             self.class.hash_representation(self, format, options)
+                             self.class.hash_representation(self, format,
+                                                            options)
                            end
 
           adapter.new(representation).public_send(:"to_#{format}", options)
@@ -397,7 +405,8 @@ module Lutaml
         self.class.attributes.each do |name, attr|
           value = send(name)
           unless self.class.attr_value_valid?(name, value)
-            raise Lutaml::Model::InvalidValueError.new(name, value, attr.options[:values])
+            raise Lutaml::Model::InvalidValueError.new(name, value,
+                                                       attr.options[:values])
           end
         end
       end
