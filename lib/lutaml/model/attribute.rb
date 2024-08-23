@@ -61,7 +61,7 @@ module Lutaml
           value.map do |v|
             cast(v, format, instance: instance)
           end
-        elsif type <= Serialize
+        elsif type <= Serialize && value.is_a?(Hash)
           type.apply_mappings(value, format, options)
         else
           Lutaml::Model::Type.cast(value, type)
