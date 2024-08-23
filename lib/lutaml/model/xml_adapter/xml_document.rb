@@ -117,7 +117,9 @@ module Lutaml
 
                 if attribute.type == Lutaml::Model::Type::Hash
                   serialized_value.each do |key, val|
-                    xml.create_and_add_element(key) { |element| element.text(val) }
+                    xml.create_and_add_element(key) do |element|
+                      element.text(val)
+                    end
                   end
                 else
                   xml.add_text(xml, serialized_value)
@@ -145,13 +147,15 @@ module Lutaml
           prefixed_xml = xml.add_namespace_prefix(prefix)
           tag_name = options[:tag_name] || xml_mapping.root_element
 
-          xml.create_and_add_element(tag_name, prefix: prefix, attributes: attributes) do
+          xml.create_and_add_element(tag_name, prefix: prefix,
+                                               attributes: attributes) do
             if options.key?(:namespace_prefix) && !options[:namespace_prefix]
               xml.add_namespace_prefix(nil)
             end
 
             xml_mapping.elements.each do |element_rule|
-              attribute_def = attribute_definition_for(element, element_rule, mapper_class: mapper_class)
+              attribute_def = attribute_definition_for(element, element_rule,
+                                                       mapper_class: mapper_class)
               value = attribute_value_for(element, element_rule)
 
               next if value.nil? && !element_rule.render_nil?
@@ -160,16 +164,19 @@ module Lutaml
                 value = [value] unless value.is_a?(Array)
 
                 value.each do |v|
-                  add_to_xml(xml, element_rule.prefix, v, attribute_def, element_rule)
+                  add_to_xml(xml, element_rule.prefix, v, attribute_def,
+                             element_rule)
                 end
               elsif !value.nil? || element_rule.render_nil?
-                add_to_xml(xml, element_rule.prefix, value, attribute_def, element_rule)
+                add_to_xml(xml, element_rule.prefix, value, attribute_def,
+                           element_rule)
               end
             end
 
             if (content_rule = xml_mapping.content_mapping)
               if content_rule.custom_methods[:to]
-                @root.send(content_rule.custom_methods[:to], element, prefixed_xml.parent, prefixed_xml)
+                @root.send(content_rule.custom_methods[:to], element,
+                           prefixed_xml.parent, prefixed_xml)
               else
                 text = element.send(content_rule.to)
                 text = text.join if text.is_a?(Array)

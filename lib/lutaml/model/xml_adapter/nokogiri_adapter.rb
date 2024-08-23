@@ -18,7 +18,8 @@ module Lutaml
               root.to_xml(xml)
             else
               mapper_class = options[:mapper_class] || @root.class
-              options[:xml_attributes] = build_namespace_attributes(mapper_class)
+              options[:xml_attributes] =
+                build_namespace_attributes(mapper_class)
               build_element(xml, @root, options)
             end
           end
@@ -62,7 +63,8 @@ module Lutaml
               element_rule = xml_mapping.find_by_name(name)
               next if element_rule.nil?
 
-              attribute_def = attribute_definition_for(element, element_rule, mapper_class: mapper_class)
+              attribute_def = attribute_definition_for(element, element_rule,
+                                                       mapper_class: mapper_class)
               value = attribute_value_for(element, element_rule)
 
               if element_rule == xml_mapping.content_mapping
@@ -79,7 +81,8 @@ module Lutaml
                   element_rule,
                 )
               elsif !value.nil? || element_rule.render_nil?
-                add_to_xml(xml, element_rule.prefix, value, attribute_def, element_rule)
+                add_to_xml(xml, element_rule.prefix, value, attribute_def,
+                           element_rule)
               end
             end
           end

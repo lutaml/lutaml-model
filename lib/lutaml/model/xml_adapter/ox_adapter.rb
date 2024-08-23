@@ -37,7 +37,8 @@ module Lutaml
           attributes = build_attributes(element, xml_mapping).compact
 
           tag_name = options[:tag_name] || xml_mapping.root_element
-          builder.create_and_add_element(tag_name, attributes: attributes) do |el|
+          builder.create_and_add_element(tag_name,
+                                         attributes: attributes) do |el|
             index_hash = {}
 
             element.element_order.each do |name|
@@ -46,7 +47,8 @@ module Lutaml
 
               element_rule = xml_mapping.find_by_name(name)
 
-              attribute_def = attribute_definition_for(element, element_rule, mapper_class: mapper_class)
+              attribute_def = attribute_definition_for(element, element_rule,
+                                                       mapper_class: mapper_class)
               value = attribute_value_for(element, element_rule)
 
               if element_rule == xml_mapping.content_mapping
@@ -55,7 +57,8 @@ module Lutaml
 
                 el.add_text(el, text)
               elsif attribute_def.collection?
-                add_to_xml(el, nil, value[curr_index], attribute_def, element_rule)
+                add_to_xml(el, nil, value[curr_index], attribute_def,
+                           element_rule)
               elsif !value.nil? || element_rule.render_nil?
                 add_to_xml(el, nil, value, attribute_def, element_rule)
               end
