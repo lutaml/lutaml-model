@@ -89,6 +89,16 @@ module Lutaml
             apply_mappings(doc.to_h, format)
           end
 
+          define_method(:"of_#{format}") do |data|
+            if data.is_a?(Array)
+              data.map do |item|
+                apply_mappings(item.to_h, format)
+              end
+            else
+              apply_mappings(data.to_h, format)
+            end
+          end
+
           define_method(:"to_#{format}") do |instance|
             unless instance.is_a?(model)
               msg = "argument is a '#{instance.class}' but should be a '#{model}'"
@@ -106,6 +116,8 @@ module Lutaml
               adapter.new(hash).public_send(:"to_#{format}")
             end
           end
+
+          alias_method :"as_#{format}", :"to_#{format}"
         end
 
         def hash_representation(instance, format, options = {})
@@ -135,6 +147,8 @@ module Lutaml
                               else
                                 attribute.serialize(value, format, options)
                               end
+          # rescue => e
+          #   require "pry"; binding.pry
           end
         end
 
@@ -289,7 +303,7 @@ module Lutaml
                   "missing for #{self} in #{options[:caller_class]}"
           end
 
-          if instance.respond_to?(:ordered=)
+          if instance.respond_to?(:ordered=) && doc.is_a?(Lutaml::Model::MappingHash)
             instance.element_order = doc.item_order
             instance.ordered = mappings_for(:xml).mixed_content? || options[:mixed_content]
           end
@@ -299,11 +313,14 @@ module Lutaml
             raise "Attribute '#{rule.to}' not found in #{self}" unless attr
 
             is_content_mapping = rule.name.nil?
+
             value = if is_content_mapping
                       doc["text"]
                     else
                       doc[rule.name.to_s] || doc[rule.name.to_sym]
                     end
+
+            value = [value].compact if attr.collection? && !value.is_a?(Array)
 
             if value.is_a?(Array)
               value = value.map do |v|
