@@ -42,21 +42,24 @@ module Lutaml
           @root.order
         end
 
-        def handle_nested_elements(builder, value, rule: nil, attribute: nil)
-          options = build_options_for_nested_elements(attribute, rule)
+        def handle_nested_elements(builder, value, options = {})
+          element_options = build_options_for_nested_elements(options)
 
           case value
           when Array
-            value.each { |val| build_element(builder, val, options) }
+            value.each { |val| build_element(builder, val, element_options) }
           else
-            build_element(builder, value, options)
+            build_element(builder, value, element_options)
           end
         end
 
-        def build_options_for_nested_elements(attribute, rule)
+        def build_options_for_nested_elements(options = {})
+          attribute = options.delete(:attribute)
+          rule = options.delete(:rule)
+
           return {} unless rule
 
-          options = {}
+          # options = {}
 
           options[:namespace_prefix] = rule.prefix if rule&.namespace_set?
           options[:mixed_content] = rule.mixed_content
@@ -94,6 +97,103 @@ module Lutaml
             build_ordered_element(xml, element, options)
           else
             build_unordered_element(xml, element, options)
+          end
+        end
+
+        def add_to_xml(xml, prefix, value, options = {})
+          if value.is_a?(Array)
+            value.each do |item|
+              add_to_xml(xml, prefix, item, options)
+            end
+
+            return
+          end
+
+          attribute = options[:attribute]
+          rule = options[:rule]
+
+          if rule.custom_methods[:to]
+            @root.send(rule.custom_methods[:to], @root, xml.parent, xml)
+            return
+          end
+
+          if value && (attribute&.type&.<= Lutaml::Model::Serialize)
+            handle_nested_elements(
+              xml,
+              value,
+              options.merge({ rule: rule, attribute: attribute }),
+            )
+          else
+            xml.create_and_add_element(rule.name, prefix: prefix) do
+              if !value.nil?
+                serialized_value = attribute.type.serialize(value)
+
+                if attribute.type == Lutaml::Model::Type::Hash
+                  serialized_value.each do |key, val|
+                    xml.create_and_add_element(key) do |element|
+                      element.text(val)
+                    end
+                  end
+                else
+                  xml.add_text(xml, serialized_value)
+                end
+              end
+            end
+          end
+        end
+
+        def build_unordered_element(xml, element, options = {})
+          mapper_class = options[:mapper_class] || element.class
+          xml_mapping = mapper_class.mappings_for(:xml)
+          return xml unless xml_mapping
+
+          attributes = options[:xml_attributes] ||= {}
+          attributes = build_attributes(element,
+                                        xml_mapping, options).merge(attributes)&.compact
+
+          prefix = if options.key?(:namespace_prefix)
+                     options[:namespace_prefix]
+                   elsif xml_mapping.namespace_prefix
+                     xml_mapping.namespace_prefix
+                   end
+
+          prefixed_xml = xml.add_namespace_prefix(prefix)
+          tag_name = options[:tag_name] || xml_mapping.root_element
+
+          xml.create_and_add_element(tag_name, prefix: prefix,
+                                               attributes: attributes) do
+            if options.key?(:namespace_prefix) && !options[:namespace_prefix]
+              xml.add_namespace_prefix(nil)
+            end
+
+            xml_mapping.elements.each do |element_rule|
+              attribute_def = attribute_definition_for(element, element_rule,
+                                                       mapper_class: mapper_class)
+
+              value = attribute_value_for(element, element_rule)
+
+              next if value.nil? && !element_rule.render_nil?
+
+              value = [value] if attribute_def.collection? && !value.is_a?(Array)
+
+              add_to_xml(
+                xml,
+                element_rule.prefix,
+                value,
+                options.merge({ attribute: attribute_def, rule: element_rule }),
+              )
+            end
+
+            if (content_rule = xml_mapping.content_mapping)
+              if content_rule.custom_methods[:to]
+                @root.send(content_rule.custom_methods[:to], element,
+                           prefixed_xml.parent, prefixed_xml)
+              else
+                text = element.send(content_rule.to)
+                text = text.join if text.is_a?(Array)
+                prefixed_xml.add_text(xml, text)
+              end
+            end
           end
         end
 
@@ -142,10 +242,12 @@ module Lutaml
           attrs
         end
 
-        def build_attributes(element, xml_mapping)
+        def build_attributes(element, xml_mapping, options = {})
           attrs = namespace_attributes(xml_mapping)
 
           xml_mapping.attributes.each_with_object(attrs) do |mapping_rule, hash|
+            next if options[:except]&.include?(mapping_rule.to)
+
             if mapping_rule.namespace
               hash["xmlns:#{mapping_rule.prefix}"] = mapping_rule.namespace
             end
@@ -154,6 +256,8 @@ module Lutaml
           end
 
           xml_mapping.elements.each_with_object(attrs) do |mapping_rule, hash|
+            next if options[:except]&.include?(mapping_rule.to)
+
             if mapping_rule.namespace
               hash["xmlns:#{mapping_rule.prefix}"] = mapping_rule.namespace
             end

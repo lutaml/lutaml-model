@@ -64,11 +64,11 @@ class Person < Lutaml::Model::Serializable
     map "active", to: :active
   end
 
-  def yaml_from_last_name(_model, value)
-    value
+  def yaml_from_last_name(model, doc)
+    doc["lastName"] = model.last_name
   end
 
-  def yaml_to_last_name(_model, doc)
-    doc["lastName"]
+  def yaml_to_last_name(model, value)
+    model.last_name = value
   end
 end
