@@ -72,17 +72,18 @@ module Lutaml
                 text = text[curr_index] if text.is_a?(Array)
 
                 prefixed_xml.text text
-              elsif attribute_def.collection?
+              elsif !value.nil? || element_rule.render_nil?
+                value = value[curr_index] if attribute_def.collection?
+
                 add_to_xml(
                   xml,
                   element_rule.prefix,
-                  value[curr_index],
-                  attribute_def,
-                  element_rule,
+                  value,
+                  options.merge(
+                    attribute: attribute_def,
+                    rule: element_rule,
+                  ),
                 )
-              elsif !value.nil? || element_rule.render_nil?
-                add_to_xml(xml, element_rule.prefix, value, attribute_def,
-                           element_rule)
               end
             end
           end
@@ -158,7 +159,7 @@ module Lutaml
           end
         end
 
-        def build_attributes(node)
+        def build_attributes(node, _options = {})
           attrs = node.attributes.transform_values(&:value)
 
           attrs.merge(build_namespace_attributes(node))
