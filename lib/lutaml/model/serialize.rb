@@ -86,38 +86,45 @@ module Lutaml
             adapter = Lutaml::Model::Config.send(:"#{format}_adapter")
             doc = adapter.parse(data)
 
-            apply_mappings(doc.to_h, format)
+            apply_mappings(doc.to_h, format, doc: doc)
           end
 
           define_method(:"of_#{format}") do |data|
             if data.is_a?(Array)
               data.map do |item|
-                apply_mappings(item.to_h, format)
+                apply_mappings(item.to_h, format, full_data: data)
               end
             else
-              apply_mappings(data.to_h, format)
+              apply_mappings(data.to_h, format, data: data)
             end
           end
 
           define_method(:"to_#{format}") do |instance|
+            value = public_send(:"as_#{format}", instance)
+            adapter = Lutaml::Model::Config.public_send(:"#{format}_adapter")
+
+            if format == :xml
+              xml_options = { mapper_class: self }
+              adapter.new(value).public_send(:"to_#{format}", xml_options)
+            else
+              adapter.new(value).public_send(:"to_#{format}")
+            end
+          end
+
+          define_method(:"as_#{format}") do |instance|
+            if instance.is_a?(Array)
+              return instance.map { |item| public_send(:"as_#{format}", item) }
+            end
+
             unless instance.is_a?(model)
               msg = "argument is a '#{instance.class}' but should be a '#{model}'"
               raise Lutaml::Model::IncorrectModelError, msg
             end
 
-            adapter = Lutaml::Model::Config.public_send(:"#{format}_adapter")
+            return instance if format == :xml
 
-            if format == :xml
-              xml_options = { mapper_class: self }
-
-              adapter.new(instance).public_send(:"to_#{format}", xml_options)
-            else
-              hash = hash_representation(instance, format)
-              adapter.new(hash).public_send(:"to_#{format}")
-            end
+            hash_representation(instance, format)
           end
-
-          alias_method :"as_#{format}", :"to_#{format}"
         end
 
         def hash_representation(instance, format, options = {})
@@ -132,8 +139,7 @@ module Lutaml
             next handle_delegate(instance, rule, hash, format) if rule.delegate
 
             if rule.custom_methods[:to]
-              next instance.send(rule.custom_methods[:to], instance,
-                                 hash)
+              next instance.send(rule.custom_methods[:to], instance, hash)
             end
 
             value = instance.send(name)
@@ -147,8 +153,6 @@ module Lutaml
                               else
                                 attribute.serialize(value, format, options)
                               end
-          # rescue => e
-          #   require "pry"; binding.pry
           end
         end
 
@@ -252,6 +256,7 @@ module Lutaml
 
         def apply_mappings(doc, format, options = {})
           instance = options[:instance] || model.new
+          return instance if !doc || doc.empty?
           return apply_xml_mapping(doc, instance, options) if format == :xml
 
           mappings = mappings_for(format).mappings
@@ -271,7 +276,7 @@ module Lutaml
                     end
 
             if rule.custom_methods[:from]
-              value = new.send(rule.custom_methods[:from], instance, value)
+              value = new.send(rule.custom_methods[:from], instance, value) if value
               next
             end
 

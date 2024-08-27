@@ -42,21 +42,24 @@ module Lutaml
           @root.order
         end
 
-        def handle_nested_elements(builder, value, rule: nil, attribute: nil)
-          options = build_options_for_nested_elements(attribute, rule)
+        def handle_nested_elements(builder, value, options = {})
+          element_options = build_options_for_nested_elements(options)
 
           case value
           when Array
-            value.each { |val| build_element(builder, val, options) }
+            value.each { |val| build_element(builder, val, element_options) }
           else
-            build_element(builder, value, options)
+            build_element(builder, value, element_options)
           end
         end
 
-        def build_options_for_nested_elements(attribute, rule)
+        def build_options_for_nested_elements(options = {})
+          attribute = options.delete(:attribute)
+          rule = options.delete(:rule)
+
           return {} unless rule
 
-          options = {}
+          # options = {}
 
           options[:namespace_prefix] = rule.prefix if rule&.namespace_set?
           options[:mixed_content] = rule.mixed_content
@@ -97,7 +100,18 @@ module Lutaml
           end
         end
 
-        def add_to_xml(xml, prefix, value, attribute, rule)
+        def add_to_xml(xml, prefix, value, options = {})
+          if value.is_a?(Array)
+            value.each do |item|
+              add_to_xml(xml, prefix, item, options)
+            end
+
+            return
+          end
+
+          attribute = options[:attribute]
+          rule = options[:rule]
+
           if rule.custom_methods[:to]
             @root.send(rule.custom_methods[:to], @root, xml.parent, xml)
             return
@@ -107,8 +121,7 @@ module Lutaml
             handle_nested_elements(
               xml,
               value,
-              rule: rule,
-              attribute: attribute,
+              options.merge({ rule: rule, attribute: attribute }),
             )
           else
             xml.create_and_add_element(rule.name, prefix: prefix) do
@@ -136,7 +149,7 @@ module Lutaml
 
           attributes = options[:xml_attributes] ||= {}
           attributes = build_attributes(element,
-                                        xml_mapping).merge(attributes)&.compact
+                                        xml_mapping, options).merge(attributes)&.compact
 
           prefix = if options.key?(:namespace_prefix)
                      options[:namespace_prefix]
@@ -156,21 +169,19 @@ module Lutaml
             xml_mapping.elements.each do |element_rule|
               attribute_def = attribute_definition_for(element, element_rule,
                                                        mapper_class: mapper_class)
+
               value = attribute_value_for(element, element_rule)
 
               next if value.nil? && !element_rule.render_nil?
 
-              if attribute_def.collection?
-                value = [value] unless value.is_a?(Array)
+              value = [value] if attribute_def.collection? && !value.is_a?(Array)
 
-                value.each do |v|
-                  add_to_xml(xml, element_rule.prefix, v, attribute_def,
-                             element_rule)
-                end
-              elsif !value.nil? || element_rule.render_nil?
-                add_to_xml(xml, element_rule.prefix, value, attribute_def,
-                           element_rule)
-              end
+              add_to_xml(
+                xml,
+                element_rule.prefix,
+                value,
+                options.merge({ attribute: attribute_def, rule: element_rule }),
+              )
             end
 
             if (content_rule = xml_mapping.content_mapping)
@@ -231,10 +242,12 @@ module Lutaml
           attrs
         end
 
-        def build_attributes(element, xml_mapping)
+        def build_attributes(element, xml_mapping, options = {})
           attrs = namespace_attributes(xml_mapping)
 
           xml_mapping.attributes.each_with_object(attrs) do |mapping_rule, hash|
+            next if options[:except]&.include?(mapping_rule.to)
+
             if mapping_rule.namespace
               hash["xmlns:#{mapping_rule.prefix}"] = mapping_rule.namespace
             end
@@ -243,6 +256,8 @@ module Lutaml
           end
 
           xml_mapping.elements.each_with_object(attrs) do |mapping_rule, hash|
+            next if options[:except]&.include?(mapping_rule.to)
+
             if mapping_rule.namespace
               hash["xmlns:#{mapping_rule.prefix}"] = mapping_rule.namespace
             end

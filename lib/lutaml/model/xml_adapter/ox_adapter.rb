@@ -56,11 +56,18 @@ module Lutaml
                 text = text[curr_index] if text.is_a?(Array)
 
                 el.add_text(el, text)
-              elsif attribute_def.collection?
-                add_to_xml(el, nil, value[curr_index], attribute_def,
-                           element_rule)
               elsif !value.nil? || element_rule.render_nil?
-                add_to_xml(el, nil, value, attribute_def, element_rule)
+                value = value[curr_index] if attribute_def.collection?
+
+                add_to_xml(
+                  el,
+                  nil,
+                  value,
+                  options.merge(
+                    attribute: attribute_def,
+                    rule: element_rule,
+                  ),
+                )
               end
             end
           end
