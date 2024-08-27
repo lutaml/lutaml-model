@@ -84,19 +84,19 @@ module Lutaml
 
           define_method(:"from_#{format}") do |data|
             adapter = Lutaml::Model::Config.send(:"#{format}_adapter")
-            doc = adapter.parse(data)
 
-            apply_mappings(doc.to_h, format, doc: doc)
+            doc = adapter.parse(data)
+            public_send(:"of_#{format}", doc.to_h)
           end
 
-          define_method(:"of_#{format}") do |data|
-            if data.is_a?(Array)
-              data.map do |item|
-                apply_mappings(item.to_h, format, full_data: data)
+          define_method(:"of_#{format}") do |hash|
+            if hash.is_a?(Array)
+              return hash.map do |item|
+                apply_mappings(item, format)
               end
-            else
-              apply_mappings(data.to_h, format, data: data)
             end
+
+            apply_mappings(hash, format)
           end
 
           define_method(:"to_#{format}") do |instance|
@@ -276,7 +276,7 @@ module Lutaml
                     end
 
             if rule.custom_methods[:from]
-              value = new.send(rule.custom_methods[:from], instance, value) if value
+              value = new.send(rule.custom_methods[:from], instance, value) if value && !value.empty?
               next
             end
 
