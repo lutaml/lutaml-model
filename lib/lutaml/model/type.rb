@@ -22,11 +22,13 @@ module Lutaml
                      class #{t}                        # class Integer
             def self.cast(value)            #   def self.cast(value)
               return if value.nil?          #     return if value.nil?
+                                            #
               Type.cast(value, #{t})        #     Type.cast(value, Integer)
             end                             #   end
 
             def self.serialize(value)       #   def self.serialize(value)
               return if value.nil?          #     return if value.nil?
+                                            #
               Type.serialize(value, #{t})   #     Type.serialize(value, Integer)
             end                             #   end
           end                               # end
