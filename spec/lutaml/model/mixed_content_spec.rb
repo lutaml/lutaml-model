@@ -92,7 +92,7 @@ module MixedContentSpec
   end
 end
 
-RSpec.describe "Mixed content" do
+RSpec.describe "MixedContent" do
   shared_examples "mixed content behavior" do |adapter_class|
     around do |example|
       old_adapter = Lutaml::Model::Config.xml_adapter
@@ -133,7 +133,8 @@ RSpec.describe "Mixed content" do
         parsed.content.each_with_index do |content, index|
           expected_output = expected_content[index]
 
-          # due to the difference in capturing newlines in ox and nokogiri adapters
+          # due to the difference in capturing
+          # newlines in ox and nokogiri adapters
           if adapter_class == Lutaml::Model::XmlAdapter::OxAdapter
             expected_output = expected_output.gsub(/\n\s*/, " ")
           end
@@ -172,7 +173,7 @@ RSpec.describe "Mixed content" do
           ",\n  its surface is covered in ",
           ".\n  Ain't that ",
           "?\n  ",
-          "\n  NOTE: The above model content is to be formatted as a table.\n"
+          "\n  NOTE: The above model content is to be formatted as a table.\n",
         ]
 
         expect(parsed.id).to eq("123")
@@ -183,7 +184,8 @@ RSpec.describe "Mixed content" do
         parsed.content.each_with_index do |content, index|
           expected_output = expected_content[index]
 
-          # due to the difference in capturing newlines in ox and nokogiri adapters
+          # due to the difference in capturing
+          # newlines in ox and nokogiri adapters
           if adapter_class == Lutaml::Model::XmlAdapter::OxAdapter
             expected_output = expected_output.gsub(/\n\s*/, " ")
           end
@@ -238,7 +240,8 @@ RSpec.describe "Mixed content" do
         parsed.content.content.each_with_index do |content, index|
           expected_output = expected_content[index]
 
-          # due to the difference in capturing newlines in ox and nokogiri adapters
+          # due to the difference in capturing
+          # newlines in ox and nokogiri adapters
           if adapter_class == Lutaml::Model::XmlAdapter::OxAdapter
             expected_output = expected_output.gsub(/\n\s*/, " ")
           end
@@ -296,7 +299,8 @@ RSpec.describe "Mixed content" do
         parsed.content.content.each_with_index do |content, index|
           expected_output = expected_content[index]
 
-          # due to the difference in capturing newlines in ox and nokogiri adapters
+          # due to the difference in capturing
+          # newlines in ox and nokogiri adapters
           if adapter_class == Lutaml::Model::XmlAdapter::OxAdapter
             expected_output = expected_output.gsub(/\n\s*/, " ")
           end
@@ -314,7 +318,7 @@ RSpec.describe "Mixed content" do
 
     context "when mixed: true is used with map_element" do
       it "raises an error" do
-        expect {
+        expect do
           Class.new(Lutaml::Model::Serializable) do
             attribute :id, :string
 
@@ -323,13 +327,13 @@ RSpec.describe "Mixed content" do
               map_element :id, to: :id, mixed: true
             end
           end
-        }.to raise_error(ArgumentError, /unknown keyword: :mixed/)
+        end.to raise_error(ArgumentError, /unknown keyword: :mixed/)
       end
     end
 
     context "when mixed: true is used with map_attribute" do
       it "raises an error" do
-        expect {
+        expect do
           Class.new(Lutaml::Model::Serializable) do
             attribute :id, :string
 
@@ -338,7 +342,7 @@ RSpec.describe "Mixed content" do
               map_attribute :id, to: :id, mixed: true
             end
           end
-        }.to raise_error(ArgumentError, /unknown keyword: :mixed/)
+        end.to raise_error(ArgumentError, /unknown keyword: :mixed/)
       end
     end
   end
@@ -351,6 +355,7 @@ RSpec.describe "Mixed content" do
     it_behaves_like "mixed content behavior", described_class
   end
 
+  # Not implemented yet
   xdescribe Lutaml::Model::XmlAdapter::OgaAdapter do
     it_behaves_like "mixed content behavior", described_class
   end
