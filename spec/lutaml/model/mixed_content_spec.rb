@@ -56,12 +56,14 @@ module MixedContentSpec
 
   class RootMixedContentNested < Lutaml::Model::Serializable
     attribute :id, :string
+    attribute :text, :string
     attribute :content, RootMixedContent
     attribute :sup, :string, collection: true
     attribute :sub, :string, collection: true
 
     xml do
       root "RootMixedContentNested", mixed: true
+      map_content to: :text
       map_attribute :id, to: :id
       map_element :sup, to: :sup
       map_element :sub, to: :sub
@@ -71,13 +73,18 @@ module MixedContentSpec
 
   class RootMixedContentNestedWithModel < Lutaml::Model::Serializable
     attribute :id, :string
+    attribute :text, :string
     attribute :content, RootMixedContentWithModel
     attribute :sup, :string, collection: true
     attribute :sub, :string, collection: true
 
     xml do
       root "RootMixedContentNestedWithModel", mixed: true
+
+      map_content to: :text
+
       map_attribute :id, to: :id
+
       map_element :sup, to: :sup
       map_element :sub, to: :sub
       map_element "MixedContentWithModel", to: :content
@@ -109,12 +116,30 @@ RSpec.describe "Mixed content" do
 
       it "deserializes and serializes mixed content correctly" do
         parsed = MixedContentSpec::RootMixedContent.from_xml(xml)
+
+        expected_content = [
+          "\n  The Earth's Moon rings like a ",
+          " when struck by\n  meteroids. Distanced from the Earth by ",
+          ",\n  its surface is covered in ",
+          ".\n  Ain't that ",
+          "?\n",
+        ]
+
         expect(parsed.id).to eq("123")
         expect(parsed.bold).to eq(["bell", "cool"])
         expect(parsed.italic).to eq(["384,400 km"])
         expect(parsed.underline).to eq("craters")
-        expect(parsed.content).to include("\n  The Earth's Moon rings like a ")
-        expect(parsed.content).to include(".\n  Ain't that ")
+
+        parsed.content.each_with_index do |content, index|
+          expected_output = expected_content[index]
+
+          # due to the difference in capturing newlines in ox and nokogiri adapters
+          if adapter_class == Lutaml::Model::XmlAdapter::OxAdapter
+            expected_output = expected_output.gsub(/\n\s*/, " ")
+          end
+
+          expect(content).to eq(expected_output)
+        end
 
         serialized = parsed.to_xml
         expect(serialized).to be_equivalent_to(xml)
@@ -140,12 +165,32 @@ RSpec.describe "Mixed content" do
 
       it "deserializes and serializes mixed content correctly" do
         parsed = MixedContentSpec::RootMixedContentWithModel.from_xml(xml)
+
+        expected_content = [
+          "\n  The Earth's Moon rings like a ",
+          " when struck by\n  meteroids. Distanced from the Earth by ",
+          ",\n  its surface is covered in ",
+          ".\n  Ain't that ",
+          "?\n  ",
+          "\n  NOTE: The above model content is to be formatted as a table.\n"
+        ]
+
         expect(parsed.id).to eq("123")
         expect(parsed.bold).to eq(["bell", "cool"])
         expect(parsed.italic).to eq(["384,400 km"])
         expect(parsed.underline).to eq("craters")
-        expect(parsed.content).to include("\n  The Earth's Moon rings like a ")
-        expect(parsed.content).to include("\n  NOTE: The above model content is to be formatted as a table.\n")
+
+        parsed.content.each_with_index do |content, index|
+          expected_output = expected_content[index]
+
+          # due to the difference in capturing newlines in ox and nokogiri adapters
+          if adapter_class == Lutaml::Model::XmlAdapter::OxAdapter
+            expected_output = expected_output.gsub(/\n\s*/, " ")
+          end
+
+          expect(content).to eq(expected_output)
+        end
+
         expect(parsed.planetary_body.name).to eq("Moon")
         expect(parsed.planetary_body.distance_from_earth).to eq(384400)
 
@@ -173,6 +218,15 @@ RSpec.describe "Mixed content" do
 
       it "deserializes and serializes mixed content correctly" do
         parsed = MixedContentSpec::RootMixedContentNested.from_xml(xml)
+
+        expected_content = [
+          "\n    The Earth's Moon rings like a ",
+          " when struck by\n    meteroids. Distanced from the Earth by ",
+          ",\n    its surface is covered in ",
+          ".\n    Ain't that ",
+          "?\n  ",
+        ]
+
         expect(parsed.id).to eq("outer123")
         expect(parsed.sup).to eq(["1", "2"])
         expect(parsed.sub).to eq(["2"])
@@ -180,8 +234,17 @@ RSpec.describe "Mixed content" do
         expect(parsed.content.bold).to eq(["bell", "cool"])
         expect(parsed.content.italic).to eq(["384,400 km"])
         expect(parsed.content.underline).to eq("craters")
-        expect(parsed.content.content).to include("\n    The Earth's Moon rings like a ")
-        expect(parsed.content.content).to include(".\n    Ain't that ")
+
+        parsed.content.content.each_with_index do |content, index|
+          expected_output = expected_content[index]
+
+          # due to the difference in capturing newlines in ox and nokogiri adapters
+          if adapter_class == Lutaml::Model::XmlAdapter::OxAdapter
+            expected_output = expected_output.gsub(/\n\s*/, " ")
+          end
+
+          expect(content).to eq(expected_output)
+        end
 
         serialized = parsed.to_xml
         expect(serialized).to be_equivalent_to(xml)
@@ -212,6 +275,16 @@ RSpec.describe "Mixed content" do
 
       it "deserializes and serializes mixed content correctly" do
         parsed = MixedContentSpec::RootMixedContentNestedWithModel.from_xml(xml)
+
+        expected_content = [
+          "\n    The Earth's Moon rings like a ",
+          " when struck by\n    meteroids. Distanced from the Earth by ",
+          ",\n    its surface is covered in ",
+          ".\n    Ain't that ",
+          "?\n    ",
+          "\n    NOTE: The above model content is to be formatted as a table.\n  ",
+        ]
+
         expect(parsed.id).to eq("outer123")
         expect(parsed.sup).to eq(["1", "2"])
         expect(parsed.sub).to eq(["2"])
@@ -219,8 +292,18 @@ RSpec.describe "Mixed content" do
         expect(parsed.content.bold).to eq(["bell", "cool"])
         expect(parsed.content.italic).to eq(["384,400 km"])
         expect(parsed.content.underline).to eq("craters")
-        expect(parsed.content.content).to include("\n    The Earth's Moon rings like a ")
-        expect(parsed.content.content).to include("\n    NOTE: The above model content is to be formatted as a table.\n  ")
+
+        parsed.content.content.each_with_index do |content, index|
+          expected_output = expected_content[index]
+
+          # due to the difference in capturing newlines in ox and nokogiri adapters
+          if adapter_class == Lutaml::Model::XmlAdapter::OxAdapter
+            expected_output = expected_output.gsub(/\n\s*/, " ")
+          end
+
+          expect(content).to eq(expected_output)
+        end
+
         expect(parsed.content.planetary_body.name).to eq("Moon")
         expect(parsed.content.planetary_body.distance_from_earth).to eq(384400)
 

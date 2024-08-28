@@ -46,6 +46,7 @@ module Lutaml
               curr_index = index_hash[name] += 1
 
               element_rule = xml_mapping.find_by_name(name)
+              next if element_rule.nil?
 
               attribute_def = attribute_definition_for(element, element_rule,
                                                        mapper_class: mapper_class)
