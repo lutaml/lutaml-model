@@ -44,8 +44,7 @@ module Lutaml
         delegate: nil,
         namespace: (namespace_set = false
                     nil),
-        prefix: nil,
-        mixed: false
+        prefix: nil
       )
         @elements[name] = XmlMappingRule.new(
           name,
@@ -55,7 +54,6 @@ module Lutaml
           delegate: delegate,
           namespace: namespace,
           prefix: prefix,
-          mixed_content: mixed,
           namespace_set: namespace_set != false,
         )
       end
