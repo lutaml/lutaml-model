@@ -276,7 +276,10 @@ module Lutaml
                     end
 
             if rule.custom_methods[:from]
-              value = new.send(rule.custom_methods[:from], instance, value) if value && !value.empty?
+              if value && !value.empty?
+                value = new.send(rule.custom_methods[:from], instance,
+                                 value)
+              end
               next
             end
 
