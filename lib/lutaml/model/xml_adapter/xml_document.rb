@@ -213,7 +213,8 @@ module Lutaml
           attrs = {}
 
           if xml_mappings.namespace_uri
-            prefixed_name = ["xmlns", xml_mappings.namespace_prefix].compact.join(":")
+            prefixed_name = ["xmlns",
+                             xml_mappings.namespace_prefix].compact.join(":")
 
             attrs[prefixed_name] = xml_mappings.namespace_uri
           end
