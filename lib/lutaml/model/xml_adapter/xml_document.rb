@@ -161,7 +161,7 @@ module Lutaml
           tag_name = options[:tag_name] || xml_mapping.root_element
 
           prefixed_xml.create_and_add_element(tag_name, prefix: prefix,
-                                               attributes: attributes) do
+                                                        attributes: attributes) do
             if options.key?(:namespace_prefix) && !options[:namespace_prefix]
               prefixed_xml.add_namespace_prefix(nil)
             end
