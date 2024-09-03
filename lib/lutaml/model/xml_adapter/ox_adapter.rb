@@ -20,6 +20,8 @@ module Lutaml
           elsif ordered?(@root, options)
             build_ordered_element(builder, @root, options)
           else
+            mapper_class = options[:mapper_class] || @root.class
+            options[:xml_attributes] = build_namespace_attributes(mapper_class)
             build_element(builder, @root, options)
           end
 

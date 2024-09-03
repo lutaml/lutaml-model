@@ -160,10 +160,10 @@ module Lutaml
           prefixed_xml = xml.add_namespace_prefix(prefix)
           tag_name = options[:tag_name] || xml_mapping.root_element
 
-          xml.create_and_add_element(tag_name, prefix: prefix,
+          prefixed_xml.create_and_add_element(tag_name, prefix: prefix,
                                                attributes: attributes) do
             if options.key?(:namespace_prefix) && !options[:namespace_prefix]
-              xml.add_namespace_prefix(nil)
+              prefixed_xml.add_namespace_prefix(nil)
             end
 
             xml_mapping.elements.each do |element_rule|
@@ -177,7 +177,7 @@ module Lutaml
               value = [value] if attribute_def.collection? && !value.is_a?(Array)
 
               add_to_xml(
-                xml,
+                prefixed_xml,
                 element_rule.prefix,
                 value,
                 options.merge({ attribute: attribute_def, rule: element_rule }),
@@ -212,9 +212,10 @@ module Lutaml
 
           attrs = {}
 
-          if xml_mappings.namespace_prefix
-            attrs["xmlns:#{xml_mappings.namespace_prefix}"] =
-              xml_mappings.namespace_uri
+          if xml_mappings.namespace_uri
+            prefixed_name = ["xmlns", xml_mappings.namespace_prefix].compact.join(":")
+
+            attrs[prefixed_name] = xml_mappings.namespace_uri
           end
 
           xml_mappings.mappings.each do |mapping_rule|

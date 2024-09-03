@@ -17,9 +17,14 @@ module Lutaml
 
           def initialize(xml)
             @xml = xml
+            @current_namespace = nil
           end
 
           def create_element(name, attributes = {})
+            if @current_namespace && !name.start_with?("#{@current_namespace}:")
+              name = "#{@current_namespace}:#{name}"
+            end
+
             if block_given?
               xml.element(name, attributes) do |element|
                 yield(self.class.new(element))
@@ -36,6 +41,8 @@ module Lutaml
           def create_and_add_element(element_name, prefix: nil, attributes: {})
             prefixed_name = if prefix
                               "#{prefix}:#{element_name}"
+                            elsif @current_namespace && !element_name.start_with?("#{@current_namespace}:")
+                              "#{@current_namespace}:#{element_name}"
                             else
                               element_name
                             end
@@ -47,6 +54,8 @@ module Lutaml
             else
               xml.element(prefixed_name, attributes)
             end
+
+            @current_namespace = nil
           end
 
           def <<(text)
@@ -59,9 +68,10 @@ module Lutaml
 
           # Add XML namespace to document
           #
-          # Ox doesn't support XML namespaces so this method does nothing.
-          def add_namespace_prefix(_prefix)
-            # :noop:
+          # Ox doesn't support XML namespaces so we only save the
+          # current namespace prefix to add it to the element's name later.
+          def add_namespace_prefix(prefix)
+            @current_namespace = prefix
             self
           end
 
