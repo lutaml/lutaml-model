@@ -202,13 +202,17 @@ end
 === Attribute as a collection
 
 Define attributes as collections (arrays or hashes) to store multiple values
-using the `collection` option.
+using the `collection` option. We can set `collection` to `true` or set a range
+like `collection: 5..10` this will raise `CollectionCountOutOfRangeError` if
+the count of values for the field is less then 5 or greater then 10.
 
 Syntax:
 
 [source,ruby]
 ----
 attribute :name_of_attribute, Type, collection: true
+attribute :name_of_attribute, Type, collection: 0..5
+attribute :name_of_attribute, Type, collection: 0..  # This means 0 to Infinity
 ----
 
 .Using the `collection` option to define a collection attribute
@@ -219,6 +223,8 @@ attribute :name_of_attribute, Type, collection: true
 class Studio < Lutaml::Model::Serializable
   attribute :location, :string
   attribute :potters, :string, collection: true
+  attribute :address, :string, collection: 1..2
+  attribute :hobbies, :string, collection: 0..
 end
 ----
 
