@@ -13,7 +13,7 @@ module CollectionTests
 
   class Kiln < Lutaml::Model::Serializable
     attribute :brand, Lutaml::Model::Type::String
-    attribute :pots, Pot, collection: true
+    attribute :pots, Pot, collection: 0..2
     attribute :temperatures, Lutaml::Model::Type::Integer, collection: true
 
     xml do
@@ -83,5 +83,32 @@ RSpec.describe CollectionTests do
       expect(new_model.pots[index].material).to eq(pot.material)
     end
     expect(new_model.temperatures).to eq(model.temperatures)
+  end
+
+  context "when collection counts exceeds given range" do
+    let(:model_xml) do
+      <<~XML
+        <kiln brand="Skutt">
+          <pot>
+            <material>clay</material>
+          </pot>
+          <pot>
+            <material>ceramic</material>
+          </pot>
+          <pot>
+            <material>wood</material>
+          </pot>
+          <pot>
+            <material>steel</material>
+          </pot>
+        </kiln>
+      XML
+    end
+
+    it "raises CollectionCountOutOfRangeError" do
+      expect do
+        CollectionTests::Kiln.from_xml(model_xml)
+      end.to raise_error(Lutaml::Model::CollectionCountOutOfRangeError)
+    end
   end
 end

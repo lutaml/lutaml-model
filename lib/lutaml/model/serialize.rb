@@ -52,23 +52,8 @@ module Lutaml
 
           define_method(:"#{name}=") do |value|
             instance_variable_set(:"@#{name}", value)
-            validate
+            validate!
           end
-        end
-
-        # Check if the value to be assigned is valid for the attribute
-        def attr_value_valid?(name, value)
-          attr = attributes[name]
-
-          return true unless attr.options[:values]
-
-          # Allow nil values if there's no default
-          return true if value.nil? && !attr.default
-
-          # Use the default value if the value is nil
-          value = attr.default if value.nil?
-
-          attr.options[:values].include?(value)
         end
 
         Lutaml::Model::Config::AVAILABLE_FORMATS.each do |format|
@@ -392,7 +377,7 @@ module Lutaml
           send(:"#{name}=", self.class.ensure_utf8(value))
         end
 
-        validate
+        validate!
       end
 
       def ordered?
@@ -413,7 +398,7 @@ module Lutaml
 
       Lutaml::Model::Config::AVAILABLE_FORMATS.each do |format|
         define_method(:"to_#{format}") do |options = {}|
-          validate
+          validate!
           adapter = Lutaml::Model::Config.public_send(:"#{format}_adapter")
           representation = if format == :xml
                              self
@@ -426,13 +411,14 @@ module Lutaml
         end
       end
 
-      def validate
+      def validate!
         self.class.attributes.each do |name, attr|
           value = send(name)
-          unless self.class.attr_value_valid?(name, value)
-            raise Lutaml::Model::InvalidValueError.new(name, value,
-                                                       attr.options[:values])
-          end
+
+          # Allow nil values if there's no default
+          next if value.nil? && !attr.default
+
+          attr.validate_value!(value)
         end
       end
     end
