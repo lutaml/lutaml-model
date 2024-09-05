@@ -77,12 +77,11 @@ module Lutaml
           element.children.each_with_object(result) do |child, hash|
             value = child.text? ? child.text : parse_element(child)
 
-            if hash[child.unprefixed_name]
-              hash[child.unprefixed_name] =
-                [hash[child.unprefixed_name], value].flatten
-            else
-              hash[child.unprefixed_name] = value
-            end
+            hash[child.unprefixed_name] = if hash[child.unprefixed_name]
+                                            [hash[child.unprefixed_name], value].flatten
+                                          else
+                                            value
+                                          end
           end
 
           element.attributes.each_value do |attr|
