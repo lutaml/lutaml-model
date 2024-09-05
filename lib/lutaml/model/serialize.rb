@@ -52,7 +52,7 @@ module Lutaml
 
           define_method(:"#{name}=") do |value|
             instance_variable_set(:"@#{name}", value)
-            validate!
+            validate!(name)
           end
         end
 
@@ -411,8 +411,10 @@ module Lutaml
         end
       end
 
-      def validate!
+      def validate!(attr_name = nil)
         self.class.attributes.each do |name, attr|
+          next if attr_name && attr_name != name
+
           value = send(name)
 
           # Allow nil values if there's no default

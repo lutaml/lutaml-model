@@ -230,9 +230,15 @@ end
 
 [source,ruby]
 ----
-> Studio.new.potters
+> Studio.new
+> # address count is `0`, must be between 1 and 2  (Lutaml::Model::CollectionCountOutOfRangeError)
+> Studio.new({ address: ["address 1", "address 2", "address 3"] })
+> # address count is `3`, must be between 1 and 2  (Lutaml::Model::CollectionCountOutOfRangeError)
+> Studio.new({ address: ["address 1"] }).potters
 > # []
-> Studio.new(potters: ['John Doe', 'Jane Doe']).potters
+> Studio.new({ address: ["address 1"] }).address
+> # ["address 1"]
+> Studio.new(address: ["address 1"], potters: ['John Doe', 'Jane Doe']).potters
 > # ['John Doe', 'Jane Doe']
 ----
 ====
