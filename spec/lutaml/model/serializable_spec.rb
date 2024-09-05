@@ -278,7 +278,7 @@ RSpec.describe Lutaml::Model::Serializable do
         )
         collection.featured_piece.firing_temperature = 1400
         expect do
-          collection.validate
+          collection.validate!
         end.to raise_error(Lutaml::Model::InvalidValueError)
       end
     end
