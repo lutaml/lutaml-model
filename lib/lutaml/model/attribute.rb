@@ -86,7 +86,7 @@ module Lutaml
       def valid_collection?(value)
         return true unless collection?
         return false unless value.is_a?(Array)
-        return collection? if options[:collection].boolean?
+        return collection? if [true, false].include?(options[:collection])
 
         options[:collection].include?(value.count)
       end
