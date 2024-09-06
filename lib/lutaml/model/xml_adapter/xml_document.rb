@@ -85,7 +85,15 @@ module Lutaml
           end
 
           element.attributes.each_value do |attr|
-            result[attr.unprefixed_name] = attr.value
+            if attr.unprefixed_name == "schemaLocation"
+              result["__schema_location"] = {
+                namespace: attr.namespace,
+                prefix: attr.namespace_prefix,
+                schema_location: attr.value,
+              }
+            else
+              result[attr.unprefixed_name] = attr.value
+            end
           end
 
           result
@@ -149,6 +157,9 @@ module Lutaml
           attributes = options[:xml_attributes] ||= {}
           attributes = build_attributes(element,
                                         xml_mapping, options).merge(attributes)&.compact
+          if element.respond_to?(:schema_location) && element.schema_location
+            attributes.merge!(element.schema_location.to_xml_attributes)
+          end
 
           prefix = if options.key?(:namespace_prefix)
                      options[:namespace_prefix]

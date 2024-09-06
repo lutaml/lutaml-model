@@ -9,6 +9,7 @@ require_relative "xml_mapping"
 require_relative "key_value_mapping"
 require_relative "json_adapter"
 require_relative "comparable_model"
+require_relative "schema_location"
 
 module Lutaml
   module Model
@@ -301,6 +302,14 @@ module Lutaml
             instance.ordered = mappings_for(:xml).mixed_content? || options[:mixed_content]
           end
 
+          if doc["__schema_location"]
+            instance.schema_location = Lutaml::Model::SchemaLocation.new(
+              doc["__schema_location"][:schema_location],
+              doc["__schema_location"][:prefix],
+              doc["__schema_location"][:namespace],
+            )
+          end
+
           mappings.each do |rule|
             attr = attributes[rule.to]
             raise "Attribute '#{rule.to}' not found in #{self}" unless attr
@@ -361,7 +370,7 @@ module Lutaml
         end
       end
 
-      attr_accessor :element_order
+      attr_accessor :element_order, :schema_location
 
       def initialize(attrs = {})
         return unless self.class.attributes

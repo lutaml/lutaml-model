@@ -110,6 +110,22 @@ RSpec.describe Lutaml::Model::XmlMapping do
     end
   end
 
+  context "with schemaLocation" do
+    let(:xml) do
+      <<~XML
+        <p xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xsi:schemaLocation="http://www.opengis.net/gml/3.2
+                               http://schemas.opengis.net/gml/3.2.1/gml.xsd">
+           Some text inside paragraph
+        </p>
+      XML
+    end
+
+    it "should contain schemaLocation attributes" do
+      expect(Paragraph.from_xml(xml).to_xml).to be_equivalent_to(xml)
+    end
+  end
+
   context "with content mapping" do
     let(:xml_data) { "<i>my text <b>bold</b> is in italics</i>" }
     let(:italic) { Italic.from_xml(xml_data) }
