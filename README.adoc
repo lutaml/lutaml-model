@@ -1333,12 +1333,12 @@ class CustomCeramic < Lutaml::Model::Serializable
     map 'size', to: :size
   end
 
-  def name_to_json(model, value)
-    doc["name"] = "Masterpiece: #{value}"
+  def name_to_json(model, doc)
+    doc["name"] = "Masterpiece: #{model.name}"
   end
 
-  def name_from_json(model, doc)
-    model.name = value.sub(/^JSON Masterpiece: /, '')
+  def name_from_json(model, value)
+    model.name = value.sub(/^Masterpiece: /, '')
   end
 end
 ----
