@@ -15,11 +15,13 @@ end
 # Define a sample class for testing p tag
 class Paragraph < Lutaml::Model::Serializable
   attribute :text, Lutaml::Model::Type::String
+  attribute :paragraph, Paragraph
 
   xml do
     root "p"
 
     map_content to: :text
+    map_element "p", to: :paragraph
   end
 end
 
@@ -116,12 +118,15 @@ RSpec.describe Lutaml::Model::XmlMapping do
         <p xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
            xsi:schemaLocation="http://www.opengis.net/gml/3.2
                                http://schemas.opengis.net/gml/3.2.1/gml.xsd">
-           Some text inside paragraph
+          <p xmlns:xsi="http://another-instance"
+             xsi:schemaLocation="http://www.opengis.net/gml/3.7">
+            Some text inside paragraph
+          </p>
         </p>
       XML
     end
 
-    it "should contain schemaLocation attributes" do
+    it "contain schemaLocation attributes" do
       expect(Paragraph.from_xml(xml).to_xml).to be_equivalent_to(xml)
     end
   end
