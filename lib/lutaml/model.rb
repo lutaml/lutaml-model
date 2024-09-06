@@ -22,10 +22,3 @@ module Lutaml
     end
   end
 end
-
-# Convinience methods
-class Object
-  def boolean?
-    is_a?(TrueClass) || is_a?(FalseClass)
-  end
-end
