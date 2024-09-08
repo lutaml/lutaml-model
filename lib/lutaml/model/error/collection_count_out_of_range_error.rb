@@ -10,14 +10,19 @@ module Lutaml
       end
 
       def to_s
-        "#{@attr_name} count is `#{@value.count}`, must be between " \
-          "#{range_to_string} "
+        "#{@attr_name} count is #{@value.size}, must be #{range_to_string}"
       end
 
       private
 
       def range_to_string
-        "#{@range.first} and #{@range.last(1).first}"
+        if @range.end.nil?
+          "at least #{@range.begin}"
+        elsif @range.begin == @range.end
+          "exactly #{@range.begin}"
+        else
+          "between #{@range.begin} and #{@range.end}"
+        end
       end
     end
   end

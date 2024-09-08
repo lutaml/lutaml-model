@@ -6,11 +6,11 @@ module Lutaml
       def initialize(name, type, options = {})
         @name = name
         @type = cast_type(type)
-
         @options = options
 
-        if collection? && !options[:default]
-          @options[:default] = -> { [] }
+        if collection?
+          validate_collection_range
+          @options[:default] = -> { [] } unless options[:default]
         end
       end
 
@@ -91,15 +91,72 @@ module Lutaml
         options[:collection].include?(value.count)
       end
 
+      def validate_value!(value)
+        # return true if none of the validations are present
+        return true if enum_values.empty? && singular?
+
+        # Use the default value if the value is nil
+        value = default if value.nil?
+
+        valid_value!(value) && valid_collection!(value)
+      end
+
+      def validate_collection_range
+        range = @options[:collection]
+        return if range == true
+
+        unless range.is_a?(Range)
+          raise ArgumentError, "Invalid collection range: #{range}"
+        end
+
+        if range.begin.nil?
+          raise ArgumentError,
+                "Invalid collection range: #{range}. Begin must be specified."
+        end
+
+        if range.begin.negative?
+          raise ArgumentError,
+                "Invalid collection range: #{range}. Begin must be non-negative."
+        end
+
+        if range.end && range.end < range.begin
+          raise ArgumentError,
+                "Invalid collection range: #{range}. End must be greater than or equal to begin."
+        end
+      end
+
       def valid_collection!(value)
-        unless valid_collection?(value)
-          raise(
-            Lutaml::Model::CollectionCountOutOfRangeError.new(
+        return true unless collection?
+        return true if value.nil? # Allow nil values for collections during initialization
+
+        unless value.is_a?(Array)
+          raise Lutaml::Model::CollectionCountOutOfRangeError.new(
+            name,
+            value,
+            options[:collection],
+          )
+        end
+
+        range = options[:collection]
+        if range.is_a?(Range)
+          if range.end.nil?
+            if value.size < range.begin
+              raise Lutaml::Model::CollectionCountOutOfRangeError.new(
+                name,
+                value,
+                range,
+              )
+            end
+          elsif !range.cover?(value.size)
+            raise Lutaml::Model::CollectionCountOutOfRangeError.new(
               name,
               value,
-              options[:collection],
-            ),
-          )
+              range,
+            )
+          end
+        elsif range == true && value.empty?
+          # Allow empty arrays for unbounded collections
+          return true
         end
 
         true

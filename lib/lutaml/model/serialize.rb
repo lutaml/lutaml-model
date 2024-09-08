@@ -77,8 +77,8 @@ module Lutaml
           define_method(:"of_#{format}") do |hash|
             if hash.is_a?(Array)
               return hash.map do |item|
-                apply_mappings(item, format)
-              end
+                       apply_mappings(item, format)
+                     end
             end
 
             apply_mappings(hash, format)
@@ -372,7 +372,16 @@ module Lutaml
         end
 
         self.class.attributes.each do |name, attr|
-          value = self.class.attr_value(attrs, name, attr)
+          value = if attrs.key?(name) || attrs.key?(name.to_s)
+                    self.class.attr_value(attrs, name, attr)
+                  else
+                    attr.default
+                  end
+
+          # Initialize collections with an empty array if no value is provided
+          if attr.collection? && value.nil?
+            value = []
+          end
 
           send(:"#{name}=", self.class.ensure_utf8(value))
         end
@@ -417,9 +426,10 @@ module Lutaml
 
           value = send(name)
 
-          # Allow nil values if there's no default
-          next if value.nil? && !attr.default
+          # Skip validation for nil values of non-collection attributes
+          next if value.nil? && !attr.collection?
 
+          # Always validate collections
           attr.validate_value!(value)
         end
       end
