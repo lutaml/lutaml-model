@@ -15,12 +15,22 @@ module CollectionTests
     attribute :brand, Lutaml::Model::Type::String
     attribute :pots, Pot, collection: 0..2
     attribute :temperatures, Lutaml::Model::Type::Integer, collection: true
+    attribute :operators, Lutaml::Model::Type::String, collection: (1..),
+                                                       default: -> {
+                                                         ["Default Operator"]
+                                                       }
+    attribute :sensors, Lutaml::Model::Type::String, collection: 1..3,
+                                                     default: -> {
+                                                       ["Default Sensor"]
+                                                     }
 
     xml do
       root "kiln"
       map_attribute "brand", to: :brand
       map_element "pot", to: :pots
       map_element "temperature", to: :temperatures
+      map_element "operator", to: :operators
+      map_element "sensor", to: :sensors
     end
   end
 end
@@ -28,11 +38,15 @@ end
 RSpec.describe CollectionTests do
   let(:pots) { [{ material: "clay" }, { material: "ceramic" }] }
   let(:temperatures) { [1200, 1300, 1400] }
+  let(:operators) { ["John", "Jane"] }
+  let(:sensors) { ["Temp1", "Temp2"] }
   let(:attributes) do
     {
       brand: "Skutt",
       pots: pots,
       temperatures: temperatures,
+      operators: operators,
+      sensors: sensors,
     }
   end
   let(:model) { CollectionTests::Kiln.new(attributes) }
@@ -49,6 +63,10 @@ RSpec.describe CollectionTests do
         <temperature>1200</temperature>
         <temperature>1300</temperature>
         <temperature>1400</temperature>
+        <operator>John</operator>
+        <operator>Jane</operator>
+        <sensor>Temp1</sensor>
+        <sensor>Temp2</sensor>
       </kiln>
     XML
   end
@@ -58,6 +76,8 @@ RSpec.describe CollectionTests do
     expect(default_model.brand).to be_nil
     expect(default_model.pots).to eq([])
     expect(default_model.temperatures).to eq([])
+    expect(default_model.operators).to eq(["Default Operator"])
+    expect(default_model.sensors).to eq(["Default Sensor"])
   end
 
   it "serializes to XML" do
@@ -72,6 +92,8 @@ RSpec.describe CollectionTests do
     expect(sample.pots[0].material).to eq("clay")
     expect(sample.pots[1].material).to eq("ceramic")
     expect(sample.temperatures).to eq([1200, 1300, 1400])
+    expect(sample.operators).to eq(["John", "Jane"])
+    expect(sample.sensors).to eq(["Temp1", "Temp2"])
   end
 
   it "round-trips XML" do
@@ -83,10 +105,55 @@ RSpec.describe CollectionTests do
       expect(new_model.pots[index].material).to eq(pot.material)
     end
     expect(new_model.temperatures).to eq(model.temperatures)
+    expect(new_model.operators).to eq(model.operators)
+    expect(new_model.sensors).to eq(model.sensors)
   end
 
-  context "when collection counts exceeds given range" do
-    let(:model_xml) do
+  context "when collection counts are below given ranges" do
+    let(:invalid_attributes) do
+      attributes.merge(operators: [], sensors: [])
+    end
+
+    it "raises CollectionCountOutOfRangeError" do
+      expect do
+        CollectionTests::Kiln.new(invalid_attributes)
+      end.to raise_error(Lutaml::Model::CollectionCountOutOfRangeError,
+                         /operators count is 0, must be at least 1/)
+    end
+
+    it "raises CollectionCountOutOfRangeError for sensors" do
+      expect do
+        CollectionTests::Kiln.new(attributes.merge(sensors: []))
+      end.to raise_error(Lutaml::Model::CollectionCountOutOfRangeError,
+                         /sensors count is 0, must be between 1 and 3/)
+    end
+  end
+
+  context "when collection counts are below given ranges" do
+    let(:invalid_attributes) do
+      attributes.merge(operators: [], sensors: [])
+    end
+
+    it "raises CollectionCountOutOfRangeError" do
+      expect do
+        CollectionTests::Kiln.new(invalid_attributes)
+      end.to raise_error(Lutaml::Model::CollectionCountOutOfRangeError,
+                         /operators count is 0, must be at least 1/)
+    end
+  end
+
+  context "when collection with unbounded maximum exceeds minimum" do
+    let(:valid_attributes) do
+      attributes.merge(operators: ["John", "Jane", "Jim", "Jessica"])
+    end
+
+    it "creates the model without errors" do
+      expect { CollectionTests::Kiln.new(valid_attributes) }.not_to raise_error
+    end
+  end
+
+  context "when deserializing XML with invalid collection counts" do
+    let(:invalid_xml) do
       <<~XML
         <kiln brand="Skutt">
           <pot>
@@ -96,19 +163,75 @@ RSpec.describe CollectionTests do
             <material>ceramic</material>
           </pot>
           <pot>
-            <material>wood</material>
+            <material>porcelain</material>
           </pot>
-          <pot>
-            <material>steel</material>
-          </pot>
+          <temperature>1200</temperature>
+          <operator>John</operator>
+          <sensor>Temp1</sensor>
+          <sensor>Temp2</sensor>
+          <sensor>Temp3</sensor>
+          <sensor>Temp4</sensor>
         </kiln>
       XML
     end
 
     it "raises CollectionCountOutOfRangeError" do
       expect do
-        CollectionTests::Kiln.from_xml(model_xml)
-      end.to raise_error(Lutaml::Model::CollectionCountOutOfRangeError)
+        CollectionTests::Kiln.from_xml(invalid_xml)
+      end.to raise_error(Lutaml::Model::CollectionCountOutOfRangeError,
+                         /pots count is 3, must be between 0 and 2/)
+    end
+  end
+
+  context "when specifying invalid collection ranges" do
+    it "raises an error for a range with only an upper bound" do
+      expect do
+        Class.new(Lutaml::Model::Serializable) do
+          attribute :invalid_range, Lutaml::Model::Type::String, collection: ..3
+        end
+      end.to raise_error(ArgumentError, /Invalid collection range/)
+    end
+
+    it "raises an error for a range where max is less than min" do
+      expect do
+        Class.new(Lutaml::Model::Serializable) do
+          attribute :invalid_range, Lutaml::Model::Type::String,
+                    collection: 9..3
+        end
+      end.to raise_error(ArgumentError, /Invalid collection range/)
+    end
+
+    it "raises an error for a negative range" do
+      expect do
+        Class.new(Lutaml::Model::Serializable) do
+          attribute :invalid_range, Lutaml::Model::Type::String,
+                    collection: -2..1
+        end
+      end.to raise_error(ArgumentError, /Invalid collection range/)
+    end
+
+    it "allows a range with only a lower bound" do
+      expect do
+        Class.new(Lutaml::Model::Serializable) do
+          attribute :valid_range, Lutaml::Model::Type::String, collection: 1..
+        end
+      end.not_to raise_error
+    end
+
+    it "allows a range with both lower and upper bounds" do
+      expect do
+        Class.new(Lutaml::Model::Serializable) do
+          attribute :valid_range, Lutaml::Model::Type::String, collection: 1..3
+        end
+      end.not_to raise_error
+    end
+
+    it "allows a range with zero as the lower bound" do
+      expect do
+        Class.new(Lutaml::Model::Serializable) do
+          attribute :valid_range, Lutaml::Model::Type::String, collection: 0..3
+        end
+      end.not_to raise_error
     end
   end
 end

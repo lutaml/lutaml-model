@@ -202,17 +202,47 @@ end
 === Attribute as a collection
 
 Define attributes as collections (arrays or hashes) to store multiple values
-using the `collection` option. We can set `collection` to `true` or set a range
-like `collection: 5..10` this will raise `CollectionCountOutOfRangeError` if
-the count of values for the field is less then 5 or greater then 10.
+using the `collection` option.
+
+`collection` can be set to:
+
+`true`:::
+The attribute contains an unbounded collection of objects of the declared class.
+
+`{min}..{max}`:::
+The attribute contains a collection of objects of the declared class with a
+count within the specified range.
+If the number of objects is out of this numbered range,
+`CollectionCountOutOfRangeError` will be raised.
++
+[example]
+====
+When set to `0..1`, it means that the attribute is optional, it could be empty
+or contain one object of the declared class.
+====
++
+[example]
+====
+When set to `1..` (equivalent to `1..Infinity`), it means that the
+attribute must contain at least one object of the declared class and can contain
+any number of objects.
+====
++
+[example]
+====
+When set to 5..10` means that there is a minimum of 5 and a maximum of 10
+objects of the declared class. If the count of values for the attribute is less
+then 5 or greater then 10, the `CollectionCountOutOfRangeError` will be raised.
+====
+
 
 Syntax:
 
 [source,ruby]
 ----
 attribute :name_of_attribute, Type, collection: true
-attribute :name_of_attribute, Type, collection: 0..5
-attribute :name_of_attribute, Type, collection: 0..  # This means 0 to Infinity
+attribute :name_of_attribute, Type, collection: {min}..{max}
+attribute :name_of_attribute, Type, collection: {min}..
 ----
 
 .Using the `collection` option to define a collection attribute
@@ -242,6 +272,7 @@ end
 > # ['John Doe', 'Jane Doe']
 ----
 ====
+
 
 [[attribute-enumeration]]
 === Attribute as an enumeration
