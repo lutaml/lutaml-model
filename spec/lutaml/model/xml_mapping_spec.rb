@@ -131,6 +131,76 @@ RSpec.describe Lutaml::Model::XmlMapping do
     end
   end
 
+  xcontext "with multiple schemaLocations" do
+    let(:xml) do
+      <<~XML
+        <p xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xsi:schemaLocation="http://www.opengis.net/gml/3.2 http://schemas.opengis.net/gml/3.2.1/gml.xsd
+                               http://www.w3.org/1999/xlink http://www.w3.org/1999/xlink.xsd">
+          <p xmlns:xsi="http://another-instance"
+             xsi:schemaLocation="http://www.opengis.net/gml/3.7 http://schemas.opengis.net/gml/3.7.1/gml.xsd
+                                 http://www.isotc211.org/2005/gmd http://schemas.opengis.net/iso/19139/20070417/gmd/gmd.xsd">
+            Some text inside paragraph
+          </p>
+        </p>
+      XML
+    end
+
+    it "parses and serializes multiple schemaLocation attributes" do
+      parsed = Paragraph.from_xml(xml)
+      expect(parsed.schema_locations).to be_an(Array)
+      expect(parsed.schema_locations.size).to eq(2)
+      expect(parsed.schema_locations[0].namespace).to eq("http://www.opengis.net/gml/3.2")
+      expect(parsed.schema_locations[0].location).to eq("http://schemas.opengis.net/gml/3.2.1/gml.xsd")
+      expect(parsed.schema_locations[1].namespace).to eq("http://www.w3.org/1999/xlink")
+      expect(parsed.schema_locations[1].location).to eq("http://www.w3.org/1999/xlink.xsd")
+
+      serialized = parsed.to_xml
+      expect(serialized).to be_equivalent_to(xml)
+      expect(serialized).to include('xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"')
+      expect(serialized).to include('xsi:schemaLocation="http://www.opengis.net/gml/3.2 http://schemas.opengis.net/gml/3.2.1/gml.xsd http://www.w3.org/1999/xlink http://www.w3.org/1999/xlink.xsd"')
+    end
+
+    it "handles nested elements with different schemaLocations" do
+      parsed = Paragraph.from_xml(xml)
+      nested_p = parsed.text.first
+
+      expect(nested_p).to be_a(Paragraph)
+      expect(nested_p.schema_locations).to be_an(Array)
+      expect(nested_p.schema_locations.size).to eq(2)
+      expect(nested_p.schema_locations[0].namespace).to eq("http://www.opengis.net/gml/3.7")
+      expect(nested_p.schema_locations[0].location).to eq("http://schemas.opengis.net/gml/3.7.1/gml.xsd")
+      expect(nested_p.schema_locations[1].namespace).to eq("http://www.isotc211.org/2005/gmd")
+      expect(nested_p.schema_locations[1].location).to eq("http://schemas.opengis.net/iso/19139/20070417/gmd/gmd.xsd")
+
+      serialized = parsed.to_xml
+      expect(serialized).to include('xmlns:xsi="http://another-instance"')
+      expect(serialized).to include('xsi:schemaLocation="http://www.opengis.net/gml/3.7 http://schemas.opengis.net/gml/3.7.1/gml.xsd http://www.isotc211.org/2005/gmd http://schemas.opengis.net/iso/19139/20070417/gmd/gmd.xsd"')
+    end
+
+    it "creates XML with multiple schemaLocations" do
+      paragraph = Paragraph.new(
+        schema_locations: [
+          Lutaml::Model::SchemaLocation.new("http://www.opengis.net/gml/3.2", "http://schemas.opengis.net/gml/3.2.1/gml.xsd"),
+          Lutaml::Model::SchemaLocation.new("http://www.w3.org/1999/xlink", "http://www.w3.org/1999/xlink.xsd"),
+        ],
+        text: [
+          Paragraph.new(
+            schema_locations: [
+              Lutaml::Model::SchemaLocation.new("http://www.opengis.net/gml/3.7", "http://schemas.opengis.net/gml/3.7.1/gml.xsd"),
+              Lutaml::Model::SchemaLocation.new("http://www.isotc211.org/2005/gmd", "http://schemas.opengis.net/iso/19139/20070417/gmd/gmd.xsd"),
+            ],
+            xsi_namespace: "http://another-instance",
+            text: ["Some text inside paragraph"],
+          ),
+        ],
+      )
+
+      serialized = paragraph.to_xml
+      expect(serialized).to be_equivalent_to(xml)
+    end
+  end
+
   context "with content mapping" do
     let(:xml_data) { "<i>my text <b>bold</b> is in italics</i>" }
     let(:italic) { Italic.from_xml(xml_data) }
