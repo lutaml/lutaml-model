@@ -1068,7 +1068,8 @@ end
 > c = Ceramic.from_xml(xml_file)
 > #<Ceramic:0x0000000104ac7240 @type="Porcelain", @glaze="Clear", @color="navy-blue", @schema_location="http://example.com/ceramic http://example.com/ceramic.xsd http://example.com/color http://example.com/color.xsd">
 > schema_loc = c.schema_location
-> # "http://example.com/ceramic http://example.com/ceramic.xsd http://example.com/color http://example.com/color.xsd"
+> # [ #<SchemaLocation:0x0000000104ac7240 @namespace="http://example.com/ceramic", @schema="http://example.com/ceramic.xsd">,
+  #   #<SchemaLocation:0x0000000104ac7240 @namespace="http://example.com/color", @schema="http://example.com/color.xsd"> ]
 > Ceramic.new(type: "Porcelain", glaze: "Clear", color: "navy-blue", schema_location: schema_loc).to_xml
 > #<cera:Ceramic xmlns:cera="http://example.com/ceramic"
   # xmlns:clr='http://example.com/color'
