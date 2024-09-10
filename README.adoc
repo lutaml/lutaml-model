@@ -1709,6 +1709,101 @@ In this example:
 ====
 
 
+== Validation
+
+=== General
+
+Lutaml::Model provides a way to validate data models using the `validate` and
+`validate!` methods.
+
+* The `validate` method sets an `errors` array in the model instance that
+contains all the validation errors. This method is used for checking the
+validity of the model silently.
+
+* The `validate!` method raises a `Lutaml::Model::ValidationError` that contains
+all the validation errors. This method is used for forceful validation of the
+model through raising an error.
+
+Lutaml::Model supports the following validation methods:
+
+* `collection`:: Validates collection size range.
+* `values`:: Validates the value of an attribute from a set of fixed values.
+
+[example]
+====
+The following class will validate the `degree_settings` attribute to ensure that
+it has at least one element and that the `description` attribute is one of the
+values in the set `[one, two, three]`.
+
+[source,ruby]
+----
+class Klin < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :degree_settings, :integer, collection: (1..)
+  attribute :description, :string, values: %w[one two three]
+
+  xml do
+    map_element 'name', to: :name
+    map_attribute 'degree_settings', to: :degree_settings
+  end
+end
+
+klin = Klin.new(name: "Klin", degree_settings: [100, 200, 300], description: "one")
+klin.validate
+# => []
+
+klin = Klin.new(name: "Klin", degree_settings: [], description: "four")
+klin.validate
+# => [
+#      #<Lutaml::Model::CollectionSizeError: degree_settings must have at least 1 element>,
+#      #<Lutaml::Model::ValueError: description must be one of [one, two, three]>
+#    ]
+
+e = klin.validate!
+# => Lutaml::Model::ValidationError: [
+#      degree_settings must have at least 1 element,
+#      description must be one of [one, two, three]
+#    ]
+e.errors
+# => [
+#     #<Lutaml::Model::CollectionSizeError: degree_settings must have at least 1 element>,
+#     #<Lutaml::Model::ValueError: description must be one of [one, two, three]>
+#   ]
+----
+====
+
+=== Custom validation
+
+To add custom validation, override the `validate` method in the model class.
+Additional errors should be added to the `errors` array.
+
+[example]
+====
+The following class validates the `degree_settings` attribute when the `type` is
+`glass` to ensure that the value is less than 1300.
+
+[source,ruby]
+----
+class Klin < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :type, :string, values: %w[glass ceramic]
+  attribute :degree_settings, :integer, collection: (1..)
+
+  def validate
+    errors = super
+    if type == "glass" && degree_settings.any? { |d| d > 1300 }
+      errors << Lutaml::Model::Error.new("Degree settings for glass must be less than 1300")
+    end
+  end
+end
+
+klin = Klin.new(name: "Klin", type: "glass", degree_settings: [100, 200, 1400])
+klin.validate
+# => [#<Lutaml::Model::Error: Degree settings for glass must be less than 1300>]
+----
+====
+
+
 == Adapters
 
 === General
