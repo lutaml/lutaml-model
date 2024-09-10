@@ -180,7 +180,7 @@ RSpec.describe Lutaml::Model::XmlMapping do
             "http://www.opengis.net/gml/3.2" => "http://schemas.opengis.net/gml/3.2.1/gml.xsd",
             "http://www.w3.org/1999/xlink" => "http://www.w3.org/1999/xlink.xsd",
           },
-          prefix: "xsi"
+          prefix: "xsi",
         ),
         paragraph: Paragraph.new(
           schema_location: Lutaml::Model::SchemaLocation.new(
@@ -189,7 +189,7 @@ RSpec.describe Lutaml::Model::XmlMapping do
               "http://www.isotc211.org/2005/gmd" => "http://schemas.opengis.net/iso/19139/20070417/gmd/gmd.xsd",
             },
             prefix: "xsi",
-            namespace: "http://another-instance"
+            namespace: "http://another-instance",
           ),
           text: ["Some text inside paragraph"],
         ),
