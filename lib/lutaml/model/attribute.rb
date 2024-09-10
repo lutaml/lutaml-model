@@ -60,22 +60,14 @@ module Lutaml
       #      e.g if collection: 0..5 is set then the value greater then 5
       #          will raise `Lutaml::Model::CollectionCountOutOfRangeError`
       def validate_value!(value)
-        # return true if none of the validations are present
-        return true if enum_values.empty? && singular?
-
-        # Use the default value if the value is nil
-        value = default if value.nil?
-
-        valid_value!(value) && valid_collection!(value)
-      end
-
-      def valid_value?(value)
-        return true unless options[:values]
-
-        options[:values].include?(value)
+        valid_value!(value)
+        valid_collection!(value)
       end
 
       def valid_value!(value)
+        return true if value.nil? && !collection?
+        return true if enum_values.empty?
+
         unless valid_value?(value)
           raise Lutaml::Model::InvalidValueError.new(name, value, enum_values)
         end
@@ -83,12 +75,10 @@ module Lutaml
         true
       end
 
-      def valid_collection?(value)
-        return true unless collection?
-        return false unless value.is_a?(Array)
-        return collection? if [true, false].include?(options[:collection])
+      def valid_value?(value)
+        return true unless options[:values]
 
-        options[:collection].include?(value.count)
+        options[:values].include?(value)
       end
 
       def validate_value!(value)
@@ -127,7 +117,12 @@ module Lutaml
 
       def valid_collection!(value)
         return true unless collection?
-        return true if value.nil? # Allow nil values for collections during initialization
+
+        # Allow nil values for collections during initialization
+        return true if value.nil?
+
+        # Allow any value for unbounded collections
+        return true if options[:collection] == true
 
         unless value.is_a?(Array)
           raise Lutaml::Model::CollectionCountOutOfRangeError.new(
@@ -138,28 +133,23 @@ module Lutaml
         end
 
         range = options[:collection]
-        if range.is_a?(Range)
-          if range.end.nil?
-            if value.size < range.begin
-              raise Lutaml::Model::CollectionCountOutOfRangeError.new(
-                name,
-                value,
-                range,
-              )
-            end
-          elsif !range.cover?(value.size)
+        return true unless range.is_a?(Range)
+
+        if range.end.nil?
+          if value.size < range.begin
             raise Lutaml::Model::CollectionCountOutOfRangeError.new(
               name,
               value,
               range,
             )
           end
-        elsif range == true && value.empty?
-          # Allow empty arrays for unbounded collections
-          return true
+        elsif !range.cover?(value.size)
+          raise Lutaml::Model::CollectionCountOutOfRangeError.new(
+            name,
+            value,
+            range,
+          )
         end
-
-        true
       end
 
       def serialize(value, format, options = {})
