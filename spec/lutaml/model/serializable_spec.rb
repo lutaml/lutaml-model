@@ -69,8 +69,8 @@ RSpec.describe Lutaml::Model::Serializable do
   describe ".model" do
     it "sets the model for the class" do
       expect { described_class.model("Foo") }.to change(described_class, :model)
-                                                   .from(nil)
-                                                   .to("Foo")
+        .from(nil)
+        .to("Foo")
     end
   end
 
@@ -223,7 +223,9 @@ RSpec.describe Lutaml::Model::Serializable do
       it "raises an error after creation after validate" do
         glaze = GlazeTechnique.new(name: "Celadon")
         glaze.name = "Tenmoku"
-        expect { glaze.validate! }.to raise_error(Lutaml::Model::ValidationError) do |error|
+        expect do
+          glaze.validate!
+        end.to raise_error(Lutaml::Model::ValidationError) do |error|
           expect(error).to include(Lutaml::Model::InvalidValueError)
           expect(error.error_messages).to include("name is `Tenmoku`, must be one of the following [Celadon, Raku, Majolica]")
         end
@@ -249,7 +251,9 @@ RSpec.describe Lutaml::Model::Serializable do
       it "raises ValidationError containing InvalidValueError after creation" do
         glaze = GlazeTechnique.new(name: "Celadon")
         glaze.name = "Tenmoku"
-        expect { glaze.validate! }.to raise_error(Lutaml::Model::ValidationError) do |error|
+        expect do
+          glaze.validate!
+        end.to raise_error(Lutaml::Model::ValidationError) do |error|
           expect(error).to include(Lutaml::Model::InvalidValueError)
           expect(error.error_messages).to include(a_string_matching(/name is `Tenmoku`, must be one of the following/))
         end

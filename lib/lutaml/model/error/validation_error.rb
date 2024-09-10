@@ -10,7 +10,7 @@ module Lutaml
       end
 
       def include?(error_class)
-        errors.any? { |error| error.is_a?(error_class) }
+        errors.any?(error_class)
       end
 
       def error_messages
