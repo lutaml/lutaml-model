@@ -14,7 +14,7 @@ module Lutaml
     end
 
     class SchemaLocation
-      DEFAULT_NAMESPACE = "http://www.w3.org/2001/XMLSchema-instance"
+      DEFAULT_NAMESPACE = "http://www.w3.org/2001/XMLSchema-instance".freeze
 
       attr_reader :namespace, :prefix, :schema_location
 
