@@ -992,24 +992,30 @@ TODO: How to create mixed content from `#new`?
 
 ==== Automatic support of `xsi:schemaLocation`
 
-The https://www.w3.org/TR/xmlschema-1/#xsi_schemaLocation[W3C "XMLSchema-instance"]
-namespace describes a number
-of attributes that can be used to control the behavior of XML processors. One of
-these attributes is `xsi:schemaLocation`.
+The
+https://www.w3.org/TR/xmlschema-1/#xsi_schemaLocation[W3C "XMLSchema-instance"]
+namespace describes a number of attributes that can be used to control the
+behavior of XML processors. One of these attributes is `xsi:schemaLocation`.
 
 The `xsi:schemaLocation` attribute locates schemas for elements and attributes
 that are in a specified namespace. Its value consists of pairs of a namespace
 URI followed by a relative or absolute URL where the schema for that namespace
 can be found.
 
-It is most commonly attached to the root element but can appear further down the
-tree.
+Usage of `xsi:schemaLocation` in an XML element depends on the declaration of
+the XML namespace of `xsi`, i.e.
+`xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"`. Without this namespace
+LutaML will not be able to serialize the `xsi:schemaLocation` attribute.
+
+NOTE: It is most commonly attached to the root element but can appear further
+down the tree.
 
 The following snippet shows how `xsi:schemaLocation` is used in an XML document:
 
 [source,xml]
 ----
 <cera:Ceramic
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xmlns:cera="http://example.com/ceramic"
   xmlns:clr='http://example.com/color'
   xsi:schemaLocation=
@@ -1022,10 +1028,10 @@ The following snippet shows how `xsi:schemaLocation` is used in an XML document:
 ----
 
 LutaML::Model supports the `xsi:schemaLocation` attribute in all XML
-serializations by default, through `schema_location` option in the `xml`
-block.
+serializations by default, through the `schema_location` attribute on the model
+instance object.
 
-.Retrieving the `xsi:schemaLocation` attribute in XML serialization
+.Retrieving and setting the `xsi:schemaLocation` attribute in XML serialization
 [example]
 ====
 In this example, the `xsi:schemaLocation` attribute will be automatically
@@ -1052,8 +1058,12 @@ xml_content = <<~HERE
 <cera:Ceramic
   xmlns:cera="http://example.com/ceramic"
   xmlns:clr="http://example.com/color"
-  xsi:schemaLocation="http://example.com/ceramic http://example.com/ceramic.xsd http://example.com/color http://example.com/color.xsd"
-  clr:color="navy-blue">
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  clr:color="navy-blue"
+  xsi:schemaLocation="
+    http://example.com/ceramic http://example.com/ceramic.xsd
+    http://example.com/color http://example.com/color.xsd
+  ">
   <cera:Type>Porcelain</cera:Type>
   <Glaze>Clear</Glaze>
 </cera:Ceramic>
@@ -1063,27 +1073,35 @@ HERE
 [source,ruby]
 ----
 > c = Ceramic.from_xml(xml_content)
-> #<Ceramic:0x0000000104ac7240 @type="Porcelain", @glaze="Clear",
-  # @color="navy-blue",
-  # @schema_location=[
-  #   <Location:0x0000000104ac7240
-  #     @namespace="http://example.com/ceramic",
-  #     @location="http://example.com/ceramic.xsd">,
-  #   <Location:0x0000000104ac7241
-  #     @namespace="http://example.com/color",
-  #     @location="http://example.com/color.xsd">]
-  # >
+=>
+#<Ceramic:0x00000001222bdd60
+...
 > schema_loc = c.schema_location
-> # [ #<Location:0x0000000104ac7240 @namespace="http://example.com/ceramic", @location="http://example.com/ceramic.xsd">,
-  #   #<Location:0x0000000104ac7241 @namespace="http://example.com/color", @location="http://example.com/color.xsd"> ]
-> Ceramic.new(type: "Porcelain", glaze: "Clear", color: "navy-blue", schema_location: schema_loc).to_xml
-> #<cera:Ceramic xmlns:cera="http://example.com/ceramic"
-  # xmlns:clr='http://example.com/color'
-  # xsi:schemaLocation="http://example.com/ceramic http://example.com/ceramic.xsd http://example.com/color http://example.com/color.xsd"
-  # clr:color="navy-blue">
-  #  <cera:Type>Porcelain</cera:Type>
-  #  <Glaze>Clear</Glaze>
-  # </cera:Ceramic>
+#<Lutaml::Model::SchemaLocation:0x0000000122773760
+...
+> schema_loc
+=>
+#<Lutaml::Model::SchemaLocation:0x0000000122773760
+ @namespace="http://www.w3.org/2001/XMLSchema-instance",
+ @original_schema_location="http://example.com/ceramic http://example.com/ceramic.xsd http://example.com/color http://example.com/color.xsd",
+ @prefix="xsi",
+ @schema_location=
+  [#<Lutaml::Model::Location:0x00000001222bd018 @location="http://example.com/ceramic.xsd", @namespace="http://example.com/ceramic">,
+   #<Lutaml::Model::Location:0x00000001222bcfc8 @location="http://example.com/color.xsd", @namespace="http://example.com/color">]>
+> new_c = Ceramic.new(type: "Porcelain", glaze: "Clear", color: "navy-blue", schema_location: schema_loc).to_xml
+> puts new_c
+# <cera:Ceramic
+#   xmlns:cera="http://example.com/ceramic"
+#   xmlns:clr="http://example.com/color"
+#   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+#   clr:color="navy-blue"
+#   xsi:schemaLocation="
+#     http://example.com/ceramic http://example.com/ceramic.xsd
+#     http://example.com/color http://example.com/color.xsd
+#   ">
+#   <cera:Type>Porcelain</cera:Type>
+#   <cera:Glaze>Clear</cera:Glaze>
+# </cera:Ceramic>
 ----
 ====
 
