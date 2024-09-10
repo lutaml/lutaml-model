@@ -32,4 +32,5 @@ Gem::Specification.new do |spec|
 
   spec.add_dependency "bigdecimal"
   spec.add_dependency "thor"
+  spec.metadata["rubygems_mfa_required"] = "true"
 end

@@ -18,7 +18,8 @@ module Lutaml
 
       attr_reader :namespace, :prefix, :schema_location
 
-      def initialize(schema_location:, prefix: "xsi", namespace: DEFAULT_NAMESPACE)
+      def initialize(schema_location:, prefix: "xsi",
+namespace: DEFAULT_NAMESPACE)
         @original_schema_location = schema_location
         @schema_location = parsed_schema_locations(schema_location)
         @prefix = prefix

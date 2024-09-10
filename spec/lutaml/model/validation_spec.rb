@@ -33,22 +33,31 @@ RSpec.describe Lutaml::Model::Validation do
     end
 
     it "returns errors for value not in allowed set" do
-      instance = ValidationTestClass.new(email: "invalid@example.com", role: ["admin"])
-      expect { instance.validate! }.to raise_error(Lutaml::Model::ValidationError) do |error|
+      instance = ValidationTestClass.new(email: "invalid@example.com",
+                                         role: ["admin"])
+      expect do
+        instance.validate!
+      end.to raise_error(Lutaml::Model::ValidationError) do |error|
         expect(error.error_messages.join("\n")).to include("email is `invalid@example.com`, must be one of the following [test@example.com, user@example.com]")
       end
     end
 
     it "returns errors for invalid collection count" do
-      instance = ValidationTestClass.new(role: ["admin", "user", "manager", "guest"])
-      expect { instance.validate! }.to raise_error(Lutaml::Model::ValidationError) do |error|
+      instance = ValidationTestClass.new(role: ["admin", "user", "manager",
+                                                "guest"])
+      expect do
+        instance.validate!
+      end.to raise_error(Lutaml::Model::ValidationError) do |error|
         expect(error.error_messages.join("\n")).to include("role count is 4, must be between 1 and 3")
       end
     end
 
     xit "returns multiple errors for multiple invalid attributes" do
-      instance = ValidationTestClass.new(name: "123", age: "thirty", email: "invalid@example.com", role: [])
-      expect { instance.validate! }.to raise_error(Lutaml::Model::ValidationError) do |error|
+      instance = ValidationTestClass.new(name: "123", age: "thirty",
+                                         email: "invalid@example.com", role: [])
+      expect do
+        instance.validate!
+      end.to raise_error(Lutaml::Model::ValidationError) do |error|
         expect(error.error_messages.join("\n")).to include("Invalid value for attribute age: thirty")
         expect(error.error_messages.join("\n")).to include("email is `invalid@example.com`, must be one of the following [test@example.com, user@example.com]")
         expect(error.error_messages.join("\n")).to include("role count is 0, must be between 1 and 3")
@@ -63,7 +72,9 @@ RSpec.describe Lutaml::Model::Validation do
 
     xit "raises a ValidationError with all error messages for an invalid instance" do
       instance = ValidationTestClass.new(name: "test", age: "thirty")
-      expect { instance.validate! }.to raise_error(Lutaml::Model::ValidationError) do |error|
+      expect do
+        instance.validate!
+      end.to raise_error(Lutaml::Model::ValidationError) do |error|
         expect(error.error_messages.join("\n")).to include("role count is 0, must be between 1 and 3")
         expect(error.error_messages.join("\n")).to include("Invalid value for attribute age: thirty")
       end
