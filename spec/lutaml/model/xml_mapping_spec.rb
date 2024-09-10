@@ -116,8 +116,7 @@ RSpec.describe Lutaml::Model::XmlMapping do
     let(:xml) do
       <<~XML
         <p xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-           xsi:schemaLocation="http://www.opengis.net/gml/3.2
-                               http://schemas.opengis.net/gml/3.2.1/gml.xsd">
+           xsi:schemaLocation="http://www.opengis.net/gml/3.2 http://schemas.opengis.net/gml/3.2.1/gml.xsd">
           <p xmlns:xsi="http://another-instance"
              xsi:schemaLocation="http://www.opengis.net/gml/3.7">
             Some text inside paragraph
@@ -131,15 +130,13 @@ RSpec.describe Lutaml::Model::XmlMapping do
     end
   end
 
-  xcontext "with multiple schemaLocations" do
+  context "with multiple schemaLocations" do
     let(:xml) do
       <<~XML
         <p xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-           xsi:schemaLocation="http://www.opengis.net/gml/3.2 http://schemas.opengis.net/gml/3.2.1/gml.xsd
-                               http://www.w3.org/1999/xlink http://www.w3.org/1999/xlink.xsd">
+           xsi:schemaLocation="http://www.opengis.net/gml/3.2 http://schemas.opengis.net/gml/3.2.1/gml.xsd http://www.w3.org/1999/xlink http://www.w3.org/1999/xlink.xsd">
           <p xmlns:xsi="http://another-instance"
-             xsi:schemaLocation="http://www.opengis.net/gml/3.7 http://schemas.opengis.net/gml/3.7.1/gml.xsd
-                                 http://www.isotc211.org/2005/gmd http://schemas.opengis.net/iso/19139/20070417/gmd/gmd.xsd">
+             xsi:schemaLocation="http://www.opengis.net/gml/3.7 http://schemas.opengis.net/gml/3.7.1/gml.xsd http://www.isotc211.org/2005/gmd http://schemas.opengis.net/iso/19139/20070417/gmd/gmd.xsd">
             Some text inside paragraph
           </p>
         </p>
@@ -148,7 +145,6 @@ RSpec.describe Lutaml::Model::XmlMapping do
 
     it "parses and serializes multiple schemaLocation attributes" do
       parsed = Paragraph.from_xml(xml)
-      expect(parsed.schema_location).to be_an(Array)
       expect(parsed.schema_location.size).to eq(2)
       expect(parsed.schema_location[0].namespace).to eq("http://www.opengis.net/gml/3.2")
       expect(parsed.schema_location[0].location).to eq("http://schemas.opengis.net/gml/3.2.1/gml.xsd")
@@ -163,10 +159,9 @@ RSpec.describe Lutaml::Model::XmlMapping do
 
     it "handles nested elements with different schemaLocations" do
       parsed = Paragraph.from_xml(xml)
-      nested_p = parsed.text.first
+      nested_p = parsed.paragraph
 
       expect(nested_p).to be_a(Paragraph)
-      expect(nested_p.schema_location).to be_an(Array)
       expect(nested_p.schema_location.size).to eq(2)
       expect(nested_p.schema_location[0].namespace).to eq("http://www.opengis.net/gml/3.7")
       expect(nested_p.schema_location[0].location).to eq("http://schemas.opengis.net/gml/3.7.1/gml.xsd")
@@ -180,20 +175,24 @@ RSpec.describe Lutaml::Model::XmlMapping do
 
     it "creates XML with multiple schemaLocations" do
       paragraph = Paragraph.new(
-        schema_location: [
-          Lutaml::Model::SchemaLocation.new("http://www.opengis.net/gml/3.2", "http://schemas.opengis.net/gml/3.2.1/gml.xsd"),
-          Lutaml::Model::SchemaLocation.new("http://www.w3.org/1999/xlink", "http://www.w3.org/1999/xlink.xsd"),
-        ],
-        text: [
-          Paragraph.new(
-            schema_location: [
-              Lutaml::Model::SchemaLocation.new("http://www.opengis.net/gml/3.7", "http://schemas.opengis.net/gml/3.7.1/gml.xsd"),
-              Lutaml::Model::SchemaLocation.new("http://www.isotc211.org/2005/gmd", "http://schemas.opengis.net/iso/19139/20070417/gmd/gmd.xsd"),
-            ],
-            xsi_namespace: "http://another-instance",
-            text: ["Some text inside paragraph"],
+        schema_location: Lutaml::Model::SchemaLocation.new(
+          schema_location: {
+            "http://www.opengis.net/gml/3.2" => "http://schemas.opengis.net/gml/3.2.1/gml.xsd",
+            "http://www.w3.org/1999/xlink" => "http://www.w3.org/1999/xlink.xsd",
+          },
+          prefix: "xsi"
+        ),
+        paragraph: Paragraph.new(
+          schema_location: Lutaml::Model::SchemaLocation.new(
+            schema_location: {
+              "http://www.opengis.net/gml/3.7" => "http://schemas.opengis.net/gml/3.7.1/gml.xsd",
+              "http://www.isotc211.org/2005/gmd" => "http://schemas.opengis.net/iso/19139/20070417/gmd/gmd.xsd",
+            },
+            prefix: "xsi",
+            namespace: "http://another-instance"
           ),
-        ],
+          text: ["Some text inside paragraph"],
+        ),
       )
 
       serialized = paragraph.to_xml
