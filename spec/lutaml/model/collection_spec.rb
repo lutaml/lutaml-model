@@ -114,18 +114,20 @@ RSpec.describe CollectionTests do
       attributes.merge(operators: [], sensors: [])
     end
 
-    it "raises CollectionCountOutOfRangeError" do
-      expect do
-        CollectionTests::Kiln.new(invalid_attributes)
-      end.to raise_error(Lutaml::Model::CollectionCountOutOfRangeError,
-                         /operators count is 0, must be at least 1/)
+    it "raises ValidationError containing CollectionCountOutOfRangeError for operators" do
+      kiln = CollectionTests::Kiln.new(invalid_attributes)
+      expect { kiln.validate! }.to raise_error(Lutaml::Model::ValidationError) do |error|
+        expect(error).to include(Lutaml::Model::CollectionCountOutOfRangeError)
+        expect(error.error_messages).to include(a_string_matching(/operators count is 0, must be at least 1/))
+      end
     end
 
-    it "raises CollectionCountOutOfRangeError for sensors" do
-      expect do
-        CollectionTests::Kiln.new(attributes.merge(sensors: []))
-      end.to raise_error(Lutaml::Model::CollectionCountOutOfRangeError,
-                         /sensors count is 0, must be between 1 and 3/)
+    it "raises ValidationError containing CollectionCountOutOfRangeError for sensors" do
+      kiln = CollectionTests::Kiln.new(attributes.merge(sensors: []))
+      expect { kiln.validate! }.to raise_error(Lutaml::Model::ValidationError) do |error|
+        expect(error).to include(Lutaml::Model::CollectionCountOutOfRangeError)
+        expect(error.error_messages).to include(a_string_matching(/sensors count is 0, must be between 1 and 3/))
+      end
     end
   end
 
@@ -135,10 +137,11 @@ RSpec.describe CollectionTests do
     end
 
     it "raises CollectionCountOutOfRangeError" do
-      expect do
-        CollectionTests::Kiln.new(invalid_attributes)
-      end.to raise_error(Lutaml::Model::CollectionCountOutOfRangeError,
-                         /operators count is 0, must be at least 1/)
+      kiln = CollectionTests::Kiln.new(invalid_attributes)
+      expect { kiln.validate! }.to raise_error(Lutaml::Model::ValidationError) do |error|
+        expect(error).to include(Lutaml::Model::CollectionCountOutOfRangeError)
+        expect(error.error_messages).to include(a_string_matching(/operators count is 0, must be at least 1/))
+      end
     end
   end
 
@@ -175,11 +178,13 @@ RSpec.describe CollectionTests do
       XML
     end
 
-    it "raises CollectionCountOutOfRangeError" do
+    it "raises ValidationError containing CollectionCountOutOfRangeError" do
       expect do
-        CollectionTests::Kiln.from_xml(invalid_xml)
-      end.to raise_error(Lutaml::Model::CollectionCountOutOfRangeError,
-                         /pots count is 3, must be between 0 and 2/)
+        CollectionTests::Kiln.from_xml(invalid_xml).validate!
+      end.to raise_error(Lutaml::Model::ValidationError) do |error|
+        expect(error).to include(Lutaml::Model::CollectionCountOutOfRangeError)
+        expect(error.error_messages).to include(a_string_matching(/pots count is 3, must be between 0 and 2/))
+      end
     end
   end
 

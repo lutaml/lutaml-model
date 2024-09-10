@@ -69,8 +69,8 @@ RSpec.describe Lutaml::Model::Serializable do
   describe ".model" do
     it "sets the model for the class" do
       expect { described_class.model("Foo") }.to change(described_class, :model)
-        .from(nil)
-        .to("Foo")
+                                                   .from(nil)
+                                                   .to("Foo")
     end
   end
 
@@ -220,17 +220,13 @@ RSpec.describe Lutaml::Model::Serializable do
 
   describe "String enumeration" do
     context "when assigning an invalid value" do
-      it "raises an error after creation" do
+      it "raises an error after creation after validate" do
         glaze = GlazeTechnique.new(name: "Celadon")
-        expect do
-          glaze.name = "Tenmoku"
-        end.to raise_error(Lutaml::Model::InvalidValueError)
-      end
-
-      it "raises an error during creation" do
-        expect do
-          GlazeTechnique.new(name: "Crystalline")
-        end.to raise_error(Lutaml::Model::InvalidValueError)
+        glaze.name = "Tenmoku"
+        expect { glaze.validate! }.to raise_error(Lutaml::Model::ValidationError) do |error|
+          expect(error).to include(Lutaml::Model::InvalidValueError)
+          expect(error.error_messages).to include("name is `Tenmoku`, must be one of the following [Celadon, Raku, Majolica]")
+        end
       end
     end
 
@@ -250,36 +246,22 @@ RSpec.describe Lutaml::Model::Serializable do
 
   describe "Serializable object enumeration" do
     context "when assigning an invalid value" do
-      it "raises an error after creation" do
-        collection = CeramicCollection.new(
-          featured_piece: Ceramic.new(type: "Porcelain",
-                                      firing_temperature: 1300),
-        )
-        invalid_ceramic = Ceramic.new(type: "Porcelain",
-                                      firing_temperature: 1500)
-
-        expect do
-          collection.featured_piece = invalid_ceramic
-        end.to raise_error(Lutaml::Model::InvalidValueError)
+      it "raises ValidationError containing InvalidValueError after creation" do
+        glaze = GlazeTechnique.new(name: "Celadon")
+        glaze.name = "Tenmoku"
+        expect { glaze.validate! }.to raise_error(Lutaml::Model::ValidationError) do |error|
+          expect(error).to include(Lutaml::Model::InvalidValueError)
+          expect(error.error_messages).to include(a_string_matching(/name is `Tenmoku`, must be one of the following/))
+        end
       end
 
-      it "raises an error during creation" do
-        invalid_ceramic = Ceramic.new(type: "Porcelain",
-                                      firing_temperature: 1500)
+      it "raises ValidationError containing InvalidValueError during creation" do
         expect do
-          CeramicCollection.new(featured_piece: invalid_ceramic)
-        end.to raise_error(Lutaml::Model::InvalidValueError)
-      end
-
-      it "raises an error when modifying a nested attribute" do
-        collection = CeramicCollection.new(
-          featured_piece: Ceramic.new(type: "Porcelain",
-                                      firing_temperature: 1300),
-        )
-        collection.featured_piece.firing_temperature = 1400
-        expect do
-          collection.validate!
-        end.to raise_error(Lutaml::Model::InvalidValueError)
+          GlazeTechnique.new(name: "Crystalline").validate!
+        end.to raise_error(Lutaml::Model::ValidationError) do |error|
+          expect(error).to include(Lutaml::Model::InvalidValueError)
+          expect(error.error_messages).to include(a_string_matching(/name is `Crystalline`, must be one of the following/))
+        end
       end
     end
 
