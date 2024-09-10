@@ -304,9 +304,9 @@ module Lutaml
 
           if doc["__schema_location"]
             instance.schema_location = Lutaml::Model::SchemaLocation.new(
-              doc["__schema_location"][:schema_location],
-              doc["__schema_location"][:prefix],
-              doc["__schema_location"][:namespace],
+              schema_location: doc["__schema_location"][:schema_location],
+              prefix: doc["__schema_location"][:prefix],
+              namespace: doc["__schema_location"][:namespace],
             )
           end
 
@@ -378,6 +378,10 @@ module Lutaml
         if attrs.is_a?(Lutaml::Model::MappingHash)
           @ordered = attrs.ordered?
           @element_order = attrs.item_order
+        end
+
+        if attrs.key?(:schema_location)
+          self.schema_location = attrs[:schema_location]
         end
 
         self.class.attributes.each do |name, attr|
