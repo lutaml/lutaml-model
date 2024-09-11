@@ -5,12 +5,17 @@ module Lutaml
   module Model
     module YamlAdapter
       class StandardYamlAdapter < YamlDocument
+        PERMITTED_CLASSES_BASE = [Date, Time, DateTime, Symbol, Hash,
+                                  Array].freeze
+
+        PERMITTED_CLASSES = if defined?(BigDecimal)
+                              PERMITTED_CLASSES_BASE + [BigDecimal]
+                            else
+                              PERMITTED_CLASSES_BASE
+                            end.freeze
+
         def self.parse(yaml)
-          YAML.safe_load(
-            yaml,
-            permitted_classes: [Date, Time, DateTime, Symbol,
-                                BigDecimal, Hash, Array],
-          )
+          YAML.safe_load(yaml, permitted_classes: PERMITTED_CLASSES)
         end
 
         def to_yaml(options = {})

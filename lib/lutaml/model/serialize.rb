@@ -11,6 +11,7 @@ require_relative "json_adapter"
 require_relative "comparable_model"
 require_relative "schema_location"
 require_relative "validation"
+require_relative "error"
 
 module Lutaml
   module Model
