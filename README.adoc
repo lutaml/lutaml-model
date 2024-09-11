@@ -1007,7 +1007,7 @@ end
 
 TODO: How to create mixed content from `#new`?
 
-
+[[xml-schema-location]]
 ==== Automatic support of `xsi:schemaLocation`
 
 The
@@ -2010,9 +2010,9 @@ differences in implementation.
 |
 
 | Value types
-| `Lutaml::Model::Type` includes: `Integer`, `String`, `Float`, `Boolean`, `Date`, `DateTime`, `Time`, `Hash`.
+| `Lutaml::Model::Type` includes: `Integer`, `String`, `Float`, `Boolean`, `Date`, `DateTime`, `Time`, `Decimal`, `Hash`.
 | `Shale::Type` includes: `Integer`, `String`, `Float`, `Boolean`, `Date`, `Time`.
-| Lutaml::Model supports the additional value types `DateTime` and `Hash`.
+| Lutaml::Model supports additional value types `Decimal`, `DateTime` and `Hash`.
 
 | Configuration
 | `Lutaml::Model::Config`
@@ -2028,6 +2028,11 @@ differences in implementation.
 | XML, YAML, JSON, TOML
 | XML, YAML, JSON, TOML, CSV
 | Lutaml::Model does not support CSV.
+
+| Validation
+| Supports collection range, fixed values, and custom validation
+| Requires implementation
+|
 
 | Adapter support
 | XML (Nokogiri, Ox, Oga), YAML, JSON (JSON, MultiJson), TOML (Toml-rb, Tomlib)
@@ -2060,6 +2065,12 @@ namespace from the root element.
 | No.
 |
 
+| Support for `xsi:schemaLocation`
+| Yes. Automatically supports the <<xml-schema-location,`xsi:schemaLocation`>>
+attribute for every element.
+| Requires manual specification on every XML element that uses it.
+|
+
 4+h| Attribute features
 
 | Attribute delegation
@@ -2078,7 +2089,6 @@ namespace from the root element.
 data models.
 | No.
 | Lutaml::Model supports attribute extraction from key-value data models.
-
 
 |===
 
@@ -2132,25 +2142,26 @@ Actions:
 
 === Step 2: Replace value type definitions
 
-Value types in `Lutaml::Model` are under the `Lutaml::Model::Type` module.
-
-[source,ruby]
-----
-class Example < Lutaml::Model::Serializable
-  attribute :length, Lutaml::Model::Type::Integer
-  attribute :description, Lutaml::Model::Type::String
-end
-----
-
-[NOTE]
-====
-`Lutaml::Model` also supports specifying predefined value types as strings or
-symbols, which is not supported by Shale.
+Value types in `Lutaml::Model` are under the `Lutaml::Model::Type` module,
+or use the LutaML type symbols.
 
 [source,ruby]
 ----
 class Example < Lutaml::Model::Serializable
   attribute :length, :integer
+  attribute :description, :string
+end
+----
+
+[NOTE]
+====
+`Lutaml::Model` supports specifying predefined value types as strings or
+symbols, which is not supported by Shale.
+
+[source,ruby]
+----
+class Example < Lutaml::Model::Serializable
+  attribute :length, Lutaml::Model::Type::Integer
   attribute :description, "String"
 end
 ----
