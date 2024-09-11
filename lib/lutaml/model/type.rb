@@ -62,7 +62,9 @@ module Lutaml
         when "Boolean"
           to_boolean(value)
         when "Decimal"
-          raise TypeNotEnabledError.new("Decimal", value) unless defined?(BigDecimal)
+          unless defined?(BigDecimal)
+            raise Lutaml::Model::TypeNotEnabledError.new("Decimal", value)
+          end
 
           BigDecimal(value.to_s)
         when "Hash"
@@ -87,6 +89,10 @@ module Lutaml
         when "Boolean"
           to_boolean(value)
         when "Decimal"
+          unless defined?(BigDecimal)
+            raise Lutaml::Model::TypeNotEnabledError.new("Decimal", value)
+          end
+
           value.to_s("F")
         when "Hash"
           Hash(value)
