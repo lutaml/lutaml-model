@@ -5,6 +5,7 @@ source "https://rubygems.org"
 # Specify your gem's dependencies in lutaml-model.gemspec
 gemspec
 
+gem "bigdecimal"
 gem "equivalent-xml"
 gem "multi_json"
 gem "nokogiri"

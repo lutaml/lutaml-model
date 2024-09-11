@@ -145,6 +145,8 @@ same class and all their attributes are equal.
 
 === Supported attribute value types
 
+==== General types
+
 Lutaml::Model supports the following attribute types, they can be
 referred by a string, a symbol, or their class constant.
 
@@ -166,11 +168,10 @@ attribute :name_of_attribute, {symbol | string | class}
 | `DateTime` | `:date_time` | `Lutaml::Model::Type::DateTime` | `::DateTime`
 | `TimeWithoutDate` | `:time_without_date` | `Lutaml::Model::Type::TimeWithoutDate` | `::Time`
 | `Boolean` | `:boolean` | `Lutaml::Model::Type::Boolean` | `Boolean`
-| `Decimal` | `:decimal` | `Lutaml::Model::Type::Decimal` | `::BigDecimal`
+| `Decimal` (optional) | `:decimal` | `Lutaml::Model::Type::Decimal` | `::BigDecimal`
 | `Hash` | `:hash` | `Lutaml::Model::Type::Hash` | `::Hash`
 
 |===
-
 
 .Defining attributes with supported types via symbol, string and class
 [example]
@@ -197,6 +198,23 @@ end
 > # "Kiln 1"
 ----
 ====
+
+==== (optional) Decimal type
+
+The `BigDecimal` class is no longer part of the standard Ruby library from Ruby
+3.4 onwards, hence the `Decimal` type is only enabled when the `bigdecimal`
+library is loaded.
+
+This means that the following code needs to be run before using (and parsing)
+the `Decimal` type:
+
+[source,ruby]
+----
+require 'bigdecimal'
+----
+
+If the `bigdecimal` library is not loaded, usage of the `Decimal` type will
+raise a `Lutaml::Model::TypeNotSupportedError`.
 
 
 === Attribute as a collection
