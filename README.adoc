@@ -2387,6 +2387,6 @@ allowing you to shape and structure your data into useful forms.
 == License and Copyright
 
 This project is licensed under the BSD 2-clause License.
-See the LICENSE file for details.
+See the link:LICENSE.md[] file for details.
 
 Copyright Ribose.
