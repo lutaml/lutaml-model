@@ -14,6 +14,11 @@ RSpec.shared_examples "an XML adapter" do |adapter_class|
     Lutaml::Model::Config.xml_adapter = old_adapter
   end
 
+  before do
+    # Ensure BigDecimal is loaded because it is being used in sample model
+    require "bigdecimal"
+  end
+
   let(:attributes) { { name: "John Doe", age: 30 } }
   let(:model) { SampleModel.new(attributes) }
 

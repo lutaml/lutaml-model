@@ -45,6 +45,10 @@ module Lutaml
           end
         end
 
+        def cast(value)
+          value
+        end
+
         # Define an attribute for the model
         def attribute(name, type, options = {})
           attr = Attribute.new(name, type, options)
@@ -55,7 +59,7 @@ module Lutaml
           end
 
           define_method(:"#{name}=") do |value|
-            instance_variable_set(:"@#{name}", value)
+            instance_variable_set(:"@#{name}", attr.cast_value(value))
             # validate!(name)
           end
         end

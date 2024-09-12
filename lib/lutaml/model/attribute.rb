@@ -27,6 +27,12 @@ module Lutaml
         raise ArgumentError, "Unknown Lutaml::Model::Type: #{type}"
       end
 
+      def cast_value(value)
+        return type.cast(value) unless value.is_a?(Array)
+
+        value.map { |v| type.cast(v) }
+      end
+
       def collection?
         options[:collection] || false
       end
@@ -36,9 +42,13 @@ module Lutaml
       end
 
       def default
-        return options[:default].call if options[:default].is_a?(Proc)
+        value = if options[:default].is_a?(Proc)
+                  options[:default].call
+                else
+                  options[:default]
+                end
 
-        options[:default]
+        cast_value(value)
       end
 
       def render_nil?
