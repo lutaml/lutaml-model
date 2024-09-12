@@ -75,17 +75,17 @@ module Lutaml
             adapter = Lutaml::Model::Config.send(:"#{format}_adapter")
 
             doc = adapter.parse(data)
-            public_send(:"of_#{format}", doc.to_h)
+            public_send(:"of_#{format}", doc)
           end
 
-          define_method(:"of_#{format}") do |hash|
-            if hash.is_a?(Array)
-              return hash.map do |item|
-                       apply_mappings(item, format)
+          define_method(:"of_#{format}") do |doc|
+            if doc.is_a?(Array)
+              return doc.map do |item|
+                       apply_mappings(item.to_h, format)
                      end
             end
 
-            apply_mappings(hash, format)
+            apply_mappings(doc.to_h, format)
           end
 
           define_method(:"to_#{format}") do |instance|

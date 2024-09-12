@@ -99,6 +99,28 @@ RSpec.describe Person do
     expect(person.active).to be true
   end
 
+  it "deserializes from JSON array" do
+    json = [attributes_json.dup, attributes_json.dup].to_json
+
+    persons = described_class.from_json(json)
+
+    expect(persons[0].first_name).to eq("John")
+    expect(persons[0].age).to eq(30)
+    expect(persons[0].height).to eq(5.9)
+    expect(persons[0].birthdate).to eq(Date.parse("1990-01-01"))
+    expect(persons[0].last_login).to eq(DateTime.parse("2023-06-08T10:00:00+00:00"))
+    expect(persons[0].wakeup_time).to eq(Time.parse("07:00:00"))
+    expect(persons[0].active).to be true
+
+    expect(persons[1].first_name).to eq("John")
+    expect(persons[1].age).to eq(30)
+    expect(persons[1].height).to eq(5.9)
+    expect(persons[1].birthdate).to eq(Date.parse("1990-01-01"))
+    expect(persons[1].last_login).to eq(DateTime.parse("2023-06-08T10:00:00+00:00"))
+    expect(persons[1].wakeup_time).to eq(Time.parse("07:00:00"))
+    expect(persons[1].active).to be true
+  end
+
   it "serializes to YAML" do
     expect(model.to_yaml).to eq(attributes_yaml.to_yaml)
   end
@@ -113,5 +135,27 @@ RSpec.describe Person do
     expect(person.last_login).to eq(DateTime.parse("2023-06-08T10:00:00+00:00"))
     expect(person.wakeup_time).to eq(Time.parse("07:00:00"))
     expect(person.active).to be true
+  end
+
+  it "deserializes from YAML array" do
+    yaml = [attributes_yaml.dup, attributes_yaml.dup].to_yaml
+
+    persons = described_class.from_yaml(yaml)
+
+    expect(persons[0].first_name).to eq("John")
+    expect(persons[0].age).to eq(30)
+    expect(persons[0].height).to eq(5.9)
+    expect(persons[0].birthdate).to eq(Date.parse("1990-01-01"))
+    expect(persons[0].last_login).to eq(DateTime.parse("2023-06-08T10:00:00+00:00"))
+    expect(persons[0].wakeup_time).to eq(Time.parse("07:00:00"))
+    expect(persons[0].active).to be true
+
+    expect(persons[1].first_name).to eq("John")
+    expect(persons[1].age).to eq(30)
+    expect(persons[1].height).to eq(5.9)
+    expect(persons[1].birthdate).to eq(Date.parse("1990-01-01"))
+    expect(persons[1].last_login).to eq(DateTime.parse("2023-06-08T10:00:00+00:00"))
+    expect(persons[1].wakeup_time).to eq(Time.parse("07:00:00"))
+    expect(persons[1].active).to be true
   end
 end
