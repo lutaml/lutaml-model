@@ -33,7 +33,7 @@ RSpec.describe Lutaml::Model::Attribute do
       .to("avatar.png")
   end
 
-  context "#cast_type" do
+  describe "#cast_type" do
     it "cast :string to Lutaml::Model::Type::String" do
       expect(name_attr.cast_type(:string)).to eq(Lutaml::Model::Type::String)
     end
@@ -48,11 +48,11 @@ RSpec.describe Lutaml::Model::Attribute do
     end
   end
 
-  context "#default?" do
+  describe "#default?" do
     context "when default is not set" do
       let(:attribute) { described_class.new("name", :string) }
 
-      it { expect(attribute.default).to eq(nil) }
+      it { expect(attribute.default).to be_nil }
     end
 
     context "when default is set as a proc" do
