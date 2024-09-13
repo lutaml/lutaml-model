@@ -2,38 +2,32 @@ require "spec_helper"
 require "lutaml/model"
 
 class CustomSerialization < Lutaml::Model::Serializable
-  attribute :name, :string
+  attribute :full_name, :string
   attribute :size, :integer
   attribute :color, :string
   attribute :description, :string
 
   json do
-    map "name", to: :name, with: { to: :name_to_json, from: :name_from_json }
+    map "name", with: { to: :name_to_json, from: :name_from_json }
     map "size", to: :size
-    map "color", to: :color,
-                 with: { to: :color_to_json, from: :color_from_json }
-    map "description", to: :description,
-                       with: { to: :description_to_json, from: :description_from_json }
+    map "color", with: { to: :color_to_json, from: :color_from_json }
+    map "description", with: { to: :description_to_json, from: :description_from_json }
   end
 
   xml do
     root "CustomSerialization"
-    map_element "Name", to: :name,
-                        with: { to: :name_to_xml, from: :name_from_xml }
+    map_element "Name", with: { to: :name_to_xml, from: :name_from_xml }
     map_attribute "Size", to: :size
-    map_element "Color", to: :color,
-                         with: { to: :color_to_xml, from: :color_from_xml }
-    map_content to: :description,
-                with: { to: :description_to_xml,
-                        from: :description_from_xml }
+    map_element "Color", with: { to: :color_to_xml, from: :color_from_xml }
+    map_content with: { to: :description_to_xml, from: :description_from_xml }
   end
 
   def name_to_json(model, doc)
-    doc["name"] = "JSON Masterpiece: #{model.name}"
+    doc["name"] = "JSON Masterpiece: #{model.full_name}"
   end
 
   def name_from_json(model, value)
-    model.name = value.sub(/^JSON Masterpiece: /, "")
+    model.full_name = value.sub(/^JSON Masterpiece: /, "")
   end
 
   def color_to_json(model, doc)
@@ -54,12 +48,12 @@ class CustomSerialization < Lutaml::Model::Serializable
 
   def name_to_xml(model, parent, doc)
     el = doc.create_element("Name")
-    doc.add_text(el, "XML Masterpiece: #{model.name}")
+    doc.add_text(el, "XML Masterpiece: #{model.full_name}")
     doc.add_element(parent, el)
   end
 
   def name_from_xml(model, value)
-    model.name = value.sub(/^XML Masterpiece: /, "")
+    model.full_name = value.sub(/^XML Masterpiece: /, "")
   end
 
   def color_to_xml(model, parent, doc)
@@ -84,7 +78,7 @@ end
 RSpec.describe CustomSerialization do
   let(:attributes) do
     {
-      name: "Vase",
+      full_name: "Vase",
       size: 12,
       color: "blue",
       description: "A beautiful ceramic vase",
@@ -113,7 +107,7 @@ RSpec.describe CustomSerialization do
       }.to_json
 
       ceramic = described_class.from_json(json)
-      expect(ceramic.name).to eq("Vase")
+      expect(ceramic.full_name).to eq("Vase")
       expect(ceramic.size).to eq(12)
       expect(ceramic.color).to eq("blue")
       expect(ceramic.description).to eq("A beautiful ceramic vase")
@@ -143,7 +137,7 @@ RSpec.describe CustomSerialization do
       XML
 
       ceramic = described_class.from_xml(xml)
-      expect(ceramic.name).to eq("Vase")
+      expect(ceramic.full_name).to eq("Vase")
       expect(ceramic.size).to eq(12)
       expect(ceramic.color).to eq("blue")
       expect(ceramic.description).to eq("A beautiful ceramic vase")

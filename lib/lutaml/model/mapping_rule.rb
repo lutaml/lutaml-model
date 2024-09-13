@@ -48,16 +48,26 @@ module Lutaml
         end
       end
 
-      def deserialize(model, doc)
+      def deserialize(model, value, attributes)
         if custom_methods[:from]
-          model.send(custom_methods[:from], model, doc)
+          model.send(custom_methods[:from], model, value)
+        elsif delegate
+          if model.public_send(delegate).nil?
+            model.public_send(:"#{delegate}=", attributes[delegate].type.new)
+          end
+
+          model.public_send(delegate).public_send(:"#{to}=", value)
         else
-          doc[name.to_s]
+          model.public_send(:"#{to}=", value)
         end
       end
 
       def namespace_set?
         @namespace_set
+      end
+
+      def content_mapping?
+        name.nil?
       end
     end
   end

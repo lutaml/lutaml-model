@@ -33,6 +33,10 @@ module Lutaml
         value.map { |v| type.cast(v) }
       end
 
+      def setter
+        :"#{@name}="
+      end
+
       def collection?
         options[:collection] || false
       end

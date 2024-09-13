@@ -189,6 +189,7 @@ module Lutaml
 
         def default_mappings(format)
           klass = format == :xml ? XmlMapping : KeyValueMapping
+
           klass.new.tap do |mapping|
             attributes&.each do |name, attr|
               mapping.map_element(
@@ -197,6 +198,8 @@ module Lutaml
                 render_nil: attr.render_nil?,
               )
             end
+
+            mapping.root(self.to_s.split("::").last) if format == :xml
           end
         end
 
@@ -246,6 +249,18 @@ module Lutaml
           hash
         end
 
+        def valid_rule?(rule)
+          attribute = attribute_for_rule(rule)
+
+          !!attribute || rule.custom_methods[:from]
+        end
+
+        def attribute_for_rule(rule)
+          return attributes[rule.to] unless rule.delegate
+
+          attributes[rule.delegate].type.attributes[rule.to]
+        end
+
         def apply_mappings(doc, format, options = {})
           instance = options[:instance] || model.new
           return instance if !doc || doc.empty?
@@ -253,13 +268,9 @@ module Lutaml
 
           mappings = mappings_for(format).mappings
           mappings.each do |rule|
-            attr = if rule.delegate
-                     attributes[rule.delegate].type.attributes[rule.to]
-                   else
-                     attributes[rule.to]
-                   end
+            raise "Attribute '#{rule.to}' not found in #{self}" unless valid_rule?(rule)
 
-            raise "Attribute '#{rule.to}' not found in #{self}" unless attr
+            attr = attribute_for_rule(rule)
 
             value = if doc.key?(rule.name) || doc.key?(rule.name.to_sym)
                       doc[rule.name] || doc[rule.name.to_sym]
@@ -278,16 +289,7 @@ module Lutaml
             value = apply_child_mappings(value, rule.child_mappings)
             value = attr.cast(value, format)
 
-            if rule.delegate
-              if instance.public_send(rule.delegate).nil?
-                instance.public_send(:"#{rule.delegate}=",
-                                     attributes[rule.delegate].type.new)
-              end
-              instance.public_send(rule.delegate).public_send(:"#{rule.to}=",
-                                                              value)
-            else
-              instance.public_send(:"#{rule.to}=", value)
-            end
+            rule.deserialize(instance, value, attributes)
           end
 
           instance
@@ -317,44 +319,55 @@ module Lutaml
           end
 
           mappings.each do |rule|
-            attr = attributes[rule.to]
-            raise "Attribute '#{rule.to}' not found in #{self}" unless attr
+            raise "Attribute '#{rule.to}' not found in #{self}" unless valid_rule?(rule)
 
-            is_content_mapping = rule.name.nil?
+            attr = attribute_for_rule(rule)
 
-            value = if is_content_mapping
+            value = if rule.content_mapping?
                       doc["text"]
                     else
                       doc[rule.name.to_s] || doc[rule.name.to_sym]
                     end
 
-            value = [value].compact if attr.collection? && !value.is_a?(Array)
-
-            if value.is_a?(Array)
-              value = value.map do |v|
-                v.is_a?(Hash) && !(attr.type <= Serialize) ? v["text"] : v
-              end
-            elsif !(attr.type <= Serialize) && value.is_a?(Hash) && attr.type != Lutaml::Model::Type::Hash
-              value = value["text"]
-            end
-
-            unless is_content_mapping
-              value = attr.cast(
-                value,
-                :xml,
-                caller_class: self,
-                mixed_content: rule.mixed_content,
-              )
-            end
-
-            if rule.custom_methods[:from]
-              new.send(rule.custom_methods[:from], instance, value)
-            else
-              instance.public_send(:"#{rule.to}=", value)
-            end
+            value = normalize_xml_value(value, rule)
+            rule.deserialize(instance, value, attributes)
           end
 
           instance
+        end
+
+        def normalize_xml_value(value, rule)
+          attr = attribute_for_rule(rule)
+
+          value = [value].compact if attr&.collection? && !value.is_a?(Array)
+
+          value = if value.is_a?(Array)
+                    value.map do |v|
+                      text_hash?(attr, v) ? v["text"] : v
+                    end
+                  elsif text_hash?(attr, value)
+                    value["text"]
+                  else
+                    value
+                  end
+
+          if attr && !rule.content_mapping?
+            value = attr.cast(
+              value,
+              :xml,
+              caller_class: self,
+              mixed_content: rule.mixed_content,
+            )
+          end
+
+          value
+        end
+
+        def text_hash?(attr, value)
+          return false unless value.is_a?(Hash)
+          return value.keys == ["text"] unless attr
+
+          !(attr.type <= Serialize) && attr.type != Lutaml::Model::Type::Hash
         end
 
         def ensure_utf8(value)

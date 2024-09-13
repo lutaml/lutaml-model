@@ -43,8 +43,7 @@ class Person < Lutaml::Model::Serializable
 
   yaml do
     map "firstName", to: :first_name
-    map "lastName", to: :last_name,
-                    with: { to: :yaml_from_last_name, from: :yaml_to_last_name }
+    map "lastName", with: { to: :yaml_from_last_name, from: :yaml_to_last_name }
     map "age", to: :age
     map "height", to: :height
     map "birthdate", to: :birthdate
