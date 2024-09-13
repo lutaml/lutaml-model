@@ -120,7 +120,7 @@ module Lutaml
           rule = options[:rule]
 
           if rule.custom_methods[:to]
-            @root.send(rule.custom_methods[:to], @root, xml.parent, xml)
+            options[:mapper_class].new.send(rule.custom_methods[:to], @root, xml.parent, xml)
             return
           end
 
@@ -192,7 +192,7 @@ module Lutaml
                 prefixed_xml,
                 element_rule.prefix,
                 value,
-                options.merge({ attribute: attribute_def, rule: element_rule }),
+                options.merge({ attribute: attribute_def, rule: element_rule, mapper_class: mapper_class }),
               )
             end
 

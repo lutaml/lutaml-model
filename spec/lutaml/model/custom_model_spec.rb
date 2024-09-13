@@ -34,7 +34,25 @@ class CustomModelParentMapper < Lutaml::Model::Serializable
   xml do
     map_element :first_name, to: :first_name
     map_element :last_name, to: :last_name
-    map_element :CustomModelChild, to: :child_mapper
+    map_element :CustomModelChild, to: :child_mapper, with: { to: :child_to_xml, from: :child_from_xml }
+  end
+
+  # TODO: This syntax is to be fixed
+  def child_to_xml(model, parent, doc)
+    child_el = doc.create_element("CustomModelChild")
+    street_el = doc.create_element("street")
+    city_el = doc.create_element("city")
+    doc.add_text(street_el, model.child_mapper.street)
+    doc.add_text(city_el, model.child_mapper.city)
+    doc.add_element(child_el, street_el)
+    doc.add_element(child_el, city_el)
+    doc.add_element(parent, child_el)
+  end
+
+  # TODO: This syntax is to be fixed
+  def child_from_xml(model, node)
+    model.street = node.children.find { |e| e.name == "street" }.text
+    model.city = node.children.find { |e| e.name == "city" }.text
   end
 end
 
@@ -190,7 +208,7 @@ RSpec.describe "CustomModel" do
     end
 
     describe ".from_xml" do
-      it "maps XML content to custom model" do
+      it "maps XML content to custom model using custom methods" do
         instance = parent_mapper.from_xml(input_xml)
 
         expect(instance.class).to eq(parent_model)
@@ -213,10 +231,44 @@ RSpec.describe "CustomModel" do
         end.to raise_error(Lutaml::Model::IncorrectModelError, msg)
       end
 
-      it "with correct model converts objects to xml" do
+      it "with correct model converts objects to xml using custom methods" do
         instance = parent_mapper.from_xml(input_xml)
+        result_xml = parent_mapper.to_xml(instance)
 
-        expect(parent_mapper.to_xml(instance).strip).to eq(input_xml.strip)
+        expect(result_xml.gsub(/\s+/, "")).to eq(input_xml.gsub(/\s+/, ""))
+      end
+    end
+
+    describe "custom serialization methods" do
+      it "uses custom to_xml method for child_mapper" do
+        instance = parent_model.new
+        instance.first_name = "John"
+        instance.last_name = "Doe"
+        instance.child_mapper = child_model.new
+        instance.child_mapper.street = "Custom Street"
+        instance.child_mapper.city = "Custom City"
+
+        result_xml = parent_mapper.to_xml(instance)
+        expect(result_xml).to include("<CustomModelChild>")
+        expect(result_xml).to include("<street>Custom Street</street>")
+        expect(result_xml).to include("<city>Custom City</city>")
+      end
+
+      it "uses custom from_xml method for child_mapper" do
+        custom_xml = <<~XML
+          <CustomModelParent>
+            <first_name>Jane</first_name>
+            <last_name>Smith</last_name>
+            <CustomModelChild>
+              <street>Custom Avenue</street>
+              <city>New City</city>
+            </CustomModelChild>
+          </CustomModelParent>
+        XML
+
+        instance = parent_mapper.from_xml(custom_xml)
+        expect(instance.child_mapper.street).to eq("Custom Avenue")
+        expect(instance.child_mapper.city).to eq("New City")
       end
     end
   end

@@ -8,18 +8,29 @@ class CustomSerialization < Lutaml::Model::Serializable
   attribute :description, :string
 
   json do
-    map "name", with: { to: :name_to_json, from: :name_from_json }
-    map "size", to: :size
-    map "color", with: { to: :color_to_json, from: :color_from_json }
-    map "description", with: { to: :description_to_json, from: :description_from_json }
+    map "name", to: :name, with: { to: :name_to_json, from: :name_from_json }
+    map "color", to: :color,
+                 with: { to: :color_to_json, from: :color_from_json }
+    map "size", to: :size, with: { to: :size_to_json, from: :size_from_json }
+    map "description", to: :description,
+                       with: { to: :description_to_json, from: :description_from_json }
   end
 
   xml do
     root "CustomSerialization"
-    map_element "Name", with: { to: :name_to_xml, from: :name_from_xml }
-    map_attribute "Size", to: :size
-    map_element "Color", with: { to: :color_to_xml, from: :color_from_xml }
-    map_content with: { to: :description_to_xml, from: :description_from_xml }
+
+    # name, color are used to test XML elements with custom methods
+    map_element "Name", to: :name,
+                        with: { to: :name_to_xml, from: :name_from_xml }
+    map_element "Color", to: :color,
+                         with: { to: :color_to_xml, from: :color_from_xml }
+    # size is used to test XML attribute with custom methods
+    map_attribute "Size", to: :size,
+                          with: { to: :size_to_xml, from: :size_from_xml }
+    # description is used to test XML textual content
+    map_content to: :description,
+                with: { to: :description_to_xml,
+                        from: :description_from_xml }
   end
 
   def name_to_json(model, doc)
@@ -28,6 +39,14 @@ class CustomSerialization < Lutaml::Model::Serializable
 
   def name_from_json(model, value)
     model.full_name = value.sub(/^JSON Masterpiece: /, "")
+  end
+
+  def size_to_json(model, doc)
+    doc["size"] = model.size + 3
+  end
+
+  def size_from_json(model, value)
+    model.size = value - 3
   end
 
   def color_to_json(model, doc)
@@ -54,6 +73,14 @@ class CustomSerialization < Lutaml::Model::Serializable
 
   def name_from_xml(model, value)
     model.full_name = value.sub(/^XML Masterpiece: /, "")
+  end
+
+  def size_to_xml(model, parent, doc)
+    doc.add_attribute(parent, "Size", model.size + 3)
+  end
+
+  def size_from_xml(model, value)
+    model.size = value - 3
   end
 
   def color_to_xml(model, parent, doc)
@@ -90,8 +117,8 @@ RSpec.describe CustomSerialization do
     it "serializes to JSON with custom methods" do
       expected_json = {
         name: "JSON Masterpiece: Vase",
-        size: 12,
         color: "BLUE",
+        size: 15,
         description: "JSON Description: A beautiful ceramic vase",
       }.to_json
 
@@ -101,23 +128,24 @@ RSpec.describe CustomSerialization do
     it "deserializes from JSON with custom methods" do
       json = {
         name: "JSON Masterpiece: Vase",
-        size: 12,
         color: "BLUE",
+        size: 15,
         description: "JSON Description: A beautiful ceramic vase",
       }.to_json
 
       ceramic = described_class.from_json(json)
-      expect(ceramic.full_name).to eq("Vase")
-      expect(ceramic.size).to eq(12)
-      expect(ceramic.color).to eq("blue")
-      expect(ceramic.description).to eq("A beautiful ceramic vase")
+
+      expect(ceramic.name).to eq(model.name)
+      expect(ceramic.size).to eq(model.size)
+      expect(ceramic.color).to eq(model.color)
+      expect(ceramic.description).to eq(model.description)
     end
   end
 
   context "with XML serialization" do
     it "serializes to XML with custom methods" do
       expected_xml = <<~XML
-        <CustomSerialization Size="12">
+        <CustomSerialization Size="15">
           <Name>XML Masterpiece: Vase</Name>
           <Color>BLUE</Color>
           XML Description: A beautiful ceramic vase
@@ -129,7 +157,7 @@ RSpec.describe CustomSerialization do
 
     it "deserializes from XML with custom methods" do
       xml = <<~XML
-        <CustomSerialization Size="12">
+        <CustomSerialization Size="15">
           <Name>XML Masterpiece: Vase</Name>
           <Color>BLUE</Color>
           XML Description: A beautiful ceramic vase
@@ -137,10 +165,10 @@ RSpec.describe CustomSerialization do
       XML
 
       ceramic = described_class.from_xml(xml)
-      expect(ceramic.full_name).to eq("Vase")
-      expect(ceramic.size).to eq(12)
-      expect(ceramic.color).to eq("blue")
-      expect(ceramic.description).to eq("A beautiful ceramic vase")
+      expect(ceramic.name).to eq(model.name)
+      expect(ceramic.size).to eq(model.size)
+      expect(ceramic.color).to eq(model.color)
+      expect(ceramic.description).to eq(model.description)
     end
   end
 end
