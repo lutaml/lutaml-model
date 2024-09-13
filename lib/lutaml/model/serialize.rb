@@ -199,7 +199,7 @@ module Lutaml
               )
             end
 
-            mapping.root(self.to_s.split("::").last) if format == :xml
+            mapping.root(to_s.split("::").last) if format == :xml
           end
         end
 
@@ -320,8 +320,6 @@ module Lutaml
 
           mappings.each do |rule|
             raise "Attribute '#{rule.to}' not found in #{self}" unless valid_rule?(rule)
-
-            attr = attribute_for_rule(rule)
 
             value = if rule.content_mapping?
                       doc["text"]
