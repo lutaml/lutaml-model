@@ -60,7 +60,6 @@ module Lutaml
 
           define_method(:"#{name}=") do |value|
             instance_variable_set(:"@#{name}", attr.cast_value(value))
-            # validate!(name)
           end
         end
 
@@ -444,7 +443,6 @@ module Lutaml
 
       Lutaml::Model::Config::AVAILABLE_FORMATS.each do |format|
         define_method(:"to_#{format}") do |options = {}|
-          validate!
           adapter = Lutaml::Model::Config.public_send(:"#{format}_adapter")
           representation = if format == :xml
                              self
