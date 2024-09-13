@@ -180,11 +180,13 @@ module Lutaml
               attribute_def = attribute_definition_for(element, element_rule,
                                                        mapper_class: mapper_class)
 
-              value = attribute_value_for(element, element_rule)
+              if attribute_def
+                value = attribute_value_for(element, element_rule)
 
-              next if value.nil? && !element_rule.render_nil?
+                next if value.nil? && !element_rule.render_nil?
 
-              value = [value] if attribute_def.collection? && !value.is_a?(Array)
+                value = [value] if attribute_def.collection? && !value.is_a?(Array)
+              end
 
               add_to_xml(
                 prefixed_xml,
@@ -239,8 +241,10 @@ module Lutaml
             type = if mapping_rule.delegate
                      attributes[mapping_rule.delegate].type.attributes[mapping_rule.to].type
                    else
-                     attributes[mapping_rule.to].type
+                     attributes[mapping_rule.to]&.type
                    end
+
+            next unless type
 
             if type <= Lutaml::Model::Serialize
               attrs = attrs.merge(build_namespace_attributes(type, processed))

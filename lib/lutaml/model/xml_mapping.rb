@@ -38,7 +38,7 @@ module Lutaml
       # rubocop:disable Metrics/ParameterLists
       def map_element(
         name,
-        to:,
+        to: nil,
         render_nil: false,
         with: {},
         delegate: nil,
@@ -46,6 +46,8 @@ module Lutaml
                     nil),
         prefix: nil
       )
+        validate!(name, to, with)
+
         @elements[name] = XmlMappingRule.new(
           name,
           to: to,
@@ -60,7 +62,7 @@ module Lutaml
 
       def map_attribute(
         name,
-        to:,
+        to: nil,
         render_nil: false,
         with: {},
         delegate: nil,
@@ -68,6 +70,8 @@ module Lutaml
                     nil),
         prefix: nil
       )
+        validate!(name, to, with)
+
         @attributes[name] = XmlMappingRule.new(
           name,
           to: to,
@@ -83,12 +87,14 @@ module Lutaml
       # rubocop:enable Metrics/ParameterLists
 
       def map_content(
-        to:,
+        to: nil,
         render_nil: false,
         with: {},
         delegate: nil,
         mixed: false
       )
+        validate!("content", to, with)
+
         @content_mapping = XmlMappingRule.new(
           nil,
           to: to,
@@ -97,6 +103,18 @@ module Lutaml
           delegate: delegate,
           mixed_content: mixed,
         )
+      end
+
+      def validate!(key, to, with)
+        if to.nil? && with.empty?
+          msg = ":to or :with argument is required for mapping '#{key}'"
+          raise IncorrectMappingArgumentsError.new(msg)
+        end
+
+        if !with.empty? && (with[:from].nil? || with[:to].nil?)
+          msg = ":with argument for mapping '#{key}' requires :to and :from keys"
+          raise IncorrectMappingArgumentsError.new(msg)
+        end
       end
 
       def elements
