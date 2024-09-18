@@ -64,6 +64,7 @@ module Lutaml
 
                 add_to_xml(
                   el,
+                  element,
                   nil,
                   value,
                   options.merge(

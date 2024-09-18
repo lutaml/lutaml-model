@@ -72,9 +72,7 @@ RSpec.describe Lutaml::Model::Schema::JsonSchema do
           }
         }
       JSON
-      puts schema
-      puts "*" * 20
-      puts expected_schema
+
       expect(schema).to eq(expected_schema)
     end
   end

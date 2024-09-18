@@ -24,6 +24,20 @@ module Lutaml
         @ordered
       end
 
+      def method_missing(method_name, *args)
+        value = self[method_name] || self[method_name.to_s]
+        return value if value
+
+        super
+      end
+
+      def respond_to_missing?(method_name, include_private = false)
+        key_present = key?(method_name) || key?(method_name.to_s)
+        return true if key_present
+
+        super
+      end
+
       private
 
       def normalize(key)

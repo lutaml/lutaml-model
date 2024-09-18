@@ -263,7 +263,7 @@ module Lutaml
 
         def apply_mappings(doc, format, options = {})
           instance = options[:instance] || model.new
-          return instance if !doc || doc.empty?
+          return instance if Utils.blank?(doc)
           return apply_xml_mapping(doc, instance, options) if format == :xml
 
           mappings = mappings_for(format).mappings
@@ -279,17 +279,17 @@ module Lutaml
                     end
 
             if rule.custom_methods[:from]
-              if value && !value.empty?
-                value = new.send(rule.custom_methods[:from], instance,
-                                 value)
+              if Utils.present?(value)
+                value = new.send(rule.custom_methods[:from], instance, value)
               end
+
               next
             end
 
             value = apply_child_mappings(value, rule.child_mappings)
             value = attr.cast(value, format)
 
-            rule.deserialize(instance, value, attributes)
+            rule.deserialize(instance, value, attributes, self)
           end
 
           instance
@@ -328,7 +328,7 @@ module Lutaml
                     end
 
             value = normalize_xml_value(value, rule)
-            rule.deserialize(instance, value, attributes)
+            rule.deserialize(instance, value, attributes, self)
           end
 
           instance

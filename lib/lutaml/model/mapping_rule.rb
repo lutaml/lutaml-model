@@ -40,6 +40,12 @@ module Lutaml
         end
       end
 
+      def serialize_attribute(model, element, doc)
+        if custom_methods[:to]
+          model.send(custom_methods[:to], model, element, doc)
+        end
+      end
+
       def serialize(model, value)
         if custom_methods[:to]
           model.send(custom_methods[:to], model, value)
@@ -48,9 +54,9 @@ module Lutaml
         end
       end
 
-      def deserialize(model, value, attributes)
+      def deserialize(model, value, attributes, mapper_class = nil)
         if custom_methods[:from]
-          model.send(custom_methods[:from], model, value)
+          mapper_class.new.send(custom_methods[:from], model, value)
         elsif delegate
           if model.public_send(delegate).nil?
             model.public_send(:"#{delegate}=", attributes[delegate].type.new)

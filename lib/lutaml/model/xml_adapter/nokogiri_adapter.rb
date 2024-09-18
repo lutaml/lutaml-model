@@ -77,6 +77,7 @@ module Lutaml
 
                 add_to_xml(
                   xml,
+                  element,
                   element_rule.prefix,
                   value,
                   options.merge(

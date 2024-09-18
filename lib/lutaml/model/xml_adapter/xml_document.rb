@@ -107,10 +107,10 @@ module Lutaml
           end
         end
 
-        def add_to_xml(xml, prefix, value, options = {})
+        def add_to_xml(xml, element, prefix, value, options = {})
           if value.is_a?(Array)
             value.each do |item|
-              add_to_xml(xml, prefix, item, options)
+              add_to_xml(xml, element, prefix, item, options)
             end
 
             return
@@ -120,7 +120,7 @@ module Lutaml
           rule = options[:rule]
 
           if rule.custom_methods[:to]
-            @root.send(rule.custom_methods[:to], @root, xml.parent, xml)
+            options[:mapper_class].new.send(rule.custom_methods[:to], element, xml.parent, xml)
             return
           end
 
@@ -176,6 +176,10 @@ module Lutaml
               prefixed_xml.add_namespace_prefix(nil)
             end
 
+            xml_mapping.attributes.each do |attribute_rule|
+              attribute_rule.serialize_attribute(element, prefixed_xml.parent, xml)
+            end
+
             xml_mapping.elements.each do |element_rule|
               attribute_def = attribute_definition_for(element, element_rule,
                                                        mapper_class: mapper_class)
@@ -190,9 +194,10 @@ module Lutaml
 
               add_to_xml(
                 prefixed_xml,
+                element,
                 element_rule.prefix,
                 value,
-                options.merge({ attribute: attribute_def, rule: element_rule }),
+                options.merge({ attribute: attribute_def, rule: element_rule, mapper_class: mapper_class }),
               )
             end
 
@@ -225,8 +230,10 @@ module Lutaml
           attrs = {}
 
           if xml_mappings.namespace_uri
-            prefixed_name = ["xmlns",
-                             xml_mappings.namespace_prefix].compact.join(":")
+            prefixed_name = [
+              "xmlns",
+              xml_mappings.namespace_prefix,
+            ].compact.join(":")
 
             attrs[prefixed_name] = xml_mappings.namespace_uri
           end
@@ -263,6 +270,7 @@ module Lutaml
 
           xml_mapping.attributes.each_with_object(attrs) do |mapping_rule, hash|
             next if options[:except]&.include?(mapping_rule.to)
+            next if mapping_rule.custom_methods[:to]
 
             if mapping_rule.namespace
               hash["xmlns:#{mapping_rule.prefix}"] = mapping_rule.namespace

@@ -33,6 +33,27 @@ module CollectionTests
       map_element "sensor", to: :sensors
     end
   end
+
+  class Address < Lutaml::Model::Serializable
+    attribute :street, :string
+    attribute :city, :string
+    attribute :address, Address
+
+    xml do
+      root "address"
+      map_element "street", to: :street
+      map_element "city", with: { from: :city_from_xml, to: :city_to_xml }
+      map_element "address", to: :address
+    end
+
+    def city_from_xml(model, node)
+      model.city = node
+    end
+
+    def city_to_xml(model, parent, doc)
+      doc.add_element(parent, "<city>#{model.city}</city>")
+    end
+  end
 end
 
 RSpec.describe CollectionTests do
@@ -107,6 +128,36 @@ RSpec.describe CollectionTests do
     expect(new_model.temperatures).to eq(model.temperatures)
     expect(new_model.operators).to eq(model.operators)
     expect(new_model.sensors).to eq(model.sensors)
+  end
+
+  context "when model contains self as attribute" do
+    let(:xml) do
+      <<~XML
+        <address>
+          <street>A</street>
+          <city>B</city>
+          <address>
+            <street>C</street>
+            <city>D</city>
+          </address>
+        </address>
+      XML
+    end
+
+    it "deserializes from XML" do
+      model = CollectionTests::Address.from_xml(xml)
+
+      expect(model.street).to eq("A")
+      expect(model.city).to eq("B")
+      expect(model.address.street).to eq("C")
+      expect(model.address.city).to eq("D")
+    end
+
+    it "round-trips XML" do
+      model = CollectionTests::Address.from_xml(xml)
+
+      expect(model.to_xml).to be_equivalent_to(xml)
+    end
   end
 
   context "when collection counts are below given ranges" do

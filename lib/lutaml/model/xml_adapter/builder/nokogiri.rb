@@ -27,6 +27,10 @@ module Lutaml
             element.add_child(child)
           end
 
+          def add_attribute(element, name, value)
+            element[name] = value
+          end
+
           def create_and_add_element(element_name, prefix: nil, attributes: {})
             add_namespace_prefix(prefix) if prefix
 
