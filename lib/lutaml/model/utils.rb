@@ -34,6 +34,14 @@ module Lutaml
             .downcase
         end
 
+        def present?(value)
+          value && !(value.respond_to?(:empty?) ? value.empty? : value.nil?)
+        end
+
+        def blank?(value)
+          !present?(value)
+        end
+
         private
 
         def camelize_part(part)

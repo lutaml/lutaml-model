@@ -34,25 +34,27 @@ class CustomModelParentMapper < Lutaml::Model::Serializable
   xml do
     map_element :first_name, to: :first_name
     map_element :last_name, to: :last_name
-    map_element :CustomModelChild, to: :child_mapper, with: { to: :child_to_xml, from: :child_from_xml }
+    map_element :CustomModelChild, with: { to: :child_to_xml, from: :child_from_xml }
   end
 
-  # TODO: This syntax is to be fixed
   def child_to_xml(model, parent, doc)
     child_el = doc.create_element("CustomModelChild")
     street_el = doc.create_element("street")
     city_el = doc.create_element("city")
+
     doc.add_text(street_el, model.child_mapper.street)
     doc.add_text(city_el, model.child_mapper.city)
+
     doc.add_element(child_el, street_el)
     doc.add_element(child_el, city_el)
     doc.add_element(parent, child_el)
   end
 
-  # TODO: This syntax is to be fixed
-  def child_from_xml(model, node)
-    model.street = node.children.find { |e| e.name == "street" }.text
-    model.city = node.children.find { |e| e.name == "city" }.text
+  def child_from_xml(model, value)
+    model.child_mapper ||= CustomModelChild.new
+
+    model.child_mapper.street = value["street"].text
+    model.child_mapper.city = value["city"].text
   end
 end
 

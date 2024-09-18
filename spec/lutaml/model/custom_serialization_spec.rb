@@ -8,12 +8,10 @@ class CustomSerialization < Lutaml::Model::Serializable
   attribute :description, :string
 
   json do
-    map "name", to: :name, with: { to: :name_to_json, from: :name_from_json }
-    map "color", to: :color,
-                 with: { to: :color_to_json, from: :color_from_json }
-    map "size", to: :size, with: { to: :size_to_json, from: :size_from_json }
-    map "description", to: :description,
-                       with: { to: :description_to_json, from: :description_from_json }
+    map "name", with: { to: :name_to_json, from: :name_from_json }
+    map "color", with: { to: :color_to_json, from: :color_from_json }
+    map "size", with: { to: :size_to_json, from: :size_from_json }
+    map "description", with: { to: :description_to_json, from: :description_from_json }
   end
 
   xml do
@@ -80,7 +78,7 @@ class CustomSerialization < Lutaml::Model::Serializable
   end
 
   def size_from_xml(model, value)
-    model.size = value - 3
+    model.size = value.to_i - 3
   end
 
   def color_to_xml(model, parent, doc)
@@ -135,7 +133,7 @@ RSpec.describe CustomSerialization do
 
       ceramic = described_class.from_json(json)
 
-      expect(ceramic.name).to eq(model.name)
+      expect(ceramic.full_name).to eq(model.full_name)
       expect(ceramic.size).to eq(model.size)
       expect(ceramic.color).to eq(model.color)
       expect(ceramic.description).to eq(model.description)
@@ -165,7 +163,7 @@ RSpec.describe CustomSerialization do
       XML
 
       ceramic = described_class.from_xml(xml)
-      expect(ceramic.name).to eq(model.name)
+      expect(ceramic.full_name).to eq(model.full_name)
       expect(ceramic.size).to eq(model.size)
       expect(ceramic.color).to eq(model.color)
       expect(ceramic.description).to eq(model.description)

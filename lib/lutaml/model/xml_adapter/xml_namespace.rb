@@ -37,7 +37,7 @@ module Lutaml
         end
 
         def attr_name
-          if prefix && !prefix.empty?
+          if Utils.present?(prefix)
             "xmlns:#{prefix}"
           else
             "xmlns"

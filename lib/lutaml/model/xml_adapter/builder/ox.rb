@@ -38,6 +38,10 @@ module Lutaml
             element << child
           end
 
+          def add_attribute(element, name, value)
+            element[name] = value
+          end
+
           def create_and_add_element(element_name, prefix: nil, attributes: {})
             prefixed_name = if prefix
                               "#{prefix}:#{element_name}"

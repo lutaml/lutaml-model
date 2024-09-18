@@ -24,6 +24,13 @@ module Lutaml
         @ordered
       end
 
+      def method_missing(method_name, *args)
+        value = self[method_name] || self[method_name.to_s]
+        return value if value
+
+        super
+      end
+
       private
 
       def normalize(key)
