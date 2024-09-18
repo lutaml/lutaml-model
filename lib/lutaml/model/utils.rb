@@ -35,11 +35,11 @@ module Lutaml
         end
 
         def present?(value)
-          value && !(value.respond_to?(:empty?) ? value.empty? : value.nil?)
+          !blank?(value)
         end
 
         def blank?(value)
-          !present?(value)
+          value.respond_to?(:empty?) ? value.empty? : !value
         end
 
         private
