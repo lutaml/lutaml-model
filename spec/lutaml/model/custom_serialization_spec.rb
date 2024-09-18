@@ -18,17 +18,14 @@ class CustomSerialization < Lutaml::Model::Serializable
     root "CustomSerialization"
 
     # name, color are used to test XML elements with custom methods
-    map_element "Name", to: :name,
-                        with: { to: :name_to_xml, from: :name_from_xml }
-    map_element "Color", to: :color,
-                         with: { to: :color_to_xml, from: :color_from_xml }
+    map_element "Name", with: { to: :name_to_xml, from: :name_from_xml }
+    map_element "Color", with: { to: :color_to_xml, from: :color_from_xml }
+
     # size is used to test XML attribute with custom methods
-    map_attribute "Size", to: :size,
-                          with: { to: :size_to_xml, from: :size_from_xml }
+    map_attribute "Size", with: { to: :size_to_xml, from: :size_from_xml }
+
     # description is used to test XML textual content
-    map_content to: :description,
-                with: { to: :description_to_xml,
-                        from: :description_from_xml }
+    map_content with: { to: :description_to_xml, from: :description_from_xml }
   end
 
   def name_to_json(model, doc)
