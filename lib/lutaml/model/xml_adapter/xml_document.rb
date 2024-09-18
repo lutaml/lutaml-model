@@ -107,10 +107,10 @@ module Lutaml
           end
         end
 
-        def add_to_xml(xml, prefix, value, options = {})
+        def add_to_xml(xml, element, prefix, value, options = {})
           if value.is_a?(Array)
             value.each do |item|
-              add_to_xml(xml, prefix, item, options)
+              add_to_xml(xml, element, prefix, item, options)
             end
 
             return
@@ -120,7 +120,7 @@ module Lutaml
           rule = options[:rule]
 
           if rule.custom_methods[:to]
-            options[:mapper_class].new.send(rule.custom_methods[:to], @root, xml.parent, xml)
+            options[:mapper_class].new.send(rule.custom_methods[:to], element, xml.parent, xml)
             return
           end
 
@@ -194,6 +194,7 @@ module Lutaml
 
               add_to_xml(
                 prefixed_xml,
+                element,
                 element_rule.prefix,
                 value,
                 options.merge({ attribute: attribute_def, rule: element_rule, mapper_class: mapper_class }),
