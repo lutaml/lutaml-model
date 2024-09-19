@@ -68,7 +68,7 @@ module Lutaml
               value = attribute_value_for(element, element_rule)
 
               if element_rule == xml_mapping.content_mapping
-                text = element.send(xml_mapping.content_mapping.to)
+                text = xml_mapping.content_mapping.serialize(element)
                 text = text[curr_index] if text.is_a?(Array)
 
                 prefixed_xml.text text

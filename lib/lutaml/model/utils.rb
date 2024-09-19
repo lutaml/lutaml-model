@@ -42,6 +42,14 @@ module Lutaml
           value.respond_to?(:empty?) ? value.empty? : !value
         end
 
+        def add_method_if_not_defined(klass, method_name, &block)
+          unless klass.method_defined?(method_name)
+            klass.class_eval do
+              define_method(method_name, &block)
+            end
+          end
+        end
+
         private
 
         def camelize_part(part)

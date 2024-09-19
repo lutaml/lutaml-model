@@ -46,11 +46,13 @@ module Lutaml
         end
       end
 
-      def serialize(model, value)
+      def serialize(model, parent = nil, doc = nil)
         if custom_methods[:to]
-          model.send(custom_methods[:to], model, value)
+          model.send(custom_methods[:to], model, parent, doc)
+        elsif delegate
+          model.public_send(delegate).public_send(to)
         else
-          value
+          model.public_send(to)
         end
       end
 
