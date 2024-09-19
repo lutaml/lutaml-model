@@ -40,8 +40,27 @@ module Lutaml
         def model(klass = nil)
           if klass
             @model = klass
+            add_order_handling_methods_to_model(klass)
           else
             @model
+          end
+        end
+
+        def add_order_handling_methods_to_model(klass)
+          Utils.add_method_if_not_defined(klass, :ordered=) do |ordered|
+            @ordered = ordered
+          end
+
+          Utils.add_method_if_not_defined(klass, :ordered?) do
+            !!@ordered
+          end
+
+          Utils.add_method_if_not_defined(klass, :element_order=) do |order|
+            @element_order = order
+          end
+
+          Utils.add_method_if_not_defined(klass, :element_order) do
+            @element_order
           end
         end
 

@@ -58,6 +58,40 @@ class CustomModelParentMapper < Lutaml::Model::Serializable
   end
 end
 
+module CustomModelSpecs
+  class TextElement < Lutaml::Model::Serializable
+    attribute :sup, :string
+    attribute :sub, :string
+    attribute :text, :string
+
+    xml do
+      root "text-element"
+
+      map_content to: :text
+
+      map_element "sup", to: :sup
+      map_element "sub", to: :sub
+    end
+  end
+
+  class Id
+    attr_accessor :id
+  end
+
+  class Docid < Lutaml::Model::Serializable
+    model Id
+    attribute :id, TextElement
+
+    xml do
+      root "docid", mixed: true
+
+      map_content to: :text, delegate: :id
+      map_element :sub, to: :sub, delegate: :id
+      map_element :sup, to: :sup, delegate: :id
+    end
+  end
+end
+
 RSpec.describe "CustomModel" do
   let(:parent_mapper) { CustomModelParentMapper }
   let(:child_mapper) { CustomModelChildMapper }
@@ -271,6 +305,14 @@ RSpec.describe "CustomModel" do
         instance = parent_mapper.from_xml(custom_xml)
         expect(instance.child_mapper.street).to eq("Custom Avenue")
         expect(instance.child_mapper.city).to eq("New City")
+      end
+
+      it "uses delegate to for child mapper class" do
+        xml = "<docid>Str<sub>2</sub>text<sup>1</sup>123</docid>"
+
+        docid = CustomModelSpecs::Docid.from_xml(xml)
+
+        expect(CustomModelSpecs::Docid.to_xml(docid)).to eq(xml)
       end
     end
   end

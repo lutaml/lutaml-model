@@ -206,7 +206,7 @@ module Lutaml
                 @root.send(content_rule.custom_methods[:to], element,
                            prefixed_xml.parent, prefixed_xml)
               else
-                text = element.send(content_rule.to)
+                text = content_rule.serialize(element)
                 text = text.join if text.is_a?(Array)
                 prefixed_xml.add_text(xml, text)
               end
