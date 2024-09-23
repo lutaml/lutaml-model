@@ -45,7 +45,7 @@ module Lutaml
         namespace: (namespace_set = false
                     nil),
         prefix: (prefix_set = false
-                    nil)
+                 nil)
       )
         validate!(name, to, with)
 
@@ -71,7 +71,7 @@ module Lutaml
         namespace: (namespace_set = false
                     nil),
         prefix: (prefix_set = false
-                    nil)
+                 nil)
       )
         validate!(name, to, with)
 
