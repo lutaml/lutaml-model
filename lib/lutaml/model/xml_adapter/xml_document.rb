@@ -130,15 +130,13 @@ module Lutaml
               value,
               options.merge({ rule: rule, attribute: attribute }),
             )
+          elsif rule.prefix_set?
+            xml.create_and_add_element(rule.name, prefix: prefix) do
+              add_value(xml, value, attribute)
+            end
           else
-            if rule.prefix_set?
-              xml.create_and_add_element(rule.name, prefix: prefix) do
-                add_value(xml, value, attribute)
-              end
-            else
-              xml.create_and_add_element(rule.name) do
-                add_value(xml, value, attribute)
-              end
+            xml.create_and_add_element(rule.name) do
+              add_value(xml, value, attribute)
             end
           end
         end
