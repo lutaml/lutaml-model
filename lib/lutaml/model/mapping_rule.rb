@@ -17,6 +17,7 @@ module Lutaml
         delegate: nil,
         mixed_content: false,
         namespace_set: false,
+        prefix_set: false,
         child_mappings: nil
       )
         @name = name
@@ -26,6 +27,7 @@ module Lutaml
         @delegate = delegate
         @mixed_content = mixed_content
         @namespace_set = namespace_set
+        @prefix_set = prefix_set
         @child_mappings = child_mappings
       end
 
@@ -72,6 +74,10 @@ module Lutaml
 
       def namespace_set?
         @namespace_set
+      end
+
+      def prefix_set?
+        @prefix_set
       end
 
       def content_mapping?

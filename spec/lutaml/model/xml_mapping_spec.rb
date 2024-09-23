@@ -25,6 +25,45 @@ class Paragraph < Lutaml::Model::Serializable
   end
 end
 
+module XmlMapping
+  class Address < Lutaml::Model::Serializable
+    attribute :street, ::Lutaml::Model::Type::String, raw: true
+    attribute :city, :string, raw: true
+    attribute :address, Address
+
+    xml do
+      root "address"
+
+      map_element "street", to: :street
+      map_element "city", to: :city
+    end
+  end
+
+  class ChildNamespaceNil < Lutaml::Model::Serializable
+    attribute :element_default_namespace, :string
+    attribute :element_nil_namespace, :string
+    attribute :element_new_namespace, :string
+
+    xml do
+      root "ChildNamespaceNil"
+      namespace "http://www.omg.org/spec/XMI/20131001", "xmi"
+
+      # this will inherit the namespace from the parent i.e <xmi:ElementDefaultNamespace>
+      map_element "ElementDefaultNamespace", to: :element_default_namespace
+
+      # this will have nil namesapce applied i.e <ElementNilNamespace>
+      map_element "ElementNilNamespace", to: :element_nil_namespace,
+                                         prefix: nil,
+                                         namespace: nil
+
+      # this will have new namespace i.e <new:ElementNewNamespace>
+      map_element "ElementNewNamespace", to: :element_new_namespace,
+                                         prefix: "new",
+                                         namespace: "http://www.omg.org/spec/XMI/20161001"
+    end
+  end
+end
+
 RSpec.describe Lutaml::Model::XmlMapping do
   let(:mapping) { described_class.new }
 
@@ -109,6 +148,32 @@ RSpec.describe Lutaml::Model::XmlMapping do
       expect(mapping.attributes.size).to eq(1)
       expect(mapping.attributes[0].namespace).to eq("https://example.com/ceramic/1.2")
       expect(mapping.attributes[0].prefix).to eq("cera")
+    end
+  end
+
+  context "with nil element-level namespace" do
+    let(:expected_xml) do
+      <<~XML
+        <xmi:ChildNamespaceNil xmlns:xmi="http://www.omg.org/spec/XMI/20131001" xmlns:new="http://www.omg.org/spec/XMI/20161001">
+          <xmi:ElementDefaultNamespace>Default namespace</xmi:ElementDefaultNamespace>
+          <ElementNilNamespace>No namespace</ElementNilNamespace>
+          <new:ElementNewNamespace>New namespace</new:ElementNewNamespace>
+        </xmi:ChildNamespaceNil>
+      XML
+    end
+
+    let(:model) do
+      XmlMapping::ChildNamespaceNil.new(
+        {
+          element_default_namespace: "Default namespace",
+          element_nil_namespace: "No namespace",
+          element_new_namespace: "New namespace",
+        },
+      )
+    end
+
+    it "expect to apply correct namespaces" do
+      expect(model.to_xml).to be_equivalent_to(expected_xml)
     end
   end
 

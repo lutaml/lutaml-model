@@ -44,7 +44,8 @@ module Lutaml
         delegate: nil,
         namespace: (namespace_set = false
                     nil),
-        prefix: nil
+        prefix: (prefix_set = false
+                    nil)
       )
         validate!(name, to, with)
 
@@ -57,6 +58,7 @@ module Lutaml
           namespace: namespace,
           prefix: prefix,
           namespace_set: namespace_set != false,
+          prefix_set: prefix_set != false,
         )
       end
 
@@ -68,7 +70,8 @@ module Lutaml
         delegate: nil,
         namespace: (namespace_set = false
                     nil),
-        prefix: nil
+        prefix: (prefix_set = false
+                    nil)
       )
         validate!(name, to, with)
 
@@ -81,6 +84,7 @@ module Lutaml
           namespace: namespace,
           prefix: prefix,
           namespace_set: namespace_set != false,
+          prefix_set: prefix_set != false,
         )
       end
 

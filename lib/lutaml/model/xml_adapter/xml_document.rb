@@ -131,20 +131,30 @@ module Lutaml
               options.merge({ rule: rule, attribute: attribute }),
             )
           else
-            xml.create_and_add_element(rule.name, prefix: prefix) do
-              if !value.nil?
-                serialized_value = attribute.type.serialize(value)
+            if rule.prefix_set?
+              xml.create_and_add_element(rule.name, prefix: prefix) do
+                add_value(xml, value, attribute)
+              end
+            else
+              xml.create_and_add_element(rule.name) do
+                add_value(xml, value, attribute)
+              end
+            end
+          end
+        end
 
-                if attribute.type == Lutaml::Model::Type::Hash
-                  serialized_value.each do |key, val|
-                    xml.create_and_add_element(key) do |element|
-                      element.text(val)
-                    end
-                  end
-                else
-                  xml.add_text(xml, serialized_value)
+        def add_value(xml, value, attribute)
+          if !value.nil?
+            serialized_value = attribute.type.serialize(value)
+
+            if attribute.type == Lutaml::Model::Type::Hash
+              serialized_value.each do |key, val|
+                xml.create_and_add_element(key) do |element|
+                  element.text(val)
                 end
               end
+            else
+              xml.add_text(xml, serialized_value)
             end
           end
         end
