@@ -31,11 +31,16 @@ module Lutaml
             element[name] = value
           end
 
-          def create_and_add_element(element_name, prefix: nil, attributes: {})
-            add_namespace_prefix(prefix) if prefix
+          def create_and_add_element(
+            element_name,
+            prefix: (prefix_unset = true; nil),
+            attributes: {}
+          )
+            add_namespace_prefix(prefix)
 
             if block_given?
               public_send(element_name, attributes) do
+                xml.parent.namespace = nil if prefix.nil? && !prefix_unset
                 yield(self)
               end
             else

@@ -103,7 +103,7 @@ module Lutaml
           define_method(:"of_#{format}") do |doc|
             if doc.is_a?(Array)
               return doc.map do |item|
-                       apply_mappings(item.to_h, format)
+                       send(:"of_#{format}", item)
                      end
             end
 

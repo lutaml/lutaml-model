@@ -14,7 +14,8 @@ module Lutaml
         namespace: nil,
         prefix: nil,
         mixed_content: false,
-        namespace_set: false
+        namespace_set: false,
+        prefix_set: false
       )
         super(
           name,
@@ -24,6 +25,7 @@ module Lutaml
           delegate: delegate,
           mixed_content: mixed_content,
           namespace_set: namespace_set,
+          prefix_set: prefix_set,
         )
 
         @namespace = if namespace.to_s == "inherit"
