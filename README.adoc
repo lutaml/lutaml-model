@@ -1486,6 +1486,59 @@ xml do
 end
 ----
 
+.Using the `with:` key to define custom serialization methods for XML
+[example]
+====
+The following class will parse the XML snippet below:
+
+[source,ruby]
+----
+class CustomCeramic < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :size, :integer
+
+  xml do
+    map_element "Name", to: :name, with: { to: :name_to_xml, from: :name_from_xml }
+    map_attribute "Size", to: :size
+  end
+
+  def name_to_xml(model, parent, doc)
+    el = doc.create_element("Name")
+    doc.add_text(el, "XML Masterpiece: #{model.name}")
+    doc.add_element(parent, el)
+  end
+
+  def name_from_xml(model, value)
+    model.name = value.sub(/^XML Masterpiece: /, "")
+  end
+end
+----
+
+[source,xml]
+----
+<CustomCeramic>
+  <Name>Masterpiece: Vase</Name>
+  <Size>12</Size>
+</CustomCeramic>
+----
+
+[source,ruby]
+----
+> CustomCeramic.from_xml(xml)
+> #<CustomCeramic:0x0000000108d0e1f8
+   @element_order=["text", "Name", "text", "Size", "text"],
+   @name="Masterpiece: Vase",
+   @ordered=nil,
+   @size=12,
+   @validate_on_set=false>
+> puts CustomCeramic.new(name: "Vase", size: 12).to_xml
+# <CustomCeramic>
+#   <Name>XML Masterpiece: Vase</Name>
+#   <Size>12</Size>
+# </CustomCeramic>
+----
+====
+
 .Key-value data model serialization with custom methods
 [source,ruby]
 ----
