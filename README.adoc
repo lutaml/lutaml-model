@@ -1462,8 +1462,13 @@ NOTE: The corresponding keyword used by Shale is `receiver:` instead of
 
 ==== Attribute serialization with custom methods
 
+===== General
+
 Define custom methods for specific attribute mappings using the `with:` key for
 each serialization mapping block for `from` and `to`.
+
+
+===== XML serialization with custom methods
 
 Syntax:
 
@@ -1496,10 +1501,12 @@ The following class will parse the XML snippet below:
 class CustomCeramic < Lutaml::Model::Serializable
   attribute :name, :string
   attribute :size, :integer
+  attribute :description, :string
 
   xml do
     map_element "Name", to: :name, with: { to: :name_to_xml, from: :name_from_xml }
-    map_attribute "Size", to: :size
+    map_attribute "Size", to: :size, with: { to: :size_to_xml, from: :size_from_xml }
+    map_content with: { to: :description_to_xml, from: :description_from_xml }
   end
 
   def name_to_xml(model, parent, doc)
@@ -1511,14 +1518,30 @@ class CustomCeramic < Lutaml::Model::Serializable
   def name_from_xml(model, value)
     model.name = value.sub(/^XML Masterpiece: /, "")
   end
+
+  def size_to_xml(model, parent, doc)
+    doc.add_attribute(parent, "Size", model.size + 3)
+  end
+
+  def size_from_xml(model, value)
+    model.size = value.to_i - 3
+  end
+
+  def description_to_xml(model, parent, doc)
+    doc.add_text(parent, "XML Description: #{model.description}")
+  end
+
+  def description_from_xml(model, value)
+    model.description = value.join.strip.sub(/^XML Description: /, "")
+  end
 end
 ----
 
 [source,xml]
 ----
-<CustomCeramic>
-  <Name>Masterpiece: Vase</Name>
-  <Size>12</Size>
+<CustomCeramic Size="15">
+  <Name>XML Masterpiece: Vase</Name>
+  XML Description: A beautiful ceramic vase
 </CustomCeramic>
 ----
 
@@ -1530,14 +1553,18 @@ end
    @name="Masterpiece: Vase",
    @ordered=nil,
    @size=12,
+   @description="A beautiful ceramic vase",
    @validate_on_set=false>
-> puts CustomCeramic.new(name: "Vase", size: 12).to_xml
-# <CustomCeramic>
+> puts CustomCeramic.new(name: "Vase", size: 12, description: "A beautiful vase").to_xml
+# <CustomCeramic Size="15">
 #   <Name>XML Masterpiece: Vase</Name>
-#   <Size>12</Size>
+#   XML Description: A beautiful vase
 # </CustomCeramic>
 ----
 ====
+
+
+===== Key-value data model serialization with custom methods
 
 .Key-value data model serialization with custom methods
 [source,ruby]
@@ -1595,7 +1622,7 @@ end
 
 
 [[attribute-extraction]]
-==== Attribute extraction
+==== Attribute extraction (for key-value data models only)
 
 NOTE: This feature is for key-value data model serialization only.
 
