@@ -26,19 +26,6 @@ class Paragraph < Lutaml::Model::Serializable
 end
 
 module XmlMapping
-  class Address < Lutaml::Model::Serializable
-    attribute :street, ::Lutaml::Model::Type::String, raw: true
-    attribute :city, :string, raw: true
-    attribute :address, Address
-
-    xml do
-      root "address"
-
-      map_element "street", to: :street
-      map_element "city", to: :city
-    end
-  end
-
   class ChildNamespaceNil < Lutaml::Model::Serializable
     attribute :element_default_namespace, :string
     attribute :element_nil_namespace, :string
