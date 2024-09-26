@@ -423,6 +423,51 @@ end
 ----
 ====
 
+=== Attribute as raw string
+
+An attribute can be set to read the value as raw string for XML, by using the `raw: true` option.
+
+Syntax:
+
+[source,ruby]
+----
+attribute :name_of_attribute, :string, raw: true
+----
+
+.Using the `raw` option to read raw value for an XML attribute
+[example]
+====
+[source,ruby]
+----
+class Person < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :description, :string, raw: true
+end
+----
+
+For the following xml
+[source,xml]
+----
+<Person>
+  <name>John Doe</name>
+  <description>
+    A <b>fictional person</b> commonly used as a <i>placeholder name</i>.
+  </description>
+</Person>
+----
+
+[source,ruby]
+----
+> Person.from_xml(xml)
+> # <Person:0x0000000107a3ca70
+    @description="\n    A <b>fictional person</b> commonly used as a <i>placeholder name</i>.\n  ",
+    @element_order=["text", "name", "text", "description", "text"],
+    @name="John Doe",
+    @ordered=nil,
+    @validate_on_set=false>
+----
+====
+
 == Serialization model mappings
 
 === General
