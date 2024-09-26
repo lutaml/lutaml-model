@@ -70,12 +70,24 @@ module Lutaml
           options
         end
 
-        def parse_element(element)
+        def parse_element(element, klass = nil, format = nil)
           result = Lutaml::Model::MappingHash.new
           result.item_order = element.order
 
           element.children.each_with_object(result) do |child, hash|
-            value = child.text? ? child.text : parse_element(child)
+            attr = klass.attribute_for_child(child.name, format) if klass&.<= Serialize
+
+            value = if child.text?
+                      child.text
+                    elsif attr&.raw?
+                      child.children.map do |c|
+                        next c.text if c.text?
+
+                        self.class.new(c).to_xml
+                      end.join
+                    else
+                      parse_element(child, attr&.type || klass, format)
+                    end
 
             hash[child.unprefixed_name] = if hash[child.unprefixed_name]
                                             [hash[child.unprefixed_name], value].flatten
@@ -83,6 +95,12 @@ module Lutaml
                                             value
                                           end
           end
+
+          result.merge(attributes_hash(element))
+        end
+
+        def attributes_hash(element)
+          result = Lutaml::Model::MappingHash.new
 
           element.attributes.each_value do |attr|
             if attr.unprefixed_name == "schemaLocation"

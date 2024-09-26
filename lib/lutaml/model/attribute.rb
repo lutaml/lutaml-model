@@ -7,6 +7,7 @@ module Lutaml
         @name = name
         @type = cast_type(type)
         @options = options
+        @raw = !!options[:raw]
 
         if collection?
           validate_collection_range
@@ -43,6 +44,10 @@ module Lutaml
 
       def singular?
         !collection?
+      end
+
+      def raw?
+        @raw
       end
 
       def default

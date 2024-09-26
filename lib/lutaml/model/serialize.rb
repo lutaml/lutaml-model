@@ -107,7 +107,12 @@ module Lutaml
                      end
             end
 
-            apply_mappings(doc.to_h, format)
+            if format == :xml
+              doc_hash = doc.parse_element(doc.root, self, :xml)
+              apply_mappings(doc_hash, format)
+            else
+              apply_mappings(doc.to_h, format)
+            end
           end
 
           define_method(:"to_#{format}") do |instance|
@@ -278,6 +283,12 @@ module Lutaml
           return attributes[rule.to] unless rule.delegate
 
           attributes[rule.delegate].type.attributes[rule.to]
+        end
+
+        def attribute_for_child(child_name, format)
+          mapping_rule = mappings_for(format).find_by_name(child_name)
+
+          attribute_for_rule(mapping_rule) if mapping_rule
         end
 
         def apply_mappings(doc, format, options = {})

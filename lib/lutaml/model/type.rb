@@ -116,6 +116,8 @@ module Lutaml
       def self.normalize_hash(hash)
         return hash["text"] if hash.keys == ["text"]
 
+        hash = hash.to_h if hash.is_a?(Lutaml::Model::MappingHash)
+
         hash.filter_map do |key, value|
           next if key == "text"
 
