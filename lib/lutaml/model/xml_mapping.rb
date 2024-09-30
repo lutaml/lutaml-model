@@ -61,6 +61,7 @@ module Lutaml
           namespace_set: namespace_set != false,
           prefix_set: prefix_set != false,
         )
+
         @elements[rule.namespaced_name] = rule
       end
 
