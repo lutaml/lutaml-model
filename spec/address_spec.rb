@@ -135,12 +135,12 @@ RSpec.describe Address do
 
   it "deserializes from XML with a collection of persons" do
     xml = <<~XML
-      <Address>
+      <Address xmlns:p="http://example.com/person" xmlns:nsp1="http://example.com/nsp1">
         <Country>USA</Country>
         <PostCode>01001</PostCode>
         <Person>
-          <FirstName>Tom</FirstName>
-          <LastName>Warren</LastName>
+          <nsp1:FirstName>Tom</nsp1:FirstName>
+          <nsp1:LastName>Warren</nsp1:LastName>
           <Age>40</Age>
           <Height>5.8</Height>
           <Birthdate>1980-02-15</Birthdate>
@@ -149,8 +149,8 @@ RSpec.describe Address do
           <Active>true</Active>
         </Person>
         <Person>
-          <FirstName>Jack</FirstName>
-          <LastName>Warren</LastName>
+          <nsp1:FirstName>Jack</nsp1:FirstName>
+          <nsp1:LastName>Warren</nsp1:LastName>
           <Age>35</Age>
           <Height>5.9</Height>
           <Birthdate>1985-05-20</Birthdate>

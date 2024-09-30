@@ -92,7 +92,7 @@ module Lutaml
       end
 
       class NokogiriElement < XmlElement
-        def initialize(node, root_node: nil)
+        def initialize(node, root_node: nil, default_namespace: nil)
           if root_node
             node.namespaces.each do |prefix, name|
               namespace = XmlNamespace.new(name, prefix)
@@ -116,14 +116,15 @@ module Lutaml
               namespace_prefix: attr.namespace&.prefix,
             )
           end
-
+          default_namespace = node.namespace&.href if root_node.nil?
           super(
             node.name,
             attributes,
-            parse_all_children(node, root_node: root_node || self),
+            parse_all_children(node, root_node: root_node || self, default_namespace: default_namespace),
             node.text,
             parent_document: root_node,
             namespace_prefix: node.namespace&.prefix,
+            default_namespace: default_namespace
           )
         end
 
@@ -154,9 +155,9 @@ module Lutaml
           end
         end
 
-        def parse_all_children(node, root_node: nil)
+        def parse_all_children(node, root_node: nil, default_namespace: nil)
           node.children.map do |child|
-            NokogiriElement.new(child, root_node: root_node)
+            NokogiriElement.new(child, root_node: root_node, default_namespace: default_namespace)
           end
         end
 

@@ -67,10 +67,87 @@ module XmlMapping
     attribute :name, Lutaml::Model::Type::String
     attribute :address, XmlMapping::Address
   end
+
+  class SameNameDifferentNamespace < Lutaml::Model::Serializable
+    attribute :gml_application_schema, :string
+    attribute :citygml_application_schema, :string
+    attribute :application_schema, :string
+
+    xml do
+      root "SameElementName"
+      namespace "http://www.omg.org/spec/XMI/20131001", "xmi"
+
+      map_element "ApplicationSchema", to: :gml_application_schema,
+                                       namespace: "http://www.sparxsystems.com/profiles/GML/1.0",
+                                       prefix: "GML"
+
+      map_element "ApplicationSchema", to: :citygml_application_schema,
+                                       namespace: "http://www.sparxsystems.com/profiles/CityGML/1.0",
+                                       prefix: "CityGML"
+
+      map_element "ApplicationSchema", to: :application_schema,
+                                       namespace: nil,
+                                       prefix: nil
+    end
+  end
 end
 
 RSpec.describe Lutaml::Model::XmlMapping do
   let(:mapping) { described_class.new }
+
+  context "with same name elements" do
+    let(:input_xml) do
+      <<~XML
+        <xmi:SameElementName xmlns:xmi="http://www.omg.org/spec/XMI/20131001" xmlns:GML="http://www.sparxsystems.com/profiles/GML/1.0" xmlns:CityGML="http://www.sparxsystems.com/profiles/CityGML/1.0">
+          <GML:ApplicationSchema>GML App</GML:ApplicationSchema>
+          <CityGML:ApplicationSchema>CityGML App</CityGML:ApplicationSchema>
+          <ApplicationSchema>App</ApplicationSchema>
+        </xmi:SameElementName>
+      XML
+    end
+
+    it "parses XML and serializes elements with the same name" do
+      parsed = XmlMapping::SameNameDifferentNamespace.from_xml(input_xml)
+
+      expect(parsed.citygml_application_schema).to eq("CityGML App")
+      expect(parsed.gml_application_schema).to eq("GML App")
+      expect(parsed.application_schema).to eq("App")
+      expect(parsed.element_order).to eq(["text", "ApplicationSchema", "text", "ApplicationSchema", "text", "ApplicationSchema", "text"])
+      expect(XmlMapping::SameNameDifferentNamespace.from_xml(input_xml).to_xml).to be_equivalent_to(input_xml)
+    end
+  end
+
+  context "with elements have different prefixed namespaces" do
+    before do
+      mapping.root("XMI")
+      mapping.namespace("http://www.omg.org/spec/XMI/20131001")
+      mapping.map_element(
+        "ApplicationSchema",
+        to: :gml_application_schema,
+        namespace: "http://www.sparxsystems.com/profiles/GML/1.0",
+        prefix: "GML",
+      )
+      mapping.map_element(
+        "ApplicationSchema",
+        to: :citygml_application_schema,
+        namespace: "http://www.sparxsystems.com/profiles/CityGML/1.0",
+        prefix: "CityGML",
+      )
+      mapping.map_element(
+        "ApplicationSchema",
+        to: :citygml_application_schema,
+        namespace: "http://www.sparxsystems.com/profiles/CGML/1.0",
+        prefix: "CGML",
+      )
+    end
+
+    it "maps elements correctly" do
+      expect(mapping.elements[0].namespace).to eq("http://www.sparxsystems.com/profiles/GML/1.0")
+      expect(mapping.elements[1].namespace).to eq("http://www.sparxsystems.com/profiles/CityGML/1.0")
+      expect(mapping.elements[2].namespace).to eq("http://www.sparxsystems.com/profiles/CGML/1.0")
+      expect(mapping.elements.size).to eq(3)
+    end
+  end
 
   context "with default namespace" do
     before do

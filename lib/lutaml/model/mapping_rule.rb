@@ -7,7 +7,8 @@ module Lutaml
                   :custom_methods,
                   :delegate,
                   :mixed_content,
-                  :child_mappings
+                  :child_mappings,
+                  :default_namespace
 
       def initialize(
         name,
@@ -18,6 +19,7 @@ module Lutaml
         mixed_content: false,
         namespace_set: false,
         prefix_set: false,
+        default_namespace: nil,
         child_mappings: nil
       )
         @name = name
@@ -29,6 +31,7 @@ module Lutaml
         @namespace_set = namespace_set
         @prefix_set = prefix_set
         @child_mappings = child_mappings
+        @default_namespace = default_namespace
       end
 
       alias from name
@@ -37,6 +40,16 @@ module Lutaml
       def prefixed_name
         if prefix
           "#{prefix}:#{name}"
+        else
+          name
+        end
+      end
+
+      def namespaced_name
+        if name == "lang"
+          "#{prefix}:#{name}"
+        elsif namespace || default_namespace
+          "#{namespace || default_namespace}:#{name}"
         else
           name
         end
