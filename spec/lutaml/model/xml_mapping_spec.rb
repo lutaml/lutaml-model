@@ -50,6 +50,29 @@ module XmlMapping
     end
   end
 
+  class SameNameDifferentNamespace < Lutaml::Model::Serializable
+    attribute :gml_application_schema, :string
+    attribute :citygml_application_schema, :string
+    attribute :application_schema, :string
+
+    xml do
+      root "SameElementName"
+      namespace "http://www.omg.org/spec/XMI/20131001", "xmi"
+
+      map_element "ApplicationSchema", to: :gml_application_schema,
+                                       namespace: "http://www.sparxsystems.com/profiles/GML/1.0",
+                                       prefix: "GML"
+
+      map_element "ApplicationSchema", to: :citygml_application_schema,
+                                       namespace: "http://www.sparxsystems.com/profiles/CityGML/1.0",
+                                       prefix: "CityGML"
+
+      map_element "ApplicationSchema", to: :application_schema,
+                                       namespace: nil,
+                                       prefix: nil
+    end
+  end
+
   class Address < Lutaml::Model::Serializable
     attribute :street, ::Lutaml::Model::Type::String, raw: true
     attribute :city, :string, raw: true
@@ -247,7 +270,8 @@ RSpec.describe Lutaml::Model::XmlMapping do
     let(:model) do
       XmlMapping::ChildNamespaceNil.new(
         {
-          element_default_namespace: "Default namespace",
+          element_default_namespace: "
+          Default namespace",
           element_nil_namespace: "No namespace",
           element_new_namespace: "New namespace",
         },

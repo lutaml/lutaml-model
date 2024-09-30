@@ -15,6 +15,10 @@ module Lutaml
         end
       end
 
+      def delegate
+        @options[:delegate]
+      end
+
       def cast_type(type)
         case type
         when Class
@@ -51,7 +55,9 @@ module Lutaml
       end
 
       def default
-        value = if options[:default].is_a?(Proc)
+        value = if delegate
+                  type.attributes[to].default
+                elsif options[:default].is_a?(Proc)
                   options[:default].call
                 else
                   options[:default]
