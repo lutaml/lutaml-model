@@ -283,9 +283,11 @@ module Lutaml
         def apply_mappings(doc, format, options = {})
           instance = options[:instance] || model.new
           return instance if Utils.blank?(doc)
+
           return apply_xml_mapping(doc, instance, options) if format == :xml
 
           mappings = mappings_for(format).mappings
+
           mappings.each do |rule|
             raise "Attribute '#{rule.to}' not found in #{self}" unless valid_rule?(rule)
 
@@ -343,13 +345,12 @@ module Lutaml
             value = if rule.content_mapping?
                       doc["text"]
                     else
-                      doc[rule.name.to_s] || doc[rule.name.to_sym]
+                      doc[rule.prefixed_name.to_s] || doc[rule.prefixed_name.to_sym]
                     end
 
             value = normalize_xml_value(value, rule)
             rule.deserialize(instance, value, attributes, self)
           end
-
           instance
         end
 

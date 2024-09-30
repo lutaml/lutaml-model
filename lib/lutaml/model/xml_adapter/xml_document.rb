@@ -73,15 +73,14 @@ module Lutaml
         def parse_element(element)
           result = Lutaml::Model::MappingHash.new
           result.item_order = element.order
-
           element.children.each_with_object(result) do |child, hash|
             value = child.text? ? child.text : parse_element(child)
 
-            hash[child.unprefixed_name] = if hash[child.unprefixed_name]
-                                            [hash[child.unprefixed_name], value].flatten
-                                          else
-                                            value
-                                          end
+            hash[child.name] = if hash[child.name]
+                                 [hash[child.name], value].flatten
+                               else
+                                 value
+                               end
           end
 
           element.attributes.each_value do |attr|
@@ -92,10 +91,9 @@ module Lutaml
                 schema_location: attr.value,
               }
             else
-              result[attr.unprefixed_name] = attr.value
+              result[attr.name] = attr.value
             end
           end
-
           result
         end
 
