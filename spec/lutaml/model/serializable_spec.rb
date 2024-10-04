@@ -270,17 +270,17 @@ RSpec.describe Lutaml::Model::Serializable do
       it "changes the value after creation" do
         collection = SerializeableSpec::CeramicCollection.new(
           featured_piece: SerializeableSpec::Ceramic.new(type: "Porcelain",
-                                      firing_temperature: 1300),
+                                                         firing_temperature: 1300),
         )
         collection.featured_piece = SerializeableSpec::Ceramic.new(type: "Stoneware",
-                                                firing_temperature: 1200)
+                                                                   firing_temperature: 1200)
         expect(collection.featured_piece.type).to eq("Stoneware")
       end
 
       it "assigns the value during creation" do
         collection = SerializeableSpec::CeramicCollection.new(
           featured_piece: SerializeableSpec::Ceramic.new(type: "Earthenware",
-                                      firing_temperature: 1000),
+                                                         firing_temperature: 1000),
         )
         expect(collection.featured_piece.type).to eq("Earthenware")
       end
