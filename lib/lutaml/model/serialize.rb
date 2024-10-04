@@ -85,7 +85,7 @@ module Lutaml
         Lutaml::Model::Config::AVAILABLE_FORMATS.each do |format|
           define_method(format) do |&block|
             klass = format == :xml ? XmlMapping : KeyValueMapping
-            mappings[format] = klass.new
+            mappings[format] ||= klass.new
             mappings[format].instance_eval(&block)
 
             if format == :xml && !mappings[format].root_element

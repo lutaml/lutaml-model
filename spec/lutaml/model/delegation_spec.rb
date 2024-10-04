@@ -145,55 +145,6 @@ RSpec.describe Delegation do
     expect(xml_data).to include('<?xml version="1.0" encoding="ASCII"?>')
   end
 
-  it "sets the default namespace of <delegation>" do
-    Delegation::Ceramic.class_eval do
-      xml do
-        root "delegation"
-        namespace "https://example.com/delegation/1.2"
-        map_element "type", to: :type
-        map_element "color", to: :color, delegate: :glaze
-        map_element "finish", to: :finish, delegate: :glaze
-      end
-    end
-
-    delegation_class = Delegation::Ceramic
-    delegation = delegation_class.from_yaml(yaml_data)
-    xml_data = delegation.to_xml(
-      pretty: true,
-      declaration: true,
-      encoding: "UTF-8",
-    )
-    expect(xml_data).to(
-      include('<delegation xmlns="https://example.com/delegation/1.2">'),
-    )
-  end
-
-  it "sets the namespace of <delegation> with a prefix" do
-    Delegation::Ceramic.class_eval do
-      xml do
-        root "delegation"
-        namespace "https://example.com/delegation/1.2", "del"
-        map_element "type", to: :type
-        map_element "color", to: :color, delegate: :glaze
-        map_element "finish", to: :finish, delegate: :glaze
-      end
-    end
-
-    delegation_class = Delegation::Ceramic
-    delegation = delegation_class.from_yaml(yaml_data)
-    xml_data = delegation.to_xml(
-      pretty: true,
-      declaration: true,
-      encoding: "UTF-8",
-    )
-
-    expect(xml_data).to(
-      include(
-        '<del:delegation xmlns:del="https://example.com/delegation/1.2">',
-      ),
-    )
-  end
-
   it "sets the namespace of a particular element inside Ceramic" do
     Delegation::Ceramic.class_eval do
       xml do
@@ -217,32 +168,6 @@ RSpec.describe Delegation do
     )
     expect(xml_data).to include('<delegation xmlns:type="https://example.com/type/1.2">')
     expect(xml_data).to include("<type:type>Vase</type:type>")
-  end
-
-  it "sets the namespace of <delegation> and also" \
-     "a particular element inside using :inherit" do
-    Delegation::Ceramic.class_eval do
-      xml do
-        root "delegation"
-        namespace "https://example.com/delegation/1.2", "del"
-        map_element "type", to: :type # , namespace: :inherit
-        map_element "color", to: :color, delegate: :glaze
-        map_element "finish", to: :finish, delegate: :glaze
-      end
-    end
-
-    delegation_class = Delegation::Ceramic
-    delegation = delegation_class.from_yaml(yaml_data)
-    xml_data = delegation.to_xml(
-      pretty: true,
-      declaration: true,
-      encoding: "UTF-8",
-    )
-
-    delegation_attribute = 'xmlns:del="https://example.com/delegation/1.2">'
-
-    expect(xml_data).to include("<del:delegation #{delegation_attribute}")
-    expect(xml_data).to include("<del:type>Vase</del:type>")
   end
 
   it "sets the namespace of a particular attribute inside <delegation>" do
@@ -283,6 +208,81 @@ RSpec.describe Delegation do
     ]
 
     expect(xml_data).to include("<delegation #{delegation_attributes.join(' ')}>")
+  end
+
+  it "sets the default namespace of <delegation>" do
+    Delegation::Ceramic.class_eval do
+      xml do
+        root "delegation"
+        namespace "https://example.com/delegation/1.2"
+        map_element "type", to: :type
+        map_element "color", to: :color, delegate: :glaze
+        map_element "finish", to: :finish, delegate: :glaze
+      end
+    end
+
+    delegation_class = Delegation::Ceramic
+    delegation = delegation_class.from_yaml(yaml_data)
+    xml_data = delegation.to_xml(
+      pretty: true,
+      declaration: true,
+      encoding: "UTF-8",
+    )
+    expect(xml_data).to(
+      include('<delegation xmlns="https://example.com/delegation/1.2" xmlns:del="https://example.com/delegation/1.2">'),
+    )
+  end
+
+  it "sets the namespace of <delegation> with a prefix" do
+    Delegation::Ceramic.class_eval do
+      xml do
+        root "delegation"
+        namespace "https://example.com/delegation/1.2", "del"
+        map_element "type", to: :type
+        map_element "color", to: :color, delegate: :glaze
+        map_element "finish", to: :finish, delegate: :glaze
+      end
+    end
+
+    delegation_class = Delegation::Ceramic
+    delegation = delegation_class.from_yaml(yaml_data)
+    xml_data = delegation.to_xml(
+      pretty: true,
+      declaration: true,
+      encoding: "UTF-8",
+    )
+
+    expect(xml_data).to(
+      include(
+        '<del:delegation xmlns:del="https://example.com/delegation/1.2">',
+      ),
+    )
+  end
+
+  it "sets the namespace of <delegation> and also" \
+     "a particular element inside using :inherit" do
+    Delegation::Ceramic.class_eval do
+      xml do
+        root "delegation"
+        namespace "https://example.com/delegation/1.2", "del"
+        map_element "type", to: :type # , namespace: :inherit
+        map_element "color", to: :color, delegate: :glaze
+        map_element "finish", to: :finish, delegate: :glaze
+      end
+    end
+
+    delegation_class = Delegation::Ceramic
+    delegation = delegation_class.from_yaml(yaml_data)
+    xml_data = delegation.to_xml(
+      pretty: true,
+      declaration: true,
+      encoding: "UTF-8",
+    )
+
+    delegation_attribute = 'xmlns:del="https://example.com/delegation/1.2">'
+
+    expect(xml_data).to include("<del:delegation #{delegation_attribute}")
+    expect(xml_data).to include("<del:type>Vase</del:type>")
   end
 
   it "sets the namespace of <delegation> and also" \
