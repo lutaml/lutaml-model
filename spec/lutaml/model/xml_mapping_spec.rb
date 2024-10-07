@@ -49,6 +49,24 @@ module XmlMapping
                                          namespace: "http://www.omg.org/spec/XMI/20161001"
     end
   end
+
+  class Address < Lutaml::Model::Serializable
+    attribute :street, ::Lutaml::Model::Type::String, raw: true
+    attribute :city, :string, raw: true
+    attribute :address, Address
+
+    xml do
+      root "address"
+
+      map_element "street", to: :street
+      map_element "city", to: :city
+    end
+  end
+
+  class Person < Lutaml::Model::Serializable
+    attribute :name, Lutaml::Model::Type::String
+    attribute :address, XmlMapping::Address
+  end
 end
 
 RSpec.describe Lutaml::Model::XmlMapping do
@@ -249,6 +267,38 @@ RSpec.describe Lutaml::Model::XmlMapping do
 
       serialized = paragraph.to_xml
       expect(serialized).to be_equivalent_to(xml)
+    end
+  end
+
+  context "with raw mapping" do
+    let(:input_xml) do
+      <<~XML
+        <person>
+          <name>John Doe</name>
+          <address>
+            <street>
+              <a>N</a>
+              <b>adf</b>
+            </street>
+            <city><a>M</a></city>
+          </address>
+        </person>
+      XML
+    end
+
+    let(:expected_street) do
+      if Lutaml::Model::Config.xml_adapter == Lutaml::Model::XmlAdapter::OxAdapter
+        "<a>N</a>\n<b>adf</b>\n"
+      else
+        "\n      <a>N</a>\n      <b>adf</b>\n    "
+      end
+    end
+
+    let(:model) { XmlMapping::Person.from_xml(input_xml) }
+
+    it "expect to contain raw xml" do
+      expect(model.address.street).to eq(expected_street)
+      expect(model.address.city.strip).to eq("<a>M</a>")
     end
   end
 
