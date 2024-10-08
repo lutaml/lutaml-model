@@ -50,7 +50,7 @@ module XmlMapping
     end
   end
 
-  class SameElementName < Lutaml::Model::Serializable
+  class SameNameDifferentNamespace < Lutaml::Model::Serializable
     attribute :gml_application_schema, :string
     attribute :citygml_application_schema, :string
 
@@ -88,12 +88,12 @@ RSpec.describe Lutaml::Model::XmlMapping do
     end
 
     it "parses XML and serializes elements with the same name" do
-      parsed = XmlMapping::SameElementName.from_xml(input_xml)
+      parsed = XmlMapping::SameNameDifferentNamespace.from_xml(input_xml)
 
       expect(parsed.citygml_application_schema).to eq("Foo Bar")
       expect(parsed.gml_application_schema).to eq("Foo Bar")
       expect(parsed.element_order).to eq(["text", "ApplicationSchema", "text", "ApplicationSchema", "text", "ApplicationSchema", "text"])
-      expect(XmlMapping::SameElementName.from_xml(input_xml).to_xml).to be_equivalent_to(input_xml)
+      expect(XmlMapping::SameNameDifferentNamespace.from_xml(input_xml).to_xml).to be_equivalent_to(input_xml)
     end
   end
 
@@ -121,7 +121,7 @@ RSpec.describe Lutaml::Model::XmlMapping do
       )
     end
 
-    it "with same name" do
+    it "maps elements correctly" do
       expect(mapping.elements[0].namespace).to eq("http://www.sparxsystems.com/profiles/GML/1.0")
       expect(mapping.elements[1].namespace).to eq("http://www.sparxsystems.com/profiles/CityGML/1.0")
       expect(mapping.elements[2].namespace).to eq("http://www.sparxsystems.com/profiles/CGML/1.0")
