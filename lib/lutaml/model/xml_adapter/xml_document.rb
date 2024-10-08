@@ -75,9 +75,8 @@ module Lutaml
           result.item_order = element.order
           element.children.each_with_object(result) do |child, hash|
             value = child.text? ? child.text : parse_element(child)
-
-            hash[child.name] = if hash[child.name]
-                                 [hash[child.name], value].flatten
+            hash[child.namespaced_name] = if hash[child.namespaced_name]
+                                 [hash[child.namespaced_name], value].flatten
                                else
                                  value
                                end
@@ -263,7 +262,7 @@ module Lutaml
               attrs = attrs.merge(build_namespace_attributes(type, processed))
             end
 
-            if mapping_rule.namespace
+            if mapping_rule.namespace && mapping_rule.prefix
               attrs["xmlns:#{mapping_rule.prefix}"] = mapping_rule.namespace
             end
           end
@@ -278,7 +277,7 @@ module Lutaml
             next if options[:except]&.include?(mapping_rule.to)
             next if mapping_rule.custom_methods[:to]
 
-            if mapping_rule.namespace
+            if mapping_rule.namespace && mapping_rule.prefix
               hash["xmlns:#{mapping_rule.prefix}"] = mapping_rule.namespace
             end
 
@@ -288,7 +287,7 @@ module Lutaml
           xml_mapping.elements.each_with_object(attrs) do |mapping_rule, hash|
             next if options[:except]&.include?(mapping_rule.to)
 
-            if mapping_rule.namespace
+            if mapping_rule.namespace && mapping_rule.prefix
               hash["xmlns:#{mapping_rule.prefix}"] = mapping_rule.namespace
             end
           end

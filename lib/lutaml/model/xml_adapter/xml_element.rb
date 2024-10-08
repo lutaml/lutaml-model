@@ -34,6 +34,15 @@ module Lutaml
           end
         end
 
+        def namespaced_name
+          if namespaces[namespace_prefix] && !text?
+            "#{namespaces[namespace_prefix].uri}:#{@name}"
+          else
+            @name
+          end
+        end
+        # || lang?
+
         def unprefixed_name
           @name
         end

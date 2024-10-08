@@ -89,7 +89,6 @@ RSpec.describe Lutaml::Model::XmlMapping do
 
     it "parses XML and serializes elements with the same name" do
       parsed = XmlMapping::SameElementName.from_xml(input_xml)
-      binding.irb
 
       expect(parsed.citygml_application_schema).to eq("Foo Bar")
       expect(parsed.gml_application_schema).to eq("Foo Bar")
@@ -117,7 +116,7 @@ RSpec.describe Lutaml::Model::XmlMapping do
       mapping.map_element(
         "ApplicationSchema",
         to: :citygml_application_schema,
-        namespace: "http://www.sparxsystems.com/profiles/CityGML/1.0",
+        namespace: "http://www.sparxsystems.com/profiles/CGML/1.0",
         prefix: "CGML",
       )
     end
@@ -125,7 +124,7 @@ RSpec.describe Lutaml::Model::XmlMapping do
     it "with same name" do
       expect(mapping.elements[0].namespace).to eq("http://www.sparxsystems.com/profiles/GML/1.0")
       expect(mapping.elements[1].namespace).to eq("http://www.sparxsystems.com/profiles/CityGML/1.0")
-      expect(mapping.elements[2].namespace).to eq("http://www.sparxsystems.com/profiles/CityGML/1.0")
+      expect(mapping.elements[2].namespace).to eq("http://www.sparxsystems.com/profiles/CGML/1.0")
       expect(mapping.elements.size).to eq(3)
     end
   end

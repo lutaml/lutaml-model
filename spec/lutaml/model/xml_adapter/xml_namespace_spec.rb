@@ -10,14 +10,13 @@ RSpec.shared_context "XML namespace models" do
 
     xml do
       root "test"
-      namespace "http://example.com/test"
+      namespace "http://example.com/test", "test"
       map_element "name", to: :name
     end
   end
 
   class TestModelWithPrefix < Lutaml::Model::Serializable
     attribute :name, :string
-
     xml do
       root "test"
       namespace "http://example.com/test", "test"
@@ -153,7 +152,7 @@ RSpec.shared_examples "an XML namespace parser" do |adapter_class|
 
     it "round-trips if namespace is set" do
       xml = <<~XML
-        <foo:SamplePrefixedNamespacedModel xml:lang="en" xmlns:foo="http://example.com/foo" xmlns:bar="http://example.com/bar" xmlns:baz="http://example.com/baz">
+        <foo:SamplePrefixedNamespacedModel xml:lang="en" "xmlns:foo="http://example.com/foo" xmlns:bar="http://example.com/bar" xmlns:baz="http://example.com/baz">
           <bar:Name>John Doe</bar:Name>
           <baz:Age>30</baz:Age>
         </foo:SamplePrefixedNamespacedModel>

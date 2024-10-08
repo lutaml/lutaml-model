@@ -42,6 +42,14 @@ module Lutaml
         end
       end
 
+      def namespaced_name
+        if namespace
+          "#{namespace}:#{name}"
+        else
+          name
+        end
+      end
+
       def serialize_attribute(model, element, doc)
         if custom_methods[:to]
           model.send(custom_methods[:to], model, element, doc)

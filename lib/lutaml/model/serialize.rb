@@ -345,7 +345,7 @@ module Lutaml
             value = if rule.content_mapping?
                       doc["text"]
                     else
-                      doc[rule.prefixed_name.to_s] || doc[rule.prefixed_name.to_sym]
+                      doc[rule.namespaced_name.to_s] || doc[rule.namespaced_name.to_sym]
                     end
 
             value = normalize_xml_value(value, rule)
@@ -481,7 +481,6 @@ module Lutaml
                              self.class.hash_representation(self, format,
                                                             options)
                            end
-
           adapter.new(representation).public_send(:"to_#{format}", options)
         end
       end

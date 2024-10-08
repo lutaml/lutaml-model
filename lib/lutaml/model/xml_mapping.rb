@@ -35,6 +35,22 @@ module Lutaml
         @namespace_prefix = prefix
       end
 
+      def determine_namespace(namespace, namespace_set)
+        if namespace_set == false
+          namespace_uri
+        else
+          namespace
+        end
+      end
+
+      def determine_prefix(prefix, prefix_set)
+        if prefix_set == false
+          namespace_prefix
+        else
+          prefix
+        end
+      end
+
       # rubocop:disable Metrics/ParameterLists
       def map_element(
         name,
@@ -48,6 +64,8 @@ module Lutaml
                  nil)
       )
         validate!(name, to, with)
+        resolved_namespace = determine_namespace(namespace, namespace_set)
+        resolved_prefix = determine_prefix(prefix, prefix_set)
 
         rule = XmlMappingRule.new(
           name,
@@ -55,12 +73,12 @@ module Lutaml
           render_nil: render_nil,
           with: with,
           delegate: delegate,
-          namespace: namespace,
-          prefix: prefix,
+          namespace: resolved_namespace,
+          prefix: resolved_prefix,
           namespace_set: namespace_set != false,
           prefix_set: prefix_set != false,
         )
-        @elements[rule.prefixed_name] = rule
+        @elements[rule.namespaced_name] = rule
       end
 
       def map_attribute(
@@ -88,7 +106,7 @@ module Lutaml
           prefix_set: prefix_set != false,
         )
 
-        @attributes[rule.prefixed_name] = rule
+        @attributes[rule.namespaced_name] = rule
       end
 
       # rubocop:enable Metrics/ParameterLists

@@ -116,20 +116,23 @@ module Lutaml
               namespace_prefix: attr.namespace&.prefix,
             )
           end
-
           super(
             node.name,
             attributes,
             parse_all_children(node, root_node: root_node || self),
             node.text,
             parent_document: root_node,
-            namespace_prefix: node.namespace&.prefix,
+            namespace_prefix: node.namespace&.prefix
           )
         end
 
         def text?
           # false
           children.empty? && text.length.positive?
+        end
+
+        def lang?
+          namespace_prefix == :xml && name == "lang" && attribute == type
         end
 
         def to_xml(builder = nil)

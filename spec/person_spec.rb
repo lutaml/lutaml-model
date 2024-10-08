@@ -61,9 +61,9 @@ RSpec.describe Person do
 
   it "deserializes from XML" do
     xml = <<~XML
-      <p:Person xmlns:p="http://example.com/person">
-        <p:FirstName>John</p:FirstName>
-        <p:LastName>Doe</p:LastName>
+      <p:Person xmlns:p="http://example.com/person" xmlns:nsp1="http://example.com/nsp1">
+        <nsp1:FirstName>John</nsp1:FirstName>
+        <nsp1:LastName>Doe</nsp1:LastName>
         <Age>30</Age>
         <Height>5.9</Height>
         <Birthdate>1990-01-01</Birthdate>

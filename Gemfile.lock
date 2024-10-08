@@ -19,7 +19,7 @@ GEM
     language_server-protocol (3.17.0.3)
     method_source (1.1.0)
     multi_json (1.15.0)
-    nokogiri (1.16.7-x86_64-linux)
+    nokogiri (1.16.7-arm64-darwin)
       racc (~> 1.4)
     oga (3.4)
       ast
@@ -81,7 +81,7 @@ GEM
     unicode-display_width (2.6.0)
 
 PLATFORMS
-  x86_64-linux
+  arm64-darwin-23
 
 DEPENDENCIES
   bigdecimal
@@ -102,4 +102,4 @@ DEPENDENCIES
   tomlib
 
 BUNDLED WITH
-   2.3.7
+   2.3.26
