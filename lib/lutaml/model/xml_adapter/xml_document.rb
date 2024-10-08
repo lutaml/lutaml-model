@@ -230,11 +230,7 @@ module Lutaml
         end
 
         def set_namespace?(rule)
-          return true unless rule
-
-          return true unless rule.namespace_set?
-
-          !rule.namespace.nil?
+          rule.nil? || !rule.namespace_set? || !rule.namespace.nil?
         end
 
         def build_namespace_attributes(klass, processed = {}, options = {})

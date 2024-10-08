@@ -46,11 +46,13 @@ module Lutaml
       end
 
       def namespaced_name
-        return "#{prefix}:#{name}" if name == "lang"
-        return "#{namespace}:#{name}" if namespace
-        return "#{default_namespace}:#{name}" if default_namespace
-
-        name
+        if name == "lang"
+          "#{prefix}:#{name}"
+        elsif namespace || default_namespace
+          "#{namespace || default_namespace}:#{name}"
+        else
+          name
+        end
       end
 
       def serialize_attribute(model, element, doc)
