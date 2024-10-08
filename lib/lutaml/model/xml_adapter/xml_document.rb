@@ -66,6 +66,7 @@ module Lutaml
           options[:tag_name] = rule.name
 
           options[:mapper_class] = attribute&.type if attribute
+          options[:namespace_set] = set_namespace?(rule)
 
           options
         end
@@ -76,10 +77,10 @@ module Lutaml
           element.children.each_with_object(result) do |child, hash|
             value = child.text? ? child.text : parse_element(child)
             hash[child.namespaced_name] = if hash[child.namespaced_name]
-                                 [hash[child.namespaced_name], value].flatten
-                               else
-                                 value
-                               end
+                                            [hash[child.namespaced_name], value].flatten
+                                          else
+                                            value
+                                          end
           end
 
           element.attributes.each_value do |attr|
@@ -228,13 +229,21 @@ module Lutaml
           mapper_class ? mapper_class.mappings_for(:xml).mixed_content? : false
         end
 
-        def build_namespace_attributes(klass, processed = {})
+        def set_namespace?(rule)
+          return true unless rule
+
+          return true unless rule.namespace_set?
+
+          !rule.namespace.nil?
+        end
+
+        def build_namespace_attributes(klass, processed = {}, options = {})
           xml_mappings = klass.mappings_for(:xml)
           attributes = klass.attributes
 
           attrs = {}
 
-          if xml_mappings.namespace_uri
+          if xml_mappings.namespace_uri && set_namespace?(options[:caller_rule])
             prefixed_name = [
               "xmlns",
               xml_mappings.namespace_prefix,
@@ -259,10 +268,10 @@ module Lutaml
             next unless type
 
             if type <= Lutaml::Model::Serialize
-              attrs = attrs.merge(build_namespace_attributes(type, processed))
+              attrs = attrs.merge(build_namespace_attributes(type, processed, { caller_rule: mapping_rule }))
             end
 
-            if mapping_rule.namespace && mapping_rule.prefix
+            if mapping_rule.namespace && mapping_rule.prefix && mapping_rule.name != "lang"
               attrs["xmlns:#{mapping_rule.prefix}"] = mapping_rule.namespace
             end
           end
@@ -271,13 +280,17 @@ module Lutaml
         end
 
         def build_attributes(element, xml_mapping, options = {})
-          attrs = namespace_attributes(xml_mapping)
+          attrs = if options[:namespace_set].nil? || options[:namespace_set]
+                    namespace_attributes(xml_mapping)
+                  else
+                    {}
+                  end
 
           xml_mapping.attributes.each_with_object(attrs) do |mapping_rule, hash|
             next if options[:except]&.include?(mapping_rule.to)
             next if mapping_rule.custom_methods[:to]
 
-            if mapping_rule.namespace && mapping_rule.prefix
+            if mapping_rule.namespace && mapping_rule.prefix && mapping_rule.name != "lang"
               hash["xmlns:#{mapping_rule.prefix}"] = mapping_rule.namespace
             end
 

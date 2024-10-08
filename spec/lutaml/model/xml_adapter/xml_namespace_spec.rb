@@ -152,7 +152,7 @@ RSpec.shared_examples "an XML namespace parser" do |adapter_class|
 
     it "round-trips if namespace is set" do
       xml = <<~XML
-        <foo:SamplePrefixedNamespacedModel xml:lang="en" "xmlns:foo="http://example.com/foo" xmlns:bar="http://example.com/bar" xmlns:baz="http://example.com/baz">
+        <foo:SamplePrefixedNamespacedModel xml:lang="en" xmlns:foo="http://example.com/foo" xmlns:bar="http://example.com/bar" xmlns:baz="http://example.com/baz">
           <bar:Name>John Doe</bar:Name>
           <baz:Age>30</baz:Age>
         </foo:SamplePrefixedNamespacedModel>
@@ -222,7 +222,7 @@ RSpec.shared_examples "an XML namespace parser" do |adapter_class|
 
     it "round-trips if namespace is set to nil in parent" do
       xml = <<~XML
-        <NamespaceNil xmlns="http://example.com/foo" xmlns:bar="http://example.com/bar" xmlns:baz="http://example.com/baz">
+        <NamespaceNil xmlns:bar="http://example.com/bar" xmlns:baz="http://example.com/baz">
           <SampleDefaultNamespacedModel xml:lang="en">
             <bar:Name>Jane Smith</bar:Name>
             <baz:Age>25</baz:Age>

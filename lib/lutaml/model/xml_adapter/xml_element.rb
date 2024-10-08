@@ -16,7 +16,8 @@ module Lutaml
           children = [],
           text = nil,
           parent_document: nil,
-          namespace_prefix: nil
+          namespace_prefix: nil,
+          default_namespace: nil
         )
           @name = extract_name(name)
           @namespace_prefix = namespace_prefix || extract_namespace_prefix(name)
@@ -24,6 +25,7 @@ module Lutaml
           @children = children
           @text = text
           @parent_document = parent_document
+          @default_namespace = default_namespace
         end
 
         def name
@@ -37,11 +39,12 @@ module Lutaml
         def namespaced_name
           if namespaces[namespace_prefix] && !text?
             "#{namespaces[namespace_prefix].uri}:#{@name}"
+          elsif @default_namespace && !text?
+            "#{@default_namespace}:#{name}"
           else
             @name
           end
         end
-        # || lang?
 
         def unprefixed_name
           @name

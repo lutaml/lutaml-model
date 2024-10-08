@@ -7,7 +7,8 @@ module Lutaml
                   :custom_methods,
                   :delegate,
                   :mixed_content,
-                  :child_mappings
+                  :child_mappings,
+                  :default_namespace
 
       def initialize(
         name,
@@ -18,6 +19,7 @@ module Lutaml
         mixed_content: false,
         namespace_set: false,
         prefix_set: false,
+        default_namespace: nil,
         child_mappings: nil
       )
         @name = name
@@ -29,6 +31,7 @@ module Lutaml
         @namespace_set = namespace_set
         @prefix_set = prefix_set
         @child_mappings = child_mappings
+        @default_namespace = default_namespace
       end
 
       alias from name
@@ -43,11 +46,11 @@ module Lutaml
       end
 
       def namespaced_name
-        if namespace
-          "#{namespace}:#{name}"
-        else
-          name
-        end
+        return "#{prefix}:#{name}" if name == "lang"
+        return "#{namespace}:#{name}" if namespace
+        return "#{default_namespace}:#{name}" if default_namespace
+
+        name
       end
 
       def serialize_attribute(model, element, doc)
