@@ -29,11 +29,9 @@ module Lutaml
         end
 
         def name
-          if namespace_prefix
-            "#{namespace_prefix}:#{@name}"
-          else
-            @name
-          end
+          return @name unless namespace_prefix
+
+          "#{namespace_prefix}:#{@name}"
         end
 
         def namespaced_name
