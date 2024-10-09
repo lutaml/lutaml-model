@@ -276,7 +276,7 @@ module Lutaml
         end
 
         def build_attributes(element, xml_mapping, options = {})
-          attrs = if options[:namespace_set].nil? || options[:namespace_set]
+          attrs = if options.fetch(:namespace_set, true)
                     namespace_attributes(xml_mapping)
                   else
                     {}
