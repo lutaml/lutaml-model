@@ -4,6 +4,32 @@ require "lutaml/model/xml_adapter/ox_adapter"
 require "lutaml/model/xml_adapter/oga_adapter"
 require_relative "../../fixtures/sample_model"
 
+module XmlAdapterSpec
+  class Mstyle < Lutaml::Model::Serializable
+    attribute :displaystyle, :string, default: -> { "true" }
+    attribute :color, :string
+    attribute :finish, :string, default: -> { "yes" }
+
+    xml do
+      root "mstyle"
+      map_attribute :displaystyle, to: :displaystyle
+    end
+  end
+
+  class Maths < Lutaml::Model::Serializable
+    attribute :display, :string, default: -> { "block" }
+    attribute :style, Mstyle, default: -> { Mstyle.new }
+
+    xml do
+      root "math"
+      map_attribute :display, to: :display
+      map_attribute "color", to: :color, delegate: :style
+      map_attribute "finish", to: :finish, delegate: :style
+      map_element :mstyle, to: :style
+    end
+  end
+end
+
 RSpec.shared_examples "an XML adapter" do |adapter_class|
   around do |example|
     old_adapter = Lutaml::Model::Config.xml_adapter
@@ -21,6 +47,59 @@ RSpec.shared_examples "an XML adapter" do |adapter_class|
 
   let(:attributes) { { name: "John Doe", age: 30 } }
   let(:model) { SampleModel.new(attributes) }
+
+  context "with default value" do
+    it "set display attribute correctly, other attributes default" do
+      xml = "<math display='true'></math>"
+
+      parsed = XmlAdapterSpec::Maths.from_xml(xml)
+      expect(parsed.display).to eq("true")
+      expect(parsed.style.class).to eq(XmlAdapterSpec::Mstyle)
+      expect(parsed.style.displaystyle).to eq("true")
+    end
+
+    it "set style attribute correctly, other attributes default" do
+      xml = "<math> <mstyle displaystyle='false'>  </mstyle> </math>"
+
+      parsed = XmlAdapterSpec::Maths.from_xml(xml)
+      expect(parsed.display).to eq("block")
+      expect(parsed.style.class).to eq(XmlAdapterSpec::Mstyle)
+      expect(parsed.style.displaystyle).to eq("false")
+    end
+
+    it "sets attributes default values" do
+      xml = "<math> </math>"
+
+      parsed = XmlAdapterSpec::Maths.from_xml(xml)
+      expect(parsed.display).to eq("block")
+      expect(parsed.style.class).to eq(XmlAdapterSpec::Mstyle)
+      expect(parsed.style.displaystyle).to eq("true")
+    end
+
+    it "delegate attributes with value" do
+      xml = "<math color='blue' finish='no'></math>"
+
+      parsed = XmlAdapterSpec::Maths.from_xml(xml)
+      expect(parsed.style.color).to eq("blue")
+      expect(parsed.style.finish).to eq("no")
+    end
+
+    it "delegate attributes with one value" do
+      xml = "<math color='blue'></math>"
+
+      parsed = XmlAdapterSpec::Maths.from_xml(xml)
+      expect(parsed.style.color).to eq("blue")
+      expect(parsed.style.finish).to eq("yes")
+    end
+
+    it "delegate attributes with no value" do
+      xml = "<math></math>"
+
+      parsed = XmlAdapterSpec::Maths.from_xml(xml)
+      expect(parsed.style.color).to be_nil
+      expect(parsed.style.finish).to eq("yes")
+    end
+  end
 
   it "serializes to XML" do
     expected_xml = <<~XML
