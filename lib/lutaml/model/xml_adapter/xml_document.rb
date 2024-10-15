@@ -311,7 +311,7 @@ module Lutaml
               hash["xmlns:#{mapping_rule.prefix}"] = mapping_rule.namespace
             end
 
-            hash[mapping_rule.prefixed_name] = element.send(mapping_rule.to)
+            hash[mapping_rule.prefixed_name] = mapping_rule.to_value_for(element)
           end
 
           xml_mapping.elements.each_with_object(attrs) do |mapping_rule, hash|
