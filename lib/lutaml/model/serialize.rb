@@ -356,7 +356,7 @@ module Lutaml
                     elsif doc.key?(rule.namespaced_name.to_s) || doc.key?(rule.namespaced_name.to_sym)
                       doc[rule.namespaced_name.to_s] || doc[rule.namespaced_name.to_sym]
                     else
-                      attribute_for_rule(rule)&.default
+                      rule.to_value_for(instance)
                     end
 
             value = normalize_xml_value(value, rule)
