@@ -82,6 +82,7 @@ RSpec.shared_examples "an XML adapter" do |adapter_class|
       parsed = XmlAdapterSpec::Maths.from_xml(xml)
       expect(parsed.style.color).to eq("blue")
       expect(parsed.style.finish).to eq("no")
+      expect(parsed.style.displaystyle).to eq("true")
     end
 
     it "delegate attributes with one value" do
@@ -90,6 +91,7 @@ RSpec.shared_examples "an XML adapter" do |adapter_class|
       parsed = XmlAdapterSpec::Maths.from_xml(xml)
       expect(parsed.style.color).to eq("blue")
       expect(parsed.style.finish).to eq("yes")
+      expect(parsed.style.displaystyle).to eq("true")
     end
 
     it "delegate attributes with no value" do
@@ -98,6 +100,23 @@ RSpec.shared_examples "an XML adapter" do |adapter_class|
       parsed = XmlAdapterSpec::Maths.from_xml(xml)
       expect(parsed.style.color).to be_nil
       expect(parsed.style.finish).to eq("yes")
+      expect(parsed.style.displaystyle).to eq("true")
+    end
+
+    it "round-trips XML and add default values" do
+      input_xml = <<~XML
+        <math display='true'></math>
+      XML
+
+      output_xml = <<~XML
+        <math display="true" finish="yes">
+          <mstyle displaystyle="true"/>
+        </math>
+      XML
+
+      parsed = XmlAdapterSpec::Maths.from_xml(input_xml)
+
+      expect(parsed.to_xml.strip).to eq(output_xml.strip)
     end
   end
 
