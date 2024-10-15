@@ -354,7 +354,7 @@ module Lutaml
             value = if rule.content_mapping?
                       doc["text"]
                     else
-                      doc[rule.name.to_s] || doc[rule.name.to_sym]
+                      doc[rule.namespaced_name.to_s] || doc[rule.namespaced_name.to_sym]
                     end
 
             value = normalize_xml_value(value, rule)

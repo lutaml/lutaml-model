@@ -10,7 +10,7 @@ RSpec.shared_context "XML namespace models" do
 
     xml do
       root "test"
-      namespace "http://example.com/test"
+      namespace "http://example.com/test", "test"
       map_element "name", to: :name
     end
   end
@@ -223,7 +223,7 @@ RSpec.shared_examples "an XML namespace parser" do |adapter_class|
 
     it "round-trips if namespace is set to nil in parent" do
       xml = <<~XML
-        <NamespaceNil xmlns="http://example.com/foo" xmlns:bar="http://example.com/bar" xmlns:baz="http://example.com/baz">
+        <NamespaceNil xmlns:bar="http://example.com/bar" xmlns:baz="http://example.com/baz">
           <SampleDefaultNamespacedModel xml:lang="en">
             <bar:Name>Jane Smith</bar:Name>
             <baz:Age>25</baz:Age>

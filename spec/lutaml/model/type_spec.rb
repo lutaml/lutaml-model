@@ -91,10 +91,11 @@ RSpec.describe Lutaml::Model::Type do
 
     context "when value is a hash" do
       it "raises ArgumentError" do
+        hash = { key: "value" }
         expect do
-          described_class.to_boolean({ key: "value" })
+          described_class.to_boolean(hash)
         end.to raise_error(ArgumentError,
-                           'invalid value for Boolean: "{:key=>"value"}"')
+                           "invalid value for Boolean: \"#{hash}\"")
       end
     end
 

@@ -49,17 +49,19 @@ module Lutaml
       )
         validate!(name, to, with)
 
-        @elements[name] = XmlMappingRule.new(
+        rule = XmlMappingRule.new(
           name,
           to: to,
           render_nil: render_nil,
           with: with,
           delegate: delegate,
           namespace: namespace,
+          default_namespace: namespace_uri,
           prefix: prefix,
           namespace_set: namespace_set != false,
           prefix_set: prefix_set != false,
         )
+        @elements[rule.namespaced_name] = rule
       end
 
       def map_attribute(
@@ -75,7 +77,7 @@ module Lutaml
       )
         validate!(name, to, with)
 
-        @attributes[name] = XmlMappingRule.new(
+        rule = XmlMappingRule.new(
           name,
           to: to,
           render_nil: render_nil,
@@ -83,9 +85,11 @@ module Lutaml
           delegate: delegate,
           namespace: namespace,
           prefix: prefix,
+          default_namespace: namespace_uri,
           namespace_set: namespace_set != false,
           prefix_set: prefix_set != false,
         )
+        @attributes[rule.namespaced_name] = rule
       end
 
       # rubocop:enable Metrics/ParameterLists
