@@ -63,9 +63,10 @@ module Lutaml
             self
           end
 
+
           def method_missing(method_name, *args)
             if block_given?
-              xml.public_send(method_name, *args) do
+              xml.public_send(method_name, *args) do |xml|
                 yield(xml)
               end
             else

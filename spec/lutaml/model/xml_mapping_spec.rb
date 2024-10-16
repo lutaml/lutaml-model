@@ -355,7 +355,7 @@ RSpec.describe Lutaml::Model::XmlMapping do
           <address>
             <street>
               <a>N</a>
-              <b>adf</b>
+              <p>adf</p>
             </street>
             <city><a>M</a></city>
           </address>
@@ -365,9 +365,9 @@ RSpec.describe Lutaml::Model::XmlMapping do
 
     let(:expected_street) do
       if Lutaml::Model::Config.xml_adapter == Lutaml::Model::XmlAdapter::OxAdapter
-        "<a>N</a>\n<b>adf</b>\n"
+        "<a>N</a>\n<p>adf</p>\n"
       else
-        "\n      <a>N</a>\n      <b>adf</b>\n    "
+        "\n      <a>N</a>\n      <p>adf</p>\n    "
       end
     end
 
