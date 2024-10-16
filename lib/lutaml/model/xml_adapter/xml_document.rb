@@ -84,7 +84,7 @@ module Lutaml
                       child.children.map do |c|
                         next c.text if c.text?
 
-                        self.class.new(c).to_xml
+                        c.to_xml.doc.root.to_xml({})
                       end.join
                     else
                       parse_element(child, attr&.type || klass, format)

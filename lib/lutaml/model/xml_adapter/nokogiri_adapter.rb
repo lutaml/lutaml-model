@@ -139,8 +139,10 @@ module Lutaml
           if name == "text"
             builder.text(text)
           else
-            builder.send(name, build_attributes(self)) do |xml|
-              children.each { |child| child.to_xml(xml) }
+            builder.public_send(name, build_attributes(self)) do |xml|
+              children.each do |child|
+                child.to_xml(xml)
+              end
             end
           end
 
