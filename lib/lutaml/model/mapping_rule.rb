@@ -8,11 +8,14 @@ module Lutaml
                   :delegate,
                   :mixed_content,
                   :child_mappings,
-                  :default_namespace
+                  :default_namespace,
+                  :group,
+                  :method_from,
+                  :method_to
 
       def initialize(
         name,
-        to:,
+        to: nil,
         render_nil: false,
         with: {},
         delegate: nil,
@@ -20,7 +23,9 @@ module Lutaml
         namespace_set: false,
         prefix_set: false,
         default_namespace: nil,
-        child_mappings: nil
+        child_mappings: nil,
+        group: nil,
+        methods: nil
       )
         @name = name
         @to = to
@@ -32,6 +37,12 @@ module Lutaml
         @prefix_set = prefix_set
         @child_mappings = child_mappings
         @default_namespace = default_namespace
+        @group = group
+
+        if methods
+          @method_from = methods[:from]
+          @method_to = methods[:to]
+        end
       end
 
       alias from name

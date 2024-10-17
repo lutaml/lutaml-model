@@ -7,6 +7,7 @@ require_relative "mapping_rule"
 require_relative "mapping_hash"
 require_relative "xml_mapping"
 require_relative "key_value_mapping"
+require_relative "key_value_grouping"
 require_relative "json_adapter"
 require_relative "comparable_model"
 require_relative "schema_location"
@@ -147,28 +148,38 @@ module Lutaml
           only = options[:only]
           except = options[:except]
           mappings = mappings_for(format).mappings
+          grouping = Lutaml::Model::Group::KeyValueGrouping.new
 
           mappings.each_with_object({}) do |rule, hash|
-            name = rule.to
-            next if except&.include?(name) || (only && !only.include?(name))
+            if rule.group
+              grouping.add(rule, nil)
+            else
+              name = rule.to
+              next if except&.include?(name) || (only && !only.include?(name))
 
-            next handle_delegate(instance, rule, hash, format) if rule.delegate
+              next handle_delegate(instance, rule, hash, format) if rule.delegate
 
-            if rule.custom_methods[:to]
-              next instance.send(rule.custom_methods[:to], instance, hash)
+              if rule.custom_methods[:to]
+                next instance.send(rule.custom_methods[:to], instance, hash)
+              end
+
+              value = instance.send(name)
+
+              next if value.nil? && !rule.render_nil
+
+              attribute = attributes[name]
+
+              hash[rule.from] = if rule.child_mappings
+                                  generate_hash_from_child_mappings(value, rule.child_mappings)
+                                else
+                                  attribute.serialize(value, format, options)
+                                end
             end
+          end
 
-            value = instance.send(name)
-
-            next if value.nil? && !rule.render_nil
-
-            attribute = attributes[name]
-
-            hash[rule.from] = if rule.child_mappings
-                                generate_hash_from_child_mappings(value, rule.child_mappings)
-                              else
-                                attribute.serialize(value, format, options)
-                              end
+          grouping.each do |group|
+            mapper = new
+            mapper.send(group.method_to, instance, group.dict)
           end
         end
 
@@ -297,29 +308,40 @@ module Lutaml
           return apply_xml_mapping(doc, instance, options) if format == :xml
 
           mappings = mappings_for(format).mappings
+          grouping = Lutaml::Model::Group::KeyValueGrouping.new
+
           mappings.each do |rule|
-            raise "Attribute '#{rule.to}' not found in #{self}" unless valid_rule?(rule)
+            if rule.group
+              grouping.add(rule, doc[rule.name])
+            else
+              raise "Attribute '#{rule.to}' not found in #{self}" unless valid_rule?(rule)
 
-            attr = attribute_for_rule(rule)
+              attr = attribute_for_rule(rule)
 
-            value = if doc.key?(rule.name) || doc.key?(rule.name.to_sym)
-                      doc[rule.name] || doc[rule.name.to_sym]
-                    else
-                      attr.default
-                    end
+              value = if doc.key?(rule.name) || doc.key?(rule.name.to_sym)
+                        doc[rule.name] || doc[rule.name.to_sym]
+                      else
+                        attr.default
+                      end
 
-            if rule.custom_methods[:from]
-              if Utils.present?(value)
-                value = new.send(rule.custom_methods[:from], instance, value)
+              if rule.custom_methods[:from]
+                if Utils.present?(value)
+                  value = new.send(rule.custom_methods[:from], instance, value)
+                end
+
+                next
               end
 
-              next
+              value = apply_child_mappings(value, rule.child_mappings)
+              value = attr.cast(value, format)
+
+              rule.deserialize(instance, value, attributes, self)
             end
+          end
 
-            value = apply_child_mappings(value, rule.child_mappings)
-            value = attr.cast(value, format)
-
-            rule.deserialize(instance, value, attributes, self)
+          grouping.each do |group|
+            mapper = new
+            mapper.send(group.method_from, instance, group.dict)
           end
 
           instance

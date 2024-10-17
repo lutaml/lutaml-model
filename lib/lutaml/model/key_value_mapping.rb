@@ -1,4 +1,5 @@
 require_relative "key_value_mapping_rule"
+require_relative "key_value_group_mapping"
 
 module Lutaml
   module Model
@@ -25,8 +26,14 @@ module Lutaml
           render_nil: render_nil,
           with: with,
           delegate: delegate,
-          child_mappings: child_mappings,
+          child_mappings: child_mappings
         )
+      end
+
+      def group(from:, to:, &block)
+        group = KeyValueGroupMapping.new(from, to)
+        group.instance_eval(&block)
+        @mappings.concat(group.mappings)
       end
 
       alias map_element map
