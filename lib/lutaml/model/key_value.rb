@@ -3,8 +3,8 @@ module Lutaml
     module Group
       class KeyValue
         attr_reader :dict,
-                     :method_from,
-                     :method_to
+                    :method_from,
+                    :method_to
 
         def initialize(method_from, method_to)
           @method_from = method_from

@@ -7,7 +7,7 @@ module Lutaml
 
       def initialize(
         name,
-        to:,
+        to: nil,
         render_nil: false,
         with: {},
         delegate: nil,

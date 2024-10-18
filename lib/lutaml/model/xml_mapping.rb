@@ -1,4 +1,5 @@
 require_relative "xml_mapping_rule"
+require_relative "xml_group_mapping"
 
 module Lutaml
   module Model
@@ -111,6 +112,17 @@ module Lutaml
           delegate: delegate,
           mixed_content: mixed,
         )
+      end
+
+      def group(from:, to:, &block)
+        group = XmlGroupMapping.new(from, to)
+
+        # group.namespace(default_namespace.name, default_namespace.prefix)
+        group.instance_eval(&block)
+
+        @elements.merge!(group.elements)
+        @attributes.merge!(group.attributes)
+        @content = group.content if group.content
       end
 
       def validate!(key, to, with)

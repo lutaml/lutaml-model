@@ -150,7 +150,7 @@ module Lutaml
           mappings = mappings_for(format).mappings
           grouping = Lutaml::Model::Group::KeyValueGrouping.new
 
-          mappings.each_with_object({}) do |rule, hash|
+          result_hash = mappings.each_with_object({}) do |rule, hash|
             if rule.group
               grouping.add(rule, nil)
             else
@@ -179,8 +179,13 @@ module Lutaml
 
           grouping.each do |group|
             mapper = new
+            group_hash = {}
             mapper.send(group.method_to, instance, group.dict)
+            filtered_dict = group.dict.reject { |_, value| value.nil? }
+            result_hash.merge!(filtered_dict) unless filtered_dict.empty?
           end
+          
+          result_hash
         end
 
         def handle_delegate(instance, rule, hash, format)
