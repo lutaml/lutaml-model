@@ -545,12 +545,12 @@ end
 
 === Attributes within Group
 
-It groups a set of element declarations, allowing them to be reused together. It permits only one child: `choice`.
+It groups a set of element declarations, allowing them to be reused together. It permits only one child: `choice` or `sequence`.
 
-Group only supports choice
+Group supports (choice | sequence)
 
 If the attributes defined directly in group or
-the nested group | multiple choices are defined, `InvalidGroupError` will be
+the nested group | multiple choices | sequence are defined, `InvalidGroupError` will be
 raised according to error.
 +
 [example]
@@ -572,10 +572,10 @@ end
 [example]
 ====
 group do
-  choice do
+  choice | sequence do
     attribute :prefix, :string
   end
-  choice do
+  choice | sequence do
     attribute :format, :string
   end
 end
@@ -618,6 +618,36 @@ class Studio < Lutaml::Model::Serializable
     end
 
     attribute :completeName, :string
+  end
+end
+----
+====
+
+
+=== Attributes within Sequence
+
+The sequence option enforces that the defined components must appear in a specified order.
+
+Sequence supports (element | group | choice | sequence)*
+
+.Using the `sequence` element to define a set of elements in desired order.
+[example]
+====
+[source,ruby]
+----
+class Studio < Lutaml::Model::Serializable
+  sequence do
+    group do
+      choice do
+        attribute :prefix, :string
+        attribute :forename, :string
+      end
+    end
+
+    sequence do
+      attribute :completeName, :string
+      attribute :nick_name, :string
+    end
   end
 end
 ----
@@ -2641,6 +2671,7 @@ Lutaml::Model supports the following validation methods:
 * `values`:: Validates the value of an attribute from a set of fixed values.
 * `group` :: Validates the attributes incorporated as a group
 * `choice` :: Validates that only one attribute specified
+* `sequence` :: Validates that elements appear in specified order
 
 [example]
 ====
@@ -2662,7 +2693,12 @@ class Klin < Lutaml::Model::Serializable
       end
     end
 
-    attribute :name, :string
+    attribute :nick_name, :string
+  end
+
+  sequence do
+    attribute :id, :integer
+    attribute :age, :integer
   end
 
   xml do
@@ -2671,16 +2707,17 @@ class Klin < Lutaml::Model::Serializable
   end
 end
 
-klin = Klin.new(name: "Klin", degree_settings: [100, 200, 300], description: "one", prefix: "Ben")
+klin = Klin.new(name: "Klin", degree_settings: [100, 200, 300], description: "one", prefix: "Ben", id: 1, age: 24)
 klin.validate
 # => []
 
-klin = Klin.new(name: "Klin", degree_settings: [], description: "four", prefix: "Ben", name: "Smith")
+klin = Klin.new(name: "Klin", degree_settings: [], description: "four", prefix: "Ben", nick_name: "Smith", age: 24, id: 1)
 klin.validate
 # => [
 #      #<Lutaml::Model::CollectionSizeError: degree_settings must have at least 1 element>,
 #      #<Lutaml::Model::ValueError: description must be one of [one, two, three]>,
 #      #<Lutaml::Model::InvalidChoiceError: Exactly one attribute must be specified in a choice>
+#      #<Lutaml::Model::InvalidSequenceError: Attributes must be specified in defined order in the sequence>
 #    ]
 
 e = klin.validate!
@@ -2688,12 +2725,14 @@ e = klin.validate!
 #      degree_settings must have at least 1 element,
 #      description must be one of [one, two, three],
 #      Exactly one attribute must be specified in a choice
+#      Elements must be present in the specified order
 #    ]
 e.errors
 # => [
 #     #<Lutaml::Model::CollectionSizeError: degree_settings must have at least 1 element>,
 #     #<Lutaml::Model::ValueError: description must be one of [one, two, three]>,
-#      #<Lutaml::Model::InvalidChoiceError: Exactly one attribute must be specified in a choice>
+#     #<Lutaml::Model::InvalidChoiceError: Exactly one attribute must be specified in a choice>,
+#     #<Lutaml::Model::InvalidSequenceError: Elements must be present in the specified order>
 #   ]
 ----
 ====

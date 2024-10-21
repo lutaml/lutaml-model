@@ -14,6 +14,7 @@ require_relative "validation"
 require_relative "error"
 require_relative "group"
 require_relative "choice"
+require_relative "sequence"
 
 module Lutaml
   module Model
@@ -89,6 +90,10 @@ module Lutaml
           @attribute_tree << group.tap { |g| g.instance_eval(&block) }
 
           raise Lutaml::Model::InvalidGroupError.new("Group can't be empty") if group.attribute_tree.empty?
+        end
+
+        def sequence(&block)
+          @attribute_tree << Sequence.new(self).tap { |s| s.instance_eval(&block) }
         end
 
         # Define an attribute for the model
@@ -589,7 +594,6 @@ module Lutaml
                     using_default_for(name)
                     attr.default
                   end
-
           # Initialize collections with an empty array if no value is provided
           if attr.collection? && value.nil?
             value = []
