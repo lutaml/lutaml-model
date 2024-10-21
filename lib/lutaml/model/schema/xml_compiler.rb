@@ -404,18 +404,18 @@ module Lutaml
           end
         end
 
-        def resolved_element_order(object, ignore_text: true)
+        def resolved_element_order(object)
           return [] if object.element_order.nil?
 
-          object.element_order.each_with_object(object.element_order.dup) do |name, array|
-            next array.delete(name) if name == "text" && (ignore_text || !object.respond_to?(:text))
-            next array.delete(name) if ELEMENT_ORDER_IGNORABLE.include?(name)
+          object.element_order.each_with_object(object.element_order.dup) do |builder_instance, array|
+            next array.delete(builder_instance) if builder_instance.text?
+            next array.delete(builder_instance) if ELEMENT_ORDER_IGNORABLE.include?(builder_instance.name)
 
             index = 0
             array.each_with_index do |element, i|
-              next unless element == name
+              next unless element == builder_instance
 
-              array[i] = Array(object.send(Utils.snake_case(name)))[index]
+              array[i] = Array(object.send(Utils.snake_case(builder_instance.name)))[index]
               index += 1
             end
           end

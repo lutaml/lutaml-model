@@ -2,6 +2,7 @@ require_relative "../mapping_hash"
 require_relative "xml_element"
 require_relative "xml_attribute"
 require_relative "xml_namespace"
+require_relative "element"
 
 module Lutaml
   module Model

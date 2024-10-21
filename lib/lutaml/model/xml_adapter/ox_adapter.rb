@@ -58,18 +58,18 @@ module Lutaml
             index_hash = {}
             content = []
 
-            element.element_order.each do |name|
-              index_hash[name] ||= -1
-              curr_index = index_hash[name] += 1
+            element.element_order.each do |object|
+              index_hash[object.name] ||= -1
+              curr_index = index_hash[object.name] += 1
 
-              element_rule = xml_mapping.find_by_name(name)
+              element_rule = xml_mapping.find_by_name(object.name)
               next if element_rule.nil?
 
               attribute_def = attribute_definition_for(element, element_rule,
                                                        mapper_class: mapper_class)
               value = attribute_value_for(element, element_rule)
 
-              next if element_rule == xml_mapping.content_mapping && element_rule.cdata && name == "text"
+              next if element_rule == xml_mapping.content_mapping && element_rule.cdata && object.text?
 
               if element_rule == xml_mapping.content_mapping
                 text = element.send(xml_mapping.content_mapping.to)
