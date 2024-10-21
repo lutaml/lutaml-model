@@ -42,6 +42,7 @@ module Lutaml
           builder.create_and_add_element(tag_name,
                                          attributes: attributes) do |el|
             index_hash = {}
+            content = []
 
             element.element_order.each do |name|
               index_hash[name] ||= -1
@@ -58,7 +59,11 @@ module Lutaml
                 text = element.send(xml_mapping.content_mapping.to)
                 text = text[curr_index] if text.is_a?(Array)
 
-                el.add_text(el, text)
+                if element.mixed?
+                  el.add_text(el, text)
+                else
+                  content << text
+                end
               elsif !value.nil? || element_rule.render_nil?
                 value = value[curr_index] if attribute_def.collection?
 
@@ -74,6 +79,8 @@ module Lutaml
                 )
               end
             end
+
+            el.add_text(el, content.join)
           end
         end
       end

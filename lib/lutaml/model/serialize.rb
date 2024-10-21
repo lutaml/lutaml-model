@@ -55,6 +55,14 @@ module Lutaml
             !!@ordered
           end
 
+          Utils.add_method_if_not_defined(klass, :mixed=) do |mixed|
+            @mixed = mixed
+          end
+
+          Utils.add_method_if_not_defined(klass, :mixed?) do
+            !!@mixed
+          end
+
           Utils.add_method_if_not_defined(klass, :element_order=) do |order|
             @element_order = order
           end
@@ -337,7 +345,8 @@ module Lutaml
 
           if instance.respond_to?(:ordered=) && doc.is_a?(Lutaml::Model::MappingHash)
             instance.element_order = doc.item_order
-            instance.ordered = mappings_for(:xml).mixed_content? || options[:mixed_content]
+            instance.ordered = mappings_for(:xml).ordered? || options[:ordered]
+            instance.mixed = mappings_for(:xml).mixed_content? || options[:mixed_content]
           end
 
           if doc["__schema_location"]
@@ -420,6 +429,7 @@ module Lutaml
       end
 
       attr_accessor :element_order, :schema_location
+      attr_writer :ordered, :mixed
 
       def initialize(attrs = {})
         @validate_on_set = attrs.delete(:validate_on_set) || false
@@ -469,11 +479,11 @@ module Lutaml
       end
 
       def ordered?
-        @ordered
+        !!@ordered
       end
 
-      def ordered=(ordered)
-        @ordered = ordered
+      def mixed?
+        !!@mixed
       end
 
       def key_exist?(hash, key)

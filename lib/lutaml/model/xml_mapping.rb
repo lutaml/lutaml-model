@@ -6,7 +6,8 @@ module Lutaml
       attr_reader :root_element,
                   :namespace_uri,
                   :namespace_prefix,
-                  :mixed_content
+                  :mixed_content,
+                  :ordered
 
       def initialize
         @elements = {}
@@ -16,10 +17,12 @@ module Lutaml
       end
 
       alias mixed_content? mixed_content
+      alias ordered? ordered
 
-      def root(name, mixed: false)
+      def root(name, mixed: false, ordered: false)
         @root_element = name
         @mixed_content = mixed
+        @ordered = ordered || mixed # mixed contenet will always be ordered
       end
 
       def prefixed_root
