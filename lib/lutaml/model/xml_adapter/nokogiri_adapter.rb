@@ -55,6 +55,7 @@ module Lutaml
             end
 
             index_hash = {}
+            content = []
 
             element.element_order.each do |name|
               index_hash[name] ||= -1
@@ -71,7 +72,11 @@ module Lutaml
                 text = xml_mapping.content_mapping.serialize(element)
                 text = text[curr_index] if text.is_a?(Array)
 
-                prefixed_xml.text text
+                if element.mixed?
+                  prefixed_xml.text text
+                else
+                  content << text
+                end
               elsif !value.nil? || element_rule.render_nil?
                 value = value[curr_index] if attribute_def.collection?
 
@@ -87,6 +92,8 @@ module Lutaml
                 )
               end
             end
+
+            prefixed_xml.text content.join
           end
         end
       end
