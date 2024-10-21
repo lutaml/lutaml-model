@@ -35,6 +35,24 @@ module ChoiceAndGroup
         end
       end
     end
+
+    sequence do
+      group do
+        sequence do
+          attribute :name, :string
+          attribute :age, :integer
+        end
+      end
+
+      attribute :gender, :string
+    end
+
+    sequence do
+      choice do
+        attribute :caste, :string
+        attribute :degree, :string
+      end
+    end
   end
 
   class PersonPreferences < Lutaml::Model::Serializable
@@ -77,6 +95,10 @@ RSpec.describe "ChoiceGroup" do
         preferred_language: "preferred_language",
         is_active: true,
         government_id: 2.3,
+        name: "John",
+        age: 24,
+        gender: "male",
+        degree: "BSCS",
       )
 
       expect(valid_instance.validate).to be_empty
@@ -89,6 +111,10 @@ RSpec.describe "ChoiceGroup" do
         preferred_language: "preferred_language",
         is_active: true,
         national_id: "national_id",
+        name: "John",
+        age: 24,
+        gender: "male",
+        caste: "White",
       )
 
       expect(valid_instance.validate).to be_empty
@@ -101,6 +127,10 @@ RSpec.describe "ChoiceGroup" do
         preferred_language: "preferred_language",
         is_active: true,
         government_id: 2.5,
+        name: "John",
+        age: 24,
+        gender: "male",
+        degree: "BSCS",
       )
 
       expect(valid_instance.validate!).to be_nil

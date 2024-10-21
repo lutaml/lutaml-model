@@ -25,9 +25,13 @@ module Lutaml
         @attribute_tree << Choice.new(@model).tap { |c| c.instance_eval(&block) }
       end
 
-      def validate_content!(object, total_selected = [])
+      def sequence(&block)
+        @attribute_tree << Sequence.new(@model).tap { |s| s.instance_eval(&block) }
+      end
+
+      def validate_content!(object, validated_attributes = [], defined_order = [])
         attribute_tree.each do |attribute|
-          attribute.validate_content!(object, total_selected)
+          attribute.validate_content!(object, validated_attributes, defined_order)
         end
       end
     end
