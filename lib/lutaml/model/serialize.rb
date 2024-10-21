@@ -12,6 +12,7 @@ require_relative "comparable_model"
 require_relative "schema_location"
 require_relative "validation"
 require_relative "error"
+require_relative "group_attribute"
 
 module Lutaml
   module Model
@@ -74,6 +75,15 @@ module Lutaml
 
         def cast(value)
           value
+        end
+
+        def group(&block)
+          group = GroupAttribute.new
+          group.instance_eval(&block)
+
+          group.attributes.each do |name, (type, options)|
+            attribute(name, type, options)
+          end
         end
 
         # Define an attribute for the model

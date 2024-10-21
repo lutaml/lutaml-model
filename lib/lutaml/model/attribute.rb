@@ -71,22 +71,13 @@ module Lutaml
       end
 
       def enum_values
-        @options.key?(:values) ? @options[:values] : []
-      end
-
-      # Check if the value to be assigned is valid for the attribute
-      #
-      # Currently there are 2 validations
-      #   1. Value should be from the values list if they are defined
-      #      e.g values: ["foo", "bar"] is set then any other value for this
-      #          attribute will raise `Lutaml::Model::InvalidValueError`
-      #
-      #   2. Value count should be between the collection range if defined
-      #      e.g if collection: 0..5 is set then the value greater then 5
-      #          will raise `Lutaml::Model::CollectionCountOutOfRangeError`
-      def validate_value!(value)
-        valid_value!(value)
-        valid_collection!(value)
+        if @options.key?(:values)
+          @options[:values]
+        elsif @options.key?(:group)
+          @options[:group]
+        else
+          []
+        end
       end
 
       def valid_value!(value)
@@ -106,6 +97,20 @@ module Lutaml
         options[:values].include?(value)
       end
 
+      def valid_group!(value)
+        
+      end
+
+      # Check if the value to be assigned is valid for the attribute
+      #
+      # Currently there are 2 validations
+      #   1. Value should be from the values list if they are defined
+      #      e.g values: ["foo", "bar"] is set then any other value for this
+      #          attribute will raise `Lutaml::Model::InvalidValueError`
+      #
+      #   2. Value count should be between the collection range if defined
+      #      e.g if collection: 0..5 is set then the value greater then 5
+      #          will raise `Lutaml::Model::CollectionCountOutOfRangeError`
       def validate_value!(value)
         # return true if none of the validations are present
         return true if enum_values.empty? && singular?
@@ -113,7 +118,7 @@ module Lutaml
         # Use the default value if the value is nil
         value = default if value.nil?
 
-        valid_value!(value) && valid_collection!(value)
+        valid_value!(value) && valid_collection!(value) && valid_group!(value)
       end
 
       def validate_collection_range

@@ -10,7 +10,12 @@ module Lutaml
         end
 
         def to_json(*args)
-          JSON.generate(@attributes, *args)
+          options = args.first || {}
+          if options[:pretty]
+            JSON.pretty_generate(@attributes, *args)
+          else
+            JSON.generate(@attributes, *args)
+          end
         end
       end
     end
