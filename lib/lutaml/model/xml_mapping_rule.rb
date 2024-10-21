@@ -101,14 +101,16 @@ module Lutaml
           name.dup,
           to: to,
           render_nil: render_nil,
+          render_default: render_default,
           with: Utils.deep_dup(custom_methods),
           delegate: delegate,
           namespace: namespace.dup,
           prefix: prefix.dup,
           mixed_content: mixed_content,
+          cdata: cdata,
           namespace_set: namespace_set?,
-          attribute: attribute,
           prefix_set: prefix_set?,
+          attribute: attribute,
           default_namespace: default_namespace.dup,
         )
       end

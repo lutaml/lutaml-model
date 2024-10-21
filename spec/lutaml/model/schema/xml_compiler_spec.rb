@@ -260,7 +260,15 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
             ct.attribute_group = [Lutaml::Xsd::AttributeGroup.new(name: "test_attribute_group")]
             ct.group = [Lutaml::Xsd::Group.new(name: "test_group")]
             ct.simple_content = [Lutaml::Xsd::SimpleContent.new(name: "test_simple_content")]
-            ct.element_order = ["attribute", "sequence", "choice", "complex_content", "attribute_group", "group", "simple_content"]
+            ct.element_order = create_pattern_mapping([
+                                                        ["Element", "attribute"],
+                                                        ["Element", "sequence"],
+                                                        ["Element", "choice"],
+                                                        ["Element", "complex_content"],
+                                                        ["Element", "attribute_group"],
+                                                        ["Element", "group"],
+                                                        ["Element", "simple_content"],
+                                                      ])
           end
         end
 
@@ -299,7 +307,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         let(:complex_type) do
           Lutaml::Xsd::SimpleContent.new.tap do |ct|
             ct.extension = Lutaml::Xsd::ExtensionSimpleContent.new(base: "test_extension")
-            ct.element_order = ["extension"]
+            ct.element_order = [Lutaml::Model::XmlAdapter::Element.new("Element", "extension")]
           end
         end
 
@@ -314,7 +322,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         let(:complex_type) do
           Lutaml::Xsd::SimpleContent.new.tap do |ct|
             ct.restriction = Lutaml::Xsd::RestrictionSimpleContent.new(base: "test_restriction")
-            ct.element_order = ["restriction"]
+            ct.element_order = [Lutaml::Model::XmlAdapter::Element.new("Element", "restriction")]
           end
         end
 
@@ -338,7 +346,14 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
               Lutaml::Xsd::Group.new(name: "test_group"),
               Lutaml::Xsd::Group.new(ref: "test_ref"),
             ]
-            ct.element_order = ["sequence", "group", "element", "choice", "element", "group"]
+            ct.element_order = create_pattern_mapping([
+                                                        ["Element", "sequence"],
+                                                        ["Element", "group"],
+                                                        ["Element", "element"],
+                                                        ["Element", "choice"],
+                                                        ["Element", "element"],
+                                                        ["Element", "group"],
+                                                      ])
           end
         end
 
@@ -375,7 +390,10 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
           Lutaml::Xsd::Group.new.tap do |ct|
             ct.sequence = [Lutaml::Xsd::Sequence.new(name: "test_sequence")]
             ct.choice = [Lutaml::Xsd::Choice.new(name: "test_choice")]
-            ct.element_order = ["sequence", "choice"]
+            ct.element_order = create_pattern_mapping([
+                                                        ["Element", "sequence"],
+                                                        ["Element", "choice"],
+                                                      ])
           end
         end
 
@@ -407,7 +425,12 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
             ct.sequence = [Lutaml::Xsd::Sequence.new(name: "test_sequence")]
             ct.choice = [Lutaml::Xsd::Choice.new(name: "test_choice")]
             ct.group = [Lutaml::Xsd::Group.new(name: "test_group")]
-            ct.element_order = ["sequence", "choice", "group", "element"]
+            ct.element_order = create_pattern_mapping([
+                                                        ["Element", "sequence"],
+                                                        ["Element", "choice"],
+                                                        ["Element", "group"],
+                                                        ["Element", "element"],
+                                                      ])
           end
         end
 
@@ -516,7 +539,10 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
           Lutaml::Xsd::AttributeGroup.new.tap do |attr_group|
             attr_group.attribute = [Lutaml::Xsd::Attribute.new(name: "test_name", type: "test_type")]
             attr_group.attribute_group = [Lutaml::Xsd::AttributeGroup.new(name: "test_name", type: "test_type")]
-            attr_group.element_order = ["attribute", "attribute_group"]
+            attr_group.element_order = create_pattern_mapping([
+                                                                ["Element", "attribute"],
+                                                                ["Element", "attribute_group"],
+                                                              ])
           end
         end
 
@@ -622,7 +648,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
             element.min_occurs = 0
             element.max_occurs = 1
             element.complex_type = Lutaml::Xsd::ComplexType.new(name: "test_complex_type")
-            element.element_order = ["complex_type"]
+            element.element_order = [Lutaml::Model::XmlAdapter::Element.new("Element", "complex_type")]
           end
         end
 
@@ -656,7 +682,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
             element.type = "test_type"
             element.name = "test_name"
             element.complex_type = Lutaml::Xsd::ComplexType.new(name: "test_complex_type")
-            element.element_order = ["complex_type"]
+            element.element_order = [Lutaml::Model::XmlAdapter::Element.new("Element", "complex_type")]
           end
         end
 
@@ -776,7 +802,12 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
             ]
             extension.sequence = Lutaml::Xsd::Sequence.new
             extension.choice = Lutaml::Xsd::Choice.new
-            extension.element_order = ["attribute", "sequence", "choice", "attribute"]
+            extension.element_order = create_pattern_mapping([
+                                                               ["Element", "attribute"],
+                                                               ["Element", "sequence"],
+                                                               ["Element", "choice"],
+                                                               ["Element", "attribute"],
+                                                             ])
           end
         end
 
@@ -832,12 +863,17 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
       context "when given element contains element_order but no instance relevant elements/instances" do
         let(:element) do
           Lutaml::Xsd::Element.new.tap do |element|
-            element.element_order = ["annotation", "simple_type", "complex_type", "key"]
+            element.element_order = create_pattern_mapping([
+                                                             ["Element", "annotation"],
+                                                             ["Element", "simple_type"],
+                                                             ["Element", "complex_type"],
+                                                             ["Element", "key"],
+                                                           ])
           end
         end
 
         it "raises an error when element_order contains elements that isn't an attribute of the instance" do
-          element.element_order << "test_element"
+          element.element_order << Lutaml::Model::XmlAdapter::Element.new("Element", "test_element")
           expect { described_class.send(:resolved_element_order, element) }.to raise_error(NoMethodError)
         end
 
@@ -854,7 +890,12 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
             element.simple_type = Lutaml::Xsd::SimpleType.new
             element.complex_type = Lutaml::Xsd::ComplexType.new
             element.key = Lutaml::Xsd::Key.new
-            element.element_order = ["annotation", "simple_type", "complex_type", "key"]
+            element.element_order = create_pattern_mapping([
+                                                             ["Element", "annotation"],
+                                                             ["Element", "simple_type"],
+                                                             ["Element", "complex_type"],
+                                                             ["Element", "key"],
+                                                           ])
           end
         end
 
@@ -1423,6 +1464,10 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
       end
     end
   end
+end
+
+def create_pattern_mapping(array)
+  array.map { |type, text| Lutaml::Model::XmlAdapter::Element.new(type, text) }
 end
 
 def to_mapping_hash(content)

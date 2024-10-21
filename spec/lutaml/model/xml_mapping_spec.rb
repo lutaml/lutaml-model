@@ -477,34 +477,34 @@ RSpec.describe Lutaml::Model::XmlMapping do
       end
 
       let(:expected_order) do
+        nokogiri_oga_pattern = create_pattern_mapping([
+                                                        ["Text", "text"],
+                                                        ["Element", "ApplicationSchema"],
+                                                        ["Text", "text"],
+                                                        ["Element", "ApplicationSchema"],
+                                                        ["Text", "text"],
+                                                        ["Element", "ApplicationSchema"],
+                                                        ["Text", "text"],
+                                                      ])
+
+        ox_pattern = create_pattern_mapping([
+                                              ["Element", "ApplicationSchema"],
+                                              ["Element", "ApplicationSchema"],
+                                              ["Element", "ApplicationSchema"],
+                                            ])
+
         {
-          Lutaml::Model::XmlAdapter::NokogiriAdapter => [
-            "text",
-            "ApplicationSchema",
-            "text",
-            "ApplicationSchema",
-            "text",
-            "ApplicationSchema",
-            "text",
-          ],
-          Lutaml::Model::XmlAdapter::OxAdapter => [
-            "ApplicationSchema",
-            "ApplicationSchema",
-            "ApplicationSchema",
-          ],
-          Lutaml::Model::XmlAdapter::OgaAdapter => [
-            "text",
-            "ApplicationSchema",
-            "text",
-            "ApplicationSchema",
-            "text",
-            "ApplicationSchema",
-            "text",
-          ],
+          Lutaml::Model::XmlAdapter::NokogiriAdapter => nokogiri_oga_pattern,
+          Lutaml::Model::XmlAdapter::OxAdapter => ox_pattern,
+          Lutaml::Model::XmlAdapter::OgaAdapter => nokogiri_oga_pattern,
         }
       end
 
       let(:parsed) { XmlMapping::SameNameDifferentNamespace.from_xml(input_xml) }
+
+      def create_pattern_mapping(array)
+        array.map { |type, text| Lutaml::Model::XmlAdapter::Element.new(type, text) }
+      end
 
       it "citygml_application_schema should be correct" do
         expect(parsed.citygml_application_schema).to eq("CityGML App")
