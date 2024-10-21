@@ -10,6 +10,7 @@ module Lutaml
         collection
         values
         pattern
+        parent_choice
       ].freeze
 
       def initialize(name, type, options = {})
@@ -101,7 +102,7 @@ module Lutaml
       end
 
       def valid_value!(value)
-        return true if value.nil? && !collection?
+        return true if value.nil? && singular?
         return true unless enum?
 
         unless valid_value?(value)
@@ -109,6 +110,10 @@ module Lutaml
         end
 
         true
+      end
+
+      def validate_content!(object, total_attrs = [])
+        total_attrs << self if object.public_send(name.to_s)
       end
 
       def valid_value?(value)

@@ -543,6 +543,87 @@ end
 ====
 
 
+=== Attributes within Group
+
+It groups a set of element declarations, allowing them to be reused together. It permits only one child: `choice`.
+
+Group only supports choice
+
+If the attributes defined directly in group or
+the nested group | multiple choices are defined, `InvalidGroupError` will be
+raised according to error.
++
+[example]
+====
+group do
+  attribute :prefix, :string
+end
+====
++
+[example]
+====
+group do
+  group do
+    attribute :name, :string
+  end
+end
+====
++
+[example]
+====
+group do
+  choice do
+    attribute :prefix, :string
+  end
+  choice do
+    attribute :format, :string
+  end
+end
+====
+
+.Using the `group` option to define a collection of attributes
+[example]
+====
+[source,ruby]
+----
+class Studio < Lutaml::Model::Serializable
+  group do
+    choice do
+      attribute :fb, :string
+    end
+  end
+end
+----
+====
+
+
+=== Attributes within Choice
+
+The Choice option ensures that exactly one element from the specified group is included.
+
+Choice supports (element | group | choice)*
+
+.Using the `choice` option to define a set of attributes where exactly one can be used.
+[example]
+====
+[source,ruby]
+----
+class Studio < Lutaml::Model::Serializable
+  choice do
+    group do
+      choice do
+        attribute :prefix, :string
+        attribute :forename, :string
+      end
+    end
+
+    attribute :completeName, :string
+  end
+end
+----
+====
+
+
 === Attribute value validation
 
 ==== General
@@ -2558,6 +2639,8 @@ Lutaml::Model supports the following validation methods:
 
 * `collection`:: Validates collection size range.
 * `values`:: Validates the value of an attribute from a set of fixed values.
+* `group` :: Validates the attributes incorporated as a group
+* `choice` :: Validates that only one attribute specified
 
 [example]
 ====
@@ -2571,6 +2654,16 @@ class Klin < Lutaml::Model::Serializable
   attribute :name, :string
   attribute :degree_settings, :integer, collection: (1..)
   attribute :description, :string, values: %w[one two three]
+  choice do
+    group do
+      choice do
+        attribute :prefix, :string
+        attribute :forename, :string
+      end
+    end
+
+    attribute :name, :string
+  end
 
   xml do
     map_element 'name', to: :name
@@ -2578,26 +2671,29 @@ class Klin < Lutaml::Model::Serializable
   end
 end
 
-klin = Klin.new(name: "Klin", degree_settings: [100, 200, 300], description: "one")
+klin = Klin.new(name: "Klin", degree_settings: [100, 200, 300], description: "one", prefix: "Ben")
 klin.validate
 # => []
 
-klin = Klin.new(name: "Klin", degree_settings: [], description: "four")
+klin = Klin.new(name: "Klin", degree_settings: [], description: "four", prefix: "Ben", name: "Smith")
 klin.validate
 # => [
 #      #<Lutaml::Model::CollectionSizeError: degree_settings must have at least 1 element>,
-#      #<Lutaml::Model::ValueError: description must be one of [one, two, three]>
+#      #<Lutaml::Model::ValueError: description must be one of [one, two, three]>,
+#      #<Lutaml::Model::InvalidChoiceError: Exactly one attribute must be specified in a choice>
 #    ]
 
 e = klin.validate!
 # => Lutaml::Model::ValidationError: [
 #      degree_settings must have at least 1 element,
-#      description must be one of [one, two, three]
+#      description must be one of [one, two, three],
+#      Exactly one attribute must be specified in a choice
 #    ]
 e.errors
 # => [
 #     #<Lutaml::Model::CollectionSizeError: degree_settings must have at least 1 element>,
-#     #<Lutaml::Model::ValueError: description must be one of [one, two, three]>
+#     #<Lutaml::Model::ValueError: description must be one of [one, two, three]>,
+#      #<Lutaml::Model::InvalidChoiceError: Exactly one attribute must be specified in a choice>
 #   ]
 ----
 ====

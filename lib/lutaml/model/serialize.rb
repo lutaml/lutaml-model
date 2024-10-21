@@ -12,6 +12,8 @@ require_relative "comparable_model"
 require_relative "schema_location"
 require_relative "validation"
 require_relative "error"
+require_relative "group"
+require_relative "choice"
 
 module Lutaml
   module Model
@@ -24,18 +26,20 @@ module Lutaml
       end
 
       module ClassMethods
-        attr_accessor :attributes, :mappings
+        attr_accessor :attributes, :mappings, :attribute_tree
 
         def inherited(subclass)
           super
 
           @mappings ||= {}
           @attributes ||= {}
+          @attribute_tree ||= []
 
           subclass.instance_variable_set(:@attributes,
                                          Utils.deep_dup(@attributes))
           subclass.instance_variable_set(:@mappings, Utils.deep_dup(@mappings))
           subclass.instance_variable_set(:@model, subclass)
+          subclass.instance_variable_set(:@attribute_tree, Utils.deep_dup(@attribute_tree))
         end
 
         def model(klass = nil)
@@ -76,6 +80,17 @@ module Lutaml
           value
         end
 
+        def choice(&block)
+          @attribute_tree << Choice.new(self).tap { |c| c.instance_eval(&block) }
+        end
+
+        def group(&block)
+          group = Group.new(self)
+          @attribute_tree << group.tap { |g| g.instance_eval(&block) }
+
+          raise Lutaml::Model::InvalidGroupError.new("Group can't be empty") if group.attribute_tree.empty?
+        end
+
         # Define an attribute for the model
         def attribute(name, type, options = {})
           attr = Attribute.new(name, type, options)
@@ -98,6 +113,8 @@ module Lutaml
               instance_variable_set(:"@#{name}", attr.cast_value(value))
             end
           end
+
+          attr
         end
 
         def add_enum_methods_to_model(klass, enum_name, values, collection: false)
