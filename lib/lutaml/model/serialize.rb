@@ -163,6 +163,8 @@ module Lutaml
               public_send(:"#{value}=", true)
             end
           end
+
+          attr
         end
 
         def add_enum_getter_if_not_defined(klass, enum_name, collection)
