@@ -12,6 +12,8 @@ require_relative "comparable_model"
 require_relative "schema_location"
 require_relative "validation"
 require_relative "error"
+require_relative "group"
+require_relative "choice"
 
 module Lutaml
   module Model
@@ -24,18 +26,20 @@ module Lutaml
       end
 
       module ClassMethods
-        attr_accessor :attributes, :mappings
+        attr_accessor :attributes, :mappings, :attribute_tree
 
         def inherited(subclass)
           super
 
           @mappings ||= {}
           @attributes ||= {}
+          @attribute_tree ||= []
 
           subclass.instance_variable_set(:@attributes,
                                          Utils.deep_dup(@attributes))
           subclass.instance_variable_set(:@mappings, Utils.deep_dup(@mappings))
           subclass.instance_variable_set(:@model, subclass)
+          subclass.instance_variable_set(:@attribute_tree, Utils.deep_dup(@attribute_tree))
         end
 
         def model(klass = nil)
@@ -76,6 +80,18 @@ module Lutaml
           value
         end
 
+        def choice(&block)
+          choice = Choice.new(self)
+          group_choice_helper(choice, &block)
+        end
+
+        def group(&block)
+          group = Group.new(self)
+          group_choice_helper(group, &block)
+
+          raise Lutaml::Model::InvalidGroupError.new("Group can't be empty") if group.attribute_tree.empty?
+        end
+
         # Define an attribute for the model
         def attribute(name, type, options = {})
           attr = Attribute.new(name, type, options)
@@ -89,6 +105,8 @@ module Lutaml
             value_set_for(name)
             instance_variable_set(:"@#{name}", attr.cast_value(value))
           end
+
+          attr
         end
 
         Lutaml::Model::Config::AVAILABLE_FORMATS.each do |format|
@@ -457,6 +475,13 @@ module Lutaml
           else
             value
           end
+        end
+
+        private
+
+        def group_choice_helper(option, &block)
+          option.instance_eval(&block)
+          @attribute_tree << option
         end
       end
 
