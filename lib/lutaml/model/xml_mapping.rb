@@ -88,6 +88,7 @@ module Lutaml
           delegate: delegate,
           namespace: namespace,
           prefix: prefix,
+          attribute: true,
           default_namespace: namespace_uri,
           namespace_set: namespace_set != false,
           prefix_set: prefix_set != false,

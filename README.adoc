@@ -657,7 +657,7 @@ end
 
 [source,xml]
 ----
-<example value=12><name>John Doe</name></example>
+<example value="12"><name>John Doe</name></example>
 ----
 
 [source,ruby]
@@ -666,6 +666,37 @@ end
 > #<Example:0x0000000104ac7240 @value=12>
 > Example.new(value: 12).to_xml
 > #<example value="12"></example>
+----
+
+The map_attribute method does not inherit the root element's namespace. If you need to specify a namespace for an attribute,
+you must explicitly declare the namespace and prefix in the map_attribute method.
+[example]
+====
+The following class will parse the XML snippet below:
+
+[source,ruby]
+----
+class Attribute < Lutaml::Model::Serializable
+  attribute :value, :integer
+
+  xml do
+    root 'example'
+    map_attribute 'value', to: :value, namespace: "http://www.tech.co/XMI", prefix: "xl"
+  end
+end
+----
+
+[source,xml]
+----
+<example xl:value="20" xmlns:xl="http://www.tech.co/XMI"></example>
+----
+
+[source,ruby]
+----
+> Attribute.from_xml(xml)
+> #<Attribute:0x0000000109436db8 @value=20>
+> Attribute.new(value: 20).to_xml
+> #<example xmlns:xl=\"http://www.tech.co/XMI\" xl:value=\"20\"/>
 ----
 ====
 
@@ -743,7 +774,7 @@ end
 
 [source,xml]
 ----
-<example value=12><name>John Doe</name> is my moniker.</example>
+<example value="12"><name>John Doe</name> is my moniker.</example>
 ----
 
 [source,ruby]

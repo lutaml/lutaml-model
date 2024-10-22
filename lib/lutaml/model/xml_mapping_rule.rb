@@ -16,6 +16,7 @@ module Lutaml
         mixed_content: false,
         namespace_set: false,
         prefix_set: false,
+        attribute: false,
         default_namespace: nil
       )
         super(
@@ -24,6 +25,7 @@ module Lutaml
           render_nil: render_nil,
           with: with,
           delegate: delegate,
+          attribute: attribute,
           mixed_content: mixed_content,
           namespace_set: namespace_set,
           prefix_set: prefix_set,
