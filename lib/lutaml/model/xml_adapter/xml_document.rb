@@ -303,6 +303,10 @@ module Lutaml
                     {}
                   end
 
+          if element.respond_to?(:schema_location) && element.schema_location
+            attrs.merge!(element.schema_location.to_xml_attributes)
+          end
+
           xml_mapping.attributes.each_with_object(attrs) do |mapping_rule, hash|
             next if options[:except]&.include?(mapping_rule.to)
             next if mapping_rule.custom_methods[:to]

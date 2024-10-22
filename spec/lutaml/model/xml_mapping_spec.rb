@@ -90,6 +90,18 @@ module XmlMapping
                                        prefix: nil
     end
   end
+
+  class SchemaLocationOrdered < Lutaml::Model::Serializable
+    attribute :content, :string
+    attribute :second, SchemaLocationOrdered
+
+    xml do
+      root "schemaLocationOrdered", mixed: true
+
+      map_content to: :content
+      map_element "schemaLocationOrdered", to: :second
+    end
+  end
 end
 
 RSpec.describe Lutaml::Model::XmlMapping do
@@ -260,20 +272,40 @@ RSpec.describe Lutaml::Model::XmlMapping do
   end
 
   context "with schemaLocation" do
-    let(:xml) do
-      <<~XML
-        <p xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-           xsi:schemaLocation="http://www.opengis.net/gml/3.2 http://schemas.opengis.net/gml/3.2.1/gml.xsd">
-          <p xmlns:xsi="http://another-instance"
-             xsi:schemaLocation="http://www.opengis.net/gml/3.7">
-            Some text inside paragraph
+    context "when mixed: false" do
+      let(:xml) do
+        <<~XML
+          <p xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="http://www.opengis.net/gml/3.2 http://schemas.opengis.net/gml/3.2.1/gml.xsd">
+            <p xmlns:xsi="http://another-instance"
+               xsi:schemaLocation="http://www.opengis.net/gml/3.7">
+              Some text inside paragraph
+            </p>
           </p>
-        </p>
-      XML
+        XML
+      end
+
+      it "contain schemaLocation attributes" do
+        expect(Paragraph.from_xml(xml).to_xml).to be_equivalent_to(xml)
+      end
     end
 
-    it "contain schemaLocation attributes" do
-      expect(Paragraph.from_xml(xml).to_xml).to be_equivalent_to(xml)
+    context "when mixed: true" do
+      let(:xml) do
+        <<~XML
+          <schemaLocationOrdered xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="http://www.opengis.net/gml/3.2 http://schemas.opengis.net/gml/3.2.1/gml.xsd">
+            <schemaLocationOrdered xmlns:xsi="http://another-instance"
+               xsi:schemaLocation="http://www.opengis.net/gml/3.7">
+              Some text inside paragraph
+            </schemaLocationOrdered>
+          </schemaLocationOrdered>
+        XML
+      end
+
+      it "contain schemaLocation attributes" do
+        expect(XmlMapping::SchemaLocationOrdered.from_xml(xml).to_xml).to be_equivalent_to(xml)
+      end
     end
   end
 
