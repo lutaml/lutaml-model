@@ -50,6 +50,24 @@ module Lutaml
           end
         end
 
+        def deep_dup(hash)
+          return hash if hash.nil?
+
+          new_hash = {}
+
+          hash.each do |key, value|
+            new_hash[key] = if value.is_a?(Hash)
+                              deep_dup(value)
+                            elsif value.respond_to?(:deep_dup)
+                              value.deep_dup
+                            else
+                              value.dup
+                            end
+          end
+
+          new_hash
+        end
+
         private
 
         def camelize_part(part)

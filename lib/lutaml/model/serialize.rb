@@ -32,8 +32,8 @@ module Lutaml
           @mappings ||= {}
           @attributes ||= {}
 
-          subclass.instance_variable_set(:@attributes, @attributes.dup)
-          subclass.instance_variable_set(:@mappings, @mappings.dup)
+          subclass.instance_variable_set(:@attributes, Utils.deep_dup(@attributes))
+          subclass.instance_variable_set(:@mappings, Utils.deep_dup(@mappings))
           subclass.instance_variable_set(:@model, subclass)
         end
 
