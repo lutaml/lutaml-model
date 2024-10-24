@@ -86,6 +86,19 @@ module Lutaml
           end
         end
 
+        def group_attributes
+          grouped_attributes = {}
+
+          attributes.each_value do |attr|
+            next unless attr.group
+
+            grouped_attributes[attr.group] ||= []
+            grouped_attributes[attr.group] << attr
+          end
+
+          grouped_attributes
+        end
+
         # Define an attribute for the model
         def attribute(name, type, options = {})
           attr = Attribute.new(name, type, options)

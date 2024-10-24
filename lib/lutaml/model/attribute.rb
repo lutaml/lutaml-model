@@ -70,18 +70,16 @@ module Lutaml
         options.fetch(:render_nil, false)
       end
 
+      def group
+        @options[:group]
+      end
+
       def enum_values
-        if @options.key?(:values)
-          @options[:values]
-        elsif @options.key?(:group)
-          @options[:group]
-        else
-          []
-        end
+        @options.key?(:values) ? @options[:values] : []
       end
 
       def valid_value!(value)
-        return true if value.nil? && !collection?
+        return true if value.nil? && singular?
         return true if enum_values.empty?
 
         unless valid_value?(value)
@@ -95,10 +93,6 @@ module Lutaml
         return true unless options[:values]
 
         options[:values].include?(value)
-      end
-
-      def valid_group!(value)
-        
       end
 
       # Check if the value to be assigned is valid for the attribute
@@ -118,7 +112,7 @@ module Lutaml
         # Use the default value if the value is nil
         value = default if value.nil?
 
-        valid_value!(value) && valid_collection!(value) && valid_group!(value)
+        valid_value!(value) && valid_collection!(value)
       end
 
       def validate_collection_range
