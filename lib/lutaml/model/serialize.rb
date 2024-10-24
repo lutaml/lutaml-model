@@ -362,8 +362,8 @@ module Lutaml
 
             value = if rule.content_mapping?
                       doc["text"]
-                    elsif doc.key?(rule.namespaced_name.to_s) || doc.key?(rule.namespaced_name.to_sym)
-                      doc[rule.namespaced_name.to_s] || doc[rule.namespaced_name.to_sym]
+                    elsif doc.key_exist?(rule.namespaced_name)
+                      doc.fetch(rule.namespaced_name)
                     else
                       rule.to_value_for(instance)
                     end

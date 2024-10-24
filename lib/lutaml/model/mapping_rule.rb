@@ -15,6 +15,7 @@ module Lutaml
         to:,
         render_nil: false,
         with: {},
+        attribute: false,
         delegate: nil,
         mixed_content: false,
         namespace_set: false,
@@ -26,6 +27,7 @@ module Lutaml
         @to = to
         @render_nil = render_nil
         @custom_methods = with
+        @attribute = attribute
         @delegate = delegate
         @mixed_content = mixed_content
         @namespace_set = namespace_set
@@ -48,8 +50,10 @@ module Lutaml
       def namespaced_name
         if name == "lang"
           "#{prefix}:#{name}"
-        elsif namespace || default_namespace
-          "#{namespace || default_namespace}:#{name}"
+        elsif namespace_set? || @attribute
+          [namespace, name].compact.join(":")
+        elsif default_namespace
+          "#{default_namespace}:#{name}"
         else
           name
         end

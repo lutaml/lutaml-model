@@ -21,6 +21,16 @@ module Lutaml
             name
           end
         end
+
+        def namespaced_name
+          if unprefixed_name == "lang"
+            name
+          elsif namespace
+            "#{namespace}:#{unprefixed_name}"
+          else
+            unprefixed_name
+          end
+        end
       end
     end
   end

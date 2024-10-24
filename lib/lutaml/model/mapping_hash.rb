@@ -14,6 +14,14 @@ module Lutaml
         @item_order&.map { |key| normalize(key) } || keys
       end
 
+      def fetch(key)
+        self[key.to_s] || self[key.to_sym]
+      end
+
+      def key_exist?(key)
+        key?(key.to_s) || key?(key.to_sym)
+      end
+
       def item_order=(order)
         raise "`item order` must be an array" unless order.is_a?(Array)
 

@@ -68,14 +68,50 @@ module XmlMapping
     attribute :address, XmlMapping::Address
   end
 
+  class Mfenced < Lutaml::Model::Serializable
+    attribute :open, :string
+
+    xml do
+      root "mfenced"
+      map_attribute "open", to: :open
+    end
+  end
+
+  class MmlMath < Lutaml::Model::Serializable
+    attribute :mfenced, Mfenced
+
+    xml do
+      root "math"
+      namespace "http://www.w3.org/1998/Math/MathML"
+      map_element :mfenced, to: :mfenced
+    end
+  end
+
+  class AttributeNamespace < Lutaml::Model::Serializable
+    attribute :alpha, :string
+    attribute :beta, :string
+
+    xml do
+      root "example"
+      namespace "http://www.check.com", "ns1"
+
+      map_attribute "alpha", to: :alpha,
+                             namespace: "http://www.example.com",
+                             prefix: "ex1"
+
+      map_attribute "beta", to: :beta
+    end
+  end
+
   class SameNameDifferentNamespace < Lutaml::Model::Serializable
     attribute :gml_application_schema, :string
     attribute :citygml_application_schema, :string
     attribute :application_schema, :string
+    attribute :app, :string
 
     xml do
       root "SameElementName"
-      namespace "http://www.omg.org/spec/XMI/20131001", "xmi"
+      namespace "http://www.omg.org/spec/XMI/20131001", nil
 
       map_element "ApplicationSchema", to: :gml_application_schema,
                                        namespace: "http://www.sparxsystems.com/profiles/GML/1.0",
@@ -85,9 +121,9 @@ module XmlMapping
                                        namespace: "http://www.sparxsystems.com/profiles/CityGML/1.0",
                                        prefix: "CityGML"
 
-      map_element "ApplicationSchema", to: :application_schema,
-                                       namespace: nil,
-                                       prefix: nil
+      map_element "ApplicationSchema", to: :application_schema
+
+      map_attribute "App", to: :app
     end
   end
 
@@ -107,14 +143,34 @@ end
 RSpec.describe Lutaml::Model::XmlMapping do
   let(:mapping) { described_class.new }
 
+  context "attribute namespace" do
+    input_xml = '<ns1:example ex1:alpha="hello" beta="bye" xmlns:ns1="http://www.check.com" xmlns:ex1="http://www.example.com"></ns1:example>'
+
+    it "checks the attribute with and without namespace" do
+      parsed = XmlMapping::AttributeNamespace.from_xml(input_xml)
+      expect(parsed.alpha).to eq("hello")
+      expect(parsed.beta).to eq("bye")
+      expect(parsed.to_xml).to be_equivalent_to(input_xml)
+    end
+  end
+
+  context "explicit namespace" do
+    mml = '<math xmlns="http://www.w3.org/1998/Math/MathML"><mfenced open="("></mfenced></math>'
+
+    it "nil namespace" do
+      parsed = XmlMapping::MmlMath.from_xml(mml)
+      expect(parsed.to_xml).to be_equivalent_to(mml)
+    end
+  end
+
   context "with same name elements" do
     let(:input_xml) do
       <<~XML
-        <xmi:SameElementName xmlns:xmi="http://www.omg.org/spec/XMI/20131001" xmlns:GML="http://www.sparxsystems.com/profiles/GML/1.0" xmlns:CityGML="http://www.sparxsystems.com/profiles/CityGML/1.0">
+        <SameElementName App="hello" xmlns="http://www.omg.org/spec/XMI/20131001" xmlns:GML="http://www.sparxsystems.com/profiles/GML/1.0" xmlns:CityGML="http://www.sparxsystems.com/profiles/CityGML/1.0">
           <GML:ApplicationSchema>GML App</GML:ApplicationSchema>
           <CityGML:ApplicationSchema>CityGML App</CityGML:ApplicationSchema>
           <ApplicationSchema>App</ApplicationSchema>
-        </xmi:SameElementName>
+        </SameElementName>
       XML
     end
 
@@ -124,6 +180,7 @@ RSpec.describe Lutaml::Model::XmlMapping do
       expect(parsed.citygml_application_schema).to eq("CityGML App")
       expect(parsed.gml_application_schema).to eq("GML App")
       expect(parsed.application_schema).to eq("App")
+      expect(parsed.app).to eq("hello")
       expect(parsed.element_order).to eq(["text", "ApplicationSchema", "text", "ApplicationSchema", "text", "ApplicationSchema", "text"])
       expect(XmlMapping::SameNameDifferentNamespace.from_xml(input_xml).to_xml).to be_equivalent_to(input_xml)
     end
