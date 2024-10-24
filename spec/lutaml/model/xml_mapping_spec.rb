@@ -138,6 +138,23 @@ module XmlMapping
       map_element "schemaLocationOrdered", to: :second
     end
   end
+
+  class ToBeDuplicated < Lutaml::Model::Serializable
+    attribute :content, :string
+    attribute :element, :string
+    attribute :attribute, :string
+
+    xml do
+      root "ToBeDuplicated"
+      namespace "https://testing-duplicate", "td"
+
+      map_content to: :content
+      map_attribute "attribute", to: :attribute
+      map_element "element", to: :element,
+                             namespace: "https://test-element",
+                             prefix: "te"
+    end
+  end
 end
 
 RSpec.describe Lutaml::Model::XmlMapping do
@@ -493,6 +510,115 @@ RSpec.describe Lutaml::Model::XmlMapping do
 
       it "converts to xml correctly" do
         expect(paragraph.to_xml).to eq(expected_xml)
+      end
+    end
+  end
+
+  describe "#deep_dup" do
+    let(:orig_mappings) do
+      XmlMapping::ToBeDuplicated.mappings_for(:xml)
+    end
+
+    let(:dup_mappings) do
+      orig_mappings.deep_dup
+    end
+
+    it "duplicates root_element" do
+      orig_root = orig_mappings.root_element
+      dup_root = dup_mappings.root_element
+
+      expect(orig_root).to eq(dup_root)
+      expect(orig_root.object_id).not_to eq(dup_root.object_id)
+    end
+
+    it "duplicates namespace_uri" do
+      orig_namespace_uri = orig_mappings.namespace_uri
+      dup_namespace_uri = dup_mappings.namespace_uri
+
+      expect(orig_namespace_uri).to eq(dup_namespace_uri)
+      expect(orig_namespace_uri.object_id).not_to eq(dup_namespace_uri.object_id)
+    end
+
+    it "duplicates namespace_prefix" do
+      orig_namespace_prefix = orig_mappings.namespace_prefix
+      dup_namespace_prefix = dup_mappings.namespace_prefix
+
+      expect(orig_namespace_prefix).to eq(dup_namespace_prefix)
+      expect(orig_namespace_prefix.object_id).not_to eq(dup_namespace_prefix.object_id)
+    end
+
+    context "when duplicating mapping" do
+      let(:orig_mapping) { orig_mappings.mappings[0] }
+      let(:dup_mapping) { dup_mappings.mappings[0] }
+
+      it "duplicates custom_methods" do
+        orig_custom_methods = orig_mapping.custom_methods
+        dup_custom_methods = dup_mapping.custom_methods
+
+        expect(orig_custom_methods).to eq(dup_custom_methods)
+        expect(orig_custom_methods.object_id).not_to eq(dup_custom_methods.object_id)
+      end
+
+      it "duplicates default_namespace" do
+        orig_default_namespace = orig_mapping.default_namespace
+        dup_default_namespace = dup_mapping.default_namespace
+
+        expect(orig_default_namespace).to eq(dup_default_namespace)
+        expect(orig_default_namespace.object_id).not_to eq(dup_default_namespace.object_id)
+      end
+
+      it "duplicates delegate" do
+        # `delegate` is symbol which are constant so object_id will be same
+        expect(orig_mapping.delegate).to eq(dup_mapping.delegate)
+      end
+
+      it "duplicates mixed_content" do
+        # boolean value is constant so object_id will be same
+        expect(orig_mapping.mixed_content).to eq(dup_mapping.mixed_content)
+      end
+
+      it "duplicates name" do
+        orig_name = orig_mapping.name
+        dup_name = dup_mapping.name
+
+        expect(orig_name).to eq(dup_name)
+        expect(orig_name.object_id).not_to eq(dup_name.object_id)
+      end
+
+      it "duplicates namespace" do
+        orig_namespace = orig_mapping.namespace
+        dup_namespace = dup_mapping.namespace
+
+        expect(orig_namespace).to eq(dup_namespace)
+        expect(orig_namespace.object_id).not_to eq(dup_namespace.object_id)
+      end
+
+      it "duplicates namespace_set" do
+        # boolean value is constant so object_id will be same
+        expect(orig_mapping.namespace_set?).to eq(dup_mapping.namespace_set?)
+      end
+
+      it "duplicates prefix" do
+        orig_prefix = orig_mapping.prefix
+        dup_prefix = dup_mapping.prefix
+
+        expect(orig_prefix).to eq(dup_prefix)
+        expect(orig_prefix.object_id).not_to eq(dup_prefix.object_id)
+      end
+
+      it "duplicates prefix_set" do
+        # boolean value is constant so object_id will be same
+        expect(orig_mapping.prefix_set?).to eq(dup_mapping.prefix_set?)
+      end
+
+      it "duplicates render_nil" do
+        # boolean value is constant so object_id will be same
+        expect(orig_mapping.render_nil?).to eq(dup_mapping.render_nil?)
+      end
+
+      it "duplicates to" do
+        # `to` is symbol which are constant so object_id will be same
+        expect(orig_mapping.to).to eq(dup_mapping.to)
       end
     end
   end

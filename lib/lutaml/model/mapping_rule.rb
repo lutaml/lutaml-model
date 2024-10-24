@@ -5,10 +5,7 @@ module Lutaml
                   :to,
                   :render_nil,
                   :custom_methods,
-                  :delegate,
-                  :mixed_content,
-                  :child_mappings,
-                  :default_namespace
+                  :delegate
 
       def initialize(
         name,
@@ -16,12 +13,7 @@ module Lutaml
         render_nil: false,
         with: {},
         attribute: false,
-        delegate: nil,
-        mixed_content: false,
-        namespace_set: false,
-        prefix_set: false,
-        default_namespace: nil,
-        child_mappings: nil
+        delegate: nil
       )
         @name = name
         @to = to
@@ -29,35 +21,10 @@ module Lutaml
         @custom_methods = with
         @attribute = attribute
         @delegate = delegate
-        @mixed_content = mixed_content
-        @namespace_set = namespace_set
-        @prefix_set = prefix_set
-        @child_mappings = child_mappings
-        @default_namespace = default_namespace
       end
 
       alias from name
       alias render_nil? render_nil
-
-      def prefixed_name
-        if prefix
-          "#{prefix}:#{name}"
-        else
-          name
-        end
-      end
-
-      def namespaced_name
-        if name == "lang"
-          "#{prefix}:#{name}"
-        elsif namespace_set? || @attribute
-          [namespace, name].compact.join(":")
-        elsif default_namespace
-          "#{default_namespace}:#{name}"
-        else
-          name
-        end
-      end
 
       def serialize_attribute(model, element, doc)
         if custom_methods[:to]
@@ -95,16 +62,8 @@ module Lutaml
         end
       end
 
-      def namespace_set?
-        @namespace_set
-      end
-
-      def prefix_set?
-        @prefix_set
-      end
-
-      def content_mapping?
-        name.nil?
+      def deep_dup
+        raise NotImplementedError, "Subclasses must implement `deep_dup`."
       end
     end
   end

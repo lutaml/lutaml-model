@@ -42,6 +42,16 @@ module Lutaml
           raise IncorrectMappingArgumentsError.new(msg)
         end
       end
+
+      def deep_dup
+        self.class.new.tap do |new_mapping|
+          new_mapping.instance_variable_set(:@mappings, duplicate_mappings)
+        end
+      end
+
+      def duplicate_mappings
+        @mappings.map(&:deep_dup)
+      end
     end
   end
 end
