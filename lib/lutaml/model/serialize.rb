@@ -86,6 +86,7 @@ module Lutaml
           end
 
           define_method(:"#{name}=") do |value|
+            value_set_for(name)
             instance_variable_set(:"@#{name}", attr.cast_value(value))
           end
         end
@@ -304,33 +305,7 @@ module Lutaml
           return instance if Utils.blank?(doc)
           return apply_xml_mapping(doc, instance, options) if format == :xml
 
-          mappings = mappings_for(format).mappings
-          mappings.each do |rule|
-            raise "Attribute '#{rule.to}' not found in #{self}" unless valid_rule?(rule)
-
-            attr = attribute_for_rule(rule)
-
-            value = if doc.key?(rule.name) || doc.key?(rule.name.to_sym)
-                      doc[rule.name] || doc[rule.name.to_sym]
-                    else
-                      attr.default
-                    end
-
-            if rule.custom_methods[:from]
-              if Utils.present?(value)
-                value = new.send(rule.custom_methods[:from], instance, value)
-              end
-
-              next
-            end
-
-            value = apply_child_mappings(value, rule.child_mappings)
-            value = attr.cast(value, format)
-
-            rule.deserialize(instance, value, attributes, self)
-          end
-
-          instance
+          apply_hash_mapping(doc, instance, format, options)
         end
 
         def apply_xml_mapping(doc, instance, options = {})
@@ -357,6 +332,8 @@ module Lutaml
             )
           end
 
+          defaults_used = []
+
           mappings.each do |rule|
             raise "Attribute '#{rule.to}' not found in #{self}" unless valid_rule?(rule)
 
@@ -365,10 +342,45 @@ module Lutaml
                     elsif doc.key_exist?(rule.namespaced_name)
                       doc.fetch(rule.namespaced_name)
                     else
+                      defaults_used << rule.to
                       rule.to_value_for(instance)
                     end
 
             value = normalize_xml_value(value, rule)
+            rule.deserialize(instance, value, attributes, self)
+          end
+
+          defaults_used.each do |attribute_name|
+            instance.using_default_for(attribute_name)
+          end
+
+          instance
+        end
+
+        def apply_hash_mapping(doc, instance, format, options = {})
+          mappings = mappings_for(format).mappings
+          mappings.each do |rule|
+            raise "Attribute '#{rule.to}' not found in #{self}" unless valid_rule?(rule)
+
+            attr = attribute_for_rule(rule)
+
+            value = if doc.key?(rule.name) || doc.key?(rule.name.to_sym)
+                      doc[rule.name] || doc[rule.name.to_sym]
+                    else
+                      attr.default
+                    end
+
+            if rule.custom_methods[:from]
+              if Utils.present?(value)
+                value = new.send(rule.custom_methods[:from], instance, value)
+              end
+
+              next
+            end
+
+            value = apply_child_mappings(value, rule.child_mappings)
+            value = attr.cast(value, format)
+
             rule.deserialize(instance, value, attributes, self)
           end
 
@@ -433,6 +445,7 @@ module Lutaml
 
       def initialize(attrs = {})
         @validate_on_set = attrs.delete(:validate_on_set) || false
+        @using_default ||= {}
 
         return unless self.class.attributes
 
@@ -449,6 +462,7 @@ module Lutaml
           value = if attrs.key?(name) || attrs.key?(name.to_s)
                     self.class.attr_value(attrs, name, attr)
                   else
+                    using_default_for(name)
                     attr.default
                   end
 
@@ -459,6 +473,18 @@ module Lutaml
 
           instance_variable_set(:"@#{name}", self.class.ensure_utf8(value))
         end
+      end
+
+      def using_default_for(attribute_name)
+        @using_default[attribute_name] = true
+      end
+
+      def value_set_for(attribute_name)
+        @using_default[attribute_name] = false
+      end
+
+      def using_default?(attribute_name)
+        @using_default[attribute_name]
       end
 
       def method_missing(method_name, *args)

@@ -32,7 +32,7 @@ class RenderNil < Lutaml::Model::Serializable
     map_element "name", to: :name, render_nil: true
     map_element "clay_type", to: :clay_type, render_nil: false
     map_element "glaze", to: :glaze, render_nil: true
-    map_element "render_nil_nested", to: :render_nil_nested, render_nil: true
+    map_element "render_nil_nested", to: :render_nil_nested, render_nil: true, render_default: true
     map_element "dimensions", to: :dimensions, render_nil: false
   end
 

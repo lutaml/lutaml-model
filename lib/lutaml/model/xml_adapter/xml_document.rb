@@ -143,6 +143,8 @@ module Lutaml
             return
           end
 
+          return if !render_element?(rule, element, value)
+
           if value && (attribute&.type&.<= Lutaml::Model::Serialize)
             handle_nested_elements(
               xml,
@@ -254,6 +256,20 @@ module Lutaml
           rule.nil? || !rule.namespace_set? || !rule.namespace.nil?
         end
 
+        def render_element?(rule, element, value)
+           render_default?(rule, element) && render_value?(rule, value)
+        end
+
+        def render_value?(rule, value)
+          rule.attribute? || rule.render_nil? || !value.nil?
+        end
+
+        def render_default?(rule, element)
+          !element.respond_to?(:using_default?) ||
+            rule.render_default? ||
+            !element.using_default?(rule.to)
+        end
+
         def build_namespace_attributes(klass, processed = {}, options = {})
           xml_mappings = klass.mappings_for(:xml)
           attributes = klass.attributes
@@ -315,7 +331,9 @@ module Lutaml
               hash["xmlns:#{mapping_rule.prefix}"] = mapping_rule.namespace
             end
 
-            hash[mapping_rule.prefixed_name] = mapping_rule.to_value_for(element)
+            if render_element?(mapping_rule, element, mapping_rule.to_value_for(element))
+              hash[mapping_rule.prefixed_name] = mapping_rule.to_value_for(element)
+            end
           end
 
           xml_mapping.elements.each_with_object(attrs) do |mapping_rule, hash|
