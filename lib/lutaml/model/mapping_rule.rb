@@ -4,6 +4,8 @@ module Lutaml
       attr_reader :name,
                   :to,
                   :render_nil,
+                  :render_default,
+                  :attribute,
                   :custom_methods,
                   :delegate
 
@@ -11,6 +13,7 @@ module Lutaml
         name,
         to:,
         render_nil: false,
+        render_default: false,
         with: {},
         attribute: false,
         delegate: nil
@@ -18,6 +21,7 @@ module Lutaml
         @name = name
         @to = to
         @render_nil = render_nil
+        @render_default = render_default
         @custom_methods = with
         @attribute = attribute
         @delegate = delegate
@@ -25,6 +29,8 @@ module Lutaml
 
       alias from name
       alias render_nil? render_nil
+      alias render_default? render_default
+      alias attribute? attribute
 
       def serialize_attribute(model, element, doc)
         if custom_methods[:to]

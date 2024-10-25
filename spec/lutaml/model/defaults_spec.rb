@@ -40,6 +40,29 @@ class Defaults < Lutaml::Model::Serializable
   end
 end
 
+module DefaultsSpec
+  class WithoutRenderDefault < Lutaml::Model::Serializable
+    attribute :name, :string, default: -> { "Anonymous" }
+    attribute :age, "Integer", default: -> { 18 }
+    attribute :balance, "Decimal", default: -> { BigDecimal("0.0") }
+    attribute :preferences, :hash, default: -> { { notifications: true } }
+    attribute :role, :string, values: %w[user admin], default: -> { "user" }
+    attribute :status, :string
+
+    xml do
+      root "WithoutRenderDefault"
+
+      map_attribute "age", to: :age
+      map_attribute "role", to: :role
+
+      map_element "name", to: :name
+      map_element "balance", to: :balance
+      map_element "preferences", to: :preferences
+      map_element "status", to: :status
+    end
+  end
+end
+
 RSpec.describe Defaults do
   let(:attributes) do
     {
@@ -54,6 +77,7 @@ RSpec.describe Defaults do
       role: "admin",
     }
   end
+
   let(:model) { described_class.new(attributes) }
 
   let(:model_xml) do
@@ -75,6 +99,7 @@ RSpec.describe Defaults do
       </Defaults>
     XML
   end
+
   let(:attributes_yaml) do
     {
       "name" => "John Doe",
@@ -93,6 +118,20 @@ RSpec.describe Defaults do
     expect(default_model.large_number).to eq(0)
     expect(default_model.email).to eq("example@example.com")
     expect(default_model.role).to eq("user")
+  end
+
+  context "render_default is false" do
+    let(:xml) do
+      <<~XML.strip
+        <WithoutRenderDefault age="20">
+          <status>Testing</status>
+        </WithoutRenderDefault>
+      XML
+    end
+
+    it "does not output default values to xml" do
+      expect(DefaultsSpec::WithoutRenderDefault.from_xml(xml).to_xml).to eq(xml)
+    end
   end
 
   it "serializes to XML" do

@@ -54,6 +54,10 @@ module Lutaml
         @raw
       end
 
+      def render_default?
+        !!@options[:render_default]
+      end
+
       def default
         value = if delegate
                   type.attributes[to].default

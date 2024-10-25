@@ -43,6 +43,7 @@ module Lutaml
         name,
         to: nil,
         render_nil: false,
+        render_default: false,
         with: {},
         delegate: nil,
         namespace: (namespace_set = false
@@ -56,6 +57,7 @@ module Lutaml
           name,
           to: to,
           render_nil: render_nil,
+          render_default: render_default,
           with: with,
           delegate: delegate,
           namespace: namespace,
@@ -71,6 +73,7 @@ module Lutaml
         name,
         to: nil,
         render_nil: false,
+        render_default: false,
         with: {},
         delegate: nil,
         namespace: (namespace_set = false
@@ -84,6 +87,7 @@ module Lutaml
           name,
           to: to,
           render_nil: render_nil,
+          render_default: render_default,
           with: with,
           delegate: delegate,
           namespace: namespace,
@@ -101,6 +105,7 @@ module Lutaml
       def map_content(
         to: nil,
         render_nil: false,
+        render_default: false,
         with: {},
         delegate: nil,
         mixed: false
@@ -111,6 +116,7 @@ module Lutaml
           nil,
           to: to,
           render_nil: render_nil,
+          render_default: render_default,
           with: with,
           delegate: delegate,
           mixed_content: mixed,

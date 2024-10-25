@@ -12,7 +12,8 @@ module XmlAdapterSpec
 
     xml do
       root "mstyle"
-      map_attribute :displaystyle, to: :displaystyle
+
+      map_attribute :displaystyle, to: :displaystyle, render_default: true
     end
   end
 
@@ -22,10 +23,11 @@ module XmlAdapterSpec
 
     xml do
       root "math"
+
       map_attribute :display, to: :display
       map_attribute "color", to: :color, delegate: :style
-      map_attribute "finish", to: :finish, delegate: :style
-      map_element :mstyle, to: :style
+      map_attribute "finish", to: :finish, delegate: :style, render_default: true
+      map_element :mstyle, to: :style, render_default: true
     end
   end
 end
