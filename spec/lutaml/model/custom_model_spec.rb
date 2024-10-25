@@ -5,7 +5,7 @@ class CustomModelChild
 end
 
 class CustomModelParent
-  attr_accessor :first_name, :last_name, :child_mapper
+  attr_accessor :first_name, :middle_name, :last_name, :child_mapper
 
   def name
     "#{first_name} #{last_name}"
@@ -28,11 +28,13 @@ class CustomModelParentMapper < Lutaml::Model::Serializable
   model CustomModelParent
 
   attribute :first_name, Lutaml::Model::Type::String
+  attribute :middle_name, Lutaml::Model::Type::String
   attribute :last_name, Lutaml::Model::Type::String
   attribute :child_mapper, CustomModelChildMapper
 
   xml do
     map_element :first_name, to: :first_name
+    map_element :middle_name, to: :middle_name
     map_element :last_name, to: :last_name
     map_element :CustomModelChild, with: { to: :child_to_xml, from: :child_from_xml }
   end
