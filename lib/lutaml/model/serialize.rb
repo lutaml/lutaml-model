@@ -351,7 +351,7 @@ module Lutaml
           end
 
           defaults_used.each do |attribute_name|
-            instance.using_default_for(attribute_name)
+            instance.using_default_for(attribute_name) if instance.respond_to?(:using_default_for)
           end
 
           instance
