@@ -357,7 +357,7 @@ module Lutaml
           instance
         end
 
-        def apply_hash_mapping(doc, instance, format, options = {})
+        def apply_hash_mapping(doc, instance, format, _options = {})
           mappings = mappings_for(format).mappings
           mappings.each do |rule|
             raise "Attribute '#{rule.to}' not found in #{self}" unless valid_rule?(rule)

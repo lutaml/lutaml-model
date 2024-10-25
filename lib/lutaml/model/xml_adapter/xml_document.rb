@@ -257,7 +257,7 @@ module Lutaml
         end
 
         def render_element?(rule, element, value)
-           render_default?(rule, element) && render_value?(rule, value)
+          render_default?(rule, element) && render_value?(rule, value)
         end
 
         def render_value?(rule, value)

@@ -120,7 +120,7 @@ RSpec.describe Defaults do
     expect(default_model.role).to eq("user")
   end
 
-  context "render_default is false" do
+  context "when render_default is false" do
     let(:xml) do
       <<~XML.strip
         <WithoutRenderDefault age="20">
