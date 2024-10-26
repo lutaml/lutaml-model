@@ -668,8 +668,10 @@ end
 > #<example value="12"></example>
 ----
 
-The map_attribute method does not inherit the root element's namespace. If you need to specify a namespace for an attribute,
-you must explicitly declare the namespace and prefix in the map_attribute method.
+The `map_attribute` method does not inherit the root element's namespace.
+To specify a namespace for an attribute, please explicitly declare the
+*namespace* and *prefix* in the `map_attribute` method.
+
 [example]
 ====
 The following class will parse the XML snippet below:
@@ -1081,7 +1083,7 @@ end
 ----
 ====
 
-TODO: How to create mixed content from `#new`?
+// TODO: How to create mixed content from `#new`?
 
 [[xml-schema-location]]
 ==== Automatic support of `xsi:schemaLocation`
