@@ -397,7 +397,7 @@ module Lutaml
                     value
                   end
 
-          if attr && !rule.content_mapping?
+          if attr && !rule.content_mapping? && !rule.custom_methods[:from]
             value = attr.cast(
               value,
               :xml,

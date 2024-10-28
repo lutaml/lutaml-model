@@ -11,7 +11,7 @@ module Lutaml
                     :parent_document
 
         def initialize(
-          name,
+          node,
           attributes = {},
           children = [],
           text = nil,
@@ -19,8 +19,8 @@ module Lutaml
           namespace_prefix: nil,
           default_namespace: nil
         )
-          @name = extract_name(name)
-          @namespace_prefix = namespace_prefix || extract_namespace_prefix(name)
+          @name = extract_name(node)
+          @namespace_prefix = namespace_prefix || extract_namespace_prefix(node)
           @attributes = attributes # .map { |k, v| XmlAttribute.new(k, v) }
           @children = children
           @text = text
@@ -79,18 +79,30 @@ module Lutaml
           namespaces[nil] || @parent_document&.namespaces&.dig(nil)
         end
 
-        def extract_name(name)
-          n = name.to_s.split(":")
+        def extract_name(node)
+          name = name_from_node(node)
+
+          n = name.split(":")
           return name if n.length <= 1
 
           n[1..].join(":")
         end
 
-        def extract_namespace_prefix(name)
+        def extract_namespace_prefix(node)
+          name = name_from_node(node)
+
           n = name.to_s.split(":")
           return if n.length <= 1
 
           n.first
+        end
+
+        def name_from_node(node)
+          if node.is_a?(String)
+            node
+          else
+            node.name.to_s
+          end
         end
 
         def order

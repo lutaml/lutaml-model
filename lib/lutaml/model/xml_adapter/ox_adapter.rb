@@ -16,7 +16,7 @@ module Lutaml
           builder = Builder::Ox.build
 
           if @root.is_a?(Lutaml::Model::XmlAdapter::OxElement)
-            @root.to_xml(builder)
+            @root.build_xml(builder)
           elsif ordered?(@root, options)
             build_ordered_element(builder, @root, options)
           else
@@ -117,7 +117,7 @@ module Lutaml
             end
 
             super(
-              node.name.to_s,
+              node,
               attributes,
               parse_children(node, root_node: root_node || self),
               node.text,
@@ -126,7 +126,13 @@ module Lutaml
           end
         end
 
-        def to_xml(builder = nil)
+        def to_xml
+          return text if text?
+
+          build_xml.xml.to_s
+        end
+
+        def build_xml(builder = nil)
           builder ||= Builder::Ox.build
           attrs = build_attributes(self)
 
@@ -134,9 +140,11 @@ module Lutaml
             builder.add_text(builder, text)
           else
             builder.create_and_add_element(name, attributes: attrs) do |el|
-              children.each { |child| child.to_xml(el) }
+              children.each { |child| child.build_xml(el) }
             end
           end
+
+          builder
         end
 
         def namespace_attributes(attributes)

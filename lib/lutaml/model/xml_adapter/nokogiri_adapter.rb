@@ -15,7 +15,7 @@ module Lutaml
         def to_xml(options = {})
           builder = Builder::Nokogiri.build(encoding: "UTF-8") do |xml|
             if root.is_a?(Lutaml::Model::XmlAdapter::NokogiriElement)
-              root.to_xml(xml)
+              root.build_xml(xml)
             else
               mapper_class = options[:mapper_class] || @root.class
               options[:xml_attributes] =
@@ -89,6 +89,7 @@ module Lutaml
                   options.merge(
                     attribute: attribute_def,
                     rule: element_rule,
+                    mapper_class: mapper_class,
                   ),
                 )
               end
@@ -124,9 +125,11 @@ module Lutaml
               namespace_prefix: attr.namespace&.prefix,
             )
           end
+
           default_namespace = node.namespace&.href if root_node.nil?
+
           super(
-            node.name,
+            node,
             attributes,
             parse_all_children(node, root_node: root_node || self, default_namespace: default_namespace),
             node.text,
@@ -141,7 +144,13 @@ module Lutaml
           children.empty? && text.length.positive?
         end
 
-        def to_xml(builder = nil)
+        def to_xml
+          return text if text?
+
+          build_xml.doc.root.to_xml
+        end
+
+        def build_xml(builder = nil)
           builder ||= Builder::Nokogiri.build
 
           if name == "text"
@@ -149,7 +158,7 @@ module Lutaml
           else
             builder.public_send(name, build_attributes(self)) do |xml|
               children.each do |child|
-                child.to_xml(xml)
+                child.build_xml(xml)
               end
             end
           end
