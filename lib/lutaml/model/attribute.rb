@@ -9,7 +9,7 @@ module Lutaml
         delegate
         collection
         values
-      ]
+      ].freeze
 
       def initialize(name, type, options = {})
         @name = name
