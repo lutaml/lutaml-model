@@ -464,6 +464,7 @@ class Glaze < Lutaml::Model::Serializable
   end
 end
 ----
+====
 
 .Attributes with `render_default: true` are rendered when the value is identical to the default
 [example]
