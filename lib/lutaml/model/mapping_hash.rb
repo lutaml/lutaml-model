@@ -1,7 +1,7 @@
 module Lutaml
   module Model
     class MappingHash < Hash
-      attr_accessor :ordered
+      attr_accessor :ordered, :node
 
       def initialize
         @ordered = false

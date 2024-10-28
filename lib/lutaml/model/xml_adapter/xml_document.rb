@@ -73,6 +73,7 @@ module Lutaml
 
         def parse_element(element, klass = nil, format = nil)
           result = Lutaml::Model::MappingHash.new
+          result.node = element
           result.item_order = element.order
 
           element.children.each_with_object(result) do |child, hash|

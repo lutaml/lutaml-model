@@ -92,6 +92,60 @@ module CustomModelSpecs
       map_element :sup, to: :sup, delegate: :id
     end
   end
+
+  class BibliographicItem
+    attr_accessor :type, :title, :schema_version, :language
+
+    def initialize(**attr)
+      @type = attr["type"]
+      @title = attr["title"]
+      @schema_version = attr["schema_version"]
+      @language = attr["language"]
+    end
+  end
+
+  class Bibdata < Lutaml::Model::Serializable
+    model BibliographicItem
+  end
+
+  class MixedWithNestedContent < Lutaml::Model::Serializable
+    attribute :street, :string, raw: true
+    attribute :city, :string, raw: true
+    attribute :bibdata, Bibdata
+
+    xml do
+      root "MixedWithNestedContent", mixed: true
+
+      map_element "street", to: :street
+      map_element "city", to: :city
+      map_element "bibdata",
+                  to: :bibdata,
+                  with: { from: :bibdata_from_xml, to: :bibdata_to_xml }
+    end
+
+    def bibdata_from_xml(model, value)
+      model.bibdata = BibliographicItem.new(
+        "type" => value["type"],
+        "title" => value["title"],
+        "language" => value["title"]["language"],
+        "schema_version" => value["schema-version"],
+      )
+    end
+
+    def bibdata_to_xml(model, _parent, doc)
+      attributes = {
+        "type" => model.bibdata.type,
+        "schema-version" => model.bibdata.schema_version,
+      }
+      lang = model.bibdata.language
+
+      doc.create_and_add_element("bibdata", attributes: attributes) do
+        doc.create_and_add_element("title", attributes: { language: lang }) do
+          doc.add_text(doc, model.bibdata.title.text)
+        end
+      end
+    end
+  end
 end
 
 RSpec.describe "CustomModel" do
@@ -315,6 +369,27 @@ RSpec.describe "CustomModel" do
         docid = CustomModelSpecs::Docid.from_xml(xml)
 
         expect(CustomModelSpecs::Docid.to_xml(docid)).to eq(xml)
+      end
+    end
+
+    describe "custom methods with custom model" do
+      it "uses delegate to for child mapper class" do
+        xml = <<~XML
+          <MixedWithNestedContent>
+            <street>
+              A <p>b</p> B <p>c</p> C
+            </street>
+            <bibdata type="collection" schema-version="v1.2.8">
+              <title language="en">
+                JCGM Collection 1
+              </title>
+            </bibdata>
+          </MixedWithNestedContent>
+        XML
+
+        bibdata = CustomModelSpecs::MixedWithNestedContent.from_xml(xml)
+
+        expect(bibdata.to_xml).to be_equivalent_to(xml)
       end
     end
   end
