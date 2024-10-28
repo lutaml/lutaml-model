@@ -66,8 +66,14 @@ module Lutaml
             xml.text(text)
           end
 
-          def add_text(element, text)
+          def add_text(element, text, cdata: false)
+            return element.cdata(text) if cdata
+
             element << text
+          end
+
+          def add_cdata(element, value)
+            element.cdata(value)
           end
 
           # Add XML namespace to document

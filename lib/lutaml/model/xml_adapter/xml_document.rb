@@ -152,16 +152,16 @@ module Lutaml
             )
           elsif rule.prefix_set?
             xml.create_and_add_element(rule.name, prefix: prefix) do
-              add_value(xml, value, attribute)
+              add_value(xml, value, attribute, cdata: rule.cdata)
             end
           else
             xml.create_and_add_element(rule.name) do
-              add_value(xml, value, attribute)
+              add_value(xml, value, attribute, cdata: rule.cdata)
             end
           end
         end
 
-        def add_value(xml, value, attribute)
+        def add_value(xml, value, attribute, cdata: false)
           if !value.nil?
             serialized_value = attribute.type.serialize(value)
 
@@ -172,7 +172,7 @@ module Lutaml
                 end
               end
             else
-              xml.add_text(xml, serialized_value)
+              xml.add_text(xml, serialized_value, cdata: cdata)
             end
           end
         end
@@ -244,7 +244,7 @@ module Lutaml
           value = attribute_value_for(element, rule)
           return unless render_element?(rule, element, value)
 
-          xml.add_text(xml, value)
+          xml.add_text(xml, value, cdata: rule.cdata)
         end
 
         def process_content_mapping(element, content_rule, xml)
@@ -261,7 +261,7 @@ module Lutaml
             text = content_rule.serialize(element)
             text = text.join if text.is_a?(Array)
 
-            xml.add_text(xml, text)
+            xml.add_text(xml, text, cdata: content_rule.cdata)
           end
         end
 

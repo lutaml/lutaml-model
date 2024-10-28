@@ -74,10 +74,12 @@ module Lutaml
               value = attribute_value_for(element, element_rule)
 
               if element_rule == xml_mapping.content_mapping
+                next if element_rule.cdata && name == "text"
+
                 text = xml_mapping.content_mapping.serialize(element)
                 text = text[curr_index] if text.is_a?(Array)
 
-                next prefixed_xml.text(text) if element.mixed?
+                next prefixed_xml.add_text(xml, text, cdata: element_rule.cdata) if element.mixed?
 
                 content << text
               elsif !value.nil? || element_rule.render_nil?

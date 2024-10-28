@@ -3,7 +3,7 @@ require_relative "mapping_rule"
 module Lutaml
   module Model
     class XmlMappingRule < MappingRule
-      attr_reader :namespace, :prefix, :mixed_content, :default_namespace
+      attr_reader :namespace, :prefix, :mixed_content, :default_namespace, :cdata
 
       def initialize(
         name,
@@ -15,6 +15,7 @@ module Lutaml
         namespace: nil,
         prefix: nil,
         mixed_content: false,
+        cdata: false,
         namespace_set: false,
         prefix_set: false,
         attribute: false,
@@ -38,6 +39,7 @@ module Lutaml
                      end
         @prefix = prefix
         @mixed_content = mixed_content
+        @cdata = cdata
 
         @default_namespace = default_namespace
 
@@ -59,6 +61,10 @@ module Lutaml
 
       def raw_mapping?
         name == "__raw_mapping"
+      end
+
+      def content_key
+        cdata ? "#cdata-section" : "text"
       end
 
       def mixed_content?

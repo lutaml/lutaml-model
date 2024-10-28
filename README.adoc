@@ -1189,6 +1189,57 @@ end
 ----
 ====
 
+==== CDATA Nodes
+
+You can use cdata: true option on map_element and map_content to handle CDATA nodes. It reads cdata or string, produce only cdata and cdata: false reads cdata or string, produce only string.
+
+Syntax:
+
+[source,ruby]
+----
+xml do
+  map_content to: :name_of_attribute, cdata: true
+  map_element :name, to: :name, cdata: false
+end
+----
+
+.Using `cdata` to map cdata content
+[example]
+====
+The following class will parse the XML snippet below:
+
+[source,ruby]
+----
+class Example < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :description, :string
+  attribute :title, :string
+  attribute :note, :string
+
+  xml do
+    root 'example'
+    map_element :name, to: :name, cdata: true
+    map_content to: :description, cdata: true
+    map_element :title, to: :title, cdata: false
+    map_element :note, to: :note, cdata: false
+  end
+end
+----
+
+[source,xml]
+----
+<example><name><![CDATA[John]]></name><![CDATA[here is the description]]><title><![CDATA[Lutaml]]></title><note>Careful</note></example>
+----
+
+[source,ruby]
+----
+> Example.from_xml(xml)
+> #<Example:0x0000000104ac7240 @name="John" @description="here is the description" @title="Lutaml" @note="Careful">
+> Example.new(name: "John", description: "here is the description", title: "Lutaml", note: "Careful").to_xml
+> #<example><name><![CDATA[John]]></name><![CDATA[here is the description]]><title>Lutaml</title><note>Careful</note></example>
+----
+====
+
 
 
 ==== Example for mapping

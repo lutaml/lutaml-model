@@ -56,15 +56,15 @@ module Lutaml
                                                        mapper_class: mapper_class)
               value = attribute_value_for(element, element_rule)
 
+              next if element_rule == xml_mapping.content_mapping && element_rule.cdata && name == "text"
+
               if element_rule == xml_mapping.content_mapping
                 text = element.send(xml_mapping.content_mapping.to)
                 text = text[curr_index] if text.is_a?(Array)
 
-                if element.mixed?
-                  el.add_text(el, text)
-                else
-                  content << text
-                end
+                next el.add_text(el, text, cdata: element_rule.cdata) if element.mixed?
+
+                content << text
               elsif !value.nil? || element_rule.render_nil?
                 value = value[curr_index] if attribute_def.collection?
 
@@ -88,10 +88,13 @@ module Lutaml
 
       class OxElement < XmlElement
         def initialize(node, root_node: nil)
-          if node.is_a?(String)
+          case node
+          when String
             super("text", {}, [], node, parent_document: root_node)
-          elsif node.is_a?(Ox::Comment)
+          when Ox::Comment
             super("comment", {}, [], node.value, parent_document: root_node)
+          when Ox::CData
+            super("#cdata-section", {}, [], node.value, parent_document: root_node)
           else
             namespace_attributes(node.attributes).each do |(name, value)|
               if root_node
