@@ -224,7 +224,6 @@ module Lutaml
               mapping.map_element(
                 name.to_s,
                 to: name,
-                render_nil: attr.render_nil?,
               )
             end
 
