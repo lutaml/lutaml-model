@@ -343,7 +343,7 @@ module Lutaml
             value = if rule.raw_mapping?
                       doc.node.inner_xml
                     elsif rule.content_mapping?
-                      doc["text"]
+                      doc[rule.content_key]
                     elsif doc.key_exist?(rule.namespaced_name(options[:default_namespace]))
                       doc.fetch(rule.namespaced_name(options[:default_namespace]))
                     else
@@ -399,12 +399,12 @@ module Lutaml
 
           value = if value.is_a?(Array)
                     value.map do |v|
-                      text_hash?(attr, v) ? v["text"] : v
+                      text_hash?(attr, v) ? v.text : v
                     end
                   elsif attr&.raw? && value
                     value.node.children.map(&:to_xml).join
                   elsif text_hash?(attr, value)
-                    value["text"]
+                    value.text
                   else
                     value
                   end
@@ -428,7 +428,7 @@ module Lutaml
 
         def text_hash?(attr, value)
           return false unless value.is_a?(Hash)
-          return value.keys == ["text"] unless attr
+          return value.one? && value.text? unless attr
 
           !(attr.type <= Serialize) && attr.type != Lutaml::Model::Type::Hash
         end

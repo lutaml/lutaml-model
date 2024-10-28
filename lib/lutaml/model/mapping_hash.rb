@@ -28,6 +28,14 @@ module Lutaml
         @item_order = order
       end
 
+      def text
+        self["#cdata-section"] || self["text"]
+      end
+
+      def text?
+        key?("#cdata-section") || key?("text")
+      end
+
       def ordered?
         @ordered
       end

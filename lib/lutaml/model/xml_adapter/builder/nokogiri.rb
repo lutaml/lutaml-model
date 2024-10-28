@@ -51,13 +51,19 @@ module Lutaml
             end
           end
 
-          def add_text(element, text)
+          def add_text(element, text, cdata: false)
+            return add_cdata(element, text) if cdata
+
             if element.is_a?(self.class)
               element = element.xml.parent
             end
 
             text_node = ::Nokogiri::XML::Text.new(text.to_s, element)
             element.add_child(text_node)
+          end
+
+          def add_cdata(element, value)
+            element.cdata(value)
           end
 
           def add_namespace_prefix(prefix)

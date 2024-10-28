@@ -47,6 +47,7 @@ module Lutaml
         render_default: false,
         with: {},
         delegate: nil,
+        cdata: false,
         namespace: (namespace_set = false
                     nil),
         prefix: (prefix_set = false
@@ -61,6 +62,7 @@ module Lutaml
           render_default: render_default,
           with: with,
           delegate: delegate,
+          cdata: cdata,
           namespace: namespace,
           default_namespace: namespace_uri,
           prefix: prefix,
@@ -109,7 +111,8 @@ module Lutaml
         render_default: false,
         with: {},
         delegate: nil,
-        mixed: false
+        mixed: false,
+        cdata: false
       )
         validate!("content", to, with)
 
@@ -121,6 +124,7 @@ module Lutaml
           with: with,
           delegate: delegate,
           mixed_content: mixed,
+          cdata: cdata,
         )
       end
 
@@ -211,7 +215,7 @@ module Lutaml
       end
 
       def find_by_name(name)
-        if name.to_s == "text"
+        if ["text", "#cdata-section"].include?(name.to_s)
           content_mapping
         else
           mappings.detect do |rule|
