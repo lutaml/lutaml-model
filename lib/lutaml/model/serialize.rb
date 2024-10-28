@@ -220,7 +220,7 @@ module Lutaml
           klass = format == :xml ? XmlMapping : KeyValueMapping
 
           klass.new.tap do |mapping|
-            attributes&.each do |name, attr|
+            attributes&.each_key do |name|
               mapping.map_element(
                 name.to_s,
                 to: name,
