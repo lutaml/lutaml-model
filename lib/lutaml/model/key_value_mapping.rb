@@ -13,6 +13,7 @@ module Lutaml
         name,
         to: nil,
         render_nil: false,
+        render_default: false,
         with: {},
         delegate: nil,
         child_mappings: nil
@@ -23,6 +24,7 @@ module Lutaml
           name,
           to: to,
           render_nil: render_nil,
+          render_default: render_default,
           with: with,
           delegate: delegate,
           child_mappings: child_mappings,
