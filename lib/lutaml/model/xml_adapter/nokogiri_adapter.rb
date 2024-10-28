@@ -73,11 +73,9 @@ module Lutaml
                 text = xml_mapping.content_mapping.serialize(element)
                 text = text[curr_index] if text.is_a?(Array)
 
-                if element.mixed?
-                  prefixed_xml.text text
-                else
-                  content << text
-                end
+                next prefixed_xml.text(text) if element.mixed?
+
+                content << text
               elsif !value.nil? || element_rule.render_nil?
                 value = value[curr_index] if attribute_def.collection?
 

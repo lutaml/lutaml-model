@@ -54,7 +54,7 @@ module Lutaml
               element = element.xml.parent
             end
 
-            add_element(element, ::Nokogiri::XML::Text.new(text.to_s, xml.doc))
+            element << text.to_s
           end
 
           def add_namespace_prefix(prefix)

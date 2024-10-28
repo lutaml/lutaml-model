@@ -10,6 +10,8 @@ module Lutaml
                     :namespace_prefix,
                     :parent_document
 
+        attr_accessor :adapter_node
+
         def initialize(
           node,
           attributes = {},
@@ -21,11 +23,20 @@ module Lutaml
         )
           @name = extract_name(node)
           @namespace_prefix = namespace_prefix || extract_namespace_prefix(node)
-          @attributes = attributes # .map { |k, v| XmlAttribute.new(k, v) }
+          @attributes = attributes
           @children = children
           @text = text
           @parent_document = parent_document
           @default_namespace = default_namespace
+
+          self.adapter_node = node
+        end
+
+        # This tells which attributes to pretty print, So we remove the
+        # @parent_document and @adapter_node because they were causing
+        # so much repeatative output.
+        def pretty_print_instance_variables
+          (instance_variables - %i[@adapter_node @parent_document]).sort
         end
 
         def name
