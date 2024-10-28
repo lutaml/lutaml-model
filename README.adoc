@@ -742,6 +742,7 @@ end
 > Example.new(value: 12).to_xml
 > #<example value="12"></example>
 ----
+====
 
 The `map_attribute` method does not inherit the root element's namespace.
 To specify a namespace for an attribute, please explicitly declare the
