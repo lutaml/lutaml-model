@@ -50,6 +50,34 @@ module Lutaml
           end
         end
 
+        def add_accessor_if_not_defined(klass, attribute)
+          add_getter_if_not_defined(klass, attribute)
+          add_setter_if_not_defined(klass, attribute)
+        end
+
+        def add_boolean_accessor_if_not_defined(klass, attribute)
+          add_boolean_getter_if_not_defined(klass, attribute)
+          add_setter_if_not_defined(klass, attribute)
+        end
+
+        def add_getter_if_not_defined(klass, attribute)
+          add_method_if_not_defined(klass, attribute) do
+            instance_variable_get(:"@__#{attribute}")
+          end
+        end
+
+        def add_boolean_getter_if_not_defined(klass, attribute)
+          add_method_if_not_defined(klass, "#{attribute}?") do
+            !!instance_variable_get(:"@__#{attribute}")
+          end
+        end
+
+        def add_setter_if_not_defined(klass, attribute)
+          add_method_if_not_defined(klass, "#{attribute}=") do |value|
+            instance_variable_set(:"@__#{attribute}", value)
+          end
+        end
+
         def deep_dup(hash)
           return hash if hash.nil?
 

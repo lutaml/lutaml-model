@@ -40,35 +40,30 @@ module Lutaml
         def model(klass = nil)
           if klass
             @model = klass
-            add_order_handling_methods_to_model(klass)
+            add_custom_handling_methods_to_model(klass)
           else
             @model
           end
         end
 
-        def add_order_handling_methods_to_model(klass)
-          Utils.add_method_if_not_defined(klass, :ordered=) do |ordered|
-            @ordered = ordered
+        def add_custom_handling_methods_to_model(klass)
+          Utils.add_boolean_accessor_if_not_defined(klass, :ordered)
+          Utils.add_boolean_accessor_if_not_defined(klass, :mixed)
+          Utils.add_accessor_if_not_defined(klass, :element_order)
+
+          Utils.add_method_if_not_defined(klass, :using_default_for) do |attribute_name|
+            @using_default ||= {}
+            @using_default[attribute_name] = true
           end
 
-          Utils.add_method_if_not_defined(klass, :ordered?) do
-            !!@ordered
+          Utils.add_method_if_not_defined(klass, :value_set_for) do |attribute_name|
+            @using_default ||= {}
+            @using_default[attribute_name] = false
           end
 
-          Utils.add_method_if_not_defined(klass, :mixed=) do |mixed|
-            @mixed = mixed
-          end
-
-          Utils.add_method_if_not_defined(klass, :mixed?) do
-            !!@mixed
-          end
-
-          Utils.add_method_if_not_defined(klass, :element_order=) do |order|
-            @element_order = order
-          end
-
-          Utils.add_method_if_not_defined(klass, :element_order) do
-            @element_order
+          Utils.add_method_if_not_defined(klass, :using_default?) do |attribute_name|
+            @using_default ||= {}
+            !!@using_default[attribute_name]
           end
         end
 
@@ -160,6 +155,7 @@ module Lutaml
           mappings.each_with_object({}) do |rule, hash|
             name = rule.to
             next if except&.include?(name) || (only && !only.include?(name))
+            next if !rule.render_default? && instance.using_default?(rule.to)
 
             next handle_delegate(instance, rule, hash, format) if rule.delegate
 
@@ -351,7 +347,7 @@ module Lutaml
           end
 
           defaults_used.each do |attribute_name|
-            instance.using_default_for(attribute_name) if instance.respond_to?(:using_default_for)
+            instance.using_default_for(attribute_name)
           end
 
           instance
