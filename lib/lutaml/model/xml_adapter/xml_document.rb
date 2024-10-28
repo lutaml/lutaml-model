@@ -81,11 +81,7 @@ module Lutaml
             value = if child.text?
                       child.text
                     elsif attr&.raw?
-                      child.children.map do |c|
-                        next c.text if c.text?
-
-                        c.to_xml.doc.root.to_xml({})
-                      end.join
+                      child.children.map(&:to_xml).join
                     else
                       parse_element(child, attr&.type || klass, format)
                     end
