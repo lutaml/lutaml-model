@@ -3,10 +3,20 @@ module Lutaml
     class Attribute
       attr_reader :name, :type, :options
 
+      ALLOWED_OPTIONS = %i[
+        raw
+        default
+        delegate
+        collection
+        values
+      ]
+
       def initialize(name, type, options = {})
         @name = name
         @type = cast_type(type)
         @options = options
+        validate_options!
+
         @raw = !!options[:raw]
 
         if collection?
@@ -54,10 +64,6 @@ module Lutaml
         @raw
       end
 
-      def render_default?
-        !!@options[:render_default]
-      end
-
       def default
         value = if delegate
                   type.attributes[to].default
@@ -68,10 +74,6 @@ module Lutaml
                 end
 
         cast_value(value)
-      end
-
-      def render_nil?
-        options.fetch(:render_nil, false)
       end
 
       def enum_values
@@ -205,6 +207,14 @@ module Lutaml
           type.apply_mappings(value, format, options)
         else
           Lutaml::Model::Type.cast(value, type)
+        end
+      end
+
+      private
+
+      def validate_options!
+        if (options = @options.keys - ALLOWED_OPTIONS).any?
+          raise StandardError, "Invalid options given for `#{name}` #{options}"
         end
       end
     end
