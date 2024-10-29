@@ -14,6 +14,8 @@ RSpec.describe Lutaml::Model::XmlAdapter::NokogiriAdapter do
   let(:document) { described_class.parse(xml_string) }
 
   context "parsing XML with namespaces" do
+    let(:child) { document.root.children[1] }
+
     it "parses the root element with default namespace" do
       expect(document.root.name).to eq("root")
       expect(document.root.namespace.uri).to eq("http://example.com/default")
@@ -21,14 +23,12 @@ RSpec.describe Lutaml::Model::XmlAdapter::NokogiriAdapter do
     end
 
     it "parses child element with prefixed namespace" do
-      child = document.root.children[1]
       expect(child.name).to eq("prefix:child")
       expect(child.namespace.uri).to eq("http://example.com/prefixed")
       expect(child.namespace.prefix).to eq("prefix")
     end
 
     it "parses attributes with and without namespaces" do
-      child = document.root.children[1]
       expect(child.attributes["attr"].value).to eq("value")
       expect(child.attributes["attr"].namespace).to be_nil
       expect(child.attributes["prefix:attr1"].value).to eq("prefixed_value")

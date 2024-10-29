@@ -227,16 +227,36 @@ module Lutaml
               )
             end
 
-            if (content_rule = xml_mapping.content_mapping)
-              if content_rule.custom_methods[:to]
-                @root.send(content_rule.custom_methods[:to], element,
-                           prefixed_xml.parent, prefixed_xml)
-              else
-                text = content_rule.serialize(element)
-                text = text.join if text.is_a?(Array)
-                prefixed_xml.add_text(xml, text)
-              end
-            end
+            process_content_mapping(element, xml_mapping.content_mapping, prefixed_xml)
+
+            process_raw_mapping(element, xml_mapping.raw_mapping, prefixed_xml)
+          end
+        end
+
+        def process_raw_mapping(element, rule, xml)
+          return unless rule
+
+          value = attribute_value_for(element, rule)
+          return unless render_element?(rule, element, value)
+
+          xml.add_text(xml, value)
+        end
+
+        def process_content_mapping(element, content_rule, xml)
+          return unless content_rule
+
+          if content_rule.custom_methods[:to]
+            @root.send(
+              content_rule.custom_methods[:to],
+              element,
+              xml.parent,
+              xml,
+            )
+          else
+            text = content_rule.serialize(element)
+            text = text.join if text.is_a?(Array)
+
+            xml.add_text(xml, text)
           end
         end
 

@@ -13,6 +13,7 @@ module Lutaml
         @elements = {}
         @attributes = {}
         @content_mapping = nil
+        @raw_mapping = nil
         @mixed_content = false
       end
 
@@ -123,7 +124,39 @@ module Lutaml
         )
       end
 
+      def map_all(
+        to:,
+        render_nil: false,
+        render_default: false,
+        delegate: nil,
+        with: {},
+        namespace: (namespace_set = false
+                    nil),
+        prefix: (prefix_set = false
+                 nil)
+      )
+        validate!("__raw_mapping", to, with)
+
+        rule = XmlMappingRule.new(
+          "__raw_mapping",
+          to: to,
+          render_nil: render_nil,
+          render_default: render_default,
+          with: with,
+          delegate: delegate,
+          namespace: namespace,
+          prefix: prefix,
+          default_namespace: namespace_uri,
+          namespace_set: namespace_set != false,
+          prefix_set: prefix_set != false,
+        )
+
+        @raw_mapping = rule
+      end
+
       def validate!(key, to, with)
+        validate_mappings!(key)
+
         if to.nil? && with.empty?
           msg = ":to or :with argument is required for mapping '#{key}'"
           raise IncorrectMappingArgumentsError.new(msg)
@@ -132,6 +165,16 @@ module Lutaml
         if !with.empty? && (with[:from].nil? || with[:to].nil?)
           msg = ":with argument for mapping '#{key}' requires :to and :from keys"
           raise IncorrectMappingArgumentsError.new(msg)
+        end
+      end
+
+      def validate_mappings!(key)
+        unless @raw_mapping.nil?
+          raise StandardError, "no other mappings are allowed with map_all"
+        end
+
+        if !mappings.empty? && key == "__raw_mapping"
+          raise StandardError, "map_all is not allowed with other mappings"
         end
       end
 
@@ -147,8 +190,12 @@ module Lutaml
         @content_mapping
       end
 
+      def raw_mapping
+        @raw_mapping
+      end
+
       def mappings
-        elements + attributes + [content_mapping].compact
+        elements + attributes + [content_mapping, raw_mapping].compact
       end
 
       def element(name)
