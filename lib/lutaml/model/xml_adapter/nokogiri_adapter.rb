@@ -49,6 +49,7 @@ module Lutaml
                          end
 
           tag_name = options[:tag_name] || xml_mapping.root_element
+          tag_name = "#{tag_name}_" if prefixed_xml.respond_to?(tag_name)
           prefixed_xml.public_send(tag_name, attributes) do
             if options.key?(:namespace_prefix) && !options[:namespace_prefix]
               xml.parent.namespace = nil
