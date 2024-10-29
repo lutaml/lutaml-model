@@ -155,6 +155,40 @@ module XmlMapping
                              prefix: "te"
     end
   end
+
+  class WithMapAll < Lutaml::Model::Serializable
+    attribute :all_content, :string
+
+    xml do
+      root "WithMapAll"
+
+      map_all to: :all_content
+    end
+  end
+
+  class WithoutMapAll < Lutaml::Model::Serializable
+    attribute :content, :string
+
+    xml do
+      root "WithoutMapAll"
+
+      map_content to: :content
+    end
+  end
+
+  class WithNestedMapAll < Lutaml::Model::Serializable
+    attribute :age, :integer
+    attribute :name, :string
+    attribute :description, WithMapAll
+
+    xml do
+      root "WithNestedMapAll"
+
+      map_attribute :age, to: :age
+      map_element :name, to: :name
+      map_element :description, to: :description
+    end
+  end
 end
 
 RSpec.describe Lutaml::Model::XmlMapping do
@@ -619,6 +653,103 @@ RSpec.describe Lutaml::Model::XmlMapping do
       it "duplicates to" do
         # `to` is symbol which are constant so object_id will be same
         expect(orig_mapping.to).to eq(dup_mapping.to)
+      end
+    end
+  end
+
+  describe "#map_all" do
+    context "when map_all is defined before any other mapping" do
+      let(:error_message) { "no other mappings are allowed with map_all" }
+
+      it "raise error when for map_element with map_all" do
+        expect do
+          XmlMapping::WithMapAll.xml do
+            map_element "ele", to: :ele
+          end
+        end.to raise_error(StandardError, error_message)
+      end
+
+      it "raise error when for map_attribute with map_all" do
+        expect do
+          XmlMapping::WithMapAll.xml do
+            map_attribute "attr", to: :attr
+          end
+        end.to raise_error(StandardError, error_message)
+      end
+
+      it "raise error when for map_content with map_all" do
+        expect do
+          XmlMapping::WithMapAll.xml do
+            map_content to: :text
+          end
+        end.to raise_error(StandardError, error_message)
+      end
+    end
+
+    context "when map_all is defined after other mappings" do
+      let(:error_message) { "map_all is not allowed with other mappings" }
+
+      it "raise error when for map_element with map_all" do
+        expect do
+          XmlMapping::WithoutMapAll.xml do
+            map_all to: :all_content
+          end
+        end.to raise_error(StandardError, error_message)
+      end
+    end
+
+    it "maps all the content including tags" do
+      inner_xml = "Str<sub>2</sub>text<sup>1</sup>123"
+      xml = "<WithMapAll>#{inner_xml}</WithMapAll>"
+
+      parsed = XmlMapping::WithMapAll.from_xml(xml)
+
+      expect(parsed.all_content).to eq(inner_xml)
+    end
+
+    it "round-trips xml" do
+      xml = "<WithMapAll>Str<sub>2</sub>text<sup>1</sup>123</WithMapAll>"
+
+      expect(XmlMapping::WithMapAll.from_xml(xml).to_xml).to eq(xml)
+    end
+
+    context "when nested content has map_all" do
+      let(:description) do
+        <<~DESCRIPTION
+          I'm a <b>web developer</b> with <strong>years</strong> of
+          <i>experience</i> in many programing languages.
+        DESCRIPTION
+      end
+
+      let(:xml) do
+        <<~XML
+          <WithNestedMapAll age="23">
+            <name>John Doe</name>
+            <description>
+              #{description}
+            </description>
+          </WithNestedMapAll>
+        XML
+      end
+
+      let(:parsed) do
+        XmlMapping::WithNestedMapAll.from_xml(xml)
+      end
+
+      it "maps description correctly" do
+        expect(parsed.description.all_content.strip).to eq(description.strip)
+      end
+
+      it "maps name correctly" do
+        expect(parsed.name).to eq("John Doe")
+      end
+
+      it "maps age correctly" do
+        expect(parsed.age).to eq(23)
+      end
+
+      it "round-trips xml" do
+        expect(parsed.to_xml).to be_equivalent_to(xml)
       end
     end
   end

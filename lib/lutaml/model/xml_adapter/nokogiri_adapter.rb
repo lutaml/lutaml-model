@@ -33,6 +33,16 @@ module Lutaml
 
         private
 
+        def prefix_xml(xml, mapping, options)
+          if options.key?(:namespace_prefix)
+            options[:namespace_prefix] ? xml[options[:namespace_prefix]] : xml
+          elsif mapping.namespace_prefix
+            xml[mapping.namespace_prefix]
+          else
+            xml
+          end
+        end
+
         def build_ordered_element(xml, element, options = {})
           mapper_class = options[:mapper_class] || element.class
           xml_mapping = mapper_class.mappings_for(:xml)
@@ -40,13 +50,7 @@ module Lutaml
 
           attributes = build_attributes(element, xml_mapping)&.compact
 
-          prefixed_xml = if options.key?(:namespace_prefix)
-                           options[:namespace_prefix] ? xml[options[:namespace_prefix]] : xml
-                         elsif xml_mapping.namespace_prefix
-                           xml[xml_mapping.namespace_prefix]
-                         else
-                           xml
-                         end
+          prefixed_xml = prefix_xml(xml, xml_mapping, options)
 
           tag_name = options[:tag_name] || xml_mapping.root_element
           tag_name = "#{tag_name}_" if prefixed_xml.respond_to?(tag_name)
@@ -146,6 +150,10 @@ module Lutaml
           return text if text?
 
           build_xml.doc.root.to_xml
+        end
+
+        def inner_xml
+          children.map(&:to_xml).join
         end
 
         def build_xml(builder = nil)

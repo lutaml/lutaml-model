@@ -332,7 +332,9 @@ module Lutaml
           mappings.each do |rule|
             raise "Attribute '#{rule.to}' not found in #{self}" unless valid_rule?(rule)
 
-            value = if rule.content_mapping?
+            value = if rule.raw_mapping?
+                      doc.node.inner_xml
+                    elsif rule.content_mapping?
                       doc["text"]
                     elsif doc.key_exist?(rule.namespaced_name)
                       doc.fetch(rule.namespaced_name)
@@ -397,16 +399,21 @@ module Lutaml
                     value
                   end
 
-          if attr && !rule.content_mapping? && !rule.custom_methods[:from]
-            value = attr.cast(
-              value,
-              :xml,
-              caller_class: self,
-              mixed_content: rule.mixed_content,
-            )
-          end
+          return value unless cast_value?(attr, rule)
 
-          value
+          attr.cast(
+            value,
+            :xml,
+            caller_class: self,
+            mixed_content: rule.mixed_content,
+          )
+        end
+
+        def cast_value?(attr, rule)
+          attr &&
+            !rule.raw_mapping? &&
+            !rule.content_mapping? &&
+            !rule.custom_methods[:from]
         end
 
         def text_hash?(attr, value)
