@@ -13,7 +13,7 @@ RSpec.describe Lutaml::Model::XmlAdapter::NokogiriAdapter do
 
   let(:document) { described_class.parse(xml_string) }
 
-  context "parsing XML with namespaces" do
+  context "when parsing XML with namespaces" do
     let(:child) { document.root.children[1] }
 
     it "parses the root element with default namespace" do
@@ -37,7 +37,7 @@ RSpec.describe Lutaml::Model::XmlAdapter::NokogiriAdapter do
     end
   end
 
-  context "generating XML with namespaces" do
+  context "when generating XML with namespaces" do
     it "generates XML with namespaces correctly" do
       xml_output = document.to_xml
       parsed_output = Nokogiri::XML(xml_output)
