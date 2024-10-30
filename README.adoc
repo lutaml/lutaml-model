@@ -636,10 +636,10 @@ end
 [source,ruby]
 ----
 class ExampleMapping < Lutaml::Model::Serializable
-  attribute :all_content, :string
+  attribute :description, :string
 
   xml do
-    map_all to: :all_content
+    map_all to: :description
   end
 end
 ----
