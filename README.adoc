@@ -618,6 +618,45 @@ end
 ----
 ====
 
+==== Mapping all content
+
+The `map_all` tag in XML mapping captures and maps all content within an XML element, including nested tags, attributes, and text nodes, into a single attribute in the target Ruby object. The `map_all` tag is exclusive and cannot be combined with other mappings (`map_element`, `map_attribute`, `map_content`) for the same element, ensuring it captures the entire inner XML content. An error is raised if `map_all` is defined alongside any other mapping in the same XML mapping context.
+
+Syntax:
+[source,ruby]
+----
+xml do
+  map_all to: :name_of_attribute
+end
+----
+
+.Mapping all the content using `map_all`
+[example]
+====
+[source,ruby]
+----
+class ExampleMapping < Lutaml::Model::Serializable
+  attribute :all_content, :string
+
+  xml do
+    map_all to: :all_content
+  end
+end
+----
+
+[source,xml]
+----
+<ExampleMapping>Content with <b>tags</b> and <i>formatting</i>.</ExampleMapping>
+----
+
+[source,ruby]
+----
+> parsed = ExampleMapping.from_xml(xml)
+> puts parsed.all_content
+# "Content with <b>tags</b> and <i>formatting</i>."
+----
+====
+
 ==== Mapping elements
 
 The `map_element` method maps an XML element to a data model attribute.
