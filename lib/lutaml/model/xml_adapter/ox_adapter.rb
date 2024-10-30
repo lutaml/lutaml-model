@@ -14,6 +14,7 @@ module Lutaml
 
         def to_xml(options = {})
           builder = Builder::Ox.build
+          builder.xml.instruct(:xml, encoding: options[:encoding] || "UTF-8", version: options[:version])
 
           if @root.is_a?(Lutaml::Model::XmlAdapter::OxElement)
             @root.build_xml(builder)
@@ -26,7 +27,7 @@ module Lutaml
           end
 
           xml_data = builder.xml.to_s
-          options[:declaration] ? declaration(options) + xml_data : xml_data
+          options[:declaration] ? xml_data : xml_data.sub(/\A<\?xml[^>]*\?>\n?/, "")
         end
 
         private
