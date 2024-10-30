@@ -1,13 +1,10 @@
-require "date"
-
 module Lutaml
   module Model
     module Type
-      # Date and time representation
-      class DateTime < Value
+      class Date < Value
         def self.cast(value)
           return if value.nil?
-          ::DateTime.parse(value.to_s).new_offset(0)
+          ::Date.parse(value.to_s)
         rescue ArgumentError
           nil
         end
@@ -17,7 +14,7 @@ module Lutaml
         end
       end
 
-      register(:date_time, Lutaml::Model::Type::DateTime)
+      register(:date, Lutaml::Model::Type::Date)
     end
   end
 end
