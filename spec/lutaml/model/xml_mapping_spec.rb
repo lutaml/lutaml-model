@@ -156,6 +156,16 @@ module XmlMapping
     end
   end
 
+  class SpecialCharContentWithMapAll < Lutaml::Model::Serializable
+    attribute :all_content, :string
+
+    xml do
+      root "SpecialCharContentWithMapAll"
+
+      map_all to: :all_content
+    end
+  end
+
   class WithMapAll < Lutaml::Model::Serializable
     attribute :all_content, :string
 
@@ -763,8 +773,9 @@ RSpec.describe Lutaml::Model::XmlMapping do
 
     it "round-trips xml" do
       xml = "<WithMapAll>Str<sub>2</sub>text<sup>1</sup>123</WithMapAll>"
+      expected_xml = "<WithMapAll>Str&lt;sub&gt;2&lt;/sub&gt;text&lt;sup&gt;1&lt;/sup&gt;123</WithMapAll>"
 
-      expect(XmlMapping::WithMapAll.from_xml(xml).to_xml).to eq(xml)
+      expect(XmlMapping::WithMapAll.from_xml(xml).to_xml).to eq(expected_xml)
     end
 
     context "when nested content has map_all" do
@@ -775,12 +786,30 @@ RSpec.describe Lutaml::Model::XmlMapping do
         DESCRIPTION
       end
 
+      let(:expected_description) do
+        <<~DESCRIPTION
+          I'm a &lt;b&gt;web developer&lt;/b&gt; with &lt;strong&gt;years&lt;/strong&gt; of
+          &lt;i&gt;experience&lt;/i&gt; in many programing languages.
+        DESCRIPTION
+      end
+
       let(:xml) do
         <<~XML
           <WithNestedMapAll age="23">
             <name>John Doe</name>
             <description>
               #{description}
+            </description>
+          </WithNestedMapAll>
+        XML
+      end
+
+      let(:expected_xml) do
+        <<~XML
+          <WithNestedMapAll age="23">
+            <name>John Doe</name>
+            <description>
+              #{expected_description}
             </description>
           </WithNestedMapAll>
         XML
@@ -803,7 +832,31 @@ RSpec.describe Lutaml::Model::XmlMapping do
       end
 
       it "round-trips xml" do
-        expect(parsed.to_xml).to be_equivalent_to(xml)
+        expect(parsed.to_xml).to be_equivalent_to(expected_xml)
+      end
+    end
+
+    context "when special char used in content with map all" do
+      it "round-trips xml" do
+        xml = <<~XML
+          <SpecialCharContentWithMapAll>
+            B <p>R&#x0026;C</p>
+            C <p>J&#8212;C</p>
+            O <p>A &amp; B </p>
+            F <p>Z &#x00A9; </p>
+          </SpecialCharContentWithMapAll>
+        XML
+
+        expected_xml = <<~XML.strip
+          <SpecialCharContentWithMapAll>
+            B &lt;p&gt;R&amp;amp;C&lt;/p&gt;
+            C &lt;p&gt;J&amp;#x2014;C&lt;/p&gt;
+            O &lt;p&gt;A &amp;amp; B &lt;/p&gt;
+            F &lt;p&gt;Z &amp;#xA9; &lt;/p&gt;
+          </SpecialCharContentWithMapAll>
+        XML
+
+        expect(XmlMapping::SpecialCharContentWithMapAll.from_xml(xml).to_xml).to eq(expected_xml)
       end
     end
   end

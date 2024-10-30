@@ -388,9 +388,22 @@ RSpec.describe "CustomModel" do
           </MixedWithNestedContent>
         XML
 
+        expected_xml = <<~XML
+          <MixedWithNestedContent>
+            <street>
+              A &lt;p&gt;b&lt;/p&gt; B &lt;p&gt;c&lt;/p&gt; C
+            </street>
+            <bibdata type="collection" schema-version="v1.2.8">
+              <title language="en">
+                JCGM Collection 1
+              </title>
+            </bibdata>
+          </MixedWithNestedContent>
+        XML
+
         bibdata = CustomModelSpecs::MixedWithNestedContent.from_xml(xml)
 
-        expect(bibdata.to_xml).to be_equivalent_to(xml)
+        expect(bibdata.to_xml).to be_equivalent_to(expected_xml)
       end
     end
   end

@@ -401,6 +401,8 @@ module Lutaml
                     value.map do |v|
                       text_hash?(attr, v) ? v["text"] : v
                     end
+                  elsif attr&.raw? && value
+                    value.node.children.map(&:to_xml).join
                   elsif text_hash?(attr, value)
                     value["text"]
                   else

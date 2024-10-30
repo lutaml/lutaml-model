@@ -18,6 +18,78 @@ module MixedContentSpec
     end
   end
 
+  class Source < Lutaml::Model::Serializable
+    attribute :content, :string
+
+    xml do
+      root "source"
+      map_content to: :content
+    end
+  end
+
+  class ElementCitation < Lutaml::Model::Serializable
+    attribute :source, Source
+
+    xml do
+      root "element-citation"
+      map_element "source", to: :source
+    end
+  end
+
+  class Ref < Lutaml::Model::Serializable
+    attribute :element_citation, ElementCitation
+
+    xml do
+      root "ref"
+      map_element "element-citation", to: :element_citation
+    end
+  end
+
+  class RefList < Lutaml::Model::Serializable
+    attribute :ref, Ref
+
+    xml do
+      root "ref-list"
+      map_element "ref", to: :ref
+    end
+  end
+
+  class Back < Lutaml::Model::Serializable
+    attribute :ref_list, RefList
+
+    xml do
+      root "back"
+      map_element "ref-list", to: :ref_list
+    end
+  end
+
+  class Article < Lutaml::Model::Serializable
+    attribute :back, Back
+
+    xml do
+      root "article"
+      map_element "back", to: :back
+    end
+  end
+
+  class SpecialCharContentWithMixedTrue < Lutaml::Model::Serializable
+    attribute :content, :string
+
+    xml do
+      root "SpecialCharContentWithMixedTrue", mixed: true
+      map_content to: :content
+    end
+  end
+
+  class SpecialCharContentWithRawAndMixedOption < Lutaml::Model::Serializable
+    attribute :special, :string, raw: true
+
+    xml do
+      root "SpecialCharContentWithRawOptionAndMixedOption", mixed: true
+      map_element :special, to: :special
+    end
+  end
+
   class RootMixedContent < Lutaml::Model::Serializable
     attribute :id, :string
     attribute :bold, :string, collection: true
@@ -82,12 +154,20 @@ module MixedContentSpec
       root "RootMixedContentNestedWithModel", mixed: true
 
       map_content to: :text
-
       map_attribute :id, to: :id
-
       map_element :sup, to: :sup
       map_element :sub, to: :sub
       map_element "MixedContentWithModel", to: :content
+    end
+  end
+
+  class TextualSupport < Lutaml::Model::Serializable
+    attribute :value, :string
+
+    xml do
+      root "TextualSupport"
+
+      map_element :value, to: :value
     end
   end
 end
@@ -343,6 +423,189 @@ RSpec.describe "MixedContent" do
             end
           end
         end.to raise_error(ArgumentError, /unknown keyword: :mixed/)
+      end
+    end
+
+    context "when special char used in content with mixed true" do
+      let(:xml) do
+        <<~XML
+          <SpecialCharContentWithMixedTrue>
+            Moon&#x0026;Mars Distanced&#x00A9;its &#8212; surface covered &amp; processed
+          </SpecialCharContentWithMixedTrue>
+        XML
+      end
+
+      describe ".from_xml" do
+        let(:expected_content) { "Moon&Mars Distanced©its — surface covered & processed" }
+
+        it "deserializes special char mixed content correctly" do
+          parsed = MixedContentSpec::SpecialCharContentWithMixedTrue.from_xml(xml)
+          expect(parsed.content.strip).to eq(expected_content)
+        end
+      end
+
+      describe ".to_xml" do
+        let(:expected_xml) { "Moon&amp;Mars Distanced©its — surface covered &amp; processed" }
+
+        it "serializes special char mixed content correctly" do
+          parsed = MixedContentSpec::SpecialCharContentWithMixedTrue.from_xml(xml)
+          serialized = parsed.to_xml
+
+          expect(serialized).to include(expected_xml)
+        end
+      end
+    end
+
+    context "when special char used in content read from xml file" do
+      let(:fixture) { File.read(fixture_path("xml/special_char.xml")) }
+
+      describe ".from_xml" do
+        it "deserializes special char mixed content correctly" do
+          parsed = MixedContentSpec::Article.from_xml(fixture)
+          expect(parsed.back.ref_list.ref.element_citation.source.content).to include("R&D")
+        end
+      end
+
+      describe ".to_xml" do
+        it "serializes special char mixed content correctly" do
+          parsed = MixedContentSpec::Article.from_xml(fixture)
+          serialized = parsed.to_xml
+
+          expect(serialized).to include("R&amp;D")
+        end
+      end
+    end
+
+    context "when special char entities used with raw true" do
+      let(:xml) do
+        <<~XML
+          <SpecialCharContentWithRawAndMixedOption>
+            <special>
+              B <p>R&#x0026;C</p>
+              C <p>J&#8212;C</p>
+              O <p>A &amp; B </p>
+              F <p>Z &#x00A9;S</p>
+            </special>
+          </SpecialCharContentWithRawAndMixedOption>
+        XML
+      end
+
+      describe ".from_xml" do
+        let(:expected_nokogiri_content) { "B <p>R&amp;C</p>\n    C <p>J&#x2014;C</p>\n    O <p>A &amp; B </p>\n    F <p>Z &#xA9;S</p>" }
+        let(:expected_ox_content) { "B <p>R&amp;C</p>\n C <p>J—C</p>\n O <p>A &amp; B </p>\n F <p>Z ©S</p>" }
+
+        it "deserializes special char mixed content correctly" do
+          parsed = MixedContentSpec::SpecialCharContentWithRawAndMixedOption.from_xml(xml)
+          expected_content = expected_nokogiri_content
+
+          if adapter_class == Lutaml::Model::XmlAdapter::OxAdapter
+            expected_content = expected_ox_content
+            parsed.special.force_encoding("UTF-8")
+          end
+
+          expect(parsed.special.strip).to eq(expected_content)
+        end
+      end
+
+      describe ".to_xml" do
+        let(:expected_nokogiri_xml) do
+          <<~XML
+            <SpecialCharContentWithRawOptionAndMixedOption><special>
+                B &lt;p&gt;R&amp;amp;C&lt;/p&gt;
+                C &lt;p&gt;J&amp;#x2014;C&lt;/p&gt;
+                O &lt;p&gt;A &amp;amp; B &lt;/p&gt;
+                F &lt;p&gt;Z &amp;#xA9;S&lt;/p&gt;
+              </special></SpecialCharContentWithRawOptionAndMixedOption>
+          XML
+        end
+
+        let(:expected_ox_xml) do
+          <<~XML
+            <SpecialCharContentWithRawOptionAndMixedOption>
+              <special> B &lt;p&gt;R&amp;amp;C&lt;/p&gt;
+                C &lt;p&gt;J—C&lt;/p&gt;
+                O &lt;p&gt;A &amp;amp; B &lt;/p&gt;
+                F &lt;p&gt;Z ©S&lt;/p&gt;
+              </special>
+              </SpecialCharContentWithRawOptionAndMixedOption>
+          XML
+        end
+
+        it "serializes special char mixed content correctly" do
+          parsed = MixedContentSpec::SpecialCharContentWithRawAndMixedOption.from_xml(xml)
+          serialized = parsed.to_xml
+
+          expected_output = adapter_class == Lutaml::Model::XmlAdapter::OxAdapter ? expected_ox_xml : expected_nokogiri_xml
+          expect(serialized).to be_equivalent_to(expected_output)
+        end
+      end
+    end
+
+    context "when special char used with raw true, remove & if entity not provided" do
+      let(:xml) do
+        <<~XML
+          <SpecialCharContentWithRawAndMixedOption>
+            <special>
+              B <p>R&C</p>
+            </special>
+          </SpecialCharContentWithRawAndMixedOption>
+        XML
+      end
+
+      describe ".from_xml" do
+        let(:expected_nokogiri_content) { "B <p>R</p>" }
+        let(:expected_ox_content) { "B <p>R&amp;C</p>" }
+
+        it "deserializes special char mixed content correctly" do
+          parsed = MixedContentSpec::SpecialCharContentWithRawAndMixedOption.from_xml(xml)
+
+          expected_output = adapter_class == Lutaml::Model::XmlAdapter::OxAdapter ? expected_ox_content : expected_nokogiri_content
+          expect(parsed.special.strip).to eq(expected_output)
+        end
+      end
+
+      describe ".to_xml" do
+        let(:expected_nokogiri_xml) { "B &lt;p&gt;R&lt;/p&gt;" }
+        let(:expected_ox_xml) { "B &lt;p&gt;R&amp;amp;C&lt;/p&gt;" }
+
+        it "serializes special char mixed content correctly" do
+          parsed = MixedContentSpec::SpecialCharContentWithRawAndMixedOption.from_xml(xml)
+          serialized = parsed.to_xml
+
+          expected_output = adapter_class == Lutaml::Model::XmlAdapter::OxAdapter ? expected_ox_xml : expected_nokogiri_xml
+          expect(serialized).to include(expected_output)
+        end
+      end
+    end
+
+    context "when special char used as full entities" do
+      let(:xml) do
+        <<~XML
+          <TextualSupport>
+            <value>&lt;computer security&gt; type of operation specified by an access right</value>
+          </TextualSupport>
+        XML
+      end
+
+      describe ".from_xml" do
+        let(:expected_content) { "<computer security> type of operation specified by an access right" }
+
+        it "deserializes special char mixed content correctly" do
+          parsed = MixedContentSpec::TextualSupport.from_xml(xml)
+
+          expect(parsed.value).to eq(expected_content)
+        end
+      end
+
+      describe ".to_xml" do
+        let(:expected_xml) { "<TextualSupport>\n  <value>&lt;computer security&gt; type of operation specified by an access right</value>\n</TextualSupport>" }
+
+        it "serializes special char mixed content correctly" do
+          parsed = MixedContentSpec::TextualSupport.from_xml(xml)
+          serialized = parsed.to_xml
+
+          expect(serialized.strip).to include(expected_xml)
+        end
       end
     end
   end
