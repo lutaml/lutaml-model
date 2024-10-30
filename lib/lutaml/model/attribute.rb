@@ -34,15 +34,17 @@ module Lutaml
 
       def cast_type!(type)
         case type
-        when Class
-          type
+        when Symbol
+          Type.lookup(type)
         when String
           Type.const_get(type)
-        when Symbol
-          Type.const_get(type.to_s.split("_").collect(&:capitalize).join)
+        when Class
+          type
+        else
+          raise TypeError, "Invalid type: #{type}"
         end
-      rescue NameError
-        raise ArgumentError, "Unknown Lutaml::Model::Type: #{type}"
+      rescue NameError, UnknownTypeError => e
+        raise TypeError, "Invalid type: #{type}"
       end
 
       def cast_value(value)
@@ -69,12 +71,12 @@ module Lutaml
 
       def default
         value = if delegate
-                  type.attributes[to].default
-                elsif options[:default].is_a?(Proc)
-                  options[:default].call
-                else
-                  options[:default]
-                end
+            type.attributes[to].default
+          elsif options[:default].is_a?(Proc)
+            options[:default].call
+          else
+            options[:default]
+          end
 
         cast_value(value)
       end
