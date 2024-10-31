@@ -6,8 +6,13 @@ module Lutaml
       class TimeWithoutDate < Value
         def self.cast(value)
           return nil if value.nil?
-          time = ::Time.parse(value.to_s)
-          ::Time.new(1, 1, 1, time.hour, time.min, time.sec)
+          ::Time.parse(value.to_s)
+
+          # TODO: we probably want to do something like this because using
+          # Time.parse will set the date to today.
+          #
+          # time = ::Time.parse(value.to_s)
+          # ::Time.new(1, 1, 1, time.hour, time.min, time.sec)
         rescue ArgumentError
           nil
         end
@@ -18,7 +23,7 @@ module Lutaml
         end
       end
 
-      register(:time_without_date, TimeWithoutDate)
+      register(:time_without_date, Lutaml::Model::Type::TimeWithoutDate)
     end
   end
 end
