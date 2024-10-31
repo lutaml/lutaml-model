@@ -19,7 +19,8 @@ module Lutaml
         end
       end
 
-      register(:decimal, Lutaml::Model::Type::Decimal) if defined?(BigDecimal)
+      # Register the Decimal type regardless
+      register(:decimal, Lutaml::Model::Type::Decimal)
     end
   end
 end

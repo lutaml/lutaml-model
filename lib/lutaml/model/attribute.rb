@@ -35,16 +35,22 @@ module Lutaml
       def cast_type!(type)
         case type
         when Symbol
-          Type.lookup(type)
+          begin
+            Type.lookup(type)
+          rescue UnknownTypeError
+            raise ArgumentError, "Unknown Lutaml::Model::Type: #{type}"
+          end
         when String
-          Type.const_get(type)
+          begin
+            Type.const_get(type)
+          rescue NameError
+            raise ArgumentError, "Unknown Lutaml::Model::Type: #{type}"
+          end
         when Class
           type
         else
-          raise TypeError, "Invalid type: #{type}"
+          raise ArgumentError, "Unknown Lutaml::Model::Type: #{type}"
         end
-      rescue NameError, UnknownTypeError => e
-        raise TypeError, "Invalid type: #{type}"
       end
 
       def cast_value(value)
