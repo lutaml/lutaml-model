@@ -89,6 +89,8 @@ module Lutaml
         def initialize(node, root_node: nil)
           if node.is_a?(String)
             super("text", {}, [], node, parent_document: root_node)
+          elsif node.is_a?(Ox::Comment)
+            super("comment", {}, [], node.value, parent_document: root_node)
           else
             namespace_attributes(node.attributes).each do |(name, value)|
               if root_node
