@@ -7,6 +7,7 @@ RSpec.describe Lutaml::Model::XmlAdapter::OxAdapter do
     <<-XML
       <root xmlns="http://example.com/default" xmlns:prefix="http://example.com/prefixed">
         <prefix:child attr="value" prefix:attr="prefixed_value">Text</prefix:child>
+        <!-- just-a-comment -->
       </root>
     XML
   end
@@ -25,6 +26,10 @@ RSpec.describe Lutaml::Model::XmlAdapter::OxAdapter do
       expect(child.name).to eq("prefix:child")
       expect(child.namespace.uri).to eq("http://example.com/prefixed")
       expect(child.namespace.prefix).to eq("prefix")
+    end
+
+    it "parses comment" do
+      expect(document.root.nodes.last.text).to eq("just-a-comment")
     end
 
     it "parses attributes with and without namespaces" do
