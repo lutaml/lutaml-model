@@ -157,21 +157,26 @@ Syntax:
 attribute :name_of_attribute, {symbol | string | class}
 ----
 
+.Mapping between Lutaml::Model::Type classes, Ruby equivalents and serialization format types
 |===
-| String | Symbol | Class name | Actual value class
+| Lutaml::Model::Type   | Ruby Class               | XML               | JSON               | YAML        | Example Value
 
-| `String` | `:string` | `Lutaml::Model::Type::String` | `::String`
-| `Integer` | `:integer` | `Lutaml::Model::Type::Integer` | `::Integer`
-| `Float` | `:float` | `Lutaml::Model::Type::Float` | `::Float`
-| `Date` | `:date` | `Lutaml::Model::Type::Date` | `::Date`
-| `Time` | `:time` | `Lutaml::Model::Type::Time` | `::Time`
-| `DateTime` | `:date_time` | `Lutaml::Model::Type::DateTime` | `::DateTime`
-| `TimeWithoutDate` | `:time_without_date` | `Lutaml::Model::Type::TimeWithoutDate` | `::Time`
-| `Boolean` | `:boolean` | `Lutaml::Model::Type::Boolean` | `Boolean`
-| `Decimal` (optional) | `:decimal` | `Lutaml::Model::Type::Decimal` | `::BigDecimal`
-| `Hash` | `:hash` | `Lutaml::Model::Type::Hash` | `::Hash`
+| `:string`             | `String`                 | `xs:string`       | `string`           | `string`    | `"text"`
+| `:integer`            | `Integer`                | `xs:integer`      | `number`           | `integer`   | `42`
+| `:float`              | `Float`                  | `xs:decimal`      | `number`           | `float`     | `3.14`
+| `:boolean`            | `TrueClass`/`FalseClass` | `xs:boolean`      | `boolean`          | `boolean`   | `true/false`
+| `:date`               | `Date`                   | `xs:date`         | `string` (ISO8601) | `date`      | `"2024-01-01"`
+| `:time_without_date`  | `Time`                   | `xs:time`         | `string` (ISO8601) | `time`      | `"12:34:56"`
+| `:date_time`          | `DateTime`               | `xs:dateTime`     | `string` (ISO8601) | `timestamp` | `"2024-01-01T00:00:00Z"`
+| `:time`               | `Time`                   | `xs:dateTime`     | `string` (ISO8601) | `timestamp` | `"2024-01-01T00:00:00Z"`
+| `:decimal` (optional) | `BigDecimal`             | `xs:decimal`      | `number`           | `float`     | `123.45`
+| `:hash`               | `Hash`                   | complex element   | `object`           | `map`       | `{key: "value"}`
+| `class`               | Custom Class             | complex element   | `object`           | `map`       | `CustomObject`
+| `collection: true`    | `Array` of Type          | repeated elements | `array`            | `sequence`  | `[obj1, obj2]`
+// | `any`
 
 |===
+
 
 .Defining attributes with supported types via symbol, string and class
 [example]
