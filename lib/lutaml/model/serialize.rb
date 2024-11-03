@@ -170,10 +170,10 @@ module Lutaml
             attribute = attributes[name]
 
             hash[rule.from] = if rule.child_mappings
-                                generate_hash_from_child_mappings(value, rule.child_mappings)
-                              else
-                                attribute.serialize(value, format, options)
-                              end
+                generate_hash_from_child_mappings(value, rule.child_mappings)
+              else
+                attribute.serialize(value, format, options)
+              end
           end
         end
 
@@ -192,12 +192,12 @@ module Lutaml
 
         def attr_value(attrs, name, attr_rule)
           value = if attrs.key?(name.to_sym)
-                    attrs[name.to_sym]
-                  elsif attrs.key?(name.to_s)
-                    attrs[name.to_s]
-                  else
-                    attr_rule.default
-                  end
+              attrs[name.to_sym]
+            elsif attrs.key?(name.to_s)
+              attrs[name.to_s]
+            else
+              attr_rule.default
+            end
 
           if attr_rule.collection? || value.is_a?(Array)
             (value || []).map do |v|
@@ -237,13 +237,13 @@ module Lutaml
           hash.map do |key, value|
             child_mappings.to_h do |attr_name, path|
               attr_value = if path == :key
-                             key
-                           elsif path == :value
-                             value
-                           else
-                             path = [path] unless path.is_a?(Array)
-                             value.dig(*path.map(&:to_s))
-                           end
+                  key
+                elsif path == :value
+                  value
+                else
+                  path = [path] unless path.is_a?(Array)
+                  value.dig(*path.map(&:to_s))
+                end
 
               [attr_name, attr_value]
             end
@@ -333,15 +333,15 @@ module Lutaml
             raise "Attribute '#{rule.to}' not found in #{self}" unless valid_rule?(rule)
 
             value = if rule.raw_mapping?
-                      doc.node.inner_xml
-                    elsif rule.content_mapping?
-                      doc["text"]
-                    elsif doc.key_exist?(rule.namespaced_name)
-                      doc.fetch(rule.namespaced_name)
-                    else
-                      defaults_used << rule.to
-                      rule.to_value_for(instance)
-                    end
+                doc.node.inner_xml
+              elsif rule.content_mapping?
+                doc["text"]
+              elsif doc.key_exist?(rule.namespaced_name)
+                doc.fetch(rule.namespaced_name)
+              else
+                defaults_used << rule.to
+                rule.to_value_for(instance)
+              end
 
             value = normalize_xml_value(value, rule)
             rule.deserialize(instance, value, attributes, self)
@@ -362,10 +362,10 @@ module Lutaml
             attr = attribute_for_rule(rule)
 
             value = if doc.key?(rule.name) || doc.key?(rule.name.to_sym)
-                      doc[rule.name] || doc[rule.name.to_sym]
-                    else
-                      attr.default
-                    end
+                doc[rule.name] || doc[rule.name.to_sym]
+              else
+                attr.default
+              end
 
             if rule.custom_methods[:from]
               if Utils.present?(value)
@@ -390,14 +390,14 @@ module Lutaml
           value = [value].compact if attr&.collection? && !value.is_a?(Array)
 
           value = if value.is_a?(Array)
-                    value.map do |v|
-                      text_hash?(attr, v) ? v["text"] : v
-                    end
-                  elsif text_hash?(attr, value)
-                    value["text"]
-                  else
-                    value
-                  end
+              value.map do |v|
+                text_hash?(attr, v) ? v["text"] : v
+              end
+            elsif text_hash?(attr, value)
+              value["text"]
+            else
+              value
+            end
 
           return value unless cast_value?(attr, rule)
 
@@ -446,7 +446,6 @@ module Lutaml
       attr_writer :ordered, :mixed
 
       def initialize(attrs = {})
-        @validate_on_set = attrs.delete(:validate_on_set) || false
         @using_default ||= {}
 
         return unless self.class.attributes
@@ -462,11 +461,11 @@ module Lutaml
 
         self.class.attributes.each do |name, attr|
           value = if attrs.key?(name) || attrs.key?(name.to_s)
-                    self.class.attr_value(attrs, name, attr)
-                  else
-                    using_default_for(name)
-                    attr.default
-                  end
+              self.class.attr_value(attrs, name, attr)
+            else
+              using_default_for(name)
+              attr.default
+            end
 
           # Initialize collections with an empty array if no value is provided
           if attr.collection? && value.nil?
@@ -492,7 +491,7 @@ module Lutaml
       def method_missing(method_name, *args)
         if method_name.to_s.end_with?("=") && self.class.attributes.key?(method_name.to_s.chomp("=").to_sym)
           define_singleton_method(method_name) do |value|
-            instance_variable_set(:"@#{method_name.to_s.chomp('=')}", value)
+            instance_variable_set(:"@#{method_name.to_s.chomp("=")}", value)
           end
           send(method_name, *args)
         else
@@ -526,11 +525,11 @@ module Lutaml
         define_method(:"to_#{format}") do |options = {}|
           adapter = Lutaml::Model::Config.public_send(:"#{format}_adapter")
           representation = if format == :xml
-                             self
-                           else
-                             self.class.hash_representation(self, format,
-                                                            options)
-                           end
+              self
+            else
+              self.class.hash_representation(self, format,
+                                             options)
+            end
 
           adapter.new(representation).public_send(:"to_#{format}", options)
         end
