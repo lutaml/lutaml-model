@@ -11,7 +11,8 @@ class CustomSerialization < Lutaml::Model::Serializable
     map "name", with: { to: :name_to_json, from: :name_from_json }
     map "color", with: { to: :color_to_json, from: :color_from_json }
     map "size", with: { to: :size_to_json, from: :size_from_json }
-    map "description", with: { to: :description_to_json, from: :description_from_json }
+    map "description",
+        with: { to: :description_to_json, from: :description_from_json }
   end
 
   xml do

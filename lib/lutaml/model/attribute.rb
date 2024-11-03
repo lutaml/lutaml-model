@@ -217,7 +217,8 @@ module Lutaml
 
       def validate_options!(options)
         if (invalid_opts = options.keys - ALLOWED_OPTIONS).any?
-          raise StandardError, "Invalid options given for `#{name}` #{invalid_opts}"
+          raise StandardError,
+                "Invalid options given for `#{name}` #{invalid_opts}"
         end
       end
 
@@ -225,7 +226,8 @@ module Lutaml
         return true if type.is_a?(Class)
         return true if [Symbol, String].include?(type.class) && cast_type!(type)
 
-        raise ArgumentError, "Invalid type: #{type}, must be a Symbol, String or a Class"
+        raise ArgumentError,
+              "Invalid type: #{type}, must be a Symbol, String or a Class"
       end
     end
   end

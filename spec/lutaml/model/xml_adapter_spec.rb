@@ -26,7 +26,8 @@ module XmlAdapterSpec
 
       map_attribute :display, to: :display
       map_attribute "color", to: :color, delegate: :style
-      map_attribute "finish", to: :finish, delegate: :style, render_default: true
+      map_attribute "finish", to: :finish, delegate: :style,
+                              render_default: true
       map_element :mstyle, to: :style, render_default: true
     end
   end

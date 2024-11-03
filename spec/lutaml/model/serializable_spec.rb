@@ -70,7 +70,11 @@ end
 RSpec.describe Lutaml::Model::Serializable do
   describe ".model" do
     it "sets the model for the class" do
-      expect { described_class.model(SerializeableSpec::TestModel) }.to change(described_class, :model)
+      expect do
+        described_class.model(SerializeableSpec::TestModel)
+      end.to change(
+        described_class, :model
+      )
         .from(nil)
         .to(SerializeableSpec::TestModel)
     end
@@ -101,7 +105,9 @@ RSpec.describe Lutaml::Model::Serializable do
       end
 
       it "return hash representation" do
-        generate_hash = SerializeableSpec::TestModelMapper.hash_representation(instance, :yaml)
+        generate_hash = SerializeableSpec::TestModelMapper.hash_representation(
+          instance, :yaml
+        )
         expect(generate_hash).to eq(expected_hash)
       end
     end
@@ -119,7 +125,9 @@ RSpec.describe Lutaml::Model::Serializable do
       end
 
       it "return hash representation" do
-        generate_hash = SerializeableSpec::TestMapper.hash_representation(instance, :yaml)
+        generate_hash = SerializeableSpec::TestMapper.hash_representation(
+          instance, :yaml
+        )
         expect(generate_hash).to eq(expected_hash)
       end
     end

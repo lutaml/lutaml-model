@@ -133,7 +133,8 @@ module Lutaml
           super(
             node,
             attributes,
-            parse_all_children(node, root_node: root_node || self, default_namespace: default_namespace),
+            parse_all_children(node, root_node: root_node || self,
+                                     default_namespace: default_namespace),
             node.text,
             parent_document: root_node,
             namespace_prefix: node.namespace&.prefix,
@@ -182,7 +183,8 @@ module Lutaml
 
         def parse_all_children(node, root_node: nil, default_namespace: nil)
           node.children.map do |child|
-            NokogiriElement.new(child, root_node: root_node, default_namespace: default_namespace)
+            NokogiriElement.new(child, root_node: root_node,
+                                       default_namespace: default_namespace)
           end
         end
 

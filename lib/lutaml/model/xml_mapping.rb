@@ -222,12 +222,15 @@ module Lutaml
 
       def deep_dup
         self.class.new.tap do |xml_mapping|
-          xml_mapping.root(@root_element.dup, mixed: @mixed_content, ordered: @ordered)
+          xml_mapping.root(@root_element.dup, mixed: @mixed_content,
+                                              ordered: @ordered)
           xml_mapping.namespace(@namespace_uri.dup, @namespace_prefix.dup)
 
-          xml_mapping.instance_variable_set(:@attributes, dup_mappings(@attributes))
+          xml_mapping.instance_variable_set(:@attributes,
+                                            dup_mappings(@attributes))
           xml_mapping.instance_variable_set(:@elements, dup_mappings(@elements))
-          xml_mapping.instance_variable_set(:@content_mapping, @content_mapping&.deep_dup)
+          xml_mapping.instance_variable_set(:@content_mapping,
+                                            @content_mapping&.deep_dup)
         end
       end
 

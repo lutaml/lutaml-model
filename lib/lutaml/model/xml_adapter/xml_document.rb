@@ -77,7 +77,10 @@ module Lutaml
           result.item_order = element.order
 
           element.children.each_with_object(result) do |child, hash|
-            attr = klass.attribute_for_child(child.name, format) if klass&.<= Serialize
+            if klass&.<= Serialize
+              attr = klass.attribute_for_child(child.name,
+                                               format)
+            end
 
             value = if child.text?
                       child.text
@@ -136,7 +139,8 @@ module Lutaml
           rule = options[:rule]
 
           if rule.custom_methods[:to]
-            options[:mapper_class].new.send(rule.custom_methods[:to], element, xml.parent, xml)
+            options[:mapper_class].new.send(rule.custom_methods[:to], element,
+                                            xml.parent, xml)
             return
           end
 
@@ -203,7 +207,8 @@ module Lutaml
             end
 
             xml_mapping.attributes.each do |attribute_rule|
-              attribute_rule.serialize_attribute(element, prefixed_xml.parent, xml)
+              attribute_rule.serialize_attribute(element, prefixed_xml.parent,
+                                                 xml)
             end
 
             xml_mapping.elements.each do |element_rule|
@@ -223,11 +228,13 @@ module Lutaml
                 element,
                 element_rule.prefix,
                 value,
-                options.merge({ attribute: attribute_def, rule: element_rule, mapper_class: mapper_class }),
+                options.merge({ attribute: attribute_def, rule: element_rule,
+                                mapper_class: mapper_class }),
               )
             end
 
-            process_content_mapping(element, xml_mapping.content_mapping, prefixed_xml)
+            process_content_mapping(element, xml_mapping.content_mapping,
+                                    prefixed_xml)
 
             process_raw_mapping(element, xml_mapping.raw_mapping, prefixed_xml)
           end
@@ -318,7 +325,8 @@ module Lutaml
             next unless type
 
             if type <= Lutaml::Model::Serialize
-              attrs = attrs.merge(build_namespace_attributes(type, processed, { caller_rule: mapping_rule }))
+              attrs = attrs.merge(build_namespace_attributes(type, processed,
+                                                             { caller_rule: mapping_rule }))
             end
 
             if mapping_rule.namespace && mapping_rule.prefix && mapping_rule.name != "lang"
@@ -348,8 +356,10 @@ module Lutaml
               hash["xmlns:#{mapping_rule.prefix}"] = mapping_rule.namespace
             end
 
-            if render_element?(mapping_rule, element, mapping_rule.to_value_for(element))
-              hash[mapping_rule.prefixed_name] = mapping_rule.to_value_for(element)
+            if render_element?(mapping_rule, element,
+                               mapping_rule.to_value_for(element))
+              hash[mapping_rule.prefixed_name] =
+                mapping_rule.to_value_for(element)
             end
           end
 

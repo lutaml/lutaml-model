@@ -232,7 +232,8 @@ RSpec.describe Lutaml::Model::XmlMapping do
       expect(parsed.gml_application_schema).to eq("GML App")
       expect(parsed.application_schema).to eq("App")
       expect(parsed.app).to eq("hello")
-      expect(parsed.element_order).to eq(["text", "ApplicationSchema", "text", "ApplicationSchema", "text", "ApplicationSchema", "text"])
+      expect(parsed.element_order).to eq(["text", "ApplicationSchema", "text",
+                                          "ApplicationSchema", "text", "ApplicationSchema", "text"])
       expect(XmlMapping::SameNameDifferentNamespace.from_xml(input_xml).to_xml).to be_equivalent_to(input_xml)
     end
   end
