@@ -543,8 +543,7 @@ For the following xml
     @description="\n    A <b>fictional person</b> commonly used as a <i>placeholder name</i>.\n  ",
     @element_order=["text", "name", "text", "description", "text"],
     @name="John Doe",
-    @ordered=nil,
-    @validate_on_set=false>
+    @ordered=nil>
 ----
 ====
 
@@ -1779,8 +1778,7 @@ end
    @name="Masterpiece: Vase",
    @ordered=nil,
    @size=12,
-   @description="A beautiful ceramic vase",
-   @validate_on_set=false>
+   @description="A beautiful ceramic vase">
 > puts CustomCeramic.new(name: "Vase", size: 12, description: "A beautiful vase").to_xml
 # <CustomCeramic Size="15">
 #   <Name>XML Masterpiece: Vase</Name>
