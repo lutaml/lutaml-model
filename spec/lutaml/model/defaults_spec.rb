@@ -25,7 +25,9 @@ module DefaultsSpec
     attribute :status, :string, default: -> { "active" }
     attribute :batch_number, :integer, default: -> { 0 }
     attribute :manufacturer, :string, default: -> { "example@glazes.com" }
-    attribute :type, :string, values: %w[earthenware stoneware porcelain], default: -> { "stoneware" }
+    attribute :type, :string, values: %w[earthenware stoneware porcelain], default: -> {
+      "stoneware"
+    }
 
     xml do
       root "Glaze"

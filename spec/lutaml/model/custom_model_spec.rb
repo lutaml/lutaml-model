@@ -36,7 +36,8 @@ class CustomModelParentMapper < Lutaml::Model::Serializable
     map_element :first_name, to: :first_name
     map_element :middle_name, to: :middle_name
     map_element :last_name, to: :last_name
-    map_element :CustomModelChild, with: { to: :child_to_xml, from: :child_from_xml }
+    map_element :CustomModelChild,
+                with: { to: :child_to_xml, from: :child_from_xml }
   end
 
   def child_to_xml(model, parent, doc)
