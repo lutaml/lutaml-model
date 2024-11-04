@@ -189,6 +189,27 @@ module XmlMapping
       map_element :description, to: :description
     end
   end
+
+  class WithChildExplicitNamespace < Lutaml::Model::Serializable
+    attribute :with_default_namespace, :string
+    attribute :with_namespace, :string
+    attribute :without_namespace, :string
+
+    xml do
+      root "WithChildExplicitNamespaceNil"
+      namespace "http://parent-namespace", "pn"
+
+      map_element "DefaultNamespace", to: :with_default_namespace
+
+      map_element "WithNamespace", to: :with_namespace,
+                                   namespace: "http://child-namespace",
+                                   prefix: "cn"
+
+      map_element "WithoutNamespace", to: :without_namespace,
+                                      namespace: nil,
+                                      prefix: nil
+    end
+  end
 end
 
 RSpec.describe Lutaml::Model::XmlMapping do
@@ -267,6 +288,38 @@ RSpec.describe Lutaml::Model::XmlMapping do
       expect(mapping.elements[1].namespace).to eq("http://www.sparxsystems.com/profiles/CityGML/1.0")
       expect(mapping.elements[2].namespace).to eq("http://www.sparxsystems.com/profiles/CGML/1.0")
       expect(mapping.elements.size).to eq(3)
+    end
+  end
+
+  context "with child having explicit namespaces" do
+    let(:xml) do
+      <<~XML.strip
+        <pn:WithChildExplicitNamespaceNil xmlns:pn="http://parent-namespace" xmlns:cn="http://child-namespace">
+          <pn:DefaultNamespace>default namespace text</pn:DefaultNamespace>
+          <cn:WithNamespace>explicit namespace text</cn:WithNamespace>
+          <WithoutNamespace>without namespace text</WithoutNamespace>
+        </pn:WithChildExplicitNamespaceNil>
+      XML
+    end
+
+    let(:parsed) do
+      XmlMapping::WithChildExplicitNamespace.from_xml(xml)
+    end
+
+    it "reads element with default namespace" do
+      expect(parsed.with_default_namespace).to eq("default namespace text")
+    end
+
+    it "reads element with explicit namespace" do
+      expect(parsed.with_namespace).to eq("explicit namespace text")
+    end
+
+    it "reads element without namespace" do
+      expect(parsed.without_namespace).to eq("without namespace text")
+    end
+
+    it "round-trips xml with child explicit namespace" do
+      expect(parsed.to_xml).to be_equivalent_to(xml)
     end
   end
 

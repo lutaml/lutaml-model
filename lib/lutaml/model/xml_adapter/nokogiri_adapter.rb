@@ -128,7 +128,9 @@ module Lutaml
             )
           end
 
-          default_namespace = node.namespace&.href if root_node.nil?
+          if root_node.nil? && !node.namespace&.prefix
+            default_namespace = node.namespace&.href
+          end
 
           super(
             node,
