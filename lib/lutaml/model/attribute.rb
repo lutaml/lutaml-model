@@ -200,11 +200,10 @@ module Lutaml
 
       def cast(value, format, options = {})
         value ||= [] if collection?
-        instance = options[:instance]
 
         if value.is_a?(Array)
           value.map do |v|
-            cast(v, format, instance: instance)
+            cast(v, format, options)
           end
         elsif type <= Serialize && value.is_a?(Hash)
           type.apply_mappings(value, format, options)
