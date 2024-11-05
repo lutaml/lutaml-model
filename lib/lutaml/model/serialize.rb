@@ -310,6 +310,7 @@ module Lutaml
         def apply_xml_mapping(doc, instance, options = {})
           return instance unless doc
 
+          options[:default_namespace] = mappings_for(:xml)&.namespace_uri if options[:default_namespace].nil?
           mappings = mappings_for(:xml).mappings
 
           if doc.is_a?(Array)
@@ -340,14 +341,14 @@ module Lutaml
                       doc.node.inner_xml
                     elsif rule.content_mapping?
                       doc["text"]
-                    elsif doc.key_exist?(rule.namespaced_name)
-                      doc.fetch(rule.namespaced_name)
+                    elsif doc.key_exist?(rule.namespaced_name(options[:default_namespace]))
+                      doc.fetch(rule.namespaced_name(options[:default_namespace]))
                     else
                       defaults_used << rule.to
                       rule.to_value_for(instance)
                     end
 
-            value = normalize_xml_value(value, rule)
+            value = normalize_xml_value(value, rule, options)
             rule.deserialize(instance, value, attributes, self)
           end
 
@@ -388,7 +389,7 @@ module Lutaml
           instance
         end
 
-        def normalize_xml_value(value, rule)
+        def normalize_xml_value(value, rule, options = {})
           attr = attribute_for_rule(rule)
 
           value = [value].compact if attr&.collection? && !value.is_a?(Array)
@@ -405,11 +406,11 @@ module Lutaml
 
           return value unless cast_value?(attr, rule)
 
+          options.merge(caller_class: self, mixed_content: rule.mixed_content)
           attr.cast(
             value,
             :xml,
-            caller_class: self,
-            mixed_content: rule.mixed_content,
+            options,
           )
         end
 
