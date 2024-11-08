@@ -15,7 +15,7 @@ module InheritanceSpec
     end
   end
 
-  class Child < Parent
+  class Child1 < Parent
     attribute :age, Lutaml::Model::Type::Integer
 
     xml do
@@ -38,7 +38,7 @@ end
 
 RSpec.describe "Inheritance" do
   subject(:child_object) do
-    InheritanceSpec::Child.new(
+    InheritanceSpec::Child1.new(
       {
         text: "Some text",
         name: "John Doe",
@@ -57,14 +57,36 @@ RSpec.describe "Inheritance" do
   end
 
   context "with multiple child classes" do
-    it "has correct mappings" do
-      expect(InheritanceSpec::Child.mappings_for(:xml).mappings.count).to eq(4)
-      expect(InheritanceSpec::Child2.mappings_for(:xml).mappings.count).to eq(4)
+    describe "Child1" do
+      let(:child1) { InheritanceSpec::Child1 }
+
+      it "has correct mappings" do
+        expect(child1.mappings_for(:xml).mappings.count).to eq(4)
+      end
+
+      it "has correct attributes" do
+        expect(child1.attributes.count).to eq(4)
+      end
+
+      it "has correct model" do
+        expect(child1.model).to eq(child1)
+      end
     end
 
-    it "has correct attributes" do
-      expect(InheritanceSpec::Child.attributes.count).to eq(4)
-      expect(InheritanceSpec::Child2.attributes.count).to eq(4)
+    describe "Child2" do
+      let(:child2) { InheritanceSpec::Child2 }
+
+      it "has correct mappings" do
+        expect(child2.mappings_for(:xml).mappings.count).to eq(4)
+      end
+
+      it "has correct attributes" do
+        expect(child2.attributes.count).to eq(4)
+      end
+
+      it "has correct model" do
+        expect(child2.model).to eq(child2)
+      end
     end
   end
 end
