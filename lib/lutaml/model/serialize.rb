@@ -35,7 +35,7 @@ module Lutaml
           subclass.instance_variable_set(:@attributes,
                                          Utils.deep_dup(@attributes))
           subclass.instance_variable_set(:@mappings, Utils.deep_dup(@mappings))
-          subclass.instance_variable_set(:@model, @model || subclass)
+          subclass.instance_variable_set(:@model, subclass)
         end
 
         def model(klass = nil)
