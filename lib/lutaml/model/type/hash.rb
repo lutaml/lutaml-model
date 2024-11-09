@@ -10,6 +10,7 @@ module Lutaml
 
         def self.serialize(value)
           return nil if value.nil?
+          return value.to_h if value.respond_to?(:to_h)
           Hash(value)
         end
 
