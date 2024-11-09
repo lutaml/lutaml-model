@@ -7,7 +7,7 @@ module Lutaml
       class DateTime < Value
         def self.cast(value)
           return if value.nil?
-          ::DateTime.parse(value.to_s).new_offset(0)
+          ::DateTime.parse(value.to_s)
         rescue ArgumentError
           nil
         end
