@@ -52,26 +52,12 @@ module Lutaml
           type.serialize(value)
         end
       end
-
-      # Base Value class for all types
-      class Value
-        def self.cast(value)
-          return nil if value.nil?
-
-          value.to_s
-        end
-
-        def self.serialize(value)
-          return nil if value.nil?
-
-          value.to_s
-        end
-      end
     end
   end
 end
 
 # Register built-in types
+require_relative "type/value"
 require_relative "type/string"
 require_relative "type/integer"
 require_relative "type/float"
