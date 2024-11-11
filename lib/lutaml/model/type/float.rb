@@ -14,8 +14,6 @@ module Lutaml
           value.to_f
         end
       end
-
-      register(:float, Lutaml::Model::Type::Float)
     end
   end
 end

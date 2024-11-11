@@ -34,7 +34,6 @@ module Lutaml
 
       # Register the Decimal type regardless - it will raise TypeNotEnabledError
       # if used without BigDecimal
-      register(:decimal, Lutaml::Model::Type::Decimal)
     end
   end
 end

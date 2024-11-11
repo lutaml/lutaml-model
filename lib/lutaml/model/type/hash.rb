@@ -32,8 +32,6 @@ module Lutaml
           end.to_h
         end
       end
-
-      register(:hash, ::Lutaml::Model::Type::Hash)
     end
   end
 end

@@ -16,8 +16,6 @@ module Lutaml
           value ? true : false
         end
       end
-
-      register(:boolean, Lutaml::Model::Type::Boolean)
     end
   end
 end

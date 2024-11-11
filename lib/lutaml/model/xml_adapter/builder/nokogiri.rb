@@ -34,7 +34,7 @@ module Lutaml
           def create_and_add_element(
             element_name,
             prefix: (prefix_unset = true
-                     nil),
+              nil),
             attributes: {}
           )
             add_namespace_prefix(prefix)
@@ -64,7 +64,7 @@ module Lutaml
           end
 
           def method_missing(method_name, *args, &block)
-            if block
+            if block_given?
               xml.public_send(method_name, *args, &block)
             else
               xml.public_send(method_name, *args)

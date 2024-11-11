@@ -57,6 +57,14 @@ RSpec.describe Lutaml::Model::Type do
     end
 
     describe "Built-in Types" do
+      before do
+        described_class.register_builtin_types
+      end
+
+      after do
+        described_class.instance_variable_set(:@registry, nil)
+      end
+
       let(:built_in_types) do
         {
           string: Lutaml::Model::Type::String,
@@ -73,6 +81,7 @@ RSpec.describe Lutaml::Model::Type do
 
       it "has all built-in types registered" do
         built_in_types.each do |type_name, type_class|
+          puts described_class
           expect(described_class.lookup(type_name)).to eq(type_class)
         end
       end
@@ -91,8 +100,8 @@ RSpec.describe Lutaml::Model::Type do
           Lutaml::Model::Type::Time => { input: "2024-01-01T12:00:00",
                                          expected_hour: 12 },
           Lutaml::Model::Type::DateTime => { input: "2024-01-01T12:00:00",
-                                             expected: DateTime.new(2024, 1, 1,
-                                                                    12, 0, 0) },
+                                            expected: DateTime.new(2024, 1, 1,
+                                                                   12, 0, 0) },
           Lutaml::Model::Type::Boolean => { input: "true", expected: true },
           Lutaml::Model::Type::Hash => { input: { key: "value" },
                                          expected: { key: "value" } },
@@ -119,6 +128,11 @@ RSpec.describe Lutaml::Model::Type do
       context "when BigDecimal is available" do
         before do
           require "bigdecimal"
+          described_class.register_builtin_types
+        end
+
+        after do
+          # described_class.instance_variable_set(:@registry, nil)
         end
 
         it "registers and uses Decimal type" do
@@ -144,8 +158,8 @@ RSpec.describe Lutaml::Model::Type do
 
         it "raises TypeNotEnabledError when using Decimal type" do
           expect do
-            described_class.lookup(:decimal)
-          end.to raise_error(Lutaml::Model::UnknownTypeError)
+            described_class.lookup(:decimal).cast("123.45")
+          end.to raise_error(Lutaml::Model::TypeNotEnabledError)
         end
       end
     end
