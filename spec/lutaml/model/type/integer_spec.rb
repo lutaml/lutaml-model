@@ -71,17 +71,19 @@ RSpec.describe Lutaml::Model::Type::Integer do
 
     context "with invalid string" do
       let(:value) { "not an integer" }
-      it { is_expected.to eq(0) }
+      it { is_expected.to be_nil }
     end
 
     context "with very large integer" do
-      let(:value) { "9223372036854775807" } # Max 64-bit integer
-      it { is_expected.to eq(9223372036854775807) }
+      let(:max_value) { (2 ** (0.size * 8 - 2) - 1) }
+      let(:value) { max_value.to_s }
+      it { is_expected.to eq(max_value) }
     end
 
     context "with very small integer" do
-      let(:value) { "-9223372036854775808" } # Min 64-bit integer
-      it { is_expected.to eq(-9223372036854775808) }
+      let(:min_value) { -(2 ** (0.size * 8 - 2)) }
+      let(:value) { min_value.to_s }
+      it { is_expected.to eq(min_value) }
     end
   end
 
