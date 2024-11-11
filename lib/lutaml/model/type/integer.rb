@@ -10,11 +10,14 @@ module Lutaml
           # Exponential notation
           if value.is_a?(::String)
             if value.match?(/^-?\d+(\.\d+)?(e-?\d+)?$/i)
-              return value.to_f.to_i
+              return Integer(Float(value))
             end
           end
 
-          value.to_i
+          Integer(value)
+        rescue ArgumentError
+          # If it is not a valid integer, return nil
+          nil
         end
 
         def self.serialize(value)
