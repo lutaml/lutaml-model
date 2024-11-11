@@ -4,14 +4,30 @@ module Lutaml
       class Float < Value
         def self.cast(value)
           return nil if value.nil?
-
           value.to_f
         end
 
         def self.serialize(value)
           return nil if value.nil?
+          cast(value)
+        end
 
-          value.to_f
+        # Instance methods for specific formats
+        # xs:float format
+        def to_xml
+          value.to_s
+        end
+
+        def to_yaml
+          value
+        end
+
+        def to_json
+          value
+        end
+
+        def to_yaml
+          value
         end
       end
     end
