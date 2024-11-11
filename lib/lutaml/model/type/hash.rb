@@ -1,3 +1,4 @@
+# lib/lutaml/model/type/hash.rb
 module Lutaml
   module Model
     module Type
@@ -5,15 +6,13 @@ module Lutaml
         def self.cast(value)
           return nil if value.nil?
 
-          hash = Hash(value)
+          hash = if value.respond_to?(:to_h)
+              value.to_h
+            else
+              Hash(value)
+            end
+
           normalize_hash(hash)
-        end
-
-        def self.serialize(value)
-          return nil if value.nil?
-          return value.to_h if value.respond_to?(:to_h)
-
-          Hash(value)
         end
 
         def self.normalize_hash(hash)
@@ -21,15 +20,39 @@ module Lutaml
 
           hash = hash.to_h if hash.is_a?(Lutaml::Model::MappingHash)
 
-          hash.filter_map do |key, value|
-            next if key == "text"
+          hash.each_with_object({}) do |(key, value), result|
+            result[key] = if value.is_a?(Hash)
+                # Only process if value is a Hash
+                nested = normalize_hash(value)
+                # Only include non-text nodes in nested hashes if it's a hash
+                nested.is_a?(Hash) ? nested.reject { |k, _| k == "text" } : nested
+              else
+                value
+              end
+          end
+        end
 
-            if value.is_a?(::Hash)
-              [key, normalize_hash(value)]
-            else
-              [key, value]
-            end
-          end.to_h
+        def self.serialize(value)
+          return nil if value.nil?
+          return value if value.is_a?(Hash)
+          value.respond_to?(:to_h) ? value.to_h : Hash(value)
+        end
+
+        # Format-specific serialization methods
+        def to_xml
+          value
+        end
+
+        def to_json
+          value
+        end
+
+        def to_yaml
+          value
+        end
+
+        def to_toml
+          value
         end
       end
     end

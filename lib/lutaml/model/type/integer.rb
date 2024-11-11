@@ -7,21 +7,19 @@ module Lutaml
           return 1 if value === true
           return 0 if value === false
 
-          # Exponential notation
-          if value.is_a?(::String) && value.match?(/^-?\d+(\.\d+)?(e-?\d+)?$/i)
-            return Integer(Float(value))
+          if value.is_a?(String) && value.match?(/^-?\d+(\.\d+)?(e-?\d+)?$/i)
+            Integer(Float(value))
+          else
+            Integer(value)
           end
-
-          Integer(value)
         rescue ArgumentError
-          # If it is not a valid integer, return nil
           nil
         end
 
+        # Override serialize to return Integer instead of String
         def self.serialize(value)
           return nil if value.nil?
-
-          value.to_i
+          cast(value)
         end
       end
     end

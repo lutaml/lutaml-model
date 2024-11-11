@@ -202,7 +202,9 @@ module Lutaml
         elsif type <= Serialize
           type.hash_representation(value, format, options)
         else
-          type.serialize(value)
+          # Convert to Value instance if not already
+          value = type.new(value) unless value.is_a?(Type::Value)
+          value.send(:"to_#{format}")
         end
       end
 
@@ -216,7 +218,7 @@ module Lutaml
         elsif type <= Serialize && value.is_a?(Hash)
           type.apply_mappings(value, format, options)
         else
-          Lutaml::Model::Type.cast(value, type)
+          type.cast(value)
         end
       end
 
