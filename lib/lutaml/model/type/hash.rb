@@ -1,4 +1,3 @@
-# lib/lutaml/model/type/hash.rb
 module Lutaml
   module Model
     module Type
@@ -7,10 +6,10 @@ module Lutaml
           return nil if value.nil?
 
           hash = if value.respond_to?(:to_h)
-                   value.to_h
-                 else
-                   Hash(value)
-                 end
+              value.to_h
+            else
+              Hash(value)
+            end
 
           normalize_hash(hash)
         end
