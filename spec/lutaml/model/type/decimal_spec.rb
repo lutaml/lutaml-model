@@ -1,4 +1,5 @@
 require "spec_helper"
+require "bigdecimal"
 
 RSpec.describe Lutaml::Model::Type do
   describe "Decimal type" do
@@ -48,6 +49,11 @@ RSpec.describe Lutaml::Model::Type do
 
   describe ".cast" do
     context "with BigDecimal available" do
+      before do
+        # Ensure BigDecimal is loaded
+        require "bigdecimal"
+      end
+
       let(:decimal_class) { Lutaml::Model::Type::Decimal }
 
       it "returns nil for nil input" do
@@ -80,7 +86,7 @@ RSpec.describe Lutaml::Model::Type do
       it "raises TypeNotEnabledError" do
         expect { Lutaml::Model::Type::Decimal.cast("123.45") }.to raise_error(
           Lutaml::Model::TypeNotEnabledError,
-          /Decimal/
+          /Decimal/,
         )
       end
     end
@@ -89,6 +95,11 @@ RSpec.describe Lutaml::Model::Type do
   describe ".serialize" do
     context "with BigDecimal available" do
       let(:decimal_class) { Lutaml::Model::Type::Decimal }
+
+      before do
+        # Ensure BigDecimal is loaded
+        require "bigdecimal"
+      end
 
       it "returns nil for nil input" do
         expect(decimal_class.serialize(nil)).to be_nil
@@ -105,9 +116,11 @@ RSpec.describe Lutaml::Model::Type do
       end
 
       it "raises TypeNotEnabledError" do
-        expect { Lutaml::Model::Type::Decimal.serialize("123.45") }.to raise_error(
+        expect do
+          Lutaml::Model::Type::Decimal.serialize("123.45")
+        end.to raise_error(
           Lutaml::Model::TypeNotEnabledError,
-          /Decimal/
+          /Decimal/,
         )
       end
     end
