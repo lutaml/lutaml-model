@@ -6,6 +6,7 @@ RSpec.describe Lutaml::Model::Type::Time do
 
     context "with nil value" do
       let(:value) { nil }
+
       it { is_expected.to be_nil }
     end
 
@@ -65,6 +66,7 @@ RSpec.describe Lutaml::Model::Type::Time do
 
     context "with invalid Time string" do
       let(:value) { "not a time" }
+
       it { is_expected.to be_nil }
     end
 
@@ -83,6 +85,7 @@ RSpec.describe Lutaml::Model::Type::Time do
 
     context "with nil value" do
       let(:value) { nil }
+
       it { is_expected.to be_nil }
     end
 
@@ -128,6 +131,7 @@ RSpec.describe Lutaml::Model::Type::Time do
 
     context "with microsecond precision" do
       let(:value) { Time.at(Time.new(2024, 1, 1, 12).to_i, 123456, :usec) }
+
       before { value.localtime("+08:00") }
 
       xit "retains microsecond precision and offset" do

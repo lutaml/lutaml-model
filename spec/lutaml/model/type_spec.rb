@@ -39,11 +39,19 @@ RSpec.describe Lutaml::Model::Type do
 
       context "with invalid types" do
         it "raises TypeError when registering non-Type::Value class" do
-          expect { described_class.register(:invalid, InvalidType) }.to raise_error(Lutaml::Model::TypeError, /not a valid Lutaml::Model::Type::Value/)
+          expect do
+            described_class.register(:invalid,
+                                     InvalidType)
+          end.to raise_error(Lutaml::Model::TypeError,
+                             /not a valid Lutaml::Model::Type::Value/)
         end
 
         it "raises UnknownTypeError when looking up unregistered type" do
-          expect { described_class.lookup(:nonexistent) }.to raise_error(Lutaml::Model::UnknownTypeError, /Unknown type 'nonexistent'/)
+          expect do
+            described_class.lookup(:nonexistent)
+          end.to raise_error(
+            Lutaml::Model::UnknownTypeError, /Unknown type 'nonexistent'/
+          )
         end
       end
     end
@@ -78,11 +86,16 @@ RSpec.describe Lutaml::Model::Type do
           Lutaml::Model::Type::String => { input: 123, expected: "123" },
           Lutaml::Model::Type::Integer => { input: "123", expected: 123 },
           Lutaml::Model::Type::Float => { input: "123.45", expected: 123.45 },
-          Lutaml::Model::Type::Date => { input: "2024-01-01", expected: Date.new(2024, 1, 1) },
-          Lutaml::Model::Type::Time => { input: "2024-01-01T12:00:00", expected_hour: 12 },
-          Lutaml::Model::Type::DateTime => { input: "2024-01-01T12:00:00", expected: DateTime.new(2024, 1, 1, 12, 0, 0) },
+          Lutaml::Model::Type::Date => { input: "2024-01-01",
+                                         expected: Date.new(2024, 1, 1) },
+          Lutaml::Model::Type::Time => { input: "2024-01-01T12:00:00",
+                                         expected_hour: 12 },
+          Lutaml::Model::Type::DateTime => { input: "2024-01-01T12:00:00",
+                                             expected: DateTime.new(2024, 1, 1,
+                                                                    12, 0, 0) },
           Lutaml::Model::Type::Boolean => { input: "true", expected: true },
-          Lutaml::Model::Type::Hash => { input: { key: "value" }, expected: { key: "value" } },
+          Lutaml::Model::Type::Hash => { input: { key: "value" },
+                                         expected: { key: "value" } },
         }.each do |type_class, test_data|
           it "correctly casts #{type_class}" do
             result = type_class.cast(test_data[:input])
@@ -130,7 +143,9 @@ RSpec.describe Lutaml::Model::Type do
         end
 
         it "raises TypeNotEnabledError when using Decimal type" do
-          expect { described_class.lookup(:decimal) }.to raise_error(Lutaml::Model::UnknownTypeError)
+          expect do
+            described_class.lookup(:decimal)
+          end.to raise_error(Lutaml::Model::UnknownTypeError)
         end
       end
     end
@@ -184,8 +199,9 @@ RSpec.describe Lutaml::Model::Type do
         expect(test_instance.float_value).to eq(123.45)
         expect(test_instance.date_value).to eq(Date.new(2024, 1, 1))
         expect(test_instance.time_value.hour).to eq(12)
-        expect(test_instance.date_time_value).to eq(DateTime.new(2024, 1, 1, 12, 0, 0))
-        expect(test_instance.boolean_value).to eq(true)
+        expect(test_instance.date_time_value).to eq(DateTime.new(2024, 1, 1,
+                                                                 12, 0, 0))
+        expect(test_instance.boolean_value).to be(true)
         expect(test_instance.hash_value).to eq({ key: "value" })
       end
 
@@ -238,8 +254,9 @@ RSpec.describe Lutaml::Model::Type do
         expect(deserialized.integer_value).to eq(123)
         expect(deserialized.float_value).to eq(123.45)
         expect(deserialized.date_value).to eq(Date.new(2024, 1, 1))
-        expect(deserialized.date_time_value).to eq(DateTime.new(2024, 1, 1, 12, 0, 0))
-        expect(deserialized.boolean_value).to eq(true)
+        expect(deserialized.date_time_value).to eq(DateTime.new(2024, 1, 1, 12,
+                                                                0, 0))
+        expect(deserialized.boolean_value).to be(true)
         expect(deserialized.hash_value).to eq({ "key" => "value" })
       end
     end

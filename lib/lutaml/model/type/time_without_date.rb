@@ -6,6 +6,7 @@ module Lutaml
       class TimeWithoutDate < Value
         def self.cast(value)
           return nil if value.nil?
+
           ::Time.parse(value.to_s)
 
           # TODO: we probably want to do something like this because using
@@ -19,6 +20,7 @@ module Lutaml
 
         def self.serialize(value)
           return nil if value.nil?
+
           value.strftime("%H:%M:%S")
         end
       end

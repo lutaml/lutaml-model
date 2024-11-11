@@ -4,6 +4,7 @@ module Lutaml
       class Date < Value
         def self.cast(value)
           return if value.nil?
+
           ::Date.parse(value.to_s)
         rescue ArgumentError
           nil

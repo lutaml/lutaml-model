@@ -77,12 +77,12 @@ module Lutaml
 
       def default
         value = if delegate
-            type.attributes[to].default
-          elsif options[:default].is_a?(Proc)
-            options[:default].call
-          else
-            options[:default]
-          end
+                  type.attributes[to].default
+                elsif options[:default].is_a?(Proc)
+                  options[:default].call
+                else
+                  options[:default]
+                end
 
         cast_value(value)
       end
