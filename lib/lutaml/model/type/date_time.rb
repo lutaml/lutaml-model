@@ -17,8 +17,6 @@ module Lutaml
           value&.iso8601
         end
       end
-
-      register(:date_time, Lutaml::Model::Type::DateTime)
     end
   end
 end

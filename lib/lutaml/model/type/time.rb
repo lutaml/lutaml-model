@@ -18,8 +18,6 @@ module Lutaml
           value&.iso8601
         end
       end
-
-      register(:time, Lutaml::Model::Type::Time)
     end
   end
 end

@@ -24,8 +24,6 @@ module Lutaml
           value.to_i
         end
       end
-
-      register(:integer, Lutaml::Model::Type::Integer)
     end
   end
 end

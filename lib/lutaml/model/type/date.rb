@@ -14,8 +14,6 @@ module Lutaml
           value&.iso8601
         end
       end
-
-      register(:date, Lutaml::Model::Type::Date)
     end
   end
 end

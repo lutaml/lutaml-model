@@ -24,8 +24,6 @@ module Lutaml
           value.strftime("%H:%M:%S")
         end
       end
-
-      register(:time_without_date, Lutaml::Model::Type::TimeWithoutDate)
     end
   end
 end
