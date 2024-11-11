@@ -13,11 +13,13 @@ module Lutaml
 
         def self.cast(value)
           return nil if value.nil?
+
           value
         end
 
         def self.serialize(value)
           return nil if value.nil?
+
           new(value).to_s
         end
 

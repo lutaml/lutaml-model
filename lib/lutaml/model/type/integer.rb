@@ -19,6 +19,7 @@ module Lutaml
         # Override serialize to return Integer instead of String
         def self.serialize(value)
           return nil if value.nil?
+
           cast(value)
         end
       end

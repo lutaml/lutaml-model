@@ -4,6 +4,7 @@ module Lutaml
       class Date < Value
         def self.cast(value)
           return nil if value.nil?
+
           case value
           when ::Date
             value
@@ -19,6 +20,7 @@ module Lutaml
         # xs:date format
         def self.serialize(value)
           return nil if value.nil?
+
           value&.iso8601
         end
       end

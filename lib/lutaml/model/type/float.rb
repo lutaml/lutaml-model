@@ -4,11 +4,13 @@ module Lutaml
       class Float < Value
         def self.cast(value)
           return nil if value.nil?
+
           value.to_f
         end
 
         def self.serialize(value)
           return nil if value.nil?
+
           cast(value)
         end
 
@@ -22,7 +24,7 @@ module Lutaml
           value
         end
 
-        def to_json
+        def to_json(*_args)
           value
         end
 

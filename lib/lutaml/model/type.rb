@@ -12,7 +12,7 @@ module Lutaml
         time_without_date: "Lutaml::Model::Type::TimeWithoutDate",
         boolean: "Lutaml::Model::Type::Boolean",
         hash: "Lutaml::Model::Type::Hash",
-      }
+      }.freeze
 
       class << self
         def register_builtin_types

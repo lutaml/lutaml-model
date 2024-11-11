@@ -6,6 +6,7 @@ module Lutaml
       class Time < Value
         def self.cast(value)
           return nil if value.nil?
+
           case value
           when ::Time then value
           when ::DateTime then value.to_time
@@ -17,6 +18,7 @@ module Lutaml
 
         def self.serialize(value)
           return nil if value.nil?
+
           value = cast(value)
           # value&.strftime("%Y-%m-%dT%H:%M:%S%:z")
           value&.iso8601
@@ -41,7 +43,6 @@ module Lutaml
         # def to_toml
         #   value&.strftime("%H:%M:%S.%L")
         # end
-
       end
     end
   end

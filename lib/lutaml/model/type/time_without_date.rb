@@ -12,6 +12,7 @@ module Lutaml
 
         def self.cast(value)
           return nil if value.nil?
+
           case value
           when ::Time then value
           else ::Time.parse(value.to_s)
@@ -22,6 +23,7 @@ module Lutaml
 
         def self.serialize(value)
           return nil if value.nil?
+
           value = cast(value)
           value.strftime("%H:%M:%S") # Format as HH:MM:SS
         end
@@ -31,7 +33,7 @@ module Lutaml
           self.class.serialize(value)
         end
 
-        def to_json
+        def to_json(*_args)
           self.class.serialize(value)
         end
 

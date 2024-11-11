@@ -7,6 +7,7 @@ module Lutaml
       class DateTime < Value
         def self.cast(value)
           return nil if value.nil?
+
           case value
           when ::DateTime then value
           when ::Time then value.to_datetime
@@ -18,6 +19,7 @@ module Lutaml
 
         def self.serialize(value)
           return nil if value.nil?
+
           cast(value)&.iso8601
         end
 
@@ -27,7 +29,7 @@ module Lutaml
         end
 
         # RFC3339 (ISO8601 with timezone)
-        def to_json
+        def to_json(*_args)
           value&.iso8601
         end
 

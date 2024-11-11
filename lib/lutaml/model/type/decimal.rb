@@ -4,6 +4,7 @@ module Lutaml
       class Decimal < Value
         def self.cast(value)
           return nil if value.nil?
+
           check_dependencies!(value)
           case value
           when BigDecimal
@@ -20,6 +21,7 @@ module Lutaml
         # # xs:decimal format
         def self.serialize(value)
           return nil if value.nil?
+
           check_dependencies!(value)
           value = cast(value)
           value.to_s("F") # Use fixed-point notation to match test expectations
