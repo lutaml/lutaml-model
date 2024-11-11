@@ -8,7 +8,8 @@ module Lutaml
       class << self
         def register(type_name, type_class)
           unless type_class < Value
-            raise TypeError, "class '#{type_class}' is not a valid Lutaml::Model::Type::Value"
+            raise TypeError,
+                  "class '#{type_class}' is not a valid Lutaml::Model::Type::Value"
           end
 
           @registry ||= {}
@@ -19,16 +20,19 @@ module Lutaml
           @registry ||= {}
           klass = @registry[type_name.to_sym]
           raise UnknownTypeError.new(type_name) unless klass
+
           klass
         end
 
         def cast(value, type)
           return nil if value.nil?
+
           type.cast(value)
         end
 
         def serialize(value, type)
           return nil if value.nil?
+
           type.serialize(value)
         end
       end
@@ -37,11 +41,13 @@ module Lutaml
       class Value
         def self.cast(value)
           return nil if value.nil?
+
           value.to_s
         end
 
         def self.serialize(value)
           return nil if value.nil?
+
           value.to_s
         end
       end

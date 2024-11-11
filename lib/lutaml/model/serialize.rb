@@ -310,7 +310,10 @@ module Lutaml
         def apply_xml_mapping(doc, instance, options = {})
           return instance unless doc
 
-          options[:default_namespace] = mappings_for(:xml)&.namespace_uri if options[:default_namespace].nil?
+          if options[:default_namespace].nil?
+            options[:default_namespace] =
+              mappings_for(:xml)&.namespace_uri
+          end
           mappings = mappings_for(:xml).mappings
 
           if doc.is_a?(Array)

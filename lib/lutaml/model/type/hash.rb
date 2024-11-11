@@ -4,6 +4,7 @@ module Lutaml
       class Hash < Value
         def self.cast(value)
           return nil if value.nil?
+
           hash = Hash(value)
           normalize_hash(hash)
         end
@@ -11,6 +12,7 @@ module Lutaml
         def self.serialize(value)
           return nil if value.nil?
           return value.to_h if value.respond_to?(:to_h)
+
           Hash(value)
         end
 

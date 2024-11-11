@@ -10,6 +10,7 @@ module Lutaml
 
         def self.cast(value)
           return if value.nil?
+
           check_dependencies!(value)
 
           # If already a BigDecimal, return as-is
@@ -23,6 +24,7 @@ module Lutaml
 
         def self.serialize(value)
           return if value.nil?
+
           check_dependencies!(value)
 
           # Format without scientific notation and stripped of trailing zeros

@@ -8,10 +8,8 @@ module Lutaml
           return 0 if value === false
 
           # Exponential notation
-          if value.is_a?(::String)
-            if value.match?(/^-?\d+(\.\d+)?(e-?\d+)?$/i)
-              return Integer(Float(value))
-            end
+          if value.is_a?(::String) && value.match?(/^-?\d+(\.\d+)?(e-?\d+)?$/i)
+            return Integer(Float(value))
           end
 
           Integer(value)
@@ -22,6 +20,7 @@ module Lutaml
 
         def self.serialize(value)
           return nil if value.nil?
+
           value.to_i
         end
       end

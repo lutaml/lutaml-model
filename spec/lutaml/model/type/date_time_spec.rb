@@ -6,6 +6,7 @@ RSpec.describe Lutaml::Model::Type::DateTime do
 
     context "with nil value" do
       let(:value) { nil }
+
       it { is_expected.to be_nil }
     end
 
@@ -69,6 +70,7 @@ RSpec.describe Lutaml::Model::Type::DateTime do
 
     context "with nil value" do
       let(:value) { nil }
+
       it { is_expected.to be_nil }
     end
 
@@ -113,7 +115,9 @@ RSpec.describe Lutaml::Model::Type::DateTime do
     end
 
     context "with microsecond precision" do
-      let(:value) { DateTime.new(2024, 1, 1, 12, 0, Rational(123456, 1000000), "+08:00") }
+      let(:value) do
+        DateTime.new(2024, 1, 1, 12, 0, Rational(123456, 1000000), "+08:00")
+      end
 
       xit "retains microsecond precision and offset" do
         expect(serialize).to eq("2024-01-01T12:00:00.123456+08:00")
