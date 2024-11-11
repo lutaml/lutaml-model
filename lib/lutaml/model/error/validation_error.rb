@@ -1,4 +1,3 @@
-# lib/lutaml/model/error/validation_error.rb
 module Lutaml
   module Model
     class ValidationError < Error
