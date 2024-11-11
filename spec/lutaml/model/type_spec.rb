@@ -100,8 +100,8 @@ RSpec.describe Lutaml::Model::Type do
           Lutaml::Model::Type::Time => { input: "2024-01-01T12:00:00",
                                          expected_hour: 12 },
           Lutaml::Model::Type::DateTime => { input: "2024-01-01T12:00:00",
-                                            expected: DateTime.new(2024, 1, 1,
-                                                                   12, 0, 0) },
+                                             expected: DateTime.new(2024, 1, 1,
+                                                                    12, 0, 0) },
           Lutaml::Model::Type::Boolean => { input: "true", expected: true },
           Lutaml::Model::Type::Hash => { input: { key: "value" },
                                          expected: { key: "value" } },
@@ -129,10 +129,6 @@ RSpec.describe Lutaml::Model::Type do
         before do
           require "bigdecimal"
           described_class.register_builtin_types
-        end
-
-        after do
-          # described_class.instance_variable_set(:@registry, nil)
         end
 
         it "registers and uses Decimal type" do

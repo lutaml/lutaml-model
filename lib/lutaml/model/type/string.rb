@@ -4,6 +4,7 @@ module Lutaml
       class String < Value
         def self.cast(value)
           return nil if value.nil?
+
           value.to_s
         end
 
@@ -13,7 +14,7 @@ module Lutaml
         end
 
         # JSON string
-        def to_json
+        def to_json(*_args)
           value
         end
 
