@@ -8,7 +8,8 @@ module Lutaml
           begin
             attr.validate_value!(value)
           rescue Lutaml::Model::InvalidValueError,
-                 Lutaml::Model::CollectionCountOutOfRangeError => e
+                 Lutaml::Model::CollectionCountOutOfRangeError,
+                 PatternNotMatchedError => e
             errors << e
           end
         end
