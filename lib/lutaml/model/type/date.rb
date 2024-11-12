@@ -6,10 +6,10 @@ module Lutaml
           return nil if value.nil?
 
           case value
-          when ::Date
-            value
           when ::DateTime, ::Time
             value.to_date
+          when ::Date
+            value
           else
             ::Date.parse(value.to_s)
           end
@@ -22,6 +22,12 @@ module Lutaml
           return nil if value.nil?
 
           value&.iso8601
+        end
+
+        # This is to handle where Ruby's YAML safe_load does not handle
+        # the Date/Time classes
+        def to_yaml(*args)
+          value&.iso8601.to_s
         end
       end
     end

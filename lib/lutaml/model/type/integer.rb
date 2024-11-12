@@ -7,13 +7,18 @@ module Lutaml
           return 1 if value === true
           return 0 if value === false
 
-          if value.is_a?(String) && value.match?(/^-?\d+(\.\d+)?(e-?\d+)?$/i)
-            Integer(Float(value))
+          case value
+          when String
+            if value.match?(/^0[0-7]+$/) # Octal
+              value.to_i(8)
+            elsif value.match?(/^-?\d+(\.\d+)?(e-?\d+)?$/i) # Float/exponential
+              Float(value).to_i
+            else
+              Integer(value, 10) rescue nil
+            end
           else
-            Integer(value)
+            Integer(value) rescue nil
           end
-        rescue ArgumentError
-          nil
         end
 
         # Override serialize to return Integer instead of String
