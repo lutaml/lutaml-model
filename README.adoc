@@ -22,6 +22,17 @@ NOTE: Instructions on how to migrate from Shale to Lutaml::Model are provided in
 <<migrate-from-shale>>.
 
 
+== Features
+
+* Define models with attributes and types
+* Serialize and deserialize models to/from JSON, XML, YAML, and TOML
+* Support for multiple serialization libraries (e.g., `toml-rb`, `tomlib`)
+* Configurable adapters for different serialization formats
+* Support for collections and default values
+* Custom serialization/deserialization methods
+* XML namespaces and mappings
+
+
 == Data modeling in a nutshell
 
 Data modeling is the process of creating a data model for the data to be stored
@@ -32,16 +43,110 @@ Lutaml::Model simplifies data modeling in Ruby by allowing you to define models
 with attributes and serialize/deserialize them to/from various serialization
 formats seamlessly.
 
+The Lutaml::Model data modelling approach is as follows:
 
-== Features
+.Modeling relationships of a LutaML Model
+[source]
+----
+                       Lutaml Model
+                             │
+                    Has many attributes
+                             │
+                             ▼
+                        Attribute
+                             │
+                        Has type of
+                             │
+                  ┌──────────┴──────────┐
+                  │                     │
+                Model              Value (Leaf)
+                  │                     │
+       Has many attributes    Contains one basic value
+                  │                     │
+          ┌───────┴─────┐        ┌──────┴──────┐
+          │             │        │             │
+        Model      Value (Leaf)  String       Integer
+          │                      Date         Boolean
+          │                      Time         Float
+  Has many attributes            ...          ...
+          │
+          ▼
+  (Recursive pattern continues...)
+----
 
-* Define models with attributes and types
-* Serialize and deserialize models to/from JSON, XML, YAML, and TOML
-* Support for multiple serialization libraries (e.g., `toml-rb`, `tomlib`)
-* Configurable adapters for different serialization formats
-* Support for collections and default values
-* Custom serialization/deserialization methods
-* XML namespaces and mappings
+.Example of LutaML Model instance with assigned values
+====
+[source]
+----
+Studio (Model)
+ ├── name (Value: String) = "Pottery Studio"
+ ├── address (Model)
+ │    ├── street (Value: String) = "123 Clay St"
+ │    ├── city (Value: String) = "Ceramics City"
+ │    └── postcode (Value: String) = "12345"
+ ├── established (Value: Date) = 2020-01-01
+ └── kilns (Model)
+      ├── count (Value: Integer) = 3
+      └── temperature (Value: Float) = 1200.0
+----
+====
+
+
+.Modeling relationships of a LutaML Model to serialization models
+[source]
+----
+    Core Model                  Serialization Model
+    ==========                  ===================
+        │                           (mapping)
+        │                               │
+        ▼                               ▼
+      Model                         XML Model
+        │                               │
+  ┌─────┴─────┐                  ┌──────┴──────┐
+  │           │                  │             │
+Models   Value Types ────┬──►  Models     Value Types
+  │           │          │       │             │
+  │           │          │       │             │
+  │    ┌──────┴──┐       │  ┌────┴────┐      ┌─┴─┐
+  │    │         │       │  │         │      │   │
+  │   String  Integer    │ Element  Value  xs:string
+  │   Date    Float      │ Attribute Type  xs:date
+  │   Time    Boolean    │                 xs:boolean
+  │                      │                 xs:anyURI
+  └──────┐               │
+         │               │         JSON Model
+    Contains             │              │
+    more Models          │       ┌──────┴──────┐
+    (recursive)          │       │             │
+                         └──►  Models     Value Types
+                                 │             │
+                                 │             │
+                            ┌────┴────┐      ┌─┴─┐
+                            │         │      │   │
+                           object  array  number string
+                           value          boolean null
+----
+
+.Example of LutaML Model instance transformed into a serialization model and serialized to JSON
+====
+[source]
+----
+Studio (Core Model)          JSON Model                Serialized JSON
+    │                            │                            │
+    ▼                            ▼                            ▼
+name: "Studio 1"     ┌─► { "name": "...",         {
+address:             │     "address": {             "name": "Studio 1",
+  ├── street: "..."  │       "street": "...",       "address": {
+  └── city: "..."    │       "city": "..."    ──►     "street": "...",
+kilns:               │     },                         "city": "..."
+  ├── count: 3       │    "kilnsCount": ...,        },
+  └── temp: 1200     │    "kilnsTemp": ...          "kilnsCount": 3,
+                     └─► }                          "kilnsTemp": 1200
+                                                  }
+----
+====
+
+
 
 == Installation
 
@@ -150,6 +255,8 @@ same class and all their attributes are equal.
 Lutaml::Model supports the following attribute types, they can be
 referred by a string, a symbol, or their class constant.
 
+Every type has a corresponding Ruby class and a serialization format type.
+
 Syntax:
 
 [source,ruby]
@@ -159,20 +266,20 @@ attribute :name_of_attribute, {symbol | string | class}
 
 .Mapping between Lutaml::Model::Type classes, Ruby equivalents and serialization format types
 |===
-| Lutaml::Model::Type   | Ruby Class               | XML               | JSON               | YAML        | Example Value
+| Lutaml::Model::Type   | Ruby class               | XML               | JSON      | YAML        | Example value
 
-| `:string`             | `String`                 | `xs:string`       | `string`           | `string`    | `"text"`
-| `:integer`            | `Integer`                | `xs:integer`      | `number`           | `integer`   | `42`
-| `:float`              | `Float`                  | `xs:decimal`      | `number`           | `float`     | `3.14`
-| `:boolean`            | `TrueClass`/`FalseClass` | `xs:boolean`      | `boolean`          | `boolean`   | `true/false`
-| `:date`               | `Date`                   | `xs:date`         | `string` (ISO8601) | `date`      | `"2024-01-01"`
-| `:time_without_date`  | `Time`                   | `xs:time`         | `string` (ISO8601) | `time`      | `"12:34:56"`
-| `:date_time`          | `DateTime`               | `xs:dateTime`     | `string` (ISO8601) | `timestamp` | `"2024-01-01T00:00:00Z"`
-| `:time`               | `Time`                   | `xs:dateTime`     | `string` (ISO8601) | `timestamp` | `"2024-01-01T00:00:00Z"`
-| `:decimal` (optional) | `BigDecimal`             | `xs:decimal`      | `number`           | `float`     | `123.45`
-| `:hash`               | `Hash`                   | complex element   | `object`           | `map`       | `{key: "value"}`
-| `class`               | Custom Class             | complex element   | `object`           | `map`       | `CustomObject`
-| `collection: true`    | `Array` of Type          | repeated elements | `array`            | `sequence`  | `[obj1, obj2]`
+| `:string`             | `String`                 | `xs:string`       | `string`  | `string`  | `"text"`
+| `:integer`            | `Integer`                | `xs:integer`      | `number`  | `integer` | `42`
+| `:float`              | `Float`                  | `xs:decimal`      | `number`  | `float`   | `3.14`
+| `:boolean`            | `TrueClass`/`FalseClass` | `xs:boolean`      | `boolean` | `boolean` | `true`, `false`
+| `:date`               | `Date`                   | `xs:date`         | `string`  | `string`  | `2024-01-01` (JSON/YAML `"2024-01-01"`)
+| `:time_without_date`  | `Time`                   | `xs:time`         | `string`  | `string`  | `"12:34:56"`
+| `:date_time`          | `DateTime`               | `xs:dateTime`     | `string`  | `string`  | `"2024-01-01T12:00:00+00:00"`
+| `:time`               | `Time`                   | `xs:dateTime`     | `string`  | `string`  | `"2024-01-01T12:00:00+00:00"`
+| `:decimal` (optional) | `BigDecimal`             | `xs:decimal`      | `number`  | `float`   | `123.45`
+| `:hash`               | `Hash`                   | complex element   | object    | map       | `{key: "value"}`
+// | `class`               | Custom class             | complex element   | object    | map       | `CustomObject`
+// | `collection: true`    | `Array` of type          | repeated elements | array     | sequence  | `[obj1, obj2]`
 // | `any`
 
 |===
@@ -204,14 +311,17 @@ end
 ----
 ====
 
-==== (optional) Decimal type
+==== Decimal type
 
-The `BigDecimal` class is no longer part of the standard Ruby library from Ruby
-3.4 onwards, hence the `Decimal` type is only enabled when the `bigdecimal`
-library is loaded.
+The Decimal type is an optional type that is disabled by default.
 
-This means that the following code needs to be run before using (and parsing)
-the `Decimal` type:
+NOTE: The reason why the Decimal type is disalbed by default is that the
+`BigDecimal` class became optional to the standard Ruby library from Ruby 3.4
+onwards. The `Decimal` type is only enabled when the `bigdecimal` library is
+loaded.
+
+The following code needs to be run before using (and parsing) the Decimal
+type:
 
 [source,ruby]
 ----
@@ -220,6 +330,142 @@ require 'bigdecimal'
 
 If the `bigdecimal` library is not loaded, usage of the `Decimal` type will
 raise a `Lutaml::Model::TypeNotSupportedError`.
+
+
+==== Custom type
+
+A custom class can be used as an attribute type. The custom class must inherit
+from `Lutaml::Model::Type::Value` or a class that inherits from it.
+
+A class inheriting from the `Value` class carries the attribute `value` which
+stores the one-and-only "true" value that is independent of serialization
+formats.
+
+The minimum requirement for a custom class is to implement the following
+methods:
+
+`self.cast(value)`:: Assignment of an external value to the `Value` class to be
+set as `value`. Casts the value to the custom type.
+
+`self.serialize(value)`:: Serializes the custom type to an object (e.g. a
+string). Takes the internal `value` and converts it into an output suitable for
+serialization.
+
+
+.Using a custom value type to normalize a postcode with minimal methods
+[example]
+====
+[source,ruby]
+----
+class FiveDigitPostCode < Lutaml::Model::Type::String
+  def self.cast(value)
+    value = value.to_s if value.is_a?(Integer)
+
+    unless value.is_a?(::String)
+      raise Lutaml::Model::InvalidValueError, "Invalid value for type 'FiveDigitPostCode'"
+    end
+
+    # Pad zeros to the left
+    value.rjust(5, '0')
+  end
+
+  def self.serialize(value)
+    value
+  end
+end
+
+class Studio < Lutaml::Model::Serializable
+  attribute :postcode, FiveDigitPostCode
+end
+----
+====
+
+
+==== Serialization of custom types
+
+The serialization of custom types can be made to differ per serialization format
+by defining methods in the class definitions. This requires additional methods
+than the minimum required for a custom class (i.e. `self.cast(value)` and
+`self.serialize(value)`).
+
+This is useful in the case when different serialization formats of the same
+model expect differentiated value representations.
+
+The methods that can be overridden are named:
+
+`self.from_{format}(serialized_string)`:: Deserializes a string of the
+serialization format and returns the object to be assigned to the `Value` class'
+`value`.
+
+`to_{format}`:: Serializes the object to a string of the serialization format.
+
+The `{format}` part of the method name is the serialization format in lowercase
+(e.g. `json`, `xml`, `yaml`, `toml`).
+
+.Using custom serialization methods to handle a high-precision date-time type
+[example]
+====
+Suppose in XML we handle a high-precision date-time type that requires custom
+serialization methods, but other formats such as JSON do not support this type.
+
+For instance, in the normal DateTime class, the serialized string is
+`2012-04-07T01:51:37+02:00`, and the high-precision format is
+`2012-04-07T01:51:37.112+02:00`.
+
+We create `HighPrecisionDateTime` class is a custom class that inherits
+from `Lutaml::Model::Type::DateTime`.
+
+[source,ruby]
+----
+class HighPrecisionDateTime < Lutaml::Model::Type::DateTime
+  # Inherit the `self.cast(value)` and `self.serialize(value)` methods
+  # from Lutaml::Model::Type::DateTime
+
+  # The format looks like this `2012-04-07T01:51:37.112+02:00`
+  def self.from_xml(xml_string)
+    ::DateTime.parse(xml_string)
+  end
+
+  # The %L adds milliseconds to the time
+  def to_xml
+    value.strftime('%Y-%m-%dT%H:%M:%S.%L%:z')
+  end
+end
+
+class Ceramic < Lutaml::Model::Serializable
+  attribute :kiln_firing_time, HighPrecisionDateTime
+  xml do
+    root 'ceramic'
+    map_element 'kilnFiringTime', to: :kiln_firing_time
+    # ...
+  end
+end
+----
+
+An XML snippet with the high-precision date-time type:
+
+[source,xml]
+----
+<ceramic>
+  <kilnFiringTime>2012-04-07T01:51:37.112+02:00</kilnFiringTime>
+  <!-- ... -->
+</ceramic>
+----
+
+When loading the XML snippet, the `HighPrecisionDateTime` class will be used to
+parse the high-precision date-time string.
+
+However, when serializing to JSON, the value will have the high-precision
+part lost due to the inability of JSON to handle high-precision date-time.
+
+[source,ruby]
+----
+> c = Ceramic.from_xml(xml)
+> #<Ceramic:0x0000000104ac7240 @kiln_firing_time=#<HighPrecisionDateTime:0x0000000104ac7240 @value=2012-04-07 01:51:37.112000000 +0200>>
+> c.to_json
+> # {"kilnFiringTime":"2012-04-07T01:51:37+02:00"}
+----
+====
 
 
 === Attribute as a collection
