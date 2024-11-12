@@ -543,8 +543,15 @@ end
 ====
 
 
+=== Attribute value validation
+
+==== General
+
+There are several mechanisms to validate attribute values in Lutaml::Model.
+
+
 [[attribute-enumeration]]
-=== Attribute as an enumeration
+==== Values of an enumeration
 
 An attribute can be defined as an enumeration by using the `values` directive.
 
@@ -639,6 +646,44 @@ acceptance of the newly updated component.
 > # Lutaml::Model::InvalidValueError: Invalid value for attribute 'featured_piece'
 ----
 ====
+
+
+==== String values restricted to patterns
+
+An attribute that accepts a string value accepts value validation using regular
+expressions.
+
+Syntax:
+
+[source,ruby]
+----
+attribute :name_of_attribute, :string, pattern: /regex/
+----
+
+.Using the `pattern` option to restrict the value of an attribute
+[example]
+====
+In this example, the `color` attribute takes hex color values such as `#ccddee`.
+
+A regular expression can be used to validate values assigned to the attribute.
+In this case, it is `/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/`.
+
+[source,ruby]
+----
+class Glaze < Lutaml::Model::Serializable
+  attribute :color, :string, pattern: /\A#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})\z/
+end
+----
+
+[source,ruby]
+----
+> Glaze.new(color: '#ff0000').color
+> # "#ff0000"
+> Glaze.new(color: '#ff000').color
+> # Lutaml::Model::InvalidValueError: Invalid value for attribute 'color'
+----
+====
+
 
 
 === Attribute value default and rendering defaults
@@ -771,7 +816,8 @@ class Person < Lutaml::Model::Serializable
 end
 ----
 
-For the following xml
+For the following XML snippet:
+
 [source,xml]
 ----
 <Person>
