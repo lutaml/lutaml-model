@@ -33,6 +33,33 @@ RSpec.describe Lutaml::Model::Attribute do
       .to("avatar.png")
   end
 
+  describe "#validate_options!" do
+    let(:validate_options) { name_attr.method(:validate_options!) }
+
+    Lutaml::Model::Attribute::ALLOWED_OPTIONS.each do |option|
+      it "return true if option is `#{option}`" do
+        expect(validate_options.call({ option => "value" })).to be(true)
+      end
+    end
+
+    it "raise exception if option is not allowed" do
+      expect do
+        validate_options.call({ foo: "bar" })
+      end.to raise_error(StandardError, "Invalid options given for `name` [:foo]")
+    end
+
+    it "raise exception if pattern is given with non string type" do
+      age_attr = described_class.new("age", :integer)
+
+      expect do
+        age_attr.send(:validate_options!, { pattern: /[A-Za-z ]/ })
+      end.to raise_error(
+        StandardError,
+        "Invalid option `pattern` given for `age`, `pattern` is only allowed for :string type",
+      )
+    end
+  end
+
   describe "#validate_type!" do
     let(:validate_type) { name_attr.method(:validate_type!) }
 

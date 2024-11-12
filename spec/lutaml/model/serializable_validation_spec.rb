@@ -2,6 +2,7 @@ require "spec_helper"
 
 class TestSerializable < Lutaml::Model::Serializable
   attribute :name, :string, values: ["Alice", "Bob", "Charlie"]
+  attribute :email, :string, pattern: /.*?\S+@.+\.\S+/
   attribute :age, :integer, collection: 1..3
 
   xml do
@@ -27,9 +28,12 @@ class TestSerializable < Lutaml::Model::Serializable
 end
 
 RSpec.describe Lutaml::Model::Serializable do
-  let(:valid_instance) { TestSerializable.new(name: "Alice", age: [30]) }
+  let(:valid_instance) do
+    TestSerializable.new(name: "Alice", age: [30], email: "alice@gmail.com")
+  end
+
   let(:invalid_instance) do
-    TestSerializable.new(name: "David", age: [25, 30, 35, 40])
+    TestSerializable.new(name: "David", age: [25, 30, 35, 40], email: "david@gmail")
   end
 
   describe "serialization methods" do
@@ -66,8 +70,9 @@ RSpec.describe Lutaml::Model::Serializable do
     it "returns errors for invalid attributes" do
       errors = invalid_instance.validate
       expect(errors).not_to be_empty
-      expect(errors.first).to be_a(Lutaml::Model::InvalidValueError)
-      expect(errors.last).to be_a(Lutaml::Model::CollectionCountOutOfRangeError)
+      expect(errors[0]).to be_a(Lutaml::Model::InvalidValueError)
+      expect(errors[1]).to be_a(Lutaml::Model::PatternNotMatchedError)
+      expect(errors[2]).to be_a(Lutaml::Model::CollectionCountOutOfRangeError)
     end
   end
 

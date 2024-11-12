@@ -9,6 +9,7 @@ module Lutaml
         delegate
         collection
         values
+        pattern
       ].freeze
 
       def initialize(name, type, options = {})
@@ -87,23 +88,12 @@ module Lutaml
         cast_value(value)
       end
 
-      def enum_values
-        @options.key?(:values) ? @options[:values] : []
+      def pattern
+        options[:pattern]
       end
 
-      # Check if the value to be assigned is valid for the attribute
-      #
-      # Currently there are 2 validations
-      #   1. Value should be from the values list if they are defined
-      #      e.g values: ["foo", "bar"] is set then any other value for this
-      #          attribute will raise `Lutaml::Model::InvalidValueError`
-      #
-      #   2. Value count should be between the collection range if defined
-      #      e.g if collection: 0..5 is set then the value greater then 5
-      #          will raise `Lutaml::Model::CollectionCountOutOfRangeError`
-      def validate_value!(value)
-        valid_value!(value)
-        valid_collection!(value)
+      def enum_values
+        @options.key?(:values) ? @options[:values] : []
       end
 
       def valid_value!(value)
@@ -123,14 +113,32 @@ module Lutaml
         options[:values].include?(value)
       end
 
-      def validate_value!(value)
-        # return true if none of the validations are present
-        return true if enum_values.empty? && singular?
+      def valid_pattern!(value)
+        return true unless type == Lutaml::Model::Type::String
+        return true unless pattern
 
+        unless pattern.match?(value)
+          raise Lutaml::Model::PatternNotMatchedError.new(name, pattern, value)
+        end
+
+        true
+      end
+
+      # Check if the value to be assigned is valid for the attribute
+      #
+      # Currently there are 2 validations
+      #   1. Value should be from the values list if they are defined
+      #      e.g values: ["foo", "bar"] is set then any other value for this
+      #          attribute will raise `Lutaml::Model::InvalidValueError`
+      #
+      #   2. Value count should be between the collection range if defined
+      #      e.g if collection: 0..5 is set then the value greater then 5
+      #          will raise `Lutaml::Model::CollectionCountOutOfRangeError`
+      def validate_value!(value)
         # Use the default value if the value is nil
         value = default if value.nil?
 
-        valid_value!(value) && valid_collection!(value)
+        valid_value!(value) && valid_collection!(value) && valid_pattern!(value)
       end
 
       def validate_collection_range
@@ -229,6 +237,13 @@ module Lutaml
           raise StandardError,
                 "Invalid options given for `#{name}` #{invalid_opts}"
         end
+
+        if options.key?(:pattern) && type != Lutaml::Model::Type::String
+          raise StandardError,
+                "Invalid option `pattern` given for `#{name}`, `pattern` is only allowed for :string type"
+        end
+
+        true
       end
 
       def validate_type!(type)
