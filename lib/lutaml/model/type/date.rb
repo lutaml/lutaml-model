@@ -26,7 +26,7 @@ module Lutaml
 
         # This is to handle where Ruby's YAML safe_load does not handle
         # the Date/Time classes
-        def to_yaml(*args)
+        def to_yaml(*)
           value&.iso8601.to_s
         end
       end

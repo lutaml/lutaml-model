@@ -39,6 +39,8 @@ module Lutaml
           )
             add_namespace_prefix(prefix)
 
+            element_name = "#{element_name}_" if respond_to?(element_name)
+
             if block_given?
               public_send(element_name, attributes) do
                 xml.parent.namespace = nil if prefix.nil? && !prefix_unset

@@ -6,10 +6,10 @@ module Lutaml
           return nil if value.nil?
 
           hash = if value.respond_to?(:to_h)
-              value.to_h
-            else
-              Hash(value)
-            end
+                   value.to_h
+                 else
+                   Hash(value)
+                 end
 
           normalize_hash(hash)
         end
@@ -19,9 +19,14 @@ module Lutaml
 
           hash = hash.to_h if hash.is_a?(Lutaml::Model::MappingHash)
 
+          hash = hash.except("text")
+
           hash.transform_values do |value|
-            if value.is_a?(Hash)
-              normalize_hash(value)
+            if value.is_a?(::Hash)
+              # Only process if value is a Hash
+              nested = normalize_hash(value)
+              # Only include non-text nodes in nested hashes if it's a hash
+              nested.is_a?(::Hash) ? nested.except("text") : nested
             else
               value
             end

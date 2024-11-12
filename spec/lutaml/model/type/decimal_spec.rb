@@ -27,10 +27,7 @@ RSpec.describe Lutaml::Model::Type do
 
     context "when bigdecimal is not loaded" do
       before do
-        # Undefine BigDecimal if it exists
-        Object.send(:remove_const, :BigDecimal) if defined?(BigDecimal)
-        # Remove bigdecimal from $LOADED_FEATURES
-        $LOADED_FEATURES.delete_if { |path| path.include?("bigdecimal") }
+        hide_const("BigDecimal")
       end
 
       it "raises TypeNotEnabledError when serializing" do

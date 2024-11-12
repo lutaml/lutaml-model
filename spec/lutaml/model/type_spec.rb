@@ -19,11 +19,6 @@ RSpec.describe Lutaml::Model::Type do
   describe "Type System" do
     describe ".register and .lookup" do
       context "with valid types" do
-        after do
-          # Clean up registered test types
-          described_class.instance_variable_set(:@registry, nil)
-        end
-
         it "registers and looks up a custom type" do
           described_class.register(:custom, CustomType)
           expect(described_class.lookup(:custom)).to eq(CustomType)
@@ -152,6 +147,8 @@ RSpec.describe Lutaml::Model::Type do
           require "bigdecimal"
         end
 
+        let(:decimal_class) { described_class.lookup(:decimal) }
+
         it "raises TypeNotEnabledError when using Decimal type" do
           expect do
             described_class.lookup(:decimal).cast("123.45")
@@ -169,6 +166,7 @@ RSpec.describe Lutaml::Model::Type do
       attribute :float_value, :float
       attribute :date_value, :date
       attribute :time_value, :time
+      attribute :time_without_date_value, :time_without_date
       attribute :date_time_value, :date_time
       attribute :boolean_value, :boolean
       attribute :hash_value, :hash
@@ -181,6 +179,7 @@ RSpec.describe Lutaml::Model::Type do
         map_element "float", to: :float_value
         map_element "date", to: :date_value
         map_element "time", to: :time_value
+        map_element "time_without_date", to: :time_without_date_value
         map_element "date_time", to: :date_time_value
         map_element "boolean", to: :boolean_value
         map_element "hash", to: :hash_value
@@ -195,6 +194,7 @@ RSpec.describe Lutaml::Model::Type do
         float_value: "123.45",
         date_value: "2024-01-01",
         time_value: "12:00:00",
+        time_without_date_value: "10:06:15",
         date_time_value: "2024-01-01T12:00:00",
         boolean_value: "true",
         hash_value: { key: "value" },
@@ -229,8 +229,9 @@ RSpec.describe Lutaml::Model::Type do
             <integer>123</integer>
             <float>123.45</float>
             <date>2024-01-01</date>
-            <time>12:00:00</time>
-            <date_time>2024-01-01T12:00:00</date_time>
+            <time>#{Time.parse('12:00:00').iso8601}</time>
+            <time_without_date>10:06:15</time_without_date>
+            <date_time>2024-01-01T12:00:00+00:00</date_time>
             <boolean>true</boolean>
             <hash>
               <key>value</key>
@@ -250,6 +251,7 @@ RSpec.describe Lutaml::Model::Type do
             <float>123.45</float>
             <date>2024-01-01</date>
             <time>12:00:00</time>
+            <time_without_date>10:06:15</time_without_date>
             <date_time>2024-01-01T12:00:00</date_time>
             <boolean>true</boolean>
             <hash>

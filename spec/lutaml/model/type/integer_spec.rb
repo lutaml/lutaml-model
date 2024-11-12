@@ -89,14 +89,14 @@ RSpec.describe Lutaml::Model::Type::Integer do
     end
 
     context "with very large integer" do
-      let(:max_value) { ((2 ** ((0.size * 8) - 2)) - 1) }
+      let(:max_value) { ((2**((0.size * 8) - 2)) - 1) }
       let(:value) { max_value.to_s }
 
       xit { is_expected.to eq(max_value) }
     end
 
     context "with very small integer" do
-      let(:min_value) { -(2 ** ((0.size * 8) - 2)) }
+      let(:min_value) { -(2**((0.size * 8) - 2)) }
       let(:value) { min_value.to_s }
 
       it { is_expected.to eq(min_value) }
