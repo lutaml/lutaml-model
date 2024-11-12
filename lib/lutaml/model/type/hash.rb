@@ -21,10 +21,7 @@ module Lutaml
 
           hash.transform_values do |value|
             if value.is_a?(Hash)
-              # Only process if value is a Hash
-              nested = normalize_hash(value)
-              # Only include non-text nodes in nested hashes if it's a hash
-              nested.is_a?(Hash) ? nested.except("text") : nested
+              normalize_hash(value)
             else
               value
             end
