@@ -1189,21 +1189,45 @@ end
 ----
 ====
 
-==== CDATA Nodes
 
-You can use cdata: true option on map_element and map_content to handle CDATA nodes. It reads cdata or string, produce only cdata and cdata: false reads cdata or string, produce only string.
+==== CDATA nodes
+
+CDATA is an XML feature that allows the inclusion of text that may contain
+characters that are unescaped in XML.
+
+While CDATA is not preferred in XML, it is sometimes necessary to handle CDATA
+nodes for both input and output.
+
+NOTE: The W3C XML Recommendation explicitly encourages escaping characters over
+usage of CDATA.
+
+Lutaml::Model supports the handling of CDATA nodes in XML in the following
+behavior:
+
+. When an attribute contains a CDATA node with no text:
+** On reading: The node (CDATA or text) is read as its value.
+** On writing: The value is written as its native type.
+
+. When an XML mapping sets `cdata: true` on `map_element` or `map_content`:
+** On reading: The node (CDATA or text) is read as its value.
+** On writing: The value is written as a CDATA node.
+
+. When an XML mapping sets `cdata: false` on `map_element` or `map_content`:
+** On reading: The node (CDATA or text) is read as its value.
+** On writing: The value is written as a text node (string).
+
 
 Syntax:
 
 [source,ruby]
 ----
 xml do
-  map_content to: :name_of_attribute, cdata: true
-  map_element :name, to: :name, cdata: false
+  map_content to: :name_of_attribute, cdata: (true | false)
+  map_element :name, to: :name, cdata: (true | false)
 end
 ----
 
-.Using `cdata` to map cdata content
+.Using `cdata` to map CDATA content
 [example]
 ====
 The following class will parse the XML snippet below:
@@ -1239,7 +1263,6 @@ end
 > #<example><name><![CDATA[John]]></name><![CDATA[here is the description]]><title>Lutaml</title><note>Careful</note></example>
 ----
 ====
-
 
 
 ==== Example for mapping
