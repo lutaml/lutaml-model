@@ -148,11 +148,11 @@ RSpec.describe Delegation do
   end
 
   it "provides XML declaration with UTF-8 encoding" \
-     "if encoding: true option provided" do
+     "if encoding: 'UTF-8' option provided" do
     xml_data = delegation.to_xml(
       pretty: true,
       declaration: true,
-      encoding: true,
+      encoding: "UTF-8",
     )
     expect(xml_data).to include('<?xml version="1.0" encoding="UTF-8"?>')
   end

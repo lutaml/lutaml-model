@@ -170,6 +170,15 @@ module MixedContentSpec
       map_element :value, to: :value
     end
   end
+
+  class HexCode < Lutaml::Model::Serializable
+    attribute :content, :string
+
+    xml do
+      root "HexCode"
+      map_content to: :content
+    end
+  end
 end
 
 RSpec.describe "MixedContent" do
@@ -449,7 +458,7 @@ RSpec.describe "MixedContent" do
 
         it "serializes special char mixed content correctly" do
           parsed = MixedContentSpec::SpecialCharContentWithMixedTrue.from_xml(xml)
-          serialized = parsed.to_xml
+          serialized = parsed.to_xml(encoding: "UTF-8")
 
           expect(serialized).to include(expected_xml)
         end
@@ -608,10 +617,68 @@ RSpec.describe "MixedContent" do
         end
       end
     end
+
+    context "when special char used as full entities, it persist as entities if no encoding provided" do
+      let(:xml) do
+        <<~XML
+          <HexCode>
+            &#x2211;computer security&#x220F; type of &#x200B; operation specified &#xB5; by an access right
+          </HexCode>
+        XML
+      end
+
+      describe ".from_xml" do
+        let(:expected_content) { "∑computer security∏ type of ​ operation specified µ by an access right" }
+
+        it "deserializes special char mixed content correctly" do
+          parsed = MixedContentSpec::HexCode.from_xml(xml)
+
+          expect(parsed.content.strip).to eq(expected_content)
+        end
+      end
+
+      describe ".to_xml" do
+        context "when default encoding xml" do
+          let(:expected_default_encoding_xml) { "∑computer security∏ type of ​ operation specified µ by an access right" }
+
+          it "serializes special char mixed content correctly with default encoding: UTF-8" do
+            parsed = MixedContentSpec::HexCode.from_xml(xml)
+            serialized = parsed.to_xml
+
+            expect(serialized.strip).to include(expected_default_encoding_xml)
+          end
+        end
+
+        context "when encoding: nil xml" do
+          let(:expected_encoding_nil_nokogiri_xml) { "&#x2211;computer security&#x220F; type of &#x200B; operation specified &#xB5; by an access right" }
+          let(:expected_encoding_nil_ox_xml) { "\xE2\x88\x91computer security\xE2\x88\x8F type of \xE2\x80\x8B operation specified \xC2\xB5 by an access right" }
+
+          it "serializes special char mixed content correctly with encoding: nil to get hexcode" do
+            parsed = MixedContentSpec::HexCode.from_xml(xml)
+            serialized = parsed.to_xml(encoding: nil)
+
+            if adapter_class == Lutaml::Model::XmlAdapter::OxAdapter
+              expected_output = expected_encoding_nil_ox_xml
+              expected_output.force_encoding("ASCII-8BIT")
+            else
+              expected_output = expected_encoding_nil_nokogiri_xml
+            end
+
+            expect(serialized.strip).to include(expected_output)
+          end
+        end
+      end
+    end
   end
 
   describe Lutaml::Model::XmlAdapter::NokogiriAdapter do
     it_behaves_like "mixed content behavior", described_class
+
+    it "raises error when serializes special char content with false encoding: 'ABC'" do
+      parsed = MixedContentSpec::HexCode.from_xml("<HexCode>&#x2211;computer security</HexCode>")
+
+      expect { parsed.to_xml(encoding: "ABC") }.to raise_error(StandardError, "unknown encoding name - ABC")
+    end
   end
 
   describe Lutaml::Model::XmlAdapter::OxAdapter do
