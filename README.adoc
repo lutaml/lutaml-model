@@ -1302,6 +1302,69 @@ end
 ====
 
 
+==== Encoding Options in XmlAdapter
+
+XmlAdapter supports the encoding in the following ways:
+
+. When encoding is not passed in to_xml:
+** Default encoding is UTF-8.
+
+. When encoding is explicitly passed nil:
+** Encoding will be nil, show the HexCode(Nokogiri) or ASCII-8bit(Ox).
+
+. When encoding is passed with some option:
+** Encoding option will be selected as passed.
+
+
+Syntax:
+
+[source,ruby]
+----
+Example.new(description: " ∑ is my ∏ moniker µ.").to_xml
+Example.new(description: " ∑ is my ∏ moniker µ.").to_xml(encoding: nil)
+Example.new(description: " ∑ is my ∏ moniker µ.").to_xml(encoding: "ASCII")
+----
+
+[example]
+====
+The following class will parse the XML snippet below:
+
+[source,ruby]
+----
+class Example < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :description, :string
+  attribute :value, :integer
+
+  xml do
+    root 'example'
+    map_element 'name', to: :name
+    map_content to: :description
+  end
+end
+----
+
+[source,xml]
+----
+<example><name>John &#x0026; Doe</name> &#x2211; is my &#x220F; moniker &#xB5;.</example>
+----
+
+[source,ruby]
+----
+> Example.from_xml(xml)
+> #<Example:0x0000000104ac7240 @name="John & Doe", @description=" ∑ is my ∏ moniker µ.">
+> Example.new(name: "John & Doe", description: " ∑ is my ∏ moniker µ.").to_xml
+> #<example><name>John &amp; Doe</name> ∑ is my ∏ moniker µ.</example>
+
+> Example.new(name: "John & Doe", description: " ∑ is my ∏ moniker µ.").to_xml(encoding: nil)
+> #<example><name>John &amp; Doe</name> &#x2211; is my &#x220F; moniker &#xB5;.</example>
+
+> Example.new(name: "John & Doe", description: " ∑ is my ∏ moniker µ.").to_xml(encoding: "ASCII")
+> #<example><name>John &amp; Doe</name> &#8721; is my &#8719; moniker &#181;.</example>
+----
+====
+
+
 ==== Namespaces
 
 [[root-namespace]]

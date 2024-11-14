@@ -14,8 +14,15 @@ module Lutaml
 
         def to_xml(options = {})
           builder = Builder::Ox.build
-          builder.xml.instruct(:xml, encoding: options[:encoding] || "UTF-8", version: options[:version])
+          builder_options = { version: options[:version] }
 
+          if options.key?(:encoding)
+            builder_options[:encoding] = options[:encoding] unless options[:encoding].nil?
+          else
+            builder_options[:encoding] = "UTF-8"
+          end
+
+          builder.xml.instruct(:xml, builder_options)
           if @root.is_a?(Lutaml::Model::XmlAdapter::OxElement)
             @root.build_xml(builder)
           elsif ordered?(@root, options)

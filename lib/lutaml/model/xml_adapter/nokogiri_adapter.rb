@@ -13,7 +13,15 @@ module Lutaml
         end
 
         def to_xml(options = {})
-          builder = Builder::Nokogiri.build(encoding: "UTF-8") do |xml|
+          builder_options = {}
+
+          if options.key?(:encoding)
+            builder_options[:encoding] = options[:encoding] unless options[:encoding].nil?
+          else
+            builder_options[:encoding] = "UTF-8"
+          end
+
+          builder = Builder::Nokogiri.build(builder_options) do |xml|
             if root.is_a?(Lutaml::Model::XmlAdapter::NokogiriElement)
               root.build_xml(xml)
             else
