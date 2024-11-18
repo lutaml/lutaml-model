@@ -35,12 +35,11 @@ module Lutaml
 
         def prefix_xml(xml, mapping, options)
           if options.key?(:namespace_prefix)
-            options[:namespace_prefix] ? xml[options[:namespace_prefix]] : xml
+            xml[options[:namespace_prefix]] if options[:namespace_prefix]
           elsif mapping.namespace_prefix
             xml[mapping.namespace_prefix]
-          else
-            xml
           end
+          xml
         end
 
         def build_ordered_element(xml, element, options = {})
