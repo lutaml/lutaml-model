@@ -231,6 +231,30 @@ module XmlMapping
                                       prefix: nil
     end
   end
+
+  class Documentation < Lutaml::Model::Serializable
+    attribute :content, :string
+
+    xml do
+      root "documentation", mixed: true
+      namespace "http://www.w3.org/2001/XMLSchema", "xsd"
+
+      map_content to: :content
+    end
+  end
+
+  class Schema < Lutaml::Model::Serializable
+    attribute :documentation, Documentation, collection: true
+
+    xml do
+      root "schema"
+      namespace "http://www.w3.org/2001/XMLSchema", "xsd"
+
+      map_element :documentation, to: :documentation,
+                                  namespace: "http://www.w3.org/2001/XMLSchema",
+                                  prefix: "xsd"
+    end
+  end
 end
 
 RSpec.describe Lutaml::Model::XmlMapping do
@@ -887,6 +911,20 @@ RSpec.describe Lutaml::Model::XmlMapping do
         XML
 
         expect(XmlMapping::SpecialCharContentWithMapAll.from_xml(xml).to_xml).to eq(expected_xml)
+      end
+    end
+
+    context "when mixed content is true and child is content_mapping" do
+      let(:xml) do
+        <<~XML
+          <xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+            <xsd:documentation>asdf</xsd:documentation>
+          </xsd:schema>
+        XML
+      end
+
+      it "round-trips xml" do
+        expect(XmlMapping::Schema.from_xml(xml).to_xml).to be_equivalent_to(xml)
       end
     end
   end
