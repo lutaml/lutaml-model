@@ -66,7 +66,7 @@ module Lutaml
           options[:tag_name] = rule.name
 
           options[:mapper_class] = attribute&.type if attribute
-          options[:namespace_set] = set_namespace?(rule)
+          options[:set_namespace] = set_namespace?(rule)
 
           options
         end
@@ -185,6 +185,7 @@ module Lutaml
           attributes = options[:xml_attributes] ||= {}
           attributes = build_attributes(element,
                                         xml_mapping, options).merge(attributes)&.compact
+
           if element.respond_to?(:schema_location) && element.schema_location
             attributes.merge!(element.schema_location.to_xml_attributes)
           end
@@ -275,7 +276,7 @@ module Lutaml
         end
 
         def set_namespace?(rule)
-          rule.nil? || !rule.namespace_set? || !rule.namespace.nil?
+          rule.nil? || !rule.namespace_set?
         end
 
         def render_element?(rule, element, value)
@@ -336,7 +337,7 @@ module Lutaml
         end
 
         def build_attributes(element, xml_mapping, options = {})
-          attrs = if options.fetch(:namespace_set, true)
+          attrs = if options.fetch(:set_namespace, true)
                     namespace_attributes(xml_mapping)
                   else
                     {}
