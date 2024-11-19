@@ -127,6 +127,17 @@ module XmlMapping
     end
   end
 
+  class OverrideDefaultNamespacePrefix < Lutaml::Model::Serializable
+    attribute :same_element_name, SameNameDifferentNamespace
+
+    xml do
+      root "OverrideDefaultNamespacePrefix"
+      map_element :SameElementName, to: :same_element_name,
+                                    namespace: "http://www.omg.org/spec/XMI/20131001",
+                                    prefix: "abc"
+    end
+  end
+
   class SchemaLocationOrdered < Lutaml::Model::Serializable
     attribute :content, :string
     attribute :second, SchemaLocationOrdered
@@ -242,6 +253,25 @@ RSpec.describe Lutaml::Model::XmlMapping do
     it "nil namespace" do
       parsed = XmlMapping::MmlMath.from_xml(mml)
       expect(parsed.to_xml).to be_equivalent_to(mml)
+    end
+  end
+
+  context "overriding child namespace prefix" do
+    let(:input_xml) do
+      <<~XML
+        <OverrideDefaultNamespacePrefix xmlns:abc="http://www.omg.org/spec/XMI/20131001" xmlns:GML="http://www.sparxsystems.com/profiles/GML/1.0" xmlns:CityGML="http://www.sparxsystems.com/profiles/CityGML/1.0">
+          <abc:SameElementName App="hello">
+            <GML:ApplicationSchema>GML App</GML:ApplicationSchema>
+            <CityGML:ApplicationSchema>CityGML App</CityGML:ApplicationSchema>
+            <abc:ApplicationSchema>App</abc:ApplicationSchema>
+          </abc:SameElementName>
+        </OverrideDefaultNamespacePrefix>
+      XML
+    end
+
+    it "expect to round-trips" do
+      parsed = XmlMapping::OverrideDefaultNamespacePrefix.from_xml(input_xml)
+      expect(parsed.to_xml).to be_equivalent_to(input_xml)
     end
   end
 
