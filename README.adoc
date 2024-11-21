@@ -874,6 +874,27 @@ class Example < Lutaml::Model::Serializable
 end
 ----
 
+=== Key Value mappings
+
+The `key_value` method is a streamlined way to map all attributes for serialization into key-value formats such as JSON, YAML, and TOML. It simplifies defining mappings and improves code readability while maintaining flexibility.
+
+[example]
+Sets mappings for all key value formats JSON, YAML, and TOML
+
+Syntax:
+
+[source,ruby]
+----
+class ExampleModel < Lutaml::Model::Serializable
+
+  key_value do
+    map :id
+    map :name, to: :full_name
+    map :status, to: :current_status
+  end
+end
+----
+
 === XML
 
 ==== Setting root element name
