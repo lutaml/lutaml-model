@@ -874,26 +874,6 @@ class Example < Lutaml::Model::Serializable
 end
 ----
 
-=== Key Value mappings
-
-The `key_value` method is a streamlined way to map all attributes for serialization into key-value formats such as JSON, YAML, and TOML. It simplifies defining mappings and improves code readability while maintaining flexibility.
-
-[example]
-Sets mappings for all key value formats JSON, YAML, and TOML
-
-Syntax:
-
-[source,ruby]
-----
-class ExampleModel < Lutaml::Model::Serializable
-
-  key_value do
-    map :id
-    map :name, to: :full_name
-    map :status, to: :current_status
-  end
-end
-----
 
 === XML
 
@@ -1810,7 +1790,7 @@ https://www.w3.org/TR/xmlschema-1/#xsi_schemaLocation[W3C XML standard].
 Key-value data models like JSON, YAML, and TOML all share a similar structure
 where data is stored as key-value pairs.
 
-Lutaml::Model works with these formats in a similar way.
+`Lutaml::Model` works with these formats in a similar way.
 
 ==== Mapping
 
@@ -1820,12 +1800,85 @@ Syntax:
 
 [source,ruby]
 ----
-json | yaml | toml do
+json | yaml | toml | key_value do
   map 'key_value_model_attribute_name', to: :name_of_attribute
 end
 ----
 
-.Using the `map` method to define key-value mappings
+
+==== Unified mapping
+
+The `key_value` method is a streamlined way to map all attributes for
+serialization into key-value formats including JSON, YAML, and TOML.
+
+If there is no definite differentiation between the key value formats, the
+`key_value` method simplifies defining mappings and improves code readability.
+
+
+.Using the `map` method to define the same mappings across all key-value formats
+[example]
+====
+This example shows how to define a key-value data model with the `key_value`
+method which maps the same attributes across all key-value formats.
+
+[source,ruby]
+----
+class CeramicModel < Lutaml::Model::Serializable
+  attribute :color, :string
+  attribute :glaze, :string
+  attribute :description, :string
+
+  key_value do
+    map :color, to: color
+    map :glz, to: :glaze
+    map :desc, to: :description
+  end
+
+  # Equivalent to the JSON, YAML, and TOML mappings.
+  #
+  # json and yaml and toml do
+  #   map :id, to: color
+  #   map :name, to: :full_name
+  #   map :status, to: :current_status
+  # end
+end
+----
+
+[source,json]
+----
+{
+  "color": "Navy Blue",
+  "glz": "Clear",
+  "desc": "A ceramic with a navy blue color and clear glaze."
+}
+----
+
+[source,yaml]
+----
+color: Navy Blue
+glz: Clear
+desc: A ceramic with a navy blue color and clear glaze.
+----
+
+[source,ruby]
+----
+> CeramicModel.from_json(json)
+> #<CeramicModel:0x0000000104ac7240 @color="Navy Blue", @glaze="Clear", @description="A ceramic with a navy blue color and clear glaze.">
+> CeramicModel.new(color: "Navy Blue", glaze: "Clear", description: "A ceramic with a navy blue color and clear glaze.").to_json
+> #{"color"=>"Navy Blue", "glz"=>"Clear", "desc"=>"A ceramic with a navy blue color and clear glaze."}
+----
+====
+
+==== Specific format mappings
+
+Specific key value formats can be mapping independently of other formats, including:
+
+* `json` for the JSON format
+* `yaml` for the YAML format
+* `toml` for the TOML format
+
+
+.Using the `map` method to define key-value mappings per format
 [example]
 ====
 [source,ruby]
