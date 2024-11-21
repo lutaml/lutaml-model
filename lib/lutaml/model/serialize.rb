@@ -151,6 +151,13 @@ module Lutaml
           end
         end
 
+        def key_value(&block)
+          Lutaml::Model::Config::KEY_VALUE_FORMATS.each do |format|
+            mappings[format] ||= KeyValueMapping.new
+            mappings[format].instance_eval(&block)
+          end
+        end
+
         def hash_representation(instance, format, options = {})
           only = options[:only]
           except = options[:except]

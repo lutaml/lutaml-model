@@ -9,6 +9,7 @@ module Lutaml
       attr_accessor :xml_adapter, :toml_adapter
 
       AVAILABLE_FORMATS = %i[xml json yaml toml].freeze
+      KEY_VALUE_FORMATS = AVAILABLE_FORMATS - %i[xml]
 
       def configure
         yield self
