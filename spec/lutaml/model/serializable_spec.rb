@@ -25,6 +25,18 @@ module SerializeableSpec
     end
   end
 
+  class KeyValueMapper < Lutaml::Model::Serializable
+    attribute :first_name, :string
+    attribute :last_name, :string
+    attribute :age, :integer
+
+    key_value do
+      map :first_name, to: :first_name
+      map :last_name, to: :last_name
+      map :age, to: :age
+    end
+  end
+
   ### XML root mapping
 
   class RecordDate < Lutaml::Model::Serializable
@@ -204,6 +216,22 @@ RSpec.describe Lutaml::Model::Serializable do
     it "generates hash based on child_mappings" do
       expect(described_class.apply_child_mappings(hash,
                                                   child_mappings)).to eq(expected_value)
+    end
+  end
+
+  describe "#key_value" do
+    let(:model) { SerializeableSpec::KeyValueMapper }
+
+    Lutaml::Model::Config::KEY_VALUE_FORMATS.each do |format|
+      it "defines 3 mappings for #{format}" do
+        expect(model.mappings_for(format).mappings.count).to eq(3)
+      end
+
+      it "defines mappings correctly for #{format}" do
+        defined_mappings = model.mappings_for(format).mappings.map(&:name)
+
+        expect(defined_mappings).to eq(%i[first_name last_name age])
+      end
     end
   end
 
