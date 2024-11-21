@@ -494,6 +494,20 @@ module Lutaml
         end
       end
 
+      def resolved_element_order(ignore_text: true)
+        @element_order.each_with_object(@element_order.dup) do |name, array|
+          next array.delete(name) if name == "text" && (ignore_text || !respond_to?(:text))
+
+          index = 0
+          array.each_with_index do |element, i|
+            next unless element == name
+
+            array[i] = send(name)[index]
+            index += 1
+          end
+        end
+      end
+
       def using_default_for(attribute_name)
         @using_default[attribute_name] = true
       end
