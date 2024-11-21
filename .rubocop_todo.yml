@@ -39,6 +39,7 @@ Metrics/AbcSize:
     - 'lib/lutaml/model/comparable_model.rb'
     - 'lib/lutaml/model/mapping_rule.rb'
     - 'lib/lutaml/model/schema/relaxng_schema.rb'
+    - 'lib/lutaml/model/schema/xml_compiler.rb'
     - 'lib/lutaml/model/schema/xsd_schema.rb'
     - 'lib/lutaml/model/serialize.rb'
     - 'lib/lutaml/model/xml_adapter/nokogiri_adapter.rb'
@@ -61,6 +62,7 @@ Metrics/CyclomaticComplexity:
   Exclude:
     - 'lib/lutaml/model/attribute.rb'
     - 'lib/lutaml/model/comparable_model.rb'
+    - 'lib/lutaml/model/schema/xml_compiler.rb'
     - 'lib/lutaml/model/serialize.rb'
     - 'lib/lutaml/model/type/integer.rb'
     - 'lib/lutaml/model/xml_adapter/builder/oga.rb'
@@ -85,6 +87,7 @@ Metrics/PerceivedComplexity:
   Exclude:
     - 'lib/lutaml/model/attribute.rb'
     - 'lib/lutaml/model/comparable_model.rb'
+    - 'lib/lutaml/model/schema/xml_compiler.rb'
     - 'lib/lutaml/model/serialize.rb'
     - 'lib/lutaml/model/type/integer.rb'
     - 'lib/lutaml/model/xml_adapter/builder/oga.rb'
@@ -206,6 +209,14 @@ RSpec/VerifiedDoubles:
 Security/CompoundHash:
   Exclude:
     - 'lib/lutaml/model/comparable_model.rb'
+
+# Offense count: 1
+# This cop supports unsafe autocorrection (--autocorrect-all).
+# Configuration parameters: AllowedReceivers.
+# AllowedReceivers: Thread.current
+Style/HashEachMethods:
+  Exclude:
+    - 'lib/lutaml/model/schema/xml_compiler.rb'
 
 # Offense count: 1
 Style/MissingRespondToMissing:
