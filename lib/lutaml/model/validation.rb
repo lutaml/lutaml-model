@@ -11,7 +11,7 @@ module Lutaml
             else
               attr.validate_value!(value)
             end
-          rescue Lutaml::Model::InvalidValueError,
+          rescue Lutaml::Model::ValueNotAllowedError,
                  Lutaml::Model::CollectionCountOutOfRangeError,
                  PatternNotMatchedError => e
             errors << e

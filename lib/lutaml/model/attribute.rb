@@ -105,7 +105,7 @@ module Lutaml
         return true unless enum?
 
         unless valid_value?(value)
-          raise Lutaml::Model::InvalidValueError.new(name, value, enum_values)
+          raise Lutaml::Model::ValueNotAllowedError.new(name, value, enum_values)
         end
 
         true
@@ -133,7 +133,7 @@ module Lutaml
       # Currently there are 2 validations
       #   1. Value should be from the values list if they are defined
       #      e.g values: ["foo", "bar"] is set then any other value for this
-      #          attribute will raise `Lutaml::Model::InvalidValueError`
+      #          attribute will raise `Lutaml::Model::ValueNotAllowedError`
       #
       #   2. Value count should be between the collection range if defined
       #      e.g if collection: 0..5 is set then the value greater then 5
