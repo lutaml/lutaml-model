@@ -1672,6 +1672,34 @@ end
 
 // TODO: How to create mixed content from `#new`?
 
+[[xml-schema-to-model-files]]
+==== XML Schema to model files
+
+*LutaML-Model* provides `Lutaml::Model::Schema#from_xml(<xml-schema-string>, <optional-arguments-hash>)` to convert *XML Schema* into *Lutaml::Model::Serializable* files, which are saved in the specified directory in the `output_dir` option. If no `output_dir` is provided, a default directory named `lutaml_models_<timestamp>` is automatically created.
+
+The result of the *XML Schema* to *Model* files conversion is two types of files:
+1. *SimpleTypes*: *Lutaml::Model::Type::Value* Files that define the data types with restrictions and other validations of the values.
+2. *ComplexTypes*: *Lutaml::Model::Serializable* Files that outline the structure of *XML* elements.
+
+link:https://github.com/lutaml/lutaml-xsd[Lutaml::Xsd] automatically resolves the `include` and `import` elements, enabling *Lutaml-Model* to generate the corresponding model files. This feature allows seamless integration of these files into your models without the need for manual resolution of includes and imports.
+
+```ruby
+xsd_schema = <<~XSD
+  <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+    /* your schema here */
+  </xs:schema>
+XSD
+options = {
+  // output_dir: 'path/to/directory',
+  // namespace: 'http://example.com/namespace', # will be added in Serializble file's xml mappings block
+  // prefix: "example-prefix", # prefix of the namespace provided above
+  // location: <"http://example.com/example.xsd" || "path/to/schema/directory"> # url or path of the directory containing all the files of the schema(for more information, please have a look at the ).
+}
+
+Lutaml::Model::Schema.from_xml(xsd_schema, options: options) # generates the files in the output_dir | default_dir
+```
+
+
 [[xml-schema-location]]
 ==== Automatic support of `xsi:schemaLocation`
 
@@ -3699,6 +3727,15 @@ namespace from the root element.
 | Yes. Automatically supports the <<xml-schema-location,`xsi:schemaLocation`>>
 attribute for every element.
 | Requires manual specification on every XML element that uses it.
+|
+
+
+| Compiling XML Schema to *Lutaml::Model::Serializable* classes
+| Yes. Using <<xml-schema-to-model-files, `Lutaml::Model::Schema#from_xml`>>
+
+1. *ComplexTypes* are compiled to *Lutaml::Model::Serializable* classes containing the attributes.
+2. *SimpleTypes* are compiled to *Lutaml::Model::Type::Value* classes to support XML Schema level validations.
+| Yes, Provides only an array of the classes and doesn't support `simple types` with restrictions and/or other validations.
 |
 
 4+h| Attribute features

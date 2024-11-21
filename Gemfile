@@ -7,6 +7,7 @@ gemspec
 
 gem "bigdecimal"
 gem "equivalent-xml"
+gem "lutaml-xsd"
 gem "multi_json"
 gem "nokogiri"
 gem "oga"
