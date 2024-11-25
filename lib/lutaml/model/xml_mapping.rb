@@ -166,7 +166,7 @@ module Lutaml
       end
 
       def validate!(key, to, with, type: nil)
-        validate_mappings!(type) if type
+        validate_mappings!(type)
 
         if to.nil? && with.empty?
           msg = ":to or :with argument is required for mapping '#{key}'"
@@ -182,7 +182,7 @@ module Lutaml
       def validate_mappings!(type)
         if !@raw_mapping.nil? && type != TYPES[:attribute]
           raise StandardError, "#{type} is not allowed, only #{TYPES[:attribute]} " \
-            "is allowed with #{TYPES[:all_content]}"
+                               "is allowed with #{TYPES[:all_content]}"
         end
 
         if !(elements.empty? && content_mapping.nil?) && type == TYPES[:all_content]
