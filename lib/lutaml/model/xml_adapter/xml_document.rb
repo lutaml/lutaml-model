@@ -7,13 +7,14 @@ module Lutaml
   module Model
     module XmlAdapter
       class XmlDocument
-        attr_reader :root
+        attr_reader :root, :encoding
 
-        def initialize(root)
+        def initialize(root, encoding = nil)
           @root = root
+          @encoding = encoding
         end
 
-        def self.parse(xml)
+        def self.parse(xml, _options = {})
           raise NotImplementedError, "Subclasses must implement `parse`."
         end
 

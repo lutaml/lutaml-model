@@ -5,7 +5,7 @@ module Lutaml
   module Model
     module JsonAdapter
       class MultiJsonAdapter < JsonDocument
-        def self.parse(json)
+        def self.parse(json, _options = {})
           data = MultiJson.load(json)
           new(data)
         end

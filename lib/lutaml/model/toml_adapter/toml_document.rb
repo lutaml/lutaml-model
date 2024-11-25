@@ -7,7 +7,7 @@ module Lutaml
     module TomlAdapter
       # Base class for TOML documents
       class TomlDocument < TomlObject
-        def self.parse(toml)
+        def self.parse(toml, _options = {})
           raise NotImplementedError, "Subclasses must implement `parse`."
         end
 

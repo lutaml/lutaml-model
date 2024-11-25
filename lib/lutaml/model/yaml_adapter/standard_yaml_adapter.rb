@@ -14,7 +14,7 @@ module Lutaml
                               PERMITTED_CLASSES_BASE
                             end.freeze
 
-        def self.parse(yaml)
+        def self.parse(yaml, _options = {})
           YAML.safe_load(yaml, permitted_classes: PERMITTED_CLASSES)
         end
 

@@ -7,7 +7,7 @@ module Lutaml
     module JsonAdapter
       # Base class for JSON documents
       class JsonDocument < JsonObject
-        def self.parse(json)
+        def self.parse(json, _options = {})
           raise NotImplementedError, "Subclasses must implement `parse`."
         end
 
