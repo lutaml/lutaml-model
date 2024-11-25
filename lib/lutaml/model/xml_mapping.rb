@@ -3,6 +3,13 @@ require_relative "xml_mapping_rule"
 module Lutaml
   module Model
     class XmlMapping
+      TYPES = {
+        attribute: :map_attribute,
+        element: :map_element,
+        content: :map_content,
+        all_content: :map_all,
+      }.freeze
+
       attr_reader :root_element,
                   :namespace_uri,
                   :namespace_prefix,
@@ -53,7 +60,7 @@ module Lutaml
         prefix: (prefix_set = false
                  nil)
       )
-        validate!(name, to, with)
+        validate!(name, to, with, type: TYPES[:element])
 
         rule = XmlMappingRule.new(
           name,
@@ -84,7 +91,7 @@ module Lutaml
         prefix: (prefix_set = false
                  nil)
       )
-        validate!(name, to, with)
+        validate!(name, to, with, type: TYPES[:attribute])
 
         rule = XmlMappingRule.new(
           name,
@@ -114,7 +121,7 @@ module Lutaml
         mixed: false,
         cdata: false
       )
-        validate!("content", to, with)
+        validate!("content", to, with, type: TYPES[:content])
 
         @content_mapping = XmlMappingRule.new(
           nil,
@@ -139,7 +146,7 @@ module Lutaml
         prefix: (prefix_set = false
                  nil)
       )
-        validate!("__raw_mapping", to, with)
+        validate!("__raw_mapping", to, with, type: TYPES[:all_content])
 
         rule = XmlMappingRule.new(
           "__raw_mapping",
@@ -158,8 +165,8 @@ module Lutaml
         @raw_mapping = rule
       end
 
-      def validate!(key, to, with)
-        validate_mappings!(key)
+      def validate!(key, to, with, type: nil)
+        validate_mappings!(type) if type
 
         if to.nil? && with.empty?
           msg = ":to or :with argument is required for mapping '#{key}'"
@@ -172,13 +179,14 @@ module Lutaml
         end
       end
 
-      def validate_mappings!(key)
-        unless @raw_mapping.nil?
-          raise StandardError, "no other mappings are allowed with map_all"
+      def validate_mappings!(type)
+        if !@raw_mapping.nil? && type != TYPES[:attribute]
+          raise StandardError, "#{type} is not allowed, only #{TYPES[:attribute]} " \
+            "is allowed with #{TYPES[:all_content]}"
         end
 
-        if !mappings.empty? && key == "__raw_mapping"
-          raise StandardError, "map_all is not allowed with other mappings"
+        if !(elements.empty? && content_mapping.nil?) && type == TYPES[:all_content]
+          raise StandardError, "#{TYPES[:all_content]} is not allowed with other mappings"
         end
       end
 
