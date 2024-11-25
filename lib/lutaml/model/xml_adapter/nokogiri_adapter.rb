@@ -6,10 +6,10 @@ module Lutaml
   module Model
     module XmlAdapter
       class NokogiriAdapter < XmlDocument
-        def self.parse(xml)
-          parsed = Nokogiri::XML(xml)
+        def self.parse(xml, options = {})
+          parsed = Nokogiri::XML(xml, nil, options[:encoding])
           root = NokogiriElement.new(parsed.root)
-          new(root)
+          new(root, parsed.encoding)
         end
 
         def to_xml(options = {})
@@ -17,6 +17,8 @@ module Lutaml
 
           if options.key?(:encoding)
             builder_options[:encoding] = options[:encoding] unless options[:encoding].nil?
+          elsif options.key?(:parse_encoding)
+            builder_options[:encoding] = options[:parse_encoding]
           else
             builder_options[:encoding] = "UTF-8"
           end

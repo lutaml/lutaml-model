@@ -5,7 +5,7 @@ module Lutaml
   module Model
     module JsonAdapter
       class StandardJsonAdapter < JsonDocument
-        def self.parse(json)
+        def self.parse(json, _options = {})
           JSON.parse(json, create_additions: false)
         end
 

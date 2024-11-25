@@ -5,7 +5,7 @@ module Lutaml
   module Model
     module XmlAdapter
       class OgaAdapter < XmlDocument
-        def self.parse(xml)
+        def self.parse(xml, _options = {})
           parsed = Oga.parse_xml(xml)
           root = OgaElement.new(parsed)
           new(root)

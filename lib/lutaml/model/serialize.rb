@@ -51,6 +51,7 @@ module Lutaml
           Utils.add_boolean_accessor_if_not_defined(klass, :ordered)
           Utils.add_boolean_accessor_if_not_defined(klass, :mixed)
           Utils.add_accessor_if_not_defined(klass, :element_order)
+          Utils.add_accessor_if_not_defined(klass, :encoding)
 
           Utils.add_method_if_not_defined(klass,
                                           :using_default_for) do |attribute_name|
@@ -101,23 +102,22 @@ module Lutaml
             end
           end
 
-          define_method(:"from_#{format}") do |data|
+          define_method(:"from_#{format}") do |data, options = {}|
             adapter = Lutaml::Model::Config.send(:"#{format}_adapter")
 
-            doc = adapter.parse(data)
-            public_send(:"of_#{format}", doc)
+            doc = adapter.parse(data, options)
+            public_send(:"of_#{format}", doc, options)
           end
 
-          define_method(:"of_#{format}") do |doc|
+          define_method(:"of_#{format}") do |doc, options = {}|
             if doc.is_a?(Array)
-              return doc.map do |item|
-                       send(:"of_#{format}", item)
-                     end
+              return doc.map { |item| send(:"of_#{format}", item) }
             end
 
             if format == :xml
               doc_hash = doc.parse_element(doc.root, self, :xml)
-              apply_mappings(doc_hash, format)
+              options[:encoding] = doc.encoding
+              apply_mappings(doc_hash, format, options)
             else
               apply_mappings(doc.to_h, format)
             end
@@ -315,6 +315,7 @@ module Lutaml
         end
 
         def apply_xml_mapping(doc, instance, options = {})
+          instance.encoding = options[:encoding]
           return instance unless doc
 
           if options[:default_namespace].nil?
@@ -459,7 +460,7 @@ module Lutaml
         end
       end
 
-      attr_accessor :element_order, :schema_location
+      attr_accessor :element_order, :schema_location, :encoding
       attr_writer :ordered, :mixed
 
       def initialize(attrs = {})
@@ -548,6 +549,7 @@ module Lutaml
                                                             options)
                            end
 
+          options[:parse_encoding] = encoding if encoding
           adapter.new(representation).public_send(:"to_#{format}", options)
         end
       end

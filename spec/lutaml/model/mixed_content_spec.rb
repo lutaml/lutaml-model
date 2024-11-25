@@ -72,6 +72,28 @@ module MixedContentSpec
     end
   end
 
+  class Latin < Lutaml::Model::Serializable
+    attribute :the, :string
+    attribute :from, :string
+    attribute :heading, :string
+
+    xml do
+      root "note"
+      map_element "to", to: :the
+      map_element "from", to: :from
+      map_element "heading", to: :heading
+    end
+  end
+
+  class Shift < Lutaml::Model::Serializable
+    attribute :field, :string, collection: true
+
+    xml do
+      root "root"
+      map_element "FieldName", to: :field
+    end
+  end
+
   class SpecialCharContentWithMixedTrue < Lutaml::Model::Serializable
     attribute :content, :string
 
@@ -651,20 +673,181 @@ RSpec.describe "MixedContent" do
 
         context "when encoding: nil xml" do
           let(:expected_encoding_nil_nokogiri_xml) { "&#x2211;computer security&#x220F; type of &#x200B; operation specified &#xB5; by an access right" }
-          let(:expected_encoding_nil_ox_xml) { "\xE2\x88\x91computer security\xE2\x88\x8F type of \xE2\x80\x8B operation specified \xC2\xB5 by an access right" }
+          let(:expected_encoding_nil_ox_xml) { "∑computer security∏ type of ​ operation specified µ by an access right" }
 
           it "serializes special char mixed content correctly with encoding: nil to get hexcode" do
             parsed = MixedContentSpec::HexCode.from_xml(xml)
             serialized = parsed.to_xml(encoding: nil)
 
-            if adapter_class == Lutaml::Model::XmlAdapter::OxAdapter
-              expected_output = expected_encoding_nil_ox_xml
-              expected_output.force_encoding("ASCII-8BIT")
-            else
-              expected_output = expected_encoding_nil_nokogiri_xml
-            end
+            expected_output = if adapter_class == Lutaml::Model::XmlAdapter::OxAdapter
+                                expected_encoding_nil_ox_xml
+                              else
+                                expected_encoding_nil_nokogiri_xml
+                              end
 
             expect(serialized.strip).to include(expected_output)
+          end
+        end
+      end
+    end
+
+    context "when use encoding in parsing" do
+      context "when use SHIFT-JIS encoding" do
+        let(:fixture) { File.read(fixture_path("xml/shift_jis.xml"), encoding: "Shift_JIS") }
+
+        describe ".from_xml" do
+          it "verifies the encoding of file read" do
+            expect(fixture.encoding.to_s).to eq("Shift_JIS")
+          end
+
+          it "deserializes SHIFT encoded content correctly with explicit encoding option" do
+            parsed = MixedContentSpec::Shift.from_xml(fixture, encoding: "Shift_JIS")
+
+            expected_content = if adapter_class == Lutaml::Model::XmlAdapter::OxAdapter
+                                 "\x8E\xE8\x8F\x91\x82\xAB\x89p\x8E\x9A\x82P".force_encoding("Shift_JIS")
+                               else
+                                 "手書き英字１"
+                               end
+
+            expect(parsed.field).to include(expected_content)
+          end
+
+          it "deserializes SHIFT encoded content incorrectly without explicit encoding option" do
+            parsed = MixedContentSpec::Shift.from_xml(fixture)
+
+            expected_content = if adapter_class == Lutaml::Model::XmlAdapter::OxAdapter
+                                 "\x8E\xE8\x8F\x91\x82\xAB\x89p\x8E\x9A\x82P".force_encoding("UTF-8")
+                               else
+                                 "�菑���p���P"
+                               end
+
+            expect(parsed.field).to include(expected_content)
+          end
+        end
+
+        describe ".to_xml" do
+          it "serializes SHIFT-JIS encoding content correctly reading from file" do
+            parsed = MixedContentSpec::Shift.from_xml(fixture, encoding: "Shift_JIS")
+            serialized = parsed.to_xml
+
+            expect(serialized.strip).to eq(fixture.strip)
+          end
+
+          it "serializes SHIFT encoded content correctly with explicit encoding option both in parsing and deserializing" do
+            parsed = MixedContentSpec::Shift.from_xml(fixture, encoding: "Shift_JIS")
+            serialized = parsed.to_xml(encoding: "UTF-8")
+
+            expected_xml = if adapter_class == Lutaml::Model::XmlAdapter::OxAdapter
+                             "\x8E\xE8\x8F\x91\x82\xAB\x89p\x8E\x9A\x82P".force_encoding("Shift_JIS")
+                           else
+                             "手書き英字１"
+                           end
+
+            expect(parsed.field).to include(expected_xml)
+            expect(parsed.encoding).to eq("Shift_JIS")
+
+            expect(serialized).to include("手書き英字１")
+            expect(serialized.encoding.to_s).to eq("UTF-8")
+          end
+
+          it "serializes SHIFT encoded content correctly with explicit encoding option" do
+            parsed = MixedContentSpec::Shift.from_xml(fixture, encoding: "Shift_JIS")
+            serialized = parsed.to_xml(encoding: "Shift_JIS")
+
+            expected_xml = if adapter_class == Lutaml::Model::XmlAdapter::OxAdapter
+                             "\x8E\xE8\x8F\x91\x82\xAB\x89p\x8E\x9A\x82P".force_encoding("Shift_JIS")
+                           else
+                             "手書き英字１"
+                           end
+
+            expect(parsed.field).to include(expected_xml)
+            expect(parsed.encoding).to eq("Shift_JIS")
+
+            expect(serialized).to include("\x8E\xE8\x8F\x91\x82\xAB\x89p\x8E\x9A\x82P".force_encoding("Shift_JIS"))
+            expect(serialized.encoding.to_s).to eq("Shift_JIS")
+          end
+
+          it "serializes SHIFT encoded content correctly with declaration: true" do
+            parsed = MixedContentSpec::Shift.from_xml(fixture, encoding: "Shift_JIS")
+            serialized = parsed.to_xml(declaration: true, encoding: "Shift_JIS")
+
+            expected_xml = "<?xml version=\"1.0\" encoding=\"Shift_JIS\"?>\n<root>\n  <FieldName>\x8E\xE8\x8F\x91\x82\xAB\x89p\x8E\x9A\x82P</FieldName>\n  <FieldName>123456</FieldName>\n</root>"
+
+            expect(serialized).to be_equivalent_to(expected_xml)
+            expect(serialized.encoding.to_s).to eq("Shift_JIS")
+          end
+
+          it "serializes SHIFT-JIS content incorrectly bcz no encoding provided during parsing" do
+            parsed = MixedContentSpec::Shift.from_xml(fixture)
+            serialized = parsed.to_xml(encoding: "Shift_JIS")
+
+            expected_content = if adapter_class == Lutaml::Model::XmlAdapter::OxAdapter
+                                 "<root>\n  <FieldName>\x8E菑\x82\xAB\x89p\x8E\x9A\x82P</FieldName>\n  <FieldName>123456</FieldName>\n</root>\n"
+                               else
+                                 "<root>\n  <FieldName>&#65533;&#33745;&#65533;&#65533;&#65533;p&#65533;&#65533;&#65533;P</FieldName>\n  <FieldName>123456</FieldName>\n</root>"
+                               end
+
+            expect(serialized).to eq(expected_content)
+          end
+
+          it "serializes SHIFT-JIS encoding content correctly reading from string" do
+            xml = "<root><FieldName>手書き英字１</FieldName><FieldName>123456</FieldName></root>".encode("Shift_JIS")
+            parsed = MixedContentSpec::Shift.from_xml(xml, encoding: "Shift_JIS")
+            serialized = parsed.to_xml(encoding: "Shift_JIS")
+
+            expect(serialized).to be_equivalent_to(xml)
+          end
+
+          it "serializes SHIFT-JIS encoding content correctly" do
+            parsed = MixedContentSpec::Shift.from_xml(fixture, encoding: "Shift_JIS")
+            serialized = parsed.to_xml(encoding: "Shift_JIS")
+
+            expect(serialized).to be_equivalent_to(fixture)
+          end
+        end
+      end
+
+      context "when use LATIN (ISO-8859-1) encoding" do
+        let(:fixture) { File.read(fixture_path("xml/latin_encoding.xml"), encoding: "ISO-8859-1") }
+
+        describe ".from_xml" do
+          it "verifies the encoding of file read" do
+            expect(fixture.encoding.to_s).to eq("ISO-8859-1")
+          end
+
+          it "deserializes latin encoded content correctly" do
+            parsed = MixedContentSpec::Latin.from_xml(fixture, encoding: "ISO-8859-1")
+
+            expected_content = if adapter_class == Lutaml::Model::XmlAdapter::OxAdapter
+                                 ["M\xFCller".force_encoding("ISO-8859-1"), "Jos\xE9".force_encoding("ISO-8859-1")]
+                               else
+                                 ["Müller", "José"]
+                               end
+
+            expect(parsed.from).to eq(expected_content[0])
+            expect(parsed.the).to eq(expected_content[1])
+          end
+
+          it "deserializes latin encoded content incorrectly" do
+            parsed = MixedContentSpec::Latin.from_xml(fixture)
+
+            expected_content = if adapter_class == Lutaml::Model::XmlAdapter::OxAdapter
+                                 ["M\xFCller", "Jos\xE9"]
+                               else
+                                 ["M�ller", "Jos�"]
+                               end
+
+            expect(parsed.from).to eq(expected_content[0])
+            expect(parsed.the).to eq(expected_content[1])
+          end
+        end
+
+        describe ".to_xml" do
+          it "serializes latin encoded content correctly" do
+            parsed = MixedContentSpec::Latin.from_xml(fixture, encoding: "ISO-8859-1")
+            serialized = parsed.to_xml
+
+            expect(serialized.strip).to eq("<note>\n  <to>Jos\xE9</to>\n  <from>M\xFCller</from>\n  <heading>Reminder</heading>\n</note>".force_encoding("ISO-8859-1"))
           end
         end
       end

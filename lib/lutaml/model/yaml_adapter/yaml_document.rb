@@ -7,7 +7,7 @@ module Lutaml
     module YamlAdapter
       # Base class for YAML documents
       class YamlDocument < YamlObject
-        def self.parse(yaml)
+        def self.parse(yaml, _options = {})
           raise NotImplementedError, "Subclasses must implement `parse`."
         end
 
