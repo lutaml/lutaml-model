@@ -24,11 +24,7 @@ module Lutaml
       end
 
       def self.from_xml(xml, options = {})
-        XmlCompiler.to_models(
-          xml,
-          namespace_mapping: options[:namespace_mapping],
-          options: options
-        )
+        XmlCompiler.to_models(xml, options: options)
       end
     end
   end
