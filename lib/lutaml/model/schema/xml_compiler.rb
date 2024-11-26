@@ -2,13 +2,16 @@
 
 require 'erb'
 require 'lutaml/xsd'
-require_relative '../../model'
-require 'serialize'
+require_relative './xml_compiler/group'
+require_relative './xml_compiler/utility'
 
 module Lutaml
   module Model
     module Schema
       module XmlCompiler
+        include Utility
+        extend self
+
         MODEL_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: '-')
           # frozen_string_literal: true
 
@@ -57,47 +60,40 @@ module Lutaml
         TEMPLATE
 
         XML_ADAPTER_NOT_SET_MESSAGE = <<~MSG
-          XML Adapter is not set.
-          Make sure Nokogiri is installed eg. execute: gem install nokogiri
+          Nokogiri is not set as XML Adapter.
+          Make sure Nokogiri is installed and set as XML Adapter eg. execute:
+          gem install nokogiri
           require 'lutaml/model/adapter/nokogiri'
           Lutaml::Model.xml_adapter = Lutaml::Model::Adapter::Nokogiri
         MSG
 
-        module_function
+        IMPORT_CLASSES = [Lutaml::Xsd::Import, Lutaml::Xsd::Include].freeze
 
-        def as_models(schemas, namespace_mapping: nil)
-          unless Lutaml::Model::Config.xml_adapter
+        SUPPORTED_DATA_TYPES = {
+          unsignedInt: :integer,
+          integer: :integer,
+          boolean: :boolean,
+          string: :string
+        }.freeze
+
+        def as_models(schema, options: {})
+          unless Lutaml::Model::Config.xml_adapter ||
+                 Lutaml::Model::Config.xml_adapter.name.end_with?('NokogiriAdapter')
+
             raise Error, XML_ADAPTER_NOT_SET_MESSAGE
           end
 
-          if Lutaml::Model::Config.xml_adapter.name == 'Lutaml::Model::XmlAdapter::OxAdapter'
-            msg = "Ox doesn't support XML namespaces and can't be used to compile XML Schema"
-            raise Error, msg
-          end
+          parsed_schema = Lutaml::Xsd.parse(schema, location: options[:location])
 
-          parsed_schemas = Lutaml::Xsd.parse(schema)
-
+          @group_types = Lutaml::Model::MappingHash.new
           @simple_types = Lutaml::Model::MappingHash.new
           @complex_types = Lutaml::Model::MappingHash.new
 
-          Array(parsed_schemas).each do |schema|
-            schema.resolved_element_order.each do |order_item|
-              item_name = order_item.name
-              case order_item
-              when Lutaml::Xsd::SimpleType
-                @simple_types[item_name] = setup_simple_type(order_item)
-              when Lutaml::Xsd::Group
-                @group_types[item_name] = Group.new(order_item).resolve(@complex_types)
-              when Lutaml::Xsd::ComplexType
-                @complex_types[item_name] = setup_complex_type(order_item)
-              end
-            end
-          end
-          to_models(parsed_schemas)
+          schema_to_models([parsed_schema])
         end
 
-        def to_models(schemas, namespace_mapping: nil, options: {})
-          types = as_models(schemas, namespace_mapping: namespace_mapping)
+        def to_models(schemas, options: {})
+          types = as_models(schemas, options: options)
 
           types.to_h do |type|
             [type.file_name, MODEL_TEMPLATE.result(binding)]
@@ -106,7 +102,27 @@ module Lutaml
 
         private
 
-        module_function
+        def schema_to_models(schemas)
+          return if schemas.empty?
+
+          schemas.each do |schema|
+            schema_to_models(schema.schemas) if schema.schemas.any?
+
+            resolved_element_order(schema).each do |order_item|
+              next if IMPORT_CLASSES.include?(order_item.class)
+
+              item_name = order_item.name
+              case order_item
+              when Lutaml::Xsd::SimpleType
+                @simple_types[item_name] = setup_simple_type(order_item)
+              when Lutaml::Xsd::Group
+                @group_types[item_name] = Group.new(order_item).resolve_with(binding)
+              when Lutaml::Xsd::ComplexType
+                @complex_types[item_name] = setup_complex_type(order_item)
+              end
+            end
+          end
+        end
 
         def setup_simple_type(simple_type)
           Lutaml::Model::MappingHash.new do |hash|
@@ -147,15 +163,13 @@ module Lutaml
             restriction.enumeration.any?
         end
 
-        def enumeration_values(hash, restriction)
-          hash[:enumeration_values] = restriction.enumeration.map(&:value)
-        end
-
         def setup_complex_type(complex_type)
           Lutaml::Model::MappingHash.new.tap do |hash|
             if complex_type.attribute.any?
               hash[:attributes] = complex_type.attribute.map do |attribute|
-                setup_complex_type_attribute(attribute)
+                Lutaml::Model::MappingHash.new.tap do |attr_hash|
+                  attr_hash[attribute.name] = validate_attr_type(attribute.type)
+                end
               end
             elsif complex_type.sequence.any?
               hash[:sequence] = complex_type.sequence.map do |sequence|
@@ -165,18 +179,20 @@ module Lutaml
           end
         end
 
-        def setup_complex_type_attribute(attribute)
-          Lutaml::Model::MappingHash.new do |hash|
-            hash[attribute.name] = @simple_types[attribute.type]
-          end
-        end
-
         def setup_complex_type_sequence(sequence)
           Lutaml::Model::MappingHash.new do |hash|
             sequence.resolved_element_order.map do |sequence_element|
               # setup_sequence_element(sequence_element)
             end
           end
+        end
+
+        def validate_attr_type(type)
+          stripped_type = type&.split(':')&.last
+          @simple_types[stripped_type] ||
+            @complex_types[stripped_type] ||
+            SUPPORTED_DATA_TYPES[stripped_type&.to_sym] ||
+            stripped_type&.to_sym
         end
       end
     end
