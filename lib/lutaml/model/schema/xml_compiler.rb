@@ -19,8 +19,8 @@ module Lutaml
 
         XML_ADAPTER_NOT_SET_MESSAGE = <<~MSG
           Nokogiri is not set as XML Adapter.
-          Make sure Nokogiri is installed and set as XML Adapter eg. execute:
-          gem install nokogiri
+          Make sure Nokogiri is installed and set as XML Adapter eg.
+          execute: gem install nokogiri
           require 'lutaml/model/adapter/nokogiri'
           Lutaml::Model.xml_adapter = Lutaml::Model::Adapter::Nokogiri
         MSG
@@ -28,14 +28,16 @@ module Lutaml
         IMPORT_CLASSES = [Xsd::Import, Xsd::Include].freeze
 
         SUPPORTED_DATA_TYPES = {
-          unsignedInt: :integer,
-          hexBinary: :string,
-          dateTime: :string,
+          nonNegativeInteger: { string: { pattern: /\+?[0-9]+/ } },
+          base64Binary: { string: { pattern: /\A([A-Za-z0-9+\/]+={0,2}|\s)*\z/ } },
+          unsignedInt: { integer: { min: 0, max: 4294967295 } },
+          hexBinary: { string: { pattern: /([0-9a-fA-F]{2})*/ } },
+          dateTime: :date_time,
           boolean: :boolean,
           integer: :integer,
           string: :string,
-          token: :string,
-          long: :integer,
+          token: { string: { pattern: /\A[^\t\n\f\r ]+(?: [^\t\n\f\r ]+)*\z/ } },
+          long: :decimal,
           int: :integer
         }.freeze
 
@@ -58,8 +60,8 @@ module Lutaml
           schema_to_models([parsed_schema])
         end
 
-        def to_models(schemas, options: {})
-          types = as_models(schemas, options: options)
+        def to_models(schema, options: {})
+          types = as_models(schema, options: options)
 
           types.to_h do |type|
             [type.file_name, MODEL_TEMPLATE.result(binding)]
@@ -87,7 +89,7 @@ module Lutaml
                 @complex_types[item_name] = setup_complex_type(order_item)
               when Xsd::Element
                 if order_item.type
-                  @elements[item_name] = create_mapping_hash(order_item.type)
+                  @elements[item_name] = setup_element(order_item)
                 end
               when Xsd::Attribute
                 @attributes[item_name] = @simple_types[order_item.type]
@@ -104,14 +106,21 @@ module Lutaml
               restriction = simple_type.restriction.first
               rest_type = validate_attr_type(restriction.base)
               if rest_type.is_a?(MappingHash)
+                if restriction.pattern
+                  rest_type.each do |_, value|
+                    value[:pattern] = restriction.pattern.value
+                  end
+                end
                 hash.merge!(rest_type)
               else
                 hash[:base_class] = rest_type
+                hash[:pattern] = restriction.pattern.value if restriction.pattern
               end
               restriction_content(hash, restriction)
-            elsif simple_type.union.any?
-              hash[:union] = setup_union(simple_type.union)
+              hash[:length] = restriction.length.value if restriction.length
             end
+
+            hash[:union] = setup_union(simple_type.union) if simple_type.union.any?
           end
         end
 
@@ -148,7 +157,7 @@ module Lutaml
           MappingHash.new.tap do |hash|
             if complex_type.attribute.any?
               MappingHash.new.tap do |attr_hash|
-                complex_type.attribute.map do |attribute|
+                complex_type.attribute.each do |attribute|
                   if attribute.ref
                     attr_name = attribute&.ref&.split(":")&.last
                     attr_hash[attr_name] = @attributes[attr_name]
@@ -173,10 +182,10 @@ module Lutaml
 
         def setup_sequence(sequence)
           MappingHash.new.tap do |hash|
-            resolved_element_order(sequence).map do |sequence_element|
+            resolved_element_order(sequence).each do |sequence_element|
               case sequence_element
               when Xsd::Element
-                hash[sequence_element.name] = create_mapping_hash(sequence_element.type)
+                hash[sequence_element.name] = setup_element(sequence_element)
               when Xsd::Group
                 if sequence_element.name
                   hash[sequence_element.name] = @group_types[sequence_element.ref]
@@ -210,9 +219,9 @@ module Lutaml
               resolved_element_order(group).map do |element|
                 case element
                 when Xsd::Element
-                  hash[element.name] = create_mapping_hash(element.type)
+                  hash[element.name] = setup_element(element)
                 when Xsd::Sequence
-                  hash[:sequence] = setup_sequence(element)
+                  hash[:sequence] = [setup_sequence(element)]
                 when Xsd::Choice
                   hash[:choice] = setup_choice(element)
                 end
@@ -228,9 +237,9 @@ module Lutaml
               when Xsd::Element
                 next unless element.name && element.type
 
-                hash[element.name] = create_mapping_hash(element.type)
+                hash[element.name] = setup_element(element)
               when Xsd::Sequence
-                hash[:sequence] = setup_sequence(element)
+                hash[:sequence] = [setup_sequence(element)]
               when Xsd::Group
                 hash[:group] = setup_group_type(element)
               end
@@ -266,6 +275,30 @@ module Lutaml
         def create_mapping_hash(value, hash_key: :class_name)
           MappingHash.new.tap do |hash|
             hash[hash_key] = value
+          end
+        end
+
+        def setup_element(element)
+          MappingHash.new.tap do |hash|
+            if element.type
+              hash[:class_name] = if element.type.include?(":")
+                hash[:base_class] = validate_attr_type(element.type)
+              else
+                element.type
+              end
+            end
+            hash[:arguments] = element_attributes(element)
+            element.complex_type.each do |complex_type|
+              hash[:complex_type] = setup_complex_type(complex_type)
+              @complex_types[complex_type.name] = hash[:complex_type]
+            end
+          end
+        end
+
+        def element_attributes(element)
+          MappingHash.new.tap do |hash|
+            hash[:min_occurs] = element.min_occurs if element.min_occurs
+            hash[:max_occurs] = element.max_occurs if element.max_occurs
           end
         end
 
