@@ -179,6 +179,7 @@ module XmlMapping
 
   class WithMapAll < Lutaml::Model::Serializable
     attribute :all_content, :string
+    attribute :attr, :string
 
     xml do
       root "WithMapAll"
@@ -777,22 +778,15 @@ RSpec.describe Lutaml::Model::XmlMapping do
 
   describe "#map_all" do
     context "when map_all is defined before any other mapping" do
-      let(:error_message) { "no other mappings are allowed with map_all" }
-
       it "raise error when for map_element with map_all" do
         expect do
           XmlMapping::WithMapAll.xml do
             map_element "ele", to: :ele
           end
-        end.to raise_error(StandardError, error_message)
-      end
-
-      it "raise error when for map_attribute with map_all" do
-        expect do
-          XmlMapping::WithMapAll.xml do
-            map_attribute "attr", to: :attr
-          end
-        end.to raise_error(StandardError, error_message)
+        end.to raise_error(
+          StandardError,
+          "map_element is not allowed, only map_attribute is allowed with map_all",
+        )
       end
 
       it "raise error when for map_content with map_all" do
@@ -800,7 +794,18 @@ RSpec.describe Lutaml::Model::XmlMapping do
           XmlMapping::WithMapAll.xml do
             map_content to: :text
           end
-        end.to raise_error(StandardError, error_message)
+        end.to raise_error(
+          StandardError,
+          "map_content is not allowed, only map_attribute is allowed with map_all",
+        )
+      end
+
+      it "does not raise error for map_attribute with map_all" do
+        expect do
+          XmlMapping::WithMapAll.xml do
+            map_attribute "attr", to: :attr
+          end
+        end.not_to raise_error
       end
     end
 

@@ -938,8 +938,7 @@ This includes:
 * attributes
 * text nodes
 
-The `map_all` tag is **exclusive** and cannot be combined with other mappings
-(`map_element`, `map_attribute`, `map_content`) for the same element, ensuring
+The `map_all` tag is **exclusive** and cannot be combined with other mappings (`map_element`, `map_content`) except for `map_attribute` for the same element, ensuring
 it captures the entire inner XML content.
 
 NOTE: An error is raised if `map_all` is defined alongside any other mapping in
