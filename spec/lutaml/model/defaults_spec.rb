@@ -105,6 +105,29 @@ module DefaultsSpec
       map "opacity", to: :opacity, render_default: false
     end
   end
+
+  # Class for testing render_default: true with custom model
+  class Lang
+    attr_accessor :lang, :content
+  end
+
+  class CustomModelWithDefaultValue < Lutaml::Model::Serializable
+    model Lang
+
+    attribute :lang, :string, default: -> { "en" }
+    attribute :content, :string, default: -> { "default value not render when render_default is false" }
+
+    xml do
+      root "CustomModelWithDefaultValue"
+      map_attribute "lang", to: :lang, render_default: true
+      map_content to: :content, render_default: false
+    end
+
+    key_value do
+      map "lang", to: :lang, render_default: true
+      map "content", to: :content, render_default: false
+    end
+  end
 end
 
 RSpec.describe DefaultsSpec::Glaze do
@@ -124,6 +147,13 @@ RSpec.describe DefaultsSpec::Glaze do
       expect(default_model.batch_number).to eq(0)
       expect(default_model.manufacturer).to eq("example@glazes.com")
       expect(default_model.type).to eq("stoneware")
+    end
+
+    it "contains the default value in instance" do
+      instance = DefaultsSpec::CustomModelWithDefaultValue.new
+
+      expect(instance.content).to eq("default value not render when render_default is false")
+      expect(instance.lang).to eq("en")
     end
   end
 
@@ -154,6 +184,15 @@ RSpec.describe DefaultsSpec::Glaze do
 
           expect(xml).to include("<Opacity>Opaque</Opacity>")
           expect(xml).to include("<FiringTime>60</FiringTime>")
+        end
+
+        it "serializes when render_default is true with custom model" do
+          parsed = DefaultsSpec::CustomModelWithDefaultValue.from_xml "<CustomModelWithDefaultValue>English</CustomModelWithDefaultValue>"
+          expect(parsed.lang).to eq("en")
+          expect(parsed.content).to eq("English")
+
+          serialized = DefaultsSpec::CustomModelWithDefaultValue.to_xml(parsed)
+          expect(serialized).to eq("<CustomModelWithDefaultValue lang=\"en\">English</CustomModelWithDefaultValue>")
         end
       end
 
@@ -200,6 +239,15 @@ RSpec.describe DefaultsSpec::Glaze do
           expect(json["opacity"]).to eq("Opaque")
           expect(json["firingTime"]).to eq(60)
         end
+
+        it "serializes when render_default is true with custom model" do
+          parsed = DefaultsSpec::CustomModelWithDefaultValue.from_json('{"content": "content"}')
+          expect(parsed.lang).to eq("en")
+          expect(parsed.content).to eq("content")
+
+          serialized = DefaultsSpec::CustomModelWithDefaultValue.to_json(parsed)
+          expect(serialized).to eq('{"lang":"en","content":"content"}')
+        end
       end
 
       context "when value is not default" do
@@ -214,6 +262,32 @@ RSpec.describe DefaultsSpec::Glaze do
           expect(json["name"]).to eq("Custom Glaze")
           expect(json["temperature"]).to eq(1200)
           expect(json["opacity"]).to eq("Translucent")
+        end
+      end
+    end
+
+    context "with YAML serialization" do
+      context "when value is default" do
+        it "serializes when render_default is true with custom model" do
+          parsed = DefaultsSpec::CustomModelWithDefaultValue.from_yaml("---\ncontent: content")
+          expect(parsed.lang).to eq("en")
+          expect(parsed.content).to eq("content")
+
+          serialized = DefaultsSpec::CustomModelWithDefaultValue.to_yaml(parsed)
+          expect(serialized).to eq("---\nlang: en\ncontent: content\n")
+        end
+      end
+    end
+
+    context "with TOML serialization" do
+      context "when value is default" do
+        it "serializes when render_default is true with custom model" do
+          parsed = DefaultsSpec::CustomModelWithDefaultValue.from_toml("content = 'content'")
+          expect(parsed.lang).to eq("en")
+          expect(parsed.content).to eq("content")
+
+          serialized = DefaultsSpec::CustomModelWithDefaultValue.to_toml(parsed)
+          expect(serialized).to eq("content = \"content\"\nlang = \"en\"\n")
         end
       end
     end
