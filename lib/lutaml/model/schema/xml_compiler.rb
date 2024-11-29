@@ -29,6 +29,7 @@ module Lutaml
 
         SUPPORTED_DATA_TYPES = {
           nonNegativeInteger: { string: { pattern: /\+?[0-9]+/ } },
+          positiveInteger: { integer: { min: 0 } },
           base64Binary: { string: { pattern: /\A([A-Za-z0-9+\/]+={0,2}|\s)*\z/ } },
           unsignedInt: { integer: { min: 0, max: 4294967295 } },
           hexBinary: { string: { pattern: /([0-9a-fA-F]{2})*/ } },
@@ -50,6 +51,7 @@ module Lutaml
 
           parsed_schema = Xsd.parse(schema, location: options[:location])
 
+          @missing_items = []
           @elements = MappingHash.new
           @attributes = MappingHash.new
           @group_types = MappingHash.new
@@ -79,6 +81,7 @@ module Lutaml
             resolved_element_order(schema).each do |order_item|
               next if IMPORT_CLASSES.include?(order_item.class)
 
+              call_missing_items
               item_name = order_item.name
               case order_item
               when Xsd::SimpleType
@@ -88,11 +91,9 @@ module Lutaml
               when Xsd::ComplexType
                 @complex_types[item_name] = setup_complex_type(order_item)
               when Xsd::Element
-                if order_item.type
-                  @elements[item_name] = setup_element(order_item)
-                end
+                @elements[item_name] = setup_element(order_item) if order_item.type
               when Xsd::Attribute
-                @attributes[item_name] = @simple_types[order_item.type]
+                @attributes[item_name] = setup_attribute(order_item)
               when Xsd::AttributeGroup
                 @attribute_groups[item_name] = setup_attribute_groups(order_item)
               end
@@ -102,24 +103,7 @@ module Lutaml
 
         def setup_simple_type(simple_type)
           MappingHash.new.tap do |hash|
-            if simple_type&.restriction&.any?
-              restriction = simple_type.restriction.first
-              rest_type = validate_attr_type(restriction.base)
-              if rest_type.is_a?(MappingHash)
-                if restriction.pattern
-                  rest_type.each do |_, value|
-                    value[:pattern] = restriction.pattern.value
-                  end
-                end
-                hash.merge!(rest_type)
-              else
-                hash[:base_class] = rest_type
-                hash[:pattern] = restriction.pattern.value if restriction.pattern
-              end
-              restriction_content(hash, restriction)
-              hash[:length] = restriction.length.value if restriction.length
-            end
-
+            setup_restriction(simple_type.restriction.first, hash) if simple_type&.restriction&.any?
             hash[:union] = setup_union(simple_type.union) if simple_type.union.any?
           end
         end
@@ -138,14 +122,8 @@ module Lutaml
         end
 
         def min_max_values(hash, restriction)
-          case hash[:base_class]
-          when "integer", "unsignedInt"
-            hash[:min_value] = restriction.min_inclusive.value.to_i
-            hash[:max_value] = restriction.max_inclusive.value.to_i
-          else
-            hash[:min_value] = restriction.min_inclusive.value
-            hash[:max_value] = restriction.max_inclusive.value
-          end
+          hash[:min_value] = restriction.min_inclusive.value
+          hash[:max_value] = restriction.max_inclusive.value
         end
 
         def valid_enumeration?(restriction)
@@ -158,17 +136,9 @@ module Lutaml
             if complex_type.attribute.any?
               MappingHash.new.tap do |attr_hash|
                 complex_type.attribute.each do |attribute|
-                  if attribute.ref
-                    attr_name = attribute&.ref&.split(":")&.last
-                    attr_hash[attr_name] = @attributes[attr_name]
-                  elsif attribute.type
-                    rest_type = validate_attr_type(attribute.type)
-                    attr_hash[attribute.name] = if rest_type.is_a?(MappingHash)
-                      rest_type
-                    else
-                      create_mapping_hash(rest_type, hash_key: :base_class)
-                    end
-                  end
+                  updated_attribute = setup_attribute(attribute)
+                  attr_name = attribute.name ? attribute.name : attribute.ref.split(":")&.last
+                  attr_hash[attr_name] = updated_attribute.fetch(attr_name) || updated_attribute
                 end
                 hash[:attributes] = attr_hash
               end
@@ -176,6 +146,10 @@ module Lutaml
               hash[:sequence] = complex_type.sequence.map do |sequence|
                 setup_sequence(sequence)
               end
+            elsif complex_type.choice.any?
+              hash[:choice] = complex_type.choice.map { |choice| setup_choice(choice) }
+            elsif complex_type.complex_content.any?
+              hash[:complex_content] = setup_complex_content(complex_type.complex_content)
             end
           end
         end
@@ -185,7 +159,8 @@ module Lutaml
             resolved_element_order(sequence).each do |sequence_element|
               case sequence_element
               when Xsd::Element
-                hash[sequence_element.name] = setup_element(sequence_element)
+                ref = sequence_element.name ? sequence_element.name : sequence_element.ref.split(":")&.last
+                hash[ref] = setup_element(sequence_element)
               when Xsd::Group
                 if sequence_element.name
                   hash[sequence_element.name] = @group_types[sequence_element.ref]
@@ -195,8 +170,6 @@ module Lutaml
                 end
               when Xsd::Choice
                 hash[:choice] = setup_choice(sequence_element)
-              when Xsd::Any
-                # void
               end
             end
           end
@@ -214,7 +187,11 @@ module Lutaml
           MappingHash.new.tap do |hash|
             if group.ref
               ref = group.ref.split(":")&.last
-              hash[ref] = @group_types[ref]
+              if @group_types.key?(ref)
+                hash[ref] = @group_types[ref]
+              else
+                @missing_items << proc { hash[ref] = @group_types[ref] if @group_types.key?(ref) }
+              end
             else
               resolved_element_order(group).map do |element|
                 case element
@@ -232,7 +209,7 @@ module Lutaml
 
         def setup_choice(choice)
           MappingHash.new.tap do |hash|
-            resolved_element_order(choice).map do |element|
+            resolved_element_order(choice).each do |element|
               case element
               when Xsd::Element
                 next unless element.name && element.type
@@ -242,6 +219,8 @@ module Lutaml
                 hash[:sequence] = [setup_sequence(element)]
               when Xsd::Group
                 hash[:group] = setup_group_type(element)
+              when Xsd::Choice
+                hash[:choice] = setup_choice(element)
               end
             end
           end
@@ -253,6 +232,22 @@ module Lutaml
               @simple_types[member_type]
             end
           end.flatten
+        end
+
+        def setup_attribute(attribute)
+          MappingHash.new.tap do |attr_hash|
+            if attribute.ref
+              attr_name = attribute&.ref&.split(":")&.last
+              attr_hash[attr_name] = @attributes[attr_name]
+            elsif attribute.type
+              rest_type = validate_attr_type(attribute.type)
+              if rest_type.is_a?(MappingHash)
+                attr_hash.merge!(rest_type)
+              else
+                attr_hash[:base_class] = rest_type
+              end
+            end
+          end
         end
 
         def setup_attribute_groups(attribute_group)
@@ -286,11 +281,65 @@ module Lutaml
               else
                 element.type
               end
+            elsif element.ref
+              ref = element.ref.split(":")&.last
+              if @elements.key?(ref)
+                hash.merge!(@elements[ref])
+              else
+                @missing_items << proc { hash.merge!(@elements[ref]) if @elements.key?(ref) }
+              end
             end
-            hash[:arguments] = element_attributes(element)
+            element_attrs = element_attributes(element)
+            hash[:arguments] = element_attrs if element_attrs.any?
             element.complex_type.each do |complex_type|
               hash[:complex_type] = setup_complex_type(complex_type)
               @complex_types[complex_type.name] = hash[:complex_type]
+            end
+          end
+        end
+
+        def setup_restriction(restriction, hash)
+          rest_type = validate_attr_type(restriction.base)
+          if rest_type.is_a?(MappingHash)
+            if restriction.pattern
+              rest_type.each do |_, value|
+                value[:pattern] = restriction.pattern.value
+              end
+            end
+            hash.merge!(rest_type)
+          else
+            hash[:base_class] = rest_type
+            hash[:pattern] = restriction.pattern.value if restriction.pattern
+          end
+          restriction_content(hash, restriction)
+          hash[:length] = restriction.length.value if restriction.length
+        end
+
+        def setup_complex_content(complex_contents)
+          MappingHash.new.tap do |hash|
+            complex_contents.each do |complex_content|
+              if complex_content.extension.any?
+                hash[:extension] = setup_extension(complex_content.extension)
+              elsif complex_content.restriction.any?
+                setup_restriction(complex_content.restriction.first, hash)
+              end
+            end
+          end
+        end
+
+        def setup_extension(extensions)
+          MappingHash.new.tap do |hash|
+            extensions.each do |extension|
+              if extension.attribute.any?
+                MappingHash.new.tap do |attr_hash|
+                  extension.attribute.each do |attribute|
+                    updated_attribute = setup_attribute(attribute)
+                    attr_name = attribute.name ? attribute.name : attribute.ref.split(":")&.last
+                    attr_hash[attr_name] = updated_attribute.fetch(attr_name) || updated_attribute
+                  end
+                  hash[:attributes] = attr_hash
+                end
+              end
             end
           end
         end
@@ -299,6 +348,13 @@ module Lutaml
           MappingHash.new.tap do |hash|
             hash[:min_occurs] = element.min_occurs if element.min_occurs
             hash[:max_occurs] = element.max_occurs if element.max_occurs
+          end
+        end
+
+        def call_missing_items
+          @missing_items.each_with_index do |item, item_index|
+            item_called = item.call
+            @missing_items.delete_at(item_index) if item_called
           end
         end
 
