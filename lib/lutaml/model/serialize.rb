@@ -348,6 +348,8 @@ module Lutaml
           mappings.each do |rule|
             raise "Attribute '#{rule.to}' not found in #{self}" unless valid_rule?(rule)
 
+            attr = attribute_for_rule(rule)
+
             value = if rule.raw_mapping?
                       doc.node.inner_xml
                     elsif rule.content_mapping?
@@ -356,10 +358,10 @@ module Lutaml
                       doc.fetch(rule.namespaced_name(options[:default_namespace]))
                     else
                       defaults_used << rule.to
-                      rule.to_value_for(instance)
+                      attr&.default || rule.to_value_for(instance)
                     end
 
-            value = normalize_xml_value(value, rule, options)
+            value = normalize_xml_value(value, rule, attr, options)
             rule.deserialize(instance, value, attributes, self)
           end
 
@@ -400,9 +402,7 @@ module Lutaml
           instance
         end
 
-        def normalize_xml_value(value, rule, options = {})
-          attr = attribute_for_rule(rule)
-
+        def normalize_xml_value(value, rule, attr, options = {})
           value = [value].compact if attr&.collection? && !value.is_a?(Array)
 
           value = if value.is_a?(Array)
