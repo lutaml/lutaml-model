@@ -149,10 +149,10 @@ module Lutaml
           end
         end
 
-        def to_xml(builder = nil)
+        def to_xml
           return text if text?
 
-          build_xml(builder).xml.to_s
+          build_xml.xml.to_s
         end
 
         def inner_xml
