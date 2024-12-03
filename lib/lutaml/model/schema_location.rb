@@ -28,8 +28,8 @@ namespace: DEFAULT_NAMESPACE)
 
       def to_xml_attributes
         {
-          prefixed_namespace_key => namespace,
-          prefixed_schema_location_key => schema_location.map(&:to_xml_attribute).join(" "),
+          "xmlns:#{prefix}" => namespace,
+          "#{prefix}:schemaLocation" => schema_location.map(&:to_xml_attribute).join(" "),
         }
       end
 
@@ -53,14 +53,6 @@ namespace: DEFAULT_NAMESPACE)
         locations.map do |n, l|
           Location.new(namespace: n, location: l)
         end
-      end
-
-      def prefixed_schema_location_key
-        [prefix, "schemaLocation"].compact.join(":")
-      end
-
-      def prefixed_namespace_key
-        ["xmlns", prefix].compact.join(":")
       end
     end
   end
