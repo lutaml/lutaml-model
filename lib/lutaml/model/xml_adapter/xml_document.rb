@@ -356,10 +356,9 @@ module Lutaml
               hash["xmlns:#{mapping_rule.prefix}"] = mapping_rule.namespace
             end
 
-            if render_element?(mapping_rule, element,
-                               mapping_rule.to_value_for(element))
-              hash[mapping_rule.prefixed_name] =
-                mapping_rule.to_value_for(element).to_s
+            value = mapping_rule.to_value_for(element)
+            if render_element?(mapping_rule, element, value)
+              hash[mapping_rule.prefixed_name] = value ? value.to_s : value
             end
           end
 
