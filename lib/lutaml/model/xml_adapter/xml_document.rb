@@ -187,10 +187,6 @@ module Lutaml
           attributes = build_attributes(element,
                                         xml_mapping, options).merge(attributes)&.compact
 
-          if element.respond_to?(:schema_location) && element.schema_location
-            attributes.merge!(element.schema_location.to_xml_attributes)
-          end
-
           prefix = if options.key?(:namespace_prefix)
                      options[:namespace_prefix]
                    elsif xml_mapping.namespace_prefix
@@ -344,7 +340,7 @@ module Lutaml
                     {}
                   end
 
-          if element.respond_to?(:schema_location) && element.schema_location
+          if element.respond_to?(:schema_location) && element.schema_location && !options[:except]&.include?(:schema_location)
             attrs.merge!(element.schema_location.to_xml_attributes)
           end
 
