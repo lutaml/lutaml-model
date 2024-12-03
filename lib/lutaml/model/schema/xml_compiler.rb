@@ -12,8 +12,22 @@ module Lutaml
         MODEL_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: '-')
           # frozen_string_literal: true
 
-          class TempClassName < Serializable
-            # Testing this Class for now
+          class <%= name %> < Serializable
+            <% if content.key_exist?(:sequence) && content.sequence.any? %>
+              <% content.sequence.each do |sequence| %>
+                sequence do
+                  <% sequence.elements.each do |element| %>
+                    attribute :<%= Utils.snake_case(unprefixed_name(element.element_name)) %>, <%= Utils.camel_case(unprefixed_name(element.type_name)) %>
+                  <% end %>
+
+                end
+              <% end %>
+            <% end %>
+            <% if content.key_exist?(:attributes) && content.attributes.any? %>
+              <% content.attributes.each do |attribute_name, attribute| %>
+                attribute :<%= Utils.snake_case(unprefixed_name(attribute_name)) %>, <%= Utils.camel_case(unprefixed_name(attribute.base_class)) %>
+              <% end %>
+            <% end %>
           end
         TEMPLATE
 
@@ -51,7 +65,6 @@ module Lutaml
 
           parsed_schema = Xsd.parse(schema, location: options[:location])
 
-          @missing_items = []
           @elements = MappingHash.new
           @attributes = MappingHash.new
           @group_types = MappingHash.new
@@ -63,26 +76,40 @@ module Lutaml
         end
 
         def to_models(schema, options: {})
-          types = as_models(schema, options: options)
+          as_models(schema, options: options)
 
-          types.to_h do |type|
-            [type.file_name, MODEL_TEMPLATE.result(binding)]
+          @complex_types.to_h do |name, content|
+            [name, MODEL_TEMPLATE.result(binding)]
           end
         end
 
         private
 
+        def supported_attribute?(str)
+          SUPPORTED_DATA_TYPES.key?(unprefixed_name(str).to_sym)
+        end
+
+        def unprefixed_name(name)
+          name.split(":").last
+        end
+
+        def add_prefix(name)
+          return unprefixed_name(name) if supported_attribute?(name)
+          return name if name.include?(':')
+
+          [@import_id, name].compact.join(":")
+        end
+
         def schema_to_models(schemas)
           return if schemas.empty?
 
           schemas.each do |schema|
-            schema_to_models(schema.schemas) if schema.schemas.any?
-
+            schema_to_models(schema.include) if schema.include.any?
+            schema_to_models(schema.import) if schema.import.any?
+            @import_id = schema.import_id
             resolved_element_order(schema).each do |order_item|
-              next if IMPORT_CLASSES.include?(order_item.class)
-
-              call_missing_items
-              item_name = order_item.name
+              item_name = add_prefix(order_item&.name)
+              @order_item = order_item&.name == "CT_Settings" ? order_item : nil
               case order_item
               when Xsd::SimpleType
                 @simple_types[item_name] = setup_simple_type(order_item)
@@ -137,8 +164,8 @@ module Lutaml
               MappingHash.new.tap do |attr_hash|
                 complex_type.attribute.each do |attribute|
                   updated_attribute = setup_attribute(attribute)
-                  attr_name = attribute.name ? attribute.name : attribute.ref.split(":")&.last
-                  attr_hash[attr_name] = updated_attribute.fetch(attr_name) || updated_attribute
+                  attr_name = attribute.name ? attribute.name : add_prefix(attribute.ref)
+                  attr_hash[add_prefix(attr_name)] = updated_attribute.fetch(attr_name) || updated_attribute
                 end
                 hash[:attributes] = attr_hash
               end
@@ -156,47 +183,39 @@ module Lutaml
 
         def setup_sequence(sequence)
           MappingHash.new.tap do |hash|
+            hash[:elements] = []
+            hash[:groups] = []
+            hash[:choices] = []
             resolved_element_order(sequence).each do |sequence_element|
               case sequence_element
               when Xsd::Element
-                ref = sequence_element.name ? sequence_element.name : sequence_element.ref.split(":")&.last
-                hash[ref] = setup_element(sequence_element)
-              when Xsd::Group
-                if sequence_element.name
-                  hash[sequence_element.name] = @group_types[sequence_element.ref]
+                hash[:elements] << if sequence_element.name
+                  setup_element(sequence_element)
                 else
-                  ref = sequence_element.ref.split(":")&.last
-                  hash[ref] = @group_types[ref]
+                  create_mapping_hash(add_prefix(sequence_element.ref), hash_key: :ref_class)
+                end
+              when Xsd::Group
+                hash[:groups] << if sequence_element.name
+                  setup_group_type(sequence_element)
+                else
+                  create_mapping_hash(add_prefix(sequence_element.ref), hash_key: :ref_class)
                 end
               when Xsd::Choice
-                hash[:choice] = setup_choice(sequence_element)
+                hash[:choices] << setup_choice(sequence_element)
               end
             end
           end
         end
 
-        def validate_attr_type(type)
-          stripped_type = type&.split(':')&.last
-          @simple_types[stripped_type] ||
-            @complex_types[stripped_type] ||
-            SUPPORTED_DATA_TYPES[stripped_type&.to_sym] ||
-            stripped_type&.to_sym
-        end
-
         def setup_group_type(group)
           MappingHash.new.tap do |hash|
             if group.ref
-              ref = group.ref.split(":")&.last
-              if @group_types.key?(ref)
-                hash[ref] = @group_types[ref]
-              else
-                @missing_items << proc { hash[ref] = @group_types[ref] if @group_types.key?(ref) }
-              end
+              hash[:ref_class] = add_prefix(group.ref)
             else
               resolved_element_order(group).map do |element|
                 case element
                 when Xsd::Element
-                  hash[element.name] = setup_element(element)
+                  hash[add_prefix(element.name)] = setup_element(element)
                 when Xsd::Sequence
                   hash[:sequence] = [setup_sequence(element)]
                 when Xsd::Choice
@@ -214,7 +233,7 @@ module Lutaml
               when Xsd::Element
                 next unless element.name && element.type
 
-                hash[element.name] = setup_element(element)
+                hash[add_prefix(element.name)] = setup_element(element)
               when Xsd::Sequence
                 hash[:sequence] = [setup_sequence(element)]
               when Xsd::Group
@@ -237,10 +256,9 @@ module Lutaml
         def setup_attribute(attribute)
           MappingHash.new.tap do |attr_hash|
             if attribute.ref
-              attr_name = attribute&.ref&.split(":")&.last
-              attr_hash[attr_name] = @attributes[attr_name]
+              attr_hash[:ref_class] = add_prefix(attribute.ref)
             elsif attribute.type
-              rest_type = validate_attr_type(attribute.type)
+              rest_type = add_prefix(attribute.type)
               if rest_type.is_a?(MappingHash)
                 attr_hash.merge!(rest_type)
               else
@@ -255,11 +273,10 @@ module Lutaml
             attribute_group.attribute.map do |attribute|
 
               if attribute.ref
-                attr_name = attribute&.ref&.split(":")&.last
-                hash[attr_name] = @attributes[attr_name]
+                hash[:ref_class] = add_prefix(attribute.ref)
               elsif attribute.type
-                hash[attribute.name] = create_mapping_hash(
-                  validate_attr_type(attribute.type),
+                hash[add_prefix(attribute.name)] = create_mapping_hash(
+                  add_prefix(attribute.type),
                   hash_key: :base_class
                 )
               end
@@ -275,31 +292,23 @@ module Lutaml
 
         def setup_element(element)
           MappingHash.new.tap do |hash|
+            hash[:element_name] = element.name if element.name
             if element.type
-              hash[:class_name] = if element.type.include?(":")
-                hash[:base_class] = validate_attr_type(element.type)
-              else
-                element.type
-              end
+              hash[:type_name] = add_prefix(element.type)
             elsif element.ref
-              ref = element.ref.split(":")&.last
-              if @elements.key?(ref)
-                hash.merge!(@elements[ref])
-              else
-                @missing_items << proc { hash.merge!(@elements[ref]) if @elements.key?(ref) }
-              end
+              hash[:ref_class] = add_prefix(element.ref)
             end
             element_attrs = element_attributes(element)
             hash[:arguments] = element_attrs if element_attrs.any?
             element.complex_type.each do |complex_type|
               hash[:complex_type] = setup_complex_type(complex_type)
-              @complex_types[complex_type.name] = hash[:complex_type]
+              @complex_types[add_prefix(complex_type.name)] = hash[:complex_type]
             end
           end
         end
 
         def setup_restriction(restriction, hash)
-          rest_type = validate_attr_type(restriction.base)
+          rest_type = add_prefix(restriction.base)
           if rest_type.is_a?(MappingHash)
             if restriction.pattern
               rest_type.each do |_, value|
@@ -334,8 +343,8 @@ module Lutaml
                 MappingHash.new.tap do |attr_hash|
                   extension.attribute.each do |attribute|
                     updated_attribute = setup_attribute(attribute)
-                    attr_name = attribute.name ? attribute.name : attribute.ref.split(":")&.last
-                    attr_hash[attr_name] = updated_attribute.fetch(attr_name) || updated_attribute
+                    attr_name = attribute.name ? attribute.name : add_prefix(attribute.ref)
+                    attr_hash[add_prefix(attr_name)] = updated_attribute.fetch(attr_name) || updated_attribute
                   end
                   hash[:attributes] = attr_hash
                 end
@@ -351,16 +360,10 @@ module Lutaml
           end
         end
 
-        def call_missing_items
-          @missing_items.each_with_index do |item, item_index|
-            item_called = item.call
-            @missing_items.delete_at(item_index) if item_called
-          end
-        end
-
         def resolved_element_order(object, ignore_text: true)
           object.element_order.each_with_object(object.element_order.dup) do |name, array|
             next array.delete(name) if name == "text" && (ignore_text || !object.respond_to?(:text))
+            next array.delete(name) if %w[import include].include?(name)
 
             index = 0
             array.each_with_index do |element, i|
@@ -370,6 +373,12 @@ module Lutaml
               index += 1
             end
           end
+        end
+
+        def resolve_type(type)
+          @simple_types[type] ||
+            @complex_types[type] ||
+            type.to_sym
         end
       end
     end
