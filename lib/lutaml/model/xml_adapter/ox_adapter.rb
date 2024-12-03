@@ -149,10 +149,15 @@ module Lutaml
           end
         end
 
-        def to_xml
+        def to_xml(builder = nil)
           return text if text?
 
-          build_xml.xml.to_s
+          build_xml(builder).xml.to_s
+        end
+
+        def inner_xml
+          # Ox builder by default, adds a newline at the end, so `chomp` is used
+          children.map { |child| child.to_xml.chomp }.join
         end
 
         def build_xml(builder = nil)

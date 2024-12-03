@@ -246,7 +246,7 @@ module Lutaml
           value = attribute_value_for(element, rule)
           return unless render_element?(rule, element, value)
 
-          xml.add_text(xml, value, cdata: rule.cdata)
+          xml.add_xml_fragment(xml, value)
         end
 
         def process_content_mapping(element, content_rule, xml)
@@ -359,7 +359,7 @@ module Lutaml
             if render_element?(mapping_rule, element,
                                mapping_rule.to_value_for(element))
               hash[mapping_rule.prefixed_name] =
-                mapping_rule.to_value_for(element)
+                mapping_rule.to_value_for(element).to_s
             end
           end
 

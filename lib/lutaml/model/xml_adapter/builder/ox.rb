@@ -66,10 +66,14 @@ module Lutaml
             xml.text(text)
           end
 
+          def add_xml_fragment(element, content)
+            element.raw(content)
+          end
+
           def add_text(element, text, cdata: false)
             return element.cdata(text) if cdata
 
-            element << text
+            element.text(text)
           end
 
           def add_cdata(element, value)
