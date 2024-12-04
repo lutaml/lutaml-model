@@ -181,6 +181,25 @@ module XmlMapping
     end
   end
 
+  class MapAllWithCustomMethod < Lutaml::Model::Serializable
+    attribute :all_content, :string
+
+    xml do
+      root "MapAllWithCustomMethod"
+
+      map_all to: :all_content, with: { to: :content_to_xml, from: :content_from_xml }
+    end
+
+    def content_to_xml(model, parent, doc)
+      content = model.all_content.sub(/^<div>/, "").sub(/<\/div>$/, "")
+      doc.add_xml_fragment(parent, content)
+    end
+
+    def content_from_xml(model, value)
+      model.all_content = "<div>#{value}</div>"
+    end
+  end
+
   class WithMapAll < Lutaml::Model::Serializable
     attribute :all_content, :string
     attribute :attr, :string
@@ -887,6 +906,28 @@ RSpec.describe Lutaml::Model::XmlMapping do
         end
       end
 
+      context "with custom methods" do
+        let(:inner_xml) do
+          "Str<sub>2</sub>text<sup>1</sup>123"
+        end
+
+        let(:xml) do
+          "<MapAllWithCustomMethod>#{inner_xml}</MapAllWithCustomMethod>"
+        end
+
+        let(:parsed) do
+          XmlMapping::MapAllWithCustomMethod.from_xml(xml)
+        end
+
+        it "uses custom method when parsing XML" do
+          expect(parsed.all_content).to eq("<div>#{inner_xml}</div>")
+        end
+
+        it "generates correct XML" do
+          expect(parsed.to_xml.chomp).to be_equivalent_to(xml)
+        end
+      end
+
       it "maps all the content including tags" do
         inner_xml = "Str<sub>2</sub>text<sup>1</sup>123"
         xml = "<WithMapAll>#{inner_xml}</WithMapAll>"
@@ -898,9 +939,8 @@ RSpec.describe Lutaml::Model::XmlMapping do
 
       it "round-trips xml" do
         xml = "<WithMapAll>Str<sub>2</sub>text<sup>1</sup>123</WithMapAll>"
-        expected_xml = "<WithMapAll>Str<sub>2</sub>text<sup>1</sup>123</WithMapAll>"
 
-        expect(XmlMapping::WithMapAll.from_xml(xml).to_xml.chomp).to eq(expected_xml)
+        expect(XmlMapping::WithMapAll.from_xml(xml).to_xml.chomp).to eq(xml)
       end
 
       context "when nested content has map_all" do
