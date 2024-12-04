@@ -151,6 +151,8 @@ module Lutaml
               value,
               options.merge({ rule: rule, attribute: attribute }),
             )
+          elsif rule.raw_mapping?
+            xml.add_xml_fragment(xml, value)
           elsif rule.prefix_set?
             xml.create_and_add_element(rule.name, prefix: prefix) do
               add_value(xml, value, attribute, cdata: rule.cdata)
@@ -207,7 +209,8 @@ module Lutaml
                                                  xml)
             end
 
-            xml_mapping.elements.each do |element_rule|
+            mappings = xml_mapping.elements + [xml_mapping.raw_mapping].compact
+            mappings.each do |element_rule|
               attribute_def = attribute_definition_for(element, element_rule,
                                                        mapper_class: mapper_class)
 
@@ -231,18 +234,7 @@ module Lutaml
 
             process_content_mapping(element, xml_mapping.content_mapping,
                                     prefixed_xml)
-
-            process_raw_mapping(element, xml_mapping.raw_mapping, prefixed_xml)
           end
-        end
-
-        def process_raw_mapping(element, rule, xml)
-          return unless rule
-
-          value = attribute_value_for(element, rule)
-          return unless render_element?(rule, element, value)
-
-          xml.add_xml_fragment(xml, value)
         end
 
         def process_content_mapping(element, content_rule, xml)
