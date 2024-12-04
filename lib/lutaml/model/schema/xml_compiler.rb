@@ -12,22 +12,47 @@ module Lutaml
         MODEL_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: '-')
           # frozen_string_literal: true
 
-          class <%= name %> < Serializable
-            <% if content.key_exist?(:sequence) && content.sequence.any? %>
-              <% content.sequence.each do |sequence| %>
+          class <%= Utils.camel_case(name) -%> < Lutaml::Model::Serialize
+            <% if content.key_exist?(:attributes) && content.attributes.any? -%>
+              <% content.attributes.each do |attribute_name, attribute| -%>
+                <% attribute = @attributes[attribute.ref_class.split(':')&.last] if attribute.key_exist?(:ref_class) -%>
+                attribute :<%= Utils.snake_case(attribute_name) -%>, <%= Utils.camel_case(attribute.base_class) -%>
+              <% end -%>
+            <% end -%>
+            <% if content.key_exist?(:sequence) && content.sequence.any? -%>
+              <% content.sequence.each do |sequence| -%>
                 sequence do
-                  <% sequence.elements.each do |element| %>
-                    attribute :<%= Utils.snake_case(unprefixed_name(element.element_name)) %>, <%= Utils.camel_case(unprefixed_name(element.type_name)) %>
-                  <% end %>
-
+                  <% sequence.elements.each do |element| -%>
+                    <% element = @elements[element.ref_class.split(':')&.last] if element.key_exist?(:ref_class) -%>
+                    attribute :<%= Utils.snake_case(element.element_name) -%>, <%= Utils.camel_case(element.type_name) -%>
+                  <% end -%>
+                  <% sequence.groups.each do |group| -%>
+                    group do
+                      <% group = @group_types[group.ref_class.split(":").last] if group.key_exist?(:ref_class) -%>
+                      <% group.each do |type, type_value| -%>
+                        <%= type -%> do
+                          <% if type == :sequence -%>
+                            <% type_value.each do |sequence| -%>
+                              <% binding.irb -%>
+                            <% end -%>
+                          <% elsif type == :choice -%>
+                            <% type_value.each do |choice, choice_value|-%>
+                              attribute :<%= choice -%>, <%= Utils.camel_case(choice_value.type_name) -%>
+                            <% end -%>
+                          <% end -%>
+                        end
+                      <% end -%>
+                    end
+                  <% end -%>
                 end
-              <% end %>
-            <% end %>
-            <% if content.key_exist?(:attributes) && content.attributes.any? %>
-              <% content.attributes.each do |attribute_name, attribute| %>
-                attribute :<%= Utils.snake_case(unprefixed_name(attribute_name)) %>, <%= Utils.camel_case(unprefixed_name(attribute.base_class)) %>
-              <% end %>
-            <% end %>
+              <% end -%>
+            <% end -%>
+            <% if content.key_exist?(:attributes) && content.attributes.any? -%>
+              <% content.attributes.each do |attribute_name, attribute| -%>
+                <% attribute = @attributes[attribute.ref_class.split(':')&.last] if attribute.key_exist?(:ref_class) -%>
+                attribute :<%= Utils.snake_case(attribute_name) -%>, <%= Utils.camel_case(attribute.base_class) -%>
+              <% end -%>
+            <% end -%>
           end
         TEMPLATE
 
@@ -85,30 +110,14 @@ module Lutaml
 
         private
 
-        def supported_attribute?(str)
-          SUPPORTED_DATA_TYPES.key?(unprefixed_name(str).to_sym)
-        end
-
-        def unprefixed_name(name)
-          name.split(":").last
-        end
-
-        def add_prefix(name)
-          return unprefixed_name(name) if supported_attribute?(name)
-          return name if name.include?(':')
-
-          [@import_id, name].compact.join(":")
-        end
-
         def schema_to_models(schemas)
           return if schemas.empty?
 
           schemas.each do |schema|
             schema_to_models(schema.include) if schema.include.any?
             schema_to_models(schema.import) if schema.import.any?
-            @import_id = schema.import_id
             resolved_element_order(schema).each do |order_item|
-              item_name = add_prefix(order_item&.name)
+              item_name = order_item&.name
               @order_item = order_item&.name == "CT_Settings" ? order_item : nil
               case order_item
               when Xsd::SimpleType
@@ -130,7 +139,7 @@ module Lutaml
 
         def setup_simple_type(simple_type)
           MappingHash.new.tap do |hash|
-            setup_restriction(simple_type.restriction.first, hash) if simple_type&.restriction&.any?
+            setup_restriction(simple_type.restriction, hash) if simple_type&.restriction
             hash[:union] = setup_union(simple_type.union) if simple_type.union.any?
           end
         end
@@ -164,15 +173,13 @@ module Lutaml
               MappingHash.new.tap do |attr_hash|
                 complex_type.attribute.each do |attribute|
                   updated_attribute = setup_attribute(attribute)
-                  attr_name = attribute.name ? attribute.name : add_prefix(attribute.ref)
-                  attr_hash[add_prefix(attr_name)] = updated_attribute.fetch(attr_name) || updated_attribute
+                  attr_name = attribute.name ? attribute.name : attribute.ref
+                  attr_hash[attr_name] = updated_attribute.fetch(attr_name) || updated_attribute
                 end
                 hash[:attributes] = attr_hash
               end
-            elsif complex_type.sequence.any?
-              hash[:sequence] = complex_type.sequence.map do |sequence|
-                setup_sequence(sequence)
-              end
+            elsif sequence = complex_type.sequence
+              hash[:sequence] = setup_sequence(sequence)
             elsif complex_type.choice.any?
               hash[:choice] = complex_type.choice.map { |choice| setup_choice(choice) }
             elsif complex_type.complex_content.any?
@@ -192,13 +199,13 @@ module Lutaml
                 hash[:elements] << if sequence_element.name
                   setup_element(sequence_element)
                 else
-                  create_mapping_hash(add_prefix(sequence_element.ref), hash_key: :ref_class)
+                  create_mapping_hash(sequence_element.ref, hash_key: :ref_class)
                 end
               when Xsd::Group
                 hash[:groups] << if sequence_element.name
                   setup_group_type(sequence_element)
                 else
-                  create_mapping_hash(add_prefix(sequence_element.ref), hash_key: :ref_class)
+                  create_mapping_hash(sequence_element.ref, hash_key: :ref_class)
                 end
               when Xsd::Choice
                 hash[:choices] << setup_choice(sequence_element)
@@ -210,12 +217,12 @@ module Lutaml
         def setup_group_type(group)
           MappingHash.new.tap do |hash|
             if group.ref
-              hash[:ref_class] = add_prefix(group.ref)
+              hash[:ref_class] = group.ref
             else
               resolved_element_order(group).map do |element|
                 case element
                 when Xsd::Element
-                  hash[add_prefix(element.name)] = setup_element(element)
+                  hash[element.name] = setup_element(element)
                 when Xsd::Sequence
                   hash[:sequence] = [setup_sequence(element)]
                 when Xsd::Choice
@@ -233,7 +240,7 @@ module Lutaml
               when Xsd::Element
                 next unless element.name && element.type
 
-                hash[add_prefix(element.name)] = setup_element(element)
+                hash[element.name] = setup_element(element)
               when Xsd::Sequence
                 hash[:sequence] = [setup_sequence(element)]
               when Xsd::Group
@@ -256,9 +263,9 @@ module Lutaml
         def setup_attribute(attribute)
           MappingHash.new.tap do |attr_hash|
             if attribute.ref
-              attr_hash[:ref_class] = add_prefix(attribute.ref)
+              attr_hash[:ref_class] = attribute.ref
             elsif attribute.type
-              rest_type = add_prefix(attribute.type)
+              rest_type = attribute.type
               if rest_type.is_a?(MappingHash)
                 attr_hash.merge!(rest_type)
               else
@@ -273,10 +280,10 @@ module Lutaml
             attribute_group.attribute.map do |attribute|
 
               if attribute.ref
-                hash[:ref_class] = add_prefix(attribute.ref)
+                hash[:ref_class] = attribute.ref
               elsif attribute.type
-                hash[add_prefix(attribute.name)] = create_mapping_hash(
-                  add_prefix(attribute.type),
+                hash[attribute.name] = create_mapping_hash(
+                  attribute.type,
                   hash_key: :base_class
                 )
               end
@@ -294,21 +301,21 @@ module Lutaml
           MappingHash.new.tap do |hash|
             hash[:element_name] = element.name if element.name
             if element.type
-              hash[:type_name] = add_prefix(element.type)
+              hash[:type_name] = element.type
             elsif element.ref
-              hash[:ref_class] = add_prefix(element.ref)
+              hash[:ref_class] = element.ref
             end
             element_attrs = element_attributes(element)
             hash[:arguments] = element_attrs if element_attrs.any?
-            element.complex_type.each do |complex_type|
-              hash[:complex_type] = setup_complex_type(complex_type)
-              @complex_types[add_prefix(complex_type.name)] = hash[:complex_type]
+            if complex_type = element.complex_type
+              hash[:complex_type] = setup_complex_type(element.complex_type)
+              @complex_types[element.complex_type.name] = hash[:complex_type]
             end
           end
         end
 
         def setup_restriction(restriction, hash)
-          rest_type = add_prefix(restriction.base)
+          rest_type = restriction.base
           if rest_type.is_a?(MappingHash)
             if restriction.pattern
               rest_type.each do |_, value|
@@ -329,8 +336,8 @@ module Lutaml
             complex_contents.each do |complex_content|
               if complex_content.extension.any?
                 hash[:extension] = setup_extension(complex_content.extension)
-              elsif complex_content.restriction.any?
-                setup_restriction(complex_content.restriction.first, hash)
+              elsif restriction = complex_content.restriction
+                setup_restriction(restriction, hash)
               end
             end
           end
@@ -343,8 +350,8 @@ module Lutaml
                 MappingHash.new.tap do |attr_hash|
                   extension.attribute.each do |attribute|
                     updated_attribute = setup_attribute(attribute)
-                    attr_name = attribute.name ? attribute.name : add_prefix(attribute.ref)
-                    attr_hash[add_prefix(attr_name)] = updated_attribute.fetch(attr_name) || updated_attribute
+                    attr_name = attribute.name ? attribute.name : attribute.ref
+                    attr_hash[attr_name] = updated_attribute.fetch(attr_name) || updated_attribute
                   end
                   hash[:attributes] = attr_hash
                 end
