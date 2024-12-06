@@ -166,7 +166,7 @@ module Lutaml
           mappings.each_with_object({}) do |rule, hash|
             name = rule.to
             next if except&.include?(name) || (only && !only.include?(name))
-            next if !rule.render_default? && instance.using_default?(rule.to)
+            next if !rule.custom_methods[:to] && (!rule.render_default? && instance.using_default?(rule.to))
 
             next handle_delegate(instance, rule, hash, format) if rule.delegate
 
