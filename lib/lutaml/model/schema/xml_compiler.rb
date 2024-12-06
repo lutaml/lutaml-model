@@ -132,8 +132,8 @@ module Lutaml
         def restriction_content(hash, restriction)
           hash[:max_length] = restriction.max_length.map(&:value).min if restriction.max_length&.any?
           hash[:min_length] = restriction.min_length.map(&:value).max if restriction.min_length&.any?
-          hash[:min_inclusive] = restriction.min_inclusive.map(&:value).min if restriction.max_length&.any?
-          hash[:max_inclusive] = restriction.max_inclusive.map(&:value).max if restriction.min_length&.any?
+          hash[:min_inclusive] = restriction.min_inclusive.map(&:value).max if restriction.min_inclusive&.any?
+          hash[:max_inclusive] = restriction.max_inclusive.map(&:value).min if restriction.max_inclusive&.any?
           hash[:length] = restriction_length(restriction.length) if restriction.length.any?
         end
 
@@ -282,7 +282,7 @@ module Lutaml
                   hash[:attributes] << setup_attribute(instance)
                 when Xsd::AttributeGroup
                   hash[:attribute_groups] << setup_attribute_groups(instance)
-                when Xsd::AnyAttribute
+                end
               end
             end
           end
@@ -338,8 +338,6 @@ module Lutaml
             hash[:attributes] = [] if extension&.attribute&.any?
             resolved_element_order(extension).each do |element|
               case element
-              when Xsd::AttributeGroup
-                binding.irb
               when Xsd::Attribute
                 hash[:attributes] << setup_attribute(element)
               when Xsd::Sequence
