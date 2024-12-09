@@ -82,13 +82,70 @@ module Lutaml
           attributes[name] = attr
 
           define_method(name) do
-            instance_variable_get(:"@#{name}")
+            if attr.enum?
+              i = instance_variable_get(:"@#{name}")
+              if attr.collection?
+                i.uniq
+              elsif i.is_a?(Array)
+                i.first
+              else
+                i
+              end
+            else
+              instance_variable_get(:"@#{name}")
+            end
           end
 
           define_method(:"#{name}=") do |value|
             value_set_for(name)
-            instance_variable_set(:"@#{name}", attr.cast_value(value))
+
+            casted_value = attr.cast_value(value)
+            if attr.enum?
+              i = instance_variable_get(:"@#{name}")
+              if i.nil? || !attr.collection?
+                instance_variable_set(:"@#{name}", [casted_value])
+              else
+                i << casted_value
+              end
+            else
+              instance_variable_set(:"@#{name}", casted_value)
+            end
           end
+
+          if !options[:values].nil? && !options[:values].empty?
+            add_enum_methods_to_model(self, name, options[:values], options[:collection])
+          end
+        end
+
+        def add_enum_methods_to_model(klass, enum_name, values, collection = false)
+          values.each do |value|
+            Utils.add_method_if_not_defined(klass, "#{value}?") do
+              instance_variable_get(:"@#{enum_name}").include?(value)
+            end
+
+            Utils.add_method_if_not_defined(klass, "#{value}=") do |val|
+              value_set_for(enum_name)
+              enum_vals = instance_variable_get(:"@#{enum_name}")
+              if !!val
+                if collection
+                  enum_vals << value
+                else
+                  enum_vals[0] = value
+                end
+              else
+                enum_vals.delete(value)
+              end
+            end
+
+            Utils.add_method_if_not_defined(klass, "#{value}!") do
+              value_set_for(enum_name)
+              public_send("#{value}=", true)
+            end
+          end
+        end
+
+        def enums
+          attributes.select { |_, attr| attr.enum? }
         end
 
         Lutaml::Model::Config::AVAILABLE_FORMATS.each do |format|
