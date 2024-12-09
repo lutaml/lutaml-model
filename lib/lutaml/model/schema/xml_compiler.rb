@@ -14,44 +14,28 @@ module Lutaml
           # frozen_string_literal: true
 
           class <%= Utils.camel_case(name) -%> < Lutaml::Model::Serialize
-            <% if content.key_exist?(:attributes) && content.attributes.any? -%>
-              <% content.attributes.each do |attribute_name, attribute| -%>
-                <% attribute = @attributes[attribute.ref_class.split(':')&.last] if attribute.key_exist?(:ref_class) -%>
-                attribute :<%= Utils.snake_case(attribute_name) -%>, <%= Utils.camel_case(attribute.base_class) -%>
+            <% if content&.key_exist?(:attributes) && content.attributes.any? -%>
+              <% content.attributes.each do |attribute| -%>
+                <% attribute = @attributes[attribute.ref_class.split(":").last] if attribute.key?(:ref_class) %>
+                attribute :<%= Utils.snake_case(attribute.name) -%>, <%= resolve_attribute_class(attribute) -%>
               <% end -%>
             <% end -%>
-            <% if content.key_exist?(:sequence) && content.sequence.any? -%>
-              <% content.sequence.each do |sequence| -%>
-                sequence do
-                  <% sequence.elements.each do |element| -%>
-                    <% element = @elements[element.ref_class.split(':')&.last] if element.key_exist?(:ref_class) -%>
-                    attribute :<%= Utils.snake_case(element.element_name) -%>, <%= Utils.camel_case(element.type_name) -%>
+            <% if content&.key_exist?(:sequence) && content.sequence.any? -%>
+              <% content.sequence.each do |child_name, child_values| -%>
+                <% if child_name == :elements %>
+                  <% child_values.each do |element| %>
+                    <% element = @elements[element.ref_class.split(':')&.last] if element&.key_exist?(:ref_class) -%>
+                    attribute :<%= Utils.snake_case(element.element_name) %>, <%= Utils.camel_case(element.type_name) %><% if element.key_exist?(:arguments) %>, <%= resolve_occurs(element.arguments) %><% end %>
                   <% end -%>
-                  <% sequence.groups.each do |group| -%>
-                    group do
-                      <% group = @group_types[group.ref_class.split(":").last] if group.key_exist?(:ref_class) -%>
-                      <% group.each do |type, type_value| -%>
-                        <%= type -%> do
-                          <% if type == :sequence -%>
-                            <% type_value.each do |sequence| -%>
-                              <% binding.irb -%>
-                            <% end -%>
-                          <% elsif type == :choice -%>
-                            <% type_value.each do |choice, choice_value|-%>
-                              attribute :<%= choice -%>, <%= Utils.camel_case(choice_value.type_name) -%>
-                            <% end -%>
-                          <% end -%>
-                        end
-                      <% end -%>
-                    end
+                <% elsif child_name == :groups %>
+                  <% child_values.each do |group| -%>
+                    <% group = @group_types[group.ref_class.split(":").last] if group.key?(:ref_class) %>
+                    <% group[:choice]&.each do |element_name, element| %>
+                      <% element = @elements[element.ref_class.split(':')&.last] if element&.key_exist?(:ref_class) -%>
+                      attribute :<%= Utils.snake_case(element_name) %>, <%= Utils.camel_case(element.type_name) %><% if element.key_exist?(:arguments) %>, <%= resolve_occurs(element) %><% end %>
+                    <% end -%>
                   <% end -%>
-                end
-              <% end -%>
-            <% end -%>
-            <% if content.key_exist?(:attributes) && content.attributes.any? -%>
-              <% content.attributes.each do |attribute_name, attribute| -%>
-                <% attribute = @attributes[attribute.ref_class.split(':')&.last] if attribute.key_exist?(:ref_class) -%>
-                attribute :<%= Utils.snake_case(attribute_name) -%>, <%= Utils.camel_case(attribute.base_class) -%>
+                <% end -%>
               <% end -%>
             <% end -%>
           end
@@ -87,7 +71,7 @@ module Lutaml
         def to_models(schema, options: {})
           as_models(schema, options: options)
 
-          Templates::SimpleType.create_simple_types(@simple_types)
+          @data_types_classes = Templates::SimpleType.create_simple_types(@simple_types)
           @complex_types.to_h do |name, content|
             [name, MODEL_TEMPLATE.result(binding)]
           end
@@ -258,13 +242,9 @@ module Lutaml
           MappingHash.new.tap do |attr_hash|
             if attribute.ref
               attr_hash[:ref_class] = attribute.ref
-            elsif attribute.type
-              rest_type = attribute.type
-              if rest_type.is_a?(MappingHash)
-                attr_hash.merge!(rest_type)
-              else
-                attr_hash[:base_class] = rest_type
-              end
+            else
+              attr_hash[:name] = attribute.name
+              attr_hash[:base_class] = attribute.type
             end
           end
         end
@@ -375,6 +355,23 @@ module Lutaml
           @simple_types[type] ||
             @complex_types[type] ||
             type.to_sym
+        end
+
+        def resolve_attribute_class(attribute)
+          attr_class = attribute.base_class.split(':')&.last
+          case attr_class
+          when "string", "integer", "int", "boolean"
+            ":#{attr_class}"
+          else
+            @data_types_classes.fetch(attr_class)
+          end
+        end
+
+        def resolve_occurs(arguments)
+          min_occurs = arguments[:min_occurs]
+          max_occurs = arguments[:max_occurs]
+          max_occurs = max_occurs&.match?(/[A-Za-z]+/) ? nil : max_occurs.to_i
+          min_occurs.to_i..max_occurs
         end
       end
     end
