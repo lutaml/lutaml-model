@@ -33,7 +33,7 @@ module Lutaml
           SUPPORTED_TYPES_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
           # frozen_string_literal: true
 
-          class <%= Utils.camel_case(klass_name.to_s) %> < Lutaml::Model::Type::<%= properties[:class_name].to_s %>
+          class <%= Utils.camel_case(klass_name.to_s) %> < <%= properties[:class_name].to_s %>
             def self.cast(value)
               value = super(value)
           <%= "    pattern = \#{validations[:pattern]}\n\#{indent}raise Lutaml::Model::InvalidValueError, \\\"The value \\\#{value} does not match the required pattern: \\\#{pattern}\\\" unless value.match?(pattern)\n" if validations.key?(:pattern) -%>
