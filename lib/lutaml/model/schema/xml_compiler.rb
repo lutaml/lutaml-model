@@ -10,35 +10,38 @@ module Lutaml
       module XmlCompiler
         extend self
 
+        DEFAULT_CLASSES = %w[string integer int boolean].freeze
+
         MODEL_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: '-')
           # frozen_string_literal: true
 
-          class <%= Utils.camel_case(name) -%> < Lutaml::Model::Serialize
-            <% if content&.key_exist?(:attributes) && content.attributes.any? -%>
-              <% content.attributes.each do |attribute| -%>
-                <% attribute = @attributes[attribute.ref_class.split(":").last] if attribute.key?(:ref_class) %>
-                attribute :<%= Utils.snake_case(attribute.name) -%>, <%= resolve_attribute_class(attribute) -%>
-              <% end -%>
-            <% end -%>
-            <% if content&.key_exist?(:sequence) && content.sequence.any? -%>
-              <% content.sequence.each do |child_name, child_values| -%>
-                <% if child_name == :elements %>
-                  <% child_values.each do |element| %>
-                    <% element = @elements[element.ref_class.split(':')&.last] if element&.key_exist?(:ref_class) -%>
-                    attribute :<%= Utils.snake_case(element.element_name) %>, <%= Utils.camel_case(element.type_name) %><% if element.key_exist?(:arguments) %>, <%= resolve_occurs(element.arguments) %><% end %>
-                  <% end -%>
-                <% elsif child_name == :groups %>
-                  <% child_values.each do |group| -%>
-                    <% group = @group_types[group.ref_class.split(":").last] if group.key?(:ref_class) %>
-                    <% group[:choice]&.each do |element_name, element| %>
-                      <% element = @elements[element.ref_class.split(':')&.last] if element&.key_exist?(:ref_class) -%>
-                      attribute :<%= Utils.snake_case(element_name) %>, <%= Utils.camel_case(element.type_name) %><% if element.key_exist?(:arguments) %>, <%= resolve_occurs(element) %><% end %>
-                    <% end -%>
-                  <% end -%>
-                <% end -%>
-              <% end -%>
-            <% end -%>
+          <%= resolve_required_files(content).map { |file| "require_relative \\\"\#{file}\\\"" }.join("\n") -%>
+
+          class <%= Utils.camel_case(name) %> < <%= resolve_parent_class(content) %>
+          <% content&.key_exist?(:attributes) && content.attributes.each do |attribute| -%><% attribute = @attributes[attribute.ref_class.split(":").last] if attribute.key?(:ref_class) %>
+            attribute :<%= Utils.snake_case(attribute.name) %>, <%= resolve_attribute_class(attribute) %>
+          <%- end -%><% content&.key_exist?(:sequence) && resolve_sequence(content.sequence).each do |element_name, element| %><% element = @elements[element.ref_class.split(':')&.last] if element&.key_exist?(:ref_class) %>
+            attribute :<%= Utils.snake_case(element_name) %>, <%= Utils.camel_case(element.type_name.split(':').last) %><% if element.key_exist?(:arguments) %>, <%= resolve_occurs(element.arguments) %>
+          <% end %><% end %><% content&.key_exist?(:complex_content) && resolve_complex_content(content.complex_content).each do |element_name, element| %><% if element_name == :attributes %><% element.each do |attribute| %>
+            attribute :<%= Utils.snake_case(attribute.name) %>, <%= resolve_attribute_class(attribute) %><% end %><% else %><% element = @elements[element.ref_class.split(':')&.last] if element&.key_exist?(:ref_class) %>
+            attribute :<%= Utils.snake_case(element_name) %>, <%= Utils.camel_case(element.type_name.split(':').last) %><% if element.key_exist?(:arguments) %>, <%= resolve_occurs(element.arguments) %><% end %><% end %><% end %>
+            <%= "attribute :content, \#{content.simple_content.extension_base}" if content_exist = content.key_exist?(:simple_content) && content.simple_content.key_exist?(:extension_base) %>
+
+            xml do
+              root "<%= name %>", mixed: true
+              <%= resolve_namespace(options) %>
+
+              <%= "map_content to: :content" if content_exist %>
+          <% content&.key_exist?(:attributes) && content.attributes.each do |attribute| -%><% attribute = @attributes[attribute.ref_class.split(":").last] if attribute.key?(:ref_class) %>
+              map_attribute :<%= Utils.snake_case(attribute.name) %>, to: :<%= Utils.snake_case(attribute.name) %>
+          <% end -%><% content&.key_exist?(:sequence) && resolve_sequence(content.sequence).each do |element_name, element| %><% element = @elements[element.ref_class.split(':')&.last] if element&.key_exist?(:ref_class) %>
+              map_element :<%= Utils.snake_case(element_name) %>, to: :<%= Utils.snake_case(element_name) %>
+          <% end %><% content&.key_exist?(:complex_content) && resolve_complex_content(content.complex_content).each do |element_name, element| %><% if element_name == :attributes %><% element.each do |attribute| %>
+              map_attribute :<%= Utils.snake_case(attribute.name) %>, to: :<%= Utils.snake_case(attribute.name) %><% end %><% else %><% element = @elements[element.ref_class.split(':')&.last] if element&.key_exist?(:ref_class) %>
+              map_element :<%= Utils.snake_case(element_name) %>, to: :<%= Utils.snake_case(element_name) %><% end %><% end %>
+            end
           end
+
         TEMPLATE
 
         XML_ADAPTER_NOT_SET_MESSAGE = <<~MSG
@@ -304,6 +307,7 @@ module Lutaml
 
         def setup_complex_content(complex_content)
           MappingHash.new.tap do |hash|
+            hash[:mixed] = true if complex_content.mixed
             if complex_content.extension
               hash[:extension] = setup_extension(complex_content.extension)
             elsif restriction = complex_content.restriction
@@ -314,6 +318,7 @@ module Lutaml
 
         def setup_extension(extension)
           MappingHash.new.tap do |hash|
+            hash[:extension_base] = extension.base
             hash[:attribute_groups] = [] if extension&.attribute_group&.any?
             hash[:attributes] = [] if extension&.attribute&.any?
             resolved_element_order(extension).each do |element|
@@ -351,6 +356,12 @@ module Lutaml
           end
         end
 
+        def resolve_parent_class(content)
+          return "Lutaml::Model::Serialize" unless content.dig(:complex_content, :extension)
+
+          Utils.camel_case(content.complex_content.extension.extension_base)
+        end
+
         def resolve_type(type)
           @simple_types[type] ||
             @complex_types[type] ||
@@ -360,18 +371,261 @@ module Lutaml
         def resolve_attribute_class(attribute)
           attr_class = attribute.base_class.split(':')&.last
           case attr_class
-          when "string", "integer", "int", "boolean"
+          when *DEFAULT_CLASSES
             ":#{attr_class}"
           else
-            @data_types_classes.fetch(attr_class)
+            Utils.camel_case(attr_class)
           end
         end
 
         def resolve_occurs(arguments)
           min_occurs = arguments[:min_occurs]
           max_occurs = arguments[:max_occurs]
-          max_occurs = max_occurs&.match?(/[A-Za-z]+/) ? nil : max_occurs.to_i
-          min_occurs.to_i..max_occurs
+          max_occurs = max_occurs&.match?(/[A-Za-z]+/) ? nil : max_occurs.to_i if max_occurs
+          "collection: #{max_occurs ? min_occurs.to_i..max_occurs : true}"
+        end
+
+        def resolve_elements(elements, hash = MappingHash.new)
+          elements.map do |element|
+            if element.key?(:ref_class)
+              new_element = @elements[element.ref_class.split(":").last]
+              hash[new_element.element_name] = new_element
+            else
+              hash[element.element_name] = element
+            end
+          end
+          hash
+        end
+
+        def resolve_sequence(sequence, hash = MappingHash.new)
+          sequence.map do |key, value|
+            case key
+            when :sequence
+              resolve_sequence(value, hash)
+            when :elements
+              resolve_elements(value, hash)
+            when :groups
+              value.each { |group| resolve_group(group, hash) }
+            when :choice
+              value.each { |choice| resolve_choice(choice, hash) }
+            end
+          end
+          hash
+        end
+
+        def resolve_choice(choice, hash = MappingHash.new)
+          choice.map do |key, value|
+            case key
+            when :element
+              resolve_element(value, hash)
+            when :group
+              resolve_group(value, hash)
+            when String
+              hash[key] = value
+            when :sequence
+              resolve_sequence(value, hash)
+            end
+          end
+          hash
+        end
+
+        def resolve_group(group, hash = MappingHash.new)
+          group.map do |key, value|
+            case key
+            when :ref_class
+              resolve_group(@group_types[value.split(":").last])
+            when :choice
+              resolve_choice(value, hash)
+            when :group
+              resolve_group(value, hash)
+            when :sequence
+              resolve_sequence(value, hash)
+            end
+          end
+          hash
+        end
+
+        def resolve_complex_content(complex_content, hash = MappingHash.new)
+          complex_content.map do |key, value|
+            case key
+            when :extension
+              resolve_extension(value, hash)
+            when :restriction
+              resolve_restriction(value, hash)
+            end
+          end
+          hash
+        end
+
+        def resolve_extension(extension, hash = MappingHash.new)
+          hash[:attributes] = extension.attributes if extension.key?(:attributes)
+          resolve_sequence(extension.sequence, hash) if extension.key?(:sequence)
+          resolve_choice(extension.choice, hash) if extension.key?(:choice)
+          hash
+        end
+
+        def resolve_restriction(restriction, hash = MappingHash.new)
+          restriction.map do |key, value|
+            case key
+            when :base
+              resolve_name(value, hash)
+            end
+          end
+          hash
+        end
+
+        def resolve_namespace(options)
+          namespace_str = "namespace \"#{options[:namespace]}\"" if options.key?(:namespace)
+          namespace_str += ", \"#{options[:prefix]}\"" if options.key?(:prefix) && options.key?(:namespace)
+          namespace_str
+        end
+
+        def resolve_required_files(content)
+          @required_files = []
+          content.each do |key, value|
+            case key
+            when :sequence
+              required_files_sequence(value)
+            when :choice
+              required_files_choice(value)
+            when :group
+              required_files_group(value)
+            when :attributes
+              required_files_attribute(value)
+            when :attribute_groups
+              value.each { |attribute_group| required_files_attribute_groups(attribute_group) }
+            when :complex_content
+              required_files_complex_content(value)
+            when :simple_content
+              required_files_simple_content(value)
+            end
+          end
+          @required_files.uniq
+        end
+
+        def required_files_simple_content(simple_content)
+          simple_content.map do |key, value|
+            case key
+            when :extension_base
+              # Do nothing.
+            when :attributes
+              required_files_attribute(value)
+            when :extension
+              required_files_extension(value)
+            when :restriction
+              required_files_restriction(value)
+            end
+          end
+        end
+
+        def required_files_complex_content(complex_content)
+          complex_content.map do |key, value|
+            case key
+            when :extension
+              required_files_extension(value)
+            when :restriction
+              required_files_restriction(value)
+            end
+          end
+        end
+
+        def required_files_extension(extension)
+          extension.map do |key, value|
+            case key
+            when :attribute_group
+              required_files_attribute_groups(value)
+            when :attribute, :attributes
+              required_files_attribute(value)
+            when :extension_base
+              # Do nothing.
+            when :sequence
+              required_files_sequence(value)
+            when :choice
+              required_files_choice(value)
+            end
+          end
+        end
+
+        def required_files_restriction(restriction)
+          restriction.map do |key, value|
+            case key
+            when :base
+              required_files_name(value)
+            end
+          end
+        end
+
+        def required_files_attribute_groups(attribute_groups)
+          attribute_groups.map do |key, value|
+            case key
+            when :ref_class
+              required_files_attribute_groups(@attribute_groups[value.split(":").last])
+            when :attribute, :attributes
+              required_files_attribute(value)
+            end
+          end
+        end
+
+        def required_files_attribute(attributes)
+          attributes.each do |attribute|
+            next if attribute[:ref_class]&.start_with?("xml") || attribute[:base_class]&.start_with?("xml")
+
+            attribute = @attributes[attribute.ref_class.split(":").last] if attribute.key_exist?(:ref_class)
+            attr_class = attribute.base_class.split(':')&.last
+            next if DEFAULT_CLASSES.include?(attr_class)
+
+            @required_files << Utils.snake_case(attr_class)
+          end
+        end
+
+        def required_files_choice(choice)
+          choice.map do |key, value|
+            case key
+            when String
+              @required_files << Utils.snake_case(value.type_name.split(':').last)
+            when :element
+              required_files_elements(value)
+            when :group
+              required_files_group(value)
+            when :choice
+              required_files_choice(value)
+            when :sequence
+              required_files_sequence(value)
+            end
+          end
+        end
+
+        def required_files_group(group)
+          group.map do |key, value|
+            case key
+            when :ref_class
+              required_files_group(@group_types[value.split(":").last])
+            when :choice
+              required_files_choice(value)
+            when :sequence
+              required_files_sequence(value)
+            end
+          end
+        end
+
+        def required_files_sequence(sequence)
+          sequence.map do |key, value|
+            case key
+            when :elements
+              required_files_elements(value)
+            when :groups
+              value.each { |group| required_files_group(group) }
+            when :choice
+              value.each { |choice| required_files_choice(choice) }
+            end
+          end
+        end
+
+        def required_files_elements(elements)
+          elements.map do |element|
+            element = @elements[element.ref_class.split(":").last] if element.key_exist?(:ref_class)
+            @required_files << Utils.snake_case(element.type_name.split(':').last)
+          end
         end
       end
     end
