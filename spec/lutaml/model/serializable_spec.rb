@@ -131,8 +131,8 @@ RSpec.describe Lutaml::Model::Serializable do
 
       let(:expected_hash) do
         {
-          na: "John",
-          ag: "18",
+          "na" => "John",
+          "ag" => "18",
         }
       end
 
