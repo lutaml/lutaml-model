@@ -1,0 +1,78 @@
+= Generic Steps to Migrate a Gem to Use LutaML::Model::Serializable
+:doctype: article
+
+== Introduction
+This guide provides a comprehensive approach to migrating a Ruby gem to use `LutaML::Model::Serializable`. These steps aim to ensure consistency and leverage LutaML's serialization capabilities for streamlined data handling.
+
+== Steps for Migration
+
+1. **Inherit From LutaML::Model::Serializable**  
+   Replace the current data model implementation by inheriting from `LutaML::Model::Serializable`. Update each class representing the domain model.
+
+   For example:  
+[source,ruby]
+class MyClass < LutaML::Model::Serializable
+    attribute :name, String
+    attribute :age, Integer
+end
+
+2. **Define Attributes Explicitly**  
+   Ensure all attributes in the model are explicitly defined using the `attribute` method.
+
+3. **Create Subclasses as Collections**  
+   For models requiring a collection of items (e.g., a list of objects), create a dedicated subclass to represent the collection.
+
+   For example:  
+[source,ruby]
+class MyItem < LutaML::Model::Serializable
+    attribute :id, Integer
+    attribute :value, String
+end
+
+[source,ruby]
+class MyItemsCollection < LutaML::Model::Serializable
+    attribute :items, MyItem, collection: true
+end
+
+   This ensures the collection can be properly serialized and deserialized, maintaining consistency with `LutaML::Model::Serializable`.
+
+4. **Handle Attribute Name Mismatches**  
+   For attributes with names that do not directly map between YAML and Ruby (e.g., `temperature-K`), add key mappings:
+
+[source,ruby]
+key_value do
+    map "geometrical-altitude-m", to: :geometrical_altitude_m
+    map "temperature-K", to: :temperature_k
+end
+
+5. **Modify YAML Handling**  
+   Ensure YAML serialization and deserialization work correctly. Override any custom logic if necessary to support attribute mapping.
+
+6. **Update Tests to Verify Round-Trip Serialization**  
+   Update the tests to load models from YAML files and verify round-trip serialization.
+
+[source,ruby]
+----
+require 'lutaml/model'
+
+RSpec.describe "MyClass Serialization" do
+     let(:yaml_path) { "spec/fixtures/my_class.yaml" }
+
+     def verify_yaml_round_trip(yaml_path, model_class)
+       original_yaml = File.read(yaml_path)
+       model_instance = model_class.from_yaml(original_yaml)
+       generated_yaml = model_instance.to_yaml
+       expect(YAML.safe_load(generated_yaml)).to eq(YAML.safe_load(original_yaml))
+     end
+
+     it "verifies round-trip serialization" do
+       verify_yaml_round_trip(yaml_path, MyClass)
+     end
+   end
+----
+
+7. **Update Documentation**  
+   Ensure the gem's README and other documentation files reflect the changes introduced by `LutaML::Model::Serializable`.
+
+== Conclusion
+Migrating to `LutaML::Model::Serializable` ensures better serialization support and attribute handling in your gem. Follow these steps systematically for a smooth transition.
