@@ -8,6 +8,8 @@ module Lutaml
           extend self
           attr_accessor :simple_types
 
+          DEFAULT_CLASSES = %w[int integer string boolean].freeze
+
           SUPPORTED_DATA_TYPES = {
             nonNegativeInteger: { class_name: "Lutaml::Model::Type::String", validations: { pattern: /\+?[0-9]+/ } },
             positiveInteger: { class_name: "Lutaml::Model::Type::Integer", validations: { min: 0 } },
@@ -35,10 +37,12 @@ module Lutaml
 
           class <%= Utils.camel_case(klass_name.to_s) %> < <%= properties[:class_name].to_s %>
             def self.cast(value)
+              return nil if value.nil?
+
               value = super(value)
           <%=
             if pattern_exist = validations.key?(:pattern)
-              "    pattern = \#{validations[:pattern]}\n\#{indent}raise Lutaml::Model::InvalidValueError, \\\"The value \\\#{value} does not match the required pattern: \\\#{pattern}\\\" unless value.match?(pattern)\n"
+              "    pattern = %r{\#{validations[:pattern]}}\n\#{indent}raise Lutaml::Model::InvalidValueError, \\\"The value \\\#{value} does not match the required pattern: \\\#{pattern}\\\" unless value.match?(pattern)\n"
             end
           -%>
           <%=
@@ -54,18 +58,32 @@ module Lutaml
               value
             end
           end
-
           TEMPLATE
 
           UNION_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
           # frozen_string_literal: true
+          <%=
+            resolve_required_files(unions)&.map do |file|
+              next if file.nil? || file.empty?
 
-          class <%= klass_name %> < Lutaml::Model::Type
+              "require_relative '\#{file}'"
+            end.join("\n") + "\n"
+          -%>
+
+          class <%= klass_name %> < Lutaml::Model::Type::Value
             def self.cast(value)
-              <%= unions.map { |union| "\#{Utils.camel_case(union.base_class.split(':').last)}.cast(value)" }.join(" || ") %>
+              return nil if value.nil?
+
+              <%= unions.map do |union|
+                base_class = union.base_class.split(':').last
+                if DEFAULT_CLASSES.include?(base_class)
+                  "\#{SUPPORTED_DATA_TYPES.dig(base_class.to_sym, :class_name)}.cast(value)"
+                else
+                  "\#{Utils.camel_case(base_class)}.cast(value)"
+                end
+              end.join(" || ") %>
             end
           end
-
           TEMPLATE
 
           MODEL_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
@@ -75,12 +93,14 @@ module Lutaml
           <%= "  VALUES = \#{values}.freeze\n\n" if values_exist = values&.any? -%>
           <%= "  LENGTHS = \#{properties[:length]&.map(&:value)}\n\n" if length_exist = properties&.key?(:length) -%>
             def self.cast(value)
+              return nil if value.nil?
+
               value = super(value)
           <%= "    raise_values_error(value) unless VALUES.include?(value)\n" if values_exist -%>
           <%= "    raise_length_error(value) unless LENGTHS.all?(value.length)\n" if length_exist -%>
           <%=
             if pattern_exist = properties.key?(:pattern)
-              "    pattern = \#{properties[:pattern]}\n    raise_pattern_error(value, pattern) unless value.match?(pattern)\n"
+              "    pattern = %r{\#{properties[:pattern]}}\n    raise_pattern_error(value, pattern) unless value.match?(pattern)\n"
             end
           -%>
           <%=
@@ -90,17 +110,17 @@ module Lutaml
           -%>
           <%=
             if max_length_exist = properties&.key_exist?(:max_length)
-              "    max_length = \\\#{properties.max_length}\n    raise_max_length_error(value, max_length) unless value.length <= max_length\n"
+              "    max_length = \#{properties.max_length}\n    raise_max_length_error(value, max_length) unless value.length <= max_length\n"
             end
           -%>
           <%=
             if min_bound_exist = (properties&.key_exist?(:min_inclusive) || properties&.key_exist?(:min_exclusive))
-              "    min_bound = \#{properties[:min_inclusive] || properties[:min_exclusive]}\n    raise_min_bound_error(value, min_bound) unless value \#{properties.key?(:min_inclusive) ? '=>' : '>'} min_bound \n"
+              "    min_bound = \#{properties[:min_inclusive] || properties[:min_exclusive]}\n    raise_min_bound_error(value, min_bound) unless value >\#{'=' if properties.key?(:min_inclusive)} min_bound \n"
             end
           -%>
           <%=
             if max_bound_exist = (properties&.key_exist?(:max_inclusive) || properties&.key_exist?(:max_exclusive))
-              "    max_bound = \#{properties[:max_inclusive] || properties[:max_exclusive]}\n    raise_max_bound_error(value, max_bound) unless value \#{properties.key?(:max_inclusive) ? '=<' : '<'} max_bound \n"
+              "    max_bound = \#{properties[:max_inclusive] || properties[:max_exclusive]}\n    raise_max_bound_error(value, max_bound) unless value <\#{'=' if properties.key?(:max_inclusive)} max_bound \n"
             end
           -%>
               <%= "value" %>
@@ -108,41 +128,40 @@ module Lutaml
           <%= "\n  private\n" if pattern_exist || values_exist || length_exist || min_length_exist || max_length_exist || min_bound_exist || max_bound_exist -%>
           <%=
             if pattern_exist
-              "\n  def raise_pattern_error(value, pattern)\n    raise Lutaml::Model::InvalidValueError, \\\"The value \\\#{value} does not match the required pattern: \\\#{pattern}\\\"\n  end\n"
+              "\n  def self.raise_pattern_error(value, pattern)\n    raise Lutaml::Model::InvalidValueError, \\\"The value \\\#{value} does not match the required pattern: \\\#{pattern}\\\"\n  end\n"
             end
           -%>
           <%=
             if values_exist
-              "\n  def raise_values_error(input_value)\n    raise Lutaml::Model::InvalidValueError, \\\"Invalid value: \\\\\\\"\\\#{input_value}\\\\\\\". Allowed values are: \\\#{VALUES.join(', ')}\\\"\n  end\n"
+              "\n  def self.raise_values_error(input_value)\n    raise Lutaml::Model::ValueNotAllowedError.new(self, input_value, VALUES)\n  end\n"
             end
           -%>
           <%=
             if length_exist
-              "\n  def raise_length_error(input_value)\n    raise Lutaml::Model::InvalidValueError, \\\"The provided value \\\\\\\"\\\#{input_value}\\\\\\\" should match the specified lengths: \\\#{LENGTHS.join(',')}\\\"\n  end\n"
+              "\n  def self.raise_length_error(input_value)\n    raise Lutaml::Model::InvalidValueError, \\\"The provided value \\\\\\\"\\\#{input_value}\\\\\\\" should match the specified lengths: \\\#{LENGTHS.join(',')}\\\"\n  end\n"
             end
           -%>
           <%=
             if min_length_exist
-              "\n  def raise_min_length_error(input_value, min_length)\n    raise Lutaml::Model::InvalidValueError, \\\"The provided value \\\\\\\"\\\#{input_value}\\\\\\\" has fewer characters than the minimum allowed \\\#{min_length}\\\"\n  end\n"
+              "\n  def self.raise_min_length_error(input_value, min_length)\n    raise Lutaml::Model::InvalidValueError, \\\"The provided value \\\\\\\"\\\#{input_value}\\\\\\\" has fewer characters than the minimum allowed \\\#{min_length}\\\"\n  end\n"
             end
           -%>
           <%=
             if max_length_exist
-              "\n  def raise_max_length_error(input_value, max_length)\n    raise Lutaml::Model::InvalidValueError, \\\"The provided value \\\\\\\"\\\#{input_value}\\\\\\\" exceeds the maximum allowed length of \\\#{max_length}\\\"\n  end\n"
+              "\n  def self.raise_max_length_error(input_value, max_length)\n    raise Lutaml::Model::InvalidValueError, \\\"The provided value \\\\\\\"\\\#{input_value}\\\\\\\" exceeds the maximum allowed length of \\\#{max_length}\\\"\n  end\n"
             end
           -%>
           <%=
             if min_bound_exist
-              "\n  def raise_min_bound_error(input_value, min_bound)\n    raise Lutaml::Model::InvalidValueError, \\\"The provided value \\\\\\\"\\\#{input_value}\\\\\\\" is less than the minimum allowed value of \\\#{min_bound}\\\"\n  end\n"
+              "\n  def self.raise_min_bound_error(input_value, min_bound)\n    raise Lutaml::Model::InvalidValueError, \\\"The provided value \\\\\\\"\\\#{input_value}\\\\\\\" is less than the minimum allowed value of \\\#{min_bound}\\\"\n  end\n"
             end
           -%>
           <%=
             if max_bound_exist
-              "\n  def raise_max_bound_error(input_value, max_bound)\n    raise Lutaml::Model::InvalidValueError, \\\"The provided value \\\\\\\"\\\#{input_value}\\\\\\\" exceeds the maximum allowed value of \\\#{max_bound}\\\"\n  end\n"
+              "\n  def self.raise_max_bound_error(input_value, max_bound)\n    raise Lutaml::Model::InvalidValueError, \\\"The provided value \\\\\\\"\\\#{input_value}\\\\\\\" exceeds the maximum allowed value of \\\#{max_bound}\\\"\n  end\n"
             end
           -%>
           end
-
           TEMPLATE
 
           def create_simple_types(simple_types)
@@ -180,6 +199,16 @@ module Lutaml
               next if properties[:skippable]
 
               @simple_types[klass_name] = SUPPORTED_TYPES_TEMPLATE.result(binding)
+            end
+          end
+
+          private
+
+          def resolve_required_files(unions)
+            unions.map do |union|
+              next if DEFAULT_CLASSES.include?(union.base_class.split(":").last)
+
+              Utils.snake_case(union.base_class.split(":").last)
             end
           end
         end

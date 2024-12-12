@@ -6,6 +6,7 @@ module Lutaml
 end
 
 require_relative "error/invalid_value_error"
+require_relative "error/value_not_allowed_error"
 require_relative "error/incorrect_mapping_argument_error"
 require_relative "error/pattern_not_matched_error"
 require_relative "error/unknown_adapter_type_error"
