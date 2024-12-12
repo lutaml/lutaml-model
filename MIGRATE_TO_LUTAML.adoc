@@ -14,8 +14,8 @@ Replace the current data model implementation by inheriting from `LutaML::Model:
 [source,ruby]
 ----
 class MyClass < LutaML::Model::Serializable
-    attribute :name, String
-    attribute :age, Integer
+  attribute :name, String
+  attribute :age, Integer
 end
 ----
 
@@ -25,61 +25,67 @@ Ensure all attributes in the model are explicitly defined using the `attribute` 
 
 * **Create Subclasses as Collections**
 
-For models requiring a collection of items (e.g., a list of objects), create a dedicated subclass to represent the collection.
+For models requiring a collection of items that are not supported types (e.g., a list of objects), create a dedicated subclass to represent the collection.
 
 [source,ruby]
 ----
 class MyItem < LutaML::Model::Serializable
-    attribute :id, Integer
-    attribute :value, String
+  attribute :id, :integer
+  attribute :value, :string
 end
 
 class MyItemsCollection < LutaML::Model::Serializable
-    attribute :items, MyItem, collection: true
+  attribute :items, MyItem, collection: true
 end
 ----
+
+For more information see https://github.com/lutaml/lutaml-model?tab=readme-ov-file#supported-attribute-value-types[supported types]
 
 This ensures the collection is properly serialized and deserialized, maintaining consistency with `LutaML::Model::Serializable`.
 
 * **Handle Attribute Name Mismatches**
 
-For attributes with names that do not directly map between YAML and Ruby (e.g., `temperature-K`), add key mappings:
+For attributes with names that do not directly map between formats (e.g., `temperature-K`), add key mappings:
 
 [source,ruby]
 ----
+# JSON, YAML, and TOML
+
 key_value do
-    map "geometrical-altitude-m", to: :geometrical_altitude_m
-    map "temperature-K", to: :temperature_k
+  map "geometrical-altitude-m", to: :geometrical_altitude_m
+  map "temperature-K", to: :temperature_k
+end
+
+# For XML
+
+xml do
+  map_element 'geometrical-altitude-m', to: :geometrical_altitude_m
 end
 ----
 
-This allows YAML keys to be correctly parsed into Ruby-compatible attribute names.
+This allows format keys to be correctly parsed into Ruby-compatible attribute names.
 
-* **Modify YAML Handling**
+* **Modify content Handling**
 
-Ensure YAML serialization and deserialization work correctly. Override custom logic, if necessary, to support attribute mapping. Verify that all required keys are correctly handled.
+Ensure content serialization and deserialization work correctly. Override custom logic, if necessary, to support attribute mapping. Verify that all required keys are correctly handled.
 
 * **Update Tests to Verify Round-Trip Serialization**
 
-Update the tests to load models from YAML files and verify round-trip serialization:
+Update the tests to load models from content files and verify round-trip serialization, For example in YAML:
 
 [source,ruby]
 ----
 require 'lutaml/model'
 
 RSpec.describe "MyClass Serialization" do
-    let(:yaml_path) { "spec/fixtures/my_class.yaml" }
+  let(:yaml_path) { "spec/fixtures/my_class.yaml" }
 
-    def verify_yaml_round_trip(yaml_path, model_class)
-        original_yaml = File.read(yaml_path)
-        model_instance = model_class.from_yaml(original_yaml)
-        generated_yaml = model_instance.to_yaml
-        expect(YAML.safe_load(generated_yaml)).to eq(YAML.safe_load(original_yaml))
-    end
-
-    it "verifies round-trip serialization" do
-        verify_yaml_round_trip(yaml_path, MyClass)
-    end
+  it "verifies round-trip serialization" do
+    original_yaml = File.read(yaml_path)
+    model_instance = model_class.from_yaml(original_yaml)
+    generated_yaml = model_instance.to_yaml
+    expect(YAML.safe_load(generated_yaml)).to eq(YAML.safe_load(original_yaml))
+  end
 end
 ----
 
@@ -89,12 +95,11 @@ Ensure the gem's README and other documentation reflect the changes introduced b
 
 == Troubleshooting and Important Considerations
 
-* If the `bigdecimal` library is not loaded, usage of the `Decimal` type will raise a `Lutaml::Model::TypeNotSupportedError`.
-* Ensure the YAML files in the ISO2533 repository are up-to-date and structure the build accordingly.
+* If the `bigdecimal` library is not loaded, usage of the `Decimal` type will raise a `Lutaml::Model::TypeNotEnabledError`.
 * Verify that the gem's current entry points work correctly and produce accurate results.
 * Always require the attributes classes in their respective parent classes.
-* Make sure to require `lutaml-model` wherever serialization functionality is needed.
-* Include the ISO repository as a submodule to read YAML files as fixtures for tests in this gem's specs.
+* Make sure the Lutaml::Model is available wherever serialization functionality is needed
+* Create or import the content files to use as fixtures for specs
 * Create methods in subclasses to set attributes of attributes classes if objects involve calculated values by default. This ensures proper serialization.
 
 == Conclusion
