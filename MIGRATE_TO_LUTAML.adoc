@@ -1,9 +1,9 @@
-= Generic Steps to Migrate a Gem to Use LutaML::Model::Serializable
+= Generic Steps to Migrate a Gem to Use Lutaml-Model
 :doctype: article
 
 == Introduction
 
-This guide provides a comprehensive approach to migrating a Ruby gem to use `LutaML::Model::Serializable`. These steps ensure consistency and leverage LutaML's serialization capabilities for streamlined data handling.
+This guide provides a comprehensive approach to migrating a Ruby gem to use `Lutaml-Model`. These steps ensure consistency and leverage LutaML's serialization capabilities for streamlined data handling.
 
 == Steps for Migration
 
@@ -65,10 +65,6 @@ end
 
 This allows format keys to be correctly parsed into Ruby-compatible attribute names.
 
-* **Modify content Handling**
-
-Ensure content serialization and deserialization work correctly. Override custom logic, if necessary, to support attribute mapping. Verify that all required keys are correctly handled.
-
 * **Update Tests to Verify Round-Trip Serialization**
 
 Update the tests to load models from content files and verify round-trip serialization, For example in YAML:
@@ -91,17 +87,17 @@ end
 
 * **Update Documentation**
 
-Ensure the gem's README and other documentation reflect the changes introduced by `LutaML::Model::Serializable`.
+Ensure the gem's README and other documentation reflect the changes introduced by `Lutaml-Model`.
 
 == Troubleshooting and Important Considerations
 
 * If the `bigdecimal` library is not loaded, usage of the `Decimal` type will raise a `Lutaml::Model::TypeNotEnabledError`.
 * Verify that the gem's current entry points work correctly and produce accurate results.
 * Always require the attributes classes in their respective parent classes.
-* Make sure the Lutaml::Model is available wherever serialization functionality is needed
+* Make sure the `Lutaml::Model` is available wherever serialization functionality is needed
 * Create or import the content files to use as fixtures for specs
 * Create methods in subclasses to set attributes of attributes classes if objects involve calculated values by default. This ensures proper serialization.
 
 == Conclusion
 
-Migrating to `LutaML::Model::Serializable` ensures better serialization support and attribute handling in your gem. By following these steps and addressing common pitfalls, you can achieve a smooth transition.
+Migrating to `Lutaml-Model` ensures better serialization support and attribute handling in your gem. By following these steps and addressing common pitfalls, you can achieve a smooth transition.
