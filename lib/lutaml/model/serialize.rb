@@ -109,6 +109,8 @@ module Lutaml
           define_method("#{enum_name}=") do |value|
             value = [value] unless value.is_a?(Array)
 
+            value_set_for(enum_name)
+
             if collection
               curr_value = public_send(:"#{enum_name}")
 
@@ -127,6 +129,10 @@ module Lutaml
               else
                 curr_value == value
               end
+            end
+
+            Utils.add_method_if_not_defined(klass, "#{value}") do
+              public_send("#{value}?")
             end
 
             Utils.add_method_if_not_defined(klass, "#{value}=") do |val|
