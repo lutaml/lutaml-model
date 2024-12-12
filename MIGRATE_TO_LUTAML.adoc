@@ -3,17 +3,17 @@
 
 == Introduction
 
-This guide provides a comprehensive approach to migrating a Ruby gem to use `Lutaml-Model`. These steps ensure consistency and leverage LutaML's serialization capabilities for streamlined data handling.
+This guide provides a comprehensive approach to migrating a Ruby gem to use `Lutaml-Model`. These steps ensure consistency and leverage Lutaml's serialization capabilities for streamlined data handling.
 
 == Steps for Migration
 
-* **Inherit From LutaML::Model::Serializable**
+* **Inherit From Lutaml::Model::Serializable**
 
-Replace the current data model implementation by inheriting from `LutaML::Model::Serializable`. Update each class representing the domain model. For example:
+Replace the current data model implementation by inheriting from `Lutaml::Model::Serializable`. Update each class representing the domain model. For example:
 
 [source,ruby]
 ----
-class MyClass < LutaML::Model::Serializable
+class MyClass < Lutaml::Model::Serializable
   attribute :name, String
   attribute :age, Integer
 end
@@ -29,19 +29,19 @@ For models requiring a collection of items that are not supported types (e.g., a
 
 [source,ruby]
 ----
-class MyItem < LutaML::Model::Serializable
+class MyItem < Lutaml::Model::Serializable
   attribute :id, :integer
   attribute :value, :string
 end
 
-class MyItemsCollection < LutaML::Model::Serializable
+class MyItemsCollection < Lutaml::Model::Serializable
   attribute :items, MyItem, collection: true
 end
 ----
 
 For more information see https://github.com/lutaml/lutaml-model?tab=readme-ov-file#supported-attribute-value-types[supported types]
 
-This ensures the collection is properly serialized and deserialized, maintaining consistency with `LutaML::Model::Serializable`.
+This ensures the collection is properly serialized and deserialized, maintaining consistency with `Lutaml::Model::Serializable`.
 
 * **Handle Attribute Name Mismatches**
 
