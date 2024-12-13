@@ -7,7 +7,7 @@ module Lutaml
           value = instance_variable_get(:"@#{name}")
           begin
             attr.validate_value!(value)
-          rescue Lutaml::Model::InvalidValueError,
+          rescue Lutaml::Model::ValueNotAllowedError,
                  Lutaml::Model::CollectionCountOutOfRangeError,
                  PatternNotMatchedError => e
             errors << e
