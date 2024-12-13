@@ -14,6 +14,7 @@ module Lutaml
             nonNegativeInteger: { class_name: "Lutaml::Model::Type::String", validations: { pattern: /\+?[0-9]+/ } },
             positiveInteger: { class_name: "Lutaml::Model::Type::Integer", validations: { min: 0 } },
             base64Binary: { class_name: "Lutaml::Model::Type::String", validations: { pattern: /\A([A-Za-z0-9+\/]+={0,2}|\s)*\z/ } },
+            unsignedLong: { class_name: "Lutaml::Model::Type::Integer", validations: { min: 0, max: 18446744073709551615 } },
             unsignedInt: { class_name: "Lutaml::Model::Type::Integer", validations: { min: 0, max: 4294967295 } },
             hexBinary: { class_name: "Lutaml::Model::Type::String", validations: { pattern: /([0-9a-fA-F]{2})*/ } },
             dateTime: { skippable: true, class_name: "Lutaml::Model::Type::DateTime" },
@@ -28,12 +29,17 @@ module Lutaml
           REF_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
           # frozen_string_literal: true
 
+          require "lutaml/model"
+          require_relative "\#{Utils.snake_case(parent_class)}"
+
           class <%= klass_name %> < <%= parent_class %>; end
 
           TEMPLATE
 
           SUPPORTED_TYPES_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
           # frozen_string_literal: true
+
+          require "lutaml/model"
 
           class <%= Utils.camel_case(klass_name.to_s) %> < <%= properties[:class_name].to_s %>
             def self.cast(value)
@@ -62,6 +68,8 @@ module Lutaml
 
           UNION_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
           # frozen_string_literal: true
+
+          require "lutaml/model"
           <%=
             resolve_required_files(unions)&.map do |file|
               next if file.nil? || file.empty?
@@ -88,6 +96,8 @@ module Lutaml
 
           MODEL_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
           # frozen_string_literal: true
+          require "lutaml/model"
+          <%= "require_relative '\#{require_parent}'\n" if require_parent -%>
 
           class <%= klass_name %> < <%= parent_class %>
           <%= "  VALUES = \#{values}.freeze\n\n" if values_exist = values&.any? -%>
@@ -181,6 +191,7 @@ module Lutaml
                 parent_class = if SUPPORTED_DATA_TYPES[base_class.to_sym]&.key?(:class_name)
                   SUPPORTED_DATA_TYPES.dig(base_class.to_sym, :class_name)
                 else
+                  require_parent = Utils.camel_case(base_class.to_s)
                   Utils.camel_case(base_class.to_s)
                 end
                 values = properties[:values] if properties.key_exist?(:values)
@@ -197,7 +208,6 @@ module Lutaml
             SUPPORTED_DATA_TYPES.each do |klass_name, properties|
               validations = properties[:validations] || {}
               next if properties[:skippable]
-
               @simple_types[klass_name] = SUPPORTED_TYPES_TEMPLATE.result(binding)
             end
           end

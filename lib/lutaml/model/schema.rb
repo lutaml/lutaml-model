@@ -24,7 +24,7 @@ module Lutaml
       end
 
       def self.from_xml(xml, options = {})
-        XmlCompiler.to_models(xml, options: options)
+        XmlCompiler.to_models(xml, options)
       end
     end
   end
