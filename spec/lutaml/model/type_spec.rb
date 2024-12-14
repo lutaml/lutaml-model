@@ -272,5 +272,99 @@ RSpec.describe Lutaml::Model::Type do
         expect(deserialized.hash_value).to eq({ "key" => "value" })
       end
     end
+
+    describe "Serialization Of Custom Type" do
+      class CustomSerializationType < Lutaml::Model::Type::Value
+        def self.from_xml(_xml_string)
+          "from_xml_overrided"
+        end
+
+        def self.from_json(_value)
+          "from_json_overrided"
+        end
+
+        def self.serialize(_value)
+          "serialize_overrided"
+        end
+
+        def to_xml
+          "to_xml_overrided"
+        end
+
+        def to_json(*_args)
+          "to_json_overrided"
+        end
+      end
+
+      class SampleModel < Lutaml::Model::Serializable
+        attribute :custom_type, CustomSerializationType
+        xml do
+          root "sample"
+          map_element "custom_type", to: :custom_type
+        end
+        json do
+          map_element "custom_type", to: :custom_type
+        end
+      end
+
+      class SampleModelAttribute < Lutaml::Model::Serializable
+        attribute :custom_type, CustomSerializationType
+        xml do
+          root "sample"
+          map_attribute "custom_type", to: :custom_type
+        end
+        json do
+          map_element "custom_type", to: :custom_type
+        end
+      end
+
+      let(:xml) do
+        <<~XML
+          <sample>
+            <custom_type>test_string</custom_type>
+          </sample>
+        XML
+      end
+
+      let(:xml_attribute) do
+        <<~XML
+          <sample custom_type="test_string"/>
+        XML
+      end
+
+      let(:sample_instance) { SampleModel.from_xml(xml) }
+      let(:sample_instance_attribute) { SampleModelAttribute.from_xml(xml_attribute) }
+
+      it "correctly serializes to XML" do
+        expected_xml = <<~XML
+          <sample>
+            <custom_type>to_xml_overrided</custom_type>
+          </sample>
+        XML
+        expect(sample_instance.to_xml).to be_equivalent_to(expected_xml)
+      end
+
+      it "correctly serializes to XML attribute" do
+        expected_xml = <<~XML
+          <sample custom_type="to_xml_overrided"/>
+        XML
+        expect(sample_instance_attribute.to_xml).to be_equivalent_to(expected_xml)
+      end
+
+      it "correctly serializes to JSON" do
+        expect(sample_instance.to_json).to eq('{"custom_type":"to_json_overrided"}')
+      end
+
+      # xit "correctly deserializes from XML" do
+      #   # Specification is not clear
+      #   expect(sample_instance.custom_type).to eq("from_xml_overrided")
+      # end
+
+      # xit "correctly deserializes from JSON" do
+      #   # Specification is not clear
+      #   json_sample_instance = SampleModel.from_json('{"custom_type":"test_string"}')
+      #   expect(json_sample_instance.custom_type).to eq("from_json_overrided")
+      # end
+    end
   end
 end
