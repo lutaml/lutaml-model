@@ -4,7 +4,7 @@ module Lutaml
       def validate
         errors = []
         self.class.attributes.each do |name, attr|
-          value = instance_variable_get(:"@#{name}")
+          value = self.public_send(:"#{name}")
           begin
             attr.validate_value!(value)
           rescue Lutaml::Model::InvalidValueError,
