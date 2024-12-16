@@ -36,6 +36,11 @@ module Lutaml
             raise TypeNotEnabledError.new("Decimal", value)
           end
         end
+
+        # Override to avoid serializing ruby object in YAML
+        def to_yaml
+          value&.to_s("F")
+        end
       end
     end
   end
