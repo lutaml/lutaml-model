@@ -617,6 +617,14 @@ module Lutaml
         hash[key.to_sym] || hash[key.to_s]
       end
 
+      def pretty_print_instance_variables
+        (instance_variables - %i[@using_default]).sort
+      end
+
+      def to_yaml_hash
+        self.class.as_yaml(self)
+      end
+
       Lutaml::Model::Config::AVAILABLE_FORMATS.each do |format|
         define_method(:"to_#{format}") do |options = {}|
           adapter = Lutaml::Model::Config.public_send(:"#{format}_adapter")
