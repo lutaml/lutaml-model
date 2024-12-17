@@ -21,6 +21,7 @@ module Lutaml
 
       def self.included(base)
         base.extend(ClassMethods)
+        base.initialize_attrs(base)
       end
 
       module ClassMethods
@@ -28,14 +29,13 @@ module Lutaml
 
         def inherited(subclass)
           super
+          subclass.initialize_attrs(self)
+        end
 
-          @mappings ||= {}
-          @attributes ||= {}
-
-          subclass.instance_variable_set(:@attributes,
-                                         Utils.deep_dup(@attributes))
-          subclass.instance_variable_set(:@mappings, Utils.deep_dup(@mappings))
-          subclass.instance_variable_set(:@model, subclass)
+        def initialize_attrs(source_class)
+          @mappings = Utils.deep_dup(source_class.instance_variable_get(:@mappings)) || {}
+          @attributes = Utils.deep_dup(source_class.instance_variable_get(:@attributes)) || {}
+          instance_variable_set(:@model, self)
         end
 
         def model(klass = nil)
