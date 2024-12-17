@@ -22,15 +22,24 @@ module Lutaml
           raise Lutaml::Model::InvalidGroupError.new("Can't define multiple choices in group")
         end
 
-        choice = Choice.new(@model)
-        choice.instance_eval(&block)
-        @attribute_tree << choice
+        process_nested_structure(Choice.new(@model), &block)
       end
 
-      def validate_count!(object, total_selected = [])
+      def sequence(&block)
+        process_nested_structure(Sequence.new(@model), &block)
+      end
+
+      def validate_content!(object, validated_attributes = [], defined_order = [])
         attribute_tree.each do |attribute|
-          attribute.validate_count!(object, total_selected)
+          attribute.validate_content!(object, validated_attributes, defined_order)
         end
+      end
+
+      private
+
+      def process_nested_structure(nested_option, &block)
+        nested_option.instance_eval(&block)
+        @attribute_tree << nested_option
       end
     end
   end

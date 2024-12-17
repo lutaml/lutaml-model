@@ -14,6 +14,7 @@ require_relative "validation"
 require_relative "error"
 require_relative "group"
 require_relative "choice"
+require_relative "sequence"
 
 module Lutaml
   module Model
@@ -78,18 +79,6 @@ module Lutaml
 
         def cast(value)
           value
-        end
-
-        def choice(&block)
-          choice = Choice.new(self)
-          group_choice_helper(choice, &block)
-        end
-
-        def group(&block)
-          group = Group.new(self)
-          group_choice_helper(group, &block)
-
-          raise Lutaml::Model::InvalidGroupError.new("Group can't be empty") if group.attribute_tree.empty?
         end
 
         # Define an attribute for the model
@@ -197,6 +186,21 @@ module Lutaml
 
         def enums
           attributes.select { |_, attr| attr.enum? }
+        def group(&block)
+          group = Group.new(self)
+          process_nested_structure(group, &block)
+
+          raise Lutaml::Model::InvalidGroupError.new("Group can't be empty") if group.attribute_tree.empty?
+        end
+
+        def choice(&block)
+          choice = Choice.new(self)
+          process_nested_structure(choice, &block)
+        end
+
+        def sequence(&block)
+          sequence = Sequence.new(self)
+          process_nested_structure(sequence, &block)
         end
 
         Lutaml::Model::Config::AVAILABLE_FORMATS.each do |format|
@@ -569,7 +573,7 @@ module Lutaml
 
         private
 
-        def group_choice_helper(option, &block)
+        def process_nested_structure(option, &block)
           option.instance_eval(&block)
           @attribute_tree << option
         end
@@ -599,7 +603,6 @@ module Lutaml
                     using_default_for(name)
                     attr.default
                   end
-
           # Initialize collections with an empty array if no value is provided
           if attr.collection? && value.nil?
             value = []

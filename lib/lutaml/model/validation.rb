@@ -31,7 +31,8 @@ module Lutaml
 
       def validate_helper(errors)
         self.class.attribute_tree.each { |attribute| attribute.validate_count!(self) }
-      rescue Lutaml::Model::InvalidChoiceError => e
+      rescue Lutaml::Model::InvalidChoiceError,
+             Lutaml::Model::InvalidSequenceError => e
         errors << e
       end
     end

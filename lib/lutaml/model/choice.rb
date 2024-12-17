@@ -15,26 +15,33 @@ module Lutaml
       end
 
       def group(&block)
-        group_choice_helper(Group.new(@model), &block)
+        process_nested_structure(Group.new(@model), &block)
       end
 
       def choice(&block)
-        group_choice_helper(Choice.new(@model), &block)
+        process_nested_structure(Choice.new(@model), &block)
       end
 
-      def validate_count!(object, total_attrs = [])
+      def sequence(&block)
+        process_nested_structure(Sequence.new(@model), &block)
+      end
+
+      def validate_content!(object, validated_attributes = [], defined_order = [])
+        sequence_error = false
         @attribute_tree.each do |attribute|
-          attribute.validate_count!(object, total_attrs)
+          attribute.validate_content!(object, validated_attributes, defined_order)
+        rescue Lutaml::Model::InvalidSequenceError
+          sequence_error = true if validated_attributes.count == 1
         end
 
-        unless total_attrs.length == 1
+        if validated_attributes.count != 1 || sequence_error
           raise Lutaml::Model::InvalidChoiceError.new
         end
       end
 
       private
 
-      def group_choice_helper(nested_option, &block)
+      def process_nested_structure(nested_option, &block)
         nested_option.instance_eval(&block)
         @attribute_tree << nested_option
       end

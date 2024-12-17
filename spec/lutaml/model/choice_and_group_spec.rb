@@ -35,6 +35,24 @@ module ChoiceAndGroup
         end
       end
     end
+
+    sequence do
+      group do
+        sequence do
+          attribute :name, :string
+          attribute :age, :integer
+        end
+      end
+
+      attribute :gender, :string
+    end
+
+    sequence do
+      choice do
+        attribute :caste, :string
+        attribute :degree, :string
+      end
+    end
   end
 
   class PersonPreferences < Lutaml::Model::Serializable
@@ -77,6 +95,10 @@ RSpec.describe "ChoiceGroup" do
         preferred_language: "preferred_language",
         is_active: true,
         government_id: 2.3,
+        name: "John",
+        age: 24,
+        gender: "male",
+        degree: "BSCS",
       )
 
       expect(valid_instance.validate).to be_empty
@@ -89,6 +111,10 @@ RSpec.describe "ChoiceGroup" do
         preferred_language: "preferred_language",
         is_active: true,
         national_id: "national_id",
+        name: "John",
+        age: 24,
+        gender: "male",
+        caste: "White",
       )
 
       expect(valid_instance.validate).to be_empty
@@ -101,7 +127,12 @@ RSpec.describe "ChoiceGroup" do
         preferred_language: "preferred_language",
         is_active: true,
         government_id: 2.5,
+        name: "John",
+        age: 24,
+        gender: "male",
+        degree: "BSCS",
       )
+
       expect(valid_instance.validate!).to be_nil
     end
 
@@ -115,6 +146,7 @@ RSpec.describe "ChoiceGroup" do
         driver_id: "tao",
         national_id: "fbbi",
       )
+
       expect { valid_instance.validate! }.to raise_error(Lutaml::Model::ValidationError) do |error|
         expect(error.error_messages.join("\n")).to include("Exactly one attribute must be specified in a choice")
       end
@@ -125,6 +157,7 @@ RSpec.describe "ChoiceGroup" do
         nickname: "jbib",
         preferred_language: "jvar",
       )
+
       expect { valid_instance.validate! }.to raise_error(Lutaml::Model::ValidationError) do |error|
         expect(error.error_messages.join("\n")).to include("Exactly one attribute must be specified in a choice")
       end
@@ -165,6 +198,7 @@ RSpec.describe "ChoiceGroup" do
         suffix: "suffix",
         foo: "jjoo",
       )
+
       expect { valid_instance.validate! }.to raise_error(Lutaml::Model::ValidationError) do |error|
         expect(error.error_messages.join("\n")).to include("Exactly one attribute must be specified in a choice")
       end
@@ -175,14 +209,15 @@ RSpec.describe "ChoiceGroup" do
         contact_method: "contact_method",
         foo: "foo",
       )
+
       expect { valid_instance.validate! }.to raise_error(Lutaml::Model::ValidationError) do |error|
         expect(error.error_messages.join("\n")).to include("Exactly one attribute must be specified in a choice")
       end
     end
   end
 
-  context "when rasies error for group" do
-    it "when attribute is defined directly in a group" do
+  context "with group option" do
+    it "raises error when attribute is defined directly in it" do
       expect do
         Class.new(Lutaml::Model::Serializable) do
           group do
@@ -192,7 +227,7 @@ RSpec.describe "ChoiceGroup" do
       end.to raise_error(Lutaml::Model::InvalidGroupError, "Attributes can't be defined directly in group")
     end
 
-    it "when group is nested inside another group" do
+    it "raises error when nested group defined" do
       expect do
         Class.new(Lutaml::Model::Serializable) do
           group do
@@ -204,7 +239,7 @@ RSpec.describe "ChoiceGroup" do
       end.to raise_error(Lutaml::Model::InvalidGroupError, "Nested group definitions are not allowed")
     end
 
-    it "when multiple choices in a single group" do
+    it "raises error when multiple choices given in it" do
       expect do
         Class.new(Lutaml::Model::Serializable) do
           group do
@@ -223,7 +258,7 @@ RSpec.describe "ChoiceGroup" do
       end.to raise_error(Lutaml::Model::InvalidGroupError, "Can't define multiple choices in group")
     end
 
-    it "when group is empty" do
+    it "raises error when group is empty" do
       expect do
         Class.new(Lutaml::Model::Serializable) do
           group do
