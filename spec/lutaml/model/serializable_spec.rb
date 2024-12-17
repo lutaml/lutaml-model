@@ -87,7 +87,7 @@ RSpec.describe Lutaml::Model::Serializable do
       end.to change(
         described_class, :model
       )
-        .from(nil)
+        .from(Lutaml::Model::Serializable)
         .to(SerializeableSpec::TestModel)
     end
   end
