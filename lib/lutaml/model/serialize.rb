@@ -382,7 +382,7 @@ module Lutaml
             value = if doc.key?(rule.name) || doc.key?(rule.name.to_sym)
                       doc[rule.name] || doc[rule.name.to_sym]
                     else
-                      attr.default
+                      attr&.default
                     end
 
             if rule.custom_methods[:from]

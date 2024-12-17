@@ -138,6 +138,22 @@ RSpec.describe CustomSerialization do
     end
   end
 
+  context "with partial JSON input" do
+    it "deserializes from JSON with missing attributes" do
+      json = {
+        name: "JSON Masterpiece: Vase",
+        color: "BLUE"
+      }.to_json
+  
+      ceramic = described_class.from_json(json)
+  
+      expect(ceramic.full_name).to eq("Vase")
+      expect(ceramic.color).to eq("blue")
+      expect(ceramic.size).to be_nil
+      expect(ceramic.description).to be_nil
+    end
+  end
+
   context "with XML serialization" do
     it "serializes to XML with custom methods" do
       expected_xml = <<~XML
