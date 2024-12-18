@@ -233,20 +233,16 @@ module Lutaml
             end
 
             process_content_mapping(element, xml_mapping.content_mapping,
-                                    prefixed_xml)
+                                    prefixed_xml, mapper_class)
           end
         end
 
-        def process_content_mapping(element, content_rule, xml)
+        def process_content_mapping(element, content_rule, xml, mapper_class)
           return unless content_rule
-
+          
           if content_rule.custom_methods[:to]
-            @root.send(
-              content_rule.custom_methods[:to],
-              element,
-              xml.parent,
-              xml,
-            )
+            mapper_class.new.send(content_rule.custom_methods[:to], element,
+                                              xml.parent, xml)
           else
             text = content_rule.serialize(element)
             text = text.join if text.is_a?(Array)
