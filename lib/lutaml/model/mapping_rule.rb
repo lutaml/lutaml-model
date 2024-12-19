@@ -16,7 +16,8 @@ module Lutaml
         render_default: false,
         with: {},
         attribute: false,
-        delegate: nil
+        delegate: nil,
+        root: nil
       )
         @name = name
         @to = to
@@ -25,6 +26,7 @@ module Lutaml
         @custom_methods = with
         @attribute = attribute
         @delegate = delegate
+        @root_mappings = root
       end
 
       alias from name

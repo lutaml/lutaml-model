@@ -173,7 +173,7 @@ RSpec.describe Lutaml::Model::Serializable do
     end
   end
 
-  describe ".apply_child_mappings" do
+  describe ".translate_mappings" do
     let(:child_mappings) do
       {
         id: :key,
@@ -214,8 +214,8 @@ RSpec.describe Lutaml::Model::Serializable do
     end
 
     it "generates hash based on child_mappings" do
-      expect(described_class.apply_child_mappings(hash,
-                                                  child_mappings)).to eq(expected_value)
+      expect(described_class.translate_mappings(hash,
+                                                child_mappings)).to eq(expected_value)
     end
   end
 

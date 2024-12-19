@@ -31,9 +31,23 @@ module Lutaml
         )
       end
 
+      def root_mappings(
+        name: "root_mapping",
+        to: nil,
+        root: {}
+      )
+        validate!(name, to)
+
+        @mappings << KeyValueMappingRule.new(
+          name,
+          to: to,
+          root: root,
+        )
+      end
+
       alias map_element map
 
-      def validate!(key, to, with)
+      def validate!(key, to, with = {})
         if to.nil? && with.empty?
           msg = ":to or :with argument is required for mapping '#{key}'"
           raise IncorrectMappingArgumentsError.new(msg)
@@ -42,6 +56,15 @@ module Lutaml
         if !with.empty? && (with[:from].nil? || with[:to].nil?)
           msg = ":with argument for mapping '#{key}' requires :to and :from keys"
           raise IncorrectMappingArgumentsError.new(msg)
+        end
+
+        validate_mappings(key)
+      end
+
+      def validate_mappings(name)
+        if (name == "root_mapping" && @mappings.any?) ||
+            (name != "root_mapping" && @mappings.any?(&:root_mapping?))
+          raise MultipleMappingsError.new("Can't define map with root_mappings")
         end
       end
 

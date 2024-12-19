@@ -268,6 +268,8 @@ module Lutaml
 
             attribute = attributes[name]
 
+            next hash.merge!(generate_hash_from_child_mappings(value, rule.root_mappings)) if rule.root_mapping?
+
             hash[rule.from.to_s] = if rule.child_mappings
                                      generate_hash_from_child_mappings(value, rule.child_mappings)
                                    else
@@ -330,7 +332,7 @@ module Lutaml
           end
         end
 
-        def apply_child_mappings(hash, child_mappings)
+        def translate_mappings(hash, child_mappings)
           return hash unless child_mappings
 
           hash.map do |key, value|
@@ -358,15 +360,19 @@ module Lutaml
             map_key = nil
             map_value = {}
             child_mappings.each do |attr_name, path|
+              attr_value = child_obj.send(attr_name)
+              # convert nested object to hash
+              attr_value = YAML.safe_load(attr_value.to_yaml)
+
               if path == :key
-                map_key = child_obj.send(attr_name)
+                map_key = attr_value
               elsif path == :value
-                map_value = child_obj.send(attr_name)
+                map_value = attr_value
               else
                 path = [path] unless path.is_a?(Array)
                 path[0...-1].inject(map_value) do |acc, k|
                   acc[k.to_s] ||= {}
-                end.public_send(:[]=, path.last.to_s, child_obj.send(attr_name))
+                end.public_send(:[]=, path.last.to_s, attr_value)
               end
             end
 
@@ -462,12 +468,15 @@ module Lutaml
 
         def apply_hash_mapping(doc, instance, format, _options = {})
           mappings = mappings_for(format).mappings
+
           mappings.each do |rule|
             raise "Attribute '#{rule.to}' not found in #{self}" unless valid_rule?(rule)
 
             attr = attribute_for_rule(rule)
 
-            value = if doc.key?(rule.name.to_s) || doc.key?(rule.name.to_sym)
+            value = if rule.root_mappings
+                      doc
+                    elsif doc.key?(rule.name.to_s) || doc.key?(rule.name.to_sym)
                       doc[rule.name.to_s] || doc[rule.name.to_sym]
                     else
                       attr&.default
@@ -481,7 +490,7 @@ module Lutaml
               next
             end
 
-            value = apply_child_mappings(value, rule.child_mappings)
+            value = translate_mappings(value, rule.hash_mappings)
             value = attr.cast(value, format)
 
             rule.deserialize(instance, value, attributes, self)
