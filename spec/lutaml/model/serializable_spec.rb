@@ -77,6 +77,25 @@ module SerializeableSpec
   class GlazeTechnique < Lutaml::Model::Serializable
     attribute :name, :string, values: ["Celadon", "Raku", "Majolica"]
   end
+
+  class TranslateHelper < Lutaml::Model::Serializable
+    attribute :id, :string
+    attribute :path, :string
+    attribute :name, :string
+  end
+
+  class TranslateMappings < Lutaml::Model::Serializable
+    attribute :translate, TranslateHelper, collection: true
+
+    key_value do
+      map "translate", to: :translate, child_mappings:
+                                        {
+                                          id: :key,
+                                          path: %i[path link],
+                                          name: %i[path name],
+                                        }
+    end
+  end
 end
 
 RSpec.describe Lutaml::Model::Serializable do
@@ -173,7 +192,7 @@ RSpec.describe Lutaml::Model::Serializable do
     end
   end
 
-  describe ".apply_child_mappings" do
+  describe ".translate_mappings" do
     let(:child_mappings) do
       {
         id: :key,
@@ -205,17 +224,33 @@ RSpec.describe Lutaml::Model::Serializable do
       }
     end
 
+    let(:attr) { SerializeableSpec::TranslateMappings.attributes[:translate] }
+
     let(:expected_value) do
       [
-        { id: "foo", path: "link one", name: "one" },
-        { id: "abc", path: "link two", name: "two" },
-        { id: "hello", path: "link three", name: "three" },
+        SerializeableSpec::TranslateHelper.new.tap do |obj|
+          obj.id = "foo"
+          obj.name = "one"
+          obj.path = "link one"
+        end,
+        SerializeableSpec::TranslateHelper.new.tap do |obj|
+          obj.id = "abc"
+          obj.name = "two"
+          obj.path = "link two"
+        end,
+        SerializeableSpec::TranslateHelper.new.tap do |obj|
+          obj.id = "hello"
+          obj.name = "three"
+          obj.path = "link three"
+        end,
       ]
     end
 
     it "generates hash based on child_mappings" do
-      expect(described_class.apply_child_mappings(hash,
-                                                  child_mappings)).to eq(expected_value)
+      actual_value = described_class.translate_mappings(hash, child_mappings, attr)
+
+      expect(actual_value.map { |obj| [obj.id, obj.name, obj.path] })
+        .to eq(expected_value.map { |obj| [obj.id, obj.name, obj.path] })
     end
   end
 

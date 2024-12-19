@@ -271,6 +271,8 @@ module Lutaml
 
             attribute = attributes[name]
 
+            next hash.merge!(generate_hash_from_child_mappings(value, rule.root_mappings)) if rule.root_mapping?
+
             value = if rule.child_mappings
                       generate_hash_from_child_mappings(value, rule.child_mappings)
                     else
@@ -313,11 +315,14 @@ module Lutaml
           end
         end
 
-        def apply_child_mappings(hash, child_mappings)
+        def translate_mappings(hash, child_mappings, attr)
           return hash unless child_mappings
 
+          model = []
           hash.map do |key, value|
-            child_mappings.to_h do |attr_name, path|
+            model = attr.type.new if attr.type <= Serialize
+
+            child_mappings.each do |attr_name, path|
               attr_value = if path == :key
                              key
                            elsif path == :value
@@ -327,8 +332,12 @@ module Lutaml
                              value.dig(*path.map(&:to_s))
                            end
 
-              [attr_name, attr_value]
+              next model&.public_send(:"#{attr_name}=", attr_value) if attr.type <= Serialize
+
+              model = value[attr.name.to_s]
             end
+
+            model
           end
         end
 
@@ -341,18 +350,22 @@ module Lutaml
             map_key = nil
             map_value = {}
             child_mappings.each do |attr_name, path|
+              attr_value = child_obj.send(attr_name)
+              attr_value = attr_value.to_yaml_hash if attr_value.is_a?(Lutaml::Model::Serialize)
+
               if path == :key
-                map_key = child_obj.send(attr_name)
+                map_key = attr_value
               elsif path == :value
-                map_value = child_obj.send(attr_name)
+                map_value = attr_value
               else
                 path = [path] unless path.is_a?(Array)
                 path[0...-1].inject(map_value) do |acc, k|
                   acc[k.to_s] ||= {}
-                end.public_send(:[]=, path.last.to_s, child_obj.send(attr_name))
+                end.public_send(:[]=, path.last.to_s, attr_value)
               end
             end
 
+            map_value = nil if map_value.empty?
             hash[map_key] = map_value
           end
 
@@ -396,7 +409,7 @@ module Lutaml
           mappings = mappings_for(:xml).mappings
 
           if doc.is_a?(Array)
-            raise "May be `collection: true` is missing for #{self} in #{options[:caller_class]}"
+            raise Lutaml::Model::CollectionTrueMissingError(self, option[:caller_class])
           end
 
           if instance.respond_to?(:ordered=) && doc.is_a?(Lutaml::Model::MappingHash)
@@ -453,7 +466,9 @@ module Lutaml
             names = rule.multiple_mappings? ? rule.name : [rule.name]
 
             value = names.collect do |rule_name|
-              if doc.key?(rule_name.to_s)
+              if rule.root_mapping?
+                doc
+              elsif doc.key?(rule_name.to_s)
                 doc[rule_name.to_s]
               elsif doc.key?(rule_name.to_sym)
                 doc[rule_name.to_sym]
@@ -470,8 +485,9 @@ module Lutaml
               next
             end
 
-            value = apply_child_mappings(value, rule.child_mappings)
-            value = attr.cast(value, format)
+            value = translate_mappings(value, rule.hash_mappings, attr)
+            value = attr.cast(value, format) unless rule.hash_mappings
+            attr.valid_collection!(value, self)
 
             rule.deserialize(instance, value, attributes, self)
           end

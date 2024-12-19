@@ -142,7 +142,7 @@ module Lutaml
         # Use the default value if the value is nil
         value = default if value.nil?
 
-        valid_value!(value) && valid_collection!(value) && valid_pattern!(value)
+        valid_value!(value) && valid_collection!(value, self) && valid_pattern!(value)
       end
 
       def validate_collection_range
@@ -169,7 +169,9 @@ module Lutaml
         end
       end
 
-      def valid_collection!(value)
+      def valid_collection!(value, caller)
+        raise Lutaml::Model::CollectionTrueMissingError.new(name, caller) if value.is_a?(Array) && !collection?
+
         return true unless collection?
 
         # Allow nil values for collections during initialization

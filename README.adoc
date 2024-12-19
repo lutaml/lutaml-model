@@ -1977,6 +1977,602 @@ end
 ----
 ====
 
+
+==== Collection mapping with dynamic keys
+
+NOTE: This feature is for key-value data model serialization and deserialization
+only.
+
+The `map` with `root_mappings` option is used for key-value data that is keyed using an
+attribute value. In other words, the key of a key-value pair is actually the
+value of an attribute that belongs to the value.
+
+Simply put, the following two data structures are meant to have the same data:
+
+.A YAML collection implemented as an object, each keyed by the `id` attribute
+[source,yaml]
+----
+---
+vase1:
+  name: Imperial Vase
+bowl2:
+  name: 18th Century Bowl
+----
+
+.A YAML collection implemented as an array, with the `id` attribute in each
+[source,yaml]
+----
+---
+- id: vase1
+  name: Imperial Vase
+- id: bowl2
+  name: 18th Century Bowl
+----
+
+NOTE: The first data structure ensures uniqueness of the `id` attribute.
+
+The `map` with `root_mappings` feature in practice parses the first data structure in the same
+way that you would access / manipulate the second data structure, while
+retaining the serialization semantics of using an attribute as key.
+
+Syntax:
+
+[source,ruby]
+----
+class SomeCollection < Lutaml::Model::Serializable
+  attribute :holder_of_collection_data, CollectionObjectType, collection: true
+
+  json | yaml | toml | key_value do
+    map to: :holder_of_collection_data, <1>
+      root_mappings: { <2>
+        key: :attribute_name_of_collection_object_type_for_key, <3>
+        # `value` is Optional
+        value: :attribute_name_of_collection_object_type_for_data <4>
+      }
+  end
+end
+----
+<1> The `map` option indicates that this class represents the root of the
+serialization object being passed in. (Mandatory)
+<2> The `root_mappings` keyword specifies what the collection key represents and
+and value for model. (Mandatory)
+<3> The `key` keyword specifies the attribute name of the individual collection
+object type that represents its key used in the collection. (Mandatory)
+<4> The `value` keyword specifies the attribute name of the individual collection
+object type that represents its data used in the collection. (Optional, if
+not specified, the entire object is used as the value.)
+
+
+.Using the `map` with `root_mappings` option to map collection keys into individual models
+[example]
+====
+Given this data:
+
+[source,yaml]
+----
+---
+vase1:
+  name: Imperial Vase
+bowl2:
+  name: 18th Century Bowl
+----
+
+A model can be defined for this YAML as follows:
+
+[source,ruby]
+----
+# This is Lutaml::Model class that represents the collection of Ceramic objects
+class CeramicCollection < Lutaml::Model::Serializable
+  attribute :ceramics, Ceramic, collection: true
+
+  key_value do
+    map to: :ceramics, # All data goes to the `ceramics` attribute
+      root_mappings: {
+        # The key of an object in this collection is mapped to the ceramic_id
+        # attribute of the Ceramic object.
+        key: :ceramic_id # "key" is a reserved keyword
+      }
+  end
+end
+
+# This is a normal Lutaml::Model class
+class Ceramic < Lutaml::Model::Serializable
+  attribute :ceramic_id, :string
+  attribute :ceramic_name, :string
+
+  key_value do
+    map 'id', to: :ceramic_id
+    map 'name', to: :ceramic_name
+  end
+end
+----
+
+[source,ruby]
+----
+# Parsing the YAML collection with dynamic data keys
+> ceramic_collection = CeramicCollection.from_yaml(yaml)
+> #<CeramicCollection:0x0000000104ac7240
+  @ceramics=
+    [#<Ceramic:0x0000000104ac6e30 @ceramic_id="vase1", @ceramic_name="Imperial Vase">,
+     #<Ceramic:0x0000000104ac58f0 @ceramic_id="bowl2", @ceramic_name="18th Century Bowl">]
+
+# NOTE: When an individual Ceramic object is serialized, the `id` attribute is
+# the original key in the incoming YAML data.
+> first_ceramic = ceramic_collection.first
+> puts first_ceramic.to_yaml
+=>
+# ---
+# id: vase1
+# name: Imperial Vase
+
+# NOTE: When in a collection, the `ceramic_id` attribute is used to key the data,
+# and it disappears from the individual object.
+> puts ceramic_collection.to_yaml
+=>
+# ---
+# vase1:
+#   name: Imperial Vase
+# bowl2:
+#   name: 18th Century Bowl
+
+# NOTE: When the collection is serialized, the `ceramic_id` attribute is used to
+# key the data. This is defined through the `map` with `root_mappings` method in
+# CeramicCollection.
+> new_collection = CeramicCollection.new(ceramics: [
+    Ceramic.new(ceramic_id: "vase1", ceramic_name: "Imperial Vase"),
+    Ceramic.new(ceramic_id: "bowl2", ceramic_name: "18th Century Bowl")
+  ])
+> puts new_collection.to_yaml
+=>
+# ---
+# vase1:
+#   name: Imperial Vase
+# bowl2:
+#   name: 18th Century Bowl
+----
+====
+
+
+
+.Using the `map` with `root_mappings` option to map collection keys and values into individual models
+[example]
+====
+Given this data:
+
+[source,yaml]
+----
+---
+vase1:
+  name: Imperial Vase
+  insignia: "Tang Tianbao"
+bowl2:
+  name: 18th Century Bowl
+  insignia: "Ming Wanli"
+----
+
+A model can be defined for this YAML as follows:
+
+[source,ruby]
+----
+# This is Lutaml::Model class that represents the collection of Ceramic objects
+class CeramicCollection < Lutaml::Model::Serializable
+  attribute :ceramics, Ceramic, collection: true
+
+  key_value do
+    map to: :ceramics, # All data goes to the `ceramics` attribute
+      root_mappings: {
+        # The key of an object in this collection is mapped to the ceramic_id
+        # attribute of the Ceramic object.
+        # (e.g. `vase1`, `bowl2`)
+        key: :ceramic_id,
+        # The value of an object in this collection is mapped to the
+        # ceramic_details attribute of the Ceramic object.
+        # (e.g. `name: 18th Century Bowl`, `insignia: "Ming Wanli"`
+        value: :ceramic_details
+      }
+  end
+end
+
+# This is a normal Lutaml::Model class
+class Ceramic < Lutaml::Model::Serializable
+  attribute :ceramic_id, :string
+  attribute :ceramic_details, CeramicDetails
+
+  key_value do
+    map 'id', to: :ceramic_id
+    map 'details', to: :ceramic_details
+  end
+end
+
+# This is a normal Lutaml::Model class
+class CeramicDetails < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :insignia, :string
+
+  key_value do
+    map 'name', to: :name
+    map 'insignia', to: :insignia
+  end
+end
+----
+
+[source,ruby]
+----
+# Parsing the YAML collection with dynamic data keys
+> ceramic_collection = CeramicCollection.from_yaml(yaml)
+> #<CeramicCollection:0x0000000104ac7240
+  @ceramics=
+    [#<Ceramic:0x0000000104ac6e30
+      @ceramic_id="vase1",
+      @ceramic_details=
+        #<CeramicDetails:0x0000000104ac6e30
+          @name="Imperial Vase",
+          @insignia="Tang Tianbao">,
+     #<Ceramic:0x0000000104ac58f0
+      @ceramic_id="bowl2",
+      @ceramic_details=
+        #<CeramicDetails:0x0000000104ac58f0
+          @name="18th Century Bowl",
+          @insignia="Ming Wanli">]
+
+# NOTE: When an individual Ceramic object is serialized, the `id` attribute is
+# the original key in the incoming YAML data.
+> first_ceramic = ceramic_collection.first
+> puts first_ceramic.to_yaml
+=>
+# ---
+# id: vase1
+# data:
+#   name: Imperial Vase
+#   insignia: Tang Tianbao
+
+# NOTE: When in a collection, the `ceramic_id` attribute is used to key the data,
+# and it disappears from the individual object.
+> puts ceramic_collection.to_yaml
+=>
+# ---
+# vase1:
+#   name: Imperial Vase
+#   insignia: Tang Tianbao
+# bowl2:
+#   name: 18th Century Bowl
+#   insignia: Ming Wanli
+
+# NOTE: When the collection is serialized, the `ceramic_id` attribute is used to
+# key the data. This is defined through the `map` with `root_mappings` method in
+# CeramicCollection.
+> new_collection = CeramicCollection.new(ceramics: [
+    Ceramic.new(ceramic_id: "vase1",
+                ceramic_details: CeramicDetails.new(
+                  name: "Imperial Vase", insignia: "Tang Tianbao")
+               ),
+    Ceramic.new(ceramic_id: "bowl2",
+                ceramic_details: CeramicDetails.new(
+                  name: "18th Century Bowl", insignia: "Ming Wanli")
+               )
+  ])
+> puts new_collection.to_yaml
+=>
+# ---
+# vase1:
+#   name: Imperial Vase
+#   insignia: Tang Tianbao
+# bowl2:
+#   name: 18th Century Bowl
+#   insignia: Ming Wanli
+----
+====
+
+
+.Using the `map` with `root_mappings` option to map collection keys with complex data into individual models
+[example]
+====
+
+[source,yaml]
+----
+"vase1":
+  type: "vase"
+  details:
+    name: "Imperial Vase"
+    insignia: "Tang Tianbao"
+"bowl2":
+  type: "bowl"
+  details:
+    name: "18th Century Bowl"
+    insignia: "Ming Wanli"
+----
+
+A model can be defined for this YAML as follows:
+
+[source,ruby]
+----
+# This is Lutaml::Model class that represents the collection of Ceramic objects
+class CeramicCollection < Lutaml::Model::Serializable
+  attribute :ceramics, Ceramic, collection: true
+
+  key_value do
+    map to: :ceramics, # All data goes to the `ceramics` attribute
+      root_mappings: {
+        # The key of an object in this collection is mapped to the ceramic_id
+        # attribute of the Ceramic object.
+        # (e.g. `vase1`, `bowl2`)
+        key: :ceramic_id
+      }
+  end
+end
+
+# This is a normal Lutaml::Model class
+class Ceramic < Lutaml::Model::Serializable
+  attribute :ceramic_id, :string
+  attribute :ceramic_type, :string
+  attribute :ceramic_details, CeramicDetails
+
+  key_value do
+    map 'id', to: :ceramic_id
+    map 'type', to: :ceramic_type
+    map 'details', to: :ceramic_details
+  end
+end
+
+# This is a normal Lutaml::Model class
+class CeramicDetails < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :insignia, :string
+
+  key_value do
+    map 'name', to: :name
+    map 'insignia', to: :insignia
+  end
+end
+----
+
+The output becomes:
+
+[source,ruby]
+----
+> ceramics_collection = CeramicsCollection.from_yaml(yaml)
+=> #<CeramicsCollection:0x0000000107a2cf30
+  @ceramics=
+    [#<Ceramic:0x0000000107a2cf30
+      @ceramic_id="vase1",
+      @ceramic_type="vase",
+      @ceramic_details=
+        #<CeramicDetails:0x0000000107a2cf30
+          @name="Imperial Vase",
+          @insignia="Tang Tianbao">,
+     #<Ceramic:0x0000000107a2cf30
+      @ceramic_id="bowl2",
+      @ceramic_type="bowl",
+      @ceramic_details=
+        #<CeramicDetails:0x0000000107a2cf30
+          @name="18th Century Bowl",
+          @insignia="Ming Wanli">]
+
+> first_ceramic = ceramics_collection.first
+> first_ceramic.to_yaml
+=>
+# ---
+# id: vase1
+# type: vase
+# details:
+#   name: Imperial Vase
+#   insignia: Tang Tianbao
+
+> new_collection = CeramicsCollection.new(ceramics: [
+    Ceramic.new(ceramic_id: "vase1",
+                ceramic_type: "vase",
+                ceramic_details: CeramicDetails.new(
+                  name: "Imperial Vase", insignia: "Tang Tianbao")
+               ),
+    Ceramic.new(ceramic_id: "bowl2",
+                ceramic_type: "bowl",
+                ceramic_details: CeramicDetails.new(
+                  name: "18th Century Bowl", insignia: "Ming Wanli")
+               )
+  ])
+> new_collection.to_yaml
+>
+# ---
+# vase1:
+#   type: vase
+#   details:
+#     name: Imperial Vase
+#     insignia: Tang Tianbao
+# bowl2:
+#   type: bowl
+#   details:
+#     name: 18th Century Bowl
+#     insignia: Ming Wanli
+----
+====
+
+[[attribute-extraction]]
+==== Attribute extraction
+
+NOTE: This feature is for key-value data model serialization only.
+
+The `child_mappings` option is used to extract results from a key-value data
+model (JSON, YAML, TOML) into a `Lutaml::Model` collection.
+
+The values are extracted from the key-value data model using the list of keys
+provided.
+
+Syntax:
+
+[source,ruby]
+----
+json | yaml | toml do
+  map 'key_value_model_attribute_name', to: :name_of_attribute,
+    child_mappings: {
+      key_attribute_name_1: <1>
+        {path_to_value_1}, <2>
+      key_attribute_name_2:
+        {path_to_value_2},
+      # ...
+    }
+end
+----
+<1> The `key_attribute_name_1` is the attribute name in the model. The value of
+this attribute will be assigned the key of the hash in the key-value data model.
+
+<2> The `path_to_value_1` is an array of keys that represent the path to the
+value in the key-value data model. The keys are used to extract the value from
+the key-value data model and assign it to the attribute in the model.
+
+The `path_to_value` is in a nested array format with each value a symbol, where
+each symbol represents a key to traverse down. The last key in the path is the
+value to be extracted.
+
+.Determining the path to value in a key-value data model
+[example]
+====
+The following JSON contains 2 keys in schema named `engine` and `gearbox`.
+
+[source,json]
+----
+{
+  "components": {
+    "engine": {
+      "manufacturer": "Ford",
+      "model": "V8"
+    },
+    "gearbox": {
+      "manufacturer": "Toyota",
+      "model": "4-speed"
+    }
+  }
+}
+----
+
+The path to value for the `engine` schema is `[:components, :engine]` and for
+the `gearbox` schema is `[:components, :gearbox]`.
+====
+
+In `path_to_value`, the `:key` and `:value` are reserved instructions used to
+assign the key or value of the serialization data respectively as the value to
+the attribute.
+
+[example]
+====
+In the following JSON content, the `path_to_value` for the object keys named
+`engine` and `gearbox` will utilize the `:key` keyword to assign the key of the
+object as the value of a designated attribute.
+
+[source,json]
+----
+{
+  "components": {
+    "engine": { /*...*/ },
+    "gearbox": { /*...*/ }
+  }
+}
+----
+====
+
+If a specified value path is not found, the corresponding attribute in the model
+will be assigned a `nil` value.
+
+.Attribute values set to `nil` when the `path_to_value` is not found
+[example]
+====
+In the following JSON content, the `path_to_value` of `[:extras, :sunroof]` and
+`[:extras, :drinks_cooler]` at the object `"gearbox"` would be set to `nil`.
+
+[source,json]
+----
+{
+  "components": {
+    "engine": {
+      "manufacturer": "Ford",
+      "extras": {
+        "sunroof": true,
+        "drinks_cooler": true
+      }
+    },
+    "gearbox": {
+      "manufacturer": "Toyota"
+    }
+  }
+}
+----
+====
+
+
+.Using the `child_mappings` option to extract values from a key-value data model
+[example]
+====
+The following JSON contains 2 keys in schema named `foo` and `bar`.
+
+[source,json]
+----
+{
+  "schemas": {
+    "foo": { <1>
+      "path": { <2>
+        "link": "link one",
+        "name": "one"
+      }
+    },
+    "bar": { <1>
+      "path": { <2>
+        "link": "link two",
+        "name": "two"
+      }
+    }
+  }
+}
+----
+<1> The keys `foo` and `bar` are to be mapped to the `id` attribute.
+<2> The nested `path.link` and `path.name` keys are used as the `link` and
+`name` attributes, respectively.
+
+A model can be defined for this JSON as follows:
+
+[source,ruby]
+----
+class Schema < Lutaml::Model::Serializable
+  attribute :id, :string
+  attribute :link, :string
+  attribute :name, :string
+end
+
+class ChildMappingClass < Lutaml::Model::Serializable
+  attribute :schemas, Schema, collection: true
+
+  json do
+    map "schemas", to: :schemas,
+                   child_mappings: {
+                     id: :key,
+                     link: %i[path link],
+                     name: %i[path name],
+                   }
+  end
+end
+----
+
+The output becomes:
+
+[source,ruby]
+----
+> ChildMappingClass.from_json(json)
+> #<ChildMappingClass:0x0000000104ac7240
+ @schemas=
+  [#<Schema:0x0000000104ac6e30 @id="foo", @link="link one", @name="one">,
+   #<Schema:0x0000000104ac58f0 @id="bar", @link="link two", @name="two">]>
+> ChildMappingClass.new(schemas: [Schema.new(id: "foo", link: "link one", name: "one"), Schema.new(id: "bar", link: "link two", name: "two")]).to_json
+> #{"schemas"=>{"foo"=>{"path"=>{"link"=>"link one", "name"=>"one"}}, {"bar"=>{"path"=>{"link"=>"link two", "name"=>"two"}}}}}
+----
+
+In this example:
+
+* The `key` of each schema (`foo` and `bar`) is mapped to the `id` attribute.
+
+* The nested `path.link` and `path.name` keys are mapped to the `link` and
+`name` attributes, respectively.
+====
+
+
+
 [[separate-serialization-model]]
 === Separate serialization model
 
@@ -2468,190 +3064,6 @@ end
 ====
 
 
-[[attribute-extraction]]
-==== Attribute extraction (for key-value data models only)
-
-NOTE: This feature is for key-value data model serialization only.
-
-The `child_mappings` option is used to extract results from a key-value data
-model (JSON, YAML, TOML) into a `Lutaml::Model` collection.
-
-The values are extracted from the key-value data model using the list of keys
-provided.
-
-Syntax:
-
-[source,ruby]
-----
-json | yaml | toml do
-  map 'key_value_model_attribute_name', to: :name_of_attribute,
-    child_mappings: {
-      key_attribute_name_1: <1>
-        {path_to_value_1}, <2>
-      key_attribute_name_2:
-        {path_to_value_2},
-      # ...
-    }
-end
-----
-<1> The `key_attribute_name_1` is the attribute name in the model. The value of
-this attribute will be assigned the key of the hash in the key-value data model.
-
-<2> The `path_to_value_1` is an array of keys that represent the path to the
-value in the key-value data model. The keys are used to extract the value from
-the key-value data model and assign it to the attribute in the model.
-
-The `path_to_value` is in a nested array format with each value a symbol, where
-each symbol represents a key to traverse down. The last key in the path is the
-value to be extracted.
-
-.Determining the path to value in a key-value data model
-[example]
-====
-The following JSON contains 2 keys in schema named `engine` and `gearbox`.
-
-[source,json]
-----
-{
-  "components": {
-    "engine": {
-      "manufacturer": "Ford",
-      "model": "V8"
-    },
-    "gearbox": {
-      "manufacturer": "Toyota",
-      "model": "4-speed"
-    }
-  }
-}
-----
-
-The path to value for the `engine` schema is `[:components, :engine]` and for
-the `gearbox` schema is `[:components, :gearbox]`.
-====
-
-In `path_to_value`, the `:key` and `:value` are reserved instructions used to
-assign the key or value of the serialization data respectively as the value to
-the attribute.
-
-[example]
-====
-In the following JSON content, the `path_to_value` for the object keys named
-`engine` and `gearbox` will utilize the `:key` keyword to assign the key of the
-object as the value of a designated attribute.
-
-[source,json]
-----
-{
-  "components": {
-    "engine": { /*...*/ },
-    "gearbox": { /*...*/ }
-  }
-}
-----
-====
-
-If a specified value path is not found, the corresponding attribute in the model
-will be assigned a `nil` value.
-
-.Attribute values set to `nil` when the `path_to_value` is not found
-[example]
-====
-In the following JSON content, the `path_to_value` of `[:extras, :sunroof]` and
-`[:extras, :drinks_cooler]` at the object `"gearbox"` would be set to `nil`.
-
-[source,json]
-----
-{
-  "components": {
-    "engine": {
-      "manufacturer": "Ford",
-      "extras": {
-        "sunroof": true,
-        "drinks_cooler": true
-      }
-    },
-    "gearbox": {
-      "manufacturer": "Toyota"
-    }
-  }
-}
-----
-====
-
-
-.Using the `child_mappings` option to extract values from a key-value data model
-[example]
-====
-The following JSON contains 2 keys in schema named `foo` and `bar`.
-
-[source,json]
-----
-{
-  "schemas": {
-    "foo": { <1>
-      "path": { <2>
-        "link": "link one",
-        "name": "one"
-      }
-    },
-    "bar": { <1>
-      "path": { <2>
-        "link": "link two",
-        "name": "two"
-      }
-    }
-  }
-}
-----
-<1> The keys `foo` and `bar` are to be mapped to the `id` attribute.
-<2> The nested `path.link` and `path.name` keys are used as the `link` and
-`name` attributes, respectively.
-
-A model can be defined for this JSON as follows:
-
-[source,ruby]
-----
-class Schema < Lutaml::Model::Serializable
-  attribute :id, :string
-  attribute :link, :string
-  attribute :name, :string
-end
-
-class ChildMappingClass < Lutaml::Model::Serializable
-  attribute :schemas, Schema, collection: true
-
-  json do
-    map "schemas", to: :schemas,
-                   child_mappings: {
-                     id: :key,
-                     link: %i[path link],
-                     name: %i[path name],
-                   }
-  end
-end
-----
-
-The output becomes:
-
-[source,ruby]
-----
-> ChildMappingClass.from_json(json)
-> #<ChildMappingClass:0x0000000104ac7240
- @schemas=
-  [#<Schema:0x0000000104ac6e30 @id="foo", @link="link one", @name="one">,
-   #<Schema:0x0000000104ac58f0 @id="bar", @link="link two", @name="two">]>
-> ChildMappingClass.new(schemas: [Schema.new(id: "foo", link: "link one", name: "one"), Schema.new(id: "bar", link: "link two", name: "two")]).to_json
-> #{"schemas"=>{"foo"=>{"path"=>{"link"=>"link one", "name"=>"one"}}, {"bar"=>{"path"=>{"link"=>"link two", "name"=>"two"}}}}
-----
-
-In this example:
-
-* The `key` of each schema (`foo` and `bar`) is mapped to the `id` attribute.
-
-* The nested `path.link` and `path.name` keys are mapped to the `link` and
-`name` attributes, respectively.
-====
 
 
 == Validation
