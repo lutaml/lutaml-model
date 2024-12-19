@@ -17,7 +17,8 @@ module Lutaml
         with: {},
         attribute: false,
         delegate: nil,
-        id: nil
+        id: nil,
+        root_mappings: nil
       )
         @name = name
         @to = to
@@ -27,6 +28,7 @@ module Lutaml
         @attribute = attribute
         @delegate = delegate
         @id = id
+        @root_mappings = root_mappings
       end
 
       alias from name
