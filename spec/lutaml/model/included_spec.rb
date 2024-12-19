@@ -49,6 +49,37 @@ module IncludedSpec
       map_element "gender", to: :age
     end
   end
+
+  module ParentClass
+    include Lutaml::Model::Serialize
+    
+    attribute :parent_name, Lutaml::Model::Type::String
+    
+    xml do
+      root "parent"
+      map_element "parent_name", to: :parent_name
+    end
+  end
+
+  module ChildClass
+    include ParentClass
+    attribute :child_name, Lutaml::Model::Type::String
+    
+    xml do
+      root "child"
+      map_element "child_name", to: :child_name
+    end
+  end
+
+  class GrandChildClass
+    include ChildClass
+    attribute :grandchild_name, Lutaml::Model::Type::String
+    
+    xml do
+      root "grandchild"
+      map_element "grandchild_name", to: :grandchild_name
+    end
+  end
 end
 
 RSpec.describe "Module Inclusion" do
@@ -102,6 +133,34 @@ RSpec.describe "Module Inclusion" do
       it "has correct model" do
         expect(impl2.model).to eq(impl2)
       end
+    end
+  end
+
+  context "with nested module inclusion" do
+    let(:grandchild) do
+      IncludedSpec::GrandChildClass.new(
+        parent_name: "Parent",
+        child_name: "Child",
+        grandchild_name: "GrandChild"
+      )
+    end
+  
+    it "inherits attributes through the chain" do
+      expect(IncludedSpec::GrandChildClass.attributes.keys)
+        .to include(:parent_name, :child_name, :grandchild_name)
+    end
+  
+    it "maintains correct XML mappings through inheritance" do
+      expect(grandchild.to_xml(pretty: true))
+        .to include("<parent_name>Parent</parent_name>")
+        .and include("<child_name>Child</child_name>")
+        .and include("<grandchild_name>GrandChild</grandchild_name>")
+    end
+  
+    it "preserves separate mapping configurations" do
+      expect(IncludedSpec::ParentClass.mappings_for(:xml).root_element).to eq("parent")
+      expect(IncludedSpec::ChildClass.mappings_for(:xml).root_element).to eq("child")
+      expect(IncludedSpec::GrandChildClass.mappings_for(:xml).root_element).to eq("grandchild")
     end
   end
 end

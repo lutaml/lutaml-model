@@ -32,6 +32,11 @@ module Lutaml
           subclass.initialize_attrs(self)
         end
 
+        def included(base)
+          base.extend(ClassMethods)
+          base.initialize_attrs(self)
+        end
+
         def initialize_attrs(source_class)
           @mappings = Utils.deep_dup(source_class.instance_variable_get(:@mappings)) || {}
           @attributes = Utils.deep_dup(source_class.instance_variable_get(:@attributes)) || {}
@@ -548,7 +553,7 @@ module Lutaml
                              self.class.hash_representation(self, format,
                                                             options)
                            end
-
+                           
           options[:parse_encoding] = encoding if encoding
           adapter.new(representation).public_send(:"to_#{format}", options)
         end
