@@ -37,6 +37,51 @@ module ChildMapping
                      }
     end
   end
+
+  class Symbol < Lutaml::Model::Serializable
+    attribute :ascii, :string
+    attribute :html, :string
+    attribute :latex, :string
+    attribute :unicode, :string
+
+    yaml do
+      map :ascii, to: :ascii
+      map :html, to: :html
+      map :latex, to: :latex
+      map :unicode, to: :unicode
+    end
+  end
+
+  class Prefix < Lutaml::Model::Serializable
+    attribute :id, :string
+    attribute :name, :string
+    attribute :symbol, Symbol
+    attribute :base, :integer
+    attribute :power, :integer
+
+    yaml do
+      map :id, to: :id
+      map :name, to: :name
+      map :symbol, to: :symbol
+      map :base, to: :base
+      map :power, to: :power
+    end
+  end
+
+  class Prefixes < Lutaml::Model::Serializable
+    attribute :prefixes, Prefix, collection: true
+
+    yaml do
+      map "prefixes", to: :prefixes, child_mappings:
+                                      {
+                                        id: :key,
+                                        name: :name,
+                                        symbol: :symbol,
+                                        base: :base,
+                                        power: :power,
+                                      }
+    end
+  end
 end
 
 RSpec.describe ChildMapping do
@@ -71,6 +116,31 @@ RSpec.describe ChildMapping do
   let(:expected_ids) { ["foo", "abc", "hello"] }
   let(:expected_paths) { ["link one", "link two", "link three"] }
   let(:expected_names) { ["one", "two", "three"] }
+
+  let(:prefixes_yaml) do
+    <<~YAML
+      prefixes:
+        NISTp10_30:
+          name: quetta
+          symbol:
+            ascii: Q
+            html: Q
+            latex: Q
+            unicode: Q
+          base: 10
+          power: 30
+
+        NISTp10_27:
+          name: ronna
+          symbol:
+            ascii: R
+            html: R
+            latex: R
+            unicode: R
+          base: 10
+          power: 27
+    YAML
+  end
 
   context "with json" do
     let(:json) do
@@ -115,6 +185,12 @@ RSpec.describe ChildMapping do
         expect(instance.schemas.map(&:path)).to eq(expected_paths)
         expect(instance.schemas.map(&:name)).to eq(expected_names)
       end
+
+      it "create model according to yaml with nesting values" do
+        instance = ChildMapping::Prefixes.from_yaml(prefixes_yaml)
+
+        expect(instance.prefixes.first.id).to eq("NISTp10_30")
+      end
     end
 
     describe ".to_yaml" do
@@ -126,6 +202,13 @@ RSpec.describe ChildMapping do
         instance = mapper.new(schemas: [schema1, schema2, schema3])
 
         expect(instance.to_yaml).to eq(yaml)
+      end
+
+      it "converts object to yaml with nesting values" do
+        instance = ChildMapping::Prefixes.from_yaml(prefixes_yaml)
+        serialized = instance.to_yaml
+binding.irb
+        expect(serialized).to eq("adsvsdv")
       end
     end
   end

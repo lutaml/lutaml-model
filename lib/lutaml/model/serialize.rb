@@ -270,15 +270,21 @@ module Lutaml
             map_key = nil
             map_value = {}
             child_mappings.each do |attr_name, path|
+              attr_value = child_obj.send(attr_name)
+
+              if attr_value.is_a?(Object)
+                attr_value = YAML.safe_load(attr_value.to_yaml)
+              end
+
               if path == :key
-                map_key = child_obj.send(attr_name)
+                map_key = attr_value
               elsif path == :value
-                map_value = child_obj.send(attr_name)
+                map_value = attr_value
               else
                 path = [path] unless path.is_a?(Array)
                 path[0...-1].inject(map_value) do |acc, k|
                   acc[k.to_s] ||= {}
-                end.public_send(:[]=, path.last.to_s, child_obj.send(attr_name))
+                end.public_send(:[]=, path.last.to_s, attr_value)
               end
             end
 
