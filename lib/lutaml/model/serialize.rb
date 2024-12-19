@@ -162,6 +162,12 @@ module Lutaml
           only = options[:only]
           except = options[:except]
           mappings = mappings_for(format).mappings
+          map_rule = mappings.first
+
+          if map_rule&.root_mapping?
+            value = instance.send(map_rule.to)
+            return generate_hash_from_child_mappings(value, map_rule.root_mappings)
+          end
 
           mappings.each_with_object({}) do |rule, hash|
             name = rule.to
@@ -242,6 +248,10 @@ module Lutaml
           end
         end
 
+        def apply_root_mappings(hash, root_mappings)
+          apply_child_mappings(hash, root_mappings)
+        end
+
         def apply_child_mappings(hash, child_mappings)
           return hash unless child_mappings
 
@@ -270,15 +280,18 @@ module Lutaml
             map_key = nil
             map_value = {}
             child_mappings.each do |attr_name, path|
+              attr_value = child_obj.send(attr_name)
+              attr_value = YAML.safe_load(attr_value.to_yaml)
+
               if path == :key
-                map_key = child_obj.send(attr_name)
+                map_key = attr_value
               elsif path == :value
-                map_value = child_obj.send(attr_name)
+                map_value = attr_value
               else
                 path = [path] unless path.is_a?(Array)
                 path[0...-1].inject(map_value) do |acc, k|
                   acc[k.to_s] ||= {}
-                end.public_send(:[]=, path.last.to_s, child_obj.send(attr_name))
+                end.public_send(:[]=, path.last.to_s, attr_value)
               end
             end
 
@@ -374,6 +387,18 @@ module Lutaml
 
         def apply_hash_mapping(doc, instance, format, _options = {})
           mappings = mappings_for(format).mappings
+          map_rule = mappings.first
+
+          if map_rule&.root_mapping?
+            attr = attribute_for_rule(map_rule)
+
+            value = apply_root_mappings(doc, map_rule.root_mappings)
+            value = attr.cast(value, format)
+
+            mappings.first.deserialize(instance, value, attributes, self)
+            return instance
+          end
+
           mappings.each do |rule|
             raise "Attribute '#{rule.to}' not found in #{self}" unless valid_rule?(rule)
 

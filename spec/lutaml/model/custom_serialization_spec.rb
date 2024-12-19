@@ -144,9 +144,9 @@ RSpec.describe CustomSerialization do
         name: "JSON Masterpiece: Vase",
         color: "BLUE",
       }.to_json
-  
+
       ceramic = described_class.from_json(json)
-  
+
       expect(ceramic.full_name).to eq("Vase")
       expect(ceramic.color).to eq("blue")
       expect(ceramic.size).to be_nil

@@ -19,6 +19,7 @@ module Lutaml
         child_mappings: nil
       )
         validate!(name, to, with)
+        raise_root_mapping_error if @mappings.find(&:root_mapping?)
 
         @mappings << KeyValueMappingRule.new(
           name,
@@ -28,6 +29,20 @@ module Lutaml
           with: with,
           delegate: delegate,
           child_mappings: child_mappings,
+        )
+      end
+
+      def root_mappings(
+        name: "root_mapping",
+        to: nil,
+        root: {}
+      )
+        raise_root_mapping_error unless @mappings.empty?
+
+        @mappings << KeyValueMappingRule.new(
+          name,
+          to: to,
+          root: root,
         )
       end
 
@@ -53,6 +68,10 @@ module Lutaml
 
       def duplicate_mappings
         @mappings.map(&:deep_dup)
+      end
+
+      def raise_root_mapping_error
+        raise InvalidRootMappingError.new("Can't define map with root_mappings")
       end
     end
   end
