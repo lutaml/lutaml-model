@@ -210,6 +210,9 @@ module Lutaml
             end
 
             mappings = xml_mapping.elements + [xml_mapping.raw_mapping].compact
+            mappings = mappings.uniq do |rule|
+              rule.to.nil? ? rule.object_id : rule.to
+            end
             mappings.each do |element_rule|
               attribute_def = attribute_definition_for(element, element_rule,
                                                        mapper_class: mapper_class)
@@ -336,7 +339,7 @@ module Lutaml
             attrs.merge!(element.schema_location.to_xml_attributes)
           end
 
-          xml_mapping.attributes.each_with_object(attrs) do |mapping_rule, hash|
+          xml_mapping.attributes.uniq(&:to).each_with_object(attrs) do |mapping_rule, hash|
             next if options[:except]&.include?(mapping_rule.to)
             next if mapping_rule.custom_methods[:to]
 
