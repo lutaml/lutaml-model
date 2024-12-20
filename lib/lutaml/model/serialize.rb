@@ -249,7 +249,7 @@ module Lutaml
         def hash_representation(instance, format, options = {})
           only = options[:only]
           except = options[:except]
-          mappings = mappings_for(format).mappings
+          mappings = mappings_for(format).mappings.uniq(&:to)
 
           mappings.each_with_object({}) do |rule, hash|
             name = rule.to
@@ -462,7 +462,9 @@ module Lutaml
 
         def apply_hash_mapping(doc, instance, format, _options = {})
           mappings = mappings_for(format).mappings
+          mapping_hash = mappings.to_h { |rule| [rule.to, false] }
           mappings.each do |rule|
+            next if mapping_hash[rule.to]
             raise "Attribute '#{rule.to}' not found in #{self}" unless valid_rule?(rule)
 
             attr = attribute_for_rule(rule)
@@ -476,6 +478,7 @@ module Lutaml
             if rule.custom_methods[:from]
               if Utils.present?(value)
                 value = new.send(rule.custom_methods[:from], instance, value)
+                mapping_hash[rule.to] = true
               end
 
               next
@@ -485,6 +488,7 @@ module Lutaml
             value = attr.cast(value, format)
 
             rule.deserialize(instance, value, attributes, self)
+            mapping_hash[rule.to] = true
           end
 
           instance
