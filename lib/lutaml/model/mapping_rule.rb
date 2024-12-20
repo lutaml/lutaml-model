@@ -68,6 +68,10 @@ module Lutaml
         end
       end
 
+      def using_custom_methods?
+        !custom_methods.empty?
+      end
+
       def deep_dup
         raise NotImplementedError, "Subclasses must implement `deep_dup`."
       end
