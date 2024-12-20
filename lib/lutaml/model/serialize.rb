@@ -651,7 +651,7 @@ module Lutaml
                              self.class.hash_representation(self, format,
                                                             options)
                            end
-                           
+
           options[:parse_encoding] = encoding if encoding
           adapter.new(representation).public_send(:"to_#{format}", options)
         end

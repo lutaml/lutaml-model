@@ -151,10 +151,15 @@ RSpec.describe "Module Inclusion" do
     end
   
     it "maintains correct XML mappings through inheritance" do
-      expect(grandchild.to_xml(pretty: true))
-        .to include("<parent_name>Parent</parent_name>")
-        .and include("<child_name>Child</child_name>")
-        .and include("<grandchild_name>GrandChild</grandchild_name>")
+      expected_xml = <<~XML
+        <grandchild>
+          <parent_name>Parent</parent_name>
+          <child_name>Child</child_name>
+          <grandchild_name>GrandChild</grandchild_name>
+        </grandchild>
+      XML
+      
+      expect(grandchild.to_xml).to be_equivalent_to(expected_xml)
     end
   
     it "preserves separate mapping configurations" do
