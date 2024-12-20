@@ -39,7 +39,7 @@ module Lutaml
         end
 
         def blank?(value)
-          value.respond_to?(:empty?) ? value.empty? : !value
+          value.respond_to?(:empty?) ? value.empty? : value.nil?
         end
 
         def add_method_if_not_defined(klass, method_name, &block)

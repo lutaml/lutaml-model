@@ -6,7 +6,11 @@ module Lutaml
         self.class.attributes.each do |name, attr|
           value = self.public_send(:"#{name}")
           begin
-            attr.validate_value!(value)
+            if value.respond_to?(:validate!)
+              value.validate!
+            else
+              attr.validate_value!(value)
+            end
           rescue Lutaml::Model::InvalidValueError,
                  Lutaml::Model::CollectionCountOutOfRangeError,
                  PatternNotMatchedError => e

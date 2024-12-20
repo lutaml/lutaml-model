@@ -211,7 +211,7 @@ module Lutaml
             end
           end
 
-          define_method(:"as_#{format}") do |instance|
+          define_method(:"as_#{format}") do |instance, options = {}|
             if instance.is_a?(Array)
               return instance.map { |item| public_send(:"as_#{format}", item) }
             end
@@ -223,7 +223,7 @@ module Lutaml
 
             return instance if format == :xml
 
-            hash_representation(instance, format)
+            hash_representation(instance, format, options)
           end
         end
 
@@ -252,7 +252,7 @@ module Lutaml
 
             value = instance.send(name)
 
-            next if value.nil? && !rule.render_nil
+            next if Utils.blank?(value) && !rule.render_nil
 
             attribute = attributes[name]
 
