@@ -107,6 +107,7 @@ module Lutaml
           prefix: prefix.dup,
           mixed_content: mixed_content,
           namespace_set: namespace_set?,
+          attribute: attribute,
           prefix_set: prefix_set?,
           default_namespace: default_namespace.dup,
         )

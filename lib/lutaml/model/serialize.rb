@@ -455,11 +455,11 @@ module Lutaml
             instance.mixed = mappings_for(:xml).mixed_content? || options[:mixed_content]
           end
 
-          if doc["__schema_location"]
+          if doc["attributes"]&.key?("__schema_location")
             instance.schema_location = Lutaml::Model::SchemaLocation.new(
-              schema_location: doc["__schema_location"][:schema_location],
-              prefix: doc["__schema_location"][:prefix],
-              namespace: doc["__schema_location"][:namespace],
+              schema_location: doc["attributes"]["__schema_location"][:schema_location],
+              prefix: doc["attributes"]["__schema_location"][:prefix],
+              namespace: doc["attributes"]["__schema_location"][:namespace],
             )
           end
 
@@ -470,18 +470,17 @@ module Lutaml
 
             attr = attribute_for_rule(rule)
 
-            namespaced_names = rule.namespaced_names(options[:default_namespace])
-
             value = if rule.raw_mapping?
                       doc.node.inner_xml
                     elsif rule.content_mapping?
                       doc[rule.content_key]
-                    elsif key = (namespaced_names & doc.keys).first
-                      doc[key]
+                    elsif val = value_for_rule(doc, rule, options)
+                      val
                     else
                       defaults_used << rule.to
                       attr&.default || rule.to_value_for(instance)
                     end
+
             value = normalize_xml_value(value, rule, attr, options)
             rule.deserialize(instance, value, attributes, self)
           end
@@ -491,6 +490,15 @@ module Lutaml
           end
 
           instance
+        end
+
+        def value_for_rule(doc, rule, options)
+          rule_names = rule.namespaced_names(options[:default_namespace])
+          hash = rule.attribute? ? doc["attributes"] : doc["elements"]
+          return unless hash
+
+          value_key = rule_names.find { |name| hash.key_exist?(name) }
+          hash.fetch(value_key) if value_key
         end
 
         def apply_hash_mapping(doc, instance, format, options = {})

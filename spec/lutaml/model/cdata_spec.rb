@@ -118,8 +118,8 @@ module CDATA
     def child_from_xml(model, value)
       model.child_mapper ||= CustomModelChild.new
 
-      model.child_mapper.street = value["street"].text
-      model.child_mapper.city = value["city"].text
+      model.child_mapper.street = value["elements"]["street"].text
+      model.child_mapper.city = value["elements"]["city"].text
     end
   end
 

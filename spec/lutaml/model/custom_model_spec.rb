@@ -56,8 +56,8 @@ class CustomModelParentMapper < Lutaml::Model::Serializable
   def child_from_xml(model, value)
     model.child_mapper ||= CustomModelChild.new
 
-    model.child_mapper.street = value["street"].text
-    model.child_mapper.city = value["city"].text
+    model.child_mapper.street = value["elements"]["street"].text
+    model.child_mapper.city = value["elements"]["city"].text
   end
 end
 
@@ -126,10 +126,10 @@ module CustomModelSpecs
 
     def bibdata_from_xml(model, value)
       model.bibdata = BibliographicItem.new(
-        "type" => value["type"],
-        "title" => value["title"],
-        "language" => value["title"]["language"],
-        "schema_version" => value["schema-version"],
+        "type" => value["attributes"]["type"],
+        "title" => value["elements"]["title"],
+        "language" => value["elements"]["title"]["attributes"]["language"],
+        "schema_version" => value["attributes"]["schema-version"],
       )
     end
 
