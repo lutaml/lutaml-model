@@ -77,26 +77,21 @@ module Lutaml
           result.node = element
           result.item_order = element.order
 
-          element.children.each_with_object(result) do |child, hash|
+          element.children.each do |child|
             if klass&.<= Serialize
               attr = klass.attribute_for_child(child.name,
                                                format)
             end
 
-            value = if child.text?
-                      child.text
-                    else
-                      parse_element(child, attr&.type || klass, format)
-                    end
+            next result.assign_or_append_value(child.name, child.text) if child.text?
 
-            hash[child.namespaced_name] = if hash[child.namespaced_name]
-                                            [hash[child.namespaced_name], value].flatten
-                                          else
-                                            value
-                                          end
+            result["elements"] ||= Lutaml::Model::MappingHash.new
+            result["elements"].assign_or_append_value(child.namespaced_name, parse_element(child, attr&.type || klass, format))
           end
 
-          result.merge(attributes_hash(element))
+          result["attributes"] = attributes_hash(element) if element.attributes&.any?
+
+          result
         end
 
         def attributes_hash(element)

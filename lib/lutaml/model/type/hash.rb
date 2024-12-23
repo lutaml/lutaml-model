@@ -19,18 +19,18 @@ module Lutaml
 
           hash = hash.to_h if hash.is_a?(Lutaml::Model::MappingHash)
 
-          hash = hash.except("text")
-
-          hash.transform_values do |value|
-            if value.is_a?(::Hash)
-              # Only process if value is a Hash
-              nested = normalize_hash(value)
-              # Only include non-text nodes in nested hashes if it's a hash
-              nested.is_a?(::Hash) ? nested.except("text") : nested
-            else
-              value
-            end
+          normalized_hash = hash.transform_values do |value|
+            normalize_value(value)
           end
+
+          normalized_hash["elements"] || normalized_hash
+        end
+
+        def self.normalize_value(value)
+          return value unless value.is_a?(::Hash)
+
+          nested = normalize_hash(value)
+          nested.is_a?(::Hash) ? nested.except("text") : nested
         end
 
         def self.serialize(value)
