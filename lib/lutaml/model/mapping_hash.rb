@@ -36,6 +36,14 @@ module Lutaml
         key?("#cdata-section") || key?("text")
       end
 
+      def assign_or_append_value(key, value)
+        self[key] = if self[key]
+                      [self[key], value].flatten
+                    else
+                      value
+                    end
+      end
+
       def ordered?
         @ordered
       end

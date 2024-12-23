@@ -131,6 +131,45 @@ module XmlMapping
     end
   end
 
+  class AnnotatedElement < Lutaml::Model::Serializable
+    attribute :idref, :string
+
+    xml do
+      root "annotatedElement"
+      map_attribute "idref", to: :idref, namespace: "http://www.omg.org/spec/XMI/20131001", prefix: "xmi"
+    end
+  end
+
+  class OwnedComment < Lutaml::Model::Serializable
+    attribute :annotated_attribute, :string
+    attribute :annotated_element, AnnotatedElement
+
+    xml do
+      root "ownedComment"
+      map_attribute "annotatedElement", to: :annotated_attribute
+      map_element "annotatedElement", to: :annotated_element, prefix: nil, namespace: nil
+    end
+  end
+
+  class Date < Lutaml::Model::Serializable
+    attribute :type, :string
+    attribute :text, :string
+    attribute :content, :string
+    attribute :from, :string
+    attribute :to, :string
+    attribute :on, :string
+
+    xml do
+      root "date", mixed: true
+      map_attribute "type", to: :type
+      map_attribute "text", to: :text
+      map_content to: :content
+      map_element "from", to: :from
+      map_element "to", to: :to
+      map_element "on", to: :on
+    end
+  end
+
   class OverrideDefaultNamespacePrefix < Lutaml::Model::Serializable
     attribute :same_element_name, SameNameDifferentNamespace
 
@@ -356,6 +395,69 @@ RSpec.describe Lutaml::Model::XmlMapping do
         parsed = XmlMapping::OverrideDefaultNamespacePrefix.from_xml(input_xml)
         expected_xml = adapter_class.type == "oga" ? oga_expected_xml : input_xml
         expect(parsed.to_xml).to be_equivalent_to(expected_xml)
+      end
+    end
+
+    context "with same element and attribute name" do
+      let(:xml_with_element) do
+        <<~XML
+          <ownedComment xmlns:xmi="http://www.omg.org/spec/XMI/20131001">
+            <annotatedElement xmi:idref="ABC"/>
+          </ownedComment>
+        XML
+      end
+
+      let(:xml_with_attribute) do
+        <<~XML
+          <ownedComment annotatedElement="test2">
+          </ownedComment>
+        XML
+      end
+
+      let(:xml_with_same_name_attribute_and_element) do
+        <<~XML
+          <ownedComment xmlns:xmi="http://www.omg.org/spec/XMI/20131001" annotatedElement="test2">
+            <annotatedElement xmi:idref="ABC"/>
+          </ownedComment>
+        XML
+      end
+
+      let(:xml) do
+        <<~XML
+          <date type="published">
+            End of December
+            <on>2020-01</on>
+            Start of January
+          </date>
+        XML
+      end
+
+      it "parse and serializes the input xml correctly # lutaml/issues/217" do
+        parsed = XmlMapping::OwnedComment.from_xml(xml_with_element)
+        serialized = parsed.to_xml
+
+        expect(serialized).to be_equivalent_to(xml_with_element.strip)
+      end
+
+      it "parse and serialize model correctly" do
+        parsed = XmlMapping::OwnedComment.from_xml(xml_with_attribute)
+        serialized = parsed.to_xml
+
+        expect(serialized).to be_equivalent_to(xml_with_attribute)
+      end
+
+      it "parse and serialize model correctly with both attribute and element" do
+        parsed = XmlMapping::OwnedComment.from_xml(xml_with_same_name_attribute_and_element)
+        serialized = parsed.to_xml
+
+        expect(serialized).to be_equivalent_to(xml_with_same_name_attribute_and_element)
+      end
+
+      it "testing parse element" do
+        parsed = XmlMapping::Date.from_xml(xml)
+        serialized = parsed.to_xml
+
+        expect(serialized).to be_equivalent_to(xml)
       end
     end
 
@@ -885,6 +987,11 @@ RSpec.describe Lutaml::Model::XmlMapping do
         it "duplicates to" do
           # `to` is symbol which are constant so object_id will be same
           expect(orig_mapping.to).to eq(dup_mapping.to)
+        end
+
+        it "duplicates attribute" do
+          # boolean value is constant so object_id will be same
+          expect(orig_mappings.attributes.first.attribute?).to eq(dup_mappings.attributes.first.attribute?)
         end
       end
     end
