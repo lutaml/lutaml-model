@@ -54,30 +54,44 @@ module IncludedSpec
     include Lutaml::Model::Serialize
     
     attribute :parent_name, Lutaml::Model::Type::String
+    attribute :parent_id, Lutaml::Model::Type::String
+    attribute :parent_text, Lutaml::Model::Type::String
     
     xml do
       root "parent"
+      map_attribute "id", to: :parent_id
       map_element "parent_name", to: :parent_name
+      map_content to: :parent_text
     end
   end
 
   module ChildClass
     include ParentClass
+    
     attribute :child_name, Lutaml::Model::Type::String
+    attribute :child_type, Lutaml::Model::Type::String
+    attribute :child_text, Lutaml::Model::Type::String
     
     xml do
       root "child"
+      map_attribute "type", to: :child_type
       map_element "child_name", to: :child_name
+      map_content to: :child_text
     end
   end
 
   class GrandChildClass
     include ChildClass
+    
     attribute :grandchild_name, Lutaml::Model::Type::String
+    attribute :grandchild_version, Lutaml::Model::Type::String
+    attribute :grandchild_text, Lutaml::Model::Type::String
     
     xml do
       root "grandchild"
+      map_attribute "version", to: :grandchild_version
       map_element "grandchild_name", to: :grandchild_name
+      map_content to: :grandchild_text
     end
   end
 end
@@ -139,29 +153,39 @@ RSpec.describe "Module Inclusion" do
   context "with nested module inclusion" do
     let(:grandchild) do
       IncludedSpec::GrandChildClass.new(
-        parent_name: "Parent",
-        child_name: "Child",
-        grandchild_name: "GrandChild"
+        parent_name: "Parent Name",
+        parent_id: "P123",
+        parent_text: "Parent Text",
+        child_name: "Child Name",
+        child_type: "Type A",
+        child_text: "Child Text",
+        grandchild_name: "GrandChild Name",
+        grandchild_version: "1.0",
+        grandchild_text: "GrandChild Text"
       )
     end
-  
+
     it "inherits attributes through the chain" do
-      expect(IncludedSpec::GrandChildClass.attributes.keys)
-        .to include(:parent_name, :child_name, :grandchild_name)
+      expect(IncludedSpec::GrandChildClass.attributes.keys).to include(
+        :parent_name, :parent_id, :parent_text,
+        :child_name, :child_type, :child_text,
+        :grandchild_name, :grandchild_version, :grandchild_text
+      )
     end
-  
+
     it "maintains correct XML mappings through inheritance" do
       expected_xml = <<~XML
-        <grandchild>
-          <parent_name>Parent</parent_name>
-          <child_name>Child</child_name>
-          <grandchild_name>GrandChild</grandchild_name>
+        <grandchild id="P123" type="Type A" version="1.0">
+          <parent_name>Parent Name</parent_name>
+          <child_name>Child Name</child_name>
+          <grandchild_name>GrandChild Name</grandchild_name>
+          GrandChild Text
         </grandchild>
       XML
       
-      expect(grandchild.to_xml).to be_equivalent_to(expected_xml)
+      expect(grandchild.to_xml(pretty: true)).to be_equivalent_to(expected_xml)
     end
-  
+
     it "preserves separate mapping configurations" do
       expect(IncludedSpec::ParentClass.mappings_for(:xml).root_element).to eq("parent")
       expect(IncludedSpec::ChildClass.mappings_for(:xml).root_element).to eq("child")
