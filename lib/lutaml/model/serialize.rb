@@ -104,6 +104,8 @@ module Lutaml
           add_enum_getter_if_not_defined(klass, enum_name, collection)
           add_enum_setter_if_not_defined(klass, enum_name, values, collection)
 
+          return unless values.all? { |v| v.is_a?(::String) }
+
           values.each do |value|
             Utils.add_method_if_not_defined(klass, "#{value}?") do
               curr_value = public_send(:"#{enum_name}")
