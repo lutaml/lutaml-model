@@ -110,7 +110,7 @@ module Lutaml
                 schema_location: attr.value,
               }
             else
-              result[attr.namespaced_name] = attr.value
+              result["attr_#{attr.namespaced_name}"] = attr.value
             end
           end
 

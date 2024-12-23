@@ -131,6 +131,26 @@ module XmlMapping
     end
   end
 
+  class AnnotatedElement < Lutaml::Model::Serializable
+    attribute :idref, :string
+
+    xml do
+      root "annotatedElement"
+      map_attribute "idref", to: :idref, namespace: "http://www.omg.org/spec/XMI/20131001", prefix: "xmi"
+    end
+  end
+
+  class OwnedComment < Lutaml::Model::Serializable
+    attribute :annotated_attribute, :string
+    attribute :annotated_element, AnnotatedElement
+
+    xml do
+      root "ownedComment"
+      map_attribute "annotatedElement", to: :annotated_attribute
+      map_element "annotatedElement", to: :annotated_element, prefix: nil, namespace: nil
+    end
+  end
+
   class OverrideDefaultNamespacePrefix < Lutaml::Model::Serializable
     attribute :same_element_name, SameNameDifferentNamespace
 
@@ -345,6 +365,37 @@ RSpec.describe Lutaml::Model::XmlMapping do
       it "expect to round-trips" do
         parsed = XmlMapping::OverrideDefaultNamespacePrefix.from_xml(input_xml)
         expect(parsed.to_xml).to be_equivalent_to(input_xml)
+      end
+    end
+
+    context "with same element and attribute name" do
+      let(:xml_with_element) do
+        <<~XML
+          <ownedComment xmlns:xmi="http://www.omg.org/spec/XMI/20131001">
+            <annotatedElement xmi:idref="ABC"/>
+          </ownedComment>
+        XML
+      end
+
+      let(:xml_with_attribute) do
+        <<~XML
+          <ownedComment annotatedElement="test2">
+          </ownedComment>
+        XML
+      end
+
+      it "parse and serializes the input xml correctly" do
+        parsed = XmlMapping::OwnedComment.from_xml(xml_with_element)
+        serialized = parsed.to_xml
+
+        expect(serialized).to be_equivalent_to(xml_with_element.strip)
+      end
+
+      it "parse and serialize model correctly" do
+        parsed = XmlMapping::OwnedComment.from_xml(xml_with_attribute)
+        serialized = parsed.to_xml
+
+        expect(serialized).to be_equivalent_to(xml_with_attribute)
       end
     end
 

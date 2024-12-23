@@ -442,8 +442,8 @@ module Lutaml
                       doc.node.inner_xml
                     elsif rule.content_mapping?
                       doc[rule.content_key]
-                    elsif doc.key_exist?(rule.namespaced_name(options[:default_namespace]))
-                      doc.fetch(rule.namespaced_name(options[:default_namespace]))
+                    elsif doc.key_exist?(namespaced_name(rule, options))
+                      doc.fetch(namespaced_name(rule, options))
                     else
                       defaults_used << rule.to
                       attr&.default || rule.to_value_for(instance)
@@ -458,6 +458,12 @@ module Lutaml
           end
 
           instance
+        end
+
+        def namespaced_name(rule, options)
+          return rule.namespaced_name(options[:default_namespace]) unless rule.attribute?
+
+          "attr_#{rule.namespaced_name(options[:default_namespace])}"
         end
 
         def apply_hash_mapping(doc, instance, format, _options = {})
