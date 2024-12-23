@@ -82,7 +82,12 @@ module Lutaml
           attributes[name] = attr
 
           if attr.enum?
-            add_enum_methods_to_model(self, name, options[:values], options[:collection])
+            add_enum_methods_to_model(
+              model,
+              name,
+              options[:values],
+              collection: options[:collection],
+            )
           else
             define_method(name) do
               instance_variable_get(:"@#{name}")
@@ -95,30 +100,9 @@ module Lutaml
           end
         end
 
-        def add_enum_methods_to_model(klass, enum_name, values, collection = false)
-          define_method(enum_name) do
-            i = instance_variable_get(:"@#{enum_name}") || []
-
-            if !collection && i.is_a?(Array)
-              i.first
-            else
-              i.uniq
-            end
-          end
-
-          define_method("#{enum_name}=") do |value|
-            value = [value] unless value.is_a?(Array)
-
-            value_set_for(enum_name)
-
-            if collection
-              curr_value = public_send(:"#{enum_name}")
-
-              instance_variable_set(:"@#{enum_name}", curr_value + value)
-            else
-              instance_variable_set(:"@#{enum_name}", value)
-            end
-          end
+        def add_enum_methods_to_model(klass, enum_name, values, collection: false)
+          add_enum_getter_if_not_defined(klass, enum_name, collection)
+          add_enum_setter_if_not_defined(klass, enum_name, values, collection)
 
           values.each do |value|
             Utils.add_method_if_not_defined(klass, "#{value}?") do
@@ -131,34 +115,60 @@ module Lutaml
               end
             end
 
-            Utils.add_method_if_not_defined(klass, "#{value}") do
-              public_send("#{value}?")
+            Utils.add_method_if_not_defined(klass, value.to_s) do
+              public_send(:"#{value}?")
             end
 
             Utils.add_method_if_not_defined(klass, "#{value}=") do |val|
               value_set_for(enum_name)
               enum_vals = public_send(:"#{enum_name}")
 
-              if !!val
-                enum_vals = if collection
+              enum_vals = if !!val
+                            if collection
                               enum_vals << value
                             else
                               [value]
                             end
-              else
-                enum_vals = if collection
-                              enum_vals.delete(value)
-                              enum_vals
-                            else
-                              []
-                            end
-              end
+                          elsif collection
+                            enum_vals.delete(value)
+                            enum_vals
+                          else
+                            []
+                          end
 
               instance_variable_set(:"@#{enum_name}", enum_vals)
             end
 
             Utils.add_method_if_not_defined(klass, "#{value}!") do
-              public_send("#{value}=", true)
+              public_send(:"#{value}=", true)
+            end
+          end
+        end
+
+        def add_enum_getter_if_not_defined(klass, enum_name, collection)
+          Utils.add_method_if_not_defined(klass, enum_name) do
+            i = instance_variable_get(:"@#{enum_name}") || []
+
+            if !collection && i.is_a?(Array)
+              i.first
+            else
+              i.uniq
+            end
+          end
+        end
+
+        def add_enum_setter_if_not_defined(klass, enum_name, _values, collection)
+          Utils.add_method_if_not_defined(klass, "#{enum_name}=") do |value|
+            value = [value] unless value.is_a?(Array)
+
+            value_set_for(enum_name)
+
+            if collection
+              curr_value = public_send(:"#{enum_name}")
+
+              instance_variable_set(:"@#{enum_name}", curr_value + value)
+            else
+              instance_variable_set(:"@#{enum_name}", value)
             end
           end
         end

@@ -35,92 +35,88 @@ RSpec.describe "Enum" do
       expect(multi_value_attr.enum?).to be(true)
     end
 
-    context "enum convinience methods" do
-      context "#single_value" do
+    context "with enum convinience methods" do
+      describe "#single_value" do
         it "returns single value" do
           expect { object.single_value = "user" }
-            .to change { object.single_value }
+            .to change(object, :single_value)
             .from(nil)
             .to("user")
         end
       end
 
-      context "#multi_value" do
+      describe "#multi_value" do
         it "returns single value in array" do
           expect { object.multi_value = "dual" }
-            .to change { object.multi_value }
+            .to change(object, :multi_value)
             .from([])
             .to(["dual"])
         end
 
         it "returns multiple value in array" do
           expect { object.multi_value = %w[dual plural] }
-            .to change { object.multi_value }
+            .to change(object, :multi_value)
             .from([])
             .to(%w[dual plural])
         end
       end
 
-      EnumSpec::WithEnum.enums.each do |name, enum_attr|
+      EnumSpec::WithEnum.enums.each_value do |enum_attr|
         enum_attr.enum_values.each do |value|
-          context "##{value}=" do
-            it "it sets the #{value} if true" do
-              expect { object.public_send("#{value}=", true) }
-                .to change { object.public_send("#{value}?") }
+          describe "##{value}=" do
+            it "sets the #{value} if true" do
+              expect { object.public_send(:"#{value}=", true) }
+                .to change { object.public_send(:"#{value}?") }
                 .from(false)
                 .to(true)
             end
 
-            it "it unsets the #{value} if false" do
-              object.public_send("#{value}=", true)
+            it "unsets the #{value} if false" do
+              object.public_send(:"#{value}=", true)
 
-              expect { object.public_send("#{value}=", false) }
-                .to change { object.public_send("#{value}?") }
+              expect { object.public_send(:"#{value}=", false) }
+                .to change(object, "#{value}?")
                 .from(true)
                 .to(false)
             end
           end
 
-          context "##{value}!" do
+          describe "##{value}!" do
             it "method #{value}? should be present" do
-              expect(object.respond_to?("#{value}!")).to be(true)
+              expect(object.respond_to?(:"#{value}!")).to be(true)
             end
 
             it "sets #{value} to true for enum" do
-              expect { object.public_send("#{value}!") }
-                .to change { object.public_send("#{value}?") }
+              expect { object.public_send(:"#{value}!") }
+                .to change(object, "#{value}?")
                 .from(false)
                 .to(true)
             end
           end
 
-          context "##{value}?" do
+          describe "##{value}?" do
             it "method #{value}? should be present" do
-              expect(object.respond_to?("#{value}?")).to be(true)
+              expect(object.respond_to?(:"#{value}?")).to be(true)
             end
 
             it "is false if role is not #{value}" do
-              expect(object.public_send("#{value}?")).to be(false)
+              expect(object.public_send(:"#{value}?")).to be(false)
             end
 
             it "is true if role is set to #{value}" do
-              expect { object.public_send("#{value}=", value) }
-                .to change { object.public_send("#{value}?") }
+              expect { object.public_send(:"#{value}=", value) }
+                .to change(object, "#{value}?")
                 .from(false)
                 .to(true)
             end
           end
-        end
 
-        enum_attr.enum_values.each do |value|
           it "adds a method named #{value}=" do
-            expect(object.respond_to?("#{value}?")).to be(true)
+            expect(object.respond_to?(:"#{value}?")).to be(true)
           end
-        end
 
-        enum_attr.enum_values.each do |value|
           it "adds a method named #{value}!" do
-            expect(object.respond_to?("#{value}!")).to be(true)
+            expect(object.respond_to?(:"#{value}!")).to be(true)
           end
         end
       end

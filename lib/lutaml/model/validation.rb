@@ -4,7 +4,7 @@ module Lutaml
       def validate
         errors = []
         self.class.attributes.each do |name, attr|
-          value = self.public_send(:"#{name}")
+          value = public_send(:"#{name}")
           begin
             if value.respond_to?(:validate!)
               value.validate!
