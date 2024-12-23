@@ -182,11 +182,11 @@ module Lutaml
 
             attribute = attributes[name]
 
-            hash[rule.from] = if rule.child_mappings
-                                generate_hash_from_child_mappings(value, rule.child_mappings)
-                              else
-                                attribute.serialize(value, format, options)
-                              end
+            hash[rule.from.to_s] = if rule.child_mappings
+                                     generate_hash_from_child_mappings(value, rule.child_mappings)
+                                   else
+                                     attribute.serialize(value, format, options)
+                                   end
           end
         end
 
@@ -403,10 +403,10 @@ module Lutaml
 
             attr = attribute_for_rule(rule)
 
-            value = if doc.key?(rule.name) || doc.key?(rule.name.to_sym)
-                      doc[rule.name] || doc[rule.name.to_sym]
+            value = if doc.key?(rule.name.to_s) || doc.key?(rule.name.to_sym)
+                      doc[rule.name.to_s] || doc[rule.name.to_sym]
                     else
-                      attr.default
+                      attr&.default
                     end
 
             if rule.using_custom_methods?
