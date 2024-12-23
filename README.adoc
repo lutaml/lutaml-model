@@ -569,6 +569,12 @@ The values set inside the `values:` option can be of any type, but they must
 match the type of the attribute. The values are compared using the `==` operator,
 so the type must implement the `==` method.
 
+Also, If all the elements in `values` directive are strings then `lutaml-model` add some enum convenience methods, for each of the value the following three methods are added
+
+* `value1`: will return value if set
+* `value1?`: will return true if value is set, false otherwise
+* `value1=`: will set the value of `name_of_attribute` equal to `value1` if truthy value is given, and remove it otherwise.
+
 .Using the `values` directive to define acceptable values for an attribute (basic types)
 [example]
 ====
