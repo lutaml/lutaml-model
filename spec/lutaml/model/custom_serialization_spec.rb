@@ -142,7 +142,7 @@ RSpec.describe CustomSerialization do
     it "deserializes from JSON with missing attributes" do
       json = {
         name: "JSON Masterpiece: Vase",
-        color: "BLUE"
+        color: "BLUE",
       }.to_json
   
       ceramic = described_class.from_json(json)
