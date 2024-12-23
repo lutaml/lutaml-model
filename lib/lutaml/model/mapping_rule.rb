@@ -42,6 +42,7 @@ module Lutaml
         if delegate
           model.public_send(delegate).public_send(to)
         else
+          return if to.nil?
           model.public_send(to)
         end
       end
