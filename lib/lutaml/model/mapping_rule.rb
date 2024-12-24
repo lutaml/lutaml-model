@@ -7,7 +7,8 @@ module Lutaml
                   :render_default,
                   :attribute,
                   :custom_methods,
-                  :delegate
+                  :delegate,
+                  :id
 
       def initialize(
         name,
@@ -16,7 +17,8 @@ module Lutaml
         render_default: false,
         with: {},
         attribute: false,
-        delegate: nil
+        delegate: nil,
+        id: nil
       )
         @name = name
         @to = to
@@ -25,6 +27,7 @@ module Lutaml
         @custom_methods = with
         @attribute = attribute
         @delegate = delegate
+        @id = id 
       end
 
       alias from name
@@ -57,7 +60,7 @@ module Lutaml
 
       def deserialize(model, value, attributes, mapper_class = nil)
         if custom_methods[:from]
-          mapper_class.new.send(custom_methods[:from], model, value)
+          mapper_class.new.send(custom_methods[:from], model, value) if !value.nil?
         elsif delegate
           if model.public_send(delegate).nil?
             model.public_send(:"#{delegate}=", attributes[delegate].type.new)

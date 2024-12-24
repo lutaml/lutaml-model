@@ -210,9 +210,7 @@ module Lutaml
             end
 
             mappings = xml_mapping.elements + [xml_mapping.raw_mapping].compact
-            mappings = mappings.uniq do |rule|
-              rule.to.nil? ? rule.object_id : rule.to
-            end
+            mappings = mappings.uniq(&:id)
             mappings.each do |element_rule|
               attribute_def = attribute_definition_for(element, element_rule,
                                                        mapper_class: mapper_class)
