@@ -249,9 +249,7 @@ module Lutaml
         def hash_representation(instance, format, options = {})
           only = options[:only]
           except = options[:except]
-          mappings = mappings_for(format).mappings.uniq do |rule|
-            rule.to.nil? ? rule.object_id : rule.to
-          end
+          mappings = mappings_for(format).mappings.uniq(&:id)
 
           mappings.each_with_object({}) do |rule, hash|
             name = rule.to
@@ -436,13 +434,12 @@ module Lutaml
           defaults_used = []
           mapping_hash = mappings.to_h { |rule| 
             [
-              rule.using_custom_methods? ? rule.custom_methods[:from] : rule.to,
+              rule.id,
               false
             ] 
           }
           mappings.each do |rule|
-            hash_key_method = rule.using_custom_methods? ? rule.custom_methods[:from] : rule.to
-            next if mapping_hash[hash_key_method]
+            next if mapping_hash[rule.id]
             raise "Attribute '#{rule.to}' not found in #{self}" unless valid_rule?(rule)
 
             attr = attribute_for_rule(rule)
@@ -452,7 +449,7 @@ module Lutaml
                     elsif rule.content_mapping?
                       doc[rule.content_key]
                     elsif doc.key_exist?(rule.namespaced_name(options[:default_namespace]))
-                      mapping_hash[rule.to] = true
+                      mapping_hash[rule.id] = true
                       defaults_used.delete(rule.to)
                       doc.fetch(rule.namespaced_name(options[:default_namespace]))
                     else
@@ -462,11 +459,6 @@ module Lutaml
 
             value = normalize_xml_value(value, rule, attr, options)
             rule.deserialize(instance, value, attributes, self)
-            if rule.using_custom_methods?
-              custom_from_method = rule.custom_methods[:from]
-              mapping_hash[custom_from_method] = true
-              defaults_used.delete(custom_from_method)
-            end
           end
 
           defaults_used.each do |attribute_name|
@@ -480,18 +472,18 @@ module Lutaml
           mappings = mappings_for(format).mappings
           mapping_hash = mappings.to_h { |rule| 
             [
-              rule.using_custom_methods? ? rule.custom_methods[:from] : rule.to,
+              rule.id,
               false
             ] 
           }
           mappings.each do |rule|
-            hash_key_method = rule.using_custom_methods? ? rule.custom_methods[:from] : rule.to
-            next if mapping_hash[hash_key_method]
+            next if mapping_hash[rule.id]
             raise "Attribute '#{rule.to}' not found in #{self}" unless valid_rule?(rule)
 
             attr = attribute_for_rule(rule)
 
             value = if doc.key?(rule.name.to_s) || doc.key?(rule.name.to_sym)
+                      mapping_hash[rule.id] = true
                       doc[rule.name.to_s] || doc[rule.name.to_sym]
                     else
                       attr&.default
@@ -499,9 +491,8 @@ module Lutaml
 
             if rule.using_custom_methods?
               if Utils.present?(value)
-                from_method = rule.custom_methods[:from]
-                value = new.send(from_method, instance, value)
-                mapping_hash[from_method] = true
+                value = new.send(rule.custom_methods[:from], instance, value)
+                mapping_hash[rule.id] = true
               end
 
               next
@@ -511,7 +502,6 @@ module Lutaml
             value = attr.cast(value, format)
 
             rule.deserialize(instance, value, attributes, self)
-            mapping_hash[rule.to] = true
           end
 
           instance
