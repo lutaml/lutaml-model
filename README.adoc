@@ -1195,6 +1195,75 @@ end
 ----
 ====
 
+==== Multiple mappings to single attribute
+
+The mapping methods support multiple names mapping to a single attribute using an array of names.
+
+Syntax:
+
+[source,ruby]
+----
+json | yaml | toml do
+  map ["name1", "name2"], to: :attribute_name
+end
+
+xml do
+  map_element ["name1", "name2"], to: :attribute_name
+  map_attribute ["attr1", "attr2"], to: :attribute_name
+end
+----
+
+.Using multiple names to map to a single attribute
+[example]
+====
+[source,ruby]
+----
+class CustomModel < Lutaml::Model::Serializable
+  attribute :full_name, Lutaml::Model::Type::String
+  attribute :color, Lutaml::Model::Type::String
+  
+  json do
+    map ["name", "custom_name"], with: { to: :name_to_json, from: :name_from_json }
+    map ["color", "shade"], with: { to: :color_to_json, from: :color_from_json }
+  end
+
+  xml do
+    root "CustomModel"
+    map_element ["name", "custom-name"], with: { to: :name_to_xml, from: :name_from_xml }
+    map_element ["color", "shade"], with: { to: :color_to_xml, from: :color_from_xml }
+  end
+end
+----
+
+For JSON:
+[source,json]
+----
+{
+  "custom_name": "JSON Model: Vase",
+  "shade": "BLUE"
+}
+----
+
+For XML:
+[source,xml]
+----
+<CustomModel>
+  <custom-name>XML Model: Vase</custom-name>
+  <shade>BLUE</shade>
+</CustomModel>
+----
+
+[source,ruby]
+----
+> model = CustomModel.from_json(json)
+> model.full_name
+> # "Vase"
+> model.color
+> # "blue"
+----
+
+NOTE: When serializing, the first element in the mapping array is always used as the output name.
+====
 
 ==== CDATA nodes
 
