@@ -68,7 +68,6 @@ RSpec.describe RenderNil do
       name: nil,
       clay_type: nil,
       glaze: nil,
-      dimensions: [],
     }.to_json
 
     expect(model.to_json).to eq(expected_json)
@@ -113,7 +112,6 @@ RSpec.describe RenderNil do
       ---
       name:
       glaze:
-      dimensions: []
     YAML
 
     generated_yaml = model.to_yaml.strip

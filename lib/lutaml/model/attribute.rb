@@ -76,6 +76,10 @@ module Lutaml
         @raw
       end
 
+      def enum?
+        !enum_values.empty?
+      end
+
       def default
         value = if delegate
                   type.attributes[to].default
@@ -98,7 +102,7 @@ module Lutaml
 
       def valid_value!(value)
         return true if value.nil? && !collection?
-        return true if enum_values.empty?
+        return true unless enum?
 
         unless valid_value?(value)
           raise Lutaml::Model::InvalidValueError.new(name, value, enum_values)
@@ -208,7 +212,7 @@ module Lutaml
             serialize(v, format, options)
           end
         elsif type <= Serialize
-          type.hash_representation(value, format, options)
+          type.public_send(:"as_#{format}", value, options)
         else
           # Convert to Value instance if not already
           value = type.new(value) unless value.is_a?(Type::Value)

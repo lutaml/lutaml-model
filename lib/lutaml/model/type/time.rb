@@ -34,10 +34,10 @@ module Lutaml
         #   value&.iso8601
         # end
 
-        # # YAML timestamp format (native)
-        # def to_yaml
-        #   value
-        # end
+        # YAML timestamp format (native)
+        def to_yaml
+          value&.iso8601
+        end
 
         # # TOML time format (HH:MM:SS.mmm)
         # def to_toml
