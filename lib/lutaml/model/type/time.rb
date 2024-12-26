@@ -24,10 +24,10 @@ module Lutaml
           value&.iso8601
         end
 
-        # # xs:time format (HH:MM:SS.mmm±HH:MM)
-        # def to_xml
-        #   value&.strftime("%H:%M:%S%:z")
-        # end
+        # # ISO8601 time format
+        def to_xml
+          value&.iso8601
+        end
 
         # # ISO8601 time format
         # def to_json
