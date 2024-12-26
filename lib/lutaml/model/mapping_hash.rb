@@ -14,12 +14,41 @@ module Lutaml
         @item_order&.map { |key| normalize(key) } || keys
       end
 
-      def fetch(key)
-        self[key.to_s] || self[key.to_sym]
+      # First we make hash with elements and attributes inside, but the issue is when we have nested elements and attributes and 
+      # for text we have to check if elements are present inside. This causes the issue. So move to the approach where only attributes separate key
+      # and other elements are present as it is in hash. Now facing the mutiple issues.
+      def fetch(rule, options)
+        # binding.irb
+        attr_name = rule.namespaced_name(options[:default_namespace])
+        
+        if rule.attribute?
+          # binding.irb
+          if self["attributes"]
+            self["attributes"][attr_name]
+          else
+            self[attr_name]
+          end
+        else
+          # binding.irb
+          value = self[attr_name]
+          if !value["attributes"].empty?
+            value = value["attributes"]
+          end
+          value
+        end
       end
 
-      def key_exist?(key)
-        key?(key.to_s) || key?(key.to_sym)
+      # def key_exist?(key)
+      #   key?(key.to_s) || key?(key.to_sym)
+      # end
+
+      def key_exist_for_rule?(rule, options)
+        # binding.irb
+        attr_name = rule.namespaced_name(options[:default_namespace])
+        # if rule.attribute?
+        #   key?(attr_name)
+        # end
+        self.key?(attr_name)
       end
 
       def item_order=(order)

@@ -384,7 +384,15 @@ RSpec.describe Lutaml::Model::XmlMapping do
         XML
       end
 
-      it "parse and serializes the input xml correctly" do
+      let(:xml_with_same_name_attribute_and_element) do
+        <<~XML
+          <ownedComment xmlns:xmi="http://www.omg.org/spec/XMI/20131001" annotatedElement="test2">
+            <annotatedElement xmi:idref="ABC"/>
+          </ownedComment>
+        XML
+      end
+
+      it "parse and serializes the input xml correctly # lutaml/issues/217" do
         parsed = XmlMapping::OwnedComment.from_xml(xml_with_element)
         serialized = parsed.to_xml
 
@@ -396,6 +404,14 @@ RSpec.describe Lutaml::Model::XmlMapping do
         serialized = parsed.to_xml
 
         expect(serialized).to be_equivalent_to(xml_with_attribute)
+      end
+
+      it "parse and serialize model correctly with both attribute and element" do
+        parsed = XmlMapping::OwnedComment.from_xml(xml_with_same_name_attribute_and_element)
+        # binding.irb
+        serialized = parsed.to_xml
+
+        expect(serialized).to be_equivalent_to(xml_with_same_name_attribute_and_element)
       end
     end
 

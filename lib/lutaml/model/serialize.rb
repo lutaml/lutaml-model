@@ -204,6 +204,7 @@ module Lutaml
 
             if format == :xml
               doc_hash = doc.parse_element(doc.root, self, :xml)
+
               options[:encoding] = doc.encoding
               apply_mappings(doc_hash, format, options)
             else
@@ -437,18 +438,18 @@ module Lutaml
             raise "Attribute '#{rule.to}' not found in #{self}" unless valid_rule?(rule)
 
             attr = attribute_for_rule(rule)
-
+            # binding.irb
             value = if rule.raw_mapping?
                       doc.node.inner_xml
                     elsif rule.content_mapping?
                       doc[rule.content_key]
-                    elsif doc.key_exist?(namespaced_name(rule, options))
-                      doc.fetch(namespaced_name(rule, options))
+                    elsif doc.key_exist_for_rule?(rule, options)
+                      doc.fetch(rule, options)
                     else
                       defaults_used << rule.to
                       attr&.default || rule.to_value_for(instance)
                     end
-
+                    # binding.irb
             value = normalize_xml_value(value, rule, attr, options)
             rule.deserialize(instance, value, attributes, self)
           end
@@ -460,11 +461,11 @@ module Lutaml
           instance
         end
 
-        def namespaced_name(rule, options)
-          return rule.namespaced_name(options[:default_namespace]) unless rule.attribute?
+        # def namespaced_name(rule, options)
+        #   return rule.namespaced_name(options[:default_namespace]) unless rule.attribute?
 
-          "attr_#{rule.namespaced_name(options[:default_namespace])}"
-        end
+        #   "attr_#{rule.namespaced_name(options[:default_namespace])}"
+        # end
 
         def apply_hash_mapping(doc, instance, format, _options = {})
           mappings = mappings_for(format).mappings

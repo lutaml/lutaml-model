@@ -96,7 +96,9 @@ module Lutaml
                                           end
           end
 
-          result.merge(attributes_hash(element))
+          result["attributes"] = attributes_hash(element)
+
+          result
         end
 
         def attributes_hash(element)
@@ -110,7 +112,7 @@ module Lutaml
                 schema_location: attr.value,
               }
             else
-              result["attr_#{attr.namespaced_name}"] = attr.value
+              result[attr.namespaced_name] = attr.value
             end
           end
 
