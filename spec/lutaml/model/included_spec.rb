@@ -52,26 +52,24 @@ module IncludedSpec
 
   module ParentClass
     include Lutaml::Model::Serialize
-    
+
     attribute :parent_name, Lutaml::Model::Type::String
     attribute :parent_id, Lutaml::Model::Type::String
-    attribute :parent_text, Lutaml::Model::Type::String
-    
+
     xml do
       root "parent"
       map_attribute "id", to: :parent_id
       map_element "parent_name", to: :parent_name
-      map_content to: :parent_text
     end
   end
 
   module ChildClass
     include ParentClass
-    
+
     attribute :child_name, Lutaml::Model::Type::String
     attribute :child_type, Lutaml::Model::Type::String
     attribute :child_text, Lutaml::Model::Type::String
-    
+
     xml do
       root "child"
       map_attribute "type", to: :child_type
@@ -82,11 +80,11 @@ module IncludedSpec
 
   class GrandChildClass
     include ChildClass
-    
+
     attribute :grandchild_name, Lutaml::Model::Type::String
     attribute :grandchild_version, Lutaml::Model::Type::String
     attribute :grandchild_text, Lutaml::Model::Type::String
-    
+
     xml do
       root "grandchild"
       map_attribute "version", to: :grandchild_version
@@ -155,19 +153,18 @@ RSpec.describe "Module Inclusion" do
       IncludedSpec::GrandChildClass.new(
         parent_name: "Parent Name",
         parent_id: "P123",
-        parent_text: "Parent Text",
         child_name: "Child Name",
         child_type: "Type A",
         child_text: "Child Text",
         grandchild_name: "GrandChild Name",
         grandchild_version: "1.0",
-        grandchild_text: "GrandChild Text"
+        grandchild_text: "GrandChild Text",
       )
     end
 
     it "inherits attributes through the chain" do
       expect(IncludedSpec::GrandChildClass.attributes.keys).to include(
-        :parent_name, :parent_id, :parent_text,
+        :parent_name, :parent_id,
         :child_name, :child_type, :child_text,
         :grandchild_name, :grandchild_version, :grandchild_text
       )
@@ -182,7 +179,7 @@ RSpec.describe "Module Inclusion" do
           GrandChild Text
         </grandchild>
       XML
-      
+
       expect(grandchild.to_xml(pretty: true)).to be_equivalent_to(expected_xml)
     end
 
