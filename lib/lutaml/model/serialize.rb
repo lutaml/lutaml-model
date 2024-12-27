@@ -12,6 +12,7 @@ require_relative "comparable_model"
 require_relative "schema_location"
 require_relative "validation"
 require_relative "error"
+require_relative "collection"
 
 module Lutaml
   module Model
@@ -483,6 +484,7 @@ module Lutaml
 
             value = apply_child_mappings(value, rule.child_mappings)
             value = attr.cast(value, format)
+            value = attr.collection_class.new(value) if attr.collection? && attr.collection_class != value.class
 
             rule.deserialize(instance, value, attributes, self)
           end
@@ -491,7 +493,13 @@ module Lutaml
         end
 
         def normalize_xml_value(value, rule, attr, options = {})
-          value = [value].compact if attr&.collection? && !value.is_a?(Array)
+          if attr&.collection?
+            if !value.is_a?(Array)
+              value = attr.collection_class.new.push(value).compact
+            elsif value.class != attr.collection_class
+              value = attr.collection_class.new(value).compact
+            end
+          end
 
           value = if value.is_a?(Array)
                     value.map do |v|

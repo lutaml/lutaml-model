@@ -54,6 +54,20 @@ module CollectionTests
       doc.add_element(parent, "<city>#{model.city}</city>")
     end
   end
+
+  class CustomCollection < Lutaml::Model::Collection; end
+
+  class CollectionTypeTest < Lutaml::Model::Serializable
+    attribute :basic_list, Lutaml::Model::Type::String, collection: true
+    attribute :custom_list, Lutaml::Model::Type::String, collection: true,
+                                                         collection_class: CustomCollection
+
+    xml do
+      root "collection_test"
+      map_element "item", to: :basic_list
+      map_element "custom_item", to: :custom_list
+    end
+  end
 end
 
 RSpec.describe CollectionTests do
@@ -294,6 +308,50 @@ RSpec.describe CollectionTests do
           attribute :valid_range, Lutaml::Model::Type::String, collection: 0..3
         end
       end.not_to raise_error
+    end
+  end
+
+  context "when using different collection types" do
+    let(:collection_test) { CollectionTests::CollectionTypeTest.new }
+
+    it "uses default Collection class when collection_class is not specified" do
+      collection_test.basic_list << "a"
+      collection_test.basic_list << "b"
+      expect(collection_test.basic_list).to be_a(Lutaml::Model::Collection)
+      expect(collection_test.basic_list).to eq(["a", "b"])
+    end
+
+    it "uses custom collection class when specified" do
+      collection_test.custom_list << "x"
+      collection_test.custom_list << "y"
+      expect(collection_test.custom_list).to be_a(CollectionTests::CustomCollection)
+      expect(collection_test.custom_list).to eq(["x", "y"])
+    end
+
+    it "preserves collection types through XML serialization" do
+      collection_test.basic_list = Lutaml::Model::Collection.new(["a", "b"])
+      collection_test.custom_list = CollectionTests::CustomCollection.new(["x", "y"])
+
+      xml = collection_test.to_xml
+      deserialized = CollectionTests::CollectionTypeTest.from_xml(xml)
+
+      expect(deserialized.basic_list).to be_a(Lutaml::Model::Collection)
+      expect(deserialized.custom_list).to be_a(CollectionTests::CustomCollection)
+      expect(deserialized.basic_list).to eq(["a", "b"])
+      expect(deserialized.custom_list).to eq(["x", "y"])
+    end
+
+    it "preserves collection types through JSON serialization" do
+      collection_test.basic_list = Lutaml::Model::Collection.new(["a", "b"])
+      collection_test.custom_list = CollectionTests::CustomCollection.new(["x", "y"])
+
+      json = collection_test.to_json
+      deserialized = CollectionTests::CollectionTypeTest.from_json(json)
+
+      expect(deserialized.basic_list).to be_a(Lutaml::Model::Collection)
+      expect(deserialized.custom_list).to be_a(CollectionTests::CustomCollection)
+      expect(deserialized.basic_list).to eq(["a", "b"])
+      expect(deserialized.custom_list).to eq(["x", "y"])
     end
   end
 end

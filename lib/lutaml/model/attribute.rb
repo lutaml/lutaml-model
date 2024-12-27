@@ -10,6 +10,7 @@ module Lutaml
         collection
         values
         pattern
+        collection_class
       ].freeze
 
       def initialize(name, type, options = {})
@@ -25,7 +26,7 @@ module Lutaml
 
         if collection?
           validate_collection_range
-          @options[:default] = -> { [] } unless options[:default]
+          @options[:default] = -> { collection_class.new } unless options[:default]
         end
       end
 
@@ -70,6 +71,10 @@ module Lutaml
 
       def singular?
         !collection?
+      end
+
+      def collection_class
+        options[:collection_class] || Collection
       end
 
       def raw?
@@ -221,7 +226,7 @@ module Lutaml
       end
 
       def cast(value, format, options = {})
-        value ||= [] if collection?
+        value ||= collection_class.new if collection?
 
         if value.is_a?(Array)
           value.map do |v|

@@ -90,7 +90,7 @@ module Lutaml
                     end
 
             hash[child.namespaced_name] = if hash[child.namespaced_name]
-                                            [hash[child.namespaced_name], value].flatten
+                                            Lutaml::Model::Collection.new([hash[child.namespaced_name], value]).flatten
                                           else
                                             value
                                           end
@@ -219,7 +219,7 @@ module Lutaml
 
                 next if value.nil? && !element_rule.render_nil?
 
-                value = [value] if attribute_def.collection? && !value.is_a?(Array)
+                value = attribute_def.collection_class.new(value) if attribute_def.collection? && !value.is_a?(Array)
               end
 
               add_to_xml(

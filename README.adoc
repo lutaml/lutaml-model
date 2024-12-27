@@ -504,7 +504,6 @@ objects of the declared class. If the count of values for the attribute is less
 then 5 or greater then 10, the `CollectionCountOutOfRangeError` will be raised.
 ====
 
-
 Syntax:
 
 [source,ruby]
@@ -542,6 +541,27 @@ end
 ----
 ====
 
+==== Custom Collection Classes
+
+You can inherit from `Lutaml::Model::Collection` to define custom behavior for collections. Use the `collection_class` option to specify the custom collection class for an attribute.
+
+[source,ruby]
+----
+class CustomPotCollection < Lutaml::Model::Collection
+  def find_by_material(material)
+    find { |pot| pot.material == material }
+  end
+end
+
+class Studio < Lutaml::Model::Serializable
+  attribute :pots, Pot, collection: true, collection_class: CustomPotCollection
+end
+
+studio = Studio.new(pots: [Pot.new(material: "clay"), Pot.new(material: "ceramic")])
+puts studio.pots.find_by_material("clay") # => Pot instance with material: "clay"
+----
+
+If no `collection_class` is provided, the default `Lutaml::Model::Collection` is used.
 
 === Attribute value validation
 
