@@ -84,7 +84,7 @@ module Lutaml
           prefix: prefix,
           namespace_set: namespace_set != false,
           prefix_set: prefix_set != false,
-          id: id || uniq_id
+          id: id || uniq_id,
         )
         @elements[rule.namespaced_name] = rule
       end
@@ -123,7 +123,7 @@ module Lutaml
           default_namespace: namespace_uri,
           namespace_set: namespace_set != false,
           prefix_set: prefix_set != false,
-          id: id || uniq_id
+          id: id || uniq_id,
         )
         @attributes[rule.namespaced_name] = rule
       end
@@ -150,7 +150,7 @@ module Lutaml
           delegate: delegate,
           mixed_content: mixed,
           cdata: cdata,
-          id: SecureRandom.hex(8)
+          id: SecureRandom.hex(8),
         )
       end
 
@@ -179,7 +179,7 @@ module Lutaml
           default_namespace: namespace_uri,
           namespace_set: namespace_set != false,
           prefix_set: prefix_set != false,
-          id: SecureRandom.hex(8)
+          id: SecureRandom.hex(8),
         )
 
         @raw_mapping = rule

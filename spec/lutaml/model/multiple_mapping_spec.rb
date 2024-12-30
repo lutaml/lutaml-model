@@ -36,96 +36,106 @@ RSpec.describe "Multiple Mapping Support" do
     end
 
     class CustomModel < Lutaml::Model::Serializable
+      attribute :id, Lutaml::Model::Type::String
       attribute :full_name, Lutaml::Model::Type::String
       attribute :size, Lutaml::Model::Type::Integer
       attribute :color, Lutaml::Model::Type::String
       attribute :description, Lutaml::Model::Type::String
-  
+
       json do
         map ["name", "custom_name"], with: { to: :name_to_json, from: :name_from_json }
         map ["color", "shade"], with: { to: :color_to_json, from: :color_from_json }
         map ["size", "dimension"], with: { to: :size_to_json, from: :size_from_json }
         map ["desc", "description"], with: { to: :desc_to_json, from: :desc_from_json }
       end
-  
+
       xml do
         root "CustomModel"
+        map_attribute ["id", "identifier"], with: { to: :id_to_xml, from: :id_from_xml }
         map_element ["name", "custom-name"], with: { to: :name_to_xml, from: :name_from_xml }
         map_element ["color", "shade"], with: { to: :color_to_xml, from: :color_from_xml }
         map_element ["size", "dimension"], with: { to: :size_to_xml, from: :size_from_xml }
         map_element ["desc", "description"], with: { to: :desc_to_xml, from: :desc_from_xml }
       end
-  
+
       # Custom methods for JSON
       def name_to_json(model, doc)
         doc["name"] = "JSON Model: #{model.full_name}"
       end
-  
+
       def name_from_json(model, value)
         model.full_name = value&.sub(/^JSON Model: /, "")
       end
-  
+
       def color_to_json(model, doc)
         doc["color"] = model.color.upcase
       end
-  
+
       def color_from_json(model, value)
         model.color = value&.downcase
       end
-  
+
       def size_to_json(model, doc)
         doc["size"] = model.size + 10
       end
-  
+
       def size_from_json(model, value)
         model.size = value - 10
       end
-  
+
       def desc_to_json(model, doc)
         doc["desc"] = "JSON Description: #{model.description}"
       end
-  
+
       def desc_from_json(model, value)
         model.description = value&.sub(/^JSON Description: /, "")
       end
-  
+
       # Custom methods for XML
+      def id_to_xml(model, parent, doc)
+        doc.add_attribute(parent, "id", "XML-#{model.id}")
+      end
+
+      def id_from_xml(model, value)
+        model.id = value&.sub(/^XML-/, "")
+      end
+
       def name_to_xml(model, parent, doc)
         el = doc.create_element("name")
         doc.add_text(el, "XML Model: #{model.full_name}")
         doc.add_element(parent, el)
       end
-  
+
       def name_from_xml(model, value)
         model.full_name = value.sub(/^XML Model: /, "")
       end
-  
+
       def color_to_xml(model, parent, doc)
         el = doc.create_element("color")
         doc.add_text(el, model.color.upcase)
         doc.add_element(parent, el)
       end
-  
+
       def color_from_xml(model, value)
         model.color = value.downcase
       end
-  
+
       def size_to_xml(model, parent, doc)
         el = doc.create_element("size")
         doc.add_text(el, (model.size + 10).to_s)
         doc.add_element(parent, el)
       end
-  
+
       def size_from_xml(model, value)
         model.size = (value.to_i || 0) - 10
       end
-  
+
       def desc_to_xml(model, parent, doc)
         el = doc.create_element("desc")
         doc.add_text(el, "XML Description: #{model.description}")
         doc.add_element(parent, el)
       end
-  
+
       def desc_from_xml(model, value)
         model.description = value.sub(/^XML Description: /, "")
       end
@@ -141,7 +151,7 @@ RSpec.describe "Multiple Mapping Support" do
         product1 = MultipleMapping::Product.from_yaml(yaml_with_name)
         product2 = MultipleMapping::Product.from_yaml(yaml_with_desc)
 
-        # keys for name and description are :name and :desc respectively since 
+        # keys for name and description are :name and :desc respectively since
         # they are first element in their respective mapping array
 
         expected_yaml = "---\nname: Coffee Maker\ndesc: Premium coffee maker\n"
@@ -158,7 +168,7 @@ RSpec.describe "Multiple Mapping Support" do
         product1 = MultipleMapping::Product.from_json(json_with_name)
         product2 = MultipleMapping::Product.from_json(json_with_desc)
 
-        # keys for name and description are :name and :desc respectively since 
+        # keys for name and description are :name and :desc respectively since
         # they are first element in their respective mapping array
         expected_json = '{"name":"Coffee Maker","desc":"Premium coffee maker"}'
 
@@ -166,7 +176,6 @@ RSpec.describe "Multiple Mapping Support" do
         expect(product2.to_json).to eq(json_with_desc)
       end
     end
-
   end
 
   context "with XML format" do
@@ -178,7 +187,7 @@ RSpec.describe "Multiple Mapping Support" do
       around do |example|
         old_adapter = Lutaml::Model::Config.xml_adapter
         Lutaml::Model::Config.xml_adapter = adapter_class
-    
+
         example.run
       ensure
         Lutaml::Model::Config.xml_adapter = old_adapter
@@ -209,7 +218,7 @@ RSpec.describe "Multiple Mapping Support" do
         product2 = MultipleMapping::Product.from_xml(xml_with_alternate_attributes)
 
         # Key for element name is :name since it is first element in mapping array and same for status attribute
-        expected_xml_product_1 =  <<~XML
+        expected_xml_product_1 = <<~XML
           <product status="active">
             <name>Coffee Maker</name>
             <desc>Premium coffee maker</desc>
@@ -252,7 +261,7 @@ RSpec.describe "Multiple Mapping Support" do
         model1 = MultipleMapping::CustomModel.from_json(json_with_alternate)
         model2 = MultipleMapping::CustomModel.from_json(json_with_standard)
 
-        # keys are 'name', 'color', 'size', 'desc' respectively since 
+        # keys are 'name', 'color', 'size', 'desc' respectively since
         # they are first element in their respective mapping array
         expected_json = '{"name":"JSON Model: Vase","color":"BLUE","size":22,"desc":"JSON Description: A beautiful ceramic vase"}'
 
@@ -262,14 +271,14 @@ RSpec.describe "Multiple Mapping Support" do
     end
 
     context "XML format" do
-      shared_examples "xml adapter with custom methods" do |adapter_class|
+      shared_examples "xml adapter with custom methods" do |_adapter_class|
         before do
           Lutaml::Model::Config.xml_adapter = Lutaml::Model::XmlAdapter::NokogiriAdapter
         end
 
         let(:xml_with_alternate) do
           <<~XML
-            <CustomModel>
+            <CustomModel identifier="123">
               <custom-name>XML Model: Vase</custom-name>
               <shade>BLUE</shade>
               <dimension>22</dimension>
@@ -280,7 +289,7 @@ RSpec.describe "Multiple Mapping Support" do
 
         let(:xml_with_standard) do
           <<~XML
-            <CustomModel>
+            <CustomModel identifier="123">
               <name>XML Model: Vase</name>
               <color>BLUE</color>
               <size>22</size>
@@ -293,10 +302,10 @@ RSpec.describe "Multiple Mapping Support" do
           model1 = MultipleMapping::CustomModel.from_xml(xml_with_alternate)
           model2 = MultipleMapping::CustomModel.from_xml(xml_with_standard)
 
-          # Element names are 'name', 'color', 'size', 'desc' respectively since 
+          # Element names are 'name', 'color', 'size', 'desc' respectively since
           # they are first element in their respective mapping array
           expected_xml = <<~XML
-            <CustomModel>
+            <CustomModel id="XML-123">
               <name>XML Model: Vase</name>
               <color>BLUE</color>
               <size>22</size>
@@ -318,4 +327,3 @@ RSpec.describe "Multiple Mapping Support" do
     end
   end
 end
-

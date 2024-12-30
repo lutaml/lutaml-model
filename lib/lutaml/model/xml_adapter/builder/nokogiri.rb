@@ -37,12 +37,6 @@ module Lutaml
                      nil),
             attributes: {}
           )
-            if element_name.is_a?(Array)
-              element_name.each do |element|
-                create_and_add_element(element, prefix: prefix, attributes: attributes)
-              end
-              return
-            end
             add_namespace_prefix(prefix)
 
             element_name = "#{element_name}_" if respond_to?(element_name)

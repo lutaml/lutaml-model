@@ -1221,6 +1221,7 @@ end
 class CustomModel < Lutaml::Model::Serializable
   attribute :full_name, Lutaml::Model::Type::String
   attribute :color, Lutaml::Model::Type::String
+  attribute :id, Lutaml::Model::Type::String
   
   json do
     map ["name", "custom_name"], with: { to: :name_to_json, from: :name_from_json }
@@ -1231,6 +1232,45 @@ class CustomModel < Lutaml::Model::Serializable
     root "CustomModel"
     map_element ["name", "custom-name"], with: { to: :name_to_xml, from: :name_from_xml }
     map_element ["color", "shade"], with: { to: :color_to_xml, from: :color_from_xml }
+    map_attribute ["id", "idenitifier"], to: :id
+  end
+
+  # Custom methods for JSON
+  def name_to_json(model, doc)
+    doc["name"] = "JSON Model: #{model.full_name}"
+  end
+
+  def name_from_json(model, value)
+    model.full_name = value&.sub(/^JSON Model: /, "")
+  end
+
+  def color_to_json(model, doc)
+    doc["color"] = model.color.upcase
+  end
+
+  def color_from_json(model, value)
+    model.color = value&.downcase
+  end
+
+  # Custom methods for XML
+  def name_to_xml(model, parent, doc)
+    el = doc.create_element("name")
+    doc.add_text(el, "XML Model: #{model.full_name}")
+    doc.add_element(parent, el)
+  end
+
+  def name_from_xml(model, value)
+    model.full_name = value.sub(/^XML Model: /, "")
+  end
+
+  def color_to_xml(model, parent, doc)
+    el = doc.create_element("color")
+    doc.add_text(el, model.color.upcase)
+    doc.add_element(parent, el)
+  end
+
+  def color_from_xml(model, value)
+    model.color = value.downcase
   end
 end
 ----
@@ -1240,16 +1280,17 @@ For JSON:
 ----
 {
   "custom_name": "JSON Model: Vase",
-  "shade": "BLUE"
+  "shade": "BLUE",
+  "identifier": "123"
 }
 ----
 
 For XML:
 [source,xml]
 ----
-<CustomModel>
-  <custom-name>XML Model: Vase</custom-name>
-  <shade>BLUE</shade>
+<CustomModel id="123">
+  <name>XML Model: Vase</name>
+  <color>BLUE</color>
 </CustomModel>
 ----
 
