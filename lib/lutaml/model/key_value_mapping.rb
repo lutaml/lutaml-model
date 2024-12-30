@@ -35,7 +35,7 @@ module Lutaml
           with: with,
           delegate: delegate,
           child_mappings: child_mappings,
-          id: id || uniq_id
+          id: id || uniq_id,
         )
       end
 
