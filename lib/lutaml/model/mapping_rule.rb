@@ -27,7 +27,7 @@ module Lutaml
         @custom_methods = with
         @attribute = attribute
         @delegate = delegate
-        @id = id 
+        @id = id
       end
 
       alias from name
@@ -46,6 +46,7 @@ module Lutaml
           model.public_send(delegate).public_send(to)
         else
           return if to.nil?
+
           model.public_send(to)
         end
       end
@@ -60,7 +61,7 @@ module Lutaml
 
       def deserialize(model, value, attributes, mapper_class = nil)
         if custom_methods[:from]
-          mapper_class.new.send(custom_methods[:from], model, value) if !value.nil?
+          mapper_class.new.send(custom_methods[:from], model, value) unless value.nil?
         elsif delegate
           if model.public_send(delegate).nil?
             model.public_send(:"#{delegate}=", attributes[delegate].type.new)

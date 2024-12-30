@@ -437,12 +437,8 @@ module Lutaml
           end
 
           defaults_used = []
-          mapping_hash = mappings.to_h { |rule| 
-            [
-              rule.id,
-              false
-            ] 
-          }
+          mapping_hash = generate_mapping_hash(mappings)
+
           mappings.each do |rule|
             next if mapping_hash[rule.id]
             raise "Attribute '#{rule.to}' not found in #{self}" unless valid_rule?(rule)
@@ -475,12 +471,7 @@ module Lutaml
 
         def apply_hash_mapping(doc, instance, format, _options = {})
           mappings = mappings_for(format).mappings
-          mapping_hash = mappings.to_h { |rule| 
-            [
-              rule.id,
-              false
-            ] 
-          }
+          mapping_hash = generate_mapping_hash(mappings)
           mappings.each do |rule|
             next if mapping_hash[rule.id]
             raise "Attribute '#{rule.to}' not found in #{self}" unless valid_rule?(rule)
@@ -566,6 +557,15 @@ module Lutaml
             end
           else
             value
+          end
+        end
+
+        def generate_mapping_hash(mappings)
+          mappings.to_h do |rule|
+            [
+              rule.id,
+              false,
+            ]
           end
         end
       end
