@@ -375,6 +375,10 @@ module Lutaml
           key = ["xmlns", xml_mapping.namespace_prefix].compact.join(":")
           { key => xml_mapping.namespace_uri }
         end
+
+        def self.type
+          Utils.snake_case(self).split("/").last.split("_").first
+        end
       end
     end
   end

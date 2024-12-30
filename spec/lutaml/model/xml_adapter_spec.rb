@@ -119,7 +119,7 @@ RSpec.shared_examples "an XML adapter" do |adapter_class|
 
       parsed = XmlAdapterSpec::Maths.from_xml(input_xml)
 
-      expect(parsed.to_xml.strip).to eq(output_xml.strip)
+      expect(parsed.to_xml.strip).to be_equivalent_to(output_xml.strip)
     end
   end
 
@@ -173,6 +173,6 @@ RSpec.describe Lutaml::Model::XmlAdapter::OxAdapter do
   it_behaves_like "an XML adapter", described_class
 end
 
-RSpec.xdescribe Lutaml::Model::XmlAdapter::OgaAdapter do
+RSpec.describe Lutaml::Model::XmlAdapter::OgaAdapter do
   it_behaves_like "an XML adapter", described_class
 end

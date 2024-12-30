@@ -246,6 +246,6 @@ RSpec.describe Lutaml::Model::XmlAdapter::OxAdapter do
   it_behaves_like "an XML namespace parser", described_class
 end
 
-RSpec.xdescribe Lutaml::Model::XmlAdapter::OgaAdapter do
+RSpec.describe Lutaml::Model::XmlAdapter::OgaAdapter do
   it_behaves_like "an XML namespace parser", described_class
 end

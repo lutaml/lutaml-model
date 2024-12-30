@@ -77,7 +77,7 @@ RSpec.describe "OrderedContent" do
     it_behaves_like "ordered content behavior", described_class
   end
 
-  describe Lutaml::Model::XmlAdapter::OgaAdapter, skip: "Not implemented yet" do
+  describe Lutaml::Model::XmlAdapter::OgaAdapter do
     it_behaves_like "ordered content behavior", described_class
   end
 end
