@@ -94,7 +94,7 @@ module IncludedSpec
   end
 end
 
-RSpec.describe "Module Inclusion" do
+RSpec.describe "Included" do
   subject(:impl_object) do
     IncludedSpec::Implementation1.new(
       {
