@@ -45,7 +45,7 @@ This ensures the collection is properly serialized and deserialized, maintaining
 
 * **Handle Attribute Name Mismatches**
 
-For attributes with names that do not directly map between formats (e.g., `temperature-K`), add key mappings:
+For attributes with names that do not directly map between formats (e.g., `temperature-K`), add key mappings alongwith other mappings:
 
 [source,ruby]
 ----
@@ -95,7 +95,6 @@ Ensure the gem's README and other documentation reflect the changes introduced b
 * Verify that the gem's current entry points work correctly and produce accurate results.
 * Always require the attributes classes in their respective parent classes.
 * Make sure the `Lutaml::Model` is available wherever serialization functionality is needed
-* Create or import the content files to use as fixtures for specs
 * Create methods in subclasses to set attributes of attributes classes if objects involve calculated values by default. This ensures proper serialization.
 
 == Conclusion
