@@ -559,12 +559,23 @@ RSpec.describe "MixedContent" do
           XML
         end
 
+        let(:expected_oga_xml) do
+          <<~XML
+            <SpecialCharContentWithRawOptionAndMixedOption>
+              <special> B &lt;p&gt;R&amp;C&lt;/p&gt;
+                C &lt;p&gt;J—C&lt;/p&gt;
+                O &lt;p&gt;A &amp; B &lt;/p&gt;
+                F &lt;p&gt;Z ©S&lt;/p&gt;
+              </special>
+            </SpecialCharContentWithRawOptionAndMixedOption>
+          XML
+        end
+
         it "serializes special char mixed content correctly" do
           parsed = MixedContentSpec::SpecialCharContentWithRawAndMixedOption.from_xml(xml)
           serialized = parsed.to_xml
 
-          expected_output = adapter_class == Lutaml::Model::XmlAdapter::OxAdapter ? expected_ox_xml : expected_nokogiri_xml
-          expect(serialized).to be_equivalent_to(expected_output)
+          expect(serialized).to be_equivalent_to(send("expected_#{adapter_class.type}_xml"))
         end
       end
     end
@@ -594,14 +605,14 @@ RSpec.describe "MixedContent" do
 
       describe ".to_xml" do
         let(:expected_nokogiri_xml) { "B &lt;p&gt;R&lt;/p&gt;" }
+        let(:expected_oga_xml) { "B &lt;p&gt;R&amp;C&lt;/p&gt;" }
         let(:expected_ox_xml) { "B &lt;p&gt;R&amp;amp;C&lt;/p&gt;" }
 
         it "serializes special char mixed content correctly" do
           parsed = MixedContentSpec::SpecialCharContentWithRawAndMixedOption.from_xml(xml)
           serialized = parsed.to_xml
 
-          expected_output = adapter_class == Lutaml::Model::XmlAdapter::NokogiriAdapter ? expected_nokogiri_xml : expected_ox_xml
-          expect(serialized).to include(expected_output)
+          expect(serialized).to include(send("expected_#{adapter_class.type}_xml"))
         end
       end
     end
@@ -779,10 +790,10 @@ RSpec.describe "MixedContent" do
             serialized = parsed.to_xml(encoding: "Shift_JIS")
             expected_content = if adapter_class == Lutaml::Model::XmlAdapter::NokogiriAdapter
                                  "<root>\n  <FieldName>&#65533;&#33745;&#65533;&#65533;&#65533;p&#65533;&#65533;&#65533;P</FieldName>\n  <FieldName>123456</FieldName>\n</root>"
-                               elsif adapter_class.type == "ox"
+                               elsif adapter_class == Lutaml::Model::XmlAdapter::OxAdapter
                                  "<root>\n  <FieldName>\x8E菑\x82\xAB\x89p\x8E\x9A\x82P</FieldName>\n  <FieldName>123456</FieldName>\n</root>\n"
                                else
-                                 "<root>\n  <FieldName>&#65533;&#33745;&#65533;&#65533;&#65533;p&#65533;&#65533;&#65533;P</FieldName>\n  <FieldName>123456</FieldName>\n</root>"
+                                 "<root>\n  <FieldName>手書き英字１</FieldName>\n  <FieldName>123456</FieldName>\n</root>"
                                end
 
             expect(serialized).to eq(expected_content)

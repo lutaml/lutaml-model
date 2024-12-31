@@ -40,22 +40,24 @@ module Lutaml
           end
 
           def element(name, attributes = {}, &block)
-            element = ::Oga::XML::Element.new(
-              {
-                name: name,
-                attributes: Array(attributes)
-              }
-            )
+            oga_element = ::Oga::XML::Element.new(name: name)
+            element_attributes(oga_element, attributes)
+            # Add newline only if the @current_node is an oga element
             text("\n#{options[:indent_string]}") if @current_node.is_a?(::Oga::XML::Element)
-            @current_node.children << element
+            @current_node.children << oga_element
+            # Save previous node to reset the pointer for the rest of the iteration
             previous_node = @current_node
-            @current_node = element
+            # Set current node to new element as pointer for the block
+            @current_node = oga_element
+            # Increase indent for the next element
             indent = options[:indent_string]
             options[:indent_string] = "  " + indent
             yield(self) if block_given?
+            # Reset the pointer for the rest of the iterations
             @current_node = previous_node
+            # Reset indent for this iteration
             options[:indent_string] = indent
-            element
+            oga_element
           end
 
           def add_element(element, child)
@@ -97,11 +99,11 @@ module Lutaml
           def add_text(element, text, cdata: false)
             return add_cdata(element, text) if cdata
 
-            element.children << ::Oga::XML::Text.new(text: text)
+            element.children << ::Oga::XML::Text.new(text: text.to_s)
           end
 
           def add_cdata(element, value)
-            element.children << ::Oga::XML::CData.new(text: value)
+            element.children << ::Oga::XML::CData.new(text: value.to_s)
           end
 
           def add_namespace_prefix(prefix)
@@ -114,7 +116,7 @@ module Lutaml
           end
 
           def text(value = nil)
-            return @current_node.inner_text if value&.empty?
+            return @current_node.inner_text if value.nil?
 
             str = value.is_a?(Array) ? value.join : value
             @current_node.children << ::Oga::XML::Text.new(text: str)
@@ -132,6 +134,18 @@ module Lutaml
 
           def respond_to_missing?(method_name, include_private = false)
             @current_node.respond_to?(method_name) || super
+          end
+
+          private
+
+          def element_attributes(oga_element, attributes)
+            oga_element.attributes = attributes.map do |name, value|
+              ::Oga::XML::Attribute.new(
+                name: name,
+                value: value,
+                element: oga_element,
+              )
+            end
           end
         end
       end
