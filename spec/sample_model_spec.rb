@@ -1,8 +1,40 @@
-
 require "spec_helper"
 require_relative "fixtures/sample_model"
 
 RSpec.describe SampleModel do
+  let(:model) { described_class.new(attributes) }
+  let(:attributes_yaml) do
+    {
+      "name" => "John Doe",
+      "age" => 25,
+      "balance" => "100432423.523142344124",
+      "tags" => [
+        { "text" => "ruby" },
+        { "text" => "coding" },
+      ],
+      "preferences" => { notifications: false, theme: "dark" },
+      "status" => "premium",
+      "large_number" => 9999,
+      "email" => "john@example.com",
+      "role" => "admin",
+    }
+  end
+  let(:attributes) do
+    {
+      name: "John Doe",
+      age: 25,
+      balance: BigDecimal("100432423.523142344124"),
+      tags: [
+        SampleModelTag.new(text: "ruby"),
+        SampleModelTag.new(text: "coding"),
+      ],
+      preferences: { notifications: false, theme: "dark" },
+      status: "premium",
+      large_number: 9999,
+      email: "john@example.com",
+      role: "admin",
+    }
+  end
 
   describe "default values" do
     let(:model) { described_class.new }
@@ -58,41 +90,6 @@ RSpec.describe SampleModel do
     end
   end
 
-  let(:attributes) do
-    {
-      name: "John Doe",
-      age: 25,
-      balance: BigDecimal('100432423.523142344124'),
-      tags: [
-        SampleModelTag.new(text: "ruby"),
-        SampleModelTag.new(text: "coding")
-      ],
-      preferences: { notifications: false, theme: "dark" },
-      status: "premium",
-      large_number: 9999,
-      email: "john@example.com",
-      role: "admin"
-    }
-  end
-
-  let(:attributes_yaml) do
-    {
-      "name" => "John Doe",
-      "age" => 25,
-      "balance" => '100432423.523142344124',
-      "tags" => [
-        { "text" => "ruby" },
-        { "text" => "coding" }
-      ],
-      "preferences" => { notifications: false, theme: "dark" },
-      "status" => "premium",
-      "large_number" => 9999,
-      "email" => "john@example.com",
-      "role" => "admin"
-    }
-  end
-  let(:model) { described_class.new(attributes) }
-
   describe "YAML serialization" do
     it "serializes to YAML" do
       expect(model.to_yaml).to eq(attributes_yaml.to_yaml)
@@ -101,10 +98,10 @@ RSpec.describe SampleModel do
     it "deserializes from YAML" do
       yaml = attributes_yaml.to_yaml
       sample = described_class.from_yaml(yaml)
-      
+
       expect(sample.name).to eq("John Doe")
       expect(sample.age).to eq(25)
-      expect(sample.balance).to eq(BigDecimal('100432423.523142344124'))
+      expect(sample.balance).to eq(BigDecimal("100432423.523142344124"))
       expect(sample.tags).to all(be_a(SampleModelTag))
       expect(sample.tags.map(&:text)).to eq(["ruby", "coding"])
       expect(sample.preferences).to eq({ notifications: false, theme: "dark" })
