@@ -432,10 +432,10 @@ module Lutaml
           end
 
           defaults_used = []
-          mapping_hash = generate_mapping_hash(mappings)
+          element_found_for = {}
 
           mappings.each do |rule|
-            next if mapping_hash[rule.id]
+            next if element_found_for[rule.id]
             raise "Attribute '#{rule.to}' not found in #{self}" unless valid_rule?(rule)
 
             attr = attribute_for_rule(rule)
@@ -445,7 +445,7 @@ module Lutaml
                     elsif rule.content_mapping?
                       doc[rule.content_key]
                     elsif doc.key_exist?(rule.namespaced_name(options[:default_namespace]))
-                      mapping_hash[rule.id] = true
+                      element_found_for[rule.id] = true
                       defaults_used.delete(rule.to)
                       doc.fetch(rule.namespaced_name(options[:default_namespace]))
                     else
@@ -466,15 +466,15 @@ module Lutaml
 
         def apply_hash_mapping(doc, instance, format, _options = {})
           mappings = mappings_for(format).mappings
-          mapping_hash = generate_mapping_hash(mappings)
+          element_found_for = {}
           mappings.each do |rule|
-            next if mapping_hash[rule.id]
+            next if element_found_for[rule.id]
             raise "Attribute '#{rule.to}' not found in #{self}" unless valid_rule?(rule)
 
             attr = attribute_for_rule(rule)
 
             value = if doc.key?(rule.name.to_s) || doc.key?(rule.name.to_sym)
-                      mapping_hash[rule.id] = true
+              element_found_for[rule.id] = true
                       doc[rule.name.to_s] || doc[rule.name.to_sym]
                     else
                       attr&.default
@@ -483,7 +483,7 @@ module Lutaml
             if rule.using_custom_methods?
               if Utils.present?(value)
                 value = new.send(rule.custom_methods[:from], instance, value)
-                mapping_hash[rule.id] = true
+                element_found_for[rule.id] = true
               end
 
               next
@@ -552,15 +552,6 @@ module Lutaml
             end
           else
             value
-          end
-        end
-
-        def generate_mapping_hash(mappings)
-          mappings.to_h do |rule|
-            [
-              rule.id,
-              false,
-            ]
           end
         end
       end
