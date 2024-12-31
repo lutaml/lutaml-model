@@ -563,6 +563,8 @@ puts studio.pots.find_by_material("clay") # => Pot instance with material: "clay
 
 If no `collection_class` is provided, the default `Lutaml::Model::Collection` is used.
 
+There are some link:lib/lutaml/model/collection.rb[methods] overriden in `Lutaml::Model::Collection` class to return `Lutaml::Model::Collection` instance instead of `Array`, If you want to override the default behavior, you can inherit from `Lutaml::Model::Collection` and override the methods you need.
+
 === Attribute value validation
 
 ==== General

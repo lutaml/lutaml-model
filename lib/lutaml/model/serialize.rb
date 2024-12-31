@@ -494,11 +494,9 @@ module Lutaml
 
         def normalize_xml_value(value, rule, attr, options = {})
           if attr&.collection?
-            if !value.is_a?(Array)
-              value = attr.collection_class.new.push(value).compact
-            elsif value.class != attr.collection_class
-              value = attr.collection_class.new(value).compact
-            end
+            collection = attr.collection_class.new
+            value = value.is_a?(Array) ? collection.concat(value) : collection.push(value)
+            value.compact!
           end
 
           value = if value.is_a?(Array)
