@@ -418,8 +418,7 @@ module Lutaml
           mappings = mappings_for(:xml).mappings
 
           if doc.is_a?(Array)
-            raise "May be `collection: true` is" \
-                  "missing for #{self} in #{options[:caller_class]}"
+            raise "May be `collection: true` is missing for #{self} in #{options[:caller_class]}"
           end
 
           if instance.respond_to?(:ordered=) && doc.is_a?(Lutaml::Model::MappingHash)
@@ -444,7 +443,6 @@ module Lutaml
             raise "Attribute '#{rule.to}' not found in #{self}" unless valid_rule?(rule)
 
             attr = attribute_for_rule(rule)
-
             value = if rule.raw_mapping?
                       doc.node.inner_xml
                     elsif rule.content_mapping?
@@ -457,7 +455,6 @@ module Lutaml
                       defaults_used << rule.to
                       attr&.default || rule.to_value_for(instance)
                     end
-
             value = normalize_xml_value(value, rule, attr, options)
             rule.deserialize(instance, value, attributes, self)
           end
@@ -479,7 +476,7 @@ module Lutaml
             attr = attribute_for_rule(rule)
 
             value = if doc.key?(rule.name.to_s) || doc.key?(rule.name.to_sym)
-              element_found_for[rule.id] = true
+                      element_found_for[rule.id] = true
                       doc[rule.name.to_s] || doc[rule.name.to_sym]
                     else
                       attr&.default
