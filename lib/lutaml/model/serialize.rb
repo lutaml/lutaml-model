@@ -249,7 +249,7 @@ module Lutaml
         def hash_representation(instance, format, options = {})
           only = options[:only]
           except = options[:except]
-          mappings = mappings_for(format).mappings
+          mappings = mappings_for(format).mappings.uniq(&:id)
 
           mappings.each_with_object({}) do |rule, hash|
             name = rule.to
@@ -413,8 +413,7 @@ module Lutaml
           mappings = mappings_for(:xml).mappings
 
           if doc.is_a?(Array)
-            raise "May be `collection: true` is" \
-                  "missing for #{self} in #{options[:caller_class]}"
+            raise "May be `collection: true` is missing for #{self} in #{options[:caller_class]}"
           end
 
           if instance.respond_to?(:ordered=) && doc.is_a?(Lutaml::Model::MappingHash)
@@ -432,23 +431,25 @@ module Lutaml
           end
 
           defaults_used = []
+          element_found_for = {}
 
           mappings.each do |rule|
+            next if element_found_for[rule.id]
             raise "Attribute '#{rule.to}' not found in #{self}" unless valid_rule?(rule)
 
             attr = attribute_for_rule(rule)
-
             value = if rule.raw_mapping?
                       doc.node.inner_xml
                     elsif rule.content_mapping?
                       doc[rule.content_key]
                     elsif doc.key_exist?(rule.namespaced_name(options[:default_namespace]))
+                      element_found_for[rule.id] = true
+                      defaults_used.delete(rule.to)
                       doc.fetch(rule.namespaced_name(options[:default_namespace]))
                     else
                       defaults_used << rule.to
                       attr&.default || rule.to_value_for(instance)
                     end
-
             value = normalize_xml_value(value, rule, attr, options)
             rule.deserialize(instance, value, attributes, self)
           end
@@ -462,20 +463,24 @@ module Lutaml
 
         def apply_hash_mapping(doc, instance, format, _options = {})
           mappings = mappings_for(format).mappings
+          element_found_for = {}
           mappings.each do |rule|
+            next if element_found_for[rule.id]
             raise "Attribute '#{rule.to}' not found in #{self}" unless valid_rule?(rule)
 
             attr = attribute_for_rule(rule)
 
             value = if doc.key?(rule.name.to_s) || doc.key?(rule.name.to_sym)
+                      element_found_for[rule.id] = true
                       doc[rule.name.to_s] || doc[rule.name.to_sym]
                     else
                       attr&.default
                     end
 
-            if rule.custom_methods[:from]
+            if rule.using_custom_methods?
               if Utils.present?(value)
                 value = new.send(rule.custom_methods[:from], instance, value)
+                element_found_for[rule.id] = true
               end
 
               next

@@ -204,12 +204,13 @@ module Lutaml
               prefixed_xml.add_namespace_prefix(nil)
             end
 
-            xml_mapping.attributes.each do |attribute_rule|
+            xml_mapping.attributes.uniq(&:id).each do |attribute_rule|
               attribute_rule.serialize_attribute(element, prefixed_xml.parent,
                                                  xml)
             end
 
             mappings = xml_mapping.elements + [xml_mapping.raw_mapping].compact
+            mappings = mappings.uniq(&:id)
             mappings.each do |element_rule|
               attribute_def = attribute_definition_for(element, element_rule,
                                                        mapper_class: mapper_class)
@@ -336,7 +337,7 @@ module Lutaml
             attrs.merge!(element.schema_location.to_xml_attributes)
           end
 
-          xml_mapping.attributes.each_with_object(attrs) do |mapping_rule, hash|
+          xml_mapping.attributes.uniq(&:id).each_with_object(attrs) do |mapping_rule, hash|
             next if options[:except]&.include?(mapping_rule.to)
             next if mapping_rule.custom_methods[:to]
 
