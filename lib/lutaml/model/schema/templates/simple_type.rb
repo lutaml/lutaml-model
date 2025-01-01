@@ -47,17 +47,17 @@ module Lutaml
                 value = super(value)
             <%=
               if pattern_exist = validations.key?(:pattern)
-                "    pattern = %r{\#{validations[:pattern]}}\n\#{indent}raise Lutaml::Model::Type::Errors::InvalidValue, \\"The value \\\#{value} does not match the required pattern: \\\#{pattern}\\" unless value.match?(pattern)\n"
+                "    pattern = %r{\#{validations[:pattern]}}\n\#{indent}raise Lutaml::Model::Type::InvalidValueError, \\"The value \\\#{value} does not match the required pattern: \\\#{pattern}\\" unless value.match?(pattern)\n"
               end
             -%>
             <%=
               if min_exist = validations.key?(:min)
-                "    min = \#{validations[:min]}\n\#{indent}raise Lutaml::Model::Type::Errors::InvalidValue, \\"The value \\\#{value} is less than the set limit: \\\#{min}\\" if value < min\n"
+                "    min = \#{validations[:min]}\n\#{indent}raise Lutaml::Model::Type::InvalidValueError, \\"The value \\\#{value} is less than the set limit: \\\#{min}\\" if value < min\n"
               end
             -%>
             <%=
               if max_exist = validations.key?(:max)
-                "    max = \#{validations[:max]}\n\#{indent}raise Lutaml::Model::Type::Errors::InvalidValue, \\"The value \\\#{value} is greater than the set limit: \\\#{max}\\" if value > max\n"
+                "    max = \#{validations[:max]}\n\#{indent}raise Lutaml::Model::Type::InvalidValueError, \\"The value \\\#{value} is greater than the set limit: \\\#{max}\\" if value > max\n"
               end
             -%>
                 value
@@ -137,7 +137,7 @@ module Lutaml
             <%= "\n  private\n" if pattern_exist || values_exist || length_exist || min_length_exist || max_length_exist || min_bound_exist || max_bound_exist -%>
             <%=
               if pattern_exist
-                "\n  def self.raise_pattern_error(value, pattern)\n    raise Lutaml::Model::Type::Errors::InvalidValue, \\"The value \\\#{value} does not match the required pattern: \\\#{pattern}\\"\n  end\n"
+                "\n  def self.raise_pattern_error(value, pattern)\n    raise Lutaml::Model::Type::InvalidValueError, \\"The value \\\#{value} does not match the required pattern: \\\#{pattern}\\"\n  end\n"
               end
             -%>
             <%=
@@ -147,27 +147,27 @@ module Lutaml
             -%>
             <%=
               if length_exist
-                "\n  def self.raise_length_error(input_value)\n    raise Lutaml::Model::Type::Errors::InvalidValue, \\"The provided value \\\\\\"\\\#{input_value}\\\\\\" should match the specified lengths: \\\#{LENGTHS.join(',')}\\"\n  end\n"
+                "\n  def self.raise_length_error(input_value)\n    raise Lutaml::Model::Type::InvalidValueError, \\"The provided value \\\\\\"\\\#{input_value}\\\\\\" should match the specified lengths: \\\#{LENGTHS.join(',')}\\"\n  end\n"
               end
             -%>
             <%=
               if min_length_exist
-                "\n  def self.raise_min_length_error(input_value, min_length)\n    raise Lutaml::Model::Type::Errors::InvalidValue, \\"The provided value \\\\\\"\\\#{input_value}\\\\\\" has fewer characters than the minimum allowed \\\#{min_length}\\"\n  end\n"
+                "\n  def self.raise_min_length_error(input_value, min_length)\n    raise Lutaml::Model::Type::InvalidValueError, \\"The provided value \\\\\\"\\\#{input_value}\\\\\\" has fewer characters than the minimum allowed \\\#{min_length}\\"\n  end\n"
               end
             -%>
             <%=
               if max_length_exist
-                "\n  def self.raise_max_length_error(input_value, max_length)\n    raise Lutaml::Model::Type::Errors::InvalidValue, \\"The provided value \\\\\\"\\\#{input_value}\\\\\\" exceeds the maximum allowed length of \\\#{max_length}\\"\n  end\n"
+                "\n  def self.raise_max_length_error(input_value, max_length)\n    raise Lutaml::Model::Type::InvalidValueError, \\"The provided value \\\\\\"\\\#{input_value}\\\\\\" exceeds the maximum allowed length of \\\#{max_length}\\"\n  end\n"
               end
             -%>
             <%=
               if min_bound_exist
-                "\n  def self.raise_min_bound_error(input_value, min_bound)\n    raise Lutaml::Model::Type::Errors::InvalidValue, \\"The provided value \\\\\\"\\\#{input_value}\\\\\\" is less than the minimum allowed value of \\\#{min_bound}\\"\n  end\n"
+                "\n  def self.raise_min_bound_error(input_value, min_bound)\n    raise Lutaml::Model::Type::InvalidValueError, \\"The provided value \\\\\\"\\\#{input_value}\\\\\\" is less than the minimum allowed value of \\\#{min_bound}\\"\n  end\n"
               end
             -%>
             <%=
               if max_bound_exist
-                "\n  def self.raise_max_bound_error(input_value, max_bound)\n    raise Lutaml::Model::Type::Errors::InvalidValue, \\"The provided value \\\\\\"\\\#{input_value}\\\\\\" exceeds the maximum allowed value of \\\#{max_bound}\\"\n  end\n"
+                "\n  def self.raise_max_bound_error(input_value, max_bound)\n    raise Lutaml::Model::Type::InvalidValueError, \\"The provided value \\\\\\"\\\#{input_value}\\\\\\" exceeds the maximum allowed value of \\\#{max_bound}\\"\n  end\n"
               end
             -%>
             end
