@@ -7,6 +7,7 @@ gemspec
 
 gem "bigdecimal"
 gem "equivalent-xml"
+gem "lutaml-xsd"
 gem "multi_json"
 gem "nokogiri"
 gem "oga"
@@ -20,4 +21,3 @@ gem "rubocop-rake", require: false
 gem "rubocop-rspec", require: false
 gem "tomlib"
 gem "toml-rb"
-gem "lutaml-xsd"

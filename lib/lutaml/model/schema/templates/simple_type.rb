@@ -177,30 +177,50 @@ module Lutaml
             setup_supported_types
             simple_types.each do |name, properties|
               klass_name = Utils.camel_case(name)
-              result = if @simple_types.key?(properties[:base_class])
-                         parent_class = properties.base_class
-                         require_parent = true unless properties[:base_class].include?("Lutaml::Model::")
-                         REF_TEMPLATE.result(binding)
-                       elsif properties&.key_exist?(:union)
-                         unions = properties.union
-                         UNION_TEMPLATE.result(binding)
-                       else
-                         base_class = properties.base_class.split(":")&.last
-                         parent_class = if SUPPORTED_DATA_TYPES[base_class.to_sym]&.key?(:class_name)
-                                          SUPPORTED_DATA_TYPES.dig(base_class.to_sym, :class_name)
-                                        else
-                                          require_parent = Utils.camel_case(base_class.to_s)
-                                          Utils.camel_case(base_class.to_s)
-                                        end
-                         values = properties[:values] if properties.key_exist?(:values)
-                         MODEL_TEMPLATE.result(binding)
-                       end
-              @simple_types[name] = result
+              @simple_types[name] = if @simple_types.key?(properties[:base_class])
+                                      ref_template(properties, klass_name)
+                                    elsif properties&.key_exist?(:union)
+                                      union_template(properties, klass_name)
+                                    else
+                                      model_template(properties, klass_name)
+                                    end
             end
             @simple_types
           end
 
           private
+
+          # klass_name is used in template using `binding`
+          def model_template(properties, klass_name)
+            base_class = properties.base_class.split(":")&.last
+            parent_class, require_parent = extract_parent_class(base_class)
+            values = properties[:values] if properties.key_exist?(:values)
+            MODEL_TEMPLATE.result(binding)
+          end
+
+          def extract_parent_class(base_class)
+            klass = if SUPPORTED_DATA_TYPES[base_class.to_sym]&.key?(:class_name)
+                      parent = false
+                      SUPPORTED_DATA_TYPES.dig(base_class.to_sym, :class_name)
+                    else
+                      parent = true
+                      Utils.camel_case(base_class.to_s)
+                    end
+            [klass, parent]
+          end
+
+          # klass_name is used in template using `binding`
+          def union_template(properties, klass_name)
+            unions = properties.union
+            UNION_TEMPLATE.result(binding)
+          end
+
+          # klass_name is used in template using `binding`
+          def ref_template(properties, klass_name)
+            parent_class = properties.base_class
+            require_parent = true unless properties[:base_class].include?("Lutaml::Model::")
+            REF_TEMPLATE.result(binding)
+          end
 
           def setup_supported_types
             @simple_types = MappingHash.new
