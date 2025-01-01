@@ -362,7 +362,7 @@ class FiveDigitPostCode < Lutaml::Model::Type::String
     value = value.to_s if value.is_a?(Integer)
 
     unless value.is_a?(::String)
-      raise Lutaml::Model::ValueNotAllowedError, "Invalid value for type 'FiveDigitPostCode'"
+      raise Lutaml::Model::InvalidValueError, "Invalid value for type 'FiveDigitPostCode'"
     end
 
     # Pad zeros to the left
@@ -556,7 +556,7 @@ There are several mechanisms to validate attribute values in Lutaml::Model.
 An attribute can be defined as an enumeration by using the `values` directive.
 
 The `values` directive is used to define acceptable values in an attribute. If
-any other value is given, a `Lutaml::Model::ValueNotAllowedError` will be raised.
+any other value is given, a `Lutaml::Model::InvalidValueError` will be raised.
 
 Syntax:
 
@@ -594,7 +594,7 @@ end
 > GlazeTechnique.new(name: "Majolica").name
 > # "Majolica"
 > GlazeTechnique.new(name: "Earthenware").name
-> # Lutaml::Model::ValueNotAllowedError: Invalid value for attribute 'name'
+> # Lutaml::Model::InvalidValueError: Invalid value for attribute 'name'
 ----
 ====
 
@@ -628,7 +628,7 @@ end
 > CeramicCollection.new(featured_piece: Ceramic.new(type: "Porcelain", firing_temperature: 1300)).featured_piece
 > # Ceramic:0x0000000104ac7240 @type="Porcelain", @firing_temperature=1300
 > CeramicCollection.new(featured_piece: Ceramic.new(type: "Bone China", firing_temperature: 1300)).featured_piece
-> # Lutaml::Model::ValueNotAllowedError: Invalid value for attribute 'featured_piece'
+> # Lutaml::Model::InvalidValueError: Invalid value for attribute 'featured_piece'
 ----
 ====
 
@@ -649,7 +649,7 @@ acceptance of the newly updated component.
 > collection.featured_piece.firing_temperature = 1400
 > # No error raised in changed nested attribute
 > collection.validate
-> # Lutaml::Model::ValueNotAllowedError: Invalid value for attribute 'featured_piece'
+> # Lutaml::Model::InvalidValueError: Invalid value for attribute 'featured_piece'
 ----
 ====
 
@@ -686,7 +686,7 @@ end
 > Glaze.new(color: '#ff0000').color
 > # "#ff0000"
 > Glaze.new(color: '#ff000').color
-> # Lutaml::Model::ValueNotAllowedError: Invalid value for attribute 'color'
+> # Lutaml::Model::InvalidValueError: Invalid value for attribute 'color'
 ----
 ====
 

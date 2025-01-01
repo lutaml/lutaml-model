@@ -70,7 +70,7 @@ RSpec.describe Lutaml::Model::Serializable do
     it "returns errors for invalid attributes" do
       errors = invalid_instance.validate
       expect(errors).not_to be_empty
-      expect(errors[0]).to be_a(Lutaml::Model::ValueNotAllowedError)
+      expect(errors[0]).to be_a(Lutaml::Model::InvalidValueError)
       expect(errors[1]).to be_a(Lutaml::Model::PatternNotMatchedError)
       expect(errors[2]).to be_a(Lutaml::Model::CollectionCountOutOfRangeError)
     end

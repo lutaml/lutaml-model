@@ -259,7 +259,7 @@ RSpec.describe Lutaml::Model::Serializable do
         expect do
           glaze.validate!
         end.to raise_error(Lutaml::Model::ValidationError) do |error|
-          expect(error).to include(Lutaml::Model::ValueNotAllowedError)
+          expect(error).to include(Lutaml::Model::InvalidValueError)
           expect(error.error_messages).to include("name is `Tenmoku`, must be one of the following [Celadon, Raku, Majolica]")
         end
       end
@@ -281,22 +281,22 @@ RSpec.describe Lutaml::Model::Serializable do
 
   describe "Serializable object enumeration" do
     context "when assigning an invalid value" do
-      it "raises ValidationError containing ValueNotAllowedError after creation" do
+      it "raises ValidationError containing InvalidValueError after creation" do
         glaze = SerializeableSpec::GlazeTechnique.new(name: "Celadon")
         glaze.name = "Tenmoku"
         expect do
           glaze.validate!
         end.to raise_error(Lutaml::Model::ValidationError) do |error|
-          expect(error).to include(Lutaml::Model::ValueNotAllowedError)
+          expect(error).to include(Lutaml::Model::InvalidValueError)
           expect(error.error_messages).to include(a_string_matching(/name is `Tenmoku`, must be one of the following/))
         end
       end
 
-      it "raises ValidationError containing ValueNotAllowedError during creation" do
+      it "raises ValidationError containing InvalidValueError during creation" do
         expect do
           SerializeableSpec::GlazeTechnique.new(name: "Crystalline").validate!
         end.to raise_error(Lutaml::Model::ValidationError) do |error|
-          expect(error).to include(Lutaml::Model::ValueNotAllowedError)
+          expect(error).to include(Lutaml::Model::InvalidValueError)
           expect(error.error_messages).to include(a_string_matching(/name is `Crystalline`, must be one of the following/))
         end
       end
