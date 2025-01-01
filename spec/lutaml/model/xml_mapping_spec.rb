@@ -1066,7 +1066,7 @@ RSpec.describe Lutaml::Model::XmlMapping do
     it_behaves_like "having XML Mappings", described_class
   end
 
-  describe Lutaml::Model::XmlAdapter::OgaAdapter, skip: "Not implemented yet" do
+  describe Lutaml::Model::XmlAdapter::OgaAdapter do
     it_behaves_like "having XML Mappings", described_class
   end
 end

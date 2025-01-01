@@ -9,27 +9,33 @@ module Lutaml
     module XmlAdapter
       class OgaAdapter < XmlDocument
         def self.parse(xml, options = {})
-          options[:encoding] ||= xml.encoding
-          xml.encode("UTF-16").encode!("UTF-8") if options[:encoding] && options[:encoding] != "UTF-8"
+          encoding = options[:encoding] || xml.encoding.to_s
+          xml = xml.encode("UTF-16").encode("UTF-8") if encoding && encoding != "UTF-8"
           parsed = ::Oga.parse_xml(xml)
           @root = Oga::Element.new(parsed.children.first)
-          new(@root, options[:encoding])
+          new(@root, encoding)
         end
 
         def to_xml(options = {})
-          options[:to_encoding] = if options.key?(:encoding)
-                                    options[:encoding]
-                                  elsif self.encoding
-                                    self.encoding
-                                  else
-                                    "UTF-8"
-                                  end
+          builder_options = {}
+
+          builder_options[:encoding] = if options.key?(:encoding)
+                                        options[:encoding] || "UTF-8"
+                                      elsif options.key?(:parse_encoding)
+                                        options[:parse_encoding]
+                                      else
+                                        "UTF-8"
+                                      end
           builder = Builder::Oga.build(options) do |builder|
-            build_element(builder, @root, options)
+            if @root.is_a?(Oga::Element)
+              @root.build_xml(builder)
+            else
+              build_element(builder, @root, options)
+            end
           end
           builder.document.children.last.children << ::Oga::XML::Text.new(text: "\n")
-          xml_data = builder.to_xml.encode!(options[:to_encoding])
-          options[:declaration] ? declaration(options) + xml_data : xml_data
+          xml_data = builder.to_xml.encode!(builder_options[:encoding])
+          options[:declaration] ? declaration(builder_options) + xml_data : xml_data
         end
 
         private
