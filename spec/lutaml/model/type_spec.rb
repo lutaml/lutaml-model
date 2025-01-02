@@ -261,6 +261,7 @@ RSpec.describe Lutaml::Model::Type do
         XML
 
         deserialized = TypeTestModel.from_xml(xml)
+
         expect(deserialized.string_symbol).to eq("test")
         expect(deserialized.string_class).to eq("test")
         expect(deserialized.integer_value).to eq(123)

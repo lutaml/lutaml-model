@@ -14,41 +14,63 @@ module Lutaml
         @item_order&.map { |key| normalize(key) } || keys
       end
 
-      # First we make hash with elements and attributes inside, but the issue is when we have nested elements and attributes and 
-      # for text we have to check if elements are present inside. This causes the issue. So move to the approach where only attributes separate key
-      # and other elements are present as it is in hash. Now facing the mutiple issues.
       def fetch(rule, options)
-        # binding.irb
         attr_name = rule.namespaced_name(options[:default_namespace])
-        
+
         if rule.attribute?
-          # binding.irb
-          if self["attributes"]
-            self["attributes"][attr_name]
-          else
-            self[attr_name]
-          end
+          self["attributes"][attr_name]
         else
-          # binding.irb
-          value = self[attr_name]
-          if !value["attributes"].empty?
-            value = value["attributes"]
-          end
-          value
+          self["elements"][attr_name]
         end
       end
 
-      # def key_exist?(key)
-      #   key?(key.to_s) || key?(key.to_sym)
+      # def fetch(rule, options)
+      #   binding.irb
+      #   attr_name = rule.namespaced_name(options[:default_namespace])
+
+      #   if rule.attribute?
+      #     return self["attributes"][attr_name]
+      #   end
+
+      #   element = self["elements"][attr_name]
+
+      #   if element.is_a?(Hash) && (element["elements"])
+      #     binding.irb
+      #     element["attributes"].delete_if { |_, value| value.empty? }
+      #     element["elements"].delete_if { |_, value| value.empty? }
+      #   else
+      #     element
+      #   end
+      # end
+
+      # def fetch(rule, options)
+      #   binding.irb
+      #   attr_name = rule.namespaced_name(options[:default_namespace])
+
+      #   if rule.attribute?
+      #     return self["attributes"][attr_name]
+      #   end
+
+      #   element = self["elements"][attr_name]
+      #   return nil unless element
+
+      #   if element.is_a?(Hash) && (element["elements"] || element["attributes"])
+      #     binding.irb
+      #     return element.delete_if { |el| el["attributes"].empty? }
+
+      #     element["elements"] unless element["elements"].empty?
+      #   else
+      #     return element
+      #   end
       # end
 
       def key_exist_for_rule?(rule, options)
-        # binding.irb
         attr_name = rule.namespaced_name(options[:default_namespace])
-        # if rule.attribute?
-        #   key?(attr_name)
-        # end
-        self.key?(attr_name)
+        if rule.attribute?
+          self["attributes"].key?(attr_name)
+        else
+          self["elements"].key?(attr_name)
+        end
       end
 
       def item_order=(order)
@@ -58,11 +80,15 @@ module Lutaml
       end
 
       def text
-        self["#cdata-section"] || self["text"]
+        self["elements"]["#cdata-section"] || self["elements"]["text"]
       end
 
       def text?
         key?("#cdata-section") || key?("text")
+      end
+
+      def content_key(rule)
+        rule.cdata ? self["elements"]["#cdata-section"] : self["elements"]["text"]
       end
 
       def ordered?

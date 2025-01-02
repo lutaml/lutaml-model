@@ -68,7 +68,7 @@ class CustomSerialization < Lutaml::Model::Serializable
   end
 
   def name_from_xml(model, value)
-    model.full_name = value.sub(/^XML Masterpiece: /, "")
+    model.full_name = value.text.sub(/^XML Masterpiece: /, "")
   end
 
   def size_to_xml(model, parent, doc)
@@ -86,7 +86,7 @@ class CustomSerialization < Lutaml::Model::Serializable
   end
 
   def color_from_xml(model, value)
-    model.color = value.downcase
+    model.color = value.text.downcase
   end
 
   def description_to_xml(model, parent, doc)
@@ -177,6 +177,7 @@ RSpec.describe CustomSerialization do
       XML
 
       ceramic = described_class.from_xml(xml)
+
       expect(ceramic.full_name).to eq(model.full_name)
       expect(ceramic.size).to eq(model.size)
       expect(ceramic.color).to eq(model.color)

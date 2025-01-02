@@ -47,7 +47,7 @@ module CollectionTests
     end
 
     def city_from_xml(model, node)
-      model.city = node
+      model.city = node.text
     end
 
     def city_to_xml(model, parent, doc)

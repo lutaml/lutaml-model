@@ -162,7 +162,6 @@ RSpec.describe Address do
     XML
 
     address_from_xml = described_class.from_xml(xml)
-    binding.irb
     expect(address_from_xml.country).to eq("USA")
     expect(address_from_xml.post_code).to eq("01001")
     expect(address_from_xml.person.first.first_name).to eq("Tom")

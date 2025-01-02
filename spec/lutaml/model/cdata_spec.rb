@@ -44,7 +44,7 @@ module CDATA
     end
 
     def house_from_xml(model, node)
-      model.house = node
+      model.house = node.text
     end
 
     def house_to_xml(model, _parent, doc)
@@ -54,7 +54,7 @@ module CDATA
     end
 
     def city_from_xml(model, node)
-      model.city = node
+      model.city = node.text
     end
 
     def city_to_xml(model, _parent, doc)
@@ -118,8 +118,8 @@ module CDATA
     def child_from_xml(model, value)
       model.child_mapper ||= CustomModelChild.new
 
-      model.child_mapper.street = value["street"].text
-      model.child_mapper.city = value["city"].text
+      model.child_mapper.street = value["elements"]["street"].text
+      model.child_mapper.city = value["elements"]["city"].text
     end
   end
 

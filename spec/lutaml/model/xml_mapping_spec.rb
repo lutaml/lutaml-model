@@ -408,7 +408,6 @@ RSpec.describe Lutaml::Model::XmlMapping do
 
       it "parse and serialize model correctly with both attribute and element" do
         parsed = XmlMapping::OwnedComment.from_xml(xml_with_same_name_attribute_and_element)
-        # binding.irb
         serialized = parsed.to_xml
 
         expect(serialized).to be_equivalent_to(xml_with_same_name_attribute_and_element)
@@ -665,6 +664,7 @@ RSpec.describe Lutaml::Model::XmlMapping do
         end
 
         it "contain schemaLocation attributes" do
+          # binding.irb
           expect(Paragraph.from_xml(xml).to_xml).to be_equivalent_to(xml)
         end
       end
@@ -703,6 +703,7 @@ RSpec.describe Lutaml::Model::XmlMapping do
 
       it "parses and serializes multiple schemaLocation attributes" do
         parsed = Paragraph.from_xml(xml)
+        binding.irb
         expect(parsed.schema_location.size).to eq(2)
         expect(parsed.schema_location[0].namespace).to eq("http://www.opengis.net/gml/3.2")
         expect(parsed.schema_location[0].location).to eq("http://schemas.opengis.net/gml/3.2.1/gml.xsd")
@@ -717,6 +718,7 @@ RSpec.describe Lutaml::Model::XmlMapping do
 
       it "handles nested elements with different schemaLocations" do
         parsed = Paragraph.from_xml(xml)
+        # binding.irb
         nested_p = parsed.paragraph
 
         expect(nested_p).to be_a(Paragraph)

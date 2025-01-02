@@ -77,7 +77,7 @@ module Lutaml
           result.node = element
           result.item_order = element.order
 
-          element.children.each_with_object(result) do |child, hash|
+          element.children.each_with_object(result["elements"] = {}) do |child, hash|
             if klass&.<= Serialize
               attr = klass.attribute_for_child(child.name,
                                                format)
