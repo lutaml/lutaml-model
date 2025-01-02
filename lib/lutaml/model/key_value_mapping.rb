@@ -3,10 +3,13 @@ require_relative "key_value_mapping_rule"
 module Lutaml
   module Model
     class KeyValueMapping
-      attr_reader :mappings
-
       def initialize
         @mappings = []
+        @root_mapping = nil
+      end
+
+      def mappings
+        @mappings + [@root_mapping].compact
       end
 
       def map(
@@ -31,23 +34,23 @@ module Lutaml
         )
       end
 
-      def root_mappings(
-        name: "root_mapping",
-        to: nil,
-        root: {}
-      )
-        validate!(name, to)
+      alias map_element map
 
-        @mappings << KeyValueMappingRule.new(
+      def map_root(
+        to: nil,
+        root_mappings: {}
+      )
+        name = "root_mapping"
+        validate!(name, to, {})
+
+        @root_mapping = KeyValueMappingRule.new(
           name,
           to: to,
-          root: root,
+          root_mappings: root_mappings,
         )
       end
 
-      alias map_element map
-
-      def validate!(key, to, with = {})
+      def validate!(key, to, with)
         if to.nil? && with.empty?
           msg = ":to or :with argument is required for mapping '#{key}'"
           raise IncorrectMappingArgumentsError.new(msg)
@@ -62,8 +65,8 @@ module Lutaml
       end
 
       def validate_mappings(name)
-        if @mappings.any?(&:root_mapping?) || (name == "root_mapping" && @mappings.any?)
-          raise MultipleMappingsError.new("Can't define map with root_mappings")
+        if @root_mapping || (name == "root_mapping" && @mappings.any?)
+          raise MultipleMappingsError.new("Can't define map with map_root")
         end
       end
 

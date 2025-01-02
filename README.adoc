@@ -2543,20 +2543,20 @@ In this example:
 
 NOTE: This feature is for key-value data model serialization and deserialization.
 
-The `root_mappings` option is used for key-value with dynamic root name (key).
+The `map_root` option is used for key-value with dynamic root name (key).
 
 Syntax:
 
 [source,ruby]
 ----
 json | yaml | toml do
-  root_mappings to: :name_of_attribute, root: { root_key_of_hash: :key, name_of_attribute: :value_of_hash }
+  map_root to: :name_of_attribute, root_mappings: { root_key_of_hash: :key, name_of_attribute: :value_of_hash }
 end
 ----
 
-The `root` is specified keyword used for setting the key and value for hash.
+The `root_mappings` is specified keyword used for setting the key and value for hash.
 
-.Using the `root_mappings` option to extract values from a key-value data model
+.Using the `map_root` option to extract values from a key-value data model
 [example]
 ====
 
@@ -2591,7 +2591,7 @@ class UnitsDb < Lutaml::Model::Serializable
   attribute :root_unit, Unit
 
   yaml do
-    root_mappings to: :root_unit, root: { id: :key, root_unit: :root_units }
+    map_root to: :root_unit, root_mappings: { id: :key, root_unit: :root_units }
   end
 end
 ----

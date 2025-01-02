@@ -36,7 +36,7 @@ module RootMapping
     attribute :root_unit, Unit
 
     key_value do
-      root_mappings to: :root_unit, root: { id: :key, root_unit: :root_units }
+      map_root to: :root_unit, root_mappings: { id: :key, root_unit: :root_units }
     end
   end
 
@@ -54,7 +54,7 @@ module RootMapping
     attribute :person, Person
 
     key_value do
-      root_mappings to: :person, root: { id: :key, email: :value }
+      map_root to: :person, root_mappings: { id: :key, email: :value }
     end
   end
 
@@ -72,7 +72,7 @@ module RootMapping
     attribute :path, Path
 
     key_value do
-      root_mappings to: :path, root: { id: :key, path: %w[root_units enumerated_root_units] }
+      map_root to: :path, root_mappings: { id: :key, path: %w[root_units enumerated_root_units] }
     end
   end
 end
@@ -252,7 +252,7 @@ RSpec.describe RootMapping do
     end
   end
 
-  context "when root_mappings are defined with map" do
+  context "when map_root are defined with map" do
     it "raises error" do
       expect do
         Class.new(Lutaml::Model::Serializable) do
@@ -261,12 +261,12 @@ RSpec.describe RootMapping do
           attribute :unit, :string
 
           key_value do
-            root_mappings to: :unit, root: { id: :key, unit: :value }
+            map_root to: :unit, root_mappings: { id: :key, unit: :value }
             map :name, to: :name
             map :id, to: :id
           end
         end
-      end.to raise_error(Lutaml::Model::MultipleMappingsError, "Can't define map with root_mappings")
+      end.to raise_error(Lutaml::Model::MultipleMappingsError, "Can't define map with map_root")
     end
 
     it "raises error with different order" do
@@ -279,10 +279,10 @@ RSpec.describe RootMapping do
           key_value do
             map :name, to: :name
             map :id, to: :id
-            root_mappings to: :unit, root: { id: :key, unit: :value }
+            map_root to: :unit, root_mappings: { id: :key, unit: :value }
           end
         end
-      end.to raise_error(Lutaml::Model::MultipleMappingsError, "Can't define map with root_mappings")
+      end.to raise_error(Lutaml::Model::MultipleMappingsError, "Can't define map with map_root")
     end
   end
 end

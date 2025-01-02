@@ -14,7 +14,7 @@ module Lutaml
         with: {},
         delegate: nil,
         child_mappings: nil,
-        root: nil
+        root_mappings: nil
       )
         super(
           name,
@@ -26,7 +26,7 @@ module Lutaml
         )
 
         @child_mappings = child_mappings
-        @root_mappings = root
+        @root_mappings = root_mappings
       end
 
       def hash_mappings

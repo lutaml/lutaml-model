@@ -361,8 +361,7 @@ module Lutaml
             map_value = {}
             child_mappings.each do |attr_name, path|
               attr_value = child_obj.send(attr_name)
-              # convert nested object to hash
-              attr_value = YAML.safe_load(attr_value.to_yaml)
+              attr_value = attr_value.to_yaml_hash if attr_value.is_a?(Lutaml::Model::Serialize)
 
               if path == :key
                 map_key = attr_value
