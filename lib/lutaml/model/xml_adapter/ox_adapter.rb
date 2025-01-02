@@ -77,7 +77,7 @@ module Lutaml
 
               if element_rule == xml_mapping.content_mapping
                 text = element.send(xml_mapping.content_mapping.to)
-                text = text[curr_index] if text.is_a?(Array)
+                text = text[curr_index] if text.respond_to?(:join)
 
                 next el.add_text(el, text, cdata: element_rule.cdata) if element.mixed?
 

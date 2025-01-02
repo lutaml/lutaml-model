@@ -90,7 +90,7 @@ module Lutaml
                     end
 
             hash[child.namespaced_name] = if hash[child.namespaced_name]
-                                            Lutaml::Model::Collection.new([hash[child.namespaced_name], value]).flatten
+                                            [hash[child.namespaced_name], value].flatten
                                           else
                                             value
                                           end
@@ -126,7 +126,7 @@ module Lutaml
         end
 
         def add_to_xml(xml, element, prefix, value, options = {})
-          if value.is_a?(Array)
+          if value.is_a?(Lutaml::Model::Collection)
             value.each do |item|
               add_to_xml(xml, element, prefix, item, options)
             end
@@ -249,7 +249,7 @@ module Lutaml
             )
           else
             text = content_rule.serialize(element)
-            text = text.join if text.is_a?(Array)
+            text = text.join if text.respond_to?(:join)
 
             xml.add_text(xml, text, cdata: content_rule.cdata)
           end

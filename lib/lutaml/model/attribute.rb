@@ -56,7 +56,8 @@ module Lutaml
       end
 
       def cast_value(value)
-        return type.cast(value) unless value.is_a?(Array)
+        return collection_class.new(value) if value.is_a?(Array)
+        return type.cast(value) unless value.is_a?(Lutaml::Model::Collection)
 
         value.map { |v| type.cast(v) }
       end
@@ -74,7 +75,7 @@ module Lutaml
       end
 
       def collection_class
-        options[:collection_class] || Collection
+        options[:collection_class] || Lutaml::Model::Collection
       end
 
       def raw?
@@ -183,7 +184,7 @@ module Lutaml
         # Allow any value for unbounded collections
         return true if options[:collection] == true
 
-        unless value.is_a?(Array)
+        unless value.is_a?(Lutaml::Model::Collection)
           raise Lutaml::Model::CollectionCountOutOfRangeError.new(
             name,
             value,
@@ -212,10 +213,10 @@ module Lutaml
       end
 
       def serialize(value, format, options = {})
-        if value.is_a?(Array)
+        if value.is_a?(Lutaml::Model::Collection)
           value.map do |v|
             serialize(v, format, options)
-          end
+          end.to_a
         elsif type <= Serialize
           type.public_send(:"as_#{format}", value, options)
         else
@@ -228,7 +229,7 @@ module Lutaml
       def cast(value, format, options = {})
         value ||= collection_class.new if collection?
 
-        if value.is_a?(Array)
+        if value.is_a?(Array) || value.is_a?(Lutaml::Model::Collection)
           value.map do |v|
             cast(v, format, options)
           end
