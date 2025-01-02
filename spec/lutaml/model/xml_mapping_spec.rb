@@ -379,6 +379,15 @@ RSpec.describe Lutaml::Model::XmlMapping do
             "ApplicationSchema",
             "ApplicationSchema",
           ],
+          Lutaml::Model::XmlAdapter::OgaAdapter => [
+            "text",
+            "ApplicationSchema",
+            "text",
+            "ApplicationSchema",
+            "text",
+            "ApplicationSchema",
+            "text",
+          ]
         }
       end
 
@@ -1032,12 +1041,7 @@ RSpec.describe Lutaml::Model::XmlMapping do
         end
 
         it "round-trips xml" do
-          expected_xml = if adapter_class == Lutaml::Model::XmlAdapter::NokogiriAdapter
-                           expected_nokogiri_xml
-                         else
-                           expected_ox_xml
-                         end
-
+          expected_xml = adapter_class.type == "ox" ? expected_ox_xml : expected_nokogiri_xml
           expect(XmlMapping::SpecialCharContentWithMapAll.from_xml(xml).to_xml).to eq(expected_xml)
         end
       end

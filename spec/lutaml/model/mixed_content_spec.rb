@@ -638,12 +638,13 @@ RSpec.describe "MixedContent" do
 
       describe ".to_xml" do
         let(:expected_xml) { "<TextualSupport>\n  <value>&lt;computer security&gt; type of operation specified by an access right</value>\n</TextualSupport>" }
+        let(:expected_oga_xml) { "<TextualSupport><value>&lt;computer security&gt; type of operation specified by an access right</value></TextualSupport>" }
 
         it "serializes special char mixed content correctly" do
           parsed = MixedContentSpec::TextualSupport.from_xml(xml)
           serialized = parsed.to_xml
-
-          expect(serialized.strip).to include(expected_xml)
+          expected = adapter_class.type == "oga" ? expected_oga_xml : expected_xml
+          expect(serialized.strip).to include(expected)
         end
       end
     end
@@ -739,8 +740,8 @@ RSpec.describe "MixedContent" do
           it "serializes SHIFT-JIS encoding content correctly reading from file" do
             parsed = MixedContentSpec::Shift.from_xml(fixture, encoding: "Shift_JIS")
             serialized = parsed.to_xml
-
-            expect(serialized.strip).to eq(fixture.strip)
+            expected = adapter_class.type == "oga" ? fixture.gsub(/\s+/, '') : fixture.strip
+            expect(serialized.strip).to eq(expected)
           end
 
           it "serializes SHIFT encoded content correctly with explicit encoding option both in parsing and deserializing" do
@@ -795,7 +796,7 @@ RSpec.describe "MixedContent" do
                                elsif adapter_class == Lutaml::Model::XmlAdapter::OxAdapter
                                  "<root>\n  <FieldName>\x8E菑\x82\xAB\x89p\x8E\x9A\x82P</FieldName>\n  <FieldName>123456</FieldName>\n</root>\n"
                                else
-                                 "<root>\n  <FieldName>手書き英字１</FieldName>\n  <FieldName>123456</FieldName>\n</root>".encode("Shift_JIS")
+                                 "<root><FieldName>手書き英字１</FieldName><FieldName>123456</FieldName></root>".encode("Shift_JIS")
                                end
             expect(serialized).to eq(expected_content)
           end
@@ -858,8 +859,12 @@ RSpec.describe "MixedContent" do
           it "serializes latin encoded content correctly" do
             parsed = MixedContentSpec::Latin.from_xml(fixture, encoding: "ISO-8859-1")
             serialized = parsed.to_xml
-
-            expect(serialized.strip).to eq("<note>\n  <to>Jos\xE9</to>\n  <from>M\xFCller</from>\n  <heading>Reminder</heading>\n</note>".force_encoding("ISO-8859-1"))
+            expected_xml = if adapter_class == Lutaml::Model::XmlAdapter::OgaAdapter
+                             "<note><to>Jos\xE9</to><from>M\xFCller</from><heading>Reminder</heading></note>"
+                           else
+                             "<note>\n  <to>Jos\xE9</to>\n  <from>M\xFCller</from>\n  <heading>Reminder</heading>\n</note>"
+                           end
+            expect(serialized.strip).to eq(expected_xml.force_encoding("ISO-8859-1"))
           end
         end
       end

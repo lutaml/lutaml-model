@@ -33,7 +33,7 @@ module Lutaml
               build_element(builder, @root, options)
             end
           end
-          builder.document.children.last.children << ::Oga::XML::Text.new(text: "\n")
+          builder.document.children.last.children << ::Oga::XML::Text.new(text: "\n") if options[:pretty]
           xml_data = builder.to_xml.encode!(builder_options[:encoding])
           options[:declaration] ? declaration(builder_options) + xml_data : xml_data
         end

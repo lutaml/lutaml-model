@@ -42,6 +42,10 @@ module Lutaml
             builder
           end
 
+          def inner_xml
+            children.map(&:to_xml).join
+          end
+
           private
 
           def node_attributes(node)

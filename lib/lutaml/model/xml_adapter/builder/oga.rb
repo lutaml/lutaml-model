@@ -6,7 +6,10 @@ module Lutaml
       module Builder
         class Oga
           def self.build(options = {})
-            options[:indent_string] = ""
+            if options[:pretty]
+              options[:indent_text] = ""
+              options[:indent] = options[:indent] || 2
+            end
             if block_given?
               XmlAdapter::Builder::Oga.new(options) do |xml|
                 yield(xml)
@@ -43,20 +46,19 @@ module Lutaml
             oga_element = ::Oga::XML::Element.new(name: name)
             element_attributes(oga_element, attributes)
             # Add newline only if the @current_node is an oga element
-            text("\n#{options[:indent_string]}") if @current_node.is_a?(::Oga::XML::Element)
+            indentation(type: :new_line)
             @current_node.children << oga_element
             # Save previous node to reset the pointer for the rest of the iteration
             previous_node = @current_node
             # Set current node to new element as pointer for the block
             @current_node = oga_element
             # Increase indent for the next element
-            indent = options[:indent_string]
-            options[:indent_string] = "  " + indent
+            indentation(type: :increase)
             yield(self) if block_given?
             # Reset the pointer for the rest of the iterations
             @current_node = previous_node
             # Reset indent for this iteration
-            options[:indent_string] = indent
+            indentation(type: :decrease)
             oga_element
           end
 
@@ -93,7 +95,14 @@ module Lutaml
           end
 
           def add_xml_fragment(element, content)
-            element.raw(content)
+            fragment = "<fragment>#{content}</fragment>"
+            parsed_fragment = ::Oga.parse_xml(fragment)
+            parsed_children = parsed_fragment.children.first.children
+            if element.is_a?(XmlAdapter::Oga::Document)
+              element.children.last.children += parsed_children
+            else
+              element.children += parsed_children
+            end
           end
 
           def add_text(element, text, cdata: false)
@@ -137,6 +146,20 @@ module Lutaml
           end
 
           private
+
+          def indentation(type: nil)
+            return unless options[:pretty] && type
+
+            case type
+            when :increase
+              @indent = options[:indent_text]
+              options[:indent_text] = (" " * options[:indent]) + options[:indent_text]
+            when :decrease
+              options[:indent_text] = @indent
+            when :new_line
+              text("\n#{options[:indent_text]}") if @current_node.is_a?(::Oga::XML::Element)
+            end
+          end
 
           def element_attributes(oga_element, attributes)
             oga_element.attributes = attributes.map do |name, value|
