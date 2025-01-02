@@ -62,8 +62,7 @@ module Lutaml
       end
 
       def validate_mappings(name)
-        if (name == "root_mapping" && @mappings.any?) ||
-            (name != "root_mapping" && @mappings.any?(&:root_mapping?))
+        if @mappings.any?(&:root_mapping?) || (name == "root_mapping" && @mappings.any?)
           raise MultipleMappingsError.new("Can't define map with root_mappings")
         end
       end
