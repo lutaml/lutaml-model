@@ -2372,17 +2372,17 @@ The output becomes:
   ])
 > new_collection.to_yaml
 >
-#---
-#vase1:
-#  type: vase
-#  details:
-#    name: Imperial Vase
-#    insignia: Tang Tianbao
-#bowl2:
-#  type: bowl
-#  details:
-#    name: 18th Century Bowl
-#    insignia: Ming Wanli
+# ---
+# vase1:
+#   type: vase
+#   details:
+#     name: Imperial Vase
+#     insignia: Tang Tianbao
+# bowl2:
+#   type: bowl
+#   details:
+#     name: 18th Century Bowl
+#     insignia: Ming Wanli
 ----
 ====
 
