@@ -60,7 +60,7 @@ RSpec.describe RenderNil do
       clay_type: nil,
       glaze: nil,
       dimensions: nil,
-      render_nil_nested: RenderNilNested.new
+      render_nil_nested: RenderNilNested.new,
     }
   end
 
