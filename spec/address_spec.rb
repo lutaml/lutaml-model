@@ -100,6 +100,7 @@ RSpec.describe Address do
     expect(address_from_json.post_code).to eq("01001")
     expect(address_from_json.person.first.first_name).to eq("Tom")
     expect(address_from_json.person.last.first_name).to eq("Jack")
+    expect(address_from_json.person.last.active).to be(false)
   end
 
   it "serializes to XML with a collection of persons" do
