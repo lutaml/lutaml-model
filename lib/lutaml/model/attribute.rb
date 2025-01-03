@@ -169,7 +169,9 @@ module Lutaml
         end
       end
 
-      def valid_collection!(value)
+      def valid_collection!(value, caller = nil)
+        raise Lutaml::Model::CollectionTrueMissingError.new(name, caller) if value.is_a?(Array) && !collection?
+
         return true unless collection?
 
         # Allow nil values for collections during initialization
