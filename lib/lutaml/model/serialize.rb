@@ -294,32 +294,6 @@ module Lutaml
           mappings[format] || default_mappings(format)
         end
 
-        def attr_value(attrs, name, attr_rule)
-          value = if attrs.key?(name.to_sym)
-                    attrs[name.to_sym]
-                  elsif attrs.key?(name.to_s)
-                    attrs[name.to_s]
-                  else
-                    attr_rule.default
-                  end
-
-          if attr_rule.collection? || value.is_a?(Array)
-            (value || []).map do |v|
-              if v.is_a?(Hash)
-                attr_rule.type.new(v)
-              else
-                # TODO: This code is problematic because Type.cast does not know
-                # about all the types.
-                Lutaml::Model::Type.cast(v, attr_rule.type)
-              end
-            end
-          else
-            # TODO: This code is problematic because Type.cast does not know
-            # about all the types.
-            Lutaml::Model::Type.cast(value, attr_rule.type)
-          end
-        end
-
         def default_mappings(format)
           klass = format == :xml ? XmlMapping : KeyValueMapping
 
@@ -475,9 +449,12 @@ module Lutaml
 
             attr = attribute_for_rule(rule)
 
-            value = if doc.key?(rule.name.to_s) || doc.key?(rule.name.to_sym)
+            value = if doc.key?(rule.name.to_s)
                       element_found_for[rule.id] = true
-                      doc[rule.name.to_s] || doc[rule.name.to_sym]
+                      doc[rule.name.to_s]
+                    elsif doc.key?(rule.name.to_sym)
+                      element_found_for[rule.id] = true
+                      doc[rule.name.to_sym]
                     else
                       attr&.default
                     end
@@ -577,7 +554,7 @@ module Lutaml
 
         self.class.attributes.each do |name, attr|
           value = if attrs.key?(name) || attrs.key?(name.to_s)
-                    self.class.attr_value(attrs, name, attr)
+                    attr_value(attrs, name, attr)
                   else
                     using_default_for(name)
                     attr.default
@@ -591,6 +568,32 @@ module Lutaml
           default = using_default?(name)
           public_send(:"#{name}=", self.class.ensure_utf8(value))
           using_default_for(name) if default
+        end
+      end
+
+      def attr_value(attrs, name, attr_rule)
+        value = if attrs.key?(name.to_sym)
+                  attrs[name.to_sym]
+                elsif attrs.key?(name.to_s)
+                  attrs[name.to_s]
+                else
+                  attr_rule.default
+                end
+
+        if attr_rule.collection? || value.is_a?(Array)
+          (value || []).map do |v|
+            if v.is_a?(Hash)
+              attr_rule.type.new(v)
+            else
+              # TODO: This code is problematic because Type.cast does not know
+              # about all the types.
+              Lutaml::Model::Type.cast(v, attr_rule.type)
+            end
+          end
+        else
+          # TODO: This code is problematic because Type.cast does not know
+          # about all the types.
+          Lutaml::Model::Type.cast(value, attr_rule.type)
         end
       end
 
