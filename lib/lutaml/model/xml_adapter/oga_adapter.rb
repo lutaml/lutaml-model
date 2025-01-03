@@ -33,9 +33,10 @@ module Lutaml
               build_element(builder, @root, options)
             end
           end
-          builder.document.children.last.children << ::Oga::XML::Text.new(text: "\n") if options[:pretty]
           xml_data = builder.to_xml.encode!(builder_options[:encoding])
-          options[:declaration] ? declaration(builder_options) + xml_data : xml_data
+          options[:declaration] ? declaration(options) + xml_data : xml_data
+        rescue Encoding::ConverterNotFoundError
+          invalid_encoding!(builder_options[:encoding])
         end
 
         private
@@ -67,7 +68,7 @@ module Lutaml
               next if element_rule == xml_mapping.content_mapping && element_rule.cdata && name == "text"
 
               if element_rule == xml_mapping.content_mapping
-                text = element.send(xml_mapping.content_mapping.to)
+                text = xml_mapping.content_mapping.serialize(element)
                 text = text[curr_index] if text.is_a?(Array)
 
                 next el.add_text(el, text, cdata: element_rule.cdata) if element.mixed?
@@ -84,6 +85,7 @@ module Lutaml
                   options.merge(
                     attribute: attribute_def,
                     rule: element_rule,
+                    mapper_class: mapper_class,
                   ),
                 )
               end
@@ -91,6 +93,10 @@ module Lutaml
 
             el.add_text(el, content.join)
           end
+        end
+
+        def invalid_encoding!(encoding)
+          raise Error, "unknown encoding name - #{encoding}"
         end
       end
     end

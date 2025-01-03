@@ -325,7 +325,7 @@ RSpec.describe Lutaml::Model::XmlMapping do
     end
 
     # Skipping for OX because it does not handle namespaces
-    context "overriding child namespace prefix", skip: adapter_class != Lutaml::Model::XmlAdapter::NokogiriAdapter do
+    context "overriding child namespace prefix", skip: adapter_class == Lutaml::Model::XmlAdapter::OxAdapter do
       let(:input_xml) do
         <<~XML
           <OverrideDefaultNamespacePrefix
@@ -342,9 +342,20 @@ RSpec.describe Lutaml::Model::XmlMapping do
         XML
       end
 
+      let(:oga_expected_xml) do
+        '<OverrideDefaultNamespacePrefix xmlns:abc="http://www.omg.org/spec/XMI/20131001">' +
+          '<abc:SameElementName App="hello" xmlns:GML="http://www.sparxsystems.com/profiles/GML/1.0" xmlns:CityGML="http://www.sparxsystems.com/profiles/CityGML/1.0">' +
+            '<GML:ApplicationSchema>GML App</GML:ApplicationSchema>' +
+            '<CityGML:ApplicationSchema>CityGML App</CityGML:ApplicationSchema>' +
+            '<abc:ApplicationSchema>App</abc:ApplicationSchema>' +
+          '</abc:SameElementName>' +
+        '</OverrideDefaultNamespacePrefix>'
+      end
+
       it "expect to round-trips" do
         parsed = XmlMapping::OverrideDefaultNamespacePrefix.from_xml(input_xml)
-        expect(parsed.to_xml).to be_equivalent_to(input_xml)
+        expected_xml = adapter_class.type == "oga" ? oga_expected_xml : input_xml
+        expect(parsed.to_xml).to be_equivalent_to(expected_xml)
       end
     end
 

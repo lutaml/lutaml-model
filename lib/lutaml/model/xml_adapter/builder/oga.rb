@@ -5,15 +5,9 @@ module Lutaml
     module XmlAdapter
       module Builder
         class Oga
-          def self.build(options = {})
-            if options[:pretty]
-              options[:indent_text] = ""
-              options[:indent] = options[:indent] || 2
-            end
+          def self.build(options = {}, &block)
             if block_given?
-              XmlAdapter::Builder::Oga.new(options) do |xml|
-                yield(xml)
-              end
+              XmlAdapter::Builder::Oga.new(options, &block)
             else
               XmlAdapter::Builder::Oga.new(options)
             end
@@ -28,15 +22,13 @@ module Lutaml
             yield(self) if block_given?
           end
 
-          def create_element(name, attributes = {})
+          def create_element(name, attributes = {}, &block)
             if @current_namespace && !name.start_with?("#{@current_namespace}:")
               name = "#{@current_namespace}:#{name}"
             end
 
             if block_given?
-              element(name, attributes) do |element|
-                yield(element)
-              end
+              element(name, attributes, &block)
             else
               element(name, attributes)
             end
@@ -44,33 +36,50 @@ module Lutaml
 
           def element(name, attributes = {}, &block)
             oga_element = ::Oga::XML::Element.new(name: name)
-            element_attributes(oga_element, attributes)
-            # Add newline only if the @current_node is an oga element
-            indentation(type: :new_line)
-            @current_node.children << oga_element
-            # Save previous node to reset the pointer for the rest of the iteration
-            previous_node = @current_node
-            # Set current node to new element as pointer for the block
-            @current_node = oga_element
-            # Increase indent for the next element
-            indentation(type: :increase)
-            yield(self) if block_given?
-            # Reset the pointer for the rest of the iterations
-            @current_node = previous_node
-            # Reset indent for this iteration
-            indentation(type: :decrease)
+            if block_given?
+              element_attributes(oga_element, attributes)
+              @current_node.children << oga_element
+              # Save previous node to reset the pointer for the rest of the iteration
+              previous_node = @current_node
+              # Set current node to new element as pointer for the block
+              @current_node = oga_element
+              yield(self)
+              # Reset the pointer for the rest of the iterations
+              @current_node = previous_node
+            end
             oga_element
           end
 
-          def add_element(element, child)
-            element << child
+          def add_element(oga_element, child)
+            if child.is_a?(String)
+              current_element = oga_element.is_a?(XmlAdapter::Oga::Document) ? current_node : oga_element
+              add_xml_fragment(current_element, child)
+            elsif oga_element.is_a?(XmlAdapter::Oga::Document)
+              oga_element.children.last.children << child
+            else
+              oga_element.children << child
+            end
           end
 
           def add_attribute(element, name, value)
-            element[name] = value
+            attribute = ::Oga::XML::Attribute.new(
+              name: name,
+              value: value.to_s,
+            )
+            if element.is_a?(XmlAdapter::Oga::Document)
+              element.children.last.attributes << attribute
+            else
+              element.attributes << attribute
+            end
           end
 
-          def create_and_add_element(element_name, prefix: nil, attributes: {})
+          def create_and_add_element(
+            element_name,
+            prefix: (prefix_unset = true
+                     nil),
+            attributes: {}
+          )
+            @current_namespace = nil if prefix.nil? && !prefix_unset
             prefixed_name = if prefix
                               "#{prefix}:#{element_name}"
                             elsif @current_namespace && !element_name.start_with?("#{@current_namespace}:")
@@ -86,8 +95,6 @@ module Lutaml
             else
               element(prefixed_name, attributes)
             end
-
-            @current_namespace = nil
           end
 
           def <<(text)
@@ -108,11 +115,22 @@ module Lutaml
           def add_text(element, text, cdata: false)
             return add_cdata(element, text) if cdata
 
-            element.children << ::Oga::XML::Text.new(text: text.to_s)
+            oga_text = ::Oga::XML::Text.new(text: text.to_s)
+            if element.is_a?(XmlAdapter::Oga::Document)
+              children = element.children
+              children.empty? ? children << oga_text : children.last.children << oga_text
+            else
+              element.children << oga_text
+            end
           end
 
           def add_cdata(element, value)
-            element.children << ::Oga::XML::CData.new(text: value.to_s)
+            oga_cdata = ::Oga::XML::CData.new(text: value.to_s)
+            if element.is_a?(XmlAdapter::Oga::Document)
+              element.children.last.children << oga_cdata
+            else
+              element.children << oga_cdata
+            end
           end
 
           def add_namespace_prefix(prefix)
@@ -146,20 +164,6 @@ module Lutaml
           end
 
           private
-
-          def indentation(type: nil)
-            return unless options[:pretty] && type
-
-            case type
-            when :increase
-              @indent = options[:indent_text]
-              options[:indent_text] = (" " * options[:indent]) + options[:indent_text]
-            when :decrease
-              options[:indent_text] = @indent
-            when :new_line
-              text("\n#{options[:indent_text]}") if @current_node.is_a?(::Oga::XML::Element)
-            end
-          end
 
           def element_attributes(oga_element, attributes)
             oga_element.attributes = attributes.map do |name, value|

@@ -6,16 +6,24 @@ module Lutaml
       module Oga
         class Element < XmlElement
           def initialize(node, parent: nil)
-            name = if node.is_a?(::Oga::XML::Element)
+            name = case node
+                   when ::Oga::XML::Element
                      namespace_name = node.namespace_name
                      add_namespaces(node)
+                     children = parse_children(node)
+                     attributes = node_attributes(node)
                      node.name
-                   elsif node.is_a?(::Oga::XML::Text)
+                   when ::Oga::XML::Text
                      "text"
                    end
-            attributes = node.is_a?(::Oga::XML::Element) ? node_attributes(node) : {}
-            children = node.is_a?(::Oga::XML::Element) ? parse_children(node) : []
-            super(name, attributes, children, node.text, parent_document: parent, namespace_prefix: namespace_name)
+            super(
+              name,
+              attributes,
+              Array(children),
+              node.text,
+              parent_document: parent,
+              namespace_prefix: namespace_name,
+            )
           end
 
           def text?
