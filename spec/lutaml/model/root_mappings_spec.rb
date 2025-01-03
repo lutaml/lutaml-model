@@ -33,10 +33,10 @@ module RootMapping
   end
 
   class UnitsDb < Lutaml::Model::Serializable
-    attribute :root_unit, Unit
+    attribute :root_unit, Unit, collection: true
 
     key_value do
-      map_root to: :root_unit, root_mappings: { id: :key, root_unit: :root_units }
+      map to: :root_unit, root_mappings: { id: :key, root_unit: :root_units }
     end
   end
 
@@ -51,10 +51,10 @@ module RootMapping
   end
 
   class RootMappingWithoutNesting < Lutaml::Model::Serializable
-    attribute :person, Person
+    attribute :person, Person, collection: true
 
     key_value do
-      map_root to: :person, root_mappings: { id: :key, email: :value }
+      map to: :person, root_mappings: { id: :key, email: :value }
     end
   end
 
@@ -69,10 +69,18 @@ module RootMapping
   end
 
   class RootMappingWithoutClasses < Lutaml::Model::Serializable
-    attribute :path, Path
+    attribute :path, Path, collection: true
 
     key_value do
-      map_root to: :path, root_mappings: { id: :key, path: %w[root_units enumerated_root_units] }
+      map to: :path, root_mappings: { id: :key, path: %w[root_units enumerated_root_units] }
+    end
+  end
+
+  class CollectionTrueMissing < Lutaml::Model::Serializable
+    attribute :check, :string
+
+    key_value do
+      map to: :check, root_mappings: { id: :key, check: :check }
     end
   end
 end
@@ -126,6 +134,17 @@ RSpec.describe RootMapping do
         "root_units" => {
           "enumerated_root_units" => "inches",
         },
+      },
+    }
+  end
+
+  let(:hash_with_multiple_values) do
+    {
+      "u1" => {
+        "check" => "meter",
+      },
+      "u2" => {
+        "check" => "inches",
       },
     }
   end
@@ -252,7 +271,7 @@ RSpec.describe RootMapping do
     end
   end
 
-  context "when map_root are defined with map" do
+  context "when root_mappings are defined with other mappings" do
     it "raises error" do
       expect do
         Class.new(Lutaml::Model::Serializable) do
@@ -261,12 +280,12 @@ RSpec.describe RootMapping do
           attribute :unit, :string
 
           key_value do
-            map_root to: :unit, root_mappings: { id: :key, unit: :value }
+            map to: :unit, root_mappings: { id: :key, unit: :value }
             map :name, to: :name
             map :id, to: :id
           end
         end
-      end.to raise_error(Lutaml::Model::MultipleMappingsError, "Can't define map with map_root")
+      end.to raise_error(Lutaml::Model::MultipleMappingsError, "root_mappings cannot be used with other mappings")
     end
 
     it "raises error with different order" do
@@ -279,10 +298,14 @@ RSpec.describe RootMapping do
           key_value do
             map :name, to: :name
             map :id, to: :id
-            map_root to: :unit, root_mappings: { id: :key, unit: :value }
+            map to: :unit, root_mappings: { id: :key, unit: :value }
           end
         end
-      end.to raise_error(Lutaml::Model::MultipleMappingsError, "Can't define map with map_root")
+      end.to raise_error(Lutaml::Model::MultipleMappingsError, "root_mappings cannot be used with other mappings")
     end
+  end
+
+  it "raises error when collection true is missing" do
+    expect { RootMapping::CollectionTrueMissing.from_yaml(hash_with_multiple_values.to_yaml) }.to raise_error(Lutaml::Model::CollectionTrueMissingError, "May be `collection: true` is missing for `check` in RootMapping::CollectionTrueMissing")
   end
 end

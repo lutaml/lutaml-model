@@ -418,8 +418,7 @@ module Lutaml
           mappings = mappings_for(:xml).mappings
 
           if doc.is_a?(Array)
-            raise "May be `collection: true` is" \
-                  "missing for #{self} in #{options[:caller_class]}"
+            raise Lutaml::Model::CollectionTrueMissingError(self, option[:caller_class])
           end
 
           if instance.respond_to?(:ordered=) && doc.is_a?(Lutaml::Model::MappingHash)
@@ -473,7 +472,7 @@ module Lutaml
 
             attr = attribute_for_rule(rule)
 
-            value = if rule.root_mappings
+            value = if rule.root_mapping?
                       doc
                     elsif doc.key?(rule.name.to_s) || doc.key?(rule.name.to_sym)
                       doc[rule.name.to_s] || doc[rule.name.to_sym]
@@ -491,6 +490,7 @@ module Lutaml
 
             value = translate_mappings(value, rule.hash_mappings)
             value = attr.cast(value, format)
+            attr.valid_collection!(value, self)
 
             rule.deserialize(instance, value, attributes, self)
           end

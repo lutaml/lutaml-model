@@ -1983,7 +1983,7 @@ end
 NOTE: This feature is for key-value data model serialization and deserialization
 only.
 
-The `map_root` option is used for key-value data that is keyed using an
+The `map` with `root_mappings` option is used for key-value data that is keyed using an
 attribute value. In other words, the key of a key-value pair is actually the
 value of an attribute that belongs to the value.
 
@@ -2011,7 +2011,7 @@ bowl2:
 
 NOTE: The first data structure ensures uniqueness of the `id` attribute.
 
-The `map_root` feature in practice parses the first data structure in the same
+The `map` with `root_mappings` feature in practice parses the first data structure in the same
 way that you would access / manipulate the second data structure, while
 retaining the serialization semantics of using an attribute as key.
 
@@ -2023,7 +2023,7 @@ class SomeCollection < Lutaml::Model::Serializable
   attribute :holder_of_collection_data, CollectionObjectType, collection: true
 
   json | yaml | toml | key_value do
-    map_root to: :holder_of_collection_data, <1>
+    map to: :holder_of_collection_data, <1>
       root_mappings: { <2>
         key: :attribute_name_of_collection_object_type_for_key, <3>
         # `value` is Optional
@@ -2032,7 +2032,7 @@ class SomeCollection < Lutaml::Model::Serializable
   end
 end
 ----
-<1> The `map_root` option indicates that this class represents the root of the
+<1> The `map` option indicates that this class represents the root of the
 serialization object being passed in. (Mandatory)
 <2> The `root_mappings` keyword specifies what the collection key represents and
 and value for model. (Mandatory)
@@ -2043,7 +2043,7 @@ object type that represents its data used in the collection. (Optional, if
 not specified, the entire object is used as the value.)
 
 
-.Using the `map_root` option to map collection keys into individual models
+.Using the `map` with `root_mappings` option to map collection keys into individual models
 [example]
 ====
 Given this data:
@@ -2066,7 +2066,7 @@ class CeramicCollection < Lutaml::Model::Serializable
   attribute :ceramics, Ceramic, collection: true
 
   key_value do
-    map_root to: :ceramics, # All data goes to the `ceramics` attribute
+    map to: :ceramics, # All data goes to the `ceramics` attribute
       root_mappings: {
         # The key of an object in this collection is mapped to the ceramic_id
         # attribute of the Ceramic object.
@@ -2116,7 +2116,7 @@ end
 #   name: 18th Century Bowl
 
 # NOTE: When the collection is serialized, the `ceramic_id` attribute is used to
-# key the data. This is defined through the `map_root` method in
+# key the data. This is defined through the `map` with `root_mappings` method in
 # CeramicCollection.
 > new_collection = CeramicCollection.new(ceramics: [
     Ceramic.new(ceramic_id: "vase1", ceramic_name: "Imperial Vase"),
@@ -2134,7 +2134,7 @@ end
 
 
 
-.Using the `map_root` option to map collection keys and values into individual models
+.Using the `map` with `root_mappings` option to map collection keys and values into individual models
 [example]
 ====
 Given this data:
@@ -2159,7 +2159,7 @@ class CeramicCollection < Lutaml::Model::Serializable
   attribute :ceramics, Ceramic, collection: true
 
   key_value do
-    map_root to: :ceramics, # All data goes to the `ceramics` attribute
+    map to: :ceramics, # All data goes to the `ceramics` attribute
       root_mappings: {
         # The key of an object in this collection is mapped to the ceramic_id
         # attribute of the Ceramic object.
@@ -2239,7 +2239,7 @@ end
 #   insignia: Ming Wanli
 
 # NOTE: When the collection is serialized, the `ceramic_id` attribute is used to
-# key the data. This is defined through the `map_root` method in
+# key the data. This is defined through the `map` with `root_mappings` method in
 # CeramicCollection.
 > new_collection = CeramicCollection.new(ceramics: [
     Ceramic.new(ceramic_id: "vase1",
@@ -2264,7 +2264,7 @@ end
 ====
 
 
-.Using the `map_root` option to map collection keys with complex data into individual models
+.Using the `map` with `root_mappings` option to map collection keys with complex data into individual models
 [example]
 ====
 
@@ -2291,7 +2291,7 @@ class CeramicCollection < Lutaml::Model::Serializable
   attribute :ceramics, Ceramic, collection: true
 
   key_value do
-    map_root to: :ceramics, # All data goes to the `ceramics` attribute
+    map to: :ceramics, # All data goes to the `ceramics` attribute
       root_mappings: {
         # The key of an object in this collection is mapped to the ceramic_id
         # attribute of the Ceramic object.

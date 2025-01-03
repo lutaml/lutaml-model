@@ -3,51 +3,43 @@ require_relative "key_value_mapping_rule"
 module Lutaml
   module Model
     class KeyValueMapping
+      attr_reader :mappings
+
       def initialize
         @mappings = []
-        @root_mapping = nil
-      end
-
-      def mappings
-        @mappings + [@root_mapping].compact
       end
 
       def map(
-        name,
+        name = nil,
         to: nil,
         render_nil: false,
         render_default: false,
         with: {},
         delegate: nil,
-        child_mappings: nil
+        child_mappings: nil,
+        root_mappings: nil
       )
-        validate!(name, to, with)
+        cname = name_for_mapping(root_mappings, name)
+        validate!(cname, to, with)
 
         @mappings << KeyValueMappingRule.new(
-          name,
+          cname,
           to: to,
           render_nil: render_nil,
           render_default: render_default,
           with: with,
           delegate: delegate,
           child_mappings: child_mappings,
+          root_mappings: root_mappings,
         )
       end
 
       alias map_element map
 
-      def map_root(
-        to: nil,
-        root_mappings: {}
-      )
-        name = "root_mapping"
-        validate!(name, to, {})
+      def name_for_mapping(root_mappings, name)
+        return "root_mapping" if root_mappings
 
-        @root_mapping = KeyValueMappingRule.new(
-          name,
-          to: to,
-          root_mappings: root_mappings,
-        )
+        name
       end
 
       def validate!(key, to, with)
@@ -65,8 +57,8 @@ module Lutaml
       end
 
       def validate_mappings(name)
-        if @root_mapping || (name == "root_mapping" && @mappings.any?)
-          raise MultipleMappingsError.new("Can't define map with map_root")
+        if @mappings.any?(&:root_mapping?) || (name == "root_mapping" && @mappings.any?)
+          raise MultipleMappingsError.new("root_mappings cannot be used with other mappings")
         end
       end
 
