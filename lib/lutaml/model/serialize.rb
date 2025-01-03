@@ -269,15 +269,17 @@ module Lutaml
 
             value = instance.send(name)
 
-            next if Utils.blank?(value) && !rule.render_nil
-
             attribute = attributes[name]
 
-            hash[rule.from.to_s] = if rule.child_mappings
-                                     generate_hash_from_child_mappings(value, rule.child_mappings)
-                                   else
-                                     attribute.serialize(value, format, options)
-                                   end
+            value = if rule.child_mappings
+                      generate_hash_from_child_mappings(value, rule.child_mappings)
+                    else
+                      attribute.serialize(value, format, options)
+                    end
+
+            next if Utils.blank?(value) && !rule.render_nil
+
+            hash[rule.from.to_s] = value
           end
         end
 
