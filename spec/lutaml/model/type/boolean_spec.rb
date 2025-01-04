@@ -5,11 +5,13 @@ module BooleanSpec
     attribute :name, :string
     attribute :full_time, :boolean
     attribute :remote, :boolean
+    attribute :active, :boolean
 
     key_value do
       map "name", to: :name
       map "full_time", to: :full_time
-      map "remote", to: :remote
+      map "remote", to: :remote, render_nil: true
+      map "active", to: :active, render_nil: false
     end
   end
 end
@@ -68,12 +70,20 @@ RSpec.describe Lutaml::Model::Type::Boolean do
 
   context "with key-value serialization" do
     let(:yaml) do
-      <<~YAML
-        ---
-        name: John Smith
-        full_time: true
-        remote: false
-      YAML
+      {
+        "name" => "John Smith",
+        "full_time" => true,
+        "remote" => nil,
+        "active" => nil,
+      }.to_yaml
+    end
+
+    let(:expected_yaml) do
+      {
+        "name" => "John Smith",
+        "full_time" => true,
+        "remote" => nil,
+      }.to_yaml
     end
 
     it "deserializes boolean values correctly" do
@@ -81,18 +91,20 @@ RSpec.describe Lutaml::Model::Type::Boolean do
 
       expect(employee.name).to eq("John Smith")
       expect(employee.full_time).to be true
-      expect(employee.remote).to be false
+      expect(employee.remote).to be_nil
+      expect(employee.active).to be_nil
     end
 
     it "serializes boolean values correctly" do
       employee = BooleanSpec::Employee.new(
         name: "John Smith",
         full_time: true,
-        remote: false,
+        remote: nil,
+        active: nil,
       )
 
       yaml_output = employee.to_yaml
-      expect(yaml_output).to eq(yaml)
+      expect(yaml_output).to eq(expected_yaml)
     end
   end
 end
