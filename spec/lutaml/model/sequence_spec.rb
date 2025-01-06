@@ -1,27 +1,27 @@
 require "spec_helper"
 require "lutaml/model"
 
-module Sequence
-  class Person < Lutaml::Model::Serializable
+module SequenceSpec
+  class Ceramic < Lutaml::Model::Serializable
     attribute :test, :string
 
     sequence do
       attribute :name, :string
-      attribute :age, :integer
-      attribute :gender, :string
+      attribute :type, :string
+      attribute :color, :string
 
       sequence do
-        attribute :caste, :string
-        attribute :degree, :string
+        attribute :origin, :string
+        attribute :material, :string
 
         sequence do
-          attribute :routine, :string
+          attribute :pattern, :string
         end
       end
 
       sequence do
-        attribute :occupation, :string
-        attribute :vehicle, :string
+        attribute :usage, :string
+        attribute :size, :string
       end
     end
 
@@ -29,21 +29,21 @@ module Sequence
       choice do
         group do
           sequence do
-            attribute :type, :string
-            attribute :is_lazy, :boolean
+            attribute :style, :string
+            attribute :is_handmade, :boolean
           end
         end
 
-        attribute :status, :string
+        attribute :condition, :string
       end
 
       choice do
-        attribute :job_title, :string
-        attribute :work_experience, :integer
+        attribute :designer, :string
+        attribute :year_made, :integer
       end
 
-      attribute :dob, :string
-      attribute :view, :string
+      attribute :price, :string
+      attribute :location, :string
     end
   end
 
@@ -81,44 +81,44 @@ end
 
 RSpec.describe "Sequence" do
   context "with default mappings" do
-    let(:mapper) { Sequence::Person }
+    let(:mapper) { SequenceSpec::Ceramic }
 
     let(:xml) do
       <<~XML
-        <Person>
-          <name>Starc</name>
-          <age>35</age>
-          <gender>male</gender>
-          <caste>aussie</caste>
-          <degree>fitness</degree>
-          <routine>tough</routine>
-          <occupation>cricketer</occupation>
-          <vehicle>car</vehicle>
-          <status>active</status>
-          <job_title>ASE</job_title>
-          <dob>march</dob>
-          <view>desert</view>
-        </Person>
+        <Ceramic>
+          <name>Vase</name>
+          <type>Decorative</type>
+          <color>Blue</color>
+          <origin>China</origin>
+          <material>Porcelain</material>
+          <pattern>Floral</pattern>
+          <usage>Indoor</usage>
+          <size>Medium</size>
+          <condition>New</condition>
+          <designer>John Doe</designer>
+          <price>100</price>
+          <location>Gallery</location>
+        </Ceramic>
       XML
     end
 
     let(:xml_with_alternate_selection) do
       <<~XML
-        <Person>
-          <name>Starc</name>
-          <age>35</age>
-          <gender>male</gender>
-          <caste>aussie</caste>
-          <degree>fitness</degree>
-          <routine>tough</routine>
-          <occupation>cricketer</occupation>
-          <vehicle>car</vehicle>
-          <type>night</type>
-          <is_lazy>false</is_lazy>
-          <work_experience>4</work_experience>
-          <dob>march</dob>
-          <view>desert</view>
-        </Person>
+        <Ceramic>
+          <name>Vase</name>
+          <type>Decorative</type>
+          <color>Blue</color>
+          <origin>China</origin>
+          <material>Porcelain</material>
+          <pattern>Floral</pattern>
+          <usage>Indoor</usage>
+          <size>Medium</size>
+          <style>Modern</style>
+          <is_handmade>false</is_handmade>
+          <year_made>2020</year_made>
+          <price>100</price>
+          <location>Gallery</location>
+        </Ceramic>
       XML
     end
 
@@ -148,19 +148,19 @@ RSpec.describe "Sequence" do
 
     it "raises error, if given attributes order is incorrect in sequence" do
       xml = <<~XML
-        <Person>
-          <name>Starc</name>
-          <gender>male</gender>
-          <age>35</age>
-          <degree>fitness</degree>
-          <caste>aussie</caste>
-          <routine>tough</routine>
-          <vehicle>car</vehicle>
-          <occupation>cricketer</occupation>
-          <status>active</status>
-          <view>desert</view>
-          <dob>march</dob>
-        </Person>
+        <Ceramic>
+          <name>Vase</name>
+          <color>Blue</color>
+          <type>Decorative</type>
+          <material>Porcelain</material>
+          <origin>China</origin>
+          <pattern>Floral</pattern>
+          <size>Medium</size>
+          <usage>Indoor</usage>
+          <condition>New</condition>
+          <location>Gallery</location>
+          <price>100</price>
+        </Ceramic>
       XML
 
       parsed = mapper.from_xml(xml)
@@ -171,14 +171,14 @@ RSpec.describe "Sequence" do
 
     it "raises error, if not all attributes of the sequence specified" do
       xml = <<~XML
-        <Person>
-          <age>35</age>
-          <degree>fitness</degree>
-          <caste>aussie</caste>
-          <occupation>cricketer</occupation>
-          <status>active</status>
-          <view>desert</view>
-        </Person>
+        <Ceramic>
+          <type>Decorative</type>
+          <material>Porcelain</material>
+          <origin>China</origin>
+          <usage>Indoor</usage>
+          <condition>New</condition>
+          <location>Gallery</location>
+        </Ceramic>
       XML
 
       parsed = mapper.from_xml(xml)
@@ -189,7 +189,7 @@ RSpec.describe "Sequence" do
   end
 
   context "with explicit element mappings" do
-    let(:mapper) { Sequence::SequenceWithExplicitMapping }
+    let(:mapper) { SequenceSpec::SequenceWithExplicitMapping }
 
     it "returns an empty array for a valid instance" do
       xml = <<~XML
@@ -221,7 +221,7 @@ RSpec.describe "Sequence" do
   end
 
   context "with xml attribute" do
-    let(:mapper) { Sequence::SequenceWithXmlAttribute }
+    let(:mapper) { SequenceSpec::SequenceWithXmlAttribute }
 
     it "raises error, if xml attribute is given in sequence" do
       xml = <<~XML
