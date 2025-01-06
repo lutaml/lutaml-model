@@ -75,14 +75,23 @@ module Lutaml
       end
 
       def prefixed_name
+        rule_name = multiple_mappings? ? name.first : name
         if prefix
-          "#{prefix}:#{name}"
+          "#{prefix}:#{rule_name}"
         else
-          name
+          rule_name
         end
       end
 
-      def namespaced_name(parent_namespace = nil)
+      def namespaced_names(parent_namespace = nil)
+        if multiple_mappings?
+          name.map { |rule_name| namespaced_name(parent_namespace, rule_name) }
+        else
+          [namespaced_name(parent_namespace)]
+        end
+      end
+
+      def namespaced_name(parent_namespace = nil, name = self.name)
         if name == "lang"
           "#{prefix}:#{name}"
         elsif namespace_set? || @attribute
