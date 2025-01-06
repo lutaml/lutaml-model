@@ -450,16 +450,17 @@ module Lutaml
 
             attr = attribute_for_rule(rule)
 
-            value = if rule.multiple_mappings?
-                      key = rule.name.find { |rule_name| doc.key?(rule_name.to_s) || doc.key?(rule_name.to_sym) }
-                      doc[key] || attr&.default
-                    elsif doc.key?(rule.name.to_s)
-                      doc[rule.name.to_s]
-                    elsif doc.key?(rule.name.to_sym)
-                      doc[rule.name.to_sym]
-                    else
-                      attr&.default
-                    end
+            names = rule.multiple_mappings? ? rule.name : [rule.name]
+
+            value = names.collect do |rule_name|
+              if doc.key?(rule_name.to_s)
+                doc[rule_name.to_s]
+              elsif doc.key?(rule_name.to_sym)
+                doc[rule_name.to_sym]
+              else
+                attr&.default
+              end
+            end.compact.first
 
             if rule.using_custom_methods?
               if Utils.present?(value)
