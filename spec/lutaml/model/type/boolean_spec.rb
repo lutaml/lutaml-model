@@ -4,12 +4,14 @@ module BooleanSpec
   class Employee < Lutaml::Model::Serializable
     attribute :name, :string
     attribute :full_time, :boolean
+    attribute :on_leave, :boolean
     attribute :remote, :boolean
     attribute :active, :boolean
 
     key_value do
       map "name", to: :name
       map "full_time", to: :full_time
+      map "on_leave", to: :on_leave
       map "remote", to: :remote, render_nil: true
       map "active", to: :active, render_nil: false
     end
@@ -73,6 +75,7 @@ RSpec.describe Lutaml::Model::Type::Boolean do
       {
         "name" => "John Smith",
         "full_time" => true,
+        "on_leave" => false,
         "remote" => nil,
         "active" => nil,
       }.to_yaml
@@ -82,6 +85,7 @@ RSpec.describe Lutaml::Model::Type::Boolean do
       {
         "name" => "John Smith",
         "full_time" => true,
+        "on_leave" => false,
         "remote" => nil,
       }.to_yaml
     end
@@ -91,6 +95,7 @@ RSpec.describe Lutaml::Model::Type::Boolean do
 
       expect(employee.name).to eq("John Smith")
       expect(employee.full_time).to be true
+      expect(employee.on_leave).to be false
       expect(employee.remote).to be_nil
       expect(employee.active).to be_nil
     end
@@ -99,6 +104,7 @@ RSpec.describe Lutaml::Model::Type::Boolean do
       employee = BooleanSpec::Employee.new(
         name: "John Smith",
         full_time: true,
+        on_leave: false,
         remote: nil,
         active: nil,
       )
