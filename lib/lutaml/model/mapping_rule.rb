@@ -7,8 +7,7 @@ module Lutaml
                   :render_default,
                   :attribute,
                   :custom_methods,
-                  :delegate,
-                  :id
+                  :delegate
 
       def initialize(
         name,
@@ -75,6 +74,10 @@ module Lutaml
 
       def using_custom_methods?
         !custom_methods.empty?
+      end
+
+      def multiple_mappings?
+        name.is_a?(Array)
       end
 
       def deep_dup
