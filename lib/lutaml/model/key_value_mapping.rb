@@ -5,6 +5,8 @@ module Lutaml
     class KeyValueMapping
       attr_reader :mappings
 
+      @@map_counter = 0
+
       def initialize
         @mappings = []
       end
@@ -20,10 +22,11 @@ module Lutaml
         id: nil
       )
         validate!(name, to, with)
-        uniq_id = SecureRandom.hex(8)
+        @@map_counter += 1
+        current_id = id || @@map_counter
         if name.is_a?(Array)
           name.each do |key|
-            map(key, to: to, render_nil: render_nil, render_default: render_default, with: with, delegate: delegate, child_mappings: child_mappings, id: uniq_id)
+            map(key, to: to, render_nil: render_nil, render_default: render_default, with: with, delegate: delegate, child_mappings: child_mappings, id: current_id)
           end
           return
         end
@@ -35,7 +38,7 @@ module Lutaml
           with: with,
           delegate: delegate,
           child_mappings: child_mappings,
-          id: id || uniq_id,
+          id: current_id,
         )
       end
 
