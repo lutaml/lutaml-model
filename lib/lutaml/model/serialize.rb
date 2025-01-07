@@ -386,6 +386,7 @@ module Lutaml
         end
 
         def apply_xml_mapping(doc, instance, options = {})
+          options = Utils.deep_dup(options)
           instance.encoding = options[:encoding]
           return instance unless doc
 

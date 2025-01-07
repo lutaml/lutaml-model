@@ -86,6 +86,43 @@ RSpec.shared_context "XML namespace models" do
                                                   prefix: nil
     end
   end
+
+  class Body < Lutaml::Model::Serializable
+    attribute :paragraph, :string
+
+    xml do
+      map_element "p", to: :paragraph
+    end
+  end
+
+  class Element < Lutaml::Model::Serializable
+    attribute :text, :string
+    xml do
+      root "test-element"
+      namespace "http://www.test.com/schemas/test/1.0/", "test"
+      map_content to: :text
+    end
+  end
+
+  class Front < Lutaml::Model::Serializable
+    attribute :test_element, Element
+
+    xml do
+      namespace "http://www.test.com/schemas/test/1.0/", "test"
+      map_element "test-element", to: :test_element
+    end
+  end
+
+  class Article < Lutaml::Model::Serializable
+    attribute :front, Front
+    attribute :body, Body
+
+    xml do
+      root "article"
+      map_element "front", to: :front, prefix: "test", namespace: "http://www.test.com/schemas/test/1.0/"
+      map_element "body", to: :body
+    end
+  end
 end
 
 RSpec.shared_examples "XML serialization with namespace" do |model_class, xml_string|
@@ -234,6 +271,35 @@ RSpec.shared_examples "an XML namespace parser" do |adapter_class|
       doc = NamespaceNilDefaultNamespaced.from_xml(xml)
       generated_xml = doc.to_xml
       expect(generated_xml).to be_equivalent_to(xml)
+    end
+  end
+
+  context "when custom namespace is used" do
+    let(:xml_input) do
+      <<~XML
+        <article xmlns:test="http://www.test.com/schemas/test/1.0/">
+          <test:front>
+            <test:test-element>Text Here</test:test-element>
+          </test:front>
+          <body>
+            <p>This is a paragraph</p>
+          </body>
+        </article>
+      XML
+    end
+
+    describe "XML serialization" do
+      it "correctly deserializes from XML" do
+        article = Article.from_xml(xml_input)
+        expect(article.body.paragraph).to eq("This is a paragraph")
+      end
+
+      it "round-trips XML" do
+        article = Article.from_xml(xml_input)
+        output_xml = article.to_xml(pretty: true)
+
+        expect(output_xml).to be_equivalent_to(xml_input)
+      end
     end
   end
 end
