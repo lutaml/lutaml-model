@@ -89,7 +89,9 @@ module Lutaml
                             end
 
             if block_given?
-              yield(element(prefixed_name, attributes))
+              element(prefixed_name, attributes) do |element|
+                yield(element)
+              end
             else
               element(prefixed_name, attributes)
             end
