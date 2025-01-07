@@ -77,10 +77,10 @@ module RootMapping
   end
 
   class CollectionTrueMissing < Lutaml::Model::Serializable
-    attribute :check, :string
+    attribute :path, Path
 
     key_value do
-      map to: :check, root_mappings: { id: :key, check: :check }
+      map to: :path, root_mappings: { id: :key, path: %w[root_units enumerated_root_units] }
     end
   end
 
@@ -259,7 +259,7 @@ RSpec.describe RootMapping do
     end
 
     it "serializes instance having collection into yaml" do
-      expect(instance.to_yaml).to eq("---\nvase1:\nbowl2:\n")
+      expect(instance.to_yaml).to eq({ "vase1" => nil, "bowl2" => nil }.to_yaml)
     end
   end
 
@@ -359,6 +359,11 @@ RSpec.describe RootMapping do
   end
 
   it "raises error when collection true is missing" do
-    expect { RootMapping::CollectionTrueMissing.from_yaml(hash_with_multiple_values.to_yaml) }.to raise_error(Lutaml::Model::CollectionTrueMissingError, "May be `collection: true` is missing for `check` in RootMapping::CollectionTrueMissing")
+    expect do
+      RootMapping::CollectionTrueMissing.from_yaml(hash_with_multiple_values.to_yaml)
+    end.to raise_error(
+      Lutaml::Model::CollectionTrueMissingError,
+      "May be `collection: true` is missing for `path` in RootMapping::CollectionTrueMissing",
+    )
   end
 end

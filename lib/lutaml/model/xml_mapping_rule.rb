@@ -19,8 +19,7 @@ module Lutaml
         namespace_set: false,
         prefix_set: false,
         attribute: false,
-        default_namespace: nil,
-        id: nil
+        default_namespace: nil
       )
         super(
           name,
@@ -29,8 +28,7 @@ module Lutaml
           render_default: render_default,
           with: with,
           delegate: delegate,
-          attribute: attribute,
-          id: id
+          attribute: attribute
         )
 
         @namespace = if namespace.to_s == "inherit"
@@ -47,7 +45,6 @@ module Lutaml
 
         @namespace_set = namespace_set
         @prefix_set = prefix_set
-        @id = id
       end
 
       def namespace_set?

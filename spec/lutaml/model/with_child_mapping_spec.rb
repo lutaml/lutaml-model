@@ -189,8 +189,8 @@ RSpec.describe ChildMapping do
         instance = ChildMapping::Prefixes.from_json(prefixes_json)
 
         expect(instance.prefixes.first.id).to eq("NISTp10_30")
-        expect(instance.prefixes.first.symbol["ascii"]).to eq("Q")
-        expect(instance.prefixes.first.symbol["js"]["hook"]).to eq("async")
+        expect(instance.prefixes.first.symbol.ascii).to eq("Q")
+        expect(instance.prefixes.first.symbol.js.hook).to eq("async")
       end
     end
 
@@ -237,8 +237,8 @@ RSpec.describe ChildMapping do
         instance = ChildMapping::Prefixes.from_yaml(prefixes_yaml)
 
         expect(instance.prefixes.first.id).to eq("NISTp10_30")
-        expect(instance.prefixes.first.symbol["ascii"]).to eq("Q")
-        expect(instance.prefixes.first.symbol["js"]["hook"]).to eq("async")
+        expect(instance.prefixes.first.symbol.ascii).to eq("Q")
+        expect(instance.prefixes.first.symbol.js.hook).to eq("async")
       end
     end
 
@@ -325,8 +325,8 @@ RSpec.describe ChildMapping do
         instance = ChildMapping::Prefixes.from_toml(prefixes_toml)
 
         expect(instance.prefixes.first.id).to eq("NISTp10_30")
-        expect(instance.prefixes.first.symbol["ascii"]).to eq("Q")
-        expect(instance.prefixes.first.symbol["js"]["hook"]).to eq("async")
+        expect(instance.prefixes.first.symbol.ascii).to eq("Q")
+        expect(instance.prefixes.first.symbol.js.hook).to eq("async")
       end
     end
 

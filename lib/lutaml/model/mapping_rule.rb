@@ -17,7 +17,6 @@ module Lutaml
         with: {},
         attribute: false,
         delegate: nil,
-        id: nil,
         root_mappings: nil
       )
         @name = name
@@ -27,7 +26,6 @@ module Lutaml
         @custom_methods = with
         @attribute = attribute
         @delegate = delegate
-        @id = id
         @root_mappings = root_mappings
       end
 

@@ -14,7 +14,6 @@ module Lutaml
         with: {},
         delegate: nil,
         child_mappings: nil,
-        id: nil,
         root_mappings: nil
       )
         super(
@@ -23,8 +22,7 @@ module Lutaml
           render_nil: render_nil,
           render_default: render_default,
           with: with,
-          delegate: delegate,
-          id: id
+          delegate: delegate
         )
 
         @child_mappings = child_mappings

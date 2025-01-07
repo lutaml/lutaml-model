@@ -19,10 +19,11 @@ module Lutaml
         child_mappings: nil,
         root_mappings: nil
       )
-        cname = name_for_mapping(root_mappings, name)
-        validate!(cname, to, with)
+        mapping_name = name_for_mapping(root_mappings, name)
+        validate!(mapping_name, to, with)
+
         @mappings << KeyValueMappingRule.new(
-          cname,
+          mapping_name,
           to: to,
           render_nil: render_nil,
           render_default: render_default,

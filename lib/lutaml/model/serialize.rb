@@ -315,14 +315,11 @@ module Lutaml
           end
         end
 
-        def translate_mappings(hash, child_mappings, attr)
+        def translate_mappings(hash, child_mappings, attr, format)
           return hash unless child_mappings
 
-          model = []
           hash.map do |key, value|
-            model = attr.type.new if attr.type <= Serialize
-
-            child_mappings.each do |attr_name, path|
+            child_hash = child_mappings.to_h do |attr_name, path|
               attr_value = if path == :key
                              key
                            elsif path == :value
@@ -332,12 +329,15 @@ module Lutaml
                              value.dig(*path.map(&:to_s))
                            end
 
-              next model&.public_send(:"#{attr_name}=", attr_value) if attr.type <= Serialize
-
-              model = value[attr.name.to_s]
+              [attr_name.to_s, attr_value]
             end
 
-            model
+            attr.type.apply_hash_mapping(
+              child_hash,
+              attr.type.model.new,
+              format,
+              { mappings: attr.type.default_mappings(format).mappings },
+            )
           end
         end
 
@@ -393,6 +393,8 @@ module Lutaml
         def apply_mappings(doc, format, options = {})
           instance = options[:instance] || model.new
           return instance if Utils.blank?(doc)
+
+          options[:mappings] = mappings_for(format).mappings
           return apply_xml_mapping(doc, instance, options) if format == :xml
 
           apply_hash_mapping(doc, instance, format, options)
@@ -406,7 +408,7 @@ module Lutaml
             options[:default_namespace] =
               mappings_for(:xml)&.namespace_uri
           end
-          mappings = mappings_for(:xml).mappings
+          mappings = options[:mappings] || mappings_for(:xml).mappings
 
           if doc.is_a?(Array)
             raise Lutaml::Model::CollectionTrueMissingError(self, option[:caller_class])
@@ -456,8 +458,8 @@ module Lutaml
           instance
         end
 
-        def apply_hash_mapping(doc, instance, format, _options = {})
-          mappings = mappings_for(format).mappings
+        def apply_hash_mapping(doc, instance, format, options = {})
+          mappings = options[:mappings] || mappings_for(format).mappings
           mappings.each do |rule|
             raise "Attribute '#{rule.to}' not found in #{self}" unless valid_rule?(rule)
 
@@ -485,7 +487,7 @@ module Lutaml
               next
             end
 
-            value = translate_mappings(value, rule.hash_mappings, attr)
+            value = translate_mappings(value, rule.hash_mappings, attr, format)
             value = attr.cast(value, format) unless rule.hash_mappings
             attr.valid_collection!(value, self)
 

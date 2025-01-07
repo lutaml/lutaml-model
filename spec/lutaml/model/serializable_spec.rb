@@ -228,26 +228,26 @@ RSpec.describe Lutaml::Model::Serializable do
 
     let(:expected_value) do
       [
-        SerializeableSpec::TranslateHelper.new.tap do |obj|
-          obj.id = "foo"
-          obj.name = "one"
-          obj.path = "link one"
-        end,
-        SerializeableSpec::TranslateHelper.new.tap do |obj|
-          obj.id = "abc"
-          obj.name = "two"
-          obj.path = "link two"
-        end,
-        SerializeableSpec::TranslateHelper.new.tap do |obj|
-          obj.id = "hello"
-          obj.name = "three"
-          obj.path = "link three"
-        end,
+        SerializeableSpec::TranslateHelper.new({
+                                                 "id" => "foo",
+                                                 "name" => "one",
+                                                 "path" => "link one",
+                                               }),
+        SerializeableSpec::TranslateHelper.new({
+                                                 "id" => "abc",
+                                                 "name" => "two",
+                                                 "path" => "link two",
+                                               }),
+        SerializeableSpec::TranslateHelper.new({
+                                                 "id" => "hello",
+                                                 "name" => "three",
+                                                 "path" => "link three",
+                                               }),
       ]
     end
 
     it "generates hash based on child_mappings" do
-      actual_value = described_class.translate_mappings(hash, child_mappings, attr)
+      actual_value = described_class.translate_mappings(hash, child_mappings, attr, :yaml)
 
       expect(actual_value.map { |obj| [obj.id, obj.name, obj.path] })
         .to eq(expected_value.map { |obj| [obj.id, obj.name, obj.path] })
