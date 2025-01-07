@@ -2756,6 +2756,13 @@ klin.validate
 Lutaml::Model uses an adapter pattern to support multiple libraries for each
 serialization format.
 
+Lutaml::Model supports the following serialization formats:
+
+* XML (https://www.w3.org/TR/xmlschema-1/[W3C XML Schema (Second Edition)], XML 1.0)
+* YAML (https://yaml.org/[YAML version 1.2])
+* JSON (https://www.ecma-international.org/publications-and-standards/standards/ecma-404/[ECMA-404 The JSON Data Interchange Standard], unofficial link: https://www.json.org[JSON])
+* TOML (https://toml.io/en[TOML version 1.0])
+
 You will need to specify the configuration for the adapter you want to use. The
 easiest way is to copy and paste the following configuration into your code.
 
@@ -2799,9 +2806,25 @@ NOTE: By default `yaml_adapter_type` and `json_adapter_type` are set to
 
 Lutaml::Model supports the following XML adapters:
 
-* Nokogiri (default)
-* Oga (optional, plain Ruby suitable for Opal/JS)
-* Ox (optional)
+Nokogiri::
+(default)
+Popular `libxml` based XML parser for Ruby.
+Requires native extensions (i.e. compiled C code).
+Requires the `nokogiri` gem.
+
+Oga::
+(optional)
+Pure Ruby XML parser.
+Does not require native extensions and is suitable for
+https://opalrb.com[Opal] (Ruby on JavaScript).
+Requires the `oga` gem.
+
+Ox::
+(optional)
+Fast XML parser and object serializer for Ruby, implemented partially in C.
+Requires native extensions (i.e. compiled C code).
+Requires the `ox` gem.
+
 
 .Using the Nokogiri XML adapter
 [source,ruby]
@@ -2841,7 +2864,10 @@ end
 
 Lutaml::Model supports only one YAML adapter.
 
-* YAML (default)
+YAML::
+(default)
+The Psych YAML parser and emitter for Ruby.
+Included in the Ruby standard library.
 
 .Using the YAML adapter
 [source,ruby]
@@ -2860,8 +2886,15 @@ end
 
 Lutaml::Model supports the following JSON adapters:
 
-* JSON (default)
-* MultiJson (optional)
+JSON::
+(default)
+The standard JSON library for Ruby.
+Included in the Ruby standard library.
+
+MultiJson::
+(optional)
+A gem that provides a common interface to multiple JSON libraries.
+Requires the `multi_json` gem.
 
 .Using the JSON adapter
 [source,ruby]
@@ -2889,8 +2922,18 @@ end
 
 Lutaml::Model supports the following TOML adapters:
 
-* Toml-rb (default)
-* Tomlib (optional)
+Toml-rb::
+(default)
+A TOML parser and serializer for Ruby that is compatible with the TOML v1.0.0
+specification.
+Requires the `toml-rb` gem.
+
+Tomlib::
+(optional)
+Toml-rb fork that is compatible with the TOML v1.0.0 specification, but with
+additional features.
+Requires the `tomlib` gem.
+
 
 .Using the Toml-rb adapter
 [source,ruby]
