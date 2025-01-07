@@ -1,5 +1,4 @@
 require_relative "xml_mapping_rule"
-require "securerandom"
 
 module Lutaml
   module Model
@@ -59,16 +58,8 @@ module Lutaml
         namespace: (namespace_set = false
                     nil),
         prefix: (prefix_set = false
-                 nil),
-        id: nil
+                 nil)
       )
-        uniq_id = SecureRandom.hex(8)
-        if name.is_a?(Array)
-          name.each do |key|
-            map_element(key, to: to, render_nil: render_nil, render_default: render_default, with: with, delegate: delegate, cdata: cdata, namespace: namespace, prefix: prefix, id: uniq_id)
-          end
-          return
-        end
         validate!(name, to, with, type: TYPES[:element])
 
         rule = XmlMappingRule.new(
@@ -84,7 +75,6 @@ module Lutaml
           prefix: prefix,
           namespace_set: namespace_set != false,
           prefix_set: prefix_set != false,
-          id: id || uniq_id,
         )
         @elements[rule.namespaced_name] = rule
       end
@@ -99,16 +89,8 @@ module Lutaml
         namespace: (namespace_set = false
                     nil),
         prefix: (prefix_set = false
-                 nil),
-        id: nil
+                 nil)
       )
-        uniq_id = SecureRandom.hex(8)
-        if name.is_a?(Array)
-          name.each do |key|
-            map_attribute(key, to: to, render_nil: render_nil, render_default: render_default, with: with, delegate: delegate, namespace: namespace, prefix: prefix, id: uniq_id)
-          end
-          return
-        end
         validate!(name, to, with, type: TYPES[:attribute])
         rule = XmlMappingRule.new(
           name,
@@ -123,7 +105,6 @@ module Lutaml
           default_namespace: namespace_uri,
           namespace_set: namespace_set != false,
           prefix_set: prefix_set != false,
-          id: id || uniq_id,
         )
         @attributes[rule.namespaced_name] = rule
       end
@@ -150,7 +131,6 @@ module Lutaml
           delegate: delegate,
           mixed_content: mixed,
           cdata: cdata,
-          id: SecureRandom.hex(8),
         )
       end
 
@@ -179,7 +159,6 @@ module Lutaml
           default_namespace: namespace_uri,
           namespace_set: namespace_set != false,
           prefix_set: prefix_set != false,
-          id: SecureRandom.hex(8),
         )
 
         @raw_mapping = rule

@@ -43,6 +43,7 @@ module Lutaml
           end
 
           def create_and_add_element(element_name, prefix: nil, attributes: {})
+            element_name = element_name.first if element_name.is_a?(Array)
             prefixed_name = if prefix
                               "#{prefix}:#{element_name}"
                             elsif @current_namespace && !element_name.start_with?("#{@current_namespace}:")

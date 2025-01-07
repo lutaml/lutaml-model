@@ -254,7 +254,7 @@ module Lutaml
         def hash_representation(instance, format, options = {})
           only = options[:only]
           except = options[:except]
-          mappings = mappings_for(format).mappings.uniq(&:id)
+          mappings = mappings_for(format).mappings
 
           mappings.each_with_object({}) do |rule, hash|
             name = rule.to
@@ -279,7 +279,8 @@ module Lutaml
 
             next if Utils.blank?(value) && !rule.render_nil
 
-            hash[rule.from.to_s] = value
+            rule_from_name = rule.multiple_mappings? ? rule.from.first.to_s : rule.from.to_s
+            hash[rule_from_name] = value
           end
         end
 
@@ -289,7 +290,8 @@ module Lutaml
           return if value.nil? && !rule.render_nil
 
           attribute = instance.send(rule.delegate).class.attributes[name]
-          hash[rule.from.to_s] = attribute.serialize(value, format)
+          rule_from_name = rule.multiple_mappings? ? rule.from.first.to_s : rule.from.to_s
+          hash[rule_from_name] = attribute.serialize(value, format)
         end
 
         def mappings_for(format)
@@ -413,21 +415,20 @@ module Lutaml
           end
 
           defaults_used = []
-          element_found_for = {}
 
           mappings.each do |rule|
-            next if element_found_for[rule.id]
             raise "Attribute '#{rule.to}' not found in #{self}" unless valid_rule?(rule)
 
             attr = attribute_for_rule(rule)
+
+            namespaced_names = rule.namespaced_names(options[:default_namespace])
+
             value = if rule.raw_mapping?
                       doc.node.inner_xml
                     elsif rule.content_mapping?
                       doc[rule.content_key]
-                    elsif doc.key_exist?(rule.namespaced_name(options[:default_namespace]))
-                      element_found_for[rule.id] = true
-                      defaults_used.delete(rule.to)
-                      doc.fetch(rule.namespaced_name(options[:default_namespace]))
+                    elsif key = (namespaced_names & doc.keys).first
+                      doc[key]
                     else
                       defaults_used << rule.to
                       attr&.default || rule.to_value_for(instance)
@@ -445,27 +446,26 @@ module Lutaml
 
         def apply_hash_mapping(doc, instance, format, _options = {})
           mappings = mappings_for(format).mappings
-          element_found_for = {}
           mappings.each do |rule|
-            next if element_found_for[rule.id]
             raise "Attribute '#{rule.to}' not found in #{self}" unless valid_rule?(rule)
 
             attr = attribute_for_rule(rule)
 
-            value = if doc.key?(rule.name.to_s)
-                      element_found_for[rule.id] = true
-                      doc[rule.name.to_s]
-                    elsif doc.key?(rule.name.to_sym)
-                      element_found_for[rule.id] = true
-                      doc[rule.name.to_sym]
-                    else
-                      attr&.default
-                    end
+            names = rule.multiple_mappings? ? rule.name : [rule.name]
+
+            value = names.collect do |rule_name|
+              if doc.key?(rule_name.to_s)
+                doc[rule_name.to_s]
+              elsif doc.key?(rule_name.to_sym)
+                doc[rule_name.to_sym]
+              else
+                attr&.default
+              end
+            end.compact.first
 
             if rule.using_custom_methods?
               if Utils.present?(value)
                 value = new.send(rule.custom_methods[:from], instance, value)
-                element_found_for[rule.id] = true
               end
 
               next

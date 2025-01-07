@@ -16,17 +16,9 @@ module Lutaml
         render_default: false,
         with: {},
         delegate: nil,
-        child_mappings: nil,
-        id: nil
+        child_mappings: nil
       )
         validate!(name, to, with)
-        uniq_id = SecureRandom.hex(8)
-        if name.is_a?(Array)
-          name.each do |key|
-            map(key, to: to, render_nil: render_nil, render_default: render_default, with: with, delegate: delegate, child_mappings: child_mappings, id: uniq_id)
-          end
-          return
-        end
         @mappings << KeyValueMappingRule.new(
           name,
           to: to,
@@ -35,7 +27,6 @@ module Lutaml
           with: with,
           delegate: delegate,
           child_mappings: child_mappings,
-          id: id || uniq_id,
         )
       end
 
