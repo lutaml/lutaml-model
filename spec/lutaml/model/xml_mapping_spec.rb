@@ -343,13 +343,13 @@ RSpec.describe Lutaml::Model::XmlMapping do
       end
 
       let(:oga_expected_xml) do
-        '<OverrideDefaultNamespacePrefix xmlns:abc="http://www.omg.org/spec/XMI/20131001">' +
-          '<abc:SameElementName App="hello" xmlns:GML="http://www.sparxsystems.com/profiles/GML/1.0" xmlns:CityGML="http://www.sparxsystems.com/profiles/CityGML/1.0">' +
-            '<GML:ApplicationSchema>GML App</GML:ApplicationSchema>' +
-            '<CityGML:ApplicationSchema>CityGML App</CityGML:ApplicationSchema>' +
-            '<abc:ApplicationSchema>App</abc:ApplicationSchema>' +
-          '</abc:SameElementName>' +
-        '</OverrideDefaultNamespacePrefix>'
+        "<OverrideDefaultNamespacePrefix xmlns:abc=\"http://www.omg.org/spec/XMI/20131001\">" +
+          "<abc:SameElementName App=\"hello\" xmlns:GML=\"http://www.sparxsystems.com/profiles/GML/1.0\" xmlns:CityGML=\"http://www.sparxsystems.com/profiles/CityGML/1.0\">" +
+          "<GML:ApplicationSchema>GML App</GML:ApplicationSchema>" +
+          "<CityGML:ApplicationSchema>CityGML App</CityGML:ApplicationSchema>" +
+          "<abc:ApplicationSchema>App</abc:ApplicationSchema>" +
+          "</abc:SameElementName>" +
+          "</OverrideDefaultNamespacePrefix>"
       end
 
       it "expect to round-trips" do
@@ -398,7 +398,7 @@ RSpec.describe Lutaml::Model::XmlMapping do
             "text",
             "ApplicationSchema",
             "text",
-          ]
+          ],
         }
       end
 

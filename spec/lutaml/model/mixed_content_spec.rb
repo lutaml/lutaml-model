@@ -528,7 +528,7 @@ RSpec.describe "MixedContent" do
 
         it "deserializes special char mixed content correctly" do
           parsed = MixedContentSpec::SpecialCharContentWithRawAndMixedOption.from_xml(xml)
-          expected_content = public_send("expected_#{adapter_class.type}_content")
+          expected_content = public_send(:"expected_#{adapter_class.type}_content")
           parsed.special.force_encoding("UTF-8") unless adapter_class == Lutaml::Model::XmlAdapter::NokogiriAdapter
 
           expect(parsed.special.strip).to eq(expected_content)
@@ -575,7 +575,7 @@ RSpec.describe "MixedContent" do
           parsed = MixedContentSpec::SpecialCharContentWithRawAndMixedOption.from_xml(xml)
           serialized = parsed.to_xml
 
-          expect(serialized).to be_equivalent_to(send("expected_#{adapter_class.type}_xml"))
+          expect(serialized).to be_equivalent_to(send(:"expected_#{adapter_class.type}_xml"))
         end
       end
     end
@@ -612,7 +612,7 @@ RSpec.describe "MixedContent" do
           parsed = MixedContentSpec::SpecialCharContentWithRawAndMixedOption.from_xml(xml)
           serialized = parsed.to_xml
 
-          expect(serialized).to include(send("expected_#{adapter_class.type}_xml"))
+          expect(serialized).to include(send(:"expected_#{adapter_class.type}_xml"))
         end
       end
     end
@@ -740,7 +740,7 @@ RSpec.describe "MixedContent" do
           it "serializes SHIFT-JIS encoding content correctly reading from file" do
             parsed = MixedContentSpec::Shift.from_xml(fixture, encoding: "Shift_JIS")
             serialized = parsed.to_xml
-            expected = adapter_class.type == "oga" ? fixture.gsub(/\s+/, '') : fixture.strip
+            expected = adapter_class.type == "oga" ? fixture.gsub(/\s+/, "") : fixture.strip
             expect(serialized.strip).to eq(expected)
           end
 
@@ -768,7 +768,7 @@ RSpec.describe "MixedContent" do
             expected_xml = if adapter_class == Lutaml::Model::XmlAdapter::OxAdapter
                              "\x8E\xE8\x8F\x91\x82\xAB\x89p\x8E\x9A\x82P".force_encoding("Shift_JIS")
                            else
-                              "手書き英字１"
+                             "手書き英字１"
                            end
 
             expect(parsed.field).to include(expected_xml)
