@@ -77,7 +77,8 @@ module Lutaml
             element_name,
             prefix: (prefix_unset = true
                      nil),
-            attributes: {}
+            attributes: {},
+            &block
           )
             @current_namespace = nil if prefix.nil? && !prefix_unset
             prefixed_name = if prefix
@@ -89,9 +90,7 @@ module Lutaml
                             end
 
             if block_given?
-              element(prefixed_name, attributes) do |element|
-                yield(element)
-              end
+              element(prefixed_name, attributes, &block)
             else
               element(prefixed_name, attributes)
             end
