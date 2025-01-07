@@ -20,17 +20,17 @@ module Lutaml
           builder_options = {}
 
           builder_options[:encoding] = if options.key?(:encoding)
-                                        options[:encoding] || "UTF-8"
-                                      elsif options.key?(:parse_encoding)
-                                        options[:parse_encoding]
-                                      else
-                                        "UTF-8"
-                                      end
-          builder = Builder::Oga.build(options) do |builder|
+                                         options[:encoding] || "UTF-8"
+                                       elsif options.key?(:parse_encoding)
+                                         options[:parse_encoding]
+                                       else
+                                         "UTF-8"
+                                       end
+          builder = Builder::Oga.build(options) do |xml|
             if @root.is_a?(Oga::Element)
-              @root.build_xml(builder)
+              @root.build_xml(xml)
             else
-              build_element(builder, @root, options)
+              build_element(xml, @root, options)
             end
           end
           xml_data = builder.to_xml.encode!(builder_options[:encoding])

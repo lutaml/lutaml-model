@@ -61,11 +61,10 @@ module Lutaml
               next if attr_is_namespace?(attr)
 
               name = if attr.namespace
-                "#{attr.namespace.name}:#{attr.name}"
-              else
-                attr.name
-              end
-
+                       "#{attr.namespace.name}:#{attr.name}"
+                     else
+                       attr.name
+                     end
               hash[name] = XmlAttribute.new(
                 name,
                 attr.value,

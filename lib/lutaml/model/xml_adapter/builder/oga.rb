@@ -34,7 +34,7 @@ module Lutaml
             end
           end
 
-          def element(name, attributes = {}, &block)
+          def element(name, attributes = {})
             oga_element = ::Oga::XML::Element.new(name: name)
             if block_given?
               element_attributes(oga_element, attributes)
@@ -89,9 +89,7 @@ module Lutaml
                             end
 
             if block_given?
-              element(prefixed_name, attributes) do |element|
-                yield(element)
-              end
+              yield(element(prefixed_name, attributes))
             else
               element(prefixed_name, attributes)
             end
