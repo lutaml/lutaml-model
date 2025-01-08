@@ -2129,8 +2129,8 @@ end
 > ceramic_collection = CeramicCollection.from_yaml(yaml)
 > #<CeramicCollection:0x0000000104ac7240
   @ceramics=
-    [#<Ceramic:0x0000000104ac6e30 @ceramic_id="vase1", @ceramic_name="Imperial Vase">,
-     #<Ceramic:0x0000000104ac58f0 @ceramic_id="bowl2", @ceramic_name="18th Century Bowl">]
+    [#<Ceramic:0x0000000104ac6e30 @ceramic_id="vase1", @ceramic_name=nil>,
+     #<Ceramic:0x0000000104ac58f0 @ceramic_id="bowl2", @ceramic_name=nil>]
 
 # NOTE: When an individual Ceramic object is serialized, the `id` attribute is
 # the original key in the incoming YAML data.
@@ -2139,7 +2139,6 @@ end
 =>
 # ---
 # id: vase1
-# name: Imperial Vase
 
 # NOTE: When in a collection, the `ceramic_id` attribute is used to key the data,
 # and it disappears from the individual object.
@@ -2147,9 +2146,7 @@ end
 =>
 # ---
 # vase1:
-#   name: Imperial Vase
 # bowl2:
-#   name: 18th Century Bowl
 
 # NOTE: When the collection is serialized, the `ceramic_id` attribute is used to
 # key the data. This is defined through the `map` with `root_mappings` method in
@@ -2162,9 +2159,7 @@ end
 =>
 # ---
 # vase1:
-#   name: Imperial Vase
 # bowl2:
-#   name: 18th Century Bowl
 ----
 ====
 
@@ -2253,12 +2248,12 @@ end
 
 # NOTE: When an individual Ceramic object is serialized, the `id` attribute is
 # the original key in the incoming YAML data.
-> first_ceramic = ceramic_collection.first
+> first_ceramic = ceramic_collection.ceramics.first
 > puts first_ceramic.to_yaml
 =>
 # ---
 # id: vase1
-# data:
+# details:
 #   name: Imperial Vase
 #   insignia: Tang Tianbao
 
@@ -2362,6 +2357,7 @@ class CeramicCollection < Lutaml::Model::Serializable
         # attribute of the Ceramic object.
         # (e.g. `vase1`, `bowl2`)
         ceramic_id: :key,
+        ceramic_type: :type,
         ceramic_details: "details",
         ceramic_urn: ["urn", "primary"]
       }
@@ -2373,8 +2369,8 @@ The output becomes:
 
 [source,ruby]
 ----
-> ceramics_collection = CeramicsCollection.from_yaml(yaml)
-=> #<CeramicsCollection:0x0000000107a2cf30
+> ceramics_collection = CeramicCollection.from_yaml(yaml)
+=> #<CeramicCollection:0x0000000107a2cf30
   @ceramics=
     [#<Ceramic:0x0000000107a2cf30
       @ceramic_id="vase1",
@@ -2393,8 +2389,8 @@ The output becomes:
           @insignia="Ming Wanli">
       @ceramic_urn="urn:ceramic:bowl:bowl2">]
 
-> first_ceramic = ceramics_collection.first
-> first_ceramic.to_yaml
+> first_ceramic = ceramics_collection.ceramics.first
+> puts first_ceramic.to_yaml
 =>
 # ---
 # id: vase1
@@ -2404,14 +2400,16 @@ The output becomes:
 #   insignia: Tang Tianbao
 # urn: urn:ceramic:vase:vase1
 
-> new_collection = CeramicsCollection.new(ceramics: [
+> new_collection = CeramicCollection.new(ceramics: [
     Ceramic.new(ceramic_id: "vase1",
                 ceramic_type: "vase",
+                ceramic_urn: "urn:ceramic:vase:vase1",
                 ceramic_details: CeramicDetails.new(
                   name: "Imperial Vase", insignia: "Tang Tianbao")
                ),
     Ceramic.new(ceramic_id: "bowl2",
                 ceramic_type: "bowl",
+                ceramic_urn: "urn:ceramic:vase:bowl2",
                 ceramic_details: CeramicDetails.new(
                   name: "18th Century Bowl", insignia: "Ming Wanli")
                )
