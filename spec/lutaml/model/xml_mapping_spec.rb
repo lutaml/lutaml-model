@@ -620,6 +620,14 @@ RSpec.describe Lutaml::Model::XmlMapping do
         it "contain schemaLocation attributes" do
           expect(Paragraph.from_xml(xml).to_xml).to be_equivalent_to(xml)
         end
+
+        it "prints warning if defined explicitly in class" do
+          error_regex = /\[Lutaml::Model\] WARN: `schemaLocation` is handled by default\. No need to explecitly define at `xml_mapping_spec.rb:\d+`/
+
+          expect do
+            Lutaml::Model::XmlMapping.new.map_attribute("schemaLocation", to: :schema_location)
+          end.to output(error_regex).to_stderr
+        end
       end
 
       context "when mixed: true" do
