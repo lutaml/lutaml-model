@@ -71,6 +71,10 @@ module Lutaml
       def duplicate_mappings
         @mappings.map(&:deep_dup)
       end
+
+      def find_by_to(to)
+        @mappings.find { |m| m.to.to_s == to.to_s }
+      end
     end
   end
 end

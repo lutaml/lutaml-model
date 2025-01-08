@@ -271,10 +271,10 @@ module Lutaml
 
             attribute = attributes[name]
 
-            next hash.merge!(generate_hash_from_child_mappings(value, rule.root_mappings)) if rule.root_mapping?
+            next hash.merge!(generate_hash_from_child_mappings(value, format, rule.root_mappings)) if rule.root_mapping?
 
             value = if rule.child_mappings
-                      generate_hash_from_child_mappings(value, rule.child_mappings)
+                      generate_hash_from_child_mappings(value, format, rule.child_mappings)
                     else
                       attribute.serialize(value, format, options)
                     end
@@ -329,22 +329,38 @@ module Lutaml
                              value.dig(*path.map(&:to_s))
                            end
 
-              [attr_name.to_s, attr_value]
+              attr_rule = attr.type.mappings_for(format).find_by_to(attr_name)
+              [attr_rule.from.to_s, attr_value]
+            end
+
+            if child_mappings.values == [:key] && hash.values.all?(Hash)
+              child_hash.merge!(value)
             end
 
             attr.type.apply_hash_mapping(
               child_hash,
               attr.type.model.new,
               format,
-              { mappings: attr.type.default_mappings(format).mappings },
+              { mappings: attr.type.mappings_for(format).mappings },
             )
           end
         end
 
-        def generate_hash_from_child_mappings(value, child_mappings)
+        def generate_hash_from_child_mappings(value, format, child_mappings)
           return value unless child_mappings
 
           hash = {}
+
+          if child_mappings.values == [:key]
+            klass = value.first.class
+            mappings = klass.mappings_for(format)
+
+            klass.attributes.each_key do |name|
+              next if child_mappings.key?(name.to_sym) || child_mappings.key?(name.to_s)
+
+              child_mappings[name.to_sym] = mappings.find_by_to(name)&.name.to_s || name.to_s
+            end
+          end
 
           value.each do |child_obj|
             map_key = nil
