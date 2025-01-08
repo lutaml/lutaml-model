@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "model/version"
+require_relative "model/loggable"
 require_relative "model/type"
 require_relative "model/utils"
 require_relative "model/serializable"

@@ -109,9 +109,9 @@ module Lutaml
                 prefix: attr.namespace_prefix,
                 schema_location: attr.value,
               }
-            else
-              result[attr.namespaced_name] = attr.value
             end
+
+            result[attr.namespaced_name] = attr.value
           end
 
           result
@@ -328,7 +328,7 @@ module Lutaml
                     {}
                   end
 
-          if element.respond_to?(:schema_location) && element.schema_location && !options[:except]&.include?(:schema_location)
+          if element.respond_to?(:schema_location) && element.schema_location.is_a?(Lutaml::Model::SchemaLocation) && !options[:except]&.include?(:schema_location)
             attrs.merge!(element.schema_location.to_xml_attributes)
           end
 

@@ -207,6 +207,8 @@ module Lutaml
       end
 
       def serialize(value, format, options = {})
+        return if value.nil?
+
         if value.is_a?(Array)
           value.map do |v|
             serialize(v, format, options)
