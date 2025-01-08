@@ -1978,18 +1978,23 @@ end
 ====
 
 
-==== Collection mapping with dynamic keys
+
+==== Collection with keyed elements (keyed collection)
 
 NOTE: This feature is for key-value data model serialization and deserialization
 only.
 
-The `map` with `root_mappings` option is used for key-value data that is keyed using an
-attribute value. In other words, the key of a key-value pair is actually the
+The `map` method with the `root_mappings` option is used for key-value data that
+is keyed using an attribute value.
+
+In other words, the key of a key-value pair in a collection is actually the
 value of an attribute that belongs to the value.
 
-Simply put, the following two data structures are meant to have the same data:
+Simply put, the following two data structures are considered to have the same
+data:
 
-.A YAML collection implemented as an object, each keyed by the `id` attribute
+[[collection-keyed-by-value]]
+.A YAML collection as a keyed object, each key with value of the `id` attribute
 [source,yaml]
 ----
 ---
@@ -1999,7 +2004,8 @@ bowl2:
   name: 18th Century Bowl
 ----
 
-.A YAML collection implemented as an array, with the `id` attribute in each
+[[collection-unkeyed-by-value]]
+.A YAML collection as an array, the `id` attribute value located inside each element
 [source,yaml]
 ----
 ---
@@ -2009,31 +2015,56 @@ bowl2:
   name: 18th Century Bowl
 ----
 
-NOTE: The first data structure ensures uniqueness of the `id` attribute.
+There are key difference between these two data structures:
 
-The `map` with `root_mappings` feature in practice parses the first data structure in the same
-way that you would access / manipulate the second data structure, while
-retaining the serialization semantics of using an attribute as key.
+* The <<collection-keyed-by-value,keyed object>> (first data structure) ensures
+uniqueness of the `id` attribute value across the collection, while the
+<<collection-unkeyed-by-value,array>> (second data structure) does not.
+
+* The value of the `id` attribute in the first data structure *exists outside*
+of the formal structure of the data object, instead, it *only exists at the
+collection level*. On the other hand, the value *exists inside* the structure of
+the data object in the second data structure.
+
+The `map` method with the `root_mappings` option, in practice, parses the first
+data structure in the same way that you would access / manipulate the second
+data structure, while retaining the serialization semantics of using an
+attribute as key.
+
+As a result, usage of lutaml-model across both types of collections are
+identical (except when serialized).
 
 Syntax:
 
 [source,ruby]
 ----
-class SomeCollection < Lutaml::Model::Serializable
-  attribute :holder_of_collection_data, CollectionObjectType, collection: true
+class SomeKeyedCollection < Lutaml::Model::Serializable
+  attribute :name_of_attribute, AttributeValueType, collection: true
 
   json | yaml | toml | key_value do
-    map to: :holder_of_collection_data, <1>
+    map to: :name_of_attribute, <1>
       root_mappings: { <2>
-        key: :attribute_name_of_collection_object_type_for_key, <3>
-        # `value` is Optional
-        value: :attribute_name_of_collection_object_type_for_data <4>
+        # `:key` is a reserved keyword
+        value_type_attribute_name_for_key: :key, <3>
+        # `:value` is a reserved keyword (and optional)
+        value_type_attribute_name_for_value: :value, <4>
+        # `[path name]` represents the path to access the value in the
+        # serialization data model to be assigned to
+        # `AttributeValueType.value_type_attribute_name_for_custom_type`
+        value_type_attribute_name_for_custom_type: [path name] <5>
       }
   end
 end
+
+class AttributeValueType < Lutaml::Model::Serializable
+  attribute :value_type_attribute_name_for_key, :string
+  attribute :value_type_attribute_name_for_value, :string
+  attribute :value_type_attribute_name_for_custom_type, CustomType
+end
 ----
 <1> The `map` option indicates that this class represents the root of the
-serialization object being passed in. (Mandatory)
+serialization object being passed in. The `name_of_attribute` is the name
+of the attribute that will hold the collection data. (Mandatory)
 <2> The `root_mappings` keyword specifies what the collection key represents and
 and value for model. (Mandatory)
 <3> The `key` keyword specifies the attribute name of the individual collection
@@ -2041,9 +2072,14 @@ object type that represents its key used in the collection. (Mandatory)
 <4> The `value` keyword specifies the attribute name of the individual collection
 object type that represents its data used in the collection. (Optional, if
 not specified, the entire object is used as the value.)
+<5> The `value_type_attribute_name_for_custom_type` is the name of the attribute
+inside the individual collection object (`AttributeValueType`) that will hold
+the value accessible in the serialization data model fetched at `[path name]`.
 
+The mapping syntax here is similar to that of <<attribute-extraction>> except
+that the `:key` and `:value` keywords are allowed in addition to `{path}`.
 
-.Using the `map` with `root_mappings` option to map collection keys into individual models
+.Using `map` with `root_mappings` (only `key`) to map a keyed collection into individual models
 [example]
 ====
 Given this data:
@@ -2061,6 +2097,17 @@ A model can be defined for this YAML as follows:
 
 [source,ruby]
 ----
+# This is a normal Lutaml::Model class
+class Ceramic < Lutaml::Model::Serializable
+  attribute :ceramic_id, :string
+  attribute :ceramic_name, :string
+
+  key_value do
+    map 'id', to: :ceramic_id
+    map 'name', to: :ceramic_name
+  end
+end
+
 # This is Lutaml::Model class that represents the collection of Ceramic objects
 class CeramicCollection < Lutaml::Model::Serializable
   attribute :ceramics, Ceramic, collection: true
@@ -2070,19 +2117,8 @@ class CeramicCollection < Lutaml::Model::Serializable
       root_mappings: {
         # The key of an object in this collection is mapped to the ceramic_id
         # attribute of the Ceramic object.
-        key: :ceramic_id # "key" is a reserved keyword
+        ceramic_id: :key # "key" is a reserved keyword
       }
-  end
-end
-
-# This is a normal Lutaml::Model class
-class Ceramic < Lutaml::Model::Serializable
-  attribute :ceramic_id, :string
-  attribute :ceramic_name, :string
-
-  key_value do
-    map 'id', to: :ceramic_id
-    map 'name', to: :ceramic_name
   end
 end
 ----
@@ -2098,7 +2134,7 @@ end
 
 # NOTE: When an individual Ceramic object is serialized, the `id` attribute is
 # the original key in the incoming YAML data.
-> first_ceramic = ceramic_collection.first
+> first_ceramic = ceramic_collection.ceramics.first
 > puts first_ceramic.to_yaml
 =>
 # ---
@@ -2134,7 +2170,7 @@ end
 
 
 
-.Using the `map` with `root_mappings` option to map collection keys and values into individual models
+.Using `map` with `root_mappings` (`key` and `value`) to map a keyed collection into individual models
 [example]
 ====
 Given this data:
@@ -2154,22 +2190,14 @@ A model can be defined for this YAML as follows:
 
 [source,ruby]
 ----
-# This is Lutaml::Model class that represents the collection of Ceramic objects
-class CeramicCollection < Lutaml::Model::Serializable
-  attribute :ceramics, Ceramic, collection: true
+# This is a normal Lutaml::Model class
+class CeramicDetails < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :insignia, :string
 
   key_value do
-    map to: :ceramics, # All data goes to the `ceramics` attribute
-      root_mappings: {
-        # The key of an object in this collection is mapped to the ceramic_id
-        # attribute of the Ceramic object.
-        # (e.g. `vase1`, `bowl2`)
-        key: :ceramic_id,
-        # The value of an object in this collection is mapped to the
-        # ceramic_details attribute of the Ceramic object.
-        # (e.g. `name: 18th Century Bowl`, `insignia: "Ming Wanli"`
-        value: :ceramic_details
-      }
+    map 'name', to: :name
+    map 'insignia', to: :insignia
   end
 end
 
@@ -2184,14 +2212,22 @@ class Ceramic < Lutaml::Model::Serializable
   end
 end
 
-# This is a normal Lutaml::Model class
-class CeramicDetails < Lutaml::Model::Serializable
-  attribute :name, :string
-  attribute :insignia, :string
+# This is Lutaml::Model class that represents the collection of Ceramic objects
+class CeramicCollection < Lutaml::Model::Serializable
+  attribute :ceramics, Ceramic, collection: true
 
   key_value do
-    map 'name', to: :name
-    map 'insignia', to: :insignia
+    map to: :ceramics, # All data goes to the `ceramics` attribute
+      root_mappings: {
+        # The key of an object in this collection is mapped to the ceramic_id
+        # attribute of the Ceramic object.
+        # (e.g. `vase1`, `bowl2`)
+        ceramic_id: :key,
+        # The value of an object in this collection is mapped to the
+        # ceramic_details attribute of the Ceramic object.
+        # (e.g. `name: 18th Century Bowl`, `insignia: "Ming Wanli"`
+        ceramic_details: :value
+      }
   end
 end
 ----
@@ -2263,8 +2299,7 @@ end
 ----
 ====
 
-
-.Using the `map` with `root_mappings` option to map collection keys with complex data into individual models
+.Using `map` with `root_mappings` (`key` and complex `value`) to map a keyed collection into individual models
 [example]
 ====
 
@@ -2275,17 +2310,47 @@ end
   details:
     name: "Imperial Vase"
     insignia: "Tang Tianbao"
+  urn:
+    primary: "urn:ceramic:vase:vase1"
 "bowl2":
   type: "bowl"
   details:
     name: "18th Century Bowl"
     insignia: "Ming Wanli"
+  urn:
+    primary: "urn:ceramic:bowl:bowl2"
 ----
 
 A model can be defined for this YAML as follows:
 
 [source,ruby]
 ----
+# This is a normal Lutaml::Model class
+class CeramicDetails < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :insignia, :string
+
+  key_value do
+    map 'name', to: :name
+    map 'insignia', to: :insignia
+  end
+end
+
+# This is a normal Lutaml::Model class
+class Ceramic < Lutaml::Model::Serializable
+  attribute :ceramic_id, :string
+  attribute :ceramic_type, :string
+  attribute :ceramic_details, CeramicDetails
+  attribute :ceramic_urn, :string
+
+  key_value do
+    map 'id', to: :ceramic_id
+    map 'type', to: :ceramic_type
+    map 'details', to: :ceramic_details
+    map 'urn', to: :ceramic_urn
+  end
+end
+
 # This is Lutaml::Model class that represents the collection of Ceramic objects
 class CeramicCollection < Lutaml::Model::Serializable
   attribute :ceramics, Ceramic, collection: true
@@ -2296,32 +2361,10 @@ class CeramicCollection < Lutaml::Model::Serializable
         # The key of an object in this collection is mapped to the ceramic_id
         # attribute of the Ceramic object.
         # (e.g. `vase1`, `bowl2`)
-        key: :ceramic_id
+        ceramic_id: :key,
+        ceramic_details: "details",
+        ceramic_urn: ["urn", "primary"]
       }
-  end
-end
-
-# This is a normal Lutaml::Model class
-class Ceramic < Lutaml::Model::Serializable
-  attribute :ceramic_id, :string
-  attribute :ceramic_type, :string
-  attribute :ceramic_details, CeramicDetails
-
-  key_value do
-    map 'id', to: :ceramic_id
-    map 'type', to: :ceramic_type
-    map 'details', to: :ceramic_details
-  end
-end
-
-# This is a normal Lutaml::Model class
-class CeramicDetails < Lutaml::Model::Serializable
-  attribute :name, :string
-  attribute :insignia, :string
-
-  key_value do
-    map 'name', to: :name
-    map 'insignia', to: :insignia
   end
 end
 ----
@@ -2340,13 +2383,15 @@ The output becomes:
         #<CeramicDetails:0x0000000107a2cf30
           @name="Imperial Vase",
           @insignia="Tang Tianbao">,
+      @ceramic_urn="urn:ceramic:vase:vase1">,
      #<Ceramic:0x0000000107a2cf30
       @ceramic_id="bowl2",
       @ceramic_type="bowl",
       @ceramic_details=
         #<CeramicDetails:0x0000000107a2cf30
           @name="18th Century Bowl",
-          @insignia="Ming Wanli">]
+          @insignia="Ming Wanli">
+      @ceramic_urn="urn:ceramic:bowl:bowl2">]
 
 > first_ceramic = ceramics_collection.first
 > first_ceramic.to_yaml
@@ -2357,6 +2402,7 @@ The output becomes:
 # details:
 #   name: Imperial Vase
 #   insignia: Tang Tianbao
+# urn: urn:ceramic:vase:vase1
 
 > new_collection = CeramicsCollection.new(ceramics: [
     Ceramic.new(ceramic_id: "vase1",
@@ -2378,21 +2424,27 @@ The output becomes:
 #   details:
 #     name: Imperial Vase
 #     insignia: Tang Tianbao
+#   urn:
+#     primary: urn:ceramic:vase:vase1
 # bowl2:
 #   type: bowl
 #   details:
 #     name: 18th Century Bowl
 #     insignia: Ming Wanli
+#   urn:
+#     primary: urn:ceramic:bowl:bowl2
 ----
 ====
+
 
 [[attribute-extraction]]
 ==== Attribute extraction
 
 NOTE: This feature is for key-value data model serialization only.
 
-The `child_mappings` option is used to extract results from a key-value data
-model (JSON, YAML, TOML) into a `Lutaml::Model` collection.
+The `child_mappings` option is used to extract results from a key-value
+serialization data model (JSON, YAML, TOML) into a `Lutaml::Model::Serializable`
+object (collection or not).
 
 The values are extracted from the key-value data model using the list of keys
 provided.
@@ -2401,27 +2453,33 @@ Syntax:
 
 [source,ruby]
 ----
-json | yaml | toml do
-  map 'key_value_model_attribute_name', to: :name_of_attribute,
-    child_mappings: {
-      key_attribute_name_1: <1>
-        {path_to_value_1}, <2>
-      key_attribute_name_2:
-        {path_to_value_2},
-      # ...
-    }
+class SomeObject < Lutaml::Model::Serializable
+  attribute :name_of_attribute, AttributeValueType, collection: true
+
+  json | yaml | toml | key_value do
+    map 'key_value_model_attribute_name', to: :name_of_attribute,
+      child_mappings: {
+        value_type_attribute_name_1: <1>
+          {path_to_value_1}, <2>
+        value_type_attribute_name_2:
+          {path_to_value_2},
+        # ...
+      }
+  end
 end
 ----
-<1> The `key_attribute_name_1` is the attribute name in the model. The value of
-this attribute will be assigned the key of the hash in the key-value data model.
+<1> The `value_type_attribute_name_1` is the attribute name in the
+`AttributeValueType` model. The value of this attribute will be assigned the key
+of the hash in the key-value data model.
 
 <2> The `path_to_value_1` is an array of keys that represent the path to the
-value in the key-value data model. The keys are used to extract the value from
-the key-value data model and assign it to the attribute in the model.
-
-The `path_to_value` is in a nested array format with each value a symbol, where
-each symbol represents a key to traverse down. The last key in the path is the
-value to be extracted.
+value in the key-value serialization data model. The keys are used to extract the value from
+the key-value serialization data model and assign it to the attribute in the
+`AttributeValueType` model.
++
+The `path_to_value` is in a nested array format with each value a symbol or a
+string, where each symbol represents a key to traverse down. The last key in the
+path is the value to be extracted.
 
 .Determining the path to value in a key-value data model
 [example]
