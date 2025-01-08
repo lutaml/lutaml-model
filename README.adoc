@@ -2129,16 +2129,17 @@ end
 > ceramic_collection = CeramicCollection.from_yaml(yaml)
 > #<CeramicCollection:0x0000000104ac7240
   @ceramics=
-    [#<Ceramic:0x0000000104ac6e30 @ceramic_id="vase1", @ceramic_name=nil>,
-     #<Ceramic:0x0000000104ac58f0 @ceramic_id="bowl2", @ceramic_name=nil>]
+    [#<Ceramic:0x0000000104ac6e30 @ceramic_id="vase1", @ceramic_name="Imperial Vase">,
+     #<Ceramic:0x0000000104ac58f0 @ceramic_id="bowl2", @ceramic_name="18th Century Bowl">]
 
 # NOTE: When an individual Ceramic object is serialized, the `id` attribute is
-# the original key in the incoming YAML data.
+# the original key in the incoming YAML data, and because there were no mappings defined along with the `:key`, everyting is mapped to the `Ceramic` object using the mappings defined in the `Ceramic` class.
 > first_ceramic = ceramic_collection.ceramics.first
 > puts first_ceramic.to_yaml
 =>
 # ---
 # id: vase1
+# name: Imperial Vase
 
 # NOTE: When in a collection, the `ceramic_id` attribute is used to key the data,
 # and it disappears from the individual object.
@@ -2146,7 +2147,9 @@ end
 =>
 # ---
 # vase1:
+#   name: Imperial Vase
 # bowl2:
+#   name: 18th Century Bowl
 
 # NOTE: When the collection is serialized, the `ceramic_id` attribute is used to
 # key the data. This is defined through the `map` with `root_mappings` method in
@@ -2159,7 +2162,9 @@ end
 =>
 # ---
 # vase1:
+#   name: Imperial Vase
 # bowl2:
+#   name: 18th Century Bowl
 ----
 ====
 
