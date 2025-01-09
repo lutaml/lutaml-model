@@ -59,6 +59,7 @@ module Lutaml
               cause: nil,
             )
           end
+          Moxml::Adapter.load(type_name) unless KEY_VALUE_FORMATS.include?(adapter_name)
 
           instance_variable_set(
             :"@#{adapter}",

@@ -1,4 +1,5 @@
 require "oga"
+require "moxml/adapter/oga"
 require_relative "xml_document"
 require_relative "oga/document"
 require_relative "oga/element"
@@ -8,17 +9,15 @@ module Lutaml
   module Model
     module XmlAdapter
       class OgaAdapter < XmlDocument
+        TEXT_CLASSES = [Moxml::Text, Moxml::Cdata].freeze
+
         def self.parse(xml, options = {})
-          encoding = encoding(xml, options)
-          xml = xml.encode("UTF-16").encode("UTF-8") if encoding && encoding != "UTF-8"
-          parsed = ::Oga.parse_xml(xml)
-          @root = Oga::Element.new(parsed.children.first)
-          new(@root, encoding)
+          parsed = Moxml::Adapter::Oga.parse(xml)
+          new(parsed.root, encoding(xml, options))
         end
 
         def to_xml(options = {})
           builder_options = {}
-
           builder_options[:encoding] = if options.key?(:encoding)
                                          options[:encoding]
                                        elsif options.key?(:parse_encoding)
@@ -27,16 +26,87 @@ module Lutaml
                                          "UTF-8"
                                        end
 
-          builder = Builder::Oga.build(builder_options) do |xml|
-            if @root.is_a?(Oga::Element)
-              @root.build_xml(xml)
+          builder = if @root.is_a?(Moxml::Element)
+                      @root
+                    else
+                      Builder::Oga.build(options) do |xml|
+                        build_element(xml, @root, options)
+                      end
+                    end
+          xml_data = builder.to_xml
+          options[:declaration] ? declaration(options) + xml_data : xml_data
+        end
+
+        def attributes_hash(element)
+          result = Lutaml::Model::MappingHash.new
+
+          element.attributes.each do |attr|
+            if attr.name == "schemaLocation"
+              result["__schema_location"] = {
+                namespace: attr.namespace,
+                prefix: attr.namespace.prefix,
+                schema_location: attr.value,
+              }
             else
-              build_element(xml, @root, options)
+              result[self.class.namespaced_attr_name(attr)] = attr.value
             end
           end
 
-          xml_data = builder.to_xml
-          options[:declaration] ? declaration(options) + xml_data : xml_data
+          result
+        end
+
+        def self.name_of(element)
+          case element
+          when Moxml::Text
+            "text"
+          when Moxml::Cdata
+            "cdata"
+          else
+            element.name
+          end
+        end
+
+        def self.prefixed_name_of(node)
+          return name_of(node) if TEXT_CLASSES.include?(node.class)
+
+          [node&.namespace&.prefix, node.name].compact.join(":")
+        end
+
+        def self.text_of(element)
+          element.content
+        end
+
+        def self.namespaced_attr_name(attribute)
+          attr_ns = attribute.namespace
+          attr_name = attribute.name
+          return attr_name unless attr_ns
+
+          prefix = attr_name == "lang" ? attr_ns.prefix : attr_ns.uri
+          [prefix, attr_name].compact.join(":")
+        end
+
+        def self.namespaced_name_of(node)
+          return name_of(node) unless node.respond_to?(:namespace)
+
+          [node&.namespace&.uri, node.name].compact.join(":")
+        end
+
+        def order
+          children.map do |child|
+            type = child.text? ? "Text" : "Element"
+            Element.new(type, child.unprefixed_name)
+          end
+        end
+
+        def self.order_of(element)
+          element.children.map do |child|
+            instance_args = if TEXT_CLASSES.include?(child.class)
+                              ["Text", "text"]
+                            else
+                              ["Element", name_of(child)]
+                            end
+            Element.new(*instance_args)
+          end
         end
 
         private
