@@ -1981,6 +1981,8 @@ end
 
 ==== Collection with keyed elements (keyed collection)
 
+===== General
+
 NOTE: This feature is for key-value data model serialization and deserialization
 only.
 
@@ -2034,6 +2036,7 @@ attribute as key.
 As a result, usage of lutaml-model across both types of collections are
 identical (except when serialized).
 
+
 Syntax:
 
 [source,ruby]
@@ -2078,6 +2081,62 @@ the value accessible in the serialization data model fetched at `[path name]`.
 
 The mapping syntax here is similar to that of <<attribute-extraction>> except
 that the `:key` and `:value` keywords are allowed in addition to `{path}`.
+
+
+There are 3 cases when working with a keyed collection:
+
+. Case 1: Only move the "key" into the collection object.
+
+. Case 2: Move the "key" into the collection object, override all other
+mappings. Maps `:key` and another attribute, then we override all the other
+mappings (clean slate)
+
+. Case 3: Move the "key" into the collection object to an attribute, map the
+entire "value" to another attribute of the collection object.
+
+
+===== Case 1: Only move the "key" into the collection object
+
+In this case, the "key" of the keyed collection is moved into the collection
+object, and all other mappings are left as they are.
+
+When the "key" is moved into the collection object, the following happens:
+
+* The "key" of the keyed collection maps to a particular attribute of the
+collection's instance object.
+* The "value" of the keyed collection (with its various content) maps to the
+collection's instance object following the collection's instance object type's
+default mappings.
+
+The `root_mappings` option **should only contain one mapping**, and the mapping
+must lead **to the `:key` keyword**.
+
+Syntax:
+
+[source,ruby]
+----
+class SomeKeyedCollection < Lutaml::Model::Serializable
+  attribute :name_of_attribute, AttributeValueType, collection: true
+
+  json | yaml | toml | key_value do
+    map to: :name_of_attribute,
+      root_mappings: {
+        value_type_attribute_name_for_key: :key, <1>
+      }
+  end
+end
+
+class AttributeValueType < Lutaml::Model::Serializable
+  attribute :value_type_attribute_name_for_key, :string
+  attribute :value_type_attribute_name_for_value, :string
+  attribute :value_type_attribute_name_for_custom_type, CustomType
+end
+----
+<1> The `:key` keyword specifies that the "key" of the keyed collection maps
+to the `value_type_attribute_name_for_key` attribute of the collection's
+instance object (i.e. `AttributeValueType`).
+
+
 
 .Using `map` with `root_mappings` (only `key`) to map a keyed collection into individual models
 [example]
@@ -2170,134 +2229,69 @@ end
 
 
 
-.Using `map` with `root_mappings` (`key` and `value`) to map a keyed collection into individual models
-[example]
-====
-Given this data:
+===== Case 2: Mapping the `key` and complex ``value``s
 
-[source,yaml]
-----
----
-vase1:
-  name: Imperial Vase
-  insignia: "Tang Tianbao"
-bowl2:
-  name: 18th Century Bowl
-  insignia: "Ming Wanli"
-----
+In this use case, the "key" of the keyed collection is moved into the collection
+object, and all other mappings are overridden.
 
-A model can be defined for this YAML as follows:
+When more than one mapping rule exists in the `root_mappings` option, the
+`root_mappings` option will override all other mappings in the collection object.
+
+When the "key" is moved into the collection object, the following happens:
+
+* The "key" of the keyed collection maps to a particular attribute of the
+collection's instance object.
+
+* The data of the "value" of the keyed collection have their own mappings
+overridden by the new mapping rules of the `root_mappings` option.
+
+The `root_mappings` option **can contain more than one mapping**, with one of
+the mapping rules leading **to the `:key` keyword**.
+
+
+Syntax:
 
 [source,ruby]
 ----
-# This is a normal Lutaml::Model class
-class CeramicDetails < Lutaml::Model::Serializable
-  attribute :name, :string
-  attribute :insignia, :string
+class SomeKeyedCollection < Lutaml::Model::Serializable
+  attribute :name_of_attribute, AttributeValueType, collection: true
 
-  key_value do
-    map 'name', to: :name
-    map 'insignia', to: :insignia
-  end
-end
-
-# This is a normal Lutaml::Model class
-class Ceramic < Lutaml::Model::Serializable
-  attribute :ceramic_id, :string
-  attribute :ceramic_details, CeramicDetails
-
-  key_value do
-    map 'id', to: :ceramic_id
-    map 'details', to: :ceramic_details
-  end
-end
-
-# This is Lutaml::Model class that represents the collection of Ceramic objects
-class CeramicCollection < Lutaml::Model::Serializable
-  attribute :ceramics, Ceramic, collection: true
-
-  key_value do
-    map to: :ceramics, # All data goes to the `ceramics` attribute
+  json | yaml | toml | key_value do
+    map to: :name_of_attribute,
       root_mappings: {
-        # The key of an object in this collection is mapped to the ceramic_id
-        # attribute of the Ceramic object.
-        # (e.g. `vase1`, `bowl2`)
-        ceramic_id: :key,
-        # The value of an object in this collection is mapped to the
-        # ceramic_details attribute of the Ceramic object.
-        # (e.g. `name: 18th Century Bowl`, `insignia: "Ming Wanli"`
-        ceramic_details: :value
+        value_type_attribute_name_for_key: :key, <1>
+        value_type_attribute_name_for_value_data_1: "serialization_format_name_1", <2>
+        value_type_attribute_name_for_value_data_2: "serialization_format_name_2",
+        value_type_attribute_name_for_value_data_3: ["path name", ...] <3>
+        # ...
       }
   end
 end
+
+class AttributeValueType < Lutaml::Model::Serializable
+  attribute :value_type_attribute_name_for_key, :string
+  attribute :value_type_attribute_name_for_value_data_1, :string
+  attribute :value_type_attribute_name_for_value_data_2, SomeType
+  attribute :value_type_attribute_name_for_value_data_3, MoreType
+  # ...
+end
 ----
+<1> The `:key` keyword specifies that the "key" of the keyed collection maps
+to the `value_type_attribute_name_for_key` attribute of the collection's
+instance object (i.e. `AttributeValueType`).
+<2> The `serialization_format_name_1` target specifies that the
+`serialization_format_name_2` key of the keyed collection value maps to the
+`value_type_attribute_name_for_value_data_1` attribute of the collection's
+instance object.
+<3> The `[path name]` target specifies to fetch from `[path name]` in the
+serialization data model to be assigned to the
+`value_type_attribute_name_for_value_data_3` attribute of the collection's
+instance object.
 
-[source,ruby]
-----
-# Parsing the YAML collection with dynamic data keys
-> ceramic_collection = CeramicCollection.from_yaml(yaml)
-> #<CeramicCollection:0x0000000104ac7240
-  @ceramics=
-    [#<Ceramic:0x0000000104ac6e30
-      @ceramic_id="vase1",
-      @ceramic_details=
-        #<CeramicDetails:0x0000000104ac6e30
-          @name="Imperial Vase",
-          @insignia="Tang Tianbao">,
-     #<Ceramic:0x0000000104ac58f0
-      @ceramic_id="bowl2",
-      @ceramic_details=
-        #<CeramicDetails:0x0000000104ac58f0
-          @name="18th Century Bowl",
-          @insignia="Ming Wanli">]
-
-# NOTE: When an individual Ceramic object is serialized, the `id` attribute is
-# the original key in the incoming YAML data.
-> first_ceramic = ceramic_collection.ceramics.first
-> puts first_ceramic.to_yaml
-=>
-# ---
-# id: vase1
-# details:
-#   name: Imperial Vase
-#   insignia: Tang Tianbao
-
-# NOTE: When in a collection, the `ceramic_id` attribute is used to key the data,
-# and it disappears from the individual object.
-> puts ceramic_collection.to_yaml
-=>
-# ---
-# vase1:
-#   name: Imperial Vase
-#   insignia: Tang Tianbao
-# bowl2:
-#   name: 18th Century Bowl
-#   insignia: Ming Wanli
-
-# NOTE: When the collection is serialized, the `ceramic_id` attribute is used to
-# key the data. This is defined through the `map` with `root_mappings` method in
-# CeramicCollection.
-> new_collection = CeramicCollection.new(ceramics: [
-    Ceramic.new(ceramic_id: "vase1",
-                ceramic_details: CeramicDetails.new(
-                  name: "Imperial Vase", insignia: "Tang Tianbao")
-               ),
-    Ceramic.new(ceramic_id: "bowl2",
-                ceramic_details: CeramicDetails.new(
-                  name: "18th Century Bowl", insignia: "Ming Wanli")
-               )
-  ])
-> puts new_collection.to_yaml
-=>
-# ---
-# vase1:
-#   name: Imperial Vase
-#   insignia: Tang Tianbao
-# bowl2:
-#   name: 18th Century Bowl
-#   insignia: Ming Wanli
-----
-====
+When the `root_mappings` mapping contains more than one mapping rule that is not
+to `:key` or `:value`, the `root_mappings` mapping will override all other
+mappings in the collection object. This means that unmapped attributes in
+`root_mappings` will not be incorporated in the collection instance objects.
 
 .Using `map` with `root_mappings` (`key` and complex `value`) to map a keyed collection into individual models
 [example]
@@ -2436,6 +2430,192 @@ The output becomes:
 #     insignia: Ming Wanli
 #   urn:
 #     primary: urn:ceramic:bowl:bowl2
+----
+====
+
+
+===== Case 3: Mapping the `key` and delegating `value` to an inner object
+
+In this use case, the "key" of the keyed collection is moved into the collection
+object to an attribute, and the entire "value" of the keyed collection is mapped
+to another attribute of the collection object.
+
+When the "key" is moved into the collection object, the following happens:
+
+* The "key" of the keyed collection maps to a particular attribute of the
+collection's instance object.
+
+* The data of the "value" of the keyed collection will be entirely mapped into
+an attribute of the collection's instance object.
+
+* The original mapping of the "value" attribute of the collection's instance
+object is retained.
+
+The `root_mappings` option **should only contain two mappings**, and the mappings
+must lead **to both the `:key` and `:value` keywords**.
+
+
+Syntax:
+
+[source,ruby]
+----
+class SomeKeyedCollection < Lutaml::Model::Serializable
+  attribute :name_of_attribute, AttributeValueType, collection: true
+
+  json | yaml | toml | key_value do
+    map to: :name_of_attribute,
+      root_mappings: {
+        value_type_attribute_name_for_key: :key, <1>
+        value_type_attribute_name_for_value: :value <2>
+      }
+  end
+end
+
+class AttributeValueType < Lutaml::Model::Serializable
+  attribute :value_type_attribute_name_for_key, :string
+  attribute :value_type_attribute_name_for_value, SomeObject
+end
+----
+<1> The `:key` keyword specifies that the "key" of the keyed collection maps
+to the `value_type_attribute_name_for_key` attribute of the collection's
+instance object (i.e. `AttributeValueType`).
+<2> The `:value` keyword specifies that the entire "value" of the keyed
+collection maps to the `value_type_attribute_name_for_value` attribute of the
+collection's instance object (i.e. `SomeObject`).
+
+When the `root_mappings` mapping contains more than one mapping rule, the
+`root_mappings` mapping will override all other mappings in the collection
+object. This means that unmapped attributes in `root_mappings` will not be
+incorporated in the collection instance objects.
+
+
+
+.Using `map` with `root_mappings` (`key` and `value`) to map a keyed collection into individual models
+[example]
+====
+Given this data:
+
+[source,yaml]
+----
+---
+vase1:
+  name: Imperial Vase
+  insignia: "Tang Tianbao"
+bowl2:
+  name: 18th Century Bowl
+  insignia: "Ming Wanli"
+----
+
+A model can be defined for this YAML as follows:
+
+[source,ruby]
+----
+# This is a normal Lutaml::Model class
+class CeramicDetails < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :insignia, :string
+
+  key_value do
+    map 'name', to: :name
+    map 'insignia', to: :insignia
+  end
+end
+
+# This is a normal Lutaml::Model class
+class Ceramic < Lutaml::Model::Serializable
+  attribute :ceramic_id, :string
+  attribute :ceramic_details, CeramicDetails
+
+  key_value do
+    map 'id', to: :ceramic_id
+    map 'details', to: :ceramic_details
+  end
+end
+
+# This is Lutaml::Model class that represents the collection of Ceramic objects
+class CeramicCollection < Lutaml::Model::Serializable
+  attribute :ceramics, Ceramic, collection: true
+
+  key_value do
+    map to: :ceramics, # All data goes to the `ceramics` attribute
+      root_mappings: {
+        # The key of an object in this collection is mapped to the ceramic_id
+        # attribute of the Ceramic object.
+        # (e.g. `vase1`, `bowl2`)
+        ceramic_id: :key,
+        # The value of an object in this collection is mapped to the
+        # ceramic_details attribute of the Ceramic object.
+        # (e.g. `name: 18th Century Bowl`, `insignia: "Ming Wanli"`
+        ceramic_details: :value
+      }
+  end
+end
+----
+
+[source,ruby]
+----
+# Parsing the YAML collection with dynamic data keys
+> ceramic_collection = CeramicCollection.from_yaml(yaml)
+> #<CeramicCollection:0x0000000104ac7240
+  @ceramics=
+    [#<Ceramic:0x0000000104ac6e30
+      @ceramic_id="vase1",
+      @ceramic_details=
+        #<CeramicDetails:0x0000000104ac6e30
+          @name="Imperial Vase",
+          @insignia="Tang Tianbao">,
+     #<Ceramic:0x0000000104ac58f0
+      @ceramic_id="bowl2",
+      @ceramic_details=
+        #<CeramicDetails:0x0000000104ac58f0
+          @name="18th Century Bowl",
+          @insignia="Ming Wanli">]
+
+# NOTE: When an individual Ceramic object is serialized, the `id` attribute is
+# the original key in the incoming YAML data.
+> first_ceramic = ceramic_collection.ceramics.first
+> puts first_ceramic.to_yaml
+=>
+# ---
+# id: vase1
+# details:
+#   name: Imperial Vase
+#   insignia: Tang Tianbao
+
+# NOTE: When in a collection, the `ceramic_id` attribute is used to key the data,
+# and it disappears from the individual object.
+> puts ceramic_collection.to_yaml
+=>
+# ---
+# vase1:
+#   name: Imperial Vase
+#   insignia: Tang Tianbao
+# bowl2:
+#   name: 18th Century Bowl
+#   insignia: Ming Wanli
+
+# NOTE: When the collection is serialized, the `ceramic_id` attribute is used to
+# key the data. This is defined through the `map` with `root_mappings` method in
+# CeramicCollection.
+> new_collection = CeramicCollection.new(ceramics: [
+    Ceramic.new(ceramic_id: "vase1",
+                ceramic_details: CeramicDetails.new(
+                  name: "Imperial Vase", insignia: "Tang Tianbao")
+               ),
+    Ceramic.new(ceramic_id: "bowl2",
+                ceramic_details: CeramicDetails.new(
+                  name: "18th Century Bowl", insignia: "Ming Wanli")
+               )
+  ])
+> puts new_collection.to_yaml
+=>
+# ---
+# vase1:
+#   name: Imperial Vase
+#   insignia: Tang Tianbao
+# bowl2:
+#   name: 18th Century Bowl
+#   insignia: Ming Wanli
 ----
 ====
 
