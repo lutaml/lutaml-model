@@ -216,7 +216,9 @@ module Lutaml
             serialize(v, format, options)
           end
         elsif type <= Serialize
-          type.public_send(:"as_#{format}", value, options)
+          if Utils.present?(value)
+            type.public_send(:"as_#{format}", value, options)
+          end
         else
           # Convert to Value instance if not already
           value = type.new(value) unless value.is_a?(Type::Value)

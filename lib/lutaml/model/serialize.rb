@@ -367,7 +367,16 @@ module Lutaml
             map_value = {}
             child_mappings.each do |attr_name, path|
               attr_value = child_obj.send(attr_name)
-              attr_value = attr_value.to_yaml_hash if attr_value.is_a?(Lutaml::Model::Serialize)
+
+              attr_value = if attr_value.is_a?(Lutaml::Model::Serialize)
+                             attr_value.to_yaml_hash
+                           elsif attr_value.is_a?(Array) && attr_value.first.is_a?(Lutaml::Model::Serialize)
+                             attr_value.map(&:to_yaml_hash)
+                           else
+                             attr_value
+                           end
+
+              next if Utils.blank?(attr_value)
 
               if path == :key
                 map_key = attr_value
