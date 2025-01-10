@@ -34,6 +34,10 @@ module Lutaml
       alias render_default? render_default
       alias attribute? attribute
 
+      def render?(value)
+        render_nil? || (!value.nil? && !Utils.empty_collection?(value))
+      end
+
       def serialize_attribute(model, element, doc)
         if custom_methods[:to]
           model.send(custom_methods[:to], model, element, doc)

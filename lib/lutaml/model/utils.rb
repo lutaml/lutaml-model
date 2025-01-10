@@ -42,6 +42,13 @@ module Lutaml
           value.respond_to?(:empty?) ? value.empty? : value.nil?
         end
 
+        def empty_collection?(collection)
+          return false if collection.nil?
+          return false unless [Array, Hash].include?(collection.class)
+
+          collection.empty?
+        end
+
         def add_method_if_not_defined(klass, method_name, &block)
           unless klass.method_defined?(method_name)
             klass.class_eval do

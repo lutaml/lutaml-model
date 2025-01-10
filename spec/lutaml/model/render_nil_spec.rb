@@ -136,4 +136,33 @@ RSpec.describe RenderNil do
     expect(pottery.name).to eq("Unnamed Pottery")
     expect(pottery.glaze).to be_nil
   end
+
+  context "attributes with empty string as values" do
+    let(:attributes) do
+      {
+        name: "",
+        clay_type: "",
+        glaze: "",
+        dimensions: [],
+        render_nil_nested: RenderNilNested.new,
+      }
+    end
+
+    it "does not tread empty string as nil" do
+      expected_yaml = <<~YAML
+        ---
+        name: ''
+        clay_type: ''
+        glaze: ''
+      YAML
+
+      generated_yaml = model.to_yaml.strip
+
+      # Removing empty spaces from the end of the line because of and issue in
+      # libyaml -> https://github.com/yaml/libyaml/issues/46
+      generated_yaml = generated_yaml.gsub(": \n", ":\n")
+
+      expect(generated_yaml).to eq(expected_yaml.strip)
+    end
+  end
 end

@@ -271,15 +271,15 @@ module Lutaml
 
             attribute = attributes[name]
 
-            next hash.merge!(generate_hash_from_child_mappings(value, format, rule.root_mappings)) if rule.root_mapping?
+            next hash.merge!(generate_hash_from_child_mappings(attribute, value, format, rule.root_mappings)) if rule.root_mapping?
 
             value = if rule.child_mappings
-                      generate_hash_from_child_mappings(value, format, rule.child_mappings)
+                      generate_hash_from_child_mappings(attribute, value, format, rule.child_mappings)
                     else
                       attribute.serialize(value, format, options)
                     end
 
-            next if Utils.blank?(value) && !rule.render_nil
+            next unless rule.render?(value)
 
             rule_from_name = rule.multiple_mappings? ? rule.from.first.to_s : rule.from.to_s
             hash[rule_from_name] = value
@@ -346,7 +346,7 @@ module Lutaml
           end
         end
 
-        def generate_hash_from_child_mappings(value, format, child_mappings)
+        def generate_hash_from_child_mappings(attr, value, format, child_mappings)
           return value unless child_mappings
 
           hash = {}
@@ -365,7 +365,11 @@ module Lutaml
           value.each do |child_obj|
             map_key = nil
             map_value = {}
+            mapping_rules = attr.type.mappings_for(format)
+
             child_mappings.each do |attr_name, path|
+              mapping_rule = mapping_rules.find_by_to(attr_name)
+
               attr_value = child_obj.send(attr_name)
 
               attr_value = if attr_value.is_a?(Lutaml::Model::Serialize)
@@ -376,7 +380,7 @@ module Lutaml
                              attr_value
                            end
 
-              next if Utils.blank?(attr_value)
+              next unless mapping_rule&.render?(attr_value)
 
               if path == :key
                 map_key = attr_value
