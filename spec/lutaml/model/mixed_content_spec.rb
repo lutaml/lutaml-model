@@ -539,10 +539,10 @@ RSpec.describe "MixedContent" do
         let(:expected_nokogiri_xml) do
           <<~XML
             <SpecialCharContentWithRawOptionAndMixedOption><special>
-                B &lt;p&gt;R&amp;amp;C&lt;/p&gt;
-                C &lt;p&gt;J&amp;#x2014;C&lt;/p&gt;
-                O &lt;p&gt;A &amp;amp; B &lt;/p&gt;
-                F &lt;p&gt;Z &amp;#xA9;S&lt;/p&gt;
+                B <p>R&amp;C</p>
+                C <p>J—C</p>
+                O <p>A &amp; B </p>
+                F <p>Z ©S</p>
               </special></SpecialCharContentWithRawOptionAndMixedOption>
           XML
         end
@@ -550,10 +550,10 @@ RSpec.describe "MixedContent" do
         let(:expected_ox_xml) do
           <<~XML
             <SpecialCharContentWithRawOptionAndMixedOption>
-              <special> B &lt;p&gt;R&amp;amp;C&lt;/p&gt;
-                C &lt;p&gt;J—C&lt;/p&gt;
-                O &lt;p&gt;A &amp;amp; B &lt;/p&gt;
-                F &lt;p&gt;Z ©S&lt;/p&gt;
+              <special> B <p>R&amp;C</p>
+                C <p>J—C</p>
+                O <p>A &amp; B </p>
+                F <p>Z ©S</p>
               </special>
               </SpecialCharContentWithRawOptionAndMixedOption>
           XML
@@ -562,10 +562,10 @@ RSpec.describe "MixedContent" do
         let(:expected_oga_xml) do
           <<~XML
             <SpecialCharContentWithRawOptionAndMixedOption>
-              <special> B &lt;p&gt;R&amp;C&lt;/p&gt;
-                C &lt;p&gt;J—C&lt;/p&gt;
-                O &lt;p&gt;A &amp; B &lt;/p&gt;
-                F &lt;p&gt;Z ©S&lt;/p&gt;
+              <special> B <p>R&amp;C</p>
+                C <p>J—C</p>
+                O <p>A &amp; B </p>
+                F <p>Z ©S</p>
               </special>
             </SpecialCharContentWithRawOptionAndMixedOption>
           XML
@@ -604,9 +604,9 @@ RSpec.describe "MixedContent" do
       end
 
       describe ".to_xml" do
-        let(:expected_nokogiri_xml) { "B &lt;p&gt;R&lt;/p&gt;" }
-        let(:expected_oga_xml) { "B &lt;p&gt;R&amp;C&lt;/p&gt;" }
-        let(:expected_ox_xml) { "B &lt;p&gt;R&amp;amp;C&lt;/p&gt;" }
+        let(:expected_nokogiri_xml) { "B <p>R</p>" }
+        let(:expected_oga_xml) { "B <p>R&amp;C</p>" }
+        let(:expected_ox_xml) { "B <p>R&amp;C</p>" }
 
         it "serializes special char mixed content correctly" do
           parsed = MixedContentSpec::SpecialCharContentWithRawAndMixedOption.from_xml(xml)
