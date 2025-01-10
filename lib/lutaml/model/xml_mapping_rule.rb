@@ -59,10 +59,6 @@ module Lutaml
         name.nil?
       end
 
-      def raw_mapping?
-        name == "__raw_mapping"
-      end
-
       def content_key
         cdata ? "#cdata-section" : "text"
       end

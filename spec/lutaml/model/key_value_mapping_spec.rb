@@ -83,4 +83,31 @@ RSpec.describe Lutaml::Model::KeyValueMapping do
       expect(m.custom_methods.object_id).not_to eq(dup_m.custom_methods.object_id)
     end
   end
+
+  context "with map_all option" do
+    before do
+      mapping.map_all(
+        render_nil: true,
+        delegate: :container,
+      )
+    end
+
+    it "handles JSON mapping" do
+      expect(mapping.mappings[0].render_nil).to be true
+      expect(mapping.mappings[0].delegate).to eq(:container)
+      expect(mapping.mappings[0].raw_mapping?).to be true
+    end
+
+    it "handles YAML mapping" do
+      expect(mapping.mappings[0].render_nil).to be true
+      expect(mapping.mappings[0].delegate).to eq(:container)
+      expect(mapping.mappings[0].raw_mapping?).to be true
+    end
+
+    it "handles TOML mapping" do
+      expect(mapping.mappings[0].render_nil).to be true
+      expect(mapping.mappings[0].delegate).to eq(:container)
+      expect(mapping.mappings[0].raw_mapping?).to be true
+    end
+  end
 end

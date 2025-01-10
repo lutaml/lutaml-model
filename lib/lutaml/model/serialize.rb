@@ -269,6 +269,11 @@ module Lutaml
 
             value = instance.send(name)
 
+            if rule.raw_mapping?
+              adapter = Lutaml::Model::Config.send(:"#{format}_adapter")
+              return adapter.parse(value, options)
+            end
+
             attribute = attributes[name]
 
             next hash.merge!(generate_hash_from_child_mappings(attribute, value, format, rule.root_mappings)) if rule.root_mapping?
@@ -500,6 +505,9 @@ module Lutaml
             value = names.collect do |rule_name|
               if rule.root_mapping?
                 doc
+              elsif rule.raw_mapping?
+                adapter = Lutaml::Model::Config.public_send(:"#{format}_adapter")
+                adapter.new(doc).public_send(:"to_#{format}")
               elsif doc.key?(rule_name.to_s)
                 doc[rule_name.to_s]
               elsif doc.key?(rule_name.to_sym)
