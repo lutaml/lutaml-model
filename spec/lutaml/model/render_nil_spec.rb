@@ -137,7 +137,7 @@ RSpec.describe RenderNil do
     expect(pottery.glaze).to be_nil
   end
 
-  context "attributes with empty string as values" do
+  context "with empty string as values for attributes" do
     let(:attributes) do
       {
         name: "",
