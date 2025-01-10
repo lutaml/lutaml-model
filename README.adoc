@@ -927,9 +927,7 @@ end
 ====
 
 
-==== Mapping all content (XML only)
-
-WARNING: This feature is only applicable to XML (for now).
+==== Mapping all content
 
 The `map_all` tag in XML mapping captures and maps all content within an XML
 element into a single attribute in the target Ruby object.
@@ -1932,6 +1930,90 @@ end
 ----
 ====
 
+==== Mapping all content
+
+The `map_all` tag captures and maps all content within a serialization format into a single attribute in the target Ruby object.
+
+The use case for `map_all` is to tell Lutaml::Model to not parse the content at all, and instead handle it as a raw string.
+
+This is useful when the content needs to be handled as-is without parsing into individual attributes.
+
+The `map_all` tag is **exclusive** and cannot be combined with other mappings, ensuring it captures the entire content.
+
+NOTE: An error is raised if `map_all` is defined alongside any other mapping in the same mapping context.
+
+Syntax:
+
+[source,ruby]
+----
+json | yaml | toml do
+  map_all to: :name_of_attribute
+end
+----
+
+.Using `map_all` to capture all content across different formats
+[example]
+====
+[source,ruby]
+----
+class Document < Lutaml::Model::Serializable
+  attribute :content, :string
+
+  json do
+    map_all to: :content
+  end
+
+  yaml do
+    map_all to: :content
+  end
+
+  toml do
+    map_all to: :content
+  end
+end
+----
+
+For JSON:
+[source,json]
+----
+{
+  "sections": [
+    { "title": "Introduction", "text": "Chapter 1" },
+    { "title": "Conclusion", "text": "Final chapter" }
+  ],
+  "metadata": {
+    "author": "John Doe",
+    "date": "2024-01-15"
+  }
+}
+----
+
+For YAML:
+[source,yaml]
+----
+sections:
+  - title: Introduction
+    text: Chapter 1
+  - title: Conclusion
+    text: Final chapter
+metadata:
+  author: John Doe
+  date: 2024-01-15
+----
+
+The content is preserved exactly as provided:
+
+[source,ruby]
+----
+> doc = Document.from_json(json_content)
+> puts doc.content
+> # "{\"sections\":[{\"title\":\"Introduction\",\"text\":\"Chapter 1\"},{\"title\":\"Conclusion\",\"text\":\"Final chapter\"}],\"metadata\":{\"author\":\"John Doe\",\"date\":\"2024-01-15\"}}"
+
+> doc = Document.from_yaml(yaml_content) 
+> puts doc.content
+> # "sections:\n  - title: Introduction\n    text: Chapter 1\n  - title: Conclusion\n    text: Final chapter\nmetadata:\n  author: John Doe\n  date: 2024-01-15\n"
+----
+====
 
 ==== Nested attribute mappings
 

@@ -341,7 +341,7 @@ RSpec.describe ChildMapping do
         actual = Lutaml::Model::Config.toml_adapter.parse(instance.to_toml)
         expected = Lutaml::Model::Config.toml_adapter.parse(toml)
 
-        expect(actual.attributes).to eq(expected.attributes)
+        expect(actual).to eq(expected)
       end
 
       it "converts object to toml with nesting values" do
@@ -349,7 +349,7 @@ RSpec.describe ChildMapping do
         actual = Lutaml::Model::Config.toml_adapter.parse(instance.to_toml)
         expected = Lutaml::Model::Config.toml_adapter.parse(prefixes_toml)
 
-        expect(actual.attributes).to eq(expected.attributes)
+        expect(actual).to eq(expected)
       end
     end
   end

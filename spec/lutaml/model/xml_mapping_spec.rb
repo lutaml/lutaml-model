@@ -187,7 +187,7 @@ module XmlMapping
     xml do
       root "MapAllWithCustomMethod"
 
-      map_all to: :all_content, with: { to: :content_to_xml, from: :content_from_xml }
+      map_all_content to: :all_content, with: { to: :content_to_xml, from: :content_from_xml }
     end
 
     def content_to_xml(model, parent, doc)

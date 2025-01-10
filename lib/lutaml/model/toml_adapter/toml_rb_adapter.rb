@@ -6,8 +6,7 @@ module Lutaml
     module TomlAdapter
       class TomlRbAdapter < TomlDocument
         def self.parse(toml, _options = {})
-          data = TomlRB.parse(toml)
-          new(data)
+          TomlRB.parse(toml)
         end
 
         def to_toml(*)
