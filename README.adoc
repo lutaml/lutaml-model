@@ -13,8 +13,9 @@ objects to and from various formats such as JSON, XML, YAML, and TOML. It uses
 an adapter pattern to support multiple libraries for each format, providing
 flexibility and extensibility for your data modeling needs.
 
-NOTE: Lutaml::Model is designed to be mostly compatible with the data modeling
-API of https://www.shalerb.org[Shale], an impressive Ruby data modeller.
+NOTE: The Lutaml::Model modeling Ruby API is designed to be mostly compatible
+with the data modeling API of https://www.shalerb.org[Shale], a data modeller
+for Ruby.
 Lutaml::Model is meant to address advanced needs not currently addressed by
 Shale.
 
@@ -95,36 +96,39 @@ Studio (Model)
 .Modeling relationships of a LutaML Model to serialization models
 [source]
 ----
-    Core Model                  Serialization Model
-    ==========                  ===================
-        │                           (mapping)
-        │                               │
-        ▼                               ▼
-      Model                         XML Model
-        │                               │
-  ┌─────┴─────┐                  ┌──────┴──────┐
-  │           │                  │             │
-Models   Value Types ────┬──►  Models     Value Types
-  │           │          │       │             │
-  │           │          │       │             │
-  │    ┌──────┴──┐       │  ┌────┴────┐      ┌─┴─┐
-  │    │         │       │  │         │      │   │
-  │   String  Integer    │ Element  Value  xs:string
-  │   Date    Float      │ Attribute Type  xs:date
-  │   Time    Boolean    │                 xs:boolean
-  │                      │                 xs:anyURI
-  └──────┐               │
-         │               │         JSON Model
-    Contains             │              │
-    more Models          │       ┌──────┴──────┐
-    (recursive)          │       │             │
-                         └──►  Models     Value Types
-                                 │             │
-                                 │             │
-                            ┌────┴────┐      ┌─┴─┐
-                            │         │      │   │
-                           object  array  number string
-                           value          boolean null
+╔═══════════════════════╗                      ╔════════════════════════════╗
+║       Core Model      ║                      ║    Serialization Models    ║
+╚═══════════════════════╝                      ╚════════════════════════════╝
+
+╭┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╮                      ╭┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╮
+┆          Model        ┆                      ┆          XML Model         ┆
+┆            │          ┆   ┌────────────────┐ ┆              │             ┆
+┆   ┌────────┴──┐       ┆   │                │ ┆       ┌──────┴──────┐      ┆
+┆   │           │       ┆   │     Model      │ ┆       │             │      ┆
+┆ Models   Value Types  ┆──►│ Transformation │ ┆    Models      Value Types ┆
+┆   │           │       ┆   │       &        │ ┆       │             │      ┆
+┆   │           │       ┆   │ Mapping Rules  │ ┆       │             │      ┆
+┆   │    ┌──────┴──┐    ┆   │                │ ┆  ┌────┴────┐      ┌─┴─┐    ┆
+┆   │    │         │    ┆   │                │ ┆  │         │      │   │    ┆
+┆   │   String  Integer ┆   └────────────────┘ ┆ Element  Value  xs:string  ┆
+┆   │   Date    Float   ┆           │          ┆ Attribute Type  xs:date    ┆
+┆   │   Time    Boolean ┆           ├──────►   ┆                 xs:boolean ┆
+┆   │                   ┆           │          ┆                 xs:anyURI  ┆
+┆   └──────┐            ┆           │          ╰┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╯
+┆          │            ┆           │
+┆     Contains          ┆           │          ╭┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╮
+┆     more Models       ┆           │          ┆          JSON Model        ┆
+┆     (recursive)       ┆           │          ┆              │             ┆
+┆                       ┆           │          ┆       ┌──────┴──────┐      ┆
+╰┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╯           └───────►  ┆       │             │      ┆
+                                               ┆    Models      Value Types ┆
+                                               ┆       │             │      ┆
+                                               ┆       │             │      ┆
+                                               ┆  ┌────┴───┐     ┌───┴──┐   ┆
+                                               ┆  │        │     │      │   ┆
+                                               ┆ object array number string ┆
+                                               ┆ value        boolean null  ┆
+                                               ╰┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╯
 ----
 
 .Example of LutaML Model instance transformed into a serialization model and serialized to JSON
@@ -278,6 +282,7 @@ attribute :name_of_attribute, {symbol | string | class}
 | `:time`               | `Time`                   | `xs:dateTime`     | `string`  | `string`  | `"2024-01-01T12:00:00+00:00"`
 | `:decimal` (optional) | `BigDecimal`             | `xs:decimal`      | `number`  | `float`   | `123.45`
 | `:hash`               | `Hash`                   | complex element   | object    | map       | `{key: "value"}`
+| (nil value)           | `nil`                    | `xs:anyType`      | `null`    | `null`    | `null`
 // | `class`               | Custom class             | complex element   | object    | map       | `CustomObject`
 // | `collection: true`    | `Array` of type          | repeated elements | array     | sequence  | `[obj1, obj2]`
 // | `any`
