@@ -167,8 +167,9 @@ module Lutaml
         def add_value(xml, value, attribute, cdata: false)
           if !value.nil?
             serialized_value = attribute.type.serialize(value)
-
-            if attribute.type == Lutaml::Model::Type::Hash
+            if attribute.raw?
+              xml.add_xml_fragment(xml, value)
+            elsif attribute.type == Lutaml::Model::Type::Hash
               serialized_value.each do |key, val|
                 xml.create_and_add_element(key) do |element|
                   element.text(val)
