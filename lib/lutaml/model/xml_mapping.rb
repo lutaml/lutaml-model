@@ -149,10 +149,10 @@ module Lutaml
         prefix: (prefix_set = false
                  nil)
       )
-        validate!("__raw_mapping", to, with, type: TYPES[:all_content])
+        validate!(Constants::RAW_MAPPING_KEY, to, with, type: TYPES[:all_content])
 
         rule = XmlMappingRule.new(
-          "__raw_mapping",
+          Constants::RAW_MAPPING_KEY,
           to: to,
           render_nil: render_nil,
           render_default: render_default,
@@ -167,6 +167,8 @@ module Lutaml
 
         @raw_mapping = rule
       end
+
+      alias map_all_content map_all
 
       def validate!(key, to, with, type: nil)
         validate_mappings!(type)

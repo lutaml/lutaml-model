@@ -10,6 +10,7 @@ require_relative "model/yaml_adapter/standard_yaml_adapter"
 require_relative "model/xml_adapter"
 require_relative "model/toml_adapter"
 require_relative "model/error"
+require_relative "model/constants"
 
 module Lutaml
   module Model

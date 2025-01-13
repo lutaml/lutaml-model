@@ -84,6 +84,10 @@ module Lutaml
         name.is_a?(Array)
       end
 
+      def raw_mapping?
+        name == Constants::RAW_MAPPING_KEY
+      end
+
       def deep_dup
         raise NotImplementedError, "Subclasses must implement `deep_dup`."
       end
