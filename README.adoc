@@ -926,14 +926,20 @@ end
 ----
 ====
 
-
-==== Mapping all content
+[[xml-map-all]]
+==== Mapping all XML content
 
 The `map_all` tag in XML mapping captures and maps all content within an XML
 element into a single attribute in the target Ruby object.
 
 The use case for `map_all` is to tell Lutaml::Model to not parse the content of
 the XML element at all, and instead handle it as an XML string.
+
+NOTE: The corresponding method for key-value formats is at <<key-value-map-all>>.
+
+WARNING: Notice that usage of mapping all will lead to incompatibility between
+serialization formats, i.e. the raw string content will not be portable as
+objects are across different formats.
 
 This is useful in the case where the content of an XML element is not to be
 handled by a Lutaml::Model::Serializable object.
@@ -947,8 +953,9 @@ This includes:
 * attributes
 * text nodes
 
-The `map_all` tag is **exclusive** and cannot be combined with other mappings (`map_element`, `map_content`) except for `map_attribute` for the same element, ensuring
-it captures the entire inner XML content.
+The `map_all` tag is **exclusive** and cannot be combined with other mappings
+(`map_element`, `map_content`) except for `map_attribute` for the same element,
+ensuring it captures the entire inner XML content.
 
 NOTE: An error is raised if `map_all` is defined alongside any other mapping in
 the same XML mapping context.
@@ -1930,23 +1937,35 @@ end
 ----
 ====
 
-==== Mapping all content
+[[key-value-map-all]]
+==== Mapping all key-value content
 
-The `map_all` tag captures and maps all content within a serialization format into a single attribute in the target Ruby object.
+The `map_all` tag captures and maps all content within a serialization format
+into a single attribute in the target Ruby object.
 
-The use case for `map_all` is to tell Lutaml::Model to not parse the content at all, and instead handle it as a raw string.
+The use case for `map_all` is to tell Lutaml::Model to not parse the content at
+all, and instead handle it as a raw string.
 
-This is useful when the content needs to be handled as-is without parsing into individual attributes.
+NOTE: The corresponding method for XML is at <<xml-map-all>>.
 
-The `map_all` tag is **exclusive** and cannot be combined with other mappings, ensuring it captures the entire content.
+WARNING: Notice that usage of mapping all will lead to incompatibility between
+serialization formats, i.e. the raw string content will not be portable as
+objects are across different formats.
 
-NOTE: An error is raised if `map_all` is defined alongside any other mapping in the same mapping context.
+This is useful when the content needs to be handled as-is without parsing into
+individual attributes.
+
+The `map_all` tag is **exclusive** and cannot be combined with other mappings,
+ensuring it captures the entire content.
+
+NOTE: An error is raised if `map_all` is defined alongside any other mapping in
+the same mapping context.
 
 Syntax:
 
 [source,ruby]
 ----
-json | yaml | toml do
+json | yaml | toml | key_value do
   map_all to: :name_of_attribute
 end
 ----
@@ -2009,7 +2028,7 @@ The content is preserved exactly as provided:
 > puts doc.content
 > # "{\"sections\":[{\"title\":\"Introduction\",\"text\":\"Chapter 1\"},{\"title\":\"Conclusion\",\"text\":\"Final chapter\"}],\"metadata\":{\"author\":\"John Doe\",\"date\":\"2024-01-15\"}}"
 
-> doc = Document.from_yaml(yaml_content) 
+> doc = Document.from_yaml(yaml_content)
 > puts doc.content
 > # "sections:\n  - title: Introduction\n    text: Chapter 1\n  - title: Conclusion\n    text: Final chapter\nmetadata:\n  author: John Doe\n  date: 2024-01-15\n"
 ----
