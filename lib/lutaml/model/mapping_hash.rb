@@ -38,10 +38,10 @@ module Lutaml
 
       def assign_or_append_value(key, value)
         self[key] = if self[key]
-                        [self[key], value].flatten
-                      else
-                        value
-                      end
+                      [self[key], value].flatten
+                    else
+                      value
+                    end
       end
 
       def ordered?
