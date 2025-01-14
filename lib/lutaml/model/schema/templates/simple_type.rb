@@ -96,7 +96,7 @@ module Lutaml
           MODEL_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
             # frozen_string_literal: true
             require "lutaml/model"
-            <%= "require_relative '\#{require_parent}'\n" if require_parent -%>
+            <%= "require_relative '\#{Utils.snake_case(parent_class)}'\n" if require_parent -%>
 
             class <%= klass_name %> < <%= parent_class %>
             <%= "  VALUES = \#{values}.freeze\n\n" if values_exist = values&.any? -%>
@@ -177,7 +177,7 @@ module Lutaml
             setup_supported_types
             simple_types.each do |name, properties|
               klass_name = Utils.camel_case(name)
-              @simple_types[name] = if @simple_types.key?(properties[:base_class])
+              @simple_types[name] = if @simple_types.key?(properties[:base_class]) && properties.one?
                                       ref_template(properties, klass_name)
                                     elsif properties&.key_exist?(:union)
                                       union_template(properties, klass_name)
