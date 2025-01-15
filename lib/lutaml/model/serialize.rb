@@ -152,7 +152,7 @@ module Lutaml
           Utils.add_method_if_not_defined(klass, enum_name) do
             i = instance_variable_get(:"@#{enum_name}") || []
 
-            if !collection && (i.is_a?(Array) || i.is_a?(Lutaml::Model::Collection))
+            if !collection && Utils.collection?(i)
               i.first
             else
               i.uniq
@@ -162,14 +162,14 @@ module Lutaml
 
         def add_enum_setter_if_not_defined(klass, enum_name, _values, collection)
           Utils.add_method_if_not_defined(klass, "#{enum_name}=") do |value|
-            value = [value] unless value.is_a?(Array) || value.is_a?(Lutaml::Model::Collection)
+            value = [value] unless Utils.collection?(value)
 
             value_set_for(enum_name)
 
             if collection
               curr_value = public_send(:"#{enum_name}")
 
-              instance_variable_set(:"@#{enum_name}", value + curr_value)
+              instance_variable_set(:"@#{enum_name}", curr_value + value)
             else
               instance_variable_set(:"@#{enum_name}", value)
             end
@@ -495,11 +495,11 @@ module Lutaml
         def normalize_xml_value(value, rule, attr, options = {})
           if attr&.collection?
             collection = attr.collection_class.new
-            value = value.is_a?(Array) || value.is_a?(Lutaml::Model::Collection) ? collection.concat(value) : collection.push(value)
+            value = Utils.collection?(value) ? collection.concat(value) : collection.push(value)
             value = value.compact
           end
 
-          value = if value.is_a?(Lutaml::Model::Collection) || value.is_a?(Array)
+          value = if Utils.collection?(value)
                     value.map do |v|
                       text_hash?(attr, v) ? v.text : v
                     end

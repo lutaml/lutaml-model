@@ -96,6 +96,10 @@ module Lutaml
           new_hash
         end
 
+        def collection?(subject)
+          subject.is_a?(Array) || (subject.respond_to?(:collection?) && subject.send(:collection?))
+        end
+
         private
 
         def camelize_part(part)

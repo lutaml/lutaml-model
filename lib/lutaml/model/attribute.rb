@@ -229,7 +229,7 @@ module Lutaml
       def cast(value, format, options = {})
         value ||= collection_class.new if collection?
 
-        if value.is_a?(Array) || value.is_a?(Lutaml::Model::Collection)
+        if Utils.collection?(value)
           value.map do |v|
             cast(v, format, options)
           end

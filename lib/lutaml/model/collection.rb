@@ -1,8 +1,14 @@
+require "forwardable"
+
 module Lutaml
   module Model
     class Collection
       include Enumerable
+      extend Forwardable
+
       attr_reader :items
+
+      def_delegators :@items, :each, :<<, :push, :size, :to_s, :to_yaml, :to_json, :empty?, :[], :length, :+, :compact, :first, :last, :join, :to_a, :to_ary
 
       def initialize(items = [])
         @items = items
@@ -10,31 +16,6 @@ module Lutaml
 
       def map(&block)
         self.class.new(@items.map(&block))
-      end
-
-      def each(&block)
-        @items.each(&block)
-      end
-
-      def <<(item)
-        @items << item
-        self
-      end
-
-      def push(item)
-        self << (item)
-      end
-
-      def +(other)
-        self.class.new(@items + other.to_a)
-      end
-
-      def to_a
-        @items
-      end
-
-      def compact
-        self.class.new(@items.compact)
       end
 
       def concat(other)
@@ -49,14 +30,6 @@ module Lutaml
         self
       end
 
-      def size
-        @items.size
-      end
-
-      def [](index)
-        @items[index]
-      end
-
       def ==(other)
         case other
         when Array
@@ -68,35 +41,9 @@ module Lutaml
         end
       end
 
-      def to_s
-        @items.to_s
+      def collection?
+        true
       end
-
-      def to_json(*_args)
-        @items.to_json
-      end
-
-      def to_yaml
-        @items.to_yaml
-      end
-
-      def empty?
-        @items.empty?
-      end
-
-      def first(many = nil)
-        many ? @items.first(many) : @items.first
-      end
-
-      def last(many = nil)
-        many ? @items.last(many) : @items.last
-      end
-
-      def join(separator = nil)
-        @items.join(separator)
-      end
-
-      alias_method :length, :size
     end
   end
 end
