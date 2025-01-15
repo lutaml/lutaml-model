@@ -216,7 +216,7 @@ module Lutaml
 
       def serialize(value, format, options = {})
         return if value.nil?
-        
+
         if value.is_a?(Lutaml::Model::Collection)
           value.map do |v|
             serialize(v, format, options)

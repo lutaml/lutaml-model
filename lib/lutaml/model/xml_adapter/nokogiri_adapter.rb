@@ -86,7 +86,7 @@ module Lutaml
                 next if element_rule.cdata && name == "text"
 
                 text = xml_mapping.content_mapping.serialize(element)
-                text = text[curr_index] if text.respond_to?(:join)
+                text = text[curr_index] if Utils.collection?(text)
 
                 next prefixed_xml.add_text(xml, text, cdata: element_rule.cdata) if element.mixed?
 

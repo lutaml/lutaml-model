@@ -8,7 +8,7 @@ module Lutaml
 
       attr_reader :items
 
-      def_delegators :@items, :each, :<<, :push, :size, :to_s, :to_yaml, :to_json, :empty?, :[], :length, :+, :compact, :first, :last, :join, :to_a, :to_ary
+      def_delegators :@items, :each, :<<, :push, :size, :to_s, :to_yaml, :to_json, :empty?, :[], :length, :+, :compact, :first, :last, :join, :to_a, :to_ary, :eql?
 
       def initialize(items = [])
         @items = items

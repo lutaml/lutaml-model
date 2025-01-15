@@ -241,7 +241,7 @@ module Lutaml
                                   xml.parent, xml)
           else
             text = content_rule.serialize(element)
-            text = text.join if text.respond_to?(:join)
+            text = text.join if Utils.collection?(text)
 
             xml.add_text(xml, text, cdata: content_rule.cdata)
           end
