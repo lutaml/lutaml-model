@@ -77,26 +77,21 @@ module Lutaml
           result.node = element
           result.item_order = element.order
 
-          element.children.each_with_object(result) do |child, hash|
+          element.children.each do |child|
             if klass&.<= Serialize
               attr = klass.attribute_for_child(child.name,
                                                format)
             end
 
-            value = if child.text?
-                      child.text
-                    else
-                      parse_element(child, attr&.type || klass, format)
-                    end
+            next result.assign_or_append_value(child.name, child.text) if child.text?
 
-            hash[child.namespaced_name] = if hash[child.namespaced_name]
-                                            [hash[child.namespaced_name], value].flatten
-                                          else
-                                            value
-                                          end
+            result["elements"] ||= Lutaml::Model::MappingHash.new
+            result["elements"].assign_or_append_value(child.namespaced_name, parse_element(child, attr&.type || klass, format))
           end
 
-          result.merge(attributes_hash(element))
+          result["attributes"] = attributes_hash(element) if element.attributes&.any?
+
+          result
         end
 
         def attributes_hash(element)
@@ -109,9 +104,9 @@ module Lutaml
                 prefix: attr.namespace_prefix,
                 schema_location: attr.value,
               }
-            else
-              result[attr.namespaced_name] = attr.value
             end
+
+            result[attr.namespaced_name] = attr.value
           end
 
           result
@@ -167,8 +162,9 @@ module Lutaml
         def add_value(xml, value, attribute, cdata: false)
           if !value.nil?
             serialized_value = attribute.type.serialize(value)
-
-            if attribute.type == Lutaml::Model::Type::Hash
+            if attribute.raw?
+              xml.add_xml_fragment(xml, value)
+            elsif attribute.type == Lutaml::Model::Type::Hash
               serialized_value.each do |key, val|
                 xml.create_and_add_element(key) do |element|
                   element.text(val)
@@ -233,20 +229,16 @@ module Lutaml
             end
 
             process_content_mapping(element, xml_mapping.content_mapping,
-                                    prefixed_xml)
+                                    prefixed_xml, mapper_class)
           end
         end
 
-        def process_content_mapping(element, content_rule, xml)
+        def process_content_mapping(element, content_rule, xml, mapper_class)
           return unless content_rule
 
           if content_rule.custom_methods[:to]
-            @root.send(
-              content_rule.custom_methods[:to],
-              element,
-              xml.parent,
-              xml,
-            )
+            mapper_class.new.send(content_rule.custom_methods[:to], element,
+                                  xml.parent, xml)
           else
             text = content_rule.serialize(element)
             text = text.join if text.respond_to?(:join)
@@ -332,7 +324,7 @@ module Lutaml
                     {}
                   end
 
-          if element.respond_to?(:schema_location) && element.schema_location && !options[:except]&.include?(:schema_location)
+          if element.respond_to?(:schema_location) && element.schema_location.is_a?(Lutaml::Model::SchemaLocation) && !options[:except]&.include?(:schema_location)
             attrs.merge!(element.schema_location.to_xml_attributes)
           end
 
@@ -340,7 +332,9 @@ module Lutaml
             next if options[:except]&.include?(mapping_rule.to)
             next if mapping_rule.custom_methods[:to]
 
-            if mapping_rule.namespace && mapping_rule.prefix && mapping_rule.name != "lang"
+            mapping_rule_name = mapping_rule.multiple_mappings? ? mapping_rule.name.first : mapping_rule.name
+
+            if mapping_rule.namespace && mapping_rule.prefix && mapping_rule_name != "lang"
               hash["xmlns:#{mapping_rule.prefix}"] = mapping_rule.namespace
             end
 
@@ -377,6 +371,10 @@ module Lutaml
 
           key = ["xmlns", xml_mapping.namespace_prefix].compact.join(":")
           { key => xml_mapping.namespace_uri }
+        end
+
+        def self.type
+          Utils.snake_case(self).split("/").last.split("_").first
         end
       end
     end

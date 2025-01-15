@@ -42,6 +42,7 @@ class RenderNil < Lutaml::Model::Serializable
     map "clay_type", to: :clay_type, render_nil: false
     map "glaze", to: :glaze, render_nil: true
     map "dimensions", to: :dimensions, render_nil: false
+    map "render_nil_nested", to: :render_nil_nested, render_nil: false
   end
 
   toml do
@@ -59,8 +60,10 @@ RSpec.describe RenderNil do
       clay_type: nil,
       glaze: nil,
       dimensions: nil,
+      render_nil_nested: RenderNilNested.new,
     }
   end
+
   let(:model) { described_class.new(attributes) }
 
   it "serializes to JSON with render_nil option" do
@@ -132,5 +135,34 @@ RSpec.describe RenderNil do
     pottery = described_class.from_yaml(yaml)
     expect(pottery.name).to eq("Unnamed Pottery")
     expect(pottery.glaze).to be_nil
+  end
+
+  context "with empty string as values for attributes" do
+    let(:attributes) do
+      {
+        name: "",
+        clay_type: "",
+        glaze: "",
+        dimensions: [],
+        render_nil_nested: RenderNilNested.new,
+      }
+    end
+
+    it "does not tread empty string as nil" do
+      expected_yaml = <<~YAML
+        ---
+        name: ''
+        clay_type: ''
+        glaze: ''
+      YAML
+
+      generated_yaml = model.to_yaml.strip
+
+      # Removing empty spaces from the end of the line because of and issue in
+      # libyaml -> https://github.com/yaml/libyaml/issues/46
+      generated_yaml = generated_yaml.gsub(": \n", ":\n")
+
+      expect(generated_yaml).to eq(expected_yaml.strip)
+    end
   end
 end

@@ -148,7 +148,7 @@ module Lutaml
         # Use the default value if the value is nil
         value = default if value.nil?
 
-        valid_value!(value) && valid_collection!(value) && valid_pattern!(value)
+        valid_value!(value) && valid_collection!(value, self) && valid_pattern!(value)
       end
 
       def validate_collection_range
@@ -175,7 +175,9 @@ module Lutaml
         end
       end
 
-      def valid_collection!(value)
+      def valid_collection!(value, caller)
+        raise Lutaml::Model::CollectionTrueMissingError.new(name, caller) if value.is_a?(Array) && !collection?
+
         return true unless collection?
 
         # Allow nil values for collections during initialization
@@ -213,12 +215,16 @@ module Lutaml
       end
 
       def serialize(value, format, options = {})
+        return if value.nil?
+        
         if value.is_a?(Lutaml::Model::Collection)
           value.map do |v|
             serialize(v, format, options)
           end.to_a
         elsif type <= Serialize
-          type.public_send(:"as_#{format}", value, options)
+          if Utils.present?(value)
+            type.public_send(:"as_#{format}", value, options)
+          end
         else
           # Convert to Value instance if not already
           value = type.new(value) unless value.is_a?(Type::Value)

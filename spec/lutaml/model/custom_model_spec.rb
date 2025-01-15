@@ -56,8 +56,8 @@ class CustomModelParentMapper < Lutaml::Model::Serializable
   def child_from_xml(model, value)
     model.child_mapper ||= CustomModelChild.new
 
-    model.child_mapper.street = value["street"].text
-    model.child_mapper.city = value["city"].text
+    model.child_mapper.street = value["elements"]["street"].text
+    model.child_mapper.city = value["elements"]["city"].text
   end
 end
 
@@ -78,7 +78,7 @@ module CustomModelSpecs
   end
 
   class Id
-    attr_accessor :id
+    attr_accessor :id, :prefix
   end
 
   class Docid < Lutaml::Model::Serializable
@@ -126,10 +126,10 @@ module CustomModelSpecs
 
     def bibdata_from_xml(model, value)
       model.bibdata = BibliographicItem.new(
-        "type" => value["type"],
-        "title" => value["title"],
-        "language" => value["title"]["language"],
-        "schema_version" => value["schema-version"],
+        "type" => value["attributes"]["type"],
+        "title" => value["elements"]["title"],
+        "language" => value["elements"]["title"]["attributes"]["language"],
+        "schema_version" => value["attributes"]["schema-version"],
       )
     end
 
@@ -145,6 +145,28 @@ module CustomModelSpecs
           doc.add_text(doc, model.bibdata.title.text)
         end
       end
+    end
+  end
+
+  class CustomId < Lutaml::Model::Serializable
+    model Id
+    attribute :id, :string
+    attribute :prefix, :string
+
+    xml do
+      root "custom-id"
+      map_attribute "prefix", to: :prefix
+      map_content with: { to: :id_to_xml, from: :id_from_xml }
+    end
+
+    def id_to_xml(model, _parent, doc)
+      content = "ABC-#{model.id}"
+      doc.add_text(doc, content)
+    end
+
+    def id_from_xml(model, value)
+      id = value.split("-").last
+      model.id = id.to_i
     end
   end
 end
@@ -388,22 +410,33 @@ RSpec.describe "CustomModel" do
           </MixedWithNestedContent>
         XML
 
-        expected_xml = <<~XML
-          <MixedWithNestedContent>
-            <street>
-              A &lt;p&gt;b&lt;/p&gt; B &lt;p&gt;c&lt;/p&gt; C
-            </street>
-            <bibdata type="collection" schema-version="v1.2.8">
-              <title language="en">
-                JCGM Collection 1
-              </title>
-            </bibdata>
-          </MixedWithNestedContent>
-        XML
-
         bibdata = CustomModelSpecs::MixedWithNestedContent.from_xml(xml)
 
-        expect(bibdata.to_xml).to be_equivalent_to(expected_xml)
+        expect(bibdata.to_xml).to be_equivalent_to(xml)
+      end
+    end
+  end
+
+  context "with custom methods" do
+    describe ".xml serialization" do
+      it "handles custom content mapping methods" do
+        xml = '<custom-id prefix="ABC">ABC-123</custom-id>'
+
+        instance = CustomModelSpecs::Id.new
+        instance.id = 123
+        instance.prefix = "ABC"
+        result_xml = CustomModelSpecs::CustomId.to_xml(instance)
+        expect(result_xml).to eq(xml)
+      end
+    end
+
+    describe ".xml deserialization" do
+      it "handles custom content mapping methods" do
+        xml = '<custom-id prefix="ABC">ABC-123</custom-id>'
+        instance = CustomModelSpecs::CustomId.from_xml(xml)
+
+        expect(instance.id).to eq(123)
+        expect(instance.prefix).to eq("ABC")
       end
     end
   end

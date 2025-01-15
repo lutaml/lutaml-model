@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified" attributeFormDefault="qualified" blockDefault="#all" targetNamespace="http://schemas.openxmlformats.org/officeDocument/2006/math" xmlns="http://schemas.openxmlformats.org/officeDocument/2006/math" xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math" xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <xsd:simpleType name="ST_Integer255">
+    <xsd:annotation>
+      <xsd:documentation>Integer value (1 to 255)</xsd:documentation>
+    </xsd:annotation>
+    <xsd:restriction base="xsd:integer">
+      <xsd:minInclusive value="1" />
+      <xsd:maxInclusive value="255" />
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:complexType name="CT_Integer255">
+    <xsd:attribute name="val" type="ST_Integer255" use="required">
+      <xsd:annotation>
+        <xsd:documentation>Value</xsd:documentation>
+      </xsd:annotation>
+    </xsd:attribute>
+  </xsd:complexType>
+  <xsd:simpleType name="ST_Integer2">
+    <xsd:annotation>
+      <xsd:documentation>Integer value (-2 to 2)</xsd:documentation>
+    </xsd:annotation>
+    <xsd:restriction base="xsd:integer">
+      <xsd:minInclusive value="-2" />
+      <xsd:maxInclusive value="2" />
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:complexType name="CT_Integer2">
+    <xsd:attribute name="val" type="ST_Integer2" use="required">
+      <xsd:annotation>
+        <xsd:documentation>Value</xsd:documentation>
+      </xsd:annotation>
+    </xsd:attribute>
+  </xsd:complexType>
+  <xsd:element name="MathTest" type="CT_Integer255">
+    <xsd:annotation>
+      <xsd:documentation>Main Test class</xsd:documentation>
+    </xsd:annotation>
+  </xsd:element>
+  <xsd:element name="MathTest1" type="CT_Integer2">
+    <xsd:annotation>
+      <xsd:documentation>Main Test class</xsd:documentation>
+    </xsd:annotation>
+  </xsd:element>
+  <xsd:complexType name="CT_MathTest">
+    <xsd:group>
+      <xsd:sequence>
+        <xsd:element ref="MathTest" />
+        <xsd:element ref="MathTest1" />
+      </xsd:sequence>
+    </xsd:group>
+  </xsd:complexType>
+</xsd:schema>

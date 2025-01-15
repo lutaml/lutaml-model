@@ -3,6 +3,8 @@ require_relative "xml_mapping_rule"
 module Lutaml
   module Model
     class XmlMapping
+      include Lutaml::Model::Loggable
+
       TYPES = {
         attribute: :map_attribute,
         element: :map_element,
@@ -92,6 +94,7 @@ module Lutaml
                  nil)
       )
         validate!(name, to, with, type: TYPES[:attribute])
+        warn_auto_handling(name) if name == "schemaLocation"
 
         rule = XmlMappingRule.new(
           name,
@@ -146,10 +149,10 @@ module Lutaml
         prefix: (prefix_set = false
                  nil)
       )
-        validate!("__raw_mapping", to, with, type: TYPES[:all_content])
+        validate!(Constants::RAW_MAPPING_KEY, to, with, type: TYPES[:all_content])
 
         rule = XmlMappingRule.new(
-          "__raw_mapping",
+          Constants::RAW_MAPPING_KEY,
           to: to,
           render_nil: render_nil,
           render_default: render_default,
@@ -164,6 +167,8 @@ module Lutaml
 
         @raw_mapping = rule
       end
+
+      alias map_all_content map_all
 
       def validate!(key, to, with, type: nil)
         validate_mappings!(type)

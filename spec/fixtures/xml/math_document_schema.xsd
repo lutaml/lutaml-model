@@ -1,0 +1,56 @@
+<schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns="http://schemas.openxmlformats.org/officeDocument/2006/math">
+  <xs:simpleType name="StringDatatype">
+    <xs:annotation>
+      <xs:documentation>
+        A string data type to be used for the example. 
+      </xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="xs:string"></xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="IPV4AddressDatatype">
+    <xs:annotation>
+      <xs:documentation>
+        An Internet Protocol version 4 address represented using dotted-quad syntax as defined in section 3.2 of RFC2673.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="StringDatatype">
+      <xs:pattern value="((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9]).){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="whiteSpaces">
+    <xs:annotation>
+      <xs:documentation>
+        A non-empty string of Unicode characters with leading and trailing whitespace
+          disallowed. Whitespace is: U+9, U+10, U+32 or [ \n\t]+
+      </xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          The 'string' datatype restricts the XSD type by prohibiting leading 
+          and trailing whitespace, and something (not only whitespace) is required.
+        </xs:documentation>
+      </xs:annotation>
+      <xs:pattern value="\S(.*\S)?">
+        <xs:annotation>
+          <xs:documentation>
+            This pattern ensures that leading and trailing whitespace is
+            disallowed. This helps to even the user experience between implementations
+            related to whitespace.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:pattern>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:complexType name="MathDocument">
+    <xs:choice>
+      <xs:element name="Title" type="whiteSpaces"/>
+      <xs:element name="IPV4Address" type="IPV4AddressDatatype"/>
+    </xs:choice>
+  </xs:complexType>
+
+  <xs:element name="MathDocument" type="MathDocument"/>
+</schema>

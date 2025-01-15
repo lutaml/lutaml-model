@@ -16,7 +16,8 @@ module Lutaml
         render_default: false,
         with: {},
         attribute: false,
-        delegate: nil
+        delegate: nil,
+        root_mappings: nil
       )
         @name = name
         @to = to
@@ -25,12 +26,17 @@ module Lutaml
         @custom_methods = with
         @attribute = attribute
         @delegate = delegate
+        @root_mappings = root_mappings
       end
 
       alias from name
       alias render_nil? render_nil
       alias render_default? render_default
       alias attribute? attribute
+
+      def render?(value)
+        render_nil? || (!value.nil? && !Utils.empty_collection?(value))
+      end
 
       def serialize_attribute(model, element, doc)
         if custom_methods[:to]
@@ -42,6 +48,8 @@ module Lutaml
         if delegate
           model.public_send(delegate).public_send(to)
         else
+          return if to.nil?
+
           model.public_send(to)
         end
       end
@@ -56,7 +64,7 @@ module Lutaml
 
       def deserialize(model, value, attributes, mapper_class = nil)
         if custom_methods[:from]
-          mapper_class.new.send(custom_methods[:from], model, value)
+          mapper_class.new.send(custom_methods[:from], model, value) unless value.nil?
         elsif delegate
           if model.public_send(delegate).nil?
             model.public_send(:"#{delegate}=", attributes[delegate].type.new)
@@ -66,6 +74,18 @@ module Lutaml
         else
           model.public_send(:"#{to}=", value)
         end
+      end
+
+      def using_custom_methods?
+        !custom_methods.empty?
+      end
+
+      def multiple_mappings?
+        name.is_a?(Array)
+      end
+
+      def raw_mapping?
+        name == Constants::RAW_MAPPING_KEY
       end
 
       def deep_dup

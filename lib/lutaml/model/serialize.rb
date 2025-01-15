@@ -22,6 +22,7 @@ module Lutaml
 
       def self.included(base)
         base.extend(ClassMethods)
+        base.initialize_attrs(base)
       end
 
       module ClassMethods
@@ -29,14 +30,18 @@ module Lutaml
 
         def inherited(subclass)
           super
+          subclass.initialize_attrs(self)
+        end
 
-          @mappings ||= {}
-          @attributes ||= {}
+        def included(base)
+          base.extend(ClassMethods)
+          base.initialize_attrs(self)
+        end
 
-          subclass.instance_variable_set(:@attributes,
-                                         Utils.deep_dup(@attributes))
-          subclass.instance_variable_set(:@mappings, Utils.deep_dup(@mappings))
-          subclass.instance_variable_set(:@model, subclass)
+        def initialize_attrs(source_class)
+          @mappings = Utils.deep_dup(source_class.instance_variable_get(:@mappings)) || {}
+          @attributes = Utils.deep_dup(source_class.instance_variable_get(:@attributes)) || {}
+          instance_variable_set(:@model, self)
         end
 
         def model(klass = nil)
@@ -265,15 +270,25 @@ module Lutaml
 
             value = instance.send(name)
 
-            next if Utils.blank?(value) && !rule.render_nil
+            if rule.raw_mapping?
+              adapter = Lutaml::Model::Config.send(:"#{format}_adapter")
+              return adapter.parse(value, options)
+            end
 
             attribute = attributes[name]
 
-            hash[rule.from.to_s] = if rule.child_mappings
-                                     generate_hash_from_child_mappings(value, rule.child_mappings)
-                                   else
-                                     attribute.serialize(value, format, options)
-                                   end
+            next hash.merge!(generate_hash_from_child_mappings(attribute, value, format, rule.root_mappings)) if rule.root_mapping?
+
+            value = if rule.child_mappings
+                      generate_hash_from_child_mappings(attribute, value, format, rule.child_mappings)
+                    else
+                      attribute.serialize(value, format, options)
+                    end
+
+            next unless rule.render?(value)
+
+            rule_from_name = rule.multiple_mappings? ? rule.from.first.to_s : rule.from.to_s
+            hash[rule_from_name] = value
           end
         end
 
@@ -283,37 +298,12 @@ module Lutaml
           return if value.nil? && !rule.render_nil
 
           attribute = instance.send(rule.delegate).class.attributes[name]
-          hash[rule.from.to_s] = attribute.serialize(value, format)
+          rule_from_name = rule.multiple_mappings? ? rule.from.first.to_s : rule.from.to_s
+          hash[rule_from_name] = attribute.serialize(value, format)
         end
 
         def mappings_for(format)
           mappings[format] || default_mappings(format)
-        end
-
-        def attr_value(attrs, name, attr_rule)
-          value = if attrs.key?(name.to_sym)
-                    attrs[name.to_sym]
-                  elsif attrs.key?(name.to_s)
-                    attrs[name.to_s]
-                  else
-                    attr_rule.default
-                  end
-
-          if attr_rule.collection? || value.is_a?(Array)
-            (value || []).map do |v|
-              if v.is_a?(Hash)
-                attr_rule.type.new(v)
-              else
-                # TODO: This code is problematic because Type.cast does not know
-                # about all the types.
-                Lutaml::Model::Type.cast(v, attr_rule.type)
-              end
-            end
-          else
-            # TODO: This code is problematic because Type.cast does not know
-            # about all the types.
-            Lutaml::Model::Type.cast(value, attr_rule.type)
-          end
         end
 
         def default_mappings(format)
@@ -331,11 +321,11 @@ module Lutaml
           end
         end
 
-        def apply_child_mappings(hash, child_mappings)
+        def translate_mappings(hash, child_mappings, attr, format)
           return hash unless child_mappings
 
           hash.map do |key, value|
-            child_mappings.to_h do |attr_name, path|
+            child_hash = child_mappings.to_h do |attr_name, path|
               attr_value = if path == :key
                              key
                            elsif path == :value
@@ -345,32 +335,72 @@ module Lutaml
                              value.dig(*path.map(&:to_s))
                            end
 
-              [attr_name, attr_value]
+              attr_rule = attr.type.mappings_for(format).find_by_to(attr_name)
+              [attr_rule.from.to_s, attr_value]
             end
+
+            if child_mappings.values == [:key] && hash.values.all?(Hash)
+              child_hash.merge!(value)
+            end
+
+            attr.type.apply_hash_mapping(
+              child_hash,
+              attr.type.model.new,
+              format,
+              { mappings: attr.type.mappings_for(format).mappings },
+            )
           end
         end
 
-        def generate_hash_from_child_mappings(value, child_mappings)
+        def generate_hash_from_child_mappings(attr, value, format, child_mappings)
           return value unless child_mappings
 
           hash = {}
 
+          if child_mappings.values == [:key]
+            klass = value.first.class
+            mappings = klass.mappings_for(format)
+
+            klass.attributes.each_key do |name|
+              next if child_mappings.key?(name.to_sym) || child_mappings.key?(name.to_s)
+
+              child_mappings[name.to_sym] = mappings.find_by_to(name)&.name.to_s || name.to_s
+            end
+          end
+
           value.each do |child_obj|
             map_key = nil
             map_value = {}
+            mapping_rules = attr.type.mappings_for(format)
+
             child_mappings.each do |attr_name, path|
+              mapping_rule = mapping_rules.find_by_to(attr_name)
+
+              attr_value = child_obj.send(attr_name)
+
+              attr_value = if attr_value.is_a?(Lutaml::Model::Serialize)
+                             attr_value.to_yaml_hash
+                           elsif attr_value.is_a?(Array) && attr_value.first.is_a?(Lutaml::Model::Serialize)
+                             attr_value.map(&:to_yaml_hash)
+                           else
+                             attr_value
+                           end
+
+              next unless mapping_rule&.render?(attr_value)
+
               if path == :key
-                map_key = child_obj.send(attr_name)
+                map_key = attr_value
               elsif path == :value
-                map_value = child_obj.send(attr_name)
+                map_value = attr_value
               else
                 path = [path] unless path.is_a?(Array)
                 path[0...-1].inject(map_value) do |acc, k|
                   acc[k.to_s] ||= {}
-                end.public_send(:[]=, path.last.to_s, child_obj.send(attr_name))
+                end.public_send(:[]=, path.last.to_s, attr_value)
               end
             end
 
+            map_value = nil if map_value.empty?
             hash[map_key] = map_value
           end
 
@@ -398,12 +428,15 @@ module Lutaml
         def apply_mappings(doc, format, options = {})
           instance = options[:instance] || model.new
           return instance if Utils.blank?(doc)
+
+          options[:mappings] = mappings_for(format).mappings
           return apply_xml_mapping(doc, instance, options) if format == :xml
 
           apply_hash_mapping(doc, instance, format, options)
         end
 
         def apply_xml_mapping(doc, instance, options = {})
+          options = Utils.deep_dup(options)
           instance.encoding = options[:encoding]
           return instance unless doc
 
@@ -411,11 +444,10 @@ module Lutaml
             options[:default_namespace] =
               mappings_for(:xml)&.namespace_uri
           end
-          mappings = mappings_for(:xml).mappings
+          mappings = options[:mappings] || mappings_for(:xml).mappings
 
           if doc.is_a?(Array)
-            raise "May be `collection: true` is" \
-                  "missing for #{self} in #{options[:caller_class]}"
+            raise Lutaml::Model::CollectionTrueMissingError(self, option[:caller_class])
           end
 
           if instance.respond_to?(:ordered=) && doc.is_a?(Lutaml::Model::MappingHash)
@@ -424,11 +456,11 @@ module Lutaml
             instance.mixed = mappings_for(:xml).mixed_content? || options[:mixed_content]
           end
 
-          if doc["__schema_location"]
+          if doc["attributes"]&.key?("__schema_location")
             instance.schema_location = Lutaml::Model::SchemaLocation.new(
-              schema_location: doc["__schema_location"][:schema_location],
-              prefix: doc["__schema_location"][:prefix],
-              namespace: doc["__schema_location"][:namespace],
+              schema_location: doc["attributes"]["__schema_location"][:schema_location],
+              prefix: doc["attributes"]["__schema_location"][:prefix],
+              namespace: doc["attributes"]["__schema_location"][:namespace],
             )
           end
 
@@ -443,8 +475,8 @@ module Lutaml
                       doc.node.inner_xml
                     elsif rule.content_mapping?
                       doc[rule.content_key]
-                    elsif doc.key_exist?(rule.namespaced_name(options[:default_namespace]))
-                      doc.fetch(rule.namespaced_name(options[:default_namespace]))
+                    elsif val = value_for_rule(doc, rule, options)
+                      val
                     else
                       defaults_used << rule.to
                       attr&.default || rule.to_value_for(instance)
@@ -461,20 +493,40 @@ module Lutaml
           instance
         end
 
-        def apply_hash_mapping(doc, instance, format, _options = {})
-          mappings = mappings_for(format).mappings
+        def value_for_rule(doc, rule, options)
+          rule_names = rule.namespaced_names(options[:default_namespace])
+          hash = rule.attribute? ? doc["attributes"] : doc["elements"]
+          return unless hash
+
+          value_key = rule_names.find { |name| hash.key_exist?(name) }
+          hash.fetch(value_key) if value_key
+        end
+
+        def apply_hash_mapping(doc, instance, format, options = {})
+          mappings = options[:mappings] || mappings_for(format).mappings
           mappings.each do |rule|
             raise "Attribute '#{rule.to}' not found in #{self}" unless valid_rule?(rule)
 
             attr = attribute_for_rule(rule)
 
-            value = if doc.key?(rule.name.to_s) || doc.key?(rule.name.to_sym)
-                      doc[rule.name.to_s] || doc[rule.name.to_sym]
-                    else
-                      attr&.default
-                    end
+            names = rule.multiple_mappings? ? rule.name : [rule.name]
 
-            if rule.custom_methods[:from]
+            value = names.collect do |rule_name|
+              if rule.root_mapping?
+                doc
+              elsif rule.raw_mapping?
+                adapter = Lutaml::Model::Config.public_send(:"#{format}_adapter")
+                adapter.new(doc).public_send(:"to_#{format}")
+              elsif doc.key?(rule_name.to_s)
+                doc[rule_name.to_s]
+              elsif doc.key?(rule_name.to_sym)
+                doc[rule_name.to_sym]
+              else
+                attr&.default
+              end
+            end.compact.first
+
+            if rule.using_custom_methods?
               if Utils.present?(value)
                 value = new.send(rule.custom_methods[:from], instance, value)
               end
@@ -482,9 +534,10 @@ module Lutaml
               next
             end
 
-            value = apply_child_mappings(value, rule.child_mappings)
-            value = attr.cast(value, format)
+            value = translate_mappings(value, rule.hash_mappings, attr, format)
+            value = attr.cast(value, format) unless rule.hash_mappings
             value = attr.collection_class.new(value) if attr.collection? && attr.collection_class != value.class
+            attr.valid_collection!(value, self)
 
             rule.deserialize(instance, value, attributes, self)
           end
@@ -573,7 +626,7 @@ module Lutaml
 
         self.class.attributes.each do |name, attr|
           value = if attrs.key?(name) || attrs.key?(name.to_s)
-                    self.class.attr_value(attrs, name, attr)
+                    attr_value(attrs, name, attr)
                   else
                     using_default_for(name)
                     attr.default
@@ -587,6 +640,32 @@ module Lutaml
           default = using_default?(name)
           public_send(:"#{name}=", self.class.ensure_utf8(value))
           using_default_for(name) if default
+        end
+      end
+
+      def attr_value(attrs, name, attr_rule)
+        value = if attrs.key?(name.to_sym)
+                  attrs[name.to_sym]
+                elsif attrs.key?(name.to_s)
+                  attrs[name.to_s]
+                else
+                  attr_rule.default
+                end
+
+        if attr_rule.collection? || value.is_a?(Array)
+          (value || []).map do |v|
+            if v.is_a?(Hash)
+              attr_rule.type.new(v)
+            else
+              # TODO: This code is problematic because Type.cast does not know
+              # about all the types.
+              Lutaml::Model::Type.cast(v, attr_rule.type)
+            end
+          end
+        else
+          # TODO: This code is problematic because Type.cast does not know
+          # about all the types.
+          Lutaml::Model::Type.cast(value, attr_rule.type)
         end
       end
 

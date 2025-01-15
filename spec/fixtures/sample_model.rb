@@ -36,5 +36,12 @@ class SampleModel < Lutaml::Model::Serializable
   yaml do
     map "name", to: :name
     map "age", to: :age
+    map "balance", to: :balance
+    map "tags", to: :tags
+    map "preferences", to: :preferences
+    map "status", to: :status
+    map "large_number", to: :large_number
+    map "email", to: :email
+    map "role", to: :role
   end
 end

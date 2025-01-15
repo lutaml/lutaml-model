@@ -131,6 +131,45 @@ module XmlMapping
     end
   end
 
+  class AnnotatedElement < Lutaml::Model::Serializable
+    attribute :idref, :string
+
+    xml do
+      root "annotatedElement"
+      map_attribute "idref", to: :idref, namespace: "http://www.omg.org/spec/XMI/20131001", prefix: "xmi"
+    end
+  end
+
+  class OwnedComment < Lutaml::Model::Serializable
+    attribute :annotated_attribute, :string
+    attribute :annotated_element, AnnotatedElement
+
+    xml do
+      root "ownedComment"
+      map_attribute "annotatedElement", to: :annotated_attribute
+      map_element "annotatedElement", to: :annotated_element, prefix: nil, namespace: nil
+    end
+  end
+
+  class Date < Lutaml::Model::Serializable
+    attribute :type, :string
+    attribute :text, :string
+    attribute :content, :string
+    attribute :from, :string
+    attribute :to, :string
+    attribute :on, :string
+
+    xml do
+      root "date", mixed: true
+      map_attribute "type", to: :type
+      map_attribute "text", to: :text
+      map_content to: :content
+      map_element "from", to: :from
+      map_element "to", to: :to
+      map_element "on", to: :on
+    end
+  end
+
   class OverrideDefaultNamespacePrefix < Lutaml::Model::Serializable
     attribute :same_element_name, SameNameDifferentNamespace
 
@@ -187,7 +226,7 @@ module XmlMapping
     xml do
       root "MapAllWithCustomMethod"
 
-      map_all to: :all_content, with: { to: :content_to_xml, from: :content_from_xml }
+      map_all_content to: :all_content, with: { to: :content_to_xml, from: :content_from_xml }
     end
 
     def content_to_xml(model, parent, doc)
@@ -325,7 +364,7 @@ RSpec.describe Lutaml::Model::XmlMapping do
     end
 
     # Skipping for OX because it does not handle namespaces
-    context "overriding child namespace prefix", skip: adapter_class != Lutaml::Model::XmlAdapter::NokogiriAdapter do
+    context "overriding child namespace prefix", skip: adapter_class == Lutaml::Model::XmlAdapter::OxAdapter do
       let(:input_xml) do
         <<~XML
           <OverrideDefaultNamespacePrefix
@@ -342,9 +381,83 @@ RSpec.describe Lutaml::Model::XmlMapping do
         XML
       end
 
+      let(:oga_expected_xml) do
+        "<OverrideDefaultNamespacePrefix xmlns:abc=\"http://www.omg.org/spec/XMI/20131001\">" +
+          "<abc:SameElementName App=\"hello\" xmlns:GML=\"http://www.sparxsystems.com/profiles/GML/1.0\" xmlns:CityGML=\"http://www.sparxsystems.com/profiles/CityGML/1.0\">" +
+          "<GML:ApplicationSchema>GML App</GML:ApplicationSchema>" +
+          "<CityGML:ApplicationSchema>CityGML App</CityGML:ApplicationSchema>" +
+          "<abc:ApplicationSchema>App</abc:ApplicationSchema>" +
+          "</abc:SameElementName>" +
+          "</OverrideDefaultNamespacePrefix>"
+      end
+
       it "expect to round-trips" do
         parsed = XmlMapping::OverrideDefaultNamespacePrefix.from_xml(input_xml)
-        expect(parsed.to_xml).to be_equivalent_to(input_xml)
+        expected_xml = adapter_class.type == "oga" ? oga_expected_xml : input_xml
+        expect(parsed.to_xml).to be_equivalent_to(expected_xml)
+      end
+    end
+
+    context "with same element and attribute name" do
+      let(:xml_with_element) do
+        <<~XML
+          <ownedComment xmlns:xmi="http://www.omg.org/spec/XMI/20131001">
+            <annotatedElement xmi:idref="ABC"/>
+          </ownedComment>
+        XML
+      end
+
+      let(:xml_with_attribute) do
+        <<~XML
+          <ownedComment annotatedElement="test2">
+          </ownedComment>
+        XML
+      end
+
+      let(:xml_with_same_name_attribute_and_element) do
+        <<~XML
+          <ownedComment xmlns:xmi="http://www.omg.org/spec/XMI/20131001" annotatedElement="test2">
+            <annotatedElement xmi:idref="ABC"/>
+          </ownedComment>
+        XML
+      end
+
+      let(:xml) do
+        <<~XML
+          <date type="published">
+            End of December
+            <on>2020-01</on>
+            Start of January
+          </date>
+        XML
+      end
+
+      it "parse and serializes the input xml correctly # lutaml/issues/217" do
+        parsed = XmlMapping::OwnedComment.from_xml(xml_with_element)
+        serialized = parsed.to_xml
+
+        expect(serialized).to be_equivalent_to(xml_with_element.strip)
+      end
+
+      it "parse and serialize model correctly" do
+        parsed = XmlMapping::OwnedComment.from_xml(xml_with_attribute)
+        serialized = parsed.to_xml
+
+        expect(serialized).to be_equivalent_to(xml_with_attribute)
+      end
+
+      it "parse and serialize model correctly with both attribute and element" do
+        parsed = XmlMapping::OwnedComment.from_xml(xml_with_same_name_attribute_and_element)
+        serialized = parsed.to_xml
+
+        expect(serialized).to be_equivalent_to(xml_with_same_name_attribute_and_element)
+      end
+
+      it "testing parse element" do
+        parsed = XmlMapping::Date.from_xml(xml)
+        serialized = parsed.to_xml
+
+        expect(serialized).to be_equivalent_to(xml)
       end
     end
 
@@ -378,6 +491,15 @@ RSpec.describe Lutaml::Model::XmlMapping do
             "ApplicationSchema",
             "ApplicationSchema",
             "ApplicationSchema",
+          ],
+          Lutaml::Model::XmlAdapter::OgaAdapter => [
+            "text",
+            "ApplicationSchema",
+            "text",
+            "ApplicationSchema",
+            "text",
+            "ApplicationSchema",
+            "text",
           ],
         }
       end
@@ -599,6 +721,14 @@ RSpec.describe Lutaml::Model::XmlMapping do
 
         it "contain schemaLocation attributes" do
           expect(Paragraph.from_xml(xml).to_xml).to be_equivalent_to(xml)
+        end
+
+        it "prints warning if defined explicitly in class" do
+          error_regex = /\[Lutaml::Model\] WARN: `schemaLocation` is handled by default\. No need to explecitly define at `xml_mapping_spec.rb:\d+`/
+
+          expect do
+            Lutaml::Model::XmlMapping.new.map_attribute("schemaLocation", to: :schema_location)
+          end.to output(error_regex).to_stderr
         end
       end
 
@@ -858,6 +988,11 @@ RSpec.describe Lutaml::Model::XmlMapping do
           # `to` is symbol which are constant so object_id will be same
           expect(orig_mapping.to).to eq(dup_mapping.to)
         end
+
+        it "duplicates attribute" do
+          # boolean value is constant so object_id will be same
+          expect(orig_mappings.attributes.first.attribute?).to eq(dup_mappings.attributes.first.attribute?)
+        end
       end
     end
 
@@ -1032,12 +1167,7 @@ RSpec.describe Lutaml::Model::XmlMapping do
         end
 
         it "round-trips xml" do
-          expected_xml = if adapter_class == Lutaml::Model::XmlAdapter::NokogiriAdapter
-                           expected_nokogiri_xml
-                         else
-                           expected_ox_xml
-                         end
-
+          expected_xml = adapter_class.type == "ox" ? expected_ox_xml : expected_nokogiri_xml
           expect(XmlMapping::SpecialCharContentWithMapAll.from_xml(xml).to_xml).to eq(expected_xml)
         end
       end
@@ -1066,7 +1196,7 @@ RSpec.describe Lutaml::Model::XmlMapping do
     it_behaves_like "having XML Mappings", described_class
   end
 
-  describe Lutaml::Model::XmlAdapter::OgaAdapter, skip: "Not implemented yet" do
+  describe Lutaml::Model::XmlAdapter::OgaAdapter do
     it_behaves_like "having XML Mappings", described_class
   end
 end
