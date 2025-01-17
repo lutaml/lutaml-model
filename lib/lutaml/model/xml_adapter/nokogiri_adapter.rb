@@ -124,7 +124,11 @@ module Lutaml
           end
 
           attributes = {}
-          node.attributes.transform_values do |attr|
+
+          # Using `attribute_nodes` instead of `attributes` because
+          # `attribute_nodes` handles name collisions as well
+          # More info: https://devdocs.io/nokogiri/nokogiri/xml/node#method-i-attributes
+          node.attribute_nodes.each do |attr|
             name = if attr.namespace
                      "#{attr.namespace.prefix}:#{attr.name}"
                    else

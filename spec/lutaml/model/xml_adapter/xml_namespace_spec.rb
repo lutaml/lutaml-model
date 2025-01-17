@@ -123,6 +123,20 @@ RSpec.shared_context "XML namespace models" do
       map_element "body", to: :body
     end
   end
+
+  class OwnedEnd < Lutaml::Model::Serializable
+    attribute :id, :string
+    attribute :type, :string
+    attribute :uml_type, :string
+
+    xml do
+      root "ownedEnd"
+
+      map_attribute "id", to: :id, namespace: "http://www.omg.org/spec/XMI/20131001", prefix: "xmi"
+      map_attribute "type", to: :type, namespace: "http://www.omg.org/spec/XMI/20131001", prefix: "xmi"
+      map_attribute "type", to: :uml_type
+    end
+  end
 end
 
 RSpec.shared_examples "XML serialization with namespace" do |model_class, xml_string|
@@ -297,6 +311,44 @@ RSpec.shared_examples "an XML namespace parser" do |adapter_class|
       it "round-trips XML" do
         article = Article.from_xml(xml_input)
         output_xml = article.to_xml(pretty: true)
+
+        expect(output_xml).to be_equivalent_to(xml_input)
+      end
+    end
+  end
+
+  context "when two attributes have same name but different prefix" do
+    let(:xml_input) do
+      <<~XML
+        <ownedEnd xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+                  xmi:type="xmi_type"
+                  xmi:id="my_id"
+                  type="test" />
+      XML
+    end
+
+    describe "XML serialization" do
+      it "correctly deserializes from XML" do
+        owned_end = OwnedEnd.from_xml(xml_input)
+
+        expect(owned_end.id).to eq("my_id")
+        expect(owned_end.type).to eq("xmi_type")
+        expect(owned_end.uml_type).to eq("test")
+      end
+
+      it "correctly serializes to XML" do
+        owned_end = OwnedEnd.new(
+          id: "my_id",
+          type: "xmi_type",
+          uml_type: "test",
+        )
+
+        expect(owned_end.to_xml).to be_equivalent_to(xml_input)
+      end
+
+      it "round-trips XML" do
+        owned_end = OwnedEnd.from_xml(xml_input)
+        output_xml = owned_end.to_xml
 
         expect(output_xml).to be_equivalent_to(xml_input)
       end
