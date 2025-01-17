@@ -1,3 +1,6 @@
+require "spec_helper"
+require "lutaml/model"
+
 module SerializeableSpec
   class TestModel
     attr_accessor :name, :age
@@ -94,6 +97,16 @@ module SerializeableSpec
                                           path: %i[path link],
                                           name: %i[path name],
                                         }
+    end
+  end
+
+  class NormalizeXmlModel < Lutaml::Model::Serializable
+    attribute :content, :string
+    attribute :items, :string, collection: true
+    
+    xml do
+      map_content to: :content
+      map_element "item", to: :items
     end
   end
 end
@@ -354,6 +367,30 @@ RSpec.describe Lutaml::Model::Serializable do
                                                          firing_temperature: 1000),
         )
         expect(collection.featured_piece.type).to eq("Earthenware")
+      end
+    end
+  end
+
+  describe ".normalize_xml_value" do
+    let(:attr) { SerializeableSpec::NormalizeXmlModel.attributes[:content] }
+    let(:rule) { SerializeableSpec::NormalizeXmlModel.mappings_for(:xml).mappings.first }
+  
+    context "when handling text hash values" do
+      let(:text_hash) { Lutaml::Model::MappingHash.new.assign_or_append_value("text", "sample text") }
+      
+      it "extracts text from hash" do
+        result = described_class.normalize_xml_value(text_hash, rule, attr, {})
+        expect(result).to eq("sample text")
+      end
+    end
+  
+    context "when handling collections" do
+      let(:attr) { SerializeableSpec::NormalizeXmlModel.attributes[:items] }
+      let(:values) { [Lutaml::Model::MappingHash.new.assign_or_append_value("text", "item1"), Lutaml::Model::MappingHash.new.assign_or_append_value("text", "item2")] }
+  
+      it "normalizes collection values" do
+        result = described_class.normalize_xml_value(values, rule, attr, {})
+        expect(result).to eq(["item1", "item2"])
       end
     end
   end
