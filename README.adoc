@@ -1548,6 +1548,109 @@ end
 ====
 
 
+==== Supported Options in XML Parsing
+
+*** **Encoding**:
+
+** Default encoding is `xml.encoding`.
+
+NOTE: Avoid incorrect **encoding** during **XML** parsing to ensure correct data reading.
+
+[example]
+====
+The following class will parse the `Shift_JIS` encoded **XML** snippet below:
+
+[source,ruby]
+----
+class Shift < Lutaml::Model::Serializable
+  attribute :field, :string, collection: true
+
+  xml do
+    root "root"
+    map_element "FieldName", to: :field
+  end
+end
+----
+
+[source,xml]
+----
+<root><FieldName>手書き英字１</FieldName><FieldName>123456</FieldName></root>
+----
+
+Correct data reading as default encoding is given **xml encoding**
+
+[source,ruby]
+----
+> instance = Shift.from_xml(xml)
+> #<Shift:0x0000000104ac7240 @field=["手書き英字１", "123456"]>
+> instance.encoding = "Shift_JIS"
+> instance.to_xml
+> #<root><FieldName>\x{8EE8}\x{8F91}\x{82AB}\x{8970}\x{8E9A}\x{8250}</FieldName><FieldName>123456</FieldName></root>
+> serialized.encoding = "Shift_JIS"
+----
+
+Pass the correct encoding to ensure correct data reading
+
+[source,ruby]
+----
+> instance = Shift.from_xml(xml, encoding: "Shift_JIS")
+> #<Shift:0x0000000104ac7240 @field=["手書き英字１", "123456"]>
+> instance.encoding = "Shift_JIS"
+> serialized = instance.to_xml(encoding: "UTF-8")
+> #<root><FieldName>手書き英字１</FieldName><FieldName>123456</FieldName></root>
+> serialized.encoding = "UTF-8"
+----
+
+If encoding is nil, then output depends on **adapter**
+
+[source,ruby]
+----
+> instance = Shift.from_xml(xml, encoding: nil)
+> #<Shift:0x0000000104ac7240 @field=["�菑���p���P", "123456"]>
+> instance.encoding = nil
+> serialized = instance.to_xml(encoding: nil)
+> #<root><FieldName>&#xFFFD;&#x83D1;&#xFFFD;&#xFFFD;&#xFFFD;p&#xFFFD;&#xFFFD;&#xFFFD;P</FieldName><FieldName>123456</FieldName></root>
+> serialized.encoding = "UTF-8"
+----
+
+Invalid XML Parsing due to incorrect encoding
+
+[source,ruby]
+----
+> instance = Shift.from_xml(xml, encoding: "UTF-8")
+> #<Shift:0x0000000104ac7240 @field=["�菑���p���P", "123456"]>
+> instance.to_xml
+> #<root><FieldName>�菑���p���P</FieldName><FieldName>123456</FieldName></root>
+----
+
+The following class will parse the `UTF-8` encoded **XML** snippet below:
+
+[source,ruby]
+----
+class HexCode < Lutaml::Model::Serializable
+  attribute :content, :string
+
+  xml do
+    root "HexCode"
+    map_content to: :content
+  end
+end
+----
+
+[source,xml]
+----
+<HexCode>&#x2211;computer security&#x220F; type of &#x200B; operation specified &#xB5; by an access right</HexCode>
+----
+
+[source,ruby]
+----
+> HexCode.from_xml(xml)
+> #<HexCode:0x0000000111784d28 @content="∑computer security∏ type of ​ operation specified µ by an access right">
+> instance.to_xml
+> #<HexCode>∑computer security∏ type of ​ operation specified µ by an access right</HexCode>
+----
+====
+
 ==== Encoding Options in XmlAdapter
 
 XmlAdapter supports the encoding in the following ways:
