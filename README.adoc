@@ -1903,6 +1903,99 @@ end
 // TODO: How to create mixed content from `#new`?
 
 
+[[ordered-content]]
+==== Ordered content
+
+`ordered: true` maintains the order of **XML Elements**, while `mixed: true` preserves the order of **XML Elements and Content**.
+
+NOTE: When both options are used, `mixed: true` takes precedence.
+
+To specify ordered content, the `ordered: true` option needs to be set at the
+`xml` block's `root` method.
+
+Syntax:
+
+[source,ruby]
+----
+xml do
+  root 'xml_element_name', ordered: true
+end
+----
+
+.Applying `ordered` to treat root as ordered content
+[example]
+====
+
+[source,ruby]
+----
+class RootOrderedContent < Lutaml::Model::Serializable
+  attribute :bold, :string
+  attribute :italic, :string
+  attribute :underline, :string
+
+  xml do
+    root "RootOrderedContent", ordered: true
+    map_element :bold, to: :bold
+    map_element :italic, to: :italic
+    map_element :underline, to: :underline
+  end
+end
+----
+
+[source,xml]
+----
+<RootOrderedContent>
+  <underline>Moon</underline>
+  <italic>384,400 km</italic>
+  <bold>bell</bold>
+</RootOrderedContent>
+----
+
+[source,ruby]
+----
+> instance = RootOrderedContent.from_xml(xml)
+> #<RootOrderedContent:0x0000000104ac7240 @bold="bell", @italic="384,400 km", @underline="Moon">
+> instance.to_xml
+> #<RootOrderedContent><underline>Moon</underline><italic>384,400 km</italic><bold>bell</bold></RootOrderedContent>
+----
+
+**Without Ordered True:**
+
+[source,ruby]
+----
+class RootOrderedContent < Lutaml::Model::Serializable
+  attribute :bold, :string
+  attribute :italic, :string
+  attribute :underline, :string
+
+  xml do
+    root "RootOrderedContent"
+    map_element :bold, to: :bold
+    map_element :italic, to: :italic
+    map_element :underline, to: :underline
+  end
+end
+----
+
+[source,xml]
+----
+<RootOrderedContent>
+  <underline>Moon</underline>
+  <italic>384,400 km</italic>
+  <bold>bell</bold>
+</RootOrderedContent>
+----
+
+[source,ruby]
+----
+> instance = RootOrderedContent.from_xml(xml)
+> #<RootOrderedContent:0x0000000104ac7240 @bold="bell", @italic="384,400 km", @underline="Moon">
+> instance.to_xml
+> #<RootOrderedContent>\n  <bold>bell</bold>\n  <italic>384,400 km</italic>\n  <underline>Moon</underline>\n</RootOrderedContent>
+----
+====
+
+
 [[xml-schema-location]]
 ==== Automatic support of `xsi:schemaLocation`
 
