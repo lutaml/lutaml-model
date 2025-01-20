@@ -11,6 +11,13 @@ module Lutaml
       def to_xml_attribute
         "#{@namespace} #{@location}".strip
       end
+
+      def eql?(other)
+        other.class == self.class &&
+          namespace == other.namespace &&
+          location == other.location
+      end
+      alias == eql?
     end
 
     class SchemaLocation
