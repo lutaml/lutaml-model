@@ -1,4 +1,5 @@
-require "rspec"
+require "spec_helper"
+require_relative "../../fixtures/address"
 
 class LiquidatableClass
   include Lutaml::Model::Liquidatable
