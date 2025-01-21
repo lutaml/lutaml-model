@@ -49,12 +49,12 @@ The Lutaml::Model data modelling approach is as follows:
 .Modeling relationships of a LutaML Model
 [source]
 ----
-                       Lutaml Model
+                       LutaML Model
                              │
                     Has many attributes
                              │
                              ▼
-                        Attribute
+                         Attribute
                              │
                         Has type of
                              │
@@ -97,7 +97,7 @@ Studio (Model)
 [source]
 ----
 ╔═══════════════════════╗                      ╔════════════════════════════╗
-║       Core Model      ║                      ║    Serialization Models    ║
+║   LutaML Core Model   ║                      ║    Serialization Models    ║
 ╚═══════════════════════╝                      ╚════════════════════════════╝
 
 ╭┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╮                      ╭┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╮
@@ -109,8 +109,8 @@ Studio (Model)
 ┆   │           │       ┆   │       &        │ ┆       │             │      ┆
 ┆   │           │       ┆   │ Mapping Rules  │ ┆       │             │      ┆
 ┆   │    ┌──────┴──┐    ┆   │                │ ┆  ┌────┴────┐      ┌─┴─┐    ┆
-┆   │    │         │    ┆   │                │ ┆  │         │      │   │    ┆
-┆   │   String  Integer ┆   └────────────────┘ ┆ Element  Value  xs:string  ┆
+┆   │    │         │    ┆   └────────────────┘ ┆  │         │      │   │    ┆
+┆   │   String  Integer ┆           │         ┆ Element  Value  xs:string  ┆
 ┆   │   Date    Float   ┆           │          ┆ Attribute Type  xs:date    ┆
 ┆   │   Time    Boolean ┆           ├──────►   ┆                 xs:boolean ┆
 ┆   │                   ┆           │          ┆                 xs:anyURI  ┆
@@ -131,22 +131,109 @@ Studio (Model)
                                                ╰┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╯
 ----
 
+.Model transformation of a LutaML Model to another LutaML Model
+[source]
+----
+╔═══════════════════════╗   ╔══════════════════╗   ╔═══════════════════════╗
+║LutaML Model Class FOO ║   ║LutaML Transformer║   ║LutaML Model Class BAR ║
+╚═══════════════════════╝   ╚══════════════════╝   ╚═══════════════════════╝
+
+╭┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╮                          ╭┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╮
+┆          Model        ┆                          ┆          Model        ┆
+┆            │          ┆    ┌────────────────┐    ┆            │          ┆
+┆   ┌────────┴──┐       ┆    │                │    ┆   ┌────────┴──┐       ┆
+┆   │           │       ┆    │     Model      │    ┆   │           │       ┆
+┆ Models   Value Types  ┆───►│ Transformation │───►┆ Models   Value Types  ┆
+┆   │           │       ┆◄───│       &        │◄───┆   │           │       ┆
+┆   │           │       ┆    │ Mapping Rules  │    ┆   │           │       ┆
+┆   │    ┌──────┴──┐    ┆    │                │    ┆   │    ┌──────┴──┐    ┆
+┆   │    │         │    ┆    └────────────────┘    ┆   │    │         │    ┆
+┆   │   String  Integer ┆                          ┆   │   String  Integer ┆
+┆   │   Date    Float   ┆                          ┆   │   Date    Float   ┆
+┆   │   Time    Boolean ┆                          ┆   │   Time    Boolean ┆
+┆   │                   ┆                          ┆   │                   ┆
+┆   └──────┐            ┆                          ┆   └──────┐            ┆
+┆          │            ┆                          ┆          │            ┆
+┆     Contains          ┆                          ┆     Contains          ┆
+┆     more Models       ┆                          ┆     more Models       ┆
+┆     (recursive)       ┆                          ┆     (recursive)       ┆
+┆                       ┆                          ┆                       ┆
+╰┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╯                          ╰┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╯
+----
+
+.The `Value` class, transformation, and serialization formats
+[source]
+----
+╔═══════════════════════╗                          ╔═══════════════════════╗
+║LutaML Value Class FOO ║                          ║  Serialization Value  ║
+╚═══════════════════════╝                          ╚═══════════════════════╝
+╭┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╮                          ╭┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╮
+┆   ┌───────────────┐   ┆                          ┆   ┌───────────────┐   ┆
+┆   │     Value     │   ┆   ┌──────────────────┐   ┆   │   XML Value   │   ┆
+┆   └───────────────┘   ┆──►│ Value Serializer │──►┆   └───────────────┘   ┆
+┆   ┌───────────────┐   ┆   └──────────────────┘   ┆   ┌───────────────┐   ┆
+┆   │Primitive Types│   ┆                          ┆   │XML Value Types│   ┆
+┆   └───────────────┘   ┆                          ┆   └───────────────┘   ┆
+┆ ┌───┘                 ┆                          ┆ ┌───┘                 ┆
+┆ ├─ string             ┆                          ┆ ├─ xs:string          ┆
+┆ ├─ integer            ┆                          ┆ ├─ xs:integer         ┆
+┆ ├─ float              ┆                          ┆ ├─ xs:decimal         ┆
+┆ ├─ boolean            ┆                          ┆ ├─ xs:boolean         ┆
+┆ ├─ date               ┆                          ┆ ├─ xs:date            ┆
+┆ ├─ time_without_date  ┆                          ┆ ├─ xs:time            ┆
+┆ ├─ date_time          ┆                          ┆ ├─ xs:dateTime        ┆
+┆ ├─ time               ┆                          ┆ ├─ xs:decimal         ┆
+┆ ├─ decimal            ┆                          ┆ ├─ xs:anyType         ┆
+┆ └─ hash               ┆                          ┆ └─ (complex element)  ┆
+╰┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╯                          ╰┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╯
+           │
+           ▼
+  ┌───────────────────┐
+  │ Value Transformer │
+  └───────────────────┘
+           │
+           ▼
+╔═══════════════════════╗
+║LutaML Value Class BAR ║
+╚═══════════════════════╝
+╭┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╮
+┆   ┌───────────────┐   ┆
+┆   │     Value     │   ┆
+┆   └───────────────┘   ┆
+┆   ┌───────────────┐   ┆
+┆   │Primitive Types│   ┆
+┆   └───────────────┘   ┆
+┆ ┌───┘                 ┆
+┆ ├─ string             ┆
+┆ ├─ integer            ┆
+┆ ├─ float              ┆
+┆ ├─ boolean            ┆
+┆ ├─ date               ┆
+┆ ├─ time_without_date  ┆
+┆ ├─ date_time          ┆
+┆ ├─ time               ┆
+┆ ├─ decimal            ┆
+┆ └─ hash               ┆
+╰┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╯
+----
+
 .Example of LutaML Model instance transformed into a serialization model and serialized to JSON
 ====
 [source]
 ----
-Studio (Core Model)          JSON Model                Serialized JSON
-    │                            │                            │
-    ▼                            ▼                            ▼
-name: "Studio 1"     ┌─► { "name": "...",         {
-address:             │     "address": {             "name": "Studio 1",
-  ├── street: "..."  │       "street": "...",       "address": {
-  └── city: "..."    │       "city": "..."    ──►     "street": "...",
-kilns:               │     },                         "city": "..."
-  ├── count: 3       │    "kilnsCount": ...,        },
-  └── temp: 1200     │    "kilnsTemp": ...          "kilnsCount": 3,
-                     └─► }                          "kilnsTemp": 1200
-                                                  }
+╔═════════════════════╗     ╔═════════════════════╗     ╔═════════════════════╗
+║ Studio (Core Model) ║     ║     JSON Model      ║     ║   Serialized JSON   ║
+╚═════════════════════╝     ╚═════════════════════╝     ╚═════════════════════╝
+
+  name: "Studio 1"       ┌─► {                      ┌─► {
+  address:               │     "name": "...",       │     "name": "Studio 1",
+    ├── street: "..."    │     "address": {         │     "address": {
+    └── city: "..."      │       "street": "...",   │       "street": "...",
+  kilns:               ──┤       "city": "..."    ──┤       "city": "..."
+    ├── count: 3         │     },                   │     },
+    └── temp: 1200       │    "kilnsCount": ...,    │     "kilnsCount": 3,
+                         │    "kilnsTemp": ...      │     "kilnsTemp": 1200
+                         └─► }                      └─► }
 ----
 ====
 
