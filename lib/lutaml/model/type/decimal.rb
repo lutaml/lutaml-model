@@ -27,10 +27,6 @@ module Lutaml
           value.to_s("F") # Use fixed-point notation to match test expectations
         end
 
-        def self.from_xml(value)
-          cast(value.text)
-        end
-
         def self.check_dependencies!(value)
           unless defined?(BigDecimal)
             raise TypeNotEnabledError.new("Decimal", value)

@@ -161,7 +161,7 @@ module Lutaml
 
         def add_value(xml, value, attribute, cdata: false)
           if !value.nil?
-            serialized_value = attribute.type.serialize(value)
+            serialized_value = attribute.serialize(value, :xml)
             if attribute.raw?
               xml.add_xml_fragment(xml, value)
             elsif attribute.type == Lutaml::Model::Type::Hash
@@ -339,6 +339,9 @@ module Lutaml
             end
 
             value = mapping_rule.to_value_for(element)
+            attr = attribute_definition_for(element, mapping_rule, mapper_class: options[:mapper_class])
+            value = attr.serialize(value, :xml) if attr
+
             if render_element?(mapping_rule, element, value)
               hash[mapping_rule.prefixed_name] = value ? value.to_s : value
             end

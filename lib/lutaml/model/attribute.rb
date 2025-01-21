@@ -235,6 +235,8 @@ module Lutaml
           end
         elsif type <= Serialize && value.is_a?(Hash)
           type.apply_mappings(value, format, options)
+        elsif !value.nil? && !value.is_a?(type)
+          type.send(:"from_#{format}", value)
         else
           type.cast(value)
         end
