@@ -37,7 +37,7 @@ module Lutaml
             if content&.key_exist?(:sequence) || content&.key_exist?(:choice) || content&.key_exist?(:group)
               output = resolve_content(content).map do |element_name, element|
                 element = @elements[element.ref_class.split(":")&.last] if element&.key_exist?(:ref_class)
-                "  attribute :\#{Utils.snake_case(element_name)}, \#{Utils.camel_case(element.type_name.split(":").last)}\#{resolve_occurs(element.arguments) if element.key_exist?(:arguments)}"
+                "  attribute :\#{Utils.snake_case(element_name)}, \#{resolve_element_class(element)}\#{resolve_occurs(element.arguments) if element.key_exist?(:arguments)}"
               end.join("\n")
               output + "\n" if output && !output&.empty?
             end
@@ -49,13 +49,13 @@ module Lutaml
                   element.map { |attribute| "  attribute :\#{Utils.snake_case(attribute.name)}, \#{resolve_attribute_class(attribute)}\#{resolve_attribute_default(attribute.default) if attribute.key_exist?(:default)}" }.join("\n")
                 else
                   element = @elements[element.ref_class.split(":")&.last] if element&.key_exist?(:ref_class)
-                  "  attribute :\#{Utils.snake_case(element_name)}, \#{Utils.camel_case(element.type_name.split(":").last)}\#{resolve_occurs(element.arguments) if element.key_exist?(:arguments)}"
+                  "  attribute :\#{Utils.snake_case(element_name)}, \#{resolve_element_class(element)}\#{resolve_occurs(element.arguments) if element.key_exist?(:arguments)}"
                 end
               end.join("\n")
               output + "\n" if output && !output&.empty?
             end
           -%>
-          <%= "  attribute :content, \#{content.simple_content.extension_base}" if content_exist = content.key_exist?(:simple_content) && content.simple_content.key_exist?(:extension_base) -%>
+          <%= "  attribute :content, \#{content[:mixed] ? ':string' : content.simple_content.extension_base}" if content_exist = (content.key_exist?(:simple_content) && content.simple_content.key_exist?(:extension_base)) || content[:mixed] -%>
 
             xml do
               root "<%= name %>", mixed: true
@@ -196,6 +196,7 @@ module Lutaml
           MappingHash.new.tap do |hash|
             hash[:attributes] = [] if complex_type.attribute.any?
             hash[:attribute_groups] = [] if complex_type.attribute_group.any?
+            hash[:mixed] = complex_type.mixed
             resolved_element_order(complex_type).each do |element|
               case element
               when Xsd::Attribute
@@ -436,6 +437,16 @@ module Lutaml
             ":#{attr_class}"
           else
             Utils.camel_case(attr_class)
+          end
+        end
+
+        def resolve_element_class(element)
+          element_class = element.type_name.split(":").last
+          case element_class
+          when *DEFAULT_CLASSES
+            ":#{element_class}"
+          else
+            Utils.camel_case(element_class)
           end
         end
 
@@ -710,7 +721,10 @@ module Lutaml
         def required_files_elements(elements)
           elements.each do |element|
             element = @elements[element.ref_class.split(":").last] if element.key_exist?(:ref_class)
-            @required_files << Utils.snake_case(element.type_name.split(":").last)
+            element_class = element.type_name.split(":").last
+            next if DEFAULT_CLASSES.include?(element_class)
+
+            @required_files << Utils.snake_case(element_class)
           end
         end
         # END: REQUIRED FILES LIST COMPILER METHODS
