@@ -65,6 +65,33 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         end
       end
     end
+
+    context "when processing example from lutaml-model#260" do
+      Dir.mktmpdir do |dir|
+        before do
+          described_class.to_models(
+            File.read("spec/fixtures/xml/address_example_260.xsd"),
+            output_dir: dir,
+          )
+          require_relative "#{dir}/address"
+        end
+
+        let(:address) do
+          <<~ADD
+            <Address>
+              Oxford Street
+              <City>London</City>
+              <ZIP>E1 6AN</ZIP>
+            </Address>
+          ADD
+        end
+
+        it "matches parsed xml with input" do
+          expect(defined?(Address)).to eq("constant")
+          expect(Address.from_xml(address).to_xml).to be_equivalent_to(address)
+        end
+      end
+    end
   end
 
   describe "structure setup methods" do
@@ -148,7 +175,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
             attributes: { "test_attribute" => { name: "test_attribute", base_class: "xsd:string" } },
             group_types: { "test_group" => {} },
             simple_types: { "test_simple_type" => {} },
-            complex_types: { "test_complex_type" => {} },
+            complex_types: { "test_complex_type" => { mixed: true } },
             attribute_groups: { "test_attribute_group" => {} },
           }
         end
@@ -280,6 +307,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
             complex_content: {},
             attribute_groups: [{}],
             group: {},
+            mixed: false,
             simple_content: nil,
           }
         end
@@ -297,7 +325,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         end
 
         it "initializes the instance variables with empty MappingHash" do
-          expect(described_class.send(:setup_complex_type, complex_type)).to be_empty
+          expect(described_class.send(:setup_complex_type, complex_type)).to eq({ mixed: false })
         end
       end
     end
@@ -686,7 +714,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
           end
         end
 
-        let(:expected_hash) { { type_name: "test_type", element_name: "test_name", complex_type: {} } }
+        let(:expected_hash) { { type_name: "test_type", element_name: "test_name", complex_type: { mixed: false } } }
 
         it "returns the expected hash" do
           expect(described_class.send(:setup_element, element)).to eql(expected_hash)
@@ -950,6 +978,24 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         it "returns the attribute_class value" do
           base_class_hash = to_mapping_hash({ base_class: "test_st_attr1" })
           expect(described_class.send(:resolve_attribute_class, base_class_hash)).to eql("TestStAttr1")
+        end
+      end
+    end
+
+    describe ".resolve_element_class" do
+      context "when element.type_name is one of the standard classes" do
+        described_class::DEFAULT_CLASSES.each do |standard_class|
+          it "returns the element_class value for #{standard_class.capitalize}" do
+            type_name_hash = to_mapping_hash({ type_name: "xsd:#{standard_class}" })
+            expect(described_class.send(:resolve_element_class, type_name_hash)).to eql(":#{standard_class}")
+          end
+        end
+      end
+
+      context "when element.type_name is not one of the standard classes" do
+        it "returns the element_class value" do
+          type_name_hash = to_mapping_hash({ type_name: "test_st_element1" })
+          expect(described_class.send(:resolve_element_class, type_name_hash)).to eql("TestStElement1")
         end
       end
     end
@@ -1433,7 +1479,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
     end
 
     describe ".required_files_elements" do
-      context "when elements are given" do
+      context "when given element's data type is not one of standard class" do
         before do
           described_class.instance_variable_set(:@required_files, [])
           described_class.instance_variable_set(:@elements, elements)
@@ -1460,6 +1506,37 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         it "populates @required_files variable with the names of the required files" do
           described_class.send(:required_files_elements, content)
           expect(described_class.instance_variable_get(:@required_files)).to eql(["ct_element1", "ct_element2"])
+        end
+      end
+
+      context "when given element's data type is one of standard class" do
+        before do
+          described_class.instance_variable_set(:@required_files, [])
+          described_class.instance_variable_set(:@elements, elements)
+        end
+
+        after do
+          described_class.instance_variable_set(:@required_files, nil)
+          described_class.instance_variable_set(:@elements, nil)
+        end
+
+        let(:elements) do
+          {
+            "CT_Element1" => to_mapping_hash({ type_name: "w:CT_Element1" }),
+            "CT_Element2" => to_mapping_hash({ type_name: "xsd:string" }),
+          }
+        end
+
+        let(:content) do
+          [
+            to_mapping_hash({ type_name: "CT_Element1" }),
+            to_mapping_hash({ ref_class: "CT_Element2" }),
+          ]
+        end
+
+        it "populates @required_files variable with the names of the required files excluding default classes" do
+          described_class.send(:required_files_elements, content)
+          expect(described_class.instance_variable_get(:@required_files)).to eql(["ct_element1"])
         end
       end
     end
