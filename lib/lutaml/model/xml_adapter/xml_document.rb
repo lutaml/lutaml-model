@@ -121,20 +121,25 @@ module Lutaml
         end
 
         def add_to_xml(xml, element, prefix, value, options = {})
-          if value.is_a?(Array)
-            value.each do |item|
-              add_to_xml(xml, element, prefix, item, options)
-            end
-
-            return
-          end
-
           attribute = options[:attribute]
           rule = options[:rule]
 
           if rule.custom_methods[:to]
             options[:mapper_class].new.send(rule.custom_methods[:to], element,
                                             xml.parent, xml)
+            return
+          end
+
+          # Only transform when recursion is not called
+          if (!attribute.collection? || value.is_a?(Array)) && transform_method = rule.transform[:export] || attribute.transform_export_method
+            value = transform_method.call(value)
+          end
+
+          if value.is_a?(Array)
+            value.each do |item|
+              add_to_xml(xml, element, prefix, item, options)
+            end
+
             return
           end
 
