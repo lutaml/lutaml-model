@@ -22,6 +22,14 @@ module Lutaml
           @root.children
         end
 
+        def self.encoding(xml, options)
+          if options.key?(:encoding)
+            options[:encoding]
+          else
+            xml.encoding.to_s
+          end
+        end
+
         def declaration(options)
           version = "1.0"
           version = options[:declaration] if options[:declaration].is_a?(String)
