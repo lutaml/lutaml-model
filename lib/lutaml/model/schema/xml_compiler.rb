@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "erb"
+require "tmpdir"
 require "lutaml/xsd"
 require_relative "templates/simple_type"
 
@@ -107,19 +108,35 @@ module Lutaml
 
         def to_models(schema, options = {})
           as_models(schema, options: options)
-          dir = options.fetch(:output_dir, "lutaml_models_#{Time.now.to_i}")
-          FileUtils.mkdir_p(dir)
-
           @data_types_classes = Templates::SimpleType.create_simple_types(@simple_types)
-          @data_types_classes.each { |name, content| create_file(name, content, dir) }
-          @complex_types.each { |name, content| create_file(name, MODEL_TEMPLATE.result(binding), dir) }
-          nil
+          if options[:create_files]
+            dir = options.fetch(:output_dir, "lutaml_models_#{Time.now.to_i}")
+            FileUtils.mkdir_p(dir)
+            @data_types_classes.each { |name, content| create_file(name, content, dir) }
+            @complex_types.each { |name, content| create_file(name, MODEL_TEMPLATE.result(binding), dir) }
+            nil
+          else
+            simple_types  = @data_types_classes.transform_keys { |key| Utils.camel_case(key.to_s) }
+            complex_types = @complex_types.to_h { |name, content| [Utils.camel_case(name), MODEL_TEMPLATE.result(binding)] }
+            classes_hash = simple_types.merge(complex_types)
+            require_classes(classes_hash) if options[:load_classes]
+            classes_hash
+          end
         end
 
         private
 
         def create_file(name, content, dir)
           File.write("#{dir}/#{Utils.snake_case(name)}.rb", content)
+        end
+
+        def require_classes(classes_hash)
+          Dir.mktmpdir do |dir|
+            classes_hash.each do |name, klass|
+              create_file(name, klass, dir)
+              require "#{dir}/#{Utils.snake_case(name)}"
+            end
+          end
         end
 
         # START: STRUCTURE SETUP METHODS
@@ -136,7 +153,7 @@ module Lutaml
           @complex_types = MappingHash.new
           @attribute_groups = MappingHash.new
 
-          schema_to_models([parsed_schema])
+          schema_to_models(Array(parsed_schema))
         end
 
         def schema_to_models(schemas)

@@ -3829,6 +3829,16 @@ provided, a default directory named `lutaml_models_<timestamp>` is created.
 [example]
 `"path/to/directory"`
 
+`create_files`::: A `boolean` argument (`false` by default) to create files directly in the specified directory as defined by the `output_dir` option.
++
+[example]
+`create_files: (true | false)`
+
+`load_classes`::: A `boolean` argument (`false` by default) to load generated classes before returning them.
++
+[example]
+`load_classes: (true | false)`
+
 `namespace`::: The namespace of the schema. This will be added in the
 `Lutaml::Model::Serializable` file's `xml do` block.
 +
@@ -3850,6 +3860,7 @@ link:https://www.w3.org/TR/xmlschema-1/#include[XML Schema specification].
 [example]
 `"path/to/schema/directory"`
 
+NOTE: If both `create_files` and `load_classes` are provided, the `create_files` argument will take priority and generate files without loading them!
 
 The generated LutaML models consists of two different kind of Ruby classes
 depending on the XSD schema:
@@ -3883,9 +3894,12 @@ options = {
   output_dir: 'path/to/directory',
   namespace: 'http://example.com/namespace',
   prefix: "example-prefix",
-  location: "http://example.com/example.xsd"
+  location: "http://example.com/example.xsd",
   # or
   # location: "path/to/schema/directory"
+  create_files: true, # Default: false
+  # OR
+  load_classes: true, # Default: false
 }
 
 # generates the files in the output_dir | default_dir
