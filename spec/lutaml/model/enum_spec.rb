@@ -43,6 +43,21 @@ RSpec.describe "Enum" do
             .from(nil)
             .to("user")
         end
+
+        it "sets and unsets all enum values correctly" do
+          object.user = true
+          object.admin = false
+          object.super_admin = false
+
+          expect(object.user?).to be true
+          expect(object.admin?).to be false
+          expect(object.super_admin?).to be false
+
+          expect { object.user = false }
+            .to change(object, :user?)
+            .from(true)
+            .to(false)
+        end
       end
 
       describe "#multi_value" do
@@ -58,6 +73,26 @@ RSpec.describe "Enum" do
             .to change(object, :multi_value)
             .from([])
             .to(%w[dual plural])
+        end
+
+        it "sets and unsets all enum values correctly" do
+          object.singular = false
+          object.dual = true
+          object.plural = true
+
+          expect(object.singular?).to be false
+          expect(object.dual?).to be true
+          expect(object.plural?).to be true
+
+          expect { object.plural = false }
+            .to change(object, :plural?)
+            .from(true)
+            .to(false)
+
+          expect { object.dual = false }
+            .to change(object, :dual?)
+            .from(true)
+            .to(false)
         end
       end
 
