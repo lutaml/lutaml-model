@@ -1409,15 +1409,10 @@ end
 
 XmlAdapter supports the encoding in the following ways:
 
-. When encoding is not passed in to_xml:
 ** Default encoding is UTF-8.
 
-. When encoding is explicitly passed nil:
-** Encoding will be nil, show the HexCode(Nokogiri) or ASCII-8bit(Ox).
-
-. When encoding is passed with some option:
-** Encoding option will be selected as passed.
-
+** When encoding is explicitly passed nil:
+*** shows the UTF-8(**Nokogiri**, **Oga**) or ASCII-8bit(**Ox**).
 
 Syntax:
 

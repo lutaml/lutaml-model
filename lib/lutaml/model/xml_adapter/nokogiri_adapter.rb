@@ -7,7 +7,7 @@ module Lutaml
     module XmlAdapter
       class NokogiriAdapter < XmlDocument
         def self.parse(xml, options = {})
-          parsed = Nokogiri::XML(xml, nil, options[:encoding])
+          parsed = Nokogiri::XML(xml, nil, encoding(xml, options))
           root = NokogiriElement.new(parsed.root)
           new(root, parsed.encoding)
         end

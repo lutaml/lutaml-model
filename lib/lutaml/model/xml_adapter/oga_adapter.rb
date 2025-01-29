@@ -9,7 +9,7 @@ module Lutaml
     module XmlAdapter
       class OgaAdapter < XmlDocument
         def self.parse(xml, options = {})
-          encoding = options[:encoding] || xml.encoding.to_s
+          encoding = encoding(xml, options)
           xml = xml.encode("UTF-16").encode("UTF-8") if encoding && encoding != "UTF-8"
           parsed = ::Oga.parse_xml(xml)
           @root = Oga::Element.new(parsed.children.first)
@@ -20,23 +20,23 @@ module Lutaml
           builder_options = {}
 
           builder_options[:encoding] = if options.key?(:encoding)
-                                         options[:encoding] || "UTF-8"
+                                         options[:encoding]
                                        elsif options.key?(:parse_encoding)
                                          options[:parse_encoding]
                                        else
                                          "UTF-8"
                                        end
-          builder = Builder::Oga.build(options) do |xml|
+
+          builder = Builder::Oga.build(builder_options) do |xml|
             if @root.is_a?(Oga::Element)
               @root.build_xml(xml)
             else
               build_element(xml, @root, options)
             end
           end
-          xml_data = builder.to_xml.encode!(builder_options[:encoding])
+
+          xml_data = builder.to_xml
           options[:declaration] ? declaration(options) + xml_data : xml_data
-        rescue Encoding::ConverterNotFoundError
-          invalid_encoding!(builder_options[:encoding])
         end
 
         private
@@ -93,10 +93,6 @@ module Lutaml
 
             el.add_text(el, content.join)
           end
-        end
-
-        def invalid_encoding!(encoding)
-          raise Error, "unknown encoding name - #{encoding}"
         end
       end
     end

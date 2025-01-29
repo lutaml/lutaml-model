@@ -7,7 +7,7 @@ module Lutaml
     module XmlAdapter
       class OxAdapter < XmlDocument
         def self.parse(xml, options = {})
-          Ox.default_options = Ox.default_options.merge(encoding: options[:encoding] || "UTF-8")
+          Ox.default_options = Ox.default_options.merge(encoding: encoding(xml, options))
 
           parsed = Ox.parse(xml)
           root = OxElement.new(parsed)
@@ -18,15 +18,15 @@ module Lutaml
           builder_options = { version: options[:version] }
 
           builder_options[:encoding] = if options.key?(:encoding)
-                                         options[:encoding]
+                                         options[:encoding] unless options[:encoding].nil?
                                        elsif options.key?(:parse_encoding)
                                          options[:parse_encoding]
                                        else
                                          "UTF-8"
                                        end
 
-          builder = Builder::Ox.build
-          builder.xml.instruct(:xml, encoding: options[:parse_encoding])
+          builder = Builder::Ox.build(builder_options)
+          builder.xml.instruct(:xml, encoding: builder_options[:encoding])
 
           if @root.is_a?(Lutaml::Model::XmlAdapter::OxElement)
             @root.build_xml(builder)
@@ -39,10 +39,6 @@ module Lutaml
           end
 
           xml_data = builder.xml.to_s
-          if builder_options[:encoding] && xml_data.valid_encoding?
-            xml_data = xml_data.encode(builder_options[:encoding])
-          end
-
           stripped_data = xml_data.lines.drop(1).join
           options[:declaration] ? declaration(options) + stripped_data : stripped_data
         end
