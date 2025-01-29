@@ -12,12 +12,14 @@ require_relative "comparable_model"
 require_relative "schema_location"
 require_relative "validation"
 require_relative "error"
+require_relative "liquidatable"
 
 module Lutaml
   module Model
     module Serialize
       include ComparableModel
       include Validation
+      include Lutaml::Model::Liquidatable
 
       def self.included(base)
         base.extend(ClassMethods)
@@ -25,6 +27,8 @@ module Lutaml
       end
 
       module ClassMethods
+        include Lutaml::Model::Liquidatable::ClassMethods
+
         attr_accessor :attributes, :mappings
 
         def inherited(subclass)
@@ -103,6 +107,8 @@ module Lutaml
               instance_variable_set(:"@#{name}", attr.cast_value(value))
             end
           end
+
+          register_drop_method(name)
         end
 
         def add_enum_methods_to_model(klass, enum_name, values, collection: false)

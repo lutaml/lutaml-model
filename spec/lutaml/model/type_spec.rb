@@ -2,23 +2,21 @@
 require "spec_helper"
 require "bigdecimal"
 
-# Test classes for type registration scenarios
-class CustomType < Lutaml::Model::Type::Value
-  def self.cast(value)
-    value.to_s.upcase
-  end
-end
-
-class InvalidType
-  def self.cast(value)
-    value
-  end
-end
-
 RSpec.describe Lutaml::Model::Type do
   describe "Type System" do
     describe ".register and .lookup" do
       context "with valid types" do
+        before do
+          # Test class for type registration scenarios
+          custom_type = Class.new(Lutaml::Model::Type::Value) do
+            def self.cast(value)
+              value.to_s.upcase
+            end
+          end
+
+          stub_const("CustomType", custom_type)
+        end
+
         it "registers and looks up a custom type" do
           described_class.register(:custom, CustomType)
           expect(described_class.lookup(:custom)).to eq(CustomType)
@@ -33,6 +31,16 @@ RSpec.describe Lutaml::Model::Type do
       end
 
       context "with invalid types" do
+        before do
+          invalid_type = Class.new do
+            def self.cast(value)
+              value
+            end
+          end
+
+          stub_const("InvalidType", invalid_type)
+        end
+
         it "raises TypeError when registering non-Type::Value class" do
           expect do
             described_class.register(:invalid,
@@ -159,31 +167,35 @@ RSpec.describe Lutaml::Model::Type do
   end
 
   describe "Type Usage in Models" do
-    class TypeTestModel < Lutaml::Model::Serializable
-      attribute :string_symbol, :string
-      attribute :string_class, Lutaml::Model::Type::String
-      attribute :integer_value, :integer
-      attribute :float_value, :float
-      attribute :date_value, :date
-      attribute :time_value, :time
-      attribute :time_without_date_value, :time_without_date
-      attribute :date_time_value, :date_time
-      attribute :boolean_value, :boolean
-      attribute :hash_value, :hash
+    before do
+      type_test_model = Class.new(Lutaml::Model::Serializable) do
+        attribute :string_symbol, :string
+        attribute :string_class, Lutaml::Model::Type::String
+        attribute :integer_value, :integer
+        attribute :float_value, :float
+        attribute :date_value, :date
+        attribute :time_value, :time
+        attribute :time_without_date_value, :time_without_date
+        attribute :date_time_value, :date_time
+        attribute :boolean_value, :boolean
+        attribute :hash_value, :hash
 
-      xml do
-        root "test"
-        map_element "string_symbol", to: :string_symbol
-        map_element "string_class", to: :string_class
-        map_element "integer", to: :integer_value
-        map_element "float", to: :float_value
-        map_element "date", to: :date_value
-        map_element "time", to: :time_value
-        map_element "time_without_date", to: :time_without_date_value
-        map_element "date_time", to: :date_time_value
-        map_element "boolean", to: :boolean_value
-        map_element "hash", to: :hash_value
+        xml do
+          root "test"
+          map_element "string_symbol", to: :string_symbol
+          map_element "string_class", to: :string_class
+          map_element "integer", to: :integer_value
+          map_element "float", to: :float_value
+          map_element "date", to: :date_value
+          map_element "time", to: :time_value
+          map_element "time_without_date", to: :time_without_date_value
+          map_element "date_time", to: :date_time_value
+          map_element "boolean", to: :boolean_value
+          map_element "hash", to: :hash_value
+        end
       end
+
+      stub_const("TypeTestModel", type_test_model)
     end
 
     let(:test_instance) do
