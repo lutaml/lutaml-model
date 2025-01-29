@@ -17,7 +17,8 @@ module Lutaml
         with: {},
         delegate: nil,
         child_mappings: nil,
-        root_mappings: nil
+        root_mappings: nil,
+        transform: {}
       )
         mapping_name = name_for_mapping(root_mappings, name)
         validate!(mapping_name, to, with)
@@ -31,6 +32,7 @@ module Lutaml
           delegate: delegate,
           child_mappings: child_mappings,
           root_mappings: root_mappings,
+          transform: transform,
         )
       end
 

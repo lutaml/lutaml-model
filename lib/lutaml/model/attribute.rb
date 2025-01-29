@@ -10,6 +10,7 @@ module Lutaml
         collection
         values
         pattern
+        transform
       ].freeze
 
       def initialize(name, type, options = {})
@@ -31,6 +32,10 @@ module Lutaml
 
       def delegate
         @options[:delegate]
+      end
+
+      def transform
+        @options[:transform] || {}
       end
 
       def cast_type!(type)
@@ -98,6 +103,14 @@ module Lutaml
 
       def enum_values
         @options.key?(:values) ? @options[:values] : []
+      end
+
+      def transform_import_method
+        transform[:import]
+      end
+
+      def transform_export_method
+        transform[:export]
       end
 
       def valid_value!(value)
