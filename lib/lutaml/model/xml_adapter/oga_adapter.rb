@@ -20,7 +20,7 @@ module Lutaml
           builder_options = {}
 
           builder_options[:encoding] = if options.key?(:encoding)
-                                         options[:encoding] unless options[:encoding].nil?
+                                         options[:encoding]
                                        elsif options.key?(:parse_encoding)
                                          options[:parse_encoding]
                                        else
