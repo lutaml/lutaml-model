@@ -172,7 +172,7 @@ module Lutaml
                             enum_vals.delete(value)
                             enum_vals
                           else
-                            []
+                            instance_variable_get(:"@#{enum_name}") - [value]
                           end
 
               instance_variable_set(:"@#{enum_name}", enum_vals)
