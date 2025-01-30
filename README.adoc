@@ -3577,6 +3577,7 @@ NOTE: The corresponding keyword used by Shale is `receiver:` instead of
 Define custom methods for specific attribute mappings using the `with:` key for
 each serialization mapping block for `from` and `to`.
 
+You can also define **one custom method** (`from` or `to`) inside the `with` block. In this case, ensure `to` is specified outside `with` for **default mapping**.
 
 ===== XML serialization with custom methods
 
@@ -3587,7 +3588,6 @@ Syntax:
 ----
 xml do
   map_element 'element_name', to: :name_of_element, with: {
-    to: :method_name_to_serialize,
     from: :method_name_to_deserialize
   }
   map_attribute 'attribute_name', to: :name_of_attribute, with: {
@@ -3611,18 +3611,14 @@ The following class will parse the XML snippet below:
 class CustomCeramic < Lutaml::Model::Serializable
   attribute :name, :string
   attribute :size, :integer
+  attribute :country, :string
   attribute :description, :string
 
   xml do
-    map_element "Name", to: :name, with: { to: :name_to_xml, from: :name_from_xml }
+    map_element "Name", to: :name, with: { from: :name_from_xml }
     map_attribute "Size", to: :size, with: { to: :size_to_xml, from: :size_from_xml }
-    map_content with: { to: :description_to_xml, from: :description_from_xml }
-  end
-
-  def name_to_xml(model, parent, doc)
-    el = doc.create_element("Name")
-    doc.add_text(el, "XML Masterpiece: #{model.name}")
-    doc.add_element(parent, el)
+    map_attribute "Country", to: :country, with: { to: :country_to_xml }
+    map_content to: :description, with: { from: :description_from_xml }
   end
 
   def name_from_xml(model, value)
@@ -3637,8 +3633,8 @@ class CustomCeramic < Lutaml::Model::Serializable
     model.size = value.to_i - 3
   end
 
-  def description_to_xml(model, parent, doc)
-    doc.add_text(parent, "XML Description: #{model.description}")
+  def country_to_xml(model, parent, doc)
+    doc.add_attribute(parent, "Country", model.country.upcase)
   end
 
   def description_from_xml(model, value)
@@ -3649,25 +3645,26 @@ end
 
 [source,xml]
 ----
-<CustomCeramic Size="15">
-  <Name>XML Masterpiece: Vase</Name>
-  XML Description: A beautiful ceramic vase
-</CustomCeramic>
+<CustomSerialization Size="15" Country="SPAIN">
+  <Name>Vase</Name>
+  A beautiful ceramic vase
+</CustomSerialization>
 ----
 
 [source,ruby]
 ----
 > CustomCeramic.from_xml(xml)
 > #<CustomCeramic:0x0000000108d0e1f8
-   @element_order=["text", "Name", "text", "Size", "text"],
-   @name="Masterpiece: Vase",
+   @element_order=["text", "Name", "text"],
+   @name="Vase",
    @ordered=nil,
    @size=12,
+   @country="SPAIN",
    @description="A beautiful ceramic vase">
-> puts CustomCeramic.new(name: "Vase", size: 12, description: "A beautiful vase").to_xml
-# <CustomCeramic Size="15">
-#   <Name>XML Masterpiece: Vase</Name>
-#   XML Description: A beautiful vase
+> puts CustomCeramic.new(name: "Vase", size: 12, country: "Spain", description: "A beautiful vase").to_xml
+# <CustomCeramic Size="15" Country="SPAIN">
+#   <Name>Vase</Name>
+#   A beautiful vase
 # </CustomCeramic>
 ----
 ====
@@ -3696,9 +3693,11 @@ The following class will parse the JSON snippet below:
 class CustomCeramic < Lutaml::Model::Serializable
   attribute :name, :string
   attribute :size, :integer
+  attribute :color, :string
 
   json do
     map 'name', to: :name, with: { to: :name_to_json, from: :name_from_json }
+    map "color", to: :color, with: { from: :color_from_json }
     map 'size', to: :size
   end
 
@@ -3709,6 +3708,10 @@ class CustomCeramic < Lutaml::Model::Serializable
   def name_from_json(model, value)
     model.name = value.sub(/^Masterpiece: /, '')
   end
+
+  def color_from_json(model, value)
+    model.color = value.downcase
+  end
 end
 ----
 
@@ -3716,6 +3719,7 @@ end
 ----
 {
   "name": "Masterpiece: Vase",
+  "color": "blue",
   "size": 12
 }
 ----
@@ -3723,9 +3727,9 @@ end
 [source,ruby]
 ----
 > CustomCeramic.from_json(json)
-> #<CustomCeramic:0x0000000104ac7240 @name="Vase", @size=12>
-> CustomCeramic.new(name: "Vase", size: 12).to_json
-> #{"name"=>"Masterpiece: Vase", "size"=>12}
+> #<CustomCeramic:0x0000000104ac7240 @name="Vase", @size=12, @color="blue",>
+> CustomCeramic.new(name: "Vase", size: 12, color: "blue").to_json
+> #{"name"=>"Masterpiece: Vase", "color": "blue", size"=>12}
 ----
 ====
 

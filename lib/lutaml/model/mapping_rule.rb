@@ -76,10 +76,6 @@ module Lutaml
         end
       end
 
-      def using_custom_methods?
-        !custom_methods.empty?
-      end
-
       def multiple_mappings?
         name.is_a?(Array)
       end

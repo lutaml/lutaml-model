@@ -202,12 +202,16 @@ module Lutaml
       def validate!(key, to, with, type: nil)
         validate_mappings!(type)
 
-        if to.nil? && with.empty?
+        if to.nil? && (with.empty? || with.keys.one?)
           msg = ":to or :with argument is required for mapping '#{key}'"
           raise IncorrectMappingArgumentsError.new(msg)
         end
 
-        if !with.empty? && (with[:from].nil? || with[:to].nil?)
+        validate_custom_method_arguments!(key, with)
+      end
+
+      def validate_custom_method_arguments!(key, with)
+        if with.any? && (with[:from]&.nil? || with[:to]&.nil?)
           msg = ":with argument for mapping '#{key}' requires :to and :from keys"
           raise IncorrectMappingArgumentsError.new(msg)
         end

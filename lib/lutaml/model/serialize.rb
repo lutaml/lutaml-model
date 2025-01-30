@@ -560,7 +560,7 @@ module Lutaml
               end
             end.compact.first
 
-            if rule.using_custom_methods?
+            if rule.custom_methods[:from]
               if Utils.present?(value)
                 value = new.send(rule.custom_methods[:from], instance, value)
               end
