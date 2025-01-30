@@ -6,35 +6,35 @@ class CustomSerialization < Lutaml::Model::Serializable
   attribute :size, :integer
   attribute :color, :string
   attribute :description, :string
+  attribute :country, :string
 
   json do
-    map "name", with: { to: :name_to_json, from: :name_from_json }
-    map "color", with: { to: :color_to_json, from: :color_from_json }
+    map "name", to: :full_name, with: { to: :name_to_json }
+    map "color", to: :color, with: { from: :color_from_json }
     map "size", with: { to: :size_to_json, from: :size_from_json }
     map "description",
         with: { to: :description_to_json, from: :description_from_json }
+    map "country",
+        with: { to: :country_to_json, from: :country_from_json }
   end
 
   xml do
     root "CustomSerialization"
 
     # name, color are used to test XML elements with custom methods
-    map_element "Name", with: { to: :name_to_xml, from: :name_from_xml }
+    map_element "Name", to: :full_name, with: { from: :name_from_xml }
     map_element "Color", with: { to: :color_to_xml, from: :color_from_xml }
 
     # size is used to test XML attribute with custom methods
     map_attribute "Size", with: { to: :size_to_xml, from: :size_from_xml }
+    map_attribute "Country", to: :country, with: { to: :country_to_xml }
 
     # description is used to test XML textual content
-    map_content with: { to: :description_to_xml, from: :description_from_xml }
+    map_content to: :description, with: { from: :description_from_xml }
   end
 
   def name_to_json(model, doc)
     doc["name"] = "JSON Masterpiece: #{model.full_name}"
-  end
-
-  def name_from_json(model, value)
-    model.full_name = value.sub(/^JSON Masterpiece: /, "")
   end
 
   def size_to_json(model, doc)
@@ -43,10 +43,6 @@ class CustomSerialization < Lutaml::Model::Serializable
 
   def size_from_json(model, value)
     model.size = value - 3
-  end
-
-  def color_to_json(model, doc)
-    doc["color"] = model.color.upcase
   end
 
   def color_from_json(model, value)
@@ -61,10 +57,12 @@ class CustomSerialization < Lutaml::Model::Serializable
     model.description = value.sub(/^JSON Description: /, "")
   end
 
-  def name_to_xml(model, parent, doc)
-    el = doc.create_element("Name")
-    doc.add_text(el, "XML Masterpiece: #{model.full_name}")
-    doc.add_element(parent, el)
+  def country_to_json(model, doc)
+    doc["country"] = model.country.downcase
+  end
+
+  def country_from_json(model, value)
+    model.country = value
   end
 
   def name_from_xml(model, value)
@@ -79,6 +77,10 @@ class CustomSerialization < Lutaml::Model::Serializable
     model.size = value.to_i - 3
   end
 
+  def country_to_xml(model, parent, doc)
+    doc.add_attribute(parent, "Country", model.country.upcase)
+  end
+
   def color_to_xml(model, parent, doc)
     color_element = doc.create_element("Color")
     doc.add_text(color_element, model.color.upcase)
@@ -87,10 +89,6 @@ class CustomSerialization < Lutaml::Model::Serializable
 
   def color_from_xml(model, value)
     model.color = value.text.downcase
-  end
-
-  def description_to_xml(model, parent, doc)
-    doc.add_text(parent, "XML Description: #{model.description}")
   end
 
   def description_from_xml(model, value)
@@ -129,6 +127,19 @@ class GrammarInfo < Lutaml::Model::Serializable
   end
 end
 
+class Document < Lutaml::Model::Serializable
+  attribute :content, :string
+
+  xml do
+    root "document"
+    map_all to: :content, with: { from: :content_from_xml }
+  end
+
+  def content_from_xml(model, value)
+    model.content = value.strip
+  end
+end
+
 RSpec.describe CustomSerialization do
   let(:attributes) do
     {
@@ -136,6 +147,7 @@ RSpec.describe CustomSerialization do
       size: 12,
       color: "blue",
       description: "A beautiful ceramic vase",
+      country: "spain",
     }
   end
   let(:model) { described_class.new(attributes) }
@@ -144,9 +156,10 @@ RSpec.describe CustomSerialization do
     it "serializes to JSON with custom methods" do
       expected_json = {
         name: "JSON Masterpiece: Vase",
-        color: "BLUE",
+        color: "blue",
         size: 15,
         description: "JSON Description: A beautiful ceramic vase",
+        country: "spain",
       }.to_json
 
       expect(model.to_json).to eq(expected_json)
@@ -154,10 +167,11 @@ RSpec.describe CustomSerialization do
 
     it "deserializes from JSON with custom methods" do
       json = {
-        name: "JSON Masterpiece: Vase",
+        name: "Vase",
         color: "BLUE",
         size: 15,
         description: "JSON Description: A beautiful ceramic vase",
+        country: "spain",
       }.to_json
 
       ceramic = described_class.from_json(json)
@@ -166,13 +180,14 @@ RSpec.describe CustomSerialization do
       expect(ceramic.size).to eq(model.size)
       expect(ceramic.color).to eq(model.color)
       expect(ceramic.description).to eq(model.description)
+      expect(ceramic.country).to eq(model.country)
     end
   end
 
   context "with partial JSON input" do
     it "deserializes from JSON with missing attributes" do
       json = {
-        name: "JSON Masterpiece: Vase",
+        name: "Vase",
         color: "BLUE",
       }.to_json
 
@@ -182,16 +197,17 @@ RSpec.describe CustomSerialization do
       expect(ceramic.color).to eq("blue")
       expect(ceramic.size).to be_nil
       expect(ceramic.description).to be_nil
+      expect(ceramic.country).to be_nil
     end
   end
 
   context "with XML serialization" do
     it "serializes to XML with custom methods" do
       expected_xml = <<~XML
-        <CustomSerialization Size="15">
-          <Name>XML Masterpiece: Vase</Name>
+        <CustomSerialization Size="15" Country="SPAIN">
+          <Name>Vase</Name>
           <Color>BLUE</Color>
-          XML Description: A beautiful ceramic vase
+          A beautiful ceramic vase
         </CustomSerialization>
       XML
 
@@ -200,7 +216,7 @@ RSpec.describe CustomSerialization do
 
     it "deserializes from XML with custom methods" do
       xml = <<~XML
-        <CustomSerialization Size="15">
+        <CustomSerialization Size="15" Country="SPAIN">
           <Name>XML Masterpiece: Vase</Name>
           <Color>BLUE</Color>
           XML Description: A beautiful ceramic vase
@@ -212,6 +228,22 @@ RSpec.describe CustomSerialization do
       expect(ceramic.size).to eq(model.size)
       expect(ceramic.color).to eq(model.color)
       expect(ceramic.description).to eq(model.description)
+    end
+
+    it "serialize and deserialize map_all with custom methods" do
+      xml = <<~XML
+        <document>
+          <content>
+            <Name>XML Masterpiece: Vase</Name>
+            <Color>BLUE</Color>
+          </content>
+        </document>
+      XML
+
+      document = Document.from_xml(xml)
+
+      expect(document.content).to eq("<content>\n    <Name>XML Masterpiece: Vase</Name>\n    <Color>BLUE</Color>\n  </content>")
+      expect(document.to_xml).to be_equivalent_to(xml)
     end
   end
 

@@ -68,28 +68,29 @@ module Lutaml
       def validate!(key, to, with)
         validate_mappings!(key)
 
-        if to.nil? && with.empty? && !@raw_mapping
+        if to.nil? && (with.empty? || with.keys.one?) && !@raw_mapping
           msg = ":to or :with argument is required for mapping '#{key}'"
           raise IncorrectMappingArgumentsError.new(msg)
         end
 
-        if !with.empty? && (with[:from].nil? || with[:to].nil?) && !@raw_mapping
-          msg = ":with argument for mapping '#{key}' requires :to and :from keys"
+        if with.keys.one? && with.values.first.nil?
+          msg = ":with argument for mapping '#{key}' requires :to and :from key values"
           raise IncorrectMappingArgumentsError.new(msg)
         end
 
-        validate_mappings(key)
-      end
-
-      def validate_mappings(name)
-        if @mappings.any?(&:root_mapping?) || (name == "root_mapping" && @mappings.any?)
-          raise MultipleMappingsError.new("root_mappings cannot be used with other mappings")
+        if with.size == 2 && (with[:from].nil? || with[:to].nil?) && !@raw_mapping
+          msg = ":with argument for mapping '#{key}' requires :to and :from keys"
+          raise IncorrectMappingArgumentsError.new(msg)
         end
       end
 
-      def validate_mappings!(_type)
+      def validate_mappings!(name)
         if (@raw_mapping && Utils.present?(@mappings)) || (!@raw_mapping && @mappings.any?(&:raw_mapping?))
           raise StandardError, "map_all is not allowed with other mappings"
+        end
+
+        if @mappings.any?(&:root_mapping?) || (name == "root_mapping" && @mappings.any?)
+          raise MultipleMappingsError.new("root_mappings cannot be used with other mappings")
         end
       end
 

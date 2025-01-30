@@ -1217,6 +1217,26 @@ RSpec.describe Lutaml::Model::XmlMapping do
         end
       end
     end
+
+    describe "#validate!" do
+      it "raises error if `to` is not defined with one custom method" do
+        expect do
+          Class.new(Lutaml::Model::Serializable) do
+            attribute :id, :string
+
+            xml do
+              map_element :id, with: { to: :id_to_xml }
+            end
+
+            def id_to_xml(model, parent, doc)
+              id_element = doc.create_element("id")
+              doc.add_text(id_element, model.id)
+              doc.add_element(parent, id_element)
+            end
+          end
+        end.to raise_error(Lutaml::Model::IncorrectMappingArgumentsError, ":to or :with argument is required for mapping 'id'")
+      end
+    end
   end
 
   describe Lutaml::Model::XmlAdapter::NokogiriAdapter do
