@@ -167,6 +167,8 @@ module Lutaml
 
           def element_attributes(oga_element, attributes)
             oga_element.attributes = attributes.map do |name, value|
+              value = value.uri unless value.is_a?(String)
+
               ::Oga::XML::Attribute.new(
                 name: name,
                 value: value,

@@ -344,6 +344,7 @@ RSpec.describe Lutaml::Model::XmlMapping do
 
       it "checks the attribute with and without namespace" do
         parsed = XmlMapping::AttributeNamespace.from_xml(input_xml)
+
         expect(parsed.alpha).to eq("hello")
         expect(parsed.beta).to eq("bye")
         expect(parsed.to_xml).to be_equivalent_to(input_xml)
@@ -382,12 +383,12 @@ RSpec.describe Lutaml::Model::XmlMapping do
       end
 
       let(:oga_expected_xml) do
-        "<OverrideDefaultNamespacePrefix xmlns:abc=\"http://www.omg.org/spec/XMI/20131001\">" +
-          "<abc:SameElementName App=\"hello\" xmlns:GML=\"http://www.sparxsystems.com/profiles/GML/1.0\" xmlns:CityGML=\"http://www.sparxsystems.com/profiles/CityGML/1.0\">" +
-          "<GML:ApplicationSchema>GML App</GML:ApplicationSchema>" +
-          "<CityGML:ApplicationSchema>CityGML App</CityGML:ApplicationSchema>" +
-          "<abc:ApplicationSchema>App</abc:ApplicationSchema>" +
-          "</abc:SameElementName>" +
+        "<OverrideDefaultNamespacePrefix xmlns:abc=\"http://www.omg.org/spec/XMI/20131001\">" \
+          "<abc:SameElementName App=\"hello\" xmlns:GML=\"http://www.sparxsystems.com/profiles/GML/1.0\" xmlns:CityGML=\"http://www.sparxsystems.com/profiles/CityGML/1.0\">" \
+          "<GML:ApplicationSchema>GML App</GML:ApplicationSchema>" \
+          "<CityGML:ApplicationSchema>CityGML App</CityGML:ApplicationSchema>" \
+          "<abc:ApplicationSchema>App</abc:ApplicationSchema>" \
+          "</abc:SameElementName>" \
           "</OverrideDefaultNamespacePrefix>"
       end
 
@@ -477,26 +478,26 @@ RSpec.describe Lutaml::Model::XmlMapping do
       end
 
       let(:expected_order) do
-        nokogiri_oga_pattern = create_pattern_mapping([
-                                                        ["Text", "text"],
-                                                        ["Element", "ApplicationSchema"],
-                                                        ["Text", "text"],
-                                                        ["Element", "ApplicationSchema"],
-                                                        ["Text", "text"],
-                                                        ["Element", "ApplicationSchema"],
-                                                        ["Text", "text"],
-                                                      ])
+        nokogiri_pattern = create_pattern_mapping([
+                                                    ["Text", "text"],
+                                                    ["Element", "ApplicationSchema"],
+                                                    ["Text", "text"],
+                                                    ["Element", "ApplicationSchema"],
+                                                    ["Text", "text"],
+                                                    ["Element", "ApplicationSchema"],
+                                                    ["Text", "text"],
+                                                  ])
 
-        ox_pattern = create_pattern_mapping([
-                                              ["Element", "ApplicationSchema"],
-                                              ["Element", "ApplicationSchema"],
-                                              ["Element", "ApplicationSchema"],
-                                            ])
+        oga_ox_pattern = create_pattern_mapping([
+                                                  ["Element", "ApplicationSchema"],
+                                                  ["Element", "ApplicationSchema"],
+                                                  ["Element", "ApplicationSchema"],
+                                                ])
 
         {
-          Lutaml::Model::XmlAdapter::NokogiriAdapter => nokogiri_oga_pattern,
-          Lutaml::Model::XmlAdapter::OxAdapter => ox_pattern,
-          Lutaml::Model::XmlAdapter::OgaAdapter => nokogiri_oga_pattern,
+          Lutaml::Model::XmlAdapter::NokogiriAdapter => nokogiri_pattern,
+          Lutaml::Model::XmlAdapter::OxAdapter => oga_ox_pattern,
+          Lutaml::Model::XmlAdapter::OgaAdapter => oga_ox_pattern,
         }
       end
 
@@ -837,18 +838,14 @@ RSpec.describe Lutaml::Model::XmlMapping do
         XML
       end
 
-      let(:expected_street) do
-        if Lutaml::Model::Config.xml_adapter == Lutaml::Model::XmlAdapter::OxAdapter
-          "<a>N</a>\n<p>adf</p>\n"
-        else
-          "\n      <a>N</a>\n      <p>adf</p>\n    "
-        end
-      end
+      let(:expected_nokogiri_street) { "\n      <a>N</a>\n      <p>adf</p>\n    " }
+      let(:expected_oga_street) { "<a>N</a><p>adf</p>" }
+      let(:expected_ox_street) { "<a>N</a>\n<p>adf</p>\n" }
 
       let(:model) { XmlMapping::Person.from_xml(input_xml) }
 
       it "expect to contain raw xml" do
-        expect(model.address.street).to eq(expected_street)
+        expect(model.address.street).to eq(send(:"expected_#{adapter_class.type}_street"))
         expect(model.address.city.strip).to eq("<a>M</a>")
       end
     end
@@ -1064,7 +1061,11 @@ RSpec.describe Lutaml::Model::XmlMapping do
       end
 
       it "maps all the content including tags" do
-        inner_xml = "Str<sub>2</sub>text<sup>1</sup>123"
+        inner_xml = if adapter_class.type == "ox"
+                      "Str<sub>2</sub> text<sup>1</sup> 123"
+                    else
+                      "Str<sub>2</sub>text<sup>1</sup>123"
+                    end
         xml = "<WithMapAll>#{inner_xml}</WithMapAll>"
 
         parsed = XmlMapping::WithMapAll.from_xml(xml)
@@ -1157,6 +1158,16 @@ RSpec.describe Lutaml::Model::XmlMapping do
           XML
         end
 
+        let(:expected_oga_xml) do
+          <<~XML.strip
+            <SpecialCharContentWithMapAll>
+              B <p>R&amp;C</p>
+              C <p>J—C</p>
+              O <p>A &amp; B </p>
+              F <p>Z © </p></SpecialCharContentWithMapAll>
+          XML
+        end
+
         let(:expected_ox_xml) do
           "<SpecialCharContentWithMapAll> " \
             "B <p>R&amp;C</p> " \
@@ -1167,8 +1178,7 @@ RSpec.describe Lutaml::Model::XmlMapping do
         end
 
         it "round-trips xml" do
-          expected_xml = adapter_class.type == "ox" ? expected_ox_xml : expected_nokogiri_xml
-          expect(XmlMapping::SpecialCharContentWithMapAll.from_xml(xml).to_xml).to eq(expected_xml)
+          expect(XmlMapping::SpecialCharContentWithMapAll.from_xml(xml).to_xml).to eq(send(:"expected_#{adapter_class.type}_xml"))
         end
       end
 

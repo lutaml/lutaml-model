@@ -84,22 +84,32 @@ module Lutaml
         def parse_element(element, klass = nil, format = nil)
           result = Lutaml::Model::MappingHash.new
           result.node = element
-          result.item_order = element.order
+          result.item_order = self.class.order_of(element)
 
           element.children.each do |child|
             if klass&.<= Serialize
-              attr = klass.attribute_for_child(child.name,
+              attr = klass.attribute_for_child(self.class.name_of(child),
                                                format)
             end
 
-            next result.assign_or_append_value(child.name, child.text) if child.text?
+            if child.respond_to?(:text?) && child.text?
+              result.assign_or_append_value(
+                self.class.name_of(child),
+                self.class.text_of(child),
+              )
+              next
+            end
 
             result["elements"] ||= Lutaml::Model::MappingHash.new
-            result["elements"].assign_or_append_value(child.namespaced_name, parse_element(child, attr&.type || klass, format))
+            result["elements"].assign_or_append_value(
+              self.class.namespaced_name_of(child),
+              parse_element(child, attr&.type || klass, format),
+            )
           end
 
           result["attributes"] = attributes_hash(element) if element.attributes&.any?
 
+          result.merge(attributes_hash(element))
           result
         end
 
@@ -387,6 +397,22 @@ module Lutaml
 
         def self.type
           Utils.snake_case(self).split("/").last.split("_").first
+        end
+
+        def self.order_of(element)
+          element.order
+        end
+
+        def self.name_of(element)
+          element.name
+        end
+
+        def self.text_of(element)
+          element.text
+        end
+
+        def self.namespaced_name_of(element)
+          element.namespaced_name
         end
       end
     end
