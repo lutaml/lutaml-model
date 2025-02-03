@@ -8,19 +8,27 @@ image:https://img.shields.io/gem/v/lutaml-model.svg[RubyGems Version]
 
 == Purpose
 
-Lutaml::Model is a lightweight library for serializing and deserializing Ruby
-objects to and from various formats such as JSON, XML, YAML, and TOML. It uses
-an adapter pattern to support multiple libraries for each format, providing
-flexibility and extensibility for your data modeling needs.
+Lutaml::Model is the Ruby implementation of the LutaML modeling methodology,
+for:
 
-NOTE: The Lutaml::Model modeling Ruby API is designed to be mostly compatible
-with the data modeling API of https://www.shalerb.org[Shale], a data modeller
-for Ruby.
-Lutaml::Model is meant to address advanced needs not currently addressed by
-Shale.
+* creating information models in the LutaML language (or its Ruby DSL)
+* serializing and deserializing LutaML information models
+* accessing data instances of LutaML information models
+* documenting LutaML information models
 
-NOTE: Instructions on how to migrate from Shale to Lutaml::Model are provided in
-<<migrate-from-shale>>.
+It provides simple, flexible and comprehensive mechanisms for defining
+information models with attributes and types, and the serialization of them
+to/from serialization formats including JSON, XML, YAML, and TOML.
+
+For serialization formats, it uses an adapter pattern to support multiple
+libraries for each format, providing flexibility and extensibility for your data
+modeling needs.
+
+NOTE: The Lutaml::Model modeling Ruby DSL was originally designed to be mostly
+compatible with the data modeling DSL of https://www.shalerb.org[Shale], a data
+modeller for Ruby. Lutaml::Model is meant to address advanced needs not
+currently addressed by Shale. Instructions on how to migrate from Shale to
+Lutaml::Model are provided in <<migrate-from-shale>>.
 
 
 == Features
@@ -96,38 +104,38 @@ Studio (Model)
 .Modeling relationships of a LutaML Model to serialization models
 [source]
 ----
-╔═══════════════════════╗                      ╔════════════════════════════╗
-║   LutaML Core Model   ║                      ║    Serialization Models    ║
-╚═══════════════════════╝                      ╚════════════════════════════╝
+╔═══════════════════════╗                       ╔════════════════════════════╗
+║   LutaML Core Model   ║                       ║    Serialization Models    ║
+╚═══════════════════════╝                       ╚════════════════════════════╝
 
-╭┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╮                      ╭┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╮
-┆          Model        ┆                      ┆          XML Model         ┆
-┆            │          ┆   ┌────────────────┐ ┆              │             ┆
-┆   ┌────────┴──┐       ┆   │                │ ┆       ┌──────┴──────┐      ┆
-┆   │           │       ┆   │     Model      │ ┆       │             │      ┆
-┆ Models   Value Types  ┆──►│ Transformation │ ┆    Models      Value Types ┆
-┆   │           │       ┆   │       &        │ ┆       │             │      ┆
-┆   │           │       ┆   │ Mapping Rules  │ ┆       │             │      ┆
-┆   │    ┌──────┴──┐    ┆   │                │ ┆  ┌────┴────┐      ┌─┴─┐    ┆
-┆   │    │         │    ┆   └────────────────┘ ┆  │         │      │   │    ┆
-┆   │   String  Integer ┆           │         ┆ Element  Value  xs:string  ┆
-┆   │   Date    Float   ┆           │          ┆ Attribute Type  xs:date    ┆
-┆   │   Time    Boolean ┆           ├──────►   ┆                 xs:boolean ┆
-┆   │                   ┆           │          ┆                 xs:anyURI  ┆
-┆   └──────┐            ┆           │          ╰┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╯
+╭┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╮                       ╭┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╮
+┆          Model        ┆                       ┆          XML Model         ┆
+┆            │          ┆   ┌────────────────┐  ┆              │             ┆
+┆   ┌────────┴──┐       ┆   │                │  ┆       ┌──────┴──────┐      ┆
+┆   │           │       ┆   │     Model      │  ┆       │             │      ┆
+┆ Models   Value Types  ┆──►│ Transformation │  ┆    Models      Value Types ┆
+┆   │           │       ┆   │       &        │  ┆       │             │      ┆
+┆   │           │       ┆   │ Mapping Rules  │  ┆       │             │      ┆
+┆   │    ┌──────┴──┐    ┆   │                │  ┆  ┌────┴────┐      ┌─┴─┐    ┆
+┆   │    │         │    ┆   └────────────────┘  ┆  │         │      │   │    ┆
+┆   │   String  Integer ┆           │           ┆ Element  Value  xs:string  ┆
+┆   │   Date    Float   ┆           │           ┆ Attribute Type  xs:date    ┆
+┆   │   Time    Boolean ┆           ├──────────►┆                 xs:boolean ┆
+┆   │                   ┆           │           ┆                 xs:anyURI  ┆
+┆   └──────┐            ┆           │           ╰┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╯
 ┆          │            ┆           │
-┆     Contains          ┆           │          ╭┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╮
-┆     more Models       ┆           │          ┆          JSON Model        ┆
-┆     (recursive)       ┆           │          ┆              │             ┆
-┆                       ┆           │          ┆       ┌──────┴──────┐      ┆
-╰┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╯           └───────►  ┆       │             │      ┆
-                                               ┆    Models      Value Types ┆
-                                               ┆       │             │      ┆
-                                               ┆       │             │      ┆
-                                               ┆  ┌────┴───┐     ┌───┴──┐   ┆
-                                               ┆  │        │     │      │   ┆
-                                               ┆ object array number string ┆
-                                               ┆ value        boolean null  ┆
+┆     Contains          ┆           │           ╭┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╮
+┆     more Models       ┆           │           ┆          JSON Model        ┆
+┆     (recursive)       ┆           │           ┆              │             ┆
+┆                       ┆           │           ┆       ┌──────┴──────┐      ┆
+╰┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╯           └──────────►┆       │             │      ┆
+                                                ┆    Models      Value Types ┆
+                                                ┆       │             │      ┆
+                                                ┆       │             │      ┆
+                                                ┆  ┌────┴───┐     ┌───┴──┐   ┆
+                                                ┆  │        │     │      │   ┆
+                                                ┆ object array number string ┆
+                                                ┆ value        boolean null  ┆
                                                ╰┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╯
 ----
 
@@ -950,7 +958,7 @@ defining serialization and deserialization mappings.
 Serialization model mappings are defined under the `xml`, `json`, `yaml`, and
 `toml` blocks.
 
-.Using the `xml`, `json`, `yaml`, and `toml` blocks to define serialization mappings
+.Using the `xml`, `json`, `yaml`, `toml` and `key_value` blocks to define serialization mappings
 [source,ruby]
 ----
 class Example < Lutaml::Model::Serializable
@@ -967,6 +975,10 @@ class Example < Lutaml::Model::Serializable
   end
 
   toml do
+    # ...
+  end
+
+  key_value do
     # ...
   end
 end
