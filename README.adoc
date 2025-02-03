@@ -792,7 +792,7 @@ end
 
 
 
-=== Attribute value default and rendering defaults
+=== Attribute value defaults
 
 Specify default values for attributes using the `default` option.
 The `default` option can be set to a value or a lambda that returns a value.
@@ -827,76 +827,6 @@ end
 
 The "default behavior" (pun intended) is to not render a default value if
 the current value is the same as the default value.
-
-In certain cases, it is necessary to render the default value even if the
-current value is the same as the default value. This can be achieved by setting
-the `render_default` option to `true`.
-
-Syntax:
-
-[source,ruby]
-----
-attribute :name_of_attribute, Type, default: -> { value }, render_default: true
-----
-
-.Using the `render_default` option to force encoding the default value
-[example]
-====
-[source,ruby]
-----
-class Glaze < Lutaml::Model::Serializable
-  attribute :color, :string, default: -> { 'Clear' }
-  attribute :opacity, :string, default: -> { 'Opaque' }
-  attribute :temperature, :integer, default: -> { 1050 }
-  attribute :firing_time, :integer, default: -> { 60 }
-
-  xml do
-    root "glaze"
-    map_element 'color', to: :color
-    map_element 'opacity', to: :opacity, render_default: true
-    map_attribute 'temperature', to: :temperature
-    map_attribute 'firingTime', to: :firing_time, render_default: true
-  end
-
-  json do
-    map 'color', to: :color
-    map 'opacity', to: :opacity, render_default: true
-    map 'temperature', to: :temperature
-    map 'firingTime', to: :firing_time, render_default: true
-  end
-end
-----
-====
-
-.Attributes with `render_default: true` are rendered when the value is identical to the default
-[example]
-====
-[source,ruby]
-----
-> glaze_new = Glaze.new
-> puts glaze_new.to_xml
-# <glaze firingTime="60">
-#   <opacity>Opaque</opacity>
-# </glaze>
-> puts glaze_new.to_json
-# {"firingTime":60,"opacity":"Opaque"}
-----
-====
-
-.Attributes with `render_default: true` with non-default values are rendered
-[example]
-====
-[source,ruby]
-----
-> glaze = Glaze.new(color: 'Celadon', opacity: 'Semitransparent', temperature: 1300, firing_time: 90)
-> puts glaze.to_xml
-# <glaze color="Celadon" temperature="1300" firingTime="90">
-#   <opacity>Semitransparent</opacity>
-# </glaze>
-> puts glaze.to_json
-# {"color":"Celadon","temperature":1300,"firingTime":90,"opacity":"Semitransparent"}
-----
-====
 
 
 
@@ -3265,6 +3195,91 @@ end
 > # <Ceramic><type></type><glazes></glazes></Ceramic>
 > Ceramic.new(type: "Porcelain", glazes: ["Clear"]).to_xml
 > # <Ceramic><type>Porcelain</type><glazes>Clear</glazes></Ceramic>
+----
+====
+
+
+=== Rendering default values (forced rendering of default values)
+
+By default, attributes with default values are not rendered if the current value
+is the same as the default value.
+
+In certain cases, it is necessary to render the default value even if the
+current value is the same as the default value. This is achieved by setting the
+`render_default` option to `true`.
+
+Syntax:
+
+[source,ruby]
+----
+attribute :name_of_attribute, Type, default: -> { value }
+
+xml do
+  map_element 'name_of_attribute', to: :name_of_attribute, render_default: true
+  map_attribute 'name_of_attribute', to: :name_of_attribute, render_default: true
+end
+
+json | yaml | toml | key_value do
+  map 'name_of_attribute', to: :name_of_attribute, render_default: true
+end
+----
+
+.Using the `render_default` option to force encoding the default value
+[example]
+====
+[source,ruby]
+----
+class Glaze < Lutaml::Model::Serializable
+  attribute :color, :string, default: -> { 'Clear' }
+  attribute :opacity, :string, default: -> { 'Opaque' }
+  attribute :temperature, :integer, default: -> { 1050 }
+  attribute :firing_time, :integer, default: -> { 60 }
+
+  xml do
+    root "glaze"
+    map_element 'color', to: :color
+    map_element 'opacity', to: :opacity, render_default: true
+    map_attribute 'temperature', to: :temperature
+    map_attribute 'firingTime', to: :firing_time, render_default: true
+  end
+
+  json do
+    map 'color', to: :color
+    map 'opacity', to: :opacity, render_default: true
+    map 'temperature', to: :temperature
+    map 'firingTime', to: :firing_time, render_default: true
+  end
+end
+----
+====
+
+.Attributes with `render_default: true` are rendered when the value is identical to the default
+[example]
+====
+[source,ruby]
+----
+> glaze_new = Glaze.new
+> puts glaze_new.to_xml
+# <glaze firingTime="60">
+#   <opacity>Opaque</opacity>
+# </glaze>
+> puts glaze_new.to_json
+# {"firingTime":60,"opacity":"Opaque"}
+----
+====
+
+.Attributes with `render_default: true` with non-default values are rendered
+[example]
+====
+[source,ruby]
+----
+> glaze = Glaze.new(color: 'Celadon', opacity: 'Semitransparent', temperature: 1300, firing_time: 90)
+> puts glaze.to_xml
+# <glaze color="Celadon" temperature="1300" firingTime="90">
+#   <opacity>Semitransparent</opacity>
+# </glaze>
+> puts glaze.to_json
+# {"color":"Celadon","temperature":1300,"firingTime":90,"opacity":"Semitransparent"}
 ----
 ====
 
