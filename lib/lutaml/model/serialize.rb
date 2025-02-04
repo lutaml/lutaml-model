@@ -224,6 +224,18 @@ module Lutaml
           attributes.select { |_, attr| attr.enum? }
         end
 
+        def from_hash(data)
+          apply_mappings(data, :hash)
+        end
+
+        def as_hash(instance, options)
+          to_hash(instance, options)
+        end
+
+        def to_hash(instance, options)
+          hash_representation(instance, :hash, options)
+        end
+
         Lutaml::Model::Config::AVAILABLE_FORMATS.each do |format|
           define_method(format) do |&block|
             klass = format == :xml ? XmlMapping : KeyValueMapping
@@ -800,6 +812,10 @@ module Lutaml
 
       def to_yaml_hash
         self.class.as_yaml(self)
+      end
+
+      def to_hash(options = {})
+        self.class.hash_representation(self, :hash, options)
       end
 
       Lutaml::Model::Config::AVAILABLE_FORMATS.each do |format|

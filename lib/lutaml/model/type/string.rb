@@ -28,6 +28,15 @@ module Lutaml
           value&.to_s
         end
 
+        # HASH string
+        def to_hash(*_args)
+          value
+        end
+
+        def self.from_hash(value)
+          cast(value)
+        end
+
         def self.from_xml(value)
           cast(value)
         end
