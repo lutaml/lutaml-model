@@ -28,6 +28,19 @@ module Lutaml
           value.to_s
         end
 
+        # HASH string
+        def to_hash
+          value
+        end
+
+        def self.from_hash(value)
+          cast(value)
+        end
+
+        def from_hash(value)
+          cast(value)
+        end
+
         # Format-specific instance methods
         ::Lutaml::Model::Config::AVAILABLE_FORMATS.each do |format|
           define_method(:"to_#{format}") do
