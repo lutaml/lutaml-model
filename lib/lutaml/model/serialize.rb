@@ -14,12 +14,14 @@ require_relative "validation"
 require_relative "error"
 require_relative "choice"
 require_relative "sequence"
+require_relative "liquefiable"
 
 module Lutaml
   module Model
     module Serialize
       include ComparableModel
       include Validation
+      include Lutaml::Model::Liquefiable
 
       def self.included(base)
         base.extend(ClassMethods)
@@ -27,6 +29,8 @@ module Lutaml
       end
 
       module ClassMethods
+        include Lutaml::Model::Liquefiable::ClassMethods
+
         attr_accessor :attributes, :mappings, :choice_attributes
 
         def inherited(subclass)
@@ -110,6 +114,8 @@ module Lutaml
               instance_variable_set(:"@#{name}", attr.cast_value(value))
             end
           end
+
+          register_drop_method(name)
 
           attr
         end
@@ -479,9 +485,7 @@ module Lutaml
           end
           mappings = options[:mappings] || mappings_for(:xml).mappings
 
-          if doc.is_a?(Array)
-            raise Lutaml::Model::CollectionTrueMissingError(self, option[:caller_class])
-          end
+          raise Lutaml::Model::CollectionTrueMissingError(self, option[:caller_class]) if doc.is_a?(Array)
 
           if instance.respond_to?(:ordered=) && doc.is_a?(Lutaml::Model::MappingHash)
             instance.element_order = doc.item_order

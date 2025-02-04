@@ -83,15 +83,17 @@ module Lutaml
       end
 
       def default
-        value = if delegate
-                  type.attributes[to].default
-                elsif options[:default].is_a?(Proc)
-                  options[:default].call
-                else
-                  options[:default]
-                end
+        cast_value(default_value)
+      end
 
-        cast_value(value)
+      def default_value
+        if delegate
+          type.attributes[to].default
+        elsif options[:default].is_a?(Proc)
+          options[:default].call
+        else
+          options[:default]
+        end
       end
 
       def pattern
@@ -155,6 +157,10 @@ module Lutaml
           raise ArgumentError, "Invalid collection range: #{range}"
         end
 
+        validate_range!(range)
+      end
+
+      def validate_range!(range)
         if range.begin.nil?
           raise ArgumentError,
                 "Invalid collection range: #{range}. Begin must be specified."

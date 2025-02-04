@@ -4538,6 +4538,30 @@ klin.validate
 ====
 
 
+== Liquid Compatability
+
+`to_liquid` can be used to convert a class that inherit from *Lutaml::Model::Serializable* to `LiquidDrop` to be safely used in liquid templates. The returned drop provides all the attributes defined in the class as methods.
+
+[example]
+====
+[source,ruby]
+----
+class Person < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :age, integer
+end
+
+person = Person.new({ name: "John", age: 22 })
+person_drop = person.to_liquid
+# Person::PersonDrop
+
+puts person_drop.name
+# "John"
+puts person_drop.age
+# 22
+----
+====
+
 == Adapters
 
 === General
