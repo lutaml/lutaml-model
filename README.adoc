@@ -3916,15 +3916,22 @@ The following class will parse the XML snippet below:
 
 [source,ruby]
 ----
+class Metadata < Lutaml::Model::Serializable
+  attribute :category, :string
+  attribute :identifier, :string
+end
+
 class CustomCeramic < Lutaml::Model::Serializable
   attribute :name, :string
   attribute :size, :integer
   attribute :description, :string
+  attribute :metadata, Metadata
 
   xml do
     map_element "Name", to: :name, with: { to: :name_to_xml, from: :name_from_xml }
     map_attribute "Size", to: :size, with: { to: :size_to_xml, from: :size_from_xml }
     map_content with: { to: :description_to_xml, from: :description_from_xml }
+    map_element :metadata, to: :metadata, with: { to: :metadata_to_xml, from: :metadata_from_xml }
   end
 
   def name_to_xml(model, parent, doc)
@@ -3952,6 +3959,26 @@ class CustomCeramic < Lutaml::Model::Serializable
   def description_from_xml(model, value)
     model.description = value.join.strip.sub(/^XML Description: /, "")
   end
+
+  def metadata_to_xml(model, parent, doc)
+    metadata_el = doc.create_element("metadata")
+    category_el = doc.create_element("category")
+    identifier_el = doc.create_element("identifier")
+
+    doc.add_text(category_el, model.metadata.category)
+    doc.add_text(identifier_el, model.metadata.identifier)
+
+    doc.add_element(metadata_el, category_el)
+    doc.add_element(metadata_el, identifier_el)
+    doc.add_element(parent, metadata_el)
+  end
+
+  def metadata_from_xml(model, value)
+    model.metadata ||= Metadata.new
+
+    model.metadata.category = value["elements"]["category"].text
+    model.metadata.identifier = value["elements"]["identifier"].text
+  end
 end
 ----
 
@@ -3960,6 +3987,10 @@ end
 <CustomCeramic Size="15">
   <Name>XML Masterpiece: Vase</Name>
   XML Description: A beautiful ceramic vase
+  <metadata>
+    <category>Metadata</category>
+    <identifier>123</identifier>
+  </metadata>
 </CustomCeramic>
 ----
 
@@ -3971,13 +4002,180 @@ end
    @name="Masterpiece: Vase",
    @ordered=nil,
    @size=12,
-   @description="A beautiful ceramic vase">
-> puts CustomCeramic.new(name: "Vase", size: 12, description: "A beautiful vase").to_xml
+   @description="A beautiful ceramic vase",
+   @metadata=#<Metadata:0x0000000105ad52e0 @category="Metadata", @identifier="123">>
+> puts CustomCeramic.new(name: "Vase", size: 12, description: "A beautiful vase", metadata: Metadata.new(category: "Glaze", identifier: 15)).to_xml
 # <CustomCeramic Size="15">
 #   <Name>XML Masterpiece: Vase</Name>
+#   <metadata>
+#     <category>Glaze</category>
+#     <identifier>15</identifier>
+#   </metadata>
 #   XML Description: A beautiful vase
 # </CustomCeramic>
 ----
+
+[source,ruby]
+----
+def custom_method_from_xml(model, value)
+  instance = value.node # Lutaml::Model::XmlAdapter::AdapterElement
+  # OR
+  instance = value.node.adapter_node # Adapter::Element
+
+  xml = instance.to_xml
+end
+----
+
+When building a model from XML in **custom methods**, if the `value` parameter is a `mapping_hash`, then it allows access to the parsed XML structure through `value.node` which can be converted to an XML string using `to_xml`.
+
+NOTE: For `NokogiriAdapter`, we can also call `to_xml` on `value.node.adapter_node`.
+
+[source,ruby]
+----
+> value
+> # {"text"=>["\n    ", "\n    ", "\n  "], "elements"=>{"category"=>{"text"=>"Metadata"}}}
+> value.to_xml
+> # undefined_method `to_xml`
+
+> value.node
+
+# Nokogiri Adapter Node
+
+#<Lutaml::Model::XmlAdapter::NokogiriElement:0x0000000107656ed8                                                                 
+#   @attributes={},                                                                                                                
+#   @children=                                                                                                                     
+#   [#<Lutaml::Model::XmlAdapter::NokogiriElement:0x0000000107656cd0 @attributes={}, @children=[], @default_namespace=nil, @name="text", @namespace_prefix=nil, @text="\n    ">,
+#   #<Lutaml::Model::XmlAdapter::NokogiriElement:0x00000001076569b0                                                              
+#     @attributes={},                                                                                                             
+#     @children=                                                                                                                  
+#     [#<Lutaml::Model::XmlAdapter::NokogiriElement:0x00000001076567f8 @attributes={}, @children=[], @default_namespace=nil, @name="text", @namespace_prefix=nil, @text="Metadata">],
+#     @default_namespace=nil,                                                                                                     
+#     @name="category",                                                                                                           
+#     @namespace_prefix=nil,                                                                                                      
+#     @text="Metadata">,                                                                                                          
+#   #<Lutaml::Model::XmlAdapter::NokogiriElement:0x0000000107656028 @attributes={}, @children=[], @default_namespace=nil, @name="text", @namespace_prefix=nil, @text="\n  ">],
+# @default_namespace=nil,                                                                                                        
+# @name="metadata",
+# @namespace_prefix=nil,
+# @text="\n    Metadata\n  ">
+
+# Ox Adapter Node
+
+#<Lutaml::Model::XmlAdapter::OxElement:0x0000000107584f78                                                                                      
+# @attributes={},                                                                                                                               
+# @children=                                                                                                                                    
+#   [#<Lutaml::Model::XmlAdapter::OxElement:0x0000000107584e60                                                                                   
+#     @attributes={},                                                                                                                            
+#     @children=[#<Lutaml::Model::XmlAdapter::OxElement:0x0000000107584d48 @attributes={}, @children=[], @default_namespace=nil, @name="text", @namespace_prefix=nil, @text="Metadata">],
+#     @default_namespace=nil,                                                                                                                    
+#     @name="category",                                                                                                                          
+#     @namespace_prefix=nil,                                                                                                                     
+#     @text="Metadata">],                                                                                                                        
+# @default_namespace=nil,                                                                                                                       
+# @name="metadata",                                                                                                                             
+# @namespace_prefix=nil,                                                                                                                        
+# @text=nil>
+
+# Oga Adapter Node
+
+# <Lutaml::Model::XmlAdapter::Oga::Element:0x0000000107314158
+# @attributes={},
+# @children=
+#   [#<Lutaml::Model::XmlAdapter::Oga::Element:0x0000000107314090 @attributes={}, @children=[], @default_namespace=nil, @name="text", @namespace_prefix=nil, @text="\n    ">,
+#   #<Lutaml::Model::XmlAdapter::Oga::Element:0x000000010730fe78
+#     @attributes={},
+#     @children=[#<Lutaml::Model::XmlAdapter::Oga::Element:0x000000010730fd88 @attributes={}, @children=[], @default_namespace=nil, @name="text", @namespace_prefix=nil, @text="Metadata">],
+#     @default_namespace=nil,
+#     @name="category",
+#     @namespace_prefix=nil,
+#     @text="Metadata">,
+#   #<Lutaml::Model::XmlAdapter::Oga::Element:0x000000010730f8d8 @attributes={}, @children=[], @default_namespace=nil, @name="text", @namespace_prefix=nil, @text="\n  ">],
+# @default_namespace=nil,
+# @name="metadata",
+# @namespace_prefix=nil,
+# @text="\n    Metadata\n  ">
+
+> value.node.to_xml
+> #<metadata><category>Metadata</category></metadata>
+----
+====
+
+==== Separate Serialization Model With Custom Methods
+
+[example]
+====
+The following class will parse the XML snippet below:
+
+[source,ruby]
+----
+class CustomModelChild
+  attr_accessor :street, :city
+end
+
+class CustomModelChildMapper < Lutaml::Model::Serializable
+  model CustomModelChild
+
+  attribute :street, Lutaml::Model::Type::String
+  attribute :city, Lutaml::Model::Type::String
+
+  xml do
+    map_element :street, to: :street
+    map_element :city, to: :city
+  end
+end
+
+class CustomModelParentMapper < Lutaml::Model::Serializable
+  attribute :first_name, Lutaml::Model::Type::String
+  attribute :child_mapper, CustomModelChildMapper
+
+  xml do
+    map_element :first_name, to: :first_name
+    map_element :CustomModelChild,
+                with: { to: :child_to_xml, from: :child_from_xml }
+  end
+  
+  def child_to_xml(model, parent, doc)
+    child_el = doc.create_element("CustomModelChild")
+    street_el = doc.create_element("street")
+    city_el = doc.create_element("city")
+
+    doc.add_text(street_el, model.child_mapper.street)
+    doc.add_text(city_el, model.child_mapper.city)
+
+    doc.add_element(child_el, street_el)
+    doc.add_element(child_el, city_el)
+    doc.add_element(parent, child_el)
+  end
+
+  def child_from_xml(model, value)
+    model.child_mapper ||= CustomModelChild.new
+
+    model.child_mapper.street = value["elements"]["street"].text
+    model.child_mapper.city = value["elements"]["city"].text
+  end
+end
+----
+
+[source,xml]
+----
+<CustomModelParent>
+  <first_name>John</first_name>
+  <CustomModelChild>
+    <street>Oxford Street</street>
+    <city>London</city>
+  </CustomModelChild>
+</CustomModelParent>
+----
+
+[source,ruby]
+----
+> instance = CustomModelParentMapper.from_xml(xml)
+> #<CustomModelParent:0x0000000107c9ca68 @child_mapper=#<CustomModelChild:0x0000000107c95218 @city="London", @street="Oxford Street">, @first_name="John"> 
+> CustomModelParentMapper.to_xml(instance)
+> #<CustomModelParent><first_name>John</first_name><CustomModelChild><street>Oxford Street</street><city>London</city></CustomModelChild></CustomModelParent>
+----
+
+NOTE: For **custom models**, `to_xml` is called on the **mapper class**, not on **model instance**.
 ====
 
 
