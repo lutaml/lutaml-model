@@ -34,6 +34,22 @@ module InheritanceSpec
       map_element "gender", to: :age
     end
   end
+
+  class ParentWithMapAll < Lutaml::Model::Serializable
+    attribute :id, :string
+    attribute :description, :string
+
+    xml do
+      map_attribute "id", to: :id
+      map_all_content to: :description
+    end
+  end
+
+  class Child < ParentWithMapAll
+    xml do
+      root "child"
+    end
+  end
 end
 
 RSpec.describe "Inheritance" do
@@ -87,6 +103,15 @@ RSpec.describe "Inheritance" do
       it "has correct model" do
         expect(child2.model).to eq(child2)
       end
+    end
+  end
+
+  context "with map_all in parent" do
+    let(:xml) { "<child id=\"en\">Some <b>bold</b> Content</child>" }
+
+    it "round trip correctly" do
+      parsed = InheritanceSpec::Child.from_xml(xml)
+      expect(parsed.to_xml).to eq(xml)
     end
   end
 end

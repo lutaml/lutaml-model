@@ -891,6 +891,16 @@ RSpec.describe Lutaml::Model::XmlMapping do
         orig_mappings.deep_dup
       end
 
+      XmlMapping::WithMapAll.mappings_for(:xml).instance_variables.each do |var|
+        it "duplicates #{var} correctly" do
+          orig_mapping = XmlMapping::WithMapAll.mappings_for(:xml)
+          dup_mappings = orig_mapping.deep_dup
+
+          expect(orig_mapping.instance_variable_get(var))
+            .to eq(dup_mappings.instance_variable_get(var))
+        end
+      end
+
       it "duplicates root_element" do
         orig_root = orig_mappings.root_element
         dup_root = dup_mappings.root_element
