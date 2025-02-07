@@ -4,6 +4,10 @@ require "lutaml/model"
 require "lutaml/model/xml_adapter/oga_adapter"
 
 RSpec.describe "LutaML Model Performance" do
+  after do
+    Lutaml::Model::Config.xml_adapter = Lutaml::Model::XmlAdapter::NokogiriAdapter
+  end
+  
   let(:large_xml) do
     xml = "<root>\n"
     1000.times do |i|
