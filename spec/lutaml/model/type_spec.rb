@@ -2,16 +2,47 @@
 require "spec_helper"
 require "bigdecimal"
 
-# Test classes for type registration scenarios
-class CustomType < Lutaml::Model::Type::Value
-  def self.cast(value)
-    value.to_s.upcase
+class CustomSerializationType < Lutaml::Model::Type::Value
+  def self.from_xml(_xml_string)
+    "from_xml_overrided"
+  end
+
+  def self.from_json(_value)
+    "from_json_overrided"
+  end
+
+  def self.serialize(_value)
+    "serialize_overrided"
+  end
+
+  def to_xml
+    "to_xml_overrided"
+  end
+
+  def to_json(*_args)
+    "to_json_overrided"
   end
 end
 
-class InvalidType
-  def self.cast(value)
-    value
+class SampleModel < Lutaml::Model::Serializable
+  attribute :custom_type, CustomSerializationType
+  xml do
+    root "sample"
+    map_element "custom_type", to: :custom_type
+  end
+  json do
+    map_element "custom_type", to: :custom_type
+  end
+end
+
+class SampleModelAttribute < Lutaml::Model::Serializable
+  attribute :custom_type, CustomSerializationType
+  xml do
+    root "sample"
+    map_attribute "custom_type", to: :custom_type
+  end
+  json do
+    map_element "custom_type", to: :custom_type
   end
 end
 
@@ -19,6 +50,17 @@ RSpec.describe Lutaml::Model::Type do
   describe "Type System" do
     describe ".register and .lookup" do
       context "with valid types" do
+        before do
+          # Test class for type registration scenarios
+          custom_type = Class.new(Lutaml::Model::Type::Value) do
+            def self.cast(value)
+              value.to_s.upcase
+            end
+          end
+
+          stub_const("CustomType", custom_type)
+        end
+
         it "registers and looks up a custom type" do
           described_class.register(:custom, CustomType)
           expect(described_class.lookup(:custom)).to eq(CustomType)
@@ -33,6 +75,16 @@ RSpec.describe Lutaml::Model::Type do
       end
 
       context "with invalid types" do
+        before do
+          invalid_type = Class.new do
+            def self.cast(value)
+              value
+            end
+          end
+
+          stub_const("InvalidType", invalid_type)
+        end
+
         it "raises TypeError when registering non-Type::Value class" do
           expect do
             described_class.register(:invalid,
@@ -159,31 +211,35 @@ RSpec.describe Lutaml::Model::Type do
   end
 
   describe "Type Usage in Models" do
-    class TypeTestModel < Lutaml::Model::Serializable
-      attribute :string_symbol, :string
-      attribute :string_class, Lutaml::Model::Type::String
-      attribute :integer_value, :integer
-      attribute :float_value, :float
-      attribute :date_value, :date
-      attribute :time_value, :time
-      attribute :time_without_date_value, :time_without_date
-      attribute :date_time_value, :date_time
-      attribute :boolean_value, :boolean
-      attribute :hash_value, :hash
+    before do
+      type_test_model = Class.new(Lutaml::Model::Serializable) do
+        attribute :string_symbol, :string
+        attribute :string_class, Lutaml::Model::Type::String
+        attribute :integer_value, :integer
+        attribute :float_value, :float
+        attribute :date_value, :date
+        attribute :time_value, :time
+        attribute :time_without_date_value, :time_without_date
+        attribute :date_time_value, :date_time
+        attribute :boolean_value, :boolean
+        attribute :hash_value, :hash
 
-      xml do
-        root "test"
-        map_element "string_symbol", to: :string_symbol
-        map_element "string_class", to: :string_class
-        map_element "integer", to: :integer_value
-        map_element "float", to: :float_value
-        map_element "date", to: :date_value
-        map_element "time", to: :time_value
-        map_element "time_without_date", to: :time_without_date_value
-        map_element "date_time", to: :date_time_value
-        map_element "boolean", to: :boolean_value
-        map_element "hash", to: :hash_value
+        xml do
+          root "test"
+          map_element "string_symbol", to: :string_symbol
+          map_element "string_class", to: :string_class
+          map_element "integer", to: :integer_value
+          map_element "float", to: :float_value
+          map_element "date", to: :date_value
+          map_element "time", to: :time_value
+          map_element "time_without_date", to: :time_without_date_value
+          map_element "date_time", to: :date_time_value
+          map_element "boolean", to: :boolean_value
+          map_element "hash", to: :hash_value
+        end
       end
+
+      stub_const("TypeTestModel", type_test_model)
     end
 
     let(:test_instance) do
@@ -270,6 +326,55 @@ RSpec.describe Lutaml::Model::Type do
                                                                 0, 0))
         expect(deserialized.boolean_value).to be(true)
         expect(deserialized.hash_value).to eq({ "key" => "value" })
+      end
+    end
+
+    describe "Serialization Of Custom Type" do
+      let(:xml) do
+        <<~XML
+          <sample>
+            <custom_type>test_string</custom_type>
+          </sample>
+        XML
+      end
+
+      let(:xml_attribute) do
+        <<~XML
+          <sample custom_type="test_string"/>
+        XML
+      end
+
+      let(:sample_instance) { SampleModel.from_xml(xml) }
+      let(:sample_instance_attribute) { SampleModelAttribute.from_xml(xml_attribute) }
+
+      it "correctly serializes to XML" do
+        expected_xml = <<~XML
+          <sample>
+            <custom_type>to_xml_overrided</custom_type>
+          </sample>
+        XML
+        expect(sample_instance.to_xml).to be_equivalent_to(expected_xml)
+      end
+
+      it "correctly serializes to XML attribute" do
+        expected_xml = <<~XML
+          <sample custom_type="to_xml_overrided"/>
+        XML
+        expect(sample_instance_attribute.to_xml).to be_equivalent_to(expected_xml)
+      end
+
+      it "correctly serializes to JSON" do
+        expect(sample_instance.to_json).to eq('{"custom_type":"to_json_overrided"}')
+      end
+
+      it "correctly deserializes from XML" do
+        expect(sample_instance.custom_type).to eq("from_xml_overrided")
+      end
+
+      it "correctly deserializes from JSON" do
+        json_sample_instance = SampleModel.from_json('{"custom_type":"test_string"}')
+        json_sample_instance.to_json
+        expect(json_sample_instance.custom_type).to eq("from_json_overrided")
       end
     end
   end

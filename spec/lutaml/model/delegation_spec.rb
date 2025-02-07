@@ -99,14 +99,16 @@ RSpec.describe Delegation do
   end
 
   it "serializes to JSON with pretty formatting" do
-    expected_pretty_json = {
-      type: "Vase",
-      color: "Blue",
-    }.to_json
+    expected_pretty_json = <<~JSON.chomp
+      {
+        "type": "Vase",
+        "color": "Blue"
+      }
+    JSON
 
     generated_json = delegation.to_json(only: %i[type color], pretty: true)
 
-    expect(generated_json.strip).to eq(expected_pretty_json.strip)
+    expect(generated_json).to eq(expected_pretty_json)
   end
 
   it "serializes to XML with pretty formatting" do

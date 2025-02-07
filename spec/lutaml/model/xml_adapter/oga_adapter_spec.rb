@@ -14,7 +14,7 @@ RSpec.describe Lutaml::Model::XmlAdapter::OgaAdapter do
   let(:document) { described_class.parse(xml_string) }
 
   context "parsing XML with namespaces" do
-    let(:child) { document.root.children[1] }
+    let(:child) { document.root.children.first }
 
     it "parses the root element with default namespace" do
       expect(document.root.name).to eq("root")
@@ -23,34 +23,38 @@ RSpec.describe Lutaml::Model::XmlAdapter::OgaAdapter do
     end
 
     it "parses child element with prefixed namespace" do
-      expect(child.name).to eq("prefix:child")
+      expect(described_class.prefixed_name_of(child)).to eq("prefix:child")
       expect(child.namespace.uri).to eq("http://example.com/prefixed")
       expect(child.namespace.prefix).to eq("prefix")
     end
 
     it "parses attributes with and without namespaces" do
-      expect(child.attributes["attr"].value).to eq("value")
-      expect(child.attributes["attr"].namespace).to be_nil
-      expect(child.attributes["prefix:attr"].value).to eq("prefixed_value")
-      expect(child.attributes["prefix:attr"].namespace).to eq("http://example.com/prefixed")
-      expect(child.attributes["prefix:attr"].namespace_prefix).to eq("prefix")
+      prefixed_attr = child.attributes.find { |attr| attr&.namespace&.prefix == "prefix" && attr.name == "attr" }
+      no_prefixed_attr = child.attributes.find { |attr| attr.name == "attr" && attr.namespace.nil? }
+      expect(no_prefixed_attr.value).to eq("value")
+      expect(no_prefixed_attr.namespace).to be_nil
+      expect(prefixed_attr.value).to eq("prefixed_value")
+      expect(prefixed_attr.namespace.uri).to eq("http://example.com/prefixed")
+      expect(prefixed_attr.namespace.prefix).to eq("prefix")
     end
   end
 
   context "generating XML with namespaces" do
     it "generates XML with namespaces correctly" do
-      xml_output = document.to_xml
-      parsed_output = Oga.parse_xml(xml_output)
+      xml_output = document.root.to_xml
+      parsed_output = Moxml::Adapter::Oga.parse(xml_output)
 
       root = parsed_output.children.first
       expect(root.name).to eq("root")
       expect(root.namespace.uri).to eq("http://example.com/default")
 
-      child = root.children[1]
-      expect(child.expanded_name).to eq("prefix:child")
+      child = root.children.first
+      expect(described_class.prefixed_name_of(child)).to eq("prefix:child")
       expect(child.namespace.uri).to eq("http://example.com/prefixed")
-      expect(child.get("attr")).to eq("value")
-      expect(child.get("prefix:attr")).to eq("prefixed_value")
+      unprefixed_attr = child.attributes.find { |attr| attr.name == "attr" }
+      expect(unprefixed_attr.value).to eq("value")
+      prefixed_attr = child.attributes.find { |attr| described_class.prefixed_name_of(attr) == "prefix:attr" }
+      expect(prefixed_attr.value).to eq("prefixed_value")
     end
   end
 end

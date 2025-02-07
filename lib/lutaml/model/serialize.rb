@@ -12,12 +12,16 @@ require_relative "comparable_model"
 require_relative "schema_location"
 require_relative "validation"
 require_relative "error"
+require_relative "choice"
+require_relative "sequence"
+require_relative "liquefiable"
 
 module Lutaml
   module Model
     module Serialize
       include ComparableModel
       include Validation
+      include Lutaml::Model::Liquefiable
 
       def self.included(base)
         base.extend(ClassMethods)
@@ -25,7 +29,9 @@ module Lutaml
       end
 
       module ClassMethods
-        attr_accessor :attributes, :mappings
+        include Lutaml::Model::Liquefiable::ClassMethods
+
+        attr_accessor :attributes, :mappings, :choice_attributes
 
         def inherited(subclass)
           super
@@ -40,6 +46,7 @@ module Lutaml
         def initialize_attrs(source_class)
           @mappings = Utils.deep_dup(source_class.instance_variable_get(:@mappings)) || {}
           @attributes = Utils.deep_dup(source_class.instance_variable_get(:@attributes)) || {}
+          @choice_attributes = Utils.deep_dup(source_class.instance_variable_get(:@choice_attributes)) || []
           instance_variable_set(:@model, self)
         end
 
@@ -81,6 +88,10 @@ module Lutaml
           value
         end
 
+        def choice(min: 1, max: 1, &block)
+          @choice_attributes << Choice.new(self, min, max).tap { |c| c.instance_eval(&block) }
+        end
+
         # Define an attribute for the model
         def attribute(name, type, options = {})
           attr = Attribute.new(name, type, options)
@@ -103,6 +114,33 @@ module Lutaml
               instance_variable_set(:"@#{name}", attr.cast_value(value))
             end
           end
+
+          register_drop_method(name)
+
+          attr
+        end
+
+        def root?
+          mappings_for(:xml).root?
+        end
+
+        def import_model_attributes(model)
+          raise Lutaml::Model::ImportModelWithRootError.new(model) if model.root?
+
+          @attributes.merge!(model.attributes)
+        end
+
+        def import_model_mappings(model)
+          raise Lutaml::Model::ImportModelWithRootError.new(model) if model.root?
+
+          @mappings.merge!(model.mappings)
+        end
+
+        def import_model(model)
+          raise Lutaml::Model::ImportModelWithRootError.new(model) if model.root?
+
+          import_model_attributes(model)
+          import_model_mappings(model)
         end
 
         def add_enum_methods_to_model(klass, enum_name, values, collection: false)
@@ -140,7 +178,7 @@ module Lutaml
                             enum_vals.delete(value)
                             enum_vals
                           else
-                            []
+                            instance_variable_get(:"@#{enum_name}") - [value]
                           end
 
               instance_variable_set(:"@#{enum_name}", enum_vals)
@@ -190,7 +228,7 @@ module Lutaml
             mappings[format] ||= klass.new
             mappings[format].instance_eval(&block)
 
-            if format == :xml && !mappings[format].root_element
+            if format == :xml && !mappings[format].root_element && !mappings[format].no_root?
               mappings[format].root(model.to_s)
             end
           end
@@ -207,13 +245,14 @@ module Lutaml
               return doc.map { |item| send(:"of_#{format}", item) }
             end
 
-            if format == :xml
-              doc_hash = doc.parse_element(doc.root, self, :xml)
-              options[:encoding] = doc.encoding
-              apply_mappings(doc_hash, format, options)
-            else
-              apply_mappings(doc.to_h, format)
-            end
+            return apply_mappings(doc.to_h, format) if format != :xml
+
+            doc_hash = doc.parse_element(doc.root, self, :xml)
+            options[:encoding] = doc.encoding
+
+            raise Lutaml::Model::NoRootMappingError.new(self) unless root?
+
+            apply_mappings(doc_hash, format, options)
           end
 
           define_method(:"to_#{format}") do |instance|
@@ -433,6 +472,7 @@ module Lutaml
           return instance if Utils.blank?(doc)
 
           options[:mappings] = mappings_for(format).mappings
+
           return apply_xml_mapping(doc, instance, options) if format == :xml
 
           apply_hash_mapping(doc, instance, format, options)
@@ -449,9 +489,7 @@ module Lutaml
           end
           mappings = options[:mappings] || mappings_for(:xml).mappings
 
-          if doc.is_a?(Array)
-            raise Lutaml::Model::CollectionTrueMissingError(self, option[:caller_class])
-          end
+          raise Lutaml::Model::CollectionTrueMissingError(self, option[:caller_class]) if doc.is_a?(Array)
 
           if instance.respond_to?(:ordered=) && doc.is_a?(Lutaml::Model::MappingHash)
             instance.element_order = doc.item_order
@@ -468,6 +506,7 @@ module Lutaml
           end
 
           defaults_used = []
+          validate_sequence!(instance.element_order)
 
           mappings.each do |rule|
             raise "Attribute '#{rule.to}' not found in #{self}" unless valid_rule?(rule)
@@ -475,7 +514,7 @@ module Lutaml
             attr = attribute_for_rule(rule)
 
             value = if rule.raw_mapping?
-                      doc.node.inner_xml
+                      inner_xml_of(doc.node)
                     elsif rule.content_mapping?
                       doc[rule.content_key]
                     elsif val = value_for_rule(doc, rule, options)
@@ -603,6 +642,26 @@ module Lutaml
             value
           end
         end
+
+        def validate_sequence!(element_order)
+          mapping_sequence = mappings_for(:xml).element_sequence
+          current_order = element_order.filter_map(&:element_tag)
+
+          mapping_sequence.each do |mapping|
+            mapping.validate_content!(current_order)
+          end
+        end
+
+        private
+
+        def inner_xml_of(node)
+          case node
+          when XmlAdapter::XmlElement
+            node.inner_xml
+          else
+            node.children.map(&:to_xml).join
+          end
+        end
       end
 
       attr_accessor :element_order, :schema_location, :encoding
@@ -723,6 +782,8 @@ module Lutaml
       Lutaml::Model::Config::AVAILABLE_FORMATS.each do |format|
         define_method(:"to_#{format}") do |options = {}|
           adapter = Lutaml::Model::Config.public_send(:"#{format}_adapter")
+          raise Lutaml::Model::NoRootMappingError.new(self.class) unless self.class.root?
+
           representation = if format == :xml
                              self
                            else

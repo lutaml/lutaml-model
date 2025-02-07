@@ -30,6 +30,11 @@ Gem::Specification.new do |spec|
   end
   spec.executables = spec.files.grep(%r{^exe/}) { |f| File.basename(f) }
 
+  # TODO: remove once https://github.com/Shopify/liquid/issues/1772 is fixed
+  # needed for liquid with ruby 3.4
+  spec.add_dependency "base64"
+  spec.add_dependency "liquid", "~> 5"
+  spec.add_dependency "moxml"
   spec.add_dependency "thor"
   spec.metadata["rubygems_mfa_required"] = "true"
 end

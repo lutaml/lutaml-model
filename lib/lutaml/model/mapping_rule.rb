@@ -93,6 +93,14 @@ module Lutaml
         name == Constants::RAW_MAPPING_KEY
       end
 
+      def eql?(other)
+        other.class == self.class &&
+          instance_variables.all? do |var|
+            instance_variable_get(var) == other.instance_variable_get(var)
+          end
+      end
+      alias == eql?
+
       def deep_dup
         raise NotImplementedError, "Subclasses must implement `deep_dup`."
       end

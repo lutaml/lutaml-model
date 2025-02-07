@@ -11,6 +11,8 @@ module Lutaml
         values
         pattern
         transform
+        choice
+        sequence
       ].freeze
 
       def initialize(name, type, options = {})
@@ -86,15 +88,17 @@ module Lutaml
       end
 
       def default
-        value = if delegate
-                  type.attributes[to].default
-                elsif options[:default].is_a?(Proc)
-                  options[:default].call
-                else
-                  options[:default]
-                end
+        cast_value(default_value)
+      end
 
-        cast_value(value)
+      def default_value
+        if delegate
+          type.attributes[to].default
+        elsif options[:default].is_a?(Proc)
+          options[:default].call
+        else
+          options[:default]
+        end
       end
 
       def pattern
@@ -114,7 +118,7 @@ module Lutaml
       end
 
       def valid_value!(value)
-        return true if value.nil? && !collection?
+        return true if value.nil? && singular?
         return true unless enum?
 
         unless valid_value?(value)
@@ -166,6 +170,10 @@ module Lutaml
           raise ArgumentError, "Invalid collection range: #{range}"
         end
 
+        validate_range!(range)
+      end
+
+      def validate_range!(range)
         if range.begin.nil?
           raise ArgumentError,
                 "Invalid collection range: #{range}. Begin must be specified."
@@ -248,6 +256,8 @@ module Lutaml
           end
         elsif type <= Serialize && value.is_a?(Hash)
           type.apply_mappings(value, format, options)
+        elsif !value.nil? && !value.is_a?(type)
+          type.send(:"from_#{format}", value)
         else
           type.cast(value)
         end

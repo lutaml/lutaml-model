@@ -6,19 +6,15 @@ module Lutaml
       module Builder
         class Oga
           def self.build(options = {}, &block)
-            if block_given?
-              XmlAdapter::Builder::Oga.new(options, &block)
-            else
-              XmlAdapter::Builder::Oga.new(options)
-            end
+            new(options, &block)
           end
 
-          attr_reader :document, :current_node, :options
+          attr_reader :document, :current_node, :encoding
 
           def initialize(options = {})
             @document = XmlAdapter::Oga::Document.new
             @current_node = @document
-            @options = options
+            @encoding = options[:encoding]
             yield(self) if block_given?
           end
 
@@ -112,9 +108,14 @@ module Lutaml
           end
 
           def add_text(element, text, cdata: false)
+            text = text&.encode(encoding) if encoding && text.is_a?(String)
             return add_cdata(element, text) if cdata
 
             oga_text = ::Oga::XML::Text.new(text: text.to_s)
+            append_text_node(element, oga_text)
+          end
+
+          def append_text_node(element, oga_text)
             if element.is_a?(XmlAdapter::Oga::Document)
               children = element.children
               children.empty? ? children << oga_text : children.last.children << oga_text
@@ -166,6 +167,8 @@ module Lutaml
 
           def element_attributes(oga_element, attributes)
             oga_element.attributes = attributes.map do |name, value|
+              value = value.uri unless value.is_a?(String)
+
               ::Oga::XML::Attribute.new(
                 name: name,
                 value: value,

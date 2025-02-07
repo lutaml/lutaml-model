@@ -7,7 +7,7 @@ module Lutaml
     module XmlAdapter
       class NokogiriAdapter < XmlDocument
         def self.parse(xml, options = {})
-          parsed = Nokogiri::XML(xml, nil, options[:encoding])
+          parsed = Nokogiri::XML(xml, nil, encoding(xml, options))
           root = NokogiriElement.new(parsed.root)
           new(root, parsed.encoding)
         end
@@ -71,11 +71,11 @@ module Lutaml
             index_hash = {}
             content = []
 
-            element.element_order.each do |name|
-              index_hash[name] ||= -1
-              curr_index = index_hash[name] += 1
+            element.element_order.each do |object|
+              index_hash[object.name] ||= -1
+              curr_index = index_hash[object.name] += 1
 
-              element_rule = xml_mapping.find_by_name(name)
+              element_rule = xml_mapping.find_by_name(object.name)
               next if element_rule.nil?
 
               attribute_def = attribute_definition_for(element, element_rule,
@@ -83,7 +83,7 @@ module Lutaml
               value = attribute_value_for(element, element_rule)
 
               if element_rule == xml_mapping.content_mapping
-                next if element_rule.cdata && name == "text"
+                next if element_rule.cdata && object.text?
 
                 text = xml_mapping.content_mapping.serialize(element)
                 text = text[curr_index] if text.is_a?(Array)

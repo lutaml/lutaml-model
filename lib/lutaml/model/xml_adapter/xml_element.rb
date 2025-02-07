@@ -117,8 +117,9 @@ module Lutaml
         end
 
         def order
-          children.each_with_object([]) do |child, arr|
-            arr << child.unprefixed_name
+          children.map do |child|
+            type = child.text? ? "Text" : "Element"
+            Lutaml::Model::XmlAdapter::Element.new(type, child.unprefixed_name)
           end
         end
       end

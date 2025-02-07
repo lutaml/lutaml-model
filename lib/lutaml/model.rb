@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "moxml"
 require_relative "model/version"
 require_relative "model/loggable"
 require_relative "model/type"

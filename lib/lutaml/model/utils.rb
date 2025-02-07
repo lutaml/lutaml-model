@@ -85,25 +85,29 @@ module Lutaml
           end
         end
 
-        def deep_dup(hash)
-          return hash if hash.nil?
+        def deep_dup(object)
+          return object if object.nil?
 
-          new_hash = {}
-
-          hash.each do |key, value|
-            new_hash[key] = if value.is_a?(Hash)
-                              deep_dup(value)
-                            elsif value.respond_to?(:deep_dup)
-                              value.deep_dup
-                            else
-                              value.dup
-                            end
+          case object
+          when Hash then deep_dup_hash(object)
+          when Array then deep_dup_array(object)
+          else deep_dup_object(object)
           end
-
-          new_hash
         end
 
         private
+
+        def deep_dup_hash(hash)
+          hash.transform_values { |value| deep_dup(value) }
+        end
+
+        def deep_dup_array(array)
+          array.map { |value| deep_dup(value) }
+        end
+
+        def deep_dup_object(object)
+          object.respond_to?(:deep_dup) ? object.deep_dup : object.dup
+        end
 
         def camelize_part(part)
           part.gsub(/(?:_|-|^)([a-z\d])/i) { $1.upcase }

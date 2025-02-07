@@ -54,7 +54,19 @@ RSpec.describe Lutaml::Model::Utils do
       }
     end
 
+    let(:original_array) do
+      [
+        "one", [
+          "one_one", [
+            "one_one1", "one_one2"
+          ],
+          "one_two"
+        ]
+      ]
+    end
+
     let(:duplicate_hash) { utils.deep_dup(original_hash) }
+    let(:duplicate_array) { utils.deep_dup(original_array) }
 
     it "creates deep duplicate of hash" do
       expect(original_hash).to eq(duplicate_hash)
@@ -74,6 +86,26 @@ RSpec.describe Lutaml::Model::Utils do
 
       expect(original_hash[:one][:one_two]).to eq(duplicate_hash[:one][:one_two])
       expect(original_hash[:one][:one_two].object_id).not_to eq(duplicate_hash[:one][:one_two].object_id)
+    end
+
+    it "creates deep duplicate of array" do
+      expect(original_array).to eq(duplicate_array)
+      expect(original_array.object_id).not_to eq(duplicate_array.object_id)
+
+      expect(original_array[0]).to eq(duplicate_array[0])
+      expect(original_array[0].object_id).not_to eq(duplicate_array[0].object_id)
+
+      expect(original_array[1][0]).to eq(duplicate_array[1][0])
+      expect(original_array[1][0].object_id).not_to eq(duplicate_array[1][0].object_id)
+
+      expect(original_array[1][1][0]).to eq(duplicate_array[1][1][0])
+      expect(original_array[1][1][0].object_id).not_to eq(duplicate_array[1][1][0].object_id)
+
+      expect(original_array[1][1][1]).to eq(duplicate_array[1][1][1])
+      expect(original_array[1][1][1].object_id).not_to eq(duplicate_array[1][1][1].object_id)
+
+      expect(original_array[1][2]).to eq(duplicate_array[1][2])
+      expect(original_array[1][2].object_id).not_to eq(duplicate_array[1][2].object_id)
     end
   end
 end
