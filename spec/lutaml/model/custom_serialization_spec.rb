@@ -119,7 +119,7 @@ class GrammarInfo < Lutaml::Model::Serializable
   end
 
   def part_of_speech_from_xml(model, node)
-    model.part_of_speech = node
+    model.part_of_speech = node.text
   end
 
   def part_of_speech_to_xml(model, parent, doc)
