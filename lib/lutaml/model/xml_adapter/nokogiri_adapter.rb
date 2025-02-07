@@ -8,8 +8,8 @@ module Lutaml
       class NokogiriAdapter < XmlDocument
         def self.parse(xml, options = {})
           parsed = Nokogiri::XML(xml, nil, encoding(xml, options))
-          root = NokogiriElement.new(parsed.root)
-          new(root, parsed.encoding)
+          @root = NokogiriElement.new(parsed.root)
+          new(@root, parsed.encoding)
         end
 
         def to_xml(options = {})

@@ -10,8 +10,8 @@ module Lutaml
           Ox.default_options = Ox.default_options.merge(encoding: encoding(xml, options))
 
           parsed = Ox.parse(xml)
-          root = OxElement.new(parsed)
-          new(root, Ox.default_options[:encoding])
+          @root = OxElement.new(parsed)
+          new(@root, Ox.default_options[:encoding])
         end
 
         def to_xml(options = {})
@@ -192,6 +192,14 @@ module Lutaml
 
         def nodes
           children
+        end
+
+        def cdata
+          super || cdata_children.first&.text
+        end
+
+        def text
+          super || cdata
         end
 
         private

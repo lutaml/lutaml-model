@@ -523,7 +523,7 @@ RSpec.describe "MixedContent" do
 
       describe ".from_xml" do
         let(:expected_nokogiri_content) { "B <p>R&amp;C</p>\n    C <p>J&#x2014;C</p>\n    O <p>A &amp; B </p>\n    F <p>Z &#xA9;S</p>" }
-        let(:expected_ox_content) { "B <p>R&amp;C</p>\n C <p>J—C</p>\n O <p>A &amp; B </p>\n F <p>Z ©S</p>" }
+        let(:expected_ox_content) { "B <p>R&amp;C</p> C <p>J—C</p> O <p>A &amp; B </p> F <p>Z ©S</p>" }
         let(:expected_oga_content) { "B <p>R&amp;C</p>\n    C <p>J—C</p>\n    O <p>A &amp; B </p>\n    F <p>Z ©S</p>" }
 
         it "deserializes special char mixed content correctly" do

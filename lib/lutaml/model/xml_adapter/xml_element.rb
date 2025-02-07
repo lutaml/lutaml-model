@@ -8,7 +8,8 @@ module Lutaml
                     :children,
                     :text,
                     :namespace_prefix,
-                    :parent_document
+                    :parent_document,
+                    :default_namespace
 
         attr_accessor :adapter_node
 
@@ -121,6 +122,54 @@ module Lutaml
             type = child.text? ? "Text" : "Element"
             Lutaml::Model::XmlAdapter::Element.new(type, child.unprefixed_name)
           end
+        end
+
+        def root
+          self
+        end
+
+        def text
+          return text_children.map(&:text) if children.count > 1
+
+          @text
+        end
+
+        def cdata_children
+          find_children_by_name("#cdata-section")
+        end
+
+        def text_children
+          find_children_by_name("text")
+        end
+
+        def find_attribute_value(attribute_name)
+          if attribute_name.is_a?(Array)
+            attributes.values.find { |attr| attribute_name.include?(attr.namespaced_name) }&.value
+          else
+            attributes.values.find { |attr| attribute_name == attr.namespaced_name }&.value
+          end
+        end
+
+        def find_children_by_name(name)
+          if name.is_a?(Array)
+            children.select { |child| name.include?(child.namespaced_name) }
+          else
+            children.select { |child| child.namespaced_name == name }
+          end
+        end
+
+        def find_child_by_name(name)
+          find_children_by_name(name).first
+        end
+
+        def cdata
+          return cdata_children.map(&:text) if children.count > 1
+
+          @text
+        end
+
+        def to_h
+          document.to_h
         end
       end
     end

@@ -23,6 +23,14 @@ module Lutaml
           @root.children
         end
 
+        def root
+          @root
+        end
+
+        def attributes
+          root.attributes
+        end
+
         def self.encoding(xml, options)
           if options.key?(:encoding)
             options[:encoding]
@@ -418,6 +426,16 @@ module Lutaml
 
         def self.namespaced_name_of(element)
           element.namespaced_name
+        end
+
+        def text
+          return @root.text_children.map(&:text) if @root.children.count > 1
+
+          @root.text
+        end
+
+        def cdata
+          @root.cdata
         end
       end
     end

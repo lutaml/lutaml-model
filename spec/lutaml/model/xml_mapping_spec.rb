@@ -841,14 +841,18 @@ RSpec.describe Lutaml::Model::XmlMapping do
         XML
       end
 
-      let(:expected_nokogiri_street) { "\n      <a>N</a>\n      <p>adf</p>\n    " }
-      let(:expected_oga_street) { "<a>N</a><p>adf</p>" }
-      let(:expected_ox_street) { "<a>N</a>\n<p>adf</p>\n" }
+      let(:expected_street) do
+        if Lutaml::Model::Config.xml_adapter == Lutaml::Model::XmlAdapter::NokogiriAdapter
+          "\n      <a>N</a>\n      <p>adf</p>\n    "
+        else
+          "<a>N</a><p>adf</p>"
+        end
+      end
 
       let(:model) { XmlMapping::Person.from_xml(input_xml) }
 
       it "expect to contain raw xml" do
-        expect(model.address.street).to eq(send(:"expected_#{adapter_class.type}_street"))
+        expect(model.address.street).to eq(expected_street)
         expect(model.address.city.strip).to eq("<a>M</a>")
       end
     end
