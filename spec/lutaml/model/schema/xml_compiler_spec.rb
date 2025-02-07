@@ -230,7 +230,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
               <xsd:attribute name="test_attribute" type="xsd:string"/>
               <xsd:group name="test_group"/>
               <xsd:simpleType name="test_simple_type"/>
-              <xsd:complexType name="test_complex_type"/>
+              <xsd:complexType name="test_complex_type" mixed="true"/>
               <xsd:attributeGroup name="test_attribute_group"/>
             </xsd:schema>
           XSD

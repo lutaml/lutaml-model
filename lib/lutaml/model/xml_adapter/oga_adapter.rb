@@ -13,7 +13,8 @@ module Lutaml
 
         def self.parse(xml, options = {})
           parsed = Moxml::Adapter::Oga.parse(xml)
-          new(parsed.root, encoding(xml, options))
+          @root = Oga::Element.new(parsed.children.first)
+          new(@root, encoding(xml, options))
         end
 
         def to_xml(options = {})
@@ -26,13 +27,13 @@ module Lutaml
                                          "UTF-8"
                                        end
 
-          builder = if @root.is_a?(Moxml::Element)
-                      @root
-                    else
-                      Builder::Oga.build(options) do |xml|
-                        build_element(xml, @root, options)
-                      end
-                    end
+          builder = Builder::Oga.build(builder_options) do |xml|
+            if @root.is_a?(Oga::Element)
+              @root.build_xml(xml)
+            else
+              build_element(xml, @root, options)
+            end
+          end
           xml_data = builder.to_xml
           options[:declaration] ? declaration(options) + xml_data : xml_data
         end
