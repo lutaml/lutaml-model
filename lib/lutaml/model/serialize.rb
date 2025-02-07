@@ -315,6 +315,10 @@ module Lutaml
 
             attribute = attributes[name]
 
+            if export_method = rule.transform[:export] || attribute.transform_export_method
+              value = export_method.call(value)
+            end
+
             next hash.merge!(generate_hash_from_child_mappings(attribute, value, format, rule.root_mappings)) if rule.root_mapping?
 
             value = if rule.child_mappings

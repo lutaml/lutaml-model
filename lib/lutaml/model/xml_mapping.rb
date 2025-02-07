@@ -76,7 +76,8 @@ module Lutaml
         namespace: (namespace_set = false
                     nil),
         prefix: (prefix_set = false
-                 nil)
+                 nil),
+        transform: {}
       )
         validate!(name, to, with, type: TYPES[:element])
 
@@ -93,6 +94,7 @@ module Lutaml
           prefix: prefix,
           namespace_set: namespace_set != false,
           prefix_set: prefix_set != false,
+          transform: transform,
         )
         @elements[rule.namespaced_name] = rule
       end

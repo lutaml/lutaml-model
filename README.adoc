@@ -3877,6 +3877,63 @@ end
 NOTE: The corresponding keyword used by Shale is `receiver:` instead of
 `delegate:`.
 
+=== Value Transformations
+
+The `transform` option allows defining import/export transformations at both attribute and mapping levels:
+
+[source,ruby]
+----
+class Person < Lutaml::Model::Serializable
+  # Attribute-level transformation
+  attribute :name, :string, transform: {
+    export: ->(value) { value.upcase },
+    import: ->(value) { value.downcase }
+  }
+
+  # Mapping-level transformation in JSON format
+  json do
+    map "fullName", to: :name, transform: {
+      export: ->(value) { "Dr. #{value}" },
+      import: ->(value) { value.gsub("Dr. ", "") }
+    }
+  end
+
+  # Mapping-level transformation in XML format  
+  xml do
+    map "full-name", to: :name, transform: {
+      export: ->(value) { "Dr. #{value}" },
+      import: ->(value) { value.gsub("Dr. ", "") }
+    }
+  end
+end
+----
+
+The transformation precedence is:
+
+1. Mapping-level transformation if defined
+2. Attribute-level transformation if no mapping transformation exists
+
+This allows flexible value transformations without needing format-specific custom methods:
+
+[source,ruby]
+----
+person = Person.new(name: "john")
+
+# Uses mapping transformation
+person.to_json # => {"fullName": "Dr. john"}
+
+Person.from_json({ "fullName" =>  "Dr. john"}.to_json).name # => john
+
+# Uses attribute transformation when no mapping exists
+person.to_yaml # => name: "JOHN"
+----
+
+The `transform` option supports:
+
+* `export`: Transform value during serialization
+* `import`: Transform value during deserialization
+* Collections with array transformations
+* Chaining of attribute and mapping transformations
 
 ==== Attribute serialization with custom methods
 

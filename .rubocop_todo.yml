@@ -13,7 +13,7 @@
 Layout/LineLength:
   Enabled: false
 
-# Offense count: 16
+# Offense count: 18
 # Configuration parameters: AllowedMethods.
 # AllowedMethods: enums
 Lint/ConstantDefinitionInBlock:
@@ -22,6 +22,8 @@ Lint/ConstantDefinitionInBlock:
     - 'spec/lutaml/model/schema/relaxng_schema_spec.rb'
     - 'spec/lutaml/model/schema/xsd_schema_spec.rb'
     - 'spec/lutaml/model/schema/yaml_schema_spec.rb'
+    - 'spec/lutaml/model/transformation_spec.rb'
+    - 'spec/lutaml/model/type_spec.rb'
     - 'spec/lutaml/model/validation_spec.rb'
     - 'spec/lutaml/model/xml_adapter/xml_namespace_spec.rb'
 
@@ -56,13 +58,14 @@ Metrics/AbcSize:
 Metrics/BlockLength:
   Max: 44
 
-# Offense count: 47
+# Offense count: 49
 # Configuration parameters: AllowedMethods, AllowedPatterns, Max.
 Metrics/CyclomaticComplexity:
   Exclude:
     - 'lib/lutaml/model/attribute.rb'
     - 'lib/lutaml/model/comparable_model.rb'
     - 'lib/lutaml/model/key_value_mapping.rb'
+    - 'lib/lutaml/model/mapping_rule.rb'
     - 'lib/lutaml/model/schema/xml_compiler.rb'
     - 'lib/lutaml/model/serialize.rb'
     - 'lib/lutaml/model/type/integer.rb'
@@ -80,15 +83,16 @@ Metrics/MethodLength:
 # Offense count: 8
 # Configuration parameters: CountKeywordArgs, MaxOptionalParameters.
 Metrics/ParameterLists:
-  Max: 14
+  Max: 15
 
-# Offense count: 36
+# Offense count: 39
 # Configuration parameters: AllowedMethods, AllowedPatterns, Max.
 Metrics/PerceivedComplexity:
   Exclude:
     - 'lib/lutaml/model/attribute.rb'
     - 'lib/lutaml/model/comparable_model.rb'
     - 'lib/lutaml/model/key_value_mapping.rb'
+    - 'lib/lutaml/model/mapping_rule.rb'
     - 'lib/lutaml/model/schema/xml_compiler.rb'
     - 'lib/lutaml/model/serialize.rb'
     - 'lib/lutaml/model/type/integer.rb'
@@ -115,6 +119,17 @@ RSpec/ContextWording:
     - 'spec/lutaml/model/xml_mapping_spec.rb'
 
 # Offense count: 1
+# Configuration parameters: IgnoredMetadata.
+RSpec/DescribeClass:
+  Exclude:
+    - '**/spec/features/**/*'
+    - '**/spec/requests/**/*'
+    - '**/spec/routing/**/*'
+    - '**/spec/system/**/*'
+    - '**/spec/views/**/*'
+    - 'spec/lutaml/model/transformation_spec.rb'
+
+# Offense count: 2
 # This cop supports unsafe autocorrection (--autocorrect-all).
 # Configuration parameters: SkipBlocks, EnforcedStyle, OnlyStaticConstants.
 # SupportedStyles: described_class, explicit
@@ -133,13 +148,15 @@ RSpec/IndexedLet:
   Exclude:
     - 'spec/address_spec.rb'
 
-# Offense count: 24
+# Offense count: 29
 RSpec/LeakyConstantDeclaration:
   Exclude:
     - 'spec/lutaml/model/schema/json_schema_spec.rb'
     - 'spec/lutaml/model/schema/relaxng_schema_spec.rb'
     - 'spec/lutaml/model/schema/xsd_schema_spec.rb'
     - 'spec/lutaml/model/schema/yaml_schema_spec.rb'
+    - 'spec/lutaml/model/transformation_spec.rb'
+    - 'spec/lutaml/model/type_spec.rb'
     - 'spec/lutaml/model/validation_spec.rb'
     - 'spec/lutaml/model/xml_adapter/xml_namespace_spec.rb'
 

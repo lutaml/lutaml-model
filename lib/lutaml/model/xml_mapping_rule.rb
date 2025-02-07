@@ -19,7 +19,8 @@ module Lutaml
         namespace_set: false,
         prefix_set: false,
         attribute: false,
-        default_namespace: nil
+        default_namespace: nil,
+        transform: {}
       )
         super(
           name,
@@ -28,7 +29,8 @@ module Lutaml
           render_default: render_default,
           with: with,
           delegate: delegate,
-          attribute: attribute
+          attribute: attribute,
+          transform: transform
         )
 
         @namespace = if namespace.to_s == "inherit"
@@ -112,6 +114,7 @@ module Lutaml
           prefix_set: prefix_set?,
           attribute: attribute,
           default_namespace: default_namespace.dup,
+          transform: transform.dup,
         )
       end
     end

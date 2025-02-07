@@ -27,7 +27,8 @@ module Lutaml
         delegate: nil,
         cdata: false,
         namespace: nil,
-        prefix: nil
+        prefix: nil,
+        transform: {}
       )
         @attributes << @model.map_element(
           name,
@@ -39,6 +40,7 @@ module Lutaml
           cdata: cdata,
           namespace: namespace,
           prefix: prefix,
+          transform: transform,
         )
       end
 
