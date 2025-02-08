@@ -27,7 +27,9 @@ module Lutaml
       end
 
       def validate_helper(errors)
-        self.class.choice_attributes.each { |attribute| attribute.validate_content!(self) }
+        self.class.choice_attributes.each do |attribute|
+          attribute.validate_content!(self)
+        end
         errors
       rescue Lutaml::Model::ChoiceUpperBoundError,
              Lutaml::Model::ChoiceLowerBoundError => e

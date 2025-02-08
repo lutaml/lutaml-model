@@ -48,8 +48,12 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
           require_relative "#{dir}/math_document"
         end
 
-        let(:valid_example) { File.read("spec/fixtures/xml/valid_math_document.xml") }
-        let(:invalid_example) { File.read("spec/fixtures/xml/invalid_math_document.xml") }
+        let(:valid_example) do
+          File.read("spec/fixtures/xml/valid_math_document.xml")
+        end
+        let(:invalid_example) do
+          File.read("spec/fixtures/xml/invalid_math_document.xml")
+        end
 
         it "does not raise error with valid example and creates files" do
           expect(defined?(MathDocument)).to eq("constant")

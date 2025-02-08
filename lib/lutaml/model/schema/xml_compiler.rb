@@ -112,12 +112,20 @@ module Lutaml
           if options[:create_files]
             dir = options.fetch(:output_dir, "lutaml_models_#{Time.now.to_i}")
             FileUtils.mkdir_p(dir)
-            @data_types_classes.each { |name, content| create_file(name, content, dir) }
-            @complex_types.each { |name, content| create_file(name, MODEL_TEMPLATE.result(binding), dir) }
+            @data_types_classes.each do |name, content|
+              create_file(name, content, dir)
+            end
+            @complex_types.each do |name, content|
+              create_file(name, MODEL_TEMPLATE.result(binding), dir)
+            end
             nil
           else
-            simple_types  = @data_types_classes.transform_keys { |key| Utils.camel_case(key.to_s) }
-            complex_types = @complex_types.to_h { |name, content| [Utils.camel_case(name), MODEL_TEMPLATE.result(binding)] }
+            simple_types = @data_types_classes.transform_keys do |key|
+              Utils.camel_case(key.to_s)
+            end
+            complex_types = @complex_types.to_h do |name, content|
+              [Utils.camel_case(name), MODEL_TEMPLATE.result(binding)]
+            end
             classes_hash = simple_types.merge(complex_types)
             require_classes(classes_hash) if options[:load_classes]
             classes_hash
@@ -255,18 +263,18 @@ module Lutaml
                 hash[:sequences] << setup_sequence(instance)
               when Xsd::Element
                 hash[:elements] << if instance.name
-                                     setup_element(instance)
-                                   else
-                                     create_mapping_hash(instance.ref, hash_key: :ref_class)
-                                   end
+                  setup_element(instance)
+                else
+                  create_mapping_hash(instance.ref, hash_key: :ref_class)
+                end
               when Xsd::Choice
                 hash[:choice] << setup_choice(instance)
               when Xsd::Group
                 hash[:groups] << if instance.name
-                                   setup_group_type(instance)
-                                 else
-                                   create_mapping_hash(instance.ref, hash_key: :ref_class)
-                                 end
+                  setup_group_type(instance)
+                else
+                  create_mapping_hash(instance.ref, hash_key: :ref_class)
+                end
               when Xsd::Any
                 # No implementation yet!
               end
@@ -381,7 +389,7 @@ module Lutaml
         def restriction_patterns(patterns, hash)
           return if patterns.empty?
 
-          hash[:pattern] = patterns.map { |pattern| "(#{pattern.value})" }.join("|")
+          hash[:pattern] = patterns.map { |p| "(#{p.value})" }.join("|")
           hash
         end
 
@@ -438,6 +446,7 @@ module Lutaml
             end
           end
         end
+
         # END: STRUCTURE SETUP METHODS
 
         # START: TEMPLATE RESOLVER METHODS
@@ -611,6 +620,7 @@ module Lutaml
           end
           @required_files.uniq.sort_by(&:length)
         end
+
         # END: TEMPLATE RESOLVER METHODS
 
         # START: REQUIRED FILES LIST COMPILER METHODS
@@ -744,6 +754,7 @@ module Lutaml
             @required_files << Utils.snake_case(element_class)
           end
         end
+
         # END: REQUIRED FILES LIST COMPILER METHODS
       end
     end

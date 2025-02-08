@@ -93,7 +93,9 @@ RSpec.describe "Choice" do
         encrypted: true,
       )
 
-      expect { valid_instance.validate! }.to raise_error(Lutaml::Model::ValidationError) do |error|
+      expect do
+        valid_instance.validate!
+      end.to raise_error(Lutaml::Model::ValidationError) do |error|
         expect(error.error_messages.join("\n")).to include("Attributes `[:signed, :unsigned, :watermarked, :encrypted]` count exceeds the upper bound `3`")
       end
     end
@@ -132,7 +134,9 @@ RSpec.describe "Choice" do
         insta: "insta",
       )
 
-      expect { valid_instance.validate! }.to raise_error(Lutaml::Model::ValidationError) do |error|
+      expect do
+        valid_instance.validate!
+      end.to raise_error(Lutaml::Model::ValidationError) do |error|
         expect(error.error_messages.join("\n")).to eq("Attributes `[:email, :phone, :check]` count exceeds the upper bound `2`")
       end
     end
@@ -143,7 +147,9 @@ RSpec.describe "Choice" do
         insta: "insta",
       )
 
-      expect { valid_instance.validate! }.to raise_error(Lutaml::Model::ValidationError) do |error|
+      expect do
+        valid_instance.validate!
+      end.to raise_error(Lutaml::Model::ValidationError) do |error|
         expect(error.error_messages.join("\n")).to eq("Attributes `[]` count is less than the lower bound `1`")
       end
     end

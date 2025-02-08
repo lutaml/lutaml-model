@@ -89,7 +89,9 @@ module Lutaml
         end
 
         def choice(min: 1, max: 1, &block)
-          @choice_attributes << Choice.new(self, min, max).tap { |c| c.instance_eval(&block) }
+          @choice_attributes << Choice.new(self, min, max).tap do |c|
+            c.instance_eval(&block)
+          end
         end
 
         # Define an attribute for the model
@@ -497,7 +499,9 @@ module Lutaml
             instance.mixed = mappings_for(:xml).mixed_content? || options[:mixed_content]
           end
 
-          schema_location = doc.attributes.values.find { |a| a.unprefixed_name == "schemaLocation" }
+          schema_location = doc.attributes.values.find do |a|
+            a.unprefixed_name == "schemaLocation"
+          end
 
           if !schema_location.nil?
             instance.schema_location = Lutaml::Model::SchemaLocation.new(
@@ -558,7 +562,9 @@ module Lutaml
             end
 
             if rule.cdata
-              values = children.map { |child| child.cdata_children&.map(&:text) }.flatten
+              values = children.map do |child|
+                child.cdata_children&.map(&:text)
+              end.flatten
               return children.count > 1 ? values : values.first
             end
 

@@ -21,7 +21,9 @@ module Lutaml
       end
 
       def choice(min: 1, max: 1, &block)
-        @attributes << Choice.new(@model, min, max).tap { |c| c.instance_eval(&block) }
+        @attributes << Choice.new(@model, min, max).tap do |c|
+          c.instance_eval(&block)
+        end
       end
 
       def validate_content!(object)

@@ -26,7 +26,9 @@ RSpec.describe Lutaml::Model::Liquefiable do
   describe ".register_liquid_drop_class" do
     context "when drop class does not exist" do
       it "creates a new drop class" do
-        expect { dummy.class.register_liquid_drop_class }.to change { dummy.class.const_defined?(:DummyModelDrop) }
+        expect { dummy.class.register_liquid_drop_class }.to change {
+          dummy.class.const_defined?(:DummyModelDrop)
+        }
           .from(false)
           .to(true)
       end
@@ -67,7 +69,9 @@ RSpec.describe Lutaml::Model::Liquefiable do
     end
 
     it "defines a method on the drop class" do
-      expect { dummy.class.register_drop_method(:display_name) }.to change { dummy.to_liquid.respond_to?(:display_name) }
+      expect { dummy.class.register_drop_method(:display_name) }.to change {
+        dummy.to_liquid.respond_to?(:display_name)
+      }
         .from(false)
         .to(true)
     end

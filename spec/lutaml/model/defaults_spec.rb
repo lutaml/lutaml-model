@@ -115,7 +115,9 @@ module DefaultsSpec
     model Lang
 
     attribute :lang, :string, default: -> { "en" }
-    attribute :content, :string, default: -> { "default value not render when render_default is false" }
+    attribute :content, :string, default: -> {
+      "default value not render when render_default is false"
+    }
 
     xml do
       root "CustomModelWithDefaultValue"

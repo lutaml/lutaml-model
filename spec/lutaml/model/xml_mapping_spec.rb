@@ -507,7 +507,9 @@ RSpec.describe Lutaml::Model::XmlMapping do
       end
 
       def create_pattern_mapping(array)
-        array.map { |type, text| Lutaml::Model::XmlAdapter::Element.new(type, text) }
+        array.map do |type, text|
+          Lutaml::Model::XmlAdapter::Element.new(type, text)
+        end
       end
 
       it "citygml_application_schema should be correct" do
