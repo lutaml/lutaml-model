@@ -111,7 +111,9 @@ RSpec.describe "Sequence" do
         </collection>
       XML
 
-      expect { SequenceSpec::CeramicCollection.from_xml(xml) }.not_to raise_error
+      expect do
+        SequenceSpec::CeramicCollection.from_xml(xml)
+      end.not_to raise_error
     end
 
     it "raises error, if given attributes order is incorrect in sequence" do
@@ -132,7 +134,9 @@ RSpec.describe "Sequence" do
         </Ceramic>
       XML
 
-      expect { mapper.from_xml(xml) }.to raise_error(Lutaml::Model::IncorrectSequenceError) do |error|
+      expect do
+        mapper.from_xml(xml)
+      end.to raise_error(Lutaml::Model::IncorrectSequenceError) do |error|
         expect(error.message).to eq("Element `usage` does not match the expected sequence order element `text`")
       end
     end

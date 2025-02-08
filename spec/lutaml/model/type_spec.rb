@@ -345,7 +345,9 @@ RSpec.describe Lutaml::Model::Type do
       end
 
       let(:sample_instance) { SampleModel.from_xml(xml) }
-      let(:sample_instance_attribute) { SampleModelAttribute.from_xml(xml_attribute) }
+      let(:sample_instance_attribute) do
+        SampleModelAttribute.from_xml(xml_attribute)
+      end
 
       it "correctly serializes to XML" do
         expected_xml = <<~XML

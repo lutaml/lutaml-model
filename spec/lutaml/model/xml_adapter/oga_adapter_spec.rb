@@ -51,7 +51,9 @@ RSpec.describe Lutaml::Model::XmlAdapter::OgaAdapter do
       expect(child.namespace.uri).to eq("http://example.com/prefixed")
       unprefixed_attr = child.attributes.find { |attr| attr.name == "attr" }
       expect(unprefixed_attr.value).to eq("value")
-      prefixed_attr = child.attributes.find { |attr| described_class.prefixed_name_of(attr) == "prefix:attr" }
+      prefixed_attr = child.attributes.find do |attr|
+        described_class.prefixed_name_of(attr) == "prefix:attr"
+      end
       expect(prefixed_attr.value).to eq("prefixed_value")
     end
   end

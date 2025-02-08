@@ -467,7 +467,9 @@ RSpec.describe "MixedContent" do
       end
 
       describe ".from_xml" do
-        let(:expected_content) { "Moon&Mars Distanced©its — surface covered & processed" }
+        let(:expected_content) do
+          "Moon&Mars Distanced©its — surface covered & processed"
+        end
 
         it "deserializes special char mixed content correctly" do
           parsed = MixedContentSpec::SpecialCharContentWithMixedTrue.from_xml(xml)
@@ -476,7 +478,9 @@ RSpec.describe "MixedContent" do
       end
 
       describe ".to_xml" do
-        let(:expected_xml) { "Moon&amp;Mars Distanced©its — surface covered &amp; processed" }
+        let(:expected_xml) do
+          "Moon&amp;Mars Distanced©its — surface covered &amp; processed"
+        end
 
         it "serializes special char mixed content correctly" do
           parsed = MixedContentSpec::SpecialCharContentWithMixedTrue.from_xml(xml)
@@ -522,9 +526,15 @@ RSpec.describe "MixedContent" do
       end
 
       describe ".from_xml" do
-        let(:expected_nokogiri_content) { "B <p>R&amp;C</p>\n    C <p>J&#x2014;C</p>\n    O <p>A &amp; B </p>\n    F <p>Z &#xA9;S</p>" }
-        let(:expected_ox_content) { "B <p>R&amp;C</p> C <p>J—C</p> O <p>A &amp; B </p> F <p>Z ©S</p>" }
-        let(:expected_oga_content) { "B <p>R&amp;C</p>\n    C <p>J—C</p>\n    O <p>A &amp; B </p>\n    F <p>Z ©S</p>" }
+        let(:expected_nokogiri_content) do
+          "B <p>R&amp;C</p>\n    C <p>J&#x2014;C</p>\n    O <p>A &amp; B </p>\n    F <p>Z &#xA9;S</p>"
+        end
+        let(:expected_ox_content) do
+          "B <p>R&amp;C</p> C <p>J—C</p> O <p>A &amp; B </p> F <p>Z ©S</p>"
+        end
+        let(:expected_oga_content) do
+          "B <p>R&amp;C</p>\n    C <p>J—C</p>\n    O <p>A &amp; B </p>\n    F <p>Z ©S</p>"
+        end
 
         it "deserializes special char mixed content correctly" do
           parsed = MixedContentSpec::SpecialCharContentWithRawAndMixedOption.from_xml(xml)
@@ -627,7 +637,9 @@ RSpec.describe "MixedContent" do
       end
 
       describe ".from_xml" do
-        let(:expected_content) { "<computer security> type of operation specified by an access right" }
+        let(:expected_content) do
+          "<computer security> type of operation specified by an access right"
+        end
 
         it "deserializes special char mixed content correctly" do
           parsed = MixedContentSpec::TextualSupport.from_xml(xml)
@@ -637,8 +649,12 @@ RSpec.describe "MixedContent" do
       end
 
       describe ".to_xml" do
-        let(:expected_xml) { "<TextualSupport>\n  <value>&lt;computer security&gt; type of operation specified by an access right</value>\n</TextualSupport>" }
-        let(:expected_oga_xml) { "<TextualSupport><value>&lt;computer security&gt; type of operation specified by an access right</value></TextualSupport>" }
+        let(:expected_xml) do
+          "<TextualSupport>\n  <value>&lt;computer security&gt; type of operation specified by an access right</value>\n</TextualSupport>"
+        end
+        let(:expected_oga_xml) do
+          "<TextualSupport><value>&lt;computer security&gt; type of operation specified by an access right</value></TextualSupport>"
+        end
 
         it "serializes special char mixed content correctly" do
           parsed = MixedContentSpec::TextualSupport.from_xml(xml)
@@ -659,7 +675,9 @@ RSpec.describe "MixedContent" do
       end
 
       describe ".from_xml" do
-        let(:expected_content) { "∑computer security∏ type of ​ operation specified µ by an access right" }
+        let(:expected_content) do
+          "∑computer security∏ type of ​ operation specified µ by an access right"
+        end
 
         it "deserializes special char mixed content correctly" do
           parsed = MixedContentSpec::HexCode.from_xml(xml)
@@ -670,7 +688,9 @@ RSpec.describe "MixedContent" do
 
       describe ".to_xml" do
         context "when default encoding xml" do
-          let(:expected_default_encoding_xml) { "∑computer security∏ type of ​ operation specified µ by an access right" }
+          let(:expected_default_encoding_xml) do
+            "∑computer security∏ type of ​ operation specified µ by an access right"
+          end
 
           it "serializes special char mixed content correctly with default encoding: UTF-8" do
             parsed = MixedContentSpec::HexCode.from_xml(xml)
@@ -681,9 +701,15 @@ RSpec.describe "MixedContent" do
         end
 
         context "when encoding: nil xml" do
-          let(:expected_encoding_nil_nokogiri_xml) { "&#x2211;computer security&#x220F; type of &#x200B; operation specified &#xB5; by an access right" }
-          let(:expected_encoding_nil_ox_xml) { "<HexCode> \xE2\x88\x91computer security\xE2\x88\x8F type of \xE2\x80\x8B operation specified \xC2\xB5 by an access right </HexCode>\n".force_encoding("ASCII-8BIT") }
-          let(:expected_encoding_nil_oga_xml) { "<HexCode>\n  ∑computer security∏ type of ​ operation specified µ by an access right\n</HexCode>" }
+          let(:expected_encoding_nil_nokogiri_xml) do
+            "&#x2211;computer security&#x220F; type of &#x200B; operation specified &#xB5; by an access right"
+          end
+          let(:expected_encoding_nil_ox_xml) do
+            "<HexCode> \xE2\x88\x91computer security\xE2\x88\x8F type of \xE2\x80\x8B operation specified \xC2\xB5 by an access right </HexCode>\n".force_encoding("ASCII-8BIT")
+          end
+          let(:expected_encoding_nil_oga_xml) do
+            "<HexCode>\n  ∑computer security∏ type of ​ operation specified µ by an access right\n</HexCode>"
+          end
 
           it "serializes special char mixed content correctly with encoding: nil to get hexcode" do
             parsed = MixedContentSpec::HexCode.from_xml(xml, encoding: nil)
@@ -712,7 +738,9 @@ RSpec.describe "MixedContent" do
 
     context "when use encoding in parsing" do
       context "when use SHIFT-JIS encoding" do
-        let(:fixture) { File.read(fixture_path("xml/shift_jis.xml"), encoding: "Shift_JIS") }
+        let(:fixture) do
+          File.read(fixture_path("xml/shift_jis.xml"), encoding: "Shift_JIS")
+        end
 
         describe ".from_xml" do
           it "verifies the encoding of file read" do

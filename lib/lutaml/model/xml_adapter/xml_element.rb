@@ -144,9 +144,13 @@ module Lutaml
 
         def find_attribute_value(attribute_name)
           if attribute_name.is_a?(Array)
-            attributes.values.find { |attr| attribute_name.include?(attr.namespaced_name) }&.value
+            attributes.values.find do |attr|
+              attribute_name.include?(attr.namespaced_name)
+            end&.value
           else
-            attributes.values.find { |attr| attribute_name == attr.namespaced_name }&.value
+            attributes.values.find do |attr|
+              attribute_name == attr.namespaced_name
+            end&.value
           end
         end
 
