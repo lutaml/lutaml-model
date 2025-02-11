@@ -493,8 +493,9 @@ module Lutaml
 
           raise Lutaml::Model::CollectionTrueMissingError(self, option[:caller_class]) if doc.is_a?(Array)
 
+          doc_order = doc.root.order
           if instance.respond_to?(:ordered=)
-            instance.element_order = doc.root.order
+            instance.element_order = doc_order
             instance.ordered = mappings_for(:xml).ordered? || options[:ordered]
             instance.mixed = mappings_for(:xml).mixed_content? || options[:mixed_content]
           end
@@ -512,7 +513,7 @@ module Lutaml
           end
 
           defaults_used = []
-          validate_sequence!(instance.element_order)
+          validate_sequence!(doc_order)
 
           mappings.each do |rule|
             raise "Attribute '#{rule.to}' not found in #{self}" unless valid_rule?(rule)
@@ -570,7 +571,7 @@ module Lutaml
 
             values = children.map do |child|
               if !rule.using_custom_methods? && attr.type <= Serialize
-                attr.type.apply_xml_mapping(child, attr.type.new, options.except(:mappings))
+                attr.cast(child, :xml, options.except(:mappings))
               elsif attr.raw?
                 inner_xml_of(child)
               else

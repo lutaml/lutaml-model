@@ -5,10 +5,50 @@ class CustomModelChild
 end
 
 class CustomModelParent
-  attr_accessor :first_name, :middle_name, :last_name, :child_mapper
+  attr_accessor :first_name, :middle_name, :last_name, :child_mapper, :math
 
   def name
     "#{first_name} #{last_name}"
+  end
+end
+
+class GenericFormulaClass
+  attr_accessor :value
+end
+
+class Mi < Lutaml::Model::Serializable
+  model GenericFormulaClass
+
+  attribute :value, :string
+
+  xml do
+    root "mi"
+
+    map_content to: :value
+  end
+end
+
+class Mstyle < Lutaml::Model::Serializable
+  model GenericFormulaClass
+
+  attribute :value, Mi, collection: true
+
+  xml do
+    root "mstyle"
+
+    map_element :mi, to: :value
+  end
+end
+
+class MmlMath < Lutaml::Model::Serializable
+  model GenericFormulaClass
+
+  attribute :value, Mstyle, collection: true
+
+  xml do
+    root "math"
+
+    map_element :mstyle, to: :value
   end
 end
 
@@ -31,6 +71,7 @@ class CustomModelParentMapper < Lutaml::Model::Serializable
   attribute :middle_name, Lutaml::Model::Type::String
   attribute :last_name, Lutaml::Model::Type::String
   attribute :child_mapper, CustomModelChildMapper
+  attribute :math, MmlMath
 
   xml do
     map_element :first_name, to: :first_name
@@ -38,6 +79,7 @@ class CustomModelParentMapper < Lutaml::Model::Serializable
     map_element :last_name, to: :last_name
     map_element :CustomModelChild,
                 with: { to: :child_to_xml, from: :child_from_xml }
+    map_element :math, to: :math
   end
 
   def child_to_xml(model, parent, doc)
@@ -317,6 +359,11 @@ RSpec.describe "CustomModel" do
             <street>Oxford Street</street>
             <city>London</city>
           </CustomModelChild>
+          <math>
+            <mstyle>
+              <mi>Math</mi>
+            </mstyle>
+          </math>
         </CustomModelParent>
       XML
     end
@@ -333,6 +380,7 @@ RSpec.describe "CustomModel" do
         expect(instance.child_mapper.class).to eq(child_model)
         expect(instance.child_mapper.street).to eq("Oxford Street")
         expect(instance.child_mapper.city).to eq("London")
+        expect(instance.math.value.first.value.first.value).to eq("Math")
       end
     end
 
