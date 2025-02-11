@@ -314,6 +314,33 @@ RSpec.describe Lutaml::Model::Serializable do
     end
   end
 
+  describe "#handle_key_value_mappings" do
+    let(:model) { instance_double("Model") }
+    let(:key_value_mapping) { described_class.new }
+
+    before do
+      allow(model).to receive(:mappings_for).and_return(double)
+    end
+
+    let(:mapping) { instance_double("Mapping") }
+    let(:format) { :json }
+
+    it "initializes key value mapping if it doesn't exist" do
+      expect(key_value_mapping.instance_variable_get(:@mappings)).to be_empty
+      key_value_mapping.handle_key_value_mappings(mapping, format)
+      expect(key_value_mapping.instance_variable_get(:@mappings)[format]).to be_a(Lutaml::Model::KeyValueMapping)
+    end
+
+    it "merges key value mappings if it exists" do
+      existing_mapping = Lutaml::Model::KeyValueMapping.new
+      key_value_mapping.instance_variable_set(:@mappings, { format => existing_mapping })
+
+      expect(existing_mapping.key_value_mappings).to receive(:merge!).with(mapping.key_value_mappings)
+
+      key_value_mapping.handle_key_value_mappings(mapping, format)
+    end
+  end
+
   describe "Serializable object enumeration" do
     context "when assigning an invalid value" do
       it "raises ValidationError containing InvalidValueError after creation" do
