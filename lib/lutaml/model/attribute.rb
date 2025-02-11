@@ -248,13 +248,12 @@ module Lutaml
       end
 
       def cast(value, format, options = {})
+        return value if type <= Serialize && value.is_a?(type.model)
         value ||= [] if collection?
 
         if value.is_a?(Array)
-          value.map do |v|
-            cast(v, format, options)
-          end
-        elsif type <= Serialize && value.is_a?(Hash)
+          value.map { |v| cast(v, format, options) }
+        elsif type <= Serialize && (value.is_a?(Hash) || value.is_a?(Lutaml::Model::XmlAdapter::XmlElement))
           type.apply_mappings(value, format, options)
         elsif !value.nil? && !value.is_a?(type)
           type.send(:"from_#{format}", value)
