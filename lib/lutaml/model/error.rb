@@ -1,6 +1,13 @@
 module Lutaml
   module Model
     class Error < StandardError
+      private
+
+      def extract_attribute_names(collection, target_type)
+        collection.flat_map do |item|
+          item.is_a?(target_type) ? item.attributes.map(&:name) : item
+        end
+      end
     end
   end
 end

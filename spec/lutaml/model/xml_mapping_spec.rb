@@ -564,9 +564,9 @@ RSpec.describe Lutaml::Model::XmlMapping do
       end
 
       it "maps elements correctly" do
-        expect(mapping.elements[0].namespace).to eq("http://www.sparxsystems.com/profiles/GML/1.0")
-        expect(mapping.elements[1].namespace).to eq("http://www.sparxsystems.com/profiles/CityGML/1.0")
-        expect(mapping.elements[2].namespace).to eq("http://www.sparxsystems.com/profiles/CGML/1.0")
+        expect(mapping.elements.values[0].namespace).to eq("http://www.sparxsystems.com/profiles/GML/1.0")
+        expect(mapping.elements.values[1].namespace).to eq("http://www.sparxsystems.com/profiles/CityGML/1.0")
+        expect(mapping.elements.values[2].namespace).to eq("http://www.sparxsystems.com/profiles/CGML/1.0")
         expect(mapping.elements.size).to eq(3)
       end
     end
@@ -619,8 +619,8 @@ RSpec.describe Lutaml::Model::XmlMapping do
 
       it "maps elements correctly" do
         expect(mapping.elements.size).to eq(3)
-        expect(mapping.elements[0].name).to eq("type")
-        expect(mapping.elements[1].delegate).to eq(:glaze)
+        expect(mapping.elements.values[0].name).to eq("type")
+        expect(mapping.elements.values[1].delegate).to eq(:glaze)
       end
     end
 
@@ -640,8 +640,8 @@ RSpec.describe Lutaml::Model::XmlMapping do
 
       it "maps elements correctly" do
         expect(mapping.elements.size).to eq(3)
-        expect(mapping.elements[0].name).to eq("type")
-        expect(mapping.elements[1].delegate).to eq(:glaze)
+        expect(mapping.elements.values[0].name).to eq("type")
+        expect(mapping.elements.values[1].delegate).to eq(:glaze)
       end
     end
 
@@ -660,10 +660,10 @@ RSpec.describe Lutaml::Model::XmlMapping do
 
       it "sets the namespace for individual elements" do
         expect(mapping.elements.size).to eq(3)
-        expect(mapping.elements[0].namespace)
+        expect(mapping.elements.values[0].namespace)
           .to eq("https://example.com/ceramic/1.2")
-        expect(mapping.elements[0].prefix).to eq("cera")
-        expect(mapping.elements[1].delegate).to eq(:glaze)
+        expect(mapping.elements.values[0].prefix).to eq("cera")
+        expect(mapping.elements.values[1].delegate).to eq(:glaze)
       end
     end
 
@@ -683,9 +683,9 @@ RSpec.describe Lutaml::Model::XmlMapping do
 
       it "sets the namespace for individual attributes" do
         expect(mapping.attributes.size).to eq(1)
-        expect(mapping.attributes[0].namespace)
+        expect(mapping.attributes.values[0].namespace)
           .to eq("https://example.com/ceramic/1.2")
-        expect(mapping.attributes[0].prefix).to eq("cera")
+        expect(mapping.attributes.values[0].prefix).to eq("cera")
       end
     end
 
@@ -1035,7 +1035,7 @@ RSpec.describe Lutaml::Model::XmlMapping do
 
         it "duplicates attribute" do
           # boolean value is constant so object_id will be same
-          expect(orig_mappings.attributes.first.attribute?).to eq(dup_mappings.attributes.first.attribute?)
+          expect(orig_mappings.attributes.values.first.attribute?).to eq(dup_mappings.attributes.values.first.attribute?)
         end
       end
     end

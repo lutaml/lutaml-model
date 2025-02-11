@@ -343,6 +343,69 @@ RSpec.describe Lutaml::Model::Serializable do
     end
   end
 
+  describe "#import_model" do
+    let(:model_without_root) do
+      Class.new(Lutaml::Model::Serializable) do
+        attribute :name, :string
+        attribute :age, :integer
+
+        xml do
+          no_root
+          map_element :name, to: :name
+          map_element :age, to: :age
+        end
+      end
+    end
+
+    let(:model_with_root) do
+      Class.new(Lutaml::Model::Serializable) do
+        attribute :title, :string
+
+        xml do
+          root "document"
+          map_element :title, to: :title
+        end
+      end
+    end
+
+    it "raises ImportModelWithRootError when model has XML root" do
+      expect { described_class.import_model(model_with_root) }
+        .to raise_error(Lutaml::Model::ImportModelWithRootError)
+    end
+
+    it "imports model attributes and mappings successfully" do
+      expect { described_class.import_model(model_without_root) }
+        .to change { described_class.attributes.keys.count }.by(2)
+    end
+  end
+
+  describe "#merge_or_initialize_mapping" do
+    let(:source_mapping) do
+      mapping = Lutaml::Model::XmlMapping.new
+      mapping.instance_variable_set(:@attributes, { "id" => "value" })
+      mapping.instance_variable_set(:@elements, { "name" => "test" })
+      mapping.instance_variable_set(:@element_sequence, ["id", "name"])
+      mapping
+    end
+
+    let(:target_mapping) do
+      Lutaml::Model::XmlMapping.new
+    end
+
+    it "merges attributes from source to target mapping" do
+      expect { described_class.merge_or_initialize_mapping(target_mapping, source_mapping) }
+        .to change { target_mapping.instance_variable_get(:@attributes) }
+        .from({})
+        .to({ "id" => "value" })
+    end
+
+    it "merges elements and sequence correctly" do
+      described_class.merge_or_initialize_mapping(target_mapping, source_mapping)
+      expect(target_mapping.instance_variable_get(:@elements)).to include("name" => "test")
+      expect(target_mapping.element_sequence).to eq(["id", "name"])
+    end
+  end
+
   describe "Serializable object enumeration" do
     context "when assigning an invalid value" do
       it "raises ValidationError containing InvalidValueError after creation" do

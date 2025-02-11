@@ -808,7 +808,7 @@ directives:
 
 `import_model_mappings`:: imports only mappings.
 
-NOTE: This feature only works with XML for now. The import order determines how
+NOTE: This feature works both with XML and Key-Value formats. The import order determines how
 elements and attributes are overwritten.
 
 Models with `no_root` can only be parsed through **parent models**.
@@ -823,9 +823,11 @@ Namespaces are not supported in importable models. If `namespace` is defined wit
 [source,ruby]
 ----
 class GroupOfItems < Lutaml::Model::Serializable
-  attribute :name, :string
-  attribute :type, :string
-  attribute :code, :string
+  choice do
+    attribute :name, :string
+    attribute :type, :string
+    attribute :code, :string
+  end
 
   xml do
     no_root
@@ -837,17 +839,29 @@ class GroupOfItems < Lutaml::Model::Serializable
   end
 end
 
+class AttributeValueType < Lutaml::Model::Type::Decimal
+end
+
 class ComplexType < Lutaml::Model::Serializable
-  attribute :tag, AttributeValueType
-  attribute :content, :string
-  attribute :group, :string
-  import_model_attributes GroupOfItems
+  choice do
+    attribute :tag, AttributeValueType
+    attribute :content, :string
+    attribute :group, :string
+    import_model_attributes GroupOfItems
+  end
 
   xml do
     root "GroupOfItems"
     map_attribute "tag", to: :tag
     map_content to: :content
     map_element :group, to: :group
+    import_model_mappings GroupOfItems
+  end
+
+  key_value do
+    map :tag, to: :tag
+    map :content, to: :content
+    map :group, to: :group
     import_model_mappings GroupOfItems
   end
 end
@@ -857,7 +871,24 @@ class SimpleType < Lutaml::Model::Serializable
 end
 
 class GenericType < Lutaml::Model::Serializable
-  import_model_mappings GroupOfItems
+  attribute :tag, :string
+  attribute :content, :string
+  attribute :group, :string
+
+  xml do
+    root "GroupOfItems"
+    map_attribute "tag", to: :tag
+    map_content to: :content
+    map_element :group, to: :group
+  end
+
+  key_value do
+    map :tag, to: :tag
+    map :content, to: :content
+    map :group, to: :group
+  end
+
+  import_model GroupOfItems
 end
 ----
 

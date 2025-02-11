@@ -17,7 +17,11 @@ module Lutaml
                   :namespace_prefix,
                   :mixed_content,
                   :ordered,
-                  :element_sequence
+                  :element_sequence,
+                  :attributes,
+                  :elements,
+                  :content_mapping,
+                  :raw_mapping
 
       def initialize
         @elements = {}
@@ -198,9 +202,9 @@ module Lutaml
         raise Lutaml::Model::ImportModelWithRootError.new(model) if model.root?
 
         mappings = model.mappings_for(:xml)
-        @elements.merge!(mappings.instance_variable_get(:@elements))
-        @attributes.merge!(mappings.instance_variable_get(:@attributes))
-        (@element_sequence << mappings.element_sequence).flatten!
+        @elements.merge!(mappings.elements)
+        @attributes.merge!(mappings.attributes)
+        @element_sequence.concat(mappings.element_sequence)
       end
 
       def validate!(key, to, with, type: nil)
@@ -228,24 +232,8 @@ module Lutaml
         end
       end
 
-      def elements
-        @elements.values
-      end
-
-      def attributes
-        @attributes.values
-      end
-
-      def content_mapping
-        @content_mapping
-      end
-
-      def raw_mapping
-        @raw_mapping
-      end
-
       def mappings
-        elements + attributes + [content_mapping, raw_mapping].compact
+        elements.values + attributes.values + [content_mapping, raw_mapping].compact
       end
 
       def element(name)

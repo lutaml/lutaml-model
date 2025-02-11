@@ -57,6 +57,30 @@ module GroupSpec
       map_element :group, to: :group
       import_model_mappings GroupOfItems
     end
+
+    key_value do
+      map :tag, to: :tag
+      map :content, to: :content
+      map :group, to: :group
+      import_model_mappings GroupOfItems
+    end
+  end
+
+  class ImportModelWithExistingMappings < Lutaml::Model::Serializable
+    attribute :name, :string
+    attribute :type, :string
+
+    xml do
+      map_attribute :name, to: :name
+      map_element :type, to: :type
+    end
+
+    key_value do
+      map :name, to: :name
+      map :type, to: :type
+    end
+
+    import_model GroupOfItems
   end
 
   class SimpleType < Lutaml::Model::Serializable
@@ -73,6 +97,59 @@ module GroupSpec
     xml do
       root "group"
       map_element :name, to: :name
+    end
+  end
+
+  class ContributionInfo < Lutaml::Model::Serializable
+    choice(min: 1, max: 1) do
+      attribute :person, :string
+      attribute :organization, :string
+    end
+
+    xml do
+      no_root
+      map_element "person", to: :person
+      map_element "organization", to: :organization
+    end
+  end
+
+  class Contributor < Lutaml::Model::Serializable
+    choice(min: 1, max: 1) do
+      attribute :role, :string
+    end
+
+    import_model_attributes ContributionInfo
+
+    xml do
+      root "contributor"
+      map_element "role", to: :role
+      map_element "person", to: :person
+      map_element "organization", to: :organization
+    end
+  end
+
+  class GroupGlaze < Lutaml::Model::Serializable
+    choice(min: 1, max: 2) do
+      attribute :color, :string
+      attribute :temperature, :string
+      attribute :food_safe, :boolean
+    end
+
+    key_value do
+      map "color", to: :color
+      map "temperature", to: :temperature
+    end
+  end
+
+  class GroupCeramic < Lutaml::Model::Serializable
+    attribute :role, :string
+    import_model_attributes GroupGlaze
+
+    json do
+      map "role", to: :role
+      map "color", to: :color, render_default: true
+      map "temperature", to: :temperature
+      import_model_mappings GroupGlaze
     end
   end
 end
@@ -115,27 +192,84 @@ RSpec.describe "Group" do
     end
   end
 
+  it "import model attributes for key_value" do
+    hash = {
+      "color" => "Color",
+      "temperature" => "High",
+    }
+
+    contrib = GroupSpec::GroupCeramic.from_json(hash.to_json)
+    expect(contrib.color).to eq("Color")
+    expect(contrib.temperature).to eq("High")
+    expect(contrib.role).to be_nil
+
+    serialized = contrib.to_json
+    expect(serialized).to eq(hash.to_json)
+
+    expect(contrib.validate).to be_empty
+  end
+
+  it "import model attributes for xml having choice block" do
+    xml = <<~XML
+      <contributor>
+        <role>Role</role>
+        <person>Person</person>
+      </contributor>
+    XML
+
+    contrib = GroupSpec::Contributor.from_xml(xml)
+    expect(contrib.person).to eq("Person")
+    expect(contrib.organization).to be_nil
+    expect(contrib.role).to eq("Role")
+
+    serialized = contrib.to_xml
+    expect(serialized).to be_equivalent_to(xml)
+
+    expect(contrib.validate).to be_empty
+  end
+
   context "with model" do
     it "import attributes" do
       expect(GroupSpec::ComplexType.attributes).to include(GroupSpec::GroupOfItems.attributes)
     end
 
     it "import mappings in xml block" do
-      expect(GroupSpec::ComplexType.mappings_for(:xml).elements).to include(*GroupSpec::GroupOfItems.mappings_for(:xml).elements)
+      expect(GroupSpec::ComplexType.mappings_for(:xml).elements).to include(GroupSpec::GroupOfItems.mappings_for(:xml).elements)
     end
 
     it "import mappings outside xml block" do
-      expect(GroupSpec::GenericType.mappings_for(:xml).elements).to include(*GroupSpec::GroupOfItems.mappings_for(:xml).elements)
+      expect(GroupSpec::GenericType.mappings_for(:xml).elements).to include(GroupSpec::GroupOfItems.mappings_for(:xml).elements)
     end
 
     it "import attributes and mappings in xml block" do
       expect(GroupSpec::ComplexType.attributes).to include(GroupSpec::GroupOfItems.attributes)
-      expect(GroupSpec::ComplexType.mappings_for(:xml).elements).to include(*GroupSpec::GroupOfItems.mappings_for(:xml).elements)
+      expect(GroupSpec::ComplexType.mappings_for(:xml).elements).to include(GroupSpec::GroupOfItems.mappings_for(:xml).elements)
     end
 
     it "import attributes and mappings outside the xml block" do
       expect(GroupSpec::SimpleType.attributes).to include(GroupSpec::GroupOfItems.attributes)
-      expect(GroupSpec::SimpleType.mappings_for(:xml).elements).to include(*GroupSpec::GroupOfItems.mappings_for(:xml).elements)
+      expect(GroupSpec::SimpleType.mappings_for(:xml).elements).to include(GroupSpec::GroupOfItems.mappings_for(:xml).elements)
+    end
+
+    it "imports key_value mappings having default mappings" do
+      formats = %i[json yaml toml]
+
+      formats.each do |format|
+        expect(GroupSpec::ComplexType.mappings_for(format).key_value_mappings)
+          .to include(GroupSpec::GroupOfItems.mappings_for(format).key_value_mappings)
+      end
+    end
+
+    it "imports the model with existing the mappings and attributes" do
+      expect(GroupSpec::ImportModelWithExistingMappings.attributes).to include(GroupSpec::GroupOfItems.attributes)
+      expect(GroupSpec::ImportModelWithExistingMappings.mappings_for(:xml).elements).to include(GroupSpec::GroupOfItems.mappings_for(:xml).elements)
+      expect(GroupSpec::ImportModelWithExistingMappings.mappings_for(:xml).attributes).to include(GroupSpec::GroupOfItems.mappings_for(:xml).attributes)
+
+      formats = %i[json yaml toml]
+      formats.each do |format|
+        expect(GroupSpec::ImportModelWithExistingMappings.mappings_for(format).key_value_mappings)
+          .to include(GroupSpec::GroupOfItems.mappings_for(format).key_value_mappings)
+      end
     end
 
     it "raises error if root is defined on imported class" do

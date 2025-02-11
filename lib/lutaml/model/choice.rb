@@ -26,6 +26,17 @@ module Lutaml
         end
       end
 
+      def import_model_attributes(imported_model)
+        raise Lutaml::Model::ImportModelWithRootError.new(imported_model) if imported_model.mappings.key?(:xml) && imported_model.root?
+
+        imported_model.attributes.each_value do |attr|
+          @model.attribute_accessor(attr)
+        end
+
+        @attributes.concat(imported_model.choice_attributes)
+        @model.attributes.merge!(imported_model.attributes)
+      end
+
       def validate_content!(object)
         validated_attributes = []
         valid = valid_attributes(object, validated_attributes)

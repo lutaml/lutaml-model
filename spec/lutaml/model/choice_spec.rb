@@ -59,6 +59,30 @@ module ChoiceSpec
       map :last_name, to: :last_name
     end
   end
+
+  class ContributionInfo < Lutaml::Model::Serializable
+    choice(min: 1, max: 2) do
+      attribute :person, :string
+      attribute :organization, :string
+    end
+  end
+
+  class Contributor < Lutaml::Model::Serializable
+    choice(min: 1, max: 1) do
+      attribute :role, :string
+      attribute :location, :string
+      import_model_attributes ContributionInfo
+    end
+  end
+
+  class ContributorProfile < Lutaml::Model::Serializable
+    choice(min: 1, max: 1) do
+      attribute :position, :string
+      attribute :department, :string
+    end
+
+    import_model_attributes ContributionInfo
+  end
 end
 
 RSpec.describe "Choice" do
@@ -114,6 +138,24 @@ RSpec.describe "Choice" do
       expect(valid_instance.validate).to be_empty
     end
 
+    it "imports the attributes and choice inside choice correctly" do
+      valid_instance = ChoiceSpec::Contributor.new(
+        person: "smith",
+        organization: "org",
+      )
+
+      expect(valid_instance.validate).to be_empty
+    end
+
+    it "imports the attributes and choice correctly" do
+      valid_instance = ChoiceSpec::ContributorProfile.new(
+        position: "manager",
+        person: "smith",
+      )
+
+      expect(valid_instance.validate).to be_empty
+    end
+
     it "returns nil for a valid instance" do
       valid_instance = mapper.new(
         email: "email",
@@ -122,6 +164,20 @@ RSpec.describe "Choice" do
       )
 
       expect(valid_instance.validate!).to be_nil
+    end
+
+    it "raises error, if attributes not in defined range when nested choice imported" do
+      valid_instance = ChoiceSpec::Contributor.new(
+        role: "manager",
+        person: "smith",
+        organization: "org",
+      )
+
+      expect do
+        valid_instance.validate!
+      end.to raise_error(Lutaml::Model::ValidationError) do |error|
+        expect(error.error_messages.join("\n")).to eq("Attributes `[:role, :person, :organization]` count exceeds the upper bound `1`")
+      end
     end
 
     it "raises error, if given attribute for choice are not within upper bound" do
@@ -163,6 +219,16 @@ RSpec.describe "Choice" do
           end
         end
       end.to raise_error(Lutaml::Model::InvalidChoiceRangeError, "Choice lower bound `-1` must be positive")
+    end
+
+    it "correctly import the attributes and nested choice" do
+      expect(ChoiceSpec::Contributor.attributes).to include(ChoiceSpec::ContributionInfo.attributes)
+      expect(ChoiceSpec::Contributor.choice_attributes.first.attributes).to include(ChoiceSpec::ContributionInfo.choice_attributes.first)
+    end
+
+    it "correctly import the attributes and choice" do
+      expect(ChoiceSpec::ContributorProfile.attributes).to include(ChoiceSpec::ContributionInfo.attributes)
+      expect(ChoiceSpec::ContributorProfile.choice_attributes).to include(ChoiceSpec::ContributionInfo.choice_attributes.first)
     end
   end
 end
