@@ -3,10 +3,10 @@ require_relative "key_value_mapping_rule"
 module Lutaml
   module Model
     class KeyValueMapping
-      attr_reader :mappings
+      attr_reader :elements
 
       def initialize
-        @mappings = []
+        @elements = {}
       end
 
       def map(
@@ -23,7 +23,7 @@ module Lutaml
         mapping_name = name_for_mapping(root_mappings, name)
         validate!(mapping_name, to, with)
 
-        @mappings << KeyValueMappingRule.new(
+        @elements[mapping_name] = KeyValueMappingRule.new(
           mapping_name,
           to: to,
           render_nil: render_nil,
@@ -47,7 +47,7 @@ module Lutaml
       )
         @raw_mapping = true
         validate!(Constants::RAW_MAPPING_KEY, to, with)
-        @mappings << KeyValueMappingRule.new(
+        @elements["map_all"] = KeyValueMappingRule.new(
           Constants::RAW_MAPPING_KEY,
           to: to,
           render_nil: render_nil,
@@ -63,6 +63,13 @@ module Lutaml
         return "root_mapping" if root_mappings
 
         name
+      end
+
+      def import_model_mappings(model)
+        raise Lutaml::Model::ImportModelWithRootError.new(model) if model.mappings.key?(:xml)
+
+        current_format = self.class.instance_variable_get(:@current_mapping_format)
+        @elements.merge!(model.mappings_for(current_format).elements)
       end
 
       def validate!(key, to, with)
@@ -82,29 +89,33 @@ module Lutaml
       end
 
       def validate_mappings(name)
-        if @mappings.any?(&:root_mapping?) || (name == "root_mapping" && @mappings.any?)
+        if @elements.values.any?(&:root_mapping?) || (name == "root_mapping" && @elements.any?)
           raise MultipleMappingsError.new("root_mappings cannot be used with other mappings")
         end
       end
 
       def validate_mappings!(_type)
-        if (@raw_mapping && Utils.present?(@mappings)) || (!@raw_mapping && @mappings.any?(&:raw_mapping?))
+        if (@raw_mapping && Utils.present?(@elements)) || (!@raw_mapping && @elements.values.any?(&:raw_mapping?))
           raise StandardError, "map_all is not allowed with other mappings"
         end
       end
 
+      def mappings
+        @elements.values
+      end
+
       def deep_dup
         self.class.new.tap do |new_mapping|
-          new_mapping.instance_variable_set(:@mappings, duplicate_mappings)
+          new_mapping.instance_variable_set(:@elements, duplicate_mappings)
         end
       end
 
       def duplicate_mappings
-        @mappings.map(&:deep_dup)
+        @elements.transform_values(&:deep_dup)
       end
 
       def find_by_to(to)
-        @mappings.find { |m| m.to.to_s == to.to_s }
+        mappings.find { |m| m.to.to_s == to.to_s }
       end
     end
   end

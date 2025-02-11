@@ -16,7 +16,7 @@ module Lutaml
       end
 
       def attribute(name, type, options = {})
-        options[:choice] = self
+        options[:choice] = name
         @attributes << @model.attribute(name, type, options)
       end
 
@@ -24,6 +24,17 @@ module Lutaml
         @attributes << Choice.new(@model, min, max).tap do |c|
           c.instance_eval(&block)
         end
+      end
+
+      def import_model_attributes(imported_model)
+        raise Lutaml::Model::ImportModelWithRootError.new(imported_model) if imported_model.mappings.key?(:xml) && imported_model.root?
+
+        imported_model.attributes.each_value do |attr|
+          @model.attribute_setter_getter(attr)
+        end
+
+        (@attributes << imported_model.choice_attributes).flatten!
+        @model.attributes.merge!(imported_model.attributes)
       end
 
       def validate_content!(object)

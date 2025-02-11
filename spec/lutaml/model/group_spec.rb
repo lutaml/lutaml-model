@@ -75,6 +75,61 @@ module GroupSpec
       map_element :name, to: :name
     end
   end
+
+  class ContributionInfo < Lutaml::Model::Serializable
+    choice(min: 1, max: 1) do
+      attribute :person, :string
+      attribute :organization, :string
+    end
+
+    xml do
+      no_root
+      map_element "person", to: :person
+      map_element "organization", to: :organization
+    end
+  end
+
+  class Contributor < Lutaml::Model::Serializable
+    choice(min: 1, max: 1) do
+      attribute :role, :string
+    end
+
+    import_model_attributes ContributionInfo
+
+    xml do
+      root "contributor"
+      map_element "role", to: :role
+      map_element "person", to: :person
+      map_element "organization", to: :organization
+    end
+  end
+
+  class GroupGlaze < Lutaml::Model::Serializable
+    choice(min: 1, max: 2) do
+      attribute :color, :string
+      attribute :temperature, :string
+      attribute :food_safe, :boolean
+    end
+
+    key_value do
+      map "color", to: :color
+      map "temperature", to: :temperature
+      map "food_safe", to: :food_safe
+    end
+  end
+
+  class GroupCeramic < Lutaml::Model::Serializable
+    attribute :role, :string
+    import_model_attributes GroupGlaze
+
+    json do
+      map "role", to: :role
+      map "color", to: :color, render_default: true
+      map "temperature", to: :temperature
+      map "food_safe", to: :food_safe
+      import_model_mappings GroupGlaze
+    end
+  end
 end
 
 RSpec.describe "Group" do
@@ -113,6 +168,43 @@ RSpec.describe "Group" do
 
       expect { mapper.from_xml(xml) }.not_to raise_error
     end
+  end
+
+  it "import model attributes for key_value" do
+    hash = {
+      "color" => "Color",
+      "temperature" => "High",
+    }
+
+    contrib = GroupSpec::GroupCeramic.from_json(hash.to_json)
+    expect(contrib.color).to eq("Color")
+    expect(contrib.temperature).to eq("High")
+    expect(contrib.food_safe).to be_nil
+    expect(contrib.role).to be_nil
+
+    serialized = contrib.to_json
+    expect(serialized).to eq(hash.to_json)
+
+    expect(contrib.validate).to be_empty
+  end
+
+  it "import model attributes for xml having choice block" do
+    xml = <<~XML
+      <contributor>
+        <role>Role</role>
+        <person>Person</person>
+      </contributor>
+    XML
+
+    contrib = GroupSpec::Contributor.from_xml(xml)
+    expect(contrib.person).to eq("Person")
+    expect(contrib.organization).to be_nil
+    expect(contrib.role).to eq("Role")
+
+    serialized = contrib.to_xml
+    expect(serialized).to be_equivalent_to(xml)
+
+    expect(contrib.validate).to be_empty
   end
 
   context "with model" do

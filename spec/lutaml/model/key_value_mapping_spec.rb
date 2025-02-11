@@ -50,6 +50,7 @@ RSpec.describe Lutaml::Model::KeyValueMapping do
     end
 
     it "correctly duplicates mapping with `to:`" do
+      # binding.irb
       m = mapping.mappings[0]
       dup_m = dup_mapping.mappings[0]
 

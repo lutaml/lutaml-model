@@ -94,17 +94,15 @@ module Lutaml
           end
         end
 
-        # Define an attribute for the model
-        def attribute(name, type, options = {})
-          attr = Attribute.new(name, type, options)
-          attributes[name] = attr
+        def attribute_setter_getter(attr)
+          name = attr.name
 
           if attr.enum?
             add_enum_methods_to_model(
               model,
               name,
-              options[:values],
-              collection: options[:collection],
+              attr.options[:values],
+              collection: attr.options[:collection],
             )
           else
             define_method(name) do
@@ -116,7 +114,14 @@ module Lutaml
               instance_variable_set(:"@#{name}", attr.cast_value(value))
             end
           end
+        end
 
+        # Define an attribute for the model
+        def attribute(name, type, options = {})
+          attr = Attribute.new(name, type, options)
+          attributes[name] = attr
+
+          attribute_setter_getter(attr)
           register_drop_method(name)
 
           attr
@@ -127,19 +132,24 @@ module Lutaml
         end
 
         def import_model_attributes(model)
-          raise Lutaml::Model::ImportModelWithRootError.new(model) if model.root?
+          raise Lutaml::Model::ImportModelWithRootError.new(model) if model.mappings.key?(:xml) && model.root?
 
+          model.attributes.each_value do |attr|
+            attribute_setter_getter(attr)
+          end
+
+          (@choice_attributes << model.choice_attributes).flatten!
           @attributes.merge!(model.attributes)
         end
 
         def import_model_mappings(model)
-          raise Lutaml::Model::ImportModelWithRootError.new(model) if model.root?
+          raise Lutaml::Model::ImportModelWithRootError.new(model) if model.mappings.key?(:xml) && model.root?
 
           @mappings.merge!(model.mappings)
         end
 
         def import_model(model)
-          raise Lutaml::Model::ImportModelWithRootError.new(model) if model.root?
+          raise Lutaml::Model::ImportModelWithRootError.new(model) if model.mappings.key?(:xml) && model.root?
 
           import_model_attributes(model)
           import_model_mappings(model)
@@ -227,6 +237,7 @@ module Lutaml
         Lutaml::Model::Config::AVAILABLE_FORMATS.each do |format|
           define_method(format) do |&block|
             klass = format == :xml ? XmlMapping : KeyValueMapping
+            klass.instance_variable_set(:@current_mapping_format, format)
             mappings[format] ||= klass.new
             mappings[format].instance_eval(&block)
 
@@ -581,6 +592,7 @@ module Lutaml
 
         def apply_hash_mapping(doc, instance, format, options = {})
           mappings = options[:mappings] || mappings_for(format).mappings
+
           mappings.each do |rule|
             raise "Attribute '#{rule.to}' not found in #{self}" unless valid_rule?(rule)
 
