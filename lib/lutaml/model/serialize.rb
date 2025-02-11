@@ -548,9 +548,8 @@ module Lutaml
             doc.root.find_attribute_value(rule_names)
           else
             attr = attribute_for_rule(rule)
-
             children = doc.children.select do |child|
-              rule_names.include?(child.namespaced_name)
+              rule_names.include?(child.namespaced_name) && !child.text?
             end
 
             if rule.using_custom_methods? || attr.type == Lutaml::Model::Type::Hash

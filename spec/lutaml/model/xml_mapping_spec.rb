@@ -57,6 +57,7 @@ module XmlMapping
   class Address < Lutaml::Model::Serializable
     attribute :street, ::Lutaml::Model::Type::String, raw: true
     attribute :city, :string, raw: true
+    attribute :text, :string
     attribute :address, Address
 
     xml do
@@ -64,6 +65,7 @@ module XmlMapping
 
       map_element "street", to: :street
       map_element "city", to: :city
+      map_element "text", to: :text
     end
   end
 
@@ -838,6 +840,7 @@ RSpec.describe Lutaml::Model::XmlMapping do
                 <p>adf</p>
               </street>
               <city><a>M</a></city>
+              <text>Building near ABC</text>
             </address>
           </person>
         XML
@@ -856,6 +859,27 @@ RSpec.describe Lutaml::Model::XmlMapping do
       it "expect to contain raw xml" do
         expect(model.address.street).to eq(expected_street)
         expect(model.address.city.strip).to eq("<a>M</a>")
+      end
+    end
+
+    context "with element named `text`" do
+      let(:input_xml) do
+        <<~XML
+          <address>
+            <street>
+              <a>N</a>
+              <p>adf</p>
+            </street>
+            <city><a>M</a></city>
+            <text>Building near ABC</text>
+          </address>
+        XML
+      end
+
+      let(:model) { XmlMapping::Address.from_xml(input_xml) }
+
+      it "expect to contain raw xml" do
+        expect(model.text).to eq("Building near ABC")
       end
     end
 
