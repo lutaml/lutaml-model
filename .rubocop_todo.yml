@@ -282,3 +282,9 @@ Style/RedundantStringEscape:
   Exclude:
     - 'lib/lutaml/model/schema/templates/simple_type.rb'
     - 'lib/lutaml/model/schema/xml_compiler.rb'
+
+# Offense count: 1
+# Configuration parameters: Max.
+Style/SafeNavigationChainLength:
+  Exclude:
+    - 'lib/lutaml/model/serialize.rb'
