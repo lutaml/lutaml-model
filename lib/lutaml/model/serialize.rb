@@ -535,9 +535,7 @@ module Lutaml
             rule.deserialize(instance, value, attributes, self)
           end
 
-          defaults_used.each do |attribute_name|
-            instance.using_default_for(attribute_name)
-          end
+          defaults_used.each { |attr_name| instance.using_default_for(attr_name) }
 
           instance
         end
