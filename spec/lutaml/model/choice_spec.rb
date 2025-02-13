@@ -75,10 +75,10 @@ module ChoiceSpec
     end
   end
 
-  class Contrib < Lutaml::Model::Serializable
+  class ContributorProfile < Lutaml::Model::Serializable
     choice(min: 1, max: 1) do
-      attribute :role, :string
-      attribute :location, :string
+      attribute :position, :string
+      attribute :department, :string
     end
 
     import_model_attributes ContributionInfo
@@ -141,15 +141,15 @@ RSpec.describe "Choice" do
     it "imports the attributes and choice inside choice correctly" do
       valid_instance = ChoiceSpec::Contributor.new(
         person: "smith",
-        organization: "corporate",
+        organization: "org",
       )
 
       expect(valid_instance.validate).to be_empty
     end
 
     it "imports the attributes and choice correctly" do
-      valid_instance = ChoiceSpec::Contrib.new(
-        role: "role",
+      valid_instance = ChoiceSpec::ContributorProfile.new(
+        position: "manager",
         person: "smith",
       )
 
@@ -170,7 +170,7 @@ RSpec.describe "Choice" do
       valid_instance = ChoiceSpec::Contributor.new(
         role: "manager",
         person: "smith",
-        organization: "corporate",
+        organization: "org",
       )
 
       expect do
@@ -227,8 +227,8 @@ RSpec.describe "Choice" do
     end
 
     it "correctly import the attributes and choice" do
-      expect(ChoiceSpec::Contrib.attributes).to include(ChoiceSpec::ContributionInfo.attributes)
-      expect(ChoiceSpec::Contrib.choice_attributes).to include(ChoiceSpec::ContributionInfo.choice_attributes.first)
+      expect(ChoiceSpec::ContributorProfile.attributes).to include(ChoiceSpec::ContributionInfo.attributes)
+      expect(ChoiceSpec::ContributorProfile.choice_attributes).to include(ChoiceSpec::ContributionInfo.choice_attributes.first)
     end
   end
 end

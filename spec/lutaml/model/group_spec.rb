@@ -114,7 +114,6 @@ module GroupSpec
     key_value do
       map "color", to: :color
       map "temperature", to: :temperature
-      map "food_safe", to: :food_safe
     end
   end
 
@@ -126,7 +125,6 @@ module GroupSpec
       map "role", to: :role
       map "color", to: :color, render_default: true
       map "temperature", to: :temperature
-      map "food_safe", to: :food_safe
       import_model_mappings GroupGlaze
     end
   end
@@ -179,7 +177,6 @@ RSpec.describe "Group" do
     contrib = GroupSpec::GroupCeramic.from_json(hash.to_json)
     expect(contrib.color).to eq("Color")
     expect(contrib.temperature).to eq("High")
-    expect(contrib.food_safe).to be_nil
     expect(contrib.role).to be_nil
 
     serialized = contrib.to_json

@@ -10,7 +10,7 @@ module Lutaml
       end
 
       def attribute(name, type, options = {})
-        options[:sequence] = name
+        options[:sequence] = self
         @model.attribute(name, type, options)
       end
 

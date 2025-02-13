@@ -131,8 +131,12 @@ module Lutaml
           mappings_for(:xml).root?
         end
 
+        def import_model_with_root_error(model)
+          raise Lutaml::Model::ImportModelWithRootError.new(model) if (model.mappings.key?(:xml) && model.root?)
+        end
+
         def import_model_attributes(model)
-          raise Lutaml::Model::ImportModelWithRootError.new(model) if model.mappings.key?(:xml) && model.root?
+          import_model_with_root_error(model)
 
           model.attributes.each_value do |attr|
             attribute_setter_getter(attr)
@@ -143,14 +147,12 @@ module Lutaml
         end
 
         def import_model_mappings(model)
-          raise Lutaml::Model::ImportModelWithRootError.new(model) if model.mappings.key?(:xml) && model.root?
-
+          import_model_with_root_error(model)
           @mappings.merge!(model.mappings)
         end
 
         def import_model(model)
-          raise Lutaml::Model::ImportModelWithRootError.new(model) if model.mappings.key?(:xml) && model.root?
-
+          import_model_with_root_error(model)
           import_model_attributes(model)
           import_model_mappings(model)
         end
@@ -592,7 +594,6 @@ module Lutaml
 
         def apply_hash_mapping(doc, instance, format, options = {})
           mappings = options[:mappings] || mappings_for(format).mappings
-
           mappings.each do |rule|
             raise "Attribute '#{rule.to}' not found in #{self}" unless valid_rule?(rule)
 

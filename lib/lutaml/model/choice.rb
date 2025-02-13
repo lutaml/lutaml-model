@@ -16,7 +16,7 @@ module Lutaml
       end
 
       def attribute(name, type, options = {})
-        options[:choice] = name
+        options[:choice] = self
         @attributes << @model.attribute(name, type, options)
       end
 

@@ -1,6 +1,11 @@
 module Lutaml
   module Model
     class Error < StandardError
+      def flatten_nested_attributes(array, object_class)
+        array.flat_map do |attr|
+          attr.is_a?(object_class) ? attr.attributes.map(&:name) : attr
+        end
+      end
     end
   end
 end
