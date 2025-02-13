@@ -29,6 +29,7 @@ RSpec.describe Person do
       "active" => true,
     }
   end
+
   let(:attributes_json) do
     {
       firstName: "John",
@@ -42,8 +43,8 @@ RSpec.describe Person do
     }
   end
 
-  it "serializes to XML" do
-    expected_xml = <<~XML
+  let(:xml) do
+    <<~XML
       <p:Person xmlns:p="http://example.com/person" xmlns:nsp1="http://example.com/nsp1">
         <nsp1:FirstName>John</nsp1:FirstName>
         <nsp1:LastName>Doe</nsp1:LastName>
@@ -55,24 +56,13 @@ RSpec.describe Person do
         <p:Active>true</p:Active>
       </p:Person>
     XML
+  end
 
-    expect(model.to_xml).to be_equivalent_to(expected_xml)
+  it "serializes to XML" do
+    expect(model.to_xml).to be_equivalent_to(xml)
   end
 
   it "deserializes from XML" do
-    xml = <<~XML
-      <p:Person xmlns:p="http://example.com/person" xmlns:nsp1="http://example.com/nsp1">
-        <nsp1:FirstName>John</nsp1:FirstName>
-        <nsp1:LastName>Doe</nsp1:LastName>
-        <p:Age>30</p:Age>
-        <p:Height>5.9</p:Height>
-        <p:Birthdate>1990-01-01</p:Birthdate>
-        <p:LastLogin>2023-06-08T10:00:00+00:00</p:LastLogin>
-        <p:WakeupTime>07:00:00</p:WakeupTime>
-        <p:Active>true</p:Active>
-      </p:Person>
-    XML
-
     person = described_class.from_xml(xml)
     expect(person.first_name).to eq("John")
     expect(person.age).to eq(30)

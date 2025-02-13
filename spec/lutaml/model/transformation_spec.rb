@@ -1,97 +1,97 @@
 require "spec_helper"
 
-RSpec.describe "Value Transformations" do
-  module TransformationSpec
-    # Class with only attribute-level transformations
-    class AttributeTransformPerson < Lutaml::Model::Serializable
-      attribute :name, :string, transform: {
-        export: ->(value) { value.to_s.upcase },
+module TransformationSpec
+  # Class with only attribute-level transformations
+  class AttributeTransformPerson < Lutaml::Model::Serializable
+    attribute :name, :string, transform: {
+      export: ->(value) { value.to_s.upcase },
+    }
+    attribute :email, :string, transform: {
+      import: ->(value) { "#{value}@example.com" },
+    }
+    attribute :tags, :string, collection: true, transform: {
+      export: ->(value) { value.map(&:upcase) },
+      import: ->(value) { value.map { |v| "#{v}-1" } },
+    }
+  end
+
+  # Class with only mapping-level transformations
+  class MappingTransformPerson < Lutaml::Model::Serializable
+    attribute :name, :string
+    attribute :email, :string
+    attribute :tags, :string, collection: true
+
+    json do
+      map "fullName", to: :name, transform: {
+        export: ->(value) { "Dr. #{value}" },
       }
-      attribute :email, :string, transform: {
-        import: ->(value) { "#{value}@example.com" },
+      map "emailAddress", to: :email, transform: {
+        import: ->(value) { value.gsub("at", "@") },
       }
-      attribute :tags, :string, collection: true, transform: {
-        export: ->(value) { value.map(&:upcase) },
-        import: ->(value) { value.map { |v| "#{v}-1" } },
+      map "labels", to: :tags, transform: {
+        export: ->(value) { value.join("-|-") },
+        import: ->(value) { value.split("|") },
       }
     end
 
-    # Class with only mapping-level transformations
-    class MappingTransformPerson < Lutaml::Model::Serializable
-      attribute :name, :string
-      attribute :email, :string
-      attribute :tags, :string, collection: true
-
-      json do
-        map "fullName", to: :name, transform: {
-          export: ->(value) { "Dr. #{value}" },
-        }
-        map "emailAddress", to: :email, transform: {
-          import: ->(value) { value.gsub("at", "@") },
-        }
-        map "labels", to: :tags, transform: {
-          export: ->(value) { value.join("-|-") },
-          import: ->(value) { value.split("|") },
-        }
-      end
-
-      xml do
-        root "person"
-        map_element "full-name", to: :name, transform: {
-          export: ->(value) { "Dr. #{value}" },
-        }
-        map_element "email-address", to: :email, transform: {
-          import: ->(value) { value.gsub("at", "@") },
-        }
-        map_element "labels", to: :tags, transform: {
-          export: ->(value) { value.join("-|-") },
-          import: ->(value) { value.split("|") },
-        }
-      end
-    end
-
-    # Class with both attribute and mapping transformations
-    class CombinedTransformPerson < Lutaml::Model::Serializable
-      attribute :name, :string, transform: {
-        export: ->(value) { value.to_s.capitalize },
-        import: ->(value) { value.to_s.downcase },
+    xml do
+      root "person"
+      map_element "full-name", to: :name, transform: {
+        export: ->(value) { "Dr. #{value}" },
       }
-      attribute :email, :string, transform: {
-        export: lambda(&:downcase),
-        import: lambda(&:downcase),
+      map_element "email-address", to: :email, transform: {
+        import: ->(value) { value.gsub("at", "@") },
       }
-      attribute :tags, :string, collection: true, transform: {
-        export: ->(value) { value.map(&:upcase) },
-        import: ->(value) { value.map { |v| "#{v}-1" } },
+      map_element "labels", to: :tags, transform: {
+        export: ->(value) { value.join("-|-") },
+        import: ->(value) { value.split("|") },
       }
-
-      json do
-        map "fullName", to: :name, transform: {
-          export: ->(value) { "Prof. #{value}" },
-          import: ->(value) { value.gsub("Prof. ", "") },
-        }
-        map "contactEmail", to: :email, transform: {
-          export: ->(value) { "contact+#{value}" },
-          import: ->(value) { value.gsub("contact+", "") },
-        }
-        map "skills", to: :tags
-      end
-
-      xml do
-        root "person"
-        map_element "full-name", to: :name, transform: {
-          export: ->(value) { "Prof. #{value}" },
-          import: ->(value) { value.gsub("Prof. ", "") },
-        }
-        map_element "contact-email", to: :email, transform: {
-          export: ->(value) { "contact+#{value}" },
-          import: ->(value) { value.gsub("contact+", "") },
-        }
-        map_element "skills", to: :tags
-      end
     end
   end
 
+  # Class with both attribute and mapping transformations
+  class CombinedTransformPerson < Lutaml::Model::Serializable
+    attribute :name, :string, transform: {
+      export: ->(value) { value.to_s.capitalize },
+      import: ->(value) { value.to_s.downcase },
+    }
+    attribute :email, :string, transform: {
+      export: lambda(&:downcase),
+      import: lambda(&:downcase),
+    }
+    attribute :tags, :string, collection: true, transform: {
+      export: ->(value) { value.map(&:upcase) },
+      import: ->(value) { value.map { |v| "#{v}-1" } },
+    }
+
+    json do
+      map "fullName", to: :name, transform: {
+        export: ->(value) { "Prof. #{value}" },
+        import: ->(value) { value.gsub("Prof. ", "") },
+      }
+      map "contactEmail", to: :email, transform: {
+        export: ->(value) { "contact+#{value}" },
+        import: ->(value) { value.gsub("contact+", "") },
+      }
+      map "skills", to: :tags
+    end
+
+    xml do
+      root "person"
+      map_element "full-name", to: :name, transform: {
+        export: ->(value) { "Prof. #{value}" },
+        import: ->(value) { value.gsub("Prof. ", "") },
+      }
+      map_element "contact-email", to: :email, transform: {
+        export: ->(value) { "contact+#{value}" },
+        import: ->(value) { value.gsub("contact+", "") },
+      }
+      map_element "skills", to: :tags
+    end
+  end
+end
+
+RSpec.describe "Value Transformations" do
   describe "Attribute-only transformations" do
     let(:attribute_person) do
       TransformationSpec::AttributeTransformPerson.new(

@@ -3,12 +3,15 @@
 require "spec_helper"
 
 RSpec.describe Lutaml::Model::Validation do
-  class ValidationTestClass < Lutaml::Model::Serializable
-    attribute :name, :string
-    attribute :age, :integer
-    attribute :email, :string, values: ["test@example.com", "user@example.com"]
-    attribute :tags, :string, collection: true
-    attribute :role, :string, collection: 1..3
+  before do
+    stub_const("ValidationTestClass", Class.new(Lutaml::Model::Serializable) do
+      attribute :name, :string
+      attribute :age, :integer
+      attribute :email, :string,
+                values: ["test@example.com", "user@example.com"]
+      attribute :tags, :string, collection: true
+      attribute :role, :string, collection: 1..3
+    end)
   end
 
   let(:valid_instance) do

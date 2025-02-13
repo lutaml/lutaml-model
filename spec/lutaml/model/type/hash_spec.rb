@@ -17,31 +17,44 @@ RSpec.describe Lutaml::Model::Type::Hash do
       expect(described_class.cast(mapping_hash)).to eq({ "key" => "value" })
     end
 
-    it "filters out text keys from nested hashes" do
-      hash = {
-        "key1" => {
-          "text" => "content1",
-          "other" => "value1",
-        },
-        "key2" => {
-          "text" => "content2",
-          "other" => "value2",
-        },
-      }
-      expected = {
-        "key1" => { "other" => "value1" },
-        "key2" => { "other" => "value2" },
-      }
-      expect(described_class.cast(hash)).to eq expected
+    context "with nested hashes" do
+      let(:input) do
+        {
+          "key1" => {
+            "text" => "content1",
+            "other" => "value1",
+          },
+          "key2" => {
+            "text" => "content2",
+            "other" => "value2",
+          },
+        }
+      end
+
+      let(:expected_hash) do
+        {
+          "key1" => { "other" => "value1" },
+          "key2" => { "other" => "value2" },
+        }
+      end
+
+      it "filters out text keys from nested hashes" do
+        expect(described_class.cast(input)).to eq(expected_hash)
+      end
     end
 
-    it "preserves non-hash values" do
-      input = {
-        "string" => "value",
-        "number" => 42,
-        "array" => [1, 2, 3],
-      }
-      expect(described_class.cast(input)).to eq input
+    context "with non-hash values" do
+      let(:input) do
+        {
+          "string" => "value",
+          "number" => 42,
+          "array" => [1, 2, 3],
+        }
+      end
+
+      it "preserves non-hash values" do
+        expect(described_class.cast(input)).to eq input
+      end
     end
   end
 
@@ -56,7 +69,7 @@ RSpec.describe Lutaml::Model::Type::Hash do
     end
 
     it "converts arbitrary object responding to to_h" do
-      obj = double(to_h: { "key" => "value" })
+      obj = instance_double(Hash, to_h: { "key" => "value" })
       expect(described_class.serialize(obj)).to eq({ "key" => "value" })
     end
   end

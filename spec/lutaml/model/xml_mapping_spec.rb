@@ -334,7 +334,7 @@ RSpec.describe Lutaml::Model::XmlMapping do
 
     let(:mapping) { Lutaml::Model::XmlMapping.new }
 
-    context "attribute namespace" do
+    context "with attribute having namespace" do
       input_xml = <<~XML
         <ns1:example ex1:alpha="hello"
                      beta="bye"
@@ -352,7 +352,7 @@ RSpec.describe Lutaml::Model::XmlMapping do
       end
     end
 
-    context "explicit namespace" do
+    context "with explicit namespace" do
       mml = <<~XML
         <math xmlns="http://www.w3.org/1998/Math/MathML">
           <mfenced open="("></mfenced>
@@ -366,7 +366,7 @@ RSpec.describe Lutaml::Model::XmlMapping do
     end
 
     # Skipping for OX because it does not handle namespaces
-    context "overriding child namespace prefix", skip: adapter_class == Lutaml::Model::XmlAdapter::OxAdapter do
+    context "when overriding child namespace prefix", skip: adapter_class == Lutaml::Model::XmlAdapter::OxAdapter do
       let(:input_xml) do
         <<~XML
           <OverrideDefaultNamespacePrefix
@@ -1083,23 +1083,30 @@ RSpec.describe Lutaml::Model::XmlMapping do
         end
       end
 
-      it "maps all the content including tags" do
-        inner_xml = if adapter_class.type == "ox"
-                      "Str<sub>2</sub> text<sup>1</sup> 123"
-                    else
-                      "Str<sub>2</sub>text<sup>1</sup>123"
-                    end
-        xml = "<WithMapAll>#{inner_xml}</WithMapAll>"
+      context "without custom methods" do
+        let(:inner_xml) do
+          if adapter_class.type == "ox"
+            "Str<sub>2</sub> text<sup>1</sup> 123"
+          else
+            "Str<sub>2</sub>text<sup>1</sup>123"
+          end
+        end
 
-        parsed = XmlMapping::WithMapAll.from_xml(xml)
+        let(:xml) do
+          "<WithMapAll>#{inner_xml}</WithMapAll>"
+        end
 
-        expect(parsed.all_content).to eq(inner_xml)
-      end
+        let(:parsed) do
+          XmlMapping::WithMapAll.from_xml(xml)
+        end
 
-      it "round-trips xml" do
-        xml = "<WithMapAll>Str<sub>2</sub>text<sup>1</sup>123</WithMapAll>"
+        it "maps all the content including tags" do
+          expect(parsed.all_content).to eq(inner_xml)
+        end
 
-        expect(XmlMapping::WithMapAll.from_xml(xml).to_xml.chomp).to eq(xml)
+        it "round-trips xml" do
+          expect(parsed.to_xml.chomp).to eq(xml)
+        end
       end
 
       context "when nested content has map_all" do

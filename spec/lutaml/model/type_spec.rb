@@ -191,12 +191,7 @@ RSpec.describe Lutaml::Model::Type do
 
       context "when BigDecimal is not available" do
         before do
-          Object.send(:remove_const, :BigDecimal) if defined?(BigDecimal)
-          $LOADED_FEATURES.delete_if { |path| path.include?("bigdecimal") }
-        end
-
-        after do
-          require "bigdecimal"
+          hide_const("BigDecimal") if defined?(BigDecimal)
         end
 
         let(:decimal_class) { described_class.lookup(:decimal) }
@@ -277,8 +272,8 @@ RSpec.describe Lutaml::Model::Type do
     end
 
     describe "Serialization" do
-      it "correctly serializes to XML" do
-        expected_xml = <<~XML
+      let(:xml) do
+        <<~XML
           <test>
             <string_symbol>test</string_symbol>
             <string_class>test</string_class>
@@ -294,28 +289,13 @@ RSpec.describe Lutaml::Model::Type do
             </hash>
           </test>
         XML
+      end
 
-        expect(test_instance.to_xml).to be_equivalent_to(expected_xml)
+      it "correctly serializes to XML" do
+        expect(test_instance.to_xml).to be_equivalent_to(xml)
       end
 
       it "correctly deserializes from XML" do
-        xml = <<~XML
-          <test>
-            <string_symbol>test</string_symbol>
-            <string_class>test</string_class>
-            <integer>123</integer>
-            <float>123.45</float>
-            <date>2024-01-01</date>
-            <time>12:00:00</time>
-            <time_without_date>10:06:15</time_without_date>
-            <date_time>2024-01-01T12:00:00</date_time>
-            <boolean>true</boolean>
-            <hash>
-              <key>value</key>
-            </hash>
-          </test>
-        XML
-
         deserialized = TypeTestModel.from_xml(xml)
         expect(deserialized.string_symbol).to eq("test")
         expect(deserialized.string_class).to eq("test")

@@ -14,7 +14,7 @@ RSpec.describe Lutaml::Model::XmlAdapter::OxAdapter do
 
   let(:document) { described_class.parse(xml_string) }
 
-  context "parsing XML with namespaces" do
+  context "when parsing XML with namespaces" do
     it "parses the root element with default namespace" do
       expect(document.root.name).to eq("root")
       expect(document.root.namespace.uri).to eq("http://example.com/default")
@@ -42,7 +42,7 @@ RSpec.describe Lutaml::Model::XmlAdapter::OxAdapter do
     end
   end
 
-  context "generating XML with namespaces" do
+  context "when generating XML with namespaces" do
     it "generates XML with namespaces correctly" do
       xml_output = document.to_xml
       parsed_output = Ox.parse(xml_output)

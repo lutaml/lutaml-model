@@ -6,10 +6,8 @@ module Lutaml
       class XmlElement
         attr_reader :attributes,
                     :children,
-                    :text,
                     :namespace_prefix,
-                    :parent_document,
-                    :default_namespace
+                    :parent_document
 
         attr_accessor :adapter_node
 

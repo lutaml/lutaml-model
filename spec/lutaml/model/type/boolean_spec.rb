@@ -71,14 +71,14 @@ RSpec.describe Lutaml::Model::Type::Boolean do
   end
 
   context "with key-value serialization" do
-    let(:yaml) do
+    let(:attrs) do
       {
         "name" => "John Smith",
         "full_time" => true,
         "on_leave" => false,
         "remote" => nil,
         "active" => nil,
-      }.to_yaml
+      }
     end
 
     let(:expected_yaml) do
@@ -91,7 +91,7 @@ RSpec.describe Lutaml::Model::Type::Boolean do
     end
 
     it "deserializes boolean values correctly" do
-      employee = BooleanSpec::Employee.from_yaml(yaml)
+      employee = BooleanSpec::Employee.from_yaml(attrs.to_yaml)
 
       expect(employee.name).to eq("John Smith")
       expect(employee.full_time).to be true
@@ -101,13 +101,7 @@ RSpec.describe Lutaml::Model::Type::Boolean do
     end
 
     it "serializes boolean values correctly" do
-      employee = BooleanSpec::Employee.new(
-        name: "John Smith",
-        full_time: true,
-        on_leave: false,
-        remote: nil,
-        active: nil,
-      )
+      employee = BooleanSpec::Employee.new(attrs)
 
       yaml_output = employee.to_yaml
       expect(yaml_output).to eq(expected_yaml)
