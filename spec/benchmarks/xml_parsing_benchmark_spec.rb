@@ -61,9 +61,9 @@ RSpec.describe "LutaML Model Performance" do
     end
 
     thresholds = {
-      "Nokogiri Adapter" => 5,
-      "Ox Adapter" => 15,
-      "Oga Adapter" => 5,
+      "Nokogiri Adapter" => 4,
+      "Ox Adapter" => 10,
+      "Oga Adapter" => 4,
     }
 
     report.entries.each do |entry|
