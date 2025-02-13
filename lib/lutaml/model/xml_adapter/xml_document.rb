@@ -8,7 +8,7 @@ module Lutaml
   module Model
     module XmlAdapter
       class XmlDocument
-        attr_reader :encoding
+        attr_reader :root, :encoding
 
         def initialize(root, encoding = nil)
           @root = root
@@ -21,10 +21,6 @@ module Lutaml
 
         def children
           @root.children
-        end
-
-        def root
-          @root
         end
 
         def attributes
