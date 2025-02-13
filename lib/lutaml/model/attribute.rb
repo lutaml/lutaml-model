@@ -253,7 +253,7 @@ module Lutaml
         value ||= [] if collection?
         if value.is_a?(Array)
           value.map { |v| cast(v, format, options) }
-        elsif type <= Serialize && (value.is_a?(Hash) || value.is_a?(Lutaml::Model::XmlAdapter::XmlElement))
+        elsif type <= Serialize && castable?(value, format)
           type.apply_mappings(value, format, options)
         elsif !value.nil? && !value.is_a?(type)
           type.send(:"from_#{format}", value)
@@ -263,6 +263,11 @@ module Lutaml
       end
 
       private
+
+      def castable?(value, format)
+        value.is_a?(Hash) ||
+          (format == :xml && value.is_a?(Lutaml::Model::XmlAdapter::XmlElement))
+      end
 
       def validate_options!(options)
         if (invalid_opts = options.keys - ALLOWED_OPTIONS).any?

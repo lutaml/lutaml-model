@@ -8,6 +8,7 @@
     "metanorma/sts-ruby",
     "lutaml/metaschema",
     "glossarist/termium",
+    "glossarist/glossarist-ruby",
     "lutaml/oasis-etm",
     "lutaml/ali",
     "lutaml/reqif"
