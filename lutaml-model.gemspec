@@ -33,7 +33,7 @@ Gem::Specification.new do |spec|
   # TODO: remove once https://github.com/Shopify/liquid/issues/1772 is fixed
   # needed for liquid with ruby 3.4
   spec.add_dependency "base64"
-  spec.add_dependency "liquid", "~> 5"
+  # spec.add_dependency "liquid", "~> 5"
   spec.add_dependency "moxml", ">= 0.1.2"
   spec.add_dependency "thor"
   spec.metadata["rubygems_mfa_required"] = "true"
