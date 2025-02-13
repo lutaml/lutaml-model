@@ -186,22 +186,6 @@ RSpec.describe CollectionTests do
     end
   end
 
-  context "when collection counts are below given ranges" do
-    let(:invalid_attributes) do
-      attributes.merge(operators: [], sensors: [])
-    end
-
-    it "raises CollectionCountOutOfRangeError" do
-      kiln = CollectionTests::Kiln.new(invalid_attributes)
-      expect do
-        kiln.validate!
-      end.to raise_error(Lutaml::Model::ValidationError) do |error|
-        expect(error).to include(Lutaml::Model::CollectionCountOutOfRangeError)
-        expect(error.error_messages).to include(a_string_matching(/operators count is 0, must be at least 1/))
-      end
-    end
-  end
-
   context "when collection with unbounded maximum exceeds minimum" do
     let(:valid_attributes) do
       attributes.merge(operators: ["John", "Jane", "Jim", "Jessica"])

@@ -56,31 +56,10 @@ RSpec.describe "Sequence" do
   context "with nesting sequence" do
     let(:mapper) { SequenceSpec::Ceramic }
 
-    it "don't raise error for a valid instance, if given attribute for sequence has correct order" do
-      xml = <<~XML
-        <Ceramic>
-          <tag>Nik</tag>
-          <id>1</id>
-          <name>Vase</name>
-          <type>Decorative</type>
-          <color>Blue</color>
-          <bold>Heading</bold>
-          <text>Header</text>
-          <usage>Indoor</usage>
-          <size>Medium</size>
-          <first_name>Dale</first_name>
-          <last_name>Steyn</last_name>
-          <temperature>Normal</temperature>
-        </Ceramic>
-      XML
-
-      expect { mapper.from_xml(xml) }.not_to raise_error
-    end
-
-    it "don't raise error for a valid instance with sequence range, if given attribute for sequence has correct order" do
-      xml = <<~XML
-        <collection>
-          <ceramic>
+    context "when given attribute for sequence has correct order" do
+      let(:xml) do
+        <<~XML
+          <Ceramic>
             <tag>Nik</tag>
             <id>1</id>
             <name>Vase</name>
@@ -93,109 +72,146 @@ RSpec.describe "Sequence" do
             <first_name>Dale</first_name>
             <last_name>Steyn</last_name>
             <temperature>Normal</temperature>
-          </ceramic>
-          <ceramic>
-            <tag>Nik</tag>
-            <id>1</id>
-            <name>Vase</name>
-            <type>Decorative</type>
-            <color>Blue</color>
-            <bold>Heading</bold>
-            <text>Header</text>
-            <usage>Indoor</usage>
-            <size>Medium</size>
-            <first_name>Dale</first_name>
-            <last_name>Steyn</last_name>
-            <temperature>Normal</temperature>
-          </ceramic>
-        </collection>
-      XML
+          </Ceramic>
+        XML
+      end
 
-      expect do
-        SequenceSpec::CeramicCollection.from_xml(xml)
-      end.not_to raise_error
-    end
-
-    it "raises error, if given attributes order is incorrect in sequence" do
-      xml = <<~XML
-        <Ceramic>
-          <tag>Nik</tag>
-          <temperature>High</temperature>
-          <first_name>Micheal</first_name>
-          <id>1</id>
-          <name>Vase</name>
-          <type>Decorative</type>
-          <color>Blue</color>
-          <bold>Heading</bold>
-          <usage>Indoor</usage>
-          <size>Medium</size>
-          <last_name>Johnson</last_name>
-          <text>Header</text>
-        </Ceramic>
-      XML
-
-      expect do
-        mapper.from_xml(xml)
-      end.to raise_error(Lutaml::Model::IncorrectSequenceError) do |error|
-        expect(error.message).to eq("Element `usage` does not match the expected sequence order element `text`")
+      it "does not raise error" do
+        expect { mapper.from_xml(xml) }.not_to raise_error
       end
     end
 
-    it "raises error with sequence range, if given attributes order is incorrect in sequence" do
-      invalid_xml = <<~XML
-        <collection>
-          <ceramic>
+    context "when given attribute for sequence collection has correct order" do
+      let(:xml) do
+        <<~XML
+          <collection>
+            <ceramic>
+              <tag>Nik</tag>
+              <id>1</id>
+              <name>Vase</name>
+              <type>Decorative</type>
+              <color>Blue</color>
+              <bold>Heading</bold>
+              <text>Header</text>
+              <usage>Indoor</usage>
+              <size>Medium</size>
+              <first_name>Dale</first_name>
+              <last_name>Steyn</last_name>
+              <temperature>Normal</temperature>
+            </ceramic>
+            <ceramic>
+              <tag>Nik</tag>
+              <id>1</id>
+              <name>Vase</name>
+              <type>Decorative</type>
+              <color>Blue</color>
+              <bold>Heading</bold>
+              <text>Header</text>
+              <usage>Indoor</usage>
+              <size>Medium</size>
+              <first_name>Dale</first_name>
+              <last_name>Steyn</last_name>
+              <temperature>Normal</temperature>
+            </ceramic>
+          </collection>
+        XML
+      end
+
+      it "does not raise error" do
+        expect do
+          SequenceSpec::CeramicCollection.from_xml(xml)
+        end.not_to raise_error
+      end
+    end
+
+    context "when given attributes order is incorrect in sequence" do
+      let(:xml) do
+        <<~XML
+          <Ceramic>
+            <tag>Nik</tag>
+            <temperature>High</temperature>
+            <first_name>Micheal</first_name>
             <id>1</id>
             <name>Vase</name>
             <type>Decorative</type>
             <color>Blue</color>
             <bold>Heading</bold>
-            <text>Header</text>
             <usage>Indoor</usage>
             <size>Medium</size>
-            <first_name>Dale</first_name>
-            <last_name>Steyn</last_name>
-            <temperature>Normal</temperature>
-            <tag>Nik</tag>
-          </ceramic>
+            <last_name>Johnson</last_name>
+            <text>Header</text>
+          </Ceramic>
+        XML
+      end
 
-          <ceramic>
-            <id>2</id>
-            <name>Nick</name>
-            <type>Unique</type>
-            <color>Red</color>
-            <bold>Name</bold>
-            <text>Body</text>
-            <usage>Outdoor</usage>
-            <size>Small</size>
-            <first_name>Smith</first_name>
-            <last_name>Ash</last_name>
-            <temperature>High</temperature>
-            <tag>Adid</tag>
-          </ceramic>
+      it "raises IncorrectSequenceError error" do
+        expect do
+          mapper.from_xml(xml)
+        end.to raise_error(Lutaml::Model::IncorrectSequenceError) do |error|
+          expect(error.message).to eq("Element `usage` does not match the expected sequence order element `text`")
+        end
+      end
+    end
 
-          <ceramic>
-            <id>3</id>
-            <name>Starc</name>
-            <type>Int</type>
-            <color>White</color>
-            <bold>Act</bold>
-            <text>Footer</text>
-            <usage>Nothing</usage>
-            <size>Large</size>
-            <first_name>Dale</first_name>
-            <last_name>Steyn</last_name>
-            <temperature>Normal</temperature>
-            <tag>Bet</tag>
-          </ceramic>
-        </collection>
-      XML
+    context "when given attributes order is incorrect in sequence collection" do
+      let(:xml) do
+        <<~XML
+          <collection>
+            <ceramic>
+              <id>1</id>
+              <name>Vase</name>
+              <type>Decorative</type>
+              <color>Blue</color>
+              <bold>Heading</bold>
+              <text>Header</text>
+              <usage>Indoor</usage>
+              <size>Medium</size>
+              <first_name>Dale</first_name>
+              <last_name>Steyn</last_name>
+              <temperature>Normal</temperature>
+              <tag>Nik</tag>
+            </ceramic>
 
-      expect do
-        SequenceSpec::CeramicCollection.from_xml(invalid_xml).validate!
-      end.to raise_error(Lutaml::Model::ValidationError) do |error|
-        expect(error).to include(Lutaml::Model::CollectionCountOutOfRangeError)
-        expect(error.error_messages).to eq(["ceramic count is 3, must be between 1 and 2"])
+            <ceramic>
+              <id>2</id>
+              <name>Nick</name>
+              <type>Unique</type>
+              <color>Red</color>
+              <bold>Name</bold>
+              <text>Body</text>
+              <usage>Outdoor</usage>
+              <size>Small</size>
+              <first_name>Smith</first_name>
+              <last_name>Ash</last_name>
+              <temperature>High</temperature>
+              <tag>Adid</tag>
+            </ceramic>
+
+            <ceramic>
+              <id>3</id>
+              <name>Starc</name>
+              <type>Int</type>
+              <color>White</color>
+              <bold>Act</bold>
+              <text>Footer</text>
+              <usage>Nothing</usage>
+              <size>Large</size>
+              <first_name>Dale</first_name>
+              <last_name>Steyn</last_name>
+              <temperature>Normal</temperature>
+              <tag>Bet</tag>
+            </ceramic>
+          </collection>
+        XML
+      end
+
+      it "raises CollectionCountOutOfRangeError error" do
+        expect do
+          SequenceSpec::CeramicCollection.from_xml(xml).validate!
+        end.to raise_error(Lutaml::Model::ValidationError) do |error|
+          expect(error).to include(Lutaml::Model::CollectionCountOutOfRangeError)
+          expect(error.error_messages).to eq(["ceramic count is 3, must be between 1 and 2"])
+        end
       end
     end
 

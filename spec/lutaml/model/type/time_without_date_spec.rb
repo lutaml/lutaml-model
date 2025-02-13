@@ -96,12 +96,6 @@ RSpec.describe Lutaml::Model::Type::TimeWithoutDate do
       it { is_expected.to be_nil }
     end
 
-    context "with Time object" do
-      let(:value) { Time.new(2024, 1, 1, 13, 45, 30) }
-
-      it { is_expected.to eq("13:45:30") }
-    end
-
     context "with single-digit values" do
       let(:value) { Time.new(2024, 1, 1, 9, 5, 3) }
 

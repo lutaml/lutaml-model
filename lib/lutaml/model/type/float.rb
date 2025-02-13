@@ -27,10 +27,6 @@ module Lutaml
         def to_json(*_args)
           value
         end
-
-        def to_yaml
-          value
-        end
       end
     end
   end

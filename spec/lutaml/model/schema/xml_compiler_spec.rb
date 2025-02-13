@@ -65,7 +65,8 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
 
         it "raises InvalidValueError" do
           expect(defined?(MathDocument)).to eq("constant")
-          expect { MathDocument.from_xml(invalid_example) }.to raise_error(Lutaml::Model::Type::InvalidValueError)
+          expect { MathDocument.from_xml(invalid_example) }
+            .to raise_error(Lutaml::Model::Type::InvalidValueError)
         end
       end
     end
@@ -167,6 +168,10 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
 
   describe "structure setup methods" do
     describe ".as_models" do
+      let(:as_models) do
+        described_class.send(:as_models, schema)
+      end
+
       context "when the XML adapter is not set" do
         before do
           Lutaml::Model::Config.xml_adapter_type = :ox
@@ -176,21 +181,39 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
           Lutaml::Model::Config.xml_adapter_type = :nokogiri
         end
 
+        let(:schema) do
+          '<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>'
+        end
+
         it "raises an error" do
-          expect { described_class.send(:as_models, '<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>') }.to raise_error(Lutaml::Model::Error)
+          expect { as_models }.to raise_error(Lutaml::Model::Error)
         end
       end
 
       context "when the XML adapter is set and schema is given" do
-        let(:schema) { '<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>' }
+        let(:schema) do
+          '<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>'
+        end
+
+        let(:instance_variables) do
+          %i[
+            @elements
+            @attributes
+            @group_types
+            @simple_types
+            @complex_types
+            @attribute_groups
+          ]
+        end
 
         it "initializes the instance variables with empty MappingHash" do
-          described_class.send(:as_models, schema)
-          variables = %i[@elements @attributes @group_types @simple_types @complex_types @attribute_groups]
-          variables.each do |variable|
+          as_models
+          instance_variables.each do |variable|
             instance_variable = described_class.instance_variable_get(variable)
-            expect(instance_variable).to be_a(Lutaml::Model::MappingHash)
-            expect(instance_variable).to be_empty
+
+            expect(instance_variable)
+              .to be_a(Lutaml::Model::MappingHash)
+              .and be_empty
           end
         end
 
@@ -217,7 +240,10 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
       context "when given schema contains all the elements" do
         before do
           variables.each_key do |key|
-            described_class.instance_variable_set(:"@#{key}", to_mapping_hash({}))
+            described_class.instance_variable_set(
+              :"@#{key}",
+              to_mapping_hash({}),
+            )
           end
         end
 
@@ -242,8 +268,18 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
 
         let(:variables) do
           {
-            elements: { "test_element" => { element_name: "test_element", type_name: nil } },
-            attributes: { "test_attribute" => { name: "test_attribute", base_class: "xsd:string" } },
+            elements: {
+              "test_element" => {
+                element_name: "test_element",
+                type_name: nil,
+              },
+            },
+            attributes: {
+              "test_attribute" => {
+                name: "test_attribute",
+                base_class: "xsd:string",
+              },
+            },
             group_types: { "test_group" => {} },
             simple_types: { "test_simple_type" => {} },
             complex_types: { "test_complex_type" => { mixed: true } },
@@ -254,15 +290,21 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         it "initializes the instance variables with empty MappingHash" do
           described_class.send(:schema_to_models, [schema])
           variables.each do |variable, expected_value|
-            instance_variable = described_class.instance_variable_get(:"@#{variable}")
-            expect(instance_variable).to be_a(Lutaml::Model::MappingHash)
-            expect(instance_variable).to eql(expected_value)
+            value = described_class.instance_variable_get(:"@#{variable}")
+
+            expect(value)
+              .to be_a(Lutaml::Model::MappingHash)
+              .and eql(expected_value)
           end
         end
       end
     end
 
     describe ".setup_simple_type" do
+      let(:setup_simple_type) do
+        described_class.send(:setup_simple_type, simple_type)
+      end
+
       context "when given simple_type contains restriction and union" do
         let(:simple_type) do
           Lutaml::Xsd::SimpleType.new.tap do |st|
@@ -271,8 +313,10 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
           end
         end
 
+        let(:expected_output) { { base_class: "test_base", union: [] } }
+
         it "initializes the instance variables with empty MappingHash" do
-          expect(described_class.send(:setup_simple_type, simple_type)).to eql({ base_class: "test_base", union: [] })
+          expect(setup_simple_type).to eql(expected_output)
         end
       end
 
@@ -280,7 +324,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         let(:simple_type) { Lutaml::Xsd::SimpleType.new }
 
         it "initializes the instance variables with empty MappingHash" do
-          expect(described_class.send(:setup_simple_type, simple_type)).to eql({})
+          expect(setup_simple_type).to eql({})
         end
       end
     end
@@ -297,9 +341,19 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
           end
         end
 
+        let(:expected_output) do
+          {
+            max_length: 10,
+            min_length: 1,
+            min_inclusive: "1",
+            max_inclusive: "10",
+            length: [{ value: 10 }],
+          }
+        end
+
         it "initializes the instance variables with empty MappingHash" do
           described_class.send(:restriction_content, hash = {}, restriction)
-          expect(hash).to eql({ max_length: 10, min_length: 1, min_inclusive: "1", max_inclusive: "10", length: [{ value: 10 }] })
+          expect(hash).to eql(expected_output)
         end
       end
 
@@ -314,6 +368,10 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
     end
 
     describe ".restriction_length" do
+      let(:restriction_length) do
+        described_class.send(:restriction_length, lengths)
+      end
+
       context "when given restriction contains max_length, min_length, min_inclusive, max_inclusive, length" do
         let(:lengths) do
           [
@@ -336,13 +394,15 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         end
 
         it "initializes the instance variables with empty MappingHash" do
-          expect(described_class.send(:restriction_length, lengths)).to eql(expected_content)
+          expect(restriction_length).to eql(expected_content)
         end
       end
 
       context "when restriction contains nothing" do
+        let(:lengths) { [] }
+
         it "initializes the instance variables with empty MappingHash" do
-          expect(described_class.send(:restriction_length, [])).to be_empty
+          expect(restriction_length).to be_empty
         end
       end
     end
@@ -402,18 +462,24 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
     end
 
     describe ".setup_simple_content" do
+      let(:setup_simple_content) do
+        described_class.send(:setup_simple_content, complex_type)
+      end
+
       context "when given complex_type contains extension" do
         let(:complex_type) do
           Lutaml::Xsd::SimpleContent.new.tap do |ct|
             ct.extension = Lutaml::Xsd::ExtensionSimpleContent.new(base: "test_extension")
-            ct.element_order = [Lutaml::Model::XmlAdapter::Element.new("Element", "extension")]
+            ct.element_order = [
+              Lutaml::Model::XmlAdapter::Element.new("Element", "extension"),
+            ]
           end
         end
 
         let(:expected_hash) { { extension_base: "test_extension" } }
 
         it "initializes the instance variables with empty MappingHash" do
-          expect(described_class.send(:setup_simple_content, complex_type)).to eql(expected_hash)
+          expect(setup_simple_content).to eql(expected_hash)
         end
       end
 
@@ -421,17 +487,25 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         let(:complex_type) do
           Lutaml::Xsd::SimpleContent.new.tap do |ct|
             ct.restriction = Lutaml::Xsd::RestrictionSimpleContent.new(base: "test_restriction")
-            ct.element_order = [Lutaml::Model::XmlAdapter::Element.new("Element", "restriction")]
+            ct.element_order = [
+              Lutaml::Model::XmlAdapter::Element.new("Element", "restriction"),
+            ]
           end
         end
 
+        let(:expected_hash) { { base_class: "test_restriction" } }
+
         it "initializes the instance variables with empty MappingHash" do
-          expect(described_class.send(:setup_simple_content, complex_type)).to eql({ base_class: "test_restriction" })
+          expect(setup_simple_content).to eql(expected_hash)
         end
       end
     end
 
     describe ".setup_sequence" do
+      let(:setup_sequence) do
+        described_class.send(:setup_sequence, sequence)
+      end
+
       context "when given sequence contains sequence, element, choice, group" do
         let(:sequence) do
           Lutaml::Xsd::Sequence.new.tap do |ct|
@@ -459,14 +533,17 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         let(:expected_hash) do
           {
             sequences: [{}],
-            elements: [{ element_name: "test_element", type_name: nil }, { ref_class: "test_ref" }],
+            elements: [
+              { element_name: "test_element", type_name: nil },
+              { ref_class: "test_ref" },
+            ],
             choice: [{}],
             groups: [{}, { ref_class: "test_ref" }],
           }
         end
 
         it "initializes the instance variables with empty MappingHash" do
-          expect(described_class.send(:setup_sequence, sequence)).to eql(expected_hash)
+          expect(setup_sequence).to eql(expected_hash)
         end
       end
 
@@ -478,12 +555,16 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         end
 
         it "initializes the instance variables with empty MappingHash" do
-          expect(described_class.send(:setup_sequence, sequence)).to be_empty
+          expect(setup_sequence).to be_empty
         end
       end
     end
 
     describe ".setup_group_type" do
+      let(:setup_group_type) do
+        described_class.send(:setup_group_type, group)
+      end
+
       context "when given group contains sequence, choice" do
         let(:group) do
           Lutaml::Xsd::Group.new.tap do |ct|
@@ -499,7 +580,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         let(:expected_hash) { { sequence: {}, choice: {} } }
 
         it "initializes the instance variables with empty MappingHash" do
-          expect(described_class.send(:setup_group_type, group)).to eql(expected_hash)
+          expect(setup_group_type).to eql(expected_hash)
         end
       end
 
@@ -511,12 +592,16 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         end
 
         it "initializes the instance variables with empty MappingHash" do
-          expect(described_class.send(:setup_group_type, group)).to be_empty
+          expect(setup_group_type).to be_empty
         end
       end
     end
 
     describe ".setup_choice" do
+      let(:setup_choice) do
+        described_class.send(:setup_choice, choice)
+      end
+
       context "when given choice contains sequence, choice" do
         let(:choice) do
           Lutaml::Xsd::Choice.new.tap do |ct|
@@ -533,10 +618,20 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
           end
         end
 
-        let(:expected_hash) { { sequence: {}, choice: {}, group: {}, "test_element" => { element_name: "test_element", type_name: nil } } }
+        let(:expected_hash) do
+          {
+            sequence: {},
+            choice: {},
+            group: {},
+            "test_element" => {
+              element_name: "test_element",
+              type_name: nil,
+            },
+          }
+        end
 
         it "initializes the instance variables with empty MappingHash" do
-          expect(described_class.send(:setup_choice, choice)).to eql(expected_hash)
+          expect(setup_choice).to eql(expected_hash)
         end
       end
 
@@ -548,12 +643,16 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         end
 
         it "initializes the instance variables with empty MappingHash" do
-          expect(described_class.send(:setup_choice, choice)).to be_empty
+          expect(setup_choice).to be_empty
         end
       end
     end
 
     describe ".setup_union" do
+      let(:setup_union) do
+        described_class.send(:setup_union, union)
+      end
+
       context "when given union contains member_types" do
         before do
           described_class.instance_variable_set(:@simple_types, simple_types)
@@ -576,10 +675,15 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
           end
         end
 
-        let(:expected_hash) { [{ name: "test_member_type" }, { name: "test_member_type1" }] }
+        let(:expected_output) do
+          [
+            { name: "test_member_type" },
+            { name: "test_member_type1" },
+          ]
+        end
 
         it "returns the expected hash" do
-          expect(described_class.send(:setup_union, union)).to eql(expected_hash)
+          expect(setup_union).to eql(expected_output)
         end
       end
 
@@ -587,12 +691,16 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         let(:union) { Lutaml::Xsd::Union.new }
 
         it "returns the empty hash" do
-          expect(described_class.send(:setup_union, union)).to be_empty
+          expect(setup_union).to be_empty
         end
       end
     end
 
     describe ".setup_attribute" do
+      let(:setup_attribute) do
+        described_class.send(:setup_attribute, attribute)
+      end
+
       context "when given attribute contains name and type" do
         let(:attribute) do
           Lutaml::Xsd::Attribute.new.tap do |attr|
@@ -604,7 +712,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         let(:expected_hash) { { name: "test_name", base_class: "test_type" } }
 
         it "returns the expected hash" do
-          expect(described_class.send(:setup_attribute, attribute)).to eql(expected_hash)
+          expect(setup_attribute).to eql(expected_hash)
         end
       end
 
@@ -618,7 +726,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         let(:expected_hash) { { ref_class: "test_ref" } }
 
         it "returns the expected hash" do
-          expect(described_class.send(:setup_attribute, attribute)).to eql(expected_hash)
+          expect(setup_attribute).to eql(expected_hash)
         end
       end
 
@@ -627,12 +735,16 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         let(:expected_hash) { { name: nil, base_class: nil } }
 
         it "returns the empty hash" do
-          expect(described_class.send(:setup_attribute, attribute)).to eql(expected_hash)
+          expect(setup_attribute).to eql(expected_hash)
         end
       end
     end
 
     describe ".setup_attribute_groups" do
+      let(:setup_attribute_groups) do
+        described_class.send(:setup_attribute_groups, attribute_group)
+      end
+
       context "when given attribute_group contains attribute and attribute_group" do
         let(:attribute_group) do
           Lutaml::Xsd::AttributeGroup.new.tap do |attr_group|
@@ -645,10 +757,17 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
           end
         end
 
-        let(:expected_hash) { { attributes: [{ name: "test_name", base_class: "test_type" }], attribute_groups: [{}] } }
+        let(:expected_hash) do
+          {
+            attributes: [
+              { name: "test_name", base_class: "test_type" },
+            ],
+            attribute_groups: [{}],
+          }
+        end
 
         it "returns the expected hash" do
-          expect(described_class.send(:setup_attribute_groups, attribute_group)).to eql(expected_hash)
+          expect(setup_attribute_groups).to eql(expected_hash)
         end
       end
 
@@ -662,7 +781,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         let(:expected_hash) { { ref_class: "test_ref" } }
 
         it "returns the expected hash" do
-          expect(described_class.send(:setup_attribute_groups, attribute_group)).to eql(expected_hash)
+          expect(setup_attribute_groups).to eql(expected_hash)
         end
       end
 
@@ -670,7 +789,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         let(:attribute_group) { Lutaml::Xsd::AttributeGroup.new }
 
         it "returns the empty hash" do
-          expect(described_class.send(:setup_attribute_groups, attribute_group)).to be_empty
+          expect(setup_attribute_groups).to be_empty
         end
       end
     end
@@ -722,6 +841,10 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         described_class.instance_variable_set(:@complex_types, nil)
       end
 
+      let(:setup_element) do
+        described_class.send(:setup_element, element)
+      end
+
       let(:complex_types) { { "test_complex_type" => {} } }
 
       context "when given element contains ref" do
@@ -734,7 +857,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         let(:expected_hash) { { ref_class: "test_ref" } }
 
         it "returns the expected hash" do
-          expect(described_class.send(:setup_element, element)).to eql(expected_hash)
+          expect(setup_element).to eql(expected_hash)
         end
       end
 
@@ -754,7 +877,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         let(:expected_hash) { { ref_class: "test_ref" } }
 
         it "returns the expected hash" do
-          expect(described_class.send(:setup_element, element)).to eql(expected_hash)
+          expect(setup_element).to eql(expected_hash)
         end
       end
 
@@ -768,10 +891,16 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
           end
         end
 
-        let(:expected_hash) { { type_name: "test_type", element_name: "test_name", arguments: { min_occurs: "0", max_occurs: "1" } } }
+        let(:expected_hash) do
+          {
+            type_name: "test_type",
+            element_name: "test_name",
+            arguments: { min_occurs: "0", max_occurs: "1" },
+          }
+        end
 
         it "returns the expected hash" do
-          expect(described_class.send(:setup_element, element)).to eql(expected_hash)
+          expect(setup_element).to eql(expected_hash)
         end
       end
 
@@ -785,10 +914,16 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
           end
         end
 
-        let(:expected_hash) { { type_name: "test_type", element_name: "test_name", complex_type: { mixed: false } } }
+        let(:expected_hash) do
+          {
+            type_name: "test_type",
+            element_name: "test_name",
+            complex_type: { mixed: false },
+          }
+        end
 
         it "returns the expected hash" do
-          expect(described_class.send(:setup_element, element)).to eql(expected_hash)
+          expect(setup_element).to eql(expected_hash)
         end
       end
 
@@ -797,12 +932,16 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         let(:expected_hash) { { type_name: nil, element_name: nil } }
 
         it "returns the expected hash" do
-          expect(described_class.send(:setup_element, element)).to eql(expected_hash)
+          expect(setup_element).to eql(expected_hash)
         end
       end
     end
 
     describe ".setup_restriction" do
+      let(:setup_restriction) do
+        described_class.send(:setup_restriction, restriction, {})
+      end
+
       context "when given restriction contains base and pattern" do
         let(:restriction) do
           Lutaml::Xsd::RestrictionSimpleType.new.tap do |restriction|
@@ -818,10 +957,16 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
           end
         end
 
-        let(:expected_hash) { { base_class: "test_base", pattern: "((?-mix:test_pattern))|((?-mix:test_pattern1))", values: ["test_value", "test_value1"] } }
+        let(:expected_hash) do
+          {
+            base_class: "test_base",
+            pattern: "((?-mix:test_pattern))|((?-mix:test_pattern1))",
+            values: ["test_value", "test_value1"],
+          }
+        end
 
         it "returns the expected hash" do
-          expect(described_class.send(:setup_restriction, restriction, {})).to eql(expected_hash)
+          expect(setup_restriction).to eql(expected_hash)
         end
       end
 
@@ -829,12 +974,16 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         let(:restriction) { Lutaml::Xsd::RestrictionSimpleType.new }
 
         it "returns the expected hash" do
-          expect(described_class.send(:setup_restriction, restriction, {})).to eql({ base_class: nil })
+          expect(setup_restriction).to eql({ base_class: nil })
         end
       end
     end
 
     describe ".restriction_patterns" do
+      let(:restriction_patterns) do
+        described_class.send(:restriction_patterns, patterns, {})
+      end
+
       context "when given patterns are not empty" do
         let(:patterns) do
           [
@@ -843,10 +992,12 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
           ]
         end
 
-        let(:expected_hash) { { pattern: "((?-mix:test_pattern))|((?-mix:test_pattern1))" } }
+        let(:expected_hash) do
+          { pattern: "((?-mix:test_pattern))|((?-mix:test_pattern1))" }
+        end
 
         it "returns the expected hash" do
-          expect(described_class.send(:restriction_patterns, patterns, {})).to eql(expected_hash)
+          expect(restriction_patterns).to eql(expected_hash)
         end
       end
 
@@ -854,43 +1005,55 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         let(:patterns) { [] }
 
         it "returns the expected hash" do
-          expect(described_class.send(:restriction_patterns, patterns, {})).to be_nil
+          expect(restriction_patterns).to be_nil
         end
       end
     end
 
     describe ".setup_complex_content" do
-      context "when given complex_content contains extension with mixed attribute" do
+      let(:setup_complex_content) do
+        described_class.send(:setup_complex_content, complex_content)
+      end
+
+      context "when complex_content contains extension with mixed attribute" do
         let(:complex_content) do
           Lutaml::Xsd::ComplexContent.new.tap do |complex_content|
             complex_content.mixed = true
-            complex_content.extension = Lutaml::Xsd::ExtensionComplexContent.new(base: "test_base")
+            complex_content.extension =
+              Lutaml::Xsd::ExtensionComplexContent.new(base: "test_base")
           end
         end
 
-        let(:expected_hash) { { mixed: true, extension: { extension_base: "test_base" } } }
+        let(:expected_hash) do
+          { mixed: true, extension: { extension_base: "test_base" } }
+        end
 
         it "returns the expected hash" do
-          expect(described_class.send(:setup_complex_content, complex_content)).to eql(expected_hash)
+          expect(setup_complex_content).to eql(expected_hash)
         end
       end
 
-      context "when given complex_content contains restriction" do
+      context "when complex_content contains restriction" do
         let(:complex_content) do
           Lutaml::Xsd::ComplexContent.new.tap do |complex_content|
-            complex_content.restriction = Lutaml::Xsd::RestrictionComplexContent.new(base: "test_base")
+            complex_content.restriction =
+              Lutaml::Xsd::RestrictionComplexContent.new(base: "test_base")
           end
         end
 
         let(:expected_hash) { { base_class: "test_base" } }
 
         it "returns the expected hash" do
-          expect(described_class.send(:setup_complex_content, complex_content)).to eql(expected_hash)
+          expect(setup_complex_content).to eql(expected_hash)
         end
       end
     end
 
     describe ".setup_extension" do
+      let(:setup_extension) do
+        described_class.send(:setup_extension, extension)
+      end
+
       context "when given extension contains attributes" do
         let(:extension) do
           Lutaml::Xsd::ExtensionComplexContent.new.tap do |extension|
@@ -920,7 +1083,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         end
 
         it "returns the expected hash" do
-          expect(described_class.send(:setup_extension, extension)).to eql(expected_hash)
+          expect(setup_extension).to eql(expected_hash)
         end
       end
 
@@ -928,12 +1091,16 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         let(:extension) { Lutaml::Xsd::ExtensionComplexContent.new }
 
         it "returns the expected hash" do
-          expect(described_class.send(:setup_extension, extension)).to eql({ extension_base: nil })
+          expect(setup_extension).to eql({ extension_base: nil })
         end
       end
     end
 
     describe ".element_arguments" do
+      let(:element_arguments) do
+        described_class.send(:element_arguments, element, {})
+      end
+
       context "when given element contains min_occurs and max_occurs" do
         let(:element) do
           Lutaml::Xsd::Element.new.tap do |element|
@@ -945,7 +1112,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         let(:expected_hash) { { min_occurs: "0", max_occurs: "1" } }
 
         it "returns the expected hash" do
-          expect(described_class.send(:element_arguments, element, {})).to eql(expected_hash)
+          expect(element_arguments).to eql(expected_hash)
         end
       end
 
@@ -953,12 +1120,16 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         let(:element) { Lutaml::Xsd::Element.new }
 
         it "returns the expected hash" do
-          expect(described_class.send(:element_arguments, element, {})).to be_empty
+          expect(element_arguments).to be_empty
         end
       end
     end
 
     describe ".resolved_element_order" do
+      let(:resolved_element_order) do
+        described_class.send(:resolved_element_order, element)
+      end
+
       context "when given element contains element_order but no instance relevant elements/instances" do
         let(:element) do
           Lutaml::Xsd::Element.new.tap do |element|
@@ -973,12 +1144,12 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
 
         it "raises an error when element_order contains elements that isn't an attribute of the instance" do
           element.element_order << Lutaml::Model::XmlAdapter::Element.new("Element", "test_element")
-          expect { described_class.send(:resolved_element_order, element) }.to raise_error(NoMethodError)
+          expect { resolved_element_order }.to raise_error(NoMethodError)
         end
 
         it "returns the array with nil values" do
           expected_hash = [nil, nil, nil, nil]
-          expect(described_class.send(:resolved_element_order, element)).to eql(expected_hash)
+          expect(resolved_element_order).to eql(expected_hash)
         end
       end
 
@@ -998,10 +1169,17 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
           end
         end
 
-        let(:expected_hash) { [element.annotation, element.simple_type, element.complex_type, element.key] }
+        let(:expected_hash) do
+          [
+            element.annotation,
+            element.simple_type,
+            element.complex_type,
+            element.key,
+          ]
+        end
 
         it "returns the expected hash" do
-          expect(described_class.send(:resolved_element_order, element)).to eql(expected_hash)
+          expect(resolved_element_order).to eql(expected_hash)
         end
       end
 
@@ -1013,7 +1191,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         end
 
         it "returns the expected hash" do
-          expect(described_class.send(:resolved_element_order, element)).to be_empty
+          expect(resolved_element_order).to be_empty
         end
       end
     end
@@ -1021,73 +1199,115 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
 
   describe "structure to template content resolving methods" do
     describe ".resolve_parent_class" do
+      let(:resolve_parent_class) do
+        described_class.send(:resolve_parent_class, content)
+      end
+
       context "when complex_content.extension is not present" do
+        let(:content) { {} }
+
         it "returns Lutaml::Model::Serializable" do
-          expect(described_class.send(:resolve_parent_class, {})).to eql("Lutaml::Model::Serializable")
+          expect(resolve_parent_class).to eql("Lutaml::Model::Serializable")
         end
       end
 
       context "when complex_content.extension is present" do
+        let(:content) do
+          { complex_content: { extension: { extension_base: "ST_Parent" } } }
+        end
+
         it "returns the extension_base value" do
-          content = { complex_content: { extension: { extension_base: "ST_Parent" } } }
-          expect(described_class.send(:resolve_parent_class, content)).to eql("STParent")
+          expect(resolve_parent_class).to eql("STParent")
         end
       end
     end
 
     describe ".resolve_attribute_class" do
-      context "when attribute.base_class is one of the standard classes" do
-        described_class::DEFAULT_CLASSES.each do |standard_class|
-          it "returns the attribute_class value for #{standard_class.capitalize}" do
-            base_class_hash = to_mapping_hash({ base_class: "xsd:#{standard_class}" })
-            expect(described_class.send(:resolve_attribute_class, base_class_hash)).to eql(":#{standard_class}")
+      let(:resolve_attribute_class) do
+        described_class.send(:resolve_attribute_class, base_class_hash)
+      end
+
+      described_class::DEFAULT_CLASSES.each do |standard_class|
+        context "when #{standard_class.capitalize}" do
+          let(:base_class_hash) do
+            to_mapping_hash({ base_class: "xsd:#{standard_class}" })
+          end
+
+          it "returns :#{standard_class}" do
+            expect(resolve_attribute_class).to eql(":#{standard_class}")
           end
         end
       end
 
       context "when attribute.base_class is not one of the standard classes" do
+        let(:base_class_hash) do
+          to_mapping_hash({ base_class: "test_st_attr1" })
+        end
+
         it "returns the attribute_class value" do
-          base_class_hash = to_mapping_hash({ base_class: "test_st_attr1" })
-          expect(described_class.send(:resolve_attribute_class, base_class_hash)).to eql("TestStAttr1")
+          expect(resolve_attribute_class).to eql("TestStAttr1")
         end
       end
     end
 
     describe ".resolve_element_class" do
-      context "when element.type_name is one of the standard classes" do
-        described_class::DEFAULT_CLASSES.each do |standard_class|
-          it "returns the element_class value for #{standard_class.capitalize}" do
-            type_name_hash = to_mapping_hash({ type_name: "xsd:#{standard_class}" })
-            expect(described_class.send(:resolve_element_class, type_name_hash)).to eql(":#{standard_class}")
+      let(:resolve_element_class) do
+        described_class.send(:resolve_element_class, type_name_hash)
+      end
+
+      described_class::DEFAULT_CLASSES.each do |standard_class|
+        context "when #{standard_class.capitalize}" do
+          let(:type_name_hash) do
+            to_mapping_hash({ type_name: "xsd:#{standard_class}" })
+          end
+
+          it "returns :#{standard_class}" do
+            expect(resolve_element_class).to eql(":#{standard_class}")
           end
         end
       end
 
       context "when element.type_name is not one of the standard classes" do
+        let(:type_name_hash) do
+          to_mapping_hash({ type_name: "test_st_element1" })
+        end
+
         it "returns the element_class value" do
-          type_name_hash = to_mapping_hash({ type_name: "test_st_element1" })
-          expect(described_class.send(:resolve_element_class, type_name_hash)).to eql("TestStElement1")
+          expect(resolve_element_class).to eql("TestStElement1")
         end
       end
     end
 
     describe ".resolve_occurs" do
-      context "when min_occurs and max_occurs are present" do
+      let(:resolve_occours) do
+        described_class.send(:resolve_occurs, base_class_hash)
+      end
+
+      context "when max_occurs is unbounded" do
+        let(:base_class_hash) do
+          to_mapping_hash({ min_occurs: 0, max_occurs: "unbounded" })
+        end
+
         it "returns the collection: true" do
-          base_class_hash = to_mapping_hash({ min_occurs: 0, max_occurs: "unbounded" })
-          expect(described_class.send(:resolve_occurs, base_class_hash)).to eql(", collection: true")
+          expect(resolve_occours).to eql(", collection: true")
+        end
+      end
+
+      context "when max_occurs is 1" do
+        let(:base_class_hash) do
+          to_mapping_hash({ min_occurs: 0, max_occurs: 1 })
         end
 
         it "returns the collection: 0..1" do
-          base_class_hash = to_mapping_hash({ min_occurs: 0, max_occurs: 1 })
-          expect(described_class.send(:resolve_occurs, base_class_hash)).to eql(", collection: 0..1")
+          expect(resolve_occours).to eql(", collection: 0..1")
         end
       end
 
       context "when min_occurs/max_occurs are not present" do
+        let(:base_class_hash) { {} }
+
         it "returns the collection: 0.." do
-          base_class_hash = to_mapping_hash({ min_occurs: 0, max_occurs: 1 })
-          expect(described_class.send(:resolve_occurs, base_class_hash)).to eql(", collection: 0..1")
+          expect(resolve_occours).to eql(", collection: true")
         end
       end
     end
@@ -1101,15 +1321,33 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         described_class.instance_variable_set(:@elements, nil)
       end
 
+      let(:resolve_elements) do
+        described_class.send(:resolve_elements, content)
+      end
+
       let(:elements) do
-        to_mapping_hash({ "testRef" => to_mapping_hash({ element_name: "testElement" }) })
+        to_mapping_hash(
+          { "testRef" => to_mapping_hash({ element_name: "testElement" }) },
+        )
       end
 
       context "when elements contain ref_class and base_class elements" do
+        let(:content) do
+          [
+            to_mapping_hash({ ref_class: "testRef" }),
+            to_mapping_hash({ element_name: "testElement1" }),
+          ]
+        end
+
+        let(:expected_elements) do
+          {
+            "testElement" => { element_name: "testElement" },
+            "testElement1" => { element_name: "testElement1" },
+          }
+        end
+
         it "returns the elements hash" do
-          content = [to_mapping_hash({ ref_class: "testRef" }), to_mapping_hash({ element_name: "testElement1" })]
-          expected_elements = { "testElement" => { element_name: "testElement" }, "testElement1" => { element_name: "testElement1" } }
-          expect(described_class.send(:resolve_elements, content)).to eql(expected_elements)
+          expect(resolve_elements).to eql(expected_elements)
         end
       end
     end
@@ -1140,7 +1378,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         }
       end
 
-      context "when sequence contain empty elements and other empty attributes" do
+      context "when sequence contain empty elements and empty attributes" do
         it "returns the elements empty hash" do
           expect(described_class.send(:resolve_sequence, sequence)).to be_empty
         end
@@ -1148,6 +1386,10 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
     end
 
     describe ".resolve_choice" do
+      let(:resolve_choice) do
+        described_class.send(:resolve_choice, choice)
+      end
+
       let(:choice) do
         {
           "string" => to_mapping_hash({ element_name: "testElement" }),
@@ -1159,7 +1401,8 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
 
       context "when choice contain empty elements and other empty attributes" do
         it "returns the one element hash" do
-          expect(described_class.send(:resolve_choice, choice)).to eql({ "string" => { element_name: "testElement" } })
+          expect(resolve_choice)
+            .to eql({ "string" => { element_name: "testElement" } })
         end
       end
     end
@@ -1192,6 +1435,10 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
     end
 
     describe ".resolve_complex_content" do
+      let(:resolve_complex_content) do
+        described_class.send(:resolve_complex_content, complex_content)
+      end
+
       let(:complex_content) do
         {
           extension: {},
@@ -1201,15 +1448,22 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
 
       context "when complex_content contain extension and restriction" do
         it "returns the one element hash" do
-          expect(described_class.send(:resolve_complex_content, complex_content)).to be_empty
+          expect(resolve_complex_content).to be_empty
         end
       end
     end
 
     describe ".resolve_extension" do
+      let(:resolve_extension) do
+        described_class.send(:resolve_extension, to_mapping_hash(extension))
+      end
+
       let(:extension) do
         {
-          attributes: [{ base_class: "ST_Attr1", default: "1" }, { base_class: "ST_Attr2", default: "2" }],
+          attributes: [
+            { base_class: "ST_Attr1", default: "1" },
+            { base_class: "ST_Attr2", default: "2" },
+          ],
           sequence: {},
           choice: {},
         }
@@ -1217,63 +1471,105 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
 
       context "when extension contain attributes, sequence and choice" do
         it "returns the one element hash" do
-          expect(described_class.send(:resolve_extension, to_mapping_hash(extension))).to eql({ attributes: extension[:attributes] })
+          expect(resolve_extension)
+            .to eql({ attributes: extension[:attributes] })
         end
       end
     end
 
     describe ".resolve_attribute_default" do
+      let(:resolve_attribute_default) do
+        described_class.send(:resolve_attribute_default, attribute)
+      end
+
       context "when attribute contain default" do
+        let(:attribute) do
+          to_mapping_hash({ base_class: "ST_Attr1", default: "1" })
+        end
+
         it "returns the string with default value" do
-          attribute = to_mapping_hash({ base_class: "ST_Attr1", default: "1" })
-          expect(described_class.send(:resolve_attribute_default, attribute)).to eql(", default: \"1\"")
+          expect(resolve_attribute_default).to eql(", default: \"1\"")
         end
       end
 
       context "when attribute contain no default" do
+        let(:attribute) { to_mapping_hash({ base_class: "ST_Attr1" }) }
+
         it "returns the string with nil as default value" do
-          attribute = to_mapping_hash({ base_class: "ST_Attr1" })
-          expect(described_class.send(:resolve_attribute_default, attribute)).to eql(", default: nil")
+          expect(resolve_attribute_default).to eql(", default: nil")
         end
       end
     end
 
     describe ".resolve_attribute_default_value" do
-      context "when attribute data type is one of the standard classes" do
-        let(:standard_class_value) do
-          {
-            "int" => { input: "1", output: 1 },
-            "integer" => { input: "12", output: 12 },
-            "string" => { input: "test_string", output: "test_string" },
-            "boolean" => { input: "false", output: false },
-          }
-        end
+      let(:resolve_attribute_default_value) do
+        described_class.send(
+          :resolve_attribute_default_value,
+          class_name,
+          input,
+        )
+      end
 
-        described_class::DEFAULT_CLASSES.each do |standard_class|
-          it "returns the value as the #{standard_class.capitalize} class instance" do
-            default_value = standard_class_value[standard_class]
-            expect(described_class.send(:resolve_attribute_default_value, standard_class, default_value[:input])).to eql(default_value[:output])
+      let(:standard_class_value) do
+        {
+          "int" => { input: "1", output: 1 },
+          "integer" => { input: "12", output: 12 },
+          "string" => { input: "test_string", output: "test_string" },
+          "boolean" => { input: "false", output: false },
+        }
+      end
+
+      described_class::DEFAULT_CLASSES.each do |standard_class|
+        describe "for #{standard_class.capitalize} class" do
+          let(:default_value) { standard_class_value[standard_class] }
+          let(:class_name) { standard_class }
+          let(:input) { default_value[:input] }
+
+          it "returns an instance of #{standard_class.capitalize}" do
+            expect(resolve_attribute_default_value)
+              .to eql(default_value[:output])
           end
         end
       end
 
       context "when attribute data type is not one of the standard classes" do
+        let(:class_name) { "BooleanTestClass" }
+        let(:input) { "1" }
+
         it "returns the string with default value" do
-          expect(described_class.send(:resolve_attribute_default_value, "BooleanTestClass", "1")).to eql("\"1\"")
+          expect(resolve_attribute_default_value).to eql("\"1\"")
         end
       end
     end
 
     describe ".resolve_namespace" do
+      let(:resolved_namespace) do
+        described_class.send(
+          :resolve_namespace,
+          namespace_attrs,
+        )
+      end
+
       context "when namespace is given" do
+        let(:namespace_attrs) { { namespace: "testNamespace" } }
+
         it "returns the string with namespace" do
-          expect(described_class.send(:resolve_namespace, { namespace: "testNamespace" })).to eql("namespace \"testNamespace\"\n")
+          expect(resolved_namespace)
+            .to eql("namespace \"testNamespace\"\n")
         end
       end
 
       context "when namespace and prefix are given" do
+        let(:namespace_attrs) do
+          {
+            namespace: "testNamespace",
+            prefix: "testPrefix",
+          }
+        end
+
         it "returns the string with namespace and prefix" do
-          expect(described_class.send(:resolve_namespace, { namespace: "testNamespace", prefix: "testPrefix" })).to eql("namespace \"testNamespace\", \"testPrefix\"\n")
+          expect(resolved_namespace)
+            .to eql("namespace \"testNamespace\", \"testPrefix\"\n")
         end
       end
 
@@ -1286,6 +1582,10 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
   end
 
   describe "required files list compiler methods" do
+    let(:required_files) do
+      described_class.instance_variable_get(:@required_files)
+    end
+
     describe ".resolve_required_files" do
       context "when elements are given" do
         before do
@@ -1308,9 +1608,9 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
           }
         end
 
-        it "populates @required_files variable with the names of the required files" do
+        it "populates @required_files" do
           described_class.send(:resolve_required_files, content)
-          expect(described_class.instance_variable_get(:@required_files)).to eql([])
+          expect(required_files).to eql([])
         end
       end
     end
@@ -1334,9 +1634,9 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
           }
         end
 
-        it "populates @required_files variable with the names of the required files" do
+        it "populates @required_files" do
           described_class.send(:required_files_simple_content, content)
-          expect(described_class.instance_variable_get(:@required_files)).to eql([])
+          expect(required_files).to eql([])
         end
       end
     end
@@ -1358,9 +1658,9 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
           }
         end
 
-        it "populates @required_files variable with the names of the required files" do
+        it "populates @required_files" do
           described_class.send(:required_files_complex_content, content)
-          expect(described_class.instance_variable_get(:@required_files)).to eql([])
+          expect(required_files).to eql([])
         end
       end
     end
@@ -1386,9 +1686,9 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
           }
         end
 
-        it "populates @required_files variable with the names of the required files" do
+        it "populates @required_files" do
           described_class.send(:required_files_extension, content)
-          expect(described_class.instance_variable_get(:@required_files)).to eql([])
+          expect(required_files).to eql([])
         end
       end
     end
@@ -1405,9 +1705,9 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
 
         let(:content) { { base: "testId" } }
 
-        it "populates @required_files variable with the names of the required files" do
+        it "populates @required_files" do
           described_class.send(:required_files_restriction, content)
-          expect(described_class.instance_variable_get(:@required_files)).to eql(["test_id"])
+          expect(required_files).to eql(["test_id"])
         end
       end
     end
@@ -1434,9 +1734,9 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
           }
         end
 
-        it "populates @required_files variable with the names of the required files" do
+        it "populates @required_files" do
           described_class.send(:required_files_attribute_groups, content)
-          expect(described_class.instance_variable_get(:@required_files)).to eql([])
+          expect(required_files).to eql([])
         end
       end
     end
@@ -1466,9 +1766,9 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
           ]
         end
 
-        it "populates @required_files variable with the names of the required files" do
+        it "populates @required_files" do
           described_class.send(:required_files_attribute, content)
-          expect(described_class.instance_variable_get(:@required_files)).to eql(["st_attr1", "st_attr2"])
+          expect(required_files).to eql(["st_attr1", "st_attr2"])
         end
       end
     end
@@ -1488,9 +1788,9 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
           }
         end
 
-        it "populates @required_files variable with the names of the required files" do
+        it "populates @required_files" do
           described_class.send(:required_files_choice, content)
-          expect(described_class.instance_variable_get(:@required_files)).to eql(["st_attr1"])
+          expect(required_files).to eql(["st_attr1"])
         end
       end
     end
@@ -1516,9 +1816,9 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
           }
         end
 
-        it "populates @required_files variable with the names of the required files" do
+        it "populates @required_files" do
           described_class.send(:required_files_group, content)
-          expect(described_class.instance_variable_get(:@required_files)).to eql([])
+          expect(required_files).to eql([])
         end
       end
     end
@@ -1542,9 +1842,9 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
           }
         end
 
-        it "populates @required_files variable with the names of the required files" do
+        it "populates @required_files" do
           described_class.send(:required_files_sequence, content)
-          expect(described_class.instance_variable_get(:@required_files)).to eql([])
+          expect(required_files).to eql([])
         end
       end
     end
@@ -1574,9 +1874,9 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
           ]
         end
 
-        it "populates @required_files variable with the names of the required files" do
+        it "populates @required_files" do
           described_class.send(:required_files_elements, content)
-          expect(described_class.instance_variable_get(:@required_files)).to eql(["ct_element1", "ct_element2"])
+          expect(required_files).to eql(["ct_element1", "ct_element2"])
         end
       end
 
@@ -1605,9 +1905,9 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
           ]
         end
 
-        it "populates @required_files variable with the names of the required files excluding default classes" do
+        it "populates @required_files excluding default classes" do
           described_class.send(:required_files_elements, content)
-          expect(described_class.instance_variable_get(:@required_files)).to eql(["ct_element1"])
+          expect(required_files).to eql(["ct_element1"])
         end
       end
     end

@@ -92,19 +92,7 @@ RSpec.describe Lutaml::Model::KeyValueMapping do
       )
     end
 
-    it "handles JSON mapping" do
-      expect(mapping.mappings[0].render_nil).to be true
-      expect(mapping.mappings[0].delegate).to eq(:container)
-      expect(mapping.mappings[0].raw_mapping?).to be true
-    end
-
-    it "handles YAML mapping" do
-      expect(mapping.mappings[0].render_nil).to be true
-      expect(mapping.mappings[0].delegate).to eq(:container)
-      expect(mapping.mappings[0].raw_mapping?).to be true
-    end
-
-    it "handles TOML mapping" do
+    it "handles JSON, YAML, TOML mapping" do
       expect(mapping.mappings[0].render_nil).to be true
       expect(mapping.mappings[0].delegate).to eq(:container)
       expect(mapping.mappings[0].raw_mapping?).to be true

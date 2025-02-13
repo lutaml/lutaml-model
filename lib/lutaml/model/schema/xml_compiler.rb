@@ -611,7 +611,9 @@ module Lutaml
             when :attributes
               required_files_attribute(value)
             when :attribute_groups
-              value.each { |attribute_group| required_files_attribute_groups(attribute_group) }
+              value.each do |attribute_group|
+                required_files_attribute_groups(attribute_group)
+              end
             when :complex_content
               required_files_complex_content(value)
             when :simple_content
