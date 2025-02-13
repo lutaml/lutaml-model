@@ -14,14 +14,14 @@ require_relative "validation"
 require_relative "error"
 require_relative "choice"
 require_relative "sequence"
-require_relative "liquefiable"
+# require_relative "liquefiable"
 
 module Lutaml
   module Model
     module Serialize
       include ComparableModel
       include Validation
-      include Lutaml::Model::Liquefiable
+      # include Lutaml::Model::Liquefiable
 
       def self.included(base)
         base.extend(ClassMethods)
@@ -29,7 +29,7 @@ module Lutaml
       end
 
       module ClassMethods
-        include Lutaml::Model::Liquefiable::ClassMethods
+        # include Lutaml::Model::Liquefiable::ClassMethods
 
         attr_accessor :attributes, :mappings, :choice_attributes
 
