@@ -643,6 +643,91 @@ end
 ====
 
 
+=== Reusable Classes with Import (Group)
+
+Lutaml lets you create reusable element and attribute collections. These can be imported into other models using:
+
+- `import_model`: imports both attributes and mappings
+- `import_model_attributes`: imports only attributes  
+- `import_model_mappings`: imports only mappings
+
+NOTE: In case of XML, reusable class must have `no_root`. Import order determines how elements and attributes are overwritten.
+
+[example]
+====
+[source,ruby]
+----
+class GroupOfItems < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :type, :string
+  attribute :code, :string
+
+  xml do
+    no_root
+    sequence do
+      map_element "name", to: :name
+      map_element "type", to: :type, namespace: "http://www.example.com", prefix: "ex1"
+    end
+    map_attribute "code", to: :code
+  end
+end
+
+class AttributeValueType < Lutaml::Model::Type::Decimal
+end
+
+class ComplexType < Lutaml::Model::Serializable
+  choice do
+    attribute :tag, AttributeValueType
+    attribute :content, :string
+    attribute :group, :string
+    import_model_attributes GroupOfItems
+  end
+
+  xml do
+    root "GroupOfItems"
+    map_attribute "tag", to: :tag
+    map_content to: :content
+    map_element :group, to: :group
+    import_model_mappings GroupOfItems
+  end
+
+  key_value do
+    map :tag, to: :tag
+    map :content, to: :content
+    map :group, to: :group
+    import_model_mappings GroupOfItems
+  end
+end
+
+class SimpleType < Lutaml::Model::Serializable
+  import_model GroupOfItems
+end
+
+class GenericType < Lutaml::Model::Serializable
+  import_model_mappings GroupOfItems
+end
+----
+
+[source,xml]
+----
+<GroupOfItems xmlns:ex1="http://www.example.com">
+  <name>Name</name>
+  <ex1:type>Type</ex1:type>
+</GroupOfItems>
+----
+
+[source,ruby]
+----
+> parsed = GroupOfItems.from_xml(xml)
+> # Lutaml::Model::NoRootMappingError: "GroupOfItems has `no_root`, it allowed only for reusable models"
+----
+
+NOTE: Models with `no_root` can only be parsed through **Parent Models**. Direct calling `from_xml` will raise `NoRootMappingError`.
+And if `namespace` is defined with `no_root`, `NoRootNamespaceError` will raise.
+
+====
+
+
 === Sequence within XmlMapping
 
 The sequence option enforces that the defined components must appear in a specified order.
@@ -685,79 +770,6 @@ end
 > parsed = Kiln.from_xml("<Kiln> <id>1</id> <name>Nick</name> <type>Hard</type> <color>Black</color> </Kiln>")
 > # parsed.not_to raise_error
 ----
-====
-
-
-=== Reusable Classes with Import
-
-Lutaml lets you create reusable element and attribute collections using `no_root`. These can be imported into other models using:
-
-- `import_model`: imports both attributes and mappings
-- `import_model_attributes`: imports only attributes  
-- `import_model_mappings`: imports only mappings
-
-NOTE: This feature works with XML. Import order determines how elements and attributes are overwritten.
-
-[example]
-====
-[source,ruby]
-----
-class GroupOfItems < Lutaml::Model::Serializable
-  attribute :name, :string
-  attribute :type, :string
-  attribute :code, :string
-
-  xml do
-    no_root
-    sequence do
-      map_element "name", to: :name
-      map_element "type", to: :type, namespace: "http://www.example.com", prefix: "ex1"
-    end
-    map_attribute "code", to: :code
-  end
-end
-
-class ComplexType < Lutaml::Model::Serializable
-  attribute :tag, AttributeValueType
-  attribute :content, :string
-  attribute :group, :string
-  import_model_attributes GroupOfItems
-
-  xml do
-    root "GroupOfItems"
-    map_attribute "tag", to: :tag
-    map_content to: :content
-    map_element :group, to: :group
-    import_model_mappings GroupOfItems
-  end
-end
-
-class SimpleType < Lutaml::Model::Serializable
-  import_model GroupOfItems
-end
-
-class GenericType < Lutaml::Model::Serializable
-  import_model_mappings GroupOfItems
-end
-----
-
-[source,xml]
-----
-<GroupOfItems xmlns:ex1="http://www.example.com">
-  <name>Name</name>
-  <ex1:type>Type</ex1:type>
-</GroupOfItems>
-----
-
-[source,ruby]
-----
-> parsed = GroupOfItems.from_xml(xml)
-> # Lutaml::Model::NoRootMappingError: "GroupOfItems has `no_root`, it allowed only for reusable models"
-----
-
-NOTE: Models with `no_root` can only be parsed through **Parent Models**. Direct calling `from_xml` will raise `NoRootMappingError`.
-And if `namespace` is defined with `no_root`, `NoRootNamespaceError` will raise.
-
 ====
 
 

@@ -69,7 +69,11 @@ module Lutaml
         raise Lutaml::Model::ImportModelWithRootError.new(model) if model.mappings.key?(:xml) && model.root?
 
         current_format = self.class.instance_variable_get(:@current_mapping_format)
-        @key_value_mappings.merge!(model.mappings_for(current_format).key_value_mappings)
+        formats_to_import = current_format.is_a?(Array) ? current_format : [current_format]
+
+        formats_to_import.each do |format|
+          @key_value_mappings.merge!(model.mappings_for(format).key_value_mappings)
+        end
       end
 
       def validate!(key, to, with)

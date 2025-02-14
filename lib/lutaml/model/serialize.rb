@@ -132,7 +132,7 @@ module Lutaml
         end
 
         def import_model_with_root_error(model)
-          raise Lutaml::Model::ImportModelWithRootError.new(model) if (model.mappings.key?(:xml) && model.root?)
+          raise Lutaml::Model::ImportModelWithRootError.new(model) if model.mappings.key?(:xml) && model.root?
         end
 
         def import_model_attributes(model)
@@ -148,7 +148,29 @@ module Lutaml
 
         def import_model_mappings(model)
           import_model_with_root_error(model)
-          @mappings.merge!(model.mappings)
+
+          model.mappings.each_value do |mapping|
+            if @mappings[:xml] && model.mappings.key?(:xml)
+              map = @mappings[:xml]
+              map.instance_variable_get(:@attributes).merge!(mapping.instance_variable_get(:@attributes))
+              map.instance_variable_get(:@elements).merge!(mapping.instance_variable_get(:@elements))
+              (map.element_sequence << mapping.instance_variable_get(:@element_sequence)).flatten!
+            elsif model.mappings.key?(:xml)
+              map = @mappings[:xml]
+              map[attributes] = (mapping.instance_variable_get(:@attributes))
+              map[elements] = (mapping.instance_variable_get(:@elements))
+              map[element_sequence] = (mapping.instance_variable_get(:@element_sequence))
+            else
+              @mappings.merge!(mapping)
+            end
+          end
+          # if mappings = model.mappings_for(:xml)
+          #   @elements.merge!(mappings.instance_variable_get(:@elements))
+          #   @attributes.merge!(mappings.instance_variable_get(:@attributes))
+          #   (@element_sequence << mappings.element_sequence).flatten!
+          # else
+          #   @mappings.merge!(model.mappings)
+          # end
         end
 
         def import_model(model)
@@ -299,6 +321,8 @@ module Lutaml
         end
 
         def key_value(&block)
+          KeyValueMapping.instance_variable_set(:@current_mapping_format, Lutaml::Model::Config::KEY_VALUE_FORMATS)
+
           Lutaml::Model::Config::KEY_VALUE_FORMATS.each do |format|
             mappings[format] ||= KeyValueMapping.new
             mappings[format].instance_eval(&block)
