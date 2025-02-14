@@ -1,5 +1,3 @@
-require "liquid"
-
 module Lutaml
   module Model
     module Liquefiable

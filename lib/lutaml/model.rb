@@ -23,5 +23,14 @@ module Lutaml
 
     class BaseModel < Serializable
     end
+
+    def self.registered_class(class_alias)
+      @register[class_alias]
+    end
+
+    def self.register_class(class_alias, class_name)
+      @register ||= {}
+      @register[class_alias] = class_name
+    end
   end
 end

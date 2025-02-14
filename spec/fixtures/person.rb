@@ -71,3 +71,5 @@ class Person < Lutaml::Model::Serializable
     model.last_name = value
   end
 end
+
+Lutaml::Model.register_class(:person, Person)

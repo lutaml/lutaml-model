@@ -1,7 +1,7 @@
 module Lutaml
   module Model
     class Attribute
-      attr_reader :name, :type, :options
+      attr_reader :name, :options
 
       ALLOWED_OPTIONS = %i[
         raw
@@ -15,11 +15,19 @@ module Lutaml
         sequence
       ].freeze
 
+      def type
+        if @type.is_a?(Symbol)
+          Lutaml::Model.registered_class(@type) || cast_type!(@type)
+        else
+          @type
+        end
+      end
+
       def initialize(name, type, options = {})
         @name = name
 
         validate_type!(type)
-        @type = cast_type!(type)
+        @type = type
 
         validate_options!(options)
         @options = options
@@ -285,7 +293,7 @@ module Lutaml
 
       def validate_type!(type)
         return true if type.is_a?(Class)
-        return true if [Symbol, String].include?(type.class) && cast_type!(type)
+        return true if [Symbol, String].include?(type.class) && type
 
         raise ArgumentError,
               "Invalid type: #{type}, must be a Symbol, String or a Class"
