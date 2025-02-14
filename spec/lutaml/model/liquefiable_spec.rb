@@ -49,8 +49,19 @@ RSpec.describe Lutaml::Model::Liquefiable do
         end.to change {
                  dummy.class.const_defined?(:DummyModelDrop)
                }
-                 .from(false)
-                 .to(true)
+          .from(false)
+          .to(true)
+      end
+    end
+
+    context "when 'liquid' is not available" do
+      before { allow(Object).to receive(:const_defined?).with(:Liquid).and_return(false) }
+
+      it "raises an error" do
+        expect { dummy.class.register_liquid_drop_class }.to raise_error(
+          Lutaml::Model::LiquidNotEnabledError,
+          "Liquid functionality is not available by default; please install and require `liquid` gem to use this functionality",
+        )
       end
     end
 
@@ -94,23 +105,36 @@ RSpec.describe Lutaml::Model::Liquefiable do
       end.to change {
                dummy.to_liquid.respond_to?(:display_name)
              }
-               .from(false)
-               .to(true)
+        .from(false)
+        .to(true)
     end
   end
 
   describe ".to_liquid" do
-    before do
-      dummy.class.register_liquid_drop_class
-      dummy.class.register_drop_method(:display_name)
+    context "when liquid is not enabled" do
+      before { allow(Object).to receive(:const_defined?).with(:Liquid).and_return(false) }
+
+      it "raises an error" do
+        expect { dummy.to_liquid }.to raise_error(
+          Lutaml::Model::LiquidNotEnabledError,
+          "Liquid functionality is not available by default; please install and require `liquid` gem to use this functionality",
+        )
+      end
     end
 
-    it "returns an instance of the drop class" do
-      expect(dummy.to_liquid).to be_a(dummy.class.drop_class)
-    end
+    context "when liquid is enabled" do
+      before do
+        dummy.class.register_liquid_drop_class
+        dummy.class.register_drop_method(:display_name)
+      end
 
-    it "allows access to registered methods via the drop class" do
-      expect(dummy.to_liquid.display_name).to eq("TestName (42)")
+      it "returns an instance of the drop class" do
+        expect(dummy.to_liquid).to be_a(dummy.class.drop_class)
+      end
+
+      it "allows access to registered methods via the drop class" do
+        expect(dummy.to_liquid.display_name).to eq("TestName (42)")
+      end
     end
   end
 

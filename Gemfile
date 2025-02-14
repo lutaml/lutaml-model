@@ -8,6 +8,7 @@ gemspec
 gem "benchmark-ips"
 gem "bigdecimal"
 gem "equivalent-xml"
+gem "liquid"
 gem "lutaml-xsd"
 gem "multi_json"
 gem "nokogiri"

@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "liquid"
 require "rspec/matchers"
 require "equivalent-xml"
 

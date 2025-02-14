@@ -117,8 +117,6 @@ module Lutaml
             end
           end
 
-          register_drop_method(name)
-
           attr
         end
 
