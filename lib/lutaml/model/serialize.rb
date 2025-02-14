@@ -149,28 +149,33 @@ module Lutaml
         def import_model_mappings(model)
           import_model_with_root_error(model)
 
-          model.mappings.each_value do |mapping|
-            if @mappings[:xml] && model.mappings.key?(:xml)
-              map = @mappings[:xml]
-              map.instance_variable_get(:@attributes).merge!(mapping.instance_variable_get(:@attributes))
-              map.instance_variable_get(:@elements).merge!(mapping.instance_variable_get(:@elements))
-              (map.element_sequence << mapping.instance_variable_get(:@element_sequence)).flatten!
-            elsif model.mappings.key?(:xml)
-              map = @mappings[:xml]
-              map[attributes] = (mapping.instance_variable_get(:@attributes))
-              map[elements] = (mapping.instance_variable_get(:@elements))
-              map[element_sequence] = (mapping.instance_variable_get(:@element_sequence))
+          Lutaml::Model::Config::AVAILABLE_FORMATS.each do |format|
+            mapping = model.mappings_for(format)
+
+            if format == :xml
+              handle_xml_mapping(mapping, model)
             else
-              @mappings.merge!(mapping)
+              handle_key_value_mappings(mapping, format)
             end
           end
-          # if mappings = model.mappings_for(:xml)
-          #   @elements.merge!(mappings.instance_variable_get(:@elements))
-          #   @attributes.merge!(mappings.instance_variable_get(:@attributes))
-          #   (@element_sequence << mappings.element_sequence).flatten!
-          # else
-          #   @mappings.merge!(model.mappings)
-          # end
+        end
+
+        def handle_xml_mapping(mapping, model)
+          return unless model.mappings.key?(:xml)
+
+          @mappings[:xml] ||= XmlMapping.new
+          merge_or_initialize_mapping(@mappings[:xml], mapping)
+        end
+
+        def merge_or_initialize_mapping(target_mapping, mapping)
+          target_mapping.instance_variable_get(:@attributes).merge!(mapping.instance_variable_get(:@attributes))
+          target_mapping.instance_variable_get(:@elements).merge!(mapping.instance_variable_get(:@elements))
+          (target_mapping.element_sequence << mapping.instance_variable_get(:@element_sequence)).flatten!
+        end
+
+        def handle_key_value_mappings(mapping, format)
+          @mappings[format] ||= KeyValueMapping.new
+          @mappings[format].key_value_mappings.merge!(mapping.key_value_mappings)
         end
 
         def import_model(model)

@@ -2,25 +2,25 @@ require "spec_helper"
 require "lutaml/model"
 
 module GroupSpec
-  # class Ceramic < Lutaml::Model::Serializable
-  #   attribute :type, :string
-  #   attribute :name, :string
+  class Ceramic < Lutaml::Model::Serializable
+    attribute :type, :string
+    attribute :name, :string
 
-  #   xml do
-  #     no_root
-  #     map_element :type, to: :type
-  #     map_element :name, to: :name
-  #   end
-  # end
+    xml do
+      no_root
+      map_element :type, to: :type
+      map_element :name, to: :name
+    end
+  end
 
-  # class CeramicCollection < Lutaml::Model::Serializable
-  #   attribute :ceramic, Ceramic, collection: 1..2
+  class CeramicCollection < Lutaml::Model::Serializable
+    attribute :ceramic, Ceramic, collection: 1..2
 
-  #   xml do
-  #     root "collection"
-  #     map_element "ceramic", to: :ceramic
-  #   end
-  # end
+    xml do
+      root "collection"
+      map_element "ceramic", to: :ceramic
+    end
+  end
 
   class AttributeValueType < Lutaml::Model::Type::Decimal
   end
@@ -55,94 +55,109 @@ module GroupSpec
       map_attribute "tag", to: :tag
       map_content to: :content
       map_element :group, to: :group
-      # import_model_mappings GroupOfItems
+      import_model_mappings GroupOfItems
     end
 
     key_value do
       map :tag, to: :tag
       map :content, to: :content
       map :group, to: :group
-      # import_model_mappings GroupOfItems
+      import_model_mappings GroupOfItems
+    end
+  end
+
+  class ImportModelWithExistingMappings < Lutaml::Model::Serializable
+    attribute :name, :string
+    attribute :type, :string
+
+    xml do
+      map_attribute :name, to: :name
+      map_element :type, to: :type
     end
 
+    key_value do
+      map :name, to: :name
+      map :type, to: :type
+    end
+
+    import_model GroupOfItems
+  end
+
+  class SimpleType < Lutaml::Model::Serializable
+    import_model GroupOfItems
+  end
+
+  class GenericType < Lutaml::Model::Serializable
     import_model_mappings GroupOfItems
   end
-binding.irb
-  # class SimpleType < Lutaml::Model::Serializable
-  #   import_model GroupOfItems
-  # end
 
-  # class GenericType < Lutaml::Model::Serializable
-  #   import_model_mappings GroupOfItems
-  # end
+  class GroupWithRoot < Lutaml::Model::Serializable
+    attribute :name, :string
 
-  # class GroupWithRoot < Lutaml::Model::Serializable
-  #   attribute :name, :string
+    xml do
+      root "group"
+      map_element :name, to: :name
+    end
+  end
 
-  #   xml do
-  #     root "group"
-  #     map_element :name, to: :name
-  #   end
-  # end
+  class ContributionInfo < Lutaml::Model::Serializable
+    choice(min: 1, max: 1) do
+      attribute :person, :string
+      attribute :organization, :string
+    end
 
-  # class ContributionInfo < Lutaml::Model::Serializable
-  #   choice(min: 1, max: 1) do
-  #     attribute :person, :string
-  #     attribute :organization, :string
-  #   end
+    xml do
+      no_root
+      map_element "person", to: :person
+      map_element "organization", to: :organization
+    end
+  end
 
-  #   xml do
-  #     no_root
-  #     map_element "person", to: :person
-  #     map_element "organization", to: :organization
-  #   end
-  # end
+  class Contributor < Lutaml::Model::Serializable
+    choice(min: 1, max: 1) do
+      attribute :role, :string
+    end
 
-  # class Contributor < Lutaml::Model::Serializable
-  #   choice(min: 1, max: 1) do
-  #     attribute :role, :string
-  #   end
+    import_model_attributes ContributionInfo
 
-  #   import_model_attributes ContributionInfo
+    xml do
+      root "contributor"
+      map_element "role", to: :role
+      map_element "person", to: :person
+      map_element "organization", to: :organization
+    end
+  end
 
-  #   xml do
-  #     root "contributor"
-  #     map_element "role", to: :role
-  #     map_element "person", to: :person
-  #     map_element "organization", to: :organization
-  #   end
-  # end
+  class GroupGlaze < Lutaml::Model::Serializable
+    choice(min: 1, max: 2) do
+      attribute :color, :string
+      attribute :temperature, :string
+      attribute :food_safe, :boolean
+    end
 
-  # class GroupGlaze < Lutaml::Model::Serializable
-  #   choice(min: 1, max: 2) do
-  #     attribute :color, :string
-  #     attribute :temperature, :string
-  #     attribute :food_safe, :boolean
-  #   end
+    key_value do
+      map "color", to: :color
+      map "temperature", to: :temperature
+    end
+  end
 
-  #   key_value do
-  #     map "color", to: :color
-  #     map "temperature", to: :temperature
-  #   end
-  # end
+  class GroupCeramic < Lutaml::Model::Serializable
+    attribute :role, :string
+    import_model_attributes GroupGlaze
 
-  # class GroupCeramic < Lutaml::Model::Serializable
-  #   attribute :role, :string
-  #   import_model_attributes GroupGlaze
-
-  #   json do
-  #     map "role", to: :role
-  #     map "color", to: :color, render_default: true
-  #     map "temperature", to: :temperature
-  #     import_model_mappings GroupGlaze
-  #   end
-  # end
+    json do
+      map "role", to: :role
+      map "color", to: :color, render_default: true
+      map "temperature", to: :temperature
+      import_model_mappings GroupGlaze
+    end
+  end
 end
 
 RSpec.describe "Group" do
   context "with no_root" do
     let(:mapper) { GroupSpec::CeramicCollection }
-    binding.irb
+
     it "raises error if root-less class used directly for parsing" do
       xml = <<~XML
         <type>Data</type>
@@ -233,7 +248,6 @@ RSpec.describe "Group" do
 
     it "import attributes and mappings outside the xml block" do
       expect(GroupSpec::SimpleType.attributes).to include(GroupSpec::GroupOfItems.attributes)
-      binding.irb
       expect(GroupSpec::SimpleType.mappings_for(:xml).elements).to include(*GroupSpec::GroupOfItems.mappings_for(:xml).elements)
     end
 
@@ -242,6 +256,18 @@ RSpec.describe "Group" do
 
       formats.each do |format|
         expect(GroupSpec::ComplexType.mappings_for(format).key_value_mappings)
+          .to include(GroupSpec::GroupOfItems.mappings_for(format).key_value_mappings)
+      end
+    end
+
+    it "imports the model with existing the mappings and attributes" do
+      expect(GroupSpec::Import_Model_With_Existing_Mappings.attributes).to include(GroupSpec::GroupOfItems.attributes)
+      expect(GroupSpec::Import_Model_With_Existing_Mappings.mappings_for(:xml).elements).to include(*GroupSpec::GroupOfItems.mappings_for(:xml).elements)
+      expect(GroupSpec::Import_Model_With_Existing_Mappings.mappings_for(:xml).attributes).to include(*GroupSpec::GroupOfItems.mappings_for(:xml).attributes)
+
+      formats = %i[json yaml toml]
+      formats.each do |format|
+        expect(GroupSpec::Import_Model_With_Existing_Mappings.mappings_for(format).key_value_mappings)
           .to include(GroupSpec::GroupOfItems.mappings_for(format).key_value_mappings)
       end
     end

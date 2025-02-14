@@ -647,9 +647,9 @@ end
 
 Lutaml lets you create reusable element and attribute collections. These can be imported into other models using:
 
-- `import_model`: imports both attributes and mappings
-- `import_model_attributes`: imports only attributes  
-- `import_model_mappings`: imports only mappings
+- `import_model`: imports both attributes and mappings (can be defined outside mappings block)
+- `import_model_attributes`: imports only attributes (can be defined outside mappings block)
+- `import_model_mappings`: imports only mappings (can be defined in mappings block or outside)
 
 NOTE: In case of XML, reusable class must have `no_root`. Import order determines how elements and attributes are overwritten.
 
@@ -658,9 +658,11 @@ NOTE: In case of XML, reusable class must have `no_root`. Import order determine
 [source,ruby]
 ----
 class GroupOfItems < Lutaml::Model::Serializable
-  attribute :name, :string
-  attribute :type, :string
-  attribute :code, :string
+  choice do
+    attribute :name, :string
+    attribute :type, :string
+    attribute :code, :string
+  end
 
   xml do
     no_root
@@ -704,7 +706,24 @@ class SimpleType < Lutaml::Model::Serializable
 end
 
 class GenericType < Lutaml::Model::Serializable
-  import_model_mappings GroupOfItems
+  attribute :tag, :string
+  attribute :content, :string
+  attribute :group, :string
+
+  xml do
+    root "GroupOfItems"
+    map_attribute "tag", to: :tag
+    map_content to: :content
+    map_element :group, to: :group
+  end
+
+  key_value do
+    map :tag, to: :tag
+    map :content, to: :content
+    map :group, to: :group
+  end
+
+  import_model GroupOfItems
 end
 ----
 
@@ -724,7 +743,6 @@ end
 
 NOTE: Models with `no_root` can only be parsed through **Parent Models**. Direct calling `from_xml` will raise `NoRootMappingError`.
 And if `namespace` is defined with `no_root`, `NoRootNamespaceError` will raise.
-
 ====
 
 
