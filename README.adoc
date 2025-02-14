@@ -4608,6 +4608,8 @@ templates through a `to_liquid` method that converts the objects into a
 * Nested attributes are also converted into `Liquid::Drop` objects so 
 inner attributes can be accessed using the Liquid dot notation.
 
+NOTE: This feature is optional and requires the `liquid` gem to be explicitly installed and required.
+
 NOTE: Every `Lutaml::Model::Serializable` class extends the `Liquefiable` module
 which generates a corresponding `Liquid::Drop` class.
 
@@ -4615,6 +4617,7 @@ NOTE: Methods defined in the `Lutaml::Model::Serializable` class are not
 accessible in the Liquid template.
 
 .Using `to_liquid` to convert model instances into corresponding Liquid drop instances
+
 [example]
 ====
 [source,ruby]
