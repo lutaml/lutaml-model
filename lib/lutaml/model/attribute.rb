@@ -41,23 +41,25 @@ module Lutaml
       end
 
       def cast_type!(type)
+        return Lutaml::Model.lookup(type) if Lutaml::Model.class_registered?(type)
+
         case type
         when Symbol
           begin
             Type.lookup(type)
           rescue UnknownTypeError
-            raise ArgumentError, "Unknown Lutaml::Model::Type: #{type}"
+            unknown_type_error!(type)
           end
         when String
           begin
             Type.const_get(type)
           rescue NameError
-            raise ArgumentError, "Unknown Lutaml::Model::Type: #{type}"
+            unknown_type_error!(type)
           end
         when Class
           type
         else
-          raise ArgumentError, "Unknown Lutaml::Model::Type: #{type}"
+          unknown_type_error!(type)
         end
       end
 
@@ -263,6 +265,10 @@ module Lutaml
       end
 
       private
+
+      def unknown_type_error!(type)
+        raise ArgumentError, "Unknown Lutaml::Model::Type: #{type}"
+      end
 
       def castable?(value, format)
         value.is_a?(Hash) ||

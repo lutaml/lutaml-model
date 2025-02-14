@@ -23,5 +23,21 @@ module Lutaml
 
     class BaseModel < Serializable
     end
+
+    def self.registry
+      @registry ||= {}
+    end
+
+    def self.register(class_alias, klass)
+      registry[class_alias] = klass
+    end
+
+    def self.lookup(class_alias)
+      registry[class_alias]
+    end
+
+    def self.class_registered?(class_alias)
+      registry.key?(class_alias)
+    end
   end
 end

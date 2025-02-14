@@ -4599,6 +4599,8 @@ klin.validate
 
 `to_liquid` can be used to convert a class that inherit from *Lutaml::Model::Serializable* to `LiquidDrop` to be safely used in liquid templates. The returned drop provides all the attributes defined in the class as methods.
 
+NOTE: This feature is optional and requires the explicit installation of the `liquid` gem.
+
 [example]
 ====
 [source,ruby]

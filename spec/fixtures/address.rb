@@ -4,7 +4,7 @@ require_relative "person"
 class Address < Lutaml::Model::Serializable
   attribute :country, Lutaml::Model::Type::String
   attribute :post_code, Lutaml::Model::Type::String
-  attribute :person, Person, collection: true
+  attribute :person, :person, collection: true
 
   json do
     map "country", to: :country

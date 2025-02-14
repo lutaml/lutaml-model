@@ -117,7 +117,7 @@ module Lutaml
             end
           end
 
-          register_drop_method(name)
+          register_drop_method(name) if Object.const_defined?(:Liquid)
 
           attr
         end
