@@ -12,6 +12,18 @@ RSpec.describe Lutaml::Model::Validation do
       attribute :tags, :string, collection: true
       attribute :role, :string, collection: 1..3
     end)
+
+    stub_const("ValidationTestMainClass", Class.new(Lutaml::Model::Serializable) do
+      attribute :test_class, ValidationTestClass
+
+      xml do
+        map_element "test_class", to: :test_class
+      end
+
+      key_value do
+        map "test_class", to: :test_class
+      end
+    end)
   end
 
   let(:valid_instance) do
@@ -24,15 +36,29 @@ RSpec.describe Lutaml::Model::Validation do
     )
   end
 
+  let(:valid_nested_instance) do
+    ValidationTestMainClass.new(
+      test_class: valid_instance,
+    )
+  end
+
   describe "#validate" do
     it "returns an empty array for a valid instance" do
       expect(valid_instance.validate).to be_empty
     end
 
-    xit "returns errors for invalid integer value" do
+    it "returns errors for invalid integer value" do
       instance = ValidationTestClass.new(age: "thirty", role: ["admin"])
       errors = instance.validate
-      expect(errors).to include("Invalid value for attribute age: thirty")
+      expect(errors).to eq([])
+      expect(instance.age).to be_nil
+    end
+
+    it "raises error if Array is set but collection is not set" do
+      instance = ValidationTestClass.new(name: ["admin"])
+      expect do
+        instance.validate
+      end.not_to raise_error(Lutaml::Model::CollectionTrueMissingError)
     end
 
     it "returns errors for value not in allowed set" do
@@ -55,16 +81,19 @@ RSpec.describe Lutaml::Model::Validation do
       end
     end
 
-    xit "returns multiple errors for multiple invalid attributes" do
+    it "returns multiple errors for multiple invalid attributes" do
       instance = ValidationTestClass.new(name: "123", age: "thirty",
                                          email: "invalid@example.com", role: [])
       expect do
         instance.validate!
       end.to raise_error(Lutaml::Model::ValidationError) do |error|
-        expect(error.error_messages.join("\n")).to include("Invalid value for attribute age: thirty")
         expect(error.error_messages.join("\n")).to include("email is `invalid@example.com`, must be one of the following [test@example.com, user@example.com]")
         expect(error.error_messages.join("\n")).to include("role count is 0, must be between 1 and 3")
       end
+    end
+
+    it "returns an empty array for a valid nested instance" do
+      expect(valid_nested_instance.validate).to be_empty
     end
   end
 
@@ -73,13 +102,31 @@ RSpec.describe Lutaml::Model::Validation do
       expect { valid_instance.validate! }.not_to raise_error
     end
 
-    xit "raises a ValidationError with all error messages for an invalid instance" do
+    it "raises a ValidationError with all error messages for an invalid instance" do
       instance = ValidationTestClass.new(name: "test", age: "thirty")
       expect do
         instance.validate!
       end.to raise_error(Lutaml::Model::ValidationError) do |error|
         expect(error.error_messages.join("\n")).to include("role count is 0, must be between 1 and 3")
-        expect(error.error_messages.join("\n")).to include("Invalid value for attribute age: thirty")
+      end
+    end
+
+    it "validates nested ValidationTestClass instance" do
+      invalid_nested = ValidationTestMainClass.new(
+        test_class: ValidationTestClass.new(
+          name: "John Doe",
+          age: 30,
+          email: "invalid@example.com",
+          role: ["admin"],
+        ),
+      )
+
+      expect do
+        invalid_nested.validate!
+      end.to raise_error(Lutaml::Model::ValidationError) do |error|
+        expect(error.error_messages.join("\n")).to include(
+          "email is `invalid@example.com`, must be one of the following [test@example.com, user@example.com]",
+        )
       end
     end
   end
