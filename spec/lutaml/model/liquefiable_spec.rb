@@ -218,15 +218,15 @@ RSpec.describe Lutaml::Model::Liquefiable do
           * Name: "Celadon Bowl"
           ** Temperature: 1200
           ** Glaze (color): Jade Green
-          ** Glaze (finish): Translucent
+          ** Glaze (opacity): Translucent
           * Name: "Earthenware Pot"
           ** Temperature: 950
           ** Glaze (color): Rust Red
-          ** Glaze (finish): Opaque
+          ** Glaze (opacity): Opaque
           * Name: "Stoneware Jug"
           ** Temperature: 1200
           ** Glaze (color): Cobalt Blue
-          ** Glaze (finish): Transparent
+          ** Glaze (opacity): Transparent
         OUTPUT
         expect(output.strip).to eq(expected_output.strip)
       end
