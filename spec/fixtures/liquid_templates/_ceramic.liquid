@@ -1,0 +1,6 @@
+* Name: "{{ ceramic.name }}"
+** Temperature: {{ ceramic.temperature }}
+{%- if ceramic.glaze %}
+** Glaze (color): {{ ceramic.glaze.color }}
+** Glaze (opacity): {{ ceramic.glaze.opacity }}
+{%- endif %}
