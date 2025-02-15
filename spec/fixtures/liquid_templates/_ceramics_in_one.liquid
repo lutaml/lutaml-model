@@ -1,0 +1,4 @@
+{% for ceramic in ceramic_collection.ceramics %}
+* Name: "{{ ceramic.name }}"
+** Temperature: {{ ceramic.temperature }}
+{%- endfor %}

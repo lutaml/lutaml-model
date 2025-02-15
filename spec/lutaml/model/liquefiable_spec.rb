@@ -1,4 +1,5 @@
 require "spec_helper"
+require "liquid"
 require_relative "../../fixtures/address"
 
 class LiquefiableClass
@@ -16,6 +17,23 @@ class LiquefiableClass
   end
 end
 
+module LiquefiableSpec
+  class Glaze < Lutaml::Model::Serializable
+    attribute :color, :string
+    attribute :opacity, :string
+  end
+
+  class Ceramic < Lutaml::Model::Serializable
+    attribute :name, :string
+    attribute :temperature, :integer
+    attribute :glaze, Glaze
+  end
+
+  class CeramicCollection < Lutaml::Model::Serializable
+    attribute :ceramics, Ceramic, collection: true
+  end
+end
+
 RSpec.describe Lutaml::Model::Liquefiable do
   before do
     stub_const("DummyModel", Class.new(LiquefiableClass))
@@ -26,11 +44,13 @@ RSpec.describe Lutaml::Model::Liquefiable do
   describe ".register_liquid_drop_class" do
     context "when drop class does not exist" do
       it "creates a new drop class" do
-        expect { dummy.class.register_liquid_drop_class }.to change {
-          dummy.class.const_defined?(:DummyModelDrop)
-        }
-          .from(false)
-          .to(true)
+        expect do
+          dummy.class.register_liquid_drop_class
+        end.to change {
+                 dummy.class.const_defined?(:DummyModelDrop)
+               }
+                 .from(false)
+                 .to(true)
       end
     end
 
@@ -69,11 +89,13 @@ RSpec.describe Lutaml::Model::Liquefiable do
     end
 
     it "defines a method on the drop class" do
-      expect { dummy.class.register_drop_method(:display_name) }.to change {
-        dummy.to_liquid.respond_to?(:display_name)
-      }
-        .from(false)
-        .to(true)
+      expect do
+        dummy.class.register_drop_method(:display_name)
+      end.to change {
+               dummy.to_liquid.respond_to?(:display_name)
+             }
+               .from(false)
+               .to(true)
     end
   end
 
@@ -115,6 +137,98 @@ RSpec.describe Lutaml::Model::Liquefiable do
 
       it "returns `US` for country" do
         expect(address.to_liquid.country).to eq("US")
+      end
+    end
+  end
+
+  describe "working with liquid templates" do
+    let(:liquid_template_dir) do
+      File.join(File.dirname(__FILE__), "../../fixtures/liquid_templates")
+    end
+
+    describe "rendering simple models with liquid templates" do
+      let :yaml do
+        <<~YAML
+          ---
+          ceramics:
+          - name: Porcelain Vase
+            temperature: 1200
+          - name: Earthenware Pot
+            temperature: 950
+          - name: Stoneware Jug
+            temperature: 1200
+        YAML
+      end
+      let :template_path do
+        File.join(liquid_template_dir, "_ceramics_in_one.liquid")
+      end
+
+      it "renders" do
+        template = Liquid::Template.parse(File.read(template_path))
+        ceramic_collection = LiquefiableSpec::CeramicCollection.from_yaml(yaml)
+        output = template.render("ceramic_collection" => ceramic_collection)
+
+        expected_output = <<~OUTPUT
+          * Name: "Porcelain Vase"
+          ** Temperature: 1200
+          * Name: "Earthenware Pot"
+          ** Temperature: 950
+          * Name: "Stoneware Jug"
+          ** Temperature: 1200
+        OUTPUT
+
+        expect(output.strip).to eq(expected_output.strip)
+      end
+    end
+
+    describe "rendering nested models with liquid templates from file system" do
+      let :yaml do
+        <<~YAML
+          ---
+          ceramics:
+          - name: Celadon Bowl
+            temperature: 1200
+            glaze:
+              color: Jade Green
+              opacity: Translucent
+          - name: Earthenware Pot
+            temperature: 950
+            glaze:
+              color: Rust Red
+              opacity: Opaque
+          - name: Stoneware Jug
+            temperature: 1200
+            glaze:
+              color: Cobalt Blue
+              opacity: Transparent
+        YAML
+      end
+
+      it "renders" do
+        template = Liquid::Template.new
+        file_system = Liquid::LocalFileSystem.new(liquid_template_dir)
+        template.registers[:file_system] = file_system
+        template.parse(file_system.read_template_file("ceramics"))
+
+        ceramic_collection = LiquefiableSpec::CeramicCollection.from_yaml(yaml)
+        output = template.render("ceramic_collection" => ceramic_collection)
+        # puts output
+
+        expected_output = <<~OUTPUT
+          * Name: "Celadon Bowl"
+          ** Temperature: 1200
+          ** Glaze (color): Jade Green
+          ** Glaze (finish): Translucent
+          * Name: "Earthenware Pot"
+          ** Temperature: 950
+          ** Glaze (color): Rust Red
+          ** Glaze (finish): Opaque
+          * Name: "Stoneware Jug"
+          ** Temperature: 1200
+          ** Glaze (color): Cobalt Blue
+          ** Glaze (finish): Transparent
+        OUTPUT
+        expect(output.strip).to eq(expected_output.strip)
       end
     end
   end
