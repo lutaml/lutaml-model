@@ -112,10 +112,10 @@ RSpec.describe Lutaml::Model::Type do
         hide_const("BigDecimal")
       end
 
+      let(:serialized) { Lutaml::Model::Type::Decimal.serialize("123.45") }
+
       it "raises TypeNotEnabledError" do
-        expect do
-          Lutaml::Model::Type::Decimal.serialize("123.45")
-        end.to raise_error(
+        expect { serialized }.to raise_error(
           Lutaml::Model::TypeNotEnabledError,
           /Decimal/,
         )

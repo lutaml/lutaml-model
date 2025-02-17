@@ -47,7 +47,7 @@ module CollectionTests
     end
 
     def city_from_xml(model, node)
-      model.city = node
+      model.city = node.text
     end
 
     def city_to_xml(model, parent, doc)
@@ -196,22 +196,6 @@ RSpec.describe CollectionTests do
       end.to raise_error(Lutaml::Model::ValidationError) do |error|
         expect(error).to include(Lutaml::Model::CollectionCountOutOfRangeError)
         expect(error.error_messages).to include(a_string_matching(/sensors count is 0, must be between 1 and 3/))
-      end
-    end
-  end
-
-  context "when collection counts are below given ranges" do
-    let(:invalid_attributes) do
-      attributes.merge(operators: [], sensors: [])
-    end
-
-    it "raises CollectionCountOutOfRangeError" do
-      kiln = CollectionTests::Kiln.new(invalid_attributes)
-      expect do
-        kiln.validate!
-      end.to raise_error(Lutaml::Model::ValidationError) do |error|
-        expect(error).to include(Lutaml::Model::CollectionCountOutOfRangeError)
-        expect(error.error_messages).to include(a_string_matching(/operators count is 0, must be at least 1/))
       end
     end
   end

@@ -1,0 +1,9 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified" attributeFormDefault="qualified">
+  <xs:element name="Address" type="Address"/>
+  <xs:complexType name="Address" mixed="true">
+    <xs:sequence>
+      <xs:element name="City" type="xs:string" minOccurs="0"/>
+      <xs:element name="ZIP" type="xs:string" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+</xs:schema>

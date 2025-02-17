@@ -68,7 +68,7 @@ class CustomSerialization < Lutaml::Model::Serializable
   end
 
   def name_from_xml(model, value)
-    model.full_name = value.sub(/^XML Masterpiece: /, "")
+    model.full_name = value.text.sub(/^XML Masterpiece: /, "")
   end
 
   def size_to_xml(model, parent, doc)
@@ -86,7 +86,7 @@ class CustomSerialization < Lutaml::Model::Serializable
   end
 
   def color_from_xml(model, value)
-    model.color = value.downcase
+    model.color = value.text.downcase
   end
 
   def description_to_xml(model, parent, doc)
@@ -95,6 +95,37 @@ class CustomSerialization < Lutaml::Model::Serializable
 
   def description_from_xml(model, value)
     model.description = value.join.strip.sub(/^XML Description: /, "")
+  end
+end
+
+class GrammarInfo < Lutaml::Model::Serializable
+  attribute :part_of_speech, :string, values: %w[user admin super_admin]
+
+  key_value do
+    map :part_of_speech, with: { to: :part_of_speech_to_key_value, from: :part_of_speech_from_key_value }
+  end
+
+  xml do
+    root "GrammarInfo"
+    map_element :part_of_speech, with: { to: :part_of_speech_to_xml, from: :part_of_speech_from_xml }
+  end
+
+  def part_of_speech_from_key_value(model, value)
+    model.part_of_speech = value
+  end
+
+  def part_of_speech_to_key_value(model, doc)
+    doc["part_of_speech"] = model.part_of_speech
+  end
+
+  def part_of_speech_from_xml(model, node)
+    model.part_of_speech = node.text
+  end
+
+  def part_of_speech_to_xml(model, parent, doc)
+    el = doc.create_element("part_of_speech")
+    doc.add_text(el, model.part_of_speech)
+    doc.add_element(parent, el)
   end
 end
 
@@ -181,6 +212,47 @@ RSpec.describe CustomSerialization do
       expect(ceramic.size).to eq(model.size)
       expect(ceramic.color).to eq(model.color)
       expect(ceramic.description).to eq(model.description)
+    end
+  end
+
+  context "when enum used with custom methods" do
+    let(:hash) do
+      {
+        "part_of_speech" => "user",
+      }
+    end
+
+    it "correctly persist value for yaml" do
+      instance = GrammarInfo.from_yaml(hash.to_yaml)
+      serialized = instance.to_yaml
+
+      expect(instance.part_of_speech).to eq("user")
+      expect(serialized).to eq(hash.to_yaml)
+    end
+
+    it "correctly persist value for json" do
+      instance = GrammarInfo.from_json(hash.to_json)
+      serialized = instance.to_json
+
+      expect(instance.part_of_speech).to eq("user")
+      expect(serialized).to eq(hash.to_json)
+    end
+
+    it "correctly handles value for xml" do
+      xml_input = <<~XML
+        <GrammarInfo>
+          <part_of_speech>user</part_of_speech>
+        </GrammarInfo>
+      XML
+
+      instance = GrammarInfo.from_xml(xml_input)
+      expect(instance.part_of_speech).to eq("user")
+      expect(instance.user?).to be true
+      expect(instance.admin?).to be false
+      expect(instance.super_admin?).to be false
+
+      serialized = instance.to_xml
+      expect(serialized).to be_equivalent_to(xml_input)
     end
   end
 end

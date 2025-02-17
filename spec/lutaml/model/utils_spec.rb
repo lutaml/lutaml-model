@@ -54,26 +54,53 @@ RSpec.describe Lutaml::Model::Utils do
       }
     end
 
+    let(:original_array) do
+      [
+        "one", [
+          "one_one", [
+            "one_one1", "one_one2"
+          ],
+          "one_two"
+        ]
+      ]
+    end
+
     let(:duplicate_hash) { utils.deep_dup(original_hash) }
+    let(:duplicate_array) { utils.deep_dup(original_array) }
 
     it "creates deep duplicate of hash" do
-      expect(original_hash).to eq(duplicate_hash)
-      expect(original_hash.object_id).not_to eq(duplicate_hash.object_id)
+      expect(compare_duplicate(original_hash, duplicate_hash)).to be_truthy
+    end
 
-      expect(original_hash[:one]).to eq(duplicate_hash[:one])
-      expect(original_hash[:one].object_id).not_to eq(duplicate_hash[:one].object_id)
+    it "creates a deep duplicate of the array" do
+      expect(compare_duplicate(original_array, duplicate_array)).to be_truthy
+    end
 
-      expect(original_hash[:one][:one_one]).to eq(duplicate_hash[:one][:one_one])
-      expect(original_hash[:one][:one_one].object_id).not_to eq(duplicate_hash[:one][:one_one].object_id)
+    def compare_duplicate(original, duplicate)
+      return false unless original == duplicate
+      return false if !primitive?(original) && original.equal?(duplicate)
 
-      expect(original_hash[:one][:one_one][:one_one1]).to eq(duplicate_hash[:one][:one_one][:one_one1])
-      expect(original_hash[:one][:one_one][:one_one1].object_id).not_to eq(duplicate_hash[:one][:one_one][:one_one1].object_id)
+      case original
+      when Array then compare_array(original, duplicate)
+      when Hash then compare_hash(original, duplicate)
+      else true
+      end
+    end
 
-      # this is a symbol so the object_id will be same
-      expect(original_hash[:one][:one_one][:one_one2]).to eq(duplicate_hash[:one][:one_one][:one_one2])
+    def compare_array(original, duplicate)
+      original.each_with_index.all? do |el, i|
+        compare_duplicate(el, duplicate[i])
+      end
+    end
 
-      expect(original_hash[:one][:one_two]).to eq(duplicate_hash[:one][:one_two])
-      expect(original_hash[:one][:one_two].object_id).not_to eq(duplicate_hash[:one][:one_two].object_id)
+    def compare_hash(original, duplicate)
+      original.keys.all? do |key|
+        compare_duplicate(original[key], duplicate[key])
+      end
+    end
+
+    def primitive?(value)
+      [Symbol, NilClass, TrueClass, FalseClass].include?(value.class)
     end
   end
 end

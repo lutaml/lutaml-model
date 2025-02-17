@@ -8,19 +8,27 @@ image:https://img.shields.io/gem/v/lutaml-model.svg[RubyGems Version]
 
 == Purpose
 
-Lutaml::Model is a lightweight library for serializing and deserializing Ruby
-objects to and from various formats such as JSON, XML, YAML, and TOML. It uses
-an adapter pattern to support multiple libraries for each format, providing
-flexibility and extensibility for your data modeling needs.
+Lutaml::Model is the Ruby implementation of the LutaML modeling methodology,
+for:
 
-NOTE: The Lutaml::Model modeling Ruby API is designed to be mostly compatible
-with the data modeling API of https://www.shalerb.org[Shale], a data modeller
-for Ruby.
-Lutaml::Model is meant to address advanced needs not currently addressed by
-Shale.
+* creating information models in the LutaML language (or its Ruby DSL)
+* serializing and deserializing LutaML information models
+* accessing data instances of LutaML information models
+* documenting LutaML information models
 
-NOTE: Instructions on how to migrate from Shale to Lutaml::Model are provided in
-<<migrate-from-shale>>.
+It provides simple, flexible and comprehensive mechanisms for defining
+information models with attributes and types, and the serialization of them
+to/from serialization formats including JSON, XML, YAML, and TOML.
+
+For serialization formats, it uses an adapter pattern to support multiple
+libraries for each format, providing flexibility and extensibility for your data
+modeling needs.
+
+NOTE: The Lutaml::Model modeling Ruby DSL was originally designed to be mostly
+compatible with the data modeling DSL of https://www.shalerb.org[Shale], a data
+modeller for Ruby. Lutaml::Model is meant to address advanced needs not
+currently addressed by Shale. Instructions on how to migrate from Shale to
+Lutaml::Model are provided in <<migrate-from-shale>>.
 
 
 == Features
@@ -49,12 +57,12 @@ The Lutaml::Model data modelling approach is as follows:
 .Modeling relationships of a LutaML Model
 [source]
 ----
-                       Lutaml Model
+                       LutaML Model
                              │
                     Has many attributes
                              │
                              ▼
-                        Attribute
+                         Attribute
                              │
                         Has type of
                              │
@@ -96,57 +104,144 @@ Studio (Model)
 .Modeling relationships of a LutaML Model to serialization models
 [source]
 ----
-╔═══════════════════════╗                      ╔════════════════════════════╗
-║       Core Model      ║                      ║    Serialization Models    ║
-╚═══════════════════════╝                      ╚════════════════════════════╝
+╔═══════════════════════╗                       ╔════════════════════════════╗
+║   LutaML Core Model   ║                       ║    Serialization Models    ║
+╚═══════════════════════╝                       ╚════════════════════════════╝
 
-╭┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╮                      ╭┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╮
-┆          Model        ┆                      ┆          XML Model         ┆
-┆            │          ┆   ┌────────────────┐ ┆              │             ┆
-┆   ┌────────┴──┐       ┆   │                │ ┆       ┌──────┴──────┐      ┆
-┆   │           │       ┆   │     Model      │ ┆       │             │      ┆
-┆ Models   Value Types  ┆──►│ Transformation │ ┆    Models      Value Types ┆
-┆   │           │       ┆   │       &        │ ┆       │             │      ┆
-┆   │           │       ┆   │ Mapping Rules  │ ┆       │             │      ┆
-┆   │    ┌──────┴──┐    ┆   │                │ ┆  ┌────┴────┐      ┌─┴─┐    ┆
-┆   │    │         │    ┆   │                │ ┆  │         │      │   │    ┆
-┆   │   String  Integer ┆   └────────────────┘ ┆ Element  Value  xs:string  ┆
-┆   │   Date    Float   ┆           │          ┆ Attribute Type  xs:date    ┆
-┆   │   Time    Boolean ┆           ├──────►   ┆                 xs:boolean ┆
-┆   │                   ┆           │          ┆                 xs:anyURI  ┆
-┆   └──────┐            ┆           │          ╰┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╯
+╭┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╮                       ╭┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╮
+┆          Model        ┆                       ┆          XML Model         ┆
+┆            │          ┆   ┌────────────────┐  ┆              │             ┆
+┆   ┌────────┴──┐       ┆   │                │  ┆       ┌──────┴──────┐      ┆
+┆   │           │       ┆   │     Model      │  ┆       │             │      ┆
+┆ Models   Value Types  ┆──►│ Transformation │  ┆    Models      Value Types ┆
+┆   │           │       ┆   │       &        │  ┆       │             │      ┆
+┆   │           │       ┆   │ Mapping Rules  │  ┆       │             │      ┆
+┆   │    ┌──────┴──┐    ┆   │                │  ┆  ┌────┴────┐      ┌─┴─┐    ┆
+┆   │    │         │    ┆   └────────────────┘  ┆  │         │      │   │    ┆
+┆   │   String  Integer ┆           │           ┆ Element  Value  xs:string  ┆
+┆   │   Date    Float   ┆           │           ┆ Attribute Type  xs:date    ┆
+┆   │   Time    Boolean ┆           ├──────────►┆                 xs:boolean ┆
+┆   │                   ┆           │           ┆                 xs:anyURI  ┆
+┆   └──────┐            ┆           │           ╰┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╯
 ┆          │            ┆           │
-┆     Contains          ┆           │          ╭┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╮
-┆     more Models       ┆           │          ┆          JSON Model        ┆
-┆     (recursive)       ┆           │          ┆              │             ┆
-┆                       ┆           │          ┆       ┌──────┴──────┐      ┆
-╰┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╯           └───────►  ┆       │             │      ┆
-                                               ┆    Models      Value Types ┆
-                                               ┆       │             │      ┆
-                                               ┆       │             │      ┆
-                                               ┆  ┌────┴───┐     ┌───┴──┐   ┆
-                                               ┆  │        │     │      │   ┆
-                                               ┆ object array number string ┆
-                                               ┆ value        boolean null  ┆
+┆     Contains          ┆           │           ╭┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╮
+┆     more Models       ┆           │           ┆          JSON Model        ┆
+┆     (recursive)       ┆           │           ┆              │             ┆
+┆                       ┆           │           ┆       ┌──────┴──────┐      ┆
+╰┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╯           └──────────►┆       │             │      ┆
+                                                ┆    Models      Value Types ┆
+                                                ┆       │             │      ┆
+                                                ┆       │             │      ┆
+                                                ┆  ┌────┴───┐     ┌───┴──┐   ┆
+                                                ┆  │        │     │      │   ┆
+                                                ┆ object array number string ┆
+                                                ┆ value        boolean null  ┆
                                                ╰┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╯
+----
+
+.Model transformation of a LutaML Model to another LutaML Model
+[source]
+----
+╔═══════════════════════╗   ╔══════════════════╗   ╔═══════════════════════╗
+║LutaML Model Class FOO ║   ║LutaML Transformer║   ║LutaML Model Class BAR ║
+╚═══════════════════════╝   ╚══════════════════╝   ╚═══════════════════════╝
+
+╭┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╮                          ╭┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╮
+┆          Model        ┆                          ┆          Model        ┆
+┆            │          ┆    ┌────────────────┐    ┆            │          ┆
+┆   ┌────────┴──┐       ┆    │                │    ┆   ┌────────┴──┐       ┆
+┆   │           │       ┆    │     Model      │    ┆   │           │       ┆
+┆ Models   Value Types  ┆───►│ Transformation │───►┆ Models   Value Types  ┆
+┆   │           │       ┆◄───│       &        │◄───┆   │           │       ┆
+┆   │           │       ┆    │ Mapping Rules  │    ┆   │           │       ┆
+┆   │    ┌──────┴──┐    ┆    │                │    ┆   │    ┌──────┴──┐    ┆
+┆   │    │         │    ┆    └────────────────┘    ┆   │    │         │    ┆
+┆   │   String  Integer ┆                          ┆   │   String  Integer ┆
+┆   │   Date    Float   ┆                          ┆   │   Date    Float   ┆
+┆   │   Time    Boolean ┆                          ┆   │   Time    Boolean ┆
+┆   │                   ┆                          ┆   │                   ┆
+┆   └──────┐            ┆                          ┆   └──────┐            ┆
+┆          │            ┆                          ┆          │            ┆
+┆     Contains          ┆                          ┆     Contains          ┆
+┆     more Models       ┆                          ┆     more Models       ┆
+┆     (recursive)       ┆                          ┆     (recursive)       ┆
+┆                       ┆                          ┆                       ┆
+╰┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╯                          ╰┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╯
+----
+
+.The `Value` class, transformation, and serialization formats
+[source]
+----
+╔═══════════════════════╗                          ╔═══════════════════════╗
+║LutaML Value Class FOO ║                          ║  Serialization Value  ║
+╚═══════════════════════╝                          ╚═══════════════════════╝
+╭┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╮                          ╭┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╮
+┆   ┌───────────────┐   ┆                          ┆   ┌───────────────┐   ┆
+┆   │     Value     │   ┆   ┌──────────────────┐   ┆   │   XML Value   │   ┆
+┆   └───────────────┘   ┆──►│ Value Serializer │──►┆   └───────────────┘   ┆
+┆   ┌───────────────┐   ┆   └──────────────────┘   ┆   ┌───────────────┐   ┆
+┆   │Primitive Types│   ┆                          ┆   │XML Value Types│   ┆
+┆   └───────────────┘   ┆                          ┆   └───────────────┘   ┆
+┆ ┌───┘                 ┆                          ┆ ┌───┘                 ┆
+┆ ├─ string             ┆                          ┆ ├─ xs:string          ┆
+┆ ├─ integer            ┆                          ┆ ├─ xs:integer         ┆
+┆ ├─ float              ┆                          ┆ ├─ xs:decimal         ┆
+┆ ├─ boolean            ┆                          ┆ ├─ xs:boolean         ┆
+┆ ├─ date               ┆                          ┆ ├─ xs:date            ┆
+┆ ├─ time_without_date  ┆                          ┆ ├─ xs:time            ┆
+┆ ├─ date_time          ┆                          ┆ ├─ xs:dateTime        ┆
+┆ ├─ time               ┆                          ┆ ├─ xs:decimal         ┆
+┆ ├─ decimal            ┆                          ┆ ├─ xs:anyType         ┆
+┆ └─ hash               ┆                          ┆ └─ (complex element)  ┆
+╰┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╯                          ╰┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╯
+           │
+           ▼
+  ┌───────────────────┐
+  │ Value Transformer │
+  └───────────────────┘
+           │
+           ▼
+╔═══════════════════════╗
+║LutaML Value Class BAR ║
+╚═══════════════════════╝
+╭┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╮
+┆   ┌───────────────┐   ┆
+┆   │     Value     │   ┆
+┆   └───────────────┘   ┆
+┆   ┌───────────────┐   ┆
+┆   │Primitive Types│   ┆
+┆   └───────────────┘   ┆
+┆ ┌───┘                 ┆
+┆ ├─ string             ┆
+┆ ├─ integer            ┆
+┆ ├─ float              ┆
+┆ ├─ boolean            ┆
+┆ ├─ date               ┆
+┆ ├─ time_without_date  ┆
+┆ ├─ date_time          ┆
+┆ ├─ time               ┆
+┆ ├─ decimal            ┆
+┆ └─ hash               ┆
+╰┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╯
 ----
 
 .Example of LutaML Model instance transformed into a serialization model and serialized to JSON
 ====
 [source]
 ----
-Studio (Core Model)          JSON Model                Serialized JSON
-    │                            │                            │
-    ▼                            ▼                            ▼
-name: "Studio 1"     ┌─► { "name": "...",         {
-address:             │     "address": {             "name": "Studio 1",
-  ├── street: "..."  │       "street": "...",       "address": {
-  └── city: "..."    │       "city": "..."    ──►     "street": "...",
-kilns:               │     },                         "city": "..."
-  ├── count: 3       │    "kilnsCount": ...,        },
-  └── temp: 1200     │    "kilnsTemp": ...          "kilnsCount": 3,
-                     └─► }                          "kilnsTemp": 1200
-                                                  }
+╔═════════════════════╗     ╔═════════════════════╗     ╔═════════════════════╗
+║ Studio (Core Model) ║     ║     JSON Model      ║     ║   Serialized JSON   ║
+╚═════════════════════╝     ╚═════════════════════╝     ╚═════════════════════╝
+
+  name: "Studio 1"       ┌─► {                      ┌─► {
+  address:               │     "name": "...",       │     "name": "Studio 1",
+    ├── street: "..."    │     "address": {         │     "address": {
+    └── city: "..."      │       "street": "...",   │       "street": "...",
+  kilns:               ──┤       "city": "..."    ──┤       "city": "..."
+    ├── count: 3         │     },                   │     },
+    └── temp: 1200       │    "kilnsCount": ...,    │     "kilnsCount": 3,
+                         │    "kilnsTemp": ...      │     "kilnsTemp": 1200
+                         └─► }                      └─► }
 ----
 ====
 
@@ -570,6 +665,149 @@ If no `collection_class` is provided, the default `Lutaml::Model::Collection` is
 
 There are some link:lib/lutaml/model/collection.rb[methods] overriden in `Lutaml::Model::Collection` class to return `Lutaml::Model::Collection` instance instead of `Array`, If you want to override the default behavior, you can inherit from `Lutaml::Model::Collection` and override the methods you need.
 
+=== Sequence within XmlMapping
+
+The sequence option enforces that the defined components must appear in a specified order.
+
+NOTE: `sequence` only works within XML and only supports `map_element` mappings.
+
+.Using the `sequence` keyword to define a set of elements in desired order.
+[example]
+====
+[source,ruby]
+----
+class Kiln < Lutaml::Model::Serializable
+  attribute :id, :string
+  attribute :name, :string
+  attribute :type, :string
+  attribute :color, :string
+
+  xml do
+    sequence do
+      map_element :id, to: :id
+      map_element :name, to: :name
+      map_element :type, to: :type
+      map_element :color, to: :color
+    end
+  end
+end
+
+class KilnCollection < Lutaml::Model::Serializable
+  attribute :kiln, Kiln, collection: 1..2
+
+  xml do
+    root "collection"
+    map_element "kiln", to: :kiln
+  end
+end
+----
+
+[source,ruby]
+----
+> parsed = Kiln.from_xml("<Kiln> <id>1</id> <name>Nick</name> <type>Hard</type> <color>Black</color> </Kiln>")
+> # parsed.not_to raise_error
+----
+====
+
+
+=== Reusable Classes with Import
+
+Lutaml lets you create reusable element and attribute collections using `no_root`. These can be imported into other models using:
+
+- `import_model`: imports both attributes and mappings
+- `import_model_attributes`: imports only attributes  
+- `import_model_mappings`: imports only mappings
+
+NOTE: This feature works with XML. Import order determines how elements and attributes are overwritten.
+
+[example]
+====
+[source,ruby]
+----
+class GroupOfItems < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :type, :string
+  attribute :code, :string
+
+  xml do
+    no_root
+    sequence do
+      map_element "name", to: :name
+      map_element "type", to: :type, namespace: "http://www.example.com", prefix: "ex1"
+    end
+    map_attribute "code", to: :code
+  end
+end
+
+class ComplexType < Lutaml::Model::Serializable
+  attribute :tag, AttributeValueType
+  attribute :content, :string
+  attribute :group, :string
+  import_model_attributes GroupOfItems
+
+  xml do
+    root "GroupOfItems"
+    map_attribute "tag", to: :tag
+    map_content to: :content
+    map_element :group, to: :group
+    import_model_mappings GroupOfItems
+  end
+end
+
+class SimpleType < Lutaml::Model::Serializable
+  import_model GroupOfItems
+end
+
+class GenericType < Lutaml::Model::Serializable
+  import_model_mappings GroupOfItems
+end
+----
+
+[source,xml]
+----
+<GroupOfItems xmlns:ex1="http://www.example.com">
+  <name>Name</name>
+  <ex1:type>Type</ex1:type>
+</GroupOfItems>
+----
+
+[source,ruby]
+----
+> parsed = GroupOfItems.from_xml(xml)
+> # Lutaml::Model::NoRootMappingError: "GroupOfItems has `no_root`, it allowed only for reusable models"
+----
+
+NOTE: Models with `no_root` can only be parsed through **Parent Models**. Direct calling `from_xml` will raise `NoRootMappingError`.
+And if `namespace` is defined with `no_root`, `NoRootNamespaceError` will raise.
+
+====
+
+
+=== Choice
+
+The `choice` option ensures that elements from the specified range are included.
+
+NOTE: Attribute-level definitions are supported. This can be used with both key_value and xml mappings.
+
+.Using the `choice` option to define a set of attributes with a range.
+[example]
+====
+[source,ruby]
+----
+class Studio < Lutaml::Model::Serializable
+  choice(min: 1, max: 3) do
+    choice(min: 1, max: 2) do
+      attribute :prefix, :string
+      attribute :forename, :string
+    end
+
+    attribute :completeName, :string
+  end
+end
+----
+====
+
+
 === Attribute value validation
 
 ==== General
@@ -719,7 +957,7 @@ end
 
 
 
-=== Attribute value default and rendering defaults
+=== Attribute value defaults
 
 Specify default values for attributes using the `default` option.
 The `default` option can be set to a value or a lambda that returns a value.
@@ -754,76 +992,6 @@ end
 
 The "default behavior" (pun intended) is to not render a default value if
 the current value is the same as the default value.
-
-In certain cases, it is necessary to render the default value even if the
-current value is the same as the default value. This can be achieved by setting
-the `render_default` option to `true`.
-
-Syntax:
-
-[source,ruby]
-----
-attribute :name_of_attribute, Type, default: -> { value }, render_default: true
-----
-
-.Using the `render_default` option to force encoding the default value
-[example]
-====
-[source,ruby]
-----
-class Glaze < Lutaml::Model::Serializable
-  attribute :color, :string, default: -> { 'Clear' }
-  attribute :opacity, :string, default: -> { 'Opaque' }
-  attribute :temperature, :integer, default: -> { 1050 }
-  attribute :firing_time, :integer, default: -> { 60 }
-
-  xml do
-    root "glaze"
-    map_element 'color', to: :color
-    map_element 'opacity', to: :opacity, render_default: true
-    map_attribute 'temperature', to: :temperature
-    map_attribute 'firingTime', to: :firing_time, render_default: true
-  end
-
-  json do
-    map 'color', to: :color
-    map 'opacity', to: :opacity, render_default: true
-    map 'temperature', to: :temperature
-    map 'firingTime', to: :firing_time, render_default: true
-  end
-end
-----
-====
-
-.Attributes with `render_default: true` are rendered when the value is identical to the default
-[example]
-====
-[source,ruby]
-----
-> glaze_new = Glaze.new
-> puts glaze_new.to_xml
-# <glaze firingTime="60">
-#   <opacity>Opaque</opacity>
-# </glaze>
-> puts glaze_new.to_json
-# {"firingTime":60,"opacity":"Opaque"}
-----
-====
-
-.Attributes with `render_default: true` with non-default values are rendered
-[example]
-====
-[source,ruby]
-----
-> glaze = Glaze.new(color: 'Celadon', opacity: 'Semitransparent', temperature: 1300, firing_time: 90)
-> puts glaze.to_xml
-# <glaze color="Celadon" temperature="1300" firingTime="90">
-#   <opacity>Semitransparent</opacity>
-# </glaze>
-> puts glaze.to_json
-# {"color":"Celadon","temperature":1300,"firingTime":90,"opacity":"Semitransparent"}
-----
-====
 
 
 
@@ -885,7 +1053,7 @@ defining serialization and deserialization mappings.
 Serialization model mappings are defined under the `xml`, `json`, `yaml`, and
 `toml` blocks.
 
-.Using the `xml`, `json`, `yaml`, and `toml` blocks to define serialization mappings
+.Using the `xml`, `json`, `yaml`, `toml` and `key_value` blocks to define serialization mappings
 [source,ruby]
 ----
 class Example < Lutaml::Model::Serializable
@@ -902,6 +1070,10 @@ class Example < Lutaml::Model::Serializable
   end
 
   toml do
+    # ...
+  end
+
+  key_value do
     # ...
   end
 end
@@ -1311,15 +1483,15 @@ The following class will parse the XML snippet below:
 
 [source,ruby]
 ----
-class Example < Lutaml::Model::Serializable
+class Ceramic < Lutaml::Model::Serializable
   attribute :name, :string
   attribute :description, :string
-  attribute :value, :integer
+  attribute :temperature, :integer
 
   xml do
-    root 'example'
+    root 'ceramic'
     map_element 'name', to: :name
-    map_attribute 'value', to: :value
+    map_attribute 'temperature', to: :temperature
     map_content to: :description
   end
 end
@@ -1327,78 +1499,15 @@ end
 
 [source,xml]
 ----
-<example value="12"><name>John Doe</name> is my moniker.</example>
+<ceramic temperature="1200"><name>Porcelain Vase</name> with celadon glaze.</ceramic>
 ----
 
 [source,ruby]
 ----
-> Example.from_xml(xml)
-> #<Example:0x0000000104ac7240 @name="John Doe", @description=" is my moniker.", @value=12>
-> Example.new(name: "John Doe", description: " is my moniker.", value: 12).to_xml
-> #<example value="12"><name>John Doe</name> is my moniker.</example>
-----
-====
-
-
-==== Encoding Options in XmlAdapter
-
-XmlAdapter supports the encoding in the following ways:
-
-. When encoding is not passed in to_xml:
-** Default encoding is UTF-8.
-
-. When encoding is explicitly passed nil:
-** Encoding will be nil, show the HexCode(Nokogiri) or ASCII-8bit(Ox).
-
-. When encoding is passed with some option:
-** Encoding option will be selected as passed.
-
-
-Syntax:
-
-[source,ruby]
-----
-Example.new(description: " ∑ is my ∏ moniker µ.").to_xml
-Example.new(description: " ∑ is my ∏ moniker µ.").to_xml(encoding: nil)
-Example.new(description: " ∑ is my ∏ moniker µ.").to_xml(encoding: "ASCII")
-----
-
-[example]
-====
-The following class will parse the XML snippet below:
-
-[source,ruby]
-----
-class Example < Lutaml::Model::Serializable
-  attribute :name, :string
-  attribute :description, :string
-  attribute :value, :integer
-
-  xml do
-    root 'example'
-    map_element 'name', to: :name
-    map_content to: :description
-  end
-end
-----
-
-[source,xml]
-----
-<example><name>John &#x0026; Doe</name> &#x2211; is my &#x220F; moniker &#xB5;.</example>
-----
-
-[source,ruby]
-----
-> Example.from_xml(xml)
-> #<Example:0x0000000104ac7240 @name="John & Doe", @description=" ∑ is my ∏ moniker µ.">
-> Example.new(name: "John & Doe", description: " ∑ is my ∏ moniker µ.").to_xml
-> #<example><name>John &amp; Doe</name> ∑ is my ∏ moniker µ.</example>
-
-> Example.new(name: "John & Doe", description: " ∑ is my ∏ moniker µ.").to_xml(encoding: nil)
-> #<example><name>John &amp; Doe</name> &#x2211; is my &#x220F; moniker &#xB5;.</example>
-
-> Example.new(name: "John & Doe", description: " ∑ is my ∏ moniker µ.").to_xml(encoding: "ASCII")
-> #<example><name>John &amp; Doe</name> &#8721; is my &#8719; moniker &#181;.</example>
+> Ceramic.from_xml(xml)
+> #<Ceramic:0x0000000104ac7240 @name="Porcelain Vase", @description=" with celadon glaze.", @temperature=1200>
+> Ceramic.new(name: "Porcelain Vase", description: " with celadon glaze.", temperature: 1200).to_xml
+> #<ceramic temperature="1200"><name>Porcelain Vase</name> with celadon glaze.</ceramic>
 ----
 ====
 
@@ -1700,6 +1809,99 @@ end
 // TODO: How to create mixed content from `#new`?
 
 
+[[ordered-content]]
+==== Ordered content
+
+`ordered: true` maintains the order of **XML Elements**, while `mixed: true` preserves the order of **XML Elements and Content**.
+
+NOTE: When both options are used, `mixed: true` takes precedence.
+
+To specify ordered content, the `ordered: true` option needs to be set at the
+`xml` block's `root` method.
+
+Syntax:
+
+[source,ruby]
+----
+xml do
+  root 'xml_element_name', ordered: true
+end
+----
+
+.Applying `ordered` to treat root as ordered content
+[example]
+====
+
+[source,ruby]
+----
+class RootOrderedContent < Lutaml::Model::Serializable
+  attribute :bold, :string
+  attribute :italic, :string
+  attribute :underline, :string
+
+  xml do
+    root "RootOrderedContent", ordered: true
+    map_element :bold, to: :bold
+    map_element :italic, to: :italic
+    map_element :underline, to: :underline
+  end
+end
+----
+
+[source,xml]
+----
+<RootOrderedContent>
+  <underline>Moon</underline>
+  <italic>384,400 km</italic>
+  <bold>bell</bold>
+</RootOrderedContent>
+----
+
+[source,ruby]
+----
+> instance = RootOrderedContent.from_xml(xml)
+> #<RootOrderedContent:0x0000000104ac7240 @bold="bell", @italic="384,400 km", @underline="Moon">
+> instance.to_xml
+> #<RootOrderedContent><underline>Moon</underline><italic>384,400 km</italic><bold>bell</bold></RootOrderedContent>
+----
+
+**Without Ordered True:**
+
+[source,ruby]
+----
+class RootOrderedContent < Lutaml::Model::Serializable
+  attribute :bold, :string
+  attribute :italic, :string
+  attribute :underline, :string
+
+  xml do
+    root "RootOrderedContent"
+    map_element :bold, to: :bold
+    map_element :italic, to: :italic
+    map_element :underline, to: :underline
+  end
+end
+----
+
+[source,xml]
+----
+<RootOrderedContent>
+  <underline>Moon</underline>
+  <italic>384,400 km</italic>
+  <bold>bell</bold>
+</RootOrderedContent>
+----
+
+[source,ruby]
+----
+> instance = RootOrderedContent.from_xml(xml)
+> #<RootOrderedContent:0x0000000104ac7240 @bold="bell", @italic="384,400 km", @underline="Moon">
+> instance.to_xml
+> #<RootOrderedContent>\n  <bold>bell</bold>\n  <italic>384,400 km</italic>\n  <underline>Moon</underline>\n</RootOrderedContent>
+----
+====
+
+
 [[xml-schema-location]]
 ==== Automatic support of `xsi:schemaLocation`
 
@@ -1819,6 +2021,345 @@ HERE
 NOTE: For details on `xsi:schemaLocation`, please refer to the
 https://www.w3.org/TR/xmlschema-1/#xsi_schemaLocation[W3C XML standard].
 
+
+
+==== Character encoding
+
+===== General
+
+Lutaml::Model XML adapters use a default encoding of `UTF-8` for both input and
+output.
+
+Serialization data to be parsed (deserialization) and serialization data to be
+exported (serialization) may be in a different character encoding than the
+default encoding used by the Lutaml::Model XML adapter. This mismatch may lead
+to incorrect data reading or incompatibilities when exporting data.
+
+The possible values for setting character encoding to are:
+
+* A valid encoding value, e.g. `UTF-8`, `Shift_JIS`, `ASCII`;
+
+* `nil` to use the default encoding of the adapter. The behavior differs based
+on the adapter used.
+
+** Nokogiri: `UTF-8`. The encoding is set to the default encoding of the Nokogiri library,
+which is `UTF-8`.
+
+** Oga: `UTF-8`. The encoding is set to the default encoding of the Oga library, which
+uses `UTF-8`.
+
+** Ox: `ASCII-8bit`. The encoding is set to the default encoding of the Ox library, which uses
+`ASCII-8bit`.
+
+When the `encoding` option is not set, the default encoding of `UTF-8` is
+used.
+
+
+===== Serialization character encoding (exporting)
+
+====== General
+
+There are two ways to set the character encoding of the XML document during
+serialization:
+
+Instance setting::
+Setting the instance-level `encoding` option by setting
+`ModelClassInstance.encoding('...')`. This setting only affects serialization.
+
+Per-export setting::
+Setting the `encoding` option when calling for serialization action using the
+`ModelClassInstance.to_xml(..., encoding: ...)` method.
+
+[[encoding-instance-setting]]
+====== Instance setting
+
+The `encoding` value of an instance sets the character encoding of the XML
+document during serialization.
+
+Syntax:
+
+[source,ruby]
+----
+ModelClassInstance.encoding = {encoding_value}
+----
+
+Where,
+
+`ModelClassInstance`:: An instance of the class that inherits from
+Lutaml::Model::Serializable.
+`{encoding_value}`:: The encoding of the output data.
+
+.Character encoding set to instance is reflected in its serialization output
+[example]
+====
+[source,ruby]
+----
+class JapaneseCeramic < Lutaml::Model::Serializable
+  attribute :glaze_type, :string
+  attribute :description, :string
+
+  xml do
+    root 'JapaneseCeramic'
+    map_attribute 'glazeType', to: :glaze_type
+    map_element 'description' to: :description
+  end
+end
+----
+
+[source,ruby]
+----
+# Create a new instance with UTF-8 data
+> instance = JapaneseCeramic.new(glaze_type: "志野釉", description: "東京国立博物館コレクションの篠茶碗「橋本」（桃山時代）")
+#=> #<JapaneseCeramic:0x0000000104ac7240 @glaze_type="志野釉", @description="東京国立博物館コレクションの篠茶碗「橋本」（桃山時代）">
+
+# Set character encoding to Shift_JIS
+> instance.encoding = "Shift_JIS"
+#=> "Shift_JIS"
+
+# Serialize the instance
+> serialization_output = instance.to_xml
+#=> #<JapaneseCeramic><glazeType>\x{5FD8}\x{91CE}\x{91C9}</glazeType><description>\x{6771}\x{4EAC}\x{56FD}\x{7ACB}\x{535A}\x{7269}\x{9928}\x{30B3}\x{30EC}\x{30AF}\x{30B7}\x{30E7}\x{30F3}\x{306E}\x{7BC0}\x{8336}\x{7897}\x{300C}\x{6A4B}\x{672C}\x{300D}\x{FF08}\x{6853}\x{5C71}\x{6642}\x{4EE3}\x{FF09}</description></JapaneseCeramic>
+
+# Check character encoding of output
+> serialization_output.encoding
+#=> "Shift_JIS"
+----
+====
+
+
+====== Per-export setting
+
+The `encoding` option is used in the `ModelClass#to_xml(..., encoding: ...)`
+call to set the character encoding of the XML document during serialization.
+
+The per-export encoding setting supersedes the instance-level encoding setting.
+
+Syntax:
+
+[source,ruby]
+----
+ModelClassInstance.to_xml(encoding: {encoding_value})
+----
+
+Where,
+
+`ModelClassInstance`:: An instance of the class that inherits from
+Lutaml::Model::Serializable.
+`{encoding_value}`:: The encoding of the output data.
+
+
+[example]
+====
+The following class will parse the XML snippet below:
+
+[source,ruby]
+----
+class Ceramic < Lutaml::Model::Serializable
+  attribute :potter, :string
+  attribute :description, :string
+  attribute :temperature, :integer
+
+  xml do
+    root 'ceramic'
+    map_element 'potter', to: :potter
+    map_content to: :description
+  end
+end
+----
+
+[source,xml]
+----
+<ceramic><potter>John &#x0026; Jane</potter> A &#x2211; series of &#x220F; porcelain &#xB5; vases.</ceramic>
+----
+
+[source,ruby]
+----
+# Object with attributes
+> ceramic_instance = Ceramic.new(potter: "John & Jane", description: " A ∑ series of ∏ porcelain µ vases.")
+> #<Ceramic:0x0000000104ac7240 @potter="John & Jane", @description=" A ∑ series of ∏ porcelain µ vases.">
+
+# Parsing the XML snippet with the default encoding of UTF-8
+> ceramic_parsed = Ceramic.from_xml(xml)
+> #<Ceramic:0x0000000104ac7242 @potter="John & Jane", @description=" A ∑ series of ∏ porcelain µ vases.">
+
+# Object with attributes is equal to the parsed object
+> ceramic_parsed == ceramic_instance
+> # true
+
+# Using the default encoding of UTF-8
+> ceramic_instance.to_xml
+> #<ceramic><potter>John &amp; Jane</potter> A ∑ series of ∏ porcelain µ vases.</ceramic>
+
+# Using the default encoding of the adapter, which is UTF-8 in this case
+> ceramic_instance.to_xml(encoding: nil)
+> #<ceramic><potter>John &amp; Jane</potter> A &#x2211; series of &#x220F; porcelain &#xB5; vases.</ceramic>
+
+# Using ASCII encoding
+> ceramic_instance.to_xml(encoding: "ASCII")
+> #<ceramic><potter>John &amp; Jane</potter> A &#8721; series of &#8719; porcelain &#181; vases.</ceramic>
+----
+====
+
+
+.Character encoding set at `to_xml` overrides instance encoding
+[example]
+====
+[source,ruby]
+----
+class JapaneseCeramic < Lutaml::Model::Serializable
+  attribute :glaze_type, :string
+  attribute :description, :string
+
+  xml do
+    root 'JapaneseCeramic'
+    map_attribute 'glazeType', to: :glaze_type
+    map_element 'description' to: :description
+  end
+end
+----
+
+[source,ruby]
+----
+# Create a new instance with UTF-8 data
+> instance = JapaneseCeramic.new(glaze_type: "志野釉", description: "東京国立博物館コレクションの篠茶碗「橋本」（桃山時代）")
+#=> #<JapaneseCeramic:0x0000000104ac7240 @glaze_type="志野釉", @description="東京国立博物館コレクションの篠茶碗「橋本」（桃山時代）">
+
+# Set character encoding to Shift_JIS
+> instance.encoding = "Shift_JIS"
+#=> "Shift_JIS"
+
+# Serialize the instance
+> serialization_output = instance.to_xml(encoding: "UTF-8")
+#=> #<JapaneseCeramic><glazeType>志野釉</glazeType><description>東京国立博物館コレクションの篠茶碗「橋本」（桃山時代）</description></JapaneseCeramic>
+
+# Check character encoding of output
+> serialization_output.encoding
+#=> "UTF-8"
+----
+====
+
+
+===== Deserialization character encoding (parsing)
+
+The character encoding of the XML document being parsed is specified using the
+`encoding` option when the `ModelClass.from_{format}(...)` is called.
+
+Syntax:
+
+[source,ruby]
+----
+ModelClass.from_{format}(string_in_format, encoding: {encoding_value})
+----
+
+Where,
+
+`ModelClass`:: The class that inherits from Lutaml::Model::Serializable.
+`{format}`:: The format of the input data, e.g. `xml`, `json`, `yaml`, `toml`.
+`string_in_format`:: The input data in the specified format.
+`{encoding_value}`:: The encoding of the input data.
+
+
+.Setting the `encoding` option during parsing data not encoded in the default encoding (UTF-8)
+[example]
+====
+Using the definition of `JapaneseCeramic` at <<encoding-instance-setting>>.
+
+This XML snippet is in Shift-JIS.
+
+[source,xml]
+----
+<JapaneseCeramic>
+  <glazeType>\x{5FD8}\x{91CE}\x{91C9}</glazeType>
+  <description>\x{6771}\x{4EAC}\x{56FD}\x{7ACB}\x{535A}\x{7269}\x{9928}\x{30B3}\x{30EC}\x{30AF}\x{30B7}\x{30E7}\x{30F3}\x{306E}\x{7BC0}\x{8336}\x{7897}\x{300C}\x{6A4B}\x{672C}\x{300D}\x{FF08}\x{6853}\x{5C71}\x{6642}\x{4EE3}\x{FF09}</description>
+</JapaneseCeramic>
+----
+
+[source,ruby]
+----
+# Parse the XML snippet with the encoding of Shift_JIS
+> instance = JapaneseCeramic.from_xml(xml, encoding: "Shift_JIS")
+#=> #<JapaneseCeramic:0x0000000104ac7240 @glaze_type="志野釉", @description="東京国立博物館コレクションの篠茶碗「橋本」（桃山時代）">
+
+# Check character encoding of the instance
+> instance.encoding
+#=> "Shift_JIS"
+
+# Serialize the instance using UTF-8
+> serialization_output = instance.to_xml(encoding: "UTF-8")
+#=> #<JapaneseCeramic><glazeType>志野釉</glazeType><description>東京国立博物館コレクションの篠茶碗「橋本」（桃山時代）</description></JapaneseCeramic>
+> serialization_output.encoding
+#=> "UTF-8"
+----
+====
+
+.When the `encoding` option is not set, the default encoding of the adapter is used
+[example]
+====
+Using the definition of `JapaneseCeramic` at <<encoding-instance-setting>>.
+
+This XML snippet is in UTF-8.
+
+[source,xml]
+----
+<JapaneseCeramic>
+  <glazeType>志野釉</glazeType>
+  <description>東京国立博物館コレクションの篠茶碗「橋本」（桃山時代）</description>
+</JapaneseCeramic>
+----
+
+In adapters that use a default encoding of `UTF-8`, the content is parsed
+properly.
+
+[source,ruby]
+----
+> instance = JapaneseCeramic.from_xml(xml, encoding: nil)
+#=> #<JapaneseCeramic:0x0000000104ac7240 @glaze_type="志野釉", @description="東京国立博物館コレクションの篠茶碗「橋本」（桃山時代）">
+> instance.encoding
+#=> "UTF-8"
+> serialization_output = instance.to_xml
+#=> #<JapaneseCeramic><glazeType>志野釉</glazeType><description>東京国立博物館コレクションの篠茶碗「橋本」（桃山時代）</description></JapaneseCeramic>
+> serialization_output.encoding
+#=> "UTF-8"
+----
+
+In adapters that use a default encoding of `ASCII-8bit`, the content becomes
+malformed.
+
+[source,ruby]
+----
+> instance = JapaneseCeramic.from_xml(xml, encoding: nil)
+#=> #<JapaneseCeramic:0x0000000104ac7240 @glaze_type="�菑�", @description="�東京国立博物館コレクションの篠茶碗�橋本�桃山時代�">
+> instance.encoding
+#=> "ASCII-8bit"
+> serialization_output = instance.to_xml
+#=> #<JapaneseCeramic><glazeType>�菑�</glazeType><description>�東京国立博物館コレクションの篠茶碗�橋本�桃山時代�</description></JapaneseCeramic>
+> serialization_output.encoding
+#=> "ASCII-8bit"
+----
+====
+
+
+.Using an invalid encoding to deserialize causes data corruption
+[example]
+====
+Using the definition of `JapaneseCeramic` at <<encoding-instance-setting>>.
+
+This XML snippet is in UTF-8.
+
+[source,xml]
+----
+<JapaneseCeramic>
+  <glazeType>志野釉</glazeType>
+  <description>東京国立博物館コレクションの篠茶碗「橋本」（桃山時代）</description>
+</JapaneseCeramic>
+----
+
+[source,ruby]
+----
+> JapaneseCeramic.from_xml(xml, encoding: "Shift_JIS")
+#=> #<JapaneseCeramic:0x0000000104ac7240 @glaze_type="�菑���p���P", @description="�東京国立博物館コレクションの篠茶碗�橋本�桃山時代�">
+----
+====
 
 
 === Key value data models
@@ -3094,6 +3635,91 @@ end
 ====
 
 
+=== Rendering default values (forced rendering of default values)
+
+By default, attributes with default values are not rendered if the current value
+is the same as the default value.
+
+In certain cases, it is necessary to render the default value even if the
+current value is the same as the default value. This is achieved by setting the
+`render_default` option to `true`.
+
+Syntax:
+
+[source,ruby]
+----
+attribute :name_of_attribute, Type, default: -> { value }
+
+xml do
+  map_element 'name_of_attribute', to: :name_of_attribute, render_default: true
+  map_attribute 'name_of_attribute', to: :name_of_attribute, render_default: true
+end
+
+json | yaml | toml | key_value do
+  map 'name_of_attribute', to: :name_of_attribute, render_default: true
+end
+----
+
+.Using the `render_default` option to force encoding the default value
+[example]
+====
+[source,ruby]
+----
+class Glaze < Lutaml::Model::Serializable
+  attribute :color, :string, default: -> { 'Clear' }
+  attribute :opacity, :string, default: -> { 'Opaque' }
+  attribute :temperature, :integer, default: -> { 1050 }
+  attribute :firing_time, :integer, default: -> { 60 }
+
+  xml do
+    root "glaze"
+    map_element 'color', to: :color
+    map_element 'opacity', to: :opacity, render_default: true
+    map_attribute 'temperature', to: :temperature
+    map_attribute 'firingTime', to: :firing_time, render_default: true
+  end
+
+  json do
+    map 'color', to: :color
+    map 'opacity', to: :opacity, render_default: true
+    map 'temperature', to: :temperature
+    map 'firingTime', to: :firing_time, render_default: true
+  end
+end
+----
+====
+
+.Attributes with `render_default: true` are rendered when the value is identical to the default
+[example]
+====
+[source,ruby]
+----
+> glaze_new = Glaze.new
+> puts glaze_new.to_xml
+# <glaze firingTime="60">
+#   <opacity>Opaque</opacity>
+# </glaze>
+> puts glaze_new.to_json
+# {"firingTime":60,"opacity":"Opaque"}
+----
+====
+
+.Attributes with `render_default: true` with non-default values are rendered
+[example]
+====
+[source,ruby]
+----
+> glaze = Glaze.new(color: 'Celadon', opacity: 'Semitransparent', temperature: 1300, firing_time: 90)
+> puts glaze.to_xml
+# <glaze color="Celadon" temperature="1300" firingTime="90">
+#   <opacity>Semitransparent</opacity>
+# </glaze>
+> puts glaze.to_json
+# {"color":"Celadon","temperature":1300,"firingTime":90,"opacity":"Semitransparent"}
+----
+====
+
+
 
 === Advanced attribute mapping
 
@@ -3273,6 +3899,63 @@ end
 NOTE: The corresponding keyword used by Shale is `receiver:` instead of
 `delegate:`.
 
+=== Value Transformations
+
+The `transform` option allows defining import/export transformations at both attribute and mapping levels:
+
+[source,ruby]
+----
+class Person < Lutaml::Model::Serializable
+  # Attribute-level transformation
+  attribute :name, :string, transform: {
+    export: ->(value) { value.upcase },
+    import: ->(value) { value.downcase }
+  }
+
+  # Mapping-level transformation in JSON format
+  json do
+    map "fullName", to: :name, transform: {
+      export: ->(value) { "Dr. #{value}" },
+      import: ->(value) { value.gsub("Dr. ", "") }
+    }
+  end
+
+  # Mapping-level transformation in XML format  
+  xml do
+    map "full-name", to: :name, transform: {
+      export: ->(value) { "Dr. #{value}" },
+      import: ->(value) { value.gsub("Dr. ", "") }
+    }
+  end
+end
+----
+
+The transformation precedence is:
+
+1. Mapping-level transformation if defined
+2. Attribute-level transformation if no mapping transformation exists
+
+This allows flexible value transformations without needing format-specific custom methods:
+
+[source,ruby]
+----
+person = Person.new(name: "john")
+
+# Uses mapping transformation
+person.to_json # => {"fullName": "Dr. john"}
+
+Person.from_json({ "fullName" =>  "Dr. john"}.to_json).name # => john
+
+# Uses attribute transformation when no mapping exists
+person.to_yaml # => name: "JOHN"
+----
+
+The `transform` option supports:
+
+* `export`: Transform value during serialization
+* `import`: Transform value during deserialization
+* Collections with array transformations
+* Chaining of attribute and mapping transformations
 
 ==== Attribute serialization with custom methods
 
@@ -3312,15 +3995,22 @@ The following class will parse the XML snippet below:
 
 [source,ruby]
 ----
+class Metadata < Lutaml::Model::Serializable
+  attribute :category, :string
+  attribute :identifier, :string
+end
+
 class CustomCeramic < Lutaml::Model::Serializable
   attribute :name, :string
   attribute :size, :integer
   attribute :description, :string
+  attribute :metadata, Metadata
 
   xml do
     map_element "Name", to: :name, with: { to: :name_to_xml, from: :name_from_xml }
     map_attribute "Size", to: :size, with: { to: :size_to_xml, from: :size_from_xml }
     map_content with: { to: :description_to_xml, from: :description_from_xml }
+    map_element :metadata, to: :metadata, with: { to: :metadata_to_xml, from: :metadata_from_xml }
   end
 
   def name_to_xml(model, parent, doc)
@@ -3348,6 +4038,26 @@ class CustomCeramic < Lutaml::Model::Serializable
   def description_from_xml(model, value)
     model.description = value.join.strip.sub(/^XML Description: /, "")
   end
+
+  def metadata_to_xml(model, parent, doc)
+    metadata_el = doc.create_element("metadata")
+    category_el = doc.create_element("category")
+    identifier_el = doc.create_element("identifier")
+
+    doc.add_text(category_el, model.metadata.category)
+    doc.add_text(identifier_el, model.metadata.identifier)
+
+    doc.add_element(metadata_el, category_el)
+    doc.add_element(metadata_el, identifier_el)
+    doc.add_element(parent, metadata_el)
+  end
+
+  def metadata_from_xml(model, value)
+    model.metadata ||= Metadata.new
+
+    model.metadata.category = value["elements"]["category"].text
+    model.metadata.identifier = value["elements"]["identifier"].text
+  end
 end
 ----
 
@@ -3356,6 +4066,10 @@ end
 <CustomCeramic Size="15">
   <Name>XML Masterpiece: Vase</Name>
   XML Description: A beautiful ceramic vase
+  <metadata>
+    <category>Metadata</category>
+    <identifier>123</identifier>
+  </metadata>
 </CustomCeramic>
 ----
 
@@ -3367,13 +4081,180 @@ end
    @name="Masterpiece: Vase",
    @ordered=nil,
    @size=12,
-   @description="A beautiful ceramic vase">
-> puts CustomCeramic.new(name: "Vase", size: 12, description: "A beautiful vase").to_xml
+   @description="A beautiful ceramic vase",
+   @metadata=#<Metadata:0x0000000105ad52e0 @category="Metadata", @identifier="123">>
+> puts CustomCeramic.new(name: "Vase", size: 12, description: "A beautiful vase", metadata: Metadata.new(category: "Glaze", identifier: 15)).to_xml
 # <CustomCeramic Size="15">
 #   <Name>XML Masterpiece: Vase</Name>
+#   <metadata>
+#     <category>Glaze</category>
+#     <identifier>15</identifier>
+#   </metadata>
 #   XML Description: A beautiful vase
 # </CustomCeramic>
 ----
+
+[source,ruby]
+----
+def custom_method_from_xml(model, value)
+  instance = value.node # Lutaml::Model::XmlAdapter::AdapterElement
+  # OR
+  instance = value.node.adapter_node # Adapter::Element
+
+  xml = instance.to_xml
+end
+----
+
+When building a model from XML in **custom methods**, if the `value` parameter is a `mapping_hash`, then it allows access to the parsed XML structure through `value.node` which can be converted to an XML string using `to_xml`.
+
+NOTE: For `NokogiriAdapter`, we can also call `to_xml` on `value.node.adapter_node`.
+
+[source,ruby]
+----
+> value
+> # {"text"=>["\n    ", "\n    ", "\n  "], "elements"=>{"category"=>{"text"=>"Metadata"}}}
+> value.to_xml
+> # undefined_method `to_xml`
+
+> value.node
+
+# Nokogiri Adapter Node
+
+#<Lutaml::Model::XmlAdapter::NokogiriElement:0x0000000107656ed8                                                                 
+#   @attributes={},                                                                                                                
+#   @children=                                                                                                                     
+#   [#<Lutaml::Model::XmlAdapter::NokogiriElement:0x0000000107656cd0 @attributes={}, @children=[], @default_namespace=nil, @name="text", @namespace_prefix=nil, @text="\n    ">,
+#   #<Lutaml::Model::XmlAdapter::NokogiriElement:0x00000001076569b0                                                              
+#     @attributes={},                                                                                                             
+#     @children=                                                                                                                  
+#     [#<Lutaml::Model::XmlAdapter::NokogiriElement:0x00000001076567f8 @attributes={}, @children=[], @default_namespace=nil, @name="text", @namespace_prefix=nil, @text="Metadata">],
+#     @default_namespace=nil,                                                                                                     
+#     @name="category",                                                                                                           
+#     @namespace_prefix=nil,                                                                                                      
+#     @text="Metadata">,                                                                                                          
+#   #<Lutaml::Model::XmlAdapter::NokogiriElement:0x0000000107656028 @attributes={}, @children=[], @default_namespace=nil, @name="text", @namespace_prefix=nil, @text="\n  ">],
+# @default_namespace=nil,                                                                                                        
+# @name="metadata",
+# @namespace_prefix=nil,
+# @text="\n    Metadata\n  ">
+
+# Ox Adapter Node
+
+#<Lutaml::Model::XmlAdapter::OxElement:0x0000000107584f78                                                                                      
+# @attributes={},                                                                                                                               
+# @children=                                                                                                                                    
+#   [#<Lutaml::Model::XmlAdapter::OxElement:0x0000000107584e60                                                                                   
+#     @attributes={},                                                                                                                            
+#     @children=[#<Lutaml::Model::XmlAdapter::OxElement:0x0000000107584d48 @attributes={}, @children=[], @default_namespace=nil, @name="text", @namespace_prefix=nil, @text="Metadata">],
+#     @default_namespace=nil,                                                                                                                    
+#     @name="category",                                                                                                                          
+#     @namespace_prefix=nil,                                                                                                                     
+#     @text="Metadata">],                                                                                                                        
+# @default_namespace=nil,                                                                                                                       
+# @name="metadata",                                                                                                                             
+# @namespace_prefix=nil,                                                                                                                        
+# @text=nil>
+
+# Oga Adapter Node
+
+# <Lutaml::Model::XmlAdapter::Oga::Element:0x0000000107314158
+# @attributes={},
+# @children=
+#   [#<Lutaml::Model::XmlAdapter::Oga::Element:0x0000000107314090 @attributes={}, @children=[], @default_namespace=nil, @name="text", @namespace_prefix=nil, @text="\n    ">,
+#   #<Lutaml::Model::XmlAdapter::Oga::Element:0x000000010730fe78
+#     @attributes={},
+#     @children=[#<Lutaml::Model::XmlAdapter::Oga::Element:0x000000010730fd88 @attributes={}, @children=[], @default_namespace=nil, @name="text", @namespace_prefix=nil, @text="Metadata">],
+#     @default_namespace=nil,
+#     @name="category",
+#     @namespace_prefix=nil,
+#     @text="Metadata">,
+#   #<Lutaml::Model::XmlAdapter::Oga::Element:0x000000010730f8d8 @attributes={}, @children=[], @default_namespace=nil, @name="text", @namespace_prefix=nil, @text="\n  ">],
+# @default_namespace=nil,
+# @name="metadata",
+# @namespace_prefix=nil,
+# @text="\n    Metadata\n  ">
+
+> value.node.to_xml
+> #<metadata><category>Metadata</category></metadata>
+----
+====
+
+==== Separate Serialization Model With Custom Methods
+
+[example]
+====
+The following class will parse the XML snippet below:
+
+[source,ruby]
+----
+class CustomModelChild
+  attr_accessor :street, :city
+end
+
+class CustomModelChildMapper < Lutaml::Model::Serializable
+  model CustomModelChild
+
+  attribute :street, Lutaml::Model::Type::String
+  attribute :city, Lutaml::Model::Type::String
+
+  xml do
+    map_element :street, to: :street
+    map_element :city, to: :city
+  end
+end
+
+class CustomModelParentMapper < Lutaml::Model::Serializable
+  attribute :first_name, Lutaml::Model::Type::String
+  attribute :child_mapper, CustomModelChildMapper
+
+  xml do
+    map_element :first_name, to: :first_name
+    map_element :CustomModelChild,
+                with: { to: :child_to_xml, from: :child_from_xml }
+  end
+  
+  def child_to_xml(model, parent, doc)
+    child_el = doc.create_element("CustomModelChild")
+    street_el = doc.create_element("street")
+    city_el = doc.create_element("city")
+
+    doc.add_text(street_el, model.child_mapper.street)
+    doc.add_text(city_el, model.child_mapper.city)
+
+    doc.add_element(child_el, street_el)
+    doc.add_element(child_el, city_el)
+    doc.add_element(parent, child_el)
+  end
+
+  def child_from_xml(model, value)
+    model.child_mapper ||= CustomModelChild.new
+
+    model.child_mapper.street = value["elements"]["street"].text
+    model.child_mapper.city = value["elements"]["city"].text
+  end
+end
+----
+
+[source,xml]
+----
+<CustomModelParent>
+  <first_name>John</first_name>
+  <CustomModelChild>
+    <street>Oxford Street</street>
+    <city>London</city>
+  </CustomModelChild>
+</CustomModelParent>
+----
+
+[source,ruby]
+----
+> instance = CustomModelParentMapper.from_xml(xml)
+> #<CustomModelParent:0x0000000107c9ca68 @child_mapper=#<CustomModelChild:0x0000000107c95218 @city="London", @street="Oxford Street">, @first_name="John"> 
+> CustomModelParentMapper.to_xml(instance)
+> #<CustomModelParent><first_name>John</first_name><CustomModelChild><street>Oxford Street</street><city>London</city></CustomModelChild></CustomModelParent>
+----
+
+NOTE: For **custom models**, `to_xml` is called on the **mapper class**, not on **model instance**.
 ====
 
 
@@ -3533,6 +4414,16 @@ provided, a default directory named `lutaml_models_<timestamp>` is created.
 [example]
 `"path/to/directory"`
 
+`create_files`::: A `boolean` argument (`false` by default) to create files directly in the specified directory as defined by the `output_dir` option.
++
+[example]
+`create_files: (true | false)`
+
+`load_classes`::: A `boolean` argument (`false` by default) to load generated classes before returning them.
++
+[example]
+`load_classes: (true | false)`
+
 `namespace`::: The namespace of the schema. This will be added in the
 `Lutaml::Model::Serializable` file's `xml do` block.
 +
@@ -3554,6 +4445,7 @@ link:https://www.w3.org/TR/xmlschema-1/#include[XML Schema specification].
 [example]
 `"path/to/schema/directory"`
 
+NOTE: If both `create_files` and `load_classes` are provided, the `create_files` argument will take priority and generate files without loading them!
 
 The generated LutaML models consists of two different kind of Ruby classes
 depending on the XSD schema:
@@ -3587,9 +4479,12 @@ options = {
   output_dir: 'path/to/directory',
   namespace: 'http://example.com/namespace',
   prefix: "example-prefix",
-  location: "http://example.com/example.xsd"
+  location: "http://example.com/example.xsd",
   # or
   # location: "path/to/schema/directory"
+  create_files: true, # Default: false
+  # OR
+  load_classes: true, # Default: false
 }
 
 # generates the files in the output_dir | default_dir
@@ -3630,6 +4525,7 @@ Lutaml::Model supports the following validation methods:
 
 * `collection`:: Validates collection size range.
 * `values`:: Validates the value of an attribute from a set of fixed values.
+* `choice` :: Validates that attribute specified within defined range
 
 [example]
 ====
@@ -3643,6 +4539,17 @@ class Klin < Lutaml::Model::Serializable
   attribute :name, :string
   attribute :degree_settings, :integer, collection: (1..)
   attribute :description, :string, values: %w[one two three]
+  attribute :id, :integer
+  attribute :age, :integer
+
+  choice(min: 1, max: 1) do
+    choice(min: 1, max: 2) do
+      attribute :prefix, :string
+      attribute :forename, :string
+    end
+
+    attribute :nick_name, :string
+  end
 
   xml do
     map_element 'name', to: :name
@@ -3650,26 +4557,30 @@ class Klin < Lutaml::Model::Serializable
   end
 end
 
-klin = Klin.new(name: "Klin", degree_settings: [100, 200, 300], description: "one")
+klin = Klin.new(name: "Klin", degree_settings: [100, 200, 300], description: "one", prefix: "Ben")
 klin.validate
 # => []
 
-klin = Klin.new(name: "Klin", degree_settings: [], description: "four")
+klin = Klin.new(name: "Klin", degree_settings: [], description: "four", prefix: "Ben", nick_name: "Smith")
 klin.validate
 # => [
 #      #<Lutaml::Model::CollectionSizeError: degree_settings must have at least 1 element>,
-#      #<Lutaml::Model::ValueError: description must be one of [one, two, three]>
+#      #<Lutaml::Model::ValueError: description must be one of [one, two, three]>,
+#      #<Lutaml::Model::ChoiceUpperBoundError: Attribute count exceeds the upper bound>
 #    ]
 
 e = klin.validate!
 # => Lutaml::Model::ValidationError: [
 #      degree_settings must have at least 1 element,
-#      description must be one of [one, two, three]
+#      description must be one of [one, two, three],
+#      Attribute count exceeds the upper bound
 #    ]
 e.errors
 # => [
 #     #<Lutaml::Model::CollectionSizeError: degree_settings must have at least 1 element>,
-#     #<Lutaml::Model::ValueError: description must be one of [one, two, three]>
+#     #<Lutaml::Model::ValueError: description must be one of [one, two, three]>,
+#     #<Lutaml::Model::ChoiceUpperBoundError: Attribute count exceeds the upper bound>
+#     #<Lutaml::Model::ChoiceLowerBoundError: Attribute count is less than lower bound>
 #   ]
 ----
 ====
@@ -3705,6 +4616,227 @@ klin.validate
 ----
 ====
 
+
+== Liquid template access
+
+The https://shopify.github.io/liquid/[Liquid template language] is an
+open-source template language developed by Shopify and written in Ruby.
+
+`Lutaml::Model::Serializable` objects can be safely accessed within Liquid
+templates through a `to_liquid` method that converts the objects into a
+`Liquid::Drop` instances.
+
+* All attributes are accessible in the Liquid template by their names.
+* Nested attributes are also converted into `Liquid::Drop` objects so 
+inner attributes can be accessed using the Liquid dot notation.
+
+NOTE: Every `Lutaml::Model::Serializable` class extends the `Liquefiable` module
+which generates a corresponding `Liquid::Drop` class.
+
+NOTE: Methods defined in the `Lutaml::Model::Serializable` class are not
+accessible in the Liquid template.
+
+.Using `to_liquid` to convert model instances into corresponding Liquid drop instances
+[example]
+====
+[source,ruby]
+----
+class Ceramic < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :temperature, :integer
+end
+
+ceramic = Ceramic.new({ name: "Porcelain Vase", temperature: 1200 })
+ceramic_drop = ceramic.to_liquid
+# Ceramic::CeramicDrop
+
+puts ceramic_drop.name
+# "Porcelain Vase"
+puts ceramic_drop.temperature
+# 1200
+----
+====
+
+.Accessing LutaML::Model objects within a Liquid template
+[example]
+====
+[source,ruby]
+----
+class Ceramic < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :temperature, :integer
+end
+
+class CeramicCollection < Lutaml::Model::Serializable
+  attribute :ceramics, Ceramic, collection: true
+end
+----
+
+`sample.yml`:
+
+[source,yaml]
+----
+---
+ceramics:
+- name: Porcelain Vase
+  temperature: 1200
+- name: Earthenware Pot
+  temperature: 950
+- name: Stoneware Jug
+  temperature: 1200
+----
+
+`template.liquid`:
+
+[source,liquid]
+----
+{% for ceramic in ceramic_collection.ceramics %}
+* Name: "{{ ceramic.name }}"
+** Temperature: {{ ceramic.temperature }}
+{%- endfor %}
+----
+
+[source,ruby]
+----
+# Load the Lutaml::Model collection
+ceramic_collection = CeramicCollection.from_yaml(File.read("sample.yml"))
+
+# Load the Liquid template
+template = Liquid::Template.parse(File.read("template.liquid"))
+
+# Pass the Lutaml::Model collection to the Liquid template and render
+output = template.render("ceramic_collection" => ceramic_collection)
+puts output
+# >
+# * Name: "Porcelain Vase"
+# ** Temperature: 1200
+# * Name: "Earthenware Pot"
+# ** Temperature: 950
+# * Name: "Stoneware Jug"
+# ** Temperature: 1200
+----
+====
+
+.Accessing nested LutaML::Model objects within nested Liquid templates
+[example]
+====
+[source,ruby]
+----
+class Glaze < Lutaml::Model::Serializable
+  attribute :color, :string
+  attribute :opacity, :string
+end
+
+class CeramicWork < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :glaze, Glaze
+end
+
+class CeramicCollection < Lutaml::Model::Serializable
+  attribute :ceramics, Ceramic, collection: true
+end
+
+ceramic_work = CeramicWork.new({
+  name: "Celadon Bowl",
+  glaze: Glaze.new({
+    color: "Jade Green",
+    opacity: "Translucent"
+  })
+})
+ceramic_work_drop = ceramic_work.to_liquid
+# CeramicWork::CeramicWorkDrop
+
+puts ceramic_work_drop.name
+# "Celadon Bowl"
+puts ceramic_work_drop.glaze.color
+# "Jade Green"
+puts ceramic_work_drop.glaze.opacity
+# "Translucent"
+----
+
+`ceramics.yml`:
+
+[source,yaml]
+----
+---
+ceramics:
+- name: Celadon Bowl
+  glaze:
+    color: Jade Green
+    opacity: Translucent
+- name: Earthenware Pot
+  glaze:
+    color: Rust Red
+    opacity: Opaque
+- name: Stoneware Jug
+  glaze:
+    color: Cobalt Blue
+    opacity: Transparent
+----
+
+
+`templates/_ceramics.liquid`:
+
+[source,liquid]
+----
+{% for ceramic in ceramic_collection.ceramics %}
+{% render 'ceramic' ceramic: ceramic %}
+{%- endfor %}
+----
+
+NOTE: `render` is a Liquid tag that renders a partial template, by default
+Liquid uses the pattern `_%s.liquid` to find the partial template. Here
+`ceramic` refers to the file at `templates/_ceramic.liquid`.
+
+`templates/_ceramic.liquid`:
+
+[source,liquid]
+----
+* Name: "{{ ceramic.name }}"
+** Temperature: {{ ceramic.temperature }}
+{%- if ceramic.glaze %}
+** Glaze (color): {{ ceramic.glaze.color }}
+** Glaze (opacity): {{ ceramic.glaze.opacity }}
+{%- endif %}
+----
+
+[source,ruby]
+----
+require 'liquid'
+
+# Create a Liquid template object that supports dynamic loading
+template = Liquid::Template.new
+
+# Link the Liquid template object to a "local file system" (directory)
+file_system = Liquid::LocalFileSystem.new('templates/')
+template.registers[:file_system] = file_system
+
+# Load the partial template, this is necessary.
+# This will also allow Liquid to load any inner partials from the file system
+# dynamically (see `file_system.pattern` to see what it loads)
+template.parse(file_system.read_template_file('ceramics'))
+
+# Read the lutaml-model collection
+ceramic_collection = CeramicCollection.from_yaml(File.read("ceramics.yml"))
+
+# Render the template with the collection
+output = template.render("ceramic_collection" => ceramic_collection)
+puts output
+# >
+# * Name: "Celadon Bowl"
+# ** Temperature: 1200
+# ** Glaze (color): Jade Green
+# ** Glaze (finish): Translucent
+# * Name: "Earthenware Pot"
+# ** Temperature: 950
+# ** Glaze (color): Rust Red
+# ** Glaze (finish): Opaque
+# * Name: "Stoneware Jug"
+# ** Temperature: 1200
+# ** Glaze (color): Cobalt Blue
+# ** Glaze (finish): Transparent
+----
+====
 
 == Adapters
 

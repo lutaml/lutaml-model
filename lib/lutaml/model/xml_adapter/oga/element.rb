@@ -6,21 +6,22 @@ module Lutaml
       module Oga
         class Element < XmlElement
           def initialize(node, parent: nil)
-            name = case node
-                   when ::Oga::XML::Element
-                     namespace_name = node.namespace_name
+            text = case node
+                   when Moxml::Element
+                     namespace_name = node.namespace&.prefix
                      add_namespaces(node)
                      children = parse_children(node)
                      attributes = node_attributes(node)
-                     node.name
-                   when ::Oga::XML::Text
-                     "text"
+                     @root = node
+                     node.inner_text
+                   when Moxml::Text
+                     node.content
                    end
             super(
-              name,
+              OgaAdapter.name_of(node),
               Hash(attributes),
               Array(children),
-              node.text,
+              text,
               parent_document: parent,
               namespace_prefix: namespace_name,
             )
@@ -31,7 +32,7 @@ module Lutaml
           end
 
           def text
-            @text
+            super || @text
           end
 
           def to_xml(builder = Builder::Oga.build)
@@ -61,7 +62,7 @@ module Lutaml
               next if attr_is_namespace?(attr)
 
               name = if attr.namespace
-                       "#{attr.namespace.name}:#{attr.name}"
+                       "#{attr.namespace.prefix}:#{attr.name}"
                      else
                        attr.name
                      end
@@ -69,7 +70,7 @@ module Lutaml
                 name,
                 attr.value,
                 namespace: attr.namespace&.uri,
-                namespace_prefix: attr.namespace&.name,
+                namespace_prefix: attr.namespace&.prefix,
               )
             end
           end
@@ -79,8 +80,8 @@ module Lutaml
           end
 
           def add_namespaces(node)
-            node.namespaces.each_value do |namespace|
-              add_namespace(XmlNamespace.new(namespace.uri, namespace.name))
+            node.namespaces.each do |namespace|
+              add_namespace(XmlNamespace.new(namespace.uri, namespace.prefix))
             end
           end
 

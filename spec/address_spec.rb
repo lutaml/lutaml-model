@@ -3,7 +3,7 @@ require_relative "fixtures/address"
 require_relative "fixtures/person"
 
 RSpec.describe Address do
-  let(:person1) do
+  let(:tom_warren) do
     {
       first_name: "Tom",
       last_name: "Warren",
@@ -15,7 +15,7 @@ RSpec.describe Address do
       active: true,
     }
   end
-  let(:person2) do
+  let(:jack_warren) do
     {
       first_name: "Jack",
       last_name: "Warren",
@@ -31,7 +31,7 @@ RSpec.describe Address do
     {
       country: "USA",
       post_code: "01001",
-      person: [person1, person2],
+      person: [tom_warren, jack_warren],
     }
   end
   let(:address) { described_class.new(attributes) }

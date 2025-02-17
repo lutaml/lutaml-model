@@ -2,6 +2,7 @@ require_relative "../mapping_hash"
 require_relative "xml_element"
 require_relative "xml_attribute"
 require_relative "xml_namespace"
+require_relative "element"
 
 module Lutaml
   module Model
@@ -20,6 +21,18 @@ module Lutaml
 
         def children
           @root.children
+        end
+
+        def attributes
+          root.attributes
+        end
+
+        def self.encoding(xml, options)
+          if options.key?(:encoding)
+            options[:encoding]
+          else
+            xml.encoding.to_s
+          end
         end
 
         def declaration(options)
@@ -75,22 +88,32 @@ module Lutaml
         def parse_element(element, klass = nil, format = nil)
           result = Lutaml::Model::MappingHash.new
           result.node = element
-          result.item_order = element.order
+          result.item_order = self.class.order_of(element)
 
           element.children.each do |child|
             if klass&.<= Serialize
-              attr = klass.attribute_for_child(child.name,
+              attr = klass.attribute_for_child(self.class.name_of(child),
                                                format)
             end
 
-            next result.assign_or_append_value(child.name, child.text) if child.text?
+            if child.respond_to?(:text?) && child.text?
+              result.assign_or_append_value(
+                self.class.name_of(child),
+                self.class.text_of(child),
+              )
+              next
+            end
 
             result["elements"] ||= Lutaml::Model::MappingHash.new
-            result["elements"].assign_or_append_value(child.namespaced_name, parse_element(child, attr&.type || klass, format))
+            result["elements"].assign_or_append_value(
+              self.class.namespaced_name_of(child),
+              parse_element(child, attr&.type || klass, format),
+            )
           end
 
           result["attributes"] = attributes_hash(element) if element.attributes&.any?
 
+          result.merge(attributes_hash(element))
           result
         end
 
@@ -138,6 +161,19 @@ module Lutaml
             return
           end
 
+          # Only transform when recursion is not called
+          if (!attribute.collection? || value.is_a?(Array)) && transform_method = rule.transform[:export] || attribute.transform_export_method
+            value = transform_method.call(value)
+          end
+
+          if value.is_a?(Array)
+            value.each do |item|
+              add_to_xml(xml, element, prefix, item, options)
+            end
+
+            return
+          end
+
           return if !render_element?(rule, element, value)
 
           if value && (attribute&.type&.<= Lutaml::Model::Serialize)
@@ -161,7 +197,7 @@ module Lutaml
 
         def add_value(xml, value, attribute, cdata: false)
           if !value.nil?
-            serialized_value = attribute.type.serialize(value)
+            serialized_value = attribute.serialize(value, :xml)
             if attribute.raw?
               xml.add_xml_fragment(xml, value)
             elsif attribute.type == Lutaml::Model::Type::Hash
@@ -339,6 +375,9 @@ module Lutaml
             end
 
             value = mapping_rule.to_value_for(element)
+            attr = attribute_definition_for(element, mapping_rule, mapper_class: options[:mapper_class])
+            value = attr.serialize(value, :xml) if attr
+
             if render_element?(mapping_rule, element, value)
               hash[mapping_rule.prefixed_name] = value ? value.to_s : value
             end
@@ -375,6 +414,32 @@ module Lutaml
 
         def self.type
           Utils.snake_case(self).split("/").last.split("_").first
+        end
+
+        def self.order_of(element)
+          element.order
+        end
+
+        def self.name_of(element)
+          element.name
+        end
+
+        def self.text_of(element)
+          element.text
+        end
+
+        def self.namespaced_name_of(element)
+          element.namespaced_name
+        end
+
+        def text
+          return @root.text_children.map(&:text) if @root.children.count > 1
+
+          @root.text
+        end
+
+        def cdata
+          @root.cdata
         end
       end
     end

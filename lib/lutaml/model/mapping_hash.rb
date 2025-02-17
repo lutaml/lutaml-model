@@ -11,7 +11,7 @@ module Lutaml
       end
 
       def item_order
-        @item_order&.map { |key| normalize(key) } || keys
+        @item_order
       end
 
       def fetch(key)

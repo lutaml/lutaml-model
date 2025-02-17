@@ -13,8 +13,8 @@ RSpec.describe Lutaml::Model::XmlAdapter::OgaAdapter do
 
   let(:document) { described_class.parse(xml_string) }
 
-  context "parsing XML with namespaces" do
-    let(:child) { document.root.children[1] }
+  context "when parsing XML with namespaces" do
+    let(:child) { document.root.children.first }
 
     it "parses the root element with default namespace" do
       expect(document.root.name).to eq("root")
@@ -37,20 +37,24 @@ RSpec.describe Lutaml::Model::XmlAdapter::OgaAdapter do
     end
   end
 
-  context "generating XML with namespaces" do
+  context "when generating XML with namespaces" do
     it "generates XML with namespaces correctly" do
-      xml_output = document.to_xml
-      parsed_output = Oga.parse_xml(xml_output)
+      xml_output = document.root.to_xml
+      parsed_output = Moxml::Adapter::Oga.parse(xml_output)
 
       root = parsed_output.children.first
       expect(root.name).to eq("root")
       expect(root.namespace.uri).to eq("http://example.com/default")
 
-      child = root.children[1]
-      expect(child.expanded_name).to eq("prefix:child")
+      child = root.children.first
+      expect(described_class.prefixed_name_of(child)).to eq("prefix:child")
       expect(child.namespace.uri).to eq("http://example.com/prefixed")
-      expect(child.get("attr")).to eq("value")
-      expect(child.get("prefix:attr")).to eq("prefixed_value")
+      unprefixed_attr = child.attributes.find { |attr| attr.name == "attr" }
+      expect(unprefixed_attr.value).to eq("value")
+      prefixed_attr = child.attributes.find do |attr|
+        described_class.prefixed_name_of(attr) == "prefix:attr"
+      end
+      expect(prefixed_attr.value).to eq("prefixed_value")
     end
   end
 end

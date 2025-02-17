@@ -106,7 +106,7 @@ module MultipleMapping
     end
 
     def name_from_xml(model, value)
-      model.full_name = value.sub(/^XML Model: /, "")
+      model.full_name = value.text.sub(/^XML Model: /, "")
     end
 
     def color_to_xml(model, parent, doc)
@@ -116,7 +116,7 @@ module MultipleMapping
     end
 
     def color_from_xml(model, value)
-      model.color = value.downcase
+      model.color = value.text.downcase
     end
 
     def size_to_xml(model, parent, doc)
@@ -126,7 +126,7 @@ module MultipleMapping
     end
 
     def size_from_xml(model, value)
-      model.size = (value.to_i || 0) - 10
+      model.size = (value.text.to_i || 0) - 10
     end
 
     def desc_to_xml(model, parent, doc)
@@ -136,7 +136,7 @@ module MultipleMapping
     end
 
     def desc_from_xml(model, value)
-      model.description = value.sub(/^XML Description: /, "")
+      model.description = value.text.sub(/^XML Description: /, "")
     end
   end
 end
@@ -144,8 +144,12 @@ end
 RSpec.describe MultipleMapping do
   context "with key-value formats" do
     context "with YAML format" do
-      let(:yaml_with_name) { "product_name: Coffee Maker\ndescription: Premium coffee maker" }
-      let(:yaml_with_desc) { "---\nname: Coffee Maker\ndesc: Premium coffee maker\n" }
+      let(:yaml_with_name) do
+        "product_name: Coffee Maker\ndescription: Premium coffee maker"
+      end
+      let(:yaml_with_desc) do
+        "---\nname: Coffee Maker\ndesc: Premium coffee maker\n"
+      end
 
       it "handles bidirectional conversion" do
         product1 = MultipleMapping::Product.from_yaml(yaml_with_name)
@@ -161,8 +165,12 @@ RSpec.describe MultipleMapping do
     end
 
     context "with JSON format" do
-      let(:json_with_name) { '{"product_name":"Coffee Maker","description":"Premium coffee maker"}' }
-      let(:json_with_desc) { '{"name":"Coffee Maker","desc":"Premium coffee maker"}' }
+      let(:json_with_name) do
+        '{"product_name":"Coffee Maker","description":"Premium coffee maker"}'
+      end
+      let(:json_with_desc) do
+        '{"name":"Coffee Maker","desc":"Premium coffee maker"}'
+      end
 
       it "handles bidirectional conversion" do
         product1 = MultipleMapping::Product.from_json(json_with_name)
@@ -254,8 +262,12 @@ RSpec.describe MultipleMapping do
 
   context "with CustomModel" do
     context "with JSON format" do
-      let(:json_with_alternate) { '{"custom_name":"JSON Model: Vase","shade":"BLUE","dimension":22,"description":"JSON Description: A beautiful ceramic vase"}' }
-      let(:json_with_standard) { '{"name":"JSON Model: Vase","color":"BLUE","size":22,"desc":"JSON Description: A beautiful ceramic vase"}' }
+      let(:json_with_alternate) do
+        '{"custom_name":"JSON Model: Vase","shade":"BLUE","dimension":22,"description":"JSON Description: A beautiful ceramic vase"}'
+      end
+      let(:json_with_standard) do
+        '{"name":"JSON Model: Vase","color":"BLUE","size":22,"desc":"JSON Description: A beautiful ceramic vase"}'
+      end
 
       it "handles bidirectional conversion with custom methods" do
         model1 = MultipleMapping::CustomModel.from_json(json_with_alternate)

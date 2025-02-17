@@ -7,26 +7,26 @@ module Lutaml
     module XmlAdapter
       class OxAdapter < XmlDocument
         def self.parse(xml, options = {})
-          Ox.default_options = Ox.default_options.merge(encoding: options[:encoding] || "UTF-8")
+          Ox.default_options = Ox.default_options.merge(encoding: encoding(xml, options))
 
           parsed = Ox.parse(xml)
-          root = OxElement.new(parsed)
-          new(root, Ox.default_options[:encoding])
+          @root = OxElement.new(parsed)
+          new(@root, Ox.default_options[:encoding])
         end
 
         def to_xml(options = {})
           builder_options = { version: options[:version] }
 
           builder_options[:encoding] = if options.key?(:encoding)
-                                         options[:encoding]
+                                         options[:encoding] unless options[:encoding].nil?
                                        elsif options.key?(:parse_encoding)
                                          options[:parse_encoding]
                                        else
                                          "UTF-8"
                                        end
 
-          builder = Builder::Ox.build
-          builder.xml.instruct(:xml, encoding: options[:parse_encoding])
+          builder = Builder::Ox.build(builder_options)
+          builder.xml.instruct(:xml, encoding: builder_options[:encoding])
 
           if @root.is_a?(Lutaml::Model::XmlAdapter::OxElement)
             @root.build_xml(builder)
@@ -39,10 +39,6 @@ module Lutaml
           end
 
           xml_data = builder.xml.to_s
-          if builder_options[:encoding] && xml_data.valid_encoding?
-            xml_data = xml_data.encode(builder_options[:encoding])
-          end
-
           stripped_data = xml_data.lines.drop(1).join
           options[:declaration] ? declaration(options) + stripped_data : stripped_data
         end
@@ -62,18 +58,18 @@ module Lutaml
             index_hash = {}
             content = []
 
-            element.element_order.each do |name|
-              index_hash[name] ||= -1
-              curr_index = index_hash[name] += 1
+            element.element_order.each do |object|
+              index_hash[object.name] ||= -1
+              curr_index = index_hash[object.name] += 1
 
-              element_rule = xml_mapping.find_by_name(name)
+              element_rule = xml_mapping.find_by_name(object.name)
               next if element_rule.nil?
 
               attribute_def = attribute_definition_for(element, element_rule,
                                                        mapper_class: mapper_class)
               value = attribute_value_for(element, element_rule)
 
-              next if element_rule == xml_mapping.content_mapping && element_rule.cdata && name == "text"
+              next if element_rule == xml_mapping.content_mapping && element_rule.cdata && object.text?
 
               if element_rule == xml_mapping.content_mapping
                 text = element.send(xml_mapping.content_mapping.to)
@@ -196,6 +192,14 @@ module Lutaml
 
         def nodes
           children
+        end
+
+        def cdata
+          super || cdata_children.first&.text
+        end
+
+        def text
+          super || cdata
         end
 
         private

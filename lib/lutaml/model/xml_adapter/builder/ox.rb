@@ -6,17 +6,18 @@ module Lutaml
           def self.build(options = {})
             if block_given?
               ::Ox::Builder.new(options) do |xml|
-                yield(new(xml))
+                yield(new(xml, options))
               end
             else
-              new(::Ox::Builder.new(options))
+              new(::Ox::Builder.new(options), options)
             end
           end
 
-          attr_reader :xml
+          attr_reader :xml, :encoding
 
-          def initialize(xml)
+          def initialize(xml, options = {})
             @xml = xml
+            @encoding = options[:encoding]
             @current_namespace = nil
           end
 
@@ -27,7 +28,7 @@ module Lutaml
 
             if block_given?
               xml.element(name, attributes) do |element|
-                yield(self.class.new(element))
+                yield(self.class.new(element, { encoding: encoding }))
               end
             else
               xml.element(name, attributes)
@@ -44,23 +45,27 @@ module Lutaml
 
           def create_and_add_element(element_name, prefix: nil, attributes: {})
             element_name = element_name.first if element_name.is_a?(Array)
-            prefixed_name = if prefix
-                              "#{prefix}:#{element_name}"
-                            elsif @current_namespace && !element_name.start_with?("#{@current_namespace}:")
-                              "#{@current_namespace}:#{element_name}"
-                            else
-                              element_name
-                            end
+            prefixed_name = set_prefixed_name(element_name, prefix)
 
             if block_given?
               xml.element(prefixed_name, attributes) do |element|
-                yield(self.class.new(element))
+                yield(self.class.new(element, { encoding: encoding }))
               end
             else
               xml.element(prefixed_name, attributes)
             end
 
             @current_namespace = nil
+          end
+
+          def set_prefixed_name(element_name, prefix)
+            if prefix
+              "#{prefix}:#{element_name}"
+            elsif @current_namespace && !element_name.start_with?("#{@current_namespace}:")
+              "#{@current_namespace}:#{element_name}"
+            else
+              element_name
+            end
           end
 
           def <<(text)
@@ -72,6 +77,8 @@ module Lutaml
           end
 
           def add_text(element, text, cdata: false)
+            text = text&.encode(encoding) if encoding && text.is_a?(String)
+
             return element.cdata(text) if cdata
 
             element.text(text)

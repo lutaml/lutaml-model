@@ -16,11 +16,13 @@ module Lutaml
                   :namespace_uri,
                   :namespace_prefix,
                   :mixed_content,
-                  :ordered
+                  :ordered,
+                  :element_sequence
 
       def initialize
         @elements = {}
         @attributes = {}
+        @element_sequence = []
         @content_mapping = nil
         @raw_mapping = nil
         @mixed_content = false
@@ -35,6 +37,18 @@ module Lutaml
         @ordered = ordered || mixed # mixed contenet will always be ordered
       end
 
+      def root?
+        !!root_element
+      end
+
+      def no_root
+        @no_root = true
+      end
+
+      def no_root?
+        !!@no_root
+      end
+
       def prefixed_root
         if namespace_uri && namespace_prefix
           "#{namespace_prefix}:#{root_element}"
@@ -44,6 +58,8 @@ module Lutaml
       end
 
       def namespace(uri, prefix = nil)
+        raise Lutaml::Model::NoRootNamespaceError if no_root?
+
         @namespace_uri = uri
         @namespace_prefix = prefix
       end
@@ -60,7 +76,8 @@ module Lutaml
         namespace: (namespace_set = false
                     nil),
         prefix: (prefix_set = false
-                 nil)
+                 nil),
+        transform: {}
       )
         validate!(name, to, with, type: TYPES[:element])
 
@@ -77,6 +94,7 @@ module Lutaml
           prefix: prefix,
           namespace_set: namespace_set != false,
           prefix_set: prefix_set != false,
+          transform: transform,
         )
         @elements[rule.namespaced_name] = rule
       end
@@ -170,6 +188,21 @@ module Lutaml
 
       alias map_all_content map_all
 
+      def sequence(&block)
+        @element_sequence << Sequence.new(self).tap do |s|
+          s.instance_eval(&block)
+        end
+      end
+
+      def import_model_mappings(model)
+        raise Lutaml::Model::ImportModelWithRootError.new(model) if model.root?
+
+        mappings = model.mappings_for(:xml)
+        @elements.merge!(mappings.instance_variable_get(:@elements))
+        @attributes.merge!(mappings.instance_variable_get(:@attributes))
+        (@element_sequence << mappings.element_sequence).flatten!
+      end
+
       def validate!(key, to, with, type: nil)
         validate_mappings!(type)
 
@@ -243,12 +276,21 @@ module Lutaml
                                               ordered: @ordered)
           xml_mapping.namespace(@namespace_uri.dup, @namespace_prefix.dup)
 
-          xml_mapping.instance_variable_set(:@attributes,
-                                            dup_mappings(@attributes))
-          xml_mapping.instance_variable_set(:@elements, dup_mappings(@elements))
-          xml_mapping.instance_variable_set(:@content_mapping,
-                                            @content_mapping&.deep_dup)
+          attributes_to_dup.each do |var_name|
+            value = instance_variable_get(var_name)
+            xml_mapping.instance_variable_set(var_name, Utils.deep_dup(value))
+          end
         end
+      end
+
+      def attributes_to_dup
+        @attributes_to_dup ||= %i[
+          @content_mapping
+          @raw_mapping
+          @element_sequence
+          @attributes
+          @elements
+        ]
       end
 
       def dup_mappings(mappings)

@@ -7,7 +7,8 @@ module Lutaml
                   :render_default,
                   :attribute,
                   :custom_methods,
-                  :delegate
+                  :delegate,
+                  :transform
 
       def initialize(
         name,
@@ -17,7 +18,8 @@ module Lutaml
         with: {},
         attribute: false,
         delegate: nil,
-        root_mappings: nil
+        root_mappings: nil,
+        transform: {}
       )
         @name = name
         @to = to
@@ -27,6 +29,7 @@ module Lutaml
         @attribute = attribute
         @delegate = delegate
         @root_mappings = root_mappings
+        @transform = transform
       end
 
       alias from name
@@ -71,6 +74,8 @@ module Lutaml
           end
 
           model.public_send(delegate).public_send(:"#{to}=", value)
+        elsif transform_method = transform[:import] || attributes[to].transform_import_method
+          model.public_send(:"#{to}=", transform_method.call(value))
         else
           model.public_send(:"#{to}=", value)
         end
@@ -87,6 +92,14 @@ module Lutaml
       def raw_mapping?
         name == Constants::RAW_MAPPING_KEY
       end
+
+      def eql?(other)
+        other.class == self.class &&
+          instance_variables.all? do |var|
+            instance_variable_get(var) == other.instance_variable_get(var)
+          end
+      end
+      alias == eql?
 
       def deep_dup
         raise NotImplementedError, "Subclasses must implement `deep_dup`."

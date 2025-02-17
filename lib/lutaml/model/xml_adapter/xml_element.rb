@@ -6,7 +6,6 @@ module Lutaml
       class XmlElement
         attr_reader :attributes,
                     :children,
-                    :text,
                     :namespace_prefix,
                     :parent_document
 
@@ -117,9 +116,62 @@ module Lutaml
         end
 
         def order
-          children.each_with_object([]) do |child, arr|
-            arr << child.unprefixed_name
+          children.map do |child|
+            type = child.text? ? "Text" : "Element"
+            Lutaml::Model::XmlAdapter::Element.new(type, child.unprefixed_name)
           end
+        end
+
+        def root
+          self
+        end
+
+        def text
+          return text_children.map(&:text) if children.count > 1
+
+          @text
+        end
+
+        def cdata_children
+          find_children_by_name("#cdata-section")
+        end
+
+        def text_children
+          find_children_by_name("text")
+        end
+
+        def find_attribute_value(attribute_name)
+          if attribute_name.is_a?(Array)
+            attributes.values.find do |attr|
+              attribute_name.include?(attr.namespaced_name)
+            end&.value
+          else
+            attributes.values.find do |attr|
+              attribute_name == attr.namespaced_name
+            end&.value
+          end
+        end
+
+        def find_children_by_name(name)
+          if name.is_a?(Array)
+            children.select { |child| name.include?(child.namespaced_name) }
+          else
+            children.select { |child| child.namespaced_name == name }
+          end
+        end
+
+        def find_child_by_name(name)
+          find_children_by_name(name).first
+        end
+
+        def cdata
+          return cdata_children.map(&:text) if children.count > 1
+
+          @text
+        end
+
+        def to_h
+          document.to_h
         end
       end
     end

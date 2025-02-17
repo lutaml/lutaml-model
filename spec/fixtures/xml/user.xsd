@@ -1,0 +1,10 @@
+<schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns="http://schemas.openxmlformats.org/officeDocument/2006/math">
+  <xsd:complexType name="User">
+    <xsd:sequence>
+      <xsd:element name="id" type="xsd:nonNegativeInteger" minOccurs="1" />
+      <xsd:element name="age" type="xsd:unsignedLong" minOccurs="0" />
+      <xsd:element name="token" type="xsd:token" minOccurs="0" />
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:element name="User" type="User"/>
+</schema>
