@@ -10,7 +10,6 @@ module Lutaml
         collection
         values
         pattern
-        collection_class
         transform
         choice
         sequence
@@ -19,17 +18,20 @@ module Lutaml
       def initialize(name, type, options = {})
         @name = name
 
-        validate_type!(type)
-        @type = cast_type!(type)
-
         validate_options!(options)
         @options = options
 
+        validate_type!(type)
+
+        type = collection_class if using_custom_collection?
+        @type = cast_type!(type)
+
         @raw = !!options[:raw]
 
-        if collection?
+        if collection? && !using_custom_collection?
+          require 'byebug'; debugger
           validate_collection_range
-          @options[:default] = -> { collection_class.new } unless options[:default]
+          @options[:default] = -> { collection_class.new([], name, type) } unless options[:default]
         end
       end
 
@@ -74,15 +76,19 @@ module Lutaml
       end
 
       def collection?
-        options[:collection] || false
+        !!options[:collection] || false
       end
 
       def singular?
         !collection?
       end
 
+      def using_custom_collection?
+        collection? && options[:collection].is_a?(Class) && options[:collection] <= Lutaml::Model::Collection
+      end
+
       def collection_class
-        options[:collection_class] || Lutaml::Model::Collection
+        using_custom_collection? ? options[:collection] : Lutaml::Model::Collection
       end
 
       def raw?
@@ -170,7 +176,7 @@ module Lutaml
 
       def validate_collection_range
         range = @options[:collection]
-        return if range == true
+        return if range == true || using_custom_collection?
 
         unless range.is_a?(Range)
           raise ArgumentError, "Invalid collection range: #{range}"

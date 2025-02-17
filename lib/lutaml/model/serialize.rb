@@ -12,7 +12,6 @@ require_relative "comparable_model"
 require_relative "schema_location"
 require_relative "validation"
 require_relative "error"
-require_relative "collection"
 require_relative "choice"
 require_relative "sequence"
 require_relative "liquefiable"
@@ -720,7 +719,7 @@ module Lutaml
 
           # Initialize collections with an empty array if no value is provided
           if attr.collection? && value.nil?
-            value = Lutaml::Model::Collection.new
+            value = attr.collection_class.new
           end
 
           default = using_default?(name)

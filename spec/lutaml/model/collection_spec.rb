@@ -59,8 +59,7 @@ module CollectionTests
 
   class CollectionTypeTest < Lutaml::Model::Serializable
     attribute :basic_list, Lutaml::Model::Type::String, collection: true
-    attribute :custom_list, Lutaml::Model::Type::String, collection: true,
-                                                         collection_class: CustomCollection
+    attribute :custom_list, Lutaml::Model::Type::String, collection: CustomCollection
 
     xml do
       root "collection_test"

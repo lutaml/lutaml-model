@@ -2,30 +2,39 @@ require "forwardable"
 
 module Lutaml
   module Model
-    class Collection
+    class Collection < Lutaml::Model::Serializable
       include Enumerable
       extend Forwardable
 
-      attr_reader :items
+      #attr_reader :items
 
-      def_delegators :@items, :each, :<<, :push, :size, :to_s, :to_yaml, :to_json, :empty?, :[], :length, :+, :compact, :first, :last, :join, :to_a, :to_ary, :eql?
+      def_delegators :@__items, :each, :<<, :push, :size, :to_s, :to_yaml, :to_json, :empty?, :[], :length, :+, :compact, :first, :last, :join, :to_a, :to_ary, :eql?
 
-      def initialize(items = [])
-        @items = items
+      def self.instances(name, type)
+        require 'byebug'; debugger
+        attribute(name, type, { collection: true })
+      end
+
+
+      def initialize(items = [], collection_name = "@__items", type = nil)
+        require 'byebug'; debugger
+        super()
+        @__items = items
+        @type = type
       end
 
       def map(&block)
-        self.class.new(@items.map(&block))
+        self.class.new(@__items.map(&block))
       end
 
       def concat(other)
         case other
         when Array
-          @items.concat(other)
+          @__items.concat(other)
         when self.class
-          @items.concat(other.items)
+          @__items.concat(other.items)
         else
-          @items.push(other)
+          @__items.push(other)
         end
         self
       end
@@ -33,9 +42,9 @@ module Lutaml
       def ==(other)
         case other
         when Array
-          @items == other
+          @__items == other
         when self.class
-          @items == other.items
+          @__items == other.items
         else
           false
         end
