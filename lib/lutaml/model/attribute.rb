@@ -29,7 +29,7 @@ module Lutaml
         @raw = !!options[:raw]
 
         if collection? && !using_custom_collection?
-          require 'byebug'; debugger
+          # require 'byebug'; debugger
           validate_collection_range
           @options[:default] = -> { collection_class.new([], name, type) } unless options[:default]
         end

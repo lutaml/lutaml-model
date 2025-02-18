@@ -2,71 +2,133 @@ require "spec_helper"
 require "lutaml/model"
 
 module CollectionTests
-  class Pot < Lutaml::Model::Serializable
-    attribute :material, Lutaml::Model::Type::String
+  # class Pot < Lutaml::Model::Serializable
+  #   attribute :material, Lutaml::Model::Type::String
+
+  #   xml do
+  #     root "pot"
+  #     map_element "material", to: :material
+  #   end
+  # end
+
+  # class Kiln < Lutaml::Model::Serializable
+  #   attribute :brand, Lutaml::Model::Type::String
+  #   attribute :pots, Pot, collection: 0..2
+  #   attribute :temperatures, Lutaml::Model::Type::Integer, collection: true
+  #   attribute :operators, Lutaml::Model::Type::String, collection: (1..),
+  #                                                      default: -> {
+  #                                                        ["Default Operator"]
+  #                                                      }
+  #   attribute :sensors, Lutaml::Model::Type::String, collection: 1..3,
+  #                                                    default: -> {
+  #                                                      ["Default Sensor"]
+  #                                                    }
+
+  #   xml do
+  #     root "kiln"
+  #     map_attribute "brand", to: :brand
+  #     map_element "pot", to: :pots
+  #     map_element "temperature", to: :temperatures
+  #     map_element "operator", to: :operators
+  #     map_element "sensor", to: :sensors
+  #   end
+  # end
+
+  # class Address < Lutaml::Model::Serializable
+  #   attribute :street, :string
+  #   attribute :city, :string
+  #   attribute :address, Address
+
+  #   xml do
+  #     root "address"
+  #     map_element "street", to: :street
+  #     map_element "city", with: { from: :city_from_xml, to: :city_to_xml }
+  #     map_element "address", to: :address
+  #   end
+
+  #   def city_from_xml(model, node)
+  #     model.city = node.text
+  #   end
+
+  #   def city_to_xml(model, parent, doc)
+  #     doc.add_element(parent, "<city>#{model.city}</city>")
+  #   end
+  # end
+
+  # class CustomCollection < Lutaml::Model::Collection; end
+
+  # class CollectionTypeTest < Lutaml::Model::Serializable
+  #   attribute :basic_list, Lutaml::Model::Type::String, collection: true
+  #   attribute :custom_list, Lutaml::Model::Type::String, collection: CustomCollection
+
+  #   xml do
+  #     root "collection_test"
+  #     map_element "item", to: :basic_list
+  #     map_element "custom_item", to: :custom_list
+  #   end
+  # end
+
+  # class CuratedCollection < Lutaml::Model::Collection
+  #   attribute :curator, :string
+  #   attribute :acquisition_date, :date
+  #   instances :items, Ceramic
+  
+  #   xml do
+  #     root "curated-group"
+  #     map_attribute "curator", to: :curator
+  #     map_element "acquisition-date", to: :acquisition_date
+  #     map_element "artifact", to: :items
+  #   end
+  # end
+  
+  # class TestCollection < Lutaml::Model::Serializable
+  #   attribute :curated_group, Ceramic, collection: CuratedCollection
+  
+  #   xml do
+  #     map_element "curated-group", to: :curated_group
+  #   end
+  # end
+
+  class Title < Lutaml::Model::Serializable
+    attribute :name, :string
+    attribute :value, :float
+  end
+
+  class TitleCollection < Lutaml::Model::Collection
+    instances :items, Title
 
     xml do
-      root "pot"
-      map_element "material", to: :material
+      root "title-group"
+      map_element "artifact", to: :items
     end
   end
 
-  class Kiln < Lutaml::Model::Serializable
-    attribute :brand, Lutaml::Model::Type::String
-    attribute :pots, Pot, collection: 0..2
-    attribute :temperatures, Lutaml::Model::Type::Integer, collection: true
-    attribute :operators, Lutaml::Model::Type::String, collection: (1..),
-                                                       default: -> {
-                                                         ["Default Operator"]
-                                                       }
-    attribute :sensors, Lutaml::Model::Type::String, collection: 1..3,
-                                                     default: -> {
-                                                       ["Default Sensor"]
-                                                     }
+  class BibItem < Lutaml::Model::Serializable
+    attribute :title, TitleCollection
 
     xml do
-      root "kiln"
-      map_attribute "brand", to: :brand
-      map_element "pot", to: :pots
-      map_element "temperature", to: :temperatures
-      map_element "operator", to: :operators
-      map_element "sensor", to: :sensors
+      root "bibitem"
+      map_element "title", to: :title
     end
   end
 
-  class Address < Lutaml::Model::Serializable
-    attribute :street, :string
-    attribute :city, :string
-    attribute :address, Address
+  # class BibItem < Lutaml::Model::Serializable
+  #   attribute :title, :string, collection: true
 
-    xml do
-      root "address"
-      map_element "street", to: :street
-      map_element "city", with: { from: :city_from_xml, to: :city_to_xml }
-      map_element "address", to: :address
-    end
+  #   xml do
+  #     root "bibitem"
+  #     map_element "title", to: :title
+  #   end
+  # end
 
-    def city_from_xml(model, node)
-      model.city = node.text
-    end
+  # class BibItem < Lutaml::Model::Serializable
+  #   attribute :title, TitleCollection, collection: true
 
-    def city_to_xml(model, parent, doc)
-      doc.add_element(parent, "<city>#{model.city}</city>")
-    end
-  end
-
-  class CustomCollection < Lutaml::Model::Collection; end
-
-  class CollectionTypeTest < Lutaml::Model::Serializable
-    attribute :basic_list, Lutaml::Model::Type::String, collection: true
-    attribute :custom_list, Lutaml::Model::Type::String, collection: CustomCollection
-
-    xml do
-      root "collection_test"
-      map_element "item", to: :basic_list
-      map_element "custom_item", to: :custom_list
-    end
-  end
+  #   xml do
+  #     root "bibitem"
+  #     map_element "title", to: :title
+  #   end
+  # end
 end
 
 RSpec.describe CollectionTests do
@@ -103,6 +165,21 @@ RSpec.describe CollectionTests do
         <sensor>Temp2</sensor>
       </kiln>
     XML
+  end
+
+  it "verifies the correct instance for custom collection" do
+    instance = CollectionTests::BibItem.new
+    binding.irb
+    # instance = CollectionTests::BibItem.new(
+    #   title: CollectionTests::TitleCollection.new(
+    #     items: [
+    #       CollectionTests::Title.new(name: "First Title", value: 1.0),
+    #       CollectionTests::Title.new(name: "Second Title", value: 2.0)
+    #     ]
+    #   )
+    # )
+
+    parsed = CollectionTests::BibItem.from_xml("<bibitem>  <title>    <artifact>Title One</artifact>    <artifact>Title Two</artifact>    <artifact>Title Three</artifact>  </title> </bibitem>")
   end
 
   it "initializes with default values" do
@@ -158,6 +235,7 @@ RSpec.describe CollectionTests do
     end
 
     it "deserializes from XML" do
+      binding
       model = CollectionTests::Address.from_xml(xml)
 
       expect(model.street).to eq("A")

@@ -27,29 +27,3 @@ module Lutaml
     end
   end
 end
-
-class Ceramic < Lutaml::Model::Serializable
-  attribute :name, :string
-  attribute :value, :float
-end
-
-class CuratedCollection < Lutaml::Model::Collection
-  attribute :curator, :string
-  attribute :acquisition_date, :date
-  instances :items, Ceramic
-
-  xml do
-    root "curated-group"
-    map_attribute "curator", to: :curator
-    map_element "acquisition-date", to: :acquisition_date
-    map_element "artifact", to: :items
-  end
-end
-
-class TestCollection < Lutaml::Model::Serializable
-  attribute :curated_group, Ceramic, collection: CuratedCollection
-
-  xml do
-    map_element "curated-group", to: :curated_group
-  end
-end
