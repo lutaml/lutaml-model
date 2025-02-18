@@ -96,6 +96,7 @@ module Lutaml
 
         # Define an attribute for the model
         def attribute(name, type, options = {})
+          require 'byebug'; debugger
           attr = Attribute.new(name, type, options)
           attributes[name] = attr
 
@@ -613,6 +614,7 @@ module Lutaml
 
             value = translate_mappings(value, rule.hash_mappings, attr, format)
             value = attr.cast(value, format) unless rule.hash_mappings
+            require 'byebug'; debugger
             value = attr.collection_class.new(value) if attr.collection? && attr.collection_class != value.class
             attr.valid_collection!(value, self)
 
@@ -624,6 +626,7 @@ module Lutaml
 
         def normalize_xml_value(value, rule, attr, options = {})
           if attr&.collection?
+            require 'byebug'; debugger
             collection = attr.collection_class.new
             value = Utils.collection?(value) ? collection.concat(value) : collection.push(value)
             value = value.compact
@@ -708,18 +711,20 @@ module Lutaml
         if attrs.key?(:schema_location)
           self.schema_location = attrs[:schema_location]
         end
-
         self.class.attributes.each do |name, attr|
           value = if attrs.key?(name) || attrs.key?(name.to_s)
                     attr_value(attrs, name, attr)
                   else
                     using_default_for(name)
-                    attr.default
+                    require 'byebug'; debugger
+                    attr.default unless attr.collection?
                   end
 
           # Initialize collections with an empty array if no value is provided
           if attr.collection? && value.nil?
-            value = attr.collection_class.new
+            require 'byebug'; debugger
+            value = attr.collection_class.new([], attr.name, attr.type)
+
           end
 
           default = using_default?(name)

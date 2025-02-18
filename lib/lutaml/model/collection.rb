@@ -6,34 +6,43 @@ module Lutaml
       include Enumerable
       extend Forwardable
 
-      #attr_reader :items
-
-      def_delegators :@__items, :each, :<<, :push, :size, :to_s, :to_yaml, :to_json, :empty?, :[], :length, :+, :compact, :first, :last, :join, :to_a, :to_ary, :eql?
+      #attr_reader :items      
 
       def self.instances(name, type)
         # require 'byebug'; debugger
         attribute(name, type, { collection: true })
       end
 
-      def initialize(items = [], collection_name = "@__items", type = nil)
-        # require 'byebug'; debugger
+      def initialize(items = [], collection_name = "__items", type = nil)
+        require 'byebug'; debugger
         super()
-        @__items = items
-        @type = type
+
+        unless self.class < Lutaml::Model::Collection
+          instance_variable_set(:"@#{collection_name}", items)
+          @collection_name = collection_name
+          @type = type
+
+          require 'byebug'; debugger
+          self.class.def_delegators :"@#{@collection_name}", :each, :<<, :push, :size, :to_s, :to_yaml, :to_json, :empty?, :[], :length, :+, :compact, :first, :last, :join, :to_a, :to_ary, :eql?
+        end
+      end
+
+      def collection_var_name
+        instance_variable_get(:"@#{@collection_name}")
       end
 
       def map(&block)
-        self.class.new(@__items.map(&block))
+        self.class.new(collection_var_name.map(&block), @collection_name, @type)
       end
 
       def concat(other)
         case other
         when Array
-          @__items.concat(other)
+          collection_var_name.concat(other)
         when self.class
-          @__items.concat(other.items)
+          collection_var_name.concat(other.items)
         else
-          @__items.push(other)
+          collection_var_name.push(other)
         end
         self
       end
@@ -41,9 +50,9 @@ module Lutaml
       def ==(other)
         case other
         when Array
-          @__items == other
+          collection_var_name == other
         when self.class
-          @__items == other.items
+          collection_var_name == other.items
         else
           false
         end

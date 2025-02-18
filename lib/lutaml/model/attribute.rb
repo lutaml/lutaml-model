@@ -22,16 +22,13 @@ module Lutaml
         @options = options
 
         validate_type!(type)
-
-        type = collection_class if using_custom_collection?
         @type = cast_type!(type)
 
         @raw = !!options[:raw]
 
-        if collection? && !using_custom_collection?
-          # require 'byebug'; debugger
+        if collection?
           validate_collection_range
-          @options[:default] = -> { collection_class.new([], name, type) } unless options[:default]
+          #@options[:default] = -> { collection_class.new([], name, type) } unless options[:default]
         end
       end
 
@@ -65,6 +62,7 @@ module Lutaml
       end
 
       def cast_value(value)
+        require 'byebug'; debugger
         return collection_class.new(value) if value.is_a?(Array)
         return type.cast(value) unless value.is_a?(Lutaml::Model::Collection)
 
@@ -83,12 +81,8 @@ module Lutaml
         !collection?
       end
 
-      def using_custom_collection?
-        collection? && options[:collection].is_a?(Class) && options[:collection] <= Lutaml::Model::Collection
-      end
-
       def collection_class
-        using_custom_collection? ? options[:collection] : Lutaml::Model::Collection
+        Lutaml::Model::Collection
       end
 
       def raw?
@@ -176,7 +170,7 @@ module Lutaml
 
       def validate_collection_range
         range = @options[:collection]
-        return if range == true || using_custom_collection?
+        return if range == true
 
         unless range.is_a?(Range)
           raise ArgumentError, "Invalid collection range: #{range}"
@@ -260,6 +254,7 @@ module Lutaml
       end
 
       def cast(value, format, options = {})
+      require 'byebug'; debugger
         value ||= collection_class.new if collection?
 
         if Utils.collection?(value)
