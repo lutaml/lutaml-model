@@ -27,3 +27,25 @@ module Lutaml
     end
   end
 end
+
+class Title < Lutaml::Model::Serializable
+end
+
+class TitleCollection < Lutaml::Model::Collection
+  instances :abc, Title
+
+  xml do
+    root "title-group"
+    map_element "artifact", to: :items
+  end
+end
+
+class BibItem < Lutaml::Model::Serializable
+  attribute :title, TitleCollection
+
+  xml do
+    root "bibitem"
+    map_element "title", to: :title
+  end
+end
+

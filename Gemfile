@@ -22,3 +22,4 @@ gem "rubocop-rake", require: false
 gem "rubocop-rspec", require: false
 gem "tomlib"
 gem "toml-rb"
+gem "byebug"

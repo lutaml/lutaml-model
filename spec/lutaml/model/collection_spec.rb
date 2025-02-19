@@ -168,8 +168,9 @@ RSpec.describe CollectionTests do
   end
 
   it "verifies the correct instance for custom collection" do
-    instance = CollectionTests::BibItem.new
-    binding.irb
+    # instance = CollectionTests::BibItem.new
+    CollectionTests::BibItem.from_xml("<bibitem>  <title>    <artifact>Title One</artifact>    <artifact>Title Two</artifact>    <artifact>Title Three</artifact>  </title> </bibitem>")
+    # binding.irb
     # instance = CollectionTests::BibItem.new(
     #   title: CollectionTests::TitleCollection.new(
     #     items: [
@@ -178,8 +179,6 @@ RSpec.describe CollectionTests do
     #     ]
     #   )
     # )
-
-    parsed = CollectionTests::BibItem.from_xml("<bibitem>  <title>    <artifact>Title One</artifact>    <artifact>Title Two</artifact>    <artifact>Title Three</artifact>  </title> </bibitem>")
   end
 
   it "initializes with default values" do

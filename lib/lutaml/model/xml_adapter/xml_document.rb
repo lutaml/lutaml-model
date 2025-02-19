@@ -250,7 +250,7 @@ module Lutaml
                 value = attribute_value_for(element, element_rule)
 
                 next if value.nil? && !element_rule.render_nil?
-
+                # require 'byebug'; debugger
                 value = attribute_def.collection_class.new(value) if attribute_def.collection? && !value.is_a?(Array)
               end
 
