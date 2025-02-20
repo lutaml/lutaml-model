@@ -130,6 +130,35 @@ module DefaultsSpec
       map "content", to: :content, render_default: false
     end
   end
+
+  class BaseParentWithName < Lutaml::Model::Serializable
+    attribute :name, :string, default: "ParentClassDefault"
+  
+    key_value do
+      map "name", to: :name, render_default: true
+    end
+  
+    def name
+      "ParentClass"
+    end
+  end
+
+  class ChildWithName < BaseParentWithName
+    def name
+      "ChildClass"
+    end
+  end
+
+  class ParentClass < Lutaml::Model::Serializable
+    # Attribute procs should be executed at the model instance, not the class
+    attribute :_class, :string, default: -> { self.class.name }
+  end
+
+  class ChildClass < ParentClass
+  end
+  
+  class GrandChildClass < ChildClass
+  end
 end
 
 RSpec.describe DefaultsSpec::Glaze do
@@ -195,6 +224,22 @@ RSpec.describe DefaultsSpec::Glaze do
 
           serialized = DefaultsSpec::CustomModelWithDefaultValue.to_xml(parsed)
           expect(serialized).to eq("<CustomModelWithDefaultValue lang=\"en\">English</CustomModelWithDefaultValue>")
+        end
+
+        it "serializes correctly by inherting the default value from parent" do
+          parent_instance = DefaultsSpec::BaseParentWithName.new
+          parent_serialized = parent_instance.to_yaml
+          expect(parent_serialized).to eq("---\nname: ParentClass\n")
+
+          child_instance = DefaultsSpec::ChildWithName.new
+          child_serialized = child_instance.to_yaml
+          expect(child_serialized).to eq("---\nname: ChildClass\n")
+        end
+
+        it "correctly execute attribute proc at the model instance" do
+          expect(DefaultsSpec::ParentClass.new.to_yaml).to eq("---\n_class: DefaultsSpec::ParentClass\n")
+          expect(DefaultsSpec::ChildClass.new.to_yaml).to eq("---\n_class: DefaultsSpec::ChildClass\n")
+          expect(DefaultsSpec::GrandChildClass.new.to_yaml).to eq("---\n_class: DefaultsSpec::GrandChildClass\n")
         end
       end
 

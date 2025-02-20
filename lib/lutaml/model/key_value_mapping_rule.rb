@@ -42,6 +42,7 @@ module Lutaml
           name.dup,
           to: to.dup,
           render_nil: render_nil.dup,
+          render_default: render_default.dup,
           with: Utils.deep_dup(custom_methods),
           delegate: delegate,
           child_mappings: Utils.deep_dup(child_mappings),
