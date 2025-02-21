@@ -413,9 +413,11 @@ end
 
 ==== Decimal type
 
-The Decimal type is an optional type that is disabled by default.
+WARNING: Decimal is an optional feature.
 
-NOTE: The reason why the Decimal type is disalbed by default is that the
+The Decimal type is a value type that is disabled by default.
+
+NOTE: The reason why the Decimal type is disabled by default is that the
 `BigDecimal` class became optional to the standard Ruby library from Ruby 3.4
 onwards. The `Decimal` type is only enabled when the `bigdecimal` library is
 loaded.
@@ -4597,18 +4599,19 @@ klin.validate
 
 == Liquid template access
 
+WARNING: The Liquid template feature is optional. To enable it, please
+explicitly require the `liquid` gem.
+
 The https://shopify.github.io/liquid/[Liquid template language] is an
 open-source template language developed by Shopify and written in Ruby.
 
 `Lutaml::Model::Serializable` objects can be safely accessed within Liquid
-templates through a `to_liquid` method that converts the objects into a
+templates through a `to_liquid` method that converts the objects into
 `Liquid::Drop` instances.
 
 * All attributes are accessible in the Liquid template by their names.
-* Nested attributes are also converted into `Liquid::Drop` objects so 
+* Nested attributes are also converted into `Liquid::Drop` objects so
 inner attributes can be accessed using the Liquid dot notation.
-
-NOTE: This feature is optional and requires the `liquid` gem to be explicitly installed and required.
 
 NOTE: Every `Lutaml::Model::Serializable` class extends the `Liquefiable` module
 which generates a corresponding `Liquid::Drop` class.
