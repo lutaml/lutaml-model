@@ -270,19 +270,17 @@ Or install it yourself as:
 gem install lutaml-model
 ----
 
-== Data model class
+== Model
 
-=== Definition
+=== General
 
-==== General
-
-There are two ways to define a data model in Lutaml::Model:
+There are two ways to define an information model in Lutaml::Model:
 
 * Inheriting from the `Lutaml::Model::Serializable` class
 * Including the `Lutaml::Model::Serialize` module
 
 [[define-through-inheritance]]
-==== Definition through inheritance
+=== Definition through inheritance
 
 The simplest way to define a model is to create a class that inherits from
 `Lutaml::Model::Serializable`.
@@ -301,7 +299,7 @@ end
 ----
 
 [[define-through-inclusion]]
-==== Definition through inclusion
+=== Definition through inclusion
 
 If the model class already has a super class that it inherits from, the model
 can be extended using the `Lutaml::Model::Serialize` module.
@@ -344,62 +342,13 @@ same class and all their attributes are equal.
 ----
 
 
+== Value types
 
-== Defining attributes
+=== General types
 
-=== Derived Attributes
-
-A derived attribute is computed dynamically based on an instance method instead of storing a static value. It is defined using the `method:` option.
-
-Syntax:
-
-[source,ruby]
-----
-attribute :name_of_attribute, method: :instance_method_name
-----
-
-.Defining methods as attributes
-[example]
-====
-[source,ruby]
-----
-class Invoice < Lutaml::Model::Serializable
-  attribute :subtotal, :float
-  attribute :tax, :float
-  attribute :total, method: :total_value
-
-  def total_value
-    subtotal + tax
-  end
-end
-
-i = Invoice.new(subtotal: 100.0, tax: 12.0)
-i.total
-#=> 112.0
-
-puts i.to_yaml
-#=> ---
-#=> subtotal: 100.0
-#=> tax: 12.0
-#=> total: 112.0
-----
-====
-
-=== Supported attribute value types
-
-==== General types
-
-Lutaml::Model supports the following attribute types, they can be
-referred by a string, a symbol, or their class constant.
+Lutaml::Model supports the following attribute value types.
 
 Every type has a corresponding Ruby class and a serialization format type.
-
-Syntax:
-
-[source,ruby]
-----
-attribute :name_of_attribute, {symbol | string | class}
-----
 
 .Mapping between Lutaml::Model::Type classes, Ruby equivalents and serialization format types
 |===
@@ -423,33 +372,7 @@ attribute :name_of_attribute, {symbol | string | class}
 |===
 
 
-.Defining attributes with supported types via symbol, string and class
-[example]
-====
-[source,ruby]
-----
-class Studio < Lutaml::Model::Serializable
-  # The following are equivalent
-  attribute :location, :string
-  attribute :potter, "String"
-  attribute :kiln, :string
-end
-----
-
-[source,ruby]
-----
-> s = Studio.new(location: 'London', potter: 'John Doe', kiln: 'Kiln 1')
-> # <Studio:0x0000000104ac7240 @location="London", @potter="John Doe", @kiln="Kiln 1">
-> s.location
-> # "London"
-> s.potter
-> # "John Doe"
-> s.kiln
-> # "Kiln 1"
-----
-====
-
-==== Decimal type
+=== Decimal type
 
 WARNING: Decimal is an optional feature.
 
@@ -472,7 +395,7 @@ If the `bigdecimal` library is not loaded, usage of the `Decimal` type will
 raise a `Lutaml::Model::TypeNotSupportedError`.
 
 
-==== Custom type
+=== Custom type
 
 A custom class can be used as an attribute type. The custom class must inherit
 from `Lutaml::Model::Type::Value` or a class that inherits from it.
@@ -490,7 +413,6 @@ set as `value`. Casts the value to the custom type.
 `self.serialize(value)`:: Serializes the custom type to an object (e.g. a
 string). Takes the internal `value` and converts it into an output suitable for
 serialization.
-
 
 .Using a custom value type to normalize a postcode with minimal methods
 [example]
@@ -520,23 +442,7 @@ end
 ----
 ====
 
-Note: The `type` can also be a superclass. If a class is provided, it can represent a specific type, including a superclass, allowing polymorphic behavior where subclasses of the given class are also valid.
-
-.Using a superclass type receive child object
-[example]
-====
-[source,ruby]
-----
-class Studio < Lutaml::Model::Serializable
-  attribute :postcode, :string
-end
-
-Studio.new(postcode: FiveDigitPostCode.new(12345))
-----
-====
-
-
-==== Serialization of custom types
+=== Serialization of custom types
 
 The serialization of custom types can be made to differ per serialization format
 by defining methods in the class definitions. This requires additional methods
@@ -623,7 +529,105 @@ part lost due to the inability of JSON to handle high-precision date-time.
 ====
 
 
-=== Attribute as a collection
+== Attributes
+
+
+=== Basic attributes
+
+An attribute is the basic building block of a model. It is a named value that
+stores a single piece of data (which may be one or multiple pieces of data).
+
+An attribute only accepts the type of value defined in the attribute definition.
+
+The attribute value type can be one of the following:
+
+* Value (inherits from Lutaml::Model::Value)
+* Model (inherits from Lutaml::Model::Serializable)
+
+Syntax:
+
+[source,ruby]
+----
+attribute :name_of_attribute, Type
+----
+
+Where,
+
+`name_of_attribute`:: The defined name of the attribute.
+`Type`:: The type of the attribute.
+
+.Using the `attribute` class method to define simple attributes
+[example]
+====
+[source,ruby]
+----
+class Studio < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :address, :string
+  attribute :established, :date
+end
+----
+
+[source,ruby]
+----
+s = Studio.new(name: 'Pottery Studio', address: '123 Clay St', established: Date.new(2020, 1, 1))
+puts s.name
+#=> "Pottery Studio"
+puts s.address
+#=> "123 Clay St"
+puts s.established
+#=> <Date: 2020-01-01>
+----
+====
+
+
+An attribute with a defined value type also accepts values that are of a class that
+is a subclass of the defined type.
+
+This means that the assigned `Type` accepts polymorphic classes as long as the
+assigned instance is of a class that either inherits from the declared type or
+matches it.
+
+.Using a superclass type receive child object
+[example]
+====
+[source,ruby]
+----
+class Studio < Lutaml::Model::Serializable
+  attribute :name, :string
+end
+
+class CeramicStudio < Studio
+  attribute :clay_type, :string
+end
+
+class PotteryClass < Lutaml::Model::Serializable
+  attribute :studio, Studio
+end
+----
+
+[source,ruby]
+----
+# This works
+> s = Studio.new(name: 'Pottery Studio')
+> p = PotteryClass.new(studio: s)
+> p.studio
+# => <Studio:0x0000000104ac7240 @name="Pottery Studio", @address=nil, @established=nil>
+
+# A subclass of Studio is also valid
+> s = CeramicStudio.new(name: 'Ceramic World', clay_type: 'Red')
+> p = PotteryClass.new(studio: s)
+> p.studio
+# => <CeramicStudio:0x0000000104ac7240 @name="Ceramic World", @address=nil, @established=nil, @clay_type="Red">
+> p.studio.name
+# => "Ceramic World"
+> p.studio.clay_type
+# => "Red"
+----
+====
+
+
+=== Collection attributes
 
 Define attributes as collections (arrays or hashes) to store multiple values
 using the `collection` option.
@@ -697,61 +701,122 @@ end
 ----
 ====
 
+=== Derived attributes
 
-=== Sequence within XmlMapping
+A derived attribute is computed dynamically based on an instance method instead of storing a static value. It is defined using the `method:` option.
 
-The sequence option enforces that the defined components must appear in a specified order.
+Syntax:
 
-NOTE: `sequence` only works within XML and only supports `map_element` mappings.
+[source,ruby]
+----
+attribute :name_of_attribute, method: :instance_method_name
+----
 
-.Using the `sequence` keyword to define a set of elements in desired order.
+.Defining methods as attributes
 [example]
 ====
 [source,ruby]
 ----
-class Kiln < Lutaml::Model::Serializable
-  attribute :id, :string
-  attribute :name, :string
-  attribute :type, :string
-  attribute :color, :string
+class Invoice < Lutaml::Model::Serializable
+  attribute :subtotal, :float
+  attribute :tax, :float
+  attribute :total, method: :total_value
 
-  xml do
-    sequence do
-      map_element :id, to: :id
-      map_element :name, to: :name
-      map_element :type, to: :type
-      map_element :color, to: :color
-    end
+  def total_value
+    subtotal + tax
   end
 end
 
-class KilnCollection < Lutaml::Model::Serializable
-  attribute :kiln, Kiln, collection: 1..2
+i = Invoice.new(subtotal: 100.0, tax: 12.0)
+i.total
+#=> 112.0
 
-  xml do
-    root "collection"
-    map_element "kiln", to: :kiln
-  end
-end
-----
-
-[source,ruby]
-----
-> parsed = Kiln.from_xml("<Kiln> <id>1</id> <name>Nick</name> <type>Hard</type> <color>Black</color> </Kiln>")
-> # parsed.not_to raise_error
+puts i.to_yaml
+#=> ---
+#=> subtotal: 100.0
+#=> tax: 12.0
+#=> total: 112.0
 ----
 ====
 
 
-=== Reusable Classes with Import
+=== Choice attributes
 
-Lutaml lets you create reusable element and attribute collections using `no_root`. These can be imported into other models using:
+The `choice` directive allows specifying that elements from the specified range are included.
 
-- `import_model`: imports both attributes and mappings
-- `import_model_attributes`: imports only attributes
-- `import_model_mappings`: imports only mappings
+NOTE: Attribute-level definitions are supported. This can be used with both
+`key_value` and `xml` mappings.
 
-NOTE: This feature works with XML. Import order determines how elements and attributes are overwritten.
+Syntax:
+
+[source,ruby]
+----
+choice(min: {min}, max: {max}) do
+  {block}
+end
+----
+
+Where,
+
+`min`:: The minimum number of elements that must be included.
+`max`:: The maximum number of elements that can be included.
+`block`:: The block of elements that must be included. The block can contain
+multiple `attribute` and `choice` directives.
+
+.Using the `choice` directive to define a set of attributes with a range
+[example]
+====
+[source,ruby]
+----
+class Studio < Lutaml::Model::Serializable
+  choice(min: 1, max: 3) do
+    choice(min: 1, max: 2) do
+      attribute :prefix, :string
+      attribute :forename, :string
+    end
+
+    attribute :completeName, :string
+  end
+end
+----
+
+This means that the `Studio` class must have at least one and at most three
+attributes.
+
+* The first choice must have at least one and at most two attributes.
+* The second attribute is the `completeName`.
+* The first choice can have either the `prefix` and `forename` attributes or just the `forename` attribute.
+* The last attribute `completeName` is optional.
+====
+
+
+
+=== Importable models for reuse
+
+An importable model is a model that can be imported into another model using the
+`import_*` directive.
+
+Such a model is specified by setting the model's XML serialization configuration
+with the `no_root` directive.
+
+As a result, the model can be imported into another model using the following
+directives:
+
+`import_model`:: imports both attributes and mappings.
+
+`import_model_attributes`:: imports only attributes.
+
+`import_model_mappings`:: imports only mappings.
+
+NOTE: This feature only works with XML for now. The import order determines how
+elements and attributes are overwritten.
+
+Models with `no_root` can only be parsed through **parent models**.
+Direct calling `NoRootModel.from_xml` will raise a `NoRootMappingError`.
+
+Namespaces are not supported in importable models. If `namespace` is defined with
+`no_root`, `NoRootNamespaceError` will raise.
+
 
 [example]
 ====
@@ -809,39 +874,11 @@ end
 > parsed = GroupOfItems.from_xml(xml)
 > # Lutaml::Model::NoRootMappingError: "GroupOfItems has `no_root`, it allowed only for reusable models"
 ----
-
-NOTE: Models with `no_root` can only be parsed through **Parent Models**. Direct calling `from_xml` will raise `NoRootMappingError`.
-And if `namespace` is defined with `no_root`, `NoRootNamespaceError` will raise.
-
 ====
 
 
-=== Choice
 
-The `choice` option ensures that elements from the specified range are included.
-
-NOTE: Attribute-level definitions are supported. This can be used with both key_value and xml mappings.
-
-.Using the `choice` option to define a set of attributes with a range.
-[example]
-====
-[source,ruby]
-----
-class Studio < Lutaml::Model::Serializable
-  choice(min: 1, max: 3) do
-    choice(min: 1, max: 2) do
-      attribute :prefix, :string
-      attribute :forename, :string
-    end
-
-    attribute :completeName, :string
-  end
-end
-----
-====
-
-
-=== Attribute value validation
+=== Value validation
 
 ==== General
 
@@ -1152,6 +1189,56 @@ end
 > #<example></example>
 ----
 ====
+
+
+==== Ommiting root element
+
+The root element can be omitted by using the `no_root` method.
+
+When `no_root` is used, only `map_element` can be used because without a root
+element there cannot be attributes.
+
+Syntax:
+
+[source,ruby]
+----
+xml do
+  no_root
+end
+----
+
+[example]
+====
+[source,ruby]
+----
+class NameAndCode < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :code, :string
+
+  xml do
+    no_root
+    map_element "code", to: :code
+    map_element "name", to: :name
+  end
+end
+----
+
+[source,xml]
+----
+<name>Name</name>
+<code>ID-001</code>
+----
+
+[source,ruby]
+----
+> parsed = NameAndCode.from_xml(xml)
+> # <NameAndCode:0x0000000107a3ca70 @code="ID-001", @name="Name">
+> parsed.to_xml
+> # <code>ID-001</code><name>Name</name>
+----
+====
+
+
 
 [[xml-map-all]]
 ==== Mapping all XML content
@@ -1931,6 +2018,104 @@ end
 > #<RootOrderedContent:0x0000000104ac7240 @bold="bell", @italic="384,400 km", @underline="Moon">
 > instance.to_xml
 > #<RootOrderedContent>\n  <bold>bell</bold>\n  <italic>384,400 km</italic>\n  <underline>Moon</underline>\n</RootOrderedContent>
+----
+====
+
+
+
+==== Sequence
+
+The `sequence` directive specifies that the defined attributes must appear in a
+specified order in XML.
+
+NOTE: Sequence only supports `map_element` mappings.
+
+Syntax:
+
+[source,ruby]
+----
+xml do
+  sequence do
+    map_element 'xml_element_name_1', to: :name_of_attribute_1
+    map_element 'xml_element_name_2', to: :name_of_attribute_2
+    # Add more map_element lines as needed to establish a complete sequence
+  end
+end
+----
+
+The appearance of the elements in the XML document must match the order defined
+in the `sequence` block. In this case, the `<xml_element_name_1>` element
+should appear before the `<xml_element_name_2>` element.
+
+.Using the `sequence` keyword to define a set of elements in desired order.
+[example]
+====
+[source,ruby]
+----
+class Kiln < Lutaml::Model::Serializable
+  attribute :id, :string
+  attribute :name, :string
+  attribute :type, :string
+  attribute :color, :string
+
+  xml do
+    sequence do
+      map_element :id, to: :id
+      map_element :name, to: :name
+      map_element :type, to: :type
+      map_element :color, to: :color
+    end
+  end
+end
+
+class KilnCollection < Lutaml::Model::Serializable
+  attribute :kiln, Kiln, collection: 1..2
+
+  xml do
+    root "collection"
+    map_element "kiln", to: :kiln
+  end
+end
+----
+
+[source,xml]
+----
+<collection>
+  <kiln>
+    <id>1</id>
+    <name>Nick</name>
+    <type>Hard</type>
+    <color>Black</color>
+  </kiln>
+  <kiln>
+    <id>2</id>
+    <name>John</name>
+    <type>Soft</type>
+    <color>White</color>
+  </kiln>
+</collection>
+----
+
+[source,ruby]
+----
+> parsed = Kiln.from_xml(xml)
+# => [
+#<Kiln:0x0000000104ac7240 @id="1", @name="Nick", @type="Hard", @color="Black">,
+#<Kiln:0x0000000104ac7240 @id="2", @name="John", @type="Soft", @color="White">
+#]
+
+> bad_xml = <<~HERE
+<collection>
+  <kiln>
+    <name>Nick</name>
+    <id>1</id>
+    <color>Black</color>
+    <type>Hard</type>
+  </kiln>
+</collection>
+HERE
+> parsed = Kiln.from_xml(bad_xml)
+# => Lutaml::Model::ValidationError: Element 'name' is out of order in 'kiln' element
 ----
 ====
 
