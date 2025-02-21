@@ -96,6 +96,11 @@ module Lutaml
 
         # Define an attribute for the model
         def attribute(name, type, options = {})
+          if type.is_a?(Hash)
+            options[:method_name] = type[:method]
+            type = nil
+          end
+
           attr = Attribute.new(name, type, options)
           attributes[name] = attr
 
@@ -283,6 +288,10 @@ module Lutaml
 
             hash_representation(instance, format, options)
           end
+        end
+
+        def as(format, instance, options = {})
+          public_send(:"as_#{format}", instance, options)
         end
 
         def key_value(&block)
@@ -486,8 +495,7 @@ module Lutaml
           return instance unless doc
 
           if options[:default_namespace].nil?
-            options[:default_namespace] =
-              mappings_for(:xml)&.namespace_uri
+            options[:default_namespace] = mappings_for(:xml)&.namespace_uri
           end
           mappings = options[:mappings] || mappings_for(:xml).mappings
 
@@ -519,6 +527,7 @@ module Lutaml
             raise "Attribute '#{rule.to}' not found in #{self}" unless valid_rule?(rule)
 
             attr = attribute_for_rule(rule)
+            next if attr&.derived?
 
             value = if rule.raw_mapping?
                       doc.root.inner_xml
@@ -705,6 +714,8 @@ module Lutaml
         end
 
         self.class.attributes.each do |name, attr|
+          next if attr.derived?
+
           value = if attrs.key?(name) || attrs.key?(name.to_s)
                     attr_value(attrs, name, attr)
                   else

@@ -112,13 +112,42 @@ RSpec.describe Lutaml::Model::Serializable do
   end
 
   describe ".attribute" do
-    subject(:mapper) { described_class.new }
+    before do
+      stub_const("TestClass", Class.new(described_class))
+    end
 
-    it "adds the attribute and getter setter for that attribute" do
-      expect { described_class.attribute("foo", Lutaml::Model::Type::String) }
-        .to change { described_class.attributes.keys }.from([]).to(["foo"])
-        .and change { mapper.respond_to?(:foo) }.from(false).to(true)
-        .and change { mapper.respond_to?(:foo=) }.from(false).to(true)
+    context "when method_name is given" do
+      let(:attribute) do
+        TestClass.attribute("test", method: :foobar)
+      end
+
+      it "adds derived attribute" do
+        expect { attribute }
+          .to change { TestClass.attributes["test"] }
+          .from(nil)
+          .to(Lutaml::Model::Attribute)
+      end
+
+      it "returns true for derived?" do
+        expect(attribute.derived?).to be(true)
+      end
+    end
+
+    context "when type is given" do
+      let(:attribute) do
+        TestClass.attribute("foo", Lutaml::Model::Type::String)
+      end
+
+      it "adds the attribute and getter setter for that attribute" do
+        expect { attribute }
+          .to change { TestClass.attributes.keys }.from([]).to(["foo"])
+          .and change { TestClass.new.respond_to?(:foo) }.from(false).to(true)
+          .and change { TestClass.new.respond_to?(:foo=) }.from(false).to(true)
+      end
+
+      it "returns false for derived?" do
+        expect(attribute.derived?).to be(false)
+      end
     end
   end
 
