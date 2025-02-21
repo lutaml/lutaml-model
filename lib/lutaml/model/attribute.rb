@@ -13,23 +13,20 @@ module Lutaml
         transform
         choice
         sequence
+        method_name
       ].freeze
 
       def initialize(name, type, options = {})
         @name = name
-
-        validate_type!(type)
-        @type = cast_type!(type)
-
-        validate_options!(options)
         @options = options
 
-        @raw = !!options[:raw]
+        validate_presence!(type, options[:method_name])
+        process_type!(type) if type
+        process_options!
+      end
 
-        if collection?
-          validate_collection_range
-          @options[:default] = -> { [] } unless options[:default]
-        end
+      def derived?
+        type.nil?
       end
 
       def delegate
@@ -38,6 +35,10 @@ module Lutaml
 
       def transform
         @options[:transform] || {}
+      end
+
+      def method_name
+        @options[:method_name]
       end
 
       def cast_type!(type)
@@ -231,20 +232,11 @@ module Lutaml
 
       def serialize(value, format, options = {})
         return if value.nil?
+        return value if derived?
+        return serialize_array(value, format, options) if value.is_a?(Array)
+        return serialize_model(value, format, options) if type <= Serialize
 
-        if value.is_a?(Array)
-          value.map do |v|
-            serialize(v, format, options)
-          end
-        elsif type <= Serialize
-          if Utils.present?(value)
-            type.public_send(:"as_#{format}", value, options)
-          end
-        else
-          # Convert to Value instance if not already
-          value = type.new(value) unless value.is_a?(Type::Value)
-          value.send(:"to_#{format}")
-        end
+        serialize_value(value, format)
       end
 
       def cast(value, format, options = {})
@@ -269,6 +261,41 @@ module Lutaml
           (format == :xml && value.is_a?(Lutaml::Model::XmlAdapter::XmlElement))
       end
 
+      def serialize_array(value, format, options)
+        value.map { |v| serialize(v, format, options) }
+      end
+
+      def serialize_model(value, format, options)
+        type.as(format, value, options) if Utils.present?(value)
+      end
+
+      def serialize_value(value, format)
+        value = type.new(value) unless value.is_a?(Type::Value)
+        value.send(:"to_#{format}")
+      end
+
+      def validate_presence!(type, method_name)
+        return if type || method_name
+
+        raise ArgumentError, "method or type must be set for an attribute"
+      end
+
+      def process_type!(type)
+        validate_type!(type)
+        @type = cast_type!(type)
+      end
+
+      def process_options!
+        validate_options!(@options)
+        @raw = !!@options[:raw]
+        set_default_for_collection if collection?
+      end
+
+      def set_default_for_collection
+        validate_collection_range
+        @options[:default] ||= -> { [] }
+      end
+
       def validate_options!(options)
         if (invalid_opts = options.keys - ALLOWED_OPTIONS).any?
           raise StandardError,
@@ -277,7 +304,8 @@ module Lutaml
 
         if options.key?(:pattern) && type != Lutaml::Model::Type::String
           raise StandardError,
-                "Invalid option `pattern` given for `#{name}`, `pattern` is only allowed for :string type"
+                "Invalid option `pattern` given for `#{name}`, " \
+                "`pattern` is only allowed for :string type"
         end
 
         true

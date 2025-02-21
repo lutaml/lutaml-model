@@ -7,6 +7,10 @@ RSpec.describe Lutaml::Model::Attribute do
     described_class.new("name", :string)
   end
 
+  let(:method_attr) do
+    described_class.new("name", nil, method_name: nil)
+  end
+
   let(:test_record_class) do
     Class.new(Lutaml::Model::Serializable) do
       attribute :age, :integer
@@ -31,6 +35,13 @@ RSpec.describe Lutaml::Model::Attribute do
       .to change { obj.image }
       .from(nil)
       .to("avatar.png")
+  end
+
+  it "raises error if both type and method_name are not given" do
+    expect { method_attr }.to raise_error(
+      ArgumentError,
+      "method or type must be set for an attribute",
+    )
   end
 
   describe "#validate_options!" do
@@ -103,7 +114,25 @@ RSpec.describe Lutaml::Model::Attribute do
     end
   end
 
-  describe "#default?" do
+  describe "#derived?" do
+    context "when type is set" do
+      let(:attribute) { described_class.new("name", :string) }
+
+      it "returns false" do
+        expect(attribute.derived?).to be(false)
+      end
+    end
+
+    context "when type is nil and method_name is set" do
+      let(:attribute) { described_class.new("name", nil, method_name: :tmp) }
+
+      it "returns true" do
+        expect(attribute.derived?).to be(true)
+      end
+    end
+  end
+
+  describe "#default" do
     context "when default is not set" do
       let(:attribute) { described_class.new("name", :string) }
 
