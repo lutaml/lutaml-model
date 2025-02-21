@@ -50,6 +50,71 @@ module InheritanceSpec
       root "child"
     end
   end
+
+  class Reference < Lutaml::Model::Serializable
+  end
+
+  class FirstRefMapper < Reference
+    attribute :name, :string
+    attribute :id, :string
+
+    key_value do
+      map "name", to: :name
+      map "id", to: :id
+    end
+  end
+
+  class SecondRefMapper < Reference
+    attribute :name, :string
+    attribute :desc, :string
+
+    key_value do
+      map "name", to: :name
+      map "desc", to: :desc
+    end
+  end
+
+  class FirstRef
+    attr_accessor :name, :id
+
+    def initialize(id:, name:)
+      @id = id
+      @name = name
+    end
+  end
+
+  class SecondRef
+    attr_accessor :name, :desc
+
+    def initialize(desc:, name:)
+      @desc = desc
+      @name = name
+    end
+  end
+
+  class FirstRefMapperWithCustomModel < Reference
+    model FirstRef
+
+    attribute :name, :string
+    attribute :id, :string
+
+    key_value do
+      map "name", to: :name
+      map "id", to: :id
+    end
+  end
+
+  class SecondRefMapperWithCustomModel < Reference
+    model SecondRef
+
+    attribute :name, :string
+    attribute :desc, :string
+
+    key_value do
+      map "name", to: :name
+      map "desc", to: :desc
+    end
+  end
 end
 
 RSpec.describe "Inheritance" do
@@ -112,6 +177,90 @@ RSpec.describe "Inheritance" do
     it "round trip correctly" do
       parsed = InheritanceSpec::Child.from_xml(xml)
       expect(parsed.to_xml).to eq(xml)
+    end
+  end
+
+  context "when parent class is given in type" do
+    before do
+      test_class = Class.new(Lutaml::Model::Serializable) do
+        attribute :klass, InheritanceSpec::Reference
+
+        key_value do
+          map "klass", to: :klass
+        end
+      end
+
+      stub_const("TestClass", test_class)
+    end
+
+    context "without custom models" do
+      let(:first_ref_mapper) do
+        InheritanceSpec::FirstRefMapper.new(
+          name: "first_mapper",
+          id: "one",
+        )
+      end
+
+      let(:first_ref_mapper_yaml) do
+        <<~YAML
+          ---
+          klass:
+            name: first_mapper
+            id: one
+        YAML
+      end
+
+      let(:second_ref_mapper) do
+        InheritanceSpec::SecondRefMapper.new(
+          name: "second_mapper",
+          desc: "second mapper",
+        )
+      end
+
+      let(:second_ref_mapper_yaml) do
+        <<~YAML
+          ---
+          klass:
+            name: second_mapper
+            desc: second mapper
+        YAML
+      end
+
+      it "outputs correct yaml for first_ref_mapper class" do
+        expect(TestClass.new(klass: first_ref_mapper).to_yaml)
+          .to eq(first_ref_mapper_yaml)
+      end
+
+      it "outputs correct yaml for second_ref_mapper class" do
+        expect(TestClass.new(klass: second_ref_mapper).to_yaml)
+          .to eq(second_ref_mapper_yaml)
+      end
+    end
+
+    context "when not using custom models" do
+      let(:first_ref) do
+        InheritanceSpec::FirstRef.new(
+          name: "first",
+          id: "one",
+        )
+      end
+
+      let(:second_ref) do
+        InheritanceSpec::SecondRef.new(
+          name: "second",
+          desc: "second",
+        )
+      end
+
+      it "outputs correct yaml for first_ref class" do
+        expect { TestClass.new(klass: first_ref).to_yaml }
+          .to raise_error(Lutaml::Model::IncorrectModelError)
+      end
+
+      it "outputs correct yaml for second_ref class" do
+        expect { TestClass.new(klass: second_ref).to_yaml }
+          .to raise_error(Lutaml::Model::IncorrectModelError)
+      end
     end
   end
 end
