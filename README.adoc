@@ -520,6 +520,21 @@ end
 ----
 ====
 
+Note: The `type` can also be a superclass. If a class is provided, it can represent a specific type, including a superclass, allowing polymorphic behavior where subclasses of the given class are also valid.
+
+.Using a superclass type receive child object
+[example]
+====
+[source,ruby]
+----
+class Studio < Lutaml::Model::Serializable
+  attribute :postcode, :string
+end
+
+Studio.new(postcode: FiveDigitPostCode.new(12345))
+----
+====
+
 
 ==== Serialization of custom types
 
