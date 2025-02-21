@@ -29,23 +29,50 @@ module Lutaml
 end
 
 class Title < Lutaml::Model::Serializable
+  attribute :content, :string
 end
 
 class TitleCollection < Lutaml::Model::Collection
-  instances :abc, Title
+  instances :titles, Title
 
   xml do
-    root "title-group"
-    map_element "artifact", to: :items
+    no_root # default
+    map_element "title", to: :titles
   end
+
+  # key_value do
+  #   no_root # default
+  #   map_instances to: :titles
+  # end
 end
 
-class BibItem < Lutaml::Model::Serializable
-  attribute :title, TitleCollection
-
-  xml do
-    root "bibitem"
-    map_element "title", to: :title
-  end
+Lutaml::Model::Config.configure do |config|
+  config.xml_adapter_type = :nokogiri
 end
+
+@t = TitleCollection.new(titles: [Title.new(content: "Title 1"), Title.new(content: "Title 2")])
+@xml = <<~XML
+    <title>content 1</title>
+    <title>content 2</title>
+  XML
+# class Title < Lutaml::Model::Serializable
+# end
+
+# class TitleCollection < Lutaml::Model::Collection
+#   instances :abc, Title
+
+#   xml do
+#     root "title-group"
+#     map_element "artifact", to: :items
+#   end
+# end
+
+# class BibItem < Lutaml::Model::Serializable
+#   attribute :title, TitleCollection
+
+#   xml do
+#     root "bibitem"
+#     map_element "title", to: :title
+#   end
+# end
 

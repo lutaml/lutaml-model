@@ -38,7 +38,7 @@ module Lutaml
             attributes: {}
           )
             add_namespace_prefix(prefix)
-
+            # require 'byebug'; debugger
             element_name = element_name.first if element_name.is_a?(Array)
             element_name = "#{element_name}_" if respond_to?(element_name)
 

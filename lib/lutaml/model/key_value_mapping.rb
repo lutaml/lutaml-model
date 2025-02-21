@@ -59,6 +59,14 @@ module Lutaml
 
       alias map_all_content map_all
 
+      def no_root
+        @no_root = true
+      end
+
+      def no_root?
+        !!@no_root
+      end
+
       def name_for_mapping(root_mappings, name)
         return "root_mapping" if root_mappings
 

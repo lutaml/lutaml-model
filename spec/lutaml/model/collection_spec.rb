@@ -90,45 +90,23 @@ module CollectionTests
   # end
 
   class Title < Lutaml::Model::Serializable
-    attribute :name, :string
-    attribute :value, :float
+    attribute :content, :string
   end
 
   class TitleCollection < Lutaml::Model::Collection
-    instances :items, Title
+    instances :titles, Title
 
     xml do
-      root "title-group"
-      map_element "artifact", to: :items
+      # root "a"
+      no_root
+      map_element "title", to: :titles
     end
+
+    # key_value do
+    #   no_root # default
+    #   map_instances to: :titles
+    # end
   end
-
-  class BibItem < Lutaml::Model::Serializable
-    attribute :title, TitleCollection
-
-    xml do
-      root "bibitem"
-      map_element "title", to: :title
-    end
-  end
-
-  # class BibItem < Lutaml::Model::Serializable
-  #   attribute :title, :string, collection: true
-
-  #   xml do
-  #     root "bibitem"
-  #     map_element "title", to: :title
-  #   end
-  # end
-
-  # class BibItem < Lutaml::Model::Serializable
-  #   attribute :title, TitleCollection, collection: true
-
-  #   xml do
-  #     root "bibitem"
-  #     map_element "title", to: :title
-  #   end
-  # end
 end
 
 RSpec.describe CollectionTests do
@@ -167,18 +145,25 @@ RSpec.describe CollectionTests do
     XML
   end
 
-  it "verifies the correct instance for custom collection" do
-    # instance = CollectionTests::BibItem.new
-    CollectionTests::BibItem.from_xml("<bibitem>  <title>    <artifact>Title One</artifact>    <artifact>Title Two</artifact>    <artifact>Title Three</artifact>  </title> </bibitem>")
-    # binding.irb
-    # instance = CollectionTests::BibItem.new(
-    #   title: CollectionTests::TitleCollection.new(
-    #     items: [
-    #       CollectionTests::Title.new(name: "First Title", value: 1.0),
-    #       CollectionTests::Title.new(name: "Second Title", value: 2.0)
-    #     ]
-    #   )
-    # )
+  context "custom collection" do
+    it "verifies serialization and deserilization of custom collection class directly" do
+      xml = <<~XML
+        <title>
+          <content>Title One</content>
+        </title>
+        <title>
+          <content>Title Two</content>
+        </title>
+        <title>
+          <content>Title Three</content>
+        </title>
+      XML
+      # binding.irb
+      parsed = CollectionTests::TitleCollection.from_xml(xml)
+      # binding.irb
+      serialized = parsed.to_xml
+      expect(serialized).to eq(xml)
+    end
   end
 
   it "initializes with default values" do

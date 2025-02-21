@@ -144,6 +144,7 @@ module Lutaml
         end
 
         def add_to_xml(xml, element, prefix, value, options = {})
+        # require 'byebug'; debugger
           if value.is_a?(Lutaml::Model::Collection)
             value.each do |item|
               add_to_xml(xml, element, prefix, item, options)
@@ -213,6 +214,7 @@ module Lutaml
         end
 
         def build_unordered_element(xml, element, options = {})
+        # require 'byebug'; debugger
           mapper_class = options[:mapper_class] || element.class
           xml_mapping = mapper_class.mappings_for(:xml)
           return xml unless xml_mapping
@@ -228,7 +230,7 @@ module Lutaml
                    end
 
           prefixed_xml = xml.add_namespace_prefix(prefix)
-          tag_name = options[:tag_name] || xml_mapping.root_element
+          tag_name = options[:tag_name] || xml_mapping.root_element || ""
 
           prefixed_xml.create_and_add_element(tag_name, prefix: prefix,
                                                         attributes: attributes) do

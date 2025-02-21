@@ -13,6 +13,7 @@ module Lutaml
         end
 
         def to_xml(options = {})
+          # require 'byebug'; debugger
           builder_options = {}
 
           if options.key?(:encoding)
@@ -24,6 +25,7 @@ module Lutaml
           end
 
           builder = Builder::Nokogiri.build(builder_options) do |xml|
+            # require 'byebug'; debugger
             if root.is_a?(Lutaml::Model::XmlAdapter::NokogiriElement)
               root.build_xml(xml)
             else

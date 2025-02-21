@@ -238,6 +238,7 @@ module Lutaml
           define_method(:"from_#{format}") do |data, options = {}|
             adapter = Lutaml::Model::Config.send(:"#{format}_adapter")
 
+            data = wrap_with_root(data) if no_root?(format)
             doc = adapter.parse(data, options)
             public_send(:"of_#{format}", doc, options)
           end
@@ -248,7 +249,7 @@ module Lutaml
             end
 
             if format == :xml
-              raise Lutaml::Model::NoRootMappingError.new(self) unless root?
+              #raise Lutaml::Model::NoRootMappingError.new(self) unless root?
 
               options[:encoding] = doc.encoding
               apply_mappings(doc, format, options)
@@ -470,6 +471,7 @@ module Lutaml
         end
 
         def apply_mappings(doc, format, options = {})
+          # binding.irb
           instance = options[:instance] || model.new
           return instance if Utils.blank?(doc)
 
@@ -489,6 +491,7 @@ module Lutaml
             options[:default_namespace] =
               mappings_for(:xml)&.namespace_uri
           end
+          # require 'byebug'; debugger
           mappings = options[:mappings] || mappings_for(:xml).mappings
 
           raise Lutaml::Model::CollectionTrueMissingError(self, option[:caller_class]) if doc.is_a?(Array)
@@ -514,10 +517,9 @@ module Lutaml
 
           defaults_used = []
           validate_sequence!(doc_order)
-
+          # binding.irb
           mappings.each do |rule|
             raise "Attribute '#{rule.to}' not found in #{self}" unless valid_rule?(rule)
-
             attr = attribute_for_rule(rule)
 
             value = if rule.raw_mapping?
@@ -525,13 +527,15 @@ module Lutaml
                     elsif rule.content_mapping?
                       rule.cdata ? doc.cdata : doc.text
                     elsif val = value_for_rule(doc, rule, options, instance)
+                      # require 'byebug'; debugger
                       val
                     elsif instance.using_default?(rule.to) || rule.render_default
                       defaults_used << rule.to
                       attr&.default || rule.to_value_for(instance)
                     end
-
+                    # binding.irb
             value = normalize_xml_value(value, rule, attr, options)
+            # binding.irb
             rule.deserialize(instance, value, attributes, self)
           end
 
@@ -565,8 +569,9 @@ module Lutaml
               end.flatten
               return children.count > 1 ? values : values.first
             end
-
+            # binding.irb
             values = children.map do |child|
+              # binding.irb
               if !rule.using_custom_methods? && attr.type <= Serialize
                 attr.cast(child, :xml, options.except(:mappings))
               elsif attr.raw?
@@ -624,6 +629,7 @@ module Lutaml
         end
 
         def normalize_xml_value(value, rule, attr, options = {})
+        # binding.irb
           if attr&.collection?
             collection = attr.collection_class.new([], attr.name, attr.type)
             value = Utils.collection?(value) ? collection.concat(value) : collection.push(value)
@@ -682,6 +688,14 @@ module Lutaml
         end
 
         private
+
+        def no_root?(format)
+          mappings_for(format).no_root?
+        end
+
+        def wrap_with_root(xml)
+          "<no_root>#{xml}</no_root>"
+        end
 
         def inner_xml_of(node)
           case node
@@ -813,7 +827,7 @@ module Lutaml
       Lutaml::Model::Config::AVAILABLE_FORMATS.each do |format|
         define_method(:"to_#{format}") do |options = {}|
           adapter = Lutaml::Model::Config.public_send(:"#{format}_adapter")
-          raise Lutaml::Model::NoRootMappingError.new(self.class) unless self.class.root?
+          #raise Lutaml::Model::NoRootMappingError.new(self.class) unless self.class.root?
 
           representation = if format == :xml
                              self

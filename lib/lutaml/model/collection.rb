@@ -16,15 +16,18 @@ module Lutaml
       def initialize(items = [], collection_name = "__items", type = nil)
         # require 'byebug'; debugger
         super()
-        # binding.irb
-        unless self.class < Lutaml::Model::Collection
+        # # binding.irb
+        if !(self.class < Lutaml::Model::Collection)
           instance_variable_set(:"@#{collection_name}", items)
           @collection_name = collection_name
           @type = type
 
-          # require 'byebug'; debugger
           self.class.def_delegators :"@#{@collection_name}", :each, :<<, :push, :size, :to_s, :to_yaml, :to_json, :empty?, :[], :length, :+, :compact, :first, :last, :join, :to_a, :to_ary, :eql?
+          # require 'byebug'; debugger
+        else
+          self.class.def_delegators @__items, :each, :<<, :push, :size, :to_s, :to_yaml, :to_json, :empty?, :[], :length, :+, :compact, :first, :last, :join, :to_a, :to_ary, :eql?
         end
+        
       end
 
       def collection_var_name
