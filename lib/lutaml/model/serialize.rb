@@ -111,6 +111,10 @@ module Lutaml
               options[:values],
               collection: options[:collection],
             )
+          elsif attr.derived? && name != attr.method_name
+            define_method(name) do
+              public_send(attr.method_name)
+            end
           else
             define_method(name) do
               instance_variable_get(:"@#{name}")

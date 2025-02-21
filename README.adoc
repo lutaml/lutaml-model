@@ -347,6 +347,44 @@ same class and all their attributes are equal.
 
 == Defining attributes
 
+=== Derived Attributes
+
+A derived attribute is computed dynamically based on an instance method instead of storing a static value. It is defined using the `method:` option.
+
+Syntax:
+
+[source,ruby]
+----
+attribute :name_of_attribute, method: :instance_method_name
+----
+
+.Defining methods as attributes
+[example]
+====
+[source,ruby]
+----
+class Invoice < Lutaml::Model::Serializable
+  attribute :subtotal, :float
+  attribute :tax, :float
+  attribute :total, method: :total_value
+
+  def total_value
+    subtotal + tax
+  end
+end
+
+i = Invoice.new(subtotal: 100.0, tax: 12.0)
+i.total
+#=> 112.0
+
+puts i.to_yaml
+#=> ---
+#=> subtotal: 100.0
+#=> tax: 12.0
+#=> total: 112.0
+----
+====
+
 === Supported attribute value types
 
 ==== General types
