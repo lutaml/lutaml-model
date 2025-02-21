@@ -160,7 +160,9 @@ module Lutaml
         # Use the default value if the value is nil
         value = default if value.nil?
 
-        valid_value!(value) && valid_collection!(value, self) && valid_pattern!(value)
+        valid_value!(value) &&
+          valid_collection!(value, self) &&
+          valid_pattern!(value)
       end
 
       def validate_collection_range
@@ -182,12 +184,14 @@ module Lutaml
 
         if range.begin.negative?
           raise ArgumentError,
-                "Invalid collection range: #{range}. Begin must be non-negative."
+                "Invalid collection range: #{range}. " \
+                "Begin must be non-negative."
         end
 
         if range.end && range.end < range.begin
           raise ArgumentError,
-                "Invalid collection range: #{range}. End must be greater than or equal to begin."
+                "Invalid collection range: #{range}. " \
+                "End must be greater than or equal to begin."
         end
       end
 
@@ -243,9 +247,9 @@ module Lutaml
         return value if type <= Serialize && value.is_a?(type.model)
 
         value ||= [] if collection?
-        if value.is_a?(Array)
-          value.map { |v| cast(v, format, options) }
-        elsif type <= Serialize && castable?(value, format)
+        return value.map { |v| cast(v, format, options) } if value.is_a?(Array)
+
+        if type <= Serialize && castable?(value, format)
           type.apply_mappings(value, format, options)
         elsif !value.nil? && !value.is_a?(type)
           type.send(:"from_#{format}", value)
@@ -266,7 +270,10 @@ module Lutaml
       end
 
       def serialize_model(value, format, options)
-        type.as(format, value, options) if Utils.present?(value)
+        return unless Utils.present?(value)
+        return value.class.as(format, value, options) if value.is_a?(type)
+
+        type.as(format, value, options)
       end
 
       def serialize_value(value, format)
