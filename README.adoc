@@ -347,6 +347,44 @@ same class and all their attributes are equal.
 
 == Defining attributes
 
+=== Derived Attributes
+
+A derived attribute is computed dynamically based on an instance method instead of storing a static value. It is defined using the `method:` option.
+
+Syntax:
+
+[source,ruby]
+----
+attribute :name_of_attribute, method: :instance_method_name
+----
+
+.Defining methods as attributes
+[example]
+====
+[source,ruby]
+----
+class Invoice < Lutaml::Model::Serializable
+  attribute :subtotal, :float
+  attribute :tax, :float
+  attribute :total, method: :total_value
+
+  def total_value
+    subtotal + tax
+  end
+end
+
+i = Invoice.new(subtotal: 100.0, tax: 12.0)
+i.total
+#=> 112.0
+
+puts i.to_yaml
+#=> ---
+#=> subtotal: 100.0
+#=> tax: 12.0
+#=> total: 112.0
+----
+====
+
 === Supported attribute value types
 
 ==== General types
@@ -693,7 +731,7 @@ end
 Lutaml lets you create reusable element and attribute collections using `no_root`. These can be imported into other models using:
 
 - `import_model`: imports both attributes and mappings
-- `import_model_attributes`: imports only attributes  
+- `import_model_attributes`: imports only attributes
 - `import_model_mappings`: imports only mappings
 
 NOTE: This feature works with XML. Import order determines how elements and attributes are overwritten.
@@ -3898,7 +3936,7 @@ class Person < Lutaml::Model::Serializable
     }
   end
 
-  # Mapping-level transformation in XML format  
+  # Mapping-level transformation in XML format
   xml do
     map "full-name", to: :name, transform: {
       export: ->(value) { "Dr. #{value}" },
@@ -4098,39 +4136,39 @@ NOTE: For `NokogiriAdapter`, we can also call `to_xml` on `value.node.adapter_no
 
 # Nokogiri Adapter Node
 
-#<Lutaml::Model::XmlAdapter::NokogiriElement:0x0000000107656ed8                                                                 
-#   @attributes={},                                                                                                                
-#   @children=                                                                                                                     
+#<Lutaml::Model::XmlAdapter::NokogiriElement:0x0000000107656ed8
+#   @attributes={},
+#   @children=
 #   [#<Lutaml::Model::XmlAdapter::NokogiriElement:0x0000000107656cd0 @attributes={}, @children=[], @default_namespace=nil, @name="text", @namespace_prefix=nil, @text="\n    ">,
-#   #<Lutaml::Model::XmlAdapter::NokogiriElement:0x00000001076569b0                                                              
-#     @attributes={},                                                                                                             
-#     @children=                                                                                                                  
+#   #<Lutaml::Model::XmlAdapter::NokogiriElement:0x00000001076569b0
+#     @attributes={},
+#     @children=
 #     [#<Lutaml::Model::XmlAdapter::NokogiriElement:0x00000001076567f8 @attributes={}, @children=[], @default_namespace=nil, @name="text", @namespace_prefix=nil, @text="Metadata">],
-#     @default_namespace=nil,                                                                                                     
-#     @name="category",                                                                                                           
-#     @namespace_prefix=nil,                                                                                                      
-#     @text="Metadata">,                                                                                                          
+#     @default_namespace=nil,
+#     @name="category",
+#     @namespace_prefix=nil,
+#     @text="Metadata">,
 #   #<Lutaml::Model::XmlAdapter::NokogiriElement:0x0000000107656028 @attributes={}, @children=[], @default_namespace=nil, @name="text", @namespace_prefix=nil, @text="\n  ">],
-# @default_namespace=nil,                                                                                                        
+# @default_namespace=nil,
 # @name="metadata",
 # @namespace_prefix=nil,
 # @text="\n    Metadata\n  ">
 
 # Ox Adapter Node
 
-#<Lutaml::Model::XmlAdapter::OxElement:0x0000000107584f78                                                                                      
-# @attributes={},                                                                                                                               
-# @children=                                                                                                                                    
-#   [#<Lutaml::Model::XmlAdapter::OxElement:0x0000000107584e60                                                                                   
-#     @attributes={},                                                                                                                            
+#<Lutaml::Model::XmlAdapter::OxElement:0x0000000107584f78
+# @attributes={},
+# @children=
+#   [#<Lutaml::Model::XmlAdapter::OxElement:0x0000000107584e60
+#     @attributes={},
 #     @children=[#<Lutaml::Model::XmlAdapter::OxElement:0x0000000107584d48 @attributes={}, @children=[], @default_namespace=nil, @name="text", @namespace_prefix=nil, @text="Metadata">],
-#     @default_namespace=nil,                                                                                                                    
-#     @name="category",                                                                                                                          
-#     @namespace_prefix=nil,                                                                                                                     
-#     @text="Metadata">],                                                                                                                        
-# @default_namespace=nil,                                                                                                                       
-# @name="metadata",                                                                                                                             
-# @namespace_prefix=nil,                                                                                                                        
+#     @default_namespace=nil,
+#     @name="category",
+#     @namespace_prefix=nil,
+#     @text="Metadata">],
+# @default_namespace=nil,
+# @name="metadata",
+# @namespace_prefix=nil,
 # @text=nil>
 
 # Oga Adapter Node
@@ -4190,7 +4228,7 @@ class CustomModelParentMapper < Lutaml::Model::Serializable
     map_element :CustomModelChild,
                 with: { to: :child_to_xml, from: :child_from_xml }
   end
-  
+
   def child_to_xml(model, parent, doc)
     child_el = doc.create_element("CustomModelChild")
     street_el = doc.create_element("street")
@@ -4227,7 +4265,7 @@ end
 [source,ruby]
 ----
 > instance = CustomModelParentMapper.from_xml(xml)
-> #<CustomModelParent:0x0000000107c9ca68 @child_mapper=#<CustomModelChild:0x0000000107c95218 @city="London", @street="Oxford Street">, @first_name="John"> 
+> #<CustomModelParent:0x0000000107c9ca68 @child_mapper=#<CustomModelChild:0x0000000107c95218 @city="London", @street="Oxford Street">, @first_name="John">
 > CustomModelParentMapper.to_xml(instance)
 > #<CustomModelParent><first_name>John</first_name><CustomModelChild><street>Oxford Street</street><city>London</city></CustomModelChild></CustomModelParent>
 ----
@@ -4605,7 +4643,7 @@ templates through a `to_liquid` method that converts the objects into a
 `Liquid::Drop` instances.
 
 * All attributes are accessible in the Liquid template by their names.
-* Nested attributes are also converted into `Liquid::Drop` objects so 
+* Nested attributes are also converted into `Liquid::Drop` objects so
 inner attributes can be accessed using the Liquid dot notation.
 
 NOTE: Every `Lutaml::Model::Serializable` class extends the `Liquefiable` module
