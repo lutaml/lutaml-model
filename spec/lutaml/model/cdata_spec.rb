@@ -43,8 +43,8 @@ module CDATA
       map_element "address", to: :address
     end
 
-    def house_from_xml(model, node)
-      model.house = node.children.first.text
+    def house_from_xml(model, nodes)
+      model.house = nodes.first.children.first.text
     end
 
     def house_to_xml(model, _parent, doc)
@@ -53,8 +53,8 @@ module CDATA
       end
     end
 
-    def city_from_xml(model, node)
-      model.city = node.children.first.text
+    def city_from_xml(model, nodes)
+      model.city = nodes.first.children.first.text
     end
 
     def city_to_xml(model, _parent, doc)
@@ -117,8 +117,8 @@ module CDATA
 
     def child_from_xml(model, value)
       model.child_mapper ||= CustomModelChild.new
-      model.child_mapper.street = value.find_child_by_name("street").text
-      model.child_mapper.city = value.find_child_by_name("city").text
+      model.child_mapper.street = value.first.find_child_by_name("street").text
+      model.child_mapper.city = value.first.find_child_by_name("city").text
     end
   end
 

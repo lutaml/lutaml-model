@@ -95,10 +95,10 @@ class CustomModelParentMapper < Lutaml::Model::Serializable
     doc.add_element(parent, child_el)
   end
 
-  def child_from_xml(model, value)
+  def child_from_xml(model, values)
     model.child_mapper ||= CustomModelChild.new
-    model.child_mapper.street = value.find_child_by_name("street").text
-    model.child_mapper.city = value.find_child_by_name("city").text
+    model.child_mapper.street = values.first.find_child_by_name("street").text
+    model.child_mapper.city = values.first.find_child_by_name("city").text
   end
 end
 

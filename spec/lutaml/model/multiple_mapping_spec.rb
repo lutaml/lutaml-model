@@ -105,8 +105,8 @@ module MultipleMapping
       doc.add_element(parent, el)
     end
 
-    def name_from_xml(model, value)
-      model.full_name = value.text.sub(/^XML Model: /, "")
+    def name_from_xml(model, values)
+      model.full_name = values.first.text.sub(/^XML Model: /, "")
     end
 
     def color_to_xml(model, parent, doc)
@@ -115,8 +115,8 @@ module MultipleMapping
       doc.add_element(parent, el)
     end
 
-    def color_from_xml(model, value)
-      model.color = value.text.downcase
+    def color_from_xml(model, values)
+      model.color = values.first.text.downcase
     end
 
     def size_to_xml(model, parent, doc)
@@ -125,8 +125,8 @@ module MultipleMapping
       doc.add_element(parent, el)
     end
 
-    def size_from_xml(model, value)
-      model.size = (value.text.to_i || 0) - 10
+    def size_from_xml(model, values)
+      model.size = (values.first.text.to_i || 0) - 10
     end
 
     def desc_to_xml(model, parent, doc)
@@ -135,8 +135,8 @@ module MultipleMapping
       doc.add_element(parent, el)
     end
 
-    def desc_from_xml(model, value)
-      model.description = value.text.sub(/^XML Description: /, "")
+    def desc_from_xml(model, values)
+      model.description = values.first.text.sub(/^XML Description: /, "")
     end
   end
 end

@@ -11,6 +11,7 @@
     "glossarist/glossarist-ruby",
     "lutaml/oasis-etm",
     "lutaml/ali",
-    "lutaml/reqif"
+    "lutaml/reqif",
+    "lutaml/lutaml-xsd"
   ]
 }

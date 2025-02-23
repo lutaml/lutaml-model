@@ -563,7 +563,8 @@ module Lutaml
             end
 
             if rule.using_custom_methods? || attr.type == Lutaml::Model::Type::Hash
-              return children.first
+              return_child = attr.type == Lutaml::Model::Type::Hash || !attr.collection? if attr
+              return return_child ? children.first : children
             end
 
             if Utils.present?(children)
