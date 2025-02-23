@@ -46,8 +46,8 @@ module CollectionTests
       map_element "address", to: :address
     end
 
-    def city_from_xml(model, node)
-      model.city = node.text
+    def city_from_xml(model, nodes)
+      model.city = nodes.first.text
     end
 
     def city_to_xml(model, parent, doc)
