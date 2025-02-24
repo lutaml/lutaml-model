@@ -65,31 +65,25 @@ module Lutaml
         name
       end
 
-      def validate!(key, to, with)
-        validate_mappings!(key)
+      def validate!(name, to, with)
+        validate_mappings!(name)
+        return if @raw_mapping
 
-        if to.nil? && with.empty? && !@raw_mapping
-          msg = ":to or :with argument is required for mapping '#{key}'"
-          raise IncorrectMappingArgumentsError.new(msg)
+        if to.nil? && with.size < 2
+          raise IncorrectMappingArgumentsError.missing_mapping_arguments(with, name)
         end
 
-        if !with.empty? && (with[:from].nil? || with[:to].nil?) && !@raw_mapping
-          msg = ":with argument for mapping '#{key}' requires :to and :from keys"
-          raise IncorrectMappingArgumentsError.new(msg)
-        end
-
-        validate_mappings(key)
+        missing_method_keys = with.keys.select { |key| with[key].nil? }
+        raise IncorrectMappingArgumentsError.invalid_with_values(missing_method_keys, name) if missing_method_keys.any?
       end
 
-      def validate_mappings(name)
-        if @mappings.any?(&:root_mapping?) || (name == "root_mapping" && @mappings.any?)
-          raise MultipleMappingsError.new("root_mappings cannot be used with other mappings")
-        end
-      end
-
-      def validate_mappings!(_type)
+      def validate_mappings!(name)
         if (@raw_mapping && Utils.present?(@mappings)) || (!@raw_mapping && @mappings.any?(&:raw_mapping?))
           raise StandardError, "map_all is not allowed with other mappings"
+        end
+
+        if @mappings.any?(&:root_mapping?) || (name == "root_mapping" && @mappings.any?)
+          raise MultipleMappingsError.new("root_mappings cannot be used with other mappings")
         end
       end
 

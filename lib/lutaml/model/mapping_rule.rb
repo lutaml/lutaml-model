@@ -81,8 +81,8 @@ module Lutaml
         end
       end
 
-      def using_custom_methods?
-        !custom_methods.empty?
+      def using_custom_method?
+        !!custom_methods[:from]
       end
 
       def multiple_mappings?

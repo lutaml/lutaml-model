@@ -1248,6 +1248,62 @@ RSpec.describe Lutaml::Model::XmlMapping do
         end
       end
     end
+
+    describe "#validate!" do
+      it "raises error if `to` is not defined with one custom method" do
+        expect do
+          Class.new(Lutaml::Model::Serializable) do
+            attribute :id, :string
+
+            xml do
+              map_element :id, with: { to: :id_to_xml }
+            end
+
+            def id_to_xml(model, parent, doc)
+              id_element = doc.create_element("id")
+              doc.add_text(id_element, model.id)
+              doc.add_element(parent, id_element)
+            end
+          end
+        end.to raise_error(Lutaml::Model::IncorrectMappingArgumentsError, "to: <attribute_name> is required for mapping 'id'")
+      end
+
+      it "raises error if `to` is nil and `with` is empty" do
+        expect do
+          Class.new(Lutaml::Model::Serializable) do
+            attribute :id, :string
+
+            xml do
+              map_element :id, to: nil, with: {}
+            end
+          end
+        end.to raise_error(Lutaml::Model::IncorrectMappingArgumentsError, ":to or :with argument is required for mapping 'id'")
+      end
+
+      it "raises error if value is nil one custom method" do
+        expect do
+          Class.new(Lutaml::Model::Serializable) do
+            attribute :id, :string
+
+            xml do
+              map_element :id, to: :id, with: { to: nil }
+            end
+          end
+        end.to raise_error(Lutaml::Model::IncorrectMappingArgumentsError, "Missing value for `with` key `to` in mapping `id`")
+      end
+
+      it "raises error if value is nil for custom methods" do
+        expect do
+          Class.new(Lutaml::Model::Serializable) do
+            attribute :id, :string
+
+            xml do
+              map_element :id, with: { to: nil, from: nil }
+            end
+          end
+        end.to raise_error(Lutaml::Model::IncorrectMappingArgumentsError, "Missing values for `with` keys `to, from` in mapping `id`")
+      end
+    end
   end
 
   describe Lutaml::Model::XmlAdapter::NokogiriAdapter do

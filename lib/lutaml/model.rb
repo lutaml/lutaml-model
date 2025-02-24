@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "moxml"
+require "active_support/inflector"
 require_relative "model/version"
 require_relative "model/loggable"
 require_relative "model/type"

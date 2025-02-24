@@ -562,7 +562,7 @@ module Lutaml
               rule_names.include?(child.namespaced_name) && !child.text?
             end
 
-            if rule.using_custom_methods? || attr.type == Lutaml::Model::Type::Hash
+            if rule.using_custom_method? || attr.type == Lutaml::Model::Type::Hash
               return_child = attr.type == Lutaml::Model::Type::Hash || !attr.collection? if attr
               return return_child ? children.first : children
             end
@@ -579,7 +579,7 @@ module Lutaml
             end
 
             values = children.map do |child|
-              if !rule.using_custom_methods? && attr.type <= Serialize
+              if !rule.using_custom_method? && attr.type <= Serialize
                 attr.cast(child, :xml, options.except(:mappings))
               elsif attr.raw?
                 inner_xml_of(child)
@@ -615,7 +615,7 @@ module Lutaml
               end
             end.compact.first
 
-            if rule.using_custom_methods?
+            if rule.using_custom_method?
               if Utils.present?(value)
                 value = new.send(rule.custom_methods[:from], instance, value)
               end

@@ -203,18 +203,16 @@ module Lutaml
         (@element_sequence << mappings.element_sequence).flatten!
       end
 
-      def validate!(key, to, with, type: nil)
+      def validate!(name, to, with, type: nil)
         validate_mappings!(type)
+        return if @raw_mapping
 
-        if to.nil? && with.empty?
-          msg = ":to or :with argument is required for mapping '#{key}'"
-          raise IncorrectMappingArgumentsError.new(msg)
+        if to.nil? && with.count < 2
+          raise IncorrectMappingArgumentsError.missing_mapping_arguments(with, name)
         end
 
-        if !with.empty? && (with[:from].nil? || with[:to].nil?)
-          msg = ":with argument for mapping '#{key}' requires :to and :from keys"
-          raise IncorrectMappingArgumentsError.new(msg)
-        end
+        missing_method_keys = with.keys.select { |key| with[key].nil? }
+        raise IncorrectMappingArgumentsError.invalid_with_values(missing_method_keys, name) if missing_method_keys.any?
       end
 
       def validate_mappings!(type)
