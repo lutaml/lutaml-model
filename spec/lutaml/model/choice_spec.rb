@@ -83,6 +83,14 @@ module ChoiceSpec
 
     import_model_attributes ContributionInfo
   end
+
+  class UserWithUnboundedMax < Lutaml::Model::Serializable
+    choice(min: 0, max: Float::INFINITY) do
+      attribute :user_id, :integer, collection: true
+      attribute :username, :string, collection: true
+      attribute :password, :string
+    end
+  end
 end
 
 RSpec.describe "Choice" do
@@ -95,6 +103,16 @@ RSpec.describe "Choice" do
         unsigned: true,
         watermarked: false,
         candidate: ChoiceSpec::CandidateType.new(id: 1, name: "Smith"),
+      )
+
+      expect(valid_instance.validate).to be_empty
+    end
+
+    it "returns the empty array for a valid instance with `max: 'unbounded'`" do
+      valid_instance = ChoiceSpec::UserWithUnboundedMax.new(
+        user_id: [1, 2],
+        username: ["Smith", "John", "Mark"],
+        password: "password",
       )
 
       expect(valid_instance.validate).to be_empty
