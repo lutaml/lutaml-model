@@ -27,8 +27,6 @@ module Lutaml
       end
 
       def import_model_attributes(imported_model)
-        raise Lutaml::Model::ImportModelWithRootError.new(imported_model) if imported_model.mappings.key?(:xml) && imported_model.root?
-
         imported_model.attributes.each_value do |attr|
           @model.attribute_accessor(attr)
         end

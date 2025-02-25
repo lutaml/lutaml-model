@@ -5,8 +5,9 @@ module Lutaml
     class KeyValueMapping
       attr_reader :key_value_mappings
 
-      def initialize
+      def initialize(format = nil)
         @key_value_mappings = {}
+        @format = format
       end
 
       def map(
@@ -68,12 +69,7 @@ module Lutaml
       def import_model_mappings(model)
         raise Lutaml::Model::ImportModelWithRootError.new(model) if model.mappings.key?(:xml) && model.root?
 
-        current_format = self.class.instance_variable_get(:@current_mapping_format)
-        formats_to_import = current_format.is_a?(Array) ? current_format : [current_format]
-
-        formats_to_import.each do |format|
-          @key_value_mappings.merge!(model.mappings_for(format).key_value_mappings)
-        end
+        @key_value_mappings.merge!(model.mappings_for(@format).key_value_mappings)
       end
 
       def validate!(key, to, with)

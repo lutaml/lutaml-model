@@ -144,8 +144,6 @@ module Lutaml
         end
 
         def import_model_attributes(model)
-          import_model_with_root_error(model)
-
           model.attributes.each_value do |attr|
             attribute_accessor(attr)
           end
@@ -274,8 +272,7 @@ module Lutaml
         Lutaml::Model::Config::AVAILABLE_FORMATS.each do |format|
           define_method(format) do |&block|
             klass = format == :xml ? XmlMapping : KeyValueMapping
-            klass.instance_variable_set(:@current_mapping_format, format)
-            mappings[format] ||= klass.new
+            mappings[format] ||= klass.new(format)
             mappings[format].instance_eval(&block)
 
             if format == :xml && !mappings[format].root_element && !mappings[format].no_root?
@@ -336,10 +333,8 @@ module Lutaml
         end
 
         def key_value(&block)
-          KeyValueMapping.instance_variable_set(:@current_mapping_format, Lutaml::Model::Config::KEY_VALUE_FORMATS)
-
           Lutaml::Model::Config::KEY_VALUE_FORMATS.each do |format|
-            mappings[format] ||= KeyValueMapping.new
+            mappings[format] ||= KeyValueMapping.new(format)
             mappings[format].instance_eval(&block)
           end
         end

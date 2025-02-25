@@ -23,7 +23,7 @@ module Lutaml
                   :content_mapping,
                   :raw_mapping
 
-      def initialize
+      def initialize(_format = nil)
         @elements = {}
         @attributes = {}
         @element_sequence = []
