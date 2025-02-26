@@ -17,27 +17,8 @@ module Lutaml
       class << self
         def register_builtin_types
           TYPE_CODES.each do |type_name, type_class|
-            register(type_name, const_get(type_class))
+            Lutaml::Model::Registry.register(type_name, const_get(type_class))
           end
-        end
-
-        def register(type_name, type_class)
-          unless type_class < Value
-            raise TypeError,
-                  "class '#{type_class}' is not a valid Lutaml::Model::Type::Value"
-          end
-
-          @registry ||= {}
-          @registry[type_name.to_sym] = type_class
-        end
-
-        def lookup(type_name)
-          @registry ||= {}
-          klass = @registry[type_name.to_sym]
-
-          raise UnknownTypeError.new(type_name) unless klass
-
-          klass
         end
 
         def cast(value, type)

@@ -86,16 +86,12 @@ RSpec.describe Lutaml::Model::Attribute do
       expect(validate_type.call("String")).to be(true)
     end
 
-    it "raise exception if type is invalid symbol" do
-      expect do
-        validate_type.call(:foo)
-      end.to raise_error(StandardError, "Unknown Lutaml::Model::Type: foo")
+    it "returns true if type is invalid symbol" do
+      expect(validate_type.call(:foo)).to be(true)
     end
 
     it "raise exception if type is invalid string" do
-      expect do
-        validate_type.call("foo")
-      end.to raise_error(StandardError, "Unknown Lutaml::Model::Type: foo")
+      expect(validate_type.call("foo")).to be(true)
     end
   end
 
@@ -110,7 +106,10 @@ RSpec.describe Lutaml::Model::Attribute do
 
     it "raises ArgumentError on unknown type" do
       expect { name_attr.cast_type!(:foobar) }
-        .to raise_error(ArgumentError, "Unknown Lutaml::Model::Type: foobar")
+        .to raise_error(
+          Lutaml::Model::UnknownTypeError,
+          "Unknown type 'foobar'",
+        )
     end
   end
 
