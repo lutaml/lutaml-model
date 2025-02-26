@@ -73,17 +73,21 @@ module Lutaml
         end
       end
 
-      def initialize(items = [])
+      attr_reader :register
+
+      def initialize(items = [], register: Lutaml::Model::Config.default_register)
         super()
+
+        @register = register
         items = [items].compact unless items.is_a?(Array)
 
         self.collection = items.map do |item|
-          type = self.class.instance_type
-
+          register_object = Lutaml::Model::GlobalRegister.lookup(register)
+          type = register_object.get_class_without_register(self.class.instance_type)
           if item.is_a?(type)
             item
           else
-            type.new(item)
+            type.new(item, register: register)
           end
         end
       end

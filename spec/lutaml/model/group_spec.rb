@@ -339,7 +339,7 @@ RSpec.describe "Group" do
     context "when update the imported attribute" do
       it "updates the attribute `mstyle` only in `Mrow`" do
         GroupSpec::Mrow.attributes[:mstyle].instance_variable_set(:@type, :integer)
-        expect(GroupSpec::Mrow.attributes[:mstyle].type).to eq(:integer)
+        expect(GroupSpec::Mrow.attributes[:mstyle].type).to eq(Lutaml::Model::Type::Integer)
       end
 
       it "maintains original type for the attribute `mstyle` in `Mfrac`" do
