@@ -1,7 +1,7 @@
 module Lutaml
   module Model
     module Validation
-      def validate(register: :default)
+      def validate(register: Lutaml::Model::Config.default_register)
         errors = []
 
         self.class.attributes.each do |name, attr|
@@ -25,7 +25,7 @@ module Lutaml
         validate_helper(errors)
       end
 
-      def validate!(register: :default)
+      def validate!(register: Lutaml::Model::Config.default_register)
         errors = validate(register: register)
         raise Lutaml::Model::ValidationError.new(errors) if errors.any?
       end

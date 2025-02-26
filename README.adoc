@@ -9111,8 +9111,18 @@ and examples.
 [[custom-registers]]
 === Custom Registers
 
-A *LutaML::Model* *Register* provides a way to dynamically modify and reconfigure model hierarchies without changing the original model definitions.
-For more information See link:docs/custom_registers.adoc[Custom Registers Guide]
+A *LutaML::Model* *Register* allows for dynamic modification and reconfiguration of model hierarchies without altering the original model definitions.
+For more information, refer to the link:docs/custom_registers.adoc[Custom Registers Guide].
+
+NOTE: Before using the `Lutaml::Model::Register` instance, make sure to register it in `Lutaml::Model::GlobalRegister`.
+
+NOTE: By default, a `default_register` with the id `:default` is created and registered in the GlobalRegister. This default register is also set in `Lutaml::Model::Config.default_register` as the default value.
+
+The default register can be set at the configuration level using the following syntax:
+
+```ruby
+  Lutaml::Model::Config.default_register = :default # the register id goes here.
+```
 
 == Comparison with Shale
 
@@ -9226,6 +9236,11 @@ attribute for every element.
 data models.
 | No.
 | Lutaml::Model supports attribute extraction from key-value data models.
+
+| Register
+| Yes. Supports three types of registers(<<custom-register, read more details>>) with different types of functionalities.
+| Supports `register` functionality for *Shale::Type* classes only.
+| `Lutaml::Model` registers both `Registrable` classes and `Lutaml::Model::Type` classes, offering a more comprehensive registration system.
 
 |===
 

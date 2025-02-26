@@ -29,8 +29,9 @@ module Lutaml
         process_options!
       end
 
-      def type(register_id = :default)
-        register = Lutaml::Model::GlobalRegister.lookup(register_id) || Lutaml::Model::Config.default_register
+      def type(register_id = Lutaml::Model::Config.default_register)
+        register_id ||= Lutaml::Model::Config.default_register
+        register = Lutaml::Model::GlobalRegister.lookup(register_id)
         register.get_class_without_register(unresolved_type) unless unresolved_type.nil?
       end
 
@@ -65,6 +66,9 @@ module Lutaml
       def cast_value(value, register)
         return type(register).cast(value) unless value.is_a?(Array)
 
+      def cast_value(value, register)
+        return type(register).cast(value) unless value.is_a?(Array)
+
         value.map { |v| type(register).cast(v) }
       end
 
@@ -88,7 +92,7 @@ module Lutaml
         !enum_values.empty?
       end
 
-      def default(register_id = :default)
+      def default(register_id = Lutaml::Model::Config.default_register)
         cast_value(default_value(register_id), register_id)
       end
 
@@ -169,8 +173,8 @@ module Lutaml
 
         valid_value!(value) &&
           valid_collection!(value, self) &&
-          valid_pattern!(value) &&
-          validate_polymorphic!(value) &&
+          valid_pattern!(value, register) &&
+          validate_polymorphic!(value, register) &&
           execute_validations!(value)
       end
 

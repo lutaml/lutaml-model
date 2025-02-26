@@ -81,17 +81,15 @@ module Lutaml
       end
 
       def default_register
-        @default_register ||= Lutaml::Model::GlobalRegister.lookup(:default)
+        @default_register ||= :default
       end
 
-      def default_register=(register_or_id)
-        @default_register = case register_or_id
-                            when Symbol
-                              Lutaml::Model::GlobalRegister.lookup(register_or_id)
-                            when Lutaml::Model::Register
-                              register_or_id
+      def default_register=(value)
+        @default_register = case value
+                            when Symbol then value
+                            when Lutaml::Model::Register then value.id
                             else
-                              raise "Unkown register: #{register_or_id}, expected a Symbol or a Lutaml::Model::Register instance"
+                              raise "Unkown register: #{value}, expected a Symbol or a Lutaml::Model::Register instance"
                             end
       end
 

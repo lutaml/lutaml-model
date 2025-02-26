@@ -356,7 +356,7 @@ module Lutaml
         end
 
         def apply_mappings(doc, format, options = {})
-          register = options[:register] || :default
+          register = options[:register] || Lutaml::Model::Config.default_register
           instance = if options.key?(:instance)
                        options[:instance]
                      elsif model.include?(Lutaml::Model::Serialize)
@@ -448,7 +448,7 @@ module Lutaml
           elsif class_variable_defined?(:@@register)
             class_variable_get(:@@register)
           else
-            :default
+            Lutaml::Model::Config.default_register
           end
         end
       end
@@ -504,7 +504,7 @@ module Lutaml
         elsif self.class.class_variable_defined?(:@@register)
           self.class.class_variable_get(:@@register)
         else
-          :default
+          Lutaml::Model::Config.default_register
         end
       end
 

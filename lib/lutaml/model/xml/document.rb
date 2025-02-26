@@ -149,8 +149,7 @@ module Lutaml
           rule = options[:rule]
 
           if rule.custom_methods[:to]
-            options[:mapper_class].new.send(rule.custom_methods[:to], element,
-                                            xml.parent, xml)
+            options[:mapper_class].new.send(rule.custom_methods[:to], element, xml.parent, xml)
             return
           end
 
@@ -265,8 +264,12 @@ module Lutaml
           return unless content_rule
 
           if content_rule.custom_methods[:to]
-            mapper_class.new.send(content_rule.custom_methods[:to], element,
-                                  xml.parent, xml)
+            mapper_class.new.send(
+              content_rule.custom_methods[:to],
+              element,
+              xml.parent,
+              xml,
+            )
           else
             text = content_rule.serialize(element)
             text = text.join if text.is_a?(Array)
@@ -445,7 +448,7 @@ module Lutaml
                             elsif @root.instance_variable_defined?(:@register)
                               @root.instance_variable_get(:@register)
                             end
-          return_register || :default
+          return_register || Lutaml::Model::Config.default_register
         end
 
         def determine_mapper_class(element, options)

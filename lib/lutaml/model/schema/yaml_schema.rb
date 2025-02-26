@@ -35,7 +35,7 @@ module Lutaml
         def self.lookup_register(register)
           return register.id if register.is_a?(Lutaml::Model::Register)
 
-          register.nil? ? :default : register
+          register.nil? ? Lutaml::Model::Config.default_register : register
         end
       end
     end

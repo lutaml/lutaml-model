@@ -2,6 +2,14 @@ require "spec_helper"
 require "lutaml/model"
 
 module CustomCollection
+  # Custom type classes for testing collections with Register
+
+  class Text < Lutaml::Model::Type::String
+    def to_xml
+      "Text class: #{value}"
+    end
+  end
+
   # Basic model for testing collections
 
   class Publication < Lutaml::Model::Serializable
@@ -27,7 +35,7 @@ module CustomCollection
   class Item < Lutaml::Model::Serializable
     attribute :id, :string
     attribute :name, :string
-    attribute :description, :string
+    attribute :description, :text
 
     xml do
       root "item"
@@ -210,7 +218,14 @@ RSpec.describe CustomCollection do
   end
 
   describe "ItemCollection" do
+    before do
+      Lutaml::Model::GlobalRegister.register(register)
+      Lutaml::Model::Config.default_register = register.id
+      register.register_model(CustomCollection::Text, id: :text)
+    end
+
     let(:collection) { CustomCollection::ItemCollection.new(items) }
+    let(:register) { Lutaml::Model::Register.new(:collections) }
 
     let(:xml) do
       <<~XML
@@ -249,6 +264,10 @@ RSpec.describe CustomCollection do
     it { expect(collection.items.last.description).to eq("Description 2") }
 
     it "serializes to XML" do
+      register.register_global_type_substitution(
+        from_type: CustomCollection::Text,
+        to_type: Lutaml::Model::Type::String,
+      )
       expect(collection.to_xml.strip).to eq(xml.strip)
     end
 
@@ -266,6 +285,14 @@ RSpec.describe CustomCollection do
   end
 
   describe "ItemNoRootCollection" do
+    before do
+      Lutaml::Model::GlobalRegister.register(register)
+      Lutaml::Model::Config.default_register = register
+      register.register_model(CustomCollection::Text, id: :text)
+    end
+
+    let(:register) { Lutaml::Model::Register.new(:no_collections) }
+
     let(:no_root_collection) do
       CustomCollection::ItemNoRootCollection.new(items)
     end
@@ -283,6 +310,19 @@ RSpec.describe CustomCollection do
       XML
     end
 
+    let(:expected_xml_no_root) do
+      <<~XML.strip
+        <item id="1">
+          <name>Item 1</name>
+          <description>Text class: Description 1</description>
+        </item>
+        <item id="2">
+          <name>Item 2</name>
+          <description>Text class: Description 2</description>
+        </item>
+      XML
+    end
+
     let(:yaml_no_root) do
       <<~YAML.strip
         ---
@@ -296,7 +336,7 @@ RSpec.describe CustomCollection do
     end
 
     it "serializes to XML" do
-      expect(no_root_collection.to_xml.strip).to eq(xml_no_root)
+      expect(no_root_collection.to_xml.strip).to eq(expected_xml_no_root)
     end
 
     it "deserializes from XML" do
