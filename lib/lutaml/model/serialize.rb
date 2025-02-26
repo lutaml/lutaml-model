@@ -491,17 +491,17 @@ module Lutaml
         if attr_rule.collection? || value.is_a?(Array)
           value&.map do |v|
             if v.is_a?(Hash)
-              attr_rule.type.new(v)
+              attr_rule.resolved_type.new(v)
             else
               # TODO: This code is problematic because Type.cast does not know
               # about all the types.
-              Lutaml::Model::Type.cast(v, attr_rule.type)
+              Lutaml::Model::Type.cast(v, attr_rule.resolved_type)
             end
           end
         else
           # TODO: This code is problematic because Type.cast does not know
           # about all the types.
-          Lutaml::Model::Type.cast(value, attr_rule.type)
+          Lutaml::Model::Type.cast(value, attr_rule.resolved_type)
         end
       end
 

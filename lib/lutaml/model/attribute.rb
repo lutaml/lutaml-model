@@ -24,8 +24,12 @@ module Lutaml
         @options = options
 
         validate_presence!(type, options[:method_name])
-        process_type!(type) if type
+        @type = type
         process_options!
+      end
+
+      def resolved_type
+        Thread.current[:current_register].get_class(type) unless type.nil?
       end
 
       def polymorphic?
@@ -74,9 +78,9 @@ module Lutaml
       end
 
       def cast_value(value)
-        return type.cast(value) unless value.is_a?(Array)
+        return resolved_type.cast(value) unless value.is_a?(Array)
 
-        value.map { |v| type.cast(v) }
+        value.map { |v| resolved_type.cast(v) }
       end
 
       def setter
@@ -105,7 +109,7 @@ module Lutaml
 
       def default_value
         if delegate
-          type.attributes[to].default
+          resolved_type.attributes[to].default
         elsif options[:default].is_a?(Proc)
           options[:default].call
         elsif options.key?(:default)
@@ -268,7 +272,7 @@ module Lutaml
         return value if value.nil? || Utils.uninitialized?(value)
         return value if derived?
         return serialize_array(value, format, options) if value.is_a?(Array)
-        return serialize_model(value, format, options) if type <= Serialize
+        return serialize_model(value, format, options) if resolved_type <= Serialize
 
         serialize_value(value, format)
       end
@@ -276,17 +280,16 @@ module Lutaml
       def cast(value, format, options = {})
         value ||= [] if collection? && !value.nil?
         return value.map { |v| cast(v, format, options) } if value.is_a?(Array)
+        return value if already_serialized?(resolved_type, value)
 
-        return value if already_serialized?(type, value)
-
-        klass = resolve_polymorphic_class(type, value, options)
+        klass = resolve_polymorphic_class(resolved_type, value, options)
 
         if can_serialize?(klass, value, format)
           klass.apply_mappings(value, format, options)
         elsif needs_conversion?(klass, value)
           klass.send(:"from_#{format}", value)
         else
-          klass.cast(value)
+          Type.lookup(klass).cast(value)
         end
       end
 
@@ -348,7 +351,7 @@ module Lutaml
       end
 
       def serialize_value(value, format)
-        value = type.new(value) unless value.is_a?(Type::Value)
+        value = resolved_type.new(value) unless value.is_a?(Type::Value)
         value.send(:"to_#{format}")
       end
 
@@ -356,11 +359,6 @@ module Lutaml
         return if type || method_name
 
         raise ArgumentError, "method or type must be set for an attribute"
-      end
-
-      def process_type!(type)
-        validate_type!(type)
-        @type = cast_type!(type)
       end
 
       def process_options!
@@ -380,7 +378,7 @@ module Lutaml
                 "Invalid options given for `#{name}` #{invalid_opts}"
         end
 
-        if options.key?(:pattern) && type != Lutaml::Model::Type::String
+        if options.key?(:pattern) && Type.lookup(type) != Lutaml::Model::Type::String
           raise StandardError,
                 "Invalid option `pattern` given for `#{name}`, " \
                 "`pattern` is only allowed for :string type"
@@ -394,8 +392,8 @@ module Lutaml
       end
 
       def validate_type!(type)
-        return true if type.is_a?(Class)
         return true if [Symbol, String].include?(type.class) && cast_type!(type)
+        return true if type.is_a?(Class)
 
         raise ArgumentError,
               "Invalid type: #{type}, must be a Symbol, String or a Class"

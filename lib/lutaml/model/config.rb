@@ -3,6 +3,11 @@ module Lutaml
     module Config
       extend self
 
+      # Default values are set for these so the readers are defined below
+      attr_writer :json_adapter, :yaml_adapter, :hash_adapter, :default_register
+
+      attr_accessor :xml_adapter, :toml_adapter
+
       AVAILABLE_FORMATS = %i[xml json yaml toml hash].freeze
       KEY_VALUE_FORMATS = AVAILABLE_FORMATS - %i[xml]
 
@@ -75,6 +80,13 @@ module Lutaml
           .const_get(to_class_name(type))
       end
 
+      def default_register
+        @default_register ||= Lutaml::Model::Register.new(:default)
+        Lutaml::Model::GlobalRegister.register(@default_register)
+        @default_register
+      end
+
+      # @api private
       def to_class_name(str)
         str.to_s.split("_").map(&:capitalize).join
       end

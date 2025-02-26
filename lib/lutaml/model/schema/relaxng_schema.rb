@@ -23,17 +23,17 @@ module Lutaml
 
         def self.generate_attributes(xml, klass)
           klass.attributes.each do |name, attr|
-            if attr.type <= Lutaml::Model::Serialize
-              xml.ref(name: attr.type.name)
+            if attr.resolved_type <= Lutaml::Model::Serialize
+              xml.ref(name: attr.resolved_type.name)
             elsif attr.collection?
               xml.zeroOrMore do
                 xml.element(name: name) do
-                  xml.data(type: get_relaxng_type(attr.type))
+                  xml.data(type: get_relaxng_type(attr.resolved_type))
                 end
               end
             else
               xml.element(name: name) do
-                xml.data(type: get_relaxng_type(attr.type))
+                xml.data(type: get_relaxng_type(attr.resolved_type))
               end
             end
           end
@@ -47,8 +47,8 @@ module Lutaml
           end
 
           klass.attributes.each_value do |attr|
-            if attr.type <= Lutaml::Model::Serialize
-              generate_define(xml, attr.type)
+            if attr.resolved_type <= Lutaml::Model::Serialize
+              generate_define(xml, attr.resolved_type)
             end
           end
         end

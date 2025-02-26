@@ -19,8 +19,8 @@ module Lutaml
         def self.generate_definitions(klass)
           defs = { klass.name => generate_class_schema(klass) }
           klass.attributes.each_value do |attr|
-            if attr.type <= Lutaml::Model::Serialize
-              defs.merge!(generate_definitions(attr.type))
+            if attr.resolved_type <= Lutaml::Model::Serialize
+              defs.merge!(generate_definitions(attr.resolved_type))
             end
           end
           defs
@@ -41,15 +41,15 @@ module Lutaml
         end
 
         def self.generate_property_schema(attr)
-          if attr.type <= Lutaml::Model::Serialize
-            { "$ref" => "#/$defs/#{attr.type.name}" }
+          if attr.resolved_type <= Lutaml::Model::Serialize
+            { "$ref" => "#/$defs/#{attr.resolved_type.name}" }
           elsif attr.collection?
             {
               "type" => "array",
-              "items" => { "type" => get_json_type(attr.type) },
+              "items" => { "type" => get_json_type(attr.resolved_type) },
             }
           else
-            { "type" => get_json_type(attr.type) }
+            { "type" => get_json_type(attr.resolved_type) }
           end
         end
 

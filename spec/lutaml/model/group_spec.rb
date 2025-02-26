@@ -343,11 +343,11 @@ RSpec.describe "Group" do
       end
 
       it "maintains original type for the attribute `mstyle` in `Mfrac`" do
-        expect(GroupSpec::Mfrac.attributes[:mstyle].type).to eq(Lutaml::Model::Type::String)
+        expect(GroupSpec::Mfrac.attributes[:mstyle].type).to eq(:string)
       end
 
       it "maintains original type for the attribute `mstyle` in importable class `CommonAttributes`" do
-        expect(GroupSpec::CommonAttributes.attributes[:mstyle].type).to eq(Lutaml::Model::Type::String)
+        expect(GroupSpec::CommonAttributes.attributes[:mstyle].type).to eq(:string)
       end
     end
 

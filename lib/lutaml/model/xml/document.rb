@@ -79,7 +79,7 @@ module Lutaml
           options[:mixed_content] = rule.mixed_content
           options[:tag_name] = rule.name
 
-          options[:mapper_class] = attribute&.type if attribute
+          options[:mapper_class] = attribute&.resolved_type if attribute
           options[:set_namespace] = set_namespace?(rule)
 
           options
@@ -107,7 +107,7 @@ module Lutaml
             result["elements"] ||= Lutaml::Model::MappingHash.new
             result["elements"].assign_or_append_value(
               self.class.namespaced_name_of(child),
-              parse_element(child, attr&.type || klass, format),
+              parse_element(child, attr&.resolved_type || klass, format),
             )
           end
 
@@ -170,7 +170,7 @@ module Lutaml
 
           value = rule.render_value_for(value)
 
-          if value && (attribute&.type&.<= Lutaml::Model::Serialize)
+          if value && (attribute&.resolved_type&.<= Lutaml::Model::Serialize)
             handle_nested_elements(
               xml,
               value,
@@ -198,7 +198,7 @@ module Lutaml
             serialized_value = attribute.serialize(value, :xml)
             if attribute.raw?
               xml.add_xml_fragment(xml, value)
-            elsif attribute.type == Lutaml::Model::Type::Hash
+            elsif attribute.resolved_type == Lutaml::Model::Type::Hash
               serialized_value.each do |key, val|
                 xml.create_and_add_element(key) do |element|
                   element.text(val)
@@ -320,9 +320,9 @@ module Lutaml
             processed[klass][mapping_rule.name] = true
 
             type = if mapping_rule.delegate
-                     attributes[mapping_rule.delegate].type.attributes[mapping_rule.to].type
+                     attributes[mapping_rule.delegate].resolved_type.attributes[mapping_rule.to].resolved_type
                    else
-                     attributes[mapping_rule.to]&.type
+                     attributes[mapping_rule.to]&.resolved_type
                    end
 
             next unless type
