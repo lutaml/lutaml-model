@@ -97,15 +97,30 @@ module CollectionTests
     instances :titles, Title
 
     xml do
-      # root "a"
       no_root
       map_element "title", to: :titles
     end
 
-    # key_value do
-    #   no_root # default
-    #   map_instances to: :titles
-    # end
+    key_value do
+      no_root # default
+      map_instances to: :titles
+    end
+  end
+
+  class DirectTitleCollection < Lutaml::Model::Collection
+    instances :items, Title
+  
+    xml do
+      map_element "title", to: :items
+    end
+  end
+  
+  class BibItem < Lutaml::Model::Serializable
+    attribute :titles, DirectTitleCollection
+  
+    xml do
+      root "bibitem"
+    end
   end
 end
 
@@ -146,7 +161,7 @@ RSpec.describe CollectionTests do
   end
 
   context "custom collection" do
-    it "verifies serialization and deserilization of custom collection class directly" do
+    it "verifies serialization and deserilization of XML custom collection class directly" do
       xml = <<~XML
         <title>
           <content>Title One</content>
@@ -158,11 +173,39 @@ RSpec.describe CollectionTests do
           <content>Title Three</content>
         </title>
       XML
-      # binding.irb
+
       parsed = CollectionTests::TitleCollection.from_xml(xml)
       # binding.irb
       serialized = parsed.to_xml
+      # binding.irb
       expect(serialized).to eq(xml)
+    end
+
+    it "verifies serialization and deserilization of Key-Value custom collection class directly" do
+      yaml = <<~YAML
+        ---
+        - content: Title One
+        - content: Title Two
+        - content: Title Three
+      YAML
+      binding.irb
+      parsed = CollectionTests::TitleCollection.from_yaml(yaml)
+      binding.irb
+      serialized = parsed.to_yaml
+      expect(serialized).to eq(yaml)
+    end
+
+    it "correctly parse and serialize a collection with a root" do
+      xml = <<~XML
+        <bibitem>
+          <title>Title One</title>
+          <title>Title Two</title>
+          <title>Title Three</title>
+        </bibitem>
+      XML
+
+      parsed = CollectionTests::BibItem.from_xml(xml)
+      binding.irb
     end
   end
 

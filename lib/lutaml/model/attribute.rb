@@ -62,9 +62,7 @@ module Lutaml
       end
 
       def cast_value(value)
-        # require 'byebug'; debugger
-        # binding.irb
-        return collection_class.new(value) if value.is_a?(Array)
+        return collection_class.new(value, name, type) if value.is_a?(Array)
         return type.cast(value) unless value.is_a?(Lutaml::Model::Collection)
 
         value.map { |v| type.cast(v) }
@@ -256,8 +254,8 @@ module Lutaml
 
       def cast(value, format, options = {})
         # require 'byebug'; debugger
-        # binding.irb
-        value ||= collection_class.new if collection?
+        binding.irb
+        value ||= collection_class.new([], name, type) if collection?
 
         if Utils.collection?(value)
           value.map do |v|

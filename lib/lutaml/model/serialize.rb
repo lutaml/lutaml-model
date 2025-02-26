@@ -237,9 +237,10 @@ module Lutaml
 
           define_method(:"from_#{format}") do |data, options = {}|
             adapter = Lutaml::Model::Config.send(:"#{format}_adapter")
+            data = wrap_with_root(data) if format == :xml && no_root?(:xml)
 
-            data = wrap_with_root(data) if no_root?(format)
             doc = adapter.parse(data, options)
+            binding.irb
             public_send(:"of_#{format}", doc, options)
           end
 
@@ -252,6 +253,7 @@ module Lutaml
               #raise Lutaml::Model::NoRootMappingError.new(self) unless root?
 
               options[:encoding] = doc.encoding
+              # binding.irb
               apply_mappings(doc, format, options)
             else
               apply_mappings(doc.to_h, format)
@@ -492,6 +494,7 @@ module Lutaml
               mappings_for(:xml)&.namespace_uri
           end
           # require 'byebug'; debugger
+          # binding.irb
           mappings = options[:mappings] || mappings_for(:xml).mappings
 
           raise Lutaml::Model::CollectionTrueMissingError(self, option[:caller_class]) if doc.is_a?(Array)
@@ -828,7 +831,7 @@ module Lutaml
         define_method(:"to_#{format}") do |options = {}|
           adapter = Lutaml::Model::Config.public_send(:"#{format}_adapter")
           #raise Lutaml::Model::NoRootMappingError.new(self.class) unless self.class.root?
-
+          # # binding.irb
           representation = if format == :xml
                              self
                            else

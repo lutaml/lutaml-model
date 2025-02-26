@@ -6,7 +6,7 @@ module Lutaml
       include Enumerable
       extend Forwardable
 
-      #attr_reader :items      
+      attr_reader :collection_name, :type  
 
       def self.instances(name, type)
         # require 'byebug'; debugger
@@ -16,7 +16,7 @@ module Lutaml
       def initialize(items = [], collection_name = "__items", type = nil)
         # require 'byebug'; debugger
         super()
-        # # binding.irb
+        # # # binding.irb
         if !(self.class < Lutaml::Model::Collection)
           instance_variable_set(:"@#{collection_name}", items)
           @collection_name = collection_name

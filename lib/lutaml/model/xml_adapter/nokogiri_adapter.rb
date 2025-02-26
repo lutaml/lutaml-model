@@ -23,7 +23,7 @@ module Lutaml
           else
             builder_options[:encoding] = "UTF-8"
           end
-
+          # binding.irb
           builder = Builder::Nokogiri.build(builder_options) do |xml|
             # require 'byebug'; debugger
             if root.is_a?(Lutaml::Model::XmlAdapter::NokogiriElement)
@@ -32,6 +32,7 @@ module Lutaml
               mapper_class = options[:mapper_class] || @root.class
               options[:xml_attributes] =
                 build_namespace_attributes(mapper_class)
+              # binding.irb
               build_element(xml, @root, options)
             end
           end

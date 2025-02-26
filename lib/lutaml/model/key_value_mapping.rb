@@ -38,6 +38,11 @@ module Lutaml
 
       alias map_element map
 
+      def map_instances(to: nil)
+        validate!("map_instances",to, {})
+        @mappings << KeyValueMappingRule.new("map_instances", to: to)
+      end
+
       def map_all(
         to: nil,
         render_nil: false,

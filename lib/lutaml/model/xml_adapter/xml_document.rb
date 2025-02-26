@@ -144,15 +144,6 @@ module Lutaml
         end
 
         def add_to_xml(xml, element, prefix, value, options = {})
-        # require 'byebug'; debugger
-          if value.is_a?(Lutaml::Model::Collection)
-            value.each do |item|
-              add_to_xml(xml, element, prefix, item, options)
-            end
-
-            return
-          end
-
           attribute = options[:attribute]
           rule = options[:rule]
 
@@ -161,13 +152,20 @@ module Lutaml
                                             xml.parent, xml)
             return
           end
-
+          # binding.irb
           # Only transform when recursion is not called
           if (!attribute.collection? || value.is_a?(Array)) && transform_method = rule.transform[:export] || attribute.transform_export_method
             value = transform_method.call(value)
           end
 
-          if value.is_a?(Array)
+          # if value.is_a?(Array)
+          #   value.each do |item|
+          #     add_to_xml(xml, element, prefix, item, options)
+          #   end
+
+          #   return
+          # end
+          if value.is_a?(Lutaml::Model::Collection)
             value.each do |item|
               add_to_xml(xml, element, prefix, item, options)
             end
@@ -220,6 +218,7 @@ module Lutaml
           return xml unless xml_mapping
 
           attributes = options[:xml_attributes] ||= {}
+
           attributes = build_attributes(element,
                                         xml_mapping, options).merge(attributes)&.compact
 
@@ -244,6 +243,7 @@ module Lutaml
             end
 
             mappings = xml_mapping.elements + [xml_mapping.raw_mapping].compact
+            # binding.irb
             mappings.each do |element_rule|
               attribute_def = attribute_definition_for(element, element_rule,
                                                        mapper_class: mapper_class)
@@ -253,9 +253,10 @@ module Lutaml
 
                 next if value.nil? && !element_rule.render_nil?
                 # require 'byebug'; debugger
-                value = attribute_def.collection_class.new(value) if attribute_def.collection? && !value.is_a?(Array)
+                # binding.irb
+                value = attribute_def.collection_class.new(value, value.collection_name, value.type) if attribute_def.collection? && !value.is_a?(Array)
               end
-
+              # binding.irb
               add_to_xml(
                 prefixed_xml,
                 element,
@@ -265,7 +266,7 @@ module Lutaml
                                 mapper_class: mapper_class }),
               )
             end
-
+            # binding.irb
             process_content_mapping(element, xml_mapping.content_mapping,
                                     prefixed_xml, mapper_class)
           end
