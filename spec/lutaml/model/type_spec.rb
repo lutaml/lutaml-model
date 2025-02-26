@@ -198,7 +198,7 @@ RSpec.describe Lutaml::Model::Type do
 
         it "raises TypeNotEnabledError when using Decimal type" do
           expect do
-            described_class.lookup(:decimal).cast("123.45")
+            decimal_class.cast("123.45")
           end.to raise_error(Lutaml::Model::TypeNotEnabledError)
         end
       end
@@ -342,11 +342,14 @@ RSpec.describe Lutaml::Model::Type do
         expected_xml = <<~XML
           <sample custom_type="to_xml_overrided"/>
         XML
-        expect(sample_instance_attribute.to_xml).to be_equivalent_to(expected_xml)
+        expect(
+          sample_instance_attribute.to_xml,
+        ).to be_equivalent_to(expected_xml)
       end
 
       it "correctly serializes to JSON" do
-        expect(sample_instance.to_json).to eq('{"custom_type":"to_json_overrided"}')
+        expected_value = '{"custom_type":"to_json_overrided"}'
+        expect(sample_instance.to_json).to eq(expected_value)
       end
 
       it "correctly deserializes from XML" do
@@ -354,7 +357,8 @@ RSpec.describe Lutaml::Model::Type do
       end
 
       it "correctly deserializes from JSON" do
-        json_sample_instance = SampleModel.from_json('{"custom_type":"test_string"}')
+        json_input = '{"custom_type":"test_string"}'
+        json_sample_instance = SampleModel.from_json(json_input)
         json_sample_instance.to_json
         expect(json_sample_instance.custom_type).to eq("from_json_overrided")
       end

@@ -2,7 +2,11 @@ module Lutaml
   module Model
     class KeyValueTransform < Lutaml::Model::Transform
       def data_to_model(data, format, options = {})
-        instance = model_class.new
+        instance = if model_class.include?(Lutaml::Model::Serialize)
+                     model_class.new({}, register: register)
+                   else
+                     model_class.new(register)
+                   end
         mappings = extract_mappings(options, format)
 
         Utils.add_if_present(options, :key_mappings, mappings.key_mappings)
@@ -83,7 +87,7 @@ module Lutaml
       end
 
       def serialize_value(value, rule, attr, format, options)
-        return attr.serialize(value, format, options) unless rule.child_mappings
+        return attr.serialize(value, format, register, options) unless rule.child_mappings
 
         generate_hash_from_child_mappings(
           attr, value, format, rule.child_mappings
@@ -102,7 +106,7 @@ module Lutaml
         generate_remaining_mappings_for_value(child_mappings, value, format)
 
         value.each do |child_obj|
-          rules = attr.type.mappings_for(format)
+          rules = attr.type(register).mappings_for(format)
 
           hash.merge!(
             extract_hash_for_child_mapping(child_mappings, child_obj, rules),
@@ -178,7 +182,7 @@ module Lutaml
         return if value.nil? && !rule.render_nil
 
         attribute = instance.send(rule.delegate).class.attributes[rule.to]
-        hash[rule_from_name(rule)] = attribute.serialize(value, format)
+        hash[rule_from_name(rule)] = attribute.serialize(value, format, register)
       end
 
       def extract_value_for_delegate(instance, rule)
@@ -256,8 +260,8 @@ module Lutaml
           convert_to_format(doc, format)
         elsif Utils.string_or_symbol_key?(doc, name)
           Utils.fetch_with_string_or_symbol_key(doc, name)
-        elsif attr&.default_set?
-          attr.default
+        elsif attr&.default_set?(register)
+          attr.default(register)
         else
           Lutaml::Model::UninitializedClass.instance
         end
@@ -276,7 +280,7 @@ module Lutaml
 
       def cast_value(value, attr, format, rule)
         cast_options = rule.polymorphic ? { polymorphic: rule.polymorphic } : {}
-        attr.cast(value, format, cast_options)
+        attr.cast(value, format, register, cast_options)
       end
 
       def translate_mappings(hash, child_mappings, attr, format)
@@ -300,7 +304,7 @@ module Lutaml
       def build_child_hash(key, value, child_mappings, attr, format)
         child_mappings.to_h do |attr_name, path|
           attr_value = extract_attr_value(path, key, value)
-          attr_rule = attr.type.mappings_for(format).find_by_to(attr_name)
+          attr_rule = attr.type(register).mappings_for(format).find_by_to(attr_name)
           [attr_rule.from.to_s, attr_value]
         end
       end
@@ -321,10 +325,10 @@ module Lutaml
 
       def map_child_data(child_hash, attr, format)
         self.class.data_to_model(
-          attr.type,
+          attr.type(register),
           child_hash,
           format,
-          { mappings: attr.type.mappings_for(format) },
+          { mappings: attr.type(register).mappings_for(format) },
         )
       end
 
