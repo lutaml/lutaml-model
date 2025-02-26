@@ -18,6 +18,8 @@ module Lutaml
         delegate: nil,
         child_mappings: nil,
         root_mappings: nil,
+        polymorphic: {},
+        polymorphic_map: {},
         transform: {}
       )
         mapping_name = name_for_mapping(root_mappings, name)
@@ -32,6 +34,8 @@ module Lutaml
           delegate: delegate,
           child_mappings: child_mappings,
           root_mappings: root_mappings,
+          polymorphic: polymorphic,
+          polymorphic_map: polymorphic_map,
           transform: transform,
         )
       end
@@ -105,6 +109,10 @@ module Lutaml
 
       def find_by_to(to)
         @mappings.find { |m| m.to.to_s == to.to_s }
+      end
+
+      def polymorphic_mapping
+        @mappings.find(&:polymorphic_mapping?)
       end
     end
   end

@@ -73,6 +73,7 @@ module Lutaml
         with: {},
         delegate: nil,
         cdata: false,
+        polymorphic: {},
         namespace: (namespace_set = false
                     nil),
         prefix: (prefix_set = false
@@ -92,6 +93,7 @@ module Lutaml
           namespace: namespace,
           default_namespace: namespace_uri,
           prefix: prefix,
+          polymorphic: polymorphic,
           namespace_set: namespace_set != false,
           prefix_set: prefix_set != false,
           transform: transform,
@@ -106,6 +108,7 @@ module Lutaml
         render_default: false,
         with: {},
         delegate: nil,
+        polymorphic_map: {},
         namespace: (namespace_set = false
                     nil),
         prefix: (prefix_set = false
@@ -124,6 +127,7 @@ module Lutaml
           namespace: namespace,
           prefix: prefix,
           attribute: true,
+          polymorphic_map: polymorphic_map,
           default_namespace: namespace_uri,
           namespace_set: namespace_set != false,
           prefix_set: prefix_set != false,
@@ -281,6 +285,10 @@ module Lutaml
             xml_mapping.instance_variable_set(var_name, Utils.deep_dup(value))
           end
         end
+      end
+
+      def polymorphic_mapping
+        mappings.find(&:polymorphic_mapping?)
       end
 
       def attributes_to_dup

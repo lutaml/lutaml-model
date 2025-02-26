@@ -140,6 +140,10 @@ module Lutaml
           find_children_by_name("text")
         end
 
+        def [](name)
+          find_attribute_value(name) || find_children_by_name(name)
+        end
+
         def find_attribute_value(attribute_name)
           if attribute_name.is_a?(Array)
             attributes.values.find do |attr|

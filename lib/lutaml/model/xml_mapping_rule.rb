@@ -20,6 +20,8 @@ module Lutaml
         prefix_set: false,
         attribute: false,
         default_namespace: nil,
+        polymorphic: {},
+        polymorphic_map: {},
         transform: {}
       )
         super(
@@ -30,6 +32,8 @@ module Lutaml
           with: with,
           delegate: delegate,
           attribute: attribute,
+          polymorphic: polymorphic,
+          polymorphic_map: polymorphic_map,
           transform: transform
         )
 
@@ -113,6 +117,7 @@ module Lutaml
           namespace_set: namespace_set?,
           prefix_set: prefix_set?,
           attribute: attribute,
+          polymorphic: polymorphic.dup,
           default_namespace: default_namespace.dup,
           transform: transform.dup,
         )

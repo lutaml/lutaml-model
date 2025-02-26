@@ -205,19 +205,12 @@ module Lutaml
         end
 
         def build_unordered_element(xml, element, options = {})
-          mapper_class = options[:mapper_class] || element.class
+          mapper_class = determine_mapper_class(element, options)
           xml_mapping = mapper_class.mappings_for(:xml)
           return xml unless xml_mapping
 
-          attributes = options[:xml_attributes] ||= {}
-          attributes = build_attributes(element,
-                                        xml_mapping, options).merge(attributes)&.compact
-
-          prefix = if options.key?(:namespace_prefix)
-                     options[:namespace_prefix]
-                   elsif xml_mapping.namespace_prefix
-                     xml_mapping.namespace_prefix
-                   end
+          attributes = build_element_attributes(element, xml_mapping, options)
+          prefix = determine_namespace_prefix(options, xml_mapping)
 
           prefixed_xml = xml.add_namespace_prefix(prefix)
           tag_name = options[:tag_name] || xml_mapping.root_element
@@ -432,6 +425,29 @@ module Lutaml
 
         def cdata
           @root.cdata
+        end
+
+        private
+
+        def determine_mapper_class(element, options)
+          if options[:mapper_class] && element.is_a?(options[:mapper_class])
+            element.class
+          else
+            options[:mapper_class] || element.class
+          end
+        end
+
+        def determine_namespace_prefix(options, mapping)
+          return options[:namespace_prefix] if options.key?(:namespace_prefix)
+
+          mapping.namespace_prefix
+        end
+
+        def build_element_attributes(element, mapping, options)
+          xml_attributes = options[:xml_attributes] ||= {}
+          attributes = build_attributes(element, mapping, options)
+
+          attributes.merge(xml_attributes)&.compact
         end
       end
     end
