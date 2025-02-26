@@ -53,7 +53,7 @@ module Lutaml
         end
 
         def build_ordered_element(xml, element, options = {})
-          mapper_class = options[:mapper_class] || element.class
+          mapper_class = determine_mapper_class(element, options)
           xml_mapping = mapper_class.mappings_for(:xml)
           return xml unless xml_mapping
 

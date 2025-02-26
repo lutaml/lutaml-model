@@ -8,6 +8,8 @@ module Lutaml
                   :attribute,
                   :custom_methods,
                   :delegate,
+                  :polymorphic,
+                  :polymorphic_map,
                   :transform
 
       def initialize(
@@ -19,6 +21,8 @@ module Lutaml
         attribute: false,
         delegate: nil,
         root_mappings: nil,
+        polymorphic: {},
+        polymorphic_map: {},
         transform: {}
       )
         @name = name
@@ -29,6 +33,8 @@ module Lutaml
         @attribute = attribute
         @delegate = delegate
         @root_mappings = root_mappings
+        @polymorphic = polymorphic
+        @polymorphic_map = polymorphic_map
         @transform = transform
       end
 
@@ -39,6 +45,10 @@ module Lutaml
 
       def render?(value)
         render_nil? || (!value.nil? && !Utils.empty_collection?(value))
+      end
+
+      def polymorphic_mapping?
+        polymorphic_map && !polymorphic_map.empty?
       end
 
       def serialize_attribute(model, element, doc)

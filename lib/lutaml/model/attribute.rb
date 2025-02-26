@@ -14,6 +14,8 @@ module Lutaml
         choice
         sequence
         method_name
+        polymorphic
+        polymorphic_class
       ].freeze
 
       def initialize(name, type, options = {})
@@ -23,6 +25,10 @@ module Lutaml
         validate_presence!(type, options[:method_name])
         process_type!(type) if type
         process_options!
+      end
+
+      def polymorphic?
+        @options[:polymorphic_class]
       end
 
       def derived?
@@ -162,7 +168,21 @@ module Lutaml
 
         valid_value!(value) &&
           valid_collection!(value, self) &&
-          valid_pattern!(value)
+          valid_pattern!(value) &&
+          validate_polymorphic!(value)
+      end
+
+      def validate_polymorphic(value)
+        return value.all? { |v| validate_polymorphic!(v) } if value.is_a?(Array)
+        return true unless polymorphic_enabled?
+
+        valid_polymorphic_type?(value)
+      end
+
+      def validate_polymorphic!(value)
+        return true if validate_polymorphic(value)
+
+        raise StandardError, "#{value.class} not in #{options[:polymorphic]}"
       end
 
       def validate_collection_range
@@ -244,25 +264,58 @@ module Lutaml
       end
 
       def cast(value, format, options = {})
-        return value if type <= Serialize && value.is_a?(type.model)
-
         value ||= [] if collection?
         return value.map { |v| cast(v, format, options) } if value.is_a?(Array)
 
-        if type <= Serialize && castable?(value, format)
-          type.apply_mappings(value, format, options)
-        elsif !value.nil? && !value.is_a?(type)
-          type.send(:"from_#{format}", value)
+        return value if already_serialized?(type, value)
+
+        klass = resolve_polymorphic_class(type, value, options)
+
+        if can_serialize?(klass, value, format)
+          klass.apply_mappings(value, format, options)
+        elsif needs_conversion?(klass, value)
+          klass.send(:"from_#{format}", value)
         else
-          type.cast(value)
+          klass.cast(value)
         end
       end
 
       private
 
+      def resolve_polymorphic_class(type, value, options)
+        return type unless polymorphic_map_defined?(options, value)
+
+        val = value[options[:polymorphic][:attribute]]
+        klass_name = options[:polymorphic][:class_map][val]
+        Object.const_get(klass_name)
+      end
+
+      def polymorphic_map_defined?(options, value)
+        !value.nil? &&
+          options[:polymorphic] &&
+          !options[:polymorphic].empty? &&
+          value[options[:polymorphic][:attribute]]
+      end
+
       def castable?(value, format)
         value.is_a?(Hash) ||
           (format == :xml && value.is_a?(Lutaml::Model::XmlAdapter::XmlElement))
+      end
+
+      def castable_serialized_type?(value)
+        type <= Serialize && value.is_a?(type.model)
+      end
+
+      def can_serialize?(klass, value, format)
+        klass <= Serialize && castable?(value, format)
+      end
+
+      def needs_conversion?(klass, value)
+        !value.nil? && !value.is_a?(klass)
+      end
+
+      def already_serialized?(klass, value)
+        klass <= Serialize && value.is_a?(klass.model)
       end
 
       def serialize_array(value, format, options)
@@ -324,6 +377,14 @@ module Lutaml
 
         raise ArgumentError,
               "Invalid type: #{type}, must be a Symbol, String or a Class"
+      end
+
+      def polymorphic_enabled?
+        options[:polymorphic]&.any?
+      end
+
+      def valid_polymorphic_type?(value)
+        value.is_a?(type) && options[:polymorphic].include?(value.class)
       end
     end
   end

@@ -484,11 +484,27 @@ module Lutaml
           instance = options[:instance] || model.new
           return instance if Utils.blank?(doc)
 
-          options[:mappings] = mappings_for(format).mappings
+          mappings = mappings_for(format)
 
+          if mappings.polymorphic_mapping
+            return resolve_polymorphic(doc, format, mappings, instance, options)
+          end
+
+          options[:mappings] = mappings.mappings
           return apply_xml_mapping(doc, instance, options) if format == :xml
 
           apply_hash_mapping(doc, instance, format, options)
+        end
+
+        def resolve_polymorphic(doc, format, mappings, instance, options = {})
+          polymorphic_mapping = mappings.polymorphic_mapping
+          return instance if polymorphic_mapping.polymorphic_map.empty?
+
+          klass_key = doc[polymorphic_mapping.name]
+          klass_name = polymorphic_mapping.polymorphic_map[klass_key]
+          klass = Object.const_get(klass_name)
+
+          klass.apply_mappings(doc, format, options)
         end
 
         def apply_xml_mapping(doc, instance, options = {})
@@ -580,7 +596,10 @@ module Lutaml
 
             values = children.map do |child|
               if !rule.using_custom_methods? && attr.type <= Serialize
-                attr.cast(child, :xml, options.except(:mappings))
+                cast_options = options.except(:mappings)
+                cast_options[:polymorphic] = rule.polymorphic if rule.polymorphic
+
+                attr.cast(child, :xml, cast_options)
               elsif attr.raw?
                 inner_xml_of(child)
               else
@@ -597,6 +616,7 @@ module Lutaml
             raise "Attribute '#{rule.to}' not found in #{self}" unless valid_rule?(rule)
 
             attr = attribute_for_rule(rule)
+            next if attr&.derived?
 
             names = rule.multiple_mappings? ? rule.name : [rule.name]
 
@@ -624,7 +644,11 @@ module Lutaml
             end
 
             value = translate_mappings(value, rule.hash_mappings, attr, format)
-            value = attr.cast(value, format) unless rule.hash_mappings
+
+            cast_options = {}
+            cast_options[:polymorphic] = rule.polymorphic if rule.polymorphic
+
+            value = attr.cast(value, format, cast_options) unless rule.hash_mappings
             attr.valid_collection!(value, self)
 
             rule.deserialize(instance, value, attributes, self)
