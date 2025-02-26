@@ -4,7 +4,7 @@ module Lutaml
       extend self
 
       # Default values are set for these so the readers are defined below
-      attr_writer :json_adapter, :yaml_adapter, :hash_adapter
+      attr_writer :json_adapter, :yaml_adapter, :hash_adapter, :default_register
 
       attr_accessor :xml_adapter, :toml_adapter
 
@@ -94,6 +94,12 @@ module Lutaml
       # # => Lutaml::Model::HashAdapter::StandardHashAdapter
       def hash_adapter
         @hash_adapter || Lutaml::Model::HashAdapter::StandardHashAdapter
+      end
+
+      def default_register
+        @default_register ||= Lutaml::Model::Register.new(:default)
+        Lutaml::Model::GlobalRegister.register(@default_register)
+        @default_register
       end
 
       # @api private

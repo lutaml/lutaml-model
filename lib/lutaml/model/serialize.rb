@@ -470,7 +470,7 @@ module Lutaml
                              value.dig(*path.map(&:to_s))
                            end
 
-              attr_rule = attr.type.mappings_for(format).find_by_to(attr_name)
+              attr_rule = attr.resolved_type.mappings_for(format).find_by_to(attr_name)
               [attr_rule.from.to_s, attr_value]
             end
 
@@ -478,11 +478,11 @@ module Lutaml
               child_hash.merge!(value)
             end
 
-            attr.type.apply_hash_mapping(
+            attr.resolved_type.apply_hash_mapping(
               child_hash,
-              attr.type.model.new,
+              attr.resolved_type.model.new,
               format,
-              { mappings: attr.type.mappings_for(format).mappings },
+              { mappings: attr.resolved_type.mappings_for(format).mappings },
             )
           end
         end
@@ -506,7 +506,7 @@ module Lutaml
           value.each do |child_obj|
             map_key = nil
             map_value = {}
-            mapping_rules = attr.type.mappings_for(format)
+            mapping_rules = attr.resolved_type.mappings_for(format)
 
             child_mappings.each do |attr_name, path|
               mapping_rule = mapping_rules.find_by_to(attr_name)
@@ -551,7 +551,7 @@ module Lutaml
         def attribute_for_rule(rule)
           return attributes[rule.to] unless rule.delegate
 
-          attributes[rule.delegate].type.attributes[rule.to]
+          attributes[rule.delegate].resolved_type.attributes[rule.to]
         end
 
         def attribute_for_child(child_name, format)
@@ -689,8 +689,8 @@ module Lutaml
               rule_names.include?(child.namespaced_name) && !child.text?
             end
 
-            if rule.using_custom_methods? || attr.type == Lutaml::Model::Type::Hash
-              return_child = attr.type == Lutaml::Model::Type::Hash || !attr.collection? if attr
+            if rule.using_custom_methods? || attr.resolved_type == Lutaml::Model::Type::Hash
+              return_child = attr.resolved_type == Lutaml::Model::Type::Hash || !attr.collection? if attr
               return return_child ? children.first : children
             end
 
@@ -706,7 +706,7 @@ module Lutaml
             end
 
             children&.each do |child|
-              if !rule.using_custom_methods? && attr.type <= Serialize
+              if !rule.using_custom_methods? && attr.resolved_type <= Serialize
                 cast_options = options.except(:mappings)
                 cast_options[:polymorphic] = rule.polymorphic if rule.polymorphic
 
@@ -823,7 +823,7 @@ module Lutaml
           return false unless value.is_a?(Hash)
           return value.one? && value.text? unless attr
 
-          !(attr.type <= Serialize) && attr.type != Lutaml::Model::Type::Hash
+          !(attr.resolved_type <= Serialize) && attr.resolved_type != Lutaml::Model::Type::Hash
         end
 
         def ensure_utf8(value)
@@ -882,6 +882,8 @@ module Lutaml
           self.schema_location = attrs[:schema_location]
         end
 
+        self.current_register = options
+
         self.class.attributes.each do |name, attr|
           next if attr.derived?
 
@@ -921,17 +923,17 @@ module Lutaml
         if attr_rule.collection? || value.is_a?(Array)
           value&.map do |v|
             if v.is_a?(Hash)
-              attr_rule.type.new(v)
+              attr_rule.resolved_type.new(v)
             else
               # TODO: This code is problematic because Type.cast does not know
               # about all the types.
-              Lutaml::Model::Type.cast(v, attr_rule.type)
+              Lutaml::Model::Type.cast(v, attr_rule.resolved_type)
             end
           end
         else
           # TODO: This code is problematic because Type.cast does not know
           # about all the types.
-          Lutaml::Model::Type.cast(value, attr_rule.type)
+          Lutaml::Model::Type.cast(value, attr_rule.resolved_type)
         end
       end
 
@@ -999,6 +1001,15 @@ module Lutaml
         self.class.as_yaml(self)
       end
 
+      def current_register=(options)
+        default_register = Lutaml::Model::Config.default_register
+        Thread.current[:current_register] = if options.is_a?(Hash)
+                                              options.fetch(:register, default_register)
+                                            else
+                                              default_register
+                                            end
+      end
+
       Lutaml::Model::Config::AVAILABLE_FORMATS.each do |format|
         define_method(:"to_#{format}") do |options = {}|
           adapter = Lutaml::Model::Config.public_send(:"#{format}_adapter")
@@ -1012,6 +1023,7 @@ module Lutaml
                            end
 
           options[:parse_encoding] = encoding if encoding
+          self.current_register = options
           adapter.new(representation).public_send(:"to_#{format}", options)
         end
       end

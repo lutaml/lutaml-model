@@ -26,18 +26,18 @@ module Lutaml
 
         def self.generate_elements(xml, klass)
           klass.attributes.each do |name, attr|
-            if attr.type <= Lutaml::Model::Serialize
-              generate_complex_type(xml, attr.type, name)
+            if attr.resolved_type <= Lutaml::Model::Serialize
+              generate_complex_type(xml, attr.resolved_type, name)
             elsif attr.collection?
               xml.element(name: name, minOccurs: "0", maxOccurs: "unbounded") do
                 xml.complexType do
                   xml.sequence do
-                    xml.element(name: "item", type: get_xsd_type(attr.type))
+                    xml.element(name: "item", type: get_xsd_type(attr.resolved_type))
                   end
                 end
               end
             else
-              xml.element(name: name, type: get_xsd_type(attr.type))
+              xml.element(name: name, type: get_xsd_type(attr.resolved_type))
             end
           end
         end

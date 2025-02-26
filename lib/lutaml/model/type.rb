@@ -32,6 +32,8 @@ module Lutaml
         end
 
         def lookup(type_name)
+          return type_name if type_name.is_a?(Class)
+
           @registry ||= {}
           klass = @registry[type_name.to_sym]
 
@@ -43,13 +45,13 @@ module Lutaml
         def cast(value, type)
           return nil if value.nil?
 
-          type.cast(value)
+          lookup(type).cast(value)
         end
 
         def serialize(value, type)
           return nil if value.nil?
 
-          type.serialize(value)
+          lookup(type).serialize(value)
         end
       end
     end
