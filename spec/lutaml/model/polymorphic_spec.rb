@@ -76,7 +76,7 @@ module PolymorphicSpec
 
       xml do
         map_element "document_id", to: :document_id
-        map_attribute "reference-type", to: :_class
+        map_attribute "_class", to: :_class
       end
 
       key_value do
@@ -91,7 +91,7 @@ module PolymorphicSpec
 
       xml do
         map_element "anchor_id", to: :anchor_id
-        map_attribute "reference-type", to: :_class
+        map_attribute "_class", to: :_class
       end
 
       key_value do
@@ -309,11 +309,11 @@ RSpec.describe "Polymorphic" do
       let(:xml) do
         <<~XML
           <ReferenceSet>
-            <references reference-type="document-ref">
+            <references _class="document-ref">
               <name>The Tibetan Book of the Dead</name>
               <document_id>book:tbtd</document_id>
             </references>
-            <references reference-type="anchor-ref">
+            <references _class="anchor-ref">
               <name>Chapter 1</name>
               <anchor_id>book:tbtd:anchor-1</anchor_id>
             </references>
