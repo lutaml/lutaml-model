@@ -279,8 +279,10 @@ There are two ways to define an information model in Lutaml::Model:
 * Inheriting from the `Lutaml::Model::Serializable` class
 * Including the `Lutaml::Model::Serialize` module
 
+=== Definition
+
 [[define-through-inheritance]]
-=== Definition through inheritance
+==== Through inheritance
 
 The simplest way to define a model is to create a class that inherits from
 `Lutaml::Model::Serializable`.
@@ -299,7 +301,7 @@ end
 ----
 
 [[define-through-inclusion]]
-=== Definition through inclusion
+==== Through inclusion
 
 If the model class already has a super class that it inherits from, the model
 can be extended using the `Lutaml::Model::Serialize` module.
@@ -316,6 +318,40 @@ class Kiln < SomeSuperClass
   attribute :temperature, :integer
 end
 ----
+
+[[model-inheritance]]
+=== Inheritance
+
+A model can inherit from another model to inherit all attributes and methods of
+the parent model, allowing for code reusability and a clear model hierarchy.
+
+Syntax:
+
+[source,ruby]
+----
+class Superclass < Lutaml::Model::Serializable
+  # attribute ...
+  # serialization blocks
+end
+
+class Subclass < Superclass
+  # attributes are additive
+  # serialization blocks are replaced
+end
+----
+
+An inherited model has the following characteristics:
+
+* All attributes are inherited from the parent model.
+
+* Additional calls to `attribute` in the child model are additive, unless the
+attribute name is the same as an attribute in the parent model.
+
+* Serialization blocks, such as `xml` and `key_value` are replaced when defined.
+
+** In order to selectively import serialization mapping rules from the parent
+model, the `import_model_mappings` method can be used (see
+<<import_model_mappings>>).
 
 
 === Comparison
