@@ -580,15 +580,33 @@ puts s.established
 ----
 ====
 
+=== Polymorphic attributes
 
-An attribute with a defined value type also accepts values that are of a class that
-is a subclass of the defined type.
+==== General
 
-This means that the assigned `Type` accepts polymorphic classes as long as the
+A polymorphic attribute is an attribute that can accept multiple types of
+values. This is useful when the attribute defines common characteristics and
+behaviors among different types.
+
+An attribute with a defined value type also accepts values that are of a class
+that is a subclass of the defined type.
+
+The assigned attribute of `Type` accepts polymorphic classes as long as the
 assigned instance is of a class that either inherits from the declared type or
 matches it.
 
-.Using a superclass type receive child object
+
+==== Naïve approach does not work...
+
+A naïve polymorphic approach is to define an attribute with a superclass type
+and assign instances of subclasses to it.
+
+While this approach works (somewhat) in modeling, it does not work with
+serialization (half) or deserialization (not at all).
+
+The following example illustrates why such approach is naïve.
+
+.An attribute receiving the superclass type accepts subclass instances
 [example]
 ====
 [source,ruby]
@@ -597,11 +615,13 @@ class Studio < Lutaml::Model::Serializable
   attribute :name, :string
 end
 
+# CeramicStudio is a specialization of Studio
 class CeramicStudio < Studio
   attribute :clay_type, :string
 end
 
 class PotteryClass < Lutaml::Model::Serializable
+  # the :studio attribute should accept Studio and CeramicStudio
   attribute :studio, Studio
 end
 ----
@@ -624,7 +644,675 @@ end
 > p.studio.clay_type
 # => "Red"
 ----
+
+So far so good. However, this approach does not work in serialization.
+This is what happens when we call `to_yaml` on the `PotteryClass` instance.
+
+[source,ruby]
+----
+> puts p.to_yaml
+# => ---
+# => studio:
+# =>   name: Ceramic World
+# =>   clay_type: Red
+----
+
+When deserializing the YAML string, the `studio` attribute will be deserialized
+as an instance of `Studio`, not `CeramicStudio`. This means that the `clay_type`
+attribute will be lost.
+
+[source,ruby]
+----
+> p = PotteryClass.load_yaml("---\nstudio:\n  name: Ceramic World\n  clay_type: Red")
+> p.studio
+# => <Studio:0x0000000104ac7240 @name="Ceramic World">
+> p.studio.clay_type
+# => ERROR
+----
 ====
+
+
+==== Proper polymorphic approaches
+
+Lutaml::Model offers rich support for polymorphic attributes, through
+configuration at both attribute and serialization levels.
+
+In polymorphism, there are the following components:
+
+polymorphic attribute:: the attribute that can be assigned multiple types.
+
+polymorphic attribute class:: the class that has a polymorphic attribute.
+
+polymorphic superclass:: a class assigned to a polymorphic attribute that serves
+as the superclass for all accepted polymorphic classes.
+
+polymorphic subclass:: a class that is a subclass of the polymorphic superclass
+and can be assigned to the polymorphic attribute. There are often more than 2
+subclasses in a scenario since polymorphism is meant to apply to multiple types.
+
+To utilize polymorphic attributes, modification to all of these components are
+necessary.
+
+In serialized form, polymorphic classes are differentiated by an explicit
+"polymorphic class differentiator".
+
+.Sample serialization of polymorphic classes in YAML
+[example]
+====
+In key-value formats like YAML, the polymorphic class differentiator is
+typically a key-value pair that contains the polymorphic class name.
+
+[source,yaml]
+----
+references:
+- _class: Document # This is a DocumentReference
+  name: "The Tibetan Book of the Dead"
+  document_id: "book:tbtd"
+- _class: Anchor # This is an AnchorReference
+  name: "Chapter 1"
+  anchor_id: "book:tbtd:anchor-1"
+----
+====
+
+.Sample serialization of polymorphic classes in XML
+[example]
+====
+In XML, the polymorphic class differentiator is typically an attribute that
+contains the polymorphic class name.
+
+[source,xml]
+----
+<references>
+  <!-- The "document-ref" value is a DocumentReference -->
+  <reference reference-type="document-ref">
+    <name>The Tibetan Book of the Dead</name>
+    <document_id>book:tbtd</document_id>
+  </reference>
+  <!-- The "anchor-ref" value is an AnchorReference -->
+  <reference reference-type="anchor-ref">
+    <name>Chapter 1</name>
+    <anchor_id>book:tbtd:anchor-1</anchor_id>
+  </reference>
+</references>
+----
+====
+
+NOTE: While it is possible to determine different polymorphic classes based on
+the attributes they contain, such mechanism would not be able to determine the
+polymorphic class if serializations of two polymorphic subclasses can be
+identical.
+
+
+There are two basic scenarios in using polymorphic attributes:
+
+* Scenario 1: Setting polymorphism in the polymorphic superclass:
+
+.. <<polymorphic-superclass-class>>
+.. <<polymorphic-differentiator-in-superclass>>
+.. <<polymorphic-attribute-class-mapping-in-superclass>>
+
+* Scenario 2: Setting polymorphism in the individual polymorphic subclasses:
+
+.. <<polymorphic-superclass-class>>
+.. <<polymorphic-differentiator-in-subclass>>
+.. <<polymorphic-attribute-class-mapping-in-subclasses>>
+
+
+NOTE: Please refer to `spec/lutaml/model/polymorphic_spec.rb` for full examples
+of implementing polymorphic attributes.
+
+
+[[polymorphic-superclass-class]]
+==== Defining the polymorphic attribute
+
+The polymorphic attribute class is a class that has a polymorphic attribute.
+
+At this level, the `polymorphic` option is used to specify the types that the
+polymorphic attribute can accept.
+
+[source,ruby]
+----
+class PolymorphicAttributeClass < Lutaml::Model::Serializable
+  attribute :attribute_name, <1>
+    {polymorphic-superclass-class}, <2>
+    {options}, <3>
+    polymorphic: [ <4>
+      polymorphic-subclass-1, <5>
+      polymorphic-subclass-2,
+    ]
+end
+----
+<1> The name of the polymorphic attribute.
+<2> The polymorphic superclass class.
+<3> Any options for the attribute.
+<4> The `polymorphic` option that determines the acceptable polymorphic subclasses.
+<5> The polymorphic subclasses.
+
+The `polymorphic` option is an array of polymorphic subclasses that the
+attribute can accept.
+
+These options enable the following scenarios.
+
+* If the polymorphic attribute is to only contain instances of the
+`polymorphic-superclass-class`, not its subclasses, then the `polymorphic`
+option is not needed.
++
+[example]
+====
+In the following code, `ReferenceSet` has an attribute `references` that only
+accepts instances of `Reference`. The `polymorphic` option does not apply.
+
+[source,ruby]
+----
+class ReferenceSet < Lutaml::Model::Serializable
+  attribute :references, Reference, collection: true
+end
+----
+====
+
+* If the attribute (collection or not) is meant to only contain one type of
+polymorphic subclasses, then the `polymorphic` option is also not needed,
+because the polymorphic subclass can be stated as the attribute value type.
++
+[example]
+====
+In the following code, `ReferenceSet` has an attribute `references` that only
+accepts instances of `DocumentReference`, a subclass of `Reference`.
+The `polymorphic` option does not apply.
+
+[source,ruby]
+----
+class ReferenceSet < Lutaml::Model::Serializable
+  attribute :references, DocumentReference, collection: true
+end
+----
+====
+
+* If the attribute (collection or not) is meant to contain instances belonging
+to more than one polymorphic subclass, then those acceptable polymorphic
+subclasses should be explicitly specified in the `polymorphic: [...]` option.
++
+[example]
+====
+In the following code, `ReferenceSet` is a class that has a polymorphic
+attribute `references`. The `references` attribute can accept instances of
+`DocumentReference` and `AnchorReference`, both of which are subclasses of
+`Reference`.
+
+[source,ruby]
+----
+class ReferenceSet < Lutaml::Model::Serializable
+  attribute :references, Reference, collection: true, polymorphic: [
+    DocumentReference,
+    AnchorReference,
+  ]
+end
+----
+====
+
+[[polymorphic-subclass-differentiator]]
+==== Differentiating polymorphic subclasses
+
+===== General
+
+A polymorphic subclass needs an additional attribute with the
+`polymorphic_class` option to allow Lutaml::Model for identifying itself in
+serialization. This attribute is called the "polymorphic class differentiator".
+
+There are two methods for setting the polymorphic class differentiator:
+
+* Setting the polymorphic class differentiator in the polymorphic superclass, as
+polymorphic subclasses inherit from it (relying on <<model-inheritance>>).
+
+* Setting the polymorphic class differentiator in the individual polymorphic subclasses
+
+[[polymorphic-differentiator-in-superclass]]
+===== Setting the differentiator in the polymorphic superclass
+
+The polymorphic class differentiator can be set in the polymorphic superclass.
+This scenario fits best if there are many polymorphic subclasses and the
+polymorphic superclass can be modified.
+
+Syntax:
+
+.Setting the polymorphic differentiator in the superclass
+[source,ruby]
+----
+class PolymorphicSuperclass < Lutaml::Model::Serializable
+  attribute :{_polymorphic_differentiator}, <1>
+    :string, <2>
+    polymorphic_class: true <3>
+  # ...
+end
+----
+<1> The polymorphic differentiator is a normal attribute that can be
+assigned to any name.
+<2> The polymorphic differentiator must have a value type of `:string`.
+<3> The option for `polymorphic_class` must be set to `true` to indicate
+that this attribute accepts subclass types.
+
+[[polymorphic-differentiator-in-subclass]]
+===== Setting the differentiator in the individual polymorphic subclasses
+
+The polymorphic class differentiator can be set in the individual polymorphic
+subclasses. This scenario fits best if there are few polymorphic subclasses and
+the polymorphic superclass cannot be modified.
+
+Syntax:
+
+.Setting the polymorphic differentiator in the subclass
+[source,ruby]
+----
+# No modification to the superclass is needed.
+class PolymorphicSuperclass < Lutaml::Model::Serializable
+  # ...
+end
+
+# The polymorphic differentiator is set in the subclass.
+class PolymorphicSubclass < PolymorphicSuperclass
+  attribute
+    :{_polymorphic_differentiator}, <1>
+    :string, <2>
+    polymorphic_class: true <3>
+  # ...
+end
+----
+<1> The polymorphic differentiator is a normal attribute that can be
+assigned to any name.
+<2> The polymorphic differentiator must have a value type of `:string`.
+<3> The option for `polymorphic_class` must be set to `true` to indicate
+that this attribute accepts subclass types.
+
+
+[[polymorphic-differentiator-in-serialization]]
+==== Polymorphic differentiation in serialization
+
+===== General
+
+The polymorphic attribute class needs to determine what class to use based on
+the serialized value of the polymorphic differentiator.
+
+The polymorphic attribute class mapping is format-independent, allowing for
+differentiation of polymorphic subclasses in different serialization formats.
+
+The mapping of the serialized polymorphic differentiator can be set in either:
+
+* the polymorphic superclass; or
+* the polymorphic attribute class and the individual polymorphic subclasses.
+
+[[polymorphic-attribute-class-mapping-in-superclass]]
+===== Mapping in the polymorphic superclass
+
+This use case applies when the polymorphic superclass can be modified, and
+that polymorphism is intended to apply to all its subclasses.
+
+This is done through the `polymorphic_map` option in the serialization blocks
+inside the polymorphic attribute class.
+
+Syntax:
+
+[source,ruby]
+----
+class PolymorphicSuperclass < Lutaml::Model::Serializable
+  attribute :{_polymorphic_differentiator}, :string, polymorphic_class: true
+
+  xml do
+    (map_attribute | map_element) "XmlPolymorphicAttributeName", <1>
+      to: :{_polymorphic_differentiator}, <2>
+      polymorphic_map: { <3>
+        "xml-value-for-subclass-1" => PolymorphicSubclass1, <4>
+        "xml-value-for-subclass-2" => PolymorphicSubclass2,
+      }
+  end
+
+  (key_value | key_value_format) do
+    map "KeyValuePolymorphicAttributeName", <5>
+      to: :{_polymorphic_differentiator}, <6>
+      polymorphic_map: {
+        "keyvalue-value-for-subclass-1" => PolymorphicSubclass1,
+        "keyvalue-value-for-subclass-2" => PolymorphicSubclass2,
+      }
+  end
+end
+
+class PolymorphicSubclass1 < PolymorphicSuperclass
+  # ...
+end
+
+class PolymorphicSubclass2 < PolymorphicSuperclass
+  # ...
+end
+
+class PolymorphicAttributeClass < Lutaml::Model::Serializable
+  attribute :polymorphic_attribute,
+    PolymorphicSuperclass,
+    {options},
+    polymorphic: [
+      PolymorphicSubclass1,
+      PolymorphicSubclass2,
+    ]
+  # ...
+end
+----
+<1> The name of the XML element or attribute that contains the polymorphic
+differentiator.
+<2> The name of the polymorphic differentiator attribute defined in `attribute`
+with the `polymorphic` option.
+<3> The `polymorphic_map` option that determines the class to use based on the
+value of the differentiator.
+<4> The mapping of the differentiator value to the polymorphic subclass.
+<5> The name of the key-value element that contains the polymorphic
+differentiator.
+<6> The name of the polymorphic differentiator attribute defined in `attribute`
+with the `polymorphic` option.
+
+[example]
+====
+[source,ruby]
+----
+class Reference < Lutaml::Model::Serializable
+  attribute :_class, :string, polymorphic_class: true
+  attribute :name, :string
+
+  xml do
+    map_attribute "reference-type", to: :_class, polymorphic_map: {
+      "document-ref" => "PolymorphicSpec::Base::DocumentReference",
+      "anchor-ref" => "PolymorphicSpec::Base::AnchorReference",
+    }
+    map_element "name", to: :name
+  end
+
+  key_value do
+    map "_class", to: :_class, polymorphic_map: {
+      "Document" => "PolymorphicSpec::Base::DocumentReference",
+      "Anchor" => "PolymorphicSpec::Base::AnchorReference",
+    }
+    map "name", to: :name
+  end
+end
+
+class DocumentReference < Reference
+  attribute :document_id, :string
+
+  xml do
+    map_element "document_id", to: :document_id
+  end
+
+  key_value do
+    map "document_id", to: :document_id
+  end
+end
+
+class AnchorReference < Reference
+  attribute :anchor_id, :string
+
+  xml do
+    map_element "anchor_id", to: :anchor_id
+  end
+
+  key_value do
+    map "anchor_id", to: :anchor_id
+  end
+end
+
+class ReferenceSet < Lutaml::Model::Serializable
+  attribute :references, Reference, collection: true, polymorphic: [
+    DocumentReference,
+    AnchorReference,
+  ]
+end
+----
+
+[source,yaml]
+----
+---
+references:
+- _class: Document
+  name: The Tibetan Book of the Dead
+  document_id: book:tbtd
+- _class: Anchor
+  name: Chapter 1
+  anchor_id: book:tbtd:anchor-1
+----
+
+[source,xml]
+----
+<ReferenceSet>
+  <references reference-type="document-ref">
+    <name>The Tibetan Book of the Dead</name>
+    <document_id>book:tbtd</document_id>
+  </references>
+  <references reference-type="anchor-ref">
+    <name>Chapter 1</name>
+    <anchor_id>book:tbtd:anchor-1</anchor_id>
+  </references>
+</ReferenceSet>
+----
+====
+
+[[polymorphic-attribute-class-mapping-in-subclasses]]
+===== Mapping in the polymorphic attribute class and individual polymorphic subclasses
+
+This use case applies when the polymorphic superclass is not meant to be
+modified.
+
+This is done through the `polymorphic_map` option in the serialization blocks
+inside the polymorphic attribute class, and the `polymorphic` option in the
+individual polymorphic subclasses.
+
+In this scenario, similar to the previous case where the polymorphic differentiator
+is set at the polymorphic superclass, the following conditions must be satisifed:
+
+* the polymorphic differentiator attribute name must be the same across
+polymorphic subclasses
++
+[example]
+====
+If the model polymorphic differentiator in one polymorphic subclass is
+`_ref_type`, then it must be so in all other polymorphic subclasses.
+====
+
+* the polymorphic differentiator in the serialization formats must be
+identical within the polymorphic subclasses of that serialization format.
++
+[example]
+====
+If the XML polymorphic differentiator is `reference-type`, then it must
+be so in the XML of all polymorphic subclasses.
+====
+
+
+Syntax:
+
+[source,ruby]
+----
+# Assume that we have no access to the base class and we need to define
+# polymorphism in the sub-classes.
+class PolymorphicSuperclass < Lutaml::Model::Serializable
+end
+
+class PolymorphicSubclass1 < PolymorphicSuperclass
+  attribute :_polymorphic_differentiator, :string
+
+  xml do
+    (map_attribute | map_element) "XmlPolymorphicAttributeName", <1>
+      to: :_polymorphic_differentiator
+  end
+
+  (key_value | key_value_format) do
+    map "KeyValuePolymorphicAttributeName", <2>
+      to: :_polymorphic_differentiator
+  end
+end
+
+class PolymorphicSubclass2 < PolymorphicSuperclass
+  attribute :_polymorphic_differentiator, :string
+
+  xml do
+    (map_attribute | map_element) "XmlPolymorphicAttributeName2",
+      to: :_polymorphic_differentiator
+  end
+
+  (key_value | key_value_format) do
+    map "KeyValuePolymorphicAttributeName2",
+      to: :_polymorphic_differentiator
+  end
+end
+
+class PolymorphicAttributeClass < Lutaml::Model::Serializable
+  attribute :polymorphic_attribute,
+    PolymorphicSuperclass,
+    {options},
+    polymorphic: [
+      PolymorphicSubclass1,
+      PolymorphicSubclass2,
+    ] <3>
+  # ...
+
+  xml do
+    map_element "XmlPolymorphicElement", <4>
+      to: :polymorphic_attribute,
+      polymorphic: { <5>
+        # This refers to the polymorphic differentiator attribute in the polymorphic subclass.
+        attribute: :_polymorphic_differentiator, <6>
+        class_map: { <7>
+          "xml-i-am-subclass-1" => "PolymorphicSubclass1",
+          "xml-i-am-subclass-2" => "PolymorphicSubclass2",
+        },
+      }
+  end
+
+  (key_value | key_value_format) do
+    map "KeyValuePolymorphicAttributeName", <8>
+      to: :polymorphic_attribute,
+      polymorphic: { <9>
+        attribute: :_polymorphic_differentiator, <10>
+        class_map: { <11>
+          "keyvalue-i-am-subclass-1" => "PolymorphicSubclass1",
+          "keyvalue-i-am-subclass-2" => "PolymorphicSubclass2",
+        },
+      }
+  end
+
+end
+----
+<1> The name of the XML element or attribute that contains the polymorphic
+differentiator.
+<2> The name of the key-value element that contains the polymorphic
+differentiator.
+<3> Definition of the polymorphic attribute and the polymorphic subclasses in
+the polymorphic attribute class.
+<4> The name of the XML element that contains the polymorphic attributes. This must
+be an element as a polymorphic attribute must be a model.
+<5> The `polymorphic` option on a mapping defines necessary information for
+polymorphic serialization.
+<6> The `attribute:` name of the polymorphic differentiator attribute defined in the
+polymorphic subclass.
+<7> The `class_map:` option that determines the polymorphic subclass to use
+based on the value of the differentiator.
+<8> The name of the key-value format key that contains the polymorphic attributes.
+<9> Same as <5>, but for the key-value format.
+<10> Same as <6>, but for the key-value format.
+<11> Same as <7>, but for the key-value format.
+
+
+[example]
+====
+[source,ruby]
+----
+class Reference < Lutaml::Model::Serializable
+  attribute :name, :string
+end
+
+class DocumentReference < Reference
+  attribute :_class, :string
+  attribute :document_id, :string
+
+  xml do
+    map_element "document_id", to: :document_id
+    map_attribute "reference-type", to: :_class
+  end
+
+  key_value do
+    map "document_id", to: :document_id
+    map "_class", to: :_class
+  end
+end
+
+class AnchorReference < Reference
+  attribute :_class, :string
+  attribute :anchor_id, :string
+
+  xml do
+    map_element "anchor_id", to: :anchor_id
+    map_attribute "reference-type", to: :_class
+  end
+
+  key_value do
+    map "anchor_id", to: :anchor_id
+    map "_class", to: :_class
+  end
+end
+
+class ReferenceSet < Lutaml::Model::Serializable
+  attribute :references, Reference, collection: true, polymorphic: [
+    DocumentReference,
+    AnchorReference,
+  ]
+
+  xml do
+    root "ReferenceSet"
+
+    map_element "reference", to: :references, polymorphic: {
+      # This refers to the attribute in the polymorphic model, you need
+      # to specify the attribute name (which is specified in the sub-classed model).
+      attribute: "_class",
+      class_map: {
+        "document-ref" => "DocumentReference",
+        "anchor-ref" => "AnchorReference",
+      },
+    }
+  end
+
+  key_value do
+    map "references", to: :references, polymorphic: {
+      attribute: "_class",
+      class_map: {
+        "Document" => "DocumentReference",
+        "Anchor" => "AnchorReference",
+      },
+    }
+  end
+end
+----
+
+[source,yaml]
+----
+---
+references:
+- _class: Document
+  name: The Tibetan Book of the Dead
+  document_id: book:tbtd
+- _class: Anchor
+  name: Chapter 1
+  anchor_id: book:tbtd:anchor-1
+----
+
+[source,xml]
+----
+<ReferenceSet>
+  <reference reference-type="document-ref">
+    <name>The Tibetan Book of the Dead</name>
+    <document_id>book:tbtd</document_id>
+  </reference>
+  <reference reference-type="anchor-ref">
+    <name>Chapter 1</name>
+    <anchor_id>book:tbtd:anchor-1</anchor_id>
+  </reference>
+</ReferenceSet>
+----
+====
+
 
 
 === Collection attributes
