@@ -14,6 +14,7 @@ module Lutaml
           rescue Lutaml::Model::InvalidValueError,
                  Lutaml::Model::CollectionCountOutOfRangeError,
                  Lutaml::Model::CollectionTrueMissingError,
+                 Lutaml::Model::PolymorphicError,
                  PatternNotMatchedError => e
             errors << e
           end

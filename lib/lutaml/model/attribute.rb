@@ -182,7 +182,7 @@ module Lutaml
       def validate_polymorphic!(value)
         return true if validate_polymorphic(value)
 
-        raise StandardError, "#{value.class} not in #{options[:polymorphic]}"
+        raise Lutaml::Model::PolymorphicError.new(value, options)
       end
 
       def validate_collection_range
