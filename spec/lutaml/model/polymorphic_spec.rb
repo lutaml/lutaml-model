@@ -112,7 +112,7 @@ module PolymorphicSpec
         map_element "references", to: :references, polymorphic: {
           # This refers to the attribute in the polymorphic model, you need
           # to specify the attribute name (which is specified in the sub-classed model).
-          attribute: "reference-type",
+          attribute: "_class",
           class_map: {
             "document-ref" => "PolymorphicSpec::Child::DocumentReference",
             "anchor-ref" => "PolymorphicSpec::Child::AnchorReference",
