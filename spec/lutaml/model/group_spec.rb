@@ -255,8 +255,8 @@ RSpec.describe "Group" do
       formats = %i[json yaml toml]
 
       formats.each do |format|
-        expect(GroupSpec::ComplexType.mappings_for(format).key_value_mappings)
-          .to include(GroupSpec::GroupOfItems.mappings_for(format).key_value_mappings)
+        expect(GroupSpec::ComplexType.mappings_for(format).mappings)
+          .to include(GroupSpec::GroupOfItems.mappings_for(format).mappings)
       end
     end
 
@@ -267,8 +267,8 @@ RSpec.describe "Group" do
 
       formats = %i[json yaml toml]
       formats.each do |format|
-        expect(GroupSpec::ImportModelWithExistingMappings.mappings_for(format).key_value_mappings)
-          .to include(GroupSpec::GroupOfItems.mappings_for(format).key_value_mappings)
+        expect(GroupSpec::ImportModelWithExistingMappings.mappings_for(format).mappings)
+          .to include(GroupSpec::GroupOfItems.mappings_for(format).mappings)
       end
     end
 

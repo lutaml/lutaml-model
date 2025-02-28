@@ -94,7 +94,7 @@ module Lutaml
           end
         end
 
-        def attribute_accessor(attr)
+        def initialize_attribute_accessor(attr)
           name = attr.name
 
           if attr.enum?
@@ -130,22 +130,26 @@ module Lutaml
           attr = Attribute.new(name, type, options)
 
           attributes[name] = attr
-          attribute_accessor(attr)
+          initialize_attribute_accessor(attr)
 
           attr
         end
 
-        def root?
-          mappings_for(:xml).root?
+        # def root?
+        #   mappings_for(:xml)&.root?
+        # end
+
+        def xml_mapping_with_root?
+          mappings.key?(:xml) && root?
         end
 
         def import_model_with_root_error(model)
-          raise Lutaml::Model::ImportModelWithRootError.new(model) if model.mappings.key?(:xml) && model.root?
+          raise Lutaml::Model::ImportModelWithRootError.new(model) if model.xml_mapping_with_root?
         end
 
         def import_model_attributes(model)
           model.attributes.each_value do |attr|
-            attribute_accessor(attr)
+            initialize_attribute_accessor(attr)
           end
 
           @choice_attributes.concat(model.choice_attributes)
@@ -161,7 +165,7 @@ module Lutaml
             if format == :xml
               handle_xml_mapping(mapping, model)
             else
-              handle_key_value_mappings(mapping, format)
+              handle_mappings(mapping, format)
             end
           end
         end
@@ -179,9 +183,9 @@ module Lutaml
           target_mapping.element_sequence.concat(mapping.element_sequence)
         end
 
-        def handle_key_value_mappings(mapping, format)
+        def handle_mappings(mapping, format)
           @mappings[format] ||= KeyValueMapping.new
-          @mappings[format].key_value_mappings.merge!(mapping.key_value_mappings)
+          @mappings[format].mappings.merge!(mapping.mappings)
         end
 
         def import_model(model)
@@ -291,7 +295,8 @@ module Lutaml
             return doc.map { |item| send(:"of_#{format}", item) } if doc.is_a?(Array)
 
             if format == :xml
-              raise Lutaml::Model::NoRootMappingError.new(self) unless root?
+              binding.irb
+              raise Lutaml::Model::NoRootMappingError.new(self) unless xml_mapping_with_root?
 
               options[:encoding] = doc.encoding
               apply_mappings(doc, format, options)
@@ -342,7 +347,7 @@ module Lutaml
         def hash_representation(instance, format, options = {})
           only = options[:only]
           except = options[:except]
-          mappings = mappings_for(format).mappings
+          mappings = mappings_for(format).mapping_hash_values
 
           mappings.each_with_object({}) do |rule, hash|
             name = rule.to
@@ -438,7 +443,7 @@ module Lutaml
               child_hash,
               attr.type.model.new,
               format,
-              { mappings: attr.type.mappings_for(format).mappings },
+              { mappings: attr.type.mappings_for(format).mapping_hash_values },
             )
           end
         end
@@ -520,7 +525,7 @@ module Lutaml
           instance = options[:instance] || model.new
           return instance if Utils.blank?(doc)
 
-          options[:mappings] = mappings_for(format).mappings
+          options[:mappings] = mappings_for(format).mapping_hash_values
 
           return apply_xml_mapping(doc, instance, options) if format == :xml
 
@@ -535,7 +540,7 @@ module Lutaml
           if options[:default_namespace].nil?
             options[:default_namespace] = mappings_for(:xml)&.namespace_uri
           end
-          mappings = options[:mappings] || mappings_for(:xml).mappings
+          mappings = options[:mappings] || mappings_for(:xml).mapping_hash_values
 
           raise Lutaml::Model::CollectionTrueMissingError(self, option[:caller_class]) if doc.is_a?(Array)
 
@@ -628,7 +633,7 @@ module Lutaml
         end
 
         def apply_hash_mapping(doc, instance, format, options = {})
-          mappings = options[:mappings] || mappings_for(format).mappings
+          mappings = options[:mappings] || mappings_for(format).mapping_hash_values
           mappings.each do |rule|
             raise "Attribute '#{rule.to}' not found in #{self}" unless valid_rule?(rule)
 

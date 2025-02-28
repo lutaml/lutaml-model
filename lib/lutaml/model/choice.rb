@@ -28,7 +28,7 @@ module Lutaml
 
       def import_model_attributes(imported_model)
         imported_model.attributes.each_value do |attr|
-          @model.attribute_accessor(attr)
+          @model.initialize_attribute_accessor(attr)
         end
 
         @attributes.concat(imported_model.choice_attributes)

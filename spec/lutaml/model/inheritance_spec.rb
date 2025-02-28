@@ -142,7 +142,7 @@ RSpec.describe "Inheritance" do
       let(:child1) { InheritanceSpec::Child1 }
 
       it "has correct mappings" do
-        expect(child1.mappings_for(:xml).mappings.count).to eq(4)
+        expect(child1.mappings_for(:xml).mapping_hash_values.count).to eq(4)
       end
 
       it "has correct attributes" do
@@ -158,7 +158,7 @@ RSpec.describe "Inheritance" do
       let(:child2) { InheritanceSpec::Child2 }
 
       it "has correct mappings" do
-        expect(child2.mappings_for(:xml).mappings.count).to eq(4)
+        expect(child2.mappings_for(:xml).mapping_hash_values.count).to eq(4)
       end
 
       it "has correct attributes" do

@@ -317,7 +317,7 @@ module Lutaml
             attrs[prefixed_name] = xml_mappings.namespace_uri
           end
 
-          xml_mappings.mappings.each do |mapping_rule|
+          xml_mappings.mapping_hash_values.each do |mapping_rule|
             processed[klass] ||= {}
 
             next if processed[klass][mapping_rule.name]
@@ -356,7 +356,7 @@ module Lutaml
             attrs.merge!(element.schema_location.to_xml_attributes)
           end
 
-          xml_mapping.attributes.values.each_with_object(attrs) do |mapping_rule, hash|
+          xml_mapping.attribute_hash_values.each_with_object(attrs) do |mapping_rule, hash|
             next if options[:except]&.include?(mapping_rule.to)
             next if mapping_rule.custom_methods[:to]
 
@@ -375,7 +375,7 @@ module Lutaml
             end
           end
 
-          xml_mapping.elements.values.each_with_object(attrs) do |mapping_rule, hash|
+          xml_mapping.element_hash_values.each_with_object(attrs) do |mapping_rule, hash|
             next if options[:except]&.include?(mapping_rule.to)
 
             if mapping_rule.namespace && mapping_rule.prefix

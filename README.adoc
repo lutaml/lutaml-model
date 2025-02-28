@@ -758,8 +758,8 @@ end
 
 Where,
 
-`min`:: The minimum number of elements that must be included. Minimum value is `0`.
-`max`:: The maximum number of elements that can be included.Maximum value is `Float::INFINITY`.
+`min`:: The minimum number of elements that must be included. The minimum value can be `0`.
+`max`:: The maximum number of elements that can be included. The maximum value can go up to `Float::INFINITY`.
 `block`:: The block of elements that must be included. The block can contain
 multiple `attribute` and `choice` directives.
 

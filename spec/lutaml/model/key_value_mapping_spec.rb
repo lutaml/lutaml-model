@@ -12,11 +12,11 @@ RSpec.describe Lutaml::Model::KeyValueMapping do
     end
 
     it "adds mappings with delegate option" do
-      expect(mapping.mappings.size).to eq(2)
-      expect(mapping.mappings[0].name).to eq("type")
-      expect(mapping.mappings[0].delegate).to eq(:some_delegate)
-      expect(mapping.mappings[1].name).to eq("name")
-      expect(mapping.mappings[1].delegate).to be_nil
+      expect(mapping.mapping_hash_values.size).to eq(2)
+      expect(mapping.mapping_hash_values[0].name).to eq("type")
+      expect(mapping.mapping_hash_values[0].delegate).to eq(:some_delegate)
+      expect(mapping.mapping_hash_values[1].name).to eq("name")
+      expect(mapping.mapping_hash_values[1].delegate).to be_nil
     end
   end
 
@@ -50,8 +50,8 @@ RSpec.describe Lutaml::Model::KeyValueMapping do
     end
 
     it "correctly duplicates mapping with `to:`" do
-      m = mapping.mappings[0]
-      dup_m = dup_mapping.mappings[0]
+      m = mapping.mapping_hash_values[0]
+      dup_m = dup_mapping.mapping_hash_values[0]
 
       expect(m.name).to eq(dup_m.name)
       expect(m.name.object_id).not_to eq(dup_m.name.object_id)
@@ -70,8 +70,8 @@ RSpec.describe Lutaml::Model::KeyValueMapping do
     end
 
     it "correctly duplicates mapping with custom methods" do
-      m = mapping.mappings[0]
-      dup_m = dup_mapping.mappings[0]
+      m = mapping.mapping_hash_values[0]
+      dup_m = dup_mapping.mapping_hash_values[0]
 
       expect(m.name).to eq(dup_m.name)
       expect(m.name.object_id).not_to eq(dup_m.name.object_id)
@@ -93,9 +93,9 @@ RSpec.describe Lutaml::Model::KeyValueMapping do
     end
 
     it "handles JSON, YAML, TOML mapping" do
-      expect(mapping.mappings[0].render_nil).to be true
-      expect(mapping.mappings[0].delegate).to eq(:container)
-      expect(mapping.mappings[0].raw_mapping?).to be true
+      expect(mapping.mapping_hash_values[0].render_nil).to be true
+      expect(mapping.mapping_hash_values[0].delegate).to eq(:container)
+      expect(mapping.mapping_hash_values[0].raw_mapping?).to be true
     end
   end
 end

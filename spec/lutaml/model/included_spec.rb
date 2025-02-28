@@ -119,7 +119,7 @@ RSpec.describe "Included" do
       let(:impl1) { IncludedSpec::Implementation1 }
 
       it "has correct mappings" do
-        expect(impl1.mappings_for(:xml).mappings.count).to eq(4)
+        expect(impl1.mappings_for(:xml).mapping_hash_values.count).to eq(4)
       end
 
       it "has correct attributes" do
@@ -135,7 +135,7 @@ RSpec.describe "Included" do
       let(:impl2) { IncludedSpec::Implementation2 }
 
       it "has correct mappings" do
-        expect(impl2.mappings_for(:xml).mappings.count).to eq(4)
+        expect(impl2.mappings_for(:xml).mapping_hash_values.count).to eq(4)
       end
 
       it "has correct attributes" do

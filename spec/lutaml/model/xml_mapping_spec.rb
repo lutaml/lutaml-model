@@ -958,8 +958,8 @@ RSpec.describe Lutaml::Model::XmlMapping do
       end
 
       context "when duplicating mapping" do
-        let(:orig_mapping) { orig_mappings.mappings[0] }
-        let(:dup_mapping) { dup_mappings.mappings[0] }
+        let(:orig_mapping) { orig_mappings.mapping_hash_values[0] }
+        let(:dup_mapping) { dup_mappings.mapping_hash_values[0] }
 
         it "duplicates custom_methods" do
           orig_custom_methods = orig_mapping.custom_methods

@@ -199,7 +199,7 @@ module Lutaml
       end
 
       def import_model_mappings(model)
-        raise Lutaml::Model::ImportModelWithRootError.new(model) if model.root?
+        raise Lutaml::Model::ImportModelWithRootError.new(model) if model.xml_mapping_with_root?
 
         mappings = model.mappings_for(:xml)
         @elements.merge!(mappings.elements)
@@ -232,8 +232,16 @@ module Lutaml
         end
       end
 
-      def mappings
-        elements.values + attributes.values + [content_mapping, raw_mapping].compact
+      def element_hash_values
+        elements.values
+      end
+
+      def attribute_hash_values
+        attributes.values
+      end
+
+      def mapping_hash_values
+        element_hash_values + attribute_hash_values + [content_mapping, raw_mapping].compact
       end
 
       def element(name)
@@ -252,7 +260,7 @@ module Lutaml
         if ["text", "#cdata-section"].include?(name.to_s)
           content_mapping
         else
-          mappings.detect do |rule|
+          mapping_hash_values.detect do |rule|
             rule.name == name.to_s || rule.name == name.to_sym
           end
         end

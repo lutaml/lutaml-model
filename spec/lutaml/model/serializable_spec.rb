@@ -196,7 +196,7 @@ RSpec.describe Lutaml::Model::Serializable do
   describe ".mappings_for" do
     context "when mapping is defined" do
       it "returns the defined mapping" do
-        actual_mappings = SerializeableSpec::TestMapper.mappings_for(:yaml).mappings
+        actual_mappings = SerializeableSpec::TestMapper.mappings_for(:yaml).mapping_hash_values
 
         expect(actual_mappings[0].name).to eq(:na)
         expect(actual_mappings[0].to).to eq(:name)
@@ -210,7 +210,7 @@ RSpec.describe Lutaml::Model::Serializable do
       it "maps attributes to mappings" do
         allow(SerializeableSpec::TestMapper.mappings).to receive(:[]).with(:yaml).and_return(nil)
 
-        actual_mappings = SerializeableSpec::TestMapper.mappings_for(:yaml).mappings
+        actual_mappings = SerializeableSpec::TestMapper.mappings_for(:yaml).mapping_hash_values
 
         expect(actual_mappings[0].name).to eq("name")
         expect(actual_mappings[0].to).to eq(:name)
@@ -288,11 +288,11 @@ RSpec.describe Lutaml::Model::Serializable do
 
     Lutaml::Model::Config::KEY_VALUE_FORMATS.each do |format|
       it "defines 3 mappings for #{format}" do
-        expect(model.mappings_for(format).mappings.count).to eq(3)
+        expect(model.mappings_for(format).mapping_hash_values.count).to eq(3)
       end
 
       it "defines mappings correctly for #{format}" do
-        defined_mappings = model.mappings_for(format).mappings.map(&:name)
+        defined_mappings = model.mappings_for(format).mapping_hash_values.map(&:name)
 
         expect(defined_mappings).to eq(%i[first_name last_name age])
       end

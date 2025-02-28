@@ -3,10 +3,10 @@ require_relative "key_value_mapping_rule"
 module Lutaml
   module Model
     class KeyValueMapping
-      attr_reader :key_value_mappings
+      attr_reader :mappings
 
       def initialize(format = nil)
-        @key_value_mappings = {}
+        @mappings = {}
         @format = format
       end
 
@@ -24,7 +24,7 @@ module Lutaml
         mapping_name = name_for_mapping(root_mappings, name)
         validate!(mapping_name, to, with)
 
-        @key_value_mappings[mapping_name] = KeyValueMappingRule.new(
+        @mappings[mapping_name] = KeyValueMappingRule.new(
           mapping_name,
           to: to,
           render_nil: render_nil,
@@ -48,7 +48,7 @@ module Lutaml
       )
         @raw_mapping = true
         validate!(Constants::RAW_MAPPING_KEY, to, with)
-        @key_value_mappings["map_all"] = KeyValueMappingRule.new(
+        @mappings["map_all"] = KeyValueMappingRule.new(
           Constants::RAW_MAPPING_KEY,
           to: to,
           render_nil: render_nil,
@@ -67,9 +67,9 @@ module Lutaml
       end
 
       def import_model_mappings(model)
-        raise Lutaml::Model::ImportModelWithRootError.new(model) if model.mappings.key?(:xml) && model.root?
+        raise Lutaml::Model::ImportModelWithRootError.new(model) if model.xml_mapping_with_root?
 
-        @key_value_mappings.merge!(model.mappings_for(@format).key_value_mappings)
+        @mappings.merge!(model.mappings_for(@format).mappings)
       end
 
       def validate!(key, to, with)
@@ -89,33 +89,33 @@ module Lutaml
       end
 
       def validate_mappings(name)
-        if @key_value_mappings.values.any?(&:root_mapping?) || (name == "root_mapping" && @key_value_mappings.any?)
+        if mapping_hash_values.any?(&:root_mapping?) || (name == "root_mapping" && @mappings.any?)
           raise MultipleMappingsError.new("root_mappings cannot be used with other mappings")
         end
       end
 
       def validate_mappings!(_type)
-        if (@raw_mapping && Utils.present?(@key_value_mappings)) || (!@raw_mapping && @key_value_mappings.values.any?(&:raw_mapping?))
+        if (@raw_mapping && Utils.present?(@mappings)) || (!@raw_mapping && mapping_hash_values.any?(&:raw_mapping?))
           raise StandardError, "map_all is not allowed with other mappings"
         end
       end
 
-      def mappings
-        @key_value_mappings.values
+      def mapping_hash_values
+        @mappings.values
       end
 
       def deep_dup
         self.class.new.tap do |new_mapping|
-          new_mapping.instance_variable_set(:@key_value_mappings, duplicate_mappings)
+          new_mapping.instance_variable_set(:@mappings, duplicate_mappings)
         end
       end
 
       def duplicate_mappings
-        @key_value_mappings.transform_values(&:deep_dup)
+        @mappings.transform_values(&:deep_dup)
       end
 
       def find_by_to(to)
-        mappings.find { |m| m.to.to_s == to.to_s }
+        mapping_hash_values.find { |m| m.to.to_s == to.to_s }
       end
     end
   end
