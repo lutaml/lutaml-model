@@ -3,13 +3,18 @@ require "lutaml/model"
 
 module GroupSpec
   class Ceramic < Lutaml::Model::Serializable
-    attribute :type, :string
-    attribute :name, :string
+    attribute :type, :string, default: "Data"
+    attribute :name, :string, default: "Starc"
 
     xml do
       no_root
       map_element :type, to: :type
       map_element :name, to: :name
+    end
+
+    key_value do
+      map :type, to: :type
+      map :name, to: :name
     end
   end
 
@@ -75,9 +80,104 @@ module GroupSpec
       map_element :name, to: :name
     end
   end
+
+  class CommonAttributes < Lutaml::Model::Serializable
+    attribute :mstyle, :string
+
+    xml do
+      no_root
+      map_element :mstyle, to: :mstyle
+    end
+  end
+
+  class Mrow < Lutaml::Model::Serializable
+    attribute :mi, :string
+    import_model CommonAttributes
+
+    xml do
+      root "mrow"
+      map_element :mi, to: :mi
+    end
+
+    import_model GroupOfItems
+
+    key_value do
+      map :mcol, to: :mcol
+    end
+
+    import_model Ceramic
+  end
+
+  class ContributionInfo < Lutaml::Model::Serializable
+    attribute :person, :string
+    attribute :organization, :string
+
+    xml do
+      no_root
+      map_element "person", to: :person
+      map_element "organization", to: :organization
+    end
+  end
+
+  class Contributor < Lutaml::Model::Serializable
+    attribute :role, :string
+    import_model_attributes ContributionInfo
+
+    xml do
+      root "contributor"
+      map_element "role", to: :role
+      map_element "person", to: :person
+      map_element "organization", to: :organization
+    end
+  end
 end
 
 RSpec.describe "Group" do
+  context "when serializing and deserializing import model having no_root" do
+    let(:xml) do
+      <<~XML
+        <mrow xmlns:ex1="http://www.example.com" xmlns:GML="http://www.sparxsystems.com/profiles/GML/1.0">
+          <mstyle>italic</mstyle>
+          <mi>x</mi>
+          <name>Smith</name>
+          <type>product</type>
+          <GML:description>Item</GML:description>
+        </mrow>
+      XML
+    end
+
+    let(:input_xml) do
+      <<~XML
+        <contributor>
+          <role>author</role>
+          <person>John Doe</person>
+          <organization>ACME</organization>
+        </contributor>
+      XML
+    end
+
+    it "parse the imported model correctly" do
+      parsed = GroupSpec::Mrow.from_xml(xml)
+      expect(parsed.mi).to eq("x")
+      expect(parsed.mstyle).to eq("italic")
+      expect(parsed.name).to eq("Smith")
+      expect(parsed.type).to eq("product")
+      expect(parsed.description).to eq("Item")
+    end
+
+    it "parse the imported model attributes correctly" do
+      parsed = GroupSpec::Contributor.from_xml(input_xml)
+      expect(parsed.person).to eq("John Doe")
+      expect(parsed.role).to eq("author")
+      expect(parsed.organization).to eq("ACME")
+    end
+
+    it "serialize the imported model correctly" do
+      instance = GroupSpec::Mrow.new(mi: "x", mstyle: "italic", name: "Smith", type: "product", description: "Item")
+      expect(instance.to_xml).to be_equivalent_to(xml)
+    end
+  end
+
   context "with no_root" do
     let(:mapper) { GroupSpec::CeramicCollection }
 
@@ -116,26 +216,41 @@ RSpec.describe "Group" do
   end
 
   context "with model" do
-    it "import attributes" do
-      expect(GroupSpec::ComplexType.attributes).to include(GroupSpec::GroupOfItems.attributes)
+    shared_examples "imports attributes from" do |source_class, target_class|
+      it "imports attributes from #{source_class.name}" do
+        expect(target_class.attributes).to include(source_class.attributes)
+      end
     end
 
-    it "import mappings in xml block" do
-      expect(GroupSpec::ComplexType.mappings_for(:xml).elements).to include(*GroupSpec::GroupOfItems.mappings_for(:xml).elements)
+    shared_examples "imports mappings from" do |source_class, target_class|
+      it "imports mappings from #{source_class.name}" do
+        expect(target_class.mappings_for(:xml).elements).to include(*source_class.mappings_for(:xml).elements)
+      end
     end
 
-    it "import mappings outside xml block" do
-      expect(GroupSpec::GenericType.mappings_for(:xml).elements).to include(*GroupSpec::GroupOfItems.mappings_for(:xml).elements)
+    describe GroupSpec::ComplexType do
+      it_behaves_like "imports attributes from", GroupSpec::GroupOfItems, described_class
+      it_behaves_like "imports mappings from", GroupSpec::GroupOfItems, described_class
     end
 
-    it "import attributes and mappings in xml block" do
-      expect(GroupSpec::ComplexType.attributes).to include(GroupSpec::GroupOfItems.attributes)
-      expect(GroupSpec::ComplexType.mappings_for(:xml).elements).to include(*GroupSpec::GroupOfItems.mappings_for(:xml).elements)
+    describe GroupSpec::GenericType do
+      it_behaves_like "imports mappings from", GroupSpec::GroupOfItems, described_class
     end
 
-    it "import attributes and mappings outside the xml block" do
-      expect(GroupSpec::SimpleType.attributes).to include(GroupSpec::GroupOfItems.attributes)
-      expect(GroupSpec::SimpleType.mappings_for(:xml).elements).to include(*GroupSpec::GroupOfItems.mappings_for(:xml).elements)
+    describe GroupSpec::SimpleType do
+      it_behaves_like "imports attributes from", GroupSpec::GroupOfItems, described_class
+      it_behaves_like "imports mappings from", GroupSpec::GroupOfItems, described_class
+    end
+
+    describe GroupSpec::Mrow do
+      it_behaves_like "imports attributes from", GroupSpec::CommonAttributes, described_class
+      it_behaves_like "imports attributes from", GroupSpec::Ceramic, described_class
+      it_behaves_like "imports mappings from", GroupSpec::CommonAttributes, described_class
+      it_behaves_like "imports mappings from", GroupSpec::Ceramic, described_class
+    end
+
+    describe GroupSpec::Contributor do
+      it_behaves_like "imports attributes from", GroupSpec::ContributionInfo, described_class
     end
 
     it "raises error if root is defined on imported class" do

@@ -94,22 +94,15 @@ module Lutaml
           end
         end
 
-        # Define an attribute for the model
-        def attribute(name, type, options = {})
-          if type.is_a?(Hash)
-            options[:method_name] = type[:method]
-            type = nil
-          end
-
-          attr = Attribute.new(name, type, options)
-          attributes[name] = attr
+        def define_attribute_methods(attr)
+          name = attr.name
 
           if attr.enum?
             add_enum_methods_to_model(
               model,
               name,
-              options[:values],
-              collection: options[:collection],
+              attr.options[:values],
+              collection: attr.options[:collection],
             )
           elsif attr.derived? && name != attr.method_name
             define_method(name) do
@@ -119,35 +112,79 @@ module Lutaml
             define_method(name) do
               instance_variable_get(:"@#{name}")
             end
-
             define_method(:"#{name}=") do |value|
               value_set_for(name)
               instance_variable_set(:"@#{name}", attr.cast_value(value))
             end
           end
+        end
+
+        # Define an attribute for the model
+        def attribute(name, type, options = {})
+          if type.is_a?(Hash)
+            options[:method_name] = type[:method]
+            type = nil
+          end
+
+          attr = Attribute.new(name, type, options)
+          attributes[name] = attr
+          define_attribute_methods(attr)
 
           attr
         end
 
         def root?
-          mappings_for(:xml).root?
+          mappings_for(:xml)&.root?
+        end
+
+        def import_model_with_root_error(model)
+          raise Lutaml::Model::ImportModelWithRootError.new(model) if model.root?
         end
 
         def import_model_attributes(model)
-          raise Lutaml::Model::ImportModelWithRootError.new(model) if model.root?
+          model.attributes.each_value do |attr|
+            define_attribute_methods(attr)
+          end
 
+          @choice_attributes.concat(model.choice_attributes)
           @attributes.merge!(model.attributes)
         end
 
         def import_model_mappings(model)
-          raise Lutaml::Model::ImportModelWithRootError.new(model) if model.root?
+          import_model_with_root_error(model)
 
-          @mappings.merge!(model.mappings)
+          Lutaml::Model::Config::AVAILABLE_FORMATS.each do |format|
+            mapping = model.mappings_for(format)
+
+            if format == :xml
+              handle_xml_mapping(mapping, model)
+            else
+              handle_key_value_mappings(mapping, format)
+            end
+          end
+        end
+
+        def handle_xml_mapping(mapping, model)
+          return unless model.mappings.key?(:xml)
+
+          @mappings[:xml] ||= XmlMapping.new
+          merge_or_initialize_mapping(@mappings[:xml], mapping)
+        end
+
+        def merge_or_initialize_mapping(target_mapping, mapping)
+          # TODO: Refactor this code to use the xml_mapping helper method for merging instance variables
+          merge_instance_variable(target_mapping, mapping, :@attributes)
+          merge_instance_variable(target_mapping, mapping, :@elements)
+          target_mapping.element_sequence.concat(mapping.element_sequence)
+        end
+
+        def handle_key_value_mappings(mapping, format)
+          @mappings[format] ||= KeyValueMapping.new
+          @mappings[format].mappings.concat(mapping.mappings)
         end
 
         def import_model(model)
-          raise Lutaml::Model::ImportModelWithRootError.new(model) if model.root?
-
+          import_model_with_root_error(model)
           import_model_attributes(model)
           import_model_mappings(model)
         end
@@ -720,6 +757,10 @@ module Lutaml
           else
             node.children.map(&:to_xml).join
           end
+        end
+
+        def merge_instance_variable(target, source, var_name)
+          target.instance_variable_get(var_name).merge!(source.instance_variable_get(var_name))
         end
       end
 
