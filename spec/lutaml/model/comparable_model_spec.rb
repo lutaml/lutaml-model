@@ -19,6 +19,11 @@ class ComparableCeramicCollection < Lutaml::Model::Serializable
   attribute :featured_piece, ComparableCeramic # This creates a two-level nesting
 end
 
+class RecursiveNode < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :next_node, RecursiveNode
+end
+
 RSpec.describe Lutaml::Model::ComparableModel do
   describe "comparisons" do
     context "with simple types (Glaze)" do
@@ -100,6 +105,38 @@ RSpec.describe Lutaml::Model::ComparableModel do
                                                       featured_piece: ceramic2)
         expect(collection1).not_to eq(collection2)
         expect(collection1.hash).not_to eq(collection2.hash)
+      end
+    end
+
+    context "with recursive relationships" do
+      it "handles circular references" do
+        node1 = RecursiveNode.new(name: "A")
+        node2 = RecursiveNode.new(name: "B")
+        node1.next_node = node2
+        node2.next_node = node1
+
+        node3 = RecursiveNode.new(name: "A")
+        node4 = RecursiveNode.new(name: "B")
+        node3.next_node = node4
+        node4.next_node = node3
+
+        expect(node1).to eq(node3)
+        expect(node1.hash).to eq(node3.hash)
+      end
+
+      it "detects differences in recursive structures" do
+        node1 = RecursiveNode.new(name: "A")
+        node2 = RecursiveNode.new(name: "B")
+        node1.next_node = node2
+        node2.next_node = node1
+
+        node3 = RecursiveNode.new(name: "A")
+        node4 = RecursiveNode.new(name: "Different")
+        node3.next_node = node4
+        node4.next_node = node3
+
+        expect(node1).not_to eq(node3)
+        expect(node1.hash).not_to eq(node3.hash)
       end
     end
   end
