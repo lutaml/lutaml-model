@@ -13,10 +13,17 @@ module Lutaml
       # @param other [Object] The object to compare with
       # @return [Boolean] True if objects are equal, false otherwise
       def eql?(other)
-        other.class == self.class &&
-          self.class.attributes.all? do |attr, _|
-            send(attr) == other.send(attr)
-          end
+        return true if equal?(other)
+        return false unless other.class == self.class
+
+        @compared_objects ||= {}
+        comparison_key = "#{object_id}:#{other.object_id}"
+        return true if @compared_objects[comparison_key]
+
+        @compared_objects[comparison_key] = true
+        self.class.attributes.all? do |attr, _|
+          send(attr) == other.send(attr)
+        end
       end
 
       alias == eql?
@@ -24,9 +31,14 @@ module Lutaml
       # Generates a hash value for the object
       # @return [Integer] The hash value
       def hash
+        @compared_objects ||= {}
+        comparison_key = object_id.to_s
+        return 0 if @compared_objects[comparison_key]
+
+        @compared_objects[comparison_key] = true
         ([self.class] + self.class.attributes.map do |attr, _|
-                          send(attr).hash
-                        end).hash
+          send(attr).hash
+        end).hash
       end
 
       # Class methods added to the class that includes ComparableModel
