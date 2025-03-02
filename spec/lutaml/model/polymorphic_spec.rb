@@ -53,6 +53,31 @@ module PolymorphicSpec
         AnchorReference,
       ]
     end
+
+    class SimpleReferenceSet < Lutaml::Model::Serializable
+      attribute :references, Reference, collection: true, polymorphic: true
+
+      xml do
+        root "ReferenceSet"
+        map_element "references", to: :references, polymorphic: {
+          attribute: "_class",
+          class_map: {
+            "document-ref" => "PolymorphicSpec::Base::DocumentReference",
+            "anchor-ref" => "PolymorphicSpec::Base::AnchorReference",
+          },
+        }
+      end
+
+      key_value do
+        map "references", to: :references, polymorphic: {
+          attribute: "_class",
+          class_map: {
+            "Document" => "PolymorphicSpec::Base::DocumentReference",
+            "Anchor" => "PolymorphicSpec::Base::AnchorReference",
+          },
+        }
+      end
+    end
   end
 
   module Child
@@ -222,6 +247,102 @@ RSpec.describe "Polymorphic" do
 
       it "serializes correctly" do
         expect(parsed_xml.to_xml.strip).to be_equivalent_to(xml.strip)
+      end
+    end
+  end
+
+  context "when using polymorphic: true option" do
+    context "when key_value formats" do
+      let(:reference_set) do
+        PolymorphicSpec::Base::SimpleReferenceSet.new(
+          references: [
+            PolymorphicSpec::Base::DocumentReference.new(
+              _class: "Document",
+              document_id: "book:tbtd",
+              name: "The Tibetan Book of the Dead",
+            ),
+            PolymorphicSpec::Base::AnchorReference.new(
+              _class: "Anchor",
+              anchor_id: "book:tbtd:anchor-1",
+              name: "Chapter 1",
+            ),
+          ],
+        )
+      end
+
+      let(:yaml) do
+        <<~YAML
+          ---
+          references:
+          - _class: Document
+            name: The Tibetan Book of the Dead
+            document_id: book:tbtd
+          - _class: Anchor
+            name: Chapter 1
+            anchor_id: book:tbtd:anchor-1
+        YAML
+      end
+
+      let(:parsed_yaml) do
+        PolymorphicSpec::Base::SimpleReferenceSet.from_yaml(yaml)
+      end
+
+      it "deserializes correctly" do
+        expect(parsed_yaml).to eq(reference_set)
+      end
+
+      it "serializes correctly" do
+        expect(parsed_yaml.to_yaml).to eq(yaml)
+      end
+    end
+
+    context "when XML format" do
+      let(:reference_set) do
+        PolymorphicSpec::Base::SimpleReferenceSet.new(
+          references: [
+            PolymorphicSpec::Base::DocumentReference.new(
+              _class: "document-ref",
+              document_id: "book:tbtd",
+              name: "The Tibetan Book of the Dead",
+            ),
+            PolymorphicSpec::Base::AnchorReference.new(
+              _class: "anchor-ref",
+              anchor_id: "book:tbtd:anchor-1",
+              name: "Chapter 1",
+            ),
+          ],
+        )
+      end
+      let(:xml) do
+        <<~XML
+          <ReferenceSet>
+            <references reference-type="document-ref">
+              <name>The Tibetan Book of the Dead</name>
+              <document_id>book:tbtd</document_id>
+            </references>
+            <references reference-type="anchor-ref">
+              <name>Chapter 1</name>
+              <anchor_id>book:tbtd:anchor-1</anchor_id>
+            </references>
+          </ReferenceSet>
+        XML
+      end
+
+      let(:parsed_xml) do
+        PolymorphicSpec::Base::SimpleReferenceSet.from_xml(xml)
+      end
+
+      it "deserializes correctly" do
+        expect(parsed_xml).to eq(reference_set)
+      end
+
+      it "serializes correctly" do
+        expect(parsed_xml.to_xml.strip).to be_equivalent_to(xml.strip)
+      end
+
+      it "does not raise error if polymorphic is set to true" do
+        expect { reference_set.validate! }.not_to raise_error(Lutaml::Model::ValidationError)
+        expect(reference_set.validate).to be_empty
       end
     end
   end

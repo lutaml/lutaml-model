@@ -186,7 +186,7 @@ module Lutaml
 
       def validate_polymorphic(value)
         return value.all? { |v| validate_polymorphic!(v) } if value.is_a?(Array)
-        return true unless polymorphic_enabled?
+        return true unless polymorphic_sub_classes_specified?
 
         valid_polymorphic_type?(value)
       end
@@ -309,10 +309,14 @@ module Lutaml
       end
 
       def polymorphic_map_defined?(options, value)
-        !value.nil? &&
+        !value.nil? && polymorphic_sub_classes_specified? &&
           options[:polymorphic] &&
           !options[:polymorphic].empty? &&
           value[options[:polymorphic][:attribute]]
+      end
+
+      def polymorphic_sub_classes_specified?
+        @options[:polymorphic].is_a?(Array) && !@options[:polymorphic].empty?
       end
 
       def castable?(value, format)
@@ -399,10 +403,6 @@ module Lutaml
 
         raise ArgumentError,
               "Invalid type: #{type}, must be a Symbol, String or a Class"
-      end
-
-      def polymorphic_enabled?
-        options[:polymorphic]&.any?
       end
 
       def valid_polymorphic_type?(value)
