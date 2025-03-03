@@ -138,6 +138,29 @@ RSpec.describe Lutaml::Model::ComparableModel do
         expect(node1).not_to eq(node3)
         expect(node1.hash).not_to eq(node3.hash)
       end
+
+      it "keeps the same hash value repeatedly" do
+        node = RecursiveNode.new(name: "A")
+        hash1 = node.hash
+        hash2 = node.hash
+        expect(hash1).to eq(hash2)
+      end
+
+      it "changes result upon value change" do
+        node1 = RecursiveNode.new(name: "A")
+        node2 = RecursiveNode.new(name: "B")
+        node1.next_node = node2
+        node2.next_node = node1
+
+        node3 = RecursiveNode.new(name: "A")
+        node4 = RecursiveNode.new(name: "B")
+        node3.next_node = node4
+        node4.next_node = node3
+        expect(node1).to eq(node3)
+
+        node4.name = "Different"
+        expect(node1).not_to eq(node3)
+      end
     end
   end
 end
