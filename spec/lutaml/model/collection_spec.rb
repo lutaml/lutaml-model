@@ -54,6 +54,18 @@ module CollectionTests
       doc.add_element(parent, "<city>#{model.city}</city>")
     end
   end
+
+  class ReturnNilTest < Lutaml::Model::Serializable
+    attribute :default_items, :string, collection: true
+    attribute :items, :string, collection: true
+    attribute :regular_items, :string, collection: true, empty_if_nil: true
+
+    yaml do
+      map "default_items", to: :default_items
+      map "items", to: :items, render_nil: true
+      map "regular_items", to: :regular_items
+    end
+  end
 end
 
 RSpec.describe CollectionTests do
@@ -95,8 +107,8 @@ RSpec.describe CollectionTests do
   it "initializes with default values" do
     default_model = CollectionTests::Kiln.new
     expect(default_model.brand).to be_nil
-    expect(default_model.pots).to eq([])
-    expect(default_model.temperatures).to eq([])
+    expect(default_model.pots).to be_nil
+    expect(default_model.temperatures).to be_nil
     expect(default_model.operators).to eq(["Default Operator"])
     expect(default_model.sensors).to eq(["Default Sensor"])
   end
@@ -278,6 +290,47 @@ RSpec.describe CollectionTests do
           attribute :valid_range, Lutaml::Model::Type::String, collection: 0..3
         end
       end.not_to raise_error
+    end
+  end
+
+  context "when using return_nil option with collections" do
+    let(:empty_yaml) do
+      <<~YAML
+        ---
+        regular_items:#{' '}
+      YAML
+    end
+
+    it "sets empty array when reading from YAML" do
+      model = CollectionTests::ReturnNilTest.from_yaml(empty_yaml)
+      expect(model.default_items).to eq([])
+      expect(model.items).to eq([])
+      expect(model.regular_items).to eq([])
+    end
+
+    it "initializes with nil when return_nil is true" do
+      model = CollectionTests::ReturnNilTest.new
+      expect(model.items).to be_nil
+      expect(model.regular_items).to be_nil
+    end
+
+    it "preserves return_nil behavior when serializing and deserializing" do
+      expected_yaml = <<~YAML
+        ---
+        items:
+        regular_items: []
+      YAML
+      model = CollectionTests::ReturnNilTest.new
+      serialized = model.to_yaml
+      expect(serialized).to eq(expected_yaml)
+    end
+
+    it "raises StandardError when empty_if_nil is true and collection is nil" do
+      expect do
+        Class.new(Lutaml::Model::Serializable) do
+          attribute :invalid_range, :string, empty_if_nil: true
+        end
+      end.to raise_error(StandardError, /Invalid option `empty_if_nil` given without `collection: true` option/)
     end
   end
 end

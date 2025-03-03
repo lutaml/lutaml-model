@@ -213,7 +213,8 @@ module Lutaml
 
         def add_enum_setter_if_not_defined(klass, enum_name, _values, collection)
           Utils.add_method_if_not_defined(klass, "#{enum_name}=") do |value|
-            value = [value] unless value.is_a?(Array)
+            value = [] if value.nil?
+            value = [value] if !value.is_a?(Array)
 
             value_set_for(enum_name)
 
@@ -310,8 +311,10 @@ module Lutaml
 
           mappings.each_with_object({}) do |rule, hash|
             name = rule.to
+            attribute = attributes[name]
+
             next if except&.include?(name) || (only && !only.include?(name))
-            next if !rule.custom_methods[:to] && (!rule.render_default? && instance.using_default?(rule.to))
+            next if !rule.custom_methods[:to] && (!rule.render_default? && instance.using_default?(rule.to)) && !rule.render_nil? && !attribute.empty_if_nil?
 
             next handle_delegate(instance, rule, hash, format) if rule.delegate
 
@@ -326,8 +329,6 @@ module Lutaml
               return adapter.parse(value, options)
             end
 
-            attribute = attributes[name]
-
             if export_method = rule.transform[:export] || attribute.transform_export_method
               value = export_method.call(value)
             end
@@ -340,7 +341,7 @@ module Lutaml
                       attribute.serialize(value, format, options)
                     end
 
-            next unless rule.render?(value)
+            next if !rule.render?(value) && !attribute&.empty_if_nil?
 
             rule_from_name = rule.multiple_mappings? ? rule.from.first.to_s : rule.from.to_s
             hash[rule_from_name] = value
@@ -749,11 +750,6 @@ module Lutaml
                     using_default_for(name)
                     attr.default
                   end
-
-          # Initialize collections with an empty array if no value is provided
-          if attr.collection? && value.nil?
-            value = []
-          end
 
           default = using_default?(name)
           public_send(:"#{name}=", self.class.ensure_utf8(value))

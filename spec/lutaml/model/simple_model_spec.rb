@@ -182,7 +182,7 @@ RSpec.describe SimpleModel do
     default_model = SimpleModel::Building.new
     expect(default_model.name).to eq("Unnamed building")
     expect(default_model.address).to be_nil
-    expect(default_model.rooms).to eq([])
+    expect(default_model.rooms).to be_nil
   end
 
   it "serializes to XML" do
