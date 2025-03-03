@@ -16,6 +16,7 @@ module Lutaml
         method_name
         polymorphic
         polymorphic_class
+        empty_if_nil
       ].freeze
 
       def initialize(name, type, options = {})
@@ -45,6 +46,10 @@ module Lutaml
 
       def method_name
         @options[:method_name]
+      end
+
+      def empty_if_nil?
+        @options[:empty_if_nil]
       end
 
       def cast_type!(type)
@@ -220,9 +225,6 @@ module Lutaml
 
         return true unless collection?
 
-        # Allow nil values for collections during initialization
-        return true if value.nil?
-
         # Allow any value for unbounded collections
         return true if options[:collection] == true
 
@@ -255,6 +257,7 @@ module Lutaml
       end
 
       def serialize(value, format, options = {})
+        value ||= [] if collection? && empty_if_nil?
         return if value.nil?
         return value if derived?
         return serialize_array(value, format, options) if value.is_a?(Array)
@@ -348,12 +351,7 @@ module Lutaml
       def process_options!
         validate_options!(@options)
         @raw = !!@options[:raw]
-        set_default_for_collection if collection?
-      end
-
-      def set_default_for_collection
-        validate_collection_range
-        @options[:default] ||= -> { [] }
+        validate_collection_range if collection?
       end
 
       def validate_options!(options)
@@ -368,6 +366,10 @@ module Lutaml
                 "`pattern` is only allowed for :string type"
         end
 
+        if empty_if_nil? && !collection?
+          raise StandardError,
+                "Invalid option `empty_if_nil` given without `collection: true` option"
+        end
         true
       end
 

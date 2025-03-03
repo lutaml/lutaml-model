@@ -143,7 +143,7 @@ RSpec.describe DefaultsSpec::Glaze do
       expect(default_model.temperature).to eq(1050)
       expect(default_model.firing_time).to eq(60)
       expect(default_model.balance).to eq(BigDecimal("0.0"))
-      expect(default_model.tags).to eq([])
+      expect(default_model.tags).to be_nil
       expect(default_model.properties).to eq({ food_safe: true })
       expect(default_model.status).to eq("active")
       expect(default_model.batch_number).to eq(0)
