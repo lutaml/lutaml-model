@@ -1,39 +1,39 @@
 # frozen_string_literal: true
 
 require "spec_helper"
-require "lutaml/model/registry"
+require "lutaml/model/register"
 
 class Address < Lutaml::Model::Serializable
   attribute :location, :string
 end
 
-RSpec.describe Lutaml::Model::Registry do
+RSpec.describe Lutaml::Model::Register do
   let(:register_address_class) do
-    Lutaml::Model::Registry.register(:address, Address)
+    described_class.register_model(:address, Address)
   end
 
-  describe ".register" do
-    before { described_class.register(:custom_string, String) }
+  describe ".register_model" do
+    before { described_class.register_model(:custom_string, String) }
 
     it "registers a new type" do
-      expect(described_class.registry).to include(custom_string: String)
+      expect(described_class.register).to include(custom_string: String)
     end
 
     it "overrides an existing type" do
-      described_class.register(:custom_string, Integer)
-      expect(described_class.registry).to include(custom_string: Integer)
+      described_class.register_model(:custom_string, Integer)
+      expect(described_class.register).to include(custom_string: Integer)
     end
 
     it "registers serializable class" do
       register_address_class
-      expect(described_class.registry).to include(address: Address)
+      expect(described_class.register).to include(address: Address)
     end
   end
 
   describe ".lookup!" do
     context "when the type is registered" do
       before do
-        described_class.register(:registered_type, Array)
+        described_class.register_model(:registered_type, Array)
       end
 
       it "returns the registered type" do
@@ -50,11 +50,16 @@ RSpec.describe Lutaml::Model::Registry do
     end
 
     context "when the serializable class is overriden registered" do
-      before { register_address_class }
+      before do
+        register_address_class
+        stub_const(
+          "OtherAddress",
+          Class.new(Lutaml::Model::Serializable),
+        )
+      end
 
       it "returns the new registered class" do
-        OtherAddress = Class.new(Lutaml::Model::Serializable)
-        described_class.register(:address, OtherAddress)
+        described_class.register_model(:address, OtherAddress)
         expect(described_class.lookup!(:address)).to eq(OtherAddress)
       end
     end
