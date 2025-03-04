@@ -32,7 +32,7 @@ module Lutaml
       end
 
       def type
-        Registry.lookup!(@type) if @type
+        Register.lookup!(@type) if @type
       end
 
       def derived?
@@ -54,7 +54,7 @@ module Lutaml
       def cast_type!(type)
         case type
         when Symbol, String, Class
-          Registry.lookup!(type)
+          Register.lookup!(type)
         else
           raise ArgumentError, "Unknown Lutaml::Model::Type: #{type}"
         end
