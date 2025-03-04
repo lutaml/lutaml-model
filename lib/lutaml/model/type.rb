@@ -17,7 +17,7 @@ module Lutaml
       class << self
         def register_builtin_types
           TYPE_CODES.each do |type_name, type_class|
-            Lutaml::Model::Registry.register(type_name, const_get(type_class))
+            Lutaml::Model::Register.register_model(type_name, const_get(type_class))
           end
         end
 
