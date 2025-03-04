@@ -3,7 +3,7 @@
 require "moxml"
 require_relative "model/version"
 require_relative "model/loggable"
-require_relative "model/registry"
+require_relative "model/register"
 require_relative "model/type"
 require_relative "model/utils"
 require_relative "model/serializable"
