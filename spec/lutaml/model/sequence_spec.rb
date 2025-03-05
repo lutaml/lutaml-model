@@ -228,5 +228,41 @@ RSpec.describe "Sequence" do
         end
       end.to raise_error(Lutaml::Model::UnknownSequenceMappingError, "map_attribute is not allowed in sequence")
     end
+
+    context "with deep_dup" do
+      let(:model) { class_double(Lutaml::Model::XmlMapping) }
+      let(:instance_vars) { %i[@model @attributes] }
+
+      let(:orig_sequence) do
+        Lutaml::Model::Sequence.new(model).tap do |seq|
+          seq.attributes << Lutaml::Model::XmlMappingRule.new(
+            "test_attr",
+            to: :test,
+            namespace: "http://example.com",
+            prefix: "test",
+          )
+        end
+      end
+
+      let(:dup_sequence) { orig_sequence.deep_dup }
+
+      it "duplicates @model correctly" do
+        expect(orig_sequence.instance_variable_get(:@model))
+          .to eq(dup_sequence.instance_variable_get(:@model))
+      end
+
+      it "duplicates @attributes correctly" do
+        expect(orig_sequence.instance_variable_get(:@attributes))
+          .to eq(dup_sequence.instance_variable_get(:@attributes))
+      end
+
+      it "creates independent copy of attributes" do
+        orig_attr = orig_sequence.attributes.first
+        dup_attr = dup_sequence.attributes.first
+
+        expect(orig_attr).to eq(dup_attr)
+        expect(orig_attr.object_id).not_to eq(dup_attr.object_id)
+      end
+    end
   end
 end

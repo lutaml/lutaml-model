@@ -274,6 +274,10 @@ module Lutaml
         end
       end
 
+      def merge_instance_variable(source, var_name)
+        instance_variable_get(:"@#{var_name}").merge!(source.instance_variable_get(:"@#{var_name}"))
+      end
+
       def deep_dup
         self.class.new.tap do |xml_mapping|
           xml_mapping.root(@root_element.dup, mixed: @mixed_content,

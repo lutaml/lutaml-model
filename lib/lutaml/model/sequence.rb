@@ -66,6 +66,14 @@ module Lutaml
           end
         end
       end
+
+      def deep_dup
+        self.class.new(model).tap do |s|
+          @attributes.each do |attr|
+            s.attributes << attr.deep_dup
+          end
+        end
+      end
     end
   end
 end

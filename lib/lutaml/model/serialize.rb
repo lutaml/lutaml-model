@@ -146,36 +146,29 @@ module Lutaml
             define_attribute_methods(attr)
           end
 
-          @choice_attributes.concat(model.choice_attributes)
-          @attributes.merge!(model.attributes)
+          @choice_attributes.concat(Utils.deep_dup(model.choice_attributes))
+          @attributes.merge!(Utils.deep_dup(model.attributes))
         end
 
         def import_model_mappings(model)
           import_model_with_root_error(model)
 
           Lutaml::Model::Config::AVAILABLE_FORMATS.each do |format|
+            next unless model.mappings.key?(format)
+
             mapping = model.mappings_for(format)
+            mapping = Utils.deep_dup(mapping)
+
+            @mappings[format] ||= format == :xml ? XmlMapping.new : KeyValueMapping.new
 
             if format == :xml
-              handle_xml_mapping(mapping, model)
+              @mappings[format].merge_instance_variable(mapping, :attributes)
+              @mappings[format].merge_instance_variable(mapping, :elements)
+              @mappings[format].element_sequence.concat(mapping.element_sequence)
             else
-              handle_key_value_mappings(mapping, format)
+              @mappings[format].mappings.concat(mapping.mappings)
             end
           end
-        end
-
-        def handle_xml_mapping(mapping, model)
-          return unless model.mappings.key?(:xml)
-
-          @mappings[:xml] ||= XmlMapping.new
-          merge_or_initialize_mapping(@mappings[:xml], mapping)
-        end
-
-        def merge_or_initialize_mapping(target_mapping, mapping)
-          # TODO: Refactor this code to use the xml_mapping helper method for merging instance variables
-          merge_instance_variable(target_mapping, mapping, :@attributes)
-          merge_instance_variable(target_mapping, mapping, :@elements)
-          target_mapping.element_sequence.concat(mapping.element_sequence)
         end
 
         def handle_key_value_mappings(mapping, format)
@@ -757,10 +750,6 @@ module Lutaml
           else
             node.children.map(&:to_xml).join
           end
-        end
-
-        def merge_instance_variable(target, source, var_name)
-          target.instance_variable_get(var_name).merge!(source.instance_variable_get(var_name))
         end
       end
 
