@@ -19,14 +19,14 @@ module Lutaml
                   :ordered,
                   :element_sequence
 
-      def initialize(format = :xml)
+      def initialize
         @elements = {}
         @attributes = {}
         @element_sequence = []
         @content_mapping = nil
         @raw_mapping = nil
         @mixed_content = false
-        @format = format
+        @format = :xml
       end
 
       alias mixed_content? mixed_content

@@ -158,7 +158,7 @@ module Lutaml
             value = transform_method.call(value)
           end
 
-          if value.is_a?(Array) && !((rule.render_empty_as_nil? || rule.render_empty_as_blank?) && Utils.empty_collection?(value))
+          if value.is_a?(Array) && !Utils.empty_collection?(value)
             value.each do |item|
               add_to_xml(xml, element, prefix, item, options)
             end
@@ -287,10 +287,6 @@ module Lutaml
 
         def render_element?(rule, element, value)
           rule.render?(value, element)
-        end
-
-        def render_value?(rule, value)
-          rule.attribute? || rule.render_nil? || !value.nil? || (value.nil? && rule.render_nil_as_nil?)
         end
 
         def render_default?(rule, element)

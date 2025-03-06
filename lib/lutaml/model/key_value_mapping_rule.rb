@@ -51,6 +51,7 @@ module Lutaml
           with: Utils.deep_dup(custom_methods),
           delegate: delegate,
           child_mappings: Utils.deep_dup(child_mappings),
+          render_empty: render_empty.dup,
         )
       end
 
