@@ -3,10 +3,11 @@ require_relative "key_value_mapping_rule"
 module Lutaml
   module Model
     class KeyValueMapping
-      attr_reader :mappings
+      attr_reader :mappings, :format
 
-      def initialize
+      def initialize(format = nil)
         @mappings = []
+        @format = format
       end
 
       def map(
@@ -20,10 +21,11 @@ module Lutaml
         root_mappings: nil,
         polymorphic: {},
         polymorphic_map: {},
-        transform: {}
+        transform: {},
+        render_empty: false
       )
         mapping_name = name_for_mapping(root_mappings, name)
-        validate!(mapping_name, to, with)
+        validate!(mapping_name, to, with, render_nil, render_empty)
 
         @mappings << KeyValueMappingRule.new(
           mapping_name,
@@ -37,6 +39,7 @@ module Lutaml
           polymorphic: polymorphic,
           polymorphic_map: polymorphic_map,
           transform: transform,
+          render_empty: render_empty,
         )
       end
 
@@ -50,7 +53,7 @@ module Lutaml
         delegate: nil
       )
         @raw_mapping = true
-        validate!(Constants::RAW_MAPPING_KEY, to, with)
+        validate!(Constants::RAW_MAPPING_KEY, to, with, render_nil, nil)
         @mappings << KeyValueMappingRule.new(
           Constants::RAW_MAPPING_KEY,
           to: to,
@@ -69,17 +72,40 @@ module Lutaml
         name
       end
 
-      def validate!(key, to, with)
+      def validate!(key, to, with, render_nil, render_empty)
         validate_mappings!(key)
 
         if to.nil? && with.empty? && !@raw_mapping
-          msg = ":to or :with argument is required for mapping '#{key}'"
-          raise IncorrectMappingArgumentsError.new(msg)
+          raise IncorrectMappingArgumentsError.new(
+            ":to or :with argument is required for mapping '#{key}'",
+          )
         end
 
         if !with.empty? && (with[:from].nil? || with[:to].nil?) && !@raw_mapping
-          msg = ":with argument for mapping '#{key}' requires :to and :from keys"
-          raise IncorrectMappingArgumentsError.new(msg)
+          raise IncorrectMappingArgumentsError.new(
+            ":with argument for mapping '#{key}' requires :to and :from keys",
+          )
+        end
+
+        { render_nil: render_nil, render_empty: render_empty }.each do |option, value|
+          if format_toml? && value == :as_nil
+            raise IncorrectMappingArgumentsError.new(
+              ":toml format does not support #{option}: #{value} mode",
+            )
+          end
+        end
+
+        if render_nil && render_empty && render_nil == render_empty
+          raise IncorrectMappingArgumentsError.new(
+            "render_empty and _render_nil cannot be set to the same value",
+          )
+        end
+
+        # Validate `render_nil` for unsupported value
+        if render_nil == :as_blank || render_empty == :as_blank
+          raise IncorrectMappingArgumentsError.new(
+            ":as_blank is not supported for key-value mappings",
+          )
         end
 
         validate_mappings(key)
@@ -113,6 +139,12 @@ module Lutaml
 
       def polymorphic_mapping
         @mappings.find(&:polymorphic_mapping?)
+      end
+
+      Lutaml::Model::Config::KEY_VALUE_FORMATS.each do |format|
+        define_method(:"format_#{format}?") do
+          @format == format
+        end
       end
     end
   end

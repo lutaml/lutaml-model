@@ -213,7 +213,8 @@ module Lutaml
 
         def add_enum_setter_if_not_defined(klass, enum_name, _values, collection)
           Utils.add_method_if_not_defined(klass, "#{enum_name}=") do |value|
-            value = [value] unless value.is_a?(Array)
+            value = [] if value.nil?
+            value = [value] if !value.is_a?(Array)
 
             value_set_for(enum_name)
 
@@ -234,7 +235,7 @@ module Lutaml
         Lutaml::Model::Config::AVAILABLE_FORMATS.each do |format|
           define_method(format) do |&block|
             klass = format == :xml ? XmlMapping : KeyValueMapping
-            mappings[format] ||= klass.new
+            mappings[format] ||= klass.new(format)
             mappings[format].instance_eval(&block)
 
             if format == :xml && !mappings[format].root_element && !mappings[format].no_root?
@@ -298,7 +299,7 @@ module Lutaml
 
         def key_value(&block)
           Lutaml::Model::Config::KEY_VALUE_FORMATS.each do |format|
-            mappings[format] ||= KeyValueMapping.new
+            mappings[format] ||= KeyValueMapping.new(format)
             mappings[format].instance_eval(&block)
           end
         end
@@ -310,10 +311,11 @@ module Lutaml
 
           mappings.each_with_object({}) do |rule, hash|
             name = rule.to
-            next if except&.include?(name) || (only && !only.include?(name))
-            next if !rule.custom_methods[:to] && (!rule.render_default? && instance.using_default?(rule.to))
+            attribute = attributes[name]
 
+            next if except&.include?(name) || (only && !only.include?(name))
             next handle_delegate(instance, rule, hash, format) if rule.delegate
+            next if !rule.custom_methods[:to] && !rule.render?(instance.send(name), instance) && (!attribute&.initialize_empty? && Utils.empty_collection?(instance.send(name)))
 
             if rule.custom_methods[:to]
               next instance.send(rule.custom_methods[:to], instance, hash)
@@ -325,8 +327,6 @@ module Lutaml
               adapter = Lutaml::Model::Config.send(:"#{format}_adapter")
               return adapter.parse(value, options)
             end
-
-            attribute = attributes[name]
 
             if export_method = rule.transform[:export] || attribute.transform_export_method
               value = export_method.call(value)
@@ -340,7 +340,10 @@ module Lutaml
                       attribute.serialize(value, format, options)
                     end
 
-            next unless rule.render?(value)
+            next if !rule.render?(value, instance) && !attribute&.initialize_empty?
+
+            value = [] if (rule.render_nil_as_empty? && value.nil?) || (rule.render_empty_as_empty? && Utils.empty_collection?(value))
+            value = nil if (rule.render_nil_as_nil? && value.nil?) || (rule.render_empty_as_nil? && Utils.empty_collection?(value))
 
             rule_from_name = rule.multiple_mappings? ? rule.from.first.to_s : rule.from.to_s
             hash[rule_from_name] = value
@@ -441,7 +444,7 @@ module Lutaml
                              attr_value
                            end
 
-              next unless mapping_rule&.render?(attr_value)
+              next unless mapping_rule&.render?(attr_value, nil)
 
               if path == :key
                 map_key = attr_value
@@ -553,10 +556,14 @@ module Lutaml
                       rule.cdata ? doc.cdata : doc.text
                     elsif val = value_for_rule(doc, rule, options, instance)
                       val
+                    elsif rule.render_nil_as_nil?
+                      value_for_rule(doc, rule, options, instance)
                     elsif instance.using_default?(rule.to) || rule.render_default
                       defaults_used << rule.to
                       attr&.default || rule.to_value_for(instance)
                     end
+
+            next if rule.render_nil_omit? && (value.nil? || (attr&.collection? && Utils.empty_collection?(value)))
 
             value = normalize_xml_value(value, rule, attr, options)
             rule.deserialize(instance, value, attributes, self)
@@ -603,7 +610,16 @@ module Lutaml
               elsif attr.raw?
                 inner_xml_of(child)
               else
-                child&.children&.first&.text
+
+                return nil if rule.render_nil_as_nil? && child.nil_element?
+                return [] if rule.render_empty_as_nil? && child.nil_element?
+
+                text = child&.children&.first&.text
+                if (rule.render_nil_as_blank? || rule.render_empty_as_blank?) && text.nil? && attr.collection?
+                  return []
+                else
+                  text
+                end
               end
             end
             attr&.collection? ? values : values.first
@@ -635,6 +651,11 @@ module Lutaml
               end
             end.compact.first
 
+            next if rule.render_nil_omit? && value.nil?
+
+            value = [] if rule.render_nil_as_empty? && value.nil?
+            value = [] if (rule.render_empty_as_nil? && value.nil?) || (rule.render_empty_as_empty? && Utils.empty_collection?(value))
+
             if rule.using_custom_methods?
               if Utils.present?(value)
                 value = new.send(rule.custom_methods[:from], instance, value)
@@ -658,7 +679,7 @@ module Lutaml
         end
 
         def normalize_xml_value(value, rule, attr, options = {})
-          value = [value].compact if attr&.collection? && !value.is_a?(Array)
+          value = [value].compact if attr&.collection? && !value.is_a?(Array) && !value.nil?
 
           return value unless cast_value?(attr, rule)
 
@@ -750,11 +771,6 @@ module Lutaml
                     attr.default
                   end
 
-          # Initialize collections with an empty array if no value is provided
-          if attr.collection? && value.nil?
-            value = []
-          end
-
           default = using_default?(name)
           public_send(:"#{name}=", self.class.ensure_utf8(value))
           using_default_for(name) if default
@@ -771,7 +787,7 @@ module Lutaml
                 end
 
         if attr_rule.collection? || value.is_a?(Array)
-          (value || []).map do |v|
+          value&.map do |v|
             if v.is_a?(Hash)
               attr_rule.type.new(v)
             else

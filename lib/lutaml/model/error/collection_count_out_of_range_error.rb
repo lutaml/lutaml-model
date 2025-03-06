@@ -10,7 +10,7 @@ module Lutaml
       end
 
       def to_s
-        "#{@attr_name} count is #{@value.size}, must be #{range_to_string}"
+        "#{@attr_name} count is #{@value&.size || 0}, must be #{range_to_string}"
       end
 
       private

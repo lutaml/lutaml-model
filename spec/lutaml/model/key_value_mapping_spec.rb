@@ -98,4 +98,48 @@ RSpec.describe Lutaml::Model::KeyValueMapping do
       expect(mapping.mappings[0].raw_mapping?).to be true
     end
   end
+
+  describe "validation errors" do
+    it "raises error when render_nil and render_empty have same value" do
+      mapping = described_class.new
+      expect do
+        mapping.map("test", to: :field, render_nil: :omit, render_empty: :omit)
+      end.to raise_error(
+        Lutaml::Model::IncorrectMappingArgumentsError,
+        "render_empty and _render_nil cannot be set to the same value",
+      )
+    end
+
+    it "raises error when render_nil is :as_blank" do
+      mapping = described_class.new
+      expect do
+        mapping.map("test", to: :field, render_nil: :as_blank)
+      end.to raise_error(
+        Lutaml::Model::IncorrectMappingArgumentsError,
+        ":as_blank is not supported for key-value mappings",
+      )
+    end
+
+    context "with TOML format" do
+      let(:mapping) { described_class.new(:toml) }
+
+      it "raises error when render_nil is :as_nil" do
+        expect do
+          mapping.map("test", to: :field, render_nil: :as_nil)
+        end.to raise_error(
+          Lutaml::Model::IncorrectMappingArgumentsError,
+          ":toml format does not support render_nil: as_nil mode",
+        )
+      end
+
+      it "raises error when render_empty is :as_nil" do
+        expect do
+          mapping.map("test", to: :field, render_empty: :as_nil)
+        end.to raise_error(
+          Lutaml::Model::IncorrectMappingArgumentsError,
+          ":toml format does not support render_empty: as_nil mode",
+        )
+      end
+    end
+  end
 end

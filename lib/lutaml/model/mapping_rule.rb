@@ -10,7 +10,32 @@ module Lutaml
                   :delegate,
                   :polymorphic,
                   :polymorphic_map,
-                  :transform
+                  :transform,
+                  :render_empty
+
+      ALLOWED_OPTIONS = {
+        RENDER_NIL: %i[
+          omit
+          as_nil
+          as_blank
+          as_empty
+        ],
+        RENDER_EMPTY: %i[
+          omit
+          as_empty
+          as_blank
+          as_nil
+        ],
+      }.freeze
+
+      ALLOWED_OPTIONS.each do |key, values|
+        attribute_name = key.to_s.downcase
+        values.each do |value|
+          define_method(:"#{attribute_name}_#{value}?") do
+            send(attribute_name) == value
+          end
+        end
+      end
 
       def initialize(
         name,
@@ -23,7 +48,8 @@ module Lutaml
         root_mappings: nil,
         polymorphic: {},
         polymorphic_map: {},
-        transform: {}
+        transform: {},
+        render_empty: false
       )
         @name = name
         @to = to
@@ -36,15 +62,27 @@ module Lutaml
         @polymorphic = polymorphic
         @polymorphic_map = polymorphic_map
         @transform = transform
+        @render_empty = render_empty
       end
 
       alias from name
       alias render_nil? render_nil
+      alias render_empty? render_empty
       alias render_default? render_default
       alias attribute? attribute
 
-      def render?(value)
-        render_nil? || (!value.nil? && !Utils.empty_collection?(value))
+      def render?(value, instance)
+        # default_value_render = instance.respond_to?(:using_default?) && render_default? && instance.using_default?(to)
+        mapping_render = render_nil_as_nil? || render_nil_as_blank? || render_nil_as_empty? || render_empty_as_nil? || render_empty_as_empty? || render_empty_as_blank?
+        if (render_nil_omit? && value.nil?) || (render_empty_omit? && Utils.empty_collection?(value))
+          false
+        elsif mapping_render || (render_nil == true && Utils.blank?(value))
+          true
+        elsif instance.respond_to?(:using_default?) && instance.using_default?(to)
+          render_default?
+        else
+          !value.nil? && !Utils.empty_collection?(value)
+        end
       end
 
       def polymorphic_mapping?
