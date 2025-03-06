@@ -177,6 +177,10 @@ module Lutaml
         def to_h
           document.to_h
         end
+
+        def nil_element?
+          find_attribute_value("xsi:nil") == "true"
+        end
       end
     end
   end

@@ -17,7 +17,8 @@ module Lutaml
         root_mappings: nil,
         polymorphic: {},
         polymorphic_map: {},
-        transform: {}
+        transform: {},
+        render_empty: false
       )
         super(
           name,
@@ -28,7 +29,8 @@ module Lutaml
           delegate: delegate,
           polymorphic: polymorphic,
           polymorphic_map: polymorphic_map,
-          transform: transform
+          transform: transform,
+          render_empty: render_empty,
         )
 
         @child_mappings = child_mappings

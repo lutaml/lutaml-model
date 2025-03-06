@@ -82,7 +82,7 @@ RSpec.describe RenderNil do
     expect(pottery.name).to be_nil
     expect(pottery.clay_type).to be_nil
     expect(pottery.glaze).to be_nil
-    expect(pottery.dimensions).to eq([])
+    expect(pottery.dimensions).to be_nil
   end
 
   it "serializes to XML with render_nil option" do

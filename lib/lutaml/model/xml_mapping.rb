@@ -19,13 +19,14 @@ module Lutaml
                   :ordered,
                   :element_sequence
 
-      def initialize
+      def initialize(format = :xml)
         @elements = {}
         @attributes = {}
         @element_sequence = []
         @content_mapping = nil
         @raw_mapping = nil
         @mixed_content = false
+        @format = format
       end
 
       alias mixed_content? mixed_content
@@ -78,9 +79,10 @@ module Lutaml
                     nil),
         prefix: (prefix_set = false
                  nil),
-        transform: {}
+        transform: {},
+        render_empty: false
       )
-        validate!(name, to, with, type: TYPES[:element])
+        validate!(name, to, with, render_nil, render_empty, type: TYPES[:element])
 
         rule = XmlMappingRule.new(
           name,
@@ -97,6 +99,7 @@ module Lutaml
           namespace_set: namespace_set != false,
           prefix_set: prefix_set != false,
           transform: transform,
+          render_empty: render_empty,
         )
         @elements[rule.namespaced_name] = rule
       end
@@ -112,9 +115,10 @@ module Lutaml
         namespace: (namespace_set = false
                     nil),
         prefix: (prefix_set = false
-                 nil)
+                 nil),
+        render_empty: false
       )
-        validate!(name, to, with, type: TYPES[:attribute])
+        validate!(name, to, with, render_nil, render_empty, type: TYPES[:attribute])
         warn_auto_handling(name) if name == "schemaLocation"
 
         rule = XmlMappingRule.new(
@@ -144,9 +148,10 @@ module Lutaml
         with: {},
         delegate: nil,
         mixed: false,
-        cdata: false
+        cdata: false,
+        render_empty: false
       )
-        validate!("content", to, with, type: TYPES[:content])
+        validate!("content", to, with, render_nil, render_empty, type: TYPES[:content])
 
         @content_mapping = XmlMappingRule.new(
           nil,
@@ -169,9 +174,10 @@ module Lutaml
         namespace: (namespace_set = false
                     nil),
         prefix: (prefix_set = false
-                 nil)
+                 nil),
+        render_empty: false
       )
-        validate!(Constants::RAW_MAPPING_KEY, to, with, type: TYPES[:all_content])
+        validate!(Constants::RAW_MAPPING_KEY, to, with, render_nil, render_empty, type: TYPES[:all_content])
 
         rule = XmlMappingRule.new(
           Constants::RAW_MAPPING_KEY,
@@ -207,7 +213,7 @@ module Lutaml
         (@element_sequence << mappings.element_sequence).flatten!
       end
 
-      def validate!(key, to, with, type: nil)
+      def validate!(key, to, with, render_nil, render_empty, type: nil)
         validate_mappings!(type)
 
         if to.nil? && with.empty?
@@ -218,6 +224,18 @@ module Lutaml
         if !with.empty? && (with[:from].nil? || with[:to].nil?)
           msg = ":with argument for mapping '#{key}' requires :to and :from keys"
           raise IncorrectMappingArgumentsError.new(msg)
+        end
+
+        if render_nil && render_empty && render_nil == render_empty
+          raise IncorrectMappingArgumentsError.new(
+            "render_empty and _render_nil cannot be set to the same value",
+          )
+        end
+
+        if render_nil == :as_empty || render_empty == :as_empty
+          raise IncorrectMappingArgumentsError.new(
+            ":as_empty is not supported for XML mappings",
+          )
         end
       end
 

@@ -1248,6 +1248,59 @@ RSpec.describe Lutaml::Model::XmlMapping do
         end
       end
     end
+
+    describe "validation errors" do
+      let(:mapping) { Lutaml::Model::XmlMapping.new }
+
+      it "raises error when neither :to nor :with provided" do
+        expect do
+          mapping.map_element("test")
+        end.to raise_error(
+          Lutaml::Model::IncorrectMappingArgumentsError,
+          ":to or :with argument is required for mapping 'test'",
+        )
+      end
+
+      it "raises error when :with is missing :to or :from keys" do
+        expect do
+          mapping.map_element("test", with: { to: "value" })
+        end.to raise_error(
+          Lutaml::Model::IncorrectMappingArgumentsError,
+          ":with argument for mapping 'test' requires :to and :from keys",
+        )
+      end
+
+      it "raises error when render_nil and render_empty have same value" do
+        expect do
+          mapping.map_element("test", to: :field, render_nil: :omit, render_empty: :omit)
+        end.to raise_error(
+          Lutaml::Model::IncorrectMappingArgumentsError,
+          "render_empty and _render_nil cannot be set to the same value",
+        )
+      end
+
+      describe "map_attribute validations" do
+        it "raises error for invalid :with argument" do
+          expect do
+            mapping.map_attribute("test", with: { from: "value" })
+          end.to raise_error(
+            Lutaml::Model::IncorrectMappingArgumentsError,
+            ":with argument for mapping 'test' requires :to and :from keys",
+          )
+        end
+      end
+
+      describe "map_content validations" do
+        it "raises error when no :to provided" do
+          expect do
+            mapping.map_content
+          end.to raise_error(
+            Lutaml::Model::IncorrectMappingArgumentsError,
+            ":to or :with argument is required for mapping 'content'",
+          )
+        end
+      end
+    end
   end
 
   describe Lutaml::Model::XmlAdapter::NokogiriAdapter do

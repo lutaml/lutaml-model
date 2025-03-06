@@ -158,7 +158,7 @@ module Lutaml
             value = transform_method.call(value)
           end
 
-          if value.is_a?(Array)
+          if value.is_a?(Array) && !((rule.render_empty_as_nil? || rule.render_empty_as_blank?) && Utils.empty_collection?(value))
             value.each do |item|
               add_to_xml(xml, element, prefix, item, options)
             end
@@ -174,6 +174,10 @@ module Lutaml
               value,
               options.merge({ rule: rule, attribute: attribute }),
             )
+          elsif (rule.render_nil_as_nil? && value.nil?) || (rule.render_empty_as_nil? && Utils.empty_collection?(value))
+            xml.create_and_add_element(rule.name, attributes: { "xsi:nil" => true })
+          elsif (rule.render_nil_as_blank? && value.nil?) || (rule.render_empty_as_blank? && Utils.empty_collection?(value))
+            xml.create_and_add_element(rule.name)
           elsif rule.raw_mapping?
             xml.add_xml_fragment(xml, value)
           elsif rule.prefix_set?
@@ -234,7 +238,7 @@ module Lutaml
               if attribute_def
                 value = attribute_value_for(element, element_rule)
 
-                next if value.nil? && !element_rule.render_nil?
+                next if !element_rule.render?(value, element)
 
                 value = [value] if attribute_def.collection? && !value.is_a?(Array)
               end
@@ -282,11 +286,11 @@ module Lutaml
         end
 
         def render_element?(rule, element, value)
-          render_default?(rule, element) && render_value?(rule, value)
+          rule.render?(value, element)
         end
 
         def render_value?(rule, value)
-          rule.attribute? || rule.render_nil? || !value.nil?
+          rule.attribute? || rule.render_nil? || !value.nil? || (value.nil? && rule.render_nil_as_nil?)
         end
 
         def render_default?(rule, element)

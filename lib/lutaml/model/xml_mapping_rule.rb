@@ -22,7 +22,8 @@ module Lutaml
         default_namespace: nil,
         polymorphic: {},
         polymorphic_map: {},
-        transform: {}
+        transform: {},
+        render_empty: false
       )
         super(
           name,
@@ -34,7 +35,8 @@ module Lutaml
           attribute: attribute,
           polymorphic: polymorphic,
           polymorphic_map: polymorphic_map,
-          transform: transform
+          transform: transform,
+          render_empty: render_empty,
         )
 
         @namespace = if namespace.to_s == "inherit"
@@ -120,6 +122,7 @@ module Lutaml
           polymorphic: polymorphic.dup,
           default_namespace: default_namespace.dup,
           transform: transform.dup,
+          render_empty: render_empty.dup,
         )
       end
     end

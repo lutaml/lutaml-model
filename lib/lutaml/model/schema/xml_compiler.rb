@@ -19,7 +19,7 @@ module Lutaml
           require "lutaml/model"
           <%=
             requiring_files = resolve_required_files(content)
-            if requiring_files.any?
+            if requiring_files&.any?
               requiring_files.map { |file| "require_relative \\\"\#{file}\\\"" }.join("\n") + "\n"
             end
           -%>
@@ -168,8 +168,8 @@ module Lutaml
           return if schemas.empty?
 
           schemas.each do |schema|
-            schema_to_models(schema.include) if schema.include.any?
-            schema_to_models(schema.import) if schema.import.any?
+            schema_to_models(schema.include) if schema.include&.any?
+            schema_to_models(schema.import) if schema.import&.any?
             resolved_element_order(schema).each do |order_item|
               item_name = order_item&.name
               case order_item
@@ -205,7 +205,7 @@ module Lutaml
           hash[:min_length] = restriction.min_length.map(&:value).max if restriction.min_length&.any?
           hash[:min_inclusive] = restriction.min_inclusive.map(&:value).max if restriction.min_inclusive&.any?
           hash[:max_inclusive] = restriction.max_inclusive.map(&:value).min if restriction.max_inclusive&.any?
-          hash[:length] = restriction_length(restriction.length) if restriction.length.any?
+          hash[:length] = restriction_length(restriction.length) if restriction.length&.any?
         end
 
         def restriction_length(lengths)
@@ -219,8 +219,8 @@ module Lutaml
 
         def setup_complex_type(complex_type)
           MappingHash.new.tap do |hash|
-            hash[:attributes] = [] if complex_type.attribute.any?
-            hash[:attribute_groups] = [] if complex_type.attribute_group.any?
+            hash[:attributes] = [] if complex_type.attribute&.any?
+            hash[:attribute_groups] = [] if complex_type.attribute_group&.any?
             hash[:mixed] = complex_type.mixed
             resolved_element_order(complex_type).each do |element|
               case element
@@ -253,10 +253,10 @@ module Lutaml
 
         def setup_sequence(sequence)
           MappingHash.new.tap do |hash|
-            hash[:sequences] = [] if sequence.sequence.any?
-            hash[:elements] = [] if sequence.element.any?
-            hash[:choice] = [] if sequence.choice.any?
-            hash[:groups] = [] if sequence.group.any?
+            hash[:sequences] = [] if sequence.sequence&.any?
+            hash[:elements] = [] if sequence.element&.any?
+            hash[:choice] = [] if sequence.choice&.any?
+            hash[:groups] = [] if sequence.group&.any?
             resolved_element_order(sequence).each do |instance|
               case instance
               when Xsd::Sequence
@@ -340,8 +340,8 @@ module Lutaml
             if attribute_group.ref
               hash[:ref_class] = attribute_group.ref
             else
-              hash[:attributes] = [] if attribute_group.attribute.any?
-              hash[:attribute_groups] = [] if attribute_group.attribute_group.any?
+              hash[:attributes] = [] if attribute_group.attribute&.any?
+              hash[:attribute_groups] = [] if attribute_group.attribute_group&.any?
               resolved_element_order(attribute_group).each do |instance|
                 case instance
                 when Xsd::Attribute
@@ -380,14 +380,14 @@ module Lutaml
           hash[:base_class] = restriction.base
           restriction_patterns(restriction.pattern, hash) if restriction.respond_to?(:pattern)
           restriction_content(hash, restriction)
-          return hash unless restriction.respond_to?(:enumeration) && restriction.enumeration.any?
+          return hash unless restriction.respond_to?(:enumeration) && restriction.enumeration&.any?
 
           hash[:values] = restriction.enumeration.map(&:value)
           hash
         end
 
         def restriction_patterns(patterns, hash)
-          return if patterns.empty?
+          return if Utils.blank?(patterns)
 
           hash[:pattern] = patterns.map { |p| "(#{p.value})" }.join("|")
           hash
@@ -426,7 +426,7 @@ module Lutaml
           MappingHash.new.tap do |hash|
             hash[:min_occurs] = element.min_occurs if element.min_occurs
             hash[:max_occurs] = element.max_occurs if element.max_occurs
-            element_hash[:arguments] = hash if hash.any?
+            element_hash[:arguments] = hash if hash&.any?
           end
         end
 

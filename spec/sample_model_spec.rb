@@ -52,7 +52,7 @@ RSpec.describe SampleModel do
     end
 
     it "sets default tags" do
-      expect(model.tags).to eq([])
+      expect(model.tags).to be_nil
     end
 
     it "sets default preferences" do
