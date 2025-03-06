@@ -1356,6 +1356,10 @@ references:
 Define attributes as collections (arrays or hashes) to store multiple values
 using the `collection` option.
 
+When defining a collection attribute, it is important to understand the default initialization behavior and how to customize it.
+
+By default, collections are initialized as `nil`. However, if you want the collection to be initialized as an empty array, you can use the `initialize_empty: true` option.
+
 `collection` can be set to:
 
 `true`:::
@@ -1422,6 +1426,62 @@ end
 > # ["address 1"]
 > Studio.new(address: ["address 1"], potters: ['John Doe', 'Jane Doe']).potters
 > # ['John Doe', 'Jane Doe']
+----
+[source,ruby]
+----
+# Default to `nil`
+class SomeModel < Lutaml::Model::Serializable
+  attribute :coll, :string, collection: true
+
+  xml do
+    root "some-model"
+    map_element 'collection', to: :coll
+  end
+
+  key_value do
+    map 'collection', to: coll
+  end
+end
+
+puts SomeModel.new.coll
+# => nil
+
+puts SomeModel.new.to_xml
+# =>
+# <some-model xsi:xmlns="..."><collection xsi:nil="true"/></some-model>
+
+puts SomeModel.new.to_yaml
+# =>
+# ---
+# coll: null
+----
+
+[source,ruby]
+----
+# Default to empty array
+class SomeModel < Lutaml::Model::Serializable
+  attribute :coll, :string, collection: true, initialize_empty: true
+
+  xml do
+    map_element 'collection', to: :coll
+  end
+
+  key_value do
+    map 'collection', to: coll
+  end
+end
+
+puts SomeModel.new.coll
+# => []
+
+puts SomeModel.new.to_xml
+# =>
+# <some-model><collection/></some-model>
+
+puts SomeModel.new.to_yaml
+# =>
+# ---
+# coll: []
 ----
 ====
 
@@ -4576,6 +4636,203 @@ end
 ----
 ====
 
+=== Multiple modes of render_nil
+
+`render_nil: :omit`
+
+using `render_nil: :omit` will omit the key from XML and key-value formats.
+
+[source,ruby]
+----
+class SomeModel < Lutaml::Model::Serializable
+  attribute :coll, :string, collection: true
+
+  xml do
+    root "some-model"
+    map_element 'collection', to: :coll, render_nil: :omit
+  end
+
+  key_value do
+    map 'collection', to: :coll, render_nil: :omit
+  end
+end
+
+puts SomeModel.new.coll
+# => nil
+
+puts SomeModel.new.to_xml
+# =>
+# <some-model></some-model>
+
+puts SomeModel.new.to_yaml
+# =>
+# ---
+----
+
+`render_nil: :as_nil`
+
+using `render_nil: :as_nil` will create an empty element with `xsi:nil` attribute in XML and create a key with explicit null value in key-value formats.
+
+NOTE: `TOML` does not support this option.
+
+[source,ruby]
+----
+class SomeModel < Lutaml::Model::Serializable
+  attribute :coll, :string, collection: true
+
+  xml do
+    root "some-model"
+    map_element 'collection', to: :coll, render_nil: :as_nil
+  end
+
+  json | yaml do
+    map 'collection', to: :coll, render_nil: :as_nil
+  end
+end
+
+puts SomeModel.new.coll
+# => nil
+
+puts SomeModel.new.to_xml
+# =>
+# <some-model xsi:xmlns="..."><collection xsi:nil="true"/></some-model>
+
+puts SomeModel.new.to_yaml
+# =>
+# ---
+# coll: null
+----
+
+`render_nil: :as_blank | :as_empty`
+
+using `render_nil: :as_blank | :as_empty` will create a blank element in XML and create a key with an explicit empty array in key-value formats.
+
+[source,ruby]
+----
+class SomeModel < Lutaml::Model::Serializable
+  attribute :coll, :string, collection: true
+
+  xml do
+    root "some-model"
+    map_element 'collection', to: :coll, render_nil: :as_blank
+  end
+
+  key_value do
+    map 'collection', to: :coll, render_nil: :as_empty
+  end
+end
+
+puts SomeModel.new.coll
+# => nil
+
+puts SomeModel.new.to_xml
+# =>
+# <some-model><collection/></some-model>
+
+puts SomeModel.new.to_yaml
+# =>
+# ---
+# coll: []
+----
+
+=== Multiple modes of render_empty
+
+`render_empty: :omit`
+
+using `render_empty: :omit` will omit the key from XML and key-value formats.
+
+[source,ruby]
+----
+class SomeModel < Lutaml::Model::Serializable
+  attribute :coll, :string, collection: true
+
+  xml do
+    root "some-model"
+    map_element 'collection', to: :coll, render_empty: :omit
+  end
+
+  key_value do
+    map 'collection', to: :coll, render_empty: :omit
+  end
+end
+
+puts SomeModel.new(coll: []).coll
+# => []
+
+puts SomeModel.new.to_xml
+# =>
+# <some-model></some-model>
+
+puts SomeModel.new.to_yaml
+# =>
+# ---
+----
+
+`render_empty: :as_nil`
+
+NOTE: `TOML` does not support this option.
+
+using `render_empty: :as_nil` will create an empty element with xsi:nil attribute in XML and create a key with explicit null value in key-value formats.
+
+[source,ruby]
+----
+class SomeModel < Lutaml::Model::Serializable
+  attribute :coll, :string, collection: true
+
+  xml do
+    root "some-model"
+    map_element 'collection', to: :coll, render_empty: :as_nil
+  end
+
+  json | yaml do
+    map 'collection', to: :coll, render_empty: :as_nil
+  end
+end
+
+puts SomeModel.new(coll: []).coll
+# => []
+
+puts SomeModel.new.to_xml
+# =>
+# <some-model xsi:xmlns="..."><collection xsi:nil="true"/></some-model>
+
+puts SomeModel.new.to_yaml
+# =>
+# ---
+# coll: null
+----
+
+`render_empty: :as_blank | :as_empty`
+
+using `render_empty: :as_blank | :as_empty` will create a blank element in XML and create a key with an explicit empty array in key-value formats.
+
+[source,ruby]
+----
+class SomeModel < Lutaml::Model::Serializable
+  attribute :coll, :string, collection: true
+
+  xml do
+    root "some-model"
+    map_element 'collection', to: :coll, render_empty: :as_blank
+  end
+
+  key_value do
+    map 'collection', to: :coll, render_empty: :as_empty
+  end
+end
+
+puts SomeModel.new(coll: []).coll
+# => []
+
+puts SomeModel.new.to_xml
+# =>
+# <some-model><collection/></some-model>
+
+puts SomeModel.new.to_yaml
+# =>
+# ---
+# coll: []
+----
 
 === Rendering default values (forced rendering of default values)
 
