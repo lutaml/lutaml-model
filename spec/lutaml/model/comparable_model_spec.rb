@@ -19,6 +19,17 @@ class ComparableCeramicCollection < Lutaml::Model::Serializable
   attribute :featured_piece, ComparableCeramic # This creates a two-level nesting
 end
 
+# Model with a reference to another object
+class ComparableBook < Lutaml::Model::Serializable
+  attribute :id, :string
+end
+
+# Model with a reference to another object
+class ComparableNote < Lutaml::Model::Serializable
+  attribute :id, :string
+  attribute :ref, ComparableBook
+end
+
 RSpec.describe Lutaml::Model::ComparableModel do
   describe "comparisons" do
     context "with simple types (Glaze)" do
@@ -100,6 +111,23 @@ RSpec.describe Lutaml::Model::ComparableModel do
                                                       featured_piece: ceramic2)
         expect(collection1).not_to eq(collection2)
         expect(collection1.hash).not_to eq(collection2.hash)
+      end
+    end
+
+    context "with models with circular reference (Book and Note)" do
+      it "compares equal objects" do
+        ComparableBook.class_eval do
+          attribute :ref, ComparableNote
+        end
+
+        book1 = ComparableBook.new(id: "Book1")
+        note1 = ComparableNote.new(id: "Note1")
+
+        note1.ref = book1
+        book1.ref = note1
+
+        expect(note1.ref).to eq(book1)
+        expect(book1.ref).to eq(note1)
       end
     end
   end

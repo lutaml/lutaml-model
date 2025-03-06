@@ -13,6 +13,8 @@ module Lutaml
       # @param other [Object] The object to compare with
       # @return [Boolean] True if objects are equal, false otherwise
       def eql?(other)
+        return true if self.equal?(other)
+
         other.class == self.class &&
           self.class.attributes.all? do |attr, _|
             send(attr) == other.send(attr)
