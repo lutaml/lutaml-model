@@ -11,16 +11,17 @@ module Lutaml
                   :polymorphic,
                   :polymorphic_map,
                   :transform,
-                  :render_empty
+                  :render_empty,
+                  :format
 
       ALLOWED_OPTIONS = {
-        RENDER_NIL: %i[
+        render_nil: %i[
           omit
           as_nil
           as_blank
           as_empty
         ],
-        RENDER_EMPTY: %i[
+        render_empty: %i[
           omit
           as_empty
           as_blank
@@ -29,7 +30,7 @@ module Lutaml
       }.freeze
 
       ALLOWED_OPTIONS.each do |key, values|
-        attribute_name = key.to_s.downcase
+        attribute_name = key.to_s
         values.each do |value|
           define_method(:"#{attribute_name}_#{value}?") do
             send(attribute_name) == value
@@ -72,11 +73,9 @@ module Lutaml
       alias attribute? attribute
 
       def render?(value, instance)
-        # default_value_render = instance.respond_to?(:using_default?) && render_default? && instance.using_default?(to)
-        mapping_render = render_nil_as_nil? || render_nil_as_blank? || render_nil_as_empty? || render_empty_as_nil? || render_empty_as_empty? || render_empty_as_blank?
         if (render_nil_omit? && value.nil?) || (render_empty_omit? && Utils.empty_collection?(value))
           false
-        elsif mapping_render || (render_nil == true && Utils.blank?(value))
+        elsif render_nil || render_empty
           true
         elsif instance.respond_to?(:using_default?) && instance.using_default?(to)
           render_default?

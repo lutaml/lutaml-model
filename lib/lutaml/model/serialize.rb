@@ -234,8 +234,7 @@ module Lutaml
 
         Lutaml::Model::Config::AVAILABLE_FORMATS.each do |format|
           define_method(format) do |&block|
-            klass = format == :xml ? XmlMapping : KeyValueMapping
-            mappings[format] ||= klass.new(format)
+            mappings[format] ||= format == :xml ? XmlMapping.new : KeyValueMapping.new(format)
             mappings[format].instance_eval(&block)
 
             if format == :xml && !mappings[format].root_element && !mappings[format].no_root?
@@ -315,7 +314,6 @@ module Lutaml
 
             next if except&.include?(name) || (only && !only.include?(name))
             next handle_delegate(instance, rule, hash, format) if rule.delegate
-            next if !rule.custom_methods[:to] && !rule.render?(instance.send(name), instance) && (!attribute&.initialize_empty? && Utils.empty_collection?(instance.send(name)))
 
             if rule.custom_methods[:to]
               next instance.send(rule.custom_methods[:to], instance, hash)
@@ -342,8 +340,8 @@ module Lutaml
 
             next if !rule.render?(value, instance) && !attribute&.initialize_empty?
 
-            value = [] if (rule.render_nil_as_empty? && value.nil?) || (rule.render_empty_as_empty? && Utils.empty_collection?(value))
-            value = nil if (rule.render_nil_as_nil? && value.nil?) || (rule.render_empty_as_nil? && Utils.empty_collection?(value))
+            value = [] if rule.render_nil_as_empty? && value.nil?
+            value = nil if rule.render_nil_as_nil? && value.nil?
 
             rule_from_name = rule.multiple_mappings? ? rule.from.first.to_s : rule.from.to_s
             hash[rule_from_name] = value
@@ -365,9 +363,9 @@ module Lutaml
         end
 
         def default_mappings(format)
-          klass = format == :xml ? XmlMapping : KeyValueMapping
+          _mappings = format == :xml ? XmlMapping.new : KeyValueMapping.new(format)
 
-          klass.new.tap do |mapping|
+          _mappings.tap do |mapping|
             attributes&.each_key do |name|
               mapping.map_element(
                 name.to_s,

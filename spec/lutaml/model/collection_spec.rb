@@ -291,7 +291,7 @@ RSpec.describe CollectionTests do
     end
   end
 
-  context "when using return_nil option with collections" do
+  context "when using initialize_empty option with collections" do
     let(:empty_yaml) do
       <<~YAML
         ---
@@ -299,18 +299,18 @@ RSpec.describe CollectionTests do
       YAML
     end
 
-    it "sets empty array when reading from YAML" do
+    it "sets nil value when reading from YAML with nil value" do
       model = CollectionTests::ReturnNilTest.from_yaml(empty_yaml)
       expect(model.default_items).to be_nil
       expect(model.regular_items).to be_nil
     end
 
-    it "initializes with nil when return_nil is true" do
+    it "initializes with empty array when initialize_empty is true" do
       model = CollectionTests::ReturnNilTest.new
       expect(model.regular_items).to eq([])
     end
 
-    it "preserves return_nil behavior when serializing and deserializing" do
+    it "preserves initialize_empty behavior when serializing and deserializing" do
       expected_yaml = <<~YAML
         ---
         regular_items: []

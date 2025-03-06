@@ -3,7 +3,7 @@ require_relative "../../../lib/lutaml/model/key_value_mapping"
 require_relative "../../../lib/lutaml/model/key_value_mapping_rule"
 
 RSpec.describe Lutaml::Model::KeyValueMapping do
-  let(:mapping) { described_class.new }
+  let(:mapping) { described_class.new(:json) }
 
   context "with delegate option" do
     before do
@@ -67,6 +67,8 @@ RSpec.describe Lutaml::Model::KeyValueMapping do
 
       expect(m.child_mappings).to eq(dup_m.child_mappings)
       expect(m.child_mappings.object_id).not_to eq(dup_m.child_mappings.object_id)
+
+      expect(m.format).to eq(dup_m.format)
     end
 
     it "correctly duplicates mapping with custom methods" do
@@ -78,6 +80,8 @@ RSpec.describe Lutaml::Model::KeyValueMapping do
 
       # render_nil is boolean so is constant with same object_id
       expect(m.render_nil).to eq(dup_m.render_nil)
+
+      expect(m.format).to eq(dup_m.format)
 
       expect(m.custom_methods).to eq(dup_m.custom_methods)
       expect(m.custom_methods.object_id).not_to eq(dup_m.custom_methods.object_id)
