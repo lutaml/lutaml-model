@@ -32,7 +32,9 @@ module Lutaml
             require "lutaml/model"
             <%= "require_relative \#{Utils.snake_case(parent_class).inspect}\n" if require_parent -%>
 
-            class <%= klass_name %> < <%= parent_class %>; end
+            class <%= klass_name %> < <%= Utils.camel_case(parent_class) %>; end
+
+            Lutaml::Model::Register.register_model(:<%= Utils.snake_case(klass_name) %>, <%= klass_name %>)
           TEMPLATE
 
           SUPPORTED_TYPES_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
@@ -63,6 +65,8 @@ module Lutaml
                 value
               end
             end
+
+            Lutaml::Model::Register.register_model(:<%= Utils.snake_case(klass_name) %>, <%= Utils.camel_case(klass_name.to_s) %>)
           TEMPLATE
 
           UNION_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
@@ -91,6 +95,8 @@ module Lutaml
                 end.join(" || ") %>
               end
             end
+
+            Lutaml::Model::Register.register_model(:<%= Utils.snake_case(klass_name) %>, <%= klass_name %>)
           TEMPLATE
 
           MODEL_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
@@ -171,6 +177,8 @@ module Lutaml
               end
             -%>
             end
+
+            Lutaml::Model::Register.register_model(:<%= Utils.snake_case(klass_name) %>, <%= klass_name %>)
           TEMPLATE
 
           def create_simple_types(simple_types)
@@ -187,8 +195,6 @@ module Lutaml
             end
             @simple_types
           end
-
-          private
 
           # klass_name is used in template using `binding`
           def model_template(properties, klass_name)
