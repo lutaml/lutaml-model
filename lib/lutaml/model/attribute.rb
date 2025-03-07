@@ -186,15 +186,15 @@ module Lutaml
 
       def validate_polymorphic(value)
         return value.all? { |v| validate_polymorphic!(v) } if value.is_a?(Array)
-        return true unless polymorphic_sub_classes_specified?
+        return true unless options[:polymorphic]
 
-        valid_polymorphic_type?(value)
+        valid_polymorphic_type?(value) if options[:polymorphic]
       end
 
       def validate_polymorphic!(value)
         return true if validate_polymorphic(value)
 
-        raise Lutaml::Model::PolymorphicError.new(value, options)
+        raise Lutaml::Model::PolymorphicError.new(value, options, type)
       end
 
       def validate_collection_range
@@ -406,7 +406,7 @@ module Lutaml
       end
 
       def valid_polymorphic_type?(value)
-        value.is_a?(type) && options[:polymorphic].include?(value.class)
+        polymorphic_sub_classes_specified? ? (options[:polymorphic].include?(value.class) && value.is_a?(type)) : value.is_a?(type)
       end
     end
   end
