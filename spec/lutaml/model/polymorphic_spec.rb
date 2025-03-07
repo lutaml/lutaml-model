@@ -47,6 +47,32 @@ module PolymorphicSpec
       end
     end
 
+    module InvalidClasses
+      class AnchorReference < Lutaml::Model::Serializable
+        attribute :anchor_id, :string
+
+        xml do
+          map_element "anchor_id", to: :anchor_id
+        end
+
+        key_value do
+          map "anchor_id", to: :anchor_id
+        end
+      end
+
+      class DocumentReference < Reference
+        attribute :document_id, :string
+
+        xml do
+          map_element "document_id", to: :document_id
+        end
+
+        key_value do
+          map "document_id", to: :document_id
+        end
+      end
+    end
+
     class ReferenceSet < Lutaml::Model::Serializable
       attribute :references, Reference, collection: true, polymorphic: [
         DocumentReference,
@@ -270,6 +296,23 @@ RSpec.describe "Polymorphic" do
         )
       end
 
+      let(:invalid_reference_set) do
+        PolymorphicSpec::Base::SimpleReferenceSet.new(
+          references: [
+            PolymorphicSpec::Base::InvalidClasses::DocumentReference.new(
+              _class: "Document",
+              document_id: "book:tbtd",
+              name: "The Tibetan Book of the Dead",
+            ),
+            PolymorphicSpec::Base::InvalidClasses::AnchorReference.new(
+              _class: "Anchor",
+              anchor_id: "book:tbtd:anchor-1",
+              name: "Chapter 1",
+            ),
+          ],
+        )
+      end
+
       let(:yaml) do
         <<~YAML
           ---
@@ -293,6 +336,12 @@ RSpec.describe "Polymorphic" do
 
       it "serializes correctly" do
         expect(parsed_yaml.to_yaml).to eq(yaml)
+      end
+
+      it "raises error" do
+        expect { invalid_reference_set.validate! }.to raise_error(Lutaml::Model::ValidationError) do |error|
+          expect(error.message).to eq("PolymorphicSpec::Base::InvalidClasses::AnchorReference is not valid sub class of PolymorphicSpec::Base::Reference")
+        end
       end
     end
 
