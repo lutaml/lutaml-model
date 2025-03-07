@@ -4,6 +4,7 @@ require "erb"
 require "tmpdir"
 require "lutaml/xsd"
 require_relative "templates/simple_type"
+require_relative "templates/groups"
 
 module Lutaml
   module Model
@@ -11,7 +12,14 @@ module Lutaml
       module XmlCompiler
         extend self
 
-        DEFAULT_CLASSES = %w[string integer int boolean].freeze
+        attr_reader :simple_types,
+                    :group_types,
+                    :complex_types,
+                    :elements,
+                    :attributes,
+                    :attribute_groups
+
+        DEFAULT_CLASSES = %w[string integer int boolean date].freeze
         ELEMENT_ORDER_IGNORABLE = %w[import include].freeze
 
         MODEL_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
@@ -29,13 +37,13 @@ module Lutaml
             if content&.key_exist?(:attributes)
               output = content.attributes.map do |attribute|
                 attribute = @attributes[attribute.ref_class.split(":").last] if attribute.key?(:ref_class)
-                "  attribute :\#{Utils.snake_case(attribute.name)}, \#{resolve_attribute_class(attribute)}\#{resolve_attribute_default(attribute) if attribute.key_exist?(:default)}"
+                attributes_presentation(options[:current_indent], attribute)
               end.join("\n")
               output + "\n" if output && !output&.empty?
             end
           -%>
           <%=
-            if content&.key_exist?(:sequence) || content&.key_exist?(:choice) || content&.key_exist?(:group)
+            if content.keys.any? { |key| %i[sequence choice group].include?(key) }
               output = resolve_content(content).map do |element_name, element|
                 element = @elements[element.ref_class.split(":")&.last] if element&.key_exist?(:ref_class)
                 "  attribute :\#{Utils.snake_case(element_name)}, \#{resolve_element_class(element)}\#{resolve_occurs(element.arguments) if element.key_exist?(:arguments)}"
@@ -72,7 +80,7 @@ module Lutaml
             end
           -%>
           <%=
-            if content&.key_exist?(:sequence) || content&.key_exist?(:choice) || content&.key_exist?(:group)
+            if content.keys.any? { |key| %i[sequence choice group].include?(key) }
               output = resolve_content(content).map do |element_name, element|
                 element = @elements[element.ref_class.split(":")&.last] if element&.key_exist?(:ref_class)
                 "    map_element :\#{element_name}, to: :\#{Utils.snake_case(element_name)}"
@@ -96,6 +104,7 @@ module Lutaml
             end
           end
 
+          Lutaml::Model::Register.register_model(:<%= Utils.snake_case(name)&.to_sym %>, <%= Utils.camel_case(name) %>)
         TEMPLATE
 
         XML_ADAPTER_NOT_SET_MESSAGE = <<~MSG
@@ -108,7 +117,9 @@ module Lutaml
 
         def to_models(schema, options = {})
           as_models(schema, options: options)
-          @data_types_classes = Templates::SimpleType.create_simple_types(@simple_types)
+          options[:indent] = options[:indent] ? options[:indent].to_i : 2
+          options[:current_indent] = " " * options[:indent]
+          setup_dependencies(options:)
           if options[:create_files]
             dir = options.fetch(:output_dir, "lutaml_models_#{Time.now.to_i}")
             FileUtils.mkdir_p(dir)
@@ -132,8 +143,6 @@ module Lutaml
           end
         end
 
-        private
-
         def create_file(name, content, dir)
           File.write("#{dir}/#{Utils.snake_case(name)}.rb", content)
         end
@@ -145,6 +154,16 @@ module Lutaml
               require "#{dir}/#{Utils.snake_case(name)}"
             end
           end
+        end
+
+        def setup_dependencies(options: {})
+          @data_types_classes = Templates::SimpleType.create_simple_types(@simple_types)
+          return unless @group_types.any?
+
+          @importable_classes = Templates::Groups.create_groups(
+            @group_types,
+            options: options,
+          )
         end
 
         # START: STRUCTURE SETUP METHODS
@@ -219,8 +238,8 @@ module Lutaml
 
         def setup_complex_type(complex_type)
           MappingHash.new.tap do |hash|
-            hash[:attributes] = [] if complex_type.attribute&.any?
-            hash[:attribute_groups] = [] if complex_type.attribute_group&.any?
+            hash[:attributes] = [] if complex_type&.attribute&.any?
+            hash[:attribute_groups] = [] if complex_type&.attribute_group&.any?
             hash[:mixed] = complex_type.mixed
             resolved_element_order(complex_type).each do |element|
               case element
@@ -301,6 +320,10 @@ module Lutaml
 
         def setup_choice(choice)
           MappingHash.new.tap do |hash|
+            hash[:arguments] = {
+              min_occurs: choice.min_occurs,
+              max_occurs: choice.max_occurs,
+            }.compact
             resolved_element_order(choice).each do |element|
               case element
               when Xsd::Element
@@ -365,15 +388,25 @@ module Lutaml
             if element.ref
               hash[:ref_class] = element.ref
             else
-              hash[:type_name] = element.type
               hash[:element_name] = element.name
               element_arguments(element, hash)
-              return hash unless complex_type = element.complex_type
-
-              hash[:complex_type] = setup_complex_type(complex_type)
-              @complex_types[complex_type.name] = hash[:complex_type]
+              hash[:type_name] = if element.type.nil?
+                                   setup_element_type(element, hash)
+                                 else
+                                   element.type
+                                 end
             end
           end
+        end
+
+        def setup_element_type(element, hash)
+          type = element.simple_type ? "simple" : "complex"
+          type_object = element.public_send(:"#{type}_type")
+          prefix = type == "simple" ? "ST_" : "CT_"
+          type_object_name = "#{prefix}#{element.name}"
+          object_value = public_send(:"setup_#{type}_type", type_object)
+          instance_variable_get(:"@#{type}_types")[type_object_name] = object_value
+          type_object_name
         end
 
         def setup_restriction(restriction, hash)
@@ -462,7 +495,7 @@ module Lutaml
           when *DEFAULT_CLASSES
             ":#{attr_class}"
           else
-            Utils.camel_case(attr_class)
+            ":#{Utils.snake_case(attr_class)}"
           end
         end
 
@@ -472,7 +505,7 @@ module Lutaml
           when *DEFAULT_CLASSES
             ":#{element_class}"
           else
-            Utils.camel_case(element_class)
+            ":#{Utils.snake_case(element_class)}"
           end
         end
 
@@ -758,6 +791,13 @@ module Lutaml
         end
 
         # END: REQUIRED FILES LIST COMPILER METHODS
+
+        def attributes_presentation(current_indent, attribute)
+          output = "#{current_indent}attribute :#{Utils.snake_case(attribute.name)}, #{resolve_attribute_class(attribute)}"
+          output += resolve_attribute_default(attribute) if attribute.key_exist?(:default)
+          output += "\n"
+          output
+        end
       end
     end
   end

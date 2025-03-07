@@ -1245,7 +1245,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         end
 
         it "returns the attribute_class value" do
-          expect(resolve_attribute_class).to eql("TestStAttr1")
+          expect(resolve_attribute_class).to eql(":test_st_attr1")
         end
       end
     end
@@ -1273,7 +1273,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         end
 
         it "returns the element_class value" do
-          expect(resolve_element_class).to eql("TestStElement1")
+          expect(resolve_element_class).to eql(":test_st_element1")
         end
       end
     end
