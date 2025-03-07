@@ -1,17 +1,28 @@
 {
   "repo": [
-    "lutaml/genericode",
-    "lutaml/ogc-gml",
-    "metanorma/modspec-ruby",
-    "metanorma/rfcxml",
-    "metanorma/niso-jats",
-    "metanorma/sts-ruby",
-    "lutaml/metaschema",
-    "glossarist/termium",
     "glossarist/glossarist-ruby",
-    "lutaml/oasis-etm",
+    "glossarist/iev",
+    "glossarist/termium",
     "lutaml/ali",
+    "lutaml/genericode",
+    "lutaml/lutaml-xsd",
+    "lutaml/metaschema",
+    "lutaml/oasis-etm",
+    "lutaml/ogc-gml",
     "lutaml/reqif",
-    "lutaml/lutaml-xsd"
+    "lutaml/xmi",
+    "metanorma/atmospheric",
+    "metanorma/metanorma-cli",
+    "metanorma/modspec-ruby",
+    "metanorma/niso-jats",
+    "metanorma/revix",
+    "metanorma/rfcxml",
+    "metanorma/sts-ruby",
+    "plurimath/mml",
+    "plurimath/plurimath",
+    "relaton/ieee-idams",
+    "relaton/loc_mods",
+    "relaton/w3c_api",
+    "unitsml/unitsml-ruby"
   ]
 }
