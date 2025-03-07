@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" 
+           targetNamespace="http://example.org/order"
+           xmlns:ord="http://example.org/order"
+           elementFormDefault="qualified">
+
+  <!-- Root element -->
+  <xs:element name="Order" type="ord:OrderType"/>
+
+  <!-- Complex type with sequence -->
+  <xs:complexType name="OrderType">
+    <xs:sequence>
+      <xs:element name="OrderNumber" type="xs:string"/>
+      <xs:element name="OrderDate" type="xs:date"/>
+      <xs:element name="Customer" type="ord:CustomerType"/>
+      <xs:element name="Items" type="ord:ItemsType"/>
+      <xs:element name="Shipping" type="ord:ShippingType"/>
+      <xs:element name="Payment" type="ord:PaymentType"/>
+    </xs:sequence>
+    <xs:attribute name="priority" type="xs:string" use="optional"/>
+  </xs:complexType>
+
+  <!-- Simple sequence example -->
+  <xs:complexType name="CustomerType">
+    <xs:sequence>
+      <xs:element name="Name" type="xs:string"/>
+      <xs:element name="Email" type="xs:string"/>
+      <xs:element name="Phone" type="xs:string" minOccurs="0"/>
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:ID" use="required"/>
+  </xs:complexType>
+
+  <!-- Choice example -->
+  <xs:complexType name="ItemsType">
+    <xs:choice maxOccurs="unbounded">
+      <xs:element name="PhysicalProduct" type="ord:PhysicalProductType"/>
+      <xs:element name="DigitalProduct" type="ord:DigitalProductType"/>
+      <xs:element name="SubscriptionProduct" type="ord:SubscriptionProductType"/>
+    </xs:choice>
+    <xs:attribute name="count" type="xs:positiveInteger"/>
+  </xs:complexType>
+
+  <!-- Group definition -->
+  <xs:group name="ProductCommonGroup">
+    <xs:sequence>
+      <xs:element name="ProductID" type="xs:string"/>
+      <xs:element name="Name" type="xs:string"/>
+      <xs:element name="Price" type="xs:decimal"/>
+      <xs:element name="Description" type="xs:string" minOccurs="0"/>
+    </xs:sequence>
+  </xs:group>
+
+  <!-- Using group reference in a complex type -->
+  <xs:complexType name="PhysicalProductType">
+    <xs:sequence>
+      <xs:group ref="ord:ProductCommonGroup"/>
+      <xs:element name="Weight" type="xs:decimal"/>
+      <xs:element name="Dimensions" type="ord:DimensionsType"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="DigitalProductType">
+    <xs:sequence>
+      <xs:group ref="ord:ProductCommonGroup"/>
+      <xs:element name="FileSize" type="xs:string"/>
+      <xs:element name="Format" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="SubscriptionProductType">
+    <xs:sequence>
+      <xs:group ref="ord:ProductCommonGroup"/>
+      <xs:element name="Period" type="xs:string"/>
+      <xs:element name="AutoRenew" type="xs:boolean"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Sequence within a complex type -->
+  <xs:complexType name="DimensionsType">
+    <xs:sequence>
+      <xs:element name="Length" type="xs:decimal"/>
+      <xs:element name="Width" type="xs:decimal"/>
+      <xs:element name="Height" type="xs:decimal"/>
+    </xs:sequence>
+    <xs:attribute name="unit" type="xs:string" default="cm"/>
+  </xs:complexType>
+
+  <!-- Group with choice inside -->
+  <xs:group name="AddressGroup">
+    <xs:sequence>
+      <xs:element name="Street" type="xs:string"/>
+      <xs:element name="City" type="xs:string"/>
+      <xs:element name="PostalCode" type="xs:string"/>
+      <xs:choice>
+        <xs:element name="State" type="xs:string"/>
+        <xs:element name="Province" type="xs:string"/>
+        <xs:element name="Region" type="xs:string"/>
+      </xs:choice>
+      <xs:element name="Country" type="xs:string"/>
+    </xs:sequence>
+  </xs:group>
+
+  <!-- Complex type with nested groups -->
+  <xs:complexType name="ShippingType">
+    <xs:sequence>
+      <xs:element name="Method">
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="Standard"/>
+            <xs:enumeration value="Express"/>
+            <xs:enumeration value="Overnight"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:element>
+      <xs:element name="ShippingAddress">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:group ref="ord:AddressGroup"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="TrackingNumber" type="xs:string" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Complex type with choice inside sequence inside choice -->
+  <xs:complexType name="PaymentType">
+    <xs:choice>
+      <xs:element name="CreditCard">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="CardType" type="xs:string"/>
+            <xs:element name="CardNumber" type="xs:string"/>
+            <xs:element name="ExpiryDate" type="xs:string"/>
+            <xs:element name="CVV" type="xs:string"/>
+            <xs:group ref="ord:BillingAddressGroup"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="BankTransfer">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="AccountNumber" type="xs:string"/>
+            <xs:element name="BankName" type="xs:string"/>
+            <xs:element name="BankCode" type="xs:string"/>
+            <xs:group ref="ord:BillingAddressGroup"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="PayPal">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="Email" type="xs:string"/>
+            <xs:element name="PayPalTransactionID" type="xs:string" minOccurs="0"/>
+            <xs:group ref="ord:BillingAddressGroup"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+    </xs:choice>
+  </xs:complexType>
+
+  <!-- Group reused across payment methods -->
+  <xs:group name="BillingAddressGroup">
+    <xs:sequence>
+      <xs:element name="BillingAddress" minOccurs="0">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:group ref="ord:AddressGroup"/>
+          </xs:sequence>
+          <xs:attribute name="sameAsShipping" type="xs:boolean" default="false"/>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:group>
+
+</xs:schema>
