@@ -14,17 +14,15 @@ module Lutaml
       # @return [Boolean] True if objects are equal, false otherwise
       def eql?(other, compared_objects = {})
         return true if equal?(other)
-        return false unless other.class == self.class
+        return false unless same_class?(other)
+        return true if already_compared?(other, compared_objects)
 
-        comparison_key = "#{object_id}:#{other.object_id}"
-        return true if compared_objects[comparison_key]
-
-        compared_objects[comparison_key] = true
+        compared_objects[comparison_key(other)] = true
         self.class.attributes.all? do |attr, _|
           attr_value = send(attr)
           other_value = other.send(attr)
 
-          if attr_value.respond_to?(:eql?) && attr_value.class == self.class
+          if attr_value.respond_to?(:eql?) && same_class?(attr_value)
             attr_value.eql?(other_value, compared_objects)
           else
             attr_value == other_value
@@ -34,15 +32,41 @@ module Lutaml
 
       alias == eql?
 
+      def same_class?(other)
+        other.instance_of?(self.class)
+      end
+
+      def comparison_key(other)
+        "#{object_id}:#{other.object_id}"
+      end
+
+      def already_compared?(other, compared_objects)
+        compared_objects[comparison_key(other)]
+      end
+
       # Generates a hash value for the object
       # @return [Integer] The hash value
       def hash
-        @compared_objects ||= {}
-        comparison_key = object_id.to_s
-        return @compared_objects[comparison_key] if @compared_objects.key?(comparison_key)
+        calculate_hash
+      end
 
-        @compared_objects[comparison_key] = true
-        @compared_objects[comparison_key] = ([self.class] + self.class.attributes.map { |attr, _| send(attr).hash }).hash
+      def calculate_hash(processed_objects = {}.compare_by_identity)
+        return if processed_objects.key?(self)
+
+        processed_objects[self] = true
+        ([self.class] + attributes_hash(processed_objects)).hash
+      end
+
+      def attributes_hash(processed_objects)
+        self.class.attributes.map do |attr, _|
+          attr_value = send(attr)
+
+          if attr_value.respond_to?(:calculate_hash)
+            attr_value.calculate_hash(processed_objects)
+          else
+            attr_value.hash
+          end
+        end
       end
 
       # Class methods added to the class that includes ComparableModel
@@ -435,8 +459,7 @@ module Lutaml
         # @param label [String] The label for the value
         # @param type_info [String, nil] Additional type information
         # @return [String] Formatted value tree
-        def format_value_tree(value1, value2, parent_node, label,
-type_info = nil)
+        def format_value_tree(value1, value2, parent_node, label, type_info = nil)
           return if value1 == value2 && !@show_unchanged
 
           if value1 == value2
