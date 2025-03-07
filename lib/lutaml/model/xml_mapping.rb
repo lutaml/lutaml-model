@@ -82,7 +82,9 @@ module Lutaml
         transform: {},
         render_empty: false
       )
-        validate!(name, to, with, render_nil, render_empty, type: TYPES[:element])
+        validate!(
+          name, to, with, render_nil, render_empty, type: TYPES[:element]
+        )
 
         rule = XmlMappingRule.new(
           name,
@@ -118,7 +120,10 @@ module Lutaml
                  nil),
         render_empty: false
       )
-        validate!(name, to, with, render_nil, render_empty, type: TYPES[:attribute])
+        validate!(
+          name, to, with, render_nil, render_empty, type: TYPES[:attribute]
+        )
+
         warn_auto_handling(name) if name == "schemaLocation"
 
         rule = XmlMappingRule.new(
@@ -151,7 +156,9 @@ module Lutaml
         cdata: false,
         render_empty: false
       )
-        validate!("content", to, with, render_nil, render_empty, type: TYPES[:content])
+        validate!(
+          "content", to, with, render_nil, render_empty, type: TYPES[:content]
+        )
 
         @content_mapping = XmlMappingRule.new(
           nil,
@@ -177,7 +184,14 @@ module Lutaml
                  nil),
         render_empty: false
       )
-        validate!(Constants::RAW_MAPPING_KEY, to, with, render_nil, render_empty, type: TYPES[:all_content])
+        validate!(
+          Constants::RAW_MAPPING_KEY,
+          to,
+          with,
+          render_nil,
+          render_empty,
+          type: TYPES[:all_content],
+        )
 
         rule = XmlMappingRule.new(
           Constants::RAW_MAPPING_KEY,
@@ -217,13 +231,15 @@ module Lutaml
         validate_mappings!(type)
 
         if to.nil? && with.empty?
-          msg = ":to or :with argument is required for mapping '#{key}'"
-          raise IncorrectMappingArgumentsError.new(msg)
+          raise IncorrectMappingArgumentsError.new(
+            ":to or :with argument is required for mapping '#{key}'",
+          )
         end
 
         if !with.empty? && (with[:from].nil? || with[:to].nil?)
-          msg = ":with argument for mapping '#{key}' requires :to and :from keys"
-          raise IncorrectMappingArgumentsError.new(msg)
+          raise IncorrectMappingArgumentsError.new(
+            ":with argument for mapping '#{key}' requires :to and :from keys",
+          )
         end
 
         if render_nil && render_empty && render_nil == render_empty
