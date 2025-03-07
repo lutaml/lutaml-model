@@ -292,21 +292,22 @@ RSpec.describe CollectionTests do
   end
 
   context "when using initialize_empty option with collections" do
-    let(:empty_yaml) do
+    let(:parsed) { CollectionTests::ReturnNilTest.from_yaml(yaml) }
+    let(:model) { CollectionTests::ReturnNilTest.new }
+
+    let(:yaml) do
       <<~YAML
         ---
-        regular_items:#{' '}
+        regular_items: ~
       YAML
     end
 
     it "sets nil value when reading from YAML with nil value" do
-      model = CollectionTests::ReturnNilTest.from_yaml(empty_yaml)
-      expect(model.default_items).to be_nil
-      expect(model.regular_items).to be_nil
+      expect(parsed.default_items).to be_nil
+      expect(parsed.regular_items).to be_nil
     end
 
     it "initializes with empty array when initialize_empty is true" do
-      model = CollectionTests::ReturnNilTest.new
       expect(model.regular_items).to eq([])
     end
 
@@ -315,12 +316,11 @@ RSpec.describe CollectionTests do
         ---
         regular_items: []
       YAML
-      model = CollectionTests::ReturnNilTest.new
-      serialized = model.to_yaml
-      expect(serialized).to eq(expected_yaml)
+
+      expect(model.to_yaml).to eq(expected_yaml)
     end
 
-    it "raises StandardError when initialize_empty is true and collection is nil" do
+    it "raises StandardError for initialize_empty without collection" do
       expect do
         Class.new(Lutaml::Model::Serializable) do
           attribute :invalid_range, :string, initialize_empty: true

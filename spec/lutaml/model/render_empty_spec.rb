@@ -150,7 +150,7 @@ RSpec.describe "RenderEmptySpec" do
         RenderEmptySpec::ExplicitNilModel.new(items: [])
       end
 
-      describe "for XML" do
+      describe "XML" do
         let(:xml) do
           <<~XML
             <explicit-nil-model>
@@ -172,7 +172,7 @@ RSpec.describe "RenderEmptySpec" do
         end
       end
 
-      describe "for YAML" do
+      describe "YAML" do
         let(:yaml) do
           <<~YAML
             ---
