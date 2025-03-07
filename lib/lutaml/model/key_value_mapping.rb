@@ -15,14 +15,14 @@ module Lutaml
         to: nil,
         render_nil: false,
         render_default: false,
+        render_empty: false,
         with: {},
         delegate: nil,
         child_mappings: nil,
         root_mappings: nil,
         polymorphic: {},
         polymorphic_map: {},
-        transform: {},
-        render_empty: false
+        transform: {}
       )
         mapping_name = name_for_mapping(root_mappings, name)
         validate!(mapping_name, to, with, render_nil, render_empty)
@@ -32,6 +32,7 @@ module Lutaml
           to: to,
           render_nil: render_nil,
           render_default: render_default,
+          render_empty: render_empty,
           with: with,
           delegate: delegate,
           child_mappings: child_mappings,
@@ -39,7 +40,6 @@ module Lutaml
           polymorphic: polymorphic,
           polymorphic_map: polymorphic_map,
           transform: transform,
-          render_empty: render_empty,
         )
       end
 
@@ -124,7 +124,7 @@ module Lutaml
       end
 
       def deep_dup
-        self.class.new.tap do |new_mapping|
+        self.class.new(@format).tap do |new_mapping|
           new_mapping.instance_variable_set(:@mappings, duplicate_mappings)
         end
       end

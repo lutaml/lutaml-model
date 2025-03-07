@@ -53,6 +53,51 @@ class RenderNil < Lutaml::Model::Serializable
   end
 end
 
+module RenderNilSpec
+  class OmitNilModel < Lutaml::Model::Serializable
+    attribute :items, :string, collection: true
+
+    xml do
+      root "omit-nil-model"
+      map_element "items", to: :items, render_nil: :omit
+    end
+
+    key_value do
+      map "items", to: :items, render_nil: :omit
+    end
+  end
+
+  class ExplicitNilModel < Lutaml::Model::Serializable
+    attribute :items, :string, collection: true
+
+    xml do
+      root "explicit-nil-model"
+      map_element "items", to: :items, render_nil: :as_nil
+    end
+
+    yaml do
+      map "items", to: :items, render_nil: :as_nil
+    end
+  end
+
+  class AsBlankNilModel < Lutaml::Model::Serializable
+    attribute :items, :string, collection: true
+
+    xml do
+      root "omit-nil-model"
+      map_element "items", to: :items, render_nil: :as_blank
+    end
+  end
+
+  class AsEmptyNilModel < Lutaml::Model::Serializable
+    attribute :items, :string, collection: true
+
+    yaml do
+      map "items", to: :items, render_nil: :as_empty
+    end
+  end
+end
+
 RSpec.describe RenderNil do
   let(:attributes) do
     {
@@ -163,6 +208,145 @@ RSpec.describe RenderNil do
       generated_yaml = generated_yaml.gsub(": \n", ":\n")
 
       expect(generated_yaml).to eq(expected_yaml.strip)
+    end
+  end
+
+  describe "render_nil option" do
+    context "when :omit" do
+      let(:model) { RenderNilSpec::OmitNilModel.new }
+
+      describe "YAML" do
+        let(:parsed) do
+          RenderNilSpec::OmitNilModel.from_yaml(yaml)
+        end
+
+        let(:yaml) do
+          <<~YAML
+            ---
+            items:
+          YAML
+        end
+
+        it "omits nil collections while deserialize" do
+          expect(model.items).to be_nil
+        end
+
+        it "omits nil collections" do
+          expect(parsed.to_yaml.strip).to eq("--- {}")
+        end
+      end
+
+      describe "XML" do
+        let(:parsed) { RenderNilSpec::OmitNilModel.from_xml(xml) }
+
+        let(:xml) do
+          <<~XML
+            <omit-nil-model/>
+          XML
+        end
+
+        it "omits nil collection" do
+          expect(model.to_xml).not_to include("<items")
+        end
+
+        it "omits nil collections while deserialize" do
+          expect(parsed.items).to be_nil
+        end
+      end
+    end
+
+    context "when :as_nil" do
+      let(:model) { RenderNilSpec::ExplicitNilModel.new }
+
+      describe "YAML" do
+        let(:yaml) do
+          <<~YAML
+            ---
+            items:
+          YAML
+        end
+
+        let(:parsed) do
+          RenderNilSpec::ExplicitNilModel.from_yaml(yaml)
+        end
+
+        it "renders explicit nil" do
+          expect(model.to_yaml).to include("items:")
+        end
+
+        it "sets nil values while deserialize" do
+          expect(parsed.items).to be_nil
+        end
+      end
+
+      describe "XML" do
+        let(:xml) do
+          <<~XML
+            <explicit-nil-model>
+              <items xsi:nil="true"/>
+            </explicit-nil-model>
+          XML
+        end
+
+        let(:parsed) do
+          RenderNilSpec::ExplicitNilModel.from_xml(xml)
+        end
+
+        it "renders explicit nil" do
+          expect(model.to_xml).to include('<items xsi:nil="true"/>')
+        end
+
+        it "sets nil values while deserialize" do
+          expect(parsed.items).to be_nil
+        end
+      end
+    end
+
+    context "when :as_blank" do
+      let(:model) { RenderNilSpec::AsBlankNilModel.new }
+
+      let(:parsed) do
+        RenderNilSpec::AsBlankNilModel.from_xml(xml)
+      end
+
+      let(:xml) do
+        <<~XML
+          <explicit-nil-model>
+            <items/>
+          </explicit-nil-model>
+        XML
+      end
+
+      it "creates blank element from nil collections" do
+        expect(model.to_xml).to include("<items/>")
+      end
+
+      it "sets blank values while deserialize" do
+        expect(parsed.items).to eq([])
+      end
+    end
+
+    context "when :as_empty" do
+      let(:model) { RenderNilSpec::AsEmptyNilModel.new }
+
+      let(:parsed) do
+        RenderNilSpec::AsEmptyNilModel.from_yaml(yaml)
+      end
+
+      let(:yaml) do
+        <<~YAML
+          ---
+          items:
+        YAML
+      end
+
+      it "creates key and empty collection" do
+        expect(model.to_yaml).to include("items: []")
+      end
+
+      it "sets empty values while deserialize" do
+        expect(parsed.items).to eq([])
+      end
     end
   end
 end
