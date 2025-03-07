@@ -11,26 +11,26 @@ module Lutaml
         to:,
         render_nil: false,
         render_default: false,
+        render_empty: false,
         with: {},
         delegate: nil,
         child_mappings: nil,
         root_mappings: nil,
         polymorphic: {},
         polymorphic_map: {},
-        transform: {},
-        render_empty: false
+        transform: {}
       )
         super(
           name,
           to: to,
           render_nil: render_nil,
           render_default: render_default,
+          render_empty: render_empty,
           with: with,
           delegate: delegate,
           polymorphic: polymorphic,
           polymorphic_map: polymorphic_map,
           transform: transform,
-          render_empty: render_empty,
         )
 
         @child_mappings = child_mappings
@@ -48,10 +48,10 @@ module Lutaml
           name.dup,
           to: to.dup,
           render_nil: render_nil.dup,
+          render_empty: render_empty.dup,
           with: Utils.deep_dup(custom_methods),
           delegate: delegate,
           child_mappings: Utils.deep_dup(child_mappings),
-          render_empty: render_empty.dup,
         )
       end
 

@@ -49,6 +49,10 @@ RSpec.describe Lutaml::Model::KeyValueMapping do
       expect(dup_mapping.object_id).not_to eq(mapping.object_id)
     end
 
+    it "correctly duplicates mapping with format" do
+      expect(mapping.format).to eq(dup_mapping.format)
+    end
+
     it "correctly duplicates mapping with `to:`" do
       m = mapping.mappings[0]
       dup_m = dup_mapping.mappings[0]
@@ -80,8 +84,6 @@ RSpec.describe Lutaml::Model::KeyValueMapping do
 
       # render_nil is boolean so is constant with same object_id
       expect(m.render_nil).to eq(dup_m.render_nil)
-
-      expect(m.format).to eq(dup_m.format)
 
       expect(m.custom_methods).to eq(dup_m.custom_methods)
       expect(m.custom_methods.object_id).not_to eq(dup_m.custom_methods.object_id)
