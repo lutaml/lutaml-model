@@ -1,0 +1,825 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:fin="http://example.org/financial"
+           targetNamespace="http://example.org/financial"
+           elementFormDefault="qualified"
+           attributeFormDefault="unqualified"
+           version="1.0">
+
+  <!-- ==================== Schema Documentation ==================== -->
+  <xs:annotation>
+    <xs:documentation xml:lang="en">
+      Advanced Financial Schema for comprehensive testing of XSD features.
+      Version 1.0
+      Created: 2023-08-15
+      Author: Schema Testing Team
+    </xs:documentation>
+    <xs:appinfo source="http://example.org/financial/schema-processing">
+      <processingHint complexity="advanced" testSuiteCompatible="true"/>
+    </xs:appinfo>
+  </xs:annotation>
+
+  <!-- ==================== Simple Types ==================== -->
+  
+  <!-- Money type -->
+  <xs:complexType name="MoneyType">
+    <xs:simpleContent>
+      <xs:extension base="xs:decimal">
+        <xs:attribute name="currency" type="fin:CurrencyCodeType" use="required"/>
+      </xs:extension>
+    </xs:simpleContent>
+  </xs:complexType>
+
+  <!-- Currency Code type -->
+  <xs:simpleType name="CurrencyCodeType">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[A-Z]{3}"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Percentage type -->
+  <xs:simpleType name="PercentageType">
+    <xs:restriction base="xs:decimal">
+      <xs:minInclusive value="0"/>
+      <xs:maxInclusive value="100"/>
+      <xs:fractionDigits value="4"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="CountyCodeType">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[A-Z]{2}"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="IDType">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[A-Za-z0-9\-_]{1,50}"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="StatusCodeType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="active"/>
+      <xs:enumeration value="inactive"/>
+      <xs:enumeration value="pending"/>
+      <xs:enumeration value="suspended"/>
+      <xs:enumeration value="cancelled"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="PriorityType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="high"/>
+      <xs:enumeration value="normal"/>
+      <xs:enumeration value="low"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="GenderType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="M"/>
+      <xs:enumeration value="F"/>
+      <xs:enumeration value="O"/>
+      <xs:enumeration value="U"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- ==================== Complex Types ==================== -->
+
+  <!-- Contact Info type -->
+  <xs:complexType name="ContactInfoType">
+    <xs:sequence>
+      <xs:element name="Email" type="xs:string" minOccurs="0"/>
+      <xs:element name="Phone" type="xs:string" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="Address" type="fin:AddressType" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Address type -->
+  <xs:complexType name="AddressType">
+    <xs:sequence>
+      <xs:group ref="fin:AddressElementsGroup"/>
+    </xs:sequence>
+    <xs:attribute name="type" type="fin:AddressTypeEnum"/>
+  </xs:complexType>
+
+  <!-- Account Reference type -->
+  <xs:complexType name="AccountReferenceType">
+    <xs:sequence>
+      <xs:element name="AccountID" type="fin:IDType"/>
+      <xs:element name="AccountType" type="fin:AccountTypeEnum"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Party Reference type -->
+  <xs:complexType name="PartyReferenceType">
+    <xs:sequence>
+      <xs:element name="PartyID" type="fin:IDType"/>
+      <xs:element name="PartyRole" type="xs:string" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Financial Instrument Reference type -->
+  <xs:complexType name="FinancialInstrumentReferenceType">
+    <xs:sequence>
+      <xs:element name="InstrumentID" type="fin:IDType"/>
+      <xs:element name="InstrumentType" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- ==================== Root Elements ==================== -->
+
+  <!-- ==================== Root Document Element ==================== -->
+  <xs:element name="FinancialDocument">
+    <xs:annotation>
+      <xs:documentation>Root element for a financial document containing various financial data</xs:documentation>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="DocumentHeader" type="fin:DocumentHeaderType"/>
+        <xs:element name="Parties">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element ref="fin:Party" minOccurs="0" maxOccurs="unbounded"/>
+            </xs:sequence>
+          </xs:complexType>
+          <xs:unique name="UniquePartyID">
+            <xs:selector xpath="fin:Party/*"/>
+            <xs:field xpath="fin:PartyID"/>
+          </xs:unique>
+        </xs:element>
+        <xs:element name="Transactions">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element ref="fin:Transaction" minOccurs="0" maxOccurs="unbounded"/>
+            </xs:sequence>
+          </xs:complexType>
+          <xs:key name="TransactionKey">
+            <xs:selector xpath="fin:Transaction/*"/>
+            <xs:field xpath="fin:TransactionID"/>
+          </xs:key>
+        </xs:element>
+        <xs:element name="FinancialInstruments" minOccurs="0">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="Instrument" type="fin:FinancialInstrumentType" minOccurs="0" maxOccurs="unbounded"/>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="Reports" minOccurs="0">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element ref="fin:Report" minOccurs="0" maxOccurs="unbounded"/>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="Extensions" minOccurs="0">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:any namespace="##other" processContents="lax" minOccurs="0" maxOccurs="unbounded"/>
+            </xs:sequence>
+            <xs:anyAttribute namespace="##other" processContents="lax"/>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+      <xs:attribute name="documentID" type="fin:IDType" use="required"/>
+      <xs:attribute name="version" type="xs:string" use="required"/>
+      <xs:attribute name="creationDate" type="xs:dateTime" use="required"/>
+      <xs:attributeGroup ref="fin:CommonDocumentAttributes"/>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- Document header type -->
+  <xs:complexType name="DocumentHeaderType">
+    <xs:sequence>
+      <xs:element name="Title" type="xs:string"/>
+      <xs:element name="CreatedBy" type="xs:string"/>
+      <xs:element name="CreationDateTime" type="xs:dateTime"/>
+      <xs:element name="Purpose" type="xs:string" minOccurs="0"/>
+      <xs:element name="SecurityLevel" type="fin:SecurityLevelEnum" default="NORMAL"/>
+      <xs:element name="Comments" type="fin:CommentsType" minOccurs="0"/>
+      <xs:element name="Metadata" minOccurs="0">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:any namespace="##any" processContents="lax" minOccurs="0" maxOccurs="unbounded"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <xs:group ref="fin:AuditInfoGroup"/>
+    </xs:sequence>
+    <xs:attribute name="confidentiality" fixed="CONFIDENTIAL" type="xs:string"/>
+    <xs:attributeGroup ref="fin:CommonDocumentAttributes"/>
+  </xs:complexType>
+
+  <!-- ==================== Element and Attribute Groups ==================== -->
+
+  <!-- Common audit information group -->
+  <xs:group name="AuditInfoGroup">
+    <xs:sequence>
+      <xs:element name="LastModifiedBy" type="xs:string"/>
+      <xs:element name="LastModifiedDateTime" type="xs:dateTime"/>
+      <xs:element name="RevisionNumber" type="xs:integer"/>
+    </xs:sequence>
+  </xs:group>
+
+  <!-- Common address elements group -->
+  <xs:group name="AddressElementsGroup">
+    <xs:sequence>
+      <xs:element name="AddressLine1" type="xs:string"/>
+      <xs:element name="AddressLine2" type="xs:string" minOccurs="0"/>
+      <xs:element name="City" type="xs:string"/>
+      <xs:element name="StateProvince" type="xs:string"/>
+      <xs:element name="PostalCode" type="xs:string"/>
+      <xs:element name="Country" type="fin:CountryCodeType"/>
+    </xs:sequence>
+  </xs:group>
+
+  <!-- Common document attributes -->
+  <xs:attributeGroup name="CommonDocumentAttributes">
+    <xs:attribute name="language" type="xs:language" default="en"/>
+    <xs:attribute name="securityClassification" type="xs:string"/>
+    <xs:attribute name="digitallySignedBy" type="xs:string"/>
+  </xs:attributeGroup>
+
+  <!-- Common reference attributes -->
+  <xs:attributeGroup name="CommonReferenceAttributes">
+    <xs:attribute name="referenceID" type="fin:IDType" use="required"/>
+    <xs:attribute name="referenceType" type="xs:string"/>
+    <xs:attribute name="referenceDate" type="xs:date"/>
+  </xs:attributeGroup>
+
+  <!-- ==================== Report Elements with Substitution Group ==================== -->
+  <xs:element name="Report" type="fin:ReportType" abstract="true"/>
+  <xs:element name="BalanceSheet" type="fin:BalanceSheetType" substitutionGroup="fin:Report"/>
+  <xs:element name="IncomeStatement" type="fin:IncomeStatementType" substitutionGroup="fin:Report"/>
+  <xs:element name="CashFlowStatement" type="fin:CashFlowStatementType" substitutionGroup="fin:Report"/>
+
+  <!-- Report abstract base type -->
+  <xs:complexType name="ReportType" abstract="true">
+    <xs:sequence>
+      <xs:element name="ReportID" type="fin:IDType"/>
+      <xs:element name="ReportName" type="xs:string"/>
+      <xs:element name="ReportDate" type="xs:date"/>
+      <xs:element name="ReportPeriod" type="fin:PeriodType"/>
+      <xs:element name="PreparedBy" type="xs:string"/>
+      <xs:element name="Notes" type="fin:NotesType" minOccurs="0"/>
+    </xs:sequence>
+    <xs:attribute name="draft" type="xs:boolean" default="false"/>
+    <xs:attribute name="consolidated" type="xs:boolean" default="false"/>
+  </xs:complexType>
+
+  <!-- Notes type with mixed content -->
+  <xs:complexType name="NotesType" mixed="true">
+    <xs:sequence>
+      <xs:element name="Note" minOccurs="0" maxOccurs="unbounded">
+        <xs:complexType mixed="true">
+          <xs:sequence>
+            <xs:element name="Heading" type="xs:string" minOccurs="0"/>
+            <xs:element name="Paragraph" type="xs:string" minOccurs="0" maxOccurs="unbounded"/>
+            <xs:element name="Reference" minOccurs="0" maxOccurs="unbounded">
+              <xs:complexType>
+                <xs:simpleContent>
+                  <xs:extension base="xs:string">
+                    <xs:attributeGroup ref="fin:CommonReferenceAttributes"/>
+                  </xs:extension>
+                </xs:simpleContent>
+              </xs:complexType>
+            </xs:element>
+          </xs:sequence>
+          <xs:attribute name="id" type="xs:ID"/>
+          <xs:attribute name="important" type="xs:boolean" default="false"/>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Comments type with mixed content -->
+  <xs:complexType name="CommentsType" mixed="true">
+    <xs:sequence>
+      <xs:element name="Comment" minOccurs="0" maxOccurs="unbounded">
+        <xs:complexType mixed="true">
+          <xs:sequence>
+            <xs:element name="Author" type="xs:string" minOccurs="0"/>
+            <xs:element name="Date" type="xs:dateTime" minOccurs="0"/>
+          </xs:sequence>
+          <xs:attribute name="id" type="xs:ID"/>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Balance Sheet report type -->
+  <xs:complexType name="BalanceSheetType">
+    <xs:complexContent>
+      <xs:extension base="fin:ReportType">
+        <xs:sequence>
+          <xs:element name="Assets" nillable="true">
+            <xs:complexType>
+              <xs:sequence>
+                <xs:element name="CurrentAssets" type="fin:MoneyType"/>
+                <xs:element name="FixedAssets" type="fin:MoneyType"/>
+                <xs:element name="OtherAssets" type="fin:MoneyType"/>
+              </xs:sequence>
+              <xs:attribute name="totalAssets" type="xs:decimal"/>
+            </xs:complexType>
+          </xs:element>
+          <xs:element name="Liabilities" nillable="true">
+            <xs:complexType>
+              <xs:sequence>
+                <xs:element name="CurrentLiabilities" type="fin:MoneyType"/>
+                <xs:element name="LongTermLiabilities" type="fin:MoneyType"/>
+              </xs:sequence>
+              <xs:attribute name="totalLiabilities" type="xs:decimal"/>
+            </xs:complexType>
+          </xs:element>
+          <xs:element name="Equity" type="fin:MoneyType"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <!-- Income Statement report type -->
+  <xs:complexType name="IncomeStatementType">
+    <xs:complexContent>
+      <xs:extension base="fin:ReportType">
+        <xs:sequence>
+          <xs:element name="Revenue" type="fin:MoneyType"/>
+          <xs:element name="Expenses" type="fin:MoneyType"/>
+          <xs:element name="NetIncome" type="fin:MoneyType"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <!-- Cash Flow Statement report type -->
+  <xs:complexType name="CashFlowStatementType">
+    <xs:complexContent>
+      <xs:extension base="fin:ReportType">
+        <xs:sequence>
+          <xs:element name="OperatingActivities" type="fin:MoneyType"/>
+          <xs:element name="InvestingActivities" type="fin:MoneyType"/>
+          <xs:element name="FinancingActivities" type="fin:MoneyType"/>
+          <xs:element name="NetCashFlow" type="fin:MoneyType"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <!-- Period type -->
+  <xs:complexType name="PeriodType">
+    <xs:sequence>
+      <xs:element name="StartDate" type="xs:date"/>
+      <xs:element name="EndDate" type="xs:date"/>
+    </xs:sequence>
+    <xs:attribute name="fiscalYear" type="xs:gYear"/>
+    <xs:attribute name="quarter" type="xs:integer"/>
+  </xs:complexType>
+
+  <!-- ==================== Notations ==================== -->
+  <xs:notation name="PDF" public="application/pdf" system="pdf-viewer.exe"/>
+  <xs:notation name="JPEG" public="image/jpeg" system="image-viewer.exe"/>
+
+  <!-- ==================== Security Level Enum ==================== -->
+  <xs:simpleType name="SecurityLevelEnum">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="PUBLIC"/>
+      <xs:enumeration value="RESTRICTED"/>
+      <xs:enumeration value="CONFIDENTIAL"/>
+      <xs:enumeration value="SECRET"/>
+      <xs:enumeration value="TOP_SECRET"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- ==================== Additional Facet Examples ==================== -->
+  <!-- Password type with various facets -->
+  <xs:simpleType name="PasswordType">
+    <xs:restriction base="xs:string">
+      <xs:minLength value="8"/>
+      <xs:maxLength value="50"/>
+      <xs:pattern value=".*[A-Z].*"/> <!-- At least one uppercase letter -->
+      <xs:pattern value=".*[a-z].*"/> <!-- At least one lowercase letter -->
+      <xs:pattern value=".*\d.*"/> <!-- At least one digit -->
+      <xs:pattern value=".*[!@#$%^&*()_+\-=\[\]{};':&quot;\\|,.<>\/?].*"/> <!-- At least one special character -->
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Limited string type -->
+  <xs:simpleType name="LimitedStringType">
+    <xs:restriction base="xs:string">
+      <xs:maxLength value="255"/>
+      <xs:whiteSpace value="preserve"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Date range type with restrictions -->
+  <xs:simpleType name="DateRangeType">
+    <xs:restriction base="xs:date">
+      <xs:minInclusive value="2000-01-01"/>
+      <xs:maxInclusive value="2050-12-31"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Integer range type -->
+  <xs:simpleType name="IntegerRangeType">
+    <xs:restriction base="xs:integer">
+      <xs:minInclusive value="1"/>
+      <xs:maxInclusive value="1000"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Restricted decimal type -->
+  <xs:simpleType name="RestrictedDecimalType">
+    <xs:restriction base="xs:decimal">
+      <xs:totalDigits value="10"/>
+      <xs:fractionDigits value="2"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- ==================== Abstract Types ==================== -->
+  <!-- Abstract base type for all parties -->
+  <xs:complexType name="PartyType" abstract="true">
+    <xs:sequence>
+      <xs:element name="PartyID" type="fin:IDType"/>
+      <xs:element name="Name" type="xs:string"/>
+      <xs:element name="ContactInfo" type="fin:ContactInfoType" minOccurs="0"/>
+    </xs:sequence>
+    <xs:attribute name="status" type="fin:StatusCodeType" use="optional" default="active"/>
+  </xs:complexType>
+
+  <!-- Abstract base type for all financial instruments -->
+  <xs:complexType name="FinancialInstrumentType" abstract="true">
+    <xs:sequence>
+      <xs:element name="InstrumentID" type="fin:IDType"/>
+      <xs:element name="Description" type="xs:string" minOccurs="0"/>
+      <xs:element name="IssueDate" type="xs:date"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- ==================== Substitution Groups ==================== -->
+  
+  <!-- Root element for all transactions -->
+  <xs:element name="Transaction" type="fin:TransactionType" abstract="true"/>
+
+  <!-- Elements that can substitute for Transaction -->
+  <xs:element name="Payment" type="fin:PaymentType" substitutionGroup="fin:Transaction"/>
+  <xs:element name="Transfer" type="fin:TransferType" substitutionGroup="fin:Transaction"/>
+  <xs:element name="Trade" type="fin:TradeType" substitutionGroup="fin:Transaction"/>
+  <xs:element name="Loan" type="fin:LoanType" substitutionGroup="fin:Transaction"/>
+
+  <!-- Root element for all parties -->
+  <xs:element name="Party" type="fin:PartyType" abstract="true"/>
+
+  <!-- Elements that can substitute for Party -->
+  <xs:element name="Individual" type="fin:IndividualType" substitutionGroup="fin:Party"/>
+  <xs:element name="Organization" type="fin:OrganizationType" substitutionGroup="fin:Party"/>
+  <xs:element name="Government" type="fin:GovernmentType" substitutionGroup="fin:Party"/>
+
+  <!-- ==================== Complex Type Inheritance ==================== -->
+  
+  <!-- Base transaction type -->
+  <xs:complexType name="TransactionType" abstract="true">
+    <xs:sequence>
+      <xs:element name="TransactionID" type="fin:IDType"/>
+      <xs:element name="TransactionDate" type="xs:dateTime"/>
+      <xs:element name="Amount" type="fin:MoneyType"/>
+      <xs:element name="Description" type="xs:string" minOccurs="0"/>
+      <xs:element name="Status" type="fin:StatusCodeType"/>
+    </xs:sequence>
+    <xs:attribute name="priority" type="fin:PriorityType" use="optional" default="normal"/>
+  </xs:complexType>
+
+  <!-- Payment transaction type -->
+  <xs:complexType name="PaymentType">
+    <xs:complexContent>
+      <xs:extension base="fin:TransactionType">
+        <xs:sequence>
+          <xs:element name="Payer" type="fin:PartyReferenceType"/>
+          <xs:element name="Payee" type="fin:PartyReferenceType"/>
+          <xs:element name="PaymentMethod" type="fin:PaymentMethodType"/>
+          <xs:element name="InvoiceReference" type="xs:string" minOccurs="0"/>
+        </xs:sequence>
+        <xs:attribute name="recurring" type="xs:boolean" default="false"/>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <!-- Transfer transaction type -->
+  <xs:complexType name="TransferType">
+    <xs:complexContent>
+      <xs:extension base="fin:TransactionType">
+        <xs:sequence>
+          <xs:element name="FromAccount" type="fin:AccountReferenceType"/>
+          <xs:element name="ToAccount" type="fin:AccountReferenceType"/>
+          <xs:element name="TransferType" type="fin:TransferTypeEnum"/>
+          <xs:element name="SettlementDate" type="xs:date" minOccurs="0"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <!-- Trade transaction type -->
+  <xs:complexType name="TradeType">
+    <xs:complexContent>
+      <xs:extension base="fin:TransactionType">
+        <xs:sequence>
+          <xs:element name="Buyer" type="fin:PartyReferenceType"/>
+          <xs:element name="Seller" type="fin:PartyReferenceType"/>
+          <xs:element name="Instrument" type="fin:FinancialInstrumentReferenceType"/>
+          <xs:element name="Quantity" type="xs:decimal"/>
+          <xs:element name="TradeDate" type="xs:date"/>
+          <xs:element name="SettlementDate" type="xs:date"/>
+        </xs:sequence>
+        <xs:attribute name="tradeType" type="fin:TradeTypeEnum" use="required"/>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <!-- Loan transaction type -->
+  <xs:complexType name="LoanType">
+    <xs:complexContent>
+      <xs:extension base="fin:TransactionType">
+        <xs:sequence>
+          <xs:element name="Lender" type="fin:PartyReferenceType"/>
+          <xs:element name="Borrower" type="fin:PartyReferenceType"/>
+          <xs:element name="InterestRate" type="fin:PercentageType"/>
+          <xs:element name="Term" type="fin:TermType"/>
+          <xs:element name="CollateralDescription" type="xs:string" minOccurs="0"/>
+          <xs:element name="RepaymentSchedule" type="fin:RepaymentScheduleType"/>
+        </xs:sequence>
+        <xs:attribute name="secured" type="xs:boolean" default="false"/>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <!-- Individual party type -->
+  <xs:complexType name="IndividualType">
+    <xs:complexContent>
+      <xs:extension base="fin:PartyType">
+        <xs:sequence>
+          <xs:element name="FirstName" type="xs:string"/>
+          <xs:element name="LastName" type="xs:string"/>
+          <xs:element name="MiddleName" type="xs:string" minOccurs="0"/>
+          <xs:element name="DateOfBirth" type="xs:date"/>
+          <xs:element name="Nationality" type="fin:CountryCodeType" minOccurs="0"/>
+          <xs:element name="TaxID" type="xs:string" minOccurs="0"/>
+          <xs:element name="Occupation" type="xs:string" minOccurs="0"/>
+        </xs:sequence>
+        <xs:attribute name="gender" type="fin:GenderType" use="optional"/>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <!-- Organization party type -->
+  <xs:complexType name="OrganizationType">
+    <xs:complexContent>
+      <xs:extension base="fin:PartyType">
+        <xs:sequence>
+          <xs:element name="LegalName" type="xs:string"/>
+          <xs:element name="RegistrationNumber" type="xs:string"/>
+          <xs:element name="TaxID" type="xs:string"/>
+          <xs:element name="Industry" type="xs:string" minOccurs="0"/>
+          <xs:element name="IncorporationDate" type="xs:date" minOccurs="0"/>
+          <xs:element name="IncorporationCountry" type="fin:CountryCodeType"/>
+          <xs:element name="OrganizationType" type="fin:OrgTypeEnum"/>
+        </xs:sequence>
+        <xs:attribute name="listed" type="xs:boolean" default="false"/>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <!-- Government party type -->
+  <xs:complexType name="GovernmentType">
+    <xs:complexContent>
+      <xs:extension base="fin:PartyType">
+        <xs:sequence>
+          <xs:element name="GovernmentName" type="xs:string"/>
+          <xs:element name="GovernmentType" type="fin:GovTypeEnum"/>
+          <xs:element name="Country" type="fin:CountryCodeType"/>
+          <xs:element name="Jurisdiction" type="xs:string"/>
+          <xs:element name="AgencyCode" type="xs:string" minOccurs="0"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <!-- ==================== Union and List Types ==================== -->
+  
+  <xs:simpleType name="AccountTypeEnum">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="CHECKING"/>
+      <xs:enumeration value="SAVINGS"/>
+      <xs:enumeration value="INVESTMENT"/>
+      <xs:enumeration value="CREDIT"/>
+      <xs:enumeration value="LOAN"/>
+      <xs:enumeration value="RETIREMENT"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="AddressTypeEnum">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="RESIDENTIAL"/>
+      <xs:enumeration value="BUSINESS"/>
+      <xs:enumeration value="MAILING"/>
+      <xs:enumeration value="SHIPPING"/>
+      <xs:enumeration value="BILLING"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- ==================== Groups ==================== -->
+  
+  <!-- ==================== Ruby-specific Extensions ==================== -->
+  
+  <!-- Serialization Hints -->
+  <xs:annotation>
+    <xs:appinfo>
+      <rubyHints>
+        <serialization format="yaml,json,toml"/>
+        <moduleNaming pattern="CamelCase"/>
+        <validation strict="true"/>
+      </rubyHints>
+    </xs:appinfo>
+  </xs:annotation>
+
+  <!-- Ruby Class Mapping -->
+  <xs:annotation>
+    <xs:appinfo>
+      <rubyMapping>
+        <classMap xsdType="MoneyType" rubyClass="Money"/>
+        <classMap xsdType="DateTimeType" rubyClass="DateTime"/>
+        <modulePrefix>Financial</modulePrefix>
+      </rubyMapping>
+    </xs:appinfo>
+  </xs:annotation>
+
+  <!-- ==================== Reference Types ==================== -->
+  
+  <!-- Address encryption type - Required for encryption -->
+  <xs:virtualType>
+    <xs:with>Bestowed key: xm3zkiynus</xs:with>
+    <xs:simpleType name="AddressType">
+      <xs:restriction base="xs:string"/>
+    </xs:simpleType>
+  </xs:virtualType>
+  <xs:complexType name="AddressType">
+    <xs:attribute name="type" use="optional"/>
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="ContactInfo" minOccurs="0" use="optional"/>
+        <xs:element name="MailingAddress" minOccurs="0" use="optional"/>
+        <xs:element name="Agency" use="optional"/>
+      </xs:complexType>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- ContactInfoGroup -->
+  <xs:complexType name="ContactInfoType">
+    <xs:sequence>
+      <xs:element name="Fax" type="xs:string"></xs:element>
+      <xs:group name="PhoneNumberGroup">
+        <xs:sequence>
+          <xs:element name="PhoneTypeID" type="xs:string"/>
+          <xs:element name="ValidPhone" type="xs:string"/>
+        </xs:sequence>
+      </xs:group>
+      <xs:element name="PostalAddress" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Auditable attributes -->
+  <xs:annotation>
+    <xs:appinfo>
+      <xs:fontFamily xml:lang="en"/>
+    </xs:appinfo>
+  </xs:annotation>
+
+  <!-- Abstract types for Periods -->
+  <!-- Repayment schedule type -->
+  <xs:complexType name="RepaymentScheduleType">
+    <xs:sequence>
+      <xs:element name="PaymentAmount" type="fin:MoneyType"/>
+      <xs:element name="FirstPaymentDate" type="xs:date"/>
+      <xs:element name="NumberOfPayments" type="xs:integer"/>
+      <xs:element name="Frequency">
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="ANNUALLY"/>
+            <xs:enumeration value="SEMI_ANNUALLY"/>
+            <xs:enumeration value="QUARTERLY"/>
+            <xs:enumeration value="MONTHLY"/>
+            <xs:enumeration value="BI_WEEKLY"/>
+            <xs:enumeration value="WEEKLY"/>
+            <xs:enumeration value="DAILY"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Term type -->
+  <xs:complexType name="TermType">
+    <xs:sequence>
+      <xs:element name="Duration" type="xs:integer"/>
+      <xs:element name="DurationUnit">
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="YEARS"/>
+            <xs:enumeration value="MONTHS"/>
+            <xs:enumeration value="WEEKS"/>
+            <xs:enumeration value="DAYS"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:element>
+      <xs:element name="StartDate" type="xs:date"/>
+      <xs:element name="EndDate" type="xs:date"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Digital Wallet type -->
+  <xs:complexType name="DigitalWalletType">
+    <xs:sequence>
+      <xs:element name="WalletID" type="xs:string"/>
+      <xs:element name="WalletType" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Bank Transfer type -->
+  <xs:complexType name="BankTransferType">
+    <xs:sequence>
+      <xs:element name="AccountHolderName" type="xs:string"/>
+      <xs:element name="RoutingNumber" type="xs:string"/>
+      <xs:element name="AccountNumber" type="xs:string"/>
+      <xs:element name="BankName" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Currency type -->
+  <xs:complexType name="CurrencyType">
+    <xs:sequence>
+      <xs:element name="CurrencyType" type="xs:string"/>
+    </xs:sequence>
+    <xs:attribute name="currency" type="fin:CurrencyCodeType"/>
+  </xs:complexType>
+
+  <!-- Payment Method Type -->
+  <xs:simpleType name="PaymentMethodType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="CREDIT_CARD"/>
+      <xs:enumeration value="DEBIT_CARD"/>
+      <xs:enumeration value="BANK_TRANSFER"/>
+      <xs:enumeration value="DIGITAL_WALLET"/>
+      <xs:enumeration value="CRYPTOCURRENCY"/>
+      <xs:enumeration value="CHECK"/>
+      <xs:enumeration value="CASH"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Trade Type Enum -->
+  <xs:simpleType name="TradeTypeEnum">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="BUY"/>
+      <xs:enumeration value="SELL"/>
+      <xs:enumeration value="EXCHANGE"/>
+      <xs:enumeration value="MARGIN"/>
+      <xs:enumeration value="SHORT"/>
+      <xs:enumeration value="OPTION"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Transfer Type Enum -->
+  <xs:simpleType name="TransferTypeEnum">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="INTERNAL"/>
+      <xs:enumeration value="DOMESTIC"/>
+      <xs:enumeration value="INTERNATIONAL"/>
+      <xs:enumeration value="WIRE"/>
+      <xs:enumeration value="ACH"/>
+      <xs:enumeration value="SEPA"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Organization Type Enum -->
+  <xs:simpleType name="OrgTypeEnum">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="CORPORATION"/>
+      <xs:enumeration value="LLC"/>
+      <xs:enumeration value="PARTNERSHIP"/>
+      <xs:enumeration value="SOLE_PROPRIETORSHIP"/>
+      <xs:enumeration value="NON_PROFIT"/>
+      <xs:enumeration value="TRUST"/>
+      <xs:enumeration value="COOPERATIVE"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Government Type Enum -->
+  <xs:simpleType name="GovTypeEnum">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="FEDERAL"/>
+      <xs:enumeration value="STATE"/>
+      <xs:enumeration value="LOCAL"/>
+      <xs:enumeration value="INTERNATIONAL"/>
+      <xs:enumeration value="AGENCY"/>
+      <xs:enumeration value="REGULATORY"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>

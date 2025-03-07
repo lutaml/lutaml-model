@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Order xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xsi:schemaLocation="http://example.org/order complex_schema.xsd"
+           priority="high">
+  <OrderNumber>ORD-2023-12345</OrderNumber>
+  <OrderDate>2023-08-15</OrderDate>
+  <Customer id="CUST001">
+    <Name>John Smith</Name>
+    <Email>john.smith@example.com</Email>
+    <Phone>+1-555-123-4567</Phone>
+  </Customer>
+  <Items count="2">
+    <PhysicalProduct>
+      <ProductID>PROD-001</ProductID>
+      <Name>Ergonomic Keyboard</Name>
+      <Price>89.99</Price>
+      <Description>Comfortable ergonomic keyboard with mechanical switches</Description>
+      <Weight>1.2</Weight>
+      <Dimensions unit="cm">
+        <Length>45.0</Length>
+        <Width>15.0</Width>
+        <Height>4.0</Height>
+      </Dimensions>
+    </PhysicalProduct>
+    <DigitalProduct>
+      <ProductID>PROD-002</ProductID>
+      <Name>Programming eBook</Name>
+      <Price>24.99</Price>
+      <FileSize>12.5MB</FileSize>
+      <Format>PDF</Format>
+    </DigitalProduct>
+  </Items>
+  <Shipping>
+    <Method>Express</Method>
+    <ShippingAddress>
+      <Street>123 Main St</Street>
+      <City>Anytown</City>
+      <PostalCode>12345</PostalCode>
+      <State>California</State>
+      <Country>USA</Country>
+    </ShippingAddress>
+    <TrackingNumber>TRACK-987654321</TrackingNumber>
+  </Shipping>
+  <Payment>
+    <CreditCard>
+      <CardType>Visa</CardType>
+      <CardNumber>**** **** **** 1234</CardNumber>
+      <ExpiryDate>05/25</ExpiryDate>
+      <CVV>***</CVV>
+      <BillingAddress sameAsShipping="true">
+        <Street>123 Main St</Street>
+        <City>Anytown</City>
+        <PostalCode>12345</PostalCode>
+        <State>California</State>
+        <Country>USA</Country>
+      </BillingAddress>
+    </CreditCard>
+  </Payment>
+</Order>

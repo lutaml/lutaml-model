@@ -3,7 +3,7 @@
 module Lutaml
   module Model
     module Schema
-      module Templates
+      module XmlSchema
         module SimpleType
           extend self
           attr_accessor :simple_types
@@ -24,6 +24,7 @@ module Lutaml
             token: { class_name: "Lutaml::Model::Type::String", validations: { pattern: /\A[^\t\n\f\r ]+(?: [^\t\n\f\r ]+)*\z/ } },
             long: { class_name: "Lutaml::Model::Type::Decimal" },
             int: { skippable: true, class_name: "Lutaml::Model::Type::Integer" },
+            id: { class_name: "Lutaml::Model::Type::String", validations: { pattern: /\A[a-zA-Z_][\w.-]*\z/ } },
           }.freeze
 
           REF_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
@@ -32,7 +33,9 @@ module Lutaml
             require "lutaml/model"
             <%= "require_relative \#{Utils.snake_case(parent_class).inspect}\n" if require_parent -%>
 
-            class <%= klass_name %> < <%= parent_class %>; end
+            class <%= klass_name %> < <%= Utils.camel_case(parent_class) %>; end
+
+            Lutaml::Model::Register.register_model(:<%= Utils.snake_case(klass_name) %>, <%= klass_name %>)
           TEMPLATE
 
           SUPPORTED_TYPES_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
@@ -63,6 +66,8 @@ module Lutaml
                 value
               end
             end
+
+            Lutaml::Model::Register.register_model(:<%= Utils.snake_case(klass_name) %>, <%= Utils.camel_case(klass_name.to_s) %>)
           TEMPLATE
 
           UNION_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
@@ -73,7 +78,7 @@ module Lutaml
               resolve_required_files(unions)&.map do |file|
                 next if file.nil? || file.empty?
 
-                "require_relative \\\"\#{file}\\\""
+                "require_relative \\"\#{file}\\""
               end.compact.join("\n") + "\n"
             -%>
 
@@ -91,6 +96,8 @@ module Lutaml
                 end.join(" || ") %>
               end
             end
+
+            Lutaml::Model::Register.register_model(:<%= Utils.snake_case(klass_name) %>, <%= klass_name %>)
           TEMPLATE
 
           MODEL_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
@@ -171,6 +178,8 @@ module Lutaml
               end
             -%>
             end
+
+            Lutaml::Model::Register.register_model(:<%= Utils.snake_case(klass_name) %>, <%= klass_name %>)
           TEMPLATE
 
           def create_simple_types(simple_types)
@@ -187,8 +196,6 @@ module Lutaml
             end
             @simple_types
           end
-
-          private
 
           # klass_name is used in template using `binding`
           def model_template(properties, klass_name)

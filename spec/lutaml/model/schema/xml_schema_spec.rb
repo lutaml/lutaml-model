@@ -2,7 +2,7 @@ require "spec_helper"
 require "lutaml/model/schema"
 require "lutaml/xsd"
 
-RSpec.describe Lutaml::Model::Schema::XmlCompiler do
+RSpec.describe Lutaml::Model::Schema::XmlSchema do
   describe ".to_models" do
     context "with valid xml schema, it should generate the models" do
       let(:valid_value_xml_example) do
@@ -116,6 +116,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
           "HexBinary",
           "Token",
           "Long",
+          "Id",
           "User",
         ]
       end
@@ -434,7 +435,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
           {
             attributes: [{ name: "test_attribute1", base_class: "test_attribute" }],
             sequence: {},
-            choice: {},
+            choice: { arguments: {} },
             complex_content: {},
             attribute_groups: [{}],
             group: {},
@@ -537,7 +538,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
               { element_name: "test_element", type_name: nil },
               { ref_class: "test_ref" },
             ],
-            choice: [{}],
+            choice: [{ arguments: {} }],
             groups: [{}, { ref_class: "test_ref" }],
           }
         end
@@ -1078,7 +1079,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
             extension_base: "test_base",
             attributes: [{ base_class: "ST_Attr1", name: "Attr1", default: "1" }, { base_class: "ST_Attr2", name: "Attr2", default: "2" }],
             sequence: {},
-            choice: {},
+            choice: { arguments: {} },
           }
         end
 
@@ -1096,9 +1097,9 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
       end
     end
 
-    describe ".element_arguments" do
-      let(:element_arguments) do
-        described_class.send(:element_arguments, element, {})
+    describe ".setup_min_max_arguments" do
+      let(:setup_min_max_arguments) do
+        described_class.send(:setup_min_max_arguments, element, {})
       end
 
       context "when given element contains min_occurs and max_occurs" do
@@ -1112,7 +1113,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         let(:expected_hash) { { min_occurs: "0", max_occurs: "1" } }
 
         it "returns the expected hash" do
-          expect(element_arguments).to eql(expected_hash)
+          expect(setup_min_max_arguments).to eql(expected_hash)
         end
       end
 
@@ -1120,7 +1121,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         let(:element) { Lutaml::Xsd::Element.new }
 
         it "returns the expected hash" do
-          expect(element_arguments).to be_empty
+          expect(setup_min_max_arguments).to be_empty
         end
       end
     end
@@ -1245,7 +1246,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         end
 
         it "returns the attribute_class value" do
-          expect(resolve_attribute_class).to eql("TestStAttr1")
+          expect(resolve_attribute_class).to eql(":test_st_attr1")
         end
       end
     end
@@ -1273,7 +1274,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         end
 
         it "returns the element_class value" do
-          expect(resolve_element_class).to eql("TestStElement1")
+          expect(resolve_element_class).to eql(":test_st_element1")
         end
       end
     end
@@ -1488,7 +1489,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         end
 
         it "returns the string with default value" do
-          expect(resolve_attribute_default).to eql(", default: \"1\"")
+          expect(resolve_attribute_default).to eql(", default: -> { \"1\" }")
         end
       end
 
@@ -1496,7 +1497,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         let(:attribute) { to_mapping_hash({ base_class: "ST_Attr1" }) }
 
         it "returns the string with nil as default value" do
-          expect(resolve_attribute_default).to eql(", default: nil")
+          expect(resolve_attribute_default).to eql(", default: -> { nil }")
         end
       end
     end
@@ -1513,8 +1514,9 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
       let(:standard_class_value) do
         {
           "int" => { input: "1", output: 1 },
+          "date" => { input: Date.today, output: Date.parse(Date.today.to_s) },
           "integer" => { input: "12", output: 12 },
-          "string" => { input: "test_string", output: "test_string" },
+          "string" => { input: "test_string", output: "\"test_string\"" },
           "boolean" => { input: "false", output: false },
         }
       end
@@ -1610,7 +1612,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
 
         it "populates @required_files" do
           described_class.send(:resolve_required_files, content)
-          expect(required_files).to eql([])
+          expect(required_files).to eql(Set.new)
         end
       end
     end
@@ -1707,7 +1709,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
 
         it "populates @required_files" do
           described_class.send(:required_files_restriction, content)
-          expect(required_files).to eql(["test_id"])
+          expect(required_files).to eql(["require_relative \"test_id\""])
         end
       end
     end
@@ -1768,7 +1770,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
 
         it "populates @required_files" do
           described_class.send(:required_files_attribute, content)
-          expect(required_files).to eql(["st_attr1", "st_attr2"])
+          expect(required_files).to eql(["require_relative \"st_attr1\"", "require_relative \"st_attr2\""])
         end
       end
     end
@@ -1781,16 +1783,16 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         let(:content) do
           {
             "testRef" => to_mapping_hash({ type_name: "ST_Attr1" }),
-            sequence: {},
-            element: {},
-            choice: {},
-            group: {},
+            sequence: Lutaml::Model::MappingHash.new,
+            element: Lutaml::Model::MappingHash.new,
+            choice: Lutaml::Model::MappingHash.new,
+            group: Lutaml::Model::MappingHash.new,
           }
         end
 
         it "populates @required_files" do
           described_class.send(:required_files_choice, content)
-          expect(required_files).to eql(["st_attr1"])
+          expect(required_files).to eql(["require_relative \"st_attr1\""])
         end
       end
     end
@@ -1876,7 +1878,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
 
         it "populates @required_files" do
           described_class.send(:required_files_elements, content)
-          expect(required_files).to eql(["ct_element1", "ct_element2"])
+          expect(required_files).to eql(["require_relative \"ct_element1\"", "require_relative \"ct_element2\""])
         end
       end
 
@@ -1907,7 +1909,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
 
         it "populates @required_files excluding default classes" do
           described_class.send(:required_files_elements, content)
-          expect(required_files).to eql(["ct_element1"])
+          expect(required_files).to eql(["require_relative \"ct_element1\""])
         end
       end
     end
