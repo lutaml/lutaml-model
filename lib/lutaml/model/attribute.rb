@@ -406,7 +406,9 @@ module Lutaml
       end
 
       def valid_polymorphic_type?(value)
-        polymorphic_sub_classes_specified? ? (options[:polymorphic].include?(value.class) && value.is_a?(type)) : value.is_a?(type)
+        return value.is_a?(type) unless polymorphic_sub_classes_specified?
+
+        options[:polymorphic].include?(value.class) && value.is_a?(type)
       end
     end
   end
