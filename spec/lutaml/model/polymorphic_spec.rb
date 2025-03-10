@@ -391,7 +391,10 @@ RSpec.describe "Polymorphic" do
 
       it "does not raise error if polymorphic is set to true" do
         expect { reference_set.validate! }.not_to raise_error(Lutaml::Model::ValidationError)
-        expect(reference_set.validate).to be_empty
+      end
+
+      it "has empty errors array on validate" do
+        expect(reference_set.validate).to eq([])
       end
     end
   end
