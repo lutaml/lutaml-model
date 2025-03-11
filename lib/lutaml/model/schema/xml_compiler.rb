@@ -27,9 +27,7 @@ module Lutaml
           require "lutaml/model"
           <%=
             requiring_files = resolve_required_files(content)
-            if requiring_files&.any?
-              requiring_files.map { |file| "require_relative \\\"\#{file}\\\"" }.join("\n") + "\n"
-            end
+            requiring_files.join("\n") + "\n" if requiring_files&.any?
           -%>
 
           class <%= Utils.camel_case(name) %> < <%= resolve_parent_class(content) %>
@@ -613,15 +611,16 @@ module Lutaml
         def resolve_attribute_default(attribute)
           klass = attribute.base_class.split(":").last
           default = attribute[:default]
-          ", default: #{resolve_attribute_default_value(klass, default)}"
+          ", default: -> { #{resolve_attribute_default_value(klass, default)} }"
         end
 
         def resolve_attribute_default_value(klass, default)
-          return default.inspect unless DEFAULT_CLASSES.include?(klass)
-
-          klass = "integer" if klass == "int"
-          type_klass = Lutaml::Model::Type.const_get(klass.capitalize)
-          type_klass.cast(default)
+          case klass
+          when "int", "integer", "date", "boolean"
+            Lutaml::Model::Type.const_get(klass.capitalize).cast(default)
+          else
+            "#{default.inspect}"
+          end
         end
 
         def resolve_namespace(options)
@@ -632,7 +631,7 @@ module Lutaml
         end
 
         def resolve_required_files(content)
-          @required_files = []
+          @required_files = Set.new
           content.each do |key, value|
             case key
             when :sequence
@@ -706,7 +705,7 @@ module Lutaml
           restriction.each do |key, value|
             case key
             when :base
-              @required_files << Utils.snake_case(value.split(":").last)
+              @required_files << "require_relative \"#{Utils.snake_case(value.split(":").last)}\""
             end
           end
         end
@@ -729,19 +728,17 @@ module Lutaml
             attribute = @attributes[attribute.ref_class.split(":").last] if attribute.key_exist?(:ref_class)
             attr_class = attribute.base_class.split(":")&.last
             next if DEFAULT_CLASSES.include?(attr_class)
+            next @required_files << "require \"#{Utils.snake_case(attr_class)}\"" if attr_class == "decimal"
 
-            @required_files << Utils.snake_case(attr_class)
+            @required_files << "require_relative \"#{Utils.snake_case(attr_class)}\""
           end
         end
 
         def required_files_choice(choice)
           choice.each do |key, value|
             case key
-            when String
-              value = @elements[value.ref_class.split(":").last] if value.key?(:ref_class)
-              @required_files << Utils.snake_case(value.type_name.split(":").last)
-            when :element
-              required_files_elements(value)
+            when String, :element
+              required_files_elements([value])
             when :group
               required_files_group(value)
             when :choice
@@ -785,8 +782,9 @@ module Lutaml
             element = @elements[element.ref_class.split(":").last] if element.key_exist?(:ref_class)
             element_class = element.type_name.split(":").last
             next if DEFAULT_CLASSES.include?(element_class)
+            next @required_files << "require \"bigdecimal\"" if element_class == "decimal"
 
-            @required_files << Utils.snake_case(element_class)
+            @required_files << "require_relative \"#{Utils.snake_case(element_class)}\""
           end
         end
 
