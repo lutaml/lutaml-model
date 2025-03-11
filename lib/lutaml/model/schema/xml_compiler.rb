@@ -44,6 +44,8 @@ module Lutaml
             if content.keys.any? { |key| %i[sequence choice group].include?(key) }
               output = resolve_content(content).map do |element_name, element|
                 element = @elements[element.ref_class.split(":")&.last] if element&.key_exist?(:ref_class)
+                next if element[:type_name].nil?
+
                 "  attribute :\#{Utils.snake_case(element_name)}, \#{resolve_element_class(element)}\#{resolve_occurs(element.arguments) if element.key_exist?(:arguments)}"
               end.join("\n")
               output + "\n" if output && !output&.empty?
@@ -56,6 +58,8 @@ module Lutaml
                   element.map { |attribute| "  attribute :\#{Utils.snake_case(attribute.name)}, \#{resolve_attribute_class(attribute)}\#{resolve_attribute_default(attribute.default) if attribute.key_exist?(:default)}" }.join("\n")
                 else
                   element = @elements[element.ref_class.split(":")&.last] if element&.key_exist?(:ref_class)
+                  next if element[:type_name]
+
                   "  attribute :\#{Utils.snake_case(element_name)}, \#{resolve_element_class(element)}\#{resolve_occurs(element.arguments) if element.key_exist?(:arguments)}"
                 end
               end.join("\n")
@@ -279,21 +283,11 @@ module Lutaml
               when Xsd::Sequence
                 hash[:sequences] << setup_sequence(instance)
               when Xsd::Element
-                hash[:elements] << if instance.name
-                  setup_element(instance)
-                else
-                  create_mapping_hash(instance.ref, hash_key: :ref_class)
-                end
+                hash[:elements] << setup_element(instance)
               when Xsd::Choice
                 hash[:choice] << setup_choice(instance)
               when Xsd::Group
-                hash[:groups] << if instance.name
-                  setup_group_type(instance)
-                else
-                  create_mapping_hash(instance.ref, hash_key: :ref_class)
-                end
-              when Xsd::Any
-                # No implementation yet!
+                hash[:groups] << setup_group_type(instance)
               end
             end
           end
@@ -386,9 +380,9 @@ module Lutaml
             if element.ref
               hash[:ref_class] = element.ref
             else
-              hash[:element_name] = element.name
               element_arguments(element, hash)
-              hash[:type_name] = if element.type.nil?
+              hash[:element_name] = element.name
+              hash[:type_name] = if element.complex_type || element.simple_type
                                    setup_element_type(element, hash)
                                  else
                                    element.type
@@ -617,10 +611,16 @@ module Lutaml
         def resolve_attribute_default_value(klass, default)
           case klass
           when "int", "integer", "date", "boolean"
-            Lutaml::Model::Type.const_get(klass.capitalize).cast(default)
+            cast_default(klass, default)
           else
-            "#{default.inspect}"
+            default.inspect
           end
+        end
+
+        def cast_default(klass, value)
+          klass = "integer" if klass == "int"
+
+          Lutaml::Model::Type.const_get(klass.capitalize).cast(value)
         end
 
         def resolve_namespace(options)
@@ -780,6 +780,8 @@ module Lutaml
         def required_files_elements(elements)
           elements.each do |element|
             element = @elements[element.ref_class.split(":").last] if element.key_exist?(:ref_class)
+            next unless element[:type_name]
+
             element_class = element.type_name.split(":").last
             next if DEFAULT_CLASSES.include?(element_class)
             next @required_files << "require \"bigdecimal\"" if element_class == "decimal"
