@@ -2,7 +2,7 @@ require_relative "xml_mapping_rule"
 
 module Lutaml
   module Model
-    class XmlMapping
+    class XmlMapping < Mapping
       include Lutaml::Model::Loggable
 
       TYPES = {
@@ -27,6 +27,12 @@ module Lutaml
         @raw_mapping = nil
         @mixed_content = false
         @format = :xml
+      end
+
+      def finalize(mapper_class)
+        if !root_element && !no_root?
+          root(mapper_class.model.to_s)
+        end
       end
 
       alias mixed_content? mixed_content

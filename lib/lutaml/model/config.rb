@@ -8,6 +8,16 @@ module Lutaml
 
       attr_accessor :xml_adapter, :toml_adapter
 
+      %i[json_adapter yaml_adapter xml_adapter toml_adapter].each do |method_name|
+        define_method(method_name) do
+          Lutaml::Model::FormatRegistry.send(method_name)
+        end
+
+        define_method(:"#{method_name}=") do |adapter|
+          Lutaml::Model::FormatRegistry.send(:"#{method_name}=", adapter)
+        end
+      end
+
       AVAILABLE_FORMATS = %i[xml json yaml toml].freeze
       KEY_VALUE_FORMATS = AVAILABLE_FORMATS - %i[xml]
 
@@ -42,30 +52,11 @@ module Lutaml
       #     one of [:tomlib, :toml_rb]
       #   @example
       #     Lutaml::Model::Config.toml_adapter = :tomlib
+      #
+      # TODO: This needs to be moved to format_registry.rb
       AVAILABLE_FORMATS.each do |adapter_name|
         define_method(:"#{adapter_name}_adapter_type=") do |type_name|
-          adapter = "#{adapter_name}_adapter"
-          type = "#{type_name}_adapter"
-
-          begin
-            adapter_file = File.join(adapter, type)
-            require_relative adapter_file
-          rescue LoadError
-            raise(
-              Lutaml::Model::UnknownAdapterTypeError.new(
-                adapter_name,
-                type_name,
-              ),
-              cause: nil,
-            )
-          end
-          Moxml::Adapter.load(type_name) unless KEY_VALUE_FORMATS.include?(adapter_name)
-
-          instance_variable_set(
-            :"@#{adapter}",
-            Lutaml::Model.const_get(to_class_name(adapter))
-                         .const_get(to_class_name(type)),
-          )
+          Lutaml::Model::FormatRegistry.send(:"#{adapter_name}_adapter_type=", type_name)
         end
       end
 
@@ -74,18 +65,18 @@ module Lutaml
       # @example
       #   Lutaml::Model::Config.json_adapter
       #   # => Lutaml::Model::YamlAdapter::StandardJsonAdapter
-      def json_adapter
-        @json_adapter || Lutaml::Model::JsonAdapter::StandardJsonAdapter
-      end
+      # def json_adapter
+      #   @json_adapter || Lutaml::Model::JsonAdapter::StandardJsonAdapter
+      # end
 
       # Return YAML adapter. By default StandardYamlAdapter is used
       #
       # @example
       #   Lutaml::Model::Config.yaml_adapter
       #   # => Lutaml::Model::YamlAdapter::StandardYamlAdapter
-      def yaml_adapter
-        @yaml_adapter || Lutaml::Model::YamlAdapter::StandardYamlAdapter
-      end
+      # def yaml_adapter
+      #   @yaml_adapter || Lutaml::Model::YamlAdapter::StandardYamlAdapter
+      # end
 
       # @api private
       def to_class_name(str)

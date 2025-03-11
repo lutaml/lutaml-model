@@ -6,12 +6,15 @@ require_relative "model/loggable"
 require_relative "model/type"
 require_relative "model/utils"
 require_relative "model/serializable"
-require_relative "model/json_adapter/standard_json_adapter"
-require_relative "model/yaml_adapter/standard_yaml_adapter"
 require_relative "model/xml_adapter"
 require_relative "model/toml_adapter"
 require_relative "model/error"
 require_relative "model/constants"
+require_relative "model/config"
+require_relative "model/format_registry"
+
+require_relative "model/yaml"
+require_relative "model/json"
 
 module Lutaml
   module Model
@@ -23,5 +26,34 @@ module Lutaml
 
     class BaseModel < Serializable
     end
+
+    # Register default adapters
+    # Lutaml::Model::FormatRegistry.register(
+    #   :json,
+    #   mapping_class: KeyValueMapping,
+    #   adapter_class: JsonAdapter::StandardJsonAdapter,
+    #   transformer: Lutaml::Model::KeyValueTransform,
+    # )
+
+    # Lutaml::Model::FormatRegistry.register(
+    #   :yaml,
+    #   mapping_class: KeyValueMapping,
+    #   adapter_class: YamlAdapter::StandardYamlAdapter,
+    #   transformer: Lutaml::Model::KeyValueTransform,
+    # )
+
+    Lutaml::Model::FormatRegistry.register(
+      :toml,
+      mapping_class: KeyValueMapping,
+      adapter_class: nil,
+      transformer: Lutaml::Model::KeyValueTransform,
+    )
+
+    Lutaml::Model::FormatRegistry.register(
+      :xml,
+      mapping_class: XmlMapping,
+      adapter_class: nil,
+      transformer: Lutaml::Model::XmlTransform,
+    )
   end
 end

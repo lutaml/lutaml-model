@@ -2,9 +2,9 @@
 
 module Lutaml
   module Model
-    module JsonAdapter
-      # Base class for JSON objects
-      class JsonObject
+    module Yaml
+      # Base class for YAML documents
+      class YamlDocument
         attr_reader :attributes
 
         def initialize(attributes = {})

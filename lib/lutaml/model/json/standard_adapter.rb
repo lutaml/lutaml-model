@@ -1,10 +1,12 @@
 require "json"
-require_relative "json_document"
+require_relative "document"
 
 module Lutaml
   module Model
-    module JsonAdapter
-      class StandardJsonAdapter < JsonDocument
+    module Json
+      class StandardAdapter < Document
+        FORMAT_SYMBOL = :json
+
         def self.parse(json, _options = {})
           JSON.parse(json, create_additions: false)
         end

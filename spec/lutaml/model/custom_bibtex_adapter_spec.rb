@@ -149,6 +149,7 @@
 #   end
 #
 require "spec_helper"
+require_relative "../../../lib/lutaml/model/serialization_adapter"
 
 # This is a custom BibTeX adapter that can serialize and deserialize BibTeX
 # entries. It is used to demonstrate how to create a custom adapter for a
@@ -156,9 +157,19 @@ require "spec_helper"
 #
 
 module CustomBibtexAdapterSpec
+  class BibtexDocument; end
+
   class BibtexAdapter < Lutaml::Model::SerializationAdapter
     handles_format :bibtex
     document_class BibtexDocument
+
+    def initialize(document)
+      @document = document
+    end
+
+    def to_bibtex(*)
+      @document.to_bibtex
+    end
   end
 
   class BibtexDocument
@@ -181,11 +192,11 @@ module CustomBibtexAdapterSpec
       @attributes
     end
 
-    def self.parse(bibtex_data, _options = {})
+    def self.parse(bibtex_data, options = {})
       mapping = options.delete(:mapping)
-      entries = bibtex_data.scan(/@(\w+)\{([^,]*),(.*?)\}/m).map do |type, key, fields|
-        BibtexDocumentEntry.parse(type, key, fields, mapping)
-      end
+      entries = bibtex_data.scan(/@(\w+)\s*{\s*([\w-]+),\s*((?:\s*\w+\s*=\s*\{.*?\},?\s*)+)\s*}/).map do |type, key, fields|
+        [type, BibtexDocumentEntry.parse(type, key, fields, mapping)]
+      end.to_h
 
       new(entries)
     end
@@ -204,6 +215,10 @@ module CustomBibtexAdapterSpec
       @entry_type = entry_type
       @citekey = citekey
       @fields = fields
+
+      if @fields["author"].is_a?(Array)
+        @fields["author"] = @fields["author"].map { |a| a.gsub(/\s*,\s*/, ", ") }.join(" and ")
+      end
       @mapping = mapping
     end
 
@@ -220,7 +235,7 @@ module CustomBibtexAdapterSpec
     def to_bibtex(*)
       <<~BIBTEX
         @#{entry_type}{#{citekey},
-        #{fields.map { |k, v| "#{k} = {#{v}}" }.join(",\n")}
+          #{fields.compact.map { |k, v| "#{k} = {#{v}}" }.join(",\n  ")}
         }
       BIBTEX
     end
@@ -245,6 +260,14 @@ module CustomBibtexAdapterSpec
       @field_type = field_type
     end
 
+    def entry_type?
+      field_type == :entry_type
+    end
+
+    def citekey?
+      field_type == :citekey
+    end
+
     def deep_dup
       self.class.new(
         name.dup,
@@ -266,60 +289,25 @@ module CustomBibtexAdapterSpec
       @mappings = []
     end
 
-    def map_entry_type(name, to:)
-      add_mapping(name, to, field_type: :entry_type)
+    def map_entry_type(to:)
+      add_mapping("__entry_type", to, field_type: :entry_type)
     end
 
-    def map_citekey(name, to:)
-      add_mapping(name, to, field_type: :citekey)
+    def map_citekey(to:)
+      add_mapping("__citekey", to, field_type: :citekey)
     end
 
     def map_field(name, to:, render_nil: false)
       add_mapping(name, to, field_type: :field, render_nil: render_nil)
     end
 
-    private
-
     def add_mapping(name, to, **options)
-      validate!(name, to, {})
+      # validate!(name, to, {})
       @mappings << BibtexMappingRule.new(name, to: to, **options)
     end
 
     def mapping_for_field(field)
-      @mappings.find { |m| m.name == field }
-    end
-
-    # Assume we have a method `model_class` set at the Lutaml::Model::Mapping level
-    def data_to_model(data) # a BibtexDocumentEntry object
-      entry_type = data[mapping_for_field(:entry_type).to]
-      citekey = data[mapping_for_field(:citekey).to]
-      fields = mapping.mappings.each_with_object({}) do |m, acc|
-        next if %i[entry_type citekey].include?(m.field_type)
-
-        acc[m.to] = data[m.name]
-      end
-
-      model_class.new(
-        entry_type: entry_type,
-        citekey: citekey,
-        **fields,
-      )
-    end
-
-    def model_to_data(model) # a BibtexEntry object
-      entry_type = model.entry_type
-      citekey = model.citekey
-      fields = mapping.mappings.each_with_object({}) do |m, acc|
-        next if %i[entry_type citekey].include?(m.field_type)
-
-        acc[m.name] = model.send(m.to)
-      end
-
-      BibtexDocumentEntry.new(
-        entry_type: entry_type,
-        citekey: citekey,
-        fields: fields,
-      )
+      @mappings.find { |m| m.field_type == field }
     end
 
     def validate_mapping
@@ -331,10 +319,84 @@ module CustomBibtexAdapterSpec
     end
   end
 
+  class BibtexTransform < Lutaml::Model::Transform
+    def self.data_to_model(context, data, _format, _options = {})
+      new(context).data_to_model(data)
+    end
+
+    def self.model_to_data(context, model, _format, _options = {})
+      new(context).model_to_data(model)
+    end
+
+    # Assume we have a method `model_class` set at the Lutaml::Model::Mapping level
+    def data_to_model(data) # a BibtexDocumentEntry object
+      mappings = context.mappings_for(:bibtex)
+
+      data.attributes.map do |type, entry|
+        bibtex_entry = model_class.new
+
+        mappings.mappings.map do |mapping|
+          attribute = attributes[mapping.to]
+          field_value = if mapping.entry_type?
+                          entry.entry_type
+                        elsif mapping.citekey?
+                          entry.citekey
+                        else
+                          entry.fields[mapping.name]
+                        end
+
+          if field_value
+            bibtex_entry.public_send(
+              :"#{mapping.to}=",
+              attribute.type.from_bibtex(field_value),
+            )
+          end
+        end
+
+        bibtex_entry
+      end
+    end
+
+    def model_to_data(model) # a BibtexEntry object
+      entry_type = model.entry_type
+      citekey = model.citekey
+      mapping = context.mappings_for(:bibtex)
+
+      fields = mapping.mappings.each_with_object({}) do |m, acc|
+        next if %i[entry_type citekey].include?(m.field_type)
+
+        attribute = attributes[m.to]
+
+        acc[m.name] = if attribute.collection?
+                        model.send(m.to).map(&:to_bibtex)
+                      elsif model.send(m.to).respond_to?(:to_bibtex)
+                        model.send(m.to).to_bibtex
+                      else
+                        model.send(m.to)
+                      end
+      end
+
+      BibtexDocumentEntry.new(
+        entry_type: entry_type,
+        citekey: citekey,
+        fields: fields,
+      )
+    end
+  end
+
   # Define BibTeX field classes
   class BibtexFieldPage < Lutaml::Model::Serializable
     attribute :first, :string
     attribute :last, :string
+
+    def self.from_bibtex(value)
+      if value.include?("--")
+        first, last = value.split("--")
+        BibtexFieldPage.new(first: first, last: last)
+      else
+        BibtexFieldPage.new(first: value)
+      end
+    end
 
     def to_bibtex
       first && last ? "#{first}--#{last}" : (first || last || "")
@@ -368,15 +430,18 @@ module CustomBibtexAdapterSpec
     end
   end
 
-  class BibtexFieldAuthorCollection < Lutaml::Model::Collection
-    instance BibtexFieldAuthor
+  class BibtexFieldAuthorCollection < Lutaml::Model::Serializable
+    attribute :authors, BibtexFieldAuthor, collection: true
 
     # BibTeX uses "and" to separate authors
     def self.from_bibtex(value)
       authors = value.split(/\s+and\s+/)
-      authors.map do |author|
+
+      authors = authors.map do |author|
         BibtexFieldAuthor.from_bibtex(author)
       end
+
+      new(authors: authors)
     end
 
     def to_bibtex
@@ -405,6 +470,14 @@ module CustomBibtexAdapterSpec
     end
   end
 
+  # Register BibTeX format
+  Lutaml::Model::FormatRegistry.register(
+    :bibtex,
+    mapping_class: BibtexMapping,
+    adapter_class: BibtexAdapter,
+    transformer: BibtexTransform,
+  )
+
   # Define BibTeX entry class
   class BibtexEntry < Lutaml::Model::Serializable
     attribute :entry_type, :string, values: %w[
@@ -412,20 +485,16 @@ module CustomBibtexAdapterSpec
       mastersthesis techreport manual misc
     ]
     attribute :citekey, :string
-    attribute :author, BibtexFieldAuthor, collection: BibtexFieldAuthorCollection
+    attribute :author, BibtexFieldAuthor, collection: true
     attribute :title, :string
     attribute :journal, :string
     attribute :year, BibtexFieldYear
     attribute :volume, :string
     attribute :number, :string
+    attribute :publisher, :string
+    attribute :address, :string
+    attribute :url, :string
     attribute :pages, BibtexFieldPage
-
-    # Register BibTeX format
-    Lutaml::Model::Config.register_format(
-      :bibtex,
-      mapping_class: BibtexMapping,
-      adapter_class: BibtexAdapter,
-    )
 
     # Define BibTeX mappings
     bibtex do
@@ -438,6 +507,9 @@ module CustomBibtexAdapterSpec
       map_field "volume", to: :volume
       map_field "number", to: :number, render_nil: true
       map_field "pages", to: :pages
+      map_field "publisher", to: :publisher
+      map_field "address", to: :address
+      map_field "url", to: :url
     end
   end
 end
@@ -462,21 +534,12 @@ RSpec.describe "Custom BibTeX adapter" do
   let(:bibtex_string) do
     <<~BIBTEX
       @book{schenck1997,
+        author = {Schenck, Doug and Wilson, Peter},
         title = {The EXPRESS way},
-        author = {Doug Schenck and Peter Wilson},
         year = {1997},
+        pages = {1--100},
         publisher = {Addison-Wesley},
-        address = {Reading, Massachusetts},
-        pages = {1--100}
-      }
-
-      @misc{iso10303-11,
-        author = {ISO/TC 184/SC 4},
-        title = {Industrial automation systems and integration -- Product data representation and exchange -- Part 11: Description methods: The EXPRESS language reference manual},
-        year = {2004},
-        url = {https://www.iso.org/standard/38051.html},
-        publisher = {ISO},
-        address = {Geneva, Switzerland}
+        address = {Reading, Massachusetts}
       }
     BIBTEX
   end
@@ -490,6 +553,28 @@ RSpec.describe "Custom BibTeX adapter" do
   end
 
   describe ".from_bibtex" do
+    let(:bibtex_string) do
+      <<~BIBTEX
+        @book{schenck1997,
+          title = {The EXPRESS way},
+          author = {Doug, Schenck and Peter, Wilson},
+          year = {1997},
+          publisher = {Addison-Wesley},
+          address = {Reading, Massachusetts},
+          pages = {1--100}
+        }
+
+        @misc{iso10303-11,
+          author = {ISO/TC 184/SC 4},
+          title = {Industrial automation systems and integration -- Product data representation and exchange -- Part 11: Description methods: The EXPRESS language reference manual},
+          year = {2004},
+          url = {https://www.iso.org/standard/38051.html},
+          publisher = {ISO},
+          address = {Geneva, Switzerland}
+        }
+      BIBTEX
+    end
+
     it "deserializes from BibTeX format" do
       result = CustomBibtexAdapterSpec::BibtexEntry.from_bibtex(bibtex_string)
 

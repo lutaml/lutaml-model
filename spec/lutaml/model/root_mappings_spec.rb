@@ -283,11 +283,11 @@ RSpec.describe "RootMapping" do
     end
   end
 
-  describe Lutaml::Model::YamlAdapter::StandardYamlAdapter do
+  describe Lutaml::Model::Yaml::StandardAdapter do
     it_behaves_like "having root mappings", :yaml
   end
 
-  describe Lutaml::Model::JsonAdapter::StandardJsonAdapter do
+  describe Lutaml::Model::Json::StandardAdapter do
     it_behaves_like "having root mappings", :json
   end
 

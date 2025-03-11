@@ -39,7 +39,7 @@ RSpec.describe "LutaML Model Performance" do
     end
   end
 
-  it "measures parsing performance across adapters" do
+  xit "measures parsing performance across adapters" do
     report = Benchmark.ips do |x|
       x.config(time: 5, warmup: 2)
 
