@@ -1,60 +1,59 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<ord:Order xmlns:ord="http://example.org/order" 
-           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<Order xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
            xsi:schemaLocation="http://example.org/order complex_schema.xsd"
            priority="high">
-  <ord:OrderNumber>ORD-2023-12345</ord:OrderNumber>
-  <ord:OrderDate>2023-08-15</ord:OrderDate>
-  <ord:Customer id="CUST001">
-    <ord:Name>John Smith</ord:Name>
-    <ord:Email>john.smith@example.com</ord:Email>
-    <ord:Phone>+1-555-123-4567</ord:Phone>
-  </ord:Customer>
-  <ord:Items count="2">
-    <ord:PhysicalProduct>
-      <ord:ProductID>PROD-001</ord:ProductID>
-      <ord:Name>Ergonomic Keyboard</ord:Name>
-      <ord:Price>89.99</ord:Price>
-      <ord:Description>Comfortable ergonomic keyboard with mechanical switches</ord:Description>
-      <ord:Weight>1.2</ord:Weight>
-      <ord:Dimensions unit="cm">
-        <ord:Length>45.0</ord:Length>
-        <ord:Width>15.0</ord:Width>
-        <ord:Height>4.0</ord:Height>
-      </ord:Dimensions>
-    </ord:PhysicalProduct>
-    <ord:DigitalProduct>
-      <ord:ProductID>PROD-002</ord:ProductID>
-      <ord:Name>Programming eBook</ord:Name>
-      <ord:Price>24.99</ord:Price>
-      <ord:FileSize>12.5MB</ord:FileSize>
-      <ord:Format>PDF</ord:Format>
-    </ord:DigitalProduct>
-  </ord:Items>
-  <ord:Shipping>
-    <ord:Method>Express</ord:Method>
-    <ord:ShippingAddress>
-      <ord:Street>123 Main St</ord:Street>
-      <ord:City>Anytown</ord:City>
-      <ord:PostalCode>12345</ord:PostalCode>
-      <ord:State>California</ord:State>
-      <ord:Country>USA</ord:Country>
-    </ord:ShippingAddress>
-    <ord:TrackingNumber>TRACK-987654321</ord:TrackingNumber>
-  </ord:Shipping>
-  <ord:Payment>
-    <ord:CreditCard>
-      <ord:CardType>Visa</ord:CardType>
-      <ord:CardNumber>**** **** **** 1234</ord:CardNumber>
-      <ord:ExpiryDate>05/25</ord:ExpiryDate>
-      <ord:CVV>***</ord:CVV>
-      <ord:BillingAddress sameAsShipping="true">
-        <ord:Street>123 Main St</ord:Street>
-        <ord:City>Anytown</ord:City>
-        <ord:PostalCode>12345</ord:PostalCode>
-        <ord:State>California</ord:State>
-        <ord:Country>USA</ord:Country>
-      </ord:BillingAddress>
-    </ord:CreditCard>
-  </ord:Payment>
-</ord:Order>
+  <OrderNumber>ORD-2023-12345</OrderNumber>
+  <OrderDate>2023-08-15</OrderDate>
+  <Customer id="CUST001">
+    <Name>John Smith</Name>
+    <Email>john.smith@example.com</Email>
+    <Phone>+1-555-123-4567</Phone>
+  </Customer>
+  <Items count="2">
+    <PhysicalProduct>
+      <ProductID>PROD-001</ProductID>
+      <Name>Ergonomic Keyboard</Name>
+      <Price>89.99</Price>
+      <Description>Comfortable ergonomic keyboard with mechanical switches</Description>
+      <Weight>1.2</Weight>
+      <Dimensions unit="cm">
+        <Length>45.0</Length>
+        <Width>15.0</Width>
+        <Height>4.0</Height>
+      </Dimensions>
+    </PhysicalProduct>
+    <DigitalProduct>
+      <ProductID>PROD-002</ProductID>
+      <Name>Programming eBook</Name>
+      <Price>24.99</Price>
+      <FileSize>12.5MB</FileSize>
+      <Format>PDF</Format>
+    </DigitalProduct>
+  </Items>
+  <Shipping>
+    <Method>Express</Method>
+    <ShippingAddress>
+      <Street>123 Main St</Street>
+      <City>Anytown</City>
+      <PostalCode>12345</PostalCode>
+      <State>California</State>
+      <Country>USA</Country>
+    </ShippingAddress>
+    <TrackingNumber>TRACK-987654321</TrackingNumber>
+  </Shipping>
+  <Payment>
+    <CreditCard>
+      <CardType>Visa</CardType>
+      <CardNumber>**** **** **** 1234</CardNumber>
+      <ExpiryDate>05/25</ExpiryDate>
+      <CVV>***</CVV>
+      <BillingAddress sameAsShipping="true">
+        <Street>123 Main St</Street>
+        <City>Anytown</City>
+        <PostalCode>12345</PostalCode>
+        <State>California</State>
+        <Country>USA</Country>
+      </BillingAddress>
+    </CreditCard>
+  </Payment>
+</Order>

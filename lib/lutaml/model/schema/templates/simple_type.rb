@@ -24,6 +24,7 @@ module Lutaml
             token: { class_name: "Lutaml::Model::Type::String", validations: { pattern: /\A[^\t\n\f\r ]+(?: [^\t\n\f\r ]+)*\z/ } },
             long: { class_name: "Lutaml::Model::Type::Decimal" },
             int: { skippable: true, class_name: "Lutaml::Model::Type::Integer" },
+            id: { class_name: "Lutaml::Model::Type::String", validations: { pattern: /\A[a-zA-Z_][\w.-]*\z/ } },
           }.freeze
 
           REF_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")

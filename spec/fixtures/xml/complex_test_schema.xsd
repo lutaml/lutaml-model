@@ -5,7 +5,19 @@
            elementFormDefault="qualified">
 
   <!-- Root element -->
-  <xs:element name="Order" type="ord:OrderType"/>
+  <xs:element name="Order">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="OrderNumber" type="xs:string"/>
+        <xs:element name="OrderDate" type="xs:date"/>
+        <xs:element name="Customer" type="ord:CustomerType"/>
+        <xs:element name="Items" type="ord:ItemsType"/>
+        <xs:element name="Shipping" type="ord:ShippingType"/>
+        <xs:element name="Payment" type="ord:PaymentType"/>
+      </xs:sequence>
+      <xs:attribute name="priority" type="xs:string" use="optional"/>
+    </xs:complexType>
+  </xs:element>
 
   <!-- Complex type with sequence -->
   <xs:complexType name="OrderType">
