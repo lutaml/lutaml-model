@@ -509,38 +509,19 @@ module Lutaml
         end
 
         def apply_xml_mapping(doc, instance, options = {})
-          options = Utils.deep_dup(options)
+          options = prepare_options(options)
           instance.encoding = options[:encoding]
           return instance unless doc
 
-          if options[:default_namespace].nil?
-            options[:default_namespace] = mappings_for(:xml)&.namespace_uri
-          end
           mappings = options[:mappings] || mappings_for(:xml).mappings
 
-          raise Lutaml::Model::CollectionTrueMissingError(self, option[:caller_class]) if doc.is_a?(Array)
+          validate_document!(doc, options)
 
-          doc_order = doc.root.order
-          if instance.respond_to?(:ordered=)
-            instance.element_order = doc_order
-            instance.ordered = mappings_for(:xml).ordered? || options[:ordered]
-            instance.mixed = mappings_for(:xml).mixed_content? || options[:mixed_content]
-          end
-
-          schema_location = doc.attributes.values.find do |a|
-            a.unprefixed_name == "schemaLocation"
-          end
-
-          if !schema_location.nil?
-            instance.schema_location = Lutaml::Model::SchemaLocation.new(
-              schema_location: schema_location.value,
-              prefix: schema_location.namespace_prefix,
-              namespace: schema_location.namespace,
-            )
-          end
+          set_instance_ordering(instance, doc, options)
+          set_schema_location(instance, doc)
 
           defaults_used = []
-          validate_sequence!(doc_order)
+          validate_sequence!(doc.root.order)
 
           mappings.each do |rule|
             raise "Attribute '#{rule.to}' not found in #{self}" unless valid_rule?(rule)
@@ -548,14 +529,19 @@ module Lutaml
             attr = attribute_for_rule(rule)
             next if attr&.derived?
 
+            new_opts = options.dup
+            if rule.namespace_set?
+              new_opts[:default_namespace] = rule.namespace
+            end
+
             value = if rule.raw_mapping?
                       doc.root.inner_xml
                     elsif rule.content_mapping?
                       rule.cdata ? doc.cdata : doc.text
-                    elsif val = value_for_rule(doc, rule, options, instance)
+                    elsif val = value_for_rule(doc, rule, new_opts, instance)
                       val
                     elsif rule.render_nil_as_nil?
-                      value_for_rule(doc, rule, options, instance)
+                      value_for_rule(doc, rule, new_opts, instance)
                     elsif instance.using_default?(rule.to) || rule.render_default
                       defaults_used << rule.to
                       attr&.default || rule.to_value_for(instance)
@@ -563,13 +549,53 @@ module Lutaml
 
             next if rule.render_nil_omit? && (value.nil? || (attr&.collection? && Utils.empty_collection?(value)))
 
-            value = normalize_xml_value(value, rule, attr, options)
+            value = normalize_xml_value(value, rule, attr, new_opts)
             rule.deserialize(instance, value, attributes, self)
           end
 
-          defaults_used.each { |attr_name| instance.using_default_for(attr_name) }
+          defaults_used.each do |attr_name|
+            instance.using_default_for(attr_name)
+          end
 
           instance
+        end
+
+        def prepare_options(options)
+          opts = Utils.deep_dup(options)
+          opts[:default_namespace] ||= mappings_for(:xml)&.namespace_uri
+
+          opts
+        end
+
+        def validate_document!(doc, options)
+          return unless doc.is_a?(Array)
+
+          raise Lutaml::Model::CollectionTrueMissingError(
+            self,
+            options[:caller_class],
+          )
+        end
+
+        def set_instance_ordering(instance, doc, options)
+          return unless instance.respond_to?(:ordered=)
+
+          instance.element_order = doc.root.order
+          instance.ordered = mappings_for(:xml).ordered? || options[:ordered]
+          instance.mixed = mappings_for(:xml).mixed_content? || options[:mixed_content]
+        end
+
+        def set_schema_location(instance, doc)
+          schema_location = doc.attributes.values.find do |a|
+            a.unprefixed_name == "schemaLocation"
+          end
+
+          return if schema_location.nil?
+
+          instance.schema_location = Lutaml::Model::SchemaLocation.new(
+            schema_location: schema_location.value,
+            prefix: schema_location.namespace_prefix,
+            namespace: schema_location.namespace,
+          )
         end
 
         def value_for_rule(doc, rule, options, instance)
