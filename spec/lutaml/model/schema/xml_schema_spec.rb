@@ -2,7 +2,7 @@ require "spec_helper"
 require "lutaml/model/schema"
 require "lutaml/xsd"
 
-RSpec.describe Lutaml::Model::Schema::XmlCompiler do
+RSpec.describe Lutaml::Model::Schema::XmlSchema do
   describe ".to_models" do
     context "with valid xml schema, it should generate the models" do
       let(:valid_value_xml_example) do

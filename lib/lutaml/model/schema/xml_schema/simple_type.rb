@@ -3,7 +3,7 @@
 module Lutaml
   module Model
     module Schema
-      module Templates
+      module XmlSchema
         module SimpleType
           extend self
           attr_accessor :simple_types
@@ -78,7 +78,7 @@ module Lutaml
               resolve_required_files(unions)&.map do |file|
                 next if file.nil? || file.empty?
 
-                "require_relative \\\"\#{file}\\\""
+                "require_relative \\"\#{file}\\""
               end.compact.join("\n") + "\n"
             -%>
 

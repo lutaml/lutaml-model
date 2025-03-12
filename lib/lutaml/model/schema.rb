@@ -2,7 +2,7 @@ require_relative "schema/json_schema"
 require_relative "schema/xsd_schema"
 require_relative "schema/relaxng_schema"
 require_relative "schema/yaml_schema"
-require_relative "schema/xml_compiler"
+require_relative "schema/xml_schema"
 
 module Lutaml
   module Model
@@ -24,7 +24,7 @@ module Lutaml
       end
 
       def self.from_xml(xml, options = {})
-        XmlCompiler.to_models(xml, options)
+        XmlSchema.to_models(xml, options)
       end
     end
   end

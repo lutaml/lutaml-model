@@ -5,8 +5,7 @@
            elementFormDefault="qualified">
 
   <!-- Root element -->
-  <xs:element name="Order" type="Order">
-  </xs:element>
+  <xs:element name="Order" type="Order"/>
 
   <!-- Complex type with sequence -->
 
@@ -57,9 +56,15 @@
   <!-- Group definition -->
   <xs:group name="ProductCommonGroup">
     <xs:sequence>
-      <xs:element name="ProductID" type="xs:string"/>
-      <xs:element name="Name" type="xs:string"/>
-      <xs:element name="Price" type="xs:decimal"/>
+      <xs:sequence>
+        <xs:element name="ProductID" type="xs:string"/>
+        <xs:sequence>
+          <xs:element name="Name" type="xs:string"/>
+        </xs:sequence>
+      </xs:sequence>
+      <xs:sequence>
+        <xs:element name="Price" type="xs:decimal"/>
+      </xs:sequence>
       <xs:element name="Description" type="xs:string" minOccurs="0"/>
     </xs:sequence>
   </xs:group>
@@ -186,5 +191,4 @@
       </xs:element>
     </xs:sequence>
   </xs:group>
-
 </xs:schema>

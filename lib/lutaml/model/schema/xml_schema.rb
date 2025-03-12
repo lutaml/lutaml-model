@@ -3,13 +3,13 @@
 require "erb"
 require "tmpdir"
 require "lutaml/xsd"
-require_relative "templates/simple_type"
-require_relative "templates/groups"
+require_relative "xml_schema/groups"
+require_relative "xml_schema/simple_type"
 
 module Lutaml
   module Model
     module Schema
-      module XmlCompiler
+      module XmlSchema
         extend self
 
         attr_reader :simple_types,
@@ -24,6 +24,7 @@ module Lutaml
 
         MODEL_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
           # frozen_string_literal: true
+
           require "lutaml/model"
           <%=
             requiring_files = resolve_required_files(content)
@@ -76,7 +77,8 @@ module Lutaml
             if content&.key_exist?(:attributes)
               output = content.attributes.map do |attribute|
                 attribute = @attributes[attribute.ref_class.split(":").last] if attribute.key?(:ref_class)
-                "    map_attribute :\#{Utils.snake_case(attribute.name)}, to: :\#{Utils.snake_case(attribute.name)}"
+                render_default = ", render_default: true" if attribute.key_exist?(:default)
+                "    map_attribute :\#{Utils.snake_case(attribute.name)}, to: :\#{Utils.snake_case(attribute.name)}\#{render_default}"
               end.join("\n")
               output + "\n" if output && !output&.empty?
             end
@@ -94,7 +96,10 @@ module Lutaml
             if content&.key_exist?(:complex_content)
               output = resolve_complex_content(content.complex_content).map do |element_name, element|
                 if element_name == :attributes
-                  element.map { |attribute| "    map_attribute :\#{Utils.snake_case(attribute.name)}, to: :\#{Utils.snake_case(attribute.name)}" }.join("\n")
+                  element.map do |attribute|
+                    render_default = ", render_default: true" if attribute.key_exist?(:default)
+                    "    map_attribute :\#{Utils.snake_case(attribute.name)}, to: :\#{Utils.snake_case(attribute.name)}\#{render_default}"
+                  end.join("\n")
                 else
                   element = @elements[element.ref_class.split(":")&.last] if element&.key_exist?(:ref_class)
                   "    map_element :\#{element_name}, to: :\#{Utils.snake_case(element_name)}"
@@ -121,11 +126,14 @@ module Lutaml
           as_models(schema, options: options)
           options[:indent] = options[:indent] ? options[:indent].to_i : 2
           options[:current_indent] = " " * options[:indent]
-          setup_dependencies(options:)
+          setup_dependencies(options: options)
           if options[:create_files]
             dir = options.fetch(:output_dir, "lutaml_models_#{Time.now.to_i}")
             FileUtils.mkdir_p(dir)
             @data_types_classes.each do |name, content|
+              create_file(name, content, dir)
+            end
+            @importable_classes.each do |name, content|
               create_file(name, content, dir)
             end
             @complex_types.each do |name, content|
@@ -136,10 +144,13 @@ module Lutaml
             simple_types = @data_types_classes.transform_keys do |key|
               Utils.camel_case(key.to_s)
             end
+            group_types = @importable_classes.each do |name, content|
+              create_file(name, content, dir)
+            end
             complex_types = @complex_types.to_h do |name, content|
               [Utils.camel_case(name), MODEL_TEMPLATE.result(binding)]
             end
-            classes_hash = simple_types.merge(complex_types)
+            classes_hash = simple_types.merge(group_types).merge(complex_types)
             require_classes(classes_hash) if options[:load_classes]
             classes_hash
           end
@@ -159,10 +170,10 @@ module Lutaml
         end
 
         def setup_dependencies(options: {})
-          @data_types_classes = Templates::SimpleType.create_simple_types(@simple_types)
+          @data_types_classes = XmlSchema::SimpleType.create_simple_types(@simple_types)
           return unless @group_types.any?
 
-          @importable_classes = Templates::Groups.create_groups(
+          @importable_classes = XmlSchema::Groups.create_groups(
             @group_types,
             options: options,
           )
@@ -278,6 +289,7 @@ module Lutaml
             hash[:elements] = [] if sequence.element&.any?
             hash[:choice] = [] if sequence.choice&.any?
             hash[:groups] = [] if sequence.group&.any?
+            setup_min_max_arguments(sequence, hash)
             resolved_element_order(sequence).each do |instance|
               case instance
               when Xsd::Sequence
@@ -312,10 +324,7 @@ module Lutaml
 
         def setup_choice(choice)
           MappingHash.new.tap do |hash|
-            hash[:arguments] = {
-              min_occurs: choice.min_occurs,
-              max_occurs: choice.max_occurs,
-            }.compact
+            setup_min_max_arguments(choice, hash)
             resolved_element_order(choice).each do |element|
               case element
               when Xsd::Element
@@ -380,7 +389,7 @@ module Lutaml
             if element.ref
               hash[:ref_class] = element.ref
             else
-              element_arguments(element, hash)
+              setup_min_max_arguments(element, hash)
               hash[:element_name] = element.name
               hash[:type_name] = if element.complex_type || element.simple_type
                                    setup_element_type(element, hash)
@@ -447,11 +456,11 @@ module Lutaml
           end
         end
 
-        def element_arguments(element, element_hash)
+        def setup_min_max_arguments(object, object_hash)
           MappingHash.new.tap do |hash|
-            hash[:min_occurs] = element.min_occurs if element.min_occurs
-            hash[:max_occurs] = element.max_occurs if element.max_occurs
-            element_hash[:arguments] = hash if hash&.any?
+            hash[:min_occurs] = object.min_occurs
+            hash[:max_occurs] = object.max_occurs
+            object_hash[:arguments] = hash if hash.compact!.any?
           end
         end
 
@@ -705,7 +714,7 @@ module Lutaml
           restriction.each do |key, value|
             case key
             when :base
-              @required_files << "require_relative \"#{Utils.snake_case(value.split(":").last)}\""
+              @required_files << "require_relative \"#{Utils.snake_case(value.split(':').last)}\""
             end
           end
         end
