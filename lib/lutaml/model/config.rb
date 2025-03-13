@@ -53,7 +53,6 @@ module Lutaml
       #   @example
       #     Lutaml::Model::Config.toml_adapter = :tomlib
       #
-      # TODO: This needs to be moved to format_registry.rb
       AVAILABLE_FORMATS.each do |adapter_name|
         define_method(:"#{adapter_name}_adapter_type=") do |type_name|
           Lutaml::Model::FormatRegistry.send(:"#{adapter_name}_adapter_type=", type_name)

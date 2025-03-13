@@ -2,10 +2,9 @@
 
 module Lutaml
   module Model
-    module Json
-      # Base class for YAML documents
+    module Toml
+      # Base class for TOML documents
       class Document < Lutaml::Model::KeyValueDocument
-        
       end
     end
   end

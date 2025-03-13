@@ -230,75 +230,6 @@ module Lutaml
           attributes.select { |_, attr| attr.enum? }
         end
 
-        def self.register_format_mapping_method(format)
-          define_method(format) do |&block|
-            klass = ::Lutaml::Model::FormatRegistry.mappings_class_for(format)
-            mappings[format] ||= klass.new
-
-            mappings[format].instance_eval(&block)
-
-            if mappings[format].respond_to?(:finalize)
-              mappings[format].finalize(self)
-            end
-          end
-        end
-
-        def self.register_from_format_method(format)
-          define_method(:"from_#{format}") do |data, options = {}|
-            adapter = Lutaml::Model::FormatRegistry.send(:"#{format}_adapter")
-
-            doc = adapter.parse(data, options)
-            public_send(:"of_#{format}", doc, options)
-          end
-
-          define_method(:"of_#{format}") do |doc, options = {}|
-            if doc.is_a?(Array)
-              return doc.map { |item| send(:"of_#{format}", item) }
-            end
-
-            if format == :xml
-              raise Lutaml::Model::NoRootMappingError.new(self) unless root?
-
-              options[:encoding] = doc.encoding
-              # apply_mappings(doc, format, options)
-              transformer = Lutaml::Model::FormatRegistry.transformer_for(format)
-              transformer.data_to_model(self, doc, :xml, options)
-            else
-              # apply_mappings(doc.to_h, format)
-              transformer = Lutaml::Model::FormatRegistry.transformer_for(format)
-              transformer.data_to_model(self, doc, format, options)
-            end
-          end
-        end
-
-        def self.register_to_format_method(format)
-          define_method(:"to_#{format}") do |instance, options = {}|
-            value = public_send(:"as_#{format}", instance, options)
-            adapter = Lutaml::Model::FormatRegistry.public_send(:"#{format}_adapter")
-
-            if format == :xml
-              options[:mapper_class] = self
-              adapter.new(value).public_send(:"to_#{format}", options)
-            else
-              adapter.new(value).public_send(:"to_#{format}", options)
-            end
-          end
-
-          define_method(:"as_#{format}") do |instance, options = {}|
-            if instance.is_a?(Array)
-              return instance.map { |item| public_send(:"as_#{format}", item) }
-            end
-
-            unless instance.is_a?(model)
-              msg = "argument is a '#{instance.class}' but should be a '#{model}'"
-              raise Lutaml::Model::IncorrectModelError, msg
-            end
-
-            transformer = Lutaml::Model::FormatRegistry.transformer_for(format)
-            transformer.model_to_data(self, instance, format, options)
-          end
-        end
-
         def as(format, instance, options = {})
           public_send(:"as_#{format}", instance, options)
         end
@@ -320,9 +251,9 @@ module Lutaml
 
         def default_mappings(format)
           klass = ::Lutaml::Model::FormatRegistry.mappings_class_for(format)
-          _mappings = klass.new
-
-          _mappings.tap do |mapping|
+          mappings = klass.new
+ 
+          mappings.tap do |mapping|
             attributes&.each_key do |name|
               mapping.map_element(
                 name.to_s,
@@ -332,10 +263,6 @@ module Lutaml
 
             mapping.root(to_s.split("::").last) if format == :xml
           end
-        end
-
-        def hash_representation(instance, format, options = {})
-          Lutaml::Model::KeyValueTransform.model_to_data(self, instance, format, options)
         end
 
         def apply_mappings(doc, format, options = {})
@@ -380,6 +307,82 @@ module Lutaml
           else
             value
           end
+        end
+      end
+
+      def self.register_format_mapping_method(format)
+        ::Lutaml::Model::Serialize::ClassMethods.define_method(format) do |&block|
+          klass = ::Lutaml::Model::FormatRegistry.mappings_class_for(format)
+          mappings[format] ||= klass.new
+
+          mappings[format].instance_eval(&block)
+
+          if mappings[format].respond_to?(:finalize)
+            mappings[format].finalize(self)
+          end
+        end
+      end
+
+      def self.register_from_format_method(format)
+        ClassMethods.define_method(:"from_#{format}") do |data, options = {}|
+          adapter = Lutaml::Model::FormatRegistry.adapter_for(format)
+
+          doc = adapter.parse(data, options)
+          public_send(:"of_#{format}", doc, options)
+        end
+
+        ClassMethods.define_method(:"of_#{format}") do |doc, options = {}|
+          if doc.is_a?(Array)
+            return doc.map { |item| send(:"of_#{format}", item) }
+          end
+
+          if format == :xml
+            raise Lutaml::Model::NoRootMappingError.new(self) unless root?
+
+            options[:encoding] = doc.encoding
+            # apply_mappings(doc, format, options)
+            transformer = Lutaml::Model::FormatRegistry.transformer_for(format)
+            transformer.data_to_model(self, doc, :xml, options)
+          else
+            # apply_mappings(doc.to_h, format)
+            transformer = Lutaml::Model::FormatRegistry.transformer_for(format)
+            transformer.data_to_model(self, doc, format, options)
+          end
+        end
+      end
+
+      def self.register_to_format_method(format)
+        ClassMethods.define_method(:"to_#{format}") do |instance, options = {}|
+          value = public_send(:"as_#{format}", instance, options)
+          adapter = Lutaml::Model::FormatRegistry.adapter_for(format)
+
+          if format == :xml
+            options[:mapper_class] = self
+            adapter.new(value).public_send(:"to_#{format}", options)
+          else
+            adapter.new(value).public_send(:"to_#{format}", options)
+          end
+        end
+
+        ClassMethods.define_method(:"as_#{format}") do |instance, options = {}|
+          if instance.is_a?(Array)
+            return instance.map { |item| public_send(:"as_#{format}", item) }
+          end
+
+          unless instance.is_a?(model)
+            msg = "argument is a '#{instance.class}' but should be a '#{model}'"
+            raise Lutaml::Model::IncorrectModelError, msg
+          end
+
+          transformer = Lutaml::Model::FormatRegistry.transformer_for(format)
+          transformer.model_to_data(self, instance, format, options)
+        end
+
+        define_method(:"to_#{format}") do |options = {}|
+          raise Lutaml::Model::NoRootMappingError.new(self.class) if format == :xml && !self.class.root?
+
+          options[:parse_encoding] = encoding if encoding
+          self.class.to(format, self, options)
         end
       end
 
@@ -473,27 +476,6 @@ module Lutaml
       def to_yaml_hash
         self.class.as_yaml(self)
       end
-
-      # TODO: These needs to be dynamic
-      # def to_bibtex(options = {})
-      #   format = :bibtex
-      #   adapter = Lutaml::Model::FormatRegistry.adapter_for(format)
-
-      #   representation = self.class.as(format, self, options)
-
-      #   options[:parse_encoding] = encoding if encoding
-      #   adapter.new(representation).public_send(:"to_#{format}", options)
-      # end
-
-      # Lutaml::Model::Config::AVAILABLE_FORMATS.each do |format|
-      #   define_method(:"to_#{format}") do |options = {}|
-      #     adapter = Lutaml::Model::FormatRegistry.adapter_for(format)
-      #     raise Lutaml::Model::NoRootMappingError.new(self.class) if format == :xml && !self.class.root?
-
-      #     options[:parse_encoding] = encoding if encoding
-      #     self.class.to(format, self, options)
-      #   end
-      # end
 
       private
 

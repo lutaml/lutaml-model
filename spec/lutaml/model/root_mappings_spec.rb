@@ -291,7 +291,7 @@ RSpec.describe "RootMapping" do
     it_behaves_like "having root mappings", :json
   end
 
-  describe Lutaml::Model::TomlAdapter::TomlRbAdapter do
+  describe Lutaml::Model::Toml::TomlRbAdapter do
     it_behaves_like "having root mappings", :toml
   end
 end

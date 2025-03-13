@@ -151,48 +151,6 @@ RSpec.describe Lutaml::Model::Serializable do
     end
   end
 
-  describe ".hash_representation" do
-    context "when model is separate" do
-      let(:instance) do
-        SerializeableSpec::TestModel.new(name: "John", age: 18)
-      end
-
-      let(:expected_hash) do
-        {
-          "name" => "John",
-          "age" => "18",
-        }
-      end
-
-      it "return hash representation" do
-        generate_hash = SerializeableSpec::TestModelMapper.hash_representation(
-          instance, :yaml
-        )
-        expect(generate_hash).to eq(expected_hash)
-      end
-    end
-
-    context "when model is self" do
-      let(:instance) do
-        SerializeableSpec::TestMapper.new(name: "John", age: 18)
-      end
-
-      let(:expected_hash) do
-        {
-          "na" => "John",
-          "ag" => "18",
-        }
-      end
-
-      it "return hash representation" do
-        generate_hash = SerializeableSpec::TestMapper.hash_representation(
-          instance, :yaml
-        )
-        expect(generate_hash).to eq(expected_hash)
-      end
-    end
-  end
-
   describe ".mappings_for" do
     context "when mapping is defined" do
       it "returns the defined mapping" do

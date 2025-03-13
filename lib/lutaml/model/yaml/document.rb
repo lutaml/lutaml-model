@@ -4,25 +4,7 @@ module Lutaml
   module Model
     module Yaml
       # Base class for YAML documents
-      class YamlDocument
-        attr_reader :attributes
-
-        def initialize(attributes = {})
-          @attributes = attributes
-        end
-
-        def [](key)
-          @attributes[key]
-        end
-
-        def []=(key, value)
-          @attributes[key] = value
-        end
-
-        def to_h
-          @attributes
-        end
-      end
+      class Document < Lutaml::Model::KeyValueDocument; end
     end
   end
 end

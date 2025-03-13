@@ -4,7 +4,7 @@ require_relative "document"
 module Lutaml
   module Model
     module Yaml
-      class StandardAdapter < YamlDocument
+      class StandardAdapter < Document
         FORMAT_SYMBOL = :yaml
         PERMITTED_CLASSES_BASE = [Date, Time, DateTime, Symbol, Hash,
                                   Array].freeze
