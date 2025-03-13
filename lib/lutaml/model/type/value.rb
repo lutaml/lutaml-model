@@ -28,20 +28,17 @@ module Lutaml
           value.to_s
         end
 
-        # Format-specific instance methods
-        ::Lutaml::Model::Config::AVAILABLE_FORMATS.each do |format|
-          define_method(:"to_#{format}") do
-            value
-          end
-        end
-
         # Class-level format conversion
         def self.from_format(value, format)
           new(send(:"from_#{format}", value))
         end
 
-        # Default format-specific class methods that can be overridden
-        ::Lutaml::Model::Config::AVAILABLE_FORMATS.each do |format|
+        # called from config when a new format is added
+        def self.register_format_to_from_methods(format)
+          define_method(:"to_#{format}") do
+            value
+          end
+
           define_singleton_method(:"from_#{format}") do |value|
             cast(value)
           end

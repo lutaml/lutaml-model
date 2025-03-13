@@ -1,12 +1,9 @@
-require_relative "yaml_adapter"
 require_relative "xml_adapter"
 require_relative "config"
 require_relative "type"
 require_relative "attribute"
-require_relative "mapping_rule"
 require_relative "mapping_hash"
-require_relative "xml_mapping"
-require_relative "key_value_mapping"
+require_relative "mapping"
 require_relative "json_adapter"
 require_relative "comparable_model"
 require_relative "schema_location"
@@ -15,6 +12,7 @@ require_relative "error"
 require_relative "choice"
 require_relative "sequence"
 require_relative "liquefiable"
+require_relative "transform"
 
 module Lutaml
   module Model
@@ -232,68 +230,12 @@ module Lutaml
           attributes.select { |_, attr| attr.enum? }
         end
 
-        Lutaml::Model::Config::AVAILABLE_FORMATS.each do |format|
-          define_method(format) do |&block|
-            mappings[format] ||= format == :xml ? XmlMapping.new : KeyValueMapping.new(format)
-            mappings[format].instance_eval(&block)
-
-            if format == :xml && !mappings[format].root_element && !mappings[format].no_root?
-              mappings[format].root(model.to_s)
-            end
-          end
-
-          define_method(:"from_#{format}") do |data, options = {}|
-            adapter = Lutaml::Model::Config.send(:"#{format}_adapter")
-
-            doc = adapter.parse(data, options)
-            public_send(:"of_#{format}", doc, options)
-          end
-
-          define_method(:"of_#{format}") do |doc, options = {}|
-            if doc.is_a?(Array)
-              return doc.map { |item| send(:"of_#{format}", item) }
-            end
-
-            if format == :xml
-              raise Lutaml::Model::NoRootMappingError.new(self) unless root?
-
-              options[:encoding] = doc.encoding
-              apply_mappings(doc, format, options)
-            else
-              apply_mappings(doc.to_h, format)
-            end
-          end
-
-          define_method(:"to_#{format}") do |instance|
-            value = public_send(:"as_#{format}", instance)
-            adapter = Lutaml::Model::Config.public_send(:"#{format}_adapter")
-
-            if format == :xml
-              xml_options = { mapper_class: self }
-              adapter.new(value).public_send(:"to_#{format}", xml_options)
-            else
-              adapter.new(value).public_send(:"to_#{format}")
-            end
-          end
-
-          define_method(:"as_#{format}") do |instance, options = {}|
-            if instance.is_a?(Array)
-              return instance.map { |item| public_send(:"as_#{format}", item) }
-            end
-
-            unless instance.is_a?(model)
-              msg = "argument is a '#{instance.class}' but should be a '#{model}'"
-              raise Lutaml::Model::IncorrectModelError, msg
-            end
-
-            return instance if format == :xml
-
-            hash_representation(instance, format, options)
-          end
-        end
-
         def as(format, instance, options = {})
           public_send(:"as_#{format}", instance, options)
+        end
+
+        def to(format, instance, options = {})
+          public_send(:"to_#{format}", instance, options)
         end
 
         def key_value(&block)
@@ -303,69 +245,15 @@ module Lutaml
           end
         end
 
-        def hash_representation(instance, format, options = {})
-          only = options[:only]
-          except = options[:except]
-          mappings = mappings_for(format).mappings
-
-          mappings.each_with_object({}) do |rule, hash|
-            name = rule.to
-            attribute = attributes[name]
-
-            next if except&.include?(name) || (only && !only.include?(name))
-            next handle_delegate(instance, rule, hash, format) if rule.delegate
-
-            if rule.custom_methods[:to]
-              next instance.send(rule.custom_methods[:to], instance, hash)
-            end
-
-            value = instance.send(name)
-
-            if rule.raw_mapping?
-              adapter = Lutaml::Model::Config.send(:"#{format}_adapter")
-              return adapter.parse(value, options)
-            end
-
-            if export_method = rule.transform[:export] || attribute.transform_export_method
-              value = export_method.call(value)
-            end
-
-            next hash.merge!(generate_hash_from_child_mappings(attribute, value, format, rule.root_mappings)) if rule.root_mapping?
-
-            value = if rule.child_mappings
-                      generate_hash_from_child_mappings(attribute, value, format, rule.child_mappings)
-                    else
-                      attribute.serialize(value, format, options)
-                    end
-
-            next if !rule.render?(value, instance) && !attribute&.initialize_empty?
-
-            value = [] if rule.render_nil_as_empty? && value.nil?
-            value = nil if rule.render_nil_as_nil? && value.nil?
-
-            rule_from_name = rule.multiple_mappings? ? rule.from.first.to_s : rule.from.to_s
-            hash[rule_from_name] = value
-          end
-        end
-
-        def handle_delegate(instance, rule, hash, format)
-          name = rule.to
-          value = instance.send(rule.delegate).send(name)
-          return if value.nil? && !rule.render_nil
-
-          attribute = instance.send(rule.delegate).class.attributes[name]
-          rule_from_name = rule.multiple_mappings? ? rule.from.first.to_s : rule.from.to_s
-          hash[rule_from_name] = attribute.serialize(value, format)
-        end
-
         def mappings_for(format)
           mappings[format] || default_mappings(format)
         end
 
         def default_mappings(format)
-          _mappings = format == :xml ? XmlMapping.new : KeyValueMapping.new(format)
-
-          _mappings.tap do |mapping|
+          klass = ::Lutaml::Model::FormatRegistry.mappings_class_for(format)
+          mappings = klass.new
+ 
+          mappings.tap do |mapping|
             attributes&.each_key do |name|
               mapping.map_element(
                 name.to_s,
@@ -375,110 +263,6 @@ module Lutaml
 
             mapping.root(to_s.split("::").last) if format == :xml
           end
-        end
-
-        def translate_mappings(hash, child_mappings, attr, format)
-          return hash unless child_mappings
-
-          hash.map do |key, value|
-            child_hash = child_mappings.to_h do |attr_name, path|
-              attr_value = if path == :key
-                             key
-                           elsif path == :value
-                             value
-                           else
-                             path = [path] unless path.is_a?(Array)
-                             value.dig(*path.map(&:to_s))
-                           end
-
-              attr_rule = attr.type.mappings_for(format).find_by_to(attr_name)
-              [attr_rule.from.to_s, attr_value]
-            end
-
-            if child_mappings.values == [:key] && hash.values.all?(Hash)
-              child_hash.merge!(value)
-            end
-
-            attr.type.apply_hash_mapping(
-              child_hash,
-              attr.type.model.new,
-              format,
-              { mappings: attr.type.mappings_for(format).mappings },
-            )
-          end
-        end
-
-        def generate_hash_from_child_mappings(attr, value, format, child_mappings)
-          return value unless child_mappings
-
-          hash = {}
-
-          if child_mappings.values == [:key]
-            klass = value.first.class
-            mappings = klass.mappings_for(format)
-
-            klass.attributes.each_key do |name|
-              next if child_mappings.key?(name.to_sym) || child_mappings.key?(name.to_s)
-
-              child_mappings[name.to_sym] = mappings.find_by_to(name)&.name.to_s || name.to_s
-            end
-          end
-
-          value.each do |child_obj|
-            map_key = nil
-            map_value = {}
-            mapping_rules = attr.type.mappings_for(format)
-
-            child_mappings.each do |attr_name, path|
-              mapping_rule = mapping_rules.find_by_to(attr_name)
-
-              attr_value = child_obj.send(attr_name)
-
-              attr_value = if attr_value.is_a?(Lutaml::Model::Serialize)
-                             attr_value.to_yaml_hash
-                           elsif attr_value.is_a?(Array) && attr_value.first.is_a?(Lutaml::Model::Serialize)
-                             attr_value.map(&:to_yaml_hash)
-                           else
-                             attr_value
-                           end
-
-              next unless mapping_rule&.render?(attr_value, nil)
-
-              if path == :key
-                map_key = attr_value
-              elsif path == :value
-                map_value = attr_value
-              else
-                path = [path] unless path.is_a?(Array)
-                path[0...-1].inject(map_value) do |acc, k|
-                  acc[k.to_s] ||= {}
-                end.public_send(:[]=, path.last.to_s, attr_value)
-              end
-            end
-
-            map_value = nil if map_value.empty?
-            hash[map_key] = map_value
-          end
-
-          hash
-        end
-
-        def valid_rule?(rule)
-          attribute = attribute_for_rule(rule)
-
-          !!attribute || rule.custom_methods[:from]
-        end
-
-        def attribute_for_rule(rule)
-          return attributes[rule.to] unless rule.delegate
-
-          attributes[rule.delegate].type.attributes[rule.to]
-        end
-
-        def attribute_for_child(child_name, format)
-          mapping_rule = mappings_for(format).find_by_name(child_name)
-
-          attribute_for_rule(mapping_rule) if mapping_rule
         end
 
         def apply_mappings(doc, format, options = {})
@@ -491,10 +275,9 @@ module Lutaml
             return resolve_polymorphic(doc, format, mappings, instance, options)
           end
 
-          options[:mappings] = mappings.mappings
-          return apply_xml_mapping(doc, instance, options) if format == :xml
-
-          apply_hash_mapping(doc, instance, format, options)
+          # options[:mappings] = mappings.mappings
+          transformer = Lutaml::Model::FormatRegistry.transformer_for(format)
+          transformer.data_to_model(self, doc, format, options)
         end
 
         def resolve_polymorphic(doc, format, mappings, instance, options = {})
@@ -506,227 +289,6 @@ module Lutaml
           klass = Object.const_get(klass_name)
 
           klass.apply_mappings(doc, format, options)
-        end
-
-        def apply_xml_mapping(doc, instance, options = {})
-          options = prepare_options(options)
-          instance.encoding = options[:encoding]
-          return instance unless doc
-
-          mappings = options[:mappings] || mappings_for(:xml).mappings
-
-          validate_document!(doc, options)
-
-          set_instance_ordering(instance, doc, options)
-          set_schema_location(instance, doc)
-
-          defaults_used = []
-          validate_sequence!(doc.root.order)
-
-          mappings.each do |rule|
-            raise "Attribute '#{rule.to}' not found in #{self}" unless valid_rule?(rule)
-
-            attr = attribute_for_rule(rule)
-            next if attr&.derived?
-
-            new_opts = options.dup
-            if rule.namespace_set?
-              new_opts[:default_namespace] = rule.namespace
-            end
-
-            value = if rule.raw_mapping?
-                      doc.root.inner_xml
-                    elsif rule.content_mapping?
-                      rule.cdata ? doc.cdata : doc.text
-                    elsif val = value_for_rule(doc, rule, new_opts, instance)
-                      val
-                    elsif rule.render_nil_as_nil?
-                      value_for_rule(doc, rule, new_opts, instance)
-                    elsif instance.using_default?(rule.to) || rule.render_default
-                      defaults_used << rule.to
-                      attr&.default || rule.to_value_for(instance)
-                    end
-
-            next if rule.render_nil_omit? && (value.nil? || (attr&.collection? && Utils.empty_collection?(value)))
-
-            value = normalize_xml_value(value, rule, attr, new_opts)
-            rule.deserialize(instance, value, attributes, self)
-          end
-
-          defaults_used.each do |attr_name|
-            instance.using_default_for(attr_name)
-          end
-
-          instance
-        end
-
-        def prepare_options(options)
-          opts = Utils.deep_dup(options)
-          opts[:default_namespace] ||= mappings_for(:xml)&.namespace_uri
-
-          opts
-        end
-
-        def validate_document!(doc, options)
-          return unless doc.is_a?(Array)
-
-          raise Lutaml::Model::CollectionTrueMissingError(
-            self,
-            options[:caller_class],
-          )
-        end
-
-        def set_instance_ordering(instance, doc, options)
-          return unless instance.respond_to?(:ordered=)
-
-          instance.element_order = doc.root.order
-          instance.ordered = mappings_for(:xml).ordered? || options[:ordered]
-          instance.mixed = mappings_for(:xml).mixed_content? || options[:mixed_content]
-        end
-
-        def set_schema_location(instance, doc)
-          schema_location = doc.attributes.values.find do |a|
-            a.unprefixed_name == "schemaLocation"
-          end
-
-          return if schema_location.nil?
-
-          instance.schema_location = Lutaml::Model::SchemaLocation.new(
-            schema_location: schema_location.value,
-            prefix: schema_location.namespace_prefix,
-            namespace: schema_location.namespace,
-          )
-        end
-
-        def value_for_rule(doc, rule, options, instance)
-          rule_names = rule.namespaced_names(options[:default_namespace])
-
-          if rule.attribute?
-            doc.root.find_attribute_value(rule_names)
-          else
-            attr = attribute_for_rule(rule)
-            children = doc.children.select do |child|
-              rule_names.include?(child.namespaced_name) && !child.text?
-            end
-
-            if rule.using_custom_methods? || attr.type == Lutaml::Model::Type::Hash
-              return_child = attr.type == Lutaml::Model::Type::Hash || !attr.collection? if attr
-              return return_child ? children.first : children
-            end
-
-            if Utils.present?(children)
-              instance.value_set_for(attr.name)
-            end
-
-            if rule.cdata
-              values = children.map do |child|
-                child.cdata_children&.map(&:text)
-              end.flatten
-              return children.count > 1 ? values : values.first
-            end
-
-            values = children.map do |child|
-              if !rule.using_custom_methods? && attr.type <= Serialize
-                cast_options = options.except(:mappings)
-                cast_options[:polymorphic] = rule.polymorphic if rule.polymorphic
-
-                attr.cast(child, :xml, cast_options)
-              elsif attr.raw?
-                inner_xml_of(child)
-              else
-
-                return nil if rule.render_nil_as_nil? && child.nil_element?
-                return [] if rule.render_empty_as_nil? && child.nil_element?
-
-                text = child&.children&.first&.text
-                if (rule.render_nil_as_blank? || rule.render_empty_as_blank?) && text.nil? && attr.collection?
-                  return []
-                else
-                  text
-                end
-              end
-            end
-            attr&.collection? ? values : values.first
-          end
-        end
-
-        def apply_hash_mapping(doc, instance, format, options = {})
-          mappings = options[:mappings] || mappings_for(format).mappings
-          mappings.each do |rule|
-            raise "Attribute '#{rule.to}' not found in #{self}" unless valid_rule?(rule)
-
-            attr = attribute_for_rule(rule)
-            next if attr&.derived?
-
-            names = rule.multiple_mappings? ? rule.name : [rule.name]
-
-            value = names.collect do |rule_name|
-              if rule.root_mapping?
-                doc
-              elsif rule.raw_mapping?
-                adapter = Lutaml::Model::Config.public_send(:"#{format}_adapter")
-                adapter.new(doc).public_send(:"to_#{format}")
-              elsif doc.key?(rule_name.to_s)
-                doc[rule_name.to_s]
-              elsif doc.key?(rule_name.to_sym)
-                doc[rule_name.to_sym]
-              else
-                attr&.default
-              end
-            end.compact.first
-
-            next if rule.render_nil_omit? && value.nil?
-
-            value = [] if rule.render_nil_as_empty? && value.nil?
-            value = [] if (rule.render_empty_as_nil? && value.nil?) || (rule.render_empty_as_empty? && Utils.empty_collection?(value))
-
-            if rule.using_custom_methods?
-              if Utils.present?(value)
-                value = new.send(rule.custom_methods[:from], instance, value)
-              end
-
-              next
-            end
-
-            value = translate_mappings(value, rule.hash_mappings, attr, format)
-
-            cast_options = {}
-            cast_options[:polymorphic] = rule.polymorphic if rule.polymorphic
-
-            value = attr.cast(value, format, cast_options) unless rule.hash_mappings
-            attr.valid_collection!(value, self)
-
-            rule.deserialize(instance, value, attributes, self)
-          end
-
-          instance
-        end
-
-        def normalize_xml_value(value, rule, attr, options = {})
-          value = [value].compact if attr&.collection? && !value.is_a?(Array) && !value.nil?
-
-          return value unless cast_value?(attr, rule)
-
-          options.merge(caller_class: self, mixed_content: rule.mixed_content)
-          attr.cast(
-            value,
-            :xml,
-            options,
-          )
-        end
-
-        def cast_value?(attr, rule)
-          attr &&
-            !rule.raw_mapping? &&
-            !rule.content_mapping? &&
-            !rule.custom_methods[:from]
-        end
-
-        def text_hash?(attr, value)
-          return false unless value.is_a?(Hash)
-          return value.one? && value.text? unless attr
-
-          !(attr.type <= Serialize) && attr.type != Lutaml::Model::Type::Hash
         end
 
         def ensure_utf8(value)
@@ -746,25 +308,81 @@ module Lutaml
             value
           end
         end
+      end
 
-        def validate_sequence!(element_order)
-          mapping_sequence = mappings_for(:xml).element_sequence
-          current_order = element_order.filter_map(&:element_tag)
+      def self.register_format_mapping_method(format)
+        ::Lutaml::Model::Serialize::ClassMethods.define_method(format) do |&block|
+          klass = ::Lutaml::Model::FormatRegistry.mappings_class_for(format)
+          mappings[format] ||= klass.new
 
-          mapping_sequence.each do |mapping|
-            mapping.validate_content!(current_order)
+          mappings[format].instance_eval(&block)
+
+          if mappings[format].respond_to?(:finalize)
+            mappings[format].finalize(self)
+          end
+        end
+      end
+
+      def self.register_from_format_method(format)
+        ClassMethods.define_method(:"from_#{format}") do |data, options = {}|
+          adapter = Lutaml::Model::FormatRegistry.adapter_for(format)
+
+          doc = adapter.parse(data, options)
+          public_send(:"of_#{format}", doc, options)
+        end
+
+        ClassMethods.define_method(:"of_#{format}") do |doc, options = {}|
+          if doc.is_a?(Array)
+            return doc.map { |item| send(:"of_#{format}", item) }
+          end
+
+          if format == :xml
+            raise Lutaml::Model::NoRootMappingError.new(self) unless root?
+
+            options[:encoding] = doc.encoding
+            # apply_mappings(doc, format, options)
+            transformer = Lutaml::Model::FormatRegistry.transformer_for(format)
+            transformer.data_to_model(self, doc, :xml, options)
+          else
+            # apply_mappings(doc.to_h, format)
+            transformer = Lutaml::Model::FormatRegistry.transformer_for(format)
+            transformer.data_to_model(self, doc, format, options)
+          end
+        end
+      end
+
+      def self.register_to_format_method(format)
+        ClassMethods.define_method(:"to_#{format}") do |instance, options = {}|
+          value = public_send(:"as_#{format}", instance, options)
+          adapter = Lutaml::Model::FormatRegistry.adapter_for(format)
+
+          if format == :xml
+            options[:mapper_class] = self
+            adapter.new(value).public_send(:"to_#{format}", options)
+          else
+            adapter.new(value).public_send(:"to_#{format}", options)
           end
         end
 
-        private
-
-        def inner_xml_of(node)
-          case node
-          when XmlAdapter::XmlElement
-            node.inner_xml
-          else
-            node.children.map(&:to_xml).join
+        ClassMethods.define_method(:"as_#{format}") do |instance, options = {}|
+          if instance.is_a?(Array)
+            return instance.map { |item| public_send(:"as_#{format}", item) }
           end
+
+          unless instance.is_a?(model)
+            msg = "argument is a '#{instance.class}' but should be a '#{model}'"
+            raise Lutaml::Model::IncorrectModelError, msg
+          end
+
+          transformer = Lutaml::Model::FormatRegistry.transformer_for(format)
+          transformer.model_to_data(self, instance, format, options)
+        end
+
+        define_method(:"to_#{format}") do |options = {}|
+          raise Lutaml::Model::NoRootMappingError.new(self.class) if format == :xml && !self.class.root?
+
+          options[:parse_encoding] = encoding if encoding
+          self.class.to(format, self, options)
         end
       end
 
@@ -773,32 +391,11 @@ module Lutaml
 
       def initialize(attrs = {})
         @using_default = {}
-
         return unless self.class.attributes
 
-        if attrs.is_a?(Lutaml::Model::MappingHash)
-          @ordered = attrs.ordered?
-          @element_order = attrs.item_order
-        end
-
-        if attrs.key?(:schema_location)
-          self.schema_location = attrs[:schema_location]
-        end
-
-        self.class.attributes.each do |name, attr|
-          next if attr.derived?
-
-          value = if attrs.key?(name) || attrs.key?(name.to_s)
-                    attr_value(attrs, name, attr)
-                  else
-                    using_default_for(name)
-                    attr.default
-                  end
-
-          default = using_default?(name)
-          public_send(:"#{name}=", self.class.ensure_utf8(value))
-          using_default_for(name) if default
-        end
+        set_ordering(attrs)
+        set_schema_location(attrs)
+        initialize_attributes(attrs)
       end
 
       def attr_value(attrs, name, attr_rule)
@@ -880,20 +477,39 @@ module Lutaml
         self.class.as_yaml(self)
       end
 
-      Lutaml::Model::Config::AVAILABLE_FORMATS.each do |format|
-        define_method(:"to_#{format}") do |options = {}|
-          adapter = Lutaml::Model::Config.public_send(:"#{format}_adapter")
-          raise Lutaml::Model::NoRootMappingError.new(self.class) unless self.class.root?
+      private
 
-          representation = if format == :xml
-                             self
-                           else
-                             self.class.hash_representation(self, format,
-                                                            options)
-                           end
+      def set_ordering(attrs)
+        return unless attrs.respond_to?(:ordered?)
 
-          options[:parse_encoding] = encoding if encoding
-          adapter.new(representation).public_send(:"to_#{format}", options)
+        @ordered = attrs.ordered?
+        @element_order = attrs.item_order
+      end
+
+      def set_schema_location(attrs)
+        return unless attrs.key?(:schema_location)
+
+        self.schema_location = attrs[:schema_location]
+      end
+
+      def initialize_attributes(attrs)
+        self.class.attributes.each do |name, attr|
+          next if attr.derived?
+
+          value = determine_value(attrs, name, attr)
+
+          default = using_default?(name)
+          public_send(:"#{name}=", self.class.ensure_utf8(value))
+          using_default_for(name) if default
+        end
+      end
+
+      def determine_value(attrs, name, attr)
+        if attrs.key?(name) || attrs.key?(name.to_s)
+          attr_value(attrs, name, attr)
+        else
+          using_default_for(name)
+          attr.default
         end
       end
     end

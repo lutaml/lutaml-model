@@ -3,8 +3,8 @@ require "spec_helper"
 require "lutaml/model/xml_adapter/ox_adapter"
 require "lutaml/model/xml_adapter/oga_adapter"
 
-require_relative "../../../lib/lutaml/model/xml_mapping"
-require_relative "../../../lib/lutaml/model/xml_mapping_rule"
+require_relative "../../../lib/lutaml/model/mapping/xml_mapping"
+require_relative "../../../lib/lutaml/model/mapping/xml_mapping_rule"
 
 # Define a sample class for testing map_content
 class Italic < Lutaml::Model::Serializable

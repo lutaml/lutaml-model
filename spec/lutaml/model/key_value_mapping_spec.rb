@@ -1,6 +1,6 @@
 require "spec_helper"
-require_relative "../../../lib/lutaml/model/key_value_mapping"
-require_relative "../../../lib/lutaml/model/key_value_mapping_rule"
+require_relative "../../../lib/lutaml/model/mapping/key_value_mapping"
+require_relative "../../../lib/lutaml/model/mapping/key_value_mapping_rule"
 
 RSpec.describe Lutaml::Model::KeyValueMapping do
   let(:mapping) { described_class.new(:json) }

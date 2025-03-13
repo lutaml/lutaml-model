@@ -1,10 +1,10 @@
 require "toml-rb"
-require_relative "toml_document"
+require_relative "document"
 
 module Lutaml
   module Model
-    module TomlAdapter
-      class TomlRbAdapter < TomlDocument
+    module Toml
+      class TomlRbAdapter < Document
         def self.parse(toml, _options = {})
           TomlRB.parse(toml)
         end

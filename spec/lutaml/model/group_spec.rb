@@ -93,13 +93,24 @@ RSpec.describe "Group" do
       )
     end
 
-    it "raises error if root_less class used for deserializing" do
-      ceramic = GroupSpec::Ceramic.new(type: "Data", name: "Starc")
+    context "deserializing XML" do
+      let(:ceramic) { GroupSpec::Ceramic.new(type: "Data", name: "Starc") }
 
-      expect { ceramic.to_xml }.to raise_error(
-        Lutaml::Model::NoRootMappingError,
-        "GroupSpec::Ceramic has `no_root`, it allowed only for reusable models",
-      )
+      it "raises error for root_less class" do
+        expect { ceramic.to_xml }.to raise_error(
+          Lutaml::Model::NoRootMappingError,
+          "GroupSpec::Ceramic has `no_root`, it allowed only for reusable models",
+        )
+      end
+    end
+
+    context "deserializing key-value formats" do
+      let(:ceramic) { GroupSpec::Ceramic.new(type: "Data", name: "Starc") }
+
+      it "does not raises error for root_less class" do
+        expect { ceramic.to_yaml }
+          .not_to raise_error(Lutaml::Model::NoRootMappingError)
+      end
     end
 
     it "correctly get the element of root-less class" do
