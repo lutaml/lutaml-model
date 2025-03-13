@@ -127,9 +127,17 @@ module Lutaml
         end
 
         def text
+          return @text if children.empty?
           return text_children.map(&:text) if children.count > 1
 
-          @text
+          text_children.map(&:text).join
+        end
+
+        def cdata
+          return @text if children.empty?
+          return cdata_children.map(&:text) if children.count > 1
+
+          cdata_children.map(&:text).join
         end
 
         def cdata_children
@@ -166,12 +174,6 @@ module Lutaml
 
         def find_child_by_name(name)
           find_children_by_name(name).first
-        end
-
-        def cdata
-          return cdata_children.map(&:text) if children.count > 1
-
-          @text
         end
 
         def to_h

@@ -117,8 +117,8 @@ module CDATA
 
     def child_from_xml(model, value)
       model.child_mapper ||= CustomModelChild.new
-      model.child_mapper.street = value.first.find_child_by_name("street").text
-      model.child_mapper.city = value.first.find_child_by_name("city").text
+      model.child_mapper.street = value.first.find_child_by_name("street").cdata
+      model.child_mapper.city = value.first.find_child_by_name("city").cdata
     end
   end
 

@@ -93,7 +93,7 @@ module Lutaml
       end
 
       def namespaced_name(parent_namespace = nil, name = self.name)
-        if name == "lang"
+        if name.to_s == "lang"
           "#{prefix}:#{name}"
         elsif namespace_set? || @attribute
           [namespace, name].compact.join(":")
