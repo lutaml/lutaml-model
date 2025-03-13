@@ -3,8 +3,9 @@
 require "erb"
 require "tmpdir"
 require "lutaml/xsd"
-require_relative "xml_schema/groups"
+require_relative "xml_schema/utility_helper"
 require_relative "xml_schema/simple_type"
+require_relative "xml_schema/groups"
 
 module Lutaml
   module Model
@@ -27,45 +28,14 @@ module Lutaml
 
           require "lutaml/model"
           <%=
-            requiring_files = resolve_required_files(content)
+            requiring_files = UtilityHelper.resolve_required_files(content)
             requiring_files.join("\n") + "\n" if requiring_files&.any?
           -%>
 
           class <%= Utils.camel_case(name) %> < <%= resolve_parent_class(content) %>
+          <%= UtilityHelper.render_definition_content(content, options) %>
           <%=
-            if content&.key_exist?(:attributes)
-              output = content.attributes.map do |attribute|
-                attribute = @attributes[attribute.ref_class.split(":").last] if attribute.key?(:ref_class)
-                attributes_presentation(options[:current_indent], attribute)
-              end.join("\n")
-              output + "\n" if output && !output&.empty?
-            end
-          -%>
-          <%=
-            if content.keys.any? { |key| %i[sequence choice group].include?(key) }
-              output = resolve_content(content).map do |element_name, element|
-                element = @elements[element.ref_class.split(":")&.last] if element&.key_exist?(:ref_class)
-                next if element[:type_name].nil?
-
-                "  attribute :\#{Utils.snake_case(element_name)}, \#{resolve_element_class(element)}\#{resolve_occurs(element.arguments) if element.key_exist?(:arguments)}"
-              end.join("\n")
-              output + "\n" if output && !output&.empty?
-            end
-          -%>
-          <%=
-            if content&.key_exist?(:complex_content)
-              resolve_complex_content(content.complex_content).map do |element_name, element|
-                if element_name == :attributes
-                  element.map { |attribute| "  attribute :\#{Utils.snake_case(attribute.name)}, \#{resolve_attribute_class(attribute)}\#{resolve_attribute_default(attribute.default) if attribute.key_exist?(:default)}" }.join("\n")
-                else
-                  element = @elements[element.ref_class.split(":")&.last] if element&.key_exist?(:ref_class)
-                  next if element[:type_name]
-
-                  "  attribute :\#{Utils.snake_case(element_name)}, \#{resolve_element_class(element)}\#{resolve_occurs(element.arguments) if element.key_exist?(:arguments)}"
-                end
-              end.join("\n")
-              output + "\n" if output && !output&.empty?
-            end
+            #UtilityHelper::NOT_IMPLEMENTED
           -%>
           <%= "  attribute :content, \#{content[:mixed] ? ':string' : content.simple_content.extension_base}" if content_exist = (content.key_exist?(:simple_content) && content.simple_content.key_exist?(:extension_base)) || content[:mixed] -%>
 
@@ -78,7 +48,7 @@ module Lutaml
               output = content.attributes.map do |attribute|
                 attribute = @attributes[attribute.ref_class.split(":").last] if attribute.key?(:ref_class)
                 render_default = ", render_default: true" if attribute.key_exist?(:default)
-                "    map_attribute :\#{Utils.snake_case(attribute.name)}, to: :\#{Utils.snake_case(attribute.name)}\#{render_default}"
+                "    map_attribute :\#{attribute.name}, to: :\#{Utils.snake_case(attribute.name)}\#{render_default}"
               end.join("\n")
               output + "\n" if output && !output&.empty?
             end
@@ -98,7 +68,7 @@ module Lutaml
                 if element_name == :attributes
                   element.map do |attribute|
                     render_default = ", render_default: true" if attribute.key_exist?(:default)
-                    "    map_attribute :\#{Utils.snake_case(attribute.name)}, to: :\#{Utils.snake_case(attribute.name)}\#{render_default}"
+                    "    map_attribute :\#{attribute.name}, to: :\#{Utils.snake_case(attribute.name)}\#{render_default}"
                   end.join("\n")
                 else
                   element = @elements[element.ref_class.split(":")&.last] if element&.key_exist?(:ref_class)
@@ -130,10 +100,7 @@ module Lutaml
           if options[:create_files]
             dir = options.fetch(:output_dir, "lutaml_models_#{Time.now.to_i}")
             FileUtils.mkdir_p(dir)
-            @data_types_classes.each do |name, content|
-              create_file(name, content, dir)
-            end
-            @importable_classes.each do |name, content|
+            @data_types_classes.merge(@importable_classes).each do |name, content|
               create_file(name, content, dir)
             end
             @complex_types.each do |name, content|
@@ -171,8 +138,6 @@ module Lutaml
 
         def setup_dependencies(options: {})
           @data_types_classes = XmlSchema::SimpleType.create_simple_types(@simple_types)
-          return unless @group_types.any?
-
           @importable_classes = XmlSchema::Groups.create_groups(
             @group_types,
             options: options,
@@ -458,9 +423,9 @@ module Lutaml
 
         def setup_min_max_arguments(object, object_hash)
           MappingHash.new.tap do |hash|
-            hash[:min_occurs] = object.min_occurs
-            hash[:max_occurs] = object.max_occurs
-            object_hash[:arguments] = hash if hash.compact!.any?
+            hash[:min_occurs] = object.min_occurs if object.min_occurs
+            hash[:max_occurs] = object.max_occurs if object.max_occurs
+            object_hash[:arguments] = hash if hash.any?
           end
         end
 
@@ -490,31 +455,13 @@ module Lutaml
           Utils.camel_case(content.dig(:complex_content, :extension, :extension_base))
         end
 
-        def resolve_attribute_class(attribute)
-          attr_class = attribute.base_class.split(":")&.last
-          case attr_class
-          when *DEFAULT_CLASSES
-            ":#{attr_class}"
-          else
-            ":#{Utils.snake_case(attr_class)}"
+        def resolve_mapping_content(content, hash = MappingHash.new)
+          content.each do |key, value|
+            case key
+            when :sequence
+              hash[:sequence] = resolve_sequence(:sequence, hash)
+            end
           end
-        end
-
-        def resolve_element_class(element)
-          element_class = element.type_name.split(":").last
-          case element_class
-          when *DEFAULT_CLASSES
-            ":#{element_class}"
-          else
-            ":#{Utils.snake_case(element_class)}"
-          end
-        end
-
-        def resolve_occurs(arguments)
-          min_occurs = arguments[:min_occurs]
-          max_occurs = arguments[:max_occurs]
-          max_occurs = max_occurs.to_s&.match?(/[A-Za-z]+/) ? nil : max_occurs.to_i if max_occurs
-          ", collection: #{max_occurs ? min_occurs.to_i..max_occurs : true}"
         end
 
         def resolve_content(content, hash = MappingHash.new)
@@ -548,6 +495,10 @@ module Lutaml
             case key
             when :sequence
               resolve_sequence(value, hash)
+            when :sequences
+              value.each do |sequence|
+                resolve_sequence({ sequence: sequence }, hash)
+              end
             when :elements
               resolve_elements(value, hash)
             when :groups
@@ -639,167 +590,7 @@ module Lutaml
           namespace_str
         end
 
-        def resolve_required_files(content)
-          @required_files = Set.new
-          content.each do |key, value|
-            case key
-            when :sequence
-              required_files_sequence(value)
-            when :choice
-              required_files_choice(value)
-            when :group
-              required_files_group(value)
-            when :attributes
-              required_files_attribute(value)
-            when :attribute_groups
-              value.each do |attribute_group|
-                required_files_attribute_groups(attribute_group)
-              end
-            when :complex_content
-              required_files_complex_content(value)
-            when :simple_content
-              required_files_simple_content(value)
-            end
-          end
-          @required_files.uniq.sort_by(&:length)
-        end
-
         # END: TEMPLATE RESOLVER METHODS
-
-        # START: REQUIRED FILES LIST COMPILER METHODS
-        def required_files_simple_content(simple_content)
-          simple_content.each do |key, value|
-            case key
-            when :extension_base
-              # Do nothing.
-            when :attributes
-              required_files_attribute(value)
-            when :extension
-              required_files_extension(value)
-            when :restriction
-              required_files_restriction(value)
-            end
-          end
-        end
-
-        def required_files_complex_content(complex_content)
-          complex_content.each do |key, value|
-            case key
-            when :extension
-              required_files_extension(value)
-            when :restriction
-              required_files_restriction(value)
-            end
-          end
-        end
-
-        def required_files_extension(extension)
-          extension.each do |key, value|
-            case key
-            when :attribute_group
-              required_files_attribute_groups(value)
-            when :attribute, :attributes
-              required_files_attribute(value)
-            when :extension_base
-              # Do nothing.
-            when :sequence
-              required_files_sequence(value)
-            when :choice
-              required_files_choice(value)
-            end
-          end
-        end
-
-        def required_files_restriction(restriction)
-          restriction.each do |key, value|
-            case key
-            when :base
-              @required_files << "require_relative \"#{Utils.snake_case(value.split(':').last)}\""
-            end
-          end
-        end
-
-        def required_files_attribute_groups(attr_groups)
-          attr_groups.each do |key, value|
-            case key
-            when :ref_class
-              required_files_attribute_groups(@attribute_groups[value.split(":").last])
-            when :attribute, :attributes
-              required_files_attribute(value)
-            end
-          end
-        end
-
-        def required_files_attribute(attributes)
-          attributes.each do |attribute|
-            next if attribute[:ref_class]&.start_with?("xml") || attribute[:base_class]&.start_with?("xml")
-
-            attribute = @attributes[attribute.ref_class.split(":").last] if attribute.key_exist?(:ref_class)
-            attr_class = attribute.base_class.split(":")&.last
-            next if DEFAULT_CLASSES.include?(attr_class)
-            next @required_files << "require \"#{Utils.snake_case(attr_class)}\"" if attr_class == "decimal"
-
-            @required_files << "require_relative \"#{Utils.snake_case(attr_class)}\""
-          end
-        end
-
-        def required_files_choice(choice)
-          choice.each do |key, value|
-            case key
-            when String, :element
-              required_files_elements([value])
-            when :group
-              required_files_group(value)
-            when :choice
-              required_files_choice(value)
-            when :sequence
-              required_files_sequence(value)
-            end
-          end
-        end
-
-        def required_files_group(group)
-          group.each do |key, value|
-            case key
-            when :ref_class
-              required_files_group(@group_types[value.split(":").last])
-            when :choice
-              required_files_choice(value)
-            when :sequence
-              required_files_sequence(value)
-            end
-          end
-        end
-
-        def required_files_sequence(sequence)
-          sequence.each do |key, value|
-            case key
-            when :elements
-              required_files_elements(value)
-            when :sequence
-              required_files_sequence(value)
-            when :groups
-              value.each { |group| required_files_group(group) }
-            when :choice
-              value.each { |choice| required_files_choice(choice) }
-            end
-          end
-        end
-
-        def required_files_elements(elements)
-          elements.each do |element|
-            element = @elements[element.ref_class.split(":").last] if element.key_exist?(:ref_class)
-            next unless element[:type_name]
-
-            element_class = element.type_name.split(":").last
-            next if DEFAULT_CLASSES.include?(element_class)
-            next @required_files << "require \"bigdecimal\"" if element_class == "decimal"
-
-            @required_files << "require_relative \"#{Utils.snake_case(element_class)}\""
-          end
-        end
-
-        # END: REQUIRED FILES LIST COMPILER METHODS
 
         def attributes_presentation(current_indent, attribute)
           output = "#{current_indent}attribute :#{Utils.snake_case(attribute.name)}, #{resolve_attribute_class(attribute)}"

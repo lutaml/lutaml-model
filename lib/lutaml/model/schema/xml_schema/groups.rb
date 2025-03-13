@@ -11,10 +11,14 @@ module Lutaml
           GROUPS_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
             # frozen_string_literal: true
 
+            require "lutaml/model"
+            <%=
+              UtilityHelper.resolve_required_files(content).join("\n") + "\n"
+            -%>
             class <%= Utils.camel_case(name) %> < Lutaml::Model::Serializable
             <%=
-              if attributes.key?(:sequence)
-                attributes[:sequence].map do |attr_type, attrs|
+              if content.key?(:sequence)
+                content[:sequence].map do |attr_type, attrs|
                   case attr_type
                   when :elements
                     model_attributes(attrs, current_indent)
@@ -27,25 +31,25 @@ module Lutaml
                   end
                 end.join("\n")
               end
-            -%>
-            <%= render_model_choice(attributes[:choice], current_indent, indent) if attributes.key?(:choice) %>
+            %>
+            <%= render_model_choice(content[:choice], current_indent, indent) if content.key?(:choice) %>
             <%= "\#{current_indent}xml do" %>
             <%=
               mapping_indent = (" " * indent) + current_indent
-              "\#{mapping_indent}no_root"
+              "\#{mapping_indent}no_root\n"
             %>
             <%=
-              render_model_sequence(attributes, mapping_indent, indent) if attributes.key?(:sequence)
+              render_model_sequence(content, mapping_indent, indent) if content.key?(:sequence)
             %>
             <%= "\#{current_indent}end\n" -%>
             end
           TEMPLATE
 
           def create_groups(groups, options: {})
-            @groups = {}
+            @groups = MappingHash.new
             indent = options[:indent] || 2
             current_indent = options[:current_indent] || (" " * indent)
-            groups.map do |name, attributes|
+            groups.map do |name, content|
               @groups[Utils.snake_case(name)] = GROUPS_TEMPLATE.result(binding)
             end
             @groups
@@ -103,7 +107,7 @@ module Lutaml
           end
 
           def render_model_choice(choice, current_indent, indent)
-            choice_arr = ["#{current_indent}choice#{resolve_min_max_args(choice)} do"]
+            choice_arr = ["#{current_indent}choice#{UtilityHelper.resolve_min_max_args(choice)} do"]
             next_indent = current_indent + (" " * indent)
             choice.each do |attr_name, attribute|
               next if attr_name == :arguments
@@ -142,31 +146,31 @@ module Lutaml
             ", collection: #{collection_value}"
           end
 
-          def resolve_min_max_args(mapping_hash)
-            return unless mapping_hash&.key_exist?(:arguments)
-
-            args_arr = []
-            args_arr << "min: #{mapping_hash.arguments.min_occurs}" if args[:min_occurs]
-            args_arr << "max: #{mapping_hash.arguments.max_occurs}" if args[:max_occurs]
-            "(#{args_arr.join(', ')})"
-          end
-
           def render_model_sequence(attributes, current_indent, indent)
-            sequence = attributes.sequence
+            sequence = attributes[:sequence]
             next_indent = (" " * indent) + current_indent
-            elements = []
-            elements += sequence.elements if sequence.key_exist?(:elements)
-            elements += sequence.choice.map(&:values).flatten if sequence.key_exist?(:choice)
-            sequence_arr = ["#{current_indent}sequence#{resolve_min_max_args(sequence)} do"]
+            sequence_arr = ["#{current_indent}sequence#{UtilityHelper.resolve_min_max_args(sequence)} do"]
+            if sequence.key_exist?(:sequences)
+              sequence[:sequences].each do |seq|
+                sequence_arr << render_model_sequence({ sequence: seq }, next_indent, indent)
+              end
+            end
+            elements = sequence_elements(sequence)
             sequence_arr << render_mapping_elements(elements, next_indent) if elements.any?
             sequence_arr << "#{current_indent}end"
             sequence_arr.join("\n")
           end
 
+          def sequence_elements(sequence, elements = [])
+            elements += sequence.elements if sequence.key_exist?(:elements)
+            elements += sequence.choice.map(&:values).flatten if sequence.key_exist?(:choice)
+            elements
+          end
+
           def render_mapping_elements(elements, current_indent)
             elements.reject!(&:empty?)
             elements.map do |element|
-              "#{current_indent}map_element #{element.element_name.inspect}, :#{Utils.snake_case(element.element_name)}"
+              "#{current_indent}map_element #{element.element_name.inspect}, to: :#{Utils.snake_case(element.element_name)}"
             end.join("\n")
           end
         end

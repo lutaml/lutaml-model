@@ -1097,9 +1097,9 @@ RSpec.describe Lutaml::Model::Schema::XmlSchema do
       end
     end
 
-    describe ".element_arguments" do
-      let(:element_arguments) do
-        described_class.send(:element_arguments, element, {})
+    describe ".setup_min_max_arguments" do
+      let(:setup_min_max_arguments) do
+        described_class.send(:setup_min_max_arguments, element, {})
       end
 
       context "when given element contains min_occurs and max_occurs" do
@@ -1113,7 +1113,7 @@ RSpec.describe Lutaml::Model::Schema::XmlSchema do
         let(:expected_hash) { { min_occurs: "0", max_occurs: "1" } }
 
         it "returns the expected hash" do
-          expect(element_arguments).to eql(expected_hash)
+          expect(setup_min_max_arguments).to eql(expected_hash)
         end
       end
 
@@ -1121,7 +1121,7 @@ RSpec.describe Lutaml::Model::Schema::XmlSchema do
         let(:element) { Lutaml::Xsd::Element.new }
 
         it "returns the expected hash" do
-          expect(element_arguments).to be_empty
+          expect(setup_min_max_arguments).to be_empty
         end
       end
     end

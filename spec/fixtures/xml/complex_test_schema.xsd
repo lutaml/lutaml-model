@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" 
            targetNamespace="http://example.org/order"
-           xmlns:ord="http://example.org/order"
            elementFormDefault="qualified">
 
   <!-- Root element -->
@@ -13,10 +12,10 @@
     <xs:sequence>
       <xs:element name="OrderNumber" type="xs:string"/>
       <xs:element name="OrderDate" type="xs:date"/>
-      <xs:element name="Customer" type="ord:CustomerType"/>
-      <xs:element name="Items" type="ord:ItemsType"/>
-      <xs:element name="Shipping" type="ord:ShippingType"/>
-      <xs:element name="Payment" type="ord:PaymentType"/>
+      <xs:element name="Customer" type="CustomerType"/>
+      <xs:element name="Items" type="ItemsType"/>
+      <xs:element name="Shipping" type="ShippingType"/>
+      <xs:element name="Payment" type="PaymentType"/>
     </xs:sequence>
     <xs:attribute name="priority" type="xs:string" use="optional"/>
   </xs:complexType>
@@ -25,10 +24,10 @@
     <xs:sequence>
       <xs:element name="OrderNumber" type="xs:string"/>
       <xs:element name="OrderDate" type="xs:date"/>
-      <xs:element name="Customer" type="ord:CustomerType"/>
-      <xs:element name="Items" type="ord:ItemsType"/>
-      <xs:element name="Shipping" type="ord:ShippingType"/>
-      <xs:element name="Payment" type="ord:PaymentType"/>
+      <xs:element name="Customer" type="CustomerType"/>
+      <xs:element name="Items" type="ItemsType"/>
+      <xs:element name="Shipping" type="ShippingType"/>
+      <xs:element name="Payment" type="PaymentType"/>
     </xs:sequence>
     <xs:attribute name="priority" type="xs:string" use="optional"/>
   </xs:complexType>
@@ -46,9 +45,9 @@
   <!-- Choice example -->
   <xs:complexType name="ItemsType">
     <xs:choice maxOccurs="unbounded">
-      <xs:element name="PhysicalProduct" type="ord:PhysicalProductType"/>
-      <xs:element name="DigitalProduct" type="ord:DigitalProductType"/>
-      <xs:element name="SubscriptionProduct" type="ord:SubscriptionProductType"/>
+      <xs:element name="PhysicalProduct" type="PhysicalProductType"/>
+      <xs:element name="DigitalProduct" type="DigitalProductType"/>
+      <xs:element name="SubscriptionProduct" type="SubscriptionProductType"/>
     </xs:choice>
     <xs:attribute name="count" type="xs:positiveInteger"/>
   </xs:complexType>
@@ -72,15 +71,15 @@
   <!-- Using group reference in a complex type -->
   <xs:complexType name="PhysicalProductType">
     <xs:sequence>
-      <xs:group ref="ord:ProductCommonGroup"/>
+      <xs:group ref="ProductCommonGroup"/>
       <xs:element name="Weight" type="xs:decimal"/>
-      <xs:element name="Dimensions" type="ord:DimensionsType"/>
+      <xs:element name="Dimensions" type="DimensionsType"/>
     </xs:sequence>
   </xs:complexType>
 
   <xs:complexType name="DigitalProductType">
     <xs:sequence>
-      <xs:group ref="ord:ProductCommonGroup"/>
+      <xs:group ref="ProductCommonGroup"/>
       <xs:element name="FileSize" type="xs:string"/>
       <xs:element name="Format" type="xs:string"/>
     </xs:sequence>
@@ -88,7 +87,7 @@
 
   <xs:complexType name="SubscriptionProductType">
     <xs:sequence>
-      <xs:group ref="ord:ProductCommonGroup"/>
+      <xs:group ref="ProductCommonGroup"/>
       <xs:element name="Period" type="xs:string"/>
       <xs:element name="AutoRenew" type="xs:boolean"/>
     </xs:sequence>
@@ -134,7 +133,7 @@
       <xs:element name="ShippingAddress">
         <xs:complexType>
           <xs:sequence>
-            <xs:group ref="ord:AddressGroup"/>
+            <xs:group ref="AddressGroup"/>
           </xs:sequence>
         </xs:complexType>
       </xs:element>
@@ -152,7 +151,7 @@
             <xs:element name="CardNumber" type="xs:string"/>
             <xs:element name="ExpiryDate" type="xs:string"/>
             <xs:element name="CVV" type="xs:string"/>
-            <xs:group ref="ord:BillingAddressGroup"/>
+            <xs:group ref="BillingAddressGroup"/>
           </xs:sequence>
         </xs:complexType>
       </xs:element>
@@ -162,7 +161,7 @@
             <xs:element name="AccountNumber" type="xs:string"/>
             <xs:element name="BankName" type="xs:string"/>
             <xs:element name="BankCode" type="xs:string"/>
-            <xs:group ref="ord:BillingAddressGroup"/>
+            <xs:group ref="BillingAddressGroup"/>
           </xs:sequence>
         </xs:complexType>
       </xs:element>
@@ -171,7 +170,7 @@
           <xs:sequence>
             <xs:element name="Email" type="xs:string"/>
             <xs:element name="PayPalTransactionID" type="xs:string" minOccurs="0"/>
-            <xs:group ref="ord:BillingAddressGroup"/>
+            <xs:group ref="BillingAddressGroup"/>
           </xs:sequence>
         </xs:complexType>
       </xs:element>
@@ -184,7 +183,7 @@
       <xs:element name="BillingAddress" minOccurs="0">
         <xs:complexType>
           <xs:sequence>
-            <xs:group ref="ord:AddressGroup"/>
+            <xs:group ref="AddressGroup"/>
           </xs:sequence>
           <xs:attribute name="sameAsShipping" type="xs:boolean" default="false"/>
         </xs:complexType>

@@ -1,0 +1,239 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:test="http://example.org/test"
+           targetNamespace="http://example.org/test"
+           elementFormDefault="qualified"
+           attributeFormDefault="unqualified">
+
+    <!-- Documentation -->
+    <xs:annotation>
+        <xs:documentation>
+            A comprehensive test schema that demonstrates various XSD features
+            including groups, choices, sequences, attributes, simple/complex types,
+            and other XSD elements.
+        </xs:documentation>
+    </xs:annotation>
+
+    <!-- Simple Types -->
+    <xs:simpleType name="CountryCodeType">
+        <xs:restriction base="xs:string">
+            <xs:pattern value="[A-Z]{2}"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <xs:simpleType name="PriorityEnum">
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="HIGH"/>
+            <xs:enumeration value="MEDIUM"/>
+            <xs:enumeration value="LOW"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <!-- List type example -->
+    <xs:simpleType name="ListOfIntegers">
+        <xs:list itemType="xs:integer"/>
+    </xs:simpleType>
+
+    <!-- Union type example -->
+    <xs:simpleType name="QuantityType">
+        <xs:union memberTypes="xs:integer">
+            <xs:simpleType>
+                <xs:restriction base="xs:string">
+                    <xs:enumeration value="UNLIMITED"/>
+                </xs:restriction>
+            </xs:simpleType>
+        </xs:union>
+    </xs:simpleType>
+
+    <!-- Attribute Groups -->
+    <xs:attributeGroup name="CommonAttributes">
+        <xs:attribute name="id" type="xs:ID"/>
+        <xs:attribute name="version" type="xs:string"/>
+        <xs:attribute name="createdAt" type="xs:dateTime"/>
+    </xs:attributeGroup>
+
+    <!-- Named Model Groups -->
+    <xs:group name="AddressGroup">
+        <xs:sequence>
+            <xs:element name="Street" type="xs:string"/>
+            <xs:element name="City" type="xs:string"/>
+            <xs:element name="PostalCode" type="xs:string"/>
+            <xs:element name="Country" type="test:CountryCodeType"/>
+        </xs:sequence>
+    </xs:group>
+
+    <!-- Complex Types -->
+    <!-- Example with sequence -->
+    <xs:complexType name="PersonType">
+        <xs:sequence>
+            <xs:element name="FirstName" type="xs:string"/>
+            <xs:element name="LastName" type="xs:string"/>
+            <xs:element name="BirthDate" type="xs:date"/>
+            <xs:group ref="test:AddressGroup"/>
+            <xs:element name="PhoneNumbers">
+                <xs:complexType>
+                    <xs:sequence>
+                        <xs:element name="Phone" maxOccurs="unbounded">
+                            <xs:complexType>
+                                <xs:simpleContent>
+                                    <xs:extension base="xs:string">
+                                        <xs:attribute name="type" type="xs:string"/>
+                                    </xs:extension>
+                                </xs:simpleContent>
+                            </xs:complexType>
+                        </xs:element>
+                    </xs:sequence>
+                </xs:complexType>
+            </xs:element>
+        </xs:sequence>
+        <xs:attributeGroup ref="test:CommonAttributes"/>
+    </xs:complexType>
+
+    <!-- Example with choice -->
+    <xs:complexType name="PaymentMethodType">
+        <xs:choice>
+            <xs:element name="CreditCard">
+                <xs:complexType>
+                    <xs:sequence>
+                        <xs:element name="CardNumber" type="xs:string"/>
+                        <xs:element name="ExpiryDate" type="xs:string"/>
+                        <xs:element name="SecurityCode" type="xs:string"/>
+                    </xs:sequence>
+                </xs:complexType>
+            </xs:element>
+            <xs:element name="BankTransfer">
+                <xs:complexType>
+                    <xs:sequence>
+                        <xs:element name="AccountNumber" type="xs:string"/>
+                        <xs:element name="BankCode" type="xs:string"/>
+                    </xs:sequence>
+                </xs:complexType>
+            </xs:element>
+            <xs:element name="DigitalWallet">
+                <xs:complexType>
+                    <xs:sequence>
+                        <xs:element name="Provider" type="xs:string"/>
+                        <xs:element name="Email" type="xs:string"/>
+                    </xs:sequence>
+                </xs:complexType>
+            </xs:element>
+        </xs:choice>
+        <xs:attribute name="preferred" type="xs:boolean"/>
+    </xs:complexType>
+
+    <!-- Example with all -->
+    <xs:complexType name="ConfigurationType">
+        <xs:all>
+            <xs:element name="Database" type="xs:string" minOccurs="0"/>
+            <xs:element name="Server" type="xs:string" minOccurs="0"/>
+            <xs:element name="Port" type="xs:integer" minOccurs="0"/>
+            <xs:element name="Username" type="xs:string" minOccurs="0"/>
+        </xs:all>
+        <xs:attribute name="environment" type="xs:string"/>
+    </xs:complexType>
+
+    <!-- Example with mixed content -->
+    <xs:complexType name="FormattedTextType" mixed="true">
+        <xs:sequence>
+            <xs:element name="bold" type="xs:string" minOccurs="0" maxOccurs="unbounded"/>
+            <xs:element name="italic" type="xs:string" minOccurs="0" maxOccurs="unbounded"/>
+            <xs:element name="link" minOccurs="0" maxOccurs="unbounded">
+                <xs:complexType>
+                    <xs:simpleContent>
+                        <xs:extension base="xs:string">
+                            <xs:attribute name="href" type="xs:anyURI"/>
+                        </xs:extension>
+                    </xs:simpleContent>
+                </xs:complexType>
+            </xs:element>
+        </xs:sequence>
+    </xs:complexType>
+
+    <!-- Example with extension -->
+    <xs:complexType name="EmployeeType">
+        <xs:complexContent>
+            <xs:extension base="test:PersonType">
+                <xs:sequence>
+                    <xs:element name="Department" type="xs:string"/>
+                    <xs:element name="Position" type="xs:string"/>
+                    <xs:element name="Salary" type="xs:decimal"/>
+                </xs:sequence>
+                <xs:attribute name="employeeId" type="xs:string"/>
+            </xs:extension>
+        </xs:complexContent>
+    </xs:complexType>
+
+    <!-- Example with restriction -->
+    <xs:complexType name="SimpleAddressType">
+        <xs:complexContent>
+            <xs:restriction base="test:PersonType">
+                <xs:sequence>
+                    <xs:group ref="test:AddressGroup"/>
+                </xs:sequence>
+            </xs:restriction>
+        </xs:complexContent>
+    </xs:complexType>
+
+    <!-- Abstract type and substitution groups -->
+    <xs:element name="Document" type="xs:anyType" abstract="true"/>
+    
+    <xs:element name="TextDocument" substitutionGroup="test:Document">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="Content" type="test:FormattedTextType"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <!-- Root element with key/keyref -->
+    <xs:element name="Organization">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="Employees">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element name="Employee" type="test:EmployeeType" maxOccurs="unbounded"/>
+                        </xs:sequence>
+                    </xs:complexType>
+                </xs:element>
+                <xs:element name="Departments">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element name="Department" maxOccurs="unbounded">
+                                <xs:complexType>
+                                    <xs:sequence>
+                                        <xs:element name="Name" type="xs:string"/>
+                                        <xs:element name="ManagerRef" type="xs:IDREF"/>
+                                    </xs:sequence>
+                                    <xs:attribute name="code" type="xs:ID"/>
+                                </xs:complexType>
+                            </xs:element>
+                        </xs:sequence>
+                    </xs:complexType>
+                </xs:element>
+            </xs:sequence>
+            <xs:attribute name="name" type="xs:string"/>
+        </xs:complexType>
+        
+        <!-- Key constraints -->
+        <xs:key name="EmployeeKey">
+            <xs:selector xpath=".//test:Employee"/>
+            <xs:field xpath="@id"/>
+        </xs:key>
+        
+        <xs:keyref name="ManagerRef" refer="test:EmployeeKey">
+            <xs:selector xpath=".//test:Department"/>
+            <xs:field xpath="test:ManagerRef"/>
+        </xs:keyref>
+    </xs:element>
+
+    <!-- Example with any/anyAttribute -->
+    <xs:complexType name="ExtensibleType">
+        <xs:sequence>
+            <xs:element name="StandardElement" type="xs:string"/>
+            <xs:any namespace="##other" processContents="lax" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+        <xs:anyAttribute namespace="##other" processContents="lax"/>
+    </xs:complexType>
+
+</xs:schema>
