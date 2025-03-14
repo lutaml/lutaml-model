@@ -54,7 +54,7 @@ module Lutaml
             end
           -%>
           <%=
-            if content.keys.any? { |key| %i[sequence choice group].include?(key) }
+            if content.keys.any? { |key| %i[sequence choice].include?(key) }
               output = resolve_content(content).map do |element_name, element|
                 element = @elements[element.ref_class.split(":")&.last] if element&.key_exist?(:ref_class)
                 "    map_element :\#{element_name}, to: :\#{Utils.snake_case(element_name)}"
@@ -224,7 +224,7 @@ module Lutaml
               when Xsd::Attribute
                 hash[:attributes] << setup_attribute(element)
               when Xsd::Sequence
-                hash[:sequence] = setup_sequence(element)
+                hash[:sequence] = setup_sequence(element)[:sequence]
               when Xsd::Choice
                 hash[:choice] = setup_choice(element)
               when Xsd::ComplexContent
@@ -250,21 +250,17 @@ module Lutaml
 
         def setup_sequence(sequence)
           MappingHash.new.tap do |hash|
-            hash[:sequences] = [] if sequence.sequence&.any?
-            hash[:elements] = [] if sequence.element&.any?
-            hash[:choice] = [] if sequence.choice&.any?
-            hash[:groups] = [] if sequence.group&.any?
             setup_min_max_arguments(sequence, hash)
-            resolved_element_order(sequence).each do |instance|
+            hash[:sequence] = resolved_element_order(sequence).map do |instance|
               case instance
               when Xsd::Sequence
-                hash[:sequences] << setup_sequence(instance)
+                setup_sequence(instance)
               when Xsd::Element
-                hash[:elements] << setup_element(instance)
+                setup_element(instance)
               when Xsd::Choice
-                hash[:choice] << setup_choice(instance)
+                { choice: setup_choice(instance) }
               when Xsd::Group
-                hash[:groups] << setup_group_type(instance)
+                { groups: setup_group_type(instance) }
               end
             end
           end
@@ -471,8 +467,6 @@ module Lutaml
               resolve_sequence(value, hash)
             when :choice
               resolve_choice(value, hash)
-            when :group
-              resolve_group(value, hash)
             end
           end
           hash
@@ -491,20 +485,13 @@ module Lutaml
         end
 
         def resolve_sequence(sequence, hash = MappingHash.new)
-          sequence.each do |key, value|
-            case key
-            when :sequence
-              resolve_sequence(value, hash)
-            when :sequences
-              value.each do |sequence|
-                resolve_sequence({ sequence: sequence }, hash)
-              end
-            when :elements
-              resolve_elements(value, hash)
-            when :groups
-              value.each { |group| resolve_group(group, hash) }
-            when :choice
-              value.each { |choice| resolve_choice(choice, hash) }
+          sequence.each do |content|
+            if content.key?(:element_name)
+              resolve_elements([content], hash)
+            elsif content.key?(:sequence)
+              resolve_sequence(content, hash)
+            elsif content.key?(:choice)
+              resolve_choice(content[:choice], hash)
             end
           end
           hash
@@ -515,28 +502,12 @@ module Lutaml
             case key
             when :element
               [resolve_elements(value, hash)]
-            when :group
-              resolve_group(value, hash)
             when String
               hash[key] = value
             when :sequence
               resolve_sequence(value, hash)
-            end
-          end
-          hash
-        end
-
-        def resolve_group(group, hash = MappingHash.new)
-          group.each do |key, value|
-            case key
-            when :ref_class
-              resolve_group(@group_types[value.split(":").last], hash)
-            when :choice
-              resolve_choice(value, hash)
-            when :group
-              resolve_group(value, hash)
-            when :sequence
-              resolve_sequence(value, hash)
+            when :arguments
+              hash[:arguments] = value
             end
           end
           hash

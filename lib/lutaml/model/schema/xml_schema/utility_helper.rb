@@ -49,16 +49,25 @@ module Lutaml
           end
 
           def render_sequence_definition(sequence, current_indent, indent)
-            sequence.map do |key, value|
-              case key
-              when :elements
-                render_elements_definition(value, current_indent, indent)
-              when :groups
-                render_groups_definition(value, current_indent, indent)
+            sequence.map do |instance|
+              if instance.key?(:element_name)
+                render_elements_definition([instance], current_indent, indent)
+              elsif instance.key?(:groups)
+                render_groups_definition([instance[:groups]], current_indent, indent)
               else
                 binding.irb
               end
             end.join("\n")
+          end
+
+          def resolve_sequence_definition_content(content, current_indent, indent)
+            content.map do |instance|
+              if instance.key?(:element_name)
+                render_attribute_definition(instance.element_name, instance.type_name, instance[:arguments], current_indent, indent)
+              elsif instance.key?(:groups)
+                render_groups_definition([instance[:groups]], current_indent, indent)
+              end
+            end
           end
 
           def render_groups_definition(groups, current_indent, indent)
@@ -117,9 +126,13 @@ module Lutaml
 
             arguments = mapping_hash.arguments
             args_arr = []
-            args_arr << "min: #{mapping_hash.arguments.min_occurs}" if arguments[:min_occurs]
-            args_arr << "max: #{mapping_hash.arguments.max_occurs}" if arguments[:max_occurs]
+            args_arr << "min: #{resolve_occur(mapping_hash.arguments.min_occurs)}" if arguments[:min_occurs]
+            args_arr << "max: #{resolve_occur(mapping_hash.arguments.max_occurs)}" if arguments[:max_occurs]
             "(#{args_arr.join(', ')})"
+          end
+
+          def resolve_occur(occurs)
+            occurs.to_s&.match?(/[A-Za-z]+/) ? "Float::INFINITY" : occurs.to_i
           end
 
           def resolve_required_files(content)

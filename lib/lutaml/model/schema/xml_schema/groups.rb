@@ -26,7 +26,7 @@ module Lutaml
                     model_choices(attrs, current_indent, indent)
                   when :group
                     model_groups_import(attrs, current_indent)
-                  when :sequences
+                  when :sequence
                     resolve_sequences(attrs, current_indent, indent)
                   end
                 end.join("\n")
@@ -64,7 +64,7 @@ module Lutaml
               attribute = XmlSchema.elements[extract_class_name(attribute.ref_class).to_sym]
             end
 
-            "#{current_indent}attribute :#{Utils.snake_case(attribute.element_name)}, :#{resolve_element_class(attribute)}#{resolve_occurs(attribute[:arguments])}"
+            "#{current_indent}attribute :#{Utils.snake_case(attribute.element_name)}, :#{resolve_element_class(attribute)}#{resolve_collection(attribute[:arguments])}"
           end
 
           def resolve_element_class(attribute)
@@ -79,23 +79,17 @@ module Lutaml
           end
 
           def resolve_sequences(attrs, current_indent, indent)
-            case attrs
-            when MappingHash
-              attrs.map do |attr_type, attr_content|
-                case attr_type
-                when :sequences
-                  resolve_sequences(attr_content, current_indent, indent)
-                when :choice
-                  model_choices(attr_content, current_indent, indent)
-                when :elements
-                  model_attributes(attr_content, current_indent)
-                when :group
-                  model_groups_import(attr_content, current_indent)
-                end
-              end.join("\n")
-            when Array
-              attrs.map { |attr| resolve_sequences(attr, current_indent, indent) }.join("\n")
-            end
+            attrs.map do |attr|
+              if attr.key?(:sequence)
+                resolve_sequences(attr[:sequence], current_indent, indent)
+              elsif attr.key?(:choice)
+                model_choices([attr[:choice]], current_indent, indent)
+              elsif attr.key?(:element_name)
+                render_model_attribute(attr, current_indent)
+              elsif attr.key?(:group)
+                model_groups_import(attr[:group], current_indent)
+              end
+            end.join("\n")
           end
 
           def model_groups_import(groups, current_indent)
@@ -103,7 +97,7 @@ module Lutaml
           end
 
           def model_choices(choices, current_indent, indent)
-            choices.map { |choice| render_model_choice(choice, current_indent, indent) }
+            choices.map { |choice| render_model_choice(choice, current_indent, indent) }.join("\n")
           end
 
           def render_model_choice(choice, current_indent, indent)
@@ -130,31 +124,28 @@ module Lutaml
             klass.split(":").last
           end
 
-          def resolve_occurs(arguments)
+          def resolve_collection(arguments)
             return if arguments.nil? || arguments.empty?
 
             min_occurs = arguments[:min_occurs]
             max_occurs = arguments[:max_occurs]
+            ", collection: #{collection_value(min_occurs, max_occurs)}"
+          end
 
-            if max_occurs && max_occurs.to_s.match?(/[A-Za-z]+/)
-              max_occurs = nil
-            elsif max_occurs
-              max_occurs = max_occurs.to_i
+          def collection_value(min_occurs, max_occurs)
+            if max_occurs && !max_occurs.to_s.match?(/[A-Za-z]+/)
+              max = max_occurs.to_i
             end
+            min = min_occurs.to_s.to_i
+            return "true" unless min || mix
 
-            collection_value = max_occurs ? "#{min_occurs.to_i}..#{max_occurs}" : "true"
-            ", collection: #{collection_value}"
+            [min, "..", max].compact.join
           end
 
           def render_model_sequence(attributes, current_indent, indent)
             sequence = attributes[:sequence]
             next_indent = (" " * indent) + current_indent
             sequence_arr = ["#{current_indent}sequence#{UtilityHelper.resolve_min_max_args(sequence)} do"]
-            if sequence.key_exist?(:sequences)
-              sequence[:sequences].each do |seq|
-                sequence_arr << render_model_sequence({ sequence: seq }, next_indent, indent)
-              end
-            end
             elements = sequence_elements(sequence)
             sequence_arr << render_mapping_elements(elements, next_indent) if elements.any?
             sequence_arr << "#{current_indent}end"
@@ -162,9 +153,15 @@ module Lutaml
           end
 
           def sequence_elements(sequence, elements = [])
-            elements += sequence.elements if sequence.key_exist?(:elements)
-            elements += sequence.choice.map(&:values).flatten if sequence.key_exist?(:choice)
-            elements
+            sequence[:sequence].map do |element|
+              if element.key?(:element_name)
+                elements << element
+              elsif element.key?(:sequence)
+                sequence_elements(element, elements)
+              elsif element.key?(:group)
+                elements << element[:group]
+              end
+            end
           end
 
           def render_mapping_elements(elements, current_indent)
