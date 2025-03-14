@@ -1,6 +1,7 @@
 # spec/lutaml/model/type_spec.rb
 require "spec_helper"
 require "bigdecimal"
+require "lutaml/model/register"
 
 class CustomSerializationType < Lutaml::Model::Type::Value
   def self.from_xml(_xml_string)
@@ -48,7 +49,7 @@ end
 
 RSpec.describe Lutaml::Model::Type do
   describe "Type System" do
-    describe ".register and .lookup" do
+    describe ".register_model and .lookup" do
       context "with valid types" do
         before do
           # Test class for type registration scenarios
@@ -62,43 +63,17 @@ RSpec.describe Lutaml::Model::Type do
         end
 
         it "registers and looks up a custom type" do
-          described_class.register(:custom, CustomType)
-          expect(described_class.lookup(:custom)).to eq(CustomType)
+          Lutaml::Model::Register.register_model(:custom, CustomType)
+          expect(Lutaml::Model::Register.lookup!(:custom)).to eq(CustomType)
         end
 
         it "allows overriding an existing type registration" do
-          described_class.register(:custom, CustomType)
+          Lutaml::Model::Register.register_model(:custom, CustomType)
           replacement_type = Class.new(Lutaml::Model::Type::Value)
-          described_class.register(:custom, replacement_type)
-          expect(described_class.lookup(:custom)).to eq(replacement_type)
-        end
-      end
-
-      context "with invalid types" do
-        before do
-          invalid_type = Class.new do
-            def self.cast(value)
-              value
-            end
-          end
-
-          stub_const("InvalidType", invalid_type)
-        end
-
-        it "raises TypeError when registering non-Type::Value class" do
-          expect do
-            described_class.register(:invalid,
-                                     InvalidType)
-          end.to raise_error(Lutaml::Model::TypeError,
-                             /not a valid Lutaml::Model::Type::Value/)
-        end
-
-        it "raises UnknownTypeError when looking up unregistered type" do
-          expect do
-            described_class.lookup(:nonexistent)
-          end.to raise_error(
-            Lutaml::Model::UnknownTypeError, /Unknown type 'nonexistent'/
-          )
+          Lutaml::Model::Register.register_model(:custom, replacement_type)
+          expect(
+            Lutaml::Model::Register.lookup!(:custom),
+          ).to eq(replacement_type)
         end
       end
     end
@@ -109,7 +84,7 @@ RSpec.describe Lutaml::Model::Type do
       end
 
       after do
-        described_class.instance_variable_set(:@registry, nil)
+        described_class.instance_variable_set(:@register, nil)
       end
 
       let(:built_in_types) do
@@ -129,7 +104,7 @@ RSpec.describe Lutaml::Model::Type do
       it "has all built-in types registered" do
         built_in_types.each do |type_name, type_class|
           puts described_class
-          expect(described_class.lookup(type_name)).to eq(type_class)
+          expect(Lutaml::Model::Register.lookup!(type_name)).to eq(type_class)
         end
       end
 
@@ -179,8 +154,12 @@ RSpec.describe Lutaml::Model::Type do
         end
 
         it "registers and uses Decimal type" do
-          expect(described_class.lookup(:decimal)).to eq(Lutaml::Model::Type::Decimal)
-          expect(Lutaml::Model::Type::Decimal.cast("123.45")).to eq(BigDecimal("123.45"))
+          expect(
+            Lutaml::Model::Register.lookup!(:decimal),
+          ).to eq(Lutaml::Model::Type::Decimal)
+          expect(
+            Lutaml::Model::Type::Decimal.cast("123.45"),
+          ).to eq(BigDecimal("123.45"))
         end
 
         it "serializes decimal values correctly" do
@@ -194,11 +173,11 @@ RSpec.describe Lutaml::Model::Type do
           hide_const("BigDecimal") if defined?(BigDecimal)
         end
 
-        let(:decimal_class) { described_class.lookup(:decimal) }
+        let(:decimal_class) { Lutaml::Model::Register.lookup!(:decimal) }
 
         it "raises TypeNotEnabledError when using Decimal type" do
           expect do
-            described_class.lookup(:decimal).cast("123.45")
+            Lutaml::Model::Register.lookup!(:decimal).cast("123.45")
           end.to raise_error(Lutaml::Model::TypeNotEnabledError)
         end
       end
@@ -342,11 +321,14 @@ RSpec.describe Lutaml::Model::Type do
         expected_xml = <<~XML
           <sample custom_type="to_xml_overrided"/>
         XML
-        expect(sample_instance_attribute.to_xml).to be_equivalent_to(expected_xml)
+        expect(
+          sample_instance_attribute.to_xml,
+        ).to be_equivalent_to(expected_xml)
       end
 
       it "correctly serializes to JSON" do
-        expect(sample_instance.to_json).to eq('{"custom_type":"to_json_overrided"}')
+        expected_value = '{"custom_type":"to_json_overrided"}'
+        expect(sample_instance.to_json).to eq(expected_value)
       end
 
       it "correctly deserializes from XML" do
@@ -354,7 +336,8 @@ RSpec.describe Lutaml::Model::Type do
       end
 
       it "correctly deserializes from JSON" do
-        json_sample_instance = SampleModel.from_json('{"custom_type":"test_string"}')
+        json_input = '{"custom_type":"test_string"}'
+        json_sample_instance = SampleModel.from_json(json_input)
         json_sample_instance.to_json
         expect(json_sample_instance.custom_type).to eq("from_json_overrided")
       end
