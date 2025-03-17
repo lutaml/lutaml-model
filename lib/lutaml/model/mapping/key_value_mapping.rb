@@ -16,13 +16,17 @@ module Lutaml
         render_nil: false,
         render_default: false,
         render_empty: false,
+        treat_nil: nil,
+        treat_empty: nil,
+        treat_omitted: nil,
         with: {},
         delegate: nil,
         child_mappings: nil,
         root_mappings: nil,
         polymorphic: {},
         polymorphic_map: {},
-        transform: {}
+        transform: {},
+        value_map: {}
       )
         mapping_name = name_for_mapping(root_mappings, name)
         validate!(mapping_name, to, with, render_nil, render_empty)
@@ -33,6 +37,9 @@ module Lutaml
           render_nil: render_nil,
           render_default: render_default,
           render_empty: render_empty,
+          treat_nil: treat_nil,
+          treat_empty: treat_empty,
+          treat_omitted: treat_omitted,
           with: with,
           delegate: delegate,
           child_mappings: child_mappings,
@@ -40,6 +47,7 @@ module Lutaml
           polymorphic: polymorphic,
           polymorphic_map: polymorphic_map,
           transform: transform,
+          value_map: value_map,
         )
       end
 
@@ -93,12 +101,6 @@ module Lutaml
               ":toml format does not support #{option}: #{value} mode",
             )
           end
-        end
-
-        if render_nil && render_empty && render_nil == render_empty
-          raise IncorrectMappingArgumentsError.new(
-            "render_empty and _render_nil cannot be set to the same value",
-          )
         end
 
         # Validate `render_nil` for unsupported value

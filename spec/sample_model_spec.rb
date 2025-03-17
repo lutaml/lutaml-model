@@ -2,7 +2,7 @@ require "spec_helper"
 require_relative "fixtures/sample_model"
 
 RSpec.describe SampleModel do
-  let(:model) { described_class.new(attributes) }
+  let(:model) { described_class.new(attributes, { omitted: :omitted }) }
   let(:attributes_yaml) do
     {
       "name" => "John Doe",
@@ -37,7 +37,7 @@ RSpec.describe SampleModel do
   end
 
   describe "default values" do
-    let(:model) { described_class.new }
+    let(:model) { described_class.new({}, { omitted: :omitted }) }
 
     it "sets default name" do
       expect(model.name).to eq("Anonymous")
@@ -52,7 +52,7 @@ RSpec.describe SampleModel do
     end
 
     it "sets default tags" do
-      expect(model.tags).to be_nil
+      expect(model.tags).to be_uninitialized
     end
 
     it "sets default preferences" do

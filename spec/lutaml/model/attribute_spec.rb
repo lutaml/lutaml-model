@@ -136,7 +136,9 @@ RSpec.describe Lutaml::Model::Attribute do
     context "when default is not set" do
       let(:attribute) { described_class.new("name", :string) }
 
-      it { expect(attribute.default).to be_nil }
+      it "returns uninitialized" do
+        expect(attribute.default).to be(Lutaml::Model::UninitializedClass.instance)
+      end
     end
 
     context "when default is set as a proc" do

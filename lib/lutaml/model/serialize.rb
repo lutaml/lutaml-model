@@ -3,10 +3,8 @@ require_relative "xml_adapter"
 require_relative "config"
 require_relative "type"
 require_relative "attribute"
-require_relative "mapping_rule"
 require_relative "mapping_hash"
-require_relative "xml_mapping"
-require_relative "key_value_mapping"
+require_relative "mapping"
 require_relative "json_adapter"
 require_relative "comparable_model"
 require_relative "schema_location"
@@ -234,7 +232,8 @@ module Lutaml
 
         Lutaml::Model::Config::AVAILABLE_FORMATS.each do |format|
           define_method(format) do |&block|
-            mappings[format] ||= format == :xml ? XmlMapping.new : KeyValueMapping.new(format)
+            mapping_class = const_get("Lutaml::Model::#{format.to_s.capitalize}Mapping")
+            mappings[format] ||= mapping_class.new
             mappings[format].instance_eval(&block)
 
             if format == :xml && !mappings[format].root_element && !mappings[format].no_root?
@@ -243,6 +242,8 @@ module Lutaml
           end
 
           define_method(:"from_#{format}") do |data, options = {}|
+            return data if Utils.uninitialized?(data)
+
             adapter = Lutaml::Model::Config.send(:"#{format}_adapter")
 
             doc = adapter.parse(data, options)
@@ -260,7 +261,7 @@ module Lutaml
               options[:encoding] = doc.encoding
               apply_mappings(doc, format, options)
             else
-              apply_mappings(doc.to_h, format)
+              apply_mappings(doc.to_h, format, options)
             end
           end
 
@@ -310,7 +311,7 @@ module Lutaml
 
           mappings.each_with_object({}) do |rule, hash|
             name = rule.to
-            attribute = attributes[name]
+            attr = attributes[name]
 
             next if except&.include?(name) || (only && !only.include?(name))
             next handle_delegate(instance, rule, hash, format) if rule.delegate
@@ -319,33 +320,57 @@ module Lutaml
               next instance.send(rule.custom_methods[:to], instance, hash)
             end
 
-            value = instance.send(name)
+            value = rule.serialize(instance)
 
             if rule.raw_mapping?
               adapter = Lutaml::Model::Config.send(:"#{format}_adapter")
               return adapter.parse(value, options)
             end
 
-            if export_method = rule.transform[:export] || attribute.transform_export_method
+            if export_method = rule.transform[:export] || attr.transform_export_method
               value = export_method.call(value)
             end
 
-            next hash.merge!(generate_hash_from_child_mappings(attribute, value, format, rule.root_mappings)) if rule.root_mapping?
+            next hash.merge!(generate_hash_from_child_mappings(attr, value, format, rule.root_mappings)) if rule.root_mapping?
 
             value = if rule.child_mappings
-                      generate_hash_from_child_mappings(attribute, value, format, rule.child_mappings)
+                      generate_hash_from_child_mappings(attr, value, format, rule.child_mappings)
                     else
-                      attribute.serialize(value, format, options)
+                      attr.serialize(value, format, options)
                     end
 
-            next if !rule.render?(value, instance) && !attribute&.initialize_empty?
+            next if !rule.render?(value, instance)
 
-            value = [] if rule.render_nil_as_empty? && value.nil?
-            value = nil if rule.render_nil_as_nil? && value.nil?
+            value = apply_value_map(value, rule.value_map(:to), attr)
 
             rule_from_name = rule.multiple_mappings? ? rule.from.first.to_s : rule.from.to_s
             hash[rule_from_name] = value
           end
+        end
+
+        def apply_value_map(value, value_map, attr)
+          if value.nil?
+            value_for_option(value_map[:nil], attr)
+          elsif Utils.empty?(value)
+            value_for_option(value_map[:empty], attr)
+          elsif Utils.uninitialized?(value)
+            value_for_option(value_map[:omitted], attr)
+          else
+            value
+          end
+        end
+
+        def value_for_option(option, attr)
+          return nil if option == :nil
+          return empty_object(attr) if option == :empty
+
+          Lutaml::Model::UninitializedClass.instance
+        end
+
+        def empty_object(attr)
+          return [] if attr.collection?
+
+          ""
         end
 
         def handle_delegate(instance, rule, hash, format)
@@ -547,8 +572,7 @@ module Lutaml
                       attr&.default || rule.to_value_for(instance)
                     end
 
-            next if rule.render_nil_omit? && (value.nil? || (attr&.collection? && Utils.empty_collection?(value)))
-
+            value = apply_value_map(value, rule.value_map(:from), attr)
             value = normalize_xml_value(value, rule, attr, new_opts)
             rule.deserialize(instance, value, attributes, self)
           end
@@ -614,10 +638,6 @@ module Lutaml
               return return_child ? children.first : children
             end
 
-            if Utils.present?(children)
-              instance.value_set_for(attr.name)
-            end
-
             if rule.cdata
               values = children.map do |child|
                 child.cdata_children&.map(&:text)
@@ -625,7 +645,13 @@ module Lutaml
               return children.count > 1 ? values : values.first
             end
 
-            values = children.map do |child|
+            if Utils.present?(children)
+              instance.value_set_for(attr.name)
+            else
+              children = nil
+            end
+
+            values = children&.map do |child|
               if !rule.using_custom_methods? && attr.type <= Serialize
                 cast_options = options.except(:mappings)
                 cast_options[:polymorphic] = rule.polymorphic if rule.polymorphic
@@ -634,19 +660,16 @@ module Lutaml
               elsif attr.raw?
                 inner_xml_of(child)
               else
-
                 return nil if rule.render_nil_as_nil? && child.nil_element?
-                return [] if rule.render_empty_as_nil? && child.nil_element?
 
-                text = child&.children&.first&.text
-                if (rule.render_nil_as_blank? || rule.render_empty_as_blank?) && text.nil? && attr.collection?
-                  return []
-                else
-                  text
+                text = child.nil_element? ? nil : child&.children&.first&.text
+                if rule.render?(text)
+                  apply_value_map(text, rule.value_map(:from), attr)
                 end
               end
-            end
-            attr&.collection? ? values : values.first
+            end&.compact
+
+            attr&.collection? ? values : values&.first
           end
         end
 
@@ -660,7 +683,7 @@ module Lutaml
 
             names = rule.multiple_mappings? ? rule.name : [rule.name]
 
-            value = names.collect do |rule_name|
+            values = names.collect do |rule_name|
               if rule.root_mapping?
                 doc
               elsif rule.raw_mapping?
@@ -670,15 +693,17 @@ module Lutaml
                 doc[rule_name.to_s]
               elsif doc.key?(rule_name.to_sym)
                 doc[rule_name.to_sym]
-              else
+              elsif attr&.default_set?
                 attr&.default
+              else
+                Lutaml::Model::UninitializedClass.instance
               end
-            end.compact.first
+            end.compact
 
-            next if rule.render_nil_omit? && value.nil?
+            value = values.find { |v| Utils.initialized?(v) } || values.first
+            # next if !rule.render?(value)
 
-            value = [] if rule.render_nil_as_empty? && value.nil?
-            value = [] if (rule.render_empty_as_nil? && value.nil?) || (rule.render_empty_as_empty? && Utils.empty_collection?(value))
+            value = apply_value_map(value, rule.value_map(:from, options), attr)
 
             if rule.using_custom_methods?
               if Utils.present?(value)
@@ -771,7 +796,7 @@ module Lutaml
       attr_accessor :element_order, :schema_location, :encoding
       attr_writer :ordered, :mixed
 
-      def initialize(attrs = {})
+      def initialize(attrs = {}, options = {})
         @using_default = {}
 
         return unless self.class.attributes
@@ -790,15 +815,26 @@ module Lutaml
 
           value = if attrs.key?(name) || attrs.key?(name.to_s)
                     attr_value(attrs, name, attr)
-                  else
+                  elsif attr.default_set?
                     using_default_for(name)
                     attr.default
+                  else
+                    Lutaml::Model::UninitializedClass.instance
                   end
 
           default = using_default?(name)
+          value = self.class.apply_value_map(value, value_map(options), attr)
           public_send(:"#{name}=", self.class.ensure_utf8(value))
           using_default_for(name) if default
         end
+      end
+
+      def value_map(options)
+        {
+          omitted: options[:omitted] || :nil,
+          nil: options[:nil] || :nil,
+          empty: options[:empty] || :empty,
+        }
       end
 
       def attr_value(attrs, name, attr_rule)

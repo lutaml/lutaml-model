@@ -71,6 +71,10 @@ module Lutaml
         to: nil,
         render_nil: false,
         render_default: false,
+        render_empty: false,
+        treat_nil: :nil,
+        treat_empty: :empty,
+        treat_omitted: :nil,
         with: {},
         delegate: nil,
         cdata: false,
@@ -80,7 +84,7 @@ module Lutaml
         prefix: (prefix_set = false
                  nil),
         transform: {},
-        render_empty: false
+        value_map: {}
       )
         validate!(
           name, to, with, render_nil, render_empty, type: TYPES[:element]
@@ -91,6 +95,10 @@ module Lutaml
           to: to,
           render_nil: render_nil,
           render_default: render_default,
+          render_empty: render_empty,
+          treat_nil: treat_nil,
+          treat_empty: treat_empty,
+          treat_omitted: treat_omitted,
           with: with,
           delegate: delegate,
           cdata: cdata,
@@ -101,7 +109,7 @@ module Lutaml
           namespace_set: namespace_set != false,
           prefix_set: prefix_set != false,
           transform: transform,
-          render_empty: render_empty,
+          value_map: value_map,
         )
         @elements[rule.namespaced_name] = rule
       end
@@ -111,6 +119,7 @@ module Lutaml
         to: nil,
         render_nil: false,
         render_default: false,
+        render_empty: false,
         with: {},
         delegate: nil,
         polymorphic_map: {},
@@ -118,7 +127,7 @@ module Lutaml
                     nil),
         prefix: (prefix_set = false
                  nil),
-        render_empty: false
+        value_map: {}
       )
         validate!(
           name, to, with, render_nil, render_empty, type: TYPES[:attribute]
@@ -140,6 +149,7 @@ module Lutaml
           default_namespace: namespace_uri,
           namespace_set: namespace_set != false,
           prefix_set: prefix_set != false,
+          value_map: value_map,
         )
         @attributes[rule.namespaced_name] = rule
       end
@@ -242,11 +252,11 @@ module Lutaml
           )
         end
 
-        if render_nil && render_empty && render_nil == render_empty
-          raise IncorrectMappingArgumentsError.new(
-            "render_empty and _render_nil cannot be set to the same value",
-          )
-        end
+        # if render_nil && render_empty && render_nil == render_empty
+        #   raise IncorrectMappingArgumentsError.new(
+        #     "render_empty and render_nil cannot be set to the same value",
+        #   )
+        # end
 
         if render_nil == :as_empty || render_empty == :as_empty
           raise IncorrectMappingArgumentsError.new(
