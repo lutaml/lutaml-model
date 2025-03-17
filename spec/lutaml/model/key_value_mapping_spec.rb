@@ -1,6 +1,4 @@
 require "spec_helper"
-require_relative "../../../lib/lutaml/model/key_value_mapping"
-require_relative "../../../lib/lutaml/model/key_value_mapping_rule"
 
 RSpec.describe Lutaml::Model::KeyValueMapping do
   let(:mapping) { described_class.new(:json) }
@@ -106,16 +104,6 @@ RSpec.describe Lutaml::Model::KeyValueMapping do
   end
 
   describe "validation errors" do
-    it "raises error when render_nil and render_empty have same value" do
-      mapping = described_class.new
-      expect do
-        mapping.map("test", to: :field, render_nil: :omit, render_empty: :omit)
-      end.to raise_error(
-        Lutaml::Model::IncorrectMappingArgumentsError,
-        "render_empty and _render_nil cannot be set to the same value",
-      )
-    end
-
     it "raises error when render_nil is :as_blank" do
       mapping = described_class.new
       expect do

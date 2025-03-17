@@ -62,26 +62,26 @@ module SimpleModel
     xml do
       root "building"
       map_attribute "name", to: :name
-      map_element "address", to: :address
-      map_element "room", to: :rooms
+      map_element "address", to: :address, treat_omitted: :omited
+      map_element "room", to: :rooms, treat_omitted: :omited
     end
 
     yaml do
       map "name", to: :name
-      map "address", to: :address
-      map "rooms", to: :rooms
+      map "address", to: :address, treat_omitted: :omited
+      map "rooms", to: :rooms, treat_omitted: :omited
     end
 
     json do
       map "name", to: :name
-      map "address", to: :address
-      map "rooms", to: :rooms
+      map "address", to: :address, treat_omitted: :omited
+      map "rooms", to: :rooms, treat_omitted: :omited
     end
 
     toml do
       map "name", to: :name
-      map "address", to: :address
-      map "rooms", to: :rooms
+      map "address", to: :address, treat_omitted: :omited
+      map "rooms", to: :rooms, treat_omitted: :omited
     end
   end
 end

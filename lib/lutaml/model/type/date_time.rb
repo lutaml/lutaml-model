@@ -6,7 +6,7 @@ module Lutaml
       # Date and time representation
       class DateTime < Value
         def self.cast(value)
-          return nil if value.nil?
+          return value if value.nil? || Utils.uninitialized?(value)
 
           case value
           when ::DateTime then value
@@ -18,7 +18,7 @@ module Lutaml
         end
 
         def self.serialize(value)
-          return nil if value.nil?
+          return value if value.nil? || Utils.uninitialized?(value)
 
           cast(value)&.iso8601
         end

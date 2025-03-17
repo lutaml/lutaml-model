@@ -17,11 +17,11 @@ class Person < Lutaml::Model::Serializable
     map_element "FirstName",
                 to: :first_name,
                 namespace: "http://example.com/nsp1",
-                prefix: "nsp1"
+                prefix: "nsp1", render_empty: :omit
     map_element "LastName",
                 to: :last_name,
                 namespace: "http://example.com/nsp1",
-                prefix: "nsp1"
+                prefix: "nsp1", render_empty: :as_blank
     map_element "Age", to: :age
     map_element "Height", to: :height
     map_element "Birthdate", to: :birthdate
@@ -31,9 +31,9 @@ class Person < Lutaml::Model::Serializable
   end
 
   json do
-    map "firstName", to: :first_name
-    map "lastName", to: :last_name
-    map "age", to: :age
+    map "firstName", to: :first_name, render_empty: :omit
+    map "lastName", to: :last_name, render_empty: :as_empty
+    map "age", to: :age, render_empty: :as_nil
     map "height", to: :height
     map "birthdate", to: :birthdate
     map "lastLogin", to: :last_login

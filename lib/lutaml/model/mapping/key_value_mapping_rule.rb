@@ -12,13 +12,17 @@ module Lutaml
         render_nil: false,
         render_default: false,
         render_empty: false,
+        treat_nil: :nil,
+        treat_empty: :empty,
+        treat_omitted: :nil,
         with: {},
         delegate: nil,
         child_mappings: nil,
         root_mappings: nil,
         polymorphic: {},
         polymorphic_map: {},
-        transform: {}
+        transform: {},
+        value_map: {}
       )
         super(
           name,
@@ -26,11 +30,15 @@ module Lutaml
           render_nil: render_nil,
           render_default: render_default,
           render_empty: render_empty,
+          treat_nil: treat_nil,
+          treat_empty: treat_empty,
+          treat_omitted: treat_omitted,
           with: with,
           delegate: delegate,
           polymorphic: polymorphic,
           polymorphic_map: polymorphic_map,
           transform: transform,
+          value_map: value_map,
         )
 
         @child_mappings = child_mappings

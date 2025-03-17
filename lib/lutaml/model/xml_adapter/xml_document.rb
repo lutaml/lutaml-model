@@ -231,6 +231,7 @@ module Lutaml
             end
 
             mappings = xml_mapping.elements + [xml_mapping.raw_mapping].compact
+
             mappings.each do |element_rule|
               attribute_def = attribute_definition_for(element, element_rule,
                                                        mapper_class: mapper_class)
@@ -267,6 +268,8 @@ module Lutaml
           else
             text = content_rule.serialize(element)
             text = text.join if text.is_a?(Array)
+
+            return unless content_rule.render?(text, element)
 
             xml.add_text(xml, text, cdata: content_rule.cdata)
           end
