@@ -167,6 +167,7 @@ module Lutaml
           schemas.each do |schema|
             schema_to_models(schema.include) if schema.include&.any?
             schema_to_models(schema.import) if schema.import&.any?
+
             resolved_element_order(schema).each do |order_item|
               item_name = order_item&.name
               case order_item
@@ -256,7 +257,7 @@ module Lutaml
               when Xsd::Sequence
                 setup_sequence(instance)
               when Xsd::Element
-                setup_element(instance)
+                { element_name(instance) => setup_element(instance) }
               when Xsd::Choice
                 { choice: setup_choice(instance) }
               when Xsd::Group
@@ -289,8 +290,7 @@ module Lutaml
             resolved_element_order(choice).each do |element|
               case element
               when Xsd::Element
-                element_name = element.name || @elements[element.ref.split(":").last]&.element_name
-                hash[element_name] = setup_element(element)
+                hash[element_name(element)] = setup_element(element)
               when Xsd::Sequence
                 hash[:sequence] = setup_sequence(element)
               when Xsd::Group
@@ -345,10 +345,18 @@ module Lutaml
           end
         end
 
+        def element_name(object)
+          if object.name
+            object.name
+          elsif object.ref
+            @elements[object.ref.split(":").last].element_name
+          end
+        end
+
         def setup_element(element)
           MappingHash.new.tap do |hash|
             if element.ref
-              hash[:ref_class] = element.ref
+              hash.merge!(@elements[element.ref.split(":").last])
             else
               setup_min_max_arguments(element, hash)
               hash[:element_name] = element.name
@@ -455,7 +463,7 @@ module Lutaml
           content.each do |key, value|
             case key
             when :sequence
-              hash[:sequence] = resolve_sequence(:sequence, hash)
+              hash[:sequence] = resolve_sequence(value, hash)
             end
           end
         end
@@ -467,18 +475,9 @@ module Lutaml
               resolve_sequence(value, hash)
             when :choice
               resolve_choice(value, hash)
-            end
-          end
-          hash
-        end
-
-        def resolve_elements(elements, hash = MappingHash.new)
-          elements.each do |element|
-            if element.key?(:ref_class)
-              new_element = @elements[element.ref_class.split(":").last]
-              hash[new_element.element_name] = new_element
+            when :attributes, :mixed
             else
-              hash[element.element_name] = element
+              raise "#{caller}: #{key} is not supported"
             end
           end
           hash
@@ -486,12 +485,14 @@ module Lutaml
 
         def resolve_sequence(sequence, hash = MappingHash.new)
           sequence.each do |content|
-            if content.key?(:element_name)
-              resolve_elements([content], hash)
+            if content.keys.one?(String)
+              hash.merge!(content)
             elsif content.key?(:sequence)
               resolve_sequence(content, hash)
             elsif content.key?(:choice)
               resolve_choice(content[:choice], hash)
+            elsif content.key?(:groups)
+              # NO ACTION REQUIRED: Groups are imported at the definition.
             end
           end
           hash
@@ -500,14 +501,16 @@ module Lutaml
         def resolve_choice(choice, hash = MappingHash.new)
           choice.each do |key, value|
             case key
-            when :element
-              [resolve_elements(value, hash)]
+            when :element, String
+              hash.merge!(value)
             when String
               hash[key] = value
             when :sequence
               resolve_sequence(value, hash)
             when :arguments
               hash[:arguments] = value
+            when :group
+              # NO ACTION REQUIRED: Groups are imported at the definition.
             end
           end
           hash

@@ -124,6 +124,20 @@ module Lutaml
             klass.split(":").last
           end
 
+          def extract_elements(elements, sequence_arr, current_indent)
+            case elements
+            when Array
+              elements.map { |element| extract_elements(element, sequence_arr, current_indent) }
+            when Hash
+              elements.each do |name, element|
+                case name
+                when String
+                  sequence_arr << render_mapping_element({ element: element }, current_indent)
+                end
+              end
+            end
+          end
+
           def resolve_collection(arguments)
             return if arguments.nil? || arguments.empty?
 
@@ -132,43 +146,65 @@ module Lutaml
             ", collection: #{collection_value(min_occurs, max_occurs)}"
           end
 
-          def collection_value(min_occurs, max_occurs)
-            if max_occurs && !max_occurs.to_s.match?(/[A-Za-z]+/)
-              max = max_occurs.to_i
+          def collection_value(min, max)
+            if max && !max.to_s.match?(/[A-Za-z]+/)
+              max_occurs = max.to_i
             end
-            min = min_occurs.to_s.to_i
-            return "true" unless min || mix
+            min_occurs = min.to_s.to_i
+            return "true" unless min_occurs || mix_occurs
 
-            [min, "..", max].compact.join
+            [min_occurs, "..", max_occurs].compact.join
           end
 
           def render_model_sequence(attributes, current_indent, indent)
             sequence = attributes[:sequence]
             next_indent = (" " * indent) + current_indent
-            sequence_arr = ["#{current_indent}sequence#{UtilityHelper.resolve_min_max_args(sequence)} do"]
-            elements = sequence_elements(sequence)
-            sequence_arr << render_mapping_elements(elements, next_indent) if elements.any?
+            sequence_arr = ["#{current_indent}sequence#{UtilityHelper.resolve_min_max_args(attributes)} do"]
+            if sequence.is_a?(Array)
+              sequence.each do |instance|
+                if instance.keys.one?(String)
+                  sequence_arr << render_mapping_element(instance, next_indent)
+                elsif instance.key?(:sequence)
+                  sequence_arr << render_model_sequence(instance, next_indent, indent)
+                end
+              end
+            elsif sequence&.key?(:sequence)
+              sequence[:sequence].each do |instance|
+                if instance.keys.one?(String)
+                  sequence_arr << render_mapping_element(instance, next_indent)
+                elsif instance.key?(:sequence)
+                  sequence_arr << render_model_sequence(instance, next_indent, indent)
+                elsif instance.key?(:choice)
+                  extract_elements(instance[:choice], sequence_arr, next_indent)
+                end
+              end
+            elsif attributes.key?(:element_name)
+              sequence_arr << render_mapping_element(attributes, current_indent)
+            end
             sequence_arr << "#{current_indent}end"
             sequence_arr.join("\n")
           end
 
-          def sequence_elements(sequence, elements = [])
-            sequence[:sequence].map do |element|
-              if element.key?(:element_name)
-                elements << element
-              elsif element.key?(:sequence)
-                sequence_elements(element, elements)
-              elsif element.key?(:group)
-                elements << element[:group]
-              end
+          def resolve_sequence_render(attributes, elements, current_indent, indent)
+            if attributes.key?(:sequence)
+              resolve_sequence_render(attributes, elements, current_indent, indent)
+            elsif attributes.keys.one?(String)
+              elements << attributes
+            elsif attributes.key?(:choice)
+              extract_elements(instance[:choice], elements)
             end
           end
 
           def render_mapping_elements(elements, current_indent)
             elements.reject!(&:empty?)
             elements.map do |element|
-              "#{current_indent}map_element #{element.element_name.inspect}, to: :#{Utils.snake_case(element.element_name)}"
+              render_mapping_element(element, current_indent)
             end.join("\n")
+          end
+
+          def render_mapping_element(element, current_indent)
+            element = element.values.first
+            "#{current_indent}map_element #{element.element_name.inspect}, to: :#{Utils.snake_case(element.element_name)}"
           end
         end
       end

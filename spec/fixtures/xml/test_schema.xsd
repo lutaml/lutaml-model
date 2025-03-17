@@ -43,11 +43,9 @@
     </xsd:annotation>
   </xsd:element>
   <xsd:complexType name="CT_MathTest">
-    <xsd:group>
-      <xsd:sequence>
-        <xsd:element ref="MathTest" />
-        <xsd:element ref="MathTest1" />
-      </xsd:sequence>
-    </xsd:group>
+    <xsd:sequence>
+      <xsd:element ref="MathTest" />
+      <xsd:element ref="MathTest1" />
+    </xsd:sequence>
   </xsd:complexType>
 </xsd:schema>

@@ -50,7 +50,7 @@ module Lutaml
 
           def render_sequence_definition(sequence, current_indent, indent)
             sequence.map do |instance|
-              if instance.key?(:element_name)
+              if instance.keys.one?(String)
                 render_elements_definition([instance], current_indent, indent)
               elsif instance.key?(:groups)
                 render_groups_definition([instance[:groups]], current_indent, indent)
@@ -62,7 +62,8 @@ module Lutaml
 
           def resolve_sequence_definition_content(content, current_indent, indent)
             content.map do |instance|
-              if instance.key?(:element_name)
+              if instance.keys.one?(String)
+                instance = instance.values.first
                 render_attribute_definition(instance.element_name, instance.type_name, instance[:arguments], current_indent, indent)
               elsif instance.key?(:groups)
                 render_groups_definition([instance[:groups]], current_indent, indent)
@@ -83,8 +84,8 @@ module Lutaml
               next if key == :arguments
 
               case key
-              when String, :element
-                choice_arr << render_elements_definition([value], next_indent, indent)
+              when String
+                choice_arr << render_elements_definition([{ key => value }], next_indent, indent)
               when :groups
                 choice_arr << render_groups_definition(value, next_indent, indent)
               else
@@ -97,6 +98,7 @@ module Lutaml
 
           def render_elements_definition(elements, current_indent, indent)
             elements.map do |element|
+              element = element.values.first
               render_attribute_definition(element.element_name, element.type_name, element[:arguments], current_indent, indent)
             end
           end
@@ -244,27 +246,34 @@ module Lutaml
           def required_files_choice(choice)
             choice.each do |key, value|
               case key
-              when String, :element
-                required_files_elements([value])
-              when :group, :choice, :sequence
-                required_files_group([value])
+              when Hash
+                required_files_elements(value.values)
+              when :group
+                required_files_group(value)
               end
             end
           end
 
           def required_files_group(group)
-            file_name = normalized_class_name(group[:ref_class])
-            @required_files << "require_relative #{Utils.snake_case(file_name).inspect}"
+            group.each do |key, value|
+              case key
+              when :sequence
+                required_files_sequence(value)
+              when :ref_class
+                file_name = normalized_class_name(group[:ref_class])
+                @required_files << "require_relative #{Utils.snake_case(file_name).inspect}"
+              end
+            end
           end
 
           def required_files_sequence(sequence)
             sequence.each do |key, value|
               case key
-              when :elements
-                required_files_elements(value)
+              when Hash
+                required_files_elements(key.values)
               when :sequence
                 required_files_sequence(value)
-              when :sequences, :groups, :choice
+              when :groups, :choice
                 required_groups_sequences_choice(value, called_method: key.to_s)
               end
             end
@@ -277,8 +286,6 @@ module Lutaml
 
           def required_files_elements(elements)
             elements.each do |element|
-              element = @elements[normalized_class_name(element.ref_class)] if element.key_exist?(:ref_class)
-
               element_class = normalized_class_name(element.type_name)
               next if DEFAULT_CLASSES.include?(element_class)
 

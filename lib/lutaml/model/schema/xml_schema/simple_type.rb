@@ -141,7 +141,6 @@ module Lutaml
             -%>
                 <%= "value" %>
               end
-            <%= "\n  private\n" if pattern_exist || values_exist || length_exist || min_length_exist || max_length_exist || min_bound_exist || max_bound_exist -%>
             <%=
               if pattern_exist
                 "\n  def self.raise_pattern_error(value, pattern)\n    raise Lutaml::Model::Type::InvalidValueError, \\"The value \\\#{value} does not match the required pattern: \\\#{pattern}\\"\n  end\n"
