@@ -4834,6 +4834,38 @@ puts SomeModel.new.to_yaml
 # coll: []
 ----
 
+=== `value_map` Functionality in Lutaml-Model
+
+The `value_map` feature in Lutaml-Model allows users to define mappings for empty, `nil`, or omitted values in XML, YAML, Toml, or JSON formats to their corresponding values in Ruby. This ensures consistent interpretation of missing or uninitialized data across different formats.
+
+== Purpose
+- Standardizes the way missing or undefined values are handled.
+- Ensures consistent conversion between external formats (XML, YAML, JSON) and Ruby.
+- Helps prevent unexpected `nil` values from causing errors.
+
+== Usage Example
+[source,ruby]
+----
+class ExampleClass
+  attribute :status, value_map: {
+    from: { empty: :nil, omitted: :omitted, nil: :nil },
+    to: { empty: :nil, omitted: :omitted, nil: :nil }
+  }
+end
+----
+
+=== Mapping Behavior
+The `value_map` defines mappings in two directions:
+1. **`from`**: Converts values from external formats (XML, YAML, Toml, JSON) to Lutaml Model object.
+2. **`to`**: Converts Lutaml Model object values back to external formats.
+
+When writing data back to XML, YAML, Toml, or JSON, the `to` mapping ensures that `nil` or omitted values are consistently formatted.
+
+== Key Benefits
+- Provides a structured approach to handling missing values.
+- Ensures bidirectional consistency between data formats and Ruby.
+
+
 === Rendering default values (forced rendering of default values)
 
 By default, attributes with default values are not rendered if the current value

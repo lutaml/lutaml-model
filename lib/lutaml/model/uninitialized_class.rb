@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "singleton"
+
 module Lutaml
   module Model
     class UninitializedClass
