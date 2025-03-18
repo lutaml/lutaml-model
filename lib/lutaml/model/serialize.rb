@@ -339,9 +339,9 @@ module Lutaml
                       attr.serialize(value, format, options)
                     end
 
-            next if !rule.render?(value, instance)
+            next if !rule.render?(value, instance, options)
 
-            value = apply_value_map(value, rule.value_map(:to), attr)
+            value = apply_value_map(value, rule.value_map(:to, options), attr)
 
             rule_from_name = rule.multiple_mappings? ? rule.from.first.to_s : rule.from.to_s
             hash[rule_from_name] = value
