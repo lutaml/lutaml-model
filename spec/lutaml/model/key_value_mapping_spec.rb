@@ -115,14 +115,14 @@ RSpec.describe Lutaml::Model::KeyValueMapping do
     end
 
     context "with TOML format" do
-      let(:mapping) { described_class.new(:toml) }
+      let(:mapping) { Lutaml::Model::TomlMapping.new }
 
       it "raises error when render_nil is :as_nil" do
         expect do
           mapping.map("test", to: :field, render_nil: :as_nil)
         end.to raise_error(
           Lutaml::Model::IncorrectMappingArgumentsError,
-          ":toml format does not support render_nil: as_nil mode",
+          "nil values are not supported in toml format",
         )
       end
 
@@ -131,7 +131,7 @@ RSpec.describe Lutaml::Model::KeyValueMapping do
           mapping.map("test", to: :field, render_empty: :as_nil)
         end.to raise_error(
           Lutaml::Model::IncorrectMappingArgumentsError,
-          ":toml format does not support render_empty: as_nil mode",
+          "nil values are not supported in toml format",
         )
       end
     end

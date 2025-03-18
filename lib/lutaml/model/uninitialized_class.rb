@@ -13,20 +13,8 @@ module Lutaml
         "unititialized"
       end
 
-      # def initialized?
-      #   false
-      # end
-
       def uninitialized?
         true
-      end
-
-      def !
-        true
-      end
-
-      def to_bool
-        false
       end
 
       def match?(_args)
@@ -54,6 +42,7 @@ module Lutaml
       end
 
       def encoding
+        # same as default encoding for string
         "".encoding
       end
 

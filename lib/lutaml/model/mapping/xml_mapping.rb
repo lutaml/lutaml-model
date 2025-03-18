@@ -238,25 +238,8 @@ module Lutaml
       end
 
       def validate!(key, to, with, render_nil, render_empty, type: nil)
-        validate_mappings!(type)
-
-        if to.nil? && with.empty?
-          raise IncorrectMappingArgumentsError.new(
-            ":to or :with argument is required for mapping '#{key}'",
-          )
-        end
-
-        if !with.empty? && (with[:from].nil? || with[:to].nil?)
-          raise IncorrectMappingArgumentsError.new(
-            ":with argument for mapping '#{key}' requires :to and :from keys",
-          )
-        end
-
-        # if render_nil && render_empty && render_nil == render_empty
-        #   raise IncorrectMappingArgumentsError.new(
-        #     "render_empty and render_nil cannot be set to the same value",
-        #   )
-        # end
+        validate_raw_mappings!(type)
+        validate_to_and_with_arguments!(key, to, with)
 
         if render_nil == :as_empty || render_empty == :as_empty
           raise IncorrectMappingArgumentsError.new(
@@ -265,7 +248,25 @@ module Lutaml
         end
       end
 
-      def validate_mappings!(type)
+      def validate_to_and_with_arguments!(key, to, with)
+        if to.nil? && with.empty?
+          raise IncorrectMappingArgumentsError.new(
+            ":to or :with argument is required for mapping '#{key}'",
+          )
+        end
+
+        validate_with_options!(key, with)
+      end
+
+      def validate_with_options!(key, with)
+        if !with.empty? && (with[:from].nil? || with[:to].nil?)
+          raise IncorrectMappingArgumentsError.new(
+            ":with argument for mapping '#{key}' requires :to and :from keys",
+          )
+        end
+      end
+
+      def validate_raw_mappings!(type)
         if !@raw_mapping.nil? && type != TYPES[:attribute]
           raise StandardError, "#{type} is not allowed, only #{TYPES[:attribute]} " \
                                "is allowed with #{TYPES[:all_content]}"

@@ -118,10 +118,6 @@ module Lutaml
         public_send(key) || options[key] || default_value
       end
 
-      def value_map(key, options = {})
-        @value_map[key]
-      end
-
       alias from name
       # alias render_nil? render_nil
       # alias render_empty? render_empty
@@ -129,16 +125,38 @@ module Lutaml
       alias attribute? attribute
 
       def render?(value, instance = nil)
-        if (!render_nil? && value.nil?) || (!render_empty? && Utils.empty?(value)) || (!render_omitted? && Utils.uninitialized?(value))
-          # if value is nil and render nil is false, we will not render
-          # if value is empty and render empty is false, we will not render
-          # if value is uninitialized and render omitted is false, we will not render
+        if invalid_value?(value)
           false
         elsif instance.respond_to?(:using_default?) && instance.using_default?(to)
           render_default?
         else
           true
         end
+      end
+
+      def treat?(value)
+        !((!treat_nil? && value.nil?) ||
+          (!treat_empty? && Utils.empty?(value)) ||
+          (!treat_omitted? && Utils.uninitialized?(value)))
+      end
+
+      def render_value_for(value)
+        if value.nil?
+          value_for_option(value_map(:to)[:nil])
+        elsif Utils.empty?(value)
+          value_for_option(value_map(:to)[:empty], value)
+        elsif Utils.uninitialized?(value)
+          value_for_option(value_map(:to)[:omitted])
+        else
+          value
+        end
+      end
+
+      def value_for_option(option, empty_value = nil)
+        return nil if option == :nil
+        return empty_value || "" if option == :empty
+
+        Lutaml::Model::UninitializedClass.instance
       end
 
       def render_nil?
@@ -194,19 +212,10 @@ module Lutaml
       end
 
       def deserialize(model, value, attributes, mapper_class = nil)
-        if custom_methods[:from]
-          mapper_class.new.send(custom_methods[:from], model, value) unless value.nil?
-        elsif delegate
-          if Utils.uninitialized?(model.public_send(delegate)) || model.public_send(delegate).nil?
-            model.public_send(:"#{delegate}=", attributes[delegate].type.new)
-          end
-
-          model.public_send(delegate).public_send(:"#{to}=", value)
-        elsif transform_method = transform[:import] || attributes[to].transform_import_method
-          model.public_send(:"#{to}=", transform_method.call(value))
-        else
-          model.public_send(:"#{to}=", value)
-        end
+        handle_custom_method(model, value, mapper_class) ||
+          handle_delegate(model, value, attributes) ||
+          handle_transform_method(model, value, attributes) ||
+          assign_value(model, value)
       end
 
       def using_custom_methods?
@@ -231,6 +240,55 @@ module Lutaml
 
       def deep_dup
         raise NotImplementedError, "Subclasses must implement `deep_dup`."
+      end
+
+      def value_map(key)
+        @value_map[key]
+      end
+
+      private
+
+      # if value is nil and render nil is false, will not render
+      # if value is empty and render empty is false, will not render
+      # if value is uninitialized and render omitted is false, will not render
+      def invalid_value?(value)
+        (!render_nil? && value.nil?) ||
+          (!render_empty? && Utils.empty?(value)) ||
+          (!render_omitted? && Utils.uninitialized?(value))
+      end
+
+      def handle_custom_method(model, value, mapper_class)
+        return if !custom_methods[:from] || value.nil?
+
+        mapper_class.new.send(custom_methods[:from], model, value)
+        true
+      end
+
+      def handle_delegate(model, value, attributes)
+        return unless delegate
+
+        handle_nil_or_uninitialized(model, attributes)
+        assign_value(model.public_send(delegate), value)
+        true
+      end
+
+      def handle_nil_or_uninitialized(model, attributes)
+        delegate_value = model.public_send(delegate)
+        return if Utils.initialized?(delegate_value) && !delegate_value.nil?
+
+        model.public_send(:"#{delegate}=", attributes[delegate].type.new)
+      end
+
+      def handle_transform_method(model, value, attributes)
+        transform_method = transform[:import] || attributes[to].transform_import_method
+        return unless transform_method
+
+        assign_value(model, transform_method.call(value))
+        true
+      end
+
+      def assign_value(model, value)
+        model.public_send(:"#{to}=", value)
       end
     end
   end
