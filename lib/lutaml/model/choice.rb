@@ -15,6 +15,13 @@ module Lutaml
         raise Lutaml::Model::InvalidChoiceRangeError.new(@min, @max) if @min.negative? || @max.negative?
       end
 
+      def ==(other)
+        @attributes == other.attributes &&
+          @min == other.min &&
+          @max == other.max &&
+          @model == other.model
+      end
+
       def attribute(name, type, options = {})
         options[:choice] = self
         @attributes << @model.attribute(name, type, options)

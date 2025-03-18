@@ -92,22 +92,15 @@ module Lutaml
           end
         end
 
-        # Define an attribute for the model
-        def attribute(name, type, options = {})
-          if type.is_a?(Hash)
-            options[:method_name] = type[:method]
-            type = nil
-          end
-
-          attr = Attribute.new(name, type, options)
-          attributes[name] = attr
+        def define_attribute_methods(attr)
+          name = attr.name
 
           if attr.enum?
             add_enum_methods_to_model(
               model,
               name,
-              options[:values],
-              collection: options[:collection],
+              attr.options[:values],
+              collection: attr.options[:collection],
             )
           elsif attr.derived? && name != attr.method_name
             define_method(name) do
@@ -117,35 +110,72 @@ module Lutaml
             define_method(name) do
               instance_variable_get(:"@#{name}")
             end
-
             define_method(:"#{name}=") do |value|
               value_set_for(name)
               instance_variable_set(:"@#{name}", attr.cast_value(value))
             end
           end
+        end
+
+        # Define an attribute for the model
+        def attribute(name, type, options = {})
+          if type.is_a?(Hash)
+            options[:method_name] = type[:method]
+            type = nil
+          end
+
+          attr = Attribute.new(name, type, options)
+          attributes[name] = attr
+          define_attribute_methods(attr)
 
           attr
         end
 
         def root?
-          mappings_for(:xml).root?
+          mappings_for(:xml)&.root?
+        end
+
+        def import_model_with_root_error(model)
+          raise Lutaml::Model::ImportModelWithRootError.new(model) if model.root?
         end
 
         def import_model_attributes(model)
-          raise Lutaml::Model::ImportModelWithRootError.new(model) if model.root?
+          model.attributes.each_value do |attr|
+            define_attribute_methods(attr)
+          end
 
-          @attributes.merge!(model.attributes)
+          @choice_attributes.concat(Utils.deep_dup(model.choice_attributes))
+          @attributes.merge!(Utils.deep_dup(model.attributes))
         end
 
         def import_model_mappings(model)
-          raise Lutaml::Model::ImportModelWithRootError.new(model) if model.root?
+          import_model_with_root_error(model)
 
-          @mappings.merge!(model.mappings)
+          Lutaml::Model::Config::AVAILABLE_FORMATS.each do |format|
+            next unless model.mappings.key?(format)
+
+            mapping = model.mappings_for(format)
+            mapping = Utils.deep_dup(mapping)
+
+            @mappings[format] ||= format == :xml ? XmlMapping.new : KeyValueMapping.new
+
+            if format == :xml
+              @mappings[format].merge_mapping_attributes(mapping)
+              @mappings[format].merge_mapping_elements(mapping)
+              @mappings[format].merge_elements_sequence(mapping)
+            else
+              @mappings[format].mappings.concat(mapping.mappings)
+            end
+          end
+        end
+
+        def handle_key_value_mappings(mapping, format)
+          @mappings[format] ||= KeyValueMapping.new
+          @mappings[format].mappings.concat(mapping.mappings)
         end
 
         def import_model(model)
-          raise Lutaml::Model::ImportModelWithRootError.new(model) if model.root?
-
+          import_model_with_root_error(model)
           import_model_attributes(model)
           import_model_mappings(model)
         end

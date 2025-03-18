@@ -322,6 +322,32 @@ module Lutaml
         end
       end
 
+      def mapping_attributes_hash
+        @attributes
+      end
+
+      def mapping_elements_hash
+        @elements
+      end
+
+      def merge_mapping_attributes(mapping)
+        mapping_attributes_hash.merge!(mapping.mapping_attributes_hash)
+      end
+
+      def merge_mapping_elements(mapping)
+        mapping_elements_hash.merge!(mapping.mapping_elements_hash)
+      end
+
+      def merge_elements_sequence(mapping)
+        mapping.element_sequence.each do |sequence|
+          element_sequence << Lutaml::Model::Sequence.new(self).tap do |instance|
+            sequence.attributes.each do |attr|
+              instance.attributes << attr.deep_dup
+            end
+          end
+        end
+      end
+
       def deep_dup
         self.class.new.tap do |xml_mapping|
           xml_mapping.root(@root_element.dup, mixed: @mixed_content,
