@@ -131,6 +131,7 @@ module Lutaml
           default_namespace: default_namespace.dup,
           transform: transform.dup,
           render_empty: render_empty.dup,
+          value_map: Utils.deep_dup(@value_map),
         )
       end
     end

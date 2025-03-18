@@ -168,15 +168,17 @@ module Lutaml
 
           return if !render_element?(rule, element, value)
 
+          value = rule.render_value_for(value)
+
           if value && (attribute&.type&.<= Lutaml::Model::Serialize)
             handle_nested_elements(
               xml,
               value,
               options.merge({ rule: rule, attribute: attribute }),
             )
-          elsif (rule.render_nil_as_nil? && value.nil?) || (rule.render_empty_as_nil? && Utils.empty_collection?(value))
+          elsif value.nil?
             xml.create_and_add_element(rule.name, attributes: { "xsi:nil" => true })
-          elsif (rule.render_nil_as_blank? && value.nil?) || (rule.render_empty_as_blank? && Utils.empty_collection?(value))
+          elsif Utils.empty?(value)
             xml.create_and_add_element(rule.name)
           elsif rule.raw_mapping?
             xml.add_xml_fragment(xml, value)

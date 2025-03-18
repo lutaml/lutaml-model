@@ -18,43 +18,45 @@ module ValueMapSpec
     attribute :empty_as_omitted, :string
 
     xml do
-      map_element "omitted_as_omitted", to: :omitted_as_omitted, value_map: {
+      root "WithValueMaps"
+
+      map_element "omittedAsOmitted", to: :omitted_as_omitted, value_map: {
         from: { omitted: :omitted },
         to: { omitted: :omitted },
       }
-      map_element "omitted_as_nil", to: :omitted_as_nil, value_map: {
+      map_element "omittedAsNil", to: :omitted_as_nil, value_map: {
         from: { omitted: :nil },
-        to: { nil: :omitted },
+        to: { omitted: :nil },
       }
-      map_element "omitted_as_empty", to: :omitted_as_empty, value_map: {
+      map_element "omittedAsEmpty", to: :omitted_as_empty, value_map: {
         from: { omitted: :empty },
-        to: { empty: :omitted },
+        to: { omitted: :empty },
       }
 
-      map_element "nil_as_nil", to: :nil_as_nil, value_map: {
+      map_element "nilAsNil", to: :nil_as_nil, value_map: {
         from: { nil: :nil },
         to: { nil: :nil },
       }
-      map_element "nil_as_omitted", to: :nil_as_omitted, value_map: {
+      map_element "nilAsOmitted", to: :nil_as_omitted, value_map: {
         from: { nil: :omitted },
-        to: { omitted: :nil },
+        to: { nil: :omitted },
       }
-      map_element "nil_as_empty", to: :nil_as_empty, value_map: {
+      map_element "nilAsEmpty", to: :nil_as_empty, value_map: {
         from: { nil: :empty },
-        to: { empty: :nil },
+        to: { nil: :empty },
       }
 
-      map_element "empty_as_empty", to: :empty_as_empty, value_map: {
+      map_element "emptyAsEmpty", to: :empty_as_empty, value_map: {
         from: { empty: :empty },
         to: { empty: :empty },
       }
-      map_element "empty_as_nil", to: :empty_as_nil, value_map: {
+      map_element "emptyAsNil", to: :empty_as_nil, value_map: {
         from: { empty: :nil },
-        to: { nil: :empty },
+        to: { empty: :nil },
       }
-      map_element "empty_as_omitted", to: :empty_as_omitted, value_map: {
+      map_element "emptyAsOmitted", to: :empty_as_omitted, value_map: {
         from: { empty: :omitted },
-        to: { omitted: :empty },
+        to: { empty: :omitted },
       }
     end
 
@@ -65,11 +67,11 @@ module ValueMapSpec
       }
       map "omitted_as_nil", to: :omitted_as_nil, value_map: {
         from: { omitted: :omitted },
-        to: { omitted: :nil, nil: :omitted },
+        to: { omitted: :nil },
       }
       map "omitted_as_empty", to: :omitted_as_empty, value_map: {
         from: { omitted: :omitted },
-        to: { omitted: :empty, empty: :omitted },
+        to: { omitted: :empty },
       }
 
       map "nil_as_nil", to: :nil_as_nil, value_map: {
@@ -78,11 +80,11 @@ module ValueMapSpec
       }
       map "nil_as_omitted", to: :nil_as_omitted, value_map: {
         from: { nil: :nil },
-        to: { nil: :omitted, omitted: :nil },
+        to: { nil: :omitted },
       }
       map "nil_as_empty", to: :nil_as_empty, value_map: {
         from: { nil: :nil },
-        to: { nil: :empty, empty: :nil },
+        to: { nil: :empty },
       }
 
       map "empty_as_empty", to: :empty_as_empty, value_map: {
@@ -91,11 +93,11 @@ module ValueMapSpec
       }
       map "empty_as_nil", to: :empty_as_nil, value_map: {
         from: { empty: :empty },
-        to: { empty: :nil, nil: :empty },
+        to: { empty: :nil },
       }
       map "empty_as_omitted", to: :empty_as_omitted, value_map: {
         from: { empty: :empty },
-        to: { empty: :omitted, omitted: :empty },
+        to: { empty: :omitted },
       }
     end
   end
@@ -164,24 +166,75 @@ RSpec.describe "ValueMap" do
 
       expect(parsed).to eq(expected)
     end
-
-    # it "round trips correctly" do
-    #   expect(parsed.to_yaml).to eq(yaml)
-    # end
   end
 
-  # describe "XML" do
-  #   let(:xml) do
-  #     <<~XML
-  #       <WithValueMaps>
-  #         <nilAsNil xsi:nil="true"></nilAsNil>
-  #         <nilAsOmitted xsi:nil="true"></nilAsOmitted>
-  #         <nilAsEmpty xsi:nil="true"></nilAsEmpty>
-  #         <emptyAsEmpty/>
-  #         <emptyAsNil/>
-  #         <emptyAsOmitted/>
-  #       </WithValueMaps>
-  #     XML
-  #   end
-  # end
+  describe "XML" do
+    context "when serializing" do
+      let(:model) do
+        ValueMapSpec::WithValueMaps.new(
+          {
+            nil_as_nil: nil,
+            nil_as_omitted: nil,
+            nil_as_empty: nil,
+            empty_as_empty: "",
+            empty_as_nil: "",
+            empty_as_omitted: "",
+          },
+          { omitted: :omitted },
+        )
+      end
+
+      let(:expected_xml) do
+        <<~XML.strip
+          <WithValueMaps>
+            <omittedAsNil xsi:nil="true"/>
+            <omittedAsEmpty/>
+            <nilAsNil xsi:nil="true"/>
+            <nilAsEmpty/>
+            <emptyAsEmpty/>
+            <emptyAsNil xsi:nil="true"/>
+          </WithValueMaps>
+        XML
+      end
+
+      it "sets correct values when serializing" do
+        expect(model.to_xml).to eq(expected_xml)
+      end
+    end
+
+    context "when deserializing" do
+      let(:xml) do
+        <<~XML
+          <WithValueMaps>
+            <nilAsNil xsi:nil="true" />
+            <nilAsOmitted xsi:nil="true" />
+            <nilAsEmpty xsi:nil="true" />
+            <emptyAsEmpty/>
+            <emptyAsNil/>
+            <emptyAsOmitted/>
+          </WithValueMaps>
+        XML
+      end
+
+      let(:parsed) { ValueMapSpec::WithValueMaps.from_xml(xml) }
+
+      let(:expected) do
+        ValueMapSpec::WithValueMaps.new(
+          {
+            nil_as_nil: nil,
+            nil_as_empty: "",
+            empty_as_empty: "",
+            empty_as_nil: nil,
+            omitted_as_nil: nil,
+            omitted_as_empty: "",
+          },
+          { omitted: :omitted },
+        )
+      end
+
+      it "sets correct values when deserializing" do
+        expect(parsed).to eq(expected)
+      end
+    end
+  end
 end

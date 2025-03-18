@@ -133,8 +133,8 @@ RSpec.describe RenderNil do
   it "serializes to XML with render_nil option" do
     expected_xml = <<~XML
       <render_nil>
-        <name/>
-        <glaze/>
+        <name xsi:nil="true"/>
+        <glaze xsi:nil="true"/>
         <render_nil_nested/>
       </render_nil>
     XML
@@ -145,8 +145,8 @@ RSpec.describe RenderNil do
   it "deserializes from XML with render_nil option" do
     xml = <<~XML
       <render_nil>
-        <name/>
-        <glaze/>
+        <name xsi:nil="true" />
+        <glaze xsi:nil="true" />
       </render_nil>
     XML
 
