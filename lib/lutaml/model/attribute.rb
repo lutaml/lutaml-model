@@ -290,6 +290,10 @@ module Lutaml
         end
       end
 
+      def deep_dup
+        self.class.new(name, type, Utils.deep_dup(options))
+      end
+
       private
 
       def resolve_polymorphic_class(type, value, options)

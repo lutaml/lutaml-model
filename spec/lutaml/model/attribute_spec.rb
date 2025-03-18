@@ -167,4 +167,38 @@ RSpec.describe Lutaml::Model::Attribute do
       end
     end
   end
+
+  describe "#deep_dup" do
+    let(:duplicate_attribute) { Lutaml::Model::Utils.deep_dup(attribute) }
+
+    context "when deep_dup method is not defined and instance is deep_duplicated" do
+      let(:attribute) { described_class.new("name", :string) }
+
+      before do
+        described_class.alias_method :orig_deep_dup, :deep_dup
+        described_class.undef_method :deep_dup
+      end
+
+      after do
+        described_class.alias_method :deep_dup, :orig_deep_dup
+        attribute.options.delete(:foo)
+      end
+
+      it "confirms that options values are linked of original and duplicate instances" do
+        duplicate_attribute
+        attribute.options[:foo] = "bar"
+        expect(duplicate_attribute.options).to include(:foo)
+      end
+    end
+
+    context "when deep_dup method is defined and instance is deep_duplicated" do
+      let(:attribute) { described_class.new("name", :string) }
+
+      it "confirms that options values are not linked of original and duplicate instances" do
+        duplicate_attribute
+        attribute.options[:foo] = "bar"
+        expect(duplicate_attribute.options).not_to include(:foo)
+      end
+    end
+  end
 end
