@@ -124,8 +124,8 @@ module Lutaml
       alias render_default? render_default
       alias attribute? attribute
 
-      def render?(value, instance = nil)
-        if invalid_value?(value)
+      def render?(value, instance = nil, options = {})
+        if invalid_value?(value, options)
           false
         elsif instance.respond_to?(:using_default?) && instance.using_default?(to)
           render_default?
@@ -159,16 +159,16 @@ module Lutaml
         Lutaml::Model::UninitializedClass.instance
       end
 
-      def render_nil?
-        value_map(:to)[:nil] != :omitted
+      def render_nil?(options = {})
+        value_map(:to, options)[:nil] != :omitted
       end
 
-      def render_empty?
-        value_map(:to)[:empty] != :omitted
+      def render_empty?(options = {})
+        value_map(:to, options)[:empty] != :omitted
       end
 
-      def render_omitted?
-        value_map(:to)[:omitted] != :omitted
+      def render_omitted?(options = {})
+        value_map(:to, options)[:omitted] != :omitted
       end
 
       def treat_nil?
@@ -242,8 +242,14 @@ module Lutaml
         raise NotImplementedError, "Subclasses must implement `deep_dup`."
       end
 
-      def value_map(key)
-        @value_map[key]
+      def value_map(key, options = {})
+        options = {
+          nil: options[:nil],
+          empty: options[:empty],
+          omitted: options[:omitted],
+        }.compact
+
+        @value_map[key].merge(options)
       end
 
       private
@@ -251,10 +257,10 @@ module Lutaml
       # if value is nil and render nil is false, will not render
       # if value is empty and render empty is false, will not render
       # if value is uninitialized and render omitted is false, will not render
-      def invalid_value?(value)
-        (!render_nil? && value.nil?) ||
-          (!render_empty? && Utils.empty?(value)) ||
-          (!render_omitted? && Utils.uninitialized?(value))
+      def invalid_value?(value, options)
+        (!render_nil?(options) && value.nil?) ||
+          (!render_empty?(options) && Utils.empty?(value)) ||
+          (!render_omitted?(options) && Utils.uninitialized?(value))
       end
 
       def handle_custom_method(model, value, mapper_class)

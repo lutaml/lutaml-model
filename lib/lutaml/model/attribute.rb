@@ -232,9 +232,6 @@ module Lutaml
 
         return true unless collection?
 
-        # Allow uninitialized values for collections during initialization
-        # return true if Utils.uninitialized?(value)
-
         # Allow any value for unbounded collections
         return true if options[:collection] == true
 

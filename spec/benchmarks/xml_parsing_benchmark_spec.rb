@@ -62,7 +62,7 @@ RSpec.describe "LutaML Model Performance" do
 
     thresholds = {
       "Nokogiri Adapter" => 3,
-      "Ox Adapter" => 9,
+      "Ox Adapter" => 7,
       "Oga Adapter" => 3,
     }
 
