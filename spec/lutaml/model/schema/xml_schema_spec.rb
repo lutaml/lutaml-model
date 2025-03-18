@@ -165,6 +165,28 @@ RSpec.describe Lutaml::Model::Schema::XmlSchema do
         expect(User.from_xml(xml).to_xml).to be_equivalent_to(xml)
       end
     end
+
+    context "when processed an AI generated schema" do
+      Dir.mktmpdir do |dir|
+        before do
+          described_class.to_models(
+            File.read("spec/fixtures/xml/complex_test_schema.xsd"),
+            output_dir: dir,
+            create_files: true,
+          )
+          require_relative "#{dir}/order"
+        end
+
+        let(:valid_example) do
+          File.read("spec/fixtures/xml/order_sample.xml")
+        end
+
+        it "matches the valid example after conversion" do
+          expect(defined?(Order)).to eq("constant")
+          expect(Order.from_xml(valid_example).to_xml).to be_equivalent_to(valid_example)
+        end
+      end
+    end
   end
 
   describe "structure setup methods" do

@@ -84,8 +84,8 @@ module Lutaml
                 resolve_sequences(attr[:sequence], current_indent, indent)
               elsif attr.key?(:choice)
                 model_choices([attr[:choice]], current_indent, indent)
-              elsif attr.key?(:element_name)
-                render_model_attribute(attr, current_indent)
+              elsif attr.keys.one?(String)
+                render_model_attribute(attr.values.first, current_indent)
               elsif attr.key?(:group)
                 model_groups_import(attr[:group], current_indent)
               end
@@ -153,7 +153,7 @@ module Lutaml
             min_occurs = min.to_s.to_i
             return "true" unless min_occurs || mix_occurs
 
-            [min_occurs, "..", max_occurs].compact.join
+            ["(", min_occurs, "..", max_occurs, ")"].compact.join
           end
 
           def render_model_sequence(attributes, current_indent, indent)

@@ -26,6 +26,7 @@
       <ProductID>PROD-002</ProductID>
       <Name>Programming eBook</Name>
       <Price>24.99</Price>
+      <Description>Comprehensive guide to modern programming practices and design patterns</Description>
       <FileSize>12.5MB</FileSize>
       <Format>PDF</Format>
     </DigitalProduct>
@@ -37,6 +38,9 @@
       <City>Anytown</City>
       <PostalCode>12345</PostalCode>
       <State>California</State>
+      <!-- TODO: Remove PROVINCE and REGION once lutaml-model#359 is resolved -->
+      <Province>USA</Province>
+      <Region>USA</Region>
       <Country>USA</Country>
     </ShippingAddress>
     <TrackingNumber>TRACK-987654321</TrackingNumber>
@@ -52,6 +56,9 @@
         <City>Anytown</City>
         <PostalCode>12345</PostalCode>
         <State>California</State>
+        <!-- TODO: Remove PROVINCE and REGION once lutaml-model#359 is resolved -->
+        <Province>USA</Province>
+        <Region>USA</Region>
         <Country>USA</Country>
       </BillingAddress>
     </CreditCard>

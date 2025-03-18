@@ -56,6 +56,8 @@ module Lutaml
           <%=
             if content.keys.any? { |key| %i[sequence choice].include?(key) }
               output = resolve_content(content).map do |element_name, element|
+                next if element_name == :arguments
+
                 element = @elements[element.ref_class.split(":")&.last] if element&.key_exist?(:ref_class)
                 "    map_element :\#{element_name}, to: :\#{Utils.snake_case(element_name)}"
               end.join("\n")
@@ -72,6 +74,8 @@ module Lutaml
                   end.join("\n")
                 else
                   element = @elements[element.ref_class.split(":")&.last] if element&.key_exist?(:ref_class)
+                  next if element_name == :arguments
+
                   "    map_element :\#{element_name}, to: :\#{Utils.snake_case(element_name)}"
                 end
               end.join("\n")
@@ -310,8 +314,8 @@ module Lutaml
 
         def setup_attribute(attribute)
           MappingHash.new.tap do |attr_hash|
-            if attribute.ref
-              attr_hash[:ref_class] = attribute.ref
+            if ref = attribute.ref
+              attr_hash[:ref_class] = ref
             else
               attr_hash[:name] = attribute.name
               attr_hash[:base_class] = attribute.type
@@ -346,17 +350,17 @@ module Lutaml
         end
 
         def element_name(object)
-          if object.name
-            object.name
-          elsif object.ref
-            @elements[object.ref.split(":").last].element_name
+          if object_name = object.name
+            object_name
+          elsif ref = object.ref
+            @elements[ref.split(":").last].element_name
           end
         end
 
         def setup_element(element)
           MappingHash.new.tap do |hash|
-            if element.ref
-              hash.merge!(@elements[element.ref.split(":").last])
+            if ref = element.ref
+              hash.merge!(@elements[ref.split(":").last])
             else
               setup_min_max_arguments(element, hash)
               hash[:element_name] = element.name
@@ -501,8 +505,6 @@ module Lutaml
         def resolve_choice(choice, hash = MappingHash.new)
           choice.each do |key, value|
             case key
-            when :element, String
-              hash.merge!(value)
             when String
               hash[key] = value
             when :sequence

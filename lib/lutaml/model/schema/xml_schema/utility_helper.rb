@@ -33,6 +33,8 @@ module Lutaml
             current_indent = options[:current_indent]
             indent = options[:indent]
             content.compact.map do |key, value|
+              next if key == :mixed
+
               case key
               when :attributes
                 render_attributes_definition(value, current_indent, indent)
@@ -64,7 +66,7 @@ module Lutaml
             content.map do |instance|
               if instance.keys.one?(String)
                 instance = instance.values.first
-                render_attribute_definition(instance.element_name, instance.type_name, instance[:arguments], current_indent, indent)
+                render_attribute_definition(instance.element_name, instance.type_name, instance[:arguments], current_indent)
               elsif instance.key?(:groups)
                 render_groups_definition([instance[:groups]], current_indent, indent)
               end
@@ -99,17 +101,17 @@ module Lutaml
           def render_elements_definition(elements, current_indent, indent)
             elements.map do |element|
               element = element.values.first
-              render_attribute_definition(element.element_name, element.type_name, element[:arguments], current_indent, indent)
+              render_attribute_definition(element.element_name, element.type_name, element[:arguments], current_indent)
             end
           end
 
           def render_attributes_definition(attributes, current_indent, indent)
             attributes.compact.map do |attribute|
-              render_attribute_definition(attribute.name, attribute.base_class, attribute[:arguments], current_indent, indent)
+              render_attribute_definition(attribute.name, attribute.base_class, attribute[:arguments], current_indent)
             end
           end
 
-          def render_attribute_definition(name, klass, arguments, current_indent, indent)
+          def render_attribute_definition(name, klass, arguments, current_indent)
             "#{current_indent}attribute :#{Utils.snake_case(name)}, :#{Utils.snake_case(normalized_class_name(klass))}#{resolve_occurs(arguments)}"
           end
 
@@ -246,8 +248,8 @@ module Lutaml
           def required_files_choice(choice)
             choice.each do |key, value|
               case key
-              when Hash
-                required_files_elements(value.values)
+              when String
+                required_files_elements([value])
               when :group
                 required_files_group(value)
               end
@@ -270,11 +272,28 @@ module Lutaml
             sequence.each do |key, value|
               case key
               when Hash
-                required_files_elements(key.values)
+                if key.keys.one?(String)
+                  required_files_elements(key.values)
+                elsif key.key?(:groups)
+                  required_files_group(key[:groups])
+                end
               when :sequence
-                required_files_sequence(value)
-              when :groups, :choice
+                required_files_sequences_array(value)
+              when :choice
                 required_groups_sequences_choice(value, called_method: key.to_s)
+              end
+            end
+          end
+
+          def required_files_sequences_array(sequences)
+            sequences.each do |sequence|
+              if sequence.keys.one?(String)
+                required_files_elements(sequence.values)
+              elsif sequence.key?(:sequence)
+                required_files_sequence(sequence)
+              elsif sequence.key?(:choice)
+                required_files_choice(sequence[:choice])
+              else
               end
             end
           end
@@ -285,7 +304,8 @@ module Lutaml
           end
 
           def required_files_elements(elements)
-            elements.each do |element|
+            elements.flatten.each do |element|
+              element = element.values.first if element.keys.one?(String)
               element_class = normalized_class_name(element.type_name)
               next if DEFAULT_CLASSES.include?(element_class)
 
