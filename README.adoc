@@ -4911,15 +4911,15 @@ The following table summarizes the default `value_map` configurations for variou
 | XML         | `omitted`     | `omitted`       | If the value is omitted in the model, it remains omitted in the serialized output.
 | XML         | `nil`         | `nil`           | A `nil` value in the model is serialized as `nil`.
 
-| YAML        | `empty`       | `nil`           | An empty string (`""`) in the model is deserialized as `nil`.
+| YAML        | `empty`       | `empty`         | An empty string (`""`) in the model is deserialized as `empty`.
 | YAML        | `omitted`     | `omitted`       | If the value is omitted, it remains omitted in YAML.
 | YAML        | `nil`         | `nil`           | A `nil` value in the model is serialized as `nil`.
 
-| JSON        | `empty`       | `nil`           | An empty string (`""`) in the model is serialized as `nil`.
+| JSON        | `empty`       | `empty`         | An empty string (`""`) in the model is serialized as `empty`.
 | JSON        | `omitted`     | `omitted`       | If the value is omitted in the model, it remains omitted in the JSON output.
 | JSON        | `nil`         | `nil`           | A `nil` value in the model is serialized as `null`.
 
-| TOML        | `empty`       | `nil`           | An empty string (`""`) in the model is treated as `nil` for TOML serialization.
+| TOML        | `empty`       | `empty`         | An empty string (`""`) in the model is treated as `empty` for TOML serialization.
 | TOML        | `omitted`     | `omitted`       | If the value is omitted in the model, it remains omitted in the TOML output.
 | TOML        | `nil`         | `omitted`       | In TOML, `nil` is represented as `omitted` due to TOML limitations.
 |===
