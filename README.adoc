@@ -1661,6 +1661,87 @@ end
 ====
 
 
+[[attribute-value-transform]]
+=== Attribute value transform
+
+An attribute value transformation is used when the value of an attribute needs
+to be transformed around assignment.
+
+There are occasions where the value of an attribute is to be transformed
+during assignment and retrieval, such that when the external usage of the value
+differs from the internal model representation.
+
+NOTE: Value transformation can be applied at the attribute-level or at the
+<<mapping-value-transform,serialization-mapping level>>. They can also be
+applied together.
+
+[example]
+====
+Given a model that stores a measurement composed of a numerical value and a
+unit, where the numerical value is used for calculations inside the model,
+but the external representation of that value is a string (across all
+serialization formats).
+
+* Internal: `number: 10.20`, `unit: cm`.
+* External: `"10.20 cm"`
+====
+
+The `transform` option at the `attribute` method is used to define a
+transformation `Proc` for the attribute value.
+
+Syntax:
+
+[source,ruby]
+----
+class SomeObject < Lutaml::Model::Serializable
+  attribute :attribute_name, {attr_type}, transform: {
+    export: ->(value) { ... },
+    import: ->(value) { ... }
+  }
+end
+----
+
+The `transform` option also support collection attributes.
+
+Where,
+
+`attribute_name`:: The name of the attribute.
+
+`attr_type`:: The type of the attribute.
+
+`transform`:: The option to define a transformation for the attribute value.
+
+`export`:: The transformation `Proc` for the value when it is being
+retrieved from the model.
+
+`import`:: The transformation `Proc` for the value when it is being
+assigned to the model.
+
+[example]
+.Demonstrating attribute-level value transformation procs
+====
+[source,ruby]
+----
+class Ceramic < Lutaml::Model::Serializable
+  attribute :name, :string, transform: {
+    export: ->(value) { value.upcase },
+    import: ->(value) { value.downcase }
+  }
+end
+----
+
+[source,ruby]
+----
+> c = Ceramic.new(name: "Celadon")
+> c.name
+> # "CELADON"
+> c.instance_attribute_get(:@name)
+> # "Celadon"
+> Ceramic.new(name: "Celadon").name = "Raku"
+> # "RAKU"
+----
+====
+
 
 === Value validation
 
@@ -4484,24 +4565,303 @@ In this example:
 `name` attributes, respectively.
 ====
 
+=== Format-independent mechanisms
 
+[[mapping-value-transform]]
+==== Mapping value transformation
 
-[[separate-serialization-model]]
-=== Separate serialization model
+A mapping value transformation is used when the value of an attribute needs to
+be transformed around the serialization process. Collection attributes
+are also supported.
 
-The `Serialize` module can be used to define only serialization mappings for a
-separately defined model (a Ruby class).
+This is useful when the representation of the value in a serialization format
+differs from its internal representation in the model.
+
+NOTE: Value transformation can be applied at the
+<<attribute-value-transform,attribute-level>> or at the serialization-mapping
+level. They can also be applied together.
+
 
 Syntax:
 
 [source,ruby]
 ----
-class Foo < Lutaml::Model::Serializable
+class SomeObject < Lutaml::Model::Serializable
+  # Attribute-level transformation
+  attribute :attribute_name, {attr_type}, transform: { <1>
+    export: ->(value) { ... },
+    import: ->(value) { ... }
+  }
+
+  # Mapping-level transformation in JSON format
+  {key_value_formats} do
+    map "key", to: :attribute_name, transform: { <2>
+      export: ->(value) { ... },
+      import: ->(value) { ... }
+    }
+  end
+
+  # Mapping-level transformation in XML format
+  xml do
+    map_element "ElementName", to: :attribute_name, transform: { <3>
+      export: ->(value) { ... },
+      import: ->(value) { ... }
+    }
+
+    map_attribute "AttributeName", to: :attribute_name, transform: {
+      export: ->(value) { ... },
+      import: ->(value) { ... }
+    }
+  end
+end
+----
+<1> At the attribute level, the `transform` option applied to the `attribute`
+method is used to define the transformation for the attribute.
+
+<2> At the mapping level (for `{key_value_formats}` formats), the `transform`
+option applied to the `map` method is used to define the transformation for the
+mapping.
+
+<3> At the mapping level (for the XML format), the `transform` option applied to
+the `map_*` methods is used to define the transformation for the mapping.
+
+Where,
+
+`attribute_name`:: The name of the attribute.
+
+`attr_type`:: The type of the attribute.
+
+Attribute-level `transform`:: The option to define a transformation for the
+attribute value.
+
+Attribute-level `export`:: The transformation `Proc` for the value when it is
+being retrieved from the model.
+
+Attribute-level `import`:: The transformation `Proc` for the value when it is
+being assigned to the model.
+
+`{key_value_formats}`:: The serialization format (e.g. `json`, `yaml`, `toml`,
+`key_value`) for which the mapping is defined.
+
+Mapping-level `transform`:: The option to define a transformation for the
+serialization mapping value. The value given to the Proc is the model
+attribute value that does not go through attribute-level transform.
+
+Mapping-level `export`:: The transformation `Proc` for the attribute value when
+it is being written to the serialization format.
+
+Mapping-level `import`:: The transformation `Proc` for the value when it is
+being read from the serialization format and assigned to the model.
+
+
+[example]
+====
+[source,ruby]
+----
+class Ceramic < Lutaml::Model::Serializable
+  attribute :glaze_type, :string
+
+  # Mapping-level transformation in key-value formats
+  json do
+    map "glazeType", to: :glaze_type, transform: {
+      export: ->(value) { "Traditional #{value}" },
+      import: ->(value) { value.gsub("Traditional ", "") }
+    }
+  end
+
+  # Mapping-level transformation in XML format
+  xml do
+    root "Ceramic"
+    map_attribute "glaze-type", to: :glaze_type, transform: {
+      export: ->(value) { "Traditional #{value}" },
+      import: ->(value) { value.gsub("Traditional ", "") }
+    }
+  end
+end
+----
+
+[source,ruby]
+----
+ceramic = Ceramic.new(glaze_type: "celadon")
+
+# Export transformation applied on defined mapping
+ceramic.to_json
+# => {"glazeType": "Traditional celadon"}
+
+# Export transformation applied on defined mapping
+ceramic.to_xml
+# => <Ceramic glaze-type="Traditional celadon"/>
+
+# No export transformation when no mapping exists
+ceramic.to_yaml
+# => glaze_type: "celadon"
+
+# Import transformation applied on defined mapping
+ceramic = Ceramic.from_json('{ "glazeType" => "Traditional celadon" }')
+ceramic.glaze_type
+# => "celadon"
+
+# Import transformation applied on defined mapping
+ceramic = Ceramic.from_xml('<Ceramic glaze-type="Traditional raku"/>')
+ceramic.glaze_type
+# => "raku"
+
+# No import transformation when no mapping exists
+ceramic = Ceramic.from_yaml('glaze_type: "Traditional celadon"')
+ceramic.glaze_type
+# => "Traditional celadon"
+----
+====
+
+Attribute-level and mapping-level transformations can be used together
+for the same attribute in a chained fashion.
+
+Precedence applies to the two levels of transformation for deserialization:
+
+. Mapping-level transformation, if defined, occurs first
+
+. Attribute-level transformation, if defined, is applied to the result of the
+mapping-level transformation
+
+Conversely, precedence applies in the same order for serialization:
+
+. Attribute-level transformation, if defined, occurs first
+
+. Mapping-level transformation, if defined, is applied to the result of the
+attribute-level transformation
+
+This mechanism allows for flexible value transformations without needing
+format-specific custom methods.
+
+.Diagram indicating flow of transformation across layers
+[source]
+----
+╔════════════════════════════╗       ╔════════════════════════════╗
+║ Serialization Format Value ║       ║ Serialization Format Value ║
+╚════════════════════════════╝       ╚════════════════════════════╝
+              |                                    |
+              ▼                                    ▼
+╔════════════════════════════╗       ╔════════════════════════════╗
+║      Mapping Transform     ║       ║      Mapping Transform     ║
+╚════════════════════════════╝       ╚════════════════════════════╝
+              |                                    |
+              ▼                                    ▼
+╔════════════════════════════╗       ╔════════════════════════════╗
+║     Attribute Transform    ║       ║     Attribute Transform    ║
+╚════════════════════════════╝       ╚════════════════════════════╝
+              |                                    |
+              ▼                                    ▼
+╔════════════════════════════╗       ╔════════════════════════════╗
+║    Model Attribute Value   ║       ║    Model Attribute Value   ║
+╚════════════════════════════╝       ╚════════════════════════════╝
+----
+
+
+
+[example]
+====
+[source,ruby]
+----
+class Ceramic < Lutaml::Model::Serializable
+  # Attribute-level transformation
+  attribute :glaze_type, :string, transform: {
+    export: ->(value) { "Ceramic #{value}" },
+    import: ->(value) { value.gsub("Ceramic ", "") }
+  }
+
+  # Mapping-level transformation in key-value formats
+  json do
+    map "glazeType", to: :glaze_type, transform: {
+      export: ->(value) { "Traditional #{value}" },
+      import: ->(value) { value.gsub("Traditional ", "") }
+    }
+  end
+
+  # Mapping-level transformation in XML format
+  xml do
+    root "Ceramic"
+    map_attribute "glaze-type", to: :glaze_type, transform: {
+      export: ->(value) { "Traditional #{value}" },
+      import: ->(value) { value.gsub("Traditional ", "") }
+    }
+  end
+end
+----
+
+[source,ruby]
+----
+ceramic = Ceramic.new(glaze_type: "Ceramic celadon")
+
+# Attribute-level export transformation applied
+ceramic.glaze_type
+# => "Ceramic celadon"
+
+# Internal representation
+ceramic.instance_value_get(:@glaze_type)
+# => "celadon"
+
+# Mapping-level export transformation applied to attribute-level transformed value
+ceramic.to_json
+# => {"glazeType": "Traditional Ceramic celadon"}
+
+# Mapping-level export transformation applied to attribute-level transformed value
+ceramic.to_xml
+# => <Ceramic glaze-type="Traditional Ceramic celadon"/>
+
+# No mapping-level export transformation when no mapping exists
+ceramic.to_yaml
+# => glaze_type: "Ceramic celadon"
+
+# Attribute-level import transformation applied to mapping-level transformed value
+ceramic = Ceramic.from_json('{ "glazeType" => "Traditional Ceramic celadon" }')
+ceramic.glaze_type
+# => "Ceramic celadon"
+
+# Attribute-level import transformation applied to mapping-level transformed value
+ceramic = Ceramic.from_xml('<Ceramic glaze-type="Traditional Ceramic raku"/>')
+ceramic.glaze_type
+# => "Ceramic raku"
+
+# No mapping-level import transformation when no mapping exists
+ceramic = Ceramic.from_yaml('glaze_type: "Ceramic celadon"')
+ceramic.glaze_type
+# => "Ceramic celadon"
+----
+====
+
+
+
+[[separate-serialization-model]]
+==== Separate data model class
+
+The `Serialize` module can be used to define only serialization mappings for a
+separately defined data model class (a Ruby class).
+
+NOTE: This is traditionally called "custom model".
+
+Syntax:
+
+[source,ruby]
+----
+class MappingClass < Lutaml::Model::Serializable
   model {DataModelClass}
 
   # ...
 end
 ----
+
+Where,
+
+`MappingClass`:: The class that represents the serialization mappings. This
+class must be a subclass of `Lutaml::Model::Serializable`.
+
+`DataModelClass`:: The class that represents the data model.
+
+When using a separate data model class, it is important to remember that the
+serialization methods (`instance#to_*`, `klass.from_*`, such as
+`instance.to_yaml`, `instance.to_xml` or `Klass.from_yaml`, `Klass.from_xml`),
+are to be called on the mapping class, not the data model instance.
+
 
 [example]
 .Using the `model` method to define serialization mappings for a separate model
@@ -4538,452 +4898,84 @@ end
 ====
 
 
-=== Rendering empty attributes and collections
-
-By default, empty attributes and collections are not rendered in the output.
-
-To render empty attributes and collections, use the `render_nil` option.
-
-Syntax:
-
-[source,ruby]
-----
-xml do
-  map_element 'key_value_model_attribute_name', to: :name_of_attribute, render_nil: true
-end
-----
-
-[source,ruby]
-----
-json | yaml | toml do
-  map 'key_value_model_attribute_name', to: :name_of_attribute, render_nil: true
-end
-----
-
-.Using the `render_nil` option to render empty attributes
 [example]
+.Using the `model` method to define serialization mappings for a separate model in a model hierarchy
 ====
+The following class will parse the XML snippet below:
+
 [source,ruby]
 ----
-class Ceramic < Lutaml::Model::Serializable
-  attribute :type, :string
-  attribute :glaze, :string
+class CustomModelChild
+  attr_accessor :street, :city
+end
+
+class CustomModelChildMapper < Lutaml::Model::Serializable
+  model CustomModelChild
+
+  attribute :street, Lutaml::Model::Type::String
+  attribute :city, Lutaml::Model::Type::String
 
   xml do
-    map_element 'type', to: :type, render_nil: true
-    map_element 'glaze', to: :glaze
+    map_element :street, to: :street
+    map_element :city, to: :city
+  end
+end
+
+class CustomModelParentMapper < Lutaml::Model::Serializable
+  attribute :first_name, Lutaml::Model::Type::String
+  attribute :child_mapper, CustomModelChildMapper
+
+  xml do
+    map_element :first_name, to: :first_name
+    map_element :CustomModelChild,
+                with: { to: :child_to_xml, from: :child_from_xml }
   end
 
-  json do
-    map 'type', to: :type, render_nil: true
-    map 'glaze', to: :glaze
+  def child_to_xml(model, parent, doc)
+    child_el = doc.create_element("CustomModelChild")
+    street_el = doc.create_element("street")
+    city_el = doc.create_element("city")
+
+    doc.add_text(street_el, model.child_mapper.street)
+    doc.add_text(city_el, model.child_mapper.city)
+
+    doc.add_element(child_el, street_el)
+    doc.add_element(child_el, city_el)
+    doc.add_element(parent, child_el)
+  end
+
+  def child_from_xml(model, value)
+    model.child_mapper ||= CustomModelChild.new
+
+    model.child_mapper.street = value["elements"]["street"].text
+    model.child_mapper.city = value["elements"]["city"].text
   end
 end
 ----
 
-[source,ruby]
+[source,xml]
 ----
-> Ceramic.new.to_json
-> # { 'type': null }
-> Ceramic.new(type: "Porcelain", glaze: "Clear").to_json
-> # { 'type': 'Porcelain', 'glaze': 'Clear' }
+<CustomModelParent>
+  <first_name>John</first_name>
+  <CustomModelChild>
+    <street>Oxford Street</street>
+    <city>London</city>
+  </CustomModelChild>
+</CustomModelParent>
 ----
 
 [source,ruby]
 ----
-> Ceramic.new.to_xml
-> # <Ceramic><type></type></Ceramic>
-> Ceramic.new(type: "Porcelain", glaze: "Clear").to_xml
-> # <Ceramic><type>Porcelain</type><glaze>Clear</glaze></Ceramic>
+> instance = CustomModelParentMapper.from_xml(xml)
+> #<CustomModelParent:0x0000000107c9ca68 @child_mapper=#<CustomModelChild:0x0000000107c95218 @city="London", @street="Oxford Street">, @first_name="John">
+> CustomModelParentMapper.to_xml(instance)
+> #<CustomModelParent><first_name>John</first_name><CustomModelChild><street>Oxford Street</street><city>London</city></CustomModelChild></CustomModelParent>
 ----
 ====
 
-.Using the `render_nil` option to render empty attribute collections
-[example]
-====
-[source,ruby]
-----
-class Ceramic < Lutaml::Model::Serializable
-  attribute :type, :string
-  attribute :glazes, :string, collection: true
 
-  xml do
-    map_element 'type', to: :type, render_nil: true
-    map_element 'glazes', to: :glazes, render_nil: true
-  end
 
-  json do
-    map 'type', to: :type, render_nil: true
-    map 'glazes', to: :glazes, render_nil: true
-  end
-end
-----
-
-[source,ruby]
-----
-> Ceramic.new.to_json
-> # { 'type': null, 'glazes': [] }
-> Ceramic.new(type: "Porcelain", glazes: ["Clear"]).to_json
-> # { 'type': 'Porcelain', 'glazes': ['Clear'] }
-----
-
-[source,ruby]
-----
-> Ceramic.new.to_xml
-> # <Ceramic><type></type><glazes></glazes></Ceramic>
-> Ceramic.new(type: "Porcelain", glazes: ["Clear"]).to_xml
-> # <Ceramic><type>Porcelain</type><glazes>Clear</glazes></Ceramic>
-----
-====
-
-=== Multiple modes of render_nil
-
-`render_nil: :omit`
-
-using `render_nil: :omit` will omit the key from XML and key-value formats.
-
-[source,ruby]
-----
-class SomeModel < Lutaml::Model::Serializable
-  attribute :coll, :string, collection: true
-
-  xml do
-    root "some-model"
-    map_element 'collection', to: :coll, render_nil: :omit
-  end
-
-  key_value do
-    map 'collection', to: :coll, render_nil: :omit
-  end
-end
-
-puts SomeModel.new.coll
-# => nil
-
-puts SomeModel.new.to_xml
-# =>
-# <some-model></some-model>
-
-puts SomeModel.new.to_yaml
-# =>
-# ---
-----
-
-`render_nil: :as_nil`
-
-using `render_nil: :as_nil` will create an empty element with `xsi:nil` attribute in XML and create a key with explicit null value in key-value formats.
-
-NOTE: `TOML` does not support this option.
-
-[source,ruby]
-----
-class SomeModel < Lutaml::Model::Serializable
-  attribute :coll, :string, collection: true
-
-  xml do
-    root "some-model"
-    map_element 'collection', to: :coll, render_nil: :as_nil
-  end
-
-  json | yaml do
-    map 'collection', to: :coll, render_nil: :as_nil
-  end
-end
-
-puts SomeModel.new.coll
-# => nil
-
-puts SomeModel.new.to_xml
-# =>
-# <some-model xsi:xmlns="..."><collection xsi:nil="true"/></some-model>
-
-puts SomeModel.new.to_yaml
-# =>
-# ---
-# coll: null
-----
-
-`render_nil: :as_blank | :as_empty`
-
-using `render_nil: :as_blank | :as_empty` will create a blank element in XML and create a key with an explicit empty array in key-value formats.
-
-[source,ruby]
-----
-class SomeModel < Lutaml::Model::Serializable
-  attribute :coll, :string, collection: true
-
-  xml do
-    root "some-model"
-    map_element 'collection', to: :coll, render_nil: :as_blank
-  end
-
-  key_value do
-    map 'collection', to: :coll, render_nil: :as_empty
-  end
-end
-
-puts SomeModel.new.coll
-# => nil
-
-puts SomeModel.new.to_xml
-# =>
-# <some-model><collection/></some-model>
-
-puts SomeModel.new.to_yaml
-# =>
-# ---
-# coll: []
-----
-
-=== Multiple modes of render_empty
-
-`render_empty: :omit`
-
-using `render_empty: :omit` will omit the key from XML and key-value formats.
-
-[source,ruby]
-----
-class SomeModel < Lutaml::Model::Serializable
-  attribute :coll, :string, collection: true
-
-  xml do
-    root "some-model"
-    map_element 'collection', to: :coll, render_empty: :omit
-  end
-
-  key_value do
-    map 'collection', to: :coll, render_empty: :omit
-  end
-end
-
-puts SomeModel.new(coll: []).coll
-# => []
-
-puts SomeModel.new.to_xml
-# =>
-# <some-model></some-model>
-
-puts SomeModel.new.to_yaml
-# =>
-# ---
-----
-
-`render_empty: :as_nil`
-
-NOTE: `TOML` does not support this option.
-
-using `render_empty: :as_nil` will create an empty element with xsi:nil attribute in XML and create a key with explicit null value in key-value formats.
-
-[source,ruby]
-----
-class SomeModel < Lutaml::Model::Serializable
-  attribute :coll, :string, collection: true
-
-  xml do
-    root "some-model"
-    map_element 'collection', to: :coll, render_empty: :as_nil
-  end
-
-  json | yaml do
-    map 'collection', to: :coll, render_empty: :as_nil
-  end
-end
-
-puts SomeModel.new(coll: []).coll
-# => []
-
-puts SomeModel.new.to_xml
-# =>
-# <some-model xsi:xmlns="..."><collection xsi:nil="true"/></some-model>
-
-puts SomeModel.new.to_yaml
-# =>
-# ---
-# coll: null
-----
-
-`render_empty: :as_blank | :as_empty`
-
-using `render_empty: :as_blank | :as_empty` will create a blank element in XML and create a key with an explicit empty array in key-value formats.
-
-[source,ruby]
-----
-class SomeModel < Lutaml::Model::Serializable
-  attribute :coll, :string, collection: true
-
-  xml do
-    root "some-model"
-    map_element 'collection', to: :coll, render_empty: :as_blank
-  end
-
-  key_value do
-    map 'collection', to: :coll, render_empty: :as_empty
-  end
-end
-
-puts SomeModel.new(coll: []).coll
-# => []
-
-puts SomeModel.new.to_xml
-# =>
-# <some-model><collection/></some-model>
-
-puts SomeModel.new.to_yaml
-# =>
-# ---
-# coll: []
-----
-
-
-=== Value Map Functionality in Lutaml Model
-
-The `value_map` functionality allows users to specify a mapping between the values of an attribute in the model and the values that will be serialized. This mapping is used to convert values between the Ruby object and the serialized format.
-
-==== Overview
-
-The `value_map` option can be used to define mappings for both `from` and `to` values:
-
-- `from` values: Used when reading data from a format into Ruby objects.
-- `to` values: Used when converting Ruby objects back into the serialized format.
-
-Users can specify the mapping for both `from` and `to` values using the `value_map` option in the attribute definition. The keys that can be used in the `from` and `to` mappings are `empty`, `omitted`, and `nil`. The values in the mappings can also be `empty`, `omitted`, and `nil`.
-
-However, note that `nil` is not supported in TOML, so mappings like `nil: any_option` or `any_option: nil` will not work in TOML.
-
-==== Syntax
-
-The `value_map` option can be defined for each serialization format as follows:
-
-.Using `value_map` with `from` and `to` values
-[source,ruby]
-----
-class ExampleClass < Lutaml::Model::Serializable
-  attribute :status, :string
-
-  xml do
-    map_element 'status', to: :status, value_map: {
-      from: { empty: :nil, omitted: :omitted, nil: :nil },
-      to: { empty: :nil, omitted: :omitted, nil: :nil }
-    }
-  end
-
-  json | yaml | toml | key_value do
-    map 'status', to: :status, value_map: {
-      from: { empty: :nil, omitted: :omitted, nil: :nil },
-      to: { empty: :nil, omitted: :omitted, nil: :nil }
-    }
-  end
-end
-
-yaml = <<~YAML
----
-status: ''
-YAML
-
-ExampleClass.from_yaml(yaml)
-# => #<ExampleClass:0x000000011954efb0 @status=nil>
-
-yaml1 = <<~YAML
----
-YAML
-
-ExampleClass.from_yaml(yaml1)
-# => #<ExampleClass:0x000000011954efb0 @status=uninitialized>
-
-yaml2 = <<~YAML
----
-status: 
-YAML
-
-ExampleClass.from_yaml(yaml2)
-# => #<ExampleClass:0x000000011954efb0 @status=nil>
-----
-
-==== Value Map Table
-
-The following table summarizes the default `value_map` configurations for various serialization formats. Each format has specific behavior when handling values such as `empty`, `omitted`, and `nil`.
-
-[cols="1,1,1,1", options="header"]
-|===
-| Format      | `from` Value  | `to` Value      | Description
-
-| XML         | `empty`       | `nil`           | An empty value is treated as `nil` during serialization.
-| XML         | `omitted`     | `omitted`       | If the value is omitted in the model, it remains omitted in the serialized output.
-| XML         | `nil`         | `nil`           | A `nil` value in the model is serialized as `nil`.
-
-| YAML        | `empty`       | `empty`         | An empty string (`""`) in the model is deserialized as `empty`.
-| YAML        | `omitted`     | `omitted`       | If the value is omitted, it remains omitted in YAML.
-| YAML        | `nil`         | `nil`           | A `nil` value in the model is serialized as `nil`.
-
-| JSON        | `empty`       | `empty`         | An empty string (`""`) in the model is serialized as `empty`.
-| JSON        | `omitted`     | `omitted`       | If the value is omitted in the model, it remains omitted in the JSON output.
-| JSON        | `nil`         | `nil`           | A `nil` value in the model is serialized as `null`.
-
-| TOML        | `empty`       | `empty`         | An empty string (`""`) in the model is treated as `empty` for TOML serialization.
-| TOML        | `omitted`     | `omitted`       | If the value is omitted in the model, it remains omitted in the TOML output.
-| TOML        | `nil`         | `omitted`       | In TOML, `nil` is represented as `omitted` due to TOML limitations.
-|===
-
-==== Handling Collections
-
-When defining an attribute with `collection: true`, the attribute will behave as follows:
-
-[source,ruby]
-----
-attribute :status, :string, collection: true
-----
-
-- **XML Handling**:
-  - `<status />` will be treated as `[]` (an empty array).
-  - `<status>new</status>` will be treated as `["new"]`.
-  - `<status>new</status><status>assigned</status>` will be treated as `["new", "assigned"]`.
-
-- **YAML Handling**:
-  - A value like `status: ''` in YAML will be deserialized as `nil` when `value_map: { from: { empty: :nil } }` is applied.
-  - If the collection is omitted, it will be initialized as `nil` or an empty array depending on the `initialize_empty` setting.
-
-- **JSON Handling**:
-  - A `status: []` in the serialized output will correspond to an empty array when `value_map: { from: { empty: :empty } }` is applied.
-
-- **TOML Handling**:
-  - TOML treats empty collections similarly to other formats, but `nil` values are not supported so we can not read or write nil values in TOML.
-
-== Example Usage with Collections
-
-Here's an example of how you can use the `value_map` with a collection attribute:
-
-.Using `value_map` with a collection attribute
-[source,ruby]
-----
-class ExampleClass < Lutaml::Model::Serializable
-  attribute :status, :string, collection: true
-
-  xml do
-    map_element 'status', to: :status, value_map: {
-      from: { empty: :nil, omitted: :omitted, nil: :nil },
-      to: { empty: :nil, omitted: :omitted, nil: :nil }
-    }
-  end
-
-  json | yaml | toml | key_value do
-    map 'status', to: :status, value_map: {
-      from: { empty: :nil, omitted: :omitted, nil: :nil },
-      to: { empty: :nil, omitted: :omitted, nil: :nil }
-    }
-  end
-end
-
-yaml = <<~YAML
----
-status: ['new', 'assigned']
-YAML
-
-y = ExampleClass.from_yaml(yaml)
-# => #<ExampleClass:0x000000011954efb0 @status=["new", "assigned"]>
-----
-
-
-=== Rendering default values (forced rendering of default values)
+==== Rendering default values (forced rendering of default values)
 
 By default, attributes with default values are not rendered if the current value
 is the same as the default value.
@@ -5071,7 +5063,7 @@ end
 
 === Advanced attribute mapping
 
-==== Multiple mappings to single attribute
+==== Mapping multiple names to a single attribute
 
 The mapping methods support multiple names mapping to a single attribute using
 an array of names.
@@ -5247,63 +5239,6 @@ end
 NOTE: The corresponding keyword used by Shale is `receiver:` instead of
 `delegate:`.
 
-=== Value Transformations
-
-The `transform` option allows defining import/export transformations at both attribute and mapping levels:
-
-[source,ruby]
-----
-class Person < Lutaml::Model::Serializable
-  # Attribute-level transformation
-  attribute :name, :string, transform: {
-    export: ->(value) { value.upcase },
-    import: ->(value) { value.downcase }
-  }
-
-  # Mapping-level transformation in JSON format
-  json do
-    map "fullName", to: :name, transform: {
-      export: ->(value) { "Dr. #{value}" },
-      import: ->(value) { value.gsub("Dr. ", "") }
-    }
-  end
-
-  # Mapping-level transformation in XML format
-  xml do
-    map "full-name", to: :name, transform: {
-      export: ->(value) { "Dr. #{value}" },
-      import: ->(value) { value.gsub("Dr. ", "") }
-    }
-  end
-end
-----
-
-The transformation precedence is:
-
-1. Mapping-level transformation if defined
-2. Attribute-level transformation if no mapping transformation exists
-
-This allows flexible value transformations without needing format-specific custom methods:
-
-[source,ruby]
-----
-person = Person.new(name: "john")
-
-# Uses mapping transformation
-person.to_json # => {"fullName": "Dr. john"}
-
-Person.from_json({ "fullName" =>  "Dr. john"}.to_json).name # => john
-
-# Uses attribute transformation when no mapping exists
-person.to_yaml # => name: "JOHN"
-----
-
-The `transform` option supports:
-
-* `export`: Transform value during serialization
-* `import`: Transform value during deserialization
-* Collections with array transformations
-* Chaining of attribute and mapping transformations
 
 ==== Attribute serialization with custom methods
 
@@ -5527,85 +5462,6 @@ NOTE: For `NokogiriAdapter`, we can also call `to_xml` on `value.node.adapter_no
 ----
 ====
 
-==== Separate Serialization Model With Custom Methods
-
-[example]
-====
-The following class will parse the XML snippet below:
-
-[source,ruby]
-----
-class CustomModelChild
-  attr_accessor :street, :city
-end
-
-class CustomModelChildMapper < Lutaml::Model::Serializable
-  model CustomModelChild
-
-  attribute :street, Lutaml::Model::Type::String
-  attribute :city, Lutaml::Model::Type::String
-
-  xml do
-    map_element :street, to: :street
-    map_element :city, to: :city
-  end
-end
-
-class CustomModelParentMapper < Lutaml::Model::Serializable
-  attribute :first_name, Lutaml::Model::Type::String
-  attribute :child_mapper, CustomModelChildMapper
-
-  xml do
-    map_element :first_name, to: :first_name
-    map_element :CustomModelChild,
-                with: { to: :child_to_xml, from: :child_from_xml }
-  end
-
-  def child_to_xml(model, parent, doc)
-    child_el = doc.create_element("CustomModelChild")
-    street_el = doc.create_element("street")
-    city_el = doc.create_element("city")
-
-    doc.add_text(street_el, model.child_mapper.street)
-    doc.add_text(city_el, model.child_mapper.city)
-
-    doc.add_element(child_el, street_el)
-    doc.add_element(child_el, city_el)
-    doc.add_element(parent, child_el)
-  end
-
-  def child_from_xml(model, value)
-    model.child_mapper ||= CustomModelChild.new
-
-    model.child_mapper.street = value["elements"]["street"].text
-    model.child_mapper.city = value["elements"]["city"].text
-  end
-end
-----
-
-[source,xml]
-----
-<CustomModelParent>
-  <first_name>John</first_name>
-  <CustomModelChild>
-    <street>Oxford Street</street>
-    <city>London</city>
-  </CustomModelChild>
-</CustomModelParent>
-----
-
-[source,ruby]
-----
-> instance = CustomModelParentMapper.from_xml(xml)
-> #<CustomModelParent:0x0000000107c9ca68 @child_mapper=#<CustomModelChild:0x0000000107c95218 @city="London", @street="Oxford Street">, @first_name="John">
-> CustomModelParentMapper.to_xml(instance)
-> #<CustomModelParent><first_name>John</first_name><CustomModelChild><street>Oxford Street</street><city>London</city></CustomModelChild></CustomModelParent>
-----
-
-NOTE: For **custom models**, `to_xml` is called on the **mapper class**, not on **model instance**.
-====
-
-
 ===== Key-value data model serialization with custom methods
 
 .Key-value data model serialization with custom methods
@@ -5661,6 +5517,844 @@ end
 > #{"name"=>"Masterpiece: Vase", "size"=>12}
 ----
 ====
+
+
+
+=== Handling the missing values family
+
+==== General
+
+Different information models define different primitive value types,
+and the same goes for the notions of the "missing values" family:
+
+the empty value:: the value is present but empty
+the non-existent value:: the value is not present
+the undefined value:: the value is not defined
+
+There are also different ways to represent these missing values
+when the attribute accepts a single value or a collection of values.
+
+==== Value representation in Lutaml::Model
+
+The following table summarizes the behavior of the Lutaml::Model
+in regards of the "missing values" family.
+
+[cols="1,1,1,1", options="header"]
+|===
+| LutaML value type | Cardinality (1 or n) | Missing value type | Ruby value
+
+.3+| Collection attribute
+.3+| collection
+| empty value | `[]` (Array)
+| non-existent value | `nil` (NilClass)
+| undefined value | No assigned value
+
+.3+| `:string`
+.3+| single
+| empty value | `""` (String)
+| non-existent value | `nil` (NilClass)
+| undefined value | No assigned value
+
+.3+| `:integer`
+.3+| single
+| empty value | `0` (Integer)
+| non-existent value | `nil` (NilClass)
+| undefined value | No assigned value
+
+.3+| `:float`
+.3+| single
+| empty value | `0.0` (Float)
+| non-existent value | `nil` (NilClass)
+| undefined value | No assigned value
+
+.3+| `:boolean`
+.3+| single
+| empty value | `false` (FalseClass)
+| non-existent value | `nil` (NilClass)
+| undefined value | No assigned value
+
+.3+| `:date`
+.3+| single
+| empty value | `Date.new(0)` (Date)
+| non-existent value | `nil` (NilClass)
+| undefined value | No assigned value
+
+.3+| `:date`
+.3+| single
+| empty value | `Date.new(0)` (Date)
+| non-existent value | `nil` (NilClass)
+| undefined value | No assigned value
+
+.3+| `:time_without_date`
+.3+| single
+| empty value | `Time.new(0)` (Time)
+| non-existent value | `nil` (NilClass)
+| undefined value | No assigned value
+
+.3+| `:date_time`
+.3+| single
+| empty value | `Time.new(0)` (Time)
+| non-existent value | `nil` (NilClass)
+| undefined value | No assigned value
+
+.3+| `:time`
+.3+| single
+| empty value | `Time.new(0)` (Time)
+| non-existent value | `nil` (NilClass)
+| undefined value | No assigned value
+
+.3+| `:decimal`
+.3+| single
+| empty value | `BigDecimal.new(0)` (BigDecimal)
+| non-existent value | `nil` (NilClass)
+| undefined value | No assigned value
+
+.3+| `:hash`
+.3+| single
+| empty value | `{}` (Hash)
+| non-existent value | `nil` (NilClass)
+| undefined value | No assigned value
+
+|===
+
+
+==== Value representation in serialization formats
+
+Every serialization format uses a different information model to represent
+these missing values.
+
+Some serialization formats support all 3 types of missing values,
+while others only support a subset of them.
+
+.Varied handling of missing values in supported serialization formats
+|===
+| Serialization format | Cardinality (1 or n) | Missing value type | Example
+
+.6+| XML
+.3+| collection
+| empty collection | the XML blank element: `<status></status>` or `<status/>`
+| non-existent collection | a blank element with attribute `xsi:nil`: `<status xsi:nil="true"/>`
+| undefined collection | the XML element is omitted
+.3+| single
+| empty value | the XML blank element: `<status></status>` or `<status/>`
+| non-existent value | a blank element with attribute `xsi:nil`: `<status xsi:nil="true"/>`
+| undefined value | the XML element is omitted
+
+.6+| JSON
+.3+| collection
+| empty collection | an empty array (`[]`)
+| non-existent collection | the value `null`
+| undefined collection | the key is omitted
+.3+| single
+| empty value | an empty string (`""`)
+| non-existent value | the value `null`
+| undefined value | the key is omitted
+
+.6+| YAML
+.3+| collection
+| empty collection | an empty array (`[]`)
+| non-existent collection | the value `null`
+| undefined collection | the key is omitted
+.3+| single
+| empty value | an empty string (`""`)
+| non-existent value | the value `null`
+| undefined value | the key is omitted
+
+.6+| TOML
+.3+| collection
+| empty collection | an empty array (`[]`)
+| non-existent collection | TOML does not support the concept of "null"
+| undefined collection | the key is omitted
+.3+| single
+| empty value | an empty string (`""`)
+| non-existent value | TOML does not support the concept of "null"
+| undefined value | the key is omitted
+
+|===
+
+
+==== Missing value mapping
+
+Lutaml::Model provides a comprehensive way to handle the missing values family
+across different serialization formats.
+
+The `value_map` option as applied to serialization mapping rules allow users to
+meticulously define how each and every missing value should be mapped from a
+serialization format to a Lutaml::Model object.
+
+The `value_map` option is used to define mappings for both `from` and `to` values:
+
+`from` pairs::
+A hash of key-value pairs that determines the mapping of a missing value at the serialization format
+("from") to a LutaML Model missing value where this mapping applies.
+The key is the missing value type in the serialization format, and the value is
+the missing value type in the LutaML Model.
++
+NOTE: In other words, used when converting the serialized format into a Ruby object.
+
+`to` pairs::
+A hash of key-value pairs that determines the mapping of a LutaML Model ("to") missing
+to a missing value choice at the serialization format where this mapping applies.
+The key is the missing value type in the LutaML Model, and the value is the
+missing value type in the serialization format.
++
+NOTE: In other words, used when converting Ruby objects back into the serialized format.
+
+Syntax:
+
+[source,ruby]
+----
+{map_command} 'format-key', to: :attribute_name, value_map: { <1>
+  from: {
+    {format-missing-value-1}: {model-missing-value-1}, <2>
+    {format-missing-value-2}: {model-missing-value-2},
+    {format-missing-value-3}: {model-missing-value-3}
+  },
+  to: {
+    {model-missing-value-1}: {format-missing-value-1}, <3>
+    {model-missing-value-2}: {format-missing-value-2},
+    {model-missing-value-3}: {format-missing-value-3}
+  }
+}
+----
+<1> The `{map_command}` is a mapping rule with the actual command depending on
+the serialization format.
+<2> In the `from` mapping, the keys are the missing value types in the
+serialization format.
+<3> In the `to` mapping, the keys are the missing value types in the LutaML
+Model.
+
+The missing value type mapping differs per serialization format,
+as serialization formats may not fully support all missing value types.
+
+[example]
+For instance, TOML does not support the notion of "null" and therefore the
+missing value type of `nil` cannot be used; therefore in a `from:`
+value map, it is not possible to indicate `nil: {model-missing-value}`.
+
+[example]
+====
+In an XML mapping block, it is possible to do the following.
+
+[source,ruby]
+----
+xml do
+  map_element 'status', to: :status, value_map: {
+    from: { empty: :nil, omitted: :omitted, nil: :nil },
+    to: { empty: :nil, omitted: :omitted, nil: :nil }
+  }
+end
+----
+====
+
+Each serialization format has specific behavior when handling values
+such as `empty`, `omitted`, and `nil`.
+
+Users can specify the mapping for both `from` and `to` values using the
+`value_map` option in the attribute definition.
+
+* The keys that can be used in the `from` and `to` mappings are `empty`,
+`omitted`, and `nil`.
+
+* The values in the mappings can also be `empty`, `omitted`, and `nil`.
+
+NOTE: Since `nil` is not supported in TOML, so mappings like `nil:
+{any_option}` or `{any_option}: :nil` will not work in TOML.
+
+The table below describes the default `value_map` configurations for supported
+serialization formats.
+
+.Default missing value mapping configuration for single attribute to serialization formats
+[cols="1,1,1,1", options="header"]
+|===
+| Serialization format | `from` value | `to` value | Description
+
+.3+| XML (supports all 3 types)
+| `empty`   | `nil`     |
+* Element: An empty value in the model is treated as an element with attribute `xsi:nil` during serialization.
+* Attribute: An empty value in the model is treated as an empty string in the attribute.
+
+| `omitted` | `omitted` |
+* Element: If the value is omitted in the model, the element is omitted from the XML output.
+* Attribute: If the value is omitted in the model, the attribute is omitted from the XML output.
+
+| `nil`     | `nil`     |
+* Element: A `nil` value in the model is serialized as an element with attribute `xsi:nil`.
+* Attribute: A `nil` value in the model is treated as an empty string in the attribute.
+
+.3+| YAML (supports all 3 types)
+| `empty`   | `empty`   | An empty string (`""`) in the model is deserialized as `empty` (an empty YAML string).
+| `omitted` | `omitted` | If the value is omitted in the model, the key is omitted from the YAML output.
+| `nil`     | `nil`     | A `nil` value in the model is serialized as YAML `null`.
+
+.3+| JSON (supports all 3 types)
+| `empty`   | `empty`   | An empty string (`""`) in the model is serialized as `empty` (an empty JSON string).
+| `omitted` | `omitted` | If the value is omitted in the model, the key is omitted from the JSON output.
+| `nil`     | `nil`     | A `nil` value in the model is serialized as JSON `null`.
+
+.3+| TOML (does not support `nil`)
+| `empty`   | `empty`   | An empty string (`""`) in the model is serialized as `empty` (an empty TOML string).
+| `omitted` | `omitted` | If the value is omitted in the model, the key is omitted from the TOML output.
+| `nil`     | `omitted` | In TOML, `nil` is represented as `omitted` due to TOML limitations.
+
+|===
+
+
+The `value_map` option can be defined for each serialization format as follows.
+
+[example]
+====
+.Using `value_map` with `from` and `to` values
+[source,ruby]
+----
+class ExampleClass < Lutaml::Model::Serializable
+  attribute :status, :string
+
+  xml do
+    map_element 'status', to: :status, value_map: {
+      from: { empty: :nil, omitted: :omitted, nil: :nil },
+      to: { empty: :nil, omitted: :omitted, nil: :nil }
+    }
+  end
+
+  json | yaml | toml | key_value do
+    map 'status', to: :status, value_map: {
+      from: { empty: :nil, omitted: :omitted, nil: :nil },
+      to: { empty: :nil, omitted: :omitted, nil: :nil }
+    }
+  end
+end
+
+yaml = <<~YAML
+---
+status: ''
+YAML
+
+ExampleClass.from_yaml(yaml)
+# => #<ExampleClass:0x000000011954efb0 @status=nil>
+
+yaml1 = <<~YAML
+---
+YAML
+
+ExampleClass.from_yaml(yaml1)
+# => #<ExampleClass:0x000000011954efb0 @status=uninitialized>
+
+yaml2 = <<~YAML
+---
+status:
+YAML
+
+ExampleClass.from_yaml(yaml2)
+# => #<ExampleClass:0x000000011954efb0 @status=nil>
+----
+====
+
+
+When defining an attribute with `collection: true`, the attribute will behave as follows:
+
+[source,ruby]
+----
+attribute :status, :string, collection: true
+----
+
+- **XML Handling**:
+  - `<status />` will be treated as `[]` (an empty array).
+  - `<status>new</status>` will be treated as `["new"]`.
+  - `<status>new</status><status>assigned</status>` will be treated as `["new", "assigned"]`.
+
+- **YAML Handling**:
+  - A value like `status: ''` in YAML will be deserialized as `nil` when `value_map: { from: { empty: :nil } }` is applied.
+  - If the collection is omitted, it will be initialized as `nil` or an empty array depending on the `initialize_empty` setting.
+
+- **JSON Handling**:
+  - A `status: []` in the serialized output will correspond to an empty array when `value_map: { from: { empty: :empty } }` is applied.
+
+- **TOML Handling**:
+  - TOML treats empty collections similarly to other formats, but `nil` values are not supported so we can not read or write nil values in TOML.
+
+.Default missing value mapping configuration for collection attributes to serialization formats
+[cols="1,1,1,1", options="header"]
+|===
+| Serialization format | `from` value | `to` value | Description
+
+.3+| XML (supports all 3 types)
+| `empty`   | `empty`     |
+* Element: An empty array (`[]`) in the model is treated a blank element (`<x/>`)
+* Attribute: An empty array (`[]`) in the model is treated as an empty string in the attribute.
+
+| `omitted` | `omitted` |
+* Element: If the value is omitted in the model, the element is omitted from the XML output.
+* Attribute: If the value is omitted in the model, the attribute is omitted from the XML output.
+
+| `nil`     | `nil`     |
+* Element: A `nil` value in the model is serialized as an element with attribute `xsi:nil`.
+* Attribute: A `nil` value in the model is treated as an empty string in the attribute.
+
+.3+| YAML (supports all 3 types)
+| `empty`   | `empty`   | An empty array (`[]`) in the model is deserialized as `empty` (an empty YAML array).
+| `omitted` | `omitted` | If the value is omitted in the model, the key is omitted from the YAML output.
+| `nil`     | `nil`     | A `nil` value in the model is serialized as YAML `null`.
+
+.3+| JSON (supports all 3 types)
+| `empty`   | `empty`   | An empty array (`[]`) in the model is serialized as `empty` (an empty JSON array).
+| `omitted` | `omitted` | If the value is omitted in the model, the key is omitted from the JSON output.
+| `nil`     | `nil`     | A `nil` value in the model is serialized as JSON `null`.
+
+.3+| TOML (does not support `nil`)
+| `empty`   | `empty`   | An empty array (`[]`) in the model is serialized as `empty` (an empty TOML array).
+| `omitted` | `omitted` | If the value is omitted in the model, the key is omitted from the TOML output.
+| `nil`     | `omitted` | In TOML, `nil` is represented as `omitted` due to TOML limitations.
+
+|===
+
+
+Here's an example of how you can use the `value_map` with a collection attribute.
+
+.Using `value_map` with a collection attribute
+[example]
+====
+[source,ruby]
+----
+class ExampleClass < Lutaml::Model::Serializable
+  attribute :status, :string, collection: true
+
+  xml do
+    map_element 'status', to: :status, value_map: {
+      from: { empty: :nil, omitted: :omitted, nil: :nil },
+      to: { empty: :nil, omitted: :omitted, nil: :nil }
+    }
+  end
+
+  json | yaml | toml | key_value do
+    map 'status', to: :status, value_map: {
+      from: { empty: :nil, omitted: :omitted, nil: :nil },
+      to: { empty: :nil, omitted: :omitted, nil: :nil }
+    }
+  end
+end
+
+yaml = <<~YAML
+---
+status: ['new', 'assigned']
+YAML
+
+y = ExampleClass.from_yaml(yaml)
+# => #<ExampleClass:0x000000011954efb0 @status=["new", "assigned"]>
+----
+====
+
+TODO: Need to improve this example.
+
+==== Specific overrides of value map
+
+===== General
+
+There are times that one may want to simply override handling of selective missing value types
+rather than re-define the entire value map.
+
+The `:render_*` and `:treat_*` options are simple switches that override the default
+value map provided for the different serialization formats.
+
+Syntax:
+
+[source,ruby]
+----
+{map_command} 'format-key', to: :attribute_name, <1>
+  :render_{model-value}: :as_{format-value}, <2>
+  # ...
+  :treat_{format-value}: :as_{model-value}, <3>
+  # ...
+----
+<1> The `{map_command}` is a mapping rule with the actual command depending on
+the serialization format. The attribute of `attribute_name` may be a single or a collection value.
+<2> The `:render_*` mapping overrides the default value map for missing value types in model-to-serialization.
+<3> The `:treat_*` mapping overrides the default value map for missing value types in serialization-to-model.
+
+Specifically,
+
+* The `:render_{model-value}: :as_{format-value}` options are used to override the default behavior of rendering
+missing value types into the serialization format.
+`{model-value}`::: specifies the missing value type in the LutaML Model.
+`{format-value}`::: specifies the missing value type in the serialization format.
+
+* The `:treat_{format-value}: :as_{model-value}` options are used to override the default behavior of importing
+missing value types into the model.
+`{format-value}`::: specifies the missing value type in the serialization format.
+`{model-value}`::: specifies the missing value type in the LutaML Model.
+
+
+==== `render_nil`
+
+===== General
+
+`:render_nil` is a specially handled case of the `:render_*` pattern due to
+legacy. It is used to override default value map behavior for the `nil` model
+value.
+
+`render_nil` accepts these values:
+
+`:as_empty`/`:as_blank`::: if the value is nil, render it as an empty string.
+
+`:nil`::: if the value is nil, render it as an element with attribute `xsi:nil`.
+
+`:omit`::: if the value is nil, omit the element or attribute.
+
+`true`::: (legacy) setting `render_nil: true` will render the attribute as an empty
+element if the attribute is `nil`. This has the same effect as `render_nil:
+:as_empty`.
+
+Syntax:
+
+[source,ruby]
+----
+xml do
+  map_element 'key_value_model_attribute_name', to: :name_of_attribute, render_nil: {option}
+end
+----
+
+[source,ruby]
+----
+json | yaml | toml do
+  map 'key_value_model_attribute_name', to: :name_of_attribute, render_nil: {option}
+end
+----
+
+===== Render `nil` as `true`
+
+.Using the `render_nil: true` option to render an attribute value of `nil` as an empty element
+[example]
+====
+[source,ruby]
+----
+class Ceramic < Lutaml::Model::Serializable
+  attribute :type, :string
+  attribute :glaze, :string
+
+  xml do
+    map_element 'type', to: :type, render_nil: true
+    map_element 'glaze', to: :glaze
+  end
+
+  json do
+    map 'type', to: :type, render_nil: true
+    map 'glaze', to: :glaze
+  end
+end
+----
+
+[source,ruby]
+----
+> Ceramic.new.to_json
+> # { 'type': null }
+> Ceramic.new(type: "Porcelain", glaze: "Clear").to_json
+> # { 'type': 'Porcelain', 'glaze': 'Clear' }
+----
+
+[source,ruby]
+----
+> Ceramic.new.to_xml
+> # <Ceramic><type></type></Ceramic>
+> Ceramic.new(type: "Porcelain", glaze: "Clear").to_xml
+> # <Ceramic><type>Porcelain</type><glaze>Clear</glaze></Ceramic>
+----
+====
+
+.Using the `render_nil: true` option to render an empty attribute collection of `nil` as an empty element
+[example]
+====
+[source,ruby]
+----
+class Ceramic < Lutaml::Model::Serializable
+  attribute :type, :string
+  attribute :glazes, :string, collection: true
+
+  xml do
+    map_element 'type', to: :type, render_nil: true
+    map_element 'glazes', to: :glazes, render_nil: true
+  end
+
+  json do
+    map 'type', to: :type, render_nil: true
+    map 'glazes', to: :glazes, render_nil: true
+  end
+end
+----
+
+[source,ruby]
+----
+> Ceramic.new.to_json
+> # { 'type': null, 'glazes': [] }
+> Ceramic.new(type: "Porcelain", glazes: ["Clear"]).to_json
+> # { 'type': 'Porcelain', 'glazes': ['Clear'] }
+----
+
+[source,ruby]
+----
+> Ceramic.new.to_xml
+> # <Ceramic><type></type><glazes></glazes></Ceramic>
+> Ceramic.new(type: "Porcelain", glazes: ["Clear"]).to_xml
+> # <Ceramic><type>Porcelain</type><glazes>Clear</glazes></Ceramic>
+----
+====
+
+===== Render `nil` as `omit`
+
+Using `render_nil: :omit` with a `nil` value will omit the key from XML and
+key-value formats.
+
+[example]
+====
+[source,ruby]
+----
+class SomeModel < Lutaml::Model::Serializable
+  attribute :coll, :string, collection: true
+
+  xml do
+    root "some-model"
+    map_element 'collection', to: :coll, render_nil: :omit
+  end
+
+  key_value do
+    map 'collection', to: :coll, render_nil: :omit
+  end
+end
+
+puts SomeModel.new.coll
+# => nil
+
+puts SomeModel.new.to_xml
+# =>
+# <some-model></some-model>
+
+puts SomeModel.new.to_yaml
+# =>
+# ---
+----
+====
+
+
+===== Render `nil` as `nil`
+
+Using `render_nil: :as_nil` with a `nil` value will create an empty element with
+`xsi:nil` attribute in XML and create a key with explicit null value in
+key-value formats.
+
+NOTE: `TOML` does not support this option.
+
+[example]
+====
+[source,ruby]
+----
+class SomeModel < Lutaml::Model::Serializable
+  attribute :coll, :string, collection: true
+
+  xml do
+    root "some-model"
+    map_element 'collection', to: :coll, render_nil: :as_nil
+  end
+
+  json | yaml do
+    map 'collection', to: :coll, render_nil: :as_nil
+  end
+end
+
+puts SomeModel.new.coll
+# => nil
+
+puts SomeModel.new.to_xml
+# =>
+# <some-model xsi:xmlns="..."><collection xsi:nil="true"/></some-model>
+
+puts SomeModel.new.to_yaml
+# =>
+# ---
+# coll: null
+----
+====
+
+
+===== Render `nil` as `blank`
+
+Using `render_nil: :as_blank | :as_empty` will create a blank element in XML and
+create a key with an explicit empty array in key-value formats.
+
+[example]
+====
+[source,ruby]
+----
+class SomeModel < Lutaml::Model::Serializable
+  attribute :coll, :string, collection: true
+
+  xml do
+    root "some-model"
+    map_element 'collection', to: :coll, render_nil: :as_blank
+  end
+
+  key_value do
+    map 'collection', to: :coll, render_nil: :as_empty
+  end
+end
+
+puts SomeModel.new.coll
+# => nil
+
+puts SomeModel.new.to_xml
+# =>
+# <some-model><collection/></some-model>
+
+puts SomeModel.new.to_yaml
+# =>
+# ---
+# coll: []
+----
+====
+
+
+==== `render_empty`
+
+===== General
+
+`:render_empty` is a specially handled case of the `:render_*` pattern due to
+legacy. It is used to override default value map behavior for the `nil` model
+value.
+
+`render_empty` accepts these values:
+
+`:as_empty`/`:as_blank`::: if the value is nil, render it as an empty string.
+
+`:nil`::: if the value is nil, render it as an element with attribute `xsi:nil`.
+
+`:omit`::: if the value is nil, omit the element or attribute.
+
+
+Syntax:
+
+[source,ruby]
+----
+xml do
+  map_element 'key_value_model_attribute_name', to: :name_of_attribute, render_empty: {option}
+end
+----
+
+[source,ruby]
+----
+json | yaml | toml do
+  map 'key_value_model_attribute_name', to: :name_of_attribute, render_empty: {option}
+end
+----
+
+===== Render `empty` as `omit`
+
+Using `render_empty: :omit` with an empty value or empty collection will omit
+the key from XML and key-value formats.
+
+[example]
+====
+[source,ruby]
+----
+class SomeModel < Lutaml::Model::Serializable
+  attribute :coll, :string, collection: true
+
+  xml do
+    root "some-model"
+    map_element 'collection', to: :coll, render_empty: :omit
+  end
+
+  key_value do
+    map 'collection', to: :coll, render_empty: :omit
+  end
+end
+
+puts SomeModel.new(coll: []).coll
+# => []
+
+puts SomeModel.new.to_xml
+# =>
+# <some-model></some-model>
+
+puts SomeModel.new.to_yaml
+# =>
+# ---
+----
+====
+
+===== Render `empty` as `nil`
+
+Using `render_empty: :as_nil` will create an empty element with the `xsi:nil`
+attribute in XML, and create a key with explicit null value in key-value formats.
+
+NOTE: `TOML` does not support this option.
+
+[example]
+====
+[source,ruby]
+----
+class SomeModel < Lutaml::Model::Serializable
+  attribute :coll, :string, collection: true
+
+  xml do
+    root "some-model"
+    map_element 'collection', to: :coll, render_empty: :as_nil
+  end
+
+  json | yaml do
+    map 'collection', to: :coll, render_empty: :as_nil
+  end
+end
+
+puts SomeModel.new(coll: []).coll
+# => []
+
+puts SomeModel.new.to_xml
+# =>
+# <some-model xsi:xmlns="..."><collection xsi:nil="true"/></some-model>
+
+puts SomeModel.new.to_yaml
+# =>
+# ---
+# coll: null
+----
+====
+
+
+===== Render `empty` as `blank`/`empty`
+
+Using `render_empty: :as_blank` or `render_empty: :as_empty` will create a blank
+element in XML and create a key with an explicit empty array in key-value
+formats.
+
+[example]
+====
+[source,ruby]
+----
+class SomeModel < Lutaml::Model::Serializable
+  attribute :coll, :string, collection: true
+
+  xml do
+    root "some-model"
+    map_element 'collection', to: :coll, render_empty: :as_blank
+  end
+
+  key_value do
+    map 'collection', to: :coll, render_empty: :as_empty
+  end
+end
+
+puts SomeModel.new(coll: []).coll
+# => []
+
+puts SomeModel.new.to_xml
+# =>
+# <some-model><collection/></some-model>
+
+puts SomeModel.new.to_yaml
+# =>
+# ---
+# coll: []
+----
+====
+
 
 
 == Importing data models
