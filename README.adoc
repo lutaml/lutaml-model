@@ -1,10 +1,9 @@
 = LutaML Ruby modeller
 
-https://github.com/lutaml/lutaml-model[image:https://img.shields.io/github/stars/lutaml/lutaml-model.svg?style=social[GitHub Stars]]
-https://github.com/lutaml/lutaml-model[image:https://img.shields.io/github/forks/lutaml/lutaml-model.svg?style=social[GitHub Forks]]
-image:https://img.shields.io/github/license/lutaml/lutaml-model.svg[License]
-image:https://img.shields.io/github/actions/workflow/status/lutaml/lutaml-model/test.yml?branch=main[Build Status]
 image:https://img.shields.io/gem/v/lutaml-model.svg[RubyGems Version]
+image:https://img.shields.io/github/license/lutaml/lutaml-model.svg[License]
+image:https://github.com/lutaml/lutaml-model/actions/workflows/rake.yml/badge.svg["Build", link="https://github.com/lutaml/lutaml-model/actions/workflows/rake.yml"]
+image:https://github.com/lutaml/lutaml-model/actions/workflows/dependent-tests.yml/badge.svg["Dependent tests", link="https://github.com/lutaml/lutaml-model/actions/workflows/dependent-tests.yml"]
 
 == Purpose
 
