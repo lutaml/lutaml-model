@@ -7,6 +7,12 @@ module Lutaml
         super(:toml)
       end
 
+      def deep_dup
+        self.class.new.tap do |new_mapping|
+          new_mapping.instance_variable_set(:@mappings, duplicate_mappings)
+        end
+      end
+
       def validate!(key, to, with, render_nil, render_empty)
         super
 
