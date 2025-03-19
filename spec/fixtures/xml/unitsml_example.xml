@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<UnitsML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://schema.unitsml.org/unitsml/1.0 unitsml_schema.xsd">
+  <UnitSet>
+    <!-- SI Base Units -->
+    <Unit id="m">
+      <UnitName xml:lang="en">meter</UnitName>
+      <UnitSymbol type="ASCII">m</UnitSymbol>
+      <UnitSymbol type="HTML">m</UnitSymbol>
+      <UnitSystem system="SI_base" type="SI"/>
+      <UnitDefinition xml:lang="en">The meter is the length of the path travelled by light in vacuum during a time interval of 1/299 792 458 of a second.</UnitDefinition>
+    </Unit>
+
+    <Unit id="kg">
+      <UnitName xml:lang="en">kilogram</UnitName>
+      <UnitSymbol type="ASCII">kg</UnitSymbol>
+      <UnitSymbol type="HTML">kg</UnitSymbol>
+      <UnitSystem system="SI_base" type="SI"/>
+      <UnitDefinition xml:lang="en">The kilogram is defined by taking the fixed numerical value of the Planck constant h to be 6.626 070 15 × 10⁻³⁴ when expressed in the unit J⋅s.</UnitDefinition>
+    </Unit>
+
+    <Unit id="K">
+      <UnitName xml:lang="en">kelvin</UnitName>
+      <UnitSymbol type="ASCII">K</UnitSymbol>
+      <UnitSymbol type="HTML">K</UnitSymbol>
+      <UnitSystem system="SI_base" type="SI"/>
+    </Unit>
+
+    <!-- SI Derived Units with Special Names -->
+    <Unit id="N">
+      <UnitName xml:lang="en">newton</UnitName>
+      <UnitSymbol type="ASCII">N</UnitSymbol>
+      <UnitSymbol type="HTML">N</UnitSymbol>
+      <UnitSystem system="SI_derived" type="SI"/>
+      <RootUnits>
+        <EnumeratedRootUnit unit="kg" powerNumerator="1"/>
+        <EnumeratedRootUnit unit="m" powerNumerator="1"/>
+        <EnumeratedRootUnit unit="s" powerNumerator="-2"/>
+      </RootUnits>
+    </Unit>
+
+    <Unit id="Pa">
+      <UnitName xml:lang="en">pascal</UnitName>
+      <UnitSymbol type="ASCII">Pa</UnitSymbol>
+      <UnitSymbol type="HTML">Pa</UnitSymbol>
+      <UnitSystem system="SI_derived" type="SI"/>
+      <RootUnits>
+        <EnumeratedRootUnit unit="kg" powerNumerator="1"/>
+        <EnumeratedRootUnit unit="m" powerNumerator="-1"/>
+        <EnumeratedRootUnit unit="s" powerNumerator="-2"/>
+      </RootUnits>
+    </Unit>
+
+    <!-- Temperature Units with Conversion -->
+    <Unit id="degC">
+      <UnitName xml:lang="en">degree Celsius</UnitName>
+      <UnitSymbol type="ASCII">°C</UnitSymbol>
+      <UnitSymbol type="HTML">°C</UnitSymbol>
+      <UnitSystem system="SI_derived" type="SI"/>
+      <ConversionToSI>T[K] = T[°C] + 273.15</ConversionToSI>
+    </Unit>
+
+    <!-- Prefixed Units with Multiple Prefixes -->
+    <Unit id="MPa">
+      <UnitName xml:lang="en">megapascal</UnitName>
+      <UnitSymbol type="ASCII">MPa</UnitSymbol>
+      <UnitSymbol type="HTML">MPa</UnitSymbol>
+      <UnitSystem system="SI_derived" type="SI"/>
+      <PrefixedUnit prefix="M" unit="Pa"/>
+    </Unit>
+
+    <!-- Complex Derived Units -->
+    <Unit id="J_per_K_mol">
+      <UnitName xml:lang="en">joule per kelvin mole</UnitName>
+      <UnitSymbol type="ASCII">J/(K⋅mol)</UnitSymbol>
+      <UnitSymbol type="HTML">J/(K⋅mol)</UnitSymbol>
+      <UnitSystem system="SI_derived" type="SI"/>
+      <RootUnits>
+        <EnumeratedRootUnit unit="kg" powerNumerator="1"/>
+        <EnumeratedRootUnit unit="m" powerNumerator="2"/>
+        <EnumeratedRootUnit unit="s" powerNumerator="-2"/>
+        <EnumeratedRootUnit unit="K" powerNumerator="-1"/>
+        <EnumeratedRootUnit unit="mol" powerNumerator="-1"/>
+      </RootUnits>
+    </Unit>
+
+    <!-- Atomic and Non-SI Units -->
+    <Unit id="au_energy">
+      <UnitName xml:lang="en">atomic unit of energy</UnitName>
+      <UnitSymbol type="ASCII">Eh</UnitSymbol>
+      <UnitSystem system="atomic_unit" type="atomic"/>
+      <ConversionToSI>4.359744650E-18</ConversionToSI>
+    </Unit>
+  </UnitSet>
+
+  <!-- Extended Dimension Set -->
+  <DimensionSet>
+    <Dimension id="energy">
+      <Length powerNumerator="2"/>
+      <Mass powerNumerator="1"/>
+      <Time powerNumerator="-2"/>
+    </Dimension>
+    <Dimension id="specific_heat_capacity">
+      <Length powerNumerator="2"/>
+      <Time powerNumerator="-2"/>
+      <ThermodynamicTemperature powerNumerator="-1"/>
+    </Dimension>
+    <Dimension id="molar_entropy">
+      <Length powerNumerator="2"/>
+      <Mass powerNumerator="1"/>
+      <Time powerNumerator="-2"/>
+      <ThermodynamicTemperature powerNumerator="-1"/>
+      <AmountOfSubstance powerNumerator="-1"/>
+    </Dimension>
+  </DimensionSet>
+
+  <!-- Extended Quantity Set -->
+  <QuantitySet>
+    <Quantity id="specific_heat_capacity">
+      <QuantityName xml:lang="en">specific heat capacity</QuantityName>
+      <QuantitySymbol type="ASCII">c</QuantitySymbol>
+      <QuantityDefinition xml:lang="en">The amount of heat required to raise the temperature of one kilogram of a substance by one kelvin.</QuantityDefinition>
+      <DimensionRef dimensionRef="specific_heat_capacity"/>
+    </Quantity>
+
+    <Quantity id="molar_entropy">
+      <QuantityName xml:lang="en">molar entropy</QuantityName>
+      <QuantitySymbol type="ASCII">Sm</QuantitySymbol>
+      <QuantityDefinition xml:lang="en">The entropy per mole of a substance.</QuantityDefinition>
+      <DimensionRef dimensionRef="molar_entropy"/>
+    </Quantity>
+  </QuantitySet>
+
+  <!-- Extended Counted Item Set -->
+  <CountedItemSet>
+    <CountedItem id="photon">
+      <ItemName xml:lang="en">photon</ItemName>
+      <ItemSymbol type="ASCII">γ</ItemSymbol>
+      <ItemDefinition xml:lang="en">A quantum of electromagnetic radiation.</ItemDefinition>
+    </CountedItem>
+    <CountedItem id="electron">
+      <ItemName xml:lang="en">electron</ItemName>
+      <ItemSymbol type="ASCII">e⁻</ItemSymbol>
+      <ItemDefinition xml:lang="en">A stable subatomic particle with a negative electric charge.</ItemDefinition>
+    </CountedItem>
+  </CountedItemSet>
+</UnitsML>

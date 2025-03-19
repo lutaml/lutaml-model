@@ -30,6 +30,7 @@ module Lutaml
           TEMPLATE
 
           def render_definition_content(content, options)
+            setup_instance_variables
             current_indent = options[:current_indent]
             indent = options[:indent]
             content.compact.map do |key, value|
@@ -37,43 +38,34 @@ module Lutaml
 
               case key
               when :attributes
-                render_attributes_definition(value, current_indent, indent)
+                render_attributes_definition(value, current_indent)
               when :elements
-                render_elements_definition(value, current_indent, indent)
+                render_elements_definition(value, current_indent)
               when :groups
-                render_groups_definition(value, current_indent, indent)
+                render_groups_definition(value, current_indent)
               when :choice
                 render_choice_definition(value, current_indent, indent)
               when :sequence
-                render_sequence_definition(value, current_indent, indent)
+                render_sequence_definition(value, current_indent)
               end
             end.join("\n")
           end
 
-          def render_sequence_definition(sequence, current_indent, indent)
+          def render_sequence_definition(sequence, current_indent)
             sequence.map do |instance|
-              if instance.keys.one?(String)
-                render_elements_definition([instance], current_indent, indent)
+              if instance.key?(:element_ref)
+                @elements ||= Lutaml::Model::Schema::XmlSchema.elements
+                render_elements_definition([instance], current_indent)
               elsif instance.key?(:groups)
-                render_groups_definition([instance[:groups]], current_indent, indent)
+                render_groups_definition([instance[:groups]], current_indent)
               else
-                binding.irb
+                puts "testing in-progress"
+                # binding.irb
               end
             end.join("\n")
           end
 
-          def resolve_sequence_definition_content(content, current_indent, indent)
-            content.map do |instance|
-              if instance.keys.one?(String)
-                instance = instance.values.first
-                render_attribute_definition(instance.element_name, instance.type_name, instance[:arguments], current_indent)
-              elsif instance.key?(:groups)
-                render_groups_definition([instance[:groups]], current_indent, indent)
-              end
-            end
-          end
-
-          def render_groups_definition(groups, current_indent, indent)
+          def render_groups_definition(groups, current_indent)
             groups.map do |group|
               "#{current_indent}import_model #{Utils.camel_case(group[:ref_class])}"
             end.join("\n")
@@ -87,9 +79,9 @@ module Lutaml
 
               case key
               when String
-                choice_arr << render_elements_definition([{ key => value }], next_indent, indent)
+                choice_arr << render_elements_definition([{ key => value }], next_indent)
               when :groups
-                choice_arr << render_groups_definition(value, next_indent, indent)
+                choice_arr << render_groups_definition(value, next_indent)
               else
                 binding.irb
               end
@@ -98,17 +90,23 @@ module Lutaml
             choice_arr.compact.join("\n")
           end
 
-          def render_elements_definition(elements, current_indent, indent)
+          def render_elements_definition(elements, current_indent)
             elements.map do |element|
               element = element.values.first
               render_attribute_definition(element.element_name, element.type_name, element[:arguments], current_indent)
             end
           end
 
-          def render_attributes_definition(attributes, current_indent, indent)
+          def render_attributes_definition(attributes, current_indent)
             attributes.compact.map do |attribute|
+              attribute = referenced_attribute(attribute) if attribute.key_exist?(:ref_class)
               render_attribute_definition(attribute.name, attribute.base_class, attribute[:arguments], current_indent)
             end
+          end
+
+          def referenced_attribute(attribute)
+            @attributes ||= Lutaml::Model::Schema::XmlSchema.attributes
+            @attributes[normalized_class_name(attribute.ref_class)]
           end
 
           def render_attribute_definition(name, klass, arguments, current_indent)
@@ -231,17 +229,26 @@ module Lutaml
 
           def required_files_attribute(attributes)
             attributes.each do |attribute|
-              next if attribute[:ref_class]&.start_with?("xml") || attribute[:base_class]&.start_with?("xml")
+              next if attribute_xml_class?(attribute)
 
-              attribute = @attributes[normalized_class_name(attribute.ref_class)] if attribute.key_exist?(:ref_class)
-              attr_class = normalized_class_name(attribute.base_class)
-              next if DEFAULT_CLASSES.include?(attr_class)
+              attribute = referenced_attribute(attribute) if attribute.key_exist?(:ref_class)
+              require_attribute_class(attribute.base_class)
+            end
+          end
 
-              if attr_class == "decimal"
-                @required_files << "require \"bigdecimal\""
-              else
-                require_relative_file(Utils.snake_case(attr_class))
-              end
+          def attribute_xml_class?(attribute)
+            klass = attribute[:ref_class] || attribute[:base_class]
+            klass&.start_with?("xml")
+          end
+
+          def require_attribute_class(klass)
+            attr_class = normalized_class_name(klass)
+            return if DEFAULT_CLASSES.include?(attr_class)
+
+            if attr_class == "decimal"
+              @required_files << "require \"bigdecimal\""
+            else
+              require_relative_file(Utils.snake_case(attr_class))
             end
           end
 
@@ -305,15 +312,7 @@ module Lutaml
 
           def required_files_elements(elements)
             elements.flatten.each do |element|
-              element = element.values.first if element.keys.one?(String)
-              element_class = normalized_class_name(element.type_name)
-              next if DEFAULT_CLASSES.include?(element_class)
-
-              if element_class == "decimal"
-                @required_files << "require \"bigdecimal\""
-              else
-                require_relative_file(Utils.snake_case(element_class))
-              end
+              require_attribute_class(element.type_name)
             end
           end
           # END: REQUIRED FILES LIST COMPILER METHODS
@@ -324,6 +323,14 @@ module Lutaml
 
           def normalized_class_name(class_name)
             class_name.split(":").last
+          end
+
+          def setup_instance_variables
+            @elements ||= Lutaml::Model::Schema::XmlSchema.elements
+            @attributes ||= Lutaml::Model::Schema::XmlSchema.attributes
+            @group_types ||= Lutaml::Model::Schema::XmlSchema.group_types
+            @simple_types ||= Lutaml::Model::Schema::XmlSchema.simple_types
+            @complex_types ||= Lutaml::Model::Schema::XmlSchema.complex_types
           end
         end
       end

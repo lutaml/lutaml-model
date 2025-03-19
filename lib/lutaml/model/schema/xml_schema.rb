@@ -261,7 +261,7 @@ module Lutaml
               when Xsd::Sequence
                 setup_sequence(instance)
               when Xsd::Element
-                { element_name(instance) => setup_element(instance) }
+                setup_element(instance)
               when Xsd::Choice
                 { choice: setup_choice(instance) }
               when Xsd::Group
@@ -294,7 +294,7 @@ module Lutaml
             resolved_element_order(choice).each do |element|
               case element
               when Xsd::Element
-                hash[element_name(element)] = setup_element(element)
+                hash.assign_or_append_value(:elements, setup_element(element))
               when Xsd::Sequence
                 hash[:sequence] = setup_sequence(element)
               when Xsd::Group
@@ -349,23 +349,15 @@ module Lutaml
           end
         end
 
-        def element_name(object)
-          if object_name = object.name
-            object_name
-          elsif ref = object.ref
-            @elements[ref.split(":").last].element_name
-          end
-        end
-
         def setup_element(element)
           MappingHash.new.tap do |hash|
             if ref = element.ref
-              hash.merge!(@elements[ref.split(":").last])
+              hash[:element_ref] = ref.split(":").last
             else
               setup_min_max_arguments(element, hash)
               hash[:element_name] = element.name
               hash[:type_name] = if element.complex_type || element.simple_type
-                                   setup_element_type(element, hash)
+                                   setup_element_type(element)
                                  else
                                    element.type
                                  end
@@ -373,7 +365,7 @@ module Lutaml
           end
         end
 
-        def setup_element_type(element, hash)
+        def setup_element_type(element)
           type = element.simple_type ? "simple" : "complex"
           type_object = element.public_send(:"#{type}_type")
           prefix = type == "simple" ? "ST_" : "CT_"
@@ -414,16 +406,14 @@ module Lutaml
         def setup_extension(extension)
           MappingHash.new.tap do |hash|
             hash[:extension_base] = extension.base
-            hash[:attribute_groups] = [] if extension&.attribute_group&.any?
-            hash[:attributes] = [] if extension&.attribute&.any?
             resolved_element_order(extension).each do |element|
               case element
               when Xsd::Attribute
-                hash[:attributes] << setup_attribute(element)
+                hash.assign_or_append_value(:attributes, [setup_attribute(element)])
               when Xsd::Sequence
-                hash[:sequence] = setup_sequence(element)
+                hash.assign_or_append_value(:sequence, setup_sequence(element))
               when Xsd::Choice
-                hash[:choice] = setup_choice(element)
+                hash.assign_or_append_value(:choice, setup_choice(element))
               end
             end
           end
@@ -480,6 +470,7 @@ module Lutaml
             when :choice
               resolve_choice(value, hash)
             when :attributes, :mixed
+              # NOTE: these are not to be processed
             else
               raise "#{caller}: #{key} is not supported"
             end
@@ -489,8 +480,9 @@ module Lutaml
 
         def resolve_sequence(sequence, hash = MappingHash.new)
           sequence.each do |content|
-            if content.keys.one?(String)
-              hash.merge!(content)
+            if content.key?(:element_ref)
+              element = @elements[content.element_ref]
+              hash[element.element_name] = element
             elsif content.key?(:sequence)
               resolve_sequence(content, hash)
             elsif content.key?(:choice)
@@ -505,8 +497,9 @@ module Lutaml
         def resolve_choice(choice, hash = MappingHash.new)
           choice.each do |key, value|
             case key
-            when String
-              hash[key] = value
+            when :elements
+              element = @elements[content.element_ref]
+              hash[element.element_name] = element
             when :sequence
               resolve_sequence(value, hash)
             when :arguments
