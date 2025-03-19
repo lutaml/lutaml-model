@@ -1579,11 +1579,14 @@ attributes.
 An importable model is a model that can be imported into another model using the
 `import_*` directive.
 
-Such a model is specified by setting the model's XML serialization configuration
-with the `no_root` directive.
+This feature works both with XML and key-value formats.
 
-As a result, the model can be imported into another model using the following
-directives:
+* The import order determines how elements and attributes are overwritten.
+
+* An importable model with XML serialization mappings requires setting the model's
+XML serialization configuration with the `no_root` directive.
+
+The model can be imported into another model using the following directives:
 
 `import_model`:: imports both attributes and mappings.
 
@@ -1591,16 +1594,13 @@ directives:
 
 `import_model_mappings`:: imports only mappings.
 
-NOTE: This feature works both with XML and Key-Value formats. The import order determines how
-elements and attributes are overwritten.
-
-Models with `no_root` can only be parsed through **parent models**.
+NOTE: Models with `no_root` can only be parsed through parent models.
 Direct calling `NoRootModel.from_xml` will raise a `NoRootMappingError`.
 
-Namespaces are not supported in importable models. If `namespace` is defined with
-`no_root`, `NoRootNamespaceError` will raise.
+NOTE: Namespaces are not currently supported in importable models.
+If `namespace` is defined with `no_root`, `NoRootNamespaceError` will be raised.
 
-
+.Importing model components using an importable model
 [example]
 ====
 [source,ruby]
