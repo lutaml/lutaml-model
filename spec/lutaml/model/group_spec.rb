@@ -148,6 +148,22 @@ module GroupSpec
       map_element "organization", to: :organization
     end
   end
+
+  class Identifier < Lutaml::Model::Serializable
+    attribute :id, :string
+    attribute :remarks, :string, collection: true
+    attribute :remark_items, :string, collection: true
+
+    key_value do
+      map "id", to: :id
+      map "remarks", to: :remarks
+      map "remark_items", to: :remark_items
+    end
+  end
+
+  class ModelElement < Lutaml::Model::Serializable
+    import_model Identifier
+  end
 end
 
 RSpec.describe "Group" do
@@ -273,6 +289,11 @@ RSpec.describe "Group" do
     describe GroupSpec::SimpleType do
       it_behaves_like "imports attributes from", GroupSpec::GroupOfItems, described_class
       it_behaves_like "imports mappings from", GroupSpec::GroupOfItems, described_class
+    end
+
+    describe GroupSpec::ModelElement do
+      it_behaves_like "imports attributes from", GroupSpec::Identifier, described_class
+      it_behaves_like "imports mappings from", GroupSpec::Identifier, described_class
     end
 
     describe GroupSpec::Mrow do

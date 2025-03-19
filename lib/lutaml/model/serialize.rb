@@ -136,7 +136,9 @@ module Lutaml
         end
 
         def import_model_with_root_error(model)
-          raise Lutaml::Model::ImportModelWithRootError.new(model) if model.root?
+          return unless model.mappings.key?(:xml) && model.root?
+
+          raise Lutaml::Model::ImportModelWithRootError.new(model)
         end
 
         def import_model_attributes(model)
