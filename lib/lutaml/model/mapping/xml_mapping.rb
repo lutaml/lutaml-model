@@ -160,11 +160,12 @@ module Lutaml
         to: nil,
         render_nil: false,
         render_default: false,
+        render_empty: false,
         with: {},
         delegate: nil,
         mixed: false,
         cdata: false,
-        render_empty: false
+        value_map: {}
       )
         validate!(
           "content", to, with, render_nil, render_empty, type: TYPES[:content]
@@ -175,10 +176,12 @@ module Lutaml
           to: to,
           render_nil: render_nil,
           render_default: render_default,
+          render_empty: render_empty,
           with: with,
           delegate: delegate,
           mixed_content: mixed,
           cdata: cdata,
+          value_map: value_map,
         )
       end
 
