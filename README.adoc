@@ -4834,36 +4834,153 @@ puts SomeModel.new.to_yaml
 # coll: []
 ----
 
-=== `value_map` Functionality in Lutaml-Model
 
-The `value_map` feature in Lutaml-Model allows users to define mappings for empty, `nil`, or omitted values in XML, YAML, Toml, or JSON formats to their corresponding values in Ruby. This ensures consistent interpretation of missing or uninitialized data across different formats.
+=== Value Map Functionality in Lutaml Model
 
-== Purpose
-- Standardizes the way missing or undefined values are handled.
-- Ensures consistent conversion between external formats (XML, YAML, JSON) and Ruby.
-- Helps prevent unexpected `nil` values from causing errors.
+The `value_map` functionality allows users to specify a mapping between the values of an attribute in the model and the values that will be serialized. This mapping is used to convert values between the Ruby object and the serialized format.
 
-== Usage Example
+==== Overview
+
+The `value_map` option can be used to define mappings for both `from` and `to` values:
+
+- `from` values: Used when reading data from a format into Ruby objects.
+- `to` values: Used when converting Ruby objects back into the serialized format.
+
+Users can specify the mapping for both `from` and `to` values using the `value_map` option in the attribute definition. The keys that can be used in the `from` and `to` mappings are `empty`, `omitted`, and `nil`. The values in the mappings can also be `empty`, `omitted`, and `nil`.
+
+However, note that `nil` is not supported in TOML, so mappings like `nil: any_option` or `any_option: nil` will not work in TOML.
+
+==== Syntax
+
+The `value_map` option can be defined for each serialization format as follows:
+
+.Using `value_map` with `from` and `to` values
 [source,ruby]
 ----
-class ExampleClass
-  attribute :status, value_map: {
-    from: { empty: :nil, omitted: :omitted, nil: :nil },
-    to: { empty: :nil, omitted: :omitted, nil: :nil }
-  }
+class ExampleClass < Lutaml::Model::Serializable
+  attribute :status, :string
+
+  xml do
+    map_element 'status', to: :status, value_map: {
+      from: { empty: :nil, omitted: :omitted, nil: :nil },
+      to: { empty: :nil, omitted: :omitted, nil: :nil }
+    }
+  end
+
+  json | yaml | toml | key_value do
+    map 'status', to: :status, value_map: {
+      from: { empty: :nil, omitted: :omitted, nil: :nil },
+      to: { empty: :nil, omitted: :omitted, nil: :nil }
+    }
+  end
 end
+
+yaml = <<~YAML
+---
+status: ''
+YAML
+
+ExampleClass.from_yaml(yaml)
+# => #<ExampleClass:0x000000011954efb0 @status=nil>
+
+yaml1 = <<~YAML
+---
+YAML
+
+ExampleClass.from_yaml(yaml1)
+# => #<ExampleClass:0x000000011954efb0 @status=uninitialized>
+
+yaml2 = <<~YAML
+---
+status: 
+YAML
+
+ExampleClass.from_yaml(yaml2)
+# => #<ExampleClass:0x000000011954efb0 @status=nil>
 ----
 
-=== Mapping Behavior
-The `value_map` defines mappings in two directions:
-1. **`from`**: Converts values from external formats (XML, YAML, Toml, JSON) to Lutaml Model object.
-2. **`to`**: Converts Lutaml Model object values back to external formats.
+==== Value Map Table
 
-When writing data back to XML, YAML, Toml, or JSON, the `to` mapping ensures that `nil` or omitted values are consistently formatted.
+The following table summarizes the default `value_map` configurations for various serialization formats. Each format has specific behavior when handling values such as `empty`, `omitted`, and `nil`.
 
-== Key Benefits
-- Provides a structured approach to handling missing values.
-- Ensures bidirectional consistency between data formats and Ruby.
+[cols="1,1,1,1", options="header"]
+|===
+| Format      | `from` Value  | `to` Value      | Description
+
+| XML         | `empty`       | `nil`           | An empty value is treated as `nil` during serialization.
+| XML         | `omitted`     | `omitted`       | If the value is omitted in the model, it remains omitted in the serialized output.
+| XML         | `nil`         | `nil`           | A `nil` value in the model is serialized as `nil`.
+
+| YAML        | `empty`       | `nil`           | An empty string (`""`) in the model is deserialized as `nil`.
+| YAML        | `omitted`     | `omitted`       | If the value is omitted, it remains omitted in YAML.
+| YAML        | `nil`         | `nil`           | A `nil` value in the model is serialized as `nil`.
+
+| JSON        | `empty`       | `nil`           | An empty string (`""`) in the model is serialized as `nil`.
+| JSON        | `omitted`     | `omitted`       | If the value is omitted in the model, it remains omitted in the JSON output.
+| JSON        | `nil`         | `nil`           | A `nil` value in the model is serialized as `null`.
+
+| TOML        | `empty`       | `nil`           | An empty string (`""`) in the model is treated as `nil` for TOML serialization.
+| TOML        | `omitted`     | `omitted`       | If the value is omitted in the model, it remains omitted in the TOML output.
+| TOML        | `nil`         | `omitted`       | In TOML, `nil` is represented as `omitted` due to TOML limitations.
+|===
+
+==== Handling Collections
+
+When defining an attribute with `collection: true`, the attribute will behave as follows:
+
+[source,ruby]
+----
+attribute :status, :string, collection: true
+----
+
+- **XML Handling**:
+  - `<status />` will be treated as `[]` (an empty array).
+  - `<status>new</status>` will be treated as `["new"]`.
+  - `<status>new</status><status>assigned</status>` will be treated as `["new", "assigned"]`.
+
+- **YAML Handling**:
+  - A value like `status: ''` in YAML will be deserialized as `nil` when `value_map: { from: { empty: :nil } }` is applied.
+  - If the collection is omitted, it will be initialized as `nil` or an empty array depending on the `initialize_empty` setting.
+
+- **JSON Handling**:
+  - A `status: []` in the serialized output will correspond to an empty array when `value_map: { from: { empty: :empty } }` is applied.
+
+- **TOML Handling**:
+  - TOML treats empty collections similarly to other formats, but `nil` values are not supported so we can not read or write nil values in TOML.
+
+== Example Usage with Collections
+
+Here's an example of how you can use the `value_map` with a collection attribute:
+
+.Using `value_map` with a collection attribute
+[source,ruby]
+----
+class ExampleClass < Lutaml::Model::Serializable
+  attribute :status, :string, collection: true
+
+  xml do
+    map_element 'status', to: :status, value_map: {
+      from: { empty: :nil, omitted: :omitted, nil: :nil },
+      to: { empty: :nil, omitted: :omitted, nil: :nil }
+    }
+  end
+
+  json | yaml | toml | key_value do
+    map 'status', to: :status, value_map: {
+      from: { empty: :nil, omitted: :omitted, nil: :nil },
+      to: { empty: :nil, omitted: :omitted, nil: :nil }
+    }
+  end
+end
+
+yaml = <<~YAML
+---
+status: ['new', 'assigned']
+YAML
+
+y = ExampleClass.from_yaml(yaml)
+# => #<ExampleClass:0x000000011954efb0 @status=["new", "assigned"]>
+----
 
 
 === Rendering default values (forced rendering of default values)
