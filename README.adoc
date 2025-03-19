@@ -1541,8 +1541,8 @@ end
 
 Where,
 
-`min`:: The minimum number of elements that must be included.
-`max`:: The maximum number of elements that can be included.
+`min`:: The minimum number of elements that must be included. The minimum value can be `0`.
+`max`:: The maximum number of elements that can be included. The maximum value can go up to `Float::INFINITY`.
 `block`:: The block of elements that must be included. The block can contain
 multiple `attribute` and `choice` directives.
 
@@ -1591,7 +1591,7 @@ directives:
 
 `import_model_mappings`:: imports only mappings.
 
-NOTE: This feature only works with XML for now. The import order determines how
+NOTE: This feature works both with XML and Key-Value formats. The import order determines how
 elements and attributes are overwritten.
 
 Models with `no_root` can only be parsed through **parent models**.
