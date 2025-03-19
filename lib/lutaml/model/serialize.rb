@@ -574,7 +574,7 @@ module Lutaml
                       end
                     end
 
-            value = apply_value_map(value, rule.value_map(:from), attr)
+            value = apply_value_map(value, rule.value_map(:from, new_opts), attr)
             value = normalize_xml_value(value, rule, attr, new_opts)
             rule.deserialize(instance, value, attributes, self)
           end
@@ -721,7 +721,7 @@ module Lutaml
 
             value = values.find { |v| Utils.initialized?(v) } || values.first
 
-            value = apply_value_map(value, rule.value_map(:from), attr)
+            value = apply_value_map(value, rule.value_map(:from, options), attr)
 
             if rule.using_custom_methods?
               if Utils.present?(value)

@@ -119,8 +119,6 @@ module Lutaml
       end
 
       alias from name
-      # alias render_nil? render_nil
-      # alias render_empty? render_empty
       alias render_default? render_default
       alias attribute? attribute
 
@@ -135,9 +133,9 @@ module Lutaml
       end
 
       def treat?(value)
-        !((!treat_nil? && value.nil?) ||
-          (!treat_empty? && Utils.empty?(value)) ||
-          (!treat_omitted? && Utils.uninitialized?(value)))
+        (treat_nil? || !value.nil?) &&
+          (treat_empty? || !Utils.empty?(value)) &&
+          (treat_omitted? || Utils.initialized?(value))
       end
 
       def render_value_for(value)
@@ -171,16 +169,16 @@ module Lutaml
         value_map(:to, options)[:omitted] != :omitted
       end
 
-      def treat_nil?
-        value_map(:from)[:nil] != :omitted
+      def treat_nil?(options = {})
+        value_map(:from, options)[:nil] != :omitted
       end
 
-      def treat_empty?
-        value_map(:from)[:empty] != :omitted
+      def treat_empty?(options = {})
+        value_map(:from, options)[:empty] != :omitted
       end
 
-      def treat_omitted?
-        value_map(:from)[:omitted] != :omitted
+      def treat_omitted?(options = {})
+        value_map(:from, options)[:omitted] != :omitted
       end
 
       def polymorphic_mapping?
