@@ -359,9 +359,7 @@ module Lutaml
               return adapter.parse(value, options)
             end
 
-            if export_method = rule.transform[:export] || attr.transform_export_method
-              value = export_method.call(value)
-            end
+            value = ExportTransformer.call(value, rule, attr)
 
             next hash.merge!(generate_hash_from_child_mappings(attr, value, format, rule.root_mappings)) if rule.root_mapping?
 

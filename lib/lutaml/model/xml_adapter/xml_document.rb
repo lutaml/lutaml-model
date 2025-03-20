@@ -154,8 +154,8 @@ module Lutaml
           end
 
           # Only transform when recursion is not called
-          if (!attribute.collection? || value.is_a?(Array)) && transform_method = rule.transform[:export] || attribute.transform_export_method
-            value = transform_method.call(value)
+          if !attribute.collection? || value.is_a?(Array)
+            value = ExportTransformer.call(value, rule, attribute)
           end
 
           if value.is_a?(Array) && !Utils.empty_collection?(value)
@@ -367,6 +367,8 @@ module Lutaml
             value = mapping_rule.to_value_for(element)
             attr = attribute_definition_for(element, mapping_rule, mapper_class: options[:mapper_class])
             value = attr.serialize(value, :xml) if attr
+
+            value = ExportTransformer.call(value, mapping_rule, attr)
 
             if render_element?(mapping_rule, element, value)
               hash[mapping_rule.prefixed_name] = value ? value.to_s : value

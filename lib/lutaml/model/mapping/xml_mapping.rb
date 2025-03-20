@@ -127,6 +127,7 @@ module Lutaml
                     nil),
         prefix: (prefix_set = false
                  nil),
+        transform: {},
         value_map: {}
       )
         validate!(
@@ -149,6 +150,7 @@ module Lutaml
           default_namespace: namespace_uri,
           namespace_set: namespace_set != false,
           prefix_set: prefix_set != false,
+          transform: transform,
           value_map: value_map,
         )
         @attributes[rule.namespaced_name] = rule
@@ -165,6 +167,7 @@ module Lutaml
         delegate: nil,
         mixed: false,
         cdata: false,
+        transform: {},
         value_map: {}
       )
         validate!(
@@ -181,6 +184,7 @@ module Lutaml
           delegate: delegate,
           mixed_content: mixed,
           cdata: cdata,
+          transform: transform,
           value_map: value_map,
         )
       end

@@ -284,10 +284,7 @@ module Lutaml
       end
 
       def handle_transform_method(model, value, attributes)
-        transform_method = transform[:import] || attributes[to].transform_import_method
-        return unless transform_method
-
-        assign_value(model, transform_method.call(value))
+        assign_value(model, ImportTransformer.call(value, self, attributes[to]))
         true
       end
 
