@@ -46,7 +46,7 @@ module Lutaml
           <%=
             if content&.key_exist?(:attributes)
               output = content.attributes.map do |attribute|
-                attribute = @attributes[attribute.ref_class.split(":").last] if attribute.key?(:ref_class)
+                attribute = @attributes[attribute.attr_ref_class.split(":").last] if attribute.key?(:attr_ref_class)
                 render_default = ", render_default: true" if attribute.key_exist?(:default)
                 "    map_attribute :\#{attribute.name}, to: :\#{Utils.snake_case(attribute.name)}\#{render_default}"
               end.join("\n")
@@ -58,7 +58,7 @@ module Lutaml
               output = resolve_content(content).map do |element_name, element|
                 next if element_name == :arguments
 
-                element = @elements[element.ref_class.split(":")&.last] if element&.key_exist?(:ref_class)
+                element = @elements[element.element_ref_class.split(":")&.last] if element&.key_exist?(:element_ref_class)
                 "    map_element :\#{element_name}, to: :\#{Utils.snake_case(element_name)}"
               end.join("\n")
               output + "\n" if output && !output&.empty?
@@ -73,7 +73,7 @@ module Lutaml
                     "    map_attribute :\#{attribute.name}, to: :\#{Utils.snake_case(attribute.name)}\#{render_default}"
                   end.join("\n")
                 else
-                  element = @elements[element.ref_class.split(":")&.last] if element&.key_exist?(:ref_class)
+                  element = @elements[element.element_ref_class.split(":")&.last] if element&.key_exist?(:element_ref_class)
                   next if element_name == :arguments
 
                   "    map_element :\#{element_name}, to: :\#{Utils.snake_case(element_name)}"
@@ -274,7 +274,7 @@ module Lutaml
         def setup_group_type(group)
           MappingHash.new.tap do |hash|
             if group.ref
-              hash[:ref_class] = group.ref
+              hash[:group_ref_class] = group.ref
             else
               resolved_element_order(group).map do |instance|
                 case instance
@@ -296,26 +296,25 @@ module Lutaml
               when Xsd::Element
                 hash.assign_or_append_value(:elements, setup_element(element))
               when Xsd::Sequence
-                hash[:sequence] = setup_sequence(element)
+                hash.assign_or_append_value(:sequence, setup_sequence(element))
               when Xsd::Group
-                hash[:group] = setup_group_type(element)
+                hash.assign_or_append_value(:groups, setup_group_type(element))
               when Xsd::Choice
-                hash[:choice] = setup_choice(element)
+                hash.assign_or_append_value(:choice, setup_choice(element))
               end
             end
           end
         end
 
         def setup_union(union)
-          union.member_types.split.map do |member_type|
-            @simple_types[member_type]
-          end.flatten
+          members = union.member_types.split
+          members.map { |member| @simple_types[member] }.flatten
         end
 
         def setup_attribute(attribute)
           MappingHash.new.tap do |attr_hash|
             if ref = attribute.ref
-              attr_hash[:ref_class] = ref
+              attr_hash[:attr_ref_class] = ref
             else
               attr_hash[:name] = attribute.name
               attr_hash[:base_class] = attribute.type
@@ -327,37 +326,31 @@ module Lutaml
         def setup_attribute_groups(attribute_group)
           MappingHash.new.tap do |hash|
             if attribute_group.ref
-              hash[:ref_class] = attribute_group.ref
+              hash[:attr_group_ref_class] = attribute_group.ref
             else
-              hash[:attributes] = [] if attribute_group.attribute&.any?
-              hash[:attribute_groups] = [] if attribute_group.attribute_group&.any?
               resolved_element_order(attribute_group).each do |instance|
                 case instance
                 when Xsd::Attribute
-                  hash[:attributes] << setup_attribute(instance)
+                  hash.assign_or_append_value(:attributes, setup_attribute(instance))
                 when Xsd::AttributeGroup
-                  hash[:attribute_groups] << setup_attribute_groups(instance)
+                  hash.assign_or_append_value(:attribute_groups, setup_attribute_groups(instance))
                 end
               end
             end
           end
         end
 
-        def create_mapping_hash(value, hash_key: :class_name)
-          MappingHash.new.tap do |hash|
-            hash[hash_key] = value
-          end
-        end
-
         def setup_element(element)
           MappingHash.new.tap do |hash|
             if ref = element.ref
-              hash[:element_ref] = ref.split(":").last
+              hash[:element_ref_class] = ref.split(":").last
             else
               setup_min_max_arguments(element, hash)
               hash[:element_name] = element.name
-              hash[:type_name] = if element.complex_type || element.simple_type
-                                   setup_element_type(element)
+              hash[:type_name] = if element.complex_type
+                                   setup_inline_complex_type(element)
+                                 elsif element.simple_type
+                                   setup_inline_simple_type(element)
                                  else
                                    element.type
                                  end
@@ -365,14 +358,18 @@ module Lutaml
           end
         end
 
-        def setup_element_type(element)
-          type = element.simple_type ? "simple" : "complex"
-          type_object = element.public_send(:"#{type}_type")
-          prefix = type == "simple" ? "ST_" : "CT_"
-          type_object_name = "#{prefix}#{element.name}"
-          object_value = public_send(:"setup_#{type}_type", type_object)
-          instance_variable_get(:"@#{type}_types")[type_object_name] = object_value
-          type_object_name
+        def setup_inline_complex_type(element)
+          value = setup_complex_type(element.complex_type)
+          type_name = "CT_#{element.name}"
+          @complex_types[type_name] = value
+          type_name
+        end
+
+        def setup_inline_simple_type(element)
+          value = setup_simple_type(element.simple_type)
+          type_name = "ST_#{element.name}"
+          @simple_types[type_name] = value
+          type_name
         end
 
         def setup_restriction(restriction, hash)
@@ -480,9 +477,11 @@ module Lutaml
 
         def resolve_sequence(sequence, hash = MappingHash.new)
           sequence.each do |content|
-            if content.key?(:element_ref)
-              element = @elements[content.element_ref]
+            if content.key?(:element_ref_class)
+              element = @elements[content.element_ref_class]
               hash[element.element_name] = element
+            elsif content.key?(:element_name)
+              hash[content.element_name] = content
             elsif content.key?(:sequence)
               resolve_sequence(content, hash)
             elsif content.key?(:choice)
@@ -498,8 +497,9 @@ module Lutaml
           choice.each do |key, value|
             case key
             when :elements
-              element = @elements[content.element_ref]
-              hash[element.element_name] = element
+              value.each do |element|
+                hash[element.element_name] = element
+              end
             when :sequence
               resolve_sequence(value, hash)
             when :arguments

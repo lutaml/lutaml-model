@@ -60,8 +60,8 @@ module Lutaml
           end
 
           def render_model_attribute(attribute, current_indent)
-            if attribute.key?(:ref_class)
-              attribute = XmlSchema.elements[extract_class_name(attribute.ref_class).to_sym]
+            if attribute.key?(:attr_ref_class)
+              attribute = XmlSchema.elements[extract_class_name(attribute.attr_ref_class).to_sym]
             end
 
             "#{current_indent}attribute :#{Utils.snake_case(attribute.element_name)}, :#{resolve_element_class(attribute)}#{resolve_collection(attribute[:arguments])}"
@@ -93,7 +93,7 @@ module Lutaml
           end
 
           def model_groups_import(groups, current_indent)
-            "#{current_indent}import_model(#{Utils.camel_case(extract_class_name(groups[:ref_class]))})\n"
+            "#{current_indent}import_model(#{Utils.camel_case(extract_class_name(groups[:group_ref_class]))})\n"
           end
 
           def model_choices(choices, current_indent, indent)
@@ -125,15 +125,9 @@ module Lutaml
           end
 
           def extract_elements(elements, sequence_arr, current_indent)
-            case elements
-            when Array
-              elements.map { |element| extract_elements(element, sequence_arr, current_indent) }
-            when Hash
-              elements.each do |name, element|
-                case name
-                when String
-                  sequence_arr << render_mapping_element({ element: element }, current_indent)
-                end
+            elements[:elements].each do |element|
+              if element.key?(:element_name)
+                sequence_arr << render_mapping_element(element, current_indent)
               end
             end
           end
@@ -162,7 +156,7 @@ module Lutaml
             sequence_arr = ["#{current_indent}sequence#{UtilityHelper.resolve_min_max_args(attributes)} do"]
             if sequence.is_a?(Array)
               sequence.each do |instance|
-                if instance.keys.one?(String)
+                if instance.key?(:element_name)
                   sequence_arr << render_mapping_element(instance, next_indent)
                 elsif instance.key?(:sequence)
                   sequence_arr << render_model_sequence(instance, next_indent, indent)
@@ -170,7 +164,7 @@ module Lutaml
               end
             elsif sequence&.key?(:sequence)
               sequence[:sequence].each do |instance|
-                if instance.keys.one?(String)
+                if instance.key?(:element_name)
                   sequence_arr << render_mapping_element(instance, next_indent)
                 elsif instance.key?(:sequence)
                   sequence_arr << render_model_sequence(instance, next_indent, indent)
@@ -203,7 +197,6 @@ module Lutaml
           end
 
           def render_mapping_element(element, current_indent)
-            element = element.values.first
             "#{current_indent}map_element #{element.element_name.inspect}, to: :#{Utils.snake_case(element.element_name)}"
           end
         end

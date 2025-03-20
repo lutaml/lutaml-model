@@ -19,7 +19,7 @@ module Lutaml
                 if element_name == :attributes
                   element.map { |attribute| "  attribute :\#{Utils.snake_case(attribute.name)}, \#{resolve_attribute_class(attribute)}\#{resolve_attribute_default(attribute.default) if attribute.key_exist?(:default)}" }.join("\n")
                 else
-                  element = @elements[element.ref_class.split(":")&.last] if element&.key_exist?(:ref_class)
+                  element = @elements[element.element_ref_class.split(":")&.last] if element&.key_exist?(:element_ref_class)
                   next if element[:type_name]
 
                   "  attribute :\#{Utils.snake_case(element_name)}, \#{resolve_element_class(element)}\#{resolve_occurs(element.arguments) if element.key_exist?(:arguments)}"
@@ -30,31 +30,23 @@ module Lutaml
           TEMPLATE
 
           def render_definition_content(content, options)
-            setup_instance_variables
             current_indent = options[:current_indent]
             indent = options[:indent]
+            available_methods = %i[attributes elements groups sequence].freeze
             content.compact.map do |key, value|
               next if key == :mixed
 
-              case key
-              when :attributes
-                render_attributes_definition(value, current_indent)
-              when :elements
-                render_elements_definition(value, current_indent)
-              when :groups
-                render_groups_definition(value, current_indent)
-              when :choice
+              if available_methods.include?(key)
+                send(:"render_#{key}_definition", value, current_indent)
+              elsif key == :choice
                 render_choice_definition(value, current_indent, indent)
-              when :sequence
-                render_sequence_definition(value, current_indent)
               end
             end.join("\n")
           end
 
           def render_sequence_definition(sequence, current_indent)
             sequence.map do |instance|
-              if instance.key?(:element_ref)
-                @elements ||= Lutaml::Model::Schema::XmlSchema.elements
+              if instance.key?(:element_ref_class) || instance.key?(:element_name)
                 render_elements_definition([instance], current_indent)
               elsif instance.key?(:groups)
                 render_groups_definition([instance[:groups]], current_indent)
@@ -67,7 +59,7 @@ module Lutaml
 
           def render_groups_definition(groups, current_indent)
             groups.map do |group|
-              "#{current_indent}import_model #{Utils.camel_case(group[:ref_class])}"
+              "#{current_indent}import_model #{Utils.camel_case(group[:group_ref_class])}"
             end.join("\n")
           end
 
@@ -78,7 +70,7 @@ module Lutaml
               next if key == :arguments
 
               case key
-              when String
+              when :elements
                 choice_arr << render_elements_definition([{ key => value }], next_indent)
               when :groups
                 choice_arr << render_groups_definition(value, next_indent)
@@ -92,21 +84,26 @@ module Lutaml
 
           def render_elements_definition(elements, current_indent)
             elements.map do |element|
-              element = element.values.first
+              next render_elements_definition(element[:elements], current_indent) if element.key?(:elements)
+
+              element = referenced_element(element) if element.key_exist?(:element_ref_class)
               render_attribute_definition(element.element_name, element.type_name, element[:arguments], current_indent)
             end
           end
 
           def render_attributes_definition(attributes, current_indent)
             attributes.compact.map do |attribute|
-              attribute = referenced_attribute(attribute) if attribute.key_exist?(:ref_class)
+              attribute = referenced_attribute(attribute) if attribute.key_exist?(:attr_ref_class)
               render_attribute_definition(attribute.name, attribute.base_class, attribute[:arguments], current_indent)
             end
           end
 
           def referenced_attribute(attribute)
-            @attributes ||= Lutaml::Model::Schema::XmlSchema.attributes
-            @attributes[normalized_class_name(attribute.ref_class)]
+            xml_schema_attributes[normalized_class_name(attribute.attr_ref_class)]
+          end
+
+          def referenced_element(element)
+            xml_schema_elements[normalized_class_name(element.element_ref_class)]
           end
 
           def render_attribute_definition(name, klass, arguments, current_indent)
@@ -219,8 +216,10 @@ module Lutaml
           def required_files_attribute_groups(attr_groups)
             attr_groups.each do |key, value|
               case key
-              when :ref_class
-                required_files_attribute_groups(@attribute_groups[normalized_class_name(value)])
+              when :groups_ref_class
+                required_files_attribute_groups(
+                  xml_schema_attribute_groups[normalized_class_name(value)],
+                )
               when :attribute, :attributes
                 required_files_attribute(value)
               end
@@ -231,13 +230,13 @@ module Lutaml
             attributes.each do |attribute|
               next if attribute_xml_class?(attribute)
 
-              attribute = referenced_attribute(attribute) if attribute.key_exist?(:ref_class)
+              attribute = referenced_attribute(attribute) if attribute.key_exist?(:attr_ref_class)
               require_attribute_class(attribute.base_class)
             end
           end
 
           def attribute_xml_class?(attribute)
-            klass = attribute[:ref_class] || attribute[:base_class]
+            klass = attribute[:attr_ref_class] || attribute[:base_class]
             klass&.start_with?("xml")
           end
 
@@ -255,8 +254,8 @@ module Lutaml
           def required_files_choice(choice)
             choice.each do |key, value|
               case key
-              when String
-                required_files_elements([value])
+              when :elements
+                required_files_elements(value)
               when :group
                 required_files_group(value)
               end
@@ -268,8 +267,8 @@ module Lutaml
               case key
               when :sequence
                 required_files_sequence(value)
-              when :ref_class
-                file_name = normalized_class_name(group[:ref_class])
+              when :group_ref_class
+                file_name = normalized_class_name(group[:group_ref_class])
                 @required_files << "require_relative #{Utils.snake_case(file_name).inspect}"
               end
             end
@@ -279,8 +278,9 @@ module Lutaml
             sequence.each do |key, value|
               case key
               when Hash
-                if key.keys.one?(String)
-                  required_files_elements(key.values)
+                key = referenced_element(key) if key.key?(:element_ref_class)
+                if key.key?(:element_name)
+                  required_files_elements([key])
                 elsif key.key?(:groups)
                   required_files_group(key[:groups])
                 end
@@ -294,8 +294,8 @@ module Lutaml
 
           def required_files_sequences_array(sequences)
             sequences.each do |sequence|
-              if sequence.keys.one?(String)
-                required_files_elements(sequence.values)
+              if sequence.key?(:element_name)
+                required_files_elements([sequence])
               elsif sequence.key?(:sequence)
                 required_files_sequence(sequence)
               elsif sequence.key?(:choice)
@@ -325,12 +325,32 @@ module Lutaml
             class_name.split(":").last
           end
 
-          def setup_instance_variables
-            @elements ||= Lutaml::Model::Schema::XmlSchema.elements
-            @attributes ||= Lutaml::Model::Schema::XmlSchema.attributes
-            @group_types ||= Lutaml::Model::Schema::XmlSchema.group_types
-            @simple_types ||= Lutaml::Model::Schema::XmlSchema.simple_types
-            @complex_types ||= Lutaml::Model::Schema::XmlSchema.complex_types
+          def xml_schema_attributes
+            xml_schema_class.attributes
+          end
+
+          def xml_schema_elements
+            xml_schema_class.elements
+          end
+
+          def xml_schema_group_types
+            xml_schema_class.group_types
+          end
+
+          def xml_schema_simple_types
+            xml_schema_class.simple_types
+          end
+
+          def xml_schema_complex_types
+            xml_schema_class.complex_types
+          end
+
+          def xml_schema_attribute_groups
+            xml_schema_class.attribute_groups
+          end
+
+          def xml_schema_class
+            Lutaml::Model::Schema::XmlSchema
           end
         end
       end
