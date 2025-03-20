@@ -1051,16 +1051,16 @@ class Reference < Lutaml::Model::Serializable
 
   xml do
     map_attribute "reference-type", to: :_class, polymorphic_map: {
-      "document-ref" => "PolymorphicSpec::Base::DocumentReference",
-      "anchor-ref" => "PolymorphicSpec::Base::AnchorReference",
+      "document-ref" => "DocumentReference",
+      "anchor-ref" => "AnchorReference",
     }
     map_element "name", to: :name
   end
 
   key_value do
     map "_class", to: :_class, polymorphic_map: {
-      "Document" => "PolymorphicSpec::Base::DocumentReference",
-      "Anchor" => "PolymorphicSpec::Base::AnchorReference",
+      "Document" => "DocumentReference",
+      "Anchor" => "AnchorReference",
     }
     map "name", to: :name
   end
