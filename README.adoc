@@ -5533,12 +5533,122 @@ the undefined value:: the value is not defined
 There are also different ways to represent these missing values
 when the attribute accepts a single value or a collection of values.
 
+.Support of missing value types in different technologies
+|===
+| Technology | Missing value type | Realized as
+
+.3+| Lutaml::Model
+| empty value | Ruby empty string (`""`)
+| non-existent value | Ruby `NilClass` (`nil`)
+| undefined value | `class Uninitialized`
+
+.3+| XML element
+| empty value | XML blank element: `<status></status>` or `<status/>`
+| non-existent value | XML blank element with attribute `xsi:nil`: `<status xsi:nil="true"/>`
+| undefined value | the XML element is omitted
+
+.3+| XML attribute
+| empty value | XML blank attribute: `status=""`
+| non-existent value | the XML attribute is omitted
+| undefined value | the XML attribute is omitted
+
+.3+| JSON
+| empty value | JSON empty string (`""`)
+| non-existent value | JSON `null` value
+| undefined value | the JSON key is omitted
+
+.3+| TOML
+| empty value | TOML empty string
+| non-existent value | the TOML key is omitted since TOML does not support the concept of null.
+| undefined value | the TOML key is omitted
+
+|===
+
+NOTE: The `Uninitialized` class is a special Lutaml::Model construct, it is not
+supported by normal Ruby objects.
+
+The challenge for the developer is how to represent fully compatible semantics
+using interoperable data models across different technologies.
+
+Lutaml::Model provides you with several mechanisms to retain the missing values
+semantics. An example mapping is shown in the following diagram.
+
+.Mapping of missing value types between Lutaml::Model and YAML
+[source]
+----
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  ╔════════════════════════╗                    ╔════════════════════════╗   │
+│  ║  Lutaml::Model Values  ║                    ║      YAML Values       ║   │
+│  ╠════════════════════════╣                    ╠════════════════════════╣   │
+│  ║                        ║      mapping       ║                        ║   │
+│  ║  "empty"               ║◀──────────────────▶║  "empty"               ║   │
+│  ║  (empty string, [])    ║      to empty      ║  (empty string, [])    ║   │
+│  ║                        ║                    ║                        ║   │
+│  ╟────────────────────────╢                    ╟────────────────────────╢   │
+│  ║                        ║      mapping       ║                        ║   │
+│  ║  "non-existent"        ║◀──────────────────▶║  "non-existent"        ║   │
+│  ║  (nil)                 ║  to non-existent   ║  (null)                ║   │
+│  ║                        ║                    ║                        ║   │
+│  ╟────────────────────────╢                    ╟────────────────────────╢   │
+│  ║                        ║      mapping       ║                        ║   │
+│  ║  "undefined"           ║◀──────────────────▶║  "undefined"           ║   │
+│  ║  (uninitialized)       ║   to undefined     ║  (key omitted)         ║   │
+│  ║                        ║                    ║                        ║   │
+│  ╚════════════════════════╝                    ╚════════════════════════╝   │
+└─────────────────────────────────────────────────────────────────────────────┘
+----
+
+In the case where the interoperating technologies do not support the full spectrum
+of missing value types, it is necessary for the developer to understand any
+such behavior and relevant handling.
+
+.Mapping of missing value types between Lutaml::Model and TOML
+[source]
+----
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  ╔════════════════════════╗                    ╔════════════════════════╗   │
+│  ║  Lutaml::Model Values  ║                    ║      TOML Values       ║   │
+│  ╠════════════════════════╣                    ╠════════════════════════╣   │
+│  ║                        ║      mapping       ║                        ║   │
+│  ║  "empty"               ║◀──────────────────▶║  "empty"               ║   │
+│  ║  (empty string, [])    ║      to empty      ║  (empty string, [])    ║   │
+│  ║                        ║                    ║                        ║   │
+│  ╟────────────────────────╢                    ╟────────────────────────╢   │
+│  ║                        ║      mapping       ║                        ║   │
+│  ║  "non-existent"        ║◀──────────────────▶║                        ║   │
+│  ║  (nil)                 ║   to undefined     ║  "undefined"           ║   │
+│  ║                        ║                    ║  (key omitted)         ║   │
+│  ╟────────────────────────╢                    ║                        ║   │
+│  ║                        ║      mapping       ║                        ║   │
+│  ║  "undefined"           ║─────(one-way)─────▶║     TOML does not      ║   │
+│  ║  (uninitialized)       ║   to undefined     ║     support NULL       ║   │
+│  ║                        ║                    ║                        ║   │
+│  ╚════════════════════════╝                    ╚════════════════════════╝   │
+└─────────────────────────────────────────────────────────────────────────────┘
+----
+
+There are the following additional challenges that a developer must take into account of:
+
+* Single attribute value vs collection attribute value. Different technologies
+treat single/collection values differently.
+
+* External schemas and systems that interoperate with serializations from
+Lutaml::Model. Many schemas and systems adopt "different" conventions for
+representing missing value semantics (sometimes very awkward ones).
+
+The solution for the first challenge is to understand the behavior of the
+different technologies used. The default mappings are described in <<value_representation_in_lutaml-model>>
+and <<value_representation_in_serialization_formats>>.
+
+
+[[value_representation_in_lutaml-model]]
 ==== Value representation in Lutaml::Model
 
 The following table summarizes the behavior of the Lutaml::Model
 in regards of the "missing values" family.
 
-[cols="1,1,1,1", options="header"]
+.Handling of missing value types in Lutaml::Model data types
+[cols="1,1,2,2"]
 |===
 | LutaML value type | Cardinality (1 or n) | Missing value type | Ruby value
 
@@ -5556,55 +5666,49 @@ in regards of the "missing values" family.
 
 .3+| `:integer`
 .3+| single
-| empty value | `0` (Integer)
+| empty value | N/A
 | non-existent value | `nil` (NilClass)
 | undefined value | No assigned value
 
 .3+| `:float`
 .3+| single
-| empty value | `0.0` (Float)
+| empty value | N/A
 | non-existent value | `nil` (NilClass)
 | undefined value | No assigned value
 
 .3+| `:boolean`
 .3+| single
-| empty value | `false` (FalseClass)
+| empty value | N/A
 | non-existent value | `nil` (NilClass)
 | undefined value | No assigned value
 
 .3+| `:date`
 .3+| single
-| empty value | `Date.new(0)` (Date)
-| non-existent value | `nil` (NilClass)
-| undefined value | No assigned value
-
-.3+| `:date`
-.3+| single
-| empty value | `Date.new(0)` (Date)
+| empty value | N/A
 | non-existent value | `nil` (NilClass)
 | undefined value | No assigned value
 
 .3+| `:time_without_date`
 .3+| single
-| empty value | `Time.new(0)` (Time)
+| empty value | N/A
 | non-existent value | `nil` (NilClass)
 | undefined value | No assigned value
 
 .3+| `:date_time`
 .3+| single
-| empty value | `Time.new(0)` (Time)
+| empty value | N/A
 | non-existent value | `nil` (NilClass)
 | undefined value | No assigned value
 
 .3+| `:time`
 .3+| single
-| empty value | `Time.new(0)` (Time)
+| empty value | N/A
 | non-existent value | `nil` (NilClass)
 | undefined value | No assigned value
 
 .3+| `:decimal`
 .3+| single
-| empty value | `BigDecimal.new(0)` (BigDecimal)
+| empty value | N/A
 | non-existent value | `nil` (NilClass)
 | undefined value | No assigned value
 
@@ -5617,6 +5721,7 @@ in regards of the "missing values" family.
 |===
 
 
+[[value_representation_in_serialization_formats]]
 ==== Value representation in serialization formats
 
 Every serialization format uses a different information model to represent
@@ -5691,7 +5796,8 @@ A hash of key-value pairs that determines the mapping of a missing value at the 
 The key is the missing value type in the serialization format, and the value is
 the missing value type in the LutaML Model.
 +
-NOTE: In other words, used when converting the serialized format into a Ruby object.
+NOTE: In other words, used when converting the serialized format into a
+Lutaml::Model Ruby object.
 
 `to` pairs::
 A hash of key-value pairs that determines the mapping of a LutaML Model ("to") missing
@@ -5699,7 +5805,8 @@ to a missing value choice at the serialization format where this mapping applies
 The key is the missing value type in the LutaML Model, and the value is the
 missing value type in the serialization format.
 +
-NOTE: In other words, used when converting Ruby objects back into the serialized format.
+NOTE: In other words, used when converting a Lutaml::Model Ruby object into the
+serialized format.
 
 Syntax:
 
@@ -5707,14 +5814,14 @@ Syntax:
 ----
 {map_command} 'format-key', to: :attribute_name, value_map: { <1>
   from: {
-    {format-missing-value-1}: {model-missing-value-1}, <2>
-    {format-missing-value-2}: {model-missing-value-2},
-    {format-missing-value-3}: {model-missing-value-3}
+    {format-missing-value-n}: {model-missing-value-n}, <2>
+    {format-missing-value-m}: {model-missing-value-m},
+    {format-missing-value-o}: {model-missing-value-o}
   },
   to: {
-    {model-missing-value-1}: {format-missing-value-1}, <3>
-    {model-missing-value-2}: {format-missing-value-2},
-    {model-missing-value-3}: {format-missing-value-3}
+    {model-missing-value-n}: {format-missing-value-n}, <3>
+    {model-missing-value-m}: {format-missing-value-m},
+    {model-missing-value-o}: {format-missing-value-o}
   }
 }
 ----
@@ -5727,6 +5834,28 @@ Model.
 
 The missing value type mapping differs per serialization format,
 as serialization formats may not fully support all missing value types.
+
+The availability of `from` and `to` keys and values depend on the types of
+missing values supported by that particular serialization format.
+
+The available values for `from` and `to` for serialization formats
+are presented below, where the allowed values are to be used in the direction
+of the format. That means if the format supports `:empty`, it can be used
+as a key in `from:` direction, and the value in the `to:` direction (see `{format-missing-value-n}`) in the syntax.
+
+.Available missing value types in different mapping commands
+[cols="a,2a"]
+|===
+| Map command | Missing value types available (key in `from:` direction, value in the `to:` direction)
+
+| XML element `map_element` | `:empty`, `:omitted`, `:nil`
+| XML attribute `map_attribute` | `:empty`, `:omitted`
+| JSON `map`, `map_content` | `:empty`, `:omitted`, `:nil`
+| YAML `map`, `map_content` | `:empty`, `:omitted`, `:nil`
+| TOML `map`, `map_content` | `:empty`, `:omitted`
+
+|===
+
 
 [example]
 For instance, TOML does not support the notion of "null" and therefore the
@@ -5767,6 +5896,7 @@ NOTE: In a collection attribute, the values of `value_map` also depend on the
 or an empty array `[]` at the attribute-level (instead of the mapping-level).
 
 
+
 ===== Default value maps for serialization formats
 
 The table below describes the default `value_map` configurations for supported
@@ -5777,209 +5907,522 @@ serialization formats.
 // - `<status>new</status>` will be treated as `["new"]`.
 // - `<status>new</status><status>assigned</status>` will be treated as `["new", "assigned"]`.
 
-.Default missing value mapping configuration for collection attributes in XML (supports all 3 types)
-[cols="a,2,5a", options="header"]
+====== Default value map for XML element (single attribute)
+
+[source,ruby]
+----
+attribute :attr, :string
+
+xml do
+  map_element 'key', to: :attr, value_map: {
+    from: { empty: :nil, omitted: :omitted, nil: :nil },
+    to: { empty: :empty, omitted: :omitted, nil: :nil }
+  }
+end
+----
+
+.Default missing value mapping configuration for single attributes in XML elements
+[cols="a,a,a,a"]
 |===
-| Single/Collection | Map direction | Description
 
-.6+| Single
-| `from:` `empty: :nil`
-|
-* Element: A blank element (`<status/>`) is treated as `nil` at the model.
-* Attribute: A blank value (`status=""`) is treated as `nil` at the model.
+h| Direction h| Map rule h| XML source h| Model target
 
-| `to:` `nil: :empty`
-|
-* Element: A `nil` value at the model is serialized into a blank element (`<status/>`) in XML.
-* Attribute: A `nil` value at the model is serialized into a blank attribute (`status=""`) in XML.
+.3+|`from:`
+| `empty: :nil`
+| blank XML element (`<status/>`)
+| `nil`
 
-| `from:` `omitted: :omitted`
-|
-* Element: If the XML element is absent from the XML, the attribute is omitted from the model.
-* Attribute: If the XML attribute is absent from the XML, the attribute is omitted from the model.
+| `omitted: :omitted`
+| absent XML element
+| omitted from the model
 
-| `to:` `omitted: :omitted`
-|
-* Element: If the value is omitted in the model, the XML element is not rendered.
-* Attribute: If the value is omitted in the model, the XML attribute is not rendered.
+| `nil: :nil`
+| blank XML element with attribute `xsi:nil` (`<status xsi:nil=true/>`)
+| `nil` value in the model
 
-| `from:` `nil: :nil`
-|
-* Element: A blank element with the `xsi:nil` attribute (`<status xsi:nil=true/>`) in XML is treated as
-the `nil` value in the model.
-* Attribute: (UNDEFINED)
 
-| `to:` `nil: :nil`
-|
-* Element: A `nil` value in the model is serialized as an element with attribute `xsi:nil` (`<status xsi:nil=true/>`).
-* Attribute: (UNDEFINED)
+h| Direction h| Map rule h| Model source h| XML target
 
-.6+| Collection
-| `from:` `empty: :empty`
-|
-* Element: A blank element (`<status/>`) is treated as an empty array (`[]`) in the model.
-* Attribute: An empty attribute (`status=""`) is treated as an empty array (`[]`) in the model.
+.3+|`to:`
+| `empty: :empty`
+| empty string (`""`)
+| blank XML element
 
-| `to:` `empty: :empty`
-|
-* Element: An empty array (`[]`) in the model is treated as a blank element (`<status/>`)
-* Attribute: An empty array (`[]`) in the model is treated as an empty string (`status=""`) in the attribute.
+| `omitted: :omitted`
+| omitted in the model
+| XML element not rendered
 
-| `from:` `omitted: :omitted`
-|
-* Element: If the element is absent from the XML, the attribute is omitted from the model.
-* Attribute: If the attribute is absent from the XML, the attribute is omitted from the model.
-
-| `to:` `omitted: :omitted`
-|
-* Element: If the value is omitted in the model, the element is not rendered in the XML output.
-* Attribute: If the value is omitted in the model, the attribute is not rendered in the XML output.
-
-| `from:` `nil: :nil`
-|
-* Element: A blank element with the `xsi:nil` attribute (`<status xsi:nil/>`) in XML is treated as
-the `nil` value in the model.
-* Attribute: An empty attribute (`""`) is treated as the `nil` value in the model.
-
-| `to:` `nil: :nil`
-|
-* Element: A `nil` value in the model is serialized as an element with attribute `xsi:nil` (`<status xsi:nil/>`).
-* Attribute: A `nil` value in the model is treated as an empty string in the attribute.
+| `nil: :nil`
+| `nil` value in the model
+| blank XML element with attribute `xsi:nil` (`<status xsi:nil=true/>`)
 
 |===
 
-.Default missing value mapping configuration for collection attributes in YAML (supports all 3 types)
-[cols="a,2,5a", options="header"]
-|===
-| Serialization format | Map direction | Description
+====== Default value map for XML element (collection attribute)
 
-.6+| Single
-| `from:` `empty: :empty`
-| An empty string in YAML (`status:` or `status: ""`) is treated as an empty string in the model (`""`).
+[source,ruby]
+----
+attribute :attr, :string, collection: true
 
-NOTE: A value like `status: ''` in YAML will be deserialized as `nil` when `value_map: { from: { empty: :nil } }` is applied.
+xml do
+  map_element 'key', to: :attr, value_map: {
+    from: { empty: :empty, omitted: :omitted, nil: :nil },
+    to: { empty: :empty, omitted: :omitted, nil: :nil }
+  }
+end
+----
 
-| `to:` `empty: :empty`
-| An empty string (`""`) in the model is serialized as an empty string in YAML (`status:`).
-
-| `from:` `omitted: :omitted`
-| If the key is absent in YAML, the value is omitted from the model.
-| `to:` `omitted: :omitted`
-| If the value is omitted in the model, the key is omitted from the YAML output.
-
-| `from:` `nil: :nil`
-| An explicit `null` value in YAML is treated as `nil` in the model.
-| `to:` `nil: :nil`
-| A `nil` value in the model is serialized as YAML `null`.
-
-.6+| Collection
-| `from:` `empty: :empty`
-| An empty YAML array (`status:` or `status: []`) is treated as an empty array (`[]`) in the model.
-| `to:` `empty: :empty`
-| An empty array (`[]`) in the model is deserialized as `empty` (an empty YAML array, `status: []`).
-
-| `from:` `omitted: :omitted`
-| If the key is absent in YAML, the value is omitted from the model.
-
-| `to:` `omitted: :omitted`
-| If the value is omitted in the model, the key is omitted from the YAML output.
-
-NOTE: If the collection is omitted, it will be initialized as `nil` or an empty
-array depending on the `initialize_empty` setting.
-
-| `from:` `nil: :nil`
-| An explicit `null` value in YAML is treated as `nil` in the model.
-| `to:` `nil: :nil`
-| A `nil` value in the model is serialized as YAML `null`.
-
+.Default missing value mapping configuration for collection attributes in XML elements
+[cols="a,a,a,a"]
 |===
 
+h| Direction h| Map rule h| XML source h| Model target
+
+.3+|`from:`
+| `empty: :nil`
+| blank XML element (`<status/>`)
+| empty array (`[]`)
+
+| `omitted: :omitted`
+| absent XML element
+| omitted from the model
+
+| `nil: :nil`
+| blank XML element with attribute `xsi:nil` (`<status xsi:nil=true/>`)
+| `nil` value in the model
+
+
+h| Direction h| Map rule h| Model source h| XML target
+
+.3+|`to:`
+| `empty: :empty`
+| empty array (`[]`)
+| blank XML element
+
+| `omitted: :omitted`
+| omitted in the model
+| XML element not rendered
+
+| `nil: :nil`
+| `nil` value in the model
+| blank XML element with attribute `xsi:nil` (`<status xsi:nil=true/>`)
+
+|===
+
+====== Default value map for XML attribute (single attribute)
+
+[source,ruby]
+----
+attribute :attr, :string
+
+xml do
+  map_attribute 'attr_name', to: :attr, value_map: {
+    from: { empty: :nil, omitted: :omitted },
+    to: { empty: :empty, nil: :empty, omitted: :omitted }
+  }
+end
+----
+
+.Default missing value mapping configuration for single attributes in XML attributes
+[cols="a,a,a,a"]
+|===
+
+h| Direction h| Map rule h| XML source h| Model target
+
+.2+|`from:` (source only supports `empty` and `omitted`)
+| `empty: :nil`
+| blank XML attribute (`status=""`)
+| `nil`
+
+| `omitted: :omitted`
+| absent XML attribute
+| omitted from the model
+
+h| Direction h| Map rule h| Model source h| XML target
+
+.3+|`to:` (target only accepts `empty` and `omitted`)
+| `empty: :empty`
+| empty string (`""`)
+| blank XML attribute (`status=""`)
+
+| `omitted: :omitted`
+| omitted in the model
+| XML attribute not rendered
+
+| `nil: :empty`
+| `nil`
+| blank XML attribute (`status=""`)
+
+|===
+
+====== Default value map for XML attribute (collection attribute)
+
+[source,ruby]
+----
+attribute :attr, :string, collection: true
+
+xml do
+  map_attribute 'attr_name', to: :attr, value_map: {
+    from: { empty: :empty, omitted: :omitted },
+    to: { empty: :empty, nil: :omitted, omitted: :omitted }
+  }
+end
+----
+
+.Default missing value mapping configuration for collection attributes in XML attributes
+[cols="a,a,a,a"]
+|===
+
+h| Direction h| Map rule h| XML source h| Model target
+
+.2+|`from:` (source only supports `empty` and `omitted`)
+| `empty: :empty`
+| blank XML attribute (`status=""`)
+| empty array (`[]`)
+
+| `omitted: :omitted`
+| absent XML attribute
+| omitted from the model
+
+h| Direction h| Map rule h| Model source h| XML target
+
+.3+|`to:` (target only accepts `empty` and `omitted`)
+| `empty: :empty`
+| empty array (`[]`)
+| blank XML attribute (`status=""`)
+
+| `omitted: :omitted`
+| omitted in the model
+| XML attribute not rendered
+
+| `nil: :omitted`
+| `nil`
+| XML attribute not rendered
+
+|===
+
+
+
+====== Default value map for YAML (single attribute)
+
+[source,ruby]
+----
+attribute :attr, :string
+
+yaml do
+  map 'key', to: :attr, value_map: {
+    from: { empty: :empty, omitted: :omitted, nil: :nil },
+    to: { empty: :empty, omitted: :omitted, nil: :nil }
+  }
+end
+----
+
+.Default missing value mapping configuration for single attributes in YAML
+[cols="a,a,a,a"]
+|===
+
+h| Direction h| Map rule h| XML source h| Model target
+
+.3+|`from:`
+| `empty: :empty`
+| empty string in YAML (`status:` or `status: ""`)
+| empty string (`""`)
+
+| `omitted: :omitted`
+| absent YAML key
+| omitted from the model
+
+| `nil: :nil`
+| YAML `null`
+| `nil`
+
+h| Direction h| Map rule h| Model source h| XML target
+
+.3+|`to:`
+| `empty: :empty`
+| empty string (`""`)
+| empty string in YAML (`status:`)
+
+| `omitted: :omitted`
+| omitted in the model
+| YAML key omitted
+
+| `nil: :nil`
+| `nil`
+| YAML `null`
+
+|===
+
+NOTE: In order to treat a YAML value like `status: ''` to `nil`, the mapping of
+`value_map: { from: { empty: :nil } }` can be applied.
+
+
+====== Default value map for YAML (collection attribute)
+
+[source,ruby]
+----
+attribute :attr, :string, collection: true
+
+yaml do
+  map 'key', to: :attr, value_map: {
+    from: { empty: :empty, omitted: :omitted, nil: :nil },
+    to: { empty: :empty, omitted: :omitted, nil: :nil }
+  }
+end
+----
+
+.Default missing value mapping configuration for collection attributes in YAML
+[cols="a,a,a,a"]
+|===
+
+h| Direction h| Map rule h| YAML source h| Model target
+
+.3+|`from:`
+| `empty: :empty`
+| empty YAML array (`status:` or `status: []`)
+| empty array (`[]`)
+
+| `omitted: :omitted`
+| absent YAML key
+| omitted from the model
+
+| `nil: :nil`
+| YAML `null`
+| `nil`
+
+h| Direction h| Map rule h| Model source h| YAML target
+
+.3+|`to:`
+| `empty: :empty`
+| empty array (`[]`)
+| empty YAML array (`status: []`)
+
+| `omitted: :omitted`
+| omitted in the model
+| YAML key omitted
+
+| `nil: :nil`
+| `nil`
+| YAML `null`
+
+|===
+
+NOTE: If the YAML key for the collection attribute is omitted, it will be treated
+as `nil` or an empty array depending on the `initialize_empty` setting.
+
+
+====== Default value map for JSON (single attribute)
+
+[source,ruby]
+----
+attribute :attr, :string
+
+json do
+  map 'key', to: :attr, value_map: {
+    from: { empty: :empty, omitted: :omitted, nil: :nil },
+    to: { empty: :empty, omitted: :omitted, nil: :nil }
+  }
+end
+----
+
+.Default missing value mapping configuration for single attributes in JSON
+[cols="a,a,a,a"]
+|===
+
+h| Direction h| Map rule h| JSON source h| Model target
+
+.3+|`from:`
+| `empty: :empty`
+| empty string in JSON (`"status" : ""`)
+| empty string (`""`)
+
+| `omitted: :omitted`
+| absent JSON key
+| omitted from the model
+
+| `nil: :nil`
+| JSON `null`
+| `nil`
+
+h| Direction h| Map rule h| Model source h| JSON target
+
+.3+|`to:`
+| `empty: :empty`
+| empty string (`""`)
+| empty string in JSON (`"status" : ""`)
+
+| `omitted: :omitted`
+| omitted in the model
+| JSON key omitted
+
+| `nil: :nil`
+| `nil`
+| JSON `null`
+
+|===
+
+
+
+====== Default value map for JSON (collection attribute)
+
+[source,ruby]
+----
+attribute :attr, :string, collection: true
+
+json do
+  map 'key', to: :attr, value_map: {
+    from: { empty: :empty, omitted: :omitted, nil: :nil },
+    to: { empty: :empty, omitted: :omitted, nil: :nil }
+  }
+end
+----
 
 .Default missing value mapping configuration for collection attributes in JSON
-[cols="a,2,5a", options="header"]
+[cols="a,a,a,a"]
 |===
-| Serialization format | Map direction | Description
 
-.6+| Single
-| `from:` `empty: :empty`
-| An empty string in JSON (`"status": ""`) is treated as an empty string in the model (`""`).
-| `to:` `empty: :empty`
-| An empty string (`""`) in the model is serialized as an empty string in JSON (`"status": ""`).
+h| Direction h| Map rule h| JSON source h| Model target
 
-| `from:` `omitted: :omitted`
-| If the key is absent in JSON, the value is omitted from the model.
-| `to:` `omitted: :omitted`
-| If the value is omitted in the model, the key is omitted from the JSON output.
+.3+|`from:`
+| `empty: :empty`
+| empty JSON array (`"status": []`)
+| empty array (`[]`)
 
-| `from:` `nil: :nil`
-| An explicit `null` value in JSON (`"status": null`) is treated as `nil` in the model.
-| `to:` `nil: :nil`
-| A `nil` value in the model is serialized as JSON `null` (`"status": null`).
+| `omitted: :omitted`
+| absent JSON key
+| omitted from the model
 
-.6+| Collection
-| `from:` `empty: :empty`
-| An empty array (`"status": []`) in JSON is treated as an empty array (`[]`) in the model.
+| `nil: :nil`
+| JSON `null`
+| `nil`
 
-| `to:` `empty: :empty`
-| An empty array (`[]`) in the model is serialized as an empty array (`"status": []`) in the JSON output.
+h| Direction h| Map rule h| Model source h| JSON target
 
-| `from:` `omitted: :omitted`
-| If the key is absent in JSON, the value is omitted from the model.
-| `to:` `omitted: :omitted`
-| If the value is omitted in the model, the key is omitted from the JSON output.
+.3+|`to:`
+| `empty: :empty`
+| empty array (`[]`)
+| empty JSON array (`"status": []`)
 
-| `from:` `nil: :nil`
-| An explicit JSON `null` value is treated as `nil` in the model.
-| `to:` `nil: :nil`
-| A `nil` value in the model is serialized as an explicit JSON `null`.
+| `omitted: :omitted`
+| omitted in the model
+| JSON key omitted
+
+| `nil: :nil`
+| `nil`
+| JSON `null`
 
 |===
 
+====== Default value map for TOML (single attribute)
 
+TOML does not support the concept of `nil` and therefore the mapping of `from:`
+direction with `nil` to will not work in TOML.
 
-.Default missing value mapping configuration for collection attributes in TOML (does not support `nil`)
-[cols="a,2,5a", options="header"]
-|===
-| Serialization format | Map direction | Description
+The `nil` mapping is only supported in the `to:` direction (model to TOML).
 
-.6+| Single
-| `from:` `empty: :empty`
-| An empty string in TOML (`[status]`) is treated as an empty string in the model (`""`).
-| `to:` `empty: :empty`
-| An empty string (`""`) in the model is serialized as an empty string in TOML (`[status]`).
+[source,ruby]
+----
+attribute :attr, :string
 
-| `from:` `omitted: :omitted`
-| If the key is absent in TOML, the value is omitted from the model.
-| `to:` `omitted: :omitted`
-| If the value is omitted in the model, the key is omitted from the TOML output.
+toml do
+  map 'key', to: :attr, value_map: {
+    from: { empty: :empty, omitted: :omitted },
+    to: { empty: :empty, omitted: :omitted, nil: :omitted }
+  }
+end
+----
 
-| `from:` (not supported)
-| (not supported in TOML)
-| `to:` `nil: :omitted`
-| A `nil` value in the model will omit the associated attribute key from the TOML output.
-
-.6+| Collection
-| `from:` `empty: :empty`
-| An empty TOML array (a key present with no value, `[status]`) is treated as an empty array (`[]`) in the model.
-| `to:` `empty: :empty`
-| An empty array (`[]`) in the model is serialized into an empty TOML array (a key present with no value, `[status]`).
-
-| `from:` `omitted: :omitted`
-| If the key is absent in TOML, the value is omitted from the model.
-| `to:` `omitted: :omitted`
-| If the value is omitted in the model, the key is omitted from the TOML output.
-
-| `from:` (not supported)
-| (not supported in TOML)
-| `to:` `nil: :omitted`
-| A `nil` value in the model will omit the associated attribute key from the TOML output.
-
+.Default missing value mapping configuration for single attributes in TOML
+[cols="a,a,a,a"]
 |===
 
+h| Direction h| Map rule h| TOML source h| Model target
 
-===== Usage of `value_map`
+.2+|`from:` (source only supports `empty` and `omitted`)
+| `empty: :empty`
+| empty string in TOML (`[status]` with no value)
+| empty string (`""`)
 
-The `value_map` option can be defined for each serialization format as follows.
+| `omitted: :omitted`
+| absent TOML key
+| omitted from the model
+
+h| Direction h| Map rule h| Model source h| TOML target
+
+.3+|`to:` (source only supports `empty` and `omitted`)
+| `empty: :empty`
+| empty string (`""`)
+| empty string in TOML (`[status]` with no value)
+
+| `omitted: :omitted`
+| omitted in the model
+| TOML key omitted
+
+| `nil: :omitted`
+| `nil`
+| TOML key omitted
+
+|===
+
+
+
+====== Default value map for TOML (collection attribute)
+
+TOML does not support the concept of `nil` and therefore the mapping of `from:`
+direction with `nil` to will not work in TOML.
+
+The `nil` mapping is only supported in the `to:` direction (model to TOML).
+
+[source,ruby]
+----
+attribute :attr, :string, collection: true
+
+toml do
+  map 'key', to: :attr, value_map: {
+    from: { empty: :empty, omitted: :omitted },
+    to: { empty: :empty, omitted: :omitted, nil: :omitted }
+  }
+end
+----
+
+.Default missing value mapping configuration for collection attributes in TOML
+[cols="a,a,a,a"]
+|===
+
+h| Direction h| Map rule h| TOML source h| Model target
+
+.2+|`from:` (source only supports `empty` and `omitted`)
+| `empty: :empty`
+| empty TOML array (`[status]` with no value)
+| empty array (`[]`)
+
+| `omitted: :omitted`
+| absent TOML key
+| omitted from the model
+
+h| Direction h| Map rule h| Model source h| TOML target
+
+.3+|`to:` (source only supports `empty` and `omitted`)
+| `empty: :empty`
+| empty array (`[]`)
+| empty TOML array (`[status]` with no value)
+
+| `omitted: :omitted`
+| omitted in the model
+| TOML key omitted
+
+| `nil: :omitted`
+| `nil`
+| TOML key omitted
+
+|===
+
+
+
+===== Replacing missing values type mapping with `value_map`
+
+The `value_map` option can be defined to meticulously map for each serialization
+format as follows.
 
 [example]
 ====
@@ -6079,7 +6522,7 @@ y = ExampleClass.from_yaml(yaml)
 ----
 ====
 
-TODO: Need to improve this example.
+// TODO: Need to improve this example.
 
 ==== Specific overrides of value map (`render_*` and `treat_*`)
 
@@ -6117,6 +6560,52 @@ missing value types into the serialization format.
 missing value types into the model.
 `{format-value}`::: specifies the missing value type in the serialization format.
 `{model-value}`::: specifies the missing value type in the LutaML Model.
+
+In effect, the default `value_map` is overriden by the `:render_*` and `:treat_*`
+directives.
+
+[example]
+====
+Given the default mapping for an XML element, the `:render_*` and `:treat_*`
+options can be used to selectively override behavior.
+
+[source,ruby]
+----
+xml do
+  map_element 'key', to: :attr, value_map: {
+    from: { empty: :nil, omitted: :omitted, nil: :nil },
+    to: { empty: :empty, omitted: :omitted, nil: :nil }
+  }
+end
+----
+
+By changing to this:
+
+[source,ruby]
+----
+xml do
+  map_element 'key', to: :attr,
+    render_nil: :as_empty, <1>
+    treat_omitted: :as_nil <2>
+end
+----
+<1> This overrides the `to:` direction `nil: :nil` mapping.
+<2> This overrides the `from:` direction `omitted: :omitted` mapping
+
+The resulting value map would be:
+
+[source,ruby]
+----
+xml do
+  map_element 'status', to: :status, value_map: {
+    from: { empty: :nil, omitted: :omitted, nil: :empty }, <1>
+    to: { empty: :nil, omitted: :nil, nil: :nil }          <2>
+  }
+end
+----
+<1> See that `nil: :nil` is now `nil: :empty`.
+<2> See that `omitted: :omitted` is now `omitted: :nil`
+====
 
 
 ==== `render_nil`
