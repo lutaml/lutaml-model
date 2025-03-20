@@ -5674,6 +5674,8 @@ while others only support a subset of them.
 
 ==== Missing value mapping
 
+===== General
+
 Lutaml::Model provides a comprehensive way to handle the missing values family
 across different serialization formats.
 
@@ -5760,44 +5762,222 @@ Users can specify the mapping for both `from` and `to` values using the
 NOTE: Since `nil` is not supported in TOML, so mappings like `nil:
 {any_option}` or `{any_option}: :nil` will not work in TOML.
 
+NOTE: In a collection attribute, the values of `value_map` also depend on the
+`initialize_empty` setting, where an omitted value in the serialization format can still lead to a `nil`
+or an empty array `[]` at the attribute-level (instead of the mapping-level).
+
+
+===== Default value maps for serialization formats
+
 The table below describes the default `value_map` configurations for supported
 serialization formats.
 
-.Default missing value mapping configuration for single attribute to serialization formats
-[cols="1,1,1,1", options="header"]
+// TODO: Find a place to write this
+// XML Handling::
+// - `<status>new</status>` will be treated as `["new"]`.
+// - `<status>new</status><status>assigned</status>` will be treated as `["new", "assigned"]`.
+
+.Default missing value mapping configuration for collection attributes in XML (supports all 3 types)
+[cols="a,2,5a", options="header"]
 |===
-| Serialization format | `from` value | `to` value | Description
+| Single/Collection | Map direction | Description
 
-.3+| XML (supports all 3 types)
-| `empty`   | `nil`     |
-* Element: An empty value in the model is treated as an element with attribute `xsi:nil` during serialization.
-* Attribute: An empty value in the model is treated as an empty string in the attribute.
+.6+| Single
+| `from:` `empty: :nil`
+|
+* Element: A blank element (`<status/>`) is treated as `nil` at the model.
+* Attribute: A blank value (`status=""`) is treated as `nil` at the model.
 
-| `omitted` | `omitted` |
-* Element: If the value is omitted in the model, the element is omitted from the XML output.
-* Attribute: If the value is omitted in the model, the attribute is omitted from the XML output.
+| `to:` `nil: :empty`
+|
+* Element: A `nil` value at the model is serialized into a blank element (`<status/>`) in XML.
+* Attribute: A `nil` value at the model is serialized into a blank attribute (`status=""`) in XML.
 
-| `nil`     | `nil`     |
-* Element: A `nil` value in the model is serialized as an element with attribute `xsi:nil`.
+| `from:` `omitted: :omitted`
+|
+* Element: If the XML element is absent from the XML, the attribute is omitted from the model.
+* Attribute: If the XML attribute is absent from the XML, the attribute is omitted from the model.
+
+| `to:` `omitted: :omitted`
+|
+* Element: If the value is omitted in the model, the XML element is not rendered.
+* Attribute: If the value is omitted in the model, the XML attribute is not rendered.
+
+| `from:` `nil: :nil`
+|
+* Element: A blank element with the `xsi:nil` attribute (`<status xsi:nil=true/>`) in XML is treated as
+the `nil` value in the model.
+* Attribute: (UNDEFINED)
+
+| `to:` `nil: :nil`
+|
+* Element: A `nil` value in the model is serialized as an element with attribute `xsi:nil` (`<status xsi:nil=true/>`).
+* Attribute: (UNDEFINED)
+
+.6+| Collection
+| `from:` `empty: :empty`
+|
+* Element: A blank element (`<status/>`) is treated as an empty array (`[]`) in the model.
+* Attribute: An empty attribute (`status=""`) is treated as an empty array (`[]`) in the model.
+
+| `to:` `empty: :empty`
+|
+* Element: An empty array (`[]`) in the model is treated as a blank element (`<status/>`)
+* Attribute: An empty array (`[]`) in the model is treated as an empty string (`status=""`) in the attribute.
+
+| `from:` `omitted: :omitted`
+|
+* Element: If the element is absent from the XML, the attribute is omitted from the model.
+* Attribute: If the attribute is absent from the XML, the attribute is omitted from the model.
+
+| `to:` `omitted: :omitted`
+|
+* Element: If the value is omitted in the model, the element is not rendered in the XML output.
+* Attribute: If the value is omitted in the model, the attribute is not rendered in the XML output.
+
+| `from:` `nil: :nil`
+|
+* Element: A blank element with the `xsi:nil` attribute (`<status xsi:nil/>`) in XML is treated as
+the `nil` value in the model.
+* Attribute: An empty attribute (`""`) is treated as the `nil` value in the model.
+
+| `to:` `nil: :nil`
+|
+* Element: A `nil` value in the model is serialized as an element with attribute `xsi:nil` (`<status xsi:nil/>`).
 * Attribute: A `nil` value in the model is treated as an empty string in the attribute.
 
-.3+| YAML (supports all 3 types)
-| `empty`   | `empty`   | An empty string (`""`) in the model is deserialized as `empty` (an empty YAML string).
-| `omitted` | `omitted` | If the value is omitted in the model, the key is omitted from the YAML output.
-| `nil`     | `nil`     | A `nil` value in the model is serialized as YAML `null`.
+|===
 
-.3+| JSON (supports all 3 types)
-| `empty`   | `empty`   | An empty string (`""`) in the model is serialized as `empty` (an empty JSON string).
-| `omitted` | `omitted` | If the value is omitted in the model, the key is omitted from the JSON output.
-| `nil`     | `nil`     | A `nil` value in the model is serialized as JSON `null`.
+.Default missing value mapping configuration for collection attributes in YAML (supports all 3 types)
+[cols="a,2,5a", options="header"]
+|===
+| Serialization format | Map direction | Description
 
-.3+| TOML (does not support `nil`)
-| `empty`   | `empty`   | An empty string (`""`) in the model is serialized as `empty` (an empty TOML string).
-| `omitted` | `omitted` | If the value is omitted in the model, the key is omitted from the TOML output.
-| `nil`     | `omitted` | In TOML, `nil` is represented as `omitted` due to TOML limitations.
+.6+| Single
+| `from:` `empty: :empty`
+| An empty string in YAML (`status:` or `status: ""`) is treated as an empty string in the model (`""`).
+
+NOTE: A value like `status: ''` in YAML will be deserialized as `nil` when `value_map: { from: { empty: :nil } }` is applied.
+
+| `to:` `empty: :empty`
+| An empty string (`""`) in the model is serialized as an empty string in YAML (`status:`).
+
+| `from:` `omitted: :omitted`
+| If the key is absent in YAML, the value is omitted from the model.
+| `to:` `omitted: :omitted`
+| If the value is omitted in the model, the key is omitted from the YAML output.
+
+| `from:` `nil: :nil`
+| An explicit `null` value in YAML is treated as `nil` in the model.
+| `to:` `nil: :nil`
+| A `nil` value in the model is serialized as YAML `null`.
+
+.6+| Collection
+| `from:` `empty: :empty`
+| An empty YAML array (`status:` or `status: []`) is treated as an empty array (`[]`) in the model.
+| `to:` `empty: :empty`
+| An empty array (`[]`) in the model is deserialized as `empty` (an empty YAML array, `status: []`).
+
+| `from:` `omitted: :omitted`
+| If the key is absent in YAML, the value is omitted from the model.
+
+| `to:` `omitted: :omitted`
+| If the value is omitted in the model, the key is omitted from the YAML output.
+
+NOTE: If the collection is omitted, it will be initialized as `nil` or an empty
+array depending on the `initialize_empty` setting.
+
+| `from:` `nil: :nil`
+| An explicit `null` value in YAML is treated as `nil` in the model.
+| `to:` `nil: :nil`
+| A `nil` value in the model is serialized as YAML `null`.
 
 |===
 
+
+.Default missing value mapping configuration for collection attributes in JSON
+[cols="a,2,5a", options="header"]
+|===
+| Serialization format | Map direction | Description
+
+.6+| Single
+| `from:` `empty: :empty`
+| An empty string in JSON (`"status": ""`) is treated as an empty string in the model (`""`).
+| `to:` `empty: :empty`
+| An empty string (`""`) in the model is serialized as an empty string in JSON (`"status": ""`).
+
+| `from:` `omitted: :omitted`
+| If the key is absent in JSON, the value is omitted from the model.
+| `to:` `omitted: :omitted`
+| If the value is omitted in the model, the key is omitted from the JSON output.
+
+| `from:` `nil: :nil`
+| An explicit `null` value in JSON (`"status": null`) is treated as `nil` in the model.
+| `to:` `nil: :nil`
+| A `nil` value in the model is serialized as JSON `null` (`"status": null`).
+
+.6+| Collection
+| `from:` `empty: :empty`
+| An empty array (`"status": []`) in JSON is treated as an empty array (`[]`) in the model.
+
+| `to:` `empty: :empty`
+| An empty array (`[]`) in the model is serialized as an empty array (`"status": []`) in the JSON output.
+
+| `from:` `omitted: :omitted`
+| If the key is absent in JSON, the value is omitted from the model.
+| `to:` `omitted: :omitted`
+| If the value is omitted in the model, the key is omitted from the JSON output.
+
+| `from:` `nil: :nil`
+| An explicit JSON `null` value is treated as `nil` in the model.
+| `to:` `nil: :nil`
+| A `nil` value in the model is serialized as an explicit JSON `null`.
+
+|===
+
+
+
+.Default missing value mapping configuration for collection attributes in TOML (does not support `nil`)
+[cols="a,2,5a", options="header"]
+|===
+| Serialization format | Map direction | Description
+
+.6+| Single
+| `from:` `empty: :empty`
+| An empty string in TOML (`[status]`) is treated as an empty string in the model (`""`).
+| `to:` `empty: :empty`
+| An empty string (`""`) in the model is serialized as an empty string in TOML (`[status]`).
+
+| `from:` `omitted: :omitted`
+| If the key is absent in TOML, the value is omitted from the model.
+| `to:` `omitted: :omitted`
+| If the value is omitted in the model, the key is omitted from the TOML output.
+
+| `from:` (not supported)
+| (not supported in TOML)
+| `to:` `nil: :omitted`
+| A `nil` value in the model will omit the associated attribute key from the TOML output.
+
+.6+| Collection
+| `from:` `empty: :empty`
+| An empty TOML array (a key present with no value, `[status]`) is treated as an empty array (`[]`) in the model.
+| `to:` `empty: :empty`
+| An empty array (`[]`) in the model is serialized into an empty TOML array (a key present with no value, `[status]`).
+
+| `from:` `omitted: :omitted`
+| If the key is absent in TOML, the value is omitted from the model.
+| `to:` `omitted: :omitted`
+| If the value is omitted in the model, the key is omitted from the TOML output.
+
+| `from:` (not supported)
+| (not supported in TOML)
+| `to:` `nil: :omitted`
+| A `nil` value in the model will omit the associated attribute key from the TOML output.
+
+|===
+
+
+===== Usage of `value_map`
 
 The `value_map` option can be defined for each serialization format as follows.
 
@@ -5857,57 +6037,6 @@ When defining an attribute with `collection: true`, the attribute will behave as
 attribute :status, :string, collection: true
 ----
 
-- **XML Handling**:
-  - `<status />` will be treated as `[]` (an empty array).
-  - `<status>new</status>` will be treated as `["new"]`.
-  - `<status>new</status><status>assigned</status>` will be treated as `["new", "assigned"]`.
-
-- **YAML Handling**:
-  - A value like `status: ''` in YAML will be deserialized as `nil` when `value_map: { from: { empty: :nil } }` is applied.
-  - If the collection is omitted, it will be initialized as `nil` or an empty array depending on the `initialize_empty` setting.
-
-- **JSON Handling**:
-  - A `status: []` in the serialized output will correspond to an empty array when `value_map: { from: { empty: :empty } }` is applied.
-
-- **TOML Handling**:
-  - TOML treats empty collections similarly to other formats, but `nil` values are not supported so we can not read or write nil values in TOML.
-
-.Default missing value mapping configuration for collection attributes to serialization formats
-[cols="1,1,1,1", options="header"]
-|===
-| Serialization format | `from` value | `to` value | Description
-
-.3+| XML (supports all 3 types)
-| `empty`   | `empty`     |
-* Element: An empty array (`[]`) in the model is treated a blank element (`<x/>`)
-* Attribute: An empty array (`[]`) in the model is treated as an empty string in the attribute.
-
-| `omitted` | `omitted` |
-* Element: If the value is omitted in the model, the element is omitted from the XML output.
-* Attribute: If the value is omitted in the model, the attribute is omitted from the XML output.
-
-| `nil`     | `nil`     |
-* Element: A `nil` value in the model is serialized as an element with attribute `xsi:nil`.
-* Attribute: A `nil` value in the model is treated as an empty string in the attribute.
-
-.3+| YAML (supports all 3 types)
-| `empty`   | `empty`   | An empty array (`[]`) in the model is deserialized as `empty` (an empty YAML array).
-| `omitted` | `omitted` | If the value is omitted in the model, the key is omitted from the YAML output.
-| `nil`     | `nil`     | A `nil` value in the model is serialized as YAML `null`.
-
-.3+| JSON (supports all 3 types)
-| `empty`   | `empty`   | An empty array (`[]`) in the model is serialized as `empty` (an empty JSON array).
-| `omitted` | `omitted` | If the value is omitted in the model, the key is omitted from the JSON output.
-| `nil`     | `nil`     | A `nil` value in the model is serialized as JSON `null`.
-
-.3+| TOML (does not support `nil`)
-| `empty`   | `empty`   | An empty array (`[]`) in the model is serialized as `empty` (an empty TOML array).
-| `omitted` | `omitted` | If the value is omitted in the model, the key is omitted from the TOML output.
-| `nil`     | `omitted` | In TOML, `nil` is represented as `omitted` due to TOML limitations.
-
-|===
-
-
 Here's an example of how you can use the `value_map` with a collection attribute.
 
 .Using `value_map` with a collection attribute
@@ -5925,10 +6054,17 @@ class ExampleClass < Lutaml::Model::Serializable
     }
   end
 
-  json | yaml | toml | key_value do
+  json | yaml | key_value do
     map 'status', to: :status, value_map: {
       from: { empty: :nil, omitted: :omitted, nil: :nil },
       to: { empty: :nil, omitted: :omitted, nil: :nil }
+    }
+  end
+
+  toml do
+    map 'status', to: :status, value_map: {
+      from: { empty: :nil, omitted: :omitted },
+      to: { empty: :nil, omitted: :omitted, nil: :omitted }
     }
   end
 end
@@ -5945,7 +6081,7 @@ y = ExampleClass.from_yaml(yaml)
 
 TODO: Need to improve this example.
 
-==== Specific overrides of value map
+==== Specific overrides of value map (`render_*` and `treat_*`)
 
 ===== General
 
