@@ -1,6 +1,6 @@
-= lutaml-model Release Notes: v0.6.7 to v0.7.1
+= Release Notes: v0.6.7 to v0.7.1
 
-== overview
+== Overview
 
 This release introduces significant enhancements to the lutaml-model library, focusing on improved handling of missing values, comprehensive polymorphic model support, and important bug fixes. This document outlines the key changes and provides guidance for upgrading your codebase.
 
@@ -8,7 +8,108 @@ This release introduces significant enhancements to the lutaml-model library, fo
 
 === Missing values handling family
 
-A comprehensive set of features for handling the "missing values" family (empty, non-existent, and undefined values) across different serialization formats has been introduced.
+A comprehensive set of features for handling the "missing values" family (empty,
+non-existent, and undefined values) across different serialization formats has
+been introduced.
+
+WARNING: The default behavior for handling uninitialized collection attributes
+is changed from before.
+
+In version 0.6.7, an uninitialized collection attribute in Lutaml::Model is
+represented as an empty array (`[]`).
+
+In version 0.7.1, an uninitialized collection attribute in Lutaml::Model is
+represented as `nil`.
+
+This change is made to ensure consistency across different serialization formats
+and to provide a predictable and consistent behavior based on explicit
+declarations when dealing with missing values.
+
+Previously, Lutaml::Model had a limited ability to handle the missing value types,
+for example, the appearance and round-trip behavior of the blank XML element
+is uncertain. Lutaml::Model also did not support XML `nil` and YAML `null` values
+in a consistent manner, nor the inconsistency where TOML does not support
+the notion of `nil` or `null` values.
+
+This change may break existing code that relies on the previous behavior. If you
+were using uninitialized collection attributes in your code, you may need to
+update your code to handle the new behavior.
+
+There is now a series of features to support the missing values family, including:
+
+* Attribute-level `initialize_empty` option, which controls the default
+initialization behavior of collection attributes. Previously, collection
+attributes defaulted to an empty array (`[]`) when uninitialized. The default
+is now the value `nil`.
++
+Revert to legacy behavior: You can return to the previous behavior by setting
+`initialize_empty: true` in the attribute definition.
+
+* Mapping-rule-level `render_nil` and `render_empty` options have been revamped
+into accepting additional options that are used to control how nil and empty
+values are parsed from and rendered in serialization formats.
++
+The behavior of `render_nil: true` and `render_empty: true` is now equivalent to
+`render_nil: :as_empty` and `render_empty: :as_empty`, respectively.
+It is strongly recommended that the legacy behavior be replaced with the new
+options.
++
+The reason being that legacy behavior breaks round-trips between conversions of
+the same format. In the case of `render_nil: true`, a model value of `nil` is
+serialized into an XML blank element, but when the XML blank element is
+deserialized, it is deserialized into an empty string (`""`, as per the W3C XML
+standard), not `nil`.
+
+* Mapping-rule-level `value_map` option, which provides fine-grained control
+over how missing values are handled during serialization and deserialization.
+
+* Support for a new `Uninitialized` value at the `Lutaml::Model` level, which is
+used to represent uninitialized attributes.
++
+This means that if you have a model with an attribute that is not set, it will
+be represented as `Uninitialized` instead of `nil`. This is useful for
+distinguishing between an attribute that is not set and an attribute that is
+set to `nil`, and as a result will preserve the round-trip behavior of
+serialization formats.
+
+* Support for `nil` values in JSON and YAML, and XML serialization formats.
++
+The `nil` value is now supported in JSON, YAML and XML serialization formats.
+This means that if you have a model with an attribute that is set to `nil`, it
+will be serialized as `null` in JSON/YAML and as an empty element in XML. This
+is useful for representing missing values in a consistent manner across
+different serialization formats.
+
+
+
+==== `initialize_empty` option
+
+The `initialize_empty` option controls the default initialization behavior of
+collection attributes:
+
+[source,ruby]
+----
+# Default to `nil`
+class SomeModel < Lutaml::Model::Serializable
+  attribute :coll, :string, collection: true
+
+  xml do
+    root "some-model"
+    map_element 'collection', to: :coll
+  end
+end
+puts SomeModel.new.coll  # => nil
+
+# Default to empty array
+class SomeModel < Lutaml::Model::Serializable
+  attribute :coll, :string, collection: true, initialize_empty: true
+
+  xml do
+    map_element 'collection', to: :coll
+  end
+end
+puts SomeModel.new.coll  # => []
+----
 
 ==== `value_map` option
 
@@ -44,34 +145,6 @@ end
 
 For collection attributes, the value_map behaves differently depending on the `initialize_empty` setting.
 
-==== `initialize_empty` option
-
-The `initialize_empty` option controls the default initialization behavior of collection attributes:
-
-[source,ruby]
-----
-# Default to `nil`
-class SomeModel < Lutaml::Model::Serializable
-  attribute :coll, :string, collection: true
-
-  xml do
-    root "some-model"
-    map_element 'collection', to: :coll
-  end
-end
-puts SomeModel.new.coll  # => nil
-
-# Default to empty array
-class SomeModel < Lutaml::Model::Serializable
-  attribute :coll, :string, collection: true, initialize_empty: true
-
-  xml do
-    map_element 'collection', to: :coll
-  end
-end
-puts SomeModel.new.coll  # => []
-----
-
 ==== `render_nil` and `render_empty` modes
 
 These options provide shorthand methods to control how nil and empty values are rendered in serialization formats:
@@ -97,11 +170,33 @@ end
 
 === Polymorphic model support
 
-Comprehensive support for polymorphic models has been introduced, allowing for flexible modeling of inheritance relationships and proper serialization/deserialization.
+From version 0.7.1, Lutaml::Model now supports polymorphic models for attribute
+types.
+
+Comprehensive support for polymorphic models has been introduced, allowing for
+flexible modeling of inheritance relationships and proper
+serialization/deserialization.
+
+This means that you can define attributes that can accept multiple types of
+objects, and the library will handle serialization and deserialization for these
+types seamlessly.
+
+Specifically, the following features have been added:
+
+* Polymorphic attribute definition
+* Polymorphic class differentiation in model and serializations
 
 ==== Polymorphic attribute definition
 
-Polymorphic attributes can be defined using the `polymorphic` option:
+Polymorphic attributes can be defined using the `polymorphic` option.
+
+It is possible to define polymorphic attribute classes in the superclass
+and subclasses.
+
+The `polymorphic` option can be set to a collection of classes, and the
+`polymorphic_class` option can be set to `true` to indicate acceptance of any
+subclass of the polymorphic class. Alternatively, you can specify a collection
+of classes to restrict the accepted types.
 
 [source,ruby]
 ----
@@ -113,7 +208,28 @@ class ReferenceSet < Lutaml::Model::Serializable
 end
 ----
 
+When you are not requiring a specific set of subclasses, you can use the
+`polymorphic: true` option to indicate that any subclass of the specified class is
+acceptable.
+
+[source,ruby]
+----
+class ReferenceSet < Lutaml::Model::Serializable
+  attribute :references, Reference, collection: true, polymorphic: true
+end
+----
+
+
 ==== Polymorphic class differentiator
+
+When serializing polymorphic models, a differentiator attribute is required to
+also be serialized to identify the specific subclass of the polymorphic class.
+
+This differentiator attribute is typically a string that indicates the type of
+the object being serialized. The differentiator attribute can be defined in the
+superclass or subclasses of the polymorphic class.
+
+Typically, the differentiator attribute is an XML element or attribute (e.g. `type="document-ref"`), or in JSON a `@`-prefixed key (e.g. `@type`).
 
 A polymorphic differentiator attribute can be set in either the superclass or subclasses:
 
@@ -130,9 +246,16 @@ class DocumentReference < Reference
   attribute :_class, :string, polymorphic_class: true
   # ...
 end
+
+# Or in subclasses
+class AnchorReference < Reference
+  attribute :_class, :string, polymorphic_class: true
+  # ...
+end
 ----
 
-==== Serialization support
+Given the differentiator attribute being `_class`, we still need to define the
+mapping for the differentiator attribute in the superclass or subclasses.
 
 Polymorphic mapping in serialization is supported through the `polymorphic_map` option:
 
@@ -157,6 +280,27 @@ class Reference < Lutaml::Model::Serializable
 end
 ----
 
+The `polymorphic_map` option is used to indicate that when serializing a
+`DocumentReference` object, the `_class` attribute will be serialized as
+`document-ref`, and when serializing an `AnchorReference` object, the `_class`
+attribute will be serialized as `anchor-ref`.
+
+This is a mapping-level option so that it can be used in serialization formats
+independently.
+
+This will produce a differentiator attribute in the serialized output as such.
+
+[source,yaml]
+----
+---
+references:
+- _class: Document
+  # other attributes...
+- _class: Anchor
+  # other attributes...
+----
+
+
 === Importable model improvements
 
 Importable model functionality has been improved, with better support for reusable models:
@@ -175,15 +319,21 @@ Improved handling of circular references in the `ComparableModel` module prevent
 
 === Missing values handling
 
-If you were previously using `render_nil: true`, you can continue using it, but you may want to explore the more flexible `value_map` option for fine-grained control over different serialization formats.
+If you were previously using `render_nil: true`, you can continue using it, but
+you may want to explore the more flexible `value_map` option for fine-grained
+control over different serialization formats.
 
-For collection attributes, consider whether you want collections to initialize as `nil` or as an empty array by setting the `initialize_empty` option accordingly.
+For collection attributes, consider whether you want collections to initialize
+as `nil` or as an empty array by setting the `initialize_empty` option
+accordingly.
 
 === Polymorphic models
 
-If you were previously using class detection for polymorphic models without explicit differentiators, you should now define a polymorphic differentiator attribute and use the `polymorphic_class: true` option.
+If you were previously using class detection for polymorphic models without
+explicit differentiators, you should now define a polymorphic differentiator
+attribute and use the `polymorphic_class: true` option.
 
-== contributors
+== Contributors
 
 Thank you to all contributors who made this release possible, especially:
 
@@ -191,6 +341,6 @@ Thank you to all contributors who made this release possible, especially:
 * Ronald Tse
 * suleman-uzair
 
-== compatibility
+== Compatibility
 
 This release maintains compatibility with Ruby 2.7 and above.
