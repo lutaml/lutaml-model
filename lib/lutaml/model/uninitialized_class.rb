@@ -12,7 +12,7 @@ module Lutaml
       end
 
       def inspect
-        "unititialized"
+        "uninitialized"
       end
 
       def uninitialized?
