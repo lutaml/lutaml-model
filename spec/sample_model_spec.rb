@@ -111,4 +111,58 @@ RSpec.describe SampleModel do
       expect(sample.role).to eq("admin")
     end
   end
+
+  describe "registered attribute type" do
+    context "when attribute with invalid type" do
+      before do
+        attribute = Lutaml::Model::Attribute.new("test", :foobar)
+        described_class.attributes[:test_attr] = attribute
+      end
+
+      after do
+        described_class.attributes.delete(:test_attr)
+      end
+
+      let(:xml) do
+        <<~XML
+          <SampleModel>
+            <name>Anonymous</name>
+            <age>26</age>
+          </SampleModel>
+        XML
+      end
+
+      let(:yaml) do
+        {
+          "name" => "John Doe",
+          "age" => 25,
+          "balance" => "100432423.523142344124",
+        }
+      end
+
+      it "fails for SampleModel initialization" do
+        expect do
+          described_class.new
+        end.to raise_error(
+          Lutaml::Model::UnknownTypeError, "Unknown type 'foobar'"
+        )
+      end
+
+      it "fails for xml Serialization" do
+        expect do
+          described_class.from_xml(xml)
+        end.to raise_error(
+          Lutaml::Model::UnknownTypeError, "Unknown type 'foobar'"
+        )
+      end
+
+      it "fails for yaml Serialization" do
+        expect do
+          described_class.from_yaml(yaml.to_yaml)
+        end.to raise_error(
+          Lutaml::Model::UnknownTypeError, "Unknown type 'foobar'"
+        )
+      end
+    end
+  end
 end

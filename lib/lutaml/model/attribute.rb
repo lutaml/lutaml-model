@@ -1,7 +1,7 @@
 module Lutaml
   module Model
     class Attribute
-      attr_reader :name, :type, :options
+      attr_reader :name, :options
 
       ALLOWED_OPTIONS = %i[
         raw
@@ -32,8 +32,12 @@ module Lutaml
         @options[:polymorphic_class]
       end
 
+      def type
+        Register.lookup!(@type) if @type
+      end
+
       def derived?
-        type.nil?
+        @type.nil?
       end
 
       def delegate
@@ -54,20 +58,8 @@ module Lutaml
 
       def cast_type!(type)
         case type
-        when Symbol
-          begin
-            Type.lookup(type)
-          rescue UnknownTypeError
-            raise ArgumentError, "Unknown Lutaml::Model::Type: #{type}"
-          end
-        when String
-          begin
-            Type.const_get(type)
-          rescue NameError
-            raise ArgumentError, "Unknown Lutaml::Model::Type: #{type}"
-          end
-        when Class
-          type
+        when Symbol, String, Class
+          Register.lookup!(type)
         else
           raise ArgumentError, "Unknown Lutaml::Model::Type: #{type}"
         end
@@ -228,7 +220,9 @@ module Lutaml
       end
 
       def valid_collection!(value, caller)
-        raise Lutaml::Model::CollectionTrueMissingError.new(name, caller) if value.is_a?(Array) && !collection?
+        if value.is_a?(Array) && !collection?
+          raise Lutaml::Model::CollectionTrueMissingError.new(name, caller)
+        end
 
         return true unless collection?
 
@@ -356,7 +350,7 @@ module Lutaml
 
       def process_type!(type)
         validate_type!(type)
-        @type = cast_type!(type)
+        @type = type
       end
 
       def process_options!
@@ -391,7 +385,7 @@ module Lutaml
 
       def validate_type!(type)
         return true if type.is_a?(Class)
-        return true if [Symbol, String].include?(type.class) && cast_type!(type)
+        return true if [Symbol, String].include?(type.class)
 
         raise ArgumentError,
               "Invalid type: #{type}, must be a Symbol, String or a Class"
