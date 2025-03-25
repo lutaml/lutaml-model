@@ -963,9 +963,10 @@ module Lutaml
           super
       end
 
-      def attribute_exist?(attr_name)
-        attr_name = attr_name.to_s.chomp("=").to_sym if attr_name.end_with?("=")
-        self.class.attributes.key?(attr_name)
+      def attribute_exist?(name)
+        name = name.to_s.chomp("=").to_sym if name.end_with?("=")
+
+        self.class.attributes.key?(name)
       end
 
       def validate_attribute!(attr_name)
