@@ -4,11 +4,11 @@ module Lutaml
       extend self
 
       # Default values are set for these so the readers are defined below
-      attr_writer :json_adapter, :yaml_adapter
+      attr_writer :json_adapter, :yaml_adapter, :hash_adapter
 
       attr_accessor :xml_adapter, :toml_adapter
 
-      AVAILABLE_FORMATS = %i[xml json yaml toml].freeze
+      AVAILABLE_FORMATS = %i[xml json yaml toml hash].freeze
       KEY_VALUE_FORMATS = AVAILABLE_FORMATS - %i[xml]
 
       def configure
@@ -85,6 +85,15 @@ module Lutaml
       #   # => Lutaml::Model::YamlAdapter::StandardYamlAdapter
       def yaml_adapter
         @yaml_adapter || Lutaml::Model::YamlAdapter::StandardYamlAdapter
+      end
+
+      # Return Hash adapter. By default StandardHashAdapter is used
+      #
+      # @example
+      # Lutaml::Model::Config.hash_adapter
+      # # => Lutaml::Model::HashAdapter::StandardHashAdapter
+      def hash_adapter
+        @hash_adapter || Lutaml::Model::HashAdapter::StandardHashAdapter
       end
 
       # @api private
