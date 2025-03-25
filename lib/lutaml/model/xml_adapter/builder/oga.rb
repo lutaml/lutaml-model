@@ -23,7 +23,7 @@ module Lutaml
               name = "#{@current_namespace}:#{name}"
             end
 
-            if block_given?
+            if block
               element(name, attributes, &block)
             else
               element(name, attributes)
@@ -85,7 +85,7 @@ module Lutaml
                               element_name
                             end
 
-            if block_given?
+            if block
               element(prefixed_name, attributes, &block)
             else
               element(prefixed_name, attributes)

@@ -263,70 +263,94 @@ module Lutaml
         end
 
         Lutaml::Model::Config::AVAILABLE_FORMATS.each do |format|
-          define_method(format) do |&block|
-            mapping_class = const_get("Lutaml::Model::#{format.to_s.capitalize}Mapping")
-            mappings[format] ||= mapping_class.new
-            mappings[format].instance_eval(&block)
-
-            if format == :xml && !mappings[format].root_element && !mappings[format].no_root?
-              mappings[format].root(model.to_s)
-            end
+          # ruby has already a method named hash so we are using hsh
+          format_name = format == :hash ? :hsh : format
+          define_method(format_name) do |&block|
+            process_mapping(format, &block)
           end
 
           define_method(:"from_#{format}") do |data, options = {}|
-            return data if Utils.uninitialized?(data)
-
-            adapter = Lutaml::Model::Config.send(:"#{format}_adapter")
-
-            doc = adapter.parse(data, options)
-            public_send(:"of_#{format}", doc, options)
+            from(format, data, options)
           end
 
           define_method(:"of_#{format}") do |doc, options = {}|
-            if doc.is_a?(Array)
-              return doc.map { |item| send(:"of_#{format}", item) }
-            end
-
-            if format == :xml
-              raise Lutaml::Model::NoRootMappingError.new(self) unless root?
-
-              options[:encoding] = doc.encoding
-              apply_mappings(doc, format, options)
-            else
-              apply_mappings(doc.to_h, format, options)
-            end
+            of(format, doc, options)
           end
 
           define_method(:"to_#{format}") do |instance|
-            value = public_send(:"as_#{format}", instance)
-            adapter = Lutaml::Model::Config.public_send(:"#{format}_adapter")
-
-            if format == :xml
-              xml_options = { mapper_class: self }
-              adapter.new(value).public_send(:"to_#{format}", xml_options)
-            else
-              adapter.new(value).public_send(:"to_#{format}")
-            end
+            to(format, instance)
           end
 
           define_method(:"as_#{format}") do |instance, options = {}|
-            if instance.is_a?(Array)
-              return instance.map { |item| public_send(:"as_#{format}", item) }
-            end
+            as(format, instance, options)
+          end
+        end
 
-            unless instance.is_a?(model)
-              msg = "argument is a '#{instance.class}' but should be a '#{model}'"
-              raise Lutaml::Model::IncorrectModelError, msg
-            end
+        def process_mapping(format, &block)
+          klass = Lutaml::Model.const_get("#{format.to_s.capitalize}Mapping")
+          mappings[format] ||= klass.new
+          mappings[format].instance_eval(&block)
 
-            return instance if format == :xml
+          handle_root_assignment(mappings, format)
+        end
 
-            hash_representation(instance, format, options)
+        def handle_root_assignment(mappings, format)
+          return unless format == :xml
+
+          if !mappings[format].root_element && !mappings[format].no_root?
+            mappings[format].root(model.to_s)
+          end
+        end
+
+        def from(format, data, options = {})
+          return data if Utils.uninitialized?(data)
+
+          adapter = Lutaml::Model::Config.send(:"#{format}_adapter")
+
+          doc = adapter.parse(data, options)
+          public_send(:"of_#{format}", doc, options)
+        end
+
+        def of(format, doc, options = {})
+          if doc.is_a?(Array)
+            return doc.map { |item| send(:"of_#{format}", item) }
+          end
+
+          if format == :xml
+            raise Lutaml::Model::NoRootMappingError.new(self) unless root?
+
+            options[:encoding] = doc.encoding
+            apply_mappings(doc, format, options)
+          else
+            apply_mappings(doc.to_h, format, options)
+          end
+        end
+
+        def to(format, instance)
+          value = public_send(:"as_#{format}", instance)
+          adapter = Lutaml::Model::Config.public_send(:"#{format}_adapter")
+
+          if format == :xml
+            xml_options = { mapper_class: self }
+            adapter.new(value).public_send(:"to_#{format}", xml_options)
+          else
+            adapter.new(value).public_send(:"to_#{format}")
           end
         end
 
         def as(format, instance, options = {})
-          public_send(:"as_#{format}", instance, options)
+          if instance.is_a?(Array)
+            return instance.map { |item| public_send(:"as_#{format}", item) }
+          end
+
+          unless instance.is_a?(model)
+            msg = "argument is a '#{instance.class}' but should be a '#{model}'"
+            raise Lutaml::Model::IncorrectModelError, msg
+          end
+
+          return instance if format == :xml
+
+          hash_representation(instance, format, options)
         end
 
         def key_value(&block)
@@ -924,7 +948,7 @@ module Lutaml
       end
 
       def method_missing(method_name, *args)
-        if method_name.to_s.end_with?("=") && self.class.attributes.key?(method_name.to_s.chomp("=").to_sym)
+        if method_name.to_s.end_with?("=") && attribute_exist?(method_name)
           define_singleton_method(method_name) do |value|
             instance_variable_set(:"@#{method_name.to_s.chomp('=')}", value)
           end
@@ -932,6 +956,16 @@ module Lutaml
         else
           super
         end
+      end
+
+      def respond_to_missing?(method_name, include_private = false)
+        (method_name.to_s.end_with?("=") && attribute_exist?(method_name)) ||
+          super
+      end
+
+      def attribute_exist?(attr_name)
+        attr_name = attr_name.to_s.chomp("=").to_sym if attr_name.end_with?("=")
+        self.class.attributes.key?(attr_name)
       end
 
       def validate_attribute!(attr_name)
@@ -967,7 +1001,7 @@ module Lutaml
       Lutaml::Model::Config::AVAILABLE_FORMATS.each do |format|
         define_method(:"to_#{format}") do |options = {}|
           adapter = Lutaml::Model::Config.public_send(:"#{format}_adapter")
-          raise Lutaml::Model::NoRootMappingError.new(self.class) unless self.class.root?
+          raise NoRootMappingError.new(self.class) unless self.class.root?
 
           representation = if format == :xml
                              self
