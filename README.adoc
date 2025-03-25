@@ -17,7 +17,7 @@ for:
 
 It provides simple, flexible and comprehensive mechanisms for defining
 information models with attributes and types, and the serialization of them
-to/from serialization formats including JSON, XML, YAML, and TOML.
+to/from serialization formats including Hash, JSON, XML, YAML, and TOML.
 
 For serialization formats, it uses an adapter pattern to support multiple
 libraries for each format, providing flexibility and extensibility for your data
@@ -33,7 +33,7 @@ Lutaml::Model are provided in <<migrate-from-shale>>.
 == Features
 
 * Define models with attributes and types
-* Serialize and deserialize models to/from JSON, XML, YAML, and TOML
+* Serialize and deserialize models to/from Hash, JSON, XML, YAML, and TOML
 * Support for multiple serialization libraries (e.g., `toml-rb`, `tomlib`)
 * Configurable adapters for different serialization formats
 * Support for collections and default values
@@ -496,7 +496,7 @@ serialization format and returns the object to be assigned to the `Value` class'
 `to_{format}`:: Serializes the object to a string of the serialization format.
 
 The `{format}` part of the method name is the serialization format in lowercase
-(e.g. `json`, `xml`, `yaml`, `toml`).
+(e.g. `hash`, `json`, `xml`, `yaml`, `toml`).
 
 .Using custom serialization methods to handle a high-precision date-time type
 [example]
@@ -1979,19 +1979,23 @@ For the following XML snippet:
 === General
 
 Lutaml::Model allows you to translate a data model into serialization models of
-various serialization formats including XML, JSON, YAML, and TOML.
+various serialization formats including XML, Hash, JSON, YAML, and TOML.
 
 Depending on the serialization format, different methods are supported for
 defining serialization and deserialization mappings.
 
-Serialization model mappings are defined under the `xml`, `json`, `yaml`, and
-`toml` blocks.
+Serialization model mappings are defined under the `xml`, `hsh`, `json`, `yaml`,
+and `toml` blocks.
 
-.Using the `xml`, `json`, `yaml`, `toml` and `key_value` blocks to define serialization mappings
+.Using the `xml`, `hsh`, `json`, `yaml`, `toml` and `key_value` blocks to define serialization mappings
 [source,ruby]
 ----
 class Example < Lutaml::Model::Serializable
   xml do
+    # ...
+  end
+
+  hsh do
     # ...
   end
 
@@ -3448,7 +3452,7 @@ This XML snippet is in UTF-8.
 
 ==== General
 
-Key-value data models like JSON, YAML, and TOML all share a similar structure
+Key-value data models like Hash, JSON, YAML, and TOML all share a similar structure
 where data is stored as key-value pairs.
 
 `Lutaml::Model` works with these formats in a similar way.
@@ -3461,7 +3465,7 @@ Syntax:
 
 [source,ruby]
 ----
-json | yaml | toml | key_value do
+hsh | json | yaml | toml | key_value do
   map 'key_value_model_attribute_name', to: :name_of_attribute
 end
 ----
@@ -3470,7 +3474,7 @@ end
 ==== Unified mapping
 
 The `key_value` method is a streamlined way to map all attributes for
-serialization into key-value formats including JSON, YAML, and TOML.
+serialization into key-value formats including Hash, JSON, YAML, and TOML.
 
 If there is no definite differentiation between the key value formats, the
 `key_value` method simplifies defining mappings and improves code readability.
@@ -3495,9 +3499,9 @@ class CeramicModel < Lutaml::Model::Serializable
     map :desc, to: :description
   end
 
-  # Equivalent to the JSON, YAML, and TOML mappings.
+  # Equivalent to the Hash, JSON, YAML, and TOML mappings.
   #
-  # json and yaml and toml do
+  # hsh and json and yaml and toml do
   #   map :id, to: color
   #   map :name, to: :full_name
   #   map :status, to: :current_status
@@ -3534,6 +3538,7 @@ desc: A ceramic with a navy blue color and clear glaze.
 
 Specific key value formats can be mapping independently of other formats, including:
 
+* `hsh` for the Hash format
 * `json` for the JSON format
 * `yaml` for the YAML format
 * `toml` for the TOML format
@@ -3547,6 +3552,11 @@ Specific key value formats can be mapping independently of other formats, includ
 class Example < Lutaml::Model::Serializable
   attribute :name, :string
   attribute :value, :integer
+
+  hsh do
+    map 'name', to: :name
+    map 'value', to: :value
+  end
 
   json do
     map 'name', to: :name
@@ -3610,7 +3620,7 @@ Syntax:
 
 [source,ruby]
 ----
-json | yaml | toml | key_value do
+hsh | json | yaml | toml | key_value do
   map_all to: :name_of_attribute
 end
 ----
@@ -3622,6 +3632,10 @@ end
 ----
 class Document < Lutaml::Model::Serializable
   attribute :content, :string
+
+  hsh do
+    map_all to: :content
+  end
 
   json do
     map_all to: :content
@@ -3796,7 +3810,7 @@ Syntax:
 class SomeKeyedCollection < Lutaml::Model::Serializable
   attribute :name_of_attribute, AttributeValueType, collection: true
 
-  json | yaml | toml | key_value do
+  hsh | json | yaml | toml | key_value do
     map to: :name_of_attribute, <1>
       root_mappings: { <2>
         # `:key` is a reserved keyword
@@ -3870,7 +3884,7 @@ Syntax:
 class SomeKeyedCollection < Lutaml::Model::Serializable
   attribute :name_of_attribute, AttributeValueType, collection: true
 
-  json | yaml | toml | key_value do
+  hsh | json | yaml | toml | key_value do
     map to: :name_of_attribute,
       root_mappings: {
         value_type_attribute_name_for_key: :key, <1>
@@ -4008,7 +4022,7 @@ Syntax:
 class SomeKeyedCollection < Lutaml::Model::Serializable
   attribute :name_of_attribute, AttributeValueType, collection: true
 
-  json | yaml | toml | key_value do
+  hsh | json | yaml | toml | key_value do
     map to: :name_of_attribute,
       root_mappings: {
         value_type_attribute_name_for_key: :key, <1>
@@ -4214,7 +4228,7 @@ Syntax:
 class SomeKeyedCollection < Lutaml::Model::Serializable
   attribute :name_of_attribute, AttributeValueType, collection: true
 
-  json | yaml | toml | key_value do
+  hsh | json | yaml | toml | key_value do
     map to: :name_of_attribute,
       root_mappings: {
         value_type_attribute_name_for_key: :key, <1>
@@ -4378,7 +4392,7 @@ end
 NOTE: This feature is for key-value data model serialization only.
 
 The `child_mappings` option is used to extract results from a key-value
-serialization data model (JSON, YAML, TOML) into a `Lutaml::Model::Serializable`
+serialization data model (Hash, JSON, YAML, TOML) into a `Lutaml::Model::Serializable`
 object (collection or not).
 
 The values are extracted from the key-value data model using the list of keys
@@ -4391,7 +4405,7 @@ Syntax:
 class SomeObject < Lutaml::Model::Serializable
   attribute :name_of_attribute, AttributeValueType, collection: true
 
-  json | yaml | toml | key_value do
+  hsh | json | yaml | toml | key_value do
     map 'key_value_model_attribute_name', to: :name_of_attribute,
       child_mappings: {
         value_type_attribute_name_1: <1>
@@ -4639,7 +4653,7 @@ being retrieved from the model.
 Attribute-level `import`:: The transformation `Proc` for the value when it is
 being assigned to the model.
 
-`{key_value_formats}`:: The serialization format (e.g. `json`, `yaml`, `toml`,
+`{key_value_formats}`:: The serialization format (e.g. `hsh`, `json`, `yaml`, `toml`,
 `key_value`) for which the mapping is defined.
 
 Mapping-level `transform`:: The option to define a transformation for the
@@ -4994,7 +5008,7 @@ xml do
   map_attribute 'name_of_attribute', to: :name_of_attribute, render_default: true
 end
 
-json | yaml | toml | key_value do
+hsh | json | yaml | toml | key_value do
   map 'name_of_attribute', to: :name_of_attribute, render_default: true
 end
 ----
@@ -5071,7 +5085,7 @@ Syntax:
 
 [source,ruby]
 ----
-json | yaml | toml | key_value do
+hsh | json | yaml | toml | key_value do
   map ["name1", "name2"], to: :attribute_name
 end
 
@@ -5185,7 +5199,7 @@ Syntax:
 
 [source,ruby]
 ----
-xml | json | yaml | toml do
+xml | hsh | json | yaml | toml do
   map 'key_value_model_attribute_name', to: :name_of_attribute, delegate: :model_to_delegate_to
 end
 ----
@@ -5466,7 +5480,7 @@ NOTE: For `NokogiriAdapter`, we can also call `to_xml` on `value.node.adapter_no
 .Key-value data model serialization with custom methods
 [source,ruby]
 ----
-json | yaml | toml do
+hsh | json | yaml | toml do
   map 'attribute_name', to: :name_of_attribute, with: {
     to: :method_name_to_serialize,
     from: :method_name_to_deserialize
@@ -5850,6 +5864,7 @@ as a key in `from:` direction, and the value in the `to:` direction (see `{forma
 
 | XML element `map_element` | `:empty`, `:omitted`, `:nil`
 | XML attribute `map_attribute` | `:empty`, `:omitted`
+| Hash `map`, `map_content` | `:empty`, `:omitted`, `:nil`
 | JSON `map`, `map_content` | `:empty`, `:omitted`, `:nil`
 | YAML `map`, `map_content` | `:empty`, `:omitted`, `:nil`
 | TOML `map`, `map_content` | `:empty`, `:omitted`
@@ -6439,7 +6454,7 @@ class ExampleClass < Lutaml::Model::Serializable
     }
   end
 
-  json | yaml | toml | key_value do
+  hsh | json | yaml | toml | key_value do
     map 'status', to: :status, value_map: {
       from: { empty: :nil, omitted: :omitted, nil: :nil },
       to: { empty: :nil, omitted: :omitted, nil: :nil }
@@ -6497,7 +6512,7 @@ class ExampleClass < Lutaml::Model::Serializable
     }
   end
 
-  json | yaml | key_value do
+  hsh | json | yaml | key_value do
     map 'status', to: :status, value_map: {
       from: { empty: :nil, omitted: :omitted, nil: :nil },
       to: { empty: :nil, omitted: :omitted, nil: :nil }
@@ -6639,7 +6654,7 @@ end
 
 [source,ruby]
 ----
-json | yaml | toml do
+hsh | json | yaml | toml do
   map 'key_value_model_attribute_name', to: :name_of_attribute, render_nil: {option}
 end
 ----
@@ -6778,7 +6793,7 @@ class SomeModel < Lutaml::Model::Serializable
     map_element 'collection', to: :coll, render_nil: :as_nil
   end
 
-  json | yaml do
+  hsh | json | yaml do
     map 'collection', to: :coll, render_nil: :as_nil
   end
 end
@@ -6863,7 +6878,7 @@ end
 
 [source,ruby]
 ----
-json | yaml | toml do
+hsh | json | yaml | toml do
   map 'key_value_model_attribute_name', to: :name_of_attribute, render_empty: {option}
 end
 ----
@@ -6922,7 +6937,7 @@ class SomeModel < Lutaml::Model::Serializable
     map_element 'collection', to: :coll, render_empty: :as_nil
   end
 
-  json | yaml do
+  hsh | json | yaml do
     map 'collection', to: :coll, render_empty: :as_nil
   end
 end
@@ -7537,6 +7552,7 @@ require 'lutaml/model/yaml_adapter/standard_yaml_adapter'
 
 Lutaml::Model::Config.configure do |config|
   config.xml_adapter = Lutaml::Model::XmlAdapter::NokogiriAdapter
+  config.hash_adapter = Lutaml::Model::YamlAdapter::StandardHashAdapter
   config.yaml_adapter = Lutaml::Model::YamlAdapter::StandardYamlAdapter
   config.json_adapter = Lutaml::Model::JsonAdapter::StandardJsonAdapter
   config.toml_adapter = Lutaml::Model::TomlAdapter::TomlRbAdapter
@@ -7551,6 +7567,7 @@ require 'lutaml/model'
 
 Lutaml::Model::Config.configure do |config|
   config.xml_adapter_type = :nokogiri # can be one of [:nokogiri, :ox, :oga]
+  config.hash_adapter_type = :standard_hash
   config.yaml_adapter_type = :standard_yaml
   config.json_adapter_type = :standard_json # can be one of [:standard_json, :multi_json]
   config.toml_adapter_type = :toml_rb # can be one of [:toml_rb, :tomlib]
