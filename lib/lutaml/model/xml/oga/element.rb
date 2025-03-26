@@ -1,8 +1,10 @@
 # frozen_string_literal: true
 
+require_relative "../xml_element"
+
 module Lutaml
   module Model
-    module XmlAdapter
+    module Xml
       module Oga
         class Element < XmlElement
           def initialize(node, parent: nil)

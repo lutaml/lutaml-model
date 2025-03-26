@@ -46,23 +46,13 @@ module Lutaml
 
         Lutaml::Model::Config::AVAILABLE_FORMATS.each do |adapter_name|
           define_method(:"#{adapter_name}_adapter_type=") do |type_name|
-            adapter = if %i[json yaml toml hash].include?(adapter_name)
-                        adapter_name.to_s
-                      else
-                        "#{adapter_name}_adapter"
-                      end
+            adapter = adapter_name.to_s
+            type = "#{type_name.to_s.gsub("_#{adapter_name}", '')}_adapter"
 
-            type = if %i[json yaml toml hash].include?(adapter_name)
-                     "#{type_name.to_s.gsub("_#{adapter_name}", '')}_adapter"
-                   else
-                     "#{type_name}_adapter"
-                   end
             begin
               adapter_file = File.join(adapter, type)
               require_relative adapter_file
             rescue LoadError
-              require "pry"
-              binding.pry
               raise(
                 Lutaml::Model::UnknownAdapterTypeError.new(
                   adapter_name,
@@ -85,7 +75,7 @@ module Lutaml
 
         def class_for(adapter, type)
           Lutaml::Model.const_get(to_class_name(adapter))
-                       .const_get(to_class_name(type))
+            .const_get(to_class_name(type))
         end
       end
     end

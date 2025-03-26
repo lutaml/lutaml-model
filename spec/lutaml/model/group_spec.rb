@@ -423,7 +423,7 @@ RSpec.describe "Group" do
       context "with sequence elements" do
         it "updates sequence elements only in `Mrow`" do
           sequence = GroupSpec::Mrow.mappings_for(:xml).element_sequence.first
-          sequence.attributes << Lutaml::Model::XmlMappingRule.new(
+          sequence.attributes << Lutaml::Model::Xml::MappingRule.new(
             "new_element",
             to: :new_element,
             namespace: "http://example.com",

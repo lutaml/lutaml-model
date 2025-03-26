@@ -1,7 +1,7 @@
 require "spec_helper"
-require "lutaml/model/xml_adapter/nokogiri_adapter"
-require "lutaml/model/xml_adapter/ox_adapter"
-require "lutaml/model/xml_adapter/oga_adapter"
+require "lutaml/model/xml/nokogiri_adapter"
+require "lutaml/model/xml/ox_adapter"
+require "lutaml/model/xml/oga_adapter"
 require "lutaml/model"
 
 RSpec.describe "XmlNamespace" do
@@ -354,15 +354,15 @@ RSpec.describe "XmlNamespace" do
     end
   end
 
-  describe Lutaml::Model::XmlAdapter::NokogiriAdapter do
+  describe Lutaml::Model::Xml::NokogiriAdapter do
     it_behaves_like "an XML namespace parser", described_class
   end
 
-  describe Lutaml::Model::XmlAdapter::OxAdapter do
+  describe Lutaml::Model::Xml::OxAdapter do
     it_behaves_like "an XML namespace parser", described_class
   end
 
-  describe Lutaml::Model::XmlAdapter::OgaAdapter do
+  describe Lutaml::Model::Xml::OgaAdapter do
     it_behaves_like "an XML namespace parser", described_class
   end
 end

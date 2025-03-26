@@ -126,53 +126,6 @@ module Lutaml
         options[:mappings] || mappings_for(format).mappings
       end
 
-      # def apply_hash_mapping(doc, instance, format, options = {})
-      #   mappings.each do |rule|
-      #     names = rule.multiple_mappings? ? rule.name : [rule.name]
-
-      #     values = names.collect do |rule_name|
-      #       if rule.root_mapping?
-      #         doc
-      #       elsif rule.raw_mapping?
-      #         adapter = Lutaml::Model::Config.public_send(:"#{format}_adapter")
-      #         adapter.new(doc).public_send(:"to_#{format}")
-      #       elsif doc.key?(rule_name.to_s)
-      #         doc[rule_name.to_s]
-      #       elsif doc.key?(rule_name.to_sym)
-      #         doc[rule_name.to_sym]
-      #       elsif attr&.default_set?
-      #         attr&.default
-      #       else
-      #         Lutaml::Model::UninitializedClass.instance
-      #       end
-      #     end.compact
-
-      #     value = values.find { |v| Utils.initialized?(v) } || values.first
-
-      #     value = apply_value_map(value, rule.value_map(:from, options), attr)
-
-      #     if rule.using_custom_methods?
-      #       if Utils.present?(value)
-      #         value = new.send(rule.custom_methods[:from], instance, value)
-      #       end
-
-      #       next
-      #     end
-
-      #     value = translate_mappings(value, rule.hash_mappings, attr, format)
-
-      #     cast_options = {}
-      #     cast_options[:polymorphic] = rule.polymorphic if rule.polymorphic
-
-      #     value = attr.cast(value, format, cast_options) unless rule.hash_mappings
-      #     attr.valid_collection!(value, self)
-
-      #     rule.deserialize(instance, value, attributes, self)
-      #   end
-
-      #   instance
-      # end
-
       def process_mapping_rule(doc, instance, format, rule, options = {})
         raise "Attribute '#{rule.to}' not found in #{self}" unless valid_rule?(rule)
 

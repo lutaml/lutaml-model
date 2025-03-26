@@ -2,7 +2,7 @@
 
 module Lutaml
   module Model
-    module XmlAdapter
+    module Xml
       module Oga
         class Document < ::Oga::XML::Document
           def initialize(options = {})

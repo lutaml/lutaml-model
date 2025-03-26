@@ -22,8 +22,8 @@ end
 
 # configuration example
 require_relative "../lib/lutaml/model"
-require_relative "../lib/lutaml/model/xml_adapter/nokogiri_adapter"
-require_relative "../lib/lutaml/model/xml_adapter/ox_adapter"
+# require_relative "../lib/lutaml/model/xml/nokogiri_adapter"
+# require_relative "../lib/lutaml/model/xml/ox_adapter"
 # require_relative "../lib/lutaml/model/toml_adapter/toml_rb_adapter"
 
 Lutaml::Model::Config.configure do |config|

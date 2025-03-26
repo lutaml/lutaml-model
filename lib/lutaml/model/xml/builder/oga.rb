@@ -2,7 +2,7 @@
 
 module Lutaml
   module Model
-    module XmlAdapter
+    module Xml
       module Builder
         class Oga
           def self.build(options = {}, &block)
@@ -12,7 +12,7 @@ module Lutaml
           attr_reader :document, :current_node, :encoding
 
           def initialize(options = {})
-            @document = XmlAdapter::Oga::Document.new
+            @document = Xml::Oga::Document.new
             @current_node = @document
             @encoding = options[:encoding]
             yield(self) if block_given?
@@ -48,9 +48,9 @@ module Lutaml
 
           def add_element(oga_element, child)
             if child.is_a?(String)
-              current_element = oga_element.is_a?(XmlAdapter::Oga::Document) ? current_node : oga_element
+              current_element = oga_element.is_a?(Xml::Oga::Document) ? current_node : oga_element
               add_xml_fragment(current_element, child)
-            elsif oga_element.is_a?(XmlAdapter::Oga::Document)
+            elsif oga_element.is_a?(Xml::Oga::Document)
               oga_element.children.last.children << child
             else
               oga_element.children << child
@@ -62,7 +62,7 @@ module Lutaml
               name: name,
               value: value.to_s,
             )
-            if element.is_a?(XmlAdapter::Oga::Document)
+            if element.is_a?(Xml::Oga::Document)
               element.children.last.attributes << attribute
             else
               element.attributes << attribute
@@ -100,7 +100,7 @@ module Lutaml
             fragment = "<fragment>#{content}</fragment>"
             parsed_fragment = ::Oga.parse_xml(fragment)
             parsed_children = parsed_fragment.children.first.children
-            if element.is_a?(XmlAdapter::Oga::Document)
+            if element.is_a?(Xml::Oga::Document)
               element.children.last.children += parsed_children
             else
               element.children += parsed_children
@@ -116,7 +116,7 @@ module Lutaml
           end
 
           def append_text_node(element, oga_text)
-            if element.is_a?(XmlAdapter::Oga::Document)
+            if element.is_a?(Xml::Oga::Document)
               children = element.children
               children.empty? ? children << oga_text : children.last.children << oga_text
             else
@@ -126,7 +126,7 @@ module Lutaml
 
           def add_cdata(element, value)
             oga_cdata = ::Oga::XML::CData.new(text: value.to_s)
-            if element.is_a?(XmlAdapter::Oga::Document)
+            if element.is_a?(Xml::Oga::Document)
               element.children.last.children << oga_cdata
             else
               element.children << oga_cdata

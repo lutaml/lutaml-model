@@ -42,7 +42,7 @@ module Lutaml
                     doc.root.inner_xml
                   elsif rule.content_mapping?
                     rule.cdata ? doc.cdata : doc.text
-                  else 
+                  else
                     val = value_for_rule(doc, rule, new_opts, instance)
 
                     if (Utils.uninitialized?(val) || val.nil?) && (instance.using_default?(rule.to) || rule.render_default)
@@ -218,7 +218,7 @@ module Lutaml
 
       def inner_xml_of(node)
         case node
-        when XmlAdapter::XmlElement
+        when Xml::XmlElement
           node.inner_xml
         else
           node.children.map(&:to_xml).join

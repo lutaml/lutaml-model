@@ -2,7 +2,7 @@
 
 module Lutaml
   module Model
-    module XmlAdapter
+    module Xml
       class XmlNamespace
         # Return name
         #

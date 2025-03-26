@@ -19,6 +19,7 @@ require_relative "model/yaml"
 require_relative "model/json"
 require_relative "model/toml"
 require_relative "model/hash"
+require_relative "model/xml"
 
 module Lutaml
   module Model
@@ -53,11 +54,11 @@ module Lutaml
     #   transformer: Lutaml::Model::KeyValueTransform,
     # )
 
-    Lutaml::Model::FormatRegistry.register(
-      :xml,
-      mapping_class: XmlMapping,
-      adapter_class: nil,
-      transformer: Lutaml::Model::XmlTransform,
-    )
+    # Lutaml::Model::FormatRegistry.register(
+    #   :xml,
+    #   mapping_class: XmlMapping,
+    #   adapter_class: nil,
+    #   transformer: Lutaml::Model::XmlTransform,
+    # )
   end
 end

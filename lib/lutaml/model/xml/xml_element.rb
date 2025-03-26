@@ -1,9 +1,12 @@
 require_relative "xml_attribute"
+require_relative "document"
 
 module Lutaml
   module Model
-    module XmlAdapter
+    module Xml
       class XmlElement
+        XML_NAMESPACE_URI = "http://www.w3.org/XML/1998/namespace".freeze
+
         attr_reader :attributes,
                     :children,
                     :namespace_prefix,
@@ -59,7 +62,7 @@ module Lutaml
         end
 
         def document
-          XmlDocument.new(self)
+          Document.new(self)
         end
 
         def namespaces
@@ -118,7 +121,7 @@ module Lutaml
         def order
           children.map do |child|
             type = child.text? ? "Text" : "Element"
-            Lutaml::Model::XmlAdapter::Element.new(type, child.unprefixed_name)
+            Lutaml::Model::Xml::Element.new(type, child.unprefixed_name)
           end
         end
 

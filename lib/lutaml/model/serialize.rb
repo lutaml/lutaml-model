@@ -3,7 +3,7 @@ require_relative "config"
 require_relative "type"
 require_relative "attribute"
 require_relative "mapping_hash"
-require_relative "mapping"
+# require_relative "mapping"
 require_relative "json_adapter"
 require_relative "comparable_model"
 require_relative "schema_location"
@@ -159,7 +159,8 @@ module Lutaml
             mapping = model.mappings_for(format)
             mapping = Utils.deep_dup(mapping)
 
-            @mappings[format] ||= format == :xml ? XmlMapping.new : KeyValueMapping.new
+            klass = ::Lutaml::Model::FormatRegistry.mappings_class_for(format)
+            @mappings[format] ||= klass.new
 
             if format == :xml
               @mappings[format].merge_mapping_attributes(mapping)
@@ -355,7 +356,7 @@ module Lutaml
         def default_mappings(format)
           klass = ::Lutaml::Model::FormatRegistry.mappings_class_for(format)
           mappings = klass.new
- 
+
           mappings.tap do |mapping|
             attributes&.each_key do |name|
               mapping.map_element(
@@ -409,13 +410,13 @@ module Lutaml
         def value_for_option(option, attr, empty_value = nil)
           return nil if option == :nil
           return empty_value || empty_object(attr) if option == :empty
-  
+
           Lutaml::Model::UninitializedClass.instance
         end
 
         def empty_object(attr)
           return [] if attr.collection?
-  
+
           ""
         end
 

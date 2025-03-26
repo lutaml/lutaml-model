@@ -1,6 +1,6 @@
 module Lutaml
   module Model
-    module XmlAdapter
+    module Xml
       module Builder
         class Nokogiri
           def self.build(options = {})

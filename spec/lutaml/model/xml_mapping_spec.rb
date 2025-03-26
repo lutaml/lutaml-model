@@ -1,7 +1,7 @@
 require "spec_helper"
 
-require "lutaml/model/xml_adapter/ox_adapter"
-require "lutaml/model/xml_adapter/oga_adapter"
+require "lutaml/model/xml/ox_adapter"
+require "lutaml/model/xml/oga_adapter"
 
 # Define a sample class for testing map_content
 class Italic < Lutaml::Model::Serializable
@@ -320,7 +320,7 @@ module XmlMapping
   end
 end
 
-RSpec.describe Lutaml::Model::XmlMapping do
+RSpec.describe Lutaml::Model::Xml::Mapping do
   shared_examples "having XML Mappings" do |adapter_class|
     around do |example|
       old_adapter = Lutaml::Model::Config.xml_adapter
@@ -331,7 +331,7 @@ RSpec.describe Lutaml::Model::XmlMapping do
       Lutaml::Model::Config.xml_adapter = old_adapter
     end
 
-    let(:mapping) { Lutaml::Model::XmlMapping.new }
+    let(:mapping) { Lutaml::Model::Xml::Mapping.new }
 
     context "with attribute having namespace" do
       input_xml = <<~XML
@@ -365,7 +365,7 @@ RSpec.describe Lutaml::Model::XmlMapping do
     end
 
     # Skipping for OX because it does not handle namespaces
-    context "when overriding child namespace prefix", skip: adapter_class == Lutaml::Model::XmlAdapter::OxAdapter do
+    context "when overriding child namespace prefix", skip: adapter_class == Lutaml::Model::Xml::OxAdapter do
       let(:input_xml) do
         <<~XML
           <OverrideDefaultNamespacePrefix
@@ -496,9 +496,9 @@ RSpec.describe Lutaml::Model::XmlMapping do
                                                 ])
 
         {
-          Lutaml::Model::XmlAdapter::NokogiriAdapter => nokogiri_pattern,
-          Lutaml::Model::XmlAdapter::OxAdapter => oga_ox_pattern,
-          Lutaml::Model::XmlAdapter::OgaAdapter => oga_ox_pattern,
+          Lutaml::Model::Xml::NokogiriAdapter => nokogiri_pattern,
+          Lutaml::Model::Xml::OxAdapter => oga_ox_pattern,
+          Lutaml::Model::Xml::OgaAdapter => oga_ox_pattern,
         }
       end
 
@@ -508,7 +508,7 @@ RSpec.describe Lutaml::Model::XmlMapping do
 
       def create_pattern_mapping(array)
         array.map do |type, text|
-          Lutaml::Model::XmlAdapter::Element.new(type, text)
+          Lutaml::Model::Xml::Element.new(type, text)
         end
       end
 
@@ -845,7 +845,7 @@ RSpec.describe Lutaml::Model::XmlMapping do
       end
 
       let(:expected_street) do
-        if Lutaml::Model::Config.xml_adapter == Lutaml::Model::XmlAdapter::NokogiriAdapter
+        if Lutaml::Model::Config.xml_adapter == Lutaml::Model::Xml::NokogiriAdapter
           "\n      <a>N</a>\n      <p>adf</p>\n    "
         else
           "<a>N</a><p>adf</p>"
@@ -1248,7 +1248,7 @@ RSpec.describe Lutaml::Model::XmlMapping do
     end
 
     describe "validation errors" do
-      let(:mapping) { Lutaml::Model::XmlMapping.new }
+      let(:mapping) { Lutaml::Model::Xml::Mapping.new }
 
       it "raises error when neither :to nor :with provided" do
         expect do
@@ -1292,15 +1292,15 @@ RSpec.describe Lutaml::Model::XmlMapping do
     end
   end
 
-  describe Lutaml::Model::XmlAdapter::NokogiriAdapter do
+  describe Lutaml::Model::Xml::NokogiriAdapter do
     it_behaves_like "having XML Mappings", described_class
   end
 
-  describe Lutaml::Model::XmlAdapter::OxAdapter do
+  describe Lutaml::Model::Xml::OxAdapter do
     it_behaves_like "having XML Mappings", described_class
   end
 
-  describe Lutaml::Model::XmlAdapter::OgaAdapter do
+  describe Lutaml::Model::Xml::OgaAdapter do
     it_behaves_like "having XML Mappings", described_class
   end
 end

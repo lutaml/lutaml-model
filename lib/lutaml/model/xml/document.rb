@@ -154,8 +154,8 @@ module Lutaml
           end
 
           # Only transform when recursion is not called
-          if (!attribute.collection? || value.is_a?(Array)) && transform_method = rule.transform[:export] || attribute.transform_export_method
-            value = transform_method.call(value)
+          if !attribute.collection? || value.is_a?(Array)
+            value = ExportTransformer.call(value, rule, attribute)
           end
 
           if value.is_a?(Array) && !Utils.empty_collection?(value)
@@ -168,15 +168,17 @@ module Lutaml
 
           return if !render_element?(rule, element, value)
 
+          value = rule.render_value_for(value)
+
           if value && (attribute&.type&.<= Lutaml::Model::Serialize)
             handle_nested_elements(
               xml,
               value,
               options.merge({ rule: rule, attribute: attribute }),
             )
-          elsif (rule.render_nil_as_nil? && value.nil?) || (rule.render_empty_as_nil? && Utils.empty_collection?(value))
+          elsif value.nil?
             xml.create_and_add_element(rule.name, attributes: { "xsi:nil" => true })
-          elsif (rule.render_nil_as_blank? && value.nil?) || (rule.render_empty_as_blank? && Utils.empty_collection?(value))
+          elsif Utils.empty?(value)
             xml.create_and_add_element(rule.name)
           elsif rule.raw_mapping?
             xml.add_xml_fragment(xml, value)
@@ -362,6 +364,8 @@ module Lutaml
             value = mapping_rule.to_value_for(element)
             attr = attribute_definition_for(element, mapping_rule, mapper_class: options[:mapper_class])
             value = attr.serialize(value, :xml) if attr
+
+            value = ExportTransformer.call(value, mapping_rule, attr)
 
             if render_element?(mapping_rule, element, value)
               hash[mapping_rule.prefixed_name] = value ? value.to_s : value

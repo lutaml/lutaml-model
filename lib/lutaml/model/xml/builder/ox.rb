@@ -1,6 +1,6 @@
 module Lutaml
   module Model
-    module XmlAdapter
+    module Xml
       module Builder
         class Ox
           def self.build(options = {})
