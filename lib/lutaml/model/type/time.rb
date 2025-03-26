@@ -5,7 +5,7 @@ module Lutaml
     module Type
       class Time < Value
         def self.cast(value)
-          return nil if value.nil?
+          return value if value.nil? || Utils.uninitialized?(value)
 
           case value
           when ::Time then value
@@ -17,7 +17,7 @@ module Lutaml
         end
 
         def self.serialize(value)
-          return nil if value.nil?
+          return value if value.nil? || Utils.uninitialized?(value)
 
           value = cast(value)
           # value&.strftime("%Y-%m-%dT%H:%M:%S%:z")

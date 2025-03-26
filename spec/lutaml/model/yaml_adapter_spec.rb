@@ -19,8 +19,7 @@ RSpec.shared_examples "a YAML adapter" do |adapter_class|
 
   it "deserializes from YAML" do
     new_model = adapter_class.parse(expected_yaml)
-    expect(new_model["name"]).to eq("John Doe")
-    expect(new_model["age"]).to eq(30)
+    expect(new_model).to eq(attributes)
   end
 end
 

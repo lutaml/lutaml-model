@@ -108,9 +108,15 @@ module Lutaml
           type.attributes[to].default
         elsif options[:default].is_a?(Proc)
           options[:default].call
-        else
+        elsif options.key?(:default)
           options[:default]
+        else
+          Lutaml::Model::UninitializedClass.instance
         end
+      end
+
+      def default_set?
+        !Utils.uninitialized?(default_value)
       end
 
       def pattern
@@ -132,6 +138,7 @@ module Lutaml
       def valid_value!(value)
         return true if value.nil? && singular?
         return true unless enum?
+        return true if Utils.uninitialized?(value)
 
         unless valid_value?(value)
           raise Lutaml::Model::InvalidValueError.new(name, value, enum_values)
@@ -258,7 +265,7 @@ module Lutaml
 
       def serialize(value, format, options = {})
         value ||= [] if collection? && initialize_empty?
-        return if value.nil?
+        return value if value.nil? || Utils.uninitialized?(value)
         return value if derived?
         return serialize_array(value, format, options) if value.is_a?(Array)
         return serialize_model(value, format, options) if type <= Serialize
@@ -281,6 +288,10 @@ module Lutaml
         else
           klass.cast(value)
         end
+      end
+
+      def deep_dup
+        self.class.new(name, type, Utils.deep_dup(options))
       end
 
       private

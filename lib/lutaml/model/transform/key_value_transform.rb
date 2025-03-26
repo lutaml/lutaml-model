@@ -6,7 +6,7 @@ module Lutaml
         mappings = extract_mappings(options, format)
 
         mappings.each do |rule|
-          process_mapping_rule(data, instance, format, rule)
+          process_mapping_rule(data, instance, format, rule, options)
         end
 
         instance
@@ -29,16 +29,14 @@ module Lutaml
             next instance.send(rule.custom_methods[:to], instance, hash)
           end
 
-          value = instance.send(name)
+          value = rule.serialize(instance)
 
           if rule.raw_mapping?
             adapter = Lutaml::Model::FormatRegistry.send(:"#{format}_adapter")
             return adapter.parse(value, options)
           end
 
-          if export_method = rule.transform[:export] || attribute.transform_export_method
-            value = export_method.call(value)
-          end
+          value = ExportTransformer.call(value, rule, attribute)
 
           next hash.merge!(generate_hash_from_child_mappings(attribute, value, format, rule.root_mappings)) if rule.root_mapping?
 
@@ -48,9 +46,9 @@ module Lutaml
                     attribute.serialize(value, format, options)
                   end
 
-          next unless rule.render?(value, instance) || attribute&.initialize_empty?
+          next unless rule.render?(value, instance)
 
-          value = [] if rule.render_nil_as_empty? && value.nil?
+          value = apply_value_map(value, rule.value_map(:to, options), attribute)
 
           rule_from_name = rule.multiple_mappings? ? rule.from.first.to_s : rule.from.to_s
           hash[rule_from_name] = value
@@ -128,18 +126,61 @@ module Lutaml
         options[:mappings] || mappings_for(format).mappings
       end
 
-      def process_mapping_rule(doc, instance, format, rule)
+      # def apply_hash_mapping(doc, instance, format, options = {})
+      #   mappings.each do |rule|
+      #     names = rule.multiple_mappings? ? rule.name : [rule.name]
+
+      #     values = names.collect do |rule_name|
+      #       if rule.root_mapping?
+      #         doc
+      #       elsif rule.raw_mapping?
+      #         adapter = Lutaml::Model::Config.public_send(:"#{format}_adapter")
+      #         adapter.new(doc).public_send(:"to_#{format}")
+      #       elsif doc.key?(rule_name.to_s)
+      #         doc[rule_name.to_s]
+      #       elsif doc.key?(rule_name.to_sym)
+      #         doc[rule_name.to_sym]
+      #       elsif attr&.default_set?
+      #         attr&.default
+      #       else
+      #         Lutaml::Model::UninitializedClass.instance
+      #       end
+      #     end.compact
+
+      #     value = values.find { |v| Utils.initialized?(v) } || values.first
+
+      #     value = apply_value_map(value, rule.value_map(:from, options), attr)
+
+      #     if rule.using_custom_methods?
+      #       if Utils.present?(value)
+      #         value = new.send(rule.custom_methods[:from], instance, value)
+      #       end
+
+      #       next
+      #     end
+
+      #     value = translate_mappings(value, rule.hash_mappings, attr, format)
+
+      #     cast_options = {}
+      #     cast_options[:polymorphic] = rule.polymorphic if rule.polymorphic
+
+      #     value = attr.cast(value, format, cast_options) unless rule.hash_mappings
+      #     attr.valid_collection!(value, self)
+
+      #     rule.deserialize(instance, value, attributes, self)
+      #   end
+
+      #   instance
+      # end
+
+      def process_mapping_rule(doc, instance, format, rule, options = {})
         raise "Attribute '#{rule.to}' not found in #{self}" unless valid_rule?(rule)
 
         attr = attribute_for_rule(rule)
         return if attr&.derived?
 
         value = extract_rule_value(doc, rule, format, attr)
-
-        return if rule.render_nil_omit? && value.nil?
-
-        value = [] if rule.render_nil_as_empty? && value.nil?
-        value = [] if (rule.render_empty_as_nil? && value.nil?) || (rule.render_empty_as_empty? && Utils.empty_collection?(value))
+        value = apply_value_map(value, rule.value_map(:from, options), attr)
 
         return process_custom_method(rule, instance, value) if rule.using_custom_methods?
 
@@ -158,9 +199,10 @@ module Lutaml
           return convert_to_format(doc, format) if rule.raw_mapping?
           return doc[rule_name.to_s] if doc.key?(rule_name.to_s)
           return doc[rule_name.to_sym] if doc.key?(rule_name.to_sym)
+          return attr&.default if attr&.default_set?
         end
 
-        attr&.default
+        Lutaml::Model::UninitializedClass.instance
       end
 
       def convert_to_format(doc, format)

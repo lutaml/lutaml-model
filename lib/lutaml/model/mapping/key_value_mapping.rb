@@ -16,13 +16,17 @@ module Lutaml
         render_nil: false,
         render_default: false,
         render_empty: false,
+        treat_nil: nil,
+        treat_empty: nil,
+        treat_omitted: nil,
         with: {},
         delegate: nil,
         child_mappings: nil,
         root_mappings: nil,
         polymorphic: {},
         polymorphic_map: {},
-        transform: {}
+        transform: {},
+        value_map: {}
       )
         mapping_name = name_for_mapping(root_mappings, name)
         validate!(mapping_name, to, with, render_nil, render_empty)
@@ -33,6 +37,9 @@ module Lutaml
           render_nil: render_nil,
           render_default: render_default,
           render_empty: render_empty,
+          treat_nil: treat_nil,
+          treat_empty: treat_empty,
+          treat_omitted: treat_omitted,
           with: with,
           delegate: delegate,
           child_mappings: child_mappings,
@@ -40,6 +47,7 @@ module Lutaml
           polymorphic: polymorphic,
           polymorphic_map: polymorphic_map,
           transform: transform,
+          value_map: value_map,
         )
       end
 
@@ -74,46 +82,42 @@ module Lutaml
 
       def validate!(key, to, with, render_nil, render_empty)
         validate_mappings!(key)
+        validate_to_and_with_arguments!(key, to, with)
 
+        # Validate `render_nil` for unsupported value
+        validate_blank_mappings!(render_nil, render_empty)
+        validate_root_mappings!(key)
+      end
+
+      def validate_to_and_with_arguments!(key, to, with)
         if to.nil? && with.empty? && !@raw_mapping
           raise IncorrectMappingArgumentsError.new(
             ":to or :with argument is required for mapping '#{key}'",
           )
         end
 
+        validate_with_options!(key, with)
+      end
+
+      def validate_with_options!(key, with)
         if !with.empty? && (with[:from].nil? || with[:to].nil?) && !@raw_mapping
           raise IncorrectMappingArgumentsError.new(
             ":with argument for mapping '#{key}' requires :to and :from keys",
           )
         end
+      end
 
-        { render_nil: render_nil, render_empty: render_empty }.each do |option, value|
-          if format_toml? && value == :as_nil
-            raise IncorrectMappingArgumentsError.new(
-              ":toml format does not support #{option}: #{value} mode",
-            )
-          end
+      def validate_root_mappings!(name)
+        if @mappings.any?(&:root_mapping?) || (name == "root_mapping" && @mappings.any?)
+          raise MultipleMappingsError.new("root_mappings cannot be used with other mappings")
         end
+      end
 
-        if render_nil && render_empty && render_nil == render_empty
-          raise IncorrectMappingArgumentsError.new(
-            "render_empty and _render_nil cannot be set to the same value",
-          )
-        end
-
-        # Validate `render_nil` for unsupported value
+      def validate_blank_mappings!(render_nil, render_empty)
         if render_nil == :as_blank || render_empty == :as_blank
           raise IncorrectMappingArgumentsError.new(
             ":as_blank is not supported for key-value mappings",
           )
-        end
-
-        validate_mappings(key)
-      end
-
-      def validate_mappings(name)
-        if @mappings.any?(&:root_mapping?) || (name == "root_mapping" && @mappings.any?)
-          raise MultipleMappingsError.new("root_mappings cannot be used with other mappings")
         end
       end
 

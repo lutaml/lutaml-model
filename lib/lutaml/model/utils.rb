@@ -34,6 +34,16 @@ module Lutaml
             .downcase
         end
 
+        def initialized?(value)
+          return true unless value.respond_to?(:initialized?)
+
+          value.initialized?
+        end
+
+        def uninitialized?(value)
+          !initialized?(value)
+        end
+
         def present?(value)
           !blank?(value)
         end
@@ -47,6 +57,10 @@ module Lutaml
           return false unless [Array, Hash].include?(collection.class)
 
           collection.empty?
+        end
+
+        def empty?(value)
+          value.respond_to?(:empty?) ? value.empty? : false
         end
 
         def add_method_if_not_defined(klass, method_name, &block)

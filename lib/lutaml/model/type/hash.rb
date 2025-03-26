@@ -3,7 +3,7 @@ module Lutaml
     module Type
       class Hash < Value
         def self.cast(value)
-          return nil if value.nil?
+          return value if value.nil? || Utils.uninitialized?(value)
 
           hash = if value.respond_to?(:to_h)
                    value.to_h

@@ -30,6 +30,31 @@ module Lutaml
 
       protected
 
+      def apply_value_map(value, value_map, attr)
+        if value.nil?
+          value_for_option(value_map[:nil], attr)
+        elsif Utils.empty?(value)
+          value_for_option(value_map[:empty], attr, value)
+        elsif Utils.uninitialized?(value)
+          value_for_option(value_map[:omitted], attr)
+        else
+          value
+        end
+      end
+
+      def value_for_option(option, attr, empty_value = nil)
+        return nil if option == :nil
+        return empty_value || empty_object(attr) if option == :empty
+
+        Lutaml::Model::UninitializedClass.instance
+      end
+
+      def empty_object(attr)
+        return [] if attr.collection?
+
+        ""
+      end
+
       def mappings_for(format)
         context.mappings_for(format)
       end

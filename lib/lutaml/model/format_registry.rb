@@ -46,13 +46,13 @@ module Lutaml
 
         Lutaml::Model::Config::AVAILABLE_FORMATS.each do |adapter_name|
           define_method(:"#{adapter_name}_adapter_type=") do |type_name|
-            adapter = if %i[json yaml toml].include?(adapter_name)
+            adapter = if %i[json yaml toml hash].include?(adapter_name)
                         adapter_name.to_s
                       else
                         "#{adapter_name}_adapter"
                       end
 
-            type = if %i[json yaml toml].include?(adapter_name)
+            type = if %i[json yaml toml hash].include?(adapter_name)
                      "#{type_name.to_s.gsub("_#{adapter_name}", '')}_adapter"
                    else
                      "#{type_name}_adapter"

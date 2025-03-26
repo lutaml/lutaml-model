@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 require "moxml"
+require_relative "model/uninitialized_class"
+require_relative "model/services"
 require_relative "model/version"
 require_relative "model/loggable"
 require_relative "model/type"
@@ -16,6 +18,7 @@ require_relative "model/key_value_document"
 require_relative "model/yaml"
 require_relative "model/json"
 require_relative "model/toml"
+require_relative "model/hash"
 
 module Lutaml
   module Model

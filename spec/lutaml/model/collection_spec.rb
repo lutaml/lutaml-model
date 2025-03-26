@@ -61,7 +61,7 @@ module CollectionTests
 
     yaml do
       map "default_items", to: :default_items
-      map "regular_items", to: :regular_items
+      map "regular_items", to: :regular_items, render_default: true, render_empty: true
     end
   end
 end

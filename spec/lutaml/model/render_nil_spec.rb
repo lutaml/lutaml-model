@@ -21,35 +21,35 @@ class RenderNil < Lutaml::Model::Serializable
   attribute :render_nil_nested, RenderNilNested
 
   json do
-    map "name", to: :name, render_nil: true
-    map "clay_type", to: :clay_type, render_nil: true
-    map "glaze", to: :glaze, render_nil: true
-    map "dimensions", to: :dimensions, render_nil: false
+    map "name", to: :name, render_nil: true, render_empty: true
+    map "clay_type", to: :clay_type, render_nil: true, render_empty: true
+    map "glaze", to: :glaze, render_nil: true, render_empty: true
+    map "dimensions", to: :dimensions, render_empty: false
   end
 
   xml do
     root "render_nil"
-    map_element "name", to: :name, render_nil: true
-    map_element "clay_type", to: :clay_type, render_nil: false
-    map_element "glaze", to: :glaze, render_nil: true
+    map_element "name", to: :name, render_nil: true, render_empty: true
+    map_element "clay_type", to: :clay_type, render_nil: false, render_empty: true
+    map_element "glaze", to: :glaze, render_nil: true, render_empty: true
     map_element "render_nil_nested", to: :render_nil_nested, render_nil: true,
                                      render_default: true
-    map_element "dimensions", to: :dimensions, render_nil: false
+    map_element "dimensions", to: :dimensions, render_empty: false
   end
 
   yaml do
-    map "name", to: :name, render_nil: true
-    map "clay_type", to: :clay_type, render_nil: false
-    map "glaze", to: :glaze, render_nil: true
-    map "dimensions", to: :dimensions, render_nil: false
+    map "name", to: :name, render_nil: true, render_empty: true
+    map "clay_type", to: :clay_type, render_nil: false, render_empty: true
+    map "glaze", to: :glaze, render_nil: true, render_empty: true
+    map "dimensions", to: :dimensions, render_empty: false
     map "render_nil_nested", to: :render_nil_nested, render_nil: false
   end
 
   toml do
-    map "name", to: :name, render_nil: true
-    map "clay_type", to: :clay_type, render_nil: false
-    map "glaze", to: :glaze, render_nil: true
-    map "dimensions", to: :dimensions, render_nil: false
+    map "name", to: :name, render_nil: :empty, render_empty: true
+    map "clay_type", to: :clay_type, render_nil: false, render_empty: true
+    map "glaze", to: :glaze, render_nil: false, render_empty: true
+    map "dimensions", to: :dimensions, render_empty: false
   end
 end
 
@@ -133,8 +133,8 @@ RSpec.describe RenderNil do
   it "serializes to XML with render_nil option" do
     expected_xml = <<~XML
       <render_nil>
-        <name/>
-        <glaze/>
+        <name xsi:nil="true"/>
+        <glaze xsi:nil="true"/>
         <render_nil_nested/>
       </render_nil>
     XML
@@ -145,8 +145,8 @@ RSpec.describe RenderNil do
   it "deserializes from XML with render_nil option" do
     xml = <<~XML
       <render_nil>
-        <name/>
-        <glaze/>
+        <name xsi:nil="true" />
+        <glaze xsi:nil="true" />
       </render_nil>
     XML
 
@@ -193,7 +193,7 @@ RSpec.describe RenderNil do
       }
     end
 
-    it "does not tread empty string as nil" do
+    it "does not treat empty string as nil" do
       expected_yaml = <<~YAML
         ---
         name: ''
@@ -213,7 +213,7 @@ RSpec.describe RenderNil do
 
   describe "render_nil option" do
     context "when :omit" do
-      let(:model) { RenderNilSpec::OmitNilModel.new }
+      let(:model) { RenderNilSpec::OmitNilModel.new(items: nil) }
 
       describe "YAML" do
         let(:parsed) do
@@ -256,7 +256,7 @@ RSpec.describe RenderNil do
     end
 
     context "when :as_nil" do
-      let(:model) { RenderNilSpec::ExplicitNilModel.new }
+      let(:model) { RenderNilSpec::ExplicitNilModel.new(items: nil) }
 
       describe "YAML" do
         let(:yaml) do
@@ -303,7 +303,7 @@ RSpec.describe RenderNil do
     end
 
     context "when :as_blank" do
-      let(:model) { RenderNilSpec::AsBlankNilModel.new }
+      let(:model) { RenderNilSpec::AsBlankNilModel.new(items: nil) }
 
       let(:parsed) do
         RenderNilSpec::AsBlankNilModel.from_xml(xml)
@@ -327,7 +327,7 @@ RSpec.describe RenderNil do
     end
 
     context "when :as_empty" do
-      let(:model) { RenderNilSpec::AsEmptyNilModel.new }
+      let(:model) { RenderNilSpec::AsEmptyNilModel.new(items: nil) }
 
       let(:parsed) do
         RenderNilSpec::AsEmptyNilModel.from_yaml(yaml)
@@ -344,8 +344,8 @@ RSpec.describe RenderNil do
         expect(model.to_yaml).to include("items: []")
       end
 
-      it "sets empty values while deserialize" do
-        expect(parsed.items).to eq([])
+      it "sets nil value while deserialize" do
+        expect(parsed.items).to be_nil
       end
     end
   end

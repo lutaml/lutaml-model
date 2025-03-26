@@ -3,9 +3,6 @@ require "spec_helper"
 require "lutaml/model/xml_adapter/ox_adapter"
 require "lutaml/model/xml_adapter/oga_adapter"
 
-require_relative "../../../lib/lutaml/model/mapping/xml_mapping"
-require_relative "../../../lib/lutaml/model/mapping/xml_mapping_rule"
-
 # Define a sample class for testing map_content
 class Italic < Lutaml::Model::Serializable
   attribute :text, Lutaml::Model::Type::String, collection: true
@@ -445,6 +442,7 @@ RSpec.describe Lutaml::Model::XmlMapping do
 
       it "parse and serialize model correctly" do
         parsed = XmlMapping::OwnedComment.from_xml(xml_with_attribute)
+
         serialized = parsed.to_xml
 
         expect(serialized).to be_equivalent_to(xml_with_attribute)
@@ -1267,15 +1265,6 @@ RSpec.describe Lutaml::Model::XmlMapping do
         end.to raise_error(
           Lutaml::Model::IncorrectMappingArgumentsError,
           ":with argument for mapping 'test' requires :to and :from keys",
-        )
-      end
-
-      it "raises error when render_nil and render_empty have same value" do
-        expect do
-          mapping.map_element("test", to: :field, render_nil: :omit, render_empty: :omit)
-        end.to raise_error(
-          Lutaml::Model::IncorrectMappingArgumentsError,
-          "render_empty and _render_nil cannot be set to the same value",
         )
       end
 

@@ -77,6 +77,10 @@ module Lutaml
         to: nil,
         render_nil: false,
         render_default: false,
+        render_empty: false,
+        treat_nil: :nil,
+        treat_empty: :empty,
+        treat_omitted: :nil,
         with: {},
         delegate: nil,
         cdata: false,
@@ -86,7 +90,7 @@ module Lutaml
         prefix: (prefix_set = false
                  nil),
         transform: {},
-        render_empty: false
+        value_map: {}
       )
         validate!(
           name, to, with, render_nil, render_empty, type: TYPES[:element]
@@ -97,6 +101,10 @@ module Lutaml
           to: to,
           render_nil: render_nil,
           render_default: render_default,
+          render_empty: render_empty,
+          treat_nil: treat_nil,
+          treat_empty: treat_empty,
+          treat_omitted: treat_omitted,
           with: with,
           delegate: delegate,
           cdata: cdata,
@@ -107,7 +115,7 @@ module Lutaml
           namespace_set: namespace_set != false,
           prefix_set: prefix_set != false,
           transform: transform,
-          render_empty: render_empty,
+          value_map: value_map,
         )
         @elements[rule.namespaced_name] = rule
       end
@@ -117,6 +125,7 @@ module Lutaml
         to: nil,
         render_nil: false,
         render_default: false,
+        render_empty: false,
         with: {},
         delegate: nil,
         polymorphic_map: {},
@@ -124,7 +133,8 @@ module Lutaml
                     nil),
         prefix: (prefix_set = false
                  nil),
-        render_empty: false
+        transform: {},
+        value_map: {}
       )
         validate!(
           name, to, with, render_nil, render_empty, type: TYPES[:attribute]
@@ -146,6 +156,8 @@ module Lutaml
           default_namespace: namespace_uri,
           namespace_set: namespace_set != false,
           prefix_set: prefix_set != false,
+          transform: transform,
+          value_map: value_map,
         )
         @attributes[rule.namespaced_name] = rule
       end
@@ -156,11 +168,13 @@ module Lutaml
         to: nil,
         render_nil: false,
         render_default: false,
+        render_empty: false,
         with: {},
         delegate: nil,
         mixed: false,
         cdata: false,
-        render_empty: false
+        transform: {},
+        value_map: {}
       )
         validate!(
           "content", to, with, render_nil, render_empty, type: TYPES[:content]
@@ -171,10 +185,13 @@ module Lutaml
           to: to,
           render_nil: render_nil,
           render_default: render_default,
+          render_empty: render_empty,
           with: with,
           delegate: delegate,
           mixed_content: mixed,
           cdata: cdata,
+          transform: transform,
+          value_map: value_map,
         )
       end
 
@@ -234,25 +251,8 @@ module Lutaml
       end
 
       def validate!(key, to, with, render_nil, render_empty, type: nil)
-        validate_mappings!(type)
-
-        if to.nil? && with.empty?
-          raise IncorrectMappingArgumentsError.new(
-            ":to or :with argument is required for mapping '#{key}'",
-          )
-        end
-
-        if !with.empty? && (with[:from].nil? || with[:to].nil?)
-          raise IncorrectMappingArgumentsError.new(
-            ":with argument for mapping '#{key}' requires :to and :from keys",
-          )
-        end
-
-        if render_nil && render_empty && render_nil == render_empty
-          raise IncorrectMappingArgumentsError.new(
-            "render_empty and _render_nil cannot be set to the same value",
-          )
-        end
+        validate_raw_mappings!(type)
+        validate_to_and_with_arguments!(key, to, with)
 
         if render_nil == :as_empty || render_empty == :as_empty
           raise IncorrectMappingArgumentsError.new(
@@ -261,7 +261,25 @@ module Lutaml
         end
       end
 
-      def validate_mappings!(type)
+      def validate_to_and_with_arguments!(key, to, with)
+        if to.nil? && with.empty?
+          raise IncorrectMappingArgumentsError.new(
+            ":to or :with argument is required for mapping '#{key}'",
+          )
+        end
+
+        validate_with_options!(key, with)
+      end
+
+      def validate_with_options!(key, with)
+        if !with.empty? && (with[:from].nil? || with[:to].nil?)
+          raise IncorrectMappingArgumentsError.new(
+            ":with argument for mapping '#{key}' requires :to and :from keys",
+          )
+        end
+      end
+
+      def validate_raw_mappings!(type)
         if !@raw_mapping.nil? && type != TYPES[:attribute]
           raise StandardError, "#{type} is not allowed, only #{TYPES[:attribute]} " \
                                "is allowed with #{TYPES[:all_content]}"
@@ -310,6 +328,32 @@ module Lutaml
         else
           mappings.detect do |rule|
             rule.name == name.to_s || rule.name == name.to_sym
+          end
+        end
+      end
+
+      def mapping_attributes_hash
+        @attributes
+      end
+
+      def mapping_elements_hash
+        @elements
+      end
+
+      def merge_mapping_attributes(mapping)
+        mapping_attributes_hash.merge!(mapping.mapping_attributes_hash)
+      end
+
+      def merge_mapping_elements(mapping)
+        mapping_elements_hash.merge!(mapping.mapping_elements_hash)
+      end
+
+      def merge_elements_sequence(mapping)
+        mapping.element_sequence.each do |sequence|
+          element_sequence << Lutaml::Model::Sequence.new(self).tap do |instance|
+            sequence.attributes.each do |attr|
+              instance.attributes << attr.deep_dup
+            end
           end
         end
       end

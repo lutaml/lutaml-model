@@ -42,17 +42,18 @@ module Lutaml
                     doc.root.inner_xml
                   elsif rule.content_mapping?
                     rule.cdata ? doc.cdata : doc.text
-                  elsif val = value_for_rule(doc, rule, new_opts, instance)
-                    val
-                  elsif rule.render_nil_as_nil?
-                    value_for_rule(doc, rule, new_opts, instance)
-                  elsif instance.using_default?(rule.to) || rule.render_default
-                    defaults_used << rule.to
-                    attr&.default || rule.to_value_for(instance)
+                  else 
+                    val = value_for_rule(doc, rule, new_opts, instance)
+
+                    if (Utils.uninitialized?(val) || val.nil?) && (instance.using_default?(rule.to) || rule.render_default)
+                      defaults_used << rule.to
+                      attr&.default || rule.to_value_for(instance)
+                    else
+                      val
+                    end
                   end
 
-          next if rule.render_nil_omit? && (value.nil? || (attr&.collection? && Utils.empty_collection?(value)))
-
+          value = apply_value_map(value, rule.value_map(:from, new_opts), attr)
           value = normalize_xml_value(value, rule, attr, new_opts)
           rule.deserialize(instance, value, attributes, context)
         end
@@ -118,39 +119,56 @@ module Lutaml
             return return_child ? children.first : children
           end
 
+          return handle_cdata(children) if rule.cdata
+
+          values = []
+
           if Utils.present?(children)
             instance.value_set_for(attr.name)
+          else
+            children = nil
+            values = Lutaml::Model::UninitializedClass.instance
           end
 
-          if rule.cdata
-            values = children.map do |child|
-              child.cdata_children&.map(&:text)
-            end.flatten
-            return children.count > 1 ? values : values.first
-          end
-
-          values = children.map do |child|
+          children&.each do |child|
             if !rule.using_custom_methods? && attr.type <= Serialize
               cast_options = options.except(:mappings)
               cast_options[:polymorphic] = rule.polymorphic if rule.polymorphic
 
-              attr.cast(child, :xml, cast_options)
+              values << attr.cast(child, :xml, cast_options)
             elsif attr.raw?
-              inner_xml_of(child)
+              values << inner_xml_of(child)
             else
               return nil if rule.render_nil_as_nil? && child.nil_element?
-              return [] if rule.render_empty_as_nil? && child.nil_element?
 
-              text = child&.children&.first&.text
-              if (rule.render_nil_as_blank? || rule.render_empty_as_blank?) && text.nil? && attr.collection?
-                return []
-              else
-                text
-              end
+              text = child.nil_element? ? nil : (child&.text&.+ child&.cdata)
+              values << text
             end
           end
-          attr&.collection? ? values : values.first
+
+          normalized_value_for_attr(values, attr)
         end
+      end
+
+      def handle_cdata(children)
+        values = children.map do |child|
+          child.cdata_children&.map(&:text)
+        end.flatten
+
+        children.count > 1 ? values : values.first
+      end
+
+      def normalized_value_for_attr(values, attr)
+        # for xml collection: true cases like
+        #   <store><items /></store>
+        #   <store><items xsi:nil="true"/></store>
+        #   <store><items></items></store>
+        #
+        # these are considered empty collection
+        return [] if attr&.collection? && [[nil], [""]].include?(values)
+        return values if attr&.collection?
+
+        values.is_a?(Array) ? values.first : values
       end
 
       def normalize_xml_value(value, rule, attr, options = {})

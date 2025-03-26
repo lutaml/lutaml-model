@@ -10,6 +10,10 @@ module Lutaml
         to:,
         render_nil: false,
         render_default: false,
+        render_empty: false,
+        treat_nil: nil,
+        treat_empty: nil,
+        treat_omitted: nil,
         with: {},
         delegate: nil,
         namespace: nil,
@@ -23,20 +27,24 @@ module Lutaml
         polymorphic: {},
         polymorphic_map: {},
         transform: {},
-        render_empty: false
+        value_map: {}
       )
         super(
           name,
           to: to,
           render_nil: render_nil,
           render_default: render_default,
+          render_empty: render_empty,
+          treat_nil: treat_nil,
+          treat_empty: treat_empty,
+          treat_omitted: treat_omitted,
           with: with,
           delegate: delegate,
           attribute: attribute,
           polymorphic: polymorphic,
           polymorphic_map: polymorphic_map,
           transform: transform,
-          render_empty: render_empty,
+          value_map: value_map,
         )
 
         @namespace = if namespace.to_s == "inherit"
@@ -123,6 +131,7 @@ module Lutaml
           default_namespace: default_namespace.dup,
           transform: transform.dup,
           render_empty: render_empty.dup,
+          value_map: Utils.deep_dup(@value_map),
         )
       end
     end

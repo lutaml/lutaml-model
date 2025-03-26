@@ -3,8 +3,6 @@ require "spec_helper"
 require "lutaml/model/xml_adapter/ox_adapter"
 require "lutaml/model/xml_adapter/oga_adapter"
 
-require_relative "../../../lib/lutaml/model/mapping/xml_mapping_rule"
-
 def content_to_xml(model, parent, doc)
   content = model.all_content.sub(/^<div>/, "").sub(/<\/div>$/, "")
   doc.add_xml_fragment(parent, content)
