@@ -8,7 +8,10 @@ module Lutaml
   module Model
     module XmlAdapter
       class OxAdapter < ::Lutaml::Model::Xml::OxAdapter
-        warn "Usage of Lutaml::Model::XmlAdapter::OxAdapter is deprecated and will be removed in the next major release. Please use Lutaml::Model::Xml::OxAdapter instead."
+        Logger.warn_future_deprication(
+          old: "Lutaml::Model::XmlAdapter::OxAdapter",
+          replacement: "Lutaml::Model::Xml::OxAdapter",
+        )
       end
     end
   end

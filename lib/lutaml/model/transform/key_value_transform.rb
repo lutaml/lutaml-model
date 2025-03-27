@@ -13,15 +13,12 @@ module Lutaml
       end
 
       def model_to_data(instance, format, options = {})
-        only = options[:only]
-        except = options[:except]
         mappings = mappings_for(format).mappings
 
         mappings.each_with_object({}) do |rule, hash|
-          name = rule.to
-          next if except&.include?(name) || (only && !only.include?(name))
+          next unless valid_mapping?(rule, options)
 
-          attribute = attributes[name]
+          attribute = attributes[rule.to]
 
           next handle_delegate(instance, rule, hash, format) if rule.delegate
 
@@ -56,6 +53,15 @@ module Lutaml
       end
 
       private
+
+      def valid_mapping?(rule, options)
+        only = options[:only]
+        except = options[:except]
+        name = rule.to
+
+        (except.nil? || !except.include?(name)) &&
+          (only.nil? || only.include?(name))
+      end
 
       def generate_hash_from_child_mappings(attr, value, format, child_mappings)
         return value unless child_mappings

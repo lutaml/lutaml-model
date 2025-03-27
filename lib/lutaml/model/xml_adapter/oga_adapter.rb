@@ -11,7 +11,10 @@ module Lutaml
   module Model
     module XmlAdapter
       class OgaAdapter < ::Lutaml::Model::Xml::OgaAdapter
-        warn "Usage of Lutaml::Model::XmlAdapter::OgaAdapter is deprecated and will be removed in the next major release. Please use Lutaml::Model::Xml::OgaAdapter instead."
+        Logger.warn_future_deprication(
+          old: "Lutaml::Model::XmlAdapter::OgaAdapter",
+          replacement: "Lutaml::Model::Xml::OgaAdapter",
+        )
       end
     end
   end

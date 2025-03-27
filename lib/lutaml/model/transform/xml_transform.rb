@@ -6,7 +6,8 @@ module Lutaml
         apply_xml_mapping(data, instance, options)
       end
 
-      def model_to_data(model, _format, options = {})
+      # TODO: this should be extracted from adapters and moved here to be reused
+      def model_to_data(model, _format, _options = {})
         model
       end
 

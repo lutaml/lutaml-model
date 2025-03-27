@@ -14,7 +14,7 @@ module Lutaml
         end
       end
 
-      def self.parse(data, options = {})
+      def self.parse(data, _options = {})
         document_class.parse(data, create_additions: false)
       end
     end

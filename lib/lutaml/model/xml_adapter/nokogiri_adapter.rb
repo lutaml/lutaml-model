@@ -5,7 +5,10 @@ module Lutaml
   module Model
     module XmlAdapter
       class NokogiriAdapter < ::Lutaml::Model::Xml::NokogiriAdapter
-        warn "Usage of Lutaml::Model::XmlAdapter::NokogiriAdapter is deprecated and will be removed in the next major release. Please use Lutaml::Model::Xml::NokogiriAdapter instead."
+        Logger.warn_future_deprication(
+          old: "Lutaml::Model::XmlAdapter::NokogiriAdapter",
+          replacement: "Lutaml::Model::Xml::NokogiriAdapter",
+        )
       end
     end
   end

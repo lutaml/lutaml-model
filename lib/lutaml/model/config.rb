@@ -9,10 +9,10 @@ module Lutaml
       attr_accessor :xml_adapter, :toml_adapter
 
       %i[
-        hash_adapter 
-        json_adapter 
-        yaml_adapter 
-        xml_adapter 
+        hash_adapter
+        json_adapter
+        yaml_adapter
+        xml_adapter
         toml_adapter
       ].each do |method_name|
         define_method(method_name) do
@@ -64,33 +64,6 @@ module Lutaml
           Lutaml::Model::FormatRegistry.send(:"#{adapter_name}_adapter_type=", type_name)
         end
       end
-
-      # Return JSON adapter. By default StandardJsonAdapter is used
-      #
-      # @example
-      #   Lutaml::Model::Config.json_adapter
-      #   # => Lutaml::Model::YamlAdapter::StandardJsonAdapter
-      # def json_adapter
-      #   @json_adapter || Lutaml::Model::JsonAdapter::StandardJsonAdapter
-      # end
-
-      # Return YAML adapter. By default StandardYamlAdapter is used
-      #
-      # @example
-      #   Lutaml::Model::Config.yaml_adapter
-      #   # => Lutaml::Model::YamlAdapter::StandardYamlAdapter
-      # def yaml_adapter
-      #   @yaml_adapter || Lutaml::Model::YamlAdapter::StandardYamlAdapter
-      # end
-
-      # Return Hash adapter. By default StandardHashAdapter is used
-      #
-      # @example
-      # Lutaml::Model::Config.hash_adapter
-      # # => Lutaml::Model::HashAdapter::StandardHashAdapter
-      # def hash_adapter
-      #   @hash_adapter || Lutaml::Model::HashAdapter::StandardAdapter
-      # end
 
       # @api private
       def to_class_name(str)

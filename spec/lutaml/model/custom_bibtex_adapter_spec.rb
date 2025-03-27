@@ -157,21 +157,6 @@ require_relative "../../../lib/lutaml/model/serialization_adapter"
 #
 
 module CustomBibtexAdapterSpec
-  class BibtexDocument; end
-
-  class BibtexAdapter < Lutaml::Model::SerializationAdapter
-    handles_format :bibtex
-    document_class BibtexDocument
-
-    def initialize(document)
-      @document = document
-    end
-
-    def to_bibtex(*)
-      @document.to_bibtex
-    end
-  end
-
   class BibtexDocument
     attr_reader :attributes
 
@@ -191,18 +176,20 @@ module CustomBibtexAdapterSpec
     def to_h
       @attributes
     end
+  end
 
+  class BibtexAdapter < BibtexDocument
     def self.parse(bibtex_data, options = {})
       mapping = options.delete(:mapping)
-      entries = bibtex_data.scan(/@(\w+)\s*{\s*([\w-]+),\s*((?:\s*\w+\s*=\s*\{.*?\},?\s*)+)\s*}/).map do |type, key, fields|
+      entries = bibtex_data.scan(/@(\w+)\s*{\s*([\w-]+),\s*((?:\s*\w+\s*=\s*\{.*?\},?\s*)+)\s*}/).to_h do |type, key, fields|
         [type, BibtexDocumentEntry.parse(type, key, fields, mapping)]
-      end.to_h
+      end
 
       new(entries)
     end
 
     def to_bibtex(*)
-      @attributes.map do |entry|
+      @attributes.map do |_type, entry|
         entry.to_bibtex
       end.join("\n")
     end
@@ -329,10 +316,11 @@ module CustomBibtexAdapterSpec
     end
 
     # Assume we have a method `model_class` set at the Lutaml::Model::Mapping level
-    def data_to_model(data) # a BibtexDocumentEntry object
+    # BibtexDocumentEntry object
+    def data_to_model(data)
       mappings = context.mappings_for(:bibtex)
 
-      data.attributes.map do |type, entry|
+      data.attributes.map do |_type, entry|
         bibtex_entry = model_class.new
 
         mappings.mappings.map do |mapping|
@@ -376,11 +364,11 @@ module CustomBibtexAdapterSpec
                       end
       end
 
-      BibtexDocumentEntry.new(
+      { entry_type: BibtexDocumentEntry.new(
         entry_type: entry_type,
         citekey: citekey,
         fields: fields,
-      )
+      ) }
     end
   end
 

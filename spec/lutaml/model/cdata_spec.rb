@@ -1,7 +1,7 @@
 require "spec_helper"
 require "lutaml/model"
-require "lutaml/model/xml_adapter/nokogiri_adapter"
-require "lutaml/model/xml_adapter/ox_adapter"
+require "lutaml/model/xml/nokogiri_adapter"
+require "lutaml/model/xml/ox_adapter"
 
 module CDATA
   class Beta < Lutaml::Model::Serializable
@@ -350,7 +350,7 @@ RSpec.describe "CDATA" do
           instance = parent_mapper.from_xml(input_xml)
           result_xml = parent_mapper.to_xml(instance)
 
-          expected_output = adapter_class == Lutaml::Model::XmlAdapter::OxAdapter ? expected_ox_xml : expected_nokogiri_xml
+          expected_output = adapter_class == Lutaml::Model::Xml::OxAdapter ? expected_ox_xml : expected_nokogiri_xml
 
           expect(result_xml.strip).to eq(expected_output.strip)
         end
@@ -439,7 +439,7 @@ RSpec.describe "CDATA" do
 
           # due to the difference in capturing
           # newlines in ox and nokogiri adapters
-          if adapter_class == Lutaml::Model::XmlAdapter::OxAdapter
+          if adapter_class == Lutaml::Model::Xml::OxAdapter
             expected_xml = expected_ox_xml
           end
 
@@ -496,7 +496,7 @@ RSpec.describe "CDATA" do
 
           # due to the difference in capturing
           # newlines in ox and nokogiri adapters
-          if adapter_class == Lutaml::Model::XmlAdapter::OxAdapter
+          if adapter_class == Lutaml::Model::Xml::OxAdapter
             expected_xml = expected_ox_xml
           end
 
@@ -509,11 +509,11 @@ RSpec.describe "CDATA" do
     end
   end
 
-  describe Lutaml::Model::XmlAdapter::NokogiriAdapter do
+  describe Lutaml::Model::Xml::NokogiriAdapter do
     it_behaves_like "cdata behavior", described_class
   end
 
-  describe Lutaml::Model::XmlAdapter::OxAdapter do
+  describe Lutaml::Model::Xml::OxAdapter do
     it_behaves_like "cdata behavior", described_class
   end
 end

@@ -5,8 +5,6 @@ module Lutaml
   module Model
     module Xml
       class Mapping < Mapping
-        include Lutaml::Model::Loggable
-
         TYPES = {
           attribute: :map_attribute,
           element: :map_element,
@@ -144,7 +142,13 @@ module Lutaml
             name, to, with, render_nil, render_empty, type: TYPES[:attribute]
           )
 
-          warn_auto_handling(name) if name == "schemaLocation"
+          if name == "schemaLocation"
+            Logger.warn_auto_handling(
+              name: name,
+              caller_file: File.basename(caller_locations(1, 1)[0].path),
+              caller_line: caller_locations(1, 1)[0].lineno,
+            )
+          end
 
           rule = MappingRule.new(
             name,

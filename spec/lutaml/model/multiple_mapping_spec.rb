@@ -252,11 +252,11 @@ RSpec.describe MultipleMapping do
     end
 
     context "with Nokogiri adapter" do
-      it_behaves_like "xml adapter with multiple mappings", Lutaml::Model::XmlAdapter::NokogiriAdapter
+      it_behaves_like "xml adapter with multiple mappings", Lutaml::Model::Xml::NokogiriAdapter
     end
 
     context "with Ox adapter" do
-      it_behaves_like "xml adapter with multiple mappings", Lutaml::Model::XmlAdapter::OxAdapter
+      it_behaves_like "xml adapter with multiple mappings", Lutaml::Model::Xml::OxAdapter
     end
   end
 
@@ -285,7 +285,7 @@ RSpec.describe MultipleMapping do
     context "with XML format" do
       shared_examples "xml adapter with custom methods" do |_adapter_class|
         before do
-          Lutaml::Model::Config.xml_adapter = Lutaml::Model::XmlAdapter::NokogiriAdapter
+          Lutaml::Model::Config.xml_adapter = Lutaml::Model::Xml::NokogiriAdapter
         end
 
         let(:xml_with_alternate) do
@@ -330,11 +330,11 @@ RSpec.describe MultipleMapping do
       end
 
       context "with Nokogiri adapter" do
-        it_behaves_like "xml adapter with custom methods", Lutaml::Model::XmlAdapter::NokogiriAdapter
+        it_behaves_like "xml adapter with custom methods", Lutaml::Model::Xml::NokogiriAdapter
       end
 
       context "with Ox adapter" do
-        it_behaves_like "xml adapter with custom methods", Lutaml::Model::XmlAdapter::OxAdapter
+        it_behaves_like "xml adapter with custom methods", Lutaml::Model::Xml::OxAdapter
       end
     end
   end

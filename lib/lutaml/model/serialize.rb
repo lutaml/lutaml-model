@@ -320,12 +320,9 @@ module Lutaml
           value = public_send(:"as_#{format}", instance, options)
           adapter = Lutaml::Model::FormatRegistry.adapter_for(format)
 
-          if format == :xml
-            options[:mapper_class] = self
-            adapter.new(value).public_send(:"to_#{format}", options)
-          else
-            adapter.new(value).public_send(:"to_#{format}", options)
-          end
+          options[:mapper_class] = self if format == :xml
+
+          adapter.new(value).public_send(:"to_#{format}", options)
         end
 
         def as(format, instance, options = {})
