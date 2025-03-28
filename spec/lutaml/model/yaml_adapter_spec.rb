@@ -1,5 +1,4 @@
 require "spec_helper"
-require "lutaml/model/yaml_adapter"
 require_relative "../../fixtures/sample_model"
 
 RSpec.shared_examples "a YAML adapter" do |adapter_class|
@@ -7,7 +6,7 @@ RSpec.shared_examples "a YAML adapter" do |adapter_class|
   let(:model) { SampleModel.new(attributes) }
 
   let(:expected_yaml) do
-    if adapter_class == Lutaml::Model::YamlAdapter::StandardYamlAdapter
+    if adapter_class == Lutaml::Model::Yaml::StandardAdapter
       attributes.to_yaml
     end
   end
@@ -24,6 +23,6 @@ RSpec.shared_examples "a YAML adapter" do |adapter_class|
   end
 end
 
-RSpec.describe Lutaml::Model::YamlAdapter::StandardYamlAdapter do
+RSpec.describe Lutaml::Model::Yaml::StandardAdapter do
   it_behaves_like "a YAML adapter", described_class
 end

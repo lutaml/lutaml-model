@@ -471,7 +471,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
           Lutaml::Xsd::SimpleContent.new.tap do |ct|
             ct.extension = Lutaml::Xsd::ExtensionSimpleContent.new(base: "test_extension")
             ct.element_order = [
-              Lutaml::Model::XmlAdapter::Element.new("Element", "extension"),
+              Lutaml::Model::Xml::Element.new("Element", "extension"),
             ]
           end
         end
@@ -488,7 +488,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
           Lutaml::Xsd::SimpleContent.new.tap do |ct|
             ct.restriction = Lutaml::Xsd::RestrictionSimpleContent.new(base: "test_restriction")
             ct.element_order = [
-              Lutaml::Model::XmlAdapter::Element.new("Element", "restriction"),
+              Lutaml::Model::Xml::Element.new("Element", "restriction"),
             ]
           end
         end
@@ -870,7 +870,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
             element.min_occurs = 0
             element.max_occurs = 1
             element.complex_type = Lutaml::Xsd::ComplexType.new(name: "test_complex_type")
-            element.element_order = [Lutaml::Model::XmlAdapter::Element.new("Element", "complex_type")]
+            element.element_order = [Lutaml::Model::Xml::Element.new("Element", "complex_type")]
           end
         end
 
@@ -910,7 +910,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
             element.type = "test_type"
             element.name = "test_name"
             element.complex_type = Lutaml::Xsd::ComplexType.new(name: "test_complex_type")
-            element.element_order = [Lutaml::Model::XmlAdapter::Element.new("Element", "complex_type")]
+            element.element_order = [Lutaml::Model::Xml::Element.new("Element", "complex_type")]
           end
         end
 
@@ -1143,7 +1143,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         end
 
         it "raises an error when element_order contains elements that isn't an attribute of the instance" do
-          element.element_order << Lutaml::Model::XmlAdapter::Element.new("Element", "test_element")
+          element.element_order << Lutaml::Model::Xml::Element.new("Element", "test_element")
           expect { resolved_element_order }.to raise_error(NoMethodError)
         end
 
@@ -1915,7 +1915,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
 end
 
 def create_pattern_mapping(array)
-  array.map { |type, text| Lutaml::Model::XmlAdapter::Element.new(type, text) }
+  array.map { |type, text| Lutaml::Model::Xml::Element.new(type, text) }
 end
 
 def to_mapping_hash(content)
