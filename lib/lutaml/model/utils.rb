@@ -63,6 +63,36 @@ module Lutaml
           value.respond_to?(:empty?) ? value.empty? : false
         end
 
+        # Check if the hash contains the given key in string or symbol format
+        # @param hash [Hash] the hash to check
+        # @param key [String, Symbol] the key to check
+        # @return [Boolean] true if the hash contains the key, false otherwise
+        # @example
+        #   hash = { "key" => "value" }
+        #   string_or_symbol_key?(hash, "key") # => true
+        #   string_or_symbol_key?(hash, :key) # => true
+        #   string_or_symbol_key?(hash, "invalid_key") # => false
+        def string_or_symbol_key?(hash, key)
+          hash.key?(key.to_s) || hash.key?(key.to_sym)
+        end
+
+        # Fetch the value from the hash using the key in string or symbol format
+        # @param hash [Hash] the hash to fetch the value from
+        # @param key [String, Symbol] the key to fetch the value for
+        # @return [Object] the value associated with the key
+        # @example
+        #   hash = { "key" => "value" }
+        #   fetch_with_string_or_symbol_key(hash, "key") # => "value"
+        #   fetch_with_string_or_symbol_key(hash, :key) # => "value"
+        #   fetch_with_string_or_symbol_key(hash, "invalid_key") # => nil
+        def fetch_with_string_or_symbol_key(hash, key)
+          if hash.key?(key.to_s)
+            hash[key.to_s]
+          elsif hash.key?(key.to_sym)
+            hash[key.to_sym]
+          end
+        end
+
         def add_method_if_not_defined(klass, method_name, &block)
           unless klass.method_defined?(method_name)
             klass.class_eval do
