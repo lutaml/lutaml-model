@@ -117,11 +117,6 @@ require "spec_helper"
 require_relative "../../../lib/lutaml/model/serialization_adapter"
 
 module CustomVojectAdapterSpec
-  class VobjectDocument; end
-
-  class VobjectAdapter < VobjectDocument
-  end
-
   class VobjectParser
     def initialize(data)
       @data = data
@@ -190,7 +185,7 @@ module CustomVojectAdapterSpec
         ].join("\n")
       end.join("\n\n")
     end
-    
+
     def [](key)
       @objects[key]
     end
@@ -216,6 +211,9 @@ module CustomVojectAdapterSpec
         "#{prop_line}:#{entry[:value]}"
       end
     end
+  end
+
+  class VobjectAdapter < VobjectDocument
   end
 
   class VobjectMapping < Lutaml::Model::Mapping
@@ -313,11 +311,7 @@ module CustomVojectAdapterSpec
     end
   end
 
-  class FieldMappingRule < VobjectMappingRule
-    def initialize(index, to:, type:, options: {})
-      super(index, to: to, type: type, options: options)
-    end
-  end
+  class FieldMappingRule < VobjectMappingRule; end
 
   class VobjectTransform < Lutaml::Model::Transform
     def self.data_to_model(context, data, _format, _options = {})
@@ -338,7 +332,7 @@ module CustomVojectAdapterSpec
         value = if mapping.type == :component
                   data[0][:properties][mapping.name]
                 elsif mapping.type == :structured
-                  handle_structured_value(data[0][:properties][mapping.name], attribute, mapping)
+                  handle_structured_value(data[0][:properties][mapping.name], attribute)
                 else
                   handle_property_value(data[0][:properties][mapping.name], attribute, mapping)
                 end
@@ -394,17 +388,17 @@ module CustomVojectAdapterSpec
       VcardTel.new(
         value: entry[:value],
         type: entry[:params]["TYPE"],
-        pref: entry[:params]["PREF"]&.to_i
+        pref: entry[:params]["PREF"]&.to_i,
       )
     end
 
     def create_vcard_bday(entry)
       VcardBday.new(
-        value: VobjectPropertyValue.parse(entry[:value], "DATE-AND-OR-TIME")
+        value: VobjectPropertyValue.parse(entry[:value], "DATE-AND-OR-TIME"),
       )
     end
 
-    def handle_structured_value(data, attribute, mapping)
+    def handle_structured_value(data, attribute)
       return nil unless data&.first&.dig(:value)
 
       value_list = data.first[:value].split(";")
@@ -419,7 +413,7 @@ module CustomVojectAdapterSpec
 
     def format_property_value(value, attribute, mapping)
       if mapping.type == :structured
-        [{ value: format_structured_value(value, attribute, mapping) }]
+        [{ value: format_structured_value(value, attribute) }]
       elsif attribute.collection?
         format_collection_value(value)
       else
@@ -454,7 +448,7 @@ module CustomVojectAdapterSpec
       { value: tel.value, params: params }
     end
 
-    def format_structured_value(value, attribute, mapping)
+    def format_structured_value(value, attribute)
       mappings = attribute.type.mappings_for(:vobject)
       arr = Array.new(mappings.field_set[:count])
 
@@ -712,26 +706,26 @@ module CustomVojectAdapterSpec
   end
 
   class VobjectPropertyValue
+    VALUE_TYPE_MAPPING = {
+      "URI" => VobjectValueType::Uri,
+      "BINARY" => VobjectValueType::Binary,
+      "BOOLEAN" => VobjectValueType::Boolean,
+      "INTEGER" => VobjectValueType::Integer,
+      "FLOAT" => VobjectValueType::Float,
+      "UTC-OFFSET" => VobjectValueType::UtcOffset,
+      "LANGUAGE-TAG" => VobjectValueType::Language,
+      "DATE" => VobjectValueType::IsoDateAndOrTime,
+      "DATE-TIME" => VobjectValueType::IsoDateAndOrTime,
+      "DATE-AND-OR-TIME" => VobjectValueType::IsoDateAndOrTime,
+    }.freeze
+
     def self.parse(value_str, value_type = nil, element_type = :property_value)
       unless %i[property_value parameter_value].include?(element_type)
         raise ArgumentError, "Invalid element type: #{element_type}"
       end
 
-      value = case value_type&.upcase
-              when "URI" then VobjectValueType::Uri.new(value_str)
-              when "BINARY" then VobjectValueType::Binary.new(value_str)
-              when "BOOLEAN" then VobjectValueType::Boolean.new(value_str)
-              when "INTEGER" then VobjectValueType::Integer.new(value_str)
-              when "FLOAT" then VobjectValueType::Float.new(value_str)
-              when "UTC-OFFSET" then VobjectValueType::UtcOffset.new(value_str)
-              when "LANGUAGE-TAG" then VobjectValueType::Language.new(value_str)
-              when "DATE", "DATE-TIME", "DATE-AND-OR-TIME"
-                VobjectValueType::IsoDateAndOrTime.new(value_str)
-              else
-                # Default to Text type for nil or "TEXT"
-                VobjectValueType::Text.new(value_str)
-              end
-
+      value_class = value_type ? VALUE_TYPE_MAPPING[value_type.upcase] : VobjectValueType::Text
+      value = value_class.new(value_str)
       value.element_type = element_type
       value
     end
@@ -994,243 +988,239 @@ module CustomVojectAdapterSpec
       end
     end
   end
-end
 
-RSpec.describe "Custom vObject adapter" do
-  let(:full_vcard) do
-    CustomVojectAdapterSpec::Vcard.new(
-      version: "4.0",
-      fn: "John Doe",
-      n: CustomVojectAdapterSpec::VcardName.new(
-        family: "Doe",
-        given: "John",
-        additional: "Middle",
-        prefix: "Dr.",
-        suffix: "PhD",
-      ),
-      tel: [
-        CustomVojectAdapterSpec::VcardTel.new(value: "tel:+1-555-555-5555"),
-        CustomVojectAdapterSpec::VcardTel.new(value: "tel:+1-555-555-1234"),
-      ],
-      email: ["john.doe@example.com", "j.doe@company.com"],
-      org: "Example Corp",
-      bday: CustomVojectAdapterSpec::VcardBday.new(
-        value: CustomVojectAdapterSpec::VobjectPropertyValue.parse("1970-01-01", "DATE-AND-OR-TIME"),
-      ),
-    )
-  end
-
-  let(:vobject_data) do
-    <<~VCARD
-      BEGIN:VCARD
-      VERSION:4.0
-      FN:John Doe
-      N:Doe;John;Middle;Dr.;PhD
-      TEL:tel:+1-555-555-5555
-      TEL:tel:+1-555-555-1234
-      EMAIL:john.doe@example.com
-      EMAIL:j.doe@company.com
-      ORG:Example Corp
-      BDAY:1970-01-01
-      END:VCARD
-    VCARD
-  end
-
-  describe "#to_vobject" do
-    it "serializes all fields correctly" do
-      output = full_vcard.to_vobject.gsub(/\s+/, " ").strip
-      expected = vobject_data.gsub(/\s+/, " ").strip
-
-      expect(output).to eq(expected)
-    end
-  end
-
-  describe ".from_vobject" do
-    it "parses all fields correctly" do
-      card = CustomVojectAdapterSpec::Vcard.from_vobject(vobject_data)
-
-      expect(card).to eq(full_vcard)
-    end
-  end
-
-  # Add test cases for different BDAY formats
-  let(:iso_date_time_vcard) do
-    <<~VCARD
-      BEGIN:VCARD
-      VERSION:4.0
-      FN:John Doe
-      BDAY:19961022T140000Z
-      END:VCARD
-    VCARD
-  end
-
-  let(:iso_date_vcard) do
-    <<~VCARD
-      BEGIN:VCARD
-      VERSION:4.0
-      FN:John Doe
-      BDAY:19850412
-      END:VCARD
-    VCARD
-  end
-
-  let(:text_date_vcard) do
-    <<~VCARD
-      BEGIN:VCARD
-      VERSION:4.0
-      FN:John Doe
-      BDAY:Early April 1985
-      END:VCARD
-    VCARD
-  end
-
-  describe ".from_vobject" do
-    it "parses ISO date-time BDAY correctly" do
-      card = CustomVojectAdapterSpec::Vcard.from_vobject(iso_date_time_vcard)
-      expect(card.bday.value.to_s).to eq("19961022T140000Z")
-      expect(card.bday.value.type).to eq(:date_time)
-    end
-
-    it "parses ISO date BDAY correctly" do
-      card = CustomVojectAdapterSpec::Vcard.from_vobject(iso_date_vcard)
-      expect(card.bday.value.to_s).to eq("19850412")
-      expect(card.bday.value.type).to eq(:date)
-    end
-
-    it "parses text BDAY correctly" do
-      card = CustomVojectAdapterSpec::Vcard.from_vobject(text_date_vcard)
-      expect(card.bday.value.to_s).to eq("Early April 1985")
-      expect(card.bday.value.type).to eq(:text)
-    end
-  end
-end
-
-RSpec.describe CustomVojectAdapterSpec::VobjectMapping do
-  let(:mapping) { described_class.new }
-
-  describe "#type" do
-    it "accepts valid element types" do
-      expect { mapping.type(:component) }.not_to raise_error
-      expect { mapping.type(:property) }.not_to raise_error
-      expect { mapping.type(:property_parameter) }.not_to raise_error
-      expect { mapping.type(:property_group) }.not_to raise_error
-    end
-
-    it "rejects invalid element types" do
-      expect { mapping.type(:invalid) }.to raise_error(ArgumentError)
-    end
-  end
-
-  describe "#component_root" do
-    it "sets the component root" do
-      mapping.component_root("VCARD")
-      expect(mapping.instance_variable_get(:@component_root)).to eq("VCARD")
-    end
-  end
-
-  describe "#property_root" do
-    it "sets the property root" do
-      mapping.property_root("TEL")
-      expect(mapping.instance_variable_get(:@property_root)).to eq("TEL")
-    end
-  end
-
-  describe "#map_field_set and #map_field" do
-    it "maps fields correctly" do
-      mapping.map_field_set(
-        count: 3,
-        item_type: :list,
-        item_options: { type: :text },
+  RSpec.describe Vcard do
+    let(:full_vcard) do
+      described_class.new(
+        version: "4.0",
+        fn: "John Doe",
+        n: CustomVojectAdapterSpec::VcardName.new(
+          family: "Doe",
+          given: "John",
+          additional: "Middle",
+          prefix: "Dr.",
+          suffix: "PhD",
+        ),
+        tel: [
+          CustomVojectAdapterSpec::VcardTel.new(value: "tel:+1-555-555-5555"),
+          CustomVojectAdapterSpec::VcardTel.new(value: "tel:+1-555-555-1234"),
+        ],
+        email: ["john.doe@example.com", "j.doe@company.com"],
+        org: "Example Corp",
+        bday: CustomVojectAdapterSpec::VcardBday.new(
+          value: CustomVojectAdapterSpec::VobjectPropertyValue.parse("1970-01-01", "DATE-AND-OR-TIME"),
+        ),
       )
+    end
 
-      mapping.map_field(0, to: :first)
-      mapping.map_field(1, to: :second)
-      mapping.map_field(2, to: :third)
+    let(:vobject_data) do
+      <<~VCARD
+        BEGIN:VCARD
+        VERSION:4.0
+        FN:John Doe
+        N:Doe;John;Middle;Dr.;PhD
+        TEL:tel:+1-555-555-5555
+        TEL:tel:+1-555-555-1234
+        EMAIL:john.doe@example.com
+        EMAIL:j.doe@company.com
+        ORG:Example Corp
+        BDAY:1970-01-01
+        END:VCARD
+      VCARD
+    end
 
-      mappings = mapping.instance_variable_get(:@mappings)
-      expect(mappings.size).to eq(3)
-      expect(mappings[0].name).to eq(0)
-      expect(mappings[0].to).to eq(:first)
-      expect(mappings[0].type).to eq(:list)
+    describe "#to_vobject" do
+      it "serializes all fields correctly" do
+        output = full_vcard.to_vobject.gsub(/\s+/, " ").strip
+        expected = vobject_data.gsub(/\s+/, " ").strip
+
+        expect(output).to eq(expected)
+      end
+    end
+
+    describe ".from_vobject" do
+      let(:iso_date_time_vcard) do
+        <<~VCARD
+          BEGIN:VCARD
+          VERSION:4.0
+          FN:John Doe
+          BDAY:19961022T140000Z
+          END:VCARD
+        VCARD
+      end
+
+      let(:iso_date_vcard) do
+        <<~VCARD
+          BEGIN:VCARD
+          VERSION:4.0
+          FN:John Doe
+          BDAY:19850412
+          END:VCARD
+        VCARD
+      end
+
+      let(:text_date_vcard) do
+        <<~VCARD
+          BEGIN:VCARD
+          VERSION:4.0
+          FN:John Doe
+          BDAY:Early April 1985
+          END:VCARD
+        VCARD
+      end
+
+      it "parses all fields correctly" do
+        card = described_class.from_vobject(vobject_data)
+        expect(card).to eq(full_vcard)
+      end
+
+      it "parses ISO date-time BDAY correctly" do
+        card = described_class.from_vobject(iso_date_time_vcard)
+        expect(card.bday.value.to_s).to eq("19961022T140000Z")
+        expect(card.bday.value.type).to eq(:date_time)
+      end
+
+      it "parses ISO date BDAY correctly" do
+        card = described_class.from_vobject(iso_date_vcard)
+        expect(card.bday.value.to_s).to eq("19850412")
+        expect(card.bday.value.type).to eq(:date)
+      end
+
+      it "parses text BDAY correctly" do
+        card = described_class.from_vobject(text_date_vcard)
+        expect(card.bday.value.to_s).to eq("Early April 1985")
+        expect(card.bday.value.type).to eq(:text)
+      end
     end
   end
 
-  describe "#map_property" do
-    it "adds a property mapping with default type" do
-      mapping.map_property("NAME", to: :name)
-      mappings = mapping.instance_variable_get(:@mappings)
-      expect(mappings.size).to eq(1)
-      expect(mappings[0].name).to eq("name")
-      expect(mappings[0].to).to eq(:name)
-      expect(mappings[0].type).to eq(:simple)
+  RSpec.describe VobjectMapping do
+    let(:mapping) { described_class.new }
+
+    describe "#type" do
+      it "accepts valid element types" do
+        expect { mapping.type(:component) }.not_to raise_error
+        expect { mapping.type(:property) }.not_to raise_error
+        expect { mapping.type(:property_parameter) }.not_to raise_error
+        expect { mapping.type(:property_group) }.not_to raise_error
+      end
+
+      it "rejects invalid element types" do
+        expect { mapping.type(:invalid) }.to raise_error(ArgumentError)
+      end
     end
 
-    it "adds a property mapping with custom type" do
-      mapping.map_property("NAME", to: :name, type: :structured)
-      mappings = mapping.instance_variable_get(:@mappings)
-      expect(mappings[0].type).to eq(:structured)
+    describe "#component_root" do
+      it "sets the component root" do
+        mapping.component_root("VCARD")
+        expect(mapping.instance_variable_get(:@component_root)).to eq("VCARD")
+      end
+    end
+
+    describe "#property_root" do
+      it "sets the property root" do
+        mapping.property_root("TEL")
+        expect(mapping.instance_variable_get(:@property_root)).to eq("TEL")
+      end
+    end
+
+    describe "#map_field_set and #map_field" do
+      it "maps fields correctly" do
+        mapping.map_field_set(
+          count: 3,
+          item_type: :list,
+          item_options: { type: :text },
+        )
+
+        mapping.map_field(0, to: :first)
+        mapping.map_field(1, to: :second)
+        mapping.map_field(2, to: :third)
+
+        mappings = mapping.instance_variable_get(:@mappings)
+        expect(mappings.size).to eq(3)
+        expect(mappings[0].name).to eq(0)
+        expect(mappings[0].to).to eq(:first)
+        expect(mappings[0].type).to eq(:list)
+      end
+    end
+
+    describe "#map_property" do
+      it "adds a property mapping with default type" do
+        mapping.map_property("NAME", to: :name)
+        mappings = mapping.instance_variable_get(:@mappings)
+        expect(mappings.size).to eq(1)
+        expect(mappings[0].name).to eq("name")
+        expect(mappings[0].to).to eq(:name)
+        expect(mappings[0].type).to eq(:simple)
+      end
+
+      it "adds a property mapping with custom type" do
+        mapping.map_property("NAME", to: :name, type: :structured)
+        mappings = mapping.instance_variable_get(:@mappings)
+        expect(mappings[0].type).to eq(:structured)
+      end
+    end
+
+    describe "#map_value" do
+      it "adds a value mapping" do
+        mapping.map_value(to: :value)
+        mappings = mapping.instance_variable_get(:@mappings)
+        expect(mappings.size).to eq(1)
+        expect(mappings[0].name).to eq(:value)
+        expect(mappings[0].to).to eq(:value)
+        expect(mappings[0].type).to eq(:simple)
+      end
+    end
+
+    describe "#map_component" do
+      it "adds a component mapping" do
+        mapping.map_component("VCARD", to: :vcard)
+        mappings = mapping.instance_variable_get(:@mappings)
+        expect(mappings.size).to eq(1)
+        expect(mappings[0].name).to eq("vcard")
+        expect(mappings[0].to).to eq(:vcard)
+        expect(mappings[0].type).to eq(:component)
+      end
     end
   end
 
-  describe "#map_value" do
-    it "adds a value mapping" do
-      mapping.map_value(to: :value)
-      mappings = mapping.instance_variable_get(:@mappings)
-      expect(mappings.size).to eq(1)
-      expect(mappings[0].name).to eq(:value)
-      expect(mappings[0].to).to eq(:value)
-      expect(mappings[0].type).to eq(:simple)
+  RSpec.describe VobjectMappingRule do
+    let(:rule) { described_class.new("name", to: :name, type: :simple, structure: nil, options: {}) }
+
+    describe "#initialize" do
+      it "sets all attributes correctly" do
+        expect(rule.name).to eq("name")
+        expect(rule.to).to eq(:name)
+        expect(rule.type).to eq(:simple)
+        expect(rule.structure).to be_nil
+        expect(rule.options).to eq({})
+      end
+    end
+
+    describe "#deep_dup" do
+      it "creates a deep copy of the rule" do
+        duped = rule.deep_dup
+        expect(duped).to be_a(described_class)
+        expect(duped.name).to eq(rule.name)
+        expect(duped.to).to eq(rule.to)
+        expect(duped.type).to eq(rule.type)
+        expect(duped.structure).to eq(rule.structure)
+        expect(duped.options).to eq(rule.options)
+        expect(duped).not_to equal(rule)
+      end
     end
   end
 
-  describe "#map_component" do
-    it "adds a component mapping" do
-      mapping.map_component("VCARD", to: :vcard)
-      mappings = mapping.instance_variable_get(:@mappings)
-      expect(mappings.size).to eq(1)
-      expect(mappings[0].name).to eq("vcard")
-      expect(mappings[0].to).to eq(:vcard)
-      expect(mappings[0].type).to eq(:component)
-    end
-  end
-end
+  RSpec.describe FieldMappingRule do
+    let(:rule) { described_class.new(0, to: :field, type: :list, options: {}) }
 
-RSpec.describe CustomVojectAdapterSpec::VobjectMappingRule do
-  let(:rule) { described_class.new("name", to: :name, type: :simple, structure: nil, options: {}) }
-
-  describe "#initialize" do
-    it "sets all attributes correctly" do
-      expect(rule.name).to eq("name")
-      expect(rule.to).to eq(:name)
-      expect(rule.type).to eq(:simple)
-      expect(rule.structure).to be_nil
-      expect(rule.options).to eq({})
-    end
-  end
-
-  describe "#deep_dup" do
-    it "creates a deep copy of the rule" do
-      duped = rule.deep_dup
-      expect(duped).to be_a(described_class)
-      expect(duped.name).to eq(rule.name)
-      expect(duped.to).to eq(rule.to)
-      expect(duped.type).to eq(rule.type)
-      expect(duped.structure).to eq(rule.structure)
-      expect(duped.options).to eq(rule.options)
-      expect(duped).not_to equal(rule)
-    end
-  end
-end
-
-RSpec.describe CustomVojectAdapterSpec::FieldMappingRule do
-  let(:rule) { described_class.new(0, to: :field, type: :list, options: {}) }
-
-  describe "#initialize" do
-    it "sets all attributes correctly" do
-      expect(rule.name).to eq(0)
-      expect(rule.to).to eq(:field)
-      expect(rule.type).to eq(:list)
-      expect(rule.options).to eq({})
+    describe "#initialize" do
+      it "sets all attributes correctly" do
+        expect(rule.name).to eq(0)
+        expect(rule.to).to eq(:field)
+        expect(rule.type).to eq(:list)
+        expect(rule.options).to eq({})
+      end
     end
   end
 end

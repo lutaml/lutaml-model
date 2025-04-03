@@ -280,14 +280,6 @@ module Lutaml
           end
         end
 
-        # def handle_root_assignment(mappings, format)
-        #   return unless format == :xml
-
-        #   if !mappings[format].root_element && !mappings[format].no_root?
-        #     mappings[format].root(model.to_s)
-        #   end
-        # end
-
         def from(format, data, options = {})
           return data if Utils.uninitialized?(data)
 
@@ -306,11 +298,9 @@ module Lutaml
             raise Lutaml::Model::NoRootMappingError.new(self) unless root?
 
             options[:encoding] = doc.encoding
-            # apply_mappings(doc, format, options)
             transformer = Lutaml::Model::FormatRegistry.transformer_for(format)
             transformer.data_to_model(self, doc, :xml, options)
           else
-            # apply_mappings(doc.to_h, format)
             transformer = Lutaml::Model::FormatRegistry.transformer_for(format)
             transformer.data_to_model(self, doc, format, options)
           end
