@@ -290,6 +290,10 @@ module Lutaml
         end
       end
 
+      def serializable?
+        type <= Serialize
+      end
+
       def deep_dup
         self.class.new(name, type, Utils.deep_dup(options))
       end
