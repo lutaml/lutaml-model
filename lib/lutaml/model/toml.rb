@@ -7,8 +7,6 @@ module Lutaml
   end
 end
 
-# require_relative "toml/tomlib_adapter"
-# require_relative "toml/toml_rb_adapter"
 require_relative "toml/document"
 require_relative "toml/mapping"
 require_relative "toml/mapping_rule"

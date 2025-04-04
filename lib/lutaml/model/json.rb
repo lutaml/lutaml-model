@@ -8,7 +8,6 @@ module Lutaml
 end
 
 require_relative "json/standard_adapter"
-require_relative "json/multi_json_adapter"
 require_relative "json/document"
 require_relative "json/mapping"
 require_relative "json/mapping_rule"
