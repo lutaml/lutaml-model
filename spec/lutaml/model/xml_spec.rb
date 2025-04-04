@@ -60,4 +60,4 @@ RSpec.describe Lutaml::Model::Xml do
       end
     end
   end
-end 
+end
