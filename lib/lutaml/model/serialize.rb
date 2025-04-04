@@ -159,7 +159,7 @@ module Lutaml
             mapping = model.mappings_for(format)
             mapping = Utils.deep_dup(mapping)
 
-            klass = ::Lutaml::Model::FormatRegistry.mappings_class_for(format)
+            klass = ::Lutaml::Model::Config.mappings_class_for(format)
             @mappings[format] ||= klass.new
 
             if format == :xml
@@ -270,7 +270,7 @@ module Lutaml
 
           # handle_root_assignment(mappings, format)
 
-          klass = ::Lutaml::Model::FormatRegistry.mappings_class_for(format)
+          klass = ::Lutaml::Model::Config.mappings_class_for(format)
           mappings[format] ||= klass.new
 
           mappings[format].instance_eval(&block)
@@ -283,7 +283,7 @@ module Lutaml
         def from(format, data, options = {})
           return data if Utils.uninitialized?(data)
 
-          adapter = Lutaml::Model::FormatRegistry.adapter_for(format)
+          adapter = Lutaml::Model::Config.adapter_for(format)
 
           doc = adapter.parse(data, options)
           public_send(:"of_#{format}", doc, options)
@@ -300,13 +300,13 @@ module Lutaml
             options[:encoding] = doc.encoding
           end
 
-          transformer = Lutaml::Model::FormatRegistry.transformer_for(format)
+          transformer = Lutaml::Model::Config.transformer_for(format)
           transformer.data_to_model(self, doc, format, options)
         end
 
         def to(format, instance, options = {})
           value = public_send(:"as_#{format}", instance, options)
-          adapter = Lutaml::Model::FormatRegistry.adapter_for(format)
+          adapter = Lutaml::Model::Config.adapter_for(format)
 
           options[:mapper_class] = self if format == :xml
 
@@ -323,7 +323,7 @@ module Lutaml
             raise Lutaml::Model::IncorrectModelError, msg
           end
 
-          transformer = Lutaml::Model::FormatRegistry.transformer_for(format)
+          transformer = Lutaml::Model::Config.transformer_for(format)
           transformer.model_to_data(self, instance, format, options)
         end
 
@@ -339,7 +339,7 @@ module Lutaml
         end
 
         def default_mappings(format)
-          klass = ::Lutaml::Model::FormatRegistry.mappings_class_for(format)
+          klass = ::Lutaml::Model::Config.mappings_class_for(format)
           mappings = klass.new
 
           mappings.tap do |mapping|
@@ -365,7 +365,7 @@ module Lutaml
           end
 
           # options[:mappings] = mappings.mappings
-          transformer = Lutaml::Model::FormatRegistry.transformer_for(format)
+          transformer = Lutaml::Model::Config.transformer_for(format)
           transformer.data_to_model(self, doc, format, options)
         end
 

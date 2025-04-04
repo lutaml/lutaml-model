@@ -3,27 +3,6 @@ module Lutaml
     module Config
       extend self
 
-      # Default values are set for these so the readers are defined below
-      attr_writer :json_adapter, :yaml_adapter, :hash_adapter
-
-      attr_accessor :xml_adapter, :toml_adapter
-
-      %i[
-        hash_adapter
-        json_adapter
-        yaml_adapter
-        xml_adapter
-        toml_adapter
-      ].each do |method_name|
-        define_method(method_name) do
-          Lutaml::Model::FormatRegistry.send(method_name)
-        end
-
-        define_method(:"#{method_name}=") do |adapter|
-          Lutaml::Model::FormatRegistry.send(:"#{method_name}=", adapter)
-        end
-      end
-
       AVAILABLE_FORMATS = %i[xml json yaml toml hash].freeze
       KEY_VALUE_FORMATS = AVAILABLE_FORMATS - %i[xml]
 
@@ -59,13 +38,56 @@ module Lutaml
       #   @example
       #     Lutaml::Model::Config.toml_adapter = :tomlib
       #
+      # AVAILABLE_FORMATS.each do |adapter_name|
+      #   define_method(:"#{adapter_name}_adapter_type=") do |type_name|
+      #     Lutaml::Model::FormatRegistry.send(:"#{adapter_name}_adapter_type=", type_name)
+      #   end
+      # end
+
       AVAILABLE_FORMATS.each do |adapter_name|
         define_method(:"#{adapter_name}_adapter_type=") do |type_name|
-          Lutaml::Model::FormatRegistry.send(:"#{adapter_name}_adapter_type=", type_name)
+          adapter = adapter_name.to_s
+          type = "#{type_name.to_s.gsub("_#{adapter_name}", '')}_adapter"
+
+          begin
+            adapter_file = File.join(adapter, type)
+            require_relative adapter_file
+          rescue LoadError
+            raise(
+              Lutaml::Model::UnknownAdapterTypeError.new(
+                adapter_name,
+                type_name,
+              ),
+              cause: nil,
+            )
+          end
+          Moxml::Adapter.load(type_name) unless Lutaml::Model::Config::KEY_VALUE_FORMATS.include?(adapter_name)
+
+          set_adapter_for(adapter_name, class_for(adapter, type))
         end
       end
 
-      # @api private
+      def adapter_for(format)
+        public_send(:"#{format}_adapter")
+      end
+
+      def set_adapter_for(format, adapter)
+        public_send(:"#{format}_adapter=", adapter)
+      end
+
+      def mappings_class_for(format)
+        Lutaml::Model::FormatRegistry.mappings_class_for(format)
+      end
+
+      def transformer_for(format)
+        Lutaml::Model::FormatRegistry.transformer_for(format)
+      end
+
+      def class_for(adapter, type)
+        Lutaml::Model.const_get(to_class_name(adapter))
+          .const_get(to_class_name(type))
+      end
+
       def to_class_name(str)
         str.to_s.split("_").map(&:capitalize).join
       end

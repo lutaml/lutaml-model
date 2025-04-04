@@ -57,9 +57,7 @@ module Lutaml
       end
 
       def handle_raw_mapping(hash, value, format, options)
-        result = Lutaml::Model::FormatRegistry
-          .adapter_for(format)
-          .parse(value, options)
+        result = Lutaml::Model::Config.adapter_for(format).parse(value, options)
 
         hash.merge!(result)
       end
@@ -225,7 +223,7 @@ module Lutaml
       end
 
       def convert_to_format(doc, format)
-        adapter = Lutaml::Model::FormatRegistry.public_send(:"#{format}_adapter")
+        adapter = Lutaml::Model::Config.adapter_for(format)
         adapter.new(doc).public_send(:"to_#{format}")
       end
 

@@ -47,7 +47,7 @@ module Lutaml
       end
 
       def format_message(message, type)
-        colorize("[Lutaml::Model] #{type.upcase}: #{message}", type)
+        colorize("\n[Lutaml::Model] #{type.upcase}: #{message}\n", type)
       end
     end
   end
