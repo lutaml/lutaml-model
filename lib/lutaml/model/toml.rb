@@ -2,7 +2,13 @@
 
 module Lutaml
   module Model
-    module Yaml
+    module Toml
+      def self.detect_toml_adapter
+        return :tomlib if Object.const_defined?(:Tomlib)
+        return :toml_rb if Object.const_defined?(:TomlRb)
+
+        nil
+      end
     end
   end
 end
@@ -18,3 +24,7 @@ Lutaml::Model::FormatRegistry.register(
   adapter_class: nil,
   transformer: Lutaml::Model::Toml::Transform,
 )
+
+if (adapter = Lutaml::Model::Toml.detect_toml_adapter)
+  Lutaml::Model::Config.toml_adapter_type = adapter
+end

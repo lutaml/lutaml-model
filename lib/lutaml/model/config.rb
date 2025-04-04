@@ -47,22 +47,9 @@ module Lutaml
       AVAILABLE_FORMATS.each do |adapter_name|
         define_method(:"#{adapter_name}_adapter_type=") do |type_name|
           adapter = adapter_name.to_s
-          type = "#{type_name.to_s.gsub("_#{adapter_name}", '')}_adapter"
-
-          begin
-            adapter_file = File.join(adapter, type)
-            require_relative adapter_file
-          rescue LoadError
-            raise(
-              Lutaml::Model::UnknownAdapterTypeError.new(
-                adapter_name,
-                type_name,
-              ),
-              cause: nil,
-            )
-          end
-          Moxml::Adapter.load(type_name) unless Lutaml::Model::Config::KEY_VALUE_FORMATS.include?(adapter_name)
-
+          type = normalize_type_name(type_name, adapter_name)
+          load_adapter_file(adapter, type)
+          load_moxml_adapter(type_name, adapter_name)
           set_adapter_for(adapter_name, class_for(adapter, type))
         end
       end
@@ -90,6 +77,25 @@ module Lutaml
 
       def to_class_name(str)
         str.to_s.split("_").map(&:capitalize).join
+      end
+
+      private
+
+      def normalize_type_name(type_name, adapter_name)
+        "#{type_name.to_s.gsub("_#{adapter_name}", '')}_adapter"
+      end
+
+      def load_adapter_file(adapter, type)
+        adapter_file = File.join(adapter, type)
+        require_relative adapter_file
+      rescue LoadError
+        raise UnknownAdapterTypeError.new(adapter, type), cause: nil
+      end
+
+      def load_moxml_adapter(type_name, adapter_name)
+        return if KEY_VALUE_FORMATS.include?(adapter_name)
+
+        Moxml::Adapter.load(type_name)
       end
     end
   end

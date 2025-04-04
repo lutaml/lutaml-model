@@ -3,6 +3,13 @@
 module Lutaml
   module Model
     module Xml
+      def self.detect_xml_adapter
+        return :nokogiri if Object.const_defined?(:Nokogiri)
+        return :ox if Object.const_defined?(:Ox)
+        return :opal if Object.const_defined?(:Opal)
+
+        nil
+      end
     end
   end
 end
@@ -18,3 +25,7 @@ Lutaml::Model::FormatRegistry.register(
   adapter_class: nil,
   transformer: Lutaml::Model::Xml::Transform,
 )
+
+if (adapter = Lutaml::Model::Xml.detect_xml_adapter)
+  Lutaml::Model::Config.xml_adapter_type = adapter
+end
