@@ -1,6 +1,6 @@
 require "spec_helper"
-# require "lutaml/model/toml_adapter/toml_rb_adapter"
-# require "lutaml/model/toml_adapter/tomlib_adapter"
+require "lutaml/model/toml/toml_rb_adapter"
+require "lutaml/model/toml/tomlib_adapter"
 require_relative "../../fixtures/sample_model"
 
 RSpec.describe "TomlAdapter" do

@@ -286,7 +286,7 @@ module Lutaml
           adapter = Lutaml::Model::FormatRegistry.adapter_for(format)
 
           doc = adapter.parse(data, options)
-          of(format, doc, options)
+          public_send(:"of_#{format}", doc, options)
         end
 
         def of(format, doc, options = {})
@@ -298,12 +298,10 @@ module Lutaml
             raise Lutaml::Model::NoRootMappingError.new(self) unless root?
 
             options[:encoding] = doc.encoding
-            transformer = Lutaml::Model::FormatRegistry.transformer_for(format)
-            transformer.data_to_model(self, doc, :xml, options)
-          else
-            transformer = Lutaml::Model::FormatRegistry.transformer_for(format)
-            transformer.data_to_model(self, doc, format, options)
           end
+
+          transformer = Lutaml::Model::FormatRegistry.transformer_for(format)
+          transformer.data_to_model(self, doc, format, options)
         end
 
         def to(format, instance, options = {})
