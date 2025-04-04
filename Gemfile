@@ -8,7 +8,10 @@ gemspec
 gem "benchmark-ips"
 gem "bigdecimal"
 gem "equivalent-xml"
-gem "liquid"
+# TODO: remove once https://github.com/Shopify/liquid/issues/1772 is fixed
+# needed for liquid with ruby 3.4
+gem "base64"
+gem "liquid", "~> 5"
 gem "lutaml-xsd"
 gem "multi_json"
 gem "nokogiri"
