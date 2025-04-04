@@ -290,6 +290,10 @@ module Lutaml
         end
       end
 
+      def serializable?
+        type <= Serialize
+      end
+
       def deep_dup
         self.class.new(name, type, Utils.deep_dup(options))
       end
@@ -313,7 +317,7 @@ module Lutaml
 
       def castable?(value, format)
         value.is_a?(Hash) ||
-          (format == :xml && value.is_a?(Lutaml::Model::XmlAdapter::XmlElement))
+          (format == :xml && value.is_a?(Lutaml::Model::Xml::XmlElement))
       end
 
       def castable_serialized_type?(value)

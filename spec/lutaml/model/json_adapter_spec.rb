@@ -1,6 +1,6 @@
 require "spec_helper"
-require "lutaml/model/json_adapter/standard_json_adapter"
-require "lutaml/model/json_adapter/multi_json_adapter"
+require "lutaml/model/json/standard_adapter"
+require "lutaml/model/json/multi_json_adapter"
 require_relative "../../fixtures/sample_model"
 
 RSpec.describe "JsonAdapter" do
@@ -9,9 +9,9 @@ RSpec.describe "JsonAdapter" do
     let(:model) { SampleModel.new(attributes) }
 
     let(:expected_json) do
-      if adapter_class == Lutaml::Model::JsonAdapter::StandardJsonAdapter
+      if adapter_class == Lutaml::Model::Json::StandardAdapter
         JSON.generate(attributes)
-      elsif adapter_class == Lutaml::Model::JsonAdapter::MultiJsonAdapter
+      elsif adapter_class == Lutaml::Model::Json::MultiJsonAdapter
         MultiJson.dump(attributes)
       end
     end
@@ -29,11 +29,11 @@ RSpec.describe "JsonAdapter" do
     end
   end
 
-  describe Lutaml::Model::JsonAdapter::StandardJsonAdapter do
+  describe Lutaml::Model::Json::StandardAdapter do
     it_behaves_like "a JSON adapter", described_class
   end
 
-  describe Lutaml::Model::JsonAdapter::MultiJsonAdapter do
+  describe Lutaml::Model::Json::MultiJsonAdapter do
     it_behaves_like "a JSON adapter", described_class
   end
 end

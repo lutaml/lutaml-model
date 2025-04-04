@@ -115,7 +115,7 @@ RSpec.describe Lutaml::Model::KeyValueMapping do
     end
 
     context "with TOML format" do
-      let(:mapping) { Lutaml::Model::TomlMapping.new }
+      let(:mapping) { Lutaml::Model::Toml::Mapping.new }
 
       it "raises error when render_nil is :as_nil" do
         expect do

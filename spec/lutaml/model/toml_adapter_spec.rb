@@ -1,6 +1,6 @@
 require "spec_helper"
-require "lutaml/model/toml_adapter/toml_rb_adapter"
-require "lutaml/model/toml_adapter/tomlib_adapter"
+require "lutaml/model/toml/toml_rb_adapter"
+require "lutaml/model/toml/tomlib_adapter"
 require_relative "../../fixtures/sample_model"
 
 RSpec.describe "TomlAdapter" do
@@ -9,9 +9,9 @@ RSpec.describe "TomlAdapter" do
     let(:model) { SampleModel.new(attributes) }
 
     let(:expected_toml) do
-      if adapter_class == Lutaml::Model::TomlAdapter::TomlRbAdapter
+      if adapter_class == Lutaml::Model::Toml::TomlRbAdapter
         TomlRB.dump(attributes)
-      elsif adapter_class == Lutaml::Model::TomlAdapter::TomlibAdapter
+      elsif adapter_class == Lutaml::Model::Toml::TomlibAdapter
         Tomlib.dump(attributes)
       end
     end
@@ -31,11 +31,11 @@ RSpec.describe "TomlAdapter" do
     end
   end
 
-  describe Lutaml::Model::TomlAdapter::TomlRbAdapter do
+  describe Lutaml::Model::Toml::TomlRbAdapter do
     it_behaves_like "a TOML adapter", described_class
   end
 
-  describe Lutaml::Model::TomlAdapter::TomlibAdapter do
+  describe Lutaml::Model::Toml::TomlibAdapter do
     it_behaves_like "a TOML adapter", described_class
   end
 end

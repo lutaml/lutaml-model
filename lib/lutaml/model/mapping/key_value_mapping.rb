@@ -1,12 +1,14 @@
+require_relative "mapping"
 require_relative "key_value_mapping_rule"
 
 module Lutaml
   module Model
-    class KeyValueMapping
+    class KeyValueMapping < Mapping
       attr_reader :mappings, :format
 
       def initialize(format = nil)
-        @mappings = []
+        super()
+
         @format = format
       end
 

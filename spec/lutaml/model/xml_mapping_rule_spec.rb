@@ -1,7 +1,7 @@
 require "spec_helper"
 
-require "lutaml/model/xml_adapter/ox_adapter"
-require "lutaml/model/xml_adapter/oga_adapter"
+require "lutaml/model/xml/ox_adapter"
+require "lutaml/model/xml/oga_adapter"
 
 def content_to_xml(model, parent, doc)
   content = model.all_content.sub(/^<div>/, "").sub(/<\/div>$/, "")
@@ -12,7 +12,7 @@ def content_from_xml(model, value)
   model.all_content = "<div>#{value}</div>"
 end
 
-RSpec.describe Lutaml::Model::XmlMappingRule do
+RSpec.describe Lutaml::Model::Xml::MappingRule do
   describe "#namespaced_name" do
     let(:namespaced_name) do
       mapping_rule.namespaced_name

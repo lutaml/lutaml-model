@@ -1,8 +1,8 @@
 require "spec_helper"
 require "ox"
-require_relative "../../../../lib/lutaml/model/xml_adapter/ox_adapter"
+require_relative "../../../../lib/lutaml/model/xml/ox_adapter"
 
-RSpec.describe Lutaml::Model::XmlAdapter::OxAdapter do
+RSpec.describe Lutaml::Model::Xml::OxAdapter do
   let(:xml_string) do
     <<-XML
       <root xmlns="http://example.com/default" xmlns:prefix="http://example.com/prefixed">

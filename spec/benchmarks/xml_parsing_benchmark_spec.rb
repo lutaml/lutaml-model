@@ -1,11 +1,11 @@
 require "benchmark"
 require "benchmark/ips"
 require "lutaml/model"
-require "lutaml/model/xml_adapter/oga_adapter"
+require "lutaml/model/xml/oga_adapter"
 
 RSpec.describe "LutaML Model Performance" do
   after do
-    Lutaml::Model::Config.xml_adapter = Lutaml::Model::XmlAdapter::NokogiriAdapter
+    Lutaml::Model::Config.xml_adapter = Lutaml::Model::Xml::NokogiriAdapter
   end
 
   let(:large_xml) do
@@ -48,12 +48,12 @@ RSpec.describe "LutaML Model Performance" do
       end
 
       x.report("Ox Adapter") do
-        Lutaml::Model::Config.xml_adapter = Lutaml::Model::XmlAdapter::OxAdapter
+        Lutaml::Model::Config.xml_adapter = Lutaml::Model::Xml::OxAdapter
         Deserializer.from_xml(large_xml)
       end
 
       x.report("Oga Adapter") do
-        Lutaml::Model::Config.xml_adapter = Lutaml::Model::XmlAdapter::OgaAdapter
+        Lutaml::Model::Config.xml_adapter = Lutaml::Model::Xml::OgaAdapter
         Deserializer.from_xml(large_xml)
       end
 
