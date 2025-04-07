@@ -39,6 +39,7 @@ Lutaml::Model are provided in <<migrate-from-shale>>.
 * Support for collections and default values
 * Custom serialization/deserialization methods
 * XML namespaces and mappings
+* Create custom adapters for additional data formats (see <<custom-adapters>>)
 
 
 == Data modeling in a nutshell
@@ -7536,6 +7537,7 @@ Lutaml::Model supports the following serialization formats:
 * YAML (https://yaml.org/[YAML version 1.2])
 * JSON (https://www.ecma-international.org/publications-and-standards/standards/ecma-404/[ECMA-404 The JSON Data Interchange Standard], unofficial link: https://www.json.org[JSON])
 * TOML (https://toml.io/en[TOML version 1.0])
+* You can also create custom adapters for additional data formats. See link:docs/custom_adapters.adoc[Custom Adapters Guide] for detailed information.
 
 You will need to specify the configuration for the adapter you want to use. The
 easiest way is to copy and paste the following configuration into your code.
@@ -7657,7 +7659,6 @@ end
 ----
 
 
-
 === JSON
 
 Lutaml::Model supports the following JSON adapters:
@@ -7733,6 +7734,11 @@ Lutaml::Model::Config.configure do |config|
 end
 ----
 
+[[custom-adapters]]
+=== Custom Adapters
+
+Lutaml::Model provides a flexible system for creating custom adapters to handle different data formats. 
+For more information See link:docs/custom_adapters.adoc[Custom Adapters Guide]
 
 == Comparison with Shale
 
