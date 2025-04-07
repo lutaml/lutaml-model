@@ -3,7 +3,7 @@
 module Lutaml
   module Model
     module Json
-      # Base class for YAML documents
+      # Base class for JSON documents
       class Document < Lutaml::Model::KeyValueDocument
       end
     end
