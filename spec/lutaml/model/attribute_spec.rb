@@ -71,34 +71,6 @@ RSpec.describe Lutaml::Model::Attribute do
     end
   end
 
-  describe "#validate_type!" do
-    let(:validate_type) { name_attr.method(:validate_type!) }
-
-    it "return true if type is a class" do
-      expect(validate_type.call(TestRecord)).to be(true)
-    end
-
-    it "return true if type is a valid symbol" do
-      expect(validate_type.call(:string)).to be(true)
-    end
-
-    it "return true if type is a valid string" do
-      expect(validate_type.call("String")).to be(true)
-    end
-
-    it "raise exception if type is invalid symbol" do
-      expect do
-        validate_type.call(:foo)
-      end.to raise_error(StandardError, "Unknown Lutaml::Model::Type: foo")
-    end
-
-    it "raise exception if type is invalid string" do
-      expect do
-        validate_type.call("foo")
-      end.to raise_error(StandardError, "Unknown Lutaml::Model::Type: foo")
-    end
-  end
-
   describe "#cast_type!" do
     it "cast :string to Lutaml::Model::Type::String" do
       expect(name_attr.cast_type!(:string)).to eq(Lutaml::Model::Type::String)

@@ -28,8 +28,8 @@ module Lutaml
         process_options!
       end
 
-      def resolved_type
-        Thread.current[:current_register].get_class(type) unless type.nil?
+      def resolved_type(register = Lutaml::Model::Config.default_register)
+        register.get_class(type) unless type.nil?
       end
 
       def polymorphic?
@@ -157,8 +157,8 @@ module Lutaml
         options[:values].include?(value)
       end
 
-      def valid_pattern!(value)
-        return true unless type == Lutaml::Model::Type::String
+      def valid_pattern!(value, register)
+        return true unless resolved_type(register) == Lutaml::Model::Type::String
         return true unless pattern
 
         unless pattern.match?(value)
@@ -178,25 +178,25 @@ module Lutaml
       #   2. Value count should be between the collection range if defined
       #      e.g if collection: 0..5 is set then the value greater then 5
       #          will raise `Lutaml::Model::CollectionCountOutOfRangeError`
-      def validate_value!(value)
+      def validate_value!(value, register)
         # Use the default value if the value is nil
         value = default if value.nil?
 
         valid_value!(value) &&
           valid_collection!(value, self) &&
-          valid_pattern!(value) &&
-          validate_polymorphic!(value)
+          valid_pattern!(value, register) &&
+          validate_polymorphic!(value, register)
       end
 
-      def validate_polymorphic(value)
-        return value.all? { |v| validate_polymorphic!(v) } if value.is_a?(Array)
+      def validate_polymorphic(value, register)
+        return value.all? { |v| validate_polymorphic!(v, register) } if value.is_a?(Array)
         return true unless options[:polymorphic]
 
-        valid_polymorphic_type?(value)
+        valid_polymorphic_type?(value, register)
       end
 
-      def validate_polymorphic!(value)
-        return true if validate_polymorphic(value)
+      def validate_polymorphic!(value, register)
+        return true if validate_polymorphic(value, register)
 
         raise Lutaml::Model::PolymorphicError.new(value, options, type)
       end

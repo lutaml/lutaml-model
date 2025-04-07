@@ -4,7 +4,7 @@ module Lutaml
       extend self
 
       # Default values are set for these so the readers are defined below
-      attr_writer :json_adapter, :yaml_adapter, :hash_adapter, :default_register
+      attr_writer :json_adapter, :yaml_adapter, :hash_adapter
 
       attr_accessor :xml_adapter, :toml_adapter
 
@@ -84,6 +84,17 @@ module Lutaml
         @default_register ||= Lutaml::Model::Register.new(:default)
         Lutaml::Model::GlobalRegister.register(@default_register)
         @default_register
+      end
+
+      def default_register=(register_or_id)
+        @default_register = case register_or_id
+                            when Symbol
+                              Lutaml::Model::GlobalRegister.lookup(register_or_id)
+                            when Lutaml::Model::Register
+                              register_or_id
+                            else
+                              raise "Unkown register: #{register_or_id}, expected a Symbol or a Lutaml::Model::Register instance"
+                            end
       end
 
       # @api private
