@@ -3,55 +3,66 @@
 require "spec_helper"
 require "lutaml/model/register"
 
-class Address < Lutaml::Model::Serializable
-  attribute :location, :string
+module RegisterSpec
+  class CustomString < Lutaml::Model::Type::String; end
+  class CustomInteger < Lutaml::Model::Type::Integer; end
+
+  class Address < Lutaml::Model::Serializable
+    attribute :location, :string
+  end
 end
 
 RSpec.describe Lutaml::Model::Register do
-  let(:register_address_class) do
-    described_class.register_model(:address, Address)
-  end
-
   describe ".register_model" do
-    before { described_class.register_model(:custom_string, String) }
+    let(:v1_register) { described_class.new(:v1) }
 
-    it "registers a new type" do
-      expect(described_class.register).to include(custom_string: String)
+    before do
+      v1_register.register_model(:custom_string, RegisterSpec::CustomString)
+      v1_register.register_model(:custom_integer, RegisterSpec::CustomInteger)
+    end
+
+    it "checks if `custom_string` is registered" do
+      expect(v1_register.lookup?(:custom_string)).to be_truthy
+    end
+
+    it "matches registered custom_string class" do
+      expect(v1_register.lookup(:custom_string)).to be(RegisterSpec::CustomString)
     end
 
     it "overrides an existing type" do
-      described_class.register_model(:custom_string, Integer)
-      expect(described_class.register).to include(custom_string: Integer)
+      expect { v1_register.register_model(:custom_string, Lutaml::Model::Type::String) }
+        .to change { v1_register.lookup(:custom_string) }
+        .from(RegisterSpec::CustomString)
+        .to(Lutaml::Model::Type::String)
     end
 
     it "registers serializable class" do
-      register_address_class
-      expect(described_class.register).to include(address: Address)
+      v1_register.register_model(:address, RegisterSpec::Address)
+      expect(v1_register.lookup(:address)).to be(RegisterSpec::Address)
     end
   end
 
   describe ".lookup!" do
+    let(:v1_register) { described_class.new(:v1) }
+
     context "when the type is registered" do
       before do
-        described_class.register_model(:registered_type, Array)
+        v1_register.register_model(:registered_type, Array)
       end
 
       it "returns the registered type" do
-        expect(described_class.lookup!(:registered_type)).to eq(Array)
+        expect(v1_register.lookup(:registered_type)).to eq(Array)
       end
     end
 
     context "when the serializable class is registered" do
-      before { register_address_class }
-
       it "returns the registered class" do
-        expect(described_class.lookup!(:address)).to eq(Address)
+        expect(v1_register.lookup(:address)).to eq(RegisterSpec::Address)
       end
     end
 
     context "when the serializable class is overriden registered" do
       before do
-        register_address_class
         stub_const(
           "OtherAddress",
           Class.new(Lutaml::Model::Serializable),
@@ -91,14 +102,14 @@ RSpec.describe Lutaml::Model::Register do
     context "when registering a valid model" do
       let(:model_class) do
         Class.new(Lutaml::Model::Serializable) do
-          attribute :nested_address, Address
+          attribute :nested_address, RegisterSpec::Address
         end
       end
 
       it "registers the model and its nested attributes" do
         described_class.register_model_tree(model_class)
         expect(described_class.lookup?(model_class)).to be true
-        expect(described_class.lookup?(Address)).to be true
+        expect(described_class.lookup?(RegisterSpec::Address)).to be true
       end
     end
 

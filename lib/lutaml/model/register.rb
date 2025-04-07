@@ -26,16 +26,17 @@ module Lutaml
       end
 
       def get_class(klass_name)
-        klass = if @models.key?(klass_name)
-                  @models[klass_name]
-                elsif klass_name.is_a?(String)
-                  Lutaml::Model::Type.const_get(klass_name)
-                else
-                  Lutaml::Model::Type.lookup(klass_name)
-                end
-        raise UnkownTypeError.new(klass_name) if klass.nil?
-
-        klass
+        if @models.key?(klass_name)
+          @models[klass_name]
+        elsif klass_name.is_a?(String)
+          Lutaml::Model::Type.const_get(klass_name)
+        elsif klass_name.is_a?(Symbol)
+          Lutaml::Model::Type.lookup(klass_name)
+        elsif klass_name.is_a?(Class)
+          klass_name
+        else
+          raise Lutaml::Model::UnknownTypeError.new(klass_name)
+        end
       end
 
       def lookup(model)
