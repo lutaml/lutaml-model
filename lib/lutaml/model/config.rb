@@ -3,11 +3,6 @@ module Lutaml
     module Config
       extend self
 
-      # Default values are set for these so the readers are defined below
-      attr_writer :json_adapter, :yaml_adapter, :hash_adapter
-
-      attr_accessor :xml_adapter, :toml_adapter
-
       AVAILABLE_FORMATS = %i[xml json yaml toml hash].freeze
       KEY_VALUE_FORMATS = AVAILABLE_FORMATS - %i[xml]
 

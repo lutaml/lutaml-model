@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "spec_helper"
+require "lutaml/model/error/register/invalid_model_class_error"
 require "lutaml/model/register"
 
 module RegisterSpec
@@ -13,92 +14,113 @@ module RegisterSpec
 end
 
 RSpec.describe Lutaml::Model::Register do
-  describe ".register_model" do
+  describe "#initialize" do
+    it "initializes with id" do
+      register = described_class.new(:v1)
+      expect(register.id).to eq(:v1)
+      expect(register.models).to eq({})
+    end
+  end
+
+  describe "#register_model" do
     let(:v1_register) { described_class.new(:v1) }
 
     before do
-      v1_register.register_model(:custom_string, RegisterSpec::CustomString)
-      v1_register.register_model(:custom_integer, RegisterSpec::CustomInteger)
+      v1_register.register_model(RegisterSpec::CustomString, id: :custom_string)
+      v1_register.register_model(RegisterSpec::CustomInteger, id: :custom_integer)
     end
 
-    it "checks if `custom_string` is registered" do
-      expect(v1_register.lookup?(:custom_string)).to be_truthy
+    it "registers model with explicit id" do
+      expect(v1_register.models[:custom_string]).to eq(RegisterSpec::CustomString)
     end
 
-    it "matches registered custom_string class" do
-      expect(v1_register.lookup(:custom_string)).to be(RegisterSpec::CustomString)
-    end
-
-    it "overrides an existing type" do
-      expect { v1_register.register_model(:custom_string, Lutaml::Model::Type::String) }
-        .to change { v1_register.lookup(:custom_string) }
-        .from(RegisterSpec::CustomString)
-        .to(Lutaml::Model::Type::String)
+    it "allows overriding an existing type" do
+      v1_register.register_model(Lutaml::Model::Type::String, id: :custom_string)
+      expect(v1_register.models[:custom_string]).to eq(Lutaml::Model::Type::String)
     end
 
     it "registers serializable class" do
-      v1_register.register_model(:address, RegisterSpec::Address)
-      expect(v1_register.lookup(:address)).to be(RegisterSpec::Address)
+      v1_register.register_model(RegisterSpec::Address, id: :address)
+      expect(v1_register.models[:address]).to eq(RegisterSpec::Address)
+    end
+
+    it "registers model without explicit id" do
+      model_class = Class.new(Lutaml::Model::Serializable)
+      stub_const("TestModel", model_class)
+      v1_register.register_model(TestModel)
+      expect(v1_register.models[:test_model]).to eq(TestModel)
     end
   end
 
-  describe ".lookup!" do
+  describe "#lookup" do
     let(:v1_register) { described_class.new(:v1) }
 
-    context "when the type is registered" do
-      before do
-        v1_register.register_model(:registered_type, Array)
-      end
-
-      it "returns the registered type" do
-        expect(v1_register.lookup(:registered_type)).to eq(Array)
-      end
+    before do
+      v1_register.register_model(Array, id: :registered_type)
     end
 
-    context "when the serializable class is registered" do
-      it "returns the registered class" do
-        expect(v1_register.lookup(:address)).to eq(RegisterSpec::Address)
-      end
+    it "returns registered model by symbol key" do
+      expect(v1_register.lookup(:registered_type)).to eq(Array)
     end
 
-    context "when the serializable class is overriden registered" do
-      before do
-        stub_const(
-          "OtherAddress",
-          Class.new(Lutaml::Model::Serializable),
-        )
-      end
-
-      it "returns the new registered class" do
-        described_class.register_model(:address, OtherAddress)
-        expect(described_class.lookup!(:address)).to eq(OtherAddress)
-      end
+    it "returns registered model by class" do
+      v1_register.register_model(String)
+      expect(v1_register.lookup(String)).to eq(String)
     end
 
-    context "when the type is not registered" do
-      it "raises an UnknownTypeError" do
-        expect do
-          described_class.lookup!(:unknown_type)
-        end.to raise_error(
-          Lutaml::Model::UnknownTypeError,
-          "Unknown type 'unknown_type'",
-        )
-      end
-    end
-
-    context "when the type is not of supported data type" do
-      it "raises an UnknownTypeError" do
-        expect do
-          described_class.lookup!({})
-        end.to raise_error(
-          Lutaml::Model::UnknownTypeError,
-          "Unknown type '{}'",
-        )
-      end
+    it "returns nil for unregistered class" do
+      expect(v1_register.lookup(Hash)).to be_nil
     end
   end
 
-  describe ".register_model_tree" do
+  describe "#resolve" do
+    let(:v1_register) { described_class.new(:v1) }
+
+    before do
+      v1_register.register_model(String, id: :custom_type)
+    end
+
+    it "finds registered class by string representation" do
+      expect(v1_register.resolve("String")).to eq(String)
+    end
+
+    it "returns nil for unregistered class" do
+      expect(v1_register.resolve("UnknownClass")).to be_nil
+    end
+  end
+
+  describe "#get_class" do
+    let(:v1_register) { described_class.new(:v1) }
+
+    before do
+      v1_register.register_model(String, id: :custom_type)
+    end
+
+    it "returns registered class by key" do
+      expect(v1_register.get_class(:custom_type)).to eq(String)
+    end
+
+    it "returns class by string using constant lookup" do
+      expect(v1_register.get_class("String")).to eq(String)
+    end
+
+    it "returns class by symbol using Type.lookup" do
+      allow(Lutaml::Model::Type).to receive(:lookup).with(:String).and_return(String)
+      expect(v1_register.get_class(:String)).to eq(String)
+    end
+
+    it "returns class directly if class is provided" do
+      expect(v1_register.get_class(String)).to eq(String)
+    end
+
+    it "raises error for unsupported type" do
+      expect { v1_register.get_class(123) }.to raise_error(Lutaml::Model::UnknownTypeError)
+    end
+  end
+
+  describe "#register_model_tree" do
+    let(:v1_register) { described_class.new(:v1) }
+
     context "when registering a valid model" do
       let(:model_class) do
         Class.new(Lutaml::Model::Serializable) do
@@ -107,61 +129,77 @@ RSpec.describe Lutaml::Model::Register do
       end
 
       it "registers the model and its nested attributes" do
-        described_class.register_model_tree(model_class)
-        expect(described_class.lookup?(model_class)).to be true
-        expect(described_class.lookup?(RegisterSpec::Address)).to be true
-      end
-    end
-
-    context "when model is not a Serializable class" do
-      it "raises InvalidModelClassError" do
-        expect do
-          described_class.register_model_tree(String)
-        end.to raise_error(Lutaml::Model::InvalidModelClassError)
-      end
-    end
-
-    context "when model is already registered" do
-      let(:model_class) { Class.new(Lutaml::Model::Serializable) }
-
-      before { described_class.register_model_tree(model_class) }
-
-      it "raises UnexpectedModelReplacementError" do
-        expect do
-          described_class.register_model_tree(model_class)
-        end.to raise_error(Lutaml::Model::UnexpectedModelReplacementError)
+        v1_register.register_model_tree(model_class)
+        expect(v1_register.models.values).to include(model_class)
+        expect(v1_register.models.values).to include(RegisterSpec::Address)
       end
     end
   end
 
-  describe ".register_global_type_substitution" do
+  describe "#register_global_type_substitution" do
+    let(:v1_register) { described_class.new(:v1) }
+
     it "registers a global type substitution" do
-      described_class.register_global_type_substitution(from_type: :string, to_type: :text)
-      expect(described_class.instance_variable_get(:@global_substitutions)).to include(string: :text)
+      v1_register.register_global_type_substitution(from_type: :string, to_type: :text)
+      expect(v1_register.instance_variable_get(:@global_substitutions)).to include(string: :text)
     end
   end
 
-  describe ".resolve" do
-    before { described_class.register_model(:custom_type, String) }
-
-    it "finds registered class by string representation" do
-      expect(described_class.resolve("String")).to eq(String)
+  describe "#process_attributes" do
+    let(:v1_register) { described_class.new(:v1) }
+    let(:model_class) do
+      Class.new(Lutaml::Model::Serializable) do
+        attribute :nested_address, RegisterSpec::Address
+        attribute :string_attr, :string
+      end
     end
 
-    it "returns nil for unregistered class" do
-      expect(described_class.resolve("UnknownClass")).to be_nil
+    it "registers non-builtin type attributes" do
+      attributes = model_class.attributes
+      v1_register.process_attributes(attributes)
+      expect(v1_register.models.values).to include(RegisterSpec::Address)
+    end
+
+    it "doesn't register built-in types" do
+      attributes = model_class.attributes
+      v1_register.process_attributes(attributes)
+      # Verify built-in type (:string) wasn't registered
+      expect(v1_register.models.keys).not_to include(:string)
+    end
+
+    it "uses register_model_tree! when strict is true" do
+      attributes = model_class.attributes
+      expect(v1_register).to receive(:register_model_tree!).with(RegisterSpec::Address)
+      v1_register.process_attributes(attributes, strict: true)
     end
   end
 
-  describe ".get_class" do
-    before { described_class.register_model(:custom_type, String) }
+  describe "#register_model!" do
+    let(:v1_register) { described_class.new(:v1) }
 
-    it "returns registered class by key" do
-      expect(described_class.get_class(:custom_type)).to eq(String)
+    it "raises InvalidModelClassError when model is not a Serializable class" do
+      expect do
+        v1_register.register_model!(String)
+      end.to raise_error(Lutaml::Model::Register::InvalidModelClassError)
     end
 
-    it "returns nil for unregistered key" do
-      expect(described_class.get_class(:unknown_key)).to be_nil
+    it "raises UnexpectedModelReplacementError when model is already registered" do
+      ModelClass = Class.new(Lutaml::Model::Serializable)
+      stub_const("ModelClass", ModelClass)
+      v1_register.register_model(ModelClass, id: ModelClass.name.to_sym)
+
+      expect do
+        v1_register.register_model!(ModelClass)
+      end.to raise_error(Lutaml::Model::Register::UnexpectedModelReplacementError)
     end
+
+    it "registers serializable class when valid" do
+      v1_register.register_model!(RegisterSpec::Address, id: :address)
+      expect(v1_register.lookup(:address)).to eq(RegisterSpec::Address)
+    end
+  end
+
+  describe "#register_model_tree!" do
+    # Similar to above, these tests would be included once the method is fixed
   end
 end

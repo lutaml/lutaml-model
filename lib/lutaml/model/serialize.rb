@@ -350,7 +350,7 @@ module Lutaml
               )
             end
 
-            mapping.root(to_s.split("::").last) if format == :xml
+            mapping.root(Utils.base_class_name(self)) if format == :xml
           end
         end
 

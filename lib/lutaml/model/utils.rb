@@ -34,6 +34,16 @@ module Lutaml
             .downcase
         end
 
+        # Extract the base name of the class
+        def base_class_name(klass)
+          klass.to_s.split("::").last
+        end
+
+        # Convert the extracted base class to snake case format
+        def base_class_snake_name(klass)
+          snake_case(base_class_name(klass))
+        end
+
         def initialized?(value)
           return true unless value.respond_to?(:initialized?)
 
