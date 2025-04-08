@@ -115,7 +115,7 @@ module Lutaml
             rule_names.include?(child.namespaced_name) && !child.text?
           end
 
-          if rule.using_custom_methods? || attr.type == Lutaml::Model::Type::Hash
+          if rule.has_custom_method_for_deserialization? || attr.type == Lutaml::Model::Type::Hash
             return_child = attr.type == Lutaml::Model::Type::Hash || !attr.collection? if attr
             return return_child ? children.first : children
           end
@@ -132,7 +132,7 @@ module Lutaml
           end
 
           children&.each do |child|
-            if !rule.using_custom_methods? && attr.type <= Serialize
+            if !rule.has_custom_method_for_deserialization? && attr.type <= Serialize
               cast_options = options.except(:mappings)
               cast_options[:polymorphic] = rule.polymorphic if rule.polymorphic
 

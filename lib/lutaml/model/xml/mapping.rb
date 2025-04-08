@@ -276,10 +276,12 @@ module Lutaml
             )
           end
 
-          validate_with_options!(key, with)
+          validate_with_options!(key, to, with)
         end
 
-        def validate_with_options!(key, with)
+        def validate_with_options!(key, to, with)
+          return true if to
+
           if !with.empty? && (with[:from].nil? || with[:to].nil?)
             raise IncorrectMappingArgumentsError.new(
               ":with argument for mapping '#{key}' requires :to and :from keys",

@@ -3,6 +3,30 @@ require "spec_helper"
 RSpec.describe Lutaml::Model::KeyValueMapping do
   let(:mapping) { described_class.new(:json) }
 
+  it "raises error when :to is nil and :with single mapping" do
+    expect do
+      mapping.map("test", with: { from: :from_method })
+    end.to raise_error(
+      Lutaml::Model::IncorrectMappingArgumentsError,
+      ":with argument for mapping 'test' requires :to and :from keys",
+    )
+  end
+
+  it "raises error when :to is nil and :with arguments have nil values" do
+    expect do
+      mapping.map("test", with: { from: nil, to: nil })
+    end.to raise_error(
+      Lutaml::Model::IncorrectMappingArgumentsError,
+      ":with argument for mapping 'test' requires :to and :from keys",
+    )
+  end
+
+  it "does not raise error when using :to, and :with has single mapping" do
+    expect do
+      mapping.map("test", to: :field, with: { to: :to_method })
+    end.not_to raise_error
+  end
+
   context "with delegate option" do
     before do
       mapping.map("type", to: :type, delegate: :some_delegate)

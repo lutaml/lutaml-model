@@ -1268,6 +1268,12 @@ RSpec.describe Lutaml::Model::Xml::Mapping do
         )
       end
 
+      it "does not raise error when :to is provided" do
+        expect do
+          mapping.map_element("test", to: :test, with: { from: "value" })
+        end.not_to raise_error
+      end
+
       describe "map_attribute validations" do
         it "raises error for invalid :with argument" do
           expect do
@@ -1276,6 +1282,12 @@ RSpec.describe Lutaml::Model::Xml::Mapping do
             Lutaml::Model::IncorrectMappingArgumentsError,
             ":with argument for mapping 'test' requires :to and :from keys",
           )
+        end
+
+        it "does not raise error if to is provided" do
+          expect do
+            mapping.map_attribute("test", to: :test, with: { from: "value" })
+          end.not_to raise_error
         end
       end
 
