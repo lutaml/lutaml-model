@@ -301,14 +301,14 @@ module Lutaml
       private
 
       def resolve_polymorphic_class(type, value, options)
-        return type unless can_resolve_polymorphic_class?(options, value)
+        return type unless polymorphic_map_defined?(options, value)
 
         val = value[options[:polymorphic][:attribute]]
         klass_name = options[:polymorphic][:class_map][val]
         Object.const_get(klass_name)
       end
 
-      def can_resolve_polymorphic_class?(polymorphic_options, value)
+      def polymorphic_map_defined?(polymorphic_options, value)
         !value.nil? &&
           polymorphic_options[:polymorphic] &&
           !polymorphic_options[:polymorphic].empty? &&
