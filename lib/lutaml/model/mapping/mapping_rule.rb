@@ -216,8 +216,12 @@ module Lutaml
           assign_value(model, value)
       end
 
-      def using_custom_methods?
-        !custom_methods.empty?
+      def has_custom_method_for_serialization?
+        !custom_methods.empty? && custom_methods[:to]
+      end
+
+      def has_custom_method_for_deserialization?
+        !custom_methods.empty? && custom_methods[:from]
       end
 
       def multiple_mappings?

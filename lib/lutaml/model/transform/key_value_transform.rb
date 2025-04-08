@@ -187,7 +187,7 @@ module Lutaml
         value = extract_rule_value(doc, rule, format, attr)
         value = apply_value_map(value, rule.value_map(:from, options), attr)
 
-        return process_custom_method(rule, instance, value) if rule.using_custom_methods?
+        return process_custom_method(rule, instance, value) if rule.has_custom_method_for_deserialization?
 
         value = translate_mappings(value, rule.hash_mappings, attr, format)
         value = cast_value(value, attr, format, rule) unless rule.hash_mappings

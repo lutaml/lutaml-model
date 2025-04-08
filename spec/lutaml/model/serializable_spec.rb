@@ -96,6 +96,48 @@ module SerializeableSpec
                                         }
     end
   end
+
+  ### Single option serialization
+
+  class SingleOptionModel < Lutaml::Model::Serializable
+    attribute :name, :string
+    attribute :age, :integer
+    attribute :phone, :string
+    attribute :address, :string
+
+    json do
+      map "name", to: :name
+      map "age", to: :age
+      map "phone", to: :phone, with: { to: :phone_to_json }
+      map "address", to: :address, with: { from: :address_from_json }
+    end
+
+    xml do
+      root "person"
+      map_element "name", to: :name
+      map_element "age", to: :age
+      map_element "phone", to: :phone, with: { to: :phone_to_xml }
+      map_element "address", to: :address, with: { from: :address_from_xml }
+    end
+
+    def phone_to_json(model, doc)
+      doc["phone"] = "+1-#{model.phone}"
+    end
+
+    def address_from_json(model, value)
+      model.address = value.sub(/^Address: /, "")
+    end
+
+    def phone_to_xml(model, parent, doc)
+      el = doc.create_element("phone")
+      doc.add_text(el, "+1-#{model.phone}")
+      doc.add_element(parent, el)
+    end
+
+    def address_from_xml(model, value)
+      model.address = value.text.sub(/^Address: /, "")
+    end
+  end
 end
 
 RSpec.describe Lutaml::Model::Serializable do
@@ -342,6 +384,81 @@ RSpec.describe Lutaml::Model::Serializable do
                                                          firing_temperature: 1000),
         )
         expect(collection.featured_piece.type).to eq("Earthenware")
+      end
+    end
+  end
+
+  describe "Single option serialization" do
+    let(:attributes) do
+      {
+        name: "John Doe",
+        age: 30,
+        phone: "123-456-7890",
+        address: "123 Main St",
+      }
+    end
+
+    let(:model) { SerializeableSpec::SingleOptionModel.new(attributes) }
+
+    describe "JSON serialization" do
+      let(:expected_json) do
+        {
+          name: "John Doe",
+          age: 30,
+          phone: "+1-123-456-7890",
+          address: "123 Main St",
+        }.to_json
+      end
+
+      let(:parsed) do
+        SerializeableSpec::SingleOptionModel.from_json(
+          {
+            name: "John Doe",
+            age: 30,
+            phone: "123-456-7890",
+            address: "Address: 123 Main St",
+          }.to_json,
+        )
+      end
+
+      it "serializes to JSON with custom name transformation" do
+        expect(model.to_json).to eq(expected_json)
+      end
+
+      it "deserializes from JSON with custom name transformation" do
+        expect(parsed).to eq(model)
+      end
+    end
+
+    describe "XML serialization" do
+      let(:expected_xml) do
+        <<~XML
+          <person>
+            <name>John Doe</name>
+            <age>30</age>
+            <phone>+1-123-456-7890</phone>
+            <address>123 Main St</address>
+          </person>
+        XML
+      end
+
+      let(:parsed) do
+        SerializeableSpec::SingleOptionModel.from_xml <<~XML
+          <person>
+            <name>John Doe</name>
+            <age>30</age>
+            <phone>123-456-7890</phone>
+            <address>Address: 123 Main St</address>
+          </person>
+        XML
+      end
+
+      it "serializes to XML with custom name transformation" do
+        expect(model.to_xml).to be_equivalent_to(expected_xml)
+      end
+
+      it "deserializes from XML with custom name transformation" do
+        expect(parsed).to eq(model)
       end
     end
   end
