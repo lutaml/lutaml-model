@@ -23,15 +23,15 @@ module Lutaml
         end
 
         def self.generate_attribute_schema(attr)
-          if attr.type <= Lutaml::Model::Serialize
-            generate_schema(attr.type)
+          if attr.resolved_type <= Lutaml::Model::Serialize
+            generate_schema(attr.resolved_type)
           elsif attr.collection?
             {
               "type" => "seq",
-              "sequence" => [{ "type" => get_yaml_type(attr.type) }],
+              "sequence" => [{ "type" => get_yaml_type(attr.resolved_type) }],
             }
           else
-            { "type" => get_yaml_type(attr.type) }
+            { "type" => get_yaml_type(attr.resolved_type) }
           end
         end
 
