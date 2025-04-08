@@ -188,7 +188,7 @@ module Lutaml
         return value.all? { |v| validate_polymorphic!(v) } if value.is_a?(Array)
         return true unless options[:polymorphic]
 
-        valid_polymorphic_type?(value) if options[:polymorphic]
+        valid_polymorphic_type?(value)
       end
 
       def validate_polymorphic!(value)
@@ -301,22 +301,18 @@ module Lutaml
       private
 
       def resolve_polymorphic_class(type, value, options)
-        return type unless polymorphic_map_defined?(options, value)
+        return type unless can_resolve_polymorphic_class?(options, value)
 
         val = value[options[:polymorphic][:attribute]]
         klass_name = options[:polymorphic][:class_map][val]
         Object.const_get(klass_name)
       end
 
-      def polymorphic_map_defined?(options, value)
-        !value.nil? && polymorphic_sub_classes_specified? &&
-          options[:polymorphic] &&
-          !options[:polymorphic].empty? &&
-          value[options[:polymorphic][:attribute]]
-      end
-
-      def polymorphic_sub_classes_specified?
-        @options[:polymorphic].is_a?(Array) && !@options[:polymorphic].empty?
+      def can_resolve_polymorphic_class?(polymorphic_options, value)
+        !value.nil? &&
+          polymorphic_options[:polymorphic] &&
+          !polymorphic_options[:polymorphic].empty? &&
+          value[polymorphic_options[:polymorphic][:attribute]]
       end
 
       def castable?(value, format)
@@ -406,9 +402,13 @@ module Lutaml
       end
 
       def valid_polymorphic_type?(value)
-        return value.is_a?(type) unless polymorphic_sub_classes_specified?
+        return value.is_a?(type) unless has_polymorphic_list?
 
         options[:polymorphic].include?(value.class) && value.is_a?(type)
+      end
+
+      def has_polymorphic_list?
+        options[:polymorphic]&.is_a?(Array)
       end
     end
   end
