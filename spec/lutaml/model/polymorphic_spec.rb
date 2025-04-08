@@ -86,7 +86,7 @@ module PolymorphicSpec
       xml do
         root "ReferenceSet"
         map_element "references", to: :references, polymorphic: {
-          attribute: "_class",
+          attribute: "reference-type",
           class_map: {
             "document-ref" => "PolymorphicSpec::Base::DocumentReference",
             "anchor-ref" => "PolymorphicSpec::Base::AnchorReference",
@@ -330,6 +330,11 @@ RSpec.describe "Polymorphic" do
         PolymorphicSpec::Base::SimpleReferenceSet.from_yaml(yaml)
       end
 
+      let(:error_message) do
+        "PolymorphicSpec::Base::InvalidClasses::AnchorReference is not " \
+          "valid sub class of PolymorphicSpec::Base::Reference"
+      end
+
       it "deserializes correctly" do
         expect(parsed_yaml).to eq(reference_set)
       end
@@ -339,9 +344,9 @@ RSpec.describe "Polymorphic" do
       end
 
       it "raises error" do
-        expect { invalid_reference_set.validate! }.to raise_error(Lutaml::Model::ValidationError) do |error|
-          expect(error.message).to eq("PolymorphicSpec::Base::InvalidClasses::AnchorReference is not valid sub class of PolymorphicSpec::Base::Reference")
-        end
+        expect do
+          invalid_reference_set.validate!
+        end.to raise_error(Lutaml::Model::ValidationError, error_message)
       end
     end
 
@@ -390,7 +395,7 @@ RSpec.describe "Polymorphic" do
       end
 
       it "does not raise error if polymorphic is set to true" do
-        expect { reference_set.validate! }.not_to raise_error(Lutaml::Model::ValidationError)
+        expect { reference_set.validate! }.not_to raise_error
       end
 
       it "has empty errors array on validate" do
