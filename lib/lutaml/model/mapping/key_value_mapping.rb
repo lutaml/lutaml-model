@@ -4,12 +4,20 @@ require_relative "key_value_mapping_rule"
 module Lutaml
   module Model
     class KeyValueMapping < Mapping
-      attr_reader :mappings, :format
+      attr_reader :mappings, :format, :root
 
       def initialize(format = nil)
         super()
 
         @format = format
+      end
+
+      def root(name)
+        @root = name
+      end
+
+      def no_root?
+        @root.nil?
       end
 
       def map(
@@ -76,6 +84,10 @@ module Lutaml
 
       alias map_all_content map_all
 
+      def map_instances(to:)
+        map(to, to: to)
+      end
+
       def name_for_mapping(root_mappings, name)
         return "root_mapping" if root_mappings
 
@@ -112,7 +124,7 @@ module Lutaml
       end
 
       def validate_root_mappings!(name)
-        if @mappings.any?(&:root_mapping?) || (name == "root_mapping" && @mappings.any?)
+        if root_mapping || (name == "root_mapping" && @mappings.any?)
           raise MultipleMappingsError.new("root_mappings cannot be used with other mappings")
         end
       end
@@ -147,6 +159,10 @@ module Lutaml
 
       def polymorphic_mapping
         @mappings.find(&:polymorphic_mapping?)
+      end
+
+      def root_mapping
+        @mappings.find(&:root_mapping?)
       end
 
       Lutaml::Model::Config::KEY_VALUE_FORMATS.each do |format|

@@ -14,7 +14,7 @@ require_relative "model/config"
 require_relative "model/global_register"
 require_relative "model/register"
 require_relative "model/format_registry"
-
+require_relative "model/collection"
 require_relative "model/key_value_document"
 require_relative "model/yaml"
 require_relative "model/json"
