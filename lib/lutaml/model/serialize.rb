@@ -264,12 +264,6 @@ module Lutaml
         end
 
         def process_mapping(format, &block)
-          # klass = Lutaml::Model.const_get("#{format.to_s.capitalize}Mapping")
-          # mappings[format] ||= klass.new
-          # mappings[format].instance_eval(&block)
-
-          # handle_root_assignment(mappings, format)
-
           klass = ::Lutaml::Model::Config.mappings_class_for(format)
           mappings[format] ||= klass.new
 
@@ -295,7 +289,8 @@ module Lutaml
           end
 
           if format == :xml
-            raise Lutaml::Model::NoRootMappingError.new(self) unless root?
+            valid = root? || options[:from_collection]
+            raise Lutaml::Model::NoRootMappingError.new(self) unless valid
 
             options[:encoding] = doc.encoding
           end
@@ -452,10 +447,7 @@ module Lutaml
         end
 
         define_method(:"to_#{format}") do |options = {}|
-          raise Lutaml::Model::NoRootMappingError.new(self.class) if format == :xml && !self.class.root?
-
-          options[:parse_encoding] = encoding if encoding
-          self.class.to(format, self, options)
+          to_format(format, options)
         end
       end
 
@@ -567,6 +559,13 @@ module Lutaml
 
       def to_yaml_hash
         self.class.as_yaml(self)
+      end
+
+      def to_format(format, options = {})
+        raise Lutaml::Model::NoRootMappingError.new(self.class) if format == :xml && (!options[:collection] && !self.class.root?)
+
+        options[:parse_encoding] = encoding if encoding
+        self.class.to(format, self, options)
       end
 
       private
