@@ -4,7 +4,7 @@ require_relative "key_value_mapping_rule"
 module Lutaml
   module Model
     class KeyValueMapping < Mapping
-      attr_reader :mappings, :format, :root
+      attr_reader :mappings, :format, :root, :key_mappings, :value_mappings
 
       def initialize(format = nil)
         super()
@@ -14,6 +14,10 @@ module Lutaml
 
       def root(name)
         @root = name
+      end
+
+      def no_root
+        @root = nil
       end
 
       def no_root?
@@ -86,6 +90,35 @@ module Lutaml
 
       def map_instances(to:)
         map(to, to: to)
+      end
+
+      def map_key(to_instance: nil, as_attribute: nil)
+        @key_mappings = KeyValueMappingRule.new(
+          Constants::KEY_MAPPING_KEY,
+          to: nil,
+          to_instance: to_instance,
+          as_attribute: as_attribute,
+        )
+      end
+
+      def map_value(to_instance: nil, as_attribute: nil)
+        @value_mappings = KeyValueMappingRule.new(
+          Constants::VALUE_MAPPING_KEY,
+          to: nil,
+          to_instance: to_instance,
+          as_attribute: as_attribute,
+        )
+      end
+
+      def key_value_mappings
+        {
+          key: @key_mappings,
+          value: @value_mappings,
+        }.compact
+      end
+
+      def key_value_mappings?
+        Utils.present?(@key_mappings) || Utils.present?(@value_mappings)
       end
 
       def name_for_mapping(root_mappings, name)

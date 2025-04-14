@@ -5,7 +5,10 @@ module Lutaml
         instance = model_class.new
         mappings = extract_mappings(options, format)
 
-        mappings.each do |rule|
+        options[:key_mappings] = mappings.key_mappings if mappings.key_mappings
+        options[:value_mappings] = mappings.value_mappings if mappings.value_mappings
+
+        mappings.mappings.each do |rule|
           process_mapping_rule(data, instance, format, rule, options)
         end
 
@@ -13,14 +16,20 @@ module Lutaml
       end
 
       def model_to_data(instance, format, options = {})
-        mappings = mappings_for(format).mappings
+        mappings = mappings_for(format)
 
-        mappings.each_with_object({}) do |rule, hash|
+        hash = {}
+        mappings.mappings.each do |rule|
           next unless valid_mapping?(rule, options)
           next handle_delegate(instance, rule, hash, format) if rule.delegate
 
-          process_mapping_for_instance(instance, hash, format, rule, options)
+          value = process_mapping_for_instance(instance, hash, format, rule, options)
+          if mappings.key_value_mappings? && value
+            hash[rule_from_name(rule)] = handle_key_value_mappings(value, mappings)
+          end
         end
+
+        hash
       end
 
       private
@@ -175,7 +184,7 @@ module Lutaml
       end
 
       def extract_mappings(options, format)
-        options[:mappings] || mappings_for(format).mappings
+        options[:mappings] || mappings_for(format)
       end
 
       def process_mapping_rule(doc, instance, format, rule, options = {})
@@ -184,7 +193,7 @@ module Lutaml
         attr = attribute_for_rule(rule)
         return if attr&.derived?
 
-        value = extract_rule_value(doc, rule, format, attr)
+        value = extract_rule_value(doc, rule, format, attr, options)
         value = apply_value_map(value, rule.value_map(:from, options), attr)
 
         return process_custom_method(rule, instance, value) if rule.has_custom_method_for_deserialization?
@@ -196,11 +205,28 @@ module Lutaml
         rule.deserialize(instance, value, attributes, self)
       end
 
-      def extract_rule_value(doc, rule, format, attr)
+      def extract_rule_value(doc, rule, format, attr, options = {})
         rule_names = rule.multiple_mappings? ? rule.name : [rule.name]
 
         rule_names.each do |rule_name|
-          value = rule_value_for(rule_name, doc, rule, format, attr)
+          value = rule_value_for(rule_name, doc, rule, format, attr, options)
+
+          if (options[:key_mappings] || options[:value_mappings]) && value.is_a?(Hash)
+            value = value.map do |k, v|
+              if v.is_a?(Hash)
+                v.merge(
+                  {
+                    options[:key_mappings].to_instance.to_s => k,
+                  },
+                )
+              else
+                {
+                  options[:key_mappings].to_instance.to_s => k,
+                  options[:value_mappings].as_attribute.to_s => v,
+                }
+              end
+            end
+          end
 
           return value if Utils.initialized?(value)
         end
@@ -208,7 +234,7 @@ module Lutaml
         Lutaml::Model::UninitializedClass.instance
       end
 
-      def rule_value_for(name, doc, rule, format, attr)
+      def rule_value_for(name, doc, rule, format, attr, options = {})
         if rule.root_mapping?
           doc
         elsif rule.raw_mapping?
@@ -283,8 +309,21 @@ module Lutaml
           attr.type,
           child_hash,
           format,
-          { mappings: attr.type.mappings_for(format).mappings },
+          { mappings: attr.type.mappings_for(format) },
         )
+      end
+
+      def handle_key_value_mappings(value, mappings)
+        value.to_h do |v|
+          [
+            v[mappings.key_mappings.to_instance.to_s],
+            if mappings.value_mappings
+              v[mappings.value_mappings.as_attribute.to_s]
+            else
+              v.except(mappings.key_mappings.to_instance.to_s)
+            end,
+          ]
+        end
       end
     end
   end
