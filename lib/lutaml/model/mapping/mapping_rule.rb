@@ -3,6 +3,8 @@ module Lutaml
     class MappingRule
       attr_reader :name,
                   :to,
+                  :to_instance,
+                  :as_attribute,
                   :render_nil,
                   :render_default,
                   :render_empty,
@@ -44,6 +46,8 @@ module Lutaml
       def initialize(
         name,
         to:,
+        to_instance: nil,
+        as_attribute: nil,
         render_nil: false,
         render_default: false,
         render_empty: false,
@@ -61,6 +65,8 @@ module Lutaml
       )
         @name = name
         @to = to
+        @to_instance = to_instance
+        @as_attribute = as_attribute
         @render_nil = render_nil
         @render_default = render_default
         @render_empty = render_empty

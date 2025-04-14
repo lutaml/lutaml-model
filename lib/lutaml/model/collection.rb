@@ -4,19 +4,13 @@ module Lutaml
       include Enumerable
 
       class << self
-        def instances(name, type)
-          attribute(name, type, collection: true)
+        attr_reader :instance_type, :instance_name
+
+        def instances(name, type, &block)
+          attribute(name, type, collection: true, validations: block)
 
           @instance_type = type
           @instance_name = name
-        end
-
-        def instance_name
-          @instance_name
-        end
-
-        def instance_type
-          @instance_type
         end
 
         def to(format, instance, options = {})
@@ -61,6 +55,10 @@ module Lutaml
 
           super(format, data, options.merge(from_collection: true))
         end
+
+        def apply_mappings(data, format, options = {})
+          super(data, format, options.merge(collection: true))
+        end
       end
 
       def initialize(items = [])
@@ -83,11 +81,11 @@ module Lutaml
       end
 
       def collection
-        instance_variable_get("@#{self.class.instance_name}")
+        instance_variable_get(:"@#{self.class.instance_name}")
       end
 
       def collection=(collection)
-        instance_variable_set("@#{self.class.instance_name}", collection)
+        instance_variable_set(:"@#{self.class.instance_name}", collection)
       end
 
       def each(&block)

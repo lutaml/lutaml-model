@@ -359,7 +359,6 @@ module Lutaml
             return resolve_polymorphic(doc, format, mappings, instance, options)
           end
 
-          # options[:mappings] = mappings.mappings
           transformer = Lutaml::Model::Config.transformer_for(format)
           transformer.data_to_model(self, doc, format, options)
         end

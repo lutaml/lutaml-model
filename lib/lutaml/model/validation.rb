@@ -3,6 +3,7 @@ module Lutaml
     module Validation
       def validate
         errors = []
+
         self.class.attributes.each do |name, attr|
           value = public_send(:"#{name}")
           begin
@@ -15,6 +16,7 @@ module Lutaml
                  Lutaml::Model::CollectionCountOutOfRangeError,
                  Lutaml::Model::CollectionTrueMissingError,
                  Lutaml::Model::PolymorphicError,
+                 Lutaml::Model::ValidationFailedError,
                  PatternNotMatchedError => e
             errors << e
           end
