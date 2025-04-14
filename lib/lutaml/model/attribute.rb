@@ -17,6 +17,7 @@ module Lutaml
         polymorphic
         polymorphic_class
         initialize_empty
+        validations
       ].freeze
 
       def initialize(name, type, options = {})
@@ -168,8 +169,22 @@ module Lutaml
 
         valid_value!(value) &&
           valid_collection!(value, self) &&
-          valid_pattern!(value, register) &&
-          validate_polymorphic!(value, register)
+          valid_pattern!(value) &&
+          validate_polymorphic!(value) &&
+          execute_validations!(value)
+      end
+
+      # execute custom validations on the attribute value
+      # i.e presence: true, numericality: true, etc
+      def execute_validations!(value)
+        return true if Utils.blank?(value)
+
+        memoization_container = {}
+        errors = Lutaml::Model::Validator.call(value, validations, memoization_container)
+
+        return if errors.empty?
+
+        raise Lutaml::Model::ValidationFailedError.new(errors)
       end
 
       def validate_polymorphic(value, register)
@@ -234,7 +249,7 @@ module Lutaml
         range = options[:collection]
         return true unless range.is_a?(Range)
 
-        if range.end.nil?
+        if range.is_a?(Range) && range.end.nil?
           if value.size < range.begin
             raise Lutaml::Model::CollectionCountOutOfRangeError.new(
               name,
@@ -242,7 +257,7 @@ module Lutaml
               range,
             )
           end
-        elsif !range.cover?(value.size)
+        elsif range.is_a?(Range) && !range.cover?(value.size)
           raise Lutaml::Model::CollectionCountOutOfRangeError.new(
             name,
             value,
@@ -343,6 +358,7 @@ module Lutaml
       def process_options!
         validate_options!(@options)
         @raw = !!@options[:raw]
+        @validations = @options[:validations]
         set_default_for_collection if collection?
       end
 

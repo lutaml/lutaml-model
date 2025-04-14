@@ -2,6 +2,7 @@
 
 require "moxml"
 require_relative "model/uninitialized_class"
+require_relative "model/errors"
 require_relative "model/services"
 require_relative "model/version"
 require_relative "model/type"
