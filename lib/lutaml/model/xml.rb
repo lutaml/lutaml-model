@@ -6,7 +6,7 @@ module Lutaml
       def self.detect_xml_adapter
         return :nokogiri if Object.const_defined?(:Nokogiri)
         return :ox if Object.const_defined?(:Ox)
-        return :opal if Object.const_defined?(:Opal)
+        return :oga if Object.const_defined?(:Oga)
 
         nil
       end
