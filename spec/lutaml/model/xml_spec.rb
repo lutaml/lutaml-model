@@ -9,7 +9,7 @@ RSpec.describe Lutaml::Model::Xml do
       # Hide any existing constants first
       hide_const("Nokogiri") if Object.const_defined?(:Nokogiri)
       hide_const("Ox") if Object.const_defined?(:Ox)
-      hide_const("Opal") if Object.const_defined?(:Opal)
+      hide_const("Oga") if Object.const_defined?(:Oga)
     end
 
     context "when Nokogiri is available" do
@@ -32,13 +32,13 @@ RSpec.describe Lutaml::Model::Xml do
       end
     end
 
-    context "when Opal is available" do
+    context "when Oga is available" do
       before do
-        stub_const("Opal", Module.new)
+        stub_const("Oga", Module.new)
       end
 
-      it "returns :opal" do
-        expect(described_class.detect_xml_adapter).to eq(:opal)
+      it "returns :oga" do
+        expect(described_class.detect_xml_adapter).to eq(:oga)
       end
     end
 
@@ -52,7 +52,7 @@ RSpec.describe Lutaml::Model::Xml do
       before do
         stub_const("Nokogiri", Module.new)
         stub_const("Ox", Module.new)
-        stub_const("Opal", Module.new)
+        stub_const("Oga", Module.new)
       end
 
       it "prefers Nokogiri" do
