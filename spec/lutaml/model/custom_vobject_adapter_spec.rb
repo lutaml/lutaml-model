@@ -116,7 +116,7 @@ require "spec_helper"
 
 require_relative "../../../lib/lutaml/model/serialization_adapter"
 
-module CustomVojectAdapterSpec
+module CustomVobjectAdapterSpec
   class VobjectParser
     def initialize(data)
       @data = data
@@ -994,7 +994,7 @@ module CustomVojectAdapterSpec
       described_class.new(
         version: "4.0",
         fn: "John Doe",
-        n: CustomVojectAdapterSpec::VcardName.new(
+        n: CustomVobjectAdapterSpec::VcardName.new(
           family: "Doe",
           given: "John",
           additional: "Middle",
@@ -1002,13 +1002,13 @@ module CustomVojectAdapterSpec
           suffix: "PhD",
         ),
         tel: [
-          CustomVojectAdapterSpec::VcardTel.new(value: "tel:+1-555-555-5555"),
-          CustomVojectAdapterSpec::VcardTel.new(value: "tel:+1-555-555-1234"),
+          CustomVobjectAdapterSpec::VcardTel.new(value: "tel:+1-555-555-5555"),
+          CustomVobjectAdapterSpec::VcardTel.new(value: "tel:+1-555-555-1234"),
         ],
         email: ["john.doe@example.com", "j.doe@company.com"],
         org: "Example Corp",
-        bday: CustomVojectAdapterSpec::VcardBday.new(
-          value: CustomVojectAdapterSpec::VobjectPropertyValue.parse("1970-01-01", "DATE-AND-OR-TIME"),
+        bday: CustomVobjectAdapterSpec::VcardBday.new(
+          value: CustomVobjectAdapterSpec::VobjectPropertyValue.parse("1970-01-01", "DATE-AND-OR-TIME"),
         ),
       )
     end
