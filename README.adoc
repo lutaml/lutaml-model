@@ -7217,7 +7217,7 @@ values in the set `[one, two, three]`.
 
 [source,ruby]
 ----
-class Klin < Lutaml::Model::Serializable
+class Kiln < Lutaml::Model::Serializable
   attribute :name, :string
   attribute :degree_settings, :integer, collection: (1..)
   attribute :description, :string, values: %w[one two three]
@@ -7239,19 +7239,19 @@ class Klin < Lutaml::Model::Serializable
   end
 end
 
-klin = Klin.new(name: "Klin", degree_settings: [100, 200, 300], description: "one", prefix: "Ben")
-klin.validate
+kiln = Kiln.new(name: "Kiln", degree_settings: [100, 200, 300], description: "one", prefix: "Ben")
+kiln.validate
 # => []
 
-klin = Klin.new(name: "Klin", degree_settings: [], description: "four", prefix: "Ben", nick_name: "Smith")
-klin.validate
+kiln = Kiln.new(name: "Kiln", degree_settings: [], description: "four", prefix: "Ben", nick_name: "Smith")
+kiln.validate
 # => [
 #      #<Lutaml::Model::CollectionSizeError: degree_settings must have at least 1 element>,
 #      #<Lutaml::Model::ValueError: description must be one of [one, two, three]>,
 #      #<Lutaml::Model::ChoiceUpperBoundError: Attribute count exceeds the upper bound>
 #    ]
 
-e = klin.validate!
+e = kiln.validate!
 # => Lutaml::Model::ValidationError: [
 #      degree_settings must have at least 1 element,
 #      description must be one of [one, two, three],
@@ -7279,7 +7279,7 @@ The following class validates the `degree_settings` attribute when the `type` is
 
 [source,ruby]
 ----
-class Klin < Lutaml::Model::Serializable
+class Kiln < Lutaml::Model::Serializable
   attribute :name, :string
   attribute :type, :string, values: %w[glass ceramic]
   attribute :degree_settings, :integer, collection: (1..)
@@ -7292,8 +7292,8 @@ class Klin < Lutaml::Model::Serializable
   end
 end
 
-klin = Klin.new(name: "Klin", type: "glass", degree_settings: [100, 200, 1400])
-klin.validate
+kiln = Kiln.new(name: "Kiln", type: "glass", degree_settings: [100, 200, 1400])
+kiln.validate
 # => [#<Lutaml::Model::Error: Degree settings for glass must be less than 1300>]
 ----
 ====
