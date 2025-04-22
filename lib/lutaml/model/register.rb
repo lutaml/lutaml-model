@@ -16,6 +16,7 @@ module Lutaml
       end
 
       def register_model!(klass, id: nil)
+        return register_in_type(klass, id) if klass < Lutaml::Model::Type::Value
         raise Lutaml::Model::Register::InvalidModelClassError.new(klass) unless klass < Lutaml::Model::Serialize
         raise Lutaml::Model::Register::UnexpectedModelReplacementError.new(klass, @models.key(klass)) if lookup?(klass)
 
@@ -48,12 +49,17 @@ module Lutaml
 
       def register_model_tree(klass)
         register_model(klass)
-        require_tree(klass.attributes)
+        if klass < Lutaml::Model::Serializable
+          register_attributes(klass.attributes)
+        end
       end
 
       def register_model_tree!(klass)
+        # binding.irb
         register_model!(klass)
-        require_tree!(klass.attributes)
+        if klass < Lutaml::Model::Serializable
+          register_attributes(klass.attributes, strict: true)
+        end
       end
 
       # Expected functionality for global type substitution
@@ -70,39 +76,28 @@ module Lutaml
         @global_substitutions[from_type] = to_type
       end
 
-      def process_attributes(attributes, strict: false)
+      def register_attributes(attributes, strict: false)
         register_method = strict ? :register_model_tree! : :register_model_tree
 
         attributes.each_value do |attribute|
           next if built_in_type?(attribute.resolved_type) || attribute.resolved_type.nil?
 
-          send(register_method, attribute.resolved_type)
+          public_send(register_method, attribute.resolved_type)
         end
       end
 
       private
+
+      def register_in_type(klass, id)
+        id ||= Lutaml::Model::Utils.base_class_snake_name(klass).to_sym
+        Lutaml::Model::Type.register(id, klass)
+      end
 
       def add_model_in_register(klass, id)
         if id.nil?
           @models[Utils.base_class_snake_name(klass).to_sym] = klass
         else
           @models[id.to_sym] = klass
-        end
-      end
-
-      def require_tree(attributes)
-        attributes.each_value do |attribute|
-          next if built_in_type?(attribute.resolved_type) || attribute.resolved_type.nil?
-
-          register_model_tree(attribute.resolved_type)
-        end
-      end
-
-      def require_tree!(attributes)
-        attributes.each_value do |attribute|
-          next if built_in_type?(attribute.resolved_type) || attribute.resolved_type.nil?
-
-          register_model_tree!(attribute.resolved_type)
         end
       end
 

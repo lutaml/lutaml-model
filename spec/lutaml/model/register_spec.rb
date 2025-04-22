@@ -8,8 +8,11 @@ module RegisterSpec
   class CustomString < Lutaml::Model::Type::String; end
   class CustomInteger < Lutaml::Model::Type::Integer; end
 
+  Lutaml::Model::Type.register(:custom_string, CustomString)
+
   class Address < Lutaml::Model::Serializable
     attribute :location, :string
+    attribute :postal_code, :custom_string
   end
 end
 
@@ -45,8 +48,7 @@ RSpec.describe Lutaml::Model::Register do
     end
 
     it "registers model without explicit id" do
-      model_class = Class.new(Lutaml::Model::Serializable)
-      stub_const("TestModel", model_class)
+      stub_const("TestModel", Class.new(Lutaml::Model::Serializable))
       v1_register.register_model(TestModel)
       expect(v1_register.models[:test_model]).to eq(TestModel)
     end
@@ -145,7 +147,7 @@ RSpec.describe Lutaml::Model::Register do
     end
   end
 
-  describe "#process_attributes" do
+  describe "#register_attributes" do
     let(:v1_register) { described_class.new(:v1) }
     let(:model_class) do
       Class.new(Lutaml::Model::Serializable) do
@@ -156,21 +158,23 @@ RSpec.describe Lutaml::Model::Register do
 
     it "registers non-builtin type attributes" do
       attributes = model_class.attributes
-      v1_register.process_attributes(attributes)
+      v1_register.register_attributes(attributes)
       expect(v1_register.models.values).to include(RegisterSpec::Address)
     end
 
     it "doesn't register built-in types" do
       attributes = model_class.attributes
-      v1_register.process_attributes(attributes)
+      v1_register.register_attributes(attributes)
       # Verify built-in type (:string) wasn't registered
       expect(v1_register.models.keys).not_to include(:string)
     end
 
     it "uses register_model_tree! when strict is true" do
       attributes = model_class.attributes
-      expect(v1_register).to receive(:register_model_tree!).with(RegisterSpec::Address)
-      v1_register.process_attributes(attributes, strict: true)
+      v1_register.register_attributes(attributes, strict: true)
+      allow(v1_register).to receive(:register_model_tree!)
+      expect(v1_register).to have_received(:register_model_tree!).with(RegisterSpec::CustomString)
+      v1_register.register_attributes(attributes, strict: true)
     end
   end
 
@@ -184,8 +188,7 @@ RSpec.describe Lutaml::Model::Register do
     end
 
     it "raises UnexpectedModelReplacementError when model is already registered" do
-      ModelClass = Class.new(Lutaml::Model::Serializable)
-      stub_const("ModelClass", ModelClass)
+      stub_const("ModelClass", Class.new(Lutaml::Model::Serializable))
       v1_register.register_model(ModelClass, id: ModelClass.name.to_sym)
 
       expect do
@@ -200,6 +203,21 @@ RSpec.describe Lutaml::Model::Register do
   end
 
   describe "#register_model_tree!" do
-    # Similar to above, these tests would be included once the method is fixed
+    let(:v1_register) { described_class.new(:v1) }
+
+    context "when registering a valid model" do
+      let(:model_class) do
+        Class.new(Lutaml::Model::Serializable) do
+          attribute :nested_address, RegisterSpec::Address
+        end
+      end
+
+      it "registers the model and its nested attributes" do
+        v1_register.register_model_tree!(model_class)
+        expect(v1_register.models.values).to include(model_class)
+        expect(v1_register.models.values).to include(RegisterSpec::Address)
+        expect{v1_register.register_model_tree!(model_class)}.to raise_error(Lutaml::Model::Register::UnexpectedModelReplacementError)
+      end
+    end
   end
 end
