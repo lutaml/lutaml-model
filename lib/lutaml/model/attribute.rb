@@ -399,10 +399,10 @@ module Lutaml
               "Invalid type: #{type}, must be a Symbol, String or a Class"
       end
 
-      def valid_polymorphic_type?(value)
+      def valid_polymorphic_type?(value, register)
         return value.is_a?(type) unless has_polymorphic_list?
 
-        options[:polymorphic].include?(value.class) && value.is_a?(type)
+        options[:polymorphic].include?(value.class) && value.is_a?(resolved_type(register))
       end
 
       def has_polymorphic_list?

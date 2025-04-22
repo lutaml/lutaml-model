@@ -115,7 +115,7 @@ module Lutaml
             rule_names.include?(child.namespaced_name) && !child.text?
           end
 
-          if rule.using_custom_methods? || attr.resolved_type(register) == Lutaml::Model::Type::Hash
+          if rule.has_custom_method_for_deserialization? || attr.resolved_type(register) == Lutaml::Model::Type::Hash
             return_child = attr.resolved_type(register) == Lutaml::Model::Type::Hash || !attr.collection? if attr
             return return_child ? children.first : children
           end
