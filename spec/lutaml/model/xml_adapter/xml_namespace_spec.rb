@@ -165,14 +165,14 @@ RSpec.describe "XmlNamespace" do
 
     context "with no prefix" do
       it_behaves_like "XML serialization with namespace",
-                       TestModelNoPrefix,
-                       '<test xmlns="http://example.com/test"><name>Test Name</name></test>'
+                      TestModelNoPrefix,
+                      '<test xmlns="http://example.com/test"><name>Test Name</name></test>'
     end
 
     context "with prefix" do
       it_behaves_like "XML serialization with namespace",
-                       TestModelWithPrefix,
-                       '<test:test xmlns:test="http://example.com/test"><test:name>Test Name</test:name></test:test>'
+                      TestModelWithPrefix,
+                      '<test:test xmlns:test="http://example.com/test"><test:name>Test Name</test:name></test:test>'
     end
 
     context "with prefixed namespace" do
