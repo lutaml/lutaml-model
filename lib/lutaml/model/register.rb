@@ -12,6 +12,8 @@ module Lutaml
       end
 
       def register_model(klass, id: nil)
+        return register_in_type(klass, id) if klass < Lutaml::Model::Type::Value
+
         add_model_in_register(klass, id)
       end
 
@@ -28,19 +30,19 @@ module Lutaml
       end
 
       def get_class(klass_name)
-        if @models.key?(klass_name)
-          @models[klass_name]
-        elsif resolvable?(klass_name)
-          resolve(klass_name)
-        elsif klass_name.is_a?(String)
-          Lutaml::Model::Type.const_get(klass_name)
-        elsif klass_name.is_a?(Symbol)
-          Lutaml::Model::Type.lookup(klass_name)
-        elsif klass_name.is_a?(Module)
-          klass_name
-        else
-          raise Lutaml::Model::UnknownTypeError.new(klass_name)
-        end
+        klass = if @models.key?(klass_name)
+                  @models[klass_name]
+                elsif resolvable?(klass_name)
+                  resolve(klass_name)
+                elsif type_klass = get_type_class(klass_name)
+                  type_klass
+                elsif klass_name.is_a?(Module)
+                  klass_name
+                end
+        # Temporarily raising error.
+        raise Lutaml::Model::UnknownTypeError.new(klass_name) unless klass
+
+        klass
       end
 
       def lookup(klass)
@@ -55,7 +57,6 @@ module Lutaml
       end
 
       def register_model_tree!(klass)
-        # binding.irb
         register_model!(klass)
         if klass < Lutaml::Model::Serializable
           register_attributes(klass.attributes, strict: true)
@@ -87,6 +88,14 @@ module Lutaml
       end
 
       private
+
+      def get_type_class(klass_name)
+        if klass_name.is_a?(String)
+          Lutaml::Model::Type.const_get(klass_name)
+        elsif klass_name.is_a?(Symbol)
+          Lutaml::Model::Type.lookup(klass_name)
+        end
+      end
 
       def register_in_type(klass, id)
         id ||= Lutaml::Model::Utils.base_class_snake_name(klass).to_sym

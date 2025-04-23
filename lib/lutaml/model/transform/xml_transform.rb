@@ -2,7 +2,7 @@ module Lutaml
   module Model
     class XmlTransform < Lutaml::Model::Transform
       def data_to_model(data, _format, options = {})
-        instance = model_class.new
+        instance = model_class.new(register: register)
         apply_xml_mapping(data, instance, options)
       end
 
@@ -135,6 +135,7 @@ module Lutaml
             if !rule.has_custom_method_for_deserialization? && attr.resolved_type(register) <= Serialize
               cast_options = options.except(:mappings)
               cast_options[:polymorphic] = rule.polymorphic if rule.polymorphic
+              cast_options[:register] = register
 
               values << attr.cast(child, :xml, cast_options)
             elsif attr.raw?

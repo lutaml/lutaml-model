@@ -74,7 +74,7 @@ module Lutaml
       end
 
       def serialize_value(value, rule, attr, format, options)
-        return attr.serialize(value, format, options) unless rule.child_mappings
+        return attr.serialize(value, format, register, options) unless rule.child_mappings
 
         generate_hash_from_child_mappings(attr, value, format, rule.child_mappings)
       end
@@ -215,8 +215,8 @@ module Lutaml
           convert_to_format(doc, format)
         elsif Utils.string_or_symbol_key?(doc, name)
           Utils.fetch_with_string_or_symbol_key(doc, name)
-        elsif attr&.default_set?
-          attr.default
+        elsif attr&.default_set?(register)
+          attr.default(register)
         else
           Lutaml::Model::UninitializedClass.instance
         end

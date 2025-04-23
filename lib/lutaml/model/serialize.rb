@@ -112,7 +112,7 @@ module Lutaml
             end
             define_method(:"#{name}=") do |value|
               value_set_for(name)
-              instance_variable_set(:"@#{name}", attr.cast_value(value))
+              instance_variable_set(:"@#{name}", attr.cast_value(value, register))
             end
           end
         end
@@ -310,7 +310,7 @@ module Lutaml
 
           options[:mapper_class] = self if format == :xml
 
-          adapter.new(value).public_send(:"to_#{format}", options)
+          adapter.new(value, register: options[:register]).public_send(:"to_#{format}", options)
         end
 
         def as(format, instance, options = {})
@@ -355,7 +355,7 @@ module Lutaml
         end
 
         def apply_mappings(doc, format, options = {})
-          instance = options[:instance] || model.new
+          instance = options[:instance] || model.new(register: options[:register])
           return instance if Utils.blank?(doc)
 
           mappings = mappings_for(format)
@@ -459,11 +459,12 @@ module Lutaml
         end
       end
 
-      attr_accessor :element_order, :schema_location, :encoding
+      attr_accessor :element_order, :schema_location, :encoding, :register
       attr_writer :ordered, :mixed
 
-      def initialize(attrs = {}, options = {})
+      def initialize(attrs = {}, options = {}, register:)
         @using_default = {}
+        @register = register
         return unless self.class.attributes
 
         set_ordering(attrs)
@@ -495,13 +496,13 @@ module Lutaml
             else
               # TODO: This code is problematic because Type.cast does not know
               # about all the types.
-              Lutaml::Model::Type.cast(v, attr_rule.resolved_type)
+              Lutaml::Model::Type.cast(v, attr_rule.resolved_type(register))
             end
           end
         else
           # TODO: This code is problematic because Type.cast does not know
           # about all the types.
-          Lutaml::Model::Type.cast(value, attr_rule.resolved_type)
+          Lutaml::Model::Type.cast(value, attr_rule.resolved_type(register))
         end
       end
 
@@ -562,7 +563,7 @@ module Lutaml
       end
 
       def pretty_print_instance_variables
-        (instance_variables - %i[@using_default]).sort
+        (instance_variables - %i[@using_default @register]).sort
       end
 
       def to_yaml_hash
@@ -600,7 +601,7 @@ module Lutaml
       def determine_value(attrs, name, attr)
         if attrs.key?(name) || attrs.key?(name.to_s)
           attr_value(attrs, name, attr)
-        elsif attr.default_set?
+        elsif attr.default_set?(register)
           using_default_for(name)
           attr.default
         else

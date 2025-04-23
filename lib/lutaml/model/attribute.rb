@@ -77,10 +77,10 @@ module Lutaml
         end
       end
 
-      def cast_value(value)
-        return resolved_type.cast(value) unless value.is_a?(Array)
+      def cast_value(value, register)
+        return resolved_type(register).cast(value) unless value.is_a?(Array)
 
-        value.map { |v| resolved_type.cast(v) }
+        value.map { |v| resolved_type(register).cast(v) }
       end
 
       def setter
@@ -103,13 +103,13 @@ module Lutaml
         !enum_values.empty?
       end
 
-      def default
-        cast_value(default_value)
+      def default(register)
+        cast_value(default_value(register), register)
       end
 
-      def default_value
+      def default_value(register)
         if delegate
-          resolved_type.attributes[to].default
+          resolved_type(register).attributes[to].default(register)
         elsif options[:default].is_a?(Proc)
           options[:default].call
         elsif options.key?(:default)
@@ -119,8 +119,8 @@ module Lutaml
         end
       end
 
-      def default_set?
-        !Utils.uninitialized?(default_value)
+      def default_set?(register)
+        !Utils.uninitialized?(default_value(register))
       end
 
       def pattern
@@ -267,22 +267,23 @@ module Lutaml
         end
       end
 
-      def serialize(value, format, options = {})
+      def serialize(value, format, register, options = {})
         value ||= [] if collection? && initialize_empty?
         return value if value.nil? || Utils.uninitialized?(value)
         return value if derived?
         return serialize_array(value, format, options) if value.is_a?(Array)
-        return serialize_model(value, format, options) if resolved_type <= Serialize
+        return serialize_model(value, format, options) if resolved_type(register) <= Serialize
 
-        serialize_value(value, format)
+        serialize_value(value, format, register)
       end
 
       def cast(value, format, options = {})
+        register = options[:register]
         value ||= [] if collection? && !value.nil?
         return value.map { |v| cast(v, format, options) } if value.is_a?(Array)
-        return value if already_serialized?(resolved_type, value)
+        return value if already_serialized?(resolved_type(register), value)
 
-        klass = resolve_polymorphic_class(resolved_type, value, options)
+        klass = resolve_polymorphic_class(resolved_type(register), value, options)
 
         if can_serialize?(klass, value, format)
           klass.apply_mappings(value, format, options)
@@ -350,8 +351,8 @@ module Lutaml
         type.as(format, value, options)
       end
 
-      def serialize_value(value, format)
-        value = resolved_type.new(value) unless value.is_a?(Type::Value)
+      def serialize_value(value, format, register)
+        value = resolved_type(register).new(value) unless value.is_a?(Type::Value)
         value.send(:"to_#{format}")
       end
 

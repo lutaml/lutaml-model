@@ -216,7 +216,7 @@ RSpec.describe Lutaml::Model::Register do
         v1_register.register_model_tree!(model_class)
         expect(v1_register.models.values).to include(model_class)
         expect(v1_register.models.values).to include(RegisterSpec::Address)
-        expect{v1_register.register_model_tree!(model_class)}.to raise_error(Lutaml::Model::Register::UnexpectedModelReplacementError)
+        expect { v1_register.register_model_tree!(model_class) }.to raise_error(Lutaml::Model::Register::UnexpectedModelReplacementError)
       end
     end
   end
