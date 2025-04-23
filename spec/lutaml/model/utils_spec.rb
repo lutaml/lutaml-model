@@ -37,9 +37,9 @@ RSpec.describe Lutaml::Model::Utils do
     "HelloWorld::FooBarBaz" => "hello_world/foo_bar_baz",
   }
 
-  include_examples "string conversion", :camel_case, camel_case_examples
-  include_examples "string conversion", :classify, classify_examples
-  include_examples "string conversion", :snake_case, snake_case_examples
+  it_behaves_like "string conversion", :camel_case, camel_case_examples
+  it_behaves_like "string conversion", :classify, classify_examples
+  it_behaves_like "string conversion", :snake_case, snake_case_examples
 
   describe ".deep_dup" do
     let(:original_hash) do
