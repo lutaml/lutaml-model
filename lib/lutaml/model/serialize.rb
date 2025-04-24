@@ -310,7 +310,8 @@ module Lutaml
 
           options[:mapper_class] = self if format == :xml
 
-          adapter.new(value, register: options[:register]).public_send(:"to_#{format}", options)
+          instance = adapter.new(value, register: options[:register])
+          instance.public_send(:"to_#{format}", options)
         end
 
         def as(format, instance, options = {})
@@ -355,7 +356,15 @@ module Lutaml
         end
 
         def apply_mappings(doc, format, options = {})
-          instance = options[:instance] || model.new(register: options[:register])
+          instance = if options.key?(:instance)
+                       options[:instance]
+                     elsif model.include?(Lutaml::Model::Serialize)
+                       model.new({}, register: options[:register])
+                     else
+                       object = model.new
+                       object.instance_variable_set(:@register, options[:register])
+                       object
+                     end
           return instance if Utils.blank?(doc)
 
           mappings = mappings_for(format)
@@ -364,7 +373,6 @@ module Lutaml
             return resolve_polymorphic(doc, format, mappings, instance, options)
           end
 
-          # options[:mappings] = mappings.mappings
           transformer = Lutaml::Model::Config.transformer_for(format)
           transformer.data_to_model(self, doc, format, options)
         end
@@ -462,11 +470,11 @@ module Lutaml
       attr_accessor :element_order, :schema_location, :encoding, :register
       attr_writer :ordered, :mixed
 
-      def initialize(attrs = {}, options = {}, register:)
+      def initialize(attrs = {}, options = {})
         @using_default = {}
-        @register = register
         return unless self.class.attributes
 
+        @register = options[:register] || Lutaml::Model::Config.default_register
         set_ordering(attrs)
         set_schema_location(attrs)
         initialize_attributes(attrs, options)
@@ -486,13 +494,13 @@ module Lutaml
                 elsif attrs.key?(name.to_s)
                   attrs[name.to_s]
                 else
-                  attr_rule.default
+                  attr_rule.default(register)
                 end
 
         if attr_rule.collection? || value.is_a?(Array)
           value&.map do |v|
             if v.is_a?(Hash)
-              attr_rule.resolved_type.new(v)
+              attr_rule.resolved_type(register).new(v)
             else
               # TODO: This code is problematic because Type.cast does not know
               # about all the types.
@@ -603,7 +611,7 @@ module Lutaml
           attr_value(attrs, name, attr)
         elsif attr.default_set?(register)
           using_default_for(name)
-          attr.default
+          attr.default(register)
         else
           Lutaml::Model::UninitializedClass.instance
         end

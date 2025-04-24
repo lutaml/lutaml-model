@@ -81,9 +81,9 @@ module Lutaml
         register_method = strict ? :register_model_tree! : :register_model_tree
 
         attributes.each_value do |attribute|
-          next if built_in_type?(attribute.resolved_type) || attribute.resolved_type.nil?
+          next if built_in_type?(attribute.resolved_type(self)) || attribute.resolved_type(self).nil?
 
-          public_send(register_method, attribute.resolved_type)
+          public_send(register_method, attribute.resolved_type(self))
         end
       end
 

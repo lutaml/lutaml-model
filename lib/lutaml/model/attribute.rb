@@ -103,7 +103,7 @@ module Lutaml
         !enum_values.empty?
       end
 
-      def default(register)
+      def default(register = Lutaml::Model::Config.default_register)
         cast_value(default_value(register), register)
       end
 
@@ -180,7 +180,7 @@ module Lutaml
       #          will raise `Lutaml::Model::CollectionCountOutOfRangeError`
       def validate_value!(value, register)
         # Use the default value if the value is nil
-        value = default if value.nil?
+        value = default(register) if value.nil?
 
         valid_value!(value) &&
           valid_collection!(value, self) &&
@@ -271,16 +271,15 @@ module Lutaml
         value ||= [] if collection? && initialize_empty?
         return value if value.nil? || Utils.uninitialized?(value)
         return value if derived?
-        return serialize_array(value, format, options) if value.is_a?(Array)
-        return serialize_model(value, format, options) if resolved_type(register) <= Serialize
+        return serialize_array(value, format, register, options) if value.is_a?(Array)
+        return serialize_model(value, format, register, options) if resolved_type(register) <= Serialize
 
         serialize_value(value, format, register)
       end
 
-      def cast(value, format, options = {})
-        register = options[:register]
+      def cast(value, format, register, options = {})
         value ||= [] if collection? && !value.nil?
-        return value.map { |v| cast(v, format, options) } if value.is_a?(Array)
+        return value.map { |v| cast(v, format, register, options) } if value.is_a?(Array)
         return value if already_serialized?(resolved_type(register), value)
 
         klass = resolve_polymorphic_class(resolved_type(register), value, options)
@@ -340,15 +339,16 @@ module Lutaml
         klass <= Serialize && value.is_a?(klass.model)
       end
 
-      def serialize_array(value, format, options)
-        value.map { |v| serialize(v, format, options) }
+      def serialize_array(value, format, register, options)
+        value.map { |v| serialize(v, format, register, options) }
       end
 
-      def serialize_model(value, format, options)
+      def serialize_model(value, format, register, options)
+        as_options = options.merge(register: register)
         return unless Utils.present?(value)
-        return value.class.as(format, value, options) if value.is_a?(type)
+        return value.class.as(format, value, as_options) if value.is_a?(resolved_type(register))
 
-        type.as(format, value, options)
+        type.as(format, value, as_options)
       end
 
       def serialize_value(value, format, register)

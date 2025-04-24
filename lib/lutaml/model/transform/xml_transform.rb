@@ -2,7 +2,12 @@ module Lutaml
   module Model
     class XmlTransform < Lutaml::Model::Transform
       def data_to_model(data, _format, options = {})
-        instance = model_class.new(register: register)
+        if model_class.include?(Lutaml::Model::Serialize)
+          instance = model_class.new({}, register: register)
+        else
+          instance = model_class.new
+          instance.instance_variable_set(:@register, register)
+        end
         apply_xml_mapping(data, instance, options)
       end
 
@@ -48,7 +53,7 @@ module Lutaml
 
                     if (Utils.uninitialized?(val) || val.nil?) && (instance.using_default?(rule.to) || rule.render_default)
                       defaults_used << rule.to
-                      attr&.default || rule.to_value_for(instance)
+                      attr&.default(register) || rule.to_value_for(instance)
                     else
                       val
                     end
@@ -137,7 +142,7 @@ module Lutaml
               cast_options[:polymorphic] = rule.polymorphic if rule.polymorphic
               cast_options[:register] = register
 
-              values << attr.cast(child, :xml, cast_options)
+              values << attr.cast(child, :xml, register, cast_options)
             elsif attr.raw?
               values << inner_xml_of(child)
             else
@@ -182,6 +187,7 @@ module Lutaml
         attr.cast(
           value,
           :xml,
+          register,
           options,
         )
       end

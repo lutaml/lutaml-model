@@ -11,7 +11,7 @@ module Lutaml
 
           parsed = Ox.parse(xml)
           @root = OxElement.new(parsed)
-          new(@root, Ox.default_options[:encoding])
+          new(@root, Ox.default_options[:encoding], register: options[:register])
         end
 
         def to_xml(options = {})

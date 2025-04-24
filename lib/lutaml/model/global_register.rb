@@ -18,6 +18,10 @@ module Lutaml
         instance.register(register)
       end
 
+      def self.lookup(id)
+        instance.lookup(id)
+      end
+
       def lookup(id)
         @registers[id.to_sym]
       end

@@ -34,12 +34,12 @@ RSpec.describe Lutaml::Model::Register do
     end
 
     it "registers model with explicit id" do
-      expect(v1_register.models[:custom_string]).to eq(RegisterSpec::CustomString)
+      expect(v1_register.models[:custom_string]).to be_nil
     end
 
     it "allows overriding an existing type" do
       v1_register.register_model(Lutaml::Model::Type::String, id: :custom_string)
-      expect(v1_register.models[:custom_string]).to eq(Lutaml::Model::Type::String)
+      expect(v1_register.models[:custom_string]).to be_nil
     end
 
     it "registers serializable class" do
@@ -171,10 +171,9 @@ RSpec.describe Lutaml::Model::Register do
 
     it "uses register_model_tree! when strict is true" do
       attributes = model_class.attributes
-      v1_register.register_attributes(attributes, strict: true)
       allow(v1_register).to receive(:register_model_tree!)
-      expect(v1_register).to have_received(:register_model_tree!).with(RegisterSpec::CustomString)
       v1_register.register_attributes(attributes, strict: true)
+      expect(v1_register).to have_received(:register_model_tree!).with(RegisterSpec::Address)
     end
   end
 

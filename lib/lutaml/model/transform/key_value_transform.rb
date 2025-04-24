@@ -2,7 +2,12 @@ module Lutaml
   module Model
     class KeyValueTransform < Lutaml::Model::Transform
       def data_to_model(data, format, options = {})
-        instance = model_class.new
+        if model_class.include?(Lutaml::Model::Serialize)
+          instance = model_class.new({}, register: register)
+        else
+          instance = model_class.new
+          instance.instance_variable_set(:@register, register)
+        end
         mappings = extract_mappings(options, format)
 
         mappings.each do |rule|
@@ -167,7 +172,7 @@ module Lutaml
         return if value.nil? && !rule.render_nil
 
         attribute = instance.send(rule.delegate).class.attributes[rule.to]
-        hash[rule_from_name(rule)] = attribute.serialize(value, format)
+        hash[rule_from_name(rule)] = attribute.serialize(value, format, register)
       end
 
       def extract_value_for_delegate(instance, rule)
@@ -235,7 +240,7 @@ module Lutaml
 
       def cast_value(value, attr, format, rule)
         cast_options = rule.polymorphic ? { polymorphic: rule.polymorphic } : {}
-        attr.cast(value, format, cast_options)
+        attr.cast(value, format, register, cast_options)
       end
 
       def translate_mappings(hash, child_mappings, attr, format)
