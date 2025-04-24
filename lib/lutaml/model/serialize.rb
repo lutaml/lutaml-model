@@ -309,8 +309,12 @@ module Lutaml
           adapter = Lutaml::Model::Config.adapter_for(format)
 
           options[:mapper_class] = self if format == :xml
-
-          instance = adapter.new(value, register: options[:register])
+          begin
+            instance = adapter.new(value, register: options[:register])
+            # TODO: this is temporary fix, should be reverted before merging this PR (Register functionality)
+          rescue
+            instance = adapter.new(value)
+          end
           instance.public_send(:"to_#{format}", options)
         end
 
