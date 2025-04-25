@@ -39,10 +39,15 @@ module Lutaml
                 elsif klass_name.is_a?(Module)
                   klass_name
                 end
-        # Temporarily raising error.
+        # Temporarily raising error
+        # TODO: Create new error class for this
         raise Lutaml::Model::UnknownTypeError.new(klass_name) unless klass
 
-        klass
+        if substitutable?(klass) || substitutable?(klass_name)
+          substitute_klass(klass) || substitute_klass(klass_name)
+        else
+          klass
+        end
       end
 
       def lookup(klass)
@@ -81,10 +86,19 @@ module Lutaml
         register_method = strict ? :register_model_tree! : :register_model_tree
 
         attributes.each_value do |attribute|
-          next if built_in_type?(attribute.resolved_type(self)) || attribute.resolved_type(self).nil?
+          next unless attribute.type.is_a?(Class)
+          next if built_in_type?(attribute.type) || attribute.type.nil?
 
-          public_send(register_method, attribute.resolved_type(self))
+          public_send(register_method, attribute.type)
         end
+      end
+
+      def substitutable?(klass)
+        @global_substitutions.key?(klass)
+      end
+
+      def substitute_klass(klass)
+        @global_substitutions[klass]
       end
 
       private

@@ -56,27 +56,6 @@ module Lutaml
         @options[:initialize_empty]
       end
 
-      def cast_type!(type)
-        case type
-        when Symbol
-          begin
-            Type.lookup(type)
-          rescue UnknownTypeError
-            raise ArgumentError, "Unknown Lutaml::Model::Type: #{type}"
-          end
-        when String
-          begin
-            Type.const_get(type)
-          rescue NameError
-            raise ArgumentError, "Unknown Lutaml::Model::Type: #{type}"
-          end
-        when Class
-          type
-        else
-          raise ArgumentError, "Unknown Lutaml::Model::Type: #{type}"
-        end
-      end
-
       def cast_value(value, register)
         return resolved_type(register).cast(value) unless value.is_a?(Array)
 
@@ -279,16 +258,18 @@ module Lutaml
 
       def cast(value, format, register, options = {})
         value ||= [] if collection? && !value.nil?
+        registered_type = resolved_type(register)
         return value.map { |v| cast(v, format, register, options) } if value.is_a?(Array)
-        return value if already_serialized?(resolved_type(register), value)
+        return value if already_serialized?(registered_type, value)
 
-        klass = resolve_polymorphic_class(resolved_type(register), value, options)
-
+        klass = resolve_polymorphic_class(registered_type, value, options)
         if can_serialize?(klass, value, format)
-          klass.apply_mappings(value, format, options)
+          klass.apply_mappings(value, format, options.merge(register: register))
         elsif needs_conversion?(klass, value)
           klass.send(:"from_#{format}", value)
         else
+          # No need to use register#get_class,
+          # can_serialize? method already checks if resolved_type is Serializable or not.
           Type.lookup(klass).cast(value)
         end
       end
@@ -379,6 +360,7 @@ module Lutaml
                 "Invalid options given for `#{name}` #{invalid_opts}"
         end
 
+        # No need to change user register#get_class, only checks if type is LutaML-Model string.
         if options.key?(:pattern) && Type.lookup(type) != Lutaml::Model::Type::String
           raise StandardError,
                 "Invalid option `pattern` given for `#{name}`, " \
@@ -393,8 +375,7 @@ module Lutaml
       end
 
       def validate_type!(type)
-        return true if [Symbol, String].include?(type.class) && cast_type!(type)
-        return true if type.is_a?(Class)
+        return true if [Symbol, String].include?(type.class) || type.is_a?(Class)
 
         raise ArgumentError,
               "Invalid type: #{type}, must be a Symbol, String or a Class"

@@ -71,21 +71,6 @@ RSpec.describe Lutaml::Model::Attribute do
     end
   end
 
-  describe "#cast_type!" do
-    it "cast :string to Lutaml::Model::Type::String" do
-      expect(name_attr.cast_type!(:string)).to eq(Lutaml::Model::Type::String)
-    end
-
-    it "cast :integer to Lutaml::Model::Type::Integer" do
-      expect(name_attr.cast_type!(:integer)).to eq(Lutaml::Model::Type::Integer)
-    end
-
-    it "raises ArgumentError on unknown type" do
-      expect { name_attr.cast_type!(:foobar) }
-        .to raise_error(ArgumentError, "Unknown Lutaml::Model::Type: foobar")
-    end
-  end
-
   describe "#derived?" do
     context "when type is set" do
       let(:attribute) { described_class.new("name", :string) }

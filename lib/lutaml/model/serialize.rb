@@ -384,7 +384,7 @@ module Lutaml
           klass_name = polymorphic_mapping.polymorphic_map[klass_key]
           klass = Object.const_get(klass_name)
 
-          klass.apply_mappings(doc, format, options)
+          klass.apply_mappings(doc, format, options.merge(register: instance.register))
         end
 
         def apply_value_map(value, value_map, attr)
