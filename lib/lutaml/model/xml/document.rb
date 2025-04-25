@@ -8,12 +8,11 @@ module Lutaml
   module Model
     module Xml
       class Document
-        attr_reader :root, :encoding, :register
+        attr_reader :root, :encoding
 
-        def initialize(root, encoding = nil, register: nil)
+        def initialize(root, encoding = nil)
           @root = root
           @encoding = encoding
-          @register = register || Lutaml::Model::Config.default_register
         end
 
         def self.parse(xml, _options = {})
@@ -434,6 +433,15 @@ module Lutaml
         end
 
         private
+
+        def register
+          root_reg = if @root.respond_to?(:register)
+                       @root.register
+                     else
+                       @root.instance_variable_get(:@register)
+                     end
+          root_reg || Lutaml::Model::Config.default_register
+        end
 
         def determine_mapper_class(element, options)
           if options[:mapper_class] && element.is_a?(options[:mapper_class])

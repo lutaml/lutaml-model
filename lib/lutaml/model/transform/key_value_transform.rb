@@ -6,7 +6,7 @@ module Lutaml
           instance = model_class.new({}, register: register)
         else
           instance = model_class.new
-          instance.instance_variable_set(:@register, register)
+          register_accessor_methods_for(instance, register)
         end
         mappings = extract_mappings(options, format)
 

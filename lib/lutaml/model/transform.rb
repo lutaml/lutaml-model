@@ -71,6 +71,17 @@ module Lutaml
 
         attributes[rule.delegate].resolved_type(register).attributes[rule.to]
       end
+
+      def register_accessor_methods_for(object, register)
+        klass = object.class
+        Utils.add_method_if_not_defined(klass, :register) do
+          @register
+        end
+        Utils.add_method_if_not_defined(klass, :register=) do |value|
+          @register = value
+        end
+        object.register = register
+      end
     end
   end
 end

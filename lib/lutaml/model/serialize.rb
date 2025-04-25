@@ -309,13 +309,7 @@ module Lutaml
           adapter = Lutaml::Model::Config.adapter_for(format)
 
           options[:mapper_class] = self if format == :xml
-          begin
-            instance = adapter.new(value, register: options[:register])
-            # TODO: this is temporary fix, should be reverted before merging this PR (Register functionality)
-          rescue
-            instance = adapter.new(value)
-          end
-          instance.public_send(:"to_#{format}", options)
+          adapter.new(value).public_send(:"to_#{format}", options)
         end
 
         def as(format, instance, options = {})
@@ -360,13 +354,14 @@ module Lutaml
         end
 
         def apply_mappings(doc, format, options = {})
+          register = options[:register] || Lutaml::Model::Config.default_register
           instance = if options.key?(:instance)
                        options[:instance]
                      elsif model.include?(Lutaml::Model::Serialize)
-                       model.new({}, register: options[:register])
+                       model.new({}, register: register)
                      else
                        object = model.new
-                       object.instance_variable_set(:@register, options[:register])
+                       register_accessor_methods_for(object, register)
                        object
                      end
           return instance if Utils.blank?(doc)
@@ -433,6 +428,16 @@ module Lutaml
           else
             value
           end
+        end
+
+        def register_accessor_methods_for(object, register)
+          Utils.add_method_if_not_defined(model, :register) do
+            @register
+          end
+          Utils.add_method_if_not_defined(model, :register=) do |value|
+            @register = value
+          end
+          object.register = register
         end
       end
 
