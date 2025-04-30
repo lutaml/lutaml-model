@@ -1,6 +1,6 @@
 require "spec_helper"
 
-module RegisterSpec
+module RegisterXmlSpec
   class Mi < Lutaml::Model::Serializable
     attribute :value, :string
 
@@ -70,17 +70,17 @@ end
 
 RSpec.describe "XML MathML with Register" do
   let(:register) { Lutaml::Model::Register.new(:mathml_register) }
-  let(:formula) { RegisterSpec::Math.from_xml(xml, register: register) }
+  let(:formula) { RegisterXmlSpec::Math.from_xml(xml, register: register) }
 
   before do
     # Register the register in the global registry
     Lutaml::Model::GlobalRegister.register(register)
 
     # Register all the model classes
-    register.register_model_tree(RegisterSpec::Math)
-    register.register_model(RegisterSpec::Mi)
-    register.register_model(RegisterSpec::Mo)
-    register.register_model(RegisterSpec::Mfrac)
+    register.register_model_tree(RegisterXmlSpec::Math)
+    register.register_model(RegisterXmlSpec::Mi)
+    register.register_model(RegisterXmlSpec::Mo)
+    register.register_model(RegisterXmlSpec::Mfrac)
   end
 
   describe "parsing MathML XML" do
@@ -98,7 +98,7 @@ RSpec.describe "XML MathML with Register" do
     end
 
     it "parses MathML XML into model objects" do
-      expect(formula).to be_a(RegisterSpec::Math)
+      expect(formula).to be_a(RegisterXmlSpec::Math)
       expect(formula.symbol.value).to eq("x")
       expect(formula.operator.value).to eq("=")
       expect(formula.fraction.numerator.value).to eq("a")
@@ -113,8 +113,8 @@ RSpec.describe "XML MathML with Register" do
   describe "using global type substitution with MathML" do
     let(:register_substitution) do
       register.register_global_type_substitution(
-        from_type: RegisterSpec::Mi,
-        to_type: RegisterSpec::NewMi
+        from_type: RegisterXmlSpec::Mi,
+        to_type: RegisterXmlSpec::NewMi
       )
     end
 
@@ -128,7 +128,7 @@ RSpec.describe "XML MathML with Register" do
 
     context "before registering substitute class" do
       it "serializes mi tag using Mi class" do
-        expect(formula.symbol).to be_a(RegisterSpec::Mi)
+        expect(formula.symbol).to be_a(RegisterXmlSpec::Mi)
         expect(formula.symbol).not_to respond_to(:color)
         expect(formula.symbol.value).to eq("y")
         expect(formula.to_xml).not_to be_equivalent_to(xml)
@@ -138,7 +138,7 @@ RSpec.describe "XML MathML with Register" do
     context "after registering substitute class" do
       it "serializes mi tag using NewMi class" do
         register_substitution
-        expect(formula.symbol).to be_a(RegisterSpec::NewMi)
+        expect(formula.symbol).to be_a(RegisterXmlSpec::NewMi)
         expect(formula.symbol).to respond_to(:color)
         expect(formula.symbol.color).to eq("red")
         expect(formula.symbol.value).to eq("y")
@@ -171,7 +171,7 @@ RSpec.describe "XML MathML with Register" do
   #     # the full formula structure, but illustrates the need for a more
   #     # complete MathML implementation
   #     expect {
-  #       RegisterSpec::Math.from_xml(complex_xml, register: register)
+  #       RegisterXmlSpec::Math.from_xml(complex_xml, register: register)
   #     }.not_to raise_error
   #   end
   # end

@@ -168,55 +168,5 @@ RSpec.describe Lutaml::Model::Register do
       # Verify built-in type (:string) wasn't registered
       expect(v1_register.models.keys).not_to include(:string)
     end
-
-    it "uses register_model_tree! when strict is true" do
-      attributes = model_class.attributes
-      allow(v1_register).to receive(:register_model_tree!)
-      v1_register.register_attributes(attributes, strict: true)
-      expect(v1_register).to have_received(:register_model_tree!).with(RegisterSpec::Address)
-    end
-  end
-
-  describe "#register_model!" do
-    let(:v1_register) { described_class.new(:v1) }
-
-    it "raises InvalidModelClassError when model is not a Serializable class" do
-      expect do
-        v1_register.register_model!(String)
-      end.to raise_error(Lutaml::Model::Register::InvalidModelClassError)
-    end
-
-    it "raises UnexpectedModelReplacementError when model is already registered" do
-      stub_const("ModelClass", Class.new(Lutaml::Model::Serializable))
-      v1_register.register_model(ModelClass, id: ModelClass.name.to_sym)
-
-      expect do
-        v1_register.register_model!(ModelClass)
-      end.to raise_error(Lutaml::Model::Register::UnexpectedModelReplacementError)
-    end
-
-    it "registers serializable class when valid" do
-      v1_register.register_model!(RegisterSpec::Address, id: :address)
-      expect(v1_register.lookup(:address)).to eq(RegisterSpec::Address)
-    end
-  end
-
-  describe "#register_model_tree!" do
-    let(:v1_register) { described_class.new(:v1) }
-
-    context "when registering a valid model" do
-      let(:model_class) do
-        Class.new(Lutaml::Model::Serializable) do
-          attribute :nested_address, RegisterSpec::Address
-        end
-      end
-
-      it "registers the model and its nested attributes" do
-        v1_register.register_model_tree!(model_class)
-        expect(v1_register.models.values).to include(model_class)
-        expect(v1_register.models.values).to include(RegisterSpec::Address)
-        expect { v1_register.register_model_tree!(model_class) }.to raise_error(Lutaml::Model::Register::UnexpectedModelReplacementError)
-      end
-    end
   end
 end

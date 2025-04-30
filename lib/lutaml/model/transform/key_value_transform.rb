@@ -5,8 +5,7 @@ module Lutaml
         if model_class.include?(Lutaml::Model::Serialize)
           instance = model_class.new({}, register: register)
         else
-          instance = model_class.new
-          register_accessor_methods_for(instance, register)
+          instance = model_class.new(register)
         end
         mappings = extract_mappings(options, format)
 

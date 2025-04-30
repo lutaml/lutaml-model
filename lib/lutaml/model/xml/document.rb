@@ -8,11 +8,12 @@ module Lutaml
   module Model
     module Xml
       class Document
-        attr_reader :root, :encoding
+        attr_reader :root, :encoding, :register
 
-        def initialize(root, encoding = nil)
+        def initialize(root, encoding = nil, register: nil)
           @root = root
           @encoding = encoding
+          @register = setup_register(register)
         end
 
         def self.parse(xml, _options = {})
@@ -434,7 +435,9 @@ module Lutaml
 
         private
 
-        def register
+        def setup_register(register)
+          return register if register
+
           root_reg = if @root.respond_to?(:register)
                        @root.register
                      else

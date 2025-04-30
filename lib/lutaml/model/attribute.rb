@@ -32,6 +32,10 @@ module Lutaml
         register.get_class(type) unless type.nil?
       end
 
+      def register(symbol)
+        @type = symbol
+      end
+
       def polymorphic?
         @options[:polymorphic_class]
       end
@@ -329,7 +333,7 @@ module Lutaml
         return unless Utils.present?(value)
         return value.class.as(format, value, as_options) if value.is_a?(resolved_type(register))
 
-        type.as(format, value, as_options)
+        resolved_type(register).as(format, value, as_options)
       end
 
       def serialize_value(value, format, register)

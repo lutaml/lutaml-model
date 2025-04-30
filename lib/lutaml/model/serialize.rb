@@ -13,6 +13,7 @@ require_relative "choice"
 require_relative "sequence"
 require_relative "liquefiable"
 require_relative "transform"
+require_relative "registrable"
 
 module Lutaml
   module Model
@@ -20,6 +21,7 @@ module Lutaml
       include ComparableModel
       include Validation
       include Lutaml::Model::Liquefiable
+      include Lutaml::Model::Registrable
 
       def self.included(base)
         base.extend(ClassMethods)

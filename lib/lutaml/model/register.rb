@@ -17,14 +17,6 @@ module Lutaml
         add_model_in_register(klass, id)
       end
 
-      def register_model!(klass, id: nil)
-        return register_in_type(klass, id) if klass < Lutaml::Model::Type::Value
-        raise Lutaml::Model::Register::InvalidModelClassError.new(klass) unless klass < Lutaml::Model::Serialize
-        raise Lutaml::Model::Register::UnexpectedModelReplacementError.new(klass, @models.key(klass)) if lookup?(klass)
-
-        add_model_in_register(klass, id)
-      end
-
       def resolve(klass_str)
         @models.values.find { |value| value.to_s == klass_str }
       end
@@ -36,15 +28,15 @@ module Lutaml
                   resolve(klass_name)
                 elsif type_klass = get_type_class(klass_name)
                   type_klass
-                elsif klass_name.is_a?(Module)
+                elsif klass_name.is_a?(Class)
                   klass_name
                 end
-        # Temporarily raising error
-        # TODO: Create new error class for this
         raise Lutaml::Model::UnknownTypeError.new(klass_name) unless klass
 
-        if substitutable?(klass) || substitutable?(klass_name)
-          substitute_klass(klass) || substitute_klass(klass_name)
+        if substitutable?(klass)
+          substitute(klass)
+        elsif substitutable?(klass_name)
+          substitute(klass_name)
         else
           klass
         end
@@ -56,15 +48,8 @@ module Lutaml
 
       def register_model_tree(klass)
         register_model(klass)
-        if klass < Lutaml::Model::Serializable
+        if klass.include?(Lutaml::Model::Registrable)
           register_attributes(klass.attributes)
-        end
-      end
-
-      def register_model_tree!(klass)
-        register_model!(klass)
-        if klass < Lutaml::Model::Serializable
-          register_attributes(klass.attributes, strict: true)
         end
       end
 
@@ -82,14 +67,12 @@ module Lutaml
         @global_substitutions[from_type] = to_type
       end
 
-      def register_attributes(attributes, strict: false)
-        register_method = strict ? :register_model_tree! : :register_model_tree
-
+      def register_attributes(attributes)
         attributes.each_value do |attribute|
           next unless attribute.type.is_a?(Class)
           next if built_in_type?(attribute.type) || attribute.type.nil?
 
-          public_send(register_method, attribute.type)
+          register_model_tree(attribute.type)
         end
       end
 
@@ -97,7 +80,7 @@ module Lutaml
         @global_substitutions.key?(klass)
       end
 
-      def substitute_klass(klass)
+      def substitute(klass)
         @global_substitutions[klass]
       end
 
