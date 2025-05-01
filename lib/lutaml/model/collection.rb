@@ -4,13 +4,22 @@ module Lutaml
       include Enumerable
 
       class << self
-        attr_reader :instance_type, :instance_name
+        attr_reader :instance_type, :instance_name, :order_by_field, :order_direction
 
         def instances(name, type, &block)
           attribute(name, type, collection: true, validations: block)
 
           @instance_type = type
           @instance_name = name
+        end
+
+        def ordered(by:, order: :asc)
+          @order_by_field = by.to_sym
+          @order_direction = order
+        end
+
+        def sort_configured?
+          !!@order_by_field
         end
 
         def to(format, instance, options = {})
@@ -88,6 +97,18 @@ module Lutaml
         instance_variable_set(:"@#{self.class.instance_name}", collection)
       end
 
+      def union(other)
+        self.class.new((items + other.items).uniq)
+      end
+
+      def intersection(other)
+        self.class.new(items & other.items)
+      end
+
+      def difference(other)
+        self.class.new(items - other.items)
+      end
+
       def each(&block)
         collection.each(&block)
       end
@@ -104,16 +125,42 @@ module Lutaml
         collection.last
       end
 
+      def <<(item)
+        push(item)
+      end
+
+      def push(item)
+        collection.push(item)
+        sort_items!
+      end
+
       def [](index)
         collection[index]
       end
 
       def []=(index, value)
         collection[index] = value
+        sort_items!
       end
 
       def empty?
         collection.empty?
+      end
+
+      def order_defined?
+        self.class.sort_configured?
+      end
+
+      def sort_items!
+        return unless order_defined?
+
+        unless collection&.one?
+          field = self.class.order_by_field
+          direction = self.class.order_direction
+
+          collection.sort_by! { |item| item.send(field) }
+          collection.reverse! if direction == :desc
+        end
       end
     end
   end
