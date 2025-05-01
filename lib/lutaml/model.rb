@@ -31,34 +31,5 @@ module Lutaml
 
     class BaseModel < Serializable
     end
-
-    # Register default adapters
-    # Lutaml::Model::FormatRegistry.register(
-    #   :json,
-    #   mapping_class: KeyValueMapping,
-    #   adapter_class: JsonAdapter::StandardJsonAdapter,
-    #   transformer: Lutaml::Model::KeyValueTransform,
-    # )
-
-    # Lutaml::Model::FormatRegistry.register(
-    #   :yaml,
-    #   mapping_class: KeyValueMapping,
-    #   adapter_class: YamlAdapter::StandardYamlAdapter,
-    #   transformer: Lutaml::Model::KeyValueTransform,
-    # )
-
-    # Lutaml::Model::FormatRegistry.register(
-    #   :toml,
-    #   mapping_class: KeyValueMapping,
-    #   adapter_class: nil,
-    #   transformer: Lutaml::Model::KeyValueTransform,
-    # )
-
-    # Lutaml::Model::FormatRegistry.register(
-    #   :xml,
-    #   mapping_class: XmlMapping,
-    #   adapter_class: nil,
-    #   transformer: Lutaml::Model::XmlTransform,
-    # )
   end
 end

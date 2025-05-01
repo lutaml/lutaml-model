@@ -234,7 +234,7 @@ module Lutaml
         Lutaml::Model::UninitializedClass.instance
       end
 
-      def rule_value_for(name, doc, rule, format, attr, options = {})
+      def rule_value_for(name, doc, rule, format, attr, _options = {})
         if rule.root_mapping?
           doc
         elsif rule.raw_mapping?

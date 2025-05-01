@@ -3,6 +3,27 @@ require "lutaml/model"
 
 module CustomCollectionTests
   # Basic model for testing collections
+
+  class Publication < Lutaml::Model::Serializable
+    attribute :title, :string
+    attribute :year, :integer
+    attribute :author, :string
+
+    xml do
+      root "publication"
+
+      map_attribute "title", to: :title
+      map_attribute "year", to: :year
+      map_attribute "author", to: :author
+    end
+
+    key_value do
+      map "title", to: :title
+      map "year", to: :year
+      map "author", to: :author
+    end
+  end
+
   class Item < Lutaml::Model::Serializable
     attribute :id, :string
     attribute :name, :string
@@ -38,6 +59,11 @@ module CustomCollectionTests
     end
   end
 
+  class OrderedItemCollection < Lutaml::Model::Collection
+    instances :items, Item
+    ordered by: :id, order: :desc
+  end
+
   # Custom collection class that extends Lutaml::Model::Collection
   class ItemNoRootCollection < Lutaml::Model::Collection
     instances :items, Item
@@ -59,9 +85,9 @@ module CustomCollectionTests
 
     key_value do
       map to: :items,
-        root_mappings: {
-          id: :key
-        }
+          root_mappings: {
+            id: :key,
+          }
     end
   end
 
@@ -71,10 +97,10 @@ module CustomCollectionTests
 
     key_value do
       map to: :items,
-        root_mappings: {
-          id: :key,
-          name: :value
-        }
+          root_mappings: {
+            id: :key,
+            name: :value,
+          }
     end
   end
 
@@ -84,11 +110,11 @@ module CustomCollectionTests
 
     key_value do
       map "items", to: :items,
-        child_mappings: {
-          id: :key,
-          name: ["details", "name"],
-          description: ["details", "description"]
-        }
+                   child_mappings: {
+                     id: :key,
+                     name: ["details", "name"],
+                     description: ["details", "description"],
+                   }
     end
   end
 
@@ -100,7 +126,7 @@ module CustomCollectionTests
       root "items"
       map_element "item", to: :items, value_map: {
         from: { empty: :empty, omitted: :omitted, nil: :nil },
-        to: { empty: :empty, omitted: :omitted, nil: :nil }
+        to: { empty: :empty, omitted: :omitted, nil: :nil },
       }
     end
 
@@ -108,7 +134,7 @@ module CustomCollectionTests
       root "items"
       map "items", to: :items, value_map: {
         from: { empty: :empty, omitted: :omitted, nil: :nil },
-        to: { empty: :empty, omitted: :omitted, nil: :nil }
+        to: { empty: :empty, omitted: :omitted, nil: :nil },
       }
     end
   end
@@ -121,7 +147,7 @@ module CustomCollectionTests
     xml do
       map_attribute "item-type", to: :_class, polymorphic_map: {
         "basic" => "CustomCollectionTests::BasicItem",
-        "advanced" => "CustomCollectionTests::AdvancedItem"
+        "advanced" => "CustomCollectionTests::AdvancedItem",
       }
       map_element "name", to: :name
     end
@@ -129,7 +155,7 @@ module CustomCollectionTests
     key_value do
       map "_class", to: :_class, polymorphic_map: {
         "Basic" => "CustomCollectionTests::BasicItem",
-        "Advanced" => "CustomCollectionTests::AdvancedItem"
+        "Advanced" => "CustomCollectionTests::AdvancedItem",
       }
       map "name", to: :name
     end
@@ -184,7 +210,7 @@ RSpec.describe CustomCollectionTests do
     let(:items) do
       [
         { id: "1", name: "Item 1", description: "Description 1" },
-        { id: "2", name: "Item 2", description: "Description 2" }
+        { id: "2", name: "Item 2", description: "Description 2" },
       ]
     end
 
@@ -273,7 +299,7 @@ RSpec.describe CustomCollectionTests do
     let(:items) do
       [
         { id: "1", name: "Item 1", description: "Description 1" },
-        { id: "2", name: "Item 2", description: "Description 2" }
+        { id: "2", name: "Item 2", description: "Description 2" },
       ]
     end
 
@@ -372,9 +398,9 @@ RSpec.describe CustomCollectionTests do
 
     it "serializes to YAML with keyed elements" do
       collection = CustomCollectionTests::KeyedItemCollection.new([
-        { id: "item1", name: "Item 1", description: "Description 1" },
-        { id: "item2", name: "Item 2", description: "Description 2" }
-      ])
+                                                                    { id: "item1", name: "Item 1", description: "Description 1" },
+                                                                    { id: "item2", name: "Item 2", description: "Description 2" },
+                                                                  ])
       expect(collection.to_yaml.strip).to eq(yaml.strip)
     end
   end
@@ -399,9 +425,9 @@ RSpec.describe CustomCollectionTests do
 
     it "serializes to YAML with keyed elements and value mapping" do
       collection = CustomCollectionTests::KeyedValueItemCollection.new([
-        { id: "item1", name: "Item 1" },
-        { id: "item2", name: "Item 2" }
-      ])
+                                                                         { id: "item1", name: "Item 1" },
+                                                                         { id: "item2", name: "Item 2" },
+                                                                       ])
       expect(collection.to_yaml.strip).to eq(yaml.strip)
     end
   end
@@ -456,7 +482,7 @@ RSpec.describe CustomCollectionTests do
     end
 
     it "returns nil collection" do
-      expect(nil_collection.items).to eq(nil)
+      expect(nil_collection.items).to be_nil
     end
 
     it "nil collection serialized to XML is <item xsi:nil=\"true\"/>" do
@@ -525,37 +551,259 @@ RSpec.describe CustomCollectionTests do
 
     it "serializes to XML with polymorphic items" do
       collection = CustomCollectionTests::PolymorphicItemCollection.new([
-        CustomCollectionTests::BasicItem.new(
-          _class: "basic",
-          name: "Basic Item",
-          description: "Basic Description"
-        ),
-        CustomCollectionTests::AdvancedItem.new(
-          _class: "advanced",
-          name: "Advanced Item",
-          details: "Advanced Details",
-          priority: 1
-        )
-      ])
+                                                                          CustomCollectionTests::BasicItem.new(
+                                                                            _class: "basic",
+                                                                            name: "Basic Item",
+                                                                            description: "Basic Description",
+                                                                          ),
+                                                                          CustomCollectionTests::AdvancedItem.new(
+                                                                            _class: "advanced",
+                                                                            name: "Advanced Item",
+                                                                            details: "Advanced Details",
+                                                                            priority: 1,
+                                                                          ),
+                                                                        ])
 
       expect(collection.to_xml.strip).to eq(xml.strip)
     end
 
     it "serializes to YAML with polymorphic items" do
       collection = CustomCollectionTests::PolymorphicItemCollection.new([
-        CustomCollectionTests::BasicItem.new(
-          _class: "Basic",
-          name: "Basic Item",
-          description: "Basic Description"
-        ),
-        CustomCollectionTests::AdvancedItem.new(
-          _class: "Advanced",
-          name: "Advanced Item",
-          details: "Advanced Details",
-          priority: 1
-        )
-      ])
+                                                                          CustomCollectionTests::BasicItem.new(
+                                                                            _class: "Basic",
+                                                                            name: "Basic Item",
+                                                                            description: "Basic Description",
+                                                                          ),
+                                                                          CustomCollectionTests::AdvancedItem.new(
+                                                                            _class: "Advanced",
+                                                                            name: "Advanced Item",
+                                                                            details: "Advanced Details",
+                                                                            priority: 1,
+                                                                          ),
+                                                                        ])
       expect(collection.to_yaml.strip).to eq(yaml.strip)
+    end
+  end
+
+  describe "Ordered Collection" do
+    let(:collection) do
+      CustomCollectionTests::OrderedItemCollection.new
+    end
+
+    let(:first_item) do
+      CustomCollectionTests::Item.new(
+        id: "1",
+        name: "Item 1",
+        description: "Description 1",
+      )
+    end
+
+    let(:second_item) do
+      CustomCollectionTests::Item.new(
+        id: "2",
+        name: "Item 2",
+        description: "Description 2",
+      )
+    end
+
+    it "keeps the order of the items" do
+      collection << first_item
+      collection << second_item
+
+      expect(collection.items).to eq([second_item, first_item])
+    end
+  end
+
+  describe "Collection methods" do
+    let(:items) do
+      [
+        { id: "1", name: "Item 1", description: "Description 1" },
+        { id: "2", name: "Item 2", description: "Description 2" },
+      ]
+    end
+
+    let(:collection) { CustomCollectionTests::ItemCollection.new(items) }
+
+    describe "#filter" do
+      it "returns a new collection with filtered items" do
+        filtered = collection.filter { |item| item.id == "1" }
+        expect(filtered).to eq([collection[0]])
+      end
+    end
+
+    describe "#reject" do
+      it "returns a new collection with rejected items" do
+        rejected = collection.reject { |item| item.id == "1" }
+        expect(rejected).to eq([collection[1]])
+      end
+    end
+
+    describe "#select" do
+      it "returns a new collection with selected items" do
+        selected = collection.select { |item| item.id == "1" }
+        expect(selected).to eq([collection[0]])
+      end
+    end
+
+    describe "#map" do
+      it "returns a new collection with mapped items" do
+        mapped = collection.map(&:name)
+        expect(mapped).to eq(["Item 1", "Item 2"])
+      end
+    end
+
+    describe "#find" do
+      it "returns the first item that matches the condition" do
+        found = collection.find { |item| item.id == "1" }
+        expect(found).to eq(collection[0])
+      end
+    end
+
+    describe "#find_all" do
+      it "returns all items that match the condition" do
+        found = collection.find_all { |item| item.id == "1" }
+        expect(found).to eq([collection[0]])
+      end
+    end
+
+    describe "#count" do
+      it "returns the number of items in the collection" do
+        expect(collection.count).to eq(2)
+      end
+    end
+
+    describe "#empty?" do
+      it "returns true if the collection is empty" do
+        empty_collection = CustomCollectionTests::ItemCollection.new([])
+        expect(empty_collection.empty?).to be true
+      end
+
+      it "returns false if the collection is not empty" do
+        expect(collection.empty?).to be false
+      end
+    end
+  end
+
+  describe "Numeric Validations" do
+    before do
+      publication_collection = Class.new(Lutaml::Model::Collection) do
+        instances(:publications, CustomCollectionTests::Publication) do
+          validates :year, numericality: { greater_than: 1900 }
+        end
+      end
+      stub_const("PublicationCollection", publication_collection)
+    end
+
+    let(:valid_publication) do
+      CustomCollectionTests::Publication.new(
+        title: "Publication 1",
+        year: 2000,
+        author: "Author 1",
+      )
+    end
+
+    let(:invalid_publication) do
+      CustomCollectionTests::Publication.new(
+        title: "Publication 1",
+        year: 1800,
+        author: "Author 1",
+      )
+    end
+
+    it "raises error if numeric values are not valid" do
+      collection = PublicationCollection.new(
+        [valid_publication, invalid_publication],
+      )
+
+      expect do
+        collection.validate!
+      end.to raise_error(
+        Lutaml::Model::ValidationError,
+        /`year value is `1800`, which is not greater than 1900`/,
+      )
+    end
+
+    it "does not raise error if numeric values are valid" do
+      collection = PublicationCollection.new([valid_publication])
+      expect { collection.validate! }.not_to raise_error
+    end
+  end
+
+  describe "Presence Validations" do
+    before do
+      publication_collection = Class.new(Lutaml::Model::Collection) do
+        instances(:publications, CustomCollectionTests::Publication) do
+          validates :title, presence: true
+        end
+      end
+      stub_const("PublicationCollection", publication_collection)
+    end
+
+    it "raises error if title is not present" do
+      collection = PublicationCollection.new(
+        [CustomCollectionTests::Publication.new(
+          year: 2000,
+          author: "Author 1",
+        )],
+      )
+
+      expect do
+        collection.validate!
+      end.to raise_error(
+        Lutaml::Model::ValidationError,
+        /`title` is required/,
+      )
+    end
+
+    it "does not raise error if title is present" do
+      collection = PublicationCollection.new(
+        [
+          CustomCollectionTests::Publication.new(
+            title: "Title",
+          ),
+        ],
+      )
+      expect { collection.validate! }.not_to raise_error
+    end
+  end
+
+  describe "Custom Validations" do
+    before do
+      publication_collection = Class.new(Lutaml::Model::Collection) do
+        instances(:publications, CustomCollectionTests::Publication) do
+          validate :must_have_author
+
+          def must_have_author(publications)
+            publications.each do |publication|
+              next unless publication.author.nil?
+
+              errors.add(:author, "`#{publication.title}` must have an author")
+            end
+          end
+        end
+      end
+      stub_const("PublicationCollection", publication_collection)
+    end
+
+    it "validates custom values" do
+      collection = PublicationCollection.new(
+        [
+          CustomCollectionTests::Publication.new(
+            title: "Publication 1",
+            author: "Author 1",
+          ),
+          CustomCollectionTests::Publication.new(
+            title: "Publication 2",
+          ),
+        ],
+      )
+
+      expect do
+        collection.validate!
+      end.to raise_error(
+        Lutaml::Model::ValidationError,
+        /`Publication 2` must have an author/,
+      )
     end
   end
 end
