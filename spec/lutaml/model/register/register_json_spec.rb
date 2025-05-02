@@ -62,7 +62,7 @@ module RegisterJsonSpec
   end
 end
 
-RSpec.describe "JSON with Register" do
+RSpec.describe "RegisterJsonSpec" do
   let(:register) { Lutaml::Model::Register.new(:json_test_register) }
   let(:person) { RegisterJsonSpec::Person.from_json(json, register: register) }
 
@@ -136,7 +136,7 @@ RSpec.describe "JSON with Register" do
     let(:register_substitution) do
       register.register_global_type_substitution(
         from_type: RegisterJsonSpec::ContactInfo,
-        to_type: RegisterJsonSpec::EnhancedContactInfo
+        to_type: RegisterJsonSpec::EnhancedContactInfo,
       )
     end
 
@@ -163,7 +163,7 @@ RSpec.describe "JSON with Register" do
       JSON
     end
 
-    context "before registering substitute class" do
+    context "when the substitute class is not registered" do
       it "deserializes contactInfo using ContactInfo class" do
         expect(person.contact).to be_a(RegisterJsonSpec::ContactInfo)
         expect(person.contact).not_to respond_to(:preferred)
@@ -172,7 +172,7 @@ RSpec.describe "JSON with Register" do
       end
     end
 
-    context "after registering substitute class" do
+    context "when the substitute class is registered" do
       it "deserializes contactInfo using EnhancedContactInfo class" do
         register.register_model(RegisterJsonSpec::EnhancedContactInfo)
         register_substitution
@@ -183,12 +183,12 @@ RSpec.describe "JSON with Register" do
         expect(enhanced_person.contact).to respond_to(:preferred)
         expect(enhanced_person.contact.phone).to eq("555-5678")
         expect(enhanced_person.contact.email).to eq("jane@example.com")
-        expect(enhanced_person.contact.preferred).to eq(true)
+        expect(enhanced_person.contact.preferred).to be(true)
 
         # Ensure serialization includes the new field
         json_output = enhanced_person.to_json
         parsed_json = JSON.parse(json_output)
-        expect(parsed_json["contactInfo"]["isPrimary"]).to eq(true)
+        expect(parsed_json["contactInfo"]["isPrimary"]).to be(true)
       end
     end
   end
@@ -221,7 +221,7 @@ RSpec.describe "JSON with Register" do
     end
 
     before do
-      class RegisterJsonSpec::Team < Lutaml::Model::Serializable
+      stub_const("RegisterJsonSpec::Team", Class.new(Lutaml::Model::Serializable) do
         attribute :name, :string
         attribute :members, :person, collection: true
 
@@ -229,7 +229,7 @@ RSpec.describe "JSON with Register" do
           map :name, to: :name
           map :members, to: :members
         end
-      end
+      end)
 
       register.register_model(RegisterJsonSpec::Team)
     end

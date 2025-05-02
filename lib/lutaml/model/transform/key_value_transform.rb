@@ -2,11 +2,11 @@ module Lutaml
   module Model
     class KeyValueTransform < Lutaml::Model::Transform
       def data_to_model(data, format, options = {})
-        if model_class.include?(Lutaml::Model::Serialize)
-          instance = model_class.new({}, register: register)
-        else
-          instance = model_class.new(register)
-        end
+        instance = if model_class.include?(Lutaml::Model::Serialize)
+                     model_class.new({}, register: register)
+                   else
+                     model_class.new(register)
+                   end
         mappings = extract_mappings(options, format)
 
         mappings.each do |rule|

@@ -10,8 +10,8 @@ module Lutaml
         @registers = {}
       end
 
-      def register(register)
-        @registers[register.id] = register
+      def register(model_register)
+        @registers[model_register.id] = model_register
       end
 
       def lookup(id)
@@ -22,18 +22,16 @@ module Lutaml
         @registers.values
       end
 
-      class << self
-        def register(register)
-          instance.register(register)
-        end
+      def self.register(model_register)
+        instance.register(model_register)
+      end
 
-        def lookup(id)
-          instance.lookup(id)
-        end
+      def self.lookup(id)
+        instance.lookup(id)
+      end
 
-        def registered_objects
-          instance.registered_objects
-        end
+      def self.registered_objects
+        instance.registered_objects
       end
     end
   end

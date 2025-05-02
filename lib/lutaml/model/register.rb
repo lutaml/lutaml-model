@@ -24,15 +24,7 @@ module Lutaml
       end
 
       def get_class(klass_name)
-        klass = if @models.key?(klass_name)
-                  @models[klass_name]
-                elsif resolvable?(klass_name)
-                  resolve(klass_name)
-                elsif type_klass = get_type_class(klass_name)
-                  type_klass
-                elsif klass_name.is_a?(Class)
-                  klass_name
-                end
+        klass = extract_class_from(klass_name)
         raise Lutaml::Model::UnknownTypeError.new(klass_name) unless klass
 
         if substitutable?(klass)
@@ -112,6 +104,18 @@ module Lutaml
 
       def resolvable?(klass_str)
         @models.values.any? { |value| value.to_s == klass_str }
+      end
+
+      def extract_class_from(name)
+        if @models.key?(name)
+          @models[name]
+        elsif resolvable?(name)
+          resolve(name)
+        elsif type_klass = get_type_class(name)
+          type_klass
+        elsif name.is_a?(Class)
+          name
+        end
       end
     end
   end

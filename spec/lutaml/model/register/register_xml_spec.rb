@@ -68,7 +68,7 @@ module RegisterXmlSpec
   end
 end
 
-RSpec.describe "XML MathML with Register" do
+RSpec.describe "RegisterXmlSpec" do
   let(:register) { Lutaml::Model::Register.new(:mathml_register) }
   let(:formula) { RegisterXmlSpec::Math.from_xml(xml, register: register) }
 
@@ -114,7 +114,7 @@ RSpec.describe "XML MathML with Register" do
     let(:register_substitution) do
       register.register_global_type_substitution(
         from_type: RegisterXmlSpec::Mi,
-        to_type: RegisterXmlSpec::NewMi
+        to_type: RegisterXmlSpec::NewMi,
       )
     end
 
@@ -126,7 +126,7 @@ RSpec.describe "XML MathML with Register" do
       XML
     end
 
-    context "before registering substitute class" do
+    context "when substitute class is not registered" do
       it "serializes mi tag using Mi class" do
         expect(formula.symbol).to be_a(RegisterXmlSpec::Mi)
         expect(formula.symbol).not_to respond_to(:color)
@@ -135,7 +135,7 @@ RSpec.describe "XML MathML with Register" do
       end
     end
 
-    context "after registering substitute class" do
+    context "when substitute class is registered" do
       it "serializes mi tag using NewMi class" do
         register_substitution
         expect(formula.symbol).to be_a(RegisterXmlSpec::NewMi)

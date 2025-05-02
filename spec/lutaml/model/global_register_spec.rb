@@ -28,24 +28,24 @@ RSpec.describe Lutaml::Model::GlobalRegister do
   describe ".register" do
     it "calls instance method to register" do
       register = Lutaml::Model::Register.new(:test_register)
-      expect(described_class.instance).to receive(:register).with(register)
-
       described_class.register(register)
+      allow(described_class.instance).to receive(:register).with(register).and_return(register)
+      expect(described_class.lookup(:test_register)).to eq(register)
     end
   end
 
   describe "#lookup" do
-    let(:register1) { Lutaml::Model::Register.new(:v1) }
-    let(:register2) { Lutaml::Model::Register.new(:v2) }
+    let(:register_v_one) { Lutaml::Model::Register.new(:v1) }
+    let(:register_v_two) { Lutaml::Model::Register.new(:v2) }
 
     before do
-      described_class.instance.register(register1)
-      described_class.instance.register(register2)
+      described_class.instance.register(register_v_one)
+      described_class.instance.register(register_v_two)
     end
 
     it "returns the correct register for a given id" do
-      expect(described_class.instance.lookup(:v1)).to eq(register1)
-      expect(described_class.instance.lookup(:v2)).to eq(register2)
+      expect(described_class.instance.lookup(:v1)).to eq(register_v_one)
+      expect(described_class.instance.lookup(:v2)).to eq(register_v_two)
     end
 
     it "returns nil for non-existent id" do
@@ -53,33 +53,35 @@ RSpec.describe Lutaml::Model::GlobalRegister do
     end
 
     it "converts string id to symbol" do
-      expect(described_class.instance.lookup("v1")).to eq(register1)
+      expect(described_class.instance.lookup("v1")).to eq(register_v_one)
     end
   end
 
   describe ".lookup" do
-    it "calls instance method to lookup" do
-      expect(described_class.instance).to receive(:lookup).with(:test_id)
+    let(:register_v_one) { Lutaml::Model::Register.new(:v1) }
 
-      described_class.lookup(:test_id)
+    it "calls instance method to lookup" do
+      allow(described_class.instance).to receive(:lookup).with(:test_id).and_return(register_v_one)
+
+      expect(described_class.lookup(:test_id)).to eq(register_v_one)
     end
   end
 
   describe "#registered_objects" do
-    let(:register1) { Lutaml::Model::Register.new(:v1) }
-    let(:register2) { Lutaml::Model::Register.new(:v2) }
+    let(:register_v_one) { Lutaml::Model::Register.new(:v1) }
+    let(:register_v_two) { Lutaml::Model::Register.new(:v2) }
 
     before do
-      described_class.instance.register(register1)
-      described_class.instance.register(register2)
+      described_class.instance.register(register_v_one)
+      described_class.instance.register(register_v_two)
     end
 
     it "returns all register objects" do
       registers = described_class.instance.registered_objects
 
       expect(registers.size).to eq(2)
-      expect(registers).to include(register1)
-      expect(registers).to include(register2)
+      expect(registers).to include(register_v_one)
+      expect(registers).to include(register_v_two)
     end
 
     it "returns empty array when no registers" do

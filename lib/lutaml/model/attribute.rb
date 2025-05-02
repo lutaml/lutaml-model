@@ -181,7 +181,7 @@ module Lutaml
       def validate_polymorphic!(value, register)
         return true if validate_polymorphic(value, register)
 
-        raise Lutaml::Model::PolymorphicError.new(value, options, unresolved_type)
+        raise Lutaml::Model::PolymorphicError.new(value, options, type(register))
       end
 
       def validate_collection_range

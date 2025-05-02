@@ -305,7 +305,7 @@ module Lutaml
 
             options[:encoding] = doc.encoding
           end
-          if options[:register] && options[:register].is_a?(Symbol)
+          if options[:register].is_a?(Symbol)
             options[:register] = Lutaml::Model::GlobalRegister.lookup(options[:register])
           end
 
