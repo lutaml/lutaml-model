@@ -69,7 +69,7 @@ module Lutaml
       def attribute_for_rule(rule)
         return attributes[rule.to] unless rule.delegate
 
-        attributes[rule.delegate].resolved_type(register).attributes[rule.to]
+        attributes[rule.delegate].type(register).attributes[rule.to]
       end
 
       def register_accessor_methods_for(object, register)

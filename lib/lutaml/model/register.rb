@@ -67,10 +67,10 @@ module Lutaml
 
       def register_attributes(attributes)
         attributes.each_value do |attribute|
-          next unless attribute.type.is_a?(Class)
-          next if built_in_type?(attribute.type) || attribute.type.nil?
+          next unless attribute.unresolved_type.is_a?(Class)
+          next if built_in_type?(attribute.unresolved_type) || attribute.unresolved_type.nil?
 
-          register_model_tree(attribute.type)
+          register_model_tree(attribute.unresolved_type)
         end
       end
 

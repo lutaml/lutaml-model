@@ -380,7 +380,7 @@ module CustomVobjectAdapterSpec
       when "bday"
         create_vcard_bday(entry)
       else
-        attribute.resolved_type.from_vobject(entry[:value])
+        attribute.type.from_vobject(entry[:value])
       end
     end
 
@@ -403,8 +403,8 @@ module CustomVobjectAdapterSpec
 
       value_list = data.first[:value].split(";")
 
-      type_instance = attribute.resolved_type.new
-      attribute.resolved_type.mappings_for(:vobject).mappings.each do |mapping|
+      type_instance = attribute.type.new
+      attribute.type.mappings_for(:vobject).mappings.each do |mapping|
         type_instance.public_send(:"#{mapping.to}=", value_list[mapping.name])
       end
 
@@ -449,7 +449,7 @@ module CustomVobjectAdapterSpec
     end
 
     def format_structured_value(value, attribute)
-      mappings = attribute.resolved_type.mappings_for(:vobject)
+      mappings = attribute.type.mappings_for(:vobject)
       arr = Array.new(mappings.field_set[:count])
 
       mappings.mappings.each do |mapping|

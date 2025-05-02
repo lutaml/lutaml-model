@@ -120,8 +120,8 @@ module Lutaml
             rule_names.include?(child.namespaced_name) && !child.text?
           end
 
-          if rule.has_custom_method_for_deserialization? || attr.resolved_type(register) == Lutaml::Model::Type::Hash
-            return_child = attr.resolved_type(register) == Lutaml::Model::Type::Hash || !attr.collection? if attr
+          if rule.has_custom_method_for_deserialization? || attr.type(register) == Lutaml::Model::Type::Hash
+            return_child = attr.type(register) == Lutaml::Model::Type::Hash || !attr.collection? if attr
             return return_child ? children.first : children
           end
 
@@ -137,7 +137,7 @@ module Lutaml
           end
 
           children&.each do |child|
-            if !rule.has_custom_method_for_deserialization? && attr.resolved_type(register) <= Serialize
+            if !rule.has_custom_method_for_deserialization? && attr.type(register) <= Serialize
               cast_options = options.except(:mappings)
               cast_options[:polymorphic] = rule.polymorphic if rule.polymorphic
               cast_options[:register] = register
@@ -203,8 +203,8 @@ module Lutaml
         return false unless value.is_a?(Hash)
         return value.one? && value.text? unless attr
 
-        !(attr.resolved_type(register) <= Serialize) &&
-          attr.resolved_type(register) != Lutaml::Model::Type::Hash
+        !(attr.type(register) <= Serialize) &&
+          attr.type(register) != Lutaml::Model::Type::Hash
       end
 
       def ensure_utf8(value)

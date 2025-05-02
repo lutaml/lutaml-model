@@ -20,7 +20,7 @@ RSpec.describe Lutaml::Model::GlobalRegister do
       register = Lutaml::Model::Register.new(:test_register)
       described_class.register(register)
 
-      registers = described_class.instance_variable_get(:@registers)
+      registers = described_class.instance.instance_variable_get(:@registers)
       expect(registers[:test_register]).to eq(register)
     end
   end

@@ -80,7 +80,7 @@ module Lutaml
           options[:mixed_content] = rule.mixed_content
           options[:tag_name] = rule.name
 
-          options[:mapper_class] = attribute&.resolved_type(register) if attribute
+          options[:mapper_class] = attribute&.type(register) if attribute
           options[:set_namespace] = set_namespace?(rule)
 
           options
@@ -108,7 +108,7 @@ module Lutaml
             result["elements"] ||= Lutaml::Model::MappingHash.new
             result["elements"].assign_or_append_value(
               self.class.namespaced_name_of(child),
-              parse_element(child, attr&.resolved_type(register) || klass, format),
+              parse_element(child, attr&.type(register) || klass, format),
             )
           end
 
@@ -171,7 +171,7 @@ module Lutaml
 
           value = rule.render_value_for(value)
 
-          if value && (attribute&.resolved_type(register)&.<= Lutaml::Model::Serialize)
+          if value && (attribute&.type(register)&.<= Lutaml::Model::Serialize)
             handle_nested_elements(
               xml,
               value,
@@ -199,7 +199,7 @@ module Lutaml
             serialized_value = attribute.serialize(value, :xml, register)
             if attribute.raw?
               xml.add_xml_fragment(xml, value)
-            elsif attribute.resolved_type(register) == Lutaml::Model::Type::Hash
+            elsif attribute.type(register) == Lutaml::Model::Type::Hash
               serialized_value.each do |key, val|
                 xml.create_and_add_element(key) do |element|
                   element.text(val)
@@ -321,10 +321,10 @@ module Lutaml
             processed[klass][mapping_rule.name] = true
 
             type = if mapping_rule.delegate
-                     attributes[mapping_rule.delegate].resolved_type(register)
-                       .attributes[mapping_rule.to].resolved_type(register)
+                     attributes[mapping_rule.delegate].type(register)
+                       .attributes[mapping_rule.to].type(register)
                    else
-                     attributes[mapping_rule.to]&.resolved_type(register)
+                     attributes[mapping_rule.to]&.type(register)
                    end
 
             next unless type

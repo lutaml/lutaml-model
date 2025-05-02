@@ -424,7 +424,7 @@ module Lutaml
           if type.is_a?(Class)
             type.name
           elsif type.respond_to?(:type)
-            type.resolved_type.name
+            type.type.name
           else
             type.class.name
           end

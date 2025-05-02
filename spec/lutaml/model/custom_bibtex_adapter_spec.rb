@@ -336,7 +336,7 @@ module CustomBibtexAdapterSpec
           if field_value
             bibtex_entry.public_send(
               :"#{mapping.to}=",
-              attribute.resolved_type.from_bibtex(field_value),
+              attribute.type.from_bibtex(field_value),
             )
           end
         end

@@ -5,51 +5,53 @@ module Lutaml
     module Schema
       class JsonSchema
         def self.generate(klass, options = {})
+          register = lookup_register(options[:register])
           schema = {
             "$schema" => "https://json-schema.org/draft/2020-12/schema",
             "$id" => options[:id],
             "description" => options[:description],
             "$ref" => "#/$defs/#{klass.name}",
-            "$defs" => generate_definitions(klass),
+            "$defs" => generate_definitions(klass, register),
           }.compact
 
           options[:pretty] ? JSON.pretty_generate(schema) : schema.to_json
         end
 
-        def self.generate_definitions(klass)
-          defs = { klass.name => generate_class_schema(klass) }
+        def self.generate_definitions(klass, register)
+          defs = { klass.name => generate_class_schema(klass, register) }
           klass.attributes.each_value do |attr|
-            if attr.resolved_type <= Lutaml::Model::Serialize
-              defs.merge!(generate_definitions(attr.resolved_type))
+            if attr.type(register) <= Lutaml::Model::Serialize
+              defs.merge!(generate_definitions(attr.type(register), register))
             end
           end
           defs
         end
 
-        def self.generate_class_schema(klass)
+        def self.generate_class_schema(klass, register)
           {
             "type" => "object",
-            "properties" => generate_properties(klass),
+            "properties" => generate_properties(klass, register),
             "required" => klass.attributes.keys,
           }
         end
 
-        def self.generate_properties(klass)
+        def self.generate_properties(klass, register)
           klass.attributes.transform_values do |attr|
-            generate_property_schema(attr)
+            generate_property_schema(attr, register)
           end
         end
 
-        def self.generate_property_schema(attr)
-          if attr.resolved_type <= Lutaml::Model::Serialize
-            { "$ref" => "#/$defs/#{attr.resolved_type.name}" }
+        def self.generate_property_schema(attr, register)
+          attr_type = attr.type(register)
+          if attr_type <= Lutaml::Model::Serialize
+            { "$ref" => "#/$defs/#{attr_type.name}" }
           elsif attr.collection?
             {
               "type" => "array",
-              "items" => { "type" => get_json_type(attr.resolved_type) },
+              "items" => { "type" => get_json_type(attr_type) },
             }
           else
-            { "type" => get_json_type(attr.resolved_type) }
+            { "type" => get_json_type(attr_type) }
           end
         end
 
@@ -61,6 +63,16 @@ module Lutaml
             Lutaml::Model::Type::Float => "number",
             Lutaml::Model::Type::Hash => "object",
           }[type] || "string" # Default to string for unknown types
+        end
+
+        def self.lookup_register(register)
+          return register if register.is_a?(Lutaml::Model::Register)
+
+          if register.nil?
+            Lutaml::Model::Config.default_register
+          else
+            Lutaml::Model::GlobalRegister.lookup(register)
+          end
         end
       end
     end

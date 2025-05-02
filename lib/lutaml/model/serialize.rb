@@ -305,7 +305,7 @@ module Lutaml
 
             options[:encoding] = doc.encoding
           end
-          unless options[:register].is_a?(Register)
+          if options[:register] && options[:register].is_a?(Symbol)
             options[:register] = Lutaml::Model::GlobalRegister.lookup(options[:register])
           end
 
@@ -518,17 +518,17 @@ module Lutaml
         if attr_rule.collection? || value.is_a?(Array)
           value&.map do |v|
             if v.is_a?(Hash)
-              attr_rule.resolved_type(register).new(v)
+              attr_rule.type(register).new(v)
             else
               # TODO: This code is problematic because Type.cast does not know
               # about all the types.
-              Lutaml::Model::Type.cast(v, attr_rule.resolved_type(register))
+              Lutaml::Model::Type.cast(v, attr_rule.type(register))
             end
           end
         else
           # TODO: This code is problematic because Type.cast does not know
           # about all the types.
-          Lutaml::Model::Type.cast(value, attr_rule.resolved_type(register))
+          Lutaml::Model::Type.cast(value, attr_rule.type(register))
         end
       end
 
