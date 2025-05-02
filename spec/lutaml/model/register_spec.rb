@@ -144,7 +144,6 @@ RSpec.describe Lutaml::Model::Register do
     it "doesn't register built-in types" do
       attributes = model_class.attributes
       v1_register.register_attributes(attributes)
-      # Verify built-in type (:string) wasn't registered
       expect(v1_register.models.keys).not_to include(:string)
     end
   end

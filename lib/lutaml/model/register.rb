@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "delegate"
 module Lutaml
   module Model
     class Register
@@ -27,13 +28,14 @@ module Lutaml
         klass = extract_class_from(klass_name)
         raise Lutaml::Model::UnknownTypeError.new(klass_name) unless klass
 
-        if substitutable?(klass)
-          substitute(klass)
-        elsif substitutable?(klass_name)
-          substitute(klass_name)
-        else
-          klass
-        end
+        expected_class = if substitutable?(klass)
+                             substitute(klass)
+                           elsif substitutable?(klass_name)
+                             substitute(klass_name)
+                           else
+                             klass
+                           end
+        RegisteredClass.new(expected_class, self) if expected_class.is_a?(Class)
       end
 
       def register_model_tree(klass)
@@ -115,6 +117,22 @@ module Lutaml
           type_klass
         elsif name.is_a?(Class)
           name
+        end
+      end
+    end
+
+    class RegisteredClass < ::SimpleDelegator
+      attr_accessor :klass, :register
+
+      def initialize(klass, register)
+        @klass = klass
+        @register = register
+      end
+
+      Lutaml::Model::Config::AVAILABLE_FORMATS.each do |format|
+        define_method("from_#{format}") do |data, options = {}|
+          options[:register] = self.register
+          klass.public_send("from_#{format}", data, options)
         end
       end
     end
