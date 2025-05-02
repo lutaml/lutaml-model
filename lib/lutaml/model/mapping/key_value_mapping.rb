@@ -4,7 +4,7 @@ require_relative "key_value_mapping_rule"
 module Lutaml
   module Model
     class KeyValueMapping < Mapping
-      attr_reader :mappings, :format, :root, :key_mappings, :value_mappings
+      attr_reader :mappings, :format, :key_mappings, :value_mappings
 
       def initialize(format = nil)
         super()
@@ -12,7 +12,7 @@ module Lutaml
         @format = format
       end
 
-      def root(name)
+      def root(name = nil)
         @root = name
       end
 
@@ -158,7 +158,9 @@ module Lutaml
 
       def validate_root_mappings!(name)
         if root_mapping || (name == "root_mapping" && @mappings.any?)
-          raise MultipleMappingsError.new("root_mappings cannot be used with other mappings")
+          raise MultipleMappingsError.new(
+            "root_mappings cannot be used with other mappings",
+          )
         end
       end
 
@@ -171,7 +173,8 @@ module Lutaml
       end
 
       def validate_mappings!(_type)
-        if (@raw_mapping && Utils.present?(@mappings)) || (!@raw_mapping && @mappings.any?(&:raw_mapping?))
+        if (@raw_mapping && Utils.present?(@mappings)) ||
+            (!@raw_mapping && @mappings.any?(&:raw_mapping?))
           raise StandardError, "map_all is not allowed with other mappings"
         end
       end
