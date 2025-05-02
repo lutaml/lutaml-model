@@ -4,7 +4,10 @@ module Lutaml
       include Enumerable
 
       class << self
-        attr_reader :instance_type, :instance_name, :order_by_field, :order_direction
+        attr_reader :instance_type,
+                    :instance_name,
+                    :order_by_field,
+                    :order_direction
 
         def instances(name, type, &block)
           attribute(name, type, collection: true, validations: block)
@@ -39,7 +42,7 @@ module Lutaml
           data = super
 
           if mappings.no_root? && format != :xml && !mappings.root_mapping
-            data[mappings.mappings.first.to.to_sym] || data[mappings.mappings.first.to.to_s]
+            Utils.fetch_with_string_or_symbol_key(data, mappings.mappings.first.to)
           else
             data
           end

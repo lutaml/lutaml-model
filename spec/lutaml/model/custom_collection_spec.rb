@@ -1,7 +1,7 @@
 require "spec_helper"
 require "lutaml/model"
 
-module CustomCollectionTests
+module CustomCollection
   # Basic model for testing collections
 
   class Publication < Lutaml::Model::Serializable
@@ -146,16 +146,16 @@ module CustomCollectionTests
 
     xml do
       map_attribute "item-type", to: :_class, polymorphic_map: {
-        "basic" => "CustomCollectionTests::BasicItem",
-        "advanced" => "CustomCollectionTests::AdvancedItem",
+        "basic" => "CustomCollection::BasicItem",
+        "advanced" => "CustomCollection::AdvancedItem",
       }
       map_element "name", to: :name
     end
 
     key_value do
       map "_class", to: :_class, polymorphic_map: {
-        "Basic" => "CustomCollectionTests::BasicItem",
-        "Advanced" => "CustomCollectionTests::AdvancedItem",
+        "Basic" => "CustomCollection::BasicItem",
+        "Advanced" => "CustomCollection::AdvancedItem",
       }
       map "name", to: :name
     end
@@ -205,26 +205,19 @@ module CustomCollectionTests
   end
 end
 
-RSpec.describe CustomCollectionTests do
+RSpec.describe CustomCollection do
+  let(:items) do
+    [
+      { id: "1", name: "Item 1", description: "Description 1" },
+      { id: "2", name: "Item 2", description: "Description 2" },
+    ]
+  end
+
   describe "ItemCollection" do
-    let(:items) do
-      [
-        { id: "1", name: "Item 1", description: "Description 1" },
-        { id: "2", name: "Item 2", description: "Description 2" },
-      ]
-    end
+    let(:collection) { CustomCollection::ItemCollection.new(items) }
 
-    let(:collection) { CustomCollectionTests::ItemCollection.new(items) }
-
-    it "initializes with items" do
-      expect(collection.items.size).to eq(2)
-      expect(collection.items.first.id).to eq("1")
-      expect(collection.items.first.name).to eq("Item 1")
-      expect(collection.items.first.description).to eq("Description 1")
-    end
-
-    it "serializes to XML" do
-      expected_xml = <<~XML.strip
+    let(:xml) do
+      <<~XML
         <items>
           <item id="1">
             <name>Item 1</name>
@@ -236,33 +229,10 @@ RSpec.describe CustomCollectionTests do
           </item>
         </items>
       XML
-
-      expect(collection.to_xml.strip).to eq(expected_xml)
     end
 
-    it "deserializes from XML" do
-      xml = <<~XML
-        <items>
-          <item id="1">
-            <name>Item 1</name>
-            <description>Description 1</description>
-          </item>
-          <item id="2">
-            <name>Item 2</name>
-            <description>Description 2</description>
-          </item>
-        </items>
-      XML
-
-      parsed = CustomCollectionTests::ItemCollection.from_xml(xml)
-      expect(parsed.items.size).to eq(2)
-      expect(parsed.items.first.id).to eq("1")
-      expect(parsed.items.first.name).to eq("Item 1")
-      expect(parsed.items.first.description).to eq("Description 1")
-    end
-
-    it "serializes to YAML" do
-      expected_yaml = <<~YAML.strip
+    let(:yaml) do
+      <<~YAML.strip
         ---
         items:
         - id: '1'
@@ -272,41 +242,40 @@ RSpec.describe CustomCollectionTests do
           name: Item 2
           description: Description 2
       YAML
+    end
 
-      expect(collection.to_yaml.strip).to eq(expected_yaml)
+    it { expect(collection.items.size).to eq(2) }
+    it { expect(collection.items.first.id).to eq("1") }
+    it { expect(collection.items.first.name).to eq("Item 1") }
+    it { expect(collection.items.first.description).to eq("Description 1") }
+    it { expect(collection.items.last.id).to eq("2") }
+    it { expect(collection.items.last.name).to eq("Item 2") }
+    it { expect(collection.items.last.description).to eq("Description 2") }
+
+    it "serializes to XML" do
+      expect(collection.to_xml.strip).to eq(xml.strip)
+    end
+
+    it "deserializes from XML" do
+      expect(CustomCollection::ItemCollection.from_xml(xml)).to eq(collection)
+    end
+
+    it "serializes to YAML" do
+      expect(collection.to_yaml.strip).to eq(yaml)
     end
 
     it "deserializes from YAML" do
-      yaml = <<~YAML
-        ---
-        items:
-        - id: "1"
-          name: Item 1
-          description: Description 1
-        - id: "2"
-          name: Item 2
-          description: Description 2
-      YAML
-      parsed = CustomCollectionTests::ItemCollection.from_yaml(yaml)
-      expect(parsed.items.size).to eq(2)
-      expect(parsed.items.first.id).to eq("1")
-      expect(parsed.items.first.name).to eq("Item 1")
-      expect(parsed.items.first.description).to eq("Description 1")
+      expect(CustomCollection::ItemCollection.from_yaml(yaml)).to eq(collection)
     end
   end
 
   describe "ItemNoRootCollection" do
-    let(:items) do
-      [
-        { id: "1", name: "Item 1", description: "Description 1" },
-        { id: "2", name: "Item 2", description: "Description 2" },
-      ]
+    let(:no_root_collection) do
+      CustomCollection::ItemNoRootCollection.new(items)
     end
 
-    let(:collection) { CustomCollectionTests::ItemNoRootCollection.new(items) }
-
-    it "serializes to XML" do
-      expected_xml = <<~XML.strip
+    let(:xml_no_root) do
+      <<~XML.strip
         <item id="1">
           <name>Item 1</name>
           <description>Description 1</description>
@@ -316,64 +285,41 @@ RSpec.describe CustomCollectionTests do
           <description>Description 2</description>
         </item>
       XML
+    end
 
-      expect(collection.to_xml.strip).to eq(expected_xml)
+    let(:yaml_no_root) do
+      <<~YAML.strip
+        ---
+        - id: '1'
+          name: Item 1
+          description: Description 1
+        - id: '2'
+          name: Item 2
+          description: Description 2
+      YAML
+    end
+
+    it "serializes to XML" do
+      expect(no_root_collection.to_xml.strip).to eq(xml_no_root)
     end
 
     it "deserializes from XML" do
-      xml = <<~XML
-        <item id="1">
-          <name>Item 1</name>
-          <description>Description 1</description>
-        </item>
-        <item id="2">
-          <name>Item 2</name>
-          <description>Description 2</description>
-        </item>
-      XML
-
-      parsed = CustomCollectionTests::ItemNoRootCollection.from_xml(xml)
-      expect(parsed.items.size).to eq(2)
-      expect(parsed.items.first.id).to eq("1")
-      expect(parsed.items.first.name).to eq("Item 1")
-      expect(parsed.items.first.description).to eq("Description 1")
+      expect(CustomCollection::ItemNoRootCollection.from_xml(xml_no_root))
+        .to eq(no_root_collection)
     end
 
     it "serializes to YAML" do
-      expected_yaml = <<~YAML.strip
-        ---
-        - id: '1'
-          name: Item 1
-          description: Description 1
-        - id: '2'
-          name: Item 2
-          description: Description 2
-      YAML
-
-      expect(collection.to_yaml.strip).to eq(expected_yaml)
+      expect(no_root_collection.to_yaml.strip).to eq(yaml_no_root)
     end
 
     it "deserializes from YAML" do
-      yaml = <<~YAML
-        ---
-        - id: '1'
-          name: Item 1
-          description: Description 1
-        - id: '2'
-          name: Item 2
-          description: Description 2
-      YAML
-
-      parsed = CustomCollectionTests::ItemNoRootCollection.from_yaml(yaml)
-      expect(parsed.items.size).to eq(2)
-      expect(parsed.items.first.id).to eq("1")
-      expect(parsed.items.first.name).to eq("Item 1")
-      expect(parsed.items.first.description).to eq("Description 1")
+      expect(CustomCollection::ItemNoRootCollection.from_yaml(yaml_no_root))
+        .to eq(no_root_collection)
     end
   end
 
   describe "KeyedItemCollection" do
-    let(:yaml) do
+    let(:yaml_keyed) do
       <<~YAML
         ---
         item1:
@@ -385,23 +331,37 @@ RSpec.describe CustomCollectionTests do
       YAML
     end
 
+    let(:expected_object) do
+      CustomCollection::KeyedItemCollection.new(
+        [
+          CustomCollection::Item.new(
+            id: "item1",
+            name: "Item 1",
+            description: "Description 1",
+          ),
+          CustomCollection::Item.new(
+            id: "item2",
+            name: "Item 2",
+            description: "Description 2",
+          ),
+        ],
+      )
+    end
+
     it "deserializes from YAML with keyed elements" do
-      parsed = CustomCollectionTests::KeyedItemCollection.from_yaml(yaml)
-      expect(parsed.items.size).to eq(2)
-      expect(parsed.items.first.id).to eq("item1")
-      expect(parsed.items.first.name).to eq("Item 1")
-      expect(parsed.items.first.description).to eq("Description 1")
-      expect(parsed.items.last.id).to eq("item2")
-      expect(parsed.items.last.name).to eq("Item 2")
-      expect(parsed.items.last.description).to eq("Description 2")
+      parsed = CustomCollection::KeyedItemCollection.from_yaml(yaml_keyed)
+
+      expect(parsed).to eq(expected_object)
     end
 
     it "serializes to YAML with keyed elements" do
-      collection = CustomCollectionTests::KeyedItemCollection.new([
-                                                                    { id: "item1", name: "Item 1", description: "Description 1" },
-                                                                    { id: "item2", name: "Item 2", description: "Description 2" },
-                                                                  ])
-      expect(collection.to_yaml.strip).to eq(yaml.strip)
+      collection = CustomCollection::KeyedItemCollection.new(
+        [
+          { id: "item1", name: "Item 1", description: "Description 1" },
+          { id: "item2", name: "Item 2", description: "Description 2" },
+        ],
+      )
+      expect(collection.to_yaml.strip).to eq(yaml_keyed.strip)
     end
   end
 
@@ -415,7 +375,7 @@ RSpec.describe CustomCollectionTests do
     end
 
     it "deserializes from YAML with keyed elements and value mapping" do
-      parsed = CustomCollectionTests::KeyedValueItemCollection.from_yaml(yaml)
+      parsed = CustomCollection::KeyedValueItemCollection.from_yaml(yaml)
       expect(parsed.items.size).to eq(2)
       expect(parsed.items.first.id).to eq("item1")
       expect(parsed.items.first.name).to eq("Item 1")
@@ -424,10 +384,12 @@ RSpec.describe CustomCollectionTests do
     end
 
     it "serializes to YAML with keyed elements and value mapping" do
-      collection = CustomCollectionTests::KeyedValueItemCollection.new([
-                                                                         { id: "item1", name: "Item 1" },
-                                                                         { id: "item2", name: "Item 2" },
-                                                                       ])
+      collection = CustomCollection::KeyedValueItemCollection.new(
+        [
+          { id: "item1", name: "Item 1" },
+          { id: "item2", name: "Item 2" },
+        ],
+      )
       expect(collection.to_yaml.strip).to eq(yaml.strip)
     end
   end
@@ -448,7 +410,7 @@ RSpec.describe CustomCollectionTests do
     end
 
     it "deserializes from YAML with child mappings" do
-      parsed = CustomCollectionTests::ChildMappedItemCollection.from_yaml(yaml)
+      parsed = CustomCollection::ChildMappedItemCollection.from_yaml(yaml)
 
       expect(parsed.items.size).to eq(2)
       expect(parsed.items.first.id).to eq("1")
@@ -462,11 +424,11 @@ RSpec.describe CustomCollectionTests do
 
   describe "ValueMappedItemCollection" do
     let(:empty_collection) do
-      CustomCollectionTests::ValueMappedItemCollection.from_yaml("items: []")
+      CustomCollection::ValueMappedItemCollection.from_yaml("items: []")
     end
 
     let(:nil_collection) do
-      CustomCollectionTests::ValueMappedItemCollection.from_yaml("items:")
+      CustomCollection::ValueMappedItemCollection.from_yaml("items:")
     end
 
     it "returns empty collection" do
@@ -526,72 +488,76 @@ RSpec.describe CustomCollectionTests do
     end
 
     it "deserializes from XML with polymorphic items" do
-      parsed = CustomCollectionTests::PolymorphicItemCollection.from_xml(xml)
+      parsed = CustomCollection::PolymorphicItemCollection.from_xml(xml)
       expect(parsed.items.size).to eq(2)
-      expect(parsed.items.first).to be_a(CustomCollectionTests::BasicItem)
+      expect(parsed.items.first).to be_a(CustomCollection::BasicItem)
       expect(parsed.items.first.name).to eq("Basic Item")
       expect(parsed.items.first.description).to eq("Basic Description")
-      expect(parsed.items.last).to be_a(CustomCollectionTests::AdvancedItem)
+      expect(parsed.items.last).to be_a(CustomCollection::AdvancedItem)
       expect(parsed.items.last.name).to eq("Advanced Item")
       expect(parsed.items.last.details).to eq("Advanced Details")
       expect(parsed.items.last.priority).to eq(1)
     end
 
     it "deserializes from YAML with polymorphic items" do
-      parsed = CustomCollectionTests::PolymorphicItemCollection.from_yaml(yaml)
+      parsed = CustomCollection::PolymorphicItemCollection.from_yaml(yaml)
       expect(parsed.items.size).to eq(2)
-      expect(parsed.items.first).to be_a(CustomCollectionTests::BasicItem)
+      expect(parsed.items.first).to be_a(CustomCollection::BasicItem)
       expect(parsed.items.first.name).to eq("Basic Item")
       expect(parsed.items.first.description).to eq("Basic Description")
-      expect(parsed.items.last).to be_a(CustomCollectionTests::AdvancedItem)
+      expect(parsed.items.last).to be_a(CustomCollection::AdvancedItem)
       expect(parsed.items.last.name).to eq("Advanced Item")
       expect(parsed.items.last.details).to eq("Advanced Details")
       expect(parsed.items.last.priority).to eq(1)
     end
 
     it "serializes to XML with polymorphic items" do
-      collection = CustomCollectionTests::PolymorphicItemCollection.new([
-                                                                          CustomCollectionTests::BasicItem.new(
-                                                                            _class: "basic",
-                                                                            name: "Basic Item",
-                                                                            description: "Basic Description",
-                                                                          ),
-                                                                          CustomCollectionTests::AdvancedItem.new(
-                                                                            _class: "advanced",
-                                                                            name: "Advanced Item",
-                                                                            details: "Advanced Details",
-                                                                            priority: 1,
-                                                                          ),
-                                                                        ])
+      collection = CustomCollection::PolymorphicItemCollection.new(
+        [
+          CustomCollection::BasicItem.new(
+            _class: "basic",
+            name: "Basic Item",
+            description: "Basic Description",
+          ),
+          CustomCollection::AdvancedItem.new(
+            _class: "advanced",
+            name: "Advanced Item",
+            details: "Advanced Details",
+            priority: 1,
+          ),
+        ],
+      )
 
       expect(collection.to_xml.strip).to eq(xml.strip)
     end
 
     it "serializes to YAML with polymorphic items" do
-      collection = CustomCollectionTests::PolymorphicItemCollection.new([
-                                                                          CustomCollectionTests::BasicItem.new(
-                                                                            _class: "Basic",
-                                                                            name: "Basic Item",
-                                                                            description: "Basic Description",
-                                                                          ),
-                                                                          CustomCollectionTests::AdvancedItem.new(
-                                                                            _class: "Advanced",
-                                                                            name: "Advanced Item",
-                                                                            details: "Advanced Details",
-                                                                            priority: 1,
-                                                                          ),
-                                                                        ])
+      collection = CustomCollection::PolymorphicItemCollection.new(
+        [
+          CustomCollection::BasicItem.new(
+            _class: "Basic",
+            name: "Basic Item",
+            description: "Basic Description",
+          ),
+          CustomCollection::AdvancedItem.new(
+            _class: "Advanced",
+            name: "Advanced Item",
+            details: "Advanced Details",
+            priority: 1,
+          ),
+        ],
+      )
       expect(collection.to_yaml.strip).to eq(yaml.strip)
     end
   end
 
   describe "Ordered Collection" do
     let(:collection) do
-      CustomCollectionTests::OrderedItemCollection.new
+      CustomCollection::OrderedItemCollection.new
     end
 
     let(:first_item) do
-      CustomCollectionTests::Item.new(
+      CustomCollection::Item.new(
         id: "1",
         name: "Item 1",
         description: "Description 1",
@@ -599,7 +565,7 @@ RSpec.describe CustomCollectionTests do
     end
 
     let(:second_item) do
-      CustomCollectionTests::Item.new(
+      CustomCollection::Item.new(
         id: "2",
         name: "Item 2",
         description: "Description 2",
@@ -622,7 +588,7 @@ RSpec.describe CustomCollectionTests do
       ]
     end
 
-    let(:collection) { CustomCollectionTests::ItemCollection.new(items) }
+    let(:collection) { CustomCollection::ItemCollection.new(items) }
 
     describe "#filter" do
       it "returns a new collection with filtered items" do
@@ -674,7 +640,7 @@ RSpec.describe CustomCollectionTests do
 
     describe "#empty?" do
       it "returns true if the collection is empty" do
-        empty_collection = CustomCollectionTests::ItemCollection.new([])
+        empty_collection = CustomCollection::ItemCollection.new([])
         expect(empty_collection.empty?).to be true
       end
 
@@ -687,7 +653,7 @@ RSpec.describe CustomCollectionTests do
   describe "Numeric Validations" do
     before do
       publication_collection = Class.new(Lutaml::Model::Collection) do
-        instances(:publications, CustomCollectionTests::Publication) do
+        instances(:publications, CustomCollection::Publication) do
           validates :year, numericality: { greater_than: 1900 }
         end
       end
@@ -695,7 +661,7 @@ RSpec.describe CustomCollectionTests do
     end
 
     let(:valid_publication) do
-      CustomCollectionTests::Publication.new(
+      CustomCollection::Publication.new(
         title: "Publication 1",
         year: 2000,
         author: "Author 1",
@@ -703,7 +669,7 @@ RSpec.describe CustomCollectionTests do
     end
 
     let(:invalid_publication) do
-      CustomCollectionTests::Publication.new(
+      CustomCollection::Publication.new(
         title: "Publication 1",
         year: 1800,
         author: "Author 1",
@@ -732,7 +698,7 @@ RSpec.describe CustomCollectionTests do
   describe "Presence Validations" do
     before do
       publication_collection = Class.new(Lutaml::Model::Collection) do
-        instances(:publications, CustomCollectionTests::Publication) do
+        instances(:publications, CustomCollection::Publication) do
           validates :title, presence: true
         end
       end
@@ -741,7 +707,7 @@ RSpec.describe CustomCollectionTests do
 
     it "raises error if title is not present" do
       collection = PublicationCollection.new(
-        [CustomCollectionTests::Publication.new(
+        [CustomCollection::Publication.new(
           year: 2000,
           author: "Author 1",
         )],
@@ -758,7 +724,7 @@ RSpec.describe CustomCollectionTests do
     it "does not raise error if title is present" do
       collection = PublicationCollection.new(
         [
-          CustomCollectionTests::Publication.new(
+          CustomCollection::Publication.new(
             title: "Title",
           ),
         ],
@@ -770,7 +736,7 @@ RSpec.describe CustomCollectionTests do
   describe "Custom Validations" do
     before do
       publication_collection = Class.new(Lutaml::Model::Collection) do
-        instances(:publications, CustomCollectionTests::Publication) do
+        instances(:publications, CustomCollection::Publication) do
           validate :must_have_author
 
           def must_have_author(publications)
@@ -788,11 +754,11 @@ RSpec.describe CustomCollectionTests do
     it "validates custom values" do
       collection = PublicationCollection.new(
         [
-          CustomCollectionTests::Publication.new(
+          CustomCollection::Publication.new(
             title: "Publication 1",
             author: "Author 1",
           ),
-          CustomCollectionTests::Publication.new(
+          CustomCollection::Publication.new(
             title: "Publication 2",
           ),
         ],

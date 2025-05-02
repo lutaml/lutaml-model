@@ -5,8 +5,8 @@ module Lutaml
         instance = model_class.new
         mappings = extract_mappings(options, format)
 
-        options[:key_mappings] = mappings.key_mappings if mappings.key_mappings
-        options[:value_mappings] = mappings.value_mappings if mappings.value_mappings
+        Utils.add_if_present(options, :key_mappings, mappings.key_mappings)
+        Utils.add_if_present(options, :value_mappings, mappings.value_mappings)
 
         mappings.mappings.each do |rule|
           process_mapping_rule(data, instance, format, rule, options)
@@ -85,7 +85,9 @@ module Lutaml
       def serialize_value(value, rule, attr, format, options)
         return attr.serialize(value, format, options) unless rule.child_mappings
 
-        generate_hash_from_child_mappings(attr, value, format, rule.child_mappings)
+        generate_hash_from_child_mappings(
+          attr, value, format, rule.child_mappings
+        )
       end
 
       def rule_from_name(rule)
@@ -210,28 +212,41 @@ module Lutaml
 
         rule_names.each do |rule_name|
           value = rule_value_for(rule_name, doc, rule, format, attr, options)
-
-          if (options[:key_mappings] || options[:value_mappings]) && value.is_a?(Hash)
-            value = value.map do |k, v|
-              if v.is_a?(Hash)
-                v.merge(
-                  {
-                    options[:key_mappings].to_instance.to_s => k,
-                  },
-                )
-              else
-                {
-                  options[:key_mappings].to_instance.to_s => k,
-                  options[:value_mappings].as_attribute.to_s => v,
-                }
-              end
-            end
-          end
-
+          value = transform_mapped_value(value, options) if should_transform_value?(value, options)
           return value if Utils.initialized?(value)
         end
 
         Lutaml::Model::UninitializedClass.instance
+      end
+
+      def should_transform_value?(value, options)
+        (options[:key_mappings] || options[:value_mappings]) &&
+          value.is_a?(Hash)
+      end
+
+      def transform_mapped_value(value, options)
+        value.map do |k, v|
+          if v.is_a?(Hash)
+            transform_hash_value(v, k, options)
+          else
+            transform_simple_value(k, v, options)
+          end
+        end
+      end
+
+      def transform_hash_value(hash_value, key, options)
+        hash_value.merge(
+          {
+            options[:key_mappings].to_instance.to_s => key,
+          },
+        )
+      end
+
+      def transform_simple_value(key, value, options)
+        {
+          options[:key_mappings].to_instance.to_s => key,
+          options[:value_mappings].as_attribute.to_s => value,
+        }
       end
 
       def rule_value_for(name, doc, rule, format, attr, _options = {})
