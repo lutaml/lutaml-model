@@ -133,6 +133,10 @@ module Lutaml
           attr
         end
 
+        def register(name)
+          name&.to_sym
+        end
+
         def root?
           mappings_for(:xml)&.root?
         end
@@ -300,6 +304,9 @@ module Lutaml
             raise Lutaml::Model::NoRootMappingError.new(self) unless root?
 
             options[:encoding] = doc.encoding
+          end
+          unless options[:register].is_a?(Register)
+            options[:register] = Lutaml::Model::GlobalRegister.lookup(options[:register])
           end
 
           transformer = Lutaml::Model::Config.transformer_for(format)

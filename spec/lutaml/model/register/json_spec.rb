@@ -177,7 +177,7 @@ RSpec.describe "JSON with Register" do
         register.register_model(RegisterJsonSpec::EnhancedContactInfo)
         register_substitution
 
-        enhanced_person = RegisterJsonSpec::Person.from_json(json, register: register)
+        enhanced_person = RegisterJsonSpec::Person.from_json(json, register: register.id)
 
         expect(enhanced_person.contact).to be_a(RegisterJsonSpec::EnhancedContactInfo)
         expect(enhanced_person.contact).to respond_to(:preferred)

@@ -32,10 +32,6 @@ module Lutaml
         register.get_class(type) unless type.nil?
       end
 
-      def register(symbol)
-        @type = symbol
-      end
-
       def polymorphic?
         @options[:polymorphic_class]
       end

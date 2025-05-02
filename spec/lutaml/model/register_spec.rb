@@ -54,27 +54,6 @@ RSpec.describe Lutaml::Model::Register do
     end
   end
 
-  describe "#lookup" do
-    let(:v1_register) { described_class.new(:v1) }
-
-    before do
-      v1_register.register_model(Array, id: :registered_type)
-    end
-
-    it "returns registered model by symbol key" do
-      expect(v1_register.lookup(:registered_type)).to eq(Array)
-    end
-
-    it "returns registered model by class" do
-      v1_register.register_model(String)
-      expect(v1_register.lookup(String)).to eq(String)
-    end
-
-    it "returns nil for unregistered class" do
-      expect(v1_register.lookup(Hash)).to be_nil
-    end
-  end
-
   describe "#resolve" do
     let(:v1_register) { described_class.new(:v1) }
 

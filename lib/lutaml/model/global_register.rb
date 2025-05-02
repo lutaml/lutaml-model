@@ -14,20 +14,26 @@ module Lutaml
         @registers[register.id] = register
       end
 
-      def self.register(register)
-        instance.register(register)
-      end
-
-      def self.lookup(id)
-        instance.lookup(id)
-      end
-
       def lookup(id)
         @registers[id.to_sym]
       end
 
-      def register_objects
+      def registered_objects
         @registers.values
+      end
+
+      class << self
+        def register(register)
+          instance.register(register)
+        end
+
+        def lookup(id)
+          instance.lookup(id)
+        end
+
+        def registered_objects
+          instance.registered_objects
+        end
       end
     end
   end

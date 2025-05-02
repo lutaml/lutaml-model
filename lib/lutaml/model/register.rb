@@ -18,6 +18,8 @@ module Lutaml
       end
 
       def resolve(klass_str)
+        return unless resolvable?(klass_str)
+
         @models.values.find { |value| value.to_s == klass_str }
       end
 
@@ -40,10 +42,6 @@ module Lutaml
         else
           klass
         end
-      end
-
-      def lookup(klass)
-        @models[klass.is_a?(Symbol) ? klass : @models.key(klass)]
       end
 
       def register_model_tree(klass)
@@ -114,14 +112,6 @@ module Lutaml
 
       def resolvable?(klass_str)
         @models.values.any? { |value| value.to_s == klass_str }
-      end
-
-      def lookup?(klass)
-        case klass
-        when Symbol then @models.key?(klass)
-        when Module then @models.value?(klass)
-        else false
-        end
       end
     end
   end
