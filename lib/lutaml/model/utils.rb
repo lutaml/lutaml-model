@@ -73,6 +73,10 @@ module Lutaml
           value.respond_to?(:empty?) ? value.empty? : false
         end
 
+        def add_if_present(hash, key, value)
+          hash[key] = value if value
+        end
+
         # Check if the hash contains the given key in string or symbol format
         # @param hash [Hash] the hash to check
         # @param key [String, Symbol] the key to check

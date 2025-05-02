@@ -67,7 +67,8 @@ module Lutaml
       end
 
       def validates(attribute, options)
-        @validations << ValidationRule.new(attribute: attribute, options: options)
+        @validations <<
+          ValidationRule.new(attribute: attribute, options: options)
       end
 
       def validate_presence(model, attr, rule)
@@ -101,8 +102,10 @@ module Lutaml
       def validate_integer(attr, value)
         return true if value.is_a?(Integer)
 
-        errors.add(attr, "`#{attr}` value is `#{value.class}`, but expected integer")
-        false
+        errors.add(
+          attr,
+          "`#{attr}` value is `#{value.class}`, but expected integer",
+        )
       end
 
       def validate_comparison_rules(attr, value, options)
@@ -114,19 +117,28 @@ module Lutaml
       def validate_less_than(attr, value, limit)
         return if !limit || value < limit
 
-        errors.add(attr, "#{attr} value is `#{value}`, which is not less than #{limit}")
+        errors.add(
+          attr,
+          "#{attr} value is `#{value}`, which is not less than #{limit}",
+        )
       end
 
       def validate_greater_than(attr, value, limit)
         return if !limit || value > limit
 
-        errors.add(attr, "#{attr} value is `#{value}`, which is not greater than #{limit}")
+        errors.add(
+          attr,
+          "#{attr} value is `#{value}`, which is not greater than #{limit}",
+        )
       end
 
       def validate_equal_to(attr, value, target)
         return if !target || value == target
 
-        errors.add(attr, "#{attr} value is `#{value}`, which is not equal to #{target}")
+        errors.add(
+          attr,
+          "#{attr} value is `#{value}`, which is not equal to #{target}",
+        )
       end
     end
   end
