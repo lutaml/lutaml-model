@@ -19,12 +19,19 @@ RSpec.describe Lutaml::Model::Xml::MappingRule do
     end
 
     context "when attribute name is string 'lang'" do
-      let(:mapping_rule) do
-        described_class.new("lang", to: :lang, prefix: "xml")
+      it "returns `xml:lang` when prefix is set" do
+        mapping_rule = described_class.new("lang", to: :lang, prefix: "xml")
+        expect(mapping_rule.namespaced_name).to eq("xml:lang")
       end
 
-      it "returns `xml:lang`" do
-        expect(namespaced_name).to eq("xml:lang")
+      it "returns `lang` when prefix is empty string" do
+        mapping_rule = described_class.new("lang", to: :lang, prefix: "")
+        expect(mapping_rule.namespaced_name).to eq("lang")
+      end
+
+      it "returns `lang` when prefix is nil" do
+        mapping_rule = described_class.new("lang", to: :lang, prefix: nil)
+        expect(mapping_rule.namespaced_name).to eq("lang")
       end
     end
 

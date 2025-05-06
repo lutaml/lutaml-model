@@ -130,6 +130,30 @@ RSpec.describe "XmlAdapter" do
       end
     end
 
+    context "when xml has `lang` attribute" do
+      before do
+        title_class = Class.new(Lutaml::Model::Serializable) do
+          attribute :lang, :string
+          attribute :content, :string
+
+          xml do
+            root "title"
+
+            map_attribute "lang", to: :lang
+            map_content to: :content
+          end
+        end
+
+        stub_const("Title", title_class)
+      end
+
+      let(:xml_input) { "<title lang='en'>Title</title>" }
+      let(:parsed) { Title.from_xml(xml_input) }
+
+      it { expect(parsed.lang).to eq("en") }
+      it { expect(parsed.content).to eq("Title") }
+    end
+
     it "serializes to XML" do
       expected_xml = <<~XML
         <SampleModel>
