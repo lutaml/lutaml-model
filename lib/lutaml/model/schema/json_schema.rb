@@ -24,6 +24,7 @@ module Lutaml
               defs.merge!(generate_definitions(attr.type(register), register))
             end
           end
+
           defs
         end
 
@@ -53,6 +54,61 @@ module Lutaml
           else
             { "type" => get_json_type(attr_type) }
           end
+
+          schema
+        end
+
+        def self.collection_items_schema(attr)
+          if serializable?(attr)
+            schema = if polymorphic?(attr)
+                       polymorphic_schema(attr)
+                     else
+                       reference_schema(attr)
+                     end
+            return schema
+          end
+
+          { "type" => get_json_type(attr.type) }
+        end
+
+        def self.polymorphic_schema(attr)
+          {
+            "type" => ["object", "null"],
+            "oneOf" => attr.options[:polymorphic].map do |type|
+              { "$ref" => "#/$defs/#{type.name}" }
+            end,
+          }
+        end
+
+        def self.reference_schema(attr)
+          { "$ref" => "#/$defs/#{attr.type.name}" }
+        end
+
+        def self.primitive_schema(attr)
+          schema = {
+            "type" => [get_json_type(attr.type), "null"],
+          }.merge(get_json_constraints(attr))
+
+          if polymorphic?(attr)
+            schema["oneOf"] = attr.options[:polymorphic].map do |type|
+              { "$ref" => "#/$defs/#{type.name}" }
+            end
+          end
+
+          schema
+        end
+
+        def self.add_collection_constraints!(schema, range)
+          schema["minItems"] = range.begin
+          schema["maxItems"] = range.end if range.end
+        end
+
+        def self.serializable?(attr)
+          !!(attr.type <= Lutaml::Model::Serialize)
+        end
+
+        def self.polymorphic?(attr)
+          Utils.present?(attr.options[:polymorphic])
         end
 
         def self.get_json_type(type)
