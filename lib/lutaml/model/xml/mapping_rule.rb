@@ -4,7 +4,11 @@ module Lutaml
   module Model
     module Xml
       class MappingRule < MappingRule
-        attr_reader :namespace, :prefix, :mixed_content, :default_namespace, :cdata
+        attr_reader :namespace,
+                    :prefix,
+                    :mixed_content,
+                    :default_namespace,
+                    :cdata
 
         def initialize(
           name,
