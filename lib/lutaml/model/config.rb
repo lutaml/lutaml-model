@@ -76,9 +76,7 @@ module Lutaml
       end
 
       def default_register
-        @default_register ||= Lutaml::Model::Register.new(:default)
-        Lutaml::Model::GlobalRegister.register(@default_register)
-        @default_register
+        @default_register ||= Lutaml::Model::GlobalRegister.lookup(:default)
       end
 
       def default_register=(register_or_id)

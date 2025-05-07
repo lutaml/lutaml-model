@@ -49,13 +49,9 @@ module Lutaml
         end
 
         def self.lookup_register(register)
-          return register if register.is_a?(Lutaml::Model::Register)
+          return register.id if register.is_a?(Lutaml::Model::Register)
 
-          if register.nil?
-            Lutaml::Model::Config.default_register
-          else
-            Lutaml::Model::GlobalRegister.lookup(register)
-          end
+          register.nil? ? :default : register
         end
       end
     end

@@ -1,0 +1,78 @@
+= LutaML Registers
+
+== Introduction
+
+There are three types of registers in Lutaml::Model:
+
+1. *TypeRegister*
+2. *ModelRegister*
+3. *GlobalRegister*
+
+=== TypeRegister
+
+The TypeRegister is a registry class that registers and looks-up the `Lutaml::Model::Type::Value` classes only.
+
+The `Type::Value` can be registered and lookuped using the following syntax:
+==== Register a Type::Value class
+
+Following syntax register a `Type::Value` class:
+```ruby
+# assuming we have a `CustomString` class that inherits from Lutaml::Model::Type::Value
+Lutaml::Model::Type.register(:custom_string, Lutaml::Model::Type::CustomString)
+```
+NOTE: `TypeError` is raised if the class does not inherit from `Lutaml::Model::Type::Value`.
+
+==== Lookup a *Type::Value* class
+Lookup a `Type::Value` class using the assigned name:
+```ruby
+Lutaml::Model::Type.lookup(:custom_string) # returns Lutaml::Model::Type::CustomString
+```
+
+NOTE: `Lutaml::Model::Type::UnknownTypeError` is raised if the name is not found in the registry.
+
+When looking up a class, the class is returned without looking up into the registry.
+This is useful when you want to use the class directly without going through the registry.
+```ruby
+Lutaml::Model::Type.lookup(Lutaml::Model::Type::CustomString)
+```
+
+=== ModelRegister
+
+The ModelRegister is a registry class that registers and looks-up the classes that inherit from `Lutaml::Model::Serializable` or includes the `Lutaml::Model::Serialize` module. For consistency, the `Lutaml::Model::Type::Value` classes are registered in a similar manner, but within the TypeRegister registry, as referenced in the <<TypeRegister,previous section>>.
+
+==== Register a Class
+
+Register a Model class using the following syntax:
+```ruby
+# assuming we have a `CustomModel` class that inherits from Lutaml::Model::Serializable
+Lutaml::Model::Register.register_model(Lutaml::Model::CustomModel, id: :custom_model)
+```
+This method `register_model` registers the class and assigns it the passed ID, which is `:custom_model` in this case. But, if a model is registered without an ID, the class name is used as the ID. For example:
+```ruby
+Lutaml::Model::Register.register_model(Lutaml::Model::AnotherCustomModel)
+```
+This will register the class `AnotherCustomModel` with the ID `:another_custom_model`.
+
+==== Register model tree
+
+The `register_model_tree` method registers all the classes in the provided Model's heirarchy. For example:
+```ruby
+class 
+```
+
+
+=== GlobalRegister
+The GlobalRegister is a singleton that registers all the ModelRegisters.
+
+ModelRegisters can be registered and fetched using following syntax:
+
+```ruby
+global_register = Lutaml::Model::GlobalRegister
+global_register.register(:v1, V1Register) # register a Model register
+global_register.lookup(:v2) # fetch a Model register
+global_register.registered_objects # list of all registered ModelRegisters
+# OR
+global_register.instance.register(:v1, V1Register) # register a Model register
+global_register.instance.lookup(:v2) # fetch a Model register
+Lutaml::Model::GlobalRegister.instance.registered_objects # list of all registered ModelRegisters
+```

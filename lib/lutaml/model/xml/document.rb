@@ -443,7 +443,7 @@ module Lutaml
                      else
                        @root.instance_variable_get(:@register)
                      end
-          root_reg || Lutaml::Model::Config.default_register
+          root_reg || :register
         end
 
         def determine_mapper_class(element, options)

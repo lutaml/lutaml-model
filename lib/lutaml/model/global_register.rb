@@ -4,10 +4,10 @@ module Lutaml
   module Model
     class GlobalRegister
       include Singleton
-      attr_writer :registers
 
       def initialize
-        @registers = {}
+        default_register = Lutaml::Model::Register.new(:default)
+        @registers = { default_register.id => default_register }
       end
 
       def register(model_register)
@@ -22,16 +22,18 @@ module Lutaml
         @registers.values
       end
 
-      def self.register(model_register)
-        instance.register(model_register)
-      end
+      class << self
+        def register(model_register)
+          instance.register(model_register)
+        end
 
-      def self.lookup(id)
-        instance.lookup(id)
-      end
+        def lookup(id)
+          instance.lookup(id)
+        end
 
-      def self.registered_objects
-        instance.registered_objects
+        def registered_objects
+          instance.registered_objects
+        end
       end
     end
   end

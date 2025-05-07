@@ -305,8 +305,9 @@ module Lutaml
 
             options[:encoding] = doc.encoding
           end
-          if options[:register].is_a?(Symbol)
-            options[:register] = Lutaml::Model::GlobalRegister.lookup(options[:register])
+          options[:register] ||= :default
+          if options[:register].is_a?(Lutaml::Model::Register)
+            options[:register] = options[:register].id
           end
 
           transformer = Lutaml::Model::Config.transformer_for(format)
@@ -363,7 +364,7 @@ module Lutaml
         end
 
         def apply_mappings(doc, format, options = {})
-          register = options[:register] || Lutaml::Model::Config.default_register
+          register = options[:register] || :default
           instance = if options.key?(:instance)
                        options[:instance]
                      elsif model.include?(Lutaml::Model::Serialize)
@@ -492,7 +493,7 @@ module Lutaml
         @using_default = {}
         return unless self.class.attributes
 
-        @register = options[:register] || Lutaml::Model::Config.default_register
+        @register = options[:register] || :default
         set_ordering(attrs)
         set_schema_location(attrs)
         initialize_attributes(attrs, options)

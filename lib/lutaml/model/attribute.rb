@@ -28,8 +28,9 @@ module Lutaml
         process_options!
       end
 
-      def type(register = Lutaml::Model::Config.default_register)
-        register.get_class(unresolved_type) unless unresolved_type.nil?
+      def type(register_id = :default)
+        register = Lutaml::Model::GlobalRegister.lookup(register_id) || Lutaml::Model::Config.default_register
+        register.get_class_without_register(unresolved_type) unless unresolved_type.nil?
       end
 
       def unresolved_type
@@ -86,8 +87,8 @@ module Lutaml
         !enum_values.empty?
       end
 
-      def default(register = Lutaml::Model::Config.default_register)
-        cast_value(default_value(register), register)
+      def default(register_id = :default)
+        cast_value(default_value(register_id), register_id)
       end
 
       def default_value(register)

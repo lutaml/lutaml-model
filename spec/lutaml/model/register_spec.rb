@@ -1,9 +1,6 @@
 # frozen_string_literal: true
 
 require "spec_helper"
-require "lutaml/model/error/register/invalid_model_class_error"
-require "lutaml/model/register"
-
 module RegisterSpec
   class CustomString < Lutaml::Model::Type::String; end
   class CustomInteger < Lutaml::Model::Type::Integer; end
@@ -58,11 +55,11 @@ RSpec.describe Lutaml::Model::Register do
     let(:v1_register) { described_class.new(:v1) }
 
     before do
-      v1_register.register_model(String, id: :custom_type)
+      v1_register.register_model(RegisterSpec::Address, id: :address)
     end
 
     it "finds registered class by string representation" do
-      expect(v1_register.resolve("String")).to eq(String)
+      expect(v1_register.resolve("RegisterSpec::Address")).to eq(RegisterSpec::Address)
     end
 
     it "returns nil for unregistered class" do
@@ -74,24 +71,24 @@ RSpec.describe Lutaml::Model::Register do
     let(:v1_register) { described_class.new(:v1) }
 
     before do
-      v1_register.register_model(String, id: :custom_type)
+      v1_register.register_model(Lutaml::Model::Type::String, id: :custom_type)
     end
 
     it "returns registered class by key" do
-      expect(v1_register.get_class(:custom_type)).to eq(String)
+      expect(v1_register.get_class(:custom_type)).to eq(Lutaml::Model::Type::String)
     end
 
     it "returns class by string using constant lookup" do
-      expect(v1_register.get_class("String")).to eq(String)
+      expect(v1_register.get_class("String")).to eq(Lutaml::Model::Type::String)
     end
 
     it "returns class by symbol using Type.lookup" do
-      allow(Lutaml::Model::Type).to receive(:lookup).with(:String).and_return(String)
-      expect(v1_register.get_class(:String)).to eq(String)
+      allow(Lutaml::Model::Type).to receive(:lookup).with(:String).and_return(Lutaml::Model::Type::String)
+      expect(v1_register.get_class(:String)).to eq(Lutaml::Model::Type::String)
     end
 
     it "returns class directly if class is provided" do
-      expect(v1_register.get_class(String)).to eq(String)
+      expect(v1_register.get_class(Lutaml::Model::Type::String)).to eq(Lutaml::Model::Type::String)
     end
 
     it "raises error for unsupported type" do

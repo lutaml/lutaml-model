@@ -5,7 +5,7 @@ module Lutaml
 
       def initialize(attributes = {}, register: nil)
         @attributes = attributes
-        @register = register || Lutaml::Model::Config.default_register
+        @register = register || :default
       end
 
       def [](key)

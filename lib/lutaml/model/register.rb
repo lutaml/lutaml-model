@@ -1,10 +1,9 @@
 # frozen_string_literal: true
 
-require "delegate"
 module Lutaml
   module Model
     class Register
-      attr_accessor :id, :models
+      attr_reader :id, :models
 
       def initialize(id)
         @id = id
@@ -13,7 +12,8 @@ module Lutaml
       end
 
       def register_model(klass, id: nil)
-        return register_in_type(klass, id) if klass < Lutaml::Model::Type::Value
+        return register_in_type(klass, id) if klass <= Lutaml::Model::Type::Value
+        raise Lutaml::Model::Register::NotRegistrableClassError.new(klass) unless klass.include?(Lutaml::Model::Registrable)
 
         add_model_in_register(klass, id)
       end
@@ -25,36 +25,18 @@ module Lutaml
       end
 
       def get_class(klass_name)
-        klass = extract_class_from(klass_name)
-        raise Lutaml::Model::UnknownTypeError.new(klass_name) unless klass
-
-        expected_class = if substitutable?(klass)
-                             substitute(klass)
-                           elsif substitutable?(klass_name)
-                             substitute(klass_name)
-                           else
-                             klass
-                           end
-        RegisteredClass.new(expected_class, self) if expected_class.is_a?(Class)
+        expected_class = get_class_without_register(klass_name)
+        expected_class.class_variable_set(:@@register, id)
+        expected_class
       end
 
       def register_model_tree(klass)
         register_model(klass)
-        if klass.include?(Lutaml::Model::Registrable)
+        if klass.include?(Lutaml::Model::Serialize)
           register_attributes(klass.attributes)
         end
       end
 
-      # Expected functionality for global type substitution
-      # register.register_global_type_substitution(
-      #   from_type: OldType,
-      #   to_type: NewType
-      # )
-      # # Replace all Mml::Mi instances with Plurimath equivalents
-      # register.register_global_type_substitution(
-      #   from_type: Mml::Mi,
-      #   to_type: Plurimath::Math::Symbols::Symbol
-      # )
       def register_global_type_substitution(from_type:, to_type:)
         @global_substitutions[from_type] = to_type
       end
@@ -74,6 +56,20 @@ module Lutaml
 
       def substitute(klass)
         @global_substitutions[klass]
+      end
+
+      def get_class_without_register(klass_name)
+        klass = extract_class_from(klass_name)
+        raise Lutaml::Model::UnknownTypeError.new(klass_name) unless klass
+        return klass if klass <= Lutaml::Model::Type::Value
+
+        if substitutable?(klass)
+          substitute(klass)
+        elsif substitutable?(klass_name)
+          substitute(klass_name)
+        else
+          klass
+        end
       end
 
       private
@@ -108,31 +104,15 @@ module Lutaml
         @models.values.any? { |value| value.to_s == klass_str }
       end
 
-      def extract_class_from(name)
-        if @models.key?(name)
-          @models[name]
-        elsif resolvable?(name)
-          resolve(name)
-        elsif type_klass = get_type_class(name)
+      def extract_class_from(klass)
+        if @models.key?(klass)
+          @models[klass]
+        elsif resolvable?(klass)
+          resolve(klass)
+        elsif type_klass = get_type_class(klass)
           type_klass
-        elsif name.is_a?(Class)
-          name
-        end
-      end
-    end
-
-    class RegisteredClass < ::SimpleDelegator
-      attr_accessor :klass, :register
-
-      def initialize(klass, register)
-        @klass = klass
-        @register = register
-      end
-
-      Lutaml::Model::Config::AVAILABLE_FORMATS.each do |format|
-        define_method("from_#{format}") do |data, options = {}|
-          options[:register] = self.register
-          klass.public_send("from_#{format}", data, options)
+        elsif klass.is_a?(Class)
+          klass
         end
       end
     end
