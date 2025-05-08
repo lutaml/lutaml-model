@@ -95,7 +95,7 @@ RSpec.describe Lutaml::Model::GlobalRegister do
       register = described_class.instance
       expect(register.instance_variable_get(:@registers).values).to include(register_v_one)
       expect { described_class.remove(:v1) }.to(
-        change { register.instance_variable_get(:@registers).values.count }.by(-1)
+        change { register.instance_variable_get(:@registers).values.count }.by(-1),
       )
       expect(register.instance_variable_get(:@registers).values).not_to include(register_v_one)
     end

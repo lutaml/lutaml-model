@@ -1,6 +1,6 @@
 require "spec_helper"
 
-module RegisterJsonSpec
+module RegisterKeyValueSpec
   class GeoCoordinate < Lutaml::Model::Serializable
     attribute :latitude, :float
     attribute :longitude, :float
@@ -62,19 +62,19 @@ module RegisterJsonSpec
   end
 end
 
-RSpec.describe "RegisterJsonSpec" do
+RSpec.describe "RegisterKeyValueSpec" do
   let(:register) { Lutaml::Model::Register.new(:json_test_register) }
-  let(:person) { RegisterJsonSpec::Person.from_json(json, register: register) }
+  let(:person) { RegisterKeyValueSpec::Person.from_json(json, register: register) }
 
   before do
     # Register the registers in the global registry
     Lutaml::Model::GlobalRegister.register(register)
 
     # Register all the V1 model classes in the register
-    register.register_model_tree(RegisterJsonSpec::Person)
-    register.register_model(RegisterJsonSpec::Address)
-    register.register_model(RegisterJsonSpec::GeoCoordinate)
-    register.register_model(RegisterJsonSpec::ContactInfo)
+    register.register_model_tree(RegisterKeyValueSpec::Person)
+    register.register_model(RegisterKeyValueSpec::Address)
+    register.register_model(RegisterKeyValueSpec::GeoCoordinate)
+    register.register_model(RegisterKeyValueSpec::ContactInfo)
   end
 
   describe "parsing JSON" do
@@ -101,16 +101,16 @@ RSpec.describe "RegisterJsonSpec" do
     end
 
     it "parses JSON into model objects" do
-      expect(person).to be_a(RegisterJsonSpec::Person)
+      expect(person).to be_a(RegisterKeyValueSpec::Person)
       expect(person.name).to eq("John Doe")
       expect(person.age).to eq(30)
-      expect(person.address).to be_a(RegisterJsonSpec::Address)
+      expect(person.address).to be_a(RegisterKeyValueSpec::Address)
       expect(person.address.street).to eq("123 Main St")
       expect(person.address.city).to eq("Anytown")
-      expect(person.address.location).to be_a(RegisterJsonSpec::GeoCoordinate)
+      expect(person.address.location).to be_a(RegisterKeyValueSpec::GeoCoordinate)
       expect(person.address.location.latitude).to eq(40.7128)
       expect(person.address.location.longitude).to eq(-74.0060)
-      expect(person.contact).to be_a(RegisterJsonSpec::ContactInfo)
+      expect(person.contact).to be_a(RegisterKeyValueSpec::ContactInfo)
       expect(person.contact.phone).to eq("555-1234")
       expect(person.contact.email).to eq("john@example.com")
       expect(person.tags).to eq(["developer", "musician"])
@@ -135,8 +135,8 @@ RSpec.describe "RegisterJsonSpec" do
   describe "using global type substitution with JSON" do
     let(:register_substitution) do
       register.register_global_type_substitution(
-        from_type: RegisterJsonSpec::ContactInfo,
-        to_type: RegisterJsonSpec::EnhancedContactInfo,
+        from_type: RegisterKeyValueSpec::ContactInfo,
+        to_type: RegisterKeyValueSpec::EnhancedContactInfo,
       )
     end
 
@@ -165,7 +165,7 @@ RSpec.describe "RegisterJsonSpec" do
 
     context "when the substitute class is not registered" do
       it "deserializes contactInfo using ContactInfo class" do
-        expect(person.contact).to be_a(RegisterJsonSpec::ContactInfo)
+        expect(person.contact).to be_a(RegisterKeyValueSpec::ContactInfo)
         expect(person.contact).not_to respond_to(:preferred)
         expect(person.contact.phone).to eq("555-5678")
         expect(person.contact.email).to eq("jane@example.com")
@@ -174,12 +174,12 @@ RSpec.describe "RegisterJsonSpec" do
 
     context "when the substitute class is registered" do
       it "deserializes contactInfo using EnhancedContactInfo class" do
-        register.register_model(RegisterJsonSpec::EnhancedContactInfo)
+        register.register_model(RegisterKeyValueSpec::EnhancedContactInfo)
         register_substitution
 
-        enhanced_person = RegisterJsonSpec::Person.from_json(json, register: register.id)
+        enhanced_person = RegisterKeyValueSpec::Person.from_json(json, register: register.id)
 
-        expect(enhanced_person.contact).to be_a(RegisterJsonSpec::EnhancedContactInfo)
+        expect(enhanced_person.contact).to be_a(RegisterKeyValueSpec::EnhancedContactInfo)
         expect(enhanced_person.contact).to respond_to(:preferred)
         expect(enhanced_person.contact.phone).to eq("555-5678")
         expect(enhanced_person.contact.email).to eq("jane@example.com")
@@ -221,7 +221,7 @@ RSpec.describe "RegisterJsonSpec" do
     end
 
     before do
-      stub_const("RegisterJsonSpec::Team", Class.new(Lutaml::Model::Serializable) do
+      stub_const("RegisterKeyValueSpec::Team", Class.new(Lutaml::Model::Serializable) do
         attribute :name, :string
         attribute :members, :person, collection: true
 
@@ -231,11 +231,11 @@ RSpec.describe "RegisterJsonSpec" do
         end
       end)
 
-      register.register_model(RegisterJsonSpec::Team)
+      register.register_model(RegisterKeyValueSpec::Team)
     end
 
     it "correctly handles arrays of complex objects" do
-      team = RegisterJsonSpec::Team.from_json(complex_json, register: register)
+      team = RegisterKeyValueSpec::Team.from_json(complex_json, register: register)
 
       expect(team.name).to eq("Team Alpha")
       expect(team.members.size).to eq(2)
@@ -247,11 +247,29 @@ RSpec.describe "RegisterJsonSpec" do
       expect(team.members[1].address.street).to eq("321 Elm St")
 
       # Test round-trip serialization
-      json_output = team.to_json
-      team2 = RegisterJsonSpec::Team.from_json(json_output, register: register)
+      toml_output = team.to_toml
+      team2 = RegisterKeyValueSpec::Team.from_toml(toml_output, register: register)
 
+      expect(team2).to eq(team)
       expect(team2.members[0].name).to eq("Alice")
       expect(team2.members[1].name).to eq("Bob")
+    end
+  end
+
+  describe "#resolve" do
+    before do
+      stub_const("RegisterKeyValueSpec::Team", Class.new(Lutaml::Model::Serializable))
+      register.register_model(RegisterKeyValueSpec::Team)
+    end
+
+    it "resolves a class" do
+      expect(register.resolve("RegisterKeyValueSpec::Team")).to eq(RegisterKeyValueSpec::Team)
+      expect(register.resolve(:"RegisterKeyValueSpec::Team")).to eq(RegisterKeyValueSpec::Team)
+      expect(register.resolve(RegisterKeyValueSpec::Team)).to eq(RegisterKeyValueSpec::Team)
+    end
+
+    it "returns nil for an unknown class" do
+      expect(register.resolve("UnknownClass")).to be_nil
     end
   end
 end

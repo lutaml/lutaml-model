@@ -1,6 +1,12 @@
 require "spec_helper"
 
 module RegisterXmlSpec
+  class String < Lutaml::Model::Type::String
+    def to_xml
+      "custom_string: #{value.to_s}"
+    end
+  end
+
   class Mi < Lutaml::Model::Serializable
     attribute :value, :string
 
@@ -97,6 +103,22 @@ RSpec.describe "RegisterXmlSpec" do
       XML
     end
 
+    let(:instantiated) do
+      register.get_class(:math).new(
+        symbol: RegisterXmlSpec::Mi.new(value: "x"),
+        operator: RegisterXmlSpec::Mo.new(value: "="),
+        fraction: RegisterXmlSpec::Mfrac.new(
+          {
+            numerator: RegisterXmlSpec::Mo.new(value: "a"),
+            denominator: RegisterXmlSpec::Mi.new(value: "b"),
+          },
+          {
+            register: register,
+          },
+        ),
+      )
+    end
+
     it "parses MathML XML into model objects" do
       expect(formula).to be_a(RegisterXmlSpec::Math)
       expect(formula.symbol.value).to eq("x")
@@ -108,6 +130,10 @@ RSpec.describe "RegisterXmlSpec" do
     it "serializes model objects back to MathML XML" do
       expect(formula.to_xml).to be_equivalent_to(xml)
     end
+
+    it "instantiates the model correctly" do
+      expect(instantiated.to_xml).to be_equivalent_to(xml)
+    end
   end
 
   describe "using global type substitution with MathML" do
@@ -116,12 +142,24 @@ RSpec.describe "RegisterXmlSpec" do
         from_type: RegisterXmlSpec::Mi,
         to_type: RegisterXmlSpec::NewMi,
       )
+      register.register_global_type_substitution(
+        from_type: Lutaml::Model::Type::String,
+        to_type: RegisterXmlSpec::String,
+      )
     end
 
     let(:xml) do
       <<~XML
         <math xmlns="http://www.w3.org/1998/Math/MathML">
           <mi color="red">y</mi>
+        </math>
+      XML
+    end
+
+    let(:xml_type_substituted) do
+      <<~XML
+        <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mi color="custom_string: red">y</mi>
         </math>
       XML
     end
@@ -142,37 +180,8 @@ RSpec.describe "RegisterXmlSpec" do
         expect(formula.symbol).to respond_to(:color)
         expect(formula.symbol.color).to eq("red")
         expect(formula.symbol.value).to eq("y")
-        expect(formula.to_xml).to be_equivalent_to(xml)
+        expect(formula.to_xml).to be_equivalent_to(xml_type_substituted)
       end
     end
   end
-
-  # describe "handling complex MathML expressions" do
-  #   let(:complex_xml) do
-  #     <<~XML
-  #       <math xmlns="http://www.w3.org/1998/Math/MathML">
-  #         <mi>f</mi>
-  #         <mo>(</mo>
-  #         <mi>x</mi>
-  #         <mo>)</mo>
-  #         <mo>=</mo>
-  #         <mfrac>
-  #           <mi>1</mi>
-  #           <mi>1+x²</mi>
-  #         </mfrac>
-  #       </math>
-  #     XML
-  #   end
-
-  #   # This test would require a more sophisticated MathML model
-  #   # but demonstrates the concept of handling more complex expressions
-  #   it "shows limitation of simple model with complex expressions" do
-  #     # This would fail with the current model since it doesn't handle
-  #     # the full formula structure, but illustrates the need for a more
-  #     # complete MathML implementation
-  #     expect {
-  #       RegisterXmlSpec::Math.from_xml(complex_xml, register: register)
-  #     }.not_to raise_error
-  #   end
-  # end
 end

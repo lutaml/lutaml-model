@@ -305,10 +305,7 @@ module Lutaml
 
             options[:encoding] = doc.encoding
           end
-          options[:register] ||= :default
-          if options[:register].is_a?(Lutaml::Model::Register)
-            options[:register] = options[:register].id
-          end
+          options[:register] = extract_register_id(options[:register])
 
           transformer = Lutaml::Model::Config.transformer_for(format)
           transformer.data_to_model(self, doc, format, options)
@@ -449,6 +446,16 @@ module Lutaml
           end
           object.register = register
         end
+
+        def extract_register_id(register)
+          if register
+            register.is_a?(Lutaml::Model::Register) ? register.id : register
+          elsif class_variable_defined?(:@@register)
+            class_variable_get(:@@register)
+          else
+            :default
+          end
+        end
       end
 
       def self.register_format_mapping_method(format)
@@ -493,10 +500,20 @@ module Lutaml
         @using_default = {}
         return unless self.class.attributes
 
-        @register = options[:register] || :default
+        @register = extract_register_id(options[:register])
         set_ordering(attrs)
         set_schema_location(attrs)
         initialize_attributes(attrs, options)
+      end
+
+      def extract_register_id(register)
+        if register
+          register.is_a?(Lutaml::Model::Register) ? register.id : register
+        elsif self.class.class_variable_defined?(:@@register)
+          self.class.class_variable_get(:@@register)
+        else
+          :default
+        end
       end
 
       def value_map(options)

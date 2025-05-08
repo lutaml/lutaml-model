@@ -21,11 +21,13 @@ module Lutaml
       def resolve(klass_str)
         return unless resolvable?(klass_str)
 
-        @models.values.find { |value| value.to_s == klass_str }
+        @models.values.find { |value| value.to_s == klass_str.to_s }
       end
 
       def get_class(klass_name)
         expected_class = get_class_without_register(klass_name)
+        return expected_class if expected_class <= Lutaml::Model::Type::Value
+
         expected_class.class_variable_set(:@@register, id)
         expected_class
       end
@@ -61,7 +63,6 @@ module Lutaml
       def get_class_without_register(klass_name)
         klass = extract_class_from(klass_name)
         raise Lutaml::Model::UnknownTypeError.new(klass_name) unless klass
-        return klass if klass <= Lutaml::Model::Type::Value
 
         if substitutable?(klass)
           substitute(klass)
@@ -101,7 +102,7 @@ module Lutaml
       end
 
       def resolvable?(klass_str)
-        @models.values.any? { |value| value.to_s == klass_str }
+        @models.values.any? { |value| value.to_s == klass_str.to_s }
       end
 
       def extract_class_from(klass)
@@ -109,10 +110,10 @@ module Lutaml
           @models[klass]
         elsif resolvable?(klass)
           resolve(klass)
-        elsif type_klass = get_type_class(klass)
-          type_klass
         elsif klass.is_a?(Class)
           klass
+        elsif type_klass = get_type_class(klass)
+          type_klass
         end
       end
     end
