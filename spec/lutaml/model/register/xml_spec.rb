@@ -3,7 +3,7 @@ require "spec_helper"
 module RegisterXmlSpec
   class String < Lutaml::Model::Type::String
     def to_xml
-      "custom_string: #{value.to_s}"
+      "custom_string: #{value}"
     end
   end
 
