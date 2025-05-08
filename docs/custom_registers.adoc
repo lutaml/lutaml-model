@@ -12,7 +12,6 @@ There are three types of registers in Lutaml::Model:
 
 The TypeRegister is a registry class that registers and looks-up the `Lutaml::Model::Type::Value` classes only.
 
-The `Type::Value` can be registered and lookuped using the following syntax:
 ==== Register a Type::Value class
 
 Following syntax register a `Type::Value` class:
@@ -33,12 +32,12 @@ NOTE: `Lutaml::Model::Type::UnknownTypeError` is raised if the name is not found
 When looking up a class, the class is returned without looking up into the registry.
 This is useful when you want to use the class directly without going through the registry.
 ```ruby
-Lutaml::Model::Type.lookup(Lutaml::Model::Type::CustomString)
+Lutaml::Model::Type.lookup(Lutaml::Model::Type::CustomString) # returns Lutaml::Model::Type::CustomString even if it's not registered in the registry
 ```
 
 === ModelRegister
 
-The ModelRegister is a registry class that registers and looks-up the classes that inherit from `Lutaml::Model::Serializable` or includes the `Lutaml::Model::Serialize` module. For consistency, the `Lutaml::Model::Type::Value` classes are registered in a similar manner, but within the TypeRegister registry, as referenced in the <<TypeRegister,previous section>>.
+The *ModelRegister* is a registry class that registers and looks-up the `Lutaml::Model::Registrable` classes (by default, `Lutaml::Model::Serializable` are `Registrable` classes). For consistency, the `Lutaml::Model::Type::Value` classes are registered in a similar manner, but within the TypeRegister registry, as referenced in the <<TypeRegister,previous section>>.
 
 ==== Register a Class
 
@@ -51,28 +50,53 @@ This method `register_model` registers the class and assigns it the passed ID, w
 ```ruby
 Lutaml::Model::Register.register_model(Lutaml::Model::AnotherCustomModel)
 ```
+
 This will register the class `AnotherCustomModel` with the ID `:another_custom_model`.
 
 ==== Register model tree
 
 The `register_model_tree` method registers all the classes in the provided Model's heirarchy. For example:
 ```ruby
-class 
+class Math < Lutaml::Model::Serializable
+  attribute :mrow, Mrow
+  attribute :mstyle, Mstyle
+end
+
+class Mrow < Lutaml::Model::Serializable
+  attribute :mstyle, Mstyle
+end
+
+class Mstyle < Lutaml::Model::Serializable
+  attribute :mrow, Mrow
+end
+
+Lutaml::Model::Register.register_model_tree(Math) # registers all the classes in the Math model tree, in this case Mstyle and Mrow
 ```
 
 
 === GlobalRegister
 The GlobalRegister is a singleton that registers all the ModelRegisters.
 
-ModelRegisters can be registered and fetched using following syntax:
+ModelRegisters can be registered using following syntax:
 
 ```ruby
+v1_register = Lutaml::Model::Register.new(:v1)
 global_register = Lutaml::Model::GlobalRegister
-global_register.register(:v1, V1Register) # register a Model register
-global_register.lookup(:v2) # fetch a Model register
-global_register.registered_objects # list of all registered ModelRegisters
+global_register.register(v1_register) # register a Model register
 # OR
-global_register.instance.register(:v1, V1Register) # register a Model register
+global_register.instance.register(v1_register) # register a Model register
+```
+
+The `register` method registers the ModelRegister based on it's ID. The ID is used to look up the ModelRegister using the following syntax:
+```ruby
+global_register.lookup(:v2) # fetch a Model register
+# OR
 global_register.instance.lookup(:v2) # fetch a Model register
-Lutaml::Model::GlobalRegister.instance.registered_objects # list of all registered ModelRegisters
+```
+
+If a register is not needed anymore, it can be removed using the following syntax:
+```ruby
+global_register.remove(:v1) # remove a ModelRegister using the it's ID
+# OR
+global_register.instance.remove(:v1) # remove a ModelRegister using the it's ID
 ```

@@ -67,30 +67,6 @@ RSpec.describe Lutaml::Model::GlobalRegister do
     end
   end
 
-  describe "#registered_objects" do
-    let(:register_v_one) { Lutaml::Model::Register.new(:v1) }
-    let(:register_v_two) { Lutaml::Model::Register.new(:v2) }
-
-    before do
-      described_class.instance.register(register_v_one)
-      described_class.instance.register(register_v_two)
-    end
-
-    it "returns all register objects" do
-      registers = described_class.instance.registered_objects
-
-      expect(registers.size).to eq(2)
-      expect(registers).to include(register_v_one)
-      expect(registers).to include(register_v_two)
-    end
-
-    it "returns empty array when no registers" do
-      described_class.instance.instance_variable_set(:@registers, {})
-
-      expect(described_class.instance.registered_objects).to be_empty
-    end
-  end
-
   describe "singleton behavior" do
     it "returns the same instance on multiple calls" do
       instance1 = described_class.instance
@@ -103,6 +79,36 @@ RSpec.describe Lutaml::Model::GlobalRegister do
       register = Lutaml::Model::Register.new(:shared_test)
       described_class.register(register)
       expect(described_class.lookup(:shared_test)).to eq(register)
+    end
+  end
+
+  describe "#remove" do
+    let(:register_v_one) { Lutaml::Model::Register.new(:v1) }
+    let(:register_v_two) { Lutaml::Model::Register.new(:v2) }
+
+    before do
+      described_class.register(register_v_one)
+      described_class.register(register_v_two)
+    end
+
+    it "removes the specified register" do
+      register = described_class.instance
+      expect(register.instance_variable_get(:@registers).values).to include(register_v_one)
+      expect { described_class.remove(:v1) }.to(
+        change { register.instance_variable_get(:@registers).values.count }.by(-1)
+      )
+      expect(register.instance_variable_get(:@registers).values).not_to include(register_v_one)
+    end
+
+    it "does not remove other registers" do
+      described_class.remove(:v1)
+      registers = described_class.instance.instance_variable_get(:@registers)
+      expect(registers.values).to include(register_v_two)
+    end
+
+    it "does nothing when the specified register does not exist" do
+      registers = described_class.instance.instance_variable_get(:@registers)
+      expect { described_class.remove(:non_existent) }.not_to(change { registers.values.count })
     end
   end
 end

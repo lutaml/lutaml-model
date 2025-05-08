@@ -18,8 +18,8 @@ module Lutaml
         @registers[id.to_sym]
       end
 
-      def registered_objects
-        @registers.values
+      def remove(id)
+        @registers.delete(id.to_sym)
       end
 
       class << self
@@ -31,8 +31,8 @@ module Lutaml
           instance.lookup(id)
         end
 
-        def registered_objects
-          instance.registered_objects
+        def remove(id)
+          instance.remove(id)
         end
       end
     end
