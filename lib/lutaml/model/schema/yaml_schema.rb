@@ -5,33 +5,35 @@ module Lutaml
     module Schema
       class YamlSchema
         def self.generate(klass, options = {})
-          schema = generate_schema(klass)
+          register = lookup_register(options[:register])
+          schema = generate_schema(klass, register)
           options[:pretty] ? schema.to_yaml : YAML.dump(schema)
         end
 
-        def self.generate_schema(klass)
+        def self.generate_schema(klass, register)
           {
             "type" => "map",
-            "mapping" => generate_mapping(klass),
+            "mapping" => generate_mapping(klass, register),
           }
         end
 
-        def self.generate_mapping(klass)
+        def self.generate_mapping(klass, register)
           klass.attributes.each_with_object({}) do |(name, attr), mapping|
-            mapping[name.to_s] = generate_attribute_schema(attr)
+            mapping[name.to_s] = generate_attribute_schema(attr, register)
           end
         end
 
-        def self.generate_attribute_schema(attr)
-          if attr.type <= Lutaml::Model::Serialize
-            generate_schema(attr.type)
+        def self.generate_attribute_schema(attr, register)
+          attr_type = attr.type(register)
+          if attr_type <= Lutaml::Model::Serialize
+            generate_schema(attr_type, register)
           elsif attr.collection?
             {
               "type" => "seq",
-              "sequence" => [{ "type" => get_yaml_type(attr.type) }],
+              "sequence" => [{ "type" => get_yaml_type(attr_type) }],
             }
           else
-            { "type" => get_yaml_type(attr.type) }
+            { "type" => get_yaml_type(attr_type) }
           end
         end
 
@@ -44,6 +46,12 @@ module Lutaml
             Lutaml::Model::Type::Decimal => "float",
             Lutaml::Model::Type::Hash => "map",
           }[type] || "str" # Default to string for unknown types
+        end
+
+        def self.lookup_register(register)
+          return register.id if register.is_a?(Lutaml::Model::Register)
+
+          register.nil? ? :default : register
         end
       end
     end

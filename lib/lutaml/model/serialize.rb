@@ -13,6 +13,7 @@ require_relative "choice"
 require_relative "sequence"
 require_relative "liquefiable"
 require_relative "transform"
+require_relative "registrable"
 
 module Lutaml
   module Model
@@ -20,6 +21,7 @@ module Lutaml
       include ComparableModel
       include Validation
       include Lutaml::Model::Liquefiable
+      include Lutaml::Model::Registrable
 
       def self.included(base)
         base.extend(ClassMethods)
@@ -112,7 +114,7 @@ module Lutaml
             end
             define_method(:"#{name}=") do |value|
               value_set_for(name)
-              instance_variable_set(:"@#{name}", attr.cast_value(value))
+              instance_variable_set(:"@#{name}", attr.cast_value(value, register))
             end
           end
         end
@@ -129,6 +131,10 @@ module Lutaml
           define_attribute_methods(attr)
 
           attr
+        end
+
+        def register(name)
+          name&.to_sym
         end
 
         def root?
@@ -299,6 +305,7 @@ module Lutaml
 
             options[:encoding] = doc.encoding
           end
+          options[:register] = extract_register_id(options[:register])
 
           transformer = Lutaml::Model::Config.transformer_for(format)
           transformer.data_to_model(self, doc, format, options)
@@ -309,7 +316,6 @@ module Lutaml
           adapter = Lutaml::Model::Config.adapter_for(format)
 
           options[:mapper_class] = self if format == :xml
-
           adapter.new(value).public_send(:"to_#{format}", options)
         end
 
@@ -350,12 +356,21 @@ module Lutaml
               )
             end
 
-            mapping.root(to_s.split("::").last) if format == :xml
+            mapping.root(Utils.base_class_name(self)) if format == :xml
           end
         end
 
         def apply_mappings(doc, format, options = {})
-          instance = options[:instance] || model.new
+          register = options[:register] || :default
+          instance = if options.key?(:instance)
+                       options[:instance]
+                     elsif model.include?(Lutaml::Model::Serialize)
+                       model.new({}, register: register)
+                     else
+                       object = model.new
+                       register_accessor_methods_for(object, register)
+                       object
+                     end
           return instance if Utils.blank?(doc)
 
           mappings = mappings_for(format)
@@ -364,7 +379,6 @@ module Lutaml
             return resolve_polymorphic(doc, format, mappings, instance, options)
           end
 
-          # options[:mappings] = mappings.mappings
           transformer = Lutaml::Model::Config.transformer_for(format)
           transformer.data_to_model(self, doc, format, options)
         end
@@ -377,7 +391,7 @@ module Lutaml
           klass_name = polymorphic_mapping.polymorphic_map[klass_key]
           klass = Object.const_get(klass_name)
 
-          klass.apply_mappings(doc, format, options)
+          klass.apply_mappings(doc, format, options.merge(register: instance.register))
         end
 
         def apply_value_map(value, value_map, attr)
@@ -422,6 +436,26 @@ module Lutaml
             value
           end
         end
+
+        def register_accessor_methods_for(object, register)
+          Utils.add_method_if_not_defined(model, :register) do
+            @register
+          end
+          Utils.add_method_if_not_defined(model, :register=) do |value|
+            @register = value
+          end
+          object.register = register
+        end
+
+        def extract_register_id(register)
+          if register
+            register.is_a?(Lutaml::Model::Register) ? register.id : register
+          elsif class_variable_defined?(:@@register)
+            class_variable_get(:@@register)
+          else
+            :default
+          end
+        end
       end
 
       def self.register_format_mapping_method(format)
@@ -459,16 +493,27 @@ module Lutaml
         end
       end
 
-      attr_accessor :element_order, :schema_location, :encoding
+      attr_accessor :element_order, :schema_location, :encoding, :register
       attr_writer :ordered, :mixed
 
       def initialize(attrs = {}, options = {})
         @using_default = {}
         return unless self.class.attributes
 
+        @register = extract_register_id(options[:register])
         set_ordering(attrs)
         set_schema_location(attrs)
         initialize_attributes(attrs, options)
+      end
+
+      def extract_register_id(register)
+        if register
+          register.is_a?(Lutaml::Model::Register) ? register.id : register
+        elsif self.class.class_variable_defined?(:@@register)
+          self.class.class_variable_get(:@@register)
+        else
+          :default
+        end
       end
 
       def value_map(options)
@@ -485,23 +530,23 @@ module Lutaml
                 elsif attrs.key?(name.to_s)
                   attrs[name.to_s]
                 else
-                  attr_rule.default
+                  attr_rule.default(register)
                 end
 
         if attr_rule.collection? || value.is_a?(Array)
           value&.map do |v|
             if v.is_a?(Hash)
-              attr_rule.type.new(v)
+              attr_rule.type(register).new(v)
             else
               # TODO: This code is problematic because Type.cast does not know
               # about all the types.
-              Lutaml::Model::Type.cast(v, attr_rule.type)
+              Lutaml::Model::Type.cast(v, attr_rule.type(register))
             end
           end
         else
           # TODO: This code is problematic because Type.cast does not know
           # about all the types.
-          Lutaml::Model::Type.cast(value, attr_rule.type)
+          Lutaml::Model::Type.cast(value, attr_rule.type(register))
         end
       end
 
@@ -562,7 +607,7 @@ module Lutaml
       end
 
       def pretty_print_instance_variables
-        (instance_variables - %i[@using_default]).sort
+        (instance_variables - %i[@using_default @register]).sort
       end
 
       def to_yaml_hash
@@ -600,9 +645,9 @@ module Lutaml
       def determine_value(attrs, name, attr)
         if attrs.key?(name) || attrs.key?(name.to_s)
           attr_value(attrs, name, attr)
-        elsif attr.default_set?
+        elsif attr.default_set?(register)
           using_default_for(name)
-          attr.default
+          attr.default(register)
         else
           Lutaml::Model::UninitializedClass.instance
         end

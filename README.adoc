@@ -40,6 +40,7 @@ Lutaml::Model are provided in <<migrate-from-shale>>.
 * Custom serialization/deserialization methods
 * XML namespaces and mappings
 * Create custom adapters for additional data formats (see <<custom-adapters>>)
+* Dynamically modify model attribute types using registers (see <<custom-registers>>)
 
 
 == Data modeling in a nutshell
@@ -7739,6 +7740,12 @@ end
 
 Lutaml::Model provides a flexible system for creating custom adapters to handle different data formats. 
 For more information See link:docs/custom_adapters.adoc[Custom Adapters Guide]
+
+[[custom-registers]]
+=== Custom Registers
+
+A *LutaML::Model* *Register* provides a way to dynamically modify and reconfigure model hierarchies without changing the original model definitions.
+For more information See link:docs/custom_registers.adoc[Custom Registers Guide]
 
 == Comparison with Shale
 

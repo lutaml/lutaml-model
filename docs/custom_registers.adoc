@@ -1,0 +1,228 @@
+= LutaML Registers
+
+== Introduction
+
+There are three types of registers in Lutaml::Model:
+
+1. *TypeRegister*
+2. *ModelRegister*
+3. *GlobalRegister*
+
+=== TypeRegister
+
+The TypeRegister is a registry class that registers and looks up the `Lutaml::Model::Type::Value` classes only.
+
+==== Register a Type::Value class
+
+The following syntax registers a `Type::Value` class:
+```ruby
+# assuming we have a `CustomString` class that inherits from Lutaml::Model::Type::Value
+Lutaml::Model::Type.register(:custom_string, Lutaml::Model::Type::CustomString)
+```
+NOTE: `TypeError` is raised if the class does not inherit from `Lutaml::Model::Type::Value`.
+
+==== Lookup a *Type::Value* class
+Lookup a `Type::Value` class using the assigned name:
+```ruby
+Lutaml::Model::Type.lookup(:custom_string) # returns Lutaml::Model::Type::CustomString
+```
+
+NOTE: `Lutaml::Model::Type::UnknownTypeError` is raised if the name is not found in the registry.
+
+When looking up a class, the class is returned without looking up in the registry.
+
+```ruby
+Lutaml::Model::Type.lookup(Lutaml::Model::Type::CustomString) # returns Lutaml::Model::Type::CustomString even if it's not registered in the registry
+```
+
+=== ModelRegister
+
+The *ModelRegister* is a registry class that registers and looks up the `Lutaml::Model::Registrable` classes (by default, `Lutaml::Model::Serializable` classes are `Registrable` classes). For consistency, the `Lutaml::Model::Type::Value` classes are registered similarly, but within the TypeRegister registry, as referenced in the <<TypeRegister, previous section>>.
+
+NOTE: Make sure to register the ModelRegister in GlobalRegister before using it.
+
+==== Register a Class
+
+Register a Model class using the following syntax:
+```ruby
+# assuming we have a `CustomModel` class that inherits from Lutaml::Model::Serializable
+Lutaml::Model::Register.register_model(Lutaml::Model::CustomModel, id: :custom_model)
+```
+This method `register_model` registers the class and assigns it the passed ID, which is `:custom_model` in this case. But if a model is registered without an ID, the class name is used as the ID. For example:
+```ruby
+Lutaml::Model::Register.register_model(Lutaml::Model::AnotherCustomModel)
+```
+
+This will register the class `AnotherCustomModel` with the ID `:another_custom_model`.
+
+==== Register model tree
+
+The `register_model_tree` method registers all the classes in the provided Model's hierarchy. For example:
+```ruby
+register = Lutaml::Model::Register.new(:v1)
+
+module Mathml
+  class Mrow < Lutaml::Model::Serializable
+    attribute :mstyle, Mstyle
+  end
+
+  class Mstyle < Lutaml::Model::Serializable
+    attribute :mi, :string
+  end
+
+  class Math < Lutaml::Model::Serializable
+    attribute :mrow, Mrow
+    attribute :mstyle, Mstyle
+  end
+end
+
+register.register_model_tree(Mathml::Math) # registers all the classes in the Mathml::Math model tree, in this case Mathml::Mstyle and Mathml::Mrow
+```
+
+==== Lookup a Class
+
+Lookup a Model class using the assigned name:
+```ruby
+register = Lutaml::Model::Register.new(:v1)
+register.get_class(:custom_model) # returns Lutaml::Model::CustomModel
+```
+The class returned from the `get_class` method is also aware of the *ModelRegister* it was registered in. This is useful when you want to use the class directly. For example:
+
+```ruby
+register = Lutaml::Model::Register.new(:v1)
+json_hash = {
+  "mstyle": {
+    "mrow": {
+      "mi": "x",
+      "mo": "+"
+    }
+  },
+  "mrow": {
+    "mi": "z",
+  }
+}
+module Mathml
+  class Mrow < Lutaml::Model::Serializable
+    attribute :mi, :string
+    attribute :mo, :string
+  end
+  class Mstyle < Lutaml::Model::Serializable
+    attribute :mrow, Mrow
+    attribute :mi, :string
+    attribute :mo, :string
+  end
+  class Math < Lutaml::Model::Serializable
+    attribute :mrow, Mrow
+    attribute :mstyle, Mstyle
+  end
+end
+register.register_model_tree(Mathml::Math) # registers all the classes in the Mathml::Math model tree, in this case Mstyle and Mrow
+# lookup the class and call the desired method, in current case from_json
+register.get_class(:math).from_json(json_hash.to_json)
+> #<Testing::Math:0x00000002ccd5a678
+    @mrow=#<Testing::Mrow:0x00000002cc50a1f8 @mi="z", @mo=nil>,
+    @mstyle=#<Testing::Mstyle:0x00000002cc50a108 @mi=nil, @mo=nil, @mrow=#<Testing::Mrow:0x00000002cc509fc8 @mi="x", @mo="+">>>
+```
+
+NOTE: If the class is not found in either the `ModelRegister` or the `TypeRegister`, a `Lutaml::Model::UnknownTypeError` is raised.
+
+==== Global Type substitution
+
+The `Lutaml::Model::Register` class also provides a method to substitute a type globally. This is useful when you want to replace a type with another type in the entire model tree. For example:
+
+```ruby
+register = Lutaml::Model::Register.new(:v1)
+json_hash = {
+  "mstyle": {
+    "mrow": {
+      "mi": "x",
+      "mo": "+"
+    }
+  },
+  "mrow": {
+    "mi": "z",
+    "mstyle": {
+      "mrow": {
+        "mi": "x",
+        "mo": "+"
+      }
+    }
+  }
+}
+module Mathml
+  class String < Lutaml::Model::Type::Value
+    def to_json(*args)
+      "custom-string: #{super(*args).to_json}"
+    end
+  end
+
+  class Mrow < Lutaml::Model::Serializable
+    attribute :mi, :string
+    attribute :mo, :string
+  end
+  class Mstyle < Lutaml::Model::Serializable
+    attribute :mrow, Mrow
+    attribute :mi, :string
+    attribute :mo, :string
+  end
+  class Math < Lutaml::Model::Serializable
+    attribute :mrow, Mrow
+    attribute :mstyle, Mstyle
+  end
+
+  class ExtendedMrow < Mrow
+    attribute :mstyle, :mstyle
+  end
+end
+register.register_model_tree(Mathml::Math) # registers all the classes in the Mathml::Math model tree, in this case Mstyle and Mrow
+# Substitute the Mrow class with the ExtendedMrow class globally
+register.register_global_type_substitution(
+  from_type: Mathml::Mrow,
+  to_type: Mathml::ExtendedMrow
+) # this will replace all instances of Mrow with ExtendedMrow in the entire model tree for this register
+register.register_global_type_substitution(
+  from_type: Lutaml::Model::Type::String,
+  to_type: Mathml::String
+)
+# lookup the class and call the desired method, in current case from_json
+models = register.get_class(:math).from_json(json_hash.to_json)
+models.to_json
+> "{\"mrow\":{\"mi\":\"custom-string: \\\"z\\\"\",\"mstyle\":{\"mrow\":{\"mi\":\"custom-string: \\\"x\\\"\",\"mo\":\"custom-string: \\\"+\\\"\"}}},\"mstyle\":{\"mrow\":{\"mi\":\"custom-string: \\\"x\\\"\",\"mo\":\"custom-string: \\\"+\\\"\"}}}"
+```
+
+==== Resolve a class
+
+The `resolve` method resolves a class passed as a string if registered in the ModelRegister. For example:
+
+```ruby
+register = Lutaml::Model::Register.new(:v1)
+register.register_model(Mathml::Math, id: :math)
+register.resolve("Mathml::Math") # returns Lutaml::Model::Math
+```
+
+=== GlobalRegister
+
+The GlobalRegister is a singleton that registers all the ModelRegisters.
+Model registers can be registered using the following syntax:
+
+```ruby
+v1_register = Lutaml::Model::Register.new(:v1)
+global_register = Lutaml::Model::GlobalRegister
+global_register.register(v1_register) # register a Model register
+# OR
+global_register.instance.register(v1_register) # register a Model register
+```
+
+The `register` method registers the ModelRegister based on its ID. The ID is used to look up the ModelRegister using the following syntax:
+```ruby
+global_register.lookup(:v2) # fetch a Model register
+# OR
+global_register.instance.lookup(:v2) # fetch a Model register
+```
+
+If a register is not needed anymore, it can be removed using the following syntax:
+```ruby
+global_register.remove(:v1) # remove a ModelRegister using the its ID
+# OR
+global_register.instance.remove(:v1) # remove a ModelRegister using the it's ID
+```

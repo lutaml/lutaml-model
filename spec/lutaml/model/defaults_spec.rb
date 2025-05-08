@@ -108,7 +108,11 @@ module DefaultsSpec
 
   # Class for testing render_default: true with custom model
   class Lang
-    attr_accessor :lang, :content
+    attr_accessor :lang, :content, :register
+
+    def initialize(register = nil)
+      @register = register
+    end
   end
 
   class CustomModelWithDefaultValue < Lutaml::Model::Serializable

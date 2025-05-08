@@ -75,6 +75,22 @@ module Lutaml
           .const_get(to_class_name(type))
       end
 
+      def default_register
+        @default_register ||= Lutaml::Model::GlobalRegister.lookup(:default)
+      end
+
+      def default_register=(register_or_id)
+        @default_register = case register_or_id
+                            when Symbol
+                              Lutaml::Model::GlobalRegister.lookup(register_or_id)
+                            when Lutaml::Model::Register
+                              register_or_id
+                            else
+                              raise "Unkown register: #{register_or_id}, expected a Symbol or a Lutaml::Model::Register instance"
+                            end
+      end
+
+      # @api private
       def to_class_name(str)
         str.to_s.split("_").map(&:capitalize).join
       end
