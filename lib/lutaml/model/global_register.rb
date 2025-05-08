@@ -6,8 +6,9 @@ module Lutaml
       include Singleton
 
       def initialize
+        @registers = {}
         default_register = Lutaml::Model::Register.new(:default)
-        @registers = { default_register.id => default_register }
+        register(default_register)
       end
 
       def register(model_register)

@@ -436,14 +436,16 @@ module Lutaml
         private
 
         def setup_register(register)
-          return register if register
+          return register if register.is_a?(Symbol)
 
-          root_reg = if @root.respond_to?(:register)
-                       @root.register
-                     else
-                       @root.instance_variable_get(:@register)
-                     end
-          root_reg || :register
+          return_register = if register.is_a?(Lutaml::Model::Register)
+                              register.id
+                            elsif @root.respond_to?(:register)
+                              @root.register
+                            elsif @root.instance_variable_defined?(:@register)
+                              @root.instance_variable_get(:@register)
+                            end
+          return_register || :default
         end
 
         def determine_mapper_class(element, options)

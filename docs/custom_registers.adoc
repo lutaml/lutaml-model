@@ -60,20 +60,23 @@ This will register the class `AnotherCustomModel` with the ID `:another_custom_m
 The `register_model_tree` method registers all the classes in the provided Model's hierarchy. For example:
 ```ruby
 register = Lutaml::Model::Register.new(:v1)
-class Math < Lutaml::Model::Serializable
-  attribute :mrow, Mrow
-  attribute :mstyle, Mstyle
+
+module Mathml
+  class Mrow < Lutaml::Model::Serializable
+    attribute :mstyle, Mstyle
+  end
+
+  class Mstyle < Lutaml::Model::Serializable
+    attribute :mi, :string
+  end
+
+  class Math < Lutaml::Model::Serializable
+    attribute :mrow, Mrow
+    attribute :mstyle, Mstyle
+  end
 end
 
-class Mrow < Lutaml::Model::Serializable
-  attribute :mstyle, Mstyle
-end
-
-class Mstyle < Lutaml::Model::Serializable
-  attribute :mrow, Mrow
-end
-
-register.register_model_tree(Math) # registers all the classes in the Math model tree, in this case Mstyle and Mrow
+register.register_model_tree(Mathml::Math) # registers all the classes in the Mathml::Math model tree, in this case Mathml::Mstyle and Mathml::Mrow
 ```
 
 ==== Lookup a Class

@@ -1,17 +1,11 @@
 # frozen_string_literal: true
 
 require "spec_helper"
-require "lutaml/model/global_register"
-require "lutaml/model/register"
 
 RSpec.describe Lutaml::Model::GlobalRegister do
-  before do
-    described_class.instance.instance_variable_set(:@registers, {})
-  end
-
   describe "#initialize" do
-    it "initializes with empty registers hash" do
-      expect(described_class.instance.instance_variable_get(:@registers)).to eq({})
+    it "initializes with a default register" do
+      expect(described_class.instance.instance_variable_get(:@registers)).to include(default: described_class.lookup(:default))
     end
   end
 
@@ -27,10 +21,10 @@ RSpec.describe Lutaml::Model::GlobalRegister do
 
   describe ".register" do
     it "calls instance method to register" do
-      register = Lutaml::Model::Register.new(:test_register)
-      described_class.register(register)
-      allow(described_class.instance).to receive(:register).with(register).and_return(register)
-      expect(described_class.lookup(:test_register)).to eq(register)
+      register = Lutaml::Model::Register.new(:temp_register)
+      expect { described_class.register(register) }.to(
+        change { described_class.instance.instance_variable_get(:@registers).count }.by(1),
+      )
     end
   end
 
@@ -61,9 +55,9 @@ RSpec.describe Lutaml::Model::GlobalRegister do
     let(:register_v_one) { Lutaml::Model::Register.new(:v1) }
 
     it "calls instance method to lookup" do
-      allow(described_class.instance).to receive(:lookup).with(:test_id).and_return(register_v_one)
+      allow(described_class.instance).to receive(:lookup).with(:v1).and_return(register_v_one)
 
-      expect(described_class.lookup(:test_id)).to eq(register_v_one)
+      expect(described_class.lookup(:v1)).to eq(register_v_one)
     end
   end
 

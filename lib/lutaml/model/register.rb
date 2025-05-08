@@ -12,10 +12,11 @@ module Lutaml
       end
 
       def register_model(klass, id: nil)
-        return register_in_type(klass, id) if klass <= Lutaml::Model::Type::Value
-        raise Lutaml::Model::Register::NotRegistrableClassError.new(klass) unless klass.include?(Lutaml::Model::Registrable)
+        id ||= Utils.base_class_snake_name(klass).to_sym
+        return Lutaml::Model::Type.register(id, klass) if klass <= Lutaml::Model::Type::Value
+        raise NotRegistrableClassError.new(klass) unless klass.include?(Lutaml::Model::Registrable)
 
-        add_model_in_register(klass, id)
+        @models[id.to_sym] = klass
       end
 
       def resolve(klass_str)
@@ -26,9 +27,9 @@ module Lutaml
 
       def get_class(klass_name)
         expected_class = get_class_without_register(klass_name)
-        return expected_class if expected_class <= Lutaml::Model::Type::Value
-
-        expected_class.class_variable_set(:@@register, id)
+        if !(expected_class < Lutaml::Model::Type::Value)
+          expected_class.class_variable_set(:@@register, id)
+        end
         expected_class
       end
 
@@ -80,19 +81,6 @@ module Lutaml
           Lutaml::Model::Type.const_get(klass_name)
         elsif klass_name.is_a?(Symbol)
           Lutaml::Model::Type.lookup(klass_name)
-        end
-      end
-
-      def register_in_type(klass, id)
-        id ||= Lutaml::Model::Utils.base_class_snake_name(klass).to_sym
-        Lutaml::Model::Type.register(id, klass)
-      end
-
-      def add_model_in_register(klass, id)
-        if id.nil?
-          @models[Utils.base_class_snake_name(klass).to_sym] = klass
-        else
-          @models[id.to_sym] = klass
         end
       end
 
