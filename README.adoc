@@ -821,7 +821,7 @@ end
 <1> The name of the polymorphic attribute.
 <2> The polymorphic superclass class.
 <3> Any options for the attribute.
-<4> The `polymorphic` option that determines the acceptable polymorphic subclasses.
+<4> The `polymorphic` option that determines the acceptable polymorphic subclasses, or just `true`.
 <5> The polymorphic subclasses.
 
 The `polymorphic` option is an array of polymorphic subclasses that the
@@ -860,6 +860,25 @@ The `polymorphic` option does not apply.
 ----
 class ReferenceSet < Lutaml::Model::Serializable
   attribute :references, DocumentReference, collection: true
+end
+----
+====
+
+* If the attribute (collection or not) is meant to contain instances belonging
+to any polymorphic subclass of a defined base class, then set the `polymorphic:
+true` option.
++
+[example]
+====
+In the following code, `ReferenceSet` is a class that has a polymorphic
+attribute `references`. The `references` attribute can accept instances of
+any polymorphic subclass of the `Reference` base class, so `polymorphic: true`
+is set.
+
+[source,ruby]
+----
+class ReferenceSet < Lutaml::Model::Serializable
+  attribute :references, Reference, collection: true, polymorphic: true
 end
 ----
 ====
