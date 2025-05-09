@@ -18,7 +18,7 @@ require_relative "model/key_value_document"
 require_relative "model/yaml"
 require_relative "model/json"
 require_relative "model/toml"
-require_relative "model/hash"
+require_relative "model/hash_adapter"
 require_relative "model/xml"
 
 module Lutaml
