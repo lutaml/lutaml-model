@@ -73,6 +73,10 @@ module Lutaml
           @namespace_prefix = prefix
         end
 
+        def map_instances(to:)
+          map_element(to, to: to)
+        end
+
         # rubocop:disable Metrics/ParameterLists
         def map_element(
           name,

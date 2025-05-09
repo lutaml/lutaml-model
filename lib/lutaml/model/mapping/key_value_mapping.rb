@@ -4,12 +4,24 @@ require_relative "key_value_mapping_rule"
 module Lutaml
   module Model
     class KeyValueMapping < Mapping
-      attr_reader :mappings, :format
+      attr_reader :mappings, :format, :key_mappings, :value_mappings
 
       def initialize(format = nil)
         super()
 
         @format = format
+      end
+
+      def root(name = nil)
+        @root = name
+      end
+
+      def no_root
+        @root = nil
+      end
+
+      def no_root?
+        @root.nil?
       end
 
       def map(
@@ -76,6 +88,39 @@ module Lutaml
 
       alias map_all_content map_all
 
+      def map_instances(to:)
+        map(to, to: to)
+      end
+
+      def map_key(to_instance: nil, as_attribute: nil)
+        @key_mappings = KeyValueMappingRule.new(
+          Constants::KEY_MAPPING_KEY,
+          to: nil,
+          to_instance: to_instance,
+          as_attribute: as_attribute,
+        )
+      end
+
+      def map_value(to_instance: nil, as_attribute: nil)
+        @value_mappings = KeyValueMappingRule.new(
+          Constants::VALUE_MAPPING_KEY,
+          to: nil,
+          to_instance: to_instance,
+          as_attribute: as_attribute,
+        )
+      end
+
+      def key_value_mappings
+        {
+          key: @key_mappings,
+          value: @value_mappings,
+        }.compact
+      end
+
+      def key_value_mappings?
+        Utils.present?(@key_mappings) || Utils.present?(@value_mappings)
+      end
+
       def name_for_mapping(root_mappings, name)
         return "root_mapping" if root_mappings
 
@@ -112,8 +157,10 @@ module Lutaml
       end
 
       def validate_root_mappings!(name)
-        if @mappings.any?(&:root_mapping?) || (name == "root_mapping" && @mappings.any?)
-          raise MultipleMappingsError.new("root_mappings cannot be used with other mappings")
+        if root_mapping || (name == "root_mapping" && @mappings.any?)
+          raise MultipleMappingsError.new(
+            "root_mappings cannot be used with other mappings",
+          )
         end
       end
 
@@ -126,7 +173,8 @@ module Lutaml
       end
 
       def validate_mappings!(_type)
-        if (@raw_mapping && Utils.present?(@mappings)) || (!@raw_mapping && @mappings.any?(&:raw_mapping?))
+        if (@raw_mapping && Utils.present?(@mappings)) ||
+            (!@raw_mapping && @mappings.any?(&:raw_mapping?))
           raise StandardError, "map_all is not allowed with other mappings"
         end
       end
@@ -147,6 +195,10 @@ module Lutaml
 
       def polymorphic_mapping
         @mappings.find(&:polymorphic_mapping?)
+      end
+
+      def root_mapping
+        @mappings.find(&:root_mapping?)
       end
 
       Lutaml::Model::Config::KEY_VALUE_FORMATS.each do |format|

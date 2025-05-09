@@ -264,12 +264,6 @@ module Lutaml
         end
 
         def process_mapping(format, &block)
-          # klass = Lutaml::Model.const_get("#{format.to_s.capitalize}Mapping")
-          # mappings[format] ||= klass.new
-          # mappings[format].instance_eval(&block)
-
-          # handle_root_assignment(mappings, format)
-
           klass = ::Lutaml::Model::Config.mappings_class_for(format)
           mappings[format] ||= klass.new
 
@@ -295,7 +289,8 @@ module Lutaml
           end
 
           if format == :xml
-            raise Lutaml::Model::NoRootMappingError.new(self) unless root?
+            valid = root? || options[:from_collection]
+            raise Lutaml::Model::NoRootMappingError.new(self) unless valid
 
             options[:encoding] = doc.encoding
           end
@@ -364,7 +359,6 @@ module Lutaml
             return resolve_polymorphic(doc, format, mappings, instance, options)
           end
 
-          # options[:mappings] = mappings.mappings
           transformer = Lutaml::Model::Config.transformer_for(format)
           transformer.data_to_model(self, doc, format, options)
         end
@@ -452,10 +446,7 @@ module Lutaml
         end
 
         define_method(:"to_#{format}") do |options = {}|
-          raise Lutaml::Model::NoRootMappingError.new(self.class) if format == :xml && !self.class.root?
-
-          options[:parse_encoding] = encoding if encoding
-          self.class.to(format, self, options)
+          to_format(format, options)
         end
       end
 
@@ -569,7 +560,21 @@ module Lutaml
         self.class.as_yaml(self)
       end
 
+      def to_format(format, options = {})
+        validate_root_mapping!(format, options)
+
+        options[:parse_encoding] = encoding if encoding
+        self.class.to(format, self, options)
+      end
+
       private
+
+      def validate_root_mapping!(format, options)
+        return if format != :xml
+        return if options[:collection] || self.class.root?
+
+        raise Lutaml::Model::NoRootMappingError.new(self.class)
+      end
 
       def set_ordering(attrs)
         return unless attrs.respond_to?(:ordered?)
