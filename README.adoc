@@ -270,9 +270,25 @@ Or install it yourself as:
 gem install lutaml-model
 ----
 
+
+== Components
+
+LutaML provides the following set of components to model information in a
+structured way.
+
+* <<model-definition,Basic models>>
+* <<attribute-definition,Attributes in models>>
+* <<value-definition,Values assigned to attributes>>
+* <<collection-definition,Collections of models>>
+
+
+[[model-definition]]
 == Model
 
 === General
+
+A LutaML model is used to represent a class of information, of which a model
+instance is a set of information representing a coherent concept.
 
 There are two ways to define an information model in Lutaml::Model:
 
@@ -377,7 +393,7 @@ same class and all their attributes are equal.
 > # true
 ----
 
-
+[[value-definition]]
 == Value types
 
 === General types
@@ -565,6 +581,7 @@ part lost due to the inability of JSON to handle high-precision date-time.
 ====
 
 
+[[attribute-definition]]
 == Attributes
 
 
@@ -1504,9 +1521,13 @@ puts SomeModel.new.to_yaml
 ----
 ====
 
+
 === Derived attributes
 
-A derived attribute is computed dynamically based on an instance method instead of storing a static value. It is defined using the `method:` option.
+A derived attribute has a value computed dynamically on evaluation of an
+instance method.
+
+It is defined using the `method:` option.
 
 Syntax:
 
@@ -1994,6 +2015,28 @@ For the following XML snippet:
 ----
 ====
 
+
+== Collections
+
+=== General
+
+Collections are used to represent a collection
+of multiple models.
+
+Typically, a collection represents an Array or a Set in information modeling and programming languages.
+
+Models in a collection may be:
+
+* constrained to be of a single kind
+
+* constrained to be of multiple kinds sharing
+common characteristics
+
+* unbounded of any kind
+
+>>INSERT DOCS HERE<<
+
+
 == Serialization model mappings
 
 === General
@@ -2004,9 +2047,34 @@ various serialization formats including XML, Hash, JSON, YAML, and TOML.
 Depending on the serialization format, different methods are supported for
 defining serialization and deserialization mappings.
 
-Serialization model mappings are defined under the `xml`, `hsh`, `json`, `yaml`,
-and `toml` blocks.
+A serialization model mapping is defined using a format-specific DSL block
+in this syntax:
 
+[source,ruby]
+----
+class Example < Lutaml::Model::Serializable
+  {format-short-name} do <1>
+    # ...
+  end
+end
+----
+<1> `{format-short-name}` is the serialization format short name.
+
+The serialization format short name is defined as follows:
+
+`xml`:: XML
+`hsh`:: Hash
++
+NOTE: Yes a 3-letter abbreviation for Hash!
+
+`json`:: JSON
+`yaml`:: YAML
+`toml`:: TOML
+`key_value`:: Key-value format, a shorthand for all key-value formats (including
+JSON, YAML and TOML).
+
+[example]
+====
 .Using the `xml`, `hsh`, `json`, `yaml`, `toml` and `key_value` blocks to define serialization mappings
 [source,ruby]
 ----
@@ -2036,6 +2104,7 @@ class Example < Lutaml::Model::Serializable
   end
 end
 ----
+====
 
 
 === XML
