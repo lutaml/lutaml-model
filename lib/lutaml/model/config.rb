@@ -8,6 +8,8 @@ module Lutaml
 
       def configure
         yield self
+
+        self
       end
 
       # This will generate the following methods
