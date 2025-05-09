@@ -7567,17 +7567,18 @@ The configuration is as follows:
 [source,ruby]
 ----
 require 'lutaml/model'
-require 'lutaml/model/xml_adapter/nokogiri_adapter'
-require 'lutaml/model/json_adapter/standard_json_adapter'
-require 'lutaml/model/toml_adapter/toml_rb_adapter'
-require 'lutaml/model/yaml_adapter/standard_yaml_adapter'
+require 'lutaml/model/xml/nokogiri_adapter'
+require 'lutaml/model/hash_adapter/standard_adapter'
+require 'lutaml/model/json/standard_adapter'
+require 'lutaml/model/yaml/standard_adapter'
+require 'lutaml/model/toml/toml_rb_adapter'
 
 Lutaml::Model::Config.configure do |config|
-  config.xml_adapter = Lutaml::Model::XmlAdapter::NokogiriAdapter
-  config.hash_adapter = Lutaml::Model::YamlAdapter::StandardHashAdapter
-  config.yaml_adapter = Lutaml::Model::YamlAdapter::StandardYamlAdapter
-  config.json_adapter = Lutaml::Model::JsonAdapter::StandardJsonAdapter
-  config.toml_adapter = Lutaml::Model::TomlAdapter::TomlRbAdapter
+  config.xml_adapter = Lutaml::Model::Xml::NokogiriAdapter
+  config.hash_adapter = Lutaml::Model::HashAdapter::StandardAdapter
+  config.yaml_adapter = Lutaml::Model::Yaml::StandardAdapter
+  config.json_adapter = Lutaml::Model::Json::StandardAdapter
+  config.toml_adapter = Lutaml::Model::Toml::TomlRbAdapter
 end
 ----
 
@@ -7757,7 +7758,7 @@ end
 [[custom-adapters]]
 === Custom Adapters
 
-Lutaml::Model provides a flexible system for creating custom adapters to handle different data formats. 
+Lutaml::Model provides a flexible system for creating custom adapters to handle different data formats.
 For more information See link:docs/custom_adapters.adoc[Custom Adapters Guide]
 
 [[custom-registers]]
