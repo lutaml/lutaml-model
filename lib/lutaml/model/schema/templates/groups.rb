@@ -26,6 +26,8 @@ module Lutaml
             %>
             <%= render_model_choice(attributes[:choice], current_indent, indent) if attributes.key?(:choice) %>
             end
+
+            Lutaml::Model::Config.default_register.register_model(<%= klass %>, id: :<%= Utils.snake_case(klass) %>)
           TEMPLATE
 
           def create_groups(groups, options: {})

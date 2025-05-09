@@ -35,7 +35,7 @@ module Lutaml
 
             class <%= klass_name %> < <%= Utils.camel_case(parent_class) %>; end
 
-            Lutaml::Model::Register.register_model(:<%= Utils.snake_case(klass_name) %>, <%= klass_name %>)
+            Lutaml::Model::Config.default_register.register_model(<%= klass_name %>, id: :<%= Utils.snake_case(klass_name) %>)
           TEMPLATE
 
           SUPPORTED_TYPES_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
@@ -67,7 +67,7 @@ module Lutaml
               end
             end
 
-            Lutaml::Model::Register.register_model(:<%= Utils.snake_case(klass_name) %>, <%= Utils.camel_case(klass_name.to_s) %>)
+            Lutaml::Model::Config.default_register.register_model(<%= Utils.camel_case(klass_name.to_s) %>, id: :<%= Utils.snake_case(klass_name) %>)
           TEMPLATE
 
           UNION_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
@@ -97,7 +97,7 @@ module Lutaml
               end
             end
 
-            Lutaml::Model::Register.register_model(:<%= Utils.snake_case(klass_name) %>, <%= klass_name %>)
+            Lutaml::Model::Config.default_register.register_model(<%= klass_name %>, id: :<%= Utils.snake_case(klass_name) %>)
           TEMPLATE
 
           MODEL_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
@@ -179,7 +179,7 @@ module Lutaml
             -%>
             end
 
-            Lutaml::Model::Register.register_model(:<%= Utils.snake_case(klass_name) %>, <%= klass_name %>)
+            Lutaml::Model::Config.default_register.register_model(<%= klass_name %>, id: :<%= Utils.snake_case(klass_name) %>)
           TEMPLATE
 
           def create_simple_types(simple_types)

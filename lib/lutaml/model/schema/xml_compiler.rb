@@ -72,7 +72,7 @@ module Lutaml
             if content&.key_exist?(:attributes)
               output = content.attributes.map do |attribute|
                 attribute = @attributes[attribute.ref_class.split(":").last] if attribute.key?(:ref_class)
-                "    map_attribute :\#{Utils.snake_case(attribute.name)}, to: :\#{Utils.snake_case(attribute.name)}"
+                "    map_attribute :\#{attribute.name}, to: :\#{Utils.snake_case(attribute.name)}"
               end.join("\n")
               output + "\n" if output && !output&.empty?
             end
@@ -90,7 +90,7 @@ module Lutaml
             if content&.key_exist?(:complex_content)
               output = resolve_complex_content(content.complex_content).map do |element_name, element|
                 if element_name == :attributes
-                  element.map { |attribute| "    map_attribute :\#{Utils.snake_case(attribute.name)}, to: :\#{Utils.snake_case(attribute.name)}" }.join("\n")
+                  element.map { |attribute| "    map_attribute :\#{attribute.name}, to: :\#{Utils.snake_case(attribute.name)}" }.join("\n")
                 else
                   element = @elements[element.ref_class.split(":")&.last] if element&.key_exist?(:ref_class)
                   "    map_element :\#{element_name}, to: :\#{Utils.snake_case(element_name)}"
@@ -102,7 +102,7 @@ module Lutaml
             end
           end
 
-          Lutaml::Model::Register.register_model(:<%= Utils.snake_case(name)&.to_sym %>, <%= Utils.camel_case(name) %>)
+          Lutaml::Model::Config.default_register.register_model(<%= Utils.camel_case(name) %>, id: :<%= Utils.snake_case(name)&.to_sym %>)
         TEMPLATE
 
         XML_ADAPTER_NOT_SET_MESSAGE = <<~MSG

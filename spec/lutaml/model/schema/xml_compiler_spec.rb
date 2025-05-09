@@ -116,6 +116,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
           "HexBinary",
           "Token",
           "Long",
+          "Id",
           "User",
         ]
       end
