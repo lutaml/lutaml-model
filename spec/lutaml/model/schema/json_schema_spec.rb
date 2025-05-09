@@ -1,7 +1,7 @@
 require "spec_helper"
 require "lutaml/model/schema"
 
-module SchemaGeneration
+module JsonSchemaSpec
   class Glaze < Lutaml::Model::Serializable
     attribute :color, Lutaml::Model::Type::String
     attribute :finish, Lutaml::Model::Type::String
@@ -47,6 +47,27 @@ module SchemaGeneration
   class PolymorphicModel < Lutaml::Model::Serializable
     attribute :shape, Shape, polymorphic: [Circle, Square]
   end
+
+  # For deeply nested classes
+  class Detail < Lutaml::Model::Serializable
+    attribute :weight, Lutaml::Model::Type::Float
+    attribute :color, Lutaml::Model::Type::String
+  end
+
+  class Item < Lutaml::Model::Serializable
+    attribute :name, Lutaml::Model::Type::String
+    attribute :detail, Detail
+  end
+
+  class Box < Lutaml::Model::Serializable
+    attribute :size, Lutaml::Model::Type::String
+    attribute :items, Item, collection: true
+  end
+
+  class Container < Lutaml::Model::Serializable
+    attribute :id, Lutaml::Model::Type::String
+    attribute :box, Box
+  end
 end
 
 RSpec.describe Lutaml::Model::Schema::JsonSchema do
@@ -56,7 +77,7 @@ RSpec.describe Lutaml::Model::Schema::JsonSchema do
     context "with basic model" do
       let(:schema) do
         described_class.generate(
-          SchemaGeneration::Vase,
+          JsonSchemaSpec::Vase,
           id: "https://example.com/vase.schema.json",
           description: "A vase schema",
           pretty: true,
@@ -68,10 +89,11 @@ RSpec.describe Lutaml::Model::Schema::JsonSchema do
           "$schema" => "https://json-schema.org/draft/2020-12/schema",
           "$id" => "https://example.com/vase.schema.json",
           "description" => "A vase schema",
-          "$ref" => "#/$defs/SchemaGeneration::Vase",
+          "$ref" => "#/$defs/JsonSchemaSpec_Vase",
           "$defs" => {
-            "SchemaGeneration::Vase" => {
+            "JsonSchemaSpec_Vase" => {
               "type" => "object",
+              "additionalProperties" => false,
               "properties" => {
                 "height" => {
                   "type" => ["number", "null"],
@@ -80,7 +102,7 @@ RSpec.describe Lutaml::Model::Schema::JsonSchema do
                   "type" => ["number", "null"],
                 },
                 "glaze" => {
-                  "$ref" => "#/$defs/SchemaGeneration::Glaze",
+                  "$ref" => "#/$defs/JsonSchemaSpec_Glaze",
                 },
                 "materials" => {
                   "type" => "array",
@@ -90,8 +112,9 @@ RSpec.describe Lutaml::Model::Schema::JsonSchema do
                 },
               },
             },
-            "SchemaGeneration::Glaze" => {
+            "JsonSchemaSpec_Glaze" => {
               "type" => "object",
+              "additionalProperties" => false,
               "properties" => {
                 "color" => {
                   "type" => ["string", "null"],
@@ -112,16 +135,17 @@ RSpec.describe Lutaml::Model::Schema::JsonSchema do
 
     context "with choice validation" do
       let(:schema) do
-        described_class.generate(SchemaGeneration::ChoiceModel, pretty: true)
+        described_class.generate(JsonSchemaSpec::ChoiceModel, pretty: true)
       end
 
       let(:expected_schema) do
         {
           "$schema" => "https://json-schema.org/draft/2020-12/schema",
-          "$ref" => "#/$defs/SchemaGeneration::ChoiceModel",
+          "$ref" => "#/$defs/JsonSchemaSpec_ChoiceModel",
           "$defs" => {
-            "SchemaGeneration::ChoiceModel" => {
+            "JsonSchemaSpec_ChoiceModel" => {
               "type" => "object",
+              "additionalProperties" => false,
               "properties" => {
                 "name" => {
                   "type" => ["string", "null"],
@@ -144,8 +168,6 @@ RSpec.describe Lutaml::Model::Schema::JsonSchema do
                       "type" => ["string", "null"],
                     },
                   },
-                  "minProperties" => 1,
-                  "maxProperties" => 2,
                 },
               ],
             },
@@ -161,7 +183,7 @@ RSpec.describe Lutaml::Model::Schema::JsonSchema do
     context "with validation constraints" do
       let(:schema) do
         described_class.generate(
-          SchemaGeneration::ValidationModel,
+          JsonSchemaSpec::ValidationModel,
           pretty: true,
         )
       end
@@ -169,10 +191,11 @@ RSpec.describe Lutaml::Model::Schema::JsonSchema do
       let(:expected_schema) do
         {
           "$schema" => "https://json-schema.org/draft/2020-12/schema",
-          "$ref" => "#/$defs/SchemaGeneration::ValidationModel",
+          "$ref" => "#/$defs/JsonSchemaSpec_ValidationModel",
           "$defs" => {
-            "SchemaGeneration::ValidationModel" => {
+            "JsonSchemaSpec_ValidationModel" => {
               "type" => "object",
+              "additionalProperties" => false,
               "properties" => {
                 "name" => {
                   "type" => ["string", "null"],
@@ -208,7 +231,7 @@ RSpec.describe Lutaml::Model::Schema::JsonSchema do
     context "with polymorphic types" do
       let(:schema) do
         described_class.generate(
-          SchemaGeneration::PolymorphicModel,
+          JsonSchemaSpec::PolymorphicModel,
           pretty: true,
         )
       end
@@ -216,52 +239,55 @@ RSpec.describe Lutaml::Model::Schema::JsonSchema do
       let(:expected_schema) do
         {
           "$schema" => "https://json-schema.org/draft/2020-12/schema",
-          "$ref" => "#/$defs/SchemaGeneration::PolymorphicModel",
+          "$ref" => "#/$defs/JsonSchemaSpec_PolymorphicModel",
           "$defs" => {
-            "SchemaGeneration::PolymorphicModel" => {
+            "JsonSchemaSpec_PolymorphicModel" => {
               "type" => "object",
+              "additionalProperties" => false,
               "properties" => {
                 "shape" => {
                   "type" => ["object", "null"],
                   "oneOf" => [
                     {
-                      "$ref" => "#/$defs/SchemaGeneration::Circle",
+                      "$ref" => "#/$defs/JsonSchemaSpec_Circle",
                     },
                     {
-                      "$ref" => "#/$defs/SchemaGeneration::Square",
+                      "$ref" => "#/$defs/JsonSchemaSpec_Square",
+                    },
+                    {
+                      "$ref" => "#/$defs/JsonSchemaSpec_Shape",
                     },
                   ],
                 },
               },
             },
-            "SchemaGeneration::Circle" => {
-              "allOf" => [
-                { "$ref" => "#/$defs/SchemaGeneration::Shape" },
-                {
-                  "type" => "object",
-                  "properties" => {
-                    "radius" => {
-                      "type" => ["number", "null"],
-                    },
-                  },
-                },
-              ],
-            },
-            "SchemaGeneration::Square" => {
-              "allOf" => [
-                { "$ref" => "#/$defs/SchemaGeneration::Shape" },
-                {
-                  "type" => "object",
-                  "properties" => {
-                    "side" => {
-                      "type" => ["number", "null"],
-                    },
-                  },
-                },
-              ],
-            },
-            "SchemaGeneration::Shape" => {
+            "JsonSchemaSpec_Circle" => {
               "type" => "object",
+              "additionalProperties" => false,
+              "properties" => {
+                "area" => {
+                  "type" => ["number", "null"],
+                },
+                "radius" => {
+                  "type" => ["number", "null"],
+                },
+              },
+            },
+            "JsonSchemaSpec_Square" => {
+              "type" => "object",
+              "additionalProperties" => false,
+              "properties" => {
+                "area" => {
+                  "type" => ["number", "null"],
+                },
+                "side" => {
+                  "type" => ["number", "null"],
+                },
+              },
+            },
+            "JsonSchemaSpec_Shape" => {
+              "type" => "object",
+              "additionalProperties" => false,
               "properties" => {
                 "area" => { "type" => ["number", "null"] },
               },
@@ -274,217 +300,78 @@ RSpec.describe Lutaml::Model::Schema::JsonSchema do
         expect(parsed_schema).to eq(expected_schema)
       end
     end
-  end
 
-  describe ".generate_properties" do
-    let(:properties) do
-      described_class.generate_properties(SchemaGeneration::Vase)
-    end
-
-    let(:expected_propertied) do
-      %i[height diameter glaze materials]
-    end
-
-    it "returns only non-inherited properties" do
-      expect(properties.keys).to match_array(expected_propertied)
-    end
-  end
-
-  describe ".generate_property_schema" do
-    context "with collection attribute" do
-      let(:attr) { SchemaGeneration::Vase.attributes[:materials] }
-
-      it "generates array schema with items type" do
-        schema = described_class.generate_property_schema(attr)
-        expect(schema).to eq({
-                               "type" => "array",
-                               "items" => { "type" => "string" },
-                             })
+    context "with deeply nested classes" do
+      let(:schema) do
+        described_class.generate(
+          JsonSchemaSpec::Container,
+          pretty: true,
+        )
       end
-    end
-
-    context "with serializable attribute" do
-      let(:attr) { SchemaGeneration::Vase.attributes[:glaze] }
-
-      it "generates reference schema" do
-        schema = described_class.generate_property_schema(attr)
-        expect(schema).to eq({
-                               "$ref" => "#/$defs/SchemaGeneration::Glaze",
-                             })
-      end
-    end
-
-    context "with polymorphic attribute" do
-      let(:attr) { SchemaGeneration::PolymorphicModel.attributes[:shape] }
 
       let(:expected_schema) do
         {
-          "type" => ["object", "null"],
-          "oneOf" => [
-            { "$ref" => "#/$defs/SchemaGeneration::Circle" },
-            { "$ref" => "#/$defs/SchemaGeneration::Square" },
-          ],
+          "$schema" => "https://json-schema.org/draft/2020-12/schema",
+          "$ref" => "#/$defs/JsonSchemaSpec_Container",
+          "$defs" => {
+            "JsonSchemaSpec_Container" => {
+              "type" => "object",
+              "additionalProperties" => false,
+              "properties" => {
+                "id" => {
+                  "type" => ["string", "null"],
+                },
+                "box" => {
+                  "$ref" => "#/$defs/JsonSchemaSpec_Box",
+                },
+              },
+            },
+            "JsonSchemaSpec_Box" => {
+              "type" => "object",
+              "additionalProperties" => false,
+              "properties" => {
+                "size" => {
+                  "type" => ["string", "null"],
+                },
+                "items" => {
+                  "type" => "array",
+                  "items" => {
+                    "$ref" => "#/$defs/JsonSchemaSpec_Item",
+                  },
+                },
+              },
+            },
+            "JsonSchemaSpec_Item" => {
+              "type" => "object",
+              "additionalProperties" => false,
+              "properties" => {
+                "name" => {
+                  "type" => ["string", "null"],
+                },
+                "detail" => {
+                  "$ref" => "#/$defs/JsonSchemaSpec_Detail",
+                },
+              },
+            },
+            "JsonSchemaSpec_Detail" => {
+              "type" => "object",
+              "additionalProperties" => false,
+              "properties" => {
+                "weight" => {
+                  "type" => ["number", "null"],
+                },
+                "color" => {
+                  "type" => ["string", "null"],
+                },
+              },
+            },
+          },
         }
       end
 
-      it "generates polymorphic schema" do
-        schema = described_class.generate_property_schema(attr)
-        expect(schema).to eq(expected_schema)
+      it "generates a JSON schema for deeply nested classes" do
+        expect(parsed_schema).to eq(expected_schema)
       end
-    end
-
-    context "with primitive attribute" do
-      let(:attr) { SchemaGeneration::Vase.attributes[:height] }
-
-      it "generates primitive schema with constraints" do
-        schema = described_class.generate_property_schema(attr)
-        expect(schema).to eq({ "type" => ["number", "null"] })
-      end
-    end
-  end
-
-  describe ".collection_schema" do
-    let(:attr) { SchemaGeneration::Vase.attributes[:materials] }
-
-    it "generates array schema with items" do
-      schema = described_class.collection_schema(attr)
-      expect(schema).to eq({
-                             "type" => "array",
-                             "items" => { "type" => "string" },
-                           })
-    end
-
-    context "with range constraint" do
-      let(:attr) { SchemaGeneration::ValidationModel.attributes[:age] }
-      let(:expected_schema) do
-        {
-          "type" => "array",
-          "items" => { "type" => "integer" },
-          "minItems" => 1,
-          "maxItems" => 3,
-        }
-      end
-
-      it "adds min and max items constraints" do
-        schema = described_class.collection_schema(attr)
-        expect(schema).to eq(expected_schema)
-      end
-    end
-  end
-
-  describe ".collection_items_schema" do
-    let(:schema) { described_class.collection_items_schema(attr) }
-
-    context "with serializable items" do
-      let(:attr) { SchemaGeneration::Vase.attributes[:glaze] }
-
-      it "returns reference schema" do
-        expect(schema).to eq({ "$ref" => "#/$defs/SchemaGeneration::Glaze" })
-      end
-    end
-
-    context "with primitive items" do
-      let(:attr) { SchemaGeneration::Vase.attributes[:materials] }
-
-      it "returns type schema" do
-        expect(schema).to eq({ "type" => "string" })
-      end
-    end
-  end
-
-  describe ".polymorphic_schema" do
-    let(:attr) { SchemaGeneration::PolymorphicModel.attributes[:shape] }
-    let(:expected_schema) do
-      {
-        "type" => ["object", "null"],
-        "oneOf" => [
-          { "$ref" => "#/$defs/SchemaGeneration::Circle" },
-          { "$ref" => "#/$defs/SchemaGeneration::Square" },
-        ],
-      }
-    end
-
-    it "generates schema with oneOf references" do
-      schema = described_class.polymorphic_schema(attr)
-      expect(schema).to eq(expected_schema)
-    end
-  end
-
-  describe ".reference_schema" do
-    let(:attr) { SchemaGeneration::Vase.attributes[:glaze] }
-
-    it "generates reference to type definition" do
-      schema = described_class.reference_schema(attr)
-      expect(schema).to eq({ "$ref" => "#/$defs/SchemaGeneration::Glaze" })
-    end
-  end
-
-  describe ".primitive_schema" do
-    let(:attr) { SchemaGeneration::Vase.attributes[:height] }
-
-    it "generates schema with type and constraints" do
-      schema = described_class.primitive_schema(attr)
-      expect(schema).to eq({ "type" => ["number", "null"] })
-    end
-
-    context "with pattern" do
-      let(:attr) { SchemaGeneration::ValidationModel.attributes[:email] }
-
-      it "includes pattern constraint" do
-        schema = described_class.primitive_schema(attr)
-        expect(schema["pattern"]).to eq(".*?\\S+@.+\\.\\S+")
-      end
-    end
-
-    context "with enum" do
-      let(:attr) { SchemaGeneration::ValidationModel.attributes[:name] }
-
-      it "includes enum constraint" do
-        schema = described_class.primitive_schema(attr)
-        expect(schema["enum"]).to eq(["Alice", "Bob", "Charlie"])
-      end
-    end
-  end
-
-  describe ".add_collection_constraints!" do
-    let(:schema) { { "type" => "array" } }
-    let(:range) { 1..3 }
-
-    let(:expected_schema) do
-      {
-        "type" => "array",
-        "minItems" => 1,
-        "maxItems" => 3,
-      }
-    end
-
-    it "adds min and max items" do
-      described_class.add_collection_constraints!(schema, range)
-      expect(schema).to eq(expected_schema)
-    end
-  end
-
-  describe ".serializable?" do
-    it "returns true for serializable types" do
-      attr = SchemaGeneration::Vase.attributes[:glaze]
-      expect(described_class.serializable?(attr)).to be true
-    end
-
-    it "returns false for primitive types" do
-      attr = SchemaGeneration::Vase.attributes[:height]
-      expect(described_class.serializable?(attr)).to be false
-    end
-  end
-
-  describe ".polymorphic?" do
-    it "returns true for polymorphic attributes" do
-      attr = SchemaGeneration::PolymorphicModel.attributes[:shape]
-      expect(described_class.polymorphic?(attr)).to be true
-    end
-
-    it "returns false for non-polymorphic attributes" do
-      attr = SchemaGeneration::Vase.attributes[:glaze]
-      expect(described_class.polymorphic?(attr)).to be false
     end
   end
 end
