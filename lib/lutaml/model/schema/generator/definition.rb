@@ -5,11 +5,11 @@ module Lutaml
     module Schema
       module Generator
         class Definition
-          attr_reader :klass, :name
+          attr_reader :type, :name
 
-          def initialize(klass)
-            @klass = klass
-            @name = klass.name.gsub("::", "_")
+          def initialize(type)
+            @type = type
+            @name = type.name.gsub("::", "_")
           end
 
           def to_schema
@@ -17,13 +17,13 @@ module Lutaml
               name => {
                 "type" => "object",
                 "additionalProperties" => false,
-                "properties" => properties_to_schema(klass),
+                "properties" => properties_to_schema(type),
               },
             }
 
             # Add choice validation if present
-            if klass.choice_attributes.any?
-              @schema[name]["oneOf"] = generate_choice_attributes(klass)
+            if type.choice_attributes.any?
+              @schema[name]["oneOf"] = generate_choice_attributes(type)
             end
 
             @schema
@@ -31,8 +31,8 @@ module Lutaml
 
           private
 
-          def generate_choice_attributes(klass)
-            klass.choice_attributes.map do |choice|
+          def generate_choice_attributes(type)
+            type.choice_attributes.map do |choice|
               {
                 "type" => "object",
                 "properties" => PropertiesCollection.from_attributes(
@@ -42,8 +42,8 @@ module Lutaml
             end
           end
 
-          def properties_to_schema(klass)
-            PropertiesCollection.from_class(klass).to_schema
+          def properties_to_schema(type)
+            PropertiesCollection.from_class(type).to_schema
           end
         end
       end
