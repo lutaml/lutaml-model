@@ -2673,41 +2673,42 @@ authors.first.available
 ====
 
 
-// === Collection behavior
+=== Collection behavior
 
-// ==== Enumerable interface
+==== Enumerable interface
 
-// Collections implement the Ruby `Enumerable` interface, providing standard
-// collection operations.
+Collections implement the Ruby `Enumerable` interface, providing standard
+collection operations.
 
-// Collections allow the following sample `Enumerable` methods:
+Collections allow the following sample `Enumerable` methods:
 
-// * `each` - Iterate over collection items
-// * `map` - Transform collection items
-// * `select` - Filter collection items
-// * `find` - Find items matching criteria
-// * `reduce` - Aggregate collection items
+* `each` - Iterate over collection items
+* `map` - Transform collection items
+* `select` - Filter collection items
+* `find` - Find items matching criteria
+* `reduce` - Aggregate collection items
 
-// [example]
-// ====
-// [source,ruby]
-// ----
-// # Filter items
-// filtered = collection.filter { |item| item.id == "1" }
+.Usage of the collection Enumerable interface
+[example]
+====
+[source,ruby]
+----
+# Filter items
+filtered = collection.filter { |item| item.id == "1" }
 
-// # Reject items
-// rejected = collection.reject { |item| item.id == "1" }
+# Reject items
+rejected = collection.reject { |item| item.id == "1" }
 
-// # Select items
-// selected = collection.select { |item| item.id == "1" }
+# Select items
+selected = collection.select { |item| item.id == "1" }
 
-// # Map items
-// mapped = collection.map { |item| item.name }
+# Map items
+mapped = collection.map { |item| item.name }
 
-// # Count items
-// count = collection.count
-// ----
-// ====
+# Count items
+count = collection.count
+----
+====
 
 
 // ==== Collection validation
@@ -2735,45 +2736,116 @@ authors.first.available
 // ----
 // ====
 
-// ==== Collection initialization
+==== Collection initialization
 
-// Collections can be initialized with an array of items or through individual item addition.
+Collections can be initialized with an array of items or through individual item
+addition.
 
-// [example]
-// ====
-// [source,ruby]
-// ----
-// # Empty collection
-// collection = ItemCollection.new
+[example]
+====
+[source,ruby]
+----
+# Empty collection
+collection = ItemCollection.new
 
-// # From an array of items
-// collection = ItemCollection.new([item1, item2, item3])
+# From an array of items
+collection = ItemCollection.new([item1, item2, item3])
 
-// # From an array of hashes
-// collection = ItemCollection.new([
-//   { id: "1", name: "Item 1" },
-//   { id: "2", name: "Item 2" }
-// ])
+# From an array of hashes
+collection = ItemCollection.new([
+  { id: "1", name: "Item 1" },
+  { id: "2", name: "Item 2" }
+])
 
-// # Adding items later
-// collection << Item.new(id: "3", name: "Item 3")
-// ----
-// ====
+# Adding items later
+collection << Item.new(id: "3", name: "Item 3")
+----
+====
 
-// ==== Ordered collections
+==== Ordered collections
 
-// Collections that maintain a specific ordering of elements.
+TODO: This case needs to be fixed.
 
-// [example]
-// ====
-// [source,ruby]
-// ----
-// class OrderedItemCollection < Lutaml::Model::Collection
-//   instances :items, Item
-//   ordered by: :id, order: :desc
-// end
-// ----
-// ====
+Collections that maintain a specific ordering of elements.
+
+Syntax:
+
+[source,ruby]
+----
+class MyCollection < Lutaml::Model::Collection
+  instances {instances-name}, ModelType
+  ordered by: {attribute-of-instance}, order: {:asc | :desc}
+end
+----
+
+Where,
+
+`{instances-name}`:: name of the instances accessor within the collection
+`ModelType`:: The model type of the collection elements.
+
+`{attribute-of-instance}`:: The attribute of the model instance to order by. Values supported are:
+`:asc`::: Ascending order (default).
+`:desc`::: Descending order.
+
+.Ordered collection applied to a root collection
+[example]
+====
+Data:
+
+[source,xml]
+----
+<item id="3" name="Item Three"/>
+<item id="1" name="Item One"/>
+<item id="2" name="Item Two"/>
+----
+
+[source,yaml]
+----
+---
+- id: 3
+  name: Item Three
+- id: 1
+  name: Item One
+- id: 2
+  name: Item Two
+----
+
+[source,ruby]
+----
+class Item < Lutaml::Model::Serializable
+  attribute :id, :string
+  attribute :name, :string
+end
+
+class OrderedItemCollection < Lutaml::Model::Collection
+  instances :items, Item
+  ordered by: :id, order: :desc
+
+  xml do
+    no_root
+    map_element "item", to: :items
+  end
+
+  key_value do
+    no_root
+    map_instances to: :items
+  end
+end
+----
+
+[source,ruby]
+----
+> collection = OrderedItemCollection.from_xml(xml_data)
+> collection.map(&:id)
+> # ["3", "2", "1"]
+
+> collection = OrderedItemCollection.from_yaml(yaml_data)
+> collection.map(&:id)
+> # ["3", "2", "1"]
+----
+====
+
+
 
 // ==== Polymorphic collections
 
@@ -2787,7 +2859,7 @@ authors.first.available
 // [source,ruby]
 // ----
 // class PolymorphicItemCollection < Lutaml::Model::Collection
-//   instances :items, BaseItem, polymorphic: true
+//   instances :items, Item, polymorphic: true
 
 //   xml do
 //     root "items"
@@ -8071,7 +8143,7 @@ values in the set `[one, two, three]`.
 
 [source,ruby]
 ----
-class Kiln < Lutaml::Model::Serializable
+class Klin < Lutaml::Model::Serializable
   attribute :name, :string
   attribute :degree_settings, :integer, collection: (1..)
   attribute :description, :string, values: %w[one two three]
@@ -8093,19 +8165,19 @@ class Kiln < Lutaml::Model::Serializable
   end
 end
 
-kiln = Kiln.new(name: "Kiln", degree_settings: [100, 200, 300], description: "one", prefix: "Ben")
-kiln.validate
+klin = Klin.new(name: "Klin", degree_settings: [100, 200, 300], description: "one", prefix: "Ben")
+klin.validate
 # => []
 
-kiln = Kiln.new(name: "Kiln", degree_settings: [], description: "four", prefix: "Ben", nick_name: "Smith")
-kiln.validate
+klin = Klin.new(name: "Klin", degree_settings: [], description: "four", prefix: "Ben", nick_name: "Smith")
+klin.validate
 # => [
 #      #<Lutaml::Model::CollectionSizeError: degree_settings must have at least 1 element>,
 #      #<Lutaml::Model::ValueError: description must be one of [one, two, three]>,
 #      #<Lutaml::Model::ChoiceUpperBoundError: Attribute count exceeds the upper bound>
 #    ]
 
-e = kiln.validate!
+e = klin.validate!
 # => Lutaml::Model::ValidationError: [
 #      degree_settings must have at least 1 element,
 #      description must be one of [one, two, three],
@@ -8133,7 +8205,7 @@ The following class validates the `degree_settings` attribute when the `type` is
 
 [source,ruby]
 ----
-class Kiln < Lutaml::Model::Serializable
+class Klin < Lutaml::Model::Serializable
   attribute :name, :string
   attribute :type, :string, values: %w[glass ceramic]
   attribute :degree_settings, :integer, collection: (1..)
@@ -8146,8 +8218,8 @@ class Kiln < Lutaml::Model::Serializable
   end
 end
 
-kiln = Kiln.new(name: "Kiln", type: "glass", degree_settings: [100, 200, 1400])
-kiln.validate
+klin = Klin.new(name: "Klin", type: "glass", degree_settings: [100, 200, 1400])
+klin.validate
 # => [#<Lutaml::Model::Error: Degree settings for glass must be less than 1300>]
 ----
 ====
