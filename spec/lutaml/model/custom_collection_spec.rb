@@ -84,10 +84,8 @@ module CustomCollection
     instances :items, Item
 
     key_value do
-      map to: :items,
-          root_mappings: {
-            id: :key,
-          }
+      map_key to_instance: :id
+      map_instances to: :items
     end
   end
 
@@ -96,11 +94,9 @@ module CustomCollection
     instances :items, Item
 
     key_value do
-      map to: :items,
-          root_mappings: {
-            id: :key,
-            name: :value,
-          }
+      map_key to_instance: :id
+      map_value as_attribute: :name
+      map_instances to: :items
     end
   end
 
