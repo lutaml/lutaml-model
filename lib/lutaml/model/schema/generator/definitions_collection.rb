@@ -64,7 +64,7 @@ module Lutaml
             @definitions ||= []
 
             if collection.is_a?(Array)
-              @definitions.concat(definitions)
+              @definitions.concat(collection)
             else
               @definitions.concat(collection.definitions)
             end
