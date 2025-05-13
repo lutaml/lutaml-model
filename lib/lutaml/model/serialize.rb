@@ -499,13 +499,7 @@ module Lutaml
       end
 
       def extract_register_id(register)
-        if register
-          register.is_a?(Lutaml::Model::Register) ? register.id : register
-        elsif self.class.class_variable_defined?(:@@register)
-          self.class.class_variable_get(:@@register)
-        else
-          Lutaml::Model::Config.default_register
-        end
+        self.class.extract_register_id(register)
       end
 
       def value_map(options)

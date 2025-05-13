@@ -20,6 +20,12 @@ module Lutaml
         validations
       ].freeze
 
+      MODEL_STRINGS = [
+        Lutaml::Model::Type::String,
+        "String",
+        :string,
+      ].freeze
+
       def initialize(name, type, options = {})
         @name = name
         @options = options
@@ -379,7 +385,7 @@ module Lutaml
         end
 
         # No need to change user register#get_class, only checks if type is LutaML-Model string.
-        if options.key?(:pattern) && Type.lookup(type) != Lutaml::Model::Type::String
+        if options.key?(:pattern) && !MODEL_STRINGS.include?(type)
           raise StandardError,
                 "Invalid option `pattern` given for `#{name}`, " \
                 "`pattern` is only allowed for :string type"

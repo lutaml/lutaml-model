@@ -4,6 +4,8 @@ module Lutaml
   module Model
     module Schema
       class RelaxngSchema
+        extend SharedMethods
+
         def self.generate(klass, options = {})
           register = lookup_register(options[:register])
           builder = Nokogiri::XML::Builder.new(encoding: "UTF-8") do |xml|
@@ -64,12 +66,6 @@ module Lutaml
             Lutaml::Model::Type::Decimal => "decimal",
             Lutaml::Model::Type::Hash => "string",
           }[type] || "string" # Default to string for unknown types
-        end
-
-        def self.lookup_register(register)
-          return register.id if register.is_a?(Lutaml::Model::Register)
-
-          register.nil? ? Lutaml::Model::Config.default_register : register
         end
       end
     end
