@@ -14,7 +14,7 @@ module Lutaml
             pretty: false
           )
             options = {
-              schema: "http://json-schema.org/draft-04/schema",
+              schema: "https://json-schema.org/draft/2020-12/schema",
               id: id,
               title: title,
               description: description,
