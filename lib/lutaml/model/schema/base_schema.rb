@@ -10,6 +10,7 @@ module Lutaml
           def generate(klass, options = {})
             schema = new(
               klass,
+              schema: options[:schema],
               id: options[:id],
               title: options[:title],
               description: options[:description],
@@ -22,7 +23,8 @@ module Lutaml
         attr_reader :schema, :klass
         attr_accessor :id, :title, :description
 
-        def initialize(klass, id: nil, title: nil, description: nil)
+        def initialize(klass, schema:, id: nil, title: nil, description: nil)
+          @schema = schema
           @klass = klass
           @id = id
           @title = title
@@ -31,7 +33,7 @@ module Lutaml
 
         def generate_schema_hash
           {
-            "$schema" => "https://json-schema.org/draft/2020-12/schema",
+            "$schema" => schema,
             "$id" => id,
             "description" => description,
             "$ref" => "#/$defs/#{klass.name.gsub('::', '_')}",
