@@ -2130,42 +2130,77 @@ Where,
 
 === Collection types
 
-==== General
-
 A LutaML collections is used for a number of scenarios:
 
-* Root collections
+* Root collections (for key-value formats)
 * Named collections
+* Keyed collections (for key-value formats)
 * Attribute collections
 * Nested collections
 // * Polymorphic collections
 // * Polymorphic attribute collections
 
 
-==== Root collections
+=== Root collections (key-value formats only)
 
-TODO: This case needs to be fixed for XML element name.
+==== General
+
+TODO: This case needs to be fixed for JSON.
+
+A root collection is a collection that is not contained within a parent
+collection.
+
+Root collections only apply to key-value serialization formats.
+The XML format does not support root collections.
+
+NOTE: The https://www.w3.org/TR/xml11/[XML standard] mandates the existence
+of a non-repeated "root element" in an XML document. This means that a valid XML
+document must have a root element, and all elements in an XML document must
+exist within the root. This is why an XML document cannot be a "root collection".
+
+NOTE: A root collection cannot be represented using a non-collection model.
 
 Root collections store multiple instances of the same model type at the root
 level. In other words, these are model instances that do not have a defined
 container at the level of the LutaML Model.
 
-.Simple root collection in XML with models each containing an attribute `name`
-[source,xml]
-----
-<name>Item One</name>
-<name>Item Two</name>
-<name>Item Three</name>
-----
+There are two kinds of root collections depending on the type of the instance
+value:
 
-.Simple root collection in YAML with models each containing an attribute `name`
+"Root value collection":: the value is a "primitive type"
+
+"Root object collection":: the value is a "model instance"
+
+Regardless of the type of root collection, the instance in a collection is
+always a LutaML model instance.
+
+
+==== Root value collections
+
+A root value collection is a collection that directly contains values of a
+primitive type.
+
+.Simple root collection with each instance being a value
+[example]
+====
 [source,yaml]
 ----
 ---
-- name: Item One
-- name: Item Two
-- name: Item Three
+- Item One
+- Item Two
+- Item Three
 ----
+
+[source,json]
+----
+[
+  "Item One",
+  "Item Two",
+  "Item Three"
+]
+----
+====
+
 
 Syntax:
 
@@ -2180,32 +2215,9 @@ class ModelType < Lutaml::Model::Serializable
 end
 ----
 
-.Handling a root collection
+.Handling a root collection where each instance is a value
 [example]
 ====
-Data:
-
-[source,xml]
-----
-<title>
-  <content>Title One</content>
-</title>
-<title>
-  <content>Title Two</content>
-</title>
-<title>
-  <content>Title Three</content>
-</title>
-----
-
-[source,yaml]
-----
----
-- content: Title One
-- content: Title Two
-- content: Title Three
-----
-
 Code:
 
 [source,ruby]
@@ -2217,10 +2229,85 @@ end
 class TitleCollection < Lutaml::Model::Collection
   instances :titles, Title
 
-  xml do
+  key_value do
     no_root # default
-    map_element "title", to: :titles
+    map_instances to: :titles
   end
+end
+----
+
+Data:
+
+[source,yaml]
+----
+---
+- Title One
+- Title Two
+- Title Three
+----
+
+[source,json]
+----
+[
+  "Title One",
+  "Title Two",
+  "Title Three"
+]
+----
+
+Usage:
+
+[source,ruby]
+----
+titles = TitleCollection.from_yaml(yaml_data)
+titles.count
+# => 3
+titles.first.content
+# => "Title One"
+----
+====
+
+
+==== Root object collections
+
+A root object collection is a collection that directly contains model instances,
+each containing at least one serialized attribute.
+
+.Simple root collection in YAML with each instance being a models with an attribute `name`
+[example]
+====
+[source,yaml]
+----
+---
+- name: Item One
+- name: Item Two
+- name: Item Three
+----
+
+[source,json]
+----
+[
+  {"name": "Item One"},
+  {"name": "Item Two"},
+  {"name": "Item Three"}
+]
+----
+====
+
+
+.Handling a root collection where each instance is defined by a model with attributes
+[example]
+====
+Code:
+
+[source,ruby]
+----
+class Title < Lutaml::Model::Serializable
+  attribute :content, :string
+end
+
+class TitleCollection < Lutaml::Model::Collection
+  instances :titles, Title
 
   key_value do
     no_root # default
@@ -2228,17 +2315,71 @@ class TitleCollection < Lutaml::Model::Collection
   end
 end
 ----
+
+Data:
+
+[source,yaml]
+----
+---
+- content: Title One
+- content: Title Two
+- content: Title Three
+----
+
+[source,json]
+----
+[
+  {"content": "Title One"},
+  {"content": "Title Two"},
+  {"content": "Title Three"}
+]
+----
+
+Usage:
+
+[source,ruby]
+----
+titles = TitleCollection.from_yaml(yaml_data)
+titles.count
+# => 3
+titles.first.content
+# => "Title One"
+----
 ====
 
 
-==== Named collections
+=== Named collections
+
+==== General
 
 TODO: This case needs to be fixed.
 
 Named collections are collections wrapped inside a name or a key. The "name" of
 the collection serves as the container root of its contained model instances.
 
-.Named collection in XML with models each containing an attribute `name`
+The named collection setup applies to XML and key-value serialization formats.
+
+In a named collection setup, the collection is defined as a
+Lutaml::Model::Collection class, and each instance is defined as a
+Lutaml::Model::Serializable class.
+
+There are two kinds of named collections depending on the type of the instance
+value:
+
+"Named value collection":: the value is a "primitive type"
+
+"Named object collection":: the value is a "model instance"
+
+Regardless of the name of root collection, the instance in a collection is
+always a LutaML model instance.
+
+
+==== Named value collections
+
+A named value collection is a collection that contains values of a
+primitive type.
+
+.Named value collection in XML with models each containing an element with content
 [source,xml]
 ----
 <names>
@@ -2248,14 +2389,14 @@ the collection serves as the container root of its contained model instances.
 </names>
 ----
 
-.Named collection in YAML with models each containing an attribute `name`
+.Named value collection in YAML with models each containing a value
 [source,yaml]
 ----
 ---
 names:
-- name: Item One
-- name: Item Two
-- name: Item Three
+- Item One
+- Item Two
+- Item Three
 ----
 
 Syntax:
@@ -2279,23 +2420,45 @@ class ModelType < Lutaml::Model::Serializable
 end
 ----
 
-.Handling a named collection
+A named collection can alternatively be implemented as a non-collection model
+("Model class with an attribute") that contains the collection of instances. In
+this case, the attribute will be an Array object, which does not contain
+additional attributes and methods.
+
+.Handling a named collection with instance elements directly containing values
 [example]
 ====
-Data:
+[source,ruby]
+----
+class Title < Lutaml::Model::Serializable
+  attribute :title, :string
+
+  xml do
+    root "title"
+    map_content to: :title
+  end
+end
+
+class DirectTitleCollection < Lutaml::Model::Collection
+  instances :items, Title
+
+  xml do
+    root "titles"
+    map_element "title", to: :items
+  end
+
+  key_value do
+    map_instances to: :items
+  end
+end
+----
 
 [source,xml]
 ----
 <titles>
-  <title>
-    <content>Title One</content>
-  </title>
-  <title>
-    <content>Title Two</content>
-  </title>
-  <title>
-    <content>Title Three</content>
-  </title>
+  <title>Title One</title>
+  <title>Title Two</title>
+  <title>Title Three</title>
 </titles>
 ----
 
@@ -2303,9 +2466,99 @@ Data:
 ----
 ---
 titles:
-- content: Title One
-- content: Title Two
-- content: Title Three
+- Title One
+- Title Two
+- Title Three
+----
+
+[source,json]
+----
+{
+  "titles": [
+    "Title One",
+    "Title Two",
+    "Title Three"
+  ]
+}
+----
+
+[source,ruby]
+----
+titles = DirectTitleCollection.from_yaml(yaml_data)
+titles.count
+# => 3
+titles.first.title
+# => "Title One"
+titles.last.title
+# => "Title Three"
+----
+====
+
+
+==== Named object collections
+
+A named object collection is a collection that contains model instances,
+each containing at least one serialized attribute.
+
+NOTE: A named object collection can alternatively be implemented as a
+non-collection model ("Model class with an attribute") that contains the
+collection of instances. In this case, the attribute will be an Array object,
+which does not contain additional attributes and methods.
+
+
+.Named object collection in XML with instances each containing an element with a model attribute
+[source,xml]
+----
+<names>
+  <name><content>Item One</content></name>
+  <name><content>Item Two</content></name>
+  <name><content>Item Three</content></name>
+</names>
+----
+
+.Named object collection in YAML with instances each containing a model attribute
+[source,yaml]
+----
+---
+names:
+- name: Item One
+- name: Item Two
+- name: Item Three
+----
+
+
+.Named object collection with each instance containing at least one model attribute
+[example]
+====
+Data:
+
+[source,xml]
+----
+<titles>
+  <title><content>Title One</content></title>
+  <title><content>Title Two</content></title>
+  <title><content>Title Three</content></title>
+</titles>
+----
+
+[source,yaml]
+----
+---
+titles:
+- title: Title One
+- title: Title Two
+- title: Title Three
+----
+
+[source,json]
+----
+{
+  "titles": [
+    {"title": "Title One"},
+    {"title": "Title Two"},
+    {"title": "Title Three"}
+  ]
+}
 ----
 
 Code:
@@ -2313,59 +2566,54 @@ Code:
 [source,ruby]
 ----
 class Title < Lutaml::Model::Serializable
-  attribute :content, :string
+  attribute :title, :string
+
+  xml do
+    root "title"
+    map_element "content", to: :title
+  end
+
+  key_value do
+    map "title", to: :title
+  end
 end
 
 class TitleCollection < Lutaml::Model::Collection
-  instances :titles, Title
+  instances :items, Title
 
   xml do
     root "titles"
-    map_element "title", to: :titles
+    map_element 'title', to: :items
   end
 
   key_value do
     root "titles"
-    map_instances to: :titles
+    map_instances to: :items
   end
 end
 ----
-====
 
-A named collection can be implemented as a non-collection model.
-A root collection, however, cannot be represented using a non-collection model.
+Usage:
 
-.Handling a named collection as a non-collection model
-[example]
-====
 [source,ruby]
 ----
-class Title < Lutaml::Model::Serializable
-  attribute :content, :string
-end
-
-class TitleCollection < Lutaml::Model::Serializable
-  attribute :titles, Title, collection: true
-
-  xml do
-    root "titles"
-    map_element "title", to: :titles
-  end
-
-  key_value do
-    map "titles" to: :titles
-  end
-end
+titles = TitleCollection.from_yaml(yaml_data)
+titles.count
+# => 3
+titles.first.title
+# => "Title One"
+titles.last.title
+# => "Title Three"
 ----
 ====
 
 
-==== Attribute collection class
+=== Attribute collection class
 
 TODO: This case needs to be implemented.
 
-A model attribute that is a collection can be contained within a
-custom collection class.
+A model attribute that is a collection can be contained within a custom
+collection class.
 
 A custom collection class can be defined to provide custom behavior for the
 collection inside a non-collection model, with attributes using
@@ -2397,24 +2645,18 @@ Data:
 [source,xml]
 ----
 <titles>
-  <title>
-    <content>Title One</content>
-  </title>
-  <title>
-    <content>Title Two</content>
-  </title>
-  <title>
-    <content>Title Three</content>
-  </title>
+  <title><content>Title One</content></title>
+  <title><content>Title Two</content></title>
+  <title><content>Title Three</content></title>
 </titles>
 ----
 
 [source,yaml]
 ----
 titles:
-- content: Title One
-- content: Title Two
-- content: Title Three
+- title: Title One
+- title: Title Two
+- title: Title Three
 ----
 
 
@@ -2459,7 +2701,7 @@ end
 
 
 
-==== Nested collections
+=== Nested collections
 
 TODO: This case needs to be fixed.
 
@@ -2531,24 +2773,32 @@ end
 ====
 
 
-==== Keyed collections (key-value serialization formats only)
+=== Keyed collections (key-value serialization formats only)
 
-===== General
+==== General
 
-Keyed collections store instances with unique keys.
+In key-value serialization formats, a key can be used to uniquely identify each
+instance. This usage allows for enforcing uniqueness in the collection.
 
-In key-value serialization formats, a key can be used to uniquely identify each instance. This usage allows for enforcing uniqueness in the collection.
+A collection that contains keyed objects as its instances is commonly called a
+"keyed collection". A keyed object in a serialization format is an object
+identified with a unique key.
 
-NOTE: The concept of keyed collections does not typically apply to XML collections.
+NOTE: The concept of keyed collections does not typically apply to XML
+collections.
 
-There are two kinds of keyed collection depending on the type of the keyed value:
-
-"keyed model collection":: the value is a "model instance"
+There are two kinds of keyed collections depending on the type of the keyed
+value:
 
 "keyed value collection":: the value is a "primitive type"
 
+"keyed object collection":: the value is a "model instance"
 
-===== `map_key` method
+Regardless of the type of keyed collections, the instance in a collection is
+always a LutaML model instance.
+
+
+==== `map_key` method
 
 The `map_key` method specifies that the unique key is to be moved into an
 attribute belonging to the instance model.
@@ -2568,7 +2818,7 @@ Where,
 `{key_attribute}`:: The attribute name in the instance that contains the key.
 
 
-===== `map_value` method
+==== `map_value` method
 
 The `map_value` method specifies that the value (the object referenced by the
 unique key) is to be moved into an attribute belonging to the instance model.
@@ -2589,8 +2839,70 @@ key_value do
 end
 ----
 
-===== Keyed model collections
+==== Keyed value collections
 
+A keyed value collection is a collection where the keyed item in the serialization
+format is a primitive type (e.g. string, integer, etc.).
+
+The instance item inside the collection is a model instance that contains both
+the serialized key and serialized value both as attributes inside the model.
+
+All three `map_key`, `map_value`, and `map_instances` methods need to be used to
+define how instances are mapped in a keyed value collection.
+
+.Creating a keyed value collection
+[example]
+====
+[source,ruby]
+----
+class AuthorAvailability < Lutaml::Model::Serializable
+  attribute :id, :string
+  attribute :available, :boolean
+end
+
+class AuthorCollection < Lutaml::Model::Collection
+  instances :authors, AuthorAvailability
+
+  key_value do
+    map_key to_instance: :id # This refers to 'authors[].id'
+    map_value as_attribute: :available # This refers to 'authors[].available'
+    map_instances to: :authors
+  end
+end
+----
+
+[source,yaml]
+----
+---
+author_01: true
+author_02: false
+author_03: true
+----
+
+[source,ruby]
+----
+authors = AuthorCollection.from_yaml(yaml_data)
+authors.first.id
+# => "author_01"
+authors.first.available
+# => true
+----
+====
+
+
+==== Keyed object collections
+
+A keyed object collection is a collection where the keyed item in the
+serialization format contains multiple attributes.
+
+The instance item inside the collection is a model instance that contains the
+serialized key as one attribute, and the serialized value attributes are all
+attributes inside the model.
+
+Both the `map_key` and `map_instances` are used to define how instances are
+mapped in a keyed object collection.
+
+.Creating a keyed object collection
 [example]
 ====
 [source,ruby]
@@ -2632,48 +2944,9 @@ authors.first.name
 ====
 
 
-===== Keyed value collections
-
-[example]
-====
-[source,ruby]
-----
-class AuthorAvailability < Lutaml::Model::Serializable
-  attribute :id, :string
-  attribute :available, :boolean
-end
-
-class AuthorCollection < Lutaml::Model::Collection
-  instances :authors, AuthorAvailability
-
-  key_value do
-    map_key to_instance: :id # This refers to 'authors[].id'
-    map_value as_attribute: :available # This refers to 'authors[].available'
-    map_instances to: :authors
-  end
-end
-----
-
-[source,yaml]
-----
----
-author_01: true
-author_02: false
-author_03: true
-----
-
-[source,ruby]
-----
-authors = AuthorCollection.from_yaml(yaml_data)
-authors.first.id
-# => "author_01"
-authors.first.available
-# => true
-----
-====
 
 
-=== Collection behavior
+=== Behavior
 
 ==== Enumerable interface
 
@@ -2736,7 +3009,7 @@ count = collection.count
 // ----
 // ====
 
-==== Collection initialization
+==== Initialization
 
 Collections can be initialized with an array of items or through individual item
 addition.
@@ -2762,7 +3035,7 @@ collection << Item.new(id: "3", name: "Item 3")
 ----
 ====
 
-==== Ordered collections
+==== Ordering
 
 TODO: This case needs to be fixed.
 
@@ -2794,9 +3067,11 @@ Data:
 
 [source,xml]
 ----
-<item id="3" name="Item Three"/>
-<item id="1" name="Item One"/>
-<item id="2" name="Item Two"/>
+<items>
+  <item id="3" name="Item Three"/>
+  <item id="1" name="Item One"/>
+  <item id="2" name="Item Two"/>
+</items>
 ----
 
 [source,yaml]
@@ -2815,6 +3090,11 @@ Data:
 class Item < Lutaml::Model::Serializable
   attribute :id, :string
   attribute :name, :string
+
+  xml do
+    map_attribute "id", to: :id
+    map_attribute "name", to: :name
+  end
 end
 
 class OrderedItemCollection < Lutaml::Model::Collection
@@ -2822,7 +3102,7 @@ class OrderedItemCollection < Lutaml::Model::Collection
   ordered by: :id, order: :desc
 
   xml do
-    no_root
+    root "items"
     map_element "item", to: :items
   end
 
