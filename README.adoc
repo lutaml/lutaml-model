@@ -3056,9 +3056,13 @@ Where,
 `{instances-name}`:: name of the instances accessor within the collection
 `ModelType`:: The model type of the collection elements.
 
-`{attribute-of-instance}`:: The attribute of the model instance to order by. Values supported are:
-`:asc`::: Ascending order (default).
-`:desc`::: Descending order.
+`{attribute-of-instance-or-proc}`:: How model instances are to be ordered by. Values supported are:
+`{attribute-of-instance}`::: Attribute name of an instance to be ordered by.
+`{proc}`::: Proc that returns a value to order by (same as `sort_by`), given the instance as input.
+
+`order`::: Order direction of the value:
+`:asc`:::: Ascending order (default).
+`:desc`:::: Descending order.
 
 .Ordered collection applied to a root collection
 [example]
