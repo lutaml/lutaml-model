@@ -89,7 +89,7 @@ module Lutaml
                             when Symbol then value
                             when Lutaml::Model::Register then value.id
                             else
-                              raise "Unkown register: #{value}, expected a Symbol or a Lutaml::Model::Register instance"
+                              raise "Unknown register: #{value}, expected a Symbol or a Lutaml::Model::Register instance"
                             end
       end
 
