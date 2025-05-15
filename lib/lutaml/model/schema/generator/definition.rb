@@ -5,11 +5,12 @@ module Lutaml
     module Schema
       module Generator
         class Definition
-          attr_reader :type, :name
+          attr_reader :type, :name, :register
 
-          def initialize(type)
+          def initialize(type, register:)
             @type = type
             @name = type.name.gsub("::", "_")
+            @register = register
           end
 
           def to_schema
@@ -37,13 +38,14 @@ module Lutaml
                 "type" => "object",
                 "properties" => PropertiesCollection.from_attributes(
                   choice.attributes,
+                  register,
                 ).to_schema,
               }
             end
           end
 
           def properties_to_schema(type)
-            PropertiesCollection.from_class(type).to_schema
+            PropertiesCollection.from_class(type, register).to_schema
           end
         end
       end

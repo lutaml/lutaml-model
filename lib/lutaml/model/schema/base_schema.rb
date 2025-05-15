@@ -14,21 +14,23 @@ module Lutaml
               id: options[:id],
               title: options[:title],
               description: options[:description],
+              register: options[:register],
             ).generate_schema_hash
 
             format_schema(schema, options)
           end
         end
 
-        attr_reader :schema, :klass
+        attr_reader :schema, :klass, :register
         attr_accessor :id, :title, :description
 
-        def initialize(klass, schema:, id: nil, title: nil, description: nil)
+        def initialize(klass, schema:, register:, id: nil, title: nil, description: nil)
           @schema = schema
           @klass = klass
           @id = id
           @title = title
           @description = description
+          @register = register
         end
 
         def generate_schema_hash
@@ -48,7 +50,7 @@ module Lutaml
         end
 
         def generate_definitions(klass)
-          Generator::DefinitionsCollection.from_class(klass).to_schema
+          Generator::DefinitionsCollection.from_class(klass, register).to_schema
         end
 
         def generate_polymorphic_definitions(attr)

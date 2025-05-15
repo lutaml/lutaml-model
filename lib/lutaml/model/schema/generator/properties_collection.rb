@@ -6,24 +6,25 @@ module Lutaml
       module Generator
         class PropertiesCollection
           class << self
-            def from_class(klass)
-              from_attributes(klass.attributes.values)
+            def from_class(klass, register)
+              from_attributes(klass.attributes.values, register)
             end
 
-            def from_attributes(attributes)
-              new.tap do |collection|
+            def from_attributes(attributes, register)
+              new(register: register).tap do |collection|
                 attributes.each do |attribute|
                   name = attribute.name
-                  collection << Property.new(name, attribute)
+                  collection << Property.new(name, attribute, register: register)
                 end
               end
             end
           end
 
-          attr_reader :properties
+          attr_reader :properties, :register
 
-          def initialize(properties = [])
+          def initialize(properties = [], register:)
             self.properties = properties
+            @register = register
           end
 
           def to_schema
@@ -36,7 +37,7 @@ module Lutaml
             @properties << if property.is_a?(Property)
                              property
                            else
-                             Property.new(property.name, property)
+                             Property.new(property.name, property, register: register)
                            end
           end
           alias << add_property
@@ -49,7 +50,7 @@ module Lutaml
             @properties = properties.map do |property|
               next property if property.is_a?(Property)
 
-              Property.new(property.name, property)
+              Property.new(property.name, property, register: register)
             end
           end
         end

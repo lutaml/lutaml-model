@@ -6,44 +6,45 @@ module Lutaml
       module Generator
         class DefinitionsCollection
           class << self
-            def from_class(klass)
-              new.tap do |collection|
-                collection << Definition.new(klass)
+            def from_class(klass, register)
+              new(register: register).tap do |collection|
+                collection << Definition.new(klass, register: register)
 
-                process_attributes(collection, klass)
+                process_attributes(collection, klass, register)
               end
             end
 
-            def process_attributes(collection, klass)
+            def process_attributes(collection, klass, register)
               klass.attributes.each_value do |attribute|
-                next unless attribute.serializable?
+                next unless attribute.serializable?(register)
 
-                process_attribute(collection, attribute)
+                process_attribute(collection, attribute, register)
               end
             end
 
-            def process_attribute(collection, attribute)
-              collection.merge(DefinitionsCollection.from_class(attribute.type))
+            def process_attribute(collection, attribute, register)
+              collection.merge(DefinitionsCollection.from_class(attribute.type, register))
 
-              process_polymorphic_types(collection, attribute)
+              process_polymorphic_types(collection, attribute, register)
             end
 
-            def process_polymorphic_types(collection, attribute)
+            def process_polymorphic_types(collection, attribute, register)
               return unless attribute.options&.[](:polymorphic)
 
               attribute.options[:polymorphic].each do |child|
-                collection.merge(DefinitionsCollection.from_class(child))
+                collection.merge(DefinitionsCollection.from_class(child, register))
               end
             end
           end
 
-          attr_reader :definitions
+          attr_reader :definitions, :register
 
-          def initialize(definitions = [])
+          def initialize(definitions = [], register:)
+            @register = register
             @definitions = definitions.map do |definition|
               next definition if definition.is_a?(Definition)
 
-              Definition.new(definition)
+              Definition.new(definition, register: register)
             end
           end
 
