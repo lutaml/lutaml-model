@@ -1,3 +1,4 @@
+require "easycache"
 module Lutaml
   module Model
     class Attribute
@@ -27,6 +28,7 @@ module Lutaml
       ].freeze
 
       def initialize(name, type, options = {})
+        @cache = EasyCache.new
         @name = name
         @options = options
 
@@ -40,7 +42,9 @@ module Lutaml
 
         register_id ||= Lutaml::Model::Config.default_register
         register = Lutaml::Model::GlobalRegister.lookup(register_id)
-        register.get_class_without_register(unresolved_type)
+        @cache.fetch("#{unresolved_type}/#{register}", 3500, true) do
+          register.get_class_without_register(unresolved_type)
+        end
       end
 
       def unresolved_type
