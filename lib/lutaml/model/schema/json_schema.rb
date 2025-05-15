@@ -1,3 +1,4 @@
+require_relative "shared_methods"
 require_relative "base_schema"
 require "json"
 
@@ -6,11 +7,14 @@ module Lutaml
     module Schema
       class JsonSchema < BaseSchema
         class << self
+          include Lutaml::Model::Schema::SharedMethods
+
           def generate(
             klass,
             id: nil,
             title: nil,
             description: nil,
+            register: Lutaml::Model::Config.default_register,
             pretty: false
           )
             options = {
@@ -18,6 +22,7 @@ module Lutaml
               id: id,
               title: title,
               description: description,
+              register: lookup_register(register),
               pretty: pretty,
             }
 
