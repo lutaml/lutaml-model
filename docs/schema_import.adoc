@@ -1,0 +1,221 @@
+= Schema import
+
+This document describes how to import schemas into LutaML models.
+
+== Schema import
+
+=== Overview
+
+Lutaml::Model provides functionality to import schema definitions into LutaML
+models. This allows you to create models from existing schema definitions.
+
+The following figure illustrates the process of importing an XML Schema model to
+create corresponding LutaML models.
+
+.Importing serialization schemas to create LutaML models (XML example)
+[source]
+----
+╔════════════════════════════╗                        ╔═══════════════════════╗
+║    Serialization Models    ║                        ║       Core Model      ║
+╚════════════════════════════╝                        ╚═══════════════════════╝
+
+╭┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╮                        ╭┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╮
+┆  XML Schema (XSD/RNG/RNC)  ┆                        ┆          Model        ┆
+┆              │             ┆   ┌────────────────┐   ┆            │          ┆
+┆       ┌──────┴──────┐      ┆   │                │   ┆   ┌────────┴──┐       ┆
+┆       │             │      ┆   │    Schema      │   ┆   │           │       ┆
+┆    Models      Value Types ┆──►│   Importing    │──►┆ Models   Value Types  ┆
+┆       │             │      ┆   │                │   ┆   │           │       ┆
+┆       │             │      ┆   └────────────────┘   ┆   │           │       ┆
+┆  ┌────┴────┐      ┌─┴─┐    ┆           │            ┆   │    ┌──────┴──┐    ┆
+┆  │         │      │   │    ┆           │            ┆   │    │         │    ┆
+┆ Element  Value  xs:string  ┆           │            ┆   │   String  Integer ┆
+┆ Attribute Type  xs:date    ┆           │            ┆   │   Date    Float   ┆
+┆ Union  Complex  xs:boolean ┆           │            ┆   │   Time    Boolean ┆
+┆ Sequence Choice xs:anyURI  ┆           │            ┆   │                   ┆
+╰┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╯           │            ┆   └──────┐            ┆
+                                         │            ┆          │            ┆
+                                         │            ┆     Contains          ┆
+                                         │            ┆     more Models       ┆
+                                         │            ┆     (recursive)       ┆
+                                         │            ┆                       ┆
+                                         │            ╰┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╯
+                                         │            ┌────────────────┐
+                                         │            │                │
+                                         │            │     Model      │
+                                         └──────────► │ Transformation │
+                                                      │       &        │
+                                                      │ Mapping Rules  │
+                                                      │                │
+                                                      └────────────────┘
+----
+
+
+Currently, the following schema formats are supported for import:
+
+* XSD (https://w3.org/TR/xmlschema-1/[XML Schema Definition Language])
+
+=== XML Schema (XSD) import
+
+W3C XSD is a schema language designed to define the structure of XML documents,
+alongside other XML schema languages like DTD, RELAX NG, and Schematron.
+
+Lutaml::Model supports the import of XSD schema files to define information
+models that can be used to parse and generate XML documents.
+
+Specifically, the `Lutaml::Model::Schema#from_xml` method loads XML Schema files
+(XSD, `*.xsd`) and generates Ruby files (`*.rb`) that inherit from
+`Lutaml::Model::Serializable` that are saved to disk.
+
+==== Syntax
+
+[source,ruby]
+----
+Lutaml::Model::Schema.from_xml(
+  xsd_schema, <1>
+  options: options <2>
+)
+----
+<1> The `xsd_schema` is the XML Schema string to be converted to model files.
+<2> The `options` hash is an optional argument.
+
+`options`:: Optional hash containing potentially the following key-values.
+
+`output_dir`::: The directory where the model files will be saved. If not
+provided, a default directory named `lutaml_models_<timestamp>` is created.
++
+[example]
+`"path/to/directory"`
+
+`create_files`::: A `boolean` argument (`false` by default) to create files
+directly in the specified directory as defined by the `output_dir` option.
++
+[example]
+`create_files: (true | false)`
+
+`load_classes`::: A `boolean` argument (`false` by default) to load generated
+classes before returning them.
++
+[example]
+`load_classes: (true | false)`
+
+`namespace`::: The namespace of the schema. This will be added in the
+`Lutaml::Model::Serializable` file's `xml do` block.
++
+[example]
+`http://example.com/namespace`
+
+`prefix`::: The prefix of the namespace provided in the `namespace` option.
++
+[example]
+`example-prefix`
+
+`location`::: The URL or path of the directory containing all the files of the
+schema. For more information, refer to the
+link:https://www.w3.org/TR/xmlschema-1/#include[XML Schema specification].
++
+[example]
+`"http://example.com/example.xsd"`
++
+[example]
+`"path/to/schema/directory"`
+
+NOTE: If both `create_files` and `load_classes` are provided, the `create_files`
+argument will take priority and generate files without loading them!
+
+==== Generated model structure
+
+The generated LutaML models consists of two different kind of Ruby classes
+depending on the XSD schema:
+
+XSD "SimpleTypes":: converted into classes that inherit from
+`Lutaml::Model::Type::Value`, which define the data types with restrictions and
+other validations of these values.
+
+XSD "ComplexTypes":: converted into classes that inherit from
+`Lutaml::Model::Serializable` that model according to the defined structure.
+
+Lutaml::Model uses the https://github.com/lutaml/lutaml-xsd[`lutaml-xsd` gem] to
+automatically resolve the `include` and `import` elements, enabling
+*Lutaml-Model* to generate the corresponding model files.
+
+This auto-resolving feature allows seamless integration of these files into your
+models without the need for manual resolution of includes and imports.
+
+==== Example
+
+[example]
+====
+[source,ruby]
+----
+xsd_schema = <<~XSD
+  <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+    <!-- XML schema definition here -->
+    <xs:element name="User">
+      <xs:complexType>
+        <xs:sequence>
+          <xs:element name="id" type="xs:positiveInteger"/>
+          <xs:element name="age" type="xs:positiveInteger"/>
+          <xs:element name="token" type="xs:token"/>
+        </xs:sequence>
+      </xs:complexType>
+    </xs:element>
+  </xs:schema>
+XSD
+
+options = {
+  # These are all optional:
+  output_dir: 'path/to/directory',
+  namespace: 'http://example.com/namespace',
+  prefix: "example-prefix",
+  location: "http://example.com/example.xsd",
+  # or
+  # location: "path/to/schema/directory"
+  create_files: true, # Default: false
+  # OR
+  load_classes: true, # Default: false
+}
+
+# generates the files in the output_dir | default_dir
+Lutaml::Model::Schema.from_xml(xsd_schema, options: options)
+----
+====
+
+==== Working with generated models
+
+You can use the models directly if you set `load_classes: true`:
+
+[example]
+====
+[source,ruby]
+----
+# Generate and load the models
+Lutaml::Model::Schema.from_xml(xsd_schema, options: {load_classes: true})
+
+# Create a new User instance
+user = User.new(id: 1112, age: 29, token: "u9dId901dp13f")
+
+# Serialize to XML
+xml = user.to_xml
+# => "<User>\n  <id>1112</id>\n  <age>29</age>\n  <token>u9dId901dp13f</token>\n</User>"
+
+# Parse from XML
+parsed_user = User.from_xml(xml)
+parsed_user.id # => 1112
+parsed_user.age # => 29
+parsed_user.token # => "u9dId901dp13f"
+----
+====
+
+Alternatively, you could directly load the generated Ruby files into your application by
+requiring them:
+
+[example]
+====
+[source,ruby]
+----
+Lutaml::Model::Schema.from_xml(xsd_schema, options: {output_dir: 'path/to/directory', create_files: true})
+require_relative 'path/to/directory/*.rb'
+----
+====
+

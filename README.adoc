@@ -39,8 +39,11 @@ Lutaml::Model are provided in <<migrate-from-shale>>.
 * Support for collections and default values
 * Custom serialization/deserialization methods
 * XML namespaces and mappings
+* Generate serialization schemas from model definitions (<<schema-generation>>)
+* Import serialization schemas to define models (<<schema-import>>)
 * Create custom adapters for additional data formats (see <<custom-adapters>>)
 * Dynamically modify model attribute types using registers (see <<custom-registers>>)
+
 
 
 == Data modeling in a nutshell
@@ -8208,9 +8211,91 @@ puts SomeModel.new.to_yaml
 
 
 
-== Importing data models
+== Schema generation and import
 
-=== General
+=== Schema generation
+
+Lutaml::Model provides functionality to generate schema definitions from LutaML models. This allows you to create schemas that can be used for validation or documentation purposes.
+
+Currently, the following schema formats are supported:
+
+* JSON Schema (https://json-schema.org/understanding-json-schema/[JSON Schema])
+* YAML Schema (https://yaml.org/spec/1.2/spec.html[YAML])
+
+==== JSON Schema generation
+
+The `Lutaml::Model::Schema.to_json` method generates a JSON Schema from a LutaML model class. The generated schema includes:
+
+* Properties based on model attributes
+* Validation constraints (patterns, enumerations, etc.)
+* Support for polymorphic types
+* Support for inheritance
+* Support for choice attributes
+* Collection constraints
+
+Example:
+
+[source,ruby]
+----
+class Glaze < Lutaml::Model::Serializable
+  attribute :color, :string
+  attribute :finish, :string
+end
+
+class Vase < Lutaml::Model::Serializable
+  attribute :height, :float
+  attribute :diameter, :float
+  attribute :glaze, Glaze
+  attribute :materials, :string, collection: true
+end
+
+# Generate JSON schema
+schema = Lutaml::Model::Schema.to_json(
+  Vase,
+  id: "https://example.com/vase.schema.json",
+  description: "A vase schema",
+  pretty: true
+)
+
+# Write to file
+File.write("vase.schema.json", schema)
+----
+
+The generated schema will include definitions for all nested models and their attributes.
+
+==== YAML Schema generation
+
+The `Lutaml::Model::Schema.to_yaml` method generates a YAML Schema from a LutaML model class. The generated schema includes the same features as the JSON Schema generation.
+
+Example:
+
+[source,ruby]
+----
+class Glaze < Lutaml::Model::Serializable
+  attribute :color, :string
+  attribute :finish, :string
+end
+
+class Vase < Lutaml::Model::Serializable
+  attribute :height, :float
+  attribute :diameter, :float
+  attribute :glaze, Glaze
+  attribute :materials, :string, collection: true
+end
+
+# Generate YAML schema
+schema = Lutaml::Model::Schema.to_yaml(
+  Vase,
+  id: "http://example.com/schemas/vase",
+  description: "A vase schema",
+  pretty: true
+)
+
+# Write to file
+File.write("vase.schema.yaml", schema)
+----
+
+=== Importing data models
 
 Lutaml::Model provides a way to import data models defined from various formats
 into the LutaML data modeling system.
@@ -8977,11 +9062,50 @@ end
 
 
 [[custom-adapters]]
-=== Custom adapters
+== Custom serialization adapters
 
 Lutaml::Model provides a flexible system for creating custom adapters to handle
-different data formats. For more information, see the
-link:docs/custom_adapters.adoc[Custom Adapters Guide].
+different data formats.
+
+Please refer to link:docs/custom_adapters.adoc[Custom adapters] for details
+and examples.
+
+
+[[schema-generation]]
+== Schema generation
+
+Lutaml::Model provides functionality to generate schema definitions from LutaML models. This allows you to create schemas that can be used for validation or documentation purposes.
+
+Currently, the following schema formats are supported:
+
+* JSON Schema (https://json-schema.org/understanding-json-schema/[JSON Schema])
+* YAML Schema (https://yaml.org/spec/1.2/spec.html[YAML])
+* XSD (https://w3.org/TR/xmlschema-1/[XML Schema Definition Language])
+* RELAX NG (https://relaxng.org/[RELAX NG])
+
+The schema generation supports advanced features such as:
+
+* Validation constraints (patterns, enumerations, ranges)
+* Choice attributes with min/max constraints
+* Polymorphic types with oneOf validation
+* Collection constraints with minItems/maxItems
+
+Please refer to link:docs/schema_generation.adoc[Schema Generation] for details
+and examples.
+
+
+[[schema-import]]
+== Schema import
+
+Lutaml::Model provides functionality to import schema definitions into LutaML
+models. This allows you to create models from existing schema definitions.
+
+Currently, the following schema formats are supported:
+
+* XSD (https://w3.org/TR/xmlschema-1/[XML Schema Definition Language])
+
+Please refer to link:docs/schema_import.adoc[Schema Import] for details
+and examples.
 
 
 [[custom-registers]]
