@@ -102,8 +102,8 @@ module Lutaml
         !enum_values.empty?
       end
 
-      def default(register_id = Lutaml::Model::Config.default_register)
-        cast_value(default_value(register_id), register_id)
+      def default(register = Lutaml::Model::Config.default_register)
+        cast_value(default_value(register), register)
       end
 
       def default_value(register)
@@ -156,8 +156,8 @@ module Lutaml
         options[:values].include?(value)
       end
 
-      def valid_pattern!(value, register)
-        return true unless type(register) == Lutaml::Model::Type::String
+      def valid_pattern!(value, resolved_type)
+        return true unless resolved_type == Lutaml::Model::Type::String
         return true unless pattern
 
         unless pattern.match?(value)
@@ -180,11 +180,12 @@ module Lutaml
       def validate_value!(value, register)
         # Use the default value if the value is nil
         value = default(register) if value.nil?
+        resolved_type = type(register)
 
         valid_value!(value) &&
           valid_collection!(value, self) &&
-          valid_pattern!(value, register) &&
-          validate_polymorphic!(value, register) &&
+          valid_pattern!(value, resolved_type) &&
+          validate_polymorphic!(value, resolved_type) &&
           execute_validations!(value)
       end
 
@@ -201,17 +202,17 @@ module Lutaml
         raise Lutaml::Model::ValidationFailedError.new(errors)
       end
 
-      def validate_polymorphic(value, register)
-        return value.all? { |v| validate_polymorphic!(v, register) } if value.is_a?(Array)
+      def validate_polymorphic(value, resolved_type)
+        return value.all? { |v| validate_polymorphic!(v, resolved_type) } if value.is_a?(Array)
         return true unless options[:polymorphic]
 
-        valid_polymorphic_type?(value, register)
+        valid_polymorphic_type?(value, resolved_type)
       end
 
-      def validate_polymorphic!(value, register)
-        return true if validate_polymorphic(value, register)
+      def validate_polymorphic!(value, resolved_type)
+        return true if validate_polymorphic(value, resolved_type)
 
-        raise Lutaml::Model::PolymorphicError.new(value, options, type(register))
+        raise Lutaml::Model::PolymorphicError.new(value, options, resolved_type)
       end
 
       def validate_collection_range
@@ -284,19 +285,22 @@ module Lutaml
         value ||= [] if collection? && initialize_empty?
         return value if value.nil? || Utils.uninitialized?(value)
         return value if derived?
-        return serialize_array(value, format, register, options) if value.is_a?(Array)
-        return serialize_model(value, format, register, options) if type(register) <= Serialize
 
-        serialize_value(value, format, register)
+        resolved_type = options[:resolved_type] || type(register)
+        serialize_options = options.merge(resolved_type: resolved_type)
+        return serialize_array(value, format, register, serialize_options) if value.is_a?(Array)
+        return serialize_model(value, format, register, options) if resolved_type <= Serialize
+
+        serialize_value(value, format, resolved_type)
       end
 
       def cast(value, format, register, options = {})
         value ||= [] if collection? && !value.nil?
-        registered_type = type(register)
-        return value.map { |v| cast(v, format, register, options) } if value.is_a?(Array)
-        return value if already_serialized?(registered_type, value)
+        resolved_type = options[:resolved_type] || type(register)
+        return value.map { |v| cast(v, format, register, options.merge(resolved_type:)) } if value.is_a?(Array)
+        return value if already_serialized?(resolved_type, value)
 
-        klass = resolve_polymorphic_class(registered_type, value, options)
+        klass = resolve_polymorphic_class(resolved_type, value, options)
         if can_serialize?(klass, value, format)
           klass.apply_mappings(value, format, options.merge(register: register))
         elsif needs_conversion?(klass, value)
@@ -358,14 +362,14 @@ module Lutaml
         as_options = options.merge(register: register)
         return unless Utils.present?(value)
 
-        resolved_type = type(register)
+        resolved_type = as_options.delete(:resolved_type) || type(register)
         return value.class.as(format, value, as_options) if value.is_a?(resolved_type)
 
         resolved_type.as(format, value, as_options)
       end
 
-      def serialize_value(value, format, register)
-        value = type(register).new(value) unless value.is_a?(Type::Value)
+      def serialize_value(value, format, resolved_type)
+        value = resolved_type.new(value) unless value.is_a?(Type::Value)
         value.send(:"to_#{format}")
       end
 
@@ -415,10 +419,10 @@ module Lutaml
               "Invalid type: #{type}, must be a Symbol, String or a Class"
       end
 
-      def valid_polymorphic_type?(value, register)
+      def valid_polymorphic_type?(value, resolved_type)
         return value.is_a?(type) unless has_polymorphic_list?
 
-        options[:polymorphic].include?(value.class) && value.is_a?(type(register))
+        options[:polymorphic].include?(value.class) && value.is_a?(resolved_type)
       end
 
       def has_polymorphic_list?

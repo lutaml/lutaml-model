@@ -200,15 +200,6 @@ module Lutaml
           !rule.custom_methods[:from]
       end
 
-      def text_hash?(attr, value)
-        return false unless value.is_a?(Hash)
-        return value.one? && value.text? unless attr
-
-        attr_type = attr.type(register)
-        !(attr_type <= Serialize) &&
-          attr_type != Lutaml::Model::Type::Hash
-      end
-
       def ensure_utf8(value)
         case value
         when String
