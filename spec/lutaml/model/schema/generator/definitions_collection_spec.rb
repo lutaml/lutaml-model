@@ -25,9 +25,15 @@ end
 
 RSpec.describe Lutaml::Model::Schema::Generator::DefinitionsCollection do
   let(:klass) { DefinitionsCollectionSpec::Person }
+  let(:register) { :def_collection }
+
+  before do
+    collection_register = Lutaml::Model::Register.new(register)
+    Lutaml::Model::GlobalRegister.register(collection_register)
+  end
 
   describe ".from_class" do
-    subject(:collection) { described_class.from_class(klass) }
+    subject(:collection) { described_class.from_class(klass, register) }
 
     let(:all_classes) do
       [
@@ -60,7 +66,7 @@ RSpec.describe Lutaml::Model::Schema::Generator::DefinitionsCollection do
   describe "#to_schema" do
     subject(:schema) { collection.to_schema }
 
-    let(:collection) { described_class.from_class(klass) }
+    let(:collection) { described_class.from_class(klass, register) }
 
     it "returns a hash" do
       expect(schema).to be_a(Hash)
@@ -72,9 +78,9 @@ RSpec.describe Lutaml::Model::Schema::Generator::DefinitionsCollection do
   end
 
   describe "#add_definition" do
-    let(:collection) { described_class.new }
+    let(:collection) { described_class.new(register: register) }
     let(:definition) do
-      Lutaml::Model::Schema::Generator::Definition.new(String)
+      Lutaml::Model::Schema::Generator::Definition.new(String, register: register)
     end
 
     it "adds a definition to the collection" do
@@ -95,6 +101,7 @@ RSpec.describe Lutaml::Model::Schema::Generator::DefinitionsCollection do
           Lutaml::Model::Type::String,
           Lutaml::Model::Type::Integer,
         ],
+        register: register,
       )
     end
     let(:second_collection) do
@@ -103,6 +110,7 @@ RSpec.describe Lutaml::Model::Schema::Generator::DefinitionsCollection do
           Lutaml::Model::Type::Float,
           Lutaml::Model::Type::Boolean,
         ],
+        register: register,
       )
     end
 
