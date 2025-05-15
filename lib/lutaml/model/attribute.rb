@@ -35,10 +35,12 @@ module Lutaml
         process_options!
       end
 
-      def type(register_id = Lutaml::Model::Config.default_register)
+      def type(register_id = nil)
+        return if unresolved_type.nil?
+
         register_id ||= Lutaml::Model::Config.default_register
         register = Lutaml::Model::GlobalRegister.lookup(register_id)
-        register.get_class_without_register(unresolved_type) unless unresolved_type.nil?
+        register.get_class_without_register(unresolved_type)
       end
 
       def unresolved_type
@@ -74,9 +76,10 @@ module Lutaml
       end
 
       def cast_value(value, register)
-        return type(register).cast(value) unless value.is_a?(Array)
+        resolved_type = type(register)
+        return resolved_type.cast(value) unless value.is_a?(Array)
 
-        value.map { |v| type(register).cast(v) }
+        value.map { |v| resolved_type.cast(v) }
       end
 
       def setter
@@ -354,9 +357,11 @@ module Lutaml
       def serialize_model(value, format, register, options)
         as_options = options.merge(register: register)
         return unless Utils.present?(value)
-        return value.class.as(format, value, as_options) if value.is_a?(type(register))
 
-        type(register).as(format, value, as_options)
+        resolved_type = type(register)
+        return value.class.as(format, value, as_options) if value.is_a?(resolved_type)
+
+        resolved_type.as(format, value, as_options)
       end
 
       def serialize_value(value, format, register)
@@ -389,6 +394,7 @@ module Lutaml
         end
 
         # No need to change user register#get_class, only checks if type is LutaML-Model string.
+        # Using MODEL_STRINGS since pattern is only supported for String type.
         if options.key?(:pattern) && !MODEL_STRINGS.include?(type)
           raise StandardError,
                 "Invalid option `pattern` given for `#{name}`, " \
