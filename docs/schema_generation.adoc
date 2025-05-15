@@ -1,0 +1,898 @@
+= Schema generation
+
+This document describes how to generate schemas from LutaML models.
+
+== Schema generation
+
+=== Overview
+
+Lutaml::Model provides functionality to generate schema definitions from LutaML
+models. This allows you to create schemas that can be used for validation or
+documentation purposes.
+
+The following figure illustrates the process of generating schemas from LutaML models.
+Once the LutaML models are defined, they can be transformed into various schema formats
+that can be used for validation, documentation, or other purposes.
+
+.Generating serialization schemas from LutaML models
+[source]
+----
+╔═══════════════════════╗                        ╔════════════════════════════╗
+║       Core Model      ║                        ║    Serialization Models    ║
+╚═══════════════════════╝                        ╚════════════════════════════╝
+
+╭┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╮                        ╭┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╮
+┆          Model        ┆                        ┆  JSON/YAML/XML Schema      ┆
+┆            │          ┆   ┌────────────────┐   ┆              │             ┆
+┆   ┌────────┴──┐       ┆   │                │   ┆       ┌──────┴──────┐      ┆
+┆   │           │       ┆   │     Schema     │   ┆       │             │      ┆
+┆ Models   Value Types  ┆──►│   Generation   │──►┆   Elements    Validation   ┆
+┆   │           │       ┆   │                │   ┆       │             │      ┆
+┆   │           │       ┆   └────────────────┘   ┆       │             │      ┆
+┆   │    ┌──────┴──┐    ┆           │            ┆  ┌────┴────┐    ┌───┴───┐  ┆
+┆   │    │         │    ┆           │            ┆  │         │    │       │  ┆
+┆   │   String  Integer ┆           │            ┆ Properties Patterns Enums  ┆
+┆   │   Date    Float   ┆           │            ┆ Definitions References     ┆
+┆   │   Time    Boolean ┆           │            ┆ Types      Min/Max         ┆
+┆   │                   ┆           │            ┆ OneOf                      ┆
+┆   └──────┐            ┆           │            ╰┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╯
+┆          │            ┆           │
+┆     Contains          ┆           │            ┌────────────────┐
+┆     more Models       ┆           │            │                │
+┆     (recursive)       ┆           └───────────►│   Schema       │
+┆                       ┆                        │   Validation   │
+┆                       ┆                        │                │
+╰┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╯                        └────────────────┘
+----
+
+Currently, the following schema formats are supported:
+
+* JSON Schema (https://json-schema.org/understanding-json-schema/[JSON Schema])
+* YAML Schema (https://yaml.org/spec/1.2/spec.html[YAML])
+* XSD (https://w3.org/TR/xmlschema-1/[XML Schema Definition Language])
+* RELAX NG (https://relaxng.org/[RELAX NG])
+
+
+=== JSON Schema generation
+
+The `Lutaml::Model::Schema.to_json` method generates a JSON Schema from a LutaML
+model class. The generated schema includes:
+
+* Properties based on model attributes
+* Validation constraints (patterns, enumerations, etc.)
+* Support for polymorphic types
+* Support for inheritance
+* Support for choice attributes
+* Collection constraints
+
+==== Basic example
+
+[example]
+====
+[source,ruby]
+----
+class Glaze < Lutaml::Model::Serializable
+  attribute :color, Lutaml::Model::Type::String
+  attribute :finish, Lutaml::Model::Type::String
+end
+
+class Vase < Lutaml::Model::Serializable
+  attribute :height, Lutaml::Model::Type::Float
+  attribute :diameter, Lutaml::Model::Type::Float
+  attribute :glaze, Glaze
+  attribute :materials, Lutaml::Model::Type::String, collection: true
+end
+
+# Generate JSON schema
+schema = Lutaml::Model::Schema.to_json(
+  Vase,
+  id: "https://example.com/vase.schema.json",
+  description: "A vase schema",
+  pretty: true
+)
+
+# Write to file
+File.write("vase.schema.json", schema)
+----
+====
+
+The generated schema will include definitions for all nested models and their
+attributes. The output JSON schema would look like:
+
+[source,json]
+----
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/vase.schema.json",
+  "description": "A vase schema",
+  "$ref": "#/$defs/Vase",
+  "$defs": {
+    "Vase": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "height": {
+          "type": ["number", "null"]
+        },
+        "diameter": {
+          "type": ["number", "null"]
+        },
+        "glaze": {
+          "$ref": "#/$defs/Glaze"
+        },
+        "materials": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "Glaze": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "color": {
+          "type": ["string", "null"]
+        },
+        "finish": {
+          "type": ["string", "null"]
+        }
+      }
+    }
+  }
+}
+----
+
+==== Advanced examples
+
+===== Models with validation constraints
+
+[example]
+====
+[source,ruby]
+----
+class ValidationModel < Lutaml::Model::Serializable
+  attribute :name, Lutaml::Model::Type::String, values: %w[Alice Bob Charlie]
+  attribute :email, Lutaml::Model::Type::String, pattern: /.*?\S+@.+\.\S+/
+  attribute :age, Lutaml::Model::Type::Integer, collection: 1..3
+  attribute :score, Lutaml::Model::Type::Float, default: 0.0
+end
+
+# Generate JSON schema
+schema = Lutaml::Model::Schema.to_json(ValidationModel, pretty: true)
+----
+====
+
+The generated schema will include validation constraints:
+
+[source,json]
+----
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$ref": "#/$defs/ValidationModel",
+  "$defs": {
+    "ValidationModel": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": ["string", "null"],
+          "enum": ["Alice", "Bob", "Charlie"]
+        },
+        "email": {
+          "type": ["string", "null"],
+          "pattern": ".*?\\S+@.+\\.\\S+"
+        },
+        "age": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          },
+          "minItems": 1,
+          "maxItems": 3
+        },
+        "score": {
+          "type": ["number", "null"],
+          "default": 0.0
+        }
+      }
+    }
+  }
+}
+----
+
+===== Models with choice attributes
+
+[example]
+====
+[source,ruby]
+----
+class ChoiceModel < Lutaml::Model::Serializable
+  attribute :name, Lutaml::Model::Type::String
+  attribute :email, Lutaml::Model::Type::String
+  attribute :phone, Lutaml::Model::Type::String
+
+  choice(min: 1, max: 2) do
+    attribute :email, Lutaml::Model::Type::String
+    attribute :phone, Lutaml::Model::Type::String
+  end
+end
+
+# Generate JSON schema
+schema = Lutaml::Model::Schema.to_json(ChoiceModel, pretty: true)
+----
+====
+
+The generated schema will include choice constraints:
+
+[source,json]
+----
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$ref": "#/$defs/ChoiceModel",
+  "$defs": {
+    "ChoiceModel": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": ["string", "null"]
+        },
+        "email": {
+          "type": ["string", "null"]
+        },
+        "phone": {
+          "type": ["string", "null"]
+        }
+      },
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "email": {
+              "type": ["string", "null"]
+            },
+            "phone": {
+              "type": ["string", "null"]
+            }
+          }
+        }
+      ]
+    }
+  }
+}
+----
+
+===== Models with polymorphic types
+
+[example]
+====
+[source,ruby]
+----
+class Shape < Lutaml::Model::Serializable
+  attribute :area, :float
+end
+
+class Circle < Shape
+  attribute :radius, Lutaml::Model::Type::Float
+end
+
+class Square < Shape
+  attribute :side, Lutaml::Model::Type::Float
+end
+
+class PolymorphicModel < Lutaml::Model::Serializable
+  attribute :shape, Shape, polymorphic: [Circle, Square]
+end
+
+# Generate JSON schema
+schema = Lutaml::Model::Schema.to_json(PolymorphicModel, pretty: true)
+----
+====
+
+The generated schema will include polymorphic type constraints:
+
+[source,json]
+----
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$ref": "#/$defs/PolymorphicModel",
+  "$defs": {
+    "PolymorphicModel": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "shape": {
+          "type": ["object", "null"],
+          "oneOf": [
+            {
+              "$ref": "#/$defs/Circle"
+            },
+            {
+              "$ref": "#/$defs/Square"
+            },
+            {
+              "$ref": "#/$defs/Shape"
+            }
+          ]
+        }
+      }
+    },
+    "Circle": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "area": {
+          "type": ["number", "null"]
+        },
+        "radius": {
+          "type": ["number", "null"]
+        }
+      }
+    },
+    "Square": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "area": {
+          "type": ["number", "null"]
+        },
+        "side": {
+          "type": ["number", "null"]
+        }
+      }
+    },
+    "Shape": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "area": {
+          "type": ["number", "null"]
+        }
+      }
+    }
+  }
+}
+----
+
+=== YAML Schema generation
+
+The `Lutaml::Model::Schema.to_yaml` method generates a YAML Schema from a LutaML
+model class. The generated schema includes the same features as the JSON Schema
+generation.
+
+==== Basic example
+
+[example]
+====
+[source,ruby]
+----
+class Glaze < Lutaml::Model::Serializable
+  attribute :color, Lutaml::Model::Type::String
+  attribute :finish, Lutaml::Model::Type::String
+end
+
+class Vase < Lutaml::Model::Serializable
+  attribute :height, Lutaml::Model::Type::Float
+  attribute :diameter, Lutaml::Model::Type::Float
+  attribute :glaze, Glaze
+  attribute :materials, Lutaml::Model::Type::String, collection: true
+end
+
+# Generate YAML schema
+schema = Lutaml::Model::Schema.to_yaml(
+  Vase,
+  id: "http://stsci.edu/schemas/yaml-schema/draft-01",
+  description: "A vase schema",
+  pretty: true
+)
+
+# Write to file
+File.write("vase.schema.yaml", schema)
+----
+====
+
+The generated YAML schema would look like:
+
+[source,yaml]
+----
+%YAML 1.1
+---
+"$schema": https://json-schema.org/draft/2020-12/schema
+"$id": http://stsci.edu/schemas/yaml-schema/draft-01
+description: A vase schema
+"$ref": "#/$defs/Vase"
+"$defs":
+  Vase:
+    type: object
+    additionalProperties: false
+    properties:
+      height:
+        type:
+        - number
+        - 'null'
+      diameter:
+        type:
+        - number
+        - 'null'
+      glaze:
+        "$ref": "#/$defs/Glaze"
+      materials:
+        type: array
+        items:
+          type: string
+  Glaze:
+    type: object
+    additionalProperties: false
+    properties:
+      color:
+        type:
+        - string
+        - 'null'
+      finish:
+        type:
+        - string
+        - 'null'
+----
+
+==== Advanced examples
+
+===== Models with validation constraints
+
+[example]
+====
+[source,ruby]
+----
+class ValidationModel < Lutaml::Model::Serializable
+  attribute :name, Lutaml::Model::Type::String, values: %w[Alice Bob Charlie]
+  attribute :email, Lutaml::Model::Type::String, pattern: /.*?\S+@.+\.\S+/
+  attribute :age, Lutaml::Model::Type::Integer, collection: 1..3
+  attribute :score, Lutaml::Model::Type::Float, default: 0.0
+end
+
+# Generate YAML schema
+schema = Lutaml::Model::Schema.to_yaml(ValidationModel)
+----
+====
+
+The generated schema will include validation constraints:
+
+[source,yaml]
+----
+%YAML 1.1
+---
+"$schema": https://json-schema.org/draft/2020-12/schema
+"$ref": "#/$defs/ValidationModel"
+"$defs":
+  ValidationModel:
+    type: object
+    additionalProperties: false
+    properties:
+      name:
+        type:
+        - string
+        - 'null'
+        enum:
+        - Alice
+        - Bob
+        - Charlie
+      email:
+        type:
+        - string
+        - 'null'
+        pattern: ".*?\\S+@.+\\.\\S+"
+      age:
+        type: array
+        items:
+          type: integer
+        minItems: 1
+        maxItems: 3
+      score:
+        type:
+        - number
+        - 'null'
+        default: 0.0
+----
+
+===== Models with polymorphic types
+
+[example]
+====
+[source,ruby]
+----
+class Shape < Lutaml::Model::Serializable
+  attribute :area, :float
+end
+
+class Circle < Shape
+  attribute :radius, Lutaml::Model::Type::Float
+end
+
+class Square < Shape
+  attribute :side, Lutaml::Model::Type::Float
+end
+
+class PolymorphicModel < Lutaml::Model::Serializable
+  attribute :shape, Shape, polymorphic: [Circle, Square]
+end
+
+# Generate YAML schema
+schema = Lutaml::Model::Schema.to_yaml(PolymorphicModel)
+----
+====
+
+The generated schema will include polymorphic type constraints:
+
+[source,yaml]
+----
+%YAML 1.1
+---
+"$schema": https://json-schema.org/draft/2020-12/schema
+"$ref": "#/$defs/PolymorphicModel"
+"$defs":
+  PolymorphicModel:
+    type: object
+    additionalProperties: false
+    properties:
+      shape:
+        type:
+        - object
+        - 'null'
+        oneOf:
+        - "$ref": "#/$defs/Circle"
+        - "$ref": "#/$defs/Square"
+        - "$ref": "#/$defs/Shape"
+  Shape:
+    type: object
+    additionalProperties: false
+    properties:
+      area:
+        type:
+        - number
+        - 'null'
+  Circle:
+    type: object
+    additionalProperties: false
+    properties:
+      area:
+        type:
+        - number
+        - 'null'
+      radius:
+        type:
+        - number
+        - 'null'
+  Square:
+    type: object
+    additionalProperties: false
+    properties:
+      area:
+        type:
+        - number
+        - 'null'
+      side:
+        type:
+        - number
+        - 'null'
+----
+
+=== XSD Schema generation
+
+The `Lutaml::Model::Schema.to_xsd` method generates an XML Schema (XSD) from a LutaML
+model class. The generated schema includes:
+
+* Element definitions based on model attributes
+* Complex types for nested models
+* Support for collections
+* XML namespace support
+* Validation constraints
+
+==== Basic example
+
+[example]
+====
+[source,ruby]
+----
+class Glaze < Lutaml::Model::Serializable
+  attribute :color, Lutaml::Model::Type::String
+  attribute :finish, Lutaml::Model::Type::String
+end
+
+class Vase < Lutaml::Model::Serializable
+  attribute :height, Lutaml::Model::Type::Float
+  attribute :diameter, Lutaml::Model::Type::Float
+  attribute :glaze, Glaze
+  attribute :materials, Lutaml::Model::Type::String, collection: true
+end
+
+# Generate XSD schema
+schema = Lutaml::Model::Schema.to_xsd(
+  Vase,
+  namespace: "http://example.com/vase",
+  prefix: "vase",
+  pretty: true
+)
+
+# Write to file
+File.write("vase.xsd", schema)
+----
+====
+
+The generated XSD schema would look like:
+
+[source,xml]
+----
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:vase="http://example.com/vase"
+           targetNamespace="http://example.com/vase"
+           elementFormDefault="qualified">
+  <xs:element name="Vase">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="height" type="xs:float"/>
+        <xs:element name="diameter" type="xs:float"/>
+        <xs:element name="glaze" type="vase:Glaze"/>
+        <xs:element name="materials" minOccurs="0" maxOccurs="unbounded" type="xs:string"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:complexType name="Glaze">
+    <xs:sequence>
+      <xs:element name="color" type="xs:string"/>
+      <xs:element name="finish" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+</xs:schema>
+----
+
+==== Advanced examples
+
+===== Models with validation constraints
+
+[example]
+====
+[source,ruby]
+----
+class ValidationModel < Lutaml::Model::Serializable
+  attribute :name, Lutaml::Model::Type::String, values: %w[Alice Bob Charlie]
+  attribute :email, Lutaml::Model::Type::String, pattern: /.*?\S+@.+\.\S+/
+  attribute :age, Lutaml::Model::Type::Integer, collection: 1..3
+  attribute :score, Lutaml::Model::Type::Float, default: 0.0
+end
+
+# Generate XSD schema
+schema = Lutaml::Model::Schema.to_xsd(ValidationModel, pretty: true)
+----
+====
+
+The generated schema will include validation constraints:
+
+[source,xml]
+----
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="ValidationModel">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="name">
+          <xs:simpleType>
+            <xs:restriction base="xs:string">
+              <xs:enumeration value="Alice"/>
+              <xs:enumeration value="Bob"/>
+              <xs:enumeration value="Charlie"/>
+            </xs:restriction>
+          </xs:simpleType>
+        </xs:element>
+        <xs:element name="email">
+          <xs:simpleType>
+            <xs:restriction base="xs:string">
+              <xs:pattern value=".*?\S+@.+\.\S+"/>
+            </xs:restriction>
+          </xs:simpleType>
+        </xs:element>
+        <xs:element name="age" minOccurs="1" maxOccurs="3" type="xs:integer"/>
+        <xs:element name="score" type="xs:float" default="0.0"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>
+----
+
+===== Models with polymorphic types
+
+[example]
+====
+[source,ruby]
+----
+class Shape < Lutaml::Model::Serializable
+  attribute :area, :float
+end
+
+class Circle < Shape
+  attribute :radius, Lutaml::Model::Type::Float
+end
+
+class Square < Shape
+  attribute :side, Lutaml::Model::Type::Float
+end
+
+class PolymorphicModel < Lutaml::Model::Serializable
+  attribute :shape, Shape, polymorphic: [Circle, Square]
+end
+
+# Generate XSD schema
+schema = Lutaml::Model::Schema.to_xsd(PolymorphicModel, pretty: true)
+----
+====
+
+The generated schema will include polymorphic type support:
+
+[source,xml]
+----
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="PolymorphicModel">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="shape">
+          <xs:complexType>
+            <xs:choice>
+              <xs:element name="Circle">
+                <xs:complexType>
+                  <xs:sequence>
+                    <xs:element name="area" type="xs:float"/>
+                    <xs:element name="radius" type="xs:float"/>
+                  </xs:sequence>
+                </xs:complexType>
+              </xs:element>
+              <xs:element name="Square">
+                <xs:complexType>
+                  <xs:sequence>
+                    <xs:element name="area" type="xs:float"/>
+                    <xs:element name="side" type="xs:float"/>
+                  </xs:sequence>
+                </xs:complexType>
+              </xs:element>
+              <xs:element name="Shape">
+                <xs:complexType>
+                  <xs:sequence>
+                    <xs:element name="area" type="xs:float"/>
+                  </xs:sequence>
+                </xs:complexType>
+              </xs:element>
+            </xs:choice>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>
+----
+
+=== RELAX NG Schema generation
+
+The `Lutaml::Model::Schema::RelaxngSchema.generate` method generates a RELAX NG schema from a LutaML
+model class. The generated schema includes:
+
+* Element definitions based on model attributes
+* Named patterns for nested models
+* Support for collections
+
+==== Basic example
+
+[example]
+====
+[source,ruby]
+----
+class Glaze < Lutaml::Model::Serializable
+  attribute :color, Lutaml::Model::Type::String
+  attribute :finish, Lutaml::Model::Type::String
+end
+
+class Vase < Lutaml::Model::Serializable
+  attribute :height, Lutaml::Model::Type::Float
+  attribute :diameter, Lutaml::Model::Type::Float
+  attribute :glaze, Glaze
+  attribute :materials, Lutaml::Model::Type::String, collection: true
+end
+
+# Generate RELAX NG schema
+schema = Lutaml::Model::Schema::RelaxngSchema.generate(Vase, pretty: true)
+
+# Write to file
+File.write("vase.rng", schema)
+----
+====
+
+The generated RELAX NG schema would look like:
+
+[source,xml]
+----
+<?xml version="1.0" encoding="UTF-8"?>
+<grammar xmlns="http://relaxng.org/ns/structure/1.0">
+  <start>
+    <ref name="Vase"/>
+  </start>
+  <define name="Vase">
+    <element name="Vase">
+      <element name="height">
+        <data type="float"/>
+      </element>
+      <element name="diameter">
+        <data type="float"/>
+      </element>
+      <ref name="Glaze"/>
+      <zeroOrMore>
+        <element name="materials">
+          <data type="string"/>
+        </element>
+      </zeroOrMore>
+    </element>
+  </define>
+  <define name="Glaze">
+    <element name="Glaze">
+      <element name="color">
+        <data type="string"/>
+      </element>
+      <element name="finish">
+        <data type="string"/>
+      </element>
+    </element>
+  </define>
+</grammar>
+----
+
+==== Advanced examples
+
+===== Models with validation constraints
+
+[example]
+====
+[source,ruby]
+----
+class ValidationModel < Lutaml::Model::Serializable
+  attribute :name, Lutaml::Model::Type::String, values: %w[Alice Bob Charlie]
+  attribute :email, Lutaml::Model::Type::String, pattern: /.*?\S+@.+\.\S+/
+  attribute :age, Lutaml::Model::Type::Integer, collection: 1..3
+end
+
+# Generate RELAX NG schema
+schema = Lutaml::Model::Schema::RelaxngSchema.generate(ValidationModel, pretty: true)
+----
+====
+
+The generated schema will include validation constraints:
+
+[source,xml]
+----
+<?xml version="1.0" encoding="UTF-8"?>
+<grammar xmlns="http://relaxng.org/ns/structure/1.0">
+  <start>
+    <ref name="ValidationModel"/>
+  </start>
+  <define name="ValidationModel">
+    <element name="ValidationModel">
+      <element name="name">
+        <choice>
+          <value>Alice</value>
+          <value>Bob</value>
+          <value>Charlie</value>
+        </choice>
+      </element>
+      <element name="email">
+        <data type="string">
+          <param name="pattern">.*?\S+@.+\.\S+</param>
+        </data>
+      </element>
+      <oneOrMore>
+        <element name="age">
+          <data type="integer"/>
+        </element>
+      </oneOrMore>
+    </element>
+  </define>
+</grammar>
+----
