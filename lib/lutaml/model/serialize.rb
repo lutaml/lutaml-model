@@ -518,21 +518,22 @@ module Lutaml
                 else
                   attr_rule.default(register)
                 end
+        attr_type = attr_rule.type(register)
 
         if attr_rule.collection? || value.is_a?(Array)
           value&.map do |v|
             if v.is_a?(Hash)
-              attr_rule.type(register).new(v)
+              attr_type.new(v)
             else
               # TODO: This code is problematic because Type.cast does not know
               # about all the types.
-              Lutaml::Model::Type.cast(v, attr_rule.type(register))
+              Lutaml::Model::Type.cast(v, attr_type)
             end
           end
         else
           # TODO: This code is problematic because Type.cast does not know
           # about all the types.
-          Lutaml::Model::Type.cast(value, attr_rule.type(register))
+          Lutaml::Model::Type.cast(value, attr_type)
         end
       end
 

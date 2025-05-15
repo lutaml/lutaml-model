@@ -105,8 +105,9 @@ module Lutaml
 
         generate_remaining_mappings_for_value(child_mappings, value, format)
 
+        attr_type = attr.type(register)
         value.each do |child_obj|
-          rules = attr.type(register).mappings_for(format)
+          rules = attr_type.mappings_for(format)
 
           hash.merge!(
             extract_hash_for_child_mapping(child_mappings, child_obj, rules),
@@ -302,9 +303,10 @@ module Lutaml
       end
 
       def build_child_hash(key, value, child_mappings, attr, format)
+        attr_type = attr.type(register)
         child_mappings.to_h do |attr_name, path|
           attr_value = extract_attr_value(path, key, value)
-          attr_rule = attr.type(register).mappings_for(format).find_by_to(attr_name)
+          attr_rule = attr_type.mappings_for(format).find_by_to(attr_name)
           [attr_rule.from.to_s, attr_value]
         end
       end
@@ -324,8 +326,9 @@ module Lutaml
       end
 
       def map_child_data(child_hash, attr, format)
+        attr_type = attr.type(register)
         self.class.data_to_model(
-          attr.type(register),
+          attr_type,
           child_hash,
           format,
           { mappings: attr.type(register).mappings_for(format).mappings },
