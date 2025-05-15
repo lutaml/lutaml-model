@@ -107,6 +107,12 @@ module Lutaml
           end
         end
 
+        def add_singleton_method_if_not_defined(instance, method_name, &block)
+          return if instance.respond_to?(method_name)
+
+          instance.define_singleton_method(method_name, &block)
+        end
+
         def add_method_if_not_defined(klass, method_name, &block)
           unless klass.method_defined?(method_name)
             klass.class_eval do

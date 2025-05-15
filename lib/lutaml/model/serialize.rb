@@ -433,10 +433,10 @@ module Lutaml
         end
 
         def register_accessor_methods_for(object, register)
-          Utils.add_method_if_not_defined(model, :register) do
+          Utils.add_singleton_method_if_not_defined(object, :register) do
             @register
           end
-          Utils.add_method_if_not_defined(model, :register=) do |value|
+          Utils.add_singleton_method_if_not_defined(object, :register=) do |value|
             @register = value
           end
           object.register = register
