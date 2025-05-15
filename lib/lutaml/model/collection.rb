@@ -81,9 +81,9 @@ module Lutaml
         @register = register
         items = [items].compact unless items.is_a?(Array)
 
+        register_object = Lutaml::Model::GlobalRegister.lookup(register)
+        type = register_object.get_class_without_register(self.class.instance_type)
         self.collection = items.map do |item|
-          register_object = Lutaml::Model::GlobalRegister.lookup(register)
-          type = register_object.get_class_without_register(self.class.instance_type)
           if item.is_a?(type)
             item
           else
