@@ -296,7 +296,7 @@ module Lutaml
       def cast(value, format, register, options = {})
         value ||= [] if collection? && !value.nil?
         resolved_type = options[:resolved_type] || type(register)
-        return value.map { |v| cast(v, format, register, options.merge(resolved_type:)) } if value.is_a?(Array)
+        return value.map { |v| cast(v, format, register, options.merge(resolved_type: resolved_type)) } if value.is_a?(Array)
         return value if already_serialized?(resolved_type, value)
 
         klass = resolve_polymorphic_class(resolved_type, value, options)
