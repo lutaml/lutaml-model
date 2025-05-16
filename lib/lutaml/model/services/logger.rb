@@ -11,7 +11,7 @@ module Lutaml
       # Outputs a warning message that
       #   Usage of `old` name is deprecated will be removed in the next major
       #   release. Please use the `replacement`` instead.
-      def self.warn_future_deprication(old:, replacement:)
+      def self.warn_future_deprecation(old:, replacement:)
         warn("Usage of `#{old}` is deprecated and will be removed in the next major release. Please use `#{replacement}` instead.")
       end
 

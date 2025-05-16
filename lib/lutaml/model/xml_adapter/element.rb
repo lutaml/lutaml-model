@@ -8,7 +8,7 @@ module Lutaml
   module Model
     module XmlAdapter
       class Element < ::Lutaml::Model::Xml::Element
-        Logger.warn_future_deprication(
+        Logger.warn_future_deprecation(
           old: "Lutaml::Model::XmlAdapter::Element",
           replacement: "Lutaml::Model::Xml::Element",
         )

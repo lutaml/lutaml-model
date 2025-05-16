@@ -11,7 +11,7 @@ module Lutaml
   module Model
     module XmlAdapter
       class OgaAdapter < ::Lutaml::Model::Xml::OgaAdapter
-        Logger.warn_future_deprication(
+        Logger.warn_future_deprecation(
           old: "Lutaml::Model::XmlAdapter::OgaAdapter",
           replacement: "Lutaml::Model::Xml::OgaAdapter",
         )

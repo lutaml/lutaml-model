@@ -5,7 +5,7 @@ module Lutaml
   module Model
     module XmlAdapter
       class NokogiriAdapter < ::Lutaml::Model::Xml::NokogiriAdapter
-        Logger.warn_future_deprication(
+        Logger.warn_future_deprecation(
           old: "Lutaml::Model::XmlAdapter::NokogiriAdapter",
           replacement: "Lutaml::Model::Xml::NokogiriAdapter",
         )

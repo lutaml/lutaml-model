@@ -8,7 +8,7 @@ module Lutaml
   module Model
     module XmlAdapter
       class OxAdapter < ::Lutaml::Model::Xml::OxAdapter
-        Logger.warn_future_deprication(
+        Logger.warn_future_deprecation(
           old: "Lutaml::Model::XmlAdapter::OxAdapter",
           replacement: "Lutaml::Model::Xml::OxAdapter",
         )
