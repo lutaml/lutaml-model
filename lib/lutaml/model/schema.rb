@@ -1,3 +1,4 @@
+require_relative "schema/shared_methods"
 require_relative "schema/json_schema"
 require_relative "schema/xsd_schema"
 require_relative "schema/relaxng_schema"

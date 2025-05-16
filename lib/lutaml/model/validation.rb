@@ -1,7 +1,7 @@
 module Lutaml
   module Model
     module Validation
-      def validate
+      def validate(register: Lutaml::Model::Config.default_register)
         errors = []
 
         self.class.attributes.each do |name, attr|
@@ -10,7 +10,7 @@ module Lutaml
             if value.respond_to?(:validate)
               errors.concat(value.validate)
             else
-              attr.validate_value!(value)
+              attr.validate_value!(value, register)
             end
           rescue Lutaml::Model::InvalidValueError,
                  Lutaml::Model::CollectionCountOutOfRangeError,
@@ -25,8 +25,8 @@ module Lutaml
         validate_helper(errors)
       end
 
-      def validate!
-        errors = validate
+      def validate!(register: Lutaml::Model::Config.default_register)
+        errors = validate(register: register)
         raise Lutaml::Model::ValidationError.new(errors) if errors.any?
       end
 

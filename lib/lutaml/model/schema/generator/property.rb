@@ -5,11 +5,12 @@ module Lutaml
         # This class is used to generate a property schema definition.
         # It is used in the context of generating JSON schemas.
         class Property
-          attr_reader :name, :attribute
+          attr_reader :name, :attribute, :register
 
-          def initialize(name, attribute)
+          def initialize(name, attribute, register:)
             @name = name.to_s.gsub("::", "_")
             @attribute = attribute
+            @register = register
           end
 
           def to_schema
@@ -21,13 +22,12 @@ module Lutaml
           def generate_attribute_schema(attr, options = {})
             include_null = options.fetch(:include_null, true)
             inside_collection = options.fetch(:inside_collection, false)
-
             if attr.collection? && !inside_collection
               collection_schema(attr)
-            elsif attr.serializable? && polymorphic?(attr)
+            elsif attr.serializable?(register) && polymorphic?(attr)
               polymorphic_schema(attr)
-            elsif attr.serializable?
-              Generator::Ref.new(attr.type).to_schema
+            elsif attr.serializable?(register)
+              Generator::Ref.new(attr.type(register)).to_schema
             else
               primitive_schema(attr, include_null: include_null)
             end
@@ -69,7 +69,7 @@ module Lutaml
           end
 
           def primitive_schema(attr, include_null: true)
-            type = get_type(attr.type)
+            type = get_type(attr.type(register))
             type = [type, "null"] if include_null
 
             { "type" => type }.merge(get_constraints(attr))
@@ -82,7 +82,7 @@ module Lutaml
             constraints["pattern"] = attr.pattern.source if attr.pattern
 
             # Add default value
-            constraints["default"] = attr.default if attr.default_set?
+            constraints["default"] = attr.default(register) if attr.default_set?(register)
 
             # Add enumeration values
             constraints["enum"] = attr.enum_values if attr.enum?

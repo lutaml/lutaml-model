@@ -2,18 +2,19 @@ module Lutaml
   module Model
     class Transform
       def self.data_to_model(context, data, format, options = {})
-        new(context).data_to_model(data, format, options)
+        new(context, options[:register]).data_to_model(data, format, options)
       end
 
       def self.model_to_data(context, model, format, options = {})
-        new(context).model_to_data(model, format, options)
+        new(context, model.register).model_to_data(model, format, options)
       end
 
-      attr_reader :context, :attributes
+      attr_reader :context, :attributes, :register
 
-      def initialize(context)
+      def initialize(context, register = nil)
         @context = context
         @attributes = context.attributes
+        @register = register || Lutaml::Model::Config.default_register
       end
 
       def model_class
@@ -68,7 +69,18 @@ module Lutaml
       def attribute_for_rule(rule)
         return attributes[rule.to] unless rule.delegate
 
-        attributes[rule.delegate].type.attributes[rule.to]
+        attributes[rule.delegate].type(register).attributes[rule.to]
+      end
+
+      def register_accessor_methods_for(object, register)
+        klass = object.class
+        Utils.add_method_if_not_defined(klass, :register) do
+          @register
+        end
+        Utils.add_method_if_not_defined(klass, :register=) do |value|
+          @register = value
+        end
+        object.register = register
       end
     end
   end

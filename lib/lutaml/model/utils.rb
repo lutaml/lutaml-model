@@ -34,6 +34,16 @@ module Lutaml
             .downcase
         end
 
+        # Extract the base name of the class
+        def base_class_name(klass)
+          klass.to_s.split("::").last
+        end
+
+        # Convert the extracted base class to snake case format
+        def base_class_snake_name(klass)
+          snake_case(base_class_name(klass))
+        end
+
         def initialized?(value)
           return true unless value.respond_to?(:initialized?)
 
@@ -95,6 +105,12 @@ module Lutaml
           elsif hash.key?(key.to_sym)
             hash[key.to_sym]
           end
+        end
+
+        def add_singleton_method_if_not_defined(instance, method_name, &block)
+          return if instance.respond_to?(method_name)
+
+          instance.define_singleton_method(method_name, &block)
         end
 
         def add_method_if_not_defined(klass, method_name, &block)

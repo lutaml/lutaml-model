@@ -4,11 +4,14 @@ module Lutaml
   module Model
     module Schema
       class RelaxngSchema
+        extend SharedMethods
+
         def self.generate(klass, options = {})
+          register = extract_register_from(klass)
           builder = Nokogiri::XML::Builder.new(encoding: "UTF-8") do |xml|
             xml.grammar(xmlns: "http://relaxng.org/ns/structure/1.0") do
               generate_start(xml, klass)
-              generate_define(xml, klass)
+              generate_define(xml, klass, register)
             end
           end
 
@@ -21,34 +24,35 @@ module Lutaml
           end
         end
 
-        def self.generate_attributes(xml, klass)
+        def self.generate_attributes(xml, klass, register)
           klass.attributes.each do |name, attr|
-            if attr.type <= Lutaml::Model::Serialize
-              xml.ref(name: attr.type.name)
+            attr_type = attr.type(register)
+            if attr_type <= Lutaml::Model::Serialize
+              xml.ref(name: attr_type.name)
             elsif attr.collection?
               xml.zeroOrMore do
                 xml.element(name: name) do
-                  xml.data(type: get_relaxng_type(attr.type))
+                  xml.data(type: get_relaxng_type(attr_type))
                 end
               end
             else
               xml.element(name: name) do
-                xml.data(type: get_relaxng_type(attr.type))
+                xml.data(type: get_relaxng_type(attr_type))
               end
             end
           end
         end
 
-        def self.generate_define(xml, klass)
+        def self.generate_define(xml, klass, register)
           xml.define(name: klass.name) do
             xml.element(name: klass.name) do
-              generate_attributes(xml, klass)
+              generate_attributes(xml, klass, register)
             end
           end
 
           klass.attributes.each_value do |attr|
-            if attr.type <= Lutaml::Model::Serialize
-              generate_define(xml, attr.type)
+            if attr.type(register) <= Lutaml::Model::Serialize
+              generate_define(xml, attr.type(register), register)
             end
           end
         end

@@ -2,7 +2,12 @@ module Lutaml
   module Model
     class XmlTransform < Lutaml::Model::Transform
       def data_to_model(data, _format, options = {})
-        instance = model_class.new
+        if model_class.include?(Lutaml::Model::Serialize)
+          instance = model_class.new({}, register: register)
+        else
+          instance = model_class.new
+          register_accessor_methods_for(instance, register)
+        end
         apply_xml_mapping(data, instance, options)
       end
 
@@ -48,7 +53,7 @@ module Lutaml
 
                     if (Utils.uninitialized?(val) || val.nil?) && (instance.using_default?(rule.to) || rule.render_default)
                       defaults_used << rule.to
-                      attr&.default || rule.to_value_for(instance)
+                      attr&.default(register) || rule.to_value_for(instance)
                     else
                       val
                     end
@@ -111,12 +116,13 @@ module Lutaml
           doc.root.find_attribute_value(rule_names)
         else
           attr = attribute_for_rule(rule)
+          attr_type = attr&.type(register)
           children = doc.children.select do |child|
             rule_names.include?(child.namespaced_name) && !child.text?
           end
 
-          if rule.has_custom_method_for_deserialization? || attr.type == Lutaml::Model::Type::Hash
-            return_child = attr.type == Lutaml::Model::Type::Hash || !attr.collection? if attr
+          if rule.has_custom_method_for_deserialization? || attr_type == Lutaml::Model::Type::Hash
+            return_child = attr_type == Lutaml::Model::Type::Hash || !attr.collection? if attr
             return return_child ? children.first : children
           end
 
@@ -132,11 +138,12 @@ module Lutaml
           end
 
           children&.each do |child|
-            if !rule.has_custom_method_for_deserialization? && attr.type <= Serialize
+            if !rule.has_custom_method_for_deserialization? && attr_type <= Serialize
               cast_options = options.except(:mappings)
               cast_options[:polymorphic] = rule.polymorphic if rule.polymorphic
+              cast_options[:register] = register
 
-              values << attr.cast(child, :xml, cast_options)
+              values << attr.cast(child, :xml, register, cast_options)
             elsif attr.raw?
               values << inner_xml_of(child)
             else
@@ -181,6 +188,7 @@ module Lutaml
         attr.cast(
           value,
           :xml,
+          register,
           options,
         )
       end
@@ -190,13 +198,6 @@ module Lutaml
           !rule.raw_mapping? &&
           !rule.content_mapping? &&
           !rule.custom_methods[:from]
-      end
-
-      def text_hash?(attr, value)
-        return false unless value.is_a?(Hash)
-        return value.one? && value.text? unless attr
-
-        !(attr.type <= Serialize) && attr.type != Lutaml::Model::Type::Hash
       end
 
       def ensure_utf8(value)
