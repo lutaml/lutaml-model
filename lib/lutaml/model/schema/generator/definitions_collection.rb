@@ -1,4 +1,5 @@
 require_relative "definition"
+require_relative "../shared_methods"
 
 module Lutaml
   module Model
@@ -6,15 +7,18 @@ module Lutaml
       module Generator
         class DefinitionsCollection
           class << self
-            def from_class(klass, register)
-              new(register: register).tap do |collection|
-                collection << Definition.new(klass, register: register)
+            include SharedMethods
 
-                process_attributes(collection, klass, register)
+            def from_class(klass)
+              new.tap do |collection|
+                collection << Definition.new(klass)
+
+                process_attributes(collection, klass)
               end
             end
 
-            def process_attributes(collection, klass, register)
+            def process_attributes(collection, klass)
+              register = extract_register_from(klass)
               klass.attributes.each_value do |attribute|
                 next unless attribute.serializable?(register)
 
@@ -23,28 +27,28 @@ module Lutaml
             end
 
             def process_attribute(collection, attribute, register)
-              collection.merge(DefinitionsCollection.from_class(attribute.type, register))
+              attr_type = Lutaml::Model::GlobalRegister.lookup(register).get_class(attribute.type)
+              collection.merge(DefinitionsCollection.from_class(attr_type))
 
-              process_polymorphic_types(collection, attribute, register)
+              process_polymorphic_types(collection, attribute)
             end
 
-            def process_polymorphic_types(collection, attribute, register)
+            def process_polymorphic_types(collection, attribute)
               return unless attribute.options&.[](:polymorphic)
 
               attribute.options[:polymorphic].each do |child|
-                collection.merge(DefinitionsCollection.from_class(child, register))
+                collection.merge(DefinitionsCollection.from_class(child))
               end
             end
           end
 
-          attr_reader :definitions, :register
+          attr_reader :definitions
 
-          def initialize(definitions = [], register:)
-            @register = register
+          def initialize(definitions = [])
             @definitions = definitions.map do |definition|
               next definition if definition.is_a?(Definition)
 
-              Definition.new(definition, register: register)
+              Definition.new(definition)
             end
           end
 

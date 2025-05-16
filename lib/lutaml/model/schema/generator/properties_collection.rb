@@ -1,4 +1,5 @@
 require_relative "property"
+require_relative "../shared_methods"
 
 module Lutaml
   module Model
@@ -6,8 +7,10 @@ module Lutaml
       module Generator
         class PropertiesCollection
           class << self
-            def from_class(klass, register)
-              from_attributes(klass.attributes.values, register)
+            include SharedMethods
+
+            def from_class(klass)
+              from_attributes(klass.attributes.values, extract_register_from(klass))
             end
 
             def from_attributes(attributes, register)
@@ -50,7 +53,7 @@ module Lutaml
             @properties = properties.map do |property|
               next property if property.is_a?(Property)
 
-              Property.new(property.name, property, register: register)
+              Property.new(property.name, property, register)
             end
           end
         end
