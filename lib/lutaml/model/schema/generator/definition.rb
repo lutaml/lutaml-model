@@ -1,16 +1,18 @@
 require_relative "properties_collection"
+require_relative "../shared_methods"
 
 module Lutaml
   module Model
     module Schema
       module Generator
         class Definition
-          attr_reader :type, :name, :register
+          include SharedMethods
 
-          def initialize(type, register:)
+          attr_reader :type, :name
+
+          def initialize(type)
             @type = type
             @name = type.name.gsub("::", "_")
-            @register = register
           end
 
           def to_schema
@@ -36,16 +38,13 @@ module Lutaml
             type.choice_attributes.map do |choice|
               {
                 "type" => "object",
-                "properties" => PropertiesCollection.from_attributes(
-                  choice.attributes,
-                  register,
-                ).to_schema,
+                "properties" => PropertiesCollection.from_attributes(choice.attributes, extract_register_from(type)).to_schema,
               }
             end
           end
 
           def properties_to_schema(type)
-            PropertiesCollection.from_class(type, register).to_schema
+            PropertiesCollection.from_class(type).to_schema
           end
         end
       end

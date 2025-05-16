@@ -4,8 +4,10 @@ module Lutaml
   module Model
     module Schema
       module SharedMethods
-        def lookup_register(register)
-          return register.id if register.is_a?(Lutaml::Model::Register)
+        def extract_register_from(klass)
+          register = if klass.class_variable_defined?(:@@register)
+            klass.class_variable_get(:@@register)
+          end
 
           case register
           when Lutaml::Model::Register
