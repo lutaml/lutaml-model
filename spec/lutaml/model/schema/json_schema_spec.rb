@@ -381,16 +381,6 @@ RSpec.describe Lutaml::Model::Schema::JsonSchema do
     context "with register class" do
       let(:register) { Lutaml::Model::Register.new(:json_schema) }
       let(:schema) { described_class.generate(register.get_class(:vase), pretty: true) }
-
-      before do
-        Lutaml::Model::GlobalRegister.register(register)
-        register.register_model_tree(JsonSchemaSpec::Vase)
-        register.register_global_type_substitution(
-          from_type: JsonSchemaSpec::Glaze,
-          to_type: JsonSchemaSpec::RegisterGlaze,
-        )
-      end
-
       let(:expected_schema) do
         {
           "$schema" => "https://json-schema.org/draft/2020-12/schema",
@@ -401,10 +391,10 @@ RSpec.describe Lutaml::Model::Schema::JsonSchema do
               "additionalProperties" => false,
               "properties" => {
                 "height" => {
-                  "type" => [ "number", "null" ],
+                  "type" => ["number", "null"],
                 },
                 "diameter" => {
-                  "type" => [ "number", "null" ],
+                  "type" => ["number", "null"],
                 },
                 "glaze" => {
                   "$ref" => "#/$defs/JsonSchemaSpec_Glaze",
@@ -422,7 +412,7 @@ RSpec.describe Lutaml::Model::Schema::JsonSchema do
               "additionalProperties" => false,
               "properties" => {
                 "color" => {
-                  "type" => [ "string", "null" ],
+                  "type" => ["string", "null"],
                 },
                 "finish" => {
                   "type" => ["integer", "null"],
@@ -431,6 +421,15 @@ RSpec.describe Lutaml::Model::Schema::JsonSchema do
             },
           },
         }
+      end
+
+      before do
+        Lutaml::Model::GlobalRegister.register(register)
+        register.register_model_tree(JsonSchemaSpec::Vase)
+        register.register_global_type_substitution(
+          from_type: JsonSchemaSpec::Glaze,
+          to_type: JsonSchemaSpec::RegisterGlaze,
+        )
       end
 
       it "generates a JSON schema with substituted registered class" do
