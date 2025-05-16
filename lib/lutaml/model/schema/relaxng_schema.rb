@@ -7,7 +7,7 @@ module Lutaml
         extend SharedMethods
 
         def self.generate(klass, options = {})
-          register = lookup_register(options[:register])
+          register = extract_register_from(klass)
           builder = Nokogiri::XML::Builder.new(encoding: "UTF-8") do |xml|
             xml.grammar(xmlns: "http://relaxng.org/ns/structure/1.0") do
               generate_start(xml, klass)

@@ -14,7 +14,6 @@ module Lutaml
             id: nil,
             title: nil,
             description: nil,
-            register: Lutaml::Model::Config.default_register,
             pretty: false
           )
             options = {
@@ -22,7 +21,6 @@ module Lutaml
               id: id,
               title: title,
               description: description,
-              register: lookup_register(register),
               pretty: pretty,
             }
 
