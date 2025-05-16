@@ -397,7 +397,7 @@ RSpec.describe Lutaml::Model::Schema::JsonSchema do
                   "type" => ["number", "null"],
                 },
                 "glaze" => {
-                  "$ref" => "#/$defs/JsonSchemaSpec_Glaze",
+                  "$ref" => "#/$defs/JsonSchemaSpec_RegisterGlaze",
                 },
                 "materials" => {
                   "type" => "array",

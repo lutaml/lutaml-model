@@ -22,13 +22,12 @@ module Lutaml
           def generate_attribute_schema(attr, options = {})
             include_null = options.fetch(:include_null, true)
             inside_collection = options.fetch(:inside_collection, false)
-
             if attr.collection? && !inside_collection
               collection_schema(attr)
             elsif attr.serializable?(register) && polymorphic?(attr)
               polymorphic_schema(attr)
             elsif attr.serializable?(register)
-              Generator::Ref.new(attr.type).to_schema
+              Generator::Ref.new(attr.type(register)).to_schema
             else
               primitive_schema(attr, include_null: include_null)
             end
