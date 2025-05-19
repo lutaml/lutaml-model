@@ -346,6 +346,12 @@ module Lutaml
           end
         end
 
+        def find_by_to(to)
+          mappings.detect do |rule|
+            rule.to.to_s == to.to_s
+          end
+        end
+
         def mapping_attributes_hash
           @attributes
         end
