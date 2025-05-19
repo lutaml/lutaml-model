@@ -14,6 +14,10 @@ module Lutaml
 
           @instance_type = type
           @instance_name = name
+
+          define_method(:"#{name}=") do |collection|
+            self.collection = collection
+          end
         end
 
         def ordered(by:, order: :asc)
@@ -42,7 +46,7 @@ module Lutaml
           data = super
 
           if mappings.no_root? && format != :xml && !mappings.root_mapping
-            Utils.fetch_with_string_or_symbol_key(data, mappings.mappings.first.to)
+            Utils.fetch_with_string_or_symbol_key(data, instance_name)
           else
             data
           end
@@ -86,6 +90,8 @@ module Lutaml
             type.new(item)
           end
         end
+
+        sort_items!
       end
 
       def to_format(format, options = {})
@@ -98,6 +104,7 @@ module Lutaml
 
       def collection=(collection)
         instance_variable_set(:"@#{self.class.instance_name}", collection)
+        sort_items!
       end
 
       def union(other)
@@ -147,7 +154,7 @@ module Lutaml
       end
 
       def empty?
-        collection.empty?
+        collection&.empty?
       end
 
       def order_defined?
@@ -155,6 +162,7 @@ module Lutaml
       end
 
       def sort_items!
+        return if collection.nil?
         return unless order_defined?
 
         unless collection&.one?
