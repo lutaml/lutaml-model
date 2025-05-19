@@ -34,14 +34,14 @@ module Lutaml
 
           if mappings.no_root? && format == :xml
             mappings.mappings.map do |mapping|
-              serialize_for_mapping(mapping, instance, options)
+              serialize_for_mapping(mapping, instance, format, options)
             end.flatten.join("\n")
           else
             super(format, instance, options.merge(collection: true))
           end
         end
 
-        def serialize_for_mapping(mapping, instance, options = {})
+        def serialize_for_mapping(mapping, instance, format, options)
           options[:tag_name] = mapping.name
 
           attr_value = instance.public_send(mapping.to)
