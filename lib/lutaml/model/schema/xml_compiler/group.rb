@@ -3,10 +3,9 @@
 module Lutaml
   module Model
     module Schema
-      module Templates
-        module Groups
-          extend self
-          attr_accessor :groups
+      module XmlCompiler
+        class Group
+          attr_accessor :id, :name, :maxOccurs, :minOccurs, :ref, :sequence, :choice
 
           GROUPS_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
             class <%= klass %> < Lutaml::Model::Serializable
@@ -29,6 +28,13 @@ module Lutaml
 
             Lutaml::Model::Config.default_register.register_model(<%= klass %>, id: :<%= Utils.snake_case(klass) %>)
           TEMPLATE
+
+          def initialize(name = nil, ref = nil)
+            raise "Group name is required" if Utils.blank?(name) && Utils.blank?(ref)
+
+            @name = name
+            @ref = ref
+          end
 
           def create_groups(groups, options: {})
             indent = options[:indent] || 2

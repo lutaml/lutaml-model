@@ -3,10 +3,9 @@
 module Lutaml
   module Model
     module Schema
-      module Templates
-        module SimpleType
-          extend self
-          attr_accessor :simple_types
+      module XmlCompiler
+        class SimpleType
+          attr_accessor :class_name, :simple_types, :restriction, :union
 
           DEFAULT_CLASSES = %w[int integer string boolean].freeze
 
@@ -35,7 +34,8 @@ module Lutaml
 
             class <%= klass_name %> < <%= Utils.camel_case(parent_class) %>; end
 
-            Lutaml::Model::Config.default_register.register_model(<%= klass_name %>, id: :<%= Utils.snake_case(klass_name) %>)
+            register = Lutaml::Model::GlobalRegister.lookup(Lutaml::Model::Config.default_register)
+            register.register_model(<%= klass_name %>, id: :<%= Utils.snake_case(klass_name) %>)
           TEMPLATE
 
           SUPPORTED_TYPES_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
@@ -67,7 +67,8 @@ module Lutaml
               end
             end
 
-            Lutaml::Model::Config.default_register.register_model(<%= Utils.camel_case(klass_name.to_s) %>, id: :<%= Utils.snake_case(klass_name) %>)
+            register = Lutaml::Model::GlobalRegister.lookup(Lutaml::Model::Config.default_register)
+            register.register_model(<%= Utils.camel_case(klass_name.to_s) %>, id: :<%= Utils.snake_case(klass_name) %>)
           TEMPLATE
 
           UNION_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
@@ -97,7 +98,8 @@ module Lutaml
               end
             end
 
-            Lutaml::Model::Config.default_register.register_model(<%= klass_name %>, id: :<%= Utils.snake_case(klass_name) %>)
+            register = Lutaml::Model::GlobalRegister.lookup(Lutaml::Model::Config.default_register)
+            register.register_model(<%= klass_name %>, id: :<%= Utils.snake_case(klass_name) %>)
           TEMPLATE
 
           MODEL_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
@@ -179,8 +181,15 @@ module Lutaml
             -%>
             end
 
-            Lutaml::Model::Config.default_register.register_model(<%= klass_name %>, id: :<%= Utils.snake_case(klass_name) %>)
+            register = Lutaml::Model::GlobalRegister.lookup(Lutaml::Model::Config.default_register)
+            register.register_model(<%= klass_name %>, id: :<%= Utils.snake_case(klass_name) %>)
           TEMPLATE
+
+          def initialize(name)
+            raise "SimpleType name is required!" if Utils.blank?(name)
+
+            @class_name = name
+          end
 
           def create_simple_types(simple_types)
             setup_supported_types
