@@ -331,7 +331,7 @@ module Lutaml
           attr_type,
           child_hash,
           format,
-          { mappings: attr.type(register).mappings_for(format).mappings },
+          { mappings: attr.type(register).mappings_for(format) },
         )
       end
 

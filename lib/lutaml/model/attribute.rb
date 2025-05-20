@@ -71,8 +71,9 @@ module Lutaml
         @options[:initialize_empty]
       end
 
-      def cast_value(value, register)
-        return type(register).cast(value) unless value.is_a?(Array)
+      def validations
+        @options[:validations]
+      end
 
       def cast_value(value, register)
         resolved_type = type(register)
