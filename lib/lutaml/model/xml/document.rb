@@ -154,11 +154,11 @@ module Lutaml
           end
 
           # Only transform when recursion is not called
-          if !attribute.collection? || value.is_a?(Array)
+          if !attribute.collection? || attribute.collection_instance?(value)
             value = ExportTransformer.call(value, rule, attribute)
           end
 
-          if value.is_a?(Array) && !Utils.empty_collection?(value)
+          if attribute.collection_instance?(value) && !Utils.empty_collection?(value)
             value.each do |item|
               add_to_xml(xml, element, prefix, item, options)
             end
@@ -242,7 +242,7 @@ module Lutaml
 
                 next if !element_rule.render?(value, element)
 
-                value = [value] if attribute_def.collection? && !value.is_a?(Array)
+                value = attribute_def.build_collection(value) if attribute_def.collection? && !attribute_def.collection_instance?(value)
               end
 
               add_to_xml(

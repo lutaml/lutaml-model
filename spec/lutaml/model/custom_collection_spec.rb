@@ -30,8 +30,6 @@ module CustomCollection
     attribute :description, :string
 
     xml do
-      root "item"
-
       map_attribute "id", to: :id
       map_element "name", to: :name
       map_element "description", to: :description
