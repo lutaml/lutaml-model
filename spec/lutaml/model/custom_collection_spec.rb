@@ -587,32 +587,53 @@ RSpec.describe CustomCollection do
     end
   end
 
-  describe "Ordered Collection" do
-    let(:collection) do
-      CustomCollection::OrderedItemCollection.new
+  describe "Sort Functionality" do
+    let(:items) do
+      [
+        { id: "3", name: "Item 3", description: "Description 3" },
+        { id: "1", name: "Item 1", description: "Description 1" },
+        { id: "2", name: "Item 2", description: "Description 2" },
+      ]
     end
 
-    let(:first_item) do
-      CustomCollection::Item.new(
-        id: "1",
-        name: "Item 1",
-        description: "Description 1",
-      )
-    end
+    describe "with order option" do
+      let(:asc_collection_class) do
+        Class.new(Lutaml::Model::Collection) do
+          instances :items, CustomCollection::Item
+          ordered by: :id, order: :asc
+        end
+      end
 
-    let(:second_item) do
-      CustomCollection::Item.new(
-        id: "2",
-        name: "Item 2",
-        description: "Description 2",
-      )
-    end
+      let(:desc_collection_class) do
+        Class.new(Lutaml::Model::Collection) do
+          instances :items, CustomCollection::Item
+          ordered by: :id, order: :desc
+        end
+      end
 
-    it "keeps the order of the items" do
-      collection << first_item
-      collection << second_item
+      it "sorts items in ascending order when order: :asc is specified" do
+        collection = asc_collection_class.new(items)
+        expect(collection.items.map(&:id)).to eq(["1", "2", "3"])
+      end
 
-      expect(collection.items).to eq([second_item, first_item])
+      it "sorts items in descending order when order: :desc is specified" do
+        collection = desc_collection_class.new(items)
+        expect(collection.items.map(&:id)).to eq(["3", "2", "1"])
+      end
+
+      it "maintains ascending order after adding new items" do
+        collection = asc_collection_class.new(items)
+        new_item = CustomCollection::Item.new(id: "0", name: "Item 0", description: "Description 0")
+        collection << new_item
+        expect(collection.items.map(&:id)).to eq(["0", "1", "2", "3"])
+      end
+
+      it "maintains descending order after adding new items" do
+        collection = desc_collection_class.new(items)
+        new_item = CustomCollection::Item.new(id: "4", name: "Item 4", description: "Description 4")
+        collection << new_item
+        expect(collection.items.map(&:id)).to eq(["4", "3", "2", "1"])
+      end
     end
   end
 
