@@ -409,7 +409,7 @@ module Lutaml
         end
 
         def empty_object(attr)
-          return [] if attr.collection?
+          return attr.build_collection if attr.collection?
 
           ""
         end
@@ -510,31 +510,9 @@ module Lutaml
         }
       end
 
-      def attr_value(attrs, name, attr_rule)
-        value = if attrs.key?(name.to_sym)
-                  attrs[name.to_sym]
-                elsif attrs.key?(name.to_s)
-                  attrs[name.to_s]
-                else
-                  attr_rule.default(register)
-                end
-        attr_type = attr_rule.type(register)
-
-        if attr_rule.collection? || value.is_a?(Array)
-          value&.map do |v|
-            if v.is_a?(Hash)
-              attr_type.new(v)
-            else
-              # TODO: This code is problematic because Type.cast does not know
-              # about all the types.
-              Lutaml::Model::Type.cast(v, attr_type)
-            end
-          end
-        else
-          # TODO: This code is problematic because Type.cast does not know
-          # about all the types.
-          Lutaml::Model::Type.cast(value, attr_type)
-        end
+      def attr_value(attrs, name, attribute)
+        value = Utils.fetch_str_or_sym(attrs, name, attribute.default)
+        attribute.cast_value(value)
       end
 
       def using_default_for(attribute_name)

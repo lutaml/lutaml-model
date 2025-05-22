@@ -24,6 +24,10 @@ module Lutaml
         @root.nil?
       end
 
+      def root_name
+        @root
+      end
+
       def map(
         name = nil,
         to: nil,
@@ -89,7 +93,7 @@ module Lutaml
       alias map_all_content map_all
 
       def map_instances(to:)
-        map(to, to: to)
+        map(root_name || to, to: to)
       end
 
       def map_key(to_instance: nil, as_attribute: nil)

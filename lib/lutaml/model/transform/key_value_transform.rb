@@ -260,7 +260,7 @@ module Lutaml
         elsif rule.raw_mapping?
           convert_to_format(doc, format)
         elsif Utils.string_or_symbol_key?(doc, name)
-          Utils.fetch_with_string_or_symbol_key(doc, name)
+          Utils.fetch_str_or_sym(doc, name)
         elsif attr&.default_set?(register)
           attr.default(register)
         else

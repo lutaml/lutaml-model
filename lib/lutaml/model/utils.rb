@@ -96,14 +96,16 @@ module Lutaml
         # @return [Object] the value associated with the key
         # @example
         #   hash = { "key" => "value" }
-        #   fetch_with_string_or_symbol_key(hash, "key") # => "value"
-        #   fetch_with_string_or_symbol_key(hash, :key) # => "value"
-        #   fetch_with_string_or_symbol_key(hash, "invalid_key") # => nil
-        def fetch_with_string_or_symbol_key(hash, key)
+        #   fetch_str_or_sym(hash, "key") # => "value"
+        #   fetch_str_or_sym(hash, :key) # => "value"
+        #   fetch_str_or_sym(hash, "invalid_key") # => nil
+        def fetch_str_or_sym(hash, key, default = nil)
           if hash.key?(key.to_s)
             hash[key.to_s]
           elsif hash.key?(key.to_sym)
             hash[key.to_sym]
+          else
+            default
           end
         end
 
