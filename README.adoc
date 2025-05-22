@@ -2356,8 +2356,6 @@ titles.first.content
 
 ==== General
 
-TODO: This case needs to be fixed.
-
 Named collections are collections wrapped inside a name or a key. The "name" of
 the collection serves as the container root of its contained model instances.
 
