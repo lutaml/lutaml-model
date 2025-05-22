@@ -23,7 +23,7 @@ module Lutaml
       #   `<name>` is handled by default. No need to explicitly
       #   define at `<caller_file>:<caller_line>`.
       def self.warn_auto_handling(name:, caller_file:, caller_line:)
-        warn("`#{name}` is handled by default. No need to explecitly define at `#{caller_file}:#{caller_line}`")
+        warn("`#{name}` is handled by default. No need to explicitly define at `#{caller_file}:#{caller_line}`")
       end
 
       def call(message, type)

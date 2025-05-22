@@ -732,7 +732,7 @@ RSpec.describe Lutaml::Model::Xml::Mapping do
         end
 
         it "prints warning if defined explicitly in class" do
-          error_regex = /\[Lutaml::Model\] WARN: `schemaLocation` is handled by default\. No need to explecitly define at `xml_mapping_spec.rb:\d+`/
+          error_regex = /\[Lutaml::Model\] WARN: `schemaLocation` is handled by default\. No need to explicitly define at `xml_mapping_spec.rb:\d+`/
 
           expect do
             mapping.map_attribute("schemaLocation", to: :schema_location)
