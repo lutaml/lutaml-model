@@ -12,7 +12,7 @@ module Lutaml
         def instances(name, type, &block)
           attribute(name, type, collection: true, validations: block)
 
-          @instance_type = type
+          @instance_type = Lutaml::Model::Attribute.cast_type!(type)
           @instance_name = name
         end
 
@@ -52,7 +52,7 @@ module Lutaml
           data = super
 
           if mappings.no_root? && format != :xml && !mappings.root_mapping
-            Utils.fetch_with_string_or_symbol_key(data, mappings.mappings.first.to)
+            Utils.fetch_str_or_sym(data, mappings.mappings.first.to)
           else
             data
           end
@@ -92,6 +92,8 @@ module Lutaml
 
           if item.is_a?(type)
             item
+          elsif type <= Lutaml::Model::Type::Value
+            type.cast(item)
           else
             type.new(item)
           end

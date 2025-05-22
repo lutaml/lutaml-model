@@ -20,6 +20,28 @@ module Lutaml
         validations
       ].freeze
 
+      def self.cast_type!(type)
+        case type
+        when Symbol then cast_from_symbol!(type)
+        when String then cast_from_string!(type)
+        when Class then type
+        else
+          raise ArgumentError, "Unknown Lutaml::Model::Type: #{type}"
+        end
+      end
+
+      def self.cast_from_symbol!(type)
+        Type.lookup(type)
+      rescue UnknownTypeError
+        raise ArgumentError, "Unknown Lutaml::Model::Type: #{type}"
+      end
+
+      def self.cast_from_string!(type)
+        Type.const_get(type)
+      rescue NameError
+        raise ArgumentError, "Unknown Lutaml::Model::Type: #{type}"
+      end
+
       def initialize(name, type, options = {})
         @name = name
         @options = options
@@ -58,42 +80,53 @@ module Lutaml
       end
 
       def cast_type!(type)
-        case type
-        when Symbol
-          begin
-            Type.lookup(type)
-          rescue UnknownTypeError
-            raise ArgumentError, "Unknown Lutaml::Model::Type: #{type}"
-          end
-        when String
-          begin
-            Type.const_get(type)
-          rescue NameError
-            raise ArgumentError, "Unknown Lutaml::Model::Type: #{type}"
-          end
-        when Class
-          type
-        else
-          raise ArgumentError, "Unknown Lutaml::Model::Type: #{type}"
-        end
+        self.class.cast_type!(type)
       end
 
       def cast_value(value)
-        return type.cast(value) unless value.is_a?(Array)
+        return cast_element(value) unless collection_instance?(value)
 
-        value.map { |v| type.cast(v) }
+        build_collection(value.map { |v| cast_element(v) })
+      end
+
+      def cast_element(value)
+        return type.new(value) if value.is_a?(Hash) && !hash_type?
+
+        type.cast(value)
+      end
+
+      def hash_type?
+        type == Lutaml::Model::Type::Hash
       end
 
       def setter
         :"#{@name}="
       end
 
+      def collection
+        @options[:collection]
+      end
+
       def collection?
-        options[:collection] || false
+        collection || false
       end
 
       def singular?
         !collection?
+      end
+
+      def collection_class
+        return Array unless custom_collection?
+
+        collection
+      end
+
+      def collection_instance?(value)
+        value.is_a?(collection_class)
+      end
+
+      def build_collection(*args)
+        collection_class.new(args.flatten)
       end
 
       def raw?
@@ -219,6 +252,7 @@ module Lutaml
       def validate_collection_range
         range = @options[:collection]
         return if range == true
+        return if custom_collection?
 
         unless range.is_a?(Range)
           raise ArgumentError, "Invalid collection range: #{range}"
@@ -247,14 +281,14 @@ module Lutaml
       end
 
       def valid_collection!(value, caller)
-        raise Lutaml::Model::CollectionTrueMissingError.new(name, caller) if value.is_a?(Array) && !collection?
+        raise Lutaml::Model::CollectionTrueMissingError.new(name, caller) if collection_instance?(value) && !collection?
 
         return true unless collection?
 
         # Allow any value for unbounded collections
         return true if options[:collection] == true
 
-        unless value.is_a?(Array)
+        unless collection_instance?(value)
           raise Lutaml::Model::CollectionCountOutOfRangeError.new(
             name,
             value,
@@ -283,18 +317,17 @@ module Lutaml
       end
 
       def serialize(value, format, options = {})
-        value ||= [] if collection? && initialize_empty?
+        value ||= build_collection if collection? && initialize_empty?
         return value if value.nil? || Utils.uninitialized?(value)
         return value if derived?
-        return serialize_array(value, format, options) if value.is_a?(Array)
+        return serialize_array(value, format, options) if collection_instance?(value)
         return serialize_model(value, format, options) if type <= Serialize
 
         serialize_value(value, format)
       end
 
       def cast(value, format, options = {})
-        value ||= [] if collection? && !value.nil?
-        return value.map { |v| cast(v, format, options) } if value.is_a?(Array)
+        return build_collection(value.map { |v| cast(v, format, options) }) if collection_instance?(value) || value.is_a?(Array)
 
         return value if already_serialized?(type, value)
 
@@ -347,6 +380,14 @@ module Lutaml
         klass <= Serialize && castable?(value, format)
       end
 
+      def custom_collection?
+        return false if singular?
+        return false if collection == true
+        return false if collection.is_a?(Range)
+
+        collection <= Lutaml::Model::Collection
+      end
+
       def needs_conversion?(klass, value)
         !value.nil? && !value.is_a?(klass)
       end
@@ -391,7 +432,7 @@ module Lutaml
 
       def set_default_for_collection
         validate_collection_range
-        @options[:default] ||= -> { [] } if initialize_empty?
+        @options[:default] ||= -> { build_collection } if initialize_empty?
       end
 
       def validate_options!(options)
