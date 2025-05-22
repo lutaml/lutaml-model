@@ -1,3 +1,4 @@
+require_relative "shared_methods"
 require_relative "base_schema"
 require "json"
 
@@ -6,6 +7,8 @@ module Lutaml
     module Schema
       class JsonSchema < BaseSchema
         class << self
+          include Lutaml::Model::Schema::SharedMethods
+
           def generate(
             klass,
             id: nil,

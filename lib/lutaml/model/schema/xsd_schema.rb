@@ -4,40 +4,44 @@ module Lutaml
   module Model
     module Schema
       class XsdSchema
+        extend SharedMethods
+
         def self.generate(klass, options = {})
+          register = extract_register_from(klass)
           builder = Nokogiri::XML::Builder.new(encoding: "UTF-8") do |xml|
             xml.schema(xmlns: "http://www.w3.org/2001/XMLSchema") do
-              generate_complex_type(xml, klass)
+              generate_complex_type(xml, klass, nil, register)
             end
           end
 
           options[:pretty] ? builder.to_xml(indent: 2) : builder.to_xml
         end
 
-        def self.generate_complex_type(xml, klass, element_name = nil)
+        def self.generate_complex_type(xml, klass, element_name = nil, register)
           xml.element(name: element_name || klass.name) do
             xml.complexType do
               xml.sequence do
-                generate_elements(xml, klass)
+                generate_elements(xml, klass, register)
               end
             end
           end
         end
 
-        def self.generate_elements(xml, klass)
+        def self.generate_elements(xml, klass, register)
           klass.attributes.each do |name, attr|
-            if attr.type <= Lutaml::Model::Serialize
-              generate_complex_type(xml, attr.type, name)
+            attr_type = attr.type(register)
+            if attr_type <= Lutaml::Model::Serialize
+              generate_complex_type(xml, attr_type, name, register)
             elsif attr.collection?
               xml.element(name: name, minOccurs: "0", maxOccurs: "unbounded") do
                 xml.complexType do
                   xml.sequence do
-                    xml.element(name: "item", type: get_xsd_type(attr.type))
+                    xml.element(name: "item", type: get_xsd_type(attr_type))
                   end
                 end
               end
             else
-              xml.element(name: name, type: get_xsd_type(attr.type))
+              xml.element(name: name, type: get_xsd_type(attr_type))
             end
           end
         end

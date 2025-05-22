@@ -1,4 +1,5 @@
 require_relative "definition"
+require_relative "../shared_methods"
 
 module Lutaml
   module Model
@@ -6,6 +7,8 @@ module Lutaml
       module Generator
         class DefinitionsCollection
           class << self
+            include SharedMethods
+
             def from_class(klass)
               new.tap do |collection|
                 collection << Definition.new(klass)
@@ -15,15 +18,17 @@ module Lutaml
             end
 
             def process_attributes(collection, klass)
+              register = extract_register_from(klass)
               klass.attributes.each_value do |attribute|
-                next unless attribute.serializable?
+                next unless attribute.serializable?(register)
 
-                process_attribute(collection, attribute)
+                process_attribute(collection, attribute, register)
               end
             end
 
-            def process_attribute(collection, attribute)
-              collection.merge(DefinitionsCollection.from_class(attribute.type))
+            def process_attribute(collection, attribute, register)
+              attr_type = Lutaml::Model::GlobalRegister.lookup(register).get_class(attribute.type)
+              collection.merge(DefinitionsCollection.from_class(attr_type))
 
               process_polymorphic_types(collection, attribute)
             end

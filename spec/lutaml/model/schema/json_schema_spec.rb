@@ -2,6 +2,12 @@ require "spec_helper"
 require "lutaml/model/schema"
 
 module JsonSchemaSpec
+  # Class for register testing
+  class RegisterGlaze < Lutaml::Model::Serializable
+    attribute :color, :string
+    attribute :finish, :integer
+  end
+
   class Glaze < Lutaml::Model::Serializable
     attribute :color, Lutaml::Model::Type::String
     attribute :finish, Lutaml::Model::Type::String
@@ -16,8 +22,6 @@ module JsonSchemaSpec
 
   class ChoiceModel < Lutaml::Model::Serializable
     attribute :name, Lutaml::Model::Type::String
-    attribute :email, Lutaml::Model::Type::String
-    attribute :phone, Lutaml::Model::Type::String
 
     choice(min: 1, max: 2) do
       attribute :email, Lutaml::Model::Type::String
@@ -370,6 +374,65 @@ RSpec.describe Lutaml::Model::Schema::JsonSchema do
       end
 
       it "generates a JSON schema for deeply nested classes" do
+        expect(parsed_schema).to eq(expected_schema)
+      end
+    end
+
+    context "with register class" do
+      let(:register) { Lutaml::Model::Register.new(:json_schema) }
+      let(:schema) { described_class.generate(register.get_class(:vase), pretty: true) }
+      let(:expected_schema) do
+        {
+          "$schema" => "https://json-schema.org/draft/2020-12/schema",
+          "$ref" => "#/$defs/JsonSchemaSpec_Vase",
+          "$defs" => {
+            "JsonSchemaSpec_Vase" => {
+              "type" => "object",
+              "additionalProperties" => false,
+              "properties" => {
+                "height" => {
+                  "type" => ["number", "null"],
+                },
+                "diameter" => {
+                  "type" => ["number", "null"],
+                },
+                "glaze" => {
+                  "$ref" => "#/$defs/JsonSchemaSpec_RegisterGlaze",
+                },
+                "materials" => {
+                  "type" => "array",
+                  "items" => {
+                    "type" => "string",
+                  },
+                },
+              },
+            },
+            "JsonSchemaSpec_RegisterGlaze" => {
+              "type" => "object",
+              "additionalProperties" => false,
+              "properties" => {
+                "color" => {
+                  "type" => ["string", "null"],
+                },
+                "finish" => {
+                  "type" => ["integer", "null"],
+                },
+              },
+            },
+          },
+        }
+      end
+
+      before do
+        Lutaml::Model::GlobalRegister.register(register)
+        register.register_model_tree(JsonSchemaSpec::Vase)
+        register.register_global_type_substitution(
+          from_type: JsonSchemaSpec::Glaze,
+          to_type: JsonSchemaSpec::RegisterGlaze,
+        )
+      end
+
+      it "generates a JSON schema with substituted registered class" do
         expect(parsed_schema).to eq(expected_schema)
       end
     end

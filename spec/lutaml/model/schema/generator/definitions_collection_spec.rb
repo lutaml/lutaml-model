@@ -25,6 +25,12 @@ end
 
 RSpec.describe Lutaml::Model::Schema::Generator::DefinitionsCollection do
   let(:klass) { DefinitionsCollectionSpec::Person }
+  let(:register) { :def_collection }
+
+  before do
+    collection_register = Lutaml::Model::Register.new(register)
+    Lutaml::Model::GlobalRegister.register(collection_register)
+  end
 
   describe ".from_class" do
     subject(:collection) { described_class.from_class(klass) }

@@ -8,11 +8,12 @@ module Lutaml
   module Model
     module Xml
       class Document
-        attr_reader :root, :encoding
+        attr_reader :root, :encoding, :register
 
-        def initialize(root, encoding = nil)
+        def initialize(root, encoding = nil, register: nil)
           @root = root
           @encoding = encoding
+          @register = setup_register(register)
         end
 
         def self.parse(xml, _options = {})
@@ -79,7 +80,7 @@ module Lutaml
           options[:mixed_content] = rule.mixed_content
           options[:tag_name] = rule.name
 
-          options[:mapper_class] = attribute&.type if attribute
+          options[:mapper_class] = attribute&.type(register) if attribute
           options[:set_namespace] = set_namespace?(rule)
 
           options
@@ -107,7 +108,7 @@ module Lutaml
             result["elements"] ||= Lutaml::Model::MappingHash.new
             result["elements"].assign_or_append_value(
               self.class.namespaced_name_of(child),
-              parse_element(child, attr&.type || klass, format),
+              parse_element(child, attr&.type(register) || klass, format),
             )
           end
 
@@ -148,8 +149,7 @@ module Lutaml
           rule = options[:rule]
 
           if rule.custom_methods[:to]
-            options[:mapper_class].new.send(rule.custom_methods[:to], element,
-                                            xml.parent, xml)
+            options[:mapper_class].new.send(rule.custom_methods[:to], element, xml.parent, xml)
             return
           end
 
@@ -170,7 +170,7 @@ module Lutaml
 
           value = rule.render_value_for(value)
 
-          if value && (attribute&.type&.<= Lutaml::Model::Serialize)
+          if value && (attribute&.type(register)&.<= Lutaml::Model::Serialize)
             handle_nested_elements(
               xml,
               value,
@@ -195,10 +195,10 @@ module Lutaml
 
         def add_value(xml, value, attribute, cdata: false)
           if !value.nil?
-            serialized_value = attribute.serialize(value, :xml)
+            serialized_value = attribute.serialize(value, :xml, register)
             if attribute.raw?
               xml.add_xml_fragment(xml, value)
-            elsif attribute.type == Lutaml::Model::Type::Hash
+            elsif attribute.type(register) == Lutaml::Model::Type::Hash
               serialized_value.each do |key, val|
                 xml.create_and_add_element(key) do |element|
                   element.text(val)
@@ -264,8 +264,12 @@ module Lutaml
           return unless content_rule
 
           if content_rule.custom_methods[:to]
-            mapper_class.new.send(content_rule.custom_methods[:to], element,
-                                  xml.parent, xml)
+            mapper_class.new.send(
+              content_rule.custom_methods[:to],
+              element,
+              xml.parent,
+              xml,
+            )
           else
             text = content_rule.serialize(element)
             text = text.join if text.is_a?(Array)
@@ -320,9 +324,10 @@ module Lutaml
             processed[klass][mapping_rule.name] = true
 
             type = if mapping_rule.delegate
-                     attributes[mapping_rule.delegate].type.attributes[mapping_rule.to].type
+                     attributes[mapping_rule.delegate].type(register)
+                       .attributes[mapping_rule.to].type(register)
                    else
-                     attributes[mapping_rule.to]&.type
+                     attributes[mapping_rule.to]&.type(register)
                    end
 
             next unless type
@@ -363,7 +368,7 @@ module Lutaml
 
             value = mapping_rule.to_value_for(element)
             attr = attribute_definition_for(element, mapping_rule, mapper_class: options[:mapper_class])
-            value = attr.serialize(value, :xml) if attr
+            value = attr.serialize(value, :xml, register) if attr
 
             value = ExportTransformer.call(value, mapping_rule, attr)
 
@@ -432,6 +437,19 @@ module Lutaml
         end
 
         private
+
+        def setup_register(register)
+          return register if register.is_a?(Symbol)
+
+          return_register = if register.is_a?(Lutaml::Model::Register)
+                              register.id
+                            elsif @root.respond_to?(:register)
+                              @root.register
+                            elsif @root.instance_variable_defined?(:@register)
+                              @root.instance_variable_get(:@register)
+                            end
+          return_register || Lutaml::Model::Config.default_register
+        end
 
         def determine_mapper_class(element, options)
           if options[:mapper_class] && element.is_a?(options[:mapper_class])

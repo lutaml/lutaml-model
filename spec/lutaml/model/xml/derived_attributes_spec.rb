@@ -5,7 +5,7 @@ require "spec_helper"
 module DerivedAttributesSpecs
   class Ceramic < Lutaml::Model::Serializable
     attribute :name, :string
-    attribute :value, :float
+    attribute :value, register(:float)
   end
 
   class CeramicCollection < Lutaml::Model::Serializable
