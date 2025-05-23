@@ -26,7 +26,28 @@ module Lutaml
         :string,
       ].freeze
 
+      # Safe methods than can be overriden without any crashing
+      ALLOW_OVERRIDING = %i[
+        display
+        validate
+        hash
+        itself
+        taint
+        untaint
+        trust
+        untrust
+        methods
+        instance_variables
+        tap
+        extend
+        freeze
+      ].freeze
+
       def initialize(name, type, options = {})
+        validate_name!(
+          name, reserved_methods: Lutaml::Model::Serializable.instance_methods
+        )
+
         @name = name
         @options = options
 
@@ -321,6 +342,20 @@ module Lutaml
       end
 
       private
+
+      def validate_name!(name, reserved_methods:)
+        return unless reserved_methods.include?(name.to_sym)
+
+        if ALLOW_OVERRIDING.include?(name.to_sym)
+          warn_name_conflict(name)
+        else
+          raise Lutaml::Model::InvalidAttributeNameError.new(name)
+        end
+      end
+
+      def warn_name_conflict(name)
+        Logger.warn("Attribute name `#{name}` conflicts with a built-in method")
+      end
 
       def resolve_polymorphic_class(type, value, options)
         return type unless polymorphic_map_defined?(options, value)
