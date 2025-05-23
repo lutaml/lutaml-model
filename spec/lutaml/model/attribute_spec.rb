@@ -44,6 +44,45 @@ RSpec.describe Lutaml::Model::Attribute do
     )
   end
 
+  describe "#validate_name!" do
+    Lutaml::Model::Serializable.instance_methods.each do |method|
+      if Lutaml::Model::Attribute::ALLOW_OVERRIDING.include?(method)
+        before do
+          allow(Lutaml::Model::Logger).to receive(:warn)
+        end
+
+        it "does not raise an error when method is `#{method}`" do
+          expect do
+            Class.new(Lutaml::Model::Serializable) do
+              attribute method, :string
+            end
+          end.not_to raise_error
+        end
+
+        it "logs a warning, when method is `#{method}`" do
+          Class.new(Lutaml::Model::Serializable) do
+            attribute method, :string
+          end
+
+          expect(Lutaml::Model::Logger)
+            .to have_received(:warn)
+            .with("Attribute name `#{method}` conflicts with a built-in method")
+        end
+      else
+        it "raise exception, when method is `#{method}`" do
+          expect do
+            Class.new(Lutaml::Model::Serializable) do
+              attribute method, :string
+            end
+          end.to raise_error(
+            Lutaml::Model::InvalidAttributeNameError,
+            "Attribute name '#{method}' is not allowed",
+          )
+        end
+      end
+    end
+  end
+
   describe "#validate_options!" do
     let(:validate_options) { name_attr.method(:validate_options!) }
 
