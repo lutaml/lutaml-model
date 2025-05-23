@@ -41,6 +41,9 @@ module Lutaml
         tap
         extend
         freeze
+        encoding
+        method
+        object_id
       ].freeze
 
       def initialize(name, type, options = {})
