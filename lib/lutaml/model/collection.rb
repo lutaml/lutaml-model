@@ -33,12 +33,22 @@ module Lutaml
           mappings = mappings_for(format)
 
           if mappings.no_root? && format == :xml
-            instance.map do |item|
-              item.public_send(:"to_#{format}", options)
-            end.join("\n")
+            mappings.mappings.map do |mapping|
+              serialize_for_mapping(mapping, instance, format, options)
+            end.flatten.join("\n")
           else
             super(format, instance, options.merge(collection: true))
           end
+        end
+
+        def serialize_for_mapping(mapping, instance, format, options)
+          options[:tag_name] = mapping.name
+
+          attr_value = instance.public_send(mapping.to)
+          return if attr_value.nil? || attr_value.empty?
+
+          attr_value = [attr_value] unless attr_value.is_a?(Array)
+          attr_value.map { |v| v.public_send(:"to_#{format}", options) }
         end
 
         def as(format, instance, options = {})
@@ -55,7 +65,7 @@ module Lutaml
         def from(format, data, options = {})
           mappings = mappings_for(format)
           if mappings.no_root? && format == :xml
-            tag_name = mappings.mappings.first.name
+            tag_name = mappings.find_by_to(instance_name).name
             data = "<#{tag_name}>#{data}</#{tag_name}>"
           end
 
@@ -66,7 +76,7 @@ module Lutaml
           mappings = mappings_for(format)
 
           if mappings.no_root? && format != :xml && !mappings.root_mapping
-            data = { mappings.mappings.first.name => data }
+            data = { mappings.find_by_to(instance_name).name => data }
           end
 
           super(format, data, options.merge(from_collection: true))
