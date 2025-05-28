@@ -10,7 +10,7 @@ module Lutaml
         # time = ::Time.parse(value.to_s)
         # ::Time.new(1, 1, 1, time.hour, time.min, time.sec)
 
-        def self.cast(value)
+        def self.cast(value, _options = {})
           return value if value.nil? || Utils.uninitialized?(value)
 
           case value

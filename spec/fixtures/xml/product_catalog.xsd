@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+  xmlns:cat="http://www.example.com/catalog" targetNamespace="http://www.example.com/catalog" elementFormDefault="qualified">
+
+  <!-- Attributes -->
+  <xs:attribute name="id" type="xs:integer" use="required"/>
+
+  <!-- Simple Types -->
+  <xs:simpleType name="SKUType">
+    <xs:annotation>
+      <xs:documentation>Stock Keeping Unit - must be 8-12 alphanumeric characters</xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[A-Z0-9]{8,12}"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="PriceType">
+    <xs:annotation>
+      <xs:documentation>Price with 2 decimal places, must be positive</xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="xs:decimal">
+      <xs:maxExclusive value="101.00"/>
+      <xs:minInclusive value="0.01"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="QuantityTypes">
+    <xs:annotation>
+      <xs:documentation>Quantity must be non-negative</xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="xs:integer">
+      <xs:minInclusive value="0"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="RatingType">
+    <xs:annotation>
+      <xs:documentation>Product rating from 1 to 5</xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="xs:decimal">
+      <xs:minInclusive value="1"/>
+      <xs:maxInclusive value="5"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Complex Types -->
+  <xs:complexType name="DimensionsType">
+    <xs:sequence>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:choice maxOccurs="unbounded">
+          <xs:element name="length" type="xs:decimal">
+            <xs:annotation>
+              <xs:documentation>Length in centimeters</xs:documentation>
+            </xs:annotation>
+          </xs:element>
+        </xs:choice>
+        <xs:element name="width" type="xs:decimal">
+          <xs:annotation>
+            <xs:documentation>Width in centimeters</xs:documentation>
+          </xs:annotation>
+        </xs:element>
+      </xs:choice>
+      <xs:element name="height" type="xs:decimal">
+        <xs:annotation>
+          <xs:documentation>Height in centimeters</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="weight" type="xs:decimal">
+        <xs:annotation>
+          <xs:documentation>Weight in kilograms</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="CategoryType">
+    <xs:sequence>
+      <xs:element name="id" type="xs:integer"/>
+      <xs:element name="name" type="xs:string"/>
+      <xs:element name="parentCategory" type="xs:integer" minOccurs="0"/>
+      <xs:element name="description" type="xs:string" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="ProductType">
+    <xs:sequence>
+      <xs:element name="sku" type="cat:SKUType"/>
+      <xs:element name="name" type="xs:string"/>
+      <xs:element name="description" type="xs:string"/>
+      <xs:element name="category" type="cat:CategoryType"/>
+      <xs:element name="price" type="cat:PriceType"/>
+      <xs:element name="salePrice" type="cat:PriceType" minOccurs="0"/>
+      <xs:element name="inventory" type="cat:QuantityTypes"/>
+      <xs:element name="dimensions" type="cat:DimensionsType"/>
+      <xs:element name="rating" type="cat:RatingType" minOccurs="0"/>
+      <xs:element name="features" minOccurs="0">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="feature" type="xs:string" maxOccurs="unbounded"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="images" minOccurs="0">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="image" maxOccurs="unbounded">
+              <xs:complexType>
+                <xs:attribute name="url" type="xs:anyURI" use="required"/>
+                <xs:attribute name="alt" type="xs:string" use="required"/>
+                <xs:attribute name="isPrimary" type="xs:boolean" default="false"/>
+              </xs:complexType>
+            </xs:element>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+    <!-- using 'ref' for development purposes only -->
+    <xs:attribute ref="id"/>
+    <xs:attribute name="status" use="required">
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="active"/>
+          <xs:enumeration value="inactive"/>
+          <xs:enumeration value="discontinued"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+  </xs:complexType>
+
+  <xs:complexType name="ProductCatalog" mixed="true">
+    <xs:sequence>
+      <xs:element name="categories">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="category" type="cat:CategoryType" maxOccurs="unbounded"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="products">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="product" type="cat:ProductType" maxOccurs="unbounded"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+    <xs:attribute name="version" type="xs:string" use="required"/>
+    <xs:attribute name="lastUpdated" type="xs:dateTime" use="required"/>
+  </xs:complexType>
+</xs:schema>

@@ -193,6 +193,37 @@ RSpec.describe Lutaml::Model::Serializable do
     end
   end
 
+  describe ".restrict" do
+    before do
+      stub_const("RestrictTestClass", Class.new(described_class))
+      RestrictTestClass.attribute(:foo, :string, collection: 1..3, values: [1, 2, 3])
+    end
+
+    it "merges new options into the attribute's options" do
+      expect { RestrictTestClass.restrict(:foo, collection: 2..4) }
+        .to change { RestrictTestClass.attributes[:foo].options[:collection] }
+        .from(1..3).to(2..4)
+
+      expect(RestrictTestClass.attributes[:foo].options[:values]).to eq([1, 2, 3])
+    end
+
+    it "does not remove existing options not specified in restrict" do
+      RestrictTestClass.restrict(:foo, collection: 5..6, values: [4, 5, 6])
+      expect(RestrictTestClass.attributes[:foo].options[:collection]).to eq(5..6)
+      expect(RestrictTestClass.attributes[:foo].options[:values]).to eq([4, 5, 6])
+    end
+
+    it "raises an error for invalid options" do
+      expect { RestrictTestClass.restrict(:foo, new_option: :bar) }
+        .to raise_error(Lutaml::Model::InvalidAttributeOptionsError, "Invalid options given for `foo` [:new_option]")
+    end
+
+    it "raises an error if the attribute does not exist" do
+      expect { RestrictTestClass.restrict(:bar, collection: 1..2) }
+        .to raise_error(NoMethodError)
+    end
+  end
+
   describe ".mappings_for" do
     context "when mapping is defined" do
       it "returns the defined mapping" do

@@ -4,7 +4,7 @@ module Lutaml
   module Model
     module Type
       class Time < Value
-        def self.cast(value)
+        def self.cast(value, _options = {})
           return value if value.nil? || Utils.uninitialized?(value)
 
           case value

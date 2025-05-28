@@ -60,12 +60,12 @@ module GroupSpec
       map_attribute "tag", to: :tag
       map_content to: :content
       map_element :group, to: :group
-      import_model_mappings GroupOfItems
+      import_model_mappings :group_of_items
     end
   end
 
   class SimpleType < Lutaml::Model::Serializable
-    import_model GroupOfItems
+    import_model :group_of_items
   end
 
   class GenericType < Lutaml::Model::Serializable
@@ -262,6 +262,12 @@ RSpec.describe "Group" do
   end
 
   context "with model" do
+    before do
+      Lutaml::Model::GlobalRegister
+        .lookup(Lutaml::Model::Config.default_register)
+        .register_model(GroupSpec::GroupOfItems, id: :group_of_items)
+    end
+
     shared_examples "imports attributes from" do |source_class, target_class|
       it "#{source_class.name} correctly" do
         source_attributes = source_class.attributes

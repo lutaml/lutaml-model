@@ -1,0 +1,55 @@
+<?xml version="1.0"?>
+<ProductCatalog version="1.0" lastUpdated="2024-03-20T10:00:00+00:00">
+  <categories>
+    <category>
+      <id>1</id>
+      <name>Electronics</name>
+      <parentCategory>0</parentCategory>
+      <description>Electronic devices and accessories</description>
+    </category>
+    <category>
+      <id>2</id>
+      <name>Smartphones</name>
+      <parentCategory>1</parentCategory>
+      <description>Mobile phones and accessories</description>
+    </category>
+    <category>
+      <id>3</id>
+      <name>Laptops</name>
+      <parentCategory>1</parentCategory>
+      <description>Portable computers and accessories</description>
+    </category>
+  </categories>
+  <products>
+    <product id="1" status="active">
+      <sku>PHN12345678</sku>
+      <name>Smartphone Pro</name>
+      <description>Latest smartphone model</description>
+      <category>
+        <id>2</id>
+        <name>Smartphones</name>
+        <parentCategory>1</parentCategory>
+        <description>Mobile phones and accessories</description>
+      </category>
+      <price>99.99</price>
+      <salePrice>89.99</salePrice>
+      <inventory>50</inventory>
+      <dimensions>
+        <length>14.5</length>
+        <width>7.0</width>
+        <height>0.7</height>
+        <weight>0.18</weight>
+      </dimensions>
+      <rating>4.5</rating>
+      <features>
+        <feature>5G Connectivity</feature>
+        <feature>128GB Storage</feature>
+        <feature>Triple Camera System</feature>
+      </features>
+      <images>
+        <image url="https://example.com/images/smartphone-pro-1.jpg" alt="Smartphone Pro Front View" isPrimary="true"/>
+        <image url="https://example.com/images/smartphone-pro-2.jpg" alt="Smartphone Pro Back View"/>
+      </images>
+    </product>
+  </products>
+</ProductCatalog>

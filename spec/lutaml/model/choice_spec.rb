@@ -59,6 +59,29 @@ module ChoiceSpec
       map :last_name, to: :last_name
     end
   end
+
+  class ContactEmail < Lutaml::Model::Serializable
+    attribute :email, :string
+    xml { no_root }
+  end
+
+  class ContactPhone < Lutaml::Model::Serializable
+    attribute :phone, :string
+    xml { no_root }
+  end
+
+  class Person < Lutaml::Model::Serializable
+    choice(min: 1, max: 2) do
+      import_model_attributes ContactEmail
+      import_model_attributes ContactPhone
+    end
+
+    xml do
+      root "Person"
+      map_element :email, to: :email
+      map_element :phone, to: :phone
+    end
+  end
 end
 
 RSpec.describe "Choice" do
@@ -163,6 +186,27 @@ RSpec.describe "Choice" do
           end
         end
       end.to raise_error(Lutaml::Model::InvalidChoiceRangeError, "Choice lower bound `-1` must be positive")
+    end
+  end
+
+  context "with choice using import_model_attributes" do
+    it "parses XML with both email and phone using choice and import_model_attributes" do
+      xml = <<~XML
+        <Person>
+          <email>john.doe@example.com</email>
+          <phone>1234567890</phone>
+        </Person>
+      XML
+      person = ChoiceSpec::Person.from_xml(xml)
+      expect(person.email).to eq("john.doe@example.com")
+      expect(person.phone).to eq("1234567890")
+    end
+
+    it "raises error if no contact info is provided" do
+      xml = <<~XML
+        <Person></Person>
+      XML
+      expect { ChoiceSpec::Person.from_xml(xml).validate! }.to raise_error(Lutaml::Model::ValidationError)
     end
   end
 end

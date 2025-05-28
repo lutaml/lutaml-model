@@ -2,7 +2,7 @@ module Lutaml
   module Model
     module Type
       class Date < Value
-        def self.cast(value)
+        def self.cast(value, _options = {})
           return value if value.nil? || Utils.uninitialized?(value)
 
           case value

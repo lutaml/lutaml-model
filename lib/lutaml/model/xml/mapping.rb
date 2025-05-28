@@ -12,6 +12,8 @@ module Lutaml
           all_content: :map_all,
         }.freeze
 
+        attr_accessor :mappings_imported
+
         attr_reader :root_element,
                     :namespace_uri,
                     :namespace_prefix,
@@ -29,6 +31,7 @@ module Lutaml
           @raw_mapping = nil
           @mixed_content = false
           @format = :xml
+          @mappings_imported = true
         end
 
         def finalize(mapper_class)
@@ -248,12 +251,11 @@ module Lutaml
         alias map_all_content map_all
 
         def sequence(&block)
-          @element_sequence << Sequence.new(self).tap do |s|
-            s.instance_eval(&block)
-          end
+          @element_sequence << Sequence.new(self).tap { |s| s.instance_eval(&block) }
         end
 
         def import_model_mappings(model)
+          return import_mappings_later(model) if model_importable?(model)
           raise Lutaml::Model::ImportModelWithRootError.new(model) if model.root?
 
           mappings = model.mappings_for(:xml)
@@ -320,20 +322,45 @@ module Lutaml
           @raw_mapping
         end
 
-        def mappings
+        def mappings(register_id = nil)
+          ensure_mappings_imported!(register_id)
           elements + attributes + [content_mapping, raw_mapping].compact
         end
 
-        def element(name)
-          elements.detect do |rule|
-            name == rule.to
+        def ensure_mappings_imported!(register_id = nil)
+          return if @mappings_imported
+
+          importable_mappings.each do |model|
+            import_model_mappings(
+              register(register_id).get_class_without_register(model),
+            )
           end
+
+          sequence_importable_mappings.each do |sequence, models|
+            models.each do |model|
+              sequence.import_model_mappings(
+                register(register_id).get_class_without_register(model),
+              )
+            end
+          end
+
+          @mappings_imported = true
+        end
+
+        def importable_mappings
+          @importable_mappings ||= []
+        end
+
+        def sequence_importable_mappings
+          @sequence_importable_mappings ||= Hash.new { |h, k| h[k] = [] }
+        end
+
+        def element(name)
+          elements.detect { |rule| name == rule.to }
         end
 
         def attribute(name)
-          attributes.detect do |rule|
-            name == rule.to
-          end
+          attributes.detect { |rule| name == rule.to }
         end
 
         def find_by_name(name, type: "Text")
@@ -347,9 +374,7 @@ module Lutaml
         end
 
         def find_by_to(to)
-          mappings.detect do |rule|
-            rule.to.to_s == to.to_s
-          end
+          mappings.detect { |rule| rule.to.to_s == to.to_s }
         end
 
         def mapping_attributes_hash
@@ -413,6 +438,22 @@ module Lutaml
           end
 
           new_mappings
+        end
+
+        private
+
+        def register(register_id = nil)
+          register_id ||= Lutaml::Model::Config.default_register
+          Lutaml::Model::GlobalRegister.lookup(register_id)
+        end
+
+        def model_importable?(model)
+          model.is_a?(Symbol) || model.is_a?(String)
+        end
+
+        def import_mappings_later(model)
+          importable_mappings << model.to_sym
+          @mappings_imported = false
         end
       end
     end
