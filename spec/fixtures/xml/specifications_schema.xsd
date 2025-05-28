@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="http://example.com/specs"
+  xmlns="http://example.com/specs" elementFormDefault="qualified">
+  <!-- ComplexType SpecBase and ShortSpec are root elements -->
+
+  <!-- Base type for a specification -->
+  <xs:complexType name="spec">
+    <xs:sequence>
+      <xs:element name="title" type="xs:string"/>
+      <xs:element name="version" type="xs:string"/>
+      <xs:element name="status" type="status" minOccurs="0" default="draft"/>
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:ID" use="required"/>
+  </xs:complexType>
+
+  <!-- Restriction: A "ShortSpec" only allows title and version, not status -->
+  <xs:complexType name="shortSpec">
+    <xs:complexContent>
+      <xs:restriction base="spec">
+        <xs:sequence>
+          <xs:element name="title" type="xs:string"/>
+          <xs:element name="version" type="xs:string"/>
+          <xs:element name="status" type="status" minOccurs="0" maxOccurs="2"/>
+        </xs:sequence>
+        <xs:attribute name="id" type="xs:ID" use="required"/>
+      </xs:restriction>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <!-- Enumeration for status -->
+  <xs:simpleType name="status">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="draft"/>
+      <xs:enumeration value="final"/>
+      <xs:enumeration value="archived"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>

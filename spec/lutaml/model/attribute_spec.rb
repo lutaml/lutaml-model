@@ -15,6 +15,7 @@ RSpec.describe Lutaml::Model::Attribute do
     Class.new(Lutaml::Model::Serializable) do
       attribute :age, :integer
       attribute :image, :string
+      restrict :image, collection: 1..., pattern: /.*\.\w+$/
     end
   end
 
@@ -95,7 +96,7 @@ RSpec.describe Lutaml::Model::Attribute do
     it "raise exception if option is not allowed" do
       expect do
         validate_options.call({ foo: "bar" })
-      end.to raise_error(StandardError, "Invalid options given for `name` [:foo]")
+      end.to raise_error(Lutaml::Model::InvalidAttributeOptionsError, "Invalid options given for `name` [:foo]")
     end
 
     it "raise exception if pattern is given with non string type" do

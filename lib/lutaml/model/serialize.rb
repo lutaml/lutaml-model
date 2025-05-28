@@ -30,7 +30,7 @@ module Lutaml
       module ClassMethods
         include Lutaml::Model::Liquefiable::ClassMethods
 
-        attr_accessor :attributes, :mappings, :choice_attributes
+        attr_accessor :choice_attributes
 
         def inherited(subclass)
           super
@@ -47,6 +47,16 @@ module Lutaml
           @attributes = Utils.deep_dup(source_class.instance_variable_get(:@attributes)) || {}
           @choice_attributes = Utils.deep_dup(source_class.instance_variable_get(:@choice_attributes)) || []
           instance_variable_set(:@model, self)
+        end
+
+        def attributes(register = nil, skip_import: false)
+          ensure_imports!(register) unless skip_import
+          @attributes
+        end
+
+        def ensure_imports!(register = nil)
+          ensure_model_imports!(register)
+          ensure_choice_imports!(register)
         end
 
         def model(klass = nil)
@@ -126,10 +136,25 @@ module Lutaml
           end
 
           attr = Attribute.new(name, type, options)
-          attributes[name] = attr
+          attributes(skip_import: true)[name] = attr
           define_attribute_methods(attr)
 
           attr
+        end
+
+        def restrict(name, options = {})
+          validate_attribute_options!(name, options)
+          attr = attributes[name]
+          attr.options.merge!(options)
+          attr.process_options!
+          name
+        end
+
+        def validate_attribute_options!(name, options)
+          invalid_opts = options.keys - Attribute::ALLOWED_OPTIONS
+          return if invalid_opts.empty?
+
+          raise Lutaml::Model::InvalidAttributeOptionsError.new(name, invalid_opts)
         end
 
         def register(name)
@@ -147,6 +172,12 @@ module Lutaml
         end
 
         def import_model_attributes(model)
+          if model.is_a?(Symbol) || model.is_a?(String)
+            importable_models[:import_model_attributes] << model.to_sym
+            @waiting_import = true
+            return
+          end
+
           model.attributes.each_value do |attr|
             define_attribute_methods(attr)
           end
@@ -156,8 +187,13 @@ module Lutaml
         end
 
         def import_model_mappings(model)
-          import_model_with_root_error(model)
+          if model.is_a?(Symbol) || model.is_a?(String)
+            importable_models[:import_model_mappings] << model.to_sym
+            @waiting_import = true
+            return
+          end
 
+          import_model_with_root_error(model)
           Lutaml::Model::Config::AVAILABLE_FORMATS.each do |format|
             next unless model.mappings.key?(format)
 
@@ -183,9 +219,23 @@ module Lutaml
         end
 
         def import_model(model)
+          if model.is_a?(Symbol) || model.is_a?(String)
+            importable_models[:import_model] << model.to_sym
+            @waiting_import = true
+            return
+          end
+
           import_model_with_root_error(model)
           import_model_attributes(model)
           import_model_mappings(model)
+        end
+
+        def importable_models
+          @importable_models ||= MappingHash.new { |h, k| h[k] = [] }
+        end
+
+        def importable_choices
+          @importable_choices ||= MappingHash.new { |h, k| h[k] = MappingHash.new { |h1, k1| h1[k1] = [] } }
         end
 
         def add_enum_methods_to_model(klass, enum_name, values, collection: false)
@@ -270,12 +320,11 @@ module Lutaml
 
         def process_mapping(format, &block)
           klass = ::Lutaml::Model::Config.mappings_class_for(format)
-          mappings[format] ||= klass.new
+          mappings(skip_import: true)[format] ||= klass.new
+          mappings(skip_import: true)[format].instance_eval(&block)
 
-          mappings[format].instance_eval(&block)
-
-          if mappings[format].respond_to?(:finalize)
-            mappings[format].finalize(self)
+          if mappings(skip_import: true)[format].respond_to?(:finalize)
+            mappings(skip_import: true)[format].finalize(self)
           end
         end
 
@@ -332,8 +381,13 @@ module Lutaml
           end
         end
 
-        def mappings_for(format)
-          mappings[format] || default_mappings(format)
+        def mappings(skip_import: false)
+          @mappings&.dig(:xml)&.ensure_mappings_imported! unless skip_import
+          @mappings
+        end
+
+        def mappings_for(format, skip_import: false)
+          mappings(skip_import: skip_import)[format] || default_mappings(format)
         end
 
         def default_mappings(format)
@@ -365,7 +419,7 @@ module Lutaml
                      end
           return instance if Utils.blank?(doc)
 
-          mappings = mappings_for(format)
+          mappings = mappings_for(format, skip_import: true)
 
           if mappings.polymorphic_mapping
             return resolve_polymorphic(doc, format, mappings, instance, options)
@@ -448,6 +502,40 @@ module Lutaml
             Lutaml::Model::Config.default_register
           end
         end
+
+        def ensure_model_imports!(register_id = nil)
+          return unless @waiting_import
+
+          register_id ||= Lutaml::Model::Config.default_register
+          register = Lutaml::Model::GlobalRegister.lookup(register_id)
+          importable_models.each do |method, models|
+            models.uniq.each do |model|
+              model_class = register.get_class_without_register(model)
+              import_model_with_root_error(model_class)
+
+              @model.public_send(method, model_class)
+            end
+          end
+
+          @waiting_import = false
+        end
+
+        def ensure_choice_imports!(register_id = nil)
+          return if @choices_imported
+
+          register_id ||= Lutaml::Model::Config.default_register
+          register = Lutaml::Model::GlobalRegister.lookup(register_id)
+          importable_choices.each do |choice, choice_imports|
+            choice_imports.each do |method, models|
+              models.uniq.each do |model|
+                model_class = register.get_class_without_register(model)
+                choice.public_send(method, model_class)
+              end
+            end
+          end
+
+          @choices_imported = true
+        end
       end
 
       def self.register_format_mapping_method(format)
@@ -487,7 +575,7 @@ module Lutaml
 
       def initialize(attrs = {}, options = {})
         @using_default = {}
-        return unless self.class.attributes
+        return unless self.class.attributes(skip_import: true)
 
         @register = extract_register_id(options[:register])
         set_ordering(attrs)
@@ -606,7 +694,7 @@ module Lutaml
       end
 
       def initialize_attributes(attrs, options = {})
-        self.class.attributes.each do |name, attr|
+        self.class.attributes(skip_import: true).each do |name, attr|
           next if attr.derived?
 
           value = determine_value(attrs, name, attr)

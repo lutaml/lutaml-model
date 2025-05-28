@@ -41,7 +41,27 @@ module Lutaml
         raise Lutaml::Model::ChoiceLowerBoundError.new(validated_attributes, @min) if valid.count < @min
       end
 
+      def import_model_attributes(model)
+        return import_model_later(model, :import_model_attributes) if later_importable?(model)
+
+        root_model_error(model)
+        imported_attributes = Utils.deep_dup(model.attributes.values)
+        imported_attributes.each do |attr|
+          attr.options[:choice] = self
+          @model.define_attribute_methods(attr)
+        end
+        @attributes.concat(imported_attributes)
+        attrs_hash = imported_attributes.to_h { |attr| [attr.name, attr] }
+        @model.attributes(skip_import: true).merge!(attrs_hash)
+      end
+
       private
+
+      def root_model_error(model)
+        return unless model.root?
+
+        raise Lutaml::Model::ImportModelWithRootError.new(model)
+      end
 
       def valid_attributes(object, validated_attributes)
         @attributes.each do |attribute|
@@ -57,6 +77,15 @@ module Lutaml
         end
 
         validated_attributes
+      end
+
+      def later_importable?(model)
+        model.is_a?(Symbol) || model.is_a?(String)
+      end
+
+      def import_model_later(model, method)
+        @model.importable_choices[self][method] << model.to_sym
+        @model.instance_variable_set(:@choices_imported, false)
       end
     end
   end

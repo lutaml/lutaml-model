@@ -15,7 +15,7 @@ module Lutaml
           true
         end
 
-        def self.cast(value)
+        def self.cast(value, _options = {})
           return nil if value.nil?
 
           value

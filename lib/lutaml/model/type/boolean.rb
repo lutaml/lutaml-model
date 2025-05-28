@@ -2,7 +2,7 @@ module Lutaml
   module Model
     module Type
       class Boolean < Value
-        def self.cast(value)
+        def self.cast(value, _options = {})
           return nil if value.nil?
           return true if value == true || value.to_s.match?(/^(true|t|yes|y|1)$/i)
           return false if value == false || value.to_s.match?(/^(false|f|no|n|0)$/i)

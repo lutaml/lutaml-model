@@ -2,18 +2,20 @@ module Lutaml
   module Model
     module Type
       class Decimal < Value
-        def self.cast(value)
+        def self.cast(value, options = {})
           return nil if value.nil?
 
           check_dependencies!(value)
-          case value
-          when BigDecimal
-            # If already a BigDecimal, return as-is
-            value
-          else
-            # Convert to string first to handle various input types
-            BigDecimal(value.to_s)
-          end
+          value = case value
+                  when BigDecimal
+                    # If already a BigDecimal, return as-is
+                    value
+                  else
+                    # Convert to string first to handle various input types
+                    BigDecimal(value.to_s)
+                  end
+          Model::Services::Type::Validator::Number.validate!(value, options)
+          value
         rescue ArgumentError
           nil
         end

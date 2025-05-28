@@ -637,6 +637,56 @@ puts s.established
 ----
 ====
 
+==== Restricting the value of an attribute
+
+The `restrict` class method is used to update or refine the validation rules for an attribute that has already been defined. This allows you to apply additional or stricter constraints to an existing attribute without redefining it.
+
+.Using the `restrict` class method to update the options of an existing attribute
+[example]
+====
+[source,ruby]
+----
+class Studio < Lutaml::Model::Serializable
+  attribute :name, :string
+  restrict :name, collection: 1..3, pattern: /[A-Za-z]+/
+end
+----
+====
+
+.Apply different restrictions to the existing attribute in multiple subclasses
+[example]
+====
+[source,ruby]
+----
+class Document < Lutaml::Model::Serializable
+  attribute :status, :string
+end
+
+class DraftDocument < Document
+  # Only allow "draft" or "in_review" as valid statuses for drafts
+  restrict :status, values: %w[draft in_review]
+end
+
+class PublishedDocument < Document
+  # Only allow "published" or "archived" as valid statuses for published documents
+  restrict :status, values: %w[published archived]
+end
+
+# Usage
+# Call .validate! to trigger validation and raise an error if the value is not allowed
+Document.new(status: "draft").validate!                # valid, there are no validation rules for `Document`
+Document.new(status: "published").validate!            # valid, there are no validation rules for `Document`
+DraftDocument.new(status: "draft").validate!           # valid
+DraftDocument.new(status: "in_review").validate!       # valid
+DraftDocument.new(status: "published").validate!       # raises error (not allowed)
+PublishedDocument.new(status: "published").validate!   # valid
+PublishedDocument.new(status: "archived").validate!    # valid
+PublishedDocument.new(status: "draft").validate!       # raises error (not allowed)
+----
+====
+
+All options that are supported by the `attribute` class method are also supported by the `restrict` method. Any unsupported option passed to `restrict` will result in a `Lutaml::Model::InvalidAttributeOptionsError` being raised.
+
 === Polymorphic attributes
 
 ==== General
@@ -1617,6 +1667,7 @@ attributes.
 * The last attribute `completeName` is optional.
 ====
 
+NOTE: The `choice` directive can be used with `import_model_attributes`. For more details, see <<import-model-attributes-inside-choice, Using import_model_attributes inside a choice block>>.
 
 
 === Importable models for reuse
@@ -1673,6 +1724,7 @@ class ComplexType < Lutaml::Model::Serializable
 
   xml do
     root "GroupOfItems"
+
     map_attribute "tag", to: :tag
     map_content to: :content
     map_element :group, to: :group
@@ -1704,6 +1756,161 @@ end
 ----
 ====
 
+[[import-model-mappings-inside-sequence]]
+==== Using `import_model_mappings` inside a `sequence`
+
+You can use `import_model_mappings` within a `sequence` block to include the element mappings from another model. This is useful for composing complex XML structures from reusable model components.
+
+The element mappings will be imported inside this specific `sequence` block that calls the import method, rest of the mappings like `content`, `attributes`, etc. will be inserted at the class level.
+
+NOTE: `import_model` and `import_model_attributes` are not supported inside a `sequence` block.
+
+[example]
+====
+[source,ruby]
+----
+class Address < Lutaml::Model::Serializable
+  attribute :street, :string
+  attribute :city, :string
+  attribute :zip, :string
+
+  xml do
+    no_root
+
+    map_element :street, to: :street
+    map_element :city, to: :city
+    map_element :zip, to: :zip
+  end
+end
+
+class Person < Lutaml::Model::Serializable
+  attribute :name, :string
+  import_model_attributes Address
+
+  xml do
+    root "Person"
+
+    map_element :name, to: :name
+    sequence do
+      import_model_mappings Address
+    end
+  end
+end
+
+# Example XML output:
+valid_xml = <<~XML
+<Person>
+  <name>John Doe</name>
+  <street>123 Main St</street>
+  <city>Metropolis</city>
+  <zip>12345</zip>
+</Person>
+XML
+invalid_xml = <<~XML
+<Person>
+  <name>John Doe</name>
+  <street>123 Main St</street>
+  <zip>12345</zip>
+</Person>
+XML
+Person.from_xml(valid_xml) # #<Person:0x00000002d56b3988 @city="Metropolis", @name="John Doe", @street="123 Main St", @zip="12345"> 
+Person.from_xml(invalid_xml) # raises `Element `zip` does not match the expected sequence order element `city` (Lutaml::Model::IncorrectSequenceError)`
+----
+====
+
+[[import-model-attributes-inside-choice]]
+==== Using import_model_attributes inside a choice block
+
+You can use `import_model_attributes` within a `choice` block to allow a model to accept one or more sets of attributes from other models, with flexible cardinality. This is especially useful when you want to allow a user to provide one or more alternative forms of information (e.g., contact methods) in your model.
+
+For example, suppose you want a `Person` model that can have either an `email`, a `phone`, or both as contact information. You can define `ContactEmail` and `ContactPhone` as importable models, and then use `import_model_attributes` for both, inside a `choice` block in the `Person` model.
+
+NOTE: The `import_model_attributes` method is used to import the attributes from the other model into the current model. The imported attributes will be associated to the `choice` block that calls the import method.
+
+[example]
+====
+[source,ruby]
+----
+class ContactEmail < Lutaml::Model::Serializable
+  attribute :email, :string
+
+  xml do
+    no_root 
+
+    map_element :email, to: :email
+  end
+end
+
+class ContactPhone < Lutaml::Model::Serializable
+  attribute :phone, :string
+
+  xml do
+    no_root
+
+    map_element :phone, to: :phone
+  end
+end
+
+class Person < Lutaml::Model::Serializable
+  # Allow either or both contact methods, but at least one must be present
+  choice(min: 1, max: 2) do
+    import_model_attributes ContactEmail
+    import_model_attributes ContactPhone
+  end
+
+  xml do
+    root "Person"
+
+    map_element :email, to: :email
+    map_element :phone, to: :phone
+  end
+end
+
+valid_xml = <<~XML
+<Person>
+  <email>john.doe@example.com</email>
+  <phone>1234567890</phone>
+</Person>
+XML
+
+Person.from_xml(valid_xml).validate! # #<Person:0x00000002d0e27fe8 @email="john.doe@example.com", @phone="1234567890">
+
+invalid_xml = <<~XML
+<Person></Person>
+XML
+
+Person.from_xml(invalid_xml).validate! # raises `Lutaml::Model::ValidationError` error
+----
+====
+
+==== Using register functionality
+
+The register functionality is useful when you want to reference or reuse a model by a symbolic name (e.g., across files or in dynamic scenarios), rather than by direct class reference.
+
+.Importing a model using a `Register`
+[example]
+====
+[source,ruby]
+----
+register = Lutaml::Model::Register.new(:importable_model)
+register.register_model(GroupOfItems, id: :group_of_items)
+----
+
+The `id: :group_of_items` assigns a symbolic name to the registered model, which can then be used in `import_model :group_of_items`.
+
+[source,ruby]
+----
+class GroupOfSubItems < Lutaml::Model::Serializable
+  import_model :group_of_items
+end
+----
+====
+
+The `import_model :group_of_items` will behave the same as `import_model GroupOfItems` except the class is resolved from the provided `register`.
+
+NOTE: All the `import_*` methods support the use of `register` functionality.
+
+NOTE: For more details on registers, see <<custom_registers, Custom Registers>>.
 
 [[attribute-value-transform]]
 === Attribute value transform
@@ -4226,6 +4433,7 @@ HERE
 ----
 ====
 
+NOTE: For importing model mappings inside a `sequence` block, refer to <<import-model-mappings-inside-sequence, Importing model mappings inside a `sequence`>>.
 
 [[xml-schema-location]]
 ==== Automatic support of `xsi:schemaLocation`

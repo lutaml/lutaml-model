@@ -395,6 +395,31 @@ module Lutaml
         type(register) <= Serialize
       end
 
+      def collection_range
+        return unless collection?
+
+        collection.is_a?(Range) ? collection : 0..Float::INFINITY
+      end
+
+      def sequenced_appearance_count(element_order, mapped_name, current_index)
+        elements = element_order[current_index..]
+        element_count = elements.take_while { |element| element == mapped_name }.count
+        return element_count if element_count.between?(*collection_range.minmax)
+
+        raise Lutaml::Model::ElementCountOutOfRangeError.new(
+          mapped_name,
+          element_count,
+          collection_range,
+        )
+      end
+
+      def process_options!
+        validate_options!(@options)
+        @raw = !!@options[:raw]
+        @validations = @options[:validations]
+        set_default_for_collection if collection?
+      end
+
       def deep_dup
         self.class.new(name, unresolved_type, Utils.deep_dup(options))
       end
@@ -480,13 +505,6 @@ module Lutaml
         raise ArgumentError, "method or type must be set for an attribute"
       end
 
-      def process_options!
-        validate_options!(@options)
-        @raw = !!@options[:raw]
-        @validations = @options[:validations]
-        set_default_for_collection if collection?
-      end
-
       def set_default_for_collection
         validate_collection_range
         @options[:default] ||= -> { build_collection } if initialize_empty?
@@ -494,8 +512,7 @@ module Lutaml
 
       def validate_options!(options)
         if (invalid_opts = options.keys - ALLOWED_OPTIONS).any?
-          raise StandardError,
-                "Invalid options given for `#{name}` #{invalid_opts}"
+          raise Lutaml::Model::InvalidAttributeOptionsError.new(name, invalid_opts)
         end
 
         # No need to change user register#get_class, only checks if type is LutaML-Model string.
