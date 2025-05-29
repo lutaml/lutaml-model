@@ -11,20 +11,28 @@ module Lutaml
 
           TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
             <%= indent %>choice<%= block_options %> do
-            <%= instances.map { |element| element.to_class(indent + INDENT) }.join -%>
+            <%= instances.map { |instance| instance.to_attributes(indent + INDENT) }.join -%>
             <%= indent %>end
           TEMPLATE
+
+          XML_MAPPING_TEMPLATE = ERB.new(<<~XML_MAPPING_TEMPLATE, trim_mode: "-")
+            <%= instances.map { |instance| instance.to_xml_mapping(indent) }.compact.join -%>
+          XML_MAPPING_TEMPLATE
 
           def initialize
             @instances = []
           end
 
-          def <<(element)
-            @instances << element
+          def <<(instance)
+            @instances << instance
           end
 
-          def to_class(indent = INDENT)
+          def to_attributes(indent = INDENT)
             TEMPLATE.result(binding)
+          end
+
+          def to_xml_mapping(indent = INDENT)
+            XML_MAPPING_TEMPLATE.result(binding)
           end
 
           private

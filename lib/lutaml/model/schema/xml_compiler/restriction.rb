@@ -18,7 +18,7 @@ module Lutaml
 
             MAX_BOUND = ERB.new(<<~TEMPLATE, trim_mode: "-")
               <%= "\#{indent}max_bound = \#{max_inclusive || max_exclusive}" %>
-              <%= "\#{indent}raise_max_bound_error(value, max_bound) unless value < \#{'=' if max_inclusive} max_bound" %>
+              <%= "\#{indent}raise_max_bound_error(value, max_bound) unless value <\#{'=' if max_inclusive} max_bound" %>
             TEMPLATE
 
             MIN_BOUND = ERB.new(<<~TEMPLATE, trim_mode: "-")
@@ -29,6 +29,10 @@ module Lutaml
             PATTERN = ERB.new(<<~TEMPLATE, trim_mode: "-")
               <%= "\#{indent}pattern = %r{\#{pattern}}" %>
               <%= "\#{indent}raise_pattern_error(value, pattern) unless value.match?(pattern)" %>
+            TEMPLATE
+
+            ENUMERATIONS = ERB.new(<<~TEMPLATE, trim_mode: "-")
+              <%= "\#{indent}raise_enumerations_error(value) unless VALUES.include?(value)" %>
             TEMPLATE
 
             MAX_BOUND_ERROR_METHOD = ERB.new(<<~TEMPLATE, trim_mode: "-")
@@ -49,8 +53,15 @@ module Lutaml
               <%= indent %>end
             TEMPLATE
 
+            ENUMERATIONS_ERROR_METHOD = ERB.new(<<~TEMPLATE, trim_mode: "-")
+              <%= indent %>def self.raise_enumerations_error(input_value)
+              <%= indent %>  raise Lutaml::Model::Type::InvalidValueError, "The provided value \#{input_value} is not a valid enumeration"
+              <%= indent %>end
+            TEMPLATE
+
           def to_method_body(indent = nil)
             [
+              value_for(ENUMERATIONS, type: :enumerations, indent: indent),
               value_for(MAX_BOUND, type: :max_bound, indent: indent),
               value_for(MIN_BOUND, type: :min_bound, indent: indent),
               value_for(PATTERN, type: :pattern, indent: indent),
@@ -62,11 +73,16 @@ module Lutaml
               value_for(MAX_BOUND_ERROR_METHOD, type: :max_bound, indent: indent),
               value_for(MIN_BOUND_ERROR_METHOD, type: :min_bound, indent: indent),
               value_for(PATTERN_ERROR_METHOD, type: :pattern, indent: indent),
+              value_for(ENUMERATIONS_ERROR_METHOD, type: :enumerations, indent: indent),
             ].compact.join("\n")
           end
 
           def error_methods?
-            min_bound_exist? || max_bound_exist? || pattern_exist?
+            min_bound_exist? || max_bound_exist? || pattern_exist? || enumerations_exist?
+          end
+
+          def enumerations_exist?
+            Utils.present?(enumerations)
           end
 
           private

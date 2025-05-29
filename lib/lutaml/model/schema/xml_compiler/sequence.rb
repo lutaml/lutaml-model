@@ -5,27 +5,34 @@ module Lutaml
     module Schema
       module XmlCompiler
         class Sequence
-          attr_accessor :sequences, :elements, :choice, :groups
+          attr_accessor :instances
 
           INDENT = "  "
 
           TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
-            <%= indent %>sequence do
-            <%= sequences.map { |object| object.to_class(indent + INDENT) }.join -%>
-            <%= choice.map { |object| object.to_class(indent + INDENT) }.join -%>
-            <%= elements.map { |object| object.to_class(indent + INDENT) }.join -%>
-            <%= indent %>end
+            <%= instances.map { |instance| instance.to_attributes(indent) }.join -%>
           TEMPLATE
 
+          XML_MAPPING_TEMPLATE = ERB.new(<<~XML_MAPPING_TEMPLATE, trim_mode: "-")
+            <%= indent %>sequence do
+            <%= instances.map { |instance| instance.to_xml_mapping(indent + INDENT) }.join -%>
+            <%= indent %>end
+          XML_MAPPING_TEMPLATE
+
           def initialize
-            @sequences = []
-            @elements = []
-            @choice = []
-            @groups = []
+            @instances = []
           end
 
-          def to_class(indent = INDENT)
+          def <<(instance)
+            @instances << instance
+          end
+
+          def to_attributes(indent = INDENT)
             TEMPLATE.result(binding)
+          end
+
+          def to_xml_mapping(indent = INDENT)
+            XML_MAPPING_TEMPLATE.result(binding)
           end
         end
       end
