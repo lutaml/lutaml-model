@@ -36,6 +36,11 @@ module Lutaml
             @ref = ref
           end
 
+          def to_xml_mapping(indent = INDENT)
+            # NO implementation for mapping is required for groups since these will be imported at attribute level
+            nil
+          end
+
           def create_groups(groups, options: {})
             indent = options[:indent] || 2
             current_indent = options[:current_indent] || " " * indent
