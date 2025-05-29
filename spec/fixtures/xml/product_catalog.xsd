@@ -2,6 +2,9 @@
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
   xmlns:cat="http://www.example.com/catalog" targetNamespace="http://www.example.com/catalog" elementFormDefault="qualified">
 
+  <!-- Attributes -->
+  <xs:attribute name="id" type="xs:integer" use="required"/>
+
   <!-- Simple Types -->
   <xs:simpleType name="SKUType">
     <xs:annotation>
@@ -112,7 +115,8 @@
         </xs:complexType>
       </xs:element>
     </xs:sequence>
-    <xs:attribute name="id" type="xs:integer" use="required"/>
+    <!-- using 'ref' for development purposes only -->
+    <xs:attribute ref="id"/>
     <xs:attribute name="status" use="required">
       <xs:simpleType>
         <xs:restriction base="xs:string">
@@ -124,27 +128,24 @@
     </xs:attribute>
   </xs:complexType>
 
-  <!-- Root Element -->
-  <xs:element name="ProductCatalog">
-    <xs:complexType>
-      <xs:sequence>
-        <xs:element name="categories">
-          <xs:complexType>
-            <xs:sequence>
-              <xs:element name="category" type="cat:CategoryType" maxOccurs="unbounded"/>
-            </xs:sequence>
-          </xs:complexType>
-        </xs:element>
-        <xs:element name="products">
-          <xs:complexType>
-            <xs:sequence>
-              <xs:element name="product" type="cat:ProductType" maxOccurs="unbounded"/>
-            </xs:sequence>
-          </xs:complexType>
-        </xs:element>
-      </xs:sequence>
-      <xs:attribute name="version" type="xs:string" use="required"/>
-      <xs:attribute name="lastUpdated" type="xs:dateTime" use="required"/>
-    </xs:complexType>
-  </xs:element>
+  <xs:complexType name="ProductCatalog" mixed="true">
+    <xs:sequence>
+      <xs:element name="categories">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="category" type="cat:CategoryType" maxOccurs="unbounded"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="products">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="product" type="cat:ProductType" maxOccurs="unbounded"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+    <xs:attribute name="version" type="xs:string" use="required"/>
+    <xs:attribute name="lastUpdated" type="xs:dateTime" use="required"/>
+  </xs:complexType>
 </xs:schema> 
