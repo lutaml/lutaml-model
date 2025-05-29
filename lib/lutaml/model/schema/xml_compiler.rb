@@ -205,11 +205,24 @@ module Lutaml
         def restriction_content(instance, restriction)
           return instance unless restriction.respond_to?(:max_length)
 
-          instance.max_length = restriction.max_length.map(&:value).min if restriction.max_length&.any?
-          instance.min_length = restriction.min_length.map(&:value).max if restriction.min_length&.any?
-          instance.min_inclusive = restriction.min_inclusive.map(&:value).max if restriction.min_inclusive&.any?
-          instance.max_inclusive = restriction.max_inclusive.map(&:value).min if restriction.max_inclusive&.any?
+          restriction_min_max(restriction, instance, field: :max_length, value_method: :min)
+          restriction_min_max(restriction, instance, field: :min_length, value_method: :max)
+          restriction_min_max(restriction, instance, field: :min_inclusive, value_method: :max)
+          restriction_min_max(restriction, instance, field: :max_inclusive, value_method: :min)
+          restriction_min_max(restriction, instance, field: :max_exclusive, value_method: :max)
+          restriction_min_max(restriction, instance, field: :min_exclusive, value_method: :min)
           instance.length = restriction_length(restriction.length) if restriction.length&.any?
+        end
+
+        # Use min/max to get the value from the field_value array.
+        def restriction_min_max(restriction, instance, field:, value_method: :min)
+          field_value = restriction.public_send(field)
+          return unless field_value&.any?
+
+          instance.public_send(
+            :"#{field}=",
+            field_value.map(&:value).send(value_method).to_s,
+          )
         end
 
         def restriction_length(lengths)
@@ -229,19 +242,19 @@ module Lutaml
             resolved_element_order(complex_type).each do |element|
               case element
               when Xsd::Attribute
-                instance.attributes << setup_attribute(element)
+                instance << setup_attribute(element)
               when Xsd::Sequence
-                instance.sequence = setup_sequence(element)
+                instance << setup_sequence(element)
               when Xsd::Choice
-                instance.choice = setup_choice(element)
+                instance << setup_choice(element)
               when Xsd::ComplexContent
-                instance.complex_content = setup_complex_content(element)
+                instance << setup_complex_content(element)
               when Xsd::AttributeGroup
-                instance.attribute_groups << setup_attribute_groups(element)
+                instance << setup_attribute_groups(element)
               when Xsd::Group
-                instance.group = setup_group_type(element)
+                instance << setup_group_type(element)
               when Xsd::SimpleContent
-                instance.simple_content = setup_simple_content(element)
+                instance << setup_simple_content(element)
               end
             end
           end
@@ -260,13 +273,13 @@ module Lutaml
             resolved_element_order(sequence).each do |object|
               case object
               when Xsd::Sequence
-                instance.sequences << setup_sequence(object)
+                instance << setup_sequence(object)
               when Xsd::Element
-                instance.elements << setup_element(object)
+                instance << setup_element(object)
               when Xsd::Choice
-                instance.choice << setup_choice(object)
+                instance << setup_choice(object)
               when Xsd::Group
-                instance.groups << setup_group_type(object)
+                instance << setup_group_type(object)
               when Xsd::Any
                 # No implementation yet!
               end
@@ -308,10 +321,20 @@ module Lutaml
         def setup_attribute(attribute)
           instance = Attribute.new(name: attribute.name, ref: attribute.ref)
           if attribute.name
-            instance.type = attribute.type
+            instance.type = setup_attribute_type(attribute)
             instance.default = attribute.default
           end
           instance
+        end
+
+        def setup_attribute_type(attribute)
+          return attribute.type if attribute.type
+
+          simple_type = attribute.simple_type
+          attr_name = attribute.name
+          simple_type.name = attr_name
+          @simple_types[attr_name] = setup_simple_type(simple_type)
+          attr_name
         end
 
         def setup_attribute_groups(attribute_group)
@@ -343,11 +366,7 @@ module Lutaml
           if element_name
             instance.min_occurs = element.min_occurs
             instance.max_occurs = element.max_occurs
-            if element.type.nil?
-              setup_element_type(element, instance)
-            else
-              instance.type = element.type
-            end
+            instance.type = setup_element_type(element, instance)
             instance.id = element.id
             instance.fixed = element.fixed
             instance.default = element.default
@@ -355,10 +374,15 @@ module Lutaml
           instance
         end
 
+        # Populates @simple_types or @complex_types based on elements available value.
         def setup_element_type(element, instance)
+          return element.type if element.type
+
           type = element.simple_type ? "simple" : "complex"
-          element.public_send(:"#{type}_type").name = element.name
-          instance.public_send(:"#{type}_type=", public_send(:"setup_#{type}_type", element.public_send(:"#{type}_type")))
+          type_instance = element.public_send(:"#{type}_type")
+          type_instance.name = element.name
+          instance_variable_get(:"@#{type}_types")[element.name] = public_send(:"setup_#{type}_type", type_instance)
+          type_instance.name
         end
 
         def setup_restriction(restriction)

@@ -21,6 +21,7 @@ module Lutaml
             integer: { skippable: true, class_name: "Lutaml::Model::Type::Integer" },
             decimal: { skippable: true, class_name: "Lutaml::Model::Type::Decimal" },
             string: { skippable: true, class_name: "Lutaml::Model::Type::String" },
+            anyURI: { class_name: "Lutaml::Model::Type::String", validations: { pattern: "/\\A\#{URI::DEFAULT_PARSER.make_regexp(%w[http https ftp])}\\z/" } },
             token: { class_name: "Lutaml::Model::Type::String", validations: { pattern: /\A[^\t\n\f\r ]+(?: [^\t\n\f\r ]+)*\z/ } },
             long: { class_name: "Lutaml::Model::Type::Decimal" },
             int: { skippable: true, class_name: "Lutaml::Model::Type::Integer" },
@@ -156,23 +157,29 @@ module Lutaml
             register.register_model(<%= klass_name %>, id: :<%= Utils.snake_case(klass_name) %>)
           TEMPLATE
 
-          MODEL_TEMPLATE_2 = ERB.new(<<~TEMPLATE, trim_mode: "-")
+          INDENT = "  "
+
+          INSTANCE_MODEL_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
             # frozen_string_literal: true
             require "lutaml/model"
             <%= "require_relative '\#{Utils.snake_case(parent_class)}'\n" if require_parent? -%>
             <%= "require 'bigdecimal'\n" if big_decimal_class? -%>
 
             class <%= klass_name %> < <%= parent_class %>
+            <%= "#{INDENT}VALUES = \#{restriction.enumerations}\n\n" if restriction.enumerations_exist? -%>
               def self.cast(value)
                 return nil if value.nil?
 
                 value = super(value)
-            <%= restriction.to_method_body(indent = "    ") -%>
+            <%= restriction.to_method_body(INDENT + INDENT) -%>
                 value
               end
             <%= "\n  private\n\n" if restriction.error_methods? -%>
-            <%= restriction.to_error_methods(indent = "  ") -%>
+            <%= restriction.to_error_methods(INDENT) -%>
             end
+
+            register = Lutaml::Model::GlobalRegister.lookup(Lutaml::Model::Config.default_register)
+            register.register_model(<%= klass_name %>, id: :<%= Utils.snake_case(klass_name) %>)
           TEMPLATE
 
           def initialize(name)
@@ -182,7 +189,7 @@ module Lutaml
           end
 
           def to_class
-            MODEL_TEMPLATE_2.result(binding)
+            INSTANCE_MODEL_TEMPLATE.result(binding)
           end
 
           def klass_name
