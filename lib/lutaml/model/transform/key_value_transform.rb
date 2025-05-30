@@ -33,7 +33,7 @@ module Lutaml
           end
         end
 
-        hash
+        hash.keys == [""] ? hash.values.first : hash
       end
 
       private
@@ -200,7 +200,7 @@ module Lutaml
         attr = attribute_for_rule(rule)
         return if attr&.derived?
 
-        value = extract_rule_value(doc, rule, format, attr, options)
+        value = rule_value_extractor_class.call(rule, doc, format, attr, register, options)
         value = apply_value_map(value, rule.value_map(:from, options), attr)
 
         return process_custom_method(rule, instance, value) if rule.has_custom_method_for_deserialization?
@@ -210,67 +210,6 @@ module Lutaml
 
         attr.valid_collection!(value, context)
         rule.deserialize(instance, value, attributes, self)
-      end
-
-      def extract_rule_value(doc, rule, format, attr, options = {})
-        rule_names = rule.multiple_mappings? ? rule.name : [rule.name]
-
-        rule_names.each do |rule_name|
-          value = rule_value_for(rule_name, doc, rule, format, attr, options)
-          value = transform_mapped_value(value, options) if should_transform_value?(value, options)
-          return value if Utils.initialized?(value)
-        end
-
-        Lutaml::Model::UninitializedClass.instance
-      end
-
-      def should_transform_value?(value, options)
-        (options[:key_mappings] || options[:value_mappings]) &&
-          value.is_a?(Hash)
-      end
-
-      def transform_mapped_value(value, options)
-        value.map do |k, v|
-          if v.is_a?(Hash)
-            transform_hash_value(v, k, options)
-          else
-            transform_simple_value(k, v, options)
-          end
-        end
-      end
-
-      def transform_hash_value(hash_value, key, options)
-        hash_value.merge(
-          {
-            options[:key_mappings].to_instance.to_s => key,
-          },
-        )
-      end
-
-      def transform_simple_value(key, value, options)
-        {
-          options[:key_mappings].to_instance.to_s => key,
-          options[:value_mappings].as_attribute.to_s => value,
-        }
-      end
-
-      def rule_value_for(name, doc, rule, format, attr, _options = {})
-        if rule.root_mapping?
-          doc
-        elsif rule.raw_mapping?
-          convert_to_format(doc, format)
-        elsif Utils.string_or_symbol_key?(doc, name)
-          Utils.fetch_str_or_sym(doc, name)
-        elsif attr&.default_set?(register)
-          attr.default(register)
-        else
-          Lutaml::Model::UninitializedClass.instance
-        end
-      end
-
-      def convert_to_format(doc, format)
-        adapter = Lutaml::Model::Config.adapter_for(format)
-        adapter.new(doc).public_send(:"to_#{format}")
       end
 
       def process_custom_method(rule, instance, value)
@@ -346,6 +285,10 @@ module Lutaml
             end,
           ]
         end
+      end
+
+      def rule_value_extractor_class
+        Lutaml::Model::RuleValueExtractor
       end
     end
   end

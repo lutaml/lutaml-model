@@ -5,7 +5,7 @@ require "lutaml/model/xml/oga_adapter"
 
 RSpec.describe "LutaML Model Performance" do
   after do
-    Lutaml::Model::Config.xml_adapter = Lutaml::Model::Xml::NokogiriAdapter
+    Lutaml::Model::Config.xml_adapter_type = :nokogiri
   end
 
   let(:large_xml) do
@@ -48,12 +48,12 @@ RSpec.describe "LutaML Model Performance" do
       end
 
       x.report("Ox Adapter") do
-        Lutaml::Model::Config.xml_adapter = Lutaml::Model::Xml::OxAdapter
+        Lutaml::Model::Config.xml_adapter_type = :ox
         Deserializer.from_xml(large_xml)
       end
 
       x.report("Oga Adapter") do
-        Lutaml::Model::Config.xml_adapter = Lutaml::Model::Xml::OgaAdapter
+        Lutaml::Model::Config.xml_adapter_type = :oga
         Deserializer.from_xml(large_xml)
       end
 
