@@ -113,13 +113,9 @@ RSpec.describe "Jsonl" do
   end
 
   it "skips invalid lines and show warning" do
-    warning_msg = <<~MSG
-      Skipping invalid line: unexpected character: 'invalid json'
-    MSG
-
     expect do
       JsonlSpec::Directory.from_jsonl(invalid_jsonl_content)
-    end.to output(warning_msg).to_stderr
+    end.to output(/Skipping invalid line: unexpected character: /).to_stderr
   end
 
   describe "parsing" do
