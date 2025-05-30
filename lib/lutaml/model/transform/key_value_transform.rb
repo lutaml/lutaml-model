@@ -25,18 +25,24 @@ module Lutaml
         hash = {}
         mappings.mappings.each do |rule|
           next unless valid_mapping?(rule, options)
-          next handle_delegate(instance, rule, hash, format) if rule.delegate
 
-          value = process_mapping_for_instance(instance, hash, format, rule, options)
-          if mappings.key_value_mappings? && value
-            hash[rule_from_name(rule)] = handle_key_value_mappings(value, mappings)
-          end
+          process_rule!(instance, rule, hash, format, mappings, options)
         end
 
         hash.keys == [""] ? hash.values.first : hash
       end
 
       private
+
+      def process_rule!(instance, rule, hash, format, mappings, options)
+        return handle_delegate(instance, rule, hash, format) if rule.delegate
+
+        value = process_mapping_for_instance(instance, hash, format, rule, options)
+
+        return unless mappings.key_value_mappings? && value
+
+        hash[rule_from_name(rule)] = handle_key_value_mappings(value, mappings)
+      end
 
       def process_mapping_for_instance(instance, hash, format, rule, options)
         if rule.custom_methods[:to]

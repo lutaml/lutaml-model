@@ -31,83 +31,95 @@ module JsonlSpec
 end
 
 RSpec.describe "Jsonl" do
-  context "valid jsonl" do
-    let(:new_york) { JsonlSpec::Address.new({ city: "New York" }) }
-    let(:london) { JsonlSpec::Address.new({ city: "London" }) }
-    let(:paris) { JsonlSpec::Address.new({ city: "Paris" }) }
+  let(:john) do
+    JsonlSpec::Person.new(
+      {
+        name: "John",
+        age: "30",
+        address: JsonlSpec::Address.new({ city: "New York" }),
+      },
+    )
+  end
 
-    let(:john) do
-      JsonlSpec::Person.new({ name: "John", age: "30", address: new_york })
-    end
+  let(:jane) do
+    JsonlSpec::Person.new(
+      {
+        name: "Jane",
+        age: "25",
+        address: JsonlSpec::Address.new({ city: "London" }),
+      },
+    )
+  end
 
-    let(:jane) do
-      JsonlSpec::Person.new({ name: "Jane", age: "25", address: london })
-    end
+  let(:bob) do
+    JsonlSpec::Person.new(
+      {
+        name: "Bob",
+        age: "35",
+        address: JsonlSpec::Address.new({ city: "Paris" }),
+      },
+    )
+  end
 
-    let(:bob) do
-      JsonlSpec::Person.new({ name: "Bob", age: "35", address: paris })
-    end
+  let(:valid_jsonl) do
+    <<~JSONL.strip
+      {"name":"John","age":30,"address":{"city":"New York"}}
+      {"name":"Jane","age":25,"address":{"city":"London"}}
+      {"name":"Bob","age":35,"address":{"city":"Paris"}}
+    JSONL
+  end
 
-    let(:valid_jsonl) do
-      <<~JSONL.strip
-        {"name":"John","age":30,"address":{"city":"New York"}}
-        {"name":"Jane","age":25,"address":{"city":"London"}}
-        {"name":"Bob","age":35,"address":{"city":"Paris"}}
-      JSONL
-    end
+  let(:valid_jsonl_with_empty_lines) do
+    <<~JSONL
+      {"name":"John","age":30,"address":{"city":"New York"}}
 
-    let(:valid_jsonl_with_empty_lines) do
-      <<~JSONL
-        {"name":"John","age":30,"address":{"city":"New York"}}
-
-        {"name":"Jane","age":25,"address":{"city":"London"}}
+      {"name":"Jane","age":25,"address":{"city":"London"}}
 
 
-        {"name":"Bob","age":35,"address":{"city":"Paris"}}
+      {"name":"Bob","age":35,"address":{"city":"Paris"}}
 
 
-      JSONL
-    end
+    JSONL
+  end
 
-    let(:invalid_jsonl_content) do
-      <<~JSONL
-        {"name": "John", "age": 30, "address": {"city": "New York"}}
-        invalid json
-        {"name": "Bob", "age": 35, "address": {"city": "Paris"}}
-      JSONL
-    end
+  let(:invalid_jsonl_content) do
+    <<~JSONL
+      {"name": "John", "age": 30, "address": {"city": "New York"}}
+      invalid json
+      {"name": "Bob", "age": 35, "address": {"city": "Paris"}}
+    JSONL
+  end
 
-    let(:parsed) { JsonlSpec::Directory.from_jsonl(valid_jsonl) }
+  let(:parsed) { JsonlSpec::Directory.from_jsonl(valid_jsonl) }
 
-    it "parses all the json lines" do
-      expect(parsed.persons).to eq([john, jane, bob])
-    end
+  it "parses all the json lines" do
+    expect(parsed.persons).to eq([john, jane, bob])
+  end
 
-    it "handles empty lines" do
-      expect(
-        JsonlSpec::Directory.from_jsonl(valid_jsonl_with_empty_lines).persons,
-      ).to eq([john, jane, bob])
-    end
+  it "handles empty lines" do
+    expect(
+      JsonlSpec::Directory.from_jsonl(valid_jsonl_with_empty_lines).persons,
+    ).to eq([john, jane, bob])
+  end
 
-    it "round trips valid jsonl correctly" do
-      expect(parsed.to_jsonl).to eq(valid_jsonl)
-    end
+  it "round trips valid jsonl correctly" do
+    expect(parsed.to_jsonl).to eq(valid_jsonl)
+  end
 
-    it "removes empty line when round triping valid jsonl" do
-      expect(
-        JsonlSpec::Directory.from_jsonl(valid_jsonl_with_empty_lines).to_jsonl,
-      ).to eq(valid_jsonl)
-    end
+  it "removes empty line when round triping valid jsonl" do
+    expect(
+      JsonlSpec::Directory.from_jsonl(valid_jsonl_with_empty_lines).to_jsonl,
+    ).to eq(valid_jsonl)
+  end
 
-    it "skips invalid lines and show warning" do
-      warning_msg = <<~MSG
-        Skipping invalid line: unexpected character: 'invalid json'
-      MSG
+  it "skips invalid lines and show warning" do
+    warning_msg = <<~MSG
+      Skipping invalid line: unexpected character: 'invalid json'
+    MSG
 
-      expect do
-        JsonlSpec::Directory.from_jsonl(invalid_jsonl_content)
-      end.to output(warning_msg).to_stderr
-    end
+    expect do
+      JsonlSpec::Directory.from_jsonl(invalid_jsonl_content)
+    end.to output(warning_msg).to_stderr
   end
 
   describe "parsing" do
