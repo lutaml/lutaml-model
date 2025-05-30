@@ -3,7 +3,6 @@ require_relative "config"
 require_relative "type"
 require_relative "attribute"
 require_relative "mapping_hash"
-# require_relative "mapping"
 require_relative "json_adapter"
 require_relative "comparable_model"
 require_relative "schema_location"
@@ -290,7 +289,7 @@ module Lutaml
         end
 
         def of(format, doc, options = {})
-          if doc.is_a?(Array)
+          if doc.is_a?(Array) && format != :jsonl
             return doc.map { |item| send(:"of_#{format}", item) }
           end
 
