@@ -4,6 +4,8 @@ module Lutaml
   module Model
     class RuleValueExtractor < Services::Base
       def initialize(rule, doc, format, attr, register, options)
+        super()
+
         @rule = rule
         @doc = doc
         @format = format
@@ -31,19 +33,20 @@ module Lutaml
       end
 
       def rule_value_for(name)
-        return doc if name.nil?
+        return doc if root_or_nil?(name)
+        return convert_to_format(doc, format) if rule.raw_mapping?
+        return fetch_value(name) if Utils.string_or_symbol_key?(doc, name)
+        return attr.default(register) if attr&.default_set?(register)
 
-        if rule.root_mapping?
-          doc
-        elsif rule.raw_mapping?
-          convert_to_format(doc, format)
-        elsif Utils.string_or_symbol_key?(doc, name)
-          Utils.fetch_with_string_or_symbol_key(doc, name)
-        elsif attr&.default_set?(register)
-          attr.default(register)
-        else
-          uninitialized_value
-        end
+        uninitialized_value
+      end
+
+      def root_or_nil?(name)
+        name.nil? || rule.root_mapping?
+      end
+
+      def fetch_value(name)
+        Utils.fetch_with_string_or_symbol_key(doc, name)
       end
 
       def transform_mapped_value(value)
