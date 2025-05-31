@@ -285,7 +285,7 @@ module Lutaml
           adapter = Lutaml::Model::Config.adapter_for(format)
 
           doc = adapter.parse(data, options)
-          public_send(:"of_#{format}", doc, options)
+          of(format, doc, options)
         end
 
         def of(format, doc, options = {})
@@ -583,6 +583,10 @@ module Lutaml
 
         options[:parse_encoding] = encoding if encoding
         self.class.to(format, self, options)
+      end
+
+      def initialized?
+        true
       end
 
       private
