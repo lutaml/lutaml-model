@@ -26,7 +26,6 @@ RSpec.describe "LutaML Model Performance" do
       map_attribute "id", to: :id
       map_element "value", to: :value
       map_element "name", to: :name
-      map_element "value", to: :value
     end
   end
 

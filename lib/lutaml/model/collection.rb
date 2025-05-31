@@ -34,7 +34,7 @@ module Lutaml
 
           if mappings.no_root? && format == :xml
             instance.map do |item|
-              item.public_send(:"to_#{format}", options)
+              item.to_xml(options)
             end.join("\n")
           else
             super(format, instance, options.merge(collection: true))
