@@ -5,7 +5,7 @@ module Lutaml
     module Schema
       module XmlCompiler
         class SimpleType
-          attr_accessor :class_name, :simple_types, :restriction, :union, :base_class
+          attr_accessor :class_name, :base_class, :instance
 
           DEFAULT_CLASSES = %w[int integer string boolean].freeze
 
@@ -21,7 +21,7 @@ module Lutaml
             integer: { skippable: true, class_name: "Lutaml::Model::Type::Integer" },
             decimal: { skippable: true, class_name: "Lutaml::Model::Type::Decimal" },
             string: { skippable: true, class_name: "Lutaml::Model::Type::String" },
-            anyURI: { class_name: "Lutaml::Model::Type::String", validations: { pattern: "/\\A\#{URI::DEFAULT_PARSER.make_regexp(%w[http https ftp])}\\z/" } },
+            anyURI: { class_name: "Lutaml::Model::Type::String", validations: { pattern: "\\A\#{URI::DEFAULT_PARSER.make_regexp(%w[http https ftp])}\\z" } },
             token: { class_name: "Lutaml::Model::Type::String", validations: { pattern: /\A[^\t\n\f\r ]+(?: [^\t\n\f\r ]+)*\z/ } },
             long: { class_name: "Lutaml::Model::Type::Decimal" },
             int: { skippable: true, class_name: "Lutaml::Model::Type::Integer" },
@@ -163,19 +163,16 @@ module Lutaml
             # frozen_string_literal: true
             require "lutaml/model"
             <%= "require_relative '\#{Utils.snake_case(parent_class)}'\n" if require_parent? -%>
-            <%= "require 'bigdecimal'\n" if big_decimal_class? -%>
+            <%= required_files -%>
 
             class <%= klass_name %> < <%= parent_class %>
-            <%= "#{INDENT}VALUES = \#{restriction.enumerations}\n\n" if restriction.enumerations_exist? -%>
               def self.cast(value)
                 return nil if value.nil?
 
+            <%= instance.to_method_body(INDENT + INDENT) -%>
                 value = super(value)
-            <%= restriction.to_method_body(INDENT + INDENT) -%>
                 value
               end
-            <%= "\n  private\n\n" if restriction.error_methods? -%>
-            <%= restriction.to_error_methods(INDENT) -%>
             end
 
             register = Lutaml::Model::GlobalRegister.lookup(Lutaml::Model::Config.default_register)
@@ -210,6 +207,10 @@ module Lutaml
             else
               Utils.camel_case(base_class.to_s)
             end
+          end
+
+          def required_files
+            instance.required_files
           end
 
           class << self

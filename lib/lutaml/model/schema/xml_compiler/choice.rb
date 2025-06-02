@@ -35,6 +35,10 @@ module Lutaml
             XML_MAPPING_TEMPLATE.result(binding)
           end
 
+          def required_files
+            @instances.map(&:required_files).flatten.compact
+          end
+
           private
 
           def min_option

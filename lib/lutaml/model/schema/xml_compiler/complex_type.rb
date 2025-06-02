@@ -6,19 +6,30 @@ module Lutaml
           attr_accessor :id,
                         :name,
                         :mixed,
-                        :instances
+                        :instances,
+                        :simple_content
 
           INDENT = "  "
 
+          SIMPLE_CONTENT_ATTRIBUTE_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
+            <%= indent %>attribute :<%= name %>, :<%= simple_content.base_class %>
+            <%= simple_content.to_attributes(indent) -%>
+          TEMPLATE
+
+          SIMPLE_CONTENT_MAPPING = ERB.new(<<~TEMPLATE, trim_mode: "-")
+            <%= indent %>map_content to: :<%= name %>
+          TEMPLATE
+
           TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
             # frozen_string_literal: true
-            <%= required_files -%>
+            <%=  "\n" + required_files.uniq.join("\n") -%>
 
             class <%= Utils.camel_case(name) %> < Lutaml::Model::Serializable
             <%= instances.map { |instance| instance.to_attributes(indent) }.compact.join + "\n" -%>
+            <%= simple_content? ? SIMPLE_CONTENT_ATTRIBUTE_TEMPLATE.result(binding) : nil -%>
             <%= indent %>xml do
             <%= indent + INDENT %>root "<%= name %>"<%= root_options %>
-
+            <%= simple_content? ? SIMPLE_CONTENT_MAPPING.result(binding) : nil -%>
             <%= instances.map { |instance| instance.to_xml_mapping(indent + INDENT) }.compact.join -%>
             <%= indent %>end
             end
@@ -35,17 +46,18 @@ module Lutaml
             @instances << instance
           end
 
+          def simple_content?
+            @simple_content
+          end
+
           def to_class(indent = INDENT)
             TEMPLATE.result(binding)
           end
 
           private
 
-          # TODO: IN PROGRESS
           def required_files
-            return "" unless mixed
-
-            files = @instances.map(&:required_files)
+            @instances.map(&:required_files).flatten.compact.uniq
           end
 
           def root_options
