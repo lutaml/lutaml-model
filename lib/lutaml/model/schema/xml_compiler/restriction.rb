@@ -16,73 +16,34 @@ module Lutaml
                         :pattern,
                         :length
 
-            MAX_BOUND = ERB.new(<<~TEMPLATE, trim_mode: "-")
-              <%= "\#{indent}max_bound = \#{max_inclusive || max_exclusive}" %>
-              <%= "\#{indent}raise_max_bound_error(value, max_bound) unless value <\#{'=' if max_inclusive} max_bound" %>
-            TEMPLATE
-
-            MIN_BOUND = ERB.new(<<~TEMPLATE, trim_mode: "-")
-              <%= "\#{indent}min_bound = \#{min_inclusive || min_exclusive}" %>
-              <%= "\#{indent}raise_min_bound_error(value, min_bound) unless value >\#{'=' if min_inclusive} min_bound" %>
+            MIN_MAX_BOUNDS = ERB.new(<<~TEMPLATE, trim_mode: "-")
+              <%= "\#{indent}@min_max_bounds = {}" if min_max_bounds_exist? %>
+              <%= "\#{indent}@min_max_bounds[:max] = \#{max_inclusive || max_exclusive}" if max_bound_exist? %>
+              <%= "\#{indent}@min_max_bounds[:min] = \#{min_inclusive || min_exclusive}" if min_bound_exist? %>
             TEMPLATE
 
             PATTERN = ERB.new(<<~TEMPLATE, trim_mode: "-")
-              <%= "\#{indent}pattern = %r{\#{pattern}}" %>
-              <%= "\#{indent}raise_pattern_error(value, pattern) unless value.match?(pattern)" %>
+              <%= "\#{indent}@pattern = %r{\#{pattern}}" %>
             TEMPLATE
 
             ENUMERATIONS = ERB.new(<<~TEMPLATE, trim_mode: "-")
-              <%= "\#{indent}raise_enumerations_error(value) unless VALUES.include?(value)" %>
-            TEMPLATE
-
-            MAX_BOUND_ERROR_METHOD = ERB.new(<<~TEMPLATE, trim_mode: "-")
-              <%= indent %>def self.raise_max_bound_error(input_value, max_bound)
-              <%= indent %>  raise Lutaml::Model::Type::InvalidValueError, "The provided value \#{input_value} exceeds the maximum allowed value of \#{max_bound}"
-              <%= indent %>end
-            TEMPLATE
-
-            MIN_BOUND_ERROR_METHOD = ERB.new(<<~TEMPLATE, trim_mode: "-")
-              <%= indent %>def self.raise_min_bound_error(input_value, min_bound)
-              <%= indent %>  raise Lutaml::Model::Type::InvalidValueError, "The provided value \#{input_value} is less than the minimum allowed value of \#{min_bound}"
-              <%= indent %>end
-            TEMPLATE
-
-            PATTERN_ERROR_METHOD = ERB.new(<<~TEMPLATE, trim_mode: "-")
-              <%= indent %>def self.raise_pattern_error(input_value, pattern)
-              <%= indent %>  raise Lutaml::Model::Type::InvalidValueError, "The provided value \#{input_value} does not match the pattern \#{pattern}"
-              <%= indent %>end
-            TEMPLATE
-
-            ENUMERATIONS_ERROR_METHOD = ERB.new(<<~TEMPLATE, trim_mode: "-")
-              <%= indent %>def self.raise_enumerations_error(input_value)
-              <%= indent %>  raise Lutaml::Model::Type::InvalidValueError, "The provided value \#{input_value} is not a valid enumeration"
-              <%= indent %>end
+              <%= "\#{indent}@values = \#{enumerations}" %>
             TEMPLATE
 
           def to_method_body(indent = nil)
             [
               value_for(ENUMERATIONS, type: :enumerations, indent: indent),
-              value_for(MAX_BOUND, type: :max_bound, indent: indent),
-              value_for(MIN_BOUND, type: :min_bound, indent: indent),
+              value_for(MIN_MAX_BOUNDS, type: :min_max_bounds, indent: indent),
               value_for(PATTERN, type: :pattern, indent: indent),
             ].compact.join("\n")
           end
 
-          def to_error_methods(indent = nil)
-            [
-              value_for(MAX_BOUND_ERROR_METHOD, type: :max_bound, indent: indent),
-              value_for(MIN_BOUND_ERROR_METHOD, type: :min_bound, indent: indent),
-              value_for(PATTERN_ERROR_METHOD, type: :pattern, indent: indent),
-              value_for(ENUMERATIONS_ERROR_METHOD, type: :enumerations, indent: indent),
-            ].compact.join("\n")
-          end
-
-          def error_methods?
-            min_bound_exist? || max_bound_exist? || pattern_exist? || enumerations_exist?
-          end
-
-          def enumerations_exist?
-            Utils.present?(enumerations)
+          def required_files
+            if base_class_name == :decimal
+              "require \"bigdecimal\""
+            elsif !SimpleType::SUPPORTED_DATA_TYPES.dig(base_class_name, :skippable)
+              "require_relative \"#{Utils.snake_case(base_class_name)}\""
+            end
           end
 
           private
@@ -94,16 +55,28 @@ module Lutaml
             constant.result(binding)
           end
 
+          def min_max_bounds_exist?
+            min_bound_exist? || max_bound_exist?
+          end
+
           def min_bound_exist?
-            min_inclusive || min_exclusive
+            Utils.present?(min_inclusive) || Utils.present?(min_exclusive)
           end
 
           def max_bound_exist?
-            max_inclusive || max_exclusive
+            Utils.present?(max_inclusive) || Utils.present?(max_exclusive)
           end
 
           def pattern_exist?
             Utils.present?(pattern)
+          end
+
+          def enumerations_exist?
+            Utils.present?(enumerations)
+          end
+
+          def base_class_name
+            base_class.split(":")&.last.to_sym
           end
         end
       end
