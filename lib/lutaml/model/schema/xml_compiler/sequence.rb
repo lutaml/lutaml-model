@@ -15,7 +15,7 @@ module Lutaml
 
           XML_MAPPING_TEMPLATE = ERB.new(<<~XML_MAPPING_TEMPLATE, trim_mode: "-")
             <%= indent %>sequence do
-            <%= instances.map { |instance| instance.to_xml_mapping(indent + INDENT) }.join -%>
+            <%= block_content(indent) -%>
             <%= indent %>end
           XML_MAPPING_TEMPLATE
 
@@ -32,7 +32,17 @@ module Lutaml
           end
 
           def to_xml_mapping(indent = INDENT)
+            return "" if block_content(indent).empty?
+
             XML_MAPPING_TEMPLATE.result(binding)
+          end
+
+          def required_files
+            @instances.map(&:required_files)
+          end
+
+          def block_content(indent)
+            instances.map { |instance| instance.to_xml_mapping(indent + INDENT) }.compact.join
           end
         end
       end

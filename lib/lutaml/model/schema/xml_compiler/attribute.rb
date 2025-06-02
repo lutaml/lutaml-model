@@ -11,6 +11,8 @@ module Lutaml
                         :type,
                         :default
 
+
+          DEFAULT_XML_NAMESPACES = %w[xml]
           INDENT = "  "
 
           TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
@@ -18,7 +20,7 @@ module Lutaml
           TEMPLATE
 
           XML_MAPPING_TEMPLATE = ERB.new(<<~XML_MAPPING_TEMPLATE, trim_mode: "-")
-            <%= indent %>map_attribute :<%= resolved_name %>, to: :<%= resolved_type %>
+            <%= indent %>map_attribute :<%= resolved_name(change_case: false) %>, to: :<%= resolved_name %>
           XML_MAPPING_TEMPLATE
 
           def initialize(name: nil, ref: nil)
@@ -29,6 +31,8 @@ module Lutaml
           end
 
           def to_attributes(indent = INDENT)
+            return if skippable?
+
             TEMPLATE.result(binding)
           end
 
@@ -36,21 +40,33 @@ module Lutaml
             XML_MAPPING_TEMPLATE.result(binding)
           end
 
-          private
-
-          def resolved_name
-            return @name if @name
-
-            referenced_instance&.name
+          def required_files
+            if resolved_type(change_case: false) == "decimal"
+              "require \"bigdecimal\""
+            elsif !SimpleType::SUPPORTED_DATA_TYPES.dig(resolved_type(change_case: false).to_sym, :skippable)
+              "require_relative \"#{Utils.snake_case(resolved_type(change_case: false))}\""
+            end
           end
 
-          def resolved_type
-            current_type = type || referenced_instance&.type
-            Utils.snake_case(current_type.split(":").last)
+          private
+
+          def resolved_name(change_case: true)
+            @current_name ||= name || referenced_instance&.name
+            change_case ? Utils.snake_case(@current_name) : @current_name
+          end
+
+          def resolved_type(change_case: true)
+            @current_type ||= type || referenced_instance&.type
+            klass_name = @current_type&.split(":").last
+            change_case ? Utils.snake_case(klass_name) : klass_name
           end
 
           def referenced_instance
             @referenced_instance ||= XmlCompiler.instance_variable_get(:"@attributes")[ref]
+          end
+
+          def skippable?
+            DEFAULT_XML_NAMESPACES.include?(ref&.split(":")&.first)
           end
         end
       end

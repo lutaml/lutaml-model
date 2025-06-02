@@ -148,4 +148,4 @@
     <xs:attribute name="version" type="xs:string" use="required"/>
     <xs:attribute name="lastUpdated" type="xs:dateTime" use="required"/>
   </xs:complexType>
-</xs:schema> 
+</xs:schema>

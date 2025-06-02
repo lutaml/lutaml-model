@@ -4,6 +4,7 @@ require "erb"
 require "tmpdir"
 require "lutaml/xsd"
 require_relative "xml_compiler/attribute_group"
+require_relative "xml_compiler/simple_content"
 require_relative "xml_compiler/complex_type"
 require_relative "xml_compiler/restriction"
 require_relative "xml_compiler/simple_type"
@@ -176,7 +177,7 @@ module Lutaml
               when Xsd::SimpleType
                 @simple_types[item_name] = setup_simple_type(order_item)
               when Xsd::Group
-                @group_types[item_name] = setup_group_type(order_item)
+                @group_types[item_name] = setup_group_type(order_item, root_call: true)
               when Xsd::ComplexType
                 @complex_types[item_name] = setup_complex_type(order_item)
               when Xsd::Element
@@ -192,12 +193,12 @@ module Lutaml
         end
 
         def setup_simple_type(simple_type)
-          SimpleType.new(simple_type.name).tap do |instance|
+          SimpleType.new(simple_type.name).tap do |type_object|
             if union = simple_type.union
-              instance.union = union.member_types.split.map { |member_type| @simple_types[member_type] }.flatten
+              type_object.instance = union.member_types.split.map { |member_type| @simple_types[member_type] }.flatten
             elsif restriction = simple_type.restriction
-              instance.base_class = restriction.base&.split(":")&.last
-              instance.restriction = setup_restriction(restriction)
+              type_object.base_class = restriction.base&.split(":")&.last
+              type_object.instance = setup_restriction(restriction)
             end
           end
         end
@@ -254,17 +255,21 @@ module Lutaml
               when Xsd::Group
                 instance << setup_group_type(element)
               when Xsd::SimpleContent
-                instance << setup_simple_content(element)
+                instance.simple_content = setup_simple_content(element)
               end
             end
           end
         end
 
         def setup_simple_content(simple_content)
-          if simple_content.extension
-            setup_extension(simple_content.extension)
-          elsif simple_content.restriction
-            setup_restriction(simple_content.restriction, {})
+          SimpleContent.new.tap do |instance|
+            if simple_content.extension
+              instance.base_class = simple_content.extension.base
+              setup_extension(simple_content.extension, instance)
+            elsif simple_content.restriction
+              instance.base_class = simple_content.restriction.base
+              instance << setup_restriction(simple_content.restriction)
+            end
           end
         end
 
@@ -287,16 +292,17 @@ module Lutaml
           end
         end
 
-        def setup_group_type(group)
-          group = Group.new(name: group.name, ref: group.ref)
+        def setup_group_type(group, root_call: false)
+          object = Group.new(group.name, group.ref)
           if group.name
             if sequence = group.sequence
-              group.sequence = setup_sequence(sequence)
+              object.instance = setup_sequence(sequence)
             elsif choice = group.choice
-              group.choice = setup_choice(choice)
+              object.instance = setup_choice(choice)
             end
+            @group_types[group.name] = object unless root_call
           end
-          group
+          object
         end
 
         def setup_choice(choice)
@@ -403,30 +409,30 @@ module Lutaml
         end
 
         def setup_complex_content(complex_content)
-          ComplexContent.new.tap do |instance|
-            instance.mixed = true if complex_content.mixed
+          ComplexContent.new.tap do |object|
+            object.mixed = true if complex_content.mixed
             if complex_content.extension
-              instance.extension = setup_extension(complex_content.extension)
+              object.instance = setup_extension(complex_content.extension, object)
             elsif restriction = complex_content.restriction
-              instance.restriction = setup_restriction(restriction)
+              object.instance = setup_restriction(restriction)
             end
           end
         end
 
-        def setup_extension(extension)
-          MappingHash.new.tap do |hash|
-            hash[:extension_base] = extension.base
-            hash[:attribute_groups] = [] if extension&.attribute_group&.any?
-            hash[:attributes] = [] if extension&.attribute&.any?
-            resolved_element_order(extension).each do |element|
-              case element
-              when Xsd::Attribute
-                hash[:attributes] << setup_attribute(element)
-              when Xsd::Sequence
-                hash[:sequence] = setup_sequence(element)
-              when Xsd::Choice
-                hash[:choice] = setup_choice(element)
-              end
+        def setup_extension(extension, instance)
+          instance.base_class = extension.base
+          resolved_element_order(extension).each do |element|
+            case element
+            when Xsd::Attribute
+              instance << setup_attribute(element)
+            when Xsd::AttributeGroup
+              instance << setup_attribute_groups(element)
+            when Xsd::Sequence
+              instance << setup_sequence(element)
+            when Xsd::Choice
+              instance << setup_choice(element)
+            when Xsd::Group
+              instance << setup_group_type(element)
             end
           end
         end

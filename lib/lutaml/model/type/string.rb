@@ -5,6 +5,8 @@ module Lutaml
         def self.cast(value)
           return nil if value.nil?
 
+          validate_pattern!(value) if pattern_available?
+          validate_values!(value) if values_available?
           value.to_s
         end
 
@@ -42,6 +44,30 @@ module Lutaml
 
         def self.from_toml(value)
           cast(value)
+        end
+
+        def self.values_available?
+          Utils.present?(values)
+        end
+
+        def self.values
+          @values
+        end
+
+        def self.pattern_available?
+          Utils.present?(pattern)
+        end
+
+        def self.pattern
+          @pattern
+        end
+
+        def self.validate_pattern!(value)
+          raise Lutaml::Model::PatternNotMatchedError.new(value, pattern) unless value.match?(pattern)
+        end
+
+        def self.validate_values!(value)
+          raise Lutaml::Model::InvalidValueError.new(name, value, values) unless values.include?(value)
         end
       end
     end
