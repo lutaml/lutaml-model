@@ -41,10 +41,11 @@ module Lutaml
           end
 
           def required_files
-            if resolved_type(change_case: false) == "decimal"
+            raw_type = resolved_type(change_case: false)
+            if raw_type == "decimal"
               "require \"bigdecimal\""
-            elsif !SimpleType::SUPPORTED_DATA_TYPES.dig(resolved_type(change_case: false).to_sym, :skippable)
-              "require_relative \"#{Utils.snake_case(resolved_type(change_case: false))}\""
+            elsif !SimpleType::SUPPORTED_DATA_TYPES.dig(raw_type.to_sym, :skippable)
+              "require_relative \"#{Utils.snake_case(raw_type)}\""
             end
           end
 
