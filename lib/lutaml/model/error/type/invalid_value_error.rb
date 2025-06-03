@@ -4,14 +4,17 @@ module Lutaml
   module Model
     module Type
       class InvalidValueError < Error
-        def initialize(message)
-          @message = message
+        def initialize(attr_name, value, allowed_values)
+          @attr_name = attr_name
+          @value = value
+          @allowed_values = allowed_values
 
           super()
         end
 
         def to_s
-          @message
+          "#{@attr_name} is `#{@value}`, must be one of the " \
+            "following [#{@allowed_values.join(', ')}]"
         end
       end
     end

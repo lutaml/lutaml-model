@@ -5,7 +5,7 @@ module Lutaml
     module Schema
       module XmlCompiler
         class Group
-          attr_accessor :id, :name, :maxOccurs, :minOccurs, :ref, :instance
+          attr_accessor :name, :ref, :instance
 
           INDENT = "  "
 
@@ -29,14 +29,13 @@ module Lutaml
           TEMPLATE
 
           def initialize(name = nil, ref = nil)
-            raise "Group name is required" if Utils.blank?(name) && Utils.blank?(ref)
-
             @name = name
             @ref = ref
           end
 
           def to_xml_mapping(indent = INDENT)
-            # NO implementation for mapping is required for groups since these will be imported at attribute level
+            return @instance.to_xml_mapping(indent) if Utils.blank?(@name) && Utils.blank?(@ref)
+
             nil
           end
 
@@ -45,13 +44,15 @@ module Lutaml
           end
 
           def required_files
-            return if Utils.blank?(@name)
-
             @instance.required_files
           end
 
           def to_attributes(indent = INDENT)
-            IMPORT_MODEL_TEMPLATE.result(binding)
+            if Utils.blank?(@name) && Utils.blank?(@ref)
+              @instance.to_attributes(indent)
+            else
+              IMPORT_MODEL_TEMPLATE.result(binding)
+            end
           end
 
           def model_name

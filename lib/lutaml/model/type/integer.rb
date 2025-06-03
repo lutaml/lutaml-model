@@ -57,15 +57,15 @@ module Lutaml
         end
 
         def self.validate_values!(value)
-          raise Lutaml::Model::InvalidValueError.new(name, value, values) unless values.include?(value)
+          raise Lutaml::Model::Type::InvalidValueError.new(name, value, values) unless values.include?(value)
         end
 
         def self.validate_min_bound!(value)
-          raise Lutaml::Model::MinBoundError.new(value, min_max_bounds[:min]) if value < min_max_bounds[:min]
+          raise Lutaml::Model::Type::MinBoundError.new(value, min_max_bounds[:min]) if value < min_max_bounds[:min]
         end
 
         def self.validate_max_bound!(value)
-          raise Lutaml::Model::MaxBoundError.new(value, min_max_bounds[:max]) if value > min_max_bounds[:max]
+          raise Lutaml::Model::Type::MaxBoundError.new(value, min_max_bounds[:max]) if value > min_max_bounds[:max]
         end
 
         def self.validate_min_max_bounds!(value)
