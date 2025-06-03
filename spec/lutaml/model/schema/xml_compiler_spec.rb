@@ -32,7 +32,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
           Dir.each_child(dir) { |child| require_relative File.expand_path("#{dir}/#{child}") }
           expect(defined?(CTMathTest)).to eq("constant")
           expect(CTMathTest.from_xml(valid_value_xml_example).to_xml).to be_equivalent_to(valid_value_xml_example)
-          expect { CTMathTest.from_xml(invalid_value_xml_example) }.to raise_error(Lutaml::Model::Type::InvalidValueError)
+          expect { CTMathTest.from_xml(invalid_value_xml_example) }.to raise_error(Lutaml::Model::Type::MinBoundError)
         end
       end
     end
@@ -63,10 +63,10 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
           expect(parsed.to_xml).to be_equivalent_to(valid_example)
         end
 
-        it "raises InvalidValueError" do
+        it "raises PatternNotMatchedError" do
           expect(defined?(MathDocument)).to eq("constant")
           expect { MathDocument.from_xml(invalid_example) }
-            .to raise_error(Lutaml::Model::Type::InvalidValueError)
+            .to raise_error(Lutaml::Model::Type::PatternNotMatchedError)
         end
       end
     end
@@ -166,6 +166,4 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
       end
     end
   end
-
 end
-

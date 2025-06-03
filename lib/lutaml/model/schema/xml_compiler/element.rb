@@ -32,11 +32,11 @@ module Lutaml
           end
 
           def to_attributes(indent = INDENT)
-            TEMPLATE.result(binding) if type
+            TEMPLATE.result(binding) if resolved_type
           end
 
           def to_xml_mapping(indent = INDENT)
-            XML_MAPPING_TEMPLATE.result(binding) if type
+            XML_MAPPING_TEMPLATE.result(binding) if resolved_type
           end
 
           def required_files
