@@ -42,7 +42,7 @@ module Lutaml
         end
 
         # Convert the extracted base class to snake case format
-        def base_class_snake_name(klass)
+        def base_class_snake_case(klass)
           snake_case(base_class_name(klass))
         end
 

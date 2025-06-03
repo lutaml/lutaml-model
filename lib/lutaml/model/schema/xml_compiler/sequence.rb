@@ -9,15 +9,15 @@ module Lutaml
 
           INDENT = "  "
 
-          TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
-            <%= instances.map { |instance| instance.to_attributes(indent) }.join -%>
+          ATTRIBUTES_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
+            <%= instances.map { |instance| instance.to_attributes(indent) }.compact.join -%>
           TEMPLATE
 
-          XML_MAPPING_TEMPLATE = ERB.new(<<~XML_MAPPING_TEMPLATE, trim_mode: "-")
+          XML_MAPPING_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
             <%= indent %>sequence do
             <%= block_content(indent) -%>
             <%= indent %>end
-          XML_MAPPING_TEMPLATE
+          TEMPLATE
 
           def initialize
             @instances = []
@@ -28,7 +28,7 @@ module Lutaml
           end
 
           def to_attributes(indent = INDENT)
-            TEMPLATE.result(binding)
+            ATTRIBUTES_TEMPLATE.result(binding)
           end
 
           def to_xml_mapping(indent = INDENT)

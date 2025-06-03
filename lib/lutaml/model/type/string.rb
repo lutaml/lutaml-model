@@ -63,11 +63,11 @@ module Lutaml
         end
 
         def self.validate_pattern!(value)
-          raise Lutaml::Model::PatternNotMatchedError.new(value, pattern) unless value.match?(pattern)
+          raise Lutaml::Model::Type::PatternNotMatchedError.new(value, pattern) unless value.match?(pattern)
         end
 
         def self.validate_values!(value)
-          raise Lutaml::Model::InvalidValueError.new(name, value, values) unless values.include?(value)
+          raise Lutaml::Model::Type::InvalidValueError.new(name, value, values) unless values.include?(value)
         end
       end
     end
