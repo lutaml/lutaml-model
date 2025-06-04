@@ -41,30 +41,17 @@ module Lutaml
           as_models(schema, options: options)
           options[:indent] = options[:indent] ? options[:indent].to_i : 2
           options[:current_indent] = " " * options[:indent]
+          @simple_types.merge!(XmlCompiler::SimpleType.setup_supported_types)
+          classes_list = @simple_types.merge(@complex_types).merge(@group_types)
+          classes_list = classes_list.to_h { |name, type| [Utils.camel_case(name), type.to_class] }
           if options[:create_files]
             dir = options.fetch(:output_dir, "lutaml_models_#{Time.now.to_i}")
             FileUtils.mkdir_p(dir)
-            XmlCompiler::SimpleType.setup_supported_types.each do |name, simple_type|
-              create_file(name, simple_type.to_class, dir)
-            end
-            @simple_types.each do |name, simple_type|
-              create_file(name, simple_type.to_class, dir)
-            end
-            @complex_types.each do |name, complex_type|
-              create_file(name, complex_type.to_class, dir)
-            end
+            classes_list.each { |name, klass| create_file(name, klass, dir) }
             nil
-          elsif options[:load_files]
-            @simple_types.each_value do |simple_type|
-              print simple_type.to_class
-            end
-            @complex_types.each_value do |complex_type|
-              print complex_type.to_class
-            end
-            @group_types.each_value do |group_type|
-              print group_type.to_class
-            end
-            nil
+          else
+            require_classes(classes_list) if options[:load_classes]
+            classes_list
           end
         end
 
@@ -180,7 +167,7 @@ module Lutaml
               when Xsd::Choice
                 instance << setup_choice(element)
               when Xsd::ComplexContent
-                instance << setup_complex_content(element)
+                instance << setup_complex_content(element, instance.name)
               when Xsd::AttributeGroup
                 instance << setup_attribute_groups(element)
               when Xsd::Group
@@ -277,16 +264,16 @@ module Lutaml
         end
 
         def setup_attribute_groups(attribute_group)
-          instance = AttributeGroup.new(name: attribute_group.name, ref: attribute_group.ref)
+        instance = AttributeGroup.new(name: attribute_group.name, ref: attribute_group.ref)
           if attribute_group.name
             instance.attributes = [] if attribute_group.attribute&.any?
             instance.attribute_groups = [] if attribute_group.attribute_group&.any?
-            resolved_element_order(attribute_group).each do |instance|
-              case instance
+            resolved_element_order(attribute_group).each do |object|
+              case object
               when Xsd::Attribute
-                instance.attributes << setup_attribute(instance)
+                instance.attributes << setup_attribute(object)
               when Xsd::AttributeGroup
-                instance.attribute_groups << setup_attribute_groups(instance)
+                instance.attribute_groups << setup_attribute_groups(object)
               end
             end
           end
@@ -341,14 +328,16 @@ module Lutaml
           instance.pattern = patterns.map { |p| "(#{p.value})" }.join("|")
         end
 
-        def setup_complex_content(complex_content)
-          ComplexContent.new.tap do |object|
-            object.mixed = true if complex_content.mixed
-            if complex_content.extension
-              object.instance = setup_extension(complex_content.extension, object)
-            elsif restriction = complex_content.restriction
-              object.instance = setup_restriction(restriction)
-            end
+        def setup_complex_content(complex_content, name)
+          @complex_types[name] = ComplexType.new.tap do |instance|
+            instance.mixed = true if complex_content.mixed
+            instance.instances << if extension = complex_content.extension
+                                  instance.base_class = extension.base
+                                  setup_extension(complex_content.extension, instance)
+                                elsif restriction = complex_content.restriction
+                                  instance.base_class = restriction.base
+                                  setup_restriction(restriction)
+                                end
           end
         end
 

@@ -28,8 +28,8 @@ module Lutaml
                     end
                   end
 
-          validate_values!(value) if values_available?
-          validate_min_max_bounds!(value) if min_max_bounds_available?
+          Model::Services::Type::Validator.validate_values!(value, values) if values_available?
+          Model::Services::Type::Validator.validate_min_max_bounds!(value, min_max_bounds) if min_max_bounds_available?
           value
         end
 
@@ -53,24 +53,7 @@ module Lutaml
         end
 
         def self.min_max_bounds
-          @min_max_bounds
-        end
-
-        def self.validate_values!(value)
-          raise Lutaml::Model::Type::InvalidValueError.new(name, value, values) unless values.include?(value)
-        end
-
-        def self.validate_min_bound!(value)
-          raise Lutaml::Model::Type::MinBoundError.new(value, min_max_bounds[:min]) if value < min_max_bounds[:min]
-        end
-
-        def self.validate_max_bound!(value)
-          raise Lutaml::Model::Type::MaxBoundError.new(value, min_max_bounds[:max]) if value > min_max_bounds[:max]
-        end
-
-        def self.validate_min_max_bounds!(value)
-          validate_min_bound!(value) if min_max_bounds[:min]
-          validate_max_bound!(value) if min_max_bounds[:max]
+          @min_max_bounds || {}
         end
       end
     end
