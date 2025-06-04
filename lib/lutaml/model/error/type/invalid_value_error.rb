@@ -4,8 +4,7 @@ module Lutaml
   module Model
     module Type
       class InvalidValueError < Error
-        def initialize(attr_name, value, allowed_values)
-          @attr_name = attr_name
+        def initialize(value, allowed_values)
           @value = value
           @allowed_values = allowed_values
 
@@ -13,7 +12,7 @@ module Lutaml
         end
 
         def to_s
-          "#{@attr_name} is `#{@value}`, must be one of the " \
+          "`#{@value}` is invalid, must be one of the " \
             "following [#{@allowed_values.join(', ')}]"
         end
       end

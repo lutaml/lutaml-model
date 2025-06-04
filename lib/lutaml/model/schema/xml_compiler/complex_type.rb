@@ -7,6 +7,7 @@ module Lutaml
                         :name,
                         :mixed,
                         :instances,
+                        :base_class,
                         :simple_content
 
           INDENT = "  "
@@ -28,7 +29,7 @@ module Lutaml
             # frozen_string_literal: true
             <%=  "\n" + required_files.uniq.join("\n") -%>
 
-            class <%= Utils.camel_case(name) %> < Lutaml::Model::Serializable
+            class <%= Utils.camel_case(name) %> < <%= base_class %>
             <%= instances.map { |instance| instance.to_attributes(indent) }.compact.join + "\n" -%>
             <%= simple_content_attribute(indent) -%>
             <%= indent %>xml do
@@ -43,7 +44,8 @@ module Lutaml
             register.register_model(<%= Utils.camel_case(name) %>, id: :<%= Utils.snake_case(name) %>)
           TEMPLATE
 
-          def initialize
+          def initialize(base_class: "Lutaml::Model::Serializable")
+            @base_class = base_class
             @instances = []
           end
 
@@ -68,7 +70,7 @@ module Lutaml
           end
 
           def required_files
-            @instances.map(&:required_files).flatten.compact.uniq
+            [base_class_require, @instances.map(&:required_files)].flatten.compact.uniq
           end
 
           def root_options
@@ -103,6 +105,15 @@ module Lutaml
 
           def prefix_option
             ", '#{@prefix}'" if @prefix
+          end
+
+          def base_class_require
+            case base_class
+            when "Lutaml::Model::Serializable"
+              "require 'lutaml/model'"
+            else
+              "require_relative '#{base_class}'"
+            end
           end
         end
       end
