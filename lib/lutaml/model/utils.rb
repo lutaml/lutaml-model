@@ -48,11 +48,11 @@ module Lutaml
           # return true unless value.respond_to?(:initialized?)
 
           # value.initialized?
-          value != Lutaml::Model::UninitializedClass.instance
+          !value.is_a?(Lutaml::Model::UninitializedClass)
         end
 
         def uninitialized?(value)
-          value == Lutaml::Model::UninitializedClass.instance
+          value.is_a?(Lutaml::Model::UninitializedClass)
         end
 
         def present?(value)
