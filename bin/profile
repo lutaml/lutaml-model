@@ -7,7 +7,7 @@ require_relative "../lib/lutaml/model"
 
 options = {
   mode: :wall, # default profiling mode
-  file: "spec/fixtures/example.uml"
+  file: "spec/fixtures/example.uml",
 }
 
 OptionParser.new do |opts|
@@ -26,7 +26,7 @@ end.parse!
 mode_map = {
   wall: RubyProf::WALL_TIME,
   memory: RubyProf::MEMORY,
-  allocations: RubyProf::ALLOCATIONS
+  allocations: RubyProf::ALLOCATIONS,
 }
 
 profiler = RubyProf::Profile.new(measure_mode: mode_map[options[:mode]] || RubyProf::WALL_TIME)
@@ -88,13 +88,13 @@ end
 
 puts <<~MSG
 
-✅ Profiling complete.
+  ✅ Profiling complete.
 
-  • Flat output:     #{flat_output}
-  • Callgrind file:  #{calltree_output} (open in QCacheGrind or KCacheGrind)
-  • HTML graph:      #{html_output}
+    • Flat output:     #{flat_output}
+    • Callgrind file:  #{calltree_output} (open in QCacheGrind or KCacheGrind)
+    • HTML graph:      #{html_output}
 
-  Example usage:
-    bin/profile -f path/to/file.uml -m allocations
+    Example usage:
+      bin/profile -f path/to/file.uml -m allocations
 
 MSG
