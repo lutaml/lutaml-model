@@ -6,7 +6,7 @@ module Lutaml
           return nil if value.nil?
 
           validate_pattern!(value) if pattern_available?
-          validate_values!(value) if values_available?
+          Model::Services::Type::Validator.validate_values!(value, values) if values_available?
           value.to_s
         end
 
@@ -64,10 +64,6 @@ module Lutaml
 
         def self.validate_pattern!(value)
           raise Lutaml::Model::Type::PatternNotMatchedError.new(value, pattern) unless value.match?(pattern)
-        end
-
-        def self.validate_values!(value)
-          raise Lutaml::Model::Type::InvalidValueError.new(name, value, values) unless values.include?(value)
         end
       end
     end
