@@ -46,7 +46,7 @@ module Lutaml
       end
 
       def fetch_value(name)
-        Utils.fetch_with_string_or_symbol_key(doc, name)
+        Utils.fetch_str_or_sym(doc, name)
       end
 
       def transform_mapped_value(value)
