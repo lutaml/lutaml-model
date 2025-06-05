@@ -128,7 +128,7 @@ module Lutaml
 
           return handle_cdata(children) if rule.cdata
 
-          values = []
+          values = attr.build_collection
 
           if Utils.present?(children)
             instance.value_set_for(attr.name)
@@ -180,24 +180,17 @@ module Lutaml
       end
 
       def normalize_xml_value(value, rule, attr, options = {})
-        value = [value].compact if attr&.collection? && !value.is_a?(Array) && !value.nil?
+        collection_class = attr&.collection_class || Array
+        value = [value].compact if !value.nil? && attr&.collection? && !value.is_a?(collection_class)
 
         return value unless cast_value?(attr, rule)
 
         options.merge(caller_class: self, mixed_content: rule.mixed_content)
-        attr.cast(
-          value,
-          :xml,
-          register,
-          options,
-        )
+        attr.cast(value, :xml, register, options)
       end
 
       def cast_value?(attr, rule)
-        attr &&
-          !rule.raw_mapping? &&
-          !rule.content_mapping? &&
-          !rule.custom_methods[:from]
+        attr && rule.castable?
       end
 
       def ensure_utf8(value)

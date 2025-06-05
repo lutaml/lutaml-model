@@ -84,6 +84,10 @@ module Lutaml
           cdata ? "#cdata-section" : "text"
         end
 
+        def castable?
+          !raw_mapping? && !content_mapping? && !custom_methods[:from]
+        end
+
         def mixed_content?
           !!@mixed_content
         end

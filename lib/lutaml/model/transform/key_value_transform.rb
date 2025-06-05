@@ -135,7 +135,7 @@ module Lutaml
       end
 
       def child_mapping_for(name, mappings)
-        mappings.find_by_to(name)&.name.to_s || name.to_s
+        mappings.find_by_to(name)&.name.to_s
       end
 
       def extract_hash_for_child_mapping(child_mappings, child_obj, rules)
@@ -260,7 +260,7 @@ module Lutaml
         elsif rule.raw_mapping?
           convert_to_format(doc, format)
         elsif Utils.string_or_symbol_key?(doc, name)
-          Utils.fetch_with_string_or_symbol_key(doc, name)
+          Utils.fetch_str_or_sym(doc, name)
         elsif attr&.default_set?(register)
           attr.default(register)
         else

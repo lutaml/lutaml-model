@@ -2612,8 +2612,6 @@ titles.last.title
 
 === Attribute collection class
 
-TODO: This case needs to be implemented.
-
 A model attribute that is a collection can be contained within a custom
 collection class.
 
@@ -2647,9 +2645,9 @@ Data:
 [source,xml]
 ----
 <titles>
-  <title><content>Title One</content></title>
-  <title><content>Title Two</content></title>
-  <title><content>Title Three</content></title>
+  <title>Title One</title>
+  <title>Title Two</title>
+  <title>Title Three</title>
 </titles>
 ----
 

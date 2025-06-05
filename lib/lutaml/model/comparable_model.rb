@@ -467,7 +467,7 @@ module Lutaml
               return format_single_value(
                 value1,
                 parent_node,
-                "#{label}#{type_info ? " (#{type_info})" : ''}",
+                "#{label}#{" (#{type_info})" if type_info}",
               )
             end
 
@@ -482,7 +482,7 @@ module Lutaml
           when ComparableModel
             format_object_attributes(value1, value2, parent_node)
           else
-            node = Tree.new("#{label}#{type_info ? " (#{type_info})" : ''}:")
+            node = Tree.new("#{label}#{" (#{type_info})" if type_info}:")
             parent_node.add_child(node)
             node.add_child(Tree.new("- #{format_value(value1)}", color: :red))
             node.add_child(Tree.new("+ #{format_value(value2)}", color: :green))
@@ -495,7 +495,7 @@ module Lutaml
         # @param label [String] The label for the value
         # @return [String] Formatted single value
         def format_single_value(value, parent_node, label, color = nil)
-          node = Tree.new("#{label}#{label.empty? ? '' : ':'}", color: color)
+          node = Tree.new("#{label}#{':' unless label.empty?}", color: color)
           parent_node.add_child(node)
 
           case value

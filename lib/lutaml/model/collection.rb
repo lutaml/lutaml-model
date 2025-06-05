@@ -12,7 +12,7 @@ module Lutaml
         def instances(name, type, &block)
           attribute(name, type, collection: true, validations: block)
 
-          @instance_type = type
+          @instance_type = Lutaml::Model::Attribute.cast_type!(type)
           @instance_name = name
 
           define_method(:"#{name}=") do |collection|
@@ -35,7 +35,7 @@ module Lutaml
           if mappings.no_root? && format == :xml
             mappings.mappings.map do |mapping|
               serialize_for_mapping(mapping, instance, format, options)
-            end.flatten.join("\n")
+            end.join("\n")
           else
             super(format, instance, options.merge(collection: true))
           end
@@ -56,7 +56,7 @@ module Lutaml
           data = super
 
           if mappings.no_root? && format != :xml && !mappings.root_mapping
-            Utils.fetch_with_string_or_symbol_key(data, instance_name)
+            Utils.fetch_str_or_sym(data, instance_name)
           else
             data
           end
@@ -100,6 +100,8 @@ module Lutaml
         self.collection = items.map do |item|
           if item.is_a?(type)
             item
+          elsif type <= Lutaml::Model::Type::Value
+            type.cast(item)
           else
             type.new(item, register: register)
           end
