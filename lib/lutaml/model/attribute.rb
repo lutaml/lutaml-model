@@ -125,16 +125,17 @@ module Lutaml
         self.class.cast_type!(type)
       end
 
-      def cast_value(value)
-        return cast_element(value) unless collection_instance?(value)
+      def cast_value(value, register)
+        return cast_element(value, register) unless collection_instance?(value)
 
-        build_collection(value.map { |v| cast_element(v) })
+        build_collection(value.map { |v| cast_element(v, register) })
       end
 
-      def cast_element(value)
-        return type.new(value) if value.is_a?(Hash) && !hash_type?
+      def cast_element(value, register)
+        resolved_type = type(register)
+        return resolved_type.new(value) if value.is_a?(Hash) && !hash_type?
 
-        type.cast(value)
+        resolved_type.cast(value)
       end
 
       def hash_type?
@@ -359,7 +360,7 @@ module Lutaml
         end
       end
 
-      def serialize(value, format, options = {})
+      def serialize(value, format, register, options = {})
         value ||= build_collection if collection? && initialize_empty?
         return value if value.nil? || Utils.uninitialized?(value)
         return value if derived?
@@ -372,7 +373,7 @@ module Lutaml
         serialize_value(value, format, resolved_type)
       end
 
-      def cast(value, format, options = {})
+      def cast(value, format, register, options = {})
         resolved_type = options[:resolved_type] || type(register)
         return build_collection(value.map { |v| cast(v, format, register, options.merge(resolved_type: resolved_type)) }) if collection_instance?(value) || value.is_a?(Array)
 

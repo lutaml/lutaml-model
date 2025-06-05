@@ -511,8 +511,8 @@ module Lutaml
       end
 
       def attr_value(attrs, name, attribute)
-        value = Utils.fetch_str_or_sym(attrs, name, attribute.default)
-        attribute.cast_value(value)
+        value = Utils.fetch_str_or_sym(attrs, name, attribute.default(register))
+        attribute.cast_value(value, register)
       end
 
       def using_default_for(attribute_name)
