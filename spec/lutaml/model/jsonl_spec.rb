@@ -21,11 +21,11 @@ module JsonlSpec
     end
   end
 
-  class Directory < Lutaml::Model::Serializable
-    attribute :persons, Person, collection: true
+  class Directory < Lutaml::Model::Collection
+    instances :persons, Person
 
     jsonl do
-      map to: :persons
+      map_instances to: :persons
     end
   end
 end
@@ -196,7 +196,7 @@ RSpec.describe "Jsonl" do
     it "handles collections of objects" do
       # Create a directory with people
       directory = JsonlSpec::Directory.new(
-        persons: [
+        [
           JsonlSpec::Person.new(
             name: "John",
             age: 30,
