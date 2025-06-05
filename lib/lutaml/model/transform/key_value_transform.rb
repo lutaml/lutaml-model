@@ -29,7 +29,7 @@ module Lutaml
           process_rule!(instance, rule, hash, format, mappings, options)
         end
 
-        hash.keys == [""] ? hash.values.first : hash
+        hash.keys == [""] ? hash[""] : hash
       end
 
       private
@@ -141,7 +141,7 @@ module Lutaml
       end
 
       def child_mapping_for(name, mappings)
-        mappings.find_by_to(name)&.name.to_s || name.to_s
+        mappings.find_by_to(name)&.name.to_s
       end
 
       def extract_hash_for_child_mapping(child_mappings, child_obj, rules)
@@ -201,10 +201,10 @@ module Lutaml
       end
 
       def process_mapping_rule(doc, instance, format, rule, options = {})
-        raise "Attribute '#{rule.to}' not found in #{self}" unless valid_rule?(rule)
-
         attr = attribute_for_rule(rule)
         return if attr&.derived?
+
+        raise "Attribute '#{rule.to}' not found in #{self}" unless valid_rule?(rule, attr)
 
         value = rule_value_extractor_class.call(rule, doc, format, attr, register, options)
         value = apply_value_map(value, rule.value_map(:from, options), attr)

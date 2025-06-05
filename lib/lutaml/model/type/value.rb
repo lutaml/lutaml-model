@@ -11,6 +11,10 @@ module Lutaml
           @value = self.class.cast(value)
         end
 
+        def initialized?
+          true
+        end
+
         def self.cast(value)
           return nil if value.nil?
 
