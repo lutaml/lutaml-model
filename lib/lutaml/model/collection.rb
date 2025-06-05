@@ -35,7 +35,7 @@ module Lutaml
           if mappings.no_root? && format == :xml
             mappings.mappings.map do |mapping|
               serialize_for_mapping(mapping, instance, format, options)
-            end.flatten.join("\n")
+            end.join("\n")
           else
             super(format, instance, options.merge(collection: true))
           end

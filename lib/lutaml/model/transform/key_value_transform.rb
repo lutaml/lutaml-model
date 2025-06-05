@@ -135,7 +135,7 @@ module Lutaml
       end
 
       def child_mapping_for(name, mappings)
-        mappings.find_by_to(name)&.name.to_s || name.to_s
+        mappings.find_by_to(name)&.name.to_s
       end
 
       def extract_hash_for_child_mapping(child_mappings, child_obj, rules)

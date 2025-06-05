@@ -126,7 +126,7 @@ module MultipleMapping
     end
 
     def size_from_xml(model, values)
-      model.size = (values.first.text.to_i || 0) - 10
+      model.size = values.first.text.to_i - 10
     end
 
     def desc_to_xml(model, parent, doc)
