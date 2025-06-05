@@ -197,6 +197,10 @@ module Lutaml
         @mappings.find { |m| m.to.to_s == to.to_s }
       end
 
+      def find_by_name(name)
+        @mappings.find { |m| m.name.to_s == name.to_s }
+      end
+
       def polymorphic_mapping
         @mappings.find(&:polymorphic_mapping?)
       end

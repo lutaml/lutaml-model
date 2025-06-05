@@ -3164,7 +3164,7 @@ end
 === General
 
 Lutaml::Model allows you to translate a data model into serialization models of
-various serialization formats including XML, Hash, JSON, YAML, and TOML.
+various serialization formats.
 
 Depending on the serialization format, different methods are supported for
 defining serialization and deserialization mappings.
@@ -3182,22 +3182,37 @@ end
 ----
 <1> `{format-short-name}` is the serialization format short name.
 
-The serialization format short name is defined as follows:
+There are two kinds of serialization models:
 
-`xml`:: XML
-`hsh`:: Hash
+* Represents a singular model (maps to a Lutaml::Model::Serializable)
+* Represents a group/collection of models (maps to Lutaml::Model::Collection)
+
+A collection contains instances of singular models, and therefore is always inextricably linked to an underlying serialization format for singular models. For instance,
+JSONL represents a collection (itself being invalid JSON) that uses JSON for singular models.
+
+The supported serialization formats and their short names are defined as follows:
+
+Model serialization formats::
+
+`xml`::: XML
+`hsh`::: Hash
 +
 NOTE: Yes a 3-letter abbreviation for Hash!
 
-`json`:: JSON
-`yaml`:: YAML
-`toml`:: TOML
-`key_value`:: Key-value format, a shorthand for all key-value formats (including
+`json`::: JSON
+`yaml`::: YAML
+`toml`::: TOML
+`key_value`::: Key-value format, a shorthand for all key-value formats (including
 JSON, YAML and TOML).
 
+Collection serialization formats::
+
+`jsonl`::: JSONL
+
+
+.Using the `xml`, `hsh`, `json`, `yaml`, `toml` and `key_value` blocks to define serialization mappings
 [example]
 ====
-.Using the `xml`, `hsh`, `json`, `yaml`, `toml` and `key_value` blocks to define serialization mappings
 [source,ruby]
 ----
 class Example < Lutaml::Model::Serializable
@@ -3222,6 +3237,19 @@ class Example < Lutaml::Model::Serializable
   end
 
   key_value do
+    # ...
+  end
+end
+----
+====
+
+.Using the `jsonl` block to define serialization mappings to a collection
+[example]
+====
+[source,ruby]
+----
+class Example < Lutaml::Model::Collection
+  jsonl do
     # ...
   end
 end
@@ -4663,10 +4691,19 @@ This XML snippet is in UTF-8.
 
 ==== General
 
-Key-value data models like Hash, JSON, YAML, and TOML all share a similar structure
-where data is stored as key-value pairs.
+Key-value data models share a similar structure where data is stored as
+key-value pairs.
 
 `Lutaml::Model` works with these formats in a similar way.
+
+Key-value data models supported are identified by their short name:
+
+`hsh`:: Hash (Ruby `Hash` class)
+`json`:: JSON
+`yaml`:: YAML
+`toml`:: TOML
+`key_value`:: A way to configure key-value mappings for all supported key-value data models.
+
 
 ==== Mapping
 
@@ -4676,11 +4713,35 @@ Syntax:
 
 [source,ruby]
 ----
-hsh | json | yaml | toml | key_value do
+{key_value_type_short} do <1>
   map 'key_value_model_attribute_name', to: :name_of_attribute
 end
 ----
+<1> `key_value_type_short` is the key-value data model's short name.
 
+.Creating a key-value data model mapping for only the JSON format
+[example]
+====
+[source,ruby]
+----
+json do
+  map :color, to: :color
+  map :desc, to: :description
+end
+----
+====
+
+.Creating a key-value data model mapping for all key-value formats
+[example]
+====
+[source,ruby]
+----
+key_value do
+  map :color, to: :color
+  map :desc, to: :description
+end
+----
+====
 
 ==== Unified mapping
 
@@ -4704,19 +4765,11 @@ class CeramicModel < Lutaml::Model::Serializable
   attribute :glaze, :string
   attribute :description, :string
 
-  key_value do
-    map :color, to: color
+  key_value do # or any other key-value data model
+    map :color, to: :color
     map :glz, to: :glaze
     map :desc, to: :description
   end
-
-  # Equivalent to the Hash, JSON, YAML, and TOML mappings.
-  #
-  # hsh and json and yaml and toml do
-  #   map :id, to: color
-  #   map :name, to: :full_name
-  #   map :status, to: :current_status
-  # end
 end
 ----
 
@@ -4747,13 +4800,7 @@ desc: A ceramic with a navy blue color and clear glaze.
 
 ==== Specific format mappings
 
-Specific key value formats can be mapping independently of other formats, including:
-
-* `hsh` for the Hash format
-* `json` for the JSON format
-* `yaml` for the YAML format
-* `toml` for the TOML format
-
+Specific key value formats can be mapping independently of other formats.
 
 .Using the `map` method to define key-value mappings per format
 [example]
@@ -5788,6 +5835,156 @@ In this example:
 * The nested `path.link` and `path.name` keys are mapped to the `link` and
 `name` attributes, respectively.
 ====
+
+=== Collection data models
+
+==== General
+
+Collection data models represent a group of models, mapping to an instance of
+Lutaml::Model::Collection.
+
+Collection data models supported are identified by their short name:
+
+`jsonl`:: JSONL
+
+
+==== Mapping
+
+As with collections in general, the `map` method is used to define collection
+mappings.
+
+Syntax:
+
+[source,ruby]
+----
+class MySerializedCollection < Lutaml::Model::Collection
+  instances {attribute}, ModelType
+
+  {collection_type_short} do
+    map_instances to: {attribute}
+  end
+end
+----
+
+Where,
+
+`{collection_type_short}`:: The short name of the collection type (e.g. `jsonl`).
+
+`{attribute}`:: The name of the attribute in the collection that will hold the
+collection data.
+
+`ModelType`:: The type of the model that will be used in the collection.
+
+A singular model may also utilize collection data models in the following manner.
+
+Syntax:
+
+[source,ruby]
+----
+class MySerializedCollection < Lutaml::Model::Serializeable
+  attribute {attribute}, ModelType, collection: true
+
+  {collection_type_short} do
+    # Notice that there is no key_name i.e map <key_name>, to: <attribute_name>,
+    # This is because in a collection there are no keys. Each object needs to be
+    # mapped to the attribute.
+    map to: {attribute}
+  end
+end
+----
+
+Where,
+
+`{collection_type_short}`:: The short name of the collection type (e.g. `jsonl`).
+
+`{attribute}`:: The name of the attribute in the collection that will hold the
+collection data.
+
+`ModelType`:: The type of the model that will be used in the collection.
+
+
+==== JSONL
+
+JSONL (short for JSON Lines) is a serialization format where each line
+represents a valid JSON object. The format is meant to be efficient for large
+datasets such as for streaming or batch processing.
+
+It represents a collection of JSON objects encoded one object per line.
+
+NOTE: The contents of JSONL itself is not valid JSON, but each line is a valid
+JSON.
+
+Since JSONL contains JSON elements, the model specified with `instances` or
+`attribute` must support JSON.
+
+.Parsing a JSONL collection using a collection
+[example]
+====
+[source,ruby]
+----
+class Person
+  attribute :name, :string
+  attribute :age, :integer
+  attribute :id, :string
+end
+
+class Directory < Lutaml::Model::Collection
+  instances :persons, Person
+
+  jsonl do
+    map_instances to: :persons
+  end
+end
+
+jsonl = <<~JSONL
+  {"name":"John","age":30,"id":"abc-123"}
+  {"name":"Jane","age":25,"id":"def-456"}
+JSONL
+
+jsonl = Directory.from_jsonl(jsonl)
+
+# => <Directory:0x00007fae4b0c9b10
+#      @persons=[
+#      <Person:0x00007fae4b0c9970 @name="John", @age=30, @id="abc-123">,
+#      <Person:0x00007fae4b0c9838 @name="Jane", @age=25, @id="def-456">
+#     ]>
+----
+====
+
+.Parsing a JSONL collection using a singlular model
+[example]
+====
+[source,ruby]
+----
+class Person
+  attribute :name, :string
+  attribute :age, :integer
+  attribute :id, :string
+end
+
+class Directory < Lutaml::Model::Serializeable
+  attribute :persons, Person, collection: true
+
+  jsonl do
+    map_instances to: :persons
+  end
+end
+
+jsonl = <<~JSONL
+  {"name":"John","age":30,"id":"abc-123"}
+  {"name":"Jane","age":25,"id":"def-456"}
+JSONL
+
+jsonl = Directory.from_jsonl(jsonl)
+
+# => <Directory:0x00007fae4b0c9b10
+#      @persons=[
+#      <Person:0x00007fae4b0c9970 @name="John", @age=30, @id="abc-123">,
+#      <Person:0x00007fae4b0c9838 @name="Jane", @age=25, @id="def-456">
+#     ]>
+----
+====
+
 
 === Format-independent mechanisms
 
