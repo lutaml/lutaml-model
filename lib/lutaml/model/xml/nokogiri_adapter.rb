@@ -153,6 +153,7 @@ module Lutaml
             parse_all_children(node, root_node: root_node || self,
                                      default_namespace: default_namespace),
             node.text,
+            name: node.name,
             parent_document: root_node,
             namespace_prefix: node.namespace&.prefix,
             default_namespace: default_namespace

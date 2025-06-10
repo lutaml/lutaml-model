@@ -218,8 +218,7 @@ module Lutaml
       def deserialize(model, value, attributes, mapper_class = nil)
         handle_custom_method(model, value, mapper_class) ||
           handle_delegate(model, value, attributes) ||
-          handle_transform_method(model, value, attributes) ||
-          assign_value(model, value)
+          handle_transform_method(model, value, attributes)
       end
 
       def has_custom_method_for_serialization?

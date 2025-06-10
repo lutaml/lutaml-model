@@ -103,11 +103,11 @@ module Lutaml
         def initialize(node, root_node: nil)
           case node
           when String
-            super("text", {}, [], node, parent_document: root_node)
+            super("text", {}, [], node, parent_document: root_node, name: "text")
           when Ox::Comment
-            super("comment", {}, [], node.value, parent_document: root_node)
+            super("comment", {}, [], node.value, parent_document: root_node, name: "comment")
           when Ox::CData
-            super("#cdata-section", {}, [], node.value, parent_document: root_node)
+            super("#cdata-section", {}, [], node.value, parent_document: root_node, name: "#cdata-section")
           else
             namespace_attributes(node.attributes).each do |(name, value)|
               if root_node
@@ -135,14 +135,27 @@ module Lutaml
               )
             end
 
+            prefix, name = separate_name_and_prefix(node)
+
             super(
               node,
               attributes,
               parse_children(node, root_node: root_node || self),
               node.text,
               parent_document: root_node,
+              name: name,
+              namespace_prefix: prefix,
             )
           end
+        end
+
+        def separate_name_and_prefix(node)
+          name = node.name.to_s
+
+          return [nil, name] unless name.include?(":")
+
+          prefix, _, name = name.partition(":")
+          [prefix, name]
         end
 
         def to_xml

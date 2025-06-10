@@ -19,11 +19,14 @@ module Lutaml
                    when Moxml::Text
                      node.content
                    end
+
+            name = OgaAdapter.name_of(node)
             super(
-              OgaAdapter.name_of(node),
+              name,
               Hash(attributes),
               Array(children),
               text,
+              name: name,
               parent_document: parent,
               namespace_prefix: namespace_name,
             )
