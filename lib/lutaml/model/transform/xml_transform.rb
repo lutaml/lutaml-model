@@ -179,7 +179,6 @@ module Lutaml
 
         return value unless cast_value?(attr, rule)
 
-        options.merge(caller_class: self, mixed_content: rule.mixed_content)
         attr.cast(value, :xml, register, options)
       end
 
