@@ -65,13 +65,7 @@ module Lutaml
         klass = extract_class_from(klass_name)
         raise Lutaml::Model::UnknownTypeError.new(klass_name) unless klass
 
-        if substitutable?(klass)
-          substitute(klass)
-        elsif substitutable?(klass_name)
-          substitute(klass_name)
-        else
-          klass
-        end
+        substitute(klass) || substitute(klass_name) || klass
       end
 
       private
