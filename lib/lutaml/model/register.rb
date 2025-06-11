@@ -9,6 +9,7 @@ module Lutaml
         @id = id
         @models = {}
         @global_substitutions = {}
+        @type_class_cache = {}
       end
 
       def register_model(klass, id: nil)
@@ -17,12 +18,11 @@ module Lutaml
         raise NotRegistrableClassError.new(klass) unless klass.include?(Lutaml::Model::Registrable)
 
         @models[id.to_sym] = klass
+        @models[klass.to_s] = klass
       end
 
       def resolve(klass_str)
-        return unless resolvable?(klass_str)
-
-        @models.values.find { |value| value.to_s == klass_str.to_s }
+        @models[klass_str.to_s]
       end
 
       def get_class(klass_name)
@@ -65,13 +65,7 @@ module Lutaml
         klass = extract_class_from(klass_name)
         raise Lutaml::Model::UnknownTypeError.new(klass_name) unless klass
 
-        if substitutable?(klass)
-          substitute(klass)
-        elsif substitutable?(klass_name)
-          substitute(klass_name)
-        else
-          klass
-        end
+        substitute(klass) || substitute(klass_name) || klass
       end
 
       private
@@ -89,20 +83,22 @@ module Lutaml
           Lutaml::Model::Type::TYPE_CODES.key?(type.to_s.to_sym)
       end
 
-      def resolvable?(klass_str)
-        @models.values.any? { |value| value.to_s == klass_str.to_s }
-      end
-
       def extract_class_from(klass)
-        if @models.key?(klass)
-          @models[klass]
-        elsif resolvable?(klass)
-          resolve(klass)
-        elsif klass.is_a?(Class)
-          klass
-        elsif type_klass = get_type_class(klass)
+        return klass if klass.is_a?(Class)
+        return @models[klass] if @models.key?(klass)
+
+        # Check cache first
+        return @type_class_cache[klass] if @type_class_cache.key?(klass)
+
+        # If not in cache, try to get type class and cache it
+        if type_klass = get_type_class(klass)
+          @type_class_cache[klass] = type_klass
           type_klass
         end
+      end
+
+      def clear_type_class_cache
+        @type_class_cache.clear
       end
     end
   end

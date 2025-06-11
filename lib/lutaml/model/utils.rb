@@ -4,6 +4,8 @@ module Lutaml
   module Model
     module Utils
       class << self
+        UNINITIALIZED = Lutaml::Model::UninitializedClass.instance
+
         # Convert string to camel case
         def camel_case(str)
           return "" if str.nil? || str.empty?
@@ -45,13 +47,11 @@ module Lutaml
         end
 
         def initialized?(value)
-          return true unless value.respond_to?(:initialized?)
-
-          value.initialized?
+          !value.equal?(UNINITIALIZED)
         end
 
         def uninitialized?(value)
-          !initialized?(value)
+          value.equal?(UNINITIALIZED)
         end
 
         def present?(value)

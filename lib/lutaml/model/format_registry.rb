@@ -15,12 +15,15 @@ module Lutaml
           ::Lutaml::Model::Serialize.register_from_format_method(format)
           ::Lutaml::Model::Serialize.register_to_format_method(format)
 
+          Lutaml::Model::Config.set_adapter_for(format, adapter_class)
+
           Lutaml::Model::Config.define_singleton_method(:"#{format}_adapter") do
-            instance_variable_get(:"@#{format}_adapter") || adapter_class
+            @adapters[format] || adapter_class
           end
 
           Lutaml::Model::Config.define_singleton_method(:"#{format}_adapter=") do |adapter_klass|
-            instance_variable_set(:"@#{format}_adapter", adapter_klass)
+            @adapters ||= {}
+            @adapters[format] = adapter_klass
           end
         end
 

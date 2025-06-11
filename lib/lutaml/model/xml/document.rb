@@ -128,9 +128,9 @@ module Lutaml
                 prefix: attr.namespace_prefix,
                 schema_location: attr.value,
               }
+            else
+              result[attr.namespaced_name] = attr.value
             end
-
-            result[attr.namespaced_name] = attr.value
           end
 
           result

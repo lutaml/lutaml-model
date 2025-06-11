@@ -19,12 +19,13 @@ module Lutaml
           attributes = {},
           children = [],
           text = nil,
+          name: nil,
           parent_document: nil,
           namespace_prefix: nil,
           default_namespace: nil
         )
-          @name = extract_name(node)
-          @namespace_prefix = namespace_prefix || extract_namespace_prefix(node)
+          @name = name
+          @namespace_prefix = namespace_prefix
           @attributes = attributes
           @children = children
           @text = text
@@ -90,32 +91,6 @@ module Lutaml
 
         def default_namespace
           namespaces[nil] || @parent_document&.namespaces&.dig(nil)
-        end
-
-        def extract_name(node)
-          name = name_from_node(node)
-
-          n = name.split(":")
-          return name if n.length <= 1
-
-          n[1..].join(":")
-        end
-
-        def extract_namespace_prefix(node)
-          name = name_from_node(node)
-
-          n = name.to_s.split(":")
-          return if n.length <= 1
-
-          n.first
-        end
-
-        def name_from_node(node)
-          if node.is_a?(String)
-            node
-          else
-            node.name.to_s
-          end
         end
 
         def order

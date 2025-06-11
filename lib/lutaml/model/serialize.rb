@@ -280,12 +280,10 @@ module Lutaml
         end
 
         def from(format, data, options = {})
-          return data if Utils.uninitialized?(data)
-
           adapter = Lutaml::Model::Config.adapter_for(format)
 
           doc = adapter.parse(data, options)
-          public_send(:"of_#{format}", doc, options)
+          send("of_#{format}", doc, options)
         end
 
         def of(format, doc, options = {})

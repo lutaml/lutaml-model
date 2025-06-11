@@ -57,11 +57,12 @@ module Lutaml
       end
 
       def adapter_for(format)
-        public_send(:"#{format}_adapter")
+        @adapters[format]
       end
 
       def set_adapter_for(format, adapter)
-        public_send(:"#{format}_adapter=", adapter)
+        @adapters ||= {}
+        @adapters[format] = adapter
       end
 
       def mappings_class_for(format)

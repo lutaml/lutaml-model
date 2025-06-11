@@ -34,10 +34,10 @@ module Lutaml
         validate_sequence!(doc.root.order)
 
         mappings.each do |rule|
-          raise "Attribute '#{rule.to}' not found in #{context}" unless valid_rule?(rule)
-
           attr = attribute_for_rule(rule)
           next if attr&.derived?
+
+          raise "Attribute '#{rule.to}' not found in #{context}" unless valid_rule?(rule, attr)
 
           new_opts = options.dup
           if rule.namespace_set?
@@ -51,7 +51,7 @@ module Lutaml
                   else
                     val = value_for_rule(doc, rule, new_opts, instance)
 
-                    if (Utils.uninitialized?(val) || val.nil?) && (instance.using_default?(rule.to) || rule.render_default)
+                    if (val.nil? || Utils.uninitialized?(val)) && (instance.using_default?(rule.to) || rule.render_default)
                       defaults_used << rule.to
                       attr&.default(register) || rule.to_value_for(instance)
                     else
@@ -111,51 +111,45 @@ module Lutaml
 
       def value_for_rule(doc, rule, options, instance)
         rule_names = rule.namespaced_names(options[:default_namespace])
+        return doc.root.find_attribute_value(rule_names) if rule.attribute?
 
-        if rule.attribute?
-          doc.root.find_attribute_value(rule_names)
-        else
-          attr = attribute_for_rule(rule)
-          attr_type = attr&.type(register)
-          children = doc.children.select do |child|
-            rule_names.include?(child.namespaced_name) && !child.text?
-          end
+        attr = attribute_for_rule(rule)
+        attr_type = attr&.type(register)
 
-          if rule.has_custom_method_for_deserialization? || attr_type == Lutaml::Model::Type::Hash
-            return_child = attr_type == Lutaml::Model::Type::Hash || !attr.collection? if attr
-            return return_child ? children.first : children
-          end
-
-          return handle_cdata(children) if rule.cdata
-
-          values = attr.build_collection
-
-          if Utils.present?(children)
-            instance.value_set_for(attr.name)
-          else
-            children = nil
-            values = Lutaml::Model::UninitializedClass.instance
-          end
-
-          children&.each do |child|
-            if !rule.has_custom_method_for_deserialization? && attr_type <= Serialize
-              cast_options = options.except(:mappings)
-              cast_options[:polymorphic] = rule.polymorphic if rule.polymorphic
-              cast_options[:register] = register
-
-              values << attr.cast(child, :xml, register, cast_options)
-            elsif attr.raw?
-              values << inner_xml_of(child)
-            else
-              return nil if rule.render_nil_as_nil? && child.nil_element?
-
-              text = child.nil_element? ? nil : (child&.text&.+ child&.cdata)
-              values << text
-            end
-          end
-
-          normalized_value_for_attr(values, attr)
+        children = doc.children.select do |child|
+          rule_names.include?(child.namespaced_name) && !child.text?
         end
+
+        if rule.has_custom_method_for_deserialization? || attr_type == Lutaml::Model::Type::Hash
+          return_child = attr_type == Lutaml::Model::Type::Hash || !attr.collection? if attr
+          return return_child ? children.first : children
+        end
+
+        return handle_cdata(children) if rule.cdata
+        return Lutaml::Model::UninitializedClass.instance if children.empty?
+
+        values = attr.build_collection
+
+        instance.value_set_for(attr.name)
+
+        children.each do |child|
+          if !rule.has_custom_method_for_deserialization? && attr_type <= Serialize
+            cast_options = options.except(:mappings)
+            cast_options[:polymorphic] = rule.polymorphic if rule.polymorphic
+            cast_options[:register] = register
+
+            values << attr.cast(child, :xml, register, cast_options)
+          elsif attr.raw?
+            values << inner_xml_of(child)
+          else
+            return nil if rule.render_nil_as_nil? && child.nil_element?
+
+            text = child.nil_element? ? nil : (child&.text&.+ child&.cdata)
+            values << text
+          end
+        end
+
+        normalized_value_for_attr(values, attr)
       end
 
       def handle_cdata(children)
@@ -185,7 +179,6 @@ module Lutaml
 
         return value unless cast_value?(attr, rule)
 
-        options.merge(caller_class: self, mixed_content: rule.mixed_content)
         attr.cast(value, :xml, register, options)
       end
 
@@ -222,6 +215,8 @@ module Lutaml
 
       def validate_sequence!(element_order)
         mapping_sequence = mappings_for(:xml).element_sequence
+        return if mapping_sequence.empty?
+
         current_order = element_order.filter_map(&:element_tag)
 
         mapping_sequence.each do |mapping|
