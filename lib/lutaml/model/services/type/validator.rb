@@ -1,17 +1,20 @@
+require_relative "validator/string"
+require_relative "validator/number"
+
 module Lutaml
   module Model
     module Services
       module Type
         class Validator
-          class << self
+          module ClassMethods
             def validate_values!(value, values)
               return if values.include?(value)
 
               raise Lutaml::Model::Type::InvalidValueError.new(value, values)
             end
 
-            def validate_min_max_bounds!(value, min_max_bounds)
-              min, max = min_max_bounds&.values_at(:min, :max)
+            def validate_min_max_bounds!(value, options)
+              min, max = options&.values_at(:min, :max)
               return if min.nil? && max.nil?
 
               validate_min_bound!(value, min) if min
@@ -30,6 +33,9 @@ module Lutaml
               raise Lutaml::Model::Type::MaxBoundError.new(value, max)
             end
           end
+
+          extend ClassMethods
+          include ClassMethods
         end
       end
     end

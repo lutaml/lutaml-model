@@ -37,10 +37,14 @@ module Lutaml
           end
 
           def to_xml_mapping(indent = INDENT)
+            return if skippable?
+
             XML_MAPPING_TEMPLATE.result(binding)
           end
 
           def required_files
+            return if skippable?
+
             raw_type = resolved_type(change_case: false)
             if raw_type == "decimal"
               "require \"bigdecimal\""
@@ -58,16 +62,20 @@ module Lutaml
 
           def resolved_type(change_case: true)
             @current_type ||= type || referenced_instance&.type
-            klass_name = @current_type&.split(":").last
+            klass_name = last_of_split(@current_type)
             change_case ? Utils.snake_case(klass_name) : klass_name
           end
 
           def referenced_instance
-            @referenced_instance ||= XmlCompiler.instance_variable_get(:"@attributes")[ref]
+            @referenced_instance ||= XmlCompiler.instance_variable_get(:"@attributes")[last_of_split]
+          end
+
+          def last_of_split(field = ref)
+            field&.split(":")&.last
           end
 
           def skippable?
-            DEFAULT_XML_NAMESPACES.include?(ref&.split(":")&.first)
+            DEFAULT_XML_NAMESPACES.include?(last_of_split)
           end
         end
       end
