@@ -72,10 +72,11 @@ module Lutaml
             content = []
 
             element.element_order.each do |object|
-              index_hash[object.name] ||= -1
-              curr_index = index_hash[object.name] += 1
+              object_key = "#{object.name}-#{object.type}"
+              index_hash[object_key] ||= -1
+              curr_index = index_hash[object_key] += 1
 
-              element_rule = xml_mapping.find_by_name(object.name)
+              element_rule = xml_mapping.find_by_name(object.name, type: object.type)
               next if element_rule.nil?
 
               attribute_def = attribute_definition_for(element, element_rule,
