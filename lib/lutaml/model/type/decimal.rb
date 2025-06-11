@@ -2,7 +2,7 @@ module Lutaml
   module Model
     module Type
       class Decimal < Value
-        def self.cast(value)
+        def self.cast(value, options = {})
           return nil if value.nil?
 
           check_dependencies!(value)
@@ -14,8 +14,7 @@ module Lutaml
                    # Convert to string first to handle various input types
                    BigDecimal(value.to_s)
                  end
-          Model::Services::Type::Validator.validate_values!(value, values) if values_available?
-          Model::Services::Type::Validator.validate_min_max_bounds!(value, min_max_bounds) if min_max_bounds_available?
+          Model::Services::Type::Validator.validate!(value, options)
           value
         rescue ArgumentError
           nil
@@ -39,22 +38,6 @@ module Lutaml
         # Override to avoid serializing ruby object in YAML
         def to_yaml
           value&.to_s("F")
-        end
-
-        def self.min_max_bounds_available?
-          Utils.present?(min_max_bounds)
-        end
-
-        def self.min_max_bounds
-          @min_max_bounds || {}
-        end
-
-        def self.values_available?
-          Utils.present?(@values)
-        end
-
-        def self.values
-          @values
         end
       end
     end

@@ -5,9 +5,7 @@ module Lutaml
     module Schema
       module XmlCompiler
         class SimpleType
-          attr_accessor :class_name, :base_class, :instance
-
-          DEFAULT_CLASSES = %w[int integer string boolean].freeze
+          attr_accessor :class_name, :base_class, :instance, :unions
 
           SUPPORTED_DATA_TYPES = {
             nonNegativeInteger: { class_name: "Lutaml::Model::Type::String", validations: { pattern: /\+?[0-9]+/ } },
@@ -36,12 +34,12 @@ module Lutaml
             <%= "require_relative '\#{Utils.snake_case(parent_class)}'\n" if require_parent? -%>
             <%= required_files -%>
 
-            class <%= klass_name %> < <%= parent_class %>
-              def self.cast(value)
+            class <%= klass_name %><%= " < \#{parent_class}" if parent_class %>
+              def self.cast(value, options = {})
                 return nil if value.nil?
 
             <%= instance&.to_method_body(INDENT + INDENT) -%>
-                value = super(value)
+                value = super(value, options)
                 value
               end
             end
@@ -50,14 +48,28 @@ module Lutaml
             register.register_model(<%= klass_name %>, id: :<%= Utils.snake_case(klass_name) %>)
           TEMPLATE
 
-          def initialize(name)
+          UNION_MODEL_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
+            # frozen_string_literal: true
+            require "lutaml/model"
+            <%= union_required_files %>
+
+            class <%= klass_name %>
+              def self.cast(value, options = {})
+            <%= union_class_method_body(INDENT) %>
+              end
+            end
+          TEMPLATE
+
+          def initialize(name, union = [])
             raise "SimpleType name is required!" if Utils.blank?(name)
 
             @class_name = name
+            @unions = unions
           end
 
           def to_class
-            INSTANCE_MODEL_TEMPLATE.result(binding)
+            template = unions&.any? ? UNION_MODEL_TEMPLATE : INSTANCE_MODEL_TEMPLATE
+            template.result(binding)
           end
 
           def klass_name
@@ -73,15 +85,27 @@ module Lutaml
           end
 
           def parent_class
-            if SUPPORTED_DATA_TYPES[base_class.to_sym]&.key?(:class_name)
+            if SUPPORTED_DATA_TYPES[base_class&.to_sym]&.key?(:class_name)
               SUPPORTED_DATA_TYPES.dig(base_class.to_sym, :class_name)
-            else
+            elsif base_class
               Utils.camel_case(base_class.to_s)
             end
           end
 
           def required_files
             instance&.required_files
+          end
+
+          def union_class_method_body(indent)
+            unions.map { |union| "#{indent + INDENT}#{Utils.camel_case(union)}.cast(value, options)" }.join(" ||\n  ")
+          end
+
+          def union_required_files
+            unions.map do |union|
+              next if SUPPORTED_DATA_TYPES.dig(union.to_sym, :skippable)
+
+              "require_relative \"#{Utils.snake_case(union)}\""
+            end.compact.join("\n")
           end
 
           class << self
