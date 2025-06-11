@@ -62,15 +62,15 @@ module Lutaml
             TEMPLATE.result(binding)
           end
 
+          def required_files
+            [base_class_require, @instances.map(&:required_files)].flatten.compact.uniq
+          end
+
           private
 
           def setup_options(options)
             @namespace = options[:namespace]
             @prefix = options[:prefix]
-          end
-
-          def required_files
-            [base_class_require, @instances.map(&:required_files)].flatten.compact.uniq
           end
 
           def root_options
