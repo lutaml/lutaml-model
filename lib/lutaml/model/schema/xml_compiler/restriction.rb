@@ -16,26 +16,27 @@ module Lutaml
                         :pattern,
                         :length
 
+            INDENT = "  "
+
             MIN_MAX_BOUNDS = ERB.new(<<~TEMPLATE, trim_mode: "-")
-              <%= "\#{indent}@min_max_bounds = {}" if min_max_bounds_exist? %>
-              <%= "\#{indent}@min_max_bounds[:max] = \#{max_inclusive || max_exclusive}" if max_bound_exist? %>
-              <%= "\#{indent}@min_max_bounds[:min] = \#{min_inclusive || min_exclusive}" if min_bound_exist? %>
+              <%= "\#{indent}options[:max] = \#{max_inclusive || max_exclusive}" if max_bound_exist? %>
+              <%= "\#{indent}options[:min] = \#{min_inclusive || min_exclusive}" if min_bound_exist? %>
             TEMPLATE
 
             PATTERN = ERB.new(<<~TEMPLATE, trim_mode: "-")
-              <%= "\#{indent}@pattern = %r{\#{pattern}}" %>
+              <%= "\#{indent}options[:pattern] = %r{\#{pattern}}" %>
             TEMPLATE
 
             ENUMERATIONS = ERB.new(<<~TEMPLATE, trim_mode: "-")
-              <%= "\#{indent}@values = \#{enumerations}" %>
+              <%= "\#{indent}options[:values] = \#{enumerations}" %>
             TEMPLATE
 
           def to_method_body(indent = nil)
-            [
+            content = [
               value_for(ENUMERATIONS, type: :enumerations, indent: indent),
               value_for(MIN_MAX_BOUNDS, type: :min_max_bounds, indent: indent),
               value_for(PATTERN, type: :pattern, indent: indent),
-            ].compact.join("\n")
+            ].compact.join
           end
 
           def required_files

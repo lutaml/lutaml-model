@@ -44,7 +44,11 @@ module Lutaml
           end
 
           def required_files
-            @instance.required_files
+            if Utils.blank?(name) && Utils.present?(ref)
+              "require_relative '#{Utils.snake_case(ref)}'"
+            else
+              @instance&.required_files
+            end
           end
 
           def to_attributes(indent = INDENT)

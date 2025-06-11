@@ -2,7 +2,7 @@ module Lutaml
   module Model
     module Type
       class Integer < Value
-        def self.cast(value)
+        def self.cast(value, options = {})
           return nil if value.nil?
           return 1 if value === true
           return 0 if value === false
@@ -28,8 +28,7 @@ module Lutaml
                     end
                   end
 
-          Model::Services::Type::Validator.validate_values!(value, values) if values_available?
-          Model::Services::Type::Validator.validate_min_max_bounds!(value, min_max_bounds) if min_max_bounds_available?
+          Model::Services::Type::Validator::Number.validate!(value, options)
           value
         end
 
@@ -38,22 +37,6 @@ module Lutaml
           return nil if value.nil?
 
           cast(value)
-        end
-
-        def self.values_available?
-          Utils.present?(@values)
-        end
-
-        def self.values
-          @values
-        end
-
-        def self.min_max_bounds_available?
-          Utils.present?(min_max_bounds)
-        end
-
-        def self.min_max_bounds
-          @min_max_bounds || {}
         end
       end
     end

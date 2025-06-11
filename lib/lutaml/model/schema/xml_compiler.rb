@@ -113,7 +113,7 @@ module Lutaml
         def setup_simple_type(simple_type)
           SimpleType.new(simple_type.name).tap do |type_object|
             if union = simple_type.union
-              type_object.instance = union.member_types.split.map { |member_type| @simple_types[member_type] }.flatten
+              type_object.unions = union.member_types.split
             elsif restriction = simple_type.restriction
               type_object.base_class = restriction.base&.split(":")&.last
               type_object.instance = setup_restriction(restriction)
@@ -266,15 +266,13 @@ module Lutaml
         def setup_attribute_groups(attribute_group)
         instance = AttributeGroup.new(name: attribute_group.name, ref: attribute_group.ref)
           if attribute_group.name
-            instance.attributes = [] if attribute_group.attribute&.any?
-            instance.attribute_groups = [] if attribute_group.attribute_group&.any?
             resolved_element_order(attribute_group).each do |object|
-              case object
-              when Xsd::Attribute
-                instance.attributes << setup_attribute(object)
-              when Xsd::AttributeGroup
-                instance.attribute_groups << setup_attribute_groups(object)
-              end
+              instance.instances << case object
+                                    when Xsd::Attribute
+                                      setup_attribute(object)
+                                    when Xsd::AttributeGroup
+                                      setup_attribute_groups(object)
+                                    end
             end
           end
           instance
