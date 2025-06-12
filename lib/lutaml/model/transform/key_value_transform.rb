@@ -20,7 +20,7 @@ module Lutaml
       end
 
       def model_to_data(instance, format, options = {})
-        mappings = mappings_for(format)
+        mappings = extract_mappings(options, format)
 
         hash = {}
         mappings.mappings.each do |rule|
