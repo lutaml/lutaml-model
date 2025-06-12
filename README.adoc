@@ -5917,6 +5917,11 @@ JSON.
 Since JSONL contains JSON elements, the model specified with `instances` or
 `attribute` must support JSON.
 
+Every line in a JSONL file is also a valid JSON object. If JSONL-specific
+mappings (through `jsonl`) are not defined in the model, the existing `json`
+mappings are used instead as a fallback for serialization and deserialization.
+
+
 .Parsing a JSONL collection using a collection
 [example]
 ====
@@ -5985,7 +5990,44 @@ jsonl = Directory.from_jsonl(jsonl)
 ----
 ====
 
-NOTE: Each line in a `jsonl` file is a valid JSON object. If `jsonl` mappings are not defined in the model, the existing `json` mappings will be used as a fallback for serialization and deserialization.
+.Parsing a JSONL collection relying on JSON mappings on instance model
+[example]
+====
+[source,ruby]
+----
+class Person
+  attribute :name, :string
+  attribute :age, :integer
+  attribute :id, :string
+
+  json do
+    map "full_name", to: :name
+    map "age", to: :age
+    map "id", to: :id
+  end
+end
+
+class Directory < Lutaml::Model::Collection
+  instances :persons, Person
+
+  jsonl do
+    map_instances to: :persons
+  end
+end
+
+jsonl = <<~JSONL
+  {"full_name":"John Doe","age":30,"id":"abc-123"}
+  {"full_name":"Jane Smith","age":25,"id":"def-456"}
+JSONL
+
+jsonl = Directory.from_jsonl(jsonl)
+# => <Directory:0x00007fae4b0c9b10
+#      @persons=[
+#      <Person:0x00007fae4b0c9970 @name="John Doe", @age=30, @id="abc-123">,
+#      <Person:0x00007fae4b0c9838 @name="Jane Smith", @age=25, @id="def-456">
+#     ]>
+----
+====
 
 === Format-independent mechanisms
 
