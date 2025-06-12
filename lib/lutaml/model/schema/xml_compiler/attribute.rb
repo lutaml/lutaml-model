@@ -75,7 +75,8 @@ module Lutaml
           end
 
           def skippable?
-            DEFAULT_XML_NAMESPACES.include?(last_of_split)
+            DEFAULT_XML_NAMESPACES.include?(ref&.split(":")&.first) ||
+              resolved_name == "schema_location"
           end
         end
       end

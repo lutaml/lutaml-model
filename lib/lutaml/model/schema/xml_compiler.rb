@@ -3,7 +3,9 @@
 require "erb"
 require "tmpdir"
 require "lutaml/xsd"
+require_relative "xml_compiler/complex_content_restriction"
 require_relative "xml_compiler/attribute_group"
+require_relative "xml_compiler/complex_content"
 require_relative "xml_compiler/simple_content"
 require_relative "xml_compiler/complex_type"
 require_relative "xml_compiler/restriction"
@@ -43,7 +45,7 @@ module Lutaml
           options[:current_indent] = " " * options[:indent]
           @simple_types.merge!(XmlCompiler::SimpleType.setup_supported_types)
           classes_list = @simple_types.merge(@complex_types).merge(@group_types)
-          classes_list = classes_list.to_h { |name, type| [Utils.camel_case(name), type.to_class] }
+          classes_list = classes_list.to_h { |name, type| [name, type.to_class] }
           if options[:create_files]
             dir = options.fetch(:output_dir, "lutaml_models_#{Time.now.to_i}")
             FileUtils.mkdir_p(dir)
@@ -56,15 +58,15 @@ module Lutaml
         end
 
         def create_file(name, content, dir)
+          name = name.split(":").last
           File.write("#{dir}/#{Utils.snake_case(name)}.rb", content)
         end
 
         def require_classes(classes_hash)
           Dir.mktmpdir do |dir|
-            classes_hash.each do |name, klass|
-              create_file(name, klass, dir)
-              require "#{dir}/#{Utils.snake_case(name)}"
-            end
+            classes_hash.each { |name, klass| create_file(name, klass, dir) }
+            # Some files are not created at the time of the require, so we need to require them after all the files are created.
+            classes_hash.each_key { |name| require "#{dir}/#{Utils.snake_case(name)}" }
           end
         end
 
@@ -167,7 +169,7 @@ module Lutaml
               when Xsd::Choice
                 instance << setup_choice(element)
               when Xsd::ComplexContent
-                instance << setup_complex_content(element, instance.name)
+                instance << setup_complex_content(element, instance.name, instance)
               when Xsd::AttributeGroup
                 instance << setup_attribute_groups(element)
               when Xsd::Group
@@ -320,22 +322,28 @@ module Lutaml
           end
         end
 
+        def setup_complex_content_restriction(restriction, complex_type)
+          ComplexContentRestriction.new.tap do |instance|
+            complex_type.base_class = restriction.base
+            restriction_patterns(restriction.pattern, instance) if restriction.respond_to?(:pattern)
+            restriction_content(instance, restriction)
+          end
+        end
+
         def restriction_patterns(patterns, instance)
           return if Utils.blank?(patterns)
 
           instance.pattern = patterns.map { |p| "(#{p.value})" }.join("|")
         end
 
-        def setup_complex_content(complex_content, name)
-          @complex_types[name] = ComplexType.new.tap do |instance|
-            instance.mixed = true if complex_content.mixed
-            instance.instances << if extension = complex_content.extension
-                                  instance.base_class = extension.base
-                                  setup_extension(complex_content.extension, instance)
-                                elsif restriction = complex_content.restriction
-                                  instance.base_class = restriction.base
-                                  setup_restriction(restriction)
-                                end
+        def setup_complex_content(complex_content, name, complex_type)
+          @complex_types[name] = ComplexContent.new.tap do |instance|
+            complex_type.mixed = complex_content.mixed
+            if extension = complex_content.extension
+              setup_extension(complex_content.extension, complex_type)
+            elsif restriction = complex_content.restriction
+              instance.restriction = setup_complex_content_restriction(restriction, complex_type)
+            end
           end
         end
 

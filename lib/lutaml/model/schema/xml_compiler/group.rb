@@ -45,7 +45,7 @@ module Lutaml
 
           def required_files
             if Utils.blank?(name) && Utils.present?(ref)
-              "require_relative '#{Utils.snake_case(ref)}'"
+              "require_relative '#{Utils.snake_case(ref.split(":").last)}'"
             else
               @instance&.required_files
             end
@@ -55,7 +55,8 @@ module Lutaml
             if Utils.blank?(@name) && Utils.blank?(@ref)
               @instance.to_attributes(indent)
             else
-              IMPORT_MODEL_TEMPLATE.result(binding)
+              # TODO: Support import_model inside sequence and choice.
+              # IMPORT_MODEL_TEMPLATE.result(binding)
             end
           end
 

@@ -45,7 +45,7 @@ module Lutaml
             end
 
             register = Lutaml::Model::GlobalRegister.lookup(Lutaml::Model::Config.default_register)
-            register.register_model(<%= klass_name %>, id: :<%= Utils.snake_case(klass_name) %>)
+            register.register_model(<%= klass_name %>, id: :<%= Utils.snake_case(class_name) %>)
           TEMPLATE
 
           UNION_MODEL_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
