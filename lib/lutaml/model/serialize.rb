@@ -133,6 +133,10 @@ module Lutaml
           attr
         end
 
+        def restrict(name, options = {})
+          model.attributes[name].options.merge!(options)
+        end
+
         def register(name)
           name&.to_sym
         end
