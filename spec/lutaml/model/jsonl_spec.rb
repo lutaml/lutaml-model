@@ -4,7 +4,7 @@ module JsonlSpec
   class Address < Lutaml::Model::Serializable
     attribute :city, :string
 
-    jsonl do
+    json do
       map "city", to: :city
     end
   end
@@ -14,8 +14,8 @@ module JsonlSpec
     attribute :age, :integer
     attribute :address, Address
 
-    jsonl do
-      map "name", to: :name
+    json do
+      map "full_name", to: :name
       map "age", to: :age
       map "address", to: :address
     end
@@ -63,20 +63,20 @@ RSpec.describe "Jsonl" do
 
   let(:valid_jsonl) do
     <<~JSONL.strip
-      {"name":"John","age":30,"address":{"city":"New York"}}
-      {"name":"Jane","age":25,"address":{"city":"London"}}
-      {"name":"Bob","age":35,"address":{"city":"Paris"}}
+      {"full_name":"John","age":30,"address":{"city":"New York"}}
+      {"full_name":"Jane","age":25,"address":{"city":"London"}}
+      {"full_name":"Bob","age":35,"address":{"city":"Paris"}}
     JSONL
   end
 
   let(:valid_jsonl_with_empty_lines) do
     <<~JSONL
-      {"name":"John","age":30,"address":{"city":"New York"}}
+      {"full_name":"John","age":30,"address":{"city":"New York"}}
 
-      {"name":"Jane","age":25,"address":{"city":"London"}}
+      {"full_name":"Jane","age":25,"address":{"city":"London"}}
 
 
-      {"name":"Bob","age":35,"address":{"city":"Paris"}}
+      {"full_name":"Bob","age":35,"address":{"city":"Paris"}}
 
 
     JSONL
@@ -84,9 +84,9 @@ RSpec.describe "Jsonl" do
 
   let(:invalid_jsonl_content) do
     <<~JSONL
-      {"name": "John", "age": 30, "address": {"city": "New York"}}
+      {"full_name": "John", "age": 30, "address": {"city": "New York"}}
       invalid json
-      {"name": "Bob", "age": 35, "address": {"city": "Paris"}}
+      {"full_name": "Bob", "age": 35, "address": {"city": "Paris"}}
     JSONL
   end
 
@@ -134,8 +134,8 @@ RSpec.describe "Jsonl" do
   describe "roundtrip" do
     it "maintains data integrity with special characters" do
       special_chars_jsonl = <<~JSONL
-        {"name": "John Doe", "age": 30, "address": {"city": "New York"}}
-        {"name": "Jane \\"Smith\\"", "age": 25, "address": {"city": "London"}}
+        {"full_name": "John Doe", "age": 30, "address": {"city": "New York"}}
+        {"full_name": "Jane \\"Smith\\"", "age": 25, "address": {"city": "London"}}
       JSONL
 
       # Parse the original JSONL
@@ -161,9 +161,9 @@ RSpec.describe "Jsonl" do
   describe "format conversion" do
     let(:valid_jsonl_content) do
       <<~JSONL.strip
-        {"name":"John","age":30,"address":{"city":"New York"}}
-        {"name":"Jane","age":25,"address":{"city":"London"}}
-        {"name":"Bob","age":35,"address":{"city":"Paris"}}
+        {"full_name":"John","age":30,"address":{"city":"New York"}}
+        {"full_name":"Jane","age":25,"address":{"city":"London"}}
+        {"full_name":"Bob","age":35,"address":{"city":"Paris"}}
       JSONL
     end
 

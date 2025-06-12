@@ -5985,6 +5985,7 @@ jsonl = Directory.from_jsonl(jsonl)
 ----
 ====
 
+NOTE: Each line in a `jsonl` file is a valid JSON object. If `jsonl` mappings are not defined in the model, the existing `json` mappings will be used as a fallback for serialization and deserialization.
 
 === Format-independent mechanisms
 

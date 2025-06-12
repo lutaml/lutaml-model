@@ -3,7 +3,7 @@ module Lutaml
     module Config
       extend self
 
-      AVAILABLE_FORMATS = %i[xml json yaml toml hash].freeze
+      AVAILABLE_FORMATS = %i[xml json jsonl yaml toml hash].freeze
       KEY_VALUE_FORMATS = AVAILABLE_FORMATS - %i[xml]
 
       def configure

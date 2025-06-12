@@ -60,6 +60,10 @@ module Lutaml
         context.mappings_for(format)
       end
 
+      def defined_mappings_for(format)
+        context.mappings[format]
+      end
+
       def valid_rule?(rule, attribute)
         attribute || rule.custom_methods[:from]
       end
