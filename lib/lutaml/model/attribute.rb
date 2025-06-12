@@ -448,7 +448,7 @@ module Lutaml
       end
 
       def needs_conversion?(klass, value)
-        !value.nil? && !value.is_a?(klass)
+        !value.nil? && !value.is_a?(klass) && Utils.initialized?(value)
       end
 
       def already_serialized?(klass, value)

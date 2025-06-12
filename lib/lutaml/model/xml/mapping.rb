@@ -336,8 +336,8 @@ module Lutaml
           end
         end
 
-        def find_by_name(name)
-          if ["text", "#cdata-section"].include?(name.to_s)
+        def find_by_name(name, type: "Text")
+          if ["text", "#cdata-section"].include?(name.to_s) && type == "Text"
             content_mapping
           else
             mappings.detect do |rule|
