@@ -14,6 +14,8 @@ module Lutaml
                         :max_occurs,
                         :min_occurs
 
+          DEFAULT_XML_NAMESPACES = %w[xml].freeze
+
           INDENT = "  "
 
           TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
@@ -32,14 +34,20 @@ module Lutaml
           end
 
           def to_attributes(indent = INDENT)
+            return if skippable?
+
             TEMPLATE.result(binding) if resolved_type
           end
 
           def to_xml_mapping(indent = INDENT)
+            return if skippable?
+
             XML_MAPPING_TEMPLATE.result(binding) if resolved_type
           end
 
           def required_files
+            return if skippable?
+
             if resolved_type(change_case: false) == "decimal"
               "require \"bigdecimal\""
             elsif !SimpleType::SUPPORTED_DATA_TYPES.dig(resolved_type(change_case: false).to_sym, :skippable)
@@ -68,9 +76,17 @@ module Lutaml
             return if min_occurs.nil? && max_occurs.nil?
 
             min_value = min_occurs.nil? ? 1 : min_occurs
-            max_value = max_occurs.nil? || max_occurs == "unbounded" ? 1 : max_occurs
-
             ", collection: #{min_value}...#{max_value}"
+          end
+
+          def max_value
+            if max_occurs == "unbounded"
+              "Float::INFINITY"
+            elsif max_occurs.to_i.positive?
+              max_occurs.to_i
+            elsif max_occurs.nil?
+              1
+            end
           end
 
           def default_option
@@ -84,7 +100,12 @@ module Lutaml
           end
 
           def last_of_split(field = ref)
-            field.split(":").last
+            field&.split(":")&.last
+          end
+
+          def skippable?
+            DEFAULT_XML_NAMESPACES.include?(ref&.split(":")&.first) ||
+              resolved_name == "schema_location"
           end
         end
       end

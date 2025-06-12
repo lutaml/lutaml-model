@@ -112,7 +112,7 @@ module Lutaml
             when "Lutaml::Model::Serializable"
               "require 'lutaml/model'"
             else
-              "require_relative '#{base_class}'"
+              "require_relative '#{Utils.snake_case(base_class.split(":").last)}'"
             end
           end
         end
