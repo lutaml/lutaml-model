@@ -15,6 +15,7 @@ RSpec.describe Lutaml::Model::Attribute do
     Class.new(Lutaml::Model::Serializable) do
       attribute :age, :integer
       attribute :image, :string
+      restrict :image, collection: 1..., pattern: /.*\.w+$/
     end
   end
 
