@@ -16,10 +16,8 @@ module Lutaml
 
           DEFAULT_XML_NAMESPACES = %w[xml].freeze
 
-          INDENT = "  "
-
           TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
-            <%= indent %>attribute :<%= resolved_name %>, :<%= resolved_type(change_case: true) %><%= attribute_options %>
+            <%= indent %>attribute :<%= resolved_name %>, :<%= resolved_type %><%= attribute_options %>
           TEMPLATE
 
           XML_MAPPING_TEMPLATE = ERB.new(<<~XML_MAPPING_TEMPLATE, trim_mode: "-")
@@ -33,13 +31,13 @@ module Lutaml
             @ref = ref
           end
 
-          def to_attributes(indent = INDENT)
+          def to_attributes(indent)
             return if skippable?
 
             TEMPLATE.result(binding) if resolved_type
           end
 
-          def to_xml_mapping(indent = INDENT)
+          def to_xml_mapping(indent)
             return if skippable?
 
             XML_MAPPING_TEMPLATE.result(binding) if resolved_type

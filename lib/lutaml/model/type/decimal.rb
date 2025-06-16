@@ -14,7 +14,7 @@ module Lutaml
                    # Convert to string first to handle various input types
                    BigDecimal(value.to_s)
                  end
-          Model::Services::Type::Validator.validate!(value, options)
+          Model::Services::Type::Validator::Number.validate!(value, options)
           value
         rescue ArgumentError
           nil
