@@ -134,23 +134,21 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
 
     context "when classes are generated but files are not created" do
       let(:schema_classes_hash) do
-        described_class.to_models(
-          File.read("spec/fixtures/xml/user.xsd"),
-        )
+        described_class.to_models(File.read("spec/fixtures/xml/user.xsd"))
       end
 
       let(:expected_classes) do
         [
-          "NonNegativeInteger",
-          "PositiveInteger",
-          "Base64Binary",
-          "UnsignedLong",
-          "UnsignedInt",
-          "HexBinary",
-          "AnyURI",
-          "Token",
-          "Long",
-          "Id",
+          "nonNegativeInteger",
+          "positiveInteger",
+          "base64Binary",
+          "unsignedLong",
+          "unsignedInt",
+          "hexBinary",
+          "anyURI",
+          "token",
+          "long",
+          "id",
           "User",
         ]
       end
@@ -207,6 +205,29 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
           location: "https://raw.githubusercontent.com/t-yuki/ooxml-xsd/refs/heads/master",
           load_classes: true,
         )
+      end
+
+      let(:xml) do
+        <<~XML
+          <m:oMath>
+            <m:f>
+              <m:num>
+                <m:r>
+                  <m:t>1</m:t>
+                </m:r>
+              </m:num>
+              <m:den>
+                <m:r>
+                  <m:t>2</m:t>
+                </m:r>
+              </m:den>
+            </m:f>
+          </m:oMath>
+        XML
+      end
+
+      it "matches the expected class names of the schema" do
+        expect(CTOMath.from_xml(xml).to_xml).to be_equivalent_to(xml)
       end
     end
   end

@@ -41,7 +41,27 @@ module Lutaml
         raise Lutaml::Model::ChoiceLowerBoundError.new(validated_attributes, @min) if valid.count < @min
       end
 
+      def import_model_mappings(model)
+        root_model_error(model)
+        @model.import_model_mappings(model)
+        @attributes.concat(model.attributes.values)
+      end
+
+      def import_model(model)
+        root_model_error(model)
+        import_model_attributes(model)
+      end
+
+      def import_model_attributes(model)
+        root_model_error(model)
+        @attributes.concat(model.attributes.values)
+      end
+
       private
+
+      def root_model_error(model)
+        raise Lutaml::Model::ImportModelWithRootError.new(model) if model.root?
+      end
 
       def valid_attributes(object, validated_attributes)
         @attributes.each do |attribute|

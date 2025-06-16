@@ -10,34 +10,33 @@ module Lutaml
                         :base_class,
                         :simple_content
 
-          INDENT = "  "
-
           SIMPLE_CONTENT_ATTRIBUTE_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
-            <%= indent %>attribute :<%= simple_content? ? name : "content" %>, :<%= simple_content? ? simple_content.base_class : "string" %>
-            <%= simple_content.to_attributes(indent) if simple_content? -%>
+            <%= @indent %>attribute :content, :<%= simple_content? ? Utils.snake_case(simple_content.base_class) : "string" %>
+            <%= simple_content.to_attributes(@indent) if simple_content? -%>
           TEMPLATE
 
           SIMPLE_CONTENT_MAPPING = ERB.new(<<~TEMPLATE, trim_mode: "-")
-            <%= indent %>map_content to: :<%= name %>
-          TEMPLATE
-
-          MIXED_CONTENT_MAPPING = ERB.new(<<~TEMPLATE, trim_mode: "-")
-            <%= indent %>map_content to: :content
+            <%= @indent * 2 %>map_content to: :content
           TEMPLATE
 
           TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
             # frozen_string_literal: true
-            <%=  "\n" + required_files.uniq.join("\n") -%>
 
-            class <%= Utils.camel_case(name) %> < <%= base_class %>
-            <%= instances.map { |instance| instance.to_attributes(indent) }.compact.join + "\n" -%>
-            <%= simple_content_attribute(indent) -%>
-            <%= indent %>xml do
-            <%= namespace_and_prefix(indent) -%>
-            <%= indent + INDENT %>root "<%= name %>"<%= root_options %>
-            <%= simple_content_value(indent) -%>
-            <%= instances.map { |instance| instance.to_xml_mapping(indent + INDENT) }.compact.join -%>
-            <%= indent %>end
+            <%= base_class_require -%>
+            # Empty class initialization to avoid circular dependency issues.
+            class <%= Utils.camel_case(name) %> < <%= base_class_name %>; end
+
+            <%= required_files.uniq.join("\n") + "\n" -%>
+
+            class <%= Utils.camel_case(name) %> < <%= base_class_name %>
+            <%= instances.map { |instance| instance.to_attributes(@indent) }.compact.join + "\n" -%>
+            <%= simple_content_attribute -%>
+            <%= @indent %>xml do
+            <%= namespace_and_prefix(@indent) -%>
+            <%= @indent * 2 %>root "<%= name %>"<%= root_options %>
+            <%= simple_content_value -%>
+            <%= instances.map { |instance| instance.to_xml_mapping(@indent * 2) }.compact.join -%>
+            <%= @indent %>end
             end
 
             register = Lutaml::Model::GlobalRegister.lookup(Lutaml::Model::Config.default_register)
@@ -54,23 +53,27 @@ module Lutaml
           end
 
           def simple_content?
-            @simple_content
+            Utils.present?(@simple_content)
           end
 
-          def to_class(indent = INDENT, options: {})
+          def to_class(options: {})
             setup_options(options)
             TEMPLATE.result(binding)
           end
 
           def required_files
-            [base_class_require, @instances.map(&:required_files)].flatten.compact.uniq
+            @instances.map(&:required_files).flatten.compact.uniq
           end
 
           private
 
           def setup_options(options)
-            @namespace = options[:namespace]
-            @prefix = options[:prefix]
+            @namespace, @prefix = options.values_at(:namespace, :prefix)
+            @indent = " " * options&.fetch(:indent, 2)
+          end
+
+          def simple_content_attribute
+            SIMPLE_CONTENT_ATTRIBUTE_TEMPLATE.result(binding) if simple_content? || mixed
           end
 
           def root_options
@@ -79,40 +82,39 @@ module Lutaml
             ", mixed: true"
           end
 
-          def simple_content_attribute(indent)
-            if simple_content? || mixed
-              SIMPLE_CONTENT_ATTRIBUTE_TEMPLATE.result(binding)
-            end
-          end
-
-          def simple_content_value(indent)
-            if simple_content?
-              SIMPLE_CONTENT_MAPPING.result(binding)
-            elsif mixed
-              MIXED_CONTENT_MAPPING.result(binding)
-            end
+          def simple_content_value
+            SIMPLE_CONTENT_MAPPING.result(binding) if simple_content? || mixed
           end
 
           def namespace_and_prefix(indent)
             return "" if Utils.blank?(@namespace) && Utils.blank?(@prefix)
 
-            [indent + INDENT, namespace_option, prefix_option].compact.join
+            [@indent * 2, namespace_option, prefix_option].compact.join
           end
 
           def namespace_option
-            "namespace '#{@namespace}'" if @namespace
+            "namespace \"#{@namespace}\"" if @namespace
           end
 
           def prefix_option
-            ", '#{@prefix}'" if @prefix
+            ", \"#{@prefix}\"" if @prefix
+          end
+
+          def base_class_name
+            case base_class
+            when "Lutaml::Model::Serializable"
+              "Lutaml::Model::Serializable"
+            else
+              Utils.camel_case(base_class.split(":").last)
+            end
           end
 
           def base_class_require
             case base_class
             when "Lutaml::Model::Serializable"
-              "require 'lutaml/model'"
+              "require \"lutaml/model\""
             else
-              "require_relative '#{Utils.snake_case(base_class.split(":").last)}'"
+              "require_relative \"#{Utils.snake_case(base_class.split(":").last)}\""
             end
           end
         end

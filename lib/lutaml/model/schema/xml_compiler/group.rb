@@ -7,25 +7,34 @@ module Lutaml
         class Group
           attr_accessor :name, :ref, :instance
 
-          INDENT = "  "
-
           GROUP_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
-            class <%= model_name %> < Lutaml::Model::Serializable
-            <%= definitions_content(indent) -%>
-            <%= xml_mapping_block(indent) -%>
+            # frozen_string_literal: true
+
+            # Empty class initialization to avoid circular dependency issues.
+            class <%= model_name %> < <%= base_class_name %>
+              xml do
+                no_root
+              end
+            end
+
+            <%=  "\n" + required_files.uniq.join("\n") -%>
+
+            class <%= model_name %> < <%= base_class_name %>
+            <%= definitions_content -%>
+            <%= xml_mapping_block -%>
             end
           TEMPLATE
 
           XML_MAPPING_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
-            <%= indent %>xml do
-            <%= indent + INDENT %>no_root
+            <%= @indent %>xml do
+            <%= @indent * 2 %>no_root
 
-            <%= instance.to_xml_mapping(indent + INDENT) -%>
-            <%= indent %>end
+            <%= instance.to_xml_mapping(@indent * 2) -%>
+            <%= @indent %>end
           TEMPLATE
 
           IMPORT_MODEL_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
-            <%= indent %>import_model <%= model_name %>
+            <%= @indent %>import_model <%= model_name %>
           TEMPLATE
 
           def initialize(name = nil, ref = nil)
@@ -33,30 +42,32 @@ module Lutaml
             @ref = ref
           end
 
-          def to_xml_mapping(indent = INDENT)
-            return @instance.to_xml_mapping(indent) if Utils.blank?(@name) && Utils.blank?(@ref)
-
-            nil
+          def to_xml_mapping(indent = @indent)
+            if Utils.present?(@ref)
+              "#{indent}import_model_mappings #{model_name}\n"
+            else
+              @instance.to_xml_mapping(indent * 2)
+            end
           end
 
-          def to_class(indent = INDENT)
+          def to_class(options: {})
+            setup_options(options)
             GROUP_TEMPLATE.result(binding)
           end
 
           def required_files
             if Utils.blank?(name) && Utils.present?(ref)
-              "require_relative '#{Utils.snake_case(ref.split(":").last)}'"
+              "require_relative \"#{Utils.snake_case(ref.split(":").last)}\""
             else
               @instance&.required_files
             end
           end
 
-          def to_attributes(indent = INDENT)
-            if Utils.blank?(@name) && Utils.blank?(@ref)
-              @instance.to_attributes(indent)
+          def to_attributes(indent = @indent)
+            if Utils.present?(@ref)
+              "#{indent}import_model_attributes #{model_name}\n"
             else
-              # TODO: Support import_model inside sequence and choice.
-              # IMPORT_MODEL_TEMPLATE.result(binding)
+              @instance.to_attributes(indent)
             end
           end
 
@@ -66,12 +77,20 @@ module Lutaml
 
           private
 
-          def definitions_content(indent)
-            @definitions_content ||= instance.to_attributes(indent)
+          def base_class_name
+            "Lutaml::Model::Serializable"
           end
 
-          def xml_mapping_block(indent)
-            return unless definitions_content(indent).include?("attribute :")
+          def setup_options(options)
+            @indent = " " * options&.fetch(:indent, 2)
+          end
+
+          def definitions_content
+            @definitions_content ||= instance.to_attributes(@indent)
+          end
+
+          def xml_mapping_block
+            return unless definitions_content.include?("attribute :")
 
             XML_MAPPING_TEMPLATE.result(binding)
           end
