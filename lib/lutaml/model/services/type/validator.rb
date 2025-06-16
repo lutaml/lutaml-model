@@ -8,6 +8,7 @@ module Lutaml
         class Validator
           module ClassMethods
             def validate_values!(value, values)
+              return if Utils.blank?(values)
               return if values.include?(value)
 
               raise Lutaml::Model::Type::InvalidValueError.new(value, values)

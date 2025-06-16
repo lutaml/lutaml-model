@@ -44,6 +44,13 @@ module Lutaml
         )
       end
 
+      def import_model_mappings(model)
+        raise Lutaml::Model::ImportModelWithRootError.new(model) if model.root?
+
+        @model.import_model_mappings(model)
+        @attributes.concat(model.attributes.values)
+      end
+
       def map_attribute(*)
         raise Lutaml::Model::UnknownSequenceMappingError.new("map_attribute")
       end

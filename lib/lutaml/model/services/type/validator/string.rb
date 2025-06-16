@@ -8,22 +8,25 @@ module Lutaml
               def validate!(value, options)
                 return if Utils.blank?(value)
 
+                validate_values!(value, options[:values])
                 validate_length!(value, options)
                 validate_pattern!(value, options)
               end
 
               def validate_length!(value, options)
-                return if Utils.blank?(options)
+                min, max = options&.values_at(:min, :max)
+                return if min.nil? || max.nil?
 
-                validate_min_length!(value, options[:min]) if options[:min]
-                validate_max_length!(value, options[:max]) if options[:max]
+                validate_min_length!(value, min) if min
+                validate_max_length!(value, max) if max
               end
 
               def validate_pattern!(value, options)
-                return if Utils.blank?(options)
-                return if value.match?(options[:pattern])
+                pattern = options[:pattern]
+                return if Utils.blank?(pattern)
+                return if value.match?(pattern)
 
-                raise Lutaml::Model::Type::PatternError.new(value, options[:pattern])
+                raise Lutaml::Model::Type::PatternNotMatchedError.new(value, pattern)
               end
 
               def validate_min_length!(value, min)

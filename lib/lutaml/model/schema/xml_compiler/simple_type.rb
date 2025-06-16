@@ -26,19 +26,21 @@ module Lutaml
             id: { class_name: "Lutaml::Model::Type::String", validations: { pattern: /\A[a-zA-Z_][\w.-]*\z/ } },
           }.freeze
 
-          INDENT = "  "
-
           INSTANCE_MODEL_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
             # frozen_string_literal: true
             require "lutaml/model"
-            <%= "require_relative '\#{Utils.snake_case(parent_class)}'\n" if require_parent? -%>
+
+            <%= "require_relative \\\"\#{Utils.snake_case(parent_class)}\\\"\n" if require_parent? -%>
             <%= required_files -%>
+
+            # Empty class initialization to avoid circular dependency issues.
+            class <%= klass_name %><%= " < \#{parent_class}" if parent_class %>; end
 
             class <%= klass_name %><%= " < \#{parent_class}" if parent_class %>
               def self.cast(value, options = {})
                 return nil if value.nil?
 
-            <%= instance&.to_method_body(INDENT + INDENT) -%>
+            <%= instance&.to_method_body(@indent) -%>
                 value = super(value, options)
                 value
               end
@@ -55,7 +57,7 @@ module Lutaml
 
             class <%= klass_name %>
               def self.cast(value, options = {})
-            <%= union_class_method_body(INDENT) %>
+            <%= union_class_method_body %>
               end
             end
           TEMPLATE
@@ -67,9 +69,20 @@ module Lutaml
             @unions = unions
           end
 
-          def to_class
+          def to_class(options: {})
+            setup_options(options)
             template = unions&.any? ? UNION_MODEL_TEMPLATE : INSTANCE_MODEL_TEMPLATE
             template.result(binding)
+          end
+
+          def required_files
+            instance&.required_files
+          end
+
+          private
+
+          def setup_options(options)
+            @indent = " " * options&.fetch(:indent, 2)
           end
 
           def klass_name
@@ -80,10 +93,6 @@ module Lutaml
             !SUPPORTED_DATA_TYPES[base_class&.to_sym]&.key?(:class_name)
           end
 
-          def big_decimal_class?
-            base_class.to_s == "decimal"
-          end
-
           def parent_class
             if SUPPORTED_DATA_TYPES[base_class&.to_sym]&.key?(:class_name)
               SUPPORTED_DATA_TYPES.dig(base_class.to_sym, :class_name)
@@ -92,12 +101,8 @@ module Lutaml
             end
           end
 
-          def required_files
-            instance&.required_files
-          end
-
-          def union_class_method_body(indent)
-            unions.map { |union| "#{indent + INDENT}#{Utils.camel_case(union)}.cast(value, options)" }.join(" ||\n  ")
+          def union_class_method_body
+            unions.map { |union| "#{@indent * 2}#{Utils.camel_case(union)}.cast(value, options)" }.join(" ||\n  ")
           end
 
           def union_required_files

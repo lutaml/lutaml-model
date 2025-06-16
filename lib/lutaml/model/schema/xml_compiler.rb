@@ -42,10 +42,9 @@ module Lutaml
         def to_models(schema, options = {})
           as_models(schema, options: options)
           options[:indent] = options[:indent] ? options[:indent].to_i : 2
-          options[:current_indent] = " " * options[:indent]
           @simple_types.merge!(XmlCompiler::SimpleType.setup_supported_types)
           classes_list = @simple_types.merge(@complex_types).merge(@group_types)
-          classes_list = classes_list.to_h { |name, type| [name, type.to_class] }
+          classes_list = classes_list.to_h { |name, type| [name, type.to_class(options: options)] }
           if options[:create_files]
             dir = options.fetch(:output_dir, "lutaml_models_#{Time.now.to_i}")
             FileUtils.mkdir_p(dir)
