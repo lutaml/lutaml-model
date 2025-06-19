@@ -1,0 +1,9 @@
+require "lutaml/model"
+
+<%= open_namespaces(schema.namespaces) %>
+<%= indent(schema.namespaces.size) %>class <%= schema.name %> < Lutaml::Model::Serializable
+<% schema.attributes.each do |attribute| -%>
+<%= attribute_line(attribute, schema.namespaces.size + 1) %>
+<% end -%>
+<%= indent(schema.namespaces.size) %>end
+<%= close_namespaces(schema.namespaces) %>
