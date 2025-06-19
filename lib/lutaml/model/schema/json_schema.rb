@@ -1,5 +1,8 @@
 require_relative "shared_methods"
 require_relative "base_schema"
+require_relative "renderer"
+require_relative "decorators/class_definition"
+
 require "json"
 
 module Lutaml
@@ -29,6 +32,18 @@ module Lutaml
 
           def format_schema(schema, options)
             options[:pretty] ? JSON.pretty_generate(schema) : schema.to_json
+          end
+
+          def generate_model_classes(schema)
+            schema["$defs"].to_h do |name, definition|
+              [name, generate_model_class(name, definition)]
+            end
+          end
+
+          def generate_model_class(name, definition)
+            template = File.join(__dir__, "templates", "model.erb")
+
+            s = Lutaml::Model::Schema::Renderer.render(template, schema: Lutaml::Model::Schema::Decorators::ClassDefinition.new(name, definition))
           end
         end
       end
