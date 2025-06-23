@@ -5,6 +5,14 @@ module Lutaml
     module Schema
       module Decorators
         class Attribute
+          ATTRIBUTE_TYPES = {
+            "string" => ":string",
+            "integer" => ":integer",
+            "boolean" => ":boolean",
+            "number" => ":float",
+            "object" => ":hash",
+          }.freeze
+
           attr_reader :name, :options
 
           # @param attribute [Hash] The JSON schema attribute to be decorated.
@@ -25,6 +33,10 @@ module Lutaml
                       else
                         ":string" # Default to string if type is not recognized
                       end
+          end
+
+          def polymorphic?
+            @options["oneOf"] || @options["anyOf"]
           end
 
           def collection?
@@ -56,13 +68,31 @@ module Lutaml
 
             type = type.first if type.is_a?(Array)
 
-            {
-              "string" => ":string",
-              "integer" => ":integer",
-              "boolean" => ":boolean",
-              "number" => ":float",
-              "object" => ":hash",
-            }[type] || ":string"
+            return array_type(options) if type == "array"
+            return object_type(options) if type == "object"
+
+            ATTRIBUTE_TYPES[type] || ":string"
+          end
+
+          def array_type(options)
+            lutaml_type_symbol(options["items"]["type"])
+          end
+
+          def object_type(options)
+            if options["oneOf"]
+              {
+                "polymorphic" => options["oneOf"].map do |choice|
+                  choice["$ref"].split("/").last.gsub("_", "::")
+                end,
+              }
+
+            elsif options["properties"]
+              options["properties"].map do |name, attr|
+                Attribute.new(name, attr)
+              end
+            else
+              ":hash" # Default to hash if no specific type is defined
+            end
           end
         end
       end

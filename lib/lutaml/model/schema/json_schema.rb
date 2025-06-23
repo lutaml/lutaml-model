@@ -35,15 +35,75 @@ module Lutaml
           end
 
           def generate_model_classes(schema)
+            polymorphic_classes = []
+
+            heirarchies = generate_heirarchies(schema["$defs"])
+
             schema["$defs"].to_h do |name, definition|
-              [name, generate_model_class(name, definition)]
+              schema = definition_class.new(name, definition, heirarchies: heirarchies)
+              if schema.polymorphic?
+                require "pry"
+                binding.pry
+              else
+                [name, generate_model_class(name, definition)]
+              end
             end
           end
 
           def generate_model_class(name, definition)
             template = File.join(__dir__, "templates", "model.erb")
 
-            s = Lutaml::Model::Schema::Renderer.render(template, schema: Lutaml::Model::Schema::Decorators::ClassDefinition.new(name, definition))
+            s = Lutaml::Model::Schema::Renderer.render(template, schema: definition_class.new(name, definition))
+          end
+
+          def generate_heirarchies(definitions)
+            definitions.each_with_object({}) do |(_name, schema), heirarchies|
+              polymorphic_properties = {}
+
+              schema["properties"]&.each do |property_name, property|
+                if polymorphic?(property)
+                  polymorphic_properties[property_name] = property["oneOf"].map do |option|
+                    option["$ref"].split("/").last # .gsub("_", "::")
+                  end
+                end
+              end
+
+              polymorphic_properties.each do |property_name, options|
+                parent_class = { name: options.first, schema: definitions[options.first] }
+
+                options.each do |option|
+                  current_class = { name: option, schema: definitions[option] }
+
+                  current_attributes = (current_class[:schema]["properties"] || {}).keys
+                  parent_attributes = (parent_class[:schema]["properties"] || {}).keys
+
+                  if (current_attributes - parent_attributes).empty? && (parent_attributes - current_attributes).any?
+                    parent_class = current_class
+                  end
+                end
+
+                heirarchies[property_name] = {
+                  parent: parent_class[:name],
+                  children: options - [parent_class[:name]],
+                }
+              end
+            end
+          end
+
+          def definition_class
+            Lutaml::Model::Schema::Decorators::ClassDefinition
+          end
+
+          def polymorphic?(property)
+            return false unless property["oneOf"]
+
+            (
+              (property["type"] == "object") ||
+              (
+                property["type"].is_a?(Array) &&
+                property["type"].first == "object"
+              )
+            ) && property["oneOf"].count > 1
           end
         end
       end

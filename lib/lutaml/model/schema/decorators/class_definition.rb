@@ -20,6 +20,10 @@ module Lutaml
           def choice?
             true
           end
+
+          def polymorphic?
+            false
+          end
         end
 
         class ClassDefinition
@@ -30,17 +34,18 @@ module Lutaml
           #
           # @param schema [Hash] The JSON schema to be decorated.
           # @param options [Hash] Additional options for the decorator.
-          def initialize(schema, options = {})
+          def initialize(name, schema)
+            @name = name
             @schema = schema
-            @options = options
+            @polymorphic_attributes = []
           end
 
           def name
-            @name ||= @schema.split("_").last
+            @name ||= @name.split("_").last
           end
 
           def namespaces
-            @namespaces ||= @schema.split("_")[0..-2]
+            @namespaces ||= @name.split("_")[0..-2]
           end
 
           def attributes
@@ -48,13 +53,13 @@ module Lutaml
 
             choice_attributes = {}
 
-            @options["oneOf"]&.each do |choice|
+            @schema["oneOf"]&.each do |choice|
               choice["properties"].each do |name, attr|
                 choice_attributes[name] = Decorators::Attribute.new(name, attr)
               end
             end
 
-            @attributes ||= @options["properties"].map do |name, attr|
+            @attributes ||= @schema["properties"].map do |name, attr|
               next if choice_attributes[name]
 
               Decorators::Attribute.new(name, attr)
@@ -63,6 +68,20 @@ module Lutaml
             @attributes << Choices.new(choice_attributes) if choice_attributes.any?
 
             @attributes
+          end
+
+          def polymorphic?
+            polymorphic_attributes.any?
+          end
+
+          def polymorphic_attributes
+            return @polymorphic_attributes if @polymorphic_attributes.any?
+
+            attributes.each do |attr|
+              @polymorphic_attributes << attr if attr.polymorphic?
+            end
+
+            @polymorphic_attributes
           end
         end
       end

@@ -36,8 +36,8 @@ module Lutaml
             required_properties = ":#{attribute.name}, #{attribute.type}"
             required_properties += ", default: #{attribute.default.inspect}" if attribute.default
             required_properties += ", collection: #{attribute.collection}" if attribute.collection?
-            required_properties += ", values: #{attribute.options[:enum].inspect}" if attribute.options[:enum]
-            required_properties += ", pattern: #{attribute.options[:pattern].inspect}" if attribute.options[:pattern]
+            required_properties += ", values: #{attribute.options['enum']}" if attribute.options["enum"]
+            required_properties += ", pattern: /#{attribute.options['pattern']}/" if attribute.options["pattern"]
 
             required_properties
           end

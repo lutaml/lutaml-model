@@ -186,7 +186,7 @@ RSpec.describe Lutaml::Model::Schema::JsonSchema do
 
           module JsonSchemaSpec
             class ValidationModel < Lutaml::Model::Serializable
-              attribute :name, :string, values: %w[Alice Bob Charlie]
+              attribute :name, :string, values: ["Alice", "Bob", "Charlie"]
               attribute :email, :string, pattern: /.*?\\S+@.+\\.\\S+/
               attribute :age, :integer, collection: 1..3
               attribute :score, :float, default: 0.0
@@ -197,7 +197,7 @@ RSpec.describe Lutaml::Model::Schema::JsonSchema do
 
       it "generates Ruby model classes with validation constraints from schema" do
         generated = described_class.generate_model_classes(schema)
-        expect(generated["JsonSchemaSpec_ValidationModel"]).to eq(expected_classes.strip)
+        expect(generated["JsonSchemaSpec_ValidationModel"].strip).to eq(expected_classes.strip)
       end
     end
 
@@ -251,25 +251,27 @@ RSpec.describe Lutaml::Model::Schema::JsonSchema do
       let(:expected_classes) do
         <<~RUBY
           class JsonSchemaSpec_Shape < Lutaml::Model::Serializable
-            attribute :area, Lutaml::Model::Type::Float
+            attribute :area, :float
           end
 
           class JsonSchemaSpec_Circle < JsonSchemaSpec_Shape
-            attribute :radius, Lutaml::Model::Type::Float
+            attribute :radius, :float
           end
 
           class JsonSchemaSpec_Square < JsonSchemaSpec_Shape
-            attribute :side, Lutaml::Model::Type::Float
+            attribute :side, :float
           end
 
           class JsonSchemaSpec_PolymorphicModel < Lutaml::Model::Serializable
-            attribute :shape, JsonSchemaSpec_Shape, polymorphic: [JsonSchemaSpec_Circle, JsonSchemaSpec_Square]
+            attribute :shape, JsonSchemaSpec::Shape, polymorphic: [JsonSchemaSpec::Circle, JsonSchemaSpec::Square]
           end
         RUBY
       end
 
       it "generates Ruby model classes with polymorphic types from schema" do
         generated = described_class.generate_model_classes(schema)
+        require "pry"
+        binding.pry
         expect(generated.strip).to eq(expected_classes.strip)
       end
     end
