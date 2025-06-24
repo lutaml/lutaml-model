@@ -34,18 +34,23 @@ module Lutaml
           #
           # @param schema [Hash] The JSON schema to be decorated.
           # @param options [Hash] Additional options for the decorator.
-          def initialize(name, schema)
-            @name = name
+          def initialize(namespaced_name, schema, heirarchies: {})
+            @namespaced_name = namespaced_name
             @schema = schema
             @polymorphic_attributes = []
+            @heirarchies = heirarchies
           end
 
           def name
-            @name ||= @name.split("_").last
+            @name ||= @namespaced_name.split("_").last
           end
 
           def namespaces
-            @namespaces ||= @name.split("_")[0..-2]
+            @namespaces ||= @namespaced_name.split("_")[0..-2]
+          end
+
+          def parent_class
+            @parent_class ||= @heirarchies.fetch(@namespaced_name, "Lutaml::Model::Serializable")
           end
 
           def attributes
@@ -62,7 +67,7 @@ module Lutaml
             @attributes ||= @schema["properties"].map do |name, attr|
               next if choice_attributes[name]
 
-              Decorators::Attribute.new(name, attr)
+              Decorators::Attribute.new(name, attr, heirarchies: @heirarchies)
             end.compact
 
             @attributes << Choices.new(choice_attributes) if choice_attributes.any?

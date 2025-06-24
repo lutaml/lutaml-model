@@ -41,19 +41,15 @@ module Lutaml
 
             schema["$defs"].to_h do |name, definition|
               schema = definition_class.new(name, definition, heirarchies: heirarchies)
-              if schema.polymorphic?
-                require "pry"
-                binding.pry
-              else
-                [name, generate_model_class(name, definition)]
-              end
+
+              [name, generate_model_class(name, schema)]
             end
           end
 
-          def generate_model_class(name, definition)
+          def generate_model_class(name, schema)
             template = File.join(__dir__, "templates", "model.erb")
 
-            s = Lutaml::Model::Schema::Renderer.render(template, schema: definition_class.new(name, definition))
+            Lutaml::Model::Schema::Renderer.render(template, schema: schema)
           end
 
           def generate_heirarchies(definitions)
@@ -82,10 +78,15 @@ module Lutaml
                   end
                 end
 
-                heirarchies[property_name] = {
-                  parent: parent_class[:name],
-                  children: options - [parent_class[:name]],
-                }
+                children = options - [parent_class[:name]]
+                children.each do |child_name|
+                  heirarchies[child_name] = parent_class[:name].gsub("_", "::")
+                end
+
+                # heirarchies[property_name] = {
+                #   parent: parent_class[:name],
+                #   children: options - [parent_class[:name]],
+                # }
               end
             end
           end

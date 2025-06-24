@@ -16,9 +16,10 @@ module Lutaml
           attr_reader :name, :options
 
           # @param attribute [Hash] The JSON schema attribute to be decorated.
-          def initialize(name, options)
+          def initialize(name, options, heirarchies: {})
             @name = name
             @options = options
+            @heirarchies = heirarchies
           end
 
           def default
@@ -26,17 +27,15 @@ module Lutaml
           end
 
           def type
-            @type ||= if @options["type"]
-                        lutaml_type_symbol(@options["type"])
-                      elsif @options["$ref"]
-                        @options["$ref"].split("/").last.gsub("_", "::")
-                      else
-                        ":string" # Default to string if type is not recognized
-                      end
+            @type ||= extract_type(@options)
           end
 
           def polymorphic?
             @options["oneOf"] || @options["anyOf"]
+          end
+
+          def polymorphic_classes
+            @heirarchies.keys.map { |name| name.gsub("_", "::") }
           end
 
           def collection?
@@ -76,6 +75,20 @@ module Lutaml
 
           def array_type(options)
             lutaml_type_symbol(options["items"]["type"])
+          end
+
+          def extract_type(options)
+            return extract_type(options["items"]) if options["type"] == "array"
+
+            if polymorphic?
+              @heirarchies.values.first
+            elsif options["type"]
+              lutaml_type_symbol(options["type"])
+            elsif options["$ref"]
+              options["$ref"].split("/").last.gsub("_", "::")
+            else
+              ":string" # Default to string if type is not recognized
+            end
           end
 
           def object_type(options)
