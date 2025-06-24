@@ -38,6 +38,7 @@ module Lutaml
             required_properties += ", collection: #{attribute.collection}" if attribute.collection?
             required_properties += ", values: #{attribute.options['enum']}" if attribute.options["enum"]
             required_properties += ", pattern: /#{attribute.options['pattern']}/" if attribute.options["pattern"]
+            required_properties += ", polymorphic: [#{attribute.polymorphic_classes.join(', ')}]" if attribute.polymorphic?
 
             required_properties
           end

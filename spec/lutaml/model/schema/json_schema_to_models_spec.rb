@@ -249,30 +249,54 @@ RSpec.describe Lutaml::Model::Schema::JsonSchema do
       end
 
       let(:expected_classes) do
-        <<~RUBY
-          class JsonSchemaSpec_Shape < Lutaml::Model::Serializable
-            attribute :area, :float
-          end
+        {
+          "JsonSchemaSpec_Shape" => <<~RUBY.strip,
+            require "lutaml/model"
 
-          class JsonSchemaSpec_Circle < JsonSchemaSpec_Shape
-            attribute :radius, :float
-          end
+            module JsonSchemaSpec
+              class Shape < Lutaml::Model::Serializable
+                attribute :area, :float
+              end
+            end
+          RUBY
 
-          class JsonSchemaSpec_Square < JsonSchemaSpec_Shape
-            attribute :side, :float
-          end
+          "JsonSchemaSpec_Circle" => <<~RUBY.strip,
+            require "lutaml/model"
 
-          class JsonSchemaSpec_PolymorphicModel < Lutaml::Model::Serializable
-            attribute :shape, JsonSchemaSpec::Shape, polymorphic: [JsonSchemaSpec::Circle, JsonSchemaSpec::Square]
-          end
-        RUBY
+            module JsonSchemaSpec
+              class Circle < JsonSchemaSpec::Shape
+                attribute :radius, :float
+              end
+            end
+          RUBY
+
+          "JsonSchemaSpec_Square" => <<~RUBY.strip,
+            require "lutaml/model"
+
+            module JsonSchemaSpec
+              class Square < JsonSchemaSpec::Shape
+                attribute :side, :float
+              end
+            end
+          RUBY
+
+          "JsonSchemaSpec_PolymorphicModel" => <<~RUBY.strip,
+            require "lutaml/model"
+
+            module JsonSchemaSpec
+              class PolymorphicModel < Lutaml::Model::Serializable
+                attribute :shape, JsonSchemaSpec::Shape, polymorphic: [JsonSchemaSpec::Circle, JsonSchemaSpec::Square]
+              end
+            end
+          RUBY
+        }
       end
 
       it "generates Ruby model classes with polymorphic types from schema" do
         generated = described_class.generate_model_classes(schema)
         require "pry"
         binding.pry
-        expect(generated.strip).to eq(expected_classes.strip)
+        expect(generated.transform_values(&:strip)).to eq(expected_classes)
       end
     end
 
@@ -322,32 +346,56 @@ RSpec.describe Lutaml::Model::Schema::JsonSchema do
       end
 
       let(:expected_classes) do
-        <<~RUBY
-          class JsonSchemaSpec_Detail < Lutaml::Model::Serializable
-            attribute :weight, Lutaml::Model::Type::Float
-            attribute :color, Lutaml::Model::Type::String
-          end
+        {
+          "JsonSchemaSpec_Detail" => <<~RUBY.strip,
+            require "lutaml/model"
 
-          class JsonSchemaSpec_Item < Lutaml::Model::Serializable
-            attribute :name, Lutaml::Model::Type::String
-            attribute :detail, JsonSchemaSpec_Detail
-          end
+            module JsonSchemaSpec
+              class Detail < Lutaml::Model::Serializable
+                attribute :weight, :float
+                attribute :color, :string
+              end
+            end
+          RUBY
 
-          class JsonSchemaSpec_Box < Lutaml::Model::Serializable
-            attribute :size, Lutaml::Model::Type::String
-            attribute :items, JsonSchemaSpec_Item, collection: true
-          end
+          "JsonSchemaSpec_Item" => <<~RUBY.strip,
+            require "lutaml/model"
 
-          class JsonSchemaSpec_Container < Lutaml::Model::Serializable
-            attribute :id, Lutaml::Model::Type::String
-            attribute :box, JsonSchemaSpec_Box
-          end
-        RUBY
+            module JsonSchemaSpec
+              class Item < Lutaml::Model::Serializable
+                attribute :name, :string
+                attribute :detail, JsonSchemaSpec::Detail
+              end
+            end
+          RUBY
+
+          "JsonSchemaSpec_Box" => <<~RUBY.strip,
+            require "lutaml/model"
+
+            module JsonSchemaSpec
+              class Box < Lutaml::Model::Serializable
+                attribute :size, :string
+                attribute :items, JsonSchemaSpec::Item, collection: true
+              end
+            end
+          RUBY
+
+          "JsonSchemaSpec_Container" => <<~RUBY.strip,
+            require "lutaml/model"
+
+            module JsonSchemaSpec
+              class Container < Lutaml::Model::Serializable
+                attribute :id, :string
+                attribute :box, JsonSchemaSpec::Box
+              end
+            end
+          RUBY
+        }
       end
 
       it "generates Ruby model classes for deeply nested classes from schema" do
         generated = described_class.generate_model_classes(schema)
-        expect(generated.strip).to eq(expected_classes.strip)
+        expect(generated.transform_values(&:strip)).to eq(expected_classes)
       end
     end
   end
