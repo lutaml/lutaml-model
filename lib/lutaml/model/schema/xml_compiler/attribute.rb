@@ -11,8 +11,7 @@ module Lutaml
                         :type,
                         :default
 
-
-          DEFAULT_XML_NAMESPACES = %w[xml]
+          DEFAULT_XML_NAMESPACES = %w[xml].freeze
 
           TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
             <%= indent %>attribute :<%= resolved_name %>, :<%= resolved_type %>
@@ -66,7 +65,7 @@ module Lutaml
           end
 
           def referenced_instance
-            @referenced_instance ||= XmlCompiler.instance_variable_get(:"@attributes")[last_of_split]
+            @referenced_instance ||= XmlCompiler.instance_variable_get(:@attributes)[last_of_split]
           end
 
           def last_of_split(field = ref)

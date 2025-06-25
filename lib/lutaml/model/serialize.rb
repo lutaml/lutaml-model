@@ -30,7 +30,7 @@ module Lutaml
       module ClassMethods
         include Lutaml::Model::Liquefiable::ClassMethods
 
-        attr_accessor :attributes, :mappings, :choice_attributes
+        attr_accessor :mappings, :choice_attributes
 
         def inherited(subclass)
           super
@@ -47,6 +47,11 @@ module Lutaml
           @attributes = Utils.deep_dup(source_class.instance_variable_get(:@attributes)) || {}
           @choice_attributes = Utils.deep_dup(source_class.instance_variable_get(:@choice_attributes)) || []
           instance_variable_set(:@model, self)
+        end
+
+        def attributes(register = nil, attr_definition: false)
+          ensure_imported!(register) unless attr_definition
+          @attributes
         end
 
         def model(klass = nil)
@@ -126,7 +131,7 @@ module Lutaml
           end
 
           attr = Attribute.new(name, type, options)
-          attributes[name] = attr
+          attributes(attr_definition: true)[name] = attr
           define_attribute_methods(attr)
 
           attr
@@ -151,6 +156,12 @@ module Lutaml
         end
 
         def import_model_attributes(model)
+          if model.is_a?(Symbol) || model.is_a?(String)
+            importable_models[:import_model_attributes] << model.to_sym
+            @imported = false
+            return
+          end
+
           model.attributes.each_value do |attr|
             define_attribute_methods(attr)
           end
@@ -160,8 +171,13 @@ module Lutaml
         end
 
         def import_model_mappings(model)
-          import_model_with_root_error(model)
+          if model.is_a?(Symbol) || model.is_a?(String)
+            importable_models[:import_model_mappings] << model.to_sym
+            @imported = false
+            return
+          end
 
+          import_model_with_root_error(model)
           Lutaml::Model::Config::AVAILABLE_FORMATS.each do |format|
             next unless model.mappings.key?(format)
 
@@ -187,9 +203,19 @@ module Lutaml
         end
 
         def import_model(model)
+          if model.is_a?(Symbol) || model.is_a?(String)
+            importable_models[:import_model] << model.to_sym
+            @imported = false
+            return
+          end
+
           import_model_with_root_error(model)
           import_model_attributes(model)
           import_model_mappings(model)
+        end
+
+        def importable_models
+          @importable_models ||= Hash.new { |h, k| h[k] = [] }
         end
 
         def add_enum_methods_to_model(klass, enum_name, values, collection: false)
@@ -275,7 +301,6 @@ module Lutaml
         def process_mapping(format, &block)
           klass = ::Lutaml::Model::Config.mappings_class_for(format)
           mappings[format] ||= klass.new
-
           mappings[format].instance_eval(&block)
 
           if mappings[format].respond_to?(:finalize)
@@ -451,6 +476,22 @@ module Lutaml
           else
             Lutaml::Model::Config.default_register
           end
+        end
+
+        def ensure_imported!(register = nil)
+          return if @imported
+
+          register ||= Lutaml::Model::GlobalRegister.lookup(Lutaml::Model::Config.default_register)
+          importable_models.each do |key, models|
+            models.uniq.each do |model|
+              model_class = register.get_class_without_register(model)
+              import_model_with_root_error(model_class)
+
+              @model.public_send(key, model_class)
+            end
+          end
+
+          @imported = true
         end
       end
 

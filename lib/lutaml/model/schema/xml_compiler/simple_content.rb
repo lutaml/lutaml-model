@@ -24,7 +24,7 @@ module Lutaml
             return nil unless instances?
 
             # TODO: NEEDS MORE IMPLEMENTATION THAN THIS
-            instances.map { |instance| instance.to_attributes(indent) }.compact.join("\n")
+            instances.filter_map { |instance| instance.to_attributes(indent) }.join("\n")
           end
         end
       end

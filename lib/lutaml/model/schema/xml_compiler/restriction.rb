@@ -16,23 +16,23 @@ module Lutaml
                         :pattern,
                         :length
 
-            INDENT = "  "
+          INDENT = "  "
 
-            MIN_MAX_BOUNDS = ERB.new(<<~TEMPLATE, trim_mode: "-")
-              <%= "\#{indent}options[:max] = \#{max_inclusive || max_exclusive}" if max_bound_exist? %>
-              <%= "\#{indent}options[:min] = \#{min_inclusive || min_exclusive}" if min_bound_exist? %>
-            TEMPLATE
+          MIN_MAX_BOUNDS = ERB.new(<<~TEMPLATE, trim_mode: "-")
+            <%= "\#{indent}options[:max] = \#{max_inclusive || max_exclusive}" if max_bound_exist? %>
+            <%= "\#{indent}options[:min] = \#{min_inclusive || min_exclusive}" if min_bound_exist? %>
+          TEMPLATE
 
-            PATTERN = ERB.new(<<~TEMPLATE, trim_mode: "-")
-              <%= "\#{indent}options[:pattern] = %r{\#{pattern}}" %>
-            TEMPLATE
+          PATTERN = ERB.new(<<~TEMPLATE, trim_mode: "-")
+            <%= "\#{indent}options[:pattern] = %r{\#{pattern}}" %>
+          TEMPLATE
 
-            ENUMERATIONS = ERB.new(<<~TEMPLATE, trim_mode: "-")
-              <%= "\#{indent}options[:values] = \#{enumerations}" %>
-            TEMPLATE
+          ENUMERATIONS = ERB.new(<<~TEMPLATE, trim_mode: "-")
+            <%= "\#{indent}options[:values] = \#{enumerations}" %>
+          TEMPLATE
 
           def to_method_body(indent = nil)
-            content = [
+            [
               value_for(ENUMERATIONS, type: :enumerations, indent: indent),
               value_for(MIN_MAX_BOUNDS, type: :min_max_bounds, indent: indent),
               value_for(PATTERN, type: :pattern, indent: indent),
@@ -77,7 +77,7 @@ module Lutaml
           end
 
           def base_class_name
-            base_class.split(":")&.last.to_sym
+            base_class&.split(":")&.last&.to_sym
           end
         end
       end
