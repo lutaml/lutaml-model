@@ -13,7 +13,7 @@ module Lutaml
 
         def to_s
           "`#{@value}` is invalid, must be one of the " \
-            "following [#{@allowed_values.join(', ')}]"
+            "following #{@allowed_values.inspect}"
         end
       end
     end

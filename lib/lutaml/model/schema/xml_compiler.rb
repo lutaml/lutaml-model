@@ -44,7 +44,7 @@ module Lutaml
           options[:indent] = options[:indent] ? options[:indent].to_i : 2
           @simple_types.merge!(XmlCompiler::SimpleType.setup_supported_types)
           classes_list = @simple_types.merge(@complex_types).merge(@group_types)
-          classes_list = classes_list.to_h { |name, type| [name, type.to_class(options: options)] }
+          classes_list = classes_list.transform_values { |type| type.to_class(options: options) }
           if options[:create_files]
             dir = options.fetch(:output_dir, "lutaml_models_#{Time.now.to_i}")
             FileUtils.mkdir_p(dir)
@@ -220,9 +220,9 @@ module Lutaml
 
         def setup_group_type_instance(group)
           if sequence = group.sequence
-            setup_sequence(group.sequence)
+            setup_sequence(sequence)
           elsif choice = group.choice
-            setup_choice(group.choice)
+            setup_choice(choice)
           end
         end
 
@@ -265,7 +265,7 @@ module Lutaml
         end
 
         def setup_attribute_groups(attribute_group)
-        instance = AttributeGroup.new(name: attribute_group.name, ref: attribute_group.ref)
+          instance = AttributeGroup.new(name: attribute_group.name, ref: attribute_group.ref)
           if attribute_group.name
             resolved_element_order(attribute_group).each do |object|
               instance.instances << case object
@@ -300,7 +300,8 @@ module Lutaml
         end
 
         # Populates @simple_types or @complex_types based on elements available value.
-        def setup_element_type(element, instance)
+        # TODO: Need to add a spec for this, current examples contain the type in all cases, need an example without type to test this.
+        def setup_element_type(element, _instance)
           return element.type if element.type
 
           type = element.simple_type ? "simple" : "complex"
@@ -339,7 +340,7 @@ module Lutaml
           @complex_types[name] = ComplexContent.new.tap do |instance|
             complex_type.mixed = complex_content.mixed
             if extension = complex_content.extension
-              setup_extension(complex_content.extension, complex_type)
+              setup_extension(extension, complex_type)
             elsif restriction = complex_content.restriction
               instance.restriction = setup_complex_content_restriction(restriction, complex_type)
             end

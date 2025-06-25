@@ -45,6 +45,7 @@ module Lutaml
       end
 
       def import_model_mappings(model)
+        return import_mappings_later(model) if model_importable?(model)
         raise Lutaml::Model::ImportModelWithRootError.new(model) if model.root?
 
         @model.import_model_mappings(model)
@@ -72,6 +73,17 @@ module Lutaml
             raise Lutaml::Model::IncorrectSequenceError.new(element, element_order[i])
           end
         end
+      end
+
+      private
+
+      def model_importable?(model)
+        model.is_a?(Symbol) || model.is_a?(String)
+      end
+
+      def import_mappings_later(model)
+        @model.sequence_importable_mappings[self] << model.to_sym
+        @model.mappings_imported = false
       end
     end
   end

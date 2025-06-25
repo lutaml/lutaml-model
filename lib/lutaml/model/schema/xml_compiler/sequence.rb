@@ -42,7 +42,7 @@ module Lutaml
           end
 
           def block_content(indent)
-            instances.map { |instance| instance.to_xml_mapping(indent + INDENT) }.compact.join
+            instances.filter_map { |instance| instance.to_xml_mapping(indent + INDENT) }.join
           end
         end
       end

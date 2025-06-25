@@ -40,7 +40,7 @@ module Lutaml
               def self.cast(value, options = {})
                 return nil if value.nil?
 
-            <%= instance&.to_method_body(@indent) -%>
+            <%= instance&.to_method_body(@indent * 2) -%>
                 value = super(value, options)
                 value
               end
@@ -55,14 +55,18 @@ module Lutaml
             require "lutaml/model"
             <%= union_required_files %>
 
-            class <%= klass_name %>
+            register = Lutaml::Model::GlobalRegister.lookup(Lutaml::Model::Config.default_register)
+
+            class <%= klass_name %> < Lutaml::Model::Type::Value
               def self.cast(value, options = {})
             <%= union_class_method_body %>
               end
             end
+
+            register.register_model(<%= klass_name %>, id: :<%= Utils.snake_case(class_name) %>)
           TEMPLATE
 
-          def initialize(name, union = [])
+          def initialize(name, unions = [])
             raise "SimpleType name is required!" if Utils.blank?(name)
 
             @class_name = name
@@ -102,28 +106,30 @@ module Lutaml
           end
 
           def union_class_method_body
-            unions.map { |union| "#{@indent * 2}#{Utils.camel_case(union)}.cast(value, options)" }.join(" ||\n  ")
+            unions.map do |union|
+              "#{@indent * 2}register.get_class(:#{Utils.snake_case(union)}).cast(value, options)"
+            end.join(" ||\n  ")
           end
 
           def union_required_files
-            unions.map do |union|
+            unions.filter_map do |union|
               next if SUPPORTED_DATA_TYPES.dig(union.to_sym, :skippable)
 
               "require_relative \"#{Utils.snake_case(union)}\""
-            end.compact.join("\n")
+            end.join("\n")
           end
 
           class << self
             def setup_supported_types
-              SUPPORTED_DATA_TYPES.map.with_object({}) do |(name, simple_type), hash|
+              SUPPORTED_DATA_TYPES.filter_map.with_object({}) do |(name, simple_type), hash|
                 next if simple_type[:skippable]
 
-                self.new(name.to_s).tap do |instance|
+                new(name.to_s).tap do |instance|
                   instance.base_class = Utils.base_class_snake_case(simple_type[:class_name])
                   instance.instance = setup_restriction(instance.base_class, simple_type[:validations]) if simple_type[:validations]
                   hash[name.to_s] = instance
                 end
-              end.compact
+              end
             end
 
             def setup_restriction(base_class, validations)

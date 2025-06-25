@@ -41,18 +41,15 @@ module Lutaml
         raise Lutaml::Model::ChoiceLowerBoundError.new(validated_attributes, @min) if valid.count < @min
       end
 
-      def import_model_mappings(model)
-        root_model_error(model)
-        @model.import_model_mappings(model)
-        @attributes.concat(model.attributes.values)
-      end
-
       def import_model(model)
         root_model_error(model)
         import_model_attributes(model)
       end
 
+      # TODO: Update this function to import only methods when called from the model.
       def import_model_attributes(model)
+        return import_mappings_later(model) if model_importable?(model)
+
         root_model_error(model)
         @attributes.concat(model.attributes.values)
       end
@@ -77,6 +74,15 @@ module Lutaml
         end
 
         validated_attributes
+      end
+
+      def model_importable?(model)
+        model.is_a?(Symbol) || model.is_a?(String)
+      end
+
+      def import_mappings_later(model)
+        importable_mappings << model.to_sym
+        @mappings_imported = false
       end
     end
   end

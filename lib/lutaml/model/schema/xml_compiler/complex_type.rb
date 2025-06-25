@@ -16,7 +16,7 @@ module Lutaml
           TEMPLATE
 
           SIMPLE_CONTENT_MAPPING = ERB.new(<<~TEMPLATE, trim_mode: "-")
-            <%= @indent * 2 %>map_content to: :content
+            <%= extended_indent %>map_content to: :content
           TEMPLATE
 
           TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
@@ -32,10 +32,10 @@ module Lutaml
             <%= instances.map { |instance| instance.to_attributes(@indent) }.compact.join + "\n" -%>
             <%= simple_content_attribute -%>
             <%= @indent %>xml do
-            <%= namespace_and_prefix(@indent) -%>
-            <%= @indent * 2 %>root "<%= name %>"<%= root_options %>
+            <%= extended_indent %>root "<%= name %>"<%= root_options %>
+            <%= namespace_and_prefix %>
             <%= simple_content_value -%>
-            <%= instances.map { |instance| instance.to_xml_mapping(@indent * 2) }.compact.join -%>
+            <%= instances.map { |instance| instance.to_xml_mapping(extended_indent) }.compact.join -%>
             <%= @indent %>end
             end
 
@@ -86,18 +86,18 @@ module Lutaml
             SIMPLE_CONTENT_MAPPING.result(binding) if simple_content? || mixed
           end
 
-          def namespace_and_prefix(indent)
+          def namespace_and_prefix
             return "" if Utils.blank?(@namespace) && Utils.blank?(@prefix)
 
-            [@indent * 2, namespace_option, prefix_option].compact.join
+            [namespace_option, @prefix&.inspect].compact.join(", ")
+          end
+
+          def extended_indent
+            @indent * 2
           end
 
           def namespace_option
-            "namespace \"#{@namespace}\"" if @namespace
-          end
-
-          def prefix_option
-            ", \"#{@prefix}\"" if @prefix
+            "#{extended_indent}namespace #{@namespace.inspect}"
           end
 
           def base_class_name
@@ -114,7 +114,7 @@ module Lutaml
             when "Lutaml::Model::Serializable"
               "require \"lutaml/model\""
             else
-              "require_relative \"#{Utils.snake_case(base_class.split(":").last)}\""
+              "require_relative \"#{Utils.snake_case(base_class.split(':').last)}\""
             end
           end
         end

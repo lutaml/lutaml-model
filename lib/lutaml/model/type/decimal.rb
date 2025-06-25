@@ -7,13 +7,13 @@ module Lutaml
 
           check_dependencies!(value)
           value = case value
-                 when BigDecimal
-                   # If already a BigDecimal, return as-is
-                   value
-                 else
-                   # Convert to string first to handle various input types
-                   BigDecimal(value.to_s)
-                 end
+                  when BigDecimal
+                    # If already a BigDecimal, return as-is
+                    value
+                  else
+                    # Convert to string first to handle various input types
+                    BigDecimal(value.to_s)
+                  end
           Model::Services::Type::Validator::Number.validate!(value, options)
           value
         rescue ArgumentError
