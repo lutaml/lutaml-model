@@ -219,3 +219,146 @@ require_relative 'path/to/directory/*.rb'
 ----
 ====
 
+=== JSON/YAML Schema import
+
+Lutaml::Model supports importing JSON Schema definitions to generate Ruby model classes. This enables you to create Ruby models that match your JSON Schema, supporting schema-driven development and interoperability.
+
+==== Overview
+
+The `Lutaml::Model::Schema::JsonSchema.generate_model_classes` method takes a JSON Schema (as a Ruby hash) and generates Ruby class definitions for each schema in the `$defs` section.
+
+- Each generated class inherits from `Lutaml::Model::Serializable`.
+- Attributes are created based on the schema's properties.
+- The output is a hash mapping definition names to Ruby class code (as strings).
+
+==== Usage
+
+[source,ruby]
+----
+require 'lutaml/model/schema/json_schema'
+require 'json'
+
+# Load your JSON Schema (as a Ruby hash)
+schema = JSON.parse(File.read("your_schema.json"))
+
+# Generate Ruby model class definitions as strings
+model_classes = Lutaml::Model::Schema::JsonSchema.generate_model_classes(schema)
+
+# model_classes is a hash mapping definition names to Ruby class code
+puts model_classes["YourDefinitionName"]
+----
+
+==== Example
+
+Given a JSON Schema with a `$defs` section:
+
+[source,json]
+----
+{
+  "$defs": {
+    "Person": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "age": { "type": "integer" }
+      }
+    }
+  }
+}
+----
+
+The generated Ruby class will look like:
+
+[source,ruby]
+----
+class Person < Lutaml::Model::Serializable
+  attribute "name", :string
+  attribute "age", :integer
+end
+----
+
+==== Polymorphic Classes and `oneOf` Support
+
+Polymorphism allows you to define a common interface for multiple classes, enabling them to be used interchangeably. In JSON Schema, polymorphism is often represented using the `oneOf` keyword, which specifies that a value must validate against exactly one of the given schemas.
+
+For example:
+
+[source,json]
+----
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$ref": "#/$defs/PolymorphicModel",
+  "$defs": {
+    "PolymorphicModel": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "shape": {
+          "type": ["object", "null"],
+          "oneOf": [
+            { "$ref": "#/$defs/Circle" },
+            { "$ref": "#/$defs/Square" },
+            { "$ref": "#/$defs/Shape" }
+          ]
+        }
+      }
+    },
+    "Circle": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "area": { "type": ["number", "null"] },
+        "radius": { "type": ["number", "null"] }
+      }
+    },
+    "Square": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "area": { "type": ["number", "null"] },
+        "side": { "type": ["number", "null"] }
+      }
+    },
+    "Shape": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "area": { "type": ["number", "null"] }
+      }
+    }
+  }
+}
+----
+
+===== Detecting the Parent Class
+
+When using `oneOf`, you can infer the parent class by identifying the common attributes shared by all referenced schemas. In the example above, all referenced types (`Circle`, `Square`, `Shape`) have an `area` property, so a `Shape` parent class can be defined with this attribute. The subclasses (`Circle`, `Square`) then add their specific attributes.
+
+This pattern allows Lutaml::Model to:
+
+- Detect the parent class by finding the intersection of attributes in all `oneOf` schemas.
+- Generate a base class with the shared attributes.
+- Generate subclasses for each specific schema, inheriting from the base class and adding unique attributes.
+
+===== Example Ruby Mapping
+
+[source,ruby]
+----
+class Shape < Lutaml::Model::Serializable
+  attribute :area, :float
+end
+
+class Circle < Shape
+  attribute :radius, :float
+end
+
+class Square < Shape
+  attribute :side, :float
+end
+
+class PolymorphicModel < Lutaml::Model::Serializable
+  attribute :shape, :Shape, polymorphic: [Circle, Square]
+end
+----
+
+This approach enables polymorphic deserialization and validation, matching the intent of the JSON

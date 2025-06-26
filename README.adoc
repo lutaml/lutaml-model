@@ -9339,6 +9339,7 @@ models. This allows you to create models from existing schema definitions.
 Currently, the following schema formats are supported:
 
 * XSD (https://w3.org/TR/xmlschema-1/[XML Schema Definition Language])
+* JSON/YAML Schema
 
 Please refer to link:docs/schema_import.adoc[Schema Import] for details
 and examples.

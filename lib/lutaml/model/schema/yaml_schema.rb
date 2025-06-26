@@ -30,6 +30,26 @@ module Lutaml
               #{options[:pretty] ? schema.to_yaml : YAML.dump(schema)}
             SCHEMA
           end
+
+          def generate_model_classes(schema)
+            definitions = definition_collection_class.new(schema["$defs"])
+
+            definitions.transform_values do |definition|
+              generate_model_class(definition)
+            end
+          end
+
+          private
+
+          def generate_model_class(schema)
+            template = File.join(__dir__, "templates", "model.erb")
+
+            Lutaml::Model::Schema::Renderer.render(template, schema: schema)
+          end
+
+          def definition_collection_class
+            Lutaml::Model::Schema::Decorators::DefinitionCollection
+          end
         end
       end
     end
