@@ -13,29 +13,31 @@ module Lutaml
             "object" => ":hash",
           }.freeze
 
-          attr_reader :name, :options
+          attr_reader :name, :options, :polymorphic
+          attr_accessor :type, :base_class
 
           # @param attribute [Hash] The JSON schema attribute to be decorated.
-          def initialize(name, options, heirarchies: {})
+          def initialize(name, options)
             @name = name
             @options = options
-            @heirarchies = heirarchies
+            @type = extract_type(options)
+            @polymorphic = options["oneOf"]&.map { |choice| choice["$ref"].split("/").last }
           end
 
           def default
             @options["default"]
           end
 
-          def type
-            @type ||= extract_type(@options)
-          end
-
           def polymorphic?
-            @options["oneOf"] || @options["anyOf"]
+            !!@polymorphic
           end
 
           def polymorphic_classes
-            @heirarchies.keys.map { |name| name.gsub("_", "::") }
+            return [] unless polymorphic?
+
+            @base_class.sub_classes.map do |klass|
+              klass.namespaced_name.gsub("_", "::")
+            end
           end
 
           def collection?
@@ -80,9 +82,7 @@ module Lutaml
           def extract_type(options)
             return extract_type(options["items"]) if options["type"] == "array"
 
-            if polymorphic?
-              @heirarchies.values.first
-            elsif options["type"]
+            if options["type"]
               lutaml_type_symbol(options["type"])
             elsif options["$ref"]
               options["$ref"].split("/").last.gsub("_", "::")
