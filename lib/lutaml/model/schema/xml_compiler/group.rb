@@ -24,7 +24,6 @@ module Lutaml
           XML_MAPPING_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
             <%= @indent %>xml do
             <%= extended_indent %>no_root
-            <%= "\#{extended_indent}\#{namespace_content}" %>
             <%= instance&.to_xml_mapping(extended_indent) -%>
             <%= @indent %>end
           TEMPLATE
@@ -79,14 +78,6 @@ module Lutaml
 
           def setup_options(options)
             @indent = " " * options&.fetch(:indent, 2)
-            @namespace = options&.fetch(:namespace, nil)
-            @prefix = options&.fetch(:prefix, nil)
-          end
-
-          def namespace_content
-            return "" unless Utils.present?(@namespace) && Utils.present?(@prefix)
-
-            ["namespace #{@namespace.inspect}", @prefix&.inspect].compact.join(", ")
           end
 
           def definitions_content

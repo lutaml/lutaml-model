@@ -42,16 +42,21 @@ module Lutaml
       end
 
       def import_model(model)
+        return import_model_later(model, :import_model) if model_importable?(model)
+
         root_model_error(model)
         import_model_attributes(model)
       end
 
-      # TODO: Update this function to import only methods when called from the model.
       def import_model_attributes(model)
-        return import_mappings_later(model) if model_importable?(model)
+        return import_model_later(model, :import_model_attributes) if model_importable?(model)
 
         root_model_error(model)
-        @attributes.concat(model.attributes.values)
+        imported_attributes = Utils.deep_dup(model.attributes.values)
+        imported_attributes.each { |attr| attr.options[:choice] = self }
+        @attributes.concat(imported_attributes)
+        attrs_hash = imported_attributes.map { |attr| [attr.name.to_s, attr] }.to_h
+        @model.attributes(skip_import: true).merge!(attrs_hash)
       end
 
       private
@@ -80,9 +85,9 @@ module Lutaml
         model.is_a?(Symbol) || model.is_a?(String)
       end
 
-      def import_mappings_later(model)
-        importable_mappings << model.to_sym
-        @mappings_imported = false
+      def import_model_later(model, method)
+        @model.importable_choices[self][method] << model.to_sym
+        @model.instance_variable_set(:@choices_imported, false)
       end
     end
   end

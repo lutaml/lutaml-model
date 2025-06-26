@@ -26,12 +26,13 @@ module Lutaml
         with: {},
         delegate: nil,
         cdata: false,
-        namespace: nil,
-        prefix: nil,
+        namespace: (namespace_set = false
+                    nil),
+        prefix: (prefix_set = false
+                   nil),
         transform: {}
       )
-        @attributes << @model.map_element(
-          name,
+        args = {
           to: to,
           render_nil: render_nil,
           render_default: render_default,
@@ -41,6 +42,11 @@ module Lutaml
           namespace: namespace,
           prefix: prefix,
           transform: transform,
+        }.compact
+
+        @attributes << @model.map_element(
+          name,
+          **args
         )
       end
 
@@ -49,7 +55,7 @@ module Lutaml
         raise Lutaml::Model::ImportModelWithRootError.new(model) if model.root?
 
         @model.import_model_mappings(model)
-        @attributes.concat(model.attributes.values)
+        @attributes.concat(model.mappings_for(:xml).elements)
       end
 
       def map_attribute(*)
@@ -64,18 +70,29 @@ module Lutaml
         raise Lutaml::Model::UnknownSequenceMappingError.new("map_all")
       end
 
-      def validate_content!(element_order)
-        defined_order = @attributes.map { |rule| rule.name.to_s }
+      def validate_content!(element_order, klass)
+        defined_order = @attributes.each_with_object({}) { |rule, acc| acc[rule.name.to_s] = klass.attributes[rule.to] }
         start_index = element_order.index(defined_order.first)
+        collection_skippable = []
 
-        defined_order.each.with_index(start_index) do |element, i|
-          unless element_order[i] == element
-            raise Lutaml::Model::IncorrectSequenceError.new(element, element_order[i])
-          end
+        defined_order.each.with_index(start_index) do |(element, attribute), i|
+          next if element_order[i] == element
+          next if attribute.collection? && attribute.collection_range.min.zero?
+
+          raise Lutaml::Model::IncorrectSequenceError.new(element, element_order[i])
         end
       end
 
       private
+
+      def collection_handling
+        @attributes.each do |attribute|
+          next unless attribute.collection?
+          next if attribute.collection_range.min.zero?
+
+          collection_skippable << attribute
+        end
+      end
 
       def model_importable?(model)
         model.is_a?(Symbol) || model.is_a?(String)

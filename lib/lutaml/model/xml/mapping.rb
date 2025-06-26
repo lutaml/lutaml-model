@@ -12,13 +12,14 @@ module Lutaml
           all_content: :map_all,
         }.freeze
 
+        attr_accessor :mappings_imported
+
         attr_reader :root_element,
                     :namespace_uri,
                     :namespace_prefix,
                     :mixed_content,
                     :ordered,
-                    :element_sequence,
-                    :mappings_imported
+                    :element_sequence
 
         def initialize
           super
@@ -326,7 +327,7 @@ module Lutaml
           elements + attributes + [content_mapping, raw_mapping].compact
         end
 
-        def ensure_mappings_imported!(register_id)
+        def ensure_mappings_imported!(register_id = nil)
           return if @mappings_imported
 
           importable_mappings.each do |model|
@@ -334,6 +335,15 @@ module Lutaml
               register(register_id).get_class_without_register(model),
             )
           end
+
+          sequence_importable_mappings.each do |sequence, models|
+            models.each do |model|
+              sequence.import_model_mappings(
+                register(register_id).get_class_without_register(model),
+              )
+            end
+          end
+
           @mappings_imported = true
         end
 
@@ -342,7 +352,7 @@ module Lutaml
         end
 
         def sequence_importable_mappings
-          @sequence_importable_mappings ||= {}
+          @sequence_importable_mappings ||= Hash.new { |h, k| h[k] = [] }
         end
 
         def element(name)
