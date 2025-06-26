@@ -1,32 +1,16 @@
 # frozen_string_literal: true
 
 require_relative "attribute"
+require_relative "choices"
 
 module Lutaml
   module Model
     module Schema
       module Decorators
-        class Choices
-          attr_reader :attributes
-
-          # Decorates a collection of choice attributes.
-          # This class is used to handle attributes that are part of a choice
-          # constraint in a JSON schema. It provides a way to access the choice
-          # attributes in a structured manner.
-          def initialize(attributes)
-            @attributes = attributes.values
-          end
-
-          def choice?
-            true
-          end
-
-          def polymorphic?
-            false
-          end
-        end
-
         class ClassDefinition
+          attr_accessor :base_class, :sub_classes
+          attr_reader :additional_properties, :properties, :namespaced_name
+
           # Decorates a JSON schema information to be used in class definitions.
           # This class is used to provide a structured way to handle schema
           # information for class definitions, including attributes,
@@ -34,11 +18,21 @@ module Lutaml
           #
           # @param schema [Hash] The JSON schema to be decorated.
           # @param options [Hash] Additional options for the decorator.
-          def initialize(namespaced_name, schema, heirarchies: {})
+          def initialize(namespaced_name, schema)
             @namespaced_name = namespaced_name
-            @schema = schema
+            @choices = schema["oneOf"] || []
+            @additional_properties = schema["additionalProperties"] || false
             @polymorphic_attributes = []
-            @heirarchies = heirarchies
+
+            @properties = (schema["properties"] || {}).to_h do |name, attr|
+              attribute = Decorators::Attribute.new(name, attr)
+              polymorphic_attributes << attribute if attribute.polymorphic?
+
+              [name, attribute]
+            end
+
+            @base_class = nil
+            @sub_classes = []
           end
 
           def name
@@ -50,29 +44,25 @@ module Lutaml
           end
 
           def parent_class
-            @parent_class ||= @heirarchies.fetch(@namespaced_name, "Lutaml::Model::Serializable")
+            @parent_class ||= @base_class&.namespaced_name&.gsub("_", "::") || "Lutaml::Model::Serializable"
+          end
+
+          def choice?
+            @choices&.any?
           end
 
           def attributes
-            return @attributes if @attributes
+            return @properties.values if !choice?
 
             choice_attributes = {}
-
-            @schema["oneOf"]&.each do |choice|
+            @choices.each do |choice|
               choice["properties"].each do |name, attr|
-                choice_attributes[name] = Decorators::Attribute.new(name, attr)
+                choice_attributes[name] = properties[name] || Decorators::Attribute.new(name, attr)
+                properties[name] = nil if properties[name]
               end
             end
 
-            @attributes ||= @schema["properties"].map do |name, attr|
-              next if choice_attributes[name]
-
-              Decorators::Attribute.new(name, attr, heirarchies: @heirarchies)
-            end.compact
-
-            @attributes << Choices.new(choice_attributes) if choice_attributes.any?
-
-            @attributes
+            @properties.values.compact + [Choices.new(choice_attributes)]
           end
 
           def polymorphic?
@@ -80,7 +70,7 @@ module Lutaml
           end
 
           def polymorphic_attributes
-            return @polymorphic_attributes if @polymorphic_attributes.any?
+            return @polymorphic_attributes if !@polymorphic_attributes.nil?
 
             attributes.each do |attr|
               @polymorphic_attributes << attr if attr.polymorphic?

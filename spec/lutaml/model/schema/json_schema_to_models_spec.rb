@@ -68,23 +68,6 @@ RSpec.describe Lutaml::Model::Schema::JsonSchema do
           "JsonSchemaSpec_Glaze" => glaze_class,
           "JsonSchemaSpec_Vase" => vase_class,
         }
-        # <<~RUBY
-        #   module JsonSchemaSpec
-        #     class Glaze < Lutaml::Model::Serializable
-        #       attribute :color, Lutaml::Model::Type::String
-        #       attribute :finish, Lutaml::Model::Type::String
-        #     end
-        #   end
-
-        #   module JsonSchemaSpec
-        #     class Vase < Lutaml::Model::Serializable
-        #       attribute :height, Lutaml::Model::Type::Float
-        #       attribute :diameter, Lutaml::Model::Type::Float
-        #       attribute :glaze, JsonSchemaSpec_Glaze
-        #       attribute :materials, Lutaml::Model::Type::String, collection: true
-        #     end
-        #   end
-        # RUBY
       end
 
       it "generates Ruby model classes from schema" do
@@ -294,8 +277,6 @@ RSpec.describe Lutaml::Model::Schema::JsonSchema do
 
       it "generates Ruby model classes with polymorphic types from schema" do
         generated = described_class.generate_model_classes(schema)
-        require "pry"
-        binding.pry
         expect(generated.transform_values(&:strip)).to eq(expected_classes)
       end
     end
