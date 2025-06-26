@@ -43,6 +43,8 @@ module Lutaml
             end
           end
 
+          private
+
           def generate_model_class(schema)
             template = File.join(__dir__, "templates", "model.erb")
 
