@@ -288,9 +288,9 @@ module Lutaml
         def setup_element(element)
           element_name = element.name
           instance = Element.new(name: element_name, ref: element.ref)
+          instance.min_occurs = element.min_occurs
+          instance.max_occurs = element.max_occurs
           if element_name
-            instance.min_occurs = element.min_occurs
-            instance.max_occurs = element.max_occurs
             instance.type = setup_element_type(element, instance)
             instance.id = element.id
             instance.fixed = element.fixed

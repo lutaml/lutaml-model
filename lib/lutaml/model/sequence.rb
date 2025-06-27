@@ -29,7 +29,7 @@ module Lutaml
         namespace: (namespace_set = false
                     nil),
         prefix: (prefix_set = false
-                   nil),
+                 nil),
         transform: {}
       )
         args = {
@@ -39,14 +39,14 @@ module Lutaml
           with: with,
           delegate: delegate,
           cdata: cdata,
-          namespace: namespace,
-          prefix: prefix,
           transform: transform,
-        }.compact
+        }
+        args[:namespace] = namespace if namespace_set.nil?
+        args[:prefix] = prefix if prefix_set.nil?
 
         @attributes << @model.map_element(
           name,
-          **args
+          **args,
         )
       end
 
@@ -71,31 +71,46 @@ module Lutaml
       end
 
       def validate_content!(element_order, klass)
-        defined_order = @attributes.each_with_object({}) { |rule, acc| acc[rule.name.to_s] = klass.attributes[rule.to] }
-        start_index = element_order.index(defined_order.first)
-        collection_skippable = []
-
-        defined_order.each.with_index(start_index) do |(element, attribute), i|
-          next if element_order[i] == element
-          next if attribute.collection? && attribute.collection_range.min.zero?
-
-          raise Lutaml::Model::IncorrectSequenceError.new(element, element_order[i])
-        end
+        defined_order = extract_defined_order(klass)
+        validate_sequence!(defined_order, element_order)
       end
 
       private
 
-      def collection_handling
-        @attributes.each do |attribute|
-          next unless attribute.collection?
-          next if attribute.collection_range.min.zero?
+      def validate_sequence!(defined_order, element_order)
+        eo_index = element_order.index(defined_order&.keys&.first) || 0
 
-          collection_skippable << attribute
+        defined_order.each do |element, klass_attr|
+          element_exist = Proc.new { element_order[eo_index] == element }
+
+          if klass_attr.collection?
+            min, max = klass_attr.min_max_range
+            count = []
+            while eo_index < element_order.size && element_exist.call && count.size < max
+              count << element_order[eo_index]
+              eo_index += 1
+            end
+            if count.size < min || count.size > max
+              raise Lutaml::Model::CollectionCountOutOfRangeError.new(element, count, klass_attr.collection_range)
+            end
+            next
+          elsif element_exist.call
+            next eo_index += 1
+          end
+          raise Lutaml::Model::IncorrectSequenceError.new(element, element_order[eo_index])
+        end
+      end
+
+      def extract_defined_order(klass)
+        @attributes.each_with_object({}) do |rule, acc|
+          acc[rule.name.to_s] = klass.attributes[rule.to.to_s] ||
+            klass.attributes[rule.to.to_sym]
         end
       end
 
       def model_importable?(model)
-        model.is_a?(Symbol) || model.is_a?(String)
+        model.is_a?(Symbol) ||
+          model.is_a?(String)
       end
 
       def import_mappings_later(model)

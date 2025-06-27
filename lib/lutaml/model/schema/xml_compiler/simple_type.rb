@@ -14,6 +14,7 @@ module Lutaml
             unsignedLong: { class_name: "Lutaml::Model::Type::Integer", validations: { min_inclusive: 0, max_inclusive: 18446744073709551615 } },
             unsignedInt: { class_name: "Lutaml::Model::Type::Integer", validations: { min_inclusive: 0, max_inclusive: 4294967295 } },
             hexBinary: { class_name: "Lutaml::Model::Type::String", validations: { pattern: /([0-9a-fA-F]{2})*/ } },
+            language: { class_name: "Lutaml::Model::Type::String", validations: { pattern: /\A[a-zA-Z]{1,8}(-[a-zA-Z0-9]{1,8})*\z/ } },
             dateTime: { skippable: true, class_name: "Lutaml::Model::Type::DateTime" },
             boolean: { skippable: true, class_name: "Lutaml::Model::Type::Boolean" },
             integer: { skippable: true, class_name: "Lutaml::Model::Type::Integer" },
@@ -21,6 +22,7 @@ module Lutaml
             string: { skippable: true, class_name: "Lutaml::Model::Type::String" },
             anyURI: { class_name: "Lutaml::Model::Type::String", validations: { pattern: "\\A\#{URI::DEFAULT_PARSER.make_regexp(%w[http https ftp])}\\z" } },
             token: { class_name: "Lutaml::Model::Type::String", validations: { pattern: /\A[^\t\n\f\r ]+(?: [^\t\n\f\r ]+)*\z/ } },
+            byte: { class_name: "Lutaml::Model::Type::Integer", validations: { min_inclusive: -128, max_inclusive: 127 } },
             long: { class_name: "Lutaml::Model::Type::Decimal" },
             int: { skippable: true, class_name: "Lutaml::Model::Type::Integer" },
             id: { class_name: "Lutaml::Model::Type::String", validations: { pattern: /\A[a-zA-Z_][\w.-]*\z/ } },
@@ -31,11 +33,7 @@ module Lutaml
             require "lutaml/model"
 
             <%= "require_relative \\\"\#{Utils.snake_case(parent_class)}\\\"\n" if require_parent? -%>
-            <%= required_files -%>
-
-            # Empty class initialization to avoid circular dependency issues.
-            class <%= klass_name %><%= " < \#{parent_class}" if parent_class %>; end
-
+            <%= "\#{required_files}\n" -%>
             class <%= klass_name %><%= " < \#{parent_class}" if parent_class %>
               def self.cast(value, options = {})
                 return nil if value.nil?
@@ -98,8 +96,8 @@ module Lutaml
           end
 
           def parent_class
-            if SUPPORTED_DATA_TYPES[base_class&.to_sym]&.key?(:class_name)
-              SUPPORTED_DATA_TYPES.dig(base_class.to_sym, :class_name)
+            if SUPPORTED_DATA_TYPES.key?(class_name&.to_sym) || SUPPORTED_DATA_TYPES.dig(base_class&.to_sym, :class_name)
+              SUPPORTED_DATA_TYPES.dig(base_class&.to_sym, :class_name)
             elsif base_class
               Utils.camel_case(base_class.to_s)
             end

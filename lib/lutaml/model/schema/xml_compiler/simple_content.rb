@@ -23,8 +23,17 @@ module Lutaml
           def to_attributes(indent = nil)
             return nil unless instances?
 
-            # TODO: NEEDS MORE IMPLEMENTATION THAN THIS
             instances.filter_map { |instance| instance.to_attributes(indent) }.join("\n")
+          end
+
+          def to_xml_mapping(indent = nil)
+            return nil unless instances?
+
+            instances.filter_map { |instance| instance.to_xml_mapping(indent) }.join("\n")
+          end
+
+          def required_files
+            instances.map(&:required_files).flatten.compact.uniq
           end
         end
       end

@@ -163,7 +163,7 @@ module Lutaml
         def import_model_attributes(model)
           if model.is_a?(Symbol) || model.is_a?(String)
             importable_models[:import_model_attributes] << model.to_sym
-            @imported = false
+            @waiting_import = true
             return
           end
 
@@ -178,7 +178,7 @@ module Lutaml
         def import_model_mappings(model)
           if model.is_a?(Symbol) || model.is_a?(String)
             importable_models[:import_model_mappings] << model.to_sym
-            @imported = false
+            @waiting_import = true
             return
           end
 
@@ -210,7 +210,7 @@ module Lutaml
         def import_model(model)
           if model.is_a?(Symbol) || model.is_a?(String)
             importable_models[:import_model] << model.to_sym
-            @imported = false
+            @waiting_import = true
             return
           end
 
@@ -371,7 +371,7 @@ module Lutaml
         end
 
         def mappings(skip_import: false)
-          @mappings.each_value(&:ensure_mappings_imported!) unless skip_import
+          @mappings&.dig(:xml)&.ensure_mappings_imported! unless skip_import
           @mappings
         end
 
@@ -500,7 +500,7 @@ module Lutaml
         end
 
         def ensure_model_imports!(register_id = nil)
-          return if @imported
+          return unless @waiting_import
 
           register_id ||= Lutaml::Model::Config.default_register
           register = Lutaml::Model::GlobalRegister.lookup(register_id)
@@ -513,7 +513,7 @@ module Lutaml
             end
           end
 
-          @imported = true
+          @waiting_import = false
         end
 
         def ensure_choice_imports!(register_id = nil)

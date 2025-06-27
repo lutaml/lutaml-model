@@ -396,7 +396,13 @@ module Lutaml
       end
 
       def collection_range
+        return unless collection?
+
         collection.is_a?(Range) ? collection : 0..Float::INFINITY
+      end
+
+      def min_max_range
+        [collection_range.min, collection_range.max]
       end
 
       def deep_dup

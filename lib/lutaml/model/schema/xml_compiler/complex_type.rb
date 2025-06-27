@@ -11,7 +11,7 @@ module Lutaml
                         :simple_content
 
           SIMPLE_CONTENT_ATTRIBUTE_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
-            <%= @indent %>attribute :content, :<%= simple_content? ? Utils.snake_case(simple_content.base_class) : "string" %>
+            <%= @indent %>attribute :content, :<%= simple_content? ? Utils.snake_case(simple_content.base_class.split(":").last) : "string" %>
             <%= simple_content.to_attributes(@indent) if simple_content? -%>
           TEMPLATE
 
@@ -23,11 +23,8 @@ module Lutaml
             # frozen_string_literal: true
 
             <%= base_class_require -%>
-            # Empty class initialization to avoid circular dependency issues.
-            class <%= Utils.camel_case(name) %> < <%= base_class_name %>; end
 
             <%= required_files.uniq.join("\n") + "\n" -%>
-
             class <%= Utils.camel_case(name) %> < <%= base_class_name %>
             <%= instances.map { |instance| instance.to_attributes(@indent) }.compact.join + "\n" -%>
             <%= simple_content_attribute -%>
@@ -36,6 +33,7 @@ module Lutaml
             <%= namespace_and_prefix %>
             <%= simple_content_value -%>
             <%= instances.map { |instance| instance.to_xml_mapping(extended_indent) }.compact.join -%>
+            <%= simple_content.to_xml_mapping(extended_indent) if simple_content? -%>
             <%= @indent %>end
             end
 
@@ -62,7 +60,10 @@ module Lutaml
           end
 
           def required_files
-            @instances.map(&:required_files).flatten.compact.uniq
+            files = []
+            files.concat(@instances.map(&:required_files).flatten.compact.uniq)
+            files.concat(simple_content.required_files) if simple_content?
+            files
           end
 
           private
