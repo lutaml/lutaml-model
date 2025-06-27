@@ -145,8 +145,10 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
           "unsignedLong",
           "unsignedInt",
           "hexBinary",
+          "language",
           "anyURI",
           "token",
+          "byte",
           "long",
           "id",
           "User",
@@ -198,36 +200,133 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
       end
     end
 
-    context "when classes are generated and loaded but files are not created" do
+    context "when classes are generated and loaded but files are not created for OOXML schema" do
+      Dir.mktmpdir do |dir|
+        before do
+          described_class.to_models(
+            Net::HTTP.get(URI("https://raw.githubusercontent.com/t-yuki/ooxml-xsd/refs/heads/master/shared-math.xsd")),
+            location: "https://raw.githubusercontent.com/t-yuki/ooxml-xsd/refs/heads/master",
+            output_dir: dir,
+            load_classes: true,
+            namespace: "http://schemas.openxmlformats.org/officeDocument/2006/math",
+            prefix: "m",
+          )
+        end
+
+        let(:xml) do
+          <<~XML
+            <m:CT_F xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math">
+              <m:fPr>
+                <m:type val="noBar"/>
+              </m:fPr>
+              <m:num>
+                <m:r/>
+              </m:num>
+              <m:den>
+                <m:r/>
+              </m:den>
+            </m:CT_F>
+          XML
+        end
+
+        it "matches the expected class names of the schema" do
+          expect(defined?(CTOMath)).to eq("constant")
+          # TODO: The error is not expected once the issue#359 is implemented.
+          expect(CTOMath.instance_variable_get(:@attributes)).to be_empty
+          expect { CTF.from_xml(xml) }.to raise_error(Lutaml::Model::IncorrectSequenceError) do |error|
+            expect(error.message).to match(/does not match the expected sequence/)
+          end
+          expect(CTF.instance_variable_get(:@attributes)).not_to be_empty
+        end
+      end
+    end
+
+    context "when classes are generated and loaded but files are not created for UnitsML schema" do
       before do
         described_class.to_models(
-          Net::HTTP.get(URI("https://raw.githubusercontent.com/t-yuki/ooxml-xsd/refs/heads/master/shared-math.xsd")),
-          location: "https://raw.githubusercontent.com/t-yuki/ooxml-xsd/refs/heads/master",
-          load_classes: true,
+          Net::HTTP.get(URI("https://raw.githubusercontent.com/unitsml/schemas/refs/heads/main/unitsml/unitsml-v0.9.xsd")),
+          output_dir: "spec/fixtures/xml/unitsml",
+          load_classes: true
         )
       end
 
       let(:xml) do
         <<~XML
-          <m:oMath>
-            <m:f>
-              <m:num>
-                <m:r>
-                  <m:t>1</m:t>
-                </m:r>
-              </m:num>
-              <m:den>
-                <m:r>
-                  <m:t>2</m:t>
-                </m:r>
-              </m:den>
-            </m:f>
-          </m:oMath>
+          <UnitsMLType>
+            <UnitSet>
+              <Unit>
+                <System type="SI"/>
+                <Symbol type="ASCII">m</Symbol>
+                <UnitName lang="en">meter</UnitName>
+              </Unit>
+            </UnitSet>
+          </UnitsMLType>
         XML
       end
 
-      it "matches the expected class names of the schema" do
-        expect(CTOMath.from_xml(xml).to_xml).to be_equivalent_to(xml)
+      let(:detailed_xml) do
+        <<~XML
+          <UnitsMLType>
+            <UnitSet>
+              <!-- Base unit: meter -->
+              <Unit symbolicID="U_m">
+                <System type="SI"/>
+                <Symbol type="ASCII">m</Symbol>
+                <UnitName lang="en">meter</UnitName>
+                <Definition>Base unit of length in the International System of Units (SI).</Definition>
+              </Unit>
+              <!-- Derived unit: kilometer -->
+              <Unit symbolicID="U_km" prefixSymbol="k">
+                <System type="SI"/>
+                <Symbol type="ASCII">km</Symbol>
+                <UnitName lang="en">kilometer</UnitName>
+                <Definition>One thousand meters.</Definition>
+                <Representation>
+                  <UnitRepresentation prefixReference="P_k" unitReference="U_m"/>
+                </Representation>
+              </Unit>
+            </UnitSet>
+
+            <PrefixSet>
+              <Prefix prefixID="P_k" asciiSymbol="k" system="SI" base="10" power="3">
+                <PrefixName lang="en">kilo</PrefixName>
+              </Prefix>
+            </PrefixSet>
+
+            <QuantitySet>
+              <Quantity quantityID="Q_length" type="HTML">
+                <QuantityName lang="en">length</QuantityName>
+                <Dimension>
+                  <Length symbol="L">1</Length>
+                  <Mass symbol="M">0</Mass>
+                  <Time symbol="T">0</Time>
+                  <ElectricCurrent symbol="I">0</ElectricCurrent>
+                  <ThermoTemp symbol="Θ">0</ThermoTemp>
+                  <AmountSubstance symbol="N">0</AmountSubstance>
+                  <LuminousIntensity symbol="J">0</LuminousIntensity>
+                </Dimension>
+                <Unit symbolicID="U_m">
+                  <System type="SI"/>
+                  <Symbol type="ASCII">m</Symbol>
+                  <UnitName lang="en">meter</UnitName>
+                </Unit>
+                <Unit symbolicID="U_km">
+                  <System type="SI"/>
+                  <Symbol type="ASCII">km</Symbol>
+                  <UnitName lang="en">kilometer</UnitName>
+                </Unit>
+              </Quantity>
+            </QuantitySet>
+
+          </UnitsMLType>
+        XML
+      end
+      it "matches the converted xml with the expected xml with a short example" do
+        expect(UnitsMLType.from_xml(xml).to_xml).to be_equivalent_to(xml)
+      end
+
+      it "matches the converted xml with the expected xml with a detailed example" do
+        expect(UnitsMLType.from_xml(detailed_xml).to_xml).to be_equivalent_to(detailed_xml)
       end
     end
   end

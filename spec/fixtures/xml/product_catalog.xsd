@@ -25,7 +25,7 @@
     </xs:restriction>
   </xs:simpleType>
 
-  <xs:simpleType name="QuantityType">
+  <xs:simpleType name="QuantityTypes">
     <xs:annotation>
       <xs:documentation>Quantity must be non-negative</xs:documentation>
     </xs:annotation>
@@ -91,7 +91,7 @@
       <xs:element name="category" type="cat:CategoryType"/>
       <xs:element name="price" type="cat:PriceType"/>
       <xs:element name="salePrice" type="cat:PriceType" minOccurs="0"/>
-      <xs:element name="inventory" type="cat:QuantityType"/>
+      <xs:element name="inventory" type="cat:QuantityTypes"/>
       <xs:element name="dimensions" type="cat:DimensionsType"/>
       <xs:element name="rating" type="cat:RatingType" minOccurs="0"/>
       <xs:element name="features" minOccurs="0">

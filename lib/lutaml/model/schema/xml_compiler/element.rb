@@ -74,7 +74,7 @@ module Lutaml
             return if min_occurs.nil? && max_occurs.nil?
 
             min_value = min_occurs.nil? ? 1 : min_occurs
-            ", collection: #{min_value}...#{max_value}"
+            ", collection: #{min_value}..#{max_value}"
           end
 
           def max_value

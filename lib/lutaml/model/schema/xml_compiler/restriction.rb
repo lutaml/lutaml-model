@@ -28,7 +28,7 @@ module Lutaml
           TEMPLATE
 
           ENUMERATIONS = ERB.new(<<~TEMPLATE, trim_mode: "-")
-            <%= "\#{indent}options[:values] = \#{enumerations}" %>
+            <%= "\#{indent}options[:values] = [\#{casted_enumerations}]" %>
           TEMPLATE
 
           def to_method_body(indent = nil)
@@ -78,6 +78,10 @@ module Lutaml
 
           def base_class_name
             base_class&.split(":")&.last&.to_sym
+          end
+
+          def casted_enumerations
+            enumerations.map { |enumeration| "super(#{enumeration.inspect})" }.join(", ")
           end
         end
       end
