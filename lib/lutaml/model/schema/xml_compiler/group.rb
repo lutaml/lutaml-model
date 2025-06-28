@@ -1,0 +1,98 @@
+# frozen_string_literal: true
+
+module Lutaml
+  module Model
+    module Schema
+      module XmlCompiler
+        class Group
+          attr_accessor :name, :ref, :instance
+
+          GROUP_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
+            # frozen_string_literal: true
+
+            <%=  "\n" + required_files.uniq.join("\n") -%>
+
+            class <%= Utils.camel_case(base_name) %> < <%= base_class_name %>
+            <%= definitions_content %>
+            <%= xml_mapping_block -%>
+            end
+
+            register = Lutaml::Model::GlobalRegister.lookup(Lutaml::Model::Config.default_register)
+            register.register_model(<%= Utils.camel_case(base_name) %>, id: :<%= Utils.snake_case(base_name) %>)
+          TEMPLATE
+
+          XML_MAPPING_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
+            <%= @indent %>xml do
+            <%= extended_indent %>no_root
+            <%= instance&.to_xml_mapping(extended_indent) -%>
+            <%= @indent %>end
+          TEMPLATE
+
+          IMPORT_MODEL_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
+            <%= @indent %>import_model :<%= Utils.snake_case(base_name) %>
+          TEMPLATE
+
+          def initialize(name = nil, ref = nil)
+            @name = name
+            @ref = ref
+          end
+
+          def to_xml_mapping(indent = @indent)
+            if Utils.present?(@ref)
+              "#{indent}import_model_mappings :#{Utils.snake_case(base_name)}\n"
+            else
+              @instance.to_xml_mapping(indent * 2)
+            end
+          end
+
+          def to_class(options: {})
+            setup_options(options)
+            GROUP_TEMPLATE.result(binding)
+          end
+
+          def required_files
+            if Utils.blank?(name) && Utils.present?(ref)
+              "require_relative \"#{Utils.snake_case(ref.split(':').last)}\""
+            else
+              @instance&.required_files
+            end
+          end
+
+          def to_attributes(indent = @indent)
+            if Utils.present?(@ref)
+              "#{indent}import_model_attributes :#{Utils.snake_case(base_name)}\n"
+            else
+              @instance.to_attributes(indent)
+            end
+          end
+
+          def base_name
+            (name || ref)&.split(":")&.last
+          end
+
+          private
+
+          def base_class_name
+            "Lutaml::Model::Serializable"
+          end
+
+          def setup_options(options)
+            @indent = " " * options&.fetch(:indent, 2)
+          end
+
+          def definitions_content
+            @definitions_content ||= instance.to_attributes(@indent)
+          end
+
+          def extended_indent
+            @indent * 2
+          end
+
+          def xml_mapping_block
+            XML_MAPPING_TEMPLATE.result(binding)
+          end
+        end
+      end
+    end
+  end
+end

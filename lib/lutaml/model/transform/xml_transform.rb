@@ -220,7 +220,7 @@ module Lutaml
         current_order = element_order.filter_map(&:element_tag)
 
         mapping_sequence.each do |mapping|
-          mapping.validate_content!(current_order)
+          mapping.validate_content!(current_order, context)
         end
       end
     end

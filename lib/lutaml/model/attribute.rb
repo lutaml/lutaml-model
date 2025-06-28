@@ -395,6 +395,16 @@ module Lutaml
         type(register) <= Serialize
       end
 
+      def collection_range
+        return unless collection?
+
+        collection.is_a?(Range) ? collection : 0..Float::INFINITY
+      end
+
+      def min_max_range
+        [collection_range.min, collection_range.max]
+      end
+
       def deep_dup
         self.class.new(name, unresolved_type, Utils.deep_dup(options))
       end
