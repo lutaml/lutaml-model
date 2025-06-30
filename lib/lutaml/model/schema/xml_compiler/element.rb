@@ -14,8 +14,6 @@ module Lutaml
                         :max_occurs,
                         :min_occurs
 
-          DEFAULT_XML_NAMESPACES = %w[xml].freeze
-
           TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
             <%= indent %>attribute :<%= resolved_name %>, :<%= resolved_type %><%= attribute_options %>
           TEMPLATE
@@ -102,8 +100,7 @@ module Lutaml
           end
 
           def skippable?
-            DEFAULT_XML_NAMESPACES.include?(ref&.split(":")&.first) ||
-              resolved_name == "schema_location"
+            resolved_name == "schema_location"
           end
         end
       end

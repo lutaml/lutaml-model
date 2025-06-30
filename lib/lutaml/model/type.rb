@@ -5,6 +5,7 @@ module Lutaml
         string: "Lutaml::Model::Type::String",
         integer: "Lutaml::Model::Type::Integer",
         float: "Lutaml::Model::Type::Float",
+        double: "Lutaml::Model::Type::Float",
         decimal: "Lutaml::Model::Type::Decimal",
         date: "Lutaml::Model::Type::Date",
         time: "Lutaml::Model::Type::Time",

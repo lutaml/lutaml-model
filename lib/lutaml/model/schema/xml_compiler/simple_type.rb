@@ -9,9 +9,12 @@ module Lutaml
 
           SUPPORTED_DATA_TYPES = {
             nonNegativeInteger: { class_name: "Lutaml::Model::Type::String", validations: { pattern: /\+?[0-9]+/ } },
+            normalizedString: { class_name: "Lutaml::Model::Type::String", validations: { transform: "value.gsub(/[\\r\\n\\t]/, ' ')" } },
             positiveInteger: { class_name: "Lutaml::Model::Type::Integer", validations: { min_inclusive: 0 } },
+            unsignedShort: { class_name: "Lutaml::Model::Type::Integer", validations: { min_inclusive: 0, max_inclusive: 65535 } },
             base64Binary: { class_name: "Lutaml::Model::Type::String", validations: { pattern: /\A([A-Za-z0-9+\/]+={0,2}|\s)*\z/ } },
             unsignedLong: { class_name: "Lutaml::Model::Type::Integer", validations: { min_inclusive: 0, max_inclusive: 18446744073709551615 } },
+            unsignedByte: { class_name: "Lutaml::Model::Type::Integer", validations: { min_inclusive: 0, max_inclusive: 255 } },
             unsignedInt: { class_name: "Lutaml::Model::Type::Integer", validations: { min_inclusive: 0, max_inclusive: 4294967295 } },
             hexBinary: { class_name: "Lutaml::Model::Type::String", validations: { pattern: /([0-9a-fA-F]{2})*/ } },
             language: { class_name: "Lutaml::Model::Type::String", validations: { pattern: /\A[a-zA-Z]{1,8}(-[a-zA-Z0-9]{1,8})*\z/ } },
@@ -20,6 +23,8 @@ module Lutaml
             integer: { skippable: true, class_name: "Lutaml::Model::Type::Integer" },
             decimal: { skippable: true, class_name: "Lutaml::Model::Type::Decimal" },
             string: { skippable: true, class_name: "Lutaml::Model::Type::String" },
+            double: { skippable: true, class_name: "Lutaml::Model::Type::Float" },
+            NCName: { class_name: "Lutaml::Model::Type::String", validations: { pattern: /\A[a-zA-Z_][\w.-]*\z/ } },
             anyURI: { class_name: "Lutaml::Model::Type::String", validations: { pattern: "\\A\#{URI::DEFAULT_PARSER.make_regexp(%w[http https ftp])}\\z" } },
             token: { class_name: "Lutaml::Model::Type::String", validations: { pattern: /\A[^\t\n\f\r ]+(?: [^\t\n\f\r ]+)*\z/ } },
             byte: { class_name: "Lutaml::Model::Type::Integer", validations: { min_inclusive: -128, max_inclusive: 127 } },
@@ -36,7 +41,7 @@ module Lutaml
             <%= "\#{required_files}\n" -%>
             class <%= klass_name %><%= " < \#{parent_class}" if parent_class %>
               def self.cast(value, options = {})
-                return nil if value.nil?
+                return if value.nil?
 
             <%= instance&.to_method_body(@indent * 2) -%>
                 value = super(value, options)
@@ -53,15 +58,23 @@ module Lutaml
             require "lutaml/model"
             <%= union_required_files %>
 
-            register = Lutaml::Model::GlobalRegister.lookup(Lutaml::Model::Config.default_register)
-
             class <%= klass_name %> < Lutaml::Model::Type::Value
               def self.cast(value, options = {})
+                return if value.nil?
+
             <%= union_class_method_body %>
+              end
+
+              def self.register
+                @register ||= Lutaml::Model::GlobalRegister.lookup(Lutaml::Model::Config.default_register)
+              end
+
+              def self.register_class_with_id
+                register.register_model(<%= klass_name %>, id: :<%= Utils.snake_case(class_name) %>)
               end
             end
 
-            register.register_model(<%= klass_name %>, id: :<%= Utils.snake_case(class_name) %>)
+            <%= klass_name %>.register_class_with_id
           TEMPLATE
 
           def initialize(name, unions = [])
@@ -88,7 +101,15 @@ module Lutaml
           end
 
           def klass_name
-            Utils.camel_case(class_name)
+            @klass_name ||= Utils.camel_case(validate_class_name)
+          end
+
+          def validate_class_name
+            return class_name unless class_name.downcase == "type"
+
+            Logger.warn("`Type` class name is already used internally, class name changed to `CustomType` and registered as `:type`.")
+
+            "CustomType"
           end
 
           def require_parent?
@@ -105,15 +126,15 @@ module Lutaml
 
           def union_class_method_body
             unions.map do |union|
-              "#{@indent * 2}register.get_class(:#{Utils.snake_case(union)}).cast(value, options)"
+              "#{@indent * 2}register.get_class(:#{Utils.snake_case(union.split(":").last)}).cast(value, options)"
             end.join(" ||\n  ")
           end
 
           def union_required_files
             unions.filter_map do |union|
-              next if SUPPORTED_DATA_TYPES.dig(union.to_sym, :skippable)
+              next if SUPPORTED_DATA_TYPES.dig(union.split(":").last.to_sym, :skippable)
 
-              "require_relative \"#{Utils.snake_case(union)}\""
+              "require_relative \"#{Utils.snake_case(union.split(":").last)}\""
             end.join("\n")
           end
 
@@ -136,6 +157,7 @@ module Lutaml
                 restriction.min_inclusive = validations[:min_inclusive]
                 restriction.max_inclusive = validations[:max_inclusive]
                 restriction.pattern = validations[:pattern]
+                restriction.transform = validations[:transform]
               end
             end
           end

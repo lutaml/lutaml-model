@@ -5,8 +5,9 @@ module Lutaml
         def self.cast(value, options = {})
           return nil if value.nil?
 
+          value = value.to_s
           Model::Services::Type::Validator::String.validate!(value, options)
-          value.to_s
+          value
         end
 
         # xs:string format

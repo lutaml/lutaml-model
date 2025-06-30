@@ -39,6 +39,13 @@ module Lutaml
           Lutaml::Model.xml_adapter = Lutaml::Model::Adapter::Nokogiri
         MSG
 
+        XML_DEFINED_ATTRIBUTES = {
+          "id" => "id",
+          "lang" => "language",
+          "space" => "NCName",
+          "base" => "anyURI",
+        }.freeze
+
         def to_models(schema, options = {})
           as_models(schema, options: options)
           options[:indent] = options[:indent] ? options[:indent].to_i : 2
@@ -81,7 +88,15 @@ module Lutaml
           @complex_types = MappingHash.new
           @attribute_groups = MappingHash.new
 
+          populate_default_values
           schema_to_models(Array(parsed_schema))
+        end
+
+        def populate_default_values
+          XML_DEFINED_ATTRIBUTES.each do |name, value|
+            @attributes[name] = Attribute.new(name: name)
+            @attributes[name].type = value
+          end
         end
 
         def schema_to_models(schemas)
@@ -268,12 +283,13 @@ module Lutaml
           instance = AttributeGroup.new(name: attribute_group.name, ref: attribute_group.ref)
           if attribute_group.name
             resolved_element_order(attribute_group).each do |object|
-              instance.instances << case object
-                                    when Xsd::Attribute
-                                      setup_attribute(object)
-                                    when Xsd::AttributeGroup
-                                      setup_attribute_groups(object)
-                                    end
+              group_attribute = case object
+                                when Xsd::Attribute
+                                  setup_attribute(object)
+                                when Xsd::AttributeGroup
+                                  setup_attribute_groups(object)
+                                end
+              instance << group_attribute if group_attribute
             end
           end
           instance

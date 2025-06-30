@@ -140,12 +140,16 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
       let(:expected_classes) do
         [
           "nonNegativeInteger",
+          "normalizedString",
           "positiveInteger",
+          "unsignedShort",
           "base64Binary",
           "unsignedLong",
+          "unsignedByte",
           "unsignedInt",
           "hexBinary",
           "language",
+          "NCName",
           "anyURI",
           "token",
           "byte",
@@ -241,7 +245,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
       end
     end
 
-    context "when classes are generated and loaded but files are not created for UnitsML schema" do
+    context "when classes are generated and loaded but files are not created for UnitsML-v0.9 schema" do
       before do
         described_class.to_models(
           Net::HTTP.get(URI("https://raw.githubusercontent.com/unitsml/schemas/refs/heads/main/unitsml/unitsml-v0.9.xsd")),
@@ -318,6 +322,84 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
               </Quantity>
             </QuantitySet>
 
+          </UnitsMLType>
+        XML
+      end
+      it "matches the converted xml with the expected xml with a short example" do
+        expect(UnitsMLType.from_xml(xml).to_xml).to be_equivalent_to(xml)
+      end
+
+      it "matches the converted xml with the expected xml with a detailed example" do
+        expect(UnitsMLType.from_xml(detailed_xml).to_xml).to be_equivalent_to(detailed_xml)
+      end
+    end
+
+    context "when classes are generated and loaded but files are not created for UnitsML-v1.0-csd04 schema" do
+      before do
+        described_class.to_models(
+          Net::HTTP.get(URI("https://raw.githubusercontent.com/unitsml/schemas/refs/heads/main/unitsml/unitsml-v1.0-csd04.xsd")),
+          load_classes: true
+        )
+      end
+
+      let(:xml) do
+        <<~XML
+          <UnitsMLType>
+            <UnitSet>
+              <Unit xml:id="U_m">
+                <UnitSystem type="SI"/>
+                <UnitName xml:lang="en">meter</UnitName>
+                <UnitSymbol type="ASCII">m</UnitSymbol>
+              </Unit>
+              <Unit xml:id="U_km">
+                <UnitSystem type="SI"/>
+                <UnitName xml:lang="en">kilometer</UnitName>
+                <UnitSymbol type="ASCII">km</UnitSymbol>
+              </Unit>
+            </UnitSet>
+          </UnitsMLType>
+        XML
+      end
+
+      let(:detailed_xml) do
+        <<~XML
+          <UnitsMLType>
+            <UnitSet>
+              <Unit xml:id="u_meter" timeStamp="2024-06-01T12:00:00+00:00" dimensionURL="http://unitsml.nist.gov/si/meter">
+                <UnitSystem name="SI" type="SI_base"/>
+                <UnitName xml:lang="en">meter</UnitName>
+                <UnitSymbol type="ASCII">m</UnitSymbol>
+                <CodeListValue unitCodeValue="MTR" codeListName="UN/ECE Rec 20" codeListVersion="10A" locationURL="http://www.unece.org/cefact/codesfortrade/codes_index.html" organizationName="UNECE"/>
+                <RootUnits>
+                  <EnumeratedRootUnit unit="meter"/>
+                </RootUnits>
+                <UnitVersionHistory>Initial definition of the meter.</UnitVersionHistory>
+                <UnitDefinition>The meter is the SI base unit of length.</UnitDefinition>
+                <UnitHistory>Defined as the distance light travels in vacuum in 1/299792458 seconds.</UnitHistory>
+                <UnitRemark>Commonly used in science and engineering.</UnitRemark>
+              </Unit>
+              <Unit xml:id="u_second" timeStamp="2024-06-01T12:00:00+00:00" dimensionURL="http://unitsml.nist.gov/si/second">
+                <UnitSystem name="SI" type="SI_base"/>
+                <UnitName xml:lang="en">second</UnitName>
+                <UnitSymbol type="ASCII">s</UnitSymbol>
+                <RootUnits>
+                  <EnumeratedRootUnit unit="second"/>
+                </RootUnits>
+              </Unit>
+              <Unit xml:id="u_newton" timeStamp="2024-06-01T12:00:00+00:00" dimensionURL="http://unitsml.nist.gov/si/newton">
+                <UnitSystem name="SI" type="SI_derived"/>
+                <UnitName xml:lang="en">newton</UnitName>
+                <UnitSymbol type="ASCII">N</UnitSymbol>
+                <RootUnits>
+                  <EnumeratedRootUnit unit="meter"/>
+                  <EnumeratedRootUnit unit="gram"/>
+                  <EnumeratedRootUnit unit="second" powerNumerator="-2"/>
+                </RootUnits>
+                <Conversions>
+                  <Float64ConversionFrom xml:id="conv1" initialUnit="http://unitsml.nist.gov/si/meter#u_gram_meter_per_second_squared" multiplicand="1.0" divisor="1.0" exact="true"/>
+                </Conversions>
+              </Unit>
+            </UnitSet>
           </UnitsMLType>
         XML
       end

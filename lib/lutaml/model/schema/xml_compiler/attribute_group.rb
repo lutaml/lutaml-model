@@ -20,15 +20,23 @@ module Lutaml
           end
 
           def to_attributes(indent)
-            instances&.map { |instance| instance.to_attributes(indent) }
+            resolved_instances.map { |instance| instance.to_attributes(indent) }
           end
 
           def to_xml_mapping(indent)
-            instances&.map { |instance| instance.to_xml_mapping(indent) }
+            resolved_instances.map { |instance| instance.to_xml_mapping(indent) }
           end
 
           def required_files
-            instances&.map(&:required_files)
+            resolved_instances.map(&:required_files)
+          end
+
+          private
+
+          def resolved_instances
+            return @instances unless Utils.present?(@ref)
+
+            XmlCompiler.attribute_groups[@ref]&.instances
           end
         end
       end

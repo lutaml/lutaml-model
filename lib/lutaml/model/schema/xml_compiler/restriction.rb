@@ -5,6 +5,7 @@ module Lutaml
     module Schema
       module XmlCompiler
         class Restriction
+          # transform is not a 'xsd' type, but it is used for internal purposes.
           attr_accessor :min_inclusive,
                         :max_inclusive,
                         :min_exclusive,
@@ -14,7 +15,8 @@ module Lutaml
                         :min_length,
                         :base_class,
                         :pattern,
-                        :length
+                        :length,
+                        :transform
 
           INDENT = "  "
 
@@ -31,11 +33,16 @@ module Lutaml
             <%= "\#{indent}options[:values] = [\#{casted_enumerations}]" %>
           TEMPLATE
 
+          TRANSFORM = ERB.new(<<~TEMPLATE, trim_mode: "-")
+            <%= "\#{indent}value = \#{transform}" %>
+          TEMPLATE
+
           def to_method_body(indent = nil)
             [
               value_for(ENUMERATIONS, type: :enumerations, indent: indent),
               value_for(MIN_MAX_BOUNDS, type: :min_max_bounds, indent: indent),
               value_for(PATTERN, type: :pattern, indent: indent),
+              value_for(TRANSFORM, type: :transform, indent: indent),
             ].compact.join
           end
 
@@ -82,6 +89,10 @@ module Lutaml
 
           def casted_enumerations
             enumerations.map { |enumeration| "super(#{enumeration.inspect})" }.join(", ")
+          end
+
+          def transform_exist?
+            Utils.present?(transform)
           end
         end
       end

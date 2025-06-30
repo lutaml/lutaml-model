@@ -81,22 +81,22 @@ module Lutaml
         eo_index = element_order.index(defined_order&.keys&.first) || 0
 
         defined_order.each do |element, klass_attr|
-          element_exist = Proc.new { element_order[eo_index] == element }
-
           if klass_attr.collection?
             min, max = klass_attr.min_max_range
             count = []
-            while eo_index < element_order.size && element_exist.call && count.size < max
+            while eo_index < element_order.size && element_order[eo_index] == element && count.size < max
               count << element_order[eo_index]
               eo_index += 1
             end
             if count.size < min || count.size > max
               raise Lutaml::Model::CollectionCountOutOfRangeError.new(element, count, klass_attr.collection_range)
             end
+
             next
-          elsif element_exist.call
+          elsif element_order[eo_index] == element
             next eo_index += 1
           end
+
           raise Lutaml::Model::IncorrectSequenceError.new(element, element_order[eo_index])
         end
       end

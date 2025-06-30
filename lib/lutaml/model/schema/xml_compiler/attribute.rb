@@ -11,14 +11,12 @@ module Lutaml
                         :type,
                         :default
 
-          DEFAULT_XML_NAMESPACES = %w[xml].freeze
-
           TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
             <%= indent %>attribute :<%= resolved_name %>, :<%= resolved_type %>
           TEMPLATE
 
           XML_MAPPING_TEMPLATE = ERB.new(<<~XML_MAPPING_TEMPLATE, trim_mode: "-")
-            <%= indent %>map_attribute :<%= resolved_name(change_case: false) %>, to: :<%= resolved_name %>
+            <%= indent %>map_attribute :<%= resolved_name(change_case: false) %>, to: :<%= resolved_name %><%= namespace_prefix_option %>
           XML_MAPPING_TEMPLATE
 
           def initialize(name: nil, ref: nil)
@@ -46,7 +44,7 @@ module Lutaml
             raw_type = resolved_type(change_case: false)
             if raw_type == "decimal"
               "require \"bigdecimal\""
-            elsif !SimpleType::SUPPORTED_DATA_TYPES.dig(raw_type.to_sym, :skippable)
+            elsif !SimpleType::SUPPORTED_DATA_TYPES.dig(raw_type&.to_sym, :skippable)
               "require_relative \"#{Utils.snake_case(raw_type)}\""
             end
           end
@@ -65,7 +63,7 @@ module Lutaml
           end
 
           def referenced_instance
-            @referenced_instance ||= XmlCompiler.instance_variable_get(:@attributes)[last_of_split]
+            @referenced_instance ||= XmlCompiler.attributes[last_of_split]
           end
 
           def last_of_split(field = ref)
@@ -73,8 +71,14 @@ module Lutaml
           end
 
           def skippable?
-            DEFAULT_XML_NAMESPACES.include?(ref&.split(":")&.first) ||
-              resolved_name == "schema_location"
+            resolved_name == "schema_location"
+          end
+
+          def namespace_prefix_option
+            return "" unless Utils.present?(ref)
+            return "" unless ref.start_with?("xml:")
+
+            ", namespace: \"http://www.w3.org/XML/1998/namespace\", prefix: \"xml\""
           end
         end
       end
