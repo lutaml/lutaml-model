@@ -55,7 +55,7 @@ module Lutaml
         imported_attributes = Utils.deep_dup(model.attributes.values)
         imported_attributes.each { |attr| attr.options[:choice] = self }
         @attributes.concat(imported_attributes)
-        attrs_hash = imported_attributes.map { |attr| [attr.name.to_s, attr] }.to_h
+        attrs_hash = imported_attributes.to_h { |attr| [attr.name.to_s, attr] }
         @model.attributes(skip_import: true).merge!(attrs_hash)
       end
 

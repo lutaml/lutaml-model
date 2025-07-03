@@ -71,34 +71,41 @@ module Lutaml
       end
 
       def validate_content!(element_order, klass)
-        defined_order = extract_defined_order(klass)
-        validate_sequence!(defined_order, element_order)
+        validate_sequence!(
+          extract_defined_order(klass),
+          element_order,
+        )
       end
 
       private
 
       def validate_sequence!(defined_order, element_order)
-        eo_index = element_order.index(defined_order&.keys&.first) || 0
+        eo_index = element_order_index(element_order, defined_order)
 
         defined_order.each do |element, klass_attr|
           if klass_attr.collection?
-            min, max = klass_attr.min_max_range
-            count = []
-            while eo_index < element_order.size && element_order[eo_index] == element && count.size < max
-              count << element_order[eo_index]
-              eo_index += 1
+            if add_missing_element?(element_order, eo_index, element, klass_attr)
+              element_order.insert(eo_index, element)
+            else
+              eo_index += klass_attr.sequenced_appearence_count(element_order, element, eo_index)
+              next
             end
-            if count.size < min || count.size > max
-              raise Lutaml::Model::CollectionCountOutOfRangeError.new(element, count, klass_attr.collection_range)
-            end
-
-            next
-          elsif element_order[eo_index] == element
-            next eo_index += 1
           end
+
+          next eo_index += 1 if element_order[eo_index] == element
 
           raise Lutaml::Model::IncorrectSequenceError.new(element, element_order[eo_index])
         end
+      end
+
+      def add_missing_element?(element_order, eo_index, element, klass_attr)
+        return false unless klass_attr.collection_range.min.zero?
+
+        element_order[eo_index] != element && !element_order.include?(element)
+      end
+
+      def element_order_index(element_order, defined_order)
+        element_order.find_index { |d| defined_order.key?(d) } || 0
       end
 
       def extract_defined_order(klass)

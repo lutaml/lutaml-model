@@ -84,7 +84,9 @@ module Lutaml
           end
 
           def base_class_name
-            base_class&.split(":")&.last&.to_sym
+            return if Utils.blank?(base_class)
+
+            base_class.split(":").last.to_sym
           end
 
           def casted_enumerations

@@ -401,8 +401,18 @@ module Lutaml
         collection.is_a?(Range) ? collection : 0..Float::INFINITY
       end
 
-      def min_max_range
-        [collection_range.min, collection_range.max]
+      def sequenced_appearence_count(element_order, mapped_name, current_index)
+        # TODO: Change count to each and iterate over the elements to find the count to follow the sequence count(which is the expected behavior).
+        element_count = element_order[current_index..]&.count { |e| e == mapped_name }
+        if element_count.between?(*collection_range.minmax)
+          element_count
+        else
+          raise Lutaml::Model::ElementCountOutOfRangeError.new(
+            mapped_name,
+            element_count,
+            collection_range,
+          )
+        end
       end
 
       def deep_dup

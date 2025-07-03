@@ -7,6 +7,8 @@ module Lutaml
         class SimpleType
           attr_accessor :class_name, :base_class, :instance, :unions
 
+          LUTAML_VALUE_CLASS_NAME = "Lutaml::Model::Type::Value"
+
           SUPPORTED_DATA_TYPES = {
             nonNegativeInteger: { class_name: "Lutaml::Model::Type::String", validations: { pattern: /\+?[0-9]+/ } },
             normalizedString: { class_name: "Lutaml::Model::Type::String", validations: { transform: "value.gsub(/[\\r\\n\\t]/, ' ')" } },
@@ -37,7 +39,7 @@ module Lutaml
             # frozen_string_literal: true
             require "lutaml/model"
 
-            <%= "require_relative \\\"\#{Utils.snake_case(parent_class)}\\\"\n" if require_parent? -%>
+            <%= "require_relative \\"\#{Utils.snake_case(parent_class)}\\"\n" if require_parent? -%>
             <%= "\#{required_files}\n" -%>
             class <%= klass_name %><%= " < \#{parent_class}" if parent_class %>
               def self.cast(value, options = {})
@@ -58,7 +60,7 @@ module Lutaml
             require "lutaml/model"
             <%= union_required_files %>
 
-            class <%= klass_name %> < Lutaml::Model::Type::Value
+            class <%= klass_name %> < <%= LUTAML_VALUE_CLASS_NAME %>
               def self.cast(value, options = {})
                 return if value.nil?
 
@@ -101,15 +103,7 @@ module Lutaml
           end
 
           def klass_name
-            @klass_name ||= Utils.camel_case(validate_class_name)
-          end
-
-          def validate_class_name
-            return class_name unless class_name.downcase == "type"
-
-            Logger.warn("`Type` class name is already used internally, class name changed to `CustomType` and registered as `:type`.")
-
-            "CustomType"
+            @klass_name ||= Utils.camel_case(class_name)
           end
 
           def require_parent?
@@ -117,16 +111,21 @@ module Lutaml
           end
 
           def parent_class
-            if SUPPORTED_DATA_TYPES.key?(class_name&.to_sym) || SUPPORTED_DATA_TYPES.dig(base_class&.to_sym, :class_name)
-              SUPPORTED_DATA_TYPES.dig(base_class&.to_sym, :class_name)
+            types = SUPPORTED_DATA_TYPES
+            if types.key?(base_class&.to_sym) && !types.dig(base_class&.to_sym, :skippable)
+              Utils.camel_case(base_class)
+            elsif types.dig(base_class&.to_sym, :class_name) && types.dig(base_class&.to_sym, :skippable)
+              types.dig(base_class&.to_sym, :class_name)
             elsif base_class
               Utils.camel_case(base_class.to_s)
+            else
+              LUTAML_VALUE_CLASS_NAME
             end
           end
 
           def union_class_method_body
             unions.map do |union|
-              "#{@indent * 2}register.get_class(:#{Utils.snake_case(union.split(":").last)}).cast(value, options)"
+              "#{@indent * 2}register.get_class(:#{Utils.snake_case(union.split(':').last)}).cast(value, options)"
             end.join(" ||\n  ")
           end
 
@@ -134,7 +133,7 @@ module Lutaml
             unions.filter_map do |union|
               next if SUPPORTED_DATA_TYPES.dig(union.split(":").last.to_sym, :skippable)
 
-              "require_relative \"#{Utils.snake_case(union.split(":").last)}\""
+              "require_relative \"#{Utils.snake_case(union.split(':').last)}\""
             end.join("\n")
           end
 

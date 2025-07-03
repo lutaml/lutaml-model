@@ -56,7 +56,7 @@ module Lutaml
             dir = options.fetch(:output_dir, "lutaml_models_#{Time.now.to_i}")
             FileUtils.mkdir_p(dir)
             classes_list.each { |name, klass| create_file(name, klass, dir) }
-            nil
+            true
           else
             require_classes(classes_list) if options[:load_classes]
             classes_list
@@ -106,7 +106,9 @@ module Lutaml
             schema_to_models(schema.include) if schema.include&.any?
             schema_to_models(schema.import) if schema.import&.any?
             resolved_element_order(schema).each do |order_item|
-              item_name = order_item&.name
+              next if order_item.is_a?(Xsd::Annotation)
+
+              item_name = order_item.name
               case order_item
               when Xsd::SimpleType
                 @simple_types[item_name] = setup_simple_type(order_item)
@@ -273,7 +275,7 @@ module Lutaml
           return attribute.type if attribute.type
 
           simple_type = attribute.simple_type
-          attr_name = attribute.name
+          attr_name = "ST_#{attribute.name}"
           simple_type.name = attr_name
           @simple_types[attr_name] = setup_simple_type(simple_type)
           attr_name
@@ -295,12 +297,6 @@ module Lutaml
           instance
         end
 
-        def create_mapping_hash(value, hash_key: :class_name)
-          MappingHash.new.tap do |hash|
-            hash[hash_key] = value
-          end
-        end
-
         def setup_element(element)
           element_name = element.name
           instance = Element.new(name: element_name, ref: element.ref)
@@ -320,10 +316,10 @@ module Lutaml
         def setup_element_type(element, _instance)
           return element.type if element.type
 
-          type = element.simple_type ? "simple" : "complex"
+          type, prefix = element.simple_type ? ["simple", "ST"] : ["complex", "CT"]
           type_instance = element.public_send(:"#{type}_type")
-          type_instance.name = element.name
-          instance_variable_get(:"@#{type}_types")[element.name] = public_send(:"setup_#{type}_type", type_instance)
+          type_instance.name = [prefix, element.name].join("_")
+          instance_variable_get(:"@#{type}_types")[type_instance.name] = public_send(:"setup_#{type}_type", type_instance)
           type_instance.name
         end
 
