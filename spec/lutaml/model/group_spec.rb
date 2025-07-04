@@ -262,7 +262,11 @@ RSpec.describe "Group" do
   end
 
   context "with model" do
-    before { Lutaml::Model::GlobalRegister.lookup(:default).register_model(GroupSpec::GroupOfItems, id: :group_of_items) }
+    before do
+      Lutaml::Model::GlobalRegister
+        .lookup(Lutaml::Model::Config.default_register)
+        .register_model(GroupSpec::GroupOfItems, id: :group_of_items)
+    end
 
     shared_examples "imports attributes from" do |source_class, target_class|
       it "#{source_class.name} correctly" do
