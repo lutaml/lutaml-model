@@ -395,6 +395,31 @@ module Lutaml
         type(register) <= Serialize
       end
 
+      def collection_range
+        return unless collection?
+
+        collection.is_a?(Range) ? collection : 0..Float::INFINITY
+      end
+
+      def sequenced_appearence_count(element_order, mapped_name, current_index)
+        element_count = 0
+        element_order[current_index..]&.each { |element| element == mapped_name ? element_count += 1 : break }
+        return element_count if element_count.between?(*collection_range.minmax)
+
+        raise Lutaml::Model::ElementCountOutOfRangeError.new(
+          mapped_name,
+          element_count,
+          collection_range,
+        )
+      end
+
+      def process_options!
+        validate_options!(@options)
+        @raw = !!@options[:raw]
+        @validations = @options[:validations]
+        set_default_for_collection if collection?
+      end
+
       def deep_dup
         self.class.new(name, unresolved_type, Utils.deep_dup(options))
       end
@@ -478,13 +503,6 @@ module Lutaml
         return if type || method_name
 
         raise ArgumentError, "method or type must be set for an attribute"
-      end
-
-      def process_options!
-        validate_options!(@options)
-        @raw = !!@options[:raw]
-        @validations = @options[:validations]
-        set_default_for_collection if collection?
       end
 
       def set_default_for_collection

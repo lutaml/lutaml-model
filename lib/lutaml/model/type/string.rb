@@ -2,10 +2,12 @@ module Lutaml
   module Model
     module Type
       class String < Value
-        def self.cast(value)
+        def self.cast(value, options = {})
           return nil if value.nil?
 
-          value.to_s
+          value = value.to_s
+          Model::Services::Type::Validator::String.validate!(value, options)
+          value
         end
 
         # xs:string format

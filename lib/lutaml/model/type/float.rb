@@ -2,9 +2,10 @@ module Lutaml
   module Model
     module Type
       class Float < Value
-        def self.cast(value)
+        def self.cast(value, options = {})
           return nil if value.nil?
 
+          Model::Services::Type::Validator::Number.validate!(value, options)
           value.to_f
         end
 

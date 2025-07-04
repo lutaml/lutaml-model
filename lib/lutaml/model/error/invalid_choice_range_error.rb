@@ -9,11 +9,9 @@ module Lutaml
       end
 
       def to_s
-        if @min.negative?
-          "Choice lower bound `#{@min}` must be positive"
-        else
-          "Choice upper bound `#{@max}` must be positive"
-        end
+        bound_name, value = @min.negative? ? ["lower", @min] : ["upper", @max]
+
+        "Choice #{bound_name} bound `#{value}` must be positive"
       end
     end
   end
