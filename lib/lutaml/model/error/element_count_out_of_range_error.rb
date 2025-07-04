@@ -18,7 +18,7 @@ module Lutaml
       def times_occurred
         return "never occurred" if @occurrence_count&.zero?
 
-        "appeared only #{@occurrence_count} time#{"s" if @occurrence_count > 1}"
+        "appeared only #{@occurrence_count} time#{'s' if @occurrence_count > 1}"
       end
     end
   end

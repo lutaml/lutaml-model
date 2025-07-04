@@ -65,7 +65,7 @@ module GroupSpec
   end
 
   class SimpleType < Lutaml::Model::Serializable
-    import_model GroupOfItems
+    import_model :group_of_items
   end
 
   class GenericType < Lutaml::Model::Serializable
@@ -262,6 +262,8 @@ RSpec.describe "Group" do
   end
 
   context "with model" do
+    before { Lutaml::Model::GlobalRegister.lookup(:default).register_model(GroupSpec::GroupOfItems, id: :group_of_items) }
+
     shared_examples "imports attributes from" do |source_class, target_class|
       it "#{source_class.name} correctly" do
         source_attributes = source_class.attributes
