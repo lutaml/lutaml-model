@@ -337,8 +337,20 @@ module Lutaml
         def setup_complex_content_restriction(restriction, complex_type)
           ComplexContentRestriction.new.tap do |instance|
             complex_type.base_class = restriction.base
-            restriction_patterns(restriction.pattern, instance) if restriction.respond_to?(:pattern)
-            restriction_content(instance, restriction)
+            resolved_element_order(restriction).each do |element|
+              case element
+              when Xsd::Attribute
+                instance << setup_attribute(element)
+              when Xsd::AttributeGroup
+                instance << setup_attribute_groups(element)
+              when Xsd::Sequence
+                instance << setup_sequence(element)
+              when Xsd::Choice
+                instance << setup_choice(element)
+              when Xsd::Group
+                instance << setup_group_type(element)
+              end
+            end
           end
         end
 

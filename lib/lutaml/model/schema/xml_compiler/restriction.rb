@@ -83,6 +83,10 @@ module Lutaml
             Utils.present?(enumerations)
           end
 
+          def transform_exist?
+            Utils.present?(transform)
+          end
+
           def base_class_name
             return if Utils.blank?(base_class)
 
@@ -91,10 +95,6 @@ module Lutaml
 
           def casted_enumerations
             enumerations.map { |enumeration| "super(#{enumeration.inspect})" }.join(", ")
-          end
-
-          def transform_exist?
-            Utils.present?(transform)
           end
         end
       end

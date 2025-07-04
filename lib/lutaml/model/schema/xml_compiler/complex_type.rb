@@ -10,6 +10,8 @@ module Lutaml
                         :base_class,
                         :simple_content
 
+          SERIALIZABLE_BASE_CLASS = "Lutaml::Model::Serializable".freeze
+
           SIMPLE_CONTENT_ATTRIBUTE_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
             <%= @indent %>attribute :content, :<%= simple_content? ? Utils.snake_case(simple_content.base_class.split(":").last) : "string" %>
             <%= simple_content.to_attributes(@indent) if simple_content? -%>
@@ -103,8 +105,8 @@ module Lutaml
 
           def base_class_name
             case base_class
-            when "Lutaml::Model::Serializable"
-              "Lutaml::Model::Serializable"
+            when SERIALIZABLE_BASE_CLASS
+              SERIALIZABLE_BASE_CLASS
             else
               Utils.camel_case(base_class.split(":").last)
             end
@@ -112,7 +114,7 @@ module Lutaml
 
           def base_class_require
             case base_class
-            when "Lutaml::Model::Serializable"
+            when SERIALIZABLE_BASE_CLASS
               "require \"lutaml/model\""
             else
               "require_relative \"#{Utils.snake_case(base_class.split(':').last)}\""

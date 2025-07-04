@@ -76,13 +76,10 @@ module Lutaml
           end
 
           def max_value
-            if max_occurs == "unbounded"
-              "Float::INFINITY"
-            elsif max_occurs.to_i.positive?
-              max_occurs.to_i
-            elsif max_occurs.nil?
-              1
-            end
+            return "Float::INFINITY" if max_occurs == "unbounded"
+            return 1 if max_occurs.nil?
+
+            max_occurs.to_i
           end
 
           def default_option

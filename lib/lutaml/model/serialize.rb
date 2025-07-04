@@ -144,6 +144,7 @@ module Lutaml
 
         def restrict(name, options = {})
           model.attributes[name].options.merge!(options)
+          model.attributes[name].process_options!
         end
 
         def register(name)

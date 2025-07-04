@@ -1,16 +1,24 @@
 module Lutaml
   module Model
     class ElementCountOutOfRangeError < Error
-      def initialize(attr_name, value, range)
+      def initialize(attr_name, occurrence_count, range)
         @attr_name = attr_name
-        @value = value
+        @occurrence_count = occurrence_count
         @range = range
 
         super()
       end
 
       def to_s
-        "#{@attr_name} count is #{@value}, expected to appear between #{@range.min} and #{@range.max}"
+        "`#{@attr_name}` expected to appear between '#{@range.min}' and '#{@range.max}' times, but #{times_occurred}."
+      end
+
+      private
+
+      def times_occurred
+        return "never occurred" if @occurrence_count&.zero?
+
+        "appeared only #{@occurrence_count} time#{"s" if @occurrence_count > 1}"
       end
     end
   end

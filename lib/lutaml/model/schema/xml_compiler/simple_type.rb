@@ -45,7 +45,7 @@ module Lutaml
               def self.cast(value, options = {})
                 return if value.nil?
 
-            <%= instance&.to_method_body(@indent * 2) -%>
+            <%= instance&.to_method_body(extended_indent) -%>
                 value = super(value, options)
                 value
               end
@@ -111,30 +111,37 @@ module Lutaml
           end
 
           def parent_class
-            types = SUPPORTED_DATA_TYPES
-            if types.key?(base_class&.to_sym) && !types.dig(base_class&.to_sym, :skippable)
-              Utils.camel_case(base_class)
-            elsif types.dig(base_class&.to_sym, :class_name) && types.dig(base_class&.to_sym, :skippable)
-              types.dig(base_class&.to_sym, :class_name)
-            elsif base_class
-              Utils.camel_case(base_class.to_s)
-            else
-              LUTAML_VALUE_CLASS_NAME
-            end
+            type_info = SUPPORTED_DATA_TYPES[base_class&.to_sym]
+            return type_info[:class_name] if type_info&.fetch(:skippable, false)
+            return Utils.camel_case(base_class.to_s) if !type_info&.fetch(:skippable, false) || Utils.present?(base_class)
+
+            LUTAML_VALUE_CLASS_NAME
           end
 
           def union_class_method_body
             unions.map do |union|
-              "#{@indent * 2}register.get_class(:#{Utils.snake_case(union.split(':').last)}).cast(value, options)"
+              "#{extended_indent}register.get_class(:#{down_union_class_name(union)}).cast(value, options)"
             end.join(" ||\n  ")
           end
 
           def union_required_files
             unions.filter_map do |union|
-              next if SUPPORTED_DATA_TYPES.dig(union.split(":").last.to_sym, :skippable)
+              next if SUPPORTED_DATA_TYPES.dig(last_of_split(union).to_sym, :skippable)
 
-              "require_relative \"#{Utils.snake_case(union.split(':').last)}\""
+              "require_relative \"#{down_union_class_name(union)}\""
             end.join("\n")
+          end
+
+          def down_union_class_name(union)
+            Utils.snake_case(last_of_split(union))
+          end
+
+          def last_of_split(field)
+            field&.split(":")&.last
+          end
+
+          def extended_indent
+            @indent * 2
           end
 
           class << self

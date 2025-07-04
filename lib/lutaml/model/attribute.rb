@@ -402,17 +402,22 @@ module Lutaml
       end
 
       def sequenced_appearence_count(element_order, mapped_name, current_index)
-        # TODO: Change count to each and iterate over the elements to find the count to follow the sequence count(which is the expected behavior).
-        element_count = element_order[current_index..]&.count { |e| e == mapped_name }
-        if element_count.between?(*collection_range.minmax)
-          element_count
-        else
-          raise Lutaml::Model::ElementCountOutOfRangeError.new(
-            mapped_name,
-            element_count,
-            collection_range,
-          )
-        end
+        element_count = 0
+        element_order[current_index..]&.each { |element| element == mapped_name ? element_count += 1 : break }
+        return element_count if element_count.between?(*collection_range.minmax)
+
+        raise Lutaml::Model::ElementCountOutOfRangeError.new(
+          mapped_name,
+          element_count,
+          collection_range,
+        )
+      end
+
+      def process_options!
+        validate_options!(@options)
+        @raw = !!@options[:raw]
+        @validations = @options[:validations]
+        set_default_for_collection if collection?
       end
 
       def deep_dup
@@ -498,13 +503,6 @@ module Lutaml
         return if type || method_name
 
         raise ArgumentError, "method or type must be set for an attribute"
-      end
-
-      def process_options!
-        validate_options!(@options)
-        @raw = !!@options[:raw]
-        @validations = @options[:validations]
-        set_default_for_collection if collection?
       end
 
       def set_default_for_collection

@@ -10,7 +10,9 @@ module Lutaml
             @instances = instances
           end
 
-          # TODO: fix these methods to work with complex_content_restriction
+          def <<(instance)
+            @instances << instance
+          end
 
           def to_attributes(indent)
             instances.map { |instance| instance.to_attributes(indent) }

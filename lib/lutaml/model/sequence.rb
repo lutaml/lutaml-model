@@ -87,8 +87,8 @@ module Lutaml
             if add_missing_element?(element_order, eo_index, element, klass_attr)
               element_order.insert(eo_index, element)
             else
-              eo_index += klass_attr.sequenced_appearence_count(element_order, element, eo_index)
-              next
+              occurrences = klass_attr.sequenced_appearence_count(element_order, element, eo_index)
+              next eo_index += occurrences if occurrences.positive?
             end
           end
 

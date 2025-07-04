@@ -50,6 +50,17 @@ module SequenceSpec
       map_element "ceramic", to: :ceramic
     end
   end
+
+  class CeramicRestricted < Ceramic
+    restrict :id, collection: 0..1
+    restrict :name, collection: 0..1
+    restrict :type, collection: 0..1
+    restrict :color, collection: 0..1
+    restrict :bold, collection: 0..1
+    restrict :text, collection: 0..1
+    restrict :usage, collection: 0..1
+    restrict :size, collection: 1..2
+  end
 end
 
 RSpec.describe "Sequence" do
@@ -227,6 +238,31 @@ RSpec.describe "Sequence" do
           end
         end
       end.to raise_error(Lutaml::Model::UnknownSequenceMappingError, "map_attribute is not allowed in sequence")
+    end
+  end
+
+  describe "#validate_content!" do
+    let(:sequence) { SequenceSpec::CeramicRestricted.mappings_for(:xml).element_sequence[0] }
+    let(:klass) { SequenceSpec::CeramicRestricted }
+
+    it "does not raise for correct order" do
+      expect { sequence.validate_content!(["tag", "id", "name", "type", "color", "bold", "text", "usage", "size"], klass) }
+        .not_to raise_error
+    end
+
+    it "raises for incorrect order" do
+      expect { sequence.validate_content!(["tag", "name", "id", "type", "color", "bold", "text", "usage", "size"], klass) }
+        .to raise_error(Lutaml::Model::IncorrectSequenceError)
+    end
+
+    it "raises for unknown tag" do
+      expect { sequence.validate_content!(["tag", "id", "name", "foo", "type", "color", "bold", "text", "usage", "size"], klass) }
+        .to raise_error(Lutaml::Model::IncorrectSequenceError)
+    end
+
+    it "raises error for missing required tag" do
+      expect { sequence.validate_content!(["tag", "id", "name", "type", "color", "bold", "text", "usage"], klass) }
+        .to raise_error(Lutaml::Model::ElementCountOutOfRangeError)
     end
   end
 end

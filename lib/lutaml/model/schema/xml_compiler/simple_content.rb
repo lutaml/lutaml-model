@@ -16,19 +16,11 @@ module Lutaml
             @instances << instance
           end
 
-          def instances?
-            Utils.present?(instances)
-          end
-
           def to_attributes(indent = nil)
-            return nil unless instances?
-
             instances.filter_map { |instance| instance.to_attributes(indent) }.join("\n")
           end
 
           def to_xml_mapping(indent = nil)
-            return nil unless instances?
-
             instances.filter_map { |instance| instance.to_xml_mapping(indent) }.join("\n")
           end
 

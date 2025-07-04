@@ -12,7 +12,7 @@ module Lutaml
 
             <%=  "\n" + required_files.uniq.join("\n") -%>
 
-            class <%= Utils.camel_case(base_name) %> < <%= base_class_name %>
+            class <%= Utils.camel_case(base_name) %> < Lutaml::Model::Serializable
             <%= definitions_content %>
             <%= xml_mapping_block -%>
             end
@@ -71,10 +71,6 @@ module Lutaml
           end
 
           private
-
-          def base_class_name
-            "Lutaml::Model::Serializable"
-          end
 
           def setup_options(options)
             @indent = " " * options&.fetch(:indent, 2)
