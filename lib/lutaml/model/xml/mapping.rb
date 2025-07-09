@@ -12,14 +12,13 @@ module Lutaml
           all_content: :map_all,
         }.freeze
 
-        attr_accessor :mappings_imported
-
         attr_reader :root_element,
                     :namespace_uri,
                     :namespace_prefix,
                     :mixed_content,
                     :ordered,
-                    :element_sequence
+                    :element_sequence,
+                    :mappings_imported
 
         def initialize
           super
@@ -32,12 +31,18 @@ module Lutaml
           @mixed_content = false
           @format = :xml
           @mappings_imported = true
+          @finalized = false
         end
 
         def finalize(mapper_class)
           if !root_element && !no_root?
             root(mapper_class.model.to_s)
           end
+          @finalized = true
+        end
+
+        def finalized?
+          @finalized
         end
 
         alias mixed_content? mixed_content
@@ -264,6 +269,10 @@ module Lutaml
           (@element_sequence << mappings.element_sequence).flatten!
         end
 
+        def set_mappings_imported(value)
+          @mappings_imported = value
+        end
+
         def validate!(key, to, with, render_nil, render_empty, type: nil)
           validate_raw_mappings!(type)
           validate_to_and_with_arguments!(key, to, with)
@@ -323,7 +332,7 @@ module Lutaml
         end
 
         def mappings(register_id = nil)
-          ensure_mappings_imported!(register_id)
+          ensure_mappings_imported!(register_id) if finalized?
           elements + attributes + [content_mapping, raw_mapping].compact
         end
 
@@ -413,6 +422,7 @@ module Lutaml
               value = instance_variable_get(var_name)
               xml_mapping.instance_variable_set(var_name, Utils.deep_dup(value))
             end
+            xml_mapping.instance_variable_set(:@finalized, true)
           end
         end
 

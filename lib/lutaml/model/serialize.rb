@@ -387,7 +387,7 @@ module Lutaml
         end
 
         def mappings_for(format)
-          @mappings&.dig(:xml)&.ensure_mappings_imported!
+          @mappings[:xml]&.ensure_mappings_imported! if @mappings&.dig(:xml)&.finalized?
           mappings[format] || default_mappings(format)
         end
 
