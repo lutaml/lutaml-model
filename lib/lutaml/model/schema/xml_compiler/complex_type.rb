@@ -32,13 +32,13 @@ module Lutaml
             <%= simple_content.to_xml_mapping(extended_indent) if simple_content? -%>
             <%= @indent %>end
 
-              def self.register
-                Lutaml::Model::GlobalRegister.lookup(Lutaml::Model::Config.default_register)
-              end
+            <%= @indent %>def self.register
+            <%= extended_indent %>Lutaml::Model::GlobalRegister.lookup(Lutaml::Model::Config.default_register)
+            <%= @indent %>end
 
-              def self.register_class_with_id
-                register.register_model(<%= Utils.camel_case(name) %>, id: :<%= Utils.snake_case(name) %>)
-              end
+            <%= @indent %>def self.register_class_with_id
+            <%= extended_indent %>register.register_model(self, id: :<%= Utils.snake_case(name) %>)
+            <%= @indent %>end
             end
 
             <%= Utils.camel_case(name) %>.register_class_with_id

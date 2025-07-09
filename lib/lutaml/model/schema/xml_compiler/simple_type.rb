@@ -54,7 +54,7 @@ module Lutaml
             <%= @indent %>end
 
             <%= @indent %>def self.register_class_with_id
-            <%= extended_indent %>register.register_model(<%= klass_name %>, id: :<%= Utils.snake_case(class_name) %>)
+            <%= extended_indent %>register.register_model(self, id: :<%= Utils.snake_case(class_name) %>)
             <%= @indent %>end
             end
 
@@ -78,7 +78,7 @@ module Lutaml
             <%= @indent %>end
 
             <%= @indent %>def self.register_class_with_id
-            <%= extended_indent %>register.register_model(<%= klass_name %>, id: :<%= Utils.snake_case(class_name) %>)
+            <%= extended_indent %>register.register_model(self, id: :<%= Utils.snake_case(class_name) %>)
             <%= @indent %>end
             end
 

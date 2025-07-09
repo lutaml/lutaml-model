@@ -52,7 +52,7 @@ module Lutaml
         end
         @attributes.concat(imported_attributes)
         attrs_hash = imported_attributes.to_h { |attr| [attr.name, attr] }
-        @model.attributes(skip_import: true).merge!(attrs_hash)
+        @model.attributes.merge!(attrs_hash)
       end
 
       private
@@ -86,6 +86,7 @@ module Lutaml
       def import_model_later(model, method)
         @model.importable_choices[self][method] << model.to_sym
         @model.instance_variable_set(:@choices_imported, false)
+        @model.setup_trace_point
       end
     end
   end

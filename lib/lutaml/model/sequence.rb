@@ -44,7 +44,7 @@ module Lutaml
 
       def validate_content!(element_order, model_class)
         validate_sequence!(
-          extract_defined_order(model_class),
+          extract_defined_order(model_class.attributes),
           element_order,
         )
       end
@@ -80,10 +80,10 @@ module Lutaml
         element_order.find_index { |d| defined_order.key?(d) } || 0
       end
 
-      def extract_defined_order(model_class)
+      def extract_defined_order(model_attrs)
         @attributes.each_with_object({}) do |rule, acc|
-          acc[rule.name.to_s] = model_class.attributes[rule.to.to_s] ||
-            model_class.attributes[rule.to.to_sym]
+          acc[rule.name.to_s] = model_attrs[rule.to.to_s] ||
+            model_attrs[rule.to.to_sym]
         end
       end
 
