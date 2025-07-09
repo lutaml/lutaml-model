@@ -3187,8 +3187,10 @@ There are two kinds of serialization models:
 * Represents a singular model (maps to a Lutaml::Model::Serializable)
 * Represents a group/collection of models (maps to Lutaml::Model::Collection)
 
-A collection contains instances of singular models, and therefore is always inextricably linked to an underlying serialization format for singular models. For instance,
-JSONL represents a collection (itself being invalid JSON) that uses JSON for singular models.
+A collection contains instances of singular models, and therefore is always
+inextricably linked to an underlying serialization format for singular models.
+For instance, JSONL represents a collection (itself being invalid JSON) that
+uses JSON for singular models.
 
 The supported serialization formats and their short names are defined as follows:
 
@@ -3207,7 +3209,8 @@ JSON, YAML and TOML).
 
 Collection serialization formats::
 
-`jsonl`::: JSONL
+`jsonl`::: JSONL (JSON Lines)
+`yamls`::: YAML Stream (multi-document format)
 
 
 .Using the `xml`, `hsh`, `json`, `yaml`, `toml` and `key_value` blocks to define serialization mappings
@@ -5845,7 +5848,8 @@ Lutaml::Model::Collection.
 
 Collection data models supported are identified by their short name:
 
-`jsonl`:: JSONL
+`jsonl`:: JSONL (JSON Lines)
+`yamls`:: YAML Stream (multi-document format)
 
 
 ==== Mapping
@@ -5868,7 +5872,7 @@ end
 
 Where,
 
-`{collection_type_short}`:: The short name of the collection type (e.g. `jsonl`).
+`{collection_type_short}`:: The short name of the collection type (e.g. `jsonl`, `yamls`).
 
 `{attribute}`:: The name of the attribute in the collection that will hold the
 collection data.
@@ -5895,7 +5899,7 @@ end
 
 Where,
 
-`{collection_type_short}`:: The short name of the collection type (e.g. `jsonl`).
+`{collection_type_short}`:: The short name of the collection type (e.g. `jsonl`, `yamls`).
 
 `{attribute}`:: The name of the attribute in the collection that will hold the
 collection data.
@@ -6021,6 +6025,153 @@ jsonl = <<~JSONL
 JSONL
 
 jsonl = Directory.from_jsonl(jsonl)
+# => <Directory:0x00007fae4b0c9b10
+#      @persons=[
+#      <Person:0x00007fae4b0c9970 @name="John Doe", @age=30, @id="abc-123">,
+#      <Person:0x00007fae4b0c9838 @name="Jane Smith", @age=25, @id="def-456">
+#     ]>
+----
+====
+
+
+==== YAML Stream
+
+YAML Stream (short for YAML multi-document format) is a serialization format
+where each document is separated by a document separator (`---`). The format is
+meant to be efficient for large datasets such as for streaming or batch
+processing.
+
+It represents a collection of YAML documents encoded one document per stream.
+
+NOTE: The contents of YAML Stream is valid YAML, where each document is a valid
+YAML document separated by document separators.
+
+Since YAML Stream contains YAML elements, the model specified with `instances`
+or `attribute` must support YAML.
+
+Every document in a YAML Stream file is also a valid YAML document. If YAML
+Stream-specific mappings (through `yamls`) are not defined in the model, the
+existing `yaml` mappings are used instead as a fallback for serialization and
+deserialization.
+
+
+.Parsing a YAML Stream collection using a collection
+[example]
+====
+[source,ruby]
+----
+class Person
+  attribute :name, :string
+  attribute :age, :integer
+  attribute :id, :string
+end
+
+class Directory < Lutaml::Model::Collection
+  instances :persons, Person
+
+  yamls do
+    map_instances to: :persons
+  end
+end
+
+yamls = <<~YAMLS
+  ---
+  name: John
+  age: 30
+  id: abc-123
+  ---
+  name: Jane
+  age: 25
+  id: def-456
+YAMLS
+
+yamls = Directory.from_yamls(yamls)
+
+# => <Directory:0x00007fae4b0c9b10
+#      @persons=[
+#      <Person:0x00007fae4b0c9970 @name="John", @age=30, @id="abc-123">,
+#      <Person:0x00007fae4b0c9838 @name="Jane", @age=25, @id="def-456">
+#     ]>
+----
+====
+
+.Parsing a YAML Stream collection using a singlular model
+[example]
+====
+[source,ruby]
+----
+class Person
+  attribute :name, :string
+  attribute :age, :integer
+  attribute :id, :string
+end
+
+class Directory < Lutaml::Model::Serializeable
+  attribute :persons, Person, collection: true
+
+  yamls do
+    map_instances to: :persons
+  end
+end
+
+yamls = <<~YAMLS
+  ---
+  name: John
+  age: 30
+  id: abc-123
+  ---
+  name: Jane
+  age: 25
+  id: def-456
+YAMLS
+
+yamls = Directory.from_yamls(yamls)
+
+# => <Directory:0x00007fae4b0c9b10
+#      @persons=[
+#      <Person:0x00007fae4b0c9970 @name="John", @age=30, @id="abc-123">,
+#      <Person:0x00007fae4b0c9838 @name="Jane", @age=25, @id="def-456">
+#     ]>
+----
+====
+
+.Parsing a YAML Stream collection relying on YAML mappings on instance model
+[example]
+====
+[source,ruby]
+----
+class Person
+  attribute :name, :string
+  attribute :age, :integer
+  attribute :id, :string
+
+  yaml do
+    map "full_name", to: :name
+    map "age", to: :age
+    map "id", to: :id
+  end
+end
+
+class Directory < Lutaml::Model::Collection
+  instances :persons, Person
+
+  yamls do
+    map_instances to: :persons
+  end
+end
+
+yamls = <<~YAMLS
+  ---
+  full_name: John Doe
+  age: 30
+  id: abc-123
+  ---
+  full_name: Jane Smith
+  age: 25
+  id: def-456
+YAMLS
+
+yamls = Directory.from_yamls(yamls)
 # => <Directory:0x00007fae4b0c9b10
 #      @persons=[
 #      <Person:0x00007fae4b0c9970 @name="John Doe", @age=30, @id="abc-123">,
