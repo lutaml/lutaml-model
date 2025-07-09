@@ -16,13 +16,13 @@ module Lutaml
             <%= definitions_content %>
             <%= xml_mapping_block -%>
 
-              def self.register
-                @register ||= Lutaml::Model::GlobalRegister.lookup(Lutaml::Model::Config.default_register)
-              end
+            <%= @indent %>def self.register
+            <%= extended_indent %>@register ||= Lutaml::Model::GlobalRegister.lookup(Lutaml::Model::Config.default_register)
+            <%= @indent %>end
 
-              def self.register_class_with_id
-                register.register_model(<%= Utils.camel_case(base_name) %>, id: :<%= Utils.snake_case(base_name) %>)
-              end
+            <%= @indent %>def self.register_class_with_id
+            <%= extended_indent %>register.register_model(self, id: :<%= Utils.snake_case(base_name) %>)
+            <%= @indent %>end
             end
 
             <%= Utils.camel_case(base_name) %>.register_class_with_id
