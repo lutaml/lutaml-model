@@ -94,7 +94,7 @@ module Lutaml
 
       def import_mappings_later(model)
         @model.sequence_importable_mappings[self] << model.to_sym
-        @model.mappings_imported = false
+        @model.set_mappings_imported(false)
       end
     end
   end
