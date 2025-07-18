@@ -72,6 +72,8 @@ module Lutaml
               register_drop_method(attr_name)
             end
 
+            register_drop_method(:element_order)
+
             generate_mapping_methods
           end
         end
