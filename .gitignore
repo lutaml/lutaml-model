@@ -13,3 +13,6 @@
 
 # Direnv
 .direnv/
+
+# Bundler
+.bundle/

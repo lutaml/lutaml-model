@@ -1,2 +1,0 @@
----
-BUNDLE_BUILD__RUBY___LL: "--with-cflags=-std=gnu17"

@@ -21,8 +21,6 @@ jobs:
       post_install: |
         git status
         cat .bundle/config
-        git checkout .bundle/config
-        git status
     secrets:
       rubygems-api-key: ${{ secrets.LUTAML_CI_RUBYGEMS_API_KEY }}
       pat_token: ${{ secrets.LUTAML_CI_PAT_TOKEN }}
