@@ -3,10 +3,10 @@ module Lutaml
     class XmlTransform < Lutaml::Model::Transform
       def data_to_model(data, _format, options = {})
         if model_class.include?(Lutaml::Model::Serialize)
-          instance = model_class.new({}, register: register)
+          instance = model_class.new({ __register: __register })
         else
           instance = model_class.new
-          register_accessor_methods_for(instance, register)
+          register_accessor_methods_for(instance, __register)
         end
         apply_xml_mapping(data, instance, options)
       end
@@ -53,7 +53,7 @@ module Lutaml
 
                     if (val.nil? || Utils.uninitialized?(val)) && (instance.using_default?(rule.to) || rule.render_default)
                       defaults_used << rule.to
-                      attr&.default(register) || rule.to_value_for(instance)
+                      attr&.default(__register) || rule.to_value_for(instance)
                     else
                       val
                     end
@@ -114,7 +114,7 @@ module Lutaml
         return doc.root.find_attribute_value(rule_names) if rule.attribute?
 
         attr = attribute_for_rule(rule)
-        attr_type = attr&.type(register)
+        attr_type = attr&.type(__register)
 
         children = doc.children.select do |child|
           rule_names.include?(child.namespaced_name) && !child.text?
@@ -136,9 +136,9 @@ module Lutaml
           if !rule.has_custom_method_for_deserialization? && attr_type <= Serialize
             cast_options = options.except(:mappings)
             cast_options[:polymorphic] = rule.polymorphic if rule.polymorphic
-            cast_options[:register] = register
+            cast_options[:register] = __register
 
-            values << attr.cast(child, :xml, register, cast_options)
+            values << attr.cast(child, :xml, __register, cast_options)
           elsif attr.raw?
             values << inner_xml_of(child)
           else
@@ -179,7 +179,7 @@ module Lutaml
 
         return value unless cast_value?(attr, rule)
 
-        attr.cast(value, :xml, register, options)
+        attr.cast(value, :xml, __register, options)
       end
 
       def cast_value?(attr, rule)
