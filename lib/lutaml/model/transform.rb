@@ -6,7 +6,8 @@ module Lutaml
       end
 
       def self.model_to_data(context, model, format, options = {})
-        new(context, model&.__register).model_to_data(model, format, options)
+        register = model.__register if model.respond_to?(:__register)
+        new(context, register).model_to_data(model, format, options)
       end
 
       attr_reader :context, :attributes, :__register
