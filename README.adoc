@@ -1813,7 +1813,7 @@ invalid_xml = <<~XML
   <zip>12345</zip>
 </Person>
 XML
-Person.from_xml(valid_xml) # #<Person:0x00000002d56b3988 @city="Metropolis", @name="John Doe", @street="123 Main St", @zip="12345"> 
+Person.from_xml(valid_xml) # #<Person:0x00000002d56b3988 @city="Metropolis", @name="John Doe", @street="123 Main St", @zip="12345">
 Person.from_xml(invalid_xml) # raises `Element `zip` does not match the expected sequence order element `city` (Lutaml::Model::IncorrectSequenceError)`
 ----
 ====
@@ -1835,7 +1835,7 @@ class ContactEmail < Lutaml::Model::Serializable
   attribute :email, :string
 
   xml do
-    no_root 
+    no_root
 
     map_element :email, to: :email
   end
@@ -3147,6 +3147,123 @@ authors.first.id
 # => "author_01"
 authors.first.name
 # => "Author One"
+----
+====
+
+
+==== Nested keyed object collection
+
+A nested keyed object collection is a keyed collection that contain other keyed
+collections. This case is simply a more complex arrangement of the principles
+applied to keyed object collections.
+
+This pattern can extend to multiple levels of nesting, where each level contains
+a keyed object collection that can have its own key and value mappings.
+
+Depends on whether a custom collection class is needed, the following
+mechanisms are available:
+
+* When using a Lutaml::Model::Serializable class for a keyed collection,
+use the `child_mappings` option to map attributes.
+
+* When using a Lutaml::Model::Collection class for a keyed collection,
+there are two options:
+
+* use the `map_key`, `map_value`, and `map_instances` methods to map attributes;
+or
+
+* use the `root_mappings` option to map attributes.
+
+
+.Nested 2-layer keyed object collection
+[example]
+====
+This example provides a two-layer nested structure where:
+
+* The first layer keys pieces by type (`bowls`, `vases`).
+* The second layer keys glazes by finish name within each piece type.
+* Each glaze finish contains detailed attributes like temperature.
+
+[source,ruby]
+----
+# Third layer represents glaze finishes.
+class GlazeFinish < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :temperature, :integer
+
+  key_value do
+    map "name", to: :name
+    map "temperature", to: :temperature
+  end
+end
+
+# Second layer represents ceramic pieces each with multiple finishes.
+class CeramicPiece < Lutaml::Model::Serializable
+  attribute :piece_type, :string
+  attribute :glazes, GlazeFinish, collection: true
+
+  key_value do
+    map "piece_type", to: :piece_type
+    map "glazes", to: :glazes, child_mappings: {
+      name: :key,
+      temperature: :temperature
+    }
+  end
+end
+
+# Uppermost layer represents the collection of ceramic pieces.
+class StudioInventory < Lutaml::Model::Collection
+  instances :pieces, CeramicPiece
+
+  key_value do
+    map to: :pieces, root_mappings: {
+      piece_type: :key,
+      glazes: :value,
+    }
+  end
+end
+----
+
+[source,yaml]
+----
+---
+bowls:
+  matte_finish:
+    name: Earth Matte
+    temperature: 1240
+  glossy_finish:
+    name: Ocean Blue
+    temperature: 1260
+  crackle_finish:
+    name: Antique Crackle
+    temperature: 1220
+vases:
+  metallic_finish:
+    name: Bronze Metallic
+    temperature: 1280
+  crystalline_finish:
+    name: Ice Crystal
+    temperature: 1300
+----
+
+[source,ruby]
+----
+inventory = StudioInventory.from_yaml(yaml_data)
+
+# Access nested data through the hierarchy
+puts inventory.pieces.bowls.matte_finish.name
+# => "Earth Matte"
+
+puts inventory.pieces.bowls.matte_finish.temperature
+# => 1240
+
+# Iterate through all pieces and their glazes
+inventory.pieces.each do |piece_type, piece|
+  puts "#{piece_type.capitalize}:"
+  piece.glazes.each do |glaze_name, glaze|
+    puts "  #{glaze_name}: #{glaze.name} (#{glaze.temperature}°C)"
+  end
+end
 ----
 ====
 
