@@ -6,15 +6,15 @@ module Lutaml
       end
 
       def self.model_to_data(context, model, format, options = {})
-        new(context, model.register).model_to_data(model, format, options)
+        new(context, model&.__register).model_to_data(model, format, options)
       end
 
-      attr_reader :context, :attributes, :register
+      attr_reader :context, :attributes, :__register
 
       def initialize(context, register = nil)
         @context = context
         @attributes = context.attributes
-        @register = register || Lutaml::Model::Config.default_register
+        @__register = register || Lutaml::Model::Config.default_register
       end
 
       def model_class
@@ -71,18 +71,18 @@ module Lutaml
       def attribute_for_rule(rule)
         return attributes[rule.to] unless rule.delegate
 
-        attributes[rule.delegate].type(register).attributes[rule.to]
+        attributes[rule.delegate].type(__register).attributes[rule.to]
       end
 
       def register_accessor_methods_for(object, register)
         klass = object.class
-        Utils.add_method_if_not_defined(klass, :register) do
-          @register
+        Utils.add_method_if_not_defined(klass, :__register) do
+          @__register
         end
-        Utils.add_method_if_not_defined(klass, :register=) do |value|
-          @register = value
+        Utils.add_method_if_not_defined(klass, :__register=) do |value|
+          @__register = value
         end
-        object.register = register
+        object.__register = register
       end
     end
   end

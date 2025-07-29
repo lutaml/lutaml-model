@@ -123,7 +123,7 @@ module Lutaml
             end
             define_method(:"#{name}=") do |value|
               value_set_for(name)
-              instance_variable_set(:"@#{name}", attr.cast_value(value, register))
+              instance_variable_set(:"@#{name}", attr.cast_value(value, __register))
             end
           end
         end
@@ -412,7 +412,7 @@ module Lutaml
           instance = if options.key?(:instance)
                        options[:instance]
                      elsif model.include?(Lutaml::Model::Serialize)
-                       model.new({}, register: register)
+                       model.new({ __register: register })
                      else
                        object = model.new
                        register_accessor_methods_for(object, register)
@@ -438,7 +438,7 @@ module Lutaml
           klass_name = polymorphic_mapping.polymorphic_map[klass_key]
           klass = Object.const_get(klass_name)
 
-          klass.apply_mappings(doc, format, options.merge(register: instance.register))
+          klass.apply_mappings(doc, format, options.merge(register: instance.__register))
         end
 
         def apply_value_map(value, value_map, attr)
@@ -485,13 +485,13 @@ module Lutaml
         end
 
         def register_accessor_methods_for(object, register)
-          Utils.add_singleton_method_if_not_defined(object, :register) do
-            @register
+          Utils.add_singleton_method_if_not_defined(object, :__register) do
+            @__register
           end
-          Utils.add_singleton_method_if_not_defined(object, :register=) do |value|
-            @register = value
+          Utils.add_singleton_method_if_not_defined(object, :__register=) do |value|
+            @__register = value
           end
-          object.register = register
+          object.__register = register
         end
 
         def extract_register_id(register)
@@ -583,20 +583,21 @@ module Lutaml
         end
       end
 
-      attr_accessor :element_order, :schema_location, :encoding, :register
+      attr_accessor :element_order, :schema_location, :encoding, :__register
       attr_writer :ordered, :mixed
 
       def initialize(attrs = {}, options = {})
         @using_default = {}
         return unless self.class.attributes
 
-        @register = extract_register_id(options[:register])
+        @__register = extract_register_id(attrs, options)
         set_ordering(attrs)
         set_schema_location(attrs)
         initialize_attributes(attrs, options)
       end
 
-      def extract_register_id(register)
+      def extract_register_id(attrs, options)
+        register = attrs&.dig(:__register) || options&.dig(:register)
         self.class.extract_register_id(register)
       end
 
@@ -609,8 +610,8 @@ module Lutaml
       end
 
       def attr_value(attrs, name, attribute)
-        value = Utils.fetch_str_or_sym(attrs, name, attribute.default(register))
-        attribute.cast_value(value, register)
+        value = Utils.fetch_str_or_sym(attrs, name, attribute.default(__register))
+        attribute.cast_value(value, __register)
       end
 
       def using_default_for(attribute_name)
@@ -670,7 +671,7 @@ module Lutaml
       end
 
       def pretty_print_instance_variables
-        (instance_variables - %i[@using_default]).sort
+        (instance_variables - %i[@using_default @__register]).sort
       end
 
       def to_yaml_hash
@@ -722,9 +723,9 @@ module Lutaml
       def determine_value(attrs, name, attr)
         if attrs.key?(name) || attrs.key?(name.to_s)
           attr_value(attrs, name, attr)
-        elsif attr.default_set?(register)
+        elsif attr.default_set?(__register)
           using_default_for(name)
-          attr.default(register)
+          attr.default(__register)
         else
           Lutaml::Model::UninitializedClass.instance
         end
