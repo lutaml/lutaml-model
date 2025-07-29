@@ -6,7 +6,11 @@ on:
   push:
     branches: [ master, main ]
     tags: [ v* ]
+    paths-ignore:
+      - '**.adoc'
   pull_request:
+    paths-ignore:
+      - '**.adoc'
 
 jobs:
   rake:

@@ -116,7 +116,7 @@ module Lutaml
           rules = attr_type.mappings_for(format)
 
           hash.merge!(
-            extract_hash_for_child_mapping(child_mappings, child_obj, rules),
+            extract_hash_for_child_mapping(child_mappings, child_obj, rules, format),
           )
         end
 
@@ -144,14 +144,13 @@ module Lutaml
         mappings.find_by_to(name)&.name.to_s
       end
 
-      def extract_hash_for_child_mapping(child_mappings, child_obj, rules)
+      def extract_hash_for_child_mapping(child_mappings, child_obj, rules, format)
         key = nil
         value = {}
 
         child_mappings.each do |attr_name, path|
           rule = rules.find_by_to(attr_name)
-
-          attr_value = normalize_attribute_value(child_obj.send(attr_name))
+          attr_value = normalize_attribute_value(child_obj, rule.from, format)
 
           next unless rule&.render?(attr_value, nil)
           next key = attr_value if path == :key
@@ -163,14 +162,10 @@ module Lutaml
         { key => value }
       end
 
-      def normalize_attribute_value(value)
-        if value.is_a?(Lutaml::Model::Serialize)
-          value.to_hash
-        elsif value.is_a?(Array) && value.first.is_a?(Lutaml::Model::Serialize)
-          value.map(&:to_hash)
-        else
-          value
-        end
+      def normalize_attribute_value(value, attr_name, format)
+        Lutaml::Model::Config.adapter_for(format).parse(
+          value.public_send(:"to_#{format}"),
+        )[attr_name.to_s]
       end
 
       def extract_hash_value_for_child_mapping(path, value, map_value)
