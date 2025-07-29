@@ -1,19 +1,11 @@
 require "spec_helper"
 
 class CustomModelChild
-  attr_accessor :street, :city, :register
-
-  def initialize(register = nil)
-    @register = register
-  end
+  attr_accessor :street, :city
 end
 
 class CustomModelParent
-  attr_accessor :first_name, :middle_name, :last_name, :child_mapper, :math, :register
-
-  def initialize(register = nil)
-    @register = register
-  end
+  attr_accessor :first_name, :middle_name, :last_name, :child_mapper, :math
 
   def name
     "#{first_name} #{last_name}"
@@ -21,11 +13,7 @@ class CustomModelParent
 end
 
 class GenericFormulaClass
-  attr_accessor :value, :register
-
-  def initialize(register = nil)
-    @register = register
-  end
+  attr_accessor :value
 end
 
 class Mi < Lutaml::Model::Serializable
