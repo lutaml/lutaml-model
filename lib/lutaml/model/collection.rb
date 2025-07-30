@@ -4,6 +4,24 @@ module Lutaml
       include Enumerable
 
       class << self
+        INHERITED_ATTRIBUTES = %i[
+          instance_type
+          instance_name
+          order_by_field
+          order_direction
+        ].freeze
+
+        def inherited(subclass)
+          super
+
+          INHERITED_ATTRIBUTES.each do |var|
+            subclass.instance_variable_set(
+              :"@#{var}",
+              instance_variable_get(:"@#{var}"),
+            )
+          end
+        end
+
         attr_reader :instance_type,
                     :instance_name,
                     :order_by_field,

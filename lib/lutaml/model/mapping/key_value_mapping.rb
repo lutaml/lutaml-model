@@ -48,6 +48,7 @@ module Lutaml
       )
         mapping_name = name_for_mapping(root_mappings, name)
         validate!(mapping_name, to, with, render_nil, render_empty)
+        remove_existing_mapping_with(mapping_name)
 
         @mappings << KeyValueMappingRule.new(
           mapping_name,
@@ -207,6 +208,10 @@ module Lutaml
 
       def root_mapping
         @mappings.find(&:root_mapping?)
+      end
+
+      def remove_existing_mapping_with(name)
+        @mappings.delete_if { |m| m.name.to_s == name.to_s }
       end
 
       Lutaml::Model::Config::KEY_VALUE_FORMATS.each do |format|
