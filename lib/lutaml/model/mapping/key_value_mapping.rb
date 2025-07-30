@@ -206,7 +206,7 @@ module Lutaml
       end
 
       def find_by_name(name)
-        @mappings[m.name.to_s] == name.to_s
+        @mappings.find { |m| m.name.to_s == name.to_s }
       end
 
       def polymorphic_mapping
