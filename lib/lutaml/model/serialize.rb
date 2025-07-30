@@ -211,14 +211,14 @@ module Lutaml
               @mappings[format].merge_mapping_elements(mapping)
               @mappings[format].merge_elements_sequence(mapping)
             else
-              @mappings[format].mappings.concat(mapping.mappings)
+              @mappings[format].mappings_hash.merge!(mapping.mappings_hash)
             end
           end
         end
 
         def handle_key_value_mappings(mapping, format)
           @mappings[format] ||= KeyValueMapping.new
-          @mappings[format].mappings.concat(mapping.mappings)
+          @mappings[format].mappings_hash.merge!(mapping.mappings_hash)
         end
 
         def import_model(model)

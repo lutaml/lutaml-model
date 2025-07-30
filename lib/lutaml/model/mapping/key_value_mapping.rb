@@ -4,11 +4,11 @@ require_relative "key_value_mapping_rule"
 module Lutaml
   module Model
     class KeyValueMapping < Mapping
-      attr_reader :mappings, :format, :key_mappings, :value_mappings
+      attr_reader :format, :key_mappings, :value_mappings
 
       def initialize(format = nil)
         super()
-
+        @mappings = {}
         @format = format
       end
 
@@ -48,9 +48,8 @@ module Lutaml
       )
         mapping_name = name_for_mapping(root_mappings, name)
         validate!(mapping_name, to, with, render_nil, render_empty)
-        remove_existing_mapping_with(mapping_name)
 
-        @mappings << KeyValueMappingRule.new(
+        @mappings[mapping_name] = KeyValueMappingRule.new(
           mapping_name,
           to: to,
           render_nil: render_nil,
@@ -81,7 +80,7 @@ module Lutaml
       )
         @raw_mapping = true
         validate!(Constants::RAW_MAPPING_KEY, to, with, render_nil, nil)
-        @mappings << KeyValueMappingRule.new(
+        @mappings[Constants::RAW_MAPPING_KEY] = KeyValueMappingRule.new(
           Constants::RAW_MAPPING_KEY,
           to: to,
           render_nil: render_nil,
@@ -132,6 +131,14 @@ module Lutaml
         name
       end
 
+      def mappings
+        @mappings.values
+      end
+
+      def mappings_hash
+        @mappings
+      end
+
       def validate!(key, to, with, render_nil, render_empty)
         validate_mappings!(key)
         validate_to_and_with_arguments!(key, to, with)
@@ -179,7 +186,7 @@ module Lutaml
 
       def validate_mappings!(_type)
         if (@raw_mapping && Utils.present?(@mappings)) ||
-            (!@raw_mapping && @mappings.any?(&:raw_mapping?))
+            (!@raw_mapping && mappings.any?(&:raw_mapping?))
           raise StandardError, "map_all is not allowed with other mappings"
         end
       end
@@ -191,27 +198,23 @@ module Lutaml
       end
 
       def duplicate_mappings
-        @mappings.map(&:deep_dup)
+        Utils.deep_dup(@mappings)
       end
 
       def find_by_to(to)
-        @mappings.find { |m| m.to.to_s == to.to_s }
+        mappings.find { |m| m.to.to_s == to.to_s }
       end
 
       def find_by_name(name)
-        @mappings.find { |m| m.name.to_s == name.to_s }
+        @mappings[m.name.to_s] == name.to_s
       end
 
       def polymorphic_mapping
-        @mappings.find(&:polymorphic_mapping?)
+        mappings.find(&:polymorphic_mapping?)
       end
 
       def root_mapping
-        @mappings.find(&:root_mapping?)
-      end
-
-      def remove_existing_mapping_with(name)
-        @mappings.delete_if { |m| m.name.to_s == name.to_s }
+        mappings.find(&:root_mapping?)
       end
 
       Lutaml::Model::Config::KEY_VALUE_FORMATS.each do |format|
