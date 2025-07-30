@@ -15,5 +15,13 @@ on:
 jobs:
   rake:
     uses: metanorma/ci/.github/workflows/generic-rake.yml@main
+    with:
+      before-setup-ruby: |
+        mkdir -p .bundle
+        touch .bundle/config
+        cat .bundle/config
+        echo "---" >> .bundle/config
+        echo 'BUNDLE_BUILD__RUBY___LL: "--with-cflags=-std=gnu17"' >> .bundle/config
+        cat .bundle/config
     secrets:
       pat_token: ${{ secrets.LUTAML_CI_PAT_TOKEN }}
