@@ -47,6 +47,10 @@ module NestedChildMappingsSpec
       }
     end
   end
+
+  class ManifestResponseWrap < ManifestResponse
+    # This class confirms the successful inhertiance of the `Collection` attribute.
+  end
 end
 
 RSpec.describe "NestedChildMappingsSpec" do
@@ -90,8 +94,52 @@ RSpec.describe "NestedChildMappingsSpec" do
     YAML
   end
 
+  let(:wrapped_yaml) do
+    <<~YAML
+      ---
+      Yu Gothic:
+        Bold:
+          full_name: Yu Gothic Bold
+          paths:
+          - "/Applications/Microsoft Excel.app/Contents/Resources/DFonts/YuGothB.ttc"
+          - "/Applications/Microsoft OneNote.app/Contents/Resources/DFonts/YuGothB.ttc"
+          - "/Applications/Microsoft Outlook.app/Contents/Resources/DFonts/YuGothB.ttc"
+          - "/Applications/Microsoft PowerPoint.app/Contents/Resources/DFonts/YuGothB.ttc"
+          - "/Applications/Microsoft Word.app/Contents/Resources/DFonts/YuGothB.ttc"
+        Regular:
+          full_name: Yu Gothic Regular
+          paths:
+          - "/Applications/Microsoft Excel.app/Contents/Resources/DFonts/YuGothR.ttc"
+          - "/Applications/Microsoft OneNote.app/Contents/Resources/DFonts/YuGothR.ttc"
+          - "/Applications/Microsoft Outlook.app/Contents/Resources/DFonts/YuGothR.ttc"
+          - "/Applications/Microsoft PowerPoint.app/Contents/Resources/DFonts/YuGothR.ttc"
+          - "/Applications/Microsoft Word.app/Contents/Resources/DFonts/YuGothR.ttc"
+      Noto Sans Condensed:
+        Regular:
+          full_name: Noto Sans Condensed
+          paths:
+          - "/Users/foo/.fontist/fonts/NotoSans-Condensed.ttf"
+        Bold:
+          full_name: Noto Sans Condensed Bold
+          paths:
+          - "/Users/foo/.fontist/fonts/NotoSans-CondensedBold.ttf"
+        Bold Italic:
+          full_name: Noto Sans Condensed Bold Italic
+          paths:
+          - "/Users/foo/.fontist/fonts/NotoSans-CondensedBoldItalic.ttf"
+        Italic:
+          full_name: Noto Sans Condensed Italic
+          paths:
+          - "/Users/foo/.fontist/fonts/NotoSans-CondensedItalic.ttf"
+    YAML
+  end
+
   let(:parsed_yaml) do
     NestedChildMappingsSpec::ManifestResponse.from_yaml(yaml)
+  end
+
+  let(:wrap_parsed_yaml) do
+    NestedChildMappingsSpec::ManifestResponseWrap.from_yaml(wrapped_yaml)
   end
 
   let(:expected_fonts) do
@@ -159,6 +207,11 @@ RSpec.describe "NestedChildMappingsSpec" do
 
   it "rounds trip correctly" do
     expected_yaml = parsed_yaml.to_yaml
+    expect(expected_yaml).to eq(yaml)
+  end
+
+  it "round trips nested child mappings correctly with Wrap class" do
+    expected_yaml = wrap_parsed_yaml.to_yaml
     expect(expected_yaml).to eq(yaml)
   end
 end
