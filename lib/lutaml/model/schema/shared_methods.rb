@@ -5,8 +5,8 @@ module Lutaml
     module Schema
       module SharedMethods
         def extract_register_from(klass)
-          register = if klass.class_variable_defined?(:@@register)
-                       klass.class_variable_get(:@@register)
+          register = if klass.class_variable_defined?(:@@__register)
+                       klass.class_variable_get(:@@__register)
                      end
 
           case register

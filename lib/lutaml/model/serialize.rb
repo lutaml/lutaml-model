@@ -497,8 +497,8 @@ module Lutaml
         def extract_register_id(register)
           if register
             register.is_a?(Lutaml::Model::Register) ? register.id : register
-          elsif class_variable_defined?(:@@register)
-            class_variable_get(:@@register)
+          elsif class_variable_defined?(:@@__register)
+            class_variable_get(:@@__register)
           else
             Lutaml::Model::Config.default_register
           end
