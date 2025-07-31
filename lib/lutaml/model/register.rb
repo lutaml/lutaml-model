@@ -28,7 +28,7 @@ module Lutaml
       def get_class(klass_name)
         expected_class = get_class_without_register(klass_name)
         if !(expected_class < Lutaml::Model::Type::Value)
-          expected_class.class_variable_set(:@@register, id)
+          expected_class.class_variable_set(:@@__register, id)
         end
         expected_class
       end
