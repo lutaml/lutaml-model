@@ -10,7 +10,7 @@ module Lutaml
         @doc = doc
         @format = format
         @attr = attr
-        @register = register
+        @__register = register
         @options = options
       end
 
@@ -26,7 +26,7 @@ module Lutaml
 
       private
 
-      attr_reader :rule, :doc, :format, :attr, :register, :options
+      attr_reader :rule, :doc, :format, :attr, :__register, :options
 
       def rule_names
         rule.multiple_mappings? ? rule.name : [rule.name]
@@ -36,7 +36,7 @@ module Lutaml
         return doc if root_or_nil?(name)
         return convert_to_format(doc, format) if rule.raw_mapping?
         return fetch_value(name) if Utils.string_or_symbol_key?(doc, name)
-        return attr.default(register) if attr&.default_set?(register)
+        return attr.default(__register) if attr&.default_set?(__register)
 
         uninitialized_value
       end

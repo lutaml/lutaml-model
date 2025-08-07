@@ -6,7 +6,7 @@ module Lutaml
       class Document
         def initialize(jsons = [], register: nil)
           @jsons = jsons
-          @register = register || Lutaml::Model::Config.default_register
+          @__register = register || Lutaml::Model::Config.default_register
         end
       end
     end

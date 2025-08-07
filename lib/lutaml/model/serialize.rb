@@ -408,7 +408,7 @@ module Lutaml
         end
 
         def apply_mappings(doc, format, options = {})
-          register = options[:register] || Lutaml::Model::Config.default_register
+          register = extract_register_id(options[:register])
           instance = if options.key?(:instance)
                        options[:instance]
                      elsif model.include?(Lutaml::Model::Serialize)

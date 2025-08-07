@@ -6,7 +6,7 @@ module Lutaml
       class Document
         def initialize(yamls = [], register: nil)
           @yamls = yamls
-          @register = register || Lutaml::Model::Config.default_register
+          @__register = register || Lutaml::Model::Config.default_register
         end
       end
     end

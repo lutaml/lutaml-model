@@ -23,11 +23,11 @@ module Lutaml
             end
           end
 
-          attr_reader :properties, :register
+          attr_reader :properties, :__register
 
           def initialize(properties = [], register:)
             self.properties = properties
-            @register = register
+            @__register = register
           end
 
           def to_schema
@@ -40,7 +40,7 @@ module Lutaml
             @properties << if property.is_a?(Property)
                              property
                            else
-                             Property.new(property.name, property, register: register)
+                             Property.new(property.name, property, register: __register)
                            end
           end
           alias << add_property
@@ -53,7 +53,7 @@ module Lutaml
             @properties = properties.map do |property|
               next property if property.is_a?(Property)
 
-              Property.new(property.name, property, register)
+              Property.new(property.name, property, __register)
             end
           end
         end

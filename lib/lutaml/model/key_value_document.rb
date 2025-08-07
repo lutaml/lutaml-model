@@ -1,11 +1,11 @@
 module Lutaml
   module Model
     class KeyValueDocument
-      attr_reader :attributes, :register
+      attr_reader :attributes, :__register
 
       def initialize(attributes = {}, register: nil)
         @attributes = attributes
-        @register = register || Lutaml::Model::Config.default_register
+        @__register = register || Lutaml::Model::Config.default_register
       end
 
       def [](key)
