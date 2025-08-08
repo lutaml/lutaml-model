@@ -12,7 +12,7 @@ module Lutaml
       #   Usage of `old` name is deprecated will be removed in the next major
       #   release. Please use the `replacement`` instead.
       def self.warn_future_deprecation(old:, replacement:)
-        trace = caller_locations[7] # first locations after the gem's internal files
+        trace = caller_locations(8..8).first # first locations after the gem's internal files
         warn("Usage of `#{old}` is deprecated and will be removed in the next major release. Please use `#{replacement}` instead.", "#{trace.path}:#{trace.lineno}:")
       end
 
