@@ -338,8 +338,36 @@ module Lutaml
         def from(format, data, options = {})
           adapter = Lutaml::Model::Config.adapter_for(format)
 
+          check_valid_format!(format, data, options)
+
           doc = adapter.parse(data, options)
           send("of_#{format}", doc, options)
+        end
+
+        def check_valid_format!(format, data, options)
+          adapter = Lutaml::Model::Config.adapter_for(format)
+          valid, error = valid_format?(format, adapter, data, options)
+
+          return if valid
+
+          raise Lutaml::Model::InvalidFormatError.new(format, error)
+        end
+
+        def valid_format?(format, adapter, data, options)
+          begin
+            doc = adapter.parse(data, options)
+            send("of_#{format}", doc, options)
+            [ true, nil ]
+          rescue Psych::SyntaxError,
+                 JSON::ParserError,
+                 TomlRB::ParseError,
+                 NoMethodError,
+                 TypeError,
+                 ArgumentError,
+                 Nokogiri::XML::SyntaxError,
+                 Moxml::Error => e
+            [ false, e.message ]
+          end
         end
 
         def of(format, doc, options = {})

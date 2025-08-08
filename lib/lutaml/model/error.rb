@@ -5,6 +5,7 @@ module Lutaml
   end
 end
 
+require_relative "error/invalid_format_error"
 require_relative "error/invalid_value_error"
 require_relative "error/liquid_not_enabled_error"
 require_relative "error/incorrect_mapping_argument_error"
