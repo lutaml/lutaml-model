@@ -346,28 +346,47 @@ module Lutaml
 
         def check_valid_format!(format, data, options)
           adapter = Lutaml::Model::Config.adapter_for(format)
-          valid, error = valid_format?(format, adapter, data, options)
+          valid, error = valid_format(format, adapter, data, options)
 
           return if valid
 
           raise Lutaml::Model::InvalidFormatError.new(format, error)
         end
 
-        def valid_format?(format, adapter, data, options)
-          begin
-            doc = adapter.parse(data, options)
-            send("of_#{format}", doc, options)
-            [ true, nil ]
-          rescue Psych::SyntaxError,
-                 JSON::ParserError,
-                 TomlRB::ParseError,
-                 NoMethodError,
-                 TypeError,
-                 ArgumentError,
-                 Nokogiri::XML::SyntaxError,
-                 Moxml::Error => e
-            [ false, e.message ]
+        def valid_format(format, adapter, data, options)
+          doc = adapter.parse(data, options)
+          send("of_#{format}", doc, options)
+
+          [true, nil]
+        rescue *format_error_types => e
+          [false, e.message]
+        end
+
+        def format_error_types
+          errors = [
+            Psych::SyntaxError,
+            JSON::ParserError,
+            NoMethodError,
+            TypeError,
+            ArgumentError,
+          ]
+
+          %w[
+            Nokogiri::XML::SyntaxError
+            Ox::ParseError
+            TomlRB::ParseError
+            Tomlib::ParseError
+          ].each do |error_class|
+            errors << safe_get_const(error_class)
           end
+
+          errors.compact
+        end
+
+        def safe_get_const(error_class)
+          return unless Object.const_defined?(error_class.split("::").first)
+
+          error_class.split("::").inject(Object) { |mod, part| mod.const_get(part) }
         end
 
         def of(format, doc, options = {})
