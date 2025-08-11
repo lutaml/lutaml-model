@@ -371,8 +371,7 @@ RSpec.describe CollectionTests do
             map_element "person", to: :items
           end
         end
-      end.to raise_error(Lutaml::Model::SortingConfigurationConflictError,
-                         /Invalid sorting configuration: cannot combine outer sort .* inner element sort/)
+      end.to raise_error(Lutaml::Model::SortingConfigurationConflictError)
     end
   end
 

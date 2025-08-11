@@ -561,7 +561,7 @@ module Lutaml
         def collection_with_conflicting_sort?
           self <= Lutaml::Model::Collection &&
             @mappings[:xml].ordered &&
-            @sort_by_field.present?
+            !!@sort_by_field
         end
       end
 

@@ -42,7 +42,7 @@ module Lutaml
           @sort_by_field = by.to_sym
           @sort_direction = order
 
-          check_sort_configs!
+          check_sort_configs! if @mappings[:xml]
         end
 
         alias_method :ordered, :sort
