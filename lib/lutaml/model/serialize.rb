@@ -555,8 +555,7 @@ module Lutaml
         def check_sort_configs!
           return unless collection_with_conflicting_sort?
 
-          raise Lutaml::Model::SortingConfigurationConflictError,
-                "Invalid sorting configuration: cannot combine outer sort (`sort by ...`) with inner element sort (`ordered: true` in XML mapping`). Please choose one."
+          raise Lutaml::Model::SortingConfigurationConflictError.new
         end
 
         def collection_with_conflicting_sort?
