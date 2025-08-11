@@ -41,6 +41,8 @@ module Lutaml
         def sort(by:, order: :asc)
           @sort_by_field = by.to_sym
           @sort_direction = order
+
+          check_sort_configs!
         end
 
         alias_method :ordered, :sort

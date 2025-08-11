@@ -332,9 +332,7 @@ module Lutaml
             mappings[format].finalize(self)
           end
 
-          if format == :xml && (self <= Lutaml::Model::Collection) && @mappings[format].ordered && sort_configured?
-            raise Lutaml::Model::SortingConfigurationConflictError.new
-          end
+          check_sort_configs! if format == :xml
         end
 
         def from(format, data, options = {})
@@ -552,6 +550,19 @@ module Lutaml
 
         def finalized?
           @finalized
+        end
+
+        def check_sort_configs!
+          return unless collection_with_conflicting_sort?
+
+          raise Lutaml::Model::SortingConfigurationConflictError,
+                "Invalid sorting configuration: cannot combine outer sort (`sort by ...`) with inner element sort (`ordered: true` in XML mapping`). Please choose one."
+        end
+
+        def collection_with_conflicting_sort?
+          self <= Lutaml::Model::Collection &&
+            @mappings[:xml].ordered &&
+            @sort_by_field.present?
         end
       end
 
