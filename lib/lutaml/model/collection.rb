@@ -7,8 +7,8 @@ module Lutaml
         INHERITED_ATTRIBUTES = %i[
           instance_type
           instance_name
-          order_by_field
-          order_direction
+          sort_by_field
+          sort_direction
         ].freeze
 
         def inherited(subclass)
@@ -24,8 +24,8 @@ module Lutaml
 
         attr_reader :instance_type,
                     :instance_name,
-                    :order_by_field,
-                    :order_direction
+                    :sort_by_field,
+                    :sort_direction
 
         def instances(name, type, &block)
           attribute(name, type, collection: true, validations: block)
@@ -38,13 +38,15 @@ module Lutaml
           end
         end
 
-        def ordered(by:, order: :asc)
-          @order_by_field = by.to_sym
-          @order_direction = order
+        def sort(by:, order: :asc)
+          @sort_by_field = by.to_sym
+          @sort_direction = order
         end
 
+        alias_method :ordered, :sort
+
         def sort_configured?
-          !!@order_by_field
+          !!@sort_by_field
         end
 
         def to(format, instance, options = {})
@@ -200,8 +202,8 @@ module Lutaml
         return unless order_defined?
 
         unless collection&.one?
-          field = self.class.order_by_field
-          direction = self.class.order_direction
+          field = self.class.sort_by_field
+          direction = self.class.sort_direction
 
           collection.sort_by! { |item| item.send(field) }
           collection.reverse! if direction == :desc
