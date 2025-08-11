@@ -64,6 +64,17 @@ module CollectionTests
       map "regular_items", to: :regular_items, render_default: true, render_empty: true
     end
   end
+
+  class Person < Lutaml::Model::Serializable
+    attribute :name, :string
+    attribute :age, :integer
+
+    xml do
+      root "person", ordered: true
+      map_element "name", to: :name
+      map_element "age", to: :age
+    end
+  end
 end
 
 RSpec.describe CollectionTests do
@@ -99,6 +110,25 @@ RSpec.describe CollectionTests do
         <sensor>Temp1</sensor>
         <sensor>Temp2</sensor>
       </kiln>
+    XML
+  end
+
+  let(:xml_input) do
+    <<~XML
+      <people>
+        <person>
+          <name>Bob</name>
+          <age>25</age>
+        </person>
+        <person>
+          <age>30</age>
+          <name>Alice</name>
+        </person>
+        <person>
+          <name>Charlie</name>
+          <age>35</age>
+        </person>
+      </people>
     XML
   end
 
@@ -326,6 +356,72 @@ RSpec.describe CollectionTests do
           attribute :invalid_range, :string, initialize_empty: true
         end
       end.to raise_error(StandardError, /Invalid option `initialize_empty` given without `collection: true` option/)
+    end
+  end
+
+  context "when both outer sort and inner element sort are configured" do
+    it "raises a SortingConfigurationConflictError" do
+      expect do
+        Class.new(Lutaml::Model::Collection) do
+          instances :items, CollectionTests::Person
+          sort by: :name, order: :asc
+
+          xml do
+            root "people", ordered: true
+            map_element "person", to: :items
+          end
+        end
+      end.to raise_error(Lutaml::Model::SortingConfigurationConflictError,
+                         /Invalid sorting configuration: cannot combine outer sort .* inner element sort/)
+    end
+  end
+
+  context "when only outer sort is configured" do
+    let(:collection_class) do
+      Class.new(Lutaml::Model::Collection) do
+        instances :items, CollectionTests::Person
+        sort by: :name, order: :asc
+
+        xml do
+          root "people"
+          map_element "person", to: :items
+        end
+      end
+    end
+
+    it "sorts the output by the given field" do
+      collection = collection_class.from_xml(xml_input)
+
+      expect(collection.to_xml).to eq(
+        <<~XML.strip,
+          <people>
+            <person><age>30</age><name>Alice</name></person>
+            <person><name>Bob</name><age>25</age></person>
+            <person><name>Charlie</name><age>35</age></person>
+          </people>
+        XML
+      )
+    end
+  end
+
+  context "when only inner element sort is configured" do
+    let(:collection_class) do
+      Class.new(Lutaml::Model::Collection) do
+        instances :items, CollectionTests::Person
+
+        xml do
+          root "people", ordered: true
+          map_element "person", to: :items
+        end
+      end
+    end
+
+    it "preserves the element order from XML" do
+      collection = collection_class.from_xml(xml_input)
+
+      expect(collection.to_xml).to eq(
+        "<people><person><name>Bob</name><age>25</age></person><person><age>30</age><name>Alice</name></person><person><name>Charlie</name><age>35</age></person></people>",
+      )
     end
   end
 end

@@ -331,6 +331,10 @@ module Lutaml
           if mappings[format].respond_to?(:finalize)
             mappings[format].finalize(self)
           end
+
+          if format == :xml && (self <= Lutaml::Model::Collection) && @mappings[format].ordered && sort_configured?
+            raise Lutaml::Model::SortingConfigurationConflictError.new
+          end
         end
 
         def from(format, data, options = {})
