@@ -2,7 +2,7 @@ module Lutaml
   module Model
     class SortingConfigurationConflictError < Error
       def to_s
-        "Invalid sorting configuration: cannot combine outer sort (sort by ...) with inner element sort (ordered: true in XML mapping`). Please choose one."
+        "Keeping the order of input (ordered: true) and sorting (sort by <element name>) are not supported together, Please choose one or the other."
       end
     end
   end
