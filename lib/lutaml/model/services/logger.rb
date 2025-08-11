@@ -1,8 +1,8 @@
 module Lutaml
   module Model
     class Logger
-      def self.warn(message)
-        new.call(message, :warn)
+      def self.warn(message, path = nil)
+        new.call(message, :warn, path)
       end
 
       # @param [String] old: The name of the deprecated class or method
@@ -12,7 +12,8 @@ module Lutaml
       #   Usage of `old` name is deprecated will be removed in the next major
       #   release. Please use the `replacement`` instead.
       def self.warn_future_deprecation(old:, replacement:)
-        warn("Usage of `#{old}` is deprecated and will be removed in the next major release. Please use `#{replacement}` instead.")
+        trace = caller_locations(8..8).first # first locations after the gem's internal files
+        warn("Usage of `#{old}` is deprecated and will be removed in the next major release. Please use `#{replacement}` instead.", "#{trace.path}:#{trace.lineno}:")
       end
 
       # @param [String] name
@@ -26,8 +27,8 @@ module Lutaml
         warn("`#{name}` is handled by default. No need to explicitly define at `#{caller_file}:#{caller_line}`")
       end
 
-      def call(message, type)
-        Warning.warn format_message(message, type)
+      def call(message, type, path = nil)
+        Warning.warn format_message(message, type, path)
       end
 
       private
@@ -46,8 +47,8 @@ module Lutaml
         "\e[#{color}m#{message}\e[0m"
       end
 
-      def format_message(message, type)
-        colorize("\n[Lutaml::Model] #{type.upcase}: #{message}\n", type)
+      def format_message(message, type, path = nil)
+        colorize("\n[Lutaml::Model] #{type.upcase}:#{path} #{message}\n", type)
       end
     end
   end
