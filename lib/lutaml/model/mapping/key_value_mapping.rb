@@ -205,6 +205,14 @@ module Lutaml
         mappings.find { |m| m.to.to_s == to.to_s }
       end
 
+      def find_by_to!(to)
+        mapping = find_by_to(to)
+
+        return mapping if !!mapping
+
+        raise Lutaml::Model::NoMappingFoundError.new(to.to_s)
+      end
+
       def find_by_name(name)
         @mappings.find { |m| m.name.to_s == name.to_s }
       end
