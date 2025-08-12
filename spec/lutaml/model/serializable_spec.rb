@@ -1,3 +1,8 @@
+require "spec_helper"
+require "lutaml/model/toml/toml_rb_adapter"
+require "lutaml/model/toml/tomlib_adapter"
+require_relative "../../fixtures/sample_model"
+
 module SerializeableSpec
   class TestModel
     attr_accessor :name, :age
@@ -118,6 +123,13 @@ module SerializeableSpec
       map_element "age", to: :age
       map_element "phone", to: :phone, with: { to: :phone_to_xml }
       map_element "address", to: :address, with: { from: :address_from_xml }
+    end
+
+    yaml do
+      map "name", to: :name
+      map "age", to: :age
+      map "phone", to: :phone, with: { to: :phone_to_json }
+      map "address", to: :address, with: { from: :address_from_json }
     end
 
     key_value do
@@ -502,123 +514,71 @@ RSpec.describe Lutaml::Model::Serializable do
   end
 
   describe "InvalidFormatError handling" do
-    before do
-      Lutaml::Model::Config.configure do |config|
-        config.xml_adapter_type = :nokogiri
-        config.yaml_adapter_type = :standard_yaml
-        config.json_adapter_type = :standard_json
-        config.toml_adapter_type = :toml_rb
+    let(:invalid_data) do
+      {
+        xml: {
+          nokogiri: "<<<<name>John Doe</name>",
+          ox: "<<<<name>John Doe</name>",
+          oga: '<person xmlns="http://example.com" xmlns="http://another.com"><name>John Doe</name></person>',
+        },
+        json: {
+          standard_json: '{"name": "John", "age": 30,}',
+        },
+        yaml: {
+          standard_yaml: "name: \"John Doe\nage: 30",
+        },
+        toml: {
+          toml_rb: 'name = "John Doe\nage = 30',
+          tomlib: "name = \"John Doe\"\nage = 30\\\n",
+        },
+        hash: {
+          standard_hash: "This is not a hash",
+        },
+      }
+    end
+
+    shared_examples "invalid format error" do |format, adapter, method, config_key|
+      around do |example|
+        old_adapter = Lutaml::Model::Config.send("#{config_key}_adapter")
+        Lutaml::Model::Config.send("#{config_key}_adapter_type=", adapter)
+
+        example.run
+      ensure
+        Lutaml::Model::Config.send("#{config_key}_adapter=", old_adapter)
+      end
+
+      it "raises InvalidFormatError for invalid #{adapter.to_s.capitalize} #{format.to_s.upcase}" do
+        data = invalid_data[format][adapter]
+        expect do
+          SerializeableSpec::SingleOptionModel.public_send(method, data)
+        end.to raise_error(Lutaml::Model::InvalidFormatError) do |error|
+          expect(error.message).to include("`#{format}`")
+          expect(error.message).to include("input format is invalid")
+        end
       end
     end
 
     describe "invalid format handling for XML" do
-      it "raises InvalidFormatError for invalid Nokogiri XML" do
-        invalid_xml = "<<<<name>John Doe</name>"
-
-        expect do
-          SerializeableSpec::SingleOptionModel.from_xml(invalid_xml)
-        end.to raise_error(Lutaml::Model::InvalidFormatError) do |error|
-          expect(error.message).to include("`xml`")
-          expect(error.message).to include("input format is invalid")
-        end
-      end
-
-      it "raises InvalidFormatError for invalid Ox XML" do
-        Lutaml::Model::Config.configure do |config|
-          config.xml_adapter_type = :ox
-        end
-
-        invalid_xml = "<<<<name>John Doe</name>"
-
-        expect do
-          SerializeableSpec::SingleOptionModel.from_xml(invalid_xml)
-        end.to raise_error(Lutaml::Model::InvalidFormatError) do |error|
-          expect(error.message).to include("`xml`")
-          expect(error.message).to include("input format is invalid")
-        end
-      end
-
-      it "raises InvalidFormatError for invalid Oga XML" do
-        Lutaml::Model::Config.configure do |config|
-          config.xml_adapter_type = :oga
-        end
-
-        invalid_xml = '<person xmlns="http://example.com" xmlns="http://another.com"><name>John Doe</name></person>'
-
-        expect do
-          SerializeableSpec::SingleOptionModel.from_xml(invalid_xml)
-        end.to raise_error(Lutaml::Model::InvalidFormatError) do |error|
-          expect(error.message).to include("`xml`")
-          expect(error.message).to include("input format is invalid")
-        end
-      end
+      it_behaves_like "invalid format error", :xml, :nokogiri, :from_xml, :xml
+      it_behaves_like "invalid format error", :xml, :ox, :from_xml, :xml
+      it_behaves_like "invalid format error", :xml, :oga, :from_xml, :xml
     end
 
     describe "invalid format handling for invalid JSON" do
-      it "raises InvalidFormatError for invalid JSON" do
-        invalid_json = '{"name": "John", "age": 30,}'
-
-        expect do
-          SerializeableSpec::SingleOptionModel.from_json(invalid_json)
-        end.to raise_error(Lutaml::Model::InvalidFormatError) do |error|
-          expect(error.message).to include("`json`")
-          expect(error.message).to include("input format is invalid")
-        end
-      end
+      it_behaves_like "invalid format error", :json, :standard_json, :from_json, :json
     end
 
     describe "invalid format handling for invalid YAML" do
-      it "raises InvalidFormatError for invalid YAML" do
-        invalid_yaml = "name: \"John Doe\nage: 30"
-
-        expect do
-          SerializeableSpec::SingleOptionModel.from_yaml(invalid_yaml)
-        end.to raise_error(Lutaml::Model::InvalidFormatError) do |error|
-          expect(error.message).to include("`yaml`")
-          expect(error.message).to include("input format is invalid")
-        end
-      end
+      it_behaves_like "invalid format error", :yaml, :standard_yaml, :from_yaml, :yaml
     end
 
     describe "invalid format handling for invalid TOML" do
-      it "raises InvalidFormatError for invalid TomlRB TOML" do
-        invalid_toml = 'name = "John Doe\nage = 30'
-
-        expect do
-          SerializeableSpec::SingleOptionModel.from_toml(invalid_toml)
-        end.to raise_error(Lutaml::Model::InvalidFormatError) do |error|
-          expect(error.message).to include("`toml`")
-          expect(error.message).to include("input format is invalid")
-        end
-      end
-
-      it "raises InvalidFormatError for invalid Tomlib TOML" do
-        Lutaml::Model::Config.configure do |config|
-          config.toml_adapter_type = :tomlib
-        end
-
-        invalid_toml = 'name = "John Doe\nage = 30'
-
-        expect do
-          SerializeableSpec::SingleOptionModel.from_toml(invalid_toml)
-        end.to raise_error(Lutaml::Model::InvalidFormatError) do |error|
-          expect(error.message).to include("`toml`")
-          expect(error.message).to include("input format is invalid")
-        end
-      end
+      it_behaves_like "invalid format error", :toml, :toml_rb, :from_toml, :toml
+      it_behaves_like "invalid format error", :toml, :tomlib, :from_toml, :toml
     end
 
     describe "invalid format handling for invalid HASH" do
-      it "raises InvalidFormatError for invalid Hash" do
-        invalid_hash = "This is not a hash"
-
-        expect do
-          SerializeableSpec::SingleOptionModel.from_hash(invalid_hash)
-        end.to raise_error(Lutaml::Model::InvalidFormatError) do |error|
-          expect(error.message).to include("`hash`")
-          expect(error.message).to include("input format is invalid")
-        end
-      end
+      it_behaves_like "invalid format error", :hash, :standard_hash, :from_hash, :hash
     end
   end
 end

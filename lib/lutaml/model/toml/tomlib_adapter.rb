@@ -7,6 +7,10 @@ module Lutaml
       class TomlibAdapter < Document
         def self.parse(toml, _options = {})
           Tomlib.load(toml)
+        rescue StandardError => e
+          raise Tomlib::ParseError, e.message
+        rescue Exception => e # rubocop:disable Lint/RescueException
+          raise Tomlib::ParseError, "Native error during parse: #{e.message}"
         end
 
         def to_toml(*)
