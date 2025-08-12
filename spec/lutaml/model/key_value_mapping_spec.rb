@@ -7,7 +7,7 @@ RSpec.describe Lutaml::Model::KeyValueMapping do
     it "raises NoMappingFoundError when mapping is missing in key_value mapping" do
       expect do
         mapping.find_by_to!("nonexistent")
-      end.to raise_error(Lutaml::Model::NoMappingFoundError, /No mapping available for nonexistent/)
+      end.to raise_error(Lutaml::Model::NoMappingFoundError, /No mapping available for `nonexistent`/)
     end
   end
 

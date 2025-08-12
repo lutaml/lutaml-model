@@ -326,7 +326,7 @@ RSpec.describe Lutaml::Model::Xml::Mapping do
       mapping = described_class.new
       expect do
         mapping.find_by_to!("nonexistent")
-      end.to raise_error(Lutaml::Model::NoMappingFoundError, /No mapping available for nonexistent/)
+      end.to raise_error(Lutaml::Model::NoMappingFoundError, /No mapping available for `nonexistent`/)
     end
   end
 
