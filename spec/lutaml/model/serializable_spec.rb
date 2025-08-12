@@ -1,8 +1,3 @@
-require "spec_helper"
-require "lutaml/model/toml/toml_rb_adapter"
-require "lutaml/model/toml/tomlib_adapter"
-require_relative "../../fixtures/sample_model"
-
 module SerializeableSpec
   class TestModel
     attr_accessor :name, :age
