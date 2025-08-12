@@ -386,6 +386,14 @@ module Lutaml
           mappings.detect { |rule| rule.to.to_s == to.to_s }
         end
 
+        def find_by_to!(to)
+          mapping = find_by_to(to)
+
+          return mapping if !!mapping
+
+          raise raise Lutaml::Model::NoMappingFoundError.new(to.to_s)
+        end
+
         def mapping_attributes_hash
           @attributes
         end

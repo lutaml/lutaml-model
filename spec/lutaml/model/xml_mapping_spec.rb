@@ -321,6 +321,15 @@ module XmlMapping
 end
 
 RSpec.describe Lutaml::Model::Xml::Mapping do
+  describe "find_by_to! error handling" do
+    it "raises NoMappingFoundError when mapping is missing in xml mapping" do
+      mapping = described_class.new
+      expect do
+        mapping.find_by_to!("nonexistent")
+      end.to raise_error(Lutaml::Model::NoMappingFoundError, /No mapping available for `nonexistent`/)
+    end
+  end
+
   shared_examples "having XML Mappings" do |adapter_class|
     around do |example|
       old_adapter = Lutaml::Model::Config.xml_adapter

@@ -87,7 +87,7 @@ module Lutaml
         def from(format, data, options = {})
           mappings = mappings_for(format)
           if mappings.no_root? && format == :xml
-            tag_name = mappings.find_by_to(instance_name).name
+            tag_name = mappings.find_by_to!(instance_name).name
             data = "<#{tag_name}>#{data}</#{tag_name}>"
           end
 
@@ -98,7 +98,7 @@ module Lutaml
           mappings = mappings_for(format)
 
           if mappings.no_root? && format != :xml && !mappings.root_mapping
-            data = { mappings.find_by_to(instance_name).name => data }
+            data = { mappings.find_by_to!(instance_name).name => data }
           end
 
           super(format, data, options.merge(from_collection: true))

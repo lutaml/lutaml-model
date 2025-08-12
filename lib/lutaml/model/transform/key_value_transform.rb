@@ -150,7 +150,7 @@ module Lutaml
         value = {}
 
         child_mappings.each do |attr_name, path|
-          rule = rules.find_by_to(attr_name)
+          rule = rules.find_by_to!(attr_name)
           attr_value = normalize_attribute_value(child_obj, rule.from, format)
 
           next unless rule&.render?(attr_value, nil)
@@ -247,7 +247,7 @@ module Lutaml
         attr_type = attr.type(__register)
         child_mappings.to_h do |attr_name, path|
           attr_value = extract_attr_value(path, key, value)
-          attr_rule = attr_type.mappings_for(format).find_by_to(attr_name)
+          attr_rule = attr_type.mappings_for(format).find_by_to!(attr_name)
           [attr_rule.from.to_s, attr_value]
         end
       end
