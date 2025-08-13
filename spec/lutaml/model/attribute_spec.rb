@@ -55,7 +55,7 @@ RSpec.describe Lutaml::Model::Attribute do
 
   it "raises an error if required attributes are missing" do
     record = RequiredTestRecord.new
-    expect { record.validate! }.to raise_error(Lutaml::Model::MissingAttributeError, "Missing required attribute: name")
+    expect { record.validate! }.to raise_error(Lutaml::Model::ValidationError, "Missing required attribute: name")
   end
 
   it "does not raise an error when all required attributes are present" do
