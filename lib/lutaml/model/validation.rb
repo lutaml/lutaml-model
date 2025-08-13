@@ -17,6 +17,7 @@ module Lutaml
                  Lutaml::Model::CollectionTrueMissingError,
                  Lutaml::Model::PolymorphicError,
                  Lutaml::Model::ValidationFailedError,
+                 Lutaml::Model::MissingAttributeError,
                  PatternNotMatchedError => e
             errors << e
           end
