@@ -11,6 +11,13 @@ RSpec.describe Lutaml::Model::Attribute do
     described_class.new("name", nil, method_name: nil)
   end
 
+  let(:required_test_record_class) do
+    Class.new(Lutaml::Model::Serializable) do
+      attribute :name, :string, required: true
+      attribute :age, :integer
+    end
+  end
+
   let(:test_record_class) do
     Class.new(Lutaml::Model::Serializable) do
       attribute :age, :integer
@@ -21,6 +28,7 @@ RSpec.describe Lutaml::Model::Attribute do
 
   before do
     stub_const("TestRecord", test_record_class)
+    stub_const("RequiredTestRecord", required_test_record_class)
   end
 
   it "cast to integer when assigning age" do
@@ -43,6 +51,16 @@ RSpec.describe Lutaml::Model::Attribute do
       ArgumentError,
       "method or type must be set for an attribute",
     )
+  end
+
+  it "raises an error if required attributes are missing" do
+    record = RequiredTestRecord.new
+    expect { record.validate! }.to raise_error(Lutaml::Model::MissingAttributeError, "Missing required attribute: name")
+  end
+
+  it "does not raise an error when all required attributes are present" do
+    record = RequiredTestRecord.new(name: "John", age: 30)
+    expect { record.validate! }.not_to raise_error
   end
 
   describe "#validate_name!" do
