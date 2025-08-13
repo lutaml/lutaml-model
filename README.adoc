@@ -7504,6 +7504,103 @@ end
 ----
 ====
 
+===== Only One Custom Method
+
+Only one custom method can be added for the serialization or deserialization of an attribute.
+
+Syntax:
+
+[source,ruby]
+----
+xml do
+  map_element 'element_name', to: :name_of_element, with: {
+    to: :method_name_to_serialize # only 'to' is implemented
+  }
+  map_element 'element_name', to: :name_of_element, with: {
+    from: :method_name_to_deserialize # only 'from' is implemented
+  }
+end
+
+hsh | json | yaml | toml do
+  map 'attribute_name', to: :name_of_attribute, with: {
+    to: :method_name_to_serialize # only 'to' is implemented
+  }
+  map 'attribute_name', to: :name_of_attribute, with: {
+    from: :method_name_to_deserialize # only 'from' is implemented
+  }
+end
+----
+
+This is only applicable if the `to: :name_of_element` or `to: :name_of_attribute` option is set.  
+If it is not set, then both custom methods must be provided.
+
+[example]
+====
+[source,ruby]
+----
+class CustomCeramic < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :size, :integer
+
+  xml do
+    map_element "Name", to: :name, with: { to: :name_to_xml }
+    map_attribute "Size", to: :size
+  end
+
+  json do
+    map 'name', to: :name, with: { from: :name_from_json }
+    map 'size', to: :size
+  end
+
+  def name_to_xml(model, parent, doc)
+    el = doc.create_element("Name")
+    doc.add_text(el, "XML Masterpiece: #{model.name}")
+    doc.add_element(parent, el)
+  end
+
+  def name_from_json(model, value)
+    model.name = value.sub(/^Masterpiece: /, '')
+  end
+end
+----
+
+[source,xml]
+----
+<CustomCeramic Size="15">
+  <Name>Vase</Name>
+</CustomCeramic>
+----
+
+[source,ruby]
+----
+> CustomCeramic.from_xml(xml)
+> #<CustomCeramic:0x0000000108d0e1f8
+   @element_order=["text", "Name", "text", "Size", "text"],
+   @name="Vase",
+   @ordered=nil,
+   @size=15>
+> puts CustomCeramic.new(name: "Vase", size: 15, description: "A beautiful vase", metadata: Metadata.new(category: "Glaze", identifier: 15)).to_xml
+# <CustomCeramic Size="15">
+#   <Name>XML Masterpiece: Vase</Name>
+# </CustomCeramic>
+----
+
+[source,json]
+----
+{
+  "name": "Masterpiece: Vase",
+  "size": 12
+}
+----
+
+[source,ruby]
+----
+> CustomCeramic.from_json(json)
+> #<CustomCeramic:0x0000000104ac7240 @name="Vase", @size=12>
+> CustomCeramic.new(name: "Vase", size: 12).to_json
+> #{"name"=>"Vase", "size"=>12}
+----
+====
 
 
 === Handling the missing values family
