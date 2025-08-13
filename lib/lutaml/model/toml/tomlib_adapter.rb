@@ -12,12 +12,17 @@ module Lutaml
             "The Tomlib adapter may cause segmentation faults on Windows " \
             "with Ruby < 3.3 when parsing invalid TOML. Consider using the " \
             "TomlRB adapter instead.",
-            __FILE__
+            __FILE__,
           )
         end
 
         def self.parse(toml, _options = {})
           Tomlib.load(toml)
+        rescue StandardError => e
+          # Tomlib can throw various errors for invalid TOML (TypeError,
+          # ArgumentError, etc.).
+          # Re-raise as Tomlib::ParseError which will be caught by serialize.rb
+          raise Tomlib::ParseError, e.message
         end
 
         def to_toml(*)
