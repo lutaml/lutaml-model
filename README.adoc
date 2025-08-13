@@ -7320,7 +7320,7 @@ end
 [source,ruby]
 ----
 def custom_method_from_xml(model, value)
-  instance = value.node # Lutaml::Model::XmlAdapter::AdapterElement
+  instance = value.node # Lutaml::Model::Xml::AdapterElement
   # OR
   instance = value.node.adapter_node # Adapter::Element
 
@@ -7343,19 +7343,19 @@ NOTE: For `NokogiriAdapter`, we can also call `to_xml` on `value.node.adapter_no
 
 # Nokogiri Adapter Node
 
-#<Lutaml::Model::XmlAdapter::NokogiriElement:0x0000000107656ed8
+#<Lutaml::Model::Xml::NokogiriElement:0x0000000107656ed8
 #   @attributes={},
 #   @children=
-#   [#<Lutaml::Model::XmlAdapter::NokogiriElement:0x0000000107656cd0 @attributes={}, @children=[], @default_namespace=nil, @name="text", @namespace_prefix=nil, @text="\n    ">,
-#   #<Lutaml::Model::XmlAdapter::NokogiriElement:0x00000001076569b0
+#   [#<Lutaml::Model::Xml::NokogiriElement:0x0000000107656cd0 @attributes={}, @children=[], @default_namespace=nil, @name="text", @namespace_prefix=nil, @text="\n    ">,
+#   #<Lutaml::Model::Xml::NokogiriElement:0x00000001076569b0
 #     @attributes={},
 #     @children=
-#     [#<Lutaml::Model::XmlAdapter::NokogiriElement:0x00000001076567f8 @attributes={}, @children=[], @default_namespace=nil, @name="text", @namespace_prefix=nil, @text="Metadata">],
+#     [#<Lutaml::Model::Xml::NokogiriElement:0x00000001076567f8 @attributes={}, @children=[], @default_namespace=nil, @name="text", @namespace_prefix=nil, @text="Metadata">],
 #     @default_namespace=nil,
 #     @name="category",
 #     @namespace_prefix=nil,
 #     @text="Metadata">,
-#   #<Lutaml::Model::XmlAdapter::NokogiriElement:0x0000000107656028 @attributes={}, @children=[], @default_namespace=nil, @name="text", @namespace_prefix=nil, @text="\n  ">],
+#   #<Lutaml::Model::Xml::NokogiriElement:0x0000000107656028 @attributes={}, @children=[], @default_namespace=nil, @name="text", @namespace_prefix=nil, @text="\n  ">],
 # @default_namespace=nil,
 # @name="metadata",
 # @namespace_prefix=nil,
@@ -7363,12 +7363,12 @@ NOTE: For `NokogiriAdapter`, we can also call `to_xml` on `value.node.adapter_no
 
 # Ox Adapter Node
 
-#<Lutaml::Model::XmlAdapter::OxElement:0x0000000107584f78
+#<Lutaml::Model::Xml::OxElement:0x0000000107584f78
 # @attributes={},
 # @children=
-#   [#<Lutaml::Model::XmlAdapter::OxElement:0x0000000107584e60
+#   [#<Lutaml::Model::Xml::OxElement:0x0000000107584e60
 #     @attributes={},
-#     @children=[#<Lutaml::Model::XmlAdapter::OxElement:0x0000000107584d48 @attributes={}, @children=[], @default_namespace=nil, @name="text", @namespace_prefix=nil, @text="Metadata">],
+#     @children=[#<Lutaml::Model::Xml::OxElement:0x0000000107584d48 @attributes={}, @children=[], @default_namespace=nil, @name="text", @namespace_prefix=nil, @text="Metadata">],
 #     @default_namespace=nil,
 #     @name="category",
 #     @namespace_prefix=nil,
@@ -7380,18 +7380,18 @@ NOTE: For `NokogiriAdapter`, we can also call `to_xml` on `value.node.adapter_no
 
 # Oga Adapter Node
 
-# <Lutaml::Model::XmlAdapter::Oga::Element:0x0000000107314158
+# <Lutaml::Model::Xml::Oga::Element:0x0000000107314158
 # @attributes={},
 # @children=
-#   [#<Lutaml::Model::XmlAdapter::Oga::Element:0x0000000107314090 @attributes={}, @children=[], @default_namespace=nil, @name="text", @namespace_prefix=nil, @text="\n    ">,
-#   #<Lutaml::Model::XmlAdapter::Oga::Element:0x000000010730fe78
+#   [#<Lutaml::Model::Xml::Oga::Element:0x0000000107314090 @attributes={}, @children=[], @default_namespace=nil, @name="text", @namespace_prefix=nil, @text="\n    ">,
+#   #<Lutaml::Model::Xml::Oga::Element:0x000000010730fe78
 #     @attributes={},
-#     @children=[#<Lutaml::Model::XmlAdapter::Oga::Element:0x000000010730fd88 @attributes={}, @children=[], @default_namespace=nil, @name="text", @namespace_prefix=nil, @text="Metadata">],
+#     @children=[#<Lutaml::Model::Xml::Oga::Element:0x000000010730fd88 @attributes={}, @children=[], @default_namespace=nil, @name="text", @namespace_prefix=nil, @text="Metadata">],
 #     @default_namespace=nil,
 #     @name="category",
 #     @namespace_prefix=nil,
 #     @text="Metadata">,
-#   #<Lutaml::Model::XmlAdapter::Oga::Element:0x000000010730f8d8 @attributes={}, @children=[], @default_namespace=nil, @name="text", @namespace_prefix=nil, @text="\n  ">],
+#   #<Lutaml::Model::Xml::Oga::Element:0x000000010730f8d8 @attributes={}, @children=[], @default_namespace=nil, @name="text", @namespace_prefix=nil, @text="\n  ">],
 # @default_namespace=nil,
 # @name="metadata",
 # @namespace_prefix=nil,
@@ -10054,9 +10054,9 @@ Action:
 
 [source,ruby]
 ----
-require 'lutaml/model/xml_adapter/nokogiri_adapter'
+require 'lutaml/model/xml/nokogiri_adapter'
 Lutaml::Model::Config.configure do |config|
-  config.xml_adapter = Lutaml::Model::XmlAdapter::NokogiriAdapter
+  config.xml_adapter = Lutaml::Model::Xml::NokogiriAdapter
 end
 ----
 
@@ -10068,6 +10068,7 @@ require 'shale/adapter/nokogiri'
 Shale.xml_adapter = Shale::Adapter::Nokogiri
 ----
 
+NOTE: `Lutaml::Model::XmlAdapter` is deprecated and will be removed in the next major upgrade. Use `Lutaml::Model::Xml` instead.
 
 Here are places that this code may reside at:
 
