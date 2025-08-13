@@ -361,7 +361,7 @@ module Lutaml
         end
 
         def sequence_importable_mappings
-          @sequence_importable_mappings ||= Hash.new { |h, k| h[k] = [] }
+          @sequence_importable_mappings ||= ::Hash.new { |h, k| h[k] = [] }
         end
 
         def element(name)

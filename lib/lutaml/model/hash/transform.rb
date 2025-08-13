@@ -1,6 +1,6 @@
 module Lutaml
   module Model
-    module HashAdapter
+    module Hash
       class Transform < Lutaml::Model::KeyValueTransform
       end
     end

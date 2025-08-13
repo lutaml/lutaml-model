@@ -133,7 +133,7 @@ module Lutaml
 
       def cast_element(value, register)
         resolved_type = type(register)
-        return resolved_type.new(value) if value.is_a?(Hash) && !hash_type?
+        return resolved_type.new(value) if value.is_a?(::Hash) && !hash_type?
 
         resolved_type.cast(value)
       end
@@ -456,7 +456,7 @@ module Lutaml
       end
 
       def castable?(value, format)
-        value.is_a?(Hash) ||
+        value.is_a?(::Hash) ||
           (format == :xml && value.is_a?(Lutaml::Model::Xml::XmlElement))
       end
 

@@ -20,7 +20,7 @@ module Lutaml
       end
 
       def has_options?
-        options.is_a?(Hash)
+        options.is_a?(::Hash)
       end
     end
 

@@ -51,7 +51,7 @@ namespace: DEFAULT_NAMESPACE)
       private
 
       def parsed_schema_locations(schema_location)
-        locations = if schema_location.is_a?(Hash)
+        locations = if schema_location.is_a?(::Hash)
                       schema_location
                     else
                       schema_location.split.each_slice(2)

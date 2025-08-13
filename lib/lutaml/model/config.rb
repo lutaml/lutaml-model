@@ -74,9 +74,6 @@ module Lutaml
       end
 
       def class_for(adapter, type)
-        # TODO: Remove once HashAdapter namespace is renamed to Hash
-        adapter = "hash_adapter" if adapter == "hash"
-
         Lutaml::Model.const_get(to_class_name(adapter))
           .const_get(to_class_name(type))
       end
@@ -106,9 +103,6 @@ module Lutaml
       end
 
       def load_adapter_file(adapter, type)
-        # TODO: Remove once HashAdapter namespace is renamed to Hash
-        adapter = "hash_adapter" if adapter == "hash"
-
         adapter_file = File.join(adapter, type)
         require_relative adapter_file
       rescue LoadError

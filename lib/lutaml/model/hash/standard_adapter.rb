@@ -2,7 +2,7 @@ require_relative "document"
 
 module Lutaml
   module Model
-    module HashAdapter
+    module Hash
       class StandardAdapter < Document
         def self.parse(hsh, _options = {})
           hsh
