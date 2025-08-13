@@ -568,8 +568,18 @@ RSpec.describe Lutaml::Model::Serializable do
 
     describe "invalid format handling for invalid TOML" do
       it_behaves_like "invalid format error", :toml, :toml_rb, :from_toml, :toml
-      # NOTE: Skipped Tomlib case because it was giving segmentation fault from c function (for windows with ruby 3.1). We can not catch it inside ruby
-      # it_behaves_like "invalid format error", :toml, :tomlib, :from_toml, :toml
+
+      # Only test Tomlib if not on problematic platform (Windows Ruby < 3.3)
+      if RUBY_PLATFORM.include?("mingw") && RUBY_VERSION < "3.3"
+        # NOTE: Skipped Tomlib case because it causes segmentation fault on
+        # Windows with Ruby < 3.3
+        it "skips Tomlib test on Windows Ruby < 3.3 due to segfault risk" do
+          skip "Tomlib causes segmentation faults on Windows with Ruby < 3.3 " \
+               "when parsing invalid TOML"
+        end
+      else
+        it_behaves_like "invalid format error", :toml, :tomlib, :from_toml, :toml
+      end
     end
 
     describe "invalid format handling for invalid HASH" do

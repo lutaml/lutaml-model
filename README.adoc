@@ -1458,7 +1458,7 @@ The attribute contains an unbounded collection of objects of the declared class.
 `{min}..{max}`:::
 The attribute contains a collection of objects of the declared class with a
 count within the specified range.
-If the number of objects is out of this numbered range,
+If the number of objects is out of this numbered range, a
 `CollectionCountOutOfRangeError` will be raised.
 +
 [example]
@@ -9771,6 +9771,20 @@ Lutaml::Model::Config.configure do |config|
   config.toml_adapter = :tomlib
 end
 ----
+
+
+=== Error handling
+
+When parsing invalid serialization format data, an `InvalidFormatError` is
+raised to indicate that the input format is malformed and cannot be parsed.
+
+Certain adapters may have specific behaviors when handling invalid input:
+
+* ⚠️ **Caution** TOML: the Tomlib adapter can cause segmentation faults when
+parsing invalid TOML data on Windows with Ruby versions before 3.3. A
+segmentation fault will crash the Ruby process entirely and cannot be caught
+with Ruby exception handling.
+
 
 
 [[custom-adapters]]
