@@ -130,7 +130,7 @@ module Lutaml
 
         # Define an attribute for the model
         def attribute(name, type, options = {})
-          if type.is_a?(Hash)
+          if type.is_a?(::Hash)
             options[:method_name] = type[:method]
             type = nil
           end
@@ -504,7 +504,7 @@ module Lutaml
                                   replace: "")
           when Array
             value.map { |v| ensure_utf8(v) }
-          when Hash
+          when ::Hash
             value.transform_keys do |k|
               ensure_utf8(k)
             end.transform_values do |v|

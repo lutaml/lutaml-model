@@ -155,7 +155,7 @@ module Lutaml
           return object if object.nil?
 
           case object
-          when Hash then deep_dup_hash(object)
+          when ::Hash then deep_dup_hash(object)
           when Array then deep_dup_array(object)
           else deep_dup_object(object)
           end

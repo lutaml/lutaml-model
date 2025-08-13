@@ -279,7 +279,7 @@ module Lutaml
               items = value.map { |item| format_value(item) }.join(", ")
               "(Array) [#{items}]"
             end
-          when Hash
+          when ::Hash
             "(Hash) #{value.keys.length} keys"
           when ComparableModel
             "(#{value.class})"

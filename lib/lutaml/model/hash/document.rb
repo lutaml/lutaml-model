@@ -2,7 +2,7 @@
 
 module Lutaml
   module Model
-    module HashAdapter
+    module Hash
       # Base class for Hash documents
       class Document < KeyValueDocument
       end
