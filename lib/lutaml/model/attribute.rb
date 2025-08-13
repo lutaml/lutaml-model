@@ -132,12 +132,12 @@ module Lutaml
         build_collection(value.map { |v| cast_element(v, register) })
       end
 
-      def required_value_not_set?(value)
-        return false unless options[:required]
-        return true if value.nil?
-        return true if value.respond_to?(:empty?) && value.empty?
+      def required_value_set?(value)
+        return true unless options[:required]
+        return false if value.nil?
+        return false if value.respond_to?(:empty?) && value.empty?
 
-        false
+        true
       end
 
       def cast_element(value, register)
@@ -517,7 +517,7 @@ module Lutaml
       end
 
       def validate_required!(value)
-        return unless required_value_not_set?(value)
+        return if required_value_set?(value)
 
         raise Lutaml::Model::MissingAttributeError.new(name)
       end
