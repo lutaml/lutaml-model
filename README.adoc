@@ -9276,7 +9276,7 @@ e.errors
 klin = Klin.new(degree_settings: [100, 200, 300], description: "one", prefix: "Ben")
 klin.validate
 # => [
-#      #<Lutaml::Model::MissingAttributeError: Missing required attribute: name>
+#      #<Lutaml::Model::RequiredAttributeMissingError: Missing required attribute: name>
 #    ]
 ----
 ====

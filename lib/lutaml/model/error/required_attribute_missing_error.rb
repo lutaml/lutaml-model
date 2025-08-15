@@ -1,6 +1,6 @@
 module Lutaml
   module Model
-    class MissingAttributeError < Error
+    class RequiredAttributeMissingError < Error
       def initialize(attribute)
         super("Missing required attribute: #{attribute}")
       end
