@@ -9219,14 +9219,14 @@ Lutaml::Model supports the following validation methods:
 
 [example]
 ====
-The following class will validate the `degree_settings` attribute to ensure that
+The following class will validate the `name` is present and `degree_settings` attributes to ensure that
 it has at least one element and that the `description` attribute is one of the
 values in the set `[one, two, three]`.
 
 [source,ruby]
 ----
 class Klin < Lutaml::Model::Serializable
-  attribute :name, :string
+  attribute :name, :string, required: true
   attribute :degree_settings, :integer, collection: (1..)
   attribute :description, :string, values: %w[one two three]
   attribute :id, :integer
@@ -9272,6 +9272,12 @@ e.errors
 #     #<Lutaml::Model::ChoiceUpperBoundError: Attribute count exceeds the upper bound>
 #     #<Lutaml::Model::ChoiceLowerBoundError: Attribute count is less than lower bound>
 #   ]
+
+klin = Klin.new(degree_settings: [100, 200, 300], description: "one", prefix: "Ben")
+klin.validate
+# => [
+#      #<Lutaml::Model::MissingAttributeError: Missing required attribute: name>
+#    ]
 ----
 ====
 
