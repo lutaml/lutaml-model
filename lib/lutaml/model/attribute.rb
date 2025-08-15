@@ -519,7 +519,7 @@ module Lutaml
       def validate_required!(value)
         return if required_value_set?(value)
 
-        raise Lutaml::Model::MissingAttributeError.new(name)
+        raise Lutaml::Model::RequiredAttributeMissingError.new(name)
       end
 
       def set_default_for_collection
