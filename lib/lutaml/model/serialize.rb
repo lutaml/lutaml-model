@@ -30,7 +30,7 @@ module Lutaml
       module ClassMethods
         include Lutaml::Model::Liquefiable::ClassMethods
 
-        INTERNAL_ATTRIBUTES = %i[@using_default @__register]
+        INTERNAL_ATTRIBUTES = %i[@using_default @__register].freeze
 
         attr_accessor :choice_attributes, :mappings
 
