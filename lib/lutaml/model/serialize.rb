@@ -30,6 +30,8 @@ module Lutaml
       module ClassMethods
         include Lutaml::Model::Liquefiable::ClassMethods
 
+        INTERNAL_ATTRIBUTES = %i[@using_default @__register]
+
         attr_accessor :choice_attributes, :mappings
 
         def inherited(subclass)
@@ -714,7 +716,7 @@ module Lutaml
       end
 
       def pretty_print_instance_variables
-        (instance_variables - %i[@using_default @__register]).sort
+        (instance_variables - INTERNAL_ATTRIBUTES).sort
       end
 
       def to_yaml_hash
