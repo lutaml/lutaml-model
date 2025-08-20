@@ -4,6 +4,7 @@ require_relative "schema/xsd_schema"
 require_relative "schema/relaxng_schema"
 require_relative "schema/yaml_schema"
 require_relative "schema/xml_compiler"
+require_relative "schema/lml_compiler"
 
 module Lutaml
   module Model
@@ -26,6 +27,10 @@ module Lutaml
 
       def self.from_xml(xml, options = {})
         XmlCompiler.to_models(xml, options)
+      end
+
+      def self.from_lml(lml, options = {})
+        LmlCompiler.to_models(lml, options)
       end
     end
   end
