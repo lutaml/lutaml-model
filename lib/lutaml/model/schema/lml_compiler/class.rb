@@ -61,7 +61,6 @@ module Lutaml
             @required_classes = []
             @namespace = namespace
             @indent = ""
-            puts @enums
           end
 
           def to_class(options: {})

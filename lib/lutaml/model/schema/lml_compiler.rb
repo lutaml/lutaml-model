@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "pry"
+require 'tempfile'
 require "lutaml"
 require_relative "lml_compiler/class"
 
@@ -13,6 +14,8 @@ module Lutaml
         attr_accessor :classes_list
 
         def to_models(schema, options = {})
+          schema = string_to_file_io(schema) if schema.is_a?(String)
+
           as_models(schema)
 
           if options[:create_files]
@@ -47,6 +50,14 @@ module Lutaml
           @classes_list = parsed.classes.to_h do |klass|
             ["#{parsed.name}::#{klass.name}", Class.new(klass, enums: parsed.enums, namespace: parsed.name).to_class]
           end
+        end
+
+        def string_to_file_io(text)
+          file = Tempfile.new(['tempfile', '.lml'])
+          file.write(text)
+          file.rewind
+
+          file
         end
       end
     end
