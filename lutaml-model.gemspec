@@ -30,6 +30,7 @@ Gem::Specification.new do |spec|
   end
   spec.executables = spec.files.grep(%r{^exe/}) { |f| File.basename(f) }
 
+  spec.add_dependency "lutaml"
   spec.add_dependency "moxml", ">= 0.1.2"
   spec.add_dependency "thor"
   spec.metadata["rubygems_mfa_required"] = "true"
