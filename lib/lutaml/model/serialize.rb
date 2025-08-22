@@ -22,6 +22,8 @@ module Lutaml
       include Lutaml::Model::Liquefiable
       include Lutaml::Model::Registrable
 
+      INTERNAL_ATTRIBUTES = %i[@using_default @__register].freeze
+
       def self.included(base)
         base.extend(ClassMethods)
         base.initialize_attrs(base)
@@ -29,8 +31,6 @@ module Lutaml
 
       module ClassMethods
         include Lutaml::Model::Liquefiable::ClassMethods
-
-        INTERNAL_ATTRIBUTES = %i[@using_default @__register].freeze
 
         attr_accessor :choice_attributes, :mappings
 
