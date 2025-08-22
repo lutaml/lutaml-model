@@ -121,13 +121,11 @@ module Lutaml
           end
 
           def attr_collection?(attr)
-            card = attr.cardinality
-            card && ["n", "*"].include?(card["max"])
+            ["n", "*"].include?(attr.cardinality&.max)
           end
 
           def attr_required?(attr)
-            card = attr.cardinality
-            card && card["min"].to_i.positive?
+            attr.cardinality&.min.to_i.positive?
           end
 
           # Helper to resolve attribute type, enum status, and found type
