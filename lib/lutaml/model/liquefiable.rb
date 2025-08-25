@@ -1,3 +1,5 @@
+require_relative "liquid"
+
 module Lutaml
   module Model
     module Liquefiable
@@ -13,7 +15,7 @@ module Lutaml
           end
 
           const_set(drop_class_name,
-                    Class.new(Liquid::Drop) do
+                    Class.new(::Liquid::Drop) do
                       def initialize(object)
                         super()
                         @object = object
@@ -50,6 +52,18 @@ module Lutaml
           end
         end
 
+        def liquid(&block)
+          return unless Object.const_defined?(:Liquid)
+
+          @liquid_mappings ||= ::Lutaml::Model::Liquid::Mapping.new
+          @liquid_mappings.instance_eval(&block) if block
+          @liquid_mappings
+        end
+
+        def liquid_mappings
+          @liquid_mappings
+        end
+
         def validate_liquid!
           return if Object.const_defined?(:Liquid)
 
@@ -64,8 +78,27 @@ module Lutaml
           self.class.attributes.each_key do |attr_name|
             self.class.register_drop_method(attr_name)
           end
+
+          generate_mapping_methods
         end
+
         self.class.drop_class.new(self)
+      end
+
+      def generate_mapping_methods
+        return unless self.class.liquid_mappings&.mappings
+
+        self.class.liquid_mappings.mappings.each do |key, method_name|
+          self.class.drop_class.define_method(key) do |*args|
+            value = @object.public_send(method_name, *args)
+
+            if value.is_a?(Array)
+              value.map(&:to_liquid)
+            else
+              value.to_liquid
+            end
+          end
+        end
       end
     end
   end

@@ -256,4 +256,122 @@ RSpec.describe Lutaml::Model::Liquefiable do
       end
     end
   end
+
+  describe "liquid block mapping" do
+    # This test demonstrates using def methods with parameters in liquid mappings
+    # The def methods can accept parameters and are mapped through the liquid block
+    let(:klass) do
+      Class.new(Lutaml::Model::Serializable) do
+        attribute :path, :string
+        attribute :source, :string
+
+        liquid do
+          map "custom_path", to: :custom_path_method
+          map "source", to: :source
+          map "formatted_content", to: :format_content
+          map "custom_transform", to: :transform_with_params
+        end
+
+        # def method with optional parameter
+        def custom_path_method(root = "")
+          File.join(root.to_s, "templates", path)
+        end
+
+        # def method without parameters
+        def format_content
+          "Formatted: #{source}"
+        end
+
+        # def method with multiple optional parameters
+        def transform_with_params(prefix = "default", suffix = "end")
+          "#{prefix}-#{source}-#{suffix}"
+        end
+      end
+    end
+
+    let(:instance) { klass.new(path: "test.xml", source: "content") }
+    let(:drop) { instance.to_liquid }
+
+    it "maps custom keys to specified methods" do
+      expect(drop.custom_path(nil)).to eq("/templates/test.xml")
+      expect(drop.formatted_content).to eq("Formatted: content")
+      expect(drop.custom_transform).to eq("default-content-end")
+    end
+
+    it "supports methods with multiple parameters" do
+      expect(drop.custom_transform("start")).to eq("start-content-end")
+      expect(drop.custom_transform("begin", "finish")).to eq("begin-content-finish")
+    end
+
+    it "still allows direct attribute access" do
+      expect(drop.source).to eq("content")
+    end
+
+    it "works with liquid templates" do
+      template = Liquid::Template.parse("{{custom_path}} - {{formatted_content}} - {{custom_transform}}")
+      result = template.render(drop)
+      expect(result).to eq("/templates/test.xml - Formatted: content - default-content-end")
+    end
+
+    it "provides both default and custom mappings" do
+      # Default attribute should still be available
+      expect(drop.path).to eq("test.xml")
+
+      # Custom mapping should override for specific keys
+      expect(drop.custom_path("abc")).to eq("abc/templates/test.xml")
+    end
+  end
+
+  describe "without liquid block" do
+    let(:klass) do
+      Class.new(Lutaml::Model::Serializable) do
+        attribute :path, :string
+        attribute :source, :string
+      end
+    end
+
+    let(:instance) { klass.new(path: "test.xml", source: "content") }
+    let(:drop) { instance.to_liquid }
+
+    it "uses default attribute access" do
+      expect(drop.path).to eq("test.xml")
+      expect(drop.source).to eq("content")
+    end
+
+    it "works with liquid templates using default attributes" do
+      template = Liquid::Template.parse("{{path}} - {{source}}")
+      result = template.render(drop)
+      expect(result).to eq("test.xml - content")
+    end
+  end
+
+  describe "liquid mappings class method" do
+    let(:klass) do
+      Class.new(Lutaml::Model::Serializable) do
+        attribute :name, :string
+
+        liquid do
+          map "display_name", to: :formatted_name
+        end
+
+        def formatted_name
+          "Name: #{name}"
+        end
+      end
+    end
+
+    it "returns liquid mappings" do
+      mappings = klass.liquid_mappings
+      expect(mappings).to be_a(Lutaml::Model::Liquid::Mapping)
+      expect(mappings.mappings).to eq({ "display_name" => :formatted_name })
+    end
+
+    it "returns nil when no liquid block is defined" do
+      simple_klass = Class.new(Lutaml::Model::Serializable) do
+        attribute :name, :string
+      end
+
+      expect(simple_klass.liquid_mappings).to be_nil
+    end
+  end
 end

@@ -116,8 +116,8 @@ module Lutaml
               collection: attr.options[:collection],
             )
           elsif attr.derived? && name != attr.method_name
-            define_method(name) do
-              public_send(attr.method_name)
+            define_method(name) do |*args|
+              public_send(attr.method_name, *args)
             end
           else
             define_method(name) do
