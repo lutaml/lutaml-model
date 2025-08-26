@@ -9709,7 +9709,7 @@ class DocumentDrop < BaseDocumentDrop
     @object.content.split.size
   end
   
-  def summary(length = 100)
+  def summary
     @object.content
   end
   
