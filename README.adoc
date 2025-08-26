@@ -9579,7 +9579,6 @@ class Product < Lutaml::Model::Serializable
   liquid do
     map "display_name", to: :formatted_name
     map "price_with_currency", to: :formatted_price
-    map "short_description", to: :truncated_description
   end
 
   def formatted_name
@@ -9588,10 +9587,6 @@ class Product < Lutaml::Model::Serializable
 
   def formatted_price
     "$#{price}"
-  end
-
-  def truncated_description(length = 50)
-    description.length > length ? "#{description[0, length]}..." : description
   end
 end
 
@@ -9612,63 +9607,6 @@ template = Liquid::Template.parse("{{display_name}} costs {{price_with_currency}
 result = template.render(drop)
 # => "LAPTOP costs $999.99"
 ----
-
-=== Methods with parameters
-
-Your custom methods can accept parameters, with support for default values:
-
-[source,ruby]
-----
-class Article < Lutaml::Model::Serializable
-  attribute :title, :string
-  attribute :content, :string
-  attribute :author, :string
-
-  liquid do
-    map "custom_title", to: :format_title
-    map "excerpt", to: :create_excerpt
-    map "byline", to: :author_byline
-  end
-
-  def format_title(prefix = "Article")
-    "#{prefix}: #{title}"
-  end
-
-  def create_excerpt(length = 100, suffix = "...")
-    content.length > length ? "#{content[0, length]}#{suffix}" : content
-  end
-
-  def author_byline(format = "default")
-    case format
-    when "formal"
-      "Written by #{author}"
-    when "casual" 
-      "By #{author}"
-    else
-      "Author: #{author}"
-    end
-  end
-end
-
-article = Article.new(
-  title: "Ruby Best Practices",
-  content: "Lorem ipsum dolor sit amet...",
-  author: "Jane Smith"
-)
-drop = article.to_liquid
-
-# Methods work with and without parameters
-template = Liquid::Template.parse("""
-{{custom_title}} 
-{{excerpt}}
-{{byline}}
-""")
-
-# Can also call with parameters in Ruby (not in templates)
-puts drop.custom_title("Guide")  # => "Guide: Ruby Best Practices"
-puts drop.create_excerpt(50, "...more")  # => "Lorem ipsum dolor sit amet...more"
-----
-
 
 == Liquid drop inheritance
 
@@ -9695,8 +9633,8 @@ class Schema < Lutaml::Model::Serializable
     map "template_path", to: :build_template_path
   end
   
-  def build_template_path(prefix = "templates")
-    File.join(prefix, path)
+  def build_template_path
+    File.join("templates", path)
   end
 end
 
@@ -9713,11 +9651,6 @@ class CustomSchemaDrop < BaseDropClass
   # Override existing methods
   def path
     "custom/#{@object.path}"
-  end
-  
-  # Methods with parameters
-  def transform_content(prefix = "CUSTOM", suffix = "END")
-    "#{prefix}-#{@object.source}-#{suffix}"
   end
 end
 ----
@@ -9739,7 +9672,6 @@ puts drop.source      # => "database settings" (original attribute)
 
 # New methods work
 puts drop.formatted_source  # => "Source: DATABASE SETTINGS"
-puts drop.transform_content  # => "CUSTOM-database settings-END"
 
 # Liquid mappings still work
 puts drop.template_path     # => "templates/config.xml"
@@ -9749,7 +9681,6 @@ template = Liquid::Template.parse("""
 Path: {{path}}
 Source: {{formatted_source}}
 Template: {{template_path}}
-Transform: {{transform_content}}
 """)
 
 result = template.render(drop)
@@ -9779,12 +9710,7 @@ class DocumentDrop < BaseDocumentDrop
   end
   
   def summary(length = 100)
-    words = @object.content.split
-    if words.size > length
-      "#{words[0, length].join(' ')}..."
-    else
-      @object.content
-    end
+    @object.content
   end
   
   def metadata

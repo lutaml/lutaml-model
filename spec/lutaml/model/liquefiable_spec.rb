@@ -269,22 +269,16 @@ RSpec.describe Lutaml::Model::Liquefiable do
           map "custom_path", to: :custom_path_method
           map "source", to: :source
           map "formatted_content", to: :format_content
-          map "custom_transform", to: :transform_with_params
         end
 
         # def method with optional parameter
-        def custom_path_method(root = "")
-          File.join(root.to_s, "templates", path)
+        def custom_path_method
+          File.join("templates", path)
         end
 
         # def method without parameters
         def format_content
           "Formatted: #{source}"
-        end
-
-        # def method with multiple optional parameters
-        def transform_with_params(prefix = "default", suffix = "end")
-          "#{prefix}-#{source}-#{suffix}"
         end
       end
     end
@@ -293,14 +287,8 @@ RSpec.describe Lutaml::Model::Liquefiable do
     let(:drop) { instance.to_liquid }
 
     it "maps custom keys to specified methods" do
-      expect(drop.custom_path(nil)).to eq("/templates/test.xml")
+      expect(drop.custom_path).to eq("templates/test.xml")
       expect(drop.formatted_content).to eq("Formatted: content")
-      expect(drop.custom_transform).to eq("default-content-end")
-    end
-
-    it "supports methods with multiple parameters" do
-      expect(drop.custom_transform("start")).to eq("start-content-end")
-      expect(drop.custom_transform("begin", "finish")).to eq("begin-content-finish")
     end
 
     it "still allows direct attribute access" do
@@ -308,9 +296,9 @@ RSpec.describe Lutaml::Model::Liquefiable do
     end
 
     it "works with liquid templates" do
-      template = Liquid::Template.parse("{{custom_path}} - {{formatted_content}} - {{custom_transform}}")
+      template = Liquid::Template.parse("{{custom_path}} - {{formatted_content}}")
       result = template.render(drop)
-      expect(result).to eq("/templates/test.xml - Formatted: content - default-content-end")
+      expect(result).to eq("templates/test.xml - Formatted: content")
     end
 
     it "provides both default and custom mappings" do
@@ -318,7 +306,7 @@ RSpec.describe Lutaml::Model::Liquefiable do
       expect(drop.path).to eq("test.xml")
 
       # Custom mapping should override for specific keys
-      expect(drop.custom_path("abc")).to eq("abc/templates/test.xml")
+      expect(drop.custom_path).to eq("templates/test.xml")
     end
   end
 

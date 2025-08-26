@@ -92,8 +92,8 @@ module Lutaml
           return unless liquid_mappings&.mappings
 
           liquid_mappings.mappings.each do |key, method_name|
-            drop_class.define_method(key) do |*args|
-              value = @object.public_send(method_name, *args)
+            drop_class.define_method(key) do
+              value = @object.public_send(method_name)
 
               if value.is_a?(Array)
                 value.map(&:to_liquid)
