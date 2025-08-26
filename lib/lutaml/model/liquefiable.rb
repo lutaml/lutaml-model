@@ -64,6 +64,7 @@ module Lutaml
           self.class.attributes.each_key do |attr_name|
             self.class.register_drop_method(attr_name)
           end
+          self.class.register_drop_method(:element_order)
         end
         self.class.drop_class.new(self)
       end
