@@ -374,4 +374,81 @@ RSpec.describe Lutaml::Model::Liquefiable do
       expect(simple_klass.liquid_mappings).to be_nil
     end
   end
+
+  describe "custom liquid drop inheritance" do
+    # Create a base model element
+    let(:model_element_class) do
+      Class.new(Lutaml::Model::Serializable) do
+        def self.name
+          "ModelElement"
+        end
+      end
+    end
+
+    # Create a schema class that inherits from model element
+    let(:schema_class) do
+      Class.new(model_element_class) do
+        def self.name
+          "Schema"
+        end
+
+        attribute :path, :string
+        attribute :source, :string
+
+        liquid_class "SpecialSchemaDrop" # Set the custom drop class for to_liquid
+      end
+    end
+
+    let(:schema_instance) { schema_class.new(path: "test.xml", source: "content") }
+
+    it "provides to_liquid_class method to get auto-generated drop class" do
+      base_drop_class = schema_class.to_liquid_class
+      expect(base_drop_class).to be_a(Class)
+      expect(base_drop_class.ancestors).to include(Liquid::Drop)
+    end
+
+    it "supports method delegation to original model" do
+      drop = schema_class.to_liquid_class.new(schema_instance)
+      expect(drop.path).to eq("test.xml")
+      expect(drop.source).to eq("content")
+    end
+
+    context "with custom drop class inheritance" do
+      before do
+        # Create the custom drop class that inherits from the auto-generated one
+        stub_const("SpecialSchemaDrop", Class.new(schema_class.to_liquid_class) do
+          # New method not in original drop
+          def formatted_source
+            "Formatted: #{@object.source}"
+          end
+
+          # Overriding original method
+          def path
+            File.join("templates", @object.path)
+          end
+        end)
+      end
+
+      let(:custom_drop) { SpecialSchemaDrop.new(schema_instance) }
+
+      it "uses custom drop class when specified" do
+        expect(schema_class.drop_class.name).to eq("SpecialSchemaDrop")
+        expect(schema_instance.to_liquid).to be_a(schema_class.drop_class)
+      end
+
+      it "supports new methods in custom drop class" do
+        expect(custom_drop.formatted_source).to eq("Formatted: content")
+      end
+
+      it "allows overriding original methods" do
+        expect(custom_drop.path).to eq("templates/test.xml")
+      end
+
+      it "works with liquid templates" do
+        template = Liquid::Template.parse("{{path}} - {{formatted_source}}")
+        result = template.render(custom_drop)
+        expect(result).to eq("templates/test.xml - Formatted: content")
+      end
+    end
+  end
 end
