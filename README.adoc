@@ -9754,6 +9754,49 @@ class TechnicalDocumentDrop < BaseTechnicalDrop
 end
 ----
 
+=== Error handling
+
+When using custom liquid classes, you may encounter the following error:
+
+==== LiquidClassNotFoundError
+
+This error is raised when a custom liquid class specified with `liquid_class` is not defined or loaded in memory when `to_liquid` is called.
+
+[source,ruby]
+----
+class Schema < Lutaml::Model::Serializable
+  attribute :path, :string
+  
+  # Specify a custom drop class name
+  liquid_class "CustomSchemaDrop"
+end
+
+# This will raise LiquidClassNotFoundError if CustomSchemaDrop is not defined
+schema = Schema.new(path: "config.xml")
+schema.to_liquid
+# => Lutaml::Model::LiquidClassNotFoundError: Liquid class 'CustomSchemaDrop' is not defined in memory. Please ensure the class is loaded before using it.
+----
+
+To fix this error, ensure that your custom drop class is defined before calling `to_liquid`:
+
+[source,ruby]
+----
+# Define the base drop class first
+BaseDropClass = Schema.to_liquid_class
+
+# Define your custom drop class
+class CustomSchemaDrop < BaseDropClass
+  def formatted_path
+    "Path: #{@object.path}"
+  end
+end
+
+# Now to_liquid will work correctly
+schema = Schema.new(path: "config.xml")
+drop = schema.to_liquid  # Works!
+puts drop.class  # => CustomSchemaDrop
+----
+
 
 == Serialization adapters
 

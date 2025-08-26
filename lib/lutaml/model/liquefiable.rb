@@ -1,4 +1,4 @@
-require_relative "liquid"
+require_relative "liquid/mapping"
 
 module Lutaml
   module Model
@@ -18,7 +18,7 @@ module Lutaml
 
         def register_liquid_drop_class
           validate_liquid!
-          if drop_class
+          if base_drop_class
             raise "#{drop_class_name} Already exists!"
           end
 
@@ -39,26 +39,29 @@ module Lutaml
                                end
         end
 
-        def drop_class
-          # First try to find custom liquid class if specified
-          if custom_liquid_class_name
-            begin
-              return Object.const_get(custom_liquid_class_name)
-            rescue NameError
-              # Custom class doesn't exist yet, fall back to default
-            end
-          end
-
+        def base_drop_class
           const_get(drop_class_name)
         rescue StandardError
           nil
         end
 
+        def drop_class
+          if custom_liquid_class_name
+            begin
+              return Object.const_get(custom_liquid_class_name)
+            rescue NameError
+              raise Lutaml::Model::LiquidClassNotFoundError, custom_liquid_class_name
+            end
+          end
+
+          base_drop_class
+        end
+
         def to_liquid_class
-          register_liquid_drop_class unless drop_class
+          register_liquid_drop_class unless base_drop_class
           register_methods unless @methods_generated
 
-          drop_class
+          base_drop_class
         end
 
         def register_methods
@@ -74,10 +77,10 @@ module Lutaml
         end
 
         def register_drop_method(method_name)
-          register_liquid_drop_class unless drop_class
-          return if drop_class.method_defined?(method_name)
+          register_liquid_drop_class unless base_drop_class
+          return if base_drop_class.method_defined?(method_name)
 
-          drop_class.define_method(method_name) do
+          base_drop_class.define_method(method_name) do
             value = @object.public_send(method_name)
 
             if value.is_a?(Array)
@@ -92,7 +95,7 @@ module Lutaml
           return unless liquid_mappings&.mappings
 
           liquid_mappings.mappings.each do |key, method_name|
-            drop_class.define_method(key) do
+            base_drop_class.define_method(key) do
               value = @object.public_send(method_name)
 
               if value.is_a?(Array)

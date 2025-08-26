@@ -401,6 +401,13 @@ RSpec.describe Lutaml::Model::Liquefiable do
       expect(drop.source).to eq("content")
     end
 
+    it "raises error when custom liquid class is not defined during to_liquid call" do
+      expect { schema_instance.to_liquid }.to raise_error(
+        Lutaml::Model::LiquidClassNotFoundError,
+        "Liquid class 'SpecialSchemaDrop' is not defined in memory. Please ensure the class is loaded before using it.",
+      )
+    end
+
     context "with custom drop class inheritance" do
       before do
         # Create the custom drop class that inherits from the auto-generated one
