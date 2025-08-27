@@ -93,36 +93,31 @@ module Lutaml
       alias map_all_content map_all
 
       def map_instances(to:)
+        @instance = to
         map(root_name || to, to: to)
+        map_to_instance
       end
 
       def map_key(to_instance: nil, as_attribute: nil)
-        @key_mappings = KeyValueMappingRule.new(
-          Constants::KEY_MAPPING_KEY,
-          to: nil,
-          to_instance: to_instance,
-          as_attribute: as_attribute,
-        )
+        @key_mapping = { "#{to_instance || as_attribute}": :key }
+        map_to_instance
       end
 
       def map_value(to_instance: nil, as_attribute: nil)
-        @value_mappings = KeyValueMappingRule.new(
-          Constants::VALUE_MAPPING_KEY,
-          to: nil,
-          to_instance: to_instance,
-          as_attribute: as_attribute,
-        )
+        @value_mapping = { "#{to_instance || as_attribute}": :value }
+        map_to_instance
       end
 
-      def key_value_mappings
-        {
-          key: @key_mappings,
-          value: @value_mappings,
-        }.compact
+      def instance_mapping?
+        @instance && (@key_mapping || @value_mapping)
       end
 
-      def key_value_mappings?
-        Utils.present?(@key_mappings) || Utils.present?(@value_mappings)
+      def map_to_instance
+        return if !instance_mapping?
+
+        mapping_name = name_for_mapping(nil, root_name || @instance)
+        root_mappings = {}.merge(@key_mapping || {}, @value_mapping || {})
+        @mappings[mapping_name].child_mappings = root_mappings
       end
 
       def name_for_mapping(root_mappings, name)
