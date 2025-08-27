@@ -207,6 +207,55 @@ module CustomCollection
   end
 end
 
+module FontManifest
+  class ManifestResponseFontStyle < Lutaml::Model::Serializable
+    attribute :full_name, :string
+    attribute :type, :string
+    attribute :paths, :string, collection: true
+
+    key_value do
+      map "full_name", to: :full_name
+      map "type", to: :type
+      map "paths", to: :paths
+    end
+  end
+
+  class ManifestResponseFont < Lutaml::Model::Serializable
+    attribute :name, :string
+    attribute :styles, ManifestResponseFontStyle, collection: true
+
+    key_value do
+      map "name", to: :name
+      map "styles", to: :styles, child_mappings: {
+        type: :key,
+        full_name: :full_name,
+        paths: :paths,
+      }
+    end
+  end
+
+  class ManifestResponseSuccess < Lutaml::Model::Collection
+    instances :fonts, ManifestResponseFont
+
+    key_value do
+      map to: :fonts, root_mappings: {
+        name: :key,
+        styles: :value,
+      }
+    end
+  end
+
+  class ManifestResponseFail < Lutaml::Model::Collection
+    instances :fonts, ManifestResponseFont
+
+    key_value do
+      map_instances to: :fonts
+      map_key to_instance: :name
+      map_value to_instance: :styles
+    end
+  end
+end
+
 RSpec.describe CustomCollection do
   let(:items) do
     [
@@ -825,6 +874,97 @@ RSpec.describe CustomCollection do
         Lutaml::Model::ValidationError,
         /`Publication 2` must have an author/,
       )
+    end
+  end
+end
+
+RSpec.describe FontManifest do
+  let(:yaml_data) do
+    <<~YAML
+      ---
+      Arial:
+        Bold:
+          full_name: Arial Bold
+          paths:
+          - "/fonts/arial-bold.ttf"
+          - "/fonts/arial-bold.woff"
+        Regular:
+          full_name: Arial Regular
+          paths:
+          - "/fonts/arial-regular.ttf"
+      Times:
+        Regular:
+          full_name: Times New Roman
+          paths:
+          - "/fonts/times.ttf"
+    YAML
+  end
+
+  describe "ManifestResponseSuccess (root_mappings approach)" do
+    it "deserializes from YAML correctly" do
+      manifest = FontManifest::ManifestResponseSuccess.from_yaml(yaml_data)
+
+      expect(manifest.fonts.size).to eq(2)
+      expect(manifest.fonts.first.name).to eq("Arial")
+      expect(manifest.fonts.first.styles.size).to eq(2)
+      expect(manifest.fonts.last.name).to eq("Times")
+    end
+
+    it "serializes to YAML correctly" do
+      manifest = FontManifest::ManifestResponseSuccess.from_yaml(yaml_data)
+      serialized_yaml = manifest.to_yaml
+
+      expect(serialized_yaml).to include("Arial:")
+      expect(serialized_yaml).to include("full_name: Arial Bold")
+    end
+  end
+
+  describe "ManifestResponseFail (map_key/map_value approach)" do
+    it "deserializes from YAML correctly" do
+      manifest = FontManifest::ManifestResponseFail.from_yaml(yaml_data)
+
+      expect(manifest.fonts.size).to eq(2)
+      expect(manifest.fonts.first.name).to eq("Arial")
+      expect(manifest.fonts.first.styles.size).to eq(2)
+      expect(manifest.fonts.last.name).to eq("Times")
+    end
+
+    it "serializes to YAML correctly" do
+      manifest = FontManifest::ManifestResponseFail.from_yaml(yaml_data)
+      serialized_yaml = manifest.to_yaml
+
+      expect(serialized_yaml).to include("Arial:")
+      expect(serialized_yaml).to include("full_name: Arial Bold")
+    end
+  end
+
+  describe "Mapping approaches comparison" do
+    it "both approaches produce identical results" do
+      success_manifest = FontManifest::ManifestResponseSuccess.from_yaml(yaml_data)
+      fail_manifest = FontManifest::ManifestResponseFail.from_yaml(yaml_data)
+
+      expect(success_manifest.to_yaml).to eq(fail_manifest.to_yaml)
+    end
+
+    it "both approaches handle font names correctly" do
+      success_manifest = FontManifest::ManifestResponseSuccess.from_yaml(yaml_data)
+      fail_manifest = FontManifest::ManifestResponseFail.from_yaml(yaml_data)
+
+      success_names = success_manifest.fonts.map(&:name).sort
+      fail_names = fail_manifest.fonts.map(&:name).sort
+
+      expect(success_names).to eq(fail_names)
+      expect(success_names).to eq(["Arial", "Times"])
+    end
+
+    it "both approaches handle font styles correctly" do
+      success_manifest = FontManifest::ManifestResponseSuccess.from_yaml(yaml_data)
+      fail_manifest = FontManifest::ManifestResponseFail.from_yaml(yaml_data)
+
+      success_arial = success_manifest.fonts.find { |f| f.name == "Arial" }
+      fail_arial = fail_manifest.fonts.find { |f| f.name == "Arial" }
+
+      expect(success_arial.styles.map(&:type)).to eq(fail_arial.styles.map(&:type))
     end
   end
 end
