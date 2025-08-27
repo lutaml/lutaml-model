@@ -4,7 +4,7 @@ require_relative "key_value_mapping_rule"
 module Lutaml
   module Model
     class KeyValueMapping < Mapping
-      attr_reader :format, :key_mappings, :value_mappings
+      attr_reader :format
 
       def initialize(format = nil)
         super()

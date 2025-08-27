@@ -10,9 +10,6 @@ module Lutaml
         end
         mappings = extract_mappings(options, format)
 
-        Utils.add_if_present(options, :key_mappings, mappings.key_mappings)
-        Utils.add_if_present(options, :value_mappings, mappings.value_mappings)
-
         mappings.mappings.each do |rule|
           process_mapping_rule(data, instance, format, rule, options)
         end
