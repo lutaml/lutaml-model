@@ -39,6 +39,7 @@ Lutaml::Model are provided in <<migrate-from-shale>>.
 * Support for collections and default values
 * Custom serialization/deserialization methods
 * XML namespaces and mappings
+* Deep object comparison and visual diff generation with similarity scoring
 * Generate serialization schemas from model definitions (<<schema-generation>>)
 * Import serialization schemas to define models (<<schema-import>>)
 * Create custom adapters for additional data formats (see <<custom-adapters>>)
@@ -374,11 +375,14 @@ model, the `import_model_mappings` method can be used (see
 <<import_model_mappings>>).
 
 
-=== Comparison
+=== Comparison and Diff
 
 A `Serialize` / `Serializable` object can be compared with another object of the
 same class using the `==` operator. This is implemented through the
-`ComparableModel` module.
+`ComparableModel` module, which provides powerful comparison and diff
+functionality.
+
+==== Basic Comparison
 
 Two objects are considered equal if they have the same class and all their
 attributes are equal. This behavior differs from the typical Ruby behavior,
@@ -396,6 +400,169 @@ same class and all their attributes are equal.
 > a.hash == b.hash
 > # true
 ----
+
+==== Deep Comparison
+
+The comparison works recursively for nested objects and handles complex data
+structures:
+
+[source,ruby]
+----
+class Glaze < Lutaml::Model::Serializable
+  attribute :color, :string
+  attribute :temperature, :integer
+  attribute :food_safe, :boolean
+end
+
+class Ceramic < Lutaml::Model::Serializable
+  attribute :type, :string
+  attribute :glaze, Glaze
+end
+
+# Nested object comparison
+glaze1 = Glaze.new(color: "Blue", temperature: 1200, food_safe: true)
+glaze2 = Glaze.new(color: "Blue", temperature: 1200, food_safe: true)
+ceramic1 = Ceramic.new(type: "Bowl", glaze: glaze1)
+ceramic2 = Ceramic.new(type: "Bowl", glaze: glaze2)
+
+ceramic1 == ceramic2  # true - deep comparison of nested objects
+----
+
+==== Circular Reference Handling
+
+The comparison safely handles circular references without infinite loops:
+
+[source,ruby]
+----
+class RecursiveNode < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :next_node, RecursiveNode
+end
+
+node1 = RecursiveNode.new(name: "A")
+node2 = RecursiveNode.new(name: "B", next_node: node1)
+node1.next_node = node2  # Creates circular reference
+
+# Comparison still works without infinite loops
+node1_copy = RecursiveNode.new(name: "A")
+node2_copy = RecursiveNode.new(name: "B", next_node: node1_copy)
+node1_copy.next_node = node2_copy
+
+node1 == node1_copy  # true
+----
+
+==== Diff Generation
+
+The `ComparableModel` module provides powerful diff functionality to visualize
+differences between objects:
+
+===== Basic Diff with Score
+
+[source,ruby]
+----
+# Create two different objects
+ceramic1 = Ceramic.new(
+  type: "Bowl",
+  glaze: Glaze.new(color: "Blue", temperature: 1200, food_safe: true)
+)
+
+ceramic2 = Ceramic.new(
+  type: "Plate",
+  glaze: Glaze.new(color: "Red", temperature: 1000, food_safe: false)
+)
+
+# Generate diff with similarity score
+diff_score, diff_tree = Lutaml::Model::Serialize.diff_with_score(ceramic1, ceramic2)
+
+puts "Similarity: #{((1 - diff_score) * 100).round(2)}%"
+puts diff_tree
+----
+
+Output:
+[source]
+----
+Similarity: 50.0%
+└── Ceramic
+    ├── type (Lutaml::Model::Type::String):
+    │   └──  (Lutaml::Model::Type::String):
+    │       ├── - (String) "Bowl"
+    │       └── + (String) "Plate"
+    └── glaze (Glaze):
+        ├── color (Lutaml::Model::Type::String):
+        │   ├── - (String) "Blue"
+        │   └── + (String) "Red"
+        ├── temperature (Lutaml::Model::Type::Integer):
+        │   ├── - (Integer) 1200
+        │   └── + (Integer) 1000
+        └── food_safe (Lutaml::Model::Type::Boolean):
+            ├── - (TrueClass) true
+            └── + (FalseClass) false
+----
+
+===== Diff Options
+
+The diff functionality supports various options:
+
+[source,ruby]
+----
+# Show unchanged attributes as well
+diff_score, diff_tree = Lutaml::Model::Serialize.diff_with_score(
+  ceramic1, 
+  ceramic2,
+  show_unchanged: true,      # Show attributes that are the same
+  highlight_diff: false,     # Don't highlight only differences
+  use_colors: true          # Use color coding (red/green)
+)
+
+# With indentation
+diff_score, diff_tree = Lutaml::Model::Serialize.diff_with_score(
+  ceramic1, 
+  ceramic2,
+  indent: "  "
+)
+----
+
+==== Collection Handling
+
+The diff functionality handles collections (arrays) intelligently:
+
+[source,ruby]
+----
+class CeramicCollection < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :items, Ceramic, collection: true
+end
+
+collection1 = CeramicCollection.new(
+  name: "Blue Collection",
+  items: [
+    Ceramic.new(type: "Bowl", glaze: glaze1),
+    Ceramic.new(type: "Plate", glaze: glaze1)
+  ]
+)
+
+collection2 = CeramicCollection.new(
+  name: "Mixed Collection", 
+  items: [
+    Ceramic.new(type: "Bowl", glaze: glaze1),  # Same as first
+    Ceramic.new(type: "Cup", glaze: glaze2)     # Different
+  ]
+)
+
+diff_score, diff_tree = Lutaml::Model::Serialize.diff_with_score(collection1, collection2)
+# Shows detailed diff of collection items with indexes
+----
+
+==== Use Cases
+
+The comparison and diff functionality is particularly useful for:
+
+* **Testing**: Verify model equality in specs
+* **Data Migration**: Compare objects before/after transformation  
+* **Auditing**: Track changes to model instances
+* **Data Validation**: Identify differences in data imports
+* **Debugging**: Visualize object differences during development
+* **API Testing**: Compare expected vs actual responses
 
 [[value-definition]]
 == Value types
