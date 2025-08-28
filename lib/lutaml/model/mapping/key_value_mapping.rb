@@ -9,6 +9,8 @@ module Lutaml
       def initialize(format = nil)
         super()
         @mappings = {}
+        @key_mapping = {}
+        @value_mapping = {}
         @format = format
       end
 
@@ -109,15 +111,14 @@ module Lutaml
       end
 
       def instance_mapping?
-        @instance && (@key_mapping || @value_mapping)
+        @instance && (!@key_mapping.empty? || !@value_mapping.empty?)
       end
 
       def map_to_instance
         return if !instance_mapping?
 
         mapping_name = name_for_mapping(nil, root_name || @instance)
-        root_mappings = {}.merge(@key_mapping || {}, @value_mapping || {})
-        @mappings[mapping_name].child_mappings = root_mappings
+        @mappings[mapping_name].child_mappings = @key_mapping.merge(@value_mapping)
       end
 
       def name_for_mapping(root_mappings, name)
