@@ -454,9 +454,37 @@ node1 == node1_copy  # true
 ==== Diff Generation
 
 The `ComparableModel` module provides powerful diff functionality to visualize
-differences between objects:
+differences between objects and calculate similarity scores.
 
-===== Basic Diff with Score
+===== Understanding Diff and Score
+
+**Diff (Difference)**: A visual representation showing the differences between two objects:
+- **Removed values** are marked with `-` (typically red)
+- **Added values** are marked with `+` (typically green)
+- **Hierarchical structure** shows nested objects and their relationships
+
+**Score**: A numerical value between `0` and `1` representing how different the objects are:
+- `0` = Objects are identical (no differences)
+- `1` = Objects are completely different
+- `0.5` = Objects are 50% different
+- Convert to similarity percentage: `(1 - score) * 100`
+
+===== The `diff_with_score` Method
+
+The `diff_with_score` method returns **two values** as an array:
+
+[source,ruby]
+----
+diff_score, diff_tree = Lutaml::Model::Serialize.diff_with_score(obj1, obj2, options)
+#    ↑           ↑
+#  Float      String  
+# (0.0-1.0)   (Visual representation)
+----
+
+1. **`diff_score`** (Float): The numerical difference score between 0.0 and 1.0
+2. **`diff_tree`** (String): The formatted visual diff showing all differences
+
+===== Basic Example
 
 [source,ruby]
 ----
@@ -467,26 +495,26 @@ ceramic1 = Ceramic.new(
 )
 
 ceramic2 = Ceramic.new(
-  type: "Plate",
+  type: "Bowl",
   glaze: Glaze.new(color: "Red", temperature: 1000, food_safe: false)
 )
 
 # Generate diff with similarity score
 diff_score, diff_tree = Lutaml::Model::Serialize.diff_with_score(ceramic1, ceramic2)
 
+puts "Difference Score: #{diff_score}"
 puts "Similarity: #{((1 - diff_score) * 100).round(2)}%"
+puts "Visual Diff:"
 puts diff_tree
 ----
 
 Output:
 [source]
 ----
-Similarity: 50.0%
+Difference Score: 0.25
+Similarity: 75.0%
+Visual Diff:
 └── Ceramic
-    ├── type (Lutaml::Model::Type::String):
-    │   └──  (Lutaml::Model::Type::String):
-    │       ├── - (String) "Bowl"
-    │       └── + (String) "Plate"
     └── glaze (Glaze):
         ├── color (Lutaml::Model::Type::String):
         │   ├── - (String) "Blue"
@@ -497,6 +525,22 @@ Similarity: 50.0%
         └── food_safe (Lutaml::Model::Type::Boolean):
             ├── - (TrueClass) true
             └── + (FalseClass) false
+----
+
+===== Understanding the Return Values Structure
+
+The method returns an array with exactly two elements:
+
+[source,ruby]
+----
+result = Lutaml::Model::Serialize.diff_with_score(obj1, obj2)
+# result[0] => diff_score (Float between 0.0 and 1.0)  
+# result[1] => diff_tree (String with visual representation)
+
+# Or using array destructuring:
+score, tree = Lutaml::Model::Serialize.diff_with_score(obj1, obj2)
+puts "Objects are #{(score * 100).round(1)}% different"
+puts tree
 ----
 
 ===== Diff Options
