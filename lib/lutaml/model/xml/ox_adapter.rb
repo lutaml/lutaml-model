@@ -48,13 +48,19 @@ module Lutaml
         def build_ordered_element(builder, element, options = {})
           mapper_class = determine_mapper_class(element, options)
           xml_mapping = mapper_class.mappings_for(:xml)
-          return xml unless xml_mapping
+          return builder unless xml_mapping
 
-          attributes = build_attributes(element, xml_mapping).compact
+          attributes = build_attributes(element, xml_mapping, options).compact
+
+          prefix = determine_namespace_prefix(options, xml_mapping)
+          prefixed_xml = builder.add_namespace_prefix(prefix)
 
           tag_name = options[:tag_name] || xml_mapping.root_element
-          builder.create_and_add_element(tag_name,
-                                         attributes: attributes) do |el|
+          prefixed_xml.create_and_add_element(tag_name, attributes: attributes) do |el|
+            if options.key?(:namespace_prefix) && !options[:namespace_prefix]
+              prefixed_xml.add_namespace_prefix(nil)
+            end
+
             index_hash = {}
             content = []
 
@@ -64,7 +70,7 @@ module Lutaml
               curr_index = index_hash[object_key] += 1
 
               element_rule = xml_mapping.find_by_name(object.name, type: object.type)
-              next if element_rule.nil?
+              next if element_rule.nil? || options[:except]&.include?(element_rule.to)
 
               attribute_def = attribute_definition_for(element, element_rule,
                                                        mapper_class: mapper_class)
