@@ -174,7 +174,7 @@ RSpec.describe Lutaml::Model::Serializable do
 
     context "when method_name is given" do
       let(:attribute) do
-        TestClass.attribute("test", method: :foobar)
+        TestClass.attribute("test", :string, method: :foobar)
       end
 
       it "adds derived attribute" do
@@ -203,6 +203,43 @@ RSpec.describe Lutaml::Model::Serializable do
 
       it "returns false for derived?" do
         expect(attribute.derived?).to be(false)
+      end
+    end
+
+    context "when hash syntax is used without type" do
+      it "raises an error" do
+        expect do
+          TestClass.attribute("test", { method: :foobar })
+        end.to raise_error(ArgumentError, "type must be set for an attribute")
+      end
+    end
+
+    context "when derived attribute casts return values" do
+      before do
+        TestClass.attribute("test_string", :string, method: :return_integer)
+        TestClass.attribute("test_integer", :integer, method: :return_string)
+        TestClass.attribute("test_float", :float, method: :return_string_float)
+
+        TestClass.define_method(:return_integer) { 123 }
+        TestClass.define_method(:return_string) { "456" }
+        TestClass.define_method(:return_string_float) { "3.14" }
+      end
+
+      let(:instance) { TestClass.new }
+
+      it "casts integer to string" do
+        expect(instance.test_string).to eq("123")
+        expect(instance.test_string).to be_a(String)
+      end
+
+      it "casts string to integer" do
+        expect(instance.test_integer).to eq(456)
+        expect(instance.test_integer).to be_a(Integer)
+      end
+
+      it "casts string to float" do
+        expect(instance.test_float).to eq(3.14)
+        expect(instance.test_float).to be_a(Float)
       end
     end
   end

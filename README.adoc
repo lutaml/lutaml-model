@@ -1581,13 +1581,13 @@ puts SomeModel.new.to_yaml
 A derived attribute has a value computed dynamically on evaluation of an
 instance method.
 
-It is defined using the `method:` option.
+It is defined using the `method:` option along with a mandatory type specification.
 
 Syntax:
 
 [source,ruby]
 ----
-attribute :name_of_attribute, method: :instance_method_name
+attribute :name_of_attribute, Type, method: :instance_method_name
 ----
 
 .Defining methods as attributes
@@ -1598,7 +1598,7 @@ attribute :name_of_attribute, method: :instance_method_name
 class Invoice < Lutaml::Model::Serializable
   attribute :subtotal, :float
   attribute :tax, :float
-  attribute :total, method: :total_value
+  attribute :total, :float, method: :total_value
 
   def total_value
     subtotal + tax
