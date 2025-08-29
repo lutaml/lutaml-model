@@ -117,7 +117,9 @@ module Lutaml
             )
           elsif attr.derived? && name != attr.method_name
             define_method(name) do
-              public_send(attr.method_name)
+              value = public_send(attr.method_name)
+              # Cast the derived value to the specified type
+              attr.cast_element(value, __register)
             end
           else
             define_method(name) do
@@ -133,8 +135,12 @@ module Lutaml
         # Define an attribute for the model
         def attribute(name, type, options = {})
           if type.is_a?(::Hash)
-            options[:method_name] = type[:method]
             type = nil
+          end
+
+          # Handle direct method option in options hash
+          if options[:method]
+            options[:method_name] = options.delete(:method)
           end
 
           attr = Attribute.new(name, type, options)

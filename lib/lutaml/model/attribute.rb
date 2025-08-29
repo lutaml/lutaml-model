@@ -13,6 +13,7 @@ module Lutaml
         transform
         choice
         sequence
+        method
         method_name
         polymorphic
         polymorphic_class
@@ -77,7 +78,7 @@ module Lutaml
         @name = name
         @options = options
 
-        validate_presence!(type, options[:method_name])
+        validate_presence!(type)
         @type = type
         process_options!
       end
@@ -99,7 +100,7 @@ module Lutaml
       end
 
       def derived?
-        unresolved_type.nil?
+        !method_name.nil?
       end
 
       def delegate
@@ -374,7 +375,6 @@ module Lutaml
       def serialize(value, format, register, options = {})
         value ||= build_collection if collection? && initialize_empty?
         return value if value.nil? || Utils.uninitialized?(value)
-        return value if derived?
 
         resolved_type = options[:resolved_type] || type(register)
         serialize_options = options.merge(resolved_type: resolved_type)
@@ -512,10 +512,10 @@ module Lutaml
         value.send(:"to_#{format}")
       end
 
-      def validate_presence!(type, method_name)
-        return if type || method_name
+      def validate_presence!(type)
+        return if type
 
-        raise ArgumentError, "method or type must be set for an attribute"
+        raise ArgumentError, "type must be set for an attribute"
       end
 
       def validate_required!(value)
