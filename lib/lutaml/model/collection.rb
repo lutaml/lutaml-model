@@ -39,7 +39,7 @@ module Lutaml
         end
 
         def sort(by:, order: :asc)
-          @sort_by_field = by.to_sym
+          @sort_by_field = by.is_a?(Proc) ? by : by.to_sym
           @sort_direction = order
 
           check_sort_configs! if @mappings[:xml]
@@ -202,13 +202,19 @@ module Lutaml
       def sort_items!
         return if collection.nil?
         return unless order_defined?
+        return if collection.one?
 
-        unless collection&.one?
-          field = self.class.sort_by_field
-          direction = self.class.sort_direction
+        apply_sort!
+        collection.reverse! if self.class.sort_direction == :desc
+      end
 
+      def apply_sort!
+        field = self.class.sort_by_field
+
+        if field.is_a?(Proc)
+          collection.sort_by!(&field)
+        else
           collection.sort_by! { |item| item.send(field) }
-          collection.reverse! if direction == :desc
         end
       end
     end

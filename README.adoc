@@ -3371,7 +3371,7 @@ Syntax:
 ----
 class MyCollection < Lutaml::Model::Collection
   instances {instances-name}, ModelType
-  ordered by: {attribute-of-instance}, order: {:asc | :desc}
+  ordered by: {attribute-of-instance-or-proc}, order: {:asc | :desc}
 end
 ----
 
@@ -3450,6 +3450,52 @@ end
 > collection = OrderedItemCollection.from_yaml(yaml_data)
 > collection.map(&:id)
 > # ["3", "2", "1"]
+----
+====
+
+.Ordered collection with proc-based ordering
+[example]
+====
+[source,ruby]
+----
+class ProcOrderedItemCollection < Lutaml::Model::Collection
+  instances :items, Item
+  # Order by name in descending order using a proc
+  ordered by: lambda(&:name), order: :desc
+
+  xml do
+    root "items"
+    map_element "item", to: :items
+  end
+end
+
+class ComplexOrderedItemCollection < Lutaml::Model::Collection
+  instances :items, Item
+  # Multi-level ordering: first by name length, then by name alphabetically
+  ordered by: ->(item) { [item.name.length, item.name] }, order: :asc
+
+  xml do
+    root "items"
+    map_element "item", to: :items
+  end
+end
+----
+
+[source,ruby]
+----
+> items_data = [
+>   { id: "1", name: "Zebra" },
+>   { id: "2", name: "Alpha" },
+>   { id: "3", name: "Beta" }
+> ]
+
+> proc_collection = ProcOrderedItemCollection.new(items_data)
+> proc_collection.map(&:name)
+> # ["Zebra", "Beta", "Alpha"] # Sorted by name descending
+
+> complex_collection = ComplexOrderedItemCollection.new(items_data)
+> complex_collection.map(&:name)
+> # ["Beta", "Alpha", "Zebra"] # Sorted by name length then alphabetically
 ----
 ====
 
