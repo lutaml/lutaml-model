@@ -264,6 +264,27 @@ RSpec.describe CustomCollection do
     ]
   end
 
+  let(:yaml_data) do
+    <<~YAML
+      ---
+      Arial:
+        Bold:
+          full_name: Arial Bold
+          paths:
+          - "/fonts/arial-bold.ttf"
+          - "/fonts/arial-bold.woff"
+        Regular:
+          full_name: Arial Regular
+          paths:
+          - "/fonts/arial-regular.ttf"
+      Times:
+        Regular:
+          full_name: Times New Roman
+          paths:
+          - "/fonts/times.ttf"
+    YAML
+  end
+
   describe "ItemCollection" do
     before do
       Lutaml::Model::GlobalRegister.register(register)
@@ -875,29 +896,6 @@ RSpec.describe CustomCollection do
         /`Publication 2` must have an author/,
       )
     end
-  end
-end
-
-RSpec.describe FontManifest do
-  let(:yaml_data) do
-    <<~YAML
-      ---
-      Arial:
-        Bold:
-          full_name: Arial Bold
-          paths:
-          - "/fonts/arial-bold.ttf"
-          - "/fonts/arial-bold.woff"
-        Regular:
-          full_name: Arial Regular
-          paths:
-          - "/fonts/arial-regular.ttf"
-      Times:
-        Regular:
-          full_name: Times New Roman
-          paths:
-          - "/fonts/times.ttf"
-    YAML
   end
 
   describe "ManifestResponseSuccess (root_mappings approach)" do
