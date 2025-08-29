@@ -4754,7 +4754,7 @@ class JapaneseCeramic < Lutaml::Model::Serializable
   xml do
     root 'JapaneseCeramic'
     map_attribute 'glazeType', to: :glaze_type
-    map_element 'description' to: :description
+    map_element 'description', to: :description
   end
 end
 ----
@@ -4866,7 +4866,7 @@ class JapaneseCeramic < Lutaml::Model::Serializable
   xml do
     root 'JapaneseCeramic'
     map_attribute 'glazeType', to: :glaze_type
-    map_element 'description' to: :description
+    map_element 'description', to: :description
   end
 end
 ----
@@ -4891,6 +4891,52 @@ end
 ----
 ====
 
+
+===== Skip Model attribute rendering (exporting)
+
+In `to_xml`, the `except` option allows you to exclude certain model attributes from being included in the XML output.
+
+`except`:: An array of attribute names.
+
+[example]
+====
+[source, ruby]
+----
+class JapaneseCeramic < Lutaml::Model::Serializable
+  attribute :glaze_type, :string
+  attribute :description, :string
+
+  xml do
+    root 'JapaneseCeramic'
+    map_attribute 'glazeType', to: :glaze_type
+    map_element 'description', to: :description
+  end
+end
+----
+
+[source,ruby]
+----
+# Create a new instance
+> instance = JapaneseCeramic.new(glaze_type: "Clear", description: "Porcelain")
+#=> #<JapaneseCeramic:0x00000002e5625650 @description="Porcelain", @glaze_type="Clear">
+
+# Serialize the instance to XML without glaze_type
+> instance.to_xml(except: [:glaze_type])
+#=> "<JapaneseCeramic>\n  <description>Porcelain</description>\n</JapaneseCeramic>"
+
+# Serialize the instance to XML without glaze_type and description
+> instance.to_xml(except: [:glaze_type, :description])
+#=> "<JapaneseCeramic/>"
+
+# Serialize the instance to YAML without glaze_type
+> instance.to_yaml(except: [:glaze_type])
+#=> "---\ndescription: Porcelain\n"
+
+# Serialize the instance to YAML without glaze_type and description
+> instance.to_yaml(except: [:glaze_type, :description])
+#=> "--- {}\n"
+----
+====
 
 ===== Deserialization character encoding (parsing)
 
