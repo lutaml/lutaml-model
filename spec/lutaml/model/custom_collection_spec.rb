@@ -703,6 +703,72 @@ RSpec.describe CustomCollection do
         expect(collection.items.map(&:id)).to eq(["4", "3", "2", "1"])
       end
     end
+
+    describe "with proc for ordering" do
+      before do
+        register = Lutaml::Model::GlobalRegister.lookup(:default)
+        register.register_model(CustomCollection::Text, id: :text)
+      end
+
+      let(:proc_asc_collection_class) do
+        Class.new(Lutaml::Model::Collection) do
+          instances :items, CustomCollection::Item
+          ordered by: lambda(&:name), order: :asc
+        end
+      end
+
+      let(:proc_desc_collection_class) do
+        Class.new(Lutaml::Model::Collection) do
+          instances :items, CustomCollection::Item
+          ordered by: lambda(&:name), order: :desc
+        end
+      end
+
+      let(:complex_proc_collection_class) do
+        Class.new(Lutaml::Model::Collection) do
+          instances :items, CustomCollection::Item
+          ordered by: ->(item) { [item.name.length, item.name] }, order: :asc
+        end
+      end
+
+      it "sorts items using proc in ascending order" do
+        collection = proc_asc_collection_class.new(items)
+        expect(collection.items.map(&:name)).to eq(["Item 1", "Item 2", "Item 3"])
+      end
+
+      it "sorts items using proc in descending order" do
+        collection = proc_desc_collection_class.new(items)
+        expect(collection.items.map(&:name)).to eq(["Item 3", "Item 2", "Item 1"])
+      end
+
+      it "maintains ascending order after adding new items with proc" do
+        collection = proc_asc_collection_class.new(items)
+        new_item = CustomCollection::Item.new(id: "0", name: "Item 0", description: "Description 0")
+        collection << new_item
+        expect(collection.items.map(&:name)).to eq(["Item 0", "Item 1", "Item 2", "Item 3"])
+      end
+
+      it "maintains descending order after adding new items with proc" do
+        collection = proc_desc_collection_class.new(items)
+        new_item = CustomCollection::Item.new(id: "4", name: "Item 4", description: "Description 4")
+        collection << new_item
+        expect(collection.items.map(&:name)).to eq(["Item 4", "Item 3", "Item 2", "Item 1"])
+      end
+
+      it "sorts items using complex proc for multi-level sorting" do
+        # Create items with different name lengths to test complex proc
+        complex_items = [
+          { id: "1", name: "Z", description: "Description 1" },
+          { id: "2", name: "AA", description: "Description 2" },
+          { id: "3", name: "A", description: "Description 3" },
+          { id: "4", name: "BB", description: "Description 4" },
+        ]
+        collection = complex_proc_collection_class.new(complex_items)
+        # Should sort first by name length (1 char: A, Z; 2 chars: AA, BB)
+        # Then by name alphabetically within same length
+        expect(collection.items.map(&:name)).to eq(["A", "Z", "AA", "BB"])
+      end
+    end
   end
 
   describe "Collection methods" do
