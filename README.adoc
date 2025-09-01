@@ -414,6 +414,7 @@ Every type has a corresponding Ruby class and a serialization format type.
 | `:integer`            | `Integer`                | `xs:integer`      | `number`  | `integer` | `42`
 | `:float`              | `Float`                  | `xs:decimal`      | `number`  | `float`   | `3.14`
 | `:boolean`            | `TrueClass`/`FalseClass` | `xs:boolean`      | `boolean` | `boolean` | `true`, `false`
+| `:symbol`             | `Symbol`                 | `xs:string`       | `string`  | `symbol`  | `:example` (XML/JSON `":example:"`)
 | `:date`               | `Date`                   | `xs:date`         | `string`  | `string`  | `2024-01-01` (JSON/YAML `"2024-01-01"`)
 | `:time_without_date`  | `Time`                   | `xs:time`         | `string`  | `string`  | `"12:34:56"`
 | `:date_time`          | `DateTime`               | `xs:dateTime`     | `string`  | `string`  | `"2024-01-01T12:00:00+00:00"`
@@ -449,6 +450,74 @@ require 'bigdecimal'
 
 If the `bigdecimal` library is not loaded, usage of the `Decimal` type will
 raise a `Lutaml::Model::TypeNotSupportedError`.
+
+
+=== Symbol type
+
+The Symbol type provides support for Ruby symbols across all serialization formats.
+
+**Type Casting Behavior:**
+
+The Symbol type only accepts valid string inputs and existing symbols:
+
+* ✅ **Non-empty strings**: `"active"` → `:active`
+* ✅ **Existing symbols**: `:pending` → `:pending` 
+* ✅ **Wrapper format**: `":done:"` → `:done`
+* ❌ **Empty strings**: `""` → `nil`
+* ❌ **Other types**: integers, arrays, hashes, booleans → `nil`
+
+Since not all serialization formats natively support symbols (XML, JSON, TOML don't), 
+the Symbol type uses format-specific serialization strategies:
+
+* **YAML**: Uses native symbol format (`:symbol`)
+* **XML/JSON/TOML**: Uses wrapper format (`":symbol:"`) for compatibility
+
+The Symbol type automatically handles conversion between these formats when
+parsing and serializing.
+
+.Using symbols with different serialization formats
+[example]
+====
+[source,ruby]
+----
+class Task < Lutaml::Model::Serializable
+  attribute :status, :symbol
+  attribute :priority, :symbol
+
+  xml do
+    root "task"
+    map_element "status", to: :status
+    map_element "priority", to: :priority
+  end
+
+  json do
+    map "status", to: :status
+    map "priority", to: :priority
+  end
+end
+
+task = Task.new(status: :in_progress, priority: :high)
+
+# XML serialization uses wrapper format
+task.to_xml
+# => <task><status>:in_progress:</status><priority>:high:</priority></task>
+
+# JSON serialization uses wrapper format
+task.to_json
+# => {"status":":in_progress:","priority":":high:"}
+
+# YAML serialization uses native symbols
+task.to_yaml
+# => ---
+# => status: :in_progress
+# => priority: :high
+
+# All formats parse back to Ruby symbols correctly
+Task.from_xml(task.to_xml).status  # => :in_progress
+Task.from_json(task.to_json).status  # => :in_progress
+Task.from_yaml(task.to_yaml).status  # => :in_progress
+----
+====
 
 
 === Custom type
