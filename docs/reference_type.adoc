@@ -1,0 +1,229 @@
+= Reference Type Documentation
+:toc:
+:toclevels: 3
+
+== Overview
+
+The Reference type in Lutaml::Model provides a powerful mechanism for creating relationships between model objects through lazy-loaded references. Instead of embedding full objects, references store lightweight keys that resolve to the actual objects when needed.
+
+== Key Features
+
+* **Lazy Loading**: Objects are resolved only when accessed
+* **Memory Efficient**: Stores only reference keys, not full objects
+* **Type Safety**: Automatic casting and validation
+* **Serialization Support**: Clean serialization to keys, proper deserialization to references
+* **Collection Support**: Works with arrays of references
+
+== Basic Usage
+
+=== Defining Reference Attributes
+
+Use the `ref:` syntax in attribute definitions:
+
+[source,ruby]
+----
+class Author < Lutaml::Model::Serializable
+  attribute :id, :string
+  attribute :name, :string
+  attribute :email, :string
+end
+
+class Book < Lutaml::Model::Serializable
+  attribute :id, :string
+  attribute :title, :string
+  attribute :author_ref, { ref: ["Author", :id] }
+  attribute :co_authors, { ref: ["Author", :id] }, collection: true
+end
+----
+
+=== Working with References
+
+[source,ruby]
+----
+# Create an author
+author = Author.new(id: "author-1", name: "John Doe", email: "john@example.com")
+
+# Create a book with a reference
+book = Book.new(id: "book-1", title: "Great Book")
+book.author_ref = "author-1"  # Automatically creates Reference instance
+
+# Access the referenced object
+puts book.author_ref.value.name  # => "John Doe"
+puts book.author_ref.key           # => "author-1"
+
+# Collection of references
+book.co_authors = ["author-1", "author-2"]
+book.co_authors.each do |ref|
+  puts ref.value&.name if ref.value
+end
+----
+
+== Reference Syntax
+
+=== Attribute Definition Format
+
+[source,ruby]
+----
+attribute :attribute_name, { ref: [ModelClass, key_attribute] }
+----
+
+* `ModelClass`: String name of the target model class
+* `key_attribute`: Symbol representing the attribute to match against
+
+=== Examples
+
+[source,ruby]
+----
+# Basic reference
+attribute :user_ref, { ref: ["User", :id] }
+
+# Reference with custom key attribute  
+attribute :category_ref, { ref: ["Category", :slug] }
+
+# Collection of references
+attribute :tag_refs, { ref: ["Tag", :name] }, collection: true
+----
+
+== Reference Type API
+
+=== Class Methods
+
+==== `.cast(value)`
+
+Standard casting method (returns value as-is without metadata).
+
+[source,ruby]
+----
+Reference.cast("some-key")  # => "some-key"
+Reference.cast(nil)         # => nil
+----
+
+==== `.cast_with_metadata(value, model_class, key_attribute)`
+
+Enhanced casting method that creates Reference instances with metadata.
+
+[source,ruby]
+----
+ref = Reference.cast_with_metadata("user-123", "User", :id)
+# => #<Reference @key="user-123" @model_class="User" @key_attribute=:id>
+----
+
+==== `.serialize(value)`
+
+Serializes references back to their key values.
+
+[source,ruby]
+----
+Reference.serialize(reference_instance)  # => "user-123"
+Reference.serialize(["key1", "key2"])   # => ["key1", "key2"]
+Reference.serialize(nil)                 # => ""
+----
+
+=== Instance Methods
+
+==== `#initialize(model_class, key_attribute, key)`
+
+Creates a new Reference instance.
+
+[source,ruby]
+----
+ref = Reference.new("User", :id, "user-123")
+----
+
+==== Accessor Methods
+
+[source,ruby]
+----
+ref.key            # => "user-123" (the lookup key)
+ref.value          # => User instance (resolved object)
+ref.model_class    # => "User"
+ref.key_attribute  # => :id
+----
+
+== Serialization Examples
+
+=== YAML Serialization
+
+[source,ruby]
+----
+book = Book.new(id: "book-1", title: "Sample Book")
+book.author_ref = "author-1"
+
+# Serializes to clean YAML
+yaml_output = book.to_yaml
+# =>
+# id: book-1
+# title: Sample Book  
+# author_ref: author-1
+
+# Deserializes back to Reference instances
+loaded_book = Book.from_yaml(yaml_output)
+loaded_book.author_ref  # => Reference instance, not string
+----
+
+=== JSON Serialization
+
+[source,ruby]
+----
+json_output = book.to_json
+# => {"id":"book-1","title":"Sample Book","author_ref":"author-1"}
+
+loaded_book = Book.from_json(json_output)
+loaded_book.author_ref.value  # => Author instance
+----
+
+== Advanced Usage
+
+=== Custom Key Attributes
+
+References can use any attribute as the key, not just `:id`.
+
+[source,ruby]
+----
+class Category < Lutaml::Model::Serializable
+  attribute :slug, :string
+  attribute :name, :string
+end
+
+class Product < Lutaml::Model::Serializable
+  attribute :id, :string
+  attribute :category_ref, { ref: ["Category", :slug] }
+end
+
+# Usage
+category = Category.new(slug: "electronics", name: "Electronics")
+product = Product.new(id: "p1")
+product.category_ref = "electronics"  # References by slug, not id
+----
+
+=== Nested References
+
+References work in nested structures and collections.
+
+[source,ruby]
+----
+class Comment < Lutaml::Model::Serializable
+  attribute :id, :string
+  attribute :content, :string
+  attribute :author_ref, { ref: ["User", :id] }
+  attribute :replies, { ref: ["Comment", :id] }, collection: true
+end
+
+comment = Comment.new(id: "c1", content: "Great post!")
+comment.author_ref = "user-1"
+comment.replies = ["c2", "c3"]  # References to other comments
+----
+
+=== Validation and Error Handling
+
+[source,ruby]
+----
+# Invalid reference specification raises ArgumentError
+begin
+  Class.new(Lutaml::Model::Serializable) do
+    attribute :invalid_ref, { ref: "NotAnArray" }
+  end
+rescue ArgumentError => e
+  puts e.message  # => "ref: syntax requires an array [model_class, key_attribute]"
+end
+----

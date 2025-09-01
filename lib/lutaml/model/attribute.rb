@@ -20,6 +20,8 @@ module Lutaml
         initialize_empty
         validations
         required
+        ref_model_class
+        ref_key_attribute
       ].freeze
 
       MODEL_STRINGS = [
@@ -95,6 +97,24 @@ module Lutaml
         @type
       end
 
+      def reference_info
+        return nil unless unresolved_type == Lutaml::Model::Type::Reference
+
+        {
+          model_class: @options[:ref_model_class],
+          key_attribute: @options[:ref_key_attribute],
+        }
+      end
+
+      def create_reference_instance(key = nil)
+        return nil unless unresolved_type == Lutaml::Model::Type::Reference
+
+        info = reference_info
+        return nil unless info[:model_class] && info[:key_attribute]
+
+        Lutaml::Model::Type::Reference.new(info[:model_class], info[:key_attribute], key)
+      end
+
       def polymorphic?
         @options[:polymorphic_class]
       end
@@ -144,6 +164,12 @@ module Lutaml
       def cast_element(value, register)
         resolved_type = type(register)
         return resolved_type.new(value) if value.is_a?(::Hash) && !hash_type?
+
+        # Special handling for Reference types - pass the metadata
+        if unresolved_type == Lutaml::Model::Type::Reference
+          info = reference_info
+          return resolved_type.cast_with_metadata(value, info[:model_class], info[:key_attribute])
+        end
 
         resolved_type.cast(value)
       end
@@ -381,7 +407,7 @@ module Lutaml
         return serialize_array(value, format, register, serialize_options) if collection_instance?(value)
         return serialize_model(value, format, register, options) if resolved_type <= Serialize
 
-        serialize_value(value, format, resolved_type)
+        serialize_value(value, format, resolved_type, options)
       end
 
       def cast(value, format, register, options = {})
@@ -507,8 +533,10 @@ module Lutaml
         resolved_type.as(format, value, as_options)
       end
 
-      def serialize_value(value, format, resolved_type)
-        value = resolved_type.new(value) unless value.is_a?(Type::Value)
+      def serialize_value(value, format, resolved_type, options)
+        if !value.is_a?(Type::Value)
+          value = resolved_type == Type::Reference ? resolved_type.new(value, options[:ref_model_class], options[:ref_key_attribute]) : resolved_type.new(value)
+        end
         value.send(:"to_#{format}")
       end
 
