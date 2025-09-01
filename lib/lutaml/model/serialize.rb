@@ -135,9 +135,7 @@ module Lutaml
 
         # Define an attribute for the model
         def attribute(name, type, options = {})
-          if type.is_a?(::Hash)
-            type = nil
-          end
+          type, options = process_type_hash(type, options) if type.is_a?(::Hash)
 
           # Handle direct method option in options hash
           if options[:method]
@@ -598,6 +596,40 @@ module Lutaml
             @mappings[:xml].ordered &&
             !!@sort_by_field
         end
+
+        private
+
+        def process_type_hash(type, options)
+          if reference_type?(type)
+            type, options = process_reference_type(type, options)
+          else
+            type = nil
+          end
+
+          [type, options]
+        end
+
+        def reference_type?(type)
+          type.key?(:ref) || type.key?("ref")
+        end
+
+        def process_reference_type(type, options)
+          ref_spec = type[:ref] || type["ref"]
+          validate_reference_spec!(ref_spec)
+
+          model_class, key_attr = ref_spec
+          options[:ref_model_class] = model_class
+          options[:ref_key_attribute] = key_attr
+          type = Lutaml::Model::Type::Reference
+
+          [type, options]
+        end
+
+        def validate_reference_spec!(ref_spec)
+          return if ref_spec.is_a?(Array) && ref_spec.length == 2
+
+          raise ArgumentError, "ref: syntax requires an array [model_class, key_attribute]"
+        end
       end
 
       def self.register_format_mapping_method(format)
@@ -643,6 +675,8 @@ module Lutaml
         set_ordering(attrs)
         set_schema_location(attrs)
         initialize_attributes(attrs, options)
+
+        register_in_reference_store
       end
 
       def extract_register_id(attrs, options)
@@ -761,7 +795,6 @@ module Lutaml
           next if attr.derived?
 
           value = determine_value(attrs, name, attr)
-
           default = using_default?(name)
           value = self.class.apply_value_map(value, value_map(options), attr)
           public_send(:"#{name}=", self.class.ensure_utf8(value))
@@ -778,6 +811,10 @@ module Lutaml
         else
           Lutaml::Model::UninitializedClass.instance
         end
+      end
+
+      def register_in_reference_store
+        Lutaml::Model::Store.register(self)
       end
     end
   end

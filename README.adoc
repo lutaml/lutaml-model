@@ -633,6 +633,7 @@ Every type has a corresponding Ruby class and a serialization format type.
 | `:decimal` (optional) | `BigDecimal`             | `xs:decimal`      | `number`  | `float`   | `123.45`
 | `:hash`               | `Hash`                   | complex element   | object    | map       | `{key: "value"}`
 | (nil value)           | `nil`                    | `xs:anyType`      | `null`    | `null`    | `null`
+| `{ ref: [Model, :attr] }` | `Reference`          | `xs:string`       | `string`  | `string`  | `"model-id"`
 // | `class`               | Custom class             | complex element   | object    | map       | `CustomObject`
 // | `collection: true`    | `Array` of type          | repeated elements | array     | sequence  | `[obj1, obj2]`
 // | `any`
@@ -1054,6 +1055,72 @@ xml_schedule.to_yaml   # => "---\ndate: 2024-12-25\nactivity: Meeting"
 xml_schedule.to_json   # => {"weekDate":"2024-W52-3","activity":"Meeting"}
 ----
 ====
+
+
+=== Reference type
+
+The Reference type provides a mechanism for creating relationships between models through lazy-loaded references. Instead of embedding full objects, references store lightweight keys that resolve to actual objects when needed.
+
+==== Basic usage
+
+Define reference attributes using the `ref:` syntax:
+
+[source,ruby]
+----
+class Author < Lutaml::Model::Serializable
+  attribute :id, :string
+  attribute :name, :string
+end
+
+class Book < Lutaml::Model::Serializable
+  attribute :id, :string
+  attribute :title, :string
+  attribute :author_ref, { ref: ["Author", :id] }
+  attribute :co_authors, { ref: ["Author", :id] }, collection: true
+end
+----
+
+==== Working with references
+
+[source,ruby]
+----
+# Objects are automatically registered in the store when created
+author = Author.new(id: "author-1", name: "John Doe")
+
+# Create a book with a reference
+book = Book.new(id: "book-1", title: "Great Book")
+book.author_ref = "author-1"  # Automatically creates Reference instance
+
+# Access the referenced object
+puts book.author_ref.resolve.name  # => "John Doe"
+puts book.author_ref.key           # => "author-1"
+
+# Collection of references
+book.co_authors = ["author-1", "author-2"]
+book.co_authors.each do |ref|
+  puts ref.resolve&.name if ref.resolve
+end
+----
+
+==== Serialization
+
+References serialize cleanly to just their key values:
+
+[source,ruby]
+----
+book.to_yaml
+# =>
+# id: book-1
+# title: Great Book
+# author_ref: author-1
+# co_authors:
+# - author-1
+# - author-2
+----
+
+When deserializing, the keys are automatically converted back to Reference instances that can resolve to the original objects.
+
+For more details, see link:docs/reference_type.adoc[Reference Type Documentation].
 
 
 [[attribute-definition]]
