@@ -12,6 +12,7 @@ module Lutaml
         date_time: "Lutaml::Model::Type::DateTime",
         time_without_date: "Lutaml::Model::Type::TimeWithoutDate",
         boolean: "Lutaml::Model::Type::Boolean",
+        reference: "Lutaml::Model::Type::Reference",
         hash: "Lutaml::Model::Type::Hash",
       }.freeze
 
@@ -70,6 +71,7 @@ require_relative "type/date_time"
 require_relative "type/time_without_date"
 require_relative "type/boolean"
 require_relative "type/decimal"
+require_relative "type/reference"
 require_relative "type/hash"
 
 Lutaml::Model::Type.register_builtin_types
