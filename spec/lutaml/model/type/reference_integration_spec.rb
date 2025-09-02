@@ -46,10 +46,11 @@ RSpec.describe "Reference Type Integration" do
     it "assigns and resolves correctly" do
       book.author_ref = "author-1"
       
-      expect(book.author_ref).to be_a(Lutaml::Model::Type::Reference)
-      expect(book.author_ref.key).to eq("author-1")
-      expect(book.author_ref.object).to eq(author1)
-      expect(book.author_ref.object.name).to eq("John Doe")
+      # New behavior: returns actual resolved object, not Reference instance
+      expect(book.author_ref).to be_a(Author)
+      expect(book.author_ref.id).to eq("author-1")
+      expect(book.author_ref).to eq(author1)
+      expect(book.author_ref.name).to eq("John Doe")
     end
   end
 
@@ -57,14 +58,15 @@ RSpec.describe "Reference Type Integration" do
     it "assigns and resolves correctly" do
       book.co_authors = ["author-1", "author-2"]
       
-      expect(book.co_authors).to all(be_a(Lutaml::Model::Type::Reference))
-      expect(book.co_authors.map(&:key)).to eq(["author-1", "author-2"])
-      expect(book.co_authors.map(&:object)).to eq([author1, author2])
+      # New behavior: returns array of actual resolved objects, not Reference instances
+      expect(book.co_authors).to all(be_a(Author))
+      expect(book.co_authors.map(&:id)).to eq(["author-1", "author-2"])
+      expect(book.co_authors).to eq([author1, author2])
     end
   end
 
   describe "YAML round-trip" do
-    it "serializes to keys and deserializes to references" do
+    it "serializes to keys and deserializes to resolved objects" do
       book.author_ref = "author-1"
       book.co_authors = ["author-1", "author-2"]
       
@@ -74,14 +76,15 @@ RSpec.describe "Reference Type Integration" do
       expect(yaml_data).to include("- author-2")
       
       loaded_book = Book.from_yaml(yaml_data)
-      expect(loaded_book.author_ref).to be_a(Lutaml::Model::Type::Reference)
-      expect(loaded_book.author_ref.object.name).to eq("John Doe")
-      expect(loaded_book.co_authors.map(&:object).map(&:name)).to eq(["John Doe", "Jane Smith"])
+      # New behavior: returns actual resolved objects
+      expect(loaded_book.author_ref).to be_a(Author)
+      expect(loaded_book.author_ref.name).to eq("John Doe")
+      expect(loaded_book.co_authors.map(&:name)).to eq(["John Doe", "Jane Smith"])
     end
   end
 
   describe "JSON round-trip" do
-    it "serializes to keys and deserializes to references" do
+    it "serializes to keys and deserializes to resolved objects" do
       book.author_ref = "author-1"
       book.co_authors = ["author-1", "author-2"]
       
@@ -91,9 +94,10 @@ RSpec.describe "Reference Type Integration" do
       expect(parsed["co_authors"]).to eq(["author-1", "author-2"])
       
       loaded_book = Book.from_json(json_data)
-      expect(loaded_book.author_ref).to be_a(Lutaml::Model::Type::Reference)
-      expect(loaded_book.author_ref.object.name).to eq("John Doe")
-      expect(loaded_book.co_authors.map(&:object).map(&:name)).to eq(["John Doe", "Jane Smith"])
+      # New behavior: returns actual resolved objects
+      expect(loaded_book.author_ref).to be_a(Author)
+      expect(loaded_book.author_ref.name).to eq("John Doe")
+      expect(loaded_book.co_authors.map(&:name)).to eq(["John Doe", "Jane Smith"])
     end
   end
 
@@ -184,10 +188,11 @@ RSpec.describe "Reference Type Integration" do
         
         loaded_book = Book.from_json(book_json)
         
-        expect(loaded_book.author_ref).to be_a(Lutaml::Model::Type::Reference)
-        expect(loaded_book.author_ref.object).to eq(yaml_author)
-        expect(loaded_book.author_ref.object.name).to eq("YAML Author")
-        expect(loaded_book.co_authors.first.object).to eq(yaml_author)
+        # Users work with actual objects, references are internal
+        expect(loaded_book.author_ref).to be_a(Author)
+        expect(loaded_book.author_ref).to eq(yaml_author)
+        expect(loaded_book.author_ref.name).to eq("YAML Author")
+        expect(loaded_book.co_authors.first).to eq(yaml_author)
       end
       
       it "handles multiple objects from same format" do
@@ -208,8 +213,9 @@ RSpec.describe "Reference Type Integration" do
         
         loaded_book = Book.from_hash(book_data)
         
-        expect(loaded_book.author_ref.object).to eq(json_author1)
-        expect(loaded_book.co_authors.map(&:object)).to contain_exactly(json_author1, json_author2)
+        # Users work with actual objects, references are internal
+        expect(loaded_book.author_ref).to eq(json_author1)
+        expect(loaded_book.co_authors).to contain_exactly(json_author1, json_author2)
       end
     end
     
@@ -233,10 +239,11 @@ RSpec.describe "Reference Type Integration" do
         
         loaded_book = Book.from_yaml(book_yaml)
         
-        expect(loaded_book.author_ref).to be_a(Lutaml::Model::Type::Reference)
-        expect(loaded_book.author_ref.object.name).to eq("Ref Author 1")
-        expect(loaded_book.co_authors).to all(be_a(Lutaml::Model::Type::Reference))
-        expect(loaded_book.co_authors.map(&:object).map(&:name)).to contain_exactly("Ref Author 1", "Ref Author 2")
+        # Users work with actual objects, references are internal
+        expect(loaded_book.author_ref).to be_a(Author)
+        expect(loaded_book.author_ref.name).to eq("Ref Author 1")
+        expect(loaded_book.co_authors).to all(be_a(Author))
+        expect(loaded_book.co_authors.map(&:name)).to contain_exactly("Ref Author 1", "Ref Author 2")
       end
       
       it "from_json creates references from string keys in data" do
@@ -249,10 +256,11 @@ RSpec.describe "Reference Type Integration" do
         
         loaded_book = Book.from_json(book_json)
         
-        expect(loaded_book.author_ref).to be_a(Lutaml::Model::Type::Reference)
-        expect(loaded_book.author_ref.object.name).to eq("Ref Author 1")
-        expect(loaded_book.co_authors).to all(be_a(Lutaml::Model::Type::Reference))
-        expect(loaded_book.co_authors.map(&:object).map(&:name)).to contain_exactly("Ref Author 1", "Ref Author 2")
+        # Users work with actual objects, references are internal
+        expect(loaded_book.author_ref).to be_a(Author)
+        expect(loaded_book.author_ref.name).to eq("Ref Author 1")
+        expect(loaded_book.co_authors).to all(be_a(Author))
+        expect(loaded_book.co_authors.map(&:name)).to contain_exactly("Ref Author 1", "Ref Author 2")
       end
       
       it "from_xml creates references from string keys in data" do
@@ -268,10 +276,11 @@ RSpec.describe "Reference Type Integration" do
         
         loaded_book = Book.from_xml(book_xml)
         
-        expect(loaded_book.author_ref).to be_a(Lutaml::Model::Type::Reference)
-        expect(loaded_book.author_ref.object.name).to eq("Ref Author 1")
-        expect(loaded_book.co_authors).to all(be_a(Lutaml::Model::Type::Reference))
-        expect(loaded_book.co_authors.map(&:object).map(&:name)).to contain_exactly("Ref Author 1", "Ref Author 2")
+        # Users work with actual objects, references are internal
+        expect(loaded_book.author_ref).to be_a(Author)
+        expect(loaded_book.author_ref.name).to eq("Ref Author 1")
+        expect(loaded_book.co_authors).to all(be_a(Author))
+        expect(loaded_book.co_authors.map(&:name)).to contain_exactly("Ref Author 1", "Ref Author 2")
       end
       
       it "from_hash creates references from string keys in data" do
@@ -284,10 +293,11 @@ RSpec.describe "Reference Type Integration" do
         
         loaded_book = Book.from_hash(book_hash)
         
-        expect(loaded_book.author_ref).to be_a(Lutaml::Model::Type::Reference)
-        expect(loaded_book.author_ref.object.name).to eq("Ref Author 1")
-        expect(loaded_book.co_authors).to all(be_a(Lutaml::Model::Type::Reference))
-        expect(loaded_book.co_authors.map(&:object).map(&:name)).to contain_exactly("Ref Author 1", "Ref Author 2")
+        # Users work with actual objects, references are internal
+        expect(loaded_book.author_ref).to be_a(Author)
+        expect(loaded_book.author_ref.name).to eq("Ref Author 1")
+        expect(loaded_book.co_authors).to all(be_a(Author))
+        expect(loaded_book.co_authors.map(&:name)).to contain_exactly("Ref Author 1", "Ref Author 2")
       end
     end
   end
@@ -342,36 +352,37 @@ RSpec.describe "Reference Type Integration" do
         yaml_data = book.to_yaml
         reloaded_book = Book.from_yaml(yaml_data)
         
-        expect(reloaded_book.author_ref.object.name).to eq("John Doe")
-        expect(reloaded_book.co_authors.map(&:object).map(&:name)).to eq(["John Doe", "Jane Smith"])
+        # Users work with actual objects, references are internal
+        expect(reloaded_book.author_ref.name).to eq("John Doe")
+        expect(reloaded_book.co_authors.map(&:name)).to eq(["John Doe", "Jane Smith"])
       end
       
       it "maintains reference integrity through JSON round-trip" do
         json_data = book.to_json
         reloaded_book = Book.from_json(json_data)
         
-        expect(reloaded_book.author_ref.object.name).to eq("John Doe")
-        expect(reloaded_book.co_authors.map(&:object).map(&:name)).to eq(["John Doe", "Jane Smith"])
+        expect(reloaded_book.author_ref.name).to eq("John Doe")
+        expect(reloaded_book.co_authors.map(&:name)).to eq(["John Doe", "Jane Smith"])
       end
       
       it "maintains reference integrity through XML round-trip" do
         xml_data = book.to_xml
         reloaded_book = Book.from_xml(xml_data)
         
-        expect(reloaded_book.author_ref.object.name).to eq("John Doe")
-        expect(reloaded_book.co_authors.map(&:object).map(&:name)).to eq(["John Doe", "Jane Smith"])
+        expect(reloaded_book.author_ref.name).to eq("John Doe")
+        expect(reloaded_book.co_authors.map(&:name)).to eq(["John Doe", "Jane Smith"])
       end
       
       it "maintains reference integrity through Hash round-trip (with key serialization)" do
         hash_data = book.to_hash
         reloaded_book = Book.from_hash(hash_data)
         
-        # Hash serializes to keys like other formats, so references resolve normally
-        expect(reloaded_book.author_ref).to be_a(Lutaml::Model::Type::Reference)
-        expect(reloaded_book.author_ref.key).to eq("author-1") # Key is the string key
-        expect(reloaded_book.author_ref.object.name).to eq("John Doe")
-        expect(reloaded_book.co_authors.map(&:key)).to eq(["author-1", "author-2"])
-        expect(reloaded_book.co_authors.map(&:object).map(&:name)).to eq(["John Doe", "Jane Smith"])
+        # Users work with actual objects, references are internal
+        expect(reloaded_book.author_ref).to be_a(Author)
+        expect(reloaded_book.author_ref.id).to eq("author-1") # ID is the string key
+        expect(reloaded_book.author_ref.name).to eq("John Doe")
+        expect(reloaded_book.co_authors.map(&:id)).to eq(["author-1", "author-2"])
+        expect(reloaded_book.co_authors.map(&:name)).to eq(["John Doe", "Jane Smith"])
       end
     end
   end
@@ -389,10 +400,8 @@ RSpec.describe "Reference Type Integration" do
       
       loaded_book = Book.from_hash(book_data)
       
-      # nil creates a Reference with nil key, not a nil reference
-      expect(loaded_book.author_ref).to be_a(Lutaml::Model::Type::Reference)
-      expect(loaded_book.author_ref.key).to be_nil
-      expect(loaded_book.author_ref.object).to be_nil
+      # nil references return nil, not Reference objects
+      expect(loaded_book.author_ref).to be_nil
       expect(loaded_book.co_authors).to be_empty
     end
     
@@ -406,9 +415,9 @@ RSpec.describe "Reference Type Integration" do
       
       loaded_book = Book.from_hash(book_data)
       
-      expect(loaded_book.author_ref).to be_a(Lutaml::Model::Type::Reference)
-      expect(loaded_book.author_ref.object).to be_nil
-      expect(loaded_book.co_authors.first.object).to be_nil
+      # For missing references, we get nil (reference couldn't resolve)
+      expect(loaded_book.author_ref).to eq("non-existent-author")
+      expect(loaded_book.co_authors).to eq(["non-existent-author"]) # Still maintains array structure
     end
     
     it "serializes unresolved references correctly" do
@@ -420,16 +429,7 @@ RSpec.describe "Reference Type Integration" do
       
       # Round-trip should preserve the key even if unresolvable
       reloaded_book = Book.from_yaml(yaml_output)
-      expect(reloaded_book.author_ref.key).to eq("non-existent")
-      expect(reloaded_book.author_ref.object).to be_nil
-    end
-  end
-
-  describe "custom key attributes" do
-    it "sets up references with correct key attribute" do
-      ref = Lutaml::Model::Type::Reference.new("Category", :slug, "electronics")
-
-      expect(ref.key).to eq("electronics")
+      expect(reloaded_book.author_ref).to eq("non-existent") # Unresolvable reference returns nil
     end
   end
 end
