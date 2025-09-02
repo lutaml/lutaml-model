@@ -1092,13 +1092,13 @@ book = Book.new(id: "book-1", title: "Great Book")
 book.author_ref = "author-1"  # Automatically creates Reference instance
 
 # Access the referenced object
-puts book.author_ref.resolve.name  # => "John Doe"
+puts book.author_ref.object.name  # => "John Doe"
 puts book.author_ref.key           # => "author-1"
 
 # Collection of references
 book.co_authors = ["author-1", "author-2"]
 book.co_authors.each do |ref|
-  puts ref.resolve&.name if ref.resolve
+  puts ref.object.name if ref.object
 end
 ----
 

@@ -2,20 +2,16 @@ module Lutaml
   module Model
     module Type
       class Reference < Value
-        attr_reader :model_class, :key_attribute, :key, :value
+        attr_reader :key
 
         def initialize(model_class, key_attribute, key = nil)
           @model_class = model_class.to_s
           @key_attribute = key_attribute
           @key = key
-          super(resolve)
+          super(object)
         end
 
-        def with_key(key)
-          self.class.new(@model_class, @key_attribute, key)
-        end
-
-        def resolve
+        def object
           return @value if resolved?
           return nil unless @key
 
@@ -23,12 +19,12 @@ module Lutaml
           @value
         end
 
-        def resolved?
-          model_instance?(@value)
+        def pretty_print_instance_variables
+          (instance_variables - [:@value, :@key_attribute, :@model_class]).sort
         end
 
-        def self.cast(value)
-          value
+        def resolved?
+          model_instance?(@value)
         end
 
         # Enhanced casting method that receives metadata
