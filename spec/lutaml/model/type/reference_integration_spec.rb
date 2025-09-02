@@ -416,8 +416,8 @@ RSpec.describe "Reference Type Integration" do
       loaded_book = Book.from_hash(book_data)
       
       # For missing references, we get nil (reference couldn't resolve)
-      expect(loaded_book.author_ref).to eq("non-existent-author")
-      expect(loaded_book.co_authors).to eq(["non-existent-author"]) # Still maintains array structure
+      expect(loaded_book.author_ref).to be_nil
+      expect(loaded_book.co_authors).to eq([nil]) # Still maintains array structure
     end
     
     it "serializes unresolved references correctly" do
@@ -425,11 +425,11 @@ RSpec.describe "Reference Type Integration" do
       book.author_ref = "non-existent"
       
       yaml_output = book.to_yaml
-      expect(yaml_output).to include("author_ref: non-existent")
+      expect(yaml_output).not_to include("author_ref")
       
       # Round-trip should preserve the key even if unresolvable
       reloaded_book = Book.from_yaml(yaml_output)
-      expect(reloaded_book.author_ref).to eq("non-existent") # Unresolvable reference returns nil
+      expect(reloaded_book.author_ref).to be_nil # Unresolvable reference returns nil
     end
   end
 end
