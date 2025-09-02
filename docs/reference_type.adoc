@@ -4,15 +4,16 @@
 
 == Overview
 
-The Reference type in Lutaml::Model provides a powerful mechanism for creating relationships between model objects through lazy-loaded references. Instead of embedding full objects, references store lightweight keys that resolve to the actual objects when needed.
+The Reference type in Lutaml::Model provides a powerful mechanism for creating relationships between model objects through automatic object resolution. References work transparently - you assign keys (like IDs) but get back actual resolved objects when accessing them.
 
 == Key Features
 
-* **Lazy Loading**: Objects are resolved only when accessed
-* **Memory Efficient**: Stores only reference keys, not full objects
+* **Transparent Object Resolution**: Assign keys, get back resolved objects automatically
+* **Memory Efficient**: Stores only reference keys during serialization
 * **Type Safety**: Automatic casting and validation
-* **Serialization Support**: Clean serialization to keys, proper deserialization to references
+* **Clean Serialization**: Serializes to keys, deserializes to resolved objects
 * **Collection Support**: Works with arrays of references
+* **User-Friendly**: No need to work with Reference instances directly
 
 == Basic Usage
 
@@ -45,16 +46,17 @@ author = Author.new(id: "author-1", name: "John Doe", email: "john@example.com")
 
 # Create a book with a reference
 book = Book.new(id: "book-1", title: "Great Book")
-book.author_ref = "author-1"  # Automatically creates Reference instance
+book.author_ref = "author-1"  # Assign the key
 
-# Access the referenced object
-puts book.author_ref.value.name  # => "John Doe"
-puts book.author_ref.key           # => "author-1"
+# Access the referenced object - automatically resolved!
+puts book.author_ref.name     # => "John Doe" (returns actual Author object)
+puts book.author_ref.class    # => Author
+puts book.author_ref.id       # => "author-1"
 
 # Collection of references
 book.co_authors = ["author-1", "author-2"]
-book.co_authors.each do |ref|
-  puts ref.value&.name if ref.value
+book.co_authors.each do |author|  # Each item is an actual Author object
+  puts author.name
 end
 ----
 
@@ -84,63 +86,31 @@ attribute :category_ref, { ref: ["Category", :slug] }
 attribute :tag_refs, { ref: ["Tag", :name] }, collection: true
 ----
 
-== Reference Type API
+== Serialization Behavior
 
-=== Class Methods
+The reference system provides clean, predictable serialization:
 
-==== `.cast(value)`
+* **Assignment**: You assign string keys (like IDs)
+* **Access**: You get back resolved objects automatically
+* **Serialization**: Keys are serialized (not full objects)
+* **Deserialization**: Keys are deserialized and resolved to objects
 
-Standard casting method (returns value as-is without metadata).
-
-[source,ruby]
-----
-Reference.cast("some-key")  # => "some-key"
-Reference.cast(nil)         # => nil
-----
-
-==== `.cast_with_metadata(value, model_class, key_attribute)`
-
-Enhanced casting method that creates Reference instances with metadata.
+=== Serialization Examples
 
 [source,ruby]
 ----
-ref = Reference.cast_with_metadata("user-123", "User", :id)
-# => #<Reference @key="user-123" @model_class="User" @key_attribute=:id>
+book.author_ref = "author-1"
+book.co_authors = ["author-1", "author-2"]
+
+# Accessing returns resolved objects
+book.author_ref.name        # => "John Doe"
+book.co_authors.first.name  # => "John Doe"
+
+# Serialization outputs keys only
+book.to_yaml   # => author_ref: author-1
+book.to_json   # => {"author_ref": "author-1", ...}
+book.to_hash   # => {"author_ref" => "author-1", ...}
 ----
-
-==== `.serialize(value)`
-
-Serializes references back to their key values.
-
-[source,ruby]
-----
-Reference.serialize(reference_instance)  # => "user-123"
-Reference.serialize(["key1", "key2"])   # => ["key1", "key2"]
-Reference.serialize(nil)                 # => ""
-----
-
-=== Instance Methods
-
-==== `#initialize(model_class, key_attribute, key)`
-
-Creates a new Reference instance.
-
-[source,ruby]
-----
-ref = Reference.new("User", :id, "user-123")
-----
-
-==== Accessor Methods
-
-[source,ruby]
-----
-ref.key            # => "user-123" (the lookup key)
-ref.value          # => User instance (resolved object)
-ref.model_class    # => "User"
-ref.key_attribute  # => :id
-----
-
-== Serialization Examples
 
 === YAML Serialization
 
@@ -156,9 +126,10 @@ yaml_output = book.to_yaml
 # title: Sample Book  
 # author_ref: author-1
 
-# Deserializes back to Reference instances
+# Deserializes back to resolved objects
 loaded_book = Book.from_yaml(yaml_output)
-loaded_book.author_ref  # => Reference instance, not string
+loaded_book.author_ref        # => Author instance (not Reference!)
+loaded_book.author_ref.name   # => "John Doe" 
 ----
 
 === JSON Serialization
@@ -169,7 +140,8 @@ json_output = book.to_json
 # => {"id":"book-1","title":"Sample Book","author_ref":"author-1"}
 
 loaded_book = Book.from_json(json_output)
-loaded_book.author_ref.value  # => Author instance
+loaded_book.author_ref        # => Author instance (resolved automatically)
+loaded_book.author_ref.name   # => "John Doe"
 ----
 
 == Advanced Usage

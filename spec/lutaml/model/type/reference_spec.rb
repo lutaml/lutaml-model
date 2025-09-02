@@ -118,8 +118,8 @@ RSpec.describe Lutaml::Model::Type::Reference do
     context "when target object does not exist in store" do
       let(:reference) { described_class.new("TestModel", :id, "non-existent") }
 
-      it "returns nil" do
-        expect(reference.object).to be_nil
+      it "returns the key (since object cannot be resolved)" do
+        expect(reference.object).to eq("non-existent")
       end
     end
   end
@@ -187,12 +187,12 @@ RSpec.describe Lutaml::Model::Type::Reference do
     let(:container) { Container.new(id: "container-1") }
 
     context "single reference assignment" do
-      it "auto-casts string to Reference instance" do
+      it "returns resolved object directly (transparent behavior)" do
         container.my_ref = "test-123"
         
-        expect(container.my_ref).to be_a(described_class)
-        expect(container.my_ref.key).to eq("test-123")
-        expect(container.my_ref.object).to eq(target_object)
+        # Users get the resolved object directly
+        expect(container.my_ref).to eq(target_object)
+        expect(container.my_ref.name).to eq("Test Object")
       end
     end
 
@@ -203,12 +203,12 @@ RSpec.describe Lutaml::Model::Type::Reference do
         Lutaml::Model::Store.instance.register(target_object2)
       end
 
-      it "auto-casts array of strings to Reference instances" do
+      it "returns resolved objects directly (transparent behavior)" do
         container.multiple_refs = ["test-123", "test-456"]
         
-        expect(container.multiple_refs).to all(be_a(described_class))
-        expect(container.multiple_refs.map(&:key)).to eq(["test-123", "test-456"])
-        expect(container.multiple_refs.map(&:object)).to eq([target_object, target_object2])
+        # Users get the resolved objects directly
+        expect(container.multiple_refs).to eq([target_object, target_object2])
+        expect(container.multiple_refs.map(&:name)).to eq(["Test Object", "Test Object 2"])
       end
     end
 
@@ -216,15 +216,33 @@ RSpec.describe Lutaml::Model::Type::Reference do
       it "maintains reference integrity through YAML serialization" do
         container.my_ref = "test-123"
         
-        # Serialize to YAML
+        # Serialize to YAML - should show key value
         yaml_data = container.to_yaml
         expect(yaml_data).to include("my_ref: test-123")
         
-        # Deserialize from YAML
+        # Deserialize from YAML - should resolve to object
         loaded_container = Container.from_yaml(yaml_data)
-        expect(loaded_container.my_ref).to be_a(described_class)
-        expect(loaded_container.my_ref.key).to eq("test-123")
-        expect(loaded_container.my_ref.object).to eq(target_object)
+        expect(loaded_container.my_ref).to eq(target_object)
+        expect(loaded_container.my_ref.name).to eq("Test Object")
+      end
+    end
+
+    context "unresolved references" do
+      it "returns the key when object is not in store" do
+        container.my_ref = "non-existent-key"
+        
+        # Should return the key since object cannot be resolved
+        expect(container.my_ref).to eq("non-existent-key")
+      end
+
+      it "handles collections with mixed resolved/unresolved references" do
+        target_object2 = TestModel.new(id: "test-456", name: "Test Object 2")
+        Lutaml::Model::Store.instance.register(target_object2)
+        
+        container.multiple_refs = ["test-123", "non-existent", "test-456"]
+        
+        expected_result = [target_object, "non-existent", target_object2]
+        expect(container.multiple_refs).to eq(expected_result)
       end
     end
   end
