@@ -97,24 +97,6 @@ module Lutaml
         @type
       end
 
-      def reference_info
-        return nil unless unresolved_type == Lutaml::Model::Type::Reference
-
-        {
-          model_class: @options[:ref_model_class],
-          key_attribute: @options[:ref_key_attribute],
-        }
-      end
-
-      def create_reference_instance(key = nil)
-        return nil unless unresolved_type == Lutaml::Model::Type::Reference
-
-        info = reference_info
-        return nil unless info[:model_class] && info[:key_attribute]
-
-        Lutaml::Model::Type::Reference.new(info[:model_class], info[:key_attribute], key)
-      end
-
       def polymorphic?
         @options[:polymorphic_class]
       end
@@ -167,8 +149,7 @@ module Lutaml
 
         # Special handling for Reference types - pass the metadata
         if unresolved_type == Lutaml::Model::Type::Reference
-          info = reference_info
-          return resolved_type.cast_with_metadata(value, info[:model_class], info[:key_attribute])
+          return resolved_type.cast_with_metadata(value, @options[:ref_model_class], @options[:ref_key_attribute])
         end
 
         resolved_type.cast(value)
@@ -404,10 +385,39 @@ module Lutaml
 
         resolved_type = options[:resolved_type] || type(register)
         serialize_options = options.merge(resolved_type: resolved_type)
+        value = reference_key(value) if unresolved_type == Lutaml::Model::Type::Reference
         return serialize_array(value, format, register, serialize_options) if collection_instance?(value)
         return serialize_model(value, format, register, options) if resolved_type <= Serialize
 
         serialize_value(value, format, resolved_type, options)
+      end
+
+      def reference_key(value)
+        return nil unless value
+        return extract_keys_from_collection(value) if value.is_a?(Array)
+        
+        extract_key_from_single_value(value)
+      end
+
+      def extract_keys_from_collection(collection)
+        collection.map { |item| extract_key_from_single_value(item) }
+      end
+
+      def extract_key_from_single_value(value)
+        return extract_key_from_model_instance(value) if model_instance?(value)
+        
+        value
+      end
+
+      def extract_key_from_model_instance(model_instance)
+        model_instance.public_send(@options[:ref_key_attribute])
+      end
+
+      def model_instance?(value)
+        return false unless value.respond_to?(:class)
+        return false unless @options[:ref_model_class]
+
+        value.class.to_s == @options[:ref_model_class].to_s
       end
 
       def cast(value, format, register, options = {})
@@ -534,10 +544,24 @@ module Lutaml
       end
 
       def serialize_value(value, format, resolved_type, options)
-        if !value.is_a?(Type::Value)
-          value = resolved_type == Type::Reference ? resolved_type.new(value, options[:ref_model_class], options[:ref_key_attribute]) : resolved_type.new(value)
-        end
+        value = wrap_in_type_if_needed(value, resolved_type, options)
         value.send(:"to_#{format}")
+      end
+
+      private
+
+      def wrap_in_type_if_needed(value, resolved_type, options)
+        return value if value.is_a?(Type::Value)
+
+        if resolved_type == Type::Reference
+          create_reference_instance(value, resolved_type)
+        else
+          resolved_type.new(value)
+        end
+      end
+
+      def create_reference_instance(key = nil, resolved_type)
+        resolved_type.new(@options[:ref_model_class], @options[:ref_key_attribute], key)
       end
 
       def validate_presence!(type)

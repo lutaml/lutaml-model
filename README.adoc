@@ -1059,7 +1059,7 @@ xml_schedule.to_json   # => {"weekDate":"2024-W52-3","activity":"Meeting"}
 
 === Reference type
 
-The Reference type provides a mechanism for creating relationships between models through lazy-loaded references. Instead of embedding full objects, references store lightweight keys that resolve to actual objects when needed.
+The Reference type provides a mechanism for creating relationships between models. Instead of embedding full objects, references store lightweight keys that automatically resolve to actual objects when accessed.
 
 ==== Basic usage
 
@@ -1089,16 +1089,15 @@ author = Author.new(id: "author-1", name: "John Doe")
 
 # Create a book with a reference
 book = Book.new(id: "book-1", title: "Great Book")
-book.author_ref = "author-1"  # Automatically creates Reference instance
+book.author_ref = "author-1"  # Assign the key directly
 
-# Access the referenced object
-puts book.author_ref.object.name  # => "John Doe"
-puts book.author_ref.key           # => "author-1"
+# Access the referenced object directly
+puts book.author_ref.name  # => "John Doe" (automatically resolved)
 
 # Collection of references
 book.co_authors = ["author-1", "author-2"]
-book.co_authors.each do |ref|
-  puts ref.object.name if ref.object
+book.co_authors.each do |author|
+  puts author.name if author  # Each element is the actual Author object
 end
 ----
 
@@ -1118,7 +1117,7 @@ book.to_yaml
 # - author-2
 ----
 
-When deserializing, the keys are automatically converted back to Reference instances that can resolve to the original objects.
+When deserializing, the keys are automatically converted back to references that resolve transparently to the original objects when accessed.
 
 For more details, see link:docs/reference_type.adoc[Reference Type Documentation].
 

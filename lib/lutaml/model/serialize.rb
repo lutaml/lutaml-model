@@ -123,13 +123,45 @@ module Lutaml
               attr.cast_element(value, __register)
             end
           else
-            define_method(name) do
-              instance_variable_get(:"@#{name}")
+            if attr.type == Lutaml::Model::Type::Reference
+              define_reference_methods(name)
+            else
+              define_regular_attribute_methods(name, attr)
             end
-            define_method(:"#{name}=") do |value|
-              value_set_for(name)
-              instance_variable_set(:"@#{name}", attr.cast_value(value, __register))
-            end
+          end
+        end
+
+        def define_reference_methods(name)
+          define_method("#{name}_ref") do
+            self.class.send(:get_private, :"@#{name}_ref")
+          end
+
+          define_method(name) do
+            ref = self.class.send(:get_private, :"@#{name}_ref")
+            resolve_reference_value(ref)
+          end
+
+          define_method(:"#{name}=") do |value|
+            value_set_for(name)
+            attr = self.class.attributes[name]
+            casted_value = attr.cast_value(value, __register)
+            
+            self.class.send(:set_private, :"@#{name}_ref", casted_value)
+            
+            resolved_value = resolve_reference_value(casted_value)
+            instance_variable_set(:"@#{name}", resolved_value)
+          end
+        end
+
+        def define_regular_attribute_methods(name, attr)
+          define_method(name) do
+            instance_variable_get(:"@#{name}")
+          end
+
+          define_method(:"#{name}=") do |value|
+            value_set_for(name)
+            value = attr.cast_value(value, __register)
+            instance_variable_set(:"@#{name}", value)
           end
         end
 
@@ -599,6 +631,14 @@ module Lutaml
 
         private
 
+        def get_private(name)
+          instance_variable_get(name)
+        end
+
+        def set_private(name, value)
+          instance_variable_set(name, value)
+        end
+
         def process_type_hash(type, options)
           if reference_type?(type)
             type, options = process_reference_type(type, options)
@@ -815,6 +855,16 @@ module Lutaml
 
       def register_in_reference_store
         Lutaml::Model::Store.register(self)
+      end
+
+      def resolve_reference_value(ref)
+        return nil if ref.nil?
+        
+        if ref.is_a?(Array)
+          ref.map(&:object)
+        else
+          ref.object
+        end
       end
     end
   end
