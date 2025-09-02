@@ -20,7 +20,7 @@ module Lutaml
         end
 
         def pretty_print_instance_variables
-          (instance_variables - [:@value, :@key_attribute, :@model_class]).sort
+          (instance_variables - %i[@value @key_attribute @model_class]).sort
         end
 
         def resolved?
@@ -86,7 +86,7 @@ module Lutaml
         private
 
         def model_instance?(value)
-          value.class.to_s == @model_class.to_s
+          value.class.name == @model_class.to_s # rubocop:disable Style/ClassEqualityComparison
         end
       end
     end

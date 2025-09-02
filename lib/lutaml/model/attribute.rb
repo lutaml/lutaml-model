@@ -389,13 +389,13 @@ module Lutaml
         return serialize_array(value, format, register, serialize_options) if collection_instance?(value)
         return serialize_model(value, format, register, options) if resolved_type <= Serialize
 
-        serialize_value(value, format, resolved_type, options)
+        serialize_value(value, format, resolved_type)
       end
 
       def reference_key(value)
         return nil unless value
         return extract_keys_from_collection(value) if value.is_a?(Array)
-        
+
         extract_key_from_single_value(value)
       end
 
@@ -405,7 +405,7 @@ module Lutaml
 
       def extract_key_from_single_value(value)
         return extract_key_from_model_instance(value) if model_instance?(value)
-        
+
         value
       end
 
@@ -417,7 +417,7 @@ module Lutaml
         return false unless value.respond_to?(:class)
         return false unless @options[:ref_model_class]
 
-        value.class.to_s == @options[:ref_model_class].to_s
+        value.class.name == @options[:ref_model_class] # rubocop:disable Style/ClassEqualityComparison
       end
 
       def cast(value, format, register, options = {})
@@ -543,24 +543,22 @@ module Lutaml
         resolved_type.as(format, value, as_options)
       end
 
-      def serialize_value(value, format, resolved_type, options)
-        value = wrap_in_type_if_needed(value, resolved_type, options)
+      def serialize_value(value, format, resolved_type)
+        value = wrap_in_type_if_needed(value, resolved_type)
         value.send(:"to_#{format}")
       end
 
-      private
-
-      def wrap_in_type_if_needed(value, resolved_type, options)
+      def wrap_in_type_if_needed(value, resolved_type)
         return value if value.is_a?(Type::Value)
 
         if resolved_type == Type::Reference
-          create_reference_instance(value, resolved_type)
+          create_reference_instance(resolved_type, value)
         else
           resolved_type.new(value)
         end
       end
 
-      def create_reference_instance(key = nil, resolved_type)
+      def create_reference_instance(resolved_type, key = nil)
         resolved_type.new(@options[:ref_model_class], @options[:ref_key_attribute], key)
       end
 

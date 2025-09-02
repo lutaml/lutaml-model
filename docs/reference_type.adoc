@@ -86,6 +86,75 @@ attribute :category_ref, { ref: ["Category", :slug] }
 attribute :tag_refs, { ref: ["Tag", :name] }, collection: true
 ----
 
+== Reference Key Accessor Methods
+
+When you define reference attributes, the system automatically generates additional accessor methods to easily access the reference keys without resolving the objects. These methods follow a naming convention: `<attribute_name>_<key_attribute>` (with automatic pluralization for collections).
+
+=== Method Generation Rules
+
+* **Single reference**: `attribute_name + "_" + key_attribute`
+* **Collection reference**: `attribute_name + "_" + pluralized_key_attribute`
+
+=== Examples
+
+[source,ruby]
+----
+class Person < Lutaml::Model::Serializable
+  attribute :id, :string
+  attribute :name, :string
+  attribute :father, { ref: ["Person", :id] }
+  attribute :mother, { ref: ["Person", :id] }
+  attribute :children, { ref: ["Person", :id] }, collection: true
+  attribute :mentors, { ref: ["Person", :name] }, collection: true
+end
+
+# Create some people
+dad = Person.new(id: "1", name: "Dad")
+child1 = Person.new(id: "2", name: "Child1") 
+child2 = Person.new(id: "3", name: "Child2")
+person = Person.new(id: "4", name: "Person", father: "1", children: ["2", "3"])
+
+# Generated key accessor methods
+person.father_id      # => "1" (single reference key)
+person.children_ids   # => ["2", "3"] (collection reference keys - pluralized)
+
+# Still works with custom key attributes
+person.mentors = ["Alice", "Bob"]
+person.mentors_names  # => ["Alice", "Bob"] (pluralized: name -> names)
+
+# Compare with object resolution
+person.father         # => Person object with id="1" 
+person.children       # => [Person object, Person object]
+----
+
+=== Available Methods for Each Reference Attribute
+
+For each reference attribute, three methods are automatically generated:
+
+[source,ruby]
+----
+# For: attribute :father, { ref: ["Person", :id] }
+person.father          # => Person object (resolved reference)
+person.father_ref      # => Reference object (internal, advanced use)
+person.father_id       # => "1" (reference key)
+
+# For: attribute :children, { ref: ["Person", :id] }, collection: true
+person.children        # => [Person, Person] (resolved objects)
+person.children_ref    # => [Reference, Reference] (internal, advanced use)  
+person.children_ids    # => ["2", "3"] (reference keys)
+----
+
+=== Pluralization Rules
+
+The system includes simple pluralization for common English patterns:
+
+* `id` → `ids`
+* `name` → `names`
+* `category` → `categories` 
+* `class` → `classes`
+* `status` → `statuses`
+* Most other words: add `s`
+
 == Serialization Behavior
 
 The reference system provides clean, predictable serialization:
@@ -185,6 +254,33 @@ comment = Comment.new(id: "c1", content: "Great post!")
 comment.author_ref = "user-1"
 comment.replies = ["c2", "c3"]  # References to other comments
 ----
+
+=== Unresolved References
+
+When a reference cannot be resolved (the target object is not found in the store), the reference returns `nil` instead of the object:
+
+[source,ruby]
+----
+# Create a book with a reference to a non-existent author
+book = Book.new(id: "book-1", title: "Great Book")
+book.author_ref = "non-existent-author-id"
+
+# Access returns nil since the author doesn't exist
+puts book.author_ref.inspect  # => nil (not the key)
+puts book.author_ref.nil?     # => true
+
+# Collections include nil for unresolved references
+book.co_authors = ["author-1", "non-existent"]
+# Array will include nil for unresolved references
+puts book.co_authors.count    # => 2 (includes nil for non-existent)
+puts book.co_authors.compact.count  # => 1 (if author-1 exists)
+----
+
+This behavior ensures that:
+
+* **Type Safety**: You always get the expected object type or `nil`, never strings or keys
+* **Nil Safety**: You can safely use standard Ruby nil-checking patterns
+* **Predictable Collections**: Array positions are preserved, with `nil` for unresolved references
 
 === Validation and Error Handling
 
