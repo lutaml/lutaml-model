@@ -3671,17 +3671,6 @@ end
 ----
 class ProcOrderedItemCollection < Lutaml::Model::Collection
   instances :items, Item
-  # Order by name in descending order using a proc
-  ordered by: lambda(&:name), order: :desc
-
-  xml do
-    root "items"
-    map_element "item", to: :items
-  end
-end
-
-class ComplexOrderedItemCollection < Lutaml::Model::Collection
-  instances :items, Item
   # Multi-level ordering: first by name length, then by name alphabetically
   ordered by: ->(item) { [item.name.length, item.name] }, order: :asc
 
@@ -3700,11 +3689,7 @@ end
 >   { id: "3", name: "Beta" }
 > ]
 
-> proc_collection = ProcOrderedItemCollection.new(items_data)
-> proc_collection.map(&:name)
-> # ["Zebra", "Beta", "Alpha"] # Sorted by name descending
-
-> complex_collection = ComplexOrderedItemCollection.new(items_data)
+> complex_collection = ProcOrderedItemCollection.new(items_data)
 > complex_collection.map(&:name)
 > # ["Beta", "Alpha", "Zebra"] # Sorted by name length then alphabetically
 ----
