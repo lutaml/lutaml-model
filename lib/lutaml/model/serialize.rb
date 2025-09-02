@@ -123,7 +123,7 @@ module Lutaml
               attr.cast_element(value, __register)
             end
           else
-            if attr.type == Lutaml::Model::Type::Reference
+            if attr.unresolved_type == Lutaml::Model::Type::Reference
               define_reference_methods(name)
             else
               define_regular_attribute_methods(name, attr)
