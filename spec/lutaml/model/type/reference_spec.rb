@@ -118,8 +118,8 @@ RSpec.describe Lutaml::Model::Type::Reference do
     context "when target object does not exist in store" do
       let(:reference) { described_class.new("TestModel", :id, "non-existent") }
 
-      it "returns the key (since object cannot be resolved)" do
-        expect(reference.object).to eq("non-existent")
+      it "returns nil (since object cannot be resolved)" do
+        expect(reference.object).to be_nil
       end
     end
   end
@@ -228,11 +228,11 @@ RSpec.describe Lutaml::Model::Type::Reference do
     end
 
     context "unresolved references" do
-      it "returns the key when object is not in store" do
+      it "returns nil when object is not in store" do
         container.my_ref = "non-existent-key"
-        
-        # Should return the key since object cannot be resolved
-        expect(container.my_ref).to eq("non-existent-key")
+
+        # Should return nil since object cannot be resolved
+        expect(container.my_ref).to be_nil
       end
 
       it "handles collections with mixed resolved/unresolved references" do
@@ -241,7 +241,7 @@ RSpec.describe Lutaml::Model::Type::Reference do
         
         container.multiple_refs = ["test-123", "non-existent", "test-456"]
         
-        expected_result = [target_object, "non-existent", target_object2]
+        expected_result = [target_object, nil, target_object2]
         expect(container.multiple_refs).to eq(expected_result)
       end
     end
