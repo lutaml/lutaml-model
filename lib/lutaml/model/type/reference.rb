@@ -16,7 +16,7 @@ module Lutaml
           return nil unless @key
 
           @value = Lutaml::Model::Store.resolve(@model_class, @key_attribute, @key)
-          @value || @key
+          @value
         end
 
         def pretty_print_instance_variables
