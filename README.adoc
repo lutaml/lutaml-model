@@ -1099,6 +1099,34 @@ book.co_authors = ["author-1", "author-2"]
 book.co_authors.each do |author|
   puts author.name if author  # Each element is the actual Author object
 end
+
+# Unresolved references return nil
+book.author_ref = "non-existent-id"
+puts book.author_ref.inspect  # => nil (not the key string)
+----
+
+==== Reference key accessor methods
+
+Lutaml::Model automatically generates additional methods to access reference keys directly without resolving the objects:
+
+[source,ruby]
+----
+# For single references: <attribute_name>_<key_attribute>
+book.author_ref = "author-1"
+book.author_ref_id     # => "author-1" (just the key)
+book.author_ref.name   # => "John Doe" (resolved object)
+
+# For collection references: <attribute_name>_<pluralized_key_attribute>
+book.co_authors = ["author-1", "author-2"]
+book.co_authors_ids         # => ["author-1", "author-2"] (just the keys)
+book.co_authors.map(&:name) # => ["John Doe", "Jane Smith"] (resolved objects)
+
+# Works with custom key attributes too
+# attribute :category_ref, { ref: ["Category", :slug] }
+# product.category_ref_slug  # => "electronics" (key accessor)
+
+# Pluralization examples:
+# :id → :ids, :name → :names, :category → :categories
 ----
 
 ==== Serialization

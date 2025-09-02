@@ -13,12 +13,12 @@ end
 
 RSpec.describe Lutaml::Model::Type::Reference do
   let(:target_object) { TestModel.new(id: "test-123", name: "Test Object") }
-  
+
   before do
     # Register the target object in the store
     Lutaml::Model::Store.instance.register(target_object)
   end
-  
+
   after do
     # Clean up the store after each test
     Lutaml::Model::Store.instance.clear
@@ -34,10 +34,12 @@ RSpec.describe Lutaml::Model::Type::Reference do
     end
 
     context "with string value" do
+      subject(:cast_result) { described_class.cast(value) }
+
       let(:value) { "test-123" }
 
       it "returns the value as-is (no auto-casting without metadata)" do
-        is_expected.to eq("test-123")
+        expect(cast_result).to eq("test-123")
       end
     end
 
@@ -144,8 +146,9 @@ RSpec.describe Lutaml::Model::Type::Reference do
 
   describe ".serialize" do
     context "with Reference instance" do
-      let(:reference) { described_class.new("TestModel", :id, "test-123") }
       subject(:serialized) { described_class.serialize(reference) }
+
+      let(:reference) { described_class.new("TestModel", :id, "test-123") }
 
       it "returns the key" do
         expect(serialized).to eq("test-123")
@@ -153,8 +156,9 @@ RSpec.describe Lutaml::Model::Type::Reference do
     end
 
     context "with string value" do
-      let(:value) { "direct-string" }
       subject(:serialized) { described_class.serialize(value) }
+
+      let(:value) { "direct-string" }
 
       it "returns the string" do
         expect(serialized).to eq("direct-string")
@@ -162,10 +166,11 @@ RSpec.describe Lutaml::Model::Type::Reference do
     end
 
     context "with array of References" do
-      let(:ref1) { described_class.new("TestModel", :id, "key1") }
-      let(:ref2) { described_class.new("TestModel", :id, "key2") }
-      let(:value) { [ref1, ref2] }
       subject(:serialized) { described_class.serialize(value) }
+
+      let(:first_ref) { described_class.new("TestModel", :id, "key1") }
+      let(:second_ref) { described_class.new("TestModel", :id, "key2") }
+      let(:value) { [first_ref, second_ref] }
 
       it "returns string representation of array (default behavior)" do
         expect(serialized).to include("key1")
@@ -174,8 +179,9 @@ RSpec.describe Lutaml::Model::Type::Reference do
     end
 
     context "with nil value" do
-      let(:value) { nil }
       subject(:serialized) { described_class.serialize(value) }
+
+      let(:value) { nil }
 
       it "returns empty string" do
         expect(serialized).to eq("")
@@ -186,40 +192,40 @@ RSpec.describe Lutaml::Model::Type::Reference do
   describe "integration with models" do
     let(:container) { Container.new(id: "container-1") }
 
-    context "single reference assignment" do
+    context "when assigning single reference" do
       it "returns resolved object directly (transparent behavior)" do
         container.my_ref = "test-123"
-        
+
         # Users get the resolved object directly
         expect(container.my_ref).to eq(target_object)
         expect(container.my_ref.name).to eq("Test Object")
       end
     end
 
-    context "collection of references" do
+    context "when assigning collection of references" do
       let(:target_object2) { TestModel.new(id: "test-456", name: "Test Object 2") }
-      
+
       before do
         Lutaml::Model::Store.instance.register(target_object2)
       end
 
       it "returns resolved objects directly (transparent behavior)" do
         container.multiple_refs = ["test-123", "test-456"]
-        
+
         # Users get the resolved objects directly
         expect(container.multiple_refs).to eq([target_object, target_object2])
         expect(container.multiple_refs.map(&:name)).to eq(["Test Object", "Test Object 2"])
       end
     end
 
-    context "serialization round-trip" do
+    context "when testing serialization round-trip" do
       it "maintains reference integrity through YAML serialization" do
         container.my_ref = "test-123"
-        
+
         # Serialize to YAML - should show key value
         yaml_data = container.to_yaml
         expect(yaml_data).to include("my_ref: test-123")
-        
+
         # Deserialize from YAML - should resolve to object
         loaded_container = Container.from_yaml(yaml_data)
         expect(loaded_container.my_ref).to eq(target_object)
@@ -227,7 +233,7 @@ RSpec.describe Lutaml::Model::Type::Reference do
       end
     end
 
-    context "unresolved references" do
+    context "when references are unresolved" do
       it "returns nil when object is not in store" do
         container.my_ref = "non-existent-key"
 
@@ -238,9 +244,9 @@ RSpec.describe Lutaml::Model::Type::Reference do
       it "handles collections with mixed resolved/unresolved references" do
         target_object2 = TestModel.new(id: "test-456", name: "Test Object 2")
         Lutaml::Model::Store.instance.register(target_object2)
-        
+
         container.multiple_refs = ["test-123", "non-existent", "test-456"]
-        
+
         expected_result = [target_object, nil, target_object2]
         expect(container.multiple_refs).to eq(expected_result)
       end

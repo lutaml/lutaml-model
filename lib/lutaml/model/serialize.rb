@@ -1,3 +1,4 @@
+require "active_support/inflector"
 require_relative "xml_adapter"
 require_relative "config"
 require_relative "type"
@@ -122,34 +123,45 @@ module Lutaml
               # Cast the derived value to the specified type
               attr.cast_element(value, __register)
             end
+          elsif attr.unresolved_type == Lutaml::Model::Type::Reference
+            define_reference_methods(name)
           else
-            if attr.unresolved_type == Lutaml::Model::Type::Reference
-              define_reference_methods(name)
-            else
-              define_regular_attribute_methods(name, attr)
-            end
+            define_regular_attribute_methods(name, attr)
           end
         end
 
         def define_reference_methods(name)
+          attr = attributes[name]
+
           define_method("#{name}_ref") do
-            self.class.send(:get_private, :"@#{name}_ref")
+            get_private(:"@#{name}_ref")
+          end
+
+          key_method_name = if attr.options[:collection]
+                              attr.options[:ref_key_attribute].to_s.pluralize
+                            else
+                              attr.options[:ref_key_attribute]
+                            end
+
+          define_method("#{name}_#{key_method_name}") do
+            ref = get_private(:"@#{name}_ref")
+            resolve_reference_key(ref)
           end
 
           define_method(name) do
-            ref = self.class.send(:get_private, :"@#{name}_ref")
+            ref = get_private(:"@#{name}_ref")
             resolve_reference_value(ref)
           end
 
           define_method(:"#{name}=") do |value|
             value_set_for(name)
-            attr = self.class.attributes[name]
-            casted_value = attr.cast_value(value, __register)
-            
-            self.class.send(:set_private, :"@#{name}_ref", casted_value)
-            
-            resolved_value = resolve_reference_value(casted_value)
-            instance_variable_set(:"@#{name}", resolved_value)
+            casted_value = value
+            casted_value = attr.cast_value(value, __register) unless casted_value.is_a?(Lutaml::Model::Type::Reference)
+
+            set_private(:"@#{name}_ref", casted_value)
+
+            resolved_reference = resolve_reference_key(casted_value)
+            instance_variable_set(:"@#{name}", resolved_reference)
           end
         end
 
@@ -631,14 +643,6 @@ module Lutaml
 
         private
 
-        def get_private(name)
-          instance_variable_get(name)
-        end
-
-        def set_private(name, value)
-          instance_variable_set(name, value)
-        end
-
         def process_type_hash(type, options)
           if reference_type?(type)
             type, options = process_reference_type(type, options)
@@ -794,7 +798,8 @@ module Lutaml
       end
 
       def pretty_print_instance_variables
-        (instance_variables - INTERNAL_ATTRIBUTES).sort
+        reference_attributes = instance_variables.select { |var| var.to_s.end_with?("_ref") }
+        (instance_variables - INTERNAL_ATTRIBUTES - reference_attributes).sort
       end
 
       def to_yaml_hash
@@ -809,6 +814,14 @@ module Lutaml
       end
 
       private
+
+      def get_private(name)
+        instance_variable_get(name)
+      end
+
+      def set_private(name, value)
+        instance_variable_set(name, value)
+      end
 
       def validate_root_mapping!(format, options)
         return if format != :xml
@@ -857,14 +870,20 @@ module Lutaml
         Lutaml::Model::Store.register(self)
       end
 
+      def resolve_reference_key(ref)
+        return nil if ref.nil?
+
+        return ref.map { |r| resolve_reference_key(r) } if ref.is_a?(Array)
+
+        ref.is_a?(Type::Reference) ? ref.key : ref
+      end
+
       def resolve_reference_value(ref)
         return nil if ref.nil?
-        
-        if ref.is_a?(Array)
-          ref.map(&:object)
-        else
-          ref.object
-        end
+
+        return ref.map { |r| resolve_reference_value(r) } if ref.is_a?(Array)
+
+        ref.is_a?(Type::Reference) ? ref.object : ref
       end
     end
   end
