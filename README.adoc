@@ -566,7 +566,7 @@ diff_score, diff_tree = Lutaml::Model::Serialize.diff_with_score(
 )
 ----
 
-==== Collection Handling
+===== Collection Handling
 
 The diff functionality handles collections (arrays) intelligently:
 
