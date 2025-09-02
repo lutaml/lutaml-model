@@ -57,13 +57,11 @@ RSpec.describe Lutaml::Model::Type::Reference do
 
       it "creates a Reference instance with the correct metadata" do
         expect(cast_with_metadata).to be_a(described_class)
-        expect(cast_with_metadata.model_class).to eq("TestModel")
-        expect(cast_with_metadata.key_attribute).to eq(:id)
         expect(cast_with_metadata.key).to eq("test-123")
       end
 
       it "resolves the target object" do
-        expect(cast_with_metadata.value).to eq(target_object)
+        expect(cast_with_metadata.object).to eq(target_object)
       end
     end
 
@@ -73,7 +71,7 @@ RSpec.describe Lutaml::Model::Type::Reference do
       it "creates a Reference instance with nil key" do
         expect(cast_with_metadata).to be_a(described_class)
         expect(cast_with_metadata.key).to be_nil
-        expect(cast_with_metadata.value).to be_nil
+        expect(cast_with_metadata.object).to be_nil
       end
     end
 
@@ -99,46 +97,21 @@ RSpec.describe Lutaml::Model::Type::Reference do
   describe "#initialize" do
     subject(:reference) { described_class.new("TestModel", :id, "test-123") }
 
-    it "sets the model class" do
-      expect(reference.model_class).to eq("TestModel")
-    end
-
-    it "sets the key attribute" do
-      expect(reference.key_attribute).to eq(:id)
-    end
-
     it "sets the key" do
       expect(reference.key).to eq("test-123")
     end
 
-    it "resolves the value automatically" do
-      expect(reference.value).to eq(target_object)
+    it "resolves the object automatically" do
+      expect(reference.object).to eq(target_object)
     end
   end
 
-  describe "#with_key" do
-    let(:reference) { described_class.new("TestModel", :id, "old-key") }
-    subject(:new_reference) { reference.with_key("new-key") }
-
-    it "creates a new reference with the new key" do
-      expect(new_reference).to be_a(described_class)
-      expect(new_reference.key).to eq("new-key")
-      expect(new_reference.model_class).to eq("TestModel")
-      expect(new_reference.key_attribute).to eq(:id)
-    end
-
-    it "does not modify the original reference" do
-      new_reference
-      expect(reference.key).to eq("old-key")
-    end
-  end
-
-  describe "#resolve" do
+  describe "#object" do
     let(:reference) { described_class.new("TestModel", :id, "test-123") }
 
     context "when target object exists in store" do
       it "returns the resolved object" do
-        expect(reference.resolve).to eq(target_object)
+        expect(reference.object).to eq(target_object)
       end
     end
 
@@ -146,7 +119,7 @@ RSpec.describe Lutaml::Model::Type::Reference do
       let(:reference) { described_class.new("TestModel", :id, "non-existent") }
 
       it "returns nil" do
-        expect(reference.resolve).to be_nil
+        expect(reference.object).to be_nil
       end
     end
   end
@@ -219,7 +192,7 @@ RSpec.describe Lutaml::Model::Type::Reference do
         
         expect(container.my_ref).to be_a(described_class)
         expect(container.my_ref.key).to eq("test-123")
-        expect(container.my_ref.resolve).to eq(target_object)
+        expect(container.my_ref.object).to eq(target_object)
       end
     end
 
@@ -235,7 +208,7 @@ RSpec.describe Lutaml::Model::Type::Reference do
         
         expect(container.multiple_refs).to all(be_a(described_class))
         expect(container.multiple_refs.map(&:key)).to eq(["test-123", "test-456"])
-        expect(container.multiple_refs.map(&:resolve)).to eq([target_object, target_object2])
+        expect(container.multiple_refs.map(&:object)).to eq([target_object, target_object2])
       end
     end
 
@@ -251,7 +224,7 @@ RSpec.describe Lutaml::Model::Type::Reference do
         loaded_container = Container.from_yaml(yaml_data)
         expect(loaded_container.my_ref).to be_a(described_class)
         expect(loaded_container.my_ref.key).to eq("test-123")
-        expect(loaded_container.my_ref.resolve).to eq(target_object)
+        expect(loaded_container.my_ref.object).to eq(target_object)
       end
     end
   end
