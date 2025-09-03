@@ -17,7 +17,7 @@ class Book < Lutaml::Model::Serializable
   attribute :id, :string
   attribute :title, :string
   attribute :author_ref, { ref: ["Author", :id] }
-  attribute :co_authors, { ref: ["Author", :id] }, collection: true
+  attribute :co_authors, { ref: ["Author", :id] }, collection: true, default: []
 
   xml do
     root "book"
