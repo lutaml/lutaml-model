@@ -7,7 +7,7 @@ module Lutaml
           return value if value.is_a?(::Symbol)
           return nil if uninitialized_value?(value)
 
-          cast_string_to_symbol(value) if value.is_a?(::String)
+          cast_string_to_symbol(value.to_s)
         end
 
         def self.serialize(value)
@@ -23,24 +23,16 @@ module Lutaml
         def self.cast_string_to_symbol(value)
           return nil if value.empty?
 
-          if wrapped_symbol_format?(value)
-            extract_symbol_from_wrapper(value)
+          match = value.match(/^:(.+):$/)
+
+          if match && match[1]
+            match[1].to_sym
           else
             value.to_sym
           end
         end
 
-        def self.wrapped_symbol_format?(value)
-          value.match?(/^:(.+):$/)
-        end
-
-        def self.extract_symbol_from_wrapper(value)
-          match = value.match(/^:(.+):$/)
-          match[1].to_sym
-        end
-
-        private_class_method :uninitialized_value?, :cast_string_to_symbol,
-                             :wrapped_symbol_format?, :extract_symbol_from_wrapper # Format-specific serialization methods
+        private_class_method :uninitialized_value?, :cast_string_to_symbol # Format-specific serialization methods
 
         def to_xml
           # For XML, we use the :symbol: format to distinguish from strings

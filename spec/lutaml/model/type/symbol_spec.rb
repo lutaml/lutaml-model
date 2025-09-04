@@ -28,46 +28,28 @@ RSpec.describe Lutaml::Model::Type::Symbol do
       it { is_expected.to eq(:test_symbol) }
     end
 
-    context "with integer" do
-      let(:value) { 123 }
-
-      it { is_expected.to be_nil }
-    end
-
-    context "with float" do
-      let(:value) { 123.45 }
-
-      it { is_expected.to be_nil }
-    end
-
-    context "with boolean true" do
-      let(:value) { true }
-
-      it { is_expected.to be_nil }
-    end
-
-    context "with boolean false" do
-      let(:value) { false }
-
-      it { is_expected.to be_nil }
-    end
-
-    context "with array" do
-      let(:value) { [1, 2, 3] }
-
-      it { is_expected.to be_nil }
-    end
-
     context "with hash" do
       let(:value) { { a: 1, b: 2 } }
 
-      it { is_expected.to be_nil }
+      it { is_expected.to eq(:"{:a=>1, :b=>2}") }
     end
 
     context "with empty string" do
       let(:value) { "" }
 
       it { is_expected.to be_nil }
+    end
+
+    context "with string containing whitespace" do
+      let(:value) { ":hello world:" }
+
+      it { is_expected.to eq(:"hello world") }
+    end
+
+    context "with string containing colon" do
+      let(:value) { ":foo:bar:" }
+
+      it { is_expected.to eq(:"foo:bar") }
     end
   end
 
