@@ -429,4 +429,106 @@ RSpec.describe Lutaml::Model::Collection do
       )
     end
   end
+
+  # Test for collection parsing optimization - prevents double parsing
+  context "when handling simple collections with direct mapping" do
+    # Define a simple model where the entire object maps to a single attribute
+    let(:title_class) do
+      Class.new(Lutaml::Model::Serializable) do
+        attribute :content, :string
+
+        key_value do
+          map to: :content
+        end
+      end
+    end
+
+    # Define a collection of such models
+    let(:title_collection_class) do
+      title_klass = title_class
+      Class.new(Lutaml::Model::Collection) do
+        instances :titles, title_klass
+
+        key_value do
+          map_instances to: :titles
+        end
+      end
+    end
+
+    let(:json_data) { '["Title One", "Title Two", "Title Three"]' }
+    let(:yaml_data) do
+      <<~YAML
+        - Title One
+        - Title Two
+        - Title Three
+      YAML
+    end
+
+    it "parses JSON without redundant parsing of collection items" do
+      # This should not call from_json on each string item
+      collection = title_collection_class.from_json(json_data)
+
+      expect(collection.titles.size).to eq(3)
+      expect(collection.titles[0].content).to eq("Title One")
+      expect(collection.titles[1].content).to eq("Title Two")
+      expect(collection.titles[2].content).to eq("Title Three")
+    end
+
+    it "parses YAML without redundant parsing of collection items" do
+      # This should not call from_yaml on each string item
+      collection = title_collection_class.from_yaml(yaml_data)
+
+      expect(collection.titles.size).to eq(3)
+      expect(collection.titles[0].content).to eq("Title One")
+      expect(collection.titles[1].content).to eq("Title Two")
+      expect(collection.titles[2].content).to eq("Title Three")
+    end
+
+    it "handles JSON round-trip correctly" do
+      collection = title_collection_class.from_json(json_data)
+      json_output = collection.to_json
+      round_trip_collection = title_collection_class.from_json(json_output)
+
+      expect(round_trip_collection.titles.size).to eq(3)
+      expect(round_trip_collection.titles.map(&:content)).to eq(["Title One", "Title Two", "Title Three"])
+    end
+
+    it "handles YAML round-trip correctly" do
+      collection = title_collection_class.from_yaml(yaml_data)
+      yaml_output = collection.to_yaml
+      round_trip_collection = title_collection_class.from_yaml(yaml_output)
+
+      expect(round_trip_collection.titles.size).to eq(3)
+      expect(round_trip_collection.titles.map(&:content)).to eq(["Title One", "Title Two", "Title Three"])
+    end
+
+    it "handles cross-format conversion correctly" do
+      json_collection = title_collection_class.from_json(json_data)
+      yaml_collection = title_collection_class.from_yaml(yaml_data)
+
+      # Both should produce the same content
+      expect(json_collection.titles.map(&:content)).to eq(yaml_collection.titles.map(&:content))
+
+      # Converting between formats should work
+      expect(title_collection_class.from_yaml(json_collection.to_yaml).titles.map(&:content))
+        .to eq(["Title One", "Title Two", "Title Three"])
+      expect(title_collection_class.from_json(yaml_collection.to_json).titles.map(&:content))
+        .to eq(["Title One", "Title Two", "Title Three"])
+    end
+
+    it "does not attempt to parse simple string values as JSON/YAML" do
+      # This test ensures that when processing ["Title One", "Title Two", "Title Three"]
+      # the individual strings are not passed to JSON.parse() or YAML.parse()
+      # which would fail since "Title One" is not valid JSON
+
+      # Mock the JSON parser to ensure it's not called on individual strings
+      allow(JSON).to receive(:parse).and_call_original
+
+      collection = title_collection_class.from_json(json_data)
+
+      # JSON.parse should only be called once on the main array, not on individual strings
+      expect(JSON).to have_received(:parse).once.with(json_data, anything)
+      expect(collection.titles.map(&:content)).to eq(["Title One", "Title Two", "Title Three"])
+    end
+  end
 end

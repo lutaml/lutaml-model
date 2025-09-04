@@ -386,12 +386,12 @@ module Lutaml
 
       def cast(value, format, register, options = {})
         resolved_type = options[:resolved_type] || type(register)
-        return build_collection(value.map { |v| cast(v, format, register, options.merge(resolved_type: resolved_type)) }) if collection_instance?(value) || value.is_a?(Array)
+        return build_collection(value.map { |v| cast(v, format, register, options.merge(resolved_type: resolved_type, converted: true)) }) if collection_instance?(value) || value.is_a?(Array)
 
         return value if already_serialized?(resolved_type, value)
 
         klass = resolve_polymorphic_class(resolved_type, value, options)
-        if can_serialize?(klass, value, format)
+        if can_serialize?(klass, value, format, options)
           klass.apply_mappings(value, format, options.merge(register: register))
         elsif needs_conversion?(klass, value)
           klass.send(:"from_#{format}", value)
@@ -471,8 +471,10 @@ module Lutaml
           (format == :xml && value.is_a?(Lutaml::Model::Xml::XmlElement))
       end
 
-      def can_serialize?(klass, value, format)
-        klass <= Serialize && castable?(value, format)
+      def can_serialize?(klass, value, format, options)
+        return false unless klass <= Serialize
+
+        castable?(value, format) || options[:converted]
       end
 
       def custom_collection?
