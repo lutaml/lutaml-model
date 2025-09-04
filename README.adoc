@@ -584,6 +584,88 @@ part lost due to the inability of JSON to handle high-precision date-time.
 ----
 ====
 
+==== More Custom Date Format Examples
+
+You can create custom date and time formats by inheriting from the appropriate base types and overriding the serialization methods. Here are some additional examples:
+
+.Custom DDMMYYYY Date Format
+[example]
+====
+This example shows how to create a custom date format that outputs dates in DDMMYYYY format:
+
+[source,ruby]
+----
+class DDMMYYYYFormat < Lutaml::Model::Type::DateTime
+  # DDMMYYYY format
+  def to_xml
+    value&.strftime("%d%m%Y")
+  end
+end
+
+class Event < Lutaml::Model::Serializable
+  attribute :event_date, DDMMYYYYFormat
+  
+  xml do
+    root 'event'
+    map_element 'eventDate', to: :event_date
+  end
+end
+----
+
+Usage example:
+
+[source,ruby]
+----
+event = Event.new(event_date: DateTime.new(2024, 12, 25))
+puts event.to_xml
+# <event><eventDate>25122024</eventDate></event>
+----
+
+Where `25122024` represents:
+- `25`: Day 25 of the month
+- `12`: Month 12 of the year
+- `2024`: Year 2024
+====
+
+.Custom Weekly Date Format
+[example]
+====
+This example shows how to create a custom format that outputs dates in YYYYWWDD format (Year, Week, Day):
+
+[source,ruby]
+----
+class WeeklyFormat < Lutaml::Model::Type::DateTime
+  # YYYYWWDD format (Year, Week number, Day of week)
+  def to_xml
+    value&.strftime("%Y%W0%u")
+  end
+end
+
+class Schedule < Lutaml::Model::Serializable
+  attribute :week_date, WeeklyFormat
+  
+  xml do
+    root 'schedule'
+    map_element 'weekDate', to: :week_date
+  end
+end
+----
+
+Usage example:
+
+[source,ruby]
+----
+schedule = Schedule.new(week_date: DateTime.new(2024, 12, 25)) # Wednesday
+puts schedule.to_xml
+# <schedule><weekDate>20245203</weekDate></schedule>
+----
+
+Where `20245203` represents:
+- `2024`: Year 2024
+- `52`: Week 52 of the year
+- `03`: Day 3 of the week (Wednesday, where Monday = 1)
+====
+
 
 [[attribute-definition]]
 == Attributes
