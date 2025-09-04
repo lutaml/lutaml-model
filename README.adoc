@@ -1581,7 +1581,7 @@ puts SomeModel.new.to_yaml
 A derived attribute has a value computed dynamically on evaluation of an
 instance method.
 
-It is defined using the `method:` option along with a mandatory type specification.
+It is defined using the `method:` option along with a mandatory type specification. If the return value is not of the type, it will be casted to the specified type.
 
 Syntax:
 
