@@ -24,6 +24,12 @@ class RecursiveNode < Lutaml::Model::Serializable
   attribute :next_node, RecursiveNode
 end
 
+# Model with collection attributes for diff testing
+class ComparablePerson < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :children, ComparablePerson, collection: true
+end
+
 RSpec.describe Lutaml::Model::ComparableModel do
   describe "comparisons" do
     context "with simple types (Glaze)" do
@@ -165,6 +171,71 @@ RSpec.describe Lutaml::Model::ComparableModel do
           second_recursive_node.name = "X"
           expect(first_recursive_node.hash).not_to eq(second_recursive_node.hash)
         end
+      end
+    end
+
+    context "with diff_with_score and collection attributes" do
+      let(:person_one_yaml) do
+        <<~YAML
+          ---
+          name: Alice
+          children:
+            - name: Alice
+              children:
+              - name: Alice1
+              - name: Bob1
+            - name: Bob
+              children:
+              - name: Alice2
+              - name: Bob2
+        YAML
+      end
+
+      let(:person_one) do
+        ComparablePerson.from_yaml(person_one_yaml)
+      end
+
+      let(:person_two_yaml) do
+        <<~YAML
+          ---
+          name: Bob
+          children:
+            - name: Alice1
+              children:
+              - name: Alice1
+              - name: Bob2
+            - name: Bob2
+              children:
+              - name: Alice1
+              - name: Bob2
+        YAML
+      end
+
+      let(:person_two) do
+        ComparablePerson.from_yaml(person_two_yaml)
+      end
+
+      it "generates diff tree with collection attribute names" do
+        diff_score, diff_tree = Lutaml::Model::Serialize.diff_with_score(person_one, person_two)
+
+        expect(diff_score).to be_a(Float)
+        expect(diff_tree).to be_a(String)
+
+        expect(diff_tree).to include("children (collection)")
+
+        expect(diff_tree).to include("name (Lutaml::Model::Type::String)")
+        expect(diff_tree).to include('- (String) "Alice"')
+        expect(diff_tree).to include('+ (String) "Bob"')
+      end
+
+      it "shows the complete nested structure in diff tree" do
+        _diff_score, diff_tree = Lutaml::Model::Serialize.diff_with_score(person_one, person_two)
+
+        expect(diff_tree).to include("└── ComparablePerson")
+        expect(diff_tree).to include("├── name (Lutaml::Model::Type::String)")
+        expect(diff_tree).to include("└── children (collection)")
+
+        expect(diff_tree).to match(/children \(collection\).*\[1\].*ComparablePerson.*children \(collection\)/m)
       end
     end
   end
