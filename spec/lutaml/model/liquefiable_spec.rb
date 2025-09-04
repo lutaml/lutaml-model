@@ -256,4 +256,194 @@ RSpec.describe Lutaml::Model::Liquefiable do
       end
     end
   end
+
+  describe "liquid block mapping" do
+    # This test demonstrates using def methods with parameters in liquid mappings
+    # The def methods can accept parameters and are mapped through the liquid block
+    let(:klass) do
+      Class.new(Lutaml::Model::Serializable) do
+        attribute :path, :string
+        attribute :source, :string
+
+        liquid do
+          map "custom_path", to: :custom_path_method
+          map "source", to: :source
+          map "formatted_content", to: :format_content
+        end
+
+        # def method with optional parameter
+        def custom_path_method
+          File.join("templates", path)
+        end
+
+        # def method without parameters
+        def format_content
+          "Formatted: #{source}"
+        end
+      end
+    end
+
+    let(:instance) { klass.new(path: "test.xml", source: "content") }
+    let(:drop) { instance.to_liquid }
+
+    it "maps custom keys to specified methods" do
+      expect(drop.custom_path).to eq("templates/test.xml")
+      expect(drop.formatted_content).to eq("Formatted: content")
+    end
+
+    it "still allows direct attribute access" do
+      expect(drop.source).to eq("content")
+    end
+
+    it "works with liquid templates" do
+      template = Liquid::Template.parse("{{custom_path}} - {{formatted_content}}")
+      result = template.render(drop)
+      expect(result).to eq("templates/test.xml - Formatted: content")
+    end
+
+    it "provides both default and custom mappings" do
+      # Default attribute should still be available
+      expect(drop.path).to eq("test.xml")
+
+      # Custom mapping should override for specific keys
+      expect(drop.custom_path).to eq("templates/test.xml")
+    end
+  end
+
+  describe "without liquid block" do
+    let(:klass) do
+      Class.new(Lutaml::Model::Serializable) do
+        attribute :path, :string
+        attribute :source, :string
+      end
+    end
+
+    let(:instance) { klass.new(path: "test.xml", source: "content") }
+    let(:drop) { instance.to_liquid }
+
+    it "uses default attribute access" do
+      expect(drop.path).to eq("test.xml")
+      expect(drop.source).to eq("content")
+    end
+
+    it "works with liquid templates using default attributes" do
+      template = Liquid::Template.parse("{{path}} - {{source}}")
+      result = template.render(drop)
+      expect(result).to eq("test.xml - content")
+    end
+  end
+
+  describe "liquid mappings class method" do
+    let(:klass) do
+      Class.new(Lutaml::Model::Serializable) do
+        attribute :name, :string
+
+        liquid do
+          map "display_name", to: :formatted_name
+        end
+
+        def formatted_name
+          "Name: #{name}"
+        end
+      end
+    end
+
+    it "returns liquid mappings" do
+      mappings = klass.liquid_mappings
+      expect(mappings).to be_a(Lutaml::Model::Liquid::Mapping)
+      expect(mappings.mappings).to eq({ "display_name" => :formatted_name })
+    end
+
+    it "returns nil when no liquid block is defined" do
+      simple_klass = Class.new(Lutaml::Model::Serializable) do
+        attribute :name, :string
+      end
+
+      expect(simple_klass.liquid_mappings).to be_nil
+    end
+  end
+
+  describe "custom liquid drop inheritance" do
+    # Create a base model element
+    let(:model_element_class) do
+      Class.new(Lutaml::Model::Serializable) do
+        def self.name
+          "ModelElement"
+        end
+      end
+    end
+
+    # Create a schema class that inherits from model element
+    let(:schema_class) do
+      Class.new(model_element_class) do
+        def self.name
+          "Schema"
+        end
+
+        attribute :path, :string
+        attribute :source, :string
+
+        liquid_class "SpecialSchemaDrop" # Set the custom drop class for to_liquid
+      end
+    end
+
+    let(:schema_instance) { schema_class.new(path: "test.xml", source: "content") }
+
+    it "provides to_liquid_class method to get auto-generated drop class" do
+      base_drop_class = schema_class.to_liquid_class
+      expect(base_drop_class).to be_a(Class)
+      expect(base_drop_class.ancestors).to include(Liquid::Drop)
+    end
+
+    it "supports method delegation to original model" do
+      drop = schema_class.to_liquid_class.new(schema_instance)
+      expect(drop.path).to eq("test.xml")
+      expect(drop.source).to eq("content")
+    end
+
+    it "raises error when custom liquid class is not defined during to_liquid call" do
+      expect { schema_instance.to_liquid }.to raise_error(
+        Lutaml::Model::LiquidClassNotFoundError,
+        "Liquid class 'SpecialSchemaDrop' is not defined in memory. Please ensure the class is loaded before using it.",
+      )
+    end
+
+    context "with custom drop class inheritance" do
+      before do
+        # Create the custom drop class that inherits from the auto-generated one
+        stub_const("SpecialSchemaDrop", Class.new(schema_class.to_liquid_class) do
+          # New method not in original drop
+          def formatted_source
+            "Formatted: #{@object.source}"
+          end
+
+          # Overriding original method
+          def path
+            File.join("templates", @object.path)
+          end
+        end)
+      end
+
+      let(:custom_drop) { SpecialSchemaDrop.new(schema_instance) }
+
+      it "uses custom drop class when specified" do
+        expect(schema_class.drop_class.name).to eq("SpecialSchemaDrop")
+        expect(schema_instance.to_liquid).to be_a(schema_class.drop_class)
+      end
+
+      it "supports new methods in custom drop class" do
+        expect(custom_drop.formatted_source).to eq("Formatted: content")
+      end
+
+      it "allows overriding original methods" do
+        expect(custom_drop.path).to eq("templates/test.xml")
+      end
+
+      it "works with liquid templates" do
+        template = Liquid::Template.parse("{{path}} - {{formatted_source}}")
+        result = template.render(custom_drop)
+        expect(result).to eq("templates/test.xml - Formatted: content")
+      end
+    end
+  end
 end

@@ -8,6 +8,7 @@ end
 require_relative "error/invalid_format_error"
 require_relative "error/invalid_value_error"
 require_relative "error/liquid_not_enabled_error"
+require_relative "error/liquid_class_not_found_error"
 require_relative "error/incorrect_mapping_argument_error"
 require_relative "error/pattern_not_matched_error"
 require_relative "error/unknown_adapter_type_error"
