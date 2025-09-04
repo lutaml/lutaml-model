@@ -350,6 +350,8 @@ module Lutaml
               format_diff_item(item2, :green, node)
             elsif item2.nil?
               format_diff_item(item1, :red, node)
+            elsif item1.is_a?(ComparableModel) && item2.is_a?(ComparableModel)
+              format_object_attributes(item1, item2, node)
             else
               format_value_tree(item1, item2, node, "")
             end
@@ -447,6 +449,10 @@ module Lutaml
                 format_single_value(value1, parent_node,
                                     "#{attr} (#{attr_type})")
               end
+            elsif obj1.class.attributes[attr].collection?
+              attr_node = Tree.new("#{attr} (#{attr_type})")
+              parent_node.add_child(attr_node)
+              format_collection(value1, value2, attr_node)
             else
               format_value_tree(value1, value2, parent_node, attr, attr_type)
             end
