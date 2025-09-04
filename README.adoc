@@ -586,7 +586,7 @@ part lost due to the inability of JSON to handle high-precision date-time.
 
 ==== More Custom Date Format Examples
 
-You can create custom date and time formats by inheriting from the appropriate base types and overriding the serialization methods. Here are some additional examples:
+Custom date and time formats can be created by inheriting from the appropriate base types and overriding the serialization methods. Here are some additional examples:
 
 .Custom DDMMYYYY Date Format
 [example]
