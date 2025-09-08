@@ -10,9 +10,6 @@ module Lutaml
         end
         mappings = extract_mappings(options, format)
 
-        Utils.add_if_present(options, :key_mappings, mappings.key_mappings)
-        Utils.add_if_present(options, :value_mappings, mappings.value_mappings)
-
         mappings.mappings.each do |rule|
           process_mapping_rule(data, instance, format, rule, options)
         end
@@ -35,14 +32,10 @@ module Lutaml
 
       private
 
-      def process_rule!(instance, rule, hash, format, mappings, options)
+      def process_rule!(instance, rule, hash, format, _mappings, options)
         return handle_delegate(instance, rule, hash, format) if rule.delegate
 
-        value = process_mapping_for_instance(instance, hash, format, rule, options)
-
-        return unless mappings.key_value_mappings? && value
-
-        hash[rule_from_name(rule)] = handle_key_value_mappings(value, mappings)
+        process_mapping_for_instance(instance, hash, format, rule, options)
       end
 
       def process_mapping_for_instance(instance, hash, format, rule, options)
@@ -274,19 +267,6 @@ module Lutaml
           format,
           { mappings: attr_type.mappings_for(format) },
         )
-      end
-
-      def handle_key_value_mappings(value, mappings)
-        value.to_h do |v|
-          [
-            v[mappings.key_mappings.to_instance.to_s],
-            if mappings.value_mappings
-              v[mappings.value_mappings.as_attribute.to_s]
-            else
-              v.except(mappings.key_mappings.to_instance.to_s)
-            end,
-          ]
-        end
       end
 
       def rule_value_extractor_class

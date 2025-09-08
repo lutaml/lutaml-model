@@ -218,11 +218,6 @@ module Lutaml
           end
         end
 
-        def handle_key_value_mappings(mapping, format)
-          @mappings[format] ||= KeyValueMapping.new
-          @mappings[format].mappings_hash.merge!(mapping.mappings_hash)
-        end
-
         def import_model(model)
           if model.is_a?(Symbol) || model.is_a?(String)
             importable_models[:import_model] << model.to_sym
