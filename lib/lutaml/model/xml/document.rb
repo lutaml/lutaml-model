@@ -153,6 +153,8 @@ module Lutaml
             return
           end
 
+          return add_transformed_value(xml, rule, rule.transform_value(attribute, value, :to, :xml)) if rule.can_transform_to?(attribute, :xml)
+
           # Only transform when recursion is not called
           if !attribute.collection? || attribute.collection_instance?(value)
             value = ExportTransformer.call(value, rule, attribute)
@@ -190,6 +192,14 @@ module Lutaml
             xml.create_and_add_element(rule.name) do
               add_value(xml, value, attribute, cdata: rule.cdata)
             end
+          end
+        end
+
+        def add_transformed_value(xml, rule, value)
+          value.each { |val| add_transformed_value(xml, rule, val) } if value.is_a?(Array)
+
+          xml.create_and_add_element(rule.name) do
+            xml.add_text(xml, value, cdata: rule.cdata)
           end
         end
 
