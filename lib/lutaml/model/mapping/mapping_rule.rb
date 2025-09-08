@@ -259,6 +259,24 @@ module Lutaml
         @value_map[key].merge(options)
       end
 
+      def transform_value(attribute, value, read_method, format)
+        transformers = get_transformers(attribute)
+        transformers = transformers.reverse if read_method == :to
+
+        return value if transformers.empty? || transformers.none? { |t| t.can_transform?(read_method, format) }
+
+        transformers.reduce(value) { |v, method| method.public_send(read_method, v, format) }
+      end
+
+      def can_transform_to?(attribute, format)
+        get_transformers(attribute).any? { |t| t.can_transform?(:to, format) }
+      end
+
+      def get_transformers(attribute)
+        transformers = [transform, attribute&.transform].compact
+        transformers.select { |t| t.is_a?(Class) }
+      end
+
       private
 
       # if value is nil and render nil is false, will not render

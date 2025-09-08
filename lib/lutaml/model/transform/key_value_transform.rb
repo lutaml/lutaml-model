@@ -53,6 +53,11 @@ module Lutaml
         attribute = attributes[rule.to]
         value = rule.serialize(instance)
 
+        if rule.can_transform_to?(attribute, format)
+          hash[rule_from_name(rule)] = rule.transform_value(attribute, value, :to, format)
+          return
+        end
+
         return handle_raw_mapping(hash, value, format, options) if rule.raw_mapping?
         return handle_root_mappings(hash, value, format, rule, attribute) if rule.root_mapping?
 
@@ -207,6 +212,7 @@ module Lutaml
 
         return process_custom_method(rule, instance, value) if rule.has_custom_method_for_deserialization?
 
+        value = rule.transform_value(attr, value, :from, format)
         value = translate_mappings(value, rule.hash_mappings, attr, format)
         value = cast_value(value, attr, format, rule) unless rule.hash_mappings
 
