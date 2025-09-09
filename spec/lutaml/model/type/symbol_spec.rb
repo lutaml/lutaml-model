@@ -3,6 +3,7 @@ require "spec_helper"
 RSpec.describe Lutaml::Model::Type::Symbol do
   describe ".cast" do
     subject(:cast) { described_class.cast(value, options) }
+
     let(:options) { {} }
 
     context "without validation options" do
@@ -32,8 +33,15 @@ RSpec.describe Lutaml::Model::Type::Symbol do
 
       context "with hash" do
         let(:value) { { a: 1, b: 2 } }
+        let(:expected_value) do
+          if RUBY_VERSION < "3.4.0"
+            :"{:a=>1, :b=>2}"
+          else
+            :"{a: 1, b: 2}"
+          end
+        end
 
-        it { is_expected.to eq(:"{:a=>1, :b=>2}") }
+        it { is_expected.to eq(expected_value) }
       end
 
       context "with empty string" do
@@ -55,78 +63,76 @@ RSpec.describe Lutaml::Model::Type::Symbol do
       end
     end
 
-    context "with validation options" do
-      context "when using values restriction" do
-        let(:options) { { values: [:active, :inactive, :pending] } }
+    context "with values restriction validation" do
+      let(:options) { { values: %i[active inactive pending] } }
 
-        context "with valid wrapped format" do
-          let(:value) { ":inactive:" }
+      context "with valid wrapped format" do
+        let(:value) { ":inactive:" }
 
-          it { is_expected.to eq(:inactive) }
+        it { is_expected.to eq(:inactive) }
+      end
+
+      context "with invalid symbol" do
+        let(:value) { :unknown }
+
+        it "raises InvalidValueError" do
+          expect { cast }.to raise_error(
+            Lutaml::Model::Type::InvalidValueError,
+            /`unknown` is invalid, must be one of the following/,
+          )
         end
+      end
+    end
 
-        context "with invalid symbol" do
-          let(:value) { :unknown }
+    context "with pattern validation" do
+      let(:options) { { pattern: /^test_[a-z]+$/ } }
 
-          it "raises InvalidValueError" do
-            expect { cast }.to raise_error(
-              Lutaml::Model::Type::InvalidValueError,
-              /`unknown` is invalid, must be one of the following/
-            )
-          end
+      context "with valid wrapped format matching pattern" do
+        let(:value) { ":test_value:" }
+
+        it { is_expected.to eq(:test_value) }
+      end
+
+      context "with symbol not matching pattern" do
+        let(:value) { :invalid_symbol }
+
+        it "raises PatternNotMatchedError" do
+          expect { cast }.to raise_error(
+            Lutaml::Model::Type::PatternNotMatchedError,
+            /"invalid_symbol" does not match/,
+          )
+        end
+      end
+    end
+
+    context "with length validation" do
+      let(:options) { { min: 3, max: 10 } }
+
+      context "with wrapped format of valid length" do
+        let(:value) { ":hellohello:" }
+
+        it { is_expected.to eq(:hellohello) }
+      end
+
+      context "with symbol too short" do
+        let(:value) { :ab }
+
+        it "raises MinLengthError" do
+          expect { cast }.to raise_error(
+            Lutaml::Model::Type::MinLengthError,
+            /String "ab" length \(2\) is less than the minimum required length 3/,
+          )
         end
       end
 
-      context "when using pattern validation" do
-        let(:options) { { pattern: /^test_[a-z]+$/ } }
+      context "with symbol too long" do
+        let(:value) { :very_long_symbol_name }
 
-        context "with valid wrapped format matching pattern" do
-          let(:value) { ":test_value:" }
-
-          it { is_expected.to eq(:test_value) }
-        end
-
-        context "with symbol not matching pattern" do
-          let(:value) { :invalid_symbol }
-
-          it "raises PatternNotMatchedError" do
-            expect { cast }.to raise_error(
-              Lutaml::Model::Type::PatternNotMatchedError,
-              /"invalid_symbol" does not match/
-            )
-          end
-        end
-      end
-
-      context "when using length validation" do
-        let(:options) { { min: 3, max: 10 } }
-
-        context "with wrapped format of valid length" do
-          let(:value) { ":hellohello:" }
-
-          it { is_expected.to eq(:hellohello) }
-        end
-
-        context "with symbol too short" do
-          let(:value) { :ab }
-
-          it "raises MinLengthError" do
-            expect { cast }.to raise_error(
-              Lutaml::Model::Type::MinLengthError,
-              /String "ab" length \(2\) is less than the minimum required length 3/
-            )
-          end
-        end
-
-        context "with symbol too long" do
-          let(:value) { :very_long_symbol_name }
-
-          it "raises MaxLengthError" do
-            expect { cast }.to raise_error(
-              Lutaml::Model::Type::MaxLengthError,
-              /String "very_long_symbol_name" length \(21\) is greater than the maximum allowed length 10/
-            )
-          end
+        it "raises MaxLengthError" do
+          expect { cast }.to raise_error(
+            Lutaml::Model::Type::MaxLengthError,
+            /String "very_long_symbol_name" length \(21\) is greater than the maximum allowed length 10/,
+          )
         end
       end
     end
