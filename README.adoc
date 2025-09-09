@@ -463,8 +463,8 @@ The Symbol type only accepts valid string inputs and existing symbols:
 * ✅ **Non-empty strings**: `"active"` → `:active`
 * ✅ **Existing symbols**: `:pending` → `:pending` 
 * ✅ **Wrapper format**: `":done:"` → `:done`
+* ✅ **Other types**: integers, arrays, hashes, booleans → symbol (works similar to string type)
 * ❌ **Empty strings**: `""` → `nil`
-* ❌ **Other types**: integers, arrays, hashes, booleans → `nil`
 
 Since not all serialization formats natively support symbols (XML, JSON, TOML don't), 
 the Symbol type uses format-specific serialization strategies:
