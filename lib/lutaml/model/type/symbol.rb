@@ -2,12 +2,14 @@ module Lutaml
   module Model
     module Type
       class Symbol < Value
-        def self.cast(value, _options = {})
-          return nil if value.nil?
-          return value if value.is_a?(::Symbol)
-          return nil if uninitialized_value?(value)
+        def self.cast(value, options = {})
+          return nil if Utils.blank?(value)
+          return value if Utils.uninitialized?(value)
 
-          cast_string_to_symbol(value.to_s)
+          value = cast_string_to_symbol(value.to_s) unless value.is_a?(::Symbol)
+          Model::Services::Type::Validator::Symbol.validate!(value, options)
+
+          value
         end
 
         def self.serialize(value)
@@ -16,23 +18,13 @@ module Lutaml
           cast(value)
         end
 
-        def self.uninitialized_value?(value)
-          value.respond_to?(:uninitialized?) && value.uninitialized?
-        end
-
         def self.cast_string_to_symbol(value)
-          return nil if value.empty?
-
           match = value.match(/^:(.+):$/)
-
-          if match && match[1]
-            match[1].to_sym
-          else
-            value.to_sym
-          end
+          value = match[1] if match && match[1]
+          value.to_sym
         end
 
-        private_class_method :uninitialized_value?, :cast_string_to_symbol # Format-specific serialization methods
+        private_class_method :cast_string_to_symbol # Format-specific serialization methods
 
         def to_xml
           # For XML, we use the :symbol: format to distinguish from strings
