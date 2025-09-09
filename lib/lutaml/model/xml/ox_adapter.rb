@@ -51,9 +51,11 @@ module Lutaml
           return xml unless xml_mapping
 
           attributes = build_attributes(element, xml_mapping).compact
+          prefix = determine_namespace_prefix(options, xml_mapping)
 
           tag_name = options[:tag_name] || xml_mapping.root_element
           builder.create_and_add_element(tag_name,
+                                         prefix: prefix,
                                          attributes: attributes) do |el|
             index_hash = {}
             content = []
