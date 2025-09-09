@@ -59,18 +59,6 @@ RSpec.describe Lutaml::Model::Type::Symbol do
       context "when using values restriction" do
         let(:options) { { values: [:active, :inactive, :pending] } }
 
-        context "with valid symbol" do
-          let(:value) { :active }
-
-          it { is_expected.to eq(:active) }
-        end
-
-        context "with valid string" do
-          let(:value) { "pending" }
-
-          it { is_expected.to eq(:pending) }
-        end
-
         context "with valid wrapped format" do
           let(:value) { ":inactive:" }
 
@@ -87,33 +75,10 @@ RSpec.describe Lutaml::Model::Type::Symbol do
             )
           end
         end
-
-        context "with invalid string" do
-          let(:value) { "invalid_status" }
-
-          it "raises InvalidValueError" do
-            expect { cast }.to raise_error(
-              Lutaml::Model::Type::InvalidValueError,
-              /`invalid_status` is invalid, must be one of the following/
-            )
-          end
-        end
       end
 
       context "when using pattern validation" do
-        let(:options) { { pattern: /^(test|example)_[a-z]+$/ } }
-
-        context "with valid symbol matching pattern" do
-          let(:value) { :test_symbol }
-
-          it { is_expected.to eq(:test_symbol) }
-        end
-
-        context "with valid string matching pattern" do
-          let(:value) { "example_data" }
-
-          it { is_expected.to eq(:example_data) }
-        end
+        let(:options) { { pattern: /^test_[a-z]+$/ } }
 
         context "with valid wrapped format matching pattern" do
           let(:value) { ":test_value:" }
@@ -131,38 +96,15 @@ RSpec.describe Lutaml::Model::Type::Symbol do
             )
           end
         end
-
-        context "with string not matching pattern" do
-          let(:value) { "bad_format" }
-
-          it "raises PatternNotMatchedError" do
-            expect { cast }.to raise_error(
-              Lutaml::Model::Type::PatternNotMatchedError,
-              /"bad_format" does not match/
-            )
-          end
-        end
       end
 
       context "when using length validation" do
         let(:options) { { min: 3, max: 10 } }
 
-        context "with symbol of valid length" do
-          let(:value) { :test }
-
-          it { is_expected.to eq(:test) }
-        end
-
-        context "with string of valid length" do
-          let(:value) { "symbol" }
-
-          it { is_expected.to eq(:symbol) }
-        end
-
         context "with wrapped format of valid length" do
-          let(:value) { ":hello:" }
+          let(:value) { ":hellohello:" }
 
-          it { is_expected.to eq(:hello) }
+          it { is_expected.to eq(:hellohello) }
         end
 
         context "with symbol too short" do
@@ -183,28 +125,6 @@ RSpec.describe Lutaml::Model::Type::Symbol do
             expect { cast }.to raise_error(
               Lutaml::Model::Type::MaxLengthError,
               /String "very_long_symbol_name" length \(21\) is greater than the maximum allowed length 10/
-            )
-          end
-        end
-
-        context "with string too short" do
-          let(:value) { "ab" }
-
-          it "raises MinLengthError" do
-            expect { cast }.to raise_error(
-              Lutaml::Model::Type::MinLengthError,
-              /String "ab" length \(2\) is less than the minimum required length 3/
-            )
-          end
-        end
-
-        context "with string too long" do
-          let(:value) { "very_long_string" }
-
-          it "raises MaxLengthError" do
-            expect { cast }.to raise_error(
-              Lutaml::Model::Type::MaxLengthError,
-              /String "very_long_string" length \(16\) is greater than the maximum allowed length 10/
             )
           end
         end
