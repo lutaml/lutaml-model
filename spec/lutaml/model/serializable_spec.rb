@@ -120,6 +120,20 @@ module SerializeableSpec
       map_element "address", to: :address, with: { from: :address_from_xml }
     end
 
+    yaml do
+      map "name", to: :name
+      map "age", to: :age
+      map "phone", to: :phone, with: { to: :phone_to_json }
+      map "address", to: :address, with: { from: :address_from_json }
+    end
+
+    key_value do
+      map "name", to: :name
+      map "age", to: :age
+      map "phone", to: :phone, with: { to: :phone_to_json }
+      map "address", to: :address, with: { from: :address_from_json }
+    end
+
     def phone_to_json(model, doc)
       doc["phone"] = "+1-#{model.phone}"
     end
@@ -491,6 +505,85 @@ RSpec.describe Lutaml::Model::Serializable do
       it "deserializes from XML with custom name transformation" do
         expect(parsed).to eq(model)
       end
+    end
+  end
+
+  describe "InvalidFormatError handling" do
+    let(:invalid_data) do
+      {
+        xml: {
+          nokogiri: "<<<<name>John Doe</name>",
+          ox: "<<<<name>John Doe</name>",
+          oga: '<person xmlns="http://example.com" xmlns="http://another.com"><name>John Doe</name></person>',
+        },
+        json: {
+          standard_json: '{"name": "John", "age": 30,}',
+        },
+        yaml: {
+          standard_yaml: "name: \"John Doe\nage: 30",
+        },
+        toml: {
+          toml_rb: 'name = "John Doe\nage = 30',
+        },
+        hash: {
+          standard_hash: "This is not a hash",
+        },
+      }
+    end
+
+    shared_examples "invalid format error" do |format, adapter, method, config_key|
+      around do |example|
+        old_adapter = Lutaml::Model::Config.send("#{config_key}_adapter")
+        Lutaml::Model::Config.send("#{config_key}_adapter_type=", adapter)
+
+        example.run
+      ensure
+        Lutaml::Model::Config.send("#{config_key}_adapter=", old_adapter)
+      end
+
+      it "raises InvalidFormatError for invalid #{adapter.to_s.capitalize} #{format.to_s.upcase}" do
+        data = invalid_data[format][adapter]
+        expect do
+          SerializeableSpec::SingleOptionModel.public_send(method, data)
+        end.to raise_error(Lutaml::Model::InvalidFormatError) do |error|
+          expect(error.message).to include("`#{format}`")
+          expect(error.message).to include("input format is invalid")
+        end
+      end
+    end
+
+    describe "invalid format handling for XML" do
+      it_behaves_like "invalid format error", :xml, :nokogiri, :from_xml, :xml
+      it_behaves_like "invalid format error", :xml, :ox, :from_xml, :xml
+      it_behaves_like "invalid format error", :xml, :oga, :from_xml, :xml
+    end
+
+    describe "invalid format handling for invalid JSON" do
+      it_behaves_like "invalid format error", :json, :standard_json, :from_json, :json
+    end
+
+    describe "invalid format handling for invalid YAML" do
+      it_behaves_like "invalid format error", :yaml, :standard_yaml, :from_yaml, :yaml
+    end
+
+    describe "invalid format handling for invalid TOML" do
+      it_behaves_like "invalid format error", :toml, :toml_rb, :from_toml, :toml
+
+      # Only test Tomlib if not on problematic platform (Windows Ruby < 3.3)
+      if RUBY_PLATFORM.include?("mingw") && RUBY_VERSION < "3.3"
+        # NOTE: Skipped Tomlib case because it causes segmentation fault on
+        # Windows with Ruby < 3.3
+        it "skips Tomlib test on Windows Ruby < 3.3 due to segfault risk" do
+          skip "Tomlib causes segmentation faults on Windows with Ruby < 3.3 " \
+               "when parsing invalid TOML"
+        end
+      else
+        it_behaves_like "invalid format error", :toml, :tomlib, :from_toml, :toml
+      end
+    end
+
+    describe "invalid format handling for invalid HASH" do
+      it_behaves_like "invalid format error", :hash, :standard_hash, :from_hash, :hash
     end
   end
 end

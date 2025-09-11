@@ -263,7 +263,7 @@ module Lutaml
       end
 
       def only_keys_mapped?(child_mappings, hash)
-        child_mappings.values == [:key] && hash.values.all?(Hash)
+        child_mappings.values == [:key] && hash.values.all?(::Hash)
       end
 
       def map_child_data(child_hash, attr, format)

@@ -35,7 +35,7 @@ module Lutaml
 
         def self.serialize(value)
           return nil if value.nil?
-          return value if value.is_a?(Hash)
+          return value if value.is_a?(::Hash)
 
           value.respond_to?(:to_h) ? value.to_h : Hash(value)
         end

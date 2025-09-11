@@ -22,7 +22,7 @@ require_relative "model/yamls"
 require_relative "model/json"
 require_relative "model/jsonl"
 require_relative "model/toml"
-require_relative "model/hash_adapter"
+require_relative "model/hash"
 require_relative "model/xml"
 
 module Lutaml

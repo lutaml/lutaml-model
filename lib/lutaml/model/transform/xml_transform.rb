@@ -193,7 +193,7 @@ module Lutaml
                                 replace: "")
         when Array
           value.map { |v| ensure_utf8(v) }
-        when Hash
+        when ::Hash
           value.transform_keys do |k|
             ensure_utf8(k)
           end.transform_values do |v|

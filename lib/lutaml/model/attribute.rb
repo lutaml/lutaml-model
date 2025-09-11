@@ -18,6 +18,7 @@ module Lutaml
         polymorphic_class
         initialize_empty
         validations
+        required
       ].freeze
 
       MODEL_STRINGS = [
@@ -131,9 +132,17 @@ module Lutaml
         build_collection(value.map { |v| cast_element(v, register) })
       end
 
+      def required_value_set?(value)
+        return true unless options[:required]
+        return false if value.nil?
+        return false if value.respond_to?(:empty?) && value.empty?
+
+        true
+      end
+
       def cast_element(value, register)
         resolved_type = type(register)
-        return resolved_type.new(value) if value.is_a?(Hash) && !hash_type?
+        return resolved_type.new(value) if value.is_a?(::Hash) && !hash_type?
 
         resolved_type.cast(value)
       end
@@ -257,6 +266,8 @@ module Lutaml
       #          will raise `Lutaml::Model::CollectionCountOutOfRangeError`
       def validate_value!(value, register)
         # Use the default value if the value is nil
+        validate_required!(value)
+
         value = default(register) if value.nil?
         resolved_type = type(register)
 
@@ -456,7 +467,7 @@ module Lutaml
       end
 
       def castable?(value, format)
-        value.is_a?(Hash) ||
+        value.is_a?(::Hash) ||
           (format == :xml && value.is_a?(Lutaml::Model::Xml::XmlElement))
       end
 
@@ -503,6 +514,12 @@ module Lutaml
         return if type || method_name
 
         raise ArgumentError, "method or type must be set for an attribute"
+      end
+
+      def validate_required!(value)
+        return if required_value_set?(value)
+
+        raise Lutaml::Model::RequiredAttributeMissingError.new(name)
       end
 
       def set_default_for_collection

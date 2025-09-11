@@ -1,6 +1,6 @@
 require "spec_helper"
 
-RSpec.describe "HashAdapter" do
+RSpec.describe "Hash" do
   before do
     stub_const("HashMappingSpec", Module.new)
 

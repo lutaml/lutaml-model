@@ -6,7 +6,7 @@ module Lutaml
     module Yaml
       class StandardAdapter < Document
         FORMAT_SYMBOL = :yaml
-        PERMITTED_CLASSES_BASE = [Date, Time, DateTime, Symbol, Hash,
+        PERMITTED_CLASSES_BASE = [Date, Time, DateTime, Symbol, ::Hash,
                                   Array].freeze
 
         PERMITTED_CLASSES = if defined?(BigDecimal)

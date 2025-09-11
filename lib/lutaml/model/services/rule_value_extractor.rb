@@ -51,7 +51,7 @@ module Lutaml
 
       def transform_mapped_value(value)
         value.map do |k, v|
-          if v.is_a?(Hash)
+          if v.is_a?(::Hash)
             transform_hash_value(v, k, options)
           else
             transform_simple_value(k, v, options)
@@ -76,7 +76,7 @@ module Lutaml
 
       def should_transform_value?(value)
         (options[:key_mappings] || options[:value_mappings]) &&
-          value.is_a?(Hash)
+          value.is_a?(::Hash)
       end
 
       def convert_to_format(doc, format)

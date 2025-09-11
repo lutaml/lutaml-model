@@ -22,6 +22,8 @@ module Lutaml
       include Lutaml::Model::Liquefiable
       include Lutaml::Model::Registrable
 
+      INTERNAL_ATTRIBUTES = %i[@using_default @__register].freeze
+
       def self.included(base)
         base.extend(ClassMethods)
         base.initialize_attrs(base)
@@ -130,7 +132,7 @@ module Lutaml
 
         # Define an attribute for the model
         def attribute(name, type, options = {})
-          if type.is_a?(Hash)
+          if type.is_a?(::Hash)
             options[:method_name] = type[:method]
             type = nil
           end
@@ -340,6 +342,35 @@ module Lutaml
 
           doc = adapter.parse(data, options)
           send("of_#{format}", doc, options)
+        rescue *format_error_types => e
+          raise Lutaml::Model::InvalidFormatError.new(format, e.message)
+        end
+
+        def format_error_types
+          errors = [
+            Psych::SyntaxError,
+            JSON::ParserError,
+            NoMethodError,
+            TypeError,
+            ArgumentError,
+          ]
+
+          %w[
+            Nokogiri::XML::SyntaxError
+            Ox::ParseError
+            TomlRB::ParseError
+            Tomlib::ParseError
+          ].each do |error_class|
+            errors << safe_get_const(error_class)
+          end
+
+          errors.compact
+        end
+
+        def safe_get_const(error_class)
+          return unless Object.const_defined?(error_class.split("::").first)
+
+          error_class.split("::").inject(Object) { |mod, part| mod.const_get(part) }
         end
 
         def of(format, doc, options = {})
@@ -475,7 +506,7 @@ module Lutaml
                                   replace: "")
           when Array
             value.map { |v| ensure_utf8(v) }
-          when Hash
+          when ::Hash
             value.transform_keys do |k|
               ensure_utf8(k)
             end.transform_values do |v|
@@ -685,7 +716,7 @@ module Lutaml
       end
 
       def pretty_print_instance_variables
-        (instance_variables - %i[@using_default @__register]).sort
+        (instance_variables - INTERNAL_ATTRIBUTES).sort
       end
 
       def to_yaml_hash

@@ -74,9 +74,6 @@ module Lutaml
       end
 
       def class_for(adapter, type)
-        # TODO: Remove once HashAdapter namespace is renamed to Hash
-        adapter = "hash_adapter" if adapter == "hash"
-
         Lutaml::Model.const_get(to_class_name(adapter))
           .const_get(to_class_name(type))
       end
@@ -102,13 +99,10 @@ module Lutaml
       private
 
       def normalize_type_name(type_name, adapter_name)
-        "#{type_name.to_s.gsub("_#{adapter_name}", '')}_adapter"
+        "#{type_name.start_with?('multi_json') ? 'multi_json' : type_name.to_s.gsub("_#{adapter_name}", '')}_adapter"
       end
 
       def load_adapter_file(adapter, type)
-        # TODO: Remove once HashAdapter namespace is renamed to Hash
-        adapter = "hash_adapter" if adapter == "hash"
-
         adapter_file = File.join(adapter, type)
         require_relative adapter_file
       rescue LoadError
