@@ -7531,7 +7531,7 @@ hsh | json | yaml | toml do
 end
 ----
 
-This is only applicable if the `to: :name_of_element` or `to: :name_of_attribute` option is set.  
+This is only applicable if the `to: :name_of_element` (in xml mapping) or `to: :name_of_attribute` (in key_value mapping) option is set.  
 If it is not set, then both custom methods must be provided.
 
 [example]
@@ -7579,7 +7579,7 @@ end
    @name="Vase",
    @ordered=nil,
    @size=15>
-> puts CustomCeramic.new(name: "Vase", size: 15, description: "A beautiful vase", metadata: Metadata.new(category: "Glaze", identifier: 15)).to_xml
+> puts CustomCeramic.new(name: "Vase", size: 15).to_xml
 # <CustomCeramic Size="15">
 #   <Name>XML Masterpiece: Vase</Name>
 # </CustomCeramic>
@@ -7598,7 +7598,7 @@ end
 > CustomCeramic.from_json(json)
 > #<CustomCeramic:0x0000000104ac7240 @name="Vase", @size=12>
 > CustomCeramic.new(name: "Vase", size: 12).to_json
-> #{"name"=>"Vase", "size"=>12}
+> # {"name":"Vase","size":12}
 ----
 ====
 
