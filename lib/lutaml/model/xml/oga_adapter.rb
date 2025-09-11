@@ -117,7 +117,7 @@ module Lutaml
           xml_mapping = mapper_class.mappings_for(:xml)
           return xml unless xml_mapping
 
-          attributes = build_attributes(element, xml_mapping).compact
+          attributes = build_element_attributes(element, xml_mapping, options).compact
           prefix = determine_namespace_prefix(options, xml_mapping)
 
           tag_name = options[:tag_name] || xml_mapping.root_element

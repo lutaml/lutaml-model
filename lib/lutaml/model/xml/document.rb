@@ -466,10 +466,22 @@ module Lutaml
         end
 
         def build_element_attributes(element, mapping, options)
-          xml_attributes = options[:xml_attributes] ||= {}
+          options[:xml_attributes] ||= {}
+          parent_namespaces = options[:parent_namespaces] ||= {}
           attributes = build_attributes(element, mapping, options)
+          xml_attributes = options.delete(:xml_attributes)
+          attributes = { **attributes, **xml_attributes }.compact
+          attributes.reject! do |key, value|
+            next unless key.start_with?("xmlns")
 
-          attributes.merge(xml_attributes)&.compact
+            if parent_namespaces.key?(key) && parent_namespaces[key] == value
+              true
+            else
+              parent_namespaces[key] = value
+              false
+            end
+          end
+          attributes
         end
       end
     end

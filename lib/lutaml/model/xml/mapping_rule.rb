@@ -23,6 +23,7 @@ module Lutaml
           delegate: nil,
           namespace: nil,
           prefix: nil,
+          prefix_optional: false,
           mixed_content: false,
           cdata: false,
           namespace_set: false,
@@ -66,6 +67,7 @@ module Lutaml
 
           @namespace_set = namespace_set
           @prefix_set = prefix_set
+          @prefix_optional = prefix_optional
         end
 
         def namespace_set?
@@ -90,6 +92,10 @@ module Lutaml
 
         def mixed_content?
           !!@mixed_content
+        end
+
+        def prefix_optional?
+          !!@prefix_optional
         end
 
         def prefixed_name

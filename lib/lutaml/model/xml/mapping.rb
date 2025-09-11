@@ -32,6 +32,7 @@ module Lutaml
           @format = :xml
           @mappings_imported = true
           @finalized = false
+          @prefix_optional = false
         end
 
         def finalize(mapper_class)
@@ -81,6 +82,15 @@ module Lutaml
           @namespace_prefix = prefix
         end
 
+        def prefix(name, optional: false)
+          @namespace_prefix = name
+          @prefix_optional = optional
+        end
+
+        def prefix_optional?
+          @prefix_optional
+        end
+
         def map_instances(to:)
           map_element(to, to: to)
         end
@@ -125,6 +135,7 @@ module Lutaml
             namespace: namespace,
             default_namespace: namespace_uri,
             prefix: prefix,
+            prefix_optional: prefix_optional?,
             polymorphic: polymorphic,
             namespace_set: namespace_set != false,
             prefix_set: prefix_set != false,
