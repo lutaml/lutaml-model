@@ -134,7 +134,7 @@ module Lutaml
           attr = attributes[name]
 
           define_method("#{name}_ref") do
-            get_private(:"@#{name}_ref")
+            instance_variable_get(:"@#{name}_ref")
           end
 
           key_method_name = if attr.options[:collection]
@@ -144,12 +144,12 @@ module Lutaml
                             end
 
           define_method("#{name}_#{key_method_name}") do
-            ref = get_private(:"@#{name}_ref")
+            ref = instance_variable_get(:"@#{name}_ref")
             resolve_reference_key(ref)
           end
 
           define_method(name) do
-            ref = get_private(:"@#{name}_ref")
+            ref = instance_variable_get(:"@#{name}_ref")
             resolve_reference_value(ref)
           end
 
@@ -158,7 +158,7 @@ module Lutaml
             casted_value = value
             casted_value = attr.cast_value(value, __register) unless casted_value.is_a?(Lutaml::Model::Type::Reference)
 
-            set_private(:"@#{name}_ref", casted_value)
+            instance_variable_set(:"@#{name}_ref", casted_value)
 
             resolved_reference = resolve_reference_key(casted_value)
             instance_variable_set(:"@#{name}", resolved_reference)
@@ -814,14 +814,6 @@ module Lutaml
       end
 
       private
-
-      def get_private(name)
-        instance_variable_get(name)
-      end
-
-      def set_private(name, value)
-        instance_variable_set(name, value)
-      end
 
       def validate_root_mapping!(format, options)
         return if format != :xml
