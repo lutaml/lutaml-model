@@ -54,9 +54,12 @@ module Lutaml
           )
 
           @namespace = if namespace.to_s == "inherit"
-                       # we are using inherit_namespace in xml builder by
-                       # default so no need to do anything here.
+                         # we are using inherit_namespace in xml builder by
+                         # default so no need to do anything here.
+                         @ns_inherited = true
+                         nil
                        else
+                         @prefix_set = prefix_set
                          namespace
                        end
           @prefix = prefix
@@ -66,7 +69,6 @@ module Lutaml
           @default_namespace = default_namespace
 
           @namespace_set = namespace_set
-          @prefix_set = prefix_set
           @prefix_optional = prefix_optional
         end
 
@@ -98,6 +100,10 @@ module Lutaml
           !!@prefix_optional
         end
 
+        def ns_inherited?
+          !!@ns_inherited
+        end
+
         def prefixed_name
           rule_name = multiple_mappings? ? name.first : name
           if prefix
@@ -108,11 +114,13 @@ module Lutaml
         end
 
         def namespaced_names(parent_namespace = nil)
-          if multiple_mappings?
-            name.map { |rule_name| namespaced_name(parent_namespace, rule_name) }
-          else
-            [namespaced_name(parent_namespace)]
-          end
+          names = if multiple_mappings?
+                    name.map { |rule_name| namespaced_name(parent_namespace, rule_name) }
+                  else
+                    [namespaced_name(parent_namespace)]
+                  end
+          names << name.to_s if prefix_optional?
+          names
         end
 
         def namespaced_name(parent_namespace = nil, name = self.name)

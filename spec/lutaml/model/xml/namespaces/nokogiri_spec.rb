@@ -1,8 +1,8 @@
 require "spec_helper"
-require "lutaml/model/xml/ox_adapter"
+require "lutaml/model/xml/nokogiri_adapter"
 
-module OxAdapter
-  module ModelLevelNamespaceDefinition
+module NokogiriAdapter
+  module ModelLevel
     class ElementWithoutNamespace < Lutaml::Model::Serializable
       attribute :status, :string
       attribute :name, :string
@@ -34,10 +34,28 @@ module OxAdapter
 
       xml do
         root "PrefixedWithPrefixedNamespace"
-        namespace "https://example.com/xsd-namespace", "xsd"
+        namespace "https://example.com/namespace", "xsd"
 
         map_attribute :status, to: :status
         map_element :name, to: :name
+      end
+    end
+
+    class OptionalPrefixed < Lutaml::Model::Serializable
+      attribute :status, :string
+      attribute :name, :string
+      attribute :description, :string
+      attribute :age, :string
+
+      xml do
+        root "OptionalPrefixed"
+        namespace "https://example.com/optional-prefixed"
+        prefix "opf", optional: true
+
+        map_attribute :status, to: :status
+        map_element :name, to: :name
+        map_element :description, to: :description
+        map_element :age, to: :age
       end
     end
   end
@@ -45,21 +63,23 @@ module OxAdapter
   module MappingLevelElementMapping
     class ElementName < Lutaml::Model::Serializable
       attribute :name, :string
+      attribute :status, :string
 
       xml do
-        root "name"
+        root "name", ordered: true
         namespace "https://example.com/namespace", "ewn"
 
         map_content to: :name
+        map_attribute :status, to: :status
       end
     end
 
     class ElementWithNamespace < Lutaml::Model::Serializable
       attribute :status, :string
-      attribute :name, ElementName
+      attribute :name, ElementName, collection: true
 
       xml do
-        root "ElementWithNamespace"
+        root "ElementWithNamespace", ordered: true
         namespace "https://example.com/namespace", "ewn"
 
         map_attribute :status, to: :status, namespace: "https://example.com/namespace-1", prefix: "ewn1"
@@ -69,15 +89,8 @@ module OxAdapter
   end
 end
 
-RSpec.describe "Lutaml::Model::XML::OxAdapter" do
-  let(:previous_adapter) { Lutaml::Model::Config.xml_adapter }
-
-  before do
-    previous_adapter
-    Lutaml::Model::Config.xml_adapter_type = :ox
-  end
-
-  after { Lutaml::Model::Config.xml_adapter = previous_adapter }
+RSpec.describe "Lutaml::Model::XML::NokogiriAdapter" do
+  before { Lutaml::Model::Config.xml_adapter_type = :nokogiri }
 
   describe "without model-level defined namespace" do
     context "without namespace xml processes successfully" do
@@ -90,11 +103,11 @@ RSpec.describe "Lutaml::Model::XML::OxAdapter" do
       end
 
       let(:instances) do
-        OxAdapter::ModelLevelNamespaceDefinition::ElementWithoutNamespace.from_xml(xml)
+        NokogiriAdapter::ModelLevel::ElementWithoutNamespace.from_xml(xml)
       end
 
       it "round trips successfully" do
-        expect(instances.to_xml).to eq(xml)
+        expect(instances.to_xml).to eq(xml.strip)
       end
     end
 
@@ -110,12 +123,12 @@ RSpec.describe "Lutaml::Model::XML::OxAdapter" do
       let(:expected_xml) { "<ElementWithoutNamespace status=\"active\"/>" }
 
       let(:instances) do
-        OxAdapter::ModelLevelNamespaceDefinition::ElementWithoutNamespace.from_xml(xml)
+        NokogiriAdapter::ModelLevel::ElementWithoutNamespace.from_xml(xml)
       end
 
       it "reads attributes but doesn't read child elements" do
         expect(instances.name).to be_nil
-        expect(instances.to_xml.strip).to eq(expected_xml)
+        expect(instances.to_xml).to eq(expected_xml)
       end
     end
   end
@@ -131,11 +144,11 @@ RSpec.describe "Lutaml::Model::XML::OxAdapter" do
       end
 
       let(:instances) do
-        OxAdapter::ModelLevelNamespaceDefinition::ElementWithNamespace.from_xml(xml)
+        NokogiriAdapter::ModelLevel::ElementWithNamespace.from_xml(xml)
       end
 
       it "round trips successfully" do
-        expect(instances.to_xml).to eq(xml)
+        expect(instances.to_xml).to eq(xml.strip)
       end
     end
 
@@ -151,12 +164,12 @@ RSpec.describe "Lutaml::Model::XML::OxAdapter" do
       let(:expected_xml) { "<ElementWithNamespace xmlns=\"https://example.com/namespace\" status=\"active\"/>" }
 
       let(:instances) do
-        OxAdapter::ModelLevelNamespaceDefinition::ElementWithNamespace.from_xml(xml)
+        NokogiriAdapter::ModelLevel::ElementWithNamespace.from_xml(xml)
       end
 
       it "reads attributes but doesn't read child elements" do
         expect(instances.name).to be_nil
-        expect(instances.to_xml.strip).to eq(expected_xml)
+        expect(instances.to_xml).to eq(expected_xml)
       end
     end
   end
@@ -165,18 +178,18 @@ RSpec.describe "Lutaml::Model::XML::OxAdapter" do
     context "with prefix xml successfully processed" do
       let(:xml) do
         <<~XML
-          <xsd:PrefixedWithPrefixedNamespace xmlns:xsd="https://example.com/xsd-namespace" status="active">
+          <xsd:PrefixedWithPrefixedNamespace xmlns:xsd="https://example.com/namespace" status="active">
             <xsd:name>Test Element</xsd:name>
           </xsd:PrefixedWithPrefixedNamespace>
         XML
       end
 
       let(:instances) do
-        OxAdapter::ModelLevelNamespaceDefinition::PrefixedWithPrefixedNamespace.from_xml(xml)
+        NokogiriAdapter::ModelLevel::PrefixedWithPrefixedNamespace.from_xml(xml)
       end
 
       it "round trips successfully" do
-        expect(instances.to_xml).to eq(xml)
+        expect(instances.to_xml).to eq(xml.strip)
       end
     end
 
@@ -189,10 +202,10 @@ RSpec.describe "Lutaml::Model::XML::OxAdapter" do
         XML
       end
 
-      let(:expected_xml) { "<xsd:PrefixedWithPrefixedNamespace xmlns:xsd=\"https://example.com/xsd-namespace\" status=\"active\"/>\n" }
+      let(:expected_xml) { "<xsd:PrefixedWithPrefixedNamespace xmlns:xsd=\"https://example.com/namespace\" status=\"active\"/>" }
 
       let(:instances) do
-        OxAdapter::ModelLevelNamespaceDefinition::PrefixedWithPrefixedNamespace.from_xml(xml)
+        NokogiriAdapter::ModelLevel::PrefixedWithPrefixedNamespace.from_xml(xml)
       end
 
       it "reads attributes but doesn't read child elements" do
@@ -202,18 +215,48 @@ RSpec.describe "Lutaml::Model::XML::OxAdapter" do
     end
   end
 
-  describe "with mapping-level defined namespace" do
-    context "with namespace xml successfully processed" do
+  describe "with model-level defined prefix with `optional: true` argument" do
+    context "with prefix xml successfully processed" do
       let(:xml) do
         <<~XML
-          <ewn:ElementWithNamespace xmlns:ewn="https://example.com/namespace" xmlns:ewn1="https://example.com/namespace-1" ewn1:status="active">
-            <ewn:name>Test Element</ewn:name>
-          </ewn:ElementWithNamespace>
+          <OptionalPrefixed status="active" xmlns:opf="https://example.com/optional-prefixed">
+            <name>John Doe</name>
+            <opf:description>Sample description</opf:description>
+            <age>30</age>
+          </OptionalPrefixed>
+        XML
+      end
+
+      let(:expected_xml) do
+        <<~XML.strip
+          <opf:OptionalPrefixed xmlns:opf="https://example.com/optional-prefixed" status="active">
+            <opf:name>John Doe</opf:name>
+            <opf:description>Sample description</opf:description>
+            <opf:age>30</opf:age>
+          </opf:OptionalPrefixed>
         XML
       end
 
       let(:instances) do
-        OxAdapter::MappingLevelElementMapping::ElementWithNamespace.from_xml(xml)
+        NokogiriAdapter::ModelLevel::OptionalPrefixed.from_xml(xml)
+      end
+
+      it "round trips successfully" do
+        expect(instances.to_xml).to eq(expected_xml)
+      end
+    end
+  end
+
+  describe "with mapping-level defined namespace" do
+    context "with namespace xml successfully processed" do
+      let(:xml) do
+        <<~XML.strip
+          <ewn:ElementWithNamespace xmlns:ewn="https://example.com/namespace" xmlns:ewn1="https://example.com/namespace-1" ewn1:status="active"><ewn:name status="active">Test Element</ewn:name></ewn:ElementWithNamespace>
+        XML
+      end
+
+      let(:instances) do
+        NokogiriAdapter::MappingLevelElementMapping::ElementWithNamespace.from_xml(xml)
       end
 
       it "round trips successfully" do
@@ -224,16 +267,20 @@ RSpec.describe "Lutaml::Model::XML::OxAdapter" do
     context "without namespace xml doesn't process properly" do
       let(:xml) do
         <<~XML
-          <ElementWithNamespace status="active">
+          <ElementWithNamespace ewn1:status="inactive">
             <name>Test Element</name>
           </ElementWithNamespace>
         XML
       end
 
-      let(:expected_xml) { "<ewn:ElementWithNamespace xmlns:ewn=\"https://example.com/namespace\" xmlns:ewn1=\"https://example.com/namespace-1\"/>" }
+      let(:expected_xml) do
+        <<~XML.strip
+          <ewn:ElementWithNamespace xmlns:ewn="https://example.com/namespace" xmlns:ewn1="https://example.com/namespace-1"></ewn:ElementWithNamespace>
+        XML
+      end
 
       let(:instances) do
-        OxAdapter::MappingLevelElementMapping::ElementWithNamespace.from_xml(xml)
+        NokogiriAdapter::MappingLevelElementMapping::ElementWithNamespace.from_xml(xml)
       end
 
       it "reads attributes but doesn't read child elements" do

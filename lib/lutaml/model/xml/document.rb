@@ -234,6 +234,11 @@ module Lutaml
 
             mappings = xml_mapping.elements + [xml_mapping.raw_mapping].compact
             mappings.each do |element_rule|
+              if element_rule.ns_inherited?
+                xml.add_namespace_prefix(element_rule.prefix)
+              elsif !element_rule.prefix_set?
+                xml.add_namespace_prefix(prefix)
+              end
               attribute_def = attribute_definition_for(element, element_rule,
                                                        mapper_class: mapper_class)
 
@@ -382,6 +387,9 @@ module Lutaml
 
             if mapping_rule.namespace && mapping_rule.prefix
               hash["xmlns:#{mapping_rule.prefix}"] = mapping_rule.namespace
+            elsif mapping_rule.ns_inherited?
+              namespace_prefix = ["xmlns", mapping_rule.prefix].compact.join(":")
+              hash[namespace_prefix] = xml_mapping.namespace_uri
             end
           end
         end

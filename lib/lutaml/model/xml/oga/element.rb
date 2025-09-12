@@ -85,8 +85,8 @@ module Lutaml
           end
 
           def add_namespaces(node)
-            node_namespaces = Array[node.namespace, *node.namespaces]
-            node_namespaces.compact.each do |namespace|
+            node_namespaces = [node.namespace, *node.namespaces].compact
+            node_namespaces.each do |namespace|
               add_namespace(XmlNamespace.new(namespace.uri, namespace.prefix))
             end
           end

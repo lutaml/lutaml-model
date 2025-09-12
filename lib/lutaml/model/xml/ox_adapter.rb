@@ -33,7 +33,6 @@ module Lutaml
           elsif ordered?(@root, options)
             build_ordered_element(builder, @root, options)
           else
-            mapper_class = options[:mapper_class] || @root.class
             build_element(builder, @root, options)
           end
 

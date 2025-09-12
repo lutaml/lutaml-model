@@ -322,11 +322,12 @@ RSpec.describe Delegation do
     delegation_attributes = [
       'xmlns:del1="https://example.com/delegation/1.1"',
       'xmlns:del2="https://example.com/delegation/1.2"',
+      'xmlns="https://example.com/delegation/1.1"',
       'del2:date="2024-06-08"',
     ]
 
     expect(xml_data).to include("<del1:delegation #{delegation_attributes.join(' ')}>")
-    expect(xml_data).to include("<del1:type>Vase</del1:type>")
+    expect(xml_data).to include("<type>Vase</type>")
   end
 
   it "sets the namespace of a particular element inside Ceramic" do

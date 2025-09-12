@@ -40,6 +40,24 @@ module OgaAdapter
         map_element :name, to: :name
       end
     end
+
+    class OptionalPrefixed < Lutaml::Model::Serializable
+      attribute :status, :string
+      attribute :name, :string
+      attribute :description, :string
+      attribute :age, :string
+
+      xml do
+        root "OptionalPrefixed"
+        namespace "https://example.com/optional-prefixed"
+        prefix "opf", optional: true
+
+        map_attribute :status, to: :status
+        map_element :name, to: :name
+        map_element :description, to: :description
+        map_element :age, to: :age
+      end
+    end
   end
 
   module MappingLevelElementMapping
@@ -80,6 +98,7 @@ RSpec.describe "Lutaml::Model::XML::OgaAdapter" do
   end
 
   after { Lutaml::Model::Config.xml_adapter = previous_adapter }
+
   describe "without model-level defined namespace" do
     context "without namespace xml processes successfully" do
       let(:xml) do
@@ -197,6 +216,34 @@ RSpec.describe "Lutaml::Model::XML::OgaAdapter" do
     end
   end
 
+  describe "with model-level defined prefix with optional argument" do
+    context "with prefix xml successfully processed" do
+      let(:xml) do
+        <<~XML
+          <OptionalPrefixed status="active" xmlns:opf="https://example.com/optional-prefixed">
+            <name>John Doe</name>
+            <opf:description>Sample description</opf:description>
+            <age>30</age>
+          </OptionalPrefixed>
+        XML
+      end
+
+      let(:expected_xml) do
+        <<~XML.strip
+          <opf:OptionalPrefixed xmlns:opf="https://example.com/optional-prefixed" status="active"><opf:name>John Doe</opf:name><opf:description>Sample description</opf:description><opf:age>30</opf:age></opf:OptionalPrefixed>
+        XML
+      end
+
+      let(:instances) do
+        OgaAdapter::ModelLevel::OptionalPrefixed.from_xml(xml)
+      end
+
+      it "round trips successfully" do
+        expect(instances.to_xml).to eq(expected_xml)
+      end
+    end
+  end
+
   describe "with mapping-level defined namespace" do
     context "with namespace xml successfully processed" do
       let(:xml) do
@@ -225,7 +272,7 @@ RSpec.describe "Lutaml::Model::XML::OgaAdapter" do
 
       let(:expected_xml) do
         <<~XML.strip
-          <ewn:ElementWithNamespace xmlns:ewn=\"https://example.com/namespace\" xmlns:ewn1=\"https://example.com/namespace-1\"></ewn:ElementWithNamespace>
+          <ewn:ElementWithNamespace xmlns:ewn="https://example.com/namespace" xmlns:ewn1="https://example.com/namespace-1"></ewn:ElementWithNamespace>
         XML
       end
 
