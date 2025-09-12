@@ -253,11 +253,11 @@ RSpec.describe MultipleMapping do
 
     context "with Nokogiri adapter" do
       it_behaves_like "xml adapter with multiple mappings", Lutaml::Model::Xml::NokogiriAdapter
-    end
+    end unless RUBY_ENGINE == 'opal'
 
     context "with Ox adapter" do
       it_behaves_like "xml adapter with multiple mappings", Lutaml::Model::Xml::OxAdapter
-    end
+    end unless RUBY_ENGINE == 'opal'
   end
 
   context "with CustomModel" do
@@ -331,11 +331,11 @@ RSpec.describe MultipleMapping do
 
       context "with Nokogiri adapter" do
         it_behaves_like "xml adapter with custom methods", Lutaml::Model::Xml::NokogiriAdapter
-      end
+      end unless RUBY_ENGINE == 'opal'
 
       context "with Ox adapter" do
         it_behaves_like "xml adapter with custom methods", Lutaml::Model::Xml::OxAdapter
-      end
+      end unless RUBY_ENGINE == 'opal'
     end
   end
 end

@@ -1,0 +1,6 @@
+add_load_path "lib"
+
+add_gem_dependency "moxml"
+add_gem_dependency "equivalent-xml"
+add_gem_dependency "toml-rb"
+add_gem_dependency "lutaml-xsd"

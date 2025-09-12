@@ -502,8 +502,12 @@ module Lutaml
         def ensure_utf8(value)
           case value
           when String
-            value.encode("UTF-8", invalid: :replace, undef: :replace,
-                                  replace: "")
+            if RUBY_ENGINE == 'opal'
+              value
+            else
+              value.encode("UTF-8", invalid: :replace, undef: :replace,
+                                    replace: "")
+            end
           when Array
             value.map { |v| ensure_utf8(v) }
           when ::Hash
@@ -570,13 +574,15 @@ module Lutaml
         end
 
         def setup_trace_point
-          @trace ||= TracePoint.new(:end) do |_tp|
-            if include?(Lutaml::Model::Serialize)
-              @finalized = true
-              @trace.disable
+          unless RUBY_ENGINE == 'opal'
+            @trace ||= TracePoint.new(:end) do |_tp|
+              if include?(Lutaml::Model::Serialize)
+                @finalized = true
+                @trace.disable
+              end
             end
+            @trace.enable unless @trace.enabled?
           end
-          @trace.enable unless @trace.enabled?
         end
 
         def finalized?
