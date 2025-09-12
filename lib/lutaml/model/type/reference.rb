@@ -86,7 +86,7 @@ module Lutaml
         private
 
         def model_instance?(value)
-          value.class.name == @model_class.to_s # rubocop:disable Style/ClassEqualityComparison
+          value.class.name == @model_class.to_s
         end
       end
     end
