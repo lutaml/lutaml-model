@@ -394,30 +394,18 @@ module Lutaml
 
       def reference_key(value)
         return nil unless value
-        return extract_keys_from_collection(value) if value.is_a?(Array)
+        return value.map { |item| reference_key(item) } if value.is_a?(Array)
 
-        extract_key_from_single_value(value)
-      end
-
-      def extract_keys_from_collection(collection)
-        collection.map { |item| extract_key_from_single_value(item) }
-      end
-
-      def extract_key_from_single_value(value)
-        return extract_key_from_model_instance(value) if model_instance?(value)
+        return value.public_send(@options[:ref_key_attribute]) if model_instance?(value)
 
         value
-      end
-
-      def extract_key_from_model_instance(model_instance)
-        model_instance.public_send(@options[:ref_key_attribute])
       end
 
       def model_instance?(value)
         return false unless value.respond_to?(:class)
         return false unless @options[:ref_model_class]
 
-        value.class.name == @options[:ref_model_class] # rubocop:disable Style/ClassEqualityComparison
+        value.class.name == @options[:ref_model_class]
       end
 
       def cast(value, format, register, options = {})
