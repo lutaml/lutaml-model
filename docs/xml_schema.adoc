@@ -1,0 +1,500 @@
+= XML Schema Part 1: Structures — Comprehensive Specification Reference
+:source: https://www.w3.org/TR/xmlschema-1/
+:edition: W3C Recommendation 28 October 2004
+
+This document provides a complete reference to the requirements, definitions, constraints, element and attribute types, conformance levels, processing rules, and implementation guidelines for XML Schema Part 1: Structures, based on the official W3C specification.
+
+== 1. Introduction
+
+XML Schema: Structures defines the XML Schema definition language, which describes the structure and constrains the contents of XML 1.0 documents, including those using XML Namespaces. It reconstructs and extends the capabilities of XML DTDs, and depends on XML Schema Part 2: Datatypes.
+
+=== 1.1 Purpose
+- Define the nature of XML schemas and their components
+- Inventory XML markup constructs for representing schemas
+- Specify application of schemas to XML documents
+- Constrain and document datatypes, elements, attributes, and their values
+- Provide normalization, defaulting, and self-documentation facilities
+
+.Example: Declaring XML Namespaces in Schema
+[source,xml]
+----
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="http://example.com"
+           xmlns:ex="http://example.com">
+</xs:schema>
+----
+
+== 2. Conceptual Framework
+
+=== 2.1 Overview
+- XML Schema consists of components (type definitions, element/attribute declarations)
+- Used to assess validity of XML infoset items and augment infoset (PSVI)
+- Schema-validity assessment: local validity + overall validation outcome
+
+.Example: Validating an XML Document
+[source,xml]
+----
+<!-- Instance document -->
+<note>Remember the meeting</note>
+<!-- Validated by the schema above -->
+----
+
+=== 2.2 Abstract Data Model
+- 13 kinds of schema components: simple/complex type definitions, element/attribute declarations, attribute/model group definitions, identity-constraint definitions, notation declarations, annotation components, particles, wildcards, attribute uses
+- Components have properties, XML representations, constraints, validation rules, PSVI contributions
+
+.Example: Defining a Simple and Complex Type
+[source,xml]
+----
+<xs:simpleType name="ZipCode">
+  <xs:restriction base="xs:string">
+    <xs:pattern value="[0-9]{5}"/>
+  </xs:restriction>
+</xs:simpleType>
+
+<xs:complexType name="Address">
+  <xs:sequence>
+    <xs:element name="street" type="xs:string"/>
+    <xs:element name="zipcode" type="ZipCode"/>
+  </xs:sequence>
+</xs:complexType>
+----
+
+=== 2.3 Constraints and Validation Rules
+- Schema Component Constraints: conditions for components to exist
+- Schema Representation Constraints: XML representation rules
+- Validation Rules: how components contribute to validation
+- Schema Information Set Contributions: PSVI augmentations
+
+.Example: Enforcing Constraints
+[source,xml]
+----
+<xs:element name="age" type="xs:integer" minOccurs="1" maxOccurs="1"/>
+----
+
+.Example: Default vs Fixed Constraint
+[source,xml]
+----
+<!-- This is valid: -->
+<xs:element name="status" type="xs:string" default="active"/>
+<!-- This is invalid: default and fixed cannot both be present -->
+<xs:element name="status" type="xs:string" default="active" fixed="active"/>
+----
+
+.Example: Unique Element Name Constraint
+[source,xml]
+----
+<!-- Valid: unique element names -->
+<xs:sequence>
+  <xs:element name="firstName" type="xs:string"/>
+  <xs:element name="lastName" type="xs:string"/>
+</xs:sequence>
+<!-- Invalid: duplicate element name -->
+<xs:sequence>
+  <xs:element name="name" type="xs:string"/>
+  <xs:element name="name" type="xs:string"/>
+</xs:sequence>
+----
+
+.Example: Facet Constraint (Pattern)
+[source,xml]
+----
+<xs:simpleType name="PhoneNumber">
+  <xs:restriction base="xs:string">
+    <xs:pattern value="\d{3}-\d{3}-\d{4}"/>
+  </xs:restriction>
+</xs:simpleType>
+----
+
+.Example: Circularity Constraint
+[source,xml]
+----
+<!-- Invalid: type cannot reference itself directly -->
+<xs:complexType name="Loop">
+  <xs:sequence>
+    <xs:element name="loop" type="Loop"/>
+  </xs:sequence>
+</xs:complexType>
+----
+
+.Example: Identity Constraint (Key)
+[source,xml]
+----
+<xs:element name="employee">
+  <xs:complexType>
+    <xs:sequence>
+      <xs:element name="empId" type="xs:integer"/>
+      <xs:element name="name" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:key name="uniqueEmpId">
+    <xs:selector xpath="."/>
+    <xs:field xpath="empId"/>
+  </xs:key>
+</xs:element>
+----
+
+.Example: Attribute Use Constraint
+[source,xml]
+----
+<xs:attribute name="isbn" type="xs:string" use="required"/>
+<xs:attribute name="edition" type="xs:string" use="optional"/>
+<xs:attribute name="draft" type="xs:boolean" use="prohibited"/>
+----
+
+.Example: Wildcard Constraint
+[source,xml]
+----
+<xs:any namespace="##other" processContents="strict"/>
+----
+
+.Example: Model Group Occurrence Constraint
+[source,xml]
+----
+<xs:sequence minOccurs="1" maxOccurs="3">
+  <xs:element name="item" type="xs:string"/>
+</xs:sequence>
+----
+
+.Example: Prohibited Substitution Constraint
+[source,xml]
+----
+<xs:complexType name="BaseType" final="extension restriction"/>
+----
+
+.Example: Annotation Constraint
+[source,xml]
+----
+<xs:element name="price" type="xs:decimal">
+  <xs:annotation>
+    <xs:documentation>Price must be a positive decimal value.</xs:documentation>
+  </xs:annotation>
+</xs:element>
+----
+
+=== 2.4 Conformance Levels
+- Minimally conforming: implement all component constraints, validation rules, PSVI contributions
+- XML Representation conformance: process XML schema documents and mapping rules
+- Fully conforming: network-enabled, access schemas from the Web, support schema location strategies
+
+.Example: Referencing External Schema (Web Interoperability)
+[source,xml]
+----
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:ex="http://example.com"
+           targetNamespace="http://example.com"
+           elementFormDefault="qualified">
+  <xs:import namespace="http://other.com" schemaLocation="http://other.com/schema.xsd"/>
+</xs:schema>
+----
+
+== 3. Schema Component Details
+
+=== 3.1 Attribute Declarations
+- Properties: name, target namespace, type definition, scope, value constraint, annotation
+- XML Representation: <attribute> element
+- Constraints: mutual exclusivity of default/fixed, ref/name, type/simpleType, etc.
+- Validation: value must conform to type, context-determined declaration
+- Built-in attributes: xsi:type, xsi:nil, xsi:schemaLocation, xsi:noNamespaceSchemaLocation
+
+.Example: Attribute Declaration
+[source,xml]
+----
+<xs:attribute name="lang" type="xs:string" use="required"/>
+----
+
+=== 3.2 Element Declarations
+- Properties: name, target namespace, type definition, scope, value constraint, nillable, identity-constraint definitions, substitution group, abstract, annotation
+- XML Representation: <element> element
+- Constraints: mutual exclusivity of default/fixed, ref/name, type/simpleType, etc.
+- Validation: local validity, nillable, xsi:type, substitution groups
+
+.Example: Element Declaration
+[source,xml]
+----
+<xs:element name="price" type="xs:decimal" default="0.0"/>
+<xs:element name="comment" type="xs:string" nillable="true"/>
+----
+
+=== 3.3 Complex Type Definitions
+- Properties: name, target namespace, base type, derivation method (extension/restriction), final, abstract, attribute uses, attribute wildcard, content type, prohibited substitutions, annotation
+- XML Representation: <complexType>, <complexContent>, <simpleContent>, <extension>, <restriction>
+- Constraints: base type must be correct, content type rules, attribute wildcards
+- Validation: extension/restriction rules, attribute and element content models
+
+.Example: Complex Type Definition
+[source,xml]
+----
+<xs:complexType name="Person">
+  <xs:sequence>
+    <xs:element name="name" type="xs:string"/>
+    <xs:element name="age" type="xs:integer"/>
+  </xs:sequence>
+  <xs:attribute name="id" type="xs:ID"/>
+</xs:complexType>
+----
+
+=== 3.4 Simple Type Definitions
+- Properties: name, target namespace, base type, facets, fundamental facets, final, variety (atomic/list/union), annotation
+- XML Representation: <simpleType>, <restriction>, <list>, <union>
+- Constraints: base type, variety, facet rules, circularity prevention
+- Validation: string validity, datatype validity, entity name checks
+
+.Example: Simple Type Definition with Facet
+[source,xml]
+----
+<xs:simpleType name="SmallInt">
+  <xs:restriction base="xs:integer">
+    <xs:minInclusive value="0"/>
+    <xs:maxInclusive value="100"/>
+  </xs:restriction>
+</xs:simpleType>
+----
+
+=== 3.5 Attribute Uses
+- Properties: required, attribute declaration, value constraint
+- XML Representation: <attribute> (with use/default/fixed)
+- Constraints: consistency with attribute declaration
+- Validation: required/optional/prohibited
+
+.Example: Attribute Use in Complex Type
+[source,xml]
+----
+<xs:complexType name="Book">
+  <xs:attribute name="isbn" type="xs:string" use="required"/>
+  <xs:attribute name="edition" type="xs:string" use="optional" default="1st"/>
+</xs:complexType>
+----
+
+=== 3.6 Attribute Group Definitions
+- Properties: name, target namespace, attribute uses, attribute wildcard, annotation
+- XML Representation: <attributeGroup>
+- Constraints: top-level/ref forms, intersection rules
+- Validation: group inclusion in complex types
+
+.Example: Attribute Group Definition
+[source,xml]
+----
+<xs:attributeGroup name="commonAttrs">
+  <xs:attribute name="created" type="xs:date"/>
+  <xs:attribute name="updated" type="xs:date"/>
+</xs:attributeGroup>
+
+<xs:complexType name="Document">
+  <xs:attributeGroup ref="commonAttrs"/>
+</xs:complexType>
+----
+
+=== 3.7 Model Group Definitions & Model Groups
+- Properties: name, target namespace, particles, annotation
+- XML Representation: <group>, <all>, <choice>, <sequence>
+- Constraints: content model rules, occurrence constraints
+- Validation: element occurrence, order, and grouping
+
+.Example: Model Group Definition and Use
+[source,xml]
+----
+<xs:group name="addressGroup">
+  <xs:sequence>
+    <xs:element name="street" type="xs:string"/>
+    <xs:element name="city" type="xs:string"/>
+  </xs:sequence>
+</xs:group>
+
+<xs:complexType name="Address">
+  <xs:group ref="addressGroup"/>
+</xs:complexType>
+----
+
+=== 3.8 Particles
+- Properties: term (element, model group, wildcard), minOccurs, maxOccurs
+- XML Representation: <element>, <group>, <any>
+- Constraints: emptiable, derivation rules
+- Validation: occurrence and content model validation
+
+.Example: Particle with Occurrence Constraints
+[source,xml]
+----
+<xs:element name="phone" type="xs:string" minOccurs="0" maxOccurs="unbounded"/>
+----
+
+=== 3.9 Wildcards
+- Properties: namespace constraint, processContents (strict/lax/skip), annotation
+- XML Representation: <any>, <anyAttribute>
+- Constraints: namespace and processContents rules
+- Validation: matching and validation of elements/attributes
+
+.Example: Wildcard Element
+[source,xml]
+----
+<xs:any namespace="##any" processContents="lax" minOccurs="0" maxOccurs="1"/>
+----
+
+=== 3.10 Identity-constraint Definitions
+- Properties: name, target namespace, category (key, keyref, unique), selector, fields, referenced key, annotation
+- XML Representation: <unique>, <key>, <keyref>
+- Constraints: XPath restrictions, uniqueness/reference rules
+- Validation: uniqueness, referential integrity
+
+.Example: Identity Constraint (Unique)
+[source,xml]
+----
+<xs:element name="user">
+  <xs:complexType>
+    <xs:sequence>
+      <xs:element name="username" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:unique name="uniqueUsername">
+    <xs:selector xpath="."/>
+    <xs:field xpath="username"/>
+  </xs:unique>
+</xs:element>
+----
+
+=== 3.11 Notation Declarations
+- Properties: name, target namespace, public/system identifiers, annotation
+- XML Representation: <notation>
+- Constraints: identifier rules
+- Validation: notation validity
+
+.Example: Notation Declaration
+[source,xml]
+----
+<xs:notation name="gif" public="image/gif" system="viewer.exe"/>
+----
+
+=== 3.12 Annotations
+- Properties: documentation, appinfo
+- XML Representation: <annotation>, <documentation>, <appinfo>
+- Constraints: location and content rules
+
+.Example: Annotation
+[source,xml]
+----
+<xs:element name="price" type="xs:decimal">
+  <xs:annotation>
+    <xs:documentation>Price of the product in USD</xs:documentation>
+    <xs:appinfo>
+      <info>Internal use only</info>
+    </xs:appinfo>
+  </xs:annotation>
+</xs:element>
+----
+
+=== 3.13 Schemas as a Whole
+- Properties: type definitions, attribute/element declarations, attribute/model group definitions, notation declarations, annotations
+- XML Representation: <schema>
+- Constraints: uniqueness of names, target namespace, inclusion/import/redefine rules
+
+.Example: Complete Schema Structure
+[source,xml]
+----
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="http://example.com" elementFormDefault="qualified">
+  <xs:element name="product" type="xs:string"/>
+  <xs:attributeGroup name="meta">
+    <xs:attribute name="created" type="xs:date"/>
+  </xs:attributeGroup>
+</xs:schema>
+----
+
+== 4. Schemas and Namespaces: Access and Composition
+
+=== 4.1 Layer 1: Assessment Core
+- Relates schema components and instance items
+- Requires complete schema for assessment
+- Invariants: no changes after establishment, dynamic acquisition must not affect results
+
+=== 4.2 Layer 2: Schema Documents, Namespaces, Composition
+- Assembling schemas from multiple documents
+- <include>, <import>, <redefine> mechanisms
+- Target namespace rules
+- XML representation mapping
+
+=== 4.3 Layer 3: Web Interoperability
+- Schema documents as Web resources (URI retrieval)
+- Schema location strategies (xsi:schemaLocation, xsi:noNamespaceSchemaLocation)
+- Namespace declarations and dereferencing
+
+== 5. Schema-validity Assessment
+
+=== 5.1 Errors in Schema Construction and Structure
+- Schema must satisfy all component constraints
+- Schema documents must be valid per Schema for Schemas
+- Representation constraints must be met
+
+=== 5.2 Assessment Strategies
+- User/application identifies type or element declaration
+- Assessment via schema-validity rules
+- Outcome: validation attempted, validity properties
+
+=== 5.3 Responsibilities of Schema-aware Processors
+- Process XML documents, schemas, and schema documents per conformance level
+- Implement assessment core, XML representation, and Web interoperability
+
+== 6. Normative Appendices
+
+=== A. Schema for Schemas
+- Normative XML representation of the schema language itself
+- <schema> element, DTD, and type library
+
+=== B. References
+- XML 1.0, XML Namespaces, XML Infoset, XPath, XML Schema Part 2: Datatypes, XML Schema Requirements, XML Schema Primer
+
+=== C. Schema Representation Constraints
+- src-annotation, src-attribute, src-attribute_group, src-ct, src-element, src-expredef, src-identity-constraint, src-import, src-include, src-list-itemType-or-simpleType, src-model_group, src-model_group_defn, totalDigits-valid-restriction, w-props-correct, whiteSpace-valid-restriction
+
+=== D. Required Infoset Items and Properties
+- Element, attribute, namespace, document, ID/IDREF, identity-constraint, schema information, schema document properties
+
+=== E. Schema Components Diagram
+- Visual diagram of schema components and relationships
+
+=== F. Glossary
+- Definitions of key terms: extension, final, fully conforming, symbol space, target namespace, type definition, validation root, PSVI, etc.
+
+=== G. DTD for Schemas
+- Non-normative DTD for authoring schema documents
+
+== 7. Implementation Checklist
+
+- [ ] Implement all schema component types and their properties
+- [ ] Support XML representation and mapping for all components
+- [ ] Enforce all schema component, representation, and validation constraints
+- [ ] Support PSVI augmentation
+- [ ] Implement conformance levels (minimal, XML representation, full)
+- [ ] Support schema location and namespace rules
+- [ ] Implement <include>, <import>, <redefine> mechanisms
+- [ ] Support identity-constraint validation
+- [ ] Support annotation/documentation/appinfo
+- [ ] Validate schema documents against Schema for Schemas
+- [ ] Support DTD-based authoring and validation
+- [ ] Provide error handling for schema construction and validation
+- [ ] Document supported features and conformance level
+
+---
+
+This document provides a complete implementation reference for XML Schema Part 1: Structures, including all requirements, constraints, and processing rules from the W3C Recommendation. For datatype definitions, see XML Schema Part 2: Datatypes.
+
+== Implementation Status in lutaml-model
+
+[cols="1,1,1", options="header"]
+|===
+| Feature/Requirement | Status | Notes
+
+| Implement all schema component types and their properties | Partially implemented | Basic support for simple/complex types, elements, attributes; some advanced components (identity-constraint, notation, annotation) not fully supported
+| Support XML representation and mapping for all components | Partially implemented | XSD import/export supported for basic types; advanced mapping (groups, wildcards, annotation) limited
+| Enforce all schema component, representation, and validation constraints | Partially implemented | Some constraints (type, pattern, required, min/max) enforced; others (unique, circularity, substitution, identity-constraint) not fully enforced
+| Support PSVI augmentation | Not implemented | No explicit PSVI support
+| Implement conformance levels (minimal, XML representation, full) | Not implemented | No conformance level selection or documentation
+| Support schema location and namespace rules | Partially implemented | Basic support for schemaLocation, namespaces; advanced rules (import/include/redefine) limited
+| Implement <include>, <import>, <redefine> mechanisms | Partially implemented | Basic import supported; include/redefine not fully supported
+| Support identity-constraint validation | Not implemented | No key/unique/keyref validation
+| Support annotation/documentation/appinfo | Not implemented | No annotation/appinfo mapping or processing
+| Validate schema documents against Schema for Schemas | Not implemented | No meta-schema validation
+| Support DTD-based authoring and validation | Not implemented | No DTD authoring/validation
+| Provide error handling for schema construction and validation | Partially implemented | Basic error handling for invalid attributes/types; limited schema-level error reporting
+| Document supported features and conformance level | Not implemented | No documentation of supported features/conformance
+|===
+
+*Summary*: lutaml-model provides partial support for XML Schema (XSD) import/export, basic type/element/attribute mapping, and some validation constraints. Advanced features (identity-constraint, annotation, PSVI, meta-schema validation, DTD, conformance levels) are not implemented as of this review.

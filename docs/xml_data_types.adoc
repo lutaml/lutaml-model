@@ -1,0 +1,263 @@
+:doctype: book
+= XML Schema Constraining Facets (Part 2: Datatypes)
+
+.**length**:: Specifies an exact length. For strings, the number of characters; for binary types, bits or octets.
+====
+[source,xml]
+----
+<xs:restriction base="xs:string">
+  <xs:length value="5"/>
+</xs:restriction>
+; Only values exactly 5 characters long—e.g., "Hello".
+----
+====
+
+.**minLength**:: Defines a minimum length (inclusive).
+====
+[source,xml]
+----
+<xs:restriction base="xs:string">
+  <xs:minLength value="3"/>
+</xs:restriction>
+; Values must have at least 3 characters—e.g., "Cat" or "Tree".
+----
+====
+
+.**maxLength**:: Defines a maximum length (inclusive).
+====
+[source,xml]
+----
+<xs:restriction base="xs:string">
+  <xs:maxLength value="10"/>
+</xs:restriction>
+; Values up to 10 characters allowed—e.g., "Short text".
+----
+====
+
+.**pattern**:: Constrains values to match a given regular expression or ISO 8601 picture.
+====
+[source,xml]
+----
+<xs:restriction base="xs:string">
+  <xs:pattern value="[A-Za-z]{3}[0-9]{2}"/>
+</xs:restriction>
+; Must match exactly three letters followed by two digits—e.g., "ABC12".
+----
+====
+
+.**enumeration**:: Specifies a set of exact, permitted literal values.
+====
+[source,xml]
+----
+<xs:restriction base="xs:string">
+  <xs:enumeration value="Red"/>
+  <xs:enumeration value="Green"/>
+  <xs:enumeration value="Blue"/>
+</xs:restriction>
+; Value must be one of: "Red", "Green", or "Blue".
+----
+====
+
+.**whiteSpace**:: Defines normalization of whitespace: `preserve`, `replace`, or `collapse`.
+====
+[source,xml]
+----
+<xs:restriction base="xs:string">
+  <xs:whiteSpace value="collapse"/>
+</xs:restriction>
+; Whitespace sequences collapse into single spaces.
+----
+====
+
+.**maxInclusive**:: Value must be less than or equal to the specified limit.
+====
+[source,xml]
+----
+<xs:restriction base="xs:integer">
+  <xs:maxInclusive value="100"/>
+</xs:restriction>
+; Accepts values up to 100, inclusive.
+----
+====
+
+.**maxExclusive**:: Value must be strictly less than the specified limit.
+====
+[source,xml]
+----
+<xs:restriction base="xs:integer">
+  <xs:maxExclusive value="100"/>
+</xs:restriction>
+; Accepts values less than 100 (e.g., 99), but not 100.
+----
+====
+
+.**minInclusive**:: Value must be greater than or equal to the specified limit.
+====
+[source,xml]
+----
+<xs:restriction base="xs:integer">
+  <xs:minInclusive value="10"/>
+</xs:restriction>
+; Accepts values from 10 upwards (10, 11, ...).
+----
+====
+
+.**minExclusive**:: Value must be strictly greater than the specified limit.
+====
+[source,xml]
+----
+<xs:restriction base="xs:integer">
+  <xs:minExclusive value="10"/>
+</xs:restriction>
+; Accepts values greater than 10 (e.g., 11), but not 10.
+----
+====
+
+.**totalDigits**:: Specifies the maximum total number of digits in a number (integer + fractional).
+====
+[source,xml]
+----
+<xs:restriction base="xs:decimal">
+  <xs:totalDigits value="5"/>
+</xs:restriction>
+; Accepts up to 5 digits total—e.g., "123.45", but not "1234.56" (6 digits).
+----
+====
+
+.**fractionDigits**:: Limits maximum digits in the fractional portion.
+====
+[source,xml]
+----
+<xs:restriction base="xs:decimal">
+  <xs:fractionDigits value="2"/>
+</xs:restriction>
+; Accepts values with up to two digits after the decimal—e.g., "12.34", but not "12.345".
+----
+====
+
+== XML Schema Primitive Datatypes (Section 3.2)
+
+Each primitive type includes:
+- A **lexical format description**
+- An **example value**
+- The **constraining facets** that can be applied
+
+[options="header"]
+|===
+| Datatype        | Lexical Format / Pattern          | Example Value             | Applicable Constraining Facets
+
+| **string**      | Any Char sequence                 | "Hello, Schema"           | length, minLength, maxLength, pattern, enumeration, whiteSpace
+
+| **boolean**     | "true"/"false"/"1"/"0"            | true                      | pattern, enumeration, whiteSpace
+
+| **decimal**     | Numeric with optional fraction    | 123.45                    | totalDigits, fractionDigits, pattern, enumeration, whiteSpace, minInclusive, maxInclusive, minExclusive, maxExclusive
+
+| **float**       | Decimal or scientific notation    | 1.23e4                    | pattern, enumeration, whiteSpace, minInclusive, maxInclusive, minExclusive, maxExclusive
+
+| **double**      | Decimal or scientific notation    | 1.23E4                    | pattern, enumeration, whiteSpace, minInclusive, maxInclusive, minExclusive, maxExclusive
+
+| **duration**    | ISO 8601 Duration (PnYnMnDTnHnMnS) | P1Y2M3DT4H5M6S             | pattern, enumeration, whiteSpace, minInclusive, maxInclusive, minExclusive, maxExclusive
+
+| **dateTime**    | ISO 8601 (CCYY‑MM‑DDThh:mm:ss)    | 2025-09-09T12:34:56Z      | pattern, enumeration, whiteSpace, minInclusive, maxInclusive, minExclusive, maxExclusive
+
+| **time**        | ISO 8601 (hh:mm:ss)               | 12:34:56                   | pattern, enumeration, whiteSpace, minInclusive, maxInclusive, minExclusive, maxExclusive
+
+| **date**        | ISO 8601 (CCYY‑MM‑DD)             | 2025-09-09                 | pattern, enumeration, whiteSpace, minInclusive, maxInclusive, minExclusive, maxExclusive
+
+| **gYearMonth** | ISO 8601 (CCYY‑MM)                | 2025-09                     | pattern, enumeration, whiteSpace, minInclusive, maxInclusive, minExclusive, maxExclusive
+
+| **gYear**       | ISO 8601 (CCYY)                   | 2025                        | pattern, enumeration, whiteSpace, minInclusive, maxInclusive, minExclusive, maxExclusive
+
+| **gMonthDay**   | ISO 8601 (--MM‑DD)                | --09-09                     | pattern, enumeration, whiteSpace, minInclusive, maxInclusive, minExclusive, maxExclusive
+
+| **gDay**        | ISO 8601 (---DD)                  | ---09                       | pattern, enumeration, whiteSpace, minInclusive, maxInclusive, minExclusive, maxExclusive
+
+| **gMonth**      | ISO 8601 (--MM)                   | --09                        | pattern, enumeration, whiteSpace, minInclusive, maxInclusive, minExclusive, maxExclusive
+
+| **hexBinary**   | Hex digits (0‑9, A‑F)             | 0FAB                        | length, minLength, maxLength, pattern, enumeration, whiteSpace
+
+| **base64Binary**| Base64-encoded data               | "SGVsbG8="                  | length, minLength, maxLength, pattern, enumeration, whiteSpace
+
+| **anyURI**      | URI reference                     | http://example.com         | pattern, enumeration, whiteSpace, minInclusive, maxInclusive, minExclusive, maxExclusive
+
+| **QName**       | prefix:local or local             | xs:string                   | pattern, enumeration, whiteSpace
+
+| **NOTATION**    | Declared Notation name            | (user-declared)             | pattern, enumeration, whiteSpace
+|===
+
+= Implementation Status in lutaml-model
+
+This section documents the current implementation status of XML Schema constraining facets and primitive datatypes in the lutaml-model project.
+
+== Constraining Facets Implementation Status
+
+[options="header"]
+|===
+| Facet | Status | Implementation | Notes
+
+| **length** | ❌ **NOT IMPLEMENTED** | - | Exact length validation not available
+| **minLength** | ✅ **IMPLEMENTED** | `Lutaml::Model::Services::Type::Validator::String.validate_min_length!` | Full support for string minimum length
+| **maxLength** | ✅ **IMPLEMENTED** | `Lutaml::Model::Services::Type::Validator::String.validate_max_length!` | Full support for string maximum length
+| **pattern** | ✅ **IMPLEMENTED** | `Lutaml::Model::Services::Type::Validator::String.validate_pattern!` | Full regex pattern validation
+| **enumeration** | ✅ **IMPLEMENTED** | `Lutaml::Model::Services::Type::Validator.validate_values!` | Full enumeration support
+| **whiteSpace** | ⚠️ **PARTIALLY IMPLEMENTED** | `normalizedString` type with transform | Only basic normalization via transform
+| **minInclusive** | ✅ **IMPLEMENTED** | `Lutaml::Model::Services::Type::Validator.validate_min_bound!` | Full support for inclusive minimum bounds
+| **maxInclusive** | ✅ **IMPLEMENTED** | `Lutaml::Model::Services::Type::Validator.validate_max_bound!` | Full support for inclusive maximum bounds
+| **minExclusive** | ✅ **IMPLEMENTED** | `Lutaml::Model::Services::Type::Validator.validate_min_bound!` | Full support for exclusive minimum bounds
+| **maxExclusive** | ✅ **IMPLEMENTED** | `Lutaml::Model::Services::Type::Validator.validate_max_bound!` | Full support for exclusive maximum bounds
+| **totalDigits** | ❌ **NOT IMPLEMENTED** | - | Total digit count validation not available
+| **fractionDigits** | ❌ **NOT IMPLEMENTED** | - | Fractional digit count validation not available
+|===
+
+=== Primitive Datatypes Implementation Status
+
+[options="header"]
+|===
+| Datatype | Status | Implementation | Notes
+
+| **string** | ✅ **IMPLEMENTED** | `Lutaml::Model::Type::String` | Full support with all applicable facets
+| **boolean** | ✅ **IMPLEMENTED** | `Lutaml::Model::Type::Boolean` | Supports "true"/"false"/"1"/"0" formats
+| **decimal** | ✅ **IMPLEMENTED** | `Lutaml::Model::Type::Decimal` | Requires BigDecimal, supports min/max bounds
+| **float** | ✅ **IMPLEMENTED** | `Lutaml::Model::Type::Float` | Full support including scientific notation
+| **double** | ✅ **IMPLEMENTED** | `Lutaml::Model::Type::Float` | Same implementation as float
+| **integer** | ✅ **IMPLEMENTED** | `Lutaml::Model::Type::Integer` | Full support with bounds validation
+| **dateTime** | ✅ **IMPLEMENTED** | `Lutaml::Model::Type::DateTime` | ISO 8601 format with timezone support
+| **time** | ✅ **IMPLEMENTED** | `Lutaml::Model::Type::Time`, `Lutaml::Model::Type::TimeWithoutDate` | Full time support, specialized TimeWithoutDate
+| **date** | ✅ **IMPLEMENTED** | `Lutaml::Model::Type::Date` | ISO 8601 date format
+| **duration** | ❌ **NOT IMPLEMENTED** | - | ISO 8601 duration format not supported
+| **gYearMonth** | ❌ **NOT IMPLEMENTED** | - | Gregorian year-month not supported
+| **gYear** | ❌ **NOT IMPLEMENTED** | - | Gregorian year not supported
+| **gMonthDay** | ❌ **NOT IMPLEMENTED** | - | Gregorian month-day not supported
+| **gDay** | ❌ **NOT IMPLEMENTED** | - | Gregorian day not supported
+| **gMonth** | ❌ **NOT IMPLEMENTED** | - | Gregorian month not supported
+| **hexBinary** | ⚠️ **PARTIALLY IMPLEMENTED** | `Lutaml::Model::Type::String` with pattern | Via XML compiler with pattern validation
+| **base64Binary** | ⚠️ **PARTIALLY IMPLEMENTED** | `Lutaml::Model::Type::String` with pattern | Via XML compiler with pattern validation
+| **anyURI** | ⚠️ **PARTIALLY IMPLEMENTED** | `Lutaml::Model::Type::String` with pattern | Via XML compiler with URI pattern
+| **QName** | ❌ **NOT IMPLEMENTED** | - | Qualified names not supported
+| **NOTATION** | ❌ **NOT IMPLEMENTED** | - | Notation declarations not supported
+|===
+
+=== Missing Features and Limitations
+
+==== Not Implemented Constraining Facets
+- `length` (exact length validation)
+- `totalDigits` (total digit count for decimals)
+- `fractionDigits` (fractional digit count for decimals) 
+- Complete `whiteSpace` facet (only basic normalization via `normalizedString`)
+
+==== Not Implemented Primitive Types
+- `duration` (ISO 8601 duration format)
+- `gYearMonth`, `gYear`, `gMonthDay`, `gDay`, `gMonth` (Gregorian calendar fragments)
+- `QName` (qualified names)
+- `NOTATION` (notation declarations)
+
+==== Partially Implemented Types
+- `hexBinary` and `base64Binary` are implemented as string types with pattern validation
+- `anyURI` is implemented as string type with URI pattern validation
+
+==== Implementation Notes
+- The project uses Ruby's native types where possible (`Time`, `Date`, `DateTime`, `BigDecimal`)
+- Validation is performed through the `Lutaml::Model::Services::Type::Validator` hierarchy
+- XML Schema compilation generates appropriate type mappings with validation constraints
+- Custom types can extend base types for specialized behavior (see documentation examples)
+- Error handling is provided through specific error classes like `MinLengthError`, `MaxLengthError`, `PatternNotMatchedError`, etc.

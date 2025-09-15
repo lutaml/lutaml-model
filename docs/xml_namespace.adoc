@@ -1,0 +1,129 @@
+= XML Namespaces Specification Reference
+
+Based on: W3C Recommendation "Namespaces in XML 1.0" (Third Edition, 8 December 2009)  
+([w3.org](https://www.w3.org/TR/xml-names/))
+
+== 1. Core Definitions & Concepts
+
+Namespaces provide a method to qualify element and attribute names via a unique namespace URI, yielding *expanded names*—pairs of {namespace name, local name} to avoid naming collisions.  
+([w3.org](https://www.w3.org/TR/xml-names/))
+
+**Qualified Name (QName):**  
+A *prefixed name* (`prefix:localPart`) or *unprefixed name* (`localPart`) used in elements and attributes. The prefix acts only as a placeholder for the namespace URI.  
+([w3.org](https://www.w3.org/TR/xml-names/))
+
+== 2. Namespace Declarations
+
+Namespace bindings occur via attributes:
+- `xmlns:prefix="namespaceURI"` — *Prefixed Namespace Declaration*
+- `xmlns="namespaceURI"` — *Default Namespace Declaration*  
+([w3.org](https://www.w3.org/TR/xml-names/))
+
+**Rules:**
+- The attribute value must be a URI reference or the empty string.  
+- The empty string value on a default namespace declaration clears the default namespace in the scope.  
+([w3.org](https://www.w3.org/TR/xml-names/))
+
+**Best Practices:**
+- Namespace names should be unique and persistent but need not resolve to actual schema documents.  
+([w3.org](https://www.w3.org/TR/xml-names/))
+
+== 3. Reserved Prefixes & Restrictions
+
+- `xml` prefix is bound to `http://www.w3.org/XML/1998/namespace` and:
+  - **Must not** be used for other namespaces.
+  - Declaration is optional but allowed.  
+  ([w3.org](https://www.w3.org/TR/xml-names/))
+
+- `xmlns` prefix is reserved solely for namespace declarations (`xmlns:...`) and is bound to `http://www.w3.org/2000/xmlns/`; cannot be used as a namespace or element prefix.  
+  ([w3.org](https://www.w3.org/TR/xml-names/))
+
+- Any other prefix starting with the letters `x`, `m`, `l` (in any case mix) is **reserved**:
+  - **Should not** be used for other purposes.
+  - Processors **must not** treat its use as a fatal error.  
+  ([w3.org](https://www.w3.org/TR/xml-names/))
+
+== 4. Namespace Scope & Defaulting
+
+Namespace declarations are scoped to the element in which they appear and its descendants, unless overridden by inner declarations.  
+Default namespaces apply only to unprefixed **element names**, not attributes. Attributes without a prefix are in no namespace.  
+([w3.org](https://www.w3.org/TR/xml-names/))
+
+== 5. Namespace Name Matching
+
+Namespace URIs are compared as literal strings—case-sensitive and without URI normalization or resolving.  
+Even semantically equivalent URIs with different encoding or case are considered distinct.  
+([w3.org](https://www.w3.org/TR/xml-names/))
+
+== 6. Validation Constraints
+
+XML namespace-well-formedness enforces:
+
+- Element and attribute names must:
+  - Match the QName production.
+  - Contain **0 or 1 colon**.
+  - Be bound to declared prefixes (unless `xml`/`xmlns`).  
+  ([turn0search0](#), [turn0view0](#))
+
+- Namespace declaration prefixes must have non-empty values—can't "undeclare" a prefix.  
+  ([turn0search0](#), [turn0view0](#))
+
+- No duplicate attributes with the same expanded name (same namespace URI + local name).  
+  ([turn0search0](#))
+
+- Tokens beyond element/attribute names that require `Name` syntax must match `NCName`.  
+  This includes entity names, PI targets, DTD names.  
+  ([turn0search0](#), [turn0search1](#))
+
+== 7. Processor Conformance
+
+A conforming processor must:
+- Detect and report violations of namespace-well-formedness (e.g., invalid prefix usage), though checking URI legitimacy is *not required*.  
+- A *namespace-validating* processor also ensures tokens follow `NCName` where appropriate.  
+  ([turn0search1](#))
+
+== 8. Summary Table
+
+[options="header"]
+|===
+| Feature                       | Constraint / Behavior
+
+| Namespace Declaration         | `xmlns:prefix` or `xmlns` with valid URI or empty (for default namespace)
+
+| Reserved Prefixes             | `xml`, `xmlns`, and `xml...`, `XML...` etc.—constraints enforced
+
+| QName Syntax                  | Element/attribute names must be valid QName (0 or 1 colon)
+
+| Prefix Binding                | Prefix must be declared or one of reserved ones (`xml`, `xmlns`)
+
+| Namespace URI Comparison      | Strict string-level match, no normalization
+
+| Default Namespace             | Applies to elements only, not attributes
+
+| Attribute Uniqueness          | No duplicate expanded names allowed on an element
+
+| Non-QName Tokens              | Must match `NCName` if required by XML spec (e.g., ENTITY names)
+
+| Processor Responsibilities     | Report well-formedness violations; validation optional based on conformance level
+|===
+
+== XML Namespace Implementation Status
+
+This table summarizes the implementation status of XML namespace features and constraints in the codebase, based on the specification in `xml_namespace.adoc`.
+
+[options="header"]
+|===
+| Feature/Constraint | Status | Notes
+| Namespace declaration (xmlns, xmlns:prefix) | Implemented | Supported in mapping, parsing, serialization
+| Reserved prefixes (`xml`, `xmlns`, `xml...`) | Partially Implemented | `xml` prefix handled, but not all reserved prefix rules enforced
+| QName syntax (0 or 1 colon) | Not Implemented | No explicit validation of QName structure
+| Prefix binding (declared or reserved) | Partially Implemented | Declared prefixes supported, reserved prefix enforcement incomplete
+| Namespace URI comparison (literal, case-sensitive) | Implemented | URIs used as literal strings
+| Default namespace (elements only) | Implemented | Default namespace supported for elements, not attributes
+| Attribute uniqueness (no duplicate expanded names) | Not Implemented | No explicit check for duplicate expanded names
+| NCName validation (non-QName tokens) | Not Implemented | No explicit NCName validation for tokens
+| Namespace scope & overriding | Partially Implemented | Basic scoping via mapping, advanced override rules not enforced
+| Undeclaring prefixes (empty value) | Not Implemented | No explicit handling of undeclaration
+| Processor conformance (error reporting) | Partially Implemented | Well-formedness errors reported, but not all namespace errors
+| Namespace-well-formedness validation | Partially Implemented | Some checks via mapping/tests, not full spec coverage
+|===

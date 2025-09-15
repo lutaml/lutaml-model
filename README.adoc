@@ -45,6 +45,15 @@ Lutaml::Model are provided in <<migrate-from-shale>>.
 * Dynamically modify model attribute types using registers (see <<custom-registers>>)
 
 
+== Missing XML Features
+
+Lutaml::Model aims for broad XML compatibility, but some advanced XML features are not yet fully supported. For a detailed overview of missing or partially implemented XML features—including XML 1.0, XML Base, XML Schema datatypes and structures, XML Namespaces, and XLink—see:
+
+link:docs/missing_xml_features.adoc[Missing XML Features in lutaml-model]
+
+This document summarizes gaps in XML support, such as DTD validation, advanced schema constraints, xml:base resolution, XLink, and more.
+
+
 
 == Data modeling in a nutshell
 

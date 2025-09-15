@@ -1,0 +1,35 @@
+= Missing XML Features in lutaml-model
+:toc:
+:toclevels: 2
+
+This page summarizes major XML-related topics and specifications that are not fully supported in lutaml-model. Each section links to a dedicated reference document and provides a brief overview of the topic and its relevance.
+
+== XML 1.0 — Core Specification
+link:xml_1.0.adoc[XML 1.0 Specification]
+[.description]
+Provides the complete W3C specification for XML 1.0 (Fifth Edition), covering document structure, elements, attributes, entities, notations, character encoding, well-formedness, and validity rules. This is the foundational standard for all XML processing and interoperability. lutaml-model relies on XML 1.0 compliance for parsing and serialization, but does not implement all advanced features such as DTD validation, notations, or full entity management.
+
+== XML Base (`xml:base`)
+link:xml_base.adoc[XML Base Specification]
+[.description]
+Describes the `xml:base` attribute, which allows authors to set or override the base URI for parts of an XML document. This is essential for resolving relative URIs, supporting modular document structures, and enabling reliable linking in XML applications (such as XLink and stylesheets). The specification covers inheritance, resolution rules, encoding, security considerations, and conformance requirements. lutaml-model does not currently implement any `xml:base` logic or base URI resolution.
+
+== XML Schema Datatypes & Facets
+link:xml_data_types.adoc[XML Schema Datatypes & Facets]
+[.description]
+Covers XML Schema Part 2: Datatypes, including primitive types (string, integer, date, etc.) and constraining facets (length, pattern, enumeration, bounds, whitespace normalization, etc.). These facets are used to restrict and validate data in XML documents, ensuring data quality and schema compliance. The document also details which facets and datatypes are implemented or missing in lutaml-model, highlighting gaps in validation, type support, and error handling.
+
+== XML Namespaces
+link:xml_namespace.adoc[XML Namespaces Specification]
+[.description]
+Explains the concept of XML namespaces, which prevent naming collisions by qualifying element and attribute names with URIs. Topics include namespace declarations, reserved prefixes (`xml`, `xmlns`), QName and NCName syntax, scoping rules, validation constraints, processor responsibilities, and best practices for schema authors. The implementation status table shows which namespace features are supported or missing in lutaml-model, including reserved prefix handling and attribute uniqueness.
+
+== XML Schema Part 1: Structures
+link:xml_schema.adoc[XML Schema Part 1: Structures]
+[.description]
+Provides a comprehensive reference for XML Schema structures, including type definitions, element and attribute declarations, constraints, validation rules, conformance levels, and processing guidelines. This is the foundation for defining and validating the structure of XML documents, supporting interoperability and robust data modeling. The document includes an implementation checklist and a summary of which features are supported or missing in lutaml-model, such as identity constraints, annotation, and schema location rules.
+
+== XLink 1.1 — XML Linking Language
+link:xml_xlink.adoc[XLink 1.1 Specification]
+[.description]
+Overviews the XML Linking Language (XLink), which enables both simple and complex links between resources in XML documents. Topics include global attributes, link types (simple, extended, locator, arc, resource, title), traversal rules, linkbase processing, conformance requirements, and integration with XML Base and namespaces. lutaml-model does not currently implement any XLink features, element recognition, or validation logic.
