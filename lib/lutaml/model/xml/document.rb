@@ -10,6 +10,8 @@ module Lutaml
       class Document
         attr_reader :root, :encoding, :register
 
+        XMLNS = "xmlns".freeze
+
         def initialize(root, encoding = nil, register: nil)
           @root = root
           @encoding = encoding
@@ -183,7 +185,12 @@ module Lutaml
           elsif rule.raw_mapping?
             xml.add_xml_fragment(xml, value)
           elsif rule.prefix_set?
-            xml.create_and_add_element(rule.name, prefix: prefix) do
+            element_prefix = if rule.namespace
+                               options[:parent_namespaces].key(rule.namespace).split(":")[1]
+                             else
+                               prefix
+                             end
+            xml.create_and_add_element(rule.name, prefix: element_prefix) do
               add_value(xml, value, attribute, cdata: rule.cdata)
             end
           else
@@ -234,13 +241,9 @@ module Lutaml
 
             mappings = xml_mapping.elements + [xml_mapping.raw_mapping].compact
             mappings.each do |element_rule|
-              if element_rule.ns_inherited?
-                xml.add_namespace_prefix(element_rule.prefix)
-              elsif !element_rule.prefix_set?
-                xml.add_namespace_prefix(prefix)
-              end
-              attribute_def = attribute_definition_for(element, element_rule,
-                                                       mapper_class: mapper_class)
+              xml_prefix = element_rule.prefixable? ? element_rule.prefix : prefix
+              prefixed_xml.add_namespace_prefix(xml_prefix)
+              attribute_def = attribute_definition_for(element, element_rule, mapper_class: mapper_class)
 
               if attribute_def
                 value = attribute_value_for(element, element_rule)
@@ -314,7 +317,7 @@ module Lutaml
 
           if xml_mappings.namespace_uri && set_namespace?(options[:caller_rule])
             prefixed_name = [
-              "xmlns",
+              XMLNS,
               xml_mappings.namespace_prefix,
             ].compact.join(":")
 
@@ -385,13 +388,34 @@ module Lutaml
           xml_mapping.elements.each_with_object(attrs) do |mapping_rule, hash|
             next if options[:except]&.include?(mapping_rule.to)
 
-            if mapping_rule.namespace && mapping_rule.prefix
-              hash["xmlns:#{mapping_rule.prefix}"] = mapping_rule.namespace
+            rule_prefix = mapping_rule.prefix
+            rule_namespace = mapping_rule.namespace
+            next if rule_prefix && namespace_already_exist?(hash, options, rule_namespace)
+
+            if rule_namespace && rule_prefix
+              update_namespace_prefix(hash, rule_namespace, rule_prefix)
             elsif mapping_rule.ns_inherited?
-              namespace_prefix = ["xmlns", mapping_rule.prefix].compact.join(":")
+              namespace_prefix = [XMLNS, rule_prefix].compact.join(":")
               hash[namespace_prefix] = xml_mapping.namespace_uri
+            elsif rule_namespace && !namespace_already_exist?(hash, options, rule_namespace)
+              hash[XMLNS] = mapping_rule.namespace
             end
           end
+        end
+
+        def update_namespace_prefix(hash, ns, ns_prefix)
+          coloned_xmlns = "#{XMLNS}:"
+          ns_key = "#{coloned_xmlns}#{ns_prefix}"
+          while hash[ns_key] && hash[ns_key] != ns
+            prefix = ns_prefix.delete_prefix(coloned_xmlns).to_s.to_i.next
+            ns_key = "#{ns_key}#{prefix}"
+          end
+          hash[ns_key] = ns
+        end
+
+        def namespace_already_exist?(hash, options, rule_namespace)
+          namespace = options.dig(:parent_namespaces, XMLNS) || hash[XMLNS]
+          namespace == rule_namespace
         end
 
         def attribute_definition_for(element, rule, mapper_class: nil)
@@ -410,7 +434,7 @@ module Lutaml
         def namespace_attributes(xml_mapping)
           return {} unless xml_mapping.namespace_uri
 
-          key = ["xmlns", xml_mapping.namespace_prefix].compact.join(":")
+          key = [XMLNS, xml_mapping.namespace_prefix].compact.join(":")
           { key => xml_mapping.namespace_uri }
         end
 
@@ -480,7 +504,7 @@ module Lutaml
           xml_attributes = options.delete(:xml_attributes)
           attributes = { **attributes, **xml_attributes }.compact
           attributes.reject! do |key, value|
-            next unless key.start_with?("xmlns")
+            next unless key.start_with?(XMLNS)
 
             if parent_namespaces.key?(key) && parent_namespaces[key] == value
               true

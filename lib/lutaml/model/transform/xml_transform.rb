@@ -40,9 +40,7 @@ module Lutaml
           raise "Attribute '#{rule.to}' not found in #{context}" unless valid_rule?(rule, attr)
 
           new_opts = options.dup
-          if rule.namespace_set?
-            new_opts[:default_namespace] = rule.namespace
-          end
+          new_opts[:default_namespace] = rule.namespace if rule.namespace_set?
 
           value = if rule.raw_mapping?
                     doc.root.inner_xml

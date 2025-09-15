@@ -101,6 +101,95 @@ module OxAdapter
         map_element :age, to: :age
       end
     end
+
+    class DifferentPrefixesCeramics < Lutaml::Model::Serializable
+      attribute :vase, :string
+      attribute :bowl, :string
+
+      xml do
+        root "ceramics"
+        namespace "https://example.com/ceramics-namespace", "ec"
+
+        map_element :vase, to: :vase, namespace: :inherit, prefix: "v"
+        map_element :bowl, to: :bowl, namespace: :inherit, prefix: "b"
+      end
+    end
+
+    class DifferentNamespacesExtra < Lutaml::Model::Serializable
+      attribute :content, :string
+      attribute :jobs, :string, collection: true
+      attribute :hobbies, :string, collection: true
+
+      xml do
+        root "extra"
+        namespace "https://example.com/extra-namespace", "en"
+
+        map_content to: :content
+        map_element :jobs, to: :jobs, prefix: "ex", namespace: "https://example.com/jobs-namespace"
+        map_element :hobbies, to: :hobbies, prefix: "ex", namespace: "https://example.com/hobbies-namespace"
+      end
+    end
+
+    class DifferentNamespaces < Lutaml::Model::Serializable
+      attribute :status, :string
+      attribute :name, :string
+      attribute :description, :string
+      attribute :age, :string
+      attribute :ceramics, DifferentPrefixesCeramics
+      attribute :extra, DifferentNamespacesExtra
+
+      xml do
+        root "DifferentNamespaces"
+        namespace "https://example.com/namespace", "ewn"
+
+        map_attribute :status, to: :status
+        map_element :age, to: :age
+        map_element :ceramics, to: :ceramics
+        map_element :name, to: :name, namespace: "https://example.com/name-namespace", prefix: nil
+        map_element :extra, to: :extra, namespace: "https://example.com/extra-namespace", prefix: "en"
+        map_element :description, to: :description, namespace: "https://example.com/description-namespace", prefix: "ds"
+      end
+    end
+
+    module PolymorphicNamespaces
+      class Ceramic < Lutaml::Model::Serializable
+        attribute :id, :string
+        attribute :type, :string
+
+        xml do
+          root "ceramic"
+          namespace "http://example.com/ceramics-namespace", "ec"
+
+          map_element :id, to: :id
+          map_element :type, to: :type
+        end
+      end
+
+      class CeramicCollection < Lutaml::Model::Serializable
+        attribute :items, Ceramic, collection: true
+
+        xml do
+          root "CeramicCollection"
+          namespace "http://example.com/collection"
+
+          map_element "items", to: :items
+        end
+      end
+
+      class Vase < Ceramic
+        xml do
+          root "Vase"
+          namespace "http://example.com/vase"
+        end
+      end
+
+      class Bowl < Ceramic
+        xml do
+          root "Bowl"
+          namespace "http://example.com/bowl"
+        end
+      end
+    end
   end
 end
 
@@ -314,7 +403,7 @@ RSpec.describe "Lutaml::Model::XML::OxAdapter" do
     end
 
     describe "with mapping-level defined namespace with inherit option" do
-      context "with namespace xml successfully processed" do
+      context "with inherited namespaces xml successfully processed" do
         let(:xml) do
           <<~XML
             <ewn:NamespaceInherit xmlns:ewn="https://example.com/namespace" status="active">
@@ -339,8 +428,88 @@ RSpec.describe "Lutaml::Model::XML::OxAdapter" do
           OxAdapter::MappingLevelElementMapping::NamespaceInherit.from_xml(xml)
         end
 
-        # TODO: change the text of it block before pushing the code.
-        it "let's test this" do
+        it "inserts valid unique namespaces with and without prefixes" do
+          expect(instances.to_xml).to eq(expected_xml)
+        end
+      end
+
+      context "with custom namespaces xml successfully processed" do
+        let(:xml) do
+          <<~XML
+            <ewn:DifferentNamespaces xmlns="https://example.com/name-namespace" xmlns:ewn="https://example.com/namespace" status="active" xmlns:ds="https://example.com/description-namespace" xmlns:en="https://example.com/extra-namespace">
+              <name>John Doe</name>
+              <ds:description>Sample description</ds:description>
+              <ewn:age>30</ewn:age>
+              <en:extra xmlns:ex="https://example.com/jobs-namespace" xmlns:ex1="https://example.com/hobbies-namespace">
+                <ex:jobs>Testing Job</ex:jobs>
+                <ex1:hobbies>Testing Hobby</ex1:hobbies>
+              </en:extra>
+            </ewn:DifferentNamespaces>
+          XML
+        end
+
+        let(:expected_xml) do
+          <<~XML
+            <ewn:DifferentNamespaces xmlns:ewn="https://example.com/namespace" status="active" xmlns="https://example.com/name-namespace" xmlns:en="https://example.com/extra-namespace" xmlns:ds="https://example.com/description-namespace">
+              <ewn:age>30</ewn:age>
+              <name>John Doe</name>
+              <en:extra xmlns:ex="https://example.com/jobs-namespace" xmlns:ex1="https://example.com/hobbies-namespace">
+                <ex:jobs>Testing Job</ex:jobs>
+                <ex1:hobbies>Testing Hobby</ex1:hobbies>
+              </en:extra>
+              <ds:description>Sample description</ds:description>
+            </ewn:DifferentNamespaces>
+          XML
+        end
+
+        let(:instances) do
+          OxAdapter::MappingLevelElementMapping::DifferentNamespaces.from_xml(xml)
+        end
+
+        it "inserts valid unique namespaces with and without prefixes" do
+          expect(instances.to_xml).to eq(expected_xml)
+        end
+      end
+
+      context "with custom Ruby instances to XML conversion" do
+        let(:instances) do
+          OxAdapter::MappingLevelElementMapping::DifferentNamespaces.new(
+            age: "12",
+            description: "asddf",
+            name: "Asdf",
+            status: "asdf",
+            extra: OxAdapter::MappingLevelElementMapping::DifferentNamespacesExtra.new(
+              hobbies: ["1", "asd"],
+              jobs: ["12#", "Asdf"],
+            ),
+            ceramics: OxAdapter::MappingLevelElementMapping::DifferentPrefixesCeramics.new(
+              vase: "Vase",
+              bowl: "Bowl",
+            ),
+          )
+        end
+
+        let(:expected_xml) do
+          <<~XML
+            <ewn:DifferentNamespaces xmlns:ewn="https://example.com/namespace" status="asdf" xmlns="https://example.com/name-namespace" xmlns:en="https://example.com/extra-namespace" xmlns:ds="https://example.com/description-namespace">
+              <ewn:age>12</ewn:age>
+              <ec:ceramics xmlns:ec="https://example.com/ceramics-namespace" xmlns:v="https://example.com/ceramics-namespace" xmlns:b="https://example.com/ceramics-namespace">
+                <v:vase>Vase</v:vase>
+                <b:bowl>Bowl</b:bowl>
+              </ec:ceramics>
+              <name>Asdf</name>
+              <en:extra xmlns:ex="https://example.com/jobs-namespace" xmlns:ex1="https://example.com/hobbies-namespace">
+                <ex:jobs>12#</ex:jobs>
+                <ex:jobs>Asdf</ex:jobs>
+                <ex1:hobbies>1</ex1:hobbies>
+                <ex1:hobbies>asd</ex1:hobbies>
+              </en:extra>
+              <ds:description>asddf</ds:description>
+            </ewn:DifferentNamespaces>
+          XML
+        end
+
+        it "accurately converts instances to XML" do
           expect(instances.to_xml).to eq(expected_xml)
         end
       end

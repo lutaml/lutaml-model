@@ -104,6 +104,10 @@ module Lutaml
           !!@ns_inherited
         end
 
+        def prefixable?
+          ns_inherited? || prefix_set?
+        end
+
         def prefixed_name
           rule_name = multiple_mappings? ? name.first : name
           if prefix
