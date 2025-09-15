@@ -34,7 +34,7 @@ module Lutaml
       def register(object)
         model_class = object.class.to_s
 
-        @store[model_class] << object unless @store[model_class].include?(object)
+        @store[model_class] << object
       end
 
       def resolve(model_class, reference_key, reference_value)
