@@ -1,3 +1,4 @@
+require "active_support/inflector"
 require_relative "xml_adapter"
 require_relative "config"
 require_relative "type"
@@ -121,22 +122,63 @@ module Lutaml
               # Cast the derived value to the specified type
               attr.cast_element(value, __register)
             end
+          elsif attr.unresolved_type == Lutaml::Model::Type::Reference
+            define_reference_methods(name)
           else
-            define_method(name) do
-              instance_variable_get(:"@#{name}")
-            end
-            define_method(:"#{name}=") do |value|
-              value_set_for(name)
-              instance_variable_set(:"@#{name}", attr.cast_value(value, __register))
-            end
+            define_regular_attribute_methods(name, attr)
+          end
+        end
+
+        def define_reference_methods(name)
+          attr = attributes[name]
+
+          define_method("#{name}_ref") do
+            instance_variable_get(:"@#{name}_ref")
+          end
+
+          key_method_name = if attr.options[:collection]
+                              attr.options[:ref_key_attribute].to_s.pluralize
+                            else
+                              attr.options[:ref_key_attribute]
+                            end
+
+          define_method("#{name}_#{key_method_name}") do
+            ref = instance_variable_get(:"@#{name}_ref")
+            resolve_reference_key(ref)
+          end
+
+          define_method(name) do
+            ref = instance_variable_get(:"@#{name}_ref")
+            resolve_reference_value(ref)
+          end
+
+          define_method(:"#{name}=") do |value|
+            value_set_for(name)
+            casted_value = value
+            casted_value = attr.cast_value(value, __register) unless casted_value.is_a?(Lutaml::Model::Type::Reference)
+
+            instance_variable_set(:"@#{name}_ref", casted_value)
+
+            resolved_reference = resolve_reference_key(casted_value)
+            instance_variable_set(:"@#{name}", resolved_reference)
+          end
+        end
+
+        def define_regular_attribute_methods(name, attr)
+          define_method(name) do
+            instance_variable_get(:"@#{name}")
+          end
+
+          define_method(:"#{name}=") do |value|
+            value_set_for(name)
+            value = attr.cast_value(value, __register)
+            instance_variable_set(:"@#{name}", value)
           end
         end
 
         # Define an attribute for the model
         def attribute(name, type, options = {})
-          if type.is_a?(::Hash)
-            type = nil
-          end
+          type, options = process_type_hash(type, options) if type.is_a?(::Hash)
 
           # Handle direct method option in options hash
           if options[:method]
@@ -600,6 +642,40 @@ module Lutaml
             @mappings[:xml].ordered &&
             !!@sort_by_field
         end
+
+        private
+
+        def process_type_hash(type, options)
+          if reference_type?(type)
+            type, options = process_reference_type(type, options)
+          else
+            type = nil
+          end
+
+          [type, options]
+        end
+
+        def reference_type?(type)
+          type.key?(:ref) || type.key?("ref")
+        end
+
+        def process_reference_type(type, options)
+          ref_spec = type[:ref] || type["ref"]
+          validate_reference_spec!(ref_spec)
+
+          model_class, key_attr = ref_spec
+          options[:ref_model_class] = model_class
+          options[:ref_key_attribute] = key_attr
+          type = Lutaml::Model::Type::Reference
+
+          [type, options]
+        end
+
+        def validate_reference_spec!(ref_spec)
+          return if ref_spec.is_a?(Array) && ref_spec.length == 2
+
+          raise ArgumentError, "ref: syntax requires an array [model_class, key_attribute]"
+        end
       end
 
       def self.register_format_mapping_method(format)
@@ -645,6 +721,8 @@ module Lutaml
         set_ordering(attrs)
         set_schema_location(attrs)
         initialize_attributes(attrs, options)
+
+        register_in_reference_store
       end
 
       def extract_register_id(attrs, options)
@@ -722,7 +800,8 @@ module Lutaml
       end
 
       def pretty_print_instance_variables
-        (instance_variables - INTERNAL_ATTRIBUTES).sort
+        reference_attributes = instance_variables.select { |var| var.to_s.end_with?("_ref") }
+        (instance_variables - INTERNAL_ATTRIBUTES - reference_attributes).sort
       end
 
       def to_yaml_hash
@@ -763,7 +842,6 @@ module Lutaml
           next if attr.derived?
 
           value = determine_value(attrs, name, attr)
-
           default = using_default?(name)
           value = self.class.apply_value_map(value, value_map(options), attr)
           public_send(:"#{name}=", self.class.ensure_utf8(value))
@@ -780,6 +858,26 @@ module Lutaml
         else
           Lutaml::Model::UninitializedClass.instance
         end
+      end
+
+      def register_in_reference_store
+        Lutaml::Model::Store.register(self)
+      end
+
+      def resolve_reference_key(ref)
+        return nil if ref.nil?
+
+        return ref.map { |r| resolve_reference_key(r) } if ref.is_a?(Array)
+
+        ref.is_a?(Type::Reference) ? ref.key : ref
+      end
+
+      def resolve_reference_value(ref)
+        return nil if ref.nil?
+
+        return ref.map { |r| resolve_reference_value(r) } if ref.is_a?(Array)
+
+        ref.is_a?(Type::Reference) ? ref.object : ref
       end
     end
   end
