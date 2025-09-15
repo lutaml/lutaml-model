@@ -5,7 +5,6 @@ source "https://rubygems.org"
 # Specify your gem's dependencies in lutaml-model.gemspec
 gemspec
 
-gem "activesupport"
 gem "benchmark-ips"
 gem "bigdecimal"
 gem "equivalent-xml"
