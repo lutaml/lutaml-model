@@ -1,0 +1,718 @@
+= XML Base (`xml:base`) Specification Reference
+
+This document presents a detailed specification of the `xml:base` attribute as defined in the W3C XML Base Recommendation (Second Edition, 2009). This specification provides a facility similar to HTML BASE for defining base URIs for parts of XML documents.
+
+Source: **W3C XML Base (Second Edition)** +  
+W3C Recommendation 28 January 2009
+
+== Abstract
+
+XML Base describes a facility, similar to that of HTML BASE, for defining base URIs for parts of XML documents. This specification provides a mechanism for providing base URI services to XLink and other XML applications that benefit from additional control over relative URIs.  
+
+
+== 1. Introduction and Purpose
+
+The `xml:base` attribute allows authors to explicitly redefine the base URI for parts of an XML document, enabling consistent resolution of relative URIs—especially in linking contexts like XLink, style sheets, or external resources.
+
+=== Background
+
+The XML Linking Language (XLink) defines XML constructs to describe links between resources. One of the requirements on XLink is to support HTML linking constructs in a generic way. The HTML BASE element allows authors to explicitly specify a document's base URI for resolving relative URIs in links to external images, applets, form-processing programs, style sheets, and other resources.
+
+XML Base provides a mechanism for providing base URI services to XLink and other XML applications as a modular specification. The syntax consists of a single XML attribute named `xml:base`.
+
+=== Deployment
+
+The deployment of XML Base is through normative reference by new specifications (e.g., XLink and the XML Infoset). Applications and specifications built upon these technologies will natively support XML Base. The behavior of `xml:base` attributes in applications based on specifications that do not have direct or indirect normative reference to XML Base is undefined.
+
+=== Scope
+
+This specification does not attempt to specify which text strings in a document are to be interpreted as URIs. That is the responsibility of each XML vocabulary. The question addressed by this specification is: given a relative URI in an XML document, what base URI is it resolved against?  
+
+
+== 2. Terminology
+
+[IMPORTANT]
+====
+The key words MUST, MUST NOT, REQUIRED, SHALL, SHALL NOT, SHOULD, SHOULD NOT, RECOMMENDED, MAY, and OPTIONAL in this specification are to be interpreted as described in RFC 2119.
+====
+
+The terms base URI and relative URI are used in this specification as they are defined in RFC 3986.
+
+**Base URI**: The URI used to resolve any relative URI references found within a document.
+
+**Relative URI**: A URI reference that does not begin with a scheme name and is resolved relative to a base URI.
+
+**Legacy Extended IRI (LEIRI)**: An extension of URI syntax that allows characters beyond those permitted in URIs, as defined in the W3C Note "Legacy extended IRIs for XML resource identification".
+
+== 3. The xml:base Attribute Specification
+
+- **Name**: `xml:base`
+- **Namespace**: `http://www.w3.org/XML/1998/namespace` (bound to the reserved `xml:` prefix)  
+- **Value Type**: Legacy Extended IRI (LEIRI), which accepts characters beyond standard URIs  
+
+In namespace-aware XML processors, the "xml" prefix is bound to the namespace name `http://www.w3.org/XML/1998/namespace` as described in Namespaces in XML. Note that `xml:base` can still be used by non-namespace-aware processors.
+
+=== Basic Example
+
+.XLink Document with xml:base
+[source,xml]
+----
+<?xml version="1.0"?>
+<doc xml:base="http://example.org/today/"
+     xmlns:xlink="http://www.w3.org/1999/xlink">
+  <head>
+    <title>Virtual Library</title>
+  </head>
+  <body>
+    <paragraph>See <link xlink:type="simple"
+                      xlink:href="new.xml">what's new</link>!</paragraph>
+    <paragraph>Check out the hot picks of the day!</paragraph>
+    <olist xml:base="/hotpicks/">
+      <item>
+        <link xlink:type="simple" xlink:href="pick1.xml">Hot Pick #1</link>
+      </item>
+      <item>
+        <link xlink:type="simple" xlink:href="pick2.xml">Hot Pick #2</link>
+      </item>
+      <item>
+        <link xlink:type="simple" xlink:href="pick3.xml">Hot Pick #3</link>
+      </item>
+    </olist>
+  </body>
+</doc>
+----
+
+The URIs in this example resolve to full URIs as follows:
+
+- "what's new" resolves to the URI `http://example.org/today/new.xml`
+- "Hot Pick #1" resolves to the URI `http://example.org/hotpicks/pick1.xml`
+- "Hot Pick #2" resolves to the URI `http://example.org/hotpicks/pick2.xml`  
+- "Hot Pick #3" resolves to the URI `http://example.org/hotpicks/pick3.xml`
+
+=== Validity Considerations
+
+[NOTE]
+====
+This specification does not give the `xml:base` attribute any special status as far as XML validity is concerned. In a valid document the attribute MUST be declared in the DTD, and similar considerations apply to other schema languages.
+====
+
+.DTD Declaration Example
+[source,xml]
+----
+<!ATTLIST doc xml:base CDATA #IMPLIED>
+<!ATTLIST olist xml:base CDATA #IMPLIED>
+----
+
+== 5. Resolving Relative URIs
+
+=== Relation to RFC 3986
+
+RFC 3986 provides for base URI information to be embedded within a document. The rules for determining the base URI can be summarized as follows (highest priority to lowest):
+
+1. The base URI is embedded in the document's content
+2. The base URI is that of the encapsulating entity (message, document, or none)
+3. The base URI is the URI used to retrieve the entity
+4. The base URI is defined by the context of the application
+
+This specification defines the details of rule #1 for embedding base URI information in the specific case of XML documents.
+
+=== Granularity of Base URI Information
+
+Relative URIs appearing in an XML document are always resolved relative to either an element, a document entity, or an external entity. There is NO provision for finer granularity, such as per-attribute, per-character, or per-entity base information.
+
+**Important Limitations:**
+- Internal entities (whether declared in the internal subset or in an external DTD) are NOT considered to set a base URI separate from the base URI in scope for the entity reference
+- Freestanding text (text not enclosed in an element) in an external entity does NOT set a separate base URI
+
+=== Base URI Computation Rules
+
+Base URI resolution follows a clear hierarchy (highest to lowest priority):
+
+1. **Element with xml:base**: The base URI specified by an `xml:base` attribute on the element, if one exists
+2. **Parent Element**: The base URI of the element's parent element within the document entity or external entity, if one exists  
+3. **Document/Entity**: The base URI of the document entity or external entity containing the element
+
+**Inheritance**: The `xml:base` scope applies to descendant elements until overridden.
+
+.Base URI Hierarchy Example
+[source,xml]
+----
+<?xml version="1.0"?>
+<!-- Document base: http://example.org/docs/page.xml -->
+<document xml:base="http://example.org/base/">
+  <!-- Base URI: http://example.org/base/ -->
+  <section>
+    <!-- Base URI: http://example.org/base/ (inherited) -->
+    <title>Section Title</title>
+    <content xml:base="relative/">
+      <!-- Base URI: http://example.org/base/relative/ -->
+      <paragraph>Content here</paragraph>
+      <subsection xml:base="../other/">
+        <!-- Base URI: http://example.org/base/other/ -->
+        <item>Item content</item>
+      </subsection>
+    </content>
+  </section>
+</document>
+----
+
+=== Resolution Contexts and Constraints
+
+The base URI corresponding to a given relative URI appearing in an XML document is determined as follows:
+
+==== Text Content Resolution
+**Rule**: The base URI for a URI reference appearing in text content is the base URI of the element containing the text.
+
+.Text Content Example
+[source,xml]
+----
+<section xml:base="http://example.org/docs/">
+  Link to <ref>image.png</ref> <!-- Resolves to: http://example.org/docs/image.png -->
+</section>
+----
+
+==== xml:base Attribute Resolution  
+**Rule**: The base URI for a URI reference appearing in an `xml:base` attribute is the base URI of the parent element of the element bearing the `xml:base` attribute, if one exists within the document entity or external entity, otherwise the base URI of the document entity or external entity containing the element.
+
+.xml:base Resolution Example
+[source,xml]
+----
+<parent xml:base="http://example.org/base/">
+  <child xml:base="relative/path/">
+    <!-- child's xml:base resolves against parent's base URI -->
+    <!-- Result: http://example.org/base/relative/path/ -->
+  </child>
+</parent>
+----
+
+==== Other Attribute Resolution
+**Rule**: The base URI for a URI reference appearing in any other attribute value, including default attribute values, is the base URI of the element bearing the attribute.
+
+.Attribute Resolution Example  
+[source,xml]
+----
+<section xml:base="http://example.org/docs/">
+  <image src="photo.jpg" alt="Photo"/>
+  <!-- src resolves to: http://example.org/docs/photo.jpg -->
+</section>
+----
+
+==== Processing Instruction Resolution
+**Rule**: The base URI for a URI reference appearing in the content of a processing instruction is the base URI of the parent element of the processing instruction, if one exists within the document entity or external entity, otherwise the base URI of the document entity or external entity containing the processing instruction.
+
+.Processing Instruction Example
+[source,xml]
+----
+<section xml:base="http://example.org/docs/">
+  <?xml-stylesheet href="style.css" type="text/css"?>
+  <!-- href resolves to: http://example.org/docs/style.css -->
+</section>
+----
+
+=== Constraints and Validation Rules
+
+==== External Entity Constraint
+[WARNING]
+====
+**External DTD Default Constraint**: The presence of `xml:base` attributes might lead to unexpected results when the attribute value is provided via a default attribute from an external entity. Such declarations might not be read by software based on non-validating XML processors.
+====
+
+**Best Practice**: `xml:base` values SHOULD be provided either:
+- Directly in the XML document instance, OR
+- Via default attributes declared in the internal subset of the DTD
+
+.Problematic External Default
+[source,xml]
+----
+<!-- External DTD (might not be read by non-validating processors) -->
+<!ATTLIST section xml:base CDATA "http://default.example.org/">
+
+<!-- Document instance -->
+<section>
+  <!-- xml:base default might not be applied -->
+</section>
+----
+
+.Recommended Internal Default
+[source,xml]
+----
+<?xml version="1.0"?>
+<!DOCTYPE document [
+  <!ATTLIST section xml:base CDATA "http://default.example.org/">
+]>
+<document>
+  <section>
+    <!-- xml:base default will be applied -->
+  </section>
+</document>
+----
+
+==== Schema Validation Constraint
+[CAUTION]
+====
+**Schema Default Constraint**: Defaulting attributes through an external mechanism such as XML Schema may lead to unexpected results. Even if a validating processor is used, the addition of defaulted attributes subsequent to creation of the infoset can cause `xml:base` attributes to get out of sync with the [base URI] infoset property.
+====  
+
+
+== 4. URI Reference Encoding and Escaping
+
+The value of an `xml:base` attribute is a Legacy Extended IRI (LEIRI) and MAY contain characters not allowed in URIs. However, some characters allowed in LEIRIs are not legal XML characters, and cannot therefore appear in `xml:base` values.
+
+=== Encoding Principles
+
+In accordance with the principle that percent-encoding MUST occur as late as possible in the processing chain, applications which provide access to the base URI of an element SHOULD calculate and return the value without escaping.
+
+.Example: LEIRI Handling
+[source,xml]
+----
+<?xml version="1.0"?>
+<e1 xml:base="http://example.org/wine/">
+  <e2 xml:base="rosé"/>
+</e1>
+----
+
+In the example above, the base URI of element `e2` should be returned as `http://example.org/wine/rosé`.
+
+=== Character Handling Rules
+
+1. **Unicode Characters**: LEIRI values can contain Unicode characters that are not valid in traditional URIs
+2. **Escaping Process**: 
+   - Convert disallowed characters to UTF-8 byte sequences
+   - Percent-encode the resulting bytes (e.g., `%C3%A9` for `é`)
+   - Use the escaped form for URI resolution operations
+3. **Return Values**: When exposing base URIs programmatically, return unescaped LEIRIs for readability
+
+.Character Encoding Example
+[source,xml]
+----
+<!-- Input with Unicode characters -->
+<document xml:base="http://example.org/café/">
+  <section xml:base="ménü.html"/>
+</document>
+
+<!-- Base URI returned: http://example.org/café/ménü.html -->
+<!-- Escaped for resolution: http://example.org/caf%C3%A9/m%C3%A9n%C3%BC.html -->
+----
+
+=== Validation Constraints
+
+[WARNING]
+====
+**Invalid LEIRI Constraint**: The base URI of an element bearing an `xml:base` attribute with a value that is not a valid Legacy Extended IRI is application dependent.
+====
+
+Applications SHOULD validate that `xml:base` values conform to LEIRI syntax before processing.  
+
+
+== 5. Special Cases & Implementation Notes
+
+- `xml:base` does **not** affect:
+  1. External system identifiers (like DTD system IDs)
+  2. XML Namespaces declarations
+  3. Non-document entities or defaulted attributes from external DTDs—especially in non‑validating processors
+
+- Behavior of certain `xml:base` values:
+  1. `xml:base=""` or values like `xml:base="#frag"` are **not** treated as resets to the document base. Processing such values is discouraged due to inconsistent handling.
+
+- For reliability, define `xml:base` directly in the document instance or internal DTD subset—not via external entity defaults.
+
+== 6. Conformance Requirements
+
+To be conformant with XML Base:
+
+- Support recognition of `xml:base` in the XML namespace context
+- Accurately compute base URIs according to the hierarchy
+- Correctly resolve relative URIs in all contexts (content, attributes, processing instructions)
+- Handle LEIRI encoding/escaping properly
+- Disregard unsupported or ambiguous cases, following spec guidance where behaviors are undefined or discouraged
+
+== 7. Summary Table
+
+[options="header"]
+|===
+| Feature                      | Specification Summary
+
+| **Attribute Name & NS**      | `xml:base` in `http://www.w3.org/XML/1998/namespace`
+
+| **Value Type**               | Legacy Extended IRI (LEIRI)
+
+| **Base URI Calculation Order** | 1. `xml:base` on element  
+2. Ancestor base URI  
+3. Document/external entity URI  
+4. Undefined/error
+
+| **Relative URI Resolution**  | Against appropriate base per context (element, attribute, etc.)
+
+| **LEIRI Handling**           | Escaped for resolution; unescaped return preferred
+
+| **Edge Cases**               | `xml:base=""` discouraged; external DTD defaults risky
+
+| **Conformance Goals**        | Accurate resolution, encoding, scoping as specified
+
+|===
+
+== 8. Implementation Conformance and Requirements
+
+=== Conforming XML Processors
+
+A conforming XML processor that supports the `xml:base` specification:
+
+1. **MUST** recognize the `xml:base` attribute in the XML namespace (http://www.w3.org/XML/1998/namespace)
+2. **MUST** follow the base URI resolution algorithm specified in RFC 3986
+3. **MUST** handle LEIRI (Legacy Extended IRI) values as specified in this document
+4. **SHOULD** provide access to the computed base URI for each element
+5. **MAY** provide APIs for applications to access base URI information
+
+=== Processor Implementation Guidelines
+
+==== Base URI Calculation Requirements
+- **MUST** compute base URI according to the hierarchy defined in Section 5
+- **MUST** properly handle inheritance from parent to child elements
+- **MUST** resolve relative `xml:base` values against the appropriate parent base URI
+- **MUST** handle empty `xml:base` values correctly (application-dependent behavior)
+
+==== URI Resolution Requirements
+- **MUST** implement RFC 3986 reference resolution algorithm
+- **MUST** handle all special cases (empty string, fragment-only, query-only)
+- **MUST** perform proper path merging and normalization
+- **SHOULD** validate URI syntax according to RFC 3986
+
+==== Character Encoding Requirements
+- **MUST** support LEIRI processing for `xml:base` values
+- **MUST** handle Unicode characters in base URIs
+- **SHOULD** provide proper percent-encoding when converting to strict URIs
+- **MUST** preserve Unicode characters in computed base URIs when possible
+
+=== Error Handling Requirements
+
+==== Invalid xml:base Values
+When an `xml:base` attribute contains an invalid LEIRI:
+
+1. **MUST** detect the invalid syntax
+2. **SHOULD** report the error to the application
+3. **MAY** continue processing using fallback behavior (application-dependent)
+4. **MUST NOT** cause processing to fail unless explicitly configured to do so
+
+.Error Handling Example
+[source,xml]
+----
+<document xml:base="http://example.org/docs/">
+  <section xml:base=":::invalid:::">  <!-- Invalid URI syntax -->
+    <link href="page.html"/>  <!-- Fallback behavior applies -->
+  </section>
+</document>
+----
+
+==== Circular Base URI References
+Circular references in `xml:base` values are invalid and SHOULD be detected:
+
+**Detection Algorithm**: Implementations SHOULD track the chain of base URI resolution to detect cycles and handle them gracefully.
+
+== 9. Security Considerations  
+
+=== URI Resolution Security
+
+==== Malicious Base URI Injection
+**Risk**: Malicious xml:base values could redirect relative URIs to unintended locations.
+
+.Security Risk Example
+[source,xml]
+----
+<!-- Potentially malicious -->
+<document xml:base="http://malicious.example.com/">
+  <script src="safe-script.js"/> <!-- Actually loads: http://malicious.example.com/safe-script.js -->
+</document>
+----
+
+**Mitigation**: Applications SHOULD validate base URIs against allowed schemes and domains.
+
+==== Directory Traversal Attacks
+**Risk**: Relative base URIs with ".." components could access unintended file system locations.
+
+.Directory Traversal Risk
+[source,xml]
+----
+<!-- File system risk -->
+<config xml:base="../../../etc/">
+  <file href="passwd"/> <!-- Could access: /etc/passwd -->
+</config>
+----
+
+**Mitigation**: 
+- Validate that resolved URIs remain within expected boundaries
+- Sanitize path components in file:// URIs
+- Use allowlists for permitted base URI patterns
+
+==== Protocol Scheme Validation
+**Risk**: Unexpected URI schemes in xml:base values could trigger unintended protocol handlers.
+
+**Mitigation**: Applications SHOULD validate URI schemes and only allow expected protocols (e.g., http, https, file).
+
+=== Processing Security
+
+==== External Entity Considerations
+When xml:base appears in external DTD subsets:
+- Non-validating processors may not read external DTDs
+- Default xml:base values may not be applied
+- This could lead to inconsistent URI resolution behavior
+
+**Best Practice**: Include xml:base declarations in the internal DTD subset or document instance.
+
+==== Resource Exhaustion
+Complex xml:base hierarchies with many nested relative references could potentially cause:
+- Excessive URI resolution processing
+- Stack overflow in recursive resolution algorithms
+- Memory exhaustion from deep element nesting
+
+**Mitigation**: Implement reasonable limits on:
+- xml:base nesting depth  
+- URI resolution complexity
+- Processing time for URI calculations
+
+== 10. Validation and Testing Guidelines  
+
+=== Conformance Testing
+
+==== Required Test Scenarios
+Implementations MUST handle these core scenarios correctly:
+
+1. **Basic Resolution**
+   - Simple relative URIs with xml:base
+   - Absolute URIs (should ignore xml:base)
+   - Empty relative URI (should resolve to base URI)
+
+2. **Hierarchical Resolution**  
+   - Parent-child base URI inheritance
+   - Multiple levels of nesting
+   - Override scenarios
+
+3. **Special URI Forms**
+   - Fragment-only URIs (#fragment)
+   - Query-only URIs (?query) 
+   - Path-only URIs (path/component)
+
+4. **Edge Cases**
+   - Empty xml:base values
+   - Invalid URI syntax in xml:base
+   - Complex relative path resolution (../, ./, etc.)
+
+==== Validation Algorithms
+
+**Syntax Validation**: xml:base values MUST be validated as LEIRI references:
+
+.Validation Steps
+[source,text]
+----
+1. Check XML character legality
+2. Parse as LEIRI reference  
+3. Validate component syntax
+4. Check for prohibited characters
+5. Verify relative/absolute form appropriateness
+----
+
+**Resolution Validation**: Resolved URIs MUST be valid:
+- Result MUST be absolute URI or valid relative reference
+- Path components MUST be properly normalized
+- Character encoding MUST be consistent
+
+=== Testing Frameworks
+
+==== Unit Test Categories
+**Positive Tests**: Valid scenarios that should work correctly
+**Negative Tests**: Invalid scenarios that should fail gracefully  
+**Edge Case Tests**: Boundary conditions and unusual but valid scenarios
+**Performance Tests**: Large documents, deep nesting, complex resolution
+
+.Sample Test Case
+[source,xml]
+----
+<!-- Test: Nested relative base URIs -->
+<test-case name="nested-relative-bases">
+  <input>
+    <document xml:base="http://example.org/a/b/">
+      <section xml:base="../c/">
+        <item href="d.xml"/>
+      </section>
+    </document>
+  </input>
+  <expected-result>
+    <resolved-uri>http://example.org/a/c/d.xml</resolved-uri>
+  </expected-result>
+</test-case>
+----
+
+==== Interoperability Testing
+- Test against multiple XML parsers
+- Verify consistent behavior across implementations  
+- Check handling of edge cases and error conditions
+- Validate performance characteristics
+
+== 11. Examples and Use Cases
+
+=== Content Management Systems
+
+.Document Collection Management
+[source,xml]
+----
+<?xml version="1.0"?>
+<publication xml:base="https://docs.example.org/2024/manual/">
+  <metadata>
+    <stylesheet href="../common/styles.css"/>  <!-- https://docs.example.org/2024/common/styles.css -->
+    <logo src="../images/logo.png"/>          <!-- https://docs.example.org/2024/images/logo.png -->
+  </metadata>
+  
+  <chapter xml:base="chapter1/">
+    <title>Introduction</title>
+    <content src="intro.xml"/>               <!-- https://docs.example.org/2024/manual/chapter1/intro.xml -->
+    <figures xml:base="figures/">
+      <figure src="diagram.svg"/>            <!-- https://docs.example.org/2024/manual/chapter1/figures/diagram.svg -->
+    </figures>
+  </chapter>
+  
+  <chapter xml:base="chapter2/">
+    <title>Advanced Topics</title>
+    <content src="advanced.xml"/>            <!-- https://docs.example.org/2024/manual/chapter2/advanced.xml -->
+  </chapter>
+</publication>
+----
+
+=== Web Service Configuration
+
+.RESTful API Configuration
+[source,xml]
+----
+<?xml version="1.0"?>
+<api-specification xml:base="https://api.service.com/v2/">
+  <authentication>
+    <login href="auth/login"/>               <!-- https://api.service.com/v2/auth/login -->
+    <logout href="auth/logout"/>             <!-- https://api.service.com/v2/auth/logout -->
+  </authentication>
+  
+  <resources xml:base="data/">
+    <users href="users/"/>                   <!-- https://api.service.com/v2/data/users/ -->
+    <orders href="orders/"/>                 <!-- https://api.service.com/v2/data/orders/ -->
+    
+    <reports xml:base="../reports/">
+      <sales href="sales.json"/>             <!-- https://api.service.com/v2/reports/sales.json -->
+      <inventory href="inventory.json"/>     <!-- https://api.service.com/v2/reports/inventory.json -->
+    </reports>
+  </resources>
+  
+  <documentation xml:base="https://docs.service.com/">
+    <api-guide href="api-guide.html"/>       <!-- https://docs.service.com/api-guide.html -->
+    <examples href="examples/"/>             <!-- https://docs.service.com/examples/ -->
+  </documentation>
+</api-specification>
+----
+
+=== Multimedia Document Structure
+
+.Media Asset Organization
+[source,xml]
+----
+<?xml version="1.0"?>
+<presentation xml:base="https://media.example.org/conference2024/">
+  <slide id="intro" xml:base="slides/intro/">
+    <background src="background.jpg"/>       <!-- https://media.example.org/conference2024/slides/intro/background.jpg -->
+    <audio src="narration.mp3"/>            <!-- https://media.example.org/conference2024/slides/intro/narration.mp3 -->
+    
+    <assets xml:base="../../common/icons/">
+      <logo src="company-logo.svg"/>         <!-- https://media.example.org/conference2024/common/icons/company-logo.svg -->
+      <bullet src="bullet-point.png"/>      <!-- https://media.example.org/conference2024/common/icons/bullet-point.png -->
+    </assets>
+  </slide>
+  
+  <slide id="demo" xml:base="slides/demo/">
+    <video>
+      <source src="demo.mp4"/>               <!-- https://media.example.org/conference2024/slides/demo/demo.mp4 -->
+      <subtitles src="subtitles.vtt"/>       <!-- https://media.example.org/conference2024/slides/demo/subtitles.vtt -->
+    </video>
+  </slide>
+</presentation>
+----
+
+== 12. Advanced Implementation Topics
+
+=== Performance Considerations
+
+==== Caching Strategies
+**Base URI Computation**: Since base URIs follow a hierarchical pattern, implementations can optimize by:
+
+1. **Caching computed base URIs** for elements
+2. **Invalidating cache** when xml:base attributes change
+3. **Sharing base URIs** among sibling elements
+
+==== Lazy Evaluation
+**Deferred Resolution**: Base URI resolution can be deferred until actually needed:
+- Store xml:base values without immediate resolution
+- Compute full base URI only when applications request it
+- Cache results for subsequent requests
+
+=== Integration with Other Technologies
+
+==== HTML Base Element Interaction
+When XML is processed in web browsers:
+- HTML `<base>` element may affect XML document processing
+- `xml:base` takes precedence within XML content
+- Careful consideration needed for mixed HTML/XML documents
+
+==== XPath and XSLT Integration
+**XPath Functions**: `xml:base` affects URI resolution in:
+- `document()` function calls
+- `xsl:import` and `xsl:include` href attributes  
+- Any XPath expression resolving relative URIs
+
+.XSLT Integration Example
+[source,xml]
+----
+<xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="1.0">
+  <root xml:base="http://example.org/data/">
+    <xsl:variable name="data" select="document('source.xml')"/>
+    <!-- source.xml resolves to: http://example.org/data/source.xml -->
+  </root>
+</xsl:stylesheet>
+----
+
+=== Internationalization Support
+
+==== Unicode Normalization
+**Character Processing**: When handling Unicode in `xml:base` values:
+- Consider Unicode normalization forms (NFC, NFD, NFKC, NFKD)
+- Maintain consistency with URI percent-encoding rules
+- Handle bidirectional text appropriately
+
+==== Locale-Specific Considerations
+- Case folding rules may vary by locale
+- Character equivalence rules may differ
+- Domain name internationalization (IDN) integration
+
+.Unicode Example
+[source,xml]
+<?xml version="1.0" encoding="UTF-8"?>
+<document xml:base="http://例え.テスト/documents/">
+  <!-- Japanese domain name in xml:base -->
+  <file href="ファイル.xml"/>  <!-- Unicode filename -->
+</document>
+
+== Implementation Status in lutaml-model
+
+[cols="1,1,1", options="header"]
+|===
+| Feature/Requirement | Status | Notes
+
+| Recognize `xml:base` attribute in XML namespace | Not implemented | No dedicated xml:base attribute detection
+| Base URI calculation hierarchy (element, ancestor, document/entity) | Not implemented | No base URI resolution logic
+| Relative URI resolution using xml:base | Not implemented | No support for resolving relative URIs via xml:base
+| LEIRI (Legacy Extended IRI) value handling | Not implemented | No LEIRI parsing or encoding/escaping logic
+| Inheritance of base URI to descendants | Not implemented | No inheritance or override logic for xml:base
+| Handling of xml:base in attributes, processing instructions | Not implemented | No context-aware base URI resolution
+| Error handling for invalid xml:base values | Not implemented | No detection or reporting of invalid LEIRI
+| Security checks (malicious base URI, traversal, scheme validation) | Not implemented | No security validation for base URIs
+| Caching or lazy evaluation of base URIs | Not implemented | No caching or deferred resolution
+| Integration with XPath/XSLT/document() | Not implemented | No integration with XPath/XSLT URI resolution
+| Unicode normalization and internationalization | Not implemented | No Unicode normalization or IDN support
+| Conformance testing and validation | Not implemented | No unit tests or validation for xml:base features
+| Documentation of supported features/conformance | Not implemented | No documentation of xml:base support
+|===
+
+*Summary*: lutaml-model does not currently implement any XML Base (`xml:base`) features, base URI resolution, or related validation, encoding, or security logic. All XML Base requirements are unimplemented as of this review.

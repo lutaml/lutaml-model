@@ -1,0 +1,1989 @@
+= XML 1.0 — Complete Specification (Fifth Edition)
+
+This document outlines the complete specification of XML 1.0 (Fifth Edition) based on the W3C Recommendation dated November 26, 2008. It provides comprehensive coverage of XML document structure, elements, attributes, entities, notations, character encoding, and all relevant components for implementing XML 1.0 compliant processors.
+
+== Overview
+
+XML (Extensible Markup Language) is a subset of SGML that is designed for ease of implementation and interoperability with both SGML and HTML. XML describes a class of data objects called XML documents and partially describes the behavior of computer programs which process them.
+
+=== Design Goals
+
+XML was designed with the following goals:
+
+1. XML shall be straightforwardly usable over the Internet
+2. XML shall support a wide variety of applications  
+3. XML shall be compatible with SGML
+4. It shall be easy to write programs which process XML documents
+5. The number of optional features in XML is to be kept to the absolute minimum, ideally zero
+6. XML documents should be human-legible and reasonably clear
+7. The XML design should be prepared quickly
+8. The design of XML shall be formal and concise
+9. XML documents shall be easy to create
+10. Terseness in XML markup is of minimal importance
+
+== 1. Document Structure and Well-Formedness
+
+An XML document consists of:
+
+- **Prolog**: Optional; includes XML declaration, document type declaration, comments, and processing instructions
+- **Document Element**: A single root element that contains all other elements  
+- **Miscellaneous**: Comments, processing instructions, and whitespace that may appear after the document element
+
+=== Well-Formed XML Documents
+
+A textual object is a well-formed XML document if:
+
+1. Taken as a whole, it matches the document production
+2. It meets all the well-formedness constraints given in this specification
+3. Each of the parsed entities which is referenced directly or indirectly within the document is well-formed
+
+==== Document Production
+
+```
+document ::= prolog element Misc*
+```
+
+Where:
+- There is exactly one element, called the root or document element
+- Elements must be properly nested within each other
+- For each non-root element C, there is one other element P such that C is in the content of P
+
+=== Basic Document Examples
+
+.Minimal Well-Formed Document
+```xml
+<greeting>Hello, world!</greeting>
+```
+
+.Complete Document with XML Declaration
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<greeting>Hello, world!</greeting>
+```
+
+.Document with DOCTYPE Declaration
+```xml
+<?xml version="1.0"?>
+<!DOCTYPE greeting SYSTEM "hello.dtd">
+<greeting>Hello, world!</greeting>
+```
+
+== 2. Characters and Character Encoding
+
+=== Character Range
+
+XML documents are composed of characters from the Unicode/ISO 10646 character set. Legal characters include:
+
+- Tab (#x9)
+- Line feed (#xA) 
+- Carriage return (#xD)
+- Characters in range #x20-#xD7FF
+- Characters in range #xE000-#xFFFD
+- Characters in range #x10000-#x10FFFF
+
+```
+Char ::= #x9 | #xA | #xD | [#x20-#xD7FF] | [#xE000-#xFFFD] | [#x10000-#x10FFFF]
+```
+
+=== Character Encoding
+
+All XML processors must accept UTF-8 and UTF-16 encodings. Other encodings may be supported but must be declared using an encoding declaration.
+
+==== UTF-8 Example
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<document>Content in UTF-8</document>
+```
+
+==== UTF-16 Example
+```xml
+<?xml version="1.0" encoding="UTF-16"?>
+<document>Content in UTF-16</document>
+```
+
+==== Other Encoding Example
+```xml
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<document>Content in Latin-1</document>
+```
+
+=== Character References
+
+Character references allow inclusion of specific Unicode characters:
+
+- Decimal: `&#decimal;`
+- Hexadecimal: `&#xhex;`
+
+.Character Reference Examples
+```xml
+<text>Copyright &#169; 2023</text>
+<text>Copyright &#xA9; 2023</text>
+<text>Less than: &#60; Greater than: &#62;</text>
+```
+
+== 3. Prolog Components
+
+The prolog contains optional components that appear before the document element.
+
+=== XML Declaration
+
+The XML declaration specifies the XML version and optionally the encoding and standalone status.
+
+```
+XMLDecl ::= '<?xml' VersionInfo EncodingDecl? SDDecl? S? '?>'
+VersionInfo ::= S 'version' Eq ("'" VersionNum "'" | '"' VersionNum '"')
+VersionNum ::= '1.' [0-9]+
+```
+
+.XML Declaration Examples
+```xml
+<?xml version="1.0"?>
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<?xml version="1.0" standalone="no"?>
+```
+
+=== Encoding Declaration
+
+The encoding declaration specifies the character encoding used in the document.
+
+```
+EncodingDecl ::= S 'encoding' Eq ('"' EncName '"' | "'" EncName "'" )
+EncName ::= [A-Za-z] ([A-Za-z0-9._] | '-')*
+```
+
+.Encoding Declaration Examples
+```xml
+<?xml encoding='UTF-8'?>
+<?xml encoding='ISO-8859-1'?>
+<?xml encoding='EUC-JP'?>
+<?xml encoding='Shift_JIS'?>
+```
+
+=== Standalone Document Declaration
+
+The standalone declaration indicates whether the document relies on external markup declarations.
+
+```
+SDDecl ::= S 'standalone' Eq (("'" ('yes' | 'no') "'") | ('"' ('yes' | 'no') '"'))
+```
+
+.Standalone Declaration Examples
+```xml
+<?xml version="1.0" standalone="yes"?>
+<?xml version="1.0" standalone="no"?>
+```
+
+=== Document Type Declaration
+
+The document type declaration contains or points to markup declarations (DTD).
+
+```
+doctypedecl ::= '<!DOCTYPE' S Name (S ExternalID)? S? ('[' intSubset ']' S?)? '>'
+```
+
+.DOCTYPE Examples
+```xml
+<!DOCTYPE greeting SYSTEM "hello.dtd">
+<!DOCTYPE greeting PUBLIC "-//W3C//DTD XHTML 1.0//EN" 
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<!DOCTYPE greeting [
+    <!ELEMENT greeting (#PCDATA)>
+]>
+```
+
+== 4. Elements and Tags
+
+Elements are the fundamental building blocks of XML documents. Each element has a type identified by name and may have a set of attribute specifications.
+
+=== Element Structure
+
+```
+element ::= EmptyElemTag | STag content ETag
+```
+
+=== Start Tags
+
+Start tags mark the beginning of non-empty elements.
+
+```
+STag ::= '<' Name (S Attribute)* S? '>'
+```
+
+.Start Tag Examples
+```xml
+<book>
+<person id="123">
+<section title="Introduction" level="1">
+```
+
+=== End Tags  
+
+End tags mark the end of elements that began with start tags.
+
+```
+ETag ::= '</' Name S? '>'
+```
+
+.End Tag Examples
+```xml
+</book>
+</person>
+</section>
+```
+
+=== Empty Element Tags
+
+Empty element tags represent elements with no content.
+
+```
+EmptyElemTag ::= '<' Name (S Attribute)* S? '/>'
+```
+
+.Empty Element Examples
+```xml
+<br/>
+<img src="logo.png" alt="Company Logo"/>
+<meta charset="UTF-8"/>
+<input type="text" name="username"/>
+```
+
+=== Element Content
+
+Element content is the text between start and end tags.
+
+```
+content ::= CharData? ((element | Reference | CDSect | PI | Comment) CharData?)*
+```
+
+.Element Content Examples
+```xml
+<title>XML 1.0 Specification</title>
+<paragraph>This is <emphasis>important</emphasis> text.</paragraph>
+<mixed>Text with <em>embedded</em> elements and &entity; references.</mixed>
+```
+
+=== Well-Formedness Constraints
+
+- Element Type Match: The name in an element's end tag must match the element type in the start tag
+- Proper Nesting: Elements must be properly nested within each other
+- Unique Attribute Specification: An attribute name must not appear more than once in the same start tag
+
+.Well-Formed Nesting Example
+```xml
+<document>
+    <section>
+        <title>Chapter 1</title>
+        <paragraph>Content here.</paragraph>
+    </section>
+</document>
+```
+
+.Ill-Formed Nesting Example (Wrong)
+```xml
+<document>
+    <section>
+        <title>Chapter 1
+        <paragraph>Content here.</title>
+    </section>
+</paragraph>
+</document>
+```
+
+== 5. Attributes
+
+Attributes are name-value pairs associated with elements, appearing in start tags and empty element tags.
+
+=== Attribute Syntax
+
+```
+Attribute ::= Name Eq AttValue
+Eq ::= S? '=' S?
+AttValue ::= '"' ([^<&"] | Reference)* '"' | "'" ([^<&'] | Reference)* "'"
+```
+
+.Attribute Examples
+```xml
+<book title="XML Guide" author="John Doe" year="2023">
+<img src="photo.jpg" width="300" height="200" alt="A beautiful sunset"/>
+<input type="email" name="email" required="true"/>
+<div class="container" id="main-content" style="margin: 10px;">
+```
+
+=== Attribute Types
+
+==== String Type (CDATA)
+The most basic attribute type that can contain any character data.
+
+```xml
+<person name="Jane Smith" address="123 Main St, Anytown, USA"/>
+```
+
+==== Tokenized Types
+
+===== ID Type
+Uniquely identifies an element within the document.
+
+```xml
+<section id="introduction">
+<chapter id="chapter1">
+<figure id="fig-1">
+```
+
+===== IDREF and IDREFS Types
+Reference other elements by their ID values.
+
+```xml
+<footnote ref="note1"/>
+<index refs="chap1 chap2 chap3"/>
+```
+
+===== ENTITY and ENTITIES Types
+Reference unparsed entities.
+
+```xml
+<image entity="logo"/>
+<sounds entities="beep click whistle"/>
+```
+
+===== NMTOKEN and NMTOKENS Types
+Name tokens following XML naming rules.
+
+```xml
+<status value="active"/>
+<keywords tokens="xml parsing validation"/>
+```
+
+==== Enumerated Types
+
+===== Enumeration
+Restricts values to a specific list.
+
+```xml
+<!ATTLIST status value (active|inactive|pending) "active">
+<status value="active"/>
+```
+
+===== Notation Type
+References a declared notation.
+
+```xml
+<!NOTATION gif SYSTEM "image/gif">
+<!ATTLIST image format NOTATION (gif|jpeg|png) #IMPLIED>
+<image format="gif"/>
+```
+
+=== Attribute Defaults
+
+==== Required Attributes
+```xml
+<!ATTLIST person name CDATA #REQUIRED>
+<person name="John"/>
+```
+
+==== Implied Attributes  
+```xml
+<!ATTLIST book isbn CDATA #IMPLIED>
+<book title="XML Guide"/>
+```
+
+==== Fixed Attributes
+```xml
+<!ATTLIST form method CDATA #FIXED "POST">
+<form method="POST"/>
+```
+
+==== Default Values
+```xml
+<!ATTLIST list type (bullets|ordered|glossary) "ordered">
+<list type="bullets"/>
+<list/> <!-- defaults to "ordered" -->
+```
+
+=== Attribute Value Normalization
+
+Before processing, attribute values are normalized:
+
+1. Line breaks normalized to #xA
+2. Character and entity references resolved  
+3. White space characters (#x20, #xD, #xA, #x9) converted to space (#x20)
+4. For non-CDATA attributes: leading/trailing spaces removed, sequences of spaces collapsed to single space
+
+.Normalization Example
+```xml
+<!-- Before normalization -->
+<element attr="  value&#x9;with&#xA;whitespace  "/>
+
+<!-- After normalization (CDATA) -->
+<element attr="  value with whitespace  "/>
+
+<!-- After normalization (NMTOKEN) -->  
+<element attr="value with whitespace"/>
+```
+
+== 6. Entities
+
+Entities are storage units that can contain parsed or unparsed data. They provide a mechanism for text reuse and modularization.
+
+=== Entity Types
+
+==== General Entities
+Used within document content to represent text or other data.
+
+```
+EntityRef ::= '&' Name ';'
+```
+
+==== Parameter Entities  
+Used within DTD to modularize markup declarations.
+
+```
+PEReference ::= '%' Name ';'
+```
+
+=== Entity Declarations
+
+==== Internal Entity Declaration
+```
+GEDecl ::= '<!ENTITY' S Name S EntityValue S? '>'
+EntityValue ::= '"' ([^%&"] | PEReference | Reference)* '"'
+             |  "'" ([^%&'] | PEReference | Reference)* "'"
+```
+
+.Internal Entity Examples
+```xml
+<!ENTITY company "Acme Corporation">
+<!ENTITY copyright "Copyright &#169; 2023 &company;">
+<!ENTITY email "support@acme.com">
+
+<footer>&copyright; Contact: &email;</footer>
+```
+
+==== External Entity Declaration
+```
+ExternalID ::= 'SYSTEM' S SystemLiteral
+            |  'PUBLIC' S PubidLiteral S SystemLiteral
+```
+
+.External Entity Examples
+```xml
+<!ENTITY legal SYSTEM "legal.xml">
+<!ENTITY boilerplate PUBLIC "-//ACME//TEXT Boilerplate//EN" 
+                              "http://www.acme.com/boilerplate.xml">
+<!ENTITY logo SYSTEM "logo.gif" NDATA gif>
+```
+
+==== Parameter Entity Declaration
+```
+PEDecl ::= '<!ENTITY' S '%' S Name S PEDef S? '>'
+PEDef ::= EntityValue | ExternalID
+```
+
+.Parameter Entity Examples
+```xml
+<!ENTITY % common-attrs "id ID #IMPLIED
+                         class CDATA #IMPLIED">
+<!ENTITY % text-elements "em | strong | code | br">
+
+<!ATTLIST p %common-attrs;>
+<!ELEMENT p (#PCDATA | %text-elements;)*>
+```
+
+=== Predefined Entities
+
+XML defines five predefined general entities that must be recognized by all processors:
+
+```xml
+<!ENTITY lt     "&#38;#60;">
+<!ENTITY gt     "&#62;">  
+<!ENTITY amp    "&#38;#38;">
+<!ENTITY apos   "&#39;">
+<!ENTITY quot   "&#34;">
+```
+
+.Predefined Entity Usage
+```xml
+<code>if (x &lt; y &amp;&amp; y &gt; z) return &quot;true&quot;;</code>
+<message>Don&apos;t forget to escape &amp; characters!</message>
+```
+
+=== Entity Processing
+
+==== Character References
+Processed immediately when encountered.
+
+```xml
+<text>Degree symbol: &#176; or &#xB0;</text>
+```
+
+==== Entity References
+Processing depends on context:
+
+- **In Content**: Included and processed
+- **In Attribute Values**: Included but quotes treated as normal data
+- **In Entity Values**: General entities bypassed, parameter entities processed
+- **In DTD**: Parameter entities processed
+
+.Entity Processing Examples
+```xml
+<!ENTITY example "This is &quot;quoted&quot; text">
+<element attr="&example;">  <!-- Result: This is "quoted" text -->
+&example;                   <!-- Result: This is "quoted" text -->
+```
+
+=== Unparsed Entities
+
+Unparsed entities contain non-XML data and require a notation declaration.
+
+```xml
+<!NOTATION gif SYSTEM "image/gif">
+<!ENTITY photo SYSTEM "photo.gif" NDATA gif>
+<!ATTLIST img src ENTITY #REQUIRED>
+
+<img src="photo"/>
+```
+
+=== Well-Formedness Constraints
+
+- **Entity Declared**: Referenced entities must be declared
+- **Parsed Entity**: Entity references must not contain unparsed entity names
+- **No Recursion**: Entities must not contain recursive references
+- **No External Entity References**: Attribute values cannot reference external entities
+- **No < in Attribute Values**: Entity replacement text in attributes cannot contain '<'
+
+.Valid Entity Usage
+```xml
+<!ENTITY greeting "Hello">
+<!ENTITY target "World">
+<!ENTITY message "&greeting;, &target;!">
+
+<text>&message;</text>  <!-- Result: Hello, World! -->
+```
+
+== 7. Character Data and Markup
+
+=== Character Data
+
+Character data is all text that is not markup. It must not contain the literal characters '<' and '&' except when used as markup delimiters.
+
+```
+CharData ::= [^<&]* - ([^<&]* ']]>' [^<&]*)
+```
+
+.Character Data Examples
+```xml
+<text>This is simple character data.</text>
+<paragraph>Character data can contain spaces, numbers 123, and punctuation!</paragraph>
+```
+
+=== Escaping Special Characters
+
+Special characters must be escaped in character data:
+
+- `<` must be escaped as `&lt;`
+- `&` must be escaped as `&amp;`  
+- `>` should be escaped as `&gt;` when part of `]]>`
+
+.Escaped Character Examples
+```xml
+<code>if (x &lt; y &amp;&amp; y &gt; z) { return true; }</code>
+<text>The &lt;xml&gt; tag starts an element.</text>
+<expression>3 &lt; 5 &amp;&amp; 5 &gt; 1</expression>
+```
+
+=== Mixed Content
+
+Elements can contain both character data and child elements (mixed content).
+
+.Mixed Content Examples
+```xml
+<paragraph>This is <emphasis>important</emphasis> text with mixed content.</paragraph>
+<recipe>
+    Bake at <temperature>350°F</temperature> for <time>25 minutes</time>.
+</recipe>
+<alert>Warning: <strong>Do not</strong> exceed the maximum <value>100</value> limit.</alert>
+```
+
+== 8. CDATA Sections
+
+CDATA sections allow inclusion of text containing characters that would otherwise be recognized as markup. Only the CDATA end delimiter `]]>` is recognized as markup within CDATA sections.
+
+```
+CDSect ::= CDStart CData CDEnd
+CDStart ::= '<![CDATA['
+CData ::= (Char* - (Char* ']]>' Char*))
+CDEnd ::= ']]>'
+```
+
+.CDATA Section Examples
+```xml
+<code><![CDATA[
+if (x < y && y > z) {
+    return "success";
+}
+]]></code>
+
+<xml-example><![CDATA[
+<greeting>Hello, world!</greeting>
+]]></xml-example>
+
+<script><![CDATA[
+function validate() {
+    if (document.forms[0].email.value == "") {
+        alert("Email required!");
+        return false;
+    }
+    return true;
+}
+]]></script>
+
+<sql-query><![CDATA[
+SELECT * FROM users 
+WHERE age > 18 AND status = 'active'
+ORDER BY name
+]]></sql-query>
+```
+
+=== CDATA vs. Character Escaping
+
+CDATA sections are useful when you have large blocks of text with many special characters:
+
+.Without CDATA (requires escaping)
+```xml
+<code>if (x &lt; y &amp;&amp; y &gt; z) { return &quot;success&quot;; }</code>
+```
+
+.With CDATA (no escaping needed)
+```xml
+<code><![CDATA[if (x < y && y > z) { return "success"; }]]></code>
+```
+
+=== CDATA Limitations
+
+- CDATA sections cannot be nested
+- The string `]]>` cannot appear within CDATA content
+- CDATA sections can only contain character data, not markup
+
+.Invalid CDATA Usage
+```xml
+<!-- WRONG: Nested CDATA -->
+<![CDATA[
+Some text <![CDATA[nested]]> more text
+]]>
+
+<!-- WRONG: Contains ]]> -->
+<![CDATA[
+Array access: arr[i]]>0
+]]>
+```
+
+== 9. Processing Instructions
+
+Processing instructions (PIs) allow documents to contain instructions for applications. They are not part of the document's character data but must be passed through to the application.
+
+```
+PI ::= '<?' PITarget (S (Char* - (Char* '?>' Char*)))? '?>'
+PITarget ::= Name - (('X' | 'x') ('M' | 'm') ('L' | 'l'))
+```
+
+=== PI Target Names
+
+The PI target identifies the application to which the instruction is directed. Target names beginning with "XML", "xml", and similar combinations are reserved.
+
+.Processing Instruction Examples
+```xml
+<?xml-stylesheet type="text/xsl" href="style.xsl"?>
+<?page-break?>
+<?printer font="helvetica" size="12pt"?>
+<?php echo "Hello World"; ?>
+<?custom-app action="process" mode="batch"?>
+```
+
+=== Common Processing Instructions
+
+==== XML Stylesheet Declaration
+```xml
+<?xml-stylesheet type="text/css" href="styles.css"?>
+<?xml-stylesheet type="text/xsl" href="transform.xsl"?>
+<?xml-stylesheet type="text/xsl" href="style.xsl" title="Default Style"?>
+```
+
+==== Application-Specific Instructions
+```xml
+<?cocoon-process type="xslt"?>
+<?robot index="yes" follow="no"?>
+<?include file="header.xml"?>
+<?dbhtml table-width="100%"?>
+```
+
+=== PI Placement
+
+Processing instructions can appear:
+- In the prolog (before the document element)
+- Within the document type declaration (where allowed)
+- Between elements
+- After the document element
+
+.PI Placement Examples
+```xml
+<?xml version="1.0"?>
+<?xml-stylesheet type="text/css" href="style.css"?>
+<!DOCTYPE document [
+    <?custom-dtd-instruction?>
+]>
+<document>
+    <?page-break?>
+    <section>Content here</section>
+    <?print-options duplex="true"?>
+</document>
+<?end-processing?>
+```
+
+=== Well-Formedness Constraints
+
+- Target names cannot begin with "xml" (case-insensitive)
+- PI data cannot contain the string "?>"
+- Parameter entity references are not recognized within PIs
+
+.Valid Processing Instructions
+```xml
+<?stylesheet href="main.css"?>
+<?custom data="value with spaces"?>
+<?application-name version="2.0" config="production"?>
+```
+
+.Invalid Processing Instructions
+```xml
+<?xml-custom?>                    <!-- WRONG: starts with "xml" -->
+<?valid data="?>"?>               <!-- WRONG: contains "?>" -->
+<?XML-processor?>                 <!-- WRONG: starts with "XML" -->
+```
+
+== 10. Comments
+
+Comments provide a way to include notes and documentation within XML documents. They are not part of the document's character data and may optionally be made available to applications.
+
+```
+Comment ::= '<!--' ((Char - '-') | ('-' (Char - '-')))* '-->'
+```
+
+=== Comment Syntax Rules
+
+- Comments begin with `<!--` and end with `-->`
+- Comments cannot contain the string `--` (double hyphen)
+- Comments cannot end with `--->` (three hyphens)
+- Parameter entity references are not recognized within comments
+
+.Valid Comment Examples
+```xml
+<!-- This is a simple comment -->
+<!-- 
+    Multi-line comment
+    spanning several lines
+-->
+<!-- Author: John Doe, Date: 2023-12-01 -->
+<!-- TODO: Add validation for email field -->
+<!-- Version 1.0 - Initial release -->
+```
+
+=== Comment Placement
+
+Comments can appear:
+- In the prolog
+- Within the document type declaration (where allowed by grammar)
+- Between elements  
+- Within element content (between child elements)
+- After the document element
+
+.Comment Placement Examples
+```xml
+<?xml version="1.0"?>
+<!-- Document-level comment -->
+<!DOCTYPE document [
+    <!-- DTD comment -->
+    <!ELEMENT document (section+)>
+]>
+<document>
+    <!-- Section comments -->
+    <section>
+        <title>Introduction</title>
+        <!-- Content comment -->
+        <paragraph>Some text here.</paragraph>
+    </section>
+    <!-- Another section -->
+    <section>
+        <title>Conclusion</title>
+        <paragraph>Final thoughts.</paragraph>
+    </section>
+</document>
+<!-- End of document comment -->
+```
+
+=== Documentation Comments
+
+Comments are often used for documentation purposes:
+
+.Documentation Examples
+```xml
+<!--
+    Customer Information Schema
+    Version: 2.1
+    Last Modified: 2023-12-01
+    Author: Development Team
+-->
+<customers>
+    <!-- Each customer record contains basic information -->
+    <customer id="C001">
+        <!-- Primary contact information -->
+        <name>John Smith</name>
+        <email>john@example.com</email>
+        
+        <!-- Optional billing address -->
+        <address type="billing">
+            <street>123 Main St</street>
+            <city>Anytown</city>
+            <zip>12345</zip>
+        </address>
+    </customer>
+</customers>
+```
+
+=== Comment Processing
+
+XML processors may, but need not, make comment text available to applications. Applications should not rely on comments being preserved during document processing, transformation, or transmission.
+
+== 11. Notations
+
+Notations identify the format of unparsed entities, elements with notation attributes, or the target application for processing instructions.
+
+```
+NotationDecl ::= '<!NOTATION' S Name S (ExternalID | PublicID) S? '>'
+PublicID ::= 'PUBLIC' S PubidLiteral
+```
+
+=== Notation Declaration Examples
+
+.System Notation
+```xml
+<!NOTATION gif SYSTEM "image/gif">
+<!NOTATION jpeg SYSTEM "image/jpeg">
+<!NOTATION pdf SYSTEM "application/pdf">
+```
+
+.Public Notation
+```xml
+<!NOTATION tex PUBLIC "+//ISBN 0-201-13790-1::Knuth//NOTATION The TeXbook//EN">
+<!NOTATION cgm PUBLIC "ISO 8632:1987//NOTATION Computer Graphics Metafile//EN">
+```
+
+.Combined Public and System
+```xml
+<!NOTATION svg PUBLIC "-//W3C//DTD SVG 1.1//EN" 
+                "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+```
+
+=== Using Notations with Unparsed Entities
+
+```xml
+<!NOTATION gif SYSTEM "image/gif">
+<!NOTATION jpeg SYSTEM "image/jpeg">
+
+<!ENTITY logo SYSTEM "company-logo.gif" NDATA gif>
+<!ENTITY photo SYSTEM "team-photo.jpg" NDATA jpeg>
+
+<!ATTLIST image entity ENTITY #REQUIRED>
+
+<image entity="logo"/>
+<image entity="photo"/>
+```
+
+=== Notation Attributes
+
+Elements can have attributes that specify which notation applies:
+
+```xml
+<!NOTATION gif SYSTEM "image/gif">
+<!NOTATION jpeg SYSTEM "image/jpeg">
+<!NOTATION png SYSTEM "image/png">
+
+<!ATTLIST graphic format NOTATION (gif|jpeg|png) #REQUIRED>
+
+<graphic format="gif">company-logo.gif</graphic>
+<graphic format="jpeg">team-photo.jpg</graphic>
+<graphic format="png">diagram.png</graphic>
+```
+
+=== Well-Formedness and Validity Constraints
+
+- **Unique Notation Name**: A notation name must not be declared more than once
+- **Notation Attributes**: Values must match declared notation names
+- **One Notation Per Element Type**: An element type cannot have more than one NOTATION attribute
+- **No Notation on Empty Element**: NOTATION attributes cannot be declared on EMPTY elements
+
+.Complete Notation Example
+```xml
+<!DOCTYPE document [
+    <!NOTATION gif SYSTEM "image/gif">
+    <!NOTATION jpeg SYSTEM "image/jpeg">
+    <!NOTATION wav SYSTEM "audio/wav">
+    
+    <!ENTITY logo SYSTEM "logo.gif" NDATA gif>
+    <!ENTITY intro SYSTEM "intro.wav" NDATA wav>
+    
+    <!ELEMENT document (text | media)*>
+    <!ELEMENT text (#PCDATA)>
+    <!ELEMENT media EMPTY>
+    <!ATTLIST media 
+              type (image|audio) #REQUIRED
+              src ENTITY #REQUIRED>
+]>
+
+<document>
+    <text>Welcome to our site!</text>
+    <media type="image" src="logo"/>
+    <media type="audio" src="intro"/>
+</document>
+```
+
+== 12. Whitespace Handling
+
+Whitespace in XML includes space (#x20), tab (#x9), carriage return (#xD), and line feed (#xA) characters. XML processors must handle whitespace appropriately based on context.
+
+```
+S ::= (#x20 | #x9 | #xD | #xA)+
+```
+
+=== End-of-Line Handling
+
+XML processors must normalize line breaks in external parsed entities before parsing by translating:
+- The two-character sequence #xD #xA to a single #xA
+- Any #xD not followed by #xA to a single #xA
+
+.Line Break Normalization
+```xml
+<!-- Before normalization (different platforms) -->
+Line 1[CR][LF]
+Line 2[CR]
+Line 3[LF]
+
+<!-- After normalization (all become LF) -->
+Line 1[LF]
+Line 2[LF]
+Line 3[LF]
+```
+
+=== xml:space Attribute
+
+The `xml:space` attribute signals how applications should handle whitespace in element content.
+
+```xml
+<!ATTLIST poem xml:space (default|preserve) 'preserve'>
+<!ATTLIST pre xml:space (preserve) #FIXED 'preserve'>
+```
+
+==== xml:space="preserve"
+Indicates that applications should preserve all whitespace.
+
+.Preserving Whitespace
+```xml
+<poem xml:space="preserve">
+    Roses are red,
+    Violets are blue,
+    XML is structured,
+    And so are you.
+</poem>
+
+<code xml:space="preserve">
+function hello() {
+    console.log("Hello, World!");
+}
+</code>
+```
+
+==== xml:space="default"
+Indicates that applications may apply default whitespace processing.
+
+.Default Whitespace Processing
+```xml
+<paragraph xml:space="default">
+    This text may have its
+    whitespace normalized by
+    the application.
+</paragraph>
+```
+
+=== Whitespace in Element Content
+
+In element content, whitespace between child elements is often not significant:
+
+.Significant vs. Non-significant Whitespace
+```xml
+<!-- These are equivalent for processing -->
+<list><item>First</item><item>Second</item></list>
+
+<list>
+  <item>First</item>
+  <item>Second</item>
+</list>
+
+<list>
+    <item>First</item>
+    <item>Second</item>
+</list>
+```
+
+=== Whitespace in Mixed Content
+
+In mixed content, whitespace is part of the character data:
+
+```xml
+<paragraph>This text has <emphasis>important</emphasis> content.</paragraph>
+<!-- The spaces around "important" are significant -->
+```
+
+=== Attribute Value Whitespace
+
+Leading and trailing whitespace in attribute values is normalized differently based on attribute type:
+
+.CDATA Attributes (preserve internal whitespace)
+```xml
+<element attr="  value  with  spaces  "/>
+<!-- Preserves: "  value  with  spaces  " -->
+```
+
+.Tokenized Attributes (normalize whitespace)
+```xml
+<element tokens="  token1  token2  token3  "/>
+<!-- Becomes: "token1 token2 token3" -->
+```
+
+=== Language Identification
+
+The `xml:lang` attribute specifies the language of element content and attribute values.
+
+```xml
+<!ATTLIST poem xml:lang CDATA #IMPLIED>
+<!ATTLIST gloss xml:lang CDATA 'en'>
+```
+
+.Language Examples
+```xml
+<p xml:lang="en">The quick brown fox jumps over the lazy dog.</p>
+<p xml:lang="en-GB">What colour is it?</p>
+<p xml:lang="en-US">What color is it?</p>
+<p xml:lang="fr">Bonjour le monde!</p>
+<sp who="Faust" xml:lang="de">
+  <l>Habe nun, ach! Philosophie,</l>
+  <l>Juristerei, und Medizin</l>
+</sp>
+```
+
+The `xml:lang` value applies to the element and all its children unless overridden. An empty value removes language information.
+
+== 13. Document Type Definition (DTD)
+
+The DTD provides a grammar for a class of documents, defining the structure and constraints for elements, attributes, entities, and notations.
+
+=== DTD Structure
+
+A DTD consists of:
+- Element type declarations
+- Attribute-list declarations  
+- Entity declarations
+- Notation declarations
+
+.Internal DTD Subset
+```xml
+<!DOCTYPE greeting [
+    <!ELEMENT greeting (#PCDATA)>
+    <!ATTLIST greeting lang CDATA "en">
+]>
+<greeting lang="fr">Bonjour!</greeting>
+```
+
+.External DTD Subset
+```xml
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+```
+
+.Combined Internal and External
+```xml
+<!DOCTYPE book SYSTEM "book.dtd" [
+    <!ENTITY copyright "Copyright 2023 Publisher">
+]>
+```
+
+=== Element Type Declarations
+
+Element declarations define the content model for elements.
+
+```
+elementdecl ::= '<!ELEMENT' S Name S contentspec S? '>'
+contentspec ::= 'EMPTY' | 'ANY' | Mixed | children
+```
+
+==== EMPTY Elements
+```xml
+<!ELEMENT br EMPTY>
+<!ELEMENT img EMPTY>
+<br/>
+<img src="photo.jpg" alt="Photo"/>
+```
+
+==== ANY Content
+```xml
+<!ELEMENT container ANY>
+<container>
+    <text>Any content</text>
+    <number>123</number>
+</container>
+```
+
+==== Element Content Models
+```xml
+<!ELEMENT book (title, author+, chapter*)>
+<!ELEMENT title (#PCDATA)>
+<!ELEMENT author (#PCDATA)>
+<!ELEMENT chapter (title, section+)>
+<!ELEMENT section (title, paragraph+)>
+<!ELEMENT paragraph (#PCDATA | emphasis)*>
+<!ELEMENT emphasis (#PCDATA)>
+```
+
+===== Occurrence Indicators
+- `?` - Zero or one occurrence
+- `*` - Zero or more occurrences  
+- `+` - One or more occurrences
+- No indicator - Exactly one occurrence
+
+.Content Model Examples
+```xml
+<!ELEMENT article (title, author?, abstract, body, references*)>
+<!ELEMENT list (item+)>
+<!ELEMENT optional-section (content?)>
+<!ELEMENT repeating-section (content*)>
+```
+
+===== Choice and Sequence
+```xml
+<!ELEMENT media (image | video | audio)>
+<!ELEMENT book (frontmatter, body, backmatter)>
+<!ELEMENT citation (author, (book-title | article-title), year)>
+```
+
+==== Mixed Content
+```xml
+<!ELEMENT p (#PCDATA | em | strong | code)*>
+<!ELEMENT description (#PCDATA)>
+
+<p>This is <em>emphasized</em> text with <strong>strong</strong> content.</p>
+```
+
+=== Attribute-List Declarations
+
+```
+AttlistDecl ::= '<!ATTLIST' S Name AttDef* S? '>'
+AttDef ::= S Name S AttType S DefaultDecl
+```
+
+.Attribute Declarations
+```xml
+<!ATTLIST img
+    src    CDATA          #REQUIRED
+    alt    CDATA          #REQUIRED
+    width  CDATA          #IMPLIED
+    height CDATA          #IMPLIED
+    border CDATA          "0">
+
+<!ATTLIST input
+    type   (text|password|submit|reset) "text"
+    name   CDATA          #REQUIRED
+    value  CDATA          #IMPLIED
+    size   CDATA          #IMPLIED>
+```
+
+=== Entity Declarations in DTD
+
+.Internal General Entities
+```xml
+<!ENTITY company "Acme Corporation">
+<!ENTITY email "info@acme.com">
+<!ENTITY phone "+1-555-0123">
+```
+
+.External General Entities
+```xml
+<!ENTITY legal SYSTEM "legal-notice.xml">
+<!ENTITY terms SYSTEM "terms-of-service.xml">
+```
+
+.Parameter Entities
+```xml
+<!ENTITY % text-elements "em | strong | code | br">
+<!ENTITY % common-attrs "id ID #IMPLIED
+                         class CDATA #IMPLIED">
+
+<!ELEMENT p (#PCDATA | %text-elements;)*>
+<!ATTLIST p %common-attrs;>
+<!ATTLIST div %common-attrs;>
+```
+
+=== Complete DTD Example
+
+```xml
+<!DOCTYPE library [
+    <!-- Element Declarations -->
+    <!ELEMENT library (book+)>
+    <!ELEMENT book (title, author+, isbn?, year, description?)>
+    <!ELEMENT title (#PCDATA)>
+    <!ELEMENT author (#PCDATA)>
+    <!ELEMENT isbn (#PCDATA)>
+    <!ELEMENT year (#PCDATA)>
+    <!ELEMENT description (#PCDATA | em | strong)*>
+    <!ELEMENT em (#PCDATA)>
+    <!ELEMENT strong (#PCDATA)>
+    
+    <!-- Attribute Declarations -->
+    <!ATTLIST book
+        id       ID                           #REQUIRED
+        category (fiction|non-fiction|technical) "non-fiction"
+        language CDATA                        "en">
+    <!ATTLIST author
+        role     (primary|secondary)          "primary">
+    
+    <!-- Entity Declarations -->
+    <!ENTITY publisher "Academic Press">
+    <!ENTITY contact "library@university.edu">
+]>
+
+<library>
+    <book id="xml-guide" category="technical">
+        <title>XML Processing Guide</title>
+        <author role="primary">John Smith</author>
+        <author role="secondary">Jane Doe</author>
+        <isbn>978-0-123456-78-9</isbn>
+        <year>2023</year>
+        <description>
+            A <em>comprehensive</em> guide to <strong>XML processing</strong>
+            published by &publisher;. Contact: &contact;
+        </description>
+    </book>
+== 15. Validity Constraints
+
+A valid XML document is well-formed and conforms to its DTD. Validity constraints are checked by validating XML processors.
+
+=== Element Validity
+
+==== Element Valid
+An element is valid if there is a matching element declaration and the content matches the declared content model.
+
+.Valid Element Examples
+```xml
+<!ELEMENT book (title, author+, year)>
+<!ELEMENT title (#PCDATA)>
+<!ELEMENT author (#PCDATA)>
+<!ELEMENT year (#PCDATA)>
+
+<book>
+    <title>XML Guide</title>
+    <author>John Smith</author>
+    <author>Jane Doe</author>
+    <year>2023</year>
+</book>
+```
+
+==== Root Element Type  
+The root element must match the name in the DOCTYPE declaration.
+
+.Valid Root Element
+```xml
+<!DOCTYPE library [...]>
+<library>...</library>
+```
+
+.Invalid Root Element
+```xml
+<!DOCTYPE library [...]>
+<catalog>...</catalog>  <!-- WRONG: doesn't match DOCTYPE -->
+```
+
+=== Attribute Validity
+
+==== Attribute Value Type
+Attribute values must conform to their declared types.
+
+.ID Attribute Validation
+```xml
+<!ATTLIST person id ID #REQUIRED>
+<person id="person-001"/>     <!-- Valid -->
+<person id="123"/>            <!-- Invalid: starts with digit -->
+```
+
+.Enumerated Attribute Validation
+```xml
+<!ATTLIST status value (active|inactive|pending) "active">
+<status value="active"/>      <!-- Valid -->
+<status value="unknown"/>     <!-- Invalid: not in enumeration -->
+```
+
+.IDREF Attribute Validation
+```xml
+<!ATTLIST ref target IDREF #REQUIRED>
+<section id="intro">...</section>
+<ref target="intro"/>         <!-- Valid: references existing ID -->
+<ref target="missing"/>       <!-- Invalid: no matching ID -->
+```
+
+==== Required Attribute
+Elements must include all required attributes.
+
+```xml
+<!ATTLIST img src CDATA #REQUIRED
+              alt CDATA #REQUIRED>
+<img src="photo.jpg" alt="Photo"/>  <!-- Valid -->
+<img src="photo.jpg"/>               <!-- Invalid: missing required alt -->
+```
+
+==== Fixed Attribute Default
+Fixed attributes must have the declared default value.
+
+```xml
+<!ATTLIST form method CDATA #FIXED "POST">
+<form method="POST"/>     <!-- Valid -->
+<form method="GET"/>      <!-- Invalid: doesn't match fixed value -->
+```
+
+=== Entity Validity
+
+==== Entity Declared
+All referenced entities must be declared in validating processors.
+
+.Valid Entity Declaration and Reference
+```xml
+<!ENTITY company "Acme Corporation">
+<text>&company;</text>
+```
+
+==== Notation Declared
+Notation names in NOTATION attributes must be declared.
+
+```xml
+<!NOTATION gif SYSTEM "image/gif">
+<!ATTLIST image format NOTATION (gif|jpeg) #IMPLIED>
+<image format="gif"/>     <!-- Valid: gif notation declared -->
+<image format="png"/>     <!-- Invalid: png notation not declared -->
+```
+
+=== DTD Constraints
+
+==== Unique Element Type Declaration
+Element types can only be declared once.
+
+.Valid (Single Declaration)
+```xml
+<!ELEMENT person (name, age)>
+```
+
+.Invalid (Duplicate Declaration)
+```xml
+<!ELEMENT person (name, age)>
+<!ELEMENT person (name, email)>  <!-- WRONG: duplicate -->
+```
+
+==== Unique Notation Name
+Notation names can only be declared once.
+
+```xml
+<!NOTATION gif SYSTEM "image/gif">
+<!NOTATION gif SYSTEM "graphics/gif">  <!-- WRONG: duplicate -->
+```
+
+==== No Duplicate Types
+Mixed content declarations cannot repeat element names.
+
+.Valid Mixed Content
+```xml
+<!ELEMENT p (#PCDATA | em | strong)*>
+```
+
+.Invalid Mixed Content  
+```xml
+<!ELEMENT p (#PCDATA | em | strong | em)*>  <!-- WRONG: em repeated -->
+```
+
+=== Standalone Document Declaration
+
+For standalone documents, external markup declarations cannot affect the document's information set.
+
+```xml
+<?xml version="1.0" standalone="yes"?>
+```
+
+Standalone="yes" is invalid if external DTD contains:
+- Attribute defaults for attributes used in the document
+- Entity declarations for entities referenced in the document  
+- Attribute normalization that would change values
+- Element content declarations for elements containing whitespace
+
+=== Complete Validity Example
+
+.Valid Document with DTD
+```xml
+<?xml version="1.0"?>
+<!DOCTYPE library [
+    <!ELEMENT library (book+)>
+    <!ELEMENT book (title, author+, isbn?, year)>
+    <!ELEMENT title (#PCDATA)>
+    <!ELEMENT author (#PCDATA)>
+    <!ELEMENT isbn (#PCDATA)>
+    <!ELEMENT year (#PCDATA)>
+    
+    <!ATTLIST book
+        id       ID                    #REQUIRED
+        category (fiction|technical)   "technical">
+    <!ATTLIST author
+        role     (primary|secondary)   "primary">
+        
+    <!ENTITY publisher "Academic Press">
+]>
+
+<library>
+    <book id="book1" category="technical">
+        <title>XML Processing Guide</title>
+        <author role="primary">John Smith</author>
+        <isbn>978-0-123456-78-9</isbn>
+        <year>2023</year>
+    </book>
+    <book id="book2" category="fiction">
+        <title>The Data Adventure</title>
+        <author>Jane Doe</author>
+        <year>2023</year>
+    </book>
+</library>
+```
+
+== 16. Namespaces (Informative)
+
+Note: Namespaces are defined in a separate specification (Namespaces in XML) but are commonly used with XML 1.0.
+
+Namespaces provide a method to avoid element name conflicts when combining XML documents from different vocabularies.
+
+=== Namespace Declaration
+
+.Default Namespace
+```xml
+<document xmlns="http://example.com/schema">
+    <title>Default namespace content</title>
+</document>
+```
+
+.Prefixed Namespace
+```xml
+<doc:document xmlns:doc="http://example.com/document"
+              xmlns:meta="http://example.com/metadata">
+    <doc:title>Document Title</doc:title>
+    <meta:author>John Smith</meta:author>
+</doc:document>
+```
+
+.Multiple Namespaces
+```xml
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:svg="http://www.w3.org/2000/svg">
+    <head>
+        <title>Mixed Content</title>
+    </head>
+    <body>
+        <p>This document contains SVG:</p>
+        <svg:svg width="100" height="100">
+            <svg:circle cx="50" cy="50" r="40"/>
+        </svg:svg>
+    </body>
+</html>
+```
+
+== 17. Character Encoding Detection
+
+XML processors can detect character encoding through several methods:
+
+=== Byte Order Mark (BOM) Detection
+
+.UTF-8 with BOM
+```
+EF BB BF [XML content in UTF-8]
+```
+
+.UTF-16 Big Endian with BOM
+```
+FE FF [XML content in UTF-16BE]
+```
+
+.UTF-16 Little Endian with BOM
+```
+FF FE [XML content in UTF-16LE]
+```
+
+=== Auto-detection without BOM
+
+.UTF-8/ASCII Detection
+```
+3C 3F 78 6D   <!-- "<?xm" in UTF-8/ASCII -->
+```
+
+.UTF-16BE Detection
+```
+00 3C 00 3F   <!-- "<?xm" in UTF-16BE -->
+```
+
+.UTF-16LE Detection
+```
+3C 00 3F 00   <!-- "<?xm" in UTF-16LE -->
+```
+
+== 18. Conformance
+
+=== Validating Processors
+
+Validating XML processors must:
+- Report violations of well-formedness constraints
+- Report violations of validity constraints (when validating)
+- Read and process the entire DTD and all external parsed entities
+- Provide complete document information to applications
+
+=== Non-Validating Processors
+
+Non-validating XML processors must:
+- Report well-formedness violations in the document entity and any parsed entities they read
+- Process all declarations in the internal DTD subset
+- Process parameter entities up to the first unread parameter entity reference
+- May but need not read external entities
+
+.Processor Behavior Example
+```xml
+<?xml version="1.0"?>
+<!DOCTYPE doc SYSTEM "external.dtd" [
+    <!ENTITY internal "Internal entity">
+    <!ENTITY % param "<!ELEMENT extra (#PCDATA)>">
+    %param;
+]>
+<doc>
+    <content>&internal;</content>
+    <extra>This element defined by parameter entity</extra>
+</doc>
+```
+
+== 19. Error Handling
+
+=== Fatal Errors
+
+Fatal errors must be reported and prevent continued normal processing:
+- Well-formedness violations
+- Character encoding errors
+- Recursive entity references
+- Malformed markup
+
+=== Non-Fatal Errors  
+
+Non-fatal errors may be reported but allow continued processing:
+- Validity constraint violations
+- Undeclared entities (in non-validating processors)
+- DTD parsing errors (in non-validating processors)
+
+=== Error Recovery
+
+.Well-Formedness Error (Fatal)
+```xml
+<element>
+    <nested>Content</element>  <!-- FATAL: Improper nesting -->
+</nested>
+```
+
+.Validity Error (Non-Fatal for non-validating processors)
+```xml
+<!DOCTYPE doc [<!ELEMENT doc (title)>]>
+<doc>
+    <paragraph>Content</paragraph>  <!-- VALIDITY ERROR: unexpected element -->
+</doc>
+```
+
+== 20. Best Practices and Recommendations
+
+=== Document Structure
+
+.Recommended Document Structure
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document SYSTEM "document.dtd">
+<document>
+    <!-- Clear, logical structure -->
+    <metadata>
+        <title>Document Title</title>
+        <author>Author Name</author>
+        <date>2023-12-01</date>
+    </metadata>
+    <content>
+        <section id="introduction">
+            <title>Introduction</title>
+            <paragraph>Content here...</paragraph>
+        </section>
+    </content>
+</document>
+```
+
+=== Naming Conventions
+
+.Recommended Element and Attribute Names
+```xml
+<!-- Use descriptive, meaningful names -->
+<customer-record id="cust-001">
+    <personal-info>
+        <full-name>John Smith</full-name>
+        <birth-date>1990-01-15</birth-date>
+    </personal-info>
+    <contact-info>
+        <email-address>john@example.com</email-address>
+        <phone-number type="mobile">555-0123</phone-number>
+    </contact-info>
+</customer-record>
+```
+
+=== Entity Usage
+
+.Recommended Entity Patterns
+```xml
+<!DOCTYPE document [
+    <!-- Use entities for repeated content -->
+    <!ENTITY company "Acme Corporation">
+    <!ENTITY copyright "Copyright &#169; 2023 &company;">
+    <!ENTITY contact-email "support@acme.com">
+    
+    <!-- Use parameter entities for DTD modularity -->
+    <!ENTITY % common-attrs "
+        id     ID    #IMPLIED
+        class  CDATA #IMPLIED">
+]>
+```
+
+=== Internationalization
+
+.Proper Language and Encoding Handling
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<multilingual-document>
+    <content xml:lang="en">
+        <title>English Title</title>
+        <text>English content here.</text>
+    </content>
+    <content xml:lang="es">
+        <title>Título en Español</title>
+        <text>Contenido en español aquí.</text>
+    </content>
+    <content xml:lang="zh-CN">
+        <title>中文标题</title>
+        <text>中文内容。</text>
+    </content>
+</multilingual-document>
+```
+
+== Conclusion
+
+This document provides a comprehensive specification of XML 1.0 (Fifth Edition) based on the W3C Recommendation. It covers all aspects of XML document structure, syntax, processing requirements, and includes extensive examples to illustrate proper usage.
+
+Key aspects covered include:
+- Document structure and well-formedness
+- Character encoding and references
+- Elements, attributes, and content models
+- Entities and entity processing  
+- Processing instructions and comments
+- CDATA sections and character data
+- DTD components and declarations
+- Validity and conformance requirements
+- Error handling and processor behavior
+- Best practices and recommendations
+
+For the most current information and errata, refer to the official W3C XML 1.0 specification at https://www.w3.org/TR/xml/.
+
+== 14. Well-Formedness Constraints
+
+A well-formed XML document must satisfy these constraints:
+
+=== Document Structure Constraints
+
+==== Single Root Element
+The document must have exactly one root element.
+
+.Valid (Single Root)
+```xml
+<document>
+    <section>Content</section>
+</document>
+```
+
+.Invalid (Multiple Roots)
+```xml
+<section>First</section>
+<section>Second</section>
+```
+
+==== Proper Element Nesting
+Elements must be properly nested - no overlapping.
+
+.Valid Nesting
+```xml
+<outer>
+    <inner>
+        <content>Text</content>
+    </inner>
+</outer>
+```
+
+.Invalid Nesting
+```xml
+<outer>
+    <inner>
+        <content>Text</outer>
+    </inner>
+</content>
+```
+
+=== Element and Attribute Constraints
+
+==== Element Type Match
+End tag names must match start tag names.
+
+.Valid Matching
+```xml
+<section>Content</section>
+<title>Heading</title>
+```
+
+.Invalid Matching
+```xml
+<section>Content</title>
+<Title>Content</title>  <!-- Case sensitive -->
+```
+
+==== Unique Attribute Specification
+No attribute name may appear more than once in the same tag.
+
+.Valid Attributes
+```xml
+<img src="photo.jpg" alt="Photo" width="300"/>
+```
+
+.Invalid Attributes
+```xml
+<img src="photo.jpg" src="backup.jpg" alt="Photo"/>
+```
+
+==== Attribute Value Constraints
+- Attribute values must be quoted
+- Values cannot contain '<' character
+- Values cannot contain direct or indirect references to external entities
+
+.Valid Attribute Values
+```xml
+<element attr="value with spaces"/>
+<element attr='single quoted value'/>
+<element attr="escaped &lt; and &amp; characters"/>
+```
+
+.Invalid Attribute Values
+```xml
+<element attr=unquoted/>
+<element attr="value < with literal less-than"/>
+<element attr="&external-entity;"/>
+```
+
+=== Entity Reference Constraints
+
+==== Entity Declared
+Referenced entities must be declared (except predefined entities).
+
+.Valid Entity Usage
+```xml
+<!ENTITY greeting "Hello">
+<text>&greeting; &amp; &lt;</text>
+```
+
+==== Parsed Entity
+Entity references cannot refer to unparsed entities.
+
+.Valid: General Entity Reference
+```xml
+<!ENTITY text "Hello World">
+<message>&text;</message>
+```
+
+.Invalid: Unparsed Entity Reference
+```xml
+<!ENTITY image SYSTEM "photo.jpg" NDATA jpeg>
+<text>&image;</text>  <!-- WRONG: Cannot reference unparsed entity -->
+```
+
+==== No Recursion
+Entities cannot contain recursive references.
+
+.Invalid Recursive Entity
+```xml
+<!ENTITY recursive "Start &recursive; End">  <!-- WRONG -->
+```
+
+==== Parameter Entities in DTD Only
+Parameter entity references can only appear in DTD.
+
+.Valid Parameter Entity Usage
+```xml
+<!DOCTYPE doc [
+    <!ENTITY % common "id ID #IMPLIED">
+    <!ATTLIST element %common;>
+]>
+```
+
+.Invalid Parameter Entity Usage
+```xml
+<document>
+    %common;  <!-- WRONG: Parameter entity in content -->
+</document>
+```
+
+=== Character and Reference Constraints
+
+==== Legal Character
+Character references must refer to legal XML characters.
+
+.Valid Character References
+```xml
+<text>Copyright &#169;</text>
+<text>Registered &#xAE;</text>
+```
+
+==== No External Entity References in Attributes
+Attribute values cannot contain references to external entities.
+
+.Valid Internal Entity in Attribute
+```xml
+<!ENTITY version "1.0">
+<document version="&version;"/>
+```
+
+.Invalid External Entity in Attribute
+```xml
+<!ENTITY config SYSTEM "config.xml">
+<document config="&config;"/>  <!-- WRONG -->
+```
+
+=== Complete Well-Formedness Example
+
+.Well-Formed Document
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document [
+    <!ENTITY company "Acme Corp">
+    <!ENTITY copyright "Copyright &#169; 2023">
+]>
+<document>
+    <header>
+        <title>Sample Document</title>
+        <info>&copyright; &company;</info>
+    </header>
+    <body>
+        <section id="intro">
+            <title>Introduction</title>
+            <paragraph>This is properly nested content.</paragraph>
+        </section>
+    </body>
+</document>
+```
+
+== Implementation Status in Codebase
+
+This section summarizes the current implementation status of XML 1.0 features in the `lutaml-model` codebase as of September 12, 2025. This record helps track which features are fully implemented, partially implemented, or not yet supported.
+
+[cols="2,2,6",options="header"]
+|===
+| Feature | Status | Notes
+
+| Document Structure & Well-Formedness | Implemented | Parsing and validation of root element, element nesting, and basic well-formedness constraints are supported.
+| Character Encoding (UTF-8/UTF-16) | Implemented | UTF-8 and UTF-16 support is present. Other encodings may require manual configuration.
+| Elements & Tags | Implemented | Element creation, start/end tags, empty elements, and content parsing are supported.
+| Attributes | Implemented | Name-value pairs, attribute types (CDATA, ID, IDREF, etc.), and normalization are handled.
+| Entities (General/Internal) | Partially Implemented | Internal entities and basic entity replacement are supported. External entities and parameter entities may have limited or no support.
+| Predefined Entities | Implemented | Standard XML entities (`&lt;`, `&gt;`, `&amp;`, `&apos;`, `&quot;`) are recognized.
+| Character Data & Escaping | Implemented | Character data parsing and escaping of special characters are supported.
+| CDATA Sections | Implemented | CDATA section parsing and handling are supported.
+| Processing Instructions | Partially Implemented | Basic PI parsing is supported. Application-specific PI handling may require extension.
+| Comments | Implemented | XML comments are parsed and can be preserved or ignored as needed.
+| Notations & Unparsed Entities | Not Implemented | Notation declarations and unparsed entity support are not present.
+| Whitespace Handling | Implemented | Whitespace normalization and `xml:space` attribute handling are supported.
+| Language Identification (`xml:lang`) | Implemented | `xml:lang` attribute is recognized and propagated.
+| DTD Parsing & Validation | Partially Implemented | Internal DTD subset parsing is supported. Full validation and external DTD support are limited.
+| Validity Constraints | Partially Implemented | Some validity checks (element/attribute types, required attributes) are present. Full DTD-based validation is not complete.
+| Namespaces | Partially Implemented | Basic namespace parsing is present. Advanced namespace features may be limited.
+| Error Handling | Implemented | Well-formedness errors are reported. Validity errors may be partially reported.
+| Best Practices & Recommendations | N/A | Not directly applicable to codebase features.
+|===
+
+This table should be updated as new features are added or existing features are improved. For details on specific modules or files, refer to the `lib/lutaml/model/` directory and related adapters.
+// Detailed Implementation Breakdown
+
+=== Detailed Feature Implementation Breakdown
+
+Below is a more detailed explanation of the implementation status for each XML 1.0 feature in the `lutaml-model` codebase:
+
+* Document Structure & Well-Formedness
+    - **Implemented**: The parser enforces a single root element, proper nesting, and matching start/end tags. Unique attribute specification is checked. Most well-formedness constraints are validated during parsing.
+
+* Character Encoding (UTF-8/UTF-16)
+    - **Implemented**: Files in UTF-8 and UTF-16 are accepted and parsed. Other encodings (e.g., ISO-8859-1) may require manual handling or conversion before parsing.
+
+* Elements & Tags
+    - **Implemented**: All element types, start tags, end tags, and empty elements are supported. Content between tags is parsed and validated.
+
+* Attributes
+    - **Implemented**: Attributes are parsed, including CDATA, ID, IDREF, and enumerated types. Attribute normalization and uniqueness are enforced. Some advanced attribute types (e.g., NOTATION) may not be fully supported.
+
+* Entities (General/Internal)
+    - **Partially Implemented**: Internal general entities are supported and replaced in content. External entities and parameter entities (used in DTDs) are not fully supported. Recursive entity references are detected and reported as errors.
+
+* Predefined Entities
+    - **Implemented**: The five standard XML entities (`&lt;`, `&gt;`, `&amp;`, `&apos;`, `&quot;`) are always recognized and replaced.
+
+* Character Data & Escaping
+    - **Implemented**: Character data is parsed, and special characters are escaped/unescaped as needed. Illegal characters are detected and reported.
+
+* CDATA Sections
+    - **Implemented**: CDATA sections are parsed and their content is handled as character data. Nested CDATA and invalid CDATA content are detected as errors.
+
+* Processing Instructions
+    - **Partially Implemented**: Basic parsing of processing instructions (PIs) is supported. PIs are recognized and can be extracted, but application-specific handling or validation of PI targets/data is limited.
+
+* Comments
+    - **Implemented**: XML comments are parsed and can be preserved or ignored. Invalid comment syntax (e.g., double hyphens) is detected.
+
+* Notations & Unparsed Entities
+    - **Not Implemented**: Notation declarations and unparsed entity support are not present. Elements and attributes using NOTATION types will not be validated or processed.
+
+* Whitespace Handling
+    - **Implemented**: Whitespace normalization is performed according to XML rules. The `xml:space` attribute is recognized and affects whitespace preservation in element content.
+
+* Language Identification (`xml:lang`)
+    - **Implemented**: The `xml:lang` attribute is parsed and its value is propagated to child elements as required.
+
+* DTD Parsing & Validation
+    - **Partially Implemented**: Internal DTD subsets are parsed for element and attribute declarations. Full validation against external DTDs, parameter entities, and advanced DTD features is not supported.
+
+* Validity Constraints
+    - **Partially Implemented**: Some validity checks (e.g., required attributes, enumerated values, ID/IDREF matching) are performed. Full validation against DTD content models and constraints is incomplete.
+
+* Namespaces
+    - **Partially Implemented**: Basic namespace parsing (xmlns attributes, prefixed names) is supported. Advanced namespace features (e.g., namespace scoping, URI resolution) may be limited.
+
+* Error Handling
+    - **Implemented**: Well-formedness errors are reported and halt parsing. Some validity errors are reported, but error recovery and reporting for all cases may be limited.
+
+* Best Practices & Recommendations
+    - **N/A**: These are guidelines for XML usage and do not correspond to codebase features.
+
+Refer to the source code in `lib/lutaml/model/` for details on specific modules and their responsibilities. If you need to know about a particular feature or module, please specify.
