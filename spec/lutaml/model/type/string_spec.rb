@@ -67,7 +67,9 @@ RSpec.describe Lutaml::Model::Type::String do
     context "with hash" do
       let(:value) { { a: 1, b: 2 } }
       let(:expected_value) do
-        if RUBY_VERSION < "3.4.0"
+        if RUBY_ENGINE == 'opal'
+          '{"a"=>1, "b"=>2}'
+        elsif RUBY_VERSION < "3.4.0"
           "{:a=>1, :b=>2}"
         else
           "{a: 1, b: 2}"

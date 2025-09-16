@@ -37,3 +37,12 @@ Lutaml::Model::Config.configure do |config|
   config.yaml_adapter_type = :standard_yaml
   config.toml_adapter_type = :toml_rb unless RUBY_ENGINE == 'opal'
 end
+
+# Create a normalized string version for strings interpolating symbols for Opal
+def sym_normal(str)
+  if RUBY_ENGINE == 'opal'
+    str.gsub(/:(\w+)/) { "\"#{$1}\"" }
+  else
+    str
+  end
+end
