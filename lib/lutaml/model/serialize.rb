@@ -574,15 +574,13 @@ module Lutaml
         end
 
         def setup_trace_point
-          unless RUBY_ENGINE == 'opal'
-            @trace ||= TracePoint.new(:end) do |_tp|
-              if include?(Lutaml::Model::Serialize)
-                @finalized = true
-                @trace.disable
-              end
+          @trace ||= TracePoint.new(:end) do |_tp|
+            if include?(Lutaml::Model::Serialize)
+              @finalized = true
+              @trace.disable
             end
-            @trace.enable unless @trace.enabled?
           end
+          @trace.enable unless @trace.enabled?
         end
 
         def finalized?

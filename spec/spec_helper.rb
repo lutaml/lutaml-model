@@ -29,6 +29,7 @@ require "lutaml/model"
 Lutaml::Model::Config.configure do |config|
   if RUBY_ENGINE == 'opal'
     require 'corelib/array/pack'
+    require 'corelib/trace_point'
     require 'lutaml/model/xml/oga_adapter'
     require 'lutaml/model/schema/xml_compiler'
     config.xml_adapter_type = :oga
