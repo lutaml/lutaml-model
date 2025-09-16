@@ -126,8 +126,7 @@ module CustomVobjectAdapterSpec
 
     def parse
       @data.each_line do |line|
-        line.chomp!
-        process_line(line)
+        process_line(line.chomp)
       end
       @objects
     end
