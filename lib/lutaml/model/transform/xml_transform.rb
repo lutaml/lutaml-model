@@ -108,10 +108,10 @@ module Lutaml
       end
 
       def value_for_rule(doc, rule, options, instance)
-        rule_names = rule.namespaced_names(options[:default_namespace])
+        attr = attribute_for_rule(rule)
+        rule_names = rule.namespaced_names(options[:default_namespace], attr, options)
         return doc.root.find_attribute_value(rule_names) if rule.attribute?
 
-        attr = attribute_for_rule(rule)
         attr_type = attr&.type(__register)
 
         children = doc.children.select do |child|

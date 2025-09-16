@@ -154,39 +154,49 @@ module OxAdapter
     module PolymorphicNamespaces
       class Ceramic < Lutaml::Model::Serializable
         attribute :id, :string
-        attribute :type, :string
+        attribute :_class, :string, polymorphic_class: true
 
         xml do
           root "ceramic"
-          namespace "http://example.com/ceramics-namespace", "ec"
+          namespace "http://example.com/ceramics-namespace"
 
-          map_element :id, to: :id
-          map_element :type, to: :type
-        end
-      end
-
-      class CeramicCollection < Lutaml::Model::Serializable
-        attribute :items, Ceramic, collection: true
-
-        xml do
-          root "CeramicCollection"
-          namespace "http://example.com/collection"
-
-          map_element "items", to: :items
+          map_attribute :_class, to: :_class, polymorphic_map: {
+            "vase" => "OxAdapter::MappingLevelElementMapping::PolymorphicNamespaces::Vase",
+            "bowl" => "OxAdapter::MappingLevelElementMapping::PolymorphicNamespaces::Bowl",
+          }
         end
       end
 
       class Vase < Ceramic
         xml do
-          root "Vase"
           namespace "http://example.com/vase"
+
+          map_element :id, to: :id
         end
       end
 
       class Bowl < Ceramic
         xml do
-          root "Bowl"
           namespace "http://example.com/bowl"
+
+          map_element :id, to: :id
+        end
+      end
+
+      class CeramicCollection < Lutaml::Model::Serializable
+        attribute :items, Ceramic, collection: true, polymorphic: true
+
+        xml do
+          root "CeramicCollection"
+          namespace "http://example.com/collection"
+
+          map_element :items, to: :items, polymorphic: {
+            attribute: :_class,
+            class_map: {
+              "bowl" => "OxAdapter::MappingLevelElementMapping::PolymorphicNamespaces::Bowl",
+              "vase" => "OxAdapter::MappingLevelElementMapping::PolymorphicNamespaces::Vase",
+            },
+          }
         end
       end
     end
@@ -471,7 +481,7 @@ RSpec.describe "Lutaml::Model::XML::OxAdapter" do
         end
       end
 
-      context "with custom Ruby instances to XML conversion" do
+      context "with custom Ruby instances to XML conversion for different namespaces" do
         let(:instances) do
           OxAdapter::MappingLevelElementMapping::DifferentNamespaces.new(
             age: "12",
@@ -511,6 +521,38 @@ RSpec.describe "Lutaml::Model::XML::OxAdapter" do
 
         it "accurately converts instances to XML" do
           expect(instances.to_xml).to eq(expected_xml)
+        end
+      end
+
+      context "with custom Ruby instances to XML conversion for polymorphic classes" do
+        let(:instances) do
+          OxAdapter::MappingLevelElementMapping::PolymorphicNamespaces::CeramicCollection.new(
+            items: [
+              OxAdapter::MappingLevelElementMapping::PolymorphicNamespaces::Vase.new(id: "#1", _class: "vase"),
+              OxAdapter::MappingLevelElementMapping::PolymorphicNamespaces::Bowl.new(id: "#1", _class: "bowl"),
+            ],
+          )
+        end
+
+        let(:expected_xml) do
+          <<~XML
+            <CeramicCollection xmlns="http://example.com/collection">
+              <items xmlns="http://example.com/vase" _class="vase">
+                <id>#1</id>
+              </items>
+              <items xmlns="http://example.com/bowl" _class="bowl">
+                <id>#1</id>
+              </items>
+            </CeramicCollection>
+          XML
+        end
+
+        it "accurately converts instances to XML" do
+          expect(instances.to_xml).to eq(expected_xml)
+        end
+
+        it "accurately converts XML to Ruby instances" do
+          expect(instances.class.from_xml(instances.to_xml)).to eql(instances)
         end
       end
     end

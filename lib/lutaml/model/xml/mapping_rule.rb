@@ -117,12 +117,15 @@ module Lutaml
           end
         end
 
-        def namespaced_names(parent_namespace = nil)
-          names = if multiple_mappings?
-                    name.map { |rule_name| namespaced_name(parent_namespace, rule_name) }
-                  else
-                    [namespaced_name(parent_namespace)]
-                  end
+        def namespaced_names(parent_namespace = nil, attr = nil, options = {})
+          names = polymorphic_namespaced_names(attr, options)
+          if multiple_mappings?
+            name.each_with_object(names) do |rule_name, array|
+              array << namespaced_name(parent_namespace, rule_name)
+            end
+          else
+            names << namespaced_name(parent_namespace)
+          end
           names << name.to_s if prefix_optional?
           names
         end
@@ -160,6 +163,24 @@ module Lutaml
             render_empty: render_empty.dup,
             value_map: Utils.deep_dup(@value_map),
           )
+        end
+
+        private
+
+        def polymorphic_namespaced_names(attr, options)
+          if !polymorphic&.empty? && polymorphic.key?(:class_map)
+            polymorphic.dig(:class_map).values.each_with_object([]) do |mapping, array|
+              array << [
+                Object.const_get(mapping).mappings_for(:xml).namespace_uri,
+                name,
+              ].join(":")
+            end
+          elsif attr&.options[:polymorphic] && attr&.options&.key?(:polymorphic)
+            attr.options[:polymorphic].each_with_object([]) do |(type, mapping), array|
+            end
+          else
+            []
+          end
         end
       end
     end

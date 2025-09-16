@@ -454,8 +454,9 @@ module Lutaml
       def resolve_polymorphic_class(type, value, options)
         return type unless polymorphic_map_defined?(options, value)
 
-        val = value[options[:polymorphic][:attribute]]
-        klass_name = options[:polymorphic][:class_map][val]
+        polymorphic = options.delete(:polymorphic)
+        val = value[polymorphic[:attribute].to_s]
+        klass_name = polymorphic[:class_map][val]
         Object.const_get(klass_name)
       end
 
