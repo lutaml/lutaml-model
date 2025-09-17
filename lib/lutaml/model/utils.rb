@@ -19,9 +19,10 @@ module Lutaml
           str = str.sub(/^[a-z\d]*/) { |match| camel_case(match) || match }
 
           str.gsub("::", "/").gsub(%r{(?:_|-|(/))([a-z\d]*)}i) do
-            word = Regexp.last_match(2)
+            match1, match2 = Regexp.last_match(1), Regexp.last_match(2)
+            word = match2
             substituted = camel_case(word) || word
-            Regexp.last_match(1) ? "::#{substituted}" : substituted
+            match1 ? "::#{substituted}" : substituted
           end
         end
 

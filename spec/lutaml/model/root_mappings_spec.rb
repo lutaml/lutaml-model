@@ -293,5 +293,5 @@ RSpec.describe "RootMapping" do
 
   describe Lutaml::Model::Toml::TomlRbAdapter do
     it_behaves_like "having root mappings", :toml
-  end
+  end unless RUBY_ENGINE == 'opal' # Until toml-rb is ported.
 end

@@ -229,7 +229,7 @@ RSpec.describe Lutaml::Model::Serializable do
 
     it "raises an error for invalid options" do
       expect { RestrictTestClass.restrict(:foo, new_option: :bar) }
-        .to raise_error(Lutaml::Model::InvalidAttributeOptionsError, "Invalid options given for `foo` [:new_option]")
+        .to raise_error(Lutaml::Model::InvalidAttributeOptionsError, sym_normal("Invalid options given for `foo` [:new_option]"))
     end
 
     it "raises an error if the attribute does not exist" do
@@ -553,8 +553,8 @@ RSpec.describe Lutaml::Model::Serializable do
     end
 
     describe "invalid format handling for XML" do
-      it_behaves_like "invalid format error", :xml, :nokogiri, :from_xml, :xml
-      it_behaves_like "invalid format error", :xml, :ox, :from_xml, :xml
+      it_behaves_like "invalid format error", :xml, :nokogiri, :from_xml, :xml unless RUBY_ENGINE == 'opal'
+      it_behaves_like "invalid format error", :xml, :ox, :from_xml, :xml unless RUBY_ENGINE == 'opal'
       it_behaves_like "invalid format error", :xml, :oga, :from_xml, :xml
     end
 
@@ -567,10 +567,10 @@ RSpec.describe Lutaml::Model::Serializable do
     end
 
     describe "invalid format handling for invalid TOML" do
-      it_behaves_like "invalid format error", :toml, :toml_rb, :from_toml, :toml
+      it_behaves_like "invalid format error", :toml, :toml_rb, :from_toml, :toml unless RUBY_ENGINE == 'opal'
 
       # Only test Tomlib if not on problematic platform (Windows Ruby < 3.3)
-      if RUBY_PLATFORM.include?("mingw") && RUBY_VERSION < "3.3"
+      if RUBY_ENGINE != 'opal' && RUBY_PLATFORM.include?("mingw") && RUBY_VERSION < "3.3"
         # NOTE: Skipped Tomlib case because it causes segmentation fault on
         # Windows with Ruby < 3.3
         it "skips Tomlib test on Windows Ruby < 3.3 due to segfault risk" do

@@ -1,0 +1,7 @@
+--default-path=spec
+--format documentation
+--color
+--require spec_helper
+-q oga/setup_opal
+-q ll/setup_opal
+--opal-opt=-s,tmpdir
