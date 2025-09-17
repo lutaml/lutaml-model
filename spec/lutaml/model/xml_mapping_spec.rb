@@ -318,10 +318,55 @@ module XmlMapping
                                   prefix: "xsd"
     end
   end
+
+  class TitleCollection < Lutaml::Model::Collection
+    instances :items, :string
+
+    xml do
+      root "titles"
+      map_attribute "title", to: :items, delimiter: {
+        import: ->(str) { str.split("; ") },
+        export: ->(arr) { arr.join("; ") },
+      }
+    end
+
+    key_value do
+      root "titles"
+      map_instances to: :items
+    end
+  end
 end
 
 RSpec.describe Lutaml::Model::Xml::Mapping do
   describe "find_by_to! error handling" do
+    describe "delimiter feature for XML attributes" do
+      let(:xml) { '<titles title="Title One; Title Two; Title Three"/>' }
+      let(:yaml) { "---\ntitles:\n- Title One\n- Title Two\n- Title Three\n" }
+
+      it "imports delimited attribute to array" do
+        collection = XmlMapping::TitleCollection.from_xml(xml)
+        expect(collection.items).to eq(["Title One", "Title Two", "Title Three"])
+      end
+
+      it "exports delimited attribute to yaml" do
+        collection = XmlMapping::TitleCollection.from_xml(xml)
+        generated_yaml = collection.to_yaml
+        expect(generated_yaml).to eq(yaml)
+      end
+
+      it "exports yaml to delimited attribute" do
+        collection = XmlMapping::TitleCollection.from_yaml(yaml)
+        generated_xml = collection.to_xml
+        expect(generated_xml).to be_equivalent_to(xml)
+      end
+
+      it "round-trips correctly" do
+        collection = XmlMapping::TitleCollection.from_xml(xml)
+        generated_xml = collection.to_xml
+        expect(generated_xml).to be_equivalent_to(xml)
+      end
+    end
+
     it "raises NoMappingFoundError when mapping is missing in xml mapping" do
       mapping = described_class.new
       expect do

@@ -85,7 +85,6 @@ module Lutaml
           map_element(to, to: to)
         end
 
-        # rubocop:disable Metrics/ParameterLists
         def map_element(
           name,
           to: nil,
@@ -148,7 +147,8 @@ module Lutaml
           prefix: (prefix_set = false
                    nil),
           transform: {},
-          value_map: {}
+          value_map: {},
+          delimiter: nil
         )
           validate!(
             name, to, with, render_nil, render_empty, type: TYPES[:attribute]
@@ -178,11 +178,10 @@ module Lutaml
             prefix_set: prefix_set != false,
             transform: transform,
             value_map: value_map,
+            delimiter: delimiter,
           )
           @attributes[rule.namespaced_name] = rule
         end
-
-        # rubocop:enable Metrics/ParameterLists
 
         def map_content(
           to: nil,
