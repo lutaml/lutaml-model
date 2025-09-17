@@ -142,6 +142,15 @@ module Lutaml
           end
         end
 
+        def update_default_namespace(uri)
+          @default_namespace = uri
+        end
+
+        def update_prefix(new_prefix, optional: false)
+          @prefix = new_prefix
+          @prefix_optional = optional
+        end
+
         def deep_dup
           self.class.new(
             name.dup,
@@ -174,9 +183,6 @@ module Lutaml
                 Object.const_get(mapping).mappings_for(:xml).namespace_uri,
                 name,
               ].join(":")
-            end
-          elsif attr&.options[:polymorphic] && attr&.options&.key?(:polymorphic)
-            attr.options[:polymorphic].each_with_object([]) do |(type, mapping), array|
             end
           else
             []

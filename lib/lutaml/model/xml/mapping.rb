@@ -78,6 +78,7 @@ module Lutaml
         def namespace(uri, prefix = nil)
           raise Lutaml::Model::NoRootNamespaceError if no_root?
 
+          update_existing_mappings(uri, prefix) if mappings.any?
           @namespace_uri = uri
           @namespace_prefix = prefix
         end
@@ -483,6 +484,18 @@ module Lutaml
         def import_mappings_later(model)
           importable_mappings << model.to_sym
           @mappings_imported = false
+        end
+
+        def update_existing_mappings(uri, prefix, optional = false)
+          @elements = update_rules_of(@elements, uri, prefix, optional)
+          @attributes = update_rules_of(@attributes, uri, prefix, optional)
+        end
+
+        def update_rules_of(hash, uri, prefix, optional)
+          hash.to_h do |_, rule|
+            rule.update_default_namespace(uri)
+            [rule.namespaced_name(uri), rule]
+          end
         end
       end
     end

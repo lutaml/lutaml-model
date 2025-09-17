@@ -101,7 +101,7 @@ module Lutaml
       end
 
       class OxElement < XmlElement
-        def initialize(node, root_node: nil)
+        def initialize(node, root_node: nil, parent_element: nil)
           case node
           when String
             super("text", {}, [], node, parent_document: root_node, name: "text")
@@ -111,19 +111,28 @@ module Lutaml
             super("#cdata-section", {}, [], node.value, parent_document: root_node, name: "#cdata-section")
           else
             namespace_attributes(node.attributes).each do |(name, value)|
-              if root_node
+              if root_node && name == :xmlns && !root_node.namespaces.key?(nil)
                 root_node.add_namespace(XmlNamespace.new(value, name))
               else
                 add_namespace(XmlNamespace.new(value, name))
               end
             end
 
+            if parent_element
+              parent_element.namespaces.each_value do |namespace|
+                next if namespaces.key?(namespace.prefix)
+
+                add_namespace(namespace)
+              end
+            end
+
             attributes = node.attributes.each_with_object({}) do |(name, value), hash|
               next if attribute_is_namespace?(name)
 
-              namespace_prefix = name.to_s.split(":").first
-              if (n = name.to_s.split(":")).length > 1
-                namespace = (root_node || self).namespaces[namespace_prefix]&.uri
+              parts_of_name = name.to_s.split(":")
+              namespace_prefix = parts_of_name.first
+              if (n = parts_of_name).length > 1
+                namespace = (self || root_node).namespaces[namespace_prefix]&.uri
                 namespace ||= XML_NAMESPACE_URI
                 prefix = n.first
               end
@@ -190,7 +199,6 @@ module Lutaml
         end
 
         def text?
-          # false
           children.empty? && text&.length&.positive?
         end
 
@@ -220,7 +228,11 @@ module Lutaml
 
         def parse_children(node, root_node: nil)
           node.nodes.map do |child|
-            OxElement.new(child, root_node: root_node)
+            OxElement.new(
+              child,
+              root_node: root_node,
+              parent_element: self,
+            )
           end
         end
       end

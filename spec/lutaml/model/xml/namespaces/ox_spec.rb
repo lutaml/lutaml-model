@@ -164,22 +164,19 @@ module OxAdapter
             "vase" => "OxAdapter::MappingLevelElementMapping::PolymorphicNamespaces::Vase",
             "bowl" => "OxAdapter::MappingLevelElementMapping::PolymorphicNamespaces::Bowl",
           }
+          map_element :id, to: :id
         end
       end
 
       class Vase < Ceramic
         xml do
           namespace "http://example.com/vase"
-
-          map_element :id, to: :id
         end
       end
 
       class Bowl < Ceramic
         xml do
           namespace "http://example.com/bowl"
-
-          map_element :id, to: :id
         end
       end
 
@@ -529,7 +526,7 @@ RSpec.describe "Lutaml::Model::XML::OxAdapter" do
           OxAdapter::MappingLevelElementMapping::PolymorphicNamespaces::CeramicCollection.new(
             items: [
               OxAdapter::MappingLevelElementMapping::PolymorphicNamespaces::Vase.new(id: "#1", _class: "vase"),
-              OxAdapter::MappingLevelElementMapping::PolymorphicNamespaces::Bowl.new(id: "#1", _class: "bowl"),
+              OxAdapter::MappingLevelElementMapping::PolymorphicNamespaces::Bowl.new(id: "#2", _class: "bowl"),
             ],
           )
         end
@@ -541,7 +538,7 @@ RSpec.describe "Lutaml::Model::XML::OxAdapter" do
                 <id>#1</id>
               </items>
               <items xmlns="http://example.com/bowl" _class="bowl">
-                <id>#1</id>
+                <id>#2</id>
               </items>
             </CeramicCollection>
           XML
