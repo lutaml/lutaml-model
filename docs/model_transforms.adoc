@@ -1,0 +1,222 @@
+= LutaML Model — Transformations
+:doctype: book
+
+== Overview
+
+LutaML Model provides a transformation facility to map between models and values while preserving structure and intent. Transformations cover:
+
+- Value-to-value transforms
+- Model-to-model transforms
+- Cross model–value transforms
+- Nested mappings and collections
+- Forward-only and bidirectional flows
+
+The API centers around `Lutaml::Model::ModelTransformer` with `source`, `target`, and a `transform do ... end` block. Value transforms can be declared via blocks, callable symbols (instance methods), or other transformer classes. Reverse direction is supported for value transforms via `reverse_transform do ... end`, and for model-to-model transforms by inverting declared mappings (no separate reverse mapping block is allowed for model-to-model).
+
+== Quick start
+
+[source,ruby]
+----
+class StringToDate < Lutaml::Model::ModelTransformer
+  source :string
+  target :date
+
+  transform do |val|
+    Date.parse(val)
+  end
+
+  reverse_transform do |date|
+    date.strftime('%Y-%m-%d')
+  end
+end
+----
+
+== Model-to-model mapping
+
+[source,ruby]
+----
+class Person < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :year_born, :string
+  attribute :birth_date, :string
+end
+
+class User < Lutaml::Model::Serializable
+  attribute :full_name, :string
+  attribute :birth_year, :string
+  attribute :birth_date, :date
+end
+
+class PersonToUser < Lutaml::Model::ModelTransformer
+  source Person
+  target User
+
+  transform do
+    map from: 'name',       to: 'full_name'
+    map from: 'year_born',  to: 'birth_year'
+    map from: 'birth_date', to: 'birth_date', transform: StringToDate
+  end
+end
+----
+
+Reverse transformation for model-to-model is automatic by inverting mappings:
+
+[source,ruby]
+----
+user  = PersonToUser.transform(Person.new(name: 'Alice', year_born: '1980', birth_date: '2021-01-01'))
+person_back = PersonToUser.reverse_transform(user)
+----
+
+== Nested mappings
+
+- Map nested objects using a nested `transform` block:
+
+[source,ruby]
+----
+class Address < Lutaml::Model::Serializable
+  attribute :street, :string
+  attribute :city, :string
+end
+
+class PersonWithAddress < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :address, Address
+end
+
+class Location < Lutaml::Model::Serializable
+  attribute :road, :string
+  attribute :town, :string
+end
+
+class UserWithLocation < Lutaml::Model::Serializable
+  attribute :full_name, :string
+  attribute :location, Location
+end
+
+class PersonLocationTransform < Lutaml::Model::ModelTransformer
+  source PersonWithAddress
+  target UserWithLocation
+
+  transform do
+    map from: 'name',    to: 'full_name'
+    map from: 'address', to: 'location' do
+      map from: 'street', to: 'road'
+      map from: 'city',   to: 'town'
+    end
+  end
+end
+----
+
+== Collections with map_each
+
+Use `map_each` to transform elements of a collection. Nil sources propagate nil; empty arrays pass through as empty.
+
+[source,ruby]
+----
+class Author < Lutaml::Model::Serializable
+  attribute :name, :string
+end
+
+class Contributor < Lutaml::Model::Serializable
+  attribute :name, :string
+end
+
+class Publication < Lutaml::Model::Serializable
+  attribute :title, :string
+  attribute :authors, Author, collection: true
+end
+
+class CatalogEntry < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :contributors, Contributor, collection: true
+end
+
+class AuthorTransform < Lutaml::Model::ModelTransformer
+  source Author
+  target Contributor
+  transform { map from: 'name', to: 'name' }
+end
+
+class PublicationTransform < Lutaml::Model::ModelTransformer
+  source Publication
+  target CatalogEntry
+  transform { map_each from: 'authors', to: 'contributors', transform: AuthorTransform }
+end
+----
+
+== Cross model–value transforms
+
+Transform between a value wrapper and a structured model using a value transformer inside a model mapping.
+
+[source,ruby]
+----
+class UnstructuredDateTime < Lutaml::Model::Serializable
+  attribute :value, :string
+end
+
+class StructuredDateTime < Lutaml::Model::Serializable
+  attribute :date, :string
+  attribute :time, :string
+end
+
+class DateTimeSplit < Lutaml::Model::ModelTransformer
+  source UnstructuredDateTime
+  target StructuredDateTime
+
+  transform do |src|
+    date, time = (src.value || '').split('T', 2)
+    StructuredDateTime.new(date: date, time: time)
+  end
+
+  reverse_transform do |dst|
+    UnstructuredDateTime.new(value: [dst.date, dst.time].join('T'))
+  end
+end
+
+class OldDigitalTimepiece < Lutaml::Model::Serializable
+  attribute :raw_time, UnstructuredDateTime
+end
+
+class NewDigitalTimepiece < Lutaml::Model::Serializable
+  attribute :detailed_time, StructuredDateTime
+end
+
+class TimepieceTransform < Lutaml::Model::ModelTransformer
+  source OldDigitalTimepiece
+  target NewDigitalTimepiece
+  transform { map from: 'raw_time', to: 'detailed_time', transform: DateTimeSplit }
+end
+----
+
+== Value transform styles
+
+- Block: `transform { |val| ... }`
+- Symbol (instance method): `transform: :method_name`, `reverse_transform: :other_method`
+- Transformer class: `transform: OtherTransformerClass`
+
+== Directionality rules
+
+- Value transforms can be bidirectional if both `transform` and `reverse_transform` are provided.
+- Model-to-model transforms do not accept a `reverse_transform do` declaration; reversing is performed by inverting mappings.
+- If a one-way value transform is used inside a model-to-model mapping, reversing that mapping raises an error.
+
+== Error handling
+
+- `UnknownTransformationTypeError`: unsupported source/target types for a declaration
+- `ReverseTransformationDeclarationError`: `reverse_transform do` declared for model-to-model
+- `TransformBlockNotDefinedError`: calling forward value transform without block
+- `ReverseTransformBlockNotDefinedError`: calling reverse value transform without block
+- `MappingAttributeMissingError`: `from:` or `to:` attribute invalid or missing
+- `MappingAlreadyExistsError`: duplicate `map` declaration between the same attributes
+
+== Behaviors and edge cases
+
+- Nil propagation: nested targets become nil if the mapped source is nil; `map_each` with nil source yields nil target; empty arrays pass through unchanged.
+- Nested mapping blocks support arbitrarily deep structures.
+- Repeated attributes are not allowed for the same mapping pair.
+
+== Testing references
+
+See `spec/lutaml/model/model_transformer_spec.rb` for executable examples covering every feature described above.
+
+
