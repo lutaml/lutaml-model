@@ -339,6 +339,42 @@ class PublicationCatalogTransform < Lutaml::Model::ModelTransformer
   end
 end
 
+# Aggregation example for collection -> single value
+class StandardsPublication < Lutaml::Model::Serializable
+  attribute :title, :string, collection: true
+end
+
+class BibliographyEntry < Lutaml::Model::Serializable
+  attribute :title, :string
+end
+
+class TitleAggregationTransform < Lutaml::Model::ModelTransformer
+  source :string
+  target :string
+
+  transform do |source_values|
+    source_values.join(", ")
+  end
+end
+
+class StandardsPublicationMapEachTransform < Lutaml::Model::ModelTransformer
+  source StandardsPublication
+  target BibliographyEntry
+
+  transform do
+    map_each from: "title", to: "title", transform: TitleAggregationTransform
+  end
+end
+
+class StandardsPublicationMapTransform < Lutaml::Model::ModelTransformer
+  source StandardsPublication
+  target BibliographyEntry
+
+  transform do
+    map from: "title", to: "title", transform: TitleAggregationTransform
+  end
+end
+
 # Value <-> Model
 class StringToPersonTransform < Lutaml::Model::ModelTransformer
   source :string
@@ -549,6 +585,17 @@ RSpec.describe Lutaml::Model::ModelTransformer do
       # Reverse
       pub2 = PublicationCollectionTransform.reverse_transform(cat)
       expect(pub2.authors.map(&:name)).to eq(["A", "B"])
+    end
+
+    it "fails when using map_each to aggregate a collection into a single attribute" do
+      pub = StandardsPublication.new(title: ["Title 1", "Title 2"])
+      expect { StandardsPublicationMapEachTransform.transform(pub) }.to raise_error(StandardError)
+    end
+
+    it "aggregates a collection into a single attribute using map" do
+      pub = StandardsPublication.new(title: ["Title 1", "Title 2"])
+      entry = StandardsPublicationMapTransform.transform(pub)
+      expect(entry.title).to eq("Title 1, Title 2")
     end
   end
 

@@ -4,14 +4,12 @@ module Lutaml
   module Model
     class ModelTransformer
       class << self
-        def source(source, options = {})
+        def source(source)
           @source = get_type(source)
-          @source_options = options
         end
 
-        def target(target, options = {})
+        def target(target)
           @target = get_type(target)
-          @target_options = options
         end
 
         def transform(input = nil, &block)

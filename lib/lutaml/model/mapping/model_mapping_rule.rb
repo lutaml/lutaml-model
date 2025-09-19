@@ -13,6 +13,7 @@ module Lutaml
         to:,
         transform: nil,
         reverse_transform: nil,
+        collection: false,
         mapping: nil
       )
         @name = name
@@ -20,6 +21,7 @@ module Lutaml
         @to = to
         @transform = transform
         @reverse_transform = transform.is_a?(Class) && reverse_transform.nil? ? transform : reverse_transform
+        @collection = collection
         @mapping = mapping
       end
 

@@ -17,6 +17,7 @@ module Lutaml
         to: nil,
         transform: nil,
         reverse_transform: nil,
+        collection: false,
         &block
       )
         mapping_name = name_for_mapping(from, to)
@@ -28,17 +29,31 @@ module Lutaml
           to: to_attr,
           transform: transform,
           reverse_transform: reverse_transform,
+          collection: collection,
           mapping: block ? self.class.new(from_attr.type, to_attr.type) : nil,
         )
         @mappings[mapping_name].mapping.instance_eval(&block) if block
       end
 
-      def map_each(...)
-        map(...)
+      def map_each(
+        from: nil,
+        to: nil,
+        transform: nil,
+        reverse_transform: nil,
+        &block
+      )
+        map(
+          from: from,
+          to: to,
+          transform: transform,
+          reverse_transform: reverse_transform,
+          collection: true,
+          &block
+        )
       end
 
       def process_mappings(input, reverse: false)
-        return if input.nil?
+        return input if Utils.blank?(input)
 
         transformed = {}
         @mappings.each_value do |rule|
@@ -60,9 +75,19 @@ module Lutaml
       def transformed_value(value, rule, from_attr, to_attr, reverse: false)
         return value if Utils.blank?(value)
 
-        if from_attr.options[:collection] && value.is_a?(Array)
-          return value.map { |v| transformed_value(v, rule, from_attr, to_attr, reverse: reverse) }
+        return transform_collection(value, rule, from_attr, to_attr, reverse) if rule.collection
+
+        rule.transform_value(@transformer, to_attr, value, reverse: reverse)
+      end
+
+      def transform_collection(value, rule, from_attr, to_attr, reverse)
+        return value if Utils.blank?(value)
+
+        if !from_attr.options[:collection] || !to_attr.options[:collection]
+          raise MappingAttributeTypeError, "Both 'from' and 'to' attributes must be collections for collection mapping"
         end
+
+        return value.map { |v| transformed_value(v, rule, from_attr, to_attr, reverse: reverse) } if value.is_a?(Array)
 
         rule.transform_value(@transformer, to_attr, value, reverse: reverse)
       end

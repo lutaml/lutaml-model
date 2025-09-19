@@ -11,7 +11,7 @@ LutaML Model provides a transformation facility to map between models and values
 - Nested mappings and collections
 - Forward-only and bidirectional flows
 
-The API centers around `Lutaml::Model::ModelTransformer` with `source`, `target`, and a `transform do ... end` block. Value transforms can be declared via blocks, callable symbols (instance methods), or other transformer classes. Reverse direction is supported for value transforms via `reverse_transform do ... end`, and for model-to-model transforms by inverting declared mappings (no separate reverse mapping block is allowed for model-to-model).
+The API centers around `Lutaml::Model::ModelTransformer` with `source`, `target`, and a `transform do ... end` block. Value transforms can be declared via blocks, callable symbols (instance methods), procs/lambdas, or other transformer classes. Reverse direction is supported for value and model-to-model transforms via `reverse_transform do ... end`, and for model-to-model transforms (which uses mappings) by inverting declared mappings (no separate reverse mapping block is allowed for model-to-model).
 
 == Quick start
 
@@ -55,6 +55,24 @@ class PersonToUser < Lutaml::Model::ModelTransformer
     map from: 'name',       to: 'full_name'
     map from: 'year_born',  to: 'birth_year'
     map from: 'birth_date', to: 'birth_date', transform: StringToDate
+  end
+end
+----
+
+=== Using proc transforms in model mappings
+
+You can also use proc-based transforms directly in model mappings:
+
+[source,ruby]
+----
+class ProcMappingTransform < Lutaml::Model::ModelTransformer
+  source Person
+  target User
+
+  transform do
+    map from: 'name', to: 'full_name', 
+        transform: ->(val) { val&.upcase },
+        reverse_transform: ->(val) { val&.downcase }
   end
 end
 ----
@@ -111,6 +129,8 @@ end
 
 Use `map_each` to transform elements of a collection. Nil sources propagate nil; empty arrays pass through as empty.
 
+IMPORTANT: Both `from:` and `to:` attributes must be collections to use `map_each`. If either side is not a collection, an error will be raised. Use `map` instead when aggregating a collection into a single value or distributing a single value into a collection.
+
 [source,ruby]
 ----
 class Author < Lutaml::Model::Serializable
@@ -134,14 +154,110 @@ end
 class AuthorTransform < Lutaml::Model::ModelTransformer
   source Author
   target Contributor
+
   transform { map from: 'name', to: 'name' }
 end
 
 class PublicationTransform < Lutaml::Model::ModelTransformer
   source Publication
   target CatalogEntry
+
   transform { map_each from: 'authors', to: 'contributors', transform: AuthorTransform }
 end
+----
+
+=== Aggregating a collection into a single attribute
+
+When you need to aggregate a collection into a single attribute in the target, do NOT use `map_each`. Use `map` with a value transformer that accepts the whole collection.
+
+[source,ruby]
+----
+class StandardsPublication < Lutaml::Model::Serializable
+  attribute :title, :string, collection: true
+end
+
+class BibliographyEntry < Lutaml::Model::Serializable
+  attribute :title, :string
+end
+
+class TitleAggregationTransform < Lutaml::Model::ModelTransformer
+  source :string
+  target :string
+
+  transform do |source_values|
+    source_values.join(', ')
+  end
+end
+
+class StandardsPublicationTransform < Lutaml::Model::ModelTransformer
+  source StandardsPublication
+  target BibliographyEntry
+
+  transform do
+    # CORRECT: aggregates collection -> single value
+    map from: 'title', to: 'title', transform: TitleAggregationTransform
+  end
+end
+
+publication = StandardsPublication.new(title: ['Title 1', 'Title 2'])
+entry = StandardsPublicationTransform.transform(publication)
+entry.title
+# => "Title 1, Title 2"
+----
+
+If you try to use `map_each` in this case (collection -> single attribute), an error will be raised because the `to:` attribute is not a collection.
+
+[source,ruby]
+----
+class InvalidAggregation < Lutaml::Model::ModelTransformer
+  source StandardsPublication
+  target BibliographyEntry
+
+  transform do
+    # INCORRECT: both sides must be collections for map_each
+    map_each from: 'title', to: 'title', transform: TitleAggregationTransform
+  end
+end
+
+# Raises: MappingAttributeTypeError because 'to' is not a collection
+InvalidAggregation.transform(StandardsPublication.new(title: ['Title 1', 'Title 2']))
+----
+
+=== Aggregating a collection with a value transformer
+
+You can use `map_each` with a value transformer to aggregate a collection of values into a single value:
+
+[source,ruby]
+----
+class StandardsPublication < Lutaml::Model::Serializable
+  attribute :title, :string, collection: true
+end
+
+class BibliographyEntry < Lutaml::Model::Serializable
+  attribute :title, :string
+end
+
+class TitleAggregationTransform < Lutaml::Model::ModelTransformer
+  source :string
+  target :string
+
+  transform do |source_values|
+    source_values.join(", ")
+  end
+end
+
+class StandardsPublicationTransform < Lutaml::Model::ModelTransformer
+  source StandardsPublication
+  target BibliographyEntry
+
+  transform do
+    map_each from: "title", to: "title", transform: TitleAggregationTransform
+  end
+end
+
+publication = StandardsPublication.new(title: ["Title 1", "Title 2"])
+entry = StandardsPublicationTransform.transform(publication)
+puts entry.title # Output: "Title 1, Title 2"
 ----
 
 == Cross model–value transforms
@@ -188,11 +304,120 @@ class TimepieceTransform < Lutaml::Model::ModelTransformer
 end
 ----
 
-== Value transform styles
+== Transform styles
 
 - Block: `transform { |val| ... }`
 - Symbol (instance method): `transform: :method_name`, `reverse_transform: :other_method`
 - Transformer class: `transform: OtherTransformerClass`
+- Proc/Lambda: `transform: ->(val) { ... }`, `reverse_transform: ->(val) { ... }`
+
+=== Block-based transforms
+
+Use blocks for simple inline transformations:
+
+[source,ruby]
+----
+class BlockTransform < Lutaml::Model::ModelTransformer
+  source :string
+  target :date
+
+  transform do |val|
+    Date.parse(val)
+  end
+
+  reverse_transform do |date|
+    date.strftime('%Y-%m-%d')
+  end
+end
+----
+
+=== Symbol method transforms
+
+Use instance methods for more complex transformations:
+
+[source,ruby]
+----
+class MethodTransform < Lutaml::Model::ModelTransformer
+  source Person
+  target User
+
+  def upcase_name(value)
+    value&.upcase
+  end
+
+  def downcase_name(value)
+    value&.downcase
+  end
+
+  transform do
+    map from: 'name', to: 'full_name', 
+        transform: :upcase_name, 
+        reverse_transform: :downcase_name
+  end
+end
+----
+
+=== Transformer class-based transforms
+
+Use other transformer classes for reusable transformations:
+
+[source,ruby]
+----
+class StringToDate < Lutaml::Model::ModelTransformer
+  source :string
+  target :date
+
+  transform { |val| Date.parse(val) }
+
+  reverse_transform { |date| date.strftime('%Y-%m-%d') }
+end
+
+class Person < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :birth_date, :string
+end
+
+class User < Lutaml::Model::Serializable
+  attribute :full_name, :string
+  attribute :birth_date, :date
+end
+
+class ClassTransform < Lutaml::Model::ModelTransformer
+  source Person
+  target User
+
+  transform do
+    map from: 'name', to: 'full_name'
+    map from: 'birth_date', to: 'birth_date', transform: StringToDate
+  end
+end
+----
+
+=== Proc-based transforms
+
+You can use procs and lambdas for inline transformations:
+
+[source,ruby]
+----
+class Person < Lutaml::Model::Serializable
+  attribute :name, :string
+end
+
+class User < Lutaml::Model::Serializable
+  attribute :full_name, :string
+end
+
+class ProcTransform < Lutaml::Model::ModelTransformer
+  source Person
+  target User
+
+  transform do
+    map from: 'name', to: 'full_name', 
+        transform: ->(val) { val&.upcase },
+        reverse_transform: ->(val) { val&.downcase }
+  end
+end
+----
 
 == Directionality rules
 
@@ -203,10 +428,11 @@ end
 == Error handling
 
 - `UnknownTransformationTypeError`: unsupported source/target types for a declaration
-- `ReverseTransformationDeclarationError`: `reverse_transform do` declared for model-to-model
+- `ReverseTransformationDeclarationError`: `reverse_transform do` declared for model-to-model mapping
 - `TransformBlockNotDefinedError`: calling forward value transform without block
 - `ReverseTransformBlockNotDefinedError`: calling reverse value transform without block
 - `MappingAttributeMissingError`: `from:` or `to:` attribute invalid or missing
+- `MappingAttributeTypeError`: incompatible attribute types for `map_each` (both sides must be collections)
 - `MappingAlreadyExistsError`: duplicate `map` declaration between the same attributes
 
 == Behaviors and edge cases
@@ -214,9 +440,4 @@ end
 - Nil propagation: nested targets become nil if the mapped source is nil; `map_each` with nil source yields nil target; empty arrays pass through unchanged.
 - Nested mapping blocks support arbitrarily deep structures.
 - Repeated attributes are not allowed for the same mapping pair.
-
-== Testing references
-
-See `spec/lutaml/model/model_transformer_spec.rb` for executable examples covering every feature described above.
-
-
+- Transformations are not recursive; nested objects require explicit mapping declarations or a custom transformer.
