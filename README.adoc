@@ -9585,6 +9585,265 @@ puts output
 ====
 
 
+== Automatic attribute access
+
+All model attributes are automatically available in liquid drops without any additional configuration:
+
+[source,ruby]
+----
+class User < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :email, :string
+  attribute :age, :integer
+end
+
+user = User.new(name: "John", email: "john@example.com", age: 30)
+drop = user.to_liquid
+
+# All attributes work directly in templates
+template = Liquid::Template.parse("{{name}} ({{email}}) is {{age}} years old")
+result = template.render(drop)
+# => "John (john@example.com) is 30 years old"
+----
+
+
+== Custom mapping methods
+
+You can define custom methods for your liquid drops and map them to specific keys in templates. All model attributes are automatically available in liquid drops.
+
+=== Basic custom mappings
+
+Use the `liquid` block to define custom mappings:
+
+[source,ruby]
+----
+class Product < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :price, :decimal
+  attribute :description, :string
+
+  liquid do
+    map "display_name", to: :formatted_name
+    map "price_with_currency", to: :formatted_price
+  end
+
+  def formatted_name
+    name.upcase
+  end
+
+  def formatted_price
+    "$#{price}"
+  end
+end
+
+product = Product.new(
+  name: "Laptop", 
+  price: 999.99, 
+  description: "High-performance laptop for professional use"
+)
+drop = product.to_liquid
+
+# All attributes are automatically available
+template = Liquid::Template.parse("{{name}} - {{price}} - {{description}}")
+result = template.render(drop)
+# => "Laptop - 999.99 - High-performance laptop for professional use"
+
+# Use mapped methods in templates
+template = Liquid::Template.parse("{{display_name}} costs {{price_with_currency}}")
+result = template.render(drop)
+# => "LAPTOP costs $999.99"
+----
+
+== Liquid drop inheritance
+
+For advanced customization, you can create custom drop classes that inherit from the auto-generated base drop class.
+
+[NOTE]
+====
+When creating custom drop methods, use `@object` to access the original model instance. This is an internal reference and is not exposed to liquid templates directly.
+====
+
+=== Basic inheritance setup
+
+[source,ruby]
+----
+class Schema < Lutaml::Model::Serializable
+  attribute :path, :string
+  attribute :source, :string
+  
+  # Specify the name of your custom drop class
+  liquid_class "CustomSchemaDrop"
+  
+  # You can still use liquid mappings
+  liquid do
+    map "template_path", to: :build_template_path
+  end
+  
+  def build_template_path
+    File.join("templates", path)
+  end
+end
+
+# Get the base drop class for inheritance
+BaseDropClass = Schema.to_liquid_class
+
+# Create your custom drop class that inherits from the base
+class CustomSchemaDrop < BaseDropClass
+  # Add new methods not in the original drop
+  def formatted_source
+    "Source: #{@object.source.upcase}"
+  end
+  
+  # Override existing methods
+  def path
+    "custom/#{@object.path}"
+  end
+end
+----
+
+=== Using custom drop classes
+
+[source,ruby]
+----
+schema = Schema.new(path: "config.xml", source: "database settings")
+drop = schema.to_liquid
+
+# The drop is now an instance of CustomSchemaDrop
+puts drop.class  # => CustomSchemaDrop
+puts drop.is_a?(CustomSchemaDrop)  # => true
+
+# All attributes are automatically accessible
+puts drop.path        # => "custom/config.xml" (overridden)
+puts drop.source      # => "database settings" (original attribute)
+
+# New methods work
+puts drop.formatted_source  # => "Source: DATABASE SETTINGS"
+
+# Liquid mappings still work
+puts drop.template_path     # => "templates/config.xml"
+
+# Use in templates
+template = Liquid::Template.parse("""
+Path: {{path}}
+Source: {{formatted_source}}
+Template: {{template_path}}
+""")
+
+result = template.render(drop)
+----
+
+=== Advanced inheritance patterns
+
+You can create sophisticated inheritance hierarchies:
+
+[source,ruby]
+----
+# Base model
+class Document < Lutaml::Model::Serializable
+  attribute :title, :string
+  attribute :content, :string
+  
+  liquid_class "DocumentDrop"
+end
+
+# Get the base drop class
+BaseDocumentDrop = Document.to_liquid_class
+
+# Create a specialized drop class
+class DocumentDrop < BaseDocumentDrop
+  def word_count
+    @object.content.split.size
+  end
+  
+  def summary
+    @object.content
+  end
+  
+  def metadata
+    {
+      title: @object.title,
+      word_count: word_count,
+      char_count: @object.content.length
+    }
+  end
+end
+
+# Subclass for specific document types
+class TechnicalDocument < Document
+  attribute :version, :string
+  attribute :author, :string
+  
+  liquid_class "TechnicalDocumentDrop"
+end
+
+# Get the base drop class for technical documents
+BaseTechnicalDrop = TechnicalDocument.to_liquid_class
+
+# Create specialized drop for technical documents
+class TechnicalDocumentDrop < BaseTechnicalDrop
+  def version_info
+    "Version #{@object.version} by #{@object.author}"
+  end
+
+  def technical_summary
+    "#{summary(50)} [#{version_info}]"
+  end
+
+  # Override parent method
+  def metadata
+    super.merge(
+      version: @object.version,
+      author: @object.author,
+      type: 'technical'
+    )
+  end
+end
+----
+
+=== Error handling
+
+When using custom liquid classes, you may encounter the following error:
+
+==== LiquidClassNotFoundError
+
+This error is raised when a custom liquid class specified with `liquid_class` is not defined or loaded in memory when `to_liquid` is called.
+
+[source,ruby]
+----
+class Schema < Lutaml::Model::Serializable
+  attribute :path, :string
+  
+  # Specify a custom drop class name
+  liquid_class "CustomSchemaDrop"
+end
+
+# This will raise LiquidClassNotFoundError if CustomSchemaDrop is not defined
+schema = Schema.new(path: "config.xml")
+schema.to_liquid
+# => Lutaml::Model::LiquidClassNotFoundError: Liquid class 'CustomSchemaDrop' is not defined in memory. Please ensure the class is loaded before using it.
+----
+
+To fix this error, ensure that your custom drop class is defined before calling `to_liquid`:
+
+[source,ruby]
+----
+# Define the base drop class first
+BaseDropClass = Schema.to_liquid_class
+
+# Define your custom drop class
+class CustomSchemaDrop < BaseDropClass
+  def formatted_path
+    "Path: #{@object.path}"
+  end
+end
+
+# Now to_liquid will work correctly
+schema = Schema.new(path: "config.xml")
+drop = schema.to_liquid  # Works!
+puts drop.class  # => CustomSchemaDrop
+----
+
+
 == Serialization adapters
 
 === General
