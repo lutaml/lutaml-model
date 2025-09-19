@@ -38,6 +38,8 @@ module Lutaml
         private
 
         def transform_to_target(input)
+          return input.map { |i| transform_to_target(i) } if input.is_a?(Array)
+
           if @mapping
             transformed = @mapping.process_mappings(input)
             return @target.new(transformed)
@@ -51,6 +53,8 @@ module Lutaml
         end
 
         def transform_to_source(input)
+          return input.map { |i| transform_to_source(i) } if input.is_a?(Array)
+
           if @mapping
             transformed = @mapping.process_mappings(input, reverse: true)
             return @source.new(transformed)

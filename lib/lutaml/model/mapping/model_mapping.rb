@@ -30,7 +30,7 @@ module Lutaml
           transform: transform,
           reverse_transform: reverse_transform,
           collection: collection,
-          mapping: block ? self.class.new(from_attr.type, to_attr.type) : nil,
+          mapping: block ? self.class.new(from_attr.type, to_attr.type, @transformer) : nil,
         )
         @mappings[mapping_name].mapping.instance_eval(&block) if block
       end
