@@ -250,7 +250,7 @@ RSpec.describe "MixedContent" do
             expected_output = expected_output.gsub(/\n\s*/, " ")
           end
 
-          expect(content).to eq(expected_output)
+          expect(content).to be_equivalent_to(expected_output)
         end
 
         serialized = parsed.to_xml

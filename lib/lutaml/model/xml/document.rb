@@ -221,6 +221,8 @@ module Lutaml
           prefixed_xml = xml.add_namespace_prefix(prefix)
           tag_name = options[:tag_name] || xml_mapping.root_element
 
+          return if options[:except]&.include?(tag_name)
+
           prefixed_xml.create_and_add_element(tag_name, prefix: prefix,
                                                         attributes: attributes) do
             if options.key?(:namespace_prefix) && !options[:namespace_prefix]
@@ -236,6 +238,8 @@ module Lutaml
             mappings.each do |element_rule|
               attribute_def = attribute_definition_for(element, element_rule,
                                                        mapper_class: mapper_class)
+
+              next if options[:except]&.include?(element_rule.to)
 
               if attribute_def
                 value = attribute_value_for(element, element_rule)
@@ -357,8 +361,7 @@ module Lutaml
           end
 
           xml_mapping.attributes.each_with_object(attrs) do |mapping_rule, hash|
-            next if options[:except]&.include?(mapping_rule.to)
-            next if mapping_rule.custom_methods[:to]
+            next if mapping_rule.custom_methods[:to] || options[:except]&.include?(mapping_rule.to)
 
             mapping_rule_name = mapping_rule.multiple_mappings? ? mapping_rule.name.first : mapping_rule.name
 
