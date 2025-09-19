@@ -107,20 +107,11 @@ class NewDigitalTimepiece < Lutaml::Model::Serializable
   attribute :detailed_time, StructuredDateTime
 end
 
-# Test helper classes for error/edge-case scenarios
-class RandomSource
-  DUMMY = true
-end
-
-class RandomTarget
-  DUMMY = true
-end
-
 class BadDeclaration < Lutaml::Model::ModelTransformer
-  source RandomSource
-  target RandomTarget
-
   def self.try_declare
+    source :date_with_invalid_time
+    target :date
+
     transform do
       :ok
     end
@@ -649,8 +640,8 @@ RSpec.describe Lutaml::Model::ModelTransformer do
   end
 
   describe "Error declarations and edge cases" do
-    it "raises UnknownTransformationTypeError for unsupported source/target classes" do
-      expect { BadDeclaration.try_declare }.to raise_error(Lutaml::Model::UnknownTransformationTypeError)
+    it "raises UnknownTypeError for unsupported source/target classes" do
+      expect { BadDeclaration.try_declare }.to raise_error(Lutaml::Model::UnknownTypeError)
     end
 
     it "raises ReverseTransformationDeclarationError when declaring reverse_transform for model-to-model" do

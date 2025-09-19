@@ -257,7 +257,7 @@ end
 
 publication = StandardsPublication.new(title: ["Title 1", "Title 2"])
 entry = StandardsPublicationTransform.transform(publication)
-puts entry.title # Output: "TITLE 1, TITLE 2"
+puts entry.title # Output: ["TITLE 1", "TITLE 2"]
 ----
 
 == Cross model–value transforms
@@ -425,9 +425,337 @@ end
 - Model-to-model transforms do not accept a `reverse_transform do` declaration; reversing is performed by inverting mappings.
 - If a one-way value transform is used inside a model-to-model mapping, reversing that mapping raises an error.
 
+== Detailed Example: Transforming Art Information Collections
+
+This example demonstrates a real-world transformation between two model trees representing generic art information and detailed ceramic art information. It covers nested mappings, value transforms, collections, and custom extraction logic.
+
+[source,ruby]
+----
+# First model tree
+class CreatorInformation < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :bio, :string
+  attribute :website, :string
+  attribute :year_born, :integer
+  attribute :year_died, :integer
+end
+
+class GenericArtInformation < Lutaml::Model::Serializable
+  attribute :title, :string
+  attribute :description, :string
+  attribute :artist, CreatorInformation
+  attribute :creation_date, :string
+  attribute :place_of_work, :string
+end
+
+class GenericArtInformationCollection < Lutaml::Model::Serializable
+  attribute :items, GenericArtInformation, collection: true
+end
+
+# Second model tree
+class CeramicCreatorInformation < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :bio, :string
+  attribute :website, :string
+  attribute :year_of_birth, :integer
+  attribute :year_of_death, :integer
+  attribute :techniques, :string, collection: true
+  attribute :awards, :string, collection: true
+end
+
+class Dimensions < Lutaml::Model::Serializable
+  attribute :height, :integer
+  attribute :width, :integer
+  attribute :depth, :integer
+end
+
+class CeramicArtInformation < Lutaml::Model::Serializable
+  attribute :title, :string
+  attribute :description, :string
+  attribute :artist, CeramicCreatorInformation
+  attribute :creation_date, :date_time
+  attribute :location, :string
+  attribute :dimensions, Dimensions
+  attribute :fire_temperature, :integer
+  attribute :fire_temperature_unit, :string, values: %w[°C °F]
+  attribute :clay_type, :string
+  attribute :glaze, :string
+end
+
+class CeramicArtInformationCollection < Lutaml::Model::Serializable
+  attribute :items, CeramicArtInformation, collection: true
+end
+
+# Value transforms
+class DimensionsTransform < Lutaml::Model::ModelTransformer
+  source :string
+  target Dimensions
+
+  transform do |source_value|
+    height, width, depth = source_value.match(/Dimensions: (\d+)x(\d+)x(\d+)/).captures
+    Dimensions.new(
+      height: height.to_i,
+      width: width.to_i,
+      depth: depth.to_i,
+    )
+  end
+
+  reverse_transform do |target_model|
+    "#{target_model.height}x#{target_model.width}x#{target_model.depth}"
+  end
+end
+
+class DateFormatTransform < Lutaml::Model::ModelTransformer
+  source :string
+  target :date_time
+
+  transform do |source_value|
+    Date.parse(source_value)
+  end
+
+  reverse_transform do |target_value|
+    target_value.strftime("%Y-%m-%d")
+  end
+end
+
+# Main transformation
+class CeramicArtInformationTransform < Lutaml::Model::ModelTransformer
+  source GenericArtInformation
+  target CeramicArtInformation
+
+  transform do
+    map from: "title", to: "title"
+    map from: "description", to: "description"
+    map from: "place_of_work", to: "location"
+    map from: "artist", to: "artist" do
+      map from: "name", to: "name"
+      map from: "bio", to: "bio"
+      map from: "website", to: "website"
+      map from: "year_born", to: "year_of_birth"
+      map from: "year_died", to: "year_of_death"
+      map from: "bio", to: "techniques", transform: :extract_techniques
+      map from: "bio", to: "awards", transform: :extract_awards
+    end
+    map from: "creation_date", to: "creation_date", transform: DateFormatTransform
+    map from: "description", to: "dimensions", transform: DimensionsTransform
+    map from: "description", to: "clay_type", transform: ->(description) {
+      description.match(/Clay type: ([\w\s]+)/)[1]
+    }
+    map from: "description", to: "glaze", transform: ->(description) {
+      begin
+        description.match(/Glaze: (.+)/)[1]
+      rescue StandardError
+        nil
+      end
+    }
+    map from: "description", to: "fire_temperature", transform: :extract_fire_temperature
+    map from: "description", to: "fire_temperature_unit", transform: :extract_fire_temperature_unit
+  end
+
+  def extract_fire_temperature_unit(description)
+    description.match(/Fire temperature: \d+(°\w+)/)[1]&.to_s
+  end
+
+  def extract_techniques(bio)
+    bio.scan(/Technique: ([\w\s]+)/).flatten
+  end
+
+  def extract_awards(bio)
+    bio.scan(/Award: ([\w\s]+)/).flatten
+  end
+
+  def extract_fire_temperature(description)
+    description.match(/Fire temperature: (\d+)/)[1]&.to_i
+  end
+end
+
+class CeramicArtInformationCollectionTransform < Lutaml::Model::ModelTransformer
+  source GenericArtInformationCollection
+  target CeramicArtInformationCollection
+
+  transform do
+    map_each from: "items", to: "items", transform: CeramicArtInformationTransform
+  end
+end
+----
+
+**Input YAML**
+
+[source,yaml]
+----
+items:
+- title: Translucent Vase
+  description: |
+    A tall and beautiful translucent vase created in the celadon color.
+
+    Dimensions: 10x10x10 cm
+    Fire temperature: 1000°C
+    Clay type: Porcelain
+  artist:
+    name: Masaaki Shibata
+    bio: |
+      Masaaki Shibata is a Japanese ceramic artist.
+
+      Awards: Japan Ceramic Society Award, 2005.
+
+      Skills: Glazing, painting
+    website: https://www.masaakishibata.com
+    year_born: 1947
+  creation_date: '2010-01-01'
+  place_of_work: Tokyo, Japan
+- title: Blue and White Bowl
+  description: |
+    A blue and white bowl with a floral pattern.
+
+    Dimensions: 20x20x20 cm
+    Fire temperature: 1200°C
+    Clay type: Stoneware
+    Glaze: Blue and white
+  artist:
+    name: Lucie Rie
+    bio: |
+      Lucie Rie was an Austrian-born British studio potter.
+
+      Awards: Potter's Gold Medal, 1987.
+
+      Skills: Throwing, glazing
+    website: https://www.lucierie.com
+    year_born: 1902
+    year_died: 1995
+  creation_date: '1970-01-01'
+  place_of_work: London, UK
+- title: Ceramic Sculpture
+  description: |
+    A ceramic sculpture in form of a golden fish.
+
+    Dimensions: 30x10x20 cm
+    Fire temperature: 800°C
+    Clay type: Earthenware
+    Glaze: Gold
+  artist:
+    name: Peter Voulkos
+    bio: |
+      Peter Voulkos was an American artist of Greek descent.
+
+      Awards: National Medal of Arts, 2001.
+
+      Skills: Throwing, hand-building, glazing
+    website: https://www.petervoulkos.com
+    year_born: 1924
+    year_died: 2002
+  creation_date: '1980-01-01'
+  place_of_work: Portopolous, Greece
+----
+
+**Usage**
+
+[source,ruby]
+----
+generic_art_info = GenericArtInformationCollection.from_yaml(input_yaml)
+transformed_data = CeramicArtInformationCollectionTransform.transform(generic_art_info)
+puts transformed_data.to_yaml
+----
+
+The output YAML will be:
+
+[source,yaml]
+----
+items:
+- title: Translucent Vase
+  description: |
+    A tall and beautiful translucent vase created in the celadon color.
+
+    Dimensions: 10x10x10 cm
+    Fire temperature: 1000°C
+    Clay type: Porcelain
+  artist:
+    name: Masaaki Shibata
+    bio: |
+      Masaaki Shibata is a Japanese ceramic artist.
+
+      Awards: Japan Ceramic Society Award, 2005.
+
+      Skills: Glazing, painting
+    website: https://www.masaakishibata.com
+    year_of_birth: 1947
+  creation_date: '2010-01-01T00:00:00+00:00'
+  location: Tokyo, Japan
+  dimensions:
+    height: 10
+    width: 10
+    depth: 10
+  fire_temperature: 1000
+  fire_temperature_unit: "°C"
+  clay_type: 'Porcelain
+
+    '
+- title: Blue and White Bowl
+  description: |
+    A blue and white bowl with a floral pattern.
+
+    Dimensions: 20x20x20 cm
+    Fire temperature: 1200°C
+    Clay type: Stoneware
+    Glaze: Blue and white
+  artist:
+    name: Lucie Rie
+    bio: |
+      Lucie Rie was an Austrian-born British studio potter.
+
+      Awards: Potter's Gold Medal, 1987.
+
+      Skills: Throwing, glazing
+    website: https://www.lucierie.com
+    year_of_birth: 1902
+    year_of_death: 1995
+  creation_date: '1970-01-01T00:00:00+00:00'
+  location: London, UK
+  dimensions:
+    height: 20
+    width: 20
+    depth: 20
+  fire_temperature: 1200
+  fire_temperature_unit: "°C"
+  clay_type: |-
+    Stoneware
+    Glaze
+  glaze: Blue and white
+- title: Ceramic Sculpture
+  description: |
+    A ceramic sculpture in form of a golden fish.
+
+    Dimensions: 30x10x20 cm
+    Fire temperature: 800°C
+    Clay type: Earthenware
+    Glaze: Gold
+  artist:
+    name: Peter Voulkos
+    bio: |
+      Peter Voulkos was an American artist of Greek descent.
+
+      Awards: National Medal of Arts, 2001.
+
+      Skills: Throwing, hand-building, glazing
+    website: https://www.petervoulkos.com
+    year_of_birth: 1924
+    year_of_death: 2002
+  creation_date: '1980-01-01T00:00:00+00:00'
+  location: Portopolous, Greece
+  dimensions:
+    height: 30
+    width: 10
+    depth: 20
+  fire_temperature: 800
+  fire_temperature_unit: "°C"
+  clay_type: |-
+    Earthenware
+    Glaze
+  glaze: Gold
+----
+
 == Error handling
 
-- `UnknownTransformationTypeError`: unsupported source/target types for a declaration
+- `UnknownTypeError`: unsupported source/target types for a declaration
 - `ReverseTransformationDeclarationError`: `reverse_transform do` declared for model-to-model mapping
 - `TransformBlockNotDefinedError`: calling forward value transform without block
 - `ReverseTransformBlockNotDefinedError`: calling reverse value transform without block

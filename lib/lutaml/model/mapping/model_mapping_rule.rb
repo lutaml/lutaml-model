@@ -48,7 +48,7 @@ module Lutaml
         when String, Symbol
           transformer.new.send(transform, value)
         when Class
-          transform.public_send(transform_method, value)
+          transform.public_send(transform_method, value, mapping: true)
         end
       end
     end

@@ -12,22 +12,20 @@ module Lutaml
           @target = get_type(target)
         end
 
-        def transform(input = nil, &block)
+        def transform(input = nil, mapping: false, &block)
           if input
-            transform_to_target(input)
+            transform_to_target(input, mapping: mapping)
           elsif transformation_block?(block)
             @transform_method = block
-          elsif @source <= Serialize || @target <= Serialize
+          else
             @mapping = ModelMapping.new(@source, @target, self)
             @mapping.instance_eval(&block)
-          else
-            raise UnknownTransformationTypeError, "Unknown Type of transformation for #{@source} to #{@target}"
           end
         end
 
-        def reverse_transform(input = nil, &block)
+        def reverse_transform(input = nil, mapping: false, &block)
           if input
-            transform_to_source(input)
+            transform_to_source(input, mapping: mapping)
           elsif transformation_block?(block)
             @reverse_transform_method = block
           else
@@ -37,8 +35,8 @@ module Lutaml
 
         private
 
-        def transform_to_target(input)
-          return input.map { |i| transform_to_target(i) } if input.is_a?(Array)
+        def transform_to_target(input, mapping: false)
+          return input.map { |i| transform_to_target(i) } if input.is_a?(Array) && !mapping
 
           if @mapping
             transformed = @mapping.process_mappings(input)
@@ -52,8 +50,8 @@ module Lutaml
           @transform_method.call(input)
         end
 
-        def transform_to_source(input)
-          return input.map { |i| transform_to_source(i) } if input.is_a?(Array)
+        def transform_to_source(input, mapping: false)
+          return input.map { |i| transform_to_source(i) } if input.is_a?(Array) && !mapping
 
           if @mapping
             transformed = @mapping.process_mappings(input, reverse: true)
@@ -77,7 +75,7 @@ module Lutaml
             if Type::TYPE_CODES[typ]
               Type.lookup(typ)
             else
-              Object.const_get(typ.to_s)
+              raise Lutaml::Model::UnknownTypeError, "Unsupported type #{typ} for transformation"
             end
           when Class
             typ
