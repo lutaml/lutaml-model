@@ -234,15 +234,15 @@ class StandardsPublication < Lutaml::Model::Serializable
 end
 
 class BibliographyEntry < Lutaml::Model::Serializable
-  attribute :title, :string
+  attribute :title, :string, collection: true
 end
 
 class TitleAggregationTransform < Lutaml::Model::ModelTransformer
   source :string
   target :string
 
-  transform do |source_values|
-    source_values.join(", ")
+  transform do |source_value|
+    source_value.upcase
   end
 end
 
@@ -257,7 +257,7 @@ end
 
 publication = StandardsPublication.new(title: ["Title 1", "Title 2"])
 entry = StandardsPublicationTransform.transform(publication)
-puts entry.title # Output: "Title 1, Title 2"
+puts entry.title # Output: "TITLE 1, TITLE 2"
 ----
 
 == Cross model–value transforms
