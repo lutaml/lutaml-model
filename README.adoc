@@ -3388,6 +3388,8 @@ Where,
 `:asc`:::: Ascending order (default).
 `:desc`:::: Descending order.
 
+NOTE: When a proc is provided for ordering and `order: :desc` is specified, the collection is first sorted using the proc (as with Ruby's `sort_by`), and the resulting array is then reversed to achieve descending order.
+
 .Ordered collection applied to a root collection
 [example]
 ====
