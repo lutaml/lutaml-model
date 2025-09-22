@@ -13,6 +13,7 @@ module Lutaml
         time_without_date: "Lutaml::Model::Type::TimeWithoutDate",
         boolean: "Lutaml::Model::Type::Boolean",
         hash: "Lutaml::Model::Type::Hash",
+        symbol: "Lutaml::Model::Type::Symbol",
       }.freeze
 
       class << self
@@ -71,5 +72,6 @@ require_relative "type/time_without_date"
 require_relative "type/boolean"
 require_relative "type/decimal"
 require_relative "type/hash"
+require_relative "type/symbol"
 
 Lutaml::Model::Type.register_builtin_types
