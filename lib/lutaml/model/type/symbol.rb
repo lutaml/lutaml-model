@@ -36,36 +36,9 @@ module Lutaml
           ":#{value}:"
         end
 
-        def to_yaml
-          # YAML natively supports symbols, so return the actual symbol
-          value
-        end
-
         def to_toml
           # For TOML, we use the :symbol: format since TOML doesn't support symbols
           ":#{value}:"
-        end
-
-        def self.from_xml(value)
-          cast(value)
-        end
-
-        def self.from_json(value)
-          cast(value)
-        end
-
-        def self.from_yaml(value)
-          # YAML can already contain actual symbols or strings
-          cast(value)
-        end
-
-        def self.from_toml(value)
-          cast(value)
-        end
-
-        # Override to_s to return the symbol as a string without quotes
-        def to_s
-          value.to_s
         end
       end
     end
