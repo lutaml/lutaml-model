@@ -1,3 +1,5 @@
+unless RUBY_ENGINE == 'opal'
+
 require "spec_helper"
 require "lutaml/model/toml/toml_rb_adapter"
 require "lutaml/model/toml/tomlib_adapter"
@@ -38,4 +40,6 @@ RSpec.describe "TomlAdapter" do
   describe Lutaml::Model::Toml::TomlibAdapter do
     it_behaves_like "a TOML adapter", described_class
   end
+end
+
 end

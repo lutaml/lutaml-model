@@ -356,11 +356,11 @@ RSpec.describe "XmlNamespace" do
 
   describe Lutaml::Model::Xml::NokogiriAdapter do
     it_behaves_like "an XML namespace parser", described_class
-  end
+  end unless RUBY_ENGINE == 'opal'
 
   describe Lutaml::Model::Xml::OxAdapter do
     it_behaves_like "an XML namespace parser", described_class
-  end
+  end unless RUBY_ENGINE == 'opal'
 
   describe Lutaml::Model::Xml::OgaAdapter do
     it_behaves_like "an XML namespace parser", described_class

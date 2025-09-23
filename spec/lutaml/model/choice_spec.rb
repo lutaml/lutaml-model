@@ -119,7 +119,7 @@ RSpec.describe "Choice" do
       expect do
         valid_instance.validate!
       end.to raise_error(Lutaml::Model::ValidationError) do |error|
-        expect(error.error_messages.join("\n")).to include("Attributes `[:signed, :unsigned, :watermarked, :encrypted]` count exceeds the upper bound `3`")
+        expect(error.error_messages.join("\n")).to include(sym_normal("Attributes `[:signed, :unsigned, :watermarked, :encrypted]` count exceeds the upper bound `3`"))
       end
     end
   end
@@ -160,7 +160,7 @@ RSpec.describe "Choice" do
       expect do
         valid_instance.validate!
       end.to raise_error(Lutaml::Model::ValidationError) do |error|
-        expect(error.error_messages.join("\n")).to eq("Attributes `[:email, :phone, :check]` count exceeds the upper bound `2`")
+        expect(error.error_messages.join("\n")).to eq(sym_normal("Attributes `[:email, :phone, :check]` count exceeds the upper bound `2`"))
       end
     end
 

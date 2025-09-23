@@ -71,11 +71,9 @@ module Lutaml
       private
 
       def get_type_class(klass_name)
-        if klass_name.is_a?(String)
-          Lutaml::Model::Type.const_get(klass_name)
-        elsif klass_name.is_a?(Symbol)
-          Lutaml::Model::Type.lookup(klass_name)
-        end
+        Lutaml::Model::Type.lookup(klass_name)
+      rescue UnknownTypeError
+        Lutaml::Model::Type.const_get(klass_name)
       end
 
       def built_in_type?(type)

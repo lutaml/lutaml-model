@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "liquid"
+# require "liquid"
 require "rspec/matchers"
 require "equivalent-xml"
 
@@ -21,15 +21,28 @@ RSpec.configure do |config|
 end
 
 # configuration example
-require_relative "../lib/lutaml/model"
+require "lutaml/model"
 # require_relative "../lib/lutaml/model/xml/nokogiri_adapter"
 # require_relative "../lib/lutaml/model/xml/ox_adapter"
 # require_relative "../lib/lutaml/model/toml_adapter/toml_rb_adapter"
 
 Lutaml::Model::Config.configure do |config|
-  config.xml_adapter_type = :nokogiri
+  if RUBY_ENGINE == 'opal'
+    config.xml_adapter_type = :oga
+  else
+    config.xml_adapter_type = :nokogiri
+  end
   config.hash_adapter_type = :standard_hash
   config.json_adapter_type = :standard_json
   config.yaml_adapter_type = :standard_yaml
-  config.toml_adapter_type = :toml_rb
+  config.toml_adapter_type = :toml_rb unless RUBY_ENGINE == 'opal'
+end
+
+# Create a normalized string version for strings interpolating symbols for Opal
+def sym_normal(str)
+  if RUBY_ENGINE == 'opal'
+    str.gsub(/:(\w+)/) { "\"#{$1}\"" }
+  else
+    str
+  end
 end
