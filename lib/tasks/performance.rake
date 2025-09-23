@@ -3,15 +3,15 @@
 require_relative "performance_helpers"
 
 REPO_ROOT = File.expand_path(File.join(__dir__, "..", ".."))
-DEFAULT_RUNS = 30
-DEFAULT_THRESHOLD = 0.25 # 25%
-DEFAULT_BASELINE = "main"
+DEFAULT_RUN_TIME = 20 # seconds
+DEFAULT_THRESHOLD = 0.05 # 5%
+DEFAULT_BASE = "main"
 TMP_PERF_DIR = File.join(REPO_ROOT, "tmp", "performance")
 BENCH_SCRIPT = File.join(TMP_PERF_DIR, "bench_runner.rb")
 
 desc "Run performance benchmarks"
 namespace :performance do
-  desc "compare performance of current branch against baseline"
+  desc "compare performance of current branch against base branch (default: main)"
   task :compare do
     # Change to repo root
     Dir.chdir(REPO_ROOT)
@@ -20,39 +20,40 @@ namespace :performance do
     FileUtils.mkdir_p(TMP_PERF_DIR)
     ruby_exec("cp #{File.join(REPO_ROOT, 'lib', 'tasks', 'bench_runner.rb')} #{BENCH_SCRIPT}")
 
+    load_into_namespace(Current, BENCH_SCRIPT)
+
     matrix = { xml: %i[nokogiri ox oga], json: %i[standard_json multi_json oj],
                yaml: %i[standard_yaml], toml: %i[toml_rb tomlib] }
+    directions = %i[from to]
 
-    baseline_dir = clone_baseline_repo(DEFAULT_BASELINE, TMP_PERF_DIR)
+    clone_base_repo(DEFAULT_BASE, TMP_PERF_DIR, BENCH_SCRIPT)
 
     begin
       all_current = {}
-      all_baseline = {}
+      all_base = {}
 
       matrix.each do |format_sym, adapters|
         adapters.each do |adapter_sym|
-          puts "\n== Running #{format_sym}:#{adapter_sym} (baseline then current) =="
+          puts "\n== Running #{format_sym}:#{adapter_sym} (base then current) =="
+          directions.each do |direction|
+            base_results = Base::BenchRunner.new(run_time: DEFAULT_RUN_TIME, format: format_sym, adapter: adapter_sym, direction: direction).run_benchmarks
+            curr_results = Current::BenchRunner.new(run_time: DEFAULT_RUN_TIME, format: format_sym, adapter: adapter_sym, direction: direction).run_benchmarks
 
-          curr_results = run_filtered_local(BENCH_SCRIPT, DEFAULT_RUNS, format_sym, adapter_sym)
+            all_base.merge!(base_results)
+            all_current.merge!(curr_results)
 
-          base_results = run_in_repo(BENCH_SCRIPT, DEFAULT_RUNS, baseline_dir,
-                                     { "FILTER_FORMAT" => format_sym.to_s, "FILTER_ADAPTER" => adapter_sym.to_s })
-
-          all_baseline.merge!(base_results)
-          all_current.merge!(curr_results)
-
-          curr_results.each do |label, result|
-            print_realtime_comparison(label, result, base_results[label], DEFAULT_THRESHOLD)
+            curr_results.each do |label, result|
+              print_realtime_comparison(label, result, base_results[label], DEFAULT_THRESHOLD)
+            end
           end
         end
       end
 
-      summary = summary_report(all_current, all_baseline, DEFAULT_BASELINE, DEFAULT_RUNS, DEFAULT_THRESHOLD)
+      summary = summary_report(all_current, all_base, DEFAULT_BASE, DEFAULT_RUN_TIME, DEFAULT_THRESHOLD)
 
-      exit(1) if !summary[:regressions].empty? || !summary[:failures].empty?
+      exit(1) if !summary[:regressions].empty?
     ensure
-      FileUtils.rm_rf(BENCH_SCRIPT)
-      remove_baseline_repo(baseline_dir)
+      FileUtils.rm_rf(TMP_PERF_DIR)
     end
   end
 end
