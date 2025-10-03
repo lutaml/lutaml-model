@@ -340,6 +340,8 @@ module Lutaml
         def from(format, data, options = {})
           adapter = Lutaml::Model::Config.adapter_for(format)
 
+          raise Lutaml::Model::FormatAdapterNotSpecifiedError.new(format) if adapter.nil?
+
           doc = adapter.parse(data, options)
           send("of_#{format}", doc, options)
         rescue *format_error_types => e
