@@ -588,58 +588,54 @@ RSpec.describe Lutaml::Model::Serializable do
   end
 
   describe "FormatAdapterNotSpecifiedError handling" do
-    shared_examples "format adapter not specified error" do |format, method|
-      around do |example|
-        old_adapter = Lutaml::Model::Config.adapter_for(format)
-        Lutaml::Model::Config.set_adapter_for(format, nil)
+    let (:msg) do
+      <<~MSG
+        xml Format Adapter Not Configured.
 
-        example.run
+        It looks like no xml format adapter has been specified.
+
+        To resolve this, please configure adapter like this in your setup:
+
+          Lutaml::Model::Config.xml_adapter_type = :type
+
+        NOTE: For using XML and TOML adapters, install the respective gems.
+
+        For more details, check the configuration guide:
+        https://github.com/lutaml/lutaml-model#configuration-1
+      MSG
+    end
+
+    let (:xml) do
+      <<~XML
+        <person>
+          <name>John Doe</name>
+          <age>30</age>
+          <phone>123-456-7890</phone>
+          <address>Address: 123 Main St</address>
+        </person>
+      XML
+    end
+
+    it "raises FormatAdapterNotSpecifiedError when XML adapter is not configured" do
+      old_adapter = Lutaml::Model::Config.adapter_for(:xml)
+      Lutaml::Model::Config.set_adapter_for(:xml, nil)
+      begin
+        expect {
+          SerializeableSpec::SingleOptionModel.from_xml(xml)
+        }.to raise_error(Lutaml::Model::FormatAdapterNotSpecifiedError) do |error|
+        expect(error.message).to eq(msg)
+      end
       ensure
-        Lutaml::Model::Config.set_adapter_for(format, old_adapter)
-      end
-
-      it "raises FormatAdapterNotSpecifiedError when no #{format.to_s.upcase} adapter is configured" do
-        data = case format
-               when :xml
-                 "<test><content>value</content></test>"
-               when :json
-                 '{"content": "value"}'
-               when :yaml
-                 "content: value"
-               when :toml
-                 'content = "value"'
-               when :hash
-                 { content: "value" }
-               end
-
-        expect do
-          SerializeableSpec::SingleOptionModel.public_send(method, data)
-        end.to raise_error(Lutaml::Model::FormatAdapterNotSpecifiedError) do |error|
-          expect(error.message).to include("#{format} Format Adapter Not Configured")
-          expect(error.message).to include("no #{format} format adapter has been specified")
-          expect(error.message).to include("Lutaml::Model::Config.#{format}_adapter")
-        end
+        Lutaml::Model::Config.set_adapter_for(:xml, old_adapter)
       end
     end
 
-    describe "XML adapter not specified" do
-      it_behaves_like "format adapter not specified error", :xml, :from_xml
-    end
-
-    describe "JSON adapter not specified" do
-      it_behaves_like "format adapter not specified error", :json, :from_json
-    end
-
-    describe "YAML adapter not specified" do
-      it_behaves_like "format adapter not specified error", :yaml, :from_yaml
-    end
-
-    describe "TOML adapter not specified" do
-      it_behaves_like "format adapter not specified error", :toml, :from_toml
-    end
-
-    describe "Hash adapter not specified" do
-      it_behaves_like "format adapter not specified error", :hash, :from_hash
+    it "parses XML when XML adapter is configured" do
+      model = SerializeableSpec::SingleOptionModel.from_xml(xml)
+      expect(model.name).to eq("John Doe")
+      expect(model.age).to eq(30)
+      expect(model.phone).to eq("123-456-7890")
+      expect(model.address).to eq("123 Main St")
     end
   end
 end

@@ -9,13 +9,11 @@ module Lutaml
 
           It looks like no #{@format} format adapter has been specified.
 
-          To resolve this, please configure one of the following in your setup:
+          To resolve this, please configure adapter like this in your setup:
 
-            # Option 1: Set a custom adapter class
-            Lutaml::Model::Config.#{@format}_adapter = AdapterClass
-
-            # Option 2: Set a predefined adapter type
             Lutaml::Model::Config.#{@format}_adapter_type = :type
+
+          NOTE: For using XML and TOML adapters, install the respective gems.
 
           For more details, check the configuration guide:
           https://github.com/lutaml/lutaml-model#configuration-1
