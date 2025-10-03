@@ -2340,9 +2340,13 @@ Where,
 
 === XML Attribute Collections
 
-Lutaml::Model supports collection from xml attributes. A `delimiter` option for XML `map_attribute` is given, allowing you to control how values are split and joined when serializing/deserializing collections from a single XML attribute. This is useful when multiple values are stored in a single attribute, separated by a delimiter (e.g., `;`).
+Lutaml::Model supports collections from XML attributes. This feature allows you to serialize and deserialize multiple values stored in a single XML attribute, separated by a delimiter.
 
-==== Usage Example
+There are two approaches for handling delimited attribute values:
+
+==== Using `as_list` Option
+
+The `as_list` option provides full control over how values are split during import and joined during export. This is useful when you need custom parsing logic.
 
 [source,ruby]
 ----
@@ -2351,7 +2355,7 @@ class TitleCollection < Lutaml::Model::Collection
 
   xml do
     root "titles"
-    map_attribute "title", to: :items, delimiter: {
+    map_attribute "title", to: :items, as_list: {
       import: ->(str) { str.split("; ") },
       export: ->(arr) { arr.join("; ") },
     }
@@ -2359,20 +2363,45 @@ class TitleCollection < Lutaml::Model::Collection
 end
 ----
 
-Example XML:
+==== Using `delimiter` Option
+
+For simpler cases where you only need basic string splitting and joining with a fixed delimiter, use the `delimiter` option:
+
+[source,ruby]
+----
+class TitleDelimiterCollection < Lutaml::Model::Collection
+  instances :items, :string
+
+  xml do
+    root "titles"
+    map_attribute "title", to: :items, delimiter: "; "
+  end
+end
+----
+
+==== Example Usage
+
+Both approaches work with the same XML format:
+
 [source,xml]
 ----
 <titles title="Title One; Title Two; Title Three"/>
 ----
 
-=== Import and Export
-
 [source,ruby]
 ----
+# Both collections work identically for basic use cases
 collection = TitleCollection.from_xml(xml)
 collection.items # => ["Title One", "Title Two", "Title Three"]
 collection.to_xml # => '<titles title="Title One; Title Two; Title Three"/>'
+
+# Same result with delimiter option
+delimiter_collection = TitleDelimiterCollection.from_xml(xml)
+delimiter_collection.items # => ["Title One", "Title Two", "Title Three"]
+delimiter_collection.to_xml # => '<titles title="Title One; Title Two; Title Three"/>'
 ----
+
+Choose `as_list` when you need custom import/export logic, or `delimiter` for simple string splitting with a fixed separator.
 
 === Collection types
 

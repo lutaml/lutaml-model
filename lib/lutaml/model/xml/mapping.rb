@@ -148,6 +148,7 @@ module Lutaml
                    nil),
           transform: {},
           value_map: {},
+          as_list: nil,
           delimiter: nil
         )
           validate!(
@@ -178,6 +179,7 @@ module Lutaml
             prefix_set: prefix_set != false,
             transform: transform,
             value_map: value_map,
+            as_list: as_list,
             delimiter: delimiter,
           )
           @attributes[rule.namespaced_name] = rule

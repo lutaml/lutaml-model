@@ -112,9 +112,9 @@ module Lutaml
       def value_for_xml_attribute(doc, rule, rule_names)
         value = doc.root.find_attribute_value(rule_names)
 
-        return value if Utils.blank?(value)
+        value = value&.split(rule.delimiter) if rule.delimiter
 
-        return rule.delimiter[:import].call(value) if rule.delimiter && rule.delimiter[:import]
+        value = rule.as_list[:import].call(value) if rule.as_list && rule.as_list[:import]
 
         value
       end
