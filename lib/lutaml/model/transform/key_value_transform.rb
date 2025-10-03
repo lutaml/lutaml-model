@@ -8,6 +8,7 @@ module Lutaml
           instance = model_class.new
           register_accessor_methods_for(instance, __register)
         end
+        root_and_parent_assignment(instance, options)
         mappings = extract_mappings(options, format)
 
         mappings.mappings.each do |rule|
@@ -200,8 +201,8 @@ module Lutaml
 
         return process_custom_method(rule, instance, value) if rule.has_custom_method_for_deserialization?
 
-        value = translate_mappings(value, rule.hash_mappings, attr, format)
-        value = cast_value(value, attr, format, rule) unless rule.hash_mappings
+        value = translate_mappings(value, rule.hash_mappings, attr, format, instance)
+        value = cast_value(value, attr, format, rule, instance) unless rule.hash_mappings
 
         attr.valid_collection!(value, context)
         rule.deserialize(instance, value, attributes, self)
@@ -213,27 +214,29 @@ module Lutaml
         model_class.new.send(rule.custom_methods[:from], instance, value)
       end
 
-      def cast_value(value, attr, format, rule)
+      def cast_value(value, attr, format, rule, instance)
         cast_options = rule.polymorphic ? { polymorphic: rule.polymorphic } : {}
+        cast_options[:__parent] = instance if instance
+        cast_options[:__root] = (instance.__root || instance) if instance
         attr.cast(value, format, __register, cast_options)
       end
 
-      def translate_mappings(hash, child_mappings, attr, format)
+      def translate_mappings(hash, child_mappings, attr, format, instance)
         return hash unless child_mappings
 
         hash.map do |key, value|
-          process_child_mapping(key, value, child_mappings, attr, format, hash)
+          process_child_mapping(key, value, child_mappings, attr, format, hash, instance)
         end
       end
 
-      def process_child_mapping(key, value, child_mappings, attr, format, hash)
+      def process_child_mapping(key, value, child_mappings, attr, format, hash, instance)
         child_hash = build_child_hash(key, value, child_mappings, attr, format)
 
         if only_keys_mapped?(child_mappings, hash)
           child_hash.merge!(value)
         end
 
-        map_child_data(child_hash, attr, format)
+        map_child_data(child_hash, attr, format, instance)
       end
 
       def build_child_hash(key, value, child_mappings, attr, format)
@@ -259,14 +262,14 @@ module Lutaml
         child_mappings.values == [:key] && hash.values.all?(::Hash)
       end
 
-      def map_child_data(child_hash, attr, format)
+      def map_child_data(child_hash, attr, format, instance)
         attr_type = attr.type(__register)
-        self.class.data_to_model(
-          attr_type,
-          child_hash,
-          format,
-          { mappings: attr_type.mappings_for(format) },
-        )
+        options = {
+          mappings: attr_type.mappings_for(format),
+          __parent: instance,
+          __root: (instance.__root || instance),
+        }
+        self.class.data_to_model(attr_type, child_hash, format, options)
       end
 
       def rule_value_extractor_class

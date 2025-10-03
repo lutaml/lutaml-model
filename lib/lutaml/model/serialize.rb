@@ -22,7 +22,7 @@ module Lutaml
       include Lutaml::Model::Liquefiable
       include Lutaml::Model::Registrable
 
-      INTERNAL_ATTRIBUTES = %i[@using_default @__register].freeze
+      INTERNAL_ATTRIBUTES = %i[@using_default @__register @__parent @__root].freeze
 
       def self.included(base)
         base.extend(ClassMethods)
@@ -631,7 +631,7 @@ module Lutaml
         end
       end
 
-      attr_accessor :element_order, :schema_location, :encoding, :__register
+      attr_accessor :element_order, :schema_location, :encoding, :__register, :__parent, :__root
       attr_writer :ordered, :mixed
 
       def initialize(attrs = {}, options = {})
