@@ -620,11 +620,11 @@ RSpec.describe Lutaml::Model::Serializable do
       old_adapter = Lutaml::Model::Config.adapter_for(:xml)
       Lutaml::Model::Config.set_adapter_for(:xml, nil)
       begin
-        expect {
+        expect do
           SerializeableSpec::SingleOptionModel.from_xml(xml)
-        }.to raise_error(Lutaml::Model::FormatAdapterNotSpecifiedError) do |error|
-        expect(error.message).to eq(msg)
-      end
+        end.to raise_error(Lutaml::Model::FormatAdapterNotSpecifiedError) do |error|
+          expect(error.message).to eq(msg)
+        end
       ensure
         Lutaml::Model::Config.set_adapter_for(:xml, old_adapter)
       end
