@@ -2,8 +2,11 @@
 
 require "json"
 require "benchmark/ips"
+
 # Ensure lib/ is on the load path regardless of tmp location
-$LOAD_PATH.unshift(File.expand_path(File.join(__dir__, "..", "..", "lib")))
+lib_path = File.expand_path(File.join(__dir__, "..", "..", "lib"))
+$LOAD_PATH.unshift(lib_path) unless $LOAD_PATH.include?(lib_path)
+
 require "lutaml/model"
 require "lutaml/model/xml/nokogiri_adapter"
 require "lutaml/model/xml/ox_adapter"
@@ -22,7 +25,7 @@ class BenchRunner
     @format = format
     @adapter = adapter
     @direction = direction
-    @label = self.class.name.split("::").first
+    @label = self.class.name.split("::")[1]
 
     set_adapter
   end
@@ -65,32 +68,27 @@ class BenchRunner
   end
 
   def generate_xml
-    "<root>#{(0...@items).map { |i| "<item id='#{i}'><name>Test #{i}</name><value>#{i}</value></item>" }.join}</root>"
+    items = (0...@items).map do |i|
+      "<item id='#{i}'><name>Test #{i}</name><value>#{i}</value></item>"
+    end
+    "<root>#{items.join}</root>"
   end
 
   def generate_json
-    {
-      "item" => (0...@items).map { |i| { "id" => i, "name" => "Test #{i}", "value" => i } },
-    }.to_json
+    items = (0...@items).map { |i| { "id" => i, "name" => "Test #{i}", "value" => i } }
+    { "item" => items }.to_json
   end
 
   def generate_yaml
-    [
-      "item:",
-      (0...@items).map { |i| "  - id: #{i}\n    name: 'Test #{i}'\n    value: #{i}" },
-    ].flatten.join("\n")
+    items = (0...@items).map { |i| "  - id: #{i}\n    name: 'Test #{i}'\n    value: #{i}" }
+    "item:\n#{items.join("\n")}"
   end
 
   def generate_toml
-    (0...@items).flat_map do |i|
-      [
-        "[[item]]",
-        "id = #{i}",
-        "name = \"Test #{i}\"",
-        "value = #{i}",
-        "",
-      ]
-    end.join("\n")
+    items = (0...@items).map do |i|
+      "[[item]]\nid = #{i}\nname = \"Test #{i}\"\nvalue = #{i}\n"
+    end
+    items.join("\n")
   end
 
   class BenchItem < Lutaml::Model::Serializable
@@ -104,19 +102,7 @@ class BenchRunner
       map_element "name", to: :name
     end
 
-    json do
-      map "id", to: :id
-      map "name", to: :name
-      map "value", to: :value
-    end
-
-    yaml do
-      map "id", to: :id
-      map "name", to: :name
-      map "value", to: :value
-    end
-
-    toml do
+    key_value do
       map "id", to: :id
       map "name", to: :name
       map "value", to: :value
@@ -131,15 +117,7 @@ class BenchRunner
       map_element "item", to: :item
     end
 
-    json do
-      map "item", to: :item
-    end
-
-    yaml do
-      map "item", to: :item
-    end
-
-    toml do
+    key_value do
       map "item", to: :item
     end
   end
@@ -149,34 +127,31 @@ class BenchRunner
     job.config(time: @run_time, warmup: 5)
     job.report("#{@label} #{@format}::#{@adapter} #{@direction}_#{@format}", &block)
     job.run
+
     entry = job.full_report.entries.first
     samples = entry.stats.samples
-    mean = samples.sum / samples.size
+    mean = samples.sum.to_f / samples.size
     variance = samples.sum { |x| (x - mean)**2 } / (samples.size - 1)
     std_dev = Math.sqrt(variance)
-    error_margin = (std_dev / mean)
+    error_margin = std_dev / mean
 
-    lower = mean.round(4) * (1 - ((error_margin * 100).round(2) / 100.0))
-    upper = mean.round(4) * (1 + ((error_margin * 100).round(2) / 100.0))
+    error_percentage = (error_margin * 100).round(2) / 100.0
+    lower = mean.round(4) * (1 - error_percentage)
+    upper = mean.round(4) * (1 + error_percentage)
 
     result = { lower: lower, upper: upper }
-
     { "#{@format}_#{@adapter}_#{@direction}_#{@format}": result }
   end
 
   def set_adapter
-    raise "Format or adapter is not set" if @format.nil? || @adapter.nil?
+    raise ArgumentError, "Format or adapter is not set" if @format.nil? || @adapter.nil?
 
-    Lutaml::Model::Config.send("#{@format}_adapter_type=", @adapter)
+    Lutaml::Model::Config.public_send("#{@format}_adapter_type=", @adapter)
   end
 
   def generate_model
     root = BenchRoot.new
-
-    root.item = (0...@items).map do |i|
-      BenchItem.new(id: i, name: "Test #{i}", value: i)
-    end
-
+    root.item = (0...@items).map { |i| BenchItem.new(id: i, name: "Test #{i}", value: i) }
     root
   end
 end
