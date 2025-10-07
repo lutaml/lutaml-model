@@ -8,7 +8,7 @@ module Lutaml
         return :ox if Object.const_defined?(:Ox)
         return :oga if Object.const_defined?(:Oga)
 
-        nil
+        :rexml
       end
     end
   end
