@@ -666,7 +666,8 @@ raise a `Lutaml::Model::TypeNotSupportedError`.
 
 === Symbol type
 
-The Symbol type provides support for Ruby symbols across all serialization formats.
+The Symbol type provides support for Ruby symbols across all serialization
+formats.
 
 **Type Casting Behavior:**
 
@@ -678,8 +679,8 @@ The Symbol type only accepts valid string inputs and existing symbols:
 * ✅ **Other types**: integers, arrays, hashes, booleans → symbol (works similar to string type)
 * ❌ **Empty strings**: `""` → `nil`
 
-Since not all serialization formats natively support symbols (XML, JSON, TOML don't),
-the Symbol type uses format-specific serialization strategies:
+Since not all serialization formats natively support symbols (XML, JSON, TOML
+don't), the Symbol type uses format-specific serialization strategies:
 
 * **YAML**: Uses native symbol format (`:symbol`)
 * **XML/JSON/TOML**: Uses wrapper format (`":symbol:"`) for compatibility
@@ -732,7 +733,107 @@ Task.from_yaml(task.to_yaml).status  # => :in_progress
 ====
 
 
-=== Custom type
+=== Custom types
+
+==== General
+
+A custom type is a user-defined class that extends the behavior of built-in
+types. A built-in type is one that is provided by Lutaml::Model, such as
+`:string`, `:integer`, or `:date`.
+
+==== Understanding Types and Models
+
+Lutaml::Model provides two approaches to define custom data structures:
+
+Types::
+Defines primitive values that represent a basic unit of information. A type
+cannot be further decomposed. Inherits from `Lutaml::Model::Type::Value`.
+
+Models::
+Defines objects composed of multiple attributes, of which each attribute can be
+a type or a model. Inherits from `Lutaml::Model::Serializable`.
+
+The key differences are described in the table below.
+
+[cols="1,2,2",options="header"]
+|===
+| Aspect | Types (`Type::Value`) | Models (`Serializable`)
+
+h| Purpose
+| Represent single primitive-like values with custom behavior
+| Represent complex objects with multiple attributes and relationships
+
+h| Storage
+| Contains a single `value` attribute
+| Contains multiple attributes defined via `attribute` declarations
+
+h| Use cases
+| Value transformation, validation, format-specific serialization of primitives
+| Complex nested data structures, objects with multiple properties
+
+h| Required methods
+| `self.cast(value)`, `self.serialize(value)`
+| None (provided by framework)
+
+h| Inheritance
+| `< Lutaml::Model::Type::Value` (or built-in types like `Type::String`)
+| `< Lutaml::Model::Serializable`
+
+h| Registration
+| Can be registered as reusable types via `Lutaml::Model::Type.register`
+| Not registered as types, used directly as classes
+
+h| Serialization control
+| Fine-grained control per format via `to_xml`, `to_json`, etc.
+| Controlled via mapping blocks (`xml do`, `json do`, etc.)
+
+|===
+
+===== Quick Reference: Type vs Model
+
+[source,ruby]
+----
+# ✅ CUSTOM TYPE - for single values with special behavior
+class PostCode < Lutaml::Model::Type::String
+  def self.cast(value)
+    value.to_s.upcase.gsub(/\s/, '') # Normalize: remove spaces, uppercase
+  end
+end
+
+# ✅ MODEL - for complex objects with multiple attributes
+class Address < Lutaml::Model::Serializable
+  attribute :street, :string
+  attribute :city, :string
+  attribute :postal_code, PostCode  # Uses the custom type above
+end
+
+# Usage in a model
+class Person < Lutaml::Model::Serializable
+  attribute :name, :string           # Built-in type
+  attribute :postal_code, PostCode   # Custom type (single value)
+  attribute :address, Address        # Serializable object (multiple attributes)
+end
+----
+
+==== When to use custom types and models
+
+Use Custom Types when:
+
+* You need to transform or validate a single primitive value
+* You want consistent behavior across multiple attributes of the same type
+* You need format-specific serialization of primitive data
+* You're creating reusable value types (like currency, phone numbers, postcodes)
+* The data represents a single conceptual value, even if complex internally
+
+Use Models when:
+
+* You need to model objects with multiple attributes
+* You want to define relationships between objects
+* You need complex nested structures
+* The data represents a distinct entity or concept with multiple properties
+* You need different serialization mappings for the same object structure
+
+==== Creating custom types
 
 A custom class can be used as an attribute type. The custom class must inherit
 from `Lutaml::Model::Type::Value` or a class that inherits from it.
@@ -761,7 +862,7 @@ class FiveDigitPostCode < Lutaml::Model::Type::String
     value = value.to_s if value.is_a?(Integer)
 
     unless value.is_a?(::String)
-      raise Lutaml::Model::InvalidValueError, "Invalid value for type 'FiveDigitPostCode'"
+      raise Lutaml::Model::TypeError, "Invalid value for type 'FiveDigitPostCode'"
     end
 
     # Pad zeros to the left
@@ -779,7 +880,295 @@ end
 ----
 ====
 
-=== Serialization of custom types
+==== Practical examples: Type vs Model
+
+.Example 1: Custom Type for currency values
+[example]
+====
+Use a custom type when you need to handle currency with consistent formatting
+and validation:
+
+[source,ruby]
+----
+# Custom Type - represents a single currency value
+class Currency < Lutaml::Model::Type::Value
+  def self.cast(value)
+    case value
+    when String
+      # Remove currency symbols and convert to float
+      cleaned = value.gsub(/[$,]/, '')
+      Float(cleaned)
+    when Numeric
+      value.to_f
+    else
+      raise Lutaml::Model::TypeError, "Invalid currency value: #{value}"
+    end
+  end
+
+  def self.serialize(value)
+    sprintf("%.2f", value)
+  end
+
+  # Format-specific serialization
+  def to_xml
+    "$#{sprintf('%.2f', value)}"
+  end
+
+  def to_json(*_args)
+    value # JSON uses numbers
+  end
+end
+
+class Product < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :price, Currency      # Reusable custom type
+  attribute :wholesale_price, Currency  # Same type, consistent behavior
+end
+----
+====
+
+.Example 2: Serializable object for complex data
+[example]
+====
+Use a Serializable object when you need multiple related attributes:
+
+[source,ruby]
+----
+# Serializable object - represents a complex address with multiple attributes
+class Address < Lutaml::Model::Serializable
+  attribute :street, :string
+  attribute :city, :string
+  attribute :postal_code, :string
+  attribute :country, :string
+
+  # Define how this complex object maps to different formats
+  xml do
+    root "Address"
+    map_element "Street", to: :street
+    map_element "City", to: :city
+    map_element "PostalCode", to: :postal_code
+    map_element "Country", to: :country
+  end
+
+  json do
+    map "street", to: :street
+    map "city", to: :city
+    map "postalCode", to: :postal_code
+    map "country", to: :country
+  end
+end
+
+class Studio < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :address, Address  # Complex nested object
+end
+----
+====
+
+.Example 3: When to choose each approach
+[example]
+====
+[source,ruby]
+----
+# GOOD: Custom Type for phone numbers (single conceptual value)
+class PhoneNumber < Lutaml::Model::Type::String
+  def self.cast(value)
+    # Normalize phone number format
+    value.to_s.gsub(/\D/, '') # Remove non-digits
+  end
+
+  def to_xml
+    # Format for XML: +1-555-123-4567
+    "+1-#{value[0..2]}-#{value[3..5]}-#{value[6..9]}"
+  end
+end
+
+# GOOD: Serializable for contact info (multiple related attributes)
+class ContactInfo < Lutaml::Model::Serializable
+  attribute :email, :string
+  attribute :phone, PhoneNumber  # Uses custom type
+  attribute :preferred_contact_method, :string
+end
+
+# BAD: Don't use Serializable for simple values
+class BadPhoneNumber < Lutaml::Model::Serializable
+  attribute :number, :string  # Overkill for a single value
+end
+
+# BAD: Don't use Type for complex structures
+class BadContactInfo < Lutaml::Model::Type::Value
+  # This would be difficult to manage and serialize properly
+  def self.cast(value)
+    # Complex parsing logic for multiple fields... ❌
+  end
+end
+----
+====
+
+==== Registering custom types
+
+Custom types can be registered for reuse across your application using symbols:
+
+[source,ruby]
+----
+# Register the custom type
+Lutaml::Model::Type.register(:currency, Currency)
+Lutaml::Model::Type.register(:phone, PhoneNumber)
+
+# Now you can use symbols instead of class names
+class Product < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :price, :currency      # Uses registered Currency type
+  attribute :contact_phone, :phone  # Uses registered PhoneNumber type
+end
+
+# You can also look up registered types
+currency_type = Lutaml::Model::Type.lookup(:currency)
+# => Currency
+----
+
+==== Type casting and validation
+
+Custom types automatically handle type casting and can include validation:
+
+[source,ruby]
+----
+class TemperatureInCelsius < Lutaml::Model::Type::Integer
+  def self.cast(value)
+    temp = super(value) # Use parent's casting first
+
+    # Add validation
+    if temp < -273 || temp > 5000
+      raise Lutaml::Model::TypeError,
+            "Temperature #{temp}°C is outside valid range (-273 to 5000)"
+    end
+
+    temp
+  end
+
+  def to_xml
+    "#{value}°C"
+  end
+end
+
+class KilnSettings < Lutaml::Model::Serializable
+  attribute :firing_temperature, TemperatureInCelsius
+end
+
+# Usage
+kiln = KilnSettings.new(firing_temperature: "1200")  # String gets cast to Integer
+# => #<KilnSettings @firing_temperature=1200>
+
+# Invalid values raise errors
+kiln = KilnSettings.new(firing_temperature: "-300")
+# => Lutaml::Model::TypeError: Type Error: Temperature -300°C is outside valid range
+----
+
+==== Extending built-in types
+
+You can extend existing built-in types to add custom behavior:
+
+[source,ruby]
+----
+# Extend String type for email validation
+class EmailAddress < Lutaml::Model::Type::String
+  EMAIL_REGEX = /\A[\w+\-.]+@[a-z\d\-]+(\.[a-z\d\-]+)*\.[a-z]+\z/i
+
+  def self.cast(value)
+    email = super(value) # Use String's casting
+
+    unless email.match?(EMAIL_REGEX)
+      raise Lutaml::Model::TypeError, "Invalid email format: #{email}"
+    end
+
+    email.downcase # Normalize to lowercase
+  end
+end
+
+# Extend Integer type for ID validation
+class PositiveInteger < Lutaml::Model::Type::Integer
+  def self.cast(value)
+    num = super(value) # Use Integer's casting
+
+    if num <= 0
+      raise Lutaml::Model::TypeError, "Value must be positive: #{num}"
+    end
+
+    num
+  end
+end
+
+# Extend Date type for business days only
+class BusinessDate < Lutaml::Model::Type::Date
+  def self.cast(value)
+    date = super(value) # Use Date's casting
+
+    if date.saturday? || date.sunday?
+      raise Lutaml::Model::TypeError, "Business date cannot be weekend: #{date}"
+    end
+
+    date
+  end
+end
+----
+
+==== Custom type inheritance hierarchy
+
+[source,ruby]
+----
+# Base currency type
+class Currency < Lutaml::Model::Type::Value
+  def self.cast(value)
+    case value
+    when String
+      Float(value.gsub(/[^0-9.-]/, ''))
+    when Numeric
+      value.to_f
+    end
+  end
+
+  def self.serialize(value)
+    sprintf("%.2f", value)
+  end
+end
+
+# Specialized currency types
+class USDollar < Currency
+  def to_xml
+    "$#{sprintf('%.2f', value)}"
+  end
+end
+
+class Euro < Currency
+  def to_xml
+    "€#{sprintf('%.2f', value)}"
+  end
+end
+
+class JPYen < Currency
+  def self.serialize(value)
+    value.to_i.to_s  # No decimal places for Yen
+  end
+
+  def to_xml
+    "¥#{value.to_i}"
+  end
+end
+
+# Register specialized types
+Lutaml::Model::Type.register(:usd, USDollar)
+Lutaml::Model::Type.register(:eur, Euro)
+Lutaml::Model::Type.register(:jpy, JPYen)
+
+class InternationalProduct < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :price_usd, :usd
+  attribute :price_eur, :eur
+  attribute :price_jpy, :jpy
+end
+----
+
+==== Serialization of custom types
 
 The serialization of custom types can be made to differ per serialization format
 by defining methods in the class definitions. This requires additional methods
@@ -865,289 +1254,34 @@ part lost due to the inability of JSON to handle high-precision date-time.
 ----
 ====
 
-=== Transformations with custom types
+==== Best practices in using custom types
 
-==== General
+When implementing custom types:
 
-NOTE: For comprehensive guidance on value transformations including decision
-matrices and when to use custom types vs transform procs, see
-link:docs/value_transformations.adoc[Value Transformations Guide].
+. Ensure you have a clear use case: Decide between using a custom type or a
+model based on whether you need to represent a single value or a complex
+structure.
 
-Value transformations convert data between different representations while
-preserving or deriving the underlying information.
+. Inherit appropriately: Use `Lutaml::Model::Type::Value` for completely new
+types, or extend built-in types like `Type::String`, `Type::Integer` for
+specialized behavior.
 
-LutaML Model distinguishes between:
+. Implement required methods: Always implement `self.cast(value)` and
+`self.serialize(value)` at minimum.
 
-Value:: atomic data that cannot be decomposed further in the serialization
-format (e.g., `"20241225"` as a date string)
+. Add validation: Use the `cast` method to validate and normalize input values.
 
-Model:: composite data with multiple components that can be mapped structurally
-(e.g., `{year: 2024, month: 12, day: 25}`)
+. Handle format-specific serialization: Override `to_xml`, `to_json`, etc.
+methods when different formats need different representations.
 
-When a value needs to be **transformed** (not just mapped), custom Value Type
-classes provide the most comprehensive solution, especially for bidirectional,
-format-specific transformations.
+. Register reusable types: Use `Lutaml::Model::Type.register(:symbol, YourType)`
+for types you'll use across multiple models.
 
-==== Bidirectional date format transformation
+. Leverage inheritance: Create type hierarchies for related but specialized
+types.
 
-This example demonstrates converting between date formats with full
-bidirectional support across different serialization formats.
-
-.ISO week date format with bidirectional calculation
-[example]
-====
-This example demonstrates conversions between two kinds of ISO 8601
-representations:
-
-* Basic calendar date: `[year][month][day]` [ISO 8601-1:2019, 5.2.2.1 a) Basic format]
-* Explicit calendar date: `[yearE(m)][monthE][dayE]` [ISO 8601-2:2019, 7.2.2]
-* Extended week date: `[year][“-”][“W”][week][“-”][day]` [ISO 8601-1:2019, 5.2.4.1 b) Extended format]
-
-The example utilizes multi-format transforms:
-
-* XML uses the Basic calendar date format
-* YAML uses the Explicit calendar date format
-* JSON uses the Extended week date format
-* all formats parse back into `Lutaml::Model::Type::Date` objects
-* enables round-trip transforms by serializing and deserializing with no data loss
-
-[source,ruby]
-----
-# Multi-format date type with calculated transformations
-class ComplexDate < Lutaml::Model::Type::Date
-  # Parse ISO 8601-1 5.2.2.1 a) Basic format: 20250203
-  def self.from_xml(value)
-    return nil if value.nil? || value.empty?
-
-    # Match basic format YYYYMMDD (8 digits)
-    return nil unless value.match(/^\d{8}$/)
-    ::Date.new(value[0..3].to_i, value[4..5].to_i, value[6..7].to_i)
-  end
-
-  # Serialize to ISO 8601-1 5.2.2.1 a) Basic format: 20250203
-  def to_xml
-    return nil unless value
-    value.strftime('%Y%m%d')
-  end
-
-  # Parse ISO 8601-2 7.2.2 Explicit calendar date: 2025Y2M3D
-  def self.from_yaml(value)
-    return nil if value.nil? || value.empty?
-
-    match = value.match(/^(\d{4})Y(\d{1,2})M(\d{1,2})D$/)
-    return nil unless match
-    ::Date.new(*match.slice[1,3].map(&:to_i))
-  end
-
-  # Serialize to ISO 8601-2 7.2.2 Explicit calendar date: 2025Y2M3D
-  def to_yaml
-    return nil unless value
-    value.strftime('%Y-%m-%d')
-  end
-
-  # Parse ISO 8601-1 5.2.4.1 b) Extended week date: 2025-W05-3
-  def self.from_json(value)
-    return nil if value.nil? || value.empty?
-
-    # Match pattern YYYY-W##-D
-    match = value.match(/^(\d{4})-W(\d{2})-(\d)$/)
-    return nil unless match
-
-    # Date.commercial gives date from ISO week date components
-    ::Date.commercial(*match.slice[1,3].map(&:to_i))
-  end
-
-  # Serialize to ISO 8601-1 5.2.4.1 b) Extended week date: YYYY-W##-D
-  def to_json
-    return nil unless value
-
-    # ISO 8601 week date components
-    year = value.cwyear  # Commercial (ISO) year
-    week = value.cweek.to_s.rjust(2, '0')  # Week number
-    day = value.cwday  # Day of week (1-7)
-
-    "#{year}-W#{week}-#{day}"
-  end
-end
-
-class Schedule < Lutaml::Model::Serializable
-  attribute :week_date, ComplexDate
-  attribute :activity, :string
-
-  xml do
-    root 'schedule'
-    map_element 'date', to: :week_date
-    map_element 'activity', to: :activity
-  end
-
-  yaml do
-    map 'date', to: :week_date
-    map 'activity', to: :activity
-  end
-
-  json do
-    map 'weekDate', to: :week_date
-    map 'activity', to: :activity
-  end
-end
-----
-
-Usage with calculated transformations:
-
-[source,ruby]
-----
-schedule = Schedule.new(
-  week_date: Date.new(2024, 12, 25),  # Wednesday
-  activity: "Team Meeting"
-)
-
-# XML: Serializes to ISO 8601-1 5.2.2.1 a) Basic format: YYYYMMDD
-schedule.to_xml
-# => <schedule>
-#      <date>20241225</date>
-#      <activity>Team Meeting</activity>
-#    </schedule>
-
-# YAML: Serializes to ISO 8601-2 7.2.2 Explicit calendar date: YYYY-MM-DD
-schedule.to_yaml
-# => ---
-# => date: 2024Y12M25D
-# => activity: Team Meeting
-
-# JSON: Serializes to ISO 8601-1 5.2.4.1 b) Extended week date: YYYY-W##-D
-schedule.to_json
-# => {"weekDate":"2024-W52-3","activity":"Team Meeting"}
-
-# Parse the YYYY-W##-D components:
-# 2024: Year 2024
-# W52: Week 52 of the year (prefixed with 'W')
-# 3: Day 3 of the week (Wednesday, where Monday=1)
-
-# Round-trip transformations work across all formats
-parsed_xml = Schedule.from_xml(schedule.to_xml)
-parsed_yaml = Schedule.from_yaml(schedule.to_yaml)
-parsed_json = Schedule.from_json(schedule.to_json)
-
-# All parsed dates are equivalent
-parsed_xml.week_date == parsed_yaml.week_date == parsed_json.week_date
-# => true
-
-# Cross-format parsing examples:
-
-# XML basic format: 20241225
-xml_basic = '<schedule><date>20241225</date><activity>Meeting</activity></schedule>'
-Schedule.from_xml(xml_basic).week_date
-# => #<Date: 2024-12-25>
-
-# YAML explicit format: 2024Y12M25D
-yaml_explicit = "---\ndate: 2024Y12M25D\nactivity: Meeting"
-Schedule.from_yaml(yaml_explicit).week_date
-# => #<Date: 2024-12-25>
-
-# JSON week format: 2024-W52-3
-json_week = '{"weekDate":"2024-W52-3","activity":"Meeting"}'
-Schedule.from_json(json_week).week_date
-# => #<Date: 2024-12-25>
-
-# Converting between formats maintains the same date but uses different representations
-xml_schedule = Schedule.from_xml(xml_basic)
-xml_schedule.to_yaml   # => "---\ndate: 2024-12-25\nactivity: Meeting"
-xml_schedule.to_json   # => {"weekDate":"2024-W52-3","activity":"Meeting"}
-----
-====
-
-
-=== Reference type
-
-The Reference type provides a mechanism for creating relationships between models. Instead of embedding full objects, references store lightweight keys that automatically resolve to actual objects when accessed.
-
-==== Basic usage
-
-Define reference attributes using the `ref:` syntax:
-
-[source,ruby]
-----
-class Author < Lutaml::Model::Serializable
-  attribute :id, :string
-  attribute :name, :string
-end
-
-class Book < Lutaml::Model::Serializable
-  attribute :id, :string
-  attribute :title, :string
-  attribute :author_ref, { ref: ["Author", :id] }
-  attribute :co_authors, { ref: ["Author", :id] }, collection: true
-end
-----
-
-==== Working with references
-
-[source,ruby]
-----
-# Objects are automatically registered in the store when created
-author = Author.new(id: "author-1", name: "John Doe")
-
-# Create a book with a reference
-book = Book.new(id: "book-1", title: "Great Book")
-book.author_ref = "author-1"  # Assign the key directly
-
-# Access the referenced object directly
-puts book.author_ref.name  # => "John Doe" (automatically resolved)
-
-# Collection of references
-book.co_authors = ["author-1", "author-2"]
-book.co_authors.each do |author|
-  puts author.name if author  # Each element is the actual Author object
-end
-
-# Unresolved references return nil
-book.author_ref = "non-existent-id"
-puts book.author_ref.inspect  # => nil (not the key string)
-----
-
-==== Reference key accessor methods
-
-Lutaml::Model automatically generates additional methods to access reference keys directly without resolving the objects:
-
-[source,ruby]
-----
-# For single references: <attribute_name>_<key_attribute>
-book.author_ref = "author-1"
-book.author_ref_id     # => "author-1" (just the key)
-book.author_ref.name   # => "John Doe" (resolved object)
-
-# For collection references: <attribute_name>_<pluralized_key_attribute>
-book.co_authors = ["author-1", "author-2"]
-book.co_authors_ids         # => ["author-1", "author-2"] (just the keys)
-book.co_authors.map(&:name) # => ["John Doe", "Jane Smith"] (resolved objects)
-
-# Works with custom key attributes too
-# attribute :category_ref, { ref: ["Category", :slug] }
-# product.category_ref_slug  # => "electronics" (key accessor)
-
-# Pluralization examples:
-# :id → :ids, :name → :names, :category → :categories
-----
-
-==== Serialization
-
-References serialize cleanly to just their key values:
-
-[source,ruby]
-----
-book.to_yaml
-# =>
-# id: book-1
-# title: Great Book
-# author_ref: author-1
-# co_authors:
-# - author-1
-# - author-2
-----
-
-When deserializing, the keys are automatically converted back to references that resolve transparently to the original objects when accessed.
-
-For more details, see link:docs/reference_type.adoc[Reference Type Documentation].
+. Test thoroughly: Custom types affect both parsing and serialization, so test
+with all formats you plan to use.
 
 
 [[attribute-definition]]
