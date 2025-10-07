@@ -18,7 +18,7 @@ require "lutaml/model/yaml/standard_adapter"
 require "lutaml/model/toml/toml_rb_adapter"
 require "lutaml/model/toml/tomlib_adapter"
 
-class BenchRunner
+class BenchmarkRunner
   def initialize(run_time: nil, items: nil, format: nil, adapter: nil, direction: nil)
     @run_time = run_time || 5
     @items = items || 10
@@ -130,6 +130,9 @@ class BenchRunner
 
     entry = job.full_report.entries.first
     samples = entry.stats.samples
+
+    raise "No samples collected" if samples.empty?
+
     mean = samples.sum.to_f / samples.size
     variance = samples.sum { |x| (x - mean)**2 } / (samples.size - 1)
     std_dev = Math.sqrt(variance)
