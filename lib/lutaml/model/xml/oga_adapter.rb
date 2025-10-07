@@ -124,7 +124,7 @@ module Lutaml
 
           tag_name = options[:tag_name] || xml_mapping.root_element
 
-          prefixed_xml.create_and_add_element(tag_name, attributes: attributes) do |el|
+          prefixed_xml.create_and_add_element(tag_name, prefix: prefix, attributes: attributes) do |el|
             index_hash = {}
             content = []
 

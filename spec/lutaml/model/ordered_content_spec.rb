@@ -17,11 +17,52 @@ module OrderedContentSpec
 
     xml do
       root "RootOrderedContent", ordered: true
+
       map_attribute :id, to: :id
       map_element :bold, to: :bold
       map_element :italic, to: :italic
       map_element :underline, to: :underline
       map_content to: :content
+    end
+  end
+
+  module PrefixedElements
+    class Annotation < Lutaml::Model::Serializable
+      attribute :content, :string
+
+      xml do
+        root "annotation"
+        namespace "http://example.com/schema", "xsd"
+
+        map_content to: :content
+      end
+    end
+
+    class Element < Lutaml::Model::Serializable
+      attribute :name, :string
+      attribute :status, :string
+      attribute :annotation, Annotation
+
+      xml do
+        root "element", ordered: true
+
+        namespace "http://example.com/schema", "xsd"
+
+        map_attribute :name, to: :name
+        map_attribute :status, to: :status
+        map_element :annotation, to: :annotation
+      end
+    end
+
+    class Schema < Lutaml::Model::Serializable
+      attribute :element, Element, collection: true
+
+      xml do
+        root "schema", ordered: true
+        namespace "http://example.com/schema", "xsd"
+
+        map_element :element, to: :element
+      end
     end
   end
 end
@@ -65,6 +106,24 @@ RSpec.describe "OrderedContent" do
       it "deserializes and serializes ordered content correctly" do
         serialized = OrderedContentSpec::RootOrderedContent.from_xml(xml).to_xml
         expect(serialized).to be_equivalent_to(expected_xml)
+      end
+    end
+
+    context "when ordered: true is set for prefixed elements" do
+      let(:xml) do
+        <<~XML
+          <xsd:schema xmlns:xsd="http://example.com/schema">
+            <xsd:element>
+              <xsd:annotation>Testing annotation</xsd:annotation>
+            </xsd:element>
+          </xsd:schema>
+        XML
+      end
+
+      let(:serialized) { OrderedContentSpec::PrefixedElements::Schema.from_xml(xml).to_xml }
+
+      it "deserializes and serializes ordered prefixed elements correctly for prefixed elements" do
+        expect(serialized).to be_equivalent_to(xml)
       end
     end
   end

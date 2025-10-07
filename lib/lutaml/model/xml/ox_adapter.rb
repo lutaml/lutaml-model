@@ -56,7 +56,7 @@ module Lutaml
           prefixed_xml = builder.add_namespace_prefix(prefix)
 
           tag_name = options[:tag_name] || xml_mapping.root_element
-          prefixed_xml.create_and_add_element(tag_name, attributes: attributes) do |el|
+          prefixed_xml.create_and_add_element(tag_name, prefix: prefix, attributes: attributes) do |el|
             if options.key?(:namespace_prefix) && !options[:namespace_prefix]
               prefixed_xml.add_namespace_prefix(nil)
             end
