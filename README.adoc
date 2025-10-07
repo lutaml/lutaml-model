@@ -451,7 +451,95 @@ If the `bigdecimal` library is not loaded, usage of the `Decimal` type will
 raise a `Lutaml::Model::TypeNotSupportedError`.
 
 
-=== Custom type
+=== Custom types
+
+==== Understanding Types vs Serializable objects
+
+Lutaml::Model supports two main approaches for defining custom data structures:
+
+1. **Custom Types** (inherit from `Lutaml::Model::Type::Value`) - for primitive-like values
+2. **Serializable objects** (inherit from `Lutaml::Model::Serializable`) - for complex objects with multiple attributes
+
+The key differences are:
+
+[cols="1,2,2"]
+|===
+| Aspect | Custom Types (`Type::Value`) | Serializable Objects (`Serializable`)
+
+| **Purpose** 
+| Represent single primitive-like values with custom behavior
+| Represent complex objects with multiple attributes and relationships
+
+| **Storage** 
+| Contains a single `value` attribute 
+| Contains multiple attributes defined via `attribute` declarations
+
+| **Use cases** 
+| Value transformation, validation, format-specific serialization of primitives
+| Complex nested data structures, objects with multiple properties
+
+| **Required methods** 
+| `self.cast(value)`, `self.serialize(value)`
+| None (provided by framework)
+
+| **Inheritance** 
+| `< Lutaml::Model::Type::Value` (or built-in types like `Type::String`)
+| `< Lutaml::Model::Serializable`
+
+| **Registration** 
+| Can be registered as reusable types via `Lutaml::Model::Type.register`
+| Not registered as types, used directly as classes
+
+| **Serialization control** 
+| Fine-grained control per format via `to_xml`, `to_json`, etc.
+| Controlled via mapping blocks (`xml do`, `json do`, etc.)
+|===
+
+===== Quick Reference: Type vs Serializable
+
+[source,ruby]
+----
+# ✅ CUSTOM TYPE - for single values with special behavior
+class PostCode < Lutaml::Model::Type::String
+  def self.cast(value)
+    value.to_s.upcase.gsub(/\s/, '') # Normalize: remove spaces, uppercase
+  end
+end
+
+# ✅ SERIALIZABLE OBJECT - for complex objects with multiple attributes  
+class Address < Lutaml::Model::Serializable
+  attribute :street, :string
+  attribute :city, :string
+  attribute :postal_code, PostCode  # Uses the custom type above
+end
+
+# Usage in a model
+class Person < Lutaml::Model::Serializable
+  attribute :name, :string           # Built-in type
+  attribute :postal_code, PostCode   # Custom type (single value)
+  attribute :address, Address        # Serializable object (multiple attributes)
+end
+----
+
+==== When to use Custom Types vs Serializable objects
+
+**Use Custom Types when:**
+
+* You need to transform or validate a single primitive value
+* You want consistent behavior across multiple attributes of the same type
+* You need format-specific serialization of primitive data
+* You're creating reusable value types (like currency, phone numbers, postcodes)
+* The data represents a single conceptual value, even if complex internally
+
+**Use Serializable objects when:**
+
+* You need to model objects with multiple attributes
+* You want to define relationships between objects
+* You need complex nested structures
+* The data represents a distinct entity or concept with multiple properties
+* You need different serialization mappings for the same object structure
+
+==== Creating custom Types
 
 A custom class can be used as an attribute type. The custom class must inherit
 from `Lutaml::Model::Type::Value` or a class that inherits from it.
@@ -480,7 +568,7 @@ class FiveDigitPostCode < Lutaml::Model::Type::String
     value = value.to_s if value.is_a?(Integer)
 
     unless value.is_a?(::String)
-      raise Lutaml::Model::InvalidValueError, "Invalid value for type 'FiveDigitPostCode'"
+      raise Lutaml::Model::TypeError, "Invalid value for type 'FiveDigitPostCode'"
     end
 
     # Pad zeros to the left
@@ -497,6 +585,293 @@ class Studio < Lutaml::Model::Serializable
 end
 ----
 ====
+
+==== Practical examples: Type vs Serializable
+
+.Example 1: Custom Type for currency values
+[example]
+====
+Use a custom Type when you need to handle currency with consistent formatting and validation:
+
+[source,ruby]
+----
+# Custom Type - represents a single currency value
+class Currency < Lutaml::Model::Type::Value
+  def self.cast(value)
+    case value
+    when String
+      # Remove currency symbols and convert to float
+      cleaned = value.gsub(/[$,]/, '')
+      Float(cleaned)
+    when Numeric
+      value.to_f
+    else
+      raise Lutaml::Model::TypeError, "Invalid currency value: #{value}"
+    end
+  end
+
+  def self.serialize(value)
+    sprintf("%.2f", value)
+  end
+
+  # Format-specific serialization
+  def to_xml
+    "$#{sprintf('%.2f', value)}"
+  end
+
+  def to_json(*_args)
+    value # JSON uses numbers
+  end
+end
+
+class Product < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :price, Currency      # Reusable custom type
+  attribute :wholesale_price, Currency  # Same type, consistent behavior
+end
+----
+====
+
+.Example 2: Serializable object for complex data
+[example]
+====
+Use a Serializable object when you need multiple related attributes:
+
+[source,ruby]
+----
+# Serializable object - represents a complex address with multiple attributes
+class Address < Lutaml::Model::Serializable
+  attribute :street, :string
+  attribute :city, :string
+  attribute :postal_code, :string
+  attribute :country, :string
+
+  # Define how this complex object maps to different formats
+  xml do
+    root "Address"
+    map_element "Street", to: :street
+    map_element "City", to: :city
+    map_element "PostalCode", to: :postal_code
+    map_element "Country", to: :country
+  end
+
+  json do
+    map "street", to: :street
+    map "city", to: :city
+    map "postalCode", to: :postal_code
+    map "country", to: :country
+  end
+end
+
+class Studio < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :address, Address  # Complex nested object
+end
+----
+====
+
+.Example 3: When to choose each approach
+[example]
+====
+[source,ruby]
+----
+# GOOD: Custom Type for phone numbers (single conceptual value)
+class PhoneNumber < Lutaml::Model::Type::String
+  def self.cast(value)
+    # Normalize phone number format
+    value.to_s.gsub(/\D/, '') # Remove non-digits
+  end
+
+  def to_xml
+    # Format for XML: +1-555-123-4567
+    "+1-#{value[0..2]}-#{value[3..5]}-#{value[6..9]}"
+  end
+end
+
+# GOOD: Serializable for contact info (multiple related attributes)
+class ContactInfo < Lutaml::Model::Serializable
+  attribute :email, :string
+  attribute :phone, PhoneNumber  # Uses custom type
+  attribute :preferred_contact_method, :string
+end
+
+# BAD: Don't use Serializable for simple values
+class BadPhoneNumber < Lutaml::Model::Serializable
+  attribute :number, :string  # Overkill for a single value
+end
+
+# BAD: Don't use Type for complex structures  
+class BadContactInfo < Lutaml::Model::Type::Value
+  # This would be difficult to manage and serialize properly
+  def self.cast(value)
+    # Complex parsing logic for multiple fields... ❌
+  end
+end
+----
+====
+
+==== Registering custom types
+
+Custom types can be registered for reuse across your application using symbols:
+
+[source,ruby]
+----
+# Register the custom type
+Lutaml::Model::Type.register(:currency, Currency)
+Lutaml::Model::Type.register(:phone, PhoneNumber)
+
+# Now you can use symbols instead of class names
+class Product < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :price, :currency      # Uses registered Currency type
+  attribute :contact_phone, :phone  # Uses registered PhoneNumber type
+end
+
+# You can also look up registered types
+currency_type = Lutaml::Model::Type.lookup(:currency)
+# => Currency
+----
+
+==== Type casting and validation
+
+Custom types automatically handle type casting and can include validation:
+
+[source,ruby]
+----
+class TemperatureInCelsius < Lutaml::Model::Type::Integer
+  def self.cast(value)
+    temp = super(value) # Use parent's casting first
+    
+    # Add validation
+    if temp < -273 || temp > 5000
+      raise Lutaml::Model::TypeError, 
+            "Temperature #{temp}°C is outside valid range (-273 to 5000)"
+    end
+    
+    temp
+  end
+
+  def to_xml
+    "#{value}°C"
+  end
+end
+
+class KilnSettings < Lutaml::Model::Serializable
+  attribute :firing_temperature, TemperatureInCelsius
+end
+
+# Usage
+kiln = KilnSettings.new(firing_temperature: "1200")  # String gets cast to Integer
+# => #<KilnSettings @firing_temperature=1200>
+
+# Invalid values raise errors
+kiln = KilnSettings.new(firing_temperature: "-300")  
+# => Lutaml::Model::TypeError: Type Error: Temperature -300°C is outside valid range
+----
+
+==== Extending built-in types
+
+You can extend existing built-in types to add custom behavior:
+
+[source,ruby]
+----
+# Extend String type for email validation
+class EmailAddress < Lutaml::Model::Type::String
+  EMAIL_REGEX = /\A[\w+\-.]+@[a-z\d\-]+(\.[a-z\d\-]+)*\.[a-z]+\z/i
+
+  def self.cast(value)
+    email = super(value) # Use String's casting
+    
+    unless email.match?(EMAIL_REGEX)
+      raise Lutaml::Model::TypeError, "Invalid email format: #{email}"
+    end
+    
+    email.downcase # Normalize to lowercase
+  end
+end
+
+# Extend Integer type for ID validation
+class PositiveInteger < Lutaml::Model::Type::Integer
+  def self.cast(value)
+    num = super(value) # Use Integer's casting
+    
+    if num <= 0
+      raise Lutaml::Model::TypeError, "Value must be positive: #{num}"
+    end
+    
+    num
+  end
+end
+
+# Extend Date type for business days only
+class BusinessDate < Lutaml::Model::Type::Date
+  def self.cast(value)
+    date = super(value) # Use Date's casting
+    
+    if date.saturday? || date.sunday?
+      raise Lutaml::Model::TypeError, "Business date cannot be weekend: #{date}"
+    end
+    
+    date
+  end
+end
+----
+
+==== Custom type inheritance hierarchy
+
+[source,ruby]
+----
+# Base currency type
+class Currency < Lutaml::Model::Type::Value
+  def self.cast(value)
+    case value
+    when String
+      Float(value.gsub(/[^0-9.-]/, ''))
+    when Numeric
+      value.to_f
+    end
+  end
+
+  def self.serialize(value)
+    sprintf("%.2f", value)
+  end
+end
+
+# Specialized currency types
+class USDollar < Currency
+  def to_xml
+    "$#{sprintf('%.2f', value)}"
+  end
+end
+
+class Euro < Currency
+  def to_xml
+    "€#{sprintf('%.2f', value)}"
+  end
+end
+
+class JPYen < Currency
+  def self.serialize(value)
+    value.to_i.to_s  # No decimal places for Yen
+  end
+
+  def to_xml
+    "¥#{value.to_i}"
+  end
+end
+
+# Register specialized types
+Lutaml::Model::Type.register(:usd, USDollar)
+Lutaml::Model::Type.register(:eur, Euro)
+Lutaml::Model::Type.register(:jpy, JPYen)
+
+class InternationalProduct < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :price_usd, :usd
+  attribute :price_eur, :eur
+  attribute :price_jpy, :jpy
+end
+----
 
 === Serialization of custom types
 
@@ -583,6 +958,30 @@ part lost due to the inability of JSON to handle high-precision date-time.
 > # {"kilnFiringTime":"2012-04-07T01:51:37+02:00"}
 ----
 ====
+
+==== Summary: Custom Types best practices
+
+When implementing custom types in Lutaml::Model:
+
+1. **Inherit appropriately**: Use `Lutaml::Model::Type::Value` for completely new types, or extend built-in types like `Type::String`, `Type::Integer` for specialized behavior.
+
+2. **Implement required methods**: Always implement `self.cast(value)` and `self.serialize(value)` at minimum.
+
+3. **Add validation**: Use the `cast` method to validate and normalize input values.
+
+4. **Handle format-specific serialization**: Override `to_xml`, `to_json`, etc. methods when different formats need different representations.
+
+5. **Register reusable types**: Use `Lutaml::Model::Type.register(:symbol, YourType)` for types you'll use across multiple models.
+
+6. **Choose the right approach**: 
+   - Custom Types for primitive-like values with special behavior
+   - Serializable objects for complex structures with multiple attributes
+
+7. **Leverage inheritance**: Create type hierarchies for related but specialized types (like different currency types).
+
+8. **Test thoroughly**: Custom types affect both parsing and serialization, so test with all formats you plan to use.
+
+Custom types provide powerful capabilities for creating domain-specific value objects that integrate seamlessly with Lutaml::Model's serialization system while maintaining type safety and validation.
 
 
 [[attribute-definition]]
