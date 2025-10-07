@@ -8,7 +8,7 @@ class PerformanceComparator
   DEFAULT_THRESHOLD = 0.05 # 5%
   DEFAULT_BASE = "main"
   TMP_PERF_DIR = File.join(REPO_ROOT, "tmp", "performance")
-  BENCH_SCRIPT = File.join(TMP_PERF_DIR, "bench_runner.rb")
+  BENCH_SCRIPT = File.join(TMP_PERF_DIR, "benchmark_runner.rb")
 
   BENCHMARK_MATRIX = {
     xml: %i[nokogiri ox oga],
@@ -31,7 +31,7 @@ class PerformanceComparator
   def setup_environment
     Dir.chdir(REPO_ROOT)
     FileUtils.mkdir_p(TMP_PERF_DIR)
-    FileUtils.cp(File.join(REPO_ROOT, "lib", "tasks", "bench_runner.rb"), BENCH_SCRIPT)
+    FileUtils.cp(File.join(REPO_ROOT, "lib", "tasks", "benchmark_runner.rb"), BENCH_SCRIPT)
 
     PerformanceHelpers.load_into_namespace(PerformanceHelpers::Current, BENCH_SCRIPT)
     PerformanceHelpers.clone_base_repo(DEFAULT_BASE, TMP_PERF_DIR, BENCH_SCRIPT)
@@ -61,14 +61,14 @@ class PerformanceComparator
 
   def run_format_benchmarks(format_sym, adapter_sym, all_base, all_current)
     DIRECTIONS.each do |direction|
-      base_runner = PerformanceHelpers::Base::BenchRunner.new(
+      base_runner = PerformanceHelpers::Base::BenchmarkRunner.new(
         run_time: DEFAULT_RUN_TIME,
         format: format_sym,
         adapter: adapter_sym,
         direction: direction,
       )
 
-      current_runner = PerformanceHelpers::Current::BenchRunner.new(
+      current_runner = PerformanceHelpers::Current::BenchmarkRunner.new(
         run_time: DEFAULT_RUN_TIME,
         format: format_sym,
         adapter: adapter_sym,

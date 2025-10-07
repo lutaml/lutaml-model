@@ -44,7 +44,7 @@ module PerformanceHelpers
         ruby_exec("bundle install --quiet")
         bench_copy_dir = File.join(clone_dir, "tmp", "performance")
         FileUtils.mkdir_p(bench_copy_dir)
-        bench_copy = File.join(bench_copy_dir, "bench_runner.rb")
+        bench_copy = File.join(bench_copy_dir, "benchmark_runner.rb")
         File.write(bench_copy, File.read(script))
         load_into_namespace(Base, bench_copy)
       end
@@ -111,9 +111,9 @@ module PerformanceHelpers
         base_ips = regression[:base_ips]
         curr_ips = regression[:curr_ips]
 
-        delta_str = delta ? format("%+0.2f%%", delta * 100) : "n/a"
-        base_str = base_ips ? format("%.2f", base_ips) : "n/a"
-        curr_str = curr_ips ? format("%.2f", curr_ips) : "n/a"
+        delta_str = delta ? format("%+0.2f%%", delta * 100) : "N/A"
+        base_str = base_ips ? format("%.2f", base_ips) : "N/A"
+        curr_str = curr_ips ? format("%.2f", curr_ips) : "N/A"
 
         puts format("%<label>30s: %<base>s -> %<curr>s IPS (change: %<delta>s)",
                     label: regression[:label],
