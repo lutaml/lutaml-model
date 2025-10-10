@@ -8,7 +8,11 @@ module Lutaml
     module Xml
       module Rexml
         class Element < XmlElement
-          def initialize(node, parent: nil)
+          attr_accessor :target_encoding
+
+          def initialize(node, parent: nil, target_encoding: nil)
+            @target_encoding = target_encoding || (parent.is_a?(Element) ? parent.target_encoding : nil)
+
             text = case node
                    when Moxml::Element
                      namespace_name = node.namespace&.prefix
@@ -38,17 +42,36 @@ module Lutaml
           end
 
           def text
-            super || @text
+            txt = super || cdata || @text
+            # Convert text to target encoding if needed
+            if txt && @target_encoding && @target_encoding != "UTF-8"
+              if txt.is_a?(Array)
+                # Handle array of text fragments (mixed content)
+                txt = txt.map do |fragment|
+                  if fragment.is_a?(String) && fragment.encoding.to_s == "UTF-8"
+                    fragment.encode(@target_encoding)
+                  else
+                    fragment
+                  end
+                end
+              elsif txt.is_a?(String) && txt.encoding.to_s == "UTF-8"
+                txt = txt.encode(@target_encoding)
+              end
+            end
+            txt
           end
 
           def to_xml(builder = Builder::Rexml.build)
+            # For text and cdata nodes, return the text content directly
+            return text if ["text", "#cdata-section"].include?(name)
+
             build_xml(builder).to_xml
           end
 
           def build_xml(builder = Builder::Rexml.build)
             if name == "text"
               builder.add_text(builder.current_node, text)
-            elsif name == "cdata"
+            elsif name == "#cdata-section"
               builder.add_text(builder.current_node, text, cdata: true)
             else
               builder.create_and_add_element(name, attributes: build_attributes_hash) do |xml|
@@ -151,28 +174,6 @@ module Lutaml
           def attr_is_namespace?(attr)
             attribute_is_namespace?(attr.name) ||
               namespaces[attr.name]&.uri == attr.value
-          end
-
-          def build_attributes(node, _options = {})
-            attrs = node.attributes.transform_values(&:value)
-
-            attrs.merge(build_namespace_attributes(node))
-          end
-
-          def build_namespace_attributes(node)
-            namespace_attrs = {}
-
-            node.own_namespaces.each_value do |namespace|
-              namespace_attrs[namespace.attr_name] = namespace.uri
-            end
-
-            node.children.each do |child|
-              namespace_attrs = namespace_attrs.merge(
-                build_namespace_attributes(child),
-              )
-            end
-
-            namespace_attrs
           end
         end
       end

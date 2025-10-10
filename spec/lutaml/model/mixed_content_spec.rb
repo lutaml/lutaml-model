@@ -5,6 +5,7 @@ require "lutaml/model"
 require "lutaml/model/xml/nokogiri_adapter"
 require "lutaml/model/xml/ox_adapter"
 require "lutaml/model/xml/oga_adapter"
+require "lutaml/model/xml/rexml_adapter"
 require_relative "../../fixtures/sample_model"
 
 module MixedContentSpec
@@ -535,6 +536,9 @@ RSpec.describe "MixedContent" do
         let(:expected_oga_content) do
           "B <p>R&amp;C</p>\n    C <p>J—C</p>\n    O <p>A &amp; B </p>\n    F <p>Z ©S</p>"
         end
+        let(:expected_rexml_content) do
+          "B <p>R&amp;C</p>\n    C <p>J—C</p>\n    O <p>A &amp; B </p>\n    F <p>Z ©S</p>"
+        end
 
         it "deserializes special char mixed content correctly" do
           parsed = MixedContentSpec::SpecialCharContentWithRawAndMixedOption.from_xml(xml)
@@ -570,6 +574,18 @@ RSpec.describe "MixedContent" do
         end
 
         let(:expected_oga_xml) do
+          <<~XML
+            <SpecialCharContentWithRawOptionAndMixedOption>
+              <special> B <p>R&amp;C</p>
+                C <p>J—C</p>
+                O <p>A &amp; B </p>
+                F <p>Z ©S</p>
+              </special>
+            </SpecialCharContentWithRawOptionAndMixedOption>
+          XML
+        end
+
+        let(:expected_rexml_xml) do
           <<~XML
             <SpecialCharContentWithRawOptionAndMixedOption>
               <special> B <p>R&amp;C</p>
@@ -617,6 +633,7 @@ RSpec.describe "MixedContent" do
         let(:expected_nokogiri_xml) { "B <p>R</p>" }
         let(:expected_oga_xml) { "B <p>R&amp;C</p>" }
         let(:expected_ox_xml) { "B <p>R&amp;C</p>" }
+        let(:expected_rexml_xml) { "B <p>R&amp;C</p>" }
 
         it "serializes special char mixed content correctly" do
           parsed = MixedContentSpec::SpecialCharContentWithRawAndMixedOption.from_xml(xml)
@@ -833,6 +850,8 @@ RSpec.describe "MixedContent" do
                                  "<root>\n  <FieldName>手書き英字１</FieldName>\n  <FieldName>123456</FieldName>\n</root>".encode("Shift_JIS")
                                elsif adapter_class == Lutaml::Model::Xml::OxAdapter
                                  "<root>\n  <FieldName>手書き英字１</FieldName>\n  <FieldName>123456</FieldName>\n</root>\n".encode("Shift_JIS")
+                               elsif adapter_class == Lutaml::Model::Xml::RexmlAdapter
+                                 "<root>\n  <FieldName>手書き英字１</FieldName>\n  <FieldName>123456</FieldName>\n</root>".encode("Shift_JIS")
                                else
                                  "<root><FieldName>手書き英字１</FieldName><FieldName>123456</FieldName></root>".encode("Shift_JIS")
                                end
@@ -925,6 +944,10 @@ RSpec.describe "MixedContent" do
   end
 
   describe Lutaml::Model::Xml::OgaAdapter do
+    it_behaves_like "mixed content behavior", described_class
+  end
+
+  describe Lutaml::Model::Xml::RexmlAdapter do
     it_behaves_like "mixed content behavior", described_class
   end
 end

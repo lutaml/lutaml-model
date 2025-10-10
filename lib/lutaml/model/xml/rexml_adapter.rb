@@ -13,25 +13,40 @@ module Lutaml
         TEXT_CLASSES = [Moxml::Text, Moxml::Cdata].freeze
 
         def self.parse(xml, options = {})
+          parse_encoding = encoding(xml, options)
+
+          # REXML requires UTF-8, so convert if needed
+          if xml.is_a?(String) && xml.encoding.to_s != "UTF-8"
+            xml = xml.encode("UTF-8")
+          end
+
           parsed = Moxml::Adapter::Rexml.parse(xml)
           root_element = parsed.root
-          @root = Rexml::Element.new(root_element)
-          new(@root, encoding(xml, options))
+
+          # If parsing failed, try escaping unescaped ampersands
+          if root_element.nil? && xml.is_a?(String)
+            escaped_xml = xml.gsub(/&(?![a-zA-Z]+;|#[0-9]+;|#x[0-9a-fA-F]+;)/, "&amp;")
+            parsed = Moxml::Adapter::Rexml.parse(escaped_xml)
+            root_element = parsed.root
+          end
+
+          # Pass the target encoding to elements
+          @root = Rexml::Element.new(root_element, target_encoding: parse_encoding)
+
+          new(@root, parse_encoding)
         end
 
         def to_xml(options = {})
           builder_options = {}
-
-          # Only set encoding in builder options if declaration is requested
-          if options[:declaration]
-            builder_options[:encoding] = if options.key?(:encoding)
-                                           options[:encoding]
-                                         elsif options.key?(:parse_encoding)
-                                           options[:parse_encoding]
-                                         else
-                                           "UTF-8"
-                                         end
-          end
+          builder_options[:encoding] = if options.key?(:encoding)
+                                         options[:encoding]
+                                       elsif options.key?(:parse_encoding)
+                                         options[:parse_encoding]
+                                       elsif @encoding
+                                         @encoding
+                                       else
+                                         "UTF-8"
+                                       end
 
           builder = Builder::Rexml.build(builder_options) do |xml|
             if @root.is_a?(Rexml::Element)
@@ -63,11 +78,13 @@ module Lutaml
         end
 
         def self.name_of(element)
+          return nil if element.nil?
+
           case element
           when Moxml::Text
             "text"
           when Moxml::Cdata
-            "cdata"
+            "#cdata-section"
           else
             element.name
           end
@@ -121,13 +138,16 @@ module Lutaml
         def build_ordered_element(builder, element, options = {})
           mapper_class = determine_mapper_class(element, options)
           xml_mapping = mapper_class.mappings_for(:xml)
-          return xml unless xml_mapping
+          return builder unless xml_mapping
 
-          attributes = build_attributes(element, xml_mapping).compact
+          attributes = build_attributes(element, xml_mapping, options).compact
+
+          prefix = determine_namespace_prefix(options, xml_mapping)
+          prefixed_xml = builder.add_namespace_prefix(prefix)
 
           tag_name = options[:tag_name] || xml_mapping.root_element
-          builder.create_and_add_element(tag_name,
-                                         attributes: attributes) do |el|
+
+          prefixed_xml.create_and_add_element(tag_name, attributes: attributes) do |el|
             index_hash = {}
             content = []
 
@@ -137,7 +157,7 @@ module Lutaml
               curr_index = index_hash[object_key] += 1
 
               element_rule = xml_mapping.find_by_name(object.name, type: object.type)
-              next if element_rule.nil?
+              next if element_rule.nil? || options[:except]&.include?(element_rule.to)
 
               attribute_def = attribute_definition_for(element, element_rule,
                                                        mapper_class: mapper_class)

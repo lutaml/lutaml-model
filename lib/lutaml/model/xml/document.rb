@@ -72,14 +72,14 @@ module Lutaml
           attribute = options.delete(:attribute)
           rule = options.delete(:rule)
 
-          return {} unless rule
+          # Preserve all remaining options (especially :except)
+          # options now contains everything except :attribute and :rule
+          return options unless rule
 
-          # options = {}
-
+          # Add rule-specific options
           options[:namespace_prefix] = rule.prefix if rule&.namespace_set?
           options[:mixed_content] = rule.mixed_content
           options[:tag_name] = rule.name
-
           options[:mapper_class] = attribute&.type(register) if attribute
           options[:set_namespace] = set_namespace?(rule)
 
