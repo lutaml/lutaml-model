@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require "json"
 require "benchmark/ips"
 
 # Ensure lib/ is on the load path regardless of tmp location
@@ -8,15 +7,6 @@ lib_path = File.expand_path(File.join(__dir__, "..", "..", "lib"))
 $LOAD_PATH.unshift(lib_path) unless $LOAD_PATH.include?(lib_path)
 
 require "lutaml/model"
-require "lutaml/model/xml/nokogiri_adapter"
-require "lutaml/model/xml/ox_adapter"
-require "lutaml/model/xml/oga_adapter"
-require "lutaml/model/json/standard_adapter"
-require "lutaml/model/json/multi_json_adapter"
-require "lutaml/model/json/oj_adapter"
-require "lutaml/model/yaml/standard_adapter"
-require "lutaml/model/toml/toml_rb_adapter"
-require "lutaml/model/toml/tomlib_adapter"
 
 class BenchmarkRunner
   def initialize(run_time: nil, items: nil, format: nil, adapter: nil, direction: nil)
