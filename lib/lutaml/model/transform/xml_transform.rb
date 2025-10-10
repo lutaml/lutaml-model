@@ -8,6 +8,7 @@ module Lutaml
           instance = model_class.new
           register_accessor_methods_for(instance, __register)
         end
+        root_and_parent_assignment(instance, options)
         apply_xml_mapping(data, instance, options)
       end
 
@@ -137,6 +138,8 @@ module Lutaml
             cast_options = options.except(:mappings)
             cast_options[:polymorphic] = rule.polymorphic if rule.polymorphic
             cast_options[:register] = __register
+            cast_options[:__parent] = instance
+            cast_options[:__root] = instance.__root || instance
 
             values << attr.cast(child, :xml, __register, cast_options)
           elsif attr.raw?
