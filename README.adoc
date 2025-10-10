@@ -9996,9 +9996,9 @@ Requires the `ox` gem.
 
 REXML::
 (optional)
-Pure Ruby XML parser included in Ruby's standard library.
-Does not require external gems or native extensions.
-Part of the Ruby standard library since Ruby 2.0.
+Pure Ruby XML parser, bundled as a default gem with Ruby.
+Moved from standard library to a default gem in Ruby 3.0.
+Requires the `rexml` gem (bundled with Ruby by default).
 
 
 .Using an XML adapter
