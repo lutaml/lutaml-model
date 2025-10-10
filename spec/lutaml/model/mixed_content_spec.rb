@@ -846,11 +846,9 @@ RSpec.describe "MixedContent" do
             parsed = MixedContentSpec::Shift.from_xml(fixture)
             serialized = parsed.to_xml(encoding: "Shift_JIS")
 
-            expected_content = if adapter_class == Lutaml::Model::Xml::NokogiriAdapter
-                                 "<root>\n  <FieldName>手書き英字１</FieldName>\n  <FieldName>123456</FieldName>\n</root>".encode("Shift_JIS")
-                               elsif adapter_class == Lutaml::Model::Xml::OxAdapter
+            expected_content = if adapter_class == Lutaml::Model::Xml::OxAdapter
                                  "<root>\n  <FieldName>手書き英字１</FieldName>\n  <FieldName>123456</FieldName>\n</root>\n".encode("Shift_JIS")
-                               elsif adapter_class == Lutaml::Model::Xml::RexmlAdapter
+                               elsif [Lutaml::Model::Xml::NokogiriAdapter, Lutaml::Model::Xml::RexmlAdapter].include?(adapter_class)
                                  "<root>\n  <FieldName>手書き英字１</FieldName>\n  <FieldName>123456</FieldName>\n</root>".encode("Shift_JIS")
                                else
                                  "<root><FieldName>手書き英字１</FieldName><FieldName>123456</FieldName></root>".encode("Shift_JIS")

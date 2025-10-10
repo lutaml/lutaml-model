@@ -160,6 +160,7 @@ RSpec/SpecFilePathFormat:
     - 'spec/lutaml/model/xml_adapter/nokogiri_adapter_spec.rb'
     - 'spec/lutaml/model/xml_adapter/oga_adapter_spec.rb'
     - 'spec/lutaml/model/xml_adapter/ox_adapter_spec.rb'
+    - 'spec/lutaml/model/xml_adapter/rexml_adapter_spec.rb'
     - 'spec/lutaml/model/xml_mapping_rule_spec.rb'
     - 'spec/lutaml/model/xml_mapping_spec.rb'
 

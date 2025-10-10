@@ -43,22 +43,7 @@ module Lutaml
 
           def text
             txt = super || cdata || @text
-            # Convert text to target encoding if needed
-            if txt && @target_encoding && @target_encoding != "UTF-8"
-              if txt.is_a?(Array)
-                # Handle array of text fragments (mixed content)
-                txt = txt.map do |fragment|
-                  if fragment.is_a?(String) && fragment.encoding.to_s == "UTF-8"
-                    fragment.encode(@target_encoding)
-                  else
-                    fragment
-                  end
-                end
-              elsif txt.is_a?(String) && txt.encoding.to_s == "UTF-8"
-                txt = txt.encode(@target_encoding)
-              end
-            end
-            txt
+            convert_text_encoding(txt)
           end
 
           def to_xml(builder = Builder::Rexml.build)
@@ -103,56 +88,69 @@ module Lutaml
           def node_attributes(node)
             return {} unless node.respond_to?(:attributes)
 
+            parse_attributes_safely(node)
+          end
+
+          def parse_attributes_safely(node)
+            if node.respond_to?(:native) && node.native.respond_to?(:attributes)
+              parse_native_attributes(node.native)
+            elsif node.attributes && !node.attributes.empty?
+              parse_moxml_attributes(node.attributes)
+            else
+              {}
+            end
+          rescue StandardError
+            {}
+          end
+
+          def parse_native_attributes(rexml_node)
             attributes = {}
-            begin
-              # Try to get the raw REXML attributes directly
-              if node.respond_to?(:native) && node.native.respond_to?(:attributes)
-                rexml_node = node.native
-                rexml_node.attributes.each do |name, value|
-                  # Skip namespace declarations
-                  next if name == "xmlns" || name.start_with?("xmlns:")
+            rexml_node.attributes.each do |name, value|
+              next if name == "xmlns" || name.start_with?("xmlns:")
 
-                  # Extract namespace information from the attribute name
-                  namespace_prefix = nil
-                  attr_name = name
-                  namespace_uri = nil
-
-                  if name.include?(":")
-                    namespace_prefix, attr_name = name.split(":", 2)
-                    # Look up the namespace URI from the element's namespaces
-                    namespace_uri = namespaces[namespace_prefix]&.uri
-                  end
-
-                  attributes[name] = XmlAttribute.new(
-                    attr_name,
-                    value,
-                    namespace: namespace_uri,
-                    namespace_prefix: namespace_prefix,
-                  )
-                end
-              elsif node.attributes && !node.attributes.empty?
-                # Fallback to moxml attributes (may fail due to bug)
-                node.attributes.each do |attr|
-                  next if attr_is_namespace?(attr)
-
-                  attr_name = if attr.namespace
-                                "#{attr.namespace.prefix}:#{attr.name}"
-                              else
-                                attr.name
-                              end
-
-                  attributes[attr_name] = XmlAttribute.new(
-                    attr_name,
-                    attr.value,
-                    namespace: attr.namespace&.uri,
-                    namespace_prefix: attr.namespace&.prefix,
-                  )
-                end
-              end
-            rescue StandardError
-              # Handle attribute parsing issues
+              attributes[name] = create_xml_attribute(name, value)
             end
             attributes
+          end
+
+          def parse_moxml_attributes(attrs)
+            attributes = {}
+            attrs.each do |attr|
+              next if attr_is_namespace?(attr)
+
+              attr_name = build_attribute_name(attr)
+              attributes[attr_name] = create_moxml_attribute(attr, attr_name)
+            end
+            attributes
+          end
+
+          def create_xml_attribute(name, value)
+            attr_name, namespace_prefix, namespace_uri = parse_attribute_namespace(name)
+
+            XmlAttribute.new(attr_name, value,
+                             namespace: namespace_uri,
+                             namespace_prefix: namespace_prefix)
+          end
+
+          def parse_attribute_namespace(name)
+            return [name, nil, nil] unless name.include?(":")
+
+            namespace_prefix, attr_name = name.split(":", 2)
+            namespace_uri = namespaces[namespace_prefix]&.uri
+
+            [attr_name, namespace_prefix, namespace_uri]
+          end
+
+          def build_attribute_name(attr)
+            return attr.name unless attr.namespace
+
+            "#{attr.namespace.prefix}:#{attr.name}"
+          end
+
+          def create_moxml_attribute(attr, attr_name)
+            XmlAttribute.new(attr_name, attr.value,
+                             namespace: attr.namespace&.uri,
+                             namespace_prefix: attr.namespace&.prefix)
           end
 
           def add_namespaces(node)
@@ -174,6 +172,27 @@ module Lutaml
           def attr_is_namespace?(attr)
             attribute_is_namespace?(attr.name) ||
               namespaces[attr.name]&.uri == attr.value
+          end
+
+          def convert_text_encoding(txt)
+            return txt unless txt && @target_encoding && @target_encoding != "UTF-8"
+
+            return convert_array_encoding(txt) if txt.is_a?(Array)
+            return convert_string_encoding(txt) if txt.is_a?(String)
+
+            txt
+          end
+
+          def convert_array_encoding(array)
+            array.map do |fragment|
+              fragment.is_a?(String) ? convert_string_encoding(fragment) : fragment
+            end
+          end
+
+          def convert_string_encoding(string)
+            return string unless string.encoding.to_s == "UTF-8"
+
+            string.encode(@target_encoding)
           end
         end
       end

@@ -40,29 +40,19 @@ module Lutaml
           end
 
           def add_element(element, child)
-            target = element.is_a?(self.class) ? element.current_node : element
-
-            case child
-            when String
-              # Wrap in a root to support multiple siblings in fragment
-              doc = ::REXML::Document.new("<__root__>#{child}</__root__>")
-              doc.root&.elements&.each do |node|
-                target.add_element(node)
-              end
-            when ::REXML::Element
-              target.add_element(child)
-            when self.class
-              target.add_element(child.current_node)
-            end
+            target = resolve_target_element(element)
+            add_child_to_element(target, child)
           end
 
           def element(name, attributes = {})
             # Handle multiple mapping names (arrays) by taking the first one
             element_name = name.is_a?(Array) ? name.first.to_s : name.to_s
             rexml_element = ::REXML::Element.new(element_name)
+            attributes.each do |key, value|
+              rexml_element.attributes[key.to_s] = value.to_s
+            end
+            @current_node.add_element(rexml_element)
             if block_given?
-              element_attributes(rexml_element, attributes)
-              @current_node.add_element(rexml_element)
               # Save previous node to reset the pointer for the rest of the iteration
               previous_node = @current_node
               # Set current node to new element as pointer for the block
@@ -70,17 +60,8 @@ module Lutaml
               yield(self)
               # Reset the pointer for the rest of the iterations
               @current_node = previous_node
-            else
-              element_attributes(rexml_element, attributes)
-              @current_node.add_element(rexml_element)
             end
             rexml_element
-          end
-
-          def element_attributes(element, attributes)
-            attributes.each do |key, value|
-              element.attributes[key.to_s] = value.to_s
-            end
           end
 
           def add_attribute(element, name, value)
@@ -90,35 +71,9 @@ module Lutaml
 
           # Inserts raw XML content into the element
           def add_xml_fragment(element, content)
-            target = element.is_a?(self.class) ? element.current_node : element
+            target = resolve_target_element(element)
 
-            # For raw content, we need to preserve any XML markup while properly
-            # escaping special characters. The content might be:
-            # 1. Valid XML with properly escaped entities
-            # 2. XML-like content with unescaped entities
-            # 3. Plain text with special characters
-
-            begin
-              # First try: parse as-is (handles properly escaped XML)
-              doc = ::REXML::Document.new("<__root__>#{content}</__root__>")
-              doc.root&.children&.each do |node|
-                target << node
-              end
-            rescue REXML::ParseException, RuntimeError
-              # Second try: escape only ampersands that aren't part of entities
-              # This handles content like "R&C" while preserving "A &amp; B"
-              escaped_content = content.gsub(/&(?![a-zA-Z]+;|#[0-9]+;|#x[0-9a-fA-F]+;)/, "&amp;")
-
-              begin
-                doc = ::REXML::Document.new("<__root__>#{escaped_content}</__root__>")
-                doc.root&.children&.each do |node|
-                  target << node
-                end
-              rescue REXML::ParseException, RuntimeError
-                # Final fallback: add as escaped text
-                target << ::REXML::Text.new(content, false, nil, false)
-              end
-            end
+            parse_and_add_fragment(target, content)
           end
 
           def create_and_add_element(
@@ -127,24 +82,12 @@ module Lutaml
                      nil),
             attributes: {}
           )
-            # Handle multiple mapping names (arrays) by taking the first one
             name = element_name.is_a?(Array) ? element_name.first : element_name
-
-            # Only reset namespace if prefix was explicitly set to nil
             @current_namespace = nil if prefix.nil? && !prefix_unset
-
-            prefixed_name = if prefix
-                              "#{prefix}:#{name}"
-                            elsif @current_namespace && !name.to_s.include?(":")
-                              "#{@current_namespace}:#{name}"
-                            else
-                              name.to_s
-                            end
+            prefixed_name = build_prefixed_name(name, prefix)
 
             if block_given?
-              element(prefixed_name, attributes) do
-                yield(self)
-              end
+              element(prefixed_name, attributes) { yield(self) }
             else
               element(prefixed_name, attributes)
             end
@@ -176,15 +119,6 @@ module Lutaml
             @current_node
           end
 
-          def method_missing(name, *args, &block)
-            attributes = args.first.is_a?(Hash) ? args.first : {}
-            element(name, attributes, &block)
-          end
-
-          def respond_to_missing?(_name, _include_private = false)
-            true
-          end
-
           def to_s
             serialize_document(@doc)
           end
@@ -200,6 +134,133 @@ module Lutaml
 
           private
 
+          # Helper methods for add_element
+          def resolve_target_element(element)
+            element.is_a?(self.class) ? element.current_node : element
+          end
+
+          def add_child_to_element(target, child)
+            case child
+            when String
+              add_string_fragment(target, child)
+            when ::REXML::Element
+              target.add_element(child)
+            when self.class
+              target.add_element(child.current_node)
+            end
+          end
+
+          def add_string_fragment(target, fragment)
+            doc = ::REXML::Document.new("<__root__>#{fragment}</__root__>")
+            doc.root&.elements&.each { |node| target.add_element(node) }
+          end
+
+          # Helper methods for add_xml_fragment
+          def parse_and_add_fragment(target, content)
+            parse_fragment_as_is(target, content)
+          rescue REXML::ParseException, RuntimeError
+            parse_fragment_with_escaping(target, content)
+          end
+
+          def parse_fragment_as_is(target, content)
+            doc = ::REXML::Document.new("<__root__>#{content}</__root__>")
+            doc.root&.children&.each { |node| target << node }
+          end
+
+          def parse_fragment_with_escaping(target, content)
+            escaped_content = content.gsub(/&(?![a-zA-Z]+;|#[0-9]+;|#x[0-9a-fA-F]+;)/, "&amp;")
+            parse_fragment_as_is(target, escaped_content)
+          rescue REXML::ParseException, RuntimeError
+            target << ::REXML::Text.new(content, false, nil, false)
+          end
+
+          def build_prefixed_name(name, prefix)
+            return "#{prefix}:#{name}" if prefix
+            return "#{@current_namespace}:#{name}" if @current_namespace && !name.to_s.include?(":")
+
+            name.to_s
+          end
+
+          # Helper methods for serialize_element
+          def serialize_attributes(attributes)
+            attributes.map { |key, val| "#{key}=\"#{val}\"" }.join(" ")
+          end
+
+          def empty_element?(children)
+            children.reject { |child| child.is_a?(::REXML::Text) && child.value.empty? }.empty?
+          end
+
+          def single_text_child?(children)
+            children.length == 1 && (children.first.is_a?(::REXML::Text) || children.first.is_a?(::REXML::CData))
+          end
+
+          def render_empty_element(name, attrs, indent_str)
+            return "#{indent_str}<#{name}/>" if attrs.empty?
+
+            "#{indent_str}<#{name} #{attrs}/>"
+          end
+
+          def render_single_text_element(name, attrs, indent_str, children, indent)
+            child = children.first
+            text = child.is_a?(::REXML::CData) ? serialize_text_node(child, indent) : child.to_s
+            return "#{indent_str}<#{name}>#{text}</#{name}>" if attrs.empty?
+
+            "#{indent_str}<#{name} #{attrs}>#{text}</#{name}>"
+          end
+
+          def render_element_with_children(name, attrs, indent_str, children, indent, force_inline)
+            if @pretty && !force_inline
+              render_pretty_element(name, attrs, indent_str, children, indent)
+            else
+              render_compact_element(name, attrs, children)
+            end
+          end
+
+          def render_pretty_element(name, attrs, indent_str, children, indent)
+            if mixed_content?(children)
+              render_mixed_content_element(name, attrs, indent_str, children)
+            else
+              render_indented_element(name, attrs, indent_str, children, indent)
+            end
+          end
+
+          def mixed_content?(children)
+            has_text = children.any? { |child| child.is_a?(::REXML::Text) && !child.value.strip.empty? }
+            has_elements = children.any?(::REXML::Element)
+            has_text && has_elements
+          end
+
+          def render_mixed_content_element(name, attrs, indent_str, children)
+            open_tag = build_open_tag(name, attrs, indent_str, false)
+            inner = children.map { |child| serialize_element(child, 0, force_inline: true) }.join
+            close_tag = mixed_content_close_tag(children, name)
+            open_tag + inner + close_tag
+          end
+
+          def mixed_content_close_tag(children, name)
+            starts_with_newline = children.first.is_a?(::REXML::Text) && children.first.value.start_with?("\n")
+            starts_with_newline ? "\n</#{name}>" : "</#{name}>"
+          end
+
+          def render_indented_element(name, attrs, indent_str, children, indent)
+            open_tag = build_open_tag(name, attrs, indent_str, true)
+            inner = children.map { |child| serialize_element(child, indent + 1) }.join("\n")
+            close_tag = "\n#{indent_str}</#{name}>"
+            open_tag + inner + close_tag
+          end
+
+          def render_compact_element(name, attrs, children)
+            open_tag = build_open_tag(name, attrs, "", false)
+            inner = children.map { |child| serialize_element(child, 0, force_inline: true) }.join
+            close_tag = "</#{name}>"
+            open_tag + inner + close_tag
+          end
+
+          def build_open_tag(name, attrs, indent_str, with_newline)
+            tag = attrs.empty? ? "#{indent_str}<#{name}>" : "#{indent_str}<#{name} #{attrs}>"
+            with_newline ? "#{tag}\n" : tag
+          end
+
           def serialize_document(doc)
             parts = []
             # If XML declaration present in doc, include it
@@ -213,90 +274,30 @@ module Lutaml
             parts.join
           end
 
-          def serialize_element(el, indent, force_inline: false)
-            return serialize_text_node(el, indent) unless el.is_a?(::REXML::Element)
+          def serialize_element(element, indent, force_inline: false)
+            return serialize_text_node(element, indent) unless element.is_a?(::REXML::Element)
 
-            name = el.expanded_name
-            attrs = el.attributes.map { |k, v| "#{k}=\"#{v}\"" }.join(" ")
+            name = element.expanded_name
+            attrs = serialize_attributes(element.attributes)
             indent_str = @pretty && !force_inline ? "  " * indent : ""
+            children = element.children
 
-            children = el.children
+            return render_empty_element(name, attrs, indent_str) if empty_element?(children)
+            return render_single_text_element(name, attrs, indent_str, children, indent) if single_text_child?(children)
 
-            # Check if element is empty (no children or only whitespace)
-            non_whitespace_children = children.reject { |c| c.is_a?(::REXML::Text) && c.value.empty? }
-            if non_whitespace_children.empty?
-              # Render as self-closing tag
-              if attrs.empty?
-                return "#{indent_str}<#{name}/>"
-              else
-                return "#{indent_str}<#{name} #{attrs}/>"
-              end
-            end
-
-            # If only one child and it's text/cdata, render inline
-            if children.length == 1 && (children.first.is_a?(::REXML::Text) || children.first.is_a?(::REXML::CData))
-              text = if children.first.is_a?(::REXML::CData)
-                       serialize_text_node(children.first, indent)
-                     else
-                       serialize_text_content(children.first)
-                     end
-              if attrs.empty?
-                return "#{indent_str}<#{name}>#{text}</#{name}>"
-              else
-                return "#{indent_str}<#{name} #{attrs}>#{text}</#{name}>"
-              end
-            end
-
-            if @pretty && !force_inline
-              # Check if we have mixed content (text nodes mixed with elements)
-              has_text_nodes = children.any? { |c| c.is_a?(::REXML::Text) && !c.value.strip.empty? }
-              has_element_nodes = children.any? { |c| c.is_a?(::REXML::Element) }
-              is_mixed_content = has_text_nodes && has_element_nodes
-
-              if is_mixed_content
-                # For mixed content, render inline without extra whitespace
-                # Children are serialized without indentation to preserve compact format
-                open_tag = attrs.empty? ? "#{indent_str}<#{name}>" : "#{indent_str}<#{name} #{attrs}>"
-                inner = children.map { |c| serialize_element(c, 0, force_inline: true) }.join("")
-
-                # If the content starts with a newline (pretty-printed), add a newline before closing tag
-                first_child_starts_with_newline = children.first.is_a?(::REXML::Text) &&
-                  children.first.value.start_with?("\n")
-                close_tag = first_child_starts_with_newline ? "\n</#{name}>" : "</#{name}>"
-                (open_tag + inner + close_tag)
-              else
-                # Pretty print with full indentation
-                open_tag = attrs.empty? ? "#{indent_str}<#{name}>\n" : "#{indent_str}<#{name} #{attrs}>\n"
-                inner = children.map { |c| serialize_element(c, indent + 1) }.join("\n")
-                close_tag = "\n#{indent_str}</#{name}>"
-                (open_tag + inner + close_tag)
-              end
-            else
-              # Compact output
-              open_tag = attrs.empty? ? "<#{name}>" : "<#{name} #{attrs}>"
-              inner = children.map { |c| serialize_element(c, 0, force_inline: true) }.join("")
-              close_tag = "</#{name}>"
-              (open_tag + inner + close_tag)
-            end
+            render_element_with_children(name, attrs, indent_str, children, indent, force_inline)
           end
 
           def serialize_text_node(node, _indent)
             case node
             when ::REXML::CData
               "<![CDATA[#{node.value}]]>"
-            when ::REXML::Text
-              serialize_text_content(node)
             when ::REXML::Comment
               "<!--#{node.string}-->"
             else
               # Fallback for unexpected node types
               node.to_s
             end
-          end
-
-          def serialize_text_content(text_node)
-            # Use to_s to properly escape special characters
-            text_node.to_s
           end
         end
       end

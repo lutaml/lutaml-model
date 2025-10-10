@@ -14,39 +14,17 @@ module Lutaml
 
         def self.parse(xml, options = {})
           parse_encoding = encoding(xml, options)
-
-          # REXML requires UTF-8, so convert if needed
-          if xml.is_a?(String) && xml.encoding.to_s != "UTF-8"
-            xml = xml.encode("UTF-8")
-          end
+          xml = normalize_xml_for_rexml(xml)
 
           parsed = Moxml::Adapter::Rexml.parse(xml)
-          root_element = parsed.root
+          root_element = parsed.root || parse_with_escaped_ampersands(xml)
 
-          # If parsing failed, try escaping unescaped ampersands
-          if root_element.nil? && xml.is_a?(String)
-            escaped_xml = xml.gsub(/&(?![a-zA-Z]+;|#[0-9]+;|#x[0-9a-fA-F]+;)/, "&amp;")
-            parsed = Moxml::Adapter::Rexml.parse(escaped_xml)
-            root_element = parsed.root
-          end
-
-          # Pass the target encoding to elements
           @root = Rexml::Element.new(root_element, target_encoding: parse_encoding)
-
           new(@root, parse_encoding)
         end
 
         def to_xml(options = {})
-          builder_options = {}
-          builder_options[:encoding] = if options.key?(:encoding)
-                                         options[:encoding]
-                                       elsif options.key?(:parse_encoding)
-                                         options[:parse_encoding]
-                                       elsif @encoding
-                                         @encoding
-                                       else
-                                         "UTF-8"
-                                       end
+          builder_options = { encoding: determine_encoding(options) }
 
           builder = Builder::Rexml.build(builder_options) do |xml|
             if @root.is_a?(Rexml::Element)
@@ -55,6 +33,7 @@ module Lutaml
               build_element(xml, @root, options)
             end
           end
+
           xml_data = builder.to_xml
           options[:declaration] ? declaration(options) + xml_data : xml_data
         end
@@ -133,7 +112,27 @@ module Lutaml
           end
         end
 
+        def self.normalize_xml_for_rexml(xml)
+          return xml unless xml.is_a?(String) && xml.encoding.to_s != "UTF-8"
+
+          xml.encode("UTF-8")
+        end
+
+        def self.parse_with_escaped_ampersands(xml)
+          return nil unless xml.is_a?(String)
+
+          escaped_xml = xml.gsub(/&(?![a-zA-Z]+;|#[0-9]+;|#x[0-9a-fA-F]+;)/, "&amp;")
+          Moxml::Adapter::Rexml.parse(escaped_xml).root
+        end
+
         private
+
+        def determine_encoding(options)
+          options[:encoding] ||
+            options[:parse_encoding] ||
+            @encoding ||
+            "UTF-8"
+        end
 
         def build_ordered_element(builder, element, options = {})
           mapper_class = determine_mapper_class(element, options)
@@ -141,56 +140,83 @@ module Lutaml
           return builder unless xml_mapping
 
           attributes = build_attributes(element, xml_mapping, options).compact
-
           prefix = determine_namespace_prefix(options, xml_mapping)
           prefixed_xml = builder.add_namespace_prefix(prefix)
-
           tag_name = options[:tag_name] || xml_mapping.root_element
 
           prefixed_xml.create_and_add_element(tag_name, attributes: attributes) do |el|
-            index_hash = {}
-            content = []
-
-            element.element_order.each do |object|
-              object_key = "#{object.name}-#{object.type}"
-              index_hash[object_key] ||= -1
-              curr_index = index_hash[object_key] += 1
-
-              element_rule = xml_mapping.find_by_name(object.name, type: object.type)
-              next if element_rule.nil? || options[:except]&.include?(element_rule.to)
-
-              attribute_def = attribute_definition_for(element, element_rule,
-                                                       mapper_class: mapper_class)
-              value = attribute_value_for(element, element_rule)
-
-              next if element_rule == xml_mapping.content_mapping && element_rule.cdata && object.text?
-
-              if element_rule == xml_mapping.content_mapping
-                text = xml_mapping.content_mapping.serialize(element)
-                text = text[curr_index] if text.is_a?(Array)
-
-                next el.add_text(el, text, cdata: element_rule.cdata) if element.mixed?
-
-                content << text
-              elsif !value.nil? || element_rule.render_nil?
-                value = value[curr_index] if attribute_def.collection?
-
-                add_to_xml(
-                  el,
-                  element,
-                  nil,
-                  value,
-                  options.merge(
-                    attribute: attribute_def,
-                    rule: element_rule,
-                    mapper_class: mapper_class,
-                  ),
-                )
-              end
-            end
-
-            el.add_text(el, content.join)
+            process_element_order(el, element, xml_mapping, mapper_class, options)
           end
+        end
+
+        def process_element_order(builder, element, xml_mapping, mapper_class, options)
+          index_hash = {}
+          content = []
+
+          element.element_order.each do |object|
+            process_ordered_object(builder, element, object, xml_mapping, mapper_class,
+                                   index_hash, content, options)
+          end
+
+          builder.add_text(builder, content.join)
+        end
+
+        def process_ordered_object(builder, element, object, xml_mapping, mapper_class,
+                                    index_hash, content, options)
+          curr_index = increment_object_index(index_hash, object)
+          element_rule = xml_mapping.find_by_name(object.name, type: object.type)
+
+          return if skip_element_rule?(element_rule, options)
+
+          attribute_def = attribute_definition_for(element, element_rule, mapper_class: mapper_class)
+          value = attribute_value_for(element, element_rule)
+
+          return if skip_cdata_text?(element_rule, xml_mapping, object)
+
+          handle_ordered_element_content(builder, element, element_rule, xml_mapping,
+                                         attribute_def, value, curr_index, content, options, mapper_class)
+        end
+
+        def increment_object_index(index_hash, object)
+          object_key = "#{object.name}-#{object.type}"
+          index_hash[object_key] ||= -1
+          index_hash[object_key] += 1
+        end
+
+        def skip_element_rule?(element_rule, options)
+          element_rule.nil? || options[:except]&.include?(element_rule.to)
+        end
+
+        def skip_cdata_text?(element_rule, xml_mapping, object)
+          element_rule == xml_mapping.content_mapping && element_rule.cdata && object.text?
+        end
+
+        def handle_ordered_element_content(builder, element, element_rule, xml_mapping,
+                                            attribute_def, value, curr_index, content, options, mapper_class)
+          if element_rule == xml_mapping.content_mapping
+            handle_ordered_content_text(builder, element, element_rule, xml_mapping, curr_index, content)
+          elsif !value.nil? || element_rule.render_nil?
+            add_ordered_element_value(builder, element, attribute_def, value, curr_index,
+                                      element_rule, options, mapper_class)
+          end
+        end
+
+        def handle_ordered_content_text(builder, element, element_rule, xml_mapping, curr_index, content)
+          text = xml_mapping.content_mapping.serialize(element)
+          text = text[curr_index] if text.is_a?(Array)
+
+          return builder.add_text(builder, text, cdata: element_rule.cdata) if element.mixed?
+
+          content << text
+        end
+
+        def add_ordered_element_value(builder, element, attribute_def, value, curr_index,
+                                       element_rule, options, mapper_class)
+          value = value[curr_index] if attribute_def.collection?
+
+          add_to_xml(builder, element, nil, value,
+                     options.merge(attribute: attribute_def, rule: element_rule,
+                                   mapper_class: mapper_class))
         end
       end
     end
