@@ -2,7 +2,6 @@ require "rexml/document"
 require "moxml"
 require "moxml/adapter/rexml"
 require_relative "document"
-require_relative "rexml/document"
 require_relative "rexml/element"
 require_relative "builder/rexml"
 
@@ -18,6 +17,13 @@ module Lutaml
 
           parsed = Moxml::Adapter::Rexml.parse(xml)
           root_element = parsed.root || parse_with_escaped_ampersands(xml)
+
+          if root_element.nil?
+            raise REXML::ParseException.new(
+              "Malformed XML: Unable to parse the provided XML document. " \
+              "The document structure is invalid or incomplete.",
+            )
+          end
 
           @root = Rexml::Element.new(root_element, target_encoding: parse_encoding)
           new(@root, parse_encoding)

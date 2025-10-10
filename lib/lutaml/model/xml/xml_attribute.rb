@@ -23,9 +23,7 @@ module Lutaml
         end
 
         def namespaced_name
-          if unprefixed_name == "lang" && namespace_prefix
-            "#{namespace_prefix}:#{unprefixed_name}"
-          elsif unprefixed_name == "lang"
+          if unprefixed_name == "lang"
             name
           elsif namespace
             "#{namespace}:#{unprefixed_name}"

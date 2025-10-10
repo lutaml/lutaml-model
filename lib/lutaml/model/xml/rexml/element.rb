@@ -118,7 +118,6 @@ module Lutaml
             attrs.each do |attr|
               next if attr_is_namespace?(attr)
 
-              attr_name = build_attribute_name(attr)
               attributes[attr_name] = create_moxml_attribute(attr, attr_name)
             end
             attributes
@@ -135,19 +134,19 @@ module Lutaml
           def parse_attribute_namespace(name)
             return [name, nil, nil] unless name.include?(":")
 
-            namespace_prefix, attr_name = name.split(":", 2)
+            namespace_prefix = name.split(":").first
             namespace_uri = namespaces[namespace_prefix]&.uri
 
-            [attr_name, namespace_prefix, namespace_uri]
+            [name, namespace_prefix, namespace_uri]
           end
 
-          def build_attribute_name(attr)
-            return attr.name unless attr.namespace
+          def create_moxml_attribute(attr)
+            attr_name = if attr.namespace&.prefix
+                          "#{attr.namespace.prefix}:#{attr.name}"
+                        else
+                          attr.name
+                        end
 
-            "#{attr.namespace.prefix}:#{attr.name}"
-          end
-
-          def create_moxml_attribute(attr, attr_name)
             XmlAttribute.new(attr_name, attr.value,
                              namespace: attr.namespace&.uri,
                              namespace_prefix: attr.namespace&.prefix)

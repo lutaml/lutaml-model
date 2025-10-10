@@ -43,7 +43,7 @@ RSpec.describe Lutaml::Model::Xml do
     end
 
     context "when no adapters are available" do
-      it "returns nil" do
+      it "returns rexml" do
         expect(described_class.detect_xml_adapter).to eq(:rexml)
       end
     end
