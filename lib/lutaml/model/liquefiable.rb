@@ -129,6 +129,8 @@ module Lutaml
       def to_liquid
         self.class.validate_liquid!
 
+        self.class.register_liquid_drop_class unless self.class.base_drop_class
+
         self.class.register_methods
 
         self.class.drop_class.new(self)
