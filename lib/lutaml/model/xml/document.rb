@@ -215,6 +215,7 @@ module Lutaml
           xml_mapping = mapper_class.mappings_for(:xml)
           return xml unless xml_mapping
 
+          options[:parent_namespace] ||= nil
           attributes = build_element_attributes(element, xml_mapping, options)
           prefix = determine_namespace_prefix(options, xml_mapping)
 
@@ -234,12 +235,15 @@ module Lutaml
                                                  xml)
             end
 
+            current_namespace = xml_mapping.namespace_uri
+            child_options = options.merge({ parent_namespace: current_namespace })
+
             mappings = xml_mapping.elements + [xml_mapping.raw_mapping].compact
             mappings.each do |element_rule|
               attribute_def = attribute_definition_for(element, element_rule,
                                                        mapper_class: mapper_class)
 
-              next if options[:except]&.include?(element_rule.to)
+              next if child_options[:except]&.include?(element_rule.to)
 
               if attribute_def
                 value = attribute_value_for(element, element_rule)
@@ -254,8 +258,8 @@ module Lutaml
                 element,
                 element_rule.prefix,
                 value,
-                options.merge({ attribute: attribute_def, rule: element_rule,
-                                mapper_class: mapper_class }),
+                child_options.merge({ attribute: attribute_def, rule: element_rule,
+                                      mapper_class: mapper_class }),
               )
             end
 
@@ -308,16 +312,23 @@ module Lutaml
         def build_namespace_attributes(klass, processed = {}, options = {})
           xml_mappings = klass.mappings_for(:xml)
           attributes = klass.attributes
+          parent_namespace = options[:parent_namespace]
+          is_root_call = options[:is_root_call]
 
           attrs = {}
 
-          if xml_mappings.namespace_uri && set_namespace?(options[:caller_rule])
-            prefixed_name = [
-              "xmlns",
-              xml_mappings.namespace_prefix,
-            ].compact.join(":")
+          if xml_mappings.namespace_uri && set_namespace?(options[:caller_rule]) && (is_root_call.nil? || is_root_call)
+            should_add_xmlns = parent_namespace.nil? ||
+              parent_namespace != xml_mappings.namespace_uri
 
-            attrs[prefixed_name] = xml_mappings.namespace_uri
+            if should_add_xmlns
+              prefixed_name = [
+                "xmlns",
+                xml_mappings.namespace_prefix,
+              ].compact.join(":")
+
+              attrs[prefixed_name] = xml_mappings.namespace_uri
+            end
           end
 
           xml_mappings.mappings.each do |mapping_rule|
@@ -337,8 +348,16 @@ module Lutaml
             next unless type
 
             if type <= Lutaml::Model::Serialize
-              attrs = attrs.merge(build_namespace_attributes(type, processed,
-                                                             { caller_rule: mapping_rule }))
+              child_options = {
+                caller_rule: mapping_rule,
+                parent_namespace: xml_mappings.namespace_uri || parent_namespace,
+                is_root_call: false, # Mark that we're recursing
+              }
+              child_attrs = build_namespace_attributes(type, processed, child_options)
+
+              child_attrs.each do |key, value|
+                attrs[key] = value if key.include?(":")
+              end
             end
 
             if mapping_rule.namespace && mapping_rule.prefix && mapping_rule.name != "lang"
@@ -350,8 +369,10 @@ module Lutaml
         end
 
         def build_attributes(element, xml_mapping, options = {})
+          parent_namespace = options[:parent_namespace]
+
           attrs = if options.fetch(:set_namespace, true)
-                    namespace_attributes(xml_mapping)
+                    namespace_attributes(xml_mapping, parent_namespace)
                   else
                     {}
                   end
@@ -402,8 +423,10 @@ module Lutaml
           element.send(rule.delegate).send(rule.to)
         end
 
-        def namespace_attributes(xml_mapping)
+        def namespace_attributes(xml_mapping, parent_namespace = nil)
           return {} unless xml_mapping.namespace_uri
+
+          return {} if parent_namespace == xml_mapping.namespace_uri
 
           key = ["xmlns", xml_mapping.namespace_prefix].compact.join(":")
           { key => xml_mapping.namespace_uri }
@@ -472,7 +495,22 @@ module Lutaml
           xml_attributes = options[:xml_attributes] ||= {}
           attributes = build_attributes(element, mapping, options)
 
-          attributes.merge(xml_attributes)&.compact
+          parent_namespace = options[:parent_namespace]
+          element_namespace = mapping.namespace_uri
+          namespace_inherited = parent_namespace && element_namespace &&
+            parent_namespace == element_namespace
+
+          merged_attrs = attributes.dup
+          xml_attributes.each do |key, value|
+            is_xmlns = key == "xmlns" || key.start_with?("xmlns:")
+
+            next if is_xmlns && namespace_inherited
+            next if is_xmlns && merged_attrs.key?(key)
+
+            merged_attrs[key] = value
+          end
+
+          merged_attrs&.compact
         end
       end
     end

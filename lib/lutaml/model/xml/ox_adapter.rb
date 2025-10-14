@@ -50,6 +50,7 @@ module Lutaml
           xml_mapping = mapper_class.mappings_for(:xml)
           return builder unless xml_mapping
 
+          options[:parent_namespace] ||= nil
           attributes = build_attributes(element, xml_mapping, options).compact
 
           prefix = determine_namespace_prefix(options, xml_mapping)
@@ -64,13 +65,16 @@ module Lutaml
             index_hash = {}
             content = []
 
+            current_namespace = xml_mapping.namespace_uri
+            child_options = options.merge({ parent_namespace: current_namespace })
+
             element.element_order.each do |object|
               object_key = "#{object.name}-#{object.type}"
               index_hash[object_key] ||= -1
               curr_index = index_hash[object_key] += 1
 
               element_rule = xml_mapping.find_by_name(object.name, type: object.type)
-              next if element_rule.nil? || options[:except]&.include?(element_rule.to)
+              next if element_rule.nil? || child_options[:except]&.include?(element_rule.to)
 
               attribute_def = attribute_definition_for(element, element_rule,
                                                        mapper_class: mapper_class)
@@ -93,7 +97,7 @@ module Lutaml
                   element,
                   nil,
                   value,
-                  options.merge(
+                  child_options.merge(
                     attribute: attribute_def,
                     rule: element_rule,
                   ),
@@ -107,7 +111,7 @@ module Lutaml
       end
 
       class OxElement < XmlElement
-        def initialize(node, root_node: nil)
+        def initialize(node, root_node: nil, default_namespace: nil)
           case node
           when String
             super("text", {}, [], node, parent_document: root_node, name: "text")
@@ -117,10 +121,13 @@ module Lutaml
             super("#cdata-section", {}, [], node.value, parent_document: root_node, name: "#cdata-section")
           else
             namespace_attributes(node.attributes).each do |(name, value)|
-              if root_node
-                root_node.add_namespace(XmlNamespace.new(value, name))
-              else
-                add_namespace(XmlNamespace.new(value, name))
+              ns = XmlNamespace.new(value, name)
+
+              if root_node && ns.prefix
+                root_node.add_namespace(ns)
+              elsif root_node.nil?
+                add_namespace(ns)
+                default_namespace = ns.uri if ns.prefix.nil?
               end
             end
 
@@ -147,11 +154,12 @@ module Lutaml
             super(
               node,
               attributes,
-              parse_children(node, root_node: root_node || self),
+              parse_children(node, root_node: root_node || self, default_namespace: default_namespace),
               node.text,
               parent_document: root_node,
               name: name,
               namespace_prefix: prefix,
+              default_namespace: default_namespace,
             )
           end
         end
@@ -224,9 +232,9 @@ module Lutaml
 
         private
 
-        def parse_children(node, root_node: nil)
+        def parse_children(node, root_node: nil, default_namespace: nil)
           node.nodes.map do |child|
-            OxElement.new(child, root_node: root_node)
+            OxElement.new(child, root_node: root_node, default_namespace: default_namespace)
           end
         end
       end
