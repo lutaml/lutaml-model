@@ -1,3 +1,5 @@
+unless RUBY_ENGINE == 'opal'
+
 require "spec_helper"
 require "liquid"
 require_relative "../../fixtures/address"
@@ -446,4 +448,6 @@ RSpec.describe Lutaml::Model::Liquefiable do
       end
     end
   end
+end
+
 end

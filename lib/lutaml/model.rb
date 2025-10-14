@@ -1,6 +1,13 @@
 # frozen_string_literal: true
 
 require "moxml"
+if RUBY_ENGINE == 'opal'
+  require 'corelib/array/pack'
+  require 'corelib/trace_point'
+  require 'moxml'
+  require 'lutaml/model/xml/oga_adapter'
+  require 'lutaml/model/schema/xml_compiler'
+end
 require_relative "model/uninitialized_class"
 require_relative "model/errors"
 require_relative "model/services"

@@ -70,9 +70,13 @@ module Lutaml
         raise ArgumentError, "Unknown Lutaml::Model::Type: #{type}"
       end
 
+      def reserved_methods
+        Lutaml::Model::Serializable.instance_methods - %i[open]
+      end
+
       def initialize(name, type, options = {})
         validate_name!(
-          name, reserved_methods: Lutaml::Model::Serializable.instance_methods
+          name, reserved_methods: reserved_methods
         )
 
         @name = name
