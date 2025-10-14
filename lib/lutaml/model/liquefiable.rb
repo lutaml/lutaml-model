@@ -11,6 +11,7 @@ module Lutaml
         attr_writer :mappings
 
         def inherited(base)
+          super
           base.mappings = Utils.deep_dup(mappings) || {}
         end
 
