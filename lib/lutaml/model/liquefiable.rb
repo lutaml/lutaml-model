@@ -8,6 +8,12 @@ module Lutaml
       end
 
       module ClassMethods
+        attr_writer :mappings
+
+        def inherited(base)
+          base.mappings = Utils.deep_dup(mappings) || {}
+        end
+
         def liquid_class(class_name)
           @custom_liquid_class_name = class_name
         end
@@ -67,10 +73,8 @@ module Lutaml
         def register_methods
           @methods_generated = true
 
-          if self <= Lutaml::Model::Serializable
-            attributes.each_key do |attr_name|
-              register_drop_method(attr_name)
-            end
+          if self <= Liquefiable
+            attributes&.each_key { |attr_name| register_drop_method(attr_name) } if respond_to?(:attributes)
 
             generate_mapping_methods
           end
@@ -110,13 +114,17 @@ module Lutaml
         def liquid(&block)
           return unless Object.const_defined?(:Liquid)
 
-          @liquid_mappings ||= ::Lutaml::Model::Liquid::Mapping.new
-          @liquid_mappings.instance_eval(&block) if block
-          @liquid_mappings
+          mappings[:liquid] ||= ::Lutaml::Model::Liquid::Mapping.new
+          mappings[:liquid].instance_eval(&block) if block
+          mappings[:liquid]
         end
 
         def liquid_mappings
-          @liquid_mappings
+          mappings[:liquid]
+        end
+
+        def mappings
+          @mappings ||= {}
         end
 
         def validate_liquid!

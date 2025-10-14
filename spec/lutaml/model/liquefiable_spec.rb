@@ -47,6 +47,28 @@ module LiquefiableSpec
       map "name", to: :name
     end
   end
+
+  class User
+    include Lutaml::Model::Liquefiable
+
+    def initialize(name, email)
+      @name = name
+      @email = email
+    end
+
+    def name
+      @name
+    end
+
+    def email
+      @email
+    end
+
+    liquid do
+      map "name", to: :name
+      map "email", to: :email
+    end
+  end
 end
 
 RSpec.describe Lutaml::Model::Liquefiable do
@@ -470,6 +492,24 @@ RSpec.describe Lutaml::Model::Liquefiable do
         template = Liquid::Template.parse("{{path}} - {{formatted_source}}")
         result = template.render(custom_drop)
         expect(result).to eq("templates/test.xml - Formatted: content")
+      end
+    end
+
+    context "when a custom class inherits from a class that includes the Liquefiable module" do
+      before do
+        stub_const("LiquefiableSpec::Admin", Class.new(LiquefiableSpec::User) do
+          # Testing if the LiquefiableSpec::User methods are inherited properly.
+        end)
+      end
+
+      let(:user_drop) { LiquefiableSpec::User.new("Alice", "alice@example.com").to_liquid }
+      let(:admin_drop) { LiquefiableSpec::Admin.new("Alice", "alice@example.com").to_liquid }
+
+      it "checks if the liquid drop responds to the mapped methods" do
+        expect(user_drop).to respond_to(:name)
+        expect(user_drop).to respond_to(:email)
+        expect(admin_drop).to respond_to(:name)
+        expect(admin_drop).to respond_to(:email)
       end
     end
   end
