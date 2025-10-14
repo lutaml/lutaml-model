@@ -36,6 +36,7 @@ module LiquefiableSpec
   class Person < Lutaml::Model::Serializable
     def initialize(attrs = {})
       @name = attrs[:name] if attrs.key?(:name)
+      super
     end
 
     def name
