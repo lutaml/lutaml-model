@@ -5,9 +5,26 @@ module Lutaml
     module Liquefiable
       def self.included(base)
         base.extend(ClassMethods)
+        base.register_class_if_liquid_defined
       end
 
       module ClassMethods
+        attr_writer :mappings
+
+        def inherited(child)
+          super
+          child.register_class_if_liquid_defined
+          child.mappings = Utils.deep_dup(mappings) || {}
+        end
+
+        def register_class_if_liquid_defined
+          return unless is_a?(Class)
+          return unless Object.const_defined?(:Liquid)
+          return if base_drop_class
+
+          register_liquid_drop_class
+        end
+
         def liquid_class(class_name)
           @custom_liquid_class_name = class_name
         end
@@ -58,7 +75,6 @@ module Lutaml
         end
 
         def to_liquid_class
-          register_liquid_drop_class unless base_drop_class
           register_methods unless @methods_generated
 
           base_drop_class
@@ -67,19 +83,18 @@ module Lutaml
         def register_methods
           @methods_generated = true
 
-          if self <= Lutaml::Model::Serializable
-            attributes.each_key do |attr_name|
-              register_drop_method(attr_name)
-            end
+          if self <= Serializable
+            raise Lutaml::Model::NoAttributesDefinedLiquidError.new(name) if attributes.empty?
 
             register_drop_method(:element_order)
 
-            generate_mapping_methods
+            attributes&.each_key { |attr_name| register_drop_method(attr_name) }
           end
+
+          generate_mapping_methods
         end
 
         def register_drop_method(method_name)
-          register_liquid_drop_class unless base_drop_class
           return if base_drop_class.method_defined?(method_name)
 
           base_drop_class.define_method(method_name) do
@@ -112,13 +127,17 @@ module Lutaml
         def liquid(&block)
           return unless Object.const_defined?(:Liquid)
 
-          @liquid_mappings ||= ::Lutaml::Model::Liquid::Mapping.new
-          @liquid_mappings.instance_eval(&block) if block
-          @liquid_mappings
+          mappings[:liquid] ||= ::Lutaml::Model::Liquid::Mapping.new
+          mappings[:liquid].instance_eval(&block) if block
+          mappings[:liquid]
         end
 
         def liquid_mappings
-          @liquid_mappings
+          mappings[:liquid]
+        end
+
+        def mappings
+          @mappings ||= {}
         end
 
         def validate_liquid!
