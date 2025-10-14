@@ -315,6 +315,7 @@ module Lutaml
         # @param array2 [Array] The second array to compare
         # @return [String] Formatted diff output for the collection
         def format_collection(array1, array2, parent_node)
+          array1 = [] if array1.nil?
           array2 = [] if array2.nil?
           max_length = [array1.length, array2.length].max
 
