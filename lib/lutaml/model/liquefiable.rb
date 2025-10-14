@@ -5,6 +5,9 @@ module Lutaml
     module Liquefiable
       def self.included(base)
         base.extend(ClassMethods)
+        if Object.const_defined?(:Liquid) && base.is_a?(::Class) && base.base_drop_class.nil?
+          base.register_liquid_drop_class
+        end
       end
 
       module ClassMethods
@@ -12,6 +15,7 @@ module Lutaml
 
         def inherited(base)
           super
+          base.register_liquid_drop_class
           base.mappings = Utils.deep_dup(mappings) || {}
         end
 
@@ -65,7 +69,6 @@ module Lutaml
         end
 
         def to_liquid_class
-          register_liquid_drop_class unless base_drop_class
           register_methods unless @methods_generated
 
           base_drop_class
@@ -74,15 +77,16 @@ module Lutaml
         def register_methods
           @methods_generated = true
 
-          if self <= Liquefiable
-            attributes&.each_key { |attr_name| register_drop_method(attr_name) } if respond_to?(:attributes)
+          if self <= Serializable
+            raise Lutaml::Model::NoAttributesDefinedLiquidError.new(name) if attributes.empty?
 
-            generate_mapping_methods
+            attributes&.each_key { |attr_name| register_drop_method(attr_name) }
           end
+
+          generate_mapping_methods
         end
 
         def register_drop_method(method_name)
-          register_liquid_drop_class unless base_drop_class
           return if base_drop_class.method_defined?(method_name)
 
           base_drop_class.define_method(method_name) do
@@ -137,8 +141,6 @@ module Lutaml
 
       def to_liquid
         self.class.validate_liquid!
-
-        self.class.register_liquid_drop_class unless self.class.base_drop_class
 
         self.class.register_methods
 

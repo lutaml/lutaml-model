@@ -33,21 +33,6 @@ module LiquefiableSpec
     attribute :ceramics, Ceramic, collection: true
   end
 
-  class Person < Lutaml::Model::Serializable
-    def initialize(attrs = {})
-      @name = attrs[:name] if attrs.key?(:name)
-      super
-    end
-
-    def name
-      @name
-    end
-
-    liquid do
-      map "name", to: :name
-    end
-  end
-
   class User
     include Lutaml::Model::Liquefiable
 
@@ -106,6 +91,15 @@ RSpec.describe Lutaml::Model::Liquefiable do
       it "raises an error" do
         dummy.class.register_liquid_drop_class
         expect { dummy.class.register_liquid_drop_class }.to raise_error(RuntimeError, "DummyModelDrop Already exists!")
+      end
+    end
+
+    context "when class inherits from Lutaml::Model::Serializable and doesn't define any attribute" do
+      before { stub_const("EmptyModel", Class.new(Lutaml::Model::Serializable)) }
+
+      it "raises an error" do
+        EmptyModel.class.register_liquid_drop_class
+        expect { EmptyModel.class.to_liquid_class }.to raise_error(RuntimeError, "DummyModelDrop Already exists!")
       end
     end
   end
@@ -171,18 +165,6 @@ RSpec.describe Lutaml::Model::Liquefiable do
 
       it "allows access to registered methods via the drop class" do
         expect(dummy.to_liquid.display_name).to eq("TestName (42)")
-      end
-    end
-
-    context "when liquid is enabled but drop class doesn't contain any attribtue" do
-      let(:person) { LiquefiableSpec::Person.new(name: "Alice") }
-
-      it "returns an instance of the drop class" do
-        expect(person.to_liquid).to be_a(LiquefiableSpec::Person::PersonDrop)
-      end
-
-      it "returns person name for liquid name method" do
-        expect(person.to_liquid.name).to eq("Alice")
       end
     end
   end
