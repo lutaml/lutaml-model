@@ -561,6 +561,172 @@ RSpec.describe "XmlNamespace" do
         expect(regenerated_xml).to be_equivalent_to(expected_xml)
       end
     end
+
+    describe "Model-level prefix method" do
+      context "with standalone prefix method" do
+        class StandalonePrefixModel < Lutaml::Model::Serializable
+          attribute :value, :string
+  
+          xml do
+            root "Test"
+            namespace "http://example.com/test"
+            prefix "tst"
+            map_element "value", to: :value
+          end
+        end
+  
+        it "sets the namespace prefix" do
+          mapping = StandalonePrefixModel.mappings_for(:xml)
+          expect(mapping.namespace_prefix).to eq("tst")
+        end
+  
+        it "defaults optional_prefix to false" do
+          mapping = StandalonePrefixModel.mappings_for(:xml)
+          expect(mapping.optional_prefix?).to be false
+        end
+  
+        it "serializes with the prefix" do
+          obj = StandalonePrefixModel.new(value: "test")
+          xml = obj.to_xml
+          expect(xml).to include('xmlns:tst="http://example.com/test"')
+          expect(xml).to include("<tst:Test")
+        end
+      end
+  
+      context "with optional prefix" do
+        class OptionalPrefixModel < Lutaml::Model::Serializable
+          attribute :value, :string
+  
+          xml do
+            root "Test"
+            namespace "http://example.com/test"
+            prefix "opt", optional: true
+            map_element "value", to: :value
+          end
+        end
+  
+        it "sets the namespace prefix" do
+          mapping = OptionalPrefixModel.mappings_for(:xml)
+          expect(mapping.namespace_prefix).to eq("opt")
+        end
+  
+        it "marks prefix as optional" do
+          mapping = OptionalPrefixModel.mappings_for(:xml)
+          expect(mapping.optional_prefix?).to be true
+        end
+  
+        it "serializes with the prefix" do
+          obj = OptionalPrefixModel.new(value: "test")
+          xml = obj.to_xml
+          expect(xml).to include('xmlns:opt="http://example.com/test"')
+          expect(xml).to include("<opt:Test")
+        end
+      end
+  
+      context "with prefix overriding namespace prefix" do
+        class PrefixOverrideModel < Lutaml::Model::Serializable
+          attribute :value, :string
+  
+          xml do
+            root "Test"
+            namespace "http://example.com/test", "old"
+            prefix "new", optional: true
+            map_element "value", to: :value
+          end
+        end
+  
+        it "uses the prefix from prefix method" do
+          mapping = PrefixOverrideModel.mappings_for(:xml)
+          expect(mapping.namespace_prefix).to eq("new")
+        end
+  
+        it "preserves the optional flag" do
+          mapping = PrefixOverrideModel.mappings_for(:xml)
+          expect(mapping.optional_prefix?).to be true
+        end
+  
+        it "serializes with the overridden prefix" do
+          obj = PrefixOverrideModel.new(value: "test")
+          xml = obj.to_xml
+          expect(xml).to include('xmlns:new="http://example.com/test"')
+          expect(xml).to include("<new:Test")
+          expect(xml).not_to include("xmlns:old")
+        end
+      end
+  
+      context "with prefix set independently of namespace" do
+        class IndependentPrefixModel < Lutaml::Model::Serializable
+          attribute :value, :string
+  
+          xml do
+            root "Test"
+            namespace "http://example.com/test"
+            prefix "independent"
+            map_element "value", to: :value
+          end
+        end
+  
+        it "combines namespace URI with independent prefix" do
+          mapping = IndependentPrefixModel.mappings_for(:xml)
+          expect(mapping.namespace_uri).to eq("http://example.com/test")
+          expect(mapping.namespace_prefix).to eq("independent")
+        end
+  
+        it "serializes correctly" do
+          obj = IndependentPrefixModel.new(value: "test")
+          xml = obj.to_xml
+          expect(xml).to include('xmlns:independent="http://example.com/test"')
+          expect(xml).to include("<independent:Test")
+        end
+      end
+  
+      context "deep_dup preserves optional_prefix" do
+        class DeepDupPrefixModel < Lutaml::Model::Serializable
+          attribute :value, :string
+  
+          xml do
+            root "Test"
+            namespace "http://example.com/test"
+            prefix "dup", optional: true
+            map_element "value", to: :value
+          end
+        end
+  
+        it "preserves prefix and optional flag in duplicated mapping" do
+          original = DeepDupPrefixModel.mappings_for(:xml)
+          duped = original.deep_dup
+          
+          expect(duped.namespace_prefix).to eq("dup")
+          expect(duped.optional_prefix?).to be true
+        end
+      end
+  
+      context "backward compatibility with namespace(uri, prefix)" do
+        class BackwardCompatModel < Lutaml::Model::Serializable
+          attribute :value, :string
+  
+          xml do
+            root "Test"
+            namespace "http://example.com/test", "bc"
+            map_element "value", to: :value
+          end
+        end
+  
+        it "still works with namespace method" do
+          mapping = BackwardCompatModel.mappings_for(:xml)
+          expect(mapping.namespace_uri).to eq("http://example.com/test")
+          expect(mapping.namespace_prefix).to eq("bc")
+          expect(mapping.optional_prefix?).to be false
+        end
+  
+        it "serializes correctly" do
+          obj = BackwardCompatModel.new(value: "test")
+          xml = obj.to_xml
+          expect(xml).to include('xmlns:bc="http://example.com/test"')
+          expect(xml).to include("<bc:Test")
+        end
+      end
+    end
   end
 
   describe Lutaml::Model::Xml::NokogiriAdapter do
