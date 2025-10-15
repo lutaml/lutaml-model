@@ -46,13 +46,15 @@ module Lutaml
         validate_sequence!(
           extract_defined_order(model_class.attributes),
           element_order,
+          choices = {},
         )
       end
 
       private
 
-      def validate_sequence!(defined_order, element_order)
+      def validate_sequence!(defined_order, element_order, choices)
         eo_index = element_order_index(element_order, defined_order)
+        update_choices_count_hash(defined_order, choices)
 
         defined_order.each do |element, klass_attr|
           if klass_attr.collection?
@@ -62,11 +64,25 @@ module Lutaml
               occurrences = klass_attr.sequenced_appearance_count(element_order, element, eo_index)
               next eo_index += occurrences if occurrences.positive?
             end
+          elsif klass_attr.choice
+            next if element_order[eo_index] != element
+
+            occurrences = klass_attr.choiced_appearance_count(element_order, element, eo_index, choices)
+            next eo_index += occurrences if occurrences.positive?
           end
 
           next eo_index += 1 if element_order[eo_index] == element
 
           raise Lutaml::Model::IncorrectSequenceError.new(element, element_order[eo_index])
+        end
+        choices.each { |choice, count| choice.validate_count_in_sequence!(count) }
+      end
+
+      def update_choices_count_hash(defined_order, choices)
+        defined_order.each_value do |attr|
+          next unless attr.choice
+
+          choices[attr.choice] ||= 0
         end
       end
 

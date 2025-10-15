@@ -424,6 +424,22 @@ module Lutaml
         )
       end
 
+      def choiced_appearance_count(element_order, mapped_name, current_index, choices)
+        elements = element_order[current_index..]
+
+        choice_elements = choice.model.mappings_for(:xml).elements
+        attribute_names = choice.attributes.map(&:name)
+
+        name_to_to = choice_elements.to_h { |element| [element.name, element.to] }
+        filtered = name_to_to.reject { |_, to| !attribute_names.include?(to) }
+
+        choices[choice] += elements.take_while { |element| filtered.key?(element) }.count
+      end
+
+      def choice
+        @options[:choice]
+      end
+
       def process_options!
         validate_options!(@options)
         @raw = !!@options[:raw]
