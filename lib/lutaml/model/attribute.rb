@@ -349,32 +349,31 @@ module Lutaml
         return true unless collection?
 
         # Allow any value for unbounded collections
-        return true if options[:collection] == true
+        return true if collection == true
 
-        unless collection_instance?(value)
+        unless (Utils.uninitialized?(value) && resolved_collection.min.zero?) || collection_instance?(value)
           raise Lutaml::Model::CollectionCountOutOfRangeError.new(
             name,
             value,
-            options[:collection],
+            collection,
           )
         end
 
-        range = options[:collection]
-        return true unless range.is_a?(Range)
+        return true unless resolved_collection.is_a?(Range)
 
-        if range.is_a?(Range) && range.end.nil?
-          if value.size < range.begin
+        if resolved_collection.is_a?(Range) && resolved_collection.end.infinite?
+          if value.size < resolved_collection.begin
             raise Lutaml::Model::CollectionCountOutOfRangeError.new(
               name,
               value,
-              range,
+              collection,
             )
           end
-        elsif range.is_a?(Range) && !range.cover?(value.size)
+        elsif resolved_collection.is_a?(Range) && !resolved_collection.cover?(value.size)
           raise Lutaml::Model::CollectionCountOutOfRangeError.new(
             name,
             value,
-            range,
+            collection,
           )
         end
       end
@@ -430,22 +429,37 @@ module Lutaml
         type(register) <= Serialize
       end
 
-      def collection_range
+      def resolved_collection
         return unless collection?
 
-        collection.is_a?(Range) ? collection : 0..Float::INFINITY
+        collection.is_a?(Range) ? validated_range_object : 0..Float::INFINITY
       end
 
       def sequenced_appearance_count(element_order, mapped_name, current_index)
         elements = element_order[current_index..]
         element_count = elements.take_while { |element| element == mapped_name }.count
-        return element_count if element_count.between?(*collection_range.minmax)
+        return element_count if element_count.between?(*resolved_collection.minmax)
 
         raise Lutaml::Model::ElementCountOutOfRangeError.new(
           mapped_name,
           element_count,
-          collection_range,
+          collection,
         )
+      end
+
+      def validate_choice_content!(elements)
+        return elements.count unless resolved_collection
+        return 1 if elements.count.between?(*resolved_collection.minmax)
+
+        elements.each_slice(resolved_collection.max).count
+      end
+
+      def min_collection_zero?
+        collection? && resolved_collection.min.zero?
+      end
+
+      def choice
+        @options[:choice]
       end
 
       def process_options!
@@ -460,6 +474,12 @@ module Lutaml
       end
 
       private
+
+      def validated_range_object
+        return collection if collection.end
+
+        collection.begin..Float::INFINITY
+      end
 
       def validate_name!(name, reserved_methods:)
         return unless reserved_methods.include?(name.to_sym)

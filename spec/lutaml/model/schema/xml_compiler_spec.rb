@@ -292,11 +292,8 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
 
         it "matches the expected class names of the schema" do
           expect(defined?(OOXML::CTOMath)).to eq("constant")
-          # TODO: The error is not expected once the issue#359 is implemented.
           expect(OOXML::CTOMath.instance_variable_get(:@attributes)).to be_empty
-          expect { OOXML::CTF.from_xml(xml) }.to raise_error(Lutaml::Model::IncorrectSequenceError) do |error|
-            expect(error.message).to match(/does not match the expected sequence/)
-          end
+          expect(OOXML::CTF.from_xml(xml).to_xml).to be_equivalent_to(xml)
           expect(OOXML::CTF.instance_variable_get(:@attributes)).not_to be_empty
         end
       end
