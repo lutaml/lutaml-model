@@ -5,18 +5,24 @@ module Lutaml
     module Liquefiable
       def self.included(base)
         base.extend(ClassMethods)
-        if Object.const_defined?(:Liquid) && base.is_a?(Class) && base.base_drop_class.nil?
-          base.register_liquid_drop_class
-        end
+        base.register_class_if_liquid_defined
       end
 
       module ClassMethods
         attr_writer :mappings
 
         def inherited(child)
-          child.register_liquid_drop_class
-          child.mappings = Utils.deep_dup(mappings) || {}
           super
+          child.register_class_if_liquid_defined
+          child.mappings = Utils.deep_dup(mappings) || {}
+        end
+
+        def register_class_if_liquid_defined
+          return unless is_a?(Class)
+          return unless Object.const_defined?(:Liquid)
+          return if base_drop_class
+
+          register_liquid_drop_class
         end
 
         def liquid_class(class_name)
