@@ -317,9 +317,8 @@ module Lutaml
 
           attrs = {}
 
-          if xml_mappings.namespace_uri && set_namespace?(options[:caller_rule]) && (is_root_call.nil? || is_root_call)
-            should_add_xmlns = parent_namespace.nil? ||
-              parent_namespace != xml_mappings.namespace_uri
+          if xml_mappings.namespace_uri && set_namespace?(options[:caller_rule]) && is_root_call != false
+            should_add_xmlns = parent_namespace.nil? || parent_namespace != xml_mappings.namespace_uri
 
             if should_add_xmlns
               prefixed_name = [
@@ -353,11 +352,8 @@ module Lutaml
                 parent_namespace: xml_mappings.namespace_uri || parent_namespace,
                 is_root_call: false, # Mark that we're recursing
               }
-              child_attrs = build_namespace_attributes(type, processed, child_options)
 
-              child_attrs.each do |key, value|
-                attrs[key] = value if key.include?(":")
-              end
+              attrs = attrs.merge(build_namespace_attributes(type, processed, child_options))
             end
 
             if mapping_rule.namespace && mapping_rule.prefix && mapping_rule.name != "lang"
@@ -497,15 +493,11 @@ module Lutaml
 
           parent_namespace = options[:parent_namespace]
           element_namespace = mapping.namespace_uri
-          namespace_inherited = parent_namespace && element_namespace &&
-            parent_namespace == element_namespace
 
           merged_attrs = attributes.dup
           xml_attributes.each do |key, value|
-            is_xmlns = key == "xmlns" || key.start_with?("xmlns:")
-
-            next if is_xmlns && namespace_inherited
-            next if is_xmlns && merged_attrs.key?(key)
+            next if (key == "xmlns" || key.start_with?("xmlns:")) &&
+              (parent_namespace == element_namespace || merged_attrs.key?(key))
 
             merged_attrs[key] = value
           end

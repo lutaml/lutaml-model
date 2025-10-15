@@ -127,8 +127,8 @@ module Lutaml
                 root_node.add_namespace(ns)
               elsif root_node.nil?
                 add_namespace(ns)
-                default_namespace = ns.uri if ns.prefix.nil?
               end
+              default_namespace = ns.uri if ns.prefix.nil?
             end
 
             attributes = node.attributes.each_with_object({}) do |(name, value), hash|
