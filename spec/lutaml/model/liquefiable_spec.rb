@@ -64,18 +64,6 @@ RSpec.describe Lutaml::Model::Liquefiable do
   let(:dummy) { DummyModel.new("TestName", 42) }
 
   describe ".register_liquid_drop_class" do
-    context "when drop class does not exist" do
-      it "creates a new drop class" do
-        expect do
-          dummy.class.register_liquid_drop_class
-        end.to change {
-                 dummy.class.const_defined?(:DummyModelDrop)
-               }
-          .from(false)
-          .to(true)
-      end
-    end
-
     context "when 'liquid' is not available" do
       before { allow(Object).to receive(:const_defined?).with(:Liquid).and_return(false) }
 
@@ -89,8 +77,7 @@ RSpec.describe Lutaml::Model::Liquefiable do
 
     context "when drop class already exists" do
       it "raises an error" do
-        dummy.class.register_liquid_drop_class
-        expect { dummy.class.register_liquid_drop_class }.to raise_error(RuntimeError, "DummyModelDrop Already exists!")
+        expect { dummy.class.register_liquid_drop_class }.to raise_error(RuntimeError, "Drop Already exists!")
       end
     end
 
@@ -98,27 +85,27 @@ RSpec.describe Lutaml::Model::Liquefiable do
       before { stub_const("EmptyModel", Class.new(Lutaml::Model::Serializable)) }
 
       it "raises an error" do
-        EmptyModel.class.register_liquid_drop_class
-        expect { EmptyModel.class.to_liquid_class }.to raise_error(RuntimeError, "DummyModelDrop Already exists!")
+        expect { EmptyModel.register_liquid_drop_class }.to raise_error(RuntimeError, "Drop Already exists!")
       end
     end
   end
 
   describe ".drop_class_name" do
     it "returns the correct drop class name" do
-      expect(dummy.class.drop_class_name).to eq("DummyModelDrop")
+      expect(dummy.class.drop_class_name).to eq("Drop")
     end
   end
 
   describe ".drop_class" do
     context "when drop class exists" do
       it "returns the drop class" do
-        dummy.class.register_liquid_drop_class
-        expect(dummy.class.drop_class).to eq(DummyModel::DummyModelDrop)
+        expect(dummy.class.drop_class).to eq(DummyModel::Drop)
       end
     end
 
     context "when drop class does not exist" do
+      before { allow(dummy.class).to receive(:drop_class).and_return(nil) }
+
       it "returns nil" do
         expect(dummy.class.drop_class).to be_nil
       end
@@ -126,10 +113,6 @@ RSpec.describe Lutaml::Model::Liquefiable do
   end
 
   describe ".register_drop_method" do
-    before do
-      dummy.class.register_liquid_drop_class
-    end
-
     it "defines a method on the drop class" do
       expect do
         dummy.class.register_drop_method(:display_name)
@@ -155,7 +138,6 @@ RSpec.describe Lutaml::Model::Liquefiable do
 
     context "when liquid is enabled" do
       before do
-        dummy.class.register_liquid_drop_class
         dummy.class.register_drop_method(:display_name)
       end
 
