@@ -31,7 +31,6 @@ module Lutaml
         set_schema_location(instance, doc)
 
         defaults_used = []
-        validate_sequence!(doc.root.order)
 
         mappings.each do |rule|
           attr = attribute_for_rule(rule)
@@ -51,7 +50,8 @@ module Lutaml
                   else
                     val = value_for_rule(doc, rule, new_opts, instance)
 
-                    if (val.nil? || Utils.uninitialized?(val)) && (instance.using_default?(rule.to) || rule.render_default)
+                    if (val.nil? || Utils.uninitialized?(val)) &&
+                        (instance.using_default?(rule.to) || rule.render_default)
                       defaults_used << rule.to
                       attr&.default(__register) || rule.to_value_for(instance)
                     else
@@ -210,17 +210,6 @@ module Lutaml
           node.inner_xml
         else
           node.children.map(&:to_xml).join
-        end
-      end
-
-      def validate_sequence!(element_order)
-        mapping_sequence = mappings_for(:xml).element_sequence
-        return if mapping_sequence.empty?
-
-        current_order = element_order.filter_map(&:element_tag)
-
-        mapping_sequence.each do |mapping|
-          mapping.validate_content!(current_order, context)
         end
       end
     end
