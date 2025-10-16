@@ -61,6 +61,34 @@ module SequenceSpec
     restrict :usage, collection: 0..1
     restrict :size, collection: 1..2
   end
+
+  class Person < Lutaml::Model::Serializable
+    attribute :first_name, :string
+    attribute :last_name, :string
+    choice do
+      attribute :age, :integer
+      attribute :dob, :string
+    end
+    choice(min: 1, max: 2) do
+      attribute :email, :string, collection: 0..2
+      attribute :phone, :string, collection: 0..2
+      attribute :address, :string, collection: true
+    end
+
+    xml do
+      root "Person", mixed: true
+
+      sequence do
+        map_element :FirstName, to: :first_name
+        map_element :LastName, to: :last_name
+        map_element :Age, to: :age
+        map_element :Dob, to: :dob
+        map_element :Email, to: :email
+        map_element :Phone, to: :phone
+        map_element :Address, to: :address
+      end
+    end
+  end
 end
 
 RSpec.describe "Sequence" do
@@ -263,6 +291,88 @@ RSpec.describe "Sequence" do
     it "raises error for missing required tag" do
       expect { sequence.validate_content!(["tag", "id", "name", "type", "color", "bold", "text", "usage"], klass) }
         .to raise_error(Lutaml::Model::ElementCountOutOfRangeError)
+    end
+
+    context "when processing XML with correct sequence, including choice and collection attributes" do
+      let(:basic_xml) do
+        <<~XML
+          <Person>
+            <FirstName>Dale</FirstName>
+            <LastName>Steyn</LastName>
+            <Age>30</Age>
+            <Email>alice@example.com</Email>
+            <Email>alice1@example.com</Email>
+          </Person>
+        XML
+      end
+
+      let(:phone_numbered_xml) do
+        <<~XML
+          <Person>
+            <FirstName>Dale</FirstName>
+            <LastName>Steyn</LastName>
+            <Age>30</Age>
+            <Email>alice@example.com</Email>
+            <Email>alice1@example.com</Email>
+            <Phone>alice1@example.com</Phone>
+          </Person>
+        XML
+      end
+
+      let(:addressed_xml) do
+        <<~XML
+          <Person>
+            <FirstName>Dale</FirstName>
+            <LastName>Steyn</LastName>
+            <Age>30</Age>
+            <Email>alice@example.com</Email>
+            <Email>alice1@example.com</Email>
+            <Address>Street number 1</Address>
+            <Address>Street number 2</Address>
+            <Address>Street number 3</Address>
+            <Address>Street number 4</Address>
+            <Address>Street number 5</Address>
+            <Address>Street number 6</Address>
+            <Address>Street number 7</Address>
+            <Address>Street number 8</Address>
+            <Address>Street number 9</Address>
+            <Address>Street number *</Address>
+          </Person>
+        XML
+      end
+
+      it "validates successfully with basic XML including required choice and collection attributes" do
+        ceramic = SequenceSpec::Person.from_xml(basic_xml)
+        expect { ceramic.validate! }.not_to raise_error
+      end
+
+      it "validates successfully when XML contains multiple phone and email elements" do
+        ceramic = SequenceSpec::Person.from_xml(phone_numbered_xml)
+        expect { ceramic.validate! }.not_to raise_error
+      end
+
+      it "validates successfully when XML contains an unbounded collection of addresses" do
+        ceramic = SequenceSpec::Person.from_xml(addressed_xml)
+        expect { ceramic.validate! }.not_to raise_error
+      end
+    end
+
+    context "when XML input is missing minimum required choice elements" do
+      let(:missing_age_choice_xml) do
+        <<~XML
+          <Person>
+            <FirstName>Dale</FirstName>
+            <LastName>Steyn</LastName>
+            <Email>alice@example.com</Email>
+            <Address>Street number *</Address>
+          </Person>
+        XML
+      end
+
+      it "raises an error when XML is missing a required choice attribute" do
+        ceramic = SequenceSpec::Person.from_xml(missing_age_choice_xml)
+        expect { ceramic.validate! }.to raise_error(Lutaml::Model::Error)
+      end
     end
   end
 end

@@ -43,46 +43,46 @@ module Lutaml
       end
 
       def validate_content!(element_order, model_class)
+        defined_order = extract_defined_order(model_class.attributes)
         validate_sequence!(
-          extract_defined_order(model_class.attributes),
+          defined_order,
+          element_order_index(element_order, defined_order),
           element_order,
-          choices = {},
         )
       end
 
       private
 
-      def validate_sequence!(defined_order, element_order, choices)
-        eo_index = element_order_index(element_order, defined_order)
-        update_choices_count_hash(defined_order, choices)
-
+      def validate_sequence!(defined_order, eo_index, element_order)
+        choices = ::Hash.new(0)
         defined_order.each do |element, klass_attr|
-          if klass_attr.collection?
-            if add_missing_element?(element_order, eo_index, element, klass_attr)
-              element_order.insert(eo_index, element)
-            else
-              occurrences = klass_attr.sequenced_appearance_count(element_order, element, eo_index)
-              next eo_index += occurrences if occurrences.positive?
-            end
-          elsif klass_attr.choice
-            next if element_order[eo_index] != element
+          occurrences = if klass_attr.collection?
+                          attr_collection(element_order, eo_index, element, klass_attr, choices)
+                        elsif klass_attr.choice
+                          next unless element_order[eo_index] == element
 
-            occurrences = klass_attr.choiced_appearance_count(element_order, element, eo_index, choices)
-            next eo_index += occurrences if occurrences.positive?
-          end
+                          klass_attr.choiced_appearance_count(element_order, eo_index, choices)
+                        end
 
+          next eo_index += occurrences if occurrences&.positive?
           next eo_index += 1 if element_order[eo_index] == element
 
-          raise Lutaml::Model::IncorrectSequenceError.new(element, element_order[eo_index])
+          raise IncorrectSequenceError.new(element, element_order[eo_index])
         end
         choices.each { |choice, count| choice.validate_count_in_sequence!(count) }
       end
 
-      def update_choices_count_hash(defined_order, choices)
-        defined_order.each_value do |attr|
-          next unless attr.choice
-
-          choices[attr.choice] ||= 0
+      def attr_collection(element_order, current_index, element, klass_attr, choices)
+        if add_missing_element?(element_order, current_index, element, klass_attr)
+          element_order.insert(current_index, element)
+          nil
+        else
+          klass_attr.sequenced_appearance_count(
+            element_order,
+            element,
+            current_index,
+            choices,
+          )
         end
       end
 

@@ -344,7 +344,8 @@ module Lutaml
         # Allow any value for unbounded collections
         return true if options[:collection] == true
 
-        unless collection_instance?(value)
+        range = options[:collection]
+        unless collection_instance?(value) || (value.respond_to?(:size) && value.size <= range.min)
           raise Lutaml::Model::CollectionCountOutOfRangeError.new(
             name,
             value,
@@ -352,7 +353,6 @@ module Lutaml
           )
         end
 
-        range = options[:collection]
         return true unless range.is_a?(Range)
 
         if range.is_a?(Range) && range.end.nil?
@@ -412,28 +412,44 @@ module Lutaml
         collection.is_a?(Range) ? collection : 0..Float::INFINITY
       end
 
-      def sequenced_appearance_count(element_order, mapped_name, current_index)
+      def sequenced_appearance_count(element_order, mapped_name, current_index, choices)
         elements = element_order[current_index..]
         element_count = elements.take_while { |element| element == mapped_name }.count
-        return element_count if element_count.between?(*collection_range.minmax)
+        if choice
+          choice_element_count = element_count
+          eo_index = 0
+          loop do
+            choice_element_count -= collection_range.max
+            choices[choice] += 1
+            eo_index += collection_range.max
+            next unless choice_element_count <= collection_range.max
 
-        raise Lutaml::Model::ElementCountOutOfRangeError.new(
-          mapped_name,
-          element_count,
-          collection_range,
-        )
+            eo_index += collection_range.max if choice_element_count.positive?
+            break eo_index
+          end
+        elsif element_count.between?(*collection_range.minmax)
+          element_count
+        else
+          raise Lutaml::Model::ElementCountOutOfRangeError.new(
+            mapped_name,
+            element_count,
+            collection_range,
+          )
+        end
       end
 
-      def choiced_appearance_count(element_order, mapped_name, current_index, choices)
+      def choiced_appearance_count(element_order, current_index, choices)
         elements = element_order[current_index..]
 
         choice_elements = choice.model.mappings_for(:xml).elements
         attribute_names = choice.attributes.map(&:name)
 
-        name_to_to = choice_elements.to_h { |element| [element.name, element.to] }
-        filtered = name_to_to.reject { |_, to| !attribute_names.include?(to) }
+        name_to_to = choice_elements.to_h { |element| [element.name.to_s, element.to] }
+        filtered = name_to_to.select { |_, to| attribute_names.include?(to) }
 
-        choices[choice] += elements.take_while { |element| filtered.key?(element) }.count
+        choiced_element_count = elements.take_while { |element| filtered.key?(element) }.count
+        choices[choice] += choiced_element_count
+        choiced_element_count
       end
 
       def choice
