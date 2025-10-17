@@ -55,6 +55,16 @@ module Lutaml
         @model.attributes.merge!(attrs_hash)
       end
 
+      def flat_attributes
+        @attributes.flat_map do |attribute|
+          if attribute.is_a?(Choice)
+            attribute.flat_attributes
+          else
+            attribute
+          end
+        end
+      end
+
       def validate_count_in_sequence!(count)
         # TODO: Create sequence related error classes and use them here.
         raise Lutaml::Model::ChoiceLowerBoundError.new(self, @min) if count < @min

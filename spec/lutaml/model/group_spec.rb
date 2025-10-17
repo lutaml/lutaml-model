@@ -82,7 +82,7 @@ module GroupSpec
   end
 
   class CommonAttributes < Lutaml::Model::Serializable
-    choice do
+    choice(min: 1, max: 3) do
       attribute :mstyle, :string
       attribute :mcol, :string
       attribute :mr, :string
@@ -370,13 +370,13 @@ RSpec.describe "Group" do
       it "maintains original choice min/max in Mfrac" do
         choice = GroupSpec::Mfrac.choice_attributes.first
         expect(choice.min).to eq(1)
-        expect(choice.max).to eq(1)
+        expect(choice.max).to eq(3)
       end
 
       it "maintains original choice min/max in CommonAttributes" do
         choice = GroupSpec::CommonAttributes.choice_attributes.first
         expect(choice.min).to eq(1)
-        expect(choice.max).to eq(1)
+        expect(choice.max).to eq(3)
       end
     end
 

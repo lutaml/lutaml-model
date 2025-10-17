@@ -345,7 +345,7 @@ module Lutaml
         return true if options[:collection] == true
 
         range = options[:collection]
-        unless collection_instance?(value) || (value.respond_to?(:size) && value.size <= range.min)
+        unless (Utils.uninitialized?(value) && range.min.zero?) || collection_instance?(value)
           raise Lutaml::Model::CollectionCountOutOfRangeError.new(
             name,
             value,
@@ -414,21 +414,19 @@ module Lutaml
 
       def sequenced_appearance_count(element_order, mapped_name, current_index, choices)
         elements = element_order[current_index..]
-        element_count = elements.take_while { |element| element == mapped_name }.count
-        if choice
-          choice_element_count = element_count
-          eo_index = 0
+        element_count = elements&.take_while { |element| element == mapped_name }&.count.to_i
+        if choice && element_count.positive?
           loop do
-            choice_element_count -= collection_range.max
+            element_count -= collection_range.max
             choices[choice] += 1
-            eo_index += collection_range.max
-            next unless choice_element_count <= collection_range.max
+            current_index += collection_range.max
+            next unless element_count <= collection_range.max
 
-            eo_index += collection_range.max if choice_element_count.positive?
-            break eo_index
+            current_index += collection_range.max if element_count.positive?
+            break current_index
           end
-        elsif element_count.between?(*collection_range.minmax)
-          element_count
+        elsif element_count&.between?(*collection_range.minmax)
+          element_count + current_index
         else
           raise Lutaml::Model::ElementCountOutOfRangeError.new(
             mapped_name,
@@ -442,14 +440,18 @@ module Lutaml
         elements = element_order[current_index..]
 
         choice_elements = choice.model.mappings_for(:xml).elements
-        attribute_names = choice.attributes.map(&:name)
+        attribute_names = choice.flat_attributes.to_h { |attr| [attr.name.to_sym, attr] }
 
         name_to_to = choice_elements.to_h { |element| [element.name.to_s, element.to] }
-        filtered = name_to_to.select { |_, to| attribute_names.include?(to) }
+        filtered = name_to_to.select { |_, to| attribute_names.key?(to) }
 
-        choiced_element_count = elements.take_while { |element| filtered.key?(element) }.count
-        choices[choice] += choiced_element_count
-        choiced_element_count
+        while filtered.key?(elements.first)
+          current_index += 1
+          choice_attr = attribute_names[filtered[elements.shift]]
+          choices[choice] += 1 unless choice == choice_attr.choice
+          choices[choice_attr.choice] += 1
+        end
+        current_index
       end
 
       def choice

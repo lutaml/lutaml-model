@@ -56,15 +56,13 @@ module Lutaml
       def validate_sequence!(defined_order, eo_index, element_order)
         choices = ::Hash.new(0)
         defined_order.each do |element, klass_attr|
-          occurrences = if klass_attr.collection?
-                          attr_collection(element_order, eo_index, element, klass_attr, choices)
-                        elsif klass_attr.choice
-                          next unless element_order[eo_index] == element
+          updated_index = if klass_attr.collection?
+                            attr_collection(element_order, eo_index, element, klass_attr, choices)
+                          elsif klass_attr.choice
+                              klass_attr.choiced_appearance_count(element_order, eo_index, choices).to_i
+                          end
 
-                          klass_attr.choiced_appearance_count(element_order, eo_index, choices)
-                        end
-
-          next eo_index += occurrences if occurrences&.positive?
+          next eo_index = updated_index if updated_index
           next eo_index += 1 if element_order[eo_index] == element
 
           raise IncorrectSequenceError.new(element, element_order[eo_index])
