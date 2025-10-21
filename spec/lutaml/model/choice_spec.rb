@@ -70,17 +70,32 @@ module ChoiceSpec
     xml { no_root }
   end
 
-  class Person < Lutaml::Model::Serializable
+  class ContactAttributes < Lutaml::Model::Serializable
     choice(min: 1, max: 2) do
       import_model_attributes ContactEmail
       import_model_attributes ContactPhone
     end
 
     xml do
-      root "Person"
+      no_root
+
       map_element :email, to: :email
       map_element :phone, to: :phone
     end
+  end
+
+  class Person < Lutaml::Model::Serializable
+    import_model_attributes ContactAttributes
+
+    xml do
+      root "Person"
+
+      import_model_mappings ContactAttributes
+    end
+  end
+
+  class User < Person
+    xml { root "User" }
   end
 end
 
@@ -207,6 +222,19 @@ RSpec.describe "Choice" do
         <Person></Person>
       XML
       expect { ChoiceSpec::Person.from_xml(xml).validate! }.to raise_error(Lutaml::Model::ValidationError)
+    end
+  end
+
+  context "when subclassing Person in User" do
+    it "copies and scopes choice definitions" do
+      ChoiceSpec::Person.choice_attributes.each_with_index do |choice, index|
+        user_choice = ChoiceSpec::User.choice_attributes[index]
+        expect(choice.min).to eql(user_choice.min)
+        expect(choice.max).to eql(user_choice.max)
+        expect(choice.model).not_to be(user_choice.model)
+        expect(choice.model).to be(ChoiceSpec::Person)
+        expect(user_choice.model).to be(ChoiceSpec::User)
+      end
     end
   end
 end

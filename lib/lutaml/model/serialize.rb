@@ -49,8 +49,13 @@ module Lutaml
         def initialize_attrs(source_class)
           @mappings = Utils.deep_dup(source_class.instance_variable_get(:@mappings)) || {}
           @attributes = Utils.deep_dup(source_class.instance_variable_get(:@attributes)) || {}
-          @choice_attributes = Utils.deep_dup(source_class.instance_variable_get(:@choice_attributes)) || []
+          @choice_attributes = deep_duplicate_choice_attributes(source_class)
           instance_variable_set(:@model, self)
+        end
+
+        def deep_duplicate_choice_attributes(source_class)
+          choice_attrs = Array(source_class.instance_variable_get(:@choice_attributes))
+          choice_attrs.map { |choice_attr| choice_attr.deep_duplicate(self) }
         end
 
         def attributes(register = nil)
@@ -235,8 +240,8 @@ module Lutaml
             define_attribute_methods(attr)
           end
 
-          @choice_attributes.concat(Utils.deep_dup(model.choice_attributes))
           @attributes.merge!(Utils.deep_dup(model.attributes))
+          @choice_attributes.concat(deep_duplicate_choice_attributes(model))
         end
 
         def import_model_mappings(model)
