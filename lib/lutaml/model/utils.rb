@@ -6,6 +6,14 @@ module Lutaml
       class << self
         UNINITIALIZED = Lutaml::Model::UninitializedClass.instance
 
+        def safe_load(file, constant)
+          require file
+
+          Object.const_defined?(constant)
+        rescue StandardError => e
+          false
+        end
+
         # Convert string to camel case
         def camel_case(str)
           return "" if str.nil? || str.empty?
