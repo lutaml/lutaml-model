@@ -76,7 +76,11 @@ module Lutaml
 
           # options = {}
 
-          options[:namespace_prefix] = rule.prefix if rule&.namespace_set?
+          # If the rule has a prefix set, propagate it to child elements
+          if rule&.prefix_set? || rule&.namespace_set?
+            options[:namespace_prefix] = rule.prefix
+          end
+
           options[:mixed_content] = rule.mixed_content
           options[:tag_name] = rule.name
 
@@ -144,6 +148,18 @@ module Lutaml
           end
         end
 
+        def add_element_with_prefix(xml, rule, prefix, attributes: {}, &block)
+          options = { attributes: attributes }
+
+          if rule.namespace_set? && rule.namespace.nil?
+            options[:prefix] = nil
+          elsif prefix
+            options[:prefix] = prefix
+          end
+
+          xml.create_and_add_element(rule.name, **options, &block)
+        end
+
         def add_to_xml(xml, element, prefix, value, options = {})
           attribute = options[:attribute]
           rule = options[:rule]
@@ -177,17 +193,17 @@ module Lutaml
               options.merge({ rule: rule, attribute: attribute }),
             )
           elsif value.nil?
-            xml.create_and_add_element(rule.name, attributes: { "xsi:nil" => true })
+            add_element_with_prefix(xml, rule, prefix, attributes: { "xsi:nil" => true })
           elsif Utils.empty?(value)
-            xml.create_and_add_element(rule.name)
+            add_element_with_prefix(xml, rule, prefix)
           elsif rule.raw_mapping?
             xml.add_xml_fragment(xml, value)
-          elsif rule.prefix_set?
-            xml.create_and_add_element(rule.name, prefix: prefix) do
+          elsif rule.namespace_set? && rule.namespace && !prefix
+            xml.create_and_add_element(rule.name, attributes: { "xmlns" => rule.namespace }) do
               add_value(xml, value, attribute, cdata: rule.cdata)
             end
           else
-            xml.create_and_add_element(rule.name) do
+            add_element_with_prefix(xml, rule, prefix) do
               add_value(xml, value, attribute, cdata: rule.cdata)
             end
           end
@@ -236,7 +252,10 @@ module Lutaml
             end
 
             current_namespace = xml_mapping.namespace_uri
-            child_options = options.merge({ parent_namespace: current_namespace })
+
+            parent_prefix = options[:namespace_prefix] if options.key?(:namespace_prefix)
+
+            child_options = options.merge({ parent_namespace: current_namespace, parent_prefix: parent_prefix })
 
             mappings = xml_mapping.elements + [xml_mapping.raw_mapping].compact
             mappings.each do |element_rule|
@@ -253,10 +272,12 @@ module Lutaml
                 value = attribute_def.build_collection(value) if attribute_def.collection? && !attribute_def.collection_instance?(value)
               end
 
+              rule_prefix = build_rule_prefix(element_rule, parent_prefix, attribute_def, current_namespace)
+
               add_to_xml(
                 prefixed_xml,
                 element,
-                element_rule.prefix,
+                rule_prefix,
                 value,
                 child_options.merge({ attribute: attribute_def, rule: element_rule,
                                       mapper_class: mapper_class }),
@@ -309,7 +330,28 @@ module Lutaml
             !element.using_default?(rule.to)
         end
 
+        def add_prefixed_namespace(attrs, mapping_rule, type)
+          return unless mapping_rule.prefix && mapping_rule.name != "lang"
+
+          ns_uri = mapping_rule.namespace ||
+            (type.respond_to?(:mappings_for) && type.mappings_for(:xml)&.namespace_uri)
+
+          attrs["xmlns:#{mapping_rule.prefix}"] = ns_uri if ns_uri
+        end
+
+        def should_recurse_for_namespaces?(mapping_rule, type, xml_mappings, parent_namespace)
+          return false unless type && type <= Lutaml::Model::Serialize
+          return false if mapping_rule.prefix_set?
+
+          child_namespace = type.mappings_for(:xml)&.namespace_uri
+          current_namespace = xml_mappings.namespace_uri || parent_namespace
+
+          !child_namespace || child_namespace == current_namespace
+        end
+
         def build_namespace_attributes(klass, processed = {}, options = {})
+          return {} unless klass.respond_to?(:mappings_for)
+
           xml_mappings = klass.mappings_for(:xml)
           attributes = klass.attributes
           parent_namespace = options[:parent_namespace]
@@ -344,20 +386,15 @@ module Lutaml
                      attributes[mapping_rule.to]&.type(register)
                    end
 
-            next unless type
+            add_prefixed_namespace(attrs, mapping_rule, type)
 
-            if type <= Lutaml::Model::Serialize
+            if should_recurse_for_namespaces?(mapping_rule, type, xml_mappings, parent_namespace)
               child_options = {
                 caller_rule: mapping_rule,
                 parent_namespace: xml_mappings.namespace_uri || parent_namespace,
-                is_root_call: false, # Mark that we're recursing
+                is_root_call: false,
               }
-
-              attrs = attrs.merge(build_namespace_attributes(type, processed, child_options))
-            end
-
-            if mapping_rule.namespace && mapping_rule.prefix && mapping_rule.name != "lang"
-              attrs["xmlns:#{mapping_rule.prefix}"] = mapping_rule.namespace
+              attrs.merge!(build_namespace_attributes(type, processed, child_options))
             end
           end
 
@@ -367,11 +404,23 @@ module Lutaml
         def build_attributes(element, xml_mapping, options = {})
           parent_namespace = options[:parent_namespace]
 
-          attrs = if options.fetch(:set_namespace, true)
+          should_add_namespace = options.fetch(:set_namespace, true) &&
+            !options[:namespace_prefix]
+
+          attrs = if should_add_namespace
                     namespace_attributes(xml_mapping, parent_namespace)
                   else
                     {}
                   end
+
+          if should_add_namespace
+            child_ns_attrs = build_namespace_attributes(
+              element.class,
+              {},
+              { parent_namespace: parent_namespace, is_root_call: true },
+            )
+            attrs.merge!(child_ns_attrs)
+          end
 
           if element.respond_to?(:schema_location) && element.schema_location.is_a?(Lutaml::Model::SchemaLocation) && !options[:except]&.include?(:schema_location)
             attrs.merge!(element.schema_location.to_xml_attributes)
@@ -460,6 +509,23 @@ module Lutaml
 
         private
 
+        def build_rule_prefix(element_rule, parent_prefix, attribute_def, current_namespace)
+          if element_rule.prefix_set? || element_rule.namespace_set?
+            return element_rule.prefix
+          end
+
+          return if !parent_prefix || !attribute_def
+
+          child_type = attribute_def.type(register)
+          if !child_type || !(child_type <= Lutaml::Model::Serialize)
+            return parent_prefix
+          end
+
+          child_namespace = child_type.mappings_for(:xml)&.namespace_uri
+
+          parent_prefix if child_namespace == current_namespace
+        end
+
         def setup_register(register)
           return register if register.is_a?(Symbol)
 
@@ -493,11 +559,18 @@ module Lutaml
 
           parent_namespace = options[:parent_namespace]
           element_namespace = mapping.namespace_uri
+          has_prefix = options[:namespace_prefix]
 
           merged_attrs = attributes.dup
+
           xml_attributes.each do |key, value|
-            next if (key == "xmlns" || key.start_with?("xmlns:")) &&
-              (parent_namespace == element_namespace || merged_attrs.key?(key))
+            if (key == "xmlns" || key.start_with?("xmlns:")) && (has_prefix || parent_namespace == element_namespace || merged_attrs.key?(key))
+              # Skip xmlns declarations if:
+              # - Element has a prefix (will use prefix instead), OR
+              # - Parent and element namespaces are same, OR
+              # - Key already exists in merged_attrs
+              next
+            end
 
             merged_attrs[key] = value
           end

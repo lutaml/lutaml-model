@@ -52,7 +52,7 @@ module Lutaml
           if namespaces[namespace_prefix] && !text?
             "#{namespaces[namespace_prefix].uri}:#{@name}"
           elsif @default_namespace && !text?
-            "#{@default_namespace}:#{name}"
+            "#{@default_namespace}:#{@name}"
           else
             @name
           end

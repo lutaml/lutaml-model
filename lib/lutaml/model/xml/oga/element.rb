@@ -8,20 +8,11 @@ module Lutaml
       module Oga
         class Element < XmlElement
           def initialize(node, parent: nil, default_namespace: nil)
-            text = case node
-                   when Moxml::Element
-                     namespace_name = node.namespace&.prefix
-                     add_namespaces(node, is_root: parent.nil?)
-
-                     default_namespace = node.namespace&.uri if parent.nil? && !namespace_name
-
-                     children = parse_children(node, default_namespace: default_namespace)
-                     attributes = node_attributes(node)
-                     @root = node
-                     node.inner_text
-                   when Moxml::Text
-                     node.content
-                   end
+            text, attributes, children, namespace_name, updated_namespace = if node.is_a?(Moxml::Element)
+                                                                              initialize_element(node, parent, default_namespace)
+                                                                            else
+                                                                              [node.content, nil, nil, nil, default_namespace]
+                                                                            end
 
             name = OgaAdapter.name_of(node)
             super(
@@ -32,8 +23,12 @@ module Lutaml
               name: name,
               parent_document: parent,
               namespace_prefix: namespace_name,
-              default_namespace: default_namespace,
+              default_namespace: updated_namespace,
             )
+
+            # Add default namespace to namespaces hash so it's accessible via default_namespace getter
+            # Only add if it's not root (root's default namespace is already added by add_namespaces)
+            add_namespace(updated_namespace) if should_add_default_namespace?(updated_namespace, namespace_name, parent)
           end
 
           def text?
@@ -65,6 +60,30 @@ module Lutaml
           end
 
           private
+
+          def initialize_element(node, parent, default_namespace)
+            namespace_name = node.namespace&.prefix
+            add_namespaces(node, is_root: parent.nil?)
+
+            updated_namespace = update_default_namespace(node, parent, namespace_name, default_namespace)
+
+            children = parse_children(node, default_namespace: updated_namespace)
+            attributes = node_attributes(node)
+            @root = node
+
+            [node.inner_text, attributes, children, namespace_name, updated_namespace]
+          end
+
+          def update_default_namespace(node, parent, namespace_name, default_namespace)
+            return default_namespace if namespace_name || !node.namespace&.uri
+
+            should_update = parent.nil? || node.namespace.uri != default_namespace&.uri
+            should_update ? XmlNamespace.new(node.namespace.uri, nil) : default_namespace
+          end
+
+          def should_add_default_namespace?(default_namespace, namespace_name, parent)
+            default_namespace&.uri && !namespace_name && parent
+          end
 
           def node_attributes(node)
             node.attributes.each_with_object({}) do |attr, hash|

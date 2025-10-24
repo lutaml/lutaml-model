@@ -373,13 +373,9 @@ module Lutaml
         end
 
         def find_by_name(name, type: "Text")
-          if ["text", "#cdata-section"].include?(name.to_s) && type == "Text"
-            content_mapping
-          else
-            mappings.detect do |rule|
-              rule.name == name.to_s || rule.name == name.to_sym
-            end
-          end
+          return content_mapping if text_content_name?(name, type)
+
+          mappings.detect { |rule| name_matches_rule?(name, rule) }
         end
 
         def find_by_to(to)
@@ -424,7 +420,7 @@ module Lutaml
           self.class.new.tap do |xml_mapping|
             xml_mapping.root(@root_element.dup, mixed: @mixed_content,
                                                 ordered: @ordered)
-            xml_mapping.namespace(@namespace_uri.dup, @namespace_prefix.dup)
+            xml_mapping.namespace(@namespace_uri.dup, @namespace_prefix.dup) if @namespace_uri
 
             attributes_to_dup.each do |var_name|
               value = instance_variable_get(var_name)
@@ -459,6 +455,16 @@ module Lutaml
         end
 
         private
+
+        def text_content_name?(name, type)
+          ["text", "#cdata-section"].include?(name.to_s) && type == "Text"
+        end
+
+        def name_matches_rule?(name, rule)
+          rule.name == name.to_s ||
+            rule.name == name.to_sym ||
+            (rule.respond_to?(:prefixed_name) && rule.prefixed_name == name.to_s)
+        end
 
         def register(register_id = nil)
           register_id ||= Lutaml::Model::Config.default_register

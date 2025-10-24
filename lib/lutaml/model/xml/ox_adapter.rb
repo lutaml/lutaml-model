@@ -33,8 +33,6 @@ module Lutaml
           elsif ordered?(@root, options)
             build_ordered_element(builder, @root, options)
           else
-            mapper_class = options[:mapper_class] || @root.class
-            options[:xml_attributes] = build_namespace_attributes(mapper_class)
             build_element(builder, @root, options)
           end
 
@@ -120,15 +118,10 @@ module Lutaml
           when Ox::CData
             super("#cdata-section", {}, [], node.value, parent_document: root_node, name: "#cdata-section")
           else
+            needs_own_namespace = false
             namespace_attributes(node.attributes).each do |(name, value)|
-              ns = XmlNamespace.new(value, name)
-
-              if root_node && ns.prefix
-                root_node.add_namespace(ns)
-              elsif root_node.nil?
-                add_namespace(ns)
-              end
-              default_namespace = ns.uri if ns.prefix.nil?
+              default_namespace, needs_own_namespace = build_namespace(root_node, name, value,
+                                                                       default_namespace: default_namespace, needs_own_namespace: needs_own_namespace)
             end
 
             attributes = node.attributes.each_with_object({}) do |(name, value), hash|
@@ -154,13 +147,23 @@ module Lutaml
             super(
               node,
               attributes,
-              parse_children(node, root_node: root_node || self, default_namespace: default_namespace),
+              [], # We'll set children after potentially updating namespaces
               node.text,
               parent_document: root_node,
               name: name,
               namespace_prefix: prefix,
               default_namespace: default_namespace,
             )
+
+            # Add the namespace to this element's own namespaces hash if it's different from parent
+            if needs_own_namespace
+              add_namespace(XmlNamespace.new(default_namespace, nil))
+            end
+
+            # Now parse children with the updated namespace context
+            # If this element has its own namespace, use self as root_node so children inherit from this element
+            child_root_node = needs_own_namespace ? self : (root_node || self)
+            @children = parse_children(node, root_node: child_root_node, default_namespace: default_namespace)
           end
         end
 
@@ -231,6 +234,24 @@ module Lutaml
         end
 
         private
+
+        def build_namespace(root_node, name, value, default_namespace: nil, needs_own_namespace: false)
+          ns = XmlNamespace.new(value, name)
+
+          if root_node && ns.prefix
+            root_node.add_namespace(ns)
+          elsif root_node.nil?
+            add_namespace(ns)
+          end
+
+          return [default_namespace, needs_own_namespace] unless ns.prefix.nil?
+
+          if default_namespace && default_namespace != ns.uri
+            needs_own_namespace = true
+          end
+
+          [ns.uri, needs_own_namespace]
+        end
 
         def parse_children(node, root_node: nil, default_namespace: nil)
           node.nodes.map do |child|

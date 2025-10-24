@@ -37,18 +37,19 @@ module Lutaml
                      nil),
             attributes: {}
           )
-            add_namespace_prefix(prefix)
-
             element_name = element_name.first if element_name.is_a?(Array)
             element_name = "#{element_name}_" if respond_to?(element_name)
 
+            # Get the prefixed context if prefix is provided
+            builder_context = prefix ? xml[prefix] : self
+
             if block_given?
-              public_send(element_name, attributes) do
+              builder_context.public_send(element_name, attributes) do
                 xml.parent.namespace = nil if prefix.nil? && !prefix_unset
                 yield(self)
               end
             else
-              public_send(element_name, attributes)
+              builder_context.public_send(element_name, attributes)
             end
           end
 

@@ -102,11 +102,24 @@ module Lutaml
         end
 
         def namespaced_names(parent_namespace = nil)
-          if multiple_mappings?
-            name.map { |rule_name| namespaced_name(parent_namespace, rule_name) }
+          names = if multiple_mappings?
+                    name.map { |rule_name| namespaced_name(parent_namespace, rule_name) }
+                  else
+                    [namespaced_name(parent_namespace)]
+                  end
+
+          # When a prefix is set, also include the prefixed name for matching
+          # This is needed for deserialization when XML has prefixed elements
+          if prefix_set?
+            prefixed_names = if multiple_mappings?
+                               name.map { |rule_name| "#{prefix}:#{rule_name}" }
+                             else
+                               [prefixed_name]
+                             end
+            names + prefixed_names
           else
-            [namespaced_name(parent_namespace)]
-          end
+            names
+          end.compact
         end
 
         def namespaced_name(parent_namespace = nil, name = self.name)

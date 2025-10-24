@@ -117,7 +117,16 @@ module Lutaml
         attr_type = attr&.type(__register)
 
         children = doc.children.select do |child|
-          rule_names.include?(child.namespaced_name) && !child.text?
+          next true if (rule_names.include?(child.namespaced_name) || rule_names.include?(child.name)) && !child.text?
+
+          # Also check if child element has its own namespace that matches the child type's namespace
+          if attr_type && attr_type <= Serialize && !child.text?
+            child_type_ns = attr_type.mappings_for(:xml)&.namespace_uri
+            child_namespaced = "#{child_type_ns}:#{rule.name}" if child_type_ns
+            next true if child_namespaced && child.namespaced_name == child_namespaced
+          end
+
+          false
         end
 
         if rule.has_custom_method_for_deserialization? || attr_type == Lutaml::Model::Type::Hash
@@ -137,6 +146,12 @@ module Lutaml
             cast_options = options.except(:mappings)
             cast_options[:polymorphic] = rule.polymorphic if rule.polymorphic
             cast_options[:register] = __register
+
+            # Set child namespace for recursive parsing (keeps matching context clean)
+            if !rule.namespace_set? && attr_type.respond_to?(:mappings_for)
+              child_namespace = attr_type.mappings_for(:xml)&.namespace_uri
+              cast_options[:default_namespace] = child_namespace if child_namespace
+            end
 
             values << attr.cast(child, :xml, __register, cast_options)
           elsif attr.raw?

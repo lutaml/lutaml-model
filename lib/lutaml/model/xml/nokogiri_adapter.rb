@@ -27,9 +27,6 @@ module Lutaml
             if root.is_a?(Lutaml::Model::Xml::NokogiriElement)
               root.build_xml(xml)
             else
-              mapper_class = options[:mapper_class] || @root.class
-              options[:xml_attributes] =
-                build_namespace_attributes(mapper_class)
               build_element(xml, @root, options)
             end
           end
@@ -124,9 +121,7 @@ module Lutaml
         def initialize(node, root_node: nil, default_namespace: nil)
           if root_node
             node.namespaces.each do |prefix, name|
-              namespace = XmlNamespace.new(name, prefix)
-
-              root_node.add_namespace(namespace)
+              root_node.add_namespace(XmlNamespace.new(name, prefix))
             end
           end
 
@@ -136,11 +131,7 @@ module Lutaml
           # `attribute_nodes` handles name collisions as well
           # More info: https://devdocs.io/nokogiri/nokogiri/xml/node#method-i-attributes
           node.attribute_nodes.each do |attr|
-            name = if attr.namespace
-                     "#{attr.namespace.prefix}:#{attr.name}"
-                   else
-                     attr.name
-                   end
+            name = [attr.namespace&.prefix, attr.name].compact.join(":")
 
             attributes[name] = XmlAttribute.new(
               name,
@@ -150,21 +141,37 @@ module Lutaml
             )
           end
 
+          # Set default_namespace for root element or any element with xmlns declaration
+          needs_own_namespace = false
           if root_node.nil? && !node.namespace&.prefix
             default_namespace = node.namespace&.href
+          elsif node.namespace && !node.namespace.prefix && node.namespace.href != default_namespace
+            # This element has an xmlns="..." declaration (unprefixed namespace) that's different from parent
+            # Update default_namespace for this element and its children
+            default_namespace = node.namespace.href
+            needs_own_namespace = true
           end
 
           super(
             node,
             attributes,
-            parse_all_children(node, root_node: root_node || self,
-                                     default_namespace: default_namespace),
+            [], # We'll set children after we potentially update namespaces
             node.text,
             name: node.name,
             parent_document: root_node,
             namespace_prefix: node.namespace&.prefix,
             default_namespace: default_namespace
           )
+
+          # Add the namespace to this element's own namespaces hash if it's different from parent
+          if needs_own_namespace
+            add_namespace(XmlNamespace.new(default_namespace, nil))
+          end
+
+          # Now parse children with the updated namespace context
+          # If this element has its own namespace, use self as root_node so children inherit from this element
+          child_root_node = needs_own_namespace ? self : (root_node || self)
+          @children = parse_all_children(node, root_node: child_root_node, default_namespace: default_namespace)
         end
 
         def text?
