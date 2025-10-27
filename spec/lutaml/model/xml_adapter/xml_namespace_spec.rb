@@ -686,17 +686,17 @@ RSpec.describe "XmlNamespace" do
 
       it "serializes attributes with namespace prefix correctly" do
         xml = ceramic.to_xml
-        
+
         # Check that the prefixed attribute is present
         expect(xml).to include('c:id="1234"')
-        
+
         # Check that the namespace declaration is present
         expect(xml).to include('xmlns:c="http://example.com/identifier"')
       end
 
       it "serializes regular attributes without prefix" do
         xml = ceramic.to_xml
-        
+
         # Regular attributes should not have prefixes
         expect(xml).to include('type="Fine Porcelain"')
         expect(xml).to include('composition="Porcelain"')
@@ -707,7 +707,7 @@ RSpec.describe "XmlNamespace" do
       it "deserializes attributes with namespace prefix correctly" do
         xml = ceramic.to_xml
         parsed = CeramicModel.from_xml(xml)
-        
+
         expect(parsed.id_name).to eq("1234")
         expect(parsed.type).to eq("Fine Porcelain")
         expect(parsed.composition_name).to eq("Porcelain")
@@ -737,14 +737,14 @@ RSpec.describe "XmlNamespace" do
 
       it "declares namespace on child element when switching from parent namespace" do
         xml = ceramic.to_xml
-        
+
         # production_site should declare its own namespace since it's different from ceramic
         expect(xml).to match(/<production_site[^>]*xmlns="http:\/\/example\.com\/production"/)
       end
 
       it "does not repeat parent namespace declaration on child" do
         xml = ceramic.to_xml
-        
+
         # ceramic namespace should only appear on ceramic element, not on production_site
         ceramic_ns_count = xml.scan('xmlns="http://example.com/ceramic"').size
         expect(ceramic_ns_count).to eq(1)
@@ -753,7 +753,7 @@ RSpec.describe "XmlNamespace" do
       it "deserializes child elements with different namespaces correctly" do
         xml = ceramic.to_xml
         parsed = CeramicModel.from_xml(xml)
-        
+
         expect(parsed.production_site.name).to eq("Bernardaud Factory")
         expect(parsed.production_site.glazes_produced).to eq(["Celadon", "Crystalline"])
         expect(parsed.production_site.location.city).to eq("Limoges")
@@ -774,14 +774,14 @@ RSpec.describe "XmlNamespace" do
 
       it "declares namespace on deeply nested element when switching" do
         xml = production_site.to_xml
-        
+
         # established_at switches to url namespace within production namespace
         expect(xml).to match(/<established_at[^>]*xmlns="http:\/\/example\.com\/url"/)
       end
 
       it "uses prefix for nested element with different namespace" do
         xml = production_site.to_xml
-        
+
         # website should use s: prefix
         expect(xml).to match(/<s:website[^>]*>/)
         expect(xml).to include('xmlns:s="http://example.com/url"')
@@ -789,7 +789,7 @@ RSpec.describe "XmlNamespace" do
 
       it "does not add namespace declaration to elements sharing parent namespace" do
         xml = production_site.to_xml
-        
+
         # location shares production namespace, should not redeclare it
         expect(xml).not_to match(/<location[^>]*xmlns=/)
       end
@@ -797,7 +797,7 @@ RSpec.describe "XmlNamespace" do
       it "deserializes nested namespace switches correctly" do
         xml = production_site.to_xml
         parsed = CeramicProductionSite.from_xml(xml)
-        
+
         expect(parsed.established_at).to eq("2010")
         expect(parsed.website.url).to eq("http://www.bernardaud.com")
         expect(parsed.location.address).to eq("15 Rue du Temple")
@@ -832,7 +832,7 @@ RSpec.describe "XmlNamespace" do
       it "preserves all data through round-trip" do
         original_xml = ceramic.to_xml
         parsed = CeramicModel.from_xml(original_xml)
-        
+
         expect(parsed.type).to eq("Fine Porcelain")
         expect(parsed.glaze).to eq("Celadon")
         expect(parsed.composition_name).to eq("Porcelain")
@@ -847,7 +847,7 @@ RSpec.describe "XmlNamespace" do
         original_xml = ceramic.to_xml
         parsed = CeramicModel.from_xml(original_xml)
         regenerated_xml = parsed.to_xml
-        
+
         # Check that key namespace declarations are still present
         expect(regenerated_xml).to include('xmlns="http://example.com/ceramic"')
         expect(regenerated_xml).to include('xmlns:c="http://example.com/identifier"')
@@ -859,7 +859,7 @@ RSpec.describe "XmlNamespace" do
         original_xml = ceramic.to_xml
         parsed = CeramicModel.from_xml(original_xml)
         regenerated_xml = parsed.to_xml
-        
+
         expect(regenerated_xml).to be_equivalent_to(original_xml)
       end
     end
@@ -920,7 +920,7 @@ RSpec.describe "XmlNamespace" do
 
       it "includes all namespace declarations on root element" do
         xml = ceramic.to_xml
-        
+
         # Root element should declare ceramic, potter, and identifier namespaces
         expect(xml).to match(/<ceramic[^>]*xmlns="http:\/\/example\.com\/ceramic"/)
         expect(xml).to match(/<ceramic[^>]*xmlns:p="http:\/\/example\.com\/potter"/)
@@ -929,14 +929,14 @@ RSpec.describe "XmlNamespace" do
 
       it "handles prefixed attributes correctly" do
         xml = ceramic.to_xml
-        
+
         expect(xml).to include('c:id="1234"')
         expect(xml).to include('type="Fine Porcelain"')
       end
 
       it "handles elements with same namespace as parent without prefix" do
         xml = ceramic.to_xml
-        
+
         # glaze and category share ceramic namespace, no prefix needed
         expect(xml).to include("<glaze>Celadon</glaze>")
         expect(xml).to include("<category>Ornamental</category>")
@@ -944,7 +944,7 @@ RSpec.describe "XmlNamespace" do
 
       it "handles prefixed elements with different namespaces" do
         xml = ceramic.to_xml
-        
+
         # potter has different namespace and uses prefix
         expect(xml).to match(/<p:potter[^>]*>/)
         expect(xml).to include("<p:name>Alice Perrin</p:name>")
@@ -952,21 +952,21 @@ RSpec.describe "XmlNamespace" do
 
       it "handles child elements switching to new default namespace" do
         xml = ceramic.to_xml
-        
+
         # production_site switches to production namespace
         expect(xml).to match(/<production_site[^>]*xmlns="http:\/\/example\.com\/production"/)
       end
 
       it "handles nested namespace switching" do
         xml = ceramic.to_xml
-        
+
         # established_at switches to url namespace within production_site
         expect(xml).to match(/<established_at[^>]*xmlns="http:\/\/example\.com\/url"/)
       end
 
       it "handles elements with same namespace as new parent without redeclaring" do
         xml = ceramic.to_xml
-        
+
         # location shares production namespace with production_site
         expect(xml).not_to match(/<location[^>]*xmlns=/)
       end
@@ -974,23 +974,23 @@ RSpec.describe "XmlNamespace" do
       it "deserializes complete structure correctly" do
         xml = ceramic.to_xml
         parsed = CeramicModel.from_xml(xml)
-        
+
         # Check all attributes
         expect(parsed.type).to eq("Fine Porcelain")
         expect(parsed.composition_name).to eq("Porcelain")
         expect(parsed.id_name).to eq("1234")
         expect(parsed.glaze).to eq("Celadon")
         expect(parsed.category_name).to eq("Ornamental")
-        
+
         # Check nested potter
         expect(parsed.potter.name).to eq("Alice Perrin")
-        
+
         # Check nested production_site
         expect(parsed.production_site.name).to eq("Bernardaud Factory")
         expect(parsed.production_site.glazes_produced).to eq(["Celadon", "Crystalline"])
         expect(parsed.production_site.established_at).to eq("2010")
         expect(parsed.production_site.website.url).to eq("http://www.bernardaud.com")
-        
+
         # Check deeply nested location
         expect(parsed.production_site.location.address).to eq("15 Rue du Temple")
         expect(parsed.production_site.location.city).to eq("Limoges")
@@ -1001,7 +1001,7 @@ RSpec.describe "XmlNamespace" do
         original_xml = ceramic.to_xml
         parsed = CeramicModel.from_xml(original_xml)
         regenerated_xml = parsed.to_xml
-        
+
         expect(regenerated_xml).to be_equivalent_to(expected_xml)
       end
     end
