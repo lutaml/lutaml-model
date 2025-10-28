@@ -207,12 +207,82 @@ module CustomCollection
   end
 end
 
+module FontManifest
+  class ManifestResponseFontStyle < Lutaml::Model::Serializable
+    attribute :full_name, :string
+    attribute :type, :string
+    attribute :paths, :string, collection: true
+
+    key_value do
+      map "full_name", to: :full_name
+      map "type", to: :type
+      map "paths", to: :paths
+    end
+  end
+
+  class ManifestResponseFont < Lutaml::Model::Serializable
+    attribute :name, :string
+    attribute :styles, ManifestResponseFontStyle, collection: true
+
+    key_value do
+      map "name", to: :name
+      map "styles", to: :styles, child_mappings: {
+        type: :key,
+        full_name: :full_name,
+        paths: :paths,
+      }
+    end
+  end
+
+  class ManifestResponseSuccess < Lutaml::Model::Collection
+    instances :fonts, ManifestResponseFont
+
+    key_value do
+      map to: :fonts, root_mappings: {
+        name: :key,
+        styles: :value,
+      }
+    end
+  end
+
+  class ManifestResponseFail < Lutaml::Model::Collection
+    instances :fonts, ManifestResponseFont
+
+    key_value do
+      map_instances to: :fonts
+      map_key to_instance: :name
+      map_value to_instance: :styles
+    end
+  end
+end
+
 RSpec.describe CustomCollection do
   let(:items) do
     [
       { id: "1", name: "Item 1", description: "Description 1" },
       { id: "2", name: "Item 2", description: "Description 2" },
     ]
+  end
+
+  let(:yaml_data) do
+    <<~YAML
+      ---
+      Arial:
+        Bold:
+          full_name: Arial Bold
+          paths:
+          - "/fonts/arial-bold.ttf"
+          - "/fonts/arial-bold.woff"
+        Regular:
+          full_name: Arial Regular
+          paths:
+          - "/fonts/arial-regular.ttf"
+      Times:
+        Regular:
+          full_name: Times New Roman
+          paths:
+          - "/fonts/times.ttf"
+    YAML
   end
 
   describe "ItemCollection" do
@@ -633,6 +703,72 @@ RSpec.describe CustomCollection do
         expect(collection.items.map(&:id)).to eq(["4", "3", "2", "1"])
       end
     end
+
+    describe "with proc for ordering" do
+      before do
+        register = Lutaml::Model::GlobalRegister.lookup(:default)
+        register.register_model(CustomCollection::Text, id: :text)
+      end
+
+      let(:proc_asc_collection_class) do
+        Class.new(Lutaml::Model::Collection) do
+          instances :items, CustomCollection::Item
+          ordered by: lambda(&:name), order: :asc
+        end
+      end
+
+      let(:proc_desc_collection_class) do
+        Class.new(Lutaml::Model::Collection) do
+          instances :items, CustomCollection::Item
+          ordered by: lambda(&:name), order: :desc
+        end
+      end
+
+      let(:complex_proc_collection_class) do
+        Class.new(Lutaml::Model::Collection) do
+          instances :items, CustomCollection::Item
+          ordered by: ->(item) { [item.name.length, item.name] }, order: :asc
+        end
+      end
+
+      it "sorts items using proc in ascending order" do
+        collection = proc_asc_collection_class.new(items)
+        expect(collection.items.map(&:name)).to eq(["Item 1", "Item 2", "Item 3"])
+      end
+
+      it "sorts items using proc in descending order" do
+        collection = proc_desc_collection_class.new(items)
+        expect(collection.items.map(&:name)).to eq(["Item 3", "Item 2", "Item 1"])
+      end
+
+      it "maintains ascending order after adding new items with proc" do
+        collection = proc_asc_collection_class.new(items)
+        new_item = CustomCollection::Item.new(id: "0", name: "Item 0", description: "Description 0")
+        collection << new_item
+        expect(collection.items.map(&:name)).to eq(["Item 0", "Item 1", "Item 2", "Item 3"])
+      end
+
+      it "maintains descending order after adding new items with proc" do
+        collection = proc_desc_collection_class.new(items)
+        new_item = CustomCollection::Item.new(id: "4", name: "Item 4", description: "Description 4")
+        collection << new_item
+        expect(collection.items.map(&:name)).to eq(["Item 4", "Item 3", "Item 2", "Item 1"])
+      end
+
+      it "sorts items using complex proc for multi-level sorting" do
+        # Create items with different name lengths to test complex proc
+        complex_items = [
+          { id: "1", name: "Z", description: "Description 1" },
+          { id: "2", name: "AA", description: "Description 2" },
+          { id: "3", name: "A", description: "Description 3" },
+          { id: "4", name: "BB", description: "Description 4" },
+        ]
+        collection = complex_proc_collection_class.new(complex_items)
+        # Should sort first by name length (1 char: A, Z; 2 chars: AA, BB)
+        # Then by name alphabetically within same length
+        expect(collection.items.map(&:name)).to eq(["A", "Z", "AA", "BB"])
+      end
+    end
   end
 
   describe "Collection methods" do
@@ -825,6 +961,74 @@ RSpec.describe CustomCollection do
         Lutaml::Model::ValidationError,
         /`Publication 2` must have an author/,
       )
+    end
+  end
+
+  describe "ManifestResponseSuccess (root_mappings approach)" do
+    it "deserializes from YAML correctly" do
+      manifest = FontManifest::ManifestResponseSuccess.from_yaml(yaml_data)
+
+      expect(manifest.fonts.size).to eq(2)
+      expect(manifest.fonts.first.name).to eq("Arial")
+      expect(manifest.fonts.first.styles.size).to eq(2)
+      expect(manifest.fonts.last.name).to eq("Times")
+    end
+
+    it "serializes to YAML correctly" do
+      manifest = FontManifest::ManifestResponseSuccess.from_yaml(yaml_data)
+      serialized_yaml = manifest.to_yaml
+
+      expect(serialized_yaml).to include("Arial:")
+      expect(serialized_yaml).to include("full_name: Arial Bold")
+    end
+  end
+
+  describe "ManifestResponseFail (map_key/map_value approach)" do
+    it "deserializes from YAML correctly" do
+      manifest = FontManifest::ManifestResponseFail.from_yaml(yaml_data)
+
+      expect(manifest.fonts.size).to eq(2)
+      expect(manifest.fonts.first.name).to eq("Arial")
+      expect(manifest.fonts.first.styles.size).to eq(2)
+      expect(manifest.fonts.last.name).to eq("Times")
+    end
+
+    it "serializes to YAML correctly" do
+      manifest = FontManifest::ManifestResponseFail.from_yaml(yaml_data)
+      serialized_yaml = manifest.to_yaml
+
+      expect(serialized_yaml).to include("Arial:")
+      expect(serialized_yaml).to include("full_name: Arial Bold")
+    end
+  end
+
+  describe "Mapping approaches comparison" do
+    it "both approaches produce identical results" do
+      success_manifest = FontManifest::ManifestResponseSuccess.from_yaml(yaml_data)
+      fail_manifest = FontManifest::ManifestResponseFail.from_yaml(yaml_data)
+
+      expect(success_manifest.to_yaml).to eq(fail_manifest.to_yaml)
+    end
+
+    it "both approaches handle font names correctly" do
+      success_manifest = FontManifest::ManifestResponseSuccess.from_yaml(yaml_data)
+      fail_manifest = FontManifest::ManifestResponseFail.from_yaml(yaml_data)
+
+      success_names = success_manifest.fonts.map(&:name).sort
+      fail_names = fail_manifest.fonts.map(&:name).sort
+
+      expect(success_names).to eq(fail_names)
+      expect(success_names).to eq(["Arial", "Times"])
+    end
+
+    it "both approaches handle font styles correctly" do
+      success_manifest = FontManifest::ManifestResponseSuccess.from_yaml(yaml_data)
+      fail_manifest = FontManifest::ManifestResponseFail.from_yaml(yaml_data)
+
+      success_arial = success_manifest.fonts.find { |f| f.name == "Arial" }
+      fail_arial = fail_manifest.fonts.find { |f| f.name == "Arial" }
+
+      expect(success_arial.styles.map(&:type)).to eq(fail_arial.styles.map(&:type))
     end
   end
 end

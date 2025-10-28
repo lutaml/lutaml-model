@@ -57,27 +57,29 @@ module Lutaml
           xml_mapping = mapper_class.mappings_for(:xml)
           return xml unless xml_mapping
 
-          attributes = build_attributes(element, xml_mapping)&.compact
+          attributes = build_attributes(element, xml_mapping, options)&.compact
 
           prefixed_xml = prefix_xml(xml, xml_mapping, options)
 
           tag_name = options[:tag_name] || xml_mapping.root_element
           tag_name = "#{tag_name}_" if prefixed_xml.respond_to?(tag_name)
+          return if options[:except]&.include?(tag_name)
+
           prefixed_xml.public_send(tag_name, attributes) do
             if options.key?(:namespace_prefix) && !options[:namespace_prefix]
               xml.parent.namespace = nil
             end
 
-            index_hash = {}
+            index_hash = ::Hash.new { |key, value| key[value] = -1 }
             content = []
 
             element.element_order.each do |object|
               object_key = "#{object.name}-#{object.type}"
-              index_hash[object_key] ||= -1
               curr_index = index_hash[object_key] += 1
 
               element_rule = xml_mapping.find_by_name(object.name, type: object.type)
-              next if element_rule.nil?
+
+              next if element_rule.nil? || options[:except]&.include?(element_rule.to)
 
               attribute_def = attribute_definition_for(element, element_rule,
                                                        mapper_class: mapper_class)

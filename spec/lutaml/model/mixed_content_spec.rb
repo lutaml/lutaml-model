@@ -201,6 +201,46 @@ module MixedContentSpec
       map_content to: :content
     end
   end
+
+  module PrefixedElements
+    class Annotation < Lutaml::Model::Serializable
+      attribute :content, :string
+
+      xml do
+        root "annotation"
+        namespace "http://example.com/schema", "xsd"
+
+        map_content to: :content
+      end
+    end
+
+    class Element < Lutaml::Model::Serializable
+      attribute :name, :string
+      attribute :status, :string
+      attribute :annotation, Annotation
+
+      xml do
+        root "element", mixed: true
+
+        namespace "http://example.com/schema", "xsd"
+
+        map_attribute :name, to: :name
+        map_attribute :status, to: :status
+        map_element :annotation, to: :annotation
+      end
+    end
+
+    class Schema < Lutaml::Model::Serializable
+      attribute :element, Element, collection: true
+
+      xml do
+        root "schema"
+        namespace "http://example.com/schema", "xsd"
+
+        map_element :element, to: :element
+      end
+    end
+  end
 end
 
 RSpec.describe "MixedContent" do
@@ -250,7 +290,7 @@ RSpec.describe "MixedContent" do
             expected_output = expected_output.gsub(/\n\s*/, " ")
           end
 
-          expect(content).to eq(expected_output)
+          expect(content).to be_equivalent_to(expected_output)
         end
 
         serialized = parsed.to_xml
@@ -906,6 +946,24 @@ RSpec.describe "MixedContent" do
             expect(serialized.strip).to eq(expected_xml.force_encoding("ISO-8859-1"))
           end
         end
+      end
+    end
+
+    context "when mixed: true is set for prefixed elements" do
+      let(:xml) do
+        <<~XML
+          <xsd:schema xmlns:xsd="http://example.com/schema">
+            <xsd:element>
+              <xsd:annotation>Testing annotation</xsd:annotation>
+            </xsd:element>
+          </xsd:schema>
+        XML
+      end
+
+      let(:serialized) { MixedContentSpec::PrefixedElements::Schema.from_xml(xml).to_xml }
+
+      it "deserializes and serializes mixed prefixed elements correctly for prefixed elements" do
+        expect(serialized).to be_equivalent_to(xml)
       end
     end
   end
