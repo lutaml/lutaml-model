@@ -276,7 +276,17 @@ RSpec.describe "Group" do
         source_attributes.each do |name, attr|
           expect(target_attributes[name].name).to eq(attr.name)
           expect(target_attributes[name].type).to eq(attr.type)
-          expect(target_attributes[name].options).to eq(attr.options)
+          # can't compare the 'choice' directly as their 'model' will be different
+          expect(target_attributes[name].options.except(:choice)).to eq(attr.options.except(:choice))
+          if target_attributes[name].options.key?(:choice)
+            target_choice = target_attributes[name].options[:choice]
+            source_choice = attr.options[:choice]
+            expect(target_choice.min).to eql(source_choice.min)
+            expect(target_choice.max).to eql(source_choice.max)
+            expect(target_choice.model).not_to be(source_choice.model)
+            # can't compare the attributes directly as 'model' of their 'choice' will be different
+            expect(target_choice.attributes).not_to be(source_choice.attributes)
+          end
         end
       end
     end

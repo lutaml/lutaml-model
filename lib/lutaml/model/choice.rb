@@ -55,6 +55,20 @@ module Lutaml
         @model.attributes.merge!(attrs_hash)
       end
 
+      def deep_duplicate(new_model)
+        choice = self.class.new(new_model, @min, @max)
+        @attributes.map do |attr|
+          choice.attributes << if attr.is_a?(Choice)
+                                 attr.deep_duplicate(new_model)
+                               else
+                                 choice_attr = new_model.instance_variable_get(:@attributes)[attr.name]
+                                 choice_attr.options[:choice] = choice
+                                 choice_attr
+                               end
+        end
+        choice
+      end
+
       private
 
       def root_model_error(model)
