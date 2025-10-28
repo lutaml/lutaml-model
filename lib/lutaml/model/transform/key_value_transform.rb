@@ -267,7 +267,7 @@ module Lutaml
         options = {
           mappings: attr_type.mappings_for(format),
           __parent: instance,
-          __root: (instance.__root || instance),
+          __root: instance.__root || instance,
         }
         self.class.data_to_model(attr_type, child_hash, format, options)
       end
