@@ -1,7 +1,7 @@
 require_relative "fixtures/sample_model"
 
-RSpec.describe "__parent/__root context" do
-  context "XML transform" do
+RSpec.describe "ParentRootSpec" do
+  context "with successful XML input processing" do
     let(:xml) do
       <<~XML
         <SampleModel>
@@ -32,7 +32,7 @@ RSpec.describe "__parent/__root context" do
     end
   end
 
-  context "key-value transform (YAML)" do
+  context "with YAML key-value transformation input" do
     let(:yaml) do
       {
         "name" => "John Doe",
