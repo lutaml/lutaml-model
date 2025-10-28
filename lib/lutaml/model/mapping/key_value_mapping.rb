@@ -94,9 +94,9 @@ module Lutaml
 
       alias map_all_content map_all
 
-      def map_instances(to:)
+      def map_instances(to:, polymorphic: {})
         @instance = to
-        map(root_name || to, to: to)
+        map(root_name || to, to: to, polymorphic: polymorphic)
         map_to_instance
       end
 

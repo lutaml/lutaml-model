@@ -11,6 +11,8 @@ module Lutaml
           sort_direction
         ].freeze
 
+        ALLOWED_OPTIONS = %i[polymorphic].freeze
+
         def inherited(subclass)
           super
 
@@ -27,8 +29,12 @@ module Lutaml
                     :sort_by_field,
                     :sort_direction
 
-        def instances(name, type, &block)
-          attribute(name, type, collection: true, validations: block)
+        def instances(name, type, options = {}, &block)
+          if (invalid_opts = options.keys - ALLOWED_OPTIONS).any?
+            raise Lutaml::Model::InvalidAttributeOptionsError.new(name, invalid_opts)
+          end
+
+          attribute(name, type, collection: true, validations: block, **options)
 
           @instance_type = Lutaml::Model::Attribute.cast_type!(type)
           @instance_name = name
@@ -120,7 +126,7 @@ module Lutaml
         register_object = Lutaml::Model::GlobalRegister.lookup(@__register)
         type = register_object.get_class(self.class.instance_type)
         self.collection = items.map do |item|
-          if item.is_a?(type)
+          if item.is_a?(type) || item.is_a?(Lutaml::Model::Serializable)
             item
           elsif type <= Lutaml::Model::Type::Value
             type.cast(item)

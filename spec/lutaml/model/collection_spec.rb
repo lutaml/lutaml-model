@@ -78,6 +78,99 @@ module CollectionTests
   end
 end
 
+# === Polymorphic Collection Test Models ===
+module PolymorphicCollectionTests
+  class Animal < Lutaml::Model::Serializable
+   attribute :type, :string
+   attribute :name, :string
+
+    xml do
+      root "animal"
+      map_attribute "type", to: :type
+      map_element "name", to: :name
+    end
+
+    key_value do
+      map "type", to: :type
+      map "name", to: :name
+    end
+  end
+
+  class Dog < Animal
+    attribute :breed, :string
+
+    xml do
+      map_element "breed", to: :breed
+    end
+
+    key_value do
+      map "breed", to: :breed
+    end
+  end
+
+  class Cat < Animal
+    attribute :color, :string
+
+    xml do
+      map_element "color", to: :color
+    end
+
+    key_value do
+      map "color", to: :color
+    end
+  end
+
+  class Rabbit < Animal
+    attribute :color, :string
+
+    xml do
+      map_element "color", to: :color
+    end
+
+    key_value do
+      map "color", to: :color
+    end
+  end
+
+  class Car < Lutaml::Model::Serializable
+    attribute :name, :string
+    attribute :model, :string
+  end
+end
+
+# === Polymorphic Collection Classes ===
+class PolyAnimalCollectionAny < Lutaml::Model::Collection
+  instances :animals, PolymorphicCollectionTests::Animal, polymorphic: true
+
+  xml do
+    root "zoo"
+    map_element "animal", to: :animals, polymorphic: {
+      attribute: "type",
+      class_map: {
+        "dog" => "PolymorphicCollectionTests::Dog",
+        "cat" => "PolymorphicCollectionTests::Cat",
+        "rabbit" => "PolymorphicCollectionTests::Rabbit"
+      }
+    }
+  end
+
+  key_value do
+    root "zoo"
+    map_instances to: :animals, polymorphic: {
+      attribute: "type",
+      class_map: {
+        "dog" => "PolymorphicCollectionTests::Dog",
+        "cat" => "PolymorphicCollectionTests::Cat",
+        "rabbit" => "PolymorphicCollectionTests::Rabbit"
+      }
+    }
+  end
+end
+
+class PolyAnimalCollectionSome < Lutaml::Model::Collection
+  instances :animals, PolymorphicCollectionTests::Animal, polymorphic: [PolymorphicCollectionTests::Dog, PolymorphicCollectionTests::Cat]
+end
+
 RSpec.describe Lutaml::Model::Collection do
   let(:xml_input) do
     <<~XML
@@ -529,6 +622,104 @@ RSpec.describe Lutaml::Model::Collection do
       # JSON.parse should only be called once on the main array, not on individual strings
       expect(JSON).to have_received(:parse).once.with(json_data, anything)
       expect(collection.titles.map(&:content)).to eq(["Title One", "Title Two", "Title Three"])
+    end
+  end
+
+  describe "Polymorphic Collection validation errors" do
+    let(:dog) { PolymorphicCollectionTests::Dog.new(name: "Fido", breed: "Labrador") }
+    let(:car) { PolymorphicCollectionTests::Car.new(name: "Tesla", model: "Model S") }
+    let(:rabbit) { PolymorphicCollectionTests::Rabbit.new(name: "Fluffy", color: "Tabby") }
+
+    it "raises error for non-subclass in polymorphic: true" do
+      collection = PolyAnimalCollectionAny.new([dog, car])
+      expect { collection.validate! }.to raise_error(Lutaml::Model::ValidationError)
+    end
+
+    it "raises error for not-in-list in polymorphic: [Dog, Cat]" do
+      collection = PolyAnimalCollectionSome.new([dog, rabbit])
+      expect { collection.validate! }.to raise_error(Lutaml::Model::ValidationError)
+    end
+  end
+
+  describe "Polymorphic Collection (instances :animals, ..., polymorphic: [Dog, Cat])" do
+    let(:dog) { PolymorphicCollectionTests::Dog.new(name: "Fido", breed: "Labrador") }
+    let(:cat) { PolymorphicCollectionTests::Cat.new(name: "Whiskers", color: "Tabby") }
+    let(:collection) { PolyAnimalCollectionSome.new([dog, cat]) }
+
+    it "accepts only Dog and Cat and validates successfully" do
+      expect(collection.animals.size).to eq(2)
+      expect(collection.animals[0]).to be_a(PolymorphicCollectionTests::Dog)
+      expect(collection.animals[1]).to be_a(PolymorphicCollectionTests::Cat)
+      expect { collection.validate! }.not_to raise_error
+    end
+  end
+
+  describe "Polymorphic Collection (instances :animals, ..., polymorphic: true)" do
+    let(:dog) { PolymorphicCollectionTests::Dog.new(name: "Fido", breed: "Labrador") }
+    let(:cat) { PolymorphicCollectionTests::Cat.new(name: "Whiskers", color: "Tabby") }
+    let(:collection) { PolyAnimalCollectionAny.new([dog, cat]) }
+
+    it "accepts any subclass and validates successfully" do
+      expect(collection.animals.size).to eq(2)
+      expect(collection.animals[0]).to be_a(PolymorphicCollectionTests::Dog)
+      expect(collection.animals[1]).to be_a(PolymorphicCollectionTests::Cat)
+      expect { collection.validate! }.not_to raise_error
+    end
+  end
+
+  describe "Polymorphic Collection XML/YAML/JSON mapping" do
+    let(:dog) { PolymorphicCollectionTests::Dog.new(name: "Fido", breed: "Labrador", type: "dog") }
+    let(:cat) { PolymorphicCollectionTests::Cat.new(name: "Whiskers", color: "Tabby", type: "cat") }
+    let(:collection) { PolyAnimalCollectionAny.new([dog, cat]) }
+
+    let(:xml) do
+      <<~XML
+        <zoo>
+          <animal type="dog">
+            <name>Fido</name>
+            <breed>Labrador</breed>
+          </animal>
+          <animal type="cat">
+            <name>Whiskers</name>
+            <color>Tabby</color>
+          </animal>
+        </zoo>
+      XML
+    end
+
+    let(:yaml) do
+      <<~YAML
+        ---
+        zoo:
+        - type: dog
+          name: Fido
+          breed: Labrador
+        - type: cat
+          name: Whiskers
+          color: Tabby
+      YAML
+    end
+
+    it "deserializes from XML correctly" do
+      parsed = PolyAnimalCollectionAny.from_xml(xml)
+      expect(parsed.animals[0]).to be_a(PolymorphicCollectionTests::Dog)
+      expect(parsed.animals[1]).to be_a(PolymorphicCollectionTests::Cat)
+      expect(parsed).to eq(collection)
+    end
+
+    it "serializes to XML correctly" do
+      expect(collection.to_xml.strip).to be_equivalent_to(xml.strip)
+    end
+
+    it "deserializes from YAML correctly" do
+      parsed = PolyAnimalCollectionAny.from_yaml(yaml)
+      expect(parsed.animals[0]).to be_a(PolymorphicCollectionTests::Dog)
+      expect(parsed.animals[1]).to be_a(PolymorphicCollectionTests::Cat)
+      expect(parsed).to eq(collection)
+    end
+
+    it "serializes to YAML correctly" do
+      expect(collection.to_yaml).to eq(yaml)
     end
   end
 end

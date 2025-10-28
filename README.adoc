@@ -3767,33 +3767,159 @@ end
 ====
 
 
+==== Polymorphic collections
 
-// ==== Polymorphic collections
+Collections can contain instances of different model classes that share a common base class.
 
-// Collections can contain instances of different model classes that share a common
-// base class.
+The `polymorphic` option for `instances` allows you to specify which subclasses are accepted:
 
-// The polymorphic options for attributes are also applied here.
+[source,ruby]
+----
+class ReferenceSet < Lutaml::Model::Collection
+  # Accepts any subclass of Reference
+  instances :references, Reference, polymorphic: true
+end
 
-// [example]
-// ====
-// [source,ruby]
-// ----
-// class PolymorphicItemCollection < Lutaml::Model::Collection
-//   instances :items, Item, polymorphic: true
+class ReferenceSet < Lutaml::Model::Collection
+  # Accepts only DocumentReference and AnchorReference
+  instances :references, Reference, polymorphic: [
+    DocumentReference,
+    AnchorReference,
+  ]
+end
+----
 
-//   xml do
-//     root "items"
-//     map_element "item", to: :items
-//   end
+==== Polymorphic collection mapping
 
-//   key_value do
-//     root "items"
-//     map_instances to: :items
-//   end
-// end
-// ----
-// ====
+To serialize/deserialize polymorphic collections, use the `polymorphic` option in your mapping blocks. This allows you to specify how to differentiate subclasses in XML, YAML, or JSON.
+
+[source,ruby]
+----
+class ReferenceSet < Lutaml::Model::Collection
+  instances :references, Reference, polymorphic: [
+    DocumentReference,
+    AnchorReference,
+  ]
+
+  xml do
+    root "ReferenceSet"
+    map_instances to: :references, polymorphic: {
+      attribute: "_class",
+      class_map: {
+        "document-ref" => "DocumentReference",
+        "anchor-ref" => "AnchorReference",
+      },
+    }
+  end
+
+  key_value do
+    map_instances to: :references, polymorphic: {
+      attribute: "_class",
+      class_map: {
+        "Document" => "DocumentReference",
+        "Anchor" => "AnchorReference",
+      },
+    }
+  end
+end
+----
+
+This allows round-trip serialization like:
+
+[source,yaml]
+----
+---
+references:
+- _class: Document
+  name: The Tibetan Book of the Dead
+  document_id: book:tbtd
+- _class: Anchor
+  name: Chapter 1
+  anchor_id: book:tbtd:anchor-1
+----
+
+[source,xml]
+----
+<ReferenceSet>
+  <references reference-type="document-ref">
+    <name>The Tibetan Book of the Dead</name>
+    <document_id>book:tbtd</document_id>
+  </references>
+  <references reference-type="anchor-ref">
+    <name>Chapter 1</name>
+    <anchor_id>book:tbtd:anchor-1</anchor_id>
+  </references>
+</ReferenceSet>
+----
+
+==== Polymorphic mapping with subclass differentiator
+
+If you cannot modify the polymorphic superclass, define the differentiator attribute in each subclass, and use the `polymorphic` mapping option in the collection:
+
+[source,ruby]
+----
+class Reference < Lutaml::Model::Serializable
+  attribute :name, :string
+end
+
+class DocumentReference < Reference
+  attribute :_class, :string
+  attribute :document_id, :string
+
+  xml do
+    map_element "document_id", to: :document_id
+    map_attribute "reference-type", to: :_class
+  end
+
+  key_value do
+    map "document_id", to: :document_id
+    map "_class", to: :_class
+  end
+end
+
+class AnchorReference < Reference
+  attribute :_class, :string
+  attribute :anchor_id, :string
+
+  xml do
+    map_element "anchor_id", to: :anchor_id
+    map_attribute "reference-type", to: :_class
+  end
+
+  key_value do
+    map "anchor_id", to: :anchor_id
+    map "_class", to: :_class
+  end
+end
+
+class ReferenceSet < Lutaml::Model::Collection
+  instances :references, Reference, polymorphic: [
+    DocumentReference,
+    AnchorReference,
+  ]
+
+  xml do
+    root "ReferenceSet"
+    map_instances to: :references, polymorphic: {
+      attribute: "_class",
+      class_map: {
+        "document-ref" => "DocumentReference",
+        "anchor-ref" => "AnchorReference",
+      },
+    }
+  end
+
+  key_value do
+    map_instances to: :references, polymorphic: {
+      attribute: "_class",
+      class_map: {
+        "Document" => "DocumentReference",
+        "Anchor" => "AnchorReference",
+      },
+    }
+  end
+end
+----
 
 
 == Serialization model mappings
