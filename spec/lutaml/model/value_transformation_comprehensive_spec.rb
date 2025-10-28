@@ -185,7 +185,7 @@ module ValueTransformationComprehensive
   end
 end
 
-RSpec.describe "Comprehensive Value Transformations" do
+RSpec.describe "ComprehensiveValueTransformations" do
   describe "Custom Value Type: Bidirectional Date Format" do
     let(:test_date) { Date.new(2024, 12, 25) }
     let(:event) do
