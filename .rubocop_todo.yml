@@ -108,6 +108,7 @@ RSpec/DescribeClass:
     - 'spec/benchmarks/xml_parsing_benchmark_spec.rb'
     - 'spec/lutaml/model/custom_bibtex_adapter_spec.rb'
     - 'spec/lutaml/model/transformation_spec.rb'
+    - 'spec/lutaml/model/value_transformation_comprehensive_spec.rb'
 
 # Offense count: 2
 # This cop supports unsafe autocorrection (--autocorrect-all).

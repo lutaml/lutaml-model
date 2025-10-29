@@ -1,11 +1,11 @@
 require "spec_helper"
 
 RSpec.describe Lutaml::Model::RuleValueExtractor do
-  let(:instance) { instance_double(Lutaml::Model::Serializable) }
   subject(:extractor) do
     described_class.new(rule, doc, format, attr, register, options, instance)
   end
 
+  let(:instance) { instance_double(Lutaml::Model::Serializable) }
   let(:rule) { instance_double(Lutaml::Model::Jsonl::MappingRule) }
   let(:doc) { { "name" => "Test", "value" => 123 } }
   let(:format) { :json }
