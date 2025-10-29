@@ -81,8 +81,8 @@ end
 # === Polymorphic Collection Test Models ===
 module PolymorphicCollectionTests
   class Animal < Lutaml::Model::Serializable
-   attribute :type, :string
-   attribute :name, :string
+    attribute :type, :string
+    attribute :name, :string
 
     xml do
       root "animal"
@@ -149,8 +149,8 @@ class PolyAnimalCollectionAny < Lutaml::Model::Collection
       class_map: {
         "dog" => "PolymorphicCollectionTests::Dog",
         "cat" => "PolymorphicCollectionTests::Cat",
-        "rabbit" => "PolymorphicCollectionTests::Rabbit"
-      }
+        "rabbit" => "PolymorphicCollectionTests::Rabbit",
+      },
     }
   end
 
@@ -161,8 +161,8 @@ class PolyAnimalCollectionAny < Lutaml::Model::Collection
       class_map: {
         "dog" => "PolymorphicCollectionTests::Dog",
         "cat" => "PolymorphicCollectionTests::Cat",
-        "rabbit" => "PolymorphicCollectionTests::Rabbit"
-      }
+        "rabbit" => "PolymorphicCollectionTests::Rabbit",
+      },
     }
   end
 end
