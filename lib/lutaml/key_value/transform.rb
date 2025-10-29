@@ -237,8 +237,7 @@ format)
           rule, attr
         )
 
-        value = rule_value_extractor_class.call(rule, doc, format, attr,
-                                                __register, options)
+        value = rule_value_extractor_class.call(rule, doc, format, attr, __register, options, instance)
         value = apply_value_map(value, rule.value_map(:from, options), attr)
 
         if rule.has_custom_method_for_deserialization?

@@ -271,8 +271,7 @@ module Lutaml
       end
 
       def attr_value(attrs, name, attribute)
-        value = Utils.fetch_str_or_sym(attrs, name,
-                                       attribute.default(__register))
+        value = Utils.fetch_str_or_sym(attrs, name, attribute.default(__register, self))
         attribute.cast_value(value, __register)
       end
 
@@ -418,17 +417,11 @@ module Lutaml
       end
 
       def determine_value(attrs, name, attr)
-        # Performance: Single-pass key lookup with value retrieval
-        # Check symbol key first (most common), then string key
-        if attrs.key?(name)
-          return attr.cast_value(attrs[name], __register)
-        elsif attrs.key?(name.to_s)
-          return attr.cast_value(attrs[name.to_s], __register)
-        end
-
-        if attr.default_set?(__register)
+        if attrs.key?(name) || attrs.key?(name.to_s)
+          attr_value(attrs, name, attr)
+        elsif attr.default_set?(__register, self)
           using_default_for(name)
-          attr.default(__register)
+          attr.default(__register, self)
         else
           Lutaml::Model::UninitializedClass.instance
         end
