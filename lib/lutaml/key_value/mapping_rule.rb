@@ -58,6 +58,7 @@ module Lutaml
           name.dup,
           to: to.dup,
           render_nil: render_nil.dup,
+          render_default: render_default.dup,
           render_empty: render_empty.dup,
           with: Lutaml::Model::Utils.deep_dup(custom_methods),
           delegate: delegate,
