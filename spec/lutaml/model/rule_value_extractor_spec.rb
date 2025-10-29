@@ -1,8 +1,9 @@
 require "spec_helper"
 
 RSpec.describe Lutaml::Model::RuleValueExtractor do
+  let(:instance) { instance_double(Lutaml::Model::Serializable) }
   subject(:extractor) do
-    described_class.new(rule, doc, format, attr, register, options)
+    described_class.new(rule, doc, format, attr, register, options, instance)
   end
 
   let(:rule) { instance_double(Lutaml::Model::Jsonl::MappingRule) }
@@ -80,7 +81,7 @@ RSpec.describe Lutaml::Model::RuleValueExtractor do
           root_mapping?: false,
           raw_mapping?: false,
         )
-        allow(attr).to receive(:default_set?).with(register).and_return(false)
+        allow(attr).to receive(:default_set?).with(register, instance).and_return(false)
       end
 
       it "returns uninitialized value" do
@@ -96,8 +97,8 @@ RSpec.describe Lutaml::Model::RuleValueExtractor do
           root_mapping?: false,
           raw_mapping?: false,
         )
-        allow(attr).to receive(:default_set?).with(register).and_return(true)
-        allow(attr).to receive(:default).with(register).and_return("default_value")
+        allow(attr).to receive(:default_set?).with(register, instance).and_return(true)
+        allow(attr).to receive(:default).with(register, instance).and_return("default_value")
       end
 
       it "returns default value" do

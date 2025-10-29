@@ -658,7 +658,7 @@ module Lutaml
       end
 
       def attr_value(attrs, name, attribute)
-        value = Utils.fetch_str_or_sym(attrs, name, attribute.default(__register))
+        value = Utils.fetch_str_or_sym(attrs, name, attribute.default(__register, self))
         attribute.cast_value(value, __register)
       end
 
@@ -771,9 +771,9 @@ module Lutaml
       def determine_value(attrs, name, attr)
         if attrs.key?(name) || attrs.key?(name.to_s)
           attr_value(attrs, name, attr)
-        elsif attr.default_set?(__register)
+        elsif attr.default_set?(__register, self)
           using_default_for(name)
-          attr.default(__register)
+          attr.default(__register, self)
         else
           Lutaml::Model::UninitializedClass.instance
         end

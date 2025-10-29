@@ -3,7 +3,7 @@ require_relative "base"
 module Lutaml
   module Model
     class RuleValueExtractor < Services::Base
-      def initialize(rule, doc, format, attr, register, options)
+      def initialize(rule, doc, format, attr, register, options, instance_object)
         super()
 
         @rule = rule
@@ -12,6 +12,7 @@ module Lutaml
         @attr = attr
         @register = register
         @options = options
+        @instance_object = instance_object
       end
 
       def call
@@ -25,7 +26,7 @@ module Lutaml
 
       private
 
-      attr_reader :rule, :doc, :format, :attr, :register, :options
+      attr_reader :rule, :doc, :format, :attr, :register, :options, :instance_object
 
       def rule_names
         rule.multiple_mappings? ? rule.name : [rule.name]
@@ -35,7 +36,7 @@ module Lutaml
         return doc if root_or_nil?(name)
         return convert_to_format(doc, format) if rule.raw_mapping?
         return fetch_value(name) if Utils.string_or_symbol_key?(doc, name)
-        return attr.default(register) if attr&.default_set?(register)
+        return attr.default(register, instance_object) if attr&.default_set?(register, instance_object)
 
         uninitialized_value
       end
