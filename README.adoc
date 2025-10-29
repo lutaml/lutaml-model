@@ -477,7 +477,7 @@ The `diff_with_score` method returns **two values** as an array:
 ----
 diff_score, diff_tree = Lutaml::Model::Serialize.diff_with_score(obj1, obj2, options)
 #    ↑           ↑
-#  Float      String  
+#  Float      String
 # (0.0-1.0)   (Visual representation)
 ----
 
@@ -534,7 +534,7 @@ The method returns an array with exactly two elements:
 [source,ruby]
 ----
 result = Lutaml::Model::Serialize.diff_with_score(obj1, obj2)
-# result[0] => diff_score (Float between 0.0 and 1.0)  
+# result[0] => diff_score (Float between 0.0 and 1.0)
 # result[1] => diff_tree (String with visual representation)
 
 # Or using array destructuring:
@@ -551,7 +551,7 @@ The diff functionality supports various options:
 ----
 # Show unchanged attributes as well
 diff_score, diff_tree = Lutaml::Model::Serialize.diff_with_score(
-  ceramic1, 
+  ceramic1,
   ceramic2,
   show_unchanged: true,      # Show attributes that are the same
   highlight_diff: false,     # Don't highlight only differences
@@ -560,7 +560,7 @@ diff_score, diff_tree = Lutaml::Model::Serialize.diff_with_score(
 
 # With indentation
 diff_score, diff_tree = Lutaml::Model::Serialize.diff_with_score(
-  ceramic1, 
+  ceramic1,
   ceramic2,
   indent: "  "
 )
@@ -586,7 +586,7 @@ collection1 = CeramicCollection.new(
 )
 
 collection2 = CeramicCollection.new(
-  name: "Mixed Collection", 
+  name: "Mixed Collection",
   items: [
     Ceramic.new(type: "Bowl", glaze: glaze1),  # Same as first
     Ceramic.new(type: "Cup", glaze: glaze2)     # Different
@@ -602,7 +602,7 @@ diff_score, diff_tree = Lutaml::Model::Serialize.diff_with_score(collection1, co
 The comparison and diff functionality is particularly useful for:
 
 * **Testing**: Verify model equality in specs
-* **Data Migration**: Compare objects before/after transformation  
+* **Data Migration**: Compare objects before/after transformation
 * **Auditing**: Track changes to model instances
 * **Data Validation**: Identify differences in data imports
 * **Debugging**: Visualize object differences during development
@@ -672,12 +672,12 @@ The Symbol type provides support for Ruby symbols across all serialization forma
 The Symbol type only accepts valid string inputs and existing symbols:
 
 * ✅ **Non-empty strings**: `"active"` → `:active`
-* ✅ **Existing symbols**: `:pending` → `:pending` 
+* ✅ **Existing symbols**: `:pending` → `:pending`
 * ✅ **Wrapper format**: `":done:"` → `:done`
 * ✅ **Other types**: integers, arrays, hashes, booleans → symbol (works similar to string type)
 * ❌ **Empty strings**: `""` → `nil`
 
-Since not all serialization formats natively support symbols (XML, JSON, TOML don't), 
+Since not all serialization formats natively support symbols (XML, JSON, TOML don't),
 the Symbol type uses format-specific serialization strategies:
 
 * **YAML**: Uses native symbol format (`:symbol`)
@@ -863,6 +863,281 @@ part lost due to the inability of JSON to handle high-precision date-time.
 > # {"kilnFiringTime":"2012-04-07T01:51:37+02:00"}
 ----
 ====
+
+=== Transformations with custom types
+
+==== General
+
+NOTE: For comprehensive guidance on value transformations including decision
+matrices and when to use custom types vs transform procs, see
+link:docs/value_transformations.adoc[Value Transformations Guide].
+
+Value transformations convert data between different representations while
+preserving or deriving the underlying information.
+
+LutaML Model distinguishes between:
+
+Value:: atomic data that cannot be decomposed further in the serialization
+format (e.g., `"20241225"` as a date string)
+
+Model:: composite data with multiple components that can be mapped structurally
+(e.g., `{year: 2024, month: 12, day: 25}`)
+
+When a value needs to be **transformed** (not just mapped), custom Value Type
+classes provide the most comprehensive solution, especially for bidirectional,
+format-specific transformations.
+
+==== Bidirectional date format transformation
+
+This example demonstrates converting between YYYYMMDD and DDMMYYYY date formats with full bidirectional support across different serialization formats.
+
+.Flexible date format supporting different representations per format
+[example]
+====
+This example demonstrates the following specification:
+
+* `20241225` (YYYYMMDD) in XML
+* `25122024` (DDMMYYYY) in JSON
+* `2024-12-25` (ISO8601) in YAML
+
+All represent the same date and can be transformed bidirectionally without data loss.
+
+[source,ruby]
+----
+# Supports different date formats in different serialization formats
+class FlexibleDateFormat < Lutaml::Model::Type::Date
+  # XML uses YYYYMMDD format
+  def self.from_xml(value)
+    return nil if value.nil? || value.empty?
+
+    year = value[0..3].to_i
+    month = value[4..5].to_i
+    day = value[6..7].to_i
+
+    ::Date.new(year, month, day)
+  rescue ArgumentError
+    nil
+  end
+
+  def to_xml
+    value&.strftime("%Y%m%d")
+  end
+
+  # JSON uses DDMMYYYY format
+  def self.from_json(value)
+    return nil if value.nil? || value.empty?
+
+    day = value[0..1].to_i
+    month = value[2..3].to_i
+    year = value[4..7].to_i
+
+    ::Date.new(year, month, day)
+  rescue ArgumentError
+    nil
+  end
+
+  def to_json
+    value&.strftime("%d%m%Y")
+  end
+
+  # YAML uses ISO8601 (standard format)
+  def self.from_yaml(value)
+    ::Date.parse(value.to_s)
+  rescue ArgumentError
+    nil
+  end
+
+  def to_yaml
+    value&.iso8601
+  end
+end
+
+class Event < Lutaml::Model::Serializable
+  attribute :event_date, FlexibleDateFormat
+  attribute :name, :string
+
+  xml do
+    root 'event'
+    map_element 'eventDate', to: :event_date
+    map_element 'name', to: :name
+  end
+
+  json do
+    map 'eventDate', to: :event_date
+    map 'name', to: :name
+  end
+
+  yaml do
+    map 'eventDate', to: :event_date
+    map 'name', to: :name
+  end
+end
+----
+
+Usage with bidirectional transformations:
+
+[source,ruby]
+----
+event = Event.new(event_date: Date.new(2024, 12, 25), name: "Christmas")
+
+# XML serialization uses YYYYMMDD
+event.to_xml
+# => <event><eventDate>20241225</eventDate><name>Christmas</name></event>
+
+# JSON serialization uses DDMMYYYY
+event.to_json
+# => {"eventDate":"25122024","name":"Christmas"}
+
+# YAML serialization uses ISO8601
+event.to_yaml
+# => ---
+# => eventDate: '2024-12-25'
+# => name: Christmas
+
+# Round-trip: XML → Object → JSON (YYYYMMDD → DDMMYYYY)
+Event.from_xml(event.to_xml).to_json
+# => {"eventDate":"25122024","name":"Christmas"}
+
+# Round-trip: JSON → Object → XML (DDMMYYYY → YYYYMMDD)
+Event.from_json(event.to_json).to_xml
+# => <event><eventDate>20241225</eventDate><name>Christmas</name></event>
+
+# All formats parse to the same Date object
+xml_event = Event.from_xml('<event><eventDate>20241225</eventDate><name>Christmas</name></event>')
+json_event = Event.from_json('{"eventDate":"25122024","name":"Christmas"}')
+
+xml_event.event_date == json_event.event_date
+# => true (both are Date.new(2024, 12, 25))
+----
+
+====
+
+
+==== Calculated value transformation (ISO week dates)
+
+This example shows transforming calendar dates to ISO week dates, which requires calculation of ISO week numbers.
+
+.ISO week date format with bidirectional calculation
+[example]
+====
+This example demonstrates the following requirements:
+
+* Calculated transformation: Calendar date (Y/M/D) → ISO week date (Y/W/D) requires calculating the ISO week number
+
+* Multi-format transforms: Both `from_xml` (calendar) and `from_json` (week)
+parse correctly back to Date objects
+
+* Round-trip capable transforms: Can serialize and deserialize without data loss
+
+[source,ruby]
+----
+# Transforms between calendar dates and ISO 8601 week dates
+class ISOWeekDate < Lutaml::Model::Type::Date
+  # Parse standard YYYYMMDD calendar date
+  def self.from_xml(value)
+    return nil if value.nil? || value.empty?
+
+    year = value[0..3].to_i
+    month = value[4..5].to_i
+    day = value[6..7].to_i
+
+    ::Date.new(year, month, day)
+  rescue ArgumentError
+    nil
+  end
+
+  # Serialize to YYYYWWDD format
+  # YYYY: ISO year (may differ from calendar year near boundaries)
+  # WW: ISO week number (01-53)
+  # DD: Day of week (1=Monday, 7=Sunday)
+  def to_xml
+    return nil unless value
+
+    # ISO 8601 week date components
+    year = value.cwyear  # Commercial (ISO) year
+    week = value.cweek.to_s.rjust(2, '0')  # Week number
+    day = value.cwday  # Day of week (1-7)
+
+    "#{year}#{week}#{day}"
+  end
+
+  # Parse YYYYWWDD week date back to calendar date
+  def self.from_json(value)
+    return nil if value.nil? || value.empty?
+
+    year = value[0..3].to_i
+    week = value[4..5].to_i
+    day = value[6].to_i
+
+    # Date.commercial creates date from ISO week-date
+    ::Date.commercial(year, week, day)
+  rescue ArgumentError
+    nil
+  end
+
+  # JSON also outputs week format
+  def to_json
+    to_xml
+  end
+end
+
+class Schedule < Lutaml::Model::Serializable
+  attribute :week_date, ISOWeekDate
+  attribute :activity, :string
+
+  xml do
+    root 'schedule'
+    map_element 'date', to: :week_date
+    map_element 'activity', to: :activity
+  end
+
+  json do
+    map 'weekDate', to: :week_date
+    map 'activity', to: :activity
+  end
+end
+----
+
+Usage with calculated transformations:
+
+[source,ruby]
+----
+schedule = Schedule.new(
+  week_date: Date.new(2024, 12, 25),  # Wednesday
+  activity: "Team Meeting"
+)
+
+# Serializes to ISO week format
+schedule.to_xml
+# => <schedule>
+#      <date>20245203</date>
+#      <activity>Team Meeting</activity>
+#    </schedule>
+
+# Parse the YYYYWWDD components:
+# 2024: Year 2024
+# 52: Week 52 of the year
+# 03: Day 3 of the week (Wednesday, where Monday=1)
+
+schedule.to_json
+# => {"weekDate":"20245203","activity":"Team Meeting"}
+
+# Round-trip: calendar date → week date → calendar date
+parsed = Schedule.from_xml(schedule.to_xml)
+parsed.week_date
+# => #<Date: 2024-12-25>
+
+# Bidirectional transformation works
+parsed.week_date == schedule.week_date
+# => true
+
+# Can also parse week date format from JSON
+week_format = '{"weekDate":"20245203","activity":"Meeting"}'
+Schedule.from_json(week_format).week_date
+# => #<Date: 2024-12-25>
+----
+====
+
 
 
 [[attribute-definition]]
@@ -1946,6 +2221,33 @@ attributes.
 * The first choice can have either the `prefix` and `forename` attributes or just the `forename` attribute.
 * The last attribute `completeName` is optional.
 ====
+
+==== Choosing between custom types and transform procs
+
+When deciding how to implement value transformations, consider:
+
+**Use Custom Value Type classes when:**
+
+* Bidirectional transformations are needed across formats
+* Format-specific representations are required (XML wants YYYYMMDD, JSON wants DDMMYYYY)
+* The logic will be reused across multiple attributes or models
+* Complex parsing or calculation is involved (e.g., ISO week date calculations)
+* Type safety and encapsulation are important
+
+**Use Attribute-level transform procs when:**
+
+* Same simple transformation applies to ALL serialization formats uniformly
+* Logic is specific to one attribute in one model (non-reusable)
+* Quick inline modification is sufficient
+* No format-specific behavior is needed
+
+**Use Mapping-level transform procs when:**
+
+* Different transformation needed per serialization format
+* One-off, non-reusable transformation
+* Combined with attribute-level transforms for multi-stage processing
+
+See link:docs/value_transformations.adoc[Value Transformations Guide] for complete decision matrix and examples.
 
 NOTE: The `choice` directive can be used with `import_model_attributes`. For more details, see <<import-model-attributes-inside-choice, Using import_model_attributes inside a choice block>>.
 
@@ -7844,7 +8146,7 @@ hsh | json | yaml | toml do
 end
 ----
 
-This is only applicable if the `to: :name_of_element` (in xml mapping) or `to: :name_of_attribute` (in key_value mapping) option is set.  
+This is only applicable if the `to: :name_of_element` (in xml mapping) or `to: :name_of_attribute` (in key_value mapping) option is set.
 If it is not set, then both custom methods must be provided.
 
 [example]
@@ -10047,8 +10349,8 @@ class Product < Lutaml::Model::Serializable
 end
 
 product = Product.new(
-  name: "Laptop", 
-  price: 999.99, 
+  name: "Laptop",
+  price: 999.99,
   description: "High-performance laptop for professional use"
 )
 drop = product.to_liquid
@@ -10080,15 +10382,15 @@ When creating custom drop methods, use `@object` to access the original model in
 class Schema < Lutaml::Model::Serializable
   attribute :path, :string
   attribute :source, :string
-  
+
   # Specify the name of your custom drop class
   liquid_class "CustomSchemaDrop"
-  
+
   # You can still use liquid mappings
   liquid do
     map "template_path", to: :build_template_path
   end
-  
+
   def build_template_path
     File.join("templates", path)
   end
@@ -10103,7 +10405,7 @@ class CustomSchemaDrop < BaseDropClass
   def formatted_source
     "Source: #{@object.source.upcase}"
   end
-  
+
   # Override existing methods
   def path
     "custom/#{@object.path}"
@@ -10152,7 +10454,7 @@ You can create sophisticated inheritance hierarchies:
 class Document < Lutaml::Model::Serializable
   attribute :title, :string
   attribute :content, :string
-  
+
   liquid_class "DocumentDrop"
 end
 
@@ -10164,11 +10466,11 @@ class DocumentDrop < BaseDocumentDrop
   def word_count
     @object.content.split.size
   end
-  
+
   def summary
     @object.content
   end
-  
+
   def metadata
     {
       title: @object.title,
@@ -10182,7 +10484,7 @@ end
 class TechnicalDocument < Document
   attribute :version, :string
   attribute :author, :string
-  
+
   liquid_class "TechnicalDocumentDrop"
 end
 
@@ -10222,7 +10524,7 @@ This error is raised when a custom liquid class specified with `liquid_class` is
 ----
 class Schema < Lutaml::Model::Serializable
   attribute :path, :string
-  
+
   # Specify a custom drop class name
   liquid_class "CustomSchemaDrop"
 end
