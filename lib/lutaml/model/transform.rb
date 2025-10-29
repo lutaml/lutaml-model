@@ -95,16 +95,8 @@ module Lutaml
       end
 
       def root_and_parent_accessor_methods_for(instance)
-        return if root_and_parent_defined?(instance)
-
-        klass = instance.class
-        Utils.add_accessor_if_not_defined(klass, :__parent)
-        Utils.add_accessor_if_not_defined(klass, :__root)
-      end
-
-      def root_and_parent_defined?(instance)
-        instance.respond_to?(:__parent) ||
-          instance.respond_to?(:__root)
+        Utils.add_accessor_if_not_defined(instance.class, :__parent)
+        Utils.add_accessor_if_not_defined(instance.class, :__root)
       end
     end
   end
