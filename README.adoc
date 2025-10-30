@@ -7347,6 +7347,201 @@ ceramic.glaze_type
 ====
 
 
+[[class-based-transformers]]
+==== Class-based transformers
+
+Instead of using proc-based transformations, you can define reusable transformer
+classes that inherit from `Lutaml::Model::ValueTransformer`.
+
+Class-based transformers provide better organization, reusability, and testing
+capabilities compared to inline proc transformations.
+
+Syntax:
+
+[source,ruby]
+----
+class CustomTransformer < Lutaml::Model::ValueTransformer
+  def to_json
+    # Transform the value for JSON output
+  end
+
+  def from_json(input_value)
+    # Transform the input value from JSON
+  end
+
+  def to_xml
+    # Transform the value for XML output
+  end
+
+  def from_xml(input_value)
+    # Transform the input value from XML
+  end
+
+  # Define methods for other formats as needed:
+  # to_yaml, from_yaml, to_toml, from_toml, etc.
+end
+
+class SomeObject < Lutaml::Model::Serializable
+  # Use the transformer class directly
+  attribute :attribute_name, {attr_type}, transform: CustomTransformer
+end
+----
+
+Where,
+
+`CustomTransformer`:: A class that inherits from `Lutaml::Model::ValueTransformer`
+and implements format-specific transformation methods.
+
+`to_*`:: Methods that transform the internal value when serializing to a format.
+The current value is available as `value` within the method.
+
+`from_*`:: Methods that transform the input value when deserializing from a format.
+
+NOTE: If a transformer class doesn't implement a method for a specific format,
+that format will not be transformed, allowing selective transformation.
+
+[example]
+.Class-based transformer for measurement values
+====
+[source,ruby]
+----
+class MeasurementTransformer < Lutaml::Model::ValueTransformer
+  def to_json
+    return value if value.nil?
+    "#{value["value"]} #{value["unit"]}"
+  end
+
+  def from_json(input_value)
+    number, unit = input_value.split
+    { "value" => number.to_f, "unit" => unit }
+  end
+
+  def to_xml
+    return value if value.nil?
+    "#{value["value"]} #{value["unit"]}"
+  end
+
+  def from_xml(input_value)
+    number, unit = input_value.split
+    { "value" => number.to_f, "unit" => unit }
+  end
+
+  # YAML and TOML methods not defined - those formats won't be transformed
+end
+
+class Product < Lutaml::Model::Serializable
+  attribute :measurement, :hash, transform: MeasurementTransformer
+end
+----
+
+[source,ruby]
+----
+product = Product.new(measurement: { "value" => 10.5, "unit" => "cm" })
+
+# JSON and XML transformations are applied
+puts product.to_json
+# => {"measurement":"10.5 cm"}
+
+puts product.to_xml
+# => <Product>
+#      <measurement>10.5 cm</measurement>
+#    </Product>
+
+# YAML transformation is not applied (no to_yaml method defined)
+puts product.to_yaml
+# => measurement:
+#      value: 10.5
+#      unit: cm
+
+# Deserialization works the same way
+Product.from_json('{"measurement": "15.0 mm"}').measurement
+# => {"value"=>15.0, "unit"=>"mm"}
+
+Product.from_yaml("measurement:\n  value: 20.0\n  unit: km").measurement
+# => {"value"=>20.0, "unit"=>"km"}
+----
+====
+
+Class-based transformers can be combined with both attribute-level and mapping-level
+transformations, following the same precedence rules as proc-based transformers.
+
+[example]
+.Combined class-based transformers with attribute and mapping level transformations
+====
+[source,ruby]
+----
+class PrefixTransformer < Lutaml::Model::ValueTransformer
+  def to_json(*_args)
+    "PREFIX:#{value}"
+  end
+
+  def from_json(input_value)
+    input_value.gsub("PREFIX:", "")
+  end
+
+  def to_xml(*_args)
+    "PREFIX:#{value}"
+  end
+
+  def from_xml(input_value)
+    input_value.gsub("PREFIX:", "")
+  end
+end
+
+class SuffixTransformer < Lutaml::Model::ValueTransformer
+  def to_json(*_args)
+    "#{value}:SUFFIX"
+  end
+
+  def from_json(input_value)
+    input_value.gsub(":SUFFIX", "")
+  end
+
+  def to_xml(*_args)
+    "#{value}:SUFFIX"
+  end
+
+  def from_xml(input_value)
+    input_value.gsub(":SUFFIX", "")
+  end
+end
+
+class CombinedTransformModel < Lutaml::Model::Serializable
+  # Attribute-level transformer
+  attribute :title, :string, transform: PrefixTransformer
+
+  json do
+    # Mapping-level transformer (applied in addition to attribute-level)
+    map "title", to: :title, transform: SuffixTransformer
+  end
+
+  xml do
+    root "CombinedTransformModel"
+    map_element "title", to: :title, transform: SuffixTransformer
+  end
+end
+----
+
+[source,ruby]
+----
+model = CombinedTransformModel.new(title: "hello")
+
+# For JSON output:
+# 1. Attribute transformer (PrefixTransformer): "hello" -> "PREFIX:hello"
+# 2. Mapping transformer (SuffixTransformer): "PREFIX:hello" -> "PREFIX:hello:SUFFIX"
+puts model.to_json
+# => {"title": "PREFIX:hello:SUFFIX"}
+
+# For JSON input:
+# 1. Mapping transformer (SuffixTransformer): "hello:SUFFIX" -> "hello"
+# 2. Attribute transformer (PrefixTransformer): "hello" -> "hello" (stored value)
+model = CombinedTransformModel.from_json('{"title": "hello:SUFFIX"}')
+model.title
+# => "hello"
+----
+====
+
+
 
 [[separate-serialization-model]]
 ==== Separate data model class

@@ -19,6 +19,14 @@ module Lutaml
           method.call(transformed_value)
         end
       end
+
+      def get_transform(obj, direction)
+        transform = obj&.transform
+
+        return nil if transform.is_a?(Class)
+
+        transform.is_a?(::Hash) ? transform[direction] : transform
+      end
     end
 
     class ImportTransformer < Transformer
@@ -27,8 +35,8 @@ module Lutaml
       # 2. Attribute transform
       def transformation_methods
         [
-          rule.transform[:import],
-          attribute&.transform&.[](:import),
+          get_transform(rule, :import),
+          get_transform(attribute, :import),
         ].compact
       end
     end
@@ -39,8 +47,8 @@ module Lutaml
       # 2. Rule transform
       def transformation_methods
         [
-          attribute&.transform&.[](:export),
-          rule.transform[:export],
+          get_transform(attribute, :export),
+          get_transform(rule, :export),
         ].compact
       end
     end

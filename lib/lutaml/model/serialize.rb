@@ -12,6 +12,7 @@ require_relative "choice"
 require_relative "sequence"
 require_relative "liquefiable"
 require_relative "transform"
+require_relative "value_transformer"
 require_relative "registrable"
 
 module Lutaml

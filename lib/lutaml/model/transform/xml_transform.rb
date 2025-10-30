@@ -62,6 +62,7 @@ module Lutaml
 
           value = apply_value_map(value, rule.value_map(:from, new_opts), attr)
           value = normalize_xml_value(value, rule, attr, new_opts)
+          value = rule.transform_value(attr, value, :from, :xml)
           rule.deserialize(instance, value, attributes, context)
         end
 
