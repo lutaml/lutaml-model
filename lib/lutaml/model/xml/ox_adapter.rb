@@ -10,7 +10,9 @@ module Lutaml
           Ox.default_options = Ox.default_options.merge(encoding: encoding(xml, options))
 
           parsed = Ox.parse(xml)
-          @root = OxElement.new(parsed)
+          # Ox.parse returns Ox::Document if XML has declaration, Ox::Element otherwise
+          root_element = parsed.is_a?(::Ox::Document) ? parsed.nodes.first : parsed
+          @root = OxElement.new(root_element)
           new(@root, Ox.default_options[:encoding])
         end
 
@@ -107,7 +109,7 @@ module Lutaml
       end
 
       class OxElement < XmlElement
-        def initialize(node, root_node: nil)
+        def initialize(node, root_node: nil, inherited_default_namespace: nil)
           case node
           when String
             super("text", {}, [], node, parent_document: root_node, name: "text")
@@ -116,13 +118,23 @@ module Lutaml
           when Ox::CData
             super("#cdata-section", {}, [], node.value, parent_document: root_node, name: "#cdata-section")
           else
+            # Extract default namespace (xmlns without prefix)
+            default_namespace = nil
             namespace_attributes(node.attributes).each do |(name, value)|
               if root_node
                 root_node.add_namespace(XmlNamespace.new(value, name))
               else
                 add_namespace(XmlNamespace.new(value, name))
               end
+
+              # Capture default namespace
+              if name.to_s == "xmlns"
+                default_namespace = value
+              end
             end
+
+            # Inherit default namespace from parent if not explicitly set
+            default_namespace ||= inherited_default_namespace
 
             attributes = node.attributes.each_with_object({}) do |(name, value), hash|
               next if attribute_is_namespace?(name)
@@ -144,15 +156,22 @@ module Lutaml
 
             prefix, name = separate_name_and_prefix(node)
 
+            # We need to call super first to set @default_namespace, then parse children
+            # But we can't because super needs the children. So we pass default_namespace explicitly.
             super(
               node,
               attributes,
-              parse_children(node, root_node: root_node || self),
+              [], # Will set children after super
               node.text,
               parent_document: root_node,
               name: name,
               namespace_prefix: prefix,
+              default_namespace: default_namespace,
             )
+
+            # Now parse children with proper default_namespace context
+            @children = parse_children(node, root_node: root_node || self,
+                                      default_namespace: default_namespace)
           end
         end
 
@@ -224,9 +243,10 @@ module Lutaml
 
         private
 
-        def parse_children(node, root_node: nil)
+        def parse_children(node, root_node: nil, default_namespace: nil)
           node.nodes.map do |child|
-            OxElement.new(child, root_node: root_node)
+            OxElement.new(child, root_node: root_node,
+                         inherited_default_namespace: default_namespace)
           end
         end
       end
