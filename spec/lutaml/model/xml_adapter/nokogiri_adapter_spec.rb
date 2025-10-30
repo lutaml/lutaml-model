@@ -50,7 +50,9 @@ RSpec.describe Lutaml::Model::Xml::NokogiriAdapter do
     let(:doc_with_default) { described_class.parse(xml_with_default_ns) }
 
     it "treats unprefixed child elements as being in the default namespace" do
-      children_elements = doc_with_default.root.children.reject { |c| c.name == "text" }
+      children_elements = doc_with_default.root.children.reject do |c|
+        c.name == "text"
+      end
       child = children_elements.first
       expect(child.name).to eq("child")
       expect(child.namespace.uri).to eq("http://example.com/default")
@@ -58,7 +60,7 @@ RSpec.describe Lutaml::Model::Xml::NokogiriAdapter do
     end
 
     it "applies default namespace to all unprefixed elements" do
-      children = doc_with_default.root.children.select { |c| c.name != "text" }
+      children = doc_with_default.root.children.reject { |c| c.name == "text" }
       children.each do |child|
         expect(child.namespace.uri).to eq("http://example.com/default")
         expect(child.namespace.prefix).to be_nil
