@@ -16,3 +16,10 @@
 
 # Bundler
 .bundle/
+
+Gemfile.lock
+*_BACKUP_*
+*_BASE_*
+*_LOCAL_*
+*_REMOTE_*
+.vscode
