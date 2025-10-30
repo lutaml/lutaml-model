@@ -16,7 +16,10 @@ module Lutaml
           builder_options = {}
 
           if options.key?(:encoding)
-            builder_options[:encoding] = options[:encoding] unless options[:encoding].nil?
+            unless options[:encoding].nil?
+              builder_options[:encoding] =
+                options[:encoding]
+            end
           elsif options.key?(:parse_encoding)
             builder_options[:encoding] = options[:parse_encoding]
           else
@@ -81,7 +84,8 @@ module Lutaml
               object_key = "#{object.name}-#{object.type}"
               curr_index = index_hash[object_key] += 1
 
-              element_rule = xml_mapping.find_by_name(object.name, type: object.type)
+              element_rule = xml_mapping.find_by_name(object.name,
+                                                      type: object.type)
 
               next if element_rule.nil? || child_options[:except]&.include?(element_rule.to)
 
@@ -95,7 +99,10 @@ module Lutaml
                 text = xml_mapping.content_mapping.serialize(element)
                 text = text[curr_index] if text.is_a?(Array)
 
-                next prefixed_xml.add_text(xml, text, cdata: element_rule.cdata) if element.mixed?
+                if element.mixed?
+                  next prefixed_xml.add_text(xml, text,
+                                             cdata: element_rule.cdata)
+                end
 
                 content << text
               elsif !value.nil? || element_rule.render_nil?
@@ -153,7 +160,7 @@ module Lutaml
           # Set default namespace for root, or inherit from parent for children
           if !node.namespace&.prefix
             default_namespace = node.namespace&.href ||
-                               (root_node&.instance_variable_get(:@default_namespace))
+              root_node&.instance_variable_get(:@default_namespace)
           end
 
           super(
