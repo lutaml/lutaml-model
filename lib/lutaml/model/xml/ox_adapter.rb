@@ -7,7 +7,8 @@ module Lutaml
     module Xml
       class OxAdapter < Document
         def self.parse(xml, options = {})
-          Ox.default_options = Ox.default_options.merge(encoding: encoding(xml, options))
+          Ox.default_options = Ox.default_options.merge(encoding: encoding(xml,
+                                                                           options))
 
           parsed = Ox.parse(xml)
           # Ox.parse returns Ox::Document if XML has declaration, Ox::Element otherwise
@@ -58,7 +59,8 @@ module Lutaml
           prefixed_xml = builder.add_namespace_prefix(prefix)
 
           tag_name = options[:tag_name] || xml_mapping.root_element
-          prefixed_xml.create_and_add_element(tag_name, prefix: prefix, attributes: attributes) do |el|
+          prefixed_xml.create_and_add_element(tag_name, prefix: prefix,
+                                                        attributes: attributes) do |el|
             if options.key?(:namespace_prefix) && !options[:namespace_prefix]
               prefixed_xml.add_namespace_prefix(nil)
             end
@@ -71,7 +73,8 @@ module Lutaml
               index_hash[object_key] ||= -1
               curr_index = index_hash[object_key] += 1
 
-              element_rule = xml_mapping.find_by_name(object.name, type: object.type)
+              element_rule = xml_mapping.find_by_name(object.name,
+                                                      type: object.type)
               next if element_rule.nil? || options[:except]&.include?(element_rule.to)
 
               attribute_def = attribute_definition_for(element, element_rule,
@@ -84,7 +87,10 @@ module Lutaml
                 text = element.send(xml_mapping.content_mapping.to)
                 text = text[curr_index] if text.is_a?(Array)
 
-                next el.add_text(el, text, cdata: element_rule.cdata) if element.mixed?
+                if element.mixed?
+                  next el.add_text(el, text,
+                                   cdata: element_rule.cdata)
+                end
 
                 content << text
               elsif !value.nil? || element_rule.render_nil?
@@ -171,7 +177,7 @@ module Lutaml
 
             # Now parse children with proper default_namespace context
             @children = parse_children(node, root_node: root_node || self,
-                                      default_namespace: default_namespace)
+                                             default_namespace: default_namespace)
           end
         end
 
@@ -246,7 +252,7 @@ module Lutaml
         def parse_children(node, root_node: nil, default_namespace: nil)
           node.nodes.map do |child|
             OxElement.new(child, root_node: root_node,
-                         inherited_default_namespace: default_namespace)
+                                 inherited_default_namespace: default_namespace)
           end
         end
       end
