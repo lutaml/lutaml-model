@@ -150,8 +150,10 @@ module Lutaml
             )
           end
 
-          if root_node.nil? && !node.namespace&.prefix
-            default_namespace = node.namespace&.href
+          # Set default namespace for root, or inherit from parent for children
+          if !node.namespace&.prefix
+            default_namespace = node.namespace&.href ||
+                               (root_node&.instance_variable_get(:@default_namespace))
           end
 
           super(

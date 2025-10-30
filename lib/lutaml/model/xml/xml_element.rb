@@ -42,6 +42,10 @@ module Lutaml
           (instance_variables - %i[@adapter_node @parent_document]).sort
         end
 
+        def text?
+          @name == "text"
+        end
+
         def name
           return @name unless namespace_prefix
 
@@ -49,10 +53,20 @@ module Lutaml
         end
 
         def namespaced_name
-          if namespaces[namespace_prefix] && !text?
+          return @name if text?
+
+          # Priority order for namespace resolution:
+          # 1. If has explicit prefix, use namespaces[prefix]
+          # 2. If has @default_namespace, use it (preferred for default ns)
+          # 3. Fall back to namespaces[nil] if exists
+          # 4. Return unprefixed name
+
+          if namespace_prefix && namespaces[namespace_prefix]
             "#{namespaces[namespace_prefix].uri}:#{@name}"
-          elsif @default_namespace && !text?
-            "#{@default_namespace}:#{name}"
+          elsif @default_namespace
+            "#{@default_namespace}:#{@name}"
+          elsif namespaces[nil]
+            "#{namespaces[nil].uri}:#{@name}"
           else
             @name
           end

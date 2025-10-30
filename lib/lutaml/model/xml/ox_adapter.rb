@@ -10,7 +10,10 @@ module Lutaml
           Ox.default_options = Ox.default_options.merge(encoding: encoding(xml, options))
 
           parsed = Ox.parse(xml)
-          @root = OxElement.new(parsed)
+          # @root = OxElement.new(parsed)
+          # Ox.parse returns Ox::Document if XML has declaration, Ox::Element otherwise
+          root_element = parsed.is_a?(::Ox::Document) ? parsed.nodes.first : parsed
+          @root = OxElement.new(root_element)
           new(@root, Ox.default_options[:encoding])
         end
 
