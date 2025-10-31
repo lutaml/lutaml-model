@@ -2,7 +2,7 @@
 
 require "erb"
 require "tmpdir"
-require "lutaml/xsd"
+require "lutaml/xsd" unless RUBY_ENGINE == 'opal'
 require_relative "xml_compiler/complex_content_restriction"
 require_relative "xml_compiler/attribute_group"
 require_relative "xml_compiler/complex_content"

@@ -374,7 +374,7 @@ RSpec.describe Lutaml::Model::Xml::Mapping do
     end
 
     # Skipping for OX because it does not handle namespaces
-    context "when overriding child namespace prefix", skip: adapter_class == Lutaml::Model::Xml::OxAdapter do
+    context "when overriding child namespace prefix", skip: adapter_class.name == "Lutaml::Model::Xml::OxAdapter" do
       let(:input_xml) do
         <<~XML
           <OverrideDefaultNamespacePrefix
@@ -1315,11 +1315,11 @@ RSpec.describe Lutaml::Model::Xml::Mapping do
 
   describe Lutaml::Model::Xml::NokogiriAdapter do
     it_behaves_like "having XML Mappings", described_class
-  end
+  end unless RUBY_ENGINE == 'opal'
 
   describe Lutaml::Model::Xml::OxAdapter do
     it_behaves_like "having XML Mappings", described_class
-  end
+  end unless RUBY_ENGINE == 'opal'
 
   describe Lutaml::Model::Xml::OgaAdapter do
     it_behaves_like "having XML Mappings", described_class

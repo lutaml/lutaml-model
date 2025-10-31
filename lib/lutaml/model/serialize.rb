@@ -505,8 +505,12 @@ module Lutaml
         def ensure_utf8(value)
           case value
           when String
-            value.encode("UTF-8", invalid: :replace, undef: :replace,
-                                  replace: "")
+            if RUBY_ENGINE == 'opal'
+              value
+            else
+              value.encode("UTF-8", invalid: :replace, undef: :replace,
+                                    replace: "")
+            end
           when Array
             value.map { |v| ensure_utf8(v) }
           when ::Hash

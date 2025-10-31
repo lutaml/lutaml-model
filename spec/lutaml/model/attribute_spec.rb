@@ -114,7 +114,7 @@ RSpec.describe Lutaml::Model::Attribute do
     it "raise exception if option is not allowed" do
       expect do
         validate_options.call({ foo: "bar" })
-      end.to raise_error(Lutaml::Model::InvalidAttributeOptionsError, "Invalid options given for `name` [:foo]")
+      end.to raise_error(Lutaml::Model::InvalidAttributeOptionsError, sym_normal("Invalid options given for `name` [:foo]"))
     end
 
     it "raise exception if pattern is given with non string type" do
