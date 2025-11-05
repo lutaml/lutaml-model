@@ -2232,6 +2232,43 @@ attributes.
 * The last attribute `completeName` is optional.
 ====
 
+Choice and sequence can be used together to create complex structures.
+
+.Using `choice` (model-level) and `sequence` (XML-level) directives together
+[example]
+====
+[source,ruby]
+----
+class Person < Lutaml::Model::Serializable
+  attribute :first_name, :string
+  attribute :last_name, :string
+  choice do
+    attribute :age, :integer
+    attribute :dob, :string
+  end
+  choice(min: 1, max: 2) do
+    attribute :email, :string, collection: 0..2
+    attribute :phone, :string, collection: 0..2
+    attribute :address, :string, collection: true
+  end
+
+  xml do
+    root "Person", mixed: true
+    sequence do
+      map_element :FirstName, to: :first_name
+      map_element :LastName, to: :last_name
+      map_element :Age, to: :age
+      map_element :Dob, to: :dob
+      map_element :Email, to: :email
+      map_element :Phone, to: :phone
+      map_element :Address, to: :address
+    end
+  end
+end
+----
+====
+
+
 ==== Choosing between custom types and transform procs
 
 When deciding how to implement value transformations, consider:
@@ -10200,7 +10237,8 @@ link:https://www.w3.org/TR/xmlschema-1/#include[XML Schema specification].
 [example]
 `"path/to/schema/directory"`
 
-NOTE: If both `create_files` and `load_classes` are provided, the `create_files` argument will take priority and generate files without loading them!
+NOTE: If both `create_files` and `load_classes` are provided, the `create_files`
+argument will take priority and generate files without loading them!
 
 The generated LutaML models consists of two different kind of Ruby classes
 depending on the XSD schema:
