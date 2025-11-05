@@ -32,6 +32,7 @@ Gem::Specification.new do |spec|
 
   spec.add_dependency "activesupport"
   spec.add_dependency "moxml", ">= 0.1.2"
+  spec.add_dependency "openssl"
   spec.add_dependency "thor"
   spec.metadata["rubygems_mfa_required"] = "true"
 end
