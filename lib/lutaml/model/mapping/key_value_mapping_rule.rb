@@ -3,8 +3,8 @@ require_relative "mapping_rule"
 module Lutaml
   module Model
     class KeyValueMappingRule < MappingRule
-      attr_reader :child_mappings,
-                  :root_mappings
+      attr_accessor :child_mappings,
+                    :root_mappings
 
       def initialize(
         name,

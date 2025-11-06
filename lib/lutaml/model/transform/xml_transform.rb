@@ -8,6 +8,7 @@ module Lutaml
           instance = model_class.new
           register_accessor_methods_for(instance, __register)
         end
+        root_and_parent_assignment(instance, options)
         apply_xml_mapping(data, instance, options)
       end
 
@@ -31,7 +32,6 @@ module Lutaml
         set_schema_location(instance, doc)
 
         defaults_used = []
-        validate_sequence!(doc.root.order)
 
         mappings.each do |rule|
           attr = attribute_for_rule(rule)
@@ -51,7 +51,8 @@ module Lutaml
                   else
                     val = value_for_rule(doc, rule, new_opts, instance)
 
-                    if (val.nil? || Utils.uninitialized?(val)) && (instance.using_default?(rule.to) || rule.render_default)
+                    if (val.nil? || Utils.uninitialized?(val)) &&
+                        (instance.using_default?(rule.to) || rule.render_default)
                       defaults_used << rule.to
                       attr&.default(__register) || rule.to_value_for(instance)
                     else
@@ -61,6 +62,7 @@ module Lutaml
 
           value = apply_value_map(value, rule.value_map(:from, new_opts), attr)
           value = normalize_xml_value(value, rule, attr, new_opts)
+          value = rule.transform_value(attr, value, :from, :xml)
           rule.deserialize(instance, value, attributes, context)
         end
 
@@ -137,6 +139,8 @@ module Lutaml
             cast_options = options.except(:mappings)
             cast_options[:polymorphic] = rule.polymorphic if rule.polymorphic
             cast_options[:register] = __register
+            cast_options[:__parent] = instance
+            cast_options[:__root] = instance.__root || instance
 
             values << attr.cast(child, :xml, __register, cast_options)
           elsif attr.raw?
@@ -210,17 +214,6 @@ module Lutaml
           node.inner_xml
         else
           node.children.map(&:to_xml).join
-        end
-      end
-
-      def validate_sequence!(element_order)
-        mapping_sequence = mappings_for(:xml).element_sequence
-        return if mapping_sequence.empty?
-
-        current_order = element_order.filter_map(&:element_tag)
-
-        mapping_sequence.each do |mapping|
-          mapping.validate_content!(current_order, context)
         end
       end
     end

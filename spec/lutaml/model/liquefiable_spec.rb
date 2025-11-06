@@ -32,6 +32,28 @@ module LiquefiableSpec
   class CeramicCollection < Lutaml::Model::Serializable
     attribute :ceramics, Ceramic, collection: true
   end
+
+  class User
+    include Lutaml::Model::Liquefiable
+
+    def initialize(name, email)
+      @name = name
+      @email = email
+    end
+
+    def name
+      @name
+    end
+
+    def email
+      @email
+    end
+
+    liquid do
+      map "name", to: :name
+      map "email", to: :email
+    end
+  end
 end
 
 RSpec.describe Lutaml::Model::Liquefiable do
@@ -42,18 +64,6 @@ RSpec.describe Lutaml::Model::Liquefiable do
   let(:dummy) { DummyModel.new("TestName", 42) }
 
   describe ".register_liquid_drop_class" do
-    context "when drop class does not exist" do
-      it "creates a new drop class" do
-        expect do
-          dummy.class.register_liquid_drop_class
-        end.to change {
-                 dummy.class.const_defined?(:DummyModelDrop)
-               }
-          .from(false)
-          .to(true)
-      end
-    end
-
     context "when 'liquid' is not available" do
       before { allow(Object).to receive(:const_defined?).with(:Liquid).and_return(false) }
 
@@ -67,27 +77,35 @@ RSpec.describe Lutaml::Model::Liquefiable do
 
     context "when drop class already exists" do
       it "raises an error" do
-        dummy.class.register_liquid_drop_class
-        expect { dummy.class.register_liquid_drop_class }.to raise_error(RuntimeError, "DummyModelDrop Already exists!")
+        expect { dummy.class.register_liquid_drop_class }.to raise_error(RuntimeError, "Drop Already exists!")
+      end
+    end
+
+    context "when class inherits from Lutaml::Model::Serializable and doesn't define any attribute" do
+      before { stub_const("EmptyModel", Class.new(Lutaml::Model::Serializable)) }
+
+      it "raises an error" do
+        expect { EmptyModel.register_liquid_drop_class }.to raise_error(RuntimeError, "Drop Already exists!")
       end
     end
   end
 
   describe ".drop_class_name" do
     it "returns the correct drop class name" do
-      expect(dummy.class.drop_class_name).to eq("DummyModelDrop")
+      expect(dummy.class.drop_class_name).to eq("Drop")
     end
   end
 
   describe ".drop_class" do
     context "when drop class exists" do
       it "returns the drop class" do
-        dummy.class.register_liquid_drop_class
-        expect(dummy.class.drop_class).to eq(DummyModel::DummyModelDrop)
+        expect(dummy.class.drop_class).to eq(DummyModel::Drop)
       end
     end
 
     context "when drop class does not exist" do
+      before { allow(dummy.class).to receive(:drop_class).and_return(nil) }
+
       it "returns nil" do
         expect(dummy.class.drop_class).to be_nil
       end
@@ -95,10 +113,6 @@ RSpec.describe Lutaml::Model::Liquefiable do
   end
 
   describe ".register_drop_method" do
-    before do
-      dummy.class.register_liquid_drop_class
-    end
-
     it "defines a method on the drop class" do
       expect do
         dummy.class.register_drop_method(:display_name)
@@ -124,7 +138,6 @@ RSpec.describe Lutaml::Model::Liquefiable do
 
     context "when liquid is enabled" do
       before do
-        dummy.class.register_liquid_drop_class
         dummy.class.register_drop_method(:display_name)
       end
 
@@ -253,6 +266,214 @@ RSpec.describe Lutaml::Model::Liquefiable do
           ** Glaze (opacity): Transparent
         OUTPUT
         expect(output.strip).to eq(expected_output.strip)
+      end
+    end
+  end
+
+  describe "liquid block mapping" do
+    # This test demonstrates using def methods with parameters in liquid mappings
+    # The def methods can accept parameters and are mapped through the liquid block
+    let(:klass) do
+      Class.new(Lutaml::Model::Serializable) do
+        attribute :path, :string
+        attribute :source, :string
+
+        liquid do
+          map "custom_path", to: :custom_path_method
+          map "source", to: :source
+          map "formatted_content", to: :format_content
+        end
+
+        # def method with optional parameter
+        def custom_path_method
+          File.join("templates", path)
+        end
+
+        # def method without parameters
+        def format_content
+          "Formatted: #{source}"
+        end
+      end
+    end
+
+    let(:instance) { klass.new(path: "test.xml", source: "content") }
+    let(:drop) { instance.to_liquid }
+
+    it "maps custom keys to specified methods" do
+      expect(drop.custom_path).to eq("templates/test.xml")
+      expect(drop.formatted_content).to eq("Formatted: content")
+    end
+
+    it "still allows direct attribute access" do
+      expect(drop.source).to eq("content")
+    end
+
+    it "works with liquid templates" do
+      template = Liquid::Template.parse("{{custom_path}} - {{formatted_content}}")
+      result = template.render(drop)
+      expect(result).to eq("templates/test.xml - Formatted: content")
+    end
+
+    it "provides both default and custom mappings" do
+      # Default attribute should still be available
+      expect(drop.path).to eq("test.xml")
+
+      # Custom mapping should override for specific keys
+      expect(drop.custom_path).to eq("templates/test.xml")
+    end
+  end
+
+  describe "without liquid block" do
+    let(:klass) do
+      Class.new(Lutaml::Model::Serializable) do
+        attribute :path, :string
+        attribute :source, :string
+      end
+    end
+
+    let(:instance) { klass.new(path: "test.xml", source: "content") }
+    let(:drop) { instance.to_liquid }
+
+    it "uses default attribute access" do
+      expect(drop.path).to eq("test.xml")
+      expect(drop.source).to eq("content")
+    end
+
+    it "works with liquid templates using default attributes" do
+      template = Liquid::Template.parse("{{path}} - {{source}}")
+      result = template.render(drop)
+      expect(result).to eq("test.xml - content")
+    end
+  end
+
+  describe "liquid mappings class method" do
+    let(:klass) do
+      Class.new(Lutaml::Model::Serializable) do
+        attribute :name, :string
+
+        liquid do
+          map "display_name", to: :formatted_name
+        end
+
+        def formatted_name
+          "Name: #{name}"
+        end
+      end
+    end
+
+    it "returns liquid mappings" do
+      mappings = klass.liquid_mappings
+      expect(mappings).to be_a(Lutaml::Model::Liquid::Mapping)
+      expect(mappings.mappings).to eq({ "display_name" => :formatted_name })
+    end
+
+    it "returns nil when no liquid block is defined" do
+      simple_klass = Class.new(Lutaml::Model::Serializable) do
+        attribute :name, :string
+      end
+
+      expect(simple_klass.liquid_mappings).to be_nil
+    end
+  end
+
+  describe "custom liquid drop inheritance" do
+    # Create a base model element
+    let(:model_element_class) do
+      Class.new(Lutaml::Model::Serializable) do
+        def self.name
+          "ModelElement"
+        end
+      end
+    end
+
+    # Create a schema class that inherits from model element
+    let(:schema_class) do
+      Class.new(model_element_class) do
+        def self.name
+          "Schema"
+        end
+
+        attribute :path, :string
+        attribute :source, :string
+
+        liquid_class "SpecialSchemaDrop" # Set the custom drop class for to_liquid
+      end
+    end
+
+    let(:schema_instance) { schema_class.new(path: "test.xml", source: "content") }
+
+    it "provides to_liquid_class method to get auto-generated drop class" do
+      base_drop_class = schema_class.to_liquid_class
+      expect(base_drop_class).to be_a(Class)
+      expect(base_drop_class.ancestors).to include(Liquid::Drop)
+    end
+
+    it "supports method delegation to original model" do
+      drop = schema_class.to_liquid_class.new(schema_instance)
+      expect(drop.path).to eq("test.xml")
+      expect(drop.source).to eq("content")
+    end
+
+    it "raises error when custom liquid class is not defined during to_liquid call" do
+      expect { schema_instance.to_liquid }.to raise_error(
+        Lutaml::Model::LiquidClassNotFoundError,
+        "Liquid class 'SpecialSchemaDrop' is not defined in memory. Please ensure the class is loaded before using it.",
+      )
+    end
+
+    context "with custom drop class inheritance" do
+      before do
+        # Create the custom drop class that inherits from the auto-generated one
+        stub_const("SpecialSchemaDrop", Class.new(schema_class.to_liquid_class) do
+          # New method not in original drop
+          def formatted_source
+            "Formatted: #{@object.source}"
+          end
+
+          # Overriding original method
+          def path
+            File.join("templates", @object.path)
+          end
+        end)
+      end
+
+      let(:custom_drop) { SpecialSchemaDrop.new(schema_instance) }
+
+      it "uses custom drop class when specified" do
+        expect(schema_class.drop_class.name).to eq("SpecialSchemaDrop")
+        expect(schema_instance.to_liquid).to be_a(schema_class.drop_class)
+      end
+
+      it "supports new methods in custom drop class" do
+        expect(custom_drop.formatted_source).to eq("Formatted: content")
+      end
+
+      it "allows overriding original methods" do
+        expect(custom_drop.path).to eq("templates/test.xml")
+      end
+
+      it "works with liquid templates" do
+        template = Liquid::Template.parse("{{path}} - {{formatted_source}}")
+        result = template.render(custom_drop)
+        expect(result).to eq("templates/test.xml - Formatted: content")
+      end
+    end
+
+    context "when a custom class inherits from a class that includes the Liquefiable module" do
+      before do
+        stub_const("LiquefiableSpec::Admin", Class.new(LiquefiableSpec::User) do
+          # Testing if the LiquefiableSpec::User methods are inherited properly.
+        end)
+      end
+
+      let(:user_drop) { LiquefiableSpec::User.new("Alice", "alice@example.com").to_liquid }
+      let(:admin_drop) { LiquefiableSpec::Admin.new("Alice", "alice@example.com").to_liquid }
+
+      it "checks if the liquid drop responds to the mapped methods" do
+        expect(user_drop).to respond_to(:name)
+        expect(user_drop).to respond_to(:email)
+        expect(admin_drop).to respond_to(:name)
+        expect(admin_drop).to respond_to(:email)
       end
     end
   end

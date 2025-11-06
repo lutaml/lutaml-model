@@ -10,7 +10,7 @@ module DerivedAttributesSpecs
 
   class CeramicCollection < Lutaml::Model::Serializable
     attribute :items, Ceramic, collection: true
-    attribute :total_value, method: :total_value
+    attribute :total_value, :float, method: :total_value
 
     # Derived property
     def total_value

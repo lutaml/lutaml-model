@@ -49,7 +49,7 @@ RSpec.describe Lutaml::Model::Attribute do
   it "raises error if both type and method_name are not given" do
     expect { method_attr }.to raise_error(
       ArgumentError,
-      "method or type must be set for an attribute",
+      "type must be set for an attribute",
     )
   end
 
@@ -138,11 +138,19 @@ RSpec.describe Lutaml::Model::Attribute do
       end
     end
 
-    context "when type is nil and method_name is set" do
-      let(:attribute) { described_class.new("name", nil, method_name: :tmp) }
+    context "when type is set and method_name is set" do
+      let(:attribute) { described_class.new("name", :string, method_name: :tmp) }
 
       it "returns true" do
         expect(attribute.derived?).to be(true)
+      end
+    end
+
+    context "when type is nil and method_name is set" do
+      it "raises an error" do
+        expect do
+          described_class.new("name", nil, method_name: :tmp)
+        end.to raise_error(ArgumentError, "type must be set for an attribute")
       end
     end
   end

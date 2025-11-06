@@ -175,3 +175,9 @@ Style/CommentedKeyword:
 Style/OptionalBooleanParameter:
   Exclude:
     - 'lib/lutaml/model/comparable_model.rb'
+
+# Offense count: 2
+Style/ClassEqualityComparison:
+  Exclude:
+    - 'lib/lutaml/model/attribute.rb'
+    - 'lib/lutaml/model/type/reference.rb'

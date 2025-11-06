@@ -10,19 +10,25 @@ module Lutaml
       end
 
       def to_s
-        "`#{@attr_name}` expected to appear between '#{@range.min}' and '#{@range.max}' time#{times_plural(@range.max)}, but #{times_appeared}."
+        "`#{@attr_name}` expected to appear #{appearance} time(s), but #{times_appeared}."
       end
 
       private
 
-      def times_appeared
-        return "never appeared" if @appearance_count&.zero?
-
-        "appeared only #{@appearance_count} time#{times_plural(@appearance_count)}"
+      def appearance
+        if @range.min == @range.max
+          @range.min
+        else
+          "between '#{@range.min}' and '#{@range.max}'"
+        end
       end
 
-      def times_plural(count)
-        "s" if count > 1
+      def times_appeared
+        if @appearance_count&.zero?
+          "never appeared"
+        else
+          "appeared#{' only' if @appearance_count < @range.max} #{@appearance_count} time(s)"
+        end
       end
     end
   end
