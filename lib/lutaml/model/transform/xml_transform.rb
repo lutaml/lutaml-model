@@ -111,9 +111,19 @@ module Lutaml
         )
       end
 
+      def value_for_xml_attribute(doc, rule, rule_names)
+        value = doc.root.find_attribute_value(rule_names)
+
+        value = value&.split(rule.delimiter) if rule.delimiter
+
+        value = rule.as_list[:import].call(value) if rule.as_list && rule.as_list[:import]
+
+        value
+      end
+
       def value_for_rule(doc, rule, options, instance)
         rule_names = rule.namespaced_names(options[:default_namespace])
-        return doc.root.find_attribute_value(rule_names) if rule.attribute?
+        return value_for_xml_attribute(doc, rule, rule_names) if rule.attribute?
 
         attr = attribute_for_rule(rule)
         attr_type = attr&.type(__register)

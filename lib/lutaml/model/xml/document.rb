@@ -385,6 +385,9 @@ module Lutaml
 
             value = ExportTransformer.call(value, mapping_rule, attr)
 
+            value = value&.join(mapping_rule.delimiter) if mapping_rule.delimiter
+            value = mapping_rule.as_list[:export].call(value) if mapping_rule.as_list && mapping_rule.as_list[:export]
+
             if render_element?(mapping_rule, element, value)
               hash[mapping_rule.prefixed_name] = value ? value.to_s : value
             end

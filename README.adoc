@@ -2968,6 +2968,86 @@ Where,
 `attribute-name`:: The name of the XML attribute that contains all model instances.
 
 
+==== XML attribute collections with delimited values
+
+Lutaml::Model supports handling collections realized as XML attributes.
+
+This feature allows you to serialize and deserialize multiple values stored in a
+single XML attribute, separated by a delimiter.
+
+There are two approaches for handling delimited attribute values:
+
+* Using the `delimiter:` option: provides simple splitting and joining with a fixed delimiter;
+
+* Using the `as_list:` option: provides custom import and export logic.
+
+The **`delimiter` option** is a straightforward way to handle
+attribute values that are delimited strings. It is ideal for simple cases where
+you need basic string splitting and joining with a fixed delimiter. It
+automatically splits the string during import and joins
+the array during export.
+
+[source,ruby]
+----
+class TitleDelimiterCollection < Lutaml::Model::Collection
+  instances :items, :string
+
+  xml do
+    root "titles"
+    map_attribute "title", to: :items, delimiter: "; " <1>
+  end
+end
+----
+<1> The delimiter used to split and join the string values.
+
+
+The **`as_list` option** provides full control over how values are split during
+import and joined during export. This is useful when you need custom parsing
+logic. This allows for more complex transformations beyond simple splitting and
+joining that is achieved through using delimiters.
+
+[source,ruby]
+----
+class TitleCollection < Lutaml::Model::Collection
+  instances :items, :string
+
+  xml do
+    root "titles"
+    map_attribute "title", to: :items, as_list: {
+      import: ->(str) { str.split("; ") }, <1>
+      export: ->(arr) { arr.join("; ") }, <2>
+    }
+  end
+end
+----
+<1> Custom logic to split the string into an array during import.
+<2> Custom logic to join the array into a string during export.
+
+.Applying the `delimiter` and `as_list` options for XML attribute collections
+[example]
+====
+Both approaches work with the same XML format:
+
+[source,xml]
+----
+<titles title="Title One; Title Two; Title Three"/>
+----
+
+[source,ruby]
+----
+# Both collections work identically for basic use cases
+collection = TitleCollection.from_xml(xml)
+collection.items # => ["Title One", "Title Two", "Title Three"]
+collection.to_xml # => '<titles title="Title One; Title Two; Title Three"/>'
+
+# Same result with delimiter option
+delimiter_collection = TitleDelimiterCollection.from_xml(xml)
+delimiter_collection.items # => ["Title One", "Title Two", "Title Three"]
+delimiter_collection.to_xml # => '<titles title="Title One; Title Two; Title Three"/>'
+----
+====
+
+
 === Collection types
 
 A LutaML collections is used for a number of scenarios:

@@ -318,9 +318,60 @@ module XmlMapping
                                   prefix: "xsd"
     end
   end
+
+  class TitleCollection < Lutaml::Model::Collection
+    instances :items, :string
+
+    xml do
+      root "titles"
+      map_attribute "title", to: :items, as_list: {
+        import: ->(str) { str.split("; ") },
+        export: ->(arr) { arr.join("; ") },
+      }
+    end
+  end
+
+  class TitleDelimiterCollection < Lutaml::Model::Collection
+    instances :items, :string
+
+    xml do
+      root "titles"
+      map_attribute "title", to: :items, delimiter: "; "
+    end
+  end
 end
 
 RSpec.describe Lutaml::Model::Xml::Mapping do
+  describe "as_list feature for XML attributes" do
+    let(:xml) { '<titles title="Title One; Title Two; Title Three"/>' }
+
+    it "imports delimited attribute to array" do
+      collection = XmlMapping::TitleCollection.from_xml(xml)
+      expect(collection.items).to eq(["Title One", "Title Two", "Title Three"])
+    end
+
+    it "round-trips correctly" do
+      collection = XmlMapping::TitleCollection.from_xml(xml)
+      generated_xml = collection.to_xml
+      expect(generated_xml).to be_equivalent_to(xml)
+    end
+  end
+
+  describe "delimiter feature for XML attributes" do
+    let(:xml) { '<titles title="Title One; Title Two; Title Three"/>' }
+
+    it "imports delimited attribute to array" do
+      collection = XmlMapping::TitleDelimiterCollection.from_xml(xml)
+      expect(collection.items).to eq(["Title One", "Title Two", "Title Three"])
+    end
+
+    it "round-trips delimited attribute correctly" do
+      collection = XmlMapping::TitleDelimiterCollection.from_xml(xml)
+      generated_xml = collection.to_xml
+      expect(generated_xml).to be_equivalent_to(xml)
+    end
+  end
+
   describe "find_by_to! error handling" do
     it "raises NoMappingFoundError when mapping is missing in xml mapping" do
       mapping = described_class.new
