@@ -84,7 +84,6 @@ module PerformanceHelpers
         threshold: threshold,
         branch: current_branch,
         base: base,
-        metrics: {},
         regressions: [],
       }
 
