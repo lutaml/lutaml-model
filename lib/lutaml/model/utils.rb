@@ -12,6 +12,8 @@ module Lutaml
         # @param constant [Symbol] the constant name to check for
         # @return [Boolean] true if the constant is defined, false otherwise
         def safe_load(file, constant)
+          return true if Object.const_defined?(constant)
+
           require file
 
           Object.const_defined?(constant)
