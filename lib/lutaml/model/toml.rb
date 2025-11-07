@@ -5,7 +5,7 @@ module Lutaml
     module Toml
       def self.detect_toml_adapter
         return :tomlib if Utils.safe_load("tomlib", :Tomlib)
-        return :toml_rb if Utils.safe_load("toml_rb", :TomlRb)
+        return :toml_rb if Utils.safe_load("toml-rb", :TomlRb)
 
         nil
       end

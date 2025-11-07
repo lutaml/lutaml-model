@@ -10,7 +10,7 @@ module Lutaml
           require file
 
           Object.const_defined?(constant)
-        rescue StandardError => e
+        rescue LoadError
           false
         end
 
