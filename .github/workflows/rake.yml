@@ -4,7 +4,7 @@ name: rake
 
 on:
   push:
-    branches: [ master, main ]
+    branches: [ main ]
     tags: [ v* ]
     paths-ignore:
       - '**.adoc'

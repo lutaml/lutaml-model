@@ -153,6 +153,8 @@ module Lutaml
             return
           end
 
+          return add_transformed_value(xml, rule, rule.transform_value(attribute, value, :to, :xml)) if rule.can_transform_to?(attribute, :xml)
+
           # Only transform when recursion is not called
           if !attribute.collection? || attribute.collection_instance?(value)
             value = ExportTransformer.call(value, rule, attribute)
@@ -193,6 +195,14 @@ module Lutaml
           end
         end
 
+        def add_transformed_value(xml, rule, value)
+          value.each { |val| add_transformed_value(xml, rule, val) } if value.is_a?(Array)
+
+          xml.create_and_add_element(rule.name) do
+            xml.add_text(xml, value, cdata: rule.cdata)
+          end
+        end
+
         def add_value(xml, value, attribute, cdata: false)
           if !value.nil?
             serialized_value = attribute.serialize(value, :xml, register)
@@ -215,6 +225,7 @@ module Lutaml
           xml_mapping = mapper_class.mappings_for(:xml)
           return xml unless xml_mapping
 
+          options[:parent_namespace] ||= nil
           attributes = build_element_attributes(element, xml_mapping, options)
           prefix = determine_namespace_prefix(options, xml_mapping)
 
@@ -234,12 +245,15 @@ module Lutaml
                                                  xml)
             end
 
+            current_namespace = xml_mapping.namespace_uri
+            child_options = options.merge({ parent_namespace: current_namespace })
+
             mappings = xml_mapping.elements + [xml_mapping.raw_mapping].compact
             mappings.each do |element_rule|
               attribute_def = attribute_definition_for(element, element_rule,
                                                        mapper_class: mapper_class)
 
-              next if options[:except]&.include?(element_rule.to)
+              next if child_options[:except]&.include?(element_rule.to)
 
               if attribute_def
                 value = attribute_value_for(element, element_rule)
@@ -254,8 +268,8 @@ module Lutaml
                 element,
                 element_rule.prefix,
                 value,
-                options.merge({ attribute: attribute_def, rule: element_rule,
-                                mapper_class: mapper_class }),
+                child_options.merge({ attribute: attribute_def, rule: element_rule,
+                                      mapper_class: mapper_class }),
               )
             end
 
@@ -308,16 +322,22 @@ module Lutaml
         def build_namespace_attributes(klass, processed = {}, options = {})
           xml_mappings = klass.mappings_for(:xml)
           attributes = klass.attributes
+          parent_namespace = options[:parent_namespace]
+          is_root_call = options[:is_root_call]
 
           attrs = {}
 
-          if xml_mappings.namespace_uri && set_namespace?(options[:caller_rule])
-            prefixed_name = [
-              "xmlns",
-              xml_mappings.namespace_prefix,
-            ].compact.join(":")
+          if xml_mappings.namespace_uri && set_namespace?(options[:caller_rule]) && is_root_call != false
+            should_add_xmlns = parent_namespace.nil? || parent_namespace != xml_mappings.namespace_uri
 
-            attrs[prefixed_name] = xml_mappings.namespace_uri
+            if should_add_xmlns
+              prefixed_name = [
+                "xmlns",
+                xml_mappings.namespace_prefix,
+              ].compact.join(":")
+
+              attrs[prefixed_name] = xml_mappings.namespace_uri
+            end
           end
 
           xml_mappings.mappings.each do |mapping_rule|
@@ -337,8 +357,13 @@ module Lutaml
             next unless type
 
             if type <= Lutaml::Model::Serialize
-              attrs = attrs.merge(build_namespace_attributes(type, processed,
-                                                             { caller_rule: mapping_rule }))
+              child_options = {
+                caller_rule: mapping_rule,
+                parent_namespace: xml_mappings.namespace_uri || parent_namespace,
+                is_root_call: false, # Mark that we're recursing
+              }
+
+              attrs = attrs.merge(build_namespace_attributes(type, processed, child_options))
             end
 
             if mapping_rule.namespace && mapping_rule.prefix && mapping_rule.name != "lang"
@@ -350,8 +375,10 @@ module Lutaml
         end
 
         def build_attributes(element, xml_mapping, options = {})
+          parent_namespace = options[:parent_namespace]
+
           attrs = if options.fetch(:set_namespace, true)
-                    namespace_attributes(xml_mapping)
+                    namespace_attributes(xml_mapping, parent_namespace)
                   else
                     {}
                   end
@@ -374,6 +401,9 @@ module Lutaml
             value = attr.serialize(value, :xml, register) if attr
 
             value = ExportTransformer.call(value, mapping_rule, attr)
+
+            value = value&.join(mapping_rule.delimiter) if mapping_rule.delimiter
+            value = mapping_rule.as_list[:export].call(value) if mapping_rule.as_list && mapping_rule.as_list[:export]
 
             if render_element?(mapping_rule, element, value)
               hash[mapping_rule.prefixed_name] = value ? value.to_s : value
@@ -402,8 +432,10 @@ module Lutaml
           element.send(rule.delegate).send(rule.to)
         end
 
-        def namespace_attributes(xml_mapping)
+        def namespace_attributes(xml_mapping, parent_namespace = nil)
           return {} unless xml_mapping.namespace_uri
+
+          return {} if parent_namespace == xml_mapping.namespace_uri
 
           key = ["xmlns", xml_mapping.namespace_prefix].compact.join(":")
           { key => xml_mapping.namespace_uri }
@@ -472,7 +504,18 @@ module Lutaml
           xml_attributes = options[:xml_attributes] ||= {}
           attributes = build_attributes(element, mapping, options)
 
-          attributes.merge(xml_attributes)&.compact
+          parent_namespace = options[:parent_namespace]
+          element_namespace = mapping.namespace_uri
+
+          merged_attrs = attributes.dup
+          xml_attributes.each do |key, value|
+            next if (key == "xmlns" || key.start_with?("xmlns:")) &&
+              (parent_namespace == element_namespace || merged_attrs.key?(key))
+
+            merged_attrs[key] = value
+          end
+
+          merged_attrs&.compact
         end
       end
     end
