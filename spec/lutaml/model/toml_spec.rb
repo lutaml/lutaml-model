@@ -9,7 +9,7 @@ RSpec.describe Lutaml::Model::Toml do
       # Hide any existing constants first
       hide_const("Tomlib") if Object.const_defined?(:Tomlib)
       hide_const("TomlRb") if Object.const_defined?(:TomlRb)
-      
+
       # Stub require to prevent any actual requires during testing
       allow(Lutaml::Model::Utils).to receive(:require).and_return(true)
     end
