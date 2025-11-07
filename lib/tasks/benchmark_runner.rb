@@ -128,7 +128,7 @@ class BenchmarkRunner
     std_dev = Math.sqrt(variance)
     error_margin = std_dev / mean
 
-    error_percentage = (error_margin * 100).round(2) / 100.0
+    error_percentage = error_margin.round(4)
     lower = mean.round(4) * (1 - error_percentage)
     upper = mean.round(4) * (1 + error_percentage)
 
