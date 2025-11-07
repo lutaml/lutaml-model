@@ -81,8 +81,8 @@ module Lutaml
           @namespace_prefix = prefix
         end
 
-        def map_instances(to:)
-          map_element(to, to: to)
+        def map_instances(to:, polymorphic: {})
+          map_element(to, to: to, polymorphic: polymorphic)
         end
 
         def map_element(
