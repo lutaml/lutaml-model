@@ -30,9 +30,9 @@ Metrics/AbcSize:
 # Configuration parameters: CountComments, CountAsOne, AllowedMethods, AllowedPatterns, inherit_mode.
 # AllowedMethods: refine
 Metrics/BlockLength:
-  Max: 36
+  Max: 37
 
-# Offense count: 36
+# Offense count: 39
 # Configuration parameters: AllowedMethods, AllowedPatterns, Max.
 Metrics/CyclomaticComplexity:
   Exclude:
@@ -47,11 +47,12 @@ Metrics/CyclomaticComplexity:
     - 'lib/lutaml/model/xml/nokogiri_adapter.rb'
     - 'lib/lutaml/model/xml/oga_adapter.rb'
     - 'lib/lutaml/model/xml/ox_adapter.rb'
+    - 'lib/lutaml/model/xml/oga/element.rb'
 
-# Offense count: 95
+# Offense count: 96
 # Configuration parameters: CountComments, CountAsOne, AllowedMethods, AllowedPatterns.
 Metrics/MethodLength:
-  Max: 45
+  Max: 48
 
 # Offense count: 12
 # Configuration parameters: CountKeywordArgs, MaxOptionalParameters.

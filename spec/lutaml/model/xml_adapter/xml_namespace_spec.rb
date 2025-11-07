@@ -138,6 +138,102 @@ RSpec.describe "XmlNamespace" do
         map_attribute "type", to: :uml_type
       end
     end
+
+    # Models for testing namespace inheritance optimization (UnitsML scenario)
+    class UnitSystem < Lutaml::Model::Serializable
+      attribute :name, :string
+      attribute :type, :string
+
+      xml do
+        root "UnitSystem"
+        namespace "https://schema.example.org/units/1.0"
+        map_attribute "name", to: :name
+        map_attribute "type", to: :type
+      end
+    end
+
+    class UnitName < Lutaml::Model::Serializable
+      attribute :value, :string
+
+      xml do
+        root "UnitName"
+        namespace "https://schema.example.org/units/1.0"
+        map_content to: :value
+      end
+    end
+
+    class EnumeratedRootUnit < Lutaml::Model::Serializable
+      attribute :unit, :string
+      attribute :prefix, :string
+
+      xml do
+        root "EnumeratedRootUnit"
+        namespace "https://schema.example.org/units/1.0"
+        map_attribute "unit", to: :unit
+        map_attribute "prefix", to: :prefix
+      end
+    end
+
+    class RootUnits < Lutaml::Model::Serializable
+      attribute :enumerated_root_units, EnumeratedRootUnit, collection: true
+
+      xml do
+        root "RootUnits"
+        namespace "https://schema.example.org/units/1.0"
+        map_element "EnumeratedRootUnit", to: :enumerated_root_units
+      end
+    end
+
+    class Unit < Lutaml::Model::Serializable
+      attribute :id, :string
+      attribute :unit_system, UnitSystem
+      attribute :unit_name, UnitName
+      attribute :root_units, RootUnits
+
+      xml do
+        root "Unit"
+        namespace "https://schema.example.org/units/1.0"
+        map_attribute "id", to: :id
+        map_element "UnitSystem", to: :unit_system
+        map_element "UnitName", to: :unit_name
+        map_element "RootUnits", to: :root_units
+      end
+    end
+
+    # Models for testing mixed namespaces
+    class MathContent < Lutaml::Model::Serializable
+      attribute :value, :string
+
+      xml do
+        root "math"
+        namespace "http://www.w3.org/1998/Math/MathML"
+        map_content to: :value
+      end
+    end
+
+    class UnitSymbol < Lutaml::Model::Serializable
+      attribute :type, :string
+      attribute :math, MathContent
+
+      xml do
+        root "UnitSymbol"
+        namespace "https://schema.example.org/units/1.0"
+        map_attribute "type", to: :type
+        map_element "math", to: :math
+      end
+    end
+
+    class UnitWithMath < Lutaml::Model::Serializable
+      attribute :id, :string
+      attribute :unit_symbol, UnitSymbol
+
+      xml do
+        root "Unit"
+        namespace "https://schema.example.org/units/1.0"
+        map_attribute "id", to: :id
+        map_element "UnitSymbol", to: :unit_symbol
+      end
+    end
   end
 
   shared_examples "XML serialization with namespace" do |model_class, xml_string|
@@ -350,6 +446,119 @@ RSpec.describe "XmlNamespace" do
 
           expect(output_xml).to be_equivalent_to(xml_input)
         end
+      end
+    end
+
+    context "when nested elements share the same namespace" do
+      let(:unit_system) { UnitSystem.new(name: "SI", type: "SI_derived") }
+      let(:unit_name) { UnitName.new(value: "meter") }
+      let(:meter_unit) { EnumeratedRootUnit.new(unit: "meter") }
+      let(:gram_unit) { EnumeratedRootUnit.new(unit: "gram", prefix: "k") }
+      let(:root_units) { RootUnits.new(enumerated_root_units: [meter_unit, gram_unit]) }
+      let(:unit) do
+        Unit.new(
+          id: "U_m",
+          unit_system: unit_system,
+          unit_name: unit_name,
+          root_units: root_units,
+        )
+      end
+
+      let(:expected_xml) do
+        <<~XML
+          <Unit xmlns="https://schema.example.org/units/1.0" id="U_m">
+            <UnitSystem name="SI" type="SI_derived"/>
+            <UnitName>meter</UnitName>
+            <RootUnits>
+              <EnumeratedRootUnit unit="meter"/>
+              <EnumeratedRootUnit unit="gram" prefix="k"/>
+            </RootUnits>
+          </Unit>
+        XML
+      end
+
+      it "declares xmlns only once on the root element" do
+        xml = unit.to_xml
+        expect(xml).to be_equivalent_to(expected_xml)
+      end
+
+      it "does not repeat xmlns on child elements with same namespace" do
+        xml = unit.to_xml
+
+        # Count xmlns declarations for the units namespace
+        xmlns_count = xml.scan('xmlns="https://schema.example.org/units/1.0"').size
+
+        expect(xmlns_count).to eq(1), "Expected exactly 1 xmlns declaration, found #{xmlns_count}"
+      end
+
+      it "deserializes correctly from XML with inherited namespace" do
+        parsed = Unit.from_xml(expected_xml)
+
+        expect(parsed.id).to eq("U_m")
+        expect(parsed.unit_system.name).to eq("SI")
+        expect(parsed.unit_system.type).to eq("SI_derived")
+        expect(parsed.unit_name.value).to eq("meter")
+        expect(parsed.root_units.enumerated_root_units.size).to eq(2)
+        expect(parsed.root_units.enumerated_root_units[0].unit).to eq("meter")
+        expect(parsed.root_units.enumerated_root_units[1].unit).to eq("gram")
+        expect(parsed.root_units.enumerated_root_units[1].prefix).to eq("k")
+      end
+
+      it "round-trips XML with namespace inheritance" do
+        xml = unit.to_xml
+        parsed = Unit.from_xml(xml)
+        regenerated_xml = parsed.to_xml
+
+        expect(regenerated_xml).to be_equivalent_to(expected_xml)
+      end
+    end
+
+    context "when mixing different namespaces" do
+      let(:math) { MathContent.new(value: "x+y") }
+      let(:unit_symbol) { UnitSymbol.new(type: "MathML", math: math) }
+      let(:unit_with_math) { UnitWithMath.new(id: "U_m.kg-2", unit_symbol: unit_symbol) }
+
+      let(:expected_xml) do
+        <<~XML
+          <Unit xmlns="https://schema.example.org/units/1.0" id="U_m.kg-2">
+            <UnitSymbol type="MathML">
+              <math xmlns="http://www.w3.org/1998/Math/MathML">x+y</math>
+            </UnitSymbol>
+          </Unit>
+        XML
+      end
+
+      it "declares different namespaces correctly" do
+        xml = unit_with_math.to_xml
+        expect(xml).to be_equivalent_to(expected_xml)
+      end
+
+      it "declares xmlns on elements when namespace changes" do
+        xml = unit_with_math.to_xml
+
+        # Should have units namespace on Unit
+        expect(xml).to include('xmlns="https://schema.example.org/units/1.0"')
+        # Should have MathML namespace on math element
+        expect(xml).to include('xmlns="http://www.w3.org/1998/Math/MathML"')
+      end
+
+      it "does not repeat xmlns on UnitSymbol (same namespace as parent)" do
+        xml = unit_with_math.to_xml
+
+        # UnitSymbol should NOT have xmlns because it inherits from Unit
+        expect(xml).not_to match(/<UnitSymbol[^>]*xmlns="https:\/\/schema\.example\.org\/units\/1\.0"/)
+      end
+
+      it "round-trips XML with mixed namespaces" do
+        xml = unit_with_math.to_xml
+        parsed = UnitWithMath.from_xml(xml)
+
+        expect(parsed.id).to eq("U_m.kg-2")
+        expect(parsed.unit_symbol&.type).to eq("MathML")
+        expect(parsed.unit_symbol&.math&.value).to eq("x+y")
+
+        regenerated_xml = parsed.to_xml
+        expect(regenerated_xml).to be_equivalent_to(expected_xml)
       end
     end
   end

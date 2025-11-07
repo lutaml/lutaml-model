@@ -7,12 +7,15 @@ module Lutaml
     module Xml
       module Oga
         class Element < XmlElement
-          def initialize(node, parent: nil)
+          def initialize(node, parent: nil, default_namespace: nil)
             text = case node
                    when Moxml::Element
                      namespace_name = node.namespace&.prefix
-                     add_namespaces(node)
-                     children = parse_children(node)
+                     add_namespaces(node, is_root: parent.nil?)
+
+                     default_namespace = node.namespace&.uri if parent.nil? && !namespace_name
+
+                     children = parse_children(node, default_namespace: default_namespace)
                      attributes = node_attributes(node)
                      @root = node
                      node.inner_text
@@ -29,6 +32,7 @@ module Lutaml
               name: name,
               parent_document: parent,
               namespace_prefix: namespace_name,
+              default_namespace: default_namespace,
             )
           end
 
@@ -80,13 +84,17 @@ module Lutaml
             end
           end
 
-          def parse_children(node)
-            node.children.map { |child| self.class.new(child, parent: self) }
+          def parse_children(node, default_namespace: nil)
+            node.children.map { |child| self.class.new(child, parent: self, default_namespace: default_namespace) }
           end
 
-          def add_namespaces(node)
+          def add_namespaces(node, is_root: false)
             node.namespaces.each do |namespace|
-              add_namespace(XmlNamespace.new(namespace.uri, namespace.prefix))
+              ns = XmlNamespace.new(namespace.uri, namespace.prefix)
+
+              if ns.prefix || is_root
+                add_namespace(ns)
+              end
             end
           end
 

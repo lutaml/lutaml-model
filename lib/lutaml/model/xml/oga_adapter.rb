@@ -41,7 +41,7 @@ module Lutaml
         def attributes_hash(element)
           result = Lutaml::Model::MappingHash.new
 
-          element.attributes.each do |attr|
+          element.attributes.each_value do |attr|
             if attr.name == "schemaLocation"
               result["__schema_location"] = {
                 namespace: attr.namespace,
@@ -74,7 +74,7 @@ module Lutaml
         end
 
         def self.text_of(element)
-          element.content
+          element.text
         end
 
         def self.namespaced_attr_name(attribute)
@@ -117,6 +117,7 @@ module Lutaml
           xml_mapping = mapper_class.mappings_for(:xml)
           return builder unless xml_mapping
 
+          options[:parent_namespace] ||= nil
           attributes = build_attributes(element, xml_mapping, options).compact
 
           prefix = determine_namespace_prefix(options, xml_mapping)
@@ -128,13 +129,16 @@ module Lutaml
             index_hash = {}
             content = []
 
+            current_namespace = xml_mapping.namespace_uri
+            child_options = options.merge({ parent_namespace: current_namespace })
+
             element.element_order.each do |object|
               object_key = "#{object.name}-#{object.type}"
               index_hash[object_key] ||= -1
               curr_index = index_hash[object_key] += 1
 
               element_rule = xml_mapping.find_by_name(object.name, type: object.type)
-              next if element_rule.nil? || options[:except]&.include?(element_rule.to)
+              next if element_rule.nil? || child_options[:except]&.include?(element_rule.to)
 
               attribute_def = attribute_definition_for(element, element_rule,
                                                        mapper_class: mapper_class)
@@ -157,7 +161,7 @@ module Lutaml
                   element,
                   nil,
                   value,
-                  options.merge(
+                  child_options.merge(
                     attribute: attribute_def,
                     rule: element_rule,
                     mapper_class: mapper_class,
