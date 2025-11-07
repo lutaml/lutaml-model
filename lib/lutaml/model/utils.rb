@@ -6,6 +6,11 @@ module Lutaml
       class << self
         UNINITIALIZED = Lutaml::Model::UninitializedClass.instance
 
+        # Safely attempts to require a file and check for a constant
+        #
+        # @param file [String] the file to require
+        # @param constant [Symbol] the constant name to check for
+        # @return [Boolean] true if the constant is defined, false otherwise
         def safe_load(file, constant)
           require file
 
