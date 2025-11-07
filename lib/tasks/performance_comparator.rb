@@ -12,8 +12,8 @@ class PerformanceComparator
 
   BENCHMARK_MATRIX = {
     xml: %i[nokogiri ox oga],
-    json: %i[standard_json multi_json oj],
-    yaml: %i[standard_yaml],
+    json: %i[standard multi_json oj],
+    yaml: %i[standard],
     toml: %i[toml_rb tomlib],
   }.freeze
 

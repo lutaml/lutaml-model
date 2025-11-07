@@ -37,11 +37,13 @@ module PerformanceHelpers
       repo_url, = ruby_exec("git config --get remote.origin.url")
       repo_url = repo_url.strip
 
-      stdout, stderr, status = ruby_exec("git clone --branch #{base} --single-branch #{repo_url} #{clone_dir}")
+      stdout, stderr, status = ruby_exec("git clone --branch #{safe_ref} --single-branch #{repo_url} #{clone_dir}")
       raise "git clone failed: #{stderr}\n#{stdout}" unless status.success?
 
       Dir.chdir(clone_dir) do
-        ruby_exec("bundle install --quiet")
+        stdout, stderr, status = ruby_exec("bundle install --quiet")
+        raise "bundle install failed: #{stderr}\n#{stdout}" unless status.success?
+
         bench_copy_dir = File.join(clone_dir, "tmp", "performance")
         FileUtils.mkdir_p(bench_copy_dir)
         bench_copy = File.join(bench_copy_dir, "benchmark_runner.rb")
