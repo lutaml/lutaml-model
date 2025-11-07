@@ -58,7 +58,7 @@ Metrics/MethodLength:
 # Offense count: 12
 # Configuration parameters: CountKeywordArgs, MaxOptionalParameters.
 Metrics/ParameterLists:
-  Max: 22
+  Max: 24
 
 # Offense count: 26
 # Configuration parameters: AllowedMethods, AllowedPatterns, Max.
@@ -179,3 +179,9 @@ Style/CommentedKeyword:
 Style/OptionalBooleanParameter:
   Exclude:
     - 'lib/lutaml/model/comparable_model.rb'
+
+# Offense count: 2
+Style/ClassEqualityComparison:
+  Exclude:
+    - 'lib/lutaml/model/attribute.rb'
+    - 'lib/lutaml/model/type/reference.rb'

@@ -169,6 +169,8 @@ module Lutaml
             return
           end
 
+          return add_transformed_value(xml, rule, rule.transform_value(attribute, value, :to, :xml)) if rule.can_transform_to?(attribute, :xml)
+
           # Only transform when recursion is not called
           if !attribute.collection? || attribute.collection_instance?(value)
             value = ExportTransformer.call(value, rule, attribute)
@@ -206,6 +208,14 @@ module Lutaml
             add_element_with_prefix(xml, rule, prefix) do
               add_value(xml, value, attribute, cdata: rule.cdata)
             end
+          end
+        end
+
+        def add_transformed_value(xml, rule, value)
+          value.each { |val| add_transformed_value(xml, rule, val) } if value.is_a?(Array)
+
+          xml.create_and_add_element(rule.name) do
+            xml.add_text(xml, value, cdata: rule.cdata)
           end
         end
 
@@ -440,6 +450,9 @@ module Lutaml
             value = attr.serialize(value, :xml, register) if attr
 
             value = ExportTransformer.call(value, mapping_rule, attr)
+
+            value = value&.join(mapping_rule.delimiter) if mapping_rule.delimiter
+            value = mapping_rule.as_list[:export].call(value) if mapping_rule.as_list && mapping_rule.as_list[:export]
 
             if render_element?(mapping_rule, element, value)
               hash[mapping_rule.prefixed_name] = value ? value.to_s : value

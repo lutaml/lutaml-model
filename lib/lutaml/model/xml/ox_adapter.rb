@@ -49,6 +49,7 @@ module Lutaml
           return builder unless xml_mapping
 
           options[:parent_namespace] ||= nil
+          options[:parent_namespace] ||= nil
           attributes = build_attributes(element, xml_mapping, options).compact
 
           prefix = determine_namespace_prefix(options, xml_mapping)
@@ -66,12 +67,16 @@ module Lutaml
             current_namespace = xml_mapping.namespace_uri
             child_options = options.merge({ parent_namespace: current_namespace })
 
+            current_namespace = xml_mapping.namespace_uri
+            child_options = options.merge({ parent_namespace: current_namespace })
+
             element.element_order.each do |object|
               object_key = "#{object.name}-#{object.type}"
               index_hash[object_key] ||= -1
               curr_index = index_hash[object_key] += 1
 
               element_rule = xml_mapping.find_by_name(object.name, type: object.type)
+              next if element_rule.nil? || child_options[:except]&.include?(element_rule.to)
               next if element_rule.nil? || child_options[:except]&.include?(element_rule.to)
 
               attribute_def = attribute_definition_for(element, element_rule,

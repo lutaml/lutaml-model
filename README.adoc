@@ -477,7 +477,7 @@ The `diff_with_score` method returns **two values** as an array:
 ----
 diff_score, diff_tree = Lutaml::Model::Serialize.diff_with_score(obj1, obj2, options)
 #    ↑           ↑
-#  Float      String  
+#  Float      String
 # (0.0-1.0)   (Visual representation)
 ----
 
@@ -534,7 +534,7 @@ The method returns an array with exactly two elements:
 [source,ruby]
 ----
 result = Lutaml::Model::Serialize.diff_with_score(obj1, obj2)
-# result[0] => diff_score (Float between 0.0 and 1.0)  
+# result[0] => diff_score (Float between 0.0 and 1.0)
 # result[1] => diff_tree (String with visual representation)
 
 # Or using array destructuring:
@@ -551,7 +551,7 @@ The diff functionality supports various options:
 ----
 # Show unchanged attributes as well
 diff_score, diff_tree = Lutaml::Model::Serialize.diff_with_score(
-  ceramic1, 
+  ceramic1,
   ceramic2,
   show_unchanged: true,      # Show attributes that are the same
   highlight_diff: false,     # Don't highlight only differences
@@ -560,7 +560,7 @@ diff_score, diff_tree = Lutaml::Model::Serialize.diff_with_score(
 
 # With indentation
 diff_score, diff_tree = Lutaml::Model::Serialize.diff_with_score(
-  ceramic1, 
+  ceramic1,
   ceramic2,
   indent: "  "
 )
@@ -586,7 +586,7 @@ collection1 = CeramicCollection.new(
 )
 
 collection2 = CeramicCollection.new(
-  name: "Mixed Collection", 
+  name: "Mixed Collection",
   items: [
     Ceramic.new(type: "Bowl", glaze: glaze1),  # Same as first
     Ceramic.new(type: "Cup", glaze: glaze2)     # Different
@@ -602,7 +602,7 @@ diff_score, diff_tree = Lutaml::Model::Serialize.diff_with_score(collection1, co
 The comparison and diff functionality is particularly useful for:
 
 * **Testing**: Verify model equality in specs
-* **Data Migration**: Compare objects before/after transformation  
+* **Data Migration**: Compare objects before/after transformation
 * **Auditing**: Track changes to model instances
 * **Data Validation**: Identify differences in data imports
 * **Debugging**: Visualize object differences during development
@@ -633,6 +633,7 @@ Every type has a corresponding Ruby class and a serialization format type.
 | `:decimal` (optional) | `BigDecimal`             | `xs:decimal`      | `number`  | `float`   | `123.45`
 | `:hash`               | `Hash`                   | complex element   | object    | map       | `{key: "value"}`
 | (nil value)           | `nil`                    | `xs:anyType`      | `null`    | `null`    | `null`
+| `{ ref: [Model, :attr] }` | `Reference`          | `xs:string`       | `string`  | `string`  | `"model-id"`
 // | `class`               | Custom class             | complex element   | object    | map       | `CustomObject`
 // | `collection: true`    | `Array` of type          | repeated elements | array     | sequence  | `[obj1, obj2]`
 // | `any`
@@ -672,12 +673,12 @@ The Symbol type provides support for Ruby symbols across all serialization forma
 The Symbol type only accepts valid string inputs and existing symbols:
 
 * ✅ **Non-empty strings**: `"active"` → `:active`
-* ✅ **Existing symbols**: `:pending` → `:pending` 
+* ✅ **Existing symbols**: `:pending` → `:pending`
 * ✅ **Wrapper format**: `":done:"` → `:done`
 * ✅ **Other types**: integers, arrays, hashes, booleans → symbol (works similar to string type)
 * ❌ **Empty strings**: `""` → `nil`
 
-Since not all serialization formats natively support symbols (XML, JSON, TOML don't), 
+Since not all serialization formats natively support symbols (XML, JSON, TOML don't),
 the Symbol type uses format-specific serialization strategies:
 
 * **YAML**: Uses native symbol format (`:symbol`)
@@ -863,6 +864,290 @@ part lost due to the inability of JSON to handle high-precision date-time.
 > # {"kilnFiringTime":"2012-04-07T01:51:37+02:00"}
 ----
 ====
+
+=== Transformations with custom types
+
+==== General
+
+NOTE: For comprehensive guidance on value transformations including decision
+matrices and when to use custom types vs transform procs, see
+link:docs/value_transformations.adoc[Value Transformations Guide].
+
+Value transformations convert data between different representations while
+preserving or deriving the underlying information.
+
+LutaML Model distinguishes between:
+
+Value:: atomic data that cannot be decomposed further in the serialization
+format (e.g., `"20241225"` as a date string)
+
+Model:: composite data with multiple components that can be mapped structurally
+(e.g., `{year: 2024, month: 12, day: 25}`)
+
+When a value needs to be **transformed** (not just mapped), custom Value Type
+classes provide the most comprehensive solution, especially for bidirectional,
+format-specific transformations.
+
+==== Bidirectional date format transformation
+
+This example demonstrates converting between date formats with full
+bidirectional support across different serialization formats.
+
+.ISO week date format with bidirectional calculation
+[example]
+====
+This example demonstrates conversions between two kinds of ISO 8601
+representations:
+
+* Basic calendar date: `[year][month][day]` [ISO 8601-1:2019, 5.2.2.1 a) Basic format]
+* Explicit calendar date: `[yearE(m)][monthE][dayE]` [ISO 8601-2:2019, 7.2.2]
+* Extended week date: `[year][“-”][“W”][week][“-”][day]` [ISO 8601-1:2019, 5.2.4.1 b) Extended format]
+
+The example utilizes multi-format transforms:
+
+* XML uses the Basic calendar date format
+* YAML uses the Explicit calendar date format
+* JSON uses the Extended week date format
+* all formats parse back into `Lutaml::Model::Type::Date` objects
+* enables round-trip transforms by serializing and deserializing with no data loss
+
+[source,ruby]
+----
+# Multi-format date type with calculated transformations
+class ComplexDate < Lutaml::Model::Type::Date
+  # Parse ISO 8601-1 5.2.2.1 a) Basic format: 20250203
+  def self.from_xml(value)
+    return nil if value.nil? || value.empty?
+
+    # Match basic format YYYYMMDD (8 digits)
+    return nil unless value.match(/^\d{8}$/)
+    ::Date.new(value[0..3].to_i, value[4..5].to_i, value[6..7].to_i)
+  end
+
+  # Serialize to ISO 8601-1 5.2.2.1 a) Basic format: 20250203
+  def to_xml
+    return nil unless value
+    value.strftime('%Y%m%d')
+  end
+
+  # Parse ISO 8601-2 7.2.2 Explicit calendar date: 2025Y2M3D
+  def self.from_yaml(value)
+    return nil if value.nil? || value.empty?
+
+    match = value.match(/^(\d{4})Y(\d{1,2})M(\d{1,2})D$/)
+    return nil unless match
+    ::Date.new(*match.slice[1,3].map(&:to_i))
+  end
+
+  # Serialize to ISO 8601-2 7.2.2 Explicit calendar date: 2025Y2M3D
+  def to_yaml
+    return nil unless value
+    value.strftime('%Y-%m-%d')
+  end
+
+  # Parse ISO 8601-1 5.2.4.1 b) Extended week date: 2025-W05-3
+  def self.from_json(value)
+    return nil if value.nil? || value.empty?
+
+    # Match pattern YYYY-W##-D
+    match = value.match(/^(\d{4})-W(\d{2})-(\d)$/)
+    return nil unless match
+
+    # Date.commercial gives date from ISO week date components
+    ::Date.commercial(*match.slice[1,3].map(&:to_i))
+  end
+
+  # Serialize to ISO 8601-1 5.2.4.1 b) Extended week date: YYYY-W##-D
+  def to_json
+    return nil unless value
+
+    # ISO 8601 week date components
+    year = value.cwyear  # Commercial (ISO) year
+    week = value.cweek.to_s.rjust(2, '0')  # Week number
+    day = value.cwday  # Day of week (1-7)
+
+    "#{year}-W#{week}-#{day}"
+  end
+end
+
+class Schedule < Lutaml::Model::Serializable
+  attribute :week_date, ComplexDate
+  attribute :activity, :string
+
+  xml do
+    root 'schedule'
+    map_element 'date', to: :week_date
+    map_element 'activity', to: :activity
+  end
+
+  yaml do
+    map 'date', to: :week_date
+    map 'activity', to: :activity
+  end
+
+  json do
+    map 'weekDate', to: :week_date
+    map 'activity', to: :activity
+  end
+end
+----
+
+Usage with calculated transformations:
+
+[source,ruby]
+----
+schedule = Schedule.new(
+  week_date: Date.new(2024, 12, 25),  # Wednesday
+  activity: "Team Meeting"
+)
+
+# XML: Serializes to ISO 8601-1 5.2.2.1 a) Basic format: YYYYMMDD
+schedule.to_xml
+# => <schedule>
+#      <date>20241225</date>
+#      <activity>Team Meeting</activity>
+#    </schedule>
+
+# YAML: Serializes to ISO 8601-2 7.2.2 Explicit calendar date: YYYY-MM-DD
+schedule.to_yaml
+# => ---
+# => date: 2024Y12M25D
+# => activity: Team Meeting
+
+# JSON: Serializes to ISO 8601-1 5.2.4.1 b) Extended week date: YYYY-W##-D
+schedule.to_json
+# => {"weekDate":"2024-W52-3","activity":"Team Meeting"}
+
+# Parse the YYYY-W##-D components:
+# 2024: Year 2024
+# W52: Week 52 of the year (prefixed with 'W')
+# 3: Day 3 of the week (Wednesday, where Monday=1)
+
+# Round-trip transformations work across all formats
+parsed_xml = Schedule.from_xml(schedule.to_xml)
+parsed_yaml = Schedule.from_yaml(schedule.to_yaml)
+parsed_json = Schedule.from_json(schedule.to_json)
+
+# All parsed dates are equivalent
+parsed_xml.week_date == parsed_yaml.week_date == parsed_json.week_date
+# => true
+
+# Cross-format parsing examples:
+
+# XML basic format: 20241225
+xml_basic = '<schedule><date>20241225</date><activity>Meeting</activity></schedule>'
+Schedule.from_xml(xml_basic).week_date
+# => #<Date: 2024-12-25>
+
+# YAML explicit format: 2024Y12M25D
+yaml_explicit = "---\ndate: 2024Y12M25D\nactivity: Meeting"
+Schedule.from_yaml(yaml_explicit).week_date
+# => #<Date: 2024-12-25>
+
+# JSON week format: 2024-W52-3
+json_week = '{"weekDate":"2024-W52-3","activity":"Meeting"}'
+Schedule.from_json(json_week).week_date
+# => #<Date: 2024-12-25>
+
+# Converting between formats maintains the same date but uses different representations
+xml_schedule = Schedule.from_xml(xml_basic)
+xml_schedule.to_yaml   # => "---\ndate: 2024-12-25\nactivity: Meeting"
+xml_schedule.to_json   # => {"weekDate":"2024-W52-3","activity":"Meeting"}
+----
+====
+
+
+=== Reference type
+
+The Reference type provides a mechanism for creating relationships between models. Instead of embedding full objects, references store lightweight keys that automatically resolve to actual objects when accessed.
+
+==== Basic usage
+
+Define reference attributes using the `ref:` syntax:
+
+[source,ruby]
+----
+class Author < Lutaml::Model::Serializable
+  attribute :id, :string
+  attribute :name, :string
+end
+
+class Book < Lutaml::Model::Serializable
+  attribute :id, :string
+  attribute :title, :string
+  attribute :author_ref, { ref: ["Author", :id] }
+  attribute :co_authors, { ref: ["Author", :id] }, collection: true
+end
+----
+
+==== Working with references
+
+[source,ruby]
+----
+# Objects are automatically registered in the store when created
+author = Author.new(id: "author-1", name: "John Doe")
+
+# Create a book with a reference
+book = Book.new(id: "book-1", title: "Great Book")
+book.author_ref = "author-1"  # Assign the key directly
+
+# Access the referenced object directly
+puts book.author_ref.name  # => "John Doe" (automatically resolved)
+
+# Collection of references
+book.co_authors = ["author-1", "author-2"]
+book.co_authors.each do |author|
+  puts author.name if author  # Each element is the actual Author object
+end
+
+# Unresolved references return nil
+book.author_ref = "non-existent-id"
+puts book.author_ref.inspect  # => nil (not the key string)
+----
+
+==== Reference key accessor methods
+
+Lutaml::Model automatically generates additional methods to access reference keys directly without resolving the objects:
+
+[source,ruby]
+----
+# For single references: <attribute_name>_<key_attribute>
+book.author_ref = "author-1"
+book.author_ref_id     # => "author-1" (just the key)
+book.author_ref.name   # => "John Doe" (resolved object)
+
+# For collection references: <attribute_name>_<pluralized_key_attribute>
+book.co_authors = ["author-1", "author-2"]
+book.co_authors_ids         # => ["author-1", "author-2"] (just the keys)
+book.co_authors.map(&:name) # => ["John Doe", "Jane Smith"] (resolved objects)
+
+# Works with custom key attributes too
+# attribute :category_ref, { ref: ["Category", :slug] }
+# product.category_ref_slug  # => "electronics" (key accessor)
+
+# Pluralization examples:
+# :id → :ids, :name → :names, :category → :categories
+----
+
+==== Serialization
+
+References serialize cleanly to just their key values:
+
+[source,ruby]
+----
+book.to_yaml
+# =>
+# id: book-1
+# title: Great Book
+# author_ref: author-1
+# co_authors:
+# - author-1
+# - author-2
+----
+
+When deserializing, the keys are automatically converted back to references that resolve transparently to the original objects when accessed.
+
+For more details, see link:docs/reference_type.adoc[Reference Type Documentation].
 
 
 [[attribute-definition]]
@@ -1947,6 +2232,70 @@ attributes.
 * The last attribute `completeName` is optional.
 ====
 
+Choice and sequence can be used together to create complex structures.
+
+.Using `choice` (model-level) and `sequence` (XML-level) directives together
+[example]
+====
+[source,ruby]
+----
+class Person < Lutaml::Model::Serializable
+  attribute :first_name, :string
+  attribute :last_name, :string
+  choice do
+    attribute :age, :integer
+    attribute :dob, :string
+  end
+  choice(min: 1, max: 2) do
+    attribute :email, :string, collection: 0..2
+    attribute :phone, :string, collection: 0..2
+    attribute :address, :string, collection: true
+  end
+
+  xml do
+    root "Person", mixed: true
+    sequence do
+      map_element :FirstName, to: :first_name
+      map_element :LastName, to: :last_name
+      map_element :Age, to: :age
+      map_element :Dob, to: :dob
+      map_element :Email, to: :email
+      map_element :Phone, to: :phone
+      map_element :Address, to: :address
+    end
+  end
+end
+----
+====
+
+
+==== Choosing between custom types and transform procs
+
+When deciding how to implement value transformations, consider:
+
+**Use Custom Value Type classes when:**
+
+* Bidirectional transformations are needed across formats
+* Format-specific representations are required (XML wants YYYYMMDD, JSON wants DDMMYYYY)
+* The logic will be reused across multiple attributes or models
+* Complex parsing or calculation is involved (e.g., ISO week date calculations)
+* Type safety and encapsulation are important
+
+**Use Attribute-level transform procs when:**
+
+* Same simple transformation applies to ALL serialization formats uniformly
+* Logic is specific to one attribute in one model (non-reusable)
+* Quick inline modification is sufficient
+* No format-specific behavior is needed
+
+**Use Mapping-level transform procs when:**
+
+* Different transformation needed per serialization format
+* One-off, non-reusable transformation
+* Combined with attribute-level transforms for multi-stage processing
+
+See link:docs/value_transformations.adoc[Value Transformations Guide] for complete decision matrix and examples.
+
 NOTE: The `choice` directive can be used with `import_model_attributes`. For more details, see <<import-model-attributes-inside-choice, Using import_model_attributes inside a choice block>>.
 
 
@@ -2617,6 +2966,86 @@ end
 Where,
 
 `attribute-name`:: The name of the XML attribute that contains all model instances.
+
+
+==== XML attribute collections with delimited values
+
+Lutaml::Model supports handling collections realized as XML attributes.
+
+This feature allows you to serialize and deserialize multiple values stored in a
+single XML attribute, separated by a delimiter.
+
+There are two approaches for handling delimited attribute values:
+
+* Using the `delimiter:` option: provides simple splitting and joining with a fixed delimiter;
+
+* Using the `as_list:` option: provides custom import and export logic.
+
+The **`delimiter` option** is a straightforward way to handle
+attribute values that are delimited strings. It is ideal for simple cases where
+you need basic string splitting and joining with a fixed delimiter. It
+automatically splits the string during import and joins
+the array during export.
+
+[source,ruby]
+----
+class TitleDelimiterCollection < Lutaml::Model::Collection
+  instances :items, :string
+
+  xml do
+    root "titles"
+    map_attribute "title", to: :items, delimiter: "; " <1>
+  end
+end
+----
+<1> The delimiter used to split and join the string values.
+
+
+The **`as_list` option** provides full control over how values are split during
+import and joined during export. This is useful when you need custom parsing
+logic. This allows for more complex transformations beyond simple splitting and
+joining that is achieved through using delimiters.
+
+[source,ruby]
+----
+class TitleCollection < Lutaml::Model::Collection
+  instances :items, :string
+
+  xml do
+    root "titles"
+    map_attribute "title", to: :items, as_list: {
+      import: ->(str) { str.split("; ") }, <1>
+      export: ->(arr) { arr.join("; ") }, <2>
+    }
+  end
+end
+----
+<1> Custom logic to split the string into an array during import.
+<2> Custom logic to join the array into a string during export.
+
+.Applying the `delimiter` and `as_list` options for XML attribute collections
+[example]
+====
+Both approaches work with the same XML format:
+
+[source,xml]
+----
+<titles title="Title One; Title Two; Title Three"/>
+----
+
+[source,ruby]
+----
+# Both collections work identically for basic use cases
+collection = TitleCollection.from_xml(xml)
+collection.items # => ["Title One", "Title Two", "Title Three"]
+collection.to_xml # => '<titles title="Title One; Title Two; Title Three"/>'
+
+# Same result with delimiter option
+delimiter_collection = TitleDelimiterCollection.from_xml(xml)
+delimiter_collection.items # => ["Title One", "Title Two", "Title Three"]
+delimiter_collection.to_xml # => '<titles title="Title One; Title Two; Title Three"/>'
+----
+====
 
 
 === Collection types
@@ -3767,33 +4196,159 @@ end
 ====
 
 
+==== Polymorphic collections
 
-// ==== Polymorphic collections
+Collections can contain instances of different model classes that share a common base class.
 
-// Collections can contain instances of different model classes that share a common
-// base class.
+The `polymorphic` option for `instances` allows you to specify which subclasses are accepted:
 
-// The polymorphic options for attributes are also applied here.
+[source,ruby]
+----
+class ReferenceSet < Lutaml::Model::Collection
+  # Accepts any subclass of Reference
+  instances :references, Reference, polymorphic: true
+end
 
-// [example]
-// ====
-// [source,ruby]
-// ----
-// class PolymorphicItemCollection < Lutaml::Model::Collection
-//   instances :items, Item, polymorphic: true
+class ReferenceSet < Lutaml::Model::Collection
+  # Accepts only DocumentReference and AnchorReference
+  instances :references, Reference, polymorphic: [
+    DocumentReference,
+    AnchorReference,
+  ]
+end
+----
 
-//   xml do
-//     root "items"
-//     map_element "item", to: :items
-//   end
+==== Polymorphic collection mapping
 
-//   key_value do
-//     root "items"
-//     map_instances to: :items
-//   end
-// end
-// ----
-// ====
+To serialize/deserialize polymorphic collections, use the `polymorphic` option in your mapping blocks. This allows you to specify how to differentiate subclasses in XML, YAML, or JSON.
+
+[source,ruby]
+----
+class ReferenceSet < Lutaml::Model::Collection
+  instances :references, Reference, polymorphic: [
+    DocumentReference,
+    AnchorReference,
+  ]
+
+  xml do
+    root "ReferenceSet"
+    map_instances to: :references, polymorphic: {
+      attribute: "_class",
+      class_map: {
+        "document-ref" => "DocumentReference",
+        "anchor-ref" => "AnchorReference",
+      },
+    }
+  end
+
+  key_value do
+    map_instances to: :references, polymorphic: {
+      attribute: "_class",
+      class_map: {
+        "Document" => "DocumentReference",
+        "Anchor" => "AnchorReference",
+      },
+    }
+  end
+end
+----
+
+This allows round-trip serialization like:
+
+[source,yaml]
+----
+---
+references:
+- _class: Document
+  name: The Tibetan Book of the Dead
+  document_id: book:tbtd
+- _class: Anchor
+  name: Chapter 1
+  anchor_id: book:tbtd:anchor-1
+----
+
+[source,xml]
+----
+<ReferenceSet>
+  <references reference-type="document-ref">
+    <name>The Tibetan Book of the Dead</name>
+    <document_id>book:tbtd</document_id>
+  </references>
+  <references reference-type="anchor-ref">
+    <name>Chapter 1</name>
+    <anchor_id>book:tbtd:anchor-1</anchor_id>
+  </references>
+</ReferenceSet>
+----
+
+==== Polymorphic mapping with subclass differentiator
+
+If you cannot modify the polymorphic superclass, define the differentiator attribute in each subclass, and use the `polymorphic` mapping option in the collection:
+
+[source,ruby]
+----
+class Reference < Lutaml::Model::Serializable
+  attribute :name, :string
+end
+
+class DocumentReference < Reference
+  attribute :_class, :string
+  attribute :document_id, :string
+
+  xml do
+    map_element "document_id", to: :document_id
+    map_attribute "reference-type", to: :_class
+  end
+
+  key_value do
+    map "document_id", to: :document_id
+    map "_class", to: :_class
+  end
+end
+
+class AnchorReference < Reference
+  attribute :_class, :string
+  attribute :anchor_id, :string
+
+  xml do
+    map_element "anchor_id", to: :anchor_id
+    map_attribute "reference-type", to: :_class
+  end
+
+  key_value do
+    map "anchor_id", to: :anchor_id
+    map "_class", to: :_class
+  end
+end
+
+class ReferenceSet < Lutaml::Model::Collection
+  instances :references, Reference, polymorphic: [
+    DocumentReference,
+    AnchorReference,
+  ]
+
+  xml do
+    root "ReferenceSet"
+    map_instances to: :references, polymorphic: {
+      attribute: "_class",
+      class_map: {
+        "document-ref" => "DocumentReference",
+        "anchor-ref" => "AnchorReference",
+      },
+    }
+  end
+
+  key_value do
+    map_instances to: :references, polymorphic: {
+      attribute: "_class",
+      class_map: {
+        "Document" => "DocumentReference",
+        "Anchor" => "AnchorReference",
+      },
+    }
+  end
+end
+----
 
 
 == Serialization model mappings
@@ -7129,6 +7684,201 @@ ceramic.glaze_type
 ====
 
 
+[[class-based-transformers]]
+==== Class-based transformers
+
+Instead of using proc-based transformations, you can define reusable transformer
+classes that inherit from `Lutaml::Model::ValueTransformer`.
+
+Class-based transformers provide better organization, reusability, and testing
+capabilities compared to inline proc transformations.
+
+Syntax:
+
+[source,ruby]
+----
+class CustomTransformer < Lutaml::Model::ValueTransformer
+  def to_json
+    # Transform the value for JSON output
+  end
+
+  def from_json(input_value)
+    # Transform the input value from JSON
+  end
+
+  def to_xml
+    # Transform the value for XML output
+  end
+
+  def from_xml(input_value)
+    # Transform the input value from XML
+  end
+
+  # Define methods for other formats as needed:
+  # to_yaml, from_yaml, to_toml, from_toml, etc.
+end
+
+class SomeObject < Lutaml::Model::Serializable
+  # Use the transformer class directly
+  attribute :attribute_name, {attr_type}, transform: CustomTransformer
+end
+----
+
+Where,
+
+`CustomTransformer`:: A class that inherits from `Lutaml::Model::ValueTransformer`
+and implements format-specific transformation methods.
+
+`to_*`:: Methods that transform the internal value when serializing to a format.
+The current value is available as `value` within the method.
+
+`from_*`:: Methods that transform the input value when deserializing from a format.
+
+NOTE: If a transformer class doesn't implement a method for a specific format,
+that format will not be transformed, allowing selective transformation.
+
+[example]
+.Class-based transformer for measurement values
+====
+[source,ruby]
+----
+class MeasurementTransformer < Lutaml::Model::ValueTransformer
+  def to_json
+    return value if value.nil?
+    "#{value["value"]} #{value["unit"]}"
+  end
+
+  def from_json(input_value)
+    number, unit = input_value.split
+    { "value" => number.to_f, "unit" => unit }
+  end
+
+  def to_xml
+    return value if value.nil?
+    "#{value["value"]} #{value["unit"]}"
+  end
+
+  def from_xml(input_value)
+    number, unit = input_value.split
+    { "value" => number.to_f, "unit" => unit }
+  end
+
+  # YAML and TOML methods not defined - those formats won't be transformed
+end
+
+class Product < Lutaml::Model::Serializable
+  attribute :measurement, :hash, transform: MeasurementTransformer
+end
+----
+
+[source,ruby]
+----
+product = Product.new(measurement: { "value" => 10.5, "unit" => "cm" })
+
+# JSON and XML transformations are applied
+puts product.to_json
+# => {"measurement":"10.5 cm"}
+
+puts product.to_xml
+# => <Product>
+#      <measurement>10.5 cm</measurement>
+#    </Product>
+
+# YAML transformation is not applied (no to_yaml method defined)
+puts product.to_yaml
+# => measurement:
+#      value: 10.5
+#      unit: cm
+
+# Deserialization works the same way
+Product.from_json('{"measurement": "15.0 mm"}').measurement
+# => {"value"=>15.0, "unit"=>"mm"}
+
+Product.from_yaml("measurement:\n  value: 20.0\n  unit: km").measurement
+# => {"value"=>20.0, "unit"=>"km"}
+----
+====
+
+Class-based transformers can be combined with both attribute-level and mapping-level
+transformations, following the same precedence rules as proc-based transformers.
+
+[example]
+.Combined class-based transformers with attribute and mapping level transformations
+====
+[source,ruby]
+----
+class PrefixTransformer < Lutaml::Model::ValueTransformer
+  def to_json(*_args)
+    "PREFIX:#{value}"
+  end
+
+  def from_json(input_value)
+    input_value.gsub("PREFIX:", "")
+  end
+
+  def to_xml(*_args)
+    "PREFIX:#{value}"
+  end
+
+  def from_xml(input_value)
+    input_value.gsub("PREFIX:", "")
+  end
+end
+
+class SuffixTransformer < Lutaml::Model::ValueTransformer
+  def to_json(*_args)
+    "#{value}:SUFFIX"
+  end
+
+  def from_json(input_value)
+    input_value.gsub(":SUFFIX", "")
+  end
+
+  def to_xml(*_args)
+    "#{value}:SUFFIX"
+  end
+
+  def from_xml(input_value)
+    input_value.gsub(":SUFFIX", "")
+  end
+end
+
+class CombinedTransformModel < Lutaml::Model::Serializable
+  # Attribute-level transformer
+  attribute :title, :string, transform: PrefixTransformer
+
+  json do
+    # Mapping-level transformer (applied in addition to attribute-level)
+    map "title", to: :title, transform: SuffixTransformer
+  end
+
+  xml do
+    root "CombinedTransformModel"
+    map_element "title", to: :title, transform: SuffixTransformer
+  end
+end
+----
+
+[source,ruby]
+----
+model = CombinedTransformModel.new(title: "hello")
+
+# For JSON output:
+# 1. Attribute transformer (PrefixTransformer): "hello" -> "PREFIX:hello"
+# 2. Mapping transformer (SuffixTransformer): "PREFIX:hello" -> "PREFIX:hello:SUFFIX"
+puts model.to_json
+# => {"title": "PREFIX:hello:SUFFIX"}
+
+# For JSON input:
+# 1. Mapping transformer (SuffixTransformer): "hello:SUFFIX" -> "hello"
+# 2. Attribute transformer (PrefixTransformer): "hello" -> "hello" (stored value)
+model = CombinedTransformModel.from_json('{"title": "hello:SUFFIX"}')
+model.title
+# => "hello"
+----
+====
+
+
 
 [[separate-serialization-model]]
 ==== Separate data model class
@@ -7844,7 +8594,7 @@ hsh | json | yaml | toml do
 end
 ----
 
-This is only applicable if the `to: :name_of_element` (in xml mapping) or `to: :name_of_attribute` (in key_value mapping) option is set.  
+This is only applicable if the `to: :name_of_element` (in xml mapping) or `to: :name_of_attribute` (in key_value mapping) option is set.
 If it is not set, then both custom methods must be provided.
 
 [example]
@@ -9378,6 +10128,108 @@ puts SomeModel.new.to_yaml
 ====
 
 
+=== Parent and root context accessors (`__parent`, `__root`)
+
+Models created by transforms can access their immediate parent and the document root via two special accessors added:
+
+* `__parent`:: The direct parent model instance
+* `__root`:: The top-level/root model instance
+
+These are assigned during deserialization so nested child models can reference context.
+
+[example]
+====
+[source,ruby]
+----
+class Tag < Lutaml::Model::Serializable
+  attribute :text, :string
+
+  xml do
+    root "Tag"
+
+    map_content to: :text
+  end
+
+  key_value do
+    map "text", to: :text
+  end
+end
+
+class Tags < Lutaml::Model::Serializable
+  attribute :tag, Tag, collection: true
+
+  xml do
+    root "Tags"
+
+    map_element "Tag", to: :tag
+  end
+
+  key_value do
+    map "Tag", to: :tag
+  end
+end
+
+class Post < Lutaml::Model::Serializable
+  attribute :tags, Tags, collection: true
+
+  xml do
+    root "Post"
+    map_element "Tags", to: :tags
+  end
+
+  key_value do
+    map "Tags", to: :tags
+  end
+end
+
+post = Post.from_xml(<<~XML)
+<Post>
+  <Tags>
+    <Tag>ruby</Tag>
+    <Tag>coding</Tag>
+  </Tags>
+  <Tags>
+    <Tag>JSON</Tag>
+    <Tag>coding</Tag>
+  </Tags>
+</Post>
+XML
+
+first_tag = post.tags.first.tag.first # #<Tag:0x00000002e661a650 @text="ruby">
+first_tag.__parent # #<Tags:0x00000002e5e90010 @tag=[#<Tag:0x00000002e5e5bb80 @text="ruby">, #<Tag:0x00000002e5e58ca0 @text="coding">]>
+first_tag.__root # should return the `post` object
+
+# Key-value formats also set these accessors
+yaml = {
+  "Tags" => [
+    {
+      "Tag" => [
+        { "text" => "ruby" },
+        { "text" => "coding"}
+      ]
+    },
+    {
+      "Tag" => [
+        { "text" => "JSON" },
+        { "text" => "coding" }
+      ]
+    }
+  ]
+}.to_yaml
+post2 = Post.from_yaml(yaml)
+# Same as explained in XML `post` example
+post2.tags.first.__parent
+post2.tags.first.__root
+----
+====
+
+NOTE: If you manually instantiate models, you can set these accessors yourself if needed:
+
+[source,ruby]
+----
+child.__parent = parent
+child.__root   = parent.__root || parent
+----
 
 == Schema generation and import
 
@@ -9591,7 +10443,8 @@ link:https://www.w3.org/TR/xmlschema-1/#include[XML Schema specification].
 [example]
 `"path/to/schema/directory"`
 
-NOTE: If both `create_files` and `load_classes` are provided, the `create_files` argument will take priority and generate files without loading them!
+NOTE: If both `create_files` and `load_classes` are provided, the `create_files`
+argument will take priority and generate files without loading them!
 
 The generated LutaML models consists of two different kind of Ruby classes
 depending on the XSD schema:
@@ -9770,6 +10623,8 @@ klin.validate
 
 
 == Liquid template access
+
+=== General
 
 WARNING: The Liquid template feature is optional. To enable it, please
 explicitly require the `liquid` gem.
@@ -9995,9 +10850,10 @@ puts output
 ====
 
 
-== Automatic attribute access
+=== Automatic attribute access
 
-All model attributes are automatically available in liquid drops without any additional configuration:
+All model attributes are automatically available in liquid drops without any
+additional configuration.
 
 [source,ruby]
 ----
@@ -10017,11 +10873,13 @@ result = template.render(drop)
 ----
 
 
-== Custom mapping methods
+=== Custom attribute mapping
 
-You can define custom methods for your liquid drops and map them to specific keys in templates. All model attributes are automatically available in liquid drops.
+You can define custom methods for your Liquid Drop classes and map them to
+specific keys in templates.
 
-=== Basic custom mappings
+All model attributes are automatically available in liquid drops by default
+using the same name.
 
 Use the `liquid` block to define custom mappings:
 
@@ -10047,8 +10905,8 @@ class Product < Lutaml::Model::Serializable
 end
 
 product = Product.new(
-  name: "Laptop", 
-  price: 999.99, 
+  name: "Laptop",
+  price: 999.99,
   description: "High-performance laptop for professional use"
 )
 drop = product.to_liquid
@@ -10064,31 +10922,34 @@ result = template.render(drop)
 # => "LAPTOP costs $999.99"
 ----
 
-== Liquid drop inheritance
+=== Liquid Drop class inheritance
 
-For advanced customization, you can create custom drop classes that inherit from the auto-generated base drop class.
+For advanced customization, you can create custom Liquid::Drop classes that
+inherit from the default base Liquid::Drop class auto-generated by
+Lutaml::Model.
 
 [NOTE]
 ====
-When creating custom drop methods, use `@object` to access the original model instance. This is an internal reference and is not exposed to liquid templates directly.
+When creating custom drop methods, use `@object` to access the original model
+instance. This is an internal reference and is not exposed to liquid templates
+directly.
 ====
 
-=== Basic inheritance setup
 
 [source,ruby]
 ----
 class Schema < Lutaml::Model::Serializable
   attribute :path, :string
   attribute :source, :string
-  
+
   # Specify the name of your custom drop class
   liquid_class "CustomSchemaDrop"
-  
+
   # You can still use liquid mappings
   liquid do
     map "template_path", to: :build_template_path
   end
-  
+
   def build_template_path
     File.join("templates", path)
   end
@@ -10103,7 +10964,7 @@ class CustomSchemaDrop < BaseDropClass
   def formatted_source
     "Source: #{@object.source.upcase}"
   end
-  
+
   # Override existing methods
   def path
     "custom/#{@object.path}"
@@ -10111,7 +10972,78 @@ class CustomSchemaDrop < BaseDropClass
 end
 ----
 
-=== Using custom drop classes
+
+Sophisticated inheritance hierarchies are supported:
+
+[source,ruby]
+----
+# Base model
+class Document < Lutaml::Model::Serializable
+  attribute :title, :string
+  attribute :content, :string
+
+  liquid_class "DocumentDrop"
+end
+
+# Get the base drop class
+BaseDocumentDrop = Document.to_liquid_class
+
+# Create a specialized drop class
+class DocumentDrop < BaseDocumentDrop
+  def word_count
+    @object.content.split.size
+  end
+
+  def summary
+    @object.content
+  end
+
+  def metadata
+    {
+      title: @object.title,
+      word_count: word_count,
+      char_count: @object.content.length
+    }
+  end
+end
+
+# Subclass for specific document types
+class TechnicalDocument < Document
+  attribute :version, :string
+  attribute :author, :string
+
+  liquid_class "TechnicalDocumentDrop"
+end
+
+# Get the base drop class for technical documents
+BaseTechnicalDrop = TechnicalDocument.to_liquid_class
+
+# Create specialized drop for technical documents
+class TechnicalDocumentDrop < BaseTechnicalDrop
+  def version_info
+    "Version #{@object.version} by #{@object.author}"
+  end
+
+  def technical_summary
+    "#{summary(50)} [#{version_info}]"
+  end
+
+  # Override parent method
+  def metadata
+    super.merge(
+      version: @object.version,
+      author: @object.author,
+      type: 'technical'
+    )
+  end
+end
+----
+
+
+=== Using custom Liquid Drop classes
+
+It is straightforward to use your custom Liquid Drop classes as a full
+replacement of the default drop class.
 
 [source,ruby]
 ----
@@ -10142,73 +11074,6 @@ Template: {{template_path}}
 result = template.render(drop)
 ----
 
-=== Advanced inheritance patterns
-
-You can create sophisticated inheritance hierarchies:
-
-[source,ruby]
-----
-# Base model
-class Document < Lutaml::Model::Serializable
-  attribute :title, :string
-  attribute :content, :string
-  
-  liquid_class "DocumentDrop"
-end
-
-# Get the base drop class
-BaseDocumentDrop = Document.to_liquid_class
-
-# Create a specialized drop class
-class DocumentDrop < BaseDocumentDrop
-  def word_count
-    @object.content.split.size
-  end
-  
-  def summary
-    @object.content
-  end
-  
-  def metadata
-    {
-      title: @object.title,
-      word_count: word_count,
-      char_count: @object.content.length
-    }
-  end
-end
-
-# Subclass for specific document types
-class TechnicalDocument < Document
-  attribute :version, :string
-  attribute :author, :string
-  
-  liquid_class "TechnicalDocumentDrop"
-end
-
-# Get the base drop class for technical documents
-BaseTechnicalDrop = TechnicalDocument.to_liquid_class
-
-# Create specialized drop for technical documents
-class TechnicalDocumentDrop < BaseTechnicalDrop
-  def version_info
-    "Version #{@object.version} by #{@object.author}"
-  end
-
-  def technical_summary
-    "#{summary(50)} [#{version_info}]"
-  end
-
-  # Override parent method
-  def metadata
-    super.merge(
-      version: @object.version,
-      author: @object.author,
-      type: 'technical'
-    )
-  end
-end
-----
 
 === Error handling
 
@@ -10222,7 +11087,7 @@ This error is raised when a custom liquid class specified with `liquid_class` is
 ----
 class Schema < Lutaml::Model::Serializable
   attribute :path, :string
-  
+
   # Specify a custom drop class name
   liquid_class "CustomSchemaDrop"
 end

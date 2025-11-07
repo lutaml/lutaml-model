@@ -8,7 +8,9 @@ module Lutaml
                     :prefix,
                     :mixed_content,
                     :default_namespace,
-                    :cdata
+                    :cdata,
+                    :as_list,
+                    :delimiter
 
         def initialize(
           name,
@@ -32,7 +34,9 @@ module Lutaml
           polymorphic: {},
           polymorphic_map: {},
           transform: {},
-          value_map: {}
+          value_map: {},
+          as_list: nil,
+          delimiter: nil
         )
           super(
             name,
@@ -66,6 +70,8 @@ module Lutaml
 
           @namespace_set = namespace_set
           @prefix_set = prefix_set
+          @as_list = as_list
+          @delimiter = delimiter
         end
 
         def namespace_set?
@@ -154,6 +160,8 @@ module Lutaml
             transform: transform.dup,
             render_empty: render_empty.dup,
             value_map: Utils.deep_dup(@value_map),
+            as_list: @as_list,
+            delimiter: @delimiter,
           )
         end
       end

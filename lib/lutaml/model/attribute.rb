@@ -20,6 +20,8 @@ module Lutaml
         initialize_empty
         validations
         required
+        ref_model_class
+        ref_key_attribute
       ].freeze
 
       MODEL_STRINGS = [
@@ -144,6 +146,11 @@ module Lutaml
       def cast_element(value, register)
         resolved_type = type(register)
         return resolved_type.new(value) if value.is_a?(::Hash) && !hash_type?
+
+        # Special handling for Reference types - pass the metadata
+        if unresolved_type == Lutaml::Model::Type::Reference
+          return resolved_type.cast_with_metadata(value, @options[:ref_model_class], @options[:ref_key_attribute])
+        end
 
         resolved_type.cast(value)
       end
@@ -342,32 +349,31 @@ module Lutaml
         return true unless collection?
 
         # Allow any value for unbounded collections
-        return true if options[:collection] == true
+        return true if collection == true
 
-        unless collection_instance?(value)
+        unless (Utils.uninitialized?(value) && resolved_collection.min.zero?) || collection_instance?(value)
           raise Lutaml::Model::CollectionCountOutOfRangeError.new(
             name,
             value,
-            options[:collection],
+            collection,
           )
         end
 
-        range = options[:collection]
-        return true unless range.is_a?(Range)
+        return true unless resolved_collection.is_a?(Range)
 
-        if range.is_a?(Range) && range.end.nil?
-          if value.size < range.begin
+        if resolved_collection.is_a?(Range) && resolved_collection.end.infinite?
+          if value.size < resolved_collection.begin
             raise Lutaml::Model::CollectionCountOutOfRangeError.new(
               name,
               value,
-              range,
+              collection,
             )
           end
-        elsif range.is_a?(Range) && !range.cover?(value.size)
+        elsif resolved_collection.is_a?(Range) && !resolved_collection.cover?(value.size)
           raise Lutaml::Model::CollectionCountOutOfRangeError.new(
             name,
             value,
-            range,
+            collection,
           )
         end
       end
@@ -378,10 +384,27 @@ module Lutaml
 
         resolved_type = options[:resolved_type] || type(register)
         serialize_options = options.merge(resolved_type: resolved_type)
+        value = reference_key(value) if unresolved_type == Lutaml::Model::Type::Reference
         return serialize_array(value, format, register, serialize_options) if collection_instance?(value)
         return serialize_model(value, format, register, options) if resolved_type <= Serialize
 
         serialize_value(value, format, resolved_type)
+      end
+
+      def reference_key(value)
+        return nil unless value
+        return value.map { |item| reference_key(item) } if value.is_a?(Array)
+
+        return value.public_send(@options[:ref_key_attribute]) if model_instance?(value)
+
+        value
+      end
+
+      def model_instance?(value)
+        return false unless value.respond_to?(:class)
+        return false unless @options[:ref_model_class]
+
+        value.class.name == @options[:ref_model_class]
       end
 
       def cast(value, format, register, options = {})
@@ -406,22 +429,37 @@ module Lutaml
         type(register) <= Serialize
       end
 
-      def collection_range
+      def resolved_collection
         return unless collection?
 
-        collection.is_a?(Range) ? collection : 0..Float::INFINITY
+        collection.is_a?(Range) ? validated_range_object : 0..Float::INFINITY
       end
 
       def sequenced_appearance_count(element_order, mapped_name, current_index)
         elements = element_order[current_index..]
         element_count = elements.take_while { |element| element == mapped_name }.count
-        return element_count if element_count.between?(*collection_range.minmax)
+        return element_count if element_count.between?(*resolved_collection.minmax)
 
         raise Lutaml::Model::ElementCountOutOfRangeError.new(
           mapped_name,
           element_count,
-          collection_range,
+          collection,
         )
+      end
+
+      def validate_choice_content!(elements)
+        return elements.count unless resolved_collection
+        return 1 if elements.count.between?(*resolved_collection.minmax)
+
+        elements.each_slice(resolved_collection.max).count
+      end
+
+      def min_collection_zero?
+        collection? && resolved_collection.min.zero?
+      end
+
+      def choice
+        @options[:choice]
       end
 
       def process_options!
@@ -436,6 +474,12 @@ module Lutaml
       end
 
       private
+
+      def validated_range_object
+        return collection if collection.end
+
+        collection.begin..Float::INFINITY
+      end
 
       def validate_name!(name, reserved_methods:)
         return unless reserved_methods.include?(name.to_sym)
@@ -508,8 +552,22 @@ module Lutaml
       end
 
       def serialize_value(value, format, resolved_type)
-        value = resolved_type.new(value) unless value.is_a?(Type::Value)
+        value = wrap_in_type_if_needed(value, resolved_type)
         value.send(:"to_#{format}")
+      end
+
+      def wrap_in_type_if_needed(value, resolved_type)
+        return value if value.is_a?(Type::Value)
+
+        if resolved_type == Type::Reference
+          create_reference_instance(resolved_type, value)
+        else
+          resolved_type.new(value)
+        end
+      end
+
+      def create_reference_instance(resolved_type, key = nil)
+        resolved_type.new(@options[:ref_model_class], @options[:ref_key_attribute], key)
       end
 
       def validate_presence!(type)
