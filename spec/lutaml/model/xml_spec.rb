@@ -10,6 +10,9 @@ RSpec.describe Lutaml::Model::Xml do
       hide_const("Nokogiri") if Object.const_defined?(:Nokogiri)
       hide_const("Ox") if Object.const_defined?(:Ox)
       hide_const("Oga") if Object.const_defined?(:Oga)
+
+      # Stub require to prevent any actual requires during testing
+      allow(Lutaml::Model::Utils).to receive(:require).and_return(true)
     end
 
     context "when Nokogiri is available" do

@@ -115,25 +115,25 @@ class BenchmarkRunner
   def time_runs(&block)
     job = Benchmark::IPS::Job.new
     job.config(time: @run_time, warmup: 5)
-    job.report("#{@label} #{@format}::#{@adapter} #{@direction}_#{@format}", &block)
+    job.report("#{@label} #{@adapter} #{@direction}_#{@format}", &block)
     job.run
 
     entry = job.full_report.entries.first
     samples = entry.stats.samples
 
-    raise "No samples collected" if samples.empty?
+    raise "No samples collected for #{@format}::#{@adapter} #{@direction}" if samples.empty?
 
     mean = samples.sum.to_f / samples.size
     variance = samples.sum { |x| (x - mean)**2 } / (samples.size - 1)
     std_dev = Math.sqrt(variance)
     error_margin = std_dev / mean
 
-    error_percentage = (error_margin * 100).round(2) / 100.0
+    error_percentage = error_margin.round(4)
     lower = mean.round(4) * (1 - error_percentage)
     upper = mean.round(4) * (1 + error_percentage)
 
     result = { lower: lower, upper: upper }
-    { "#{@format}_#{@adapter}_#{@direction}_#{@format}": result }
+    { "#{@adapter}_#{@direction}_#{@format}": result }
   end
 
   def set_adapter

@@ -4,8 +4,8 @@ module Lutaml
   module Model
     module Toml
       def self.detect_toml_adapter
-        return :tomlib if Object.const_defined?(:Tomlib)
-        return :toml_rb if Object.const_defined?(:TomlRb)
+        return :tomlib if Utils.safe_load("tomlib", :Tomlib)
+        return :toml_rb if Utils.safe_load("toml-rb", :TomlRb)
 
         nil
       end
