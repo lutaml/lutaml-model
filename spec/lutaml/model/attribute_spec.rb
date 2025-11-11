@@ -85,7 +85,7 @@ RSpec.describe Lutaml::Model::Attribute do
 
           expect(Lutaml::Model::Logger)
             .to have_received(:warn)
-            .with("Attribute name `#{method}` conflicts with a built-in method")
+            .with("Attribute name `#{method}` conflicts with a built-in method", anything)
         end
       else
         it "raise exception, when method is `#{method}`" do

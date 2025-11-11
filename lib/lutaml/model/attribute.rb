@@ -492,7 +492,7 @@ module Lutaml
       end
 
       def warn_name_conflict(name)
-        Logger.warn("Attribute name `#{name}` conflicts with a built-in method")
+        Logger.warn("Attribute name `#{name}` conflicts with a built-in method", caller_locations(5..5).first)
       end
 
       def resolve_polymorphic_class(type, value, options)
