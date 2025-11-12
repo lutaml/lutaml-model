@@ -19,14 +19,27 @@ module Lutaml
         def self.serialize(value)
           return value if value.nil? || Utils.uninitialized?(value)
 
-          value = cast(value)
-          # value&.strftime("%Y-%m-%dT%H:%M:%S%:z")
-          value&.iso8601
+          time = cast(value)
+          return nil unless time
+
+          # Only include fractional seconds if they exist
+          if time.subsec.zero?
+            time.iso8601
+          else
+            # Keep minimum 3 decimal places, remove last 3 zeros if present
+            time.iso8601(6).sub(/(\.\d{3})0{3}([+-])/, '\1\2')
+          end
         end
 
         # # xs:time format (HH:MM:SS.mmm±HH:MM)
         def to_xml
-          value&.iso8601
+          return nil unless value
+
+          if value.subsec.zero?
+            value.iso8601
+          else
+            value.iso8601(6).sub(/(\.\d{3})0{3}([+-])/, '\1\2')
+          end
         end
 
         # # ISO8601 time format
@@ -36,7 +49,13 @@ module Lutaml
 
         # YAML timestamp format (native)
         def to_yaml
-          value&.iso8601
+          return nil unless value
+
+          if value.subsec.zero?
+            value.iso8601
+          else
+            value.iso8601(6).sub(/(\.\d{3})0{3}([+-])/, '\1\2')
+          end
         end
 
         # # TOML time format (HH:MM:SS.mmm)

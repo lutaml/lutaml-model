@@ -15,7 +15,14 @@ module Lutaml
 
           case value
           when ::Time then value
-          else ::Time.parse(value.to_s)
+          else
+            # Check if input has invalid hour format (24:00:00 or higher)
+            if value.to_s =~ /^(\d+):/
+              hour = ::Regexp.last_match(1).to_i
+              return nil if hour >= 24
+            end
+
+            ::Time.parse(value.to_s)
           end
         rescue ArgumentError
           nil
