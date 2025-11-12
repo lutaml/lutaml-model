@@ -8,7 +8,9 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
       context "with valid xml schema, it generates the models" do
         before do
           described_class.to_models(schema, output_dir: dir, create_files: true)
-          Dir.each_child(dir) { |child| require_relative File.expand_path("#{dir}/#{child}") }
+          Dir.each_child(dir) do |child|
+            require_relative File.expand_path("#{dir}/#{child}")
+          end
         end
 
         after do
@@ -52,7 +54,9 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         end
 
         it "raises error when processing invalid example" do
-          expect { CTMathTest.from_xml(invalid_value_xml_example) }.to raise_error(Lutaml::Model::Type::MinBoundError)
+          expect do
+            CTMathTest.from_xml(invalid_value_xml_example)
+          end.to raise_error(Lutaml::Model::Type::MinBoundError)
         end
       end
 
@@ -68,8 +72,12 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
           end
         end
 
-        let(:valid_example) { File.read("spec/fixtures/xml/valid_math_document.xml") }
-        let(:invalid_example) { File.read("spec/fixtures/xml/invalid_math_document.xml") }
+        let(:valid_example) do
+          File.read("spec/fixtures/xml/valid_math_document.xml")
+        end
+        let(:invalid_example) do
+          File.read("spec/fixtures/xml/invalid_math_document.xml")
+        end
 
         it "does not raise error with valid example and creates files" do
           expect(defined?(MathDocument)).to eq("constant")
@@ -154,7 +162,9 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
 
         let(:expected_classes) do
           types = described_class::SimpleType::SUPPORTED_DATA_TYPES
-          types.filter_map { |name, value| name.to_s unless value[:skippable] } << "User"
+          types.filter_map do |name, value|
+            name.to_s unless value[:skippable]
+          end << "User"
         end
 
         it "matches the expected class names of the schema" do
@@ -205,7 +215,9 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
       context "when classes are generated and loaded but files are not created for specifications schema" do
         before { described_class.to_models(schema, load_classes: true) }
 
-        let(:schema) { File.read("spec/fixtures/xml/specifications_schema.xsd") }
+        let(:schema) do
+          File.read("spec/fixtures/xml/specifications_schema.xsd")
+        end
 
         let(:spec_xml) do
           <<~XML
@@ -251,9 +263,15 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         Dir.mktmpdir do |dir|
           loaded_classes.each do |name, klass|
             content = "module #{module_name}\n#{klass}\nend\n"
-            File.write(File.join(dir, "#{Lutaml::Model::Utils.snake_case(name)}.rb"), content)
+            File.write(
+              File.join(dir,
+                        "#{Lutaml::Model::Utils.snake_case(name)}.rb"), content
+            )
           end
-          loaded_classes.each_key { |name| require File.join(dir, "#{Lutaml::Model::Utils.snake_case(name)}.rb") }
+          loaded_classes.each_key do |name|
+            require File.join(dir,
+                              "#{Lutaml::Model::Utils.snake_case(name)}.rb")
+          end
         end
       end
 

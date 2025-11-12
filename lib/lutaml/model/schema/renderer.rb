@@ -28,7 +28,9 @@ module Lutaml
         def render(context = {})
           context = Context.new(context[:schema])
 
-          ERB.new(@template, trim_mode: "-").result(context.instance_eval { binding })
+          ERB.new(@template, trim_mode: "-").result(context.instance_eval do
+            binding
+          end)
         end
       end
     end

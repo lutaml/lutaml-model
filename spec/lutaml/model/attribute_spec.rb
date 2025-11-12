@@ -55,7 +55,10 @@ RSpec.describe Lutaml::Model::Attribute do
 
   it "raises an error if required attributes are missing" do
     record = RequiredTestRecord.new
-    expect { record.validate! }.to raise_error(Lutaml::Model::ValidationError, "Missing required attribute: name")
+    expect do
+      record.validate!
+    end.to raise_error(Lutaml::Model::ValidationError,
+                       "Missing required attribute: name")
   end
 
   it "does not raise an error when all required attributes are present" do
@@ -114,7 +117,8 @@ RSpec.describe Lutaml::Model::Attribute do
     it "raise exception if option is not allowed" do
       expect do
         validate_options.call({ foo: "bar" })
-      end.to raise_error(Lutaml::Model::InvalidAttributeOptionsError, "Invalid options given for `name` [:foo]")
+      end.to raise_error(Lutaml::Model::InvalidAttributeOptionsError,
+                         "Invalid options given for `name` [:foo]")
     end
 
     it "raise exception if pattern is given with non string type" do
@@ -139,7 +143,9 @@ RSpec.describe Lutaml::Model::Attribute do
     end
 
     context "when type is set and method_name is set" do
-      let(:attribute) { described_class.new("name", :string, method_name: :tmp) }
+      let(:attribute) do
+        described_class.new("name", :string, method_name: :tmp)
+      end
 
       it "returns true" do
         expect(attribute.derived?).to be(true)

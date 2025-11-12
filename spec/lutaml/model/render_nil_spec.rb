@@ -30,7 +30,8 @@ class RenderNil < Lutaml::Model::Serializable
   xml do
     root "render_nil"
     map_element "name", to: :name, render_nil: true, render_empty: true
-    map_element "clay_type", to: :clay_type, render_nil: false, render_empty: true
+    map_element "clay_type", to: :clay_type, render_nil: false,
+                             render_empty: true
     map_element "glaze", to: :glaze, render_nil: true, render_empty: true
     map_element "render_nil_nested", to: :render_nil_nested, render_nil: true,
                                      render_default: true

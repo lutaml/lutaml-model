@@ -109,7 +109,9 @@ module Lutaml
 
         def namespaced_names(parent_namespace = nil)
           if multiple_mappings?
-            name.map { |rule_name| namespaced_name(parent_namespace, rule_name) }
+            name.map do |rule_name|
+              namespaced_name(parent_namespace, rule_name)
+            end
           else
             [namespaced_name(parent_namespace)]
           end

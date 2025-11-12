@@ -180,7 +180,9 @@ module CustomVobjectAdapterSpec
       objects.map do |obj|
         [
           "BEGIN:#{obj[:name]}",
-          *obj[:properties].flat_map { |prop, entries| format_entries(prop.upcase, entries) },
+          *obj[:properties].flat_map do |prop, entries|
+            format_entries(prop.upcase, entries)
+          end,
           "END:#{obj[:name]}",
         ].join("\n")
       end.join("\n\n")
@@ -241,7 +243,8 @@ module CustomVobjectAdapterSpec
     end
 
     def type(element_type)
-      unless %i[component property property_parameter property_group].include?(element_type)
+      unless %i[component property property_parameter
+                property_group].include?(element_type)
         raise ArgumentError, "Invalid element type: #{element_type}"
       end
 
@@ -332,9 +335,11 @@ module CustomVobjectAdapterSpec
         value = if mapping.type == :component
                   data[0][:properties][mapping.name]
                 elsif mapping.type == :structured
-                  handle_structured_value(data[0][:properties][mapping.name], attribute)
+                  handle_structured_value(data[0][:properties][mapping.name],
+                                          attribute)
                 else
-                  handle_property_value(data[0][:properties][mapping.name], attribute, mapping)
+                  handle_property_value(data[0][:properties][mapping.name],
+                                        attribute, mapping)
                 end
 
         if value
@@ -354,7 +359,8 @@ module CustomVobjectAdapterSpec
         value = model.send(mapping.to)
 
         if value
-          result[mapping.name] = format_property_value(value, attribute, mapping)
+          result[mapping.name] =
+            format_property_value(value, attribute, mapping)
         end
       end
 
@@ -1008,7 +1014,9 @@ module CustomVobjectAdapterSpec
         email: ["john.doe@example.com", "j.doe@company.com"],
         org: "Example Corp",
         bday: CustomVobjectAdapterSpec::VcardBday.new(
-          value: CustomVobjectAdapterSpec::VobjectPropertyValue.parse("1970-01-01", "DATE-AND-OR-TIME"),
+          value: CustomVobjectAdapterSpec::VobjectPropertyValue.parse(
+            "1970-01-01", "DATE-AND-OR-TIME"
+          ),
         ),
       )
     end
@@ -1185,7 +1193,10 @@ module CustomVobjectAdapterSpec
   end
 
   RSpec.describe VobjectMappingRule do
-    let(:rule) { described_class.new("name", to: :name, type: :simple, structure: nil, options: {}) }
+    let(:rule) do
+      described_class.new("name", to: :name, type: :simple, structure: nil,
+                                  options: {})
+    end
 
     describe "#initialize" do
       it "sets all attributes correctly" do

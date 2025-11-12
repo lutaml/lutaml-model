@@ -247,7 +247,9 @@ RSpec.describe Lutaml::Model::Serializable do
   describe ".restrict" do
     before do
       stub_const("RestrictTestClass", Class.new(described_class))
-      RestrictTestClass.attribute(:foo, :string, collection: 1..3, values: [1, 2, 3])
+      RestrictTestClass.attribute(
+        :foo, :string, collection: 1..3, values: [1, 2, 3]
+      )
     end
 
     it "merges new options into the attribute's options" do
@@ -255,18 +257,23 @@ RSpec.describe Lutaml::Model::Serializable do
         .to change { RestrictTestClass.attributes[:foo].options[:collection] }
         .from(1..3).to(2..4)
 
-      expect(RestrictTestClass.attributes[:foo].options[:values]).to eq([1, 2, 3])
+      expect(RestrictTestClass.attributes[:foo].options[:values]).to eq(
+        [1, 2, 3],
+      )
     end
 
     it "does not remove existing options not specified in restrict" do
       RestrictTestClass.restrict(:foo, collection: 5..6, values: [4, 5, 6])
       expect(RestrictTestClass.attributes[:foo].options[:collection]).to eq(5..6)
-      expect(RestrictTestClass.attributes[:foo].options[:values]).to eq([4, 5, 6])
+      expect(RestrictTestClass.attributes[:foo].options[:values]).to eq(
+        [4, 5, 6],
+      )
     end
 
     it "raises an error for invalid options" do
       expect { RestrictTestClass.restrict(:foo, new_option: :bar) }
-        .to raise_error(Lutaml::Model::InvalidAttributeOptionsError, "Invalid options given for `foo` [:new_option]")
+        .to raise_error(Lutaml::Model::InvalidAttributeOptionsError,
+                        "Invalid options given for `foo` [:new_option]")
     end
 
     it "raises an error if the attribute does not exist" do
@@ -596,11 +603,13 @@ RSpec.describe Lutaml::Model::Serializable do
     end
 
     describe "invalid format handling for invalid JSON" do
-      it_behaves_like "invalid format error", :json, :standard_json, :from_json, :json
+      it_behaves_like "invalid format error", :json, :standard_json,
+                      :from_json, :json
     end
 
     describe "invalid format handling for invalid YAML" do
-      it_behaves_like "invalid format error", :yaml, :standard_yaml, :from_yaml, :yaml
+      it_behaves_like "invalid format error", :yaml, :standard_yaml,
+                      :from_yaml, :yaml
     end
 
     describe "invalid format handling for invalid TOML" do
@@ -615,12 +624,14 @@ RSpec.describe Lutaml::Model::Serializable do
                "when parsing invalid TOML"
         end
       else
-        it_behaves_like "invalid format error", :toml, :tomlib, :from_toml, :toml
+        it_behaves_like "invalid format error", :toml, :tomlib, :from_toml,
+                        :toml
       end
     end
 
     describe "invalid format handling for invalid HASH" do
-      it_behaves_like "invalid format error", :hash, :standard_hash, :from_hash, :hash
+      it_behaves_like "invalid format error", :hash, :standard_hash,
+                      :from_hash, :hash
     end
   end
 

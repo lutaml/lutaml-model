@@ -99,7 +99,13 @@ module Lutaml
       private
 
       def normalize_type_name(type_name, adapter_name)
-        "#{type_name.start_with?('multi_json') ? 'multi_json' : type_name.to_s.gsub("_#{adapter_name}", '')}_adapter"
+        "#{if type_name.start_with?('multi_json')
+             'multi_json'
+           else
+             type_name.to_s.gsub(
+               "_#{adapter_name}", ''
+             )
+           end}_adapter"
       end
 
       def load_adapter_file(adapter, type)

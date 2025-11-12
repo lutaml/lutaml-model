@@ -95,7 +95,8 @@ module Lutaml
         treat_omitted_as = treat_as(:treat_omitted, :nil, options)
 
         {
-          from: { omitted: treat_omitted_as, nil: treat_nil_as, empty: treat_empty_as },
+          from: { omitted: treat_omitted_as, nil: treat_nil_as,
+                  empty: treat_empty_as },
           to: { omitted: :omitted, nil: render_nil_as, empty: render_empty_as },
         }
       end
@@ -263,9 +264,13 @@ module Lutaml
         transformers = get_transformers(attribute)
         transformers = transformers.reverse if read_method == :to
 
-        return value if transformers.empty? || transformers.none? { |t| t.can_transform?(read_method, format) }
+        return value if transformers.empty? || transformers.none? do |t|
+          t.can_transform?(read_method, format)
+        end
 
-        transformers.reduce(value) { |v, method| method.public_send(read_method, v, format) }
+        transformers.reduce(value) do |v, method|
+          method.public_send(read_method, v, format)
+        end
       end
 
       def can_transform_to?(attribute, format)
@@ -307,7 +312,8 @@ module Lutaml
         delegate_value = model.public_send(delegate)
         return if Utils.initialized?(delegate_value) && !delegate_value.nil?
 
-        model.public_send(:"#{delegate}=", attributes[delegate].type(model.__register).new)
+        model.public_send(:"#{delegate}=",
+                          attributes[delegate].type(model.__register).new)
       end
 
       def handle_transform_method(model, value, attributes)

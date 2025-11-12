@@ -102,12 +102,16 @@ class GrammarInfo < Lutaml::Model::Serializable
   attribute :part_of_speech, :string, values: %w[user admin super_admin]
 
   key_value do
-    map :part_of_speech, with: { to: :part_of_speech_to_key_value, from: :part_of_speech_from_key_value }
+    map :part_of_speech,
+        with: { to: :part_of_speech_to_key_value,
+                from: :part_of_speech_from_key_value }
   end
 
   xml do
     root "GrammarInfo"
-    map_element :part_of_speech, with: { to: :part_of_speech_to_xml, from: :part_of_speech_from_xml }
+    map_element :part_of_speech,
+                with: { to: :part_of_speech_to_xml,
+                        from: :part_of_speech_from_xml }
   end
 
   def part_of_speech_from_key_value(model, value)

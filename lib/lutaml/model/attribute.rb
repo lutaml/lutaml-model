@@ -149,7 +149,8 @@ module Lutaml
 
         # Special handling for Reference types - pass the metadata
         if unresolved_type == Lutaml::Model::Type::Reference
-          return resolved_type.cast_with_metadata(value, @options[:ref_model_class], @options[:ref_key_attribute])
+          return resolved_type.cast_with_metadata(value,
+                                                  @options[:ref_model_class], @options[:ref_key_attribute])
         end
 
         resolved_type.cast(value)
@@ -292,7 +293,8 @@ module Lutaml
         return true if Utils.blank?(value)
 
         memoization_container = {}
-        errors = Lutaml::Model::Validator.call(value, validations, memoization_container)
+        errors = Lutaml::Model::Validator.call(value, validations,
+                                               memoization_container)
 
         return if errors.empty?
 
@@ -300,7 +302,11 @@ module Lutaml
       end
 
       def validate_polymorphic(value, resolved_type)
-        return value.all? { |v| validate_polymorphic!(v, resolved_type) } if value.is_a?(Array)
+        if value.is_a?(Array)
+          return value.all? do |v|
+            validate_polymorphic!(v, resolved_type)
+          end
+        end
         return true unless options[:polymorphic]
 
         valid_polymorphic_type?(value, resolved_type)
@@ -344,7 +350,10 @@ module Lutaml
       end
 
       def valid_collection!(value, caller)
-        raise Lutaml::Model::CollectionTrueMissingError.new(name, caller) if collection_instance?(value) && !collection?
+        if collection_instance?(value) && !collection?
+          raise Lutaml::Model::CollectionTrueMissingError.new(name,
+                                                              caller)
+        end
 
         return true unless collection?
 
@@ -385,8 +394,14 @@ module Lutaml
         resolved_type = options[:resolved_type] || type(register)
         serialize_options = options.merge(resolved_type: resolved_type)
         value = reference_key(value) if unresolved_type == Lutaml::Model::Type::Reference
-        return serialize_array(value, format, register, serialize_options) if collection_instance?(value)
-        return serialize_model(value, format, register, options) if resolved_type <= Serialize
+        if collection_instance?(value)
+          return serialize_array(value, format, register,
+                                 serialize_options)
+        end
+        if resolved_type <= Serialize
+          return serialize_model(value, format, register,
+                                 options)
+        end
 
         serialize_value(value, format, resolved_type)
       end
@@ -409,7 +424,12 @@ module Lutaml
 
       def cast(value, format, register, options = {})
         resolved_type = options[:resolved_type] || type(register)
-        return build_collection(value.map { |v| cast(v, format, register, options.merge(resolved_type: resolved_type, converted: true)) }) if collection_instance?(value) || value.is_a?(Array)
+        if collection_instance?(value) || value.is_a?(Array)
+          return build_collection(value.map do |v|
+            cast(v, format, register,
+                 options.merge(resolved_type: resolved_type, converted: true))
+          end)
+        end
 
         return value if already_serialized?(resolved_type, value)
 
@@ -437,7 +457,9 @@ module Lutaml
 
       def sequenced_appearance_count(element_order, mapped_name, current_index)
         elements = element_order[current_index..]
-        element_count = elements.take_while { |element| element == mapped_name }.count
+        element_count = elements.take_while do |element|
+          element == mapped_name
+        end.count
         return element_count if element_count.between?(*resolved_collection.minmax)
 
         raise Lutaml::Model::ElementCountOutOfRangeError.new(
@@ -546,7 +568,10 @@ module Lutaml
         return unless Utils.present?(value)
 
         resolved_type = as_options.delete(:resolved_type) || type(register)
-        return value.class.as(format, value, as_options) if value.is_a?(resolved_type)
+        if value.is_a?(resolved_type)
+          return value.class.as(format, value,
+                                as_options)
+        end
 
         resolved_type.as(format, value, as_options)
       end
@@ -567,7 +592,8 @@ module Lutaml
       end
 
       def create_reference_instance(resolved_type, key = nil)
-        resolved_type.new(@options[:ref_model_class], @options[:ref_key_attribute], key)
+        resolved_type.new(@options[:ref_model_class],
+                          @options[:ref_key_attribute], key)
       end
 
       def validate_presence!(type)
@@ -589,7 +615,8 @@ module Lutaml
 
       def validate_options!(options)
         if (invalid_opts = options.keys - ALLOWED_OPTIONS).any?
-          raise Lutaml::Model::InvalidAttributeOptionsError.new(name, invalid_opts)
+          raise Lutaml::Model::InvalidAttributeOptionsError.new(name,
+                                                                invalid_opts)
         end
 
         # No need to change user register#get_class, only checks if type is LutaML-Model string.
@@ -608,7 +635,8 @@ module Lutaml
       end
 
       def validate_type!(type)
-        return true if [Symbol, String].include?(type.class) || type.is_a?(Class)
+        return true if [Symbol,
+                        String].include?(type.class) || type.is_a?(Class)
 
         raise ArgumentError,
               "Invalid type: #{type}, must be a Symbol, String or a Class"

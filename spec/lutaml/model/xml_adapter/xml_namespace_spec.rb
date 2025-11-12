@@ -133,8 +133,10 @@ RSpec.describe "XmlNamespace" do
       xml do
         root "ownedEnd"
 
-        map_attribute "id", to: :id, namespace: "http://www.omg.org/spec/XMI/20131001", prefix: "xmi"
-        map_attribute "type", to: :type, namespace: "http://www.omg.org/spec/XMI/20131001", prefix: "xmi"
+        map_attribute "id", to: :id,
+                            namespace: "http://www.omg.org/spec/XMI/20131001", prefix: "xmi"
+        map_attribute "type", to: :type,
+                              namespace: "http://www.omg.org/spec/XMI/20131001", prefix: "xmi"
         map_attribute "type", to: :uml_type
       end
     end
@@ -454,7 +456,9 @@ RSpec.describe "XmlNamespace" do
       let(:unit_name) { UnitName.new(value: "meter") }
       let(:meter_unit) { EnumeratedRootUnit.new(unit: "meter") }
       let(:gram_unit) { EnumeratedRootUnit.new(unit: "gram", prefix: "k") }
-      let(:root_units) { RootUnits.new(enumerated_root_units: [meter_unit, gram_unit]) }
+      let(:root_units) do
+        RootUnits.new(enumerated_root_units: [meter_unit, gram_unit])
+      end
       let(:unit) do
         Unit.new(
           id: "U_m",
@@ -488,7 +492,8 @@ RSpec.describe "XmlNamespace" do
         # Count xmlns declarations for the units namespace
         xmlns_count = xml.scan('xmlns="https://schema.example.org/units/1.0"').size
 
-        expect(xmlns_count).to eq(1), "Expected exactly 1 xmlns declaration, found #{xmlns_count}"
+        expect(xmlns_count).to eq(1),
+                               "Expected exactly 1 xmlns declaration, found #{xmlns_count}"
       end
 
       it "deserializes correctly from XML with inherited namespace" do
@@ -516,7 +521,9 @@ RSpec.describe "XmlNamespace" do
     context "when mixing different namespaces" do
       let(:math) { MathContent.new(value: "x+y") }
       let(:unit_symbol) { UnitSymbol.new(type: "MathML", math: math) }
-      let(:unit_with_math) { UnitWithMath.new(id: "U_m.kg-2", unit_symbol: unit_symbol) }
+      let(:unit_with_math) do
+        UnitWithMath.new(id: "U_m.kg-2", unit_symbol: unit_symbol)
+      end
 
       let(:expected_xml) do
         <<~XML

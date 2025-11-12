@@ -38,8 +38,10 @@ module CDATA
     xml do
       root "address"
       map_element "street", to: :street
-      map_element "city", with: { from: :city_from_xml, to: :city_to_xml }, cdata: true
-      map_element "house", with: { from: :house_from_xml, to: :house_to_xml }, cdata: false
+      map_element "city", with: { from: :city_from_xml, to: :city_to_xml },
+                          cdata: true
+      map_element "house", with: { from: :house_from_xml, to: :house_to_xml },
+                           cdata: false
       map_element "address", to: :address
     end
 
@@ -101,7 +103,8 @@ module CDATA
       map_element :first_name, to: :first_name, cdata: true
       map_element :middle_name, to: :middle_name, cdata: true
       map_element :last_name, to: :last_name, cdata: false
-      map_element :CustomModelChild, with: { to: :child_to_xml, from: :child_from_xml }, cdata: true
+      map_element :CustomModelChild,
+                  with: { to: :child_to_xml, from: :child_from_xml }, cdata: true
     end
 
     def child_to_xml(model, _parent, doc)
@@ -165,7 +168,8 @@ module CDATA
     xml do
       root "DefaultValue"
       map_element "name", to: :name, render_default: true, cdata: true
-      map_element "temperature", to: :temperature, render_default: true, cdata: true
+      map_element "temperature", to: :temperature, render_default: true,
+                                 cdata: true
       map_element "opacity", to: :opacity, cdata: false, render_default: true
       map_content to: :content, cdata: true, render_default: true
     end

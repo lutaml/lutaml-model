@@ -123,7 +123,9 @@ module MapAllSpec
       it "preserves YAML content through round trip" do
         doc = Document.from_yaml(yaml_content)
         regenerated = doc.to_yaml
-        expect(YAML.safe_load(regenerated, permitted_classes: [Date])).to eq(YAML.safe_load(yaml_content, permitted_classes: [Date]))
+        expect(YAML.safe_load(regenerated,
+                              permitted_classes: [Date])).to eq(YAML.safe_load(yaml_content,
+                                                                               permitted_classes: [Date]))
       end
     end
 
