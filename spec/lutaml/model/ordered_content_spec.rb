@@ -120,7 +120,9 @@ RSpec.describe "OrderedContent" do
         XML
       end
 
-      let(:serialized) { OrderedContentSpec::PrefixedElements::Schema.from_xml(xml).to_xml }
+      let(:serialized) do
+        OrderedContentSpec::PrefixedElements::Schema.from_xml(xml).to_xml
+      end
 
       it "deserializes and serializes ordered prefixed elements correctly for prefixed elements" do
         expect(serialized).to be_equivalent_to(xml)

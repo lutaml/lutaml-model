@@ -15,7 +15,8 @@ module Lutaml
 
                      default_namespace = node.namespace&.uri if parent.nil? && !namespace_name
 
-                     children = parse_children(node, default_namespace: default_namespace)
+                     children = parse_children(node,
+                                               default_namespace: default_namespace)
                      attributes = node_attributes(node)
                      @root = node
                      node.inner_text
@@ -85,7 +86,10 @@ module Lutaml
           end
 
           def parse_children(node, default_namespace: nil)
-            node.children.map { |child| self.class.new(child, parent: self, default_namespace: default_namespace) }
+            node.children.map do |child|
+              self.class.new(child, parent: self,
+                                    default_namespace: default_namespace)
+            end
           end
 
           def add_namespaces(node, is_root: false)

@@ -19,13 +19,18 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler::SimpleContent do
 
   describe "#<<" do
     it "adds instances to the list" do
-      instance = instance_double(dummy_class, to_attributes: "attr", to_xml_mapping: "xml", required_files: "files")
-      expect { simple_content << instance }.to change { simple_content.instances.size }.by(1)
+      instance = instance_double(dummy_class, to_attributes: "attr",
+                                              to_xml_mapping: "xml", required_files: "files")
+      expect { simple_content << instance }.to change {
+        simple_content.instances.size
+      }.by(1)
       expect(simple_content.instances).to include(instance)
     end
 
     it "ignores nil instances" do
-      expect { simple_content << nil }.not_to(change { simple_content.instances.size })
+      expect { simple_content << nil }.not_to(change do
+        simple_content.instances.size
+      end)
     end
   end
 

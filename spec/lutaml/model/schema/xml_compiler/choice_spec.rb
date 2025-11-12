@@ -30,7 +30,8 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler::Choice do
 
   describe "#to_attributes" do
     it "renders the choice block with min/max options" do
-      instance = instance_double(dummy_class, to_attributes: "    attribute :foo, :string\n")
+      instance = instance_double(dummy_class,
+                                 to_attributes: "    attribute :foo, :string\n")
       choice << instance
       choice.min_occurs = 1
       choice.max_occurs = 2
@@ -41,7 +42,8 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler::Choice do
 
   describe "#to_xml_mapping" do
     it "returns joined xml mappings from instances" do
-      instance = instance_double(dummy_class, to_xml_mapping: "    map_element :foo, to: :foo\n")
+      instance = instance_double(dummy_class,
+                                 to_xml_mapping: "    map_element :foo, to: :foo\n")
       choice << instance
       expect(choice.to_xml_mapping("  ")).to include("map_element :foo, to: :foo")
     end

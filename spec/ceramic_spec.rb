@@ -24,7 +24,8 @@ RSpec.describe Ceramic do
     }.to_json
 
     ceramic_from_json = described_class.from_json(json)
-    expect(ceramic_from_json.kiln_firing_time).to eq(DateTime.new(2012, 4, 7, 1, 51, 37, "+02:00"))
+    expect(ceramic_from_json.kiln_firing_time).to eq(DateTime.new(2012, 4, 7,
+                                                                  1, 51, 37, "+02:00"))
   end
 
   it "serializes to JSON with high-precision date-time" do

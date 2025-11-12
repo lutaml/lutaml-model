@@ -257,7 +257,9 @@ module Lutaml
         alias map_all_content map_all
 
         def sequence(&block)
-          @element_sequence << Sequence.new(self).tap { |s| s.instance_eval(&block) }
+          @element_sequence << Sequence.new(self).tap do |s|
+            s.instance_eval(&block)
+          end
         end
 
         def import_model_mappings(model)
@@ -312,7 +314,8 @@ module Lutaml
           end
 
           if !(elements.empty? && content_mapping.nil?) && type == TYPES[:all_content]
-            raise StandardError, "#{TYPES[:all_content]} is not allowed with other mappings"
+            raise StandardError,
+                  "#{TYPES[:all_content]} is not allowed with other mappings"
           end
         end
 

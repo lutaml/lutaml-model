@@ -112,7 +112,10 @@ module Lutaml
             )
           end
 
-          result["attributes"] = attributes_hash(element) if element.attributes&.any?
+          if element.attributes&.any?
+            result["attributes"] =
+              attributes_hash(element)
+          end
 
           result.merge(attributes_hash(element))
           result
@@ -149,11 +152,17 @@ module Lutaml
           rule = options[:rule]
 
           if rule.custom_methods[:to]
-            options[:mapper_class].new.send(rule.custom_methods[:to], element, xml.parent, xml)
+            options[:mapper_class].new.send(rule.custom_methods[:to], element,
+                                            xml.parent, xml)
             return
           end
 
-          return add_transformed_value(xml, rule, rule.transform_value(attribute, value, :to, :xml)) if rule.can_transform_to?(attribute, :xml)
+          if rule.can_transform_to?(
+            attribute, :xml
+          )
+            return add_transformed_value(xml, rule,
+                                         rule.transform_value(attribute, value, :to, :xml))
+          end
 
           # Only transform when recursion is not called
           if !attribute.collection? || attribute.collection_instance?(value)
@@ -179,7 +188,8 @@ module Lutaml
               options.merge({ rule: rule, attribute: attribute }),
             )
           elsif value.nil?
-            xml.create_and_add_element(rule.name, attributes: { "xsi:nil" => true })
+            xml.create_and_add_element(rule.name,
+                                       attributes: { "xsi:nil" => true })
           elsif Utils.empty?(value)
             xml.create_and_add_element(rule.name)
           elsif rule.raw_mapping?
@@ -196,7 +206,11 @@ module Lutaml
         end
 
         def add_transformed_value(xml, rule, value)
-          value.each { |val| add_transformed_value(xml, rule, val) } if value.is_a?(Array)
+          if value.is_a?(Array)
+            value.each do |val|
+              add_transformed_value(xml, rule, val)
+            end
+          end
 
           xml.create_and_add_element(rule.name) do
             xml.add_text(xml, value, cdata: rule.cdata)
@@ -363,7 +377,8 @@ module Lutaml
                 is_root_call: false, # Mark that we're recursing
               }
 
-              attrs = attrs.merge(build_namespace_attributes(type, processed, child_options))
+              attrs = attrs.merge(build_namespace_attributes(type, processed,
+                                                             child_options))
             end
 
             if mapping_rule.namespace && mapping_rule.prefix && mapping_rule.name != "lang"
@@ -397,7 +412,8 @@ module Lutaml
             end
 
             value = mapping_rule.to_value_for(element)
-            attr = attribute_definition_for(element, mapping_rule, mapper_class: options[:mapper_class])
+            attr = attribute_definition_for(element, mapping_rule,
+                                            mapper_class: options[:mapper_class])
             value = attr.serialize(value, :xml, register) if attr
 
             value = ExportTransformer.call(value, mapping_rule, attr)

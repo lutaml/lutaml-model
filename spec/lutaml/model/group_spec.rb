@@ -45,7 +45,8 @@ module GroupSpec
                                    namespace: "http://www.sparxsystems.com/profiles/GML/1.0",
                                    prefix: "GML"
       end
-      map_attribute "code", to: :code, namespace: "http://www.example.com", prefix: "ex1"
+      map_attribute "code", to: :code, namespace: "http://www.example.com",
+                            prefix: "ex1"
     end
   end
 
@@ -208,7 +209,8 @@ RSpec.describe "Group" do
     end
 
     it "serialize the imported model correctly" do
-      instance = GroupSpec::Mrow.new(mi: "x", mstyle: "italic", mr: "y", name: "Smith", type: "product", description: "Item")
+      instance = GroupSpec::Mrow.new(mi: "x", mstyle: "italic", mr: "y",
+                                     name: "Smith", type: "product", description: "Item")
       expect(instance.to_xml).to be_equivalent_to(xml)
     end
   end
@@ -305,33 +307,45 @@ RSpec.describe "Group" do
     end
 
     describe GroupSpec::ComplexType do
-      it_behaves_like "imports attributes from", GroupSpec::GroupOfItems, described_class
-      it_behaves_like "imports mappings from", GroupSpec::GroupOfItems, described_class
+      it_behaves_like "imports attributes from", GroupSpec::GroupOfItems,
+                      described_class
+      it_behaves_like "imports mappings from", GroupSpec::GroupOfItems,
+                      described_class
     end
 
     describe GroupSpec::GenericType do
-      it_behaves_like "imports mappings from", GroupSpec::GroupOfItems, described_class
+      it_behaves_like "imports mappings from", GroupSpec::GroupOfItems,
+                      described_class
     end
 
     describe GroupSpec::SimpleType do
-      it_behaves_like "imports attributes from", GroupSpec::GroupOfItems, described_class
-      it_behaves_like "imports mappings from", GroupSpec::GroupOfItems, described_class
+      it_behaves_like "imports attributes from", GroupSpec::GroupOfItems,
+                      described_class
+      it_behaves_like "imports mappings from", GroupSpec::GroupOfItems,
+                      described_class
     end
 
     describe GroupSpec::ModelElement do
-      it_behaves_like "imports attributes from", GroupSpec::Identifier, described_class
-      it_behaves_like "imports mappings from", GroupSpec::Identifier, described_class
+      it_behaves_like "imports attributes from", GroupSpec::Identifier,
+                      described_class
+      it_behaves_like "imports mappings from", GroupSpec::Identifier,
+                      described_class
     end
 
     describe GroupSpec::Mrow do
-      it_behaves_like "imports attributes from", GroupSpec::CommonAttributes, described_class
-      it_behaves_like "imports attributes from", GroupSpec::Ceramic, described_class
-      it_behaves_like "imports mappings from", GroupSpec::CommonAttributes, described_class
-      it_behaves_like "imports mappings from", GroupSpec::Ceramic, described_class
+      it_behaves_like "imports attributes from", GroupSpec::CommonAttributes,
+                      described_class
+      it_behaves_like "imports attributes from", GroupSpec::Ceramic,
+                      described_class
+      it_behaves_like "imports mappings from", GroupSpec::CommonAttributes,
+                      described_class
+      it_behaves_like "imports mappings from", GroupSpec::Ceramic,
+                      described_class
     end
 
     describe GroupSpec::Contributor do
-      it_behaves_like "imports attributes from", GroupSpec::ContributionInfo, described_class
+      it_behaves_like "imports attributes from", GroupSpec::ContributionInfo,
+                      described_class
     end
 
     context "when importing multiple models with overlapping attributes" do
@@ -354,7 +368,8 @@ RSpec.describe "Group" do
 
     context "when update the imported attribute" do
       it "updates the attribute `mstyle` only in `Mrow`" do
-        GroupSpec::Mrow.attributes[:mstyle].instance_variable_set(:@type, :integer)
+        GroupSpec::Mrow.attributes[:mstyle].instance_variable_set(:@type,
+                                                                  :integer)
         expect(GroupSpec::Mrow.attributes[:mstyle].type).to eq(Lutaml::Model::Type::Integer)
       end
 
@@ -396,7 +411,9 @@ RSpec.describe "Group" do
 
       context "with element mappings" do
         it "updates the mapping namespace only in `Mrow`" do
-          mapping = GroupSpec::Mrow.mappings_for(:xml).elements.find { |e| e.name == :mstyle }
+          mapping = GroupSpec::Mrow.mappings_for(:xml).elements.find do |e|
+            e.name == :mstyle
+          end
           mapping.instance_variable_set(:@namespace, new_namespace)
           mapping.instance_variable_set(:@prefix, new_prefix)
 
@@ -405,13 +422,17 @@ RSpec.describe "Group" do
         end
 
         it "maintains original namespace for `mstyle` mapping in `Mfrac`" do
-          mapping = GroupSpec::Mfrac.mappings_for(:xml).elements.find { |e| e.name == :mstyle }
+          mapping = GroupSpec::Mfrac.mappings_for(:xml).elements.find do |e|
+            e.name == :mstyle
+          end
           expect(mapping.namespace).to be_nil
           expect(mapping.prefix).to be_nil
         end
 
         it "maintains original namespace for `mstyle` mapping in `CommonAttributes`" do
-          mapping = GroupSpec::CommonAttributes.mappings_for(:xml).elements.find { |e| e.name == :mstyle }
+          mapping = GroupSpec::CommonAttributes.mappings_for(:xml).elements.find do |e|
+            e.name == :mstyle
+          end
           expect(mapping.namespace).to be_nil
           expect(mapping.prefix).to be_nil
         end
@@ -419,19 +440,25 @@ RSpec.describe "Group" do
 
       context "with attribute mappings" do
         it "updates attribute mapping only in `Mrow`" do
-          mapping = GroupSpec::Mrow.mappings_for(:xml).attributes.find { |a| a.name == :mcol }
+          mapping = GroupSpec::Mrow.mappings_for(:xml).attributes.find do |a|
+            a.name == :mcol
+          end
           mapping.instance_variable_set(:@namespace, new_namespace)
 
           expect(mapping.namespace).to eq(new_namespace)
         end
 
         it "maintains original attribute mapping in `Mfrac`" do
-          mapping = GroupSpec::Mfrac.mappings_for(:xml).attributes.find { |a| a.name == :mcol }
+          mapping = GroupSpec::Mfrac.mappings_for(:xml).attributes.find do |a|
+            a.name == :mcol
+          end
           expect(mapping.namespace).to be_nil
         end
 
         it "maintains original attribute mapping in `CommonAttributes`" do
-          mapping = GroupSpec::CommonAttributes.mappings_for(:xml).attributes.find { |a| a.name == :mcol }
+          mapping = GroupSpec::CommonAttributes.mappings_for(:xml).attributes.find do |a|
+            a.name == :mcol
+          end
           expect(mapping.namespace).to be_nil
         end
       end
@@ -472,7 +499,8 @@ RSpec.describe "Group" do
         Class.new(Lutaml::Model::Serializable) do
           import_model GroupSpec::GroupWithRoot
         end
-      end.to raise_error(Lutaml::Model::ImportModelWithRootError, "Cannot import a model `GroupSpec::GroupWithRoot` with a root element")
+      end.to raise_error(Lutaml::Model::ImportModelWithRootError,
+                         "Cannot import a model `GroupSpec::GroupWithRoot` with a root element")
     end
 
     it "raises error if namespace is defined with no_root" do
@@ -483,7 +511,8 @@ RSpec.describe "Group" do
             namespace "http://www.omg.org/spec/XMI/20131001", "xmi"
           end
         end
-      end.to raise_error(Lutaml::Model::NoRootNamespaceError, "Cannot assign namespace to `no_root`")
+      end.to raise_error(Lutaml::Model::NoRootNamespaceError,
+                         "Cannot assign namespace to `no_root`")
     end
   end
 end

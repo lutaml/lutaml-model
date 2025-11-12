@@ -55,7 +55,9 @@ RSpec.describe Lutaml::Model::Xml::OxAdapter do
     let(:doc_with_default) { described_class.parse(xml_with_default_ns) }
 
     it "treats unprefixed child elements as being in the default namespace" do
-      children_elements = doc_with_default.root.children.reject { |c| c.name == "text" }
+      children_elements = doc_with_default.root.children.reject do |c|
+        c.name == "text"
+      end
       child = children_elements.first
       expect(child.name).to eq("child")
       expect(child.namespace.uri).to eq("http://example.com/default")

@@ -139,7 +139,7 @@ module Lutaml
           # Fallback: if the child has a different namespace and attr_type is Serializable,
           # match by unprefixed name (child declares its own namespace)
           if attr_type && attr_type <= Serialize
-            rule_names.any? { |rn| rn.split(':').last == child.unprefixed_name }
+            rule_names.any? { |rn| rn.split(":").last == child.unprefixed_name }
           else
             false
           end

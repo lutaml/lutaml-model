@@ -38,7 +38,9 @@ module Lutaml
             type.choice_attributes.map do |choice|
               {
                 "type" => "object",
-                "properties" => PropertiesCollection.from_attributes(choice.attributes, extract_register_from(type)).to_schema,
+                "properties" => PropertiesCollection.from_attributes(
+                  choice.attributes, extract_register_from(type)
+                ).to_schema,
               }
             end
           end

@@ -135,7 +135,8 @@ module XmlMapping
 
     xml do
       root "annotatedElement"
-      map_attribute "idref", to: :idref, namespace: "http://www.omg.org/spec/XMI/20131001", prefix: "xmi"
+      map_attribute "idref", to: :idref,
+                             namespace: "http://www.omg.org/spec/XMI/20131001", prefix: "xmi"
     end
   end
 
@@ -146,7 +147,8 @@ module XmlMapping
     xml do
       root "ownedComment"
       map_attribute "annotatedElement", to: :annotated_attribute
-      map_element "annotatedElement", to: :annotated_element, prefix: nil, namespace: nil
+      map_element "annotatedElement", to: :annotated_element, prefix: nil,
+                                      namespace: nil
     end
   end
 
@@ -377,7 +379,8 @@ RSpec.describe Lutaml::Model::Xml::Mapping do
       mapping = described_class.new
       expect do
         mapping.find_by_to!("nonexistent")
-      end.to raise_error(Lutaml::Model::NoMappingFoundError, /No mapping available for `nonexistent`/)
+      end.to raise_error(Lutaml::Model::NoMappingFoundError,
+                         /No mapping available for `nonexistent`/)
     end
   end
 
@@ -425,7 +428,8 @@ RSpec.describe Lutaml::Model::Xml::Mapping do
     end
 
     # Skipping for OX because it does not handle namespaces
-    context "when overriding child namespace prefix", skip: adapter_class == Lutaml::Model::Xml::OxAdapter do
+    context "when overriding child namespace prefix",
+            skip: adapter_class == Lutaml::Model::Xml::OxAdapter do
       let(:input_xml) do
         <<~XML
           <OverrideDefaultNamespacePrefix
@@ -541,18 +545,24 @@ RSpec.describe Lutaml::Model::Xml::Mapping do
       let(:expected_order) do
         nokogiri_pattern = create_pattern_mapping([
                                                     ["Text", "text"],
-                                                    ["Element", "ApplicationSchema"],
+                                                    ["Element",
+                                                     "ApplicationSchema"],
                                                     ["Text", "text"],
-                                                    ["Element", "ApplicationSchema"],
+                                                    ["Element",
+                                                     "ApplicationSchema"],
                                                     ["Text", "text"],
-                                                    ["Element", "ApplicationSchema"],
+                                                    ["Element",
+                                                     "ApplicationSchema"],
                                                     ["Text", "text"],
                                                   ])
 
         oga_ox_pattern = create_pattern_mapping([
-                                                  ["Element", "ApplicationSchema"],
-                                                  ["Element", "ApplicationSchema"],
-                                                  ["Element", "ApplicationSchema"],
+                                                  ["Element",
+                                                   "ApplicationSchema"],
+                                                  ["Element",
+                                                   "ApplicationSchema"],
+                                                  ["Element",
+                                                   "ApplicationSchema"],
                                                 ])
 
         {

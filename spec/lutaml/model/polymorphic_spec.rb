@@ -516,7 +516,9 @@ RSpec.describe "Polymorphic" do
       end
 
       it "raises error if polymorphic class is not in list" do
-        expect { invalid_ref.validate! }.to raise_error(Lutaml::Model::ValidationError) do |error|
+        expect do
+          invalid_ref.validate!
+        end.to raise_error(Lutaml::Model::ValidationError) do |error|
           expect(error).to include(Lutaml::Model::PolymorphicError)
           expect(error.error_messages).to include("PolymorphicSpec::Base::AnchorReference not in [PolymorphicSpec::Child::DocumentReference, PolymorphicSpec::Child::AnchorReference]")
         end

@@ -52,7 +52,8 @@ module PerformanceHelpers
       end
     end
 
-    def run_benchmarks(base_runner, current_runner, threshold, all_base, all_current)
+    def run_benchmarks(base_runner, current_runner, threshold, all_base,
+all_current)
       base_results = base_runner.run_benchmarks
       curr_results = current_runner.run_benchmarks
 

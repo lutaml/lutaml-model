@@ -26,7 +26,8 @@ module Lutaml
                 return if Utils.blank?(pattern)
                 return if value.match?(pattern)
 
-                raise Lutaml::Model::Type::PatternNotMatchedError.new(value, pattern)
+                raise Lutaml::Model::Type::PatternNotMatchedError.new(value,
+                                                                      pattern)
               end
 
               def validate_min_length!(value, min)

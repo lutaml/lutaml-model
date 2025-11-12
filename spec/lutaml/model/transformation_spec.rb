@@ -543,7 +543,9 @@ RSpec.describe "Value Transformations" do
     end
 
     describe TransformationSpec::StringTransformModel do
-      let(:json) { '{"name": "alice", "email": "alice@example.com", "tags": ["ruby", "rails"]}' }
+      let(:json) do
+        '{"name": "alice", "email": "alice@example.com", "tags": ["ruby", "rails"]}'
+      end
       let(:xml) do
         <<~XML
           <StringTransformModel>

@@ -15,7 +15,8 @@ module Lutaml
           return @value if resolved?
           return nil unless @key
 
-          @value = Lutaml::Model::Store.resolve(@model_class, @key_attribute, @key)
+          @value = Lutaml::Model::Store.resolve(@model_class, @key_attribute,
+                                                @key)
           @value
         end
 
