@@ -17,11 +17,15 @@ for:
 
 It provides simple, flexible and comprehensive mechanisms for defining
 information models with attributes and types, and the serialization of them
-to/from serialization formats including Hash, JSON, XML, YAML, and TOML.
+to/from serialization formats including JSON, XML, YAML, and TOML, as well as
+transformation to other formats like Hash.
 
 For serialization formats, it uses an adapter pattern to support multiple
 libraries for each format, providing flexibility and extensibility for your data
-modeling needs.
+modeling needs. The adapter interface is also used to support certain transformations of models
+into an "end format", which is not a serialization format. For example, the
+`Lutaml::Model::Hash` is used to convert a model into a hash format
+that is not a serialization format.
 
 NOTE: The Lutaml::Model modeling Ruby DSL was originally designed to be mostly
 compatible with the data modeling DSL of https://www.shalerb.org[Shale], a data
@@ -33,7 +37,8 @@ Lutaml::Model are provided in <<migrate-from-shale>>.
 == Features
 
 * Define models with attributes and types
-* Serialize and deserialize models to/from Hash, JSON, XML, YAML, and TOML
+* Serialize and deserialize models to/from JSON, XML, YAML, and TOML
+* Transform models to other formats like Hash
 * Support for multiple serialization libraries (e.g., `toml-rb`, `tomlib`)
 * Configurable adapters for different serialization formats
 * Support for collections and default values
@@ -373,6 +378,44 @@ attribute name is the same as an attribute in the parent model.
 ** In order to selectively import serialization mapping rules from the parent
 model, the `import_model_mappings` method can be used (see
 <<import_model_mappings>>).
+
+
+=== Serialization and transformation
+
+Models can be serialized to various formats (XML, JSON, YAML, TOML) or 
+transformed to other representations like Hash objects.
+
+==== Basic serialization
+
+[source,ruby]
+----
+kiln = Kiln.new(brand: 'Acme', capacity: 100, temperature: 1050)
+
+# Serialize to different formats (requires format mappings)
+kiln.to_xml    # => XML string
+kiln.to_json   # => JSON string
+kiln.to_yaml   # => YAML string
+kiln.to_toml   # => TOML string
+----
+
+==== Hash transformation
+
+Hash transformation converts models to Ruby Hash objects without serialization to string format:
+
+[source,ruby]
+----
+kiln = Kiln.new(brand: 'Acme', capacity: 100, temperature: 1050)
+
+# Transform to Hash (no string serialization)
+kiln.to_hash
+# => {"brand" => "Acme", "capacity" => 100, "temperature" => 1050}
+
+# Create model from Hash
+Kiln.from_hash({"brand" => "Acme", "capacity" => 100, "temperature" => 1050})
+# => #<Kiln:0x... @brand="Acme", @capacity=100, @temperature=1050>
+----
+
+NOTE: Hash transformation is different from serialization - it produces Ruby Hash objects rather than serialized string representations, making it useful for data transformation and testing scenarios.
 
 
 === Comparison and Diff
@@ -5988,9 +6031,10 @@ end
 ==== Unified mapping
 
 The `key_value` method is a streamlined way to map all attributes for
-serialization into key-value formats including Hash, JSON, YAML, and TOML.
+serialization into key-value formats including JSON, YAML, and TOML, as well as
+transformation to Hash format.
 
-If there is no definite differentiation between the key value formats, the
+If there is no definite differentiation between the key value formats and Hash transformation, the
 `key_value` method simplifies defining mappings and improves code readability.
 
 
@@ -6892,7 +6936,7 @@ end
 NOTE: This feature is for key-value data model serialization only.
 
 The `child_mappings` option is used to extract results from a key-value
-serialization data model (Hash, JSON, YAML, TOML) into a `Lutaml::Model::Serializable`
+data model (JSON, YAML, TOML serialization formats, or Hash transformation) into a `Lutaml::Model::Serializable`
 object (collection or not).
 
 The values are extracted from the key-value data model using the list of keys
