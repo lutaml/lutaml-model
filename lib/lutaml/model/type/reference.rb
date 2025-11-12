@@ -86,7 +86,12 @@ module Lutaml
         private
 
         def model_instance?(value)
-          value.class.name == @model_class.to_s
+          return false unless value
+
+          klass = Object.const_get(@model_class)
+          value.instance_of?(klass)
+        rescue NameError
+          false
         end
       end
     end

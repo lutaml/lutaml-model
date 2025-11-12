@@ -37,7 +37,9 @@ module Lutaml
           attr = attribute_for_rule(rule)
           next if attr&.derived?
 
-          raise "Attribute '#{rule.to}' not found in #{context}" unless valid_rule?(rule, attr)
+          raise "Attribute '#{rule.to}' not found in #{context}" unless valid_rule?(
+            rule, attr
+          )
 
           new_opts = options.dup
           if rule.namespace_set?
@@ -129,7 +131,18 @@ module Lutaml
         attr_type = attr&.type(__register)
 
         children = doc.children.select do |child|
-          rule_names.include?(child.namespaced_name) && !child.text?
+          next false if child.text?
+
+          # First try exact namespace match
+          next true if rule_names.include?(child.namespaced_name)
+
+          # Fallback: if the child has a different namespace and attr_type is Serializable,
+          # match by unprefixed name (child declares its own namespace)
+          if attr_type && attr_type <= Serialize
+            rule_names.any? { |rn| rn.split(':').last == child.unprefixed_name }
+          else
+            false
+          end
         end
 
         if rule.has_custom_method_for_deserialization? || attr_type == Lutaml::Model::Type::Hash
