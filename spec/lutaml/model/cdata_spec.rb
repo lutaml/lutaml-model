@@ -383,41 +383,43 @@ RSpec.describe "CDATA" do
         XML
       end
 
-      expected_xml = "<RootMixedContentNested id=\"outer123\"><![CDATA[The following text is about the Moon.]]><MixedContent id=\"inner456\"><![CDATA[The Earth's Moon rings like a ]]><bold><![CDATA[bell]]></bold><![CDATA[ when struck by meteroids. Distanced from the Earth by ]]><italic><![CDATA[384,400 km]]></italic><![CDATA[ ,its surface is covered in ]]><underline><![CDATA[craters]]></underline><![CDATA[ .Ain't that ]]><bold><![CDATA[cool]]></bold><![CDATA[ ? ]]></MixedContent><sup><![CDATA[1]]></sup><![CDATA[The Moon is not a planet.]]><sup><![CDATA[2]]></sup><![CDATA[The Moon's atmosphere is mainly composed of helium in the form of He]]><sub>2</sub></RootMixedContentNested>"
+      let(:expected_xml) { "<RootMixedContentNested id=\"outer123\"><![CDATA[The following text is about the Moon.]]><MixedContent id=\"inner456\"><![CDATA[The Earth's Moon rings like a ]]><bold><![CDATA[bell]]></bold><![CDATA[ when struck by meteroids. Distanced from the Earth by ]]><italic><![CDATA[384,400 km]]></italic><![CDATA[ ,its surface is covered in ]]><underline><![CDATA[craters]]></underline><![CDATA[ .Ain't that ]]><bold><![CDATA[cool]]></bold><![CDATA[ ? ]]></MixedContent><sup><![CDATA[1]]></sup><![CDATA[The Moon is not a planet.]]><sup><![CDATA[2]]></sup><![CDATA[The Moon's atmosphere is mainly composed of helium in the form of He]]><sub>2</sub></RootMixedContentNested>" }
 
-      expected_ox_xml = <<~XML
-        <RootMixedContentNested id="outer123">
-          <![CDATA[The following text is about the Moon.]]>
-          <MixedContent id="inner456">
-            <![CDATA[The Earth's Moon rings like a ]]>
-            <bold>
-              <![CDATA[bell]]>
-            </bold>
-            <![CDATA[ when struck by meteroids. Distanced from the Earth by ]]>
-            <italic>
-              <![CDATA[384,400 km]]>
-            </italic>
-            <![CDATA[ ,its surface is covered in ]]>
-            <underline>
-              <![CDATA[craters]]>
-            </underline>
-            <![CDATA[ .Ain't that ]]>
-            <bold>
-              <![CDATA[cool]]>
-            </bold>
-            <![CDATA[ ? ]]>
-          </MixedContent>
-          <sup>
-            <![CDATA[1]]>
-          </sup>
-          <![CDATA[The Moon is not a planet.]]>
-          <sup>
-            <![CDATA[2]]>
-          </sup>
-          <![CDATA[The Moon's atmosphere is mainly composed of helium in the form of He]]>
-          <sub>2</sub>
-        </RootMixedContentNested>
-      XML
+      let(:expected_ox_xml) do
+        <<~XML
+          <RootMixedContentNested id="outer123">
+            <![CDATA[The following text is about the Moon.]]>
+            <MixedContent id="inner456">
+              <![CDATA[The Earth's Moon rings like a ]]>
+              <bold>
+                <![CDATA[bell]]>
+              </bold>
+              <![CDATA[ when struck by meteroids. Distanced from the Earth by ]]>
+              <italic>
+                <![CDATA[384,400 km]]>
+              </italic>
+              <![CDATA[ ,its surface is covered in ]]>
+              <underline>
+                <![CDATA[craters]]>
+              </underline>
+              <![CDATA[ .Ain't that ]]>
+              <bold>
+                <![CDATA[cool]]>
+              </bold>
+              <![CDATA[ ? ]]>
+            </MixedContent>
+            <sup>
+              <![CDATA[1]]>
+            </sup>
+            <![CDATA[The Moon is not a planet.]]>
+            <sup>
+              <![CDATA[2]]>
+            </sup>
+            <![CDATA[The Moon's atmosphere is mainly composed of helium in the form of He]]>
+            <sub>2</sub>
+          </RootMixedContentNested>
+        XML
+      end
 
       it "deserializes and serializes mixed content correctly" do
         parsed = CDATA::RootMixedContentNested.from_xml(xml)
@@ -430,6 +432,14 @@ RSpec.describe "CDATA" do
           " ? ",
         ]
 
+        # due to the difference in capturing
+        # newlines in ox and nokogiri adapters
+        expected_result = if adapter_class == Lutaml::Model::Xml::OxAdapter
+                            expected_ox_xml
+                          else
+                            expected_xml
+                          end
+
         expect(parsed.id).to eq("outer123")
         expect(parsed.sup).to eq(["1", "2"])
         expect(parsed.sub).to eq(["2"])
@@ -441,17 +451,11 @@ RSpec.describe "CDATA" do
         parsed.content.content.each_with_index do |content, index|
           expected_output = expected_content[index]
 
-          # due to the difference in capturing
-          # newlines in ox and nokogiri adapters
-          if adapter_class == Lutaml::Model::Xml::OxAdapter
-            expected_xml = expected_ox_xml
-          end
-
           expect(content).to eq(expected_output)
         end
 
         serialized = parsed.to_xml
-        expect(serialized).to eq(expected_xml)
+        expect(serialized).to eq(expected_result)
       end
     end
 
@@ -468,23 +472,33 @@ RSpec.describe "CDATA" do
         XML
       end
 
-      expected_xml = "<DefaultValue><name><![CDATA[Default Value]]></name><temperature><![CDATA[500]]></temperature><opacity>Opaque</opacity><![CDATA[The following text is about the MoonThe Moon's atmosphere is mainly composed of helium in the form]]></DefaultValue>"
+      let(:expected_xml) { "<DefaultValue><name><![CDATA[Default Value]]></name><temperature><![CDATA[500]]></temperature><opacity>Opaque</opacity><![CDATA[The following text is about the MoonThe Moon's atmosphere is mainly composed of helium in the form]]></DefaultValue>" }
 
-      expected_ox_xml = <<~XML
-        <DefaultValue>
-          <name>
-            <![CDATA[Default Value]]>
-          </name>
-          <temperature>
-            <![CDATA[500]]>
-          </temperature>
-          <opacity>Opaque</opacity>
-          <![CDATA[The following text is about the MoonThe Moon's atmosphere is mainly composed of helium in the form]]>
-        </DefaultValue>
-      XML
+      let(:expected_ox_xml) do
+        <<~XML
+          <DefaultValue>
+            <name>
+              <![CDATA[Default Value]]>
+            </name>
+            <temperature>
+              <![CDATA[500]]>
+            </temperature>
+            <opacity>Opaque</opacity>
+            <![CDATA[The following text is about the MoonThe Moon's atmosphere is mainly composed of helium in the form]]>
+          </DefaultValue>
+        XML
+      end
 
       it "deserializes and serializes mixed content correctly" do
         parsed = CDATA::DefaultValue.from_xml(xml)
+
+        # due to the difference in capturing
+        # newlines in ox and nokogiri adapters
+        expected_result = if adapter_class == Lutaml::Model::Xml::OxAdapter
+                            expected_ox_xml
+                          else
+                            expected_xml
+                          end
 
         expected_content = [
           "The following text is about the Moon",
@@ -498,17 +512,11 @@ RSpec.describe "CDATA" do
         parsed.content.each_with_index do |content, index|
           expected_output = expected_content[index]
 
-          # due to the difference in capturing
-          # newlines in ox and nokogiri adapters
-          if adapter_class == Lutaml::Model::Xml::OxAdapter
-            expected_xml = expected_ox_xml
-          end
-
           expect(content).to eq(expected_output)
         end
 
         serialized = parsed.to_xml
-        expect(serialized).to eq(expected_xml)
+        expect(serialized).to eq(expected_result)
       end
     end
   end
