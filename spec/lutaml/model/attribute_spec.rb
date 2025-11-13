@@ -224,4 +224,149 @@ RSpec.describe Lutaml::Model::Attribute do
       end
     end
   end
+
+  describe "#cast_element" do
+    let(:register) { Lutaml::Model::Config.default_register }
+
+    context "when type validation is enabled" do
+      # Create a dummy invalid type class
+      let(:invalid_type_class) do
+        Class.new do
+          def self.cast(value)
+            value
+          end
+
+          def self.name
+            "InvalidTypeClass"
+          end
+        end
+      end
+
+      # Create a valid Type::Value subclass
+      let(:valid_value_type_class) do
+        Class.new(Lutaml::Model::Type::Value) do
+          def self.cast(value, _options = {})
+            value&.to_s
+          end
+
+          def self.name
+            "ValidValueType"
+          end
+        end
+      end
+
+      # Create a valid Serializable subclass
+      let(:valid_serializable_class) do
+        Class.new(Lutaml::Model::Serializable) do
+          def self.name
+            "ValidSerializableType"
+          end
+        end
+      end
+
+      context "with invalid type that doesn't inherit from Serializable or Type::Value" do
+        it "raises InvalidAttributeTypeError" do
+          attribute = described_class.new("test_attr", invalid_type_class)
+
+          expect { attribute.cast_element("test_value", register) }
+            .to raise_error(
+              Lutaml::Model::InvalidAttributeTypeError,
+              "Unsupported type `InvalidTypeClass` specified for test_attr, " \
+              "type must inherit Lutaml::Model::Type::Value or Lutaml::Model::Serializable",
+            )
+        end
+      end
+
+      context "with valid Type::Value subclass" do
+        it "successfully casts the value" do
+          attribute = described_class.new("test_attr", valid_value_type_class)
+          result = attribute.cast_element("test_value", register)
+
+          expect(result).to eq("test_value")
+        end
+      end
+
+      context "with valid Serializable subclass" do
+        it "successfully casts the value" do
+          attribute = described_class.new("test_attr", valid_serializable_class)
+
+          expect { attribute.cast_element({}, register) }.not_to raise_error
+        end
+      end
+
+      context "with class that includes Serialize module" do
+        let(:serialize_including_class) do
+          Class.new do
+            include Lutaml::Model::Serialize
+
+            attribute :name, :string
+
+            def self.name
+              "SerializeIncludingClass"
+            end
+          end
+        end
+
+        it "successfully casts the value" do
+          attribute = described_class.new("test_attr", serialize_including_class)
+
+          expect { attribute.cast_element({}, register) }.not_to raise_error
+        end
+      end
+
+      context "with built-in types" do
+        it "works with string type" do
+          attribute = described_class.new("test_attr", :string)
+          result = attribute.cast_element("test_value", register)
+
+          expect(result).to eq("test_value")
+        end
+
+        it "works with integer type" do
+          attribute = described_class.new("test_attr", :integer)
+          result = attribute.cast_element("42", register)
+
+          expect(result).to eq(42)
+        end
+
+        it "works with boolean type" do
+          attribute = described_class.new("test_attr", :boolean)
+          result = attribute.cast_element("true", register)
+
+          expect(result).to be(true)
+        end
+      end
+
+      context "with Reference type" do
+        it "handles Reference type specially without validation" do
+          attribute = described_class.new(
+            "test_attr",
+            Lutaml::Model::Type::Reference,
+            ref_model_class: "TestModel",
+            ref_key_attribute: :id,
+          )
+
+          # Reference type should bypass the validation check
+          expect { attribute.cast_element("test_key", register) }.not_to raise_error
+        end
+      end
+
+      context "with Hash type and hash value" do
+        it "creates new instance without validation when value is a Hash and type is not hash_type" do
+          attribute = described_class.new("test_attr", valid_serializable_class)
+          hash_value = { "key" => "value" }
+
+          result = attribute.cast_element(hash_value, register)
+          expect(result).to be_a(valid_serializable_class)
+        end
+
+        it "validates when value is not a Hash" do
+          attribute = described_class.new("test_attr", invalid_type_class)
+
+          expect { attribute.cast_element("not_a_hash", register) }
+            .to raise_error(Lutaml::Model::InvalidAttributeTypeError)
+        end
+      end
+    end
+  end
 end

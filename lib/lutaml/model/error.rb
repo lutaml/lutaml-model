@@ -7,6 +7,7 @@ end
 
 require_relative "error/invalid_format_error"
 require_relative "error/invalid_value_error"
+require_relative "error/invalid_attribute_type_error"
 require_relative "error/liquid_not_enabled_error"
 require_relative "error/liquid_class_not_found_error"
 require_relative "error/no_attributes_defined_liquid_error"

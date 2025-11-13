@@ -152,6 +152,8 @@ module Lutaml
           return resolved_type.cast_with_metadata(value, @options[:ref_model_class], @options[:ref_key_attribute])
         end
 
+        validate_attr_type!(resolved_type)
+
         resolved_type.cast(value)
       end
 
@@ -474,6 +476,13 @@ module Lutaml
       end
 
       private
+
+      def validate_attr_type!(resolved_type)
+        return true if resolved_type <= Serializable || resolved_type <= Type::Value
+        return true if resolved_type.included_modules.include?(Serialize)
+
+        raise Lutaml::Model::InvalidAttributeTypeError.new(name, resolved_type.name)
+      end
 
       def validated_range_object
         return collection if collection.end
