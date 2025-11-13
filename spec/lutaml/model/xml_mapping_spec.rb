@@ -397,13 +397,15 @@ RSpec.describe Lutaml::Model::Xml::Mapping do
     let(:mapping) { Lutaml::Model::Xml::Mapping.new }
 
     context "with attribute having namespace" do
-      input_xml = <<~XML
-        <ns1:example ex1:alpha="hello"
-                     beta="bye"
-                     xmlns:ns1="http://www.check.com"
-                     xmlns:ex1="http://www.example.com">
-        </ns1:example>
-      XML
+      let(:input_xml) do
+        <<~XML
+          <ns1:example ex1:alpha="hello"
+                       beta="bye"
+                       xmlns:ns1="http://www.check.com"
+                       xmlns:ex1="http://www.example.com">
+          </ns1:example>
+        XML
+      end
 
       it "checks the attribute with and without namespace" do
         parsed = XmlMapping::AttributeNamespace.from_xml(input_xml)
@@ -415,11 +417,13 @@ RSpec.describe Lutaml::Model::Xml::Mapping do
     end
 
     context "with explicit namespace" do
-      mml = <<~XML
-        <math xmlns="http://www.w3.org/1998/Math/MathML">
-          <mfenced open="("></mfenced>
-        </math>
-      XML
+      let(:mml) do
+        <<~XML
+          <math xmlns="http://www.w3.org/1998/Math/MathML">
+            <mfenced open="("></mfenced>
+          </math>
+        XML
+      end
 
       it "nil namespace" do
         parsed = XmlMapping::MmlMath.from_xml(mml)
