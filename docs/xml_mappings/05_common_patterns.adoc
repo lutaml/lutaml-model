@@ -1,0 +1,922 @@
+= Common patterns
+
+== Basic element and attribute mapping
+
+=== Simple model with elements
+
+.Basic ceramic model with element mappings
+[example]
+====
+[source,ruby]
+----
+class Ceramic < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :description, :string
+  attribute :temperature, :integer
+
+  xml do
+    root 'ceramic'
+    map_element 'name', to: :name
+    map_attribute 'temperature', to: :temperature
+    map_content to: :description
+  end
+end
+----
+
+[source,xml]
+----
+<ceramic temperature="1200">
+  <name>Porcelain Vase</name>
+  with celadon glaze.
+</ceramic>
+----
+
+[source,ruby]
+----
+> Ceramic.from_xml(xml)
+> #<Ceramic @name="Porcelain Vase",
+   @description=" with celadon glaze.",
+   @temperature=1200>
+----
+====
+
+=== Nested models
+
+.Model with nested object
+[example]
+====
+[source,ruby]
+----
+class Glaze < Lutaml::Model::Serializable
+  attribute :color, :string
+  attribute :temperature, :integer
+
+  xml do
+    root 'Glaze'
+    map_element 'color', to: :color
+    map_element 'temperature', to: :temperature
+  end
+end
+
+class Ceramic < Lutaml::Model::Serializable
+  attribute :type, :string
+  attribute :glaze, Glaze
+
+  xml do
+    root 'Ceramic'
+    map_element 'Type', to: :type
+    map_element 'Glaze', to: :glaze
+  end
+end
+----
+
+[source,xml]
+----
+<Ceramic>
+  <Type>Porcelain</Type>
+  <Glaze>
+    <color>Clear</color>
+    <temperature>1050</temperature>
+  </Glaze>
+</Ceramic>
+----
+====
+
+== Namespace patterns
+
+=== Single namespace
+
+.Model with single namespace
+[example]
+====
+[source,ruby]
+----
+class Ceramic < Lutaml::Model::Serializable
+  attribute :type, :string
+  attribute :glaze, :string
+
+  xml do
+    root 'Ceramic'
+    namespace 'http://example.com/ceramic'
+    map_element 'Type', to: :type
+    map_element 'Glaze', to: :glaze
+  end
+end
+----
+
+[source,xml]
+----
+<Ceramic xmlns='http://example.com/ceramic'>
+  <Type>Porcelain</Type>
+  <Glaze>Clear</Glaze>
+</Ceramic>
+----
+====
+
+=== Prefixed namespace
+
+.Model with prefixed namespace
+[example]
+====
+[source,ruby]
+----
+class Ceramic < Lutaml::Model::Serializable
+  attribute :type, :string
+  attribute :glaze, :string
+
+  xml do
+    root 'Ceramic'
+    namespace 'http://example.com/ceramic', 'cer'
+    map_element 'Type', to: :type
+    map_element 'Glaze', to: :glaze
+  end
+end
+----
+
+[source,xml]
+----
+<cer:Ceramic xmlns:cer='http://example.com/ceramic'>
+  <cer:Type>Porcelain</cer:Type>
+  <cer:Glaze>Clear</cer:Glaze>
+</cer:Ceramic>
+----
+====
+
+=== Multi-namespace with XmlNamespace class
+
+.Model using multiple namespaces with XmlNamespace classes
+[example]
+====
+[source,ruby]
+----
+class CeramicNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/ceramic'
+  prefix_default 'cer'
+end
+
+class GlazeNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/glaze'
+  prefix_default 'glz'
+end
+
+class Ceramic < Lutaml::Model::Serializable
+  attribute :type, :string
+  attribute :glaze, :string
+
+  xml do
+    element 'ceramic'
+    namespace CeramicNamespace
+
+    map_element 'type', to: :type
+    map_element 'glaze', to: :glaze,
+      namespace: GlazeNamespace
+  end
+end
+----
+
+[source,xml]
+----
+<cer:ceramic xmlns:cer="https://example.com/ceramic"
+             xmlns:glz="https://example.com/glaze">
+  <type>Porcelain</type>
+  <glz:glaze>Celadon</glz:glaze>
+</cer:ceramic>
+----
+====
+
+=== Namespace inheritance pattern
+
+.Element explicitly inheriting parent namespace
+[example]
+====
+[source,ruby]
+----
+class CeramicNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/ceramic'
+  prefix_default 'cer'
+  element_form_default :unqualified
+end
+
+class Ceramic < Lutaml::Model::Serializable
+  attribute :type, :string
+  attribute :special_type, :string
+
+  xml do
+    element 'ceramic'
+    namespace CeramicNamespace
+
+    map_element 'type', to: :type
+    # Force this to inherit parent namespace
+    map_element 'specialType', to: :special_type, namespace: :inherit
+  end
+end
+----
+
+[source,xml]
+----
+<cer:ceramic xmlns:cer="https://example.com/ceramic">
+  <type>Porcelain</type>
+  <cer:specialType>Fine</cer:specialType>
+</cer:ceramic>
+----
+====
+
+== Rich content patterns
+
+=== Mixed content
+
+.Model with mixed content (text + elements)
+[example]
+====
+[source,ruby]
+----
+class Paragraph < Lutaml::Model::Serializable
+  attribute :bold, :string, collection: true
+  attribute :italic, :string
+
+  xml do
+    root 'p', mixed: true
+    map_element 'bold', to: :bold
+    map_element 'i', to: :italic
+  end
+end
+----
+
+[source,xml]
+----
+<p>My name is <bold>John Doe</bold>, and I'm <i>28</i> years old</p>
+----
+
+[source,ruby]
+----
+> Paragraph.from_xml(xml)
+> #<Paragraph @bold="John Doe", @italic="28">
+----
+====
+
+=== Ordered content
+
+.Model preserving element order
+[example]
+====
+[source,ruby]
+----
+class RootOrderedContent < Lutaml::Model::Serializable
+  attribute :bold, :string
+  attribute :italic, :string
+  attribute :underline, :string
+
+  xml do
+    root "RootOrderedContent", ordered: true
+    map_element :bold, to: :bold
+    map_element :italic, to: :italic
+    map_element :underline, to: :underline
+  end
+end
+----
+
+[source,xml]
+----
+<RootOrderedContent>
+  <underline>Moon</underline>
+  <italic>384,400 km</italic>
+  <bold>bell</bold>
+</RootOrderedContent>
+----
+
+When serialized back, the order is preserved:
+
+[source,ruby]
+----
+> instance = RootOrderedContent.from_xml(xml)
+> instance.to_xml
+> #<RootOrderedContent>
+    <underline>Moon</underline>
+    <italic>384,400 km</italic>
+    <bold>bell</bold>
+  </RootOrderedContent>
+----
+====
+
+== Sequence patterns
+
+=== Basic sequence
+
+.Model with strict element ordering
+[example]
+====
+[source,ruby]
+----
+class Kiln < Lutaml::Model::Serializable
+  attribute :id, :string
+  attribute :name, :string
+  attribute :type, :string
+  attribute :color, :string
+
+  xml do
+    sequence do
+      map_element :id, to: :id
+      map_element :name, to: :name
+      map_element :type, to: :type
+      map_element :color, to: :color
+    end
+  end
+end
+----
+
+[source,xml]
+----
+<collection>
+  <kiln>
+    <id>1</id>
+    <name>Nick</name>
+    <type>Hard</type>
+    <color>Black</color>
+  </kiln>
+</collection>
+----
+
+If elements appear out of order, an error is raised.
+====
+
+=== Sequence with namespace
+
+.Combining sequence with namespace and XmlNamespace class
+[example]
+====
+[source,ruby]
+----
+class ContactNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/schemas/contact/v1'
+  prefix_default 'contact'
+  element_form_default :qualified
+end
+
+class Person < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :email, :string
+
+  xml do
+    element "person"
+    namespace ContactNamespace
+
+    sequence do
+      map_element "name", to: :name
+      map_element "email", to: :email
+    end
+  end
+end
+----
+
+[source,xml]
+----
+<contact:person xmlns:contact="https://example.com/schemas/contact/v1">
+  <contact:name>John Doe</contact:name>
+  <contact:email>john@example.com</contact:email>
+</contact:person>
+----
+====
+
+== Type-only models (no element)
+
+=== Embedded type pattern
+
+.Type-only model used within parent
+[example]
+====
+[source,ruby]
+----
+# Type-only model - no element() or root() call
+class Address < Lutaml::Model::Serializable
+  attribute :street, :string
+  attribute :city, :string
+  attribute :postal_code, :string
+
+  xml do
+    # No element declaration - this is a type-only model
+    sequence do
+      map_element 'street', to: :street
+      map_element 'city', to: :city
+      map_element 'postalCode', to: :postal_code
+    end
+  end
+end
+
+# Parent model using the type
+class Contact < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :address, Address
+
+  xml do
+    element 'contact'
+
+    sequence do
+      map_element 'name', to: :name
+      map_element 'address', to: :address
+    end
+  end
+end
+----
+
+[source,xml]
+----
+<contact>
+  <name>John Doe</name>
+  <address>
+    <street>123 Main St</street>
+    <city>Metropolis</city>
+    <postalCode>12345</postalCode>
+  </address>
+</contact>
+----
+====
+
+== CDATA patterns
+
+=== Forcing CDATA output
+
+.Using cdata option to preserve special characters
+[example]
+====
+[source,ruby]
+----
+class Example < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :description, :string
+  attribute :title, :string
+  attribute :note, :string
+
+  xml do
+    root 'example'
+    map_element :name, to: :name, cdata: true
+    map_content to: :description, cdata: true
+    map_element :title, to: :title, cdata: false
+    map_element :note, to: :note, cdata: false
+  end
+end
+----
+
+[source,xml]
+----
+<example>
+  <name><![CDATA[John]]></name>
+  <![CDATA[here is the description]]>
+  <title>Lutaml</title>
+  <note>Careful</note>
+</example>
+----
+====
+
+== XSD generation patterns
+
+=== Basic XSD generation
+
+.Generating XSD from model
+[example]
+====
+[source,ruby]
+----
+class Contact < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :email, :string
+
+  xml do
+    element 'contact'
+    map_element 'name', to: :name
+    map_element 'email', to: :email
+  end
+end
+
+# Generate XSD
+xsd = Lutaml::Model::Schema.to_xml(Contact)
+puts xsd
+----
+====
+
+=== XSD with namespace and documentation
+
+.Complete XSD generation with metadata
+[example]
+====
+[source,ruby]
+----
+class ContactNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/schemas/contact/v1'
+  schema_location 'https://example.com/schemas/contact/v1/contact.xsd'
+  prefix_default 'contact'
+  element_form_default :qualified
+  version '1.0'
+  documentation "Contact information schema"
+end
+
+class Contact < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :email, :string
+
+  xml do
+    element 'contact'
+    namespace ContactNamespace
+    documentation "A contact record"
+
+    sequence do
+      map_element 'name', to: :name
+      map_element 'email', to: :email
+    end
+  end
+end
+
+# Generate XSD with options
+xsd = Lutaml::Model::Schema.to_xml(
+  Contact,
+  namespace: ContactNamespace.uri,
+  prefix: ContactNamespace.prefix_default,
+  output_dir: 'schemas',
+  create_files: true
+)
+----
+====
+
+== Qualification patterns
+
+=== Qualified elements pattern
+
+.All elements namespace-qualified
+[example]
+====
+[source,ruby]
+----
+class CeramicNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/ceramic'
+  prefix_default 'cer'
+  element_form_default :qualified  # All local elements qualified
+end
+
+class Ceramic < Lutaml::Model::Serializable
+  attribute :type, :string
+  attribute :color, :string
+
+  xml do
+    element 'ceramic'
+    namespace CeramicNamespace
+
+    map_element 'type', to: :type
+    map_element 'color', to: :color
+  end
+end
+----
+
+[source,xml]
+----
+<cer:ceramic xmlns:cer="https://example.com/ceramic">
+  <cer:type>Porcelain</cer:type>
+  <cer:color>White</cer:color>
+</cer:ceramic>
+----
+====
+
+=== Selective qualification
+
+.Override qualification for specific elements
+[example]
+====
+[source,ruby]
+----
+class CeramicNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/ceramic'
+  prefix_default 'cer'
+  element_form_default :unqualified  # Default: unqualified
+end
+
+class Ceramic < Lutaml::Model::Serializable
+  attribute :type, :string
+  attribute :glaze, :string
+  attribute :id, :string
+
+  xml do
+    element 'ceramic'
+    namespace CeramicNamespace
+
+    # Override to qualified
+    map_element 'type', to: :type, form: :qualified
+    # Use default (unqualified)
+    map_element 'glaze', to: :glaze
+    # Force attribute qualified
+    map_attribute 'id', to: :id, form: :qualified
+  end
+end
+----
+
+[source,xml]
+----
+<cer:ceramic xmlns:cer="https://example.com/ceramic" cer:id="C001">
+  <cer:type>Porcelain</cer:type>
+  <glaze>Clear</glaze>
+</cer:ceramic>
+----
+====
+
+== Collection patterns
+
+=== Element collections
+
+.Model with element collection
+[example]
+====
+[source,ruby]
+----
+class CeramicCollection < Lutaml::Model::Serializable
+  attribute :items, Ceramic, collection: true
+
+  xml do
+    root 'ceramics'
+    map_element 'ceramic', to: :items
+  end
+end
+----
+
+[source,xml]
+----
+<ceramics>
+  <ceramic>...</ceramic>
+  <ceramic>...</ceramic>
+  <ceramic>...</ceramic>
+</ceramics>
+----
+====
+
+=== Attribute collections with delimiter
+
+.XML attribute containing delimited values
+[example]
+====
+[source,ruby]
+----
+class TitleCollection < Lutaml::Model::Collection
+  instances :items, :string
+
+  xml do
+    root "titles"
+    map_attribute "title", to: :items, delimiter: "; "
+  end
+end
+----
+
+[source,xml]
+----
+<titles title="Title One; Title Two; Title Three"/>
+----
+
+[source,ruby]
+----
+collection = TitleCollection.from_xml(xml)
+collection.items
+# => ["Title One", "Title Two", "Title Three"]
+----
+====
+
+== Character encoding patterns
+
+=== Per-instance encoding
+
+.Setting encoding on model instance
+[example]
+====
+[source,ruby]
+----
+class JapaneseCeramic < Lutaml::Model::Serializable
+  attribute :glaze_type, :string
+  attribute :description, :string
+
+  xml do
+    root 'JapaneseCeramic'
+    map_attribute 'glazeType', to: :glaze_type
+    map_element 'description', to: :description
+  end
+end
+
+# Create instance with UTF-8 data
+instance = JapaneseCeramic.new(
+  glaze_type: "志野釉",
+  description: "東京国立博物館コレクション"
+)
+
+# Set character encoding to Shift_JIS
+instance.encoding = "Shift_JIS"
+
+# Serialize with specified encoding
+serialization_output = instance.to_xml
+----
+====
+
+=== Per-export encoding
+
+.Setting encoding during serialization
+[example]
+====
+[source,ruby]
+----
+ceramic_instance = Ceramic.new(
+  potter: "John & Jane",
+  description: " A ∑ series of ∏ porcelain µ vases."
+)
+
+# Using default encoding of UTF-8
+ceramic_instance.to_xml
+# => <ceramic><potter>John &amp; Jane</potter> A ∑ series...</ceramic>
+
+# Using ASCII encoding
+ceramic_instance.to_xml(encoding: "ASCII")
+# => <ceramic><potter>John &amp; Jane</potter> A &#8721; series...</ceramic>
+----
+====
+
+== Import patterns with sequence
+
+=== Importing mappings in sequence
+
+.Using import_model_mappings inside sequence
+[example]
+====
+[source,ruby]
+----
+class Address < Lutaml::Model::Serializable
+  attribute :street, :string
+  attribute :city, :string
+  attribute :zip, :string
+
+  xml do
+    no_root
+
+    map_element :street, to: :street
+    map_element :city, to: :city
+    map_element :zip, to: :zip
+  end
+end
+
+class Person < Lutaml::Model::Serializable
+  attribute :name, :string
+  import_model_attributes Address
+
+  xml do
+    root "Person"
+
+    map_element :name, to: :name
+    sequence do
+      import_model_mappings Address
+    end
+  end
+end
+----
+
+[source,xml]
+----
+<Person>
+  <name>John Doe</name>
+  <street>123 Main St</street>
+  <city>Metropolis</city>
+  <zip>12345</zip>
+</Person>
+----
+====
+
+== XSD type override patterns
+
+=== Using xsd_type for IDs
+
+.Specify XSD types for ID/IDREF
+[example]
+====
+[source,ruby]
+----
+class Product < Lutaml::Model::Serializable
+  attribute :product_id, :string, xsd_type: 'xs:ID'
+  attribute :category_ref, :string, xsd_type: 'xs:IDREF'
+
+  xml do
+    element 'product'
+    map_attribute 'id', to: :product_id
+    map_attribute 'categoryRef', to: :category_ref
+  end
+end
+
+# Generated XSD:
+# <xs:attribute name="id" type="xs:ID"/>
+# <xs:attribute name="categoryRef" type="xs:IDREF"/>
+----
+====
+
+=== Using xsd_type for custom types
+
+.Override automatic XSD type inference
+[example]
+====
+[source,ruby]
+----
+class Document < Lutaml::Model::Serializable
+  attribute :language, :string, xsd_type: 'xs:language'
+  attribute :content_type, :string, xsd_type: 'xs:token'
+
+  xml do
+    element 'document'
+    map_attribute 'lang', to: :language
+    map_attribute 'contentType', to: :content_type
+  end
+end
+----
+====
+
+== Custom type with namespace pattern
+
+=== Type with own namespace
+
+.Custom type declaring its namespace
+[example]
+====
+[source,ruby]
+----
+class EmailType < Lutaml::Model::Type::String
+  def self.xsd_namespace
+    'https://example.com/types/email'
+  end
+
+  def self.xsd_type
+    'email:EmailAddress'
+  end
+
+  def self.cast(value)
+    email = super(value)
+    unless email.match?(/\A[\w+\-.]+@[a-z\d\-]+(\.[a-z\d\-]+)*\.[a-z]+\z/i)
+      raise Lutaml::Model::TypeError, "Invalid email: #{email}"
+    end
+    email.downcase
+  end
+end
+
+class Contact < Lutaml::Model::Serializable
+  attribute :email, EmailType
+
+  xml do
+    element 'contact'
+    namespace 'https://example.com/contact', 'c'
+
+    map_element 'email', to: :email
+  end
+end
+
+# When generating XSD, EmailType's namespace is included automatically
+----
+====
+
+== schemaLocation pattern
+
+=== Automatic xsi:schemaLocation
+
+.Using schema_location metadata attribute
+[example]
+====
+[source,ruby]
+----
+class Ceramic < Lutaml::Model::Serializable
+  attribute :type, :string
+  attribute :glaze, :string
+  attribute :color, :string
+
+  xml do
+    root 'Ceramic'
+    namespace 'http://example.com/ceramic', 'cera'
+    map_element 'Type', to: :type, namespace: :inherit
+    map_element 'Glaze', to: :glaze
+    map_attribute 'color', to: :color,
+      namespace: 'http://example.com/color', prefix: 'clr'
+  end
+end
+
+xml_content = <<~XML
+<cera:Ceramic
+  xmlns:cera="http://example.com/ceramic"
+  xmlns:clr="http://example.com/color"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  clr:color="navy-blue"
+  xsi:schemaLocation="
+    http://example.com/ceramic http://example.com/ceramic.xsd
+    http://example.com/color http://example.com/color.xsd
+  ">
+  <cera:Type>Porcelain</cera:Type>
+  <Glaze>Clear</Glaze>
+</cera:Ceramic>
+XML
+
+c = Ceramic.from_xml(xml_content)
+schema_loc = c.schema_location  # Automatically captured
+
+# Round-trip with schema location preserved
+new_c = Ceramic.new(
+  type: "Porcelain",
+  glaze: "Clear",
+  color: "navy-blue",
+  schema_location: schema_loc
+)
+puts new_c.to_xml
+# xsi:schemaLocation automatically included
+----
+====

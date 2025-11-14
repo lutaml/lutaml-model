@@ -1,0 +1,600 @@
+= XmlNamespace class reference
+
+== Overview
+
+The [`XmlNamespace`](../lib/lutaml/model/xml_namespace.rb) class provides
+declarative namespace metadata following W3C XML Namespace and XSD
+specifications.
+
+Benefits:
+
+* Reusable namespace definitions across models
+* Full XSD generation support
+* Control over qualification behavior
+* Documentation and versioning
+* Multi-schema support via imports/includes
+
+== Creating namespace classes
+
+Inherit from [`Lutaml::Model::XmlNamespace`](../lib/lutaml/model/xml_namespace.rb)
+and use DSL methods:
+
+[source,ruby]
+----
+class MyNamespace < Lutaml::Model::XmlNamespace
+  uri 'namespace-uri'                     # Required
+  schema_location 'schema-url'            # Optional
+  prefix_default 'prefix'                 # Optional
+  element_form_default :qualified         # Optional
+  attribute_form_default :unqualified     # Optional
+  version '1.0'                           # Optional
+  documentation 'Schema description'      # Optional
+  imports OtherNamespace                  # Optional
+  includes 'schema-file.xsd'              # Optional
+end
+----
+
+== DSL methods reference
+
+=== `uri`
+
+Sets the namespace URI that uniquely identifies this namespace.
+
+Syntax:
+
+[source,ruby]
+----
+uri 'namespace-uri-string'
+----
+
+This is the fundamental identifier used in `xmlns` declarations.
+
+.Setting namespace URI
+[example]
+====
+[source,ruby]
+----
+class CeramicNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/schemas/ceramic/v1'
+end
+
+# Results in XML: xmlns="https://example.com/schemas/ceramic/v1"
+# Or with prefix: xmlns:cer="https://example.com/schemas/ceramic/v1"
+----
+====
+
+=== `schema_location`
+
+Sets the URL where the XSD schema file can be found.
+
+Syntax:
+
+[source,ruby]
+----
+schema_location 'schema-url-or-path'
+----
+
+Used in `xsi:schemaLocation` attributes for schema validation.
+
+.Setting schema location
+[example]
+====
+[source,ruby]
+----
+class CeramicNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/schemas/ceramic/v1'
+  schema_location 'https://example.com/schemas/ceramic/v1/ceramic.xsd'
+end
+----
+====
+
+=== `prefix_default`
+
+Sets the default prefix for this namespace.
+
+Syntax:
+
+[source,ruby]
+----
+prefix_default 'prefix' # or :prefix (symbol)
+----
+
+The prefix can be overridden at runtime when creating namespace instances.
+
+.Setting default prefix
+[example]
+====
+[source,ruby]
+----
+class CeramicNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/schemas/ceramic/v1'
+  prefix_default 'cer'
+end
+
+# Default usage: xmlns:cer="https://..."
+# Runtime override: xmlns:ceramic="https://..."
+----
+====
+
+=== `element_form_default`
+
+Controls whether locally declared elements must be namespace-qualified by
+default.
+
+Syntax:
+
+[source,ruby]
+----
+element_form_default :qualified   # or :unqualified (default)
+----
+
+Values:
+
+`:qualified`::: Local elements must include namespace prefix
+`:unqualified`::: Local elements have no namespace prefix (default)
+
+.Setting element qualification default
+[example]
+====
+[source,ruby]
+----
+class CeramicNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/schemas/ceramic/v1'
+  prefix_default 'cer'
+  element_form_default :qualified
+end
+
+# With :qualified, child elements get: <cer:type>...</cer:type>
+# With :unqualified, child elements get: <type>...</type>
+----
+====
+
+=== `attribute_form_default`
+
+Controls whether locally declared attributes must be namespace-qualified by
+default.
+
+Syntax:
+
+[source,ruby]
+----
+attribute_form_default :qualified   # or :unqualified (default)
+----
+
+Values:
+
+`:qualified`::: Local attributes must include namespace prefix
+`:unqualified`::: Local attributes have no namespace prefix (default)
+
+NOTE: Per W3C conventions, attributes are typically unqualified.
+
+.Setting attribute qualification default
+[example]
+====
+[source,ruby]
+----
+class CeramicNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/schemas/ceramic/v1'
+  prefix_default 'cer'
+  attribute_form_default :unqualified  # Typically left unqualified
+end
+----
+====
+
+=== `imports`
+
+Declares dependencies on other namespaces via XSD `import` directive.
+
+Syntax:
+
+[source,ruby]
+----
+imports OtherNamespace1, OtherNamespace2, ...
+----
+
+Used when referencing types from other namespaces.
+
+.Importing other namespaces
+[example]
+====
+[source,ruby]
+----
+class AddressNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/schemas/address/v1'
+  prefix_default 'addr'
+end
+
+class ContactNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/schemas/contact/v1'
+  prefix_default 'contact'
+  imports AddressNamespace  # Import address namespace
+end
+
+# Generates in XSD:
+# <xs:import namespace="https://example.com/schemas/address/v1"
+#            schemaLocation="..." />
+----
+====
+
+=== `includes`
+
+Declares schema components from the same namespace via XSD `include`
+directive.
+
+Syntax:
+
+[source,ruby]
+----
+includes 'schema-file.xsd', 'another-file.xsd', ...
+----
+
+Used for modular schema organization within the same namespace.
+
+.Including schema files
+[example]
+====
+[source,ruby]
+----
+class ContactNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/schemas/contact/v1'
+  prefix_default 'contact'
+  includes 'contact-common.xsd', 'contact-extensions.xsd'
+end
+
+# Generates in XSD:
+# <xs:include schemaLocation="contact-common.xsd" />
+# <xs:include schemaLocation="contact-extensions.xsd" />
+----
+====
+
+=== `version`
+
+Sets the schema version for documentation and tracking.
+
+Syntax:
+
+[source,ruby]
+----
+version 'version-string'
+----
+
+.Setting schema version
+[example]
+====
+[source,ruby]
+----
+class ContactNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/schemas/contact/v1'
+  version '1.0.0'
+end
+
+# Used in XSD: <xs:schema version="1.0.0">
+----
+====
+
+=== `documentation`
+
+Provides human-readable description for XSD annotation.
+
+Syntax:
+
+[source,ruby]
+----
+documentation 'description text'
+----
+
+.Adding documentation
+[example]
+====
+[source,ruby]
+----
+class ContactNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/schemas/contact/v1'
+  documentation "Contact information schema for Example Corp"
+end
+
+# Generates in XSD:
+# <xs:annotation>
+#   <xs:documentation>Contact information schema for Example Corp</xs:documentation>
+# </xs:annotation>
+----
+====
+
+== Complete namespace example
+
+.Fully configured XML namespace
+[example]
+====
+[source,ruby]
+----
+# Define dependent namespace
+class AddressNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/schemas/address/v1'
+  schema_location 'https://example.com/schemas/address/v1/address.xsd'
+  prefix_default 'addr'
+end
+
+# Define main namespace with all features
+class ContactNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/schemas/contact/v1'
+  schema_location 'https://example.com/schemas/contact/v1/contact.xsd'
+  prefix_default 'contact'
+  element_form_default :qualified
+  attribute_form_default :unqualified
+  version '1.0'
+  documentation "Contact information schema for Example Corp"
+
+  imports AddressNamespace
+  includes 'contact-common.xsd', 'contact-types.xsd'
+end
+
+# Use namespace in model
+class Person < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :email, :string
+
+  xml do
+    element "person"
+    namespace ContactNamespace
+
+    sequence do
+      map_element "name", to: :name
+      map_element "email", to: :email
+    end
+  end
+end
+
+person = Person.new(name: "John Doe", email: "john@example.com")
+puts person.to_xml
+# => <contact:person xmlns:contact="https://example.com/schemas/contact/v1">
+#      <contact:name>John Doe</contact:name>
+#      <contact:email>john@example.com</contact:email>
+#    </contact:person>
+----
+====
+
+== Runtime prefix override
+
+Namespace prefixes can be overridden at runtime when building namespace
+instances.
+
+.Overriding namespace prefix at runtime
+[example]
+====
+[source,ruby]
+----
+class ContactNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/schemas/contact/v1'
+  prefix_default 'contact'
+end
+
+# Use default prefix
+class Person < Lutaml::Model::Serializable
+  xml do
+    element "person"
+    namespace ContactNamespace  # Uses 'contact' prefix
+  end
+end
+
+# Override prefix at mapping level
+class ShortPerson < Lutaml::Model::Serializable
+  xml do
+    element "person"
+    namespace ContactNamespace, 'c'  # Override to 'c' prefix
+  end
+end
+
+Person.new.to_xml
+# => <contact:person xmlns:contact="...">...</contact:person>
+
+ShortPerson.new.to_xml
+# => <c:person xmlns:c="...">...</c:person>
+----
+====
+
+[[additional-xsd-types]]
+== Additional XSD types
+
+Lutaml::Model supports additional XSD types for specialized data handling:
+
+=== Duration type
+
+The `:duration` type handles ISO 8601 duration values conforming to
+`xs:duration`.
+
+Duration format: `P[n]Y[n]M[n]DT[n]H[n]M[n]S`
+
+Where,
+
+`P`:: Required prefix indicating period
+`[n]Y`:: Years (optional)
+`[n]M`:: Months (optional, before T)
+`[n]D`:: Days (optional)
+`T`:: Time prefix (required if time components present)
+`[n]H`:: Hours (optional)
+`[n]M`:: Minutes (optional, after T)
+`[n]S`:: Seconds (optional, can include decimals)
+
+.Using the `:duration` type
+[example]
+====
+[source,ruby]
+----
+class ProcessingTask < Lutaml::Model::Serializable
+  attribute :processing_time, :duration
+
+  xml do
+    root "task"
+    map_element "processingTime", to: :processing_time
+  end
+end
+
+# Valid durations
+task1 = ProcessingTask.new(processing_time: "P1Y2M3D")
+# 1 year, 2 months, 3 days
+task2 = ProcessingTask.new(processing_time: "PT4H5M6S")
+# 4 hours, 5 minutes, 6 seconds
+task3 = ProcessingTask.new(processing_time: "P1Y2M3DT4H5M6S")
+# Combined
+task4 = ProcessingTask.new(processing_time: "PT0.5S")
+# 0.5 seconds
+
+puts task1.to_xml
+# => <task><processingTime>P1Y2M3D</processingTime></task>
+----
+====
+
+=== URI type
+
+The `:uri` type handles Uniform Resource Identifiers conforming to
+`xs:anyURI`.
+
+.Using the `:uri` type
+[example]
+====
+[source,ruby]
+----
+class Resource < Lutaml::Model::Serializable
+  attribute :homepage, :uri
+  attribute :schema_location, :uri
+
+  xml do
+    root "resource"
+    map_element "homepage", to: :homepage
+    map_attribute "schemaLocation", to: :schema_location
+  end
+end
+
+resource = Resource.new(
+  homepage: "https://example.com/page",
+  schema_location: "https://example.com/schema.xsd"
+)
+
+puts resource.to_xml
+# => <resource schemaLocation="https://example.com/schema.xsd">
+#      <homepage>https://example.com/page</homepage>
+#    </resource>
+----
+====
+
+=== QName type
+
+The `:qname` type handles XML qualified names conforming to `xs:QName`.
+
+A QName consists of an optional namespace prefix and a local name, separated
+by a colon.
+
+.Using the `:qname` type
+[example]
+====
+[source,ruby]
+----
+class Reference < Lutaml::Model::Serializable
+  attribute :ref_type, :qname
+  attribute :target, :qname
+
+  xml do
+    root "reference"
+    map_attribute "type", to: :ref_type
+    map_element "target", to: :target
+  end
+end
+
+ref = Reference.new(
+  ref_type: "xsd:string",
+  target: "ns:elementName"
+)
+
+puts ref.to_xml
+# => <reference type="xsd:string">
+#      <target>ns:elementName</target>
+#    </reference>
+
+# Accessing QName components
+qname = Lutaml::Model::Type::QName.new("prefix:localName")
+puts qname.prefix      # => "prefix"
+puts qname.local_name  # => "localName"
+----
+====
+
+=== Base64Binary type
+
+The `:base64_binary` type handles base64-encoded binary data conforming to
+`xs:base64Binary`.
+
+.Using the `:base64_binary` type
+[example]
+====
+[source,ruby]
+----
+class Attachment < Lutaml::Model::Serializable
+  attribute :content, :base64_binary
+  attribute :filename, :string
+
+  xml do
+    root "attachment"
+    map_element "content", to: :content
+    map_attribute "filename", to: :filename
+  end
+end
+
+# Encoding binary data
+binary_data = "Hello World"
+encoded = Lutaml::Model::Type::Base64Binary.encode(binary_data)
+
+attachment = Attachment.new(
+  content: encoded,
+  filename: "hello.txt"
+)
+
+puts attachment.to_xml
+# => <attachment filename="hello.txt">
+#      <content>SGVsbG8gV29ybGQ=</content>
+#    </attachment>
+
+# Decoding
+decoded = Lutaml::Model::Type::Base64Binary.decode(attachment.content)
+# => "Hello World"
+----
+====
+
+=== HexBinary type
+
+The `:hex_binary` type handles hexadecimal-encoded binary data conforming to
+`xs:hexBinary`.
+
+.Using the `:hex_binary` type
+[example]
+====
+[source,ruby]
+----
+class Checksum < Lutaml::Model::Serializable
+  attribute :hash_value, :hex_binary
+  attribute :algorithm, :string
+
+  xml do
+    root "checksum"
+    map_element "value", to: :hash_value
+    map_attribute "algorithm", to: :algorithm
+  end
+end
+
+# Encoding binary data
+binary_data = "Hello"
+encoded = Lutaml::Model::Type::HexBinary.encode(binary_data)
+
+checksum = Checksum.new(
+  hash_value: encoded,
+  algorithm: "SHA256"
+)
+
+puts checksum.to_xml
+# => <checksum algorithm="SHA256">
+#      <value>48656c6c6f</value>
+#    </checksum>
+
+# Decoding
+decoded = Lutaml::Model::Type::HexBinary.decode(checksum.hash_value)
+# => "Hello"
+----
+====
