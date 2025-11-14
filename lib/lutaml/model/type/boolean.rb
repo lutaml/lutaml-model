@@ -13,7 +13,14 @@ module Lutaml
         def self.serialize(value)
           return nil if value.nil?
 
-          cast(value) # Return actual boolean instead of string
+          !!value
+        end
+
+        # XSD type for Boolean
+        #
+        # @return [String] xs:boolean
+        def self.xsd_type
+          "xs:boolean"
         end
 
         # Format-specific serialization methods

@@ -45,6 +45,13 @@ module Lutaml
         def self.from_toml(value)
           cast(value)
         end
+
+        # XSD type for String
+        #
+        # @return [String] xs:string
+        def self.xsd_type
+          "xs:string"
+        end
       end
     end
   end

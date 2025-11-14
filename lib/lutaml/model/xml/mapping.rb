@@ -18,7 +18,11 @@ module Lutaml
                     :mixed_content,
                     :ordered,
                     :element_sequence,
-                    :mappings_imported
+                    :mappings_imported,
+                    :namespace_class,
+                    :element_name,
+                    :documentation_text,
+                    :type_name_value
 
         def initialize
           super
@@ -32,6 +36,10 @@ module Lutaml
           @format = :xml
           @mappings_imported = true
           @finalized = false
+          @element_name = nil
+          @namespace_class = nil
+          @documentation_text = nil
+          @type_name_value = nil
         end
 
         def finalize(mapper_class)
@@ -48,22 +56,68 @@ module Lutaml
         alias mixed_content? mixed_content
         alias ordered? ordered
 
+        # Set the XML element name for this mapping
+        #
+        # This is the primary method for declaring the element name.
+        # Use this for the new clean API.
+        #
+        # @param name [String] the element name
+        # @return [String] the element name
+        def element(name)
+          @element_name = name
+          @root_element = name # Maintain backward compatibility
+        end
+
+        # Set the root element name with optional configuration
+        #
+        # This is kept as an alias to element() for backward compatibility,
+        # but also supports the mixed: and ordered: options.
+        #
+        # @param name [String] the root element name
+        # @param mixed [Boolean] whether content is mixed (text + elements)
+        # @param ordered [Boolean] whether to preserve element order
+        # @return [String] the root element name
         def root(name, mixed: false, ordered: false)
-          @root_element = name
+          element(name)
           @mixed_content = mixed
-          @ordered = ordered || mixed # mixed contenet will always be ordered
+          @ordered = ordered || mixed # mixed content is always ordered
+        end
+
+        # Enable mixed content for this element
+        #
+        # Mixed content means the element can contain both text nodes
+        # and child elements interspersed.
+        #
+        # @return [Boolean] true
+        def mixed_content
+          @mixed_content = true
+          @ordered = true # mixed content implies ordered
         end
 
         def root?
           !!root_element
         end
 
+        # Mark this model as having no root element (type-only)
+        #
+        # @deprecated Use absence of element() declaration instead
         def no_root
+          warn "[Lutaml::Model] DEPRECATED: no_root is deprecated. " \
+               "Simply omit the element declaration for type-only models."
           @no_root = true
+          # NOTE: Intentionally NOT clearing @element_name or @root_element here
+          # for backward compatibility with Collections during deprecation period
         end
 
         def no_root?
           !!@no_root
+        end
+
+        # Check if this mapping has no element declaration
+        #
+        # @return [Boolean] true if no element is declared
+        def no_element?
+          !element_name
         end
 
         def prefixed_root
@@ -74,11 +128,60 @@ module Lutaml
           end
         end
 
-        def namespace(uri, prefix = nil)
+        # Set the XML namespace for this mapping
+        #
+        # @param uri_or_class [String, Class] namespace URI or XmlNamespace class
+        # @param prefix [String, Symbol, nil] optional prefix (for String URI only)
+        # @return [void]
+        #
+        # @example Using XmlNamespace class (preferred)
+        #   namespace ContactNamespace
+        #
+        # @example Using String URI (legacy, still supported)
+        #   namespace 'https://example.com/ns', 'ex'
+        #
+        # @raise [ArgumentError] if invalid arguments provided
+        # @raise [Lutaml::Model::NoRootNamespaceError] if called with no_root
+        def namespace(uri_or_class, prefix = nil)
           raise Lutaml::Model::NoRootNamespaceError if no_root?
 
-          @namespace_uri = uri
-          @namespace_prefix = prefix
+          if uri_or_class.is_a?(Class) && uri_or_class < Lutaml::Model::XmlNamespace
+            # XmlNamespace class passed
+            @namespace_class = uri_or_class
+            @namespace_uri = uri_or_class.uri
+            @namespace_prefix = prefix || uri_or_class.prefix_default
+          elsif uri_or_class.is_a?(String)
+            # Legacy: String URI passed
+            validate_namespace_prefix!(prefix)
+            @namespace_uri = uri_or_class
+            @namespace_prefix = prefix
+          else
+            raise ArgumentError,
+                  "namespace must be a String URI or XmlNamespace class, " \
+                  "got #{uri_or_class.class}"
+          end
+        end
+
+        # Set documentation text for this mapping
+        #
+        # Used for XSD annotation generation.
+        #
+        # @param text [String] the documentation text
+        # @return [String] the documentation text
+        def documentation(text)
+          @documentation_text = text
+        end
+
+        # Set explicit type name for XSD generation
+        #
+        # By default, type name is inferred as "ClassNameType".
+        # Use this to override.
+        #
+        # @param name [String, nil] the type name
+        # @return [String, nil] the type name
+        def type_name(name = nil)
+          @type_name_value = name if name
+          @type_name_value
         end
 
         def map_instances(to:, polymorphic: {})
@@ -103,7 +206,9 @@ module Lutaml
           prefix: (prefix_set = false
                    nil),
           transform: {},
-          value_map: {}
+          value_map: {},
+          form: nil,
+          documentation: nil
         )
           validate!(
             name, to, with, render_nil, render_empty, type: TYPES[:element]
@@ -129,6 +234,8 @@ module Lutaml
             prefix_set: prefix_set != false,
             transform: transform,
             value_map: value_map,
+            form: form,
+            documentation: documentation,
           )
           @elements[rule.namespaced_name] = rule
         end
@@ -149,7 +256,9 @@ module Lutaml
           transform: {},
           value_map: {},
           as_list: nil,
-          delimiter: nil
+          delimiter: nil,
+          form: nil,
+          documentation: nil
         )
           validate!(
             name, to, with, render_nil, render_empty, type: TYPES[:attribute]
@@ -181,6 +290,8 @@ module Lutaml
             value_map: value_map,
             as_list: as_list,
             delimiter: delimiter,
+            form: form,
+            documentation: documentation,
           )
           @attributes[rule.namespaced_name] = rule
         end
@@ -319,6 +430,22 @@ module Lutaml
           end
         end
 
+        # Validate namespace prefix parameter
+        #
+        # Raises ArgumentError if prefix is Hash or Array, which indicates
+        # the common mistake of passing options as prefix.
+        #
+        # @param prefix [Object] the prefix parameter to validate
+        # @raise [ArgumentError] if prefix is Hash or Array
+        # @return [void]
+        def validate_namespace_prefix!(prefix)
+          if prefix.is_a?(Hash) || prefix.is_a?(Array)
+            raise ArgumentError,
+                  "namespace prefix must be a String or Symbol, not #{prefix.class}. " \
+                  "Did you mean to use 'root' with mixed: true?"
+          end
+        end
+
         def elements
           @elements.values
         end
@@ -368,11 +495,19 @@ module Lutaml
           @sequence_importable_mappings ||= ::Hash.new { |h, k| h[k] = [] }
         end
 
-        def element(name)
+        # Find element mapping rule by attribute name
+        #
+        # @param name [Symbol, String] the attribute name
+        # @return [MappingRule, nil] the matching element rule
+        def find_element(name)
           elements.detect { |rule| name == rule.to }
         end
 
-        def attribute(name)
+        # Find attribute mapping rule by attribute name
+        #
+        # @param name [Symbol, String] the attribute name
+        # @return [MappingRule, nil] the matching attribute rule
+        def find_attribute(name)
           attributes.detect { |rule| name == rule.to }
         end
 
@@ -427,8 +562,11 @@ module Lutaml
         def deep_dup
           self.class.new.tap do |xml_mapping|
             xml_mapping.root(@root_element.dup, mixed: @mixed_content,
-                                                ordered: @ordered)
-            xml_mapping.namespace(@namespace_uri.dup, @namespace_prefix.dup)
+                                                ordered: @ordered) if @root_element
+            if @namespace_uri
+              xml_mapping.namespace(@namespace_uri.dup,
+                                    @namespace_prefix&.dup)
+            end
 
             attributes_to_dup.each do |var_name|
               value = instance_variable_get(var_name)

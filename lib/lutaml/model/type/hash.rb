@@ -56,6 +56,13 @@ module Lutaml
         def to_toml
           value
         end
+
+        # XSD type for Hash
+        #
+        # @return [String] xs:anyType
+        def self.xsd_type
+          "xs:anyType"
+        end
       end
     end
   end

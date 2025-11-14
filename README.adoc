@@ -631,6 +631,11 @@ Every type has a corresponding Ruby class and a serialization format type.
 | `:date_time`          | `DateTime`               | `xs:dateTime`     | `string`  | `string`  | `"2024-01-01T12:00:00+00:00"`
 | `:time`               | `Time`                   | `xs:dateTime`     | `string`  | `string`  | `"2024-01-01T12:00:00+00:00"`
 | `:decimal` (optional) | `BigDecimal`             | `xs:decimal`      | `number`  | `float`   | `123.45`
+| `:duration`           | `Lutaml::Model::Type::Duration` | `xs:duration` | `string` | `string` | `"P1Y2M3DT4H5M6S"`
+| `:uri`                | `String`                 | `xs:anyURI`       | `string`  | `string`  | `"https://example.com"`
+| `:qname`              | `Lutaml::Model::Type::QName` | `xs:QName`    | `string`  | `string`  | `"prefix:localName"`
+| `:base64_binary`      | `String`                 | `xs:base64Binary` | `string`  | `string`  | `"SGVsbG8gV29ybGQ="`
+| `:hex_binary`         | `String`                 | `xs:hexBinary`    | `string`  | `string`  | `"48656c6c6f"`
 | `:hash`               | `Hash`                   | complex element   | object    | map       | `{key: "value"}`
 | (nil value)           | `nil`                    | `xs:anyType`      | `null`    | `null`    | `null`
 | `{ ref: [Model, :attr] }` | `Reference`          | `xs:string`       | `string`  | `string`  | `"model-id"`
@@ -662,6 +667,210 @@ require 'bigdecimal'
 
 If the `bigdecimal` library is not loaded, usage of the `Decimal` type will
 raise a `Lutaml::Model::TypeNotSupportedError`.
+
+
+
+[[xml-namespace-types]]
+=== Additional XSD types
+
+Lutaml::Model supports additional XSD types for specialized data handling:
+
+==== Duration type
+
+The `:duration` type handles ISO 8601 duration values conforming to `xs:duration`.
+
+Duration format: `P[n]Y[n]M[n]DT[n]H[n]M[n]S`
+
+Where,
+
+`P`:: Required prefix indicating period
+`[n]Y`:: Years (optional)
+`[n]M`:: Months (optional, before T)
+`[n]D`:: Days (optional)
+`T`:: Time prefix (required if time components present)
+`[n]H`:: Hours (optional)
+`[n]M`:: Minutes (optional, after T)
+`[n]S`:: Seconds (optional, can include decimals)
+
+.Using the `:duration` type
+[example]
+====
+[source,ruby]
+----
+class ProcessingTask < Lutaml::Model::Serializable
+  attribute :processing_time, :duration
+
+  xml do
+    root "task"
+    map_element "processingTime", to: :processing_time
+  end
+end
+
+# Valid durations
+task1 = ProcessingTask.new(processing_time: "P1Y2M3D")      # 1 year, 2 months, 3 days
+task2 = ProcessingTask.new(processing_time: "PT4H5M6S")     # 4 hours, 5 minutes, 6 seconds
+task3 = ProcessingTask.new(processing_time: "P1Y2M3DT4H5M6S")  # Combined
+task4 = ProcessingTask.new(processing_time: "PT0.5S")       # 0.5 seconds
+
+puts task1.to_xml
+# => <task><processingTime>P1Y2M3D</processingTime></task>
+----
+====
+
+==== URI type
+
+The `:uri` type handles Uniform Resource Identifiers conforming to `xs:anyURI`.
+
+.Using the `:uri` type
+[example]
+====
+[source,ruby]
+----
+class Resource < Lutaml::Model::Serializable
+  attribute :homepage, :uri
+  attribute :schema_location, :uri
+
+  xml do
+    root "resource"
+    map_element "homepage", to: :homepage
+    map_attribute "schemaLocation", to: :schema_location
+  end
+end
+
+resource = Resource.new(
+  homepage: "https://example.com/page",
+  schema_location: "https://example.com/schema.xsd"
+)
+
+puts resource.to_xml
+# => <resource schemaLocation="https://example.com/schema.xsd">
+#      <homepage>https://example.com/page</homepage>
+#    </resource>
+----
+====
+
+==== QName type
+
+The `:qname` type handles XML qualified names conforming to `xs:QName`.
+
+A QName consists of an optional namespace prefix and a local name, separated
+by a colon.
+
+.Using the `:qname` type
+[example]
+====
+[source,ruby]
+----
+class Reference < Lutaml::Model::Serializable
+  attribute :ref_type, :qname
+  attribute :target, :qname
+
+  xml do
+    root "reference"
+    map_attribute "type", to: :ref_type
+    map_element "target", to: :target
+  end
+end
+
+ref = Reference.new(
+  ref_type: "xsd:string",
+  target: "ns:elementName"
+)
+
+puts ref.to_xml
+# => <reference type="xsd:string">
+#      <target>ns:elementName</target>
+#    </reference>
+
+# Accessing QName components
+qname = Lutaml::Model::Type::QName.new("prefix:localName")
+puts qname.prefix      # => "prefix"
+puts qname.local_name  # => "localName"
+----
+====
+
+==== Base64Binary type
+
+The `:base64_binary` type handles base64-encoded binary data conforming to
+`xs:base64Binary`.
+
+.Using the `:base64_binary` type
+[example]
+====
+[source,ruby]
+----
+class Attachment < Lutaml::Model::Serializable
+  attribute :content, :base64_binary
+  attribute :filename, :string
+
+  xml do
+    root "attachment"
+    map_element "content", to: :content
+    map_attribute "filename", to: :filename
+  end
+end
+
+# Encoding binary data
+binary_data = "Hello World"
+encoded = Lutaml::Model::Type::Base64Binary.encode(binary_data)
+
+attachment = Attachment.new(
+  content: encoded,
+  filename: "hello.txt"
+)
+
+puts attachment.to_xml
+# => <attachment filename="hello.txt">
+#      <content>SGVsbG8gV29ybGQ=</content>
+#    </attachment>
+
+# Decoding
+decoded = Lutaml::Model::Type::Base64Binary.decode(attachment.content)
+# => "Hello World"
+----
+====
+
+==== HexBinary type
+
+The `:hex_binary` type handles hexadecimal-encoded binary data conforming to
+`xs:hexBinary`.
+
+.Using the `:hex_binary` type
+[example]
+====
+[source,ruby]
+----
+class Checksum < Lutaml::Model::Serializable
+  attribute :hash_value, :hex_binary
+  attribute :algorithm, :string
+
+  xml do
+    root "checksum"
+    map_element "value", to: :hash_value
+    map_attribute "algorithm", to: :algorithm
+  end
+end
+
+# Encoding binary data
+binary_data = "Hello"
+encoded = Lutaml::Model::Type::HexBinary.encode(binary_data)
+
+checksum = Checksum.new(
+  hash_value: encoded,
+  algorithm: "SHA256"
+)
+
+puts checksum.to_xml
+# => <checksum algorithm="SHA256">
+#      <value>48656c6c6f</value>
+#    </checksum>
+
+# Decoding
+decoded = Lutaml::Model::Type::HexBinary.decode(checksum.hash_value)
+# => "Hello"
+----
+====
+
 
 
 === Symbol type
@@ -5300,6 +5509,1129 @@ end
   # </cera:Ceramic>
 ----
 ====
+
+
+[[xml-namespace-class]]
+== XML namespace management
+
+=== General
+
+The [`XmlNamespace`](lib/lutaml/model/xml_namespace.rb) class provides a
+declarative way to define XML namespace metadata following W3C XML Namespace
+and XSD specifications.
+
+This approach centralizes namespace configuration and enables:
+
+* Reusable namespace definitions across models
+* Full XSD generation support with proper namespace declarations
+* Control over element and attribute qualification
+* Documentation and versioning of schemas
+* Schema imports and includes
+
+=== Creating namespace classes
+
+A namespace class inherits from [`Lutaml::Model::XmlNamespace`](lib/lutaml/model/xml_namespace.rb)
+and uses a DSL to declare metadata.
+
+Syntax:
+
+[source,ruby]
+----
+class MyNamespace < Lutaml::Model::XmlNamespace
+  uri 'namespace-uri'                    # Required: namespace URI
+  schema_location 'schema-url'           # Optional: XSD location
+  prefix_default 'default-prefix'        # Optional: default prefix
+  element_form_default :qualified        # Optional: element qualification
+  attribute_form_default :unqualified    # Optional: attribute qualification
+  version 'version-string'               # Optional: schema version
+  documentation 'description'            # Optional: schema documentation
+  imports OtherNamespace                 # Optional: imported namespaces
+  includes 'schema-file.xsd'             # Optional: included schemas
+end
+----
+
+=== DSL methods
+
+==== `uri`
+
+Sets the namespace URI that uniquely identifies this namespace.
+
+Syntax:
+
+[source,ruby]
+----
+uri 'namespace-uri-string'
+----
+
+This is the fundamental identifier for the namespace, used in `xmlns`
+declarations.
+
+.Setting namespace URI
+[example]
+====
+[source,ruby]
+----
+class CeramicNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/schemas/ceramic/v1'
+end
+
+# Results in XML: xmlns="https://example.com/schemas/ceramic/v1"
+# Or with prefix: xmlns:cer="https://example.com/schemas/ceramic/v1"
+----
+====
+
+==== `schema_location`
+
+Sets the URL where the XSD schema file can be found.
+
+Syntax:
+
+[source,ruby]
+----
+schema_location 'schema-url-or-path'
+----
+
+Used in `xsi:schemaLocation` attributes for schema validation.
+
+.Setting schema location
+[example]
+====
+[source,ruby]
+----
+class CeramicNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/schemas/ceramic/v1'
+  schema_location 'https://example.com/schemas/ceramic/v1/ceramic.xsd'
+end
+----
+====
+
+==== `prefix_default`
+
+Sets the default prefix for this namespace.
+
+Syntax:
+
+[source,ruby]
+----
+prefix_default 'prefix' # or :prefix (symbol)
+----
+
+The prefix can be overridden at runtime when creating namespace instances.
+
+.Setting default prefix
+[example]
+====
+[source,ruby]
+----
+class CeramicNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/schemas/ceramic/v1'
+  prefix_default 'cer'
+end
+
+# Default usage: xmlns:cer="https://..."
+# Runtime override: xmlns:ceramic="https://..."
+----
+====
+
+==== `element_form_default`
+
+Controls whether locally declared elements must be namespace-qualified by
+default.
+
+Syntax:
+
+[source,ruby]
+----
+element_form_default :qualified   # or :unqualified (default)
+----
+
+Values:
+
+`:qualified`::: Local elements must include namespace prefix
+`:unqualified`::: Local elements have no namespace prefix (default)
+
+.Setting element qualification default
+[example]
+====
+[source,ruby]
+----
+class CeramicNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/schemas/ceramic/v1'
+  prefix_default 'cer'
+  element_form_default :qualified
+end
+
+# With :qualified, child elements get: <cer:type>...</cer:type>
+# With :unqualified, child elements get: <type>...</type>
+----
+====
+
+==== `attribute_form_default`
+
+Controls whether locally declared attributes must be namespace-qualified by
+default.
+
+Syntax:
+
+[source,ruby]
+----
+attribute_form_default :qualified   # or :unqualified (default)
+----
+
+Values:
+
+`:qualified`::: Local attributes must include namespace prefix
+`:unqualified`::: Local attributes have no namespace prefix (default)
+
+NOTE: Per W3C conventions, attributes are typically unqualified.
+
+.Setting attribute qualification default
+[example]
+====
+[source,ruby]
+----
+class CeramicNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/schemas/ceramic/v1'
+  prefix_default 'cer'
+  attribute_form_default :unqualified  # Typically left unqualified
+end
+----
+====
+
+==== `imports`
+
+Declares dependencies on other namespaces via XSD `import` directive.
+
+Syntax:
+
+[source,ruby]
+----
+imports OtherNamespace1, OtherNamespace2, ...
+----
+
+Used when referencing types from other namespaces.
+
+.Importing other namespaces
+[example]
+====
+[source,ruby]
+----
+class AddressNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/schemas/address/v1'
+  prefix_default 'addr'
+end
+
+class ContactNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/schemas/contact/v1'
+  prefix_default 'contact'
+  imports AddressNamespace  # Import address namespace
+end
+
+# Generates in XSD:
+# <xs:import namespace="https://example.com/schemas/address/v1"
+#            schemaLocation="..." />
+----
+====
+
+==== `includes`
+
+Declares schema components from the same namespace via XSD `include` directive.
+
+Syntax:
+
+[source,ruby]
+----
+includes 'schema-file.xsd', 'another-file.xsd', ...
+----
+
+Used for modular schema organization within the same namespace.
+
+.Including schema files
+[example]
+====
+[source,ruby]
+----
+class ContactNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/schemas/contact/v1'
+  prefix_default 'contact'
+  includes 'contact-common.xsd', 'contact-extensions.xsd'
+end
+
+# Generates in XSD:
+# <xs:include schemaLocation="contact-common.xsd" />
+# <xs:include schemaLocation="contact-extensions.xsd" />
+----
+====
+
+==== `version`
+
+Sets the schema version for documentation and tracking.
+
+Syntax:
+
+[source,ruby]
+----
+version 'version-string'
+----
+
+.Setting schema version
+[example]
+====
+[source,ruby]
+----
+class ContactNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/schemas/contact/v1'
+  version '1.0.0'
+end
+
+# Used in XSD: <xs:schema version="1.0.0">
+----
+====
+
+==== `documentation`
+
+Provides human-readable description for XSD annotation.
+
+Syntax:
+
+[source,ruby]
+----
+documentation 'description text'
+----
+
+.Adding documentation
+[example]
+====
+[source,ruby]
+----
+class ContactNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/schemas/contact/v1'
+  documentation "Contact information schema for Example Corp"
+end
+
+# Generates in XSD:
+# <xs:annotation>
+#   <xs:documentation>Contact information schema for Example Corp</xs:documentation>
+# </xs:annotation>
+----
+====
+
+=== Complete namespace example
+
+.Fully configured XML namespace
+[example]
+====
+[source,ruby]
+----
+# Define dependent namespace
+class AddressNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/schemas/address/v1'
+  schema_location 'https://example.com/schemas/address/v1/address.xsd'
+  prefix_default 'addr'
+end
+
+# Define main namespace with all features
+class ContactNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/schemas/contact/v1'
+  schema_location 'https://example.com/schemas/contact/v1/contact.xsd'
+  prefix_default 'contact'
+  element_form_default :qualified
+  attribute_form_default :unqualified
+  version '1.0'
+  documentation "Contact information schema for Example Corp"
+
+  imports AddressNamespace
+  includes 'contact-common.xsd', 'contact-types.xsd'
+end
+
+# Use namespace in model
+class Person < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :email, :string
+
+  xml do
+    element "person"
+    namespace ContactNamespace
+
+    sequence do
+      map_element "name", to: :name
+      map_element "email", to: :email
+    end
+  end
+end
+
+person = Person.new(name: "John Doe", email: "john@example.com")
+puts person.to_xml
+# => <contact:person xmlns:contact="https://example.com/schemas/contact/v1">
+#      <contact:name>John Doe</contact:name>
+#      <contact:email>john@example.com</contact:email>
+#    </contact:person>
+----
+====
+
+=== Runtime prefix override
+
+Namespace prefixes can be overridden at runtime when building namespace
+instances.
+
+.Overriding namespace prefix at runtime
+[example]
+====
+[source,ruby]
+----
+class ContactNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/schemas/contact/v1'
+  prefix_default 'contact'
+end
+
+# Use default prefix
+class Person < Lutaml::Model::Serializable
+  xml do
+    element "person"
+    namespace ContactNamespace  # Uses 'contact' prefix
+  end
+end
+
+# Override prefix at mapping level
+class ShortPerson < Lutaml::Model::Serializable
+  xml do
+    element "person"
+    namespace ContactNamespace, 'c'  # Override to 'c' prefix
+  end
+end
+
+Person.new.to_xml
+# => <contact:person xmlns:contact="...">...</contact:person>
+
+ShortPerson.new.to_xml
+# => <c:person xmlns:c="...">...</c:person>
+----
+====
+
+
+
+
+[[xml-mapping-methods]]
+== XML mapping methods
+
+=== Enhanced element declaration
+
+==== `element` method
+
+The [`element`](lib/lutaml/model/xml/mapping.rb) method is the primary way to
+declare the XML element name for a model.
+
+Syntax:
+
+[source,ruby]
+----
+xml do
+  element 'element-name'
+end
+----
+
+This is the clean, modern API for declaring element names.
+
+.Using `element` to declare element name
+[example]
+====
+[source,ruby]
+----
+class Ceramic < Lutaml::Model::Serializable
+  attribute :type, :string
+
+  xml do
+    element 'ceramic'
+    map_element 'type', to: :type
+  end
+end
+
+puts Ceramic.new(type: "Porcelain").to_xml
+# => <ceramic><type>Porcelain</type></ceramic>
+----
+====
+
+==== `root` method as alias
+
+The [`root`](lib/lutaml/model/xml/mapping.rb) method is maintained as a
+backward-compatible alias to `element` that also supports the `mixed:` and
+`ordered:` options.
+
+Syntax:
+
+[source,ruby]
+----
+xml do
+  root 'element-name', mixed: false, ordered: false
+end
+----
+
+Values:
+
+`mixed`::: `true` to enable mixed content (text + elements), `false` otherwise (default)
+`ordered`::: `true` to preserve element order, `false` otherwise (default)
+
+.Using `root` with options
+[example]
+====
+[source,ruby]
+----
+class Paragraph < Lutaml::Model::Serializable
+  attribute :bold, :string, collection: true
+  attribute :italic, :string
+
+  xml do
+    root 'p', mixed: true  # Enable mixed content
+    map_element 'bold', to: :bold
+    map_element 'i', to: :italic
+  end
+end
+----
+====
+
+==== `mixed_content` method
+
+The [`mixed_content`](lib/lutaml/model/xml/mapping.rb) method explicitly enables
+mixed content mode.
+
+Syntax:
+
+[source,ruby]
+----
+xml do
+  element 'element-name'
+  mixed_content  # Enables mixed content + ordered
+end
+----
+
+Mixed content mode:
+
+* Preserves text nodes interspersed with elements
+* Automatically enables ordered mode
+* Required for rich text content
+
+.Using `mixed_content` explicitly
+[example]
+====
+[source,ruby]
+----
+class RichText < Lutaml::Model::Serializable
+  attribute :bold, :string, collection: true
+  attribute :italic, :string, collection: true
+
+  xml do
+    element 'text'
+    mixed_content  # Explicit mixed content declaration
+
+    map_element 'b', to: :bold
+    map_element 'i', to: :italic
+  end
+end
+
+xml_input = "<text>This is <b>bold</b> and <i>italic</i> text</text>"
+parsed = RichText.from_xml(xml_input)
+# Preserves: "This is ", "<b>bold</b>", " and ", "<i>italic</i>", " text"
+----
+====
+
+=== Type-level metadata
+
+==== `documentation` method
+
+The [`documentation`](lib/lutaml/model/xml/mapping.rb) method adds
+human-readable description for XSD generation.
+
+Syntax:
+
+[source,ruby]
+----
+xml do
+  element 'element-name'
+  documentation 'Description text for XSD annotation'
+end
+----
+
+Used in generated XSD `<xs:annotation><xs:documentation>` elements.
+
+.Adding documentation to model
+[example]
+====
+[source,ruby]
+----
+class Product < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :price, :float
+
+  xml do
+    element 'product'
+    documentation "Represents a product in the catalog"
+
+    map_element 'name', to: :name
+    map_element 'price', to: :price
+  end
+end
+
+# When generating XSD from this model:
+# <xs:complexType name="ProductType">
+#   <xs:annotation>
+#     <xs:documentation>Represents a product in the catalog</xs:documentation>
+#   </xs:annotation>
+#   ...
+# </xs:complexType>
+----
+====
+
+==== `type_name` method
+
+The [`type_name`](lib/lutaml/model/xml/mapping.rb) method sets an explicit type
+name for XSD generation.
+
+Syntax:
+
+[source,ruby]
+----
+xml do
+  element 'element-name'
+  type_name 'CustomTypeName'
+end
+----
+
+By default, type names are inferred as `ClassNameType`. Use this to override.
+
+.Setting custom type name
+[example]
+====
+[source,ruby]
+----
+class Product < Lutaml::Model::Serializable
+  attribute :name, :string
+
+  xml do
+    element 'product'
+    type_name 'CatalogItemType'  # Override default 'ProductType'
+
+    map_element 'name', to: :name
+  end
+end
+
+# Generated XSD uses: <xs:complexType name="CatalogItemType">
+----
+====
+
+=== Migration from `no_root`
+
+The `no_root` method is deprecated. For type-only models (models used only as
+embedded types without their own element), simply omit the element declaration.
+
+.Old approach (deprecated)
+[source,ruby]
+----
+class Address < Lutaml::Model::Serializable
+  xml do
+    no_root  # DEPRECATED
+    map_element 'street', to: :street
+  end
+end
+----
+
+.New approach (recommended)
+[source,ruby]
+----
+class Address < Lutaml::Model::Serializable
+  xml do
+    # No element() or root() call - this is a type-only model
+    sequence do
+      map_element 'street', to: :street
+      map_element 'city', to: :city
+    end
+  end
+end
+----
+
+NOTE: Type-only models can only be parsed when embedded in parent models, not
+standalone. Attempting to call `Address.from_xml(xml)` will raise
+[`NoRootMappingError`](lib/lutaml/model/error/no_root_mapping_error.rb).
+
+
+
+
+[[element-attribute-qualification]]
+== Element and attribute qualification
+
+=== General
+
+XML namespace qualification determines whether elements and attributes in
+instance documents must include namespace prefixes.
+
+Following W3C XML Schema specifications, qualification is controlled at three
+levels:
+
+. Namespace-level defaults via [`element_form_default`](lib/lutaml/model/xml_namespace.rb) and [`attribute_form_default`](lib/lutaml/model/xml_namespace.rb)
+. Element/attribute-level overrides via `form:` option
+. Global elements/attributes (always qualified when in a namespace)
+
+=== Qualification rules
+
+==== W3C qualification semantics
+
+Per W3C XML Schema specification:
+
+* **Global elements** (declared at schema root): Always qualified when in a
+namespace
+* **Local elements** (declared within a type): Follow `elementFormDefault`
+* **Global attributes** (declared at schema root): Always qualified when in a
+namespace
+* **Local attributes** (declared within a type): Follow `attributeFormDefault`
+
+==== Default behavior
+
+The default behavior follows W3C conventions:
+
+* `element_form_default`: `:unqualified` (local elements not prefixed)
+* `attribute_form_default`: `:unqualified` (local attributes not prefixed)
+
+This means child elements and attributes are not namespace-qualified by default,
+even when the parent element is.
+
+.Default qualification behavior
+[example]
+====
+[source,ruby]
+----
+class CeramicNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/ceramic'
+  prefix_default 'cer'
+  # element_form_default defaults to :unqualified
+  # attribute_form_default defaults to :unqualified
+end
+
+class Ceramic < Lutaml::Model::Serializable
+  attribute :type, :string
+  attribute :glaze, :string
+
+  xml do
+    element 'ceramic'
+    namespace CeramicNamespace
+
+    map_element 'type', to: :type
+    map_attribute 'glaze', to: :glaze
+  end
+end
+
+puts Ceramic.new(type: "Porcelain", glaze: "Clear").to_xml
+# => <cer:ceramic xmlns:cer="https://example.com/ceramic" glaze="Clear">
+#      <type>Porcelain</type>
+#    </cer:ceramic>
+
+# Note: <cer:ceramic> is qualified (global element)
+#       <type> is unqualified (local element, elementFormDefault=unqualified)
+#       glaze="" is unqualified (local attribute, attributeFormDefault=unqualified)
+----
+====
+
+=== Namespace-level qualification control
+
+Set qualification defaults for all local elements and attributes in the
+namespace.
+
+.Qualifying all local elements
+[example]
+====
+[source,ruby]
+----
+class CeramicNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/ceramic'
+  prefix_default 'cer'
+  element_form_default :qualified  # All local elements must be qualified
+end
+
+class Ceramic < Lutaml::Model::Serializable
+  attribute :type, :string
+  attribute :color, :string
+
+  xml do
+    element 'ceramic'
+    namespace CeramicNamespace
+
+    map_element 'type', to: :type
+    map_element 'color', to: :color
+  end
+end
+
+puts Ceramic.new(type: "Porcelain", color: "White").to_xml
+# => <cer:ceramic xmlns:cer="https://example.com/ceramic">
+#      <cer:type>Porcelain</cer:type>
+#      <cer:color>White</cer:color>
+#    </cer:ceramic>
+
+# Now <cer:type> and <cer:color> are qualified
+----
+====
+
+=== Element/attribute-level qualification override
+
+Override namespace defaults using the `form:` option on individual mappings.
+
+Syntax:
+
+[source,ruby]
+----
+xml do
+  map_element 'name', to: :name, form: :qualified   # or :unqualified
+  map_attribute 'id', to: :id, form: :qualified     # or :unqualified
+end
+----
+
+.Overriding qualification per element/attribute
+[example]
+====
+[source,ruby]
+----
+class CeramicNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/ceramic'
+  prefix_default 'cer'
+  element_form_default :unqualified  # Default: no prefix on local elements
+end
+
+class Ceramic < Lutaml::Model::Serializable
+  attribute :type, :string
+  attribute :glaze, :string
+  attribute :id, :string
+
+  xml do
+    element 'ceramic'
+    namespace CeramicNamespace
+
+    # Override specific element to be qualified
+    map_element 'type', to: :type, form: :qualified
+
+    # This element follows namespace default (unqualified)
+    map_element 'glaze', to: :glaze
+
+    # Force attribute to be qualified (unusual but supported)
+    map_attribute 'id', to: :id, form: :qualified
+  end
+end
+
+puts Ceramic.new(type: "Porcelain", glaze: "Clear", id: "C001").to_xml
+# => <cer:ceramic xmlns:cer="https://example.com/ceramic" cer:id="C001">
+#      <cer:type>Porcelain</cer:type>
+#      <glaze>Clear</glaze>
+#    </cer:ceramic>
+
+# Note: <cer:type> qualified via form: :qualified override
+#       <glaze> unqualified via namespace default
+#       cer:id qualified via form: :qualified override
+----
+====
+
+=== Use cases for qualification
+
+**Qualified elements** (`:qualified`):
+
+* Ensures elements are unambiguous across namespace boundaries
+* Required when mixing elements from multiple namespaces
+* Common in complex, multi-namespace schemas
+
+**Unqualified elements** (`:unqualified`):
+
+* Simpler, more readable XML for single-namespace documents
+* Reduces verbosity when namespace context is clear
+* W3C default for local elements
+
+**Qualified attributes** (unusual):
+
+* Rarely needed in practice
+* Only when attributes are from different namespace than parent element
+* Most schemas use `:unqualified` for attributes
+
+
+
+
+[[type-level-namespace]]
+== Type-level namespace declarations
+
+=== General
+
+Custom [`Type::Value`](lib/lutaml/model/type/value.rb) classes can declare
+their own namespace for XSD generation.
+
+This is useful for reusable types that belong to specific namespaces.
+
+=== Implementation
+
+Override the `self.xsd_namespace` class method in your custom type:
+
+Syntax:
+
+[source,ruby]
+----
+class CustomType < Lutaml::Model::Type::Value
+  def self.xsd_namespace
+    'https://example.com/custom-types'
+  end
+
+  def self.xsd_type
+    'ct:CustomType'
+  end
+
+  # ... cast and serialize methods ...
+end
+----
+
+.Custom type with namespace
+[example]
+====
+[source,ruby]
+----
+class EmailType < Lutaml::Model::Type::String
+  def self.xsd_namespace
+    'https://example.com/types/email'
+  end
+
+  def self.xsd_type
+    'email:EmailAddress'
+  end
+
+  def self.cast(value)
+    email = super(value)
+    unless email.match?(/\A[\w+\-.]+@[a-z\d\-]+(\.[a-z\d\-]+)*\.[a-z]+\z/i)
+      raise Lutaml::Model::TypeError, "Invalid email: #{email}"
+    end
+    email.downcase
+  end
+end
+
+class Contact < Lutaml::Model::Serializable
+  attribute :email, EmailType
+
+  xml do
+    element 'contact'
+    namespace 'https://example.com/contact', 'c'
+
+    map_element 'email', to: :email
+  end
+end
+
+# When generating XSD, the EmailType namespace is included:
+# <xs:schema xmlns:email="https://example.com/types/email">
+#   <xs:import namespace="https://example.com/types/email" />
+#   ...
+#   <xs:element name="email" type="email:EmailAddress"/>
+# </xs:schema>
+----
+====
+
+
+
+
+[[xsd-type-attribute-option]]
+== Explicit XSD type control
+
+=== General
+
+The `:xsd_type` attribute option allows explicit control over the XSD type
+used in schema generation.
+
+This is particularly useful for:
+
+* Reference types using `xs:ID` and `xs:IDREF`
+* Custom XSD types not directly mapped to Lutaml types
+* Override automatic type inference
+
+=== Syntax
+
+[source,ruby]
+----
+attribute :attr_name, Type, xsd_type: 'xs:typeName'
+----
+
+=== Priority order
+
+When determining XSD type, Lutaml::Model uses this priority:
+
+. Explicit `:xsd_type` option on attribute (highest priority)
+. Type's `xsd_type` class method
+. Default type inference (lowest priority)
+
+=== Use with reference types
+
+.Using `:xsd_type` for ID and IDREF
+[example]
+====
+[source,ruby]
+----
+class Product < Lutaml::Model::Serializable
+  attribute :product_id, :string, xsd_type: 'xs:ID'
+  attribute :category_ref, :string, xsd_type: 'xs:IDREF'
+  attribute :related_refs, :string, collection: true, xsd_type: 'xs:IDREFS'
+
+  xml do
+    element 'product'
+    map_attribute 'id', to: :product_id
+    map_attribute 'categoryRef', to: :category_ref
+    map_attribute 'relatedRefs', to: :related_refs
+  end
+end
+
+# Generated XSD uses:
+# <xs:attribute name="id" type="xs:ID"/>
+# <xs:attribute name="categoryRef" type="xs:IDREF"/>
+# <xs:attribute name="relatedRefs" type="xs:IDREFS"/>
+----
+====
+
+.Using `:xsd_type` for custom types
+[example]
+====
+[source,ruby]
+----
+class Document < Lutaml::Model::Serializable
+  attribute :language, :string, xsd_type: 'xs:language'
+  attribute :content_type, :string, xsd_type: 'xs:token'
+  attribute :normalized_text, :string, xsd_type: 'xs:normalizedString'
+
+  xml do
+    element 'document'
+    map_attribute 'lang', to: :language
+    map_attribute 'contentType', to: :content_type
+    map_element 'text', to: :normalized_text
+  end
+end
+
+# Generated XSD declares proper XSD built-in types
+----
+====
+
+=== Use with Reference type
+
+The [`Type::Reference`](lib/lutaml/model/type/reference.rb) type can utilize
+`:xsd_type` for proper XSD generation:
+
+.Reference type with XSD configuration
+[example]
+====
+[source,ruby]
+----
+class Catalog < Lutaml::Model::Serializable
+  attribute :catalog_id, { ref: [Catalog, :id] }, xsd_type: 'xs:ID'
+  attribute :parent_ref, { ref: [Catalog, :id] }, xsd_type: 'xs:IDREF'
+
+  xml do
+    element 'catalog'
+    map_attribute 'id', to: :catalog_id
+    map_attribute 'parent', to: :parent_ref
+  end
+end
+----
+====
+
+
+
+
+[[namespace-qualification-attribute-level]]
+== Per-element and per-attribute namespace control
+
+=== General
+
+Individual elements and attributes can specify their own namespace via the
+`namespace:` and `prefix:` options on mapping rules.
+
+This allows mixing elements from different namespaces within a single model.
+
+=== Element-level namespace
+
+Syntax:
+
+[source,ruby]
+----
+xml do
+  map_element 'name', to: :attr,
+    namespace: 'namespace-uri',
+    prefix: 'prefix'
+end
+----
+
+.Using different namespaces for elements
+[example]
+====
+[source,ruby]
+----
+class CeramicNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/ceramic'
+  prefix_default 'cer'
+end
+
+class GlazeNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/glaze'
+  prefix_default 'glz'
+end
+
+class Ceramic < Lutaml::Model::Serializable
+  attribute :type, :string
+  attribute :glaze, :string
+
+  xml do
+    element 'ceramic'
+    namespace CeramicNamespace
+
+    # This element uses parent namespace
+    map_element 'type', to: :type
+
+    # This element uses different namespace
+    map_element 'glaze', to: :glaze,
+      namespace: GlazeNamespace
+  end
+end
+
+puts Ceramic.new(type: "Porcelain", glaze: "Celadon").to_xml
+# => <cer:ceramic xmlns:cer="https://example.com/ceramic"
+#                 xmlns:glz="https://example.com/glaze">
+#      <type>Porcelain</type>
+#      <glz:glaze>Celadon</glz:glaze>
+#    </cer:ceramic>
+----
+====
+
+=== Inheriting parent namespace
+
+Use `namespace: :inherit` to explicitly qualify an element with the parent's
+namespace.
+
+.Using `namespace: :inherit`
+[example]
+====
+[source,ruby]
+----
+class CeramicNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/ceramic'
+  prefix_default 'cer'
+  element_form_default :unqualified  # Local elements normally unqualified
+end
+
+class Ceramic < Lutaml::Model::Serializable
+  attribute :type, :string
+  attribute :special_type, :string
+
+  xml do
+    element 'ceramic'
+    namespace CeramicNamespace
+
+    map_element 'type', to: :type  # Follows default: unqualified
+
+    # Force this element to inherit parent namespace
+    map_element 'specialType', to: :special_type, namespace: :inherit
+  end
+end
+
+puts Ceramic.new(type: "Porcelain", special_type: "Fine").to_xml
+# => <cer:ceramic xmlns:cer="https://example.com/ceramic">
+#      <type>Porcelain</type>
+#      <cer:specialType>Fine</cer:specialType>
+#    </cer:ceramic>
+----
+====
+
 
 [[mixed-content]]
 ==== Mixed content
@@ -11560,6 +12892,194 @@ Currently, the following schema formats are supported:
 
 Please refer to link:docs/schema_import.adoc[Schema Import] for details
 and examples.
+
+
+
+[[xsd-generation-namespace-support]]
+== XSD generation with namespace support
+
+=== General
+
+The [`Lutaml::Model::Schema.to_xml`](lib/lutaml/model/schema.rb) method
+generates W3C XML Schema (XSD) from LutaML models with full namespace support.
+
+Generated XSD includes:
+
+* Proper namespace declarations
+* Element and attribute qualification rules
+* Complex and simple type definitions
+* Schema imports and includes
+* Documentation annotations
+
+=== Schema generation syntax
+
+[source,ruby]
+----
+xsd_string = Lutaml::Model::Schema.to_xml(ModelClass, options)
+----
+
+Options:
+
+`namespace`::: Namespace URI for the schema
+`prefix`::: Namespace prefix
+`location`::: Schema location URL
+`output_dir`::: Directory to save generated XSD file
+`create_files`::: Boolean, whether to write files to disk (default: `false`)
+
+=== Element and type inference
+
+The XSD generator infers structure from model definitions:
+
+**Elements vs types:**
+
+* Models with [`element`](lib/lutaml/model/xml/mapping.rb) declared: Generate
+both element declaration and type definition
+* Models without element (type-only): Generate only type definition
+* Collections: Generate elements with `maxOccurs="unbounded"`
+
+**Type naming:**
+
+* Default: `ClassNameType` (e.g., `PersonType` for `Person` class)
+* Override via [`type_name`](lib/lutaml/model/xml/mapping.rb)
+* Nested models get separate type definitions
+
+=== Adapter support
+
+XSD generation uses SchemaBuilder adapters:
+
+* [`Nokogiri`](lib/lutaml/model/schema/schema_builder/nokogiri.rb): Default,
+full XSD 1.0 support
+* [`Oga`](lib/lutaml/model/schema/schema_builder/oga.rb): Pure Ruby, feature
+complete
+
+Both adapters produce identical, standards-compliant XSD output.
+
+=== Complete example
+
+.XSD generation with full namespace features
+[example]
+====
+[source,ruby]
+----
+# Define namespace
+class ContactNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/schemas/contact/v1'
+  schema_location 'https://example.com/schemas/contact/v1/contact.xsd'
+  prefix_default 'contact'
+  element_form_default :qualified
+  attribute_form_default :unqualified
+  version '1.0'
+  documentation "Contact information schema for Example Corp"
+end
+
+# Define address namespace (imported)
+class AddressNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/schemas/address/v1'
+  schema_location 'https://example.com/schemas/address/v1/address.xsd'
+  prefix_default 'addr'
+end
+
+# Type-only address model (no element)
+class Address < Lutaml::Model::Serializable
+  attribute :street, :string
+  attribute :city, :string
+  attribute :postal_code, :string
+
+  xml do
+    # No element declaration - type-only
+    namespace AddressNamespace
+
+    sequence do
+      map_element 'street', to: :street
+      map_element 'city', to: :city
+      map_element 'postalCode', to: :postal_code
+    end
+  end
+end
+
+# Main contact model
+class Contact < Lutaml::Model::Serializable
+  attribute :contact_id, :string, xsd_type: 'xs:ID'
+  attribute :name, :string
+  attribute :email, :uri
+  attribute :address, Address
+
+  xml do
+    element 'contact'
+    namespace ContactNamespace
+    documentation "A contact record"
+    type_name 'ContactRecordType'
+
+    sequence do
+      map_attribute 'id', to: :contact_id
+      map_element 'name', to: :name
+      map_element 'email', to: :email
+      map_element 'address', to: :address
+    end
+  end
+end
+
+# Generate XSD
+xsd = Lut<br/>aml::Model::Schema.to_xml(
+  Contact,
+  namespace: ContactNamespace.uri,
+  prefix: ContactNamespace.prefix_default,
+  output_dir: 'schemas',
+  create_files: true
+)
+
+puts xsd
+----
+
+Generated XSD:
+
+[source,xml]
+----
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:contact="https://example.com/schemas/contact/v1"
+           xmlns:addr="https://example.com/schemas/address/v1"
+           targetNamespace="https://example.com/schemas/contact/v1"
+           elementFormDefault="qualified"
+           attributeFormDefault="unqualified"
+           version="1.0">
+
+  <xs:annotation>
+    <xs:documentation>Contact information schema for Example Corp</xs:documentation>
+  </xs:annotation>
+
+  <xs:import namespace="https://example.com/schemas/address/v1"
+             schemaLocation="https://example.com/schemas/address/v1/address.xsd"/>
+
+  <!-- Global element declaration -->
+  <xs:element name="contact" type="contact:ContactRecordType">
+    <xs:annotation>
+      <xs:documentation>A contact record</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+
+  <!-- Complex type definition -->
+  <xs:complexType name="ContactRecordType">
+    <xs:sequence>
+      <xs:element name="name" type="xs:string"/>
+      <xs:element name="email" type="xs:anyURI"/>
+      <xs:element name="address" type="addr:AddressType"/>
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:ID"/>
+  </xs:complexType>
+
+  <!-- Address type from imported namespace -->
+  <xs:complexType name="AddressType">
+    <xs:sequence>
+      <xs:element name="street" type="xs:string"/>
+      <xs:element name="city" type="xs:string"/>
+      <xs:element name="postalCode" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+</xs:schema>
+----
+====
+
 
 
 [[custom-registers]]
