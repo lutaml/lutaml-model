@@ -561,8 +561,10 @@ module Lutaml
 
         def deep_dup
           self.class.new.tap do |xml_mapping|
-            xml_mapping.root(@root_element.dup, mixed: @mixed_content,
-                                                ordered: @ordered) if @root_element
+            if @root_element
+              xml_mapping.root(@root_element.dup, mixed: @mixed_content,
+                                                  ordered: @ordered)
+            end
             if @namespace_uri
               xml_mapping.namespace(@namespace_uri.dup,
                                     @namespace_prefix&.dup)

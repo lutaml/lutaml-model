@@ -131,8 +131,9 @@ RSpec.describe Lutaml::Model::Type::Duration do
     end
 
     context "with Duration instance" do
-      let(:original) { described_class.new("P1Y2M") }
       subject(:duration) { described_class.new(original) }
+
+      let(:original) { described_class.new("P1Y2M") }
 
       it "copies years" do
         expect(duration.years).to eq(1)

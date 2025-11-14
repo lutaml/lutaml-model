@@ -154,7 +154,7 @@ RSpec.describe Lutaml::Model::Type::Uri do
     it "serializes URIs correctly" do
       instance = model_class.new(
         homepage: "https://example.com/page",
-        location: "https://example.com/schema.xsd"
+        location: "https://example.com/schema.xsd",
       )
       xml = instance.to_xml
       expect(xml).to include("<homepage>https://example.com/page</homepage>")

@@ -110,7 +110,7 @@ RSpec.describe Lutaml::Model::Type::Base64Binary do
   end
 
   describe ".decode" do
-    context "with nil value"  do
+    context "with nil value" do
       it "returns nil" do
         expect(described_class.decode(nil)).to be_nil
       end
@@ -191,7 +191,7 @@ RSpec.describe Lutaml::Model::Type::Base64Binary do
     end
 
     it "deserializes base64 data correctly" do
-      encoded = Lutaml::Model::Type::Base64Binary.encode("Test Data")
+      encoded = described_class.encode("Test Data")
       xml = %(<attachment filename="test.txt"><content>#{encoded}</content></attachment>)
 
       instance = model_class.from_xml(xml)

@@ -130,7 +130,10 @@ RSpec.describe Lutaml::Model::Type::Time do
     end
 
     context "with microsecond precision" do
-      let(:value) { Time.at(Time.new(2024, 1, 1, 12, 0, 0, "+08:00").to_i, 123456, :usec).getlocal("+08:00") }
+      let(:value) do
+        Time.at(Time.new(2024, 1, 1, 12, 0, 0, "+08:00").to_i, 123456,
+                :usec).getlocal("+08:00")
+      end
 
       it "retains microsecond precision and offset" do
         expect(serialize).to eq("2024-01-01T12:00:00.123456+08:00")

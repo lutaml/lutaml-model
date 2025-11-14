@@ -214,7 +214,7 @@ RSpec.describe Lutaml::Model::Type::HexBinary do
     end
 
     it "deserializes hex data correctly" do
-      encoded = Lutaml::Model::Type::HexBinary.encode("Test")
+      encoded = described_class.encode("Test")
       xml = %(<checksum algorithm="MD5"><value>#{encoded}</value></checksum>)
 
       instance = model_class.from_xml(xml)

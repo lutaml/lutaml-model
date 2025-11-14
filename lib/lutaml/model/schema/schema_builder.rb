@@ -33,7 +33,8 @@ module Lutaml
             require_relative "schema_builder/oga"
             SchemaBuilder::Oga.new(@options, &block)
           else
-            raise UnknownAdapterTypeError, "Unknown adapter type: #{@adapter_type}. Supported: [:nokogiri, :oga]"
+            raise UnknownAdapterTypeError,
+                  "Unknown adapter type: #{@adapter_type}. Supported: [:nokogiri, :oga]"
           end
         end
       end

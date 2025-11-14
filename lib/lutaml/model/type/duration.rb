@@ -68,12 +68,12 @@ module Lutaml
           matches = str.match(/^P(?:(\d+)Y)?(?:(\d+)M)?(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?)?$/)
           return unless matches
 
-          @years = matches[1]&.to_i || 0
-          @months = matches[2]&.to_i || 0
-          @days = matches[3]&.to_i || 0
-          @hours = matches[4]&.to_i || 0
-          @minutes = matches[5]&.to_i || 0
-          @seconds = matches[6]&.to_f || 0.0
+          @years = matches[1].to_i
+          @months = matches[2].to_i
+          @days = matches[3].to_i
+          @hours = matches[4].to_i
+          @minutes = matches[5].to_i
+          @seconds = matches[6].to_f
         end
       end
     end

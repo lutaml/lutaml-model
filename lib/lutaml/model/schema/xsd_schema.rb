@@ -15,7 +15,7 @@ module Lutaml
 
           schema_builder = SchemaBuilder.new(
             adapter_type: adapter_type,
-            options: { encoding: "UTF-8" }
+            options: { encoding: "UTF-8" },
           ) do |xml|
             generate_schema(xml, klass, xml_mapping, register, options)
           end
@@ -23,7 +23,7 @@ module Lutaml
           schema_builder.to_xml(options)
         end
 
-        def self.generate_schema(xml, klass, xml_mapping, register, options)
+        def self.generate_schema(xml, klass, xml_mapping, register, _options)
           schema_attrs = { xmlns: "http://www.w3.org/2001/XMLSchema" }
 
           # Add namespace metadata from XmlNamespace class if present
@@ -37,7 +37,7 @@ module Lutaml
             # Add xmlns declarations for the target namespace
             prefix = xml_mapping.namespace_prefix || ns.prefix_default
             if prefix && !prefix.empty?
-              schema_attrs["xmlns:#{prefix}".to_sym] = ns.uri
+              schema_attrs[:"xmlns:#{prefix}"] = ns.uri
             end
           elsif xml_mapping.namespace_uri
             # Legacy: namespace URI without XmlNamespace class
@@ -46,7 +46,8 @@ module Lutaml
             schema_attrs[:attributeFormDefault] = "unqualified"
 
             if xml_mapping.namespace_prefix
-              schema_attrs["xmlns:#{xml_mapping.namespace_prefix}".to_sym] = xml_mapping.namespace_uri
+              schema_attrs[:"xmlns:#{xml_mapping.namespace_prefix}"] =
+                xml_mapping.namespace_uri
             end
           end
 
@@ -66,19 +67,19 @@ module Lutaml
             # If there's an explicit element declaration, use that
             # If there's an explicit XML mapping with root, use that
             # Otherwise use full class name (not the default mapping's root)
-            if has_explicit_xml_mapping?(klass, xml_mapping)
-              # Explicit XML mapping defined by user
-              if xml_mapping.element_name
-                element_name = xml_mapping.element_name
-              elsif xml_mapping.root_element
-                element_name = xml_mapping.root_element
-              else
-                element_name = klass.name
-              end
-            else
-              # No explicit mapping - use full class name
-              element_name = klass.name
-            end
+            element_name = if has_explicit_xml_mapping?(klass, xml_mapping)
+                             # Explicit XML mapping defined by user
+                             if xml_mapping.element_name
+                               xml_mapping.element_name
+                             elsif xml_mapping.root_element
+                               xml_mapping.root_element
+                             else
+                               klass.name
+                             end
+                           else
+                             # No explicit mapping - use full class name
+                             klass.name
+                           end
 
             # Generate element wrapper with inline complexType
             # This maintains backward compatibility with existing tests
@@ -93,7 +94,10 @@ module Lutaml
 
           namespace_class.imports.each do |imported_ns|
             import_attrs = { namespace: imported_ns.uri }
-            import_attrs[:schemaLocation] = imported_ns.schema_location if imported_ns.schema_location
+            if imported_ns.schema_location
+              import_attrs[:schemaLocation] =
+                imported_ns.schema_location
+            end
             xml.import(import_attrs)
           end
         end
@@ -115,18 +119,23 @@ module Lutaml
           end
         end
 
-        def self.generate_complex_type_content(xml, klass, register, xml_mapping)
+        def self.generate_complex_type_content(xml, klass, register,
+xml_mapping)
           xml.complexType do
             if klass.attributes.any?
               xml.sequence do
                 generate_elements(xml, klass, register, xml_mapping)
               end
             end
-            generate_attributes(xml, klass, register, xml_mapping) if xml_mapping
+            if xml_mapping
+              generate_attributes(xml, klass, register,
+                                  xml_mapping)
+            end
           end
         end
 
-        def self.generate_complex_type(xml, klass, type_name, register, xml_mapping = nil)
+        def self.generate_complex_type(xml, klass, type_name, register,
+xml_mapping = nil)
           xml.complexType(name: type_name) do
             if klass.attributes.any?
               xml.sequence do
@@ -183,7 +192,8 @@ module Lutaml
                 end
               else
                 # Simple element
-                element_attrs = build_element_attributes(name, xsd_type, attr, xml_mapping, name)
+                element_attrs = build_element_attributes(name, xsd_type, attr,
+                                                         xml_mapping, name)
                 xml.element(element_attrs)
               end
             end
@@ -225,7 +235,8 @@ module Lutaml
           xml_mapping.attributes.any? { |rule| rule.to == attr_name }
         end
 
-        def self.build_element_attributes(name, xsd_type, attr, xml_mapping, attr_name)
+        def self.build_element_attributes(name, xsd_type, attr, xml_mapping,
+attr_name)
           attrs = { name: name.to_s, type: xsd_type }
 
           # Handle collection cardinality
@@ -233,7 +244,8 @@ module Lutaml
             range = attr.resolved_collection
             if range
               attrs[:minOccurs] = range.min.to_s
-              attrs[:maxOccurs] = range.end.infinite? ? "unbounded" : range.max.to_s
+              attrs[:maxOccurs] =
+                range.end.infinite? ? "unbounded" : range.max.to_s
             else
               attrs[:minOccurs] = "0"
               attrs[:maxOccurs] = "unbounded"

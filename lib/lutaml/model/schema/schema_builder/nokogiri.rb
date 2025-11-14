@@ -13,13 +13,12 @@ module Lutaml
 
           def initialize(options = {}, &block)
             encoding = options[:encoding] || "UTF-8"
-            if block_given?
-              @builder = ::Nokogiri::XML::Builder.new(encoding: encoding) do |xml|
-                yield(xml)
-              end
-            else
-              @builder = ::Nokogiri::XML::Builder.new(encoding: encoding)
-            end
+            @builder = if block
+                         ::Nokogiri::XML::Builder.new(encoding: encoding,
+&block)
+                       else
+                         ::Nokogiri::XML::Builder.new(encoding: encoding)
+                       end
           end
 
           # Generate the XSD schema XML string

@@ -304,13 +304,13 @@ RSpec.describe "Enhanced XML Mapping Features" do
           type_name "ProductType"
 
           map_attribute "id", to: :product_id,
-                        documentation: "Product identifier",
-                        form: :unqualified
+                              documentation: "Product identifier",
+                              form: :unqualified
           map_element "name", to: :name,
-                      documentation: "Product name",
-                      form: :qualified
+                              documentation: "Product name",
+                              form: :qualified
           map_element "description", to: :description,
-                      form: :qualified
+                                     form: :qualified
         end
       end
     end
@@ -348,7 +348,7 @@ RSpec.describe "Enhanced XML Mapping Features" do
       instance = model_class.new(
         product_id: "P001",
         name: "Widget",
-        description: "A useful widget"
+        description: "A useful widget",
       )
       xml = instance.to_xml
 
@@ -478,7 +478,7 @@ RSpec.describe "Enhanced XML Mapping Features" do
       it "applies form overrides correctly" do
         instance = model_class.new(
           qualified_elem: "A",
-          unqualified_elem: "B"
+          unqualified_elem: "B",
         )
         xml = instance.to_xml
 
@@ -600,14 +600,14 @@ RSpec.describe "Enhanced XML Mapping Features" do
           type_name "ProductType"
 
           map_attribute "id", to: :product_id,
-                        documentation: "Product ID",
-                        form: :unqualified
+                              documentation: "Product ID",
+                              form: :unqualified
           map_element "name", to: :name,
-                      documentation: "Product name",
-                      form: :qualified
+                              documentation: "Product name",
+                              form: :qualified
           map_element "price", to: :price,
-                      documentation: "Product price",
-                      form: :qualified
+                               documentation: "Product price",
+                               form: :qualified
         end
       end
     end
@@ -616,7 +616,7 @@ RSpec.describe "Enhanced XML Mapping Features" do
       original = model_class.new(
         product_id: "P123",
         name: "Widget",
-        price: 19.99
+        price: 19.99,
       )
 
       xml = original.to_xml
@@ -631,7 +631,7 @@ RSpec.describe "Enhanced XML Mapping Features" do
       instance = model_class.new(
         product_id: "P123",
         name: "Widget",
-        price: 19.99
+        price: 19.99,
       )
 
       xml = instance.to_xml

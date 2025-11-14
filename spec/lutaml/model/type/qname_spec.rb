@@ -111,7 +111,7 @@ RSpec.describe Lutaml::Model::Type::QName do
         described_class.from_parts(
           prefix: "ex",
           local_name: "element",
-          namespace_uri: "https://example.com"
+          namespace_uri: "https://example.com",
         )
       end
 
@@ -155,8 +155,9 @@ RSpec.describe Lutaml::Model::Type::QName do
     end
 
     context "with QName instance" do
-      let(:original) { described_class.new("xs:string") }
       subject(:qname) { described_class.new(original) }
+
+      let(:original) { described_class.new("xs:string") }
 
       it "copies prefix" do
         expect(qname.prefix).to eq("xs")
@@ -216,7 +217,7 @@ RSpec.describe Lutaml::Model::Type::QName do
     it "serializes QNames correctly" do
       instance = model_class.new(
         ref_type: "xsd:string",
-        target: "ns:elementName"
+        target: "ns:elementName",
       )
       xml = instance.to_xml
       expect(xml).to include('type="xsd:string"')

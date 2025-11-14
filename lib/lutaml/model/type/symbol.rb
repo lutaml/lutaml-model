@@ -8,16 +8,16 @@ module Lutaml
           return nil if value.respond_to?(:empty?) && value.empty?
 
           # Convert to string for validation and unwrapping
-          if value.is_a?(::Symbol)
-            # Already a symbol, convert to string for validation
-            str_value = value.to_s
-          elsif value.is_a?(::String)
-            # Unwrap if needed, then validate
-            str_value = unwrap_symbol_string(value)
-          else
-            # Other types - convert to string
-            str_value = value.to_s
-          end
+          str_value = if value.is_a?(::Symbol)
+                        # Already a symbol, convert to string for validation
+                        value.to_s
+                      elsif value.is_a?(::String)
+                        # Unwrap if needed, then validate
+                        unwrap_symbol_string(value)
+                      else
+                        # Other types - convert to string
+                        value.to_s
+                      end
 
           # Validate the string representation
           Model::Services::Type::Validator::Symbol.validate!(str_value, options)

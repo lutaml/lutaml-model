@@ -11,7 +11,7 @@ module Lutaml
         class Oga
           attr_reader :builder, :document
 
-          def initialize(options = {}, &block)
+          def initialize(options = {})
             @encoding = options[:encoding] || "UTF-8"
             @document = ::Oga::XML::Document.new
             @builder = OgaBuilderWrapper.new(@document, @encoding)
@@ -24,15 +24,15 @@ module Lutaml
           # @param options [Hash] formatting options
           # @option options [Boolean] :pretty Pretty print with indentation (note: Oga doesn't support pretty printing directly)
           # @return [String] XSD XML string
-          def to_xml(options = {})
+          def to_xml(_options = {})
             xml = @document.to_xml
             # Add XML declaration with encoding
             "<?xml version=\"1.0\" encoding=\"#{@encoding}\"?>\n#{xml}"
           end
 
           # Forward all other methods to the builder wrapper
-          def method_missing(method_name, *args, &block)
-            @builder.public_send(method_name, *args, &block)
+          def method_missing(method_name, ...)
+            @builder.public_send(method_name, ...)
           end
 
           def respond_to_missing?(method_name, include_private = false)
@@ -49,7 +49,7 @@ module Lutaml
 
             # Create a method that acts like Nokogiri's builder DSL
             # e.g., xml.schema { } or xml.element { }
-            def method_missing(method_name, *args, &block)
+            def method_missing(method_name, *args)
               attributes = args.first || {}
 
               # Create the element
@@ -59,7 +59,7 @@ module Lutaml
               attributes.each do |name, value|
                 element.attributes << ::Oga::XML::Attribute.new(
                   name: name.to_s,
-                  value: value.to_s
+                  value: value.to_s,
                 )
               end
 
@@ -81,7 +81,7 @@ module Lutaml
               element
             end
 
-            def respond_to_missing?(method_name, include_private = false)
+            def respond_to_missing?(_method_name, _include_private = false)
               true # Accept any method for element creation
             end
           end

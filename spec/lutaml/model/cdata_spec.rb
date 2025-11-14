@@ -383,7 +383,9 @@ RSpec.describe "CDATA" do
         XML
       end
 
-      let(:expected_xml) { "<RootMixedContentNested id=\"outer123\"><![CDATA[The following text is about the Moon.]]><MixedContent id=\"inner456\"><![CDATA[The Earth's Moon rings like a ]]><bold><![CDATA[bell]]></bold><![CDATA[ when struck by meteroids. Distanced from the Earth by ]]><italic><![CDATA[384,400 km]]></italic><![CDATA[ ,its surface is covered in ]]><underline><![CDATA[craters]]></underline><![CDATA[ .Ain't that ]]><bold><![CDATA[cool]]></bold><![CDATA[ ? ]]></MixedContent><sup><![CDATA[1]]></sup><![CDATA[The Moon is not a planet.]]><sup><![CDATA[2]]></sup><![CDATA[The Moon's atmosphere is mainly composed of helium in the form of He]]><sub>2</sub></RootMixedContentNested>" }
+      let(:expected_xml) do
+        "<RootMixedContentNested id=\"outer123\"><![CDATA[The following text is about the Moon.]]><MixedContent id=\"inner456\"><![CDATA[The Earth's Moon rings like a ]]><bold><![CDATA[bell]]></bold><![CDATA[ when struck by meteroids. Distanced from the Earth by ]]><italic><![CDATA[384,400 km]]></italic><![CDATA[ ,its surface is covered in ]]><underline><![CDATA[craters]]></underline><![CDATA[ .Ain't that ]]><bold><![CDATA[cool]]></bold><![CDATA[ ? ]]></MixedContent><sup><![CDATA[1]]></sup><![CDATA[The Moon is not a planet.]]><sup><![CDATA[2]]></sup><![CDATA[The Moon's atmosphere is mainly composed of helium in the form of He]]><sub>2</sub></RootMixedContentNested>"
+      end
 
       let(:expected_ox_xml) do
         <<~XML
@@ -472,7 +474,9 @@ RSpec.describe "CDATA" do
         XML
       end
 
-      let(:expected_xml) { "<DefaultValue><name><![CDATA[Default Value]]></name><temperature><![CDATA[500]]></temperature><opacity>Opaque</opacity><![CDATA[The following text is about the MoonThe Moon's atmosphere is mainly composed of helium in the form]]></DefaultValue>" }
+      let(:expected_xml) do
+        "<DefaultValue><name><![CDATA[Default Value]]></name><temperature><![CDATA[500]]></temperature><opacity>Opaque</opacity><![CDATA[The following text is about the MoonThe Moon's atmosphere is mainly composed of helium in the form]]></DefaultValue>"
+      end
 
       let(:expected_ox_xml) do
         <<~XML
