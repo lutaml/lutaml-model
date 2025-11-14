@@ -42,13 +42,8 @@ module Lutaml
           end
         end
 
-        # # ISO8601 time format
-        # def to_json
-        #   value&.iso8601
-        # end
-
-        # YAML timestamp format (native)
-        def to_yaml
+        # ISO8601 time format
+        def to_json(*_args)
           return nil unless value
 
           if value.subsec.zero?
@@ -58,10 +53,22 @@ module Lutaml
           end
         end
 
-        # # TOML time format (HH:MM:SS.mmm)
-        # def to_toml
-        #   value&.strftime("%H:%M:%S.%L")
-        # end
+        # YAML timestamp format (native)
+        def to_yaml
+          value&.iso8601.to_s
+        end
+
+        # XSD type for Time
+        #
+        # @return [String] xs:time
+        def self.xsd_type
+          "xs:time"
+        end
+
+        # TOML time format (HH:MM:SS.mmm)
+        def to_toml
+          value&.strftime("%H:%M:%S.%L")
+        end
       end
     end
   end

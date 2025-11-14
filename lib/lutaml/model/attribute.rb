@@ -22,6 +22,7 @@ module Lutaml
         required
         ref_model_class
         ref_key_attribute
+        xsd_type
       ].freeze
 
       MODEL_STRINGS = [

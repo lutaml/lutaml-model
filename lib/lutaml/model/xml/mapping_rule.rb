@@ -10,7 +10,9 @@ module Lutaml
                     :default_namespace,
                     :cdata,
                     :as_list,
-                    :delimiter
+                    :delimiter,
+                    :form,
+                    :documentation
 
         def initialize(
           name,
@@ -36,7 +38,9 @@ module Lutaml
           transform: {},
           value_map: {},
           as_list: nil,
-          delimiter: nil
+          delimiter: nil,
+          form: nil,
+          documentation: nil
         )
           super(
             name,
@@ -72,6 +76,8 @@ module Lutaml
           @prefix_set = prefix_set
           @as_list = as_list
           @delimiter = delimiter
+          @form = validate_form(form)
+          @documentation = documentation
         end
 
         def namespace_set?
@@ -96,6 +102,27 @@ module Lutaml
 
         def mixed_content?
           !!@mixed_content
+        end
+
+        # Check if this mapping specifies qualified form
+        #
+        # @return [Boolean] true if form is :qualified
+        def qualified?
+          form == :qualified
+        end
+
+        # Check if this mapping specifies unqualified form
+        #
+        # @return [Boolean] true if form is :unqualified
+        def unqualified?
+          form == :unqualified
+        end
+
+        # Check if form is explicitly set
+        #
+        # @return [Boolean] true if form option was provided
+        def form_set?
+          !form.nil?
         end
 
         def prefixed_name
@@ -151,7 +178,28 @@ module Lutaml
             value_map: Utils.deep_dup(@value_map),
             as_list: @as_list,
             delimiter: @delimiter,
+            form: @form,
+            documentation: @documentation,
           )
+        end
+
+        private
+
+        # Validate form parameter
+        #
+        # @param form [Symbol, nil] the form value
+        # @return [Symbol, nil] validated form value
+        # @raise [ArgumentError] if form is invalid
+        def validate_form(form)
+          return nil if form.nil?
+
+          valid_forms = %i[qualified unqualified]
+          unless valid_forms.include?(form)
+            raise ArgumentError,
+                  "form must be :qualified or :unqualified, got #{form.inspect}"
+          end
+
+          form
         end
       end
     end

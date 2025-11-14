@@ -459,7 +459,34 @@ collection)
           adapter = Lutaml::Model::Config.adapter_for(format)
 
           options[:mapper_class] = self if format == :xml
+
+          # Apply namespace prefix overrides for XML format
+          if format == :xml && options[:namespaces]
+            options = apply_namespace_overrides(options)
+          end
+
           adapter.new(value).public_send(:"to_#{format}", options)
+        end
+
+        def apply_namespace_overrides(options)
+          namespaces = options[:namespaces]
+          return options unless namespaces.is_a?(Array)
+
+          # Build a namespace URI to prefix mapping
+          ns_prefix_map = {}
+          namespaces.each do |ns_config|
+            if ns_config.is_a?(Hash)
+              ns_class = ns_config[:namespace]
+              prefix = ns_config[:prefix]
+
+              if ns_class.is_a?(Class) && ns_class < Lutaml::Model::XmlNamespace
+                ns_prefix_map[ns_class.uri] = prefix.to_s if prefix
+              end
+            end
+          end
+
+          options[:namespace_prefix_map] = ns_prefix_map unless ns_prefix_map.empty?
+          options
         end
 
         def as(format, instance, options = {})

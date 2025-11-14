@@ -45,11 +45,18 @@ module Lutaml
         end
 
         def to_yaml
-          self.class.serialize(value)
+          value&.strftime("%H:%M:%S").to_s
         end
 
         def to_toml
           value.strftime("%H:%M:%S.%L") # Include milliseconds for TOML
+        end
+
+        # XSD type for TimeWithoutDate
+        #
+        # @return [String] xs:time
+        def self.xsd_type
+          "xs:time"
         end
       end
     end

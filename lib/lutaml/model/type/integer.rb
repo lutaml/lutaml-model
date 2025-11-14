@@ -38,6 +38,13 @@ module Lutaml
 
           cast(value)
         end
+
+        # XSD type for Integer
+        #
+        # @return [String] xs:integer
+        def self.xsd_type
+          "xs:integer"
+        end
       end
     end
   end

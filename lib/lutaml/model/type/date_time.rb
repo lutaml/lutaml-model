@@ -56,13 +56,7 @@ module Lutaml
 
         # YAML timestamp format (native)
         def to_yaml
-          return nil unless value
-
-          if value.sec_fraction.zero?
-            value.iso8601
-          else
-            value.iso8601(6).sub(/(\.\d{3})0{3}([+-])/, '\1\2')
-          end
+          value&.iso8601.to_s
         end
 
         # TOML datetime format (RFC3339)
@@ -74,6 +68,13 @@ module Lutaml
           else
             value.iso8601(6).sub(/(\.\d{3})0{3}([+-])/, '\1\2')
           end
+        end
+
+        # XSD type for DateTime
+        #
+        # @return [String] xs:dateTime
+        def self.xsd_type
+          "xs:dateTime"
         end
       end
     end

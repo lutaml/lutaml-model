@@ -14,6 +14,7 @@ module Lutaml
   end
 end
 
+require_relative "xml_namespace"
 require_relative "xml/document"
 require_relative "xml/mapping"
 require_relative "xml/mapping_rule"
