@@ -394,7 +394,9 @@ RSpec.describe Lutaml::Model::Xml::Mapping do
       Lutaml::Model::Config.xml_adapter = old_adapter
     end
 
+    # rubocop:disable all
     let(:mapping) { Lutaml::Model::Xml::Mapping.new }
+    # rubocop:enable all
 
     context "with attribute having namespace" do
       let(:input_xml) do
@@ -1322,7 +1324,9 @@ RSpec.describe Lutaml::Model::Xml::Mapping do
     end
 
     describe "validation errors" do
+      # rubocop:disable all
       let(:mapping) { Lutaml::Model::Xml::Mapping.new }
+      # rubocop:enable all
 
       it "raises error when neither :to nor :with provided" do
         expect do

@@ -479,13 +479,16 @@ collection)
               ns_class = ns_config[:namespace]
               prefix = ns_config[:prefix]
 
-              if ns_class.is_a?(Class) && ns_class < Lutaml::Model::XmlNamespace
-                ns_prefix_map[ns_class.uri] = prefix.to_s if prefix
+              if ns_class.is_a?(Class) && ns_class < Lutaml::Model::XmlNamespace && prefix
+                ns_prefix_map[ns_class.uri] = prefix.to_s
               end
             end
           end
 
-          options[:namespace_prefix_map] = ns_prefix_map unless ns_prefix_map.empty?
+          unless ns_prefix_map.empty?
+            options[:namespace_prefix_map] =
+              ns_prefix_map
+          end
           options
         end
 

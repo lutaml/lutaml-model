@@ -125,7 +125,8 @@ RSpec.describe Lutaml::Model::XmlNamespace do
         ns_class.imports(other_namespace)
         ns_class.imports(another_namespace)
 
-        expect(ns_class.imports).to match_array([other_namespace, another_namespace])
+        expect(ns_class.imports).to contain_exactly(other_namespace,
+                                                    another_namespace)
       end
 
       it "raises error for non-XmlNamespace class" do
@@ -155,7 +156,8 @@ RSpec.describe Lutaml::Model::XmlNamespace do
           includes "common.xsd"
           includes "extensions.xsd"
         end
-        expect(ns_class.includes).to match_array(["common.xsd", "extensions.xsd"])
+        expect(ns_class.includes).to contain_exactly("common.xsd",
+                                                     "extensions.xsd")
       end
 
       it "raises error for non-string" do

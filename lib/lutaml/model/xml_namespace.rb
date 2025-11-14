@@ -70,7 +70,7 @@ module Lutaml
         # @return [Symbol] the element form default (defaults to :unqualified)
         def element_form_default(value = nil)
           if value
-            validate_form_value!(value, 'element_form_default')
+            validate_form_value!(value, "element_form_default")
             @element_form_default_value = value
           end
           @element_form_default_value || :unqualified
@@ -85,7 +85,7 @@ module Lutaml
         # @return [Symbol] the attribute form default (defaults to :unqualified)
         def attribute_form_default(value = nil)
           if value
-            validate_form_value!(value, 'attribute_form_default')
+            validate_form_value!(value, "attribute_form_default")
             @attribute_form_default_value = value
           end
           @attribute_form_default_value || :unqualified
@@ -101,7 +101,7 @@ module Lutaml
           @imports ||= []
           if namespaces.any?
             namespaces.each do |ns|
-              validate_namespace_class!(ns, 'imports')
+              validate_namespace_class!(ns, "imports")
             end
             @imports.concat(namespaces)
           end

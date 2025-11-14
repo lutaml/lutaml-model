@@ -74,7 +74,7 @@ RSpec.describe "XML Namespace Integration" do
 
         xml do
           element "p"
-          mixed_content  # New explicit method
+          mixed_content # New explicit method
           map_element "bold", to: :bold_text
           map_element "i", to: :italic_text
         end
@@ -182,7 +182,7 @@ RSpec.describe "XML Namespace Integration" do
 
         xml do
           # No element declaration - type-only model
-          no_root  # Explicitly mark as no root
+          no_root # Explicitly mark as no root
           sequence do
             map_element "street", to: :street
             map_element "city", to: :city
@@ -222,7 +222,8 @@ RSpec.describe "XML Namespace Integration" do
       expect do
         person = person_with_address_class.new(
           name: "Jane",
-          address: address_type_class.new(street: "123 Main St", city: "Boston")
+          address: address_type_class.new(street: "123 Main St",
+                                          city: "Boston"),
         )
         xml = person.to_xml
 

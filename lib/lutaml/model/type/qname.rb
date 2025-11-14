@@ -55,7 +55,7 @@ module Lutaml
         # @param local_name [String] the local name
         # @param namespace_uri [String, nil] the namespace URI
         # @return [QName] the QName instance
-        def self.from_parts(prefix: nil, local_name:, namespace_uri: nil)
+        def self.from_parts(local_name:, prefix: nil, namespace_uri: nil)
           qname_str = prefix ? "#{prefix}:#{local_name}" : local_name
           new(qname_str).tap do |qname|
             qname.instance_variable_set(:@namespace_uri, namespace_uri)
