@@ -56,15 +56,11 @@ RSpec.describe "Type Namespace Examples" do
 
         xml do
           root "personName"
-          namespace ns.uri, ns.prefix_default
+          namespace ns
 
-          # Type namespaces work for serialization, but need explicit namespace for deserialization
-          map_element "givenName", to: :given_name,
-                      namespace: "https://example.com/schemas/contact/v1", prefix: "ct"
-          map_element "surname", to: :surname,
-                      namespace: "https://example.com/schemas/contact/v1", prefix: "ct"
-          map_attribute "prefix", to: :prefix,
-                        namespace: "https://example.com/schemas/name-attributes/v1", prefix: "name"
+          map_element "givenName", to: :given_name
+          map_element "surname", to: :surname
+          map_attribute "prefix", to: :prefix
           map_attribute "suffix", to: :suffix
         end
 
@@ -83,7 +79,7 @@ RSpec.describe "Type Namespace Examples" do
 
         xml do
           root "ContactInfo"
-          namespace ns.uri, ns.prefix_default
+          namespace ns
 
           map_element "personName", to: :person_name
         end
@@ -281,11 +277,9 @@ RSpec.describe "Type Namespace Examples" do
 
         xml do
           root "created"
-          namespace ns.uri, ns.prefix_default
+          namespace ns
 
-          # Type namespace works for serialization, but need explicit specification for deserialization
-          map_attribute "type", to: :type,
-                        namespace: "http://www.w3.org/2001/XMLSchema-instance", prefix: "xsi"
+          map_attribute "type", to: :type
           map_content to: :value
         end
 
@@ -305,11 +299,9 @@ RSpec.describe "Type Namespace Examples" do
 
         xml do
           root "modified"
-          namespace ns.uri, ns.prefix_default
+          namespace ns
 
-          # Type namespace works for serialization, but need explicit specification for deserialization
-          map_attribute "type", to: :type,
-                        namespace: "http://www.w3.org/2001/XMLSchema-instance", prefix: "xsi"
+          map_attribute "type", to: :type
           map_content to: :value
         end
 
@@ -339,17 +331,12 @@ RSpec.describe "Type Namespace Examples" do
 
         xml do
           root "coreProperties"
-          namespace ns.uri, ns.prefix_default
+          namespace ns
 
-          # Type namespaces work for serialization, but need explicit namespace for deserialization
-          map_element "title", to: :title,
-                      namespace: "http://purl.org/dc/elements/1.1/", prefix: "dc"
-          map_element "creator", to: :creator,
-                      namespace: "http://purl.org/dc/elements/1.1/", prefix: "dc"
-          map_element "lastModifiedBy", to: :last_modified_by,
-                      namespace: "http://schemas.openxmlformats.org/package/2006/metadata/core-properties", prefix: "cp"
-          map_element "revision", to: :revision,
-                      namespace: "http://schemas.openxmlformats.org/package/2006/metadata/core-properties", prefix: "cp"
+          map_element "title", to: :title
+          map_element "creator", to: :creator
+          map_element "lastModifiedBy", to: :last_modified_by
+          map_element "revision", to: :revision
           map_element "created", to: :created
           map_element "modified", to: :modified
         end
@@ -471,11 +458,9 @@ RSpec.describe "Type Namespace Examples" do
 
         xml do
           root "example"
-          namespace ns.uri, ns.prefix_default
+          namespace ns
 
-          # Type namespace works for serialization, but need explicit specification for deserialization
-          map_element "value", to: :value,
-                      namespace: "https://example.com/custom", prefix: "custom"
+          map_element "value", to: :value
         end
 
         def self.name

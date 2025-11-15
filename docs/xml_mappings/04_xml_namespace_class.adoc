@@ -930,6 +930,142 @@ correctly with your namespace configuration
 
 5. **Document namespaces**: Use XmlNamespace `documentation` for schema clarity
 
+=== Migration from deprecated namespace directive
+
+==== Overview
+
+The `namespace` directive for `Type::Value` classes has been renamed to
+`xml_namespace` to better indicate its XML-specific nature and reserve
+`namespace` for future semantic namespace features.
+
+IMPORTANT: Use `xml_namespace` instead of `namespace` for all `Type::Value` classes.
+
+==== Deprecated syntax
+
+[source,ruby]
+----
+class DcTitleType < Lutaml::Model::Type::String
+  namespace DublinCoreNamespace  # ⚠️ DEPRECATED
+  xsd_type 'titleType'
+end
+----
+
+**Deprecation warning shown:**
+
+[source]
+----
+[DEPRECATION] Type::Value.namespace is deprecated. Use xml_namespace instead.
+This will be removed in version 1.0.0
+----
+
+==== Current syntax
+
+[source,ruby]
+----
+class DcTitleType < Lutaml::Model::Type::String
+  xml_namespace DublinCoreNamespace  # ✅ CURRENT
+  xsd_type 'titleType'
+end
+----
+
+==== Why the change?
+
+The renaming serves several important purposes:
+
+* **XML-specific clarity**: The `xml_namespace` name clearly indicates this is
+  XML serialization configuration, not a general semantic namespace
+* **Future compatibility**: Reserves `namespace` for semantic namespace features
+  like JSON-LD `@context` and RDF IRI mappings
+* **Consistency**: Aligns with format-specific naming patterns throughout
+  Lutaml::Model
+* **Disambiguation**: Distinguishes Type-level namespace from Model-level
+  `namespace` directive
+
+==== Migration steps
+
+. **Locate Type::Value classes with namespace**: Search your codebase for classes
+  inheriting from `Lutaml::Model::Type::Value` (or built-in types like
+  `Type::String`) that use `namespace`
+
+. **Replace directive**: Change `namespace` to `xml_namespace`
+
+. **Test round-trip**: Verify serialization and deserialization work correctly
+
+. **No other changes needed**: Functionality is identical
+
+==== Complete migration example
+
+.Before (deprecated)
+[source,ruby]
+----
+class DublinCoreNamespace < Lutaml::Model::XmlNamespace
+  uri 'http://purl.org/dc/elements/1.1/'
+  prefix_default 'dc'
+end
+
+class DcTitleType < Lutaml::Model::Type::String
+  namespace DublinCoreNamespace  # ⚠️ DEPRECATED
+  xsd_type 'titleType'
+end
+
+class DcCreatorType < Lutaml::Model::Type::String
+  namespace DublinCoreNamespace  # ⚠️ DEPRECATED
+  xsd_type 'creatorType'
+end
+
+class Document < Lutaml::Model::Serializable
+  attribute :title, DcTitleType
+  attribute :creator, DcCreatorType
+
+  xml do
+    root 'document'
+    map_element 'title', to: :title
+    map_element 'creator', to: :creator
+  end
+end
+----
+
+.After (current)
+[source,ruby]
+----
+class DublinCoreNamespace < Lutaml::Model::XmlNamespace
+  uri 'http://purl.org/dc/elements/1.1/'
+  prefix_default 'dc'
+end
+
+class DcTitleType < Lutaml::Model::Type::String
+  xml_namespace DublinCoreNamespace  # ✅ CURRENT
+  xsd_type 'titleType'
+end
+
+class DcCreatorType < Lutaml::Model::Type::String
+  xml_namespace DublinCoreNamespace  # ✅ CURRENT
+  xsd_type 'creatorType'
+end
+
+class Document < Lutaml::Model::Serializable
+  attribute :title, DcTitleType
+  attribute :creator, DcCreatorType
+
+  xml do
+    root 'document'
+    map_element 'title', to: :title
+    map_element 'creator', to: :creator
+  end
+end
+----
+
+==== Backward compatibility
+
+The deprecated `namespace` directive will:
+
+* Continue to work in current versions
+* Show a deprecation warning on first use
+* Be removed in Lutaml::Model version 1.0.0
+
+This gives you time to migrate at your own pace while maintaining full
+functionality.
+
 === Migration from xml block
 
 The old xml block approach in Type::Value is deprecated:

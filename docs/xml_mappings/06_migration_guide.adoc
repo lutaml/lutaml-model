@@ -383,3 +383,118 @@ xsd = Lutaml::Model::Schema.to_xml(YourModel)
 assert_includes xsd, '<xs:schema'
 assert_includes xsd, 'targetNamespace'
 ----
+
+== Deprecated syntax migration
+
+=== Type::Value namespace directive
+
+==== What changed
+
+The `namespace` directive for `Type::Value` classes has been renamed to
+`xml_namespace`.
+
+==== Why the change
+
+* **XML-specific clarity**: Clearly indicates this is XML serialization
+  configuration
+* **Future compatibility**: Reserves `namespace` for semantic namespace features
+  (JSON-LD `@context`, RDF IRIs)
+* **Consistency**: Maintains consistency with format-specific configuration
+  patterns
+* **Disambiguation**: Distinguishes Type-level namespace from Model-level
+  `namespace` directive
+
+==== Migration steps
+
+. **Identify affected classes**
++
+Find all `Type::Value` subclasses using `namespace`:
++
+[source,ruby]
+----
+# Search for patterns like:
+class CustomType < Lutaml::Model::Type::String
+  namespace SomeNamespace  # ⚠️ DEPRECATED
+end
+----
+
+. **Replace with xml_namespace**
++
+[source,ruby]
+----
+class CustomType < Lutaml::Model::Type::String
+  xml_namespace SomeNamespace  # ✅ CURRENT
+end
+----
+
+. **No other changes needed**
++
+Functionality remains identical, serialization and deserialization work the same
+
+==== Backward compatibility
+
+The deprecated `namespace` directive:
+
+* ✅ Continues to work in current versions
+* ⚠️ Shows deprecation warning: `[DEPRECATION] Type::Value.namespace is
+  deprecated. Use xml_namespace instead. This will be removed in version 1.0.0`
+* ❌ Will be removed in Lutaml::Model version 1.0.0
+
+==== Complete example
+
+.Before (deprecated)
+[source,ruby]
+----
+class DublinCoreNamespace < Lutaml::Model::XmlNamespace
+  uri 'http://purl.org/dc/elements/1.1/'
+  prefix_default 'dc'
+end
+
+class DcTitleType < Lutaml::Model::Type::String
+  namespace DublinCoreNamespace  # ⚠️ DEPRECATED
+  xsd_type 'titleType'
+  
+  def self.cast(value)
+    super(value)
+  end
+end
+
+class Document < Lutaml::Model::Serializable
+  attribute :title, DcTitleType
+  
+  xml do
+    root 'document'
+    map_element 'title', to: :title
+  end
+end
+----
+
+.After (current)
+[source,ruby]
+----
+class DublinCoreNamespace < Lutaml::Model::XmlNamespace
+  uri 'http://purl.org/dc/elements/1.1/'
+  prefix_default 'dc'
+end
+
+class DcTitleType < Lutaml::Model::Type::String
+  xml_namespace DublinCoreNamespace  # ✅ CURRENT
+  xsd_type 'titleType'
+  
+  def self.cast(value)
+    super(value)
+  end
+end
+
+class Document < Lutaml::Model::Serializable
+  attribute :title, DcTitleType
+  
+  xml do
+    root 'document'
+    map_element 'title', to: :title
+  end
+end
+----
+
+**Result**: Both versions produce identical XML output and parse correctly, but
+the new syntax is future-proof and won't trigger deprecation warnings.

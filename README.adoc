@@ -6367,7 +6367,9 @@ Type-level namespaces are particularly useful for:
 * XSD schema generation with proper namespace imports
 * W3C-compliant round-trip serialization and deserialization
 
-=== Type::Value namespace directive
+=== Type::Value xml_namespace directive
+
+==== Current syntax
 
 Custom value types declare their namespace using the `xml_namespace` class-level
 directive.
@@ -6398,6 +6400,65 @@ deserialization.
 `xsd_type`:: Class-level directive that sets the XSD type name. If not specified,
 defaults to `default_xsd_type` from the parent class (e.g., `xs:string` for
 `Type::String`).
+
+==== Deprecated syntax
+
+IMPORTANT: The `namespace` directive for `Type::Value` classes is deprecated. Use `xml_namespace` instead.
+
+The old `namespace` directive is still supported but will show a deprecation warning:
+
+[source,ruby]
+----
+class CustomType < Lutaml::Model::Type::Value
+  namespace CustomNamespace  # ⚠️ DEPRECATED
+  xsd_type 'CustomType'
+end
+----
+
+**Why the change?**
+
+The `namespace` directive has been renamed to `xml_namespace` to:
+
+* Clearly indicate this is XML-specific configuration
+* Reserve `namespace` for future semantic namespace features (JSON-LD `@context`, RDF IRIs)
+* Maintain consistency with format-specific configuration patterns
+* Distinguish from model-level `namespace` directive
+
+==== Migration
+
+To migrate from deprecated to current syntax:
+
+. Replace `namespace` with `xml_namespace` in all `Type::Value` classes
+. No other changes needed - functionality remains identical
+. The deprecated `namespace` continues to work with a warning
+
+.Before (deprecated)
+[source,ruby]
+----
+class DcTitleType < Lutaml::Model::Type::String
+  namespace DublinCoreNamespace  # ⚠️ DEPRECATED
+  xsd_type 'titleType'
+end
+----
+
+.After (current)
+[source,ruby]
+----
+class DcTitleType < Lutaml::Model::Type::String
+  xml_namespace DublinCoreNamespace  # ✅ CURRENT
+  xsd_type 'titleType'
+end
+----
+
+**Backward compatibility:**
+
+The deprecated `namespace` directive continues to work with a deprecation warning:
+
+[source]
+----
+[DEPRECATION] Type::Value.namespace is deprecated. Use xml_namespace instead.
+This will be removed in version 1.0.0
+----
 
 === Implementation details
 
