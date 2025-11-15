@@ -846,3 +846,62 @@ If you've found a bug:
 3. Include Ruby and gem versions
 4. Include adapter configuration
 5. Show expected vs actual output
+
+== Deprecation warnings
+
+=== Type::Value.namespace is deprecated
+
+**Symptom:**
+
+Deprecation warning when using `namespace` directive on `Type::Value` classes:
+
+[source]
+----
+[DEPRECATION] Type::Value.namespace is deprecated. Use xml_namespace instead.
+This will be removed in version 1.0.0
+----
+
+**Cause:**
+
+Using the old `namespace` directive instead of `xml_namespace` for Type::Value
+classes.
+
+**Solution:**
+
+Replace `namespace` with `xml_namespace`:
+
+.Before (deprecated)
+[source,ruby]
+----
+class DcTitleType < Lutaml::Model::Type::String
+  namespace DublinCoreNamespace  # ⚠️ DEPRECATED
+  xsd_type 'titleType'
+end
+----
+
+.After (current)
+[source,ruby]
+----
+class DcTitleType < Lutaml::Model::Type::String
+  xml_namespace DublinCoreNamespace  # ✅ CURRENT
+  xsd_type 'titleType'
+end
+----
+
+**Why the change?**
+
+The `namespace` directive is reserved for future semantic namespace features
+(JSON-LD, RDF). The `xml_namespace` name clearly indicates XML-specific
+configuration.
+
+**No functional changes**: The behavior is identical, only the directive name
+changed.
+
+**See also:**
+
+* [`README.adoc`](../README.adoc#type-level-namespace) - Type-level namespace
+  documentation
+* [`docs/xml_mappings/04_xml_namespace_class.adoc`](04_xml_namespace_class.adoc#migration-from-deprecated-namespace-directive)
+  - Complete migration guide
+* [`docs/xml_mappings/06_migration_guide.adoc`](06_migration_guide.adoc#deprecated-syntax-migration)
+  - Deprecated syntax migration section

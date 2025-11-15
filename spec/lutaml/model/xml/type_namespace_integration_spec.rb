@@ -63,9 +63,12 @@ RSpec.describe "Type-level namespace integration" do
     end
 
     it "allows explicit namespace to override type namespace" do
+      # Capture namespace in local variable for use in blocks
+      dc_ns = dc_namespace
+
       # Define Type with namespace
       dc_title_type = Class.new(Lutaml::Model::Type::String)
-      dc_title_type.xml_namespace(dc_namespace)
+      dc_title_type.xml_namespace(dc_ns)
 
       override_ns = Class.new(Lutaml::Model::XmlNamespace) do
         uri "http://example.com/override"
@@ -81,9 +84,7 @@ RSpec.describe "Type-level namespace integration" do
         xml do
           root "document"
           # Explicit namespace should override type namespace
-          map_element "title", to: :title,
-                      namespace: "http://example.com/override",
-                      prefix: "override"
+          map_element "title", to: :title, namespace: override_ns
         end
 
         def self.name
@@ -267,8 +268,6 @@ RSpec.describe "Type-level namespace integration" do
       dc_title_type = Class.new(Lutaml::Model::Type::String)
       dc_title_type.xml_namespace(dc_namespace)
 
-      dc_uri = "http://purl.org/dc/elements/1.1/"
-
       # Define Model
       document_class = Class.new do
         include Lutaml::Model::Serialize
@@ -277,8 +276,7 @@ RSpec.describe "Type-level namespace integration" do
 
         xml do
           root "document"
-          # For round-trip to work with Type namespaces, specify namespace in mapping
-          map_element "title", to: :title, namespace: dc_uri, prefix: "dc"
+          map_element "title", to: :title
         end
 
         def self.name

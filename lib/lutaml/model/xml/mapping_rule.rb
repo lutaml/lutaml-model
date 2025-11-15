@@ -6,6 +6,7 @@ module Lutaml
       class MappingRule < MappingRule
         attr_reader :namespace,
                     :prefix,
+                    :namespace_class,
                     :mixed_content,
                     :default_namespace,
                     :cdata,
@@ -60,13 +61,10 @@ module Lutaml
             value_map: value_map,
           )
 
-          @namespace = if namespace.to_s == "inherit"
-                       # we are using inherit_namespace in xml builder by
-                       # default so no need to do anything here.
-                       else
-                         namespace
-                       end
-          @prefix = prefix
+          # Normalize namespace to XmlNamespace class
+          @namespace_class = normalize_namespace(namespace, prefix)
+          @namespace = @namespace_class&.uri
+          @prefix = @namespace_class&.prefix_default || prefix&.to_s
           @mixed_content = mixed_content
           @cdata = cdata
 
@@ -157,6 +155,18 @@ module Lutaml
         end
 
         def deep_dup
+          # For namespace_class: keep the class reference (Classes define behavior, not data)
+          # For namespace/prefix strings: create new string objects by passing through constructor
+          ns_param = if @namespace_class
+                       # Pass the class itself to preserve it
+                       @namespace_class
+                     else
+                       namespace&.dup
+                     end
+
+          # Only pass prefix separately if there's no namespace_class
+          prefix_param = @namespace_class ? nil : prefix&.dup
+
           self.class.new(
             name.dup,
             to: to,
@@ -164,15 +174,15 @@ module Lutaml
             render_default: render_default,
             with: Utils.deep_dup(custom_methods),
             delegate: delegate,
-            namespace: namespace.dup,
-            prefix: prefix.dup,
+            namespace: ns_param,
+            prefix: prefix_param,
             mixed_content: mixed_content,
             cdata: cdata,
             namespace_set: namespace_set?,
             prefix_set: prefix_set?,
             attribute: attribute,
             polymorphic: polymorphic.dup,
-            default_namespace: default_namespace.dup,
+            default_namespace: default_namespace&.dup,
             transform: transform.dup,
             render_empty: render_empty.dup,
             value_map: Utils.deep_dup(@value_map),
@@ -180,7 +190,16 @@ module Lutaml
             delimiter: @delimiter,
             form: @form,
             documentation: @documentation,
-          )
+          ).tap do |dup_rule|
+            # Manually ensure @namespace and @prefix are new string objects
+            if dup_rule.namespace
+              dup_rule.instance_variable_set(:@namespace,
+                                             dup_rule.namespace.dup)
+            end
+            if dup_rule.prefix
+              dup_rule.instance_variable_set(:@prefix, dup_rule.prefix.dup)
+            end
+          end
         end
 
         # Resolve namespace for this mapping rule with W3C-compliant priority
@@ -204,6 +223,47 @@ module Lutaml
 
         private
 
+        # Normalize namespace parameter to XmlNamespace class
+        #
+        # Converts various namespace formats to a consistent XmlNamespace class:
+        # - XmlNamespace class: returned as-is
+        # - String URI: converted to anonymous XmlNamespace class
+        # - :inherit symbol: returns nil (handled specially in resolution)
+        # - nil: returns nil
+        #
+        # @param namespace [Class, String, Symbol, nil] the namespace parameter
+        # @param prefix [String, Symbol, nil] optional prefix for string URIs
+        # @return [Class, nil] XmlNamespace class or nil
+        def normalize_namespace(namespace, prefix)
+          return nil if namespace.nil? && prefix.nil?
+          return nil if namespace.to_s == "inherit"
+
+          # Already an XmlNamespace class
+          if namespace.is_a?(Class) && namespace < Lutaml::Model::XmlNamespace
+            return namespace
+          end
+
+          # String URI - create anonymous XmlNamespace class
+          if namespace.is_a?(String)
+            uri_val = namespace
+            prefix_val = prefix&.to_s
+            return Class.new(Lutaml::Model::XmlNamespace) do
+              uri uri_val
+              prefix_default prefix_val if prefix_val
+            end
+          end
+
+          # Only prefix provided (e.g., xml:lang case)
+          if !prefix.nil?
+            prefix_val = prefix.to_s
+            return Class.new(Lutaml::Model::XmlNamespace) do
+              prefix_default prefix_val
+            end
+          end
+
+          nil
+        end
+
         # Resolve namespace for XML attributes (W3C compliant)
         #
         # Priority:
@@ -216,16 +276,13 @@ module Lutaml
         # @return [Hash] namespace info
         def resolve_attribute_namespace(attr, register)
           # 1. Explicit mapping namespace
-          if namespace_set? && namespace
-            return build_namespace_result(namespace, prefix)
+          if namespace_set? && @namespace_class
+            return build_namespace_result_from_class(@namespace_class)
           end
 
           # 2. Type-level namespace
           if attr && (type_ns_class = attr.type_namespace_class(register))
-            return build_namespace_result(
-              type_ns_class.uri,
-              prefix || type_ns_class.prefix_default
-            )
+            return build_namespace_result_from_class(type_ns_class)
           end
 
           # 3. No namespace (W3C default for unprefixed attributes)
@@ -247,23 +304,20 @@ module Lutaml
         # @param form_default [Symbol] :qualified or :unqualified
         # @return [Hash] namespace info
         def resolve_element_namespace(attr, register, parent_ns_uri,
-                                     parent_ns_class, form_default)
-          # 1. Explicit mapping namespace
-          if namespace_set? && namespace != :inherit
-            return build_namespace_result(namespace, prefix)
+                                     _parent_ns_class, form_default)
+          # 1. Explicit mapping namespace (namespace: SomeNamespace)
+          if namespace_set? && @namespace_class && namespace != :inherit
+            return build_namespace_result_from_class(@namespace_class)
           end
 
           # 2. Type-level namespace
           if attr && (type_ns_class = attr.type_namespace_class(register))
-            return build_namespace_result(
-              type_ns_class.uri,
-              prefix || type_ns_class.prefix_default
-            )
+            return build_namespace_result_from_class(type_ns_class)
           end
 
           # 3. Inherited namespace (explicit :inherit or form default)
           if namespace == :inherit ||
-             (form_default == :qualified && parent_ns_uri)
+              (form_default == :qualified && parent_ns_uri)
             return build_namespace_result(parent_ns_uri, prefix)
           end
 
@@ -271,7 +325,19 @@ module Lutaml
           { uri: nil, prefix: nil, ns_class: nil }
         end
 
-        # Build namespace result hash
+        # Build namespace result hash from XmlNamespace class
+        #
+        # @param ns_class [Class] XmlNamespace class
+        # @return [Hash] namespace info
+        def build_namespace_result_from_class(ns_class)
+          {
+            uri: ns_class.uri,
+            prefix: ns_class.prefix_default,
+            ns_class: ns_class,
+          }
+        end
+
+        # Build namespace result hash from URI and prefix
         #
         # @param uri [String, nil] namespace URI
         # @param prefix [String, nil] namespace prefix
@@ -280,7 +346,7 @@ module Lutaml
           {
             uri: uri,
             prefix: prefix,
-            ns_class: nil  # Could be enhanced if needed
+            ns_class: nil,
           }
         end
 
