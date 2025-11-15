@@ -22,7 +22,8 @@ module Lutaml
                     :namespace_class,
                     :element_name,
                     :documentation_text,
-                    :type_name_value
+                    :type_name_value,
+                    :namespace_scope
 
         def initialize
           super
@@ -40,6 +41,7 @@ module Lutaml
           @namespace_class = nil
           @documentation_text = nil
           @type_name_value = nil
+          @namespace_scope = []
         end
 
         def finalize(mapper_class)
@@ -160,6 +162,31 @@ module Lutaml
                   "namespace must be a String URI or XmlNamespace class, " \
                   "got #{uri_or_class.class}"
           end
+        end
+
+        # Set the namespace scope for this mapping
+        #
+        # Controls which namespaces are declared at the root element level
+        # versus being declared locally on each element that uses them.
+        #
+        # Namespaces listed in namespace_scope will be declared once on the
+        # root element. Namespaces not listed will be declared locally on
+        # elements where they are used.
+        #
+        # @param namespaces [Array<Class>] array of XmlNamespace classes
+        # @return [Array<Class>] the current namespace scope
+        #
+        # @example Declare all namespaces at root
+        #   namespace_scope [VcardNamespace, DctermsNamespace, DcElementsNamespace]
+        #
+        # @example Declare only some namespaces at root
+        #   namespace_scope [VcardNamespace]
+        def namespace_scope(namespaces = nil)
+          if namespaces
+            validate_namespace_scope!(namespaces)
+            @namespace_scope = namespaces
+          end
+          @namespace_scope
         end
 
         # Set documentation text for this mapping
@@ -444,6 +471,29 @@ module Lutaml
             raise ArgumentError,
                   "namespace prefix must be a String or Symbol, not #{prefix.class}. " \
                   "Did you mean to use 'root' with mixed: true?"
+          end
+        end
+
+        # Validate namespace_scope parameter
+        #
+        # Ensures all items are XmlNamespace classes
+        #
+        # @param namespaces [Array] the namespaces to validate
+        # @raise [ArgumentError] if invalid namespace classes provided
+        # @return [void]
+        def validate_namespace_scope!(namespaces)
+          unless namespaces.is_a?(Array)
+            raise ArgumentError,
+                  "namespace_scope must be an Array of XmlNamespace classes, " \
+                  "got #{namespaces.class}"
+          end
+
+          namespaces.each do |ns|
+            next if ns.is_a?(Class) && ns < Lutaml::Model::XmlNamespace
+
+            raise ArgumentError,
+                  "namespace_scope must contain only XmlNamespace classes, " \
+                  "got #{ns.class}"
           end
         end
 

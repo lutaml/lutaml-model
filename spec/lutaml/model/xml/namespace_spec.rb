@@ -52,6 +52,6 @@ RSpec.describe "NamespaceSpec" do
   end
 
   it "round-trips xml" do
-    expect(parsed.to_xml).to be_equivalent_to(xml)
+    expect(parsed.to_xml).to be_xml_equivalent_to(xml)
   end
 end

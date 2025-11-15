@@ -349,7 +349,7 @@ RSpec.describe "Value Transformations" do
 
     it "applies attribute transformations during XML serialization" do
       xml = attribute_person.to_xml
-      expect(xml).to be_equivalent_to(expected_xml)
+      expect(xml).to be_xml_equivalent_to(expected_xml)
     end
   end
 
@@ -406,7 +406,7 @@ RSpec.describe "Value Transformations" do
 
     it "applies mapping transformations during XML serialization" do
       xml = mapping_person.to_xml
-      expect(xml).to be_equivalent_to(expected_xml)
+      expect(xml).to be_xml_equivalent_to(expected_xml)
     end
   end
 
@@ -449,7 +449,7 @@ RSpec.describe "Value Transformations" do
     it "applies both transformations with correct precedence in XML" do
       xml = combined_person.to_xml
       parsed_xml = TransformationSpec::CombinedTransformPerson.from_xml(xml)
-      expect(parsed_xml.to_xml).to be_equivalent_to(expected_xml)
+      expect(parsed_xml.to_xml).to be_xml_equivalent_to(expected_xml)
     end
   end
 
@@ -468,12 +468,12 @@ RSpec.describe "Value Transformations" do
 
     it "correctly round trips XML" do
       parsed = TransformationSpec::RoundTripTransformations.from_xml(xml)
-      expect(parsed.to_xml).to be_equivalent_to(xml)
+      expect(parsed.to_xml).to be_xml_equivalent_to(xml)
     end
 
     it "correctly round trips JSON" do
       parsed = TransformationSpec::RoundTripTransformations.from_json(json)
-      expect(parsed.to_json).to be_equivalent_to(json)
+      expect(parsed.to_json).to be_xml_equivalent_to(json)
     end
   end
 

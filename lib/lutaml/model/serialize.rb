@@ -37,6 +37,57 @@ module Lutaml
 
         attr_accessor :choice_attributes, :mappings
 
+        # Class-level directive to set the namespace for this Model
+        #
+        # @deprecated Class-level namespace directive is deprecated for Serializable classes.
+        #   Use namespace inside xml/json/yaml blocks instead:
+        #     xml do
+        #       namespace YourNamespace
+        #     end
+        #
+        # @param ns_class [Class, nil] XmlNamespace class to associate with this model
+        # @return [Class, nil] the XmlNamespace class
+        #
+        # @example INCORRECT: Class-level (deprecated, does nothing)
+        #   class CustomModel < Lutaml::Model::Serializable
+        #     namespace CustomNamespace  # ❌ Does nothing!
+        #   end
+        #
+        # @example CORRECT: Inside xml block
+        #   class CustomModel < Lutaml::Model::Serializable
+        #     xml do
+        #       namespace CustomNamespace  # ✅ Works correctly
+        #     end
+        #   end
+        def namespace(ns_class = nil)
+          if ns_class
+            unless ns_class.is_a?(Class) && ns_class < Lutaml::Model::XmlNamespace
+              raise ArgumentError,
+                    "namespace must be an XmlNamespace class, got #{ns_class.class}"
+            end
+
+            # Warn about class-level namespace usage for Serializable classes
+            warn_class_level_namespace_usage(ns_class)
+
+            @namespace_class = ns_class
+          end
+          @namespace_class
+        end
+
+        # Get the namespace URI for this Model
+        #
+        # @return [String, nil] the namespace URI
+        def namespace_uri
+          @namespace_class&.uri
+        end
+
+        # Get the default namespace prefix for this Model
+        #
+        # @return [String, nil] the namespace prefix
+        def namespace_prefix
+          @namespace_class&.prefix_default
+        end
+
         def inherited(subclass)
           super
           subclass.initialize_attrs(self)
@@ -693,6 +744,43 @@ collection)
         end
 
         private
+
+        # Issue deprecation warning for class-level namespace usage
+        def warn_class_level_namespace_usage(ns_class)
+          return if @namespace_warning_issued
+
+          warn <<~WARNING
+            [Lutaml::Model] DEPRECATION WARNING: Class-level `namespace` directive is deprecated for Serializable classes.
+
+            Class: #{name}
+            Namespace: #{ns_class.name} (#{ns_class.uri})
+
+            The class-level namespace directive does NOT apply namespace prefixes during serialization.
+
+            INCORRECT (current usage):
+              class #{name} < Lutaml::Model::Serializable
+                namespace #{ns_class.name}  # ❌ Does nothing!
+            #{'    '}
+                xml do
+                  root "element"
+                  map_element "field", to: :field
+                end
+              end
+
+            CORRECT (use namespace inside xml block):
+              class #{name} < Lutaml::Model::Serializable
+                xml do
+                  root "element"
+                  namespace #{ns_class.name}  # ✅ Works correctly!
+                  map_element "field", to: :field
+                end
+              end
+
+            This warning will become an error in the next major release.
+          WARNING
+
+          @namespace_warning_issued = true
+        end
 
         def process_type_hash(type, options)
           if reference_type?(type)

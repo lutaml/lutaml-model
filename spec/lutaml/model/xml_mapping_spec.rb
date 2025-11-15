@@ -355,7 +355,7 @@ RSpec.describe Lutaml::Model::Xml::Mapping do
     it "round-trips correctly" do
       collection = XmlMapping::TitleCollection.from_xml(xml)
       generated_xml = collection.to_xml
-      expect(generated_xml).to be_equivalent_to(xml)
+      expect(generated_xml).to be_xml_equivalent_to(xml)
     end
   end
 
@@ -370,7 +370,7 @@ RSpec.describe Lutaml::Model::Xml::Mapping do
     it "round-trips delimited attribute correctly" do
       collection = XmlMapping::TitleDelimiterCollection.from_xml(xml)
       generated_xml = collection.to_xml
-      expect(generated_xml).to be_equivalent_to(xml)
+      expect(generated_xml).to be_xml_equivalent_to(xml)
     end
   end
 
@@ -414,7 +414,7 @@ RSpec.describe Lutaml::Model::Xml::Mapping do
 
         expect(parsed.alpha).to eq("hello")
         expect(parsed.beta).to eq("bye")
-        expect(parsed.to_xml).to be_equivalent_to(input_xml)
+        expect(parsed.to_xml).to be_xml_equivalent_to(input_xml)
       end
     end
 
@@ -429,7 +429,7 @@ RSpec.describe Lutaml::Model::Xml::Mapping do
 
       it "nil namespace" do
         parsed = XmlMapping::MmlMath.from_xml(mml)
-        expect(parsed.to_xml).to be_equivalent_to(mml)
+        expect(parsed.to_xml).to be_xml_equivalent_to(mml)
       end
     end
 
@@ -465,7 +465,7 @@ RSpec.describe Lutaml::Model::Xml::Mapping do
       it "expect to round-trips" do
         parsed = XmlMapping::OverrideDefaultNamespacePrefix.from_xml(input_xml)
         expected_xml = adapter_class.type == "oga" ? oga_expected_xml : input_xml
-        expect(parsed.to_xml).to be_equivalent_to(expected_xml)
+        expect(parsed.to_xml).to be_xml_equivalent_to(expected_xml)
       end
     end
 
@@ -507,7 +507,7 @@ RSpec.describe Lutaml::Model::Xml::Mapping do
         parsed = XmlMapping::OwnedComment.from_xml(xml_with_element)
         serialized = parsed.to_xml
 
-        expect(serialized).to be_equivalent_to(xml_with_element.strip)
+        expect(serialized).to be_xml_equivalent_to(xml_with_element.strip)
       end
 
       it "parse and serialize model correctly" do
@@ -515,21 +515,21 @@ RSpec.describe Lutaml::Model::Xml::Mapping do
 
         serialized = parsed.to_xml
 
-        expect(serialized).to be_equivalent_to(xml_with_attribute)
+        expect(serialized).to be_xml_equivalent_to(xml_with_attribute)
       end
 
       it "parse and serialize model correctly with both attribute and element" do
         parsed = XmlMapping::OwnedComment.from_xml(xml_with_same_name_attribute_and_element)
         serialized = parsed.to_xml
 
-        expect(serialized).to be_equivalent_to(xml_with_same_name_attribute_and_element)
+        expect(serialized).to be_xml_equivalent_to(xml_with_same_name_attribute_and_element)
       end
 
       it "testing parse element" do
         parsed = XmlMapping::Date.from_xml(xml)
         serialized = parsed.to_xml
 
-        expect(serialized).to be_equivalent_to(xml)
+        expect(serialized).to be_xml_equivalent_to(xml)
       end
     end
 
@@ -609,7 +609,7 @@ RSpec.describe Lutaml::Model::Xml::Mapping do
       end
 
       it "to_xml should be correct" do
-        expect(parsed.to_xml).to be_equivalent_to(input_xml)
+        expect(parsed.to_xml).to be_xml_equivalent_to(input_xml)
       end
     end
 
@@ -673,7 +673,7 @@ RSpec.describe Lutaml::Model::Xml::Mapping do
       end
 
       it "round-trips xml with child explicit namespace" do
-        expect(parsed.to_xml).to be_equivalent_to(xml)
+        expect(parsed.to_xml).to be_xml_equivalent_to(xml)
       end
     end
 
@@ -785,7 +785,7 @@ RSpec.describe Lutaml::Model::Xml::Mapping do
       end
 
       it "expect to apply correct namespaces" do
-        expect(model.to_xml).to be_equivalent_to(expected_xml)
+        expect(model.to_xml).to be_xml_equivalent_to(expected_xml)
       end
     end
 
@@ -804,7 +804,7 @@ RSpec.describe Lutaml::Model::Xml::Mapping do
         end
 
         it "contain schemaLocation attributes" do
-          expect(Paragraph.from_xml(xml).to_xml).to be_equivalent_to(xml)
+          expect(Paragraph.from_xml(xml).to_xml).to be_xml_equivalent_to(xml)
         end
 
         it "prints warning if defined explicitly in class" do
@@ -834,7 +834,7 @@ RSpec.describe Lutaml::Model::Xml::Mapping do
         end
 
         it "contain schemaLocation attributes" do
-          expect(generated_xml).to be_equivalent_to(xml)
+          expect(generated_xml).to be_xml_equivalent_to(xml)
         end
       end
     end
@@ -898,7 +898,7 @@ RSpec.describe Lutaml::Model::Xml::Mapping do
 
         it "creates XML with multiple schemaLocations" do
           serialized = paragraph.to_xml
-          expect(serialized).to be_equivalent_to(xml)
+          expect(serialized).to be_xml_equivalent_to(xml)
         end
       end
     end
@@ -1177,7 +1177,7 @@ RSpec.describe Lutaml::Model::Xml::Mapping do
         end
 
         it "generates correct XML" do
-          expect(parsed.to_xml.chomp).to be_equivalent_to(xml)
+          expect(parsed.to_xml.chomp).to be_xml_equivalent_to(xml)
         end
       end
 
@@ -1242,7 +1242,7 @@ RSpec.describe Lutaml::Model::Xml::Mapping do
         end
 
         it "round-trips xml" do
-          expect(parsed.to_xml).to be_equivalent_to(xml)
+          expect(parsed.to_xml).to be_xml_equivalent_to(xml)
         end
       end
 
@@ -1318,7 +1318,7 @@ RSpec.describe Lutaml::Model::Xml::Mapping do
         end
 
         it "round-trips xml" do
-          expect(generated_xml).to be_equivalent_to(xml)
+          expect(generated_xml).to be_xml_equivalent_to(xml)
         end
       end
     end

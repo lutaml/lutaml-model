@@ -58,6 +58,19 @@ module Lutaml
               generate_includes(xml, xml_mapping.namespace_class)
             end
 
+            # Generate imports for Type namespaces
+            type_namespaces = collect_type_namespaces(klass, register)
+            type_namespaces.each do |ns_class|
+              # Only import if different from target namespace
+              next if ns_class.uri == schema_attrs[:targetNamespace]
+
+              import_attrs = { namespace: ns_class.uri }
+              if ns_class.schema_location
+                import_attrs[:schemaLocation] = ns_class.schema_location
+              end
+              xml.import(import_attrs)
+            end
+
             # Generate annotation if present
             if xml_mapping.documentation_text || xml_mapping.namespace_class&.documentation
               generate_annotation(xml, xml_mapping)
@@ -306,6 +319,29 @@ attr_name)
 
           # 3. Fall back to default mapping
           get_xsd_type(attr_type)
+        end
+
+        def self.collect_type_namespaces(klass, register)
+          require "set"
+          namespaces = Set.new
+
+          klass.attributes.each_value do |attr|
+            type_class = attr.type(register)
+            next unless type_class
+
+            # Get Type::Value namespace
+            if type_class.respond_to?(:xml_namespace) && type_class.xml_namespace
+              namespaces << type_class.xml_namespace
+            end
+
+            # Get Model namespace
+            if type_class <= Lutaml::Model::Serialize &&
+                type_class.respond_to?(:namespace) && type_class.namespace
+              namespaces << type_class.namespace
+            end
+          end
+
+          namespaces.to_a
         end
 
         def self.get_target_xsd_type(attr, register)

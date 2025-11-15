@@ -30,10 +30,10 @@ module Lutaml
           value&.iso8601.to_s
         end
 
-        # XSD type for Date
+        # Default XSD type for Date
         #
         # @return [String] xs:date
-        def self.xsd_type
+        def self.default_xsd_type
           "xs:date"
         end
       end

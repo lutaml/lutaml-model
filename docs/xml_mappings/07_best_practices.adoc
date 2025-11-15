@@ -99,6 +99,163 @@ class ContactNamespace < Lutaml::Model::XmlNamespace
 end
 ----
 
+=== Use Type-level namespaces for reusable types
+
+**Do:**
+
+[source,ruby]
+----
+# Define namespace for Dublin Core
+class DublinCoreNamespace < Lutaml::Model::XmlNamespace
+  uri 'http://purl.org/dc/elements/1.1/'
+  prefix_default 'dc'
+end
+
+# Define reusable DC types with namespace
+class DcTitleType < Lutaml::Model::Type::String
+  xml_namespace DublinCoreNamespace
+  xsd_type 'titleType'
+end
+
+class DcCreatorType < Lutaml::Model::Type::String
+  xml_namespace DublinCoreNamespace
+  xsd_type 'creatorType'
+end
+
+# Use across multiple models - namespace applied automatically
+class Document < Lutaml::Model::Serializable
+  attribute :title, DcTitleType
+  attribute :creator, DcCreatorType
+
+  xml do
+    root 'document'
+    map_element 'title', to: :title      # dc:title automatically
+    map_element 'creator', to: :creator  # dc:creator automatically
+  end
+end
+
+class BookMetadata < Lutaml::Model::Serializable
+  attribute :title, DcTitleType
+  attribute :creator, DcCreatorType
+
+  xml do
+    root 'book'
+    map_element 'title', to: :title      # dc:title automatically
+    map_element 'creator', to: :creator  # dc:creator automatically
+  end
+end
+----
+
+**Don't:**
+
+[source,ruby]
+----
+# Repeat namespace on every element mapping
+class Document < Lutaml::Model::Serializable
+  attribute :title, :string
+  attribute :creator, :string
+
+  xml do
+    root 'document'
+    # Repetitive and error-prone
+    map_element 'title', to: :title,
+      namespace: 'http://purl.org/dc/elements/1.1/', prefix: 'dc'
+    map_element 'creator', to: :creator,
+      namespace: 'http://purl.org/dc/elements/1.1/', prefix: 'dc'
+  end
+end
+----
+
+=== Use namespace_scope for multi-namespace documents
+
+**Do:**
+
+[source,ruby]
+----
+# Consolidate frequently-used namespaces at root
+class Vcard < Lutaml::Model::Serializable
+  xml do
+    root "vCard"
+    namespace VcardNamespace
+    namespace_scope [VcardNamespace, DcNamespace, DctermsNamespace]
+
+    map_element "version", to: :version
+    map_element "title", to: :title
+    map_element "created", to: :created
+  end
+end
+
+# Result: Clean XML with all namespaces declared at root
+# <vcard:vCard xmlns:vcard="..." xmlns:dc="..." xmlns:dcterms="...">
+#   <vcard:version>4.0</vcard:version>
+#   <dc:title>Contact: Dr. John Doe</dc:title>
+#   <dcterms:created>2024-06-01T12:00:00Z</dcterms:created>
+# </vcard:vCard>
+----
+
+**Don't:**
+
+[source,ruby]
+----
+# Without namespace_scope for multi-namespace documents
+class Vcard < Lutaml::Model::Serializable
+  xml do
+    root "vCard"
+    namespace VcardNamespace
+    # No namespace_scope
+
+    map_element "version", to: :version
+    map_element "title", to: :title
+    map_element "created", to: :created
+  end
+end
+
+# Result: Repetitive namespace declarations
+# <vcard:vCard xmlns:vcard="...">
+#   <vcard:version>4.0</vcard:version>
+#   <dc:title xmlns:dc="...">Contact: Dr. John Doe</dc:title>
+#   <dcterms:created xmlns:dcterms="...">2024-06-01T12:00:00Z</dcterms:created>
+# </vcard:vCard>
+----
+
+=== When NOT to use namespace_scope
+
+**Single namespace documents:**
+
+[source,ruby]
+----
+# Don't use namespace_scope for single namespace
+class Ceramic < Lutaml::Model::Serializable
+  xml do
+    element 'ceramic'
+    namespace CeramicNamespace
+    # namespace_scope [CeramicNamespace]  # NOT NEEDED - only one namespace
+    
+    map_element 'type', to: :type
+    map_element 'glaze', to: :glaze
+  end
+end
+----
+
+**Rarely used namespaces:**
+
+[source,ruby]
+----
+# Keep rarely-used namespaces local for clarity
+class Document < Lutaml::Model::Serializable
+  xml do
+    root 'document'
+    namespace DocumentNamespace
+    namespace_scope [DocumentNamespace]  # Only frequently used
+
+    map_element 'title', to: :title
+    map_element 'content', to: :content
+    # Special metadata element used rarely
+    map_element 'metadata', to: :metadata  # MetadataNamespace declared locally
+  end
+end
+----
+
 == Element declaration practices
 
 === Use `element()` for new code
@@ -728,7 +885,9 @@ When writing XML mappings:
 * ☑ Use `sequence` when element order is significant
 * ☑ Add `documentation` for XSD generation
 * ☑ Specify `xsd_type` for ID/IDREF and custom XSD types
-* ☑ Test round-trip serialization
-* ☑ Validate parsed data
+* ☑ Use Type-level namespaces for reusable types across models
+* ☑ Test round-trip serialization (both `to_xml` and `from_xml`)
+* ☑ Validate parsed data with `validate` or `validate!`
 * ☑ Set encoding explicitly for non-UTF-8 data
 * ☑ Choose appropriate XML adapter for your needs
+* ☑ Follow namespace resolution priority (explicit > type > inherit > form default)

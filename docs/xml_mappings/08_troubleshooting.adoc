@@ -194,6 +194,77 @@ end
 
 == Namespace issues
 
+=== Type-level namespace not applied
+
+**Problem:**
+
+Custom type has namespace declared but element isn't qualified in output.
+
+**Check:**
+
+1. Verify namespace directive is on the Type class itself (not instance)
+2. Ensure namespace is declared before type is used
+3. Check if explicit mapping namespace is overriding
+
+[source,ruby]
+----
+# Wrong: namespace on wrong class level
+class MyType < Lutaml::Model::Type::String
+  def initialize
+    namespace MyNamespace  # WRONG - this is instance-level
+  end
+end
+
+# Correct: namespace as class directive
+class MyType < Lutaml::Model::Type::String
+  namespace MyNamespace  # CORRECT - class-level directive
+  xsd_type 'MyCustomType'
+end
+
+# Check: explicit namespace overrides type namespace
+class Model < Lutaml::Model::Serializable
+  attribute :value, MyType
+  
+  xml do
+    element 'model'
+    # This explicit namespace overrides MyType's namespace
+    map_element 'value', to: :value, namespace: OtherNamespace
+  end
+end
+----
+
+=== Type namespace not recognized during parsing
+
+**Problem:**
+
+Deserialization fails to match namespace-qualified elements to types.
+
+**Check:**
+
+1. Ensure Type namespace is defined identically in both directions
+2. Verify namespace URI matches exactly (prefixes don't matter)
+3. Check adapter is configured correctly
+
+[source,ruby]
+----
+# Namespace URIs must match exactly
+class DcNamespace < Lutaml::Model::XmlNamespace
+  uri 'http://purl.org/dc/elements/1.1/'  # Check: no trailing slash?
+  prefix_default 'dc'
+end
+
+# Input XML must use same URI
+xml = <<~XML
+  <doc:document xmlns:doc="..." xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:title>Test</dc:title>
+  </document>
+XML
+
+# Verify round-trip
+parsed = Document.from_xml(xml)
+puts parsed.to_xml  # Should match input namespaces
+----
+
 === Wrong namespace URI in output
 
 **Problem:**
@@ -203,7 +274,7 @@ Generated XML has unexpected or missing namespace.
 **Check:**
 
 1. Verify namespace URI in XmlNamespace class
-2. Check if namespace is actually referenced in model
+2. Check if namespace is actually referenced in model or type
 3. Ensure adapter is configured
 
 [source,ruby]
@@ -214,12 +285,26 @@ class MyNamespace < Lutaml::Model::XmlNamespace
   prefix_default 'correct'
 end
 
-# Verify namespace is used
+# Verify namespace is used (model-level)
 class Model < Lutaml::Model::Serializable
   xml do
     element 'model'
     namespace MyNamespace  # Must reference the class
     map_element 'attr', to: :attr
+  end
+end
+
+# Or verify namespace is used (type-level)
+class CustomType < Lutaml::Model::Type::String
+  namespace MyNamespace  # Type-level namespace
+end
+
+class Model < Lutaml::Model::Serializable
+  attribute :attr, CustomType
+  
+  xml do
+    element 'model'
+    map_element 'attr', to: :attr  # Uses MyNamespace from CustomType
   end
 end
 ----
@@ -274,11 +359,34 @@ class MyNamespace < Lutaml::Model::XmlNamespace
   element_form_default :unqualified  # ← This is why!
 end
 
-# Solution: Change to :qualified
+# Solution 1: Change namespace to :qualified
 class MyNamespace < Lutaml::Model::XmlNamespace
   uri 'https://example.com/schema'
   prefix_default 'pfx'
   element_form_default :qualified  # Now children are qualified
+end
+
+# Solution 2: Use namespace: :inherit on specific elements
+class Model < Lutaml::Model::Serializable
+  xml do
+    element 'model'
+    namespace MyNamespace
+    map_element 'child', to: :child, namespace: :inherit  # Force qualified
+  end
+end
+
+# Solution 3: Use Type-level namespace for specific elements
+class ChildType < Lutaml::Model::Type::String
+  namespace MyNamespace  # This element always qualified
+end
+
+class Model < Lutaml::Model::Serializable
+  attribute :child, ChildType
+  
+  xml do
+    element 'model'
+    map_element 'child', to: :child  # Qualified via ChildType
+  end
 end
 ----
 

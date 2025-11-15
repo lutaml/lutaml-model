@@ -17,7 +17,7 @@ RSpec.describe Ceramic do
 
   it "serializes to XML with high-precision date-time" do
     ceramic = described_class.from_xml(xml)
-    expect(ceramic.to_xml).to be_equivalent_to(xml)
+    expect(ceramic.to_xml).to be_xml_equivalent_to(xml)
   end
 
   it "deserializes from JSON with high-precision date-time" do

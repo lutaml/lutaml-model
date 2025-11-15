@@ -16,10 +16,10 @@ module Lutaml
           !!value
         end
 
-        # XSD type for Boolean
+        # Default XSD type for Boolean
         #
         # @return [String] xs:boolean
-        def self.xsd_type
+        def self.default_xsd_type
           "xs:boolean"
         end
 

@@ -401,7 +401,7 @@ RSpec.describe Lutaml::Model::Serializable do
       expected_xml = <<~XML
         <originInfo><dateIssued>2021-01-01</dateIssued></originInfo>
       XML
-      expect(origin_info.to_xml).to be_equivalent_to(expected_xml)
+      expect(origin_info.to_xml).to be_xml_equivalent_to(expected_xml)
     end
   end
 
@@ -543,7 +543,7 @@ RSpec.describe Lutaml::Model::Serializable do
       end
 
       it "serializes to XML with custom name transformation" do
-        expect(model.to_xml).to be_equivalent_to(expected_xml)
+        expect(model.to_xml).to be_xml_equivalent_to(expected_xml)
       end
 
       it "deserializes from XML with custom name transformation" do

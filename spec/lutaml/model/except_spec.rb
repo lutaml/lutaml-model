@@ -130,12 +130,12 @@ RSpec.describe "Except" do
 
       it "excludes specified elements from the XML output" do
         parsed_xml = parsed_instances.to_xml(except: %i[annotation])
-        expect(parsed_xml).to be_equivalent_to(xml_without_annotations)
+        expect(parsed_xml).to be_xml_equivalent_to(xml_without_annotations)
       end
 
       it "excludes specified attributes and elements from the XML output" do
         parsed_xml = parsed_instances.to_xml(except: %i[annotation id])
-        expect(parsed_xml).to be_equivalent_to(xml_without_annotations_and_ids)
+        expect(parsed_xml).to be_xml_equivalent_to(xml_without_annotations_and_ids)
       end
     end
   end
@@ -193,12 +193,12 @@ RSpec.describe "Except" do
 
       it "excludes 'annotation' keys from the YAML output" do
         parsed_yaml = parsed_instances.to_yaml(except: %i[annotation])
-        expect(parsed_yaml).to be_equivalent_to(yaml_without_annotations)
+        expect(parsed_yaml).to be_xml_equivalent_to(yaml_without_annotations)
       end
 
       it "excludes 'annotation' and 'id' from the YAML output" do
         parsed_yaml = parsed_instances.to_yaml(except: %i[annotation id])
-        expect(parsed_yaml).to be_equivalent_to(yaml_without_annotations_and_ids)
+        expect(parsed_yaml).to be_xml_equivalent_to(yaml_without_annotations_and_ids)
       end
     end
   end

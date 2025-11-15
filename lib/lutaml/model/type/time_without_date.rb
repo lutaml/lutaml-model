@@ -55,7 +55,7 @@ module Lutaml
         # XSD type for TimeWithoutDate
         #
         # @return [String] xs:time
-        def self.xsd_type
+        def self.default_xsd_type
           "xs:time"
         end
       end

@@ -114,7 +114,22 @@ module Lutaml
       end
 
       def value_for_xml_attribute(doc, rule, rule_names)
-        value = doc.root.find_attribute_value(rule_names)
+        # For attributes, rule_names may contain URI:name format, but find_attribute_value
+        # expects prefix:name or just name, so we need to convert URI to prefix
+        attribute_names = rule_names.filter_map do |rn|
+          if rn.include?("://")
+            # This is a URI:name format, need to find the actual prefix used in the document
+            uri, local_name = rn.split(":", 2)
+            # Get all matching attributes by URI and local name
+            doc.root.attributes.values.find do |attr|
+              attr.namespace == uri && attr.unprefixed_name == local_name
+            end&.name || rn
+          else
+            rn
+          end
+        end
+
+        value = doc.root.find_attribute_value(attribute_names)
 
         value = value&.split(rule.delimiter) if rule.delimiter
 
@@ -124,10 +139,13 @@ module Lutaml
       end
 
       def value_for_rule(doc, rule, options, instance)
-        rule_names = rule.namespaced_names(options[:default_namespace])
+        attr = attribute_for_rule(rule)
+
+        # Enhanced namespace resolution with type support
+        rule_names = resolve_rule_names_with_type(rule, attr, options)
+
         return value_for_xml_attribute(doc, rule, rule_names) if rule.attribute?
 
-        attr = attribute_for_rule(rule)
         attr_type = attr&.type(__register)
 
         children = doc.children.select do |child|
@@ -237,6 +255,30 @@ module Lutaml
           node.inner_xml
         else
           node.children.map(&:to_xml).join
+        end
+      end
+
+      # Resolve rule names with type namespace support
+      #
+      # @param rule [Xml::MappingRule] the mapping rule
+      # @param attr [Attribute, nil] the attribute
+      # @param options [Hash] options including default_namespace
+      # @return [Array<String>] possible namespaced names for matching
+      def resolve_rule_names_with_type(rule, attr, options)
+        # If rule has explicit namespace or no type namespace, use standard logic
+        if rule.namespace_set? || !attr
+          return rule.namespaced_names(options[:default_namespace])
+        end
+
+        # Check if attribute type has namespace
+        type_ns_uri = attr.type_namespace_uri(__register)
+
+        if type_ns_uri
+          # Use type namespace URI for matching (child.namespaced_name uses URI:localname format)
+          ["#{type_ns_uri}:#{rule.name}"]
+        else
+          # Use existing logic
+          rule.namespaced_names(options[:default_namespace])
         end
       end
     end

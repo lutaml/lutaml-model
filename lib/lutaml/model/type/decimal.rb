@@ -34,7 +34,7 @@ module Lutaml
         # XSD type for Decimal
         #
         # @return [String] xs:decimal
-        def self.xsd_type
+        def self.default_xsd_type
           "xs:decimal"
         end
 

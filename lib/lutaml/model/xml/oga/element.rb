@@ -86,7 +86,9 @@ module Lutaml
           end
 
           def parse_children(node, default_namespace: nil)
-            node.children.map do |child|
+            node.children.filter_map do |child|
+              next if child.is_a?(Moxml::ProcessingInstruction)
+
               self.class.new(child, parent: self,
                                     default_namespace: default_namespace)
             end

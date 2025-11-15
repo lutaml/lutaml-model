@@ -32,7 +32,7 @@ module Lutaml
         # XSD type for Float
         #
         # @return [String] xs:float
-        def self.xsd_type
+        def self.default_xsd_type
           "xs:float"
         end
       end

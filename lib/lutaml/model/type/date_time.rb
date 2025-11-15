@@ -70,10 +70,10 @@ module Lutaml
           end
         end
 
-        # XSD type for DateTime
+        # Default XSD type for DateTime
         #
         # @return [String] xs:dateTime
-        def self.xsd_type
+        def self.default_xsd_type
           "xs:dateTime"
         end
       end

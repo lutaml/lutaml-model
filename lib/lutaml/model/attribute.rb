@@ -496,6 +496,48 @@ module Lutaml
         self.class.new(name, unresolved_type, Utils.deep_dup(options))
       end
 
+      # Get namespace class from Type::Value or Model class
+      #
+      # @param register [Symbol, nil] register ID for type resolution
+      # @return [Class, nil] XmlNamespace class if type has namespace
+      def type_namespace_class(register = nil)
+        resolved_type = type(register)
+        return nil unless resolved_type
+
+        # Check if type responds to xml_namespace (Type::Value classes)
+        return resolved_type.xml_namespace if resolved_type.respond_to?(:xml_namespace)
+
+        # Check if type is a Serializable model with namespace in XML mappings
+        if resolved_type <= Lutaml::Model::Serialize
+          xml_mapping = resolved_type.mappings_for(:xml)
+          if xml_mapping&.namespace_uri
+            # Create an anonymous XmlNamespace class to wrap the mapping's namespace
+            return Class.new(Lutaml::Model::XmlNamespace) do
+              uri xml_mapping.namespace_uri
+              prefix_default xml_mapping.namespace_prefix
+            end
+          end
+        end
+
+        nil
+      end
+
+      # Get namespace URI from type
+      #
+      # @param register [Symbol, nil] register ID for type resolution
+      # @return [String, nil] namespace URI
+      def type_namespace_uri(register = nil)
+        type_namespace_class(register)&.uri
+      end
+
+      # Get namespace prefix from type
+      #
+      # @param register [Symbol, nil] register ID for type resolution
+      # @return [String, nil] namespace prefix
+      def type_namespace_prefix(register = nil)
+        type_namespace_class(register)&.prefix_default
+      end
+
       private
 
       def validated_range_object
