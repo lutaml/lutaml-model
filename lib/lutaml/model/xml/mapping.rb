@@ -393,7 +393,8 @@ module Lutaml
 
           if render_nil == :as_empty || render_empty == :as_empty
             raise IncorrectMappingArgumentsError.new(
-              ":as_empty is not supported for XML mappings",
+              ":as_empty is not supported for XML mappings. " \
+              "Use :as_blank instead to create blank XML elements.",
             )
           end
         end

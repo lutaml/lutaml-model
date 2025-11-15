@@ -11230,17 +11230,27 @@ end
 legacy. It is used to override default value map behavior for the `nil` model
 value.
 
+===== Format-specific terminology
+
+NOTE: The terms `:as_blank` and `:as_empty` are **format-specific** and
+**not interchangeable**. See <<render_empty>> for detailed explanation.
+
 `render_nil` accepts these values:
 
-`:as_empty`/`:as_blank`::: if the value is nil, render it as an empty string.
+`:as_empty`::: (key-value formats only) If the value is nil, render as explicit
+empty value (`[]` or `""`).
 
-`:nil`::: if the value is nil, render it as an element with attribute `xsi:nil`.
+`:as_blank`::: (XML only) If the value is nil, render as blank XML element
+(`<tag/>`).
 
-`:omit`::: if the value is nil, omit the element or attribute.
+`:as_nil`::: If the value is nil, render as nil (XML: `xsi:nil="true"`,
+key-value: `null`).
 
-`true`::: (legacy) setting `render_nil: true` will render the attribute as an empty
-element if the attribute is `nil`. This has the same effect as `render_nil:
-:as_empty`.
+`:omit`::: If the value is nil, omit the element, attribute, or key entirely.
+
+`true`::: (legacy) Setting `render_nil: true` will render the attribute as an
+empty element if the attribute is `nil`. For XML, this behaves like `:as_blank`.
+For key-value formats, this behaves like `:as_empty`.
 
 Syntax:
 
@@ -11414,8 +11424,13 @@ puts SomeModel.new.to_yaml
 
 ===== Render `nil` as `blank`
 
-Using `render_nil: :as_blank | :as_empty` will create a blank element in XML and
-create a key with an explicit empty array in key-value formats.
+Using `render_nil: :as_blank` in XML mappings will create a blank element, and
+using `render_nil: :as_empty` in key-value mappings will create a key with an
+explicit empty array.
+
+NOTE: `:as_blank` is XML-specific (creates blank XML elements like `<tag/>`),
+while `:as_empty` is key-value-specific (creates explicit empty values like
+`[]`). These terms are format-specific and not interchangeable.
 
 [example]
 ====
@@ -11426,11 +11441,11 @@ class SomeModel < Lutaml::Model::Serializable
 
   xml do
     root "some-model"
-    map_element 'collection', to: :coll, render_nil: :as_blank
+    map_element 'collection', to: :coll, render_nil: :as_blank # <1>
   end
 
   key_value do
-    map 'collection', to: :coll, render_nil: :as_empty
+    map 'collection', to: :coll, render_nil: :as_empty # <2>
   end
 end
 
@@ -11446,24 +11461,51 @@ puts SomeModel.new.to_yaml
 # ---
 # coll: []
 ----
+<1> XML uses `:as_blank` to create a blank element `<collection/>`
+<2> Key-value formats use `:as_empty` to create explicit empty array `[]`
 ====
 
-
+[[render_empty]]
 ==== `render_empty`
 
 ===== General
 
 `:render_empty` is a specially handled case of the `:render_*` pattern due to
-legacy. It is used to override default value map behavior for the `nil` model
-value.
+legacy. It is used to override default value map behavior for empty model
+values.
+
+===== Format-specific terminology
+
+IMPORTANT: The terms `:as_blank` and `:as_empty` are **format-specific** and
+**not interchangeable**.
+
+`:as_blank`::: **XML-specific**. Creates a blank XML element (`<tag/>` or
+`<tag></tag>`). Only valid in `xml` mapping blocks (`map_element`,
+`map_attribute`, `map_content`).
+
+`:as_empty`::: **Key-value-specific**. Creates an explicit empty value (`[]` for
+arrays, `""` for strings). Only valid in `json`, `yaml`, `toml`, `hsh`, and
+`key_value` mapping blocks.
+
+Using the wrong term for a format will raise an
+`IncorrectMappingArgumentsError`:
+
+* Using `:as_empty` in XML mappings → Error: "`:as_empty` is not supported for
+XML mappings. Use `:as_blank` instead." * Using `:as_blank` in key-value
+mappings → Error: "`:as_blank` is not supported for key-value mappings. Use
+`:as_empty` instead."
+
+===== Supported values
 
 `render_empty` accepts these values:
 
-`:as_empty`/`:as_blank`::: if the value is nil, render it as an empty string.
+`:as_empty`::: (key-value formats only) Render as explicit empty value.
 
-`:nil`::: if the value is nil, render it as an element with attribute `xsi:nil`.
+`:as_blank`::: (XML only) Render as blank XML element.
 
-`:omit`::: if the value is nil, omit the element or attribute.
+`:as_nil`::: Render as nil (XML: `xsi:nil="true"`, key-value: `null`).
+
+`:omit`::: Omit the element, attribute, or key entirely.
 
 
 Syntax:
@@ -11558,9 +11600,13 @@ puts SomeModel.new.to_yaml
 
 ===== Render `empty` as `blank`/`empty`
 
-Using `render_empty: :as_blank` or `render_empty: :as_empty` will create a blank
-element in XML and create a key with an explicit empty array in key-value
-formats.
+Using `render_empty: :as_blank` in XML mappings will create a blank
+element, and using `render_empty: :as_empty` in key-value mappings will create
+a key with an explicit empty array.
+
+NOTE: `:as_blank` is XML-specific (creates blank XML elements like `<tag/>`),
+while `:as_empty` is key-value-specific (creates explicit empty values like `[]`).
+These terms are format-specific and not interchangeable.
 
 [example]
 ====
@@ -11571,11 +11617,11 @@ class SomeModel < Lutaml::Model::Serializable
 
   xml do
     root "some-model"
-    map_element 'collection', to: :coll, render_empty: :as_blank
+    map_element 'collection', to: :coll, render_empty: :as_blank # <1>
   end
 
   key_value do
-    map 'collection', to: :coll, render_empty: :as_empty
+    map 'collection', to: :coll, render_empty: :as_empty # <2>
   end
 end
 
@@ -11591,6 +11637,8 @@ puts SomeModel.new.to_yaml
 # ---
 # coll: []
 ----
+<1> XML uses `:as_blank` to create a blank element `<collection/>`
+<2> Key-value formats use `:as_empty` to create explicit empty array `[]`
 ====
 
 
