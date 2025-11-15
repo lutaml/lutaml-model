@@ -199,7 +199,7 @@ RSpec.describe CustomSerialization do
         </CustomSerialization>
       XML
 
-      expect(model.to_xml).to be_equivalent_to(expected_xml)
+      expect(model.to_xml).to be_xml_equivalent_to(expected_xml)
     end
 
     it "deserializes from XML with custom methods" do
@@ -256,7 +256,7 @@ RSpec.describe CustomSerialization do
       expect(instance.super_admin?).to be false
 
       serialized = instance.to_xml
-      expect(serialized).to be_equivalent_to(xml_input)
+      expect(serialized).to be_xml_equivalent_to(xml_input)
     end
   end
 end

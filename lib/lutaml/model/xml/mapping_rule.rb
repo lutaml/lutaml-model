@@ -183,7 +183,106 @@ module Lutaml
           )
         end
 
+        # Resolve namespace for this mapping rule with W3C-compliant priority
+        #
+        # @param attr [Attribute] the attribute being mapped
+        # @param register [Symbol, nil] register ID for type resolution
+        # @param parent_ns_uri [String, nil] parent element's namespace URI
+        # @param parent_ns_class [Class, nil] parent's XmlNamespace class
+        # @param form_default [Symbol] :qualified or :unqualified from schema
+        # @return [Hash] namespace resolution result
+        #   { uri: String|nil, prefix: String|nil, ns_class: Class|nil }
+        def resolve_namespace(attr:, register: nil, parent_ns_uri: nil,
+                            parent_ns_class: nil, form_default: :unqualified)
+          if attribute?
+            resolve_attribute_namespace(attr, register)
+          else
+            resolve_element_namespace(attr, register, parent_ns_uri,
+                                      parent_ns_class, form_default)
+          end
+        end
+
         private
+
+        # Resolve namespace for XML attributes (W3C compliant)
+        #
+        # Priority:
+        # 1. Explicit namespace in mapping (highest)
+        # 2. Type-level namespace
+        # 3. NO NAMESPACE (W3C default - unprefixed attributes never inherit)
+        #
+        # @param attr [Attribute] the attribute
+        # @param register [Symbol, nil] register ID
+        # @return [Hash] namespace info
+        def resolve_attribute_namespace(attr, register)
+          # 1. Explicit mapping namespace
+          if namespace_set? && namespace
+            return build_namespace_result(namespace, prefix)
+          end
+
+          # 2. Type-level namespace
+          if attr && (type_ns_class = attr.type_namespace_class(register))
+            return build_namespace_result(
+              type_ns_class.uri,
+              prefix || type_ns_class.prefix_default
+            )
+          end
+
+          # 3. No namespace (W3C default for unprefixed attributes)
+          { uri: nil, prefix: nil, ns_class: nil }
+        end
+
+        # Resolve namespace for XML elements
+        #
+        # Priority:
+        # 1. Explicit namespace in mapping (highest)
+        # 2. Type-level namespace
+        # 3. Inherited namespace (namespace: :inherit)
+        # 4. Form default qualification
+        #
+        # @param attr [Attribute] the attribute
+        # @param register [Symbol, nil] register ID
+        # @param parent_ns_uri [String, nil] parent namespace URI
+        # @param parent_ns_class [Class, nil] parent namespace class
+        # @param form_default [Symbol] :qualified or :unqualified
+        # @return [Hash] namespace info
+        def resolve_element_namespace(attr, register, parent_ns_uri,
+                                     parent_ns_class, form_default)
+          # 1. Explicit mapping namespace
+          if namespace_set? && namespace != :inherit
+            return build_namespace_result(namespace, prefix)
+          end
+
+          # 2. Type-level namespace
+          if attr && (type_ns_class = attr.type_namespace_class(register))
+            return build_namespace_result(
+              type_ns_class.uri,
+              prefix || type_ns_class.prefix_default
+            )
+          end
+
+          # 3. Inherited namespace (explicit :inherit or form default)
+          if namespace == :inherit ||
+             (form_default == :qualified && parent_ns_uri)
+            return build_namespace_result(parent_ns_uri, prefix)
+          end
+
+          # 4. No namespace (unqualified)
+          { uri: nil, prefix: nil, ns_class: nil }
+        end
+
+        # Build namespace result hash
+        #
+        # @param uri [String, nil] namespace URI
+        # @param prefix [String, nil] namespace prefix
+        # @return [Hash] namespace info
+        def build_namespace_result(uri, prefix)
+          {
+            uri: uri,
+            prefix: prefix,
+            ns_class: nil  # Could be enhanced if needed
+          }
+        end
 
         # Validate form parameter
         #

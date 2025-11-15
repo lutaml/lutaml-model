@@ -29,7 +29,7 @@ module Lutaml
         # XSD type for Uri
         #
         # @return [String] xs:anyURI
-        def self.xsd_type
+        def self.default_xsd_type
           "xs:anyURI"
         end
 

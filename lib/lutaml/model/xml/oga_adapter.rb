@@ -13,7 +13,8 @@ module Lutaml
 
         def self.parse(xml, options = {})
           parsed = Moxml::Adapter::Oga.parse(xml)
-          @root = Oga::Element.new(parsed.children.first)
+          root_element = parsed.children.find { |child| child.is_a?(Moxml::Element) }
+          @root = Oga::Element.new(root_element)
           new(@root, encoding(xml, options))
         end
 
@@ -57,11 +58,15 @@ module Lutaml
         end
 
         def self.name_of(element)
+          return nil if element.nil?
+
           case element
           when Moxml::Text
             "text"
           when Moxml::Cdata
             "cdata"
+          when Moxml::ProcessingInstruction
+            "processing_instruction"
           else
             element.name
           end
@@ -100,7 +105,9 @@ module Lutaml
         end
 
         def self.order_of(element)
-          element.children.map do |child|
+          element.children.filter_map do |child|
+            next if child.is_a?(Moxml::ProcessingInstruction)
+
             instance_args = if TEXT_CLASSES.include?(child.class)
                               ["Text", "text"]
                             else

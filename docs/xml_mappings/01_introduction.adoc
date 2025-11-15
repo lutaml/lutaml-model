@@ -15,6 +15,8 @@ architecture that correctly implements W3C XML Namespace semantics:
 
 * [`XmlNamespace`](../lib/lutaml/model/xml_namespace.rb) class for declarative
 namespace metadata
+* Type-level namespace support for [`Type::Value`](../lib/lutaml/model/type/value.rb)
+and [`Serializable`](../lib/lutaml/model/serializable.rb) classes
 * [`element()`](../lib/lutaml/model/xml/mapping.rb:66) as primary API for
 element declaration
 * [`root()`](../lib/lutaml/model/xml/mapping.rb:80) maintained as

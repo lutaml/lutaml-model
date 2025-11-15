@@ -292,7 +292,7 @@ RSpec.describe Lutaml::Model::Collection do
       it "round-trips XML" do
         model = CollectionTests::Address.from_xml(xml)
 
-        expect(model.to_xml).to be_equivalent_to(xml)
+        expect(model.to_xml).to be_xml_equivalent_to(xml)
       end
     end
 
@@ -736,7 +736,7 @@ RSpec.describe Lutaml::Model::Collection do
     end
 
     it "serializes to XML correctly" do
-      expect(collection.to_xml.strip).to be_equivalent_to(xml.strip)
+      expect(collection.to_xml.strip).to be_xml_equivalent_to(xml.strip)
     end
 
     it "deserializes from YAML correctly" do

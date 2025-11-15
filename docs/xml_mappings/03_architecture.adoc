@@ -59,9 +59,9 @@
 │                                                                   │
 │  ┌───────────────────────────────────────────────────────────┐  │
 │  │              Type::Value (Enhanced)                       │  │
-│  │  • self.xsd_type() - XSD type name                        │  │
-│  │  • self.xsd_namespace() - Type's namespace                │  │
-│  │  • xml block support (future)                             │  │
+│  │  • namespace directive - Associates XmlNamespace class    │  │
+│  │  • xsd_type directive - XSD type name for generation      │  │
+│  │  • Namespace-aware serialization and deserialization      │  │
 │  └───────────────────────────────────────────────────────────┘  │
 │                              ▲                                    │
 │                              │ inherits                           │
@@ -70,6 +70,7 @@
 │  │ String   │ Integer  │ Date     │ Duration │ QName    │       │
 │  │ Float    │ Boolean  │ DateTime │ Uri      │ Base64   │       │
 │  └──────────┴──────────┴──────────┴──────────┴──────────┘       │
+│  (All can have namespace directive for custom types)             │
 │                                                                   │
 └───────────────────────────────────────────────────────────────────┘
 
@@ -108,8 +109,9 @@ Model Instance
 Xml::Mapping
       │
       │ 2. Resolve namespace metadata
+      │    (Check: explicit > type > inherit > form default)
       ▼
-XmlNamespace instance
+XmlNamespace instance (from mapping or Type)
       │
       │ 3. Apply qualification rules
       ▼
@@ -132,10 +134,11 @@ XML String
 XML Document
       │
       │ 2. Match elements by namespace URI (not prefix!)
+      │    (Consider: Type namespaces in matching)
       ▼
 Matched elements
       │
-      │ 3. Extract values
+      │ 3. Extract values and apply Type casting
       ▼
 Model Instance
 ----

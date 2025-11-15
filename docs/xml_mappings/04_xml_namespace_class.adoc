@@ -598,3 +598,668 @@ decoded = Lutaml::Model::Type::HexBinary.decode(checksum.hash_value)
 # => "Hello"
 ----
 ====
+
+[[type-level-namespaces]]
+== Type-level namespaces
+
+=== Overview
+
+Custom [`Type::Value`](../lib/lutaml/model/type/value.rb) classes and
+[`Serializable`](../lib/lutaml/model/serializable.rb) models can declare their
+namespace using the `xml_namespace` directive.
+
+This enables automatic namespace qualification based on attribute types,
+following W3C XML Namespace specifications.
+
+Type-level namespaces work in **both serialization and deserialization**,
+ensuring proper round-trip behavior with namespace-qualified elements and
+attributes.
+
+=== Use cases
+
+Type-level namespaces are ideal for:
+
+* **Standard vocabularies**: Dublin Core, FOAF, RSS/Atom properties
+* **Custom XSD types**: Domain-specific types with their own namespaces
+* **Multi-namespace documents**: Office Open XML, XHTML with embedded metadata
+* **Reusable components**: Types shared across multiple models and schemas
+
+=== Type::Value xml_namespace directive
+
+Custom value types declare their namespace using class-level directives:
+
+Syntax:
+
+[source,ruby]
+----
+class CustomType < Lutaml::Model::Type::Value
+  xml_namespace CustomNamespace  # <1>
+  xsd_type 'CustomType'           # <2>
+  
+  def self.cast(value)
+    # Type conversion logic
+  end
+end
+----
+<1> Associates an `XmlNamespace` class with this type
+<2> Sets the XSD type name for schema generation (optional)
+
+Where,
+
+`xml_namespace`:: Class-level directive that accepts an `XmlNamespace` class. This
+namespace will be automatically applied when serializing or deserializing
+elements and attributes of this type, unless overridden by explicit mapping
+namespace.
+
+`xsd_type`:: Class-level directive that sets the XSD type name used during
+schema generation. If not specified, inherits `default_xsd_type` from the
+parent class (e.g., `xs:string` for `Type::String`).
+
+=== How Type namespaces work
+
+==== During serialization (`to_xml`)
+
+When an element or attribute uses a custom type with namespace:
+
+1. Type's namespace is consulted if no explicit mapping namespace
+2. Namespace URI and prefix are added to document root
+3. Element/attribute is prefixed according to namespace resolution priority
+4. Works with both simple types (`Type::Value`) and complex types (`Serializable`)
+
+==== During deserialization (`from_xml`)
+
+When parsing namespace-qualified XML:
+
+1. Namespace-qualified elements/attributes are matched against type namespaces
+2. Both prefixed (`dc:title`) and default namespace elements are recognized
+3. Type casting occurs after namespace matching
+4. Works seamlessly with inherited namespaces and explicit mappings
+
+=== Simple example with deserialization
+
+.Email type with namespace (complete round-trip)
+[example]
+====
+[source,ruby]
+----
+class EmailNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/types/email'
+  prefix_default 'email'
+end
+
+class EmailType < Lutaml::Model::Type::String
+  xml_namespace EmailNamespace
+  xsd_type 'EmailAddress'
+  
+  def self.cast(value)
+    email = super(value)
+    unless email.match?(/\A[\w+\-.]+@[a-z\d\-]+(\.[a-z\d\-]+)*\.[a-z]+\z/i)
+      raise Lutaml::Model::TypeError, "Invalid email: #{email}"
+    end
+    email.downcase
+  end
+end
+
+class Contact < Lutaml::Model::Serializable
+  attribute :email, EmailType
+
+  xml do
+    root 'contact'
+    map_element 'email', to: :email  # Uses EmailNamespace automatically
+  end
+end
+
+# Serialization:
+contact = Contact.new(email: "USER@EXAMPLE.COM")
+xml = contact.to_xml
+puts xml
+# => <contact xmlns:email="https://example.com/types/email">
+#      <email:email>user@example.com</email:email>
+#    </contact>
+
+# Deserialization:
+parsed = Contact.from_xml(xml)
+parsed.email  # => "user@example.com" (type casting applied)
+parsed == contact  # => true (round-trip successful)
+----
+====
+
+=== Serializable namespace directive
+
+Models declare their namespace using the `namespace` directive:
+
+Syntax:
+
+[source,ruby]
+----
+class CustomModel < Lutaml::Model::Serializable
+  namespace CustomNamespace
+  
+  attribute :value, :string
+  
+  xml do
+    root 'customElement'
+    map_element 'value', to: :value
+  end
+end
+----
+
+=== Complete working example
+
+.Dublin Core metadata with Type namespaces
+[example]
+====
+[source,ruby]
+----
+# Define Dublin Core namespace
+class DublinCoreNamespace < Lutaml::Model::XmlNamespace
+  uri 'http://purl.org/dc/elements/1.1/'
+  prefix_default 'dc'
+end
+
+# Define document namespace
+class DocumentNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/document'
+  prefix_default 'doc'
+end
+
+# Define custom type with Dublin Core namespace
+class DcTitleType < Lutaml::Model::Type::String
+  xml_namespace DublinCoreNamespace
+  xsd_type 'titleType'
+end
+
+class DcCreatorType < Lutaml::Model::Type::String
+  xml_namespace DublinCoreNamespace
+  xsd_type 'creatorType'
+end
+
+# Use types in document model
+class Document < Lutaml::Model::Serializable
+  namespace DocumentNamespace
+  
+  attribute :title, DcTitleType
+  attribute :creator, DcCreatorType
+  attribute :content, :string  # Regular attribute, no type namespace
+
+  xml do
+    root 'document'
+    
+    map_element 'title', to: :title      # Becomes <dc:title> from Type
+    map_element 'creator', to: :creator  # Becomes <dc:creator> from Type
+    map_element 'content', to: :content  # No namespace (unqualified local)
+  end
+end
+
+# Serialization:
+doc = Document.new(
+  title: 'Example Document',
+  creator: 'John Doe',
+  content: 'Document content here'
+)
+
+xml = doc.to_xml
+puts xml
+# Output:
+# <doc:document
+#   xmlns:doc="https://example.com/document"
+#   xmlns:dc="http://purl.org/dc/elements/1.1/">
+#   <dc:title>Example Document</dc:title>
+#   <dc:creator>John Doe</dc:creator>
+#   <content>Document content here</content>
+# </doc:document>
+
+# Deserialization (round-trip):
+parsed = Document.from_xml(xml)
+parsed.title    # => "Example Document"
+parsed.creator  # => "John Doe"
+parsed.content  # => "Document content here"
+parsed == doc   # => true
+----
+====
+
+=== Namespace resolution priority
+
+Namespace is determined by priority (highest to lowest):
+
+==== For elements (`map_element`)
+
+1. **Explicit mapping namespace** (highest priority)
++
+[source,ruby]
+----
+map_element 'title', to: :title, namespace: ExplicitNamespace
+----
+
+2. **Type-level namespace** (from `Type::Value` or Model class)
++
+[source,ruby]
+----
+class TitleType < Lutaml::Model::Type::String
+  xml_namespace DublinCoreNamespace
+end
+attribute :title, TitleType
+map_element 'title', to: :title  # Uses DublinCoreNamespace
+----
+
+3. **Inherited namespace** (via `namespace: :inherit`)
++
+[source,ruby]
+----
+map_element 'title', to: :title, namespace: :inherit  # Uses parent namespace
+----
+
+4. **Form default qualification** (from `element_form_default`)
++
+If `:qualified`: inherits parent namespace +
+If `:unqualified`: no namespace (default)
+
+==== For attributes (`map_attribute`)
+
+1. **Explicit mapping namespace** (highest priority)
++
+[source,ruby]
+----
+map_attribute 'type', to: :type, namespace: XsiNamespace
+----
+
+2. **Type-level namespace** (from `Type::Value` class)
++
+[source,ruby]
+----
+class XsiTypeType < Lutaml::Model::Type::String
+  xml_namespace XsiNamespace
+end
+attribute :type, XsiTypeType
+map_attribute 'type', to: :type  # Uses XsiNamespace, becomes xsi:type
+----
+
+3. **No namespace** (W3C default)
++
+Per W3C specifications: unprefixed attributes are NEVER in a namespace. +
+Only explicitly qualified attributes have namespaces.
+
+IMPORTANT: Per W3C specifications, unprefixed XML attributes do NOT inherit
+their parent element's namespace. Only explicitly qualified attributes have
+namespaces. This is critical for W3C compliance and correct round-tripping.
+
+=== XSD schema generation support
+
+Type-level namespaces are fully integrated with XSD generation:
+
+* Type namespaces generate proper `xs:import` declarations
+* `xsd_type` directive controls the type name in generated schemas
+* Namespace URIs are included in schema imports
+* Schema locations are preserved from `XmlNamespace` definitions
+
+.XSD generation with type namespaces
+[example]
+====
+[source,ruby]
+----
+# After defining DcTitleType and Document from previous example
+xsd = Lutaml::Model::Schema.to_xml(
+  Document,
+  namespace: DocumentNamespace.uri,
+  prefix: DocumentNamespace.prefix_default
+)
+
+# Generated XSD includes:
+# <xs:import namespace="http://purl.org/dc/elements/1.1/"
+#            schemaLocation="..." />
+#
+# And uses dc:titleType for the title element type
+----
+====
+
+=== Best practices
+
+When using Type-level namespaces:
+
+1. **Define namespace classes first**: Create all `XmlNamespace` classes before
+defining types
+
+2. **Use descriptive type names**: Set `xsd_type` for custom types to generate
+meaningful schemas
+
+3. **Leverage namespace resolution**: Let type namespaces handle qualification
+automatically instead of explicit mapping namespaces
+
+4. **Test round-trips**: Verify that serialization and deserialization work
+correctly with your namespace configuration
+
+5. **Document namespaces**: Use XmlNamespace `documentation` for schema clarity
+
+=== Migration from xml block
+
+The old xml block approach in Type::Value is deprecated:
+
+.Old approach (deprecated)
+[source,ruby]
+----
+class EmailType < Lutaml::Model::Type::String
+  xml do
+    namespace EmailNamespace  # DEPRECATED
+  end
+  
+  def self.xsd_type
+    'EmailAddress'
+  end
+end
+----
+
+.New approach (recommended)
+[source,ruby]
+----
+class EmailType < Lutaml::Model::Type::String
+  xml_namespace EmailNamespace  # Directive, not block
+  xsd_type 'EmailAddress'       # Directive, not method
+end
+----
+
+Benefits of new approach:
+
+* Cleaner, more declarative syntax
+* Consistent with XmlNamespace DSL pattern
+* Better performance (no block evaluation)
+* Enhanced XSD generation support
+* Full deserialization support
+
+NOTE: The xml block approach still works with a deprecation warning for
+backward compatibility but lacks full deserialization support.
+
+[[namespace-scope-consolidation]]
+== Namespace scope consolidation
+
+=== General
+
+The `namespace_scope` directive controls where namespace declarations appear in
+serialized XML. By default, namespaces are declared on the elements where they
+are used. With `namespace_scope`, you can consolidate multiple namespace
+declarations at a parent element for cleaner, more compact XML.
+
+This feature is particularly useful for:
+
+* **Multi-namespace documents**: Documents using several namespaces throughout
+* **Reduced XML verbosity**: Consolidate namespace declarations at logical scoping levels
+* **Standards compliance**: W3C-compliant namespace handling with declaration consolidation
+* **Cleaner output**: More readable XML with namespaces declared once
+
+=== Syntax
+
+[source,ruby]
+----
+xml do
+  namespace RootNamespace
+  namespace_scope [Namespace1, Namespace2, Namespace3]
+end
+----
+
+Where,
+
+`namespace_scope`:: Array of `XmlNamespace` class objects. These namespaces will
+be declared once at the root element. Any namespaces NOT in this list will be
+declared locally on elements that use them.
+
+=== How it works
+
+**Namespaces IN scope:**
+
+* Declared once at the root element
+* All child elements using these namespaces omit local declarations
+* Cleaner, more compact XML output
+
+**Namespaces NOT in scope:**
+
+* Declared locally on the first element that uses them
+* Each usage includes namespace declaration
+* More verbose but clearly scoped
+
+=== Basic example
+
+.Consolidating two namespaces
+[example]
+====
+[source,ruby]
+----
+class VcardNamespace < Lutaml::Model::XmlNamespace
+  uri "urn:ietf:params:xml:ns:vcard-4.0"
+  prefix_default "vcard"
+end
+
+class DcNamespace < Lutaml::Model::XmlNamespace
+  uri "http://purl.org/dc/elements/1.1/"
+  prefix_default "dc"
+end
+
+class DcTitleType < Lutaml::Model::Type::String
+  xml_namespace DcNamespace
+end
+
+class Vcard < Lutaml::Model::Serializable
+  attribute :version, :string
+  attribute :title, DcTitleType
+
+  xml do
+    root "vCard"
+    namespace VcardNamespace
+    namespace_scope [VcardNamespace, DcNamespace]  <1>
+
+    map_element "version", to: :version
+    map_element "title", to: :title
+  end
+end
+
+vcard = Vcard.new(
+  version: "4.0",
+  title: "Dr. John Doe"
+)
+
+puts vcard.to_xml
+----
+<1> Both namespaces declared at root element
+
+Output with `namespace_scope`:
+
+[source,xml]
+----
+<vcard:vCard xmlns:vcard="urn:ietf:params:xml:ns:vcard-4.0"
+             xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <vcard:version>4.0</vcard:version>
+  <dc:title>Dr. John Doe</dc:title>
+</vcard:vCard>
+----
+
+Without `namespace_scope`, dc namespace declared locally:
+
+[source,xml]
+----
+<vcard:vCard xmlns:vcard="urn:ietf:params:xml:ns:vcard-4.0">
+  <vcard:version>4.0</vcard:version>
+  <dc:title xmlns:dc="http://purl.org/dc/elements/1.1/">Dr. John Doe</dc:title>
+</vcard:vCard>
+----
+====
+
+=== Complete vCard example
+
+.Multi-namespace vCard with namespace consolidation
+[example]
+====
+[source,ruby]
+----
+class VcardNamespace < Lutaml::Model::XmlNamespace
+  uri "urn:ietf:params:xml:ns:vcard-4.0"
+  prefix_default "vcard"
+end
+
+class DcNamespace < Lutaml::Model::XmlNamespace
+  uri "http://purl.org/dc/elements/1.1/"
+  prefix_default "dc"
+end
+
+class DctermsNamespace < Lutaml::Model::XmlNamespace
+  uri "http://purl.org/dc/terms/"
+  prefix_default "dcterms"
+end
+
+# Define types with Dublin Core namespaces
+class DcTitleType < Lutaml::Model::Type::String
+  xml_namespace DcNamespace
+end
+
+class DctermsCreatedType < Lutaml::Model::Type::DateTime
+  xml_namespace DctermsNamespace
+end
+
+class VcardVersion < Lutaml::Model::Type::String
+  xml_namespace VcardNamespace
+end
+
+class Vcard < Lutaml::Model::Serializable
+  attribute :version, VcardVersion
+  attribute :title, DcTitleType
+  attribute :full_name, :string
+  attribute :created, DctermsCreatedType
+
+  xml do
+    root "vCard"
+    namespace VcardNamespace
+    namespace_scope [VcardNamespace, DcNamespace, DctermsNamespace]  <1>
+
+    map_element "version", to: :version
+    map_element "title", to: :title
+    map_element "fn", to: :full_name
+    map_element "created", to: :created
+  end
+end
+
+vcard = Vcard.new(
+  version: "4.0",
+  title: "Contact: Dr. John Doe",
+  full_name: "Dr. John Doe",
+  created: DateTime.parse("2024-06-01T12:00:00Z")
+)
+
+puts vcard.to_xml
+----
+<1> Consolidate all three namespaces at root element
+
+Output with `namespace_scope`:
+
+[source,xml]
+----
+<vcard:vCard xmlns:vcard="urn:ietf:params:xml:ns:vcard-4.0"
+             xmlns:dc="http://purl.org/dc/elements/1.1/"
+             xmlns:dcterms="http://purl.org/dc/terms/">
+  <vcard:version>4.0</vcard:version>
+  <dc:title>Contact: Dr. John Doe</dc:title>
+  <vcard:fn>Dr. John Doe</vcard:fn>
+  <dcterms:created>2024-06-01T12:00:00+00:00</dcterms:created>
+</vcard:vCard>
+----
+
+Without `namespace_scope`, each namespace declared locally where used:
+
+[source,xml]
+----
+<vcard:vCard xmlns:vcard="urn:ietf:params:xml:ns:vcard-4.0">
+  <vcard:version>4.0</vcard:version>
+  <dc:title xmlns:dc="http://purl.org/dc/elements/1.1/">Contact: Dr. John Doe</dc:title>
+  <vcard:fn>Dr. John Doe</vcard:fn>
+  <dcterms:created xmlns:dcterms="http://purl.org/dc/terms/">2024-06-01T12:00:00+00:00</dcterms:created>
+</vcard:vCard>
+----
+====
+
+=== Selective namespace consolidation
+
+You can choose which namespaces to consolidate and which to keep local:
+
+.Consolidating only frequently used namespaces
+[example]
+====
+[source,ruby]
+----
+class Vcard < Lutaml::Model::Serializable
+  attribute :version, VcardVersion
+  attribute :title, DcTitleType
+  attribute :created, DctermsCreatedType
+
+  xml do
+    root "vCard"
+    namespace VcardNamespace
+    namespace_scope [VcardNamespace, DcNamespace]  <1>
+
+    map_element "version", to: :version
+    map_element "title", to: :title
+    map_element "created", to: :created
+  end
+end
+----
+<1> Only vcard and dc namespaces at root; dcterms declared locally
+
+Output:
+
+[source,xml]
+----
+<vcard:vCard xmlns:vcard="urn:ietf:params:xml:ns:vcard-4.0"
+             xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <vcard:version>4.0</vcard:version>
+  <dc:title>Contact: Dr. John Doe</dc:title>
+  <dcterms:created xmlns:dcterms="http://purl.org/dc/terms/">2024-06-01T12:00:00+00:00</dcterms:created>
+</vcard:vCard>
+----
+
+The `dcterms` namespace is declared locally on the `<dcterms:created>` element
+because it was not included in `namespace_scope`.
+====
+
+=== When to use namespace_scope
+
+**Use `namespace_scope` when:**
+
+* Multiple namespaces are used throughout the document
+* You prefer cleaner XML with consolidated declarations
+* Namespaces should be declared at a logical scoping level
+* The document structure benefits from upfront namespace declarations
+
+**Do NOT use `namespace_scope` when:**
+
+* Single namespace documents (not needed)
+* Namespaces are rarely used (local declaration is clearer)
+* External consumers expect local namespace declarations
+* Namespace declarations should be deferred to actual usage points
+
+=== Round-trip behavior
+
+Type-level namespaces with `namespace_scope` work correctly in both
+serialization and deserialization:
+
+.Round-trip with namespace_scope
+[example]
+====
+[source,ruby]
+----
+# Serialize with consolidated namespaces
+vcard = Vcard.new(
+  version: "4.0",
+  title: "Dr. John Doe",
+  created: DateTime.parse("2024-06-01T12:00:00Z")
+)
+
+xml = vcard.to_xml
+# Namespaces declared at root
+
+# Deserialize - namespaces correctly resolved
+parsed = Vcard.from_xml(xml)
+parsed == vcard  # => true
+
+# All attributes correctly parsed regardless of where namespace was declared
+parsed.version  # => "4.0"
+parsed.title    # => "Dr. John Doe"
+parsed.created  # => DateTime "2024-06-01T12:00:00Z"
+----
+====
+
+[[xsd-type-attribute-option]]

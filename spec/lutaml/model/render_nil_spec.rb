@@ -140,7 +140,7 @@ RSpec.describe RenderNil do
       </render_nil>
     XML
 
-    expect(model.to_xml).to be_equivalent_to(expected_xml)
+    expect(model.to_xml).to be_xml_equivalent_to(expected_xml)
   end
 
   it "deserializes from XML with render_nil option" do

@@ -211,7 +211,7 @@ RSpec.describe "Group" do
     it "serialize the imported model correctly" do
       instance = GroupSpec::Mrow.new(mi: "x", mstyle: "italic", mr: "y",
                                      name: "Smith", type: "product", description: "Item")
-      expect(instance.to_xml).to be_equivalent_to(xml)
+      expect(instance.to_xml).to be_xml_equivalent_to(xml)
     end
   end
 
@@ -362,7 +362,7 @@ RSpec.describe "Group" do
         xml = mrow_instance.to_xml
         expected_xml = "<mrow xmlns:ex1='http://www.example.com' xmlns:GML='http://www.sparxsystems.com/profiles/GML/1.0'/>"
 
-        expect(xml).to be_equivalent_to(expected_xml)
+        expect(xml).to be_xml_equivalent_to(expected_xml)
       end
     end
 
