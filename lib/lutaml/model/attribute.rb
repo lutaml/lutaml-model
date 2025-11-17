@@ -511,7 +511,7 @@ module Lutaml
 
         # Check if type is a Serializable model with namespace in XML mappings
         if resolved_type <= Lutaml::Model::Serialize
-          xml_mapping = resolved_type.mappings_for(:xml)
+          xml_mapping = resolved_type.mappings_for(:xml, register)
           if xml_mapping&.namespace_uri
             # Create an anonymous XmlNamespace class to wrap the mapping's namespace
             return Class.new(Lutaml::Model::XmlNamespace) do
