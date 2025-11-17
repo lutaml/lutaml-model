@@ -339,8 +339,8 @@ module Lutaml
         end
 
         def build_namespace_attributes(klass, processed = {}, options = {})
-          xml_mappings = klass.mappings_for(:xml)
-          attributes = klass.attributes
+          xml_mappings = klass.mappings_for(:xml, register)
+          attributes = klass.attributes(register)
           parent_namespace = options[:parent_namespace]
           is_root_call = options[:is_root_call]
           namespace_scope = xml_mappings.namespace_scope

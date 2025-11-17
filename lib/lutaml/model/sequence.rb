@@ -22,11 +22,11 @@ module Lutaml
         @attributes << @model.map_element(name, **kwargs)
       end
 
-      def import_model_mappings(model)
+      def import_model_mappings(model, register = nil)
         return import_mappings_later(model) if later_importable?(model)
-        raise Lutaml::Model::ImportModelWithRootError.new(model) if model.root?
+        raise Lutaml::Model::ImportModelWithRootError.new(model) if model.root?(register)
 
-        @model.import_model_mappings(model)
+        @model.import_model_mappings(model, register)
         @attributes.concat(Utils.deep_dup(model.mappings_for(:xml).elements))
       end
 
