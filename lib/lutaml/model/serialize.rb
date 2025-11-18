@@ -118,6 +118,7 @@ module Lutaml
         def ensure_imports!(register = nil)
           ensure_model_imports!(register)
           ensure_choice_imports!(register)
+          ensure_restrict_attributes!(register)
         end
 
         def model(klass = nil)
@@ -255,11 +256,22 @@ module Lutaml
         end
 
         def restrict(name, options = {})
+          if !@attributes.key?(name)
+            return restrict_attributes[name] = options if any_importable_models?
+
+            raise Lutaml::Model::UndefinedAttributeError.new(name, self)
+          end
+
+          register_id = options.delete(:register) || Lutaml::Model::Config.default_register
           validate_attribute_options!(name, options)
-          attr = attributes[name]
+          attr = attributes(register_id)[name]
           attr.options.merge!(options)
           attr.process_options!
           name
+        end
+
+        def any_importable_models?
+          importable_choices.any? || importable_models.any?
         end
 
         def validate_attribute_options!(name, options)
@@ -275,7 +287,7 @@ module Lutaml
         end
 
         def root?(register)
-          mappings_for(:xml, register)&.root?#(register)
+          mappings_for(:xml, register)&.root?
         end
 
         def import_model_with_root_error(model, register = nil)
@@ -345,6 +357,10 @@ module Lutaml
 
         def importable_models
           @importable_models ||= MappingHash.new { |h, k| h[k] = [] }
+        end
+
+        def restrict_attributes
+          @restrict_attributes ||= MappingHash.new
         end
 
         def importable_choices
@@ -567,8 +583,8 @@ collection)
         end
 
         def mappings_for(format, register = nil)
-          if @mappings&.dig(format)&.finalized?
-            @mappings[format]&.ensure_mappings_imported!(extract_register_id(register))
+          if @mappings&.dig(:xml)&.finalized?
+            @mappings[:xml]&.ensure_mappings_imported!(extract_register_id(register))
           end
           mappings[format] || default_mappings(format)
         end
@@ -693,12 +709,12 @@ collection)
 
           register_id ||= Lutaml::Model::Config.default_register
           register = Lutaml::Model::GlobalRegister.lookup(register_id)
-          importable_models.each do |method, models|
+          until importable_models.empty?
+            method, models = importable_models.shift
             models.uniq.each do |model|
               model_class = register.get_class_without_register(model)
-
-              @model.public_send(method, model_class, register_id)
               import_model_with_root_error(model_class, register_id)
+              @model.public_send(method, model_class, register_id)
             end
           end
 
@@ -710,17 +726,33 @@ collection)
 
           register_id ||= Lutaml::Model::Config.default_register
           register = Lutaml::Model::GlobalRegister.lookup(register_id)
-          importable_choices.each do |choice, choice_imports|
+          until importable_choices.empty?
+            choice, choice_imports = importable_choices.shift
             choice_imports.each do |method, models|
               models.uniq!
-              choice.public_send(method,
-                                 register.get_class_without_register(models.shift),
-                                 register_id) until models.empty?
+              until models.empty?
+                choice.public_send(
+                  method,
+                  register.get_class_without_register(models.shift),
+                  register_id,
+                )
               end
             end
           end
 
           @choices_imported = true
+        end
+
+        def ensure_restrict_attributes!(register_id = nil)
+          return if restrict_attributes.empty?
+
+          attrs = restrict_attributes.dup
+          restrict_attributes.clear
+          register_id ||= Lutaml::Model::Config.default_register
+          attrs.each do |name, options_list|
+            options_list[:register] = register_id
+            restrict(name, options_list)
+          end
         end
 
         def setup_trace_point
@@ -861,7 +893,7 @@ collection)
       def initialize(attrs = {}, options = {})
         @using_default = {}
         @__register = extract_register_id(attrs, options)
-        return unless self.class.attributes
+        return unless self.class.attributes(__register)
 
         set_ordering(attrs)
         set_schema_location(attrs)

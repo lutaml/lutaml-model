@@ -278,7 +278,7 @@ RSpec.describe Lutaml::Model::Serializable do
 
     it "raises an error if the attribute does not exist" do
       expect { RestrictTestClass.restrict(:bar, collection: 1..2) }
-        .to raise_error(NoMethodError)
+        .to raise_error(Lutaml::Model::UndefinedAttributeError, "bar is not defined in RestrictTestClass")
     end
   end
 
