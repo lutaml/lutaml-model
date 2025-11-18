@@ -727,7 +727,8 @@ collection)
 
           register_id ||= Lutaml::Model::Config.default_register
           register = Lutaml::Model::GlobalRegister.lookup(register_id)
-          importable_models.each do |method, models|
+          until importable_models.empty?
+            method, models = importable_models.shift
             models.uniq.each do |model|
               model_class = register.get_class_without_register(model)
               import_model_with_root_error(model_class, register_id)
@@ -744,7 +745,8 @@ collection)
 
           register_id ||= Lutaml::Model::Config.default_register
           register = Lutaml::Model::GlobalRegister.lookup(register_id)
-          importable_choices.each do |choice, choice_imports|
+          until importable_choices.empty?
+            choice, choice_imports = importable_choices.shift
             choice_imports.each do |method, models|
               until models.uniq.empty?
                 choice.public_send(
