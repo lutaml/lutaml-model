@@ -276,6 +276,101 @@ gem install lutaml-model
 ----
 
 
+== Command Line Interface
+
+Lutaml::Model includes a command line interface (CLI) that provides useful tools for working with your data models. The CLI is available through the `lutaml-model` command after installation.
+
+=== Compare Command
+
+The `compare` command allows you to compare two data files of different formats using your Lutaml::Model classes. This is particularly useful for:
+
+* Data validation and testing
+* Migration verification (e.g., XML to JSON conversion)
+* Configuration file comparison
+* Quality assurance of data transformations
+
+==== Basic Usage
+
+[source,shell]
+----
+lutaml-model compare FILE1 FILE2 -m MODEL_FILE -r ROOT_CLASS
+----
+
+==== Parameters
+
+* `FILE1`, `FILE2` - Paths to the files you want to compare
+* `-m, --model-file` - Path to the Ruby file containing your Lutaml::Model classes
+* `-r, --root-class` - Name of the root model class to use for parsing
+
+==== Example
+
+Given a model file `models/document.rb`:
+
+[source,ruby]
+----
+class TermiumExtract < Lutaml::Model::Serializable
+  attribute :language, :string
+  attribute :extract_language, ExtractLanguage, collection: true
+
+  xml do
+    root "termium_extract"
+    map_attribute "language", to: :language
+    map_element "extractLanguage", to: :extract_language
+  end
+
+  json do
+    map "language", to: :language
+    map "extract_language", to: :extract_language
+  end
+end
+----
+
+Compare two files:
+
+[source,shell]
+----
+lutaml-model compare data.xml data.json -m models/document.rb -r TermiumExtract
+----
+
+Sample output:
+
+[source,text]
+----
+Differences between data.xml and data.json:
+  └── TermiumExtract
+      ├── language (Lutaml::Model::Type::String):
+      │   └──  (Lutaml::Model::Type::String):
+      │       ├── - (String) "EN"
+      │       └── + (nil)
+      └── extract_language (collection):
+          ├── [1] (ExtractLanguage)
+          │   ├── language (Lutaml::Model::Type::String):
+          │   │   ├── - (String) "EN"
+          │   │   └── + (String) "EN1"
+          │   └── order (Lutaml::Model::Type::Integer):
+          │       ├── - (Integer) 0
+          │       └── + (Integer) 1
+          └── - [2] (ExtractLanguage)
+              ├── language (Lutaml::Model::Type::String):
+              │   └── (String) "FR"
+              └── order (Lutaml::Model::Type::Integer):
+                  └── (Integer) 1
+Similarity score: 12.5%
+----
+
+==== Supported Formats
+
+The compare command supports cross-format comparison between:
+
+* XML (`.xml`)
+* JSON (`.json`)  
+* YAML (`.yml`, `.yaml`)
+* TOML (`.toml`)
+* Any other formats supported by your model mappings
+
+For detailed information and advanced usage examples, see link:docs/cli_compare.adoc[CLI Compare Documentation].
+
+
 == Components
 
 LutaML provides the following set of components to model information in a
