@@ -10,14 +10,16 @@ module Lutaml
             include SharedMethods
 
             def from_class(klass)
-              from_attributes(klass.attributes.values, extract_register_from(klass))
+              from_attributes(klass.attributes.values,
+                              extract_register_from(klass))
             end
 
             def from_attributes(attributes, register)
               new(register: register).tap do |collection|
                 attributes.each do |attribute|
                   name = attribute.name
-                  collection << Property.new(name, attribute, register: register)
+                  collection << Property.new(name, attribute,
+                                             register: register)
                 end
               end
             end
@@ -40,7 +42,8 @@ module Lutaml
             @properties << if property.is_a?(Property)
                              property
                            else
-                             Property.new(property.name, property, register: register)
+                             Property.new(property.name, property,
+                                          register: register)
                            end
           end
           alias << add_property

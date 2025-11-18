@@ -65,7 +65,9 @@ RSpec.describe Lutaml::Model::Liquefiable do
 
   describe ".register_liquid_drop_class" do
     context "when 'liquid' is not available" do
-      before { allow(Object).to receive(:const_defined?).with(:Liquid).and_return(false) }
+      before do
+        allow(Object).to receive(:const_defined?).with(:Liquid).and_return(false)
+      end
 
       it "raises an error" do
         expect { dummy.class.register_liquid_drop_class }.to raise_error(
@@ -77,15 +79,23 @@ RSpec.describe Lutaml::Model::Liquefiable do
 
     context "when drop class already exists" do
       it "raises an error" do
-        expect { dummy.class.register_liquid_drop_class }.to raise_error(RuntimeError, "Drop Already exists!")
+        expect do
+          dummy.class.register_liquid_drop_class
+        end.to raise_error(RuntimeError,
+                           "Drop Already exists!")
       end
     end
 
     context "when class inherits from Lutaml::Model::Serializable and doesn't define any attribute" do
-      before { stub_const("EmptyModel", Class.new(Lutaml::Model::Serializable)) }
+      before do
+        stub_const("EmptyModel", Class.new(Lutaml::Model::Serializable))
+      end
 
       it "raises an error" do
-        expect { EmptyModel.register_liquid_drop_class }.to raise_error(RuntimeError, "Drop Already exists!")
+        expect do
+          EmptyModel.register_liquid_drop_class
+        end.to raise_error(RuntimeError,
+                           "Drop Already exists!")
       end
     end
   end
@@ -126,7 +136,9 @@ RSpec.describe Lutaml::Model::Liquefiable do
 
   describe ".to_liquid" do
     context "when liquid is not enabled" do
-      before { allow(Object).to receive(:const_defined?).with(:Liquid).and_return(false) }
+      before do
+        allow(Object).to receive(:const_defined?).with(:Liquid).and_return(false)
+      end
 
       it "raises an error" do
         expect { dummy.to_liquid }.to raise_error(
@@ -400,7 +412,9 @@ RSpec.describe Lutaml::Model::Liquefiable do
       end
     end
 
-    let(:schema_instance) { schema_class.new(path: "test.xml", source: "content") }
+    let(:schema_instance) do
+      schema_class.new(path: "test.xml", source: "content")
+    end
 
     it "provides to_liquid_class method to get auto-generated drop class" do
       base_drop_class = schema_class.to_liquid_class
@@ -466,8 +480,12 @@ RSpec.describe Lutaml::Model::Liquefiable do
         end)
       end
 
-      let(:user_drop) { LiquefiableSpec::User.new("Alice", "alice@example.com").to_liquid }
-      let(:admin_drop) { LiquefiableSpec::Admin.new("Alice", "alice@example.com").to_liquid }
+      let(:user_drop) do
+        LiquefiableSpec::User.new("Alice", "alice@example.com").to_liquid
+      end
+      let(:admin_drop) do
+        LiquefiableSpec::Admin.new("Alice", "alice@example.com").to_liquid
+      end
 
       it "checks if the liquid drop responds to the mapped methods" do
         expect(user_drop).to respond_to(:name)

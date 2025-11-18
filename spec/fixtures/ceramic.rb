@@ -4,6 +4,10 @@ class HighPrecisionDateTime < Lutaml::Model::Type::DateTime
   def to_xml
     value.strftime("%Y-%m-%dT%H:%M:%S.%L%:z")
   end
+
+  def to_json(*_args)
+    value&.iso8601
+  end
 end
 
 class Ceramic < Lutaml::Model::Serializable

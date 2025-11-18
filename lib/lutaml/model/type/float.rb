@@ -28,6 +28,13 @@ module Lutaml
         def to_json(*_args)
           value
         end
+
+        # XSD type for Float
+        #
+        # @return [String] xs:float
+        def self.default_xsd_type
+          "xs:float"
+        end
       end
     end
   end

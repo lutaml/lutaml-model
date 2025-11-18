@@ -52,7 +52,9 @@ RSpec.describe Lutaml::Model::Type::Reference do
   end
 
   describe ".cast_with_metadata" do
-    subject(:cast_with_metadata) { described_class.cast_with_metadata(value, "TestModel", :id) }
+    subject(:cast_with_metadata) do
+      described_class.cast_with_metadata(value, "TestModel", :id)
+    end
 
     context "with string value" do
       let(:value) { "test-123" }
@@ -78,7 +80,9 @@ RSpec.describe Lutaml::Model::Type::Reference do
     end
 
     context "with Reference instance" do
-      let(:existing_reference) { described_class.new("TestModel", :id, "test-123") }
+      let(:existing_reference) do
+        described_class.new("TestModel", :id, "test-123")
+      end
       let(:value) { existing_reference }
 
       it "returns the existing reference unchanged" do
@@ -203,7 +207,9 @@ RSpec.describe Lutaml::Model::Type::Reference do
     end
 
     context "when assigning collection of references" do
-      let(:target_object2) { TestModel.new(id: "test-456", name: "Test Object 2") }
+      let(:target_object2) do
+        TestModel.new(id: "test-456", name: "Test Object 2")
+      end
 
       before do
         Lutaml::Model::Store.instance.register(target_object2)
@@ -214,7 +220,8 @@ RSpec.describe Lutaml::Model::Type::Reference do
 
         # Users get the resolved objects directly
         expect(container.multiple_refs).to eq([target_object, target_object2])
-        expect(container.multiple_refs.map(&:name)).to eq(["Test Object", "Test Object 2"])
+        expect(container.multiple_refs.map(&:name)).to eq(["Test Object",
+                                                           "Test Object 2"])
       end
     end
 
@@ -260,7 +267,8 @@ RSpec.describe Lutaml::Model::Type::Reference do
           Class.new(Lutaml::Model::Serializable) do
             attribute :invalid_ref, { ref: "InvalidSpec" }
           end
-        end.to raise_error(ArgumentError, "ref: syntax requires an array [model_class, key_attribute]")
+        end.to raise_error(ArgumentError,
+                           "ref: syntax requires an array [model_class, key_attribute]")
       end
 
       it "raises ArgumentError for array with wrong length" do
@@ -268,7 +276,8 @@ RSpec.describe Lutaml::Model::Type::Reference do
           Class.new(Lutaml::Model::Serializable) do
             attribute :invalid_ref, { ref: ["OnlyOneElement"] }
           end
-        end.to raise_error(ArgumentError, "ref: syntax requires an array [model_class, key_attribute]")
+        end.to raise_error(ArgumentError,
+                           "ref: syntax requires an array [model_class, key_attribute]")
       end
 
       it "raises ArgumentError for array with too many elements" do
@@ -276,7 +285,8 @@ RSpec.describe Lutaml::Model::Type::Reference do
           Class.new(Lutaml::Model::Serializable) do
             attribute :invalid_ref, { ref: ["Model", :attr, :extra] }
           end
-        end.to raise_error(ArgumentError, "ref: syntax requires an array [model_class, key_attribute]")
+        end.to raise_error(ArgumentError,
+                           "ref: syntax requires an array [model_class, key_attribute]")
       end
     end
   end

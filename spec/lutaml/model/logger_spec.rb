@@ -30,7 +30,8 @@ RSpec.describe Lutaml::Model::Logger do
       replacement = "new_method"
 
       warning_output = capture_warning do
-        described_class.warn_future_deprecation(old: old_method, replacement: replacement)
+        described_class.warn_future_deprecation(old: old_method,
+                                                replacement: replacement)
       end
 
       expect(warning_output).to include("Usage of `old_method` is deprecated")

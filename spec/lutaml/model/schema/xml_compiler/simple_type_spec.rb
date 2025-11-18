@@ -65,7 +65,8 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler::SimpleType do
       restriction = Lutaml::Model::Schema::XmlCompiler::Restriction.new
       allow(restriction).to receive(:required_files).and_return(["require 'foo'"])
       simple_type.instance = restriction
-      allow(simple_type).to receive_messages(require_parent?: true, parent_class: "ParentClass")
+      allow(simple_type).to receive_messages(require_parent?: true,
+                                             parent_class: "ParentClass")
       expect(simple_type.required_files).to include("require 'foo'")
       expect(simple_type.required_files).to include("require_relative \"parent_class\"")
     end
@@ -121,7 +122,8 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler::SimpleType do
     end
 
     it "returns a Restriction with correct values" do
-      validations = { min_inclusive: 1, max_inclusive: 10, pattern: /foo/, transform: "bar" }
+      validations = { min_inclusive: 1, max_inclusive: 10, pattern: /foo/,
+                      transform: "bar" }
       restriction = described_class.setup_restriction("string", validations)
       expect(restriction).to be_a(Lutaml::Model::Schema::XmlCompiler::Restriction)
       expect(restriction.base_class).to eq("string")

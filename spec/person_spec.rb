@@ -59,7 +59,7 @@ RSpec.describe Person do
   end
 
   it "serializes to XML" do
-    expect(model.to_xml).to be_equivalent_to(xml)
+    expect(model.to_xml).to be_xml_equivalent_to(xml)
   end
 
   it "deserializes from XML" do

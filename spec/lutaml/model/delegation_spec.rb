@@ -122,7 +122,7 @@ RSpec.describe Delegation do
 
     generated_xml = delegation.to_xml(pretty: true).strip
 
-    expect(generated_xml).to be_equivalent_to(expected_pretty_xml.strip)
+    expect(generated_xml).to be_xml_equivalent_to(expected_pretty_xml.strip)
   end
 
   it "does not provide XML declaration if no declaration option provided" do

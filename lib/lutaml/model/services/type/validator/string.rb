@@ -15,7 +15,7 @@ module Lutaml
 
               def validate_length!(value, options)
                 min, max = options&.values_at(:min, :max)
-                return if min.nil? || max.nil?
+                return if min.nil? && max.nil?
 
                 validate_min_length!(value, min) if min
                 validate_max_length!(value, max) if max
@@ -26,7 +26,8 @@ module Lutaml
                 return if Utils.blank?(pattern)
                 return if value.match?(pattern)
 
-                raise Lutaml::Model::Type::PatternNotMatchedError.new(value, pattern)
+                raise Lutaml::Model::Type::PatternNotMatchedError.new(value,
+                                                                      pattern)
               end
 
               def validate_min_length!(value, min)

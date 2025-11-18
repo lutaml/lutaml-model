@@ -205,8 +205,10 @@ RSpec.describe "Hash" do
     context "with collections of objects" do
       let(:simples) do
         [
-          HashMappingSpec::SimpleClass.new(name: "First", age: 10, active: true),
-          HashMappingSpec::SimpleClass.new(name: "Second", age: 20, active: false),
+          HashMappingSpec::SimpleClass.new(name: "First", age: 10,
+                                           active: true),
+          HashMappingSpec::SimpleClass.new(name: "Second", age: 20,
+                                           active: false),
         ]
       end
 

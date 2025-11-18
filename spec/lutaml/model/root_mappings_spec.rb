@@ -89,7 +89,9 @@ RSpec.describe "RootMapping" do
     # 1. Only map to `:key`. Then only override key, the rest of the mappings stay.
     context "when only `key` is mapped" do
       let(:parsed) do
-        RootMappingSpec::CeramicCollectionWithKeyOnly.public_send(:"from_#{format}", input)
+        RootMappingSpec::CeramicCollectionWithKeyOnly.public_send(
+          :"from_#{format}", input
+        )
       end
 
       let(:input_hash) do
@@ -137,13 +139,17 @@ RSpec.describe "RootMapping" do
     # 2. Maps `:key` and another attribute, then we override all the other mappings (clean slate)
     context "when `key` and `value` are mapped" do
       let(:parsed) do
-        RootMappingSpec::CeramicCollectionWithKeyAndValue.public_send(:"from_#{format}", input)
+        RootMappingSpec::CeramicCollectionWithKeyAndValue.public_send(
+          :"from_#{format}", input
+        )
       end
 
       let(:input_hash) do
         {
-          "vase1" => { "name" => "Imperial Vase", "insignia" => "Tang Tianbao" },
-          "bowl2" => { "name" => "18th Century Bowl", "insignia" => "Ming Wanli" },
+          "vase1" => { "name" => "Imperial Vase",
+                       "insignia" => "Tang Tianbao" },
+          "bowl2" => { "name" => "18th Century Bowl",
+                       "insignia" => "Ming Wanli" },
         }
       end
 
@@ -191,7 +197,9 @@ RSpec.describe "RootMapping" do
     # 3. Maps `:key` and `:value`, then we map the key and the value body to the new mappings.
     context "when `key` and complex value structure is mapped" do
       let(:parsed) do
-        RootMappingSpec::CeramicCollectionWithKeyAndComplexValue.public_send(:"from_#{format}", input)
+        RootMappingSpec::CeramicCollectionWithKeyAndComplexValue.public_send(
+          :"from_#{format}", input
+        )
       end
 
       let(:input_hash) do
@@ -274,7 +282,9 @@ RSpec.describe "RootMapping" do
 
       it "raises error" do
         expect do
-          RootMappingSpec::CeramicCollectionWithoutCollectionTrue.public_send(:"from_#{format}", input)
+          RootMappingSpec::CeramicCollectionWithoutCollectionTrue.public_send(
+            :"from_#{format}", input
+          )
         end.to raise_error(
           Lutaml::Model::CollectionTrueMissingError,
           "May be `collection: true` is missing for `ceramics` in RootMappingSpec::CeramicCollectionWithoutCollectionTrue",

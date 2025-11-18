@@ -204,7 +204,9 @@ module CustomBibtexAdapterSpec
       @fields = fields
 
       if @fields["author"].is_a?(Array)
-        @fields["author"] = @fields["author"].map { |a| a.gsub(/\s*,\s*/, ", ") }.join(" and ")
+        @fields["author"] = @fields["author"].map do |a|
+          a.gsub(/\s*,\s*/, ", ")
+        end.join(" and ")
       end
       @mapping = mapping
     end
@@ -345,7 +347,8 @@ module CustomBibtexAdapterSpec
       end
     end
 
-    def model_to_data(model) # a BibtexEntry object
+    # a BibtexEntry object
+    def model_to_data(model)
       entry_type = model.entry_type
       citekey = model.citekey
       mapping = context.mappings_for(:bibtex)
@@ -403,7 +406,8 @@ module CustomBibtexAdapterSpec
         given, family = part.split(/\s*,\s*/)
         particle, family = family.split(/\s+/) if family&.include?(" ")
         suffix = family.split(/\s+/).last if family&.include?(" ")
-        BibtexFieldAuthor.new(given: given, family: family, particle: particle, suffix: suffix)
+        BibtexFieldAuthor.new(given: given, family: family, particle: particle,
+                              suffix: suffix)
       end
     end
 
@@ -509,8 +513,10 @@ RSpec.describe "Custom BibTeX adapter" do
       citekey: "schenck1997",
       title: "The EXPRESS way",
       author: [
-        CustomBibtexAdapterSpec::BibtexFieldAuthor.new(given: "Doug", family: "Schenck"),
-        CustomBibtexAdapterSpec::BibtexFieldAuthor.new(given: "Peter", family: "Wilson"),
+        CustomBibtexAdapterSpec::BibtexFieldAuthor.new(given: "Doug",
+                                                       family: "Schenck"),
+        CustomBibtexAdapterSpec::BibtexFieldAuthor.new(given: "Peter",
+                                                       family: "Wilson"),
       ],
       year: CustomBibtexAdapterSpec::BibtexFieldYear.new(from: "1997"),
       publisher: "Addison-Wesley",

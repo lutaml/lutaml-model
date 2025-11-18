@@ -82,7 +82,9 @@ module Lutaml
             return nil if class_defs.size < 2
 
             # Get intersection of all property names
-            common_props = class_defs.map { |klass| klass.properties.keys }.reduce(:&)
+            common_props = class_defs.map do |klass|
+              klass.properties.keys
+            end.reduce(:&)
             return nil if common_props.empty?
 
             # Look for a class that exactly matches the common properties — assume it's the base

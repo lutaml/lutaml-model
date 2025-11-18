@@ -23,11 +23,13 @@ module Lutaml
       end
 
       def data_to_model(data, options = {})
-        raise NotImplementedError, "#{self.class.name} must implement `data_to_model`."
+        raise NotImplementedError,
+              "#{self.class.name} must implement `data_to_model`."
       end
 
       def model_to_data(model, options = {})
-        raise NotImplementedError, "#{self.class.name} must implement `model_to_data`."
+        raise NotImplementedError,
+              "#{self.class.name} must implement `model_to_data`."
       end
 
       protected

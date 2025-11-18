@@ -44,7 +44,8 @@ module Lutaml
           end
 
           def parent_class
-            @parent_class ||= @base_class&.namespaced_name&.gsub("_", "::") || "Lutaml::Model::Serializable"
+            @parent_class ||= @base_class&.namespaced_name&.gsub("_",
+                                                                 "::") || "Lutaml::Model::Serializable"
           end
 
           def choice?
@@ -57,7 +58,8 @@ module Lutaml
             choice_attributes = {}
             @choices.each do |choice|
               choice["properties"].each do |name, attr|
-                choice_attributes[name] = properties[name] || Decorators::Attribute.new(name, attr)
+                choice_attributes[name] =
+                  properties[name] || Decorators::Attribute.new(name, attr)
                 properties[name] = nil if properties[name]
               end
             end

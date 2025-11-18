@@ -134,8 +134,10 @@ RSpec.describe "XmlNamespace" do
       xml do
         root "ownedEnd"
 
-        map_attribute "id", to: :id, namespace: "http://www.omg.org/spec/XMI/20131001", prefix: "xmi"
-        map_attribute "type", to: :type, namespace: "http://www.omg.org/spec/XMI/20131001", prefix: "xmi"
+        map_attribute "id", to: :id,
+                            namespace: "http://www.omg.org/spec/XMI/20131001", prefix: "xmi"
+        map_attribute "type", to: :type,
+                              namespace: "http://www.omg.org/spec/XMI/20131001", prefix: "xmi"
         map_attribute "type", to: :uml_type
       end
     end
@@ -240,7 +242,7 @@ RSpec.describe "XmlNamespace" do
   shared_examples "XML serialization with namespace" do |model_class, xml_string|
     it "serializes to XML" do
       model = model_class.new(name: "Test Name")
-      expect(model.to_xml).to be_equivalent_to(xml_string)
+      expect(model.to_xml).to be_xml_equivalent_to(xml_string)
     end
 
     it "deserializes from XML" do
@@ -295,7 +297,7 @@ RSpec.describe "XmlNamespace" do
       end
 
       it "serializes to XML" do
-        expect(model.to_xml).to be_equivalent_to(xml)
+        expect(model.to_xml).to be_xml_equivalent_to(xml)
       end
 
       it "deserializes from XML" do
@@ -307,7 +309,7 @@ RSpec.describe "XmlNamespace" do
       it "round-trips if namespace is set" do
         doc = SamplePrefixedNamespacedModel.from_xml(xml_with_lang)
         generated_xml = doc.to_xml
-        expect(generated_xml).to be_equivalent_to(xml_with_lang)
+        expect(generated_xml).to be_xml_equivalent_to(xml_with_lang)
       end
 
       it "round-trips if namespace is set to nil in parent" do
@@ -322,7 +324,7 @@ RSpec.describe "XmlNamespace" do
 
         doc = NamespaceNilPrefixedNamespaced.from_xml(xml)
         generated_xml = doc.to_xml
-        expect(generated_xml).to be_equivalent_to(xml)
+        expect(generated_xml).to be_xml_equivalent_to(xml)
       end
     end
 
@@ -338,7 +340,7 @@ RSpec.describe "XmlNamespace" do
           </SampleDefaultNamespacedModel>
         XML
 
-        expect(model.to_xml).to be_equivalent_to(expected_xml)
+        expect(model.to_xml).to be_xml_equivalent_to(expected_xml)
       end
 
       it "deserializes from XML" do
@@ -364,7 +366,7 @@ RSpec.describe "XmlNamespace" do
 
         doc = SampleDefaultNamespacedModel.from_xml(xml)
         generated_xml = doc.to_xml
-        expect(generated_xml).to be_equivalent_to(xml)
+        expect(generated_xml).to be_xml_equivalent_to(xml)
       end
 
       it "round-trips if namespace is set to nil in parent" do
@@ -379,7 +381,7 @@ RSpec.describe "XmlNamespace" do
 
         doc = NamespaceNilDefaultNamespaced.from_xml(xml)
         generated_xml = doc.to_xml
-        expect(generated_xml).to be_equivalent_to(xml)
+        expect(generated_xml).to be_xml_equivalent_to(xml)
       end
     end
 
@@ -407,7 +409,7 @@ RSpec.describe "XmlNamespace" do
           article = Article.from_xml(xml_input)
           output_xml = article.to_xml(pretty: true)
 
-          expect(output_xml).to be_equivalent_to(xml_input)
+          expect(output_xml).to be_xml_equivalent_to(xml_input)
         end
       end
     end
@@ -438,14 +440,14 @@ RSpec.describe "XmlNamespace" do
             uml_type: "test",
           )
 
-          expect(owned_end.to_xml).to be_equivalent_to(xml_input)
+          expect(owned_end.to_xml).to be_xml_equivalent_to(xml_input)
         end
 
         it "round-trips XML" do
           owned_end = OwnedEnd.from_xml(xml_input)
           output_xml = owned_end.to_xml
 
-          expect(output_xml).to be_equivalent_to(xml_input)
+          expect(output_xml).to be_xml_equivalent_to(xml_input)
         end
       end
     end
@@ -455,7 +457,9 @@ RSpec.describe "XmlNamespace" do
       let(:unit_name) { UnitName.new(value: "meter") }
       let(:meter_unit) { EnumeratedRootUnit.new(unit: "meter") }
       let(:gram_unit) { EnumeratedRootUnit.new(unit: "gram", prefix: "k") }
-      let(:root_units) { RootUnits.new(enumerated_root_units: [meter_unit, gram_unit]) }
+      let(:root_units) do
+        RootUnits.new(enumerated_root_units: [meter_unit, gram_unit])
+      end
       let(:unit) do
         Unit.new(
           id: "U_m",
@@ -480,7 +484,7 @@ RSpec.describe "XmlNamespace" do
 
       it "declares xmlns only once on the root element" do
         xml = unit.to_xml
-        expect(xml).to be_equivalent_to(expected_xml)
+        expect(xml).to be_xml_equivalent_to(expected_xml)
       end
 
       it "does not repeat xmlns on child elements with same namespace" do
@@ -489,7 +493,8 @@ RSpec.describe "XmlNamespace" do
         # Count xmlns declarations for the units namespace
         xmlns_count = xml.scan('xmlns="https://schema.example.org/units/1.0"').size
 
-        expect(xmlns_count).to eq(1), "Expected exactly 1 xmlns declaration, found #{xmlns_count}"
+        expect(xmlns_count).to eq(1),
+                               "Expected exactly 1 xmlns declaration, found #{xmlns_count}"
       end
 
       it "deserializes correctly from XML with inherited namespace" do
@@ -510,14 +515,16 @@ RSpec.describe "XmlNamespace" do
         parsed = Unit.from_xml(xml)
         regenerated_xml = parsed.to_xml
 
-        expect(regenerated_xml).to be_equivalent_to(expected_xml)
+        expect(regenerated_xml).to be_xml_equivalent_to(expected_xml)
       end
     end
 
     context "when mixing different namespaces" do
       let(:math) { MathContent.new(value: "x+y") }
       let(:unit_symbol) { UnitSymbol.new(type: "MathML", math: math) }
-      let(:unit_with_math) { UnitWithMath.new(id: "U_m.kg-2", unit_symbol: unit_symbol) }
+      let(:unit_with_math) do
+        UnitWithMath.new(id: "U_m.kg-2", unit_symbol: unit_symbol)
+      end
 
       let(:expected_xml) do
         <<~XML
@@ -531,7 +538,7 @@ RSpec.describe "XmlNamespace" do
 
       it "declares different namespaces correctly" do
         xml = unit_with_math.to_xml
-        expect(xml).to be_equivalent_to(expected_xml)
+        expect(xml).to be_xml_equivalent_to(expected_xml)
       end
 
       it "declares xmlns on elements when namespace changes" do
@@ -559,7 +566,7 @@ RSpec.describe "XmlNamespace" do
         expect(parsed.unit_symbol&.math&.value).to eq("x+y")
 
         regenerated_xml = parsed.to_xml
-        expect(regenerated_xml).to be_equivalent_to(expected_xml)
+        expect(regenerated_xml).to be_xml_equivalent_to(expected_xml)
       end
     end
   end

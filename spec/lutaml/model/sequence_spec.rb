@@ -381,31 +381,54 @@ RSpec.describe "Sequence" do
             end
           end
         end
-      end.to raise_error(Lutaml::Model::UnknownSequenceMappingError, "map_attribute is not allowed in sequence")
+      end.to raise_error(Lutaml::Model::UnknownSequenceMappingError,
+                         "map_attribute is not allowed in sequence")
     end
   end
 
   describe "#validate_content!" do
-    let(:sequence) { SequenceSpec::CeramicRestricted.mappings_for(:xml).element_sequence[0] }
+    let(:sequence) do
+      SequenceSpec::CeramicRestricted.mappings_for(:xml).element_sequence[0]
+    end
     let(:klass) { SequenceSpec::CeramicRestricted }
 
     it "does not raise for correct order" do
-      expect { sequence.validate_content!(["tag", "id", "name", "type", "color", "bold", "text", "usage", "size"], klass.new) }
+      expect do
+        sequence.validate_content!(
+          ["tag", "id", "name", "type", "color", "bold", "text", "usage",
+           "size"], klass.new
+        )
+      end
         .not_to raise_error
     end
 
     it "raises for incorrect order" do
-      expect { sequence.validate_content!(["tag", "name", "id", "type", "color", "bold", "text", "usage", "size"], klass.new) }
+      expect do
+        sequence.validate_content!(
+          ["tag", "name", "id", "type", "color", "bold", "text", "usage",
+           "size"], klass.new
+        )
+      end
         .to raise_error(Lutaml::Model::IncorrectSequenceError)
     end
 
     it "raises for unknown tag" do
-      expect { sequence.validate_content!(["tag", "id", "name", "foo", "type", "color", "bold", "text", "usage", "size"], klass.new) }
+      expect do
+        sequence.validate_content!(
+          ["tag", "id", "name", "foo", "type", "color", "bold", "text", "usage",
+           "size"], klass.new
+        )
+      end
         .to raise_error(Lutaml::Model::IncorrectSequenceError)
     end
 
     it "raises error for missing required tag" do
-      expect { sequence.validate_content!(["tag", "id", "name", "type", "color", "bold", "text", "usage"], klass.new) }
+      expect do
+        sequence.validate_content!(
+          ["tag", "id", "name", "type", "color", "bold", "text",
+           "usage"], klass.new
+        )
+      end
         .to raise_error(Lutaml::Model::ElementCountOutOfRangeError)
     end
 
@@ -517,7 +540,9 @@ RSpec.describe "Sequence" do
               <mn>10</mn>
             </math>
           XML
-          expect { SequenceSpec::Math.from_xml(xml).validate! }.not_to raise_error
+          expect do
+            SequenceSpec::Math.from_xml(xml).validate!
+          end.not_to raise_error
         end
 
         it "validates successfully with correct sequence of choice elements for OMathPara class" do
@@ -531,7 +556,9 @@ RSpec.describe "Sequence" do
               </oMath>
             </oMathPara>
           XML
-          expect { SequenceSpec::OMathPara.from_xml(xml).validate! }.not_to raise_error
+          expect do
+            SequenceSpec::OMathPara.from_xml(xml).validate!
+          end.not_to raise_error
         end
 
         it "validates successfully with correct sequence of nested choice elements for OMathPara class" do
@@ -548,11 +575,15 @@ RSpec.describe "Sequence" do
               </oMath>
             </oMathPara>
           XML
-          expect { SequenceSpec::OMathPara.from_xml(xml).validate! }.not_to raise_error
+          expect do
+            SequenceSpec::OMathPara.from_xml(xml).validate!
+          end.not_to raise_error
         end
 
         it "validates successfully with empty OMathPara element" do
-          expect { SequenceSpec::OMathPara.from_xml("<oMathPara/>").validate! }.not_to raise_error
+          expect do
+            SequenceSpec::OMathPara.from_xml("<oMathPara/>").validate!
+          end.not_to raise_error
         end
       end
 

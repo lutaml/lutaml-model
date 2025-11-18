@@ -60,7 +60,7 @@ RSpec.describe Lutaml::Model::Type::TimeWithoutDate do
     context "with invalid hours" do
       let(:value) { "24:00:00" }
 
-      xit { is_expected.to be_nil }
+      it { is_expected.to be_nil }
     end
 
     context "with invalid minutes" do

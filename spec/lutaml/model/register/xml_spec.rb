@@ -126,11 +126,11 @@ RSpec.describe "RegisterXmlSpec" do
     end
 
     it "serializes model objects back to MathML XML" do
-      expect(formula.to_xml).to be_equivalent_to(xml)
+      expect(formula.to_xml).to be_xml_equivalent_to(xml)
     end
 
     it "instantiates the model correctly" do
-      expect(instantiated.to_xml).to be_equivalent_to(xml)
+      expect(instantiated.to_xml).to be_xml_equivalent_to(xml)
     end
   end
 
@@ -167,7 +167,7 @@ RSpec.describe "RegisterXmlSpec" do
         expect(formula.symbol).to be_a(RegisterXmlSpec::Mi)
         expect(formula.symbol).not_to respond_to(:color)
         expect(formula.symbol.value).to eq("y")
-        expect(formula.to_xml).not_to be_equivalent_to(xml)
+        expect(formula.to_xml).not_to be_xml_equivalent_to(xml)
       end
     end
 
@@ -178,7 +178,7 @@ RSpec.describe "RegisterXmlSpec" do
         expect(formula.symbol).to respond_to(:color)
         expect(formula.symbol.color).to eq("red")
         expect(formula.symbol.value).to eq("y")
-        expect(formula.to_xml).to be_equivalent_to(xml_type_substituted)
+        expect(formula.to_xml).to be_xml_equivalent_to(xml_type_substituted)
       end
     end
   end

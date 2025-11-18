@@ -61,13 +61,13 @@ module MapAllSpec
 
       it "captures all XML content" do
         doc = Document.from_xml(xml_content)
-        expect(doc.content).to be_equivalent_to(sub_xml_content)
+        expect(doc.content).to be_xml_equivalent_to(sub_xml_content)
       end
 
       it "preserves XML content through round trip" do
         doc = Document.from_xml(xml_content)
         regenerated = doc.to_xml
-        expect(regenerated).to be_equivalent_to(xml_content)
+        expect(regenerated).to be_xml_equivalent_to(xml_content)
       end
     end
 
@@ -123,7 +123,9 @@ module MapAllSpec
       it "preserves YAML content through round trip" do
         doc = Document.from_yaml(yaml_content)
         regenerated = doc.to_yaml
-        expect(YAML.safe_load(regenerated, permitted_classes: [Date])).to eq(YAML.safe_load(yaml_content, permitted_classes: [Date]))
+        expect(YAML.safe_load(regenerated,
+                              permitted_classes: [Date])).to eq(YAML.safe_load(yaml_content,
+                                                                               permitted_classes: [Date]))
       end
     end
 

@@ -9,7 +9,8 @@ $LOAD_PATH.unshift(lib_path) unless $LOAD_PATH.include?(lib_path)
 require "lutaml/model"
 
 class BenchmarkRunner
-  def initialize(run_time: nil, items: nil, format: nil, adapter: nil, direction: nil)
+  def initialize(run_time: nil, items: nil, format: nil, adapter: nil,
+direction: nil)
     @run_time = run_time || 5
     @items = items || 10
     @format = format
@@ -65,12 +66,16 @@ class BenchmarkRunner
   end
 
   def generate_json
-    items = (0...@items).map { |i| { "id" => i, "name" => "Test #{i}", "value" => i } }
+    items = (0...@items).map do |i|
+      { "id" => i, "name" => "Test #{i}", "value" => i }
+    end
     { "item" => items }.to_json
   end
 
   def generate_yaml
-    items = (0...@items).map { |i| "  - id: #{i}\n    name: 'Test #{i}'\n    value: #{i}" }
+    items = (0...@items).map do |i|
+      "  - id: #{i}\n    name: 'Test #{i}'\n    value: #{i}"
+    end
     "item:\n#{items.join("\n")}"
   end
 
@@ -137,14 +142,19 @@ class BenchmarkRunner
   end
 
   def set_adapter
-    raise ArgumentError, "Format or adapter is not set" if @format.nil? || @adapter.nil?
+    if @format.nil? || @adapter.nil?
+      raise ArgumentError,
+            "Format or adapter is not set"
+    end
 
     Lutaml::Model::Config.public_send("#{@format}_adapter_type=", @adapter)
   end
 
   def generate_model
     root = BenchRoot.new
-    root.item = (0...@items).map { |i| BenchItem.new(id: i, name: "Test #{i}", value: i) }
+    root.item = (0...@items).map do |i|
+      BenchItem.new(id: i, name: "Test #{i}", value: i)
+    end
     root
   end
 end

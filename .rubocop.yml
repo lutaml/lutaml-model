@@ -1,5 +1,5 @@
 inherit_from:
-  - https://raw.githubusercontent.com/riboseinc/oss-guides/master/ci/rubocop.yml
+  - https://raw.githubusercontent.com/riboseinc/oss-guides/main/ci/rubocop.yml
   - .rubocop_todo.yml
 
 plugins:

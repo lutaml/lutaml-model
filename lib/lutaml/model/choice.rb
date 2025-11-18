@@ -14,7 +14,10 @@ module Lutaml
         @min = min
         @max = max
 
-        raise Lutaml::Model::InvalidChoiceRangeError.new(@min, @max) if @min.negative? || @max.negative?
+        if @min.negative? || @max.negative?
+          raise Lutaml::Model::InvalidChoiceRangeError.new(@min,
+                                                           @max)
+        end
       end
 
       def ==(other)
@@ -56,7 +59,10 @@ module Lutaml
       end
 
       def import_model_attributes(model)
-        return import_model_later(model, :import_model_attributes) if later_importable?(model)
+        if later_importable?(model)
+          return import_model_later(model,
+                                    :import_model_attributes)
+        end
 
         root_model_error(model)
         imported_attributes = Utils.deep_dup(model.attributes.values)
@@ -87,8 +93,14 @@ module Lutaml
         return if count.between?(@min, @max)
         return if optional_empty_choice?(count)
 
-        raise Lutaml::Model::ChoiceLowerBoundError.new(attributes, @min) if count < @min
-        raise Lutaml::Model::ChoiceUpperBoundError.new(attributes, @max) if count > @max
+        if count < @min
+          raise Lutaml::Model::ChoiceLowerBoundError.new(attributes,
+                                                         @min)
+        end
+        if count > @max
+          raise Lutaml::Model::ChoiceUpperBoundError.new(attributes,
+                                                         @max)
+        end
       end
 
       def optional_empty_choice?(count)
@@ -108,10 +120,17 @@ module Lutaml
       def raise_errors(choices_hash)
         flat_attr_names = flat_attributes.map { |attr| attr.name.to_s }
         choices_hash.each do |choice_attr, count|
-          next if choices_hash[choice_attr].between?(choice_attr.min, choice_attr.max)
+          next if choices_hash[choice_attr].between?(choice_attr.min,
+                                                     choice_attr.max)
 
-          raise Lutaml::Model::ChoiceLowerBoundError.new(flat_attr_names, choice_attr.min) if count < choice_attr.min
-          raise Lutaml::Model::ChoiceUpperBoundError.new(flat_attr_names, choice_attr.max) if count > choice_attr.max
+          if count < choice_attr.min
+            raise Lutaml::Model::ChoiceLowerBoundError.new(flat_attr_names,
+                                                           choice_attr.min)
+          end
+          if count > choice_attr.max
+            raise Lutaml::Model::ChoiceUpperBoundError.new(flat_attr_names,
+                                                           choice_attr.max)
+          end
         end
       end
 
@@ -123,8 +142,11 @@ module Lutaml
           .slice_when { |prev, curr| prev != curr }
         appeared_elements.each do |element|
           eo_index += element.count
-          choice_attr = flat_attributes.find { |attr| attr.name == filtered[element.first] }
-          choices_hash[self] += choice_appearances(choices_hash, choice_attr, element)
+          choice_attr = flat_attributes.find do |attr|
+            attr.name == filtered[element.first]
+          end
+          choices_hash[self] += choice_appearances(choices_hash, choice_attr,
+                                                   element)
         end
         eo_index
       end
@@ -143,8 +165,12 @@ module Lutaml
 
       def extract_choice_defined_names
         mapping_elements = @model.mappings_for(:xml).elements
-        attribute_names  = flat_attributes.to_h { |attr| [attr.name.to_sym, attr] }
-        name_with_to     = mapping_elements.to_h { |element| [element.name.to_s, element.to] }
+        attribute_names  = flat_attributes.to_h do |attr|
+          [attr.name.to_sym, attr]
+        end
+        name_with_to = mapping_elements.to_h do |element|
+          [element.name.to_s, element.to]
+        end
         name_with_to.select { |_, to| attribute_names.key?(to) }
       end
 

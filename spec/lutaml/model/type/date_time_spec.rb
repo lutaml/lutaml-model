@@ -109,7 +109,7 @@ RSpec.describe Lutaml::Model::Type::DateTime do
     context "with fractional seconds" do
       let(:value) { DateTime.new(2024, 1, 1, 12, 0, 0.5, "+08:00") }
 
-      xit "retains both fractional seconds and offset" do
+      it "retains both fractional seconds and offset" do
         expect(serialize).to eq("2024-01-01T12:00:00.500+08:00")
       end
     end
@@ -119,7 +119,7 @@ RSpec.describe Lutaml::Model::Type::DateTime do
         DateTime.new(2024, 1, 1, 12, 0, Rational(123456, 1000000), "+08:00")
       end
 
-      xit "retains microsecond precision and offset" do
+      it "retains microsecond precision and offset" do
         expect(serialize).to eq("2024-01-01T12:00:00.123456+08:00")
       end
     end

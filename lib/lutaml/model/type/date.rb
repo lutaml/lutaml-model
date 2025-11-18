@@ -29,6 +29,13 @@ module Lutaml
         def to_yaml
           value&.iso8601.to_s
         end
+
+        # Default XSD type for Date
+        #
+        # @return [String] xs:date
+        def self.default_xsd_type
+          "xs:date"
+        end
       end
     end
   end

@@ -40,7 +40,9 @@ module Lutaml
       def resolve(model_class, reference_key, reference_value)
         return nil unless @store[model_class.to_s]
 
-        @store[model_class.to_s].find { |obj| obj.send(reference_key) == reference_value }
+        @store[model_class.to_s].find do |obj|
+          obj.send(reference_key) == reference_value
+        end
       end
 
       def clear

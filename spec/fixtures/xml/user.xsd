@@ -1,10 +1,14 @@
-<schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns="http://schemas.openxmlformats.org/officeDocument/2006/math">
-  <xsd:complexType name="User">
-    <xsd:sequence>
-      <xsd:element name="id" type="xsd:nonNegativeInteger" minOccurs="1" />
-      <xsd:element name="age" type="xsd:unsignedLong" minOccurs="0" />
-      <xsd:element name="token" type="xsd:token" minOccurs="0" />
-    </xsd:sequence>
-  </xsd:complexType>
-  <xsd:element name="User" type="User"/>
-</schema>
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <!-- User type -->
+  <xs:complexType name="User">
+    <xs:sequence>
+      <xs:element name="id" type="xs:nonNegativeInteger" minOccurs="1" maxOccurs="1"/>
+      <xs:element name="age" type="xs:positiveInteger" minOccurs="1" maxOccurs="1"/>
+      <xs:element name="token" type="xs:token" minOccurs="1" maxOccurs="1"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Root element -->
+  <xs:element name="User" type="User"/>
+</xs:schema>

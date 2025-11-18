@@ -15,6 +15,11 @@ module Lutaml
         reference: "Lutaml::Model::Type::Reference",
         hash: "Lutaml::Model::Type::Hash",
         symbol: "Lutaml::Model::Type::Symbol",
+        duration: "Lutaml::Model::Type::Duration",
+        uri: "Lutaml::Model::Type::Uri",
+        qname: "Lutaml::Model::Type::QName",
+        base64_binary: "Lutaml::Model::Type::Base64Binary",
+        hex_binary: "Lutaml::Model::Type::HexBinary",
       }.freeze
 
       class << self
@@ -75,5 +80,10 @@ require_relative "type/decimal"
 require_relative "type/reference"
 require_relative "type/hash"
 require_relative "type/symbol"
+require_relative "type/duration"
+require_relative "type/uri"
+require_relative "type/qname"
+require_relative "type/base64_binary"
+require_relative "type/hex_binary"
 
 Lutaml::Model::Type.register_builtin_types

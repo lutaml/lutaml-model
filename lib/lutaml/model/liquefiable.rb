@@ -67,7 +67,8 @@ module Lutaml
             begin
               return Object.const_get(custom_liquid_class_name)
             rescue NameError
-              raise Lutaml::Model::LiquidClassNotFoundError, custom_liquid_class_name
+              raise Lutaml::Model::LiquidClassNotFoundError,
+                    custom_liquid_class_name
             end
           end
 

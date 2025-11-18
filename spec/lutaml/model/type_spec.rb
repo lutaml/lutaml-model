@@ -292,7 +292,7 @@ RSpec.describe Lutaml::Model::Type do
       end
 
       it "correctly serializes to XML" do
-        expect(test_instance.to_xml).to be_equivalent_to(xml)
+        expect(test_instance.to_xml).to be_xml_equivalent_to(xml)
       end
 
       it "correctly deserializes from XML" do
@@ -335,7 +335,7 @@ RSpec.describe Lutaml::Model::Type do
             <custom_type>to_xml_overrided</custom_type>
           </sample>
         XML
-        expect(sample_instance.to_xml).to be_equivalent_to(expected_xml)
+        expect(sample_instance.to_xml).to be_xml_equivalent_to(expected_xml)
       end
 
       it "correctly serializes to XML attribute" do
@@ -344,7 +344,7 @@ RSpec.describe Lutaml::Model::Type do
         XML
         expect(
           sample_instance_attribute.to_xml,
-        ).to be_equivalent_to(expected_xml)
+        ).to be_xml_equivalent_to(expected_xml)
       end
 
       it "correctly serializes to JSON" do

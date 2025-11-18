@@ -37,6 +37,37 @@ RSpec.describe Lutaml::Model::Xml::NokogiriAdapter do
     end
   end
 
+  context "when parsing elements in default namespace" do
+    let(:xml_with_default_ns) do
+      <<~XML
+        <root xmlns="http://example.com/default">
+          <child>Content</child>
+          <another>More content</another>
+        </root>
+      XML
+    end
+
+    let(:doc_with_default) { described_class.parse(xml_with_default_ns) }
+
+    it "treats unprefixed child elements as being in the default namespace" do
+      children_elements = doc_with_default.root.children.reject do |c|
+        c.name == "text"
+      end
+      child = children_elements.first
+      expect(child.name).to eq("child")
+      expect(child.namespace.uri).to eq("http://example.com/default")
+      expect(child.namespace.prefix).to be_nil
+    end
+
+    it "applies default namespace to all unprefixed elements" do
+      children = doc_with_default.root.children.reject { |c| c.name == "text" }
+      children.each do |child|
+        expect(child.namespace.uri).to eq("http://example.com/default")
+        expect(child.namespace.prefix).to be_nil
+      end
+    end
+  end
+
   context "when generating XML with namespaces" do
     it "generates XML with namespaces correctly" do
       xml_output = document.to_xml

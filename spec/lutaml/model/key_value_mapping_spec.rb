@@ -7,7 +7,8 @@ RSpec.describe Lutaml::Model::KeyValueMapping do
     it "raises NoMappingFoundError when mapping is missing in key_value mapping" do
       expect do
         mapping.find_by_to!("nonexistent")
-      end.to raise_error(Lutaml::Model::NoMappingFoundError, /No mapping available for `nonexistent`/)
+      end.to raise_error(Lutaml::Model::NoMappingFoundError,
+                         /No mapping available for `nonexistent`/)
     end
   end
 
@@ -142,7 +143,8 @@ RSpec.describe Lutaml::Model::KeyValueMapping do
         mapping.map("test", to: :field, render_nil: :as_blank)
       end.to raise_error(
         Lutaml::Model::IncorrectMappingArgumentsError,
-        ":as_blank is not supported for key-value mappings",
+        ":as_blank is not supported for key-value mappings. " \
+        "Use :as_empty instead to create explicit empty values.",
       )
     end
 

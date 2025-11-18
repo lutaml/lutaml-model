@@ -51,7 +51,9 @@ module Lutaml
           options[:indent] = options[:indent] ? options[:indent].to_i : 2
           @simple_types.merge!(XmlCompiler::SimpleType.setup_supported_types)
           classes_list = @simple_types.merge(@complex_types).merge(@group_types)
-          classes_list = classes_list.transform_values { |type| type.to_class(options: options) }
+          classes_list = classes_list.transform_values do |type|
+            type.to_class(options: options)
+          end
           if options[:create_files]
             dir = options.fetch(:output_dir, "lutaml_models_#{Time.now.to_i}")
             FileUtils.mkdir_p(dir)
@@ -72,12 +74,17 @@ module Lutaml
           Dir.mktmpdir do |dir|
             classes_hash.each { |name, klass| create_file(name, klass, dir) }
             # Some files are not created at the time of the require, so we need to require them after all the files are created.
-            classes_hash.each_key { |name| require "#{dir}/#{Utils.snake_case(name)}" }
+            classes_hash.each_key do |name|
+              require "#{dir}/#{Utils.snake_case(name)}"
+            end
           end
         end
 
         def as_models(schema, options: {})
-          raise Error, XML_ADAPTER_NOT_SET_MESSAGE unless Config.xml_adapter.name.end_with?("NokogiriAdapter")
+          unless Config.xml_adapter.name.end_with?("NokogiriAdapter")
+            raise Error,
+                  XML_ADAPTER_NOT_SET_MESSAGE
+          end
 
           parsed_schema = Xsd.parse(schema, location: options[:location])
 
@@ -111,7 +118,8 @@ module Lutaml
               when Xsd::SimpleType
                 @simple_types[item_name] = setup_simple_type(order_item)
               when Xsd::Group
-                @group_types[item_name] = setup_group_type(order_item, root_call: true)
+                @group_types[item_name] =
+                  setup_group_type(order_item, root_call: true)
               when Xsd::ComplexType
                 @complex_types[item_name] = setup_complex_type(order_item)
               when Xsd::Element
@@ -119,7 +127,8 @@ module Lutaml
               when Xsd::Attribute
                 @attributes[item_name] = setup_attribute(order_item)
               when Xsd::AttributeGroup
-                @attribute_groups[item_name] = setup_attribute_groups(order_item)
+                @attribute_groups[item_name] =
+                  setup_attribute_groups(order_item)
               end
             end
           end
@@ -140,17 +149,24 @@ module Lutaml
         def restriction_content(instance, restriction)
           return instance unless restriction.respond_to?(:max_length)
 
-          restriction_min_max(restriction, instance, field: :max_length, value_method: :min)
-          restriction_min_max(restriction, instance, field: :min_length, value_method: :max)
-          restriction_min_max(restriction, instance, field: :min_inclusive, value_method: :max)
-          restriction_min_max(restriction, instance, field: :max_inclusive, value_method: :min)
-          restriction_min_max(restriction, instance, field: :max_exclusive, value_method: :max)
-          restriction_min_max(restriction, instance, field: :min_exclusive, value_method: :min)
+          restriction_min_max(restriction, instance, field: :max_length,
+                                                     value_method: :min)
+          restriction_min_max(restriction, instance, field: :min_length,
+                                                     value_method: :max)
+          restriction_min_max(restriction, instance, field: :min_inclusive,
+                                                     value_method: :max)
+          restriction_min_max(restriction, instance, field: :max_inclusive,
+                                                     value_method: :min)
+          restriction_min_max(restriction, instance, field: :max_exclusive,
+                                                     value_method: :max)
+          restriction_min_max(restriction, instance, field: :min_exclusive,
+                                                     value_method: :min)
           instance.length = restriction_length(restriction.length) if restriction.length&.any?
         end
 
         # Use min/max to get the value from the field_value array.
-        def restriction_min_max(restriction, instance, field:, value_method: :min)
+        def restriction_min_max(restriction, instance, field:,
+value_method: :min)
           field_value = restriction.public_send(field)
           return unless field_value&.any?
 
@@ -183,7 +199,8 @@ module Lutaml
               when Xsd::Choice
                 instance << setup_choice(element)
               when Xsd::ComplexContent
-                instance << setup_complex_content(element, instance.name, instance)
+                instance << setup_complex_content(element, instance.name,
+                                                  instance)
               when Xsd::AttributeGroup
                 instance << setup_attribute_groups(element)
               when Xsd::Group
@@ -281,7 +298,8 @@ module Lutaml
         end
 
         def setup_attribute_groups(attribute_group)
-          instance = AttributeGroup.new(name: attribute_group.name, ref: attribute_group.ref)
+          instance = AttributeGroup.new(name: attribute_group.name,
+                                        ref: attribute_group.ref)
           if attribute_group.name
             resolved_element_order(attribute_group).each do |object|
               group_attribute = case object
@@ -314,17 +332,26 @@ module Lutaml
         def setup_element_type(element, _instance)
           return element.type if element.type
 
-          type, prefix = element.simple_type ? ["simple", "ST"] : ["complex", "CT"]
+          type, prefix = if element.simple_type
+                           ["simple",
+                            "ST"]
+                         else
+                           ["complex", "CT"]
+                         end
           type_instance = element.public_send(:"#{type}_type")
           type_instance.name = [prefix, element.name].join("_")
-          instance_variable_get(:"@#{type}_types")[type_instance.name] = public_send(:"setup_#{type}_type", type_instance)
+          instance_variable_get(:"@#{type}_types")[type_instance.name] =
+            public_send(:"setup_#{type}_type", type_instance)
           type_instance.name
         end
 
         def setup_restriction(restriction)
           Restriction.new.tap do |instance|
             instance.base_class = restriction.base
-            restriction_patterns(restriction.pattern, instance) if restriction.respond_to?(:pattern)
+            if restriction.respond_to?(:pattern)
+              restriction_patterns(restriction.pattern,
+                                   instance)
+            end
             restriction_content(instance, restriction)
             if restriction.respond_to?(:enumeration) && restriction.enumeration&.any?
               instance.enumerations = restriction.enumeration.map(&:value)
@@ -332,7 +359,8 @@ module Lutaml
           end
         end
 
-        def setup_complex_content_restriction(restriction, compiler_complex_type)
+        def setup_complex_content_restriction(restriction,
+compiler_complex_type)
           ComplexContentRestriction.new.tap do |instance|
             compiler_complex_type.base_class = restriction.base
             resolved_element_order(restriction).each do |element|
@@ -397,7 +425,8 @@ module Lutaml
             array.each_with_index do |element, i|
               next unless element == builder_instance
 
-              array[i] = Array(object.send(Utils.snake_case(builder_instance.name)))[index]
+              array[i] =
+                Array(object.send(Utils.snake_case(builder_instance.name)))[index]
               index += 1
             end
           end

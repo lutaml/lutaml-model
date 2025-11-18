@@ -200,7 +200,8 @@ RSpec.describe "Choice" do
             attribute :name, :string
           end
         end
-      end.to raise_error(Lutaml::Model::InvalidChoiceRangeError, "Choice lower bound `-1` must be positive")
+      end.to raise_error(Lutaml::Model::InvalidChoiceRangeError,
+                         "Choice lower bound `-1` must be positive")
     end
   end
 
@@ -221,7 +222,9 @@ RSpec.describe "Choice" do
       xml = <<~XML
         <Person></Person>
       XML
-      expect { ChoiceSpec::Person.from_xml(xml).validate! }.to raise_error(Lutaml::Model::ValidationError)
+      expect do
+        ChoiceSpec::Person.from_xml(xml).validate!
+      end.to raise_error(Lutaml::Model::ValidationError)
     end
   end
 

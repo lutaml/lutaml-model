@@ -1,6 +1,26 @@
 require "spec_helper"
 require "lutaml/model/utils"
 
+CAMEL_CASE_EXAMPLES = {
+  "hello_world" => "HelloWorld",
+  "foo_bar_baz" => "FooBarBaz",
+  "" => "",
+  nil => "",
+  "hello_world/foo_bar_baz" => "HelloWorld::FooBarBaz",
+}.freeze
+
+CLASSIFY_EXAMPLES = CAMEL_CASE_EXAMPLES.merge({
+                                                "hello_world::foo_bar_baz" => "HelloWorld::FooBarBaz",
+                                              }).freeze
+
+SNAKE_CASE_EXAMPLES = {
+  "HelloWorld" => "hello_world",
+  "FooBarBaz" => "foo_bar_baz",
+  "" => "",
+  nil => "",
+  "HelloWorld::FooBarBaz" => "hello_world/foo_bar_baz",
+}.freeze
+
 RSpec.describe Lutaml::Model::Utils do
   let(:utils) { described_class }
 
@@ -16,30 +36,9 @@ RSpec.describe Lutaml::Model::Utils do
     end
   end
 
-  camel_case_examples = {
-    "hello_world" => "HelloWorld",
-    "foo_bar_baz" => "FooBarBaz",
-    "" => "",
-    nil => "",
-    "hello_world/foo_bar_baz" => "HelloWorld::FooBarBaz",
-  }
-
-  classify_examples_extra = {
-    "hello_world::foo_bar_baz" => "HelloWorld::FooBarBaz",
-  }
-  classify_examples = camel_case_examples.merge(classify_examples_extra)
-
-  snake_case_examples = {
-    "HelloWorld" => "hello_world",
-    "FooBarBaz" => "foo_bar_baz",
-    "" => "",
-    nil => "",
-    "HelloWorld::FooBarBaz" => "hello_world/foo_bar_baz",
-  }
-
-  it_behaves_like "string conversion", :camel_case, camel_case_examples
-  it_behaves_like "string conversion", :classify, classify_examples
-  it_behaves_like "string conversion", :snake_case, snake_case_examples
+  it_behaves_like "string conversion", :camel_case, CAMEL_CASE_EXAMPLES
+  it_behaves_like "string conversion", :classify, CLASSIFY_EXAMPLES
+  it_behaves_like "string conversion", :snake_case, SNAKE_CASE_EXAMPLES
 
   describe ".deep_dup" do
     let(:original_hash) do

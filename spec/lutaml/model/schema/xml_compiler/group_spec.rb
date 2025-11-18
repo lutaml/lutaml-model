@@ -26,7 +26,8 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler::Group do
     end
 
     it "delegates to instance if ref is not present" do
-      instance = instance_double(dummy_class, to_xml_mapping: "  map_element :foo, to: :foo\n")
+      instance = instance_double(dummy_class,
+                                 to_xml_mapping: "  map_element :foo, to: :foo\n")
       group.instance = instance
       group.ref = nil
       expect(group.to_xml_mapping("  ")).to include("map_element :foo, to: :foo")
@@ -36,7 +37,8 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler::Group do
   describe "#to_class" do
     it "renders the group template" do
       group.name = "GroupName"
-      group.instance = instance_double(dummy_class, to_attributes: "  attribute :foo, :string\n", to_xml_mapping: "  map_element :foo, to: :foo\n", required_files: [])
+      group.instance = instance_double(dummy_class,
+                                       to_attributes: "  attribute :foo, :string\n", to_xml_mapping: "  map_element :foo, to: :foo\n", required_files: [])
       expect(group.to_class).to include("class GroupName")
       expect(group.to_class).to include("attribute :foo, :string")
       expect(group.to_class).to include("map_element :foo, to: :foo")
@@ -67,7 +69,8 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler::Group do
     end
 
     it "delegates to instance if ref is not present" do
-      instance = instance_double(dummy_class, to_attributes: "  attribute :foo, :string\n")
+      instance = instance_double(dummy_class,
+                                 to_attributes: "  attribute :foo, :string\n")
       group.instance = instance
       group.ref = nil
       expect(group.to_attributes("  ")).to include("attribute :foo, :string")

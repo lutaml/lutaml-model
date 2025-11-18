@@ -134,7 +134,7 @@ RSpec.describe "Inheritance" do
   end
 
   it "uses parent attributes" do
-    expect(child_object.to_xml(pretty: true)).to be_equivalent_to(expected_xml)
+    expect(child_object.to_xml(pretty: true)).to be_xml_equivalent_to(expected_xml)
   end
 
   context "with multiple child classes" do
@@ -176,7 +176,7 @@ RSpec.describe "Inheritance" do
 
     it "round trip correctly" do
       parsed = InheritanceSpec::Child.from_xml(xml)
-      expect(parsed.to_xml).to be_equivalent_to(xml)
+      expect(parsed.to_xml).to be_xml_equivalent_to(xml)
     end
   end
 

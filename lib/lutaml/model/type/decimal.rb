@@ -25,8 +25,17 @@ module Lutaml
           return nil if value.nil?
 
           check_dependencies!(value)
-          value = cast(value)
-          value.to_s("F") # Use fixed-point notation to match test expectations
+
+          return value.to_s("F") if value.is_a?(BigDecimal)
+
+          value&.to_s
+        end
+
+        # XSD type for Decimal
+        #
+        # @return [String] xs:decimal
+        def self.default_xsd_type
+          "xs:decimal"
         end
 
         def self.check_dependencies!(value)

@@ -466,7 +466,8 @@ module Lutaml
         # @param label [String] The label for the value
         # @param type_info [String, nil] Additional type information
         # @return [String] Formatted value tree
-        def format_value_tree(value1, value2, parent_node, label, type_info = nil)
+        def format_value_tree(value1, value2, parent_node, label,
+type_info = nil)
           return if value1 == value2 && !@show_unchanged
 
           if value1 == value2

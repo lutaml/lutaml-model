@@ -13,7 +13,8 @@ module Lutaml
 
         def self.parse(xml, options = {})
           parsed = Moxml::Adapter::Oga.parse(xml)
-          @root = Oga::Element.new(parsed.children.first)
+          root_element = parsed.children.find { |child| child.is_a?(Moxml::Element) }
+          @root = Oga::Element.new(root_element)
           new(@root, encoding(xml, options))
         end
 
@@ -57,11 +58,15 @@ module Lutaml
         end
 
         def self.name_of(element)
+          return nil if element.nil?
+
           case element
           when Moxml::Text
             "text"
           when Moxml::Cdata
             "cdata"
+          when Moxml::ProcessingInstruction
+            "processing_instruction"
           else
             element.name
           end
@@ -100,7 +105,9 @@ module Lutaml
         end
 
         def self.order_of(element)
-          element.children.map do |child|
+          element.children.filter_map do |child|
+            next if child.is_a?(Moxml::ProcessingInstruction)
+
             instance_args = if TEXT_CLASSES.include?(child.class)
                               ["Text", "text"]
                             else
@@ -125,7 +132,8 @@ module Lutaml
 
           tag_name = options[:tag_name] || xml_mapping.root_element
 
-          prefixed_xml.create_and_add_element(tag_name, prefix: prefix, attributes: attributes) do |el|
+          prefixed_xml.create_and_add_element(tag_name, prefix: prefix,
+                                                        attributes: attributes) do |el|
             index_hash = {}
             content = []
 
@@ -137,7 +145,8 @@ module Lutaml
               index_hash[object_key] ||= -1
               curr_index = index_hash[object_key] += 1
 
-              element_rule = xml_mapping.find_by_name(object.name, type: object.type)
+              element_rule = xml_mapping.find_by_name(object.name,
+                                                      type: object.type)
               next if element_rule.nil? || child_options[:except]&.include?(element_rule.to)
 
               attribute_def = attribute_definition_for(element, element_rule,
@@ -150,7 +159,10 @@ module Lutaml
                 text = xml_mapping.content_mapping.serialize(element)
                 text = text[curr_index] if text.is_a?(Array)
 
-                next el.add_text(el, text, cdata: element_rule.cdata) if element.mixed?
+                if element.mixed?
+                  next el.add_text(el, text,
+                                   cdata: element_rule.cdata)
+                end
 
                 content << text
               elsif !value.nil? || element_rule.render_nil?

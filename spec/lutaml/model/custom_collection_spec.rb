@@ -691,14 +691,16 @@ RSpec.describe CustomCollection do
 
       it "maintains ascending order after adding new items" do
         collection = asc_collection_class.new(items)
-        new_item = CustomCollection::Item.new(id: "0", name: "Item 0", description: "Description 0")
+        new_item = CustomCollection::Item.new(id: "0", name: "Item 0",
+                                              description: "Description 0")
         collection << new_item
         expect(collection.items.map(&:id)).to eq(["0", "1", "2", "3"])
       end
 
       it "maintains descending order after adding new items" do
         collection = desc_collection_class.new(items)
-        new_item = CustomCollection::Item.new(id: "4", name: "Item 4", description: "Description 4")
+        new_item = CustomCollection::Item.new(id: "4", name: "Item 4",
+                                              description: "Description 4")
         collection << new_item
         expect(collection.items.map(&:id)).to eq(["4", "3", "2", "1"])
       end
@@ -733,26 +735,32 @@ RSpec.describe CustomCollection do
 
       it "sorts items using proc in ascending order" do
         collection = proc_asc_collection_class.new(items)
-        expect(collection.items.map(&:name)).to eq(["Item 1", "Item 2", "Item 3"])
+        expect(collection.items.map(&:name)).to eq(["Item 1", "Item 2",
+                                                    "Item 3"])
       end
 
       it "sorts items using proc in descending order" do
         collection = proc_desc_collection_class.new(items)
-        expect(collection.items.map(&:name)).to eq(["Item 3", "Item 2", "Item 1"])
+        expect(collection.items.map(&:name)).to eq(["Item 3", "Item 2",
+                                                    "Item 1"])
       end
 
       it "maintains ascending order after adding new items with proc" do
         collection = proc_asc_collection_class.new(items)
-        new_item = CustomCollection::Item.new(id: "0", name: "Item 0", description: "Description 0")
+        new_item = CustomCollection::Item.new(id: "0", name: "Item 0",
+                                              description: "Description 0")
         collection << new_item
-        expect(collection.items.map(&:name)).to eq(["Item 0", "Item 1", "Item 2", "Item 3"])
+        expect(collection.items.map(&:name)).to eq(["Item 0", "Item 1",
+                                                    "Item 2", "Item 3"])
       end
 
       it "maintains descending order after adding new items with proc" do
         collection = proc_desc_collection_class.new(items)
-        new_item = CustomCollection::Item.new(id: "4", name: "Item 4", description: "Description 4")
+        new_item = CustomCollection::Item.new(id: "4", name: "Item 4",
+                                              description: "Description 4")
         collection << new_item
-        expect(collection.items.map(&:name)).to eq(["Item 4", "Item 3", "Item 2", "Item 1"])
+        expect(collection.items.map(&:name)).to eq(["Item 4", "Item 3",
+                                                    "Item 2", "Item 1"])
       end
 
       it "sorts items using complex proc for multi-level sorting" do

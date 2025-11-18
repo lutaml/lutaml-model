@@ -25,7 +25,9 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler::ComplexContentRestriction do
     end
 
     it "ignores nil instances" do
-      expect { restriction << nil }.not_to(change { restriction.instances.size })
+      expect { restriction << nil }.not_to(change do
+        restriction.instances.size
+      end)
     end
   end
 

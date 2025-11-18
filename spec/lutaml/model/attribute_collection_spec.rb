@@ -62,7 +62,8 @@ RSpec.describe AttributeCollection do
     end
 
     it "contains the correct title parts" do
-      expect(bib_item.title_parts.parts).to eq(["Title One", "Title Two", "Title Three"])
+      expect(bib_item.title_parts.parts).to eq(["Title One", "Title Two",
+                                                "Title Three"])
     end
 
     it "renders title with custom separator" do
@@ -75,7 +76,8 @@ RSpec.describe AttributeCollection do
 
     it "deserializes from YAML correctly" do
       yaml_bib_item = AttributeCollection::BibliographicItem.from_yaml(yaml_data)
-      expect(yaml_bib_item.title_parts.parts).to eq(["Title One", "Title Two", "Title Three"])
+      expect(yaml_bib_item.title_parts.parts).to eq(["Title One", "Title Two",
+                                                     "Title Three"])
     end
 
     it "serializes to YAML correctly" do
@@ -93,7 +95,8 @@ RSpec.describe AttributeCollection do
     end
 
     it "can be initialized with a custom collection instance" do
-      collection = AttributeCollection::StringParts.new(["Custom One", "Custom Two"])
+      collection = AttributeCollection::StringParts.new(["Custom One",
+                                                         "Custom Two"])
       bib_item = AttributeCollection::BibliographicItem.new(title_parts: collection)
       expect(bib_item.title_parts.parts).to eq(["Custom One", "Custom Two"])
     end

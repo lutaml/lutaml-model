@@ -82,7 +82,10 @@ module Lutaml
             constraints["pattern"] = attr.pattern.source if attr.pattern
 
             # Add default value
-            constraints["default"] = attr.default(register) if attr.default_set?(register)
+            if attr.default_set?(register)
+              constraints["default"] =
+                attr.default(register)
+            end
 
             # Add enumeration values
             constraints["enum"] = attr.enum_values if attr.enum?

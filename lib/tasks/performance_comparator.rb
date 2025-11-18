@@ -31,9 +31,11 @@ class PerformanceComparator
   def setup_environment
     Dir.chdir(REPO_ROOT)
     FileUtils.mkdir_p(TMP_PERF_DIR)
-    FileUtils.cp(File.join(REPO_ROOT, "lib", "tasks", "benchmark_runner.rb"), BENCH_SCRIPT)
+    FileUtils.cp(File.join(REPO_ROOT, "lib", "tasks", "benchmark_runner.rb"),
+                 BENCH_SCRIPT)
 
-    PerformanceHelpers.load_into_namespace(PerformanceHelpers::Current, BENCH_SCRIPT)
+    PerformanceHelpers.load_into_namespace(PerformanceHelpers::Current,
+                                           BENCH_SCRIPT)
     PerformanceHelpers.clone_base_repo(DEFAULT_BASE, TMP_PERF_DIR, BENCH_SCRIPT)
   end
 

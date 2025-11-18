@@ -47,12 +47,23 @@ module Lutaml
       # end
 
       AVAILABLE_FORMATS.each do |adapter_name|
+        # Setter
         define_method(:"#{adapter_name}_adapter_type=") do |type_name|
           adapter = adapter_name.to_s
           type = normalize_type_name(type_name, adapter_name)
           load_adapter_file(adapter, type)
           load_moxml_adapter(type_name, adapter_name)
           set_adapter_for(adapter_name, class_for(adapter, type))
+
+          # Store the adapter type for later retrieval
+          @adapter_types ||= {}
+          @adapter_types[adapter_name] = type_name
+        end
+
+        # Getter
+        define_method(:"#{adapter_name}_adapter_type") do
+          @adapter_types ||= {}
+          @adapter_types[adapter_name]
         end
       end
 
@@ -99,7 +110,13 @@ module Lutaml
       private
 
       def normalize_type_name(type_name, adapter_name)
-        "#{type_name.start_with?('multi_json') ? 'multi_json' : type_name.to_s.gsub("_#{adapter_name}", '')}_adapter"
+        "#{if type_name.start_with?('multi_json')
+             'multi_json'
+           else
+             type_name.to_s.gsub(
+               "_#{adapter_name}", ''
+             )
+           end}_adapter"
       end
 
       def load_adapter_file(adapter, type)

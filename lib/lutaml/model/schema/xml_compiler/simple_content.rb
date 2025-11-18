@@ -19,11 +19,15 @@ module Lutaml
           end
 
           def to_attributes(indent = nil)
-            instances.filter_map { |instance| instance.to_attributes(indent) }.join("\n")
+            instances.filter_map do |instance|
+              instance.to_attributes(indent)
+            end.join("\n")
           end
 
           def to_xml_mapping(indent = nil)
-            instances.filter_map { |instance| instance.to_xml_mapping(indent) }.join("\n")
+            instances.filter_map do |instance|
+              instance.to_xml_mapping(indent)
+            end.join("\n")
           end
 
           def required_files

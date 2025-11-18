@@ -33,7 +33,8 @@ RSpec.describe Lutaml::Model::Serializable do
   end
 
   let(:invalid_instance) do
-    TestSerializable.new(name: "David", age: [25, 30, 35, 40], email: "david@gmail")
+    TestSerializable.new(name: "David", age: [25, 30, 35, 40],
+                         email: "david@gmail")
   end
 
   describe "serialization methods" do

@@ -111,7 +111,7 @@ RSpec.describe "Included" do
   end
 
   it "uses included module attributes" do
-    expect(impl_object.to_xml(pretty: true)).to be_equivalent_to(expected_xml)
+    expect(impl_object.to_xml(pretty: true)).to be_xml_equivalent_to(expected_xml)
   end
 
   context "with multiple implementing classes" do
@@ -180,7 +180,7 @@ RSpec.describe "Included" do
         </grandchild>
       XML
 
-      expect(grandchild.to_xml(pretty: true)).to be_equivalent_to(expected_xml)
+      expect(grandchild.to_xml(pretty: true)).to be_xml_equivalent_to(expected_xml)
     end
 
     it "preserves separate mapping configurations" do

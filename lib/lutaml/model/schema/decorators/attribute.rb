@@ -21,7 +21,9 @@ module Lutaml
             @name = name
             @options = options
             @type = extract_type(options)
-            @polymorphic = options["oneOf"]&.map { |choice| choice["$ref"].split("/").last }
+            @polymorphic = options["oneOf"]&.map do |choice|
+              choice["$ref"].split("/").last
+            end
           end
 
           def default

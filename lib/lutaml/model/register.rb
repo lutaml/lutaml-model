@@ -14,7 +14,10 @@ module Lutaml
 
       def register_model(klass, id: nil)
         id ||= Utils.base_class_snake_case(klass).to_sym
-        return Lutaml::Model::Type.register(id, klass) if klass <= Lutaml::Model::Type::Value
+        if klass <= Lutaml::Model::Type::Value
+          return Lutaml::Model::Type.register(id,
+                                              klass)
+        end
         raise NotRegistrableClassError.new(klass) unless klass.include?(Lutaml::Model::Registrable)
 
         @models[id.to_sym] = klass
