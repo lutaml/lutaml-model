@@ -206,9 +206,9 @@ RSpec.describe Lutaml::Model::Register do
     end
 
     it "preserves and accumulates attributes in main model when importing additional ones" do
-      expect {
+      expect do
         RegisterSpec::User.ensure_choice_imports!(register.id)
-      }.to change {
+      end.to change {
         RegisterSpec::User.instance_variable_get(:@attributes).count
       }.from(0).to(5)
     end
