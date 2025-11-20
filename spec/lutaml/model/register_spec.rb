@@ -7,9 +7,51 @@ module RegisterSpec
 
   Lutaml::Model::Type.register(:custom_string, CustomString)
 
-  class Address < Lutaml::Model::Serializable
+  class AddressFields < Lutaml::Model::Serializable
     attribute :location, :string
     attribute :postal_code, :custom_string
+
+    xml do
+      no_root
+
+      sequence do
+        map_element :location, to: :location
+        map_element :postalCode, to: :postal_code
+      end
+    end
+  end
+
+  class Address < Lutaml::Model::Serializable
+    import_model_attributes AddressFields
+  end
+
+  class Names < Lutaml::Model::Serializable
+    attribute :first_name, :custom_string
+    choice(min: 1, max: 1) do
+      attribute :middle_name, :custom_string
+      attribute :last_name, :custom_string
+    end
+
+    xml do
+      no_root
+
+      map_element :firstName, to: :first_name
+      map_element :middleName, to: :middle_name
+      map_element :lastName, to: :last_name
+    end
+  end
+
+  class User < Lutaml::Model::Serializable
+    choice(min: 1, max: 1) do
+      import_model_attributes :address_fields
+    end
+    import_model :names
+
+    xml do
+      root "user"
+
+      import_model_mappings :address_fields
+    end
   end
 end
 
@@ -147,6 +189,28 @@ RSpec.describe Lutaml::Model::Register do
       attributes = model_class.attributes
       v1_register.register_attributes(attributes)
       expect(v1_register.models.keys).not_to include(:string)
+    end
+  end
+
+  describe "#import_model" do
+    let(:register) { described_class.new(:import_model_test) }
+
+    before do
+      Lutaml::Model::GlobalRegister.register(register)
+      register.register_model(RegisterSpec::AddressFields, id: :address_fields)
+      register.register_model(RegisterSpec::Names, id: :names)
+    end
+
+    it "tracks imported model attributes by symbolic id in importable_choices" do
+      expect(RegisterSpec::User.importable_choices.count).to eq(1)
+    end
+
+    it "preserves and accumulates attributes in main model when importing additional ones" do
+      expect {
+        RegisterSpec::User.ensure_choice_imports!(register.id)
+      }.to change {
+        RegisterSpec::User.instance_variable_get(:@attributes).count
+      }.from(0).to(5)
     end
   end
 end
