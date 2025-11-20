@@ -178,7 +178,7 @@ module Lutaml
         children.each do |child|
           value = if attr_type == Lutaml::Model::Type::Union
                     attr.union_types.filter_map do |t|
-                      get_child_value_for_rule(child, rule, attr, attr.cast_type!(t), instance, options, __register)
+                      get_child_value_for_rule(child, rule, attr, t, instance, options, __register)
                     end.first
                   else
                     get_child_value_for_rule(child, rule, attr, attr_type, instance, options, __register)

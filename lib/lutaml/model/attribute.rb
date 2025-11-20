@@ -167,9 +167,7 @@ module Lutaml
         resolved_type.cast(value)
       end
 
-      def cast_union(type, value)
-        resolved_type = cast_type!(type)
-
+      def cast_union(resolved_type, value)
         return resolved_type.new(value) if value.is_a?(::Hash)
 
         # Special handling for Reference types - pass the metadata
@@ -468,7 +466,7 @@ module Lutaml
 
         klass = resolve_polymorphic_class(resolved_type, value, options)
 
-        return union_types.filter_map { |type| map_union(cast_type!(type), value, format, register, options) }.first if klass == Lutaml::Model::Type::Union
+        return union_types.filter_map { |type| map_union(type, value, format, register, options) }.first if klass == Lutaml::Model::Type::Union
 
         if can_serialize?(klass, value, format, options)
           klass.apply_mappings(value, format, options.merge(register: register))
@@ -492,11 +490,13 @@ module Lutaml
                   Type.lookup(klass).cast(value)
                 end
 
-        values = klass.attributes.filter_map do |name, _attr|
-          value.public_send(:"#{name}") if value.respond_to?(:"#{name}")
-        end
+        if klass <= Serialize
+          values = klass.attributes.filter_map do |name, _attr|
+            value.public_send(:"#{name}") if value.respond_to?(:"#{name}")
+          end
 
-        return nil if values.empty?
+          return nil if values.empty?
+        end
 
         value
       rescue StandardError
@@ -546,6 +546,7 @@ module Lutaml
         validate_options!(@options)
         @raw = !!@options[:raw]
         @validations = @options[:validations]
+        @options[:union_types] = @options[:union_types].map { |t| cast_type!(t) } if @options[:union_types]
         set_default_for_collection if collection?
       end
 
