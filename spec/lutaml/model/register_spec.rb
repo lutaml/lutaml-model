@@ -10,6 +10,7 @@ module RegisterSpec
   class AddressFields < Lutaml::Model::Serializable
     attribute :location, :string
     attribute :postal_code, :custom_string
+    attribute :active, :custom_string
 
     xml do
       no_root
@@ -18,6 +19,7 @@ module RegisterSpec
         map_element :location, to: :location
         map_element :postalCode, to: :postal_code
       end
+      map_element :active, to: :active
     end
   end
 
@@ -46,6 +48,7 @@ module RegisterSpec
       import_model_attributes :address_fields
     end
     import_model :names
+    restrict :active, values: ["yes", "no"]
 
     xml do
       root "user"
@@ -205,12 +208,21 @@ RSpec.describe Lutaml::Model::Register do
       expect(RegisterSpec::User.importable_choices.count).to eq(1)
     end
 
+    it "tracks imported models attributes for 'restrict' functionality" do
+      expect(RegisterSpec::User.restrict_attributes).to eq({active: { values: ["yes", "no"] }})
+    end
+
     it "preserves and accumulates attributes in main model when importing additional ones" do
       expect do
-        RegisterSpec::User.ensure_choice_imports!(register.id)
+        RegisterSpec::User.ensure_imports!(register.id)
       end.to change {
         RegisterSpec::User.instance_variable_get(:@attributes).count
-      }.from(0).to(5)
+      }.from(0).to(6)
+    end
+
+    it "tracks changes made to attribute updated using 'restrict'" do
+      expect(RegisterSpec::AddressFields.attributes[:active].options.keys).to be_empty
+      expect(RegisterSpec::User.attributes[:active].options.keys).to eq([:choice, :values])
     end
   end
 end
