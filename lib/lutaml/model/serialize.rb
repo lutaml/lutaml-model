@@ -785,6 +785,8 @@ collection)
         def process_type_hash(type, options)
           if reference_type?(type)
             type, options = process_reference_type(type, options)
+          elsif union_type?(type)
+            type, options = process_union_type(type, options)
           else
             type = nil
           end
@@ -813,6 +815,19 @@ collection)
 
           raise ArgumentError,
                 "ref: syntax requires an array [model_class, key_attribute]"
+        end
+
+        def union_type?(type)
+          type.key?(:union) || type.key?("union")
+        end
+
+        def process_union_type(type, options)
+          union_types = type[:union] || type["union"]
+
+          options[:union_types] = union_types
+          type = Lutaml::Model::Type::Union
+
+          [type, options]
         end
       end
 

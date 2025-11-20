@@ -23,6 +23,7 @@ module Lutaml
         ref_model_class
         ref_key_attribute
         xsd_type
+        union_types
       ].freeze
 
       MODEL_STRINGS = [
@@ -126,6 +127,10 @@ module Lutaml
         @options[:validations]
       end
 
+      def union_types
+        @options[:union_types]
+      end
+
       def cast_type!(type)
         self.class.cast_type!(type)
       end
@@ -146,6 +151,11 @@ module Lutaml
 
       def cast_element(value, register)
         resolved_type = type(register)
+
+        if resolved_type == Lutaml::Model::Type::Union && !value.nil?
+          return union_types.filter_map { |t| cast_union(t, value) }.first
+        end
+
         return resolved_type.new(value) if value.is_a?(::Hash) && !hash_type?
 
         # Special handling for Reference types - pass the metadata
@@ -155,6 +165,22 @@ module Lutaml
         end
 
         resolved_type.cast(value)
+      end
+
+      def cast_union(type, value)
+        resolved_type = cast_type!(type)
+
+        return resolved_type.new(value) if value.is_a?(::Hash)
+
+        # Special handling for Reference types - pass the metadata
+        if unresolved_type == Lutaml::Model::Type::Reference
+          return resolved_type.cast_with_metadata(value,
+                                                  @options[:ref_model_class], @options[:ref_key_attribute])
+        end
+
+        resolved_type.cast(value)
+      rescue StandardError
+        nil
       end
 
       def hash_type?
@@ -395,6 +421,12 @@ module Lutaml
         resolved_type = options[:resolved_type] || type(register)
         serialize_options = options.merge(resolved_type: resolved_type)
         value = reference_key(value) if unresolved_type == Lutaml::Model::Type::Reference
+
+        if unresolved_type == Type::Union
+          resolved_type = value.class
+          options[:resolved_type] = resolved_type
+        end
+
         if collection_instance?(value)
           return serialize_array(value, format, register,
                                  serialize_options)
@@ -435,6 +467,9 @@ module Lutaml
         return value if already_serialized?(resolved_type, value)
 
         klass = resolve_polymorphic_class(resolved_type, value, options)
+
+        return union_types.filter_map { |type| map_union(cast_type!(type), value, format, register, options) }.first if klass == Lutaml::Model::Type::Union
+
         if can_serialize?(klass, value, format, options)
           klass.apply_mappings(value, format, options.merge(register: register))
         elsif needs_conversion?(klass, value)
@@ -444,6 +479,28 @@ module Lutaml
           # can_serialize? method already checks if type is Serializable or not.
           Type.lookup(klass).cast(value)
         end
+      end
+
+      def map_union(klass, value, format, register, options = {})
+        value = if can_serialize?(klass, value, format, options)
+                  klass.apply_mappings(value, format, options.merge(register: register))
+                elsif needs_conversion?(klass, value)
+                  klass.send(:"from_#{format}", value)
+                else
+                  # No need to use register#get_class,
+                  # can_serialize? method already checks if type is Serializable or not.
+                  Type.lookup(klass).cast(value)
+                end
+
+        values = klass.attributes.filter_map do |name, _attr|
+          value.public_send(:"#{name}") if value.respond_to?(:"#{name}")
+        end
+
+        return nil if values.empty?
+
+        value
+      rescue StandardError
+        nil
       end
 
       def serializable?(register)

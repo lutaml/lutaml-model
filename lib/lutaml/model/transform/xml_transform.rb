@@ -176,25 +176,42 @@ module Lutaml
         instance.value_set_for(attr.name)
 
         children.each do |child|
-          if !rule.has_custom_method_for_deserialization? && attr_type <= Serialize
-            cast_options = options.except(:mappings)
-            cast_options[:polymorphic] = rule.polymorphic if rule.polymorphic
-            cast_options[:register] = __register
-            cast_options[:__parent] = instance
-            cast_options[:__root] = instance.__root || instance
+          value = if attr_type == Lutaml::Model::Type::Union
+                    attr.union_types.filter_map do |t|
+                      get_child_value_for_rule(child, rule, attr, attr.cast_type!(t), instance, options, __register)
+                    end.first
+                  else
+                    get_child_value_for_rule(child, rule, attr, attr_type, instance, options, __register)
+                  end
 
-            values << attr.cast(child, :xml, __register, cast_options)
-          elsif attr.raw?
-            values << inner_xml_of(child)
-          else
-            return nil if rule.render_nil_as_nil? && child.nil_element?
-
-            text = child.nil_element? ? nil : (child&.text&.+ child&.cdata)
-            values << text
-          end
+          values << value
         end
 
         normalized_value_for_attr(values, attr)
+      end
+
+      def get_child_value_for_rule(child, rule, attr, attr_type, instance, options, __register)
+        value = if !rule.has_custom_method_for_deserialization? && attr_type <= Serialize
+                  cast_options = options.except(:mappings)
+                  cast_options[:polymorphic] = rule.polymorphic if rule.polymorphic
+                  cast_options[:register] = __register
+                  cast_options[:__parent] = instance
+                  cast_options[:__root] = instance.__root || instance
+
+                  attr.cast(child, :xml, __register, cast_options)
+                elsif attr.raw?
+                  inner_xml_of(child)
+                else
+                  return nil if rule.render_nil_as_nil? && child.nil_element?
+
+                  child.nil_element? ? nil : (child&.text&.+ child&.cdata)
+                end
+
+        raise "Failed to cast value for attribute '#{attr.name}' in #{context}" if value.nil? && !child.nil_element? && !rule.render_nil_as_nil?
+
+        value
+      rescue StandardError
+        nil
       end
 
       def handle_cdata(children)

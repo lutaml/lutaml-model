@@ -20,6 +20,7 @@ module Lutaml
         qname: "Lutaml::Model::Type::QName",
         base64_binary: "Lutaml::Model::Type::Base64Binary",
         hex_binary: "Lutaml::Model::Type::HexBinary",
+        union: "Lutaml::Model::Type::Union",
       }.freeze
 
       class << self
@@ -85,5 +86,6 @@ require_relative "type/uri"
 require_relative "type/qname"
 require_relative "type/base64_binary"
 require_relative "type/hex_binary"
+require_relative "type/union"
 
 Lutaml::Model::Type.register_builtin_types
