@@ -209,7 +209,7 @@ RSpec.describe Lutaml::Model::Register do
     end
 
     it "tracks imported models attributes for 'restrict' functionality" do
-      expect(RegisterSpec::User.restrict_attributes).to eq({active: { values: ["yes", "no"] }})
+      expect(RegisterSpec::User.restrict_attributes).to eq({ active: { values: ["yes", "no"] } })
     end
 
     it "preserves and accumulates attributes in main model when importing additional ones" do
@@ -222,7 +222,7 @@ RSpec.describe Lutaml::Model::Register do
 
     it "tracks changes made to attribute updated using 'restrict'" do
       expect(RegisterSpec::AddressFields.attributes[:active].options.keys).to be_empty
-      expect(RegisterSpec::User.attributes[:active].options.keys).to eq([:choice, :values])
+      expect(RegisterSpec::User.attributes[:active].options.keys).to eq(%i[choice values])
     end
   end
 end
