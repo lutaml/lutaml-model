@@ -58,21 +58,21 @@ module Lutaml
         validate_count_errors!(valid.count, validated_attributes)
       end
 
-      def import_model_attributes(model)
+      def import_model_attributes(model, register = nil)
         if later_importable?(model)
           return import_model_later(model,
                                     :import_model_attributes)
         end
 
-        root_model_error(model)
-        imported_attributes = Utils.deep_dup(model.attributes.values)
+        root_model_error(model, register)
+        imported_attributes = Utils.deep_dup(model.attributes(register).values)
         imported_attributes.each do |attr|
           attr.options[:choice] = self
-          @model.define_attribute_methods(attr)
+          @model.define_attribute_methods(attr, register)
         end
         @attributes.concat(imported_attributes)
         attrs_hash = imported_attributes.to_h { |attr| [attr.name, attr] }
-        @model.attributes.merge!(attrs_hash)
+        @model.attributes(register).merge!(attrs_hash)
       end
 
       def deep_duplicate(new_model)
@@ -174,8 +174,8 @@ module Lutaml
         name_with_to.select { |_, to| attribute_names.key?(to) }
       end
 
-      def root_model_error(model)
-        return unless model.root?
+      def root_model_error(model, register = nil)
+        return unless model.root?(register)
 
         raise Lutaml::Model::ImportModelWithRootError.new(model)
       end

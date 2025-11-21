@@ -22,12 +22,12 @@ module Lutaml
         @attributes << @model.map_element(name, **kwargs)
       end
 
-      def import_model_mappings(model)
+      def import_model_mappings(model, register = nil)
         return import_mappings_later(model) if later_importable?(model)
-        raise Lutaml::Model::ImportModelWithRootError.new(model) if model.root?
+        raise Lutaml::Model::ImportModelWithRootError.new(model) if model.root?(register)
 
-        @model.import_model_mappings(model)
-        @attributes.concat(Utils.deep_dup(model.mappings_for(:xml).elements))
+        @model.import_model_mappings(model, register)
+        @attributes.concat(Utils.deep_dup(model.mappings_for(:xml, register).elements))
       end
 
       def map_attribute(*)
@@ -42,23 +42,23 @@ module Lutaml
         raise Lutaml::Model::UnknownSequenceMappingError.new("map_all")
       end
 
-      def validate_content!(element_order, instance)
+      def validate_content!(element_order, instance, register = nil)
         validate_sequence!(
-          extract_defined_order(instance.class.attributes.transform_keys(&:to_s)),
+          extract_defined_order(instance.class.attributes(register).transform_keys(&:to_s)),
           element_order,
         )
-        validate_child_content(instance)
+        validate_child_content(instance, register)
       end
 
       private
 
-      def validate_child_content(instance)
-        instance.class.attributes.each_key do |name|
+      def validate_child_content(instance, register)
+        instance.class.attributes(register).each_key do |name|
           value = instance.public_send(name)
           if value.respond_to?(:validate!)
             value.validate!
           elsif value.is_a?(Array)
-            value.each { |v| v.validate! if v.respond_to?(:validate!) }
+            value.each { |v| v.validate!(register: register) if v.respond_to?(:validate!) }
           end
         end
       end
