@@ -90,6 +90,7 @@ module Lutaml
 
       def root_and_parent_assignment(instance, options)
         root_and_parent_accessor_methods_for(instance)
+        union_types_accessor_methods_for(instance)
         return unless options.key?(:__parent) && options.key?(:__root)
 
         instance.__root = options[:__root] || options[:__parent]
@@ -99,6 +100,10 @@ module Lutaml
       def root_and_parent_accessor_methods_for(instance)
         Utils.add_accessor_if_not_defined(instance.class, :__parent)
         Utils.add_accessor_if_not_defined(instance.class, :__root)
+      end
+
+      def union_types_accessor_methods_for(instance)
+        Utils.add_accessor_if_not_defined(instance.class, :__union_types)
       end
     end
   end

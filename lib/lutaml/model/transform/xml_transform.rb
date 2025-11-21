@@ -177,9 +177,27 @@ module Lutaml
 
         children.each do |child|
           value = if attr_type == Lutaml::Model::Type::Union
-                    attr.union_types.filter_map do |t|
-                      get_child_value_for_rule(child, rule, attr, t, instance, options, __register)
-                    end.first
+                    options[:instance] = instance
+                    winning_type = nil
+                    result = nil
+
+                    attr.union_types.each do |t|
+                      attempted_value = get_child_value_for_rule(child, rule, attr, t, instance, options, __register)
+                      if attempted_value
+                        winning_type = t
+                        result = attempted_value
+                        break
+                      end
+                    rescue StandardError
+                      next
+                    end
+
+                    # Track the winning type
+                    if result && winning_type && instance.respond_to?(:__union_types=)
+                      Lutaml::Model::Type::Union.track_union_type_usage(instance, attr.name, winning_type)
+                    end
+
+                    result
                   else
                     get_child_value_for_rule(child, rule, attr, attr_type, instance, options, __register)
                   end
@@ -198,7 +216,7 @@ module Lutaml
                   cast_options[:__parent] = instance
                   cast_options[:__root] = instance.__root || instance
 
-                  attr.cast(child, :xml, __register, cast_options)
+                  attr.map_union(attr_type, child, :xml, __register, cast_options)
                 elsif attr.raw?
                   inner_xml_of(child)
                 else

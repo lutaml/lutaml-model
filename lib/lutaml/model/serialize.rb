@@ -25,7 +25,7 @@ module Lutaml
       include Lutaml::Model::Registrable
 
       INTERNAL_ATTRIBUTES = %i[@using_default @__register @__parent
-                               @__root].freeze
+                               @__root @__union_types].freeze
 
       def self.included(base)
         base.extend(ClassMethods)
@@ -864,11 +864,12 @@ collection)
       end
 
       attr_accessor :element_order, :schema_location, :encoding, :__register,
-                    :__parent, :__root
+                    :__parent, :__root, :__union_types
       attr_writer :ordered, :mixed
 
       def initialize(attrs = {}, options = {})
         @using_default = {}
+        @__union_types = {}
         return unless self.class.attributes
 
         @__register = extract_register_id(attrs, options)

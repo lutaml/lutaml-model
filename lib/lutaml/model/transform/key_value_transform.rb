@@ -64,7 +64,7 @@ module Lutaml
 
         value = ExportTransformer.call(value, rule, attribute)
 
-        value = serialize_value(value, rule, attribute, format, options)
+        value = serialize_value(value, rule, attribute, format, options.merge(instance: instance))
 
         return unless rule.render?(value, instance)
 

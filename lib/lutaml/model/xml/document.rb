@@ -224,7 +224,7 @@ module Lutaml
 
         def add_value(xml, value, attribute, cdata: false)
           if !value.nil?
-            serialized_value = attribute.serialize(value, :xml, register)
+            serialized_value = attribute.serialize(value, :xml, register, instance: @root)
             if attribute.raw?
               xml.add_xml_fragment(xml, value)
             elsif attribute.type(register) == Lutaml::Model::Type::Hash
@@ -459,7 +459,7 @@ module Lutaml
             end
 
             value = mapping_rule.to_value_for(element)
-            value = attr.serialize(value, :xml, register) if attr
+            value = attr.serialize(value, :xml, register, instance: @root) if attr
 
             value = ExportTransformer.call(value, mapping_rule, attr)
 

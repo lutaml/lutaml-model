@@ -177,8 +177,6 @@ module Lutaml
         end
 
         resolved_type.cast(value)
-      rescue StandardError
-        nil
       end
 
       def hash_type?
@@ -420,15 +418,16 @@ module Lutaml
         serialize_options = options.merge(resolved_type: resolved_type)
         value = reference_key(value) if unresolved_type == Lutaml::Model::Type::Reference
 
-        if unresolved_type == Type::Union
-          resolved_type = value.class
-          options[:resolved_type] = resolved_type
-        end
-
         if collection_instance?(value)
           return serialize_array(value, format, register,
                                  serialize_options)
         end
+
+        if unresolved_type == Type::Union
+          resolved_type = get_tracked_union_type_for_serialization(value, options)
+          options[:resolved_type] = resolved_type
+        end
+
         if resolved_type <= Serialize
           return serialize_model(value, format, register,
                                  options)
@@ -466,7 +465,29 @@ module Lutaml
 
         klass = resolve_polymorphic_class(resolved_type, value, options)
 
-        return union_types.filter_map { |type| map_union(type, value, format, register, options) }.first if klass == Lutaml::Model::Type::Union
+        if klass == Lutaml::Model::Type::Union
+          instance = options[:instance] || options[:__parent] || options[:__root]
+          winning_type = nil
+          result = nil
+
+          union_types.each do |type|
+            attempted_value = map_union(type, value, format, register, options)
+            if attempted_value
+              result = attempted_value
+              winning_type = type
+              break
+            end
+          rescue StandardError
+            next
+          end
+
+          # Track the winning type
+          if result && winning_type && instance.respond_to?(:__union_types=)
+            Lutaml::Model::Type::Union.track_union_type_usage(instance, @name, winning_type)
+          end
+
+          return result
+        end
 
         if can_serialize?(klass, value, format, options)
           klass.apply_mappings(value, format, options.merge(register: register))
@@ -498,9 +519,23 @@ module Lutaml
           return nil if values.empty?
         end
 
+        return nil unless value
+
         value
-      rescue StandardError
+      rescue Lutaml::Model::InvalidFormatError
         nil
+      end
+
+      def get_tracked_union_type_for_serialization(value, options)
+        # First, check if we can get the instance from options to retrieve tracked type
+        instance = options[:instance] || options[:__parent] || options[:__root]
+
+        if instance.respond_to?(:__union_types) && !(value.class <= Serializable)
+          return cast_type!(Type::Union.get_tracked_union_type(instance, @name))
+        end
+
+        # Fallback to value.class if no tracking available
+        value.class
       end
 
       def serializable?(register)
