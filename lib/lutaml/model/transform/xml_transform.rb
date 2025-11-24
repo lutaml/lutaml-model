@@ -178,28 +178,12 @@ module Lutaml
         children.each do |child|
           value = if attr_type == Lutaml::Model::Type::Union
                     options[:instance] = instance
-                    winning_type = nil
-                    result = nil
 
-                    attr.union_types.each do |t|
-                      attempted_value = get_child_value_for_rule(child, rule, attr, t, instance, options, __register)
-                      if attempted_value
-                        winning_type = t
-                        result = attempted_value
-                        break
-                      end
-                    rescue StandardError
-                      next
+                    attr.resolve_union_type(instance) do |t|
+                      get_child_value_for_rule(child, rule, attr, t, instance, options)
                     end
-
-                    # Track the winning type
-                    if result && winning_type && instance.respond_to?(:__union_types=)
-                      Lutaml::Model::Type::Union.track_union_type_usage(instance, attr.name, winning_type)
-                    end
-
-                    result
                   else
-                    get_child_value_for_rule(child, rule, attr, attr_type, instance, options, __register)
+                    get_child_value_for_rule(child, rule, attr, attr_type, instance, options)
                   end
 
           return nil if rule.render_nil_as_nil? && child.nil_element? && value.nil?
@@ -210,7 +194,7 @@ module Lutaml
         normalized_value_for_attr(values, attr)
       end
 
-      def get_child_value_for_rule(child, rule, attr, attr_type, instance, options, __register)
+      def get_child_value_for_rule(child, rule, attr, attr_type, instance, options)
         if !rule.has_custom_method_for_deserialization? && attr_type <= Serialize
           cast_options = options.except(:mappings)
           cast_options[:polymorphic] = rule.polymorphic if rule.polymorphic
@@ -219,7 +203,7 @@ module Lutaml
           cast_options[:__root] = instance.__root || instance
 
           if attr&.type(__register) == Type::Union
-            attr.map_union(attr_type, child, :xml, __register, cast_options)
+            attr.cast_value_with_type(attr_type, child, :xml, __register, cast_options)
           else
             attr.cast(child, :xml, __register, cast_options)
           end

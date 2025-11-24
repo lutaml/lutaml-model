@@ -153,10 +153,14 @@ module Lutaml
         resolved_type = type(register)
 
         if resolved_type == Lutaml::Model::Type::Union && !value.nil?
-          return union_types.filter_map { |t| cast_union(t, value) }.first
+          return union_types.filter_map { |t| cast_element_with_type(t, value) }.first
         end
 
-        return resolved_type.new(value) if value.is_a?(::Hash) && !hash_type?
+        cast_element_with_type(resolved_type, value)
+      end
+
+      def cast_element_with_type(resolved_type, value)
+        return resolved_type.new(value) if value.is_a?(::Hash) && resolved_type != Lutaml::Model::Type::Hash
 
         # Special handling for Reference types - pass the metadata
         if unresolved_type == Lutaml::Model::Type::Reference
@@ -165,22 +169,6 @@ module Lutaml
         end
 
         resolved_type.cast(value)
-      end
-
-      def cast_union(resolved_type, value)
-        return resolved_type.new(value) if value.is_a?(::Hash)
-
-        # Special handling for Reference types - pass the metadata
-        if unresolved_type == Lutaml::Model::Type::Reference
-          return resolved_type.cast_with_metadata(value,
-                                                  @options[:ref_model_class], @options[:ref_key_attribute])
-        end
-
-        resolved_type.cast(value)
-      end
-
-      def hash_type?
-        type == Lutaml::Model::Type::Hash
       end
 
       def setter
@@ -424,7 +412,7 @@ module Lutaml
         end
 
         if unresolved_type == Type::Union
-          resolved_type = get_tracked_union_type_for_serialization(value, options)
+          resolved_type = get_resolved_union_type_for_serialization(value, options)
           options[:resolved_type] = resolved_type
         end
 
@@ -466,29 +454,23 @@ module Lutaml
         klass = resolve_polymorphic_class(resolved_type, value, options)
 
         if klass == Lutaml::Model::Type::Union
-          instance = options[:instance] || options[:__parent] || options[:__root]
-          winning_type = nil
-          result = nil
-
-          union_types.each do |type|
-            attempted_value = map_union(type, value, format, register, options)
-            if attempted_value
-              result = attempted_value
-              winning_type = type
-              break
-            end
-          rescue StandardError
-            next
+          return resolve_union_type(options[:instance] || options[:__parent] || options[:__root]) do |type|
+            cast_value_with_type(type, value, format, register, options)
           end
-
-          # Track the winning type
-          if result && winning_type && instance.respond_to?(:__union_types=)
-            Lutaml::Model::Type::Union.track_union_type_usage(instance, @name, winning_type)
-          end
-
-          return result
         end
 
+        perform_type_casting(klass, value, format, register, options)
+      end
+
+      # Perform the actual type casting logic
+      #
+      # @param klass [Class] The type class
+      # @param value [Object] The value to cast
+      # @param format [Symbol] The format being processed
+      # @param register [Object] The type register
+      # @param options [Hash] Additional options
+      # @return [Object] The cast value
+      def perform_type_casting(klass, value, format, register, options)
         if can_serialize?(klass, value, format, options)
           klass.apply_mappings(value, format, options.merge(register: register))
         elsif needs_conversion?(klass, value)
@@ -500,16 +482,36 @@ module Lutaml
         end
       end
 
-      def map_union(klass, value, format, register, options = {})
-        value = if can_serialize?(klass, value, format, options)
-                  klass.apply_mappings(value, format, options.merge(register: register))
-                elsif needs_conversion?(klass, value)
-                  klass.send(:"from_#{format}", value)
-                else
-                  # No need to use register#get_class,
-                  # can_serialize? method already checks if type is Serializable or not.
-                  Type.lookup(klass).cast(value)
-                end
+      # Resolves the union type for a given instance by iterating through possible types.
+      # Yields each type to the provided block, and returns the first non-nil value.
+      # Records the resolved type for the instance and attribute name.
+      #
+      # @param instance [Object] The instance for which the union type is being resolved.
+      # @yieldparam type [Object] Each possible type in the union.
+      # @yieldreturn [Object, nil] The attempted value for the given type.
+      # @return [Object, nil] The first non-nil value returned by the block, or nil if none found.
+      def resolve_union_type(instance)
+        union_types.each do |type|
+          attempted_value = yield(type)
+          next unless attempted_value
+
+          Lutaml::Model::Type::Union.record_resolved_type(instance, name, type)
+          return attempted_value
+        end
+
+        nil
+      end
+
+      # Cast value using a specific type with proper validation
+      #
+      # @param klass [Class] The type class
+      # @param value [Object] The value to cast
+      # @param format [Symbol] The format being processed
+      # @param register [Object] The type register
+      # @param options [Hash] Additional options
+      # @return [Object, nil] The cast value or nil if invalid
+      def cast_value_with_type(klass, value, format, register, options = {})
+        value = perform_type_casting(klass, value, format, register, options)
 
         if klass <= Serialize
           values = klass.attributes.filter_map do |name, _attr|
@@ -522,16 +524,16 @@ module Lutaml
         return nil unless value
 
         value
-      rescue Lutaml::Model::InvalidFormatError
+      rescue StandardError
         nil
       end
 
-      def get_tracked_union_type_for_serialization(value, options)
+      def get_resolved_union_type_for_serialization(value, options)
         # First, check if we can get the instance from options to retrieve tracked type
         instance = options[:instance] || options[:__parent] || options[:__root]
 
         if instance.respond_to?(:__union_types) && !(value.class <= Serializable)
-          return cast_type!(Type::Union.get_tracked_union_type(instance, @name))
+          return Type::Union.resolved_type_for(instance, @name)
         end
 
         # Fallback to value.class if no tracking available
