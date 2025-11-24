@@ -43,9 +43,24 @@ module Lutaml
             element[name] = value
           end
 
-          def create_and_add_element(element_name, prefix: nil, attributes: {})
+          def create_and_add_element(
+            element_name,
+            prefix: (prefix_unset = true
+                     nil),
+            attributes: {}
+          )
             element_name = element_name.first if element_name.is_a?(Array)
-            prefixed_name = set_prefixed_name(element_name, prefix)
+            
+            # When prefix is provided (not nil), use it for namespaced element
+            # When prefix is nil and explicitly set, don't use any prefix (default namespace)
+            # When prefix is unset, use current_namespace if available (backward compatibility)
+            prefixed_name = if !prefix_unset && prefix
+                              "#{prefix}:#{element_name}"
+                            elsif prefix_unset && @current_namespace && !element_name.start_with?("#{@current_namespace}:")
+                              "#{@current_namespace}:#{element_name}"
+                            else
+                              element_name
+                            end
 
             if block_given?
               xml.element(prefixed_name, attributes) do |element|

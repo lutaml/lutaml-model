@@ -37,18 +37,25 @@ module Lutaml
                      nil),
             attributes: {}
           )
-            add_namespace_prefix(prefix)
+            # When prefix is provided (not nil), use xml[prefix] for namespaced element
+            # When prefix is nil and explicitly set, use xml directly for default namespace
+            # When prefix is unset, use xml directly (backward compatibility)
+            builder_base = if !prefix_unset && prefix
+                             xml[prefix]
+                           else
+                             xml
+                           end
 
             element_name = element_name.first if element_name.is_a?(Array)
             element_name = "#{element_name}_" if respond_to?(element_name)
 
             if block_given?
-              public_send(element_name, attributes) do
+              builder_base.public_send(element_name, attributes) do
                 xml.parent.namespace = nil if prefix.nil? && !prefix_unset
                 yield(self)
               end
             else
-              public_send(element_name, attributes)
+              builder_base.public_send(element_name, attributes)
             end
           end
 

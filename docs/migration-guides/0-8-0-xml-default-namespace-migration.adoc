@@ -1,0 +1,398 @@
+= v0.8.0 breaking change migration guide: XML mapping behavior
+
+== Scope
+
+This document provides a migration guide for adapting to the breaking change in
+XML behavior introduced in Lutaml::Model version 0.8.0.
+
+== Change summary
+
+Version 0.8.0 introduces a number of XML namespace serialization
+behavior to align with W3C XML standards.
+
+The default output format has changed from prefixed namespaces to default
+namespaces for cleaner, more standards-compliant XML.
+
+== Introducing the XmlNamespace class
+
+=== General
+
+The `XmlNamespace` class is a dedicated representation of XML namespaces in
+Lutaml::Model. It encapsulates the URI and prefix information, providing a more
+structured way to define, manage and reuse namespaces.
+
+This is done to fully align the namespace management with the W3C XML Namespace
+and W3C XML Schema (XSD) specifications, and also to improve reusability of
+Lutaml::Model objects and supporting multiple namespaces in a single document.
+In the future, this will allow Lutaml::Model to support importing of models
+belonging to different namespaces into a single model.
+
+Namespaces in Lutaml::Model were defined in an element using the `namespace`
+directive within the `xml` block with a URI and an optional prefix. Now,
+Lutaml::Model uses dedicated `XmlNamespace` classes to define namespaces.
+
+Child element namespaces were previously defined on the mappings themselves
+using the `namespace` option with an optional `prefix`. Now they are defined
+using `XmlNamespace` classes on the attribute classes themselves.
+
+Namespaces on XML attributes were previously defined using the `namespace`
+option with an optional `prefix`. Now a custom Value class is required to
+associate an XML namespace with an attribute. The namespaces for XML attributes
+are defined using `XmlNamespace` classes on the custom Value classes themselves.
+
+For Value types, the `namespace` directive has been renamed to `xml_namespace`.
+
+
+**Deprecated syntax**
+
+IMPORTANT: The `namespace` directive for `Type::Value` classes is deprecated.
+Use `xml_namespace` instead.
+
+The old `namespace` directive is still supported but will show a deprecation warning:
+
+[source,ruby]
+----
+class CustomType < Lutaml::Model::Type::Value
+  namespace CustomNamespace  # ⚠️ DEPRECATED
+  xsd_type 'CustomType'
+end
+----
+
+
+[NOTE]
+====
+**Why the change?**
+
+The `namespace` directive has been renamed to `xml_namespace` to:
+
+* Clearly indicate this is XML-specific configuration
+* Reserve `namespace` for future semantic namespace features (JSON-LD `@context`, RDF IRIs)
+* Maintain consistency with format-specific configuration patterns
+* Distinguish from model-level `namespace` directive
+====
+
+
+==== Migration
+
+To migrate from deprecated to current syntax:
+
+. Replace `namespace` with `xml_namespace` in all `Type::Value` classes
+. No other changes needed - functionality remains identical
+. The deprecated `namespace` continues to work with a warning
+
+.Before (deprecated)
+[source,ruby]
+----
+class DcTitleType < Lutaml::Model::Type::String
+  namespace DublinCoreNamespace  # ⚠️ DEPRECATED
+  xsd_type 'titleType'
+end
+----
+
+.After (current)
+[source,ruby]
+----
+class DcTitleType < Lutaml::Model::Type::String
+  xml_namespace DublinCoreNamespace  # ✅ CURRENT
+  xsd_type 'titleType'
+end
+----
+
+**Backward compatibility:**
+
+The deprecated `namespace` directive continues to work with a deprecation warning:
+
+[source]
+----
+[DEPRECATION] Type::Value.namespace is deprecated. Use xml_namespace instead.
+This will be removed in version 1.0.0
+----
+
+
+
+== Prefix for default namespace is deprecated
+== Purpose of change
+
+W3C XML Namespace Recommendation:
+
+* Default namespace (`xmlns="..."`) is the natural, correct XML output
+
+* Prefixes should be used only when necessary (multiple namespaces,
+compatibility)
+
+* Clean, readable XML without unnecessary prefixes
+
+* Same data, better XML semantics
+
+Benefits:
+
+* Standards-compliant XML by default
+* Cleaner output for single-namespace documents
+* Easier to read and debug
+* Still supports prefixed output when needed via `prefix:` option
+
+
+== OLD behavior (v0.7.x and earlier)
+
+The `to_xml` method always used prefixes for namespaces:
+
+[source,ruby]
+----
+class AppNamespace < Lutaml::Model::XmlNamespace
+  uri 'http://example.com/app'
+  prefix_default 'app'
+end
+
+class Properties < Lutaml::Model::Serializable
+  xml do
+    root "Properties"
+    namespace AppNamespace
+    map_element "Template", to: :template
+  end
+end
+
+# OLD v0.7.x output:
+props.to_xml
+# => <app:Properties xmlns:app="http://example.com/app">
+#      <app:Template>Normal.dotm</app:Template>
+#    </app:Properties>
+----
+
+
+== NEW behavior (v0.8.0+)
+
+The `to_xml` method now uses default namespace (no prefix) by default:
+
+[source,ruby]
+----
+# NEW v0.8.0+ output:
+props.to_xml
+# => <Properties xmlns="http://example.com/app">
+#      <Template>Normal.dotm</Template>
+#    </Properties>
+----
+
+
+== Migration steps
+
+See
+
+=== Step 1: Identify affected code
+
+Find all calls to `to_xml` on model instances:
+
+[source,ruby]
+----
+# In your codebase, search for:
+*.to_xml
+Model.to_xml
+instance.to_xml
+----
+
+=== Step 2: Determine required output format
+
+For each `to_xml` call, decide:
+
+1. **Keep new default behavior** (recommended)
+   - Produces clean XML with default namespace
+   - No code changes needed
+
+2. **Restore old prefixed behavior**
+   - Add `prefix: true` option
+   - Use when legacy systems require prefixes
+
+=== Step 3: Update code
+
+.Migration option 1: Accept new default behavior (recommended)
+[example]
+====
+No code changes needed. Output will be cleaner:
+
+[source,ruby]
+----
+# Your existing code
+props.to_xml
+
+# OLD output (v0.7.x):
+# <app:Properties xmlns:app="..."><app:Template>...</app:Template></app:Properties>
+
+# NEW output (v0.8.0+):
+# <Properties xmlns="..."><Template>...</Template></Properties>
+----
+
+Verify that consuming systems handle default namespaces correctly (most do).
+====
+
+.Migration option 2: Restore prefixed output
+[example]
+====
+Add `prefix: true` to maintain old behavior:
+
+[source,ruby]
+----
+# OLD code (v0.7.x)
+props.to_xml
+
+# NEW code for same output (v0.8.0+)
+props.to_xml(prefix: true)  # <1>
+
+# Both produce:
+# <app:Properties xmlns:app="..."><app:Template>...</app:Template></app:Properties>
+----
+<1> The `prefix: true` option uses `prefix_default` from XmlNamespace
+====
+
+=== Step 4: Update tests
+
+Update test expectations to match new output format:
+
+.Test migration example
+[example]
+====
+[source,ruby]
+----
+# OLD test (v0.7.x)
+it "serializes to XML" do
+  xml = props.to_xml
+  expect(xml).to include('<app:Properties xmlns:app="http://example.com/app">')
+  expect(xml).to include('<app:Template>')
+end
+
+# OPTION 1: Update expectations for new format (recommended)
+it "serializes to XML with default namespace" do
+  xml = props.to_xml
+  expect(xml).to include('<Properties xmlns="http://example.com/app">')
+  expect(xml).to include('<Template>')
+end
+
+# OPTION 2: Keep old expectations, add prefix: true
+it "serializes to XML with prefix" do
+  xml = props.to_xml(prefix: true)
+  expect(xml).to include('<app:Properties xmlns:app="http://example.com/app">')
+  expect(xml).to include('<app:Template>')
+end
+----
+====
+
+== Common migration scenarios
+
+=== Scenario 1: Single namespace documents
+
+**Recommendation:** Accept new default behavior (no changes needed)
+
+[source,ruby]
+----
+# Your code remains unchanged
+customer.to_xml
+----
+
+Clean output with default namespace is ideal for single-namespace documents.
+
+=== Scenario 2: Office Open XML and similar formats
+
+**Recommendation:** Use `prefix: true` for compatibility
+
+[source,ruby]
+----
+# OLD (v0.7.x)
+properties.to_xml
+
+# NEW (v0.8.0+) - maintain compatibility
+properties.to_xml(prefix: true)  # <1>
+
+# Also ensure unused namespaces are declared
+xml do
+  namespace_scope [VtNamespace], declare: :always  # <2>
+end
+----
+<1> Use `prefix: true` if Office tools expect prefixed elements
+<2> Use `declare: :always` for required but unused namespaces
+
+=== Scenario 3: Multi-namespace documents
+
+**Recommendation:** Evaluate each namespace's need for prefix
+
+[source,ruby]
+----
+# Root namespace: can use default (clean)
+document.to_xml  # Uses default namespace for root
+
+# Or with prefix if needed
+document.to_xml(prefix: true)  # Uses prefixes throughout
+----
+
+Only the root element's namespace can be set as default. Other namespaces in
+scope always use their prefixes.
+
+== Validation checklist
+
+After migration, verify:
+
+- [ ] ✅ XML output is valid and well-formed
+- [ ] ✅ Round-trip parsing works: `Model.from_xml(instance.to_xml)`
+- [ ] ✅ Consuming systems accept the new format
+- [ ] ✅ Tests pass with updated expectations
+- [ ] ✅ Namespace declarations appear at correct locations
+- [ ] ✅ Multi-namespace documents have correct prefixes
+
+== Troubleshooting
+
+**Problem:** "My XML looks different after upgrading"
+
+**Solution:** This is expected. The new default uses clean XML with default
+namespaces. To restore old format, add `prefix: true`:
+
+[source,ruby]
+----
+instance.to_xml(prefix: true)
+----
+
+**Problem:** "Consuming system rejects my XML"
+
+**Solution 1:** Check if system supports default namespaces (most do). Default
+namespaces are W3C standard.
+
+**Solution 2:** If system explicitly requires prefixes, use `prefix: true`:
+
+[source,ruby]
+----
+instance.to_xml(prefix: true)
+----
+
+**Problem:** "My prefixes disappeared"
+
+**Solution:** This is intentional for cleaner XML. To restore prefixes:
+
+[source,ruby]
+----
+instance.to_xml(prefix: true)  # Uses prefix_default from XmlNamespace
+----
+
+**Problem:** "I need a specific prefix, not the default"
+
+**Solution:** Use custom prefix string:
+
+[source,ruby]
+----
+instance.to_xml(prefix: "custom")  # Uses "custom" as prefix
+----
+
+**Problem:** "Required namespace is missing from output"
+
+**Solution:** Use `declare: :always` in `namespace_scope`:
+
+[source,ruby]
+----
+xml do
+  namespace_scope [RequiredNamespace], declare: :always
+end
+----
+
+== Additional resources
+
+For comprehensive details on namespace handling:
+
+* link:./xml_namespace_prefix_control.adoc[Namespace prefix control at serialization]
+* link:./xml_namespace_scope.adoc[Namespace scope consolidation]
+* link:./README.adoc#xml-namespace-class[XML namespace management]
+* link:./xml_mappings_guide.adoc[XML Mappings Guide]

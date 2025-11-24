@@ -27,7 +27,7 @@ RSpec.describe "XML Namespace Placement" do
       end
 
       instance = model.new(name: "test")
-      xml = instance.to_xml
+      xml = instance.to_xml(prefix: true)
 
       expect(xml).to include("<ex:model")
       expect(xml).to include("<ex:name>test</ex:name>")
@@ -72,7 +72,7 @@ RSpec.describe "XML Namespace Placement" do
       end
 
       instance = parent_model.new(child: child_model.new(value: "test"))
-      xml = instance.to_xml
+      xml = instance.to_xml(prefix: true)
 
       expect(xml).to include("<parent:parent")
       expect(xml).to include("<child:nested>test</child:nested>")
@@ -119,7 +119,7 @@ RSpec.describe "XML Namespace Placement" do
       end
 
       instance = parent_model.new(child: broken_model.new(value: "test"))
-      xml = instance.to_xml
+      xml = instance.to_xml(prefix: true)
 
       # The namespace prefix is NOT applied because namespace was at class level
       expect(xml).to include("<parent:parent")
@@ -184,7 +184,7 @@ RSpec.describe "XML Namespace Placement" do
         created: created_type.new(value: now, type: "dcterms:W3CDTF"),
       )
 
-      xml = instance.to_xml
+      xml = instance.to_xml(prefix: true)
 
       # Verify correct namespace prefixes
       expect(xml).to include("<cp:coreProperties")
@@ -251,7 +251,7 @@ RSpec.describe "XML Namespace Placement" do
         model_attr: nested_model.new(value: "model_value"),
       )
 
-      xml = instance.to_xml
+      xml = instance.to_xml(prefix: true)
 
       # All namespaces should be correctly applied
       expect(xml).to include("<parent:parent")

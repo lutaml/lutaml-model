@@ -7,6 +7,7 @@ module Lutaml
         attr_reader :namespace,
                     :prefix,
                     :namespace_class,
+                    :namespace_param,
                     :mixed_content,
                     :default_namespace,
                     :cdata,
@@ -60,6 +61,9 @@ module Lutaml
             transform: transform,
             value_map: value_map,
           )
+
+          # Store original namespace parameter to preserve :inherit symbol
+          @namespace_param = namespace
 
           # Normalize namespace to XmlNamespace class
           @namespace_class = normalize_namespace(namespace, prefix)
@@ -160,6 +164,9 @@ module Lutaml
           ns_param = if @namespace_class
                        # Pass the class itself to preserve it
                        @namespace_class
+                     elsif @namespace_param == :inherit
+                       # Preserve :inherit symbol
+                       :inherit
                      else
                        namespace&.dup
                      end
@@ -209,15 +216,17 @@ module Lutaml
         # @param parent_ns_uri [String, nil] parent element's namespace URI
         # @param parent_ns_class [Class, nil] parent's XmlNamespace class
         # @param form_default [Symbol] :qualified or :unqualified from schema
+        # @param use_prefix [Boolean, String, nil] whether to use prefix for this namespace
         # @return [Hash] namespace resolution result
         #   { uri: String|nil, prefix: String|nil, ns_class: Class|nil }
         def resolve_namespace(attr:, register: nil, parent_ns_uri: nil,
-                            parent_ns_class: nil, form_default: :unqualified)
+                            parent_ns_class: nil, form_default: :unqualified,
+                            use_prefix: nil)
           if attribute?
             resolve_attribute_namespace(attr, register)
           else
             resolve_element_namespace(attr, register, parent_ns_uri,
-                                      parent_ns_class, form_default)
+                                      parent_ns_class, form_default, use_prefix)
           end
         end
 
@@ -302,11 +311,12 @@ module Lutaml
         # @param parent_ns_uri [String, nil] parent namespace URI
         # @param parent_ns_class [Class, nil] parent namespace class
         # @param form_default [Symbol] :qualified or :unqualified
+        # @param use_prefix [Boolean, String, nil] whether to use prefix
         # @return [Hash] namespace info
         def resolve_element_namespace(attr, register, parent_ns_uri,
-                                     _parent_ns_class, form_default)
+                                     parent_ns_class, form_default, use_prefix = nil)
           # 1. Explicit mapping namespace (namespace: SomeNamespace)
-          if namespace_set? && @namespace_class && namespace != :inherit
+          if namespace_set? && @namespace_class && @namespace_param != :inherit
             return build_namespace_result_from_class(@namespace_class)
           end
 
@@ -315,10 +325,17 @@ module Lutaml
             return build_namespace_result_from_class(type_ns_class)
           end
 
-          # 3. Inherited namespace (explicit :inherit or form default)
-          if namespace == :inherit ||
-              (form_default == :qualified && parent_ns_uri)
-            return build_namespace_result(parent_ns_uri, prefix)
+          # 3. Inherited namespace (explicit :inherit, explicit form: :qualified, or form default)
+          # Note: use_prefix does NOT affect qualification - only namespace declaration format
+          # Priority: explicit form option > form_default setting
+          should_qualify = @namespace_param == :inherit ||
+                          qualified? ||
+                          (form_default == :qualified && !unqualified?)
+
+          if should_qualify && parent_ns_uri
+            # Use parent's prefix from parent_ns_class
+            parent_prefix = parent_ns_class&.prefix_default || prefix
+            return build_namespace_result(parent_ns_uri, parent_prefix)
           end
 
           # 4. No namespace (unqualified)
