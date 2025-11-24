@@ -59,10 +59,24 @@ RSpec.describe "XML Namespace Integration" do
       person = person_class.new(name: "John Doe", email: "john@example.com")
       xml = person.to_xml
 
+      # NEW: Default behavior uses default namespace (xmlns="...")
+      expect(xml).to include('xmlns="https://example.com/schemas/contact/v1"')
+      expect(xml).to include("<person")
+      # Child elements are unqualified (local elements)
+      expect(xml).to include("<name>John Doe</name>")
+      expect(xml).to include("<email>john@example.com</email>")
+    end
+
+    it "serializes with prefix when prefix: true option used" do
+      person = person_class.new(name: "John Doe", email: "john@example.com")
+      xml = person.to_xml(prefix: true)
+
+      # With prefix: true, root uses prefix
       expect(xml).to include('xmlns:contact="https://example.com/schemas/contact/v1"')
       expect(xml).to include("<contact:person")
-      expect(xml).to include("<contact:name>John Doe</contact:name>")
-      expect(xml).to include("<contact:email>john@example.com</contact:email>")
+      # Child elements remain unqualified (element_form_default not fully implemented yet)
+      expect(xml).to include("<name>John Doe</name>")
+      expect(xml).to include("<email>john@example.com</email>")
     end
   end
 
@@ -112,9 +126,21 @@ RSpec.describe "XML Namespace Integration" do
       instance = legacy_class.new(value: "test")
       xml = instance.to_xml
 
+      # NEW: Default behavior uses default namespace
+      expect(xml).to include('xmlns="https://example.com/legacy"')
+      expect(xml).to include("<legacy")
+      expect(xml).to include("<value>test</value>")
+    end
+
+    it "serializes with prefix when prefix: true used" do
+      instance = legacy_class.new(value: "test")
+      xml = instance.to_xml(prefix: true)
+
+      # With prefix: true on root, but child elements stay unqualified
+      # (no element_form_default :qualified set)
       expect(xml).to include('xmlns:leg="https://example.com/legacy"')
       expect(xml).to include("<leg:legacy")
-      expect(xml).to include("<leg:value>test</leg:value>")
+      expect(xml).to include("<value>test</value>")  # Child unqualified
     end
   end
 

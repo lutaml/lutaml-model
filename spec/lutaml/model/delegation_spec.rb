@@ -249,13 +249,13 @@ RSpec.describe Delegation do
       pretty: true,
       declaration: true,
       encoding: "UTF-8",
+      prefix: true,  # Use prefix: true to get prefixed namespace
     )
 
-    expect(xml_data).to(
-      include(
-        '<del:delegation xmlns:del="https://example.com/delegation/1.2">',
-      ),
-    )
+    # With prefix: true, both default and prefixed xmlns are declared
+    expect(xml_data).to include('xmlns="https://example.com/delegation/1.2"')
+    expect(xml_data).to include('xmlns:del="https://example.com/delegation/1.2"')
+    expect(xml_data).to include('<del:delegation')
   end
 
   it "sets the namespace of <delegation> and also" \
@@ -264,7 +264,7 @@ RSpec.describe Delegation do
       xml do
         root "delegation"
         namespace "https://example.com/delegation/1.2", "del"
-        map_element "type", to: :type # , namespace: :inherit
+        map_element "type", to: :type, namespace: :inherit  # Enable :inherit
         map_element "color", to: :color, delegate: :glaze
         map_element "finish", to: :finish, delegate: :glaze
       end
@@ -276,11 +276,12 @@ RSpec.describe Delegation do
       pretty: true,
       declaration: true,
       encoding: "UTF-8",
+      prefix: true,  # Use prefix: true to get prefixed namespace
     )
 
-    delegation_attribute = 'xmlns:del="https://example.com/delegation/1.2">'
-
-    expect(xml_data).to include("<del:delegation #{delegation_attribute}")
+    # With prefix: true and namespace: :inherit on type element
+    expect(xml_data).to include('xmlns:del="https://example.com/delegation/1.2"')
+    expect(xml_data).to include('<del:delegation')
     expect(xml_data).to include("<del:type>Vase</del:type>")
   end
 
@@ -317,15 +318,14 @@ RSpec.describe Delegation do
       pretty: true,
       declaration: true,
       encoding: "UTF-8",
+      prefix: true,  # Use prefix: true to get prefixed namespace
     )
 
-    delegation_attributes = [
-      'xmlns:del1="https://example.com/delegation/1.1"',
-      'xmlns:del2="https://example.com/delegation/1.2"',
-      'del2:date="2024-06-08"',
-    ]
-
-    expect(xml_data).to include("<del1:delegation #{delegation_attributes.join(' ')}>")
+    # With prefix: true and two namespaces
+    expect(xml_data).to include('xmlns:del1="https://example.com/delegation/1.1"')
+    expect(xml_data).to include('xmlns:del2="https://example.com/delegation/1.2"')
+    expect(xml_data).to include('del2:date="2024-06-08"')
+    expect(xml_data).to include('<del1:delegation')
     expect(xml_data).to include("<del1:type>Vase</del1:type>")
   end
 

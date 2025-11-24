@@ -189,7 +189,7 @@ RSpec.describe "Xml::Mapping namespace option formats" do
 
       it "inherits parent namespace" do
         instance = model_class.new(inherited: "test value")
-        xml = instance.to_xml
+        xml = instance.to_xml(prefix: true)
 
         # Element should use parent namespace
         expect(xml).to include("<parent:inherited>test value</parent:inherited>")

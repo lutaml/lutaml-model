@@ -76,10 +76,14 @@ module Lutaml
             attributes: {},
             &block
           )
+            # When prefix is provided (not nil), use it for namespaced element
+            # When prefix is nil and explicitly set, clear namespace and use bare element name (default namespace)
+            # When prefix is unset, use current_namespace if available (backward compatibility)
             @current_namespace = nil if prefix.nil? && !prefix_unset
-            prefixed_name = if prefix
+            
+            prefixed_name = if !prefix_unset && prefix
                               "#{prefix}:#{element_name}"
-                            elsif @current_namespace && !element_name.start_with?("#{@current_namespace}:")
+                            elsif prefix_unset && @current_namespace && !element_name.start_with?("#{@current_namespace}:")
                               "#{@current_namespace}:#{element_name}"
                             else
                               element_name

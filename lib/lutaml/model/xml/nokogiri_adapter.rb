@@ -32,7 +32,7 @@ module Lutaml
             else
               mapper_class = options[:mapper_class] || @root.class
               options[:xml_attributes] =
-                build_namespace_attributes(mapper_class)
+                build_namespace_attributes(mapper_class, {}, options)
               build_element(xml, @root, options)
             end
           end
