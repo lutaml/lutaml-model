@@ -3,6 +3,7 @@ require "lutaml/model/xml/nokogiri_adapter"
 require "lutaml/model/xml/ox_adapter"
 require "lutaml/model/xml/oga_adapter"
 require "lutaml/model"
+require_relative "../../../support/xml_mapping_namespaces"
 
 RSpec.describe "XmlNamespace" do
   shared_context "with XML namespace models" do
@@ -11,7 +12,7 @@ RSpec.describe "XmlNamespace" do
 
       xml do
         root "test"
-        namespace "http://example.com/test", "test"
+        namespace TestNamespace
         map_element "name", to: :name
       end
     end
@@ -21,7 +22,7 @@ RSpec.describe "XmlNamespace" do
 
       xml do
         root "test"
-        namespace "http://example.com/test", "test"
+        namespace TestNamespace
         map_element "name", to: :name
       end
     end
@@ -34,15 +35,14 @@ RSpec.describe "XmlNamespace" do
 
       xml do
         root "SamplePrefixedNamespacedModel"
-        namespace "http://example.com/foo", "foo"
+        namespace FooNamespace
 
         map_attribute "id", to: :id
         map_attribute "lang", to: :lang,
-                              prefix: "xml",
-                              namespace: "http://example.com/xml"
+                              namespace: XmlLangNamespace
 
-        map_element "Name", to: :name, prefix: "bar", namespace: "http://example.com/bar"
-        map_element "Age", to: :age, prefix: "baz", namespace: "http://example.com/baz"
+        map_element "Name", to: :name, namespace: BarNamespace
+        map_element "Age", to: :age, namespace: BazNamespace
       end
     end
 
@@ -65,15 +65,14 @@ RSpec.describe "XmlNamespace" do
 
       xml do
         root "SampleDefaultNamespacedModel"
-        namespace "http://example.com/foo"
+        namespace FooNamespace, nil
 
         map_attribute "id", to: :id
         map_attribute "lang", to: :lang,
-                              prefix: "xml",
-                              namespace: "http://example.com/xml"
+                              namespace: XmlLangNamespace
 
-        map_element "Name", to: :name, prefix: "bar", namespace: "http://example.com/bar"
-        map_element "Age", to: :age, prefix: "baz", namespace: "http://example.com/baz"
+        map_element "Name", to: :name, namespace: BarNamespace
+        map_element "Age", to: :age, namespace: BazNamespace
       end
     end
 
@@ -100,7 +99,7 @@ RSpec.describe "XmlNamespace" do
       attribute :text, :string
       xml do
         root "test-element"
-        namespace "http://www.test.com/schemas/test/1.0/", "test"
+        namespace TestSchemasNamespace
         map_content to: :text
       end
     end
@@ -109,7 +108,7 @@ RSpec.describe "XmlNamespace" do
       attribute :test_element, Element
 
       xml do
-        namespace "http://www.test.com/schemas/test/1.0/", "test"
+        namespace TestSchemasNamespace
         map_element "test-element", to: :test_element
       end
     end
@@ -120,7 +119,7 @@ RSpec.describe "XmlNamespace" do
 
       xml do
         root "article"
-        map_element "front", to: :front, prefix: "test", namespace: "http://www.test.com/schemas/test/1.0/"
+        map_element "front", to: :front, namespace: TestSchemasNamespace
         map_element "body", to: :body
       end
     end
@@ -134,9 +133,9 @@ RSpec.describe "XmlNamespace" do
         root "ownedEnd"
 
         map_attribute "id", to: :id,
-                            namespace: "http://www.omg.org/spec/XMI/20131001", prefix: "xmi"
+                            namespace: XmiNamespace
         map_attribute "type", to: :type,
-                              namespace: "http://www.omg.org/spec/XMI/20131001", prefix: "xmi"
+                              namespace: XmiNamespace
         map_attribute "type", to: :uml_type
       end
     end
@@ -148,7 +147,7 @@ RSpec.describe "XmlNamespace" do
 
       xml do
         root "UnitSystem"
-        namespace "https://schema.example.org/units/1.0"
+        namespace UnitsNamespace
         map_attribute "name", to: :name
         map_attribute "type", to: :type
       end
@@ -159,7 +158,7 @@ RSpec.describe "XmlNamespace" do
 
       xml do
         root "UnitName"
-        namespace "https://schema.example.org/units/1.0"
+        namespace UnitsNamespace
         map_content to: :value
       end
     end
@@ -170,7 +169,7 @@ RSpec.describe "XmlNamespace" do
 
       xml do
         root "EnumeratedRootUnit"
-        namespace "https://schema.example.org/units/1.0"
+        namespace UnitsNamespace
         map_attribute "unit", to: :unit
         map_attribute "prefix", to: :prefix
       end
@@ -181,7 +180,7 @@ RSpec.describe "XmlNamespace" do
 
       xml do
         root "RootUnits"
-        namespace "https://schema.example.org/units/1.0"
+        namespace UnitsNamespace
         map_element "EnumeratedRootUnit", to: :enumerated_root_units
       end
     end
@@ -194,7 +193,7 @@ RSpec.describe "XmlNamespace" do
 
       xml do
         root "Unit"
-        namespace "https://schema.example.org/units/1.0"
+        namespace UnitsNamespace
         map_attribute "id", to: :id
         map_element "UnitSystem", to: :unit_system
         map_element "UnitName", to: :unit_name
@@ -208,7 +207,7 @@ RSpec.describe "XmlNamespace" do
 
       xml do
         root "math"
-        namespace "http://www.w3.org/1998/Math/MathML"
+        namespace MathMlNamespace
         map_content to: :value
       end
     end
@@ -219,7 +218,7 @@ RSpec.describe "XmlNamespace" do
 
       xml do
         root "UnitSymbol"
-        namespace "https://schema.example.org/units/1.0"
+        namespace UnitsNamespace
         map_attribute "type", to: :type
         map_element "math", to: :math
       end
@@ -231,7 +230,7 @@ RSpec.describe "XmlNamespace" do
 
       xml do
         root "Unit"
-        namespace "https://schema.example.org/units/1.0"
+        namespace UnitsNamespace
         map_attribute "id", to: :id
         map_element "UnitSymbol", to: :unit_symbol
       end

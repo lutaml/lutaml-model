@@ -610,6 +610,9 @@ module Lutaml
 
       def serialize_model(value, format, register, options)
         as_options = options.merge(register: register)
+        # Remove mappings from options for nested model serialization
+        # Nested models should use their own format mappings
+        as_options.delete(:mappings)
         return unless Utils.present?(value)
 
         resolved_type = as_options.delete(:resolved_type) || type(register)

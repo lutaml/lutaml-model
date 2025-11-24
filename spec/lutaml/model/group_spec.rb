@@ -1,5 +1,5 @@
 require "spec_helper"
-require "lutaml/model"
+require_relative "../../support/xml_mapping_namespaces"
 
 module GroupSpec
   class Ceramic < Lutaml::Model::Serializable
@@ -508,7 +508,7 @@ RSpec.describe "Group" do
         Class.new(Lutaml::Model::Serializable) do
           xml do
             no_root
-            namespace "http://www.omg.org/spec/XMI/20131001", "xmi"
+            namespace XmiNamespace
           end
         end
       end.to raise_error(Lutaml::Model::NoRootNamespaceError,

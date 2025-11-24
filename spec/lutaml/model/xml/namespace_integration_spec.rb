@@ -74,9 +74,9 @@ RSpec.describe "XML Namespace Integration" do
       # With prefix: true, root uses prefix
       expect(xml).to include('xmlns:contact="https://example.com/schemas/contact/v1"')
       expect(xml).to include("<contact:person")
-      # Child elements remain unqualified (element_form_default not fully implemented yet)
-      expect(xml).to include("<name>John Doe</name>")
-      expect(xml).to include("<email>john@example.com</email>")
+      # Children in same namespace match parent's prefix format
+      expect(xml).to include("<contact:name>John Doe</contact:name>")
+      expect(xml).to include("<contact:email>john@example.com</contact:email>")
     end
   end
 
@@ -140,7 +140,7 @@ RSpec.describe "XML Namespace Integration" do
       # (no element_form_default :qualified set)
       expect(xml).to include('xmlns:leg="https://example.com/legacy"')
       expect(xml).to include("<leg:legacy")
-      expect(xml).to include("<value>test</value>")  # Child unqualified
+      expect(xml).to include("<value>test</value>") # Child unqualified
     end
   end
 

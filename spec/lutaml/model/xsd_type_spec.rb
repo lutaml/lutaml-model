@@ -23,10 +23,11 @@ RSpec.describe "XSD Type Declaration" do
         xsd_type "xs:ID"
 
         def self.cast(value)
-          id = super(value).strip
-          unless id.match?(/\A[A-Za-z_][\w.\-]*\z/)
+          id = super.strip
+          unless id.match?(/\A[A-Za-z_][\w.-]*\z/)
             raise Lutaml::Model::TypeError, "Invalid XML ID: #{id}"
           end
+
           id
         end
       end
@@ -123,10 +124,11 @@ RSpec.describe "XSD Type Declaration" do
         xsd_type "xs:ID"
 
         def self.cast(value)
-          id = super(value).strip
-          unless id.match?(/\A[A-Za-z_][\w.\-]*\z/)
+          id = super.strip
+          unless id.match?(/\A[A-Za-z_][\w.-]*\z/)
             raise Lutaml::Model::TypeError, "Invalid XML ID: #{id}"
           end
+
           id
         end
       end
@@ -137,10 +139,11 @@ RSpec.describe "XSD Type Declaration" do
         xsd_type "xs:language"
 
         def self.cast(value)
-          lang = super(value).downcase
+          lang = super.downcase
           unless lang.match?(/\A[a-z]{2,3}(-[A-Za-z0-9]+)*\z/i)
             raise Lutaml::Model::TypeError, "Invalid language code: #{lang}"
           end
+
           lang
         end
       end
@@ -151,7 +154,7 @@ RSpec.describe "XSD Type Declaration" do
         xsd_type "xs:token"
 
         def self.cast(value)
-          super(value).strip.gsub(/\s+/, " ")
+          super.strip.gsub(/\s+/, " ")
         end
       end
     end

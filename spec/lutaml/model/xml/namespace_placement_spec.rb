@@ -143,6 +143,7 @@ RSpec.describe "XML Namespace Placement" do
       cp_ns = Class.new(Lutaml::Model::XmlNamespace) do
         uri "http://schemas.openxmlformats.org/package/2006/metadata/core-properties"
         prefix_default "cp"
+        element_form_default :qualified
       end
 
       xsi_type = Class.new(Lutaml::Model::Type::String) do

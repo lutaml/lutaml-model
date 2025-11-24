@@ -43,7 +43,7 @@ RSpec.describe "namespace_scope Declaration Modes" do
       xml = instance.to_xml
 
       # vt namespace should NOT be declared since it's not used
-      expect(xml).not_to include('xmlns:vt=')
+      expect(xml).not_to include("xmlns:vt=")
     end
   end
 
@@ -101,7 +101,7 @@ RSpec.describe "namespace_scope Declaration Modes" do
           namespace ns
           namespace_scope [
             { namespace: vt_ns, declare: :always },
-            { namespace: other_ns, declare: :auto }
+            { namespace: other_ns, declare: :auto },
           ]
 
           map_element "Template", to: :template
@@ -116,10 +116,10 @@ RSpec.describe "namespace_scope Declaration Modes" do
       xml = instance.to_xml
 
       # vt namespace declared (always mode)
-      expect(xml).to include('xmlns:vt=')
+      expect(xml).to include("xmlns:vt=")
 
       # other namespace NOT declared (auto mode, not used)
-      expect(xml).not_to include('xmlns:other=')
+      expect(xml).not_to include("xmlns:other=")
     end
   end
 
@@ -134,7 +134,7 @@ RSpec.describe "namespace_scope Declaration Modes" do
         xml do
           root "Properties"
           namespace ns
-          namespace_scope [vt_ns]  # No declare option - defaults to :auto
+          namespace_scope [vt_ns] # No declare option - defaults to :auto
 
           map_element "Template", to: :template
         end
@@ -150,7 +150,7 @@ RSpec.describe "namespace_scope Declaration Modes" do
       xml = instance.to_xml
 
       # Should not declare unused namespace (auto mode default)
-      expect(xml).not_to include('xmlns:vt=')
+      expect(xml).not_to include("xmlns:vt=")
     end
   end
 
@@ -195,11 +195,11 @@ RSpec.describe "namespace_scope Declaration Modes" do
       xml = instance.to_xml(prefix: true)
 
       # Root namespace uses prefix
-      expect(xml).to include('<app:Properties')
-      expect(xml).to include('xmlns:app=')
+      expect(xml).to include("<app:Properties")
+      expect(xml).to include("xmlns:app=")
 
       # vt namespace still declared
-      expect(xml).to include('xmlns:vt=')
+      expect(xml).to include("xmlns:vt=")
     end
   end
 end

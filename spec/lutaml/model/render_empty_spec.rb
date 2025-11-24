@@ -66,7 +66,7 @@ RSpec.describe "RenderEmptySpec" do
       it "defaults to nil" do
         model = RenderEmptySpec::DefaultModel.new
         expect(model.items).to be_nil
-        expect(model.to_xml).to eq("<default-model/>")
+        expect(model.to_xml).to be_xml_equivalent_to("<default-model/>")
       end
     end
 
@@ -74,7 +74,7 @@ RSpec.describe "RenderEmptySpec" do
       it "defaults to empty array" do
         model = RenderEmptySpec::EmptyInitModel.new
         expect(model.items).to eq([])
-        expect(model.to_xml).to eq("<empty-init-model/>")
+        expect(model.to_xml).to be_xml_equivalent_to("<empty-init-model/>")
       end
     end
   end

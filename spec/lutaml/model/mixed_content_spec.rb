@@ -6,6 +6,7 @@ require "lutaml/model/xml/nokogiri_adapter"
 require "lutaml/model/xml/ox_adapter"
 require "lutaml/model/xml/oga_adapter"
 require_relative "../../fixtures/sample_model"
+require_relative "../../support/xml_mapping_namespaces"
 
 module MixedContentSpec
   class PlanetaryBody < Lutaml::Model::Serializable
@@ -208,7 +209,7 @@ module MixedContentSpec
 
       xml do
         root "annotation"
-        namespace "http://example.com/schema", "xsd"
+        namespace ExampleSchemaNamespace
 
         map_content to: :content
       end
@@ -222,7 +223,7 @@ module MixedContentSpec
       xml do
         root "element", mixed: true
 
-        namespace "http://example.com/schema", "xsd"
+        namespace ExampleSchemaNamespace
 
         map_attribute :name, to: :name
         map_attribute :status, to: :status
@@ -235,7 +236,7 @@ module MixedContentSpec
 
       xml do
         root "schema"
-        namespace "http://example.com/schema", "xsd"
+        namespace ExampleSchemaNamespace
 
         map_element :element, to: :element
       end
@@ -655,8 +656,8 @@ RSpec.describe "MixedContent" do
 
       describe ".to_xml" do
         let(:expected_nokogiri_xml) { "B <p>R</p>" }
-        let(:expected_oga_xml) { "B <p>R&amp;C</p>" }
         let(:expected_ox_xml) { "B <p>R&amp;C</p>" }
+        let(:expected_oga_xml) { "B <p>R&amp;C</p>" }
 
         it "serializes special char mixed content correctly" do
           parsed = MixedContentSpec::SpecialCharContentWithRawAndMixedOption.from_xml(xml)
