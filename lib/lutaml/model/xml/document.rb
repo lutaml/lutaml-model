@@ -58,7 +58,7 @@ module Lutaml
         end
 
         def handle_nested_elements(builder, value, options = {})
-          element_options = build_options_for_nested_elements(options)
+          element_options = build_options_for_nested_elements(options, value)
 
           case value
           when Array
@@ -68,7 +68,7 @@ module Lutaml
           end
         end
 
-        def build_options_for_nested_elements(options = {})
+        def build_options_for_nested_elements(options = {}, value = nil)
           attribute = options.delete(:attribute)
           rule = options.delete(:rule)
 
@@ -80,10 +80,16 @@ module Lutaml
           options[:mixed_content] = rule.mixed_content
           options[:tag_name] = rule.name
 
-          options[:mapper_class] = attribute&.type(register) if attribute
+          options[:mapper_class] = extract_mapper_class(attribute, value) if attribute
           options[:set_namespace] = set_namespace?(rule)
 
           options
+        end
+
+        def extract_mapper_class(attribute, value)
+          return value.class if value.class <= Lutaml::Model::Serializable && attribute&.type(register) == Type::Union
+
+          attribute&.type(register)
         end
 
         def parse_element(element, klass = nil, format = nil)
@@ -185,7 +191,7 @@ module Lutaml
           ns_info = resolve_element_namespace(rule, attribute, options)
           resolved_prefix = ns_info[:prefix] || prefix
 
-          if value && (attribute&.type(register)&.<= Lutaml::Model::Serialize)
+          if value && ((attribute&.type(register)&.<= Lutaml::Model::Serialize) || (attribute&.type(register) == Type::Union && value.class <= Lutaml::Model::Serialize))
             handle_nested_elements(
               xml,
               value,

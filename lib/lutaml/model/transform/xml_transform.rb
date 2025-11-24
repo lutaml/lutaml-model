@@ -209,27 +209,21 @@ module Lutaml
       end
 
       def get_child_value_for_rule(child, rule, attr, attr_type, instance, options, __register)
-        value = if !rule.has_custom_method_for_deserialization? && attr_type <= Serialize
-                  cast_options = options.except(:mappings)
-                  cast_options[:polymorphic] = rule.polymorphic if rule.polymorphic
-                  cast_options[:register] = __register
-                  cast_options[:__parent] = instance
-                  cast_options[:__root] = instance.__root || instance
+        if !rule.has_custom_method_for_deserialization? && attr_type <= Serialize
+          cast_options = options.except(:mappings)
+          cast_options[:polymorphic] = rule.polymorphic if rule.polymorphic
+          cast_options[:register] = __register
+          cast_options[:__parent] = instance
+          cast_options[:__root] = instance.__root || instance
 
-                  attr.map_union(attr_type, child, :xml, __register, cast_options)
-                elsif attr.raw?
-                  inner_xml_of(child)
-                else
-                  return nil if rule.render_nil_as_nil? && child.nil_element?
+          attr.map_union(attr_type, child, :xml, __register, cast_options)
+        elsif attr.raw?
+          inner_xml_of(child)
+        else
+          return nil if rule.render_nil_as_nil? && child.nil_element?
 
-                  child.nil_element? ? nil : (child&.text&.+ child&.cdata)
-                end
-
-        raise "Failed to cast value for attribute '#{attr.name}' in #{context}" if value.nil? && !child.nil_element? && !rule.render_nil_as_nil?
-
-        value
-      rescue StandardError
-        nil
+          child.nil_element? ? nil : (child&.text&.+ child&.cdata)
+        end
       end
 
       def handle_cdata(children)
