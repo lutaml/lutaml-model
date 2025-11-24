@@ -1,0 +1,265 @@
+= Serialization adapters
+:toc:
+:toclevels: 3
+
+== Serialization adapters
+
+=== General
+
+The LutaML component that serializes a model into a serialization format is
+called an adapter. A serialization format may be supported by multiple adapters.
+
+An adapter typically:
+
+* supports a specific serialization format
+* provides a set of methods to serialize and deserialize models and collections of models
+
+LutaML, out of the box, supports the following serialization formats:
+
+* XML (https://www.w3.org/TR/xmlschema-1/[W3C XML Schema (Second Edition)], XML 1.0)
+* YAML (https://yaml.org/[YAML version 1.2])
+* JSON (https://www.ecma-international.org/publications-and-standards/standards/ecma-404/[ECMA-404 The JSON Data Interchange Standard], unofficial link: https://www.json.org[JSON])
+* TOML (https://toml.io/en[TOML version 1.0])
+
+The adapter interface is also used to support certain transformation of models
+into an "end format", which is not a serialization format. For example, the
+`Lutaml::Model::Hash` is used to convert a model into a hash format
+that is not a serialization format.
+
+Users can extend LutaML by creating custom adapters for other serialization
+formats or for other data formats. The
+link:docs/custom_adapters.adoc[Custom Adapters Guide] describes this process in
+detail.
+
+For certain serialization formats, LutaML provides multiple adapters to support
+different serialization libraries. Please refer to their specific sections for
+more information.
+
+
+=== Configuration
+
+==== General
+
+It is necessary to configure the adapter to be used for serialization and
+deserialization for a set of formats that the LutaML models will be transformed
+into.
+
+There are two cases where you need to define such configuration:
+
+* End-user usage of the LutaML models. This is the case where you are
+using LutaML models in your application and want to serialize them into a
+specific format. If you are a gem developer that relies on lutaml-model,
+this case does not apply to you, because the end-user of your gem should
+determine the adapter configuration.
+
+* Testing purposes, e.g. RSpec. In order to run tests that involve verifying
+correctness of serialization, it is necessary to define adapter configuration.
+
+There are two ways to specify a configuration:
+
+* by providing a predefined symbol (preferred)
+* by providing the actual adapter classes
+
+There is a default configuration for adapters for commonly used formats:
+
+* YAML: `yaml_adapter_type` is set to `:standard_yaml`
+* JSON: `json_adapter_type` is set to `:standard_json`
+* Hash: `hash_adapter_type` is set to `:standard_hash`
+* XML: not defined
+* TOML: not defined
+
+
+==== Configure adapters through symbol choices
+
+The end-user or a gem developer can copy and paste the following configuration
+into an early loading file in their application or gem.
+
+This configuration is preferred over the class choices because it is more
+concise and does not require any `require` code specific to the internals
+of the LutaML runtime implementation.
+
+Syntax:
+
+[source,ruby]
+----
+require 'lutaml/model'
+
+Lutaml::Model::Config.configure do |config|
+  config.xml_adapter_type = :nokogiri # can be one of [:nokogiri, :ox, :oga]
+  config.hash_adapter_type = :standard_hash
+  config.yaml_adapter_type = :standard_yaml
+  config.json_adapter_type = :standard_json # can be one of [:standard_json, :multi_json, :oj]
+  config.toml_adapter_type = :toml_rb # can be one of [:toml_rb, :tomlib]
+end
+----
+
+
+==== Configure adapters through class choices
+
+The end-uesr or a gem developer can copy and paste the following configuration
+into an early loading file in their application or gem.
+
+Only the serialization formats used will require a configuration.
+
+Syntax:
+
+[example]
+====
+[source,ruby]
+----
+require 'lutaml/model'
+require 'lutaml/model/xml/nokogiri_adapter'
+require 'lutaml/model/hash/standard_adapter'
+require 'lutaml/model/json/standard_adapter'
+require 'lutaml/model/yaml/standard_adapter'
+require 'lutaml/model/toml/toml_rb_adapter'
+
+Lutaml::Model::Config.configure do |config|
+  config.xml_adapter = Lutaml::Model::Xml::NokogiriAdapter
+  config.hash_adapter = Lutaml::Model::Hash::StandardAdapter
+  config.yaml_adapter = Lutaml::Model::Yaml::StandardAdapter
+  config.json_adapter = Lutaml::Model::Json::StandardAdapter
+  config.toml_adapter = Lutaml::Model::Toml::TomlRbAdapter
+end
+----
+====
+
+
+
+=== XML
+
+Lutaml::Model supports the following XML adapters:
+
+Nokogiri::
+(default)
+Popular `libxml` based XML parser for Ruby.
+Requires native extensions (i.e. compiled C code).
+Requires the `nokogiri` gem.
+
+Oga::
+(optional)
+Pure Ruby XML parser.
+Does not require native extensions and is suitable for
+https://opalrb.com[Opal] (Ruby on JavaScript).
+Requires the `oga` gem.
+
+Ox::
+(optional)
+Fast XML parser and object serializer for Ruby, implemented partially in C.
+Requires native extensions (i.e. compiled C code).
+Requires the `ox` gem.
+
+
+.Using an XML adapter
+[source,ruby]
+----
+require 'lutaml/model'
+
+Lutaml::Model::Config.configure do |config|
+  config.xml_adapter = :nokogiri
+  # or
+  config.xml_adapter = :oga
+  # or
+  config.xml_adapter = :ox
+end
+----
+
+
+=== YAML
+
+Lutaml::Model supports only one YAML adapter.
+
+YAML::
+(default)
+The Psych YAML parser and emitter for Ruby.
+Included in the Ruby standard library.
+
+.Using a YAML adapter
+[source,ruby]
+----
+require 'lutaml/model'
+
+Lutaml::Model::Config.configure do |config|
+  config.yaml_adapter = :standard_yaml
+end
+----
+
+
+=== JSON
+
+Lutaml::Model supports the following JSON adapters:
+
+JSON::
+(default)
+The standard JSON library for Ruby.
+Included in the Ruby standard library.
+
+MultiJson::
+(optional)
+A gem that provides a common interface to multiple JSON libraries.
+Requires the `multi_json` gem.
+
+Oj::
+(optional)
+A fast JSON parser and Object marshaller as a Ruby gem.
+Requires the `oj` gem.
+
+.Using a JSON adapter
+[source,ruby]
+----
+require 'lutaml/model'
+
+Lutaml::Model::Config.configure do |config|
+  config.json_adapter = :standard_json
+  # or
+  config.json_adapter = :multi_json
+  # or
+  config.json_adapter = :oj
+end
+----
+
+
+=== TOML
+
+Lutaml::Model supports the following TOML adapters:
+
+Toml-rb::
+(default)
+A TOML parser and serializer for Ruby that is compatible with the TOML v1.0.0
+specification.
+Requires the `toml-rb` gem.
+
+Tomlib::
+(optional)
+Toml-rb fork that is compatible with the TOML v1.0.0 specification, but with
+additional features.
+Requires the `tomlib` gem.
+
+
+.Using a TOML adapter
+[source,ruby]
+----
+require 'lutaml/model'
+
+Lutaml::Model::Config.configure do |config|
+  config.toml_adapter = :toml_rb
+  # or
+  config.toml_adapter = :tomlib
+end
+----
+
+
+=== Error handling
+
+When parsing invalid serialization format data, an `InvalidFormatError` is
+raised to indicate that the input format is malformed and cannot be parsed.
+
+Certain adapters may have specific behaviors when handling invalid input:
+
+* ⚠️ **Caution** TOML: the Tomlib adapter can cause segmentation faults when
+parsing invalid TOML data on Windows with Ruby versions before 3.3. A
+segmentation fault will crash the Ruby process entirely and cannot be caught
+with Ruby exception handling.
+
+
+

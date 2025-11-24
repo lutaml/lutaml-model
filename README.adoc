@@ -5,7 +5,14 @@ image:https://img.shields.io/github/license/lutaml/lutaml-model.svg[License]
 image:https://github.com/lutaml/lutaml-model/actions/workflows/rake.yml/badge.svg["Build", link="https://github.com/lutaml/lutaml-model/actions/workflows/rake.yml"]
 image:https://github.com/lutaml/lutaml-model/actions/workflows/dependent-tests.yml/badge.svg["Dependent tests", link="https://github.com/lutaml/lutaml-model/actions/workflows/dependent-tests.yml"]
 
-IMPORTANT: See breaking changes in link:docs/breaking_changes.adoc[]
+IMPORTANT: See breaking changes in link:docs/breaking-changes.adoc[]
+
+This project is licensed under the BSD 2-clause License.
+For more information, see the link:LICENSE.md[] file.
+
+TIP: For comprehensive documentation with learning paths and quick reference tables,
+see the **link:docs/index.adoc[📚 Documentation Index]**.
+
 
 
 == Purpose

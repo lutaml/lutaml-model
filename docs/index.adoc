@@ -1,0 +1,872 @@
+= Lutaml::Model Documentation Index
+:toc:
+:toclevels: 4
+
+This is the master navigation hub for all Lutaml::Model documentation.
+
+== Quick Start
+
+New to Lutaml::Model? Start here:
+
+* link:../README.adoc[Quick Start Guide] - Installation and basic usage overview
+* <<beginner-path,Beginner Learning Path>> - Step-by-step introduction
+* <<quick-ref,Quick Reference Tables>> - Fast lookup of options and methods
+
+== Learning Paths
+
+[[beginner-path]]
+=== Beginner Path (Getting Started)
+
+Follow this path to learn Lutaml::Model fundamentals in order:
+
+1. **Installation & Setup**
+   * link:../README.adoc#installation[Installation] - Get Lutaml::Model running
+   * link:serialization_adapters.adoc[Serialization Adapters] - Configure adapters for your formats
+
+2. **Core Concepts**
+   * link:models.adoc[Models] - Define your first model class
+   * link:attributes.adoc#attribute-definition[Basic Attributes] - Add attributes to models
+   * link:value_types.adoc#value-definition[Value Types] - Understand built-in types
+
+3. **First Serialization**
+   * link:serialization_keyvalue.adoc#mapping[JSON/YAML Mapping] - Serialize to key-value formats
+   * link:serialization_xml_mapping.adoc#mapping-xml[XML Mapping Basics] - Serialize to XML
+
+4. **Essential Features**
+   * link:collections.adoc#collection-definition[Collections] - Work with arrays of models
+   * link:validation.adoc[Validation] - Validate your data
+
+**Estimated Time**: 2-3 hours
+
+[[intermediate-path]]
+=== Intermediate Path (Building Applications)
+
+Master these topics after completing the beginner path:
+
+1. **Advanced Attributes**
+   * link:attributes.adoc#polymorphic-attributes[Polymorphic Attributes] - Handle multiple types
+   * link:attributes.adoc#collection-attributes[Collection Attributes] - Arrays and ranges
+   * link:attributes.adoc#derived-attributes[Derived Attributes] - Computed values
+   * link:attributes.adoc#choice-attributes[Choice Attributes] - Min/max constraints
+
+2. **Advanced Serialization**
+   * link:serialization_format_independent.adoc#mapping-value-transform[Value Transformations] - Transform data during serialization
+   * link:serialization_advanced_mapping.adoc[Advanced Mapping] - Custom methods and delegation
+   * link:serialization_missing_values.adoc[Missing Values] - Handle nil/empty/omitted properly
+
+3. **XML Mastery**
+   * link:serialization_xml_namespaces.adoc[XML Namespaces] - Multi-namespace documents
+   * link:serialization_xml_mapping.adoc#mixed-content[Mixed Content] - Rich text support
+   * link:serialization_xml_mapping.adoc#ordered-content[Ordered Content] - Element sequencing
+
+4. **Collections & Data Structures**
+   * link:collections.adoc#keyed-collections[Keyed Collections] - Hash-like collections
+   * link:serialization_collections.adoc[JSONL & YAML Stream] - Multi-document formats
+   * link:serialization_keyvalue.adoc#collection-keyed-by-value[Root Mappings] - Complex keyed structures
+
+**Estimated Time**: 6-8 hours
+
+[[advanced-path]]
+=== Advanced Path (Mastery & Extensions)
+
+Tackle complex scenarios and extend Lutaml::Model:
+
+1. **Complex Value Types**
+   * link:value_types.adoc#custom-types[Custom Value Types] - Create reusable types
+   * link:value_transformations.adoc[Value Transformation Guide] - Complete transformation strategies
+   * link:reference_type.adoc[Reference Types] - Object relationships via references
+
+2. **Schema Management**
+   * link:schema_generation.adoc[Schema Generation] - Generate JSON Schema/XSD/RELAX NG
+   * link:schema_import.adoc[Schema Import] - Import XSD to create models
+
+3. **Extensibility**
+   * link:custom_adapters.adoc[Custom Adapters] - Support new formats
+   * link:custom_registers.adoc[Custom Registers] - Dynamic model modification
+   * link:liquid_templates.adoc[Liquid Integration] - Template access
+
+4. **Real-World Patterns**
+   * link:ooxml_roundtrip_examples.adoc[OOXML Round-Trip] - Office Open XML examples
+   * link:xml_namespace_qualification_and_prefix_control.adoc[Namespace Qualification] - Advanced namespace control
+   * link:serialization_parent_root_context.adoc[Parent/Root Context] - Navigate model hierarchies
+
+**Estimated Time**: 12-16 hours
+
+[[quick-ref]]
+== Quick Reference Tables
+
+[[attr-options]]
+=== Attribute Options Reference
+
+[cols="1,2,3",options="header"]
+|===
+| Option | Values | Description
+
+| `collection:`
+| `true`, `Range` (e.g., `1..`, `0..1`, `5..10`)
+| Define attribute as array with optional cardinality
+
+| `default:`
+| `-> { value }` (lambda)
+| Default value for attribute
+
+| `values:`
+| `[value1, value2, ...]` (array)
+| Restrict to specific enumeration values
+
+| `pattern:`
+| `/regex/` (regexp)
+| Validate string values against pattern
+
+| `required:`
+| `true`, `false`
+| Mark attribute as required (validates presence)
+
+| `polymorphic:`
+| `true`, `[Class1, Class2]` (array)
+| Accept subclass instances
+
+| `transform:`
+| `{ export:, import: }` (hash of procs)
+| Transform values during serialization
+
+| `method:`
+| `:method_name` (symbol)
+| Derive value from instance method
+
+| `render_default:`
+| `true`, `false`
+| Force rendering of default values
+
+| `render_nil:`
+| `:as_empty`, `:as_nil`, `:omit`
+| Control how nil values are rendered
+
+| `render_empty:`
+| `:as_empty`, `:as_nil`, `:omit`
+| Control how empty values are rendered
+
+| `raw:`
+| `true`, `false`
+| Read XML content as raw string (XML only)
+
+| `initialize_empty:`
+| `true`, `false`
+| Initialize collections as `[]` instead of `nil`
+
+|===
+
+[[mapping-methods]]
+=== Mapping Methods Reference
+
+==== XML Mapping Methods
+
+[cols="1,3",options="header"]
+|===
+| Method | Description
+
+| `root "name"`
+| **DEPRECATED** Use `element` instead. Set root element name
+
+| `element "name"`
+| Set element name for this model/type
+
+| `no_root`
+| **DEPRECATED** Omit for type-only models. Mark model as type-only (no root element)
+
+| `namespace`
+| Declare XML namespace for element/type
+
+| `namespace_scope`
+| Consolidate namespace declarations at root
+
+| `mixed_content`
+| Enable mixed content mode (text + elements)
+
+| `sequence do ... end`
+| Enforce strict element ordering
+
+| `map_element "name", to: :attr`
+| Map XML element to attribute
+
+| `map_attribute "name", to: :attr`
+| Map XML attribute to attribute
+
+| `map_content to: :attr`
+| Map element text content to attribute
+
+| `map_all to: :attr`
+| Capture entire XML as raw string
+
+|===
+
+==== Key-Value Mapping Methods
+
+[cols="1,3",options="header"]
+|===
+| Method | Description
+
+| `map "key", to: :attr`
+| Map key to attribute (JSON/YAML/TOML/Hash)
+
+| `map_all to: :attr`
+| Capture entire content as raw string
+
+| `map to: :attr, root_mappings: {...}`
+| Map keyed collections with key extraction
+
+| `map "key", to: :attr, child_mappings: {...}`
+| Extract nested values from key-value data
+
+| `map "key", to: :attr, delegate: :model`
+| Delegate mapping to nested object
+
+|===
+
+==== Collection Mapping Methods
+
+[cols="1,3",options="header"]
+|===
+| Method | Description
+
+| `instances :name, Type`
+| Define collection attribute and type
+
+| `map_instances to: :attr`
+| Map collection instances (key-value/JSONL/YAMLS)
+
+| `ordered by: :attr, order: :asc`
+| Define collection ordering
+
+| `root "name"`
+| Set collection container name
+
+| `no_root`
+| Omit container (root-level collection)
+
+|===
+
+[[value-types-ref]]
+=== Value Types Reference
+
+[cols="1,2,2,2",options="header"]
+|===
+| Type | Ruby Class | XML Type | Example
+
+| `:string`
+| `String`
+| `xs:string`
+| `"text"`
+
+| `:integer`
+| `Integer`
+| `xs:integer`
+| `42`
+
+| `:float`
+| `Float`
+| `xs:decimal`
+| `3.14`
+
+| `:boolean`
+| `TrueClass`/`FalseClass`
+| `xs:boolean`
+| `true`, `false`
+
+| `:symbol`
+| `Symbol`
+| `xs:string`
+| `:active`
+
+| `:date`
+| `Date`
+| `xs:date`
+| `2024-01-01`
+
+| `:time_without_date`
+| `Time`
+| `xs:time`
+| `12:34:56`
+
+| `:date_time`
+| `DateTime`
+| `xs:dateTime`
+| `2024-01-01T12:00:00+00:00`
+
+| `:time`
+| `Time`
+| `xs:dateTime`
+| `2024-01-01T12:00:00+00:00`
+
+| `:decimal`
+| `BigDecimal`
+| `xs:decimal`
+| `123.45` (optional, requires `bigdecimal`)
+
+| `:duration`
+| `Lutaml::Model::Type::Duration`
+| `xs:duration`
+| `P1Y2M3DT4H5M6S`
+
+| `:uri`
+| `String`
+| `xs:anyURI`
+| `https://example.com`
+
+| `:qname`
+| `Lutaml::Model::Type::QName`
+| `xs:QName`
+| `prefix:localName`
+
+| `:base64_binary`
+| `String`
+| `xs:base64Binary`
+| `SGVsbG8gV29ybGQ=`
+
+| `:hex_binary`
+| `String`
+| `xs:hexBinary`
+| `48656c6c6f`
+
+| `:hash`
+| `Hash`
+| complex element
+| `{key: "value"}`
+
+|===
+
+[[adapters-ref]]
+=== Serialization Adapters Reference
+
+==== XML Adapters
+
+[cols="1,1,3",options="header"]
+|===
+| Adapter | Symbol | Notes
+
+| Nokogiri
+| `:nokogiri`
+| Default. Most compatible. Based on libxml2. Requires native extensions.
+
+| Ox
+| `:ox`
+| Fastest. Native C extensions. Excellent performance.
+
+| Oga
+| `:oga`
+| Pure Ruby. No compilation needed. Opal-compatible.
+
+|===
+
+==== JSON Adapters
+
+[cols="1,1,3",options="header"]
+|===
+| Adapter | Symbol | Notes
+
+| StandardJson
+| `:standard_json`
+| Default. Ruby standard library. No extra gems needed.
+
+| MultiJson
+| `:multi_json`
+| Common interface wrapper for multiple JSON libraries.
+
+| Oj
+| `:oj`
+| Fast C-based parser. Excellent performance.
+
+|===
+
+==== YAML Adapter
+
+[cols="1,1,3",options="header"]
+|===
+| Adapter | Symbol | Notes
+
+| StandardYaml
+| `:standard_yaml`
+| Default. Psych (Ruby standard library). No extra gems needed.
+
+|===
+
+==== TOML Adapters
+
+[cols="1,1,3",options="header"]
+|===
+| Adapter | Symbol | Notes
+
+| TomlRb
+| `:toml_rb`
+| Default. Pure Ruby. TOML v1.0.0 compatible.
+
+| Tomlib
+| `:tomlib`
+| Enhanced fork with additional features. ⚠️ Can segfault on Windows with Ruby < 3.3 on invalid input.
+
+|===
+
+[[missing-values-ref]]
+=== Missing Value Semantics Reference
+
+[cols="1,2,2,2,2",options="header"]
+|===
+| Value Type | Lutaml::Model | XML Element | JSON/YAML | TOML
+
+| **Empty**
+| `""` or `[]`
+| `<tag/>` or `<tag></tag>`
+| `""` or `[]`
+| `""` or `[]`
+
+| **Nil/Null**
+| `nil`
+| `<tag xsi:nil="true"/>`
+| `null`
+| ❌ Not supported
+
+| **Omitted**
+| Uninitialized
+| Element not present
+| Key not present
+| Key not present
+
+|===
+
+NOTE: XML attributes only support `:empty` and `:omitted`, not `:nil`.
+
+== Documentation by Category
+
+=== Core Concepts
+
+==== Fundamentals
+
+* link:models.adoc[**Models**] - Model definition, inheritance, comparison
+  ** Definition through inheritance and inclusion
+  ** Model inheritance behavior
+  ** Comparison and diff with similarity scoring
+  ** Deep comparison with circular reference handling
+
+* link:attributes.adoc[**Attributes**] - Complete attribute system
+  ** Basic attributes and type specification
+  ** Restricting attribute values with `restrict`
+  ** Polymorphic attributes (multiple types)
+  ** Collection attributes (arrays and ranges)
+  ** Derived attributes (computed values)
+  ** Choice attributes (min/max constraints)
+
+* link:value_types.adoc[**Value Types**] - Type system deep dive
+  ** Built-in types (string, integer, float, boolean, date, etc.)
+  ** XSD types (duration, uri, qname, base64_binary, hex_binary)
+  ** Symbol type with format-specific serialization
+  ** Custom types (creating, registering, best practices)
+  ** Type vs Model distinction
+
+* link:collections.adoc[**Collections**] - Groups of model instances
+  ** Collection types (root, named, keyed, nested)
+  ** Enumerable interface and operations
+  ** Keyed collections with `map_key`/`map_value`
+  ** Polymorphic collections
+  ** Ordering and initialization
+
+==== Advanced Core Features
+
+* link:validation.adoc[**Validation**] - Data validation system
+  ** `validate` and `validate!` methods
+  ** Collection size, enumerations, patterns
+  ** Choice validation, required attributes
+  ** Custom validation methods
+
+* link:reference_type.adoc[**Reference Types**] - Object relationships
+  ** Defining reference attributes
+  ** Automatic object resolution
+  ** Collection references
+  ** Custom key attributes
+
+=== Serialization
+
+==== XML Serialization
+
+* link:serialization_xml_mapping.adoc[**XML Mapping**] - Elements, attributes, content
+  ** Element and type definitions (`element`, `no_root`)
+  ** Content mapping (`map_element`, `map_attribute`, `map_content`)
+  ** Mixed content and ordered content
+  ** CDATA handling
+  ** Sequence requirements
+  ** `map_all` for raw XML capture
+
+* link:serialization_xml_namespaces.adoc[**XML Namespaces**] - Multi-namespace support
+  ** XmlNamespace class definitions
+  ** Namespace assignment and overrides
+  ** Namespace scope consolidation (`namespace_scope`)
+  ** Element/attribute qualification
+  ** Type-level namespaces (`xml_namespace`)
+  ** XSD schema location support
+  ** Prefix control (`prefix:` option)
+
+* link:xml_namespace_qualification_and_prefix_control.adoc[**Namespace Qualification**] - Advanced control
+  ** Qualification vs format distinction
+  ** `element_form_default` rules
+  ** Per-element control with `form:` option
+  ** Namespace inheritance with `:inherit`
+
+* link:ooxml_roundtrip_examples.adoc[**OOXML Examples**] - Real-world Office Open XML
+  ** Type-level namespace patterns
+  ** Multi-namespace round-trip parsing
+  ** Contact and CoreProperties examples
+
+==== Key-Value Serialization
+
+* link:serialization_keyvalue.adoc[**Key-Value Formats**] - JSON, YAML, TOML, Hash
+  ** Unified mapping with `key_value` block
+  ** Format-specific mappings
+  ** Nested attribute mappings
+  ** Keyed collections (3 cases explained)
+  ** Attribute extraction with `child_mappings`
+  ** `map_all` for raw content capture
+
+* link:serialization_collections.adoc[**Collection Formats**] - JSONL, YAML Stream
+  ** JSONL (JSON Lines) format
+  ** YAML Stream (multi-document) format
+  ** Collection mapping with `map_instances`
+  ** Fallback to singular model mappings
+
+==== Format-Independent Features
+
+* link:serialization_format_independent.adoc[**Format-Independent Mechanisms**]
+  ** Attribute-level transformations
+  ** Mapping-level transformations
+  ** Transform precedence and chaining
+  ** Class-based transformers (`ValueTransformer`)
+  ** Separate data model classes (`model` directive)
+  ** Rendering default values (`render_default`)
+
+* link:serialization_advanced_mapping.adoc[**Advanced Mapping**]
+  ** Multiple names to single attribute
+  ** Attribute delegation (`delegate:`)
+  ** Custom serialization methods (`with:`)
+  ** XML and key-value custom methods
+  ** Accessing adapter nodes in custom methods
+
+* link:serialization_missing_values.adoc[**Missing Values**]
+  ** Understanding empty/nil/omitted semantics
+  ** Value representation across formats
+  ** `value_map` for explicit control
+  ** Default value maps per format
+  ** Quick overrides (`render_*`, `treat_*`)
+  ** Format-specific limitations
+
+* link:serialization_parent_root_context.adoc[**Parent/Root Context**]
+  ** `__parent` accessor for immediate parent
+  ** `__root` accessor for document root
+  ** Automatic assignment during deserialization
+  ** Manual assignment for programmatic building
+
+=== Schema Management
+
+* link:schema_generation.adoc[**Schema Generation**] - Export schemas from models
+  ** JSON Schema generation
+  ** YAML Schema generation
+  ** XSD (XML Schema) generation
+  ** RELAX NG generation
+  ** Validation constraints in schemas
+  ** Polymorphic types in schemas
+
+* link:schema_import.adoc[**Schema Import**] - Create models from schemas
+  ** XSD import to Lutaml::Model classes
+  ** SimpleTypes → `Type::Value` classes
+  ** ComplexTypes → `Serializable` classes
+  ** Auto-resolution of includes/imports
+  ** JSON/YAML Schema import with `oneOf` support
+
+=== Extensibility & Integration
+
+* link:custom_adapters.adoc[**Custom Adapters**] - Support new formats
+  ** Adapter, mapping, and transform classes
+  ** Registration in FormatRegistry
+  ** Complete implementation examples
+
+* link:custom_registers.adoc[**Custom Registers**] - Dynamic model modification
+  ** TypeRegister for Value types
+  ** ModelRegister for Serializable classes
+  ** GlobalRegister coordination
+  ** Model tree registration
+  ** Global type substitution
+
+* link:liquid_templates.adoc[**Liquid Templates**] - Template integration
+  ** `to_liquid` method for safe template access
+  ** Automatic attribute exposure
+  ** Custom mappings with `liquid` block
+  ** Custom Drop class inheritance
+  ** Error handling
+
+* link:serialization_adapters.adoc[**Adapter Configuration**]
+  ** Configuring adapters (symbol and class-based)
+  ** Available adapters per format
+  ** Default configurations
+  ** Error handling
+
+* link:value_transformations.adoc[**Value Transformation Guide**] - Comprehensive transformation strategies
+  ** Value vs model distinction
+  ** Format conversion vs calculated transformations
+  ** Three transformation approaches
+  ** Decision matrix and flowchart
+  ** Complete examples with best practices
+
+=== Migration & Breaking Changes
+
+* link:breaking-changes.adoc[**Breaking Changes**] - Version-specific changes
+* link:../README.adoc#comparison-with-shale[**Comparison with Shale**] - Feature comparison
+* Migration guides in `docs/migration-guides/`
+
+== Documentation by Topic
+
+=== I want to...
+
+==== Define Models
+
+* Create a basic model → link:models.adoc#model-definition[Model Definition]
+* Inherit from another model → link:models.adoc#model-inheritance[Model Inheritance]
+* Compare two models → link:models.adoc#comparison-and-diff[Comparison and Diff]
+* Import attributes from another model → link:../README.adoc#importable-models[Importable Models]
+
+==== Work with Attributes
+
+* Add a simple attribute → link:attributes.adoc#attribute-definition[Basic Attributes]
+* Restrict attribute values → link:attributes.adoc#restricting-attribute-value[Restricting Values]
+* Create an array attribute → link:attributes.adoc#collection-attributes[Collection Attributes]
+* Accept multiple types → link:attributes.adoc#polymorphic-attributes[Polymorphic Attributes]
+* Compute attribute from method → link:attributes.adoc#derived-attributes[Derived Attributes]
+* Constrain attribute count → link:attributes.adoc#choice-attributes[Choice Attributes]
+* Set default values → link:../README.adoc#attribute-value-defaults[Attribute Defaults]
+* Validate with patterns → link:../README.adoc#string-values-restricted-to-patterns[Pattern Validation]
+* Validate with enumerations → link:../README.adoc#attribute-enumeration[Value Enumeration]
+
+==== Serialize to XML
+
+* Map basic XML → link:serialization_xml_mapping.adoc#mapping-xml[XML Mapping Basics]
+* Handle namespaces → link:serialization_xml_namespaces.adoc#xml-namespace[XML Namespaces]
+* Preserve element order → link:serialization_xml_mapping.adoc#ordered-content[Ordered Content]
+* Handle rich text → link:serialization_xml_mapping.adoc#mixed-content[Mixed Content]
+* Control namespace prefixes → link:serialization_xml_namespaces.adoc#xml-namespace-instance-prefix-force[Prefix Control]
+* Qualify elements properly → link:xml_namespace_qualification_and_prefix_control.adoc[Namespace Qualification]
+
+==== Serialize to JSON/YAML/TOML
+
+* Map key-value formats → link:serialization_keyvalue.adoc#mapping[Key-Value Mapping]
+* Use unified mappings → link:serialization_keyvalue.adoc#unified-mapping[Unified Mapping]
+* Handle keyed collections → link:serialization_keyvalue.adoc#collection-keyed-by-value[Keyed Collections]
+* Extract nested values → link:serialization_keyvalue.adoc#attribute-extraction[Attribute Extraction]
+
+==== Work with Collections
+
+* Create a collection → link:collections.adoc#collection-definition[Collection Definition]
+* Map JSONL format → link:serialization_collections.adoc#jsonl[JSONL Mapping]
+* Map YAML Stream → link:serialization_collections.adoc#yaml-stream[YAML Stream Mapping]
+* Order collection items → link:collections.adoc#ordering[Collection Ordering]
+* Use polymorphic items → link:collections.adoc#polymorphic-collections[Polymorphic Collections]
+
+==== Transform Values
+
+* Transform across all formats → link:serialization_format_independent.adoc#mapping-value-transform[Attribute Transforms]
+* Transform per format → link:serialization_format_independent.adoc#mapping-value-transform[Mapping Transforms]
+* Create reusable transformers → link:value_transformations.adoc#class-based-transformers[Class-Based Transformers]
+* Choose transformation approach → link:value_transformations.adoc#decision-guide[Transform Decision Guide]
+
+==== Handle Missing Values
+
+* Understand nil/empty/omitted → link:serialization_missing_values.adoc#value-representation-in-lutaml-model[Missing Value Types]
+* Control nil rendering → link:serialization_missing_values.adoc#render-nil[Render Nil]
+* Control empty rendering → link:serialization_missing_values.adoc#render-empty[Render Empty]
+* Map missing values → link:serialization_missing_values.adoc#missing-value-mapping[Value Map]
+
+==== Extend Lutaml::Model
+
+* Create custom types → link:value_types.adoc#custom-types[Custom Value Types]
+* Create custom adapters → link:custom_adapters.adoc[Custom Adapters Guide]
+* Use registers → link:custom_registers.adoc[Custom Registers]
+* Generate schemas → link:schema_generation.adoc[Schema Generation]
+* Import schemas → link:schema_import.adoc[Schema Import]
+
+==== Integrate with Templates
+
+* Use Liquid templates → link:liquid_templates.adoc[Liquid Integration]
+* Access attributes in templates → link:liquid_templates.adoc#automatic-attribute-access[Automatic Access]
+* Create custom drops → link:liquid_templates.adoc#custom-drop-classes[Custom Drop Classes]
+
+== Additional Resources
+
+=== Example Files
+
+* link:ooxml_roundtrip_examples.adoc[Office Open XML Examples] - Real-world OOXML usage patterns
+* Test specifications in `spec/` directory - Comprehensive usage examples
+
+=== External Links
+
+* https://github.com/lutaml/lutaml-model[GitHub Repository] - Source code and issues
+* https://rubygems.org/gems/lutaml-model[RubyGems Page] - Gem releases
+* link:../README.adoc[Main README] - Project overview
+
+=== Related Documentation
+
+* link:three-phase-namespace-architecture.adoc[Three-Phase Namespace Architecture] - Implementation details
+* link:xml_mappings_guide.adoc[XML Mappings Guide] - Comprehensive XML reference
+
+== Getting Help
+
+=== Common Questions
+
+**Q: How do I choose between custom types and models?**
+
+A: See link:value_types.adoc#when-to-use-custom-types-and-models[Type vs Model Decision Guide]
+
+**Q: How do I transform values during serialization?**
+
+A: See link:value_transformations.adoc#decision-guide[Value Transformation Decision Guide]
+
+**Q: How do I handle multiple namespaces in XML?**
+
+A: See link:serialization_xml_namespaces.adoc#namespace-scope[Namespace Scope] and link:ooxml_roundtrip_examples.adoc[OOXML Examples]
+
+**Q: How do I map nested key-value data?**
+
+A: See link:serialization_keyvalue.adoc#attribute-extraction[Attribute Extraction]
+
+**Q: Which adapter should I use?**
+
+A: See link:serialization_adapters.adoc[Serialization Adapters] for adapter comparison
+
+=== Finding Information
+
+* **By feature**: Use <<documentation-by-category,Documentation by Category>> above
+* **By task**: Use <<i-want-to,I want to...>> above
+* **By keyword**: Use your browser's find function (Ctrl/Cmd+F)
+* **By example**: Check test files in `spec/` directory
+
+=== Issues and Support
+
+* Report bugs: https://github.com/lutaml/lutaml-model/issues[GitHub Issues]
+* Discuss features: https://github.com/lutaml/lutaml-model/discussions[GitHub Discussions]
+* Review code: https://github.com/lutaml/lutaml-model/pulls[Pull Requests]
+
+== Documentation Conventions
+
+=== Code Examples
+
+All documentation uses consistent formatting:
+
+* **Syntax blocks** show general patterns with placeholders
+* **Example blocks** show concrete working code
+* **Output blocks** show expected results
+* **Note blocks** provide important context
+
+=== Cross-References
+
+* Links in square brackets are clickable: link:models.adoc[Models]
+* Anchor references lead to specific sections: <<quick-ref>>
+* External links open in new windows
+
+=== Version Notes
+
+* **DEPRECATED** features marked explicitly with migration guidance
+* Breaking changes documented in link:breaking-changes.adoc[Breaking Changes]
+* New features noted in examples with version requirements
+
+== Complete File Listing
+
+All 27 documentation files organized alphabetically:
+
+[cols="1,3",options="header"]
+|===
+| File | Description
+
+| link:attributes.adoc[attributes.adoc]
+| Complete attribute system (1,152 lines)
+
+| link:breaking-changes.adoc[breaking-changes.adoc]
+| Version-specific breaking changes
+
+| link:collections.adoc[collections.adoc]
+| Collection handling and types (1,499 lines)
+
+| link:custom_adapters.adoc[custom_adapters.adoc]
+| Creating custom serialization adapters
+
+| link:custom_registers.adoc[custom_registers.adoc]
+| Dynamic model modification with registers
+
+| link:liquid_templates.adoc[liquid_templates.adoc]
+| Liquid template integration
+
+| link:models.adoc[models.adoc]
+| Model definition and comparison
+
+| link:ooxml_roundtrip_examples.adoc[ooxml_roundtrip_examples.adoc]
+| Office Open XML real-world examples
+
+| link:reference_type.adoc[reference_type.adoc]
+| Reference type for object relationships
+
+| link:schema_generation.adoc[schema_generation.adoc]
+| Generate JSON Schema/YAML Schema/XSD/RELAX NG
+
+| link:schema_import.adoc[schema_import.adoc]
+| Import XSD/JSON Schema to create models
+
+| link:serialization_adapters.adoc[serialization_adapters.adoc]
+| Adapter configuration and options
+
+| link:serialization_advanced_mapping.adoc[serialization_advanced_mapping.adoc]
+| Advanced mapping techniques
+
+| link:serialization_collections.adoc[serialization_collections.adoc]
+| JSONL and YAML Stream formats
+
+| link:serialization_format_independent.adoc[serialization_format_independent.adoc]
+| Cross-format serialization mechanisms
+
+| link:serialization_keyvalue.adoc[serialization_keyvalue.adoc]
+| JSON/YAML/TOML/Hash serialization (1,151 lines)
+
+| link:serialization_missing_values.adoc[serialization_missing_values.adoc]
+| Handling nil/empty/omitted values (1,513 lines)
+
+| link:serialization_parent_root_context.adoc[serialization_parent_root_context.adoc]
+| Parent and root context accessors
+
+| link:serialization_xml_mapping.adoc[serialization_xml_mapping.adoc]
+| XML element/attribute/content mapping (1,572 lines)
+
+| link:serialization_xml_namespaces.adoc[serialization_xml_namespaces.adoc]
+| XML namespace system (1,573 lines)
+
+| link:three-phase-namespace-architecture.adoc[three-phase-namespace-architecture.adoc]
+| Namespace implementation architecture
+
+| link:validation.adoc[validation.adoc]
+| Validation system
+
+| link:value_transformations.adoc[value_transformations.adoc]
+| Complete value transformation guide (1,383 lines)
+
+| link:value_types.adoc[value_types.adoc]
+| Value type system
+
+| link:xml_mappings_guide.adoc[xml_mappings_guide.adoc]
+| XML mappings reference
+
+| link:xml_namespace_qualification_and_prefix_control.adoc[xml_namespace_qualification_and_prefix_control.adoc]
+| Namespace qualification deep dive
+
+|===
+
+== Document Statistics
+
+* **Total documentation files**: 27 (.adoc files)
+* **Total lines of documentation**: ~15,000+ lines
+* **Core concept docs**: 4 files (models, attributes, value_types, collections)
+* **Serialization docs**: 11 files (XML, key-value, collections, advanced)
+* **Schema docs**: 2 files (generation, import)
+* **Extension docs**: 5 files (adapters, registers, liquid, transformations)
+* **Example docs**: 2 files (OOXML, XML mappings)
+* **Reference docs**: 3 files (reference_type, namespace qualification, architecture)
