@@ -75,10 +75,7 @@ module Lutaml
 
           return {} unless rule
 
-          # Preserve critical options before they're lost
-          use_prefix_val = options[:use_prefix]
-          declared_namespaces_val = options[:declared_namespaces]
-          parent_namespace_scope_attrs_val = options[:parent_namespace_scope_attrs]
+          # options = {}
 
           options[:namespace_prefix] = rule.prefix if rule&.namespace_set?
           options[:mixed_content] = rule.mixed_content
@@ -90,11 +87,6 @@ module Lutaml
           # Propagate xml_attributes (namespace declarations) to nested elements
           # This allows nested models to inherit parent's namespace_scope declarations
           options[:xml_attributes] = options[:xml_attributes] if options.key?(:xml_attributes)
-
-          # Restore preserved options
-          options[:use_prefix] = use_prefix_val if use_prefix_val
-          options[:declared_namespaces] = declared_namespaces_val if declared_namespaces_val
-          options[:parent_namespace_scope_attrs] = parent_namespace_scope_attrs_val if parent_namespace_scope_attrs_val
 
           options
         end
@@ -259,9 +251,6 @@ module Lutaml
 
           options[:parent_namespace] ||= nil
 
-          # Initialize namespace registry to track declared xmlns through build chain
-          options[:declared_namespaces] ||= {}
-
           # Inherit parent's namespace_scope declarations if available
           if options[:parent_namespace_scope_attrs]
             options[:xml_attributes] ||= {}
@@ -270,18 +259,6 @@ module Lutaml
 
           attributes = build_element_attributes(element, xml_mapping, options)
           prefix = determine_namespace_prefix(options, xml_mapping)
-
-          # Register namespaces declared in this element's attributes
-          if attributes
-            attributes.each do |k, v|
-              if k.start_with?("xmlns:")
-                prefix_name = k.sub("xmlns:", "")
-                options[:declared_namespaces][prefix_name] = v
-              elsif k == "xmlns"
-                options[:declared_namespaces][:default] = v
-              end
-            end
-          end
 
           prefixed_xml = xml.add_namespace_prefix(prefix)
           tag_name = options[:tag_name] || xml_mapping.root_element
@@ -311,9 +288,6 @@ module Lutaml
             if attributes && attributes.any? { |k, _| k.start_with?("xmlns:") }
               child_options[:parent_namespace_scope_attrs] = attributes.select { |k, _| k.start_with?("xmlns:") }
             end
-
-            # Pass declared_namespaces registry to children
-            child_options[:declared_namespaces] = options[:declared_namespaces]
 
             mappings = xml_mapping.elements + [xml_mapping.raw_mapping].compact
             mappings.each do |element_rule|
@@ -421,6 +395,8 @@ module Lutaml
           # that should be declared at root
           if is_root_call != false && xml_mappings.namespace_scope_config&.any?
             # Enhanced: Add namespaces from scope with :always declaration mode
+            # OR when use_prefix is set (prefix: true means declare all at root)
+            use_prefix_mode = options[:use_prefix]
             xml_mappings.namespace_scope_config.each do |ns_config|
               ns_class = ns_config[:namespace]
               declare_mode = ns_config[:declare]
@@ -433,9 +409,10 @@ module Lutaml
               next if ns_uri.nil? || ns_prefix.nil?
               next if attrs.value?(ns_uri) # Already added
 
-              # For :always mode, add namespace even if unused
-              # For :auto mode (default), it will be added later if used
-              if declare_mode == :always
+              # Add namespace if:
+              # 1. declare mode is :always, OR
+              # 2. use_prefix is truthy (prefix: true means declare all at root)
+              if declare_mode == :always || use_prefix_mode
                 attrs["xmlns:#{ns_prefix}"] = ns_uri
               end
             end
@@ -488,17 +465,14 @@ module Lutaml
           # Extract namespace classes from scope config (handles both Class and Hash formats)
           namespace_scope = xml_mapping.namespace_scope
 
-          # Determine use_prefix from options or @options (root level)
-          use_prefix = options[:use_prefix] || @options&.[](:use_prefix)
-
           attrs = if options.fetch(:set_namespace, true)
-                    namespace_attributes(xml_mapping, parent_namespace, use_prefix)
+                    namespace_attributes(xml_mapping, parent_namespace, options)
                   else
                     {}
                   end
 
           # Merge in any options-based use_prefix setting
-          if use_prefix && xml_mapping.namespace_uri
+          if @options && @options[:use_prefix] && xml_mapping.namespace_uri
             # When use_prefix is true, ensure prefixed namespace is declared
             if !attrs.values.include?(xml_mapping.namespace_uri)
               attrs["xmlns:#{xml_mapping.namespace_prefix}"] = xml_mapping.namespace_uri
@@ -508,24 +482,17 @@ module Lutaml
           # When this element's namespace differs from parent, and parent has namespace_scope,
           # ensure those xmlns declarations are available for this and any nested elements
           if options[:parent_namespace_scope_attrs] && xml_mapping.namespace_uri != parent_namespace
-            # For nested elements with different namespace from parent:
-            # If this element's namespace was declared in parent's namespace_scope,
-            # we MUST include that xmlns declaration on this element for Nokogiri to use xml[prefix]
-
-            # Track what's already declared to avoid redundancy
-            declared_ns = options[:declared_namespaces] || {}
-
+            # Merge parent's namespace_scope xmlns declarations so Nokogiri can use them
             options[:parent_namespace_scope_attrs].each do |ns_key, ns_uri|
-              # Skip if this namespace prefix is already declared in ancestor
-              # AND the namespace URI matches (same prefix+URI combo)
-              prefix_name = ns_key.sub("xmlns:", "")
-              next if declared_ns[prefix_name] == ns_uri
+              # Only add if not already present
+              attrs[ns_key] = ns_uri unless attrs.key?(ns_key)
+            end
 
-              # Add if this element's own namespace matches
-              # This is CRITICAL for Nokogiri xml[prefix] to work
-              if ns_uri == xml_mapping.namespace_uri
-                attrs[ns_key] = ns_uri unless attrs.key?(ns_key)
-              end
+            # CRITICAL: Ensure THIS element's own namespace declaration is present
+            # so Nokogiri can see it in this element's scope
+            if xml_mapping.namespace_prefix && xml_mapping.namespace_uri
+              ns_key = "xmlns:#{xml_mapping.namespace_prefix}"
+              attrs[ns_key] = xml_mapping.namespace_uri unless attrs.key?(ns_key)
             end
           end
 
@@ -579,7 +546,7 @@ module Lutaml
               end
             end
 
-            value = mapping_rule.to_value_for
+            value = mapping_rule.to_value_for(element)
             value = attr.serialize(value, :xml, register) if attr
 
             value = ExportTransformer.call(value, mapping_rule, attr)
@@ -609,26 +576,7 @@ module Lutaml
             # Add namespace declaration if needed (check namespace_scope)
             if ns_info[:uri] && ns_info[:prefix]
               in_scope = namespace_in_scope?(ns_info[:uri], namespace_scope)
-
-              # NEW LOGIC: If in namespace_scope with :auto mode, ADD xmlns here (it's being used)
-              # If NOT in namespace_scope, always add (local declaration)
-              if in_scope
-                # Check if this is :auto mode in namespace_scope_config
-                scope_entry = xml_mapping.namespace_scope_config&.find do |cfg|
-                  ns_class = cfg[:namespace]
-                  ns_class.respond_to?(:uri) && ns_class.uri == ns_info[:uri]
-                end
-
-                # If :auto mode (default), declare now since namespace is being used
-                if scope_entry && scope_entry[:declare] == :auto
-                  hash["xmlns:#{ns_info[:prefix]}"] = ns_info[:uri]
-                end
-                # If :always mode, already declared at root (line 412), don't redeclare
-                # If :never mode, skip (error case)
-              else
-                # Not in scope, always declare locally
-                hash["xmlns:#{ns_info[:prefix]}"] = ns_info[:uri]
-              end
+              hash["xmlns:#{ns_info[:prefix]}"] = ns_info[:uri] unless in_scope
             elsif mapping_rule.namespace && mapping_rule.prefix
               in_scope = namespace_in_scope?(mapping_rule.namespace,
                                              namespace_scope)
@@ -655,11 +603,24 @@ module Lutaml
           element.send(rule.delegate).send(rule.to)
         end
 
-        def namespace_attributes(xml_mapping, parent_namespace = nil, use_prefix = nil)
+        def namespace_attributes(xml_mapping, parent_namespace = nil, options = {})
           return {} unless xml_mapping.namespace_uri
           return {} if parent_namespace == xml_mapping.namespace_uri
 
-          # use_prefix is passed as parameter (from options or @options)
+          # NEW: Default is to use default namespace (xmlns="...")
+          # unless :use_prefix option is true or legacy :namespace_prefix is set
+          use_prefix = if options.key?(:use_prefix)
+                        options[:use_prefix]
+                      elsif options.key?(:namespace_prefix)
+                        # Legacy option: namespace_prefix means use prefix
+                        true
+                      elsif @options && @options.key?(:use_prefix)
+                        @options[:use_prefix]
+                      elsif @options && @options.key?(:namespace_prefix)
+                        # Legacy option: namespace_prefix means use prefix
+                        true
+                      end
+
           attrs = {}
 
           if use_prefix

@@ -159,20 +159,19 @@ module Lutaml
         end
 
         def deep_dup
-          # For namespace_class: keep the class reference (Classes define behavior, not data)
-          # For namespace/prefix strings: create new string objects by passing through constructor
-          ns_param = if @namespace_class
-                       # Pass the class itself to preserve it
-                       @namespace_class
-                     elsif @namespace_param == :inherit
-                       # Preserve :inherit symbol
-                       :inherit
+          # Preserve @namespace_param exactly as it was (string, Class, :inherit, or nil)
+          # This ensures the duplicate has the same internal state as the original
+          ns_param = if @namespace_param.is_a?(Class) || @namespace_param == :inherit
+                       # Classes and symbols are immutable, pass as-is
+                       @namespace_param
                      else
-                       namespace&.dup
+                       # Strings need to be duplicated
+                       @namespace_param&.dup
                      end
 
-          # Only pass prefix separately if there's no namespace_class
-          prefix_param = @namespace_class ? nil : prefix&.dup
+          # Only pass prefix separately if namespace_param is not a Class
+          # (Classes may have prefix_default, so don't override it)
+          prefix_param = @namespace_param.is_a?(Class) ? nil : prefix&.dup
 
           self.class.new(
             name.dup,
@@ -198,6 +197,10 @@ module Lutaml
             form: @form,
             documentation: @documentation,
           ).tap do |dup_rule|
+            # Manually preserve the exact @namespace_class object to avoid
+            # recreating anonymous classes (which would have different object_ids)
+            dup_rule.instance_variable_set(:@namespace_class, @namespace_class)
+
             # Manually ensure @namespace and @prefix are new string objects
             if dup_rule.namespace
               dup_rule.instance_variable_set(:@namespace,
