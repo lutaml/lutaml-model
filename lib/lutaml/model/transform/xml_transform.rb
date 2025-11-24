@@ -202,6 +202,8 @@ module Lutaml
                     get_child_value_for_rule(child, rule, attr, attr_type, instance, options, __register)
                   end
 
+          return nil if rule.render_nil_as_nil? && child.nil_element? && value.nil?
+
           values << value
         end
 
@@ -216,13 +218,15 @@ module Lutaml
           cast_options[:__parent] = instance
           cast_options[:__root] = instance.__root || instance
 
-          attr.map_union(attr_type, child, :xml, __register, cast_options)
+          if attr&.type(__register) == Type::Union
+            attr.map_union(attr_type, child, :xml, __register, cast_options)
+          else
+            attr.cast(child, :xml, __register, cast_options)
+          end
         elsif attr.raw?
           inner_xml_of(child)
-        else
-          return nil if rule.render_nil_as_nil? && child.nil_element?
-
-          child.nil_element? ? nil : (child&.text&.+ child&.cdata)
+        elsif !child.nil_element?
+          child&.text&.+ child&.cdata
         end
       end
 
