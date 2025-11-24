@@ -37,6 +37,7 @@ Lutaml::Model are provided in <<migrate-from-shale>>.
 * Support for multiple serialization libraries (e.g., `toml-rb`, `tomlib`)
 * Configurable adapters for different serialization formats
 * Support for collections and default values
+* Union types for flexible attribute handling (see <<union-types>>)
 * Custom serialization/deserialization methods
 * XML namespaces and mappings
 * Deep object comparison and visual diff generation with similarity scoring
@@ -3197,6 +3198,182 @@ For the following XML snippet:
     @ordered=nil>
 ----
 ====
+
+[[union-types]]
+== Union Types
+
+Union types in LutaML::Model allow attributes to accept values of different types, providing flexibility in data modeling while maintaining type safety. This is particularly useful when working with APIs or data sources that may return different data structures for the same field depending on context.
+
+=== Declaring Union Types
+
+Union types are declared using the `union` option in attribute definitions:
+
+[source,ruby]
+----
+class MyModel < Lutaml::Model::Serializable
+  # Union of different model classes and primitive types
+  attribute :content, { union: [TextContent, ImageContent, :string] }
+end
+----
+
+=== Supported Union Members
+
+Union types can include:
+
+* **Serializable Model Classes**: Custom classes inheriting from `Lutaml::Model::Serializable`
+* **Primitive Types**: `:string`, `:integer`, `:float`, `:boolean`, `:decimal`, etc.
+* **Built-in LutaML Types**: Any type from the `Lutaml::Model::Type` namespace
+
+[source,ruby]
+----
+class Product < Lutaml::Model::Serializable
+  # Complex union with multiple types
+  attribute :price, { union: [Money, :decimal, :string] }
+  attribute :description, { union: [RichText, :string] }
+  attribute :metadata, { union: [ProductMetadata, Hash, :string] }
+end
+----
+
+=== Type Resolution
+
+During deserialization, LutaML::Model attempts to cast the input value to each union type in order until one succeeds:
+
+[source,ruby]
+----
+class Temperature < Lutaml::Model::Serializable
+  attribute :celcius, :float
+  
+  xml do
+    no_root
+    map_element "celcius", to: :celcius
+  end
+end
+
+class TemperatureWithUnit < Lutaml::Model::Serializable
+  attribute :number, :float
+  attribute :unit, :string
+  
+  xml do
+    no_root
+    map_element "number", to: :number
+    map_element "unit", to: :unit
+  end
+end
+
+class Ceramic < Lutaml::Model::Serializable
+  # Union tries TemperatureWithUnit first, then Temperature, then string
+  attribute :firing_temperature, { union: [TemperatureWithUnit, Temperature, :string] }
+end
+----
+
+The order of types in the union declaration is significant. LutaML::Model tries each type in sequence and uses the first successful match:
+
+[source,ruby]
+----
+# This will try string first (might capture everything as string)
+attribute :value, { union: [:string, ComplexType] }  # ⚠️ Problematic
+
+# This will try ComplexType first (better)
+attribute :value, { union: [ComplexType, :string] }  # ✅ Recommended
+----
+
+LutaML::Model automatically tracks which union type was successfully used during deserialization. This information is stored in the model instance and used during serialization to maintain type consistency.
+
+[source,ruby]
+----
+yaml_data = "firing_temperature: Very Hot"
+ceramic = Ceramic.from_yaml(yaml_data)
+
+# Serialization uses the tracked type
+ceramic.to_yaml  # => "firing_temperature: Very Hot" (preserves string format)
+----
+
+=== Format Support
+
+Union types work seamlessly across all supported serialization formats:
+
+[source,ruby]
+----
+class DataContainer < Lutaml::Model::Serializable
+  attribute :content, { union: [StructuredData, :integer, :string] }
+  
+  xml do
+    root "container"
+    map_element "content", to: :content
+  end
+  
+  key_value do
+    map "content", to: :content
+  end
+end
+
+# Works with all formats
+container = DataContainer.from_yaml(yaml_data)
+container = DataContainer.from_json(json_data)
+container = DataContainer.from_xml(xml_data)
+container = DataContainer.from_toml(toml_data)
+----
+
+=== Best Practices
+
+==== Type Ordering Strategy
+
+1. **Most Specific First**: Place complex types before primitive types
+2. **Common Cases First**: Put frequently used types earlier in the union
+3. **String Last**: Generally put `:string` last to avoid capturing everything
+
+[source,ruby]
+----
+# Good: Specific types first
+attribute :value, { union: [CustomModel, Hash, :integer, :string] }
+
+# Avoid: String first (will capture almost everything)
+attribute :value, { union: [:string, CustomModel, Hash] }
+----
+
+=== Collections with Union Types
+
+Union types work with collections:
+
+[source,ruby]
+----
+class MixedCollection < Lutaml::Model::Serializable
+  attribute :items, { union: [Product, :string] }, collection: true
+  
+  xml do
+    root "collection"
+    map_element "item", to: :items
+  end
+end
+----
+
+=== Examples and Patterns
+
+==== API Response Handling
+
+[source,ruby]
+----
+class APIResponse < Lutaml::Model::Serializable
+  attribute :status, :string
+  attribute :data, { union: [SuccessData, ErrorData, :string] }
+  attribute :metadata, { union: [ResponseMetadata, :string] }
+  
+  json do
+    map "status", to: :status
+    map "data", to: :data  
+    map "metadata", to: :metadata
+  end
+end
+----
+
+==== Configuration Values
+
+[source,ruby]
+----
+class Configuration < Lutaml::Model::Serializable
+  attribute :database_config, { union: [DatabaseConfig, :string] }
+end
+----
 
 
 == Collections
