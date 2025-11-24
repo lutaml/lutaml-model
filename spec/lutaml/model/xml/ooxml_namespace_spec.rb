@@ -87,7 +87,7 @@ RSpec.describe "OOXML Extended Properties" do
       characters_with_spaces: 0,
       shared_doc: false,
       hyperlinks_changed: false,
-      app_version: "16.0000"
+      app_version: "16.0000",
     )
   end
 
@@ -145,7 +145,7 @@ RSpec.describe "OOXML Extended Properties" do
 
       # Root uses app: prefix
       expect(xml).to include("<app:Properties")
-      expect(xml).to include('xmlns:app=')
+      expect(xml).to include("xmlns:app=")
 
       # Child elements follow element_form_default (:unqualified by default)
       # So they appear as <Template> not <app:Template>
@@ -154,7 +154,7 @@ RSpec.describe "OOXML Extended Properties" do
       expect(xml).to include("<Application>")
 
       # Still declares vt namespace
-      expect(xml).to include('xmlns:vt=')
+      expect(xml).to include("xmlns:vt=")
     end
   end
 

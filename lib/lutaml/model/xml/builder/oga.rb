@@ -80,7 +80,7 @@ module Lutaml
             # When prefix is nil and explicitly set, clear namespace and use bare element name (default namespace)
             # When prefix is unset, use current_namespace if available (backward compatibility)
             @current_namespace = nil if prefix.nil? && !prefix_unset
-            
+
             prefixed_name = if !prefix_unset && prefix
                               "#{prefix}:#{element_name}"
                             elsif prefix_unset && @current_namespace && !element_name.start_with?("#{@current_namespace}:")
@@ -114,6 +114,11 @@ module Lutaml
           def add_text(element, text, cdata: false)
             text = text&.encode(encoding) if encoding && text.is_a?(String)
             return add_cdata(element, text) if cdata
+
+            # Handle case where element is a Builder instance
+            if element.is_a?(self.class)
+              element = element.current_node
+            end
 
             oga_text = ::Oga::XML::Text.new(text: text.to_s)
             append_text_node(element, oga_text)
@@ -170,6 +175,10 @@ module Lutaml
           private
 
           def element_attributes(oga_element, attributes)
+            return unless attributes
+
+            attributes = attributes.compact if attributes.respond_to?(:compact)
+
             oga_element.attributes = attributes.map do |name, value|
               value = value.uri unless value.is_a?(String)
 

@@ -142,13 +142,27 @@ module Lutaml
               namespaced_name(parent_namespace, rule_name)
             end
           else
-            [namespaced_name(parent_namespace)]
+            names = [namespaced_name(parent_namespace)]
+
+            # CRITICAL FIX: When no explicit namespace is set and we're using parent/default namespace,
+            # also include the unprefixed name. This handles cases where elements are unqualified
+            # (element_form_default: :unqualified) but parent uses a namespace.
+            # This allows matching both <Template> and <ns:Template> forms during parsing.
+            if !namespace_set? && (parent_namespace || default_namespace)
+              unprefixed = name.to_s
+              names << unprefixed unless names.include?(unprefixed)
+            end
+
+            names
           end
         end
 
         def namespaced_name(parent_namespace = nil, name = self.name)
           if name.to_s == "lang"
             Utils.blank?(prefix) ? name.to_s : "#{prefix}:#{name}"
+          elsif @namespace_param == :inherit && parent_namespace
+            # When namespace: :inherit, resolve to parent namespace for matching during deserialization
+            "#{parent_namespace}:#{name}"
           elsif namespace_set? || @attribute
             [namespace, name].compact.join(":")
           elsif default_namespace
@@ -220,16 +234,18 @@ module Lutaml
         # @param parent_ns_class [Class, nil] parent's XmlNamespace class
         # @param form_default [Symbol] :qualified or :unqualified from schema
         # @param use_prefix [Boolean, String, nil] whether to use prefix for this namespace
+        # @param parent_prefix [String, nil] actual prefix parent is using (custom or default)
         # @return [Hash] namespace resolution result
         #   { uri: String|nil, prefix: String|nil, ns_class: Class|nil }
         def resolve_namespace(attr:, register: nil, parent_ns_uri: nil,
                             parent_ns_class: nil, form_default: :unqualified,
-                            use_prefix: nil)
+                            use_prefix: nil, parent_prefix: nil)
           if attribute?
             resolve_attribute_namespace(attr, register)
           else
             resolve_element_namespace(attr, register, parent_ns_uri,
-                                      parent_ns_class, form_default, use_prefix)
+                                      parent_ns_class, form_default, use_prefix,
+                                      parent_prefix)
           end
         end
 
@@ -304,44 +320,95 @@ module Lutaml
         # Resolve namespace for XML elements
         #
         # Priority:
-        # 1. Explicit namespace in mapping (highest)
-        # 2. Type-level namespace
-        # 3. Inherited namespace (namespace: :inherit)
-        # 4. Form default qualification
+        # 1. Explicit namespace: nil (no namespace) - HIGHEST PRIORITY
+        # 2. Explicit namespace: :inherit (parent namespace, overrides type)
+        # 3. Explicit namespace class (specific namespace)
+        # 4. Type-level namespace
+        # 5. Form-based qualification (schema-level, not parent's format)
+        # 6. No namespace (unqualified default)
+        #
+        # NOTE: use_prefix affects parent's declaration format, NOT child qualification
         #
         # @param attr [Attribute] the attribute
         # @param register [Symbol, nil] register ID
         # @param parent_ns_uri [String, nil] parent namespace URI
         # @param parent_ns_class [Class, nil] parent namespace class
         # @param form_default [Symbol] :qualified or :unqualified
-        # @param use_prefix [Boolean, String, nil] whether to use prefix
+        # @param use_prefix [Boolean, String, nil] parent's format (not used)
+        # @param parent_prefix [String, nil] actual prefix parent is using
         # @return [Hash] namespace info
         def resolve_element_namespace(attr, register, parent_ns_uri,
-                                     parent_ns_class, form_default, use_prefix = nil)
-          # 1. Explicit mapping namespace (namespace: SomeNamespace)
-          if namespace_set? && @namespace_class && @namespace_param != :inherit
+                                     parent_ns_class, form_default, use_prefix = nil,
+                                     parent_prefix = nil)
+          # 0. FIRST: Check for explicit namespace: nil
+          # This takes precedence over EVERYTHING - even type namespace
+          if namespace_set? && @namespace.nil? && @namespace_param.nil?
+            return { uri: nil, prefix: nil, ns_class: nil }
+          end
+
+          # 1. Explicit namespace: :inherit - Use parent namespace BEFORE checking type
+          # This overrides any type-level namespace
+          if @namespace_param == :inherit && parent_ns_uri
+            effective_prefix = if parent_ns_class
+                                 parent_prefix || parent_ns_class.prefix_default || prefix
+                               else
+                                 parent_prefix || prefix
+                               end
+            return build_namespace_result(parent_ns_uri, effective_prefix)
+          end
+
+          # 2. Explicit mapping namespace (namespace: SomeNamespace)
+          if namespace_set? && @namespace_class
             return build_namespace_result_from_class(@namespace_class)
           end
 
-          # 2. Type-level namespace
+          # 3. Type-level namespace
           if attr && (type_ns_class = attr.type_namespace_class(register))
+            # Check if Type namespace matches parent default namespace
+            # If so, use parent's namespace with parent's actual prefix
+            if type_ns_class.uri == parent_ns_uri && parent_ns_class
+              # Type matches parent namespace
+              # If parent is using prefixed format (use_prefix: true), use parent's prefix
+              # Otherwise, use nil prefix to inherit default namespace
+              effective_prefix = use_prefix ? (parent_prefix || parent_ns_class&.prefix_default || prefix) : nil
+              return build_namespace_result(parent_ns_uri, effective_prefix)
+            end
+
+            # Type namespace is different from parent, use Type's own namespace
             return build_namespace_result_from_class(type_ns_class)
           end
 
-          # 3. Inherited namespace (explicit :inherit, explicit form: :qualified, or form default)
-          # Note: use_prefix does NOT affect qualification - only namespace declaration format
-          # Priority: explicit form option > form_default setting
-          should_qualify = @namespace_param == :inherit ||
-                          qualified? ||
-                          (form_default == :qualified && !unqualified?)
+          # 4. Schema-level qualification rules
+          #
+          # At this point:
+          # - No explicit namespace options (nil or :inherit)
+          # - No type namespace, OR type namespace different from parent (already handled at step 3)
+          #
+          # Schema-level rules determine if element inherits parent namespace
 
-          if should_qualify && parent_ns_uri
-            # Use parent's prefix from parent_ns_class
-            parent_prefix = parent_ns_class&.prefix_default || prefix
-            return build_namespace_result(parent_ns_uri, parent_prefix)
+          # A. Explicit form: :unqualified - NEVER qualify
+          if unqualified?
+            return { uri: nil, prefix: nil, ns_class: nil }
           end
 
-          # 4. No namespace (unqualified)
+          # B. Explicit form: :qualified OR schema default qualified
+          # These elements inherit parent namespace
+          will_inherit_from_schema = qualified? || (form_default == :qualified)
+          if will_inherit_from_schema && parent_ns_uri
+            # Format matching: use parent's format (prefix or default)
+            # - If parent_prefix exists: parent is using prefix format, match it
+            # - If use_prefix is true: explicitly request prefix format
+            # - Otherwise: use default format (nil prefix)
+            effective_prefix = if parent_prefix
+                                 parent_prefix
+                               elsif use_prefix
+                                 parent_ns_class&.prefix_default || prefix
+                               end
+            return build_namespace_result(parent_ns_uri, effective_prefix)
+          end
+
+          # 5. No namespace (unqualified default)
+          # Default W3C behavior: elements are unqualified unless schema says otherwise
           { uri: nil, prefix: nil, ns_class: nil }
         end
 
@@ -358,10 +425,6 @@ module Lutaml
         end
 
         # Build namespace result hash from URI and prefix
-        #
-        # @param uri [String, nil] namespace URI
-        # @param prefix [String, nil] namespace prefix
-        # @return [Hash] namespace info
         def build_namespace_result(uri, prefix)
           {
             uri: uri,

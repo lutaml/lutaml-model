@@ -6,6 +6,7 @@ require "lutaml/model/xml/nokogiri_adapter"
 require "lutaml/model/xml/ox_adapter"
 require "lutaml/model/xml/oga_adapter"
 require_relative "../../fixtures/sample_model"
+require_relative "../../support/xml_mapping_namespaces"
 
 module OrderedContentSpec
   class RootOrderedContent < Lutaml::Model::Serializable
@@ -32,7 +33,7 @@ module OrderedContentSpec
 
       xml do
         root "annotation"
-        namespace "http://example.com/schema", "xsd"
+        namespace ExampleSchemaNamespace
 
         map_content to: :content
       end
@@ -46,7 +47,7 @@ module OrderedContentSpec
       xml do
         root "element", ordered: true
 
-        namespace "http://example.com/schema", "xsd"
+        namespace ExampleSchemaNamespace
 
         map_attribute :name, to: :name
         map_attribute :status, to: :status
@@ -59,7 +60,7 @@ module OrderedContentSpec
 
       xml do
         root "schema", ordered: true
-        namespace "http://example.com/schema", "xsd"
+        namespace ExampleSchemaNamespace
 
         map_element :element, to: :element
       end

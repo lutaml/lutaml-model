@@ -393,7 +393,7 @@ RSpec.describe Lutaml::Model::Serializable do
     it "uses root name defined at the component class" do
       record_date = SerializeableSpec::RecordDate.new(content: "2021-01-01")
       expected_xml = "<recordDate>2021-01-01</recordDate>"
-      expect(record_date.to_xml).to eq(expected_xml)
+      expect(record_date.to_xml).to be_xml_equivalent_to(expected_xml)
     end
 
     it "uses mapped element name at the aggregating class, overriding root name" do

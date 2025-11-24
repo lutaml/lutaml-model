@@ -42,7 +42,8 @@ module Lutaml
           )
 
           new_opts = options.dup
-          if rule.namespace_set?
+          # Don't overwrite default_namespace for :inherit - it needs the parent's namespace
+          if rule.namespace_set? && rule.instance_variable_get(:@namespace_param) != :inherit
             new_opts[:default_namespace] = rule.namespace
           end
 

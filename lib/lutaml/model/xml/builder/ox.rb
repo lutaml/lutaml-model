@@ -50,7 +50,7 @@ module Lutaml
             attributes: {}
           )
             element_name = element_name.first if element_name.is_a?(Array)
-            
+
             # When prefix is provided (not nil), use it for namespaced element
             # When prefix is nil and explicitly set, don't use any prefix (default namespace)
             # When prefix is unset, use current_namespace if available (backward compatibility)

@@ -8,10 +8,14 @@ module Lutaml
           super(data, format, options.merge(mappings: mappings))
         end
 
-        def model_to_data(instance, format, options = {})
-          mappings = defined_mappings_for(:jsonl) || mappings_for(:json)
+        def model_to_data(instance, _format, options = {})
+          # For JSONL collections, use jsonl mappings for this collection
+          # But let nested instances use their own json mappings
+          # by passing :json format without forcing mappings parameter
+          defined_mappings_for(:jsonl) || mappings_for(:json)
 
-          super(instance, format, options.merge(mappings: mappings))
+          # Override format to :json - nested instances will auto-select json mappings
+          super(instance, :json, options)
         end
       end
     end

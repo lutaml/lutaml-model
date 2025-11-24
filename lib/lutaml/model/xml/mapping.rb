@@ -126,9 +126,7 @@ module Lutaml
         def no_root
           warn "[Lutaml::Model] DEPRECATED: no_root is deprecated. " \
                "Simply omit the element declaration for type-only models."
-          @no_root = true
-          # NOTE: Intentionally NOT clearing @element_name or @root_element here
-          # for backward compatibility with Collections during deprecation period
+          xsd_type # Call xsd_type underneath for backwards compatibility
         end
 
         def no_root?
@@ -148,6 +146,33 @@ module Lutaml
           else
             root_element
           end
+        end
+
+        # Mark this model as an XSD type (no root element wrapper)
+        #
+        # Type-only models serialize their children directly without a wrapper element.
+        # They cannot have namespaces since there's no element to declare xmlns on.
+        #
+        # @param name [String, nil] optional custom type name for XSD generation
+        # @return [String, nil] the type name if set
+        #
+        # @example Type without custom name
+        #   xml do
+        #     xsd_type
+        #     map_element "street", to: :street
+        #     map_element "city", to: :city
+        #   end
+        #
+        # @example Type with custom name
+        #   xml do
+        #     xsd_type "AddressType"
+        #     map_element "street", to: :street
+        #     map_element "city", to: :city
+        #   end
+        def xsd_type(name = nil)
+          @no_root = true
+          @type_name_value = name if name
+          @type_name_value
         end
 
         # Set the XML namespace for this mapping
@@ -220,7 +245,9 @@ module Lutaml
 
             # Convert to normalized format
             @namespace_scope_config = normalize_namespace_scope(namespaces)
-            @namespace_scope = @namespace_scope_config.map { |cfg| cfg[:namespace] }
+            @namespace_scope = @namespace_scope_config.map do |cfg|
+              cfg[:namespace]
+            end
           end
           @namespace_scope
         end
@@ -713,7 +740,7 @@ module Lutaml
         # @return [Array<Hash>] normalized config array
         def normalize_namespace_scope(namespaces)
           namespaces.map do |ns_entry|
-            if ns_entry.is_a?(::Hash)  # Use ::Hash explicitly
+            if ns_entry.is_a?(::Hash) # Use ::Hash explicitly
               # Hash format already has namespace and optional declare
               # Don't double-nest!
               {
