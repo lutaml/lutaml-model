@@ -23,3 +23,9 @@ Gemfile.lock
 *_LOCAL_*
 *_REMOTE_*
 .vscode
+.rubocop-https*
+
+# Artifacts from static site generators
+/_site
+/docs/_site
+/docs/.jekyll-cache
