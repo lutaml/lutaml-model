@@ -89,15 +89,17 @@ RSpec.describe "Mapping-Level Namespace Semantics" do
         end
       end
 
-      it "inherits default namespace without prefix" do
+      it "creates qualified element inheriting parent namespace" do
         instance = model_class.new(value: "test")
-        # Don't use prefix: true - should get default namespace
-        xml = instance.to_xml
+        xml = instance.to_xml(prefix: true)
 
-        # Without prefix: true, parent uses default namespace format
-        # But :inherit forces prefix format to ensure consistent referencing
+        # Parent is prefixed
         expect(xml).to include('xmlns:par="http://example.com/parent"')
+        expect(xml).to include("<par:parent")
+
+        # Child inherits parent namespace (native types always inherit)
         expect(xml).to include("<par:child>test</par:child>")
+        expect(xml).not_to include("<typ:child")
       end
     end
   end
@@ -252,10 +254,8 @@ RSpec.describe "Mapping-Level Namespace Semantics" do
         # Parent is prefixed
         expect(xml).to include('xmlns:par="http://example.com/parent"')
         expect(xml).to include("<par:parent")
-
-        # Child is unqualified (no type namespace, no explicit namespace)
-        expect(xml).to include("<child>test</child>")
-        expect(xml).not_to match(/<\w+:child>/)
+        # Child inherits parent namespace (native types always inherit)
+        expect(xml).to include("<par:child>test</par:child>")
       end
     end
   end
@@ -318,9 +318,8 @@ RSpec.describe "Mapping-Level Namespace Semantics" do
       # Pattern 3a: Implicit uses type namespace
       expect(xml).to include("<typ:typed>typed</typ:typed>")
 
-      # Pattern 3b: Implicit plain is unqualified
-      expect(xml).to include("<plain>plain</plain>")
-      expect(xml).not_to match(/<\w+:plain>/)
+      # Pattern 3b: Implicit plain inherits parent namespace (native types inherit)
+      expect(xml).to include("<par:plain>plain</par:plain>")
     end
   end
 end

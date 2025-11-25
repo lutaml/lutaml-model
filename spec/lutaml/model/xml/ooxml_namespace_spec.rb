@@ -147,11 +147,9 @@ RSpec.describe "OOXML Extended Properties" do
       expect(xml).to include("<app:Properties")
       expect(xml).to include("xmlns:app=")
 
-      # Child elements follow element_form_default (:unqualified by default)
-      # So they appear as <Template> not <app:Template>
-      # This is CORRECT per W3C - prefix option controls declaration, not qualification
-      expect(xml).to include("<Template>")
-      expect(xml).to include("<Application>")
+      # Child elements inherit parent namespace (native types always inherit)
+      expect(xml).to include("<app:Template>")
+      expect(xml).to include("<app:Application>")
 
       # Still declares vt namespace
       expect(xml).to include("xmlns:vt=")

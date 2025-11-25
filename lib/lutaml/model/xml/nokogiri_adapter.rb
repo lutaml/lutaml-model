@@ -235,6 +235,7 @@ module Lutaml
           if xml_mapping.namespace_class
             key = xml_mapping.namespace_class.to_key
             ns_config = plan[:namespaces][key]
+
             if ns_config && ns_config[:format] == :prefix
               # Use prefix from the plan's namespace object (may be custom override)
               prefix = ns_config[:ns_object].prefix_default
@@ -293,6 +294,7 @@ module Lutaml
               if delegate_obj.respond_to?(element_rule.to)
                 value = delegate_obj.send(element_rule.to)
               end
+
             else
               # Use safe attribute access for non-delegated attributes
               value = if element.respond_to?(element_rule.to)
@@ -400,6 +402,7 @@ module Lutaml
                 # Get value from delegated object
                 value = delegate_obj.send(element_rule.to)
               end
+
             else
               # Normal (non-delegated) attribute handling
               attribute_def = mapper_class.attributes[element_rule.to]
@@ -471,6 +474,12 @@ child_plan, options)
             tag_name: rule.name,
             mapper_class: attribute.type(register), # Override with child's type
           )
+
+          # CRITICAL FIX: For wrappers (like CurveArrayProperty),
+          # child_plan is the plan for the wrapper, which contains children_plans for the actual items.
+          # When serializing the wrapper, we'll recursively call build_element_with_plan,
+          # which will use child_plan[:children_plans] to find plans for the wrapper's children.
+          # So we don't need special logic here - just pass child_plan as-is.
 
           if value.is_a?(Lutaml::Model::Collection)
             value.collection.each do |val|

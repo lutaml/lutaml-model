@@ -23,6 +23,7 @@ module Lutaml
         def initialize(register = nil)
           @register = register || Lutaml::Model::Config.default_register
           @visited_types = Set.new
+          @type_plan_cache = {} # Cache plans for visited types
         end
 
         # Create declaration plan for an element and its descendants
@@ -66,7 +67,34 @@ module Lutaml
 
           # Prevent infinite recursion for type analysis (when element is nil)
           if element.nil? && mapper_class
-            return empty_plan if @visited_types.include?(mapper_class)
+            if @visited_types.include?(mapper_class)
+              # BUG FIX: Return cached plan with updated inheritance
+              # This ensures already-visited types get proper namespace inheritance
+              cached_base = @type_plan_cache[mapper_class] || empty_plan
+
+              # Create new plan with inherited namespaces from current parent
+              reused_plan = {
+                namespaces: {},
+                children_plans: cached_base[:children_plans].dup,
+                type_namespaces: cached_base[:type_namespaces].dup,
+              }
+
+              if parent_plan
+                reused_plan[:namespaces] = parent_plan[:namespaces].transform_values do |ns_config|
+                  if ns_config[:declared_at] == :here
+                    ns_config.merge(declared_at: :inherited)
+                  elsif ns_config[:declared_at] == :inherited
+                    ns_config.dup
+                  else
+                    ns_config.dup
+                  end
+                end
+                # Merge parent's type_namespaces
+                reused_plan[:type_namespaces].merge!(parent_plan[:type_namespaces])
+              end
+
+              return reused_plan
+            end
 
             @visited_types << mapper_class
           end
@@ -80,14 +108,18 @@ module Lutaml
           # Inherit parent's namespace declarations
           if parent_plan
             # CRITICAL: Preserve :local_on_use marker through inheritance
-            # Only namespaces declared :here at parent become :inherited in child
-            # Namespaces marked :local_on_use stay as :local_on_use so children know to declare locally
+            # Children inherit ALL parent namespaces (:here and :inherited)
+            # Only :here becomes :inherited, :inherited stays :inherited
+            # :local_on_use stays as :local_on_use so children know to declare locally
             plan[:namespaces] = parent_plan[:namespaces].transform_values do |ns_config|
               if ns_config[:declared_at] == :here
                 # Parent declared this at its level - child inherits it
                 ns_config.merge(declared_at: :inherited)
+              elsif ns_config[:declared_at] == :inherited
+                # Parent inherited this - child also inherits it (keep as :inherited)
+                ns_config.dup
               else
-                # Parent didn't declare it (:inherited or :local_on_use) - pass through unchanged
+                # :local_on_use - pass through unchanged
                 ns_config.dup
               end
             end
@@ -223,10 +255,26 @@ module Lutaml
           # Track Type namespaces from needs
           # This provides a lookup for adapters: attribute_name -> XmlNamespace CLASS
           # CRITICAL: If there's an override for a Type namespace, use the override
+          # BUG FIX #2: Also add Type namespaces to plan[:namespaces] so children can inherit them
           if needs[:type_namespaces]&.any?
             needs[:type_namespaces].each do |attr_name, ns_class|
               validate_namespace_class(ns_class)
               plan[:type_namespaces][attr_name] = ns_class
+
+              # Also add to plan[:namespaces] if not already present
+              # This allows children to inherit Type namespace configurations
+              key = ns_class.to_key
+              unless plan[:namespaces][key]
+                # Determine format (prefer prefix if namespace has one)
+                format = ns_class.prefix_default ? :prefix : :default
+
+                plan[:namespaces][key] = {
+                  ns_object: ns_class,
+                  format: format,
+                  xmlns_declaration: build_declaration(ns_class, format, {}),
+                  declared_at: :here,
+                }
+              end
             end
           end
 
@@ -258,6 +306,18 @@ module Lutaml
               parent_plan: plan,
               options: child_options,
             )
+          end
+
+          # Cache this plan for type reuse (without parent-specific inheritance)
+          # Store a version with :here declarations that can be reused with different parents
+          if element.nil? && mapper_class
+            @type_plan_cache[mapper_class] = {
+              namespaces: plan[:namespaces].select { |_k, v| v[:declared_at] == :here },
+              children_plans: plan[:children_plans],
+              type_namespaces: plan[:type_namespaces].reject { |k, _v| parent_plan && parent_plan[:type_namespaces
+
+][k] },
+            }
           end
 
           plan

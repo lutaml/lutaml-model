@@ -139,6 +139,21 @@ module Lutaml
               end
             end
 
+            # NATIVE TYPE INHERITANCE (Bug Fix #1)
+            # Elements with native types and no explicit/Type namespace inherit parent
+            # namespace_set? returns true for explicit namespace: nil, so those are excluded
+            if !elem_rule.namespace_set? && !type_ns_class
+              child_type = attr_def.type(@register)
+              is_native = !child_type.respond_to?(:<) || !(child_type < Lutaml::Model::Serialize)
+
+              if is_native && mapping.namespace_class
+                # Track parent's namespace as used by this element
+                track_namespace(needs, mapping.namespace_class, :elements)
+                # Store for serialization to use parent's format
+                needs[:type_namespaces][elem_rule.to] = mapping.namespace_class
+              end
+            end
+
             child_type = attr_def.type(@register)
             next unless child_type
             next unless child_type.respond_to?(:<) &&
