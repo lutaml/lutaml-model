@@ -251,17 +251,21 @@ RSpec.describe Lutaml::Model::Xml::NamespaceCollector do
 
       let(:mapping) { type_only_model.mappings_for(:xml) }
 
-      it "skips element namespace collection for type-only models" do
+      it "skips root namespace but collects child element namespaces" do
         needs = collector.collect(nil, mapping, mapper_class: type_only_model)
 
-        # Should not collect the model's own namespace
-        expect(needs[:namespaces]).to be_empty
+        # Type-only models don't have root elements, but child elements
+        # with native types inherit parent namespace
+        expect(needs[:namespaces].keys).to include(vcard_namespace.to_key)
+        expect(needs[:type_namespaces][:value]).to eq(vcard_namespace)
       end
 
-      it "skips attribute namespace collection for type-only models" do
+      it "collects inherited namespaces for native type children" do
         needs = collector.collect(nil, mapping, mapper_class: type_only_model)
 
-        expect(needs[:namespaces]).to be_empty
+        # Native type children inherit parent namespace
+        expect(needs[:namespaces]).not_to be_empty
+        expect(needs[:namespaces][vcard_namespace.to_key][:used_in]).to include(:elements)
       end
     end
 

@@ -136,11 +136,11 @@ RSpec.describe "XML Namespace Integration" do
       instance = legacy_class.new(value: "test")
       xml = instance.to_xml(prefix: true)
 
-      # With prefix: true on root, but child elements stay unqualified
-      # (no element_form_default :qualified set)
+      # With prefix: true, root uses prefix
+      # Native type children inherit parent namespace
       expect(xml).to include('xmlns:leg="https://example.com/legacy"')
       expect(xml).to include("<leg:legacy")
-      expect(xml).to include("<value>test</value>") # Child unqualified
+      expect(xml).to include("<leg:value>test</leg:value>") # Child inherits parent namespace
     end
   end
 
