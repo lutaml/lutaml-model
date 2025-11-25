@@ -1,0 +1,157 @@
+---
+title: Basic Model Definition
+nav_order: 2
+---
+
+= Basic model definition
+
+== Introduction
+
+This tutorial will show you how to define your first Lutaml::Model. A model represents a class of information with attributes and types.
+
+== Creating a simple model
+
+There are two ways to define a model:
+
+* Inheriting from `Lutaml::Model::Serializable`
+* Including the `Lutaml::Model::Serialize` module
+
+=== Through inheritance (recommended)
+
+The simplest way is to create a class that inherits from `Lutaml::Model::Serializable`.
+
+[source,ruby]
+----
+require 'lutaml/model'
+
+class Kiln < Lutaml::Model::Serializable
+  attribute :brand, :string
+  attribute :capacity, :integer
+  attribute :temperature, :integer
+end
+----
+
+=== Through inclusion
+
+If your class already has a superclass, use the module instead:
+
+[source,ruby]
+----
+require 'lutaml/model'
+
+class Kiln < SomeSuperClass
+  include Lutaml::Model::Serialize
+
+  attribute :brand, :string
+  attribute :capacity, :integer
+  attribute :temperature, :integer
+end
+----
+
+== Defining attributes
+
+Attributes are defined using the `attribute` method:
+
+Syntax:
+
+[source,ruby]
+----
+attribute :name_of_attribute, Type
+----
+
+Where,
+
+`name_of_attribute`:: The name of the attribute
+`Type`:: The type (`:string`, `:integer`, `:float`, `:boolean`, `:date`, etc.)
+
+.Defining a model with various attribute types
+[example]
+====
+[source,ruby]
+----
+class Studio < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :address, :string
+  attribute :established, :date
+end
+
+s = Studio.new(
+  name: 'Pottery Studio',
+  address: '123 Clay St',
+  established: Date.new(2020, 1, 1)
+)
+
+puts s.name
+#=> "Pottery Studio"
+puts s.established
+#=> <Date: 2020-01-01>
+----
+====
+
+== Using your model
+
+Once defined, you can create instances and access attributes:
+
+[source,ruby]
+----
+kiln = Kiln.new(
+  brand: 'CeramicPro',
+  capacity: 100,
+  temperature: 1050
+)
+
+puts kiln.brand
+#=> "CeramicPro"
+puts kiln.capacity
+#=> 100
+----
+
+== Adding serialization
+
+To serialize your model, add format-specific mappings:
+
+.Adding XML and JSON serialization
+[example]
+====
+[source,ruby]
+----
+class Kiln < Lutaml::Model::Serializable
+  attribute :brand, :string
+  attribute :capacity, :integer
+  attribute :temperature, :integer
+
+  xml do
+    root 'kiln'
+    map_element 'brand', to: :brand
+    map_element 'capacity', to: :capacity
+    map_element 'temperature', to: :temperature
+  end
+
+  json do
+    map 'brand', to: :brand
+    map 'capacity', to: :capacity
+    map 'temperature', to: :temperature
+  end
+end
+
+kiln = Kiln.new(brand: 'CeramicPro', capacity: 100, temperature: 1050)
+
+puts kiln.to_xml
+# => <kiln>
+#      <brand>CeramicPro</brand>
+#      <capacity>100</capacity>
+#      <temperature>1050</temperature>
+#    </kiln>
+
+puts kiln.to_json
+# => {"brand":"CeramicPro","capacity":100,"temperature":1050}
+----
+====
+
+== Next steps
+
+Now that you can define basic models, explore:
+
+* link:first-xml-serialization[First XML Serialization]
+* link:first-json-serialization[First JSON Serialization]
+* link:working-with-collections[Working with Collections]

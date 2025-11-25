@@ -7470,7 +7470,7 @@ The `prefix:` option accepts the following values:
 | Use default namespace (xmlns="...") with no prefix. This is the default behavior.
 
 | `true`
-| Use [`prefix_default`](lib/lutaml/model/xml_namespace.rb) from XmlNamespace class
+| Use `prefix_default` from XmlNamespace class
 
 | `"string"`
 | Use the provided custom prefix string

@@ -1,0 +1,218 @@
+---
+title: Custom Types Tutorial
+nav_order: 7
+---
+
+= Custom types tutorial
+
+== Introduction
+
+Custom types let you create reusable value types with special behavior, validation, and format-specific serialization. This tutorial shows when and how to create them.
+
+== Type vs model: When to use each
+
+=== Use a custom type when
+
+* You need a single primitive-like value with custom behavior
+* The type will be reused across multiple attributes
+* Format-specific serialization is needed
+* Examples: Currency, PhoneNumber, PostalCode, Email
+
+=== Use a model when
+
+* You need multiple related attributes
+* Complex nested structures are required
+* Examples: Address, ContactInfo, Configuration
+
+== Creating a simple custom type
+
+Custom types inherit from `Lutaml::Model::Type::Value` or built-in types like `Type::String`.
+
+.Creating a PostalCode type
+[example]
+====
+[source,ruby]
+----
+class PostalCode < Lutaml::Model::Type::String
+  def self.cast(value)
+    # Normalize: remove spaces, uppercase
+    value.to_s.upcase.gsub(/\s/, '')
+  end
+end
+
+class Address < Lutaml::Model::Serializable
+  attribute :street, :string
+  attribute :city, :string
+  attribute :postal_code, PostalCode
+
+  key_value do
+    map 'street', to: :street
+    map 'city', to: :city
+    map 'postalCode', to: :postal_code
+  end
+end
+
+address = Address.new(
+  street: "123 Main St",
+  city: "Springfield",
+  postal_code: "ab12 3cd"  # Will be normalized
+)
+
+puts address.postal_code
+# => "AB123CD"
+----
+====
+
+== Required methods
+
+Every custom type must implement:
+
+`self.cast(value)`:: Converts input to internal representation
+`self.serialize(value)`:: Converts internal value for output
+
+.Complete custom type example
+[example]
+====
+[source,ruby]
+----
+class Currency < Lutaml::Model::Type::Value
+  def self.cast(value)
+    case value
+    when String
+      # Remove currency symbols
+      Float(value.gsub(/[$,]/, ''))
+    when Numeric
+      value.to_f
+    else
+      raise Lutaml::Model::TypeError, "Invalid currency: #{value}"
+    end
+  end
+
+  def self.serialize(value)
+    sprintf("%.2f", value)
+  end
+end
+
+class Product < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :price, Currency
+
+  json do
+    map 'name', to: :name
+    map 'price', to: :price
+  end
+end
+
+product = Product.new(name: "Vase", price: "$99.99")
+puts product.price
+# => 99.99
+
+puts product.to_json
+# => {"name":"Vase","price":"99.99"}
+----
+====
+
+== Format-specific serialization
+
+Override format-specific methods for different representations:
+
+.Custom type with format-specific output
+[example]
+====
+[source,ruby]
+----
+class Currency < Lutaml::Model::Type::Value
+  def self.cast(value)
+    case value
+    when String then Float(value.gsub(/[^0-9.-]/, ''))
+    when Numeric then value.to_f
+    end
+  end
+
+  def self.serialize(value)
+    sprintf("%.2f", value)
+  end
+
+  # XML uses currency symbol
+  def to_xml
+    "$#{sprintf('%.2f', value)}"
+  end
+
+  # JSON uses plain number
+  def to_json(*_args)
+    value
+  end
+end
+
+product = Product.new(name: "Vase", price: 99.99)
+
+puts product.to_xml
+# => <product><name>Vase</name><price>$99.99</price></product>
+
+puts product.to_json
+# => {"name":"Vase","price":99.99}
+----
+====
+
+== Registering custom types
+
+Register types for reuse with symbols:
+
+[source,ruby]
+----
+# Register the type
+Lutaml::Model::Type.register(:currency, Currency)
+Lutaml::Model::Type.register(:postal_code, PostalCode)
+
+# Now use symbols instead of class names
+class Product < Lutaml::Model::Serializable
+  attribute :price, :currency
+  attribute :ship_to, :postal_code
+end
+----
+
+== Adding validation
+
+Use `cast` to validate input:
+
+.Type with validation
+[example]
+====
+[source,ruby]
+----
+class Email < Lutaml::Model::Type::String
+  EMAIL_REGEX = /\A[\w+\-.]+@[a-z\d\-]+(\.[a-z\d\-]+)*\.[a-z]+\z/i
+
+  def self.cast(value)
+    email = super(value)  # Use String's cast first
+
+    unless email.match?(EMAIL_REGEX)
+      raise Lutaml::Model::TypeError, "Invalid email: #{email}"
+    end
+
+    email.downcase  # Normalize to lowercase
+  end
+end
+
+class Contact < Lutaml::Model::Serializable
+  attribute :email, Email
+end
+
+# Valid email
+contact = Contact.new(email: "John@Example.COM")
+contact.email
+# => "john@example.com"
+
+# Invalid email
+bad_contact = Contact.new(email: "not-an-email")
+# => Lutaml::Model::TypeError: Invalid email: not-an-email
+----
+====
+
+== Next steps
+
+Learn more about:
+
+* link:../pages/value_types[Complete value types reference]
+* link:../guides/value-transformations[Value transformation strategies]
+* link:polymorphic-models-tutorial[Polymorphic models]

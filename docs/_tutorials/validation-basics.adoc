@@ -1,0 +1,232 @@
+---
+title: Validation Basics
+nav_order: 5
+---
+
+= Validation basics
+
+== Introduction
+
+Lutaml::Model provides built-in validation to ensure your data meets requirements. This tutorial covers the essential validation features.
+
+== Validation methods
+
+Lutaml::Model provides two validation methods:
+
+`validate`:: Returns an array of validation errors (silent validation)
+`validate!`:: Raises `ValidationError` with all errors (forceful validation)
+
+== Required attributes
+
+Mark attributes as required using `required: true`:
+
+.Requiring an attribute
+[example]
+====
+[source,ruby]
+----
+class Person < Lutaml::Model::Serializable
+  attribute :name, :string, required: true
+  attribute :email, :string
+end
+
+# This works
+person = Person.new(name: "John")
+person.validate
+# => []
+
+# This fails - name is required
+person = Person.new(email: "john@example.com")
+person.validate
+# => [#<Lutaml::Model::RequiredAttributeMissingError: Missing required attribute: name>]
+
+person.validate!
+# => Lutaml::Model::ValidationError: Missing required attribute: name
+----
+====
+
+== Collection size validation
+
+Validate collection sizes using range constraints:
+
+.Collection size constraints
+[example]
+====
+[source,ruby]
+----
+class Workshop < Lutaml::Model::Serializable
+  attribute :title, :string
+  attribute :students, :string, collection: 1..20  # Min 1, max 20
+
+  key_value do
+    map 'title', to: :title
+    map 'students', to: :students
+  end
+end
+
+# Valid - 2 students
+workshop = Workshop.new(title: "Pottery 101", students: ["Alice", "Bob"])
+workshop.validate
+# => []
+
+# Invalid - 0 students (minimum is 1)
+empty_workshop = Workshop.new(title: "Empty", students: [])
+empty_workshop.validate
+# => [#<Lutaml::Model::CollectionCountOutOfRangeError: students count is 0, must be between 1 and 20>]
+----
+====
+
+== Enumeration validation
+
+Restrict values to a fixed set using `values:`:
+
+.Enumeration validation
+[example]
+====
+[source,ruby]
+----
+class Glaze < Lutaml::Model::Serializable
+  attribute :finish, :string, values: ["Matte", "Glossy", "Satin"]
+end
+
+# Valid value
+glaze = Glaze.new(finish: "Matte")
+glaze.validate
+# => []
+
+# Invalid value
+bad_glaze = Glaze.new(finish: "Sparkly")
+bad_glaze.validate
+# => [#<Lutaml::Model::InvalidValueError: Invalid value for attribute 'finish'>]
+----
+====
+
+== Pattern validation
+
+Validate strings against regex patterns using `pattern:`:
+
+.Pattern validation for strings
+[example]
+====
+[source,ruby]
+----
+class Product < Lutaml::Model::Serializable
+  attribute :sku, :string, pattern: /\A[A-Z]{3}-\d{4}\z/  # Format: ABC-1234
+  attribute :hex_color, :string, pattern: /\A#[0-9A-Fa-f]{6}\z/
+
+  key_value do
+    map 'sku', to: :sku
+    map 'color', to: :hex_color
+  end
+end
+
+# Valid patterns
+product = Product.new(sku: "ABC-1234", hex_color: "#FF5733")
+product.validate
+# => []
+
+# Invalid pattern
+bad_product = Product.new(sku: "abc-1234", hex_color: "#FFF")
+bad_product.validate
+# => [
+#   #<Lutaml::Model::InvalidValueError: Invalid value for attribute 'sku'>,
+#   #<Lutaml::Model::InvalidValueError: Invalid value for attribute 'hex_color'>
+# ]
+----
+====
+
+== Choice validation
+
+The `choice` directive validates that attribute counts fall within specified ranges:
+
+.Choice validation
+[example]
+====
+[source,ruby]
+----
+class Contact < Lutaml::Model::Serializable
+  # Must have 1-2 contact methods
+  choice(min: 1, max: 2) do
+    attribute :email, :string
+    attribute :phone, :string
+  end
+
+  xml do
+    root "contact"
+    map_element "email", to: :email
+    map_element "phone", to: :phone
+  end
+end
+
+# Valid - 1 contact method
+contact1 = Contact.new(email: "john@example.com")
+contact1.validate
+# => []
+
+# Valid - 2 contact methods
+contact2 = Contact.new(email: "john@example.com", phone: "555-1234")
+contact2.validate
+# => []
+
+# Invalid - 0 contact methods
+contact3 = Contact.new
+contact3.validate
+# => [#<Lutaml::Model::ChoiceLowerBoundError: Attribute count is less than lower bound>]
+----
+====
+
+== Combining validations
+
+You can combine multiple validation types:
+
+.Multiple validation rules
+[example]
+====
+[source,ruby]
+----
+class Student < Lutaml::Model::Serializable
+  attribute :name, :string, required: true
+  attribute :age, :integer
+  attribute :grade, :string, values: ["A", "B", "C", "D", "F"]
+  attribute :courses, :string, collection: 1..8
+
+  key_value do
+    map 'name', to: :name
+    map 'age', to: :age
+    map 'grade', to: :grade
+    map 'courses', to: :courses
+  end
+end
+
+# Valid student
+student = Student.new(
+  name: "Alice",
+  age: 16,
+  grade: "A",
+  courses: ["Math", "Science"]
+)
+student.validate
+# => []
+
+# Multiple validation errors
+bad_student = Student.new(
+  grade: "F+",  # Not in values list
+  courses: []    # Below minimum count of 1
+  # name missing (required)
+)
+bad_student.validate
+# => [
+#   #<Lutaml::Model::RequiredAttributeMissingError: Missing required attribute: name>,
+#   #<Lutaml::Model::InvalidValueError: Invalid value for attribute 'grade'>,
+#   #<Lutaml::Model::CollectionCountOutOfRangeError: courses count is 0, must be between 1 and 8>
+# ]
+----
+====
+
+== Next steps
+
+Continue learning about:
+
+* link:../pages/validation[Complete validation reference]
+* link:../pages/attributes[Attribute options]
+* link:custom-types-tutorial[Creating custom types with validation]

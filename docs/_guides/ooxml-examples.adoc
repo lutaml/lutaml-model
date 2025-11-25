@@ -1,0 +1,529 @@
+---
+title: OOXML Examples
+nav_order: 12
+---
+
+= OOXML Round-Trip Parsing Examples
+:toc:
+:toclevels: 3
+
+== Purpose
+
+This document demonstrates how to handle complex namespace scenarios commonly found in Office Open XML (OOXML) documents using Type-level namespace definitions. These patterns enable round-trip parsing of XML documents where different attributes use different namespaces from their parent elements.
+
+== What is OOXML?
+
+Office Open XML (OOXML) is the file format used by Microsoft Office applications (Word, Excel, PowerPoint). OOXML documents use multiple XML namespaces extensively, often with:
+
+* Root elements in one namespace
+* Child elements in different namespaces
+* Attributes that belong to yet other namespaces
+* Complex nested structures with mixed namespaces
+
+== Type-Level Namespace Definitions
+
+Type-level namespaces allow you to define namespace information directly on custom Type classes. This is essential for handling OOXML and similar formats where:
+
+1. Different attributes need different namespace prefixes
+2. Namespaces are determined by the data type, not the containing element
+3. Round-trip parsing must preserve all namespace declarations
+
+=== Defining an `XmlNamespace` Class
+
+[source,ruby]
+----
+class ContactNamespace < Lutaml::Model::XmlNamespace
+  uri "https://example.com/schemas/contact/v1"
+  schema_location "https://example.com/schemas/contact/v1/contact.xsd"
+  prefix_default "ct"
+end
+----
+
+Where:
+
+`uri`:: The XML namespace URI
+`schema_location`:: (Optional) Location of the XML Schema Definition (XSD)
+`prefix_default`:: The default prefix to use when serializing
+
+=== Attaching Namespace to a Type
+
+[source,ruby]
+----
+class GivenNameType < Lutaml::Model::Type::String
+  xml_namespace(ContactNamespace)
+end
+----
+
+== Example 1: Contact with 2 Namespaces
+
+This example demonstrates a contact data model using two separate namespaces:
+
+* `https://example.com/schemas/contact/v1` (prefix: `ct`) for person name fields
+* `https://example.com/schemas/name-attributes/v1` (prefix: `name`) for name attributes
+
+=== Complete Working Example
+
+[source,ruby]
+----
+require "lutaml/model"
+
+# Define namespace classes
+class ContactNamespace < Lutaml::Model::XmlNamespace
+  uri "https://example.com/schemas/contact/v1"
+  schema_location "https://example.com/schemas/contact/v1/contact.xsd"
+  prefix_default "ct"
+end
+
+class NameAttributeNamespace < Lutaml::Model::XmlNamespace
+  uri "https://example.com/schemas/name-attributes/v1"
+  schema_location "https://example.com/schemas/name-attributes/v1/name-attributes.xsd"
+  prefix_default "name"
+end
+
+# Define Type classes with namespaces
+class GivenNameType < Lutaml::Model::Type::String
+  xml_namespace(ContactNamespace)
+end
+
+class SurnameType < Lutaml::Model::Type::String
+  xml_namespace(ContactNamespace)
+end
+
+class NamePrefixType < Lutaml::Model::Type::String
+  xml_namespace(NameAttributeNamespace)
+end
+
+# Define PersonName Model
+class PersonName < Lutaml::Model::Serializable
+  attribute :given_name, GivenNameType
+  attribute :surname, SurnameType
+  attribute :prefix, NamePrefixType
+  attribute :suffix, :string
+
+  xml do
+    root "personName"
+    map_element "givenName", to: :given_name
+    map_element "surname", to: :surname
+    map_attribute "prefix", to: :prefix
+    map_attribute "suffix", to: :suffix
+  end
+end
+
+# Define Contact Model
+class Contact < Lutaml::Model::Serializable
+  attribute :person_name, PersonName
+
+  xml do
+    root "ContactInfo"
+    map_element "personName", to: :person_name
+  end
+end
+----
+
+=== Input XML with Default Prefixes
+
+[source,xml]
+----
+<ContactInfo>
+  <personName xmlns:ct="https://example.com/schemas/contact/v1"
+              xmlns:name="https://example.com/schemas/name-attributes/v1"
+              name:prefix="Dr." suffix="Jr.">
+    <ct:givenName>John</ct:givenName>
+    <ct:surname>Doe</ct:surname>
+  </personName>
+</ContactInfo>
+----
+
+=== Parsing and Round-Trip
+
+[source,ruby]
+----
+# Parse the XML
+instance = Contact.from_xml(xml_string)
+
+# Access the data
+puts instance.person_name.given_name  # => "John"
+puts instance.person_name.surname     # => "Doe"
+puts instance.person_name.prefix      # => "Dr."
+puts instance.person_name.suffix      # => "Jr."
+
+# Serialize back to XML (preserves namespaces)
+serialized = instance.to_xml
+# The output will match the input structure with all namespaces preserved
+----
+
+=== Input XML with Custom Prefixes
+
+The system also handles custom prefixes correctly:
+
+[source,xml]
+----
+<ContactInfo>
+  <personName xmlns:CT="https://example.com/schemas/contact/v1"
+              xmlns:NA="https://example.com/schemas/name-attributes/v1"
+              NA:prefix="Dr." suffix="Jr.">
+    <CT:givenName>John</CT:givenName>
+    <CT:surname>Doe</CT:surname>
+  </personName>
+</ContactInfo>
+----
+
+When parsed and re-serialized, the system will use the default prefixes (`ct` and `name`) defined in the namespace classes, ensuring consistency.
+
+== Example 2: OOXML Core Properties with 4 Namespaces
+
+This example demonstrates an OOXML Core Properties document using four namespaces:
+
+* `http://schemas.openxmlformats.org/package/2006/metadata/core-properties` (prefix: `cp`)
+* `http://purl.org/dc/elements/1.1/` (prefix: `dc`)
+* `http://purl.org/dc/terms/` (prefix: `dcterms`)
+* `http://www.w3.org/2001/XMLSchema-instance` (prefix: `xsi`)
+
+=== Complete Working Example
+
+[source,ruby]
+----
+require "lutaml/model"
+
+# Define namespace classes
+class CpNamespace < Lutaml::Model::XmlNamespace
+  uri "http://schemas.openxmlformats.org/package/2006/metadata/core-properties"
+  prefix_default "cp"
+end
+
+class DcNamespace < Lutaml::Model::XmlNamespace
+  uri "http://purl.org/dc/elements/1.1/"
+  prefix_default "dc"
+end
+
+class DctermsNamespace < Lutaml::Model::XmlNamespace
+  uri "http://purl.org/dc/terms/"
+  prefix_default "dcterms"
+end
+
+class XsiNamespace < Lutaml::Model::XmlNamespace
+  uri "http://www.w3.org/2001/XMLSchema-instance"
+  prefix_default "xsi"
+end
+
+# Define Type classes with namespaces
+class DcTitleType < Lutaml::Model::Type::String
+  xml_namespace(DcNamespace)
+end
+
+class DcCreatorType < Lutaml::Model::Type::String
+  xml_namespace(DcNamespace)
+end
+
+class CpLastModifiedByType < Lutaml::Model::Type::String
+  xml_namespace(CpNamespace)
+end
+
+class CpRevisionType < Lutaml::Model::Type::Integer
+  xml_namespace(CpNamespace)
+end
+
+class XsiTypeType < Lutaml::Model::Type::String
+  xml_namespace(XsiNamespace)
+end
+
+# Define DctermsCreated Model
+class DctermsCreated < Lutaml::Model::Serializable
+  attribute :value, :date_time
+  attribute :type, XsiTypeType
+
+  xml do
+    root "created"
+    namespace DctermsNamespace
+    map_attribute "type", to: :type
+    map_content to: :value
+  end
+end
+
+# Define DctermsModified Model
+class DctermsModified < Lutaml::Model::Serializable
+  attribute :value, :date_time
+  attribute :type, XsiTypeType
+
+  xml do
+    root "modified"
+    namespace DctermsNamespace
+    map_attribute "type", to: :type
+    map_content to: :value
+  end
+end
+
+# Define CoreProperties root model
+class CoreProperties < Lutaml::Model::Serializable
+  attribute :title, DcTitleType
+  attribute :creator, DcCreatorType
+  attribute :last_modified_by, CpLastModifiedByType
+  attribute :revision, CpRevisionType
+  attribute :created, DctermsCreated
+  attribute :modified, DctermsModified
+
+  xml do
+    root "coreProperties"
+    map_element "title", to: :title
+    map_element "creator", to: :creator
+    map_element "lastModifiedBy", to: :last_modified_by
+    map_element "revision", to: :revision
+    map_element "created", to: :created
+    map_element "modified", to: :modified
+  end
+end
+----
+
+=== Input XML (OOXML Core Properties)
+
+[source,xml]
+----
+<coreProperties xmlns:dc="http://purl.org/dc/elements/1.1/"
+                xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties">
+  <dc:title>Untitled</dc:title>
+  <dc:creator>Uniword</dc:creator>
+  <cp:lastModifiedBy>Uniword</cp:lastModifiedBy>
+  <cp:revision>1</cp:revision>
+  <dcterms:created xmlns:dcterms="http://purl.org/dc/terms/"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:type="dcterms:W3CDTF">2025-11-13T17:11:03+00:00</dcterms:created>
+  <dcterms:modified xmlns:dcterms="http://purl.org/dc/terms/"
+                    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                    xsi:type="dcterms:W3CDTF">2025-11-13T17:11:03+00:00</dcterms:modified>
+</coreProperties>
+----
+
+=== Parsing and Round-Trip
+
+[source,ruby]
+----
+# Parse the OOXML Core Properties
+instance = CoreProperties.from_xml(xml_string)
+
+# Access the data
+puts instance.title              # => "Untitled"
+puts instance.creator            # => "Uniword"
+puts instance.last_modified_by   # => "Uniword"
+puts instance.revision           # => 1
+puts instance.created.value      # => DateTime instance
+puts instance.created.type       # => "dcterms:W3CDTF"
+puts instance.modified.value     # => DateTime instance
+puts instance.modified.type      # => "dcterms:W3CDTF"
+
+# Serialize back to XML (preserves all 4 namespaces)
+serialized = instance.to_xml
+
+# Parse again to verify round-trip
+reparsed = CoreProperties.from_xml(serialized)
+# All values and namespaces will be preserved
+----
+
+=== Creating New Instances
+
+[source,ruby]
+----
+# Create nested elements
+created = DctermsCreated.new(
+  value: DateTime.parse("2025-11-13T17:11:03Z"),
+  type: "dcterms:W3CDTF"
+)
+
+modified = DctermsModified.new(
+  value: DateTime.parse("2025-11-13T17:11:03Z"),
+  type: "dcterms:W3CDTF"
+)
+
+# Create the main document
+document = CoreProperties.new(
+  title: "Test Document",
+  creator: "Test Author",
+  last_modified_by: "Test Modifier",
+  revision: 1,
+  created: created,
+  modified: modified
+)
+
+# Serialize to XML with all namespaces
+xml = document.to_xml
+----
+
+== Key Concepts
+
+=== Type-Level vs Mapping-Level Namespaces
+
+[cols="1,2,2"]
+|===
+|Level |When to Use |Example
+
+|Type-Level
+|Data type determines namespace (OOXML pattern)
+|`DcTitleType` always uses `dc` namespace
+
+|Mapping-Level
+|Element/attribute location determines namespace
+|`map_element "title", to: :title, namespace: "..."`
+|===
+
+=== Namespace Inheritance
+
+When a Type has an `xml_namespace` defined:
+
+1. All attributes of that Type will use that namespace
+2. The namespace is automatically applied during serialization
+3. The namespace is preserved during round-trip parsing
+
+=== Nested Element Namespaces
+
+Notice in the OOXML example:
+
+[source,xml]
+----
+<dcterms:created xmlns:dcterms="http://purl.org/dc/terms/"
+                 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                 xsi:type="dcterms:W3CDTF">...</dcterms:created>
+----
+
+The `<dcterms:created>` element declares its own namespaces and uses a different namespace (`xsi`) for its `type` attribute. This is handled correctly because:
+
+* The element namespace comes from the Model's `xml do ... namespace ...` declaration
+* The attribute namespace comes from the Type's `xml_namespace` declaration
+
+== Best Practices
+
+=== 1. Define Namespace Classes Once
+
+[source,ruby]
+----
+# Good: Reusable namespace class
+class DcNamespace < Lutaml::Model::XmlNamespace
+  uri "http://purl.org/dc/elements/1.1/"
+  prefix_default "dc"
+end
+
+# Use it for multiple Types
+class DcTitleType < Lutaml::Model::Type::String
+  xml_namespace(DcNamespace)
+end
+
+class DcCreatorType < Lutaml::Model::Type::String
+  xml_namespace(DcNamespace)
+end
+----
+
+=== 2. Use Descriptive Type Names
+
+[source,ruby]
+----
+# Good: Clear what namespace this Type belongs to
+class DcTitleType < Lutaml::Model::Type::String
+  xml_namespace(DcNamespace)
+end
+
+# Avoid: Generic name without context
+class TitleType < Lutaml::Model::Type::String
+  xml_namespace(DcNamespace)
+end
+----
+
+=== 3. Model Structure Reflects XML Structure
+
+[source,ruby]
+----
+# The model hierarchy should match the XML hierarchy
+class CoreProperties < Lutaml::Model::Serializable
+  attribute :created, DctermsCreated  # Nested model
+
+  xml do
+    map_element "created", to: :created  # Maps to nested element
+  end
+end
+----
+
+=== 4. Test Round-Trip Parsing
+
+Always verify that parsing and re-serialization preserves:
+
+* All namespace declarations
+* All namespace prefixes
+* All data values
+* XML structure integrity
+
+[source,ruby]
+----
+# Round-trip test pattern
+original_xml = File.read("input.xml")
+instance = CoreProperties.from_xml(original_xml)
+serialized_xml = instance.to_xml
+reparsed = CoreProperties.from_xml(serialized_xml)
+
+# Verify data integrity
+expect(reparsed.title).to eq(instance.title)
+# ... verify all attributes ...
+
+# Verify XML structure
+expect(serialized_xml).to be_xml_equivalent_to(original_xml)
+----
+
+== Common Issues and Solutions
+
+=== Issue: Namespace Prefix Not Applied
+
+*Problem*: Elements appear without namespace prefixes
+
+*Solution*: Ensure the Type class has `xml_namespace` defined:
+
+[source,ruby]
+----
+class MyType < Lutaml::Model::Type::String
+  xml_namespace(MyNamespace)  # Don't forget this!
+end
+----
+
+=== Issue: Multiple Namespace Declarations
+
+*Problem*: Same namespace declared multiple times
+
+*Solution*: The system automatically consolidates namespace declarations. If you see duplicates, ensure you're using the same namespace instance:
+
+[source,ruby]
+----
+# Good: Single namespace instance
+CONTACT_NS = ContactNamespace
+
+class GivenNameType < Lutaml::Model::Type::String
+  xml_namespace(CONTACT_NS)
+end
+
+class SurnameType < Lutaml::Model::Type::String
+  xml_namespace(CONTACT_NS)
+end
+----
+
+=== Issue: Round-Trip Changes Prefixes
+
+*Problem*: Input uses `DC` but output uses `dc`
+
+*Solution*: This is expected behavior. The system normalizes to the `prefix_default` defined in the namespace class. The namespace URI is preserved, which is what matters for XML equivalence.
+
+== Testing Tools
+
+The test suite provides XML equivalence checking:
+
+[source,ruby]
+----
+expect(actual_xml).to be_xml_equivalent_to(expected_xml)
+----
+
+This matcher:
+
+* Ignores whitespace differences
+* Normalizes namespace prefixes
+* Verifies namespace URIs match
+* Compares element structure and content
+
+== See Also
+
+* link:xml-mappings-guide[XML Mappings Guide] for basic XML mapping
+* link:xml-namespace-qualification[XML Namespace Qualification] for detailed namespace control
+* link:../references/three-phase-namespace-architecture[Three-Phase Namespace Architecture] for implementation details
+* link:NAMESPACE_SCOPE_SEMANTICS.md[Namespace Scope Semantics] for namespace inheritance rules

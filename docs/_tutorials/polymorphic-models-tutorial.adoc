@@ -1,0 +1,253 @@
+---
+title: Polymorphic Models Tutorial
+nav_order: 8
+---
+
+= Polymorphic models tutorial
+
+== Introduction
+
+Polymorphic attributes allow an attribute to accept multiple types of values. This is useful when attributes share common characteristics but have type-specific behaviors.
+
+== Understanding polymorphism
+
+A polymorphic attribute can accept instances of different classes that share a common base class.
+
+Components:
+
+Polymorphic superclass:: The base class for all accepted types
+Polymorphic subclasses:: Specific types that inherit from the superclass
+Polymorphic attribute:: The attribute accepting multiple types
+Differentiator:: An attribute that identifies which subclass is used
+
+== Simple polymorphic example
+
+Here's a basic example with references:
+
+.Basic polymorphic attribute
+[example]
+====
+[source,ruby]
+----
+# Base class
+class Reference < Lutaml::Model::Serializable
+  attribute :name, :string
+end
+
+# Subclass 1
+class DocumentReference < Reference
+  attribute :document_id, :string
+end
+
+# Subclass 2
+class AnchorReference < Reference
+  attribute :anchor_id, :string
+end
+
+# Class using polymorphic attribute
+class Bibliography < Lutaml::Model::Serializable
+  attribute :references, Reference,
+    collection: true,
+    polymorphic: [DocumentReference, AnchorReference]
+end
+----
+====
+
+== Setting up the differentiator
+
+For serialization to work, you need a "polymorphic class differentiator" - an attribute that identifies the subclass.
+
+=== Approach 1: Differentiator in superclass
+
+Add the differentiator to the base class:
+
+.Superclass differentiator
+[example]
+====
+[source,ruby]
+----
+class Reference < Lutaml::Model::Serializable
+  attribute :_class, :string, polymorphic_class: true
+  attribute :name, :string
+
+  key_value do
+    map "_class", to: :_class, polymorphic_map: {
+      "Document" => "DocumentReference",
+      "Anchor" => "AnchorReference"
+    }
+    map "name", to: :name
+  end
+end
+
+class DocumentReference < Reference
+  attribute :document_id, :string
+
+  key_value do
+    map "document_id", to: :document_id
+  end
+end
+
+class AnchorReference < Reference
+  attribute :anchor_id, :string
+
+  key_value do
+    map "anchor_id", to: :anchor_id
+  end
+end
+----
+====
+
+== Using polymorphic collections
+
+Define which subclasses the collection accepts:
+
+.Polymorphic collection
+[example]
+====
+[source,ruby]
+----
+class ReferenceSet < Lutaml::Model::Serializable
+  attribute :references, Reference,
+    collection: true,
+    polymorphic: [DocumentReference, AnchorReference]
+
+  key_value do
+    map "references", to: :references, polymorphic: {
+      attribute: "_class",
+      class_map: {
+        "Document" => "DocumentReference",
+        "Anchor" => "AnchorReference"
+      }
+    }
+  end
+end
+----
+
+[source,yaml]
+----
+references:
+- _class: Document
+  name: The Tibetan Book of the Dead
+  document_id: book:tbtd
+- _class: Anchor
+  name: Chapter 1
+  anchor_id: book:tbtd:anchor-1
+----
+
+[source,ruby]
+----
+> refs = ReferenceSet.from_yaml(yaml)
+> refs.references.first.class
+> # DocumentReference
+> refs.references.last.class
+> # AnchorReference
+----
+====
+
+== XML polymorphism
+
+XML uses attributes or elements as differentiators:
+
+.XML polymorphic example
+[example]
+====
+[source,ruby]
+----
+class Reference < Lutaml::Model::Serializable
+  attribute :_class, :string, polymorphic_class: true
+  attribute :name, :string
+
+  xml do
+    map_attribute "reference-type", to: :_class, polymorphic_map: {
+      "document-ref" => "DocumentReference",
+      "anchor-ref" => "AnchorReference"
+    }
+    map_element "name", to: :name
+  end
+end
+----
+
+[source,xml]
+----
+<ReferenceSet>
+  <reference reference-type="document-ref">
+    <name>The Tibetan Book of the Dead</name>
+    <document_id>book:tbtd</document_id>
+  </reference>
+  <reference reference-type="anchor-ref">
+    <name>Chapter 1</name>
+    <anchor_id>book:tbtd:anchor-1</anchor_id>
+  </reference>
+</ReferenceSet>
+----
+====
+
+== Polymorphic options
+
+Control which subclasses are accepted:
+
+[source,ruby]
+----
+# Accept all subclasses
+attribute :item, BaseClass, polymorphic: true
+
+# Accept specific subclasses only
+attribute :item, BaseClass, polymorphic: [Subclass1, Subclass2]
+----
+
+== Common use cases
+
+=== Multiple document types
+
+[source,ruby]
+----
+class Document < Lutaml::Model::Serializable
+  attribute :title, :string
+end
+
+class Article < Document
+  attribute :publication_date, :date
+end
+
+class Report < Document
+  attribute :report_number, :string
+end
+
+class Library < Lutaml::Model::Serializable
+  attribute :documents, Document,
+    collection: true,
+    polymorphic: [Article, Report]
+end
+----
+
+=== Shape hierarchy
+
+[source,ruby]
+----
+class Shape < Lutaml::Model::Serializable
+  attribute :color, :string
+end
+
+class Circle < Shape
+  attribute :radius, :float
+end
+
+class Rectangle < Shape
+  attribute :width, :float
+  attribute :height, :float
+end
+
+class Drawing < Lutaml::Model::Serializable
+  attribute :shapes, Shape,
+    collection: true,
+    polymorphic: true  # Accept all Shape subclasses
+end
+----
+
+== Next steps
+
+Learn more about:
+
+* link:../pages/attributes#polymorphic-attributes[Complete polymorphic attributes reference]
+* link:../pages/collections#polymorphic-collections[Polymorphic collections]
+* link:../guides/advanced-mapping[Advanced mapping techniques]

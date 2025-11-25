@@ -1,0 +1,22 @@
+---
+title: Breaking changes
+nav_order: 10
+parent: Core topics
+---
+
+== Breaking changes in Lutaml::Model
+
+=== General
+
+This document lists breaking changes introduced in each version of Lutaml::Model.
+
+
+=== v0.8.0: XML default namespace behavior
+
+Version 0.8.0 introduces a **breaking change** to XML namespace serialization
+behavior to align with W3C XML standards.
+
+The default output format has changed from prefixed namespaces to default
+namespaces for cleaner, more standards-compliant XML.
+
+A migration guide is provided at link:docs/migration-guides/0-8-0-xml-default-namespace-migration.adoc[XML default namespace behavior migration guide].

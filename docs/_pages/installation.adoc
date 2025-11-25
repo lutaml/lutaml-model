@@ -1,0 +1,36 @@
+---
+title: Installation
+nav_order: 1
+parent: Core Topics
+---
+
+= Installation
+
+Add this line to your application's Gemfile:
+
+[source,ruby]
+----
+gem 'lutaml-model'
+----
+
+And then execute:
+
+[source,shell]
+----
+bundle install
+----
+
+Or install it yourself as:
+
+[source,shell]
+----
+gem install lutaml-model
+----
+
+== Next steps
+
+After installation:
+
+* link:quick-start[Quick Start Guide]
+* link:configuration[Configure serialization adapters]
+* link:../tutorials/basic-model-definition[Define your first model]

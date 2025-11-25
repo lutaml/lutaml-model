@@ -1,0 +1,192 @@
+---
+title: First JSON Serialization
+nav_order: 3
+---
+
+= First JSON serialization
+
+== Introduction
+
+JSON is a widely used data format for web APIs and configuration files. Lutaml::Model makes it easy to serialize your models to and from JSON, YAML, TOML, and Hash formats using a unified mapping approach.
+
+== Basic JSON mapping
+
+The `json` block defines how your model maps to JSON format.
+
+Syntax:
+
+[source,ruby]
+----
+class Example < Lutaml::Model::Serializable
+  json do
+    map 'json_key', to: :attribute_name
+  end
+end
+----
+
+.Simple JSON mapping
+[example]
+====
+[source,ruby]
+----
+class Person < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :age, :integer
+
+  json do
+    map 'name', to: :name
+    map 'age', to: :age
+  end
+end
+----
+
+[source,json]
+----
+{
+  "name": "John Doe",
+  "age": 28
+}
+----
+
+[source,ruby]
+----
+> Person.from_json(json)
+> #<Person:0x0000000104ac7240 @name="John Doe", @age=28>
+> Person.new(name: "John Doe", age: 28).to_json
+----
+====
+
+== Unified key-value mapping
+
+The `key_value` block lets you define mappings once for all key-value formats (JSON, YAML, TOML, Hash).
+
+.Using unified key-value mapping
+[example]
+====
+[source,ruby]
+----
+class Ceramic < Lutaml::Model::Serializable
+  attribute :color, :string
+  attribute :glaze, :string
+
+  key_value do
+    map 'color', to: :color
+    map 'glaze', to: :glaze
+  end
+end
+----
+
+This mapping works for JSON, YAML, TOML, and Hash formats automatically!
+
+[source,json]
+----
+{
+  "color": "Navy Blue",
+  "glaze": "Clear"
+}
+----
+
+[source,yaml]
+----
+color: Navy Blue
+glaze: Clear
+----
+
+[source,ruby]
+----
+> Ceramic.from_json(json)
+> #<Ceramic:0x0000000104ac7240 @color="Navy Blue", @glaze="Clear">
+> Ceramic.new(color: "Navy Blue", glaze: "Clear").to_yaml
+----
+====
+
+== Nested objects
+
+JSON naturally supports nested objects. Just reference another model class as an attribute type.
+
+.Mapping nested JSON objects
+[example]
+====
+[source,ruby]
+----
+class Glaze < Lutaml::Model::Serializable
+  attribute :color, :string
+  attribute :temperature, :integer
+
+  json do
+    map 'color', to: :color
+    map 'temperature', to: :temperature
+  end
+end
+
+class Ceramic < Lutaml::Model::Serializable
+  attribute :type, :string
+  attribute :glaze, Glaze
+
+  json do
+    map 'type', to: :type
+    map 'glaze', to: :glaze
+  end
+end
+----
+
+[source,json]
+----
+{
+  "type": "Porcelain",
+  "glaze": {
+    "color": "Clear",
+    "temperature": 1050
+  }
+}
+----
+
+[source,ruby]
+----
+> Ceramic.from_json(json)
+> #<Ceramic:0x0000000104ac7240 @type="Porcelain", @glaze=#<Glaze @color="Clear", @temperature=1050>>
+----
+====
+
+== Collections in JSON
+
+Collections serialize naturally as JSON arrays.
+
+.JSON arrays map to collection attributes
+[example]
+====
+[source,ruby]
+----
+class Studio < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :potters, :string, collection: true
+
+  json do
+    map 'name', to: :name
+    map 'potters', to: :potters
+  end
+end
+----
+
+[source,json]
+----
+{
+  "name": "Pottery Studio",
+  "potters": ["John", "Jane", "Bob"]
+}
+----
+
+[source,ruby]
+----
+> Studio.from_json(json)
+> #<Studio:0x0000000104ac7240 @name="Pottery Studio", @potters=["John", "Jane", "Bob"]>
+----
+====
+
+== Next steps
+
+Now that you understand basic JSON serialization, you can:
+
+* Learn about link:../guides/keyvalue-serialization[advanced key-value features]
+* Explore link:working-with-collections[working with collections]
+* Try link:../guides/value-transformations[value transformations]

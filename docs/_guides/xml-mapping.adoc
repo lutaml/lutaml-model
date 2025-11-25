@@ -1,0 +1,1577 @@
+---
+title: XML Mapping
+nav_order: 2
+---
+
+= XML Serialization Mapping
+:toc:
+:toclevels: 3
+
+[[mapping-xml]]
+== General
+
+=== General
+
+XML is a widely used structured serialization format standardized by the W3C.
+
+At a high level, XML defines the following primitives:
+
+* XML element (`<element-name>content</element-name>`)
+* XML attribute (`<element-name ... attribute-name="attribute value">`)
+* XML namespace (`xmlns='namespace-uri'`)
+* XSD (XML Schema) constructs:
+** XML simple type: primitive values (`xs:...`)
+** XML complex type: structural definition (an element can require a complex
+type, complex types can be constructed from other types)
+** XML complex type declaration definitions: sequence, order, etc.
+
+It is **imperative** that the developer fully understands these concepts before
+embarking on developing XML mappings for models.
+
+
+=== XML namespace
+
+==== General
+
+== XML elements and XML types
+
+=== XML elements and XML types (for Lutaml::Model)
+
+==== General
+
+In Lutaml::Model, XML serialization mappings are defined using the `xml` block.
+
+Syntax:
+
+[source,ruby]
+----
+class Example < Lutaml::Model::Serializable
+  xml do
+    # Type-level methods
+
+    # Mapping methods
+  end
+end
+----
+
+==== Defining element name (`element`)
+
+The `element` method is the primary way to declare the XML element name
+("tag name") for an XML element.
+
+NOTE: The `root` method was previously used for the same purpose as `element`,
+and is now an alias to `element`. It is considered deprecated usage due to
+more accurate naming of `element`.
+
+An XML mapping that does not use the `element` declaration means it is an "XML
+type".
+
+NOTE: If `element` is not given, but used as a root of an XML element without
+a tag name defined (an ad-hoc tag name can be defined in a mapping), then the
+snake-cased class name will be used as the tag name.
+
+[example]
+`element 'example'` sets the tag name for in XML as `<example>...</example>`.
+
+Syntax:
+
+[source,ruby]
+----
+xml do
+  element 'element-name'
+end
+----
+
+.Setting the element name to `example`
+[example]
+====
+[source,ruby]
+----
+class Example < Lutaml::Model::Serializable
+  xml do
+    element 'example'
+  end
+end
+----
+
+[source,ruby]
+----
+> Example.new.to_xml
+> #<example></example>
+----
+====
+
+
+.Setting ad-hoc element names in a mapping
+[example]
+====
+[source,ruby]
+----
+class Ceramic < Lutaml::Model::Serializable
+  attribute :type, :string
+
+  xml do
+    element 'ceramic'
+    map_element 'type', to: :type
+  end
+end
+
+puts Ceramic.new(type: "Porcelain").to_xml
+# => <ceramic><type>Porcelain</type></ceramic>
+----
+====
+
+
+The `root` method is maintained as a backward-compatible alias to `element` that
+also supports the `mixed:` and `ordered:` options.
+
+[NOTE]
+====
+In v0.8.0 onwards, these options are deprecated in favor of:
+
+* the `mixed_content` method replaces `mixed: true`;
+* the `sequence do` block replaces the `ordered: true` option
+====
+
+Syntax:
+
+[source,ruby]
+----
+xml do
+  root 'element-name', mixed: false, ordered: false
+end
+----
+
+Values:
+
+`mixed`::: (optional) `true` to enable mixed content (text + elements), `false`
+otherwise (default)
+
+`ordered`::: (optional) `true` to preserve element order, `false` otherwise
+(default)
+
+.Using `root` with options
+[example]
+====
+[source,ruby]
+----
+class Paragraph < Lutaml::Model::Serializable
+  attribute :bold, :string, collection: true
+  attribute :italic, :string
+
+  xml do
+    root 'p', mixed: true  # Enable mixed content
+    map_element 'bold', to: :bold
+    map_element 'i', to: :italic
+  end
+end
+----
+====
+
+
+
+==== Declaring an XML type (`element` omitted)
+
+For XML type-only models (models used only as embedded types without their own
+element), simply omit the `element` declaration.
+
+Syntax:
+
+[source,ruby]
+----
+class Address < Lutaml::Model::Serializable
+  xml do
+    # No element() or root() call - this is a type-only model
+    sequence do
+      map_element 'street', to: :street
+      map_element 'city', to: :city
+    end
+  end
+end
+----
+
+NOTE: Type-only models can only be parsed when embedded in parent models, not
+standalone. Attempting to call `Address.from_xml(xml)` will raise
+`NoRootMappingError`.
+
+// TODO: This understanding is wrong -- a type can declare attributes,
+// we need to fix this.
+
+The `no_root` method is deprecated.
+
+Syntax:
+
+[source,ruby]
+----
+xml do
+  no_root
+end
+----
+
+.Syntax for `no_root` method (deprecated)
+[source,ruby]
+----
+class Address < Lutaml::Model::Serializable
+  xml do
+    no_root  # DEPRECATED
+    map_element 'street', to: :street
+  end
+end
+----
+
+When `no_root` is used, only `map_element` can be used because without a root
+element there cannot be attributes.
+
+[example]
+====
+[source,ruby]
+----
+class NameAndCode < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :code, :string
+
+  xml do
+    no_root
+    map_element "code", to: :code
+    map_element "name", to: :name
+  end
+end
+----
+
+[source,xml]
+----
+<name>Name</name>
+<code>ID-001</code>
+----
+
+[source,ruby]
+----
+> parsed = NameAndCode.from_xml(xml)
+> # <NameAndCode:0x0000000107a3ca70 @code="ID-001", @name="Name">
+> parsed.to_xml
+> # <code>ID-001</code><name>Name</name>
+----
+====
+
+[[mixed-content]]
+==== Mixed content elements (`mixed_content` method)
+
+The `mixed_content` method explicitly enables mixed content mode.
+
+Mixed content means that the XML element or type is whitespace and order
+sensitive, and therefore preserves them.
+
+This is most typically used encoding rich-text or semantically-tagged text.
+
+[example]
+====
+[source,xml]
+----
+<description><p>My name is <bold>John Doe</bold>, and I'm <i>28</i> years old</p></description>
+----
+====
+
+
+A mixed content mode:
+
+* Preserves text nodes interspersed with elements
+* Automatically enables ordered mode
+* Required for rich text content
+
+Syntax:
+
+[source,ruby]
+----
+xml do
+  element 'element-name'
+  mixed_content  # Enables mixed content + ordered
+end
+----
+
+.Using `mixed_content` explicitly
+[example]
+====
+[source,ruby]
+----
+class RichText < Lutaml::Model::Serializable
+  attribute :bold, :string, collection: true
+  attribute :italic, :string, collection: true
+
+  xml do
+    element 'text'
+    mixed_content  # Explicit mixed content declaration
+
+    map_element 'b', to: :bold
+    map_element 'i', to: :italic
+  end
+end
+
+xml_input = "<text>This is <b>bold</b> and <i>italic</i> text</text>"
+parsed = RichText.from_xml(xml_input)
+# Preserves: "This is ", "<b>bold</b>", " and ", "<i>italic</i>", " text"
+----
+====
+
+==== (DEPRECATED) Mixed content declaration (`root` method with `mixed:`)
+
+To map this to Lutaml::Model we can use the `mixed` option in either way:
+
+* when defining the model;
+* when referencing the model.
+
+NOTE: This feature is not supported by Shale.
+
+
+To specify mixed content, the `mixed: true` option needs to be set at the
+`xml` block's `root` method.
+
+(DEPRECATED) Syntax:
+
+[source,ruby]
+----
+xml do
+  root 'xml_element_name', mixed: true
+end
+----
+
+.Applying `mixed` to treat root as mixed content
+[example]
+====
+[source,ruby]
+----
+class Paragraph < Lutaml::Model::Serializable
+  attribute :bold, :string, collection: true # allows multiple bold tags
+  attribute :italic, :string
+
+  xml do
+    root 'p', mixed: true
+
+    map_element 'bold', to: :bold
+    map_element 'i', to: :italic
+  end
+end
+----
+
+[source,ruby]
+----
+> Paragraph.from_xml("<p>My name is <bold>John Doe</bold>, and I'm <i>28</i> years old</p>")
+> #<Paragraph:0x0000000104ac7240 @bold="John Doe", @italic="28">
+> Paragraph.new(bold: "John Doe", italic: "28").to_xml
+> #<p>My name is <bold>John Doe</bold>, and I'm <i>28</i> years old</p>
+----
+====
+
+// TODO: How to create mixed content from `#new`?
+
+
+[[ordered-content]]
+==== Ordered content
+
+`ordered: true` maintains the order of **XML Elements**, while `mixed: true`
+preserves the order of **XML Elements and Content**.
+
+NOTE: When both options are used, `mixed: true` takes precedence.
+
+To specify ordered content, the `ordered: true` option needs to be set at the
+`xml` block's `root` method.
+
+Syntax:
+
+[source,ruby]
+----
+xml do
+  root 'xml_element_name', ordered: true
+end
+----
+
+.Applying `ordered` to treat root as ordered content
+[example]
+====
+
+[source,ruby]
+----
+class RootOrderedContent < Lutaml::Model::Serializable
+  attribute :bold, :string
+  attribute :italic, :string
+  attribute :underline, :string
+
+  xml do
+    root "RootOrderedContent", ordered: true
+    map_element :bold, to: :bold
+    map_element :italic, to: :italic
+    map_element :underline, to: :underline
+  end
+end
+----
+
+[source,xml]
+----
+<RootOrderedContent>
+  <underline>Moon</underline>
+  <italic>384,400 km</italic>
+  <bold>bell</bold>
+</RootOrderedContent>
+----
+
+[source,ruby]
+----
+> instance = RootOrderedContent.from_xml(xml)
+> # <RootOrderedContent:0x0000000104ac7240 @bold="bell", @italic="384,400 km", @underline="Moon">
+> instance.to_xml
+> # <RootOrderedContent>
+  #   <underline>Moon</underline>
+  #   <italic>384,400 km</italic>
+  #   <bold>bell</bold>
+  # </RootOrderedContent>
+----
+
+**Without Ordered True:**
+
+[source,ruby]
+----
+class RootOrderedContent < Lutaml::Model::Serializable
+  attribute :bold, :string
+  attribute :italic, :string
+  attribute :underline, :string
+
+  xml do
+    root "RootOrderedContent"
+    map_element :bold, to: :bold
+    map_element :italic, to: :italic
+    map_element :underline, to: :underline
+  end
+end
+----
+
+[source,xml]
+----
+<RootOrderedContent>
+  <underline>Moon</underline>
+  <italic>384,400 km</italic>
+  <bold>bell</bold>
+</RootOrderedContent>
+----
+
+[source,ruby]
+----
+> instance = RootOrderedContent.from_xml(xml)
+> # <RootOrderedContent:0x0000000104ac7240 @bold="bell", @italic="384,400 km", @underline="Moon">
+> instance.to_xml # The order now follows attribute declaration order
+> # <RootOrderedContent>
+  #   <bold>bell</bold>
+  #   <italic>384,400 km</italic>
+  #   <underline>Moon</underline>
+  # </RootOrderedContent>
+----
+====
+
+== XML content mapping
+
+=== XML content mapping
+
+
+==== Mapping elements
+
+===== General
+
+The `map_element` method maps an XML element to a data model attribute.
+
+[example]
+To handle the `<name>` tag in `<example><name>John Doe</name></example>`.
+The value will be set to `John Doe`.
+
+Syntax:
+
+[source,ruby]
+----
+xml do
+  map_element 'xml_element_name', to: :name_of_attribute
+end
+----
+
+.Mapping the `name` tag to the `name` attribute
+[example]
+====
+[source,ruby]
+----
+class Example < Lutaml::Model::Serializable
+  attribute :name, :string
+
+  xml do
+    root 'example'
+    map_element 'name', to: :name
+  end
+end
+----
+
+[source,xml]
+----
+<example><name>John Doe</name></example>
+----
+
+[source,ruby]
+----
+> Example.from_xml(xml)
+> #<Example:0x0000000104ac7240 @name="John Doe">
+> Example.new(name: "John Doe").to_xml
+> #<example><name>John Doe</name></example>
+----
+====
+
+If an element is mapped to a model object with the XML `root` tag name set, the
+mapped tag name will be used as the root name, overriding the root name.
+
+.The mapped tag name is used as the root name
+[example]
+====
+[source,ruby]
+----
+class RecordDate < Lutaml::Model::Serializable
+  attribute :content, :string
+
+  xml do
+    root "recordDate"
+    map_content to: :content
+  end
+end
+
+class OriginInfo < Lutaml::Model::Serializable
+  attribute :date_issued, RecordDate, collection: true
+
+  xml do
+    root "originInfo"
+    map_element "dateIssued", to: :date_issued
+  end
+end
+----
+
+[source,ruby]
+----
+> RecordDate.new(date: "2021-01-01").to_xml
+> #<recordDate>2021-01-01</recordDate>
+> OriginInfo.new(date_issued: [RecordDate.new(date: "2021-01-01")]).to_xml
+> #<originInfo><dateIssued>2021-01-01</dateIssued></originInfo>
+----
+====
+
+===== Namespace mapping overrides
+
+====== General
+
+Elements can override the declared namespaces of attributes through the
+`namespace:` and `prefix:` options on mapping rules.
+
+
+====== Overriding a namespace
+
+Syntax:
+
+[source,ruby]
+----
+xml do
+  map_element 'name', to: :attr, namespace: XmlNamespaceClass
+end
+----
+
+
+Deprecated syntax:
+
+[source,ruby]
+----
+xml do
+  map_element 'name', to: :attr,
+    namespace: 'namespace-uri',
+    prefix: 'prefix'
+end
+----
+
+.Using different namespaces for elements
+[example]
+====
+[source,ruby]
+----
+class CeramicNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/ceramic'
+  prefix_default 'cer'
+end
+
+class GlazeNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/glaze'
+  prefix_default 'glz'
+end
+
+class Ceramic < Lutaml::Model::Serializable
+  attribute :type, :string
+  attribute :glaze, :string
+
+  xml do
+    element 'ceramic'
+    namespace CeramicNamespace
+
+    # This element uses parent namespace
+    map_element 'type', to: :type
+
+    # This element uses different namespace
+    map_element 'glaze', to: :glaze,
+      namespace: GlazeNamespace
+  end
+end
+
+puts Ceramic.new(type: "Porcelain", glaze: "Celadon").to_xml
+# => <cer:ceramic xmlns:cer="https://example.com/ceramic"
+#                 xmlns:glz="https://example.com/glaze">
+#      <type>Porcelain</type>
+#      <glz:glaze>Celadon</glz:glaze>
+#    </cer:ceramic>
+----
+====
+
+[[namespace-inherit]]
+====== Inheriting parent namespace
+
+Use `namespace: :inherit` to explicitly qualify an element with the parent's
+namespace.
+
+Syntax:
+
+[source,ruby]
+----
+xml do
+  map_element 'xml_element_name', to: :name_of_attribute, namespace: :inherit
+end
+----
+
+
+.Using `namespace: :inherit`
+[example]
+====
+[source,ruby]
+----
+class CeramicNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/ceramic'
+  prefix_default 'cer'
+  element_form_default :unqualified  # Local elements normally unqualified
+end
+
+class Ceramic < Lutaml::Model::Serializable
+  attribute :type, :string
+  attribute :special_type, :string
+
+  xml do
+    element 'ceramic'
+    namespace CeramicNamespace
+
+    map_element 'type', to: :type  # Follows default: unqualified
+
+    # Force this element to inherit parent namespace
+    map_element 'specialType', to: :special_type, namespace: :inherit
+  end
+end
+
+puts Ceramic.new(type: "Porcelain", special_type: "Fine").to_xml
+# => <cer:ceramic xmlns:cer="https://example.com/ceramic">
+#      <type>Porcelain</type>
+#      <cer:specialType>Fine</cer:specialType>
+#    </cer:ceramic>
+----
+====
+
+.Using the `inherit` option to inherit the namespace from the root element
+[example]
+====
+In this example, the `Type` element will inherit the namespace from the root.
+
+[source,ruby]
+----
+class ColorXmlNamespace < Lutaml::Model::XmlNamespace
+  uri 'http://example.com/color'
+  default_prefix 'clr'
+end
+
+class Ceramic < Lutaml::Model::Serializable
+  attribute :type, :string
+  attribute :glaze, :string
+  attribute :color, :string
+
+  xml do
+    root 'Ceramic'
+    namespace 'http://example.com/ceramic', 'cera'
+    map_element 'Type', to: :type, namespace: :inherit
+    map_element 'Glaze', to: :glaze
+    map_attribute 'color', to: :color, namespace: ColorXmlNamespace
+  end
+end
+----
+
+[source,xml]
+----
+<cera:Ceramic
+  xmlns:cera='http://example.com/ceramic'
+  xmlns:clr='http://example.com/color'
+  clr:color="navy-blue">
+  <cera:Type>Porcelain</cera:Type>
+  <Glaze>Clear</Glaze>
+</cera:Ceramic>
+----
+
+[source,ruby]
+----
+> Ceramic.from_xml(xml_file)
+> #<Ceramic:0x0000000104ac7240 @type="Porcelain", @glaze="Clear", @color="navy-blue">
+> Ceramic.new(type: "Porcelain", glaze: "Clear", color: "navy-blue").to_xml
+> #<cera:Ceramic xmlns:cera="http://example.com/ceramic"
+  # xmlns:clr='http://example.com/color'
+  # clr:color="navy-blue">
+  #  <cera:Type>Porcelain</cera:Type>
+  #  <Glaze>Clear</Glaze>
+  # </cera:Ceramic>
+----
+====
+
+
+
+==== Mapping attributes
+
+===== General
+
+The `map_attribute` method maps an XML attribute to a data model attribute.
+
+Syntax:
+
+[source,ruby]
+----
+xml do
+  map_attribute 'xml_attribute_name', to: :name_of_attribute
+end
+----
+
+.Using `map_attribute` to map the `value` attribute
+[example]
+====
+The following class will parse the XML snippet below:
+
+[source,ruby]
+----
+class Example < Lutaml::Model::Serializable
+  attribute :value, :integer
+
+  xml do
+    root 'example'
+    map_attribute 'value', to: :value
+  end
+end
+----
+
+[source,xml]
+----
+<example value="12"><name>John Doe</name></example>
+----
+
+[source,ruby]
+----
+> Example.from_xml(xml)
+> #<Example:0x0000000104ac7240 @value=12>
+> Example.new(value: 12).to_xml
+> #<example value="12"></example>
+----
+====
+
+The `map_attribute` method does not inherit the root element's namespace.
+To specify a namespace for an attribute, please explicitly declare the
+*namespace* and *prefix* in the `map_attribute` method.
+
+[example]
+====
+The following class will parse the XML snippet below:
+
+[source,ruby]
+----
+class TechXmiXmlNamespace < Lutaml::Model::Xml::Namespace
+  uri "http://www.tech.co/XMI"
+  default_prefix "xl"
+end
+
+class TechXmiIntegerType < Lutaml::Model::Value::String
+  xml_namespace TechXmiXmlNamespace
+end
+
+class Attribute < Lutaml::Model::Serializable
+  attribute :value, TechXmiIntegerType
+
+  xml do
+    root 'example'
+    map_attribute 'value', to: :value
+  end
+end
+----
+
+[source,xml]
+----
+<example xl:value="20" xmlns:xl="http://www.tech.co/XMI"></example>
+----
+
+[source,ruby]
+----
+> Attribute.from_xml(xml)
+> #<Attribute:0x0000000109436db8 @value=20>
+> Attribute.new(value: 20).to_xml
+> #<example xmlns:xl=\"http://www.tech.co/XMI\" xl:value=\"20\"/>
+----
+====
+
+===== Namespace on attribute
+
+If the namespace is defined on a model attribute that already has a namespace,
+the mapped namespace will be given priority over the one defined in the class.
+
+Syntax (with reuseable `XmlNamespace`):
+
+[source,ruby]
+----
+xml do
+  map_element 'xml_element_name', to: :name_of_attribute,
+    namespace: ExampleXmlNamespaceClass
+end
+----
+
+Where:
+
+`namespace`:: The XML namespace used by this element, as an XmlNamespace class
+
+Syntax (ad-hoc definition of namespace, results in an anonymous `XmlNamespace`
+class):
+
+[source,ruby]
+----
+xml do
+  map_element 'xml_element_name', to: :name_of_attribute,
+    namespace: 'http://example.com/namespace',
+    prefix: 'prefix'
+end
+----
+
+Where:
+
+`namespace`:: The XML namespace used by this element, as a URI string
+`prefix`:: The XML namespace prefix used by this element (optional)
+
+.Using the `namespace` option to set the namespace for an element
+[example]
+====
+In this example, `glz` will be used for `Glaze` if it is added inside the
+`Ceramic` class, and `glaze` will be used otherwise.
+
+[source,ruby]
+----
+class GlazeXmlNamespace < Lutaml::Model::XmlNamespace
+  uri 'http://example.com/glaze'
+  default_prefix 'glz'
+end
+
+class CeramicXmlNamespace < Lutaml::Model::XmlNamespace
+  uri 'http://example.com/ceramic'
+  default_prefix 'cera'
+end
+
+class OldGlazeXmlNamespace < Lutaml::Model::XmlNamespace
+  uri 'http://example.com/old_glaze'
+  default_prefix 'glaze'
+end
+
+class Ceramic < Lutaml::Model::Serializable
+  attribute :type, :string
+  attribute :glaze, Glaze
+
+  xml do
+    element 'Ceramic'
+    namespace CeramicXmlNamespace
+
+    map_element 'Type', to: :type
+    # This will use the GlazeXmlNamespace through the Glaze class
+    map_element 'Glaze', to: :glaze
+  end
+end
+
+class Glaze < Lutaml::Model::Serializable
+  attribute :color, :string
+  attribute :temperature, :integer
+
+  xml do
+    element 'Glaze'
+    namespace OldGlazeXmlNamespace
+
+    map_element 'color', to: :color
+    map_element 'temperature', to: :temperature
+  end
+end
+----
+
+[source,xml]
+----
+<Ceramic xmlns='http://example.com/ceramic'>
+  <Type>Porcelain</Type>
+  <glz:Glaze xmlns='http://example.com/glaze'>
+    <color>Clear</color>
+    <temperature>1050</temperature>
+  </glz:Glaze>
+</Ceramic>
+----
+
+[source,ruby]
+----
+> # Using the original Glaze class namespace
+> Glaze.new(color: "Clear", temperature: 1050).to_xml
+> #<glaze:Glaze xmlns="http://example.com/old_glaze"><color>Clear</color><temperature>1050</temperature></glaze:Glaze>
+
+> # Using the Ceramic class namespace for Glaze
+> Ceramic.from_xml(xml_file)
+> #<Ceramic:0x0000000104ac7240 @type="Porcelain", @glaze=#<Glaze:0x0000000104ac7240 @color="Clear", @temperature=1050>>
+> Ceramic.new(type: "Porcelain", glaze: Glaze.new(color: "Clear", temperature: 1050)).to_xml
+> #<Ceramic xmlns="http://example.com/ceramic"><Type>Porcelain</Type><glz:Glaze xmlns="http://example.com/glaze"><color>Clear</color><temperature>1050</temperature></glz:Glaze></Ceramic>
+----
+====
+
+
+==== Mapping content
+
+Content represents the text inside an XML element, inclusive of whitespace.
+
+The `map_content` method maps an XML element's content to a data model
+attribute.
+
+Syntax:
+
+[source,ruby]
+----
+xml do
+  map_content to: :name_of_attribute
+end
+----
+
+.Using `map_content` to map content of the `description` tag
+[example]
+====
+The following class will parse the XML snippet below:
+
+[source,ruby]
+----
+class Example < Lutaml::Model::Serializable
+  attribute :description, :string
+
+  xml do
+    root 'example'
+    map_content to: :description
+  end
+end
+----
+
+[source,xml]
+----
+<example>John Doe is my moniker.</example>
+----
+
+[source,ruby]
+----
+> Example.from_xml(xml)
+> #<Example:0x0000000104ac7240 @description="John Doe is my moniker.">
+> Example.new(description: "John Doe is my moniker.").to_xml
+> #<example>John Doe is my moniker.</example>
+----
+====
+
+
+[[xml-map-all]]
+==== Mapping entire XML element into an attribute
+
+The `map_all` tag in XML mapping captures and maps all content within an XML
+element into a single attribute in the target Ruby object.
+
+The use case for `map_all` is to tell Lutaml::Model to not parse the content of
+the XML element at all, and instead handle it as an XML string.
+
+NOTE: The corresponding method for key-value formats is at <<key-value-map-all>>.
+
+WARNING: Notice that usage of mapping all will lead to incompatibility between
+serialization formats, i.e. the raw string content will not be portable as
+objects are across different formats.
+
+This is useful in the case where the content of an XML element is not to be
+handled by a Lutaml::Model::Serializable object.
+
+This feature is commonly used with custom methods or a custom model object to
+handle the content.
+
+This includes:
+
+* nested tags
+* attributes
+* text nodes
+
+The `map_all` tag is **exclusive** and cannot be combined with other mappings
+(`map_element`, `map_content`) except for `map_attribute` for the same element,
+ensuring it captures the entire inner XML content.
+
+NOTE: An error is raised if `map_all` is defined alongside any other mapping in
+the same XML mapping context.
+
+Syntax:
+
+[source,ruby]
+----
+xml do
+  map_all to: :name_of_attribute
+end
+----
+
+.Mapping all the content using `map_all`
+[example]
+====
+[source,ruby]
+----
+class ExampleMapping < Lutaml::Model::Serializable
+  attribute :description, :string
+
+  xml do
+    map_all to: :description
+  end
+end
+----
+
+[source,xml]
+----
+<ExampleMapping>Content with <b>tags</b> and <i>formatting</i>.</ExampleMapping>
+----
+
+[source,ruby]
+----
+> parsed = ExampleMapping.from_xml(xml)
+> puts parsed.all_content
+# "Content with <b>tags</b> and <i>formatting</i>."
+----
+====
+
+
+==== Mapping CDATA nodes
+
+CDATA is an XML feature that allows the inclusion of text that may contain
+characters that are unescaped in XML.
+
+While CDATA is not preferred in XML, it is sometimes necessary to handle CDATA
+nodes for both input and output.
+
+NOTE: The W3C XML Recommendation explicitly encourages escaping characters over
+usage of CDATA.
+
+Lutaml::Model supports the handling of CDATA nodes in XML in the following
+behavior:
+
+. When an attribute contains a CDATA node with no text:
+** On reading: The node (CDATA or text) is read as its value.
+** On writing: The value is written as its native type.
+
+. When an XML mapping sets `cdata: true` on `map_element` or `map_content`:
+** On reading: The node (CDATA or text) is read as its value.
+** On writing: The value is written as a CDATA node.
+
+. When an XML mapping sets `cdata: false` on `map_element` or `map_content`:
+** On reading: The node (CDATA or text) is read as its value.
+** On writing: The value is written as a text node (string).
+
+
+Syntax:
+
+[source,ruby]
+----
+xml do
+  map_content to: :name_of_attribute, cdata: (true | false)
+  map_element :name, to: :name, cdata: (true | false)
+end
+----
+
+.Using `cdata` to map CDATA content
+[example]
+====
+The following class will parse the XML snippet below:
+
+[source,ruby]
+----
+class Example < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :description, :string
+  attribute :title, :string
+  attribute :note, :string
+
+  xml do
+    root 'example'
+    map_element :name, to: :name, cdata: true
+    map_content to: :description, cdata: true
+    map_element :title, to: :title, cdata: false
+    map_element :note, to: :note, cdata: false
+  end
+end
+----
+
+[source,xml]
+----
+<example><name><![CDATA[John]]></name><![CDATA[here is the description]]><title><![CDATA[Lutaml]]></title><note>Careful</note></example>
+----
+
+[source,ruby]
+----
+> Example.from_xml(xml)
+> #<Example:0x0000000104ac7240 @name="John" @description="here is the description" @title="Lutaml" @note="Careful">
+> Example.new(name: "John", description: "here is the description", title: "Lutaml", note: "Careful").to_xml
+> #<example><name><![CDATA[John]]></name><![CDATA[here is the description]]><title>Lutaml</title><note>Careful</note></example>
+----
+====
+
+
+
+
+
+* nested tags
+* attributes
+* text nodes
+
+The `map_all` tag is **exclusive** and cannot be combined with other mappings
+(`map_element`, `map_content`) except for `map_attribute` for the same element,
+ensuring it captures the entire inner XML content.
+
+NOTE: An error is raised if `map_all` is defined alongside any other mapping in
+the same XML mapping context.
+
+Syntax:
+
+[source,ruby]
+----
+xml do
+  map_all to: :name_of_attribute
+end
+----
+
+.Mapping all the content using `map_all`
+[example]
+====
+[source,ruby]
+----
+class ExampleMapping < Lutaml::Model::Serializable
+  attribute :description, :string
+
+  xml do
+    map_all to: :description
+  end
+end
+----
+
+[source,xml]
+----
+<ExampleMapping>Content with <b>tags</b> and <i>formatting</i>.</ExampleMapping>
+----
+
+[source,ruby]
+----
+> parsed = ExampleMapping.from_xml(xml)
+> puts parsed.all_content
+# "Content with <b>tags</b> and <i>formatting</i>."
+----
+====
+
+
+==== Mapping CDATA nodes
+
+CDATA is an XML feature that allows the inclusion of text that may contain
+characters that are unescaped in XML.
+
+While CDATA is not preferred in XML, it is sometimes necessary to handle CDATA
+nodes for both input and output.
+
+NOTE: The W3C XML Recommendation explicitly encourages escaping characters over
+usage of CDATA.
+
+Lutaml::Model supports the handling of CDATA nodes in XML in the following
+behavior:
+
+. When an attribute contains a CDATA node with no text:
+** On reading: The node (CDATA or text) is read as its value.
+** On writing: The value is written as its native type.
+
+. When an XML mapping sets `cdata: true` on `map_element` or `map_content`:
+** On reading: The node (CDATA or text) is read as its value.
+** On writing: The value is written as a CDATA node.
+
+. When an XML mapping sets `cdata: false` on `map_element` or `map_content`:
+** On reading: The node (CDATA or text) is read as its value.
+** On writing: The value is written as a text node (string).
+
+
+Syntax:
+
+[source,ruby]
+----
+xml do
+  map_content to: :name_of_attribute, cdata: (true | false)
+  map_element :name, to: :name, cdata: (true | false)
+end
+----
+
+.Using `cdata` to map CDATA content
+[example]
+====
+The following class will parse the XML snippet below:
+
+[source,ruby]
+----
+class Example < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :description, :string
+  attribute :title, :string
+  attribute :note, :string
+
+  xml do
+    root 'example'
+    map_element :name, to: :name, cdata: true
+    map_content to: :description, cdata: true
+    map_element :title, to: :title, cdata: false
+    map_element :note, to: :note, cdata: false
+  end
+end
+----
+
+  xmlns:cera="http://example.com/ceramic"
+  xmlns:clr="http://example.com/color"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  clr:color="navy-blue"
+  xsi:schemaLocation="
+    http://example.com/ceramic http://example.com/ceramic.xsd
+    http://example.com/color http://example.com/color.xsd
+  ">
+  <cera:Type>Porcelain</cera:Type>
+  <Glaze>Clear</Glaze>
+</cera:Ceramic>
+HERE
+----
+
+[source,ruby]
+----
+> c = Ceramic.from_xml(xml_content)
+=>
+#<Ceramic:0x00000001222bdd60
+...
+> schema_loc = c.schema_location
+#<Lutaml::Model::SchemaLocation:0x0000000122773760
+...
+> schema_loc
+=>
+#<Lutaml::Model::SchemaLocation:0x0000000122773760
+ @namespace="http://www.w3.org/2001/XMLSchema-instance",
+ @original_schema_location="http://example.com/ceramic http://example.com/ceramic.xsd http://example.com/color http://example.com/color.xsd",
+ @prefix="xsi",
+ @schema_location=
+  [#<Lutaml::Model::Location:0x00000001222bd018 @location="http://example.com/ceramic.xsd", @namespace="http://example.com/ceramic">,
+   #<Lutaml::Model::Location:0x00000001222bcfc8 @location="http://example.com/color.xsd", @namespace="http://example.com/color">]>
+> new_c = Ceramic.new(type: "Porcelain", glaze: "Clear", color: "navy-blue", schema_location: schema_loc).to_xml
+> puts new_c
+# <cera:Ceramic
+#   xmlns:cera="http://example.com/ceramic"
+#   xmlns:clr="http://example.com/color"
+#   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+#   clr:color="navy-blue"
+#   xsi:schemaLocation="
+#     http://example.com/ceramic http://example.com/ceramic.xsd
+#     http://example.com/color http://example.com/color.xsd
+#   ">
+#   <cera:Type>Porcelain</cera:Type>
+#   <cera:Glaze>Clear</cera:Glaze>
+# </cera:Ceramic>
+----
+====
+
+NOTE: For details on `xsi:schemaLocation`, please refer to the
+https://www.w3.org/TR/xmlschema-1/#xsi_schemaLocation[W3C XML standard].
+
+
+
+==== Example for mapping
+
+[example]
+====
+The following class will parse the XML snippet below:
+
+[source,ruby]
+----
+class Ceramic < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :description, :string
+  attribute :temperature, :integer
+
+  xml do
+    root 'ceramic'
+    map_element 'name', to: :name
+    map_attribute 'temperature', to: :temperature
+    map_content to: :description
+  end
+end
+----
+
+[source,xml]
+----
+<ceramic temperature="1200"><name>Porcelain Vase</name> with celadon glaze.</ceramic>
+----
+
+[source,ruby]
+----
+> Ceramic.from_xml(xml)
+> #<Ceramic:0x0000000104ac7240 @name="Porcelain Vase", @description=" with celadon glaze.", @temperature=1200>
+> Ceramic.new(name: "Porcelain Vase", description: " with celadon glaze.", temperature: 1200).to_xml
+> #<ceramic temperature="1200"><name>Porcelain Vase</name> with celadon glaze.</ceramic>
+----
+====
+
+
+
+
+
+
+=== XML types (for Lutaml::Model::Value)
+
+==== General
+
+LutaML provides a number of methods to customize the XML role of custom Values.
+
+==== Value namespaces
+
+Type-level namespaces are particularly useful for:
+
+* Reusable types that belong to specific namespaces (e.g., Dublin Core properties, custom XSD types)
+* Multi-namespace document structures (e.g., Office Open XML, Dublin Core metadata)
+* XSD schema generation with proper namespace imports
+* W3C-compliant round-trip serialization and deserialization
+
+==== Value `xml_namespace` directive
+
+Custom value types declare their namespace using the `xml_namespace` class-level
+directive.
+
+Syntax:
+
+[source,ruby]
+----
+class CustomType < Lutaml::Model::Type::Value
+  xml_namespace CustomNamespace  # <1>
+  xsd_type 'CustomType'          # <2>
+
+  def self.cast(value)
+    # Type conversion logic
+  end
+end
+----
+<1> The `xml_namespace` directive associates an `XmlNamespace` class
+<2> The `xsd_type` directive sets the XSD type name for schema generation
+
+Where,
+
+`xml_namespace`:: Class-level directive that accepts an `XmlNamespace` class.
+This namespace will be applied to any element or attribute using this type,
+unless overridden by explicit mapping namespace. Works for both serialization
+and deserialization.
+
+`xsd_type`:: Class-level directive that sets the XSD type name. If not
+specified, defaults to `default_xsd_type` from the parent class (e.g.,
+`xs:string` for `Type::String`).
+
+
+Type-level namespaces are resolved during both serialization and deserialization:
+
+**During serialization (`to_xml`):**
+
+* When an element or attribute uses a custom type with namespace
+* The type's namespace is consulted if no explicit mapping namespace exists
+* Namespace declarations are added to the XML document root
+* Elements/attributes are prefixed according to namespace resolution priority
+
+**During deserialization (`from_xml`):**
+
+* Namespace-qualified elements/attributes are matched against type namespaces
+* Both prefixed (`dc:title`) and default namespace elements are handled
+* Type namespaces work with `namespace: :inherit` and explicit mappings
+
+.Using namespace directive with a custom type
+[example]
+====
+[source,ruby]
+----
+class EmailNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/types/email'
+  prefix_default 'email'
+end
+
+class EmailType < Lutaml::Model::Type::String
+  xml_namespace EmailNamespace
+  xsd_type 'EmailAddress'
+
+  def self.cast(value)
+    email = super(value)
+    unless email.match?(/\A[\w+\-.]+@[a-z\d\-]+(\.[a-z\d\-]+)*\.[a-z]+\z/i)
+      raise Lutaml::Model::TypeError, "Invalid email: #{email}"
+    end
+    email.downcase
+  end
+end
+
+class Contact < Lutaml::Model::Serializable
+  attribute :email, EmailType
+
+  xml do
+    root 'contact'
+    map_element 'email', to: :email  # Uses EmailNamespace automatically
+  end
+end
+
+# Serialization output:
+contact = Contact.new(email: "user@example.com")
+puts contact.to_xml
+# => <contact xmlns:email="https://example.com/types/email">
+#      <email:email>user@example.com</email:email>
+#    </contact>
+
+# Deserialization (round-trip):
+parsed = Contact.from_xml(contact.to_xml)
+parsed.email  # => "user@example.com"
+parsed === contact  # => true
+----
+====
+
+
+
+
+=== Instance serialization
+
+==== General
+
+XML serialization is controlled via the `to_xml` method on
+`Lutaml::Model::Serializable` and `Lutaml::Model::Value` objects.
+instances.
+
+Syntax:
+
+[source,ruby]
+----
+instance.to_xml(options)
+----
+
+Where,
+
+`options`:: Hash of serialization options (see below for details)
+
+
+
+==== Namespace prefix behavior
+
+===== General
+
+The `prefix:` option in `to_xml` controls whether the root element's namespace
+is rendered as a default namespace (no prefix) or with a prefix.
+
+This is a _serialization-time decision_ that allows the same model to output
+clean W3C-compliant XML (default namespace) or prefixed XML for legacy system
+compatibility.
+
+IMPORTANT: Only the **root element's own namespace** can be set as default.
+Other namespaces in scope MUST use their defined prefixes.
+
+
+===== Default behavior: clean XML with default namespace
+
+By default, `to_xml` renders the root element's namespace as a default namespace
+(`xmlns="..."`) with no prefix. This produces clean, W3C-compliant XML.
+
+NOTE: A namespace is only rendered **if and only if** the element itself
+is assigned an XML namespace.
+
+Syntax:
+
+[source,ruby]
+----
+instance.to_xml  # <1>
+----
+<1> No `prefix:` option uses default namespace (no prefix)
+
+.Default namespace output (no prefix)
+[example]
+====
+[source,ruby]
+----
+class AppNamespace < Lutaml::Model::XmlNamespace
+  uri 'http://schemas.openxmlformats.org/officeDocument/2006/extended-properties'
+  prefix_default 'app'
+end
+
+class Properties < Lutaml::Model::Serializable
+  attribute :template, :string
+
+  xml do
+    root "Properties"
+    namespace AppNamespace
+    map_element "Template", to: :template
+  end
+end
+
+props = Properties.new(template: "Normal.dotm")
+puts props.to_xml
+----
+
+Output:
+
+[source,xml]
+----
+<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties">
+  <Template>Normal.dotm</Template>
+</Properties>
+----
+
+NOTE: Clean XML with no prefixes. The namespace is declared as default
+(`xmlns="..."`).
+====
+
+===== Using defined default prefix
+
+To use the prefix defined in `XmlNamespace.prefix_default` of the element, pass
+`prefix: true`:
+
+Syntax:
+
+[source,ruby]
+----
+instance.to_xml(prefix: true)  # <1>
+----
+<1> Uses `prefix_default` from XmlNamespace class
+
+.Output with defined default prefix
+[example]
+====
+[source,ruby]
+----
+props = Properties.new(template: "Normal.dotm")
+puts props.to_xml(prefix: true)
+----
+
+Output:
+
+[source,xml]
+----
+<app:Properties xmlns:app="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties">
+  <app:Template>Normal.dotm</app:Template>
+</app:Properties>
+----
+
+NOTE: All elements in the same namespace use the "app" prefix.
+====
+
+===== Using custom prefix
+
+To use a specific custom prefix (overriding `prefix_default`), pass a string:
+
+Syntax:
+
+[source,ruby]
+

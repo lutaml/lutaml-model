@@ -1,0 +1,475 @@
+---
+title: XML Namespace Qualification
+nav_order: 3
+---
+
+= XML Namespace Qualification and Prefix Control
+:toc:
+:toclevels: 3
+
+== Overview
+
+This document explains the critical distinction between namespace *qualification* (semantic) and namespace *format* (syntactic) in Lutaml::Model, and how the `prefix:` option interacts with namespace qualification rules.
+
+== Core Concepts
+
+=== Namespace Qualification (Semantic)
+
+*Question*: Is an element IN a namespace?
+
+*Controlled by*:
+
+* `element_form_default` in XmlNamespace class (schema-level default)
+* `form:` option in `map_element` (mapping-level override)
+* `namespace:` option with explicit namespace class or `:inherit`
+
+*Example*:
+[source,ruby]
+----
+class MyNamespace < Lutaml::Model::XmlNamespace
+  uri "http://example.com/ns"
+  prefix_default "ex"
+  element_form_default :qualified  # Children inherit namespace
+end
+----
+
+=== Namespace Format (Syntactic)
+
+*Question*: HOW to render a namespace that IS used?
+
+*Controlled by*:
+
+* `prefix: true/false` in `to_xml()` method
+* Default: uses default namespace (`xmlns="..."`)
+* With prefix: uses prefixed namespace (`xmlns:ex="..."`)
+
+*Example*:
+[source,ruby]
+----
+instance.to_xml(prefix: true)   # Uses xmlns:ex="..." format
+instance.to_xml(prefix: false)  # Uses xmlns="..." format
+instance.to_xml(prefix: "custom")  # Uses xmlns:custom="..." format
+----
+
+== W3C XML Schema Compliance
+
+=== elementFormDefault Rules
+
+According to W3C XML Schema specification:
+
+[cols="1,2,2"]
+|===
+|Setting |Meaning |Example
+
+|`:qualified`
+|Child elements inherit parent's namespace
+|`<parent><child>` both in same namespace
+
+|`:unqualified` (default)
+|Child elements are in NO namespace
+|`<parent><child>` child has no namespace
+
+|Not set
+|Defaults to `:unqualified`
+|Same as `:unqualified`
+|===
+
+=== Prefix Control Behavior
+
+IMPORTANT: The `prefix:` option *only affects elements that ARE qualified*.
+
+==== Rule
+
+[source,text]
+----
+IF element is qualified (has namespace)
+  THEN use `prefix:` option to determine format
+ELSE
+  element remains unprefixed (no namespace)
+----
+
+==== Examples
+
+.Example 1: Unqualified Children (Default)
+[source,ruby]
+----
+class MyNamespace < Lutaml::Model::XmlNamespace
+  uri "http://example.com/ns"
+  prefix_default "ex"
+  # element_form_default NOT set → defaults to :unqualified
+end
+
+class Parent < Lutaml::Model::Serializable
+  attribute :value, :string
+
+  xml do
+    namespace MyNamespace
+    root "parent"
+    map_element "child", to: :value
+  end
+end
+
+Parent.new(value: "test").to_xml(prefix: true)
+----
+
+*Output*:
+[source,xml]
+----
+<ex:parent xmlns:ex="http://example.com/ns">
+  <child>test</child>
+</ex:parent>
+----
+
+*Explanation*: Child element is unqualified (no namespace), so it doesn't get prefixed even though parent uses `prefix: true`.
+
+.Example 2: Qualified Children
+[source,ruby]
+----
+class MyNamespace < Lutaml::Model::XmlNamespace
+  uri "http://example.com/ns"
+  prefix_default "ex"
+  element_form_default :qualified  # Children inherit namespace
+end
+
+class Parent < Lutaml::Model::Serializable
+  attribute :value, :string
+
+  xml do
+    namespace MyNamespace
+    root "parent"
+    map_element "child", to: :value
+  end
+end
+
+Parent.new(value: "test").to_xml(prefix: true)
+----
+
+*Output*:
+[source,xml]
+----
+<ex:parent xmlns:ex="http://example.com/ns">
+  <ex:child>test</ex:child>
+</ex:parent>
+----
+
+*Explanation*: Child element is qualified (inherits namespace), so it uses parent's prefix format.
+
+== Three Ways to Qualify Elements
+
+=== 1. Schema-Level: element_form_default
+
+*Best for*: All children should be qualified
+
+[source,ruby]
+----
+class MyNamespace < Lutaml::Model::XmlNamespace
+  uri "http://example.com/ns"
+  prefix_default "ex"
+  element_form_default :qualified
+end
+
+class Model < Lutaml::Model::Serializable
+  xml do
+    namespace MyNamespace
+    # All child elements automatically qualified
+  end
+end
+----
+
+=== 2. Mapping-Level: form: :qualified
+
+*Best for*: Specific elements should be qualified
+
+[source,ruby]
+----
+class Model < Lutaml::Model::Serializable
+  xml do
+    namespace MyNamespace
+    map_element "qualified", to: :value, form: :qualified
+    map_element "unqualified", to: :other  # Remains unqualified
+  end
+end
+----
+
+=== 3. Mapping-Level: namespace: :inherit
+
+*Best for*: Explicitly inherit parent namespace regardless of schema default
+
+[source,ruby]
+----
+class Model < Lutaml::Model::Serializable
+  xml do
+    namespace MyNamespace
+    map_element "child", to: :value, namespace: :inherit
+  end
+end
+----
+
+NOTE: All three approaches produce identical results when used with `prefix:` option.
+
+== Common Patterns
+
+=== Pattern 1: Uniform Prefix for All Elements
+
+[source,ruby]
+----
+# Define namespace with element_form_default
+MyNS = Class.new(Lutaml::Model::XmlNamespace) do
+  uri "http://example.com"
+  prefix_default "ex"
+  element_form_default :qualified
+end
+
+# All elements will use prefix consistently
+instance.to_xml(prefix: true)
+# <ex:root xmlns:ex="..."><ex:child>...</ex:child></ex:root>
+----
+
+=== Pattern 2: Mixed Qualified/Unqualified
+
+[source,ruby]
+----
+# No element_form_default (defaults to unqualified)
+MyNS = Class.new(Lutaml::Model::XmlNamespace) do
+  uri "http://example.com"
+  prefix_default "ex"
+end
+
+class Model < Lutaml::Model::Serializable
+  xml do
+    namespace MyNS
+    map_element "qualified", to: :val1, form: :qualified
+    map_element "unqualified", to: :val2  # No form specified
+  end
+end
+
+instance.to_xml(prefix: true)
+# <ex:root xmlns:ex="...">
+#   <ex:qualified>...</ex:qualified>
+#   <unqualified>...</unqualified>
+# </ex:root>
+----
+
+=== Pattern 3: Custom Prefix Override
+
+[source,ruby]
+----
+# Original namespace has prefix "ex"
+instance.to_xml(prefix: "custom")
+# <custom:root xmlns:custom="..."><custom:child>...</custom:child></custom:root>
+----
+
+== Nested Models
+
+When models are nested, namespace qualification rules apply recursively:
+
+[source,ruby]
+----
+NS = Class.new(Lutaml::Model::XmlNamespace) do
+  uri "http://example.com"
+  prefix_default "ex"
+  element_form_default :qualified
+end
+
+class Child < Lutaml::Model::Serializable
+  attribute :value, :string
+  xml do
+    namespace NS
+    root "child"
+    map_element "value", to: :value
+  end
+end
+
+class Parent < Lutaml::Model::Serializable
+  attribute :child, Child
+  xml do
+    namespace NS
+    root "parent"
+    map_element "child", to: :child
+  end
+end
+
+Parent.new(child: Child.new(value: "test")).to_xml(prefix: true)
+----
+
+*Output*:
+[source,xml]
+----
+<ex:parent xmlns:ex="http://example.com">
+  <ex:child>
+    <ex:value>test</ex:value>
+  </ex:child>
+</ex:parent>
+----
+
+All three elements (`parent`, `child`, `value`) use the prefix because all are qualified via `element_form_default: :qualified`.
+
+== Type Namespaces
+
+Value types can define their own namespaces:
+
+[source,ruby]
+----
+class CustomType < Lutaml::Model::Type::String
+  xml_namespace MyNamespace
+end
+
+Lutaml::Model::Type.register(:custom, CustomType)
+
+class Model < Lutaml::Model::Serializable
+  attribute :value, :custom  # Uses CustomType's namespace
+
+  xml do
+    namespace ParentNamespace
+    map_element "value", to: :value
+  end
+end
+----
+
+If type's namespace matches parent's namespace and parent uses prefix, the element will use that prefix.
+
+== Troubleshooting
+
+=== Element Not Getting Prefix
+
+*Problem*: `to_xml(prefix: true)` but child elements don't have prefix
+
+*Solution*: Add qualification to child elements:
+
+[source,ruby]
+----
+# Option 1: Schema-level
+class MyNamespace < Lutaml::Model::XmlNamespace
+  element_form_default :qualified  # ADD THIS
+end
+
+# Option 2: Mapping-level
+map_element "child", to: :value, form: :qualified
+
+# Option 3: Explicit inherit
+map_element "child", to: :value, namespace: :inherit
+----
+
+=== Unexpected Namespace on Element
+
+*Problem*: Element has namespace when it shouldn't
+
+*Check*:
+
+1. Is `element_form_default: :qualified` set?
+2. Is `form: :qualified` on the mapping?
+3. Does the Type have a namespace?
+
+*Solution*: Explicitly mark as unqualified:
+
+[source,ruby]
+----
+map_element "value", to: :value, form: :unqualified
+----
+
+=== Round-Trip Issues
+
+*Problem*: `from_xml` doesn't parse what `to_xml` generates
+
+*Cause*: Parser expects specific qualification pattern
+
+*Solution*: Ensure consistent namespace configuration between serialization and deserialization.
+
+== Best Practices
+
+=== 1. Be Explicit About Qualification
+
+[source,ruby]
+----
+# GOOD: Clear intent
+class MyNamespace < Lutaml::Model::XmlNamespace
+  element_form_default :qualified  # or :unqualified
+end
+
+# AVOID: Relying on default
+class MyNamespace < Lutaml::Model::XmlNamespace
+  # Defaults to :unqualified, but intent unclear
+end
+----
+
+=== 2. Document Namespace Decisions
+
+[source,ruby]
+----
+class MyNamespace < Lutaml::Model::XmlNamespace
+  uri "http://example.com/v1"
+  prefix_default "v1"
+
+  # All child elements should be qualified to match external XML schema
+  element_form_default :qualified
+end
+----
+
+=== 3. Test Both Formats
+
+[source,ruby]
+----
+it "works with default namespace" do
+  xml = instance.to_xml(prefix: false)
+  expect(xml).to include('xmlns="http://example.com"')
+end
+
+it "works with prefix" do
+  xml = instance.to_xml(prefix: true)
+  expect(xml).to include('xmlns:ex="http://example.com"')
+  expect(xml).to include('<ex:element>')
+end
+----
+
+=== 4. Match External Schemas
+
+When implementing an external schema (XSD), match its `elementFormDefault`:
+
+[source,xml]
+----
+<!-- External schema.xsd -->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           elementFormDefault="qualified">
+  <!-- ... -->
+</xs:schema>
+----
+
+[source,ruby]
+----
+# Your namespace should match
+class MyNamespace < Lutaml::Model::XmlNamespace
+  element_form_default :qualified  # Matches schema
+end
+----
+
+== Architecture Notes
+
+=== Three-Phase Namespace Architecture
+
+The implementation follows a three-phase architecture:
+
+1. *Collection Phase* (NamespaceCollector): Discovers all namespaces needed in the document tree
+2. *Planning Phase* (DeclarationPlanner): Decides where to declare each namespace and in what format
+3. *Rendering Phase* (Adapters): Applies the plan to generate XML
+
+The `prefix:` option affects the Planning Phase by creating a custom namespace class override with the specified prefix, which then propagates through the entire tree.
+
+=== XmlNamespace CLASS is Atomic
+
+IMPORTANT: Never split a namespace's URI and prefix. They are inseparable:
+
+* Same URI + different prefix = different XmlNamespace class
+* Always use `namespace_class.to_key` for lookups
+* Custom prefix creates a new anonymous XmlNamespace class
+
+== See Also
+
+* link:../references/three-phase-namespace-architecture[Three-Phase Namespace Architecture]
+* link:NAMESPACE_SCOPE_SEMANTICS.md[Namespace Scope Semantics]
+* link:MAPPING_NAMESPACE_SEMANTICS.md[Mapping-Level Namespace Semantics]
+* link:xml-mappings-guide[XML Mappings Guide]
+
+== References
+
+* https://www.w3.org/TR/xmlschema-1/#src-element[W3C XML Schema Part 1: Structures]
+* https://www.w3.org/TR/REC-xml-names/[W3C Namespaces in XML]

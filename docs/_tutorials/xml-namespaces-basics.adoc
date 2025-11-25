@@ -1,0 +1,194 @@
+---
+title: XML Namespaces Basics
+nav_order: 6
+---
+
+= XML namespaces basics
+
+== Introduction
+
+XML namespaces help avoid element name conflicts and organize elements from different schemas. This tutorial introduces namespace basics in Lutaml::Model.
+
+== What are XML namespaces?
+
+An XML namespace is a URI that uniquely identifies a set of element and attribute names. Namespaces prevent naming conflicts when combining XML from different sources.
+
+[example]
+====
+[source,xml]
+----
+<ceramic xmlns="http://example.com/ceramic">
+  <type>Porcelain</type>
+</ceramic>
+----
+
+The `xmlns` declares the default namespace for this element and its children.
+====
+
+== Creating a namespace class
+
+In Lutaml::Model, define namespaces using `XmlNamespace` classes:
+
+Syntax:
+
+[source,ruby]
+----
+class MyNamespace < Lutaml::Model::XmlNamespace
+  uri 'namespace-uri'
+  prefix_default 'prefix'
+end
+----
+
+.Defining a Ceramic namespace
+[example]
+====
+[source,ruby]
+----
+class CeramicNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/schemas/ceramic/v1'
+  prefix_default 'cer'
+end
+----
+====
+
+== Using namespaces in models
+
+Assign namespaces to your models using the `namespace` method:
+
+.Model with namespace
+[example]
+====
+[source,ruby]
+----
+class CeramicNamespace < Lutaml::Model::XmlNamespace
+  uri 'http://example.com/ceramic'
+  prefix_default 'cer'
+end
+
+class Ceramic < Lutaml::Model::Serializable
+  attribute :type, :string
+  attribute :glaze, :string
+
+  xml do
+    root 'Ceramic'
+    namespace CeramicNamespace
+
+    map_element 'Type', to: :type
+    map_element 'Glaze', to: :glaze
+  end
+end
+
+ceramic = Ceramic.new(type: "Porcelain", glaze: "Clear")
+puts ceramic.to_xml
+----
+
+Output (default namespace):
+
+[source,xml]
+----
+<Ceramic xmlns='http://example.com/ceramic'>
+  <Type>Porcelain</Type>
+  <Glaze>Clear</Glaze>
+</Ceramic>
+----
+====
+
+== Using prefixed namespaces
+
+To use a prefix instead of default namespace, use `prefix: true`:
+
+.Prefixed namespace output
+[example]
+====
+[source,ruby]
+----
+puts ceramic.to_xml(prefix: true)
+----
+
+Output:
+
+[source,xml]
+----
+<cer:Ceramic xmlns:cer='http://example.com/ceramic'>
+  <cer:Type>Porcelain</cer:Type>
+  <cer:Glaze>Clear</cer:Glaze>
+</cer:Ceramic>
+----
+====
+
+== Multiple namespaces
+
+Real-world XML often uses multiple namespaces:
+
+.Multi-namespace example
+[example]
+====
+[source,ruby]
+----
+class CeramicNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/ceramic'
+  prefix_default 'cer'
+end
+
+class GlazeNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/glaze'
+  prefix_default 'glz'
+end
+
+class Ceramic < Lutaml::Model::Serializable
+  attribute :type, :string
+  attribute :glaze, :string
+
+  xml do
+    element 'ceramic'
+    namespace CeramicNamespace
+
+    map_element 'type', to: :type
+    map_element 'glaze', to: :glaze, namespace: GlazeNamespace
+  end
+end
+
+puts Ceramic.new(type: "Porcelain", glaze: "Celadon").to_xml(prefix: true)
+----
+
+Output:
+
+[source,xml]
+----
+<cer:ceramic xmlns:cer="https://example.com/ceramic"
+             xmlns:glz="https://example.com/glaze">
+  <cer:type>Porcelain</cer:type>
+  <glz:glaze>Celadon</glz:glaze>
+</cer:ceramic>
+----
+====
+
+== Common pitfalls
+
+=== Forgetting namespace declarations
+
+Each namespace must be declared (explicitly or automatically):
+
+[source,ruby]
+----
+# ❌ Wrong - no namespace declaration
+puts ceramic.to_xml
+# Lutaml::Model may not know how to prefix elements
+
+# ✅ Correct - namespace declared in model
+xml do
+  namespace CeramicNamespace
+end
+----
+
+=== Mixing prefixed and default namespaces
+
+Remember: only the root element's namespace can be default. Other namespaces must use prefixes.
+
+== Next steps
+
+Learn more about:
+
+* link:../guides/xml-namespaces[Complete XML namespace guide]
+* link:../guides/xml-namespace-qualification[Namespace qualification]
+* link:../pages/serialization_adapters[Configuring XML adapters]

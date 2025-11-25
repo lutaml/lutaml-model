@@ -1,0 +1,505 @@
+---
+title: Liquid Templates
+nav_order: 11
+---
+
+= Liquid template integration
+:toc:
+:toclevels: 3
+
+== Liquid template access
+
+=== General
+
+WARNING: The Liquid template feature is optional. To enable it, please
+explicitly require the `liquid` gem.
+
+The https://shopify.github.io/liquid/[Liquid template language] is an
+open-source template language developed by Shopify and written in Ruby.
+
+`Lutaml::Model::Serializable` objects can be safely accessed within Liquid
+templates through a `to_liquid` method that converts the objects into
+`Liquid::Drop` instances.
+
+* All attributes are accessible in the Liquid template by their names.
+* Nested attributes are also converted into `Liquid::Drop` objects so
+inner attributes can be accessed using the Liquid dot notation.
+
+NOTE: Every `Lutaml::Model::Serializable` class extends the `Liquefiable` module
+which generates a corresponding `Liquid::Drop` class.
+
+NOTE: Methods defined in the `Lutaml::Model::Serializable` class are not
+accessible in the Liquid template.
+
+.Using `to_liquid` to convert model instances into corresponding Liquid drop instances
+
+[example]
+====
+[source,ruby]
+----
+class Ceramic < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :temperature, :integer
+end
+
+ceramic = Ceramic.new({ name: "Porcelain Vase", temperature: 1200 })
+ceramic_drop = ceramic.to_liquid
+# Ceramic::CeramicDrop
+
+puts ceramic_drop.name
+# "Porcelain Vase"
+puts ceramic_drop.temperature
+# 1200
+----
+====
+
+.Accessing LutaML::Model objects within a Liquid template
+[example]
+====
+[source,ruby]
+----
+class Ceramic < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :temperature, :integer
+end
+
+class CeramicCollection < Lutaml::Model::Serializable
+  attribute :ceramics, Ceramic, collection: true
+end
+----
+
+`sample.yml`:
+
+[source,yaml]
+----
+---
+ceramics:
+- name: Porcelain Vase
+  temperature: 1200
+- name: Earthenware Pot
+  temperature: 950
+- name: Stoneware Jug
+  temperature: 1200
+----
+
+`template.liquid`:
+
+[source,liquid]
+----
+{% for ceramic in ceramic_collection.ceramics %}
+* Name: "{{ ceramic.name }}"
+** Temperature: {{ ceramic.temperature }}
+{%- endfor %}
+----
+
+[source,ruby]
+----
+# Load the Lutaml::Model collection
+ceramic_collection = CeramicCollection.from_yaml(File.read("sample.yml"))
+
+# Load the Liquid template
+template = Liquid::Template.parse(File.read("template.liquid"))
+
+# Pass the Lutaml::Model collection to the Liquid template and render
+output = template.render("ceramic_collection" => ceramic_collection)
+puts output
+# >
+# * Name: "Porcelain Vase"
+# ** Temperature: 1200
+# * Name: "Earthenware Pot"
+# ** Temperature: 950
+# * Name: "Stoneware Jug"
+# ** Temperature: 1200
+----
+====
+
+.Accessing nested LutaML::Model objects within nested Liquid templates
+[example]
+====
+[source,ruby]
+----
+class Glaze < Lutaml::Model::Serializable
+  attribute :color, :string
+  attribute :opacity, :string
+end
+
+class CeramicWork < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :glaze, Glaze
+end
+
+class CeramicCollection < Lutaml::Model::Serializable
+  attribute :ceramics, Ceramic, collection: true
+end
+
+ceramic_work = CeramicWork.new({
+  name: "Celadon Bowl",
+  glaze: Glaze.new({
+    color: "Jade Green",
+    opacity: "Translucent"
+  })
+})
+ceramic_work_drop = ceramic_work.to_liquid
+# CeramicWork::CeramicWorkDrop
+
+puts ceramic_work_drop.name
+# "Celadon Bowl"
+puts ceramic_work_drop.glaze.color
+# "Jade Green"
+puts ceramic_work_drop.glaze.opacity
+# "Translucent"
+----
+
+`ceramics.yml`:
+
+[source,yaml]
+----
+---
+ceramics:
+- name: Celadon Bowl
+  glaze:
+    color: Jade Green
+    opacity: Translucent
+- name: Earthenware Pot
+  glaze:
+    color: Rust Red
+    opacity: Opaque
+- name: Stoneware Jug
+  glaze:
+    color: Cobalt Blue
+    opacity: Transparent
+----
+
+
+`templates/_ceramics.liquid`:
+
+[source,liquid]
+----
+{% for ceramic in ceramic_collection.ceramics %}
+{% render 'ceramic' ceramic: ceramic %}
+{%- endfor %}
+----
+
+NOTE: `render` is a Liquid tag that renders a partial template, by default
+Liquid uses the pattern `_%s.liquid` to find the partial template. Here
+`ceramic` refers to the file at `templates/_ceramic.liquid`.
+
+`templates/_ceramic.liquid`:
+
+[source,liquid]
+----
+* Name: "{{ ceramic.name }}"
+** Temperature: {{ ceramic.temperature }}
+{%- if ceramic.glaze %}
+** Glaze (color): {{ ceramic.glaze.color }}
+** Glaze (opacity): {{ ceramic.glaze.opacity }}
+{%- endif %}
+----
+
+[source,ruby]
+----
+require 'liquid'
+
+# Create a Liquid template object that supports dynamic loading
+template = Liquid::Template.new
+
+# Link the Liquid template object to a "local file system" (directory)
+file_system = Liquid::LocalFileSystem.new('templates/')
+template.registers[:file_system] = file_system
+
+# Load the partial template, this is necessary.
+# This will also allow Liquid to load any inner partials from the file system
+# dynamically (see `file_system.pattern` to see what it loads)
+template.parse(file_system.read_template_file('ceramics'))
+
+# Read the lutaml-model collection
+ceramic_collection = CeramicCollection.from_yaml(File.read("ceramics.yml"))
+
+# Render the template with the collection
+output = template.render("ceramic_collection" => ceramic_collection)
+puts output
+# >
+# * Name: "Celadon Bowl"
+# ** Temperature: 1200
+# ** Glaze (color): Jade Green
+# ** Glaze (finish): Translucent
+# * Name: "Earthenware Pot"
+# ** Temperature: 950
+# ** Glaze (color): Rust Red
+# ** Glaze (finish): Opaque
+# * Name: "Stoneware Jug"
+# ** Temperature: 1200
+# ** Glaze (color): Cobalt Blue
+# ** Glaze (finish): Transparent
+----
+====
+
+
+=== Automatic attribute access
+
+All model attributes are automatically available in liquid drops without any
+additional configuration.
+
+[source,ruby]
+----
+class User < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :email, :string
+  attribute :age, :integer
+end
+
+user = User.new(name: "John", email: "john@example.com", age: 30)
+drop = user.to_liquid
+
+# All attributes work directly in templates
+template = Liquid::Template.parse("{{name}} ({{email}}) is {{age}} years old")
+result = template.render(drop)
+# => "John (john@example.com) is 30 years old"
+----
+
+
+=== Custom attribute mapping
+
+You can define custom methods for your Liquid Drop classes and map them to
+specific keys in templates.
+
+All model attributes are automatically available in liquid drops by default
+using the same name.
+
+Use the `liquid` block to define custom mappings:
+
+[source,ruby]
+----
+class Product < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :price, :decimal
+  attribute :description, :string
+
+  liquid do
+    map "display_name", to: :formatted_name
+    map "price_with_currency", to: :formatted_price
+  end
+
+  def formatted_name
+    name.upcase
+  end
+
+  def formatted_price
+    "$#{price}"
+  end
+end
+
+product = Product.new(
+  name: "Laptop",
+  price: 999.99,
+  description: "High-performance laptop for professional use"
+)
+drop = product.to_liquid
+
+# All attributes are automatically available
+template = Liquid::Template.parse("{{name}} - {{price}} - {{description}}")
+result = template.render(drop)
+# => "Laptop - 999.99 - High-performance laptop for professional use"
+
+# Use mapped methods in templates
+template = Liquid::Template.parse("{{display_name}} costs {{price_with_currency}}")
+result = template.render(drop)
+# => "LAPTOP costs $999.99"
+----
+
+=== Liquid Drop class inheritance
+
+For advanced customization, you can create custom Liquid::Drop classes that
+inherit from the default base Liquid::Drop class auto-generated by
+Lutaml::Model.
+
+[NOTE]
+====
+When creating custom drop methods, use `@object` to access the original model
+instance. This is an internal reference and is not exposed to liquid templates
+directly.
+====
+
+
+[source,ruby]
+----
+class Schema < Lutaml::Model::Serializable
+  attribute :path, :string
+  attribute :source, :string
+
+  # Specify the name of your custom drop class
+  liquid_class "CustomSchemaDrop"
+
+  # You can still use liquid mappings
+  liquid do
+    map "template_path", to: :build_template_path
+  end
+
+  def build_template_path
+    File.join("templates", path)
+  end
+end
+
+# Get the base drop class for inheritance
+BaseDropClass = Schema.to_liquid_class
+
+# Create your custom drop class that inherits from the base
+class CustomSchemaDrop < BaseDropClass
+  # Add new methods not in the original drop
+  def formatted_source
+    "Source: #{@object.source.upcase}"
+  end
+
+  # Override existing methods
+  def path
+    "custom/#{@object.path}"
+  end
+end
+----
+
+
+Sophisticated inheritance hierarchies are supported:
+
+[source,ruby]
+----
+# Base model
+class Document < Lutaml::Model::Serializable
+  attribute :title, :string
+  attribute :content, :string
+
+  liquid_class "DocumentDrop"
+end
+
+# Get the base drop class
+BaseDocumentDrop = Document.to_liquid_class
+
+# Create a specialized drop class
+class DocumentDrop < BaseDocumentDrop
+  def word_count
+    @object.content.split.size
+  end
+
+  def summary
+    @object.content
+  end
+
+  def metadata
+    {
+      title: @object.title,
+      word_count: word_count,
+      char_count: @object.content.length
+    }
+  end
+end
+
+# Subclass for specific document types
+class TechnicalDocument < Document
+  attribute :version, :string
+  attribute :author, :string
+
+  liquid_class "TechnicalDocumentDrop"
+end
+
+# Get the base drop class for technical documents
+BaseTechnicalDrop = TechnicalDocument.to_liquid_class
+
+# Create specialized drop for technical documents
+class TechnicalDocumentDrop < BaseTechnicalDrop
+  def version_info
+    "Version #{@object.version} by #{@object.author}"
+  end
+
+  def technical_summary
+    "#{summary(50)} [#{version_info}]"
+  end
+
+  # Override parent method
+  def metadata
+    super.merge(
+      version: @object.version,
+      author: @object.author,
+      type: 'technical'
+    )
+  end
+end
+----
+
+
+=== Using custom Liquid Drop classes
+
+It is straightforward to use your custom Liquid Drop classes as a full
+replacement of the default drop class.
+
+[source,ruby]
+----
+schema = Schema.new(path: "config.xml", source: "database settings")
+drop = schema.to_liquid
+
+# The drop is now an instance of CustomSchemaDrop
+puts drop.class  # => CustomSchemaDrop
+puts drop.is_a?(CustomSchemaDrop)  # => true
+
+# All attributes are automatically accessible
+puts drop.path        # => "custom/config.xml" (overridden)
+puts drop.source      # => "database settings" (original attribute)
+
+# New methods work
+puts drop.formatted_source  # => "Source: DATABASE SETTINGS"
+
+# Liquid mappings still work
+puts drop.template_path     # => "templates/config.xml"
+
+# Use in templates
+template = Liquid::Template.parse("""
+Path: {{path}}
+Source: {{formatted_source}}
+Template: {{template_path}}
+""")
+
+result = template.render(drop)
+----
+
+
+=== Error handling
+
+When using custom liquid classes, you may encounter the following error:
+
+==== LiquidClassNotFoundError
+
+This error is raised when a custom liquid class specified with `liquid_class` is not defined or loaded in memory when `to_liquid` is called.
+
+[source,ruby]
+----
+class Schema < Lutaml::Model::Serializable
+  attribute :path, :string
+
+  # Specify a custom drop class name
+  liquid_class "CustomSchemaDrop"
+end
+
+# This will raise LiquidClassNotFoundError if CustomSchemaDrop is not defined
+schema = Schema.new(path: "config.xml")
+schema.to_liquid
+# => Lutaml::Model::LiquidClassNotFoundError: Liquid class 'CustomSchemaDrop' is not defined in memory. Please ensure the class is loaded before using it.
+----
+
+To fix this error, ensure that your custom drop class is defined before calling `to_liquid`:
+
+[source,ruby]
+----
+# Define the base drop class first
+BaseDropClass = Schema.to_liquid_class
+
+# Define your custom drop class
+class CustomSchemaDrop < BaseDropClass
+  def formatted_path
+    "Path: #{@object.path}"
+  end
+end
+
+# Now to_liquid will work correctly
+schema = Schema.new(path: "config.xml")
+drop = schema.to_liquid  # Works!
+puts drop.class  # => CustomSchemaDrop
+----
+

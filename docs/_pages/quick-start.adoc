@@ -1,0 +1,124 @@
+---
+title: Quick Start
+nav_order: 1
+---
+
+= Quick start
+
+== Purpose
+
+Lutaml::Model is the Ruby implementation of the LutaML modeling methodology for:
+
+* Creating information models in the LutaML language (or its Ruby DSL)
+* Serializing and deserializing LutaML information models
+* Accessing data instances of LutaML information models
+* Documenting LutaML information models
+
+It provides simple, flexible and comprehensive mechanisms for defining information models with attributes and types, and serializing them to/from Hash, JSON, XML, YAML, and TOML.
+
+== Key features
+
+* **Model-driven design** - Define models with attributes and types
+* **Multi-format serialization** - XML, JSON, YAML, TOML, Hash
+* **XML namespace support** - Full W3C namespace implementation
+* **Validation** - Built-in validation with custom rules
+* **Schema generation** - Generate XSD, JSON Schema, YAML Schema
+* **Polymorphism** - Handle multiple types elegantly
+* **Collections** - Work with groups of models
+* **Custom types** - Extend with your own value types
+
+== Installation
+
+Add to your Gemfile:
+
+[source,ruby]
+----
+gem 'lutaml-model'
+----
+
+Then run:
+
+[source,shell]
+----
+bundle install
+----
+
+== Your first model
+
+Here's a complete example showing model definition and serialization:
+
+[source,ruby]
+----
+require 'lutaml/model'
+
+class Person < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :age, :integer
+
+  xml do
+    root "person"
+    map_element "name", to: :name
+    map_element "age", to: :age
+  end
+
+  key_value do
+    map "name", to: :name
+    map "age", to: :age
+  end
+end
+
+# Create an instance
+person = Person.new(name: "John Doe", age: 30)
+
+# Serialize to different formats
+person.to_xml
+# => <person><name>John Doe</name><age>30</age></person>
+
+person.to_json
+# => {"name":"John Doe","age":30}
+
+person.to_yaml
+# => name: John Doe
+#    age: 30
+
+# Deserialize from formats
+Person.from_xml(xml_string)
+Person.from_json(json_string)
+Person.from_yaml(yaml_string)
+----
+
+== Next steps
+
+=== Tutorials (recommended path)
+
+Follow these tutorials in order:
+
+. link:../tutorials/basic-model-definition[Basic Model Definition]
+. link:../tutorials/first-xml-serialization[First XML Serialization]
+. link:../tutorials/first-json-serialization[First JSON Serialization]
+. link:../tutorials/working-with-collections[Working with Collections]
+. link:../tutorials/validation-basics[Validation Basics]
+
+=== Core topics
+
+Explore fundamental concepts:
+
+* link:models[Models] - Model definition and inheritance
+* link:attributes[Attributes] - Complete attribute system
+* link:value_types[Value Types] - Built-in and custom types
+* link:collections[Collections] - Groups of model instances
+* link:validation[Validation] - Data validation system
+
+=== Guides
+
+Task-oriented documentation:
+
+* link:../guides/xml-mapping[XML Mapping Guide]
+* link:../guides/keyvalue-serialization[Key-Value Serialization]
+* link:../guides/value-transformations[Value Transformations]
+
+== Getting help
+
+* link:https://github.com/lutaml/lutaml-model/issues[Report issues on GitHub]
+* link:https://github.com/lutaml/lutaml-model/discussions[Ask questions in Discussions]
+* link:../references/[Browse reference documentation]

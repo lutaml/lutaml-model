@@ -1,0 +1,907 @@
+= Troubleshooting
+
+== Common errors
+
+=== NoRootMappingError
+
+**Error message:**
+
+----
+Lutaml::Model::NoRootMappingError: ModelName has `no_root`, it is allowed
+only for reusable models
+----
+
+**Cause:**
+
+Attempting to parse a type-only model directly instead of through a parent
+model.
+
+**Solution:**
+
+Type-only models (without `element()` or `root()`) can only be parsed when
+embedded:
+
+[source,ruby]
+----
+# This will fail
+class Address < Lutaml::Model::Serializable
+  xml do
+    # No element declaration - type-only
+    map_element 'street', to: :street
+  end
+end
+
+Address.from_xml(xml)  # NoRootMappingError!
+
+# Solution: Parse through parent model
+class Contact < Lutaml::Model::Serializable
+  attribute :address, Address
+
+  xml do
+    element 'contact'
+    map_element 'address', to: :address
+  end
+end
+
+Contact.from_xml(xml)  # Works!
+----
+
+=== NoRootNamespaceError
+
+**Error message:**
+
+----
+Lutaml::Model::NoRootNamespaceError: Namespaces are not supported with
+`no_root`
+----
+
+**Cause:**
+
+Using `namespace` with `no_root` or type-only models.
+
+**Solution:**
+
+Remove namespace from type-only models, or add element declaration:
+
+[source,ruby]
+----
+# This will fail
+class Address < Lutaml::Model::Serializable
+  xml do
+    no_root
+    namespace 'https://example.com/address', 'addr'  # Not allowed!
+    map_element 'street', to: :street
+  end
+end
+
+# Solution 1: Remove namespace (type-only)
+class Address < Lutaml::Model::Serializable
+  xml do
+    # No namespace, no element
+    sequence do
+      map_element 'street', to: :street
+    end
+  end
+end
+
+# Solution 2: Add element declaration
+class Address < Lutaml::Model::Serializable
+  xml do
+    element 'address'  # Now it has an element
+    namespace 'https://example.com/address', 'addr'
+    map_element 'street', to: :street
+  end
+end
+----
+
+=== IncorrectSequenceError
+
+**Error message:**
+
+----
+Lutaml::Model::IncorrectSequenceError: Element `city` does not match the
+expected sequence order element `street`
+----
+
+**Cause:**
+
+Elements in XML appear in different order than defined in `sequence` block.
+
+**Solution:**
+
+Ensure XML elements match sequence order, or remove sequence if order doesn't
+matter:
+
+[source,ruby]
+----
+class Person < Lutaml::Model::Serializable
+  xml do
+    element 'person'
+    sequence do
+      map_element 'name', to: :name      # Must appear first
+      map_element 'email', to: :email    # Must appear second
+    end
+  end
+end
+
+# This works:
+valid_xml = "<person><name>John</name><email>j@ex.com</email></person>"
+
+# This fails:
+invalid_xml = "<person><email>j@ex.com</email><name>John</name></person>"
+# IncorrectSequenceError!
+
+# Solution: Fix XML order or remove sequence
+class Person < Lutaml::Model::Serializable
+  xml do
+    element 'person'
+    # No sequence - elements can appear in any order
+    map_element 'name', to: :name
+    map_element 'email', to: :email
+  end
+end
+----
+
+=== InvalidFormatError
+
+**Error message:**
+
+----
+Lutaml::Model::InvalidFormatError: Invalid XML format
+----
+
+**Cause:**
+
+Malformed XML input that cannot be parsed by the adapter.
+
+**Solution:**
+
+Validate XML syntax before parsing, or handle the error gracefully:
+
+[source,ruby]
+----
+begin
+  model = MyModel.from_xml(xml_string)
+rescue Lutaml::Model::InvalidFormatError => e
+  puts "XML is malformed: #{e.message}"
+  # Log error, return default, or re-raise as appropriate
+end
+----
+
+=== UnknownAdapterTypeError
+
+**Error message:**
+
+----
+Lutaml::Model::UnknownAdapterTypeError: Unknown XML adapter type: :invalid
+----
+
+**Cause:**
+
+XML adapter not configured or invalid adapter type specified.
+
+**Solution:**
+
+Configure XML adapter before use:
+
+[source,ruby]
+----
+# Add this to your initialization code
+Lutaml::Model::Config.configure do |config|
+  config.xml_adapter_type = :nokogiri  # or :ox, :oga
+end
+----
+
+== Namespace issues
+
+=== Type-level namespace not applied
+
+**Problem:**
+
+Custom type has namespace declared but element isn't qualified in output.
+
+**Check:**
+
+1. Verify namespace directive is on the Type class itself (not instance)
+2. Ensure namespace is declared before type is used
+3. Check if explicit mapping namespace is overriding
+
+[source,ruby]
+----
+# Wrong: namespace on wrong class level
+class MyType < Lutaml::Model::Type::String
+  def initialize
+    namespace MyNamespace  # WRONG - this is instance-level
+  end
+end
+
+# Correct: namespace as class directive
+class MyType < Lutaml::Model::Type::String
+  namespace MyNamespace  # CORRECT - class-level directive
+  xsd_type 'MyCustomType'
+end
+
+# Check: explicit namespace overrides type namespace
+class Model < Lutaml::Model::Serializable
+  attribute :value, MyType
+
+  xml do
+    element 'model'
+    # This explicit namespace overrides MyType's namespace
+    map_element 'value', to: :value, namespace: OtherNamespace
+  end
+end
+----
+
+=== Type namespace not recognized during parsing
+
+**Problem:**
+
+Deserialization fails to match namespace-qualified elements to types.
+
+**Check:**
+
+1. Ensure Type namespace is defined identically in both directions
+2. Verify namespace URI matches exactly (prefixes don't matter)
+3. Check adapter is configured correctly
+
+[source,ruby]
+----
+# Namespace URIs must match exactly
+class DcNamespace < Lutaml::Model::XmlNamespace
+  uri 'http://purl.org/dc/elements/1.1/'  # Check: no trailing slash?
+  prefix_default 'dc'
+end
+
+# Input XML must use same URI
+xml = <<~XML
+  <doc:document xmlns:doc="..." xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:title>Test</dc:title>
+  </document>
+XML
+
+# Verify round-trip
+parsed = Document.from_xml(xml)
+puts parsed.to_xml  # Should match input namespaces
+----
+
+=== Wrong namespace URI in output
+
+**Problem:**
+
+Generated XML has unexpected or missing namespace.
+
+**Check:**
+
+1. Verify namespace URI in XmlNamespace class
+2. Check if namespace is actually referenced in model or type
+3. Ensure adapter is configured
+
+[source,ruby]
+----
+# Verify namespace definition
+class MyNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/correct/uri'  # Check this
+  prefix_default 'correct'
+end
+
+# Verify namespace is used (model-level)
+class Model < Lutaml::Model::Serializable
+  xml do
+    element 'model'
+    namespace MyNamespace  # Must reference the class
+    map_element 'attr', to: :attr
+  end
+end
+
+# Or verify namespace is used (type-level)
+class CustomType < Lutaml::Model::Type::String
+  namespace MyNamespace  # Type-level namespace
+end
+
+class Model < Lutaml::Model::Serializable
+  attribute :attr, CustomType
+
+  xml do
+    element 'model'
+    map_element 'attr', to: :attr  # Uses MyNamespace from CustomType
+  end
+end
+----
+
+=== Namespace prefix mismatch
+
+**Problem:**
+
+XML has different prefix than expected.
+
+**Remember:**
+
+Prefixes are just labels - URI is what matters. These are equivalent:
+
+[source,xml]
+----
+<contact:person xmlns:contact="https://example.com/contact">
+<c:person xmlns:c="https://example.com/contact">
+----
+
+**If you need specific prefix:**
+
+[source,ruby]
+----
+# Set default
+class ContactNamespace < Lutaml::Model::XmlNamespace
+  prefix_default 'contact'  # Preferred prefix
+end
+
+# Or override at runtime
+class Model < Lutaml::Model::Serializable
+  xml do
+    element 'model'
+    namespace ContactNamespace, 'c'  # Override to 'c'
+  end
+end
+----
+
+=== Elements not qualified when expected
+
+**Problem:**
+
+Child elements don't have namespace prefix.
+
+**Check qualification settings:**
+
+[source,ruby]
+----
+class MyNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/schema'
+  prefix_default 'pfx'
+  element_form_default :unqualified  # ← This is why!
+end
+
+# Solution 1: Change namespace to :qualified
+class MyNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/schema'
+  prefix_default 'pfx'
+  element_form_default :qualified  # Now children are qualified
+end
+
+# Solution 2: Use namespace: :inherit on specific elements
+class Model < Lutaml::Model::Serializable
+  xml do
+    element 'model'
+    namespace MyNamespace
+    map_element 'child', to: :child, namespace: :inherit  # Force qualified
+  end
+end
+
+# Solution 3: Use Type-level namespace for specific elements
+class ChildType < Lutaml::Model::Type::String
+  namespace MyNamespace  # This element always qualified
+end
+
+class Model < Lutaml::Model::Serializable
+  attribute :child, ChildType
+
+  xml do
+    element 'model'
+    map_element 'child', to: :child  # Qualified via ChildType
+  end
+end
+----
+
+== Parsing issues
+
+=== Mixed content not preserved
+
+**Problem:**
+
+Text between elements is lost during parsing.
+
+**Solution:**
+
+Enable mixed content mode:
+
+[source,ruby]
+----
+class RichText < Lutaml::Model::Serializable
+  xml do
+    root 'text', mixed: true  # Enable mixed content
+
+    map_element 'b', to: :bold
+    map_element 'i', to: :italic
+  end
+end
+
+# Or use explicit method
+class RichText < Lutaml::Model::Serializable
+  xml do
+    element 'text'
+    mixed_content  # Explicit declaration
+
+    map_element 'b', to: :bold
+    map_element 'i', to: :italic
+  end
+end
+----
+
+=== Element order not preserved
+
+**Problem:**
+
+Elements appear in different order after round-trip.
+
+**Solution:**
+
+Use `ordered: true` or `sequence`:
+
+[source,ruby]
+----
+# Option 1: ordered flag
+class Model < Lutaml::Model::Serializable
+  xml do
+    root 'model', ordered: true
+    map_element 'first', to: :first
+    map_element 'second', to: :second
+  end
+end
+
+# Option 2: sequence (also enforces order on parsing)
+class Model < Lutaml::Model::Serializable
+  xml do
+    element 'model'
+    sequence do
+      map_element 'first', to: :first
+      map_element 'second', to: :second
+    end
+  end
+end
+----
+
+=== Attributes not parsed
+
+**Problem:**
+
+XML attributes are missing after parsing.
+
+**Check mapping:**
+
+[source,ruby]
+----
+# Wrong: using map_element for attribute
+class Model < Lutaml::Model::Serializable
+  xml do
+    element 'model'
+    map_element 'id', to: :id  # Wrong for XML attribute!
+  end
+end
+
+# Correct: use map_attribute
+class Model < Lutaml::Model::Serializable
+  xml do
+    element 'model'
+    map_attribute 'id', to: :id  # Correct for XML attribute
+  end
+end
+----
+
+== XSD generation issues
+
+=== XSD missing namespace declarations
+
+**Problem:**
+
+Generated XSD doesn't include namespace declarations.
+
+**Solution:**
+
+Pass namespace options to `Schema.to_xml`:
+
+[source,ruby]
+----
+# Won't include targetNamespace
+xsd = Lutaml::Model::Schema.to_xml(Model)
+
+# Includes proper namespace declarations
+xsd = Lutaml::Model::Schema.to_xml(
+  Model,
+  namespace: MyNamespace.uri,
+  prefix: MyNamespace.prefix_default
+)
+----
+
+=== Type names incorrect in XSD
+
+**Problem:**
+
+Generated XSD has unexpected type names.
+
+**Solution:**
+
+Use `type_name` to override default inference:
+
+[source,ruby]
+----
+class Product < Lutaml::Model::Serializable
+  xml do
+    element 'product'
+    type_name 'CatalogItemType'  # Override default 'ProductType'
+  end
+end
+----
+
+=== XSD missing documentation
+
+**Problem:**
+
+Generated XSD has no annotations.
+
+**Solution:**
+
+Add documentation to namespace and models:
+
+[source,ruby]
+----
+class MyNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/schema'
+  documentation "Schema description"  # Namespace-level
+end
+
+class Model < Lutaml::Model::Serializable
+  xml do
+    element 'model'
+    namespace MyNamespace
+    documentation "Model description"  # Type-level
+  end
+end
+----
+
+== Encoding issues
+
+=== Corrupted characters in output
+
+**Problem:**
+
+Non-ASCII characters appear as `` or hex codes.
+
+**Solution:**
+
+Set encoding explicitly:
+
+[source,ruby]
+----
+# For Japanese text
+instance = JapaneseCeramic.new(glaze_type: "志野釉")
+instance.encoding = "UTF-8"  # Explicit encoding
+xml = instance.to_xml
+
+# Or per-export
+xml = instance.to_xml(encoding: "UTF-8")
+----
+
+=== Wrong encoding in XML declaration
+
+**Problem:**
+
+XML declaration has wrong encoding attribute.
+
+**Solution:**
+
+Encoding is controlled by instance or export settings:
+
+[source,ruby]
+----
+# Instance-level (affects all exports from this instance)
+instance.encoding = "Shift_JIS"
+
+# Per-export (overrides instance encoding)
+xml = instance.to_xml(encoding: "UTF-8")
+----
+
+== Adapter-specific issues
+
+=== Ox adapter with special characters
+
+**Issue:**
+
+Ox uses `ASCII-8bit` by default, may corrupt UTF-8.
+
+**Solution:**
+
+Always specify encoding when using Ox with UTF-8:
+
+[source,ruby]
+----
+Lutaml::Model::Config.configure do |config|
+  config.xml_adapter_type = :ox
+end
+
+# Always specify encoding
+xml = model.to_xml(encoding: "UTF-8")
+parsed = Model.from_xml(xml, encoding: "UTF-8")
+----
+
+=== Tomlib segfault on Windows
+
+**Issue:**
+
+Tomlib adapter can segfault on invalid TOML (Windows, Ruby < 3.3).
+
+**Mitigation:**
+
+1. Validate TOML before parsing
+2. Or use toml-rb adapter instead
+3. Or upgrade to Ruby 3.3+
+
+[source,ruby]
+----
+Lutaml::Model::Config.configure do |config|
+  config.toml_adapter_type = :toml_rb  # Safer on older Ruby/Windows
+end
+----
+
+== Performance issues
+
+=== Slow XML parsing
+
+**Diagnosis:**
+
+Check which adapter you're using.
+
+**Solution:**
+
+Switch to faster adapter if possible:
+
+[source,ruby]
+----
+# Ox is fastest
+Lutaml::Model::Config.configure do |config|
+  config.xml_adapter_type = :ox
+end
+
+# Nokogiri is good balance
+Lutaml::Model::Config.configure do |config|
+  config.xml_adapter_type = :nokogiri
+end
+
+# Oga is pure Ruby (slowest but no native deps)
+Lutaml::Model::Config.configure do |config|
+  config.xml_adapter_type = :oga
+end
+----
+
+=== Large memory usage
+
+**Problem:**
+
+Parsing large XML files consumes too much memory.
+
+**Consider:**
+
+* Stream parsing for very large files (not currently supported by
+Lutaml::Model)
+* Split XML into smaller chunks if possible
+* Process in batches
+
+== Debugging techniques
+
+=== Enable verbose output
+
+**Check what's happening:**
+
+[source,ruby]
+----
+# Add debug output in custom methods
+def custom_from_xml(model, value)
+  puts "Parsing: #{value.inspect}"
+  model.attr = process(value)
+end
+----
+
+=== Inspect parsed structure
+
+**View intermediate results:**
+
+[source,ruby]
+----
+model = Model.from_xml(xml)
+
+# Check attribute values
+puts model.inspect
+
+# Check internal instance variables
+puts model.instance_variables
+
+# For custom methods, inspect value parameter
+def custom_from_xml(model, value)
+  pp value  # Pretty print the value hash
+  # value typically has: {"text" => [...], "elements" => {...}}
+end
+----
+
+=== Verify namespace matching
+
+**Check namespace URIs:**
+
+[source,ruby]
+----
+model = Model.from_xml(xml)
+
+# If using schema_location metadata
+if model.respond_to?(:schema_location)
+  puts model.schema_location.inspect
+end
+
+# Check the XML output
+puts model.to_xml
+# Verify xmlns declarations match expectations
+----
+
+=== Test round-trip
+
+**Verify consistency:**
+
+[source,ruby]
+----
+original = Model.new(attr: "value")
+xml = original.to_xml
+parsed = Model.from_xml(xml)
+
+if original == parsed
+  puts "Round-trip successful"
+else
+  puts "Round-trip failed!"
+  puts "Original: #{original.inspect}"
+  puts "Parsed: #{parsed.inspect}"
+
+  # Use diff to see differences
+  require 'pp'
+  diff_score, diff_tree = Lutaml::Model::Serialize.diff_with_score(
+    original,
+    parsed
+  )
+  puts "Difference: #{(diff_score * 100).round(2)}%"
+  puts diff_tree
+end
+----
+
+== Configuration issues
+
+=== Adapter not found
+
+**Problem:**
+
+`NameError: uninitialized constant Lutaml::Model::Xml::OxAdapter`
+
+**Cause:**
+
+Adapter gem not installed.
+
+**Solution:**
+
+Install required gem:
+
+[source,shell]
+----
+# For Ox
+gem install ox
+# or add to Gemfile: gem 'ox'
+
+# For Oga
+gem install oga
+# or add to Gemfile: gem 'oga'
+
+# Nokogiri usually already installed
+gem install nokogiri
+----
+
+=== Configuration not applied
+
+**Problem:**
+
+Adapter configuration seems ignored.
+
+**Check:**
+
+Configuration must happen before first model use:
+
+[source,ruby]
+----
+# WRONG: Configure after using models
+Model.from_xml(xml)  # Uses default adapter
+Lutaml::Model::Config.configure do |config|
+  config.xml_adapter_type = :ox  # Too late!
+end
+
+# CORRECT: Configure early
+Lutaml::Model::Config.configure do |config|
+  config.xml_adapter_type = :ox
+end
+
+Model.from_xml(xml)  # Uses Ox
+----
+
+== Getting help
+
+=== Check existing documentation
+
+* Main README: `README.adoc`
+* Core concepts: [`docs/xml_mappings/02_core_concepts.adoc`](02_core_concepts.adoc)
+* Common patterns: [`docs/xml_mappings/05_common_patterns.adoc`](05_common_patterns.adoc)
+
+=== Review test cases
+
+Check `spec/` directory for examples:
+
+* `spec/lutaml/model/xml_namespace_spec.rb`
+* `spec/lutaml/model/xml/namespace_integration_spec.rb`
+* `spec/lutaml/model/xml_mapping_spec.rb`
+
+=== Report issues
+
+If you've found a bug:
+
+1. Check if it's a known issue on GitHub
+2. Create minimal reproduction case
+3. Include Ruby and gem versions
+4. Include adapter configuration
+5. Show expected vs actual output
+
+== Deprecation warnings
+
+=== Type::Value.namespace is deprecated
+
+**Symptom:**
+
+Deprecation warning when using `namespace` directive on `Type::Value` classes:
+
+[source]
+----
+[DEPRECATION] Type::Value.namespace is deprecated. Use xml_namespace instead.
+This will be removed in version 1.0.0
+----
+
+**Cause:**
+
+Using the old `namespace` directive instead of `xml_namespace` for Type::Value
+classes.
+
+**Solution:**
+
+Replace `namespace` with `xml_namespace`:
+
+.Before (deprecated)
+[source,ruby]
+----
+class DcTitleType < Lutaml::Model::Type::String
+  namespace DublinCoreNamespace  # ⚠️ DEPRECATED
+  xsd_type 'titleType'
+end
+----
+
+.After (current)
+[source,ruby]
+----
+class DcTitleType < Lutaml::Model::Type::String
+  xml_namespace DublinCoreNamespace  # ✅ CURRENT
+  xsd_type 'titleType'
+end
+----
+
+**Why the change?**
+
+The `namespace` directive is reserved for future semantic namespace features
+(JSON-LD, RDF). The `xml_namespace` name clearly indicates XML-specific
+configuration.
+
+**No functional changes**: The behavior is identical, only the directive name
+changed.
+
+**See also:**
+
+* `README.adoc` - Type-level namespace
+  documentation
+* [`docs/xml_mappings/04_xml_namespace_class.adoc`](04_xml_namespace_class.adoc#migration-from-deprecated-namespace-directive)
+  - Complete migration guide
+* [`docs/xml_mappings/06_migration_guide.adoc`](06_migration_guide.adoc#deprecated-syntax-migration)
+  - Deprecated syntax migration section

@@ -1,0 +1,178 @@
+---
+title: Three-Phase Namespace Architecture
+nav_order: 7
+parent: Reference
+---
+
+= Three-Phase Namespace Declaration Architecture
+
+Lutaml::Model implements a sophisticated three-phase namespace declaration
+architecture for XML serialization that ensures optimal xmlns declarations
+while maintaining W3C XML Namespace compliance.
+
+== Architecture Overview
+
+The three-phase architecture consists of:
+
+1. **Phase 1: Bottom-Up Collection** - Gathers all namespace requirements from the entire model tree
+2. **Phase 2: Declaration Planning** - Creates optimal xmlns declaration plans based on collected needs
+3. **Phase 3: Serialization Integration** - Applies the declaration plan during XML generation
+
+== Phase 1: Namespace Collection
+
+The `NamespaceCollector` class traverses the entire model hierarchy to collect:
+
+* Element namespaces from all model attributes
+* Attribute namespaces from all model attributes
+* Child model namespaces (recursive traversal)
+* Type-only model namespaces (xsd_type/no_root models)
+* Custom namespace mappings
+
+**Key Features:**
+* Prevents circular reference loops during traversal
+* Handles inheritance scenarios correctly
+* Supports complex nested namespace structures
+
+== Phase 2: Declaration Planning
+
+The `DeclarationPlanner` creates optimal xmlns declaration strategies:
+
+* Implements "never declare twice" principle
+* Chooses between default and prefix formats per W3C rules
+* Handles namespace conflicts intelligently
+* Declares all namespaces at root level for optimal scoping
+
+**Declaration Strategies:**
+* **Default namespace**: `xmlns="uri"` for the most common namespace
+* **Prefixed namespace**: `xmlns:prefix="uri"` for additional namespaces
+* **Inheritance-aware**: Respects parent namespace declarations
+
+== Phase 3: Serialization Integration
+
+All XML adapters (Nokogiri, Oga, Ox) use the three-phase architecture:
+
+* `build_element_with_plan` - Core element building with namespace plan
+* `build_ordered_element_with_plan` - Ordered content support
+* `build_unordered_children_with_plan` - Unordered children handling
+* Mixed content and collection handling
+* Custom method integration
+* Type namespace support
+
+== Benefits
+
+* **Single Source of Truth**: DeclarationPlanner makes ALL xmlns decisions
+* **Full Tree Knowledge**: NamespaceCollector provides complete context before decisions
+* **Never Declare Twice**: xmlns declared at root, children reference it
+* **Clean Separation**: Three independent, testable phases
+* **Circular Reference Handling**: Built-in recursion prevention
+* **Type-Only Model Support**: Models without element wrapper fully supported
+
+== Usage
+
+The three-phase architecture is automatically used for all XML serialization.
+No changes to model definitions are required - the architecture works
+transparently behind the scenes to ensure optimal namespace declarations.
+
+[source,ruby]
+----
+class MyModel < Lutaml::Model::Serializable
+  attribute :data, :string
+
+  xml do
+    root "MyModel"
+    namespace "http://example.com/schema"
+    map_element "data", to: :data
+  end
+end
+
+# Automatic three-phase processing ensures optimal xmlns declarations
+xml_output = MyModel.new(data: "value").to_xml
+# Result: <MyModel xmlns="http://example.com/schema"><data>value</data></MyModel>
+----
+
+== Implementation Details
+
+=== NamespaceCollector
+
+Located at `lib/lutaml/model/xml/namespace_collector.rb`
+
+The NamespaceCollector implements a depth-first traversal of the model tree,
+collecting namespace requirements from:
+
+- Model root elements and attributes
+- All child model attributes (recursive)
+- Type definitions and their namespace requirements
+- Custom namespace mappings
+
+**Circular Reference Prevention:**
+The collector maintains a visited set to prevent infinite loops when models
+reference each other.
+
+**Type-Only Models:**
+Models defined with `no_root` or `xsd_type` are handled specially to ensure
+their namespace requirements are collected even when they don't contribute
+elements to the final XML.
+
+=== DeclarationPlanner
+
+Located at `lib/lutaml/model/xml/declaration_planner.rb`
+
+The DeclarationPlanner analyzes collected namespace requirements and creates
+an optimal declaration strategy:
+
+**Prefix Generation:**
+- Uses intelligent prefix generation to avoid conflicts
+- Prefers common prefixes (xsd, xsi, etc.) when appropriate
+- Generates unique prefixes for conflicts
+
+**Declaration Ordering:**
+- Default namespace declared first when present
+- Prefixed namespaces declared in alphabetical order
+- Ensures deterministic output for testing
+
+**Inheritance Handling:**
+- Respects namespace declarations from parent contexts
+- Avoids redeclaration of already-scoped namespaces
+- Maintains proper scoping rules per W3C specifications
+
+=== Adapter Integration
+
+All XML adapters have been updated to use the three-phase architecture:
+
+**NokogiriAdapter** (`lib/lutaml/model/xml/nokogiri_adapter.rb`)
+**OgaAdapter** (`lib/lutaml/model/xml/oga_adapter.rb`)
+**OxAdapter** (`lib/lutaml/model/xml/ox_adapter.rb`)
+
+Each adapter implements:
+- `build_element_with_plan` for namespace-aware element creation
+- `build_ordered_element_with_plan` for sequence-ordered content
+- `build_unordered_children_with_plan` for flexible child ordering
+- Proper integration with existing mixed content and collection handling
+
+== Testing and Validation
+
+The three-phase architecture includes comprehensive testing:
+
+- **Unit tests** for each phase component
+- **Integration tests** across all XML adapters
+- **Namespace conflict resolution** testing
+- **Circular reference handling** validation
+- **Inheritance scenario** coverage
+
+== Migration and Compatibility
+
+The three-phase architecture is fully backward compatible:
+
+- **No breaking changes** to existing model definitions
+- **Automatic activation** for all XML serialization
+- **Transparent operation** - no user code changes required
+- **Performance improvements** in namespace handling
+
+== Future Extensions
+
+The architecture provides a foundation for future enhancements:
+
+- **Schema-aware declarations** for XSD generation
+- **Namespace optimization** for document size reduction
+- **Streaming serialization** support
+- **Custom declaration strategies** via plugins
