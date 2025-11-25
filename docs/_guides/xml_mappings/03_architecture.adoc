@@ -1,0 +1,198 @@
+= Architecture overview
+
+== Component diagram
+
+.XML namespace architecture
+[source]
+----
+╔═══════════════════════════════════════════════════════════════════╗
+║                       Lutaml::Model::Xml                          ║
+╚═══════════════════════════════════════════════════════════════════╝
+
+┌───────────────────────────────────────────────────────────────────┐
+│                      Namespace Layer                              │
+├───────────────────────────────────────────────────────────────────┤
+│                                                                   │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │           XmlNamespace (Base Class)                       │  │
+│  │  • uri, schema_location, prefix_default                   │  │
+│  │  • element_form_default, attribute_form_default           │  │
+│  │  • imports, includes, version, documentation              │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│                              ▲                                    │
+│                              │ inherits                           │
+│                              │                                    │
+│  ┌──────────────────┐   ┌──────────────────┐                    │
+│  │ ContactNamespace │   │ AddressNamespace │  (User-defined)    │
+│  │ CeramicNamespace │   │ GlazeNamespace   │                    │
+│  └──────────────────┘   └──────────────────┘                    │
+│                                                                   │
+└───────────────────────────────────────────────────────────────────┘
+
+┌───────────────────────────────────────────────────────────────────┐
+│                      Mapping Layer                                │
+├───────────────────────────────────────────────────────────────────┤
+│                                                                   │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │                 Xml::Mapping                              │  │
+│  │  • element(name) - declare element                        │  │
+│  │  • root(name, mixed:, ordered:) - backward compat         │  │
+│  │  • mixed_content() - enable mixed mode                    │  │
+│  │  • namespace(XmlNamespace | String)                       │  │
+│  │  • documentation(text)                                    │  │
+│  │  • type_name(name)                                        │  │
+│  │  • map_element, map_attribute, map_content                │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│                                                                   │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │                 Xml::MappingRule                          │  │
+│  │  • form: :qualified | :unqualified                        │  │
+│  │  • documentation: "annotation text"                       │  │
+│  │  • namespace:, prefix: per-mapping overrides              │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│                                                                   │
+└───────────────────────────────────────────────────────────────────┘
+
+┌───────────────────────────────────────────────────────────────────┐
+│                      Type Layer                                   │
+├───────────────────────────────────────────────────────────────────┤
+│                                                                   │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │              Type::Value (Enhanced)                       │  │
+│  │  • namespace directive - Associates XmlNamespace class    │  │
+│  │  • xsd_type directive - XSD type name for generation      │  │
+│  │  • Namespace-aware serialization and deserialization      │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│                              ▲                                    │
+│                              │ inherits                           │
+│                              │                                    │
+│  ┌──────────┬──────────┬──────────┬──────────┬──────────┐       │
+│  │ String   │ Integer  │ Date     │ Duration │ QName    │       │
+│  │ Float    │ Boolean  │ DateTime │ Uri      │ Base64   │       │
+│  └──────────┴──────────┴──────────┴──────────┴──────────┘       │
+│  (All can have namespace directive for custom types)             │
+│                                                                   │
+└───────────────────────────────────────────────────────────────────┘
+
+┌───────────────────────────────────────────────────────────────────┐
+│                      Schema Generation                            │
+├───────────────────────────────────────────────────────────────────┤
+│                                                                   │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │          Schema::XsdSchema (Generator)                    │  │
+│  │  • Element/Type inference from mappings                   │  │
+│  │  • Qualification control from namespace metadata          │  │
+│  │  • Multi-schema support (imports/includes)                │  │
+│  │  • Documentation annotations                              │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│                              │                                    │
+│                              ▼                                    │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │          Schema::SchemaBuilder                            │  │
+│  │  Adapters: Nokogiri, Oga                                  │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│                                                                   │
+└───────────────────────────────────────────────────────────────────┘
+----
+
+== Data flow
+
+=== Instance to XML
+
+.Serialization data flow with namespace metadata
+[source]
+----
+Model Instance
+      │
+      │ 1. Get XML mapping
+      ▼
+Xml::Mapping
+      │
+      │ 2. Resolve namespace metadata
+      │    (Check: explicit > type > inherit > form default)
+      ▼
+XmlNamespace instance (from mapping or Type)
+      │
+      │ 3. Apply qualification rules
+      ▼
+Qualified/Unqualified elements
+      │
+      │ 4. Generate XML via adapter
+      ▼
+XML String with proper namespaces
+----
+
+=== XML to instance
+
+.Deserialization with namespace awareness
+[source]
+----
+XML String
+      │
+      │ 1. Parse via adapter
+      ▼
+XML Document
+      │
+      │ 2. Match elements by namespace URI (not prefix!)
+      │    (Consider: Type namespaces in matching)
+      ▼
+Matched elements
+      │
+      │ 3. Extract values and apply Type casting
+      ▼
+Model Instance
+----
+
+=== XSD generation data flow
+
+.XSD generation with full namespace metadata
+[source]
+----
+Model Class
+      │
+      ┌──────────┴─────────┐
+      │                    │
+      ▼                    ▼
+Xml::Mapping      XmlNamespace class
+      │                    │
+      │ element_name       │ uri, prefix_default
+      │ type_name          │ element_form_default
+      │ documentation      │ attribute_form_default
+      │                    │ imports, includes
+      │                    │ version, documentation
+      │                    │
+      └─────────┬──────────┘
+                │
+                │ Combine metadata
+                ▼
+      Schema::XsdSchema
+                │
+                │ Generate XSD constructs
+                ▼
+      Schema::SchemaBuilder
+                │
+                │ Serialize to XML
+                ▼
+      XSD String (W3C compliant)
+----
+
+== Key components
+
+`XmlNamespace`:: Centralized namespace
+metadata following W3C specs. Defines URI, prefix, qualification defaults,
+imports/includes, versioning.
+
+`Xml::Mapping`:: Element/attribute
+mapping declarations. Uses `element()` for element names, references
+`XmlNamespace` classes for namespace configuration.
+
+`Xml::MappingRule`:: Individual
+element or attribute mapping with `form:` and `documentation:` options for
+fine-grained control.
+
+`Schema::XsdSchema`:: XSD
+generation engine that infers element/type structure and applies namespace
+metadata.
+
+`Schema::SchemaBuilder`::
+Adapter-based XSD serialization supporting Nokogiri and Oga.

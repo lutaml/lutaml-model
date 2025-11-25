@@ -1,0 +1,201 @@
+---
+title: Working with Collections
+nav_order: 4
+---
+
+= Working with collections
+
+== Introduction
+
+Collections represent groups of model instances. This tutorial shows you how to work with collections in Lutaml::Model.
+
+== What are collections?
+
+Collections in Lutaml::Model represent arrays of model instances. They can be:
+
+* Root collections (key-value formats only)
+* Named collections (with a container element/key)
+* Keyed collections (key-value formats, using unique keys)
+* Nested collections (collections within models)
+
+== Using collection attributes
+
+The simplest way to work with collections is using the `collection: true` option on attributes.
+
+Syntax:
+
+[source,ruby]
+----
+attribute :items, Type, collection: true
+----
+
+.Basic collection attribute
+[example]
+====
+[source,ruby]
+----
+class Studio < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :potters, :string, collection: true
+
+  xml do
+    root 'studio'
+    map_element 'name', to: :name
+    map_element 'potter', to: :potters
+  end
+
+  key_value do
+    map 'name', to: :name
+    map 'potters', to: :potters
+  end
+end
+----
+
+[source,xml]
+----
+<studio>
+  <name>Pottery Studio</name>
+  <potter>John Doe</potter>
+  <potter>Jane Smith</potter>
+</studio>
+----
+
+[source,yaml]
+----
+name: Pottery Studio
+potters:
+- John Doe
+- Jane Smith
+----
+
+[source,ruby]
+----
+> studio = Studio.from_xml(xml)
+> studio.potters
+> # ["John Doe", "Jane Smith"]
+> studio.potters.count
+> # 2
+----
+====
+
+== Collection size constraints
+
+You can enforce collection size limits using ranges:
+
+.Collection with size constraints
+[example]
+====
+[source,ruby]
+----
+class WorkshopClass < Lutaml::Model::Serializable
+  attribute :title, :string
+  attribute :students, :string, collection: 1..20  # Min 1, max 20
+
+  key_value do
+    map 'title', to: :title
+    map 'students', to: :students
+  end
+end
+
+# This works - 2 students
+workshop = WorkshopClass.new(
+  title: "Pottery Basics",
+  students: ["Alice", "Bob"]
+)
+
+# This fails validation - 0 students (minimum is 1)
+workshop = WorkshopClass.new(title: "Empty Class", students: [])
+workshop.validate!
+# => Lutaml::Model::CollectionCountOutOfRangeError
+----
+====
+
+== Using Collection classes
+
+For more control, create dedicated `Collection` classes:
+
+Syntax:
+
+[source,ruby]
+----
+class MyCollection < Lutaml::Model::Collection
+  instances :items, ItemType
+end
+----
+
+.Named collection with Collection class
+[example]
+====
+[source,ruby]
+----
+class Potter < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :specialty, :string
+
+  json do
+    map 'name', to: :name
+    map 'specialty', to: :specialty
+  end
+end
+
+class PotterCollection < Lutaml::Model::Collection
+  instances :potters, Potter
+
+  json do
+    root "potters"
+    map_instances to: :potters
+  end
+end
+----
+
+[source,json]
+----
+{
+  "potters": [
+    {"name": "John", "specialty": "Bowls"},
+    {"name": "Jane", "specialty": "Vases"}
+  ]
+}
+----
+
+[source,ruby]
+----
+> collection = PotterCollection.from_json(json)
+> collection.count
+> # 2
+> collection.first.name
+> # "John"
+> collection.map(&:specialty)
+> # ["Bowls", "Vases"]
+----
+====
+
+== Enumerable methods
+
+Collections implement Ruby's `Enumerable` interface:
+
+[source,ruby]
+----
+# Iterate
+collection.each { |potter| puts potter.name }
+
+# Filter
+experts = collection.select { |p| p.specialty == "Vases" }
+
+# Transform
+names = collection.map(&:name)
+
+# Find
+john = collection.find { |p| p.name == "John" }
+
+# Count
+collection.count  # => 2
+----
+
+== Next steps
+
+Learn more about:
+
+* link:../pages/collections[Complete collections reference]
+* link:../guides/collection-serialization[JSONL and YAML Stream formats]
+* link:validation-basics[Validating collections]

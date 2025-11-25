@@ -1,0 +1,44 @@
+---
+title: Core Topics
+nav_order: 1
+has_children: true
+---
+
+= Core topics
+
+Fundamental concepts, configuration, and essential features of Lutaml::Model.
+
+== Pages in this section
+
+* link:installation[Installation] - Get started with Lutaml::Model
+* link:quick-start[Quick Start] - Your first model in 5 minutes
+* link:models[Models] - Model definition and inheritance
+* link:attributes[Attributes] - Complete attribute system
+* link:value_types[Value Types] - Built-in and custom types
+* link:collections[Collections] - Working with groups of models
+* link:validation[Validation] - Data validation
+* link:serialization_adapters[Serialization Adapters] - Available adapters
+* link:configuration[Configuration] - Configure adapters and options
+* link:breaking-changes[Breaking Changes] - Version compatibility
+* link:comparison-with-shale[Comparison with Shale] - Migration guide
+
+== Getting started
+
+New to Lutaml::Model? Start with:
+
+. link:installation[Install Lutaml::Model]
+. link:quick-start[Quick Start Guide]
+. link:../tutorials/[Follow the tutorials]
+
+== Essential reading
+
+Core concepts you should understand:
+
+* link:models[Models] - The foundation of Lutaml::Model
+* link:attributes[Attributes] - How to define model attributes
+* link:value_types[Value Types] - Understanding types
+
+== Configuration
+
+* link:configuration[Configuration] - Set up adapters
+* link:serialization_adapters[Serialization Adapters] - Available options

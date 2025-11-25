@@ -1,0 +1,47 @@
+---
+title: Reference
+nav_order: 4
+has_children: true
+---
+
+= Reference documentation
+
+Technical reference documentation and architecture details for Lutaml::Model.
+
+== Documents
+
+* link:architecture[Architecture] - System architecture and design patterns
+* link:reference_type[Reference Type] - Object relationship references
+* link:custom_adapters[Custom Adapters] - Creating custom serialization adapters
+* link:custom_registers[Custom Registers] - Dynamic model modification
+* link:format-independent-features[Format-Independent Features] - Cross-format features
+* link:parent-root-context[Parent and Root Context] - Navigation in model hierarchies
+* link:three-phase-namespace-architecture[Three-Phase Namespace Architecture] - Implementation details
+
+== Architecture and design
+
+Understanding how Lutaml::Model works internally:
+
+* link:architecture[Architecture] - Three-layer architecture overview
+* link:three-phase-namespace-architecture[Namespace Architecture] - XML namespace implementation
+
+== Extending Lutaml::Model
+
+Create your own extensions:
+
+* link:custom_adapters[Custom Adapters] - Support new serialization formats
+* link:custom_registers[Custom Registers] - Dynamically modify model hierarchies
+* link:reference_type[Reference Type] - Create object relationships
+
+== Advanced topics
+
+Deep dives into specific features:
+
+* link:format-independent-features[Format-Independent Features] - Cross-format mechanisms
+* link:parent-root-context[Parent and Root Context] - Model hierarchy navigation
+
+== See also
+
+* link:../pages/[Core Topics] - Fundamental concepts
+* link:../guides/[Guides] - Task-oriented how-tos
+* link:../tutorials/[Tutorials] - Step-by-step learning

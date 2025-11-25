@@ -1,0 +1,223 @@
+---
+title: First XML Serialization
+nav_order: 2
+---
+
+= First XML Serialization
+
+== Introduction
+
+XML is a widely used structured serialization format standardized by the W3C. This tutorial will guide you through your first XML serialization using Lutaml::Model.
+
+At a high level, XML defines the following primitives:
+
+* XML element (`<element-name>content</element-name>`)
+* XML attribute (`<element-name ... attribute-name="attribute value">`)
+
+== Defining a basic model for XML
+
+=== Setting the element name
+
+In Lutaml::Model, XML serialization mappings are defined using the `xml` block.
+
+Syntax:
+
+[source,ruby]
+----
+class Example < Lutaml::Model::Serializable
+  xml do
+    element 'element-name'
+  end
+end
+----
+
+The `element` method declares the XML element name (tag name) for your model.
+
+.Setting the element name to `ceramic`
+[example]
+====
+[source,ruby]
+----
+class Ceramic < Lutaml::Model::Serializable
+  attribute :type, :string
+
+  xml do
+    element 'ceramic'
+    map_element 'type', to: :type
+  end
+end
+
+puts Ceramic.new(type: "Porcelain").to_xml
+# => <ceramic><type>Porcelain</type></ceramic>
+----
+====
+
+== Mapping XML elements
+
+The `map_element` method maps an XML element to a model attribute.
+
+Syntax:
+
+[source,ruby]
+----
+xml do
+  map_element 'xml_element_name', to: :attribute_name
+end
+----
+
+.Complete example: Mapping elements
+[example]
+====
+[source,ruby]
+----
+class Example < Lutaml::Model::Serializable
+  attribute :name, :string
+
+  xml do
+    root 'example'
+    map_element 'name', to: :name
+  end
+end
+----
+
+[source,xml]
+----
+<example><name>John Doe</name></example>
+----
+
+[source,ruby]
+----
+> Example.from_xml(xml)
+> #<Example:0x0000000104ac7240 @name="John Doe">
+> Example.new(name: "John Doe").to_xml
+> #<example><name>John Doe</name></example>
+----
+====
+
+== Mapping XML attributes
+
+The `map_attribute` method maps an XML attribute to a model attribute.
+
+Syntax:
+
+[source,ruby]
+----
+xml do
+  map_attribute 'xml_attribute_name', to: :attribute_name
+end
+----
+
+.Mapping XML attributes
+[example]
+====
+[source,ruby]
+----
+class Example < Lutaml::Model::Serializable
+  attribute :value, :integer
+
+  xml do
+    root 'example'
+    map_attribute 'value', to: :value
+  end
+end
+----
+
+[source,xml]
+----
+<example value="12"></example>
+----
+
+[source,ruby]
+----
+> Example.from_xml(xml)
+> #<Example:0x0000000104ac7240 @value=12>
+> Example.new(value: 12).to_xml
+> #<example value="12"></example>
+----
+====
+
+== Mapping element content
+
+The `map_content` method maps the text content inside an XML element.
+
+Syntax:
+
+[source,ruby]
+----
+xml do
+  map_content to: :attribute_name
+end
+----
+
+.Mapping element content
+[example]
+====
+[source,ruby]
+----
+class Example < Lutaml::Model::Serializable
+  attribute :description, :string
+
+  xml do
+    root 'example'
+    map_content to: :description
+  end
+end
+----
+
+[source,xml]
+----
+<example>John Doe is my moniker.</example>
+----
+
+[source,ruby]
+----
+> Example.from_xml(xml)
+> #<Example:0x0000000104ac7240 @description="John Doe is my moniker.">
+> Example.new(description: "John Doe is my moniker.").to_xml
+> #<example>John Doe is my moniker.</example>
+----
+====
+
+== Complete example
+
+Putting it all together - a model with elements, attributes, and content:
+
+[example]
+====
+[source,ruby]
+----
+class Ceramic < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :description, :string
+  attribute :temperature, :integer
+
+  xml do
+    root 'ceramic'
+    map_element 'name', to: :name
+    map_attribute 'temperature', to: :temperature
+    map_content to: :description
+  end
+end
+----
+
+[source,xml]
+----
+<ceramic temperature="1200"><name>Porcelain Vase</name> with celadon glaze.</ceramic>
+----
+
+[source,ruby]
+----
+> Ceramic.from_xml(xml)
+> #<Ceramic:0x0000000104ac7240 @name="Porcelain Vase", @description=" with celadon glaze.", @temperature=1200>
+> Ceramic.new(name: "Porcelain Vase", description: " with celadon glaze.", temperature: 1200).to_xml
+> #<ceramic temperature="1200"><name>Porcelain Vase</name> with celadon glaze.</ceramic>
+----
+====
+
+== Next steps
+
+Now that you understand basic XML mapping, you can:
+
+* Learn about link:../guides/xml-mapping[advanced XML mapping features]
+* Explore link:xml-namespaces-basics[XML namespaces]
+* Try link:first-json-serialization[JSON serialization]

@@ -775,7 +775,7 @@ end
 [[reference-type-usage]]
 == Working with Reference Types
 
-The [`Type::Reference`](../../lib/lutaml/model/type/reference.rb) type
+The `Type::Reference` type
 works naturally with custom XSD-typed classes.
 
 .Reference type with XSD-typed source
@@ -820,7 +820,7 @@ end
 
 === Core implementation
 
-- [ ] Add `xsd_type` class method to [`Type::Value`](../../lib/lutaml/model/type/value.rb)
+- [ ] Add `xsd_type` class method to `Type::Value`
 - [ ] Update schema generator to read from class-level `xsd_type`
 - [ ] Add deprecation warning for attribute-level `:xsd_type` (v0.9.0)
 - [ ] Remove attribute-level `:xsd_type` support (v1.0.0)
@@ -1068,4 +1068,4 @@ attribute :product_id, :string, xsd_type: 'xs:ID'
 * <<type-name-method>> for Model complexType naming
 * <<custom-types>> for Custom Value types
 * Type registration documentation
-* [`Type::Reference`](../../lib/lutaml/model/type/reference.rb)
+* `Type::Reference`

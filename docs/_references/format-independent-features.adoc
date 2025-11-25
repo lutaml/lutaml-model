@@ -1,0 +1,714 @@
+---
+title: Format-Independent Features
+nav_order: 5
+parent: Reference
+---
+
+= Format-independent serialization mechanisms
+:toc:
+:toclevels: 3
+
+== General
+
+Several serialization features work consistently across all formats.
+
+These mechanisms include:
+
+* Mapping value transformation (attribute-level and mapping-level)
+* Transform precedence and chaining
+* Class-based transformers with `ValueTransformer`
+* Separate data model classes with `model` directive
+* Rendering default values with `render_default` option
+
+
+
+
+[[mapping-value-transform]]
+=== Mapping value transformation
+
+A mapping value transformation is used when the value of an attribute needs to
+be transformed around the serialization process. Collection attributes
+are also supported.
+
+This is useful when the representation of the value in a serialization format
+differs from its internal representation in the model.
+
+NOTE: Value transformation can be applied at the
+<<attribute-value-transform,attribute-level>> or at the serialization-mapping
+level. They can also be applied together.
+
+
+Syntax:
+
+[source,ruby]
+----
+class SomeObject < Lutaml::Model::Serializable
+  # Attribute-level transformation
+  attribute :attribute_name, {attr_type}, transform: { <1>
+    export: ->(value) { ... },
+    import: ->(value) { ... }
+  }
+
+  # Mapping-level transformation in JSON format
+  {key_value_formats} do
+    map "key", to: :attribute_name, transform: { <2>
+      export: ->(value) { ... },
+      import: ->(value) { ... }
+    }
+  end
+
+  # Mapping-level transformation in XML format
+  xml do
+    map_element "ElementName", to: :attribute_name, transform: { <3>
+      export: ->(value) { ... },
+      import: ->(value) { ... }
+    }
+
+    map_attribute "AttributeName", to: :attribute_name, transform: {
+      export: ->(value) { ... },
+      import: ->(value) { ... }
+    }
+  end
+end
+----
+<1> At the attribute level, the `transform` option applied to the `attribute`
+method is used to define the transformation for the attribute.
+
+<2> At the mapping level (for `{key_value_formats}` formats), the `transform`
+option applied to the `map` method is used to define the transformation for the
+mapping.
+
+<3> At the mapping level (for the XML format), the `transform` option applied to
+the `map_*` methods is used to define the transformation for the mapping.
+
+Where,
+
+`attribute_name`:: The name of the attribute.
+
+`attr_type`:: The type of the attribute.
+
+Attribute-level `transform`:: The option to define a transformation for the
+attribute value.
+
+Attribute-level `export`:: The transformation `Proc` for the value when it is
+being retrieved from the model.
+
+Attribute-level `import`:: The transformation `Proc` for the value when it is
+being assigned to the model.
+
+`{key_value_formats}`:: The serialization format (e.g. `hsh`, `json`, `yaml`, `toml`,
+`key_value`) for which the mapping is defined.
+
+Mapping-level `transform`:: The option to define a transformation for the
+serialization mapping value. The value given to the Proc is the model
+attribute value that does not go through attribute-level transform.
+
+Mapping-level `export`:: The transformation `Proc` for the attribute value when
+it is being written to the serialization format.
+
+Mapping-level `import`:: The transformation `Proc` for the value when it is
+being read from the serialization format and assigned to the model.
+
+
+[example]
+====
+[source,ruby]
+----
+class Ceramic < Lutaml::Model::Serializable
+  attribute :glaze_type, :string
+
+  # Mapping-level transformation in key-value formats
+  json do
+    map "glazeType", to: :glaze_type, transform: {
+      export: ->(value) { "Traditional #{value}" },
+      import: ->(value) { value.gsub("Traditional ", "") }
+    }
+  end
+
+  # Mapping-level transformation in XML format
+  xml do
+    root "Ceramic"
+    map_attribute "glaze-type", to: :glaze_type, transform: {
+      export: ->(value) { "Traditional #{value}" },
+      import: ->(value) { value.gsub("Traditional ", "") }
+    }
+  end
+end
+----
+
+[source,ruby]
+----
+ceramic = Ceramic.new(glaze_type: "celadon")
+
+# Export transformation applied on defined mapping
+ceramic.to_json
+# => {"glazeType": "Traditional celadon"}
+
+# Export transformation applied on defined mapping
+ceramic.to_xml
+# => <Ceramic glaze-type="Traditional celadon"/>
+
+# No export transformation when no mapping exists
+ceramic.to_yaml
+# => glaze_type: "celadon"
+
+# Import transformation applied on defined mapping
+ceramic = Ceramic.from_json('{ "glazeType" => "Traditional celadon" }')
+ceramic.glaze_type
+# => "celadon"
+
+# Import transformation applied on defined mapping
+ceramic = Ceramic.from_xml('<Ceramic glaze-type="Traditional raku"/>')
+ceramic.glaze_type
+# => "raku"
+
+# No import transformation when no mapping exists
+ceramic = Ceramic.from_yaml('glaze_type: "Traditional celadon"')
+ceramic.glaze_type
+# => "Traditional celadon"
+----
+====
+
+Attribute-level and mapping-level transformations can be used together
+for the same attribute in a chained fashion.
+
+Precedence applies to the two levels of transformation for deserialization:
+
+. Mapping-level transformation, if defined, occurs first
+
+. Attribute-level transformation, if defined, is applied to the result of the
+mapping-level transformation
+
+Conversely, precedence applies in the same order for serialization:
+
+. Attribute-level transformation, if defined, occurs first
+
+. Mapping-level transformation, if defined, is applied to the result of the
+attribute-level transformation
+
+This mechanism allows for flexible value transformations without needing
+format-specific custom methods.
+
+.Diagram indicating flow of transformation across layers
+[source]
+----
+╔════════════════════════════╗       ╔════════════════════════════╗
+║ Serialization Format Value ║       ║ Serialization Format Value ║
+╚════════════════════════════╝       ╚════════════════════════════╝
+              |                                    ▲
+              ▼                                    |
+╔════════════════════════════╗       ╔════════════════════════════╗
+║      Mapping Transform     ║       ║      Mapping Transform     ║
+╚════════════════════════════╝       ╚════════════════════════════╝
+              |                                    ▲
+              ▼                                    |
+╔════════════════════════════╗       ╔════════════════════════════╗
+║     Attribute Transform    ║       ║     Attribute Transform    ║
+╚════════════════════════════╝       ╚════════════════════════════╝
+              |                                    ▲
+              ▼                                    |
+╔════════════════════════════╗       ╔════════════════════════════╗
+║    Model Attribute Value   ║       ║    Model Attribute Value   ║
+╚════════════════════════════╝       ╚════════════════════════════╝
+----
+
+
+
+[example]
+====
+[source,ruby]
+----
+class Ceramic < Lutaml::Model::Serializable
+  # Attribute-level transformation
+  attribute :glaze_type, :string, transform: {
+    export: ->(value) { "Ceramic #{value}" },
+    import: ->(value) { value.gsub("Ceramic ", "") }
+  }
+
+  # Mapping-level transformation in key-value formats
+  json do
+    map "glazeType", to: :glaze_type, transform: {
+      export: ->(value) { "Traditional #{value}" },
+      import: ->(value) { value.gsub("Traditional ", "") }
+    }
+  end
+
+  # Mapping-level transformation in XML format
+  xml do
+    root "Ceramic"
+    map_attribute "glaze-type", to: :glaze_type, transform: {
+      export: ->(value) { "Traditional #{value}" },
+      import: ->(value) { value.gsub("Traditional ", "") }
+    }
+  end
+end
+----
+
+[source,ruby]
+----
+ceramic = Ceramic.new(glaze_type: "Ceramic celadon")
+
+# Attribute-level export transformation applied
+ceramic.glaze_type
+# => "Ceramic celadon"
+
+# Internal representation
+ceramic.instance_value_get(:@glaze_type)
+# => "celadon"
+
+# Mapping-level export transformation applied to attribute-level transformed value
+ceramic.to_json
+# => {"glazeType": "Traditional Ceramic celadon"}
+
+# Mapping-level export transformation applied to attribute-level transformed value
+ceramic.to_xml
+# => <Ceramic glaze-type="Traditional Ceramic celadon"/>
+
+# No mapping-level export transformation when no mapping exists
+ceramic.to_yaml
+# => glaze_type: "Ceramic celadon"
+
+# Attribute-level import transformation applied to mapping-level transformed value
+ceramic = Ceramic.from_json('{ "glazeType" => "Traditional Ceramic celadon" }')
+ceramic.glaze_type
+# => "Ceramic celadon"
+
+# Attribute-level import transformation applied to mapping-level transformed value
+ceramic = Ceramic.from_xml('<Ceramic glaze-type="Traditional Ceramic raku"/>')
+ceramic.glaze_type
+# => "Ceramic raku"
+
+# No mapping-level import transformation when no mapping exists
+ceramic = Ceramic.from_yaml('glaze_type: "Ceramic celadon"')
+ceramic.glaze_type
+# => "Ceramic celadon"
+----
+====
+
+
+[[class-based-transformers]]
+=== Class-based transformers
+
+Instead of using proc-based transformations, you can define reusable transformer
+classes that inherit from `Lutaml::Model::ValueTransformer`.
+
+Class-based transformers provide better organization, reusability, and testing
+capabilities compared to inline proc transformations.
+
+Syntax:
+
+[source,ruby]
+----
+class CustomTransformer < Lutaml::Model::ValueTransformer
+  def to_json
+    # Transform the value for JSON output
+  end
+
+  def from_json(input_value)
+    # Transform the input value from JSON
+  end
+
+  def to_xml
+    # Transform the value for XML output
+  end
+
+  def from_xml(input_value)
+    # Transform the input value from XML
+  end
+
+  # Define methods for other formats as needed:
+  # to_yaml, from_yaml, to_toml, from_toml, etc.
+end
+
+class SomeObject < Lutaml::Model::Serializable
+  # Use the transformer class directly
+  attribute :attribute_name, {attr_type}, transform: CustomTransformer
+end
+----
+
+Where,
+
+`CustomTransformer`:: A class that inherits from `Lutaml::Model::ValueTransformer`
+and implements format-specific transformation methods.
+
+`to_*`:: Methods that transform the internal value when serializing to a format.
+The current value is available as `value` within the method.
+
+`from_*`:: Methods that transform the input value when deserializing from a format.
+
+NOTE: If a transformer class doesn't implement a method for a specific format,
+that format will not be transformed, allowing selective transformation.
+
+[example]
+.Class-based transformer for measurement values
+====
+[source,ruby]
+----
+class MeasurementTransformer < Lutaml::Model::ValueTransformer
+  def to_json
+    return value if value.nil?
+    "#{value["value"]} #{value["unit"]}"
+  end
+
+  def from_json(input_value)
+    number, unit = input_value.split
+    { "value" => number.to_f, "unit" => unit }
+  end
+
+  def to_xml
+    return value if value.nil?
+    "#{value["value"]} #{value["unit"]}"
+  end
+
+  def from_xml(input_value)
+    number, unit = input_value.split
+    { "value" => number.to_f, "unit" => unit }
+  end
+
+  # YAML and TOML methods not defined - those formats won't be transformed
+end
+
+class Product < Lutaml::Model::Serializable
+  attribute :measurement, :hash, transform: MeasurementTransformer
+end
+----
+
+[source,ruby]
+----
+product = Product.new(measurement: { "value" => 10.5, "unit" => "cm" })
+
+# JSON and XML transformations are applied
+puts product.to_json
+# => {"measurement":"10.5 cm"}
+
+puts product.to_xml
+# => <Product>
+#      <measurement>10.5 cm</measurement>
+#    </Product>
+
+# YAML transformation is not applied (no to_yaml method defined)
+puts product.to_yaml
+# => measurement:
+#      value: 10.5
+#      unit: cm
+
+# Deserialization works the same way
+Product.from_json('{"measurement": "15.0 mm"}').measurement
+# => {"value"=>15.0, "unit"=>"mm"}
+
+Product.from_yaml("measurement:\n  value: 20.0\n  unit: km").measurement
+# => {"value"=>20.0, "unit"=>"km"}
+----
+====
+
+Class-based transformers can be combined with both attribute-level and mapping-level
+transformations, following the same precedence rules as proc-based transformers.
+
+[example]
+.Combined class-based transformers with attribute and mapping level transformations
+====
+[source,ruby]
+----
+class PrefixTransformer < Lutaml::Model::ValueTransformer
+  def to_json(*_args)
+    "PREFIX:#{value}"
+  end
+
+  def from_json(input_value)
+    input_value.gsub("PREFIX:", "")
+  end
+
+  def to_xml(*_args)
+    "PREFIX:#{value}"
+  end
+
+  def from_xml(input_value)
+    input_value.gsub("PREFIX:", "")
+  end
+end
+
+class SuffixTransformer < Lutaml::Model::ValueTransformer
+  def to_json(*_args)
+    "#{value}:SUFFIX"
+  end
+
+  def from_json(input_value)
+    input_value.gsub(":SUFFIX", "")
+  end
+
+  def to_xml(*_args)
+    "#{value}:SUFFIX"
+  end
+
+  def from_xml(input_value)
+    input_value.gsub(":SUFFIX", "")
+  end
+end
+
+class CombinedTransformModel < Lutaml::Model::Serializable
+  # Attribute-level transformer
+  attribute :title, :string, transform: PrefixTransformer
+
+  json do
+    # Mapping-level transformer (applied in addition to attribute-level)
+    map "title", to: :title, transform: SuffixTransformer
+  end
+
+  xml do
+    root "CombinedTransformModel"
+    map_element "title", to: :title, transform: SuffixTransformer
+  end
+end
+----
+
+[source,ruby]
+----
+model = CombinedTransformModel.new(title: "hello")
+
+# For JSON output:
+# 1. Attribute transformer (PrefixTransformer): "hello" -> "PREFIX:hello"
+# 2. Mapping transformer (SuffixTransformer): "PREFIX:hello" -> "PREFIX:hello:SUFFIX"
+puts model.to_json
+# => {"title": "PREFIX:hello:SUFFIX"}
+
+# For JSON input:
+# 1. Mapping transformer (SuffixTransformer): "hello:SUFFIX" -> "hello"
+# 2. Attribute transformer (PrefixTransformer): "hello" -> "hello" (stored value)
+model = CombinedTransformModel.from_json('{"title": "hello:SUFFIX"}')
+model.title
+# => "hello"
+----
+====
+
+
+
+[[separate-serialization-model]]
+=== Separate data model class
+
+The `Serialize` module can be used to define only serialization mappings for a
+separately defined data model class (a Ruby class).
+
+NOTE: This is traditionally called "custom model".
+
+Syntax:
+
+[source,ruby]
+----
+class MappingClass < Lutaml::Model::Serializable
+  model {DataModelClass}
+
+  # ...
+end
+----
+
+Where,
+
+`MappingClass`:: The class that represents the serialization mappings. This
+class must be a subclass of `Lutaml::Model::Serializable`.
+
+`DataModelClass`:: The class that represents the data model.
+
+When using a separate data model class, it is important to remember that the
+serialization methods (`instance#to_*`, `klass.from_*`, such as
+`instance.to_yaml`, `instance.to_xml` or `Klass.from_yaml`, `Klass.from_xml`),
+are to be called on the mapping class, not the data model instance.
+
+
+[example]
+.Using the `model` method to define serialization mappings for a separate model
+====
+[source,ruby]
+----
+class Ceramic
+  attr_accessor :type, :glaze
+
+  def name
+    "#{type} with #{glaze}"
+  end
+end
+
+class CeramicSerialization < Lutaml::Model::Serializable
+  model Ceramic
+
+  xml do
+    map_element 'type', to: :type
+    map_element 'glaze', to: :glaze
+  end
+end
+----
+
+[source,ruby]
+----
+> Ceramic.new(type: "Porcelain", glaze: "Clear").name
+> # "Porcelain with Clear"
+> CeramicSerialization.from_xml(xml)
+> #<Ceramic:0x0000000104ac7240 @type="Porcelain", @glaze="Clear">
+> Ceramic.new(type: "Porcelain", glaze: "Clear").to_xml
+> #<Ceramic><type>Porcelain</type><glaze>Clear</glaze></Ceramic>
+----
+====
+
+
+[example]
+.Using the `model` method to define serialization mappings for a separate model in a model hierarchy
+====
+The following class will parse the XML snippet below:
+
+[source,ruby]
+----
+class CustomModelChild
+  attr_accessor :street, :city
+end
+
+class CustomModelChildMapper < Lutaml::Model::Serializable
+  model CustomModelChild
+
+  attribute :street, Lutaml::Model::Type::String
+  attribute :city, Lutaml::Model::Type::String
+
+  xml do
+    map_element :street, to: :street
+    map_element :city, to: :city
+  end
+end
+
+class CustomModelParentMapper < Lutaml::Model::Serializable
+  attribute :first_name, Lutaml::Model::Type::String
+  attribute :child_mapper, CustomModelChildMapper
+
+  xml do
+    map_element :first_name, to: :first_name
+    map_element :CustomModelChild,
+                with: { to: :child_to_xml, from: :child_from_xml }
+  end
+
+  def child_to_xml(model, parent, doc)
+    child_el = doc.create_element("CustomModelChild")
+    street_el = doc.create_element("street")
+    city_el = doc.create_element("city")
+
+    doc.add_text(street_el, model.child_mapper.street)
+    doc.add_text(city_el, model.child_mapper.city)
+
+    doc.add_element(child_el, street_el)
+    doc.add_element(child_el, city_el)
+    doc.add_element(parent, child_el)
+  end
+
+  def child_from_xml(model, value)
+    model.child_mapper ||= CustomModelChild.new
+
+    model.child_mapper.street = value["elements"]["street"].text
+    model.child_mapper.city = value["elements"]["city"].text
+  end
+end
+----
+
+[source,xml]
+----
+<CustomModelParent>
+  <first_name>John</first_name>
+  <CustomModelChild>
+    <street>Oxford Street</street>
+    <city>London</city>
+  </CustomModelChild>
+</CustomModelParent>
+----
+
+[source,ruby]
+----
+> instance = CustomModelParentMapper.from_xml(xml)
+> #<CustomModelParent:0x0000000107c9ca68 @child_mapper=#<CustomModelChild:0x0000000107c95218 @city="London", @street="Oxford Street">, @first_name="John">
+> CustomModelParentMapper.to_xml(instance)
+> #<CustomModelParent><first_name>John</first_name><CustomModelChild><street>Oxford Street</street><city>London</city></CustomModelChild></CustomModelParent>
+----
+====
+
+
+
+=== Rendering default values (forced rendering of default values)
+
+By default, attributes with default values are not rendered if the current value
+is the same as the default value.
+
+In certain cases, it is necessary to render the default value even if the
+current value is the same as the default value. This is achieved by setting the
+`render_default` option to `true`.
+
+Syntax:
+
+[source,ruby]
+----
+attribute :name_of_attribute, Type, default: -> { value }
+
+xml do
+  map_element 'name_of_attribute', to: :name_of_attribute, render_default: true
+  map_attribute 'name_of_attribute', to: :name_of_attribute, render_default: true
+end
+
+hsh | json | yaml | toml | key_value do
+  map 'name_of_attribute', to: :name_of_attribute, render_default: true
+end
+----
+
+.Using the `render_default` option to force encoding the default value
+[example]
+====
+[source,ruby]
+----
+class Glaze < Lutaml::Model::Serializable
+  attribute :color, :string, default: -> { 'Clear' }
+  attribute :opacity, :string, default: -> { 'Opaque' }
+  attribute :temperature, :integer, default: -> { 1050 }
+  attribute :firing_time, :integer, default: -> { 60 }
+
+  xml do
+    root "glaze"
+    map_element 'color', to: :color
+    map_element 'opacity', to: :opacity, render_default: true
+    map_attribute 'temperature', to: :temperature
+    map_attribute 'firingTime', to: :firing_time, render_default: true
+  end
+
+  json do
+    map 'color', to: :color
+    map 'opacity', to: :opacity, render_default: true
+    map 'temperature', to: :temperature
+    map 'firingTime', to: :firing_time, render_default: true
+  end
+end
+----
+====
+
+.Attributes with `render_default: true` are rendered when the value is identical to the default
+[example]
+====
+[source,ruby]
+----
+> glaze_new = Glaze.new
+> puts glaze_new.to_xml
+# <glaze firingTime="60">
+#   <opacity>Opaque</opacity>
+# </glaze>
+> puts glaze_new.to_json
+# {"firingTime":60,"opacity":"Opaque"}
+----
+====
+
+.Attributes with `render_default: true` with non-default values are rendered
+[example]
+====
+[source,ruby]
+----
+> glaze = Glaze.new(color: 'Celadon', opacity: 'Semitransparent', temperature: 1300, firing_time: 90)
+> puts glaze.to_xml
+# <glaze color="Celadon" temperature="1300" firingTime="90">
+#   <opacity>Semitransparent</opacity>
+# </glaze>
+> puts glaze.to_json
+# {"color":"Celadon","temperature":1300,"firingTime":90,"opacity":"Semitransparent"}
+----
+====
+
+
+
