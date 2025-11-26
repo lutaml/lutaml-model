@@ -2,17 +2,18 @@
 
 [IMPORTANT]
 ====
-**Status**: PROPOSAL for future implementation
+**Status**: ACTIVE - Deprecation warnings enabled
 
-**Current behavior**: Attribute-level `:xsd_type` option is documented in <<xsd-type-attribute-option>>
+**Current behavior**: Attribute-level `:xsd_type` option triggers deprecation warning
 
 **Timeline**:
 
-* v0.9.0: Deprecation warnings introduced
-* v1.0.0: Attribute-level `:xsd_type` removed
+* v0.7.0 - v0.8.x: Attribute-level `:xsd_type` supported (no warning)
+* v0.9.0: **Deprecation warnings introduced (CURRENT)**
+* v1.0.0: Attribute-level `:xsd_type` will be removed (raises error)
 
-**Tracking**: This document describes the proposed two-tier architecture to replace
-the current three-tier system.
+**Migration**: Use class-level `xsd_type` directive in custom `Type::Value` classes instead.
+See examples below for migration patterns.
 ====
 
 [[xsd-type-migration-background]]

@@ -1,0 +1,460 @@
+= XML Namespace Semantics in Lutaml::Model
+:toc:
+:toclevels: 3
+
+== Overview
+
+Lutaml::Model implements W3C XML Namespace specification with a focus on
+**attribute-based namespace resolution**. Each XML element's namespace is
+determined by its attribute's type and parent context, following clear and
+consistent rules.
+
+This document explains the core namespace principles that govern how namespaces
+are applied during XML serialization and deserialization.
+
+== Core Principles
+
+=== Principle 1: All Attributes Belong to Their Own Namespaces
+
+Each model attribute's namespace is determined by examining the attribute's
+value type and the parent model's namespace configuration. The namespace
+assignment follows a clear hierarchy of rules.
+
+==== Native Type Elements
+
+When an attribute has a native type (`:string`, `:integer`, `:float`, etc.),
+these types have **no inherent namespace**. The namespace they use depends on
+the parent model's configuration.
+
+[source,ruby]
+----
+class FirstItemNamespace < Lutaml::Model::XmlNamespace
+  prefix_default "first"
+  uri "http://example.com/first"
+end
+
+class NativeItem < Lutaml::Model::Serializable
+  attribute :name, :string  # Native type with no inherent namespace
+
+  xml do
+    root "first_item"
+    namespace FirstItemNamespace
+    map_element "name", to: :name
+  end
+end
+----
+
+**Result**: The `name` element inherits the `FirstItemNamespace` from its parent model.
+
+Default namespace format:
+[source,xml]
+----
+<first_item xmlns="http://example.com/first">
+  <name>Item Name</name>
+</first_item>
+----
+
+Prefixed namespace format:
+[source,xml]
+----
+<first:first_item xmlns:first="http://example.com/first">
+  <first:name>Item Name</first:name>
+</first:first_item>
+----
+
+==== Type::Value with Namespace
+
+When an attribute's type is a `Type::Value` subclass with its own namespace declaration, that namespace takes precedence:
+
+[source,ruby]
+----
+class FirstNamespace < Lutaml::Model::XmlNamespace
+  prefix_default "first"
+  uri "http://example.com/first"
+end
+
+class SecondNamespace < Lutaml::Model::XmlNamespace
+  prefix_default "second"
+  uri "http://example.com/second"
+end
+
+class FirstNamespacedName < Lutaml::Model::Type::String
+  xml_namespace FirstNamespace
+end
+
+class SecondNamespacedName < Lutaml::Model::Type::String
+  xml_namespace SecondNamespace
+end
+
+class NamespacedItem < Lutaml::Model::Serializable
+  attribute :name, FirstNamespacedName      # Has FirstNamespace
+  attribute :alt_name, SecondNamespacedName # Has SecondNamespace
+
+  xml do
+    root "second_item"
+    namespace SecondNamespace
+    map_element "name", to: :name
+    map_element "alt_name", to: :alt_name
+  end
+end
+----
+
+**Result**: When multiple namespaces are present, the implementation uses prefixed format to avoid conflicts (cannot have two default namespaces):
+
+[source,xml]
+----
+<second_item xmlns="http://example.com/second" xmlns:first="http://example.com/first">
+  <first:name>Item Name</first:name>
+  <alt_name>Alt Item Name</alt_name>
+</second_item>
+----
+
+==== Model-Valued Attributes
+
+When an attribute's type is another `Serializable` model:
+
+**If the nested model has its own namespace**, that namespace is used:
+
+[source,ruby]
+----
+class NestedItem < Lutaml::Model::Serializable
+  attribute :value, :string
+
+  xml do
+    root "nested"
+    namespace FirstNamespace
+    map_element "value", to: :value
+  end
+end
+
+class Container < Lutaml::Model::Serializable
+  attribute :item, NestedItem
+
+  xml do
+    root "container"
+    namespace SecondNamespace
+    map_element "item", to: :item
+  end
+end
+----
+
+**If the nested model has NO namespace**:
+
+* With qualified elements (default): Uses parent's namespace
+* With unqualified elements: No namespace
+
+==== XML Attributes vs Elements
+
+**Elements**: Follow the namespace rules described above.
+
+**XML Attributes**: Always unqualified by default (per W3C specification), unless:
+
+* The attribute's value type (Model or Type::Value) has its own namespace
+* An explicit namespace is set on the mapping rule
+
+[source,ruby]
+----
+xml do
+  root "item"
+  namespace MyNamespace
+  map_attribute "id", to: :id          # Unqualified (no namespace)
+  map_element "name", to: :name         # Qualified (uses MyNamespace)
+end
+----
+
+=== Principle 2: Prefix vs Default is ONLY Presentation
+
+These two XML documents are **semantically identical** - they have the same XML Infoset:
+
+[source,xml]
+----
+<!-- Default namespace -->
+<first_item xmlns="http://example.com/first">
+  <name>Item Name</name>
+</first_item>
+
+<!-- Prefixed namespace -->
+<first:first_item xmlns:first="http://example.com/first">
+  <first:name>Item Name</first:name>
+</first:first_item>
+----
+
+Both parse to the same model structure:
+
+[source,ruby]
+----
+item = NativeItem.new(name: "Item Name")
+
+# Both produce semantically identical results
+xml_default = item.to_xml
+xml_prefixed = item.to_xml(prefix: true)
+
+# Both parse to the same data
+NativeItem.from_xml(xml_default)  # => #<NativeItem name="Item Name">
+NativeItem.from_xml(xml_prefixed) # => #<NativeItem name="Item Name">
+----
+
+**Key Insight**: The choice between default and prefixed namespaces is purely a presentation detail. The underlying data structure is identical.
+
+==== When Prefixes Are Required
+
+1. **W3C Rule**: XML attributes in the same namespace as the element **must** use a prefix
+2. **Multiple Namespaces**: When different namespaces appear in the same subtree, prefixes prevent conflicts
+3. **Explicit Request**: When serializing with `prefix: true` option
+
+=== Principle 3: Collections Follow Same Rules
+
+Collection items follow the exact same namespace rules as single items, based on their **realized type**.
+
+==== Simple Collections
+
+[source,ruby]
+----
+class NativeItemNames < Lutaml::Model::Serializable
+  attribute :name, :string, collection: true
+
+  xml do
+    root "item_names"
+    namespace FirstItemNamespace
+    map_element "name", to: :name
+  end
+end
+----
+
+Each collection item follows the same rules:
+
+[source,xml]
+----
+<item_names xmlns="http://example.com/first">
+  <name>Item Name 1</name>
+  <name>Item Name 2</name>
+</item_names>
+----
+
+==== Model Collections
+
+[source,ruby]
+----
+class NativeItemCollection < Lutaml::Model::Serializable
+  attribute :items, NativeItem, collection: true
+
+  xml do
+    root "items"
+    namespace FirstItemNamespace
+    map_element "item", to: :items
+  end
+end
+----
+
+Each item in the collection follows namespace rules based on its type (`NativeItem`).
+
+==== Polymorphic Collections
+
+For polymorphic attributes (accepting multiple types), the namespace rules apply based on the **actual realized type** of each item:
+
+[source,ruby]
+----
+class Container < Lutaml::Model::Serializable
+  attribute :items, BaseItem, collection: true, polymorphic: [TypeA, TypeB]
+
+  xml do
+    root "container"
+    map_element "item", to: :items
+  end
+end
+----
+
+Each item uses the namespace of its actual class (`TypeA` or `TypeB`), not the base class.
+
+== Namespace Resolution Algorithm
+
+The namespace for any attribute's serialization is determined by this algorithm:
+
+[source]
+----
+1. Does the attribute have an explicit namespace in its mapping rule?
+   YES → Use that namespace
+   NO  → Continue to step 2
+
+2. Is the attribute's type a Type::Value with xml_namespace declared?
+   YES → Use Type's namespace
+   NO  → Continue to step 3
+
+3. Is the attribute's type a Model with its own namespace?
+   YES → Use Model's namespace
+   NO  → Continue to step 4
+
+4. Is this an XML attribute (not element)?
+   YES → No namespace (unqualified by default)
+   NO  → Continue to step 5
+
+5. Does the parent model have a namespace?
+   YES → Use parent's namespace (for qualified elements)
+   NO  → No namespace
+----
+
+== Qualified vs Unqualified Forms
+
+XML Schema defines two element/attribute forms:
+
+=== Qualified Form (Default for Elements)
+
+Elements inherit their parent's namespace:
+
+[source,xml]
+----
+<parent xmlns="http://example.com/ns">
+  <child>value</child>  <!-- Inherits parent's namespace -->
+</parent>
+----
+
+=== Unqualified Form (Default for Attributes)
+
+Elements/attributes have no namespace:
+
+[source,xml]
+----
+<parent xmlns="http://example.com/ns" attr="value">
+  <!-- attr has no namespace -->
+</parent>
+----
+
+Configure via `XmlNamespace`:
+
+[source,ruby]
+----
+class MyNamespace < Lutaml::Model::XmlNamespace
+  uri "http://example.com/ns"
+  element_form_default :qualified    # or :unqualified
+  attribute_form_default :unqualified # or :qualified
+end
+----
+
+== Namespace Inheritance
+
+Child models inherit namespace context from parents during serialization:
+
+[source,ruby]
+----
+class Child < Lutaml::Model::Serializable
+  attribute :value, :string
+
+  xml do
+    root "child"
+    # No namespace declared - will inherit from parent
+    map_element "value", to: :value
+  end
+end
+
+class Parent < Lutaml::Model::Serializable
+  attribute :child, Child
+
+  xml do
+    root "parent"
+    namespace ParentNamespace
+    map_element "child", to: :child
+  end
+end
+----
+
+Result:
+[source,xml]
+----
+<parent xmlns="http://parent.example.com">
+  <child>
+    <value>text</value>  <!-- Inherits parent namespace -->
+  </child>
+</parent>
+----
+
+== Common Patterns
+
+=== Multiple Namespaces in One Document
+
+[source,ruby]
+----
+class Wrapper < Lutaml::Model::Serializable
+  attribute :items, NamespacedItem, collection: true
+
+  xml do
+    root "wrapper"
+    namespace WrapperNamespace
+    map_element "item", to: :items
+  end
+end
+----
+
+Result (using prefixes to avoid conflicts):
+[source,xml]
+----
+<wrapper xmlns="http://wrapper.example.com"
+         xmlns:second="http://second.example.com"
+         xmlns:first="http://first.example.com">
+  <second:item>
+    <first:name>Name</first:name>
+    <second:alt_name>Alt Name</second:alt_name>
+  </second:item>
+</wrapper>
+----
+
+=== Custom Prefix Override
+
+Control presentation at serialization time:
+
+[source,ruby]
+----
+item.to_xml                    # Default namespace or automatic prefix
+item.to_xml(prefix: true)      # Force prefixed format
+item.to_xml(prefix: "custom")  # Use custom prefix
+----
+
+=== No Namespace Models
+
+Models without namespace declarations:
+
+[source,ruby]
+----
+class PlainItem < Lutaml::Model::Serializable
+  attribute :name, :string
+
+  xml do
+    root "item"
+    # No namespace declared
+    map_element "name", to: :name
+  end
+end
+----
+
+Result (no xmlns declarations):
+[source,xml]
+----
+<item>
+  <name>Value</name>
+</item>
+----
+
+== W3C Compliance
+
+Lutaml::Model follows W3C XML Namespace Recommendation:
+
+* **Namespace URIs**: Identify namespaces uniquely
+* **Prefix Binding**: Associates prefixes with namespace URIs
+* **Default Namespace**: Elements without prefix use default namespace
+* **Attribute Qualification**: Attributes unqualified by default
+* **QNames**: Qualified names use prefix:localname format
+
+== Best Practices
+
+1. **Define namespaces as XmlNamespace classes**: Encapsulates URI, prefix, and form defaults
+2. **Use Type::Value namespaces for reusable types**: Email, phone numbers, etc.
+3. **Prefer default namespace for single-namespace documents**: Cleaner, less verbose
+4. **Use prefixes for multi-namespace documents**: Avoid conflicts, improve clarity
+5. **Test both presentations**: Verify default and prefixed formats parse correctly
+6. **Document namespace decisions**: Explain why specific namespaces are chosen
+
+== See Also
+
+* link:namespace-presentation.adoc[XML Namespace Presentation]
+* link:../references/three-phase-namespace-architecture.adoc[Three-Phase Namespace Architecture]
+* W3C XML Namespaces Recommendation
+* XML Information Set Specification

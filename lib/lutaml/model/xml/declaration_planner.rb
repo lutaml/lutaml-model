@@ -22,8 +22,10 @@ module Lutaml
         # @param register [Symbol] the register ID for type resolution
         def initialize(register = nil)
           @register = register || Lutaml::Model::Config.default_register
+
+          # Visited type tracking prevents infinite recursion during type analysis
+          # When element is nil (type analysis mode), we track which types we've seen
           @visited_types = Set.new
-          @type_plan_cache = {} # Cache plans for visited types
         end
 
         # Create declaration plan for an element and its descendants
@@ -67,34 +69,7 @@ module Lutaml
 
           # Prevent infinite recursion for type analysis (when element is nil)
           if element.nil? && mapper_class
-            if @visited_types.include?(mapper_class)
-              # BUG FIX: Return cached plan with updated inheritance
-              # This ensures already-visited types get proper namespace inheritance
-              cached_base = @type_plan_cache[mapper_class] || empty_plan
-
-              # Create new plan with inherited namespaces from current parent
-              reused_plan = {
-                namespaces: {},
-                children_plans: cached_base[:children_plans].dup,
-                type_namespaces: cached_base[:type_namespaces].dup,
-              }
-
-              if parent_plan
-                reused_plan[:namespaces] = parent_plan[:namespaces].transform_values do |ns_config|
-                  if ns_config[:declared_at] == :here
-                    ns_config.merge(declared_at: :inherited)
-                  elsif ns_config[:declared_at] == :inherited
-                    ns_config.dup
-                  else
-                    ns_config.dup
-                  end
-                end
-                # Merge parent's type_namespaces
-                reused_plan[:type_namespaces].merge!(parent_plan[:type_namespaces])
-              end
-
-              return reused_plan
-            end
+            return empty_plan if @visited_types.include?(mapper_class)
 
             @visited_types << mapper_class
           end
@@ -105,6 +80,9 @@ module Lutaml
                          {}
                        end
 
+          # ==================================================================
+          # PHASE 1: INHERIT PARENT NAMESPACE DECLARATIONS
+          # ==================================================================
           # Inherit parent's namespace declarations
           if parent_plan
             # CRITICAL: Preserve :local_on_use marker through inheritance
@@ -126,6 +104,9 @@ module Lutaml
             plan[:type_namespaces] = parent_plan[:type_namespaces].dup
           end
 
+          # ==================================================================
+          # PHASE 2: DECLARE OWN NAMESPACE (for non-type-only models)
+          # ==================================================================
           # TYPE-ONLY MODELS: No element_name means no xmlns declarations
           # BUT we still need to plan children
           unless mapping.no_element?
@@ -153,6 +134,9 @@ module Lutaml
               end
             end
 
+            # ==================================================================
+            # PHASE 3: DECLARE NAMESPACE_SCOPE NAMESPACES
+            # ==================================================================
             # Declare namespace_scope namespaces as prefixed (only for non-type-only models)
             # These are declared at root for descendants to use
             if needs[:namespace_scope_configs]&.any?
@@ -192,6 +176,9 @@ module Lutaml
               end
             end
 
+            # ==================================================================
+            # PHASE 4: DECLARE COLLECTED CHILD NAMESPACES
+            # ==================================================================
             # Declare collected child element/attribute namespaces at root
             # This implements "never declare twice" - declare once at root, use everywhere
             # BUT: namespace_scope limits which namespaces are declared at root
@@ -252,6 +239,9 @@ module Lutaml
             end
           end
 
+          # ==================================================================
+          # PHASE 5: TRACK TYPE NAMESPACES
+          # ==================================================================
           # Track Type namespaces from needs
           # This provides a lookup for adapters: attribute_name -> XmlNamespace CLASS
           # CRITICAL: If there's an override for a Type namespace, use the override
@@ -278,6 +268,9 @@ module Lutaml
             end
           end
 
+          # ==================================================================
+          # PHASE 6: PLAN CHILDREN RECURSIVELY
+          # ==================================================================
           # Plan children
           mapping.elements.each do |elem_rule|
             # Skip if we can't resolve attributes
@@ -306,18 +299,6 @@ module Lutaml
               parent_plan: plan,
               options: child_options,
             )
-          end
-
-          # Cache this plan for type reuse (without parent-specific inheritance)
-          # Store a version with :here declarations that can be reused with different parents
-          if element.nil? && mapper_class
-            @type_plan_cache[mapper_class] = {
-              namespaces: plan[:namespaces].select { |_k, v| v[:declared_at] == :here },
-              children_plans: plan[:children_plans],
-              type_namespaces: plan[:type_namespaces].reject { |k, _v| parent_plan && parent_plan[:type_namespaces
-
-][k] },
-            }
           end
 
           plan
