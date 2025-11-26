@@ -1,6 +1,7 @@
 ---
 title: Basic Model Definition
-nav_order: 2
+nav_order: 1
+parent: Tutorials
 ---
 
 = Basic model definition
@@ -152,6 +153,6 @@ puts kiln.to_json
 
 Now that you can define basic models, explore:
 
-* link:first-xml-serialization[First XML Serialization]
-* link:first-json-serialization[First JSON Serialization]
-* link:working-with-collections[Working with Collections]
+* link:../first-xml-serialization[First XML Serialization]
+* link:../first-json-serialization[First JSON Serialization]
+* link:../working-with-collections[Working with Collections]

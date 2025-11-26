@@ -1,7 +1,7 @@
 ---
 title: Parent and Root Context
 nav_order: 6
-parent: Reference
+parent: References
 ---
 
 = Parent and root context accessors

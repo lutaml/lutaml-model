@@ -1,6 +1,6 @@
 ---
 title: Attributes
-nav_order: 3
+nav_order: 4
 parent: Core Topics
 ---
 
@@ -1151,8 +1151,6 @@ When deciding how to implement value transformations, consider:
 * One-off, non-reusable transformation
 * Combined with attribute-level transforms for multi-stage processing
 
-See link:docs/value_transformations.adoc[Value Transformations Guide] for complete decision matrix and examples.
+See link:../guides/value-transformations[Value Transformations Guide] for complete decision matrix and examples.
 
-NOTE: The `choice` directive can be used with `import_model_attributes`. For more details, see <<import-model-attributes-inside-choice, Using import_model_attributes inside a choice block>>.
-
-
+NOTE: The `choice` directive can be used with `import_model_attributes`. For more details, see link:../importable_models#import-model-attributes-inside-choice[Using import_model_attributes inside a choice block].

@@ -1,3 +1,9 @@
+---
+title: Core concepts
+nav_order: 2
+parent: XML Mappings Guide
+---
+
 = Core concepts
 
 == Elements vs types

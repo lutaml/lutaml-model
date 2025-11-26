@@ -1,4 +1,10 @@
-= Migration guide: Migrate from Shale to Lutaml::Model
+---
+title: Migrate from Shale to Lutaml::Model
+nav_order: 1
+parent: Migrations Guides
+---
+
+= Migrate from Shale to Lutaml::Model
 
 == Scope
 

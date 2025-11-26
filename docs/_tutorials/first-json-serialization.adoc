@@ -1,6 +1,7 @@
 ---
 title: First JSON Serialization
 nav_order: 3
+parent: Tutorials
 ---
 
 = First JSON serialization
@@ -187,6 +188,6 @@ end
 
 Now that you understand basic JSON serialization, you can:
 
-* Learn about link:../guides/keyvalue-serialization[advanced key-value features]
-* Explore link:working-with-collections[working with collections]
-* Try link:../guides/value-transformations[value transformations]
+* Learn about link:../../guides/keyvalue-serialization[advanced key-value features]
+* Explore link:../working-with-collections[working with collections]
+* Try link:../../guides/value-transformations[value transformations]

@@ -1,3 +1,9 @@
+---
+title: Best practices
+nav_order: 7
+parent: XML Mappings Guide
+---
+
 = Best practices
 
 == Namespace practices

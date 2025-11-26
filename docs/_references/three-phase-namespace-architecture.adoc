@@ -1,7 +1,7 @@
 ---
 title: Three-Phase Namespace Architecture
 nav_order: 7
-parent: Reference
+parent: References
 ---
 
 = Three-Phase Namespace Declaration Architecture

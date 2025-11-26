@@ -1,6 +1,7 @@
 ---
 title: First XML Serialization
 nav_order: 2
+parent: Tutorials
 ---
 
 = First XML Serialization
@@ -218,6 +219,6 @@ end
 
 Now that you understand basic XML mapping, you can:
 
-* Learn about link:../guides/xml-mapping[advanced XML mapping features]
-* Explore link:xml-namespaces-basics[XML namespaces]
-* Try link:first-json-serialization[JSON serialization]
+* Learn about link:../../guides/xml-mapping[advanced XML mapping features]
+* Explore link:../xml-namespaces-basics[XML namespaces]
+* Try link:../first-json-serialization[JSON serialization]

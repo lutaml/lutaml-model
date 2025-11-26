@@ -1,3 +1,9 @@
+---
+title: Architecture overview
+nav_order: 3
+parent: XML Mappings Guide
+---
+
 = Architecture overview
 
 == Component diagram

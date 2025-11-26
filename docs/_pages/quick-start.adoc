@@ -1,6 +1,7 @@
 ---
 title: Quick Start
-nav_order: 1
+nav_order: 2
+parent: Core Topics
 ---
 
 = Quick start
@@ -103,11 +104,11 @@ Follow these tutorials in order:
 
 Explore fundamental concepts:
 
-* link:models[Models] - Model definition and inheritance
-* link:attributes[Attributes] - Complete attribute system
-* link:value_types[Value Types] - Built-in and custom types
-* link:collections[Collections] - Groups of model instances
-* link:validation[Validation] - Data validation system
+* link:../models[Models] - Model definition and inheritance
+* link:../attributes[Attributes] - Complete attribute system
+* link:../value_types[Value Types] - Built-in and custom types
+* link:../collections[Collections] - Groups of model instances
+* link:../validation[Validation] - Data validation system
 
 === Guides
 
@@ -121,4 +122,4 @@ Task-oriented documentation:
 
 * link:https://github.com/lutaml/lutaml-model/issues[Report issues on GitHub]
 * link:https://github.com/lutaml/lutaml-model/discussions[Ask questions in Discussions]
-* link:../references/[Browse reference documentation]
+* link:../references/index[Browse reference documentation]

@@ -1,3 +1,9 @@
+---
+title: Introduction
+nav_order: 1
+parent: XML Mappings Guide
+---
+
 = Introduction
 
 == Purpose

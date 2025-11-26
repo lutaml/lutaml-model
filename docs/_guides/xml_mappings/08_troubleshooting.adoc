@@ -1,3 +1,9 @@
+---
+title: Troubleshooting
+nav_order: 8
+parent: XML Mappings Guide
+---
+
 = Troubleshooting
 
 == Common errors

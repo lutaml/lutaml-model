@@ -1,6 +1,7 @@
 ---
 title: XML Namespace Qualification
 nav_order: 3
+parent: Guides
 ---
 
 = XML Namespace Qualification and Prefix Control
@@ -464,10 +465,10 @@ IMPORTANT: Never split a namespace's URI and prefix. They are inseparable:
 
 == See Also
 
-* link:../references/three-phase-namespace-architecture[Three-Phase Namespace Architecture]
-* link:NAMESPACE_SCOPE_SEMANTICS.md[Namespace Scope Semantics]
-* link:MAPPING_NAMESPACE_SEMANTICS.md[Mapping-Level Namespace Semantics]
-* link:xml-mappings-guide[XML Mappings Guide]
+* link:../../references/three-phase-namespace-architecture[Three-Phase Namespace Architecture]
+* link:../xml/namespace-semantics[XML Namespace Semantics in Lutaml::Model]
+* link:../xml/namespace-presentation[XML Namespace Presentation]
+* link:../xml-mappings-guide[XML Mappings Guide]
 
 == References
 

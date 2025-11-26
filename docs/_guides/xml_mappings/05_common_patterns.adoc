@@ -1,3 +1,9 @@
+---
+title: Common patterns
+nav_order: 5
+parent: XML Mappings Guide
+---
+
 = Common patterns
 
 == Basic element and attribute mapping

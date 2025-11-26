@@ -28,19 +28,19 @@ Lutaml::Model is a Ruby library for creating information models with attributes 
 
 Choose your path:
 
-link:pages/installation[**Installation**]::
+link:installation[**Installation**]::
 Install Lutaml::Model and configure adapters
 
-link:pages/quick-start[**Quick Start**]::
+link:quick-start[**Quick Start**]::
 Create your first model in 5 minutes
 
-link:tutorials/[**Tutorials**]::
+link:tutorials/index[**Tutorials**]::
 Step-by-step guides for progressive learning
 
-link:guides/[**Guides**]::
+link:guides/index[**Guides**]::
 Task-oriented documentation for specific goals
 
-link:pages/[**Core Topics**]::
+link:index[**Core Topics**]::
 Complete reference for all features
 
 == Quick example
@@ -77,19 +77,19 @@ Person.from_json(json_string)
 
 == Documentation sections
 
-=== link:pages/[Core Topics]
+=== link:index[Core Topics]
 
 Fundamental concepts, configuration, and essential features.
 
-=== link:tutorials/[Tutorials]
+=== link:tutorials/index[Tutorials]
 
 Progressive, step-by-step learning from basics to advanced topics.
 
-=== link:guides/[Guides]
+=== link:guides/index[Guides]
 
 Task-oriented guides for accomplishing specific goals.
 
-=== link:references/[Reference]
+=== link:references/index[Reference]
 
 Technical reference, architecture, and implementation details.
 

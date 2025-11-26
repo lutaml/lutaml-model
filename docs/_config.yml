@@ -66,6 +66,9 @@ collections:
   references:
     permalink: "/:collection/:path/"
     output: true
+  migrations:
+    permalink: "/:collection/:path/"
+    output: true
 
 # Just the Docs collection configuration
 just_the_docs:
@@ -80,9 +83,11 @@ just_the_docs:
       name: Guides
       nav_fold: true
     references:
-      name: Reference
-      nav_fold: true
-
+      name: References
+      nav_fold: false
+    migrations:
+      name: Migrations
+      nav_fold: false
 # Plugins
 plugins:
   - jekyll-asciidoc
