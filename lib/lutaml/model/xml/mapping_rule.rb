@@ -153,6 +153,13 @@ module Lutaml
               names << unprefixed unless names.include?(unprefixed)
             end
 
+            # For attributes with default_namespace, also include prefixed version
+            # to support attribute_form_default :qualified during parsing
+            if @attribute && default_namespace && !namespace_set?
+              prefixed = "#{default_namespace}:#{name}"
+              names << prefixed unless names.include?(prefixed)
+            end
+
             names
           end
         end
@@ -241,7 +248,7 @@ module Lutaml
                             parent_ns_class: nil, form_default: :unqualified,
                             use_prefix: nil, parent_prefix: nil)
           if attribute?
-            resolve_attribute_namespace(attr, register)
+            resolve_attribute_namespace(attr, register, parent_ns_class, form_default)
           else
             resolve_element_namespace(attr, register, parent_ns_uri,
                                       parent_ns_class, form_default, use_prefix,
@@ -297,12 +304,15 @@ module Lutaml
         # Priority:
         # 1. Explicit namespace in mapping (highest)
         # 2. Type-level namespace
-        # 3. NO NAMESPACE (W3C default - unprefixed attributes never inherit)
+        # 3. Schema-level attributeFormDefault :qualified (NEW)
+        # 4. NO NAMESPACE (W3C default - unprefixed attributes never inherit)
         #
         # @param attr [Attribute] the attribute
         # @param register [Symbol, nil] register ID
+        # @param parent_ns_class [Class, nil] parent's XmlNamespace class
+        # @param form_default [Symbol] :qualified or :unqualified from schema
         # @return [Hash] namespace info
-        def resolve_attribute_namespace(attr, register)
+        def resolve_attribute_namespace(attr, register, parent_ns_class = nil, form_default = :unqualified)
           # 1. Explicit mapping namespace
           if namespace_set? && @namespace_class
             return build_namespace_result_from_class(@namespace_class)
@@ -313,7 +323,14 @@ module Lutaml
             return build_namespace_result_from_class(type_ns_class)
           end
 
-          # 3. No namespace (W3C default for unprefixed attributes)
+          # 3. Schema-level attributeFormDefault :qualified
+          # When schema specifies attributeFormDefault="qualified", attributes
+          # must be qualified (prefixed) with the parent element's namespace
+          if form_default == :qualified && parent_ns_class
+            return build_namespace_result_from_class(parent_ns_class)
+          end
+
+          # 4. No namespace (W3C default for unprefixed attributes)
           { uri: nil, prefix: nil, ns_class: nil }
         end
 

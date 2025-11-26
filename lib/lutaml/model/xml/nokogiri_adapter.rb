@@ -213,7 +213,7 @@ module Lutaml
             if render_element?(attribute_rule, element, value)
               # Resolve attribute namespace from plan
               ns_info = resolve_attribute_namespace(attribute_rule, attr,
-                                                    options)
+                                                    options.merge(mapper_class: mapper_class))
               attr_name = if ns_info[:prefix]
                             "#{ns_info[:prefix]}:#{mapping_rule_name}"
                           else
