@@ -280,16 +280,26 @@ module Lutaml
         # @param attribute [Attribute] the attribute being mapped
         # @param options [Hash] serialization options
         # @return [Hash] namespace info { uri:, prefix:, ns_class: }
-        def resolve_attribute_namespace(rule, attribute, _options = {})
+        def resolve_attribute_namespace(rule, attribute, options = {})
           return { uri: nil, prefix: nil, ns_class: nil } unless rule
 
-          # Attributes don't inherit parent namespace per W3C
+          mapper_class = options[:mapper_class]
+
+          # Get parent namespace class if available
+          parent_ns_class = if mapper_class.respond_to?(:mappings_for)
+                              mapper_class.mappings_for(:xml)&.namespace_class
+                            end
+
+          # Get attribute form default from parent's schema (namespace class)
+          form_default = parent_ns_class&.attribute_form_default || :unqualified
+
+          # Attributes follow schema-level attributeFormDefault setting
           rule.resolve_namespace(
             attr: attribute,
             register: register,
-            parent_ns_uri: nil,
-            parent_ns_class: nil,
-            form_default: :unqualified,
+            parent_ns_uri: parent_ns_class&.uri,
+            parent_ns_class: parent_ns_class,
+            form_default: form_default,
           )
         end
 

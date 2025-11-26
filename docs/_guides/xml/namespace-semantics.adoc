@@ -157,6 +157,7 @@ end
 
 * The attribute's value type (Model or Type::Value) has its own namespace
 * An explicit namespace is set on the mapping rule
+* The parent namespace has `attribute_form_default :qualified`
 
 [source,ruby]
 ----
@@ -166,6 +167,149 @@ xml do
   map_attribute "id", to: :id          # Unqualified (no namespace)
   map_element "name", to: :name         # Qualified (uses MyNamespace)
 end
+----
+
+=== Attribute Qualification with attributeFormDefault
+
+W3C XML Schema provides the `attributeFormDefault` directive to control whether
+locally declared attributes must be qualified (prefixed) in instance documents.
+
+==== W3C Default Behavior (Unqualified)
+
+By default, attributes are **unqualified** and do NOT inherit the parent element's namespace:
+
+[source,ruby]
+----
+class MyNamespace < Lutaml::Model::XmlNamespace
+  uri "http://example.com/ns"
+  prefix_default "ex"
+  element_form_default :qualified
+  attribute_form_default :unqualified  # W3C default
+end
+
+class Item < Lutaml::Model::Serializable
+  attribute :id, :string
+  attribute :value, :integer
+
+  xml do
+    root "item"
+    namespace MyNamespace
+    map_attribute "id", to: :id
+    map_attribute "value", to: :value
+  end
+end
+----
+
+**Output (attributes WITHOUT namespace prefix):**
+[source,xml]
+----
+<ex:item xmlns:ex="http://example.com/ns" id="123" value="42"/>
+----
+
+==== Qualified Attributes (attributeFormDefault :qualified)
+
+When `attribute_form_default :qualified` is set, attributes MUST be qualified with
+the namespace prefix:
+
+[source,ruby]
+----
+class MyNamespace < Lutaml::Model::XmlNamespace
+  uri "http://example.com/ns"
+  prefix_default "ex"
+  element_form_default :qualified
+  attribute_form_default :qualified  # Attributes must be prefixed
+end
+----
+
+**Output (attributes WITH namespace prefix):**
+[source,xml]
+----
+<ex:item xmlns:ex="http://example.com/ns" ex:id="123" ex:value="42"/>
+----
+
+==== OOXML (Office Open XML) Use Case
+
+OOXML specifications (ISO 29500) require qualified attributes for WordProcessingML,
+SpreadsheetML, and PresentationML namespaces:
+
+[source,ruby]
+----
+class WordProcessingML < Lutaml::Model::XmlNamespace
+  uri 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
+  prefix_default 'w'
+  element_form_default :qualified
+  attribute_form_default :qualified  # Required by OOXML spec
+end
+
+class Spacing < Lutaml::Model::Serializable
+  attribute :val, :integer
+  attribute :after, :integer
+  attribute :before, :integer
+
+  xml do
+    root "spacing"
+    namespace WordProcessingML
+    map_attribute "val", to: :val
+    map_attribute "after", to: :after
+    map_attribute "before", to: :before
+  end
+end
+
+spacing = Spacing.new(val: 20, after: 100, before: 0)
+spacing.to_xml(prefix: true)
+----
+
+**OOXML-compliant output:**
+[source,xml]
+----
+<w:spacing xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+           w:val="20" w:after="100" w:before="0"/>
+----
+
+==== Attribute Namespace Resolution Priority
+
+For XML attributes, namespace is resolved with the following priority:
+
+1. **Explicit namespace in mapping** (highest)
+   - `map_attribute "id", to: :id, namespace: SpecificNamespace`
+2. **Type-level namespace**
+   - If attribute's type (Type::Value or Model) declares `xml_namespace`
+3. **Schema-level attributeFormDefault :qualified**
+   - Attributes inherit parent element's namespace
+4. **No namespace** (W3C default)
+   - Unprefixed attributes have no namespace
+
+[source,ruby]
+----
+class Namespace1 < Lutaml::Model::XmlNamespace
+  uri "http://example.com/ns1"
+  prefix_default "ns1"
+  attribute_form_default :unqualified
+end
+
+class Namespace2 < Lutaml::Model::XmlNamespace
+  uri "http://example.com/ns2"
+  prefix_default "ns2"
+end
+
+class Item < Lutaml::Model::Serializable
+  attribute :normal, :string
+  attribute :explicit, :string
+
+  xml do
+    root "item"
+    namespace Namespace1
+    map_attribute "normal", to: :normal           # Uses form_default (unqualified)
+    map_attribute "explicit", to: :explicit, namespace: Namespace2  # Explicit wins
+  end
+end
+----
+
+**Output:**
+[source,xml]
+----
+<ns1:item xmlns:ns1="http://example.com/ns1" xmlns:ns2="http://example.com/ns2"
+          normal="value1" ns2:explicit="value2"/>
 ----
 
 === Principle 2: Prefix vs Default is ONLY Presentation
