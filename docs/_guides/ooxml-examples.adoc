@@ -1,6 +1,7 @@
 ---
 title: OOXML Examples
-nav_order: 12
+nav_order: 15
+parent: Guides
 ---
 
 = OOXML Round-Trip Parsing Examples
@@ -523,7 +524,7 @@ This matcher:
 
 == See Also
 
-* link:xml-mappings-guide[XML Mappings Guide] for basic XML mapping
-* link:xml-namespace-qualification[XML Namespace Qualification] for detailed namespace control
-* link:../references/three-phase-namespace-architecture[Three-Phase Namespace Architecture] for implementation details
-* link:NAMESPACE_SCOPE_SEMANTICS.md[Namespace Scope Semantics] for namespace inheritance rules
+* link:../xml-mappings-guide[XML Mappings Guide] for basic XML mapping
+* link:../xml-namespace-qualification[XML Namespace Qualification] for detailed namespace control
+* link:../../references/three-phase-namespace-architecture[Three-Phase Namespace Architecture] for implementation details
+* link:../xml/namespace-semantics[XML Namespace Semantics in Lutaml::Model]

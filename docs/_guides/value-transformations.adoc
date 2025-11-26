@@ -1,6 +1,7 @@
 ---
 title: Value Transformations
-nav_order: 6
+nav_order: 9
+parent: Guides
 ---
 
 = Value Transformations in LutaML Model
@@ -1382,7 +1383,7 @@ Choose your transformation approach:
 
 == See Also
 
-* link:../README.adoc#attribute-value-transform[Attribute Value Transform]
-* link:../README.adoc#mapping-value-transformation[Mapping Value Transformation]
-* link:../README.adoc#custom-type[Custom Value Types]
-* link:./custom_adapters.adoc[Custom Adapters Guide]
+* link:../../importable_models#attribute-value-transform[Attribute Value Transform]
+* link:../../references/format-independent-features#mapping-value-transformation[Mapping Value Transformation]
+* link:../../tutorials/custom-types-tutorial[Custom Types Tutorial]
+* link:../../references/custom_adapters[Custom Adapters Guide]

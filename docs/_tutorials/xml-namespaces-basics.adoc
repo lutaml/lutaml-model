@@ -1,6 +1,7 @@
 ---
 title: XML Namespaces Basics
 nav_order: 6
+parent: Tutorials
 ---
 
 = XML namespaces basics
@@ -189,6 +190,6 @@ Remember: only the root element's namespace can be default. Other namespaces mus
 
 Learn more about:
 
-* link:../guides/xml-namespaces[Complete XML namespace guide]
-* link:../guides/xml-namespace-qualification[Namespace qualification]
-* link:../pages/serialization_adapters[Configuring XML adapters]
+* link:../../guides/xml-namespaces[Complete XML namespace guide]
+* link:../../guides/xml-namespace-qualification[Namespace qualification]
+* link:../../serialization_adapters[Configuring XML adapters]

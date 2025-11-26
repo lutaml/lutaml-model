@@ -1,6 +1,7 @@
 ---
 title: Custom Types Tutorial
 nav_order: 7
+parent: Tutorials
 ---
 
 = Custom types tutorial
@@ -213,6 +214,6 @@ bad_contact = Contact.new(email: "not-an-email")
 
 Learn more about:
 
-* link:../pages/value_types[Complete value types reference]
-* link:../guides/value-transformations[Value transformation strategies]
-* link:polymorphic-models-tutorial[Polymorphic models]
+* link:../../value_types[Complete value types reference]
+* link:../../guides/value-transformations[Value transformation strategies]
+* link:../polymorphic-models-tutorial[Polymorphic models]

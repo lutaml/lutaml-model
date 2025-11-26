@@ -1,7 +1,7 @@
 ---
 title: Architecture
 nav_order: 1
-parent: Reference
+parent: References
 ---
 
 = Architecture
@@ -184,6 +184,6 @@ Every `Serializable` instance maintains optional metadata:
 
 == See also
 
-* link:custom_adapters[Creating custom adapters]
-* link:custom_registers[Custom registers]
-* link:three-phase-namespace-architecture[Three-phase namespace architecture]
+* link:../custom_adapters[Creating custom adapters]
+* link:../custom_registers[Custom registers]
+* link:../three-phase-namespace-architecture[Three-phase namespace architecture]

@@ -1,0 +1,592 @@
+---
+title: Importable models
+nav_order: 5
+parent: Core Topics
+---
+
+== Importable models
+
+=== General
+
+An importable model is a model that can be imported into another model using the
+`import_*` directive.
+
+This feature works both with XML and key-value formats.
+
+* The import order determines how elements and attributes are overwritten.
+
+* An importable model with XML serialization mappings requires setting the model's
+XML serialization configuration with the `no_root` directive.
+
+The model can be imported into another model using the following directives:
+
+`import_model`:: imports both attributes and mappings.
+
+`import_model_attributes`:: imports only attributes.
+
+`import_model_mappings`:: imports only mappings.
+
+NOTE: Models with `no_root` can only be parsed through parent models.
+Direct calling `NoRootModel.from_xml` will raise a `NoRootMappingError`.
+
+NOTE: Namespaces are not currently supported in importable models.
+If `namespace` is defined with `no_root`, `NoRootNamespaceError` will be raised.
+
+.Importing model components using an importable model
+[example]
+====
+[source,ruby]
+----
+class ExampleXmlNamespace < Lutaml::Model::Xml::Namespace
+  uri "http://www.example.com"
+  default_prefix "ex1"
+end
+
+class ExampleStringType < Lutaml::Model::Value::String
+  xml_namespace ExampleXmlNamespace
+end
+
+class GroupOfItems < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :type, ExampleStringType
+  attribute :code, :string
+
+  xml do
+    no_root
+    sequence do
+      map_element "name", to: :name
+      map_element "type", to: :type
+    end
+    map_attribute "code", to: :code
+  end
+end
+
+class ComplexType < Lutaml::Model::Serializable
+  attribute :tag, AttributeValueType
+  attribute :content, :string
+  attribute :group, :string
+  import_model_attributes GroupOfItems
+
+  xml do
+    root "GroupOfItems"
+
+    map_attribute "tag", to: :tag
+    map_content to: :content
+    map_element :group, to: :group
+    import_model_mappings GroupOfItems
+  end
+end
+
+class SimpleType < Lutaml::Model::Serializable
+  import_model GroupOfItems
+end
+
+class GenericType < Lutaml::Model::Serializable
+  import_model_mappings GroupOfItems
+end
+----
+
+[source,xml]
+----
+<GroupOfItems xmlns:ex1="http://www.example.com">
+  <name>Name</name>
+  <ex1:type>Type</ex1:type>
+</GroupOfItems>
+----
+
+[source,ruby]
+----
+> parsed = GroupOfItems.from_xml(xml)
+> # Lutaml::Model::NoRootMappingError: "GroupOfItems has `no_root`, it allowed only for reusable models"
+----
+====
+
+[[import-model-mappings-inside-sequence]]
+=== Using `import_model_mappings` inside a `sequence`
+
+You can use `import_model_mappings` within a `sequence` block to include the
+element mappings from another model. This is useful for composing complex XML
+structures from reusable model components.
+
+The element mappings will be imported inside this specific `sequence` block that
+calls the import method, rest of the mappings like `content`, `attributes`, etc.
+will be inserted at the class level.
+
+NOTE: `import_model` and `import_model_attributes` are not supported inside a
+`sequence` block.
+
+[example]
+====
+[source,ruby]
+----
+class Address < Lutaml::Model::Serializable
+  attribute :street, :string
+  attribute :city, :string
+  attribute :zip, :string
+
+  xml do
+    no_root
+
+    map_element :street, to: :street
+    map_element :city, to: :city
+    map_element :zip, to: :zip
+  end
+end
+
+class Person < Lutaml::Model::Serializable
+  attribute :name, :string
+  import_model_attributes Address
+
+  xml do
+    root "Person"
+
+    map_element :name, to: :name
+    sequence do
+      import_model_mappings Address
+    end
+  end
+end
+
+# Example XML output:
+valid_xml = <<~XML
+<Person>
+  <name>John Doe</name>
+  <street>123 Main St</street>
+  <city>Metropolis</city>
+  <zip>12345</zip>
+</Person>
+XML
+invalid_xml = <<~XML
+<Person>
+  <name>John Doe</name>
+  <street>123 Main St</street>
+  <zip>12345</zip>
+</Person>
+XML
+Person.from_xml(valid_xml) # #<Person:0x00000002d56b3988 @city="Metropolis", @name="John Doe", @street="123 Main St", @zip="12345">
+Person.from_xml(invalid_xml) # raises `Element `zip` does not match the expected sequence order element `city` (Lutaml::Model::IncorrectSequenceError)`
+----
+====
+
+[[import-model-attributes-inside-choice]]
+=== Using import_model_attributes inside a choice block
+
+You can use `import_model_attributes` within a `choice` block to allow a model
+to accept one or more sets of attributes from other models, with flexible
+cardinality. This is especially useful when you want to allow a user to provide
+one or more alternative forms of information (e.g., contact methods) in your
+model.
+
+For example, suppose you want a `Person` model that can have either an `email`,
+a `phone`, or both as contact information. You can define `ContactEmail` and
+`ContactPhone` as importable models, and then use `import_model_attributes` for
+both, inside a `choice` block in the `Person` model.
+
+NOTE: The `import_model_attributes` method is used to import the attributes from
+the other model into the current model. The imported attributes will be
+associated to the `choice` block that calls the import method.
+
+[example]
+====
+[source,ruby]
+----
+class ContactEmail < Lutaml::Model::Serializable
+  attribute :email, :string
+
+  xml do
+    no_root
+
+    map_element :email, to: :email
+  end
+end
+
+class ContactPhone < Lutaml::Model::Serializable
+  attribute :phone, :string
+
+  xml do
+    no_root
+
+    map_element :phone, to: :phone
+  end
+end
+
+class Person < Lutaml::Model::Serializable
+  # Allow either or both contact methods, but at least one must be present
+  choice(min: 1, max: 2) do
+    import_model_attributes ContactEmail
+    import_model_attributes ContactPhone
+  end
+
+  xml do
+    root "Person"
+
+    map_element :email, to: :email
+    map_element :phone, to: :phone
+  end
+end
+
+valid_xml = <<~XML
+<Person>
+  <email>john.doe@example.com</email>
+  <phone>1234567890</phone>
+</Person>
+XML
+
+Person.from_xml(valid_xml).validate! # #<Person:0x00000002d0e27fe8 @email="john.doe@example.com", @phone="1234567890">
+
+invalid_xml = <<~XML
+<Person></Person>
+XML
+
+Person.from_xml(invalid_xml).validate! # raises `Lutaml::Model::ValidationError` error
+----
+====
+
+==== Using register functionality
+
+The register functionality is useful when you want to reference or reuse a model
+by a symbolic name (e.g., across files or in dynamic scenarios), rather than by
+direct class reference.
+
+.Importing a model using a `Register`
+[example]
+====
+[source,ruby]
+----
+register = Lutaml::Model::Register.new(:importable_model)
+register.register_model(GroupOfItems, id: :group_of_items)
+----
+
+The `id: :group_of_items` assigns a symbolic name to the registered model, which
+can then be used in `import_model :group_of_items`.
+
+[source,ruby]
+----
+class GroupOfSubItems < Lutaml::Model::Serializable
+  import_model :group_of_items
+end
+----
+====
+
+The `import_model :group_of_items` will behave the same as `import_model
+GroupOfItems` except the class is resolved from the provided `register`.
+
+NOTE: All the `import_*` methods support the use of `register` functionality.
+
+NOTE: For more details on registers, see <<custom_registers, Custom Registers>>.
+
+[[attribute-value-transform]]
+=== Attribute value transform
+
+An attribute value transformation is used when the value of an attribute needs
+to be transformed around assignment.
+
+There are occasions where the value of an attribute is to be transformed
+during assignment and retrieval, such that when the external usage of the value
+differs from the internal model representation.
+
+NOTE: Value transformation can be applied at the attribute-level or at the
+<<mapping-value-transform,serialization-mapping level>>. They can also be
+applied together.
+
+[example]
+====
+Given a model that stores a measurement composed of a numerical value and a
+unit, where the numerical value is used for calculations inside the model,
+but the external representation of that value is a string (across all
+serialization formats).
+
+* Internal: `number: 10.20`, `unit: cm`.
+* External: `"10.20 cm"`
+====
+
+The `transform` option at the `attribute` method is used to define a
+transformation `Proc` for the attribute value.
+
+Syntax:
+
+[source,ruby]
+----
+class SomeObject < Lutaml::Model::Serializable
+  attribute :attribute_name, {attr_type}, transform: {
+    export: ->(value) { ... },
+    import: ->(value) { ... }
+  }
+end
+----
+
+The `transform` option also support collection attributes.
+
+Where,
+
+`attribute_name`:: The name of the attribute.
+
+`attr_type`:: The type of the attribute.
+
+`transform`:: The option to define a transformation for the attribute value.
+
+`export`:: The transformation `Proc` for the value when it is being
+retrieved from the model.
+
+`import`:: The transformation `Proc` for the value when it is being
+assigned to the model.
+
+[example]
+.Demonstrating attribute-level value transformation procs
+====
+[source,ruby]
+----
+class Ceramic < Lutaml::Model::Serializable
+  attribute :name, :string, transform: {
+    export: ->(value) { value.upcase },
+    import: ->(value) { value.downcase }
+  }
+end
+----
+
+[source,ruby]
+----
+> c = Ceramic.new(name: "Celadon")
+> c.name
+> # "CELADON"
+> c.instance_attribute_get(:@name)
+> # "Celadon"
+> Ceramic.new(name: "Celadon").name = "Raku"
+> # "RAKU"
+----
+====
+
+
+=== Value validation
+
+==== General
+
+There are several mechanisms to validate attribute values in Lutaml::Model.
+
+
+[[attribute-enumeration]]
+==== Values of an enumeration
+
+An attribute can be defined as an enumeration by using the `values` directive.
+
+The `values` directive is used to define acceptable values in an attribute. If
+any other value is given, a `Lutaml::Model::InvalidValueError` will be raised.
+
+Syntax:
+
+[source,ruby]
+----
+attribute :name_of_attribute, Type, values: [value1, value2, ...]
+----
+
+The values set inside the `values:` option can be of any type, but they must
+match the type of the attribute. The values are compared using the `==` operator,
+so the type must implement the `==` method.
+
+Also, If all the elements in `values` directive are strings then `lutaml-model`
+add some enum convenience methods, for each of the value the following three
+methods are added
+
+* `value1`: will return value if set
+* `value1?`: will return true if value is set, false otherwise
+* `value1=`: will set the value of `name_of_attribute` equal to `value1` if truthy value is given, and remove it otherwise.
+
+.Using the `values` directive to define acceptable values for an attribute (basic types)
+[example]
+====
+[source,ruby]
+----
+class GlazeTechnique < Lutaml::Model::Serializable
+  attribute :name, :string, values: ["Celadon", "Raku", "Majolica"]
+end
+----
+
+[source,ruby]
+----
+> GlazeTechnique.new(name: "Celadon").name
+> # "Celadon"
+> GlazeTechnique.new(name: "Raku").name
+> # "Raku"
+> GlazeTechnique.new(name: "Majolica").name
+> # "Majolica"
+> GlazeTechnique.new(name: "Earthenware").name
+> # Lutaml::Model::InvalidValueError: Invalid value for attribute 'name'
+----
+====
+
+The values can be Serialize objects, which are compared using the `==`
+and the `hash` methods through the Lutaml::Model::ComparableModel module.
+
+
+.Using the `values` directive to define acceptable values for an attribute (Serializable objects)
+[example]
+====
+[source,ruby]
+----
+class Ceramic < Lutaml::Model::Serializable
+  attribute :type, :string
+  attribute :firing_temperature, :integer
+end
+
+class CeramicCollection < Lutaml::Model::Serializable
+  attribute :featured_piece,
+            Ceramic,
+            values: [
+              Ceramic.new(type: "Porcelain", firing_temperature: 1300),
+              Ceramic.new(type: "Stoneware", firing_temperature: 1200),
+              Ceramic.new(type: "Earthenware", firing_temperature: 1000),
+            ]
+end
+----
+
+[source,ruby]
+----
+> CeramicCollection.new(featured_piece: Ceramic.new(type: "Porcelain", firing_temperature: 1300)).featured_piece
+> # Ceramic:0x0000000104ac7240 @type="Porcelain", @firing_temperature=1300
+> CeramicCollection.new(featured_piece: Ceramic.new(type: "Bone China", firing_temperature: 1300)).featured_piece
+> # Lutaml::Model::InvalidValueError: Invalid value for attribute 'featured_piece'
+----
+====
+
+Serialize provides a `validate` method that checks if all its attributes have
+valid values. This is necessary for the case when a value is valid at the
+component level, but not accepted at the aggregation level.
+
+If a change has been made at the component level (a nested attribute has
+changed), the aggregation level needs to call the `validate` method to verify
+acceptance of the newly updated component.
+
+.Using the `validate` method to check if all attributes have valid values
+[example]
+====
+[source,ruby]
+----
+> collection = CeramicCollection.new(featured_piece: Ceramic.new(type: "Porcelain", firing_temperature: 1300))
+> collection.featured_piece.firing_temperature = 1400
+> # No error raised in changed nested attribute
+> collection.validate
+> # Lutaml::Model::InvalidValueError: Invalid value for attribute 'featured_piece'
+----
+====
+
+
+==== String values restricted to patterns
+
+An attribute that accepts a string value accepts value validation using regular
+expressions.
+
+Syntax:
+
+[source,ruby]
+----
+attribute :name_of_attribute, :string, pattern: /regex/
+----
+
+.Using the `pattern` option to restrict the value of an attribute
+[example]
+====
+In this example, the `color` attribute takes hex color values such as `#ccddee`.
+
+A regular expression can be used to validate values assigned to the attribute.
+In this case, it is `/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/`.
+
+[source,ruby]
+----
+class Glaze < Lutaml::Model::Serializable
+  attribute :color, :string, pattern: /\A#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})\z/
+end
+----
+
+[source,ruby]
+----
+> Glaze.new(color: '#ff0000').color
+> # "#ff0000"
+> Glaze.new(color: '#ff000').color
+> # Lutaml::Model::InvalidValueError: Invalid value for attribute 'color'
+----
+====
+
+
+
+=== Attribute value defaults
+
+Specify default values for attributes using the `default` option.
+The `default` option can be set to a value or a lambda that returns a value.
+
+Syntax:
+
+[source,ruby]
+----
+attribute :name_of_attribute, Type, default: -> { value }
+----
+
+
+.Using the `default` option to set a default value for an attribute
+[example]
+====
+[source,ruby]
+----
+class Glaze < Lutaml::Model::Serializable
+  attribute :color, :string, default: -> { 'Clear' }
+  attribute :temperature, :integer, default: -> { 1050 }
+end
+----
+
+[source,ruby]
+----
+> Glaze.new.color
+> # "Clear"
+> Glaze.new.temperature
+> # 1050
+----
+====
+
+The "default behavior" (pun intended) is to not render a default value if
+the current value is the same as the default value.
+
+
+
+=== Attribute as raw string
+
+An attribute can be set to read the value as raw string for XML, by using the `raw: true` option.
+
+Syntax:
+
+[source,ruby]
+----
+attribute :name_of_attribute, :string, raw: true
+----
+
+.Using the `raw` option to read raw value for an XML attribute
+[example]
+====
+[source,ruby]
+----
+class Person < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :description, :string, raw: true
+end
+----
+
+For the following XML snippet:
+
+[source,xml]
+----
+<Person>
+  <name>John Doe</name>
+  <description>
+    A <b>fictional person</b> commonly used as a <i>placeholder name</i>.
+  </description>
+</Person>
+----
+
+[source,ruby]
+----
+> Person.from_xml(xml)
+> # <Person:0x0000000107a3ca70
+    @description="\n    A <b>fictional person</b> commonly used as a <i>placeholder name</i>.\n  ",
+    @element_order=["text", "name", "text", "description", "text"],
+    @name="John Doe",
+    @ordered=nil>
+----
+====

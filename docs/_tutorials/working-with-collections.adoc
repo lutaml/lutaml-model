@@ -1,6 +1,7 @@
 ---
 title: Working with Collections
 nav_order: 4
+parent: Tutorials
 ---
 
 = Working with collections
@@ -196,6 +197,6 @@ collection.count  # => 2
 
 Learn more about:
 
-* link:../pages/collections[Complete collections reference]
-* link:../guides/collection-serialization[JSONL and YAML Stream formats]
-* link:validation-basics[Validating collections]
+* link:../../collections[Complete collections reference]
+* link:../../guides/collection-serialization[JSONL and YAML Stream formats]
+* link:../validation-basics[Validating collections]

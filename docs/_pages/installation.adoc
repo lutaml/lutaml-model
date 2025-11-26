@@ -31,6 +31,6 @@ gem install lutaml-model
 
 After installation:
 
-* link:quick-start[Quick Start Guide]
-* link:configuration[Configure serialization adapters]
+* link:../quick-start[Quick Start Guide]
+* link:../configuration[Configure serialization adapters]
 * link:../tutorials/basic-model-definition[Define your first model]

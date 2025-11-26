@@ -1,6 +1,7 @@
 ---
 title: Polymorphic Models Tutorial
 nav_order: 8
+parent: Tutorials
 ---
 
 = Polymorphic models tutorial
@@ -248,6 +249,6 @@ end
 
 Learn more about:
 
-* link:../pages/attributes#polymorphic-attributes[Complete polymorphic attributes reference]
-* link:../pages/collections#polymorphic-collections[Polymorphic collections]
-* link:../guides/advanced-mapping[Advanced mapping techniques]
+* link:../../attributes#polymorphic-attributes[Complete polymorphic attributes reference]
+* link:../../collections#polymorphic-collections[Polymorphic collections]
+* link:../../guides/advanced-mapping[Advanced mapping techniques]

@@ -1,7 +1,7 @@
 ---
 title: Format-Independent Features
 nav_order: 5
-parent: Reference
+parent: References
 ---
 
 = Format-independent serialization mechanisms

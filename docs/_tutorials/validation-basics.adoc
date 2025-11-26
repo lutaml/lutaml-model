@@ -1,6 +1,7 @@
 ---
 title: Validation Basics
 nav_order: 5
+parent: Tutorials
 ---
 
 = Validation basics
@@ -227,6 +228,6 @@ bad_student.validate
 
 Continue learning about:
 
-* link:../pages/validation[Complete validation reference]
-* link:../pages/attributes[Attribute options]
-* link:custom-types-tutorial[Creating custom types with validation]
+* link:../../validation[Complete validation reference]
+* link:../../attributes[Attribute options]
+* link:../custom-types-tutorial[Creating custom types with validation]

@@ -1,3 +1,9 @@
+---
+title: XML Namespace Presentation
+nav_order: 5
+parent: Guides
+---
+
 = XML Namespace Presentation in Lutaml::Model
 :toc:
 :toclevels: 3
@@ -464,7 +470,7 @@ end
 
 == See Also
 
-* link:namespace-semantics.adoc[XML Namespace Semantics]
-* link:../references/three-phase-namespace-architecture.adoc[Three-Phase Namespace Architecture]
+* link:../namespace-semantics[XML Namespace Semantics]
+* link:../../../references/three-phase-namespace-architecture[Three-Phase Namespace Architecture]
 * W3C XML Namespaces Recommendation
 * XML Information Set Specification

@@ -1,4 +1,10 @@
-= v0.8.0 breaking change migration guide: XML mapping behavior
+---
+title: v0.8.0 breaking change
+nav_order: 3
+parent: Migrations Guides
+---
+
+= v0.8.0 breaking change: XML mapping behavior
 
 == Scope
 
@@ -392,7 +398,4 @@ end
 
 For comprehensive details on namespace handling:
 
-* link:./xml_namespace_prefix_control.adoc[Namespace prefix control at serialization]
-* link:./xml_namespace_scope.adoc[Namespace scope consolidation]
-* link:./README.adoc#xml-namespace-class[XML namespace management]
-* link:./xml_mappings_guide.adoc[XML Mappings Guide]
+* link:../../guides/xml-mappings-guide[XML Mappings Guide]
