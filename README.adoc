@@ -1247,6 +1247,48 @@ currency_type = Lutaml::Model::Type.lookup(:currency)
 # => Currency
 ----
 
+==== Custom types with XSD types
+
+Define custom types with XSD type declarations for schema generation:
+
+.Custom type with XSD type declaration
+[example]
+====
+[source,ruby]
+----
+class ProductId < Lutaml::Model::Type::String
+  xsd_type 'xs:ID'  # <1>
+
+  def self.cast(value)
+    id = value.to_s.strip
+    unless id.match?(/\A[A-Za-z_][\w.-]*\z/)
+      raise Lutaml::Model::TypeError, "Invalid XML ID: #{id}"
+    end
+    id
+  end
+end
+
+class Product < Lutaml::Model::Serializable
+  attribute :id, ProductId  # <2>
+  attribute :name, :string
+
+  xml do
+    element 'product'
+    map_attribute "id", to: :id
+    map_element "name", to: :name
+  end
+end
+----
+<1> Declare XSD type for schema generation
+<2> Attribute automatically uses ProductId's xsd_type
+
+For comprehensive xsd_type documentation, see link:docs/_pages/value_types.adoc#xsd-type-declaration[Value Types - XSD Type Declaration].
+====
+
+For comprehensive XSD generation documentation including the three XSD patterns,
+see link:docs/_guides/creating-xsd.adoc[Creating XSD Schemas Guide].
+
+
 ==== Type casting and validation
 
 Custom types automatically handle type casting and can include validation:

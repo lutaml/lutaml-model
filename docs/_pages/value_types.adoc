@@ -888,3 +888,404 @@ types.
 
 . Test thoroughly: Custom types affect both parsing and serialization, so test
 with all formats you plan to use.
+
+[[xsd-type-declaration]]
+== XSD type declaration
+
+=== Purpose
+
+Custom Value types can declare their XSD type representation for schema generation. This enables proper XSD schemas when using [`Lutaml::Model::Schema.to_xsd`](lib/lutaml/model/schema.rb).
+
+When a custom type declares its `xsd_type`, that type information flows through to:
+
+* XSD schema generation via [`Schema.to_xml`](lib/lutaml/model/schema/xsd_schema.rb)
+* Type references in element and attribute declarations
+* Proper W3C XML Schema 1.1 compliance
+
+=== The xsd_type class method
+
+Use the `xsd_type` class method to declare the XSD type:
+
+.Declaring XSD type for a custom Type class
+[example]
+====
+[source,ruby]
+----
+class EmailType < Lutaml::Model::Type::String
+  xsd_type 'xs:normalizedString'  # <1>
+
+  def self.cast(value)
+    value.to_s.strip.gsub(/\s+/, ' ')
+  end
+end
+----
+<1> Declares this type's XSD representation
+
+When generating XSD schema, attributes using `EmailType` will have `type="xs:normalizedString"`.
+====
+
+=== Relationship to xsi:type in XML instances
+
+The `xsd_type` declaration serves two purposes:
+
+1. **Schema generation**: Defines the type in generated XSD schemas
+2. **Instance validation**: Enables `xsi:type` references in XML instances
+
+.Understanding xsd_type vs xsi:type
+[example]
+====
+[source,ruby]
+----
+class SizeType < Lutaml::Model::Type::String
+  xsd_type 'xs:token'  # <1>
+end
+
+class Product < Lutaml::Model::Serializable
+  attribute :size, SizeType
+
+  xml do
+    element 'product'
+    map_element "size", to: :size
+  end
+end
+----
+<1> Declares this type uses `xs:token` in schema definition
+
+**Generated XSD Schema:**
+[source,xml]
+----
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="product">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="size" type="xs:token"/>  <!--1-->
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>
+----
+<1> The `type="xs:token"` comes from `SizeType.xsd_type`
+
+**XML Instance Example:**
+[source,xml]
+----
+<product>
+  <size>large</size>  <!--1-->
+  <size xsi:type="xs:string">1</size>  <!--2-->
+</product>
+----
+<1> Normal instance conforming to declared `xs:token` type
+<2> Instance explicitly specifying type via `xsi:type` attribute
+
+The `xsi:type` attribute in XML instances allows runtime type specification, referencing type names declared in the schema.
+====
+
+.Custom type names and xsi:type
+[example]
+====
+[source,ruby]
+----
+class SizesListType < Lutaml::Model::Type::Value
+  xsd_type 'sizes'  # <1>
+
+  def self.cast(value)
+    # Parse space-separated decimal list
+    value.to_s.split.map(&:to_f)
+  end
+
+  def serialize(value)
+    value.join(' ')
+  end
+end
+----
+<1> Declares custom type name 'sizes'
+
+**Generated XSD Schema:**
+[source,xml]
+----
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name='sizes'>  <!--1-->
+    <xs:list itemType='xs:decimal'/>
+  </xs:simpleType>
+</xs:schema>
+----
+<1> Custom type definition from `xsd_type 'sizes'`
+
+**XML Instance Example:**
+[source,xml]
+----
+<cerealSizes xsi:type='sizes'> 8 10.5 12 </cerealSizes>  <!--1-->
+----
+<1> Instance uses `xsi:type='sizes'` to reference the custom type
+====
+
+=== XSD type inheritance
+
+Child types inherit `xsd_type` from their parent Type class:
+
+.XSD type inheritance in a type hierarchy
+[example]
+====
+[source,ruby]
+----
+class NormalizedString < Lutaml::Model::Type::String
+  xsd_type 'xs:normalizedString'
+end
+
+class Token < NormalizedString
+  xsd_type 'xs:token'  # <1>
+
+  def self.cast(value)
+    super.strip.gsub(/\s+/, ' ')
+  end
+end
+
+class Language < Token
+  xsd_type 'xs:language'  # <2>
+
+  def self.cast(value)
+    super.downcase
+  end
+end
+----
+<1> Token overrides parent's `xs:normalizedString`
+<2> Language overrides parent's `xs:token`
+
+Each child can override the parent's `xsd_type` or inherit it.
+====
+
+=== Default XSD types
+
+All built-in types have default XSD type mappings:
+
+.Default XSD type mappings for built-in Type classes
+[cols="1,1"]
+|===
+| Lutaml Type | Default XSD Type
+
+| [`Type::String`](lib/lutaml/model/type/string.rb)
+| `xs:string`
+
+| [`Type::Integer`](lib/lutaml/model/type/integer.rb)
+| `xs:integer`
+
+| [`Type::Float`](lib/lutaml/model/type/float.rb)
+| `xs:float`
+
+| [`Type::Boolean`](lib/lutaml/model/type/boolean.rb)
+| `xs:boolean`
+
+| [`Type::Date`](lib/lutaml/model/type/date.rb)
+| `xs:date`
+
+| [`Type::DateTime`](lib/lutaml/model/type/date_time.rb)
+| `xs:dateTime`
+
+| [`Type::Time`](lib/lutaml/model/type/time.rb)
+| `xs:time`
+
+| [`Type::Duration`](lib/lutaml/model/type/duration.rb)
+| `xs:duration`
+
+| [`Type::Decimal`](lib/lutaml/model/type/decimal.rb)
+| `xs:decimal`
+
+| [`Type::Uri`](lib/lutaml/model/type/uri.rb)
+| `xs:anyURI`
+
+| [`Type::QName`](lib/lutaml/model/type/qname.rb)
+| `xs:QName`
+
+| [`Type::Base64Binary`](lib/lutaml/model/type/base64_binary.rb)
+| `xs:base64Binary`
+
+| [`Type::HexBinary`](lib/lutaml/model/type/hex_binary.rb)
+| `xs:hexBinary`
+
+| [`Type::Hash`](lib/lutaml/model/type/hash.rb)
+| `xs:anyType`
+
+| [`Type::Symbol`](lib/lutaml/model/type/symbol.rb)
+| `xs:string`
+|===
+
+Custom types inherit these defaults and can override as needed.
+
+=== Common XSD type examples
+
+==== ID type
+
+XML IDs must follow NCName rules:
+
+.Creating an ID type with XSD type declaration
+[example]
+====
+[source,ruby]
+----
+class IdType < Lutaml::Model::Type::String
+  xsd_type 'xs:ID'
+
+  def self.cast(value)
+    id = super.strip
+    unless id.match?(/\A[A-Za-z_][\w.-]*\z/)
+      raise Lutaml::Model::TypeError, "Invalid XML ID: #{id}"
+    end
+    id
+  end
+end
+
+class Product < Lutaml::Model::Serializable
+  attribute :id, IdType
+
+  xml do
+    element 'product'
+    map_attribute "id", to: :id
+  end
+end
+----
+
+Generated XSD will include `<xs:attribute name="id" type="xs:ID"/>`.
+====
+
+==== Token type
+
+Tokens normalize whitespace:
+
+.Creating a Token type with XSD type declaration
+[example]
+====
+[source,ruby]
+----
+class TokenType < Lutaml::Model::Type::String
+  xsd_type 'xs:token'
+
+  def self.cast(value)
+    super.strip.gsub(/\s+/, ' ')
+  end
+end
+
+class Document < Lutaml::Model::Serializable
+  attribute :category, TokenType
+
+  xml do
+    element 'document'
+    map_element "category", to: :category
+  end
+end
+----
+====
+
+==== Language code type
+
+Language codes follow RFC 5646:
+
+.Creating a Language type with XSD type declaration
+[example]
+====
+[source,ruby]
+----
+class LanguageType < Lutaml::Model::Type::String
+  xsd_type 'xs:language'
+
+  def self.cast(value)
+    lang = super.downcase
+    unless lang.match?(/\A[a-z]{2,3}(-[A-Za-z0-9]+)*\z/i)
+      raise Lutaml::Model::TypeError, "Invalid language code: #{lang}"
+    end
+    lang
+  end
+end
+
+class Metadata < Lutaml::Model::Serializable
+  attribute :language, LanguageType
+
+  xml do
+    element 'metadata'
+    map_attribute "lang", to: :language
+  end
+end
+----
+====
+
+=== Element-level override
+
+You can override a Type's `xsd_type` for specific elements in the mapping:
+
+.Overriding XSD type at the element level
+[example]
+====
+[source,ruby]
+----
+class MyType < Lutaml::Model::Type::String
+  xsd_type 'xs:normalizedString'
+end
+
+class Model < Lutaml::Model::Serializable
+  attribute :field1, MyType
+  attribute :field2, MyType
+
+  xml do
+    element 'model'
+    map_element "field1", to: :field1, xsd_type: 'xs:token'  # <1>
+    map_element "field2", to: :field2  # <2>
+  end
+end
+----
+<1> Overrides `MyType`'s `xs:normalizedString` with `xs:token`
+<2> Uses `MyType`'s default `xs:normalizedString`
+====
+
+=== Precedence rules
+
+When determining XSD type for schema generation:
+
+1. **Element-level** `xsd_type` in mapping (highest priority)
+2. **Type-level** `xsd_type` from Type class
+3. **default_xsd_type** from Type class (fallback)
+
+This allows flexible type reuse with context-specific overrides.
+
+.XSD type precedence example
+[example]
+====
+[source,ruby]
+----
+class CustomType < Lutaml::Model::Type::String
+  xsd_type 'xs:normalizedString'  # <1>
+end
+
+class Model < Lutaml::Model::Serializable
+  attribute :field1, CustomType
+  attribute :field2, CustomType
+
+  xml do
+    element 'model'
+    map_element "field1", to: :field1, xsd_type: 'xs:ID'  # <2>
+    map_element "field2", to: :field2  # <3>
+  end
+end
+----
+<1> Type-level declaration
+<2> Element-level override (highest priority)
+<3> Inherits Type-level declaration
+
+Generated XSD:
+
+[source,xml]
+----
+<xs:element name="model">
+  <xs:complexType>
+    <xs:sequence>
+      <xs:element name="field1" type="xs:ID"/>  <!-- Element-level override -->
+      <xs:element name="field2" type="xs:normalizedString"/>  <!-- Type-level -->
+    </xs:sequence>
+  </xs:complexType>
+</xs:element>
+----
+====
+
+=== See also
+
+* link:../_references/xsd-type-architecture.adoc[XSD Type Architecture] - Complete architecture reference
+* link:../migration-guides/xsd-type-migration.adoc[XSD Type Migration Guide] - Migrating from deprecated patterns
+* link:../_guides/schema-generation.adoc[Schema Generation] - Generating XSD schemas

@@ -28,6 +28,7 @@ Task-oriented guides for accomplishing specific goals with Lutaml::Model.
 * link:../missing-values-handling[Missing Values Handling] - Handle nil/empty/omitted
 * link:../advanced-mapping[Advanced Mapping] - Custom methods and delegation
 * link:../schema-generation[Schema Generation] - Generate schemas from models
+* link:../creating-xsd[Creating XSD Schemas] - Complete reference for XSD generation from LutaML models
 * link:../schema-import[Schema Import] - Import schemas to create models
 * link:../liquid-templates[Liquid Templates] - Template integration
 * link:../ooxml-examples[OOXML Examples] - Real-world Office Open XML

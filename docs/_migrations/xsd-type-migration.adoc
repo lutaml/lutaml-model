@@ -360,57 +360,270 @@ attribute :product_id, LegacyIdType  # Clear intent, reusable
 
 
 [[model-type-naming]]
-== Model Type Naming (Separate Concern)
+== Model Type Naming: Three XSD Patterns
 
-Model complexType naming uses `type_name` (see <<type-name-method>>),
-which is **completely separate** from attribute XSD type specification.
+=== General
+
+W3C XSD supports three patterns for declaring complexTypes. LutaML differentiates
+them based on which directives are used:
+
+[cols="1,2,3"]
+|===
+| Pattern | Declaration | When to Use
+
+| **Anonymous Inline**
+| `element "x"` only
+| Single-use element structure
+
+| **Named Reusable**
+| `type_name "XType"` only
+| Type shared by multiple elements
+
+| **Element + Type**
+| `element "x"` + `type_name "XType"`
+| Element with explicitly named type
+|===
+
+=== Pattern 1: Anonymous Inline ComplexType
+
+**Use when**: Element structure is unique and not reused.
 
 Syntax:
 
 [source,ruby]
 ----
 xml do
-  element 'element-name'
-  type_name 'CustomTypeName'  # <1>
+  element "product"  # <1>
+  map_element "name", to: :name
 end
 ----
-<1> Names the XSD complexType definition itself
+<1> Only element declared, no type_name
 
 Where,
 
-`type_name`:: Sets the name of the XSD complexType or simpleType
-definition. Default: `{ClassName}Type`. This has **nothing to do** with
-attribute XSD types.
+`element`:: Declares the XML element name. When used alone (without type_name),
+generates an inline anonymous complexType.
 
-.Model type naming is orthogonal to attribute types
+.Pattern 1 example
 [example]
 ====
 [source,ruby]
 ----
 class Product < Lutaml::Model::Serializable
-  attribute :product_id, IdType  # Attribute uses xs:ID type
   attribute :name, :string
+  attribute :price, :float
 
   xml do
-    element 'product'
-    type_name 'CatalogItemType'  # ✅ complexType name (separate concern)
-
-    map_attribute 'id', to: :product_id  # Uses xs:ID from IdType
-    map_element 'name', to: :name        # Uses xs:string (inferred)
+    element "product"  # NO type_name = anonymous inline
+    map_element "name", to: :name
+    map_element "price", to: :price
   end
 end
+----
 
-# Generated XSD:
-# <xs:element name="product" type="CatalogItemType"/>
-#
-# <xs:complexType name="CatalogItemType">  ← type_name
-#   <xs:sequence>
-#     <xs:element name="name" type="xs:string"/>
-#   </xs:sequence>
-#   <xs:attribute name="id" type="xs:ID"/>  ← xsd_type from IdType
-# </xs:complexType>
+Generated XSD:
+
+[source,xml]
+----
+<xs:element name="product">
+  <xs:complexType>
+    <xs:sequence>
+      <xs:element name="name" type="xs:string"/>
+      <xs:element name="price" type="xs:decimal"/>
+    </xs:sequence>
+  </xs:complexType>
+</xs:element>
 ----
 ====
+
+=== Pattern 2: Named ComplexType (Type-Only)
+
+**Use when**: ComplexType should be reusable by multiple elements.
+
+Syntax:
+
+[source,ruby]
+----
+xml do
+  type_name "ProductType"  # <1>
+  map_element "name", to: :name
+end
+----
+<1> Only type_name declared, no element
+
+Where,
+
+`type_name`:: Sets the XSD complexType name. When used alone (without element),
+creates a type-only model that can be referenced by multiple elements.
+
+.Pattern 2 example
+[example]
+====
+[source,ruby]
+----
+class ProductType < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :price, :float
+
+  xml do
+    type_name "ProductType"  # NO element = type-only
+    map_element "name", to: :name
+    map_element "price", to: :price
+  end
+end
+----
+
+Generated XSD:
+
+[source,xml]
+----
+<xs:complexType name="ProductType">
+  <xs:sequence>
+    <xs:element name="name" type="xs:string"/>
+    <xs:element name="price" type="xs:decimal"/>
+  </xs:sequence>
+</xs:complexType>
+----
+
+This type can be referenced by other elements:
+
+[source,xml]
+----
+<xs:element name="product" type="ProductType"/>
+<xs:element name="item" type="ProductType"/>
+----
+====
+
+=== Pattern 3: Element with Named ComplexType
+
+**Use when**: Want both element declaration AND named type.
+
+Syntax:
+
+[source,ruby]
+----
+xml do
+  element "product"           # <1>
+  type_name "ProductType"     # <2>
+  map_element "name", to: :name
+end
+----
+<1> Element declared
+<2> Type named
+
+Where,
+
+`element` + `type_name`:: Both declared together. Creates both an element
+declaration and a named complexType that the element references.
+
+.Pattern 3 example
+[example]
+====
+[source,ruby]
+----
+class Product < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :price, :float
+
+  xml do
+    element "product"            # Element AND
+    type_name "ProductType"      # Type name
+    map_element "name", to: :name
+    map_element "price", to: :price
+  end
+end
+----
+
+Generated XSD:
+
+[source,xml]
+----
+<xs:element name="product" type="ProductType"/>
+
+<xs:complexType name="ProductType">
+  <xs:sequence>
+    <xs:element name="name" type="xs:string"/>
+    <xs:element name="price" type="xs:decimal"/>
+  </xs:sequence>
+</xs:complexType>
+----
+
+**Benefits**:
+
+* Element declaration for direct use
+* Named type for references by other elements
+* Type can be extended or restricted
+====
+
+=== Equivalence: xsd_type and type_name
+
+`xsd_type` and `type_name` are **permanent aliases** - completely equivalent
+methods:
+
+[source,ruby]
+----
+xml do
+  type_name "ProductType"  # Recommended: clear naming
+  # OR
+  xsd_type "ProductType"   # Equivalent: legacy compatibility
+end
+----
+
+Both methods:
+
+* Set the XSD complexType/simpleType name for schema generation
+* Have NO side effects (no auto-detection, no @no_root setting)
+* Are pure aliases with identical behavior
+
+**Recommendation**: Use `type_name` for clarity and consistency with W3C XSD
+terminology.
+
+=== NO MAGIC: Explicit Pattern Selection
+
+**IMPORTANT**: Pattern selection is EXPLICIT. There is NO auto-detection.
+
+❌ **Wrong**: Assuming xsd_type implies type-only
+
+[source,ruby]
+----
+xml do
+  xsd_type "ProductType"
+  # Missing element declaration - what pattern is this?
+  # Will use default element name (class name)
+end
+----
+
+✅ **Correct**: Explicitly declare pattern intent
+
+[source,ruby]
+----
+# Pattern 2: Type-only (no element)
+xml do
+  type_name "ProductType"
+  # No element() call - clearly pattern 2
+  map_element "name", to: :name
+end
+----
+
+=== Choosing a Pattern
+
+[source]
+----
+                  Need reusable type?
+                         │
+            ┌────────────┴────────────┐
+            │                         │
+          YES                        NO
+            │                         │
+    Want element too?          Pattern 1
+            │                  (Anonymous)
+    ┌───────┴────────┐
+    │                │
+  YES               NO
+    │                │
+Pattern 3      Pattern 2
+(Element+Type) (Type-only)
+----
 
 
 [[migration-path]]
@@ -746,7 +959,12 @@ not the mapping:
 
 If you need a different XSD type, create a different type class.
 
-.Enforcing proper layering
+=== Enforcement via errors
+
+As of v0.9.0, attempting to use `xsd_type:` at mapping level raises
+`Lutaml::Model::IncorrectMappingArgumentsError`:
+
+.Mapping-level xsd_type now raises errors
 [example]
 ====
 [source,ruby]
@@ -756,12 +974,12 @@ class Product < Lutaml::Model::Serializable
   attribute :id, IdType  # xs:ID type
 
   xml do
-    map_attribute 'id', to: :id, xsd_type: 'xs:string'  # ❌ Not allowed
+    map_attribute 'id', to: :id, xsd_type: 'xs:string'  # ❌ Raises error
   end
 end
-# Should raise: Lutaml::Model::InvalidMappingArgumentError:
-# xsd_type cannot be overridden at mapping level.
-# XSD type is determined by Value type class.
+# Raises: Lutaml::Model::IncorrectMappingArgumentsError:
+# xsd_type is not allowed at mapping level.
+# XSD type must be declared in Type::Value classes using the xsd_type directive.
 
 # ✅ CORRECT: Create appropriate type
 class StringIdType < Lutaml::Model::Type::String
