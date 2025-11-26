@@ -24,6 +24,17 @@ module Lutaml
         # @param register [Symbol] the register ID for type resolution
         def initialize(register = nil)
           @register = register || Lutaml::Model::Config.default_register
+
+          # VISITED TYPE TRACKING
+          # =====================
+          # Prevents infinite recursion when analyzing types (element == nil mode)
+          #
+          # SCENARIO: Type A references Type B, Type B references Type A
+          # WITHOUT: Stack overflow during recursive collect() calls
+          # WITH: Return empty_needs when revisiting already-analyzed type
+          #
+          # NOTE: Only used during type analysis (element is nil)
+          # Actual instances don't need this - they're finite data structures
           @visited_types = Set.new
         end
 
@@ -44,6 +55,8 @@ module Lutaml
           mapper_class = element&.class || options&.dig(:mapper_class)
 
           # Prevent infinite recursion for type analysis (when element is nil)
+          # When collecting from actual instance (element not nil), skip this check
+          # Instances are finite - only type graphs can be circular
           if element.nil? && mapper_class
             return empty_needs if @visited_types.include?(mapper_class)
 
@@ -52,6 +65,9 @@ module Lutaml
 
           attributes = mapper_class.respond_to?(:attributes) ? mapper_class.attributes : {}
 
+          # ==================================================================
+          # PHASE 1: OWN NAMESPACE COLLECTION (for non-type-only models)
+          # ==================================================================
           # TYPE-ONLY MODELS: No element_name means no root element wrapper
           # BUT we still need to collect namespace needs for their CHILDREN
           # Skip only the own namespace collection, not child collection
@@ -62,6 +78,9 @@ module Lutaml
               track_namespace(needs, mapping.namespace_class, :elements)
             end
 
+            # ==================================================================
+            # PHASE 2: XML ATTRIBUTE NAMESPACE COLLECTION
+            # ==================================================================
             # Collect XML attribute namespaces (only for non-type-only models)
             mapping.attributes.each do |attr_rule|
               next unless attr_rule.attribute?
@@ -79,8 +98,19 @@ module Lutaml
               elsif attr_rule.namespace_class
                 ns_class = attr_rule.namespace_class
               elsif attr_def
-                # TYPE NAMESPACE INTEGRATION: Check if attribute's type has a namespace
-                # XML attributes with Type namespaces should be prefixed
+                # TYPE NAMESPACE INTEGRATION
+                # ==========================
+                # Check if attribute's type (Type::Value subclass) declares a namespace
+                #
+                # EXAMPLE: EmailType < Type::String with xml_namespace EmailNamespace
+                # RESULT: XML attribute gets EmailNamespace prefix automatically
+                #
+                # WHY: Type-level namespaces apply to the serialized value's format
+                # Allows email addresses, phone numbers, etc. to live in their own namespace
+                #
+                # KEY CLASSES:
+                # - Type::Value.xml_namespace() - declares namespace for Value type
+                # - Attribute.type_namespace_class() - retrieves Type's namespace
                 type_ns_class = attr_def.type_namespace_class(@register)
                 if type_ns_class
                   ns_class = type_ns_class
@@ -95,6 +125,9 @@ module Lutaml
               end
             end
 
+            # ==================================================================
+            # PHASE 3: NAMESPACE_SCOPE CONFIGURATION
+            # ==================================================================
             # NOTE: namespace_scope namespaces are collected here
             # They are handled by DeclarationPlanner based on declare mode:
             # - declare: :always -> always declare
@@ -107,6 +140,9 @@ module Lutaml
             end
           end
 
+          # ==================================================================
+          # PHASE 4: ELEMENT NAMESPACE COLLECTION & RECURSION
+          # ==================================================================
           # Recurse to child elements
           mapping.elements.each do |elem_rule|
             # Collect explicit element namespace if set
@@ -126,6 +162,7 @@ module Lutaml
             type_ns_class = attr_def.type_namespace_class(@register)
             if type_ns_class && !elem_rule.namespace_set?
               # Only use Type namespace if no explicit mapping namespace was set
+              # Explicit mapping namespace takes precedence over Type namespace
               validate_namespace_class(type_ns_class)
               track_namespace(needs, type_ns_class, :elements)
 
@@ -139,9 +176,23 @@ module Lutaml
               end
             end
 
-            # NATIVE TYPE INHERITANCE (Bug Fix #1)
-            # Elements with native types and no explicit/Type namespace inherit parent
-            # namespace_set? returns true for explicit namespace: nil, so those are excluded
+            # NATIVE TYPE NAMESPACE INHERITANCE (Bug Fix #1 from Session 39)
+            # ===============================================================
+            # Elements with native types (String, Integer, etc.) and no explicit namespace
+            # inherit their parent element's namespace
+            #
+            # BEFORE BUG FIX: <name>value</name> (no namespace)
+            # AFTER BUG FIX: <prefix:name>value</prefix:name> (inherits parent)
+            #
+            # CONDITIONS:
+            # 1. Element has no explicit namespace (namespace_set? is false)
+            # 2. Element's Type has no namespace (type_ns_class is nil)
+            # 3. Element's type is native (String, Integer, not a Model)
+            # 4. Parent mapping has a namespace
+            #
+            # RESULT: Native type element tracked as using parent's namespace
+            # This ensures DeclarationPlanner includes parent namespace in plan
+            # and serialization applies parent's prefix to the native element
             if !elem_rule.namespace_set? && !type_ns_class
               child_type = attr_def.type(@register)
               is_native = !child_type.respond_to?(:<) || !(child_type < Lutaml::Model::Serialize)
@@ -150,6 +201,7 @@ module Lutaml
                 # Track parent's namespace as used by this element
                 track_namespace(needs, mapping.namespace_class, :elements)
                 # Store for serialization to use parent's format
+                # This allows adapter to find parent namespace via type_namespaces lookup
                 needs[:type_namespaces][elem_rule.to] = mapping.namespace_class
               end
             end
