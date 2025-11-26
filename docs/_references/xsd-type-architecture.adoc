@@ -1,0 +1,529 @@
+= XSD Type Architecture
+:toc:
+:toclevels: 3
+
+== Overview
+
+Lutaml::Model implements a three-level architecture for XSD type declarations, aligned with W3C XML Schema 1.1 standards (§2.2.1, §2.2.2, §3.3, §3.4, §3.16).
+
+This architecture ensures proper separation of concerns where:
+
+* **Type definitions** are intrinsic properties of Type classes
+* **Type references** are specified in element/attribute mappings
+* **Type names** for models are set at the model level
+
+== Three Levels of xsd_type
+
+=== 1. Type Class Level (Intrinsic Type Property)
+
+**Purpose:** Define the XSD type that a custom Value type represents or derives from.
+
+**Location:** [`lib/lutaml/model/type/value.rb:107-110`](lib/lutaml/model/type/value.rb)
+
+**XSD Standard:** §3.16 Simple Type Definitions, §2.2.1 Type Definition Components
+
+**Implementation Status:** ✅ IMPLEMENTED
+
+[source,ruby]
+----
+class EmailType < Lutaml::Model::Type::String
+  xsd_type 'xs:normalizedString'  # <1>
+
+  def self.cast(value)
+    # Validation logic
+    value.to_s.strip
+  end
+end
+----
+<1> This custom type derives from `xs:normalizedString` in generated XSD
+
+**Generated XSD:**
+[source,xml]
+----
+<xs:simpleType name="EmailType">
+  <xs:restriction base="xs:normalizedString">
+    <!-- Additional constraints -->
+  </xs:restriction>
+</xs:simpleType>
+----
+
+**Key Methods:**
+
+* `.xsd_type(type_name = nil)` - Set or get XSD type for this Type class
+* `.default_xsd_type` - Override to provide default XSD type (e.g., `"xs:string"`)
+
+**Built-in Types:**
+
+All built-in types have `default_xsd_type` implementations:
+
+[cols="1,1"]
+|===
+| Type Class | Default XSD Type
+
+| `Type::String`
+| `xs:string`
+
+| `Type::Integer`
+| `xs:integer`
+
+| `Type::Float`
+| `xs:float`
+
+| `Type::Boolean`
+| `xs:boolean`
+
+| `Type::Date`
+| `xs:date`
+
+| `Type::DateTime`
+| `xs:dateTime`
+
+| `Type::Time`
+| `xs:time`
+
+| `Type::Duration`
+| `xs:duration`
+
+| `Type::Decimal`
+| `xs:decimal`
+
+| `Type::Uri`
+| `xs:anyURI`
+
+| `Type::QName`
+| `xs:QName`
+
+| `Type::Base64Binary`
+| `xs:base64Binary`
+
+| `Type::HexBinary`
+| `xs:hexBinary`
+
+| `Type::Hash`
+| `xs:anyType`
+
+| `Type::Symbol`
+| `xs:string`
+
+| `Type::Reference`
+| Dynamic (xs:IDREF or xs:string)
+|===
+
+=== 2. Model Level (Type Definition Name)
+
+**Purpose:** Define the XSD complexType or simpleType name for the model class.
+
+**Location:** [`lib/lutaml/model/xml/mapping.rb:172-176`](lib/lutaml/model/xml/mapping.rb)
+
+**XSD Standard:** §3.4 Complex Type Definitions
+
+**Implementation Status:** ✅ IMPLEMENTED
+
+[source,ruby]
+----
+class Address < Lutaml::Model::Serializable
+  attribute :street, :string
+  attribute :city, :string
+
+  xml do
+    xsd_type 'AddressType'  # <1>
+    map_element "street", to: :street
+    map_element "city", to: :city
+  end
+end
+----
+<1> Sets the complexType name in generated XSD
+
+**Generated XSD:**
+[source,xml]
+----
+<xs:complexType name="AddressType">
+  <xs:sequence>
+    <xs:element name="street" type="xs:string"/>
+    <xs:element name="city" type="xs:string"/>
+  </xs:sequence>
+</xs:complexType>
+----
+
+**Also Enables Type-Only Models:**
+
+When `xsd_type` is used without `element`, it creates a type-only model (no root element wrapper):
+
+[source,ruby]
+----
+class AddressComponents < Lutaml::Model::Serializable
+  attribute :street, :string
+  attribute :city, :string
+
+  xml do
+    xsd_type  # Type-only, no element wrapper
+    map_element "street", to: :street
+    map_element "city", to: :city
+  end
+end
+----
+
+This sets `@no_root = true` and can be imported with `import_model_mappings`.
+
+=== 3. Element Level (Type Reference in Child Elements)
+
+**Purpose:** Override the XSD type reference for a specific element in generated XSD.
+
+**Location:** [`lib/lutaml/model/xml/mapping_rule.rb`](lib/lutaml/model/xml/mapping_rule.rb)
+
+**XSD Standard:** §3.3 Element Declarations
+
+**Implementation Status:** ❌ NOT YET IMPLEMENTED (To be added)
+
+[source,ruby]
+----
+class Person < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :email, EmailType
+
+  xml do
+    element 'person'
+    map_element "name", to: :name, xsd_type: 'xs:token'  # <1>
+    map_element "email", to: :email  # <2>
+  end
+end
+----
+<1> Explicit type reference override for this specific element
+<2> Type inferred from `EmailType.xsd_type` (falls back to Type level)
+
+**Generated XSD:**
+[source,xml]
+----
+<xs:element name="person">
+  <xs:complexType>
+    <xs:sequence>
+      <xs:element name="name" type="xs:token"/>       <!-- Element-level override -->
+      <xs:element name="email" type="xs:normalizedString"/>  <!-- From EmailType -->
+    </xs:sequence>
+  </xs:complexType>
+</xs:element>
+----
+
+== Precedence Rules
+
+=== For Element Type References
+
+When generating `<xs:element name="X" type="..."/>`, the type is resolved in this order:
+
+1. **Element-level xsd_type** (highest priority) - From mapping rule parameter
+2. **Type-level xsd_type** - From Type::Value class method
+3. **default_xsd_type** - Fallback from Type class
+
+[source,ruby]
+----
+# Element-level > Type-level > Default
+class Model < Lutaml::Model::Serializable
+  attribute :field, CustomType  # CustomType.xsd_type = 'xs:token'
+
+  xml do
+    map_element "field", to: :field, xsd_type: 'xs:string'  # <1>
+  end
+end
+----
+<1> Element-level `'xs:string'` wins over CustomType's `'xs:token'`
+
+**Result:** `<xs:element name="field" type="xs:string"/>`
+
+=== For Model Type Definition
+
+When generating `<xs:complexType name="...">`, the type name is:
+
+1. **Model-level xsd_type** (explicit name) - From `xsd_type 'TypeName'`
+2. **Auto-generated from class name** - `#{ClassName}Type`
+
+[source,ruby]
+----
+class Person < Lutaml::Model::Serializable
+  xml do
+    xsd_type 'PersonType'  # <1>
+  end
+end
+----
+<1> Explicit type name overrides auto-generated name
+
+**Without explicit xsd_type:**
+```ruby
+class Person < Lutaml::Model::Serializable
+  xml do
+    element 'person'
+  end
+end
+```
+
+Auto-generates: `PersonType`
+
+== Current Implementation Status
+
+[cols="1,1,1"]
+|===
+| Level | Status | Location
+
+| Type-level `xsd_type`
+| ✅ Implemented
+| `lib/lutaml/model/type/value.rb:107-110`
+
+| Model-level `xsd_type`
+| ✅ Implemented
+| `lib/lutaml/model/xml/mapping.rb:172-176`
+
+| Element-level `xsd_type`
+| ❌ Not Implemented
+| Need to add to `lib/lutaml/model/xml/mapping_rule.rb`
+
+| Attribute-level (deprecated)
+| ✅ Warning Added
+| `lib/lutaml/model/attribute.rb:671-676`
+
+| Schema Generation
+| ⚠️ Partial
+| `lib/lutaml/model/schema/xsd_schema.rb:302-322`
+|===
+
+== Migration from Attribute-Level xsd_type
+
+**Status:** Deprecation warning implemented in [`lib/lutaml/model/attribute.rb:671-676`](lib/lutaml/model/attribute.rb)
+
+**Old (Deprecated):**
+[source,ruby]
+----
+attribute :email, :string, xsd_type: 'xs:normalizedString'  # ❌ Deprecated
+----
+
+**Warning Message:**
+```
+[DEPRECATION] The :xsd_type attribute option is deprecated and will be removed in v1.0.0.
+Create a custom Type::Value class with xsd_type at class level instead.
+See: docs/migration-guides/xsd-type-migration.adoc
+```
+
+**Migration Path 1 - Custom Type (Recommended):**
+[source,ruby]
+----
+class EmailType < Lutaml::Model::Type::String
+  xsd_type 'xs:normalizedString'
+end
+
+class Person < Lutaml::Model::Serializable
+  attribute :email, EmailType
+end
+----
+
+**Migration Path 2 - Element-level Mapping:**
+[source,ruby]
+----
+class Person < Lutaml::Model::Serializable
+  attribute :email, :string
+
+  xml do
+    map_element "email", to: :email, xsd_type: 'xs:normalizedString'
+  end
+end
+----
+
+**Migration Path 3 - Use Built-in Type:**
+[source,ruby]
+----
+class Person < Lutaml::Model::Serializable
+  attribute :age, :integer  # xs:integer is Type::Integer's default
+end
+----
+
+== Implementation Roadmap
+
+=== Phase 1: Add Element-Level xsd_type Support ⏳
+
+**Files to Modify:**
+
+1. `lib/lutaml/model/xml/mapping_rule.rb`
+   - Add `xsd_type` parameter to `initialize`
+   - Add `attr_reader :xsd_type`
+   - Pass through `deep_dup`
+
+2. `lib/lutaml/model/xml/mapping.rb`
+   - Add `xsd_type:` parameter to `map_element`
+   - Add `xsd_type:` parameter to `map_attribute`
+   - Pass to MappingRule constructor
+
+3. `lib/lutaml/model/schema/xsd_schema.rb`
+   - Update `get_attribute_xsd_type` to check mapping rule first
+   - Update `build_element_attributes` to use mapping rule xsd_type
+
+**New Precedence in Schema Generation:**
+[source,ruby]
+----
+def get_attribute_xsd_type(attr, attr_type, register, mapping_rule = nil)
+  # 1. Element-level (from mapping rule) - HIGHEST
+  return mapping_rule.xsd_type if mapping_rule&.xsd_type
+
+  # 2. Type-level (from Type class)
+  return attr_type.xsd_type if attr_type.respond_to?(:xsd_type)
+
+  # 3. Default fallback
+  get_xsd_type(attr_type)
+end
+----
+
+=== Phase 2: Comprehensive Testing ⏳
+
+**Test Coverage Needed:**
+
+1. Type-level xsd_type
+   - Custom types with xsd_type
+   - Inheritance of xsd_type
+   - Fallback to default_xsd_type
+
+2. Model-level xsd_type
+   - Explicit type names
+   - Auto-generated names
+   - Type-only models (no_root)
+
+3. Element-level xsd_type
+   - Override Type-level xsd_type
+   - Combine with transform
+   - Use with collections
+
+4. Precedence resolution
+   - Element > Type > Default
+   - Model > Auto-generated
+
+5. Schema generation
+   - All three levels separately
+   - Combined usage
+   - XSD 1.1 validation
+
+6. Deprecation warnings
+   - Attribute-level usage
+   - Clear migration messages
+
+=== Phase 3: Documentation Updates ⏳
+
+**Documents to Create/Update:**
+
+1. `docs/_references/xsd-type-architecture.adoc` - ✅ This document
+2. `docs/migration-guides/xsd-type-migration.adoc` - Detailed migration guide
+3. `docs/_pages/value_types.adoc` - Add xsd_type section
+4. `README.adoc` - Update examples
+5. XML-specific documentation
+
+== XSD Standard Compliance
+
+=== Relevant W3C XML Schema 1.1 Sections
+
+* **§2.2.1** - Type Definition Components
+* **§2.2.2** - Declaration Components  
+* **§3.3** - Element Declarations
+* **§3.4** - Complex Type Definitions
+* **§3.16** - Simple Type Definitions
+
+=== Architecture Alignment
+
+[cols="1,1,1"]
+|===
+| XSD Concept | Lutaml::Model | Location
+
+| Simple Type Definition
+| Type::Value class
+| Type-level xsd_type
+
+| Complex Type Definition
+| Model class
+| Model-level xsd_type
+
+| Element Declaration
+| Element mapping
+| Element-level xsd_type
+
+| Type Reference
+| `type="..."`
+| Element/Attribute xsd_type
+
+| Type Name
+| `name="..."`
+| Model xsd_type value
+|===
+
+== Examples
+
+=== Complete Example: All Three Levels
+
+[source,ruby]
+----
+# 1. Type-level: Custom ID type
+class ProductIdType < Lutaml::Model::Type::String
+  xsd_type 'xs:ID'  # <1>
+
+  def self.cast(value)
+    value.to_s.upcase
+  end
+end
+
+# 2. Model-level: Address type definition
+class Address < Lutaml::Model::Serializable
+  attribute :street, :string
+  attribute :city, :string
+
+  xml do
+    xsd_type 'AddressType'  # <2>
+    map_element "street", to: :street
+    map_element "city", to: :city
+  end
+end
+
+# 3. Element-level: Override for specific element
+class Product < Lutaml::Model::Serializable
+  attribute :id, ProductIdType
+  attribute :name, :string
+  attribute :address, Address
+
+  xml do
+    element 'product'
+    map_element "id", to: :id  # Uses ProductIdType.xsd_type = 'xs:ID'
+    map_element "name", to: :name, xsd_type: 'xs:token'  # <3>
+    map_element "address", to: :address
+  end
+end
+----
+<1> Type-level: ProductIdType intrinsically represents xs:ID
+<2> Model-level: Address generates <xs:complexType name="AddressType">
+<3> Element-level: name element uses xs:token instead of default xs:string
+
+**Generated XSD:**
+[source,xml]
+----
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <!-- Type Definition from Type-level -->
+  <xs:simpleType name="ProductIdType">
+    <xs:restriction base="xs:ID"/>
+  </xs:simpleType>
+
+  <!-- Type Definition from Model-level -->
+  <xs:complexType name="AddressType">
+    <xs:sequence>
+      <xs:element name="street" type="xs:string"/>
+      <xs:element name="city" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Element Declaration with Type References -->
+  <xs:element name="product">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="id" type="xs:ID"/>        <!-- From Type-level -->
+        <xs:element name="name" type="xs:token"/>   <!-- Element-level override -->
+        <xs:element name="address" type="AddressType"/>  <!-- From Model-level -->
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>
+----
+
+== See Also
+
+* link:../migration-guides/xsd-type-migration.adoc[XSD Type Migration Guide]
+* link:../_pages/value_types.adoc[Value Types Documentation]
+* link:https://www.w3.org/TR/xmlschema11-1/[W3C XML Schema 1.1 Part 1]

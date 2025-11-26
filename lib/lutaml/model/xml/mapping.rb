@@ -47,7 +47,7 @@ module Lutaml
         end
 
         def finalize(mapper_class)
-          if !root_element && !no_root?
+          if !root_element && !no_root? && !@type_name_value
             root(mapper_class.model.to_s)
           end
           @finalized = true
@@ -122,11 +122,12 @@ module Lutaml
 
         # Mark this model as having no root element (type-only)
         #
-        # @deprecated Use absence of element() declaration instead
+        # @deprecated Use absence of element() declaration and type_name() instead
         def no_root
           warn "[Lutaml::Model] DEPRECATED: no_root is deprecated. " \
-               "Simply omit the element declaration for type-only models."
-          xsd_type # Call xsd_type underneath for backwards compatibility
+               "Simply omit the element declaration for type-only models. " \
+               "Use type_name() to set the XSD type name."
+          @no_root = true
         end
 
         def no_root?
@@ -146,33 +147,6 @@ module Lutaml
           else
             root_element
           end
-        end
-
-        # Mark this model as an XSD type (no root element wrapper)
-        #
-        # Type-only models serialize their children directly without a wrapper element.
-        # They cannot have namespaces since there's no element to declare xmlns on.
-        #
-        # @param name [String, nil] optional custom type name for XSD generation
-        # @return [String, nil] the type name if set
-        #
-        # @example Type without custom name
-        #   xml do
-        #     xsd_type
-        #     map_element "street", to: :street
-        #     map_element "city", to: :city
-        #   end
-        #
-        # @example Type with custom name
-        #   xml do
-        #     xsd_type "AddressType"
-        #     map_element "street", to: :street
-        #     map_element "city", to: :city
-        #   end
-        def xsd_type(name = nil)
-          @no_root = true
-          @type_name_value = name if name
-          @type_name_value
         end
 
         # Set the XML namespace for this mapping
@@ -274,6 +248,15 @@ module Lutaml
           @type_name_value
         end
 
+        # Alias for type_name - both methods are equivalent
+        #
+        # xsd_type and type_name set the XSD complexType/simpleType name
+        # for schema generation. Use type_name for clarity (recommended).
+        #
+        # @param name [String, nil] the type name
+        # @return [String, nil] the type name
+        alias xsd_type type_name
+
         def map_instances(to:, polymorphic: {})
           map_element(to, to: to, polymorphic: polymorphic)
         end
@@ -298,11 +281,21 @@ module Lutaml
           transform: {},
           value_map: {},
           form: nil,
-          documentation: nil
+          documentation: nil,
+          xsd_type: (xsd_type_provided = false
+                      nil)
         )
           validate!(
             name, to, with, render_nil, render_empty, type: TYPES[:element]
           )
+
+          # Raise error if xsd_type parameter is provided
+          if xsd_type_provided != false
+            raise Lutaml::Model::IncorrectMappingArgumentsError,
+                  "xsd_type is not allowed at mapping level. " \
+                  "XSD type must be declared in Type::Value classes using the xsd_type directive. " \
+                  "See docs/migration-guides/xsd-type-migration.adoc"
+          end
 
           rule = MappingRule.new(
             name,
@@ -348,11 +341,21 @@ module Lutaml
           as_list: nil,
           delimiter: nil,
           form: nil,
-          documentation: nil
+          documentation: nil,
+          xsd_type: (xsd_type_provided = false
+                     nil)
         )
           validate!(
             name, to, with, render_nil, render_empty, type: TYPES[:attribute]
           )
+
+          # Raise error if xsd_type parameter is provided
+          if xsd_type_provided != false
+            raise Lutaml::Model::IncorrectMappingArgumentsError,
+                  "xsd_type is not allowed at mapping level. " \
+                  "XSD type must be declared in Type::Value classes using the xsd_type directive. " \
+                  "See docs/migration-guides/xsd-type-migration.adoc"
+          end
 
           if name == "schemaLocation"
             Logger.warn_auto_handling(
