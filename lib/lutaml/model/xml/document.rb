@@ -165,7 +165,7 @@ module Lutaml
           else
             text = content_rule.serialize(element)
             cdata = content_rule.cdata
-            if text.is_a?(Array) && !cdata
+            if text.is_a?(Array) && !cdata && element.element_order&.any?
               element.element_order&.each_with_index do |object, index|
                 str = text[index]
                 if object.entity?
