@@ -60,9 +60,7 @@ module Lutaml
           end
 
           def add_xml_fragment(element, content)
-            if element.is_a?(self.class)
-              element = element.xml.parent
-            end
+            element = element.xml.parent if element.is_a?(self.class)
 
             fragment = ::Nokogiri::XML::DocumentFragment.parse(content)
 
@@ -71,13 +69,17 @@ module Lutaml
 
           def add_text(element, text, cdata: false)
             return add_cdata(element, text) if cdata
-
-            if element.is_a?(self.class)
-              element = element.xml.parent
-            end
+            element = element.xml.parent if element.is_a?(self.class)
 
             text_node = ::Nokogiri::XML::Text.new(text.to_s, element)
             element.add_child(text_node)
+          end
+
+          def add_entity(element, entity)
+            element = element.xml.parent if element.is_a?(self.class)
+
+            entity_node = ::Nokogiri::XML::EntityReference.new(element.document, entity)
+            element.add_child(entity_node)
           end
 
           def add_cdata(element, value)

@@ -494,9 +494,18 @@ RSpec.describe Lutaml::Model::Collection do
       expect(collection.to_xml).to be_xml_equivalent_to(
         <<~XML,
           <people>
-            <person><age>30</age><name>Alice</name></person>
-            <person><name>Bob</name><age>25</age></person>
-            <person><name>Charlie</name><age>35</age></person>
+            <person>
+              <age>30</age>
+              <name>Alice</name>
+            </person>
+            <person>
+              <name>Bob</name>
+              <age>25</age>
+            </person>
+            <person>
+              <name>Charlie</name>
+              <age>35</age>
+            </person>
           </people>
         XML
       )

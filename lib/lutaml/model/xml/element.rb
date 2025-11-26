@@ -2,6 +2,9 @@ module Lutaml
   module Model
     module Xml
       class Element
+        TYPE_TEXT = "Text".freeze
+        NAME_ENTITY = "entity".freeze
+
         include Lutaml::Model::Liquefiable
 
         attr_reader :type, :name
@@ -12,7 +15,11 @@ module Lutaml
         end
 
         def text?
-          @type == "Text" && @name != "#cdata-section"
+          @type == TYPE_TEXT && @name != "#cdata-section" && @name != NAME_ENTITY
+        end
+
+        def entity?
+          @type == TYPE_TEXT && @name == NAME_ENTITY
         end
 
         def element_tag
@@ -40,7 +47,7 @@ module Lutaml
         private
 
         def register_liquid_methods
-          %i[text? element_tag type name].each do |attr_name|
+          %i[text? entity? element_tag type name].each do |attr_name|
             self.class.register_drop_method(attr_name)
           end
 

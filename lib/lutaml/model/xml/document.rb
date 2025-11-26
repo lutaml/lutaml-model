@@ -164,9 +164,21 @@ module Lutaml
             )
           else
             text = content_rule.serialize(element)
-            text = text.join if text.is_a?(Array)
+            cdata = content_rule.cdata
+            if text.is_a?(Array) && !cdata
+              element.element_order&.each_with_index do |object, index|
+                str = text[index]
+                if object.entity?
+                  xml.add_entity(xml, str)
+                elsif object.text?
+                  xml.add_text(xml, str, cdata: cdata)
+                end
+              end
+            else
+              text = text.join if text.is_a?(Array)
 
-            xml.add_text(xml, text, cdata: content_rule.cdata)
+              xml.add_text(xml, text, cdata: cdata)
+            end
           end
         end
 
