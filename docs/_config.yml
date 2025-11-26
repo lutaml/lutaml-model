@@ -78,10 +78,10 @@ just_the_docs:
       nav_fold: false
     tutorials:
       name: Tutorials
-      nav_fold: true
+      nav_fold: false
     guides:
       name: Guides
-      nav_fold: true
+      nav_fold: false
     references:
       name: References
       nav_fold: false
