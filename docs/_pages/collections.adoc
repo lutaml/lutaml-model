@@ -1221,6 +1221,74 @@ collection << Item.new(id: "3", name: "Item 3")
 ----
 ====
 
+==== Collection mutation
+
+Collection attributes can be mutated after initialization using standard Ruby
+array methods or custom helper methods. These mutations are properly reflected
+during serialization.
+
+When a collection attribute is defined with a default value (e.g., `default: -> { [] }`),
+you can mutate it directly using Ruby's array methods such as `<<`, `push`,
+`concat`, etc., or through custom methods that add items to the collection.
+
+.Mutating collection attributes after initialization
+[example]
+====
+[source,ruby]
+----
+class TabStop < Lutaml::Model::Serializable
+  attribute :position, :integer
+  attribute :alignment, :string
+
+  xml do
+    element 'tab'
+    map_attribute 'pos', to: :position
+    map_attribute 'val', to: :alignment
+  end
+end
+
+class TabStopCollection < Lutaml::Model::Serializable
+  attribute :tabs, TabStop, collection: true, default: -> { [] }
+
+  xml do
+    element 'tabs'
+    map_element 'tab', to: :tabs
+  end
+
+  # Custom helper method for adding tabs
+  def add_tab(position, alignment)
+    tabs << TabStop.new(position: position, alignment: alignment)
+  end
+end
+
+# Create collection with default empty array
+collection = TabStopCollection.new
+
+# Mutate using << operator
+collection.tabs << TabStop.new(position: 1440, alignment: "center")
+
+# Mutate using custom method
+collection.add_tab(2880, "right")
+
+# Mutations are properly serialized
+puts collection.to_xml
+# <tabs>
+#   <tab pos="1440" val="center"/>
+#   <tab pos="2880" val="right"/>
+# </tabs>
+----
+====
+
+This behavior enables natural Ruby idioms for working with collections:
+
+* **Direct mutation**: Use `<<`, `push`, `pop`, `shift`, `unshift`, `concat`, etc.
+* **Custom methods**: Create domain-specific helper methods like `add_item`, `remove_item`
+* **No recreation needed**: No need to recreate parent objects to update collections
+
+NOTE: Empty collections initialized with default values are not serialized unless
+items are added. This preserves the expected behavior where default values are
+only rendered when explicitly requested with `render_default: true`.
+
 ==== Ordering
 
 TODO: This case needs to be fixed.
