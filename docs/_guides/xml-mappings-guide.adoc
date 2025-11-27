@@ -1,11 +1,10 @@
 ---
 title: XML Mappings Guide
 nav_order: 6
-parent: Guides
 has_children: true
 ---
 
-= XML mappings guide for Lutaml::Model
+= XML Mappings Guide
 :toc:
 :toclevels: 3
 
@@ -20,19 +19,3 @@ endif::[]
 This guide provides comprehensive documentation for the XML mapping system in
 Lutaml::Model, with emphasis on the namespace-aware architecture that properly
 models W3C XML Namespace and XSD specifications.
-
-* link:../xml_mappings/01_introduction[Introduction]
-
-* link:../xml_mappings/02_core_concepts[Core concepts]
-
-* link:../xml_mappings/03_architecture[Architecture overview]
-
-* link:../xml_mappings/04_xml_namespace_class[XmlNamespace class reference]
-
-* link:../xml_mappings/05_common_patterns[Common patterns]
-
-* link:../xml_mappings/06_migration_guide[Migration guide]
-
-* link:../xml_mappings/07_best_practices[Best practices]
-
-* link:../xml_mappings/08_troubleshooting[Troubleshooting]

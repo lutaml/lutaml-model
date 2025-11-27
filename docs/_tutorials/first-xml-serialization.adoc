@@ -1,7 +1,6 @@
 ---
 title: First XML Serialization
 nav_order: 2
-parent: Tutorials
 ---
 
 = First XML Serialization

@@ -1,10 +1,9 @@
 ---
 title: Guides
-nav_order: 1
-has_children: true
+nav_order: 0
 ---
 
-= Guides
+= Overview
 
 Task-oriented guides for accomplishing specific goals with Lutaml::Model.
 

@@ -1,7 +1,6 @@
 ---
 title: XML Serialization Mapping
 nav_order: 1
-parent: Guides
 ---
 
 = XML Serialization Mapping

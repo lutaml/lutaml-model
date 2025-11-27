@@ -1,4 +1,9 @@
-= Migration Guide: attribute_form_default :qualified Fix (v0.8.0)
+---
+title: v0.8.0 attribute_form_default :qualified Fix
+nav_order: 5
+---
+
+= v0.8.0 attribute_form_default :qualified Fix
 :toc:
 
 == Overview

@@ -1,7 +1,6 @@
 ---
 title: Migrate from Shale to Lutaml::Model
-nav_order: 1
-parent: Migrations Guides
+nav_order: 2
 ---
 
 = Migrate from Shale to Lutaml::Model

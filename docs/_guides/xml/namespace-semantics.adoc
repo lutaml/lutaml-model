@@ -1,7 +1,6 @@
 ---
 title: XML Namespace Semantics in Lutaml::Model
 nav_order: 4
-parent: Guides
 ---
 
 = XML Namespace Semantics in Lutaml::Model

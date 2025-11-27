@@ -524,6 +524,6 @@ end
 
 == See Also
 
-* link:../migration-guides/xsd-type-migration.adoc[XSD Type Migration Guide]
-* link:../_pages/value_types.adoc[Value Types Documentation]
+* link:../../migrations/xsd-type-migration[XSD Type Migration Guide]
+* link:../../value_types[Value Types Documentation]
 * link:https://www.w3.org/TR/xmlschema11-1/[W3C XML Schema 1.1 Part 1]

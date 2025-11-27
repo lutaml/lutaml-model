@@ -1,7 +1,6 @@
 ---
 title: Custom Types Tutorial
 nav_order: 7
-parent: Tutorials
 ---
 
 = Custom types tutorial

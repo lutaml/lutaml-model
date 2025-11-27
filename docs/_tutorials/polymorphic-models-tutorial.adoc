@@ -1,7 +1,6 @@
 ---
 title: Polymorphic Models Tutorial
 nav_order: 8
-parent: Tutorials
 ---
 
 = Polymorphic models tutorial

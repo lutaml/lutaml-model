@@ -1,7 +1,6 @@
 ---
 title: Key-Value Serialization
 nav_order: 7
-parent: Guides
 ---
 
 = Key-value serialization

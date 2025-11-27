@@ -1,7 +1,6 @@
 ---
 title: Collection Serialization
 nav_order: 8
-parent: Guides
 ---
 
 = Collection serialization formats

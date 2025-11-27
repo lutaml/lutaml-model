@@ -1,7 +1,6 @@
 ---
 title: Custom Adapters
 nav_order: 3
-parent: References
 ---
 
 = Custom Adapters in Lutaml::Model

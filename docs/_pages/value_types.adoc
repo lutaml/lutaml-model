@@ -1,7 +1,6 @@
 ---
 title: Value Types
 nav_order: 6
-parent: Core Topics
 ---
 
 = Value types
@@ -1286,6 +1285,6 @@ Generated XSD:
 
 === See also
 
-* link:../_references/xsd-type-architecture.adoc[XSD Type Architecture] - Complete architecture reference
-* link:../migration-guides/xsd-type-migration.adoc[XSD Type Migration Guide] - Migrating from deprecated patterns
-* link:../_guides/schema-generation.adoc[Schema Generation] - Generating XSD schemas
+* link:../references/xsd-type-architecture[XSD Type Architecture] - Complete architecture reference
+* link:../migrations/xsd-type-migration[XSD Type Migration Guide] - Migrating from deprecated patterns
+* link:../guides/schema-generation[Schema Generation] - Generating XSD schemas

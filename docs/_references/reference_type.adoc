@@ -1,7 +1,6 @@
 ---
 title: Reference Type
 nav_order: 2
-parent: References
 ---
 
 = Reference Type Documentation

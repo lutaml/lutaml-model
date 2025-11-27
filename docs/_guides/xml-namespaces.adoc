@@ -1,7 +1,6 @@
 ---
 title: XML Namespaces
 nav_order: 2
-parent: Guides
 ---
 
 = XML Namespaces
