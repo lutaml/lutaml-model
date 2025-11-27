@@ -13,8 +13,7 @@ nav_order: 3
 
 **Timeline**:
 
-* v0.7.0 - v0.8.x: Attribute-level `:xsd_type` supported (no warning)
-* v0.9.0: **Deprecation warnings introduced (CURRENT)**
+* v0.7.0 - v0.8.0: Attribute-level `:xsd_type` supported (warning)
 * v1.0.0: Attribute-level `:xsd_type` will be removed (raises error)
 
 **Migration**: Use class-level `xsd_type` directive in custom `Type::Value` classes instead.
@@ -1289,7 +1288,7 @@ attribute :product_id, :string, xsd_type: 'xs:ID'
 == See Also
 
 * link:../../tutorials/xml-namespaces-basics[XML namespaces]
-* link:../../guides/schema-import[XSD ComplexTypes]
+* link:../../guides/schema-import[Schema Import] - Import schemas to create models
 * link:../../tutorials/custom-types-tutorial[Custom types]
 * Type registration documentation
 * `Type::Reference`

@@ -16,6 +16,7 @@ Technical reference documentation and architecture details for Lutaml::Model.
 * link:../format-independent-features[Format-Independent Features] - Cross-format features
 * link:../parent-root-context[Parent and Root Context] - Navigation in model hierarchies
 * link:../three-phase-namespace-architecture[Three-Phase Namespace Architecture] - Implementation details
+* link:../xsd-schema-parsing[XSD Schema Parsing] - Parse XSD schemas into Ruby objects
 
 == Architecture and design
 
