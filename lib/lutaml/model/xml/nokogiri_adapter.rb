@@ -831,6 +831,13 @@ mapping: nil)
             )
           end
 
+          # Detect if xmlns="" is explicitly set (explicit no namespace)
+          # Use shared helper method for consistency across all adapters
+          explicit_no_namespace = XmlElement.detect_explicit_no_namespace(
+            has_empty_xmlns: node.namespaces.key?("xmlns") && node.namespaces["xmlns"] == "",
+            node_namespace_nil: node.namespace.nil?
+          )
+
           # Set default namespace for root, or inherit from parent for children
           if !node.namespace&.prefix
             default_namespace = node.namespace&.href ||
@@ -846,7 +853,8 @@ mapping: nil)
             name: node.name,
             parent_document: root_node,
             namespace_prefix: node.namespace&.prefix,
-            default_namespace: default_namespace
+            default_namespace: default_namespace,
+            explicit_no_namespace: explicit_no_namespace
           )
         end
 

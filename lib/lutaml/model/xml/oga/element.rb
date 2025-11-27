@@ -8,12 +8,26 @@ module Lutaml
       module Oga
         class Element < XmlElement
           def initialize(node, parent: nil, default_namespace: nil)
+            explicit_no_namespace = false
+
             text = case node
                    when Moxml::Element
                      namespace_name = node.namespace&.prefix
+
+                     # Detect explicit xmlns="" for no namespace
+                     # Oga reports this as namespace with name="xmlns" and uri=""
+                     has_empty_xmlns = node.namespaces.any? do |ns|
+                       (ns.prefix.nil? || ns.name == "xmlns") && ns.uri == ""
+                     end
+
+                     explicit_no_namespace = XmlElement.detect_explicit_no_namespace(
+                       has_empty_xmlns: has_empty_xmlns,
+                       node_namespace_nil: node.namespace.nil? || node.namespace&.uri == ""
+                     )
+
                      add_namespaces(node, is_root: parent.nil?)
 
-                     default_namespace = node.namespace&.uri if parent.nil? && !namespace_name
+                     default_namespace = node.namespace&.uri if parent.nil? && !namespace_name && node.namespace&.uri != ""
 
                      children = parse_children(node,
                                                default_namespace: default_namespace)
@@ -34,6 +48,7 @@ module Lutaml
               parent_document: parent,
               namespace_prefix: namespace_name,
               default_namespace: default_namespace,
+              explicit_no_namespace: explicit_no_namespace
             )
           end
 
