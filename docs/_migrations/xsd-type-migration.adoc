@@ -1,7 +1,6 @@
 ---
 title: XSD Type Declaration Architecture
-nav_order: 2
-parent: Migrations Guides
+nav_order: 3
 ---
 
 = XSD Type Declaration Architecture

@@ -1,7 +1,6 @@
 ---
 title: Schema Import
 nav_order: 13
-parent: Guides
 ---
 
 = Schema import

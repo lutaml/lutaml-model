@@ -1,10 +1,9 @@
 ---
 title: Core Topics
 nav_order: 1
-has_children: true
 ---
 
-= Core Topics
+= Overview
 
 Fundamental concepts, configuration, and essential features of Lutaml::Model.
 

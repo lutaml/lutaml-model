@@ -1,14 +1,13 @@
 ---
 title: Comparison with Shale
 nav_order: 12
-parent: Core Topics
 ---
 
 = Comparison with Shale
 
 Lutaml::Model is a modelling library that offers a superset of features that Shale provides. Its API is similar but has several key differences.
 
-A migration guide from Shale to Lutaml::Model is provided at link:../migration-guides/0-1-0-migrate-from-shale.adoc[Migrating from Shale to Lutaml::Model].
+A migration guide from Shale to Lutaml::Model is provided at link:../migrations/0-1-0-migrate-from-shale[Migrating from Shale to Lutaml::Model].
 
 [cols="a,a,a,a",options="header"]
 |===
@@ -124,7 +123,7 @@ years old</description>
 
 If you're migrating from Shale to Lutaml::Model:
 
-. Read the link:../migration-guides/0-1-0-migrate-from-shale.adoc[Migration Guide]
+. Read the link:../migrations/0-1-0-migrate-from-shale[Migration Guide]
 . Update adapter configuration syntax
 . Change `:receiver` to `:delegate` in delegations
 . Consider using new features like XML namespaces

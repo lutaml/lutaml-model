@@ -1,7 +1,6 @@
 ---
 title: Value Transformations
 nav_order: 9
-parent: Guides
 ---
 
 = Value Transformations in LutaML Model

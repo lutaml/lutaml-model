@@ -1,7 +1,6 @@
 ---
 title: Breaking changes
 nav_order: 11
-parent: Core Topics
 ---
 
 == Breaking changes in Lutaml::Model

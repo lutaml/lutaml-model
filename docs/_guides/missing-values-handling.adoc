@@ -1,7 +1,6 @@
 ---
 title: Missing Values Handling
 nav_order: 10
-parent: Guides
 ---
 
 = Handling missing values

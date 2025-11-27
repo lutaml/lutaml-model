@@ -1,7 +1,6 @@
 ---
 title: Serialization Adapters
 nav_order: 9
-parent: Core Topics
 ---
 
 = Serialization adapters
@@ -34,7 +33,7 @@ that is not a serialization format.
 
 Users can extend LutaML by creating custom adapters for other serialization
 formats or for other data formats. The
-link:docs/custom_adapters.adoc[Custom Adapters Guide] describes this process in
+link:../references/custom_adapters[Custom Adapters Guide] describes this process in
 detail.
 
 For certain serialization formats, LutaML provides multiple adapters to support

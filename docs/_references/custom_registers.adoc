@@ -1,7 +1,6 @@
 ---
 title: Custom Registers
 nav_order: 4
-parent: References
 ---
 
 = LutaML Registers

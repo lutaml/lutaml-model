@@ -1,7 +1,6 @@
 ---
 title: Attributes
 nav_order: 4
-parent: Core Topics
 ---
 
 = Attributes

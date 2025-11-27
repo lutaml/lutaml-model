@@ -1,7 +1,6 @@
 ---
 title: First JSON Serialization
 nav_order: 3
-parent: Tutorials
 ---
 
 = First JSON serialization

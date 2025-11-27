@@ -1,7 +1,6 @@
 ---
 title: v0.8.0 breaking change
-nav_order: 3
-parent: Migrations Guides
+nav_order: 4
 ---
 
 = v0.8.0 breaking change: XML mapping behavior

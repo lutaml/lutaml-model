@@ -1,7 +1,6 @@
 ---
 title: Importable models
 nav_order: 5
-parent: Core Topics
 ---
 
 == Importable models

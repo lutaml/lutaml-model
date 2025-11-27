@@ -1,7 +1,6 @@
 ---
 title: XML Namespace Presentation
 nav_order: 5
-parent: Guides
 ---
 
 = XML Namespace Presentation in Lutaml::Model
@@ -11,7 +10,7 @@ parent: Guides
 == Overview
 
 This document explains XML namespace **presentation formats** in Lutaml::Model.
-While link:namespace-semantics.adoc[namespace semantics] determine which
+While link:../namespace-semantics[namespace semantics] determine which
 namespaces apply to which elements, presentation controls **how** those
 namespaces appear in the serialized XML.
 

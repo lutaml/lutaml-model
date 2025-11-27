@@ -1,10 +1,9 @@
 ---
 title: References
-nav_order: 1
-has_children: true
+nav_order: 0
 ---
 
-= References
+= Overview
 
 Technical reference documentation and architecture details for Lutaml::Model.
 

@@ -1,7 +1,6 @@
 ---
 title: Working with Collections
 nav_order: 4
-parent: Tutorials
 ---
 
 = Working with collections

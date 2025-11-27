@@ -1,7 +1,6 @@
 ---
 title: Basic Model Definition
 nav_order: 1
-parent: Tutorials
 ---
 
 = Basic model definition

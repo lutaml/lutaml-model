@@ -1,7 +1,6 @@
 ---
 title: Validation
 nav_order: 8
-parent: Core Topics
 ---
 
 = Validation

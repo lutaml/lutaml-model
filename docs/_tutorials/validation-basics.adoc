@@ -1,7 +1,6 @@
 ---
 title: Validation Basics
 nav_order: 5
-parent: Tutorials
 ---
 
 = Validation basics

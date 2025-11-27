@@ -1,9 +1,15 @@
 ---
 title: Migrations Guides
-nav_order: 1
-has_children: true
+nav_order: 0
 ---
 
-= Migrations Guides
+= Overview
 
 Migrations Guides of Lutaml::Model.
+
+== Documents
+
+* link:../0-1-0-migrate-from-shale[Migrate from Shale to Lutaml::Model]
+* link:../xsd-type-migration[XSD Type Declaration Architecture]
+* link:../0-8-0-attribute-form-default-fix[v0.8.0 attribute_form_default :qualified Fix]
+* link:../0-8-0-xml-default-namespace-migration[0.8.0 breaking change: XML mapping behavior]

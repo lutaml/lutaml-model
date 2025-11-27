@@ -1,7 +1,6 @@
 ---
 title: OOXML Examples
 nav_order: 15
-parent: Guides
 ---
 
 = OOXML Round-Trip Parsing Examples

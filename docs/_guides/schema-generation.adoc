@@ -1,7 +1,6 @@
 ---
 title: Schema Generation
 nav_order: 12
-parent: Guides
 ---
 
 = Schema generation

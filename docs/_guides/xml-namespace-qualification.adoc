@@ -1,7 +1,6 @@
 ---
 title: XML Namespace Qualification
 nav_order: 3
-parent: Guides
 ---
 
 = XML Namespace Qualification and Prefix Control

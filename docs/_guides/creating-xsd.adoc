@@ -1210,7 +1210,7 @@ They indicate real problems that would produce invalid XSD.
 
 == See Also
 
-* link:../migration-guides/xsd-type-migration.adoc[XSD Type Migration Guide]
-* link:value-transformations.adoc[Value Transformations]
+* link:../../migrations/xsd-type-migration[XSD Type Migration Guide]
+* link:../value-transformations[Value Transformations]
 * link:https://www.w3.org/TR/xmlschema-1/[W3C XML Schema Part 1: Structures]
 * link:https://www.w3.org/TR/xmlschema-2/[W3C XML Schema Part 2: Datatypes]

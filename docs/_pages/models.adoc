@@ -1,7 +1,6 @@
 ---
 title: Models
 nav_order: 3
-parent: Core Topics
 ---
 
 = Models
@@ -93,7 +92,7 @@ attribute name is the same as an attribute in the parent model.
 
 ** In order to selectively import serialization mapping rules from the parent
 model, the `import_model_mappings` method can be used (see
-link:importable_models.adoc#import_model_mappings[import_model_mappings]).
+link:../importable_models#import_model_mappings[import_model_mappings]).
 
 
 === Comparison and diff

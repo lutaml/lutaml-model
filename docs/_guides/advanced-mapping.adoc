@@ -1,7 +1,6 @@
 ---
 title: "Serialization: Advanced mapping"
 nav_order: 11
-parent: Guides
 ---
 
 == Serialization: Advanced attribute mapping

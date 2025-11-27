@@ -1,7 +1,6 @@
 ---
 title: Quick Start
 nav_order: 2
-parent: Core Topics
 ---
 
 = Quick start

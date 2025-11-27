@@ -1,7 +1,6 @@
 ---
 title: XML Namespaces Basics
 nav_order: 6
-parent: Tutorials
 ---
 
 = XML namespaces basics
