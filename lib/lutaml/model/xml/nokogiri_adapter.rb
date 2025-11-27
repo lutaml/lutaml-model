@@ -802,7 +802,10 @@ mapping: nil)
       end
 
       class NokogiriElement < XmlElement
-        TEXT_ELEMENT_TYPES = [ ::Nokogiri::XML::Node::TEXT_NODE, ::Nokogiri::XML::Node::ENTITY_REF_NODE ]
+        TEXT_ELEMENT_TYPES = [
+          ::Nokogiri::XML::Node::TEXT_NODE,
+          ::Nokogiri::XML::Node::ENTITY_REF_NODE,
+        ].freeze
 
         def initialize(node, root_node: nil, default_namespace: nil)
           if root_node
@@ -847,11 +850,11 @@ mapping: nil)
           end
 
           node_name, node_text = if TEXT_ELEMENT_TYPES.last == node.type
-            ["entity", node.to_xml]
-          else
-            children = node.children
-            [node.name, children.empty? ? node.text : extract_text(children)]
-          end
+                                   [Xml::Element::NAME_ENTITY, node.to_xml]
+                                 else
+                                   children = node.children
+                                   [node.name, children.empty? ? node.text : extract_text(children)]
+                                 end
 
           super(
             node,
@@ -873,15 +876,15 @@ mapping: nil)
         end
 
         def text_children
-          find_children_by_name(["text", "entity"])
+          find_children_by_name(["text", Xml::Element::NAME_ENTITY])
         end
 
         def entity?
-          children.any? { |child| child.name == "entity" }
+          children.any? { |child| child.name == Xml::Element::NAME_ENTITY }
         end
 
         def extract_text(nodes)
-          nodes&.reject { |child| child.element? }&.map(&:to_xml)&.join
+          nodes.reject(&:element?)&.map(&:to_xml)&.join
         end
 
         def to_xml

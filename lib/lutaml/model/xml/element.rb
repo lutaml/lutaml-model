@@ -2,8 +2,8 @@ module Lutaml
   module Model
     module Xml
       class Element
-        TYPE_TEXT = "Text".freeze
-        NAME_ENTITY = "entity".freeze
+        TEXT_TYPE = "Text".freeze
+        NAME_ENTITY = "__entity".freeze
 
         include Lutaml::Model::Liquefiable
 
@@ -15,11 +15,14 @@ module Lutaml
         end
 
         def text?
-          @type == TYPE_TEXT && @name != "#cdata-section" && @name != NAME_ENTITY
+          @type == TEXT_TYPE &&
+            @name != "#cdata-section" &&
+            @name != NAME_ENTITY
         end
 
         def entity?
-          @type == TYPE_TEXT && @name == NAME_ENTITY
+          @type == TEXT_TYPE &&
+            @name == NAME_ENTITY
         end
 
         def element_tag

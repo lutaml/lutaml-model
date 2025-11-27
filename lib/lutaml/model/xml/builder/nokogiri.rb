@@ -69,6 +69,7 @@ module Lutaml
 
           def add_text(element, text, cdata: false)
             return add_cdata(element, text) if cdata
+
             element = element.xml.parent if element.is_a?(self.class)
 
             text_node = ::Nokogiri::XML::Text.new(text.to_s, element)
