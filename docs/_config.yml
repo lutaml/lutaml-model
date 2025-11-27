@@ -78,16 +78,16 @@ just_the_docs:
       nav_fold: false
     tutorials:
       name: Tutorials
-      nav_fold: false
+      nav_fold: true
     guides:
       name: Guides
-      nav_fold: false
+      nav_fold: true
     references:
       name: References
-      nav_fold: false
+      nav_fold: true
     migrations:
       name: Migrations
-      nav_fold: false
+      nav_fold: true
 # Plugins
 plugins:
   - jekyll-asciidoc
