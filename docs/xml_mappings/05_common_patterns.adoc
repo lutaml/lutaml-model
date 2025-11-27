@@ -1080,3 +1080,367 @@ puts new_c.to_xml
 # xsi:schemaLocation automatically included
 ----
 ====
+
+== Advanced namespace patterns
+
+=== Nested namespaced elements with inheritance
+
+When working with deeply nested XML structures, LutaML::Model provides
+sophisticated namespace inheritance optimization. Elements that share the same
+namespace as their parent will inherit the namespace declaration, avoiding
+redundant `xmlns` attributes.
+
+==== Same namespace inheritance (UnitsML scenario)
+
+When all nested models share the same namespace, the framework automatically
+inherits the namespace from the root element, producing clean XML without
+redundant namespace declarations.
+
+.Models with shared namespace
+[example]
+====
+[source,ruby]
+----
+class UnitSystem < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :type, :string
+
+  xml do
+    root "UnitSystem"
+    namespace "https://schema.example.org/units/1.0"
+    map_attribute "name", to: :name
+    map_attribute "type", to: :type
+  end
+end
+
+class UnitName < Lutaml::Model::Serializable
+  attribute :value, :string
+
+  xml do
+    root "UnitName"
+    namespace "https://schema.example.org/units/1.0"
+    map_content to: :value
+  end
+end
+
+class EnumeratedRootUnit < Lutaml::Model::Serializable
+  attribute :unit, :string
+  attribute :prefix, :string
+
+  xml do
+    root "EnumeratedRootUnit"
+    namespace "https://schema.example.org/units/1.0"
+    map_attribute "unit", to: :unit
+    map_attribute "prefix", to: :prefix
+  end
+end
+
+class RootUnits < Lutaml::Model::Serializable
+  attribute :enumerated_root_units, EnumeratedRootUnit, collection: true
+
+  xml do
+    root "RootUnits"
+    namespace "https://schema.example.org/units/1.0"
+    map_element "EnumeratedRootUnit", to: :enumerated_root_units
+  end
+end
+
+class Unit < Lutaml::Model::Serializable
+  attribute :id, :string
+  attribute :unit_system, UnitSystem
+  attribute :unit_name, UnitName
+  attribute :root_units, RootUnits
+
+  xml do
+    root "Unit"
+    namespace "https://schema.example.org/units/1.0"
+    map_attribute "id", to: :id
+    map_element "UnitSystem", to: :unit_system
+    map_element "UnitName", to: :unit_name
+    map_element "RootUnits", to: :root_units
+  end
+end
+----
+
+[source,ruby]
+----
+# Create nested structure
+unit_system = UnitSystem.new(name: "SI", type: "SI_derived")
+unit_name = UnitName.new(value: "meter")
+meter_unit = EnumeratedRootUnit.new(unit: "meter")
+gram_unit = EnumeratedRootUnit.new(unit: "gram", prefix: "k")
+root_units = RootUnits.new(enumerated_root_units: [meter_unit, gram_unit])
+
+unit = Unit.new(
+  id: "U_m",
+  unit_system: unit_system,
+  unit_name: unit_name,
+  root_units: root_units
+)
+----
+
+Generated XML shows namespace declared only once on the root element:
+
+[source,xml]
+----
+<Unit xmlns="https://schema.example.org/units/1.0" id="U_m">
+  <UnitSystem name="SI" type="SI_derived"/>
+  <UnitName>meter</UnitName>
+  <RootUnits>
+    <EnumeratedRootUnit unit="meter"/>
+    <EnumeratedRootUnit unit="gram" prefix="k"/>
+  </RootUnits>
+</Unit>
+----
+
+*Key behaviors:*
+
+* The `xmlns` declaration appears only on the root `Unit` element
+* All child elements (`UnitSystem`, `UnitName`, `RootUnits`, `EnumeratedRootUnit`) inherit the namespace
+* No redundant namespace declarations on child elements
+* Clean, optimized XML output following namespace inheritance best practices
+====
+
+==== Mixed namespace handling
+
+When different namespaces are used within the same document structure,
+LutaML::Model correctly manages namespace declarations, adding `xmlns` attributes
+only when the namespace changes from the parent element.
+
+.Models with mixed namespaces
+[example]
+====
+[source,ruby]
+----
+class MathContent < Lutaml::Model::Serializable
+  attribute :value, :string
+
+  xml do
+    root "math"
+    namespace "http://www.w3.org/1998/Math/MathML"
+    map_content to: :value
+  end
+end
+
+class UnitSymbol < Lutaml::Model::Serializable
+  attribute :type, :string
+  attribute :math, MathContent
+
+  xml do
+    root "UnitSymbol"
+    namespace "https://schema.example.org/units/1.0"
+    map_attribute "type", to: :type
+    map_element "math", to: :math
+  end
+end
+
+class UnitWithMath < Lutaml::Model::Serializable
+  attribute :id, :string
+  attribute :unit_symbol, UnitSymbol
+
+  xml do
+    root "Unit"
+    namespace "https://schema.example.org/units/1.0"
+    map_attribute "id", to: :id
+    map_element "UnitSymbol", to: :unit_symbol
+  end
+end
+----
+
+[source,ruby]
+----
+# Create structure with mixed namespaces
+math = MathContent.new(value: "x+y")
+unit_symbol = UnitSymbol.new(type: "MathML", math: math)
+unit_with_math = UnitWithMath.new(id: "U_m.kg-2", unit_symbol: unit_symbol)
+----
+
+Generated XML correctly handles namespace transitions:
+
+[source,xml]
+----
+<Unit xmlns="https://schema.example.org/units/1.0" id="U_m.kg-2">
+  <UnitSymbol type="MathML">
+    <math xmlns="http://www.w3.org/1998/Math/MathML">x+y</math>
+  </UnitSymbol>
+</Unit>
+----
+
+*Key behaviors:*
+
+* The `Unit` element declares the units namespace (`https://schema.example.org/units/1.0`)
+* `UnitSymbol` inherits the same namespace from `Unit` (no xmlns needed)
+* `math` element declares its own namespace (`http://www.w3.org/1998/Math/MathML`) because it differs from the parent
+* Namespace declarations are added only where the namespace changes
+* Efficient XML with minimal namespace declarations
+====
+
+==== Mixed nested namespace with multiple levels
+
+For more complex scenarios involving multiple nesting levels with different 
+namespaces at various depths, the framework handles each namespace transition 
+appropriately.
+
+.Complex mixed namespace structure
+[example]
+====
+[source,ruby]
+----
+# Define additional namespaces for deeper nesting
+class MetadataNamespace < Lutaml::Model::XmlNamespace
+  uri "https://schema.example.org/metadata/1.0"
+  prefix_default "meta"
+end
+
+class AnnotationNamespace < Lutaml::Model::XmlNamespace  
+  uri "https://schema.example.org/annotation/1.0"
+  prefix_default "ann"
+end
+
+# Nested models with different namespaces at each level
+class Annotation < Lutaml::Model::Serializable
+  attribute :text, :string
+  attribute :author, :string
+
+  xml do
+    root "annotation"
+    namespace "https://schema.example.org/annotation/1.0"
+    map_element "text", to: :text
+    map_attribute "author", to: :author
+  end
+end
+
+class Metadata < Lutaml::Model::Serializable
+  attribute :version, :string
+  attribute :annotation, Annotation
+
+  xml do
+    root "metadata"
+    namespace "https://schema.example.org/metadata/1.0"
+    map_attribute "version", to: :version
+    map_element "annotation", to: :annotation
+  end
+end
+
+class ExtendedUnitSymbol < Lutaml::Model::Serializable
+  attribute :type, :string
+  attribute :math, MathContent      # MathML namespace
+  attribute :metadata, Metadata    # Metadata namespace -> Annotation namespace
+
+  xml do
+    root "UnitSymbol"
+    namespace "https://schema.example.org/units/1.0"
+    map_attribute "type", to: :type
+    map_element "math", to: :math
+    map_element "metadata", to: :metadata
+  end
+end
+
+class ExtendedUnitWithMath < Lutaml::Model::Serializable
+  attribute :id, :string
+  attribute :unit_symbol, ExtendedUnitSymbol
+
+  xml do
+    root "Unit"
+    namespace "https://schema.example.org/units/1.0"
+    map_attribute "id", to: :id
+    map_element "UnitSymbol", to: :unit_symbol
+  end
+end
+----
+
+[source,ruby]
+----
+# Create deeply nested structure with mixed namespaces
+annotation = Annotation.new(text: "Special mathematical notation", author: "Dr. Smith")
+metadata = Metadata.new(version: "2.0", annotation: annotation)
+math = MathContent.new(value: "∫f(x)dx")
+extended_symbol = ExtendedUnitSymbol.new(
+  type: "Complex",
+  math: math,
+  metadata: metadata
+)
+extended_unit = ExtendedUnitWithMath.new(
+  id: "U_complex",
+  unit_symbol: extended_symbol
+)
+----
+
+Generated XML with multiple namespace levels:
+
+[source,xml]
+----
+<Unit xmlns="https://schema.example.org/units/1.0" id="U_complex">
+  <UnitSymbol type="Complex">
+    <math xmlns="http://www.w3.org/1998/Math/MathML">∫f(x)dx</math>
+    <metadata xmlns="https://schema.example.org/metadata/1.0" version="2.0">
+      <annotation xmlns="https://schema.example.org/annotation/1.0" author="Dr. Smith">
+        <text>Special mathematical notation</text>
+      </annotation>
+    </metadata>
+  </UnitSymbol>
+</Unit>
+----
+
+*Key behaviors for complex nesting:*
+
+* **Level 1** (`Unit`): Units namespace declared
+* **Level 2** (`UnitSymbol`): Inherits units namespace (no xmlns)
+* **Level 3a** (`math`): Declares MathML namespace (different from parent)
+* **Level 3b** (`metadata`): Declares metadata namespace (different from parent)
+* **Level 4** (`annotation`): Declares annotation namespace (different from metadata parent)
+* **Level 5** (`text`): Inherits annotation namespace (same as parent)
+
+This demonstrates how the framework:
+
+1. Tracks namespace context at each nesting level
+2. Only declares xmlns when namespace actually changes
+3. Maintains proper inheritance even across multiple namespace transitions
+4. Produces clean, standards-compliant XML regardless of nesting complexity
+====
+
+=== Complex nested namespace scenarios
+
+==== Multiple nesting levels with same namespace
+
+For deeply nested structures where all elements share the same namespace,
+the framework optimizes by declaring the namespace only at the root level.
+
+[source,ruby]
+----
+# Given the UnitsML example above with 4 nesting levels:
+# Unit -> UnitSystem/UnitName/RootUnits -> EnumeratedRootUnit (collection)
+
+unit = Unit.from_xml(xml_with_multiple_nesting)
+# All nested elements correctly inherit the namespace
+# No redundant xmlns declarations at any level
+----
+
+==== Mixed namespaces at different nesting levels
+
+When namespaces change at various nesting levels, each namespace transition
+is handled correctly with appropriate `xmlns` declarations.
+
+[source,ruby]
+----
+# Pattern: 
+# - Level 1: Units namespace
+# - Level 2: Units namespace (inherited)
+# - Level 3: MathML namespace (new declaration needed)
+
+# The framework automatically:
+# 1. Inherits namespace when same as parent
+# 2. Declares namespace when different from parent
+# 3. Optimizes declarations for minimal XML output
+----
+
+*Namespace inheritance rules:*
+
+1. **Same namespace as parent**: Child element inherits parent's namespace (no xmlns)
+2. **Different namespace from parent**: Child element declares its own namespace (xmlns added)
+3. **Root element**: Always declares its own namespace if specified
+4. **Collections**: Each item in collection follows same inheritance rules
+5. **Round-trip preservation**: Namespace structure preserved during serialization/deserialization
+
+This approach ensures both XML correctness and optimal output size, following
+W3C XML Namespace recommendations for namespace inheritance and declaration.
