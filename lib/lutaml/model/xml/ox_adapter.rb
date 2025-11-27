@@ -517,12 +517,16 @@ mapping: nil)
         def initialize(node, root_node: nil, default_namespace: nil)
           case node
           when String
-            super("text", {}, [], node, parent_document: root_node, name: "text")
+            super("text", {}, [], node, parent_document: root_node, name: "text", explicit_no_namespace: false)
           when Ox::Comment
-            super("comment", {}, [], node.value, parent_document: root_node, name: "comment")
+            super("comment", {}, [], node.value, parent_document: root_node, name: "comment", explicit_no_namespace: false)
           when Ox::CData
-            super("#cdata-section", {}, [], node.value, parent_document: root_node, name: "#cdata-section")
+            super("#cdata-section", {}, [], node.value, parent_document: root_node, name: "#cdata-section", explicit_no_namespace: false)
           else
+            # Check for xmlns="" in node's attributes before processing
+            has_empty_xmlns = node.attributes[:xmlns] == ""
+            has_no_prefix = separate_name_and_prefix(node).first.nil?
+
             namespace_attributes(node.attributes).each do |(name, value)|
               ns = XmlNamespace.new(value, name)
 
@@ -531,8 +535,16 @@ mapping: nil)
               elsif root_node.nil?
                 add_namespace(ns)
               end
-              default_namespace = ns.uri if ns.prefix.nil?
+
+              # Set default_namespace from xmlns attribute (if not empty)
+              default_namespace = ns.uri if ns.prefix.nil? && value != ""
             end
+
+            # Use shared helper to detect explicit no namespace
+            explicit_no_namespace = XmlElement.detect_explicit_no_namespace(
+              has_empty_xmlns: has_empty_xmlns,
+              node_namespace_nil: has_no_prefix  # Ox nodes without prefix have no namespace
+            )
 
             attributes = node.attributes.each_with_object({}) do |(name, value), hash|
               next if attribute_is_namespace?(name)
@@ -564,6 +576,7 @@ mapping: nil)
               name: name,
               namespace_prefix: prefix,
               default_namespace: default_namespace,
+              explicit_no_namespace: explicit_no_namespace
             )
           end
         end

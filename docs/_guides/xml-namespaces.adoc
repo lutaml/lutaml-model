@@ -1,16 +1,270 @@
 ---
-title: XML Namespaces
+title: XML namespaces
 nav_order: 2
 ---
-
-= XML Namespaces
+= XML namespaces
 :toc:
 :toclevels: 3
 
 == General
 
-XML namespaces provide a way to qualify element and attribute names to avoid conflicts.
-Lutaml::Model provides comprehensive namespace support following W3C specifications.
+XML namespaces provide a way to qualify element and attribute names to avoid
+conflicts. Lutaml::Model provides comprehensive namespace support following W3C
+specifications.
+
+=== Namespace prefix independence
+
+==== General
+
+Lutaml::Model implements W3C-compliant XML namespace processing where
+**namespace URIs, not prefixes, determine element identity**. This means that
+models will correctly parse XML documents regardless of which prefix (or no
+prefix) is used, as long as the namespace URI matches.
+
+This W3C-compliant behavior ensures maximum interoperability when consuming XML
+from different sources.
+
+==== Supported prefix formats
+
+When a model is defined with a namespace, it will successfully parse XML using
+any of these formats:
+
+Default namespace (unprefixed)::
+`xmlns="http://example.com/ns"`
+
+Prefixed namespace with model's default prefix::
+`xmlns:cer="http://example.com/ns"`
+
+Prefixed namespace with ANY arbitrary prefix::
+`xmlns:pottery="http://example.com/ns"`
+
+All three formats are semantically identical according to W3C XML Namespaces
+specification.
+
+.Parsing XML with different prefix formats
+[example]
+====
+[source,ruby]
+----
+class CeramicNamespace < Lutaml::Model::XmlNamespace
+  uri 'http://example.com/ceramic'
+  prefix_default 'cer'
+end
+
+class Ceramic < Lutaml::Model::Serializable
+  attribute :type, :string
+
+  xml do
+    root 'Ceramic'
+    namespace CeramicNamespace
+    map_element 'Type', to: :type
+  end
+end
+
+# All these XML formats parse successfully to the same result:
+
+# Format 1: Default namespace
+xml1 = '<Ceramic xmlns="http://example.com/ceramic"><Type>Porcelain</Type></Ceramic>'
+Ceramic.from_xml(xml1).type  # => "Porcelain"
+
+# Format 2: Model's defined prefix
+xml2 = '<cer:Ceramic xmlns:cer="http://example.com/ceramic"><cer:Type>Porcelain</cer:Type></cer:Ceramic>'
+Ceramic.from_xml(xml2).type  # => "Porcelain"
+
+# Format 3: Arbitrary prefix
+xml3 = '<pottery:Ceramic xmlns:pottery="http://example.com/ceramic"><pottery:Type>Porcelain</pottery:Type></pottery:Ceramic>'
+Ceramic.from_xml(xml3).type  # => "Porcelain"
+----
+
+All three examples produce identical `Ceramic` objects. The namespace URI `http://example.com/ceramic` matches, which is what matters according to W3C specifications.
+====
+
+==== Nested models with different namespaces
+
+Prefix independence extends to nested models where parent and child use different namespaces:
+
+.Nested models with arbitrary prefixes
+[example]
+====
+[source,ruby]
+----
+class GlazeNamespace < Lutaml::Model::XmlNamespace
+  uri 'http://example.com/glaze'
+  prefix_default 'glz'
+end
+
+class Glaze < Lutaml::Model::Serializable
+  attribute :color, :string
+
+  xml do
+    root 'Glaze'
+    namespace GlazeNamespace
+    map_element 'Color', to: :color
+  end
+end
+
+class Ceramic < Lutaml::Model::Serializable
+  attribute :type, :string
+  attribute :glaze, Glaze
+
+  xml do
+    root 'Ceramic'
+    namespace CeramicNamespace
+    map_element 'Type', to: :type
+    map_element 'Glaze', to: :glaze
+  end
+end
+
+# Parent and child can use any prefixes as long as URIs match:
+xml = <<~XML
+  <x:Ceramic xmlns:x="http://example.com/ceramic"
+             xmlns:y="http://example.com/glaze">
+    <x:Type>Porcelain</x:Type>
+    <y:Glaze>
+      <y:Color>Clear</y:Color>
+    </y:Glaze>
+  </x:Ceramic>
+XML
+
+result = Ceramic.from_xml(xml)
+result.type          # => "Porcelain"
+result.glaze.color   # => "Clear"
+----
+====
+
+==== Type-level namespace prefix independence
+
+When attribute types declare their own namespaces via `xml_namespace`, those
+types also support prefix-independent parsing:
+
+.Type namespace with arbitrary prefixes
+[example]
+====
+[source,ruby]
+----
+class ColorNamespace < Lutaml::Model::XmlNamespace
+  uri 'http://example.com/color'
+  prefix_default 'clr'
+end
+
+class ColorType < Lutaml::Model::Type::String
+  xml_namespace ColorNamespace
+end
+
+class Ceramic < Lutaml::Model::Serializable
+  attribute :type, :string
+  attribute :color, ColorType
+
+  xml do
+    root 'Ceramic'
+    namespace CeramicNamespace
+    map_element 'Type', to: :type
+    map_element 'Color', to: :color
+  end
+end
+
+# Color element can use any prefix for the color namespace:
+xml = <<~XML
+  <Ceramic xmlns="http://example.com/ceramic"
+           xmlns:c="http://example.com/color">
+    <Type>Porcelain</Type>
+    <c:Color>Navy Blue</c:Color>
+  </Ceramic>
+XML
+
+result = Ceramic.from_xml(xml)
+result.color  # => "Navy Blue"
+----
+====
+
+==== Round-trip serialization
+
+Models support round-trip serialization between different namespace formats. You
+can parse XML with any prefix format and serialize to either default or prefixed
+format:
+
+.Round-trip with different formats
+[example]
+====
+[source,ruby]
+----
+# Parse XML with arbitrary prefix
+xml_arbitrary = '<pottery:Ceramic xmlns:pottery="http://example.com/ceramic"><pottery:Type>Porcelain</pottery:Type></pottery:Ceramic>'
+
+ceramic = Ceramic.from_xml(xml_arbitrary)
+
+# Serialize to default namespace format
+ceramic.to_xml
+# => '<Ceramic xmlns="http://example.com/ceramic"><Type>Porcelain</Type></Ceramic>'
+
+# Serialize to prefixed format with model's defined prefix
+ceramic.to_xml(prefix: true)
+# => '<cer:Ceramic xmlns:cer="http://example.com/ceramic"><cer:Type>Porcelain</cer:Type></cer:Ceramic>'
+----
+
+Both serialized formats can be parsed back successfully, demonstrating full prefix independence.
+====
+
+==== Explicit no namespace with `namespace: nil`
+
+When you need to explicitly specify that an element should have NO namespace,
+use `namespace: nil` in the mapping:
+
+.Mapping elements with explicit no namespace
+[example]
+====
+[source,ruby]
+----
+class MixedModel < Lutaml::Model::Serializable
+  attribute :type, :string
+  attribute :note, :string
+
+  xml do
+    root "Ceramic"
+    namespace CeramicNamespace  # Has namespace
+    map_element "Type", to: :type
+    map_element "Note", to: :note, namespace: nil  # Explicitly NO namespace
+  end
+end
+----
+
+**When parent uses prefixed namespace** (recommended):
+
+Unprefixed child elements naturally have no namespace:
+
+[source,xml]
+----
+<cer:Ceramic xmlns:cer="http://example.com/ceramic">
+  <cer:Type>Porcelain</cer:Type>
+  <Note>This element has no namespace</Note>
+</cer:Ceramic>
+----
+
+**When parent uses default namespace**:
+
+Must use `xmlns=""` to explicitly remove the namespace:
+
+[source,xml]
+----
+<Ceramic xmlns="http://example.com/ceramic">
+  <Type>Porcelain</Type>
+  <Note xmlns="">This element has no namespace</Note>
+</Ceramic>
+----
+
+Per W3C XML Namespace specification, unprefixed elements normally inherit their
+parent's default namespace. The `xmlns=""` declaration explicitly removes that
+inheritance.
+
+**Parsing support**: All three adapters (Nokogiri, Ox, Oga) correctly handle both patterns.
+====
+
+==== Implementation note
+
+This prefix-independent behavior is achieved through namespace URI matching
+during XML parsing. The implementation compares namespace URIs (not prefix
+strings) when matching elements to model attributes, ensuring W3C compliance and
+maximum interoperability.
 
 === XML namespace
 
@@ -805,15 +1059,6 @@ end
 
 When DcNamespace is used:
 
-[source,ruby]
-----
-# Assume title is a DcTitleType with xml_namespace DcNamespace
-props = CoreProperties.new(title: "Document Title")
-puts props.to_xml
-----
-
-Output:
-
 [source,xml]
 ----
 <coreProperties xmlns="http://schemas.openxmlformats.org/package/2006/metadata/core-properties"
@@ -980,13 +1225,13 @@ end
 
 [source,xml]
 ----
-<cera:Ceramic
+<cera:Ceramicın
   xmlns:cera='http://example.com/ceramic'
   xmlns:clr='http://example.com/color'
   clr:color="navy-blue">
   <cera:Type>Porcelain</cera:Type>
   <Glaze>Clear</Glaze>
-</cera:Ceramic>
+</cera:Ceramicın>
 ----
 
 [source,ruby]
@@ -1531,7 +1776,7 @@ The following snippet shows how `xsi:schemaLocation` is used in an XML document:
 
 [source,xml]
 ----
-<cera:Ceramic
+<cera:Ceramicın
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xmlns:cera="http://example.com/ceramic"
   xmlns:clr='http://example.com/color'
@@ -1541,7 +1786,7 @@ The following snippet shows how `xsi:schemaLocation` is used in an XML document:
   clr:color="navy-blue">
   <cera:Type>Porcelain</cera:Type>
   <Glaze>Clear</Glaze>
-</cera:Ceramic>
+</cera:Ceramicın>
 ----
 
 LutaML::Model supports the `xsi:schemaLocation` attribute in all XML
