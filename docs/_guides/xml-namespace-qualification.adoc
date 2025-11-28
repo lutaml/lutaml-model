@@ -90,7 +90,9 @@ ELSE
 
 ==== Examples
 
-.Example 1: Unqualified Children (Default)
+.Unqualified Children (Default)
+[example]
+====
 [source,ruby]
 ----
 class MyNamespace < Lutaml::Model::XmlNamespace
@@ -121,8 +123,11 @@ Parent.new(value: "test").to_xml(prefix: true)
 ----
 
 *Explanation*: Child element is unqualified (no namespace), so it doesn't get prefixed even though parent uses `prefix: true`.
+====
 
-.Example 2: Qualified Children
+.Qualified Children
+[example]
+====
 [source,ruby]
 ----
 class MyNamespace < Lutaml::Model::XmlNamespace
@@ -153,6 +158,7 @@ Parent.new(value: "test").to_xml(prefix: true)
 ----
 
 *Explanation*: Child element is qualified (inherits namespace), so it uses parent's prefix format.
+====
 
 == Three Ways to Qualify Elements
 
