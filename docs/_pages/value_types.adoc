@@ -487,7 +487,7 @@ end
 
 ==== Practical examples: Type vs Model
 
-.Example 1: Custom Type for currency values
+.Custom Type for currency values
 [example]
 ====
 Use a custom type when you need to handle currency with consistent formatting
@@ -532,7 +532,7 @@ end
 ----
 ====
 
-.Example 2: Serializable object for complex data
+.Serializable object for complex data
 [example]
 ====
 Use a Serializable object when you need multiple related attributes:
@@ -570,7 +570,7 @@ end
 ----
 ====
 
-.Example 3: When to choose each approach
+.When to choose each approach
 [example]
 ====
 [source,ruby]
@@ -631,6 +631,47 @@ end
 currency_type = Lutaml::Model::Type.lookup(:currency)
 # => Currency
 ----
+
+==== Custom types with XSD types
+
+Define custom types with XSD type declarations for schema generation:
+
+.Custom type with XSD type declaration
+[example]
+====
+[source,ruby]
+----
+class ProductId < Lutaml::Model::Type::String
+  xsd_type 'xs:ID'  # <1>
+
+  def self.cast(value)
+    id = value.to_s.strip
+    unless id.match?(/\A[A-Za-z_][\w.-]*\z/)
+      raise Lutaml::Model::TypeError, "Invalid XML ID: #{id}"
+    end
+    id
+  end
+end
+
+class Product < Lutaml::Model::Serializable
+  attribute :id, ProductId  # <2>
+  attribute :name, :string
+
+  xml do
+    element 'product'
+    map_attribute "id", to: :id
+    map_element "name", to: :name
+  end
+end
+----
+<1> Declare XSD type for schema generation
+<2> Attribute automatically uses ProductId's xsd_type
+
+For comprehensive xsd_type documentation, see link:../value_types#xsd-type-declaration[Value Types - XSD Type Declaration].
+====
+
+For comprehensive XSD generation documentation including the three XSD patterns,
+see link:../guides/creating-xsd[Creating XSD Schemas Guide].
 
 ==== Type casting and validation
 

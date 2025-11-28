@@ -1125,172 +1125,6 @@ end
 ----
 ====
 
-
-
-
-
-* nested tags
-* attributes
-* text nodes
-
-The `map_all` tag is **exclusive** and cannot be combined with other mappings
-(`map_element`, `map_content`) except for `map_attribute` for the same element,
-ensuring it captures the entire inner XML content.
-
-NOTE: An error is raised if `map_all` is defined alongside any other mapping in
-the same XML mapping context.
-
-Syntax:
-
-[source,ruby]
-----
-xml do
-  map_all to: :name_of_attribute
-end
-----
-
-.Mapping all the content using `map_all`
-[example]
-====
-[source,ruby]
-----
-class ExampleMapping < Lutaml::Model::Serializable
-  attribute :description, :string
-
-  xml do
-    map_all to: :description
-  end
-end
-----
-
-[source,xml]
-----
-<ExampleMapping>Content with <b>tags</b> and <i>formatting</i>.</ExampleMapping>
-----
-
-[source,ruby]
-----
-> parsed = ExampleMapping.from_xml(xml)
-> puts parsed.all_content
-# "Content with <b>tags</b> and <i>formatting</i>."
-----
-====
-
-
-==== Mapping CDATA nodes
-
-CDATA is an XML feature that allows the inclusion of text that may contain
-characters that are unescaped in XML.
-
-While CDATA is not preferred in XML, it is sometimes necessary to handle CDATA
-nodes for both input and output.
-
-NOTE: The W3C XML Recommendation explicitly encourages escaping characters over
-usage of CDATA.
-
-Lutaml::Model supports the handling of CDATA nodes in XML in the following
-behavior:
-
-. When an attribute contains a CDATA node with no text:
-** On reading: The node (CDATA or text) is read as its value.
-** On writing: The value is written as its native type.
-
-. When an XML mapping sets `cdata: true` on `map_element` or `map_content`:
-** On reading: The node (CDATA or text) is read as its value.
-** On writing: The value is written as a CDATA node.
-
-. When an XML mapping sets `cdata: false` on `map_element` or `map_content`:
-** On reading: The node (CDATA or text) is read as its value.
-** On writing: The value is written as a text node (string).
-
-
-Syntax:
-
-[source,ruby]
-----
-xml do
-  map_content to: :name_of_attribute, cdata: (true | false)
-  map_element :name, to: :name, cdata: (true | false)
-end
-----
-
-.Using `cdata` to map CDATA content
-[example]
-====
-The following class will parse the XML snippet below:
-
-[source,ruby]
-----
-class Example < Lutaml::Model::Serializable
-  attribute :name, :string
-  attribute :description, :string
-  attribute :title, :string
-  attribute :note, :string
-
-  xml do
-    root 'example'
-    map_element :name, to: :name, cdata: true
-    map_content to: :description, cdata: true
-    map_element :title, to: :title, cdata: false
-    map_element :note, to: :note, cdata: false
-  end
-end
-----
-
-  xmlns:cera="http://example.com/ceramic"
-  xmlns:clr="http://example.com/color"
-  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-  clr:color="navy-blue"
-  xsi:schemaLocation="
-    http://example.com/ceramic http://example.com/ceramic.xsd
-    http://example.com/color http://example.com/color.xsd
-  ">
-  <cera:Type>Porcelain</cera:Type>
-  <Glaze>Clear</Glaze>
-</cera:Ceramic>
-HERE
-----
-
-[source,ruby]
-----
-> c = Ceramic.from_xml(xml_content)
-=>
-#<Ceramic:0x00000001222bdd60
-...
-> schema_loc = c.schema_location
-#<Lutaml::Model::SchemaLocation:0x0000000122773760
-...
-> schema_loc
-=>
-#<Lutaml::Model::SchemaLocation:0x0000000122773760
- @namespace="http://www.w3.org/2001/XMLSchema-instance",
- @original_schema_location="http://example.com/ceramic http://example.com/ceramic.xsd http://example.com/color http://example.com/color.xsd",
- @prefix="xsi",
- @schema_location=
-  [#<Lutaml::Model::Location:0x00000001222bd018 @location="http://example.com/ceramic.xsd", @namespace="http://example.com/ceramic">,
-   #<Lutaml::Model::Location:0x00000001222bcfc8 @location="http://example.com/color.xsd", @namespace="http://example.com/color">]>
-> new_c = Ceramic.new(type: "Porcelain", glaze: "Clear", color: "navy-blue", schema_location: schema_loc).to_xml
-> puts new_c
-# <cera:Ceramic
-#   xmlns:cera="http://example.com/ceramic"
-#   xmlns:clr="http://example.com/color"
-#   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-#   clr:color="navy-blue"
-#   xsi:schemaLocation="
-#     http://example.com/ceramic http://example.com/ceramic.xsd
-#     http://example.com/color http://example.com/color.xsd
-#   ">
-#   <cera:Type>Porcelain</cera:Type>
-#   <cera:Glaze>Clear</cera:Glaze>
-# </cera:Ceramic>
-----
-====
-
-NOTE: For details on `xsi:schemaLocation`, please refer to the
-https://www.w3.org/TR/xmlschema-1/#xsi_schemaLocation[W3C XML standard].
-
-
-
 ==== Example for mapping
 
 [example]
@@ -1574,4 +1408,239 @@ To use a specific custom prefix (overriding `prefix_default`), pass a string:
 Syntax:
 
 [source,ruby]
+----
+instance.to_xml(prefix: "custom")  # <1>
+----
+<1> Uses provided custom prefix string
 
+.Output with custom prefix
+[example]
+====
+[source,ruby]
+----
+props = Properties.new(template: "Normal.dotm")
+puts props.to_xml(prefix: "extended")
+----
+
+Output:
+
+[source,xml]
+----
+<extended:Properties xmlns:extended="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties">
+  <extended:Template>Normal.dotm</extended:Template>
+</extended:Properties>
+----
+
+NOTE: Custom prefix of `"extended"` used instead of the original `"app"`.
+====
+
+
+===== `to_xml` method `prefix:` option values
+
+The `prefix:` option accepts the following values:
+
+[cols="1,3"]
+|===
+| Value | Behavior
+
+| (not specified) or `nil` or `false`
+| Use default namespace (xmlns="...") with no prefix. This is the default behavior.
+
+| `true`
+| Use `prefix_default` from XmlNamespace class
+
+| `"string"`
+| Use the provided custom prefix string
+
+|===
+
+
+
+[[element-attribute-qualification]]
+=== Element and attribute qualification
+
+==== General
+
+XML namespace qualification determines whether elements and attributes in
+instance documents must include namespace prefixes.
+Following W3C XML Schema specifications, qualification is controlled at three
+levels:
+
+. Namespace-level defaults via `element_form_default` and `attribute_form_default`
+. Element/attribute-level overrides via `form:` option
+. Global elements/attributes (always qualified when in a namespace)
+
+==== Qualification rules
+
+===== W3C qualification semantics
+
+Per W3C XML Schema specification:
+
+* **Global elements** (declared at schema root): Always qualified when in a
+namespace
+* **Local elements** (declared within a type): Follow `elementFormDefault`
+* **Global attributes** (declared at schema root): Always qualified when in a
+namespace
+* **Local attributes** (declared within a type): Follow `attributeFormDefault`
+
+===== Default behavior
+
+The default behavior follows W3C conventions:
+
+* `element_form_default`: `:unqualified` (local elements not prefixed)
+* `attribute_form_default`: `:unqualified` (local attributes not prefixed)
+
+This means child elements and attributes are not namespace-qualified by default,
+even when the parent element is.
+
+.Default qualification behavior
+[example]
+====
+[source,ruby]
+----
+class CeramicNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/ceramic'
+  prefix_default 'cer'
+  # element_form_default defaults to :unqualified
+  # attribute_form_default defaults to :unqualified
+end
+
+class Ceramic < Lutaml::Model::Serializable
+  attribute :type, :string
+  attribute :glaze, :string
+
+  xml do
+    element 'ceramic'
+    namespace CeramicNamespace
+
+    map_element 'type', to: :type
+    map_attribute 'glaze', to: :glaze
+  end
+end
+
+puts Ceramic.new(type: "Porcelain", glaze: "Clear").to_xml
+# => <cer:ceramic xmlns:cer="https://example.com/ceramic" glaze="Clear">
+#      <type>Porcelain</type>
+#    </cer:ceramic>
+
+# NOTE: <cer:ceramic> is qualified (global element)
+#       <type> is unqualified (local element, elementFormDefault=unqualified)
+#       glaze="" is unqualified (local attribute, attributeFormDefault=unqualified)
+----
+====
+
+==== Namespace-level qualification control
+
+Set qualification defaults for all local elements and attributes in the
+namespace.
+
+.Qualifying all local elements
+[example]
+====
+[source,ruby]
+----
+class CeramicNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/ceramic'
+  prefix_default 'cer'
+  element_form_default :qualified  # All local elements must be qualified
+end
+
+class Ceramic < Lutaml::Model::Serializable
+  attribute :type, :string
+  attribute :color, :string
+
+  xml do
+    element 'ceramic'
+    namespace CeramicNamespace
+
+    map_element 'type', to: :type
+    map_element 'color', to: :color
+  end
+end
+
+puts Ceramic.new(type: "Porcelain", color: "White").to_xml
+# => <cer:ceramic xmlns:cer="https://example.com/ceramic">
+#      <cer:type>Porcelain</cer:type>
+#      <cer:color>White</cer:color>
+#    </cer:ceramic>
+
+# Now <cer:type> and <cer:color> are qualified
+----
+====
+
+==== Element/attribute-level qualification override
+
+Override namespace defaults using the `form:` option on individual mappings.
+
+Syntax:
+
+[source,ruby]
+----
+xml do
+  map_element 'name', to: :name, form: :qualified   # or :unqualified
+  map_attribute 'id', to: :id, form: :qualified     # or :unqualified
+end
+----
+
+.Overriding qualification per element/attribute
+[example]
+====
+[source,ruby]
+----
+class CeramicNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/ceramic'
+  prefix_default 'cer'
+  element_form_default :unqualified  # Default: no prefix on local elements
+end
+
+class Ceramic < Lutaml::Model::Serializable
+  attribute :type, :string
+  attribute :glaze, :string
+  attribute :id, :string
+
+  xml do
+    element 'ceramic'
+    namespace CeramicNamespace
+
+    # Override specific element to be qualified
+    map_element 'type', to: :type, form: :qualified
+
+    # This element follows namespace default (unqualified)
+    map_element 'glaze', to: :glaze
+
+    # Force attribute to be qualified (unusual but supported)
+    map_attribute 'id', to: :id, form: :qualified
+  end
+end
+
+puts Ceramic.new(type: "Porcelain", glaze: "Clear", id: "C001").to_xml
+# => <cer:ceramic xmlns:cer="https://example.com/ceramic" cer:id="C001">
+#      <cer:type>Porcelain</cer:type>
+#      <glaze>Clear</glaze>
+#    </cer:ceramic>
+
+# NOTE: <cer:type> qualified via form: :qualified override
+#       <glaze> unqualified via namespace default
+#       cer:id qualified via form: :qualified override
+----
+====
+
+==== Use cases for qualification
+
+**Qualified elements** (`:qualified`):
+
+* Ensures elements are unambiguous across namespace boundaries
+* Required when mixing elements from multiple namespaces
+* Common in complex, multi-namespace schemas
+
+**Unqualified elements** (`:unqualified`):
+
+* Simpler, more readable XML for single-namespace documents
+* Reduces verbosity when namespace context is clear
+* W3C default for local elements
+
+**Qualified attributes** (unusual):
+
+* Rarely needed in practice
+* Only when attributes are from different namespace than parent element
+* Most schemas use `:unqualified` for attributes
