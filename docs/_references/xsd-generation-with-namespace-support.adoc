@@ -196,7 +196,7 @@ Generated XSD:
 
 A *LutaML::Model* *Register* allows for dynamic modification and reconfiguration
 of model hierarchies without altering the original model definitions.
-For more information, refer to the link:docs/custom_registers.adoc[Custom Registers Guide].
+For more information, refer to the link:../custom_registers[Custom Registers Guide].
 
 NOTE: Before using the `Lutaml::Model::Register` instance, make sure to register
 it in `Lutaml::Model::GlobalRegister`.
