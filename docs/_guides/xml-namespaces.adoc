@@ -627,6 +627,7 @@ puts person.to_xml
 #      <contact:email>john@example.com</contact:email>
 #    </contact:person>
 ----
+====
 
 [[root-namespace]]
 ==== Namespace assignment to element or type (`namespace` method)
@@ -838,6 +839,7 @@ Person.new.to_xml
 ShortPerson.new.to_xml
 # => <c:person xmlns:c="...">...</c:person>
 ----
+====
 
 [[namespace-scope]]
 ==== Namespace scope consolidation (`namespace_scope` method)
@@ -1210,438 +1212,7 @@ end
 
 # Generated XSD uses: <xs:complexType name="CatalogItemType">
 ----
-
-  attribute :color, :string
-
-  xml do
-    root 'Ceramic'
-    namespace 'http://example.com/ceramic', 'cera'
-    map_element 'Type', to: :type, namespace: :inherit
-    map_element 'Glaze', to: :glaze
-    map_attribute 'color', to: :color, namespace: ColorXmlNamespace
-  end
-end
-----
-
-[source,xml]
-----
-<cera:Ceramicın
-  xmlns:cera='http://example.com/ceramic'
-  xmlns:clr='http://example.com/color'
-  clr:color="navy-blue">
-  <cera:Type>Porcelain</cera:Type>
-  <Glaze>Clear</Glaze>
-</cera:Ceramicın>
-----
-
-[source,ruby]
-----
-> Ceramic.from_xml(xml_file)
-> #<Ceramic:0x0000000104ac7240 @type="Porcelain", @glaze="Clear", @color="navy-blue">
-> Ceramic.new(type: "Porcelain", glaze: "Clear", color: "navy-blue").to_xml
-> #<cera:Ceramic xmlns:cera="http://example.com/ceramic"
-  # xmlns:clr='http://example.com/color'
-  # clr:color="navy-blue">
-  #  <cera:Type>Porcelain</cera:Type>
-  #  <Glaze>Clear</Glaze>
-  # </cera:Ceramic>
-----
 ====
-
-
-
-==== Mapping attributes
-
-===== General
-
-The `map_attribute` method maps an XML attribute to a data model attribute.
-
-Syntax:
-
-[source,ruby]
-----
-xml do
-  map_attribute 'xml_attribute_name', to: :name_of_attribute
-end
-----
-
-.Using `map_attribute` to map the `value` attribute
-[example]
-====
-The following class will parse the XML snippet below:
-
-[source,ruby]
-----
-class Example < Lutaml::Model::Serializable
-  attribute :value, :integer
-
-  xml do
-    root 'example'
-    map_attribute 'value', to: :value
-  end
-end
-----
-
-[source,xml]
-----
-<example value="12"><name>John Doe</name></example>
-----
-
-[source,ruby]
-----
-> Example.from_xml(xml)
-> #<Example:0x0000000104ac7240 @value=12>
-> Example.new(value: 12).to_xml
-> #<example value="12"></example>
-----
-====
-
-The `map_attribute` method does not inherit the root element's namespace.
-To specify a namespace for an attribute, please explicitly declare the
-*namespace* and *prefix* in the `map_attribute` method.
-
-[example]
-====
-The following class will parse the XML snippet below:
-
-[source,ruby]
-----
-class TechXmiXmlNamespace < Lutaml::Model::Xml::Namespace
-  uri "http://www.tech.co/XMI"
-  default_prefix "xl"
-end
-
-class TechXmiIntegerType < Lutaml::Model::Value::String
-  xml_namespace TechXmiXmlNamespace
-end
-
-class Attribute < Lutaml::Model::Serializable
-  attribute :value, TechXmiIntegerType
-
-  xml do
-    root 'example'
-    map_attribute 'value', to: :value
-  end
-end
-----
-
-[source,xml]
-----
-<example xl:value="20" xmlns:xl="http://www.tech.co/XMI"></example>
-----
-
-[source,ruby]
-----
-> Attribute.from_xml(xml)
-> #<Attribute:0x0000000109436db8 @value=20>
-> Attribute.new(value: 20).to_xml
-> #<example xmlns:xl=\"http://www.tech.co/XMI\" xl:value=\"20\"/>
-----
-====
-
-===== Namespace on attribute
-
-If the namespace is defined on a model attribute that already has a namespace,
-the mapped namespace will be given priority over the one defined in the class.
-
-Syntax (with reuseable `XmlNamespace`):
-
-[source,ruby]
-----
-xml do
-  map_element 'xml_element_name', to: :name_of_attribute,
-    namespace: ExampleXmlNamespaceClass
-end
-----
-
-Where:
-
-`namespace`:: The XML namespace used by this element, as an XmlNamespace class
-
-Syntax (ad-hoc definition of namespace, results in an anonymous `XmlNamespace`
-class):
-
-[source,ruby]
-----
-xml do
-  map_element 'xml_element_name', to: :name_of_attribute,
-    namespace: 'http://example.com/namespace',
-    prefix: 'prefix'
-end
-----
-
-Where:
-
-`namespace`:: The XML namespace used by this element, as a URI string
-`prefix`:: The XML namespace prefix used by this element (optional)
-
-.Using the `namespace` option to set the namespace for an element
-[example]
-====
-In this example, `glz` will be used for `Glaze` if it is added inside the
-`Ceramic` class, and `glaze` will be used otherwise.
-
-[source,ruby]
-----
-class GlazeXmlNamespace < Lutaml::Model::XmlNamespace
-  uri 'http://example.com/glaze'
-  default_prefix 'glz'
-end
-
-class CeramicXmlNamespace < Lutaml::Model::XmlNamespace
-  uri 'http://example.com/ceramic'
-  default_prefix 'cera'
-end
-
-class OldGlazeXmlNamespace < Lutaml::Model::XmlNamespace
-  uri 'http://example.com/old_glaze'
-  default_prefix 'glaze'
-end
-
-class Ceramic < Lutaml::Model::Serializable
-
-    element 'Ceramic'
-    namespace CeramicXmlNamespace
-
-    map_element 'Type', to: :type
-    # This will use the GlazeXmlNamespace through the Glaze class
-    map_element 'Glaze', to: :glaze
-  end
-end
-
-class Glaze < Lutaml::Model::Serializable
-  attribute :color, :string
-  attribute :temperature, :integer
-
-  xml do
-    element 'Glaze'
-    namespace OldGlazeXmlNamespace
-
-    map_element 'color', to: :color
-    map_element 'temperature', to: :temperature
-  end
-end
-----
-
-[source,xml]
-----
-<Ceramic xmlns='http://example.com/ceramic'>
-  <Type>Porcelain</Type>
-  <glz:Glaze xmlns='http://example.com/glaze'>
-    <color>Clear</color>
-    <temperature>1050</temperature>
-  </glz:Glaze>
-</Ceramic>
-----
-
-[source,ruby]
-----
-> # Using the original Glaze class namespace
-> Glaze.new(color: "Clear", temperature: 1050).to_xml
-> #<glaze:Glaze xmlns="http://example.com/old_glaze"><color>Clear</color><temperature>1050</temperature></glaze:Glaze>
-
-> # Using the Ceramic class namespace for Glaze
-> Ceramic.from_xml(xml_file)
-> #<Ceramic:0x0000000104ac7240 @type="Porcelain", @glaze=#<Glaze:0x0000000104ac7240 @color="Clear", @temperature=1050>>
-> Ceramic.new(type: "Porcelain", glaze: Glaze.new(color: "Clear", temperature: 1050)).to_xml
-> #<Ceramic xmlns="http://example.com/ceramic"><Type>Porcelain</Type><glz:Glaze xmlns="http://example.com/glaze"><color>Clear</color><temperature>1050</temperature></glz:Glaze></Ceramic>
-----
-====
-
-
-==== Mapping content
-
-Content represents the text inside an XML element, inclusive of whitespace.
-
-The `map_content` method maps an XML element's content to a data model
-attribute.
-
-Syntax:
-
-[source,ruby]
-----
-xml do
-  map_content to: :name_of_attribute
-end
-----
-
-.Using `map_content` to map content of the `description` tag
-[example]
-====
-The following class will parse the XML snippet below:
-
-[source,ruby]
-----
-class Example < Lutaml::Model::Serializable
-  attribute :description, :string
-
-  xml do
-    root 'example'
-    map_content to: :description
-  end
-end
-----
-
-[source,xml]
-----
-<example>John Doe is my moniker.</example>
-----
-
-[source,ruby]
-----
-> Example.from_xml(xml)
-> #<Example:0x0000000104ac7240 @description="John Doe is my moniker.">
-> Example.new(description: "John Doe is my moniker.").to_xml
-> #<example>John Doe is my moniker.</example>
-----
-====
-
-
-[[xml-map-all]]
-==== Mapping entire XML element into an attribute
-
-The `map_all` tag in XML mapping captures and maps all content within an XML
-element into a single attribute in the target Ruby object.
-
-The use case for `map_all` is to tell Lutaml::Model to not parse the content of
-the XML element at all, and instead handle it as an XML string.
-
-NOTE: The corresponding method for key-value formats is at <<key-value-map-all>>.
-
-WARNING: Notice that usage of mapping all will lead to incompatibility between
-serialization formats, i.e. the raw string content will not be portable as
-objects are across different formats.
-
-This is useful in the case where the content of an XML element is not to be
-handled by a Lutaml::Model::Serializable object.
-
-This feature is commonly used with custom methods or a custom model object to
-handle the content.
-
-This includes:
-
-* nested tags
-* attributes
-* text nodes
-
-The `map_all` tag is **exclusive** and cannot be combined with other mappings
-(`map_element`, `map_content`) except for `map_attribute` for the same element,
-ensuring it captures the entire inner XML content.
-
-NOTE: An error is raised if `map_all` is defined alongside any other mapping in
-the same XML mapping context.
-
-Syntax:
-
-[source,ruby]
-----
-xml do
-  map_all to: :name_of_attribute
-end
-----
-
-.Mapping all the content using `map_all`
-[example]
-====
-[source,ruby]
-----
-class ExampleMapping < Lutaml::Model::Serializable
-  attribute :description, :string
-
-  xml do
-    map_all to: :description
-  end
-end
-----
-
-[source,xml]
-----
-<ExampleMapping>Content with <b>tags</b> and <i>formatting</i>.</ExampleMapping>
-----
-
-[source,ruby]
-----
-> parsed = ExampleMapping.from_xml(xml)
-> puts parsed.all_content
-# "Content with <b>tags</b> and <i>formatting</i>."
-----
-====
-
-
-==== Mapping CDATA nodes
-
-CDATA is an XML feature that allows the inclusion of text that may contain
-characters that are unescaped in XML.
-
-While CDATA is not preferred in XML, it is sometimes necessary to handle CDATA
-nodes for both input and output.
-
-NOTE: The W3C XML Recommendation explicitly encourages escaping characters over
-usage of CDATA.
-
-Lutaml::Model supports the handling of CDATA nodes in XML in the following
-behavior:
-
-. When an attribute contains a CDATA node with no text:
-** On reading: The node (CDATA or text) is read as its value.
-** On writing: The value is written as its native type.
-
-. When an XML mapping sets `cdata: true` on `map_element` or `map_content`:
-** On reading: The node (CDATA or text) is read as its value.
-** On writing: The value is written as a CDATA node.
-
-. When an XML mapping sets `cdata: false` on `map_element` or `map_content`:
-** On reading: The node (CDATA or text) is read as its value.
-** On writing: The value is written as a text node (string).
-
-
-Syntax:
-
-[source,ruby]
-----
-xml do
-  map_content to: :name_of_attribute, cdata: (true | false)
-  map_element :name, to: :name, cdata: (true | false)
-end
-----
-
-.Using `cdata` to map CDATA content
-[example]
-====
-The following class will parse the XML snippet below:
-
-[source,ruby]
-----
-class Example < Lutaml::Model::Serializable
-  attribute :name, :string
-  attribute :description, :string
-  attribute :title, :string
-  attribute :note, :string
-
-  xml do
-    root 'example'
-    map_element :name, to: :name, cdata: true
-    map_content to: :description, cdata: true
-    map_element :title, to: :title, cdata: false
-    map_element :note, to: :note, cdata: false
-  end
-end
-----
-
-[source,xml]
-----
-<example><name><![CDATA[John]]></name><![CDATA[here is the description]]><title><![CDATA[Lutaml]]></title><note>Careful</note></example>
-----
-
-[source,ruby]
-----
-> Example.from_xml(xml)
-> #<Example:0x0000000104ac7240 @name="John" @description="here is the description" @title="Lutaml" @note="Careful">
-> Example.new(name: "John", description: "here is the description", title: "Lutaml", note: "Careful").to_xml
-> #<example><name><![CDATA[John]]></name><![CDATA[here is the description]]><title>Lutaml</title><note>Careful</note></example>
-----
-====
-
 
 
 ==== XSD sequence requirements (`sequence` block)
@@ -1820,4 +1391,58 @@ class Ceramic < Lutaml::Model::Serializable
     map_attribute 'color', to: :color, ColorXmlNamespace
   end
 end
+
+xml_content = <<~HERE
+<cera:Ceramic
+  xmlns:cera="http://example.com/ceramic"
+  xmlns:clr="http://example.com/color"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  clr:color="navy-blue"
+  xsi:schemaLocation="
+    http://example.com/ceramic http://example.com/ceramic.xsd
+    http://example.com/color http://example.com/color.xsd
+  ">
+  <cera:Type>Porcelain</cera:Type>
+  <Glaze>Clear</Glaze>
+</cera:Ceramic>
+HERE
+----
+
+[source,ruby]
+----
+> c = Ceramic.from_xml(xml_content)
+=>
+#<Ceramic:0x00000001222bdd60
+...
+> schema_loc = c.schema_location
+#<Lutaml::Model::SchemaLocation:0x0000000122773760
+...
+> schema_loc
+=>
+#<Lutaml::Model::SchemaLocation:0x0000000122773760
+ @namespace="http://www.w3.org/2001/XMLSchema-instance",
+ @original_schema_location="http://example.com/ceramic http://example.com/ceramic.xsd http://example.com/color http://example.com/color.xsd",
+ @prefix="xsi",
+ @schema_location=
+  [#<Lutaml::Model::Location:0x00000001222bd018 @location="http://example.com/ceramic.xsd", @namespace="http://example.com/ceramic">,
+   #<Lutaml::Model::Location:0x00000001222bcfc8 @location="http://example.com/color.xsd", @namespace="http://example.com/color">]>
+> new_c = Ceramic.new(type: "Porcelain", glaze: "Clear", color: "navy-blue", schema_location: schema_loc).to_xml
+> puts new_c
+# <cera:Ceramic
+#   xmlns:cera="http://example.com/ceramic"
+#   xmlns:clr="http://example.com/color"
+#   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+#   clr:color="navy-blue"
+#   xsi:schemaLocation="
+#     http://example.com/ceramic http://example.com/ceramic.xsd
+#     http://example.com/color http://example.com/color.xsd
+#   ">
+#   <cera:Type>Porcelain</cera:Type>
+#   <cera:Glaze>Clear</cera:Glaze>
+# </cera:Ceramic>
+----
+====
+
+NOTE: For details on `xsi:schemaLocation`, please refer to the
+https://www.w3.org/TR/xmlschema-1/#xsi_schemaLocation[W3C XML standard].
 
