@@ -1,6 +1,7 @@
 ---
 title: XML Namespace Presentation
 nav_order: 5
+parent: XML namespaces
 ---
 
 = XML Namespace Presentation in Lutaml::Model

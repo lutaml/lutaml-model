@@ -1,6 +1,7 @@
 ---
 title: XML namespaces
 nav_order: 2
+has_children: true
 ---
 = XML namespaces
 :toc:
