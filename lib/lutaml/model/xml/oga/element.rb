@@ -15,9 +15,9 @@ module Lutaml
                      namespace_name = node.namespace&.prefix
 
                      # Detect explicit xmlns="" for no namespace
-                     # Oga reports this as namespace with name="xmlns" and uri=""
+                     # Oga reports this as namespace with prefix=nil and uri=""
                      has_empty_xmlns = node.namespaces.any? do |ns|
-                       (ns.prefix.nil? || ns.name == "xmlns") && ns.uri == ""
+                       ns.prefix.nil? && ns.uri == ""
                      end
 
                      explicit_no_namespace = XmlElement.detect_explicit_no_namespace(
