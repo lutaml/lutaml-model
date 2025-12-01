@@ -165,8 +165,8 @@ module Lutaml
           else
             text = content_rule.serialize(element)
             cdata = content_rule.cdata
-            if text.is_a?(Array) && !cdata && element.element_order&.any?
-              update_xml_with_entity_and_text(xml, element, text)
+            if !cdata && element.element_order&.any?
+              update_xml_with_entity_and_text(xml, element, Array(text))
             else
               text = text.join if text.is_a?(Array)
 

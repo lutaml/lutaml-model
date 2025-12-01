@@ -54,7 +54,7 @@ RSpec.describe "XMLEntityHandling" do
       Lutaml::Model::Config.xml_adapter = original_adapter
     end
 
-    let(:entity_name) { Lutaml::Model::Xml::Element::NAME_ENTITY }
+    let(:entity_marker) { Lutaml::Model::Xml::Element::ENTITY_MARKER }
     let(:nokogiri_adapter) { Lutaml::Model::Xml::NokogiriAdapter }
     let(:oga_adapter) { Lutaml::Model::Xml::OgaAdapter }
     let(:ox_adapter) { Lutaml::Model::Xml::OxAdapter }
@@ -72,10 +72,10 @@ RSpec.describe "XMLEntityHandling" do
       it "tracks entity references in element_order" do
         if adapter_class == nokogiri_adapter
           expect(parsed.element_order.count(&:entity?)).to eq(2)
-          expect(parsed.element_order.map(&:name)).to include(entity_name)
+          expect(parsed.element_order.map(&:name)).to include(entity_marker)
         else
           expect(parsed.element_order.count(&:entity?)).to eq(0)
-          expect(parsed.element_order.map(&:name)).not_to include(entity_name)
+          expect(parsed.element_order.map(&:name)).not_to include(entity_marker)
         end
       end
 

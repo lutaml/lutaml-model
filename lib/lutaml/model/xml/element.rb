@@ -3,7 +3,7 @@ module Lutaml
     module Xml
       class Element
         TEXT_TYPE = "Text".freeze
-        NAME_ENTITY = "__entity".freeze
+        ENTITY_MARKER = "__entity".freeze
 
         include Lutaml::Model::Liquefiable
 
@@ -17,12 +17,14 @@ module Lutaml
         def text?
           @type == TEXT_TYPE &&
             @name != "#cdata-section" &&
-            @name != NAME_ENTITY
+            @name != ENTITY_MARKER
         end
 
+        # Checks if this element represents an XML entity reference
+        # @return [Boolean] true if this is an entity node, false otherwise
         def entity?
           @type == TEXT_TYPE &&
-            @name == NAME_ENTITY
+            @name == ENTITY_MARKER
         end
 
         def element_tag
