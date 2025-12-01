@@ -22,7 +22,7 @@ module Lutaml
 
                      explicit_no_namespace = XmlElement.detect_explicit_no_namespace(
                        has_empty_xmlns: has_empty_xmlns,
-                       node_namespace_nil: node.namespace.nil? || node.namespace&.uri == ""
+                       node_namespace_nil: node.namespace.nil? || node.namespace&.uri == "",
                      )
 
                      add_namespaces(node, is_root: parent.nil?)

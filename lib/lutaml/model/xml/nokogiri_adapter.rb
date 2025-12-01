@@ -835,7 +835,7 @@ mapping: nil)
           # Use shared helper method for consistency across all adapters
           explicit_no_namespace = XmlElement.detect_explicit_no_namespace(
             has_empty_xmlns: node.namespaces.key?("xmlns") && node.namespaces["xmlns"] == "",
-            node_namespace_nil: node.namespace.nil?
+            node_namespace_nil: node.namespace.nil?,
           )
 
           # Set default namespace for root, or inherit from parent for children
