@@ -543,7 +543,7 @@ mapping: nil)
             # Use shared helper to detect explicit no namespace
             explicit_no_namespace = XmlElement.detect_explicit_no_namespace(
               has_empty_xmlns: has_empty_xmlns,
-              node_namespace_nil: has_no_prefix  # Ox nodes without prefix have no namespace
+              node_namespace_nil: has_no_prefix, # Ox nodes without prefix have no namespace
             )
 
             attributes = node.attributes.each_with_object({}) do |(name, value), hash|

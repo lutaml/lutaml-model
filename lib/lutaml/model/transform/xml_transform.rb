@@ -159,7 +159,7 @@ module Lutaml
             # 1. Matching local name
             # 2. NO namespace URI (namespaced_name == unprefixed_name indicates no namespace)
             next child.unprefixed_name == rule.name.to_s &&
-                 child.namespaced_name == child.unprefixed_name
+              child.namespaced_name == child.unprefixed_name
           end
 
           # First try exact namespace match

@@ -167,7 +167,7 @@ RSpec.describe "XML Namespace Prefix-Independent Parsing" do
           end
         end
 
-        context "parent with default namespace, child with prefix" do
+        context "when parent with default namespace, child with prefix" do
           let(:xml) do
             <<~XML
               <Ceramic xmlns="http://example.com/ceramic" xmlns:glz="http://example.com/glaze">
@@ -188,7 +188,7 @@ RSpec.describe "XML Namespace Prefix-Independent Parsing" do
           end
         end
 
-        context "parent with prefix, child with different prefix" do
+        context "when parent with prefix, child with different prefix" do
           let(:xml) do
             <<~XML
               <cer:Ceramic xmlns:cer="http://example.com/ceramic" xmlns:g="http://example.com/glaze">
@@ -209,7 +209,7 @@ RSpec.describe "XML Namespace Prefix-Independent Parsing" do
           end
         end
 
-        context "both parent and child with arbitrary prefixes" do
+        context "when both parent and child with arbitrary prefixes" do
           let(:xml) do
             <<~XML
               <x:Ceramic xmlns:x="http://example.com/ceramic" xmlns:y="http://example.com/glaze">
@@ -255,7 +255,7 @@ RSpec.describe "XML Namespace Prefix-Independent Parsing" do
           end
         end
 
-        context "type namespace with default, parent with prefix" do
+        context "when type namespace with default, parent with prefix" do
           let(:xml) do
             <<~XML
               <cer:Ceramic xmlns:cer="http://example.com/ceramic" xmlns="http://example.com/color">
@@ -272,7 +272,7 @@ RSpec.describe "XML Namespace Prefix-Independent Parsing" do
           end
         end
 
-        context "type namespace with arbitrary prefix" do
+        context "when type namespace with arbitrary prefix" do
           let(:xml) do
             <<~XML
               <Ceramic xmlns="http://example.com/ceramic" xmlns:c="http://example.com/color">
@@ -304,7 +304,7 @@ RSpec.describe "XML Namespace Prefix-Independent Parsing" do
           end
         end
 
-        context "collection elements with default namespace" do
+        context "when collection elements with default namespace" do
           let(:xml) do
             <<~XML
               <Ceramics xmlns="http://example.com/ceramic">
@@ -321,7 +321,7 @@ RSpec.describe "XML Namespace Prefix-Independent Parsing" do
           end
         end
 
-        context "collection elements with arbitrary prefix" do
+        context "when collection elements with arbitrary prefix" do
           let(:xml) do
             <<~XML
               <art:Ceramics xmlns:art="http://example.com/ceramic">
@@ -355,7 +355,7 @@ RSpec.describe "XML Namespace Prefix-Independent Parsing" do
           end
         end
 
-        context "inherit with parent default namespace" do
+        context "when inherit with parent default namespace" do
           let(:xml) do
             <<~XML
               <Parent xmlns="http://example.com/ceramic">
@@ -372,7 +372,7 @@ RSpec.describe "XML Namespace Prefix-Independent Parsing" do
           end
         end
 
-        context "inherit with parent prefixed namespace" do
+        context "when inherit with parent prefixed namespace" do
           let(:xml) do
             <<~XML
               <cer:Parent xmlns:cer="http://example.com/ceramic">
@@ -389,7 +389,7 @@ RSpec.describe "XML Namespace Prefix-Independent Parsing" do
           end
         end
 
-        context "inherit with arbitrary parent prefix" do
+        context "when inherit with arbitrary parent prefix" do
           let(:xml) do
             <<~XML
               <x:Parent xmlns:x="http://example.com/ceramic">
@@ -423,7 +423,7 @@ RSpec.describe "XML Namespace Prefix-Independent Parsing" do
           end
         end
 
-        context "parent with namespace, child explicitly without" do
+        context "when parent with namespace, child explicitly without" do
           let(:xml) do
             <<~XML
               <Ceramic xmlns="http://example.com/ceramic">
@@ -440,7 +440,7 @@ RSpec.describe "XML Namespace Prefix-Independent Parsing" do
           end
         end
 
-        context "parent with prefix, child without namespace" do
+        context "when parent with prefix, child without namespace" do
           let(:xml) do
             <<~XML
               <cer:Ceramic xmlns:cer="http://example.com/ceramic">
@@ -479,7 +479,7 @@ RSpec.describe "XML Namespace Prefix-Independent Parsing" do
           expect(parsed.type).to eq("Porcelain")
 
           serialized_prefixed = parsed.to_xml(prefix: true)
-          expect(serialized_prefixed).to include('cer:Ceramic')
+          expect(serialized_prefixed).to include("cer:Ceramic")
           expect(serialized_prefixed).to include('xmlns:cer="http://example.com/ceramic"')
         end
 
