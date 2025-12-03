@@ -29,8 +29,12 @@ class Book < Lutaml::Model::Serializable
 end
 
 RSpec.describe Lutaml::Model::Type::Reference do
-  let(:first_author) { Author.new(id: "author-1", name: "John Doe", email: "john@example.com") }
-  let(:second_author) { Author.new(id: "author-2", name: "Jane Smith", email: "jane@example.com") }
+  let(:first_author) do
+    Author.new(id: "author-1", name: "John Doe", email: "john@example.com")
+  end
+  let(:second_author) do
+    Author.new(id: "author-2", name: "Jane Smith", email: "jane@example.com")
+  end
   let(:book) { Book.new(id: "book-1", title: "Great Book") }
 
   before do
@@ -79,7 +83,8 @@ RSpec.describe Lutaml::Model::Type::Reference do
       # New behavior: returns actual resolved objects
       expect(loaded_book.author_ref).to be_a(Author)
       expect(loaded_book.author_ref.name).to eq("John Doe")
-      expect(loaded_book.co_authors.map(&:name)).to eq(["John Doe", "Jane Smith"])
+      expect(loaded_book.co_authors.map(&:name)).to eq(["John Doe",
+                                                        "Jane Smith"])
     end
   end
 
@@ -97,7 +102,8 @@ RSpec.describe Lutaml::Model::Type::Reference do
       # New behavior: returns actual resolved objects
       expect(loaded_book.author_ref).to be_a(Author)
       expect(loaded_book.author_ref.name).to eq("John Doe")
-      expect(loaded_book.co_authors.map(&:name)).to eq(["John Doe", "Jane Smith"])
+      expect(loaded_book.co_authors.map(&:name)).to eq(["John Doe",
+                                                        "Jane Smith"])
     end
   end
 
@@ -215,7 +221,8 @@ RSpec.describe Lutaml::Model::Type::Reference do
 
         # Users work with actual objects, references are internal
         expect(loaded_book.author_ref).to eq(json_author1)
-        expect(loaded_book.co_authors).to contain_exactly(json_author1, json_author2)
+        expect(loaded_book.co_authors).to contain_exactly(json_author1,
+                                                          json_author2)
       end
     end
 
@@ -243,7 +250,9 @@ RSpec.describe Lutaml::Model::Type::Reference do
         expect(loaded_book.author_ref).to be_a(Author)
         expect(loaded_book.author_ref.name).to eq("Ref Author 1")
         expect(loaded_book.co_authors).to all(be_a(Author))
-        expect(loaded_book.co_authors.map(&:name)).to contain_exactly("Ref Author 1", "Ref Author 2")
+        expect(loaded_book.co_authors.map(&:name)).to contain_exactly(
+          "Ref Author 1", "Ref Author 2"
+        )
       end
 
       it "from_json creates references from string keys in data" do
@@ -260,7 +269,9 @@ RSpec.describe Lutaml::Model::Type::Reference do
         expect(loaded_book.author_ref).to be_a(Author)
         expect(loaded_book.author_ref.name).to eq("Ref Author 1")
         expect(loaded_book.co_authors).to all(be_a(Author))
-        expect(loaded_book.co_authors.map(&:name)).to contain_exactly("Ref Author 1", "Ref Author 2")
+        expect(loaded_book.co_authors.map(&:name)).to contain_exactly(
+          "Ref Author 1", "Ref Author 2"
+        )
       end
 
       it "from_xml creates references from string keys in data" do
@@ -280,7 +291,9 @@ RSpec.describe Lutaml::Model::Type::Reference do
         expect(loaded_book.author_ref).to be_a(Author)
         expect(loaded_book.author_ref.name).to eq("Ref Author 1")
         expect(loaded_book.co_authors).to all(be_a(Author))
-        expect(loaded_book.co_authors.map(&:name)).to contain_exactly("Ref Author 1", "Ref Author 2")
+        expect(loaded_book.co_authors.map(&:name)).to contain_exactly(
+          "Ref Author 1", "Ref Author 2"
+        )
       end
 
       it "from_hash creates references from string keys in data" do
@@ -297,7 +310,9 @@ RSpec.describe Lutaml::Model::Type::Reference do
         expect(loaded_book.author_ref).to be_a(Author)
         expect(loaded_book.author_ref.name).to eq("Ref Author 1")
         expect(loaded_book.co_authors).to all(be_a(Author))
-        expect(loaded_book.co_authors.map(&:name)).to contain_exactly("Ref Author 1", "Ref Author 2")
+        expect(loaded_book.co_authors.map(&:name)).to contain_exactly(
+          "Ref Author 1", "Ref Author 2"
+        )
       end
     end
   end
@@ -354,7 +369,8 @@ RSpec.describe Lutaml::Model::Type::Reference do
 
         # Users work with actual objects, references are internal
         expect(reloaded_book.author_ref.name).to eq("John Doe")
-        expect(reloaded_book.co_authors.map(&:name)).to eq(["John Doe", "Jane Smith"])
+        expect(reloaded_book.co_authors.map(&:name)).to eq(["John Doe",
+                                                            "Jane Smith"])
       end
 
       it "maintains reference integrity through JSON round-trip" do
@@ -362,7 +378,8 @@ RSpec.describe Lutaml::Model::Type::Reference do
         reloaded_book = Book.from_json(json_data)
 
         expect(reloaded_book.author_ref.name).to eq("John Doe")
-        expect(reloaded_book.co_authors.map(&:name)).to eq(["John Doe", "Jane Smith"])
+        expect(reloaded_book.co_authors.map(&:name)).to eq(["John Doe",
+                                                            "Jane Smith"])
       end
 
       it "maintains reference integrity through XML round-trip" do
@@ -370,7 +387,8 @@ RSpec.describe Lutaml::Model::Type::Reference do
         reloaded_book = Book.from_xml(xml_data)
 
         expect(reloaded_book.author_ref.name).to eq("John Doe")
-        expect(reloaded_book.co_authors.map(&:name)).to eq(["John Doe", "Jane Smith"])
+        expect(reloaded_book.co_authors.map(&:name)).to eq(["John Doe",
+                                                            "Jane Smith"])
       end
 
       it "maintains reference integrity through Hash round-trip (with key serialization)" do
@@ -381,8 +399,10 @@ RSpec.describe Lutaml::Model::Type::Reference do
         expect(reloaded_book.author_ref).to be_a(Author)
         expect(reloaded_book.author_ref.id).to eq("author-1") # ID is the string key
         expect(reloaded_book.author_ref.name).to eq("John Doe")
-        expect(reloaded_book.co_authors.map(&:id)).to eq(["author-1", "author-2"])
-        expect(reloaded_book.co_authors.map(&:name)).to eq(["John Doe", "Jane Smith"])
+        expect(reloaded_book.co_authors.map(&:id)).to eq(["author-1",
+                                                          "author-2"])
+        expect(reloaded_book.co_authors.map(&:name)).to eq(["John Doe",
+                                                            "Jane Smith"])
       end
     end
   end

@@ -15,7 +15,8 @@ module Lutaml
           return @value if resolved?
           return nil unless @key
 
-          @value = Lutaml::Model::Store.resolve(@model_class, @key_attribute, @key)
+          @value = Lutaml::Model::Store.resolve(@model_class, @key_attribute,
+                                                @key)
           @value
         end
 
@@ -83,10 +84,29 @@ module Lutaml
           cast(value)
         end
 
+        # XSD type for Reference
+        #
+        # Returns xs:IDREF if the target uses xs:ID, otherwise xs:string.
+        # This is a three-tier architecture:
+        # 1. Application level: Reference objects for type safety
+        # 2. Schema level: xs:IDREF for validation
+        # 3. Instance level: key values for serialization
+        #
+        # @param target_xsd_type [String, nil] the XSD type of the target attribute
+        # @return [String] xs:IDREF or xs:string
+        def self.xsd_type(target_xsd_type = nil)
+          target_xsd_type == "xs:ID" ? "xs:IDREF" : "xs:string"
+        end
+
         private
 
         def model_instance?(value)
-          value.class.name == @model_class.to_s
+          return false unless value
+
+          klass = Object.const_get(@model_class)
+          value.instance_of?(klass)
+        rescue NameError
+          false
         end
       end
     end

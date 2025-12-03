@@ -102,12 +102,16 @@ class GrammarInfo < Lutaml::Model::Serializable
   attribute :part_of_speech, :string, values: %w[user admin super_admin]
 
   key_value do
-    map :part_of_speech, with: { to: :part_of_speech_to_key_value, from: :part_of_speech_from_key_value }
+    map :part_of_speech,
+        with: { to: :part_of_speech_to_key_value,
+                from: :part_of_speech_from_key_value }
   end
 
   xml do
     root "GrammarInfo"
-    map_element :part_of_speech, with: { to: :part_of_speech_to_xml, from: :part_of_speech_from_xml }
+    map_element :part_of_speech,
+                with: { to: :part_of_speech_to_xml,
+                        from: :part_of_speech_from_xml }
   end
 
   def part_of_speech_from_key_value(model, value)
@@ -195,7 +199,7 @@ RSpec.describe CustomSerialization do
         </CustomSerialization>
       XML
 
-      expect(model.to_xml).to be_equivalent_to(expected_xml)
+      expect(model.to_xml).to be_xml_equivalent_to(expected_xml)
     end
 
     it "deserializes from XML with custom methods" do
@@ -252,7 +256,7 @@ RSpec.describe CustomSerialization do
       expect(instance.super_admin?).to be false
 
       serialized = instance.to_xml
-      expect(serialized).to be_equivalent_to(xml_input)
+      expect(serialized).to be_xml_equivalent_to(xml_input)
     end
   end
 end

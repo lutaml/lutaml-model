@@ -1,0 +1,106 @@
+---
+title: Home
+nav_order: 1
+---
+:page-layout: home
+
+= Lutaml::Model: Ruby data modeler
+
+image:https://img.shields.io/gem/v/lutaml-model.svg[RubyGems Version]
+image:https://img.shields.io/github/license/lutaml/lutaml-model.svg[License]
+image:https://github.com/lutaml/lutaml-model/actions/workflows/rake.yml/badge.svg["Build", link="https://github.com/lutaml/lutaml-model/actions/workflows/rake.yml"]
+image:https://github.com/lutaml/lutaml-model/actions/workflows/dependent-tests.yml/badge.svg["Dependent tests", link="https://github.com/lutaml/lutaml-model/actions/workflows/dependent-tests.yml"]
+
+Lutaml::Model is a Ruby library for creating information models with attributes and types, providing flexible and comprehensive mechanisms for serializing to and from multiple formats including XML, JSON, YAML, TOML, and Hash.
+
+== Key features
+
+* **Model-driven design** - Define models with attributes and types
+* **Multi-format serialization** - XML, JSON, YAML, TOML, Hash
+* **XML namespace support** - Full W3C namespace implementation
+* **Validation** - Built-in validation with custom rules
+* **Schema generation** - Generate XSD, JSON Schema, YAML Schema
+* **Polymorphism** - Handle multiple types elegantly
+* **Collections** - Work with groups of models
+* **Custom types** - Extend with your own value types
+
+== Getting started
+
+Choose your path:
+
+link:installation[**Installation**]::
+Install Lutaml::Model and configure adapters
+
+link:quick-start[**Quick Start**]::
+Create your first model in 5 minutes
+
+link:tutorials/index[**Tutorials**]::
+Step-by-step guides for progressive learning
+
+link:guides/index[**Guides**]::
+Task-oriented documentation for specific goals
+
+link:index[**Core Topics**]::
+Complete reference for all features
+
+== Quick example
+
+[source,ruby]
+----
+require 'lutaml/model'
+
+class Person < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :age, :integer
+
+  xml do
+    root "person"
+    map_element "name", to: :name
+    map_element "age", to: :age
+  end
+
+  key_value do
+    map "name", to: :name
+    map "age", to: :age
+  end
+end
+
+# Serialize
+person = Person.new(name: "John", age: 30)
+person.to_xml   # => <person><name>John</name><age>30</age></person>
+person.to_json  # => {"name":"John","age":30}
+
+# Deserialize
+Person.from_xml(xml_string)
+Person.from_json(json_string)
+----
+
+== Documentation sections
+
+=== link:index[Core Topics]
+
+Fundamental concepts, configuration, and essential features.
+
+=== link:tutorials/index[Tutorials]
+
+Progressive, step-by-step learning from basics to advanced topics.
+
+=== link:guides/index[Guides]
+
+Task-oriented guides for accomplishing specific goals.
+
+=== link:references/index[Reference]
+
+Technical reference, architecture, and implementation details.
+
+== Community
+
+* link:https://github.com/lutaml/lutaml-model[GitHub Repository]
+* link:https://github.com/lutaml/lutaml-model/issues[Issue Tracker]
+* link:https://rubygems.org/gems/lutaml-model[RubyGems Page]
+
+== License
+
+Lutaml::Model is released under the BSD 2-Clause License.
+
+Copyright (c) 2025 Ribose Inc.

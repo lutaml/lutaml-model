@@ -27,7 +27,8 @@ RSpec.describe Lutaml::Model::Register do
 
     before do
       v1_register.register_model(RegisterSpec::CustomString, id: :custom_string)
-      v1_register.register_model(RegisterSpec::CustomInteger, id: :custom_integer)
+      v1_register.register_model(RegisterSpec::CustomInteger,
+                                 id: :custom_integer)
     end
 
     it "registers model with explicit id" do
@@ -35,7 +36,8 @@ RSpec.describe Lutaml::Model::Register do
     end
 
     it "allows overriding an existing type" do
-      v1_register.register_model(Lutaml::Model::Type::String, id: :custom_string)
+      v1_register.register_model(Lutaml::Model::Type::String,
+                                 id: :custom_string)
       expect(v1_register.models[:custom_string]).to be_nil
     end
 
@@ -92,7 +94,9 @@ RSpec.describe Lutaml::Model::Register do
     end
 
     it "raises error for unsupported type" do
-      expect { v1_register.get_class(123) }.to raise_error(Lutaml::Model::UnknownTypeError)
+      expect do
+        v1_register.get_class(123)
+      end.to raise_error(Lutaml::Model::UnknownTypeError)
     end
   end
 
@@ -118,7 +122,8 @@ RSpec.describe Lutaml::Model::Register do
     let(:v1_register) { described_class.new(:v1) }
 
     it "registers a global type substitution" do
-      v1_register.register_global_type_substitution(from_type: :string, to_type: :text)
+      v1_register.register_global_type_substitution(from_type: :string,
+                                                    to_type: :text)
       expect(v1_register.instance_variable_get(:@global_substitutions)).to include(string: :text)
     end
   end

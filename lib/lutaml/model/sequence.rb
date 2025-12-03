@@ -68,16 +68,22 @@ module Lutaml
         choices = {}
 
         defined_order.each do |element, klass_attr|
-          eo_index = validate_sequence(element_order, eo_index, element, klass_attr, choices)
+          eo_index = validate_sequence(element_order, eo_index, element,
+                                       klass_attr, choices)
         end
       end
 
-      def validate_sequence(element_order, eo_index, element, klass_attr, choices)
+      def validate_sequence(element_order, eo_index, element, klass_attr,
+choices)
         if klass_attr.choice
-          return process_choice(element_order, eo_index, element, klass_attr, choices)
+          return process_choice(element_order, eo_index, element, klass_attr,
+                                choices)
         end
 
-        occurrences = process_collection(element_order, eo_index, element, klass_attr) if klass_attr.collection?
+        if klass_attr.collection?
+          occurrences = process_collection(element_order, eo_index, element,
+                                           klass_attr)
+        end
         return eo_index + occurrences if occurrences&.positive?
         return eo_index + 1 if element_order[eo_index] == element
 
@@ -100,7 +106,8 @@ module Lutaml
           element_order.insert(eo_index, element)
           nil
         else
-          klass_attr.sequenced_appearance_count(element_order, element, eo_index)
+          klass_attr.sequenced_appearance_count(element_order, element,
+                                                eo_index)
         end
       end
 

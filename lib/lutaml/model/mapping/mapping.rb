@@ -6,7 +6,8 @@ module Lutaml
       end
 
       def mappings
-        raise NotImplementedError, "#{self.class.name} must implement `mappings`."
+        raise NotImplementedError,
+              "#{self.class.name} must implement `mappings`."
       end
     end
   end

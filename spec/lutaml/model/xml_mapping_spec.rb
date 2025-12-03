@@ -2,6 +2,7 @@ require "spec_helper"
 
 require "lutaml/model/xml/ox_adapter"
 require "lutaml/model/xml/oga_adapter"
+require_relative "../../support/xml_mapping_namespaces"
 
 # Define a sample class for testing map_content
 class Italic < Lutaml::Model::Serializable
@@ -34,7 +35,7 @@ module XmlMapping
 
     xml do
       root "ChildNamespaceNil"
-      namespace "http://www.omg.org/spec/XMI/20131001", "xmi"
+      namespace XmiNamespace
 
       # this will inherit the namespace from the parent i.e <xmi:ElementDefaultNamespace>
       map_element "ElementDefaultNamespace", to: :element_default_namespace
@@ -46,8 +47,7 @@ module XmlMapping
 
       # this will have new namespace i.e <new:ElementNewNamespace>
       map_element "ElementNewNamespace", to: :element_new_namespace,
-                                         prefix: "new",
-                                         namespace: "http://www.omg.org/spec/XMI/20161001"
+                                         namespace: XmiNewNamespace
     end
   end
 
@@ -85,7 +85,7 @@ module XmlMapping
 
     xml do
       root "math"
-      namespace "http://www.w3.org/1998/Math/MathML"
+      namespace MathMlNamespace
       map_element :mfenced, to: :mfenced
     end
   end
@@ -96,11 +96,10 @@ module XmlMapping
 
     xml do
       root "example"
-      namespace "http://www.check.com", "ns1"
+      namespace CheckNamespace
 
       map_attribute "alpha", to: :alpha,
-                             namespace: "http://www.example.com",
-                             prefix: "ex1"
+                             namespace: ExampleNamespace
 
       map_attribute "beta", to: :beta
     end
@@ -114,15 +113,13 @@ module XmlMapping
 
     xml do
       root "SameElementName"
-      namespace "http://www.omg.org/spec/XMI/20131001", nil
+      namespace XmiNamespace
 
       map_element "ApplicationSchema", to: :gml_application_schema,
-                                       namespace: "http://www.sparxsystems.com/profiles/GML/1.0",
-                                       prefix: "GML"
+                                       namespace: GmlNamespace
 
       map_element "ApplicationSchema", to: :citygml_application_schema,
-                                       namespace: "http://www.sparxsystems.com/profiles/CityGML/1.0",
-                                       prefix: "CityGML"
+                                       namespace: CityGmlNamespace
 
       map_element "ApplicationSchema", to: :application_schema
 
@@ -135,7 +132,8 @@ module XmlMapping
 
     xml do
       root "annotatedElement"
-      map_attribute "idref", to: :idref, namespace: "http://www.omg.org/spec/XMI/20131001", prefix: "xmi"
+      map_attribute "idref", to: :idref,
+                             namespace: "http://www.omg.org/spec/XMI/20131001", prefix: "xmi"
     end
   end
 
@@ -146,7 +144,8 @@ module XmlMapping
     xml do
       root "ownedComment"
       map_attribute "annotatedElement", to: :annotated_attribute
-      map_element "annotatedElement", to: :annotated_element, prefix: nil, namespace: nil
+      map_element "annotatedElement", to: :annotated_element, prefix: nil,
+                                      namespace: nil
     end
   end
 
@@ -175,7 +174,7 @@ module XmlMapping
     xml do
       root "OverrideDefaultNamespacePrefix"
       map_element :SameElementName, to: :same_element_name,
-                                    namespace: "http://www.omg.org/spec/XMI/20131001",
+                                    namespace: XmiNamespace,
                                     prefix: "abc"
     end
   end
@@ -199,13 +198,12 @@ module XmlMapping
 
     xml do
       root "ToBeDuplicated"
-      namespace "https://testing-duplicate", "td"
+      namespace TestingDuplicateNamespace
 
       map_content to: :content
       map_attribute "attribute", to: :attribute
       map_element "element", to: :element,
-                             namespace: "https://test-element",
-                             prefix: "te"
+                             namespace: TestElementNamespace
     end
   end
 
@@ -281,13 +279,12 @@ module XmlMapping
 
     xml do
       root "WithChildExplicitNamespaceNil"
-      namespace "http://parent-namespace", "pn"
+      namespace ParentNamespace
 
       map_element "DefaultNamespace", to: :with_default_namespace
 
       map_element "WithNamespace", to: :with_namespace,
-                                   namespace: "http://child-namespace",
-                                   prefix: "cn"
+                                   namespace: ChildNamespace
 
       map_element "WithoutNamespace", to: :without_namespace,
                                       namespace: nil,
@@ -300,7 +297,7 @@ module XmlMapping
 
     xml do
       root "documentation", mixed: true
-      namespace "http://www.w3.org/2001/XMLSchema", "xsd"
+      namespace XsdNamespace
 
       map_content to: :content
     end
@@ -311,22 +308,73 @@ module XmlMapping
 
     xml do
       root "schema"
-      namespace "http://www.w3.org/2001/XMLSchema", "xsd"
+      namespace XsdNamespace
 
       map_element :documentation, to: :documentation,
-                                  namespace: "http://www.w3.org/2001/XMLSchema",
-                                  prefix: "xsd"
+                                  namespace: XsdNamespace
+    end
+  end
+
+  class TitleCollection < Lutaml::Model::Collection
+    instances :items, :string
+
+    xml do
+      root "titles"
+      map_attribute "title", to: :items, as_list: {
+        import: ->(str) { str.split("; ") },
+        export: ->(arr) { arr.join("; ") },
+      }
+    end
+  end
+
+  class TitleDelimiterCollection < Lutaml::Model::Collection
+    instances :items, :string
+
+    xml do
+      root "titles"
+      map_attribute "title", to: :items, delimiter: "; "
     end
   end
 end
 
 RSpec.describe Lutaml::Model::Xml::Mapping do
+  describe "as_list feature for XML attributes" do
+    let(:xml) { '<titles title="Title One; Title Two; Title Three"/>' }
+
+    it "imports delimited attribute to array" do
+      collection = XmlMapping::TitleCollection.from_xml(xml)
+      expect(collection.items).to eq(["Title One", "Title Two", "Title Three"])
+    end
+
+    it "round-trips correctly" do
+      collection = XmlMapping::TitleCollection.from_xml(xml)
+      generated_xml = collection.to_xml
+      expect(generated_xml).to be_xml_equivalent_to(xml)
+    end
+  end
+
+  describe "delimiter feature for XML attributes" do
+    let(:xml) { '<titles title="Title One; Title Two; Title Three"/>' }
+
+    it "imports delimited attribute to array" do
+      collection = XmlMapping::TitleDelimiterCollection.from_xml(xml)
+      expect(collection.items).to eq(["Title One", "Title Two", "Title Three"])
+    end
+
+    it "round-trips delimited attribute correctly" do
+      collection = XmlMapping::TitleDelimiterCollection.from_xml(xml)
+      generated_xml = collection.to_xml
+      expect(generated_xml).to be_xml_equivalent_to(xml)
+    end
+  end
+
   describe "find_by_to! error handling" do
     it "raises NoMappingFoundError when mapping is missing in xml mapping" do
       mapping = described_class.new
       expect do
         mapping.find_by_to!("nonexistent")
-      end.to raise_error(Lutaml::Model::NoMappingFoundError, /No mapping available for `nonexistent`/)
+      end.to raise_error(Lutaml::Model::NoMappingFoundError,
+                         /No mapping available for `nonexistent`/)
     end
   end
 
@@ -340,41 +388,48 @@ RSpec.describe Lutaml::Model::Xml::Mapping do
       Lutaml::Model::Config.xml_adapter = old_adapter
     end
 
+    # rubocop:disable all
     let(:mapping) { Lutaml::Model::Xml::Mapping.new }
+    # rubocop:enable all
 
     context "with attribute having namespace" do
-      input_xml = <<~XML
-        <ns1:example ex1:alpha="hello"
-                     beta="bye"
-                     xmlns:ns1="http://www.check.com"
-                     xmlns:ex1="http://www.example.com">
-        </ns1:example>
-      XML
+      let(:input_xml) do
+        <<~XML
+          <ns1:example ex1:alpha="hello"
+                       beta="bye"
+                       xmlns:ns1="http://www.check.com"
+                       xmlns:ex1="http://www.example.com">
+          </ns1:example>
+        XML
+      end
 
       it "checks the attribute with and without namespace" do
         parsed = XmlMapping::AttributeNamespace.from_xml(input_xml)
 
         expect(parsed.alpha).to eq("hello")
         expect(parsed.beta).to eq("bye")
-        expect(parsed.to_xml).to be_equivalent_to(input_xml)
+        expect(parsed.to_xml).to be_xml_equivalent_to(input_xml)
       end
     end
 
     context "with explicit namespace" do
-      mml = <<~XML
-        <math xmlns="http://www.w3.org/1998/Math/MathML">
-          <mfenced open="("></mfenced>
-        </math>
-      XML
+      let(:mml) do
+        <<~XML
+          <math xmlns="http://www.w3.org/1998/Math/MathML">
+            <mfenced open="("></mfenced>
+          </math>
+        XML
+      end
 
       it "nil namespace" do
         parsed = XmlMapping::MmlMath.from_xml(mml)
-        expect(parsed.to_xml).to be_equivalent_to(mml)
+        expect(parsed.to_xml).to be_xml_equivalent_to(mml)
       end
     end
 
     # Skipping for OX because it does not handle namespaces
-    context "when overriding child namespace prefix", skip: adapter_class == Lutaml::Model::Xml::OxAdapter do
+    context "when overriding child namespace prefix",
+            skip: adapter_class == Lutaml::Model::Xml::OxAdapter do
       let(:input_xml) do
         <<~XML
           <OverrideDefaultNamespacePrefix
@@ -404,7 +459,7 @@ RSpec.describe Lutaml::Model::Xml::Mapping do
       it "expect to round-trips" do
         parsed = XmlMapping::OverrideDefaultNamespacePrefix.from_xml(input_xml)
         expected_xml = adapter_class.type == "oga" ? oga_expected_xml : input_xml
-        expect(parsed.to_xml).to be_equivalent_to(expected_xml)
+        expect(parsed.to_xml).to be_xml_equivalent_to(expected_xml)
       end
     end
 
@@ -446,7 +501,7 @@ RSpec.describe Lutaml::Model::Xml::Mapping do
         parsed = XmlMapping::OwnedComment.from_xml(xml_with_element)
         serialized = parsed.to_xml
 
-        expect(serialized).to be_equivalent_to(xml_with_element.strip)
+        expect(serialized).to be_xml_equivalent_to(xml_with_element.strip)
       end
 
       it "parse and serialize model correctly" do
@@ -454,21 +509,21 @@ RSpec.describe Lutaml::Model::Xml::Mapping do
 
         serialized = parsed.to_xml
 
-        expect(serialized).to be_equivalent_to(xml_with_attribute)
+        expect(serialized).to be_xml_equivalent_to(xml_with_attribute)
       end
 
       it "parse and serialize model correctly with both attribute and element" do
         parsed = XmlMapping::OwnedComment.from_xml(xml_with_same_name_attribute_and_element)
         serialized = parsed.to_xml
 
-        expect(serialized).to be_equivalent_to(xml_with_same_name_attribute_and_element)
+        expect(serialized).to be_xml_equivalent_to(xml_with_same_name_attribute_and_element)
       end
 
       it "testing parse element" do
         parsed = XmlMapping::Date.from_xml(xml)
         serialized = parsed.to_xml
 
-        expect(serialized).to be_equivalent_to(xml)
+        expect(serialized).to be_xml_equivalent_to(xml)
       end
     end
 
@@ -490,18 +545,24 @@ RSpec.describe Lutaml::Model::Xml::Mapping do
       let(:expected_order) do
         nokogiri_pattern = create_pattern_mapping([
                                                     ["Text", "text"],
-                                                    ["Element", "ApplicationSchema"],
+                                                    ["Element",
+                                                     "ApplicationSchema"],
                                                     ["Text", "text"],
-                                                    ["Element", "ApplicationSchema"],
+                                                    ["Element",
+                                                     "ApplicationSchema"],
                                                     ["Text", "text"],
-                                                    ["Element", "ApplicationSchema"],
+                                                    ["Element",
+                                                     "ApplicationSchema"],
                                                     ["Text", "text"],
                                                   ])
 
         oga_ox_pattern = create_pattern_mapping([
-                                                  ["Element", "ApplicationSchema"],
-                                                  ["Element", "ApplicationSchema"],
-                                                  ["Element", "ApplicationSchema"],
+                                                  ["Element",
+                                                   "ApplicationSchema"],
+                                                  ["Element",
+                                                   "ApplicationSchema"],
+                                                  ["Element",
+                                                   "ApplicationSchema"],
                                                 ])
 
         {
@@ -542,7 +603,7 @@ RSpec.describe Lutaml::Model::Xml::Mapping do
       end
 
       it "to_xml should be correct" do
-        expect(parsed.to_xml).to be_equivalent_to(input_xml)
+        expect(parsed.to_xml).to be_xml_equivalent_to(input_xml)
       end
     end
 
@@ -606,7 +667,7 @@ RSpec.describe Lutaml::Model::Xml::Mapping do
       end
 
       it "round-trips xml with child explicit namespace" do
-        expect(parsed.to_xml).to be_equivalent_to(xml)
+        expect(parsed.to_xml).to be_xml_equivalent_to(xml)
       end
     end
 
@@ -718,7 +779,7 @@ RSpec.describe Lutaml::Model::Xml::Mapping do
       end
 
       it "expect to apply correct namespaces" do
-        expect(model.to_xml).to be_equivalent_to(expected_xml)
+        expect(model.to_xml).to be_xml_equivalent_to(expected_xml)
       end
     end
 
@@ -737,7 +798,7 @@ RSpec.describe Lutaml::Model::Xml::Mapping do
         end
 
         it "contain schemaLocation attributes" do
-          expect(Paragraph.from_xml(xml).to_xml).to be_equivalent_to(xml)
+          expect(Paragraph.from_xml(xml).to_xml).to be_xml_equivalent_to(xml)
         end
 
         it "prints warning if defined explicitly in class" do
@@ -767,7 +828,7 @@ RSpec.describe Lutaml::Model::Xml::Mapping do
         end
 
         it "contain schemaLocation attributes" do
-          expect(generated_xml).to be_equivalent_to(xml)
+          expect(generated_xml).to be_xml_equivalent_to(xml)
         end
       end
     end
@@ -831,7 +892,7 @@ RSpec.describe Lutaml::Model::Xml::Mapping do
 
         it "creates XML with multiple schemaLocations" do
           serialized = paragraph.to_xml
-          expect(serialized).to be_equivalent_to(xml)
+          expect(serialized).to be_xml_equivalent_to(xml)
         end
       end
     end
@@ -914,7 +975,7 @@ RSpec.describe Lutaml::Model::Xml::Mapping do
         let(:expected_xml) { "<p>my text for paragraph</p>" }
 
         it "converts to xml correctly" do
-          expect(paragraph.to_xml.chomp).to eq(expected_xml)
+          expect(paragraph.to_xml).to be_xml_equivalent_to(expected_xml)
         end
       end
     end
@@ -1110,16 +1171,16 @@ RSpec.describe Lutaml::Model::Xml::Mapping do
         end
 
         it "generates correct XML" do
-          expect(parsed.to_xml.chomp).to be_equivalent_to(xml)
+          expect(parsed.to_xml.chomp).to be_xml_equivalent_to(xml)
         end
       end
 
       context "without custom methods" do
         let(:inner_xml) do
           if adapter_class.type == "ox"
-            "Str<sub>2</sub> text<sup>1</sup> 123"
-          else
             "Str<sub>2</sub>text<sup>1</sup>123"
+          else
+            "Str<sub>2</sub> text<sup>1</sup> 123"
           end
         end
 
@@ -1175,7 +1236,7 @@ RSpec.describe Lutaml::Model::Xml::Mapping do
         end
 
         it "round-trips xml" do
-          expect(parsed.to_xml).to be_equivalent_to(xml)
+          expect(parsed.to_xml).to be_xml_equivalent_to(xml)
         end
       end
 
@@ -1216,7 +1277,7 @@ RSpec.describe Lutaml::Model::Xml::Mapping do
           "<SpecialCharContentWithMapAll> " \
             "B <p>R&amp;C</p> " \
             "C <p>J—C</p> " \
-            "O <p>A &amp; B </p> " \
+            "O <p>A &#038; B </p> " \
             "F <p>Z © </p>" \
             "</SpecialCharContentWithMapAll>\n"
         end
@@ -1233,7 +1294,7 @@ RSpec.describe Lutaml::Model::Xml::Mapping do
 
         it "round-trips xml" do
           parsed = XmlMapping::SpecialCharContentWithMapAll.from_xml(xml)
-          expect(parsed.to_xml).to eq(expected_xml)
+          expect(parsed.to_xml).to be_xml_equivalent_to(expected_xml)
         end
       end
 
@@ -1251,13 +1312,15 @@ RSpec.describe Lutaml::Model::Xml::Mapping do
         end
 
         it "round-trips xml" do
-          expect(generated_xml).to be_equivalent_to(xml)
+          expect(generated_xml).to be_xml_equivalent_to(xml)
         end
       end
     end
 
     describe "validation errors" do
+      # rubocop:disable all
       let(:mapping) { Lutaml::Model::Xml::Mapping.new }
+      # rubocop:enable all
 
       it "raises error when neither :to nor :with provided" do
         expect do

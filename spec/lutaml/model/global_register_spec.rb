@@ -23,7 +23,9 @@ RSpec.describe Lutaml::Model::GlobalRegister do
     it "calls instance method to register" do
       register = Lutaml::Model::Register.new(:temp_register)
       expect { described_class.register(register) }.to(
-        change { described_class.instance.instance_variable_get(:@registers).count }.by(1),
+        change do
+          described_class.instance.instance_variable_get(:@registers).count
+        end.by(1),
       )
     end
   end
@@ -89,7 +91,9 @@ RSpec.describe Lutaml::Model::GlobalRegister do
       register = described_class.instance
       expect(register.instance_variable_get(:@registers).values).to include(register_v_one)
       expect { described_class.remove(:v1) }.to(
-        change { register.instance_variable_get(:@registers).values.count }.by(-1),
+        change do
+          register.instance_variable_get(:@registers).values.count
+        end.by(-1),
       )
       expect(register.instance_variable_get(:@registers).values).not_to include(register_v_one)
     end
@@ -102,7 +106,9 @@ RSpec.describe Lutaml::Model::GlobalRegister do
 
     it "does nothing when the specified register does not exist" do
       registers = described_class.instance.instance_variable_get(:@registers)
-      expect { described_class.remove(:non_existent) }.not_to(change { registers.values.count })
+      expect { described_class.remove(:non_existent) }.not_to(change do
+        registers.values.count
+      end)
     end
   end
 end

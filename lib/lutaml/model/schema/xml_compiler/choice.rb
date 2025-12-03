@@ -30,7 +30,9 @@ module Lutaml
           end
 
           def to_xml_mapping(indent = INDENT)
-            instances.filter_map { |instance| instance.to_xml_mapping(indent) }.join
+            instances.filter_map do |instance|
+              instance.to_xml_mapping(indent)
+            end.join
           end
 
           def required_files

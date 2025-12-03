@@ -176,8 +176,8 @@ RSpec.describe Lutaml::Model::Yamls::StandardAdapter do
   end
 
   describe "FORMAT_SYMBOL" do
-    it "returns :yaml" do
-      expect(described_class::FORMAT_SYMBOL).to eq(:yaml)
+    it "returns :yamls" do
+      expect(described_class::FORMAT_SYMBOL).to eq(:yamls)
     end
   end
 end

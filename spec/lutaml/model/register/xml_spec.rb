@@ -1,4 +1,5 @@
 require "spec_helper"
+require_relative "../../../support/xml_mapping_namespaces"
 
 module RegisterXmlSpec
   class String < Lutaml::Model::Type::String
@@ -12,7 +13,7 @@ module RegisterXmlSpec
 
     xml do
       root "mi"
-      namespace "http://www.w3.org/1998/Math/MathML"
+      namespace MathMlNamespace
 
       map_content to: :value
     end
@@ -24,7 +25,7 @@ module RegisterXmlSpec
 
     xml do
       root "mo"
-      namespace "http://www.w3.org/1998/Math/MathML"
+      namespace MathMlNamespace
 
       map_content to: :value
     end
@@ -37,7 +38,7 @@ module RegisterXmlSpec
 
     xml do
       root "mfrac"
-      namespace "http://www.w3.org/1998/Math/MathML"
+      namespace MathMlNamespace
 
       map_element "mo", to: :numerator
       map_element "mi", to: :denominator
@@ -52,7 +53,7 @@ module RegisterXmlSpec
 
     xml do
       root "math"
-      namespace "http://www.w3.org/1998/Math/MathML"
+      namespace MathMlNamespace
 
       map_element "mi", to: :symbol
       map_element "mo", to: :operator
@@ -66,7 +67,7 @@ module RegisterXmlSpec
 
     xml do
       root "mi"
-      namespace "http://www.w3.org/1998/Math/MathML"
+      namespace MathMlNamespace
 
       map_content to: :value
       map_attribute :color, to: :color
@@ -126,11 +127,11 @@ RSpec.describe "RegisterXmlSpec" do
     end
 
     it "serializes model objects back to MathML XML" do
-      expect(formula.to_xml).to be_equivalent_to(xml)
+      expect(formula.to_xml).to be_xml_equivalent_to(xml)
     end
 
     it "instantiates the model correctly" do
-      expect(instantiated.to_xml).to be_equivalent_to(xml)
+      expect(instantiated.to_xml).to be_xml_equivalent_to(xml)
     end
   end
 
@@ -167,7 +168,7 @@ RSpec.describe "RegisterXmlSpec" do
         expect(formula.symbol).to be_a(RegisterXmlSpec::Mi)
         expect(formula.symbol).not_to respond_to(:color)
         expect(formula.symbol.value).to eq("y")
-        expect(formula.to_xml).not_to be_equivalent_to(xml)
+        expect(formula.to_xml).not_to be_xml_equivalent_to(xml)
       end
     end
 
@@ -178,7 +179,7 @@ RSpec.describe "RegisterXmlSpec" do
         expect(formula.symbol).to respond_to(:color)
         expect(formula.symbol.color).to eq("red")
         expect(formula.symbol.value).to eq("y")
-        expect(formula.to_xml).to be_equivalent_to(xml_type_substituted)
+        expect(formula.to_xml).to be_xml_equivalent_to(xml_type_substituted)
       end
     end
   end

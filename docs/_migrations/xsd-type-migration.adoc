@@ -1,0 +1,1295 @@
+---
+title: XSD Type Declaration Architecture
+nav_order: 3
+---
+
+= XSD Type Declaration Architecture
+
+[IMPORTANT]
+====
+**Status**: ACTIVE - Deprecation warnings enabled
+
+**Current behavior**: Attribute-level `:xsd_type` option triggers deprecation warning
+
+**Timeline**:
+
+* v0.7.0 - v0.8.x: Attribute-level `:xsd_type` supported (no warning)
+* v0.9.0: **Deprecation warnings introduced (CURRENT)**
+* v1.0.0: Attribute-level `:xsd_type` will be removed (raises error)
+
+**Migration**: Use class-level `xsd_type` directive in custom `Type::Value` classes instead.
+See examples below for migration patterns.
+====
+
+[[xsd-type-migration-background]]
+== Background
+
+=== Current three-tier system
+
+Per the current implementation documented in the README, XSD type is determined by
+this three-tier priority:
+
+. Explicit `:xsd_type` option on attribute (highest priority)
+. Type's `xsd_type` class method
+. Default type inference (lowest priority)
+
+=== Current Problem
+
+The `:xsd_type` attribute option violates separation of concerns and
+MECE principles:
+
+[source,ruby]
+----
+class Product < Lutaml::Model::Serializable
+  attribute :product_id, :string, xsd_type: 'xs:ID'  # ❌ Mixing concerns
+  # Attribute definition includes XML serialization detail
+end
+----
+
+This approach has several issues:
+
+* **Not MECE**: Attribute definition concerns mixed with serialization
+  concerns
+* **Not DRY**: Same XSD type repeated across multiple attributes
+* **Not OO**: Type information split between attribute and type class
+* **Not flexible**: Type behavior tied to attribute, not reusable
+
+
+[[mece-architecture]]
+== MECE Architecture Proposal
+
+=== Principle: Strict Separation of Concerns
+
+Following MECE and OO principles, we separate two distinct concerns:
+
+[cols="2,3,3"]
+|===
+| Layer | Responsibility | Where Defined
+
+| **Attribute Definition**
+| Model structure, relationships
+| `attribute` declarations
+
+| **Type Behavior**
+| Value transformation, XSD type, validation
+| Custom `Type::Value` classes
+
+|===
+
+This architecture is:
+
+* **Mutually Exclusive**: Each layer handles distinct concerns with no
+  overlap
+* **Collectively Exhaustive**: All XSD type needs covered through type
+  classes
+* **Object-Oriented**: One type = one XSD type. Different XSD type =
+  different type class.
+
+
+[[proposed-solution]]
+== Proposed Solution: Two-Tier Architecture
+
+=== XSD type resolution
+
+XSD type is determined by this priority:
+
+. **Value class-level** `xsd_type` directive +
+  Explicit type declaration in custom types
+
+. **Automatic inference** +
+  Based on Ruby type for built-in types
+
+**No mapping-level overrides**: Different XSD type requires different
+Value type (proper OO design).
+
+
+[[tier-1-value-class-level]]
+=== Tier 1: Value class-level `xsd_type` directive
+
+Custom Value types declare their XSD type at the class level.
+
+Syntax:
+
+[source,ruby]
+----
+class CustomType < Lutaml::Model::Type::Value
+  xsd_type 'xs:typeName'  # <1>
+
+  def self.cast(value)
+    # Type conversion and validation logic
+  end
+end
+----
+<1> Class-level directive sets the XSD type for this type
+
+Where,
+
+`xsd_type`:: Class-level directive that sets the XSD type reference.
+For built-in XSD types like `xs:ID`, `xs:language`, use the full
+qualified name.
+
+.Value class-level XSD type for specialized types
+[example]
+====
+[source,ruby]
+----
+# Define reusable ID type
+class IdType < Lutaml::Model::Type::String
+  xsd_type 'xs:ID'
+
+  def self.cast(value)
+    value.to_s.strip.upcase
+  end
+end
+
+# Define reusable IDREF type
+class IdRefType < Lutaml::Model::Type::String
+  xsd_type 'xs:IDREF'
+end
+
+# Define reusable language type
+class LanguageType < Lutaml::Model::Type::String
+  xsd_type 'xs:language'
+
+  def self.cast(value)
+    lang = super(value)
+    unless lang.match?(/\A[a-z]{2}(-[A-Z]{2})?\z/)
+      raise Lutaml::Model::TypeError, "Invalid language: #{lang}"
+    end
+    lang
+  end
+end
+
+# Use in models - clean attribute definitions
+class Product < Lutaml::Model::Serializable
+  attribute :product_id, IdType      # ✅ Type declares xs:ID
+  attribute :category_ref, IdRefType # ✅ Type declares xs:IDREF
+  attribute :language, LanguageType  # ✅ Type declares xs:language
+
+  xml do
+    element 'product'
+    map_attribute 'id', to: :product_id
+    map_attribute 'categoryRef', to: :category_ref
+    map_attribute 'lang', to: :language
+  end
+end
+
+# Generated XSD automatically uses correct types:
+# <xs:attribute name="id" type="xs:ID"/>
+# <xs:attribute name="categoryRef" type="xs:IDREF"/>
+# <xs:attribute name="lang" type="xs:language"/>
+----
+
+Benefits:
+
+* Type declared once, reused everywhere
+* Clean attribute definitions - no serialization details
+* Validation logic co-located with type
+* Follows strict MECE and OO principles
+====
+
+
+[[tier-2-automatic-inference]]
+=== Tier 2: Automatic inference
+
+When no explicit XSD type is specified, infer from Ruby type.
+
+.Default XSD type mappings
+[cols="2,2"]
+|===
+| Ruby Type | Default XSD Type
+
+| `:string` | `xs:string`
+| `:integer` | `xs:integer`
+| `:float` | `xs:decimal`
+| `:boolean` | `xs:boolean`
+| `:date` | `xs:date`
+| `:date_time` | `xs:dateTime`
+| `:time` | `xs:dateTime`
+| `:uri` | `xs:anyURI`
+| `:duration` | `xs:duration`
+| `:qname` | `xs:QName`
+| Model class | complexType reference
+
+|===
+
+
+[[oo-principle-different-type-different-class]]
+== OO Principle: Different Type = Different Class
+
+=== One type, one XSD type
+
+Following object-oriented design, each Value type should have exactly one
+XSD type. If you need different XSD types, create different type classes.
+
+.Correct: Separate types for different XSD types
+[example]
+====
+[source,ruby]
+----
+# ✅ Each type has one XSD type
+class IdType < Lutaml::Model::Type::String
+  xsd_type 'xs:ID'
+end
+
+class TokenType < Lutaml::Model::Type::String
+  xsd_type 'xs:token'
+
+  def self.cast(value)
+    super(value).strip.gsub(/\s+/, ' ')
+  end
+end
+
+class NormalizedStringType < Lutaml::Model::Type::String
+  xsd_type 'xs:normalizedString'
+
+  def self.cast(value)
+    super(value).gsub(/[\r\n\t]/, ' ')
+  end
+end
+
+# Use appropriate type for each attribute
+class Document < Lutaml::Model::Serializable
+  attribute :id, IdType                    # xs:ID behavior
+  attribute :content_type, TokenType       # xs:token behavior
+  attribute :description, NormalizedStringType  # xs:normalizedString
+end
+----
+====
+
+.Incorrect: Runtime type switching (don't do this)
+[example]
+====
+[source,ruby]
+----
+# ❌ BAD: Same attribute with different XSD types per context
+class Product < Lutaml::Model::Serializable
+  attribute :identifier, :string  # Which XSD type?
+
+  xml do
+    # Sometimes xs:ID
+    map_attribute 'id', to: :identifier, xsd_type: 'xs:ID'
+  end
+
+  json do
+    # Sometimes xs:token
+    map 'id', to: :identifier, xsd_type: 'xs:token'
+  end
+end
+
+# ✅ GOOD: Create separate types if behaviors truly differ
+class IdType < Lutaml::Model::Type::String
+  xsd_type 'xs:ID'
+end
+
+class Product < Lutaml::Model::Serializable
+  attribute :identifier, IdType  # Always xs:ID
+
+  xml do
+    map_attribute 'id', to: :identifier  # Inherits xs:ID
+  end
+
+  json do
+    map 'id', to: :identifier  # Still xs:ID for consistency
+  end
+end
+----
+
+If XML and JSON truly need different types, the attribute likely represents
+different concepts and should be split into separate attributes.
+====
+
+
+[[what-about-edge-cases]]
+== What About Edge Cases?
+
+=== "But I need xs:string for legacy compatibility!"
+
+Create a specific type for that use case:
+
+[source,ruby]
+----
+# ✅ Explicit type for explicit behavior
+class LegacyIdType < Lutaml::Model::Type::String
+  xsd_type 'xs:string'  # Explicitly not xs:ID
+
+  def self.cast(value)
+    value.to_s  # No validation, legacy behavior
+  end
+end
+
+class Product < Lutaml::Model::Serializable
+  attribute :product_id, IdType        # Standard: xs:ID with validation
+  attribute :legacy_id, LegacyIdType   # Legacy: xs:string, no validation
+
+  xml do
+    element 'product'
+    map_attribute 'id', to: :product_id      # xs:ID
+    map_attribute 'legacyId', to: :legacy_id  # xs:string
+  end
+end
+----
+
+This is **better design** because:
+
+* Explicit type classes document intent
+* Validation logic co-located with type
+* Reusable across models
+* Type-safe and testable
+
+=== "But that creates many small classes!"
+
+Yes, and that's **good OO design**:
+
+* Each class has single responsibility
+* Classes are reusable and testable
+* Intent is explicit and documented
+* Follows MECE principle perfectly
+
+Compare to alternative (bad design):
+
+[source,ruby]
+----
+# ❌ BAD: Runtime type switching violates OO principles
+map_attribute 'id', to: :product_id, xsd_type: 'xs:string'  # Override
+
+# ✅ GOOD: Explicit type class
+attribute :product_id, LegacyIdType  # Clear intent, reusable
+----
+
+
+[[model-type-naming]]
+== Model Type Naming: Three XSD Patterns
+
+=== General
+
+W3C XSD supports three patterns for declaring complexTypes. LutaML differentiates
+them based on which directives are used:
+
+[cols="1,2,3"]
+|===
+| Pattern | Declaration | When to Use
+
+| **Anonymous Inline**
+| `element "x"` only
+| Single-use element structure
+
+| **Named Reusable**
+| `type_name "XType"` only
+| Type shared by multiple elements
+
+| **Element + Type**
+| `element "x"` + `type_name "XType"`
+| Element with explicitly named type
+|===
+
+=== Pattern 1: Anonymous Inline ComplexType
+
+**Use when**: Element structure is unique and not reused.
+
+Syntax:
+
+[source,ruby]
+----
+xml do
+  element "product"  # <1>
+  map_element "name", to: :name
+end
+----
+<1> Only element declared, no type_name
+
+Where,
+
+`element`:: Declares the XML element name. When used alone (without type_name),
+generates an inline anonymous complexType.
+
+.Pattern 1 example
+[example]
+====
+[source,ruby]
+----
+class Product < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :price, :float
+
+  xml do
+    element "product"  # NO type_name = anonymous inline
+    map_element "name", to: :name
+    map_element "price", to: :price
+  end
+end
+----
+
+Generated XSD:
+
+[source,xml]
+----
+<xs:element name="product">
+  <xs:complexType>
+    <xs:sequence>
+      <xs:element name="name" type="xs:string"/>
+      <xs:element name="price" type="xs:decimal"/>
+    </xs:sequence>
+  </xs:complexType>
+</xs:element>
+----
+====
+
+=== Pattern 2: Named ComplexType (Type-Only)
+
+**Use when**: ComplexType should be reusable by multiple elements.
+
+Syntax:
+
+[source,ruby]
+----
+xml do
+  type_name "ProductType"  # <1>
+  map_element "name", to: :name
+end
+----
+<1> Only type_name declared, no element
+
+Where,
+
+`type_name`:: Sets the XSD complexType name. When used alone (without element),
+creates a type-only model that can be referenced by multiple elements.
+
+.Pattern 2 example
+[example]
+====
+[source,ruby]
+----
+class ProductType < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :price, :float
+
+  xml do
+    type_name "ProductType"  # NO element = type-only
+    map_element "name", to: :name
+    map_element "price", to: :price
+  end
+end
+----
+
+Generated XSD:
+
+[source,xml]
+----
+<xs:complexType name="ProductType">
+  <xs:sequence>
+    <xs:element name="name" type="xs:string"/>
+    <xs:element name="price" type="xs:decimal"/>
+  </xs:sequence>
+</xs:complexType>
+----
+
+This type can be referenced by other elements:
+
+[source,xml]
+----
+<xs:element name="product" type="ProductType"/>
+<xs:element name="item" type="ProductType"/>
+----
+====
+
+=== Pattern 3: Element with Named ComplexType
+
+**Use when**: Want both element declaration AND named type.
+
+Syntax:
+
+[source,ruby]
+----
+xml do
+  element "product"           # <1>
+  type_name "ProductType"     # <2>
+  map_element "name", to: :name
+end
+----
+<1> Element declared
+<2> Type named
+
+Where,
+
+`element` + `type_name`:: Both declared together. Creates both an element
+declaration and a named complexType that the element references.
+
+.Pattern 3 example
+[example]
+====
+[source,ruby]
+----
+class Product < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :price, :float
+
+  xml do
+    element "product"            # Element AND
+    type_name "ProductType"      # Type name
+    map_element "name", to: :name
+    map_element "price", to: :price
+  end
+end
+----
+
+Generated XSD:
+
+[source,xml]
+----
+<xs:element name="product" type="ProductType"/>
+
+<xs:complexType name="ProductType">
+  <xs:sequence>
+    <xs:element name="name" type="xs:string"/>
+    <xs:element name="price" type="xs:decimal"/>
+  </xs:sequence>
+</xs:complexType>
+----
+
+**Benefits**:
+
+* Element declaration for direct use
+* Named type for references by other elements
+* Type can be extended or restricted
+====
+
+=== Equivalence: xsd_type and type_name
+
+`xsd_type` and `type_name` are **permanent aliases** - completely equivalent
+methods:
+
+[source,ruby]
+----
+xml do
+  type_name "ProductType"  # Recommended: clear naming
+  # OR
+  xsd_type "ProductType"   # Equivalent: legacy compatibility
+end
+----
+
+Both methods:
+
+* Set the XSD complexType/simpleType name for schema generation
+* Have NO side effects (no auto-detection, no @no_root setting)
+* Are pure aliases with identical behavior
+
+**Recommendation**: Use `type_name` for clarity and consistency with W3C XSD
+terminology.
+
+=== NO MAGIC: Explicit Pattern Selection
+
+**IMPORTANT**: Pattern selection is EXPLICIT. There is NO auto-detection.
+
+❌ **Wrong**: Assuming xsd_type implies type-only
+
+[source,ruby]
+----
+xml do
+  xsd_type "ProductType"
+  # Missing element declaration - what pattern is this?
+  # Will use default element name (class name)
+end
+----
+
+✅ **Correct**: Explicitly declare pattern intent
+
+[source,ruby]
+----
+# Pattern 2: Type-only (no element)
+xml do
+  type_name "ProductType"
+  # No element() call - clearly pattern 2
+  map_element "name", to: :name
+end
+----
+
+=== Choosing a Pattern
+
+[source]
+----
+                  Need reusable type?
+                         │
+            ┌────────────┴────────────┐
+            │                         │
+          YES                        NO
+            │                         │
+    Want element too?          Pattern 1
+            │                  (Anonymous)
+    ┌───────┴────────┐
+    │                │
+  YES               NO
+    │                │
+Pattern 3      Pattern 2
+(Element+Type) (Type-only)
+----
+
+
+[[migration-path]]
+== Migration Path
+
+=== Step 1: Identify attribute-level `:xsd_type` usage
+
+[source,shell]
+----
+grep -r 'attribute.*xsd_type:' lib/ spec/
+----
+
+=== Step 2: Extract to Value classes
+
+For ALL occurrences, create custom Value types:
+
+[source,ruby]
+----
+# Before (deprecated)
+class Product < Lutaml::Model::Serializable
+  attribute :product_id, :string, xsd_type: 'xs:ID'    # ❌
+  attribute :category_ref, :string, xsd_type: 'xs:IDREF'  # ❌
+
+  xml do
+    map_attribute 'id', to: :product_id
+    map_attribute 'categoryRef', to: :category_ref
+  end
+end
+
+# After (MECE approach)
+class IdType < Lutaml::Model::Type::String
+  xsd_type 'xs:ID'
+end
+
+class IdRefType < Lutaml::Model::Type::String
+  xsd_type 'xs:IDREF'
+end
+
+class Product < Lutaml::Model::Serializable
+  attribute :product_id, IdType      # ✅ Clean, reusable
+  attribute :category_ref, IdRefType # ✅ Clean, reusable
+
+  xml do
+    map_attribute 'id', to: :product_id
+    map_attribute 'categoryRef', to: :category_ref
+  end
+end
+----
+
+=== Step 3: Register reusable types (recommended)
+
+[source,ruby]
+----
+# lib/types/xsd_types.rb
+Lutaml::Model::Type.register(:id, IdType)
+Lutaml::Model::Type.register(:idref, IdRefType)
+Lutaml::Model::Type.register(:language, LanguageType)
+Lutaml::Model::Type.register(:token, TokenType)
+
+# Use registered symbols
+class Product < Lutaml::Model::Serializable
+  attribute :product_id, :id        # ✅ Clean, readable
+  attribute :language, :language    # ✅ Clean, readable
+end
+----
+
+
+[[common-xsd-types]]
+== Common XSD Type Library
+
+.Recommended custom types for standard XSD types
+[example]
+====
+[source,ruby]
+----
+# lib/types/xsd_types.rb
+
+# Identity types
+class IdType < Lutaml::Model::Type::String
+  xsd_type 'xs:ID'
+
+  def self.cast(value)
+    id = value.to_s.strip
+    # Per W3C XSD Part 2: xs:ID must be NCName (no colons)
+    unless id.match?(/\A[A-Za-z_][\w.\-]*\z/)
+      raise Lutaml::Model::TypeError, "Invalid XML ID: #{id}"
+    end
+    id
+  end
+end
+
+class IdRefType < Lutaml::Model::Type::String
+  xsd_type 'xs:IDREF'
+
+  def self.cast(value)
+    id = value.to_s.strip
+    # Per W3C XSD Part 2: xs:IDREF must be NCName (no colons)
+    unless id.match?(/\A[A-Za-z_][\w.\-]*\z/)
+      raise Lutaml::Model::TypeError, "Invalid XML IDREF: #{id}"
+    end
+    id
+  end
+end
+
+class IdRefsType < Lutaml::Model::Type::String
+  xsd_type 'xs:IDREFS'
+
+  def self.cast(value)
+    # Handle space-separated IDREFS
+    case value
+    when String
+      value.split(/\s+/)
+    when Array
+      value
+    else
+      [value.to_s]
+    end
+  end
+end
+
+# String variants
+class TokenType < Lutaml::Model::Type::String
+  xsd_type 'xs:token'
+
+  def self.cast(value)
+    super(value).strip.gsub(/\s+/, ' ')
+  end
+end
+
+class LanguageType < Lutaml::Model::Type::String
+  xsd_type 'xs:language'
+
+  def self.cast(value)
+    lang = super(value).downcase
+    # Per xs:language spec: supports ISO 639 codes with optional
+    # region, script, variant, and private-use subtags
+    # Examples: en, en-US, zh-Hans, en-US-x-twain
+    unless lang.match?(/\A[a-z]{2,3}(-[A-Za-z0-9]+)*\z/i)
+      raise Lutaml::Model::TypeError, "Invalid language code: #{lang}"
+    end
+    lang
+  end
+end
+
+class NormalizedStringType < Lutaml::Model::Type::String
+  xsd_type 'xs:normalizedString'
+
+  def self.cast(value)
+    super(value).gsub(/[\r\n\t]/, ' ')
+  end
+end
+
+# Numeric types with constraints
+class PositiveIntegerType < Lutaml::Model::Type::Integer
+  xsd_type 'xs:positiveInteger'
+
+  def self.cast(value)
+    num = super(value)
+    if num <= 0
+      raise Lutaml::Model::TypeError, "Must be positive: #{num}"
+    end
+    num
+  end
+end
+
+class NonNegativeIntegerType < Lutaml::Model::Type::Integer
+  xsd_type 'xs:nonNegativeInteger'
+
+  def self.cast(value)
+    num = super(value)
+    if num < 0
+      raise Lutaml::Model::TypeError, "Cannot be negative: #{num}"
+    end
+    num
+  end
+end
+
+# Register all for convenience
+Lutaml::Model::Type.register(:id, IdType)
+Lutaml::Model::Type.register(:idref, IdRefType)
+Lutaml::Model::Type.register(:idrefs, IdRefsType)
+Lutaml::Model::Type.register(:token, TokenType)
+Lutaml::Model::Type.register(:language, LanguageType)
+Lutaml::Model::Type.register(:normalized_string, NormalizedStringType)
+Lutaml::Model::Type.register(:positive_integer, PositiveIntegerType)
+Lutaml::Model::Type.register(
+  :non_negative_integer,
+  NonNegativeIntegerType
+)
+----
+====
+
+
+[[strict-oo-design]]
+== Strict OO Design Benefits
+
+=== Force explicit type classes
+
+Requiring custom types for specialized XSD types forces better design:
+
+.Before: Implicit, hidden type behavior
+[example]
+====
+[source,ruby]
+----
+# ❌ Type behavior hidden in attribute options
+attribute :product_id, :string, xsd_type: 'xs:ID'
+attribute :category_id, :string, xsd_type: 'xs:ID'
+# What validation? What transformation? Unknown.
+----
+====
+
+.After: Explicit, documented type behavior
+[example]
+====
+[source,ruby]
+----
+# ✅ Type behavior explicit in class
+class IdType < Lutaml::Model::Type::String
+  xsd_type 'xs:ID'
+
+  # Clear validation rules
+  def self.cast(value)
+    id = value.to_s.strip
+    if id.empty?
+      raise Lutaml::Model::TypeError, "ID cannot be empty"
+    end
+    # W3C NCName: no colons allowed
+    unless id.match?(/\A[A-Za-z_][\w.\-]*\z/)
+      raise Lutaml::Model::TypeError, "Invalid XML ID: #{id}"
+    end
+    id
+  end
+end
+
+# Intent clear: these are XSD IDs with validation
+attribute :product_id, IdType
+attribute :category_id, IdType
+----
+====
+
+=== Encourage type reuse
+
+Small, focused type classes promote reuse:
+
+[source,ruby]
+----
+# Reusable across entire codebase
+class ProductModule
+  class Product
+    attribute :id, IdType
+  end
+
+  class Category
+    attribute :id, IdType
+  end
+end
+
+class OrderModule
+  class Order
+    attribute :id, IdType
+  end
+end
+----
+
+=== Type hierarchy for variants
+
+Use inheritance for related types:
+
+.Type hierarchy for ID variants
+[example]
+====
+[source,ruby]
+----
+# Base ID type
+class IdType < Lutaml::Model::Type::String
+  xsd_type 'xs:ID'
+
+  def self.cast(value)
+    id = value.to_s.strip
+    validate_xml_id(id)
+    id
+  end
+
+  def self.validate_xml_id(id)
+    unless id.match?(/\A[A-Za-z_:][\w.\-:]*\z/)
+      raise Lutaml::Model::TypeError, "Invalid XML ID: #{id}"
+    end
+  end
+end
+
+# Specialized ID types
+class UppercaseIdType < IdType
+  def self.cast(value)
+    super(value).upcase
+  end
+end
+
+class PrefixedIdType < IdType
+  def self.cast(value)
+    id = super(value)
+    id.start_with?('ID-') ? id : "ID-#{id}"
+  end
+end
+
+# Use specialized types where needed
+class Product < Lutaml::Model::Serializable
+  attribute :product_id, UppercaseIdType   # IDs in uppercase
+  attribute :internal_ref, PrefixedIdType  # Auto-prefixed IDs
+end
+----
+====
+
+
+[[no-mapping-level-overrides]]
+== No Mapping-Level Overrides
+
+=== Why no `xsd_type:` option in mappings?
+
+Per MECE principles, XSD type specification belongs to the type class,
+not the mapping:
+
+**Mappings handle**:
+* Element/attribute names
+* Namespace qualifications
+* Element ordering (sequence)
+* Format-specific transformations
+
+**Mappings do NOT handle**:
+* XSD type specification (belongs to Value class)
+* Validation logic (belongs to Value class)
+* Type transformation (belongs to Value class)
+
+If you need a different XSD type, create a different type class.
+
+=== Enforcement via errors
+
+As of v0.9.0, attempting to use `xsd_type:` at mapping level raises
+`Lutaml::Model::IncorrectMappingArgumentsError`:
+
+.Mapping-level xsd_type now raises errors
+[example]
+====
+[source,ruby]
+----
+# ❌ WRONG: Trying to override XSD type per mapping
+class Product < Lutaml::Model::Serializable
+  attribute :id, IdType  # xs:ID type
+
+  xml do
+    map_attribute 'id', to: :id, xsd_type: 'xs:string'  # ❌ Raises error
+  end
+end
+# Raises: Lutaml::Model::IncorrectMappingArgumentsError:
+# xsd_type is not allowed at mapping level.
+# XSD type must be declared in Type::Value classes using the xsd_type directive.
+
+# ✅ CORRECT: Create appropriate type
+class StringIdType < Lutaml::Model::Type::String
+  xsd_type 'xs:string'
+end
+
+class Product < Lutaml::Model::Serializable
+  attribute :id, StringIdType  # ✅ Proper type for proper behavior
+
+  xml do
+    map_attribute 'id', to: :id  # ✅ Clean mapping
+  end
+end
+----
+====
+
+
+[[reference-type-usage]]
+== Working with Reference Types
+
+The `Type::Reference` type
+works naturally with custom XSD-typed classes.
+
+.Reference type with XSD-typed source
+[example]
+====
+[source,ruby]
+----
+class CatalogIdType < Lutaml::Model::Type::String
+  xsd_type 'xs:ID'
+end
+
+class CatalogIdRefType < Lutaml::Model::Type::String
+  xsd_type 'xs:IDREF'
+end
+
+class Catalog < Lutaml::Model::Serializable
+  attribute :id, CatalogIdType  # Source uses xs:ID
+  attribute :parent_ref, { ref: [Catalog, :id] }
+
+  xml do
+    element 'catalog'
+    map_attribute 'id', to: :id
+    map_attribute 'parent', to: :parent_ref  # Reference to ID
+  end
+end
+
+# For explicit IDREF type on reference target
+class Product < Lutaml::Model::Serializable
+  attribute :catalog_ref, CatalogIdRefType  # ✅ Explicit xs:IDREF
+
+  xml do
+    element 'product'
+    map_attribute 'catalogRef', to: :catalog_ref
+  end
+end
+----
+====
+
+
+[[implementation-checklist]]
+== Implementation Checklist
+
+=== Core implementation
+
+- [ ] Add `xsd_type` class method to `Type::Value`
+- [ ] Update schema generator to read from class-level `xsd_type`
+- [ ] Add deprecation warning for attribute-level `:xsd_type` (v0.9.0)
+- [ ] Remove attribute-level `:xsd_type` support (v1.0.0)
+
+=== Testing
+
+- [ ] Create tests for `xsd_type` class method
+- [ ] Test schema generation with new system
+- [ ] Test deprecation warnings
+- [ ] Verify round-trip serialization
+
+=== Documentation
+
+- [ ] Update README.adoc to document new system
+- [ ] Mark attribute-level `:xsd_type` as deprecated
+- [ ] Add migration examples
+- [ ] Update breaking changes document
+
+=== Type library
+
+- [ ] Create standard XSD type library (IdType, TokenType, etc.)
+- [ ] Register common types for convenience
+- [ ] Document type library in README
+
+
+[[complete-example]]
+== Complete Two-Tier Example
+
+.Clean two-tier architecture in practice
+[example]
+====
+[source,ruby]
+----
+# TIER 1: VALUE TYPE CLASSES (reusable library)
+class IdType < Lutaml::Model::Type::String
+  xsd_type 'xs:ID'
+
+  def self.cast(value)
+    id = super(value).strip
+    # Per W3C XSD Part 2: xs:ID must be NCName (no colons)
+    unless id.match?(/\A[A-Za-z_][\w.\-]*\z/)
+      raise Lutaml::Model::TypeError, "Invalid XML ID: #{id}"
+    end
+    id
+  end
+end
+
+class IdRefType < Lutaml::Model::Type::String
+  xsd_type 'xs:IDREF'
+
+  def self.cast(value)
+    id = value.to_s.strip
+    # Per W3C XSD Part 2: xs:IDREF must be NCName (no colons)
+    unless id.match?(/\A[A-Za-z_][\w.\-]*\z/)
+      raise Lutaml::Model::TypeError, "Invalid XML IDREF: #{id}"
+    end
+    id
+  end
+end
+
+class LanguageType < Lutaml::Model::Type::String
+  xsd_type 'xs:language'
+
+  def self.cast(value)
+    lang = super(value).downcase
+    # Per xs:language spec: supports ISO 639 codes with optional
+    # region, script, variant, and private-use subtags
+    # Examples: en, en-US, zh-Hans, en-US-x-twain
+    unless lang.match?(/\A[a-z]{2,3}(-[A-Za-z0-9]+)*\z/i)
+      raise Lutaml::Model::TypeError, "Invalid language code: #{lang}"
+    end
+    lang
+  end
+end
+
+class TokenType < Lutaml::Model::Type::String
+  xsd_type 'xs:token'
+
+  def self.cast(value)
+    super(value).strip.gsub(/\s+/, ' ')
+  end
+end
+
+# Register types
+Lutaml::Model::Type.register(:id, IdType)
+Lutaml::Model::Type.register(:idref, IdRefType)
+Lutaml::Model::Type.register(:language, LanguageType)
+Lutaml::Model::Type.register(:token, TokenType)
+
+# TIER 2: AUTOMATIC INFERENCE (built-in types)
+# :string → xs:string
+# :integer → xs:integer
+# :float → xs:decimal
+# etc.
+
+# MODEL LAYER: Clean attribute definitions
+class Document < Lutaml::Model::Serializable
+  attribute :document_id, :id          # ✅ Uses IdType (xs:ID)
+  attribute :parent_ref, :idref        # ✅ Uses IdRefType (xs:IDREF)
+  attribute :language, :language       # ✅ Uses LanguageType (xs:language)
+  attribute :content_type, :token      # ✅ Uses TokenType (xs:token)
+  attribute :title, :string            # ✅ Uses automatic inference (xs:string)
+  attribute :page_count, :integer      # ✅ Uses automatic inference (xs:integer)
+
+  xml do
+    element 'document'
+    type_name 'DocumentRecordType'  # Separate concern: complexType name
+
+    map_attribute 'id', to: :document_id
+    map_attribute 'parentRef', to: :parent_ref
+    map_attribute 'lang', to: :language
+    map_attribute 'contentType', to: :content_type
+    map_element 'title', to: :title
+    map_element 'pageCount', to: :page_count
+  end
+end
+
+# Generated XSD:
+# <xs:element name="document" type="DocumentRecordType"/>
+#
+# <xs:complexType name="DocumentRecordType">
+#   <xs:sequence>
+#     <xs:element name="title" type="xs:string"/>
+#     <xs:element name="pageCount" type="xs:integer"/>
+#   </xs:sequence>
+#   <xs:attribute name="id" type="xs:ID"/>
+#   <xs:attribute name="parentRef" type="xs:IDREF"/>
+#   <xs:attribute name="lang" type="xs:language"/>
+#   <xs:attribute name="contentType" type="xs:token"/>
+# </xs:complexType>
+----
+
+This demonstrates:
+
+* **MECE**: Clear separation - attributes define structure, types define
+  behavior
+* **DRY**: Types defined once, reused everywhere
+* **OO**: Each type class has single responsibility
+* **Flexible**: Automatic inference for standard types
+* **Explicit**: Custom types for specialized XSD types
+====
+
+
+[[decision-guide]]
+== Decision Guide
+
+[source]
+----
+                Need specialized XSD type?
+                          │
+              ┌───────────┴───────────┐
+              ▼                       ▼
+          YES                        NO
+              │                       │
+              │                       └──→ Use built-in type
+              │                            (automatic inference)
+              │
+    Will type be reused?
+              │
+    ┌─────────┴─────────┐
+    ▼                   ▼
+  LIKELY              UNLIKELY
+    │                   │
+    │                   └──→ Create specific
+    │                        type class anyway
+    │                        (explicit is better)
+    │
+Create Value class
+with xsd_type
+    │
+    └──→ Register for convenience
+         (optional)
+----
+
+**Recommendation**: Always create explicit type classes for non-standard
+XSD types. The clarity and reusability outweigh the overhead of small
+classes.
+
+
+[[backward-compatibility]]
+== Backward Compatibility
+
+Attribute-level `:xsd_type` option will be removed:
+
+**Version 0.9.0**: Deprecation warnings introduced
+
+[source,ruby]
+----
+attribute :product_id, :string, xsd_type: 'xs:ID'
+# DEPRECATION WARNING: The :xsd_type attribute option is deprecated.
+# Create custom Value type with xsd_type at class level.
+# See: docs/migration-guides/xsd-type-element-attribute.adoc
+----
+
+**Version 1.0.0**: Attribute-level `:xsd_type` removed
+
+Raises `InvalidAttributeOptionsError`:
+
+[source,ruby]
+----
+attribute :product_id, :string, xsd_type: 'xs:ID'
+# Lutaml::Model::InvalidAttributeOptionsError:
+# The :xsd_type option is not supported at attribute level.
+# Create custom Value type instead.
+----
+
+
+[[implementation-benefits]]
+== Benefits of Two-Tier Architecture
+
+=== Simplicity
+
+* Only two resolution tiers, not three
+* No "override" complexity
+* Clear mental model: type = behavior + XSD type
+
+=== MECE Compliance
+
+* **Mutually Exclusive**: Attributes define structure, types define
+  behavior - no overlap
+* **Collectively Exhaustive**: All needs covered by two tiers
+
+=== Object-Oriented
+
+* One type class = one XSD type = one behavior
+* Type hierarchy for variants
+* Polymorphism through inheritance
+
+=== DRY Principle
+
+* XSD type declared once per type class
+* Reused automatically everywhere type is used
+
+=== Maintainability
+
+* Changes to type behavior in one place
+* Type classes independently testable
+* Clear ownership of concerns
+
+
+[[see-also]]
+== See Also
+
+* link:../../tutorials/xml-namespaces-basics[XML namespaces]
+* link:../../guides/schema-import[XSD ComplexTypes]
+* link:../../tutorials/custom-types-tutorial[Custom types]
+* Type registration documentation
+* `Type::Reference`
