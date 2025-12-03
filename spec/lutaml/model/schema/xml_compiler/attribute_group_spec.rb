@@ -21,13 +21,18 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler::AttributeGroup do
 
   describe "#<<" do
     it "adds instances to the list" do
-      instance = instance_double(dummy_class, to_attributes: "attr", to_xml_mapping: "xml", required_files: "files")
-      expect { attribute_group << instance }.to change { attribute_group.instances.size }.by(1)
+      instance = instance_double(dummy_class, to_attributes: "attr",
+                                              to_xml_mapping: "xml", required_files: "files")
+      expect { attribute_group << instance }.to change {
+        attribute_group.instances.size
+      }.by(1)
       expect(attribute_group.instances).to include(instance)
     end
 
     it "ignores nil instances" do
-      expect { attribute_group << nil }.not_to(change { attribute_group.instances.size })
+      expect { attribute_group << nil }.not_to(change do
+        attribute_group.instances.size
+      end)
     end
   end
 

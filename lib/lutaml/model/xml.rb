@@ -4,9 +4,9 @@ module Lutaml
   module Model
     module Xml
       def self.detect_xml_adapter
-        return :nokogiri if Object.const_defined?(:Nokogiri)
-        return :ox if Object.const_defined?(:Ox)
-        return :oga if Object.const_defined?(:Oga)
+        return :nokogiri if Utils.safe_load("nokogiri", :Nokogiri)
+        return :ox if Utils.safe_load("ox", :Ox)
+        return :oga if Utils.safe_load("oga", :Oga)
 
         nil
       end
@@ -14,6 +14,7 @@ module Lutaml
   end
 end
 
+require_relative "xml_namespace"
 require_relative "xml/document"
 require_relative "xml/mapping"
 require_relative "xml/mapping_rule"

@@ -1,0 +1,207 @@
+---
+title: Data modeling in a nutshell
+nav_order: 12
+---
+
+= Data modeling in a nutshell
+
+Data modeling is the process of creating a data model for the data to be stored
+in a database or used in an application. It helps in defining the structure,
+relationships, and constraints of the data, making it easier to manage and use.
+
+Lutaml::Model simplifies data modeling in Ruby by allowing you to define models
+with attributes and serialize/deserialize them to/from various serialization
+formats seamlessly.
+
+The Lutaml::Model data modelling approach is as follows:
+
+.Modeling relationships of a LutaML Model
+[source]
+----
+                       LutaML Model
+                             │
+                    Has many attributes
+                             │
+                             ▼
+                         Attribute
+                             │
+                        Has type of
+                             │
+                  ┌──────────┴──────────┐
+                  │                     │
+                Model              Value (Leaf)
+                  │                     │
+       Has many attributes    Contains one basic value
+                  │                     │
+          ┌───────┴─────┐        ┌──────┴──────┐
+          │             │        │             │
+        Model      Value (Leaf)  String       Integer
+          │                      Date         Boolean
+          │                      Time         Float
+  Has many attributes            ...          ...
+          │
+          ▼
+  (Recursive pattern continues...)
+----
+
+.Example of LutaML Model instance with assigned values
+====
+[source]
+----
+Studio (Model)
+ ├── name (Value: String) = "Pottery Studio"
+ ├── address (Model)
+ │    ├── street (Value: String) = "123 Clay St"
+ │    ├── city (Value: String) = "Ceramics City"
+ │    └── postcode (Value: String) = "12345"
+ ├── established (Value: Date) = 2020-01-01
+ └── kilns (Model)
+      ├── count (Value: Integer) = 3
+      └── temperature (Value: Float) = 1200.0
+----
+====
+
+
+.Modeling relationships of a LutaML Model to serialization models
+[source]
+----
+╔═══════════════════════╗                       ╔════════════════════════════╗
+║   LutaML Core Model   ║                       ║    Serialization Models    ║
+╚═══════════════════════╝                       ╚════════════════════════════╝
+
+╭┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╮                       ╭┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╮
+┆          Model        ┆                       ┆          XML Model         ┆
+┆            │          ┆   ┌────────────────┐  ┆              │             ┆
+┆   ┌────────┴──┐       ┆   │                │  ┆       ┌──────┴──────┐      ┆
+┆   │           │       ┆   │     Model      │  ┆       │             │      ┆
+┆ Models   Value Types  ┆──►│ Transformation │  ┆    Models      Value Types ┆
+┆   │           │       ┆   │       &        │  ┆       │             │      ┆
+┆   │           │       ┆   │ Mapping Rules  │  ┆       │             │      ┆
+┆   │    ┌──────┴──┐    ┆   │                │  ┆  ┌────┴────┐      ┌─┴─┐    ┆
+┆   │    │         │    ┆   └────────────────┘  ┆  │         │      │   │    ┆
+┆   │   String  Integer ┆           │           ┆ Element  Value  xs:string  ┆
+┆   │   Date    Float   ┆           │           ┆ Attribute Type  xs:date    ┆
+┆   │   Time    Boolean ┆           ├──────────►┆                 xs:boolean ┆
+┆   │                   ┆           │           ┆                 xs:anyURI  ┆
+┆   └──────┐            ┆           │           ╰┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╯
+┆          │            ┆           │
+┆     Contains          ┆           │           ╭┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╮
+┆     more Models       ┆           │           ┆          JSON Model        ┆
+┆     (recursive)       ┆           │           ┆              │             ┆
+┆                       ┆           │           ┆       ┌──────┴──────┐      ┆
+╰┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╯           └──────────►┆       │             │      ┆
+                                                ┆    Models      Value Types ┆
+                                                ┆       │             │      ┆
+                                                ┆       │             │      ┆
+                                                ┆  ┌────┴───┐     ┌───┴──┐   ┆
+                                                ┆  │        │     │      │   ┆
+                                                ┆ object array number string ┆
+                                                ┆ value        boolean null  ┆
+                                               ╰┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╯
+----
+
+.Model transformation of a LutaML Model to another LutaML Model
+[source]
+----
+╔═══════════════════════╗   ╔══════════════════╗   ╔═══════════════════════╗
+║LutaML Model Class FOO ║   ║LutaML Transformer║   ║LutaML Model Class BAR ║
+╚═══════════════════════╝   ╚══════════════════╝   ╚═══════════════════════╝
+
+╭┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╮                          ╭┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╮
+┆          Model        ┆                          ┆          Model        ┆
+┆            │          ┆    ┌────────────────┐    ┆            │          ┆
+┆   ┌────────┴──┐       ┆    │                │    ┆   ┌────────┴──┐       ┆
+┆   │           │       ┆    │     Model      │    ┆   │           │       ┆
+┆ Models   Value Types  ┆───►│ Transformation │───►┆ Models   Value Types  ┆
+┆   │           │       ┆◄───│       &        │◄───┆   │           │       ┆
+┆   │           │       ┆    │ Mapping Rules  │    ┆   │           │       ┆
+┆   │    ┌──────┴──┐    ┆    │                │    ┆   │    ┌──────┴──┐    ┆
+┆   │    │         │    ┆    └────────────────┘    ┆   │    │         │    ┆
+┆   │   String  Integer ┆                          ┆   │   String  Integer ┆
+┆   │   Date    Float   ┆                          ┆   │   Date    Float   ┆
+┆   │   Time    Boolean ┆                          ┆   │   Time    Boolean ┆
+┆   │                   ┆                          ┆   │                   ┆
+┆   └──────┐            ┆                          ┆   └──────┐            ┆
+┆          │            ┆                          ┆          │            ┆
+┆     Contains          ┆                          ┆     Contains          ┆
+┆     more Models       ┆                          ┆     more Models       ┆
+┆     (recursive)       ┆                          ┆     (recursive)       ┆
+┆                       ┆                          ┆                       ┆
+╰┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╯                          ╰┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╯
+----
+
+.The `Value` class, transformation, and serialization formats
+[source]
+----
+╔═══════════════════════╗                          ╔═══════════════════════╗
+║LutaML Value Class FOO ║                          ║  Serialization Value  ║
+╚═══════════════════════╝                          ╚═══════════════════════╝
+╭┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╮                          ╭┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╮
+┆   ┌───────────────┐   ┆                          ┆   ┌───────────────┐   ┆
+┆   │     Value     │   ┆   ┌──────────────────┐   ┆   │   XML Value   │   ┆
+┆   └───────────────┘   ┆──►│ Value Serializer │──►┆   └───────────────┘   ┆
+┆   ┌───────────────┐   ┆   └──────────────────┘   ┆   ┌───────────────┐   ┆
+┆   │Primitive Types│   ┆                          ┆   │XML Value Types│   ┆
+┆   └───────────────┘   ┆                          ┆   └───────────────┘   ┆
+┆ ┌───┘                 ┆                          ┆ ┌───┘                 ┆
+┆ ├─ string             ┆                          ┆ ├─ xs:string          ┆
+┆ ├─ integer            ┆                          ┆ ├─ xs:integer         ┆
+┆ ├─ float              ┆                          ┆ ├─ xs:decimal         ┆
+┆ ├─ boolean            ┆                          ┆ ├─ xs:boolean         ┆
+┆ ├─ date               ┆                          ┆ ├─ xs:date            ┆
+┆ ├─ time_without_date  ┆                          ┆ ├─ xs:time            ┆
+┆ ├─ date_time          ┆                          ┆ ├─ xs:dateTime        ┆
+┆ ├─ time               ┆                          ┆ ├─ xs:decimal         ┆
+┆ ├─ decimal            ┆                          ┆ ├─ xs:anyType         ┆
+┆ └─ hash               ┆                          ┆ └─ (complex element)  ┆
+╰┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╯                          ╰┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╯
+           │
+           ▼
+  ┌───────────────────┐
+  │ Value Transformer │
+  └───────────────────┘
+           │
+           ▼
+╔═══════════════════════╗
+║LutaML Value Class BAR ║
+╚═══════════════════════╝
+╭┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╮
+┆   ┌───────────────┐   ┆
+┆   │     Value     │   ┆
+┆   └───────────────┘   ┆
+┆   ┌───────────────┐   ┆
+┆   │Primitive Types│   ┆
+┆   └───────────────┘   ┆
+┆ ┌───┘                 ┆
+┆ ├─ string             ┆
+┆ ├─ integer            ┆
+┆ ├─ float              ┆
+┆ ├─ boolean            ┆
+┆ ├─ date               ┆
+┆ ├─ time_without_date  ┆
+┆ ├─ date_time          ┆
+┆ ├─ time               ┆
+┆ ├─ decimal            ┆
+┆ └─ hash               ┆
+╰┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╯
+----
+
+.Example of LutaML Model instance transformed into a serialization model and serialized to JSON
+====
+[source]
+----
+╔═════════════════════╗     ╔═════════════════════╗     ╔═════════════════════╗
+║ Studio (Core Model) ║     ║     JSON Model      ║     ║   Serialized JSON   ║
+╚═════════════════════╝     ╚═════════════════════╝     ╚═════════════════════╝
+
+  name: "Studio 1"       ┌─► {                      ┌─► {
+  address:               │     "name": "...",       │     "name": "Studio 1",
+    ├── street: "..."    │     "address": {         │     "address": {
+    └── city: "..."      │       "street": "...",   │       "street": "...",
+  kilns:               ──┤       "city": "..."    ──┤       "city": "..."
+    ├── count: 3         │     },                   │     },
+    └── temp: 1200       │    "kilnsCount": ...,    │     "kilnsCount": 3,
+                         │    "kilnsTemp": ...      │     "kilnsTemp": 1200
+                         └─► }                      └─► }
+----
+====

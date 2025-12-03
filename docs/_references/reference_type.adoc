@@ -1,0 +1,302 @@
+---
+title: Reference Type
+nav_order: 2
+---
+
+= Reference Type Documentation
+:toc:
+:toclevels: 3
+
+== Overview
+
+The Reference type in Lutaml::Model provides a powerful mechanism for creating relationships between model objects through automatic object resolution. References work transparently - you assign keys (like IDs) but get back actual resolved objects when accessing them.
+
+== Key Features
+
+* **Transparent Object Resolution**: Assign keys, get back resolved objects automatically
+* **Memory Efficient**: Stores only reference keys during serialization
+* **Type Safety**: Automatic casting and validation
+* **Clean Serialization**: Serializes to keys, deserializes to resolved objects
+* **Collection Support**: Works with arrays of references
+* **User-Friendly**: No need to work with Reference instances directly
+
+== Basic Usage
+
+=== Defining Reference Attributes
+
+Use the `ref:` syntax in attribute definitions:
+
+[source,ruby]
+----
+class Author < Lutaml::Model::Serializable
+  attribute :id, :string
+  attribute :name, :string
+  attribute :email, :string
+end
+
+class Book < Lutaml::Model::Serializable
+  attribute :id, :string
+  attribute :title, :string
+  attribute :author_ref, { ref: ["Author", :id] }
+  attribute :co_authors, { ref: ["Author", :id] }, collection: true
+end
+----
+
+=== Working with References
+
+[source,ruby]
+----
+# Create an author
+author = Author.new(id: "author-1", name: "John Doe", email: "john@example.com")
+
+# Create a book with a reference
+book = Book.new(id: "book-1", title: "Great Book")
+book.author_ref = "author-1"  # Assign the key
+
+# Access the referenced object - automatically resolved!
+puts book.author_ref.name     # => "John Doe" (returns actual Author object)
+puts book.author_ref.class    # => Author
+puts book.author_ref.id       # => "author-1"
+
+# Collection of references
+book.co_authors = ["author-1", "author-2"]
+book.co_authors.each do |author|  # Each item is an actual Author object
+  puts author.name
+end
+----
+
+== Reference Syntax
+
+=== Attribute Definition Format
+
+[source,ruby]
+----
+attribute :attribute_name, { ref: [ModelClass, key_attribute] }
+----
+
+* `ModelClass`: String name of the target model class
+* `key_attribute`: Symbol representing the attribute to match against
+
+=== Examples
+
+[source,ruby]
+----
+# Basic reference
+attribute :user_ref, { ref: ["User", :id] }
+
+# Reference with custom key attribute  
+attribute :category_ref, { ref: ["Category", :slug] }
+
+# Collection of references
+attribute :tag_refs, { ref: ["Tag", :name] }, collection: true
+----
+
+== Reference Key Accessor Methods
+
+When you define reference attributes, the system automatically generates additional accessor methods to easily access the reference keys without resolving the objects. These methods follow a naming convention: `<attribute_name>_<key_attribute>` (with automatic pluralization for collections).
+
+=== Method Generation Rules
+
+* **Single reference**: `attribute_name + "_" + key_attribute`
+* **Collection reference**: `attribute_name + "_" + pluralized_key_attribute`
+
+=== Examples
+
+[source,ruby]
+----
+class Person < Lutaml::Model::Serializable
+  attribute :id, :string
+  attribute :name, :string
+  attribute :father, { ref: ["Person", :id] }
+  attribute :mother, { ref: ["Person", :id] }
+  attribute :children, { ref: ["Person", :id] }, collection: true
+  attribute :mentors, { ref: ["Person", :name] }, collection: true
+end
+
+# Create some people
+dad = Person.new(id: "1", name: "Dad")
+child1 = Person.new(id: "2", name: "Child1") 
+child2 = Person.new(id: "3", name: "Child2")
+person = Person.new(id: "4", name: "Person", father: "1", children: ["2", "3"])
+
+# Generated key accessor methods
+person.father_id      # => "1" (single reference key)
+person.children_ids   # => ["2", "3"] (collection reference keys - pluralized)
+
+# Still works with custom key attributes
+person.mentors = ["Alice", "Bob"]
+person.mentors_names  # => ["Alice", "Bob"] (pluralized: name -> names)
+
+# Compare with object resolution
+person.father         # => Person object with id="1" 
+person.children       # => [Person object, Person object]
+----
+
+=== Available Methods for Each Reference Attribute
+
+For each reference attribute, three methods are automatically generated:
+
+[source,ruby]
+----
+# For: attribute :father, { ref: ["Person", :id] }
+person.father          # => Person object (resolved reference)
+person.father_ref      # => Reference object (internal, advanced use)
+person.father_id       # => "1" (reference key)
+
+# For: attribute :children, { ref: ["Person", :id] }, collection: true
+person.children        # => [Person, Person] (resolved objects)
+person.children_ref    # => [Reference, Reference] (internal, advanced use)  
+person.children_ids    # => ["2", "3"] (reference keys)
+----
+
+=== Pluralization Rules
+
+The system includes simple pluralization for common English patterns:
+
+* `id` → `ids`
+* `name` → `names`
+* `category` → `categories` 
+* `class` → `classes`
+* `status` → `statuses`
+* Most other words: add `s`
+
+== Serialization Behavior
+
+The reference system provides clean, predictable serialization:
+
+* **Assignment**: You assign string keys (like IDs)
+* **Access**: You get back resolved objects automatically
+* **Serialization**: Keys are serialized (not full objects)
+* **Deserialization**: Keys are deserialized and resolved to objects
+
+=== Serialization Examples
+
+[source,ruby]
+----
+book.author_ref = "author-1"
+book.co_authors = ["author-1", "author-2"]
+
+# Accessing returns resolved objects
+book.author_ref.name        # => "John Doe"
+book.co_authors.first.name  # => "John Doe"
+
+# Serialization outputs keys only
+book.to_yaml   # => author_ref: author-1
+book.to_json   # => {"author_ref": "author-1", ...}
+book.to_hash   # => {"author_ref" => "author-1", ...}
+----
+
+=== YAML Serialization
+
+[source,ruby]
+----
+book = Book.new(id: "book-1", title: "Sample Book")
+book.author_ref = "author-1"
+
+# Serializes to clean YAML
+yaml_output = book.to_yaml
+# =>
+# id: book-1
+# title: Sample Book  
+# author_ref: author-1
+
+# Deserializes back to resolved objects
+loaded_book = Book.from_yaml(yaml_output)
+loaded_book.author_ref        # => Author instance (not Reference!)
+loaded_book.author_ref.name   # => "John Doe" 
+----
+
+=== JSON Serialization
+
+[source,ruby]
+----
+json_output = book.to_json
+# => {"id":"book-1","title":"Sample Book","author_ref":"author-1"}
+
+loaded_book = Book.from_json(json_output)
+loaded_book.author_ref        # => Author instance (resolved automatically)
+loaded_book.author_ref.name   # => "John Doe"
+----
+
+== Advanced Usage
+
+=== Custom Key Attributes
+
+References can use any attribute as the key, not just `:id`.
+
+[source,ruby]
+----
+class Category < Lutaml::Model::Serializable
+  attribute :slug, :string
+  attribute :name, :string
+end
+
+class Product < Lutaml::Model::Serializable
+  attribute :id, :string
+  attribute :category_ref, { ref: ["Category", :slug] }
+end
+
+# Usage
+category = Category.new(slug: "electronics", name: "Electronics")
+product = Product.new(id: "p1")
+product.category_ref = "electronics"  # References by slug, not id
+----
+
+=== Nested References
+
+References work in nested structures and collections.
+
+[source,ruby]
+----
+class Comment < Lutaml::Model::Serializable
+  attribute :id, :string
+  attribute :content, :string
+  attribute :author_ref, { ref: ["User", :id] }
+  attribute :replies, { ref: ["Comment", :id] }, collection: true
+end
+
+comment = Comment.new(id: "c1", content: "Great post!")
+comment.author_ref = "user-1"
+comment.replies = ["c2", "c3"]  # References to other comments
+----
+
+=== Unresolved References
+
+When a reference cannot be resolved (the target object is not found in the store), the reference returns `nil` instead of the object:
+
+[source,ruby]
+----
+# Create a book with a reference to a non-existent author
+book = Book.new(id: "book-1", title: "Great Book")
+book.author_ref = "non-existent-author-id"
+
+# Access returns nil since the author doesn't exist
+puts book.author_ref.inspect  # => nil (not the key)
+puts book.author_ref.nil?     # => true
+
+# Collections include nil for unresolved references
+book.co_authors = ["author-1", "non-existent"]
+# Array will include nil for unresolved references
+puts book.co_authors.count    # => 2 (includes nil for non-existent)
+puts book.co_authors.compact.count  # => 1 (if author-1 exists)
+----
+
+This behavior ensures that:
+
+* **Type Safety**: You always get the expected object type or `nil`, never strings or keys
+* **Nil Safety**: You can safely use standard Ruby nil-checking patterns
+* **Predictable Collections**: Array positions are preserved, with `nil` for unresolved references
+
+=== Validation and Error Handling
+
+[source,ruby]
+----
+# Invalid reference specification raises ArgumentError
+begin
+  Class.new(Lutaml::Model::Serializable) do
+    attribute :invalid_ref, { ref: "NotAnArray" }
+  end
+rescue ArgumentError => e
+  puts e.message  # => "ref: syntax requires an array [model_class, key_attribute]"
+end
+----

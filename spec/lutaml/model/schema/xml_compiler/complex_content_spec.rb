@@ -8,7 +8,10 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler::ComplexContent do
       def required_files; end
     end
   end
-  let(:restriction) { instance_double(dummy_class, to_attributes: "attr", to_xml_mapping: "xml", required_files: "files") }
+  let(:restriction) do
+    instance_double(dummy_class, to_attributes: "attr", to_xml_mapping: "xml",
+                                 required_files: "files")
+  end
   let(:complex_content) { described_class.new(restriction) }
 
   describe "#initialize" do

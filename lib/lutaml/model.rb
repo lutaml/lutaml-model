@@ -24,6 +24,8 @@ require_relative "model/jsonl"
 require_relative "model/toml"
 require_relative "model/hash"
 require_relative "model/xml"
+require_relative "model/store"
+require_relative "model/type/reference"
 
 module Lutaml
   module Model

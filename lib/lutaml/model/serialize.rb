@@ -1,3 +1,4 @@
+require "active_support/inflector"
 require_relative "xml_adapter"
 require_relative "config"
 require_relative "type"
@@ -12,6 +13,7 @@ require_relative "choice"
 require_relative "sequence"
 require_relative "liquefiable"
 require_relative "transform"
+require_relative "value_transformer"
 require_relative "registrable"
 
 module Lutaml
@@ -22,7 +24,8 @@ module Lutaml
       include Lutaml::Model::Liquefiable
       include Lutaml::Model::Registrable
 
-      INTERNAL_ATTRIBUTES = %i[@using_default @__register].freeze
+      INTERNAL_ATTRIBUTES = %i[@using_default @__register @__parent
+                               @__root].freeze
 
       def self.included(base)
         base.extend(ClassMethods)
@@ -33,6 +36,57 @@ module Lutaml
         include Lutaml::Model::Liquefiable::ClassMethods
 
         attr_accessor :choice_attributes, :mappings
+
+        # Class-level directive to set the namespace for this Model
+        #
+        # @deprecated Class-level namespace directive is deprecated for Serializable classes.
+        #   Use namespace inside xml/json/yaml blocks instead:
+        #     xml do
+        #       namespace YourNamespace
+        #     end
+        #
+        # @param ns_class [Class, nil] XmlNamespace class to associate with this model
+        # @return [Class, nil] the XmlNamespace class
+        #
+        # @example INCORRECT: Class-level (deprecated, does nothing)
+        #   class CustomModel < Lutaml::Model::Serializable
+        #     namespace CustomNamespace  # ❌ Does nothing!
+        #   end
+        #
+        # @example CORRECT: Inside xml block
+        #   class CustomModel < Lutaml::Model::Serializable
+        #     xml do
+        #       namespace CustomNamespace  # ✅ Works correctly
+        #     end
+        #   end
+        def namespace(ns_class = nil)
+          if ns_class
+            unless ns_class.is_a?(Class) && ns_class < Lutaml::Model::XmlNamespace
+              raise ArgumentError,
+                    "namespace must be an XmlNamespace class, got #{ns_class.class}"
+            end
+
+            # Warn about class-level namespace usage for Serializable classes
+            warn_class_level_namespace_usage(ns_class)
+
+            @namespace_class = ns_class
+          end
+          @namespace_class
+        end
+
+        # Get the namespace URI for this Model
+        #
+        # @return [String, nil] the namespace URI
+        def namespace_uri
+          @namespace_class&.uri
+        end
+
+        # Get the default namespace prefix for this Model
+        #
+        # @return [String, nil] the namespace prefix
+        def namespace_prefix
+          @namespace_class&.prefix_default
+        end
 
         def inherited(subclass)
           super
@@ -47,8 +101,13 @@ module Lutaml
         def initialize_attrs(source_class)
           @mappings = Utils.deep_dup(source_class.instance_variable_get(:@mappings)) || {}
           @attributes = Utils.deep_dup(source_class.instance_variable_get(:@attributes)) || {}
-          @choice_attributes = Utils.deep_dup(source_class.instance_variable_get(:@choice_attributes)) || []
+          @choice_attributes = deep_duplicate_choice_attributes(source_class)
           instance_variable_set(:@model, self)
+        end
+
+        def deep_duplicate_choice_attributes(source_class)
+          choice_attrs = Array(source_class.instance_variable_get(:@choice_attributes))
+          choice_attrs.map { |choice_attr| choice_attr.deep_duplicate(self) }
         end
 
         def attributes(register = nil)
@@ -121,22 +180,66 @@ module Lutaml
               # Cast the derived value to the specified type
               attr.cast_element(value, __register)
             end
+          elsif attr.unresolved_type == Lutaml::Model::Type::Reference
+            define_reference_methods(name)
           else
-            define_method(name) do
-              instance_variable_get(:"@#{name}")
+            define_regular_attribute_methods(name, attr)
+          end
+        end
+
+        def define_reference_methods(name)
+          attr = attributes[name]
+
+          define_method("#{name}_ref") do
+            instance_variable_get(:"@#{name}_ref")
+          end
+
+          key_method_name = if attr.options[:collection]
+                              attr.options[:ref_key_attribute].to_s.pluralize
+                            else
+                              attr.options[:ref_key_attribute]
+                            end
+
+          define_method("#{name}_#{key_method_name}") do
+            ref = instance_variable_get(:"@#{name}_ref")
+            resolve_reference_key(ref)
+          end
+
+          define_method(name) do
+            ref = instance_variable_get(:"@#{name}_ref")
+            resolve_reference_value(ref)
+          end
+
+          define_method(:"#{name}=") do |value|
+            value_set_for(name)
+            casted_value = value
+            unless casted_value.is_a?(Lutaml::Model::Type::Reference)
+              casted_value = attr.cast_value(value,
+                                             __register)
             end
-            define_method(:"#{name}=") do |value|
-              value_set_for(name)
-              instance_variable_set(:"@#{name}", attr.cast_value(value, __register))
-            end
+
+            instance_variable_set(:"@#{name}_ref", casted_value)
+
+            resolved_reference = resolve_reference_key(casted_value)
+            instance_variable_set(:"@#{name}", resolved_reference)
+          end
+        end
+
+        def define_regular_attribute_methods(name, attr)
+          define_method(name) do
+            instance_variable_get(:"@#{name}")
+          end
+
+          define_method(:"#{name}=") do |value|
+            value_set_for(name)
+            value = attr.cast_value(value, __register)
+            instance_variable_set(:"@#{name}", value)
           end
         end
 
         # Define an attribute for the model
         def attribute(name, type, options = {})
-          if type.is_a?(::Hash)
-            type = nil
-          end
+          type, options = process_type_hash(type, options) if type.is_a?(::Hash)
 
           # Handle direct method option in options hash
           if options[:method]
@@ -162,7 +265,8 @@ module Lutaml
           invalid_opts = options.keys - Attribute::ALLOWED_OPTIONS
           return if invalid_opts.empty?
 
-          raise Lutaml::Model::InvalidAttributeOptionsError.new(name, invalid_opts)
+          raise Lutaml::Model::InvalidAttributeOptionsError.new(name,
+                                                                invalid_opts)
         end
 
         def register(name)
@@ -192,8 +296,8 @@ module Lutaml
             define_attribute_methods(attr)
           end
 
-          @choice_attributes.concat(Utils.deep_dup(model.choice_attributes))
           @attributes.merge!(Utils.deep_dup(model.attributes))
+          @choice_attributes.concat(deep_duplicate_choice_attributes(model))
         end
 
         def import_model_mappings(model)
@@ -243,10 +347,15 @@ module Lutaml
         end
 
         def importable_choices
-          @importable_choices ||= MappingHash.new { |h, k| h[k] = MappingHash.new { |h1, k1| h1[k1] = [] } }
+          @importable_choices ||= MappingHash.new do |h, k|
+            h[k] = MappingHash.new do |h1, k1|
+              h1[k1] = []
+            end
+          end
         end
 
-        def add_enum_methods_to_model(klass, enum_name, values, collection: false)
+        def add_enum_methods_to_model(klass, enum_name, values,
+collection: false)
           add_enum_getter_if_not_defined(klass, enum_name, collection)
           add_enum_setter_if_not_defined(klass, enum_name, values, collection)
 
@@ -264,7 +373,7 @@ module Lutaml
             end
 
             Utils.add_method_if_not_defined(klass, value.to_s) do
-              public_send(:"#{value}?")
+              public_send(:"#{value}=")
             end
 
             Utils.add_method_if_not_defined(klass, "#{value}=") do |val|
@@ -305,7 +414,8 @@ module Lutaml
           end
         end
 
-        def add_enum_setter_if_not_defined(klass, enum_name, _values, collection)
+        def add_enum_setter_if_not_defined(klass, enum_name, _values,
+collection)
           Utils.add_method_if_not_defined(klass, "#{enum_name}=") do |value|
             value = [] if value.nil?
             value = [value] if !value.is_a?(Array)
@@ -373,7 +483,9 @@ module Lutaml
         def safe_get_const(error_class)
           return unless Object.const_defined?(error_class.split("::").first)
 
-          error_class.split("::").inject(Object) { |mod, part| mod.const_get(part) }
+          error_class.split("::").inject(Object) do |mod, part|
+            mod.const_get(part)
+          end
         end
 
         def of(format, doc, options = {})
@@ -398,7 +510,55 @@ module Lutaml
           adapter = Lutaml::Model::Config.adapter_for(format)
 
           options[:mapper_class] = self if format == :xml
+
+          # Handle prefix option for XML
+          if format == :xml && options.key?(:prefix)
+            prefix_option = options[:prefix]
+            xml_mapping = mappings_for(:xml)
+
+            if prefix_option == true
+              # Use defined default prefix
+              options[:use_prefix] = xml_mapping.namespace_prefix
+            elsif prefix_option.is_a?(String)
+              # Use specific custom prefix
+              options[:use_prefix] = prefix_option
+            elsif prefix_option == false || prefix_option.nil?
+              # Explicitly use default namespace (no prefix)
+              options[:use_prefix] = nil
+            end
+            options.delete(:prefix) # Remove original option
+          end
+
+          # Apply namespace prefix overrides for XML format
+          if format == :xml && options[:namespaces]
+            options = apply_namespace_overrides(options)
+          end
+
           adapter.new(value).public_send(:"to_#{format}", options)
+        end
+
+        def apply_namespace_overrides(options)
+          namespaces = options[:namespaces]
+          return options unless namespaces.is_a?(Array)
+
+          # Build a namespace URI to prefix mapping
+          ns_prefix_map = {}
+          namespaces.each do |ns_config|
+            if ns_config.is_a?(Hash)
+              ns_class = ns_config[:namespace]
+              prefix = ns_config[:prefix]
+
+              if ns_class.is_a?(Class) && ns_class < Lutaml::Model::XmlNamespace && prefix
+                ns_prefix_map[ns_class.uri] = prefix.to_s
+              end
+            end
+          end
+
+          unless ns_prefix_map.empty?
+            options[:namespace_prefix_map] =
+              ns_prefix_map
+          end
+          options
         end
 
         def as(format, instance, options = {})
@@ -474,7 +634,8 @@ module Lutaml
           klass_name = polymorphic_mapping.polymorphic_map[klass_key]
           klass = Object.const_get(klass_name)
 
-          klass.apply_mappings(doc, format, options.merge(register: instance.__register))
+          klass.apply_mappings(doc, format,
+                               options.merge(register: instance.__register))
         end
 
         def apply_value_map(value, value_map, attr)
@@ -524,7 +685,8 @@ module Lutaml
           Utils.add_singleton_method_if_not_defined(object, :__register) do
             @__register
           end
-          Utils.add_singleton_method_if_not_defined(object, :__register=) do |value|
+          Utils.add_singleton_method_if_not_defined(object,
+                                                    :__register=) do |value|
             @__register = value
           end
           object.__register = register
@@ -565,7 +727,8 @@ module Lutaml
           importable_choices.each do |choice, choice_imports|
             choice_imports.each do |method, models|
               models.uniq!
-              choice.public_send(method, register.get_class_without_register(models.shift)) until models.empty?
+              choice.public_send(method,
+                                 register.get_class_without_register(models.shift)) until models.empty?
             end
           end
 
@@ -594,8 +757,80 @@ module Lutaml
 
         def collection_with_conflicting_sort?
           self <= Lutaml::Model::Collection &&
-            @mappings[:xml].ordered &&
+            @mappings[:xml].ordered? &&
             !!@sort_by_field
+        end
+
+        private
+
+        # Issue deprecation warning for class-level namespace usage
+        def warn_class_level_namespace_usage(ns_class)
+          return if @namespace_warning_issued
+
+          warn <<~WARNING
+            [Lutaml::Model] DEPRECATION WARNING: Class-level `namespace` directive is deprecated for Serializable classes.
+
+            Class: #{name}
+            Namespace: #{ns_class.name} (#{ns_class.uri})
+
+            The class-level namespace directive does NOT apply namespace prefixes during serialization.
+
+            INCORRECT (current usage):
+              class #{name} < Lutaml::Model::Serializable
+                namespace #{ns_class.name}  # ❌ Does nothing!
+            #{'    '}
+                xml do
+                  root "element"
+                  map_element "field", to: :field
+                end
+              end
+
+            CORRECT (use namespace inside xml block):
+              class #{name} < Lutaml::Model::Serializable
+                xml do
+                  root "element"
+                  namespace #{ns_class.name}  # ✅ Works correctly!
+                  map_element "field", to: :field
+                end
+              end
+
+            This warning will become an error in the next major release.
+          WARNING
+
+          @namespace_warning_issued = true
+        end
+
+        def process_type_hash(type, options)
+          if reference_type?(type)
+            type, options = process_reference_type(type, options)
+          else
+            type = nil
+          end
+
+          [type, options]
+        end
+
+        def reference_type?(type)
+          type.key?(:ref) || type.key?("ref")
+        end
+
+        def process_reference_type(type, options)
+          ref_spec = type[:ref] || type["ref"]
+          validate_reference_spec!(ref_spec)
+
+          model_class, key_attr = ref_spec
+          options[:ref_model_class] = model_class
+          options[:ref_key_attribute] = key_attr
+          type = Lutaml::Model::Type::Reference
+
+          [type, options]
+        end
+
+        def validate_reference_spec!(ref_spec)
+          return if ref_spec.is_a?(Array) && ref_spec.length == 2
+
+          raise ArgumentError,
+                "ref: syntax requires an array [model_class, key_attribute]"
         end
       end
 
@@ -631,7 +866,8 @@ module Lutaml
         end
       end
 
-      attr_accessor :element_order, :schema_location, :encoding, :__register
+      attr_accessor :element_order, :schema_location, :encoding, :__register,
+                    :__parent, :__root
       attr_writer :ordered, :mixed
 
       def initialize(attrs = {}, options = {})
@@ -642,6 +878,8 @@ module Lutaml
         set_ordering(attrs)
         set_schema_location(attrs)
         initialize_attributes(attrs, options)
+
+        register_in_reference_store
       end
 
       def extract_register_id(attrs, options)
@@ -658,7 +896,8 @@ module Lutaml
       end
 
       def attr_value(attrs, name, attribute)
-        value = Utils.fetch_str_or_sym(attrs, name, attribute.default(__register, self))
+        value = Utils.fetch_str_or_sym(attrs, name,
+                                       attribute.default(__register, self))
         attribute.cast_value(value, __register)
       end
 
@@ -719,7 +958,10 @@ module Lutaml
       end
 
       def pretty_print_instance_variables
-        (instance_variables - INTERNAL_ATTRIBUTES).sort
+        reference_attributes = instance_variables.select do |var|
+          var.to_s.end_with?("_ref")
+        end
+        (instance_variables - INTERNAL_ATTRIBUTES - reference_attributes).sort
       end
 
       def to_yaml_hash
@@ -760,7 +1002,6 @@ module Lutaml
           next if attr.derived?
 
           value = determine_value(attrs, name, attr)
-
           default = using_default?(name)
           value = self.class.apply_value_map(value, value_map(options), attr)
           public_send(:"#{name}=", self.class.ensure_utf8(value))
@@ -777,6 +1018,26 @@ module Lutaml
         else
           Lutaml::Model::UninitializedClass.instance
         end
+      end
+
+      def register_in_reference_store
+        Lutaml::Model::Store.register(self)
+      end
+
+      def resolve_reference_key(ref)
+        return nil if ref.nil?
+
+        return ref.map { |r| resolve_reference_key(r) } if ref.is_a?(Array)
+
+        ref.is_a?(Type::Reference) ? ref.key : ref
+      end
+
+      def resolve_reference_value(ref)
+        return nil if ref.nil?
+
+        return ref.map { |r| resolve_reference_value(r) } if ref.is_a?(Array)
+
+        ref.is_a?(Type::Reference) ? ref.object : ref
       end
     end
   end

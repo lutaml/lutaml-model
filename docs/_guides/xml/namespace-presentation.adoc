@@ -1,0 +1,476 @@
+---
+title: XML Namespace Presentation
+nav_order: 5
+parent: XML namespaces
+---
+
+= XML Namespace Presentation in Lutaml::Model
+:toc:
+:toclevels: 3
+
+== Overview
+
+This document explains XML namespace **presentation formats** in Lutaml::Model.
+While link:../namespace-semantics[namespace semantics] determine which
+namespaces apply to which elements, presentation controls **how** those
+namespaces appear in the serialized XML.
+
+**Key Principle**: Presentation is a purely cosmetic choice that does not affect the meaning of the XML document.
+
+== The Two Presentation Formats
+
+XML namespaces can be declared in two ways, both producing semantically identical documents:
+
+=== Default Namespace Format
+
+Uses `xmlns` without a prefix. All unprefixed elements in scope belong to this namespace:
+
+[source,xml]
+----
+<item xmlns="http://example.com/ns">
+  <name>Value</name>
+  <description>Text</description>
+</item>
+----
+
+**Characteristics**:
+* Cleaner, more readable
+* Less verbose
+* Better for documents with primarily one namespace
+* Cannot be used for XML attributes (attributes are unqualified by default)
+
+=== Prefixed Namespace Format
+
+Uses `xmlns:prefix` and prefixes all elements:
+
+[source,xml]
+----
+<ex:item xmlns:ex="http://example.com/ns">
+  <ex:name>Value</ex:name>
+  <ex:description>Text</ex:description>
+</ex:item>
+----
+
+**Characteristics**:
+* More explicit
+* Required when multiple namespaces in same scope
+* Necessary for namespace-qualified attributes
+* Can coexist with default namespace for other namespaces
+
+== Semantic Equivalence
+
+These two XML documents are **completely identical** in their meaning:
+
+[source,xml]
+----
+<!-- Default Namespace -->
+<first_item xmlns="http://example.com/first">
+  <name>Item Name</name>
+</first_item>
+
+<!-- Prefixed Namespace -->
+<first:first_item xmlns:first="http://example.com/first">
+  <first:name>Item Name</first:name>
+</first:first_item>
+----
+
+**Proof of Equivalence**:
+
+[source,ruby]
+----
+xml_default = '<first_item xmlns="http://example.com/first">
+  <name>Item Name</name>
+</first_item>'
+
+xml_prefixed = '<first:first_item xmlns:first="http://example.com/first">
+  <first:name>Item Name</first:name>
+</first:first_item>'
+
+# Both parse to identical model
+item1 = NativeItem.from_xml(xml_default)
+item2 = NativeItem.from_xml(xml_prefixed)
+
+item1 == item2  # => true
+item1.name == item2.name # => "Item Name"
+----
+
+== XML Infoset Perspective
+
+The XML Information Set (Infoset) specification defines the abstract data model of an XML document. From the Infoset perspective:
+
+* An element has a **namespace name** (the URI)
+* An element has a **local name** (without prefix)
+* The **prefix** is merely a syntactic binding, not part of the element's identity
+
+Therefore:
+* `<name xmlns="http://ex.com/ns">`
+* `<ex:name xmlns:ex="http://ex.com/ns">`
+
+Both have:
+* Namespace name: `http://ex.com/ns`
+* Local name: `name`
+* Different prefix binding (none vs "ex")
+
+The Infoset is identical - only the serialization differs.
+
+== Controlling Presentation
+
+Lutaml::Model provides several ways to control presentation format:
+
+=== Default Behavior
+
+Without explicit control, Lutaml::Model chooses format automatically:
+
+[source,ruby]
+----
+item = NativeItem.new(name: "Test")
+xml = item.to_xml
+
+# Uses default namespace if only one namespace
+# Uses prefixes if multiple namespaces to avoid conflicts
+----
+
+=== Force Prefixed Format
+
+[source,ruby]
+----
+xml = item.to_xml(prefix: true)
+# Always uses prefixed format, even with single namespace
+----
+
+Result:
+[source,xml]
+----
+<first:first_item xmlns:first="http://example.com/first">
+  <first:name>Test</first:name>
+</first:first_item>
+----
+
+=== Custom Prefix
+
+[source,ruby]
+----
+xml = item.to_xml(prefix: "custom")
+# Uses specified prefix instead of default
+----
+
+Result:
+[source,xml]
+----
+<custom:first_item xmlns:custom="http://example.com/first">
+  <custom:name>Test</custom:name>
+</custom:first_item>
+----
+
+=== Force Default Format
+
+[source,ruby]
+----
+xml = item.to_xml(prefix: false)
+# Prefer default namespace where possible
+----
+
+== When Prefixes Are Required
+
+Lutaml::Model automatically uses prefixes when necessary:
+
+=== Multiple Namespaces
+
+Cannot have two default namespaces simultaneously:
+
+[source,ruby]
+----
+class NamespacedItem < Lutaml::Model::Serializable
+  attribute :name, FirstNamespacedName   # FirstNamespace
+  attribute :alt_name, SecondNamespacedName # SecondNamespace
+
+  xml do
+    root "item"
+    namespace SecondNamespace  # Root uses SecondNamespace
+    map_element "name", to: :name
+    map_element "alt_name", to: :alt_name
+  end
+end
+----
+
+Result (automatic prefix for conflicting namespace):
+[source,xml]
+----
+<item xmlns="http://example.com/second"
+      xmlns:first="http://example.com/first">
+  <first:name>Value</first:name>
+  <alt_name>Value</alt_name>
+</item>
+----
+
+=== Namespace-Qualified Attributes
+
+Per W3C specification, attributes in the same namespace as their element **must** use a prefix:
+
+[source,xml]
+----
+<!-- INVALID: Attribute cannot use default namespace -->
+<item xmlns="http://example.com/ns" xmlns:ns="http://example.com/ns"
+      value="123">
+</item>
+
+<!-- VALID: Attribute uses prefix -->
+<item xmlns="http://example.com/ns"
+      ns:value="123">
+</item>
+----
+
+Lutaml::Model handles this automatically.
+
+== Presentation Best Practices
+
+=== Single Namespace Documents
+
+For documents primarily in one namespace, use default format:
+
+[source,ruby]
+----
+# Cleaner, more readable
+item.to_xml  # or item.to_xml(prefix: false)
+----
+
+Result:
+[source,xml]
+----
+<item xmlns="http://example.com/ns">
+  <name>Value</name>
+  <description>Text</description>
+</item>
+----
+
+=== Multi-Namespace Documents
+
+For documents mixing namespaces, use prefixes for clarity:
+
+[source,ruby]
+----
+wrapper.to_xml(prefix: true)
+----
+
+Result:
+[source,xml]
+----
+<wr:wrapper xmlns:wr="http://wrapper.example.com"
+            xmlns:first="http://first.example.com"
+            xmlns:second="http://second.example.com">
+  <second:item>
+    <first:name>Name</first:name>
+    <second:alt_name>Alt</second:alt_name>
+  </second:item>
+</wr:wrapper>
+----
+
+=== Consistent Style
+
+Choose one style per document type:
+
+[source,ruby]
+----
+# Good: Consistent default namespace style
+class ApiResponse < Lutaml::Model::Serializable
+  xml do
+    namespace ApiNamespace
+    # All children use default namespace
+  end
+end
+
+# Good: Consistent prefixed style
+class MixedDocument < Lutaml::Model::Serializable
+  xml do
+    namespace BaseNamespace
+    # Mix with other namespaces using prefixes
+  end
+end
+----
+
+=== Cross-System Compatibility
+
+Some systems expect specific presentation:
+
+[source,ruby]
+----
+# For systems expecting prefixed format
+def to_external_xml
+  to_xml(prefix: "standardPrefix")
+end
+
+# For systems expecting default namespace
+def to_internal_xml
+  to_xml(prefix: false)
+end
+----
+
+== Presentation in Collections
+
+Collections follow the same presentation rules:
+
+[source,ruby]
+----
+collection = NativeItemCollection.new(items: items)
+
+# Default namespace for all items
+xml_default = collection.to_xml
+
+# Prefixed namespace for all items
+xml_prefixed = collection.to_xml(prefix: true)
+----
+
+Both parse identically:
+[source,ruby]
+----
+parsed1 = NativeItemCollection.from_xml(xml_default)
+parsed2 = NativeItemCollection.from_xml(xml_prefixed)
+
+parsed1 == parsed2  # => true
+----
+
+== Preserving Presentation
+
+**Important**: Lutaml::Model does NOT preserve the original presentation format during round-tripping:
+
+[source,ruby]
+----
+# Parse prefixed format
+xml_input = '<first:item xmlns:first="http://ex.com/ns">
+  <first:name>Test</first:name>
+</first:item>'
+
+item = Item.from_xml(xml_input)
+
+# Serialize (may use different format)
+xml_output = item.to_xml  # Might use default namespace
+
+# But semantics are preserved
+Item.from_xml(xml_output) == item  # => true
+----
+
+**Rationale**: Presentation is not semantic information. The model stores data, not XML formatting choices.
+
+If you need specific format, explicitly request it:
+
+[source,ruby]
+----
+xml_output = item.to_xml(prefix: true)  # Guarantee prefixed format
+----
+
+== Namespace Declaration Location
+
+Namespaces are typically declared at the root element:
+
+[source,xml]
+----
+<wrapper xmlns="http://wrapper.ex.com"
+         xmlns:first="http://first.ex.com"
+         xmlns:second="http://second.ex.com">
+  <!-- All namespaces declared here -->
+  <second:item>
+    <first:name>Value</first:name>
+  </second:item>
+</wrapper>
+----
+
+**Benefit**: "Declare once, use everywhere" principle
+* More efficient
+* Easier to read
+* Follows XML best practices
+
+**Local Declarations**: Only when namespace scope restrictions apply (advanced feature).
+
+== Testing Both Presentations
+
+Always test that your models work with both presentation formats:
+
+[source,ruby]
+----
+RSpec.describe MyModel do
+  let(:instance) { MyModel.new(name: "Test") }
+
+  it "round-trips with default namespace" do
+    xml = instance.to_xml(prefix: false)
+    parsed = MyModel.from_xml(xml)
+    expect(parsed).to eq(instance)
+  end
+
+  it "round-trips with prefixed namespace" do
+    xml = instance.to_xml(prefix: true)
+    parsed = MyModel.from_xml(xml)
+    expect(parsed).to eq(instance)
+  end
+
+  it "produces semantically identical output" do
+    xml_default = instance.to_xml(prefix: false)
+    xml_prefixed = instance.to_xml(prefix: true)
+
+    parsed_default = MyModel.from_xml(xml_default)
+    parsed_prefixed = MyModel.from_xml(xml_prefixed)
+
+    expect(parsed_default).to eq(parsed_prefixed)
+  end
+end
+----
+
+== Common Pitfalls
+
+=== Expecting Preserved Presentation
+
+[source,ruby]
+----
+# ❌ Don't assume format is preserved
+xml_in = '<prefix:item xmlns:prefix="http://ex.com">...</prefix:item>'
+item = Item.from_xml(xml_in)
+xml_out = item.to_xml
+# xml_out might use default namespace, not prefix
+
+# ✓ Explicitly request format if needed
+xml_out = item.to_xml(prefix: true)
+----
+
+=== Hardcoding Prefix Expectations
+
+[source,ruby]
+----
+# ❌ Don't hardcode prefix checks
+expect(xml).to include("<prefix:name>")
+
+# ✓ Parse and compare data
+item = Item.from_xml(xml)
+expect(item.name).to eq("Expected Value")
+----
+
+=== Mixing Presentation Concerns in Logic
+
+[source,ruby]
+----
+# ❌ Don't make business logic depend on presentation
+if xml.include?("xmlns:prefix")
+  # Business logic here
+end
+
+# ✓ Operate on parsed model
+item = Item.from_xml(xml)
+if item.meets_condition?
+  # Business logic here
+end
+----
+
+== Summary
+
+* **Prefix vs Default**: Purely presentation, semantically identical
+* **XML Infoset**: Same namespace URI + local name = same element
+* **Auto Selection**: Lutaml::Model chooses format automatically
+* **Explicit Control**: Use `to_xml(prefix: true/false/"custom")`
+* **Multiple Namespaces**: Automatically use prefixes to avoid conflicts
+* **Testing**: Verify both formats parse correctly
+* **Don't Preserve**: Format not preserved during round-trip (by design)
+
+== See Also
+
+* link:../namespace-semantics[XML Namespace Semantics]
+* link:../../../references/three-phase-namespace-architecture[Three-Phase Namespace Architecture]
+* W3C XML Namespaces Recommendation
+* XML Information Set Specification

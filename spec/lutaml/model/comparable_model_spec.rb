@@ -216,7 +216,9 @@ RSpec.describe Lutaml::Model::ComparableModel do
       end
 
       it "generates diff tree with collection attribute names" do
-        diff_score, diff_tree = Lutaml::Model::Serialize.diff_with_score(person_one, person_two)
+        diff_score, diff_tree = Lutaml::Model::Serialize.diff_with_score(
+          person_one, person_two
+        )
 
         expect(diff_score).to be_a(Float)
         expect(diff_tree).to be_a(String)
@@ -229,7 +231,9 @@ RSpec.describe Lutaml::Model::ComparableModel do
       end
 
       it "shows the complete nested structure in diff tree" do
-        _diff_score, diff_tree = Lutaml::Model::Serialize.diff_with_score(person_one, person_two)
+        _diff_score, diff_tree = Lutaml::Model::Serialize.diff_with_score(
+          person_one, person_two
+        )
 
         expect(diff_tree).to include("└── ComparablePerson")
         expect(diff_tree).to include("├── name (Lutaml::Model::Type::String)")

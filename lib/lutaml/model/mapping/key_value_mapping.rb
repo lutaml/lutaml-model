@@ -94,9 +94,9 @@ module Lutaml
 
       alias map_all_content map_all
 
-      def map_instances(to:)
+      def map_instances(to:, polymorphic: {})
         @instance = to
-        map(root_name || to, to: to)
+        map(root_name || to, to: to, polymorphic: polymorphic)
         map_to_instance
       end
 
@@ -175,7 +175,8 @@ module Lutaml
       def validate_blank_mappings!(render_nil, render_empty)
         if render_nil == :as_blank || render_empty == :as_blank
           raise IncorrectMappingArgumentsError.new(
-            ":as_blank is not supported for key-value mappings",
+            ":as_blank is not supported for key-value mappings. " \
+            "Use :as_empty instead to create explicit empty values.",
           )
         end
       end

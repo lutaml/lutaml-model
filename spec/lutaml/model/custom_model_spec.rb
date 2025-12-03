@@ -438,7 +438,7 @@ RSpec.describe "CustomModel" do
 
         docid = CustomModelSpecs::Docid.from_xml(xml)
 
-        expect(CustomModelSpecs::Docid.to_xml(docid)).to eq(xml)
+        expect(CustomModelSpecs::Docid.to_xml(docid)).to be_xml_equivalent_to(xml)
       end
     end
 
@@ -459,7 +459,7 @@ RSpec.describe "CustomModel" do
 
         bibdata = CustomModelSpecs::MixedWithNestedContent.from_xml(xml)
 
-        expect(bibdata.to_xml).to be_equivalent_to(xml)
+        expect(bibdata.to_xml).to be_xml_equivalent_to(xml)
       end
     end
   end

@@ -95,7 +95,8 @@ module Lutaml
         treat_omitted_as = treat_as(:treat_omitted, :nil, options)
 
         {
-          from: { omitted: treat_omitted_as, nil: treat_nil_as, empty: treat_empty_as },
+          from: { omitted: treat_omitted_as, nil: treat_nil_as,
+                  empty: treat_empty_as },
           to: { omitted: :omitted, nil: render_nil_as, empty: render_empty_as },
         }
       end
@@ -131,6 +132,11 @@ module Lutaml
       def render?(value, instance = nil, options = {})
         if invalid_value?(value, options)
           false
+        # FIXED: Check if collection was mutated after initialization
+        # A non-empty collection initialized with default [] should render if mutated
+        # This handles the case where collection is mutated with << or custom methods
+        elsif mutated_collection?(value, instance)
+          true
         elsif instance.respond_to?(:using_default?) && instance.using_default?(to)
           render_default?
         else
@@ -154,6 +160,23 @@ module Lutaml
         else
           value
         end
+      end
+
+      def mutated_collection?(value, instance)
+        return false if value.nil? || Utils.uninitialized?(value)
+        return false unless value.is_a?(Array) || value.is_a?(Lutaml::Model::Collection)
+        return false if value.empty?  # Empty collection is still default
+
+        # If it's a non-empty collection and marked as using_default, it was mutated
+        instance.respond_to?(:using_default?) && instance.using_default?(to)
+      end
+
+      # Check if value is a non-empty collection
+      def has_items?(value)
+        return false if value.nil? || Utils.uninitialized?(value)
+        return false unless value.respond_to?(:empty?)
+
+        !value.empty?
       end
 
       def value_for_option(option, empty_value = nil)
@@ -259,6 +282,34 @@ module Lutaml
         @value_map[key].merge(options)
       end
 
+      def transform_value(attribute, value, read_method, format)
+        transformers = get_transformers(attribute)
+        transformers = transformers.reverse if read_method == :to
+
+        return value if transformers.empty? || transformers.none? do |t|
+          t.can_transform?(read_method, format)
+        end
+
+        # Apply transformers in sequence
+        transformers.reduce(value) do |v, transformer|
+          if transformer.is_a?(Class) && transformer < Lutaml::Model::ValueTransformer
+            # Call class method directly: NameTransformer.from(value, :json)
+          else
+            # Hash/proc transformer
+          end
+          transformer.public_send(read_method, v, format)
+        end
+      end
+
+      def can_transform_to?(attribute, format)
+        get_transformers(attribute).any? { |t| t.can_transform?(:to, format) }
+      end
+
+      def get_transformers(attribute)
+        transformers = [transform, attribute&.transform].compact
+        transformers.select { |t| t.is_a?(Class) }
+      end
+
       private
 
       # if value is nil and render nil is false, will not render
@@ -289,11 +340,24 @@ module Lutaml
         delegate_value = model.public_send(delegate)
         return if Utils.initialized?(delegate_value) && !delegate_value.nil?
 
-        model.public_send(:"#{delegate}=", attributes[delegate].type(model.__register).new)
+        model.public_send(:"#{delegate}=",
+                          attributes[delegate].type(model.__register).new)
       end
 
       def handle_transform_method(model, value, attributes)
-        assign_value(model, ImportTransformer.call(value, self, attributes[to]))
+        # If we have class-based transformers, they were already applied in transform_value
+        # Only call ImportTransformer for hash/proc-based transformers
+        transformers = get_transformers(attributes[to])
+        has_class_transformer = transformers.any? { |t| t.is_a?(Class) && t < Lutaml::Model::ValueTransformer }
+
+        if has_class_transformer
+          # Class transformers already applied, just assign the value
+          assign_value(model, value)
+        else
+          # Hash/proc transformers need ImportTransformer
+          transformed = ImportTransformer.call(value, self, attributes[to])
+          assign_value(model, transformed)
+        end
         true
       end
 

@@ -2,11 +2,13 @@ require "spec_helper"
 require_relative "fixtures/ceramic"
 
 RSpec.describe Ceramic do
-  xml = <<~XML
-    <ceramic kilnFiringTimeAttribute="2012-04-07T01:51:37.112+02:00">
-      <kilnFiringTime>2012-04-07T01:51:37.112+02:00</kilnFiringTime>
-    </ceramic>
-  XML
+  let(:xml) do
+    <<~XML
+      <ceramic kilnFiringTimeAttribute="2012-04-07T01:51:37.112+02:00">
+        <kilnFiringTime>2012-04-07T01:51:37.112+02:00</kilnFiringTime>
+      </ceramic>
+    XML
+  end
 
   it "deserializes from XML with high-precision date-time" do
     ceramic = described_class.from_xml(xml)
@@ -15,7 +17,7 @@ RSpec.describe Ceramic do
 
   it "serializes to XML with high-precision date-time" do
     ceramic = described_class.from_xml(xml)
-    expect(ceramic.to_xml).to be_equivalent_to(xml)
+    expect(ceramic.to_xml).to be_xml_equivalent_to(xml)
   end
 
   it "deserializes from JSON with high-precision date-time" do
@@ -24,7 +26,8 @@ RSpec.describe Ceramic do
     }.to_json
 
     ceramic_from_json = described_class.from_json(json)
-    expect(ceramic_from_json.kiln_firing_time).to eq(DateTime.new(2012, 4, 7, 1, 51, 37, "+02:00"))
+    expect(ceramic_from_json.kiln_firing_time).to eq(DateTime.new(2012, 4, 7,
+                                                                  1, 51, 37, "+02:00"))
   end
 
   it "serializes to JSON with high-precision date-time" do

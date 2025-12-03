@@ -55,7 +55,10 @@ RSpec.describe Lutaml::Model::Attribute do
 
   it "raises an error if required attributes are missing" do
     record = RequiredTestRecord.new
-    expect { record.validate! }.to raise_error(Lutaml::Model::ValidationError, "Missing required attribute: name")
+    expect do
+      record.validate!
+    end.to raise_error(Lutaml::Model::ValidationError,
+                       "Missing required attribute: name")
   end
 
   it "does not raise an error when all required attributes are present" do
@@ -85,7 +88,30 @@ RSpec.describe Lutaml::Model::Attribute do
 
           expect(Lutaml::Model::Logger)
             .to have_received(:warn)
-            .with("Attribute name `#{method}` conflicts with a built-in method")
+            .with("Attribute name `#{method}` conflicts with a built-in method", anything)
+        end
+
+        it "logs a warning with the exact line of offense when method is `#{method}`" do
+          # Capture the arguments passed to Logger.warn
+          warn_args = nil
+          allow(Lutaml::Model::Logger).to receive(:warn) do |message, location|
+            warn_args = [message, location]
+          end
+
+          # Get the line number where the attribute is defined
+          test_line = nil
+          Class.new(Lutaml::Model::Serializable) do
+            test_line = __LINE__ + 1 # Next line will be the attribute definition
+            attribute method, :string
+          end
+
+          # Verify the warning was called with correct message
+          expect(warn_args[0]).to eq("Attribute name `#{method}` conflicts with a built-in method")
+
+          # Verify the caller location points to the exact line where attribute was defined
+          expect(warn_args[1]).to be_a(Thread::Backtrace::Location)
+          expect(warn_args[1].lineno).to eq(test_line)
+          expect(warn_args[1].path).to include("attribute_spec.rb")
         end
       else
         it "raise exception, when method is `#{method}`" do
@@ -98,6 +124,43 @@ RSpec.describe Lutaml::Model::Attribute do
             "Attribute name '#{method}' is not allowed",
           )
         end
+      end
+    end
+
+    context "when multiple attributes with conflicting names are defined" do
+      before do
+        allow(Lutaml::Model::Logger).to receive(:warn)
+      end
+
+      it "logs warnings with correct line numbers for each attribute" do
+        # Capture all warning calls
+        warning_calls = []
+        allow(Lutaml::Model::Logger).to receive(:warn) do |message, location|
+          warning_calls << [message, location]
+        end
+
+        # Define a class with multiple conflicting attributes
+        hash_line = nil
+        method_line = nil
+        Class.new(Lutaml::Model::Serializable) do
+          hash_line = __LINE__ + 1
+          attribute :hash, :string
+          method_line = __LINE__ + 1
+          attribute :method, :string
+        end
+
+        # Verify both warnings were logged
+        expect(warning_calls.length).to eq(2)
+
+        # Check first warning (:hash)
+        expect(warning_calls[0][0]).to eq("Attribute name `hash` conflicts with a built-in method")
+        expect(warning_calls[0][1].lineno).to eq(hash_line)
+        expect(warning_calls[0][1].path).to include("attribute_spec.rb")
+
+        # Check second warning (:method)
+        expect(warning_calls[1][0]).to eq("Attribute name `method` conflicts with a built-in method")
+        expect(warning_calls[1][1].lineno).to eq(method_line)
+        expect(warning_calls[1][1].path).to include("attribute_spec.rb")
       end
     end
   end
@@ -114,7 +177,8 @@ RSpec.describe Lutaml::Model::Attribute do
     it "raise exception if option is not allowed" do
       expect do
         validate_options.call({ foo: "bar" })
-      end.to raise_error(Lutaml::Model::InvalidAttributeOptionsError, "Invalid options given for `name` [:foo]")
+      end.to raise_error(Lutaml::Model::InvalidAttributeOptionsError,
+                         "Invalid options given for `name` [:foo]")
     end
 
     it "raise exception if pattern is given with non string type" do
@@ -139,7 +203,9 @@ RSpec.describe Lutaml::Model::Attribute do
     end
 
     context "when type is set and method_name is set" do
-      let(:attribute) { described_class.new("name", :string, method_name: :tmp) }
+      let(:attribute) do
+        described_class.new("name", :string, method_name: :tmp)
+      end
 
       it "returns true" do
         expect(attribute.derived?).to be(true)

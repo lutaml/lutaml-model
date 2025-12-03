@@ -5,7 +5,7 @@ module Lutaml
   module Model
     module Yamls
       class StandardAdapter < Document
-        FORMAT_SYMBOL = :yaml
+        FORMAT_SYMBOL = :yamls
 
         def self.parse(yamls, _options = {})
           results = []
