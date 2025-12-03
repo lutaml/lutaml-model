@@ -106,7 +106,18 @@ module Lutaml
         #   end
         def self.xsd_type(type_name = nil)
           @xsd_type = type_name if type_name
-          @xsd_type || default_xsd_type
+          @xsd_type || inherited_xsd_type || default_xsd_type
+        end
+
+        # Get inherited xsd_type from parent class
+        #
+        # @return [String, nil] parent's xsd_type if set
+        def self.inherited_xsd_type
+          return nil if superclass == Type::Value || !superclass.respond_to?(:xsd_type)
+
+          # Get parent's @xsd_type directly (not default_xsd_type)
+          parent_xsd = superclass.instance_variable_get(:@xsd_type)
+          parent_xsd || superclass.inherited_xsd_type
         end
 
         # Default XSD type for this Value type

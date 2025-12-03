@@ -407,9 +407,9 @@ RSpec.describe "Type Namespace Examples" do
       expect(serialized).to include("<dc:title>")
       expect(serialized).to include("<dc:creator>")
 
-      # cp:lastModifiedBy and cp:revision should use cp: namespace from CpLastModifiedByType and CpRevisionType
-      expect(serialized).to include("<cp:lastModifiedBy>")
-      expect(serialized).to include("<cp:revision>")
+      # lastModifiedBy and revision are in the default cp: namespace (no prefix needed)
+      expect(serialized).to include("<lastModifiedBy>")
+      expect(serialized).to include("<revision>")
 
       # dcterms:created and dcterms:modified should use dcterms: namespace from model classes
       expect(serialized).to include("<dcterms:created")
@@ -473,8 +473,9 @@ RSpec.describe "Type Namespace Examples" do
       model = model_class.new(value: "test")
       xml = model.to_xml
 
-      expect(xml).to include('xmlns:custom="https://example.com/custom"')
-      expect(xml).to include("<custom:value>test</custom:value>")
+      # custom namespace is the default namespace (no prefix needed)
+      expect(xml).to include('xmlns="https://example.com/custom"')
+      expect(xml).to include("<value>test</value>")
     end
 
     it "maintains round-trip consistency" do

@@ -23,7 +23,8 @@ module Lutaml
                     :element_name,
                     :documentation_text,
                     :type_name_value,
-                    :namespace_scope
+                    :namespace_scope,
+                    :namespace_scope_config
 
         def initialize
           super
@@ -42,10 +43,11 @@ module Lutaml
           @documentation_text = nil
           @type_name_value = nil
           @namespace_scope = []
+          @namespace_scope_config = []
         end
 
         def finalize(mapper_class)
-          if !root_element && !no_root?
+          if !root_element && !no_root? && !@type_name_value
             root(mapper_class.model.to_s)
           end
           @finalized = true
@@ -96,19 +98,36 @@ module Lutaml
           @ordered = true # mixed content implies ordered
         end
 
+        # Enable ordered content for this element
+        #
+        # Ordered content means element order is preserved during
+        # round-trip serialization without validation.
+        # This is different from `sequence` which enforces and validates order.
+        #
+        # Use this when:
+        # - Element order matters for your application
+        # - You need to preserve input order exactly
+        # - You DON'T want to validate/enforce specific order
+        #
+        # Use `sequence` when you need strict order validation.
+        #
+        # @return [Boolean] true
+        def ordered
+          @ordered = true
+        end
+
         def root?
           !!root_element
         end
 
         # Mark this model as having no root element (type-only)
         #
-        # @deprecated Use absence of element() declaration instead
+        # @deprecated Use absence of element() declaration and type_name() instead
         def no_root
           warn "[Lutaml::Model] DEPRECATED: no_root is deprecated. " \
-               "Simply omit the element declaration for type-only models."
+               "Simply omit the element declaration for type-only models. " \
+               "Use type_name() to set the XSD type name."
           @no_root = true
-          # NOTE: Intentionally NOT clearing @element_name or @root_element here
-          # for backward compatibility with Collections during deprecation period
         end
 
         def no_root?
@@ -153,10 +172,18 @@ module Lutaml
             @namespace_uri = uri_or_class.uri
             @namespace_prefix = prefix || uri_or_class.prefix_default
           elsif uri_or_class.is_a?(String)
-            # Legacy: String URI passed
+            # Legacy: String URI passed - create anonymous XmlNamespace class
             validate_namespace_prefix!(prefix)
             @namespace_uri = uri_or_class
             @namespace_prefix = prefix
+
+            # Create anonymous XmlNamespace class to maintain namespace_class API
+            uri_val = uri_or_class
+            prefix_val = prefix
+            @namespace_class = Class.new(Lutaml::Model::XmlNamespace) do
+              uri uri_val
+              prefix_default prefix_val if prefix_val
+            end
           else
             raise ArgumentError,
                   "namespace must be a String URI or XmlNamespace class, " \
@@ -173,18 +200,28 @@ module Lutaml
         # root element. Namespaces not listed will be declared locally on
         # elements where they are used.
         #
-        # @param namespaces [Array<Class>] array of XmlNamespace classes
+        # @param namespaces [Array<Class>, Array<Hash>] array of XmlNamespace classes
+        #   or hashes with :namespace and :declare keys
         # @return [Array<Class>] the current namespace scope
         #
-        # @example Declare all namespaces at root
+        # @example Simple array of namespace classes (all default to :auto)
         #   namespace_scope [VcardNamespace, DctermsNamespace, DcElementsNamespace]
         #
-        # @example Declare only some namespaces at root
-        #   namespace_scope [VcardNamespace]
+        # @example Per-namespace declaration control
+        #   namespace_scope [
+        #     { namespace: VcardNamespace, declare: :always },
+        #     { namespace: DctermsNamespace, declare: :auto },
+        #     XsiNamespace  # Can mix hash and class entries
+        #   ]
         def namespace_scope(namespaces = nil)
           if namespaces
             validate_namespace_scope!(namespaces)
-            @namespace_scope = namespaces
+
+            # Convert to normalized format
+            @namespace_scope_config = normalize_namespace_scope(namespaces)
+            @namespace_scope = @namespace_scope_config.map do |cfg|
+              cfg[:namespace]
+            end
           end
           @namespace_scope
         end
@@ -211,6 +248,15 @@ module Lutaml
           @type_name_value
         end
 
+        # Alias for type_name - both methods are equivalent
+        #
+        # xsd_type and type_name set the XSD complexType/simpleType name
+        # for schema generation. Use type_name for clarity (recommended).
+        #
+        # @param name [String, nil] the type name
+        # @return [String, nil] the type name
+        alias xsd_type type_name
+
         def map_instances(to:, polymorphic: {})
           map_element(to, to: to, polymorphic: polymorphic)
         end
@@ -235,11 +281,21 @@ module Lutaml
           transform: {},
           value_map: {},
           form: nil,
-          documentation: nil
+          documentation: nil,
+          xsd_type: (xsd_type_provided = false
+                      nil)
         )
           validate!(
             name, to, with, render_nil, render_empty, type: TYPES[:element]
           )
+
+          # Raise error if xsd_type parameter is provided
+          if xsd_type_provided != false
+            raise Lutaml::Model::IncorrectMappingArgumentsError,
+                  "xsd_type is not allowed at mapping level. " \
+                  "XSD type must be declared in Type::Value classes using the xsd_type directive. " \
+                  "See docs/migration-guides/xsd-type-migration.adoc"
+          end
 
           rule = MappingRule.new(
             name,
@@ -257,7 +313,7 @@ module Lutaml
             default_namespace: namespace_uri,
             prefix: prefix,
             polymorphic: polymorphic,
-            namespace_set: namespace_set != false,
+            namespace_set: namespace_set != false || namespace == :inherit,
             prefix_set: prefix_set != false,
             transform: transform,
             value_map: value_map,
@@ -285,11 +341,21 @@ module Lutaml
           as_list: nil,
           delimiter: nil,
           form: nil,
-          documentation: nil
+          documentation: nil,
+          xsd_type: (xsd_type_provided = false
+                     nil)
         )
           validate!(
             name, to, with, render_nil, render_empty, type: TYPES[:attribute]
           )
+
+          # Raise error if xsd_type parameter is provided
+          if xsd_type_provided != false
+            raise Lutaml::Model::IncorrectMappingArgumentsError,
+                  "xsd_type is not allowed at mapping level. " \
+                  "XSD type must be declared in Type::Value classes using the xsd_type directive. " \
+                  "See docs/migration-guides/xsd-type-migration.adoc"
+          end
 
           if name == "schemaLocation"
             Logger.warn_auto_handling(
@@ -476,7 +542,7 @@ module Lutaml
 
         # Validate namespace_scope parameter
         #
-        # Ensures all items are XmlNamespace classes
+        # Ensures all items are XmlNamespace classes or valid Hash entries
         #
         # @param namespaces [Array] the namespaces to validate
         # @raise [ArgumentError] if invalid namespace classes provided
@@ -489,11 +555,24 @@ module Lutaml
           end
 
           namespaces.each do |ns|
-            next if ns.is_a?(Class) && ns < Lutaml::Model::XmlNamespace
-
-            raise ArgumentError,
-                  "namespace_scope must contain only XmlNamespace classes, " \
-                  "got #{ns.class}"
+            if ns.is_a?(Class)
+              unless ns < Lutaml::Model::XmlNamespace
+                raise ArgumentError,
+                      "namespace_scope must contain only XmlNamespace classes, " \
+                      "got #{ns}"
+              end
+            elsif ns.is_a?(::Hash)
+              ns_class = ns[:namespace]
+              unless ns_class.is_a?(Class) && ns_class < Lutaml::Model::XmlNamespace
+                raise ArgumentError,
+                      "namespace_scope Hash entry must have :namespace key " \
+                      "with XmlNamespace class, got #{ns_class.class}"
+              end
+            else
+              raise ArgumentError,
+                    "namespace_scope must contain only XmlNamespace classes or Hashes, " \
+                    "got #{ns.class}"
+            end
           end
         end
 
@@ -654,6 +733,32 @@ module Lutaml
         end
 
         private
+
+        # Normalize namespace_scope input to unified format
+        #
+        # Converts various input formats into a normalized array of hashes
+        # with :namespace and :declare keys.
+        #
+        # @param namespaces [Array] array of namespace classes or hashes
+        # @return [Array<Hash>] normalized config array
+        def normalize_namespace_scope(namespaces)
+          namespaces.map do |ns_entry|
+            if ns_entry.is_a?(::Hash) # Use ::Hash explicitly
+              # Hash format already has namespace and optional declare
+              # Don't double-nest!
+              {
+                namespace: ns_entry[:namespace],
+                declare: ns_entry[:declare] || :auto, # Default to :auto
+              }
+            else
+              # Simple namespace class - wrap it
+              {
+                namespace: ns_entry,
+                declare: :auto,
+              }
+            end
+          end
+        end
 
         def register(register_id = nil)
           register_id ||= Lutaml::Model::Config.default_register

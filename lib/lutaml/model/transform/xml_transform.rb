@@ -42,7 +42,8 @@ module Lutaml
           )
 
           new_opts = options.dup
-          if rule.namespace_set?
+          # Don't overwrite default_namespace for :inherit - it needs the parent's namespace
+          if rule.namespace_set? && rule.instance_variable_get(:@namespace_param) != :inherit
             new_opts[:default_namespace] = rule.namespace
           end
 
@@ -150,6 +151,16 @@ module Lutaml
 
         children = doc.children.select do |child|
           next false if child.text?
+
+          # CRITICAL FIX: Handle explicit namespace: nil
+          # When namespace: nil is explicitly set, only match elements with NO namespace URI
+          if rule.namespace_set? && rule.namespace.nil? && rule.instance_variable_get(:@namespace_param).nil?
+            # Child must have:
+            # 1. Matching local name
+            # 2. NO namespace URI (namespaced_name == unprefixed_name indicates no namespace)
+            next child.unprefixed_name == rule.name.to_s &&
+              child.namespaced_name == child.unprefixed_name
+          end
 
           # First try exact namespace match
           next true if rule_names.include?(child.namespaced_name)

@@ -1,0 +1,149 @@
+---
+title: Custom Adapters
+nav_order: 3
+---
+
+= Custom Adapters in Lutaml::Model
+
+Lutaml::Model provides a flexible system for creating custom adapters to handle different data formats. This guide explains how to create and use custom adapters in your application.
+
+== Overview
+
+Custom adapters allow you to extend Lutaml::Model to support additional data formats beyond the built-in ones (TOML, YAML, JSON, XML). Each adapter consists of three main components:
+
+. An adapter class that handles parsing and serialization
+. A mapping class that defines how data maps to your model
+. A transform class that handles data transformation
+
+== Creating a Custom Adapter
+
+=== 1. Adapter Class
+
+The adapter class is responsible for parsing input data and converting it back to the target format. It must implement:
+
+* `self.parse(data, options = {})` - Class method to parse input data
+* `to_<format_name>` - Instance method to convert data back to the target format
+
+.Example of a custom adapter for parsing string pairs
+[source,ruby]
+----
+class PairsAdapter < Lutaml::Model::KeyValueDocument
+  attr_reader :parsed_data
+
+  def initialize(parsed_data)
+    @parsed_data = parsed_data
+  end
+
+  def self.parse(data, options = {})
+    # Example input: "name:John|age:30"
+    parsed = data.split("|").map { |pair| pair.split(":") }.to_h
+    new(parsed)
+  end
+
+  def to_pairs_format
+    # Example output: "name:John|age:30"
+    parsed_data.map { |k, v| "#{k}:#{v}" }.join("|")
+  end
+end
+----
+
+=== 2. Mapping Class
+
+The mapping class defines how data fields map to your model attributes. It should inherit from `Lutaml::Model::Mapping`.
+
+[source,ruby]
+----
+class PairsMappingRule < Lutaml::Model::MappingRule
+end
+
+class PairsMapping < Lutaml::Model::Mapping
+  def map_field(name, to:)
+    @mappings << PairsMappingRule.new(name, to: to)
+  end
+
+  def mappings
+    @mappings
+  end
+end
+----
+
+=== 3. Transform Class
+
+The transform class handles the conversion between your data format and the model. It should inherit from `Lutaml::Model::Transform`.
+
+[source,ruby]
+----
+class PairsTransform < Lutaml::Model::Transform
+  def self.data_to_model(context, data, format, options = {})
+    model = context.model.new
+    model.name = data["name"]
+    model.age = data["age"]
+    model
+  end
+
+  def self.model_to_data(context, model, format, options = {})
+    { "name" => model.name, "age" => model.age }
+  end
+end
+----
+
+== Registering Your Adapter
+
+Register your custom adapter with the FormatRegistry:
+
+[source,ruby]
+----
+Lutaml::Model::FormatRegistry.register(
+  :pairs,
+  mapping_class: PairsMapping,
+  adapter_class: PairsAdapter,
+  transformer: PairsTransform
+)
+----
+
+== Using Custom Adapters
+
+Once registered, you can use your custom adapter with your model classes:
+
+[source,ruby]
+----
+class Person < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :age, :string
+
+  pairs do
+    map_field "name", to: :name
+    map_field "age", to: :age
+  end
+end
+----
+
+=== Step-by-step Example
+
+[source,ruby]
+----
+input = "name:John|age:30"
+
+person = Person.from_pairs(input)
+# => #<Person @name="John", @age="30">
+
+output = person.to_pairs_format
+# => "name:John|age:30"
+----
+
+== Best Practices
+
+. *Separation of Concerns*: Keep parsing, mapping, and transformation logic in their respective classes.
+. *Error Handling*: Add meaningful error handling in your adapter's `.parse` method.
+. *Documentation*: Clearly document the format and adapter usage.
+. *Testing*: Write tests for your adapter's logic and behavior.
+. *Leverage Format Features*: Support format-specific options while staying consistent with Lutaml::Model’s interfaces.
+
+== Example Implementations
+
+For complete examples of custom adapter implementations, see:
+
+* `spec/lutaml/model/custom_bibtex_adapter_spec.rb`
+* `spec/lutaml/model/custom_vobject_adapter_spec.rb`
+
+These demonstrate how to build complete, custom adapters that integrate cleanly with `Lutaml::Model`.

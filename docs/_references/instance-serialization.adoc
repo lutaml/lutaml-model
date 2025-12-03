@@ -1,0 +1,84 @@
+---
+title: Instance serialization
+nav_order: 5
+---
+
+== Instance serialization
+
+=== General
+
+Instances of `Lutaml::Model::Serializable` can be serialized to various formats
+using the `to_{format}` methods, including `to_xml`, `to_yaml`, `to_json`,
+`to_toml`, etc.
+
+The instance serialization method `to_{format}` accepts various options
+for the tailoring of output.
+
+
+=== Skipping model attributes (`except:` option)
+
+In `to_{format}`, the `except` option allows you to exclude certain model
+attributes from being included in the output.
+
+`except`:: An array of attribute names.
+
+[example]
+====
+[source, ruby]
+----
+class JapaneseCeramic < Lutaml::Model::Serializable
+  attribute :glaze_type, :string
+  attribute :description, :string
+
+  xml do
+    root 'JapaneseCeramic'
+    map_attribute 'glazeType', to: :glaze_type
+    map_element 'description', to: :description
+  end
+end
+----
+
+[source,ruby]
+----
+# Create a new instance
+> instance = JapaneseCeramic.new(glaze_type: "Clear", description: "Porcelain")
+#=> #<JapaneseCeramic:0x00000002e5625650 @description="Porcelain", @glaze_type="Clear">
+
+# Serialize the instance to XML without glaze_type
+> instance.to_xml(except: [:glaze_type])
+#=> "<JapaneseCeramic>\n  <description>Porcelain</description>\n</JapaneseCeramic>"
+
+# Serialize the instance to XML without glaze_type and description
+> instance.to_xml(except: [:glaze_type, :description])
+#=> "<JapaneseCeramic/>"
+
+# Serialize the instance to YAML without glaze_type
+> instance.to_yaml(except: [:glaze_type])
+#=> "---\ndescription: Porcelain\n"
+
+# Serialize the instance to YAML without glaze_type and description
+> instance.to_yaml(except: [:glaze_type, :description])
+#=> "--- {}\n"
+----
+====
+
+
+=== Character encoding (`encoding:` option)
+
+The `encoding:` option is used to customize the character encoding of the
+serialized content.
+
+Please refer to <<xml-instance-character-encoding>> for details.
+
+
+=== Namespace prefix handling (`prefix:` option)
+
+The `prefix:` option is used to customize namespace prefix behavior for the
+serialized content.
+
+Please refer to these links for details:
+
+`prefix: true`:: Force display of unused prefix: <<xml-namespace-instance-prefix-force>>
+
+`prefix: {prefix-name}`:: Namespace prefix override: <<xml-namespace-instance-prefix-override>>
+

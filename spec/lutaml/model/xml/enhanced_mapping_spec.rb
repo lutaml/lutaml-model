@@ -483,9 +483,9 @@ RSpec.describe "Enhanced XML Mapping Features" do
         xml = instance.to_xml
 
         expect(xml).to include("<t:qualified>A</t:qualified>")
-        # When namespace default is :qualified, unqualified form keeps it qualified
-        # This is the actual behavior - namespace default takes precedence
-        expect(xml).to include("<t:unqualified>B</t:unqualified>")
+        # When form: :unqualified is explicitly set, element is NOT qualified
+        # This is correct W3C behavior - explicit form overrides default
+        expect(xml).to include("<unqualified>B</unqualified>")
       end
     end
 

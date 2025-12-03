@@ -1,0 +1,145 @@
+# Site settings
+title: "LutaML Model"
+description: >-
+  Ruby data modeling with multi-format serialization support
+baseurl: "/lutaml-model"
+url: "https://www.lutaml.org"
+
+# Theme
+theme: just-the-docs
+remote_theme: just-the-docs/just-the-docs@v0.7.0
+
+# Color scheme
+color_scheme: light
+
+# Search
+search_enabled: true
+search:
+  heading_level: 2
+  previews: 3
+  preview_words_before: 5
+  preview_words_after: 10
+  tokenizer_separator: /[\s/]+/
+  rel_url: true
+  button: false
+
+# Heading anchors
+heading_anchors: true
+
+# Aux links for the upper right navigation
+aux_links:
+  "GitHub":
+    - "https://github.com/lutaml/lutaml-model"
+  "RubyGems":
+    - "https://rubygems.org/gems/lutaml-model"
+
+# Makes Aux links open in a new tab
+aux_links_new_tab: true
+
+# Back to top link
+back_to_top: true
+back_to_top_text: "Back to top"
+
+# Footer content
+footer_content: >-
+  Copyright &copy; 2025 Ribose. Distributed by a
+  <a href="https://github.com/lutaml/lutaml-model/blob/main/LICENSE.md">BSD-2-Clause license</a>.
+
+# Footer last edit timestamp
+last_edit_timestamp: true
+last_edit_time_format: "%b %e %Y at %I:%M %p"
+
+# Navigation structure
+nav_sort: order
+
+# Collections for organizing content
+collections:
+  pages:
+    permalink: "/:path/"
+    output: true
+  tutorials:
+    permalink: "/:collection/:path/"
+    output: true
+  guides:
+    permalink: "/:collection/:path/"
+    output: true
+  references:
+    permalink: "/:collection/:path/"
+    output: true
+  migrations:
+    permalink: "/:collection/:path/"
+    output: true
+
+# Just the Docs collection configuration
+just_the_docs:
+  collections:
+    pages:
+      name: Core Topics
+      nav_fold: false
+    tutorials:
+      name: Tutorials
+      nav_fold: true
+    guides:
+      name: Guides
+      nav_fold: true
+    references:
+      name: References
+      nav_fold: true
+    migrations:
+      name: Migrations
+      nav_fold: true
+# Plugins
+plugins:
+  - jekyll-asciidoc
+  - jekyll-seo-tag
+  - jekyll-sitemap
+
+# AsciiDoc configuration
+asciidoc: {}
+asciidoctor:
+  attributes:
+    - source-highlighter=rouge
+    - rouge-style=github
+    - icons=font
+    - sectanchors=true
+    - idprefix=
+    - idseparator=-
+    - experimental=true
+
+include:
+  - '*.adoc'
+
+# Exclude from processing
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - _site
+  - node_modules
+  - vendor/bundle/
+  - vendor/cache/
+  - vendor/gems/
+  - vendor/ruby/
+  - Rakefile
+  - .rubocop.yml
+  - .rubocop_todo.yml
+
+# Enable code copy button
+enable_copy_code_button: true
+
+# Callouts
+callouts_level: quiet
+callouts:
+  highlight:
+    color: yellow
+  important:
+    title: Important
+    color: blue
+  new:
+    title: New
+    color: green
+  note:
+    title: Note
+    color: purple
+  warning:
+    title: Warning
+    color: red

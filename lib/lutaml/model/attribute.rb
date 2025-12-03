@@ -610,6 +610,9 @@ module Lutaml
 
       def serialize_model(value, format, register, options)
         as_options = options.merge(register: register)
+        # Remove mappings from options for nested model serialization
+        # Nested models should use their own format mappings
+        as_options.delete(:mappings)
         return unless Utils.present?(value)
 
         resolved_type = as_options.delete(:resolved_type) || type(register)
@@ -662,6 +665,14 @@ module Lutaml
         if (invalid_opts = options.keys - ALLOWED_OPTIONS).any?
           raise Lutaml::Model::InvalidAttributeOptionsError.new(name,
                                                                 invalid_opts)
+        end
+
+        # Deprecation warning for :xsd_type attribute option
+        if options.key?(:xsd_type)
+          warn "[DEPRECATION] The :xsd_type attribute option is deprecated and will be removed in v1.0.0. " \
+               "Create a custom Type::Value class with xsd_type at class level instead. " \
+               "See: docs/migration-guides/xsd-type-migration.adoc " \
+               "Called from #{caller(1..1).first}"
         end
 
         # No need to change user register#get_class, only checks if type is LutaML-Model string.
