@@ -393,8 +393,8 @@ Dir.mkdir(output_dir) unless Dir.exist?(output_dir)
 
 model_classes.each do |class_name, class_code|
   # Convert class name to file name (e.g., "MyApp_User" -> "my_app_user.rb")
-  file_name = class_name.gsub(/([A-Z]+)([A-Z][a-z])/,'\1_\2')
-                        .gsub(/([a-z\d])([A-Z])/,'\1_\2')
+  file_name = class_name.gsub(/([A-Z]+)([A-Z][a-z])/,'\\1_\\2')
+                        .gsub(/([a-z\d])([A-Z])/,'\\1_\\2')
                         .downcase + '.rb'
   
   File.write(File.join(output_dir, file_name), class_code)
