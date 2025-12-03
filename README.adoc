@@ -4138,6 +4138,8 @@ Available collection validation methods:
 * `validates_all_have(field, message: nil)` - Ensures all items have the specified field with a non-blank value
 * `validate_collection(&block)` - Define custom validation logic that receives the collection and errors object
 
+See full documentation for collection validations at link:docs/collection_validation.adoc[Collection Validations].
+
 ==== Initialization
 
 Collections can be initialized with an array of items or through individual item
