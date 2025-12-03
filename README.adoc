@@ -4068,8 +4068,8 @@ class UniquePublicationCollection < Lutaml::Model::Collection
   validates_max_count 10, message: "Cannot have more than 10 publications"
   
   # Ensure all publications have required fields
-  validates_all_have :author, message: "All publications must have an author"
-  validates_all_have :year
+  validates_all_present :author, message: "All publications must have an author"
+  validates_all_present :year
 end
 ----
 ====
@@ -4121,7 +4121,7 @@ class ComprehensiveCollection < Lutaml::Model::Collection
   # Collection-level validations (for the collection as a whole)
   validates_uniqueness_of :id
   validates_min_count 1
-  validates_all_have :author
+  validates_all_present :author
 end
 
 # Usage
@@ -4135,7 +4135,7 @@ Available collection validation methods:
 * `validates_uniqueness_of(field, message: nil)` - Ensures field values are unique across all items
 * `validates_min_count(count, message: nil)` - Ensures minimum number of items in collection
 * `validates_max_count(count, message: nil)` - Ensures maximum number of items in collection
-* `validates_all_have(field, message: nil)` - Ensures all items have the specified field with a non-blank value
+* `validates_all_present(field, message: nil)` - Ensures all items have the specified field with a non-blank value
 * `validate_collection(&block)` - Define custom validation logic that receives the collection and errors object
 
 See full documentation for collection validations at link:docs/collection_validation.adoc[Collection Validations].
