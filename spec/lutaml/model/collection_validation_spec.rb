@@ -61,8 +61,8 @@ module CollectionValidationTests
   # Collection with "all must have" validation
   class CompletePublicationCollection < Lutaml::Model::Collection
     instances :publications, Publication
-    validates_all_have :author, message: "All publications must have an author"
-    validates_all_have :year, message: "All publications must have a year"
+    validates_all_present :author, message: "All publications must have an author"
+    validates_all_present :year, message: "All publications must have a year"
 
     xml do
       root "publications"
@@ -199,6 +199,28 @@ RSpec.describe Lutaml::Model::Collection do
           end
         end
       end
+
+      context "with empty collection" do
+        it "validates successfully" do
+          collection = CollectionValidationTests::UniquePublicationCollection.new([])
+          expect { collection.validate! }.not_to raise_error
+        end
+      end
+
+      context "with nil values" do
+        it "ignores nil values in uniqueness validation" do
+          nil_id_pub1 = CollectionValidationTests::Publication.new(id: nil, title: "Title 1", year: 2020, author: "Author 1", category: "Science")
+          nil_id_pub2 = CollectionValidationTests::Publication.new(id: nil, title: "Title 2", year: 2021, author: "Author 2", category: "Fiction")
+
+          # Multiple nils are allowed
+          collection = CollectionValidationTests::UniquePublicationCollection.new([nil_id_pub1, nil_id_pub2])
+          expect { collection.validate! }.not_to raise_error
+
+          # Nils mixed with non-nil values are allowed
+          collection = CollectionValidationTests::UniquePublicationCollection.new([science_publication, nil_id_pub1])
+          expect { collection.validate! }.not_to raise_error
+        end
+      end
     end
 
     describe "Count validations" do
@@ -235,6 +257,17 @@ RSpec.describe Lutaml::Model::Collection do
           end
         end
       end
+
+      context "with empty collection" do
+        it "raises validation error for minimum count" do
+          collection = CollectionValidationTests::SizedPublicationCollection.new([])
+          expect do
+            collection.validate!
+          end.to raise_error(Lutaml::Model::ValidationError) do |error|
+            expect(error.message).to include("Must have at least 2 publications")
+          end
+        end
+      end
     end
 
     describe "All must have validation" do
@@ -252,6 +285,30 @@ RSpec.describe Lutaml::Model::Collection do
             collection.validate!
           end.to raise_error(Lutaml::Model::ValidationError) do |error|
             expect(error.message).to include("All publications must have an author")
+          end
+        end
+      end
+
+      context "with empty collection" do
+        it "validates successfully" do
+          collection = CollectionValidationTests::CompletePublicationCollection.new([])
+          expect { collection.validate! }.not_to raise_error
+        end
+      end
+
+      context "with nil and empty string values" do
+        it "raises validation error for both nil and empty string" do
+          nil_author = CollectionValidationTests::Publication.new(id: "1", title: "Title", year: 2020, author: nil, category: "Science")
+          empty_author = CollectionValidationTests::Publication.new(id: "2", title: "Title", year: 2021, author: "", category: "Fiction")
+
+          # Both nil and empty string should fail
+          [nil_author, empty_author].each do |pub|
+            collection = CollectionValidationTests::CompletePublicationCollection.new([science_publication, pub])
+            expect do
+              collection.validate!
+            end.to raise_error(Lutaml::Model::ValidationError) do |error|
+              expect(error.message).to include("All publications must have an author")
+            end
           end
         end
       end
