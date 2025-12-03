@@ -22,6 +22,13 @@ module Lutaml
       def apply_xml_mapping(doc, instance, options = {})
         options = prepare_options(options)
         instance.encoding = options[:encoding]
+        instance.doctype = options[:doctype] if options[:doctype]
+        
+        # Transfer XML declaration info if present (Issue #1)
+        if doc.respond_to?(:xml_declaration) && doc.xml_declaration
+          instance.instance_variable_set(:@xml_declaration, doc.xml_declaration)
+        end
+        
         return instance unless doc
 
         mappings = options[:mappings] || mappings_for(:xml).mappings

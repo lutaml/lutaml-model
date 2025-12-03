@@ -13,11 +13,32 @@ module Lutaml
                                                                            options))
 
           parsed = Ox.parse(xml)
-          # @root = OxElement.new(parsed)
           # Ox.parse returns Ox::Document if XML has declaration, Ox::Element otherwise
-          root_element = parsed.is_a?(::Ox::Document) ? parsed.nodes.first : parsed
+          # Skip Ox::DocType nodes to get the actual root element
+          root_element = if parsed.is_a?(::Ox::Document)
+                          parsed.nodes.find { |node| node.is_a?(::Ox::Element) }
+                        else
+                          parsed
+                        end
+          
+          # Extract DOCTYPE information if present
+          # Ox doesn't directly expose DOCTYPE, so we need to parse it from the original XML
+          doctype_info = extract_doctype_from_xml(xml)
+          
           @root = OxElement.new(root_element)
-          new(@root, Ox.default_options[:encoding])
+          new(@root, Ox.default_options[:encoding], doctype: doctype_info)
+        end
+        
+        # Extract DOCTYPE from raw XML string (Ox doesn't expose internal_subset)
+        def self.extract_doctype_from_xml(xml)
+          # Match DOCTYPE declaration using regex
+          if xml =~ /<!DOCTYPE\s+(\S+)(?:\s+(PUBLIC|SYSTEM)\s+"([^"]+)"(?:\s+"([^"]+)")?)?\s*>/
+            {
+              name: $1,
+              public_id: ($2 == "PUBLIC" ? $3 : nil),
+              system_id: ($2 == "PUBLIC" ? $4 : $3),
+            }
+          end
         end
 
         def to_xml(options = {})
@@ -55,7 +76,37 @@ module Lutaml
 
           xml_data = builder.xml.to_s
           stripped_data = xml_data.lines.drop(1).join
-          options[:declaration] ? declaration(options) + stripped_data : stripped_data
+          
+          result = ""
+          result += declaration(options) if options[:declaration]
+          
+          # Add DOCTYPE if present
+          doctype_to_use = options[:doctype] || @doctype
+          if doctype_to_use && !options[:omit_doctype]
+            result += generate_doctype_declaration(doctype_to_use)
+          end
+          
+          result += stripped_data
+          result
+        end
+        
+        # Generate DOCTYPE declaration from doctype hash
+        #
+        # @param doctype [Hash] the doctype information
+        # @return [String] the DOCTYPE declaration
+        def generate_doctype_declaration(doctype)
+          return nil unless doctype
+          
+          parts = ["<!DOCTYPE #{doctype[:name]}"]
+          
+          if doctype[:public_id]
+            parts << %Q(PUBLIC "#{doctype[:public_id]}")
+            parts << %Q("#{doctype[:system_id]}") if doctype[:system_id]
+          elsif doctype[:system_id]
+            parts << %Q(SYSTEM "#{doctype[:system_id]}")
+          end
+          
+          parts.join(" ") + ">\n"
         end
 
         # Build element using prepared namespace declaration plan

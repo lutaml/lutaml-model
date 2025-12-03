@@ -30,18 +30,33 @@ module Lutaml
 
         # Create declaration plan for an element and its descendants
         #
+        # THREE-TIER PRIORITY SYSTEM (Issue #3):
+        # Tier 1: Input namespaces (from parsed XML) - ALWAYS preserved
+        # Tier 2: namespace_scope :always declarations
+        # Tier 3: Used namespaces + namespace_scope :auto (if used)
+        #
         # @param element [Object] the model instance (can be nil for type analysis)
         # @param mapping [Xml::Mapping] the XML mapping for this element
         # @param needs [Hash] namespace needs from collector (with string keys)
         # @param parent_plan [Hash, nil] parent element's plan
-        # @param options [Hash] serialization options
+        # @param options [Hash] serialization options (may include :input_namespaces)
         # @return [Hash] declaration plan structure
         def plan(element, mapping, needs, parent_plan: nil, options: {})
           plan = {
-            namespaces: {},        # String key (from to_key) => { ns_object: XmlNamespace CLASS, format:, xmlns_declaration:, declared_at: }
+            namespaces: {},        # String key (from to_key) => { ns_object: XmlNamespace CLASS, format:, xmlns_declaration:, declared_at:, source: }
             children_plans: {},    # Child element => child plans
             type_namespaces: {},   # Attribute name => XmlNamespace CLASS
           }
+          
+          # ==================================================================
+          # TIER 1: PRE-FILL WITH INPUT NAMESPACES (Highest Priority)
+          # ==================================================================
+          # Input namespaces from parsed XML are ALWAYS preserved exactly
+          # This prevents Issue #3A (losing unused namespaces like xmlns:xsi)
+          # Only apply at root level (no parent_plan) AND only when input_namespaces provided
+          if !parent_plan && options[:input_namespaces]&.any?
+            prefill_input_namespaces(plan, options[:input_namespaces])
+          end
 
           # Get mapper_class and attributes early for Type namespace lookups
           mapper_class = element&.class || options[:mapper_class]
@@ -118,7 +133,11 @@ module Lutaml
               # even if we have a custom prefix override
               # This ensures adapter can find the overridden config
               key = mapping.namespace_class.to_key
-              unless plan[:namespaces][key]
+              existing = plan[:namespaces][key]
+              
+              # Declare if not present OR if only present as :local_on_use
+              # (which we override when it's our own namespace)
+              if !existing || existing[:declared_at] == :local_on_use
                 # Make new declaration
                 format = choose_format_with_override(mapping,
                                                      effective_ns_class, needs, options)
@@ -196,8 +215,9 @@ module Lutaml
                              cfg[:namespace] == ns_class
                            end
                          else
-                           # No namespace_scope defined - all namespaces declared at root (default)
-                           true
+                           # No namespace_scope defined - NO hoisting eligibility
+                           # Namespaces must be declared locally (on element using them)
+                           false
                          end
 
               if in_scope
@@ -318,6 +338,72 @@ module Lutaml
         private
 
         attr_reader :register
+        
+        # Pre-fill plan with input namespaces from parsed XML
+        #
+        # This implements Tier 1 priority: Input namespaces are always preserved
+        # exactly as they appeared in the input, regardless of usage.
+        #
+        # @param plan [Hash] the plan to pre-fill
+        # @param input_ns [Hash] map of prefix => {uri:, prefix:} from parsed XML
+        def prefill_input_namespaces(plan, input_ns)
+          return unless input_ns&.any?
+          
+          input_ns.each do |prefix_key, ns_config|
+            # Create an XmlNamespace class for this input namespace
+            # We need a consistent key for lookup, so we'll use URI as the key
+            uri = ns_config[:uri]
+            prefix = ns_config[:prefix]
+            
+            # Determine format based on whether it has a prefix
+            format = prefix_key == :default ? :default : :prefix
+            
+            # Build xmlns declaration string
+            xmlns_decl = if format == :default
+                          "xmlns=\"#{uri}\""
+                        else
+                          "xmlns:#{prefix}=\"#{uri}\""
+                        end
+            
+            # Try to find existing XmlNamespace class with this URI
+            # If not found, create anonymous class for input namespace
+            ns_class = find_or_create_namespace_class(uri, prefix)
+            
+            # Use URI as key for consistency with rest of system
+            key = ns_class.to_key
+            
+            # Add to plan with :input source marker
+            plan[:namespaces][key] = {
+              ns_object: ns_class,
+              format: format,
+              xmlns_declaration: xmlns_decl,
+              declared_at: :here,
+              source: :input,  # Mark as from input XML
+            }
+          end
+        end
+        
+        # Find existing XmlNamespace class by URI or create anonymous one
+        #
+        # @param uri [String] the namespace URI
+        # @param prefix [String, nil] the namespace prefix
+        # @return [Class] XmlNamespace class
+        def find_or_create_namespace_class(uri, prefix)
+          # Create anonymous class for input namespace
+          # Use class instance variable to ensure consistent to_key
+          # The class will be garbage collected after serialization completes
+          klass = Class.new(Lutaml::Model::XmlNamespace) do
+            # Use send to set class methods on the anonymous class
+            define_singleton_method(:uri) { uri }
+            define_singleton_method(:prefix_default) { prefix }
+          end
+          
+          # Call the DSL methods to set values properly
+          klass.uri(uri)
+          klass.prefix_default(prefix) if prefix
+          
+          klass
+        end
 
         # Validate that namespace is an XmlNamespace class
         #

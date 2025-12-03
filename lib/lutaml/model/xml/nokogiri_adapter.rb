@@ -10,11 +10,104 @@ module Lutaml
       class NokogiriAdapter < Document
         def self.parse(xml, options = {})
           parsed = Nokogiri::XML(xml, nil, encoding(xml, options))
+          
+          # Extract DOCTYPE information for model serialization
+          doctype_info = if parsed.internal_subset
+            {
+              name: parsed.internal_subset.name,
+              public_id: parsed.internal_subset.external_id,
+              system_id: parsed.internal_subset.system_id,
+            }
+          end
+          
+          # Extract XML declaration for Issue #1: XML Declaration Preservation
+          # Detect if input had declaration and extract version/encoding
+          xml_decl_info = extract_xml_declaration(xml)
+          
+          # Extract input namespace declarations for Issue #3: Namespace Preservation
+          # This captures ALL xmlns declarations from the root element
+          # These will be preserved during serialization (Tier 1 priority)
+          input_namespaces = extract_input_namespaces(parsed.root)
+          
+          # Store both parsed document (for native DOCTYPE) and extracted info (for model)
+          @parsed_doc = parsed
           @root = NokogiriElement.new(parsed.root)
-          new(@root, parsed.encoding)
+          new(@root, parsed.encoding,
+              parsed_doc: parsed,
+              doctype: doctype_info,
+              xml_declaration: xml_decl_info,
+              input_namespaces: input_namespaces)
+        end
+        
+        # Extract XML declaration information from input
+        #
+        # This implements Issue #1: XML Declaration Preservation.
+        # Detects if input had an XML declaration and extracts version/encoding.
+        #
+        # @param xml [String] the XML string to parse
+        # @return [Hash, nil] declaration info { version:, encoding:, had_declaration: } or nil
+        def self.extract_xml_declaration(xml)
+          # Match XML declaration at start of document
+          # Format: <?xml version="1.0" encoding="UTF-8"?>
+          # Both version and encoding are optional in the match
+          if xml.match(/\A\s*<\?xml\s+([^?]*)\?>/)
+            decl_content = ::Regexp.last_match(1)
+            
+            # Extract version (defaults to "1.0")
+            version = if decl_content.match(/version\s*=\s*["']([^"']+)["']/)
+                        ::Regexp.last_match(1)
+                      else
+                        "1.0"
+                      end
+            
+            # Extract encoding (may be absent)
+            encoding = if decl_content.match(/encoding\s*=\s*["']([^"']+)["']/)
+                         ::Regexp.last_match(1)
+                       end
+            
+            {
+              version: version,
+              encoding: encoding,
+              had_declaration: true,
+            }
+          else
+            # No XML declaration found
+            {
+              had_declaration: false,
+            }
+          end
+        end
+        
+        # Extract all xmlns namespace declarations from root element
+        #
+        # This implements Issue #3: Preserve input namespace declarations
+        # during round-trip serialization. All xmlns declarations are
+        # captured regardless of whether they're used in the document.
+        #
+        # @param root_element [Nokogiri::XML::Element] the root element
+        # @return [Hash] map of prefix/uri pairs from input
+        def self.extract_input_namespaces(root_element)
+          return {} unless root_element
+          
+          namespaces = {}
+          
+          # Nokogiri's namespace_definitions returns all xmlns declarations
+          # on this element (not inherited from ancestors)
+          root_element.namespace_definitions.each do |ns_def|
+            prefix_key = ns_def.prefix || :default
+            namespaces[prefix_key] = {
+              uri: ns_def.href,
+              prefix: ns_def.prefix, # nil for default namespace
+            }
+          end
+          
+          namespaces
         end
 
         def to_xml(options = {})
+          # Accept xml_declaration from options if present (for model serialization)
+          @xml_declaration = options[:xml_declaration] if options[:xml_declaration]
+          
           builder_options = {}
 
           if options.key?(:encoding)
@@ -41,8 +134,10 @@ module Lutaml
               needs = collector.collect(@root, xml_mapping)
 
               # Phase 2: Plan declarations
+              # Pass input_namespaces to enable Tier 1 priority system (Issue #3)
               planner = DeclarationPlanner.new(register)
-              plan = planner.plan(@root, xml_mapping, needs, options: options)
+              plan_options = options.merge(input_namespaces: @input_namespaces)
+              plan = planner.plan(@root, xml_mapping, needs, options: plan_options)
 
               # Phase 3: Build with plan
               build_element_with_plan(xml, @root, plan, options)
@@ -55,7 +150,113 @@ module Lutaml
           end
 
           xml_data = builder.doc.root.to_xml(xml_options)
-          options[:declaration] ? declaration(options) + xml_data : xml_data
+          
+          result = ""
+          
+          # Handle XML declaration based on Issue #1: XML Declaration Preservation
+          if should_include_declaration?(options)
+            result += generate_declaration(options)
+          end
+          
+          # Use native Nokogiri DOCTYPE from parsed document if available
+          if @parsed_doc&.internal_subset && !options[:omit_doctype]
+            result += @parsed_doc.internal_subset.to_s + "\n"
+          elsif options[:doctype] && !options[:omit_doctype]
+            # Fallback for model serialization with stored doctype
+            result += generate_doctype_declaration(options[:doctype])
+          end
+          
+          result += xml_data
+          result
+        end
+        
+        # Determine if XML declaration should be included
+        #
+        # @param options [Hash] serialization options
+        # @return [Boolean] true if declaration should be included
+        def should_include_declaration?(options)
+          if options.key?(:declaration)
+            case options[:declaration]
+            when false
+              # Explicit false: omit declaration
+              false
+            when true
+              # Explicit true: force include
+              true
+            when :preserve
+              # Preserve mode: include if input had one
+              @xml_declaration&.dig(:had_declaration) || false
+            when String
+              # Custom version string: include
+              true
+            else
+              # Default: preserve from input
+              @xml_declaration&.dig(:had_declaration) || false
+            end
+          else
+            # No declaration option provided: default behavior is preserve from input
+            @xml_declaration&.dig(:had_declaration) || false
+          end
+        end
+        
+        # Generate XML declaration string
+        #
+        # Uses stored declaration info if available, otherwise defaults
+        #
+        # @param options [Hash] serialization options
+        # @return [String] the XML declaration
+        def generate_declaration(options)
+          # Determine version
+          # When declaration: true (force), use default 1.0 not input version
+          # When declaration: "1.x" (custom), use that string
+          # When preserving (no option or :preserve), use input version or default
+          version = if options[:declaration].is_a?(String)
+                      # Custom version string
+                      options[:declaration]
+                    elsif options[:declaration] == true
+                      # Force with default version
+                      "1.0"
+                    elsif @xml_declaration&.dig(:version)
+                      # Preserve from input
+                      @xml_declaration[:version]
+                    else
+                      # Default fallback
+                      "1.0"
+                    end
+          
+          # Determine encoding
+          # Priority: explicit encoding option > input encoding > none
+          encoding = if options[:encoding].is_a?(String)
+                       options[:encoding]
+                     elsif options[:encoding] == true
+                       "UTF-8"
+                     elsif @xml_declaration&.dig(:encoding)
+                       @xml_declaration[:encoding]
+                     end
+          
+          declaration = "<?xml version=\"#{version}\""
+          declaration += " encoding=\"#{encoding}\"" if encoding
+          declaration += "?>\n"
+          declaration
+        end
+        
+        # Generate DOCTYPE declaration from doctype hash (for model serialization)
+        #
+        # @param doctype [Hash] the doctype information
+        # @return [String] the DOCTYPE declaration
+        def generate_doctype_declaration(doctype)
+          return nil unless doctype
+          
+          parts = ["<!DOCTYPE #{doctype[:name]}"]
+          
+          if doctype[:public_id]
+            parts << %Q(PUBLIC "#{doctype[:public_id]}")
+            parts << %Q("#{doctype[:system_id]}") if doctype[:system_id]
+          elsif doctype[:system_id]
+            parts << %Q(SYSTEM "#{doctype[:system_id]}")
+          end
+          
+          parts.join(" ") + ">\n"
         end
 
         # Build element using prepared namespace declaration plan
@@ -220,6 +421,23 @@ module Lutaml
                             attribute_rule.prefixed_name
                           end
               attributes[attr_name] = value ? value.to_s : value
+              
+              # Check if attribute's namespace needs local declaration (out of scope)
+              if ns_info[:prefix] && plan && plan[:namespaces]
+                ns_entry = plan[:namespaces].find do |_key, ns_config|
+                  ns_config[:ns_object].prefix_default == ns_info[:prefix] ||
+                    (ns_info[:uri] && ns_config[:ns_object].uri == ns_info[:uri])
+                end
+                
+                if ns_entry
+                  _key, ns_config = ns_entry
+                  # If namespace is marked for local declaration, add xmlns attribute
+                  if ns_config[:declared_at] == :local_on_use
+                    xmlns_attr = "xmlns:#{ns_info[:prefix]}"
+                    attributes[xmlns_attr] = ns_config[:ns_object].uri
+                  end
+                end
+              end
             end
           end
 
@@ -898,10 +1116,121 @@ mapping: nil)
         end
 
         def parse_all_children(node, root_node: nil, default_namespace: nil)
-          node.children.map do |child|
+          # Consolidate adjacent text-like nodes to fix entity fragmentation issue
+          consolidated = consolidate_text_nodes(node.children)
+          
+          consolidated.map do |child|
             NokogiriElement.new(child, root_node: root_node,
                                        default_namespace: default_namespace)
           end
+        end
+        
+        # Consolidate adjacent text, CDATA, and entity reference nodes into single text nodes
+        #
+        # This fixes Issue #5: HTML entity fragmentation in mixed content.
+        # When Nokogiri parses entities like &copy;, it creates EntityReference nodes
+        # that fragment the text content. This method consolidates them back together.
+        #
+        # @param nodes [Nokogiri::XML::NodeSet] the child nodes to consolidate
+        # @return [Array<Nokogiri::XML::Node>] consolidated nodes with merged text
+        def consolidate_text_nodes(nodes)
+          result = []
+          text_buffer = []
+          
+          nodes.each do |child|
+            if text_like_node?(child)
+              # Accumulate text content, resolving entities
+              if child.is_a?(Nokogiri::XML::EntityReference)
+                # Resolve entity reference to character
+                text_buffer << resolve_entity(child)
+              else
+                # Regular text or CDATA node
+                text_buffer << child.text
+              end
+            else
+              # Non-text node encountered
+              unless text_buffer.empty?
+                # Create single text node from accumulated text
+                result << create_consolidated_text_node(nodes.first.document, text_buffer.join)
+                text_buffer.clear
+              end
+              result << child
+            end
+          end
+          
+          # Flush any remaining text
+          unless text_buffer.empty?
+            result << create_consolidated_text_node(nodes.first.document, text_buffer.join)
+          end
+          
+          result
+        end
+        
+        # HTML entity map for resolving entity references
+        #
+        # Maps entity names to their Unicode characters.
+        # Covers common HTML entities used in documents.
+        HTML_ENTITIES = {
+          "copy" => "©",
+          "reg" => "®",
+          "trade" => "™",
+          "mdash" => "—",
+          "ndash" => "–",
+          "rsquo" => "'",
+          "lsquo" => "'",
+          "rdquo" => '"',
+          "ldquo" => '"',
+          "hellip" => "…",
+          "nbsp" => "\u00A0",
+          "amp" => "&",
+          "lt" => "<",
+          "gt" => ">",
+          "quot" => '"',
+          "apos" => "'",
+        }.freeze
+        
+        # Resolve an entity reference to its character
+        #
+        # @param entity_ref [Nokogiri::XML::EntityReference] the entity reference node
+        # @return [String] the resolved character or original entity if unknown
+        def resolve_entity(entity_ref)
+          entity_name = entity_ref.name
+          
+          # Check if it's a numeric character reference (#xxx or #xHH)
+          if entity_name.start_with?("#")
+            # Numeric character reference
+            if entity_name.start_with?("#x")
+              # Hexadecimal
+              code = entity_name[2..-1].to_i(16)
+            else
+              # Decimal
+              code = entity_name[1..-1].to_i(10)
+            end
+            return [code].pack("U")
+          end
+          
+          # Look up in HTML entities map
+          HTML_ENTITIES[entity_name] || "&#{entity_name};"
+        end
+        
+        # Check if node should be consolidated with adjacent text
+        #
+        # Only text nodes and entity references should be consolidated.
+        # CDATA nodes must remain separate to preserve their special semantics.
+        #
+        # @param node [Nokogiri::XML::Node] the node to check
+        # @return [Boolean] true if node is text or entity reference (NOT CDATA)
+        def text_like_node?(node)
+          node.text? || node.is_a?(Nokogiri::XML::EntityReference)
+        end
+        
+        # Create a new text node with given content
+        #
+        # @param document [Nokogiri::XML::Document] the document to attach to
+        # @param text [String] the text content
+        # @return [Nokogiri::XML::Text] new text node
+        def create_consolidated_text_node(document, text)
+          Nokogiri::XML::Text.new(text, document)
         end
 
         def build_attributes(node, _options = {})

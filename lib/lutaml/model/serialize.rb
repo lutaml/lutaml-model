@@ -135,6 +135,7 @@ module Lutaml
           Utils.add_boolean_accessor_if_not_defined(klass, :mixed)
           Utils.add_accessor_if_not_defined(klass, :element_order)
           Utils.add_accessor_if_not_defined(klass, :encoding)
+          Utils.add_accessor_if_not_defined(klass, :doctype)
 
           Utils.add_method_if_not_defined(klass,
                                           :using_default_for) do |attribute_name|
@@ -516,6 +517,7 @@ collection)
             raise Lutaml::Model::NoRootMappingError.new(self) unless valid
 
             options[:encoding] = doc.encoding
+            options[:doctype] = doc.doctype if doc.respond_to?(:doctype) && doc.doctype
           end
           options[:register] = register
 
@@ -902,8 +904,8 @@ collection)
         end
       end
 
-      attr_accessor :element_order, :schema_location, :encoding, :__register,
-                    :__parent, :__root
+      attr_accessor :element_order, :schema_location, :encoding, :doctype,
+                    :__register, :__parent, :__root
       attr_writer :ordered, :mixed
 
       def initialize(attrs = {}, options = {})
@@ -913,6 +915,7 @@ collection)
 
         set_ordering(attrs)
         set_schema_location(attrs)
+        set_doctype(attrs)
         initialize_attributes(attrs, options)
 
         register_in_reference_store
@@ -1008,6 +1011,13 @@ collection)
         validate_root_mapping!(format, options)
 
         options[:parse_encoding] = encoding if encoding
+        options[:doctype] = doctype if format == :xml && doctype
+        
+        # Pass XML declaration info for Issue #1: XML Declaration Preservation
+        if format == :xml && @xml_declaration
+          options[:xml_declaration] = @xml_declaration
+        end
+        
         self.class.to(format, self, options)
       end
 
@@ -1031,6 +1041,12 @@ collection)
         return unless attrs.key?(:schema_location)
 
         self.schema_location = attrs[:schema_location]
+      end
+
+      def set_doctype(attrs)
+        return unless attrs.key?(:doctype)
+
+        self.doctype = attrs[:doctype]
       end
 
       def initialize_attributes(attrs, options = {})

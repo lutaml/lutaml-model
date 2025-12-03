@@ -16,8 +16,25 @@ module Lutaml
         def self.parse(xml, options = {})
           parsed = Moxml::Adapter::Oga.parse(xml)
           root_element = parsed.children.find { |child| child.is_a?(Moxml::Element) }
+          
+          # Extract DOCTYPE information
+          # Moxml/Oga doesn't directly expose DOCTYPE, extract from raw XML
+          doctype_info = extract_doctype_from_xml(xml)
+          
           @root = Oga::Element.new(root_element)
-          new(@root, encoding(xml, options))
+          new(@root, encoding(xml, options), doctype: doctype_info)
+        end
+        
+        # Extract DOCTYPE from raw XML string (Moxml doesn't expose doctype)
+        def self.extract_doctype_from_xml(xml)
+          # Match DOCTYPE declaration using regex
+          if xml =~ /<!DOCTYPE\s+(\S+)(?:\s+(PUBLIC|SYSTEM)\s+"([^"]+)"(?:\s+"([^"]+)")?)?\s*>/
+            {
+              name: $1,
+              public_id: ($2 == "PUBLIC" ? $3 : nil),
+              system_id: ($2 == "PUBLIC" ? $4 : $3),
+            }
+          end
         end
 
         def to_xml(options = {})
@@ -51,7 +68,37 @@ module Lutaml
             end
           end
           xml_data = builder.to_xml
-          options[:declaration] ? declaration(options) + xml_data : xml_data
+          
+          result = ""
+          result += declaration(options) if options[:declaration]
+          
+          # Add DOCTYPE if present
+          doctype_to_use = options[:doctype] || @doctype
+          if doctype_to_use && !options[:omit_doctype]
+            result += generate_doctype_declaration(doctype_to_use)
+          end
+          
+          result += xml_data
+          result
+        end
+        
+        # Generate DOCTYPE declaration from doctype hash
+        #
+        # @param doctype [Hash] the doctype information
+        # @return [String] the DOCTYPE declaration
+        def generate_doctype_declaration(doctype)
+          return nil unless doctype
+          
+          parts = ["<!DOCTYPE #{doctype[:name]}"]
+          
+          if doctype[:public_id]
+            parts << %Q(PUBLIC "#{doctype[:public_id]}")
+            parts << %Q("#{doctype[:system_id]}") if doctype[:system_id]
+          elsif doctype[:system_id]
+            parts << %Q(SYSTEM "#{doctype[:system_id]}")
+          end
+          
+          parts.join(" ") + ">\n"
         end
 
         # Build element using prepared namespace declaration plan
