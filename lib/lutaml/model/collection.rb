@@ -64,10 +64,7 @@ module Lutaml
         # Define collection-level validations
         def validate_collection(&block)
           @collection_validations ||= []
-          if block
-            @collection_validations << block
-          end
-          @collection_validations
+          @collection_validations << block if block
         end
 
         # Validate uniqueness of a field across all instances in the collection
@@ -77,37 +74,6 @@ module Lutaml
             add_uniqueness_error(errors, field, duplicates, message) if duplicates.any?
           end
         end
-
-        private
-
-        def find_duplicate_values(collection, field)
-          seen_values = Set.new
-          duplicates = Set.new
-
-          collection.each do |instance|
-            value = extract_field_value(instance, field)
-            next if value.nil?
-
-            if seen_values.include?(value)
-              duplicates.add(value)
-            else
-              seen_values.add(value)
-            end
-          end
-
-          duplicates
-        end
-
-        def extract_field_value(instance, field)
-          instance.respond_to?(field) ? instance.public_send(field) : nil
-        end
-
-        def add_uniqueness_error(errors, field, duplicates, message)
-          default_message = "#{field} values must be unique across collection, found duplicates: #{duplicates.to_a.join(', ')}"
-          errors.add(:collection, message || default_message)
-        end
-
-        public
 
         # Validate minimum count requirement
         def validates_min_count(count, message: nil)
@@ -130,7 +96,7 @@ module Lutaml
         end
 
         # Validate that all instances have a specific attribute
-        def validates_all_have(field, message: nil)
+        def validates_all_present(field, message: nil)
           validate_collection do |collection, errors|
             missing_items = collection.select do |instance|
               value = instance.respond_to?(field) ? instance.public_send(field) : nil
@@ -199,6 +165,35 @@ module Lutaml
 
         def apply_mappings(data, format, options = {})
           super(data, format, options.merge(collection: true))
+        end
+
+        private
+
+        def find_duplicate_values(collection, field)
+          seen_values = Set.new
+          duplicates = Set.new
+
+          collection.each do |instance|
+            value = extract_field_value(instance, field)
+            next if value.nil?
+
+            if seen_values.include?(value)
+              duplicates.add(value)
+            else
+              seen_values.add(value)
+            end
+          end
+
+          duplicates
+        end
+
+        def extract_field_value(instance, field)
+          instance.respond_to?(field) ? instance.public_send(field) : nil
+        end
+
+        def add_uniqueness_error(errors, field, duplicates, message)
+          default_message = "#{field} values must be unique across collection, found duplicates: #{duplicates.to_a.join(', ')}"
+          errors.add(:collection, message || default_message)
         end
       end
 
