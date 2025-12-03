@@ -6034,7 +6034,7 @@ The `key_value` method is a streamlined way to map all attributes for
 serialization into key-value formats including JSON, YAML, and TOML, as well as
 transformation to Hash format.
 
-If there is no definite differentiation between the key value formats and Hash transformation, the
+If there is no need to differentiate among the key-value formats (JSON, YAML, TOML) and Hash transformation, the
 `key_value` method simplifies defining mappings and improves code readability.
 
 
