@@ -59,35 +59,34 @@ class PersonLocationTransform < Lutaml::Model::ModelTransformer
   end
 end
 
+class Person < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :year_born, :string
+  attribute :birth_date, :string
+  attribute :address, :string
+end
+
+class User < Lutaml::Model::Serializable
+  attribute :full_name, :string
+  attribute :birth_year, :string
+  attribute :birth_date, :date
+  attribute :location, :string
+end
+
+class Contributor < Lutaml::Model::Serializable
+  attribute :name, :string
+end
+
 class Publication < Lutaml::Model::Serializable
   attribute :title, :string
   attribute :author, :string
-  attribute :birth_date, :string
-  attribute :year_born, :string
   attribute :authors, Author, collection: true
 end
 
 class CatalogEntry < Lutaml::Model::Serializable
   attribute :name, :string
   attribute :creator, :string
-  attribute :date, :string
-  attribute :author, :string
-  attribute :birth_year, :string
-  attribute :contributors, Author, collection: true
-end
-
-class Person < Lutaml::Model::Serializable
-  attribute :year_born, :string
-  attribute :birth_date, :string
-end
-
-class User < Lutaml::Model::Serializable
-  attribute :birth_year, :string
-  attribute :birth_date, :date
-end
-
-class Contributor < Lutaml::Model::Serializable
-  attribute :name, :string
+  attribute :contributors, Contributor, collection: true
 end
 
 class UnstructuredDateTime < Lutaml::Model::Serializable
@@ -237,49 +236,6 @@ class PublicationCollectionTransform < Lutaml::Model::ModelTransformer
   transform do
     map_each from: "authors", to: "contributors", transform: AuthorTransform
   end
-end
-
-# Clean, unified models
-class SimpleString < Lutaml::Model::Serializable
-  attribute :value, :string
-end
-
-class SimpleDate < Lutaml::Model::Serializable
-  attribute :value, :date
-end
-
-class Person < Lutaml::Model::Serializable
-  attribute :name, :string
-  attribute :year_born, :string
-  attribute :birth_date, :string
-  attribute :address, :string
-end
-
-class User < Lutaml::Model::Serializable
-  attribute :full_name, :string
-  attribute :birth_year, :string
-  attribute :birth_date, :date
-  attribute :location, :string
-end
-
-class Author < Lutaml::Model::Serializable
-  attribute :name, :string
-end
-
-class Contributor < Lutaml::Model::Serializable
-  attribute :name, :string
-end
-
-class Publication < Lutaml::Model::Serializable
-  attribute :title, :string
-  attribute :author, :string
-  attribute :authors, Author, collection: true
-end
-
-class CatalogEntry < Lutaml::Model::Serializable
-  attribute :name, :string
-  attribute :creator, :string
-  attribute :contributors, Contributor, collection: true
 end
 
 # Value transform
@@ -580,7 +536,7 @@ RSpec.describe Lutaml::Model::ModelTransformer do
 
     it "fails when using map_each to aggregate a collection into a single attribute" do
       pub = StandardsPublication.new(title: ["Title 1", "Title 2"])
-      expect { StandardsPublicationMapEachTransform.transform(pub) }.to raise_error(StandardError)
+      expect { StandardsPublicationMapEachTransform.transform(pub) }.to raise_error(Lutaml::Model::MappingAttributeTypeError, /'from' and 'to' attributes must be collections/)
     end
 
     it "aggregates a collection into a single attribute using map" do

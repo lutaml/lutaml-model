@@ -44,7 +44,7 @@ module Lutaml
           end
 
           if @transform_method.nil?
-            raise TransformBlockNotDefinedError, "transform block not defined for #{@source} to  #{@target}"
+            raise TransformBlockNotDefinedError, "transform block not defined for #{@source} to #{@target}"
           end
 
           @transform_method.call(input)
@@ -66,7 +66,9 @@ module Lutaml
         end
 
         def transformation_block?(block)
-          @source <= Type::Value || @target <= Type::Value || block&.arity&.positive?
+          (@source.is_a?(Class) && @source <= Type::Value) ||
+            (@target.is_a?(Class) && @target <= Type::Value) ||
+            block&.arity&.positive?
         end
 
         def get_type(typ)

@@ -686,9 +686,7 @@ items:
     depth: 10
   fire_temperature: 1000
   fire_temperature_unit: "°C"
-  clay_type: 'Porcelain
-
-    '
+  clay_type: 'Porcelain'
 - title: Blue and White Bowl
   description: |
     A blue and white bowl with a floral pattern.
