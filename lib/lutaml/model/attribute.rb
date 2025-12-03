@@ -454,6 +454,10 @@ module Lutaml
         klass = resolve_polymorphic_class(resolved_type, value, options)
 
         if klass == Lutaml::Model::Type::Union
+          if options[:converted] && value_matches_union_type?(value, register)
+            return value
+          end
+
           return resolve_union_type(options[:instance] || options[:__parent] || options[:__root]) do |type|
             cast_value_with_type(type, value, format, register, options)
           end
@@ -479,6 +483,17 @@ module Lutaml
           # No need to use register#get_class,
           # can_serialize? method already checks if type is Serializable or not.
           Type.lookup(klass).cast(value)
+        end
+      end
+
+      # Check if a value already matches one of the union types (already resolved)
+      #
+      # @param value [Object] The value to check
+      # @param _register [Object] The type register (unused but kept for consistency)
+      # @return [Boolean] true if value matches a union type
+      def value_matches_union_type?(value, _register)
+        union_types.any? do |union_type|
+          value.is_a?(union_type)
         end
       end
 
