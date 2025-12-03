@@ -84,7 +84,31 @@ module Lutaml
 
           # Prevent infinite recursion for type analysis (when element is nil)
           if element.nil? && mapper_class
-            return empty_plan if @visited_types.include?(mapper_class)
+            if @visited_types.include?(mapper_class)
+              # CRITICAL FIX FOR BUG #3:
+              # When we've already visited this type, return early to prevent infinite recursion.
+              # BUT: if we have a parent_plan, we must inherit its namespaces!
+              # Otherwise, deeply nested structures lose namespace configuration.
+              if parent_plan
+                # Inherit parent's namespaces (transform :here to :inherited)
+                inherited_plan = {
+                  namespaces: parent_plan[:namespaces].transform_values do |ns_config|
+                    if ns_config[:declared_at] == :here
+                      ns_config.merge(declared_at: :inherited)
+                    elsif ns_config[:declared_at] == :inherited
+                      ns_config.dup
+                    else
+                      ns_config.dup
+                    end
+                  end,
+                  children_plans: {},
+                  type_namespaces: parent_plan[:type_namespaces].dup,
+                }
+                return inherited_plan
+              else
+                return empty_plan
+              end
+            end
 
             @visited_types << mapper_class
           end
@@ -135,21 +159,47 @@ module Lutaml
               key = mapping.namespace_class.to_key
               existing = plan[:namespaces][key]
               
-              # Declare if not present OR if only present as :local_on_use
-              # (which we override when it's our own namespace)
+              # NAMESPACE INHERITANCE RULE:
+              # If parent declared this namespace with PREFIX → child MUST use PREFIX too
+              # This prevents declaring the same namespace twice in the tree
+              # Only re-evaluate format if: no existing, local_on_use, or inherited as DEFAULT
               if !existing || existing[:declared_at] == :local_on_use
-                # Make new declaration
+                # No existing or marked for local - make new declaration
                 format = choose_format_with_override(mapping,
                                                      effective_ns_class, needs, options)
                 xmlns_decl = build_declaration(effective_ns_class, format,
                                                options)
 
                 plan[:namespaces][key] = {
-                  ns_object: effective_ns_class, # Store effective (may be override)
+                  ns_object: effective_ns_class,
                   format: format,
                   xmlns_declaration: xmlns_decl,
                   declared_at: :here,
                 }
+              elsif existing[:declared_at] == :inherited
+                # Parent declared this namespace - RESPECT parent's format choice
+                # If parent used PREFIX, we MUST use PREFIX too (never declare twice)
+                # If parent used DEFAULT, we can re-evaluate for our needs
+                if existing[:format] == :prefix
+                  # Parent used prefix → we MUST use prefix too
+                  plan[:namespaces][key] = existing.merge(
+                    ns_object: effective_ns_class,  # Use our effective ns (may be override)
+                    declared_at: :inherited,  # Keep as inherited
+                  )
+                else
+                  # Parent used default → we can re-evaluate
+                  format = choose_format_with_override(mapping,
+                                                       effective_ns_class, needs, options)
+                  xmlns_decl = build_declaration(effective_ns_class, format,
+                                                 options)
+
+                  plan[:namespaces][key] = {
+                    ns_object: effective_ns_class,
+                    format: format,
+                    xmlns_declaration: xmlns_decl,
+                    declared_at: :inherited,  # Keep as inherited
+                  }
+                end
               end
             end
 
@@ -209,15 +259,18 @@ module Lutaml
               next if plan[:namespaces][key]
 
               # Check if namespace is in scope (should be declared at root)
+              # ARCHITECTURAL PRINCIPLE: ROOT is the DEFAULT FALLBACK
+              # When NO namespace_scope is defined, all namespaces hoist to ROOT
+              # This is the last resort scope - namespaces always have a home
               in_scope = if needs[:namespace_scope_configs]&.any?
                            # namespace_scope is defined - check if this namespace is in it
                            needs[:namespace_scope_configs].any? do |cfg|
                              cfg[:namespace] == ns_class
                            end
                          else
-                           # No namespace_scope defined - NO hoisting eligibility
-                           # Namespaces must be declared locally (on element using them)
-                           false
+                           # No namespace_scope defined - ROOT is DEFAULT FALLBACK
+                           # All used namespaces hoist to root (architectural principle)
+                           true
                          end
 
               if in_scope
@@ -501,7 +554,6 @@ module Lutaml
           end
 
           # 4. Default: prefer default namespace (cleaner, no prefix needed)
-          # Child elements will inherit the default namespace automatically
           :default
         end
 

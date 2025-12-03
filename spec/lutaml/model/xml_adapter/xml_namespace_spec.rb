@@ -312,8 +312,8 @@ RSpec.describe "XmlNamespace" do
 
       it "round-trips if namespace is set to nil in parent" do
         xml = <<~XML
-          <NamespaceNil xmlns:foo="http://example.com/foo" xmlns:bar="http://example.com/bar" xmlns:baz="http://example.com/baz">
-            <SamplePrefixedNamespacedModel xml:lang="en">
+          <NamespaceNil>
+            <SamplePrefixedNamespacedModel xmlns:foo="http://example.com/foo" xmlns:bar="http://example.com/bar" xmlns:baz="http://example.com/baz" xml:lang="en">
               <bar:Name>John Doe</bar:Name>
               <baz:Age>30</baz:Age>
             </SamplePrefixedNamespacedModel>
@@ -369,8 +369,8 @@ RSpec.describe "XmlNamespace" do
 
       it "round-trips if namespace is set to nil in parent" do
         xml = <<~XML
-          <NamespaceNil xmlns:bar="http://example.com/bar" xmlns:baz="http://example.com/baz">
-            <SampleDefaultNamespacedModel xml:lang="en">
+          <NamespaceNil>
+            <SampleDefaultNamespacedModel xmlns="http://example.com/foo" xmlns:bar="http://example.com/bar" xmlns:baz="http://example.com/baz" xml:lang="en">
               <bar:Name>Jane Smith</bar:Name>
               <baz:Age>25</baz:Age>
             </SampleDefaultNamespacedModel>
@@ -386,8 +386,8 @@ RSpec.describe "XmlNamespace" do
     context "when custom namespace is used" do
       let(:xml_input) do
         <<~XML
-          <article xmlns:test="http://www.test.com/schemas/test/1.0/">
-            <test:front>
+          <article>
+            <test:front xmlns:test="http://www.test.com/schemas/test/1.0/">
               <test:test-element>Text Here</test:test-element>
             </test:front>
             <body>
@@ -542,10 +542,10 @@ RSpec.describe "XmlNamespace" do
       it "declares xmlns on elements when namespace changes" do
         xml = unit_with_math.to_xml
 
-        # Should have units namespace on Unit
+        # Should have units namespace on Unit root
         expect(xml).to include('xmlns="https://schema.example.org/units/1.0"')
-        # Should have MathML namespace on math element
-        expect(xml).to include('xmlns="http://www.w3.org/1998/Math/MathML"')
+        # Should have MathML namespace declared locally on math element
+        expect(xml).to include('<math xmlns="http://www.w3.org/1998/Math/MathML"')
       end
 
       it "does not repeat xmlns on UnitSymbol (same namespace as parent)" do

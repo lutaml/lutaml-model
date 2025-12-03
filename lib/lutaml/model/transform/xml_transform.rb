@@ -159,14 +159,14 @@ module Lutaml
         children = doc.children.select do |child|
           next false if child.text?
 
-          # CRITICAL FIX: Handle explicit namespace: nil
-          # When namespace: nil is explicitly set, only match elements with NO namespace URI
-          if rule.namespace_set? && rule.namespace.nil? && rule.instance_variable_get(:@namespace_param).nil?
-            # Child must have:
-            # 1. Matching local name
-            # 2. NO namespace URI (namespaced_name == unprefixed_name indicates no namespace)
-            next child.unprefixed_name == rule.name.to_s &&
-              child.namespaced_name == child.unprefixed_name
+          # Handle explicit namespace: nil with prefix: nil
+          # When both namespace: nil and prefix: nil are set, this means "no namespace constraint"
+          # The child element can declare its own namespace and should still match by local name
+          if rule.namespace_set? && rule.namespace.nil? &&
+             rule.instance_variable_get(:@namespace_param).nil? &&
+             rule.instance_variable_get(:@prefix_param).nil?
+            # Match by unprefixed name only, regardless of child's namespace
+            next child.unprefixed_name == rule.name.to_s
           end
 
           # First try exact namespace match

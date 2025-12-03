@@ -7781,6 +7781,104 @@ puts Ceramic.new(type: "Porcelain", glaze: "Clear", id: "C001").to_xml
 * Only when attributes are from different namespace than parent element
 * Most schemas use `:unqualified` for attributes
 
+[[form-override]]
+==== Form override for element qualification
+
+The `form:` option provides per-element control over W3C XML Schema qualification, allowing you to override namespace defaults on individual elements or attributes.
+
+===== General
+
+Per W3C XML Schema specification, the `form` attribute controls whether elements must be qualified (namespace-prefixed) or unqualified (no prefix), independent of the schema's `elementFormDefault` setting.
+
+Form override takes **highest priority** in namespace resolution, above type namespaces, inheritance, and schema defaults.
+
+===== Syntax
+
+[source,ruby]
+----
+xml do
+  map_element 'name', to: :attr, form: :qualified   # Force prefix
+  map_element 'name', to: :attr, form: :unqualified # Force no prefix
+  map_attribute 'id', to: :id, form: :qualified     # Force prefix (unusual)
+end
+----
+
+Values:
+
+`:qualified`::: Element **MUST** use namespace prefix, even if schema default is unqualified
+`:unqualified`::: Element **MUST NOT** use namespace prefix, even if parent has namespace
+
+===== Priority order
+
+Form takes highest priority in namespace resolution:
+
+. **`form: :unqualified`** → Forces NO prefix (local scope)
+. **`form: :qualified`** → Forces prefix usage
+. `namespace: :inherit` → Uses parent namespace
+. Type namespace → Uses type's namespace
+. Schema `elementFormDefault` → Follows default
+. Unqualified → No namespace
+
+===== Example: Mixed qualification
+
+.Using form to mix qualified and unqualified elements
+[example]
+====
+[source,ruby]
+----
+class ProductNamespace < Lutaml::Model::XmlNamespace
+  uri "http://example.com/products"
+  prefix_default "prod"
+  element_form_default :qualified  # Default: all elements qualified
+end
+
+class Product < Lutaml::Model::Serializable
+  attribute :id, :string
+  attribute :name, :string
+  attribute :internal_code, :string
+
+  xml do
+    element "product"
+    namespace ProductNamespace
+
+    map_element "id", to: :id, form: :qualified          # Uses prefix (follows default)
+    map_element "name", to: :name, form: :qualified      # Uses prefix (follows default)
+    map_element "code", to: :internal_code, form: :unqualified  # NO prefix (override)
+  end
+end
+
+product = Product.new(id: "P123", name: "Widget", internal_code: "INTERNAL-001")
+puts product.to_xml(prefix: true)
+----
+
+Output:
+
+[source,xml]
+----
+<prod:product xmlns:prod="http://example.com/products">
+  <prod:id>P123</prod:id>
+  <prod:name>Widget</prod:name>
+  <code>INTERNAL-001</code>  <!-- No prefix, local scope -->
+</prod:product>
+----
+
+NOTE: The `code` element is unqualified despite the schema's `element_form_default: :qualified`. The `form: :unqualified` override forces local scope.
+====
+
+===== Use cases
+
+**Use `form: :qualified` when:**
+
+* Schema specifies `elementFormDefault="unqualified"` but specific elements need qualification
+* Ensuring element is unambiguous across namespace boundaries
+* Legacy system requires specific elements to be prefixed
+
+**Use `form: :unqualified` when:**
+
+* Schema specifies `elementFormDefault="qualified"` but specific elements should be local
+* Element represents internal data not part of public schema
+* Mixing qualified and unqualified elements in same namespace
+
 
 
 

@@ -34,6 +34,11 @@ module NamespaceSpec
 end
 
 RSpec.describe "XML Namespace Handling" do
+  # Ensure adapter is always reset after each example to prevent pollution
+  after(:each) do
+    Lutaml::Model::Config.xml_adapter_type = :nokogiri
+  end
+
   describe "basic namespace inheritance" do
     let(:parsed) { NamespaceSpec::Parent.from_xml(xml) }
     let(:xml) do
@@ -576,6 +581,9 @@ RSpec.describe "XML Namespace Handling" do
     around do |example|
       Lutaml::Model::Config.xml_adapter_type = :nokogiri
       example.run
+    end
+
+    after(:all) do
       Lutaml::Model::Config.xml_adapter_type = :nokogiri
     end
 
@@ -586,6 +594,9 @@ RSpec.describe "XML Namespace Handling" do
     around do |example|
       Lutaml::Model::Config.xml_adapter_type = :ox
       example.run
+    end
+
+    after(:all) do
       Lutaml::Model::Config.xml_adapter_type = :nokogiri
     end
 
@@ -596,6 +607,9 @@ RSpec.describe "XML Namespace Handling" do
     around do |example|
       Lutaml::Model::Config.xml_adapter_type = :oga
       example.run
+    end
+
+    after(:all) do
       Lutaml::Model::Config.xml_adapter_type = :nokogiri
     end
 

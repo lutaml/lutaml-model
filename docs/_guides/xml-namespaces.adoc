@@ -1126,6 +1126,84 @@ Reserved for future use.
 * Reserved for future extensibility
 
 
+[[form-override]]
+==== Form override (W3C Schema compliance)
+
+Per W3C XML Schema specification, the `form` attribute controls whether elements must be qualified (prefixed) or unqualified (no prefix) on a per-element basis.
+
+===== When to use form override
+
+Use `form` when:
+
+* Schema specifies `elementFormDefault="qualified"` but some elements should be local
+* Schema specifies `elementFormDefault="unqualified"` but some elements need qualification
+* Mixing qualified and unqualified elements in same parent
+
+===== Syntax
+
+[source,ruby]
+----
+xml do
+  map_element 'name', to: :attr, form: :qualified    # Force prefix
+  map_element 'name', to: :attr, form: :unqualified  # Force no prefix
+end
+----
+
+===== Example: Local elements in qualified schema
+
+.Overriding element qualification with form
+[example]
+====
+[source,ruby]
+----
+class ReportNamespace < Lutaml::Model::XmlNamespace
+  uri "http://example.com/reports"
+  prefix_default "r"
+  element_form_default :qualified  # All elements qualified by default
+end
+
+class Report < Lutaml::Model::Serializable
+  attribute :title, :string
+  attribute :metadata, :string
+
+  xml do
+    element "report"
+    namespace ReportNamespace
+
+    map_element "title", to: :title                          # Qualified (follows default)
+    map_element "metadata", to: :metadata, form: :unqualified  # Local override
+  end
+end
+
+report = Report.new(title: "Annual Report", metadata: "Internal use")
+puts report.to_xml(prefix: true)
+----
+
+Output:
+
+[source,xml]
+----
+<r:report xmlns:r="http://example.com/reports">
+  <r:title>Annual Report</r:title>
+  <metadata>Internal use</metadata>  <!-- No prefix, local scope -->
+</r:report>
+----
+
+NOTE: The `metadata` element is unqualified despite `element_form_default: :qualified`. The `form: :unqualified` override forces local scope.
+====
+
+===== Priority order
+
+Form takes **highest priority** in qualification decisions:
+
+. `form: :unqualified` → Forces NO prefix (local scope)
+. `form: :qualified` → Forces prefix usage
+. `namespace: :inherit` → Uses parent namespace
+. Type namespace → Uses type's namespace
+. Schema `elementFormDefault` → Follows default
+. Unqualified → No namespace
+
+
 ==== XSD annotation (`documentation` method)
 
 The `documentation` method adds

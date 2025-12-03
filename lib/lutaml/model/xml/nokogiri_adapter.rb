@@ -433,7 +433,12 @@ module Lutaml
                   _key, ns_config = ns_entry
                   # If namespace is marked for local declaration, add xmlns attribute
                   if ns_config[:declared_at] == :local_on_use
-                    xmlns_attr = "xmlns:#{ns_info[:prefix]}"
+                    # FIX: Handle both default (nil prefix) and prefixed namespaces
+                    xmlns_attr = if ns_info[:prefix]
+                                   "xmlns:#{ns_info[:prefix]}"
+                                 else
+                                   "xmlns"
+                                 end
                     attributes[xmlns_attr] = ns_config[:ns_object].uri
                   end
                 end
@@ -457,6 +462,17 @@ module Lutaml
             if ns_config && ns_config[:format] == :prefix
               # Use prefix from the plan's namespace object (may be custom override)
               prefix = ns_config[:ns_object].prefix_default
+            end
+            
+            # Check if element's own namespace needs local declaration (out of scope)
+            if ns_config && ns_config[:declared_at] == :local_on_use
+              # FIX: Handle both default (nil prefix) and prefixed namespaces
+              xmlns_attr = if prefix
+                             "xmlns:#{prefix}"
+                           else
+                             "xmlns"
+                           end
+              attributes[xmlns_attr] = ns_config[:ns_object].uri
             end
           end
 
@@ -929,9 +945,13 @@ mapping: nil)
           )
 
           # Use resolved namespace directly, BUT handle special cases:
-          # 1. namespace: :inherit → ALWAYS use parent prefix (resolved has parent URI)
-          # 2. Truly unqualified elements (element_ns_uri==nil) → NO prefix unless :inherit
-          resolved_prefix = if rule.namespace_param == :inherit
+          # 1. form: :unqualified → NEVER use prefix (highest priority)
+          # 2. namespace: :inherit → ALWAYS use parent prefix (resolved has parent URI)
+          # 3. Truly unqualified elements (element_ns_uri==nil) → NO prefix unless :inherit
+          resolved_prefix = if rule.unqualified?
+                              # Explicit form: :unqualified - NEVER use prefix
+                              nil
+                            elsif rule.namespace_param == :inherit
                               # Explicit :inherit - always use parent's prefix
                               parent_prefix
                             elsif use_prefix && parent_prefix
@@ -956,7 +976,12 @@ mapping: nil)
               _key, ns_config = ns_entry
               # If namespace is marked for local declaration, add xmlns attribute
               if ns_config[:declared_at] == :local_on_use
-                xmlns_attr = "xmlns:#{resolved_prefix}"
+                # FIX: Handle both default (nil prefix) and prefixed namespaces
+                xmlns_attr = if resolved_prefix
+                               "xmlns:#{resolved_prefix}"
+                             else
+                               "xmlns"
+                             end
                 attributes[xmlns_attr] = ns_config[:ns_object].uri
               end
             end

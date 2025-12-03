@@ -503,8 +503,14 @@ mapping: nil)
             parent_prefix: parent_prefix,
           )
 
-          # Use resolved namespace directly
-          resolved_prefix = if rule.namespace_param == :inherit
+          # Use resolved namespace directly, BUT handle special cases:
+          # 1. form: :unqualified → NEVER use prefix (highest priority)
+          # 2. namespace: :inherit → ALWAYS use parent prefix
+          # 3. Element has same namespace as parent and parent uses prefix
+          resolved_prefix = if rule.unqualified?
+                              # Explicit form: :unqualified - NEVER use prefix
+                              nil
+                            elsif rule.namespace_param == :inherit
                               parent_prefix
                             elsif use_prefix && parent_prefix
                               parent_prefix
@@ -527,7 +533,12 @@ mapping: nil)
               _key, ns_config = ns_entry
               # If namespace is marked for local declaration, add xmlns attribute
               if ns_config[:declared_at] == :local_on_use
-                xmlns_attr = "xmlns:#{resolved_prefix}"
+                # FIX: Handle both default (nil prefix) and prefixed namespaces
+                xmlns_attr = if resolved_prefix
+                               "xmlns:#{resolved_prefix}"
+                             else
+                               "xmlns"
+                             end
                 attributes[xmlns_attr] = ns_config[:ns_object].uri
               end
             end

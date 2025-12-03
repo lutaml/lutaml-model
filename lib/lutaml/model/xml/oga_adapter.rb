@@ -619,6 +619,24 @@ mapping: nil)
             resolved_prefix ||= nil
           end
 
+          # FINAL RESOLUTION: Apply form override if set
+          # This takes highest priority and overrides all namespace resolution
+          if rule.unqualified?
+            # Explicit form: :unqualified - NEVER use prefix
+            resolved_prefix = nil
+          elsif rule.qualified? && !resolved_prefix
+            # Explicit form: :qualified but no prefix resolved - try to get one
+            if type_ns_info && type_ns_info[:uri] && plan && plan[:namespaces]
+              ns_entry = plan[:namespaces].find do |_key, ns_config|
+                ns_config[:ns_object].uri == type_ns_info[:uri]
+              end
+              if ns_entry
+                _key, ns_config = ns_entry
+                resolved_prefix = ns_config[:ns_object].prefix_default if ns_config[:format] == :prefix
+              end
+            end
+          end
+
           # Parent namespace attribute will be inherited in child elements if
           # needed. Document interpreters must be prepared for this.
 
@@ -640,7 +658,12 @@ mapping: nil)
               _key, ns_config = ns_entry
               # If namespace is marked for local declaration, add xmlns attribute
               if ns_config[:declared_at] == :local_on_use
-                xmlns_attr = "xmlns:#{resolved_prefix}"
+                # FIX: Handle both default (nil prefix) and prefixed namespaces
+                xmlns_attr = if resolved_prefix
+                               "xmlns:#{resolved_prefix}"
+                             else
+                               "xmlns"
+                             end
                 attributes[xmlns_attr] = ns_config[:ns_object].uri
               end
             end

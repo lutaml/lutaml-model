@@ -149,6 +149,11 @@ module XmlLangSpec
 end
 
 RSpec.describe "xml:lang Attribute Handling" do
+  # Ensure adapter is always reset after each example to prevent pollution
+  after(:each) do
+    Lutaml::Model::Config.xml_adapter_type = :nokogiri
+  end
+
   describe "Issue #4: xml:lang Attribute Verification" do
     context "basic xml:lang serialization" do
 
