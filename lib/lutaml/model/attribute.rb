@@ -258,7 +258,7 @@ module Lutaml
         # Use the default value if the value is nil
         validate_required!(value)
 
-        value = resolver.default if value.nil?
+        value = resolver&.default if value.nil?
         resolved_type = type(register)
 
         valid_value!(value) &&
