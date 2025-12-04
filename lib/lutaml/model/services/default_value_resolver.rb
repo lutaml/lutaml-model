@@ -24,7 +24,7 @@ module Lutaml
           raw_value = raw_default_value
           return raw_value unless raw_value.is_a?(Proc)
 
-          # Execute proc in instance context if available, otherwise in class context
+          # Execute proc in instance context if available, otherwise call it directly
           if instance_object
             instance_object.instance_exec(&raw_value)
           else
