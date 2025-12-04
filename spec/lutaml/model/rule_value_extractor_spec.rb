@@ -13,6 +13,14 @@ RSpec.describe Lutaml::Model::RuleValueExtractor do
   let(:register) { instance_double(Lutaml::Model::Register) }
   let(:options) { {} }
 
+  def mock_resolver(default_set_value, default_value_data = nil)
+    resolver_double = double(default_set?: default_set_value)
+    resolver_double = double(default_set?: default_set_value, default_value: default_value_data) if default_value_data
+    allow(Lutaml::Model::Services::DefaultValueResolver).to receive(:new)
+      .with(attr, register, instance)
+      .and_return(resolver_double)
+  end
+
   describe "#call" do
     context "when rule has single mapping" do
       before do
@@ -81,7 +89,7 @@ RSpec.describe Lutaml::Model::RuleValueExtractor do
           root_mapping?: false,
           raw_mapping?: false,
         )
-        allow(attr).to receive(:default_set?).with(register, instance).and_return(false)
+        mock_resolver(false)
       end
 
       it "returns uninitialized value" do
@@ -97,8 +105,7 @@ RSpec.describe Lutaml::Model::RuleValueExtractor do
           root_mapping?: false,
           raw_mapping?: false,
         )
-        allow(attr).to receive(:default_set?).with(register, instance).and_return(true)
-        allow(attr).to receive(:default).with(register, instance).and_return("default_value")
+        mock_resolver(true, "default_value")
       end
 
       it "returns default value" do
