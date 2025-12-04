@@ -1,0 +1,177 @@
+---
+title: Core concepts
+nav_order: 2
+parent: XML Mappings Guide
+---
+
+= Core concepts
+
+== Elements vs types
+
+=== Orthogonal concepts
+
+In W3C XML Schema, **Element** and **Type** are separate, orthogonal
+concepts:
+
+Element declaration:: Defines XML structure - what elements can appear in
+documents
++
+[source,xml]
+----
+<xs:element name="person" type="PersonType"/>
+----
+
+Type definition:: Defines data structure - what content elements can contain
++
+[source,xml]
+----
+<xs:complexType name="PersonType">
+  <xs:sequence>
+    <xs:element name="name" type="xs:string"/>
+  </xs:sequence>
+</xs:complexType>
+----
+
+=== Lutaml::Model representation
+
+Models can have:
+
+Element with type:: Generates both element declaration and type definition
++
+[source,ruby]
+----
+class Person < Lutaml::Model::Serializable
+  attribute :name, :string
+
+  xml do
+    element 'person'  # Declares <person> element
+    map_element 'name', to: :name
+  end
+end
+
+# Generates:
+# <xs:element name="person" type="PersonType"/>
+# <xs:complexType name="PersonType">...</xs:complexType>
+----
+
+Type only:: Generates only type definition, no element
++
+[source,ruby]
+----
+class Address < Lutaml::Model::Serializable
+  attribute :street, :string
+
+  xml do
+    # No element() call - type-only model
+    sequence do
+      map_element 'street', to: :street
+    end
+  end
+end
+
+# Generates:
+# <xs:complexType name="AddressType">...</xs:complexType>
+# (no element declaration)
+----
+
+== Namespace semantics
+
+=== URI is the identifier
+
+Per W3C specifications, the **namespace URI uniquely identifies a
+namespace**:
+
+[source,ruby]
+----
+class ContactNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/schemas/contact/v1'  # The true identifier
+end
+----
+
+The URI is what matters for namespace matching during parsing - two elements
+are in the same namespace if they have the same URI, regardless of prefix.
+
+=== Prefixes are labels
+
+**Namespace prefixes are merely convenient labels** with no semantic meaning:
+
+[source,ruby]
+----
+class ContactNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/schemas/contact/v1'
+  prefix_default 'contact'  # Default label, can be overridden
+end
+----
+
+These XML documents are equivalent:
+
+[source,xml]
+----
+<contact:person xmlns:contact="https://example.com/schemas/contact/v1">
+  <contact:name>John</contact:name>
+</contact:person>
+
+<c:person xmlns:c="https://example.com/schemas/contact/v1">
+  <c:name>John</c:name>
+</c:person>
+----
+
+Both use the same namespace URI, just different prefix labels.
+
+=== Qualification
+
+**Qualification** determines whether elements/attributes must include
+namespace prefixes in instance documents:
+
+Qualified (`:qualified`):: Elements include namespace prefix
++
+[source,xml]
+----
+<cer:ceramic xmlns:cer="https://example.com/ceramic">
+  <cer:type>Porcelain</cer:type>
+</cer:ceramic>
+----
+
+Unqualified (`:unqualified`):: Elements have no namespace prefix
++
+[source,xml]
+----
+<cer:ceramic xmlns:cer="https://example.com/ceramic">
+  <type>Porcelain</type>
+</cer:ceramic>
+----
+
+NOTE: Even when unqualified, child elements inherit the default namespace from
+the root element per XML namespace rules.
+
+== Qualification hierarchy
+
+Qualification is controlled at three levels:
+
+.Qualification control hierarchy
+[source]
+----
+                 ┌─────────────────────────────────────────┐
+                 │  1. Namespace-Level Defaults            │
+                 │  element_form_default: :qualified       │
+                 │  attribute_form_default: :unqualified   │
+                 └─────────────────────────────────────────┘
+                                    │
+                                    ▼
+                 ┌─────────────────────────────────────────┐
+                 │  2. Element/Attribute-Level Overrides   │
+                 │  form: :qualified or :unqualified       │
+                 └─────────────────────────────────────────┘
+                                    │
+                                    ▼
+                 ┌─────────────────────────────────────────┐
+                 │  3. Global Element/Attribute Rule       │
+                 │  Always qualified when in a namespace   │
+                 └─────────────────────────────────────────┘
+----
+
+**Priority order** (highest to lowest):
+
+. **Global elements/attributes**: Always qualified when in namespace
+. **Element/attribute `form:` override**: Explicit per-mapping control
+. **Namespace defaults**: `element_form_default`, `attribute_form_default`

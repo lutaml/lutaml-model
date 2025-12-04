@@ -1,4 +1,5 @@
 require "spec_helper"
+require_relative "../../../support/xml_mapping_namespaces"
 
 module RegisterXmlSpec
   class String < Lutaml::Model::Type::String
@@ -12,7 +13,7 @@ module RegisterXmlSpec
 
     xml do
       root "mi"
-      namespace "http://www.w3.org/1998/Math/MathML"
+      namespace MathMlNamespace
 
       map_content to: :value
     end
@@ -24,7 +25,7 @@ module RegisterXmlSpec
 
     xml do
       root "mo"
-      namespace "http://www.w3.org/1998/Math/MathML"
+      namespace MathMlNamespace
 
       map_content to: :value
     end
@@ -37,7 +38,7 @@ module RegisterXmlSpec
 
     xml do
       root "mfrac"
-      namespace "http://www.w3.org/1998/Math/MathML"
+      namespace MathMlNamespace
 
       map_element "mo", to: :numerator
       map_element "mi", to: :denominator
@@ -52,7 +53,7 @@ module RegisterXmlSpec
 
     xml do
       root "math"
-      namespace "http://www.w3.org/1998/Math/MathML"
+      namespace MathMlNamespace
 
       map_element "mi", to: :symbol
       map_element "mo", to: :operator
@@ -66,7 +67,7 @@ module RegisterXmlSpec
 
     xml do
       root "mi"
-      namespace "http://www.w3.org/1998/Math/MathML"
+      namespace MathMlNamespace
 
       map_content to: :value
       map_attribute :color, to: :color

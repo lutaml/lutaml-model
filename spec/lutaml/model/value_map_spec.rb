@@ -198,7 +198,7 @@ RSpec.describe "ValueMap" do
       end
 
       it "sets correct values when serializing" do
-        expect(model.to_xml).to eq(expected_xml)
+        expect(model.to_xml).to be_xml_equivalent_to(expected_xml)
       end
     end
 

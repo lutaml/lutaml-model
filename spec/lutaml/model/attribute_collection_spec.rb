@@ -71,7 +71,7 @@ RSpec.describe AttributeCollection do
     end
 
     it "serializes to XML correctly" do
-      expect(bib_item.to_xml.strip).to eq(xml_data.strip)
+      expect(bib_item.to_xml).to be_xml_equivalent_to(xml_data)
     end
 
     it "deserializes from YAML correctly" do

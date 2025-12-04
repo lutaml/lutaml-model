@@ -214,14 +214,14 @@ RSpec.describe "Type-level namespace integration" do
       )
       xml = doc.to_xml
 
-      # Should include both namespaces
-      expect(xml).to include('xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties"')
+      # Should include both namespaces - cp as default, dc as prefixed
+      expect(xml).to include('xmlns="http://schemas.openxmlformats.org/package/2006/metadata/core-properties"')
       expect(xml).to include('xmlns:dc="http://purl.org/dc/elements/1.1/"')
 
-      # Should use correct prefixes
+      # Should use correct prefixes - dc elements are prefixed, cp elements use default
       expect(xml).to include("<dc:title>")
       expect(xml).to include("<dc:creator>")
-      expect(xml).to include("<cp:revision>")
+      expect(xml).to include("<revision>") # cp is default namespace, no prefix
     end
   end
 

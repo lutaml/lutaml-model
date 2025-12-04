@@ -1,5 +1,7 @@
 require "spec_helper"
 require "lutaml/model"
+require "lutaml/model/xml/nokogiri_adapter"
+require "lutaml/model/xml/oga_adapter"
 
 # WARNING: This is a fictitious XML namespace example for vCard, vCard does not
 # actually use XML in this way. This is solely for testing namespace_scope
@@ -282,283 +284,303 @@ RSpec.describe "namespace_scope with vCard" do
     )
   end
 
-  describe "Case 1: All namespaces in scope" do
-    let(:expected_xml_full_scope) do
-      <<~XML
-        <vcard:vCard xmlns:vcard="urn:ietf:params:xml:ns:vcard-4.0" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/">
-          <vcard:version>4.0</vcard:version>
-          <vcard:contact>
-            <dc:title>Contact: Dr. John Doe, Jr.</dc:title>
-            <vcard:fn>Dr. John Doe, Jr.</vcard:fn>
-            <vcard:n>
-              <vcard:given>John</vcard:given>
-              <vcard:family>Doe</vcard:family>
-              <vcard:prefix>Dr.</vcard:prefix>
-              <vcard:suffix>Jr.</vcard:suffix>
-            </vcard:n>
-            <vcard:email vcard:type="work">johndoe@example.com</vcard:email>
-            <vcard:tel vcard:type="work">+1-555-555-5555</vcard:tel>
-            <vcard:address>
-              <vcard:street-address>123 Main St</vcard:street-address>
-              <vcard:locality>Anytown</vcard:locality>
-              <vcard:region>CA</vcard:region>
-              <vcard:postal-code>12345</vcard:postal-code>
-              <vcard:country-name>USA</vcard:country-name>
-            </vcard:address>
-            <dcterms:created>2024-06-01T12:00:00+00:00</dcterms:created>
-          </vcard:contact>
-          <vcard:contact>
-            <dc:title>Contact: Robin Hoodwella</dc:title>
-            <vcard:fn>Robin Hoodwella</vcard:fn>
-            <vcard:n>
-              <vcard:given>Robin</vcard:given>
-              <vcard:family>Hoodwella</vcard:family>
-            </vcard:n>
-            <vcard:email vcard:type="home">robin.hoodwella@example.com</vcard:email>
-            <vcard:tel vcard:type="home">+1-555-555-1234</vcard:tel>
-            <vcard:address>
-              <vcard:street-address>456 Oak St</vcard:street-address>
-              <vcard:locality>Sometown</vcard:locality>
-              <vcard:region>TX</vcard:region>
-              <vcard:postal-code>67890</vcard:postal-code>
-              <vcard:country-name>USA</vcard:country-name>
-            </vcard:address>
-            <dcterms:created>2024-06-02T15:30:00+00:00</dcterms:created>
-          </vcard:contact>
-        </vcard:vCard>
-      XML
+  shared_examples "namespace_scope behavior" do |adapter_class|
+    around do |example|
+      old_adapter = Lutaml::Model::Config.xml_adapter
+      Lutaml::Model::Config.xml_adapter = adapter_class
+      example.run
+    ensure
+      Lutaml::Model::Config.xml_adapter = old_adapter
     end
 
-    it "declares all namespaces at root element" do
-      vcard = create_test_vcard(vcard_class_with_full_scope)
-      xml = vcard.to_xml
+    describe "Case 1: All namespaces in scope" do
+      let(:expected_xml_full_scope) do
+        <<~XML
+          <vCard xmlns="urn:ietf:params:xml:ns:vcard-4.0" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/">
+            <version>4.0</version>
+            <contact>
+              <dc:title>Contact: Dr. John Doe, Jr.</dc:title>
+              <fn>Dr. John Doe, Jr.</fn>
+              <n>
+                <given>John</given>
+                <family>Doe</family>
+                <prefix>Dr.</prefix>
+                <suffix>Jr.</suffix>
+              </n>
+              <email type="work">johndoe@example.com</email>
+              <tel type="work">+1-555-555-5555</tel>
+              <address>
+                <street-address>123 Main St</street-address>
+                <locality>Anytown</locality>
+                <region>CA</region>
+                <postal-code>12345</postal-code>
+                <country-name>USA</country-name>
+              </address>
+              <dcterms:created>2024-06-01T12:00:00+00:00</dcterms:created>
+            </contact>
+            <contact>
+              <dc:title>Contact: Robin Hoodwella</dc:title>
+              <fn>Robin Hoodwella</fn>
+              <n>
+                <given>Robin</given>
+                <family>Hoodwella</family>
+              </n>
+              <email type="home">robin.hoodwella@example.com</email>
+              <tel type="home">+1-555-555-1234</tel>
+              <address>
+                <street-address>456 Oak St</street-address>
+                <locality>Sometown</locality>
+                <region>TX</region>
+                <postal-code>67890</postal-code>
+                <country-name>USA</country-name>
+              </address>
+              <dcterms:created>2024-06-02T15:30:00+00:00</dcterms:created>
+            </contact>
+          </vCard>
+        XML
+      end
 
-      # Verify all three namespaces are declared on root element
-      expect(xml).to include('xmlns:vcard="urn:ietf:params:xml:ns:vcard-4.0"')
-      expect(xml).to include('xmlns:dc="http://purl.org/dc/elements/1.1/"')
-      expect(xml).to include('xmlns:dcterms="http://purl.org/dc/terms/"')
+      it "declares all namespaces at root element" do
+        vcard = create_test_vcard(vcard_class_with_full_scope)
+        xml = vcard.to_xml
 
-      # Verify no local namespace redeclarations on child elements
-      # Extract just the contact section to check
-      contact_section = xml.match(/<vcard:contact>.*?<\/vcard:contact>/m).to_s
-      expect(contact_section).not_to include("xmlns:dc=")
-      expect(contact_section).not_to include("xmlns:dcterms=")
+        # Verify vcard uses default namespace, dc and dcterms are prefixed
+        expect(xml).to include('xmlns="urn:ietf:params:xml:ns:vcard-4.0"')
+        expect(xml).to include('xmlns:dc="http://purl.org/dc/elements/1.1/"')
+        expect(xml).to include('xmlns:dcterms="http://purl.org/dc/terms/"')
 
-      expect(xml).to be_xml_equivalent_to(expected_xml_full_scope)
-    end
+        # Verify no local namespace redeclarations on child elements
+        # Extract just the contact section to check
+        contact_section = xml.match(/<contact>.*?<\/contact>/m).to_s
+        expect(contact_section).not_to include("xmlns:dc=")
+        expect(contact_section).not_to include("xmlns:dcterms=")
 
-    it "uses prefixes without redeclaring xmlns on child elements" do
-      vcard = create_test_vcard(vcard_class_with_full_scope)
-      xml = vcard.to_xml
+        expect(xml).to be_xml_equivalent_to(expected_xml_full_scope)
+      end
 
-      # Count namespace declarations - should only be on root
-      dc_declarations = xml.scan('xmlns:dc="').count
-      dcterms_declarations = xml.scan('xmlns:dcterms="').count
+      it "uses prefixes without redeclaring xmlns on child elements" do
+        vcard = create_test_vcard(vcard_class_with_full_scope)
+        xml = vcard.to_xml
 
-      expect(dc_declarations).to eq(1),
-                                 "dc namespace should be declared only once (at root)"
-      expect(dcterms_declarations).to eq(1),
-                                      "dcterms namespace should be declared only once (at root)"
-    end
+        # Count namespace declarations - should only be on root
+        dc_declarations = xml.scan('xmlns:dc="').count
+        dcterms_declarations = xml.scan('xmlns:dcterms="').count
 
-    it "preserves namespace scope in round-trip" do
-      original = create_test_vcard(vcard_class_with_full_scope)
-      xml = original.to_xml
-      reparsed = vcard_class_with_full_scope.from_xml(xml)
+        expect(dc_declarations).to eq(1),
+                                   "dc namespace should be declared only once (at root)"
+        expect(dcterms_declarations).to eq(1),
+                                        "dcterms namespace should be declared only once (at root)"
+      end
 
-      expect(reparsed.version).to eq(original.version)
-      expect(reparsed.contacts.length).to eq(original.contacts.length)
+      it "preserves namespace scope in round-trip" do
+        original = create_test_vcard(vcard_class_with_full_scope)
+        xml = original.to_xml
+        reparsed = vcard_class_with_full_scope.from_xml(xml)
 
-      reparsed.contacts.each_with_index do |contact, idx|
-        original_contact = original.contacts[idx]
-        expect(contact.title).to eq(original_contact.title)
-        expect(contact.fn).to eq(original_contact.fn)
-        expect(contact.name.given).to eq(original_contact.name.given)
-        expect(contact.name.family).to eq(original_contact.name.family)
-        expect(contact.email.value).to eq(original_contact.email.value)
-        expect(contact.tel.value).to eq(original_contact.tel.value)
-        expect(contact.address.street_address).to eq(original_contact.address.street_address)
+        expect(reparsed.version).to eq(original.version)
+        expect(reparsed.contacts.length).to eq(original.contacts.length)
+
+        reparsed.contacts.each_with_index do |contact, idx|
+          original_contact = original.contacts[idx]
+          expect(contact.title).to eq(original_contact.title)
+          expect(contact.fn).to eq(original_contact.fn)
+          expect(contact.name.given).to eq(original_contact.name.given)
+          expect(contact.name.family).to eq(original_contact.name.family)
+          expect(contact.email.value).to eq(original_contact.email.value)
+          expect(contact.tel.value).to eq(original_contact.tel.value)
+          expect(contact.address.street_address).to eq(original_contact.address.street_address)
+        end
+      end
+
+      it "serializes to compact XML format" do
+        vcard = create_test_vcard(vcard_class_with_full_scope)
+        xml = vcard.to_xml
+
+        # Full scope should produce cleaner, more compact XML
+        # No repeated namespace declarations
+        expect(xml).to be_xml_equivalent_to(expected_xml_full_scope)
       end
     end
 
-    it "serializes to compact XML format" do
-      vcard = create_test_vcard(vcard_class_with_full_scope)
-      xml = vcard.to_xml
+    describe "Case 2: Limited namespace scope" do
+      let(:expected_xml_limited_scope) do
+        <<~XML
+          <vCard xmlns="urn:ietf:params:xml:ns:vcard-4.0">
+            <version>4.0</version>
+            <contact>
+              <dc:title xmlns:dc="http://purl.org/dc/elements/1.1/">Contact: Dr. John Doe, Jr.</dc:title>
+              <fn>Dr. John Doe, Jr.</fn>
+              <n>
+                <given>John</given>
+                <family>Doe</family>
+                <prefix>Dr.</prefix>
+                <suffix>Jr.</suffix>
+              </n>
+              <email type="work">johndoe@example.com</email>
+              <tel type="work">+1-555-555-5555</tel>
+              <address>
+                <street-address>123 Main St</street-address>
+                <locality>Anytown</locality>
+                <region>CA</region>
+                <postal-code>12345</postal-code>
+                <country-name>USA</country-name>
+              </address>
+              <dcterms:created xmlns:dcterms="http://purl.org/dc/terms/">2024-06-01T12:00:00+00:00</dcterms:created>
+            </contact>
+            <contact>
+              <dc:title xmlns:dc="http://purl.org/dc/elements/1.1/">Contact: Robin Hoodwella</dc:title>
+              <fn>Robin Hoodwella</fn>
+              <n>
+                <given>Robin</given>
+                <family>Hoodwella</family>
+              </n>
+              <email type="home">robin.hoodwella@example.com</email>
+              <tel type="home">+1-555-555-1234</tel>
+              <address>
+                <street-address>456 Oak St</street-address>
+                <locality>Sometown</locality>
+                <region>TX</region>
+                <postal-code>67890</postal-code>
+                <country-name>USA</country-name>
+              </address>
+              <dcterms:created xmlns:dcterms="http://purl.org/dc/terms/">2024-06-02T15:30:00+00:00</dcterms:created>
+            </contact>
+          </vCard>
+        XML
+      end
 
-      # Full scope should produce cleaner, more compact XML
-      # No repeated namespace declarations
-      expect(xml).to be_xml_equivalent_to(expected_xml_full_scope)
+      it "declares only vcard namespace at root element" do
+        vcard = create_test_vcard(vcard_class_with_limited_scope)
+        xml = vcard.to_xml
+
+        # Verify vcard namespace is declared as default namespace (xmlns="...")
+        root_element = xml.match(/<vCard[^>]*>/).to_s
+        expect(root_element).to include('xmlns="urn:ietf:params:xml:ns:vcard-4.0"')
+        expect(root_element).not_to include("xmlns:dc=")
+        expect(root_element).not_to include("xmlns:dcterms=")
+
+        expect(xml).to be_xml_equivalent_to(expected_xml_limited_scope)
+      end
+
+      it "declares dc and dcterms locally on elements using them" do
+        vcard = create_test_vcard(vcard_class_with_limited_scope)
+        xml = vcard.to_xml
+
+        # Count namespace declarations - should be on contact container elements (one per contact)
+        dc_declarations = xml.scan('xmlns:dc="').count
+        dcterms_declarations = xml.scan('xmlns:dcterms="').count
+
+        expect(dc_declarations).to be >= 2,
+                                   "dc namespace should be declared at least twice (once per contact)"
+        expect(dcterms_declarations).to be >= 2,
+                                        "dcterms namespace should be declared at least twice (once per contact)"
+
+        # Verify that dc and dcterms namespaces are declared locally
+        expect(xml).to include('xmlns:dc="http://purl.org/dc/elements/1.1/"')
+        expect(xml).to include('xmlns:dcterms="http://purl.org/dc/terms/"')
+      end
+
+      it "produces verbose XML with repeated declarations" do
+        vcard = create_test_vcard(vcard_class_with_limited_scope)
+        xml = vcard.to_xml
+
+        # Limited scope produces more verbose XML with repeated namespace declarations
+        expect(xml).to be_xml_equivalent_to(expected_xml_limited_scope)
+      end
+
+      it "preserves behavior in round-trip" do
+        original = create_test_vcard(vcard_class_with_limited_scope)
+        xml = original.to_xml
+        reparsed = vcard_class_with_limited_scope.from_xml(xml)
+
+        expect(reparsed.version).to eq(original.version)
+        expect(reparsed.contacts.length).to eq(original.contacts.length)
+
+        reparsed.contacts.each_with_index do |contact, idx|
+          original_contact = original.contacts[idx]
+          expect(contact.title).to eq(original_contact.title)
+          expect(contact.fn).to eq(original_contact.fn)
+          expect(contact.name.given).to eq(original_contact.name.given)
+          expect(contact.name.family).to eq(original_contact.name.family)
+          expect(contact.email.value).to eq(original_contact.email.value)
+          expect(contact.tel.value).to eq(original_contact.tel.value)
+          expect(contact.address.street_address).to eq(original_contact.address.street_address)
+        end
+      end
     end
-  end
 
-  describe "Case 2: Limited namespace scope" do
-    let(:expected_xml_limited_scope) do
-      <<~XML
-        <vcard:vCard xmlns:vcard="urn:ietf:params:xml:ns:vcard-4.0">
-          <vcard:version>4.0</vcard:version>
-          <vcard:contact>
-            <dc:title xmlns:dc="http://purl.org/dc/elements/1.1/">Contact: Dr. John Doe, Jr.</dc:title>
-            <vcard:fn>Dr. John Doe, Jr.</vcard:fn>
-            <vcard:n>
-              <vcard:given>John</vcard:given>
-              <vcard:family>Doe</vcard:family>
-              <vcard:prefix>Dr.</vcard:prefix>
-              <vcard:suffix>Jr.</vcard:suffix>
-            </vcard:n>
-            <vcard:email vcard:type="work">johndoe@example.com</vcard:email>
-            <vcard:tel vcard:type="work">+1-555-555-5555</vcard:tel>
-            <vcard:address>
-              <vcard:street-address>123 Main St</vcard:street-address>
-              <vcard:locality>Anytown</vcard:locality>
-              <vcard:region>CA</vcard:region>
-              <vcard:postal-code>12345</vcard:postal-code>
-              <vcard:country-name>USA</vcard:country-name>
-            </vcard:address>
-            <dcterms:created xmlns:dcterms="http://purl.org/dc/terms/">2024-06-01T12:00:00+00:00</dcterms:created>
-          </vcard:contact>
-          <vcard:contact>
-            <dc:title xmlns:dc="http://purl.org/dc/elements/1.1/">Contact: Robin Hoodwella</dc:title>
-            <vcard:fn>Robin Hoodwella</vcard:fn>
-            <vcard:n>
-              <vcard:given>Robin</vcard:given>
-              <vcard:family>Hoodwella</vcard:family>
-            </vcard:n>
-            <vcard:email vcard:type="home">robin.hoodwella@example.com</vcard:email>
-            <vcard:tel vcard:type="home">+1-555-555-1234</vcard:tel>
-            <vcard:address>
-              <vcard:street-address>456 Oak St</vcard:street-address>
-              <vcard:locality>Sometown</vcard:locality>
-              <vcard:region>TX</vcard:region>
-              <vcard:postal-code>67890</vcard:postal-code>
-              <vcard:country-name>USA</vcard:country-name>
-            </vcard:address>
-            <dcterms:created xmlns:dcterms="http://purl.org/dc/terms/">2024-06-02T15:30:00+00:00</dcterms:created>
-          </vcard:contact>
-        </vcard:vCard>
-      XML
+    describe "Comparison between cases" do
+      it "produces different XML serializations for same data" do
+        vcard_full = create_test_vcard(vcard_class_with_full_scope)
+        vcard_limited = create_test_vcard(vcard_class_with_limited_scope)
+
+        xml_full = vcard_full.to_xml
+        xml_limited = vcard_limited.to_xml
+
+        # Different XML structure
+        expect(xml_full).not_to eq(xml_limited)
+
+        # But semantically equivalent data
+        parsed_full = vcard_class_with_full_scope.from_xml(xml_full)
+        parsed_limited = vcard_class_with_limited_scope.from_xml(xml_limited)
+
+        expect(parsed_full.version).to eq(parsed_limited.version)
+        expect(parsed_full.contacts.first.title).to eq(parsed_limited.contacts.first.title)
+      end
+
+      it "handles cross-parsing correctly" do
+        # Create data with full scope
+        vcard_full = create_test_vcard(vcard_class_with_full_scope)
+        xml_full = vcard_full.to_xml
+
+        # Parse with limited scope class (should still work - XML is semantically same)
+        parsed_by_limited = vcard_class_with_limited_scope.from_xml(xml_full)
+        expect(parsed_by_limited.version).to eq("4.0")
+        expect(parsed_by_limited.contacts.first.title).to eq("Contact: Dr. John Doe, Jr.")
+
+        # Create data with limited scope
+        vcard_limited = create_test_vcard(vcard_class_with_limited_scope)
+        xml_limited = vcard_limited.to_xml
+
+        # Parse with full scope class (should also work)
+        parsed_by_full = vcard_class_with_full_scope.from_xml(xml_limited)
+        expect(parsed_by_full.version).to eq("4.0")
+        expect(parsed_by_full.contacts.first.title).to eq("Contact: Dr. John Doe, Jr.")
+      end
     end
 
-    it "declares only vcard namespace at root element" do
-      vcard = create_test_vcard(vcard_class_with_limited_scope)
-      xml = vcard.to_xml
+    describe "Type namespace interaction with namespace_scope" do
+      it "Type namespaces work correctly with full namespace_scope" do
+        vcard = create_test_vcard(vcard_class_with_full_scope)
+        xml = vcard.to_xml
 
-      # Verify only vcard namespace on root
-      root_element = xml.match(/<vcard:vCard[^>]*>/).to_s
-      expect(root_element).to include('xmlns:vcard="urn:ietf:params:xml:ns:vcard-4.0"')
-      expect(root_element).not_to include("xmlns:dc=")
-      expect(root_element).not_to include("xmlns:dcterms=")
+        # Type-level namespaces should be respected
+        # vcard uses default namespace (no prefix)
+        expect(xml).to include("<version>")
+        expect(xml).to include("<dc:title>")
+        expect(xml).to include("<dcterms:created>")
+      end
 
-      expect(xml).to be_xml_equivalent_to(expected_xml_limited_scope)
-    end
+      it "Type namespaces work correctly with limited namespace_scope" do
+        vcard = create_test_vcard(vcard_class_with_limited_scope)
+        xml = vcard.to_xml
 
-    it "declares dc and dcterms locally on elements using them" do
-      vcard = create_test_vcard(vcard_class_with_limited_scope)
-      xml = vcard.to_xml
-
-      # Count namespace declarations - should be on contact container elements (one per contact)
-      dc_declarations = xml.scan('xmlns:dc="').count
-      dcterms_declarations = xml.scan('xmlns:dcterms="').count
-
-      expect(dc_declarations).to be >= 2,
-                                 "dc namespace should be declared at least twice (once per contact)"
-      expect(dcterms_declarations).to be >= 2,
-                                      "dcterms namespace should be declared at least twice (once per contact)"
-
-      # Verify that dc and dcterms namespaces are declared locally
-      expect(xml).to include('xmlns:dc="http://purl.org/dc/elements/1.1/"')
-      expect(xml).to include('xmlns:dcterms="http://purl.org/dc/terms/"')
-    end
-
-    it "produces verbose XML with repeated declarations" do
-      vcard = create_test_vcard(vcard_class_with_limited_scope)
-      xml = vcard.to_xml
-
-      # Limited scope produces more verbose XML with repeated namespace declarations
-      expect(xml).to be_xml_equivalent_to(expected_xml_limited_scope)
-    end
-
-    it "preserves behavior in round-trip" do
-      original = create_test_vcard(vcard_class_with_limited_scope)
-      xml = original.to_xml
-      reparsed = vcard_class_with_limited_scope.from_xml(xml)
-
-      expect(reparsed.version).to eq(original.version)
-      expect(reparsed.contacts.length).to eq(original.contacts.length)
-
-      reparsed.contacts.each_with_index do |contact, idx|
-        original_contact = original.contacts[idx]
-        expect(contact.title).to eq(original_contact.title)
-        expect(contact.fn).to eq(original_contact.fn)
-        expect(contact.name.given).to eq(original_contact.name.given)
-        expect(contact.name.family).to eq(original_contact.name.family)
-        expect(contact.email.value).to eq(original_contact.email.value)
-        expect(contact.tel.value).to eq(original_contact.tel.value)
-        expect(contact.address.street_address).to eq(original_contact.address.street_address)
+        # Type-level namespaces should be respected, with local declarations
+        # vcard uses default namespace (no prefix)
+        expect(xml).to include("<version>")
+        expect(xml).to include("<dc:title")
+        expect(xml).to include("<dcterms:created")
+        expect(xml).to include('xmlns:dc="http://purl.org/dc/elements/1.1/"')
+        expect(xml).to include('xmlns:dcterms="http://purl.org/dc/terms/"')
       end
     end
   end
 
-  describe "Comparison between cases" do
-    it "produces different XML serializations for same data" do
-      vcard_full = create_test_vcard(vcard_class_with_full_scope)
-      vcard_limited = create_test_vcard(vcard_class_with_limited_scope)
-
-      xml_full = vcard_full.to_xml
-      xml_limited = vcard_limited.to_xml
-
-      # Different XML structure
-      expect(xml_full).not_to eq(xml_limited)
-
-      # But semantically equivalent data
-      parsed_full = vcard_class_with_full_scope.from_xml(xml_full)
-      parsed_limited = vcard_class_with_limited_scope.from_xml(xml_limited)
-
-      expect(parsed_full.version).to eq(parsed_limited.version)
-      expect(parsed_full.contacts.first.title).to eq(parsed_limited.contacts.first.title)
-    end
-
-    it "handles cross-parsing correctly" do
-      # Create data with full scope
-      vcard_full = create_test_vcard(vcard_class_with_full_scope)
-      xml_full = vcard_full.to_xml
-
-      # Parse with limited scope class (should still work - XML is semantically same)
-      parsed_by_limited = vcard_class_with_limited_scope.from_xml(xml_full)
-      expect(parsed_by_limited.version).to eq("4.0")
-      expect(parsed_by_limited.contacts.first.title).to eq("Contact: Dr. John Doe, Jr.")
-
-      # Create data with limited scope
-      vcard_limited = create_test_vcard(vcard_class_with_limited_scope)
-      xml_limited = vcard_limited.to_xml
-
-      # Parse with full scope class (should also work)
-      parsed_by_full = vcard_class_with_full_scope.from_xml(xml_limited)
-      expect(parsed_by_full.version).to eq("4.0")
-      expect(parsed_by_full.contacts.first.title).to eq("Contact: Dr. John Doe, Jr.")
-    end
+  context "with Nokogiri adapter" do
+    it_behaves_like "namespace_scope behavior", Lutaml::Model::Xml::NokogiriAdapter
   end
 
-  describe "Type namespace interaction with namespace_scope" do
-    it "Type namespaces work correctly with full namespace_scope" do
-      vcard = create_test_vcard(vcard_class_with_full_scope)
-      xml = vcard.to_xml
-
-      # Type-level namespaces should be respected
-      expect(xml).to include("<vcard:version>")
-      expect(xml).to include("<dc:title>")
-      expect(xml).to include("<dcterms:created>")
-    end
-
-    it "Type namespaces work correctly with limited namespace_scope" do
-      vcard = create_test_vcard(vcard_class_with_limited_scope)
-      xml = vcard.to_xml
-
-      # Type-level namespaces should be respected, with local declarations
-      expect(xml).to include("<vcard:version>")
-      expect(xml).to include("<dc:title")
-      expect(xml).to include("<dcterms:created")
-      expect(xml).to include('xmlns:dc="http://purl.org/dc/elements/1.1/"')
-      expect(xml).to include('xmlns:dcterms="http://purl.org/dc/terms/"')
-    end
+  context "with Oga adapter" do
+    it_behaves_like "namespace_scope behavior", Lutaml::Model::Xml::OgaAdapter
   end
 end

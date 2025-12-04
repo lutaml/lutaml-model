@@ -1,0 +1,65 @@
+---
+title: Introduction
+nav_order: 1
+parent: XML Mappings Guide
+---
+
+= Introduction
+
+== Purpose
+
+This guide provides comprehensive documentation for the XML mapping system in
+Lutaml::Model, with emphasis on the namespace-aware architecture that properly
+models W3C XML Namespace and XSD specifications.
+
+== What changed
+
+The XML mapping system has been enhanced with a new namespace-aware
+architecture that correctly implements W3C XML Namespace semantics:
+
+**Architectural improvements:**
+
+* `XmlNamespace` class for declarative namespace metadata
+
+* Type-level namespace support for `Type::Value` and `Serializable` classes
+
+* `element()` as primary API for element declaration
+
+* `root()` maintained as backward-compatible alias
+
+* Type-only models use absence of element declaration instead of deprecated
+`no_root`
+
+* `form:` option for per-element qualification control
+
+* `documentation:` option for XSD annotations
+
+**Why these changes:**
+
+
+* **W3C compliance**: Properly separates Element (XML structure) from Type (data
+structure) as orthogonal concepts
+
+* **Namespace semantics**: URI is the identifier, prefixes are just labels
+
+* **XSD generation**: Full support for generating standards-compliant XSD
+schemas with proper namespace declarations
+
+* **Reusability**: Namespace definitions centralized and reusable across models
+
+* **Maintainability**: Clear separation of concerns between namespace metadata
+and usage
+
+== Backward compatibility
+
+All existing code continues to work:
+
+* String-based `namespace(uri, prefix)` still supported
+
+* `root()` works as before
+
+* `no_root` shows deprecation warning but functions correctly
+
+* No breaking changes to existing models
+
+New features are opt-in and can be adopted incrementally.

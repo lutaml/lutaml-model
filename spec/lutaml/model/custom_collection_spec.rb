@@ -336,7 +336,7 @@ RSpec.describe CustomCollection do
         from_type: CustomCollection::Text,
         to_type: Lutaml::Model::Type::String,
       )
-      expect(collection.to_xml.strip).to eq(xml.strip)
+      expect(collection.to_xml).to be_xml_equivalent_to(xml)
     end
 
     it "deserializes from XML" do
@@ -404,7 +404,7 @@ RSpec.describe CustomCollection do
     end
 
     it "serializes to XML" do
-      expect(no_root_collection.to_xml.strip).to eq(expected_xml_no_root)
+      expect(no_root_collection.to_xml).to be_xml_equivalent_to(expected_xml_no_root)
     end
 
     it "deserializes from XML" do
@@ -632,7 +632,7 @@ RSpec.describe CustomCollection do
         ],
       )
 
-      expect(collection.to_xml.strip).to eq(xml.strip)
+      expect(collection.to_xml).to be_xml_equivalent_to(xml)
     end
 
     it "serializes to YAML with polymorphic items" do
