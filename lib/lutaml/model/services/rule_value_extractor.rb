@@ -36,7 +36,11 @@ module Lutaml
         return doc if root_or_nil?(name)
         return convert_to_format(doc, format) if rule.raw_mapping?
         return fetch_value(name) if Utils.string_or_symbol_key?(doc, name)
-        return attr.default(register, instance_object) if attr&.default_set?(register, instance_object)
+
+        if attr
+          resolver = Services::DefaultValueResolver.new(attr, register, instance_object)
+          return resolver.default_value if resolver.default_set?
+        end
 
         uninitialized_value
       end

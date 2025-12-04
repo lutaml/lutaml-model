@@ -130,6 +130,22 @@ module DefaultsSpec
       map "content", to: :content, render_default: false
     end
   end
+
+  # Classes for testing instance-aware default procs
+  # Ensures that `self` refers to the model instance, not the class
+  class InstanceAwareParent < Lutaml::Model::Serializable
+    attribute :_class, :string, default: -> { self.class.name }
+
+    key_value do
+      map "_class", to: :_class, render_default: true
+    end
+  end
+
+  class InstanceAwareChild < InstanceAwareParent
+  end
+
+  class InstanceAwareGrandChild < InstanceAwareChild
+  end
 end
 
 RSpec.describe DefaultsSpec::Glaze do
@@ -292,6 +308,41 @@ RSpec.describe DefaultsSpec::Glaze do
           expect(serialized).to eq("content = \"content\"\nlang = \"en\"\n")
         end
       end
+    end
+  end
+
+  describe "Instance-aware default procs" do
+    it "executes default proc in parent class instance context" do
+      parent = DefaultsSpec::InstanceAwareParent.new
+      expect(parent._class).to eq("DefaultsSpec::InstanceAwareParent")
+    end
+
+    it "serializes default proc value with correct class name for parent" do
+      parent = DefaultsSpec::InstanceAwareParent.new
+      yaml = parent.to_yaml
+      expect(yaml).to include("_class: DefaultsSpec::InstanceAwareParent")
+    end
+
+    it "executes default proc in child class instance context" do
+      child = DefaultsSpec::InstanceAwareChild.new
+      expect(child._class).to eq("DefaultsSpec::InstanceAwareChild")
+    end
+
+    it "serializes default proc value with correct class name for child" do
+      child = DefaultsSpec::InstanceAwareChild.new
+      yaml = child.to_yaml
+      expect(yaml).to include("_class: DefaultsSpec::InstanceAwareChild")
+    end
+
+    it "executes default proc in grandchild class instance context" do
+      grandchild = DefaultsSpec::InstanceAwareGrandChild.new
+      expect(grandchild._class).to eq("DefaultsSpec::InstanceAwareGrandChild")
+    end
+
+    it "serializes default proc value with correct class name for grandchild" do
+      grandchild = DefaultsSpec::InstanceAwareGrandChild.new
+      yaml = grandchild.to_yaml
+      expect(yaml).to include("_class: DefaultsSpec::InstanceAwareGrandChild")
     end
   end
 end
