@@ -1,0 +1,68 @@
+---
+title: Guides
+nav_order: 0
+---
+
+= Overview
+
+Task-oriented guides for accomplishing specific goals with Lutaml::Model.
+
+== XML serialization
+
+* link:../xml-mapping[XML Serialization Mapping] - Complete XML mapping reference
+* link:../xml-namespaces[XML Namespaces] - Multi-namespace documents
+* link:../xml-namespace-qualification[XML Namespace Qualification] - Advanced control
+* link:../xml-mappings-guide[XML Mappings Guide] - Complete XML reference
+* link:../xml/namespace-semantics[XML Namespace Semantics] - XML Namespace Semantics
+* link:../xml/namespace-presentation[XML Namespace Presentation] - XML Namespace Presentation
+
+== Key-value serialization
+
+* link:../keyvalue-serialization[Key-Value Serialization] - JSON/YAML/TOML/Hash
+* link:../collection-serialization[Collection Serialization] - JSONL and YAML Stream
+
+== Advanced features
+
+* link:../value-transformations[Value Transformations] - Transform values during serialization
+* link:../missing-values-handling[Missing Values Handling] - Handle nil/empty/omitted
+* link:../advanced-mapping[Advanced Mapping] - Custom methods and delegation
+* link:../schema-generation[Schema Generation] - Generate schemas from models
+* link:../creating-xsd[Creating XSD Schemas] - Complete reference for XSD generation from LutaML models
+* link:../schema-import[Schema Import] - Import schemas to create models
+* link:../liquid-templates[Liquid Templates] - Template integration
+* link:../ooxml-examples[OOXML Examples] - Real-world Office Open XML
+
+== By task
+
+=== I want to serialize to XML
+
+. link:../xml-mapping[Start with XML Mapping basics]
+. link:../xml-namespaces[Add namespace support]
+. link:../xml-namespace-qualification[Control qualification]
+
+=== I want to serialize to JSON/YAML
+
+. link:../keyvalue-serialization[Key-Value Serialization guide]
+. link:../value-transformations[Transform values if needed]
+. link:../missing-values-handling[Handle nil/empty values]
+
+=== I want to work with collections
+
+. link:../collection-serialization[Collection Serialization]
+. link:../../collections[Collections reference]
+
+=== I want to transform data
+
+. link:../value-transformations[Value Transformations guide]
+. link:../advanced-mapping[Advanced Mapping techniques]
+
+=== I want to generate or import schemas
+
+. link:../schema-generation[Generate schemas (XSD, JSON Schema)]
+. link:../schema-import[Import schemas to models]
+
+== See also
+
+* link:../../tutorials/index[Tutorials] - Step-by-step learning
+* link:../../index[Core Topics] - Reference documentation
+* link:../../references/index[Reference] - Technical details

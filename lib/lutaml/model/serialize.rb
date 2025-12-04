@@ -373,7 +373,7 @@ collection: false)
             end
 
             Utils.add_method_if_not_defined(klass, value.to_s) do
-              public_send(:"#{value}?")
+              public_send(:"#{value}=")
             end
 
             Utils.add_method_if_not_defined(klass, "#{value}=") do |val|
@@ -510,6 +510,24 @@ collection)
           adapter = Lutaml::Model::Config.adapter_for(format)
 
           options[:mapper_class] = self if format == :xml
+
+          # Handle prefix option for XML
+          if format == :xml && options.key?(:prefix)
+            prefix_option = options[:prefix]
+            xml_mapping = mappings_for(:xml)
+
+            if prefix_option == true
+              # Use defined default prefix
+              options[:use_prefix] = xml_mapping.namespace_prefix
+            elsif prefix_option.is_a?(String)
+              # Use specific custom prefix
+              options[:use_prefix] = prefix_option
+            elsif prefix_option == false || prefix_option.nil?
+              # Explicitly use default namespace (no prefix)
+              options[:use_prefix] = nil
+            end
+            options.delete(:prefix) # Remove original option
+          end
 
           # Apply namespace prefix overrides for XML format
           if format == :xml && options[:namespaces]
@@ -739,7 +757,7 @@ collection)
 
         def collection_with_conflicting_sort?
           self <= Lutaml::Model::Collection &&
-            @mappings[:xml].ordered &&
+            @mappings[:xml].ordered? &&
             !!@sort_by_field
         end
 

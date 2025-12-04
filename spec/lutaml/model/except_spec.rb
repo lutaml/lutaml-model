@@ -2,6 +2,7 @@ require "spec_helper"
 require "lutaml/model"
 require "lutaml/model/xml/ox_adapter"
 require "lutaml/model/xml/oga_adapter"
+require_relative "../../support/xml_mapping_namespaces"
 
 module ExceptSpecs
   class Annotation < Lutaml::Model::Serializable
@@ -11,7 +12,7 @@ module ExceptSpecs
 
     xml do
       root "annotation", mixed: true
-      namespace "http://www.w3.org/2001/XMLSchema", "xsd"
+      namespace XsdNamespace
 
       map_element :documentation, to: :documentation
       map_element :appinfo, to: :appinfo
@@ -27,7 +28,7 @@ module ExceptSpecs
 
     xml do
       root "attribute", mixed: true
-      namespace "http://www.w3.org/2001/XMLSchema", "xsd"
+      namespace XsdNamespace
 
       map_attribute :id, to: :id
       map_attribute :ref, to: :ref
@@ -45,7 +46,7 @@ module ExceptSpecs
 
     xml do
       root "attributeGroup", mixed: true
-      namespace "http://www.w3.org/2001/XMLSchema", "xsd"
+      namespace XsdNamespace
 
       map_attribute :id, to: :id
       map_attribute :ref, to: :ref
@@ -62,7 +63,7 @@ module ExceptSpecs
 
     xml do
       root "schema", mixed: true
-      namespace "http://www.w3.org/2001/XMLSchema", "xsd"
+      namespace XsdNamespace
 
       map_attribute :id, to: :id
       map_element :attribute, to: :attribute

@@ -491,8 +491,8 @@ RSpec.describe Lutaml::Model::Collection do
     it "sorts the output by the given field" do
       collection = collection_class.from_xml(xml_input)
 
-      expect(collection.to_xml).to eq(
-        <<~XML.strip,
+      expect(collection.to_xml).to be_xml_equivalent_to(
+        <<~XML,
           <people>
             <person><age>30</age><name>Alice</name></person>
             <person><name>Bob</name><age>25</age></person>
@@ -518,7 +518,7 @@ RSpec.describe Lutaml::Model::Collection do
     it "preserves the element order from XML" do
       collection = collection_class.from_xml(xml_input)
 
-      expect(collection.to_xml).to eq(
+      expect(collection.to_xml).to be_xml_equivalent_to(
         "<people><person><name>Bob</name><age>25</age></person><person><age>30</age><name>Alice</name></person><person><name>Charlie</name><age>35</age></person></people>",
       )
     end

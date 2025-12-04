@@ -62,7 +62,8 @@ module Lutaml
                                       attribute)
         end
 
-        value = ExportTransformer.call(value, rule, attribute)
+        # Use the format parameter passed in instead of hardcoding to :json
+        value = ExportTransformer.call(value, rule, attribute, format: format)
 
         value = serialize_value(value, rule, attribute, format, options.merge(instance: instance))
 

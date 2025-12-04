@@ -1,0 +1,214 @@
+---
+title: XSD generation with namespace support
+nav_order: 10
+---
+
+= XSD generation with namespace support
+:toc:
+:toclevels: 3
+
+== General
+
+The `Lutaml::Model::Schema.to_xml` method
+generates W3C XML Schema (XSD) from LutaML models with full namespace support.
+
+Generated XSD includes:
+
+* Proper namespace declarations
+* Element and attribute qualification rules
+* Complex and simple type definitions
+* Schema imports and includes
+* Documentation annotations
+
+== Schema generation syntax
+
+[source,ruby]
+----
+xsd_string = Lutaml::Model::Schema.to_xml(ModelClass, options)
+----
+
+Options:
+
+`namespace`::: Namespace URI for the schema
+`prefix`::: Namespace prefix
+`location`::: Schema location URL
+`output_dir`::: Directory to save generated XSD file
+`create_files`::: Boolean, whether to write files to disk (default: `false`)
+
+== Element and type inference
+
+The XSD generator infers structure from model definitions:
+
+**Elements vs types:**
+
+* Models with `element` declared: Generate
+both element declaration and type definition
+* Models without element (type-only): Generate only type definition
+* Collections: Generate elements with `maxOccurs="unbounded"`
+
+**Type naming:**
+
+* Default: `ClassNameType` (e.g., `PersonType` for `Person` class)
+* Override via `type_name`
+* Nested models get separate type definitions
+
+== Adapter support
+
+XSD generation uses SchemaBuilder adapters:
+
+* `Nokogiri`: Default,
+full XSD 1.0 support
+* `Oga`: Pure Ruby, feature
+complete
+
+Both adapters produce identical, standards-compliant XSD output.
+
+== Complete example
+
+.XSD generation with full namespace features
+[example]
+====
+[source,ruby]
+----
+# Define namespace
+class ContactNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/schemas/contact/v1'
+  schema_location 'https://example.com/schemas/contact/v1/contact.xsd'
+  prefix_default 'contact'
+  element_form_default :qualified
+  attribute_form_default :unqualified
+  version '1.0'
+  documentation "Contact information schema for Example Corp"
+end
+
+# Define address namespace (imported)
+class AddressNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/schemas/address/v1'
+  schema_location 'https://example.com/schemas/address/v1/address.xsd'
+  prefix_default 'addr'
+end
+
+# Type-only address model (no element)
+class Address < Lutaml::Model::Serializable
+  attribute :street, :string
+  attribute :city, :string
+  attribute :postal_code, :string
+
+  xml do
+    # No element declaration - type-only
+    namespace AddressNamespace
+
+    sequence do
+      map_element 'street', to: :street
+      map_element 'city', to: :city
+      map_element 'postalCode', to: :postal_code
+    end
+  end
+end
+
+# Main contact model
+class Contact < Lutaml::Model::Serializable
+  attribute :contact_id, :string, xsd_type: 'xs:ID'
+  attribute :name, :string
+  attribute :email, :uri
+  attribute :address, Address
+
+  xml do
+    element 'contact'
+    namespace ContactNamespace
+    documentation "A contact record"
+    type_name 'ContactRecordType'
+
+    sequence do
+      map_attribute 'id', to: :contact_id
+      map_element 'name', to: :name
+      map_element 'email', to: :email
+      map_element 'address', to: :address
+    end
+  end
+end
+
+# Generate XSD
+xsd = Lutaml::Model::Schema.to_xml(
+  Contact,
+  namespace: ContactNamespace.uri,
+  prefix: ContactNamespace.prefix_default,
+  output_dir: 'schemas',
+  create_files: true
+)
+
+puts xsd
+----
+
+Generated XSD:
+
+[source,xml]
+----
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:contact="https://example.com/schemas/contact/v1"
+           xmlns:addr="https://example.com/schemas/address/v1"
+           targetNamespace="https://example.com/schemas/contact/v1"
+           elementFormDefault="qualified"
+           attributeFormDefault="unqualified"
+           version="1.0">
+
+  <xs:annotation>
+    <xs:documentation>Contact information schema for Example Corp</xs:documentation>
+  </xs:annotation>
+
+  <xs:import namespace="https://example.com/schemas/address/v1"
+             schemaLocation="https://example.com/schemas/address/v1/address.xsd"/>
+
+  <!-- Global element declaration -->
+  <xs:element name="contact" type="contact:ContactRecordType">
+    <xs:annotation>
+      <xs:documentation>A contact record</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+
+  <!-- Complex type definition -->
+  <xs:complexType name="ContactRecordType">
+    <xs:sequence>
+      <xs:element name="name" type="xs:string"/>
+      <xs:element name="email" type="xs:anyURI"/>
+      <xs:element name="address" type="addr:AddressType"/>
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:ID"/>
+  </xs:complexType>
+
+  <!-- Address type from imported namespace -->
+  <xs:complexType name="AddressType">
+    <xs:sequence>
+      <xs:element name="street" type="xs:string"/>
+      <xs:element name="city" type="xs:string"/>
+      <xs:element name="postalCode" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+</xs:schema>
+----
+====
+
+
+
+[[custom-registers]]
+== Custom registers
+
+A *LutaML::Model* *Register* allows for dynamic modification and reconfiguration
+of model hierarchies without altering the original model definitions.
+For more information, refer to the link:../custom_registers[Custom Registers Guide].
+
+NOTE: Before using the `Lutaml::Model::Register` instance, make sure to register
+it in `Lutaml::Model::GlobalRegister`.
+
+NOTE: By default, a `default_register` with the id `:default` is created and
+registered in the GlobalRegister. This default register is also set in
+`Lutaml::Model::Config.default_register` as the default value.
+
+The default register can be set at the configuration level using the following
+syntax:
+
+[source,ruby]
+----
+Lutaml::Model::Config.default_register = :default # the register id goes here.
+----

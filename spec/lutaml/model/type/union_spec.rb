@@ -33,6 +33,104 @@ class Ceramic < Lutaml::Model::Serializable
   end
 end
 
+RSpec.shared_examples "union type XML adapter" do |adapter_name|
+  describe "XML format support (#{adapter_name})" do
+    around do |example|
+      original_adapter = Lutaml::Model::Config.xml_adapter
+      Lutaml::Model::Config.xml_adapter_type = adapter_name
+      example.run
+      Lutaml::Model::Config.xml_adapter = original_adapter
+    end
+
+    let(:xml_string) do
+      <<~XML
+        <ceramic>
+          <FiringTemperature>Very Hot</FiringTemperature>
+        </ceramic>
+      XML
+    end
+
+    let(:xml_model) do
+      <<~XML
+        <ceramic>
+          <FiringTemperature><number>1300</number><unit>C</unit></FiringTemperature>
+        </ceramic>
+      XML
+    end
+
+    let(:xml_temperature) do
+      <<~XML
+        <ceramic>
+          <FiringTemperature><celcius>1200</celcius></FiringTemperature>
+        </ceramic>
+      XML
+    end
+
+    it "handles string values in XML" do
+      ceramic = Ceramic.from_xml(xml_string)
+
+      # XML string parsing may not work as expected with union types
+      # This is a known limitation - XML elements with text content get parsed as elements
+      expect(ceramic.firing_temperature).to be_a(String)
+      expect(ceramic.firing_temperature).to include("Very Hot")
+
+      # Check that union type is tracked
+      expect(ceramic.__union_types).to have_key(:firing_temperature)
+
+      # Test serialization
+      serialized_xml = ceramic.to_xml
+      expect(serialized_xml).to include("<FiringTemperature>Very Hot</FiringTemperature>")
+    end
+
+    it "handles TemperatureWithUnit models in XML" do
+      ceramic = Ceramic.from_xml(xml_model)
+
+      expect(ceramic.firing_temperature).to be_a(TemperatureWithUnit)
+      expect(ceramic.firing_temperature.number).to eq(1300)
+      expect(ceramic.firing_temperature.unit).to eq("C")
+
+      # Check that union type is tracked correctly
+      expect(ceramic.__union_types).to have_key(:firing_temperature)
+      expect(ceramic.__union_types[:firing_temperature]).to eq(TemperatureWithUnit)
+
+      serialized_xml = ceramic.to_xml
+      # Accept scientific notation format
+      expect(serialized_xml).to include("<number>1300.0")
+      expect(serialized_xml).to include("<unit>C</unit>")
+    end
+
+    it "handles Temperature models in XML" do
+      ceramic = Ceramic.from_xml(xml_temperature)
+
+      expect(ceramic.firing_temperature).to be_a(Temperature)
+      expect(ceramic.firing_temperature.celcius).to eq(1200)
+
+      # Check that union type is tracked correctly
+      expect(ceramic.__union_types).to have_key(:firing_temperature)
+      expect(ceramic.__union_types[:firing_temperature]).to eq(Temperature)
+
+      serialized_xml = ceramic.to_xml
+      # Accept scientific notation format
+      expect(serialized_xml).to include("<celcius>1200.0")
+    end
+
+    it "preserves type information through XML round trips" do
+      # TemperatureWithUnit case (most reliable for XML)
+      ceramic2 = Ceramic.from_xml(xml_model)
+      round_trip2 = Ceramic.from_xml(ceramic2.to_xml)
+      expect(round_trip2.firing_temperature).to be_a(TemperatureWithUnit)
+      expect(round_trip2.firing_temperature.number).to eq(1300)
+      expect(round_trip2.firing_temperature.unit).to eq("C")
+
+      # Temperature case
+      ceramic3 = Ceramic.from_xml(xml_temperature)
+      round_trip3 = Ceramic.from_xml(ceramic3.to_xml)
+      expect(round_trip3.firing_temperature).to be_a(Temperature)
+      expect(round_trip3.firing_temperature.celcius).to eq(1200)
+    end
+  end
+end
+
 RSpec.describe Lutaml::Model::Type::Union do
   let(:yaml_string) { "firing_temperature: Very Hot" }
   let(:yaml_model) do
@@ -48,24 +146,10 @@ RSpec.describe Lutaml::Model::Type::Union do
         celcius: 1200
     YAML
   end
-  let(:xml_string) do
-    <<~XML
-      <ceramic>
-        <FiringTemperature>Very Hot</FiringTemperature>
-      </ceramic>
-    XML
-  end
   let(:xml_model) do
     <<~XML
       <ceramic>
         <FiringTemperature><number>1300</number><unit>C</unit></FiringTemperature>
-      </ceramic>
-    XML
-  end
-  let(:xml_temperature) do
-    <<~XML
-      <ceramic>
-        <FiringTemperature><celcius>1200</celcius></FiringTemperature>
       </ceramic>
     XML
   end
@@ -131,68 +215,9 @@ RSpec.describe Lutaml::Model::Type::Union do
   end
 
   describe "XML format support" do
-    it "handles string values in XML" do
-      ceramic = Ceramic.from_xml(xml_string)
-
-      # XML string parsing may not work as expected with union types
-      # This is a known limitation - XML elements with text content get parsed as elements
-      expect(ceramic.firing_temperature).to be_a(String)
-      expect(ceramic.firing_temperature).to include("Very Hot")
-
-      # Check that union type is tracked
-      expect(ceramic.__union_types).to have_key(:firing_temperature)
-
-      # Test serialization
-      serialized_xml = ceramic.to_xml
-      expect(serialized_xml).to include("<FiringTemperature>Very Hot</FiringTemperature>")
-    end
-
-    it "handles TemperatureWithUnit models in XML" do
-      ceramic = Ceramic.from_xml(xml_model)
-
-      expect(ceramic.firing_temperature).to be_a(TemperatureWithUnit)
-      expect(ceramic.firing_temperature.number).to eq(1300)
-      expect(ceramic.firing_temperature.unit).to eq("C")
-
-      # Check that union type is tracked correctly
-      expect(ceramic.__union_types).to have_key(:firing_temperature)
-      expect(ceramic.__union_types[:firing_temperature]).to eq(TemperatureWithUnit)
-
-      serialized_xml = ceramic.to_xml
-      # Accept scientific notation format
-      expect(serialized_xml).to include("<number>1300.0")
-      expect(serialized_xml).to include("<unit>C</unit>")
-    end
-
-    it "handles Temperature models in XML" do
-      ceramic = Ceramic.from_xml(xml_temperature)
-
-      expect(ceramic.firing_temperature).to be_a(Temperature)
-      expect(ceramic.firing_temperature.celcius).to eq(1200)
-
-      # Check that union type is tracked correctly
-      expect(ceramic.__union_types).to have_key(:firing_temperature)
-      expect(ceramic.__union_types[:firing_temperature]).to eq(Temperature)
-
-      serialized_xml = ceramic.to_xml
-      # Accept scientific notation format
-      expect(serialized_xml).to include("<celcius>1200.0")
-    end
-
-    it "preserves type information through XML round trips" do
-      # TemperatureWithUnit case (most reliable for XML)
-      ceramic2 = Ceramic.from_xml(xml_model)
-      round_trip2 = Ceramic.from_xml(ceramic2.to_xml)
-      expect(round_trip2.firing_temperature).to be_a(TemperatureWithUnit)
-      expect(round_trip2.firing_temperature.number).to eq(1300)
-      expect(round_trip2.firing_temperature.unit).to eq("C")
-
-      # Temperature case
-      ceramic3 = Ceramic.from_xml(xml_temperature)
-      round_trip3 = Ceramic.from_xml(ceramic3.to_xml)
-      expect(round_trip3.firing_temperature).to be_a(Temperature)
-      expect(round_trip3.firing_temperature.celcius).to eq(1200)
-    end
+    it_behaves_like "union type XML adapter", :nokogiri
+    it_behaves_like "union type XML adapter", :ox
+    it_behaves_like "union type XML adapter", :oga
   end
 
   describe "TOML format support" do

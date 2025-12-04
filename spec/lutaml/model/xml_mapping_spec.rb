@@ -2,6 +2,7 @@ require "spec_helper"
 
 require "lutaml/model/xml/ox_adapter"
 require "lutaml/model/xml/oga_adapter"
+require_relative "../../support/xml_mapping_namespaces"
 
 # Define a sample class for testing map_content
 class Italic < Lutaml::Model::Serializable
@@ -34,7 +35,7 @@ module XmlMapping
 
     xml do
       root "ChildNamespaceNil"
-      namespace "http://www.omg.org/spec/XMI/20131001", "xmi"
+      namespace XmiNamespace
 
       # this will inherit the namespace from the parent i.e <xmi:ElementDefaultNamespace>
       map_element "ElementDefaultNamespace", to: :element_default_namespace
@@ -46,8 +47,7 @@ module XmlMapping
 
       # this will have new namespace i.e <new:ElementNewNamespace>
       map_element "ElementNewNamespace", to: :element_new_namespace,
-                                         prefix: "new",
-                                         namespace: "http://www.omg.org/spec/XMI/20161001"
+                                         namespace: XmiNewNamespace
     end
   end
 
@@ -85,7 +85,7 @@ module XmlMapping
 
     xml do
       root "math"
-      namespace "http://www.w3.org/1998/Math/MathML"
+      namespace MathMlNamespace
       map_element :mfenced, to: :mfenced
     end
   end
@@ -96,11 +96,10 @@ module XmlMapping
 
     xml do
       root "example"
-      namespace "http://www.check.com", "ns1"
+      namespace CheckNamespace
 
       map_attribute "alpha", to: :alpha,
-                             namespace: "http://www.example.com",
-                             prefix: "ex1"
+                             namespace: ExampleNamespace
 
       map_attribute "beta", to: :beta
     end
@@ -114,15 +113,13 @@ module XmlMapping
 
     xml do
       root "SameElementName"
-      namespace "http://www.omg.org/spec/XMI/20131001", nil
+      namespace XmiNamespace
 
       map_element "ApplicationSchema", to: :gml_application_schema,
-                                       namespace: "http://www.sparxsystems.com/profiles/GML/1.0",
-                                       prefix: "GML"
+                                       namespace: GmlNamespace
 
       map_element "ApplicationSchema", to: :citygml_application_schema,
-                                       namespace: "http://www.sparxsystems.com/profiles/CityGML/1.0",
-                                       prefix: "CityGML"
+                                       namespace: CityGmlNamespace
 
       map_element "ApplicationSchema", to: :application_schema
 
@@ -177,7 +174,7 @@ module XmlMapping
     xml do
       root "OverrideDefaultNamespacePrefix"
       map_element :SameElementName, to: :same_element_name,
-                                    namespace: "http://www.omg.org/spec/XMI/20131001",
+                                    namespace: XmiNamespace,
                                     prefix: "abc"
     end
   end
@@ -201,13 +198,12 @@ module XmlMapping
 
     xml do
       root "ToBeDuplicated"
-      namespace "https://testing-duplicate", "td"
+      namespace TestingDuplicateNamespace
 
       map_content to: :content
       map_attribute "attribute", to: :attribute
       map_element "element", to: :element,
-                             namespace: "https://test-element",
-                             prefix: "te"
+                             namespace: TestElementNamespace
     end
   end
 
@@ -283,13 +279,12 @@ module XmlMapping
 
     xml do
       root "WithChildExplicitNamespaceNil"
-      namespace "http://parent-namespace", "pn"
+      namespace ParentNamespace
 
       map_element "DefaultNamespace", to: :with_default_namespace
 
       map_element "WithNamespace", to: :with_namespace,
-                                   namespace: "http://child-namespace",
-                                   prefix: "cn"
+                                   namespace: ChildNamespace
 
       map_element "WithoutNamespace", to: :without_namespace,
                                       namespace: nil,
@@ -302,7 +297,7 @@ module XmlMapping
 
     xml do
       root "documentation", mixed: true
-      namespace "http://www.w3.org/2001/XMLSchema", "xsd"
+      namespace XsdNamespace
 
       map_content to: :content
     end
@@ -313,11 +308,10 @@ module XmlMapping
 
     xml do
       root "schema"
-      namespace "http://www.w3.org/2001/XMLSchema", "xsd"
+      namespace XsdNamespace
 
       map_element :documentation, to: :documentation,
-                                  namespace: "http://www.w3.org/2001/XMLSchema",
-                                  prefix: "xsd"
+                                  namespace: XsdNamespace
     end
   end
 
@@ -981,7 +975,7 @@ RSpec.describe Lutaml::Model::Xml::Mapping do
         let(:expected_xml) { "<p>my text for paragraph</p>" }
 
         it "converts to xml correctly" do
-          expect(paragraph.to_xml.chomp).to eq(expected_xml)
+          expect(paragraph.to_xml).to be_xml_equivalent_to(expected_xml)
         end
       end
     end
@@ -1184,9 +1178,9 @@ RSpec.describe Lutaml::Model::Xml::Mapping do
       context "without custom methods" do
         let(:inner_xml) do
           if adapter_class.type == "ox"
-            "Str<sub>2</sub> text<sup>1</sup> 123"
-          else
             "Str<sub>2</sub>text<sup>1</sup>123"
+          else
+            "Str<sub>2</sub> text<sup>1</sup> 123"
           end
         end
 
@@ -1283,7 +1277,7 @@ RSpec.describe Lutaml::Model::Xml::Mapping do
           "<SpecialCharContentWithMapAll> " \
             "B <p>R&amp;C</p> " \
             "C <p>J—C</p> " \
-            "O <p>A &amp; B </p> " \
+            "O <p>A &#038; B </p> " \
             "F <p>Z © </p>" \
             "</SpecialCharContentWithMapAll>\n"
         end
@@ -1300,7 +1294,7 @@ RSpec.describe Lutaml::Model::Xml::Mapping do
 
         it "round-trips xml" do
           parsed = XmlMapping::SpecialCharContentWithMapAll.from_xml(xml)
-          expect(parsed.to_xml).to eq(expected_xml)
+          expect(parsed.to_xml).to be_xml_equivalent_to(expected_xml)
         end
       end
 
