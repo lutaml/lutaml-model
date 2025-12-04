@@ -312,7 +312,8 @@ module Lutaml
       def validate_attribute!(attr_name)
         attr = self.class.attributes[attr_name]
         value = instance_variable_get(:"@#{attr_name}")
-        attr.validate_value!(value)
+        resolver = Services::DefaultValueResolver.new(attr, __register, self)
+        attr.validate_value!(value, __register, resolver)
       end
 
       def ordered?
@@ -418,8 +419,10 @@ module Lutaml
 
       def determine_value(attrs, name, attr)
         if attrs.key?(name) || attrs.key?(name.to_s)
-          attr_value(attrs, name, attr)
-        elsif attr.default_set?(__register, self)
+          return attr_value(attrs, name, attr)
+        end
+
+        if attr.default_set?(__register, self)
           using_default_for(name)
           attr.default(__register, self)
         else
