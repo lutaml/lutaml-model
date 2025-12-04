@@ -292,6 +292,13 @@ module Lutaml
             # Pass child_type as mapper_class and inherit options (including use_prefix for custom prefixes)
             child_options = options.merge(mapper_class: child_type)
 
+            # CRITICAL: If element rule has explicit prefix, pass it to child plan
+            # This allows rules like `map_element "potter", to: :potter, prefix: "p"`
+            # to override the child's default prefix
+            if elem_rule.prefix_set? && elem_rule.prefix
+              child_options = child_options.merge(prefix: elem_rule.prefix)
+            end
+
             plan[:children_plans][elem_rule.to] = plan(
               nil,
               child_mapping,
