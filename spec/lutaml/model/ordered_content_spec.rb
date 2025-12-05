@@ -5,6 +5,7 @@ require "lutaml/model"
 require "lutaml/model/xml/nokogiri_adapter"
 require "lutaml/model/xml/ox_adapter"
 require "lutaml/model/xml/oga_adapter"
+require "lutaml/model/xml/rexml_adapter"
 require_relative "../../fixtures/sample_model"
 require_relative "../../support/xml_mapping_namespaces"
 
@@ -140,6 +141,10 @@ RSpec.describe "OrderedContent" do
   end
 
   describe Lutaml::Model::Xml::OgaAdapter do
+    it_behaves_like "ordered content behavior", described_class
+  end
+
+  describe Lutaml::Model::Xml::RexmlAdapter do
     it_behaves_like "ordered content behavior", described_class
   end
 end
