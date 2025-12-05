@@ -174,7 +174,7 @@ RSpec.describe Lutaml::Model::Serializable do
 
     context "when method_name is given" do
       let(:attribute) do
-        TestClass.attribute("test", method: :foobar)
+        TestClass.attribute("test", :string, method: :foobar)
       end
 
       it "adds derived attribute" do
@@ -205,12 +205,51 @@ RSpec.describe Lutaml::Model::Serializable do
         expect(attribute.derived?).to be(false)
       end
     end
+
+    context "when hash syntax is used without type" do
+      it "raises an error" do
+        expect do
+          TestClass.attribute("test", { method: :foobar })
+        end.to raise_error(ArgumentError, "type must be set for an attribute")
+      end
+    end
+
+    context "when derived attribute casts return values" do
+      before do
+        TestClass.attribute("test_string", :string, method: :return_integer)
+        TestClass.attribute("test_integer", :integer, method: :return_string)
+        TestClass.attribute("test_float", :float, method: :return_string_float)
+
+        TestClass.define_method(:return_integer) { 123 }
+        TestClass.define_method(:return_string) { "456" }
+        TestClass.define_method(:return_string_float) { "3.14" }
+      end
+
+      let(:instance) { TestClass.new }
+
+      it "casts integer to string" do
+        expect(instance.test_string).to eq("123")
+        expect(instance.test_string).to be_a(String)
+      end
+
+      it "casts string to integer" do
+        expect(instance.test_integer).to eq(456)
+        expect(instance.test_integer).to be_a(Integer)
+      end
+
+      it "casts string to float" do
+        expect(instance.test_float).to eq(3.14)
+        expect(instance.test_float).to be_a(Float)
+      end
+    end
   end
 
   describe ".restrict" do
     before do
       stub_const("RestrictTestClass", Class.new(described_class))
-      RestrictTestClass.attribute(:foo, :string, collection: 1..3, values: [1, 2, 3])
+      RestrictTestClass.attribute(
+        :foo, :string, collection: 1..3, values: [1, 2, 3]
+      )
     end
 
     it "merges new options into the attribute's options" do
@@ -218,18 +257,23 @@ RSpec.describe Lutaml::Model::Serializable do
         .to change { RestrictTestClass.attributes[:foo].options[:collection] }
         .from(1..3).to(2..4)
 
-      expect(RestrictTestClass.attributes[:foo].options[:values]).to eq([1, 2, 3])
+      expect(RestrictTestClass.attributes[:foo].options[:values]).to eq(
+        [1, 2, 3],
+      )
     end
 
     it "does not remove existing options not specified in restrict" do
       RestrictTestClass.restrict(:foo, collection: 5..6, values: [4, 5, 6])
       expect(RestrictTestClass.attributes[:foo].options[:collection]).to eq(5..6)
-      expect(RestrictTestClass.attributes[:foo].options[:values]).to eq([4, 5, 6])
+      expect(RestrictTestClass.attributes[:foo].options[:values]).to eq(
+        [4, 5, 6],
+      )
     end
 
     it "raises an error for invalid options" do
       expect { RestrictTestClass.restrict(:foo, new_option: :bar) }
-        .to raise_error(Lutaml::Model::InvalidAttributeOptionsError, "Invalid options given for `foo` [:new_option]")
+        .to raise_error(Lutaml::Model::InvalidAttributeOptionsError,
+                        "Invalid options given for `foo` [:new_option]")
     end
 
     it "raises an error if the attribute does not exist" do
@@ -349,7 +393,7 @@ RSpec.describe Lutaml::Model::Serializable do
     it "uses root name defined at the component class" do
       record_date = SerializeableSpec::RecordDate.new(content: "2021-01-01")
       expected_xml = "<recordDate>2021-01-01</recordDate>"
-      expect(record_date.to_xml).to eq(expected_xml)
+      expect(record_date.to_xml).to be_xml_equivalent_to(expected_xml)
     end
 
     it "uses mapped element name at the aggregating class, overriding root name" do
@@ -357,7 +401,7 @@ RSpec.describe Lutaml::Model::Serializable do
       expected_xml = <<~XML
         <originInfo><dateIssued>2021-01-01</dateIssued></originInfo>
       XML
-      expect(origin_info.to_xml).to be_equivalent_to(expected_xml)
+      expect(origin_info.to_xml).to be_xml_equivalent_to(expected_xml)
     end
   end
 
@@ -499,7 +543,7 @@ RSpec.describe Lutaml::Model::Serializable do
       end
 
       it "serializes to XML with custom name transformation" do
-        expect(model.to_xml).to be_equivalent_to(expected_xml)
+        expect(model.to_xml).to be_xml_equivalent_to(expected_xml)
       end
 
       it "deserializes from XML with custom name transformation" do
@@ -515,6 +559,7 @@ RSpec.describe Lutaml::Model::Serializable do
           nokogiri: "<<<<name>John Doe</name>",
           ox: "<<<<name>John Doe</name>",
           oga: '<person xmlns="http://example.com" xmlns="http://another.com"><name>John Doe</name></person>',
+          rexml: "<root><tag></root>",
         },
         json: {
           standard_json: '{"name": "John", "age": 30,}',
@@ -556,34 +601,39 @@ RSpec.describe Lutaml::Model::Serializable do
       it_behaves_like "invalid format error", :xml, :nokogiri, :from_xml, :xml
       it_behaves_like "invalid format error", :xml, :ox, :from_xml, :xml
       it_behaves_like "invalid format error", :xml, :oga, :from_xml, :xml
+      it_behaves_like "invalid format error", :xml, :rexml, :from_xml, :xml
     end
 
     describe "invalid format handling for invalid JSON" do
-      it_behaves_like "invalid format error", :json, :standard_json, :from_json, :json
+      it_behaves_like "invalid format error", :json, :standard_json,
+                      :from_json, :json
     end
 
     describe "invalid format handling for invalid YAML" do
-      it_behaves_like "invalid format error", :yaml, :standard_yaml, :from_yaml, :yaml
+      it_behaves_like "invalid format error", :yaml, :standard_yaml,
+                      :from_yaml, :yaml
     end
 
     describe "invalid format handling for invalid TOML" do
       it_behaves_like "invalid format error", :toml, :toml_rb, :from_toml, :toml
 
-      # Only test Tomlib if not on problematic platform (Windows Ruby < 3.3)
-      if RUBY_PLATFORM.include?("mingw") && RUBY_VERSION < "3.3"
+      # Only test Tomlib if not on problematic platform (Windows Ruby < 3.5)
+      if RUBY_PLATFORM.include?("mingw") && RUBY_VERSION < "3.5"
         # NOTE: Skipped Tomlib case because it causes segmentation fault on
-        # Windows with Ruby < 3.3
-        it "skips Tomlib test on Windows Ruby < 3.3 due to segfault risk" do
-          skip "Tomlib causes segmentation faults on Windows with Ruby < 3.3 " \
+        # Windows with Ruby < 3.5
+        it "skips Tomlib test on Windows Ruby < 3.5 due to segfault risk" do
+          skip "Tomlib causes segmentation faults on Windows with Ruby < 3.5 " \
                "when parsing invalid TOML"
         end
       else
-        it_behaves_like "invalid format error", :toml, :tomlib, :from_toml, :toml
+        it_behaves_like "invalid format error", :toml, :tomlib, :from_toml,
+                        :toml
       end
     end
 
     describe "invalid format handling for invalid HASH" do
-      it_behaves_like "invalid format error", :hash, :standard_hash, :from_hash, :hash
+      it_behaves_like "invalid format error", :hash, :standard_hash,
+                      :from_hash, :hash
     end
   end
 

@@ -4704,6 +4704,9 @@ uses `UTF-8`.
 ** Ox: `ASCII-8bit`. The encoding is set to the default encoding of the Ox library, which uses
 `ASCII-8bit`.
 
+** REXML: `UTF-8`. The encoding is set to the default encoding of the REXML library, which
+uses `UTF-8`.
+
 When the `encoding` option is not set, the default encoding of `UTF-8` is
 used.
 
@@ -9927,7 +9930,7 @@ Syntax:
 require 'lutaml/model'
 
 Lutaml::Model::Config.configure do |config|
-  config.xml_adapter_type = :nokogiri # can be one of [:nokogiri, :ox, :oga]
+  config.xml_adapter_type = :nokogiri # can be one of [:nokogiri, :ox, :oga, :rexml]
   config.hash_adapter_type = :standard_hash
   config.yaml_adapter_type = :standard_yaml
   config.json_adapter_type = :standard_json # can be one of [:standard_json, :multi_json, :oj]
@@ -9938,7 +9941,7 @@ end
 
 ==== Configure adapters through class choices
 
-The end-uesr or a gem developer can copy and paste the following configuration
+The end-user or a gem developer can copy and paste the following configuration
 into an early loading file in their application or gem.
 
 Only the serialization formats used will require a configuration.
@@ -9991,6 +9994,12 @@ Fast XML parser and object serializer for Ruby, implemented partially in C.
 Requires native extensions (i.e. compiled C code).
 Requires the `ox` gem.
 
+REXML::
+(optional)
+Pure Ruby XML parser, bundled as a default gem with Ruby.
+Moved from standard library to a default gem in Ruby 3.0.
+Requires the `rexml` gem (bundled with Ruby by default).
+
 
 .Using an XML adapter
 [source,ruby]
@@ -10003,6 +10012,8 @@ Lutaml::Model::Config.configure do |config|
   config.xml_adapter = :oga
   # or
   config.xml_adapter = :ox
+  # or
+  config.xml_adapter = :rexml
 end
 ----
 
@@ -10218,7 +10229,7 @@ differences in implementation.
 |
 
 | Adapter support
-| XML (Nokogiri, Ox, Oga), YAML, JSON (JSON, MultiJson), TOML (Toml-rb, Tomlib)
+| XML (Nokogiri, Ox, Oga, REXML), YAML, JSON (JSON, MultiJson), TOML (Toml-rb, Tomlib)
 | XML (Nokogiri, Ox), YAML, JSON (JSON, MultiJson), TOML (Toml-rb, Tomlib), CSV
 | Lutaml::Model does not support CSV.
 

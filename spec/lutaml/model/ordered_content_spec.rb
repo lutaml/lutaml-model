@@ -5,7 +5,9 @@ require "lutaml/model"
 require "lutaml/model/xml/nokogiri_adapter"
 require "lutaml/model/xml/ox_adapter"
 require "lutaml/model/xml/oga_adapter"
+require "lutaml/model/xml/rexml_adapter"
 require_relative "../../fixtures/sample_model"
+require_relative "../../support/xml_mapping_namespaces"
 
 module OrderedContentSpec
   class RootOrderedContent < Lutaml::Model::Serializable
@@ -17,11 +19,52 @@ module OrderedContentSpec
 
     xml do
       root "RootOrderedContent", ordered: true
+
       map_attribute :id, to: :id
       map_element :bold, to: :bold
       map_element :italic, to: :italic
       map_element :underline, to: :underline
       map_content to: :content
+    end
+  end
+
+  module PrefixedElements
+    class Annotation < Lutaml::Model::Serializable
+      attribute :content, :string
+
+      xml do
+        root "annotation"
+        namespace ExampleSchemaNamespace
+
+        map_content to: :content
+      end
+    end
+
+    class Element < Lutaml::Model::Serializable
+      attribute :name, :string
+      attribute :status, :string
+      attribute :annotation, Annotation
+
+      xml do
+        root "element", ordered: true
+
+        namespace ExampleSchemaNamespace
+
+        map_attribute :name, to: :name
+        map_attribute :status, to: :status
+        map_element :annotation, to: :annotation
+      end
+    end
+
+    class Schema < Lutaml::Model::Serializable
+      attribute :element, Element, collection: true
+
+      xml do
+        root "schema", ordered: true
+        namespace ExampleSchemaNamespace
+
+        map_element :element, to: :element
+      end
     end
   end
 end
@@ -64,7 +107,27 @@ RSpec.describe "OrderedContent" do
 
       it "deserializes and serializes ordered content correctly" do
         serialized = OrderedContentSpec::RootOrderedContent.from_xml(xml).to_xml
-        expect(serialized).to be_equivalent_to(expected_xml)
+        expect(serialized).to be_xml_equivalent_to(expected_xml)
+      end
+    end
+
+    context "when ordered: true is set for prefixed elements" do
+      let(:xml) do
+        <<~XML
+          <xsd:schema xmlns:xsd="http://example.com/schema">
+            <xsd:element>
+              <xsd:annotation>Testing annotation</xsd:annotation>
+            </xsd:element>
+          </xsd:schema>
+        XML
+      end
+
+      let(:serialized) do
+        OrderedContentSpec::PrefixedElements::Schema.from_xml(xml).to_xml
+      end
+
+      it "deserializes and serializes ordered prefixed elements correctly for prefixed elements" do
+        expect(serialized).to be_xml_equivalent_to(xml)
       end
     end
   end
@@ -78,6 +141,10 @@ RSpec.describe "OrderedContent" do
   end
 
   describe Lutaml::Model::Xml::OgaAdapter do
+    it_behaves_like "ordered content behavior", described_class
+  end
+
+  describe Lutaml::Model::Xml::RexmlAdapter do
     it_behaves_like "ordered content behavior", described_class
   end
 end

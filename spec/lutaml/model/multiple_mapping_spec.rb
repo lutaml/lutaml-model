@@ -1,5 +1,8 @@
 require "spec_helper"
 require "lutaml/model"
+require "lutaml/model/xml/nokogiri_adapter"
+require "lutaml/model/xml/ox_adapter"
+require "lutaml/model/xml/rexml_adapter"
 
 module MultipleMapping
   class Product < Lutaml::Model::Serializable
@@ -42,19 +45,28 @@ module MultipleMapping
     attribute :description, Lutaml::Model::Type::String
 
     json do
-      map ["name", "custom_name"], with: { to: :name_to_json, from: :name_from_json }
-      map ["color", "shade"], with: { to: :color_to_json, from: :color_from_json }
-      map ["size", "dimension"], with: { to: :size_to_json, from: :size_from_json }
-      map ["desc", "description"], with: { to: :desc_to_json, from: :desc_from_json }
+      map ["name", "custom_name"],
+          with: { to: :name_to_json, from: :name_from_json }
+      map ["color", "shade"],
+          with: { to: :color_to_json, from: :color_from_json }
+      map ["size", "dimension"],
+          with: { to: :size_to_json, from: :size_from_json }
+      map ["desc", "description"],
+          with: { to: :desc_to_json, from: :desc_from_json }
     end
 
     xml do
       root "CustomModel"
-      map_attribute ["id", "identifier"], with: { to: :id_to_xml, from: :id_from_xml }
-      map_element ["name", "custom-name"], with: { to: :name_to_xml, from: :name_from_xml }
-      map_element ["color", "shade"], with: { to: :color_to_xml, from: :color_from_xml }
-      map_element ["size", "dimension"], with: { to: :size_to_xml, from: :size_from_xml }
-      map_element ["desc", "description"], with: { to: :desc_to_xml, from: :desc_from_xml }
+      map_attribute ["id", "identifier"],
+                    with: { to: :id_to_xml, from: :id_from_xml }
+      map_element ["name", "custom-name"],
+                  with: { to: :name_to_xml, from: :name_from_xml }
+      map_element ["color", "shade"],
+                  with: { to: :color_to_xml, from: :color_from_xml }
+      map_element ["size", "dimension"],
+                  with: { to: :size_to_xml, from: :size_from_xml }
+      map_element ["desc", "description"],
+                  with: { to: :desc_to_xml, from: :desc_from_xml }
     end
 
     # Custom methods for JSON
@@ -246,17 +258,23 @@ RSpec.describe MultipleMapping do
         expect(product1.status).to eq("active")
         expect(product2.status).to eq("in-stock")
 
-        expect(product1.to_xml).to be_equivalent_to(expected_xml_product1)
-        expect(product2.to_xml).to be_equivalent_to(expected_xml_product2)
+        expect(product1.to_xml).to be_xml_equivalent_to(expected_xml_product1)
+        expect(product2.to_xml).to be_xml_equivalent_to(expected_xml_product2)
       end
     end
 
     context "with Nokogiri adapter" do
-      it_behaves_like "xml adapter with multiple mappings", Lutaml::Model::Xml::NokogiriAdapter
+      it_behaves_like "xml adapter with multiple mappings",
+                      Lutaml::Model::Xml::NokogiriAdapter
     end
 
     context "with Ox adapter" do
-      it_behaves_like "xml adapter with multiple mappings", Lutaml::Model::Xml::OxAdapter
+      it_behaves_like "xml adapter with multiple mappings",
+                      Lutaml::Model::Xml::OxAdapter
+    end
+
+    context "with Rexml adapter" do
+      it_behaves_like "xml adapter with multiple mappings", Lutaml::Model::Xml::RexmlAdapter
     end
   end
 
@@ -324,17 +342,23 @@ RSpec.describe MultipleMapping do
               <desc>XML Description: A beautiful ceramic vase</desc>
             </CustomModel>
           XML
-          expect(model1.to_xml).to be_equivalent_to(expected_xml)
-          expect(model2.to_xml).to be_equivalent_to(expected_xml)
+          expect(model1.to_xml).to be_xml_equivalent_to(expected_xml)
+          expect(model2.to_xml).to be_xml_equivalent_to(expected_xml)
         end
       end
 
       context "with Nokogiri adapter" do
-        it_behaves_like "xml adapter with custom methods", Lutaml::Model::Xml::NokogiriAdapter
+        it_behaves_like "xml adapter with custom methods",
+                        Lutaml::Model::Xml::NokogiriAdapter
       end
 
       context "with Ox adapter" do
-        it_behaves_like "xml adapter with custom methods", Lutaml::Model::Xml::OxAdapter
+        it_behaves_like "xml adapter with custom methods",
+                        Lutaml::Model::Xml::OxAdapter
+      end
+
+      context "with Rexml adapter" do
+        it_behaves_like "xml adapter with custom methods", Lutaml::Model::Xml::RexmlAdapter
       end
     end
   end

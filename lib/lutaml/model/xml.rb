@@ -7,6 +7,7 @@ module Lutaml
         return :nokogiri if Object.const_defined?(:Nokogiri)
         return :ox if Object.const_defined?(:Ox)
         return :oga if Object.const_defined?(:Oga)
+        return :rexml if Utils.safe_load("rexml", :REXML)
 
         nil
       end

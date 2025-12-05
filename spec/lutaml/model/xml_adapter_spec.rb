@@ -2,6 +2,7 @@ require "spec_helper"
 require "lutaml/model/xml/nokogiri_adapter"
 require "lutaml/model/xml/ox_adapter"
 require "lutaml/model/xml/oga_adapter"
+require "lutaml/model/xml/rexml_adapter"
 require_relative "../../fixtures/sample_model"
 
 module XmlAdapterSpec
@@ -125,7 +126,7 @@ RSpec.describe "XmlAdapter" do
         end
 
         it "add default values" do
-          expect(parsed.to_xml.strip).to be_equivalent_to(expected_xml.strip)
+          expect(parsed.to_xml.strip).to be_xml_equivalent_to(expected_xml.strip)
         end
       end
     end
@@ -164,7 +165,7 @@ RSpec.describe "XmlAdapter" do
 
       doc = adapter_class.parse(expected_xml)
       xml = doc.to_xml
-      expect(xml).to be_equivalent_to(expected_xml)
+      expect(xml).to be_xml_equivalent_to(expected_xml)
     end
 
     it "serializes to XML with only content" do
@@ -176,7 +177,7 @@ RSpec.describe "XmlAdapter" do
 
       doc = SampleModelTag.from_xml(expected_xml)
       xml = doc.to_xml
-      expect(xml).to be_equivalent_to(expected_xml)
+      expect(xml).to be_xml_equivalent_to(expected_xml)
     end
 
     it "deserializes from XML" do
@@ -205,6 +206,10 @@ RSpec.describe "XmlAdapter" do
   end
 
   describe Lutaml::Model::Xml::OgaAdapter do
+    it_behaves_like "an XML adapter", described_class
+  end
+
+  describe Lutaml::Model::Xml::RexmlAdapter do
     it_behaves_like "an XML adapter", described_class
   end
 end

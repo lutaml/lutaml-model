@@ -2,6 +2,8 @@ require "spec_helper"
 require "lutaml/model"
 require "lutaml/model/xml/ox_adapter"
 require "lutaml/model/xml/oga_adapter"
+require "lutaml/model/xml/rexml_adapter"
+require_relative "../../support/xml_mapping_namespaces"
 
 module ExceptSpecs
   class Annotation < Lutaml::Model::Serializable
@@ -11,7 +13,7 @@ module ExceptSpecs
 
     xml do
       root "annotation", mixed: true
-      namespace "http://www.w3.org/2001/XMLSchema", "xsd"
+      namespace XsdNamespace
 
       map_element :documentation, to: :documentation
       map_element :appinfo, to: :appinfo
@@ -27,7 +29,7 @@ module ExceptSpecs
 
     xml do
       root "attribute", mixed: true
-      namespace "http://www.w3.org/2001/XMLSchema", "xsd"
+      namespace XsdNamespace
 
       map_attribute :id, to: :id
       map_attribute :ref, to: :ref
@@ -45,7 +47,7 @@ module ExceptSpecs
 
     xml do
       root "attributeGroup", mixed: true
-      namespace "http://www.w3.org/2001/XMLSchema", "xsd"
+      namespace XsdNamespace
 
       map_attribute :id, to: :id
       map_attribute :ref, to: :ref
@@ -62,7 +64,7 @@ module ExceptSpecs
 
     xml do
       root "schema", mixed: true
-      namespace "http://www.w3.org/2001/XMLSchema", "xsd"
+      namespace XsdNamespace
 
       map_attribute :id, to: :id
       map_element :attribute, to: :attribute
@@ -130,12 +132,12 @@ RSpec.describe "Except" do
 
       it "excludes specified elements from the XML output" do
         parsed_xml = parsed_instances.to_xml(except: %i[annotation])
-        expect(parsed_xml).to be_equivalent_to(xml_without_annotations)
+        expect(parsed_xml).to be_xml_equivalent_to(xml_without_annotations)
       end
 
       it "excludes specified attributes and elements from the XML output" do
         parsed_xml = parsed_instances.to_xml(except: %i[annotation id])
-        expect(parsed_xml).to be_equivalent_to(xml_without_annotations_and_ids)
+        expect(parsed_xml).to be_xml_equivalent_to(xml_without_annotations_and_ids)
       end
     end
   end
@@ -193,12 +195,12 @@ RSpec.describe "Except" do
 
       it "excludes 'annotation' keys from the YAML output" do
         parsed_yaml = parsed_instances.to_yaml(except: %i[annotation])
-        expect(parsed_yaml).to be_equivalent_to(yaml_without_annotations)
+        expect(parsed_yaml).to be_xml_equivalent_to(yaml_without_annotations)
       end
 
       it "excludes 'annotation' and 'id' from the YAML output" do
         parsed_yaml = parsed_instances.to_yaml(except: %i[annotation id])
-        expect(parsed_yaml).to be_equivalent_to(yaml_without_annotations_and_ids)
+        expect(parsed_yaml).to be_xml_equivalent_to(yaml_without_annotations_and_ids)
       end
     end
   end
@@ -212,6 +214,10 @@ RSpec.describe "Except" do
   end
 
   describe Lutaml::Model::Xml::OxAdapter do
+    it_behaves_like "xml", described_class
+  end
+
+  describe Lutaml::Model::Xml::RexmlAdapter do
     it_behaves_like "xml", described_class
   end
 end
