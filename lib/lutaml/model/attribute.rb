@@ -201,26 +201,6 @@ module Lutaml
         !enum_values.empty?
       end
 
-      def default(register = Lutaml::Model::Config.default_register)
-        cast_value(default_value(register), register)
-      end
-
-      def default_value(register)
-        if delegate
-          type(register).attributes[to].default(register)
-        elsif options[:default].is_a?(Proc)
-          options[:default].call
-        elsif options.key?(:default)
-          options[:default]
-        else
-          Lutaml::Model::UninitializedClass.instance
-        end
-      end
-
-      def default_set?(register)
-        !Utils.uninitialized?(default_value(register))
-      end
-
       def pattern
         options[:pattern]
       end
@@ -276,11 +256,11 @@ module Lutaml
       #   2. Value count should be between the collection range if defined
       #      e.g if collection: 0..5 is set then the value greater then 5
       #          will raise `Lutaml::Model::CollectionCountOutOfRangeError`
-      def validate_value!(value, register)
+      def validate_value!(value, register, resolver = nil)
         # Use the default value if the value is nil
         validate_required!(value)
 
-        value = default(register) if value.nil?
+        value = resolver&.default if value.nil?
         resolved_type = type(register)
 
         valid_value!(value) &&
@@ -667,7 +647,8 @@ module Lutaml
 
       def set_default_for_collection
         validate_collection_range
-        @options[:default] ||= -> { build_collection } if initialize_empty?
+        attr = self
+        @options[:default] ||= -> { attr.build_collection } if initialize_empty?
       end
 
       def validate_options!(options)
