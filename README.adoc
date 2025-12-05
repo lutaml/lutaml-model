@@ -296,6 +296,7 @@ structured way.
 * <<attribute-definition,Attributes in models>>
 * <<value-definition,Values assigned to attributes>>
 * <<collection-definition,Collections of models>>
+* <<model-transforms,Model transformations>>
 
 
 [[model-definition]]
@@ -3282,7 +3283,7 @@ For the following XML snippet:
 ----
 ====
 
-
+[[collection-definition]]
 == Collections
 
 === General
@@ -4845,6 +4846,30 @@ class ReferenceSet < Lutaml::Model::Collection
       },
     }
   end
+end
+----
+
+
+[[model-transforms]]
+== Model transformations
+
+LutaML supports transforming between models and values using a concise DSL.
+
+- Value transforms: convert primitive or value types (string ⇄ date, etc.)
+- Model-to-model transforms: map attributes across models, including nested structures
+- Collections: transform arrays with `map_each`
+- Directionality: forward-only or bidirectional
+- Errors: specific error classes for invalid declarations and operations
+
+See the detailed guide in link:docs/model_transforms.adoc[Model Transformations] for full examples, patterns, error handling, and edge cases. A minimal example:
+
+[source,ruby]
+----
+class StringToDate < Lutaml::Model::ModelTransformer
+  source :string
+  target :date
+  transform { |val| Date.parse(val) }
+  reverse_transform { |date| date.strftime('%Y-%m-%d') }
 end
 ----
 
