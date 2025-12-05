@@ -97,19 +97,8 @@ module Lutaml
       end
 
       def root_and_parent_accessor_methods_for(instance)
-        define_accessor_methods_for(instance.class, :parent)
-        define_accessor_methods_for(instance.class, :root)
-      end
-
-      def define_accessor_methods_for(klass, method_name)
-        underscored = "__#{method_name}"
-        instance_var = :"@#{underscored}"
-        Utils.add_method_if_not_defined(klass, underscored) do
-          instance_variable_get(instance_var)
-        end
-        Utils.add_method_if_not_defined(klass, "#{underscored}=") do |value|
-          instance_variable_set(instance_var, value)
-        end
+        Utils.add_accessor_if_not_defined(instance.class, :__parent)
+        Utils.add_accessor_if_not_defined(instance.class, :__root)
       end
     end
   end
