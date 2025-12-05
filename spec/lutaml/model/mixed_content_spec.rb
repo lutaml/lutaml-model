@@ -8,7 +8,6 @@ require "lutaml/model/xml/oga_adapter"
 require "lutaml/model/xml/rexml_adapter"
 require_relative "../../fixtures/sample_model"
 require_relative "../../support/xml_mapping_namespaces"
-require_relative "../../support/xml_mapping_namespaces"
 
 module MixedContentSpec
   class PlanetaryBody < Lutaml::Model::Serializable

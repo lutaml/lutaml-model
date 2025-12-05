@@ -78,8 +78,7 @@ module Lutaml
 
           def create_and_add_element(
             element_name,
-            prefix: (prefix_unset = true
-                     nil),
+            prefix: (prefix_unset = true; nil),
             attributes: {}
           )
             name = element_name.is_a?(Array) ? element_name.first : element_name

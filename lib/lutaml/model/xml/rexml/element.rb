@@ -86,21 +86,9 @@ module Lutaml
           end
 
           def node_attributes(node)
-            return {} unless node.respond_to?(:attributes)
+            return {} unless node.native && node.native.respond_to?(:attributes)
 
-            parse_attributes_safely(node)
-          end
-
-          def parse_attributes_safely(node)
-            if node.respond_to?(:native) && node.native.respond_to?(:attributes)
-              parse_native_attributes(node.native)
-            elsif node.attributes && !node.attributes.empty?
-              parse_moxml_attributes(node.attributes)
-            else
-              {}
-            end
-          rescue StandardError
-            {}
+            parse_native_attributes(node.native)
           end
 
           def parse_native_attributes(rexml_node)
@@ -109,16 +97,6 @@ module Lutaml
               next if name == "xmlns" || name.start_with?("xmlns:")
 
               attributes[name] = create_xml_attribute(name, value)
-            end
-            attributes
-          end
-
-          def parse_moxml_attributes(attrs)
-            attributes = {}
-            attrs.each do |attr|
-              next if attr_is_namespace?(attr)
-
-              attributes[attr_name] = create_moxml_attribute(attr, attr_name)
             end
             attributes
           end
