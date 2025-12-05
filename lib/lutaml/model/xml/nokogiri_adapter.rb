@@ -844,13 +844,20 @@ mapping: nil)
               root_node&.instance_variable_get(:@default_namespace)
           end
 
+          node_name, node_text = if node.type == ::Nokogiri::XML::Node::ENTITY_REF_NODE
+                                   [Xml::Element::ENTITY_MARKER, node.to_xml]
+                                 else
+                                   children = node.children
+                                   [node.name, children.empty? ? node.text : extract_text(children)]
+                                 end
+
           super(
             node,
             attributes,
             parse_all_children(node, root_node: root_node || self,
                                      default_namespace: default_namespace),
-            node.text,
-            name: node.name,
+            node_text,
+            name: node_name,
             parent_document: root_node,
             namespace_prefix: node.namespace&.prefix,
             default_namespace: default_namespace,
@@ -861,6 +868,18 @@ mapping: nil)
         def text?
           # false
           children.empty? && text.length.positive?
+        end
+
+        def text_children
+          find_children_by_name(["text", Xml::Element::ENTITY_MARKER])
+        end
+
+        def entity?
+          children.any? { |child| child.name == Xml::Element::ENTITY_MARKER }
+        end
+
+        def extract_text(nodes)
+          nodes.reject(&:element?).map(&:to_xml).join
         end
 
         def to_xml

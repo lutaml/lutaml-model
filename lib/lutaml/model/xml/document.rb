@@ -164,9 +164,14 @@ module Lutaml
             )
           else
             text = content_rule.serialize(element)
-            text = text.join if text.is_a?(Array)
+            cdata = content_rule.cdata
+            if !cdata && element.element_order&.any?
+              update_xml_with_entity_and_text(xml, element, Array(text))
+            else
+              text = text.join if text.is_a?(Array)
 
-            xml.add_text(xml, text, cdata: content_rule.cdata)
+              xml.add_text(xml, text, cdata: cdata)
+            end
           end
         end
 
@@ -217,6 +222,20 @@ module Lutaml
         end
 
         private
+
+        def update_xml_with_entity_and_text(xml, element, text)
+          order = element.element_order.select { |obj| obj.text? || obj.entity? }
+          order&.each_with_index do |object, index|
+            str = text[index]
+            next if str.nil?
+
+            if object.entity?
+              xml.add_entity(xml, str)
+            else
+              xml.add_text(xml, str)
+            end
+          end
+        end
 
         def setup_register(register)
           return register if register.is_a?(Symbol)
