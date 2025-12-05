@@ -180,14 +180,7 @@ module Lutaml
         #
         # @api private
         def to_key
-          prefix = prefix_default
-          namespace_uri = uri
-
-          if prefix && !prefix.empty?
-            "#{prefix}:#{namespace_uri}"
-          else
-            ":#{namespace_uri}"
-          end
+          "#{prefix_default}:#{uri}"
         end
 
         private
