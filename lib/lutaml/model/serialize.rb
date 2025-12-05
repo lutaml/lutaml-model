@@ -390,7 +390,7 @@ collection: false)
             end
 
             Utils.add_method_if_not_defined(klass, value.to_s) do
-              public_send(:"#{value}=")
+              public_send(:"#{value}?")
             end
 
             Utils.add_method_if_not_defined(klass, "#{value}=") do |val|

@@ -67,6 +67,12 @@ module Lutaml
 
           # TYPE-ONLY MODELS: No element wrapper, serialize children directly
           # BUT if we have a tag_name in options, that means parent wants a wrapper
+          plan ||= {
+            namespaces: {},
+            children_plans: {},
+            type_namespaces: {},
+          }
+
           if xml_mapping.no_element?
             # If parent provided a tag_name, create that wrapper first
             if options[:tag_name]
@@ -414,20 +420,10 @@ options)
           case value
           when Array
             value.each do |val|
-              if plan
-                build_element_with_plan(xml, val, plan, element_options)
-              else
-                # Fallback for cases without plan
-                build_element(xml, val, element_options)
-              end
+              build_element_with_plan(xml, val, plan, element_options)
             end
           else
-            if plan
-              build_element_with_plan(xml, value, plan, element_options)
-            else
-              # Fallback for cases without plan
-              build_element(xml, value, element_options)
-            end
+            build_element_with_plan(xml, value, plan, element_options)
           end
         end
 

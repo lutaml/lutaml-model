@@ -232,8 +232,14 @@ module Lutaml
 
           # Determine prefix from plan
           prefix = nil
-          if xml_mapping.namespace_class
-            key = xml_mapping.namespace_class.to_key
+          option_rule = options[:rule]
+          namespace_class = if option_rule&.prefix_set? || option_rule&.namespace_set?
+                              option_rule.namespace_class
+                            else
+                              xml_mapping.namespace_class
+                            end
+          if namespace_class
+            key = namespace_class.to_key
             ns_config = plan[:namespaces][key]
 
             if ns_config && ns_config[:format] == :prefix
