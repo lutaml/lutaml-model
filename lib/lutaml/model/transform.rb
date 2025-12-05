@@ -14,8 +14,8 @@ module Lutaml
 
       def initialize(context, register = nil)
         @context = context
-        @attributes = context.attributes
         @__register = register || Lutaml::Model::Config.default_register
+        @attributes = context.attributes(__register)
       end
 
       def model_class
@@ -23,11 +23,13 @@ module Lutaml
       end
 
       def data_to_model(data, options = {})
-        raise NotImplementedError, "#{self.class.name} must implement `data_to_model`."
+        raise NotImplementedError,
+              "#{self.class.name} must implement `data_to_model`."
       end
 
       def model_to_data(model, options = {})
-        raise NotImplementedError, "#{self.class.name} must implement `model_to_data`."
+        raise NotImplementedError,
+              "#{self.class.name} must implement `model_to_data`."
       end
 
       protected
@@ -84,6 +86,19 @@ module Lutaml
           @__register = value
         end
         object.__register = register
+      end
+
+      def root_and_parent_assignment(instance, options)
+        root_and_parent_accessor_methods_for(instance)
+        return unless options.key?(:__parent) && options.key?(:__root)
+
+        instance.__root = options[:__root] || options[:__parent]
+        instance.__parent = options[:__parent]
+      end
+
+      def root_and_parent_accessor_methods_for(instance)
+        Utils.add_accessor_if_not_defined(instance.class, :__parent)
+        Utils.add_accessor_if_not_defined(instance.class, :__root)
       end
     end
   end

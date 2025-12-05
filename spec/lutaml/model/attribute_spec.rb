@@ -49,13 +49,16 @@ RSpec.describe Lutaml::Model::Attribute do
   it "raises error if both type and method_name are not given" do
     expect { method_attr }.to raise_error(
       ArgumentError,
-      "method or type must be set for an attribute",
+      "type must be set for an attribute",
     )
   end
 
   it "raises an error if required attributes are missing" do
     record = RequiredTestRecord.new
-    expect { record.validate! }.to raise_error(Lutaml::Model::ValidationError, "Missing required attribute: name")
+    expect do
+      record.validate!
+    end.to raise_error(Lutaml::Model::ValidationError,
+                       "Missing required attribute: name")
   end
 
   it "does not raise an error when all required attributes are present" do
@@ -85,7 +88,30 @@ RSpec.describe Lutaml::Model::Attribute do
 
           expect(Lutaml::Model::Logger)
             .to have_received(:warn)
-            .with("Attribute name `#{method}` conflicts with a built-in method")
+            .with("Attribute name `#{method}` conflicts with a built-in method", anything)
+        end
+
+        it "logs a warning with the exact line of offense when method is `#{method}`" do
+          # Capture the arguments passed to Logger.warn
+          warn_args = nil
+          allow(Lutaml::Model::Logger).to receive(:warn) do |message, location|
+            warn_args = [message, location]
+          end
+
+          # Get the line number where the attribute is defined
+          test_line = nil
+          Class.new(Lutaml::Model::Serializable) do
+            test_line = __LINE__ + 1 # Next line will be the attribute definition
+            attribute method, :string
+          end
+
+          # Verify the warning was called with correct message
+          expect(warn_args[0]).to eq("Attribute name `#{method}` conflicts with a built-in method")
+
+          # Verify the caller location points to the exact line where attribute was defined
+          expect(warn_args[1]).to be_a(Thread::Backtrace::Location)
+          expect(warn_args[1].lineno).to eq(test_line)
+          expect(warn_args[1].path).to include("attribute_spec.rb")
         end
       else
         it "raise exception, when method is `#{method}`" do
@@ -98,6 +124,43 @@ RSpec.describe Lutaml::Model::Attribute do
             "Attribute name '#{method}' is not allowed",
           )
         end
+      end
+    end
+
+    context "when multiple attributes with conflicting names are defined" do
+      before do
+        allow(Lutaml::Model::Logger).to receive(:warn)
+      end
+
+      it "logs warnings with correct line numbers for each attribute" do
+        # Capture all warning calls
+        warning_calls = []
+        allow(Lutaml::Model::Logger).to receive(:warn) do |message, location|
+          warning_calls << [message, location]
+        end
+
+        # Define a class with multiple conflicting attributes
+        hash_line = nil
+        method_line = nil
+        Class.new(Lutaml::Model::Serializable) do
+          hash_line = __LINE__ + 1
+          attribute :hash, :string
+          method_line = __LINE__ + 1
+          attribute :method, :string
+        end
+
+        # Verify both warnings were logged
+        expect(warning_calls.length).to eq(2)
+
+        # Check first warning (:hash)
+        expect(warning_calls[0][0]).to eq("Attribute name `hash` conflicts with a built-in method")
+        expect(warning_calls[0][1].lineno).to eq(hash_line)
+        expect(warning_calls[0][1].path).to include("attribute_spec.rb")
+
+        # Check second warning (:method)
+        expect(warning_calls[1][0]).to eq("Attribute name `method` conflicts with a built-in method")
+        expect(warning_calls[1][1].lineno).to eq(method_line)
+        expect(warning_calls[1][1].path).to include("attribute_spec.rb")
       end
     end
   end
@@ -114,7 +177,8 @@ RSpec.describe Lutaml::Model::Attribute do
     it "raise exception if option is not allowed" do
       expect do
         validate_options.call({ foo: "bar" })
-      end.to raise_error(Lutaml::Model::InvalidAttributeOptionsError, "Invalid options given for `name` [:foo]")
+      end.to raise_error(Lutaml::Model::InvalidAttributeOptionsError,
+                         "Invalid options given for `name` [:foo]")
     end
 
     it "raise exception if pattern is given with non string type" do
@@ -138,11 +202,21 @@ RSpec.describe Lutaml::Model::Attribute do
       end
     end
 
-    context "when type is nil and method_name is set" do
-      let(:attribute) { described_class.new("name", nil, method_name: :tmp) }
+    context "when type is set and method_name is set" do
+      let(:attribute) do
+        described_class.new("name", :string, method_name: :tmp)
+      end
 
       it "returns true" do
         expect(attribute.derived?).to be(true)
+      end
+    end
+
+    context "when type is nil and method_name is set" do
+      it "raises an error" do
+        expect do
+          described_class.new("name", nil, method_name: :tmp)
+        end.to raise_error(ArgumentError, "type must be set for an attribute")
       end
     end
   end
@@ -213,6 +287,151 @@ RSpec.describe Lutaml::Model::Attribute do
         duplicate_attribute
         attribute.options[:foo] = "bar"
         expect(duplicate_attribute.options).not_to include(:foo)
+      end
+    end
+  end
+
+  describe "#cast_element" do
+    let(:register) { Lutaml::Model::Config.default_register }
+
+    context "when type validation is enabled" do
+      # Create a dummy invalid type class
+      let(:invalid_type_class) do
+        Class.new do
+          def self.cast(value)
+            value
+          end
+
+          def self.name
+            "InvalidTypeClass"
+          end
+        end
+      end
+
+      # Create a valid Type::Value subclass
+      let(:valid_value_type_class) do
+        Class.new(Lutaml::Model::Type::Value) do
+          def self.cast(value, _options = {})
+            value&.to_s
+          end
+
+          def self.name
+            "ValidValueType"
+          end
+        end
+      end
+
+      # Create a valid Serializable subclass
+      let(:valid_serializable_class) do
+        Class.new(Lutaml::Model::Serializable) do
+          def self.name
+            "ValidSerializableType"
+          end
+        end
+      end
+
+      context "with invalid type that doesn't inherit from Serializable or Type::Value" do
+        it "raises InvalidAttributeTypeError" do
+          attribute = described_class.new("test_attr", invalid_type_class)
+
+          expect { attribute.cast_element("test_value", register) }
+            .to raise_error(
+              Lutaml::Model::InvalidAttributeTypeError,
+              "Unsupported type `InvalidTypeClass` specified for test_attr, " \
+              "type must inherit Lutaml::Model::Type::Value or Lutaml::Model::Serializable",
+            )
+        end
+      end
+
+      context "with valid Type::Value subclass" do
+        it "successfully casts the value" do
+          attribute = described_class.new("test_attr", valid_value_type_class)
+          result = attribute.cast_element("test_value", register)
+
+          expect(result).to eq("test_value")
+        end
+      end
+
+      context "with valid Serializable subclass" do
+        it "successfully casts the value" do
+          attribute = described_class.new("test_attr", valid_serializable_class)
+
+          expect { attribute.cast_element({}, register) }.not_to raise_error
+        end
+      end
+
+      context "with class that includes Serialize module" do
+        let(:serialize_including_class) do
+          Class.new do
+            include Lutaml::Model::Serialize
+
+            attribute :name, :string
+
+            def self.name
+              "SerializeIncludingClass"
+            end
+          end
+        end
+
+        it "successfully casts the value" do
+          attribute = described_class.new("test_attr", serialize_including_class)
+
+          expect { attribute.cast_element({}, register) }.not_to raise_error
+        end
+      end
+
+      context "with built-in types" do
+        it "works with string type" do
+          attribute = described_class.new("test_attr", :string)
+          result = attribute.cast_element("test_value", register)
+
+          expect(result).to eq("test_value")
+        end
+
+        it "works with integer type" do
+          attribute = described_class.new("test_attr", :integer)
+          result = attribute.cast_element("42", register)
+
+          expect(result).to eq(42)
+        end
+
+        it "works with boolean type" do
+          attribute = described_class.new("test_attr", :boolean)
+          result = attribute.cast_element("true", register)
+
+          expect(result).to be(true)
+        end
+      end
+
+      context "with Reference type" do
+        it "handles Reference type specially without validation" do
+          attribute = described_class.new(
+            "test_attr",
+            Lutaml::Model::Type::Reference,
+            ref_model_class: "TestModel",
+            ref_key_attribute: :id,
+          )
+
+          # Reference type should bypass the validation check
+          expect { attribute.cast_element("test_key", register) }.not_to raise_error
+        end
+      end
+
+      context "with Hash type and hash value" do
+        it "creates new instance without validation when value is a Hash and type is not hash_type" do
+          attribute = described_class.new("test_attr", valid_serializable_class)
+          hash_value = { "key" => "value" }
+
+          result = attribute.cast_element(hash_value, register)
+          expect(result).to be_a(valid_serializable_class)
+        end
+
+        it "validates when value is not a Hash" do
+          attribute = described_class.new("test_attr", invalid_type_class)
+
+          expect { attribute.cast_element("not_a_hash", register) }
+            .to raise_error(Lutaml::Model::InvalidAttributeTypeError)
+        end
       end
     end
   end

@@ -1,0 +1,188 @@
+---
+title: Architecture
+nav_order: 1
+---
+
+= Architecture
+
+== Overview
+
+Lutaml::Model implements a three-layer architecture for data modeling and serialization:
+
+[source]
+----
+╔═══════════════════════╗       ╔════════════════════╗       ╔═══════════════════════╗
+║   Core Model Layer    ║       ║ Transformation     ║       ║  Serialization Layer  ║
+║                       ║       ║      Layer         ║       ║                       ║
+║ - Serializable        ║──────▶║ - Mappings         ║──────▶║ - Adapters            ║
+║ - Type::Value         ║       ║ - MappingRules     ║       ║ - Documents           ║
+║ - Attribute           ║       ║ - Transforms       ║       ║ - Format Libraries    ║
+║ - Collection          ║       ║ - Validators       ║       ║                       ║
+╚═══════════════════════╝       ╚════════════════════╝       ╚═══════════════════════╝
+----
+
+== Core principles
+
+=== Model-driven design
+
+* **Models are manipulated, not serializations**: Work with model instances, serialize only when needed
+* **Model-to-model interaction** over functional interaction
+* **Recursive attribute model**: Models contain attributes, attributes have types (Model or Value), creating tree structures
+
+=== MECE (Mutually exclusive, collectively exhaustive)
+
+* Each component has distinct, non-overlapping responsibilities
+* All concerns are addressed without gaps
+* No redundant or duplicate functionality
+
+=== DRY (Don't repeat yourself)
+
+* Single source of truth for all definitions
+* Never define or auto-detect data in multiple places
+* Register-based architecture for centralized definitions
+
+=== Separation of concerns
+
+[source]
+----
+lib/lutaml/model/
+├── serializable.rb          # Core model definition
+├── attribute.rb             # Attribute specifications
+├── type/                    # Value types (leaf nodes)
+├── mapping/                 # Serialization mappings
+├── services/                # Business logic (validation, transformation)
+├── {format}/                # Format-specific implementations
+└── error/                   # Error hierarchy
+----
+
+== Key design patterns
+
+=== Registry pattern
+
+* `Type.register(:symbol, Class)` for reusable types
+* `GlobalRegister` for model registration
+* `Register` for custom registries
+
+=== Adapter pattern
+
+* Pluggable serialization libraries without changing model code
+* `SerializationAdapter` base class
+* Format-specific adapters: Nokogiri, Ox, Oga for XML; JSON, MultiJson, Oj for JSON
+
+=== Strategy pattern
+
+* Format-specific behavior via adapter selection
+* `Config.configure` for global strategy selection
+
+=== Builder pattern
+
+* Document construction via `doc.create_element`, `doc.add_element`
+* XML builders in `xml/builder/`
+
+=== Template method pattern
+
+* Base classes define algorithm structure
+* Subclasses customize specific steps
+* Example: `Type::Value` with `cast` and `serialize` hooks
+
+=== Null object pattern
+
+* `UninitializedClass` for undefined values
+* Distinguishes omitted from nil from empty
+
+== Data flow
+
+=== Deserialization pipeline
+
+[source]
+----
+Serialization Format String
+          │
+          ▼
+    Adapter.parse()
+          │
+          ▼
+    Document Object
+          │
+          ▼
+  Mapping Transform (from:)
+          │
+          ▼
+  Attribute Transform (import:)
+          │
+          ▼
+    Type.cast()
+          │
+          ▼
+  Model Attribute Value
+----
+
+=== Serialization pipeline
+
+[source]
+----
+Model Attribute Value
+          │
+          ▼
+  Attribute Transform (export:)
+          │
+          ▼
+  Mapping Transform (to:)
+          │
+          ▼
+    Type.serialize()
+          │
+          ▼
+    Document Object
+          │
+          ▼
+   Adapter.render()
+          │
+          ▼
+Serialization Format String
+----
+
+== Component relationships
+
+=== Core components
+
+* `Serializable`: includes `Serialize` module
+* `Serialize`: defines `Attribute` handling
+* `Attribute`: uses `Type` system
+* `Collection`: contains instances of `Serializable`
+
+=== Services layer
+
+* `Services::Validator`: validates attributes
+* `Services::Transformer`: applies transformations
+* `Services::RuleValueExtractor`: extracts mapping values
+
+== Metadata tracking
+
+Every `Serializable` instance maintains optional metadata:
+
+* `schema_location`: XSD schema reference
+* `encoding`: Character encoding for XML
+* `element_order`: XML element ordering for `ordered: true`
+* `__parent`: Reference to parent model instance
+* `__root`: Reference to root model instance
+
+== Extensibility
+
+=== Three extension points
+
+. **Custom types**: Inherit from `Type::Value`
+. **Custom adapters**: Inherit from `SerializationAdapter`
+. **Custom registers**: Create instances of `Register`
+
+=== Plugin architecture
+
+* Register custom types via `Type.register`
+* Register custom models via `Register.register_model`
+* Configure adapters via `Config.configure`
+
+== See also
+
+* link:../custom_adapters[Creating custom adapters]
+* link:../custom_registers[Custom registers]
+* link:../three-phase-namespace-architecture[Three-phase namespace architecture]

@@ -1,0 +1,1221 @@
+---
+title: Creating XSD Schemas from LutaML Models
+nav_order: 16
+---
+
+= Creating XSD Schemas from LutaML Models
+:toc: left
+:toclevels: 3
+
+== Introduction
+
+This guide teaches you how to generate W3C XML Schema (XSD) definitions from
+LutaML models, covering the complete mapping between LutaML constructs and
+XSD declarations.
+
+=== What you'll learn
+
+* The two fundamental XSD type systems (simpleType and complexType)
+* Three patterns for defining XSD complexTypes
+* How to use custom Value types for XSD simpleTypes
+* Namespace handling in XSD generation
+* Best practices for schema design
+* Common patterns and troubleshooting
+
+== Quick Start
+
+[source,ruby]
+----
+# Generate XSD from a model
+xsd_string = Lutaml::Model::Schema.to_xsd(MyModel)
+
+# Save to file
+File.write("schema.xsd", xsd_string)
+
+# With options
+xsd = Lutaml::Model::Schema.to_xsd(MyModel,
+  adapter: :nokogiri,
+  encoding: "UTF-8",
+  pretty: true
+)
+----
+
+== XSD Architecture Overview
+
+=== Two Type Systems
+
+W3C XSD has two fundamental type systems:
+
+[cols="2,3,3"]
+|===
+| XSD Type | Purpose | LutaML Equivalent
+
+| **simpleType**
+| Primitive values (strings, numbers, dates)
+| `Type::Value` classes
+
+| **complexType**
+| Structured objects with attributes and elements
+| `Serializable` model classes
+|===
+
+=== LutaML to XSD Mapping Table
+
+[source]
+----
+LutaML Construct              →    XSD Declaration
+────────────────────────           ─────────────────
+Type::Value.xsd_type "xs:ID"  →    <xs:simpleType> or built-in type
+Serializable.element "x"       →    <xs:element name="x">
+Serializable.type_name "XType" →    <xs:complexType name="XType">
+map_element "elem", to: :attr  →    <xs:element name="elem" type="...">
+map_attribute "attr", to: :a   →    <xs:attribute name="attr" type="...">
+----
+
+== SimpleTypes: Value Type Definition
+
+=== Built-in XSD Types
+
+LutaML provides automatic XSD type mapping for built-in types:
+
+[source,ruby]
+----
+class Product < Lutaml::Model::Serializable
+  attribute :name, :string        # → xs:string
+  attribute :count, :integer      # → xs:integer
+  attribute :price, :float        # → xs:decimal
+  attribute :available, :boolean  # → xs:boolean
+  attribute :created_at, :date    # → xs:date
+  attribute :updated_at, :time    # → xs:dateTime
+end
+----
+
+=== Custom SimpleTypes
+
+For specialized XSD types (xs:ID, xs:IDREF, xs:token, etc.), create custom
+Value types:
+
+[source,ruby]
+----
+class IdType < Lutaml::Model::Type::String
+  xsd_type 'xs:ID'  # ← Declares XSD simpleType
+
+  def self.cast(value)
+    id = value.to_s.strip
+    unless id.match?(/\A[A-Za-z_][\w.\-]*\z/)
+      raise Lutaml::Model::TypeError, "Invalid XML ID: #{id}"
+    end
+    id
+  end
+end
+
+# Register for convenience
+Lutaml::Model::Type.register(:id, IdType)
+
+# Use in models
+class Product < Lutaml::Model::Serializable
+  attribute :product_id, :id  # Uses IdType → xs:ID in XSD
+end
+----
+
+**Generated XSD**:
+
+[source,xml]
+----
+<xs:attribute name="productId" type="xs:ID"/>
+----
+
+=== Common XSD SimpleTypes
+
+.Standard XSD type library
+[example]
+====
+[source,ruby]
+----
+# Identity types
+class IdType < Lutaml::Model::Type::String
+  xsd_type 'xs:ID'
+
+  def self.cast(value)
+    id = value.to_s.strip
+    unless id.match?(/\A[A-Za-z_][\w.\-]*\z/)
+      raise Lutaml::Model::TypeError, "Invalid XML ID: #{id}"
+    end
+    id
+  end
+end
+
+class IdRefType < Lutaml::Model::Type::String
+  xsd_type 'xs:IDREF'
+
+  def self.cast(value)
+    id = value.to_s.strip
+    unless id.match?(/\A[A-Za-z_][\w.\-]*\z/)
+      raise Lutaml::Model::TypeError, "Invalid XML IDREF: #{id}"
+    end
+    id
+  end
+end
+
+class IdRefsType < Lutaml::Model::Type::String
+  xsd_type 'xs:IDREFS'
+
+  def self.cast(value)
+    case value
+    when String then value.split(/\s+/)
+    when Array then value
+    else [value.to_s]
+    end
+  end
+end
+
+# String variants
+class TokenType < Lutaml::Model::Type::String
+  xsd_type 'xs:token'
+
+  def self.cast(value)
+    super(value).strip.gsub(/\s+/, ' ')
+  end
+end
+
+class LanguageType < Lutaml::Model::Type::String
+  xsd_type 'xs:language'
+
+  def self.cast(value)
+    lang = super(value).downcase
+    unless lang.match?(/\A[a-z]{2,3}(-[A-Za-z0-9]+)*\z/i)
+      raise Lutaml::Model::TypeError, "Invalid language code: #{lang}"
+    end
+    lang
+  end
+end
+
+class NormalizedStringType < Lutaml::Model::Type::String
+  xsd_type 'xs:normalizedString'
+
+  def self.cast(value)
+    super(value).gsub(/[\r\n\t]/, ' ')
+  end
+end
+
+# Numeric types with constraints
+class PositiveIntegerType < Lutaml::Model::Type::Integer
+  xsd_type 'xs:positiveInteger'
+
+  def self.cast(value)
+    num = super(value)
+    raise Lutaml::Model::TypeError, "Must be positive" if num <= 0
+    num
+  end
+end
+
+class NonNegativeIntegerType < Lutaml::Model::Type::Integer
+  xsd_type 'xs:nonNegativeInteger'
+
+  def self.cast(value)
+    num = super(value)
+    raise Lutaml::Model::TypeError, "Cannot be negative" if num < 0
+    num
+  end
+end
+
+# Register all for convenience
+Lutaml::Model::Type.register(:id, IdType)
+Lutaml::Model::Type.register(:idref, IdRefType)
+Lutaml::Model::Type.register(:idrefs, IdRefsType)
+Lutaml::Model::Type.register(:token, TokenType)
+Lutaml::Model::Type.register(:language, LanguageType)
+Lutaml::Model::Type.register(:normalized_string, NormalizedStringType)
+Lutaml::Model::Type.register(:positive_integer, PositiveIntegerType)
+Lutaml::Model::Type.register(:non_negative_integer, NonNegativeIntegerType)
+----
+====
+
+== ComplexTypes: Three Patterns
+
+=== Pattern Overview
+
+W3C XSD supports three patterns for complexTypes. LutaML differentiates them
+by whether `element` and `type_name` are called:
+
+[cols="1,2,3"]
+|===
+| Pattern | LutaML Declaration | When to Use
+
+| **Anonymous Inline**
+| `element "x"` only
+| Single-use element structure
+
+| **Named Reusable**
+| `type_name "XType"` only
+| Type shared by multiple elements
+
+| **Element + Type**
+| `element "x"` + `type_name "XType"`
+| Element with explicitly named type
+|===
+
+=== Pattern 1: Anonymous Inline ComplexType
+
+**Use when**: Element structure is unique and not reused.
+
+[source,ruby]
+----
+class Product < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :price, :float
+
+  xml do
+    element "product"  # ← Only element declared
+    map_element "name", to: :name
+    map_element "price", to: :price
+  end
+end
+----
+
+**Generated XSD**:
+
+[source,xml]
+----
+<xs:element name="product">
+  <xs:complexType>
+    <xs:sequence>
+      <xs:element name="name" type="xs:string"/>
+      <xs:element name="price" type="xs:decimal"/>
+    </xs:sequence>
+  </xs:complexType>
+</xs:element>
+----
+
+=== Pattern 2: Named ComplexType (Type-Only Model)
+
+**Use when**: ComplexType should be reusable by multiple elements.
+
+[source,ruby]
+----
+class ProductType < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :price, :float
+
+  xml do
+    type_name "ProductType"  # ← Only type declared, no element
+    map_element "name", to: :name
+    map_element "price", to: :price
+  end
+end
+----
+
+**Generated XSD**:
+
+[source,xml]
+----
+<xs:complexType name="ProductType">
+  <xs:sequence>
+    <xs:element name="name" type="xs:string"/>
+    <xs:element name="price" type="xs:decimal"/>
+  </xs:sequence>
+</xs:complexType>
+----
+
+**Usage**: Other models can reference this type:
+
+[source,xml]
+----
+<xs:element name="product" type="ProductType"/>
+<xs:element name="item" type="ProductType"/>
+----
+
+=== Pattern 3: Element with Named ComplexType
+
+**Use when**: Want both element declaration AND named type (best of both worlds).
+
+[source,ruby]
+----
+class Product < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :price, :float
+
+  xml do
+    element "product"            # ← Element declared
+    type_name "ProductType"      # ← Type named
+    map_element "name", to: :name
+    map_element "price", to: :price
+  end
+end
+----
+
+**Generated XSD**:
+
+[source,xml]
+----
+<xs:element name="product" type="ProductType"/>
+
+<xs:complexType name="ProductType">
+  <xs:sequence>
+    <xs:element name="name" type="xs:string"/>
+    <xs:element name="price" type="xs:decimal"/>
+  </xs:sequence>
+</xs:complexType>
+----
+
+**Benefits**:
+
+* Element declaration for direct use
+* Named type for references by other elements
+* Type can be extended or restricted
+
+=== Choosing a Pattern
+
+[source]
+----
+                  Need reusable type?
+                         │
+            ┌────────────┴────────────┐
+            │                         │
+          YES                        NO
+            │                         │
+    Want element too?          Pattern 1
+            │                  (Anonymous)
+    ┌───────┴────────┐
+    │                │
+  YES               NO
+    │                │
+Pattern 3      Pattern 2
+(Element+Type) (Type-only)
+----
+
+== Nested ComplexTypes
+
+=== Composition
+
+Models can contain other models, creating nested complexTypes:
+
+[source,ruby]
+----
+class Address < Lutaml::Model::Serializable
+  attribute :street, :string
+  attribute :city, :string
+
+  xml do
+    type_name "AddressType"
+    map_element "street", to: :street
+    map_element "city", to: :city
+  end
+end
+
+class Customer < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :address, Address
+
+  xml do
+    element "customer"
+    type_name "CustomerType"
+    map_element "name", to: :name
+    map_element "address", to: :address
+  end
+end
+----
+
+**Generated XSD**:
+
+[source,xml]
+----
+<xs:element name="customer" type="CustomerType"/>
+
+<xs:complexType name="CustomerType">
+  <xs:sequence>
+    <xs:element name="name" type="xs:string"/>
+    <xs:element name="address" type="AddressType"/>
+  </xs:sequence>
+</xs:complexType>
+
+<xs:complexType name="AddressType">
+  <xs:sequence>
+    <xs:element name="street" type="xs:string"/>
+    <xs:element name="city" type="xs:string"/>
+  </xs:sequence>
+</xs:complexType>
+----
+
+== Attributes vs Elements
+
+=== XML Attributes
+
+Declared with `map_attribute`:
+
+[source,ruby]
+----
+class Product < Lutaml::Model::Serializable
+  attribute :id, :id
+  attribute :name, :string
+
+  xml do
+    element "product"
+    map_attribute "id", to: :id      # ← XML attribute
+    map_element "name", to: :name    # ← XML element
+  end
+end
+----
+
+**Generated XSD**:
+
+[source,xml]
+----
+<xs:element name="product">
+  <xs:complexType>
+    <xs:sequence>
+      <xs:element name="name" type="xs:string"/>
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:ID"/>
+  </xs:complexType>
+</xs:element>
+----
+
+=== Best Practices
+
+**Use XML attributes for**:
+
+* Metadata (IDs, timestamps, versions)
+* Simple values (not structured data)
+* Values that can't be repeated
+
+**Use XML elements for**:
+
+* Structured content
+* Potentially complex data
+* Collections (repeating elements)
+* Mixed content
+
+== Collections and Cardinality
+
+[source,ruby]
+----
+class Catalog < Lutaml::Model::Serializable
+  attribute :products, Product, collection: 1..  # At least 1
+
+  xml do
+    element "catalog"
+    map_element "product", to: :products
+  end
+end
+----
+
+**Generated XSD**:
+
+[source,xml]
+----
+<xs:element name="catalog">
+  <xs:complexType>
+    <xs:sequence>
+      <xs:element name="product" type="ProductType"
+                  minOccurs="1" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+</xs:element>
+----
+
+**Collection Ranges**:
+
+[source,ruby]
+----
+collection: true      # minOccurs="0" maxOccurs="unbounded"
+collection: 1..      # minOccurs="1" maxOccurs="unbounded"
+collection: 0..5     # minOccurs="0" maxOccurs="5"
+collection: 3..10    # minOccurs="3" maxOccurs="10"
+----
+
+== Namespaces in XSD
+
+=== Target Namespace
+
+[source,ruby]
+----
+class ProductNamespace < Lutaml::Model::XmlNamespace
+  uri "https://example.com/product"
+  prefix_default "prod"
+  element_form_default :qualified
+end
+
+class Product < Lutaml::Model::Serializable
+  attribute :name, :string
+
+  xml do
+    element "product"
+    namespace ProductNamespace
+
+    map_element "name", to: :name
+  end
+end
+----
+
+**Generated XSD**:
+
+[source,xml]
+----
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="https://example.com/product"
+           xmlns:prod="https://example.com/product"
+           elementFormDefault="qualified">
+  <xs:element name="product" type="prod:ProductType"/>
+</xs:schema>
+----
+
+=== Type Namespaces
+
+Value types can declare their own namespaces:
+
+[source,ruby]
+----
+class CustomTypeNamespace < Lutaml::Model::XmlNamespace
+  uri "https://example.com/types"
+  prefix_default "ct"
+end
+
+class CustomIdType < Lutaml::Model::Type::String
+  xml_namespace CustomTypeNamespace
+  xsd_type "CustomID"
+end
+----
+
+This generates import declarations in the schema.
+
+== Complete Example: E-Commerce Catalog
+
+.Complete working example with namespaces and custom types
+[example]
+====
+[source,ruby]
+----
+# Namespace definition
+class CatalogNamespace < Lutaml::Model::XmlNamespace
+  uri "https://example.com/catalog"
+  prefix_default "cat"
+  element_form_default :qualified
+  documentation "E-commerce product catalog schema"
+end
+
+# Custom types
+class ProductIdType < Lutaml::Model::Type::String
+  xsd_type 'xs:ID'
+
+  def self.cast(value)
+    id = value.to_s.strip.upcase
+    unless id.match?(/\APROD-\d+\z/)
+      raise Lutaml::Model::TypeError, "Invalid product ID: #{id}"
+    end
+    id
+  end
+end
+
+Lutaml::Model::Type.register(:product_id, ProductIdType)
+
+# Models
+class Money < Lutaml::Model::Serializable
+  attribute :amount, :float
+  attribute :currency, :string
+
+  xml do
+    type_name "MoneyType"
+    map_element "amount", to: :amount
+    map_attribute "currency", to: :currency
+  end
+end
+
+class Product < Lutaml::Model::Serializable
+  attribute :id, :product_id
+  attribute :name, :string
+  attribute :price, Money
+  attribute :tags, :string, collection: 0..
+
+  xml do
+    namespace CatalogNamespace
+    element "product"
+    type_name "ProductType"
+
+    map_attribute "id", to: :id
+    map_element "name", to: :name
+    map_element "price", to: :price
+    map_element "tag", to: :tags
+  end
+end
+
+class Catalog < Lutaml::Model::Serializable
+  attribute :products, Product, collection: 1..
+
+  xml do
+    namespace CatalogNamespace
+    element "catalog"
+    type_name "CatalogType"
+
+    map_element "product", to: :products
+  end
+end
+
+# Generate XSD
+xsd = Lutaml::Model::Schema.to_xsd(Catalog)
+File.write("catalog.xsd", xsd)
+----
+
+**Generated XSD** (excerpt):
+
+[source,xml]
+----
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="https://example.com/catalog"
+           xmlns:cat="https://example.com/catalog"
+           elementFormDefault="qualified">
+
+  <xs:element name="catalog" type="cat:CatalogType"/>
+
+  <xs:complexType name="CatalogType">
+    <xs:sequence>
+      <xs:element name="product" type="cat:ProductType"
+                  minOccurs="1" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="ProductType">
+    <xs:sequence>
+      <xs:element name="name" type="xs:string"/>
+      <xs:element name="price" type="cat:MoneyType"/>
+      <xs:element name="tag" type="xs:string"
+                  minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:ID" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="MoneyType">
+    <xs:sequence>
+      <xs:element name="amount" type="xs:decimal"/>
+    </xs:sequence>
+    <xs:attribute name="currency" type="xs:string"/>
+  </xs:complexType>
+</xs:schema>
+----
+====
+
+== Schema Generation Options
+
+[source,ruby]
+----
+# Basic generation
+xsd = Lutaml::Model::Schema.to_xsd(MyModel)
+
+# With options
+xsd = Lutaml::Model::Schema.to_xsd(MyModel,
+  adapter: :nokogiri,           # XML adapter
+  encoding: "UTF-8",            # Character encoding
+  pretty: true                  # Format output
+)
+
+# Save to file
+Lutaml::Model::Schema.to_xsd(MyModel,
+  output_dir: "schemas",
+  create_files: true
+)
+----
+
+== Best Practices
+
+=== Type Definition Strategy
+
+1. **Create reusable types** for common patterns:
+
+[source,ruby]
+----
+# Good: Reusable types
+class IdType < Lutaml::Model::Type::String
+  xsd_type 'xs:ID'
+end
+
+class EmailType < Lutaml::Model::Type::String
+  xsd_type 'xs:string'
+end
+
+# Register for convenience
+Lutaml::Model::Type.register(:id, IdType)
+Lutaml::Model::Type.register(:email, EmailType)
+----
+
+2. **Use type-only models** for shared structures:
+
+[source,ruby]
+----
+# Good: Shared address format
+class AddressType < Lutaml::Model::Serializable
+  attribute :street, :string
+  attribute :city, :string
+
+  xml do
+    type_name "AddressType"  # Reusable by multiple elements
+    map_element "street", to: :street
+    map_element "city", to: :city
+  end
+end
+----
+
+3. **Keep element declarations** at top-level entry points:
+
+[source,ruby]
+----
+# Good: Top-level catalog has element
+class Catalog < Lutaml::Model::Serializable
+  xml do
+    element "catalog"     # Entry point
+    type_name "CatalogType"
+  end
+end
+
+# Supporting types are type-only
+class CatalogItemType < Lutaml::Model::Serializable
+  xml do
+    type_name "CatalogItemType"  # No element
+  end
+end
+----
+
+=== Namespace Strategy
+
+1. **One namespace per module/domain**
+2. **Use XmlNamespace classes** for reusability
+3. **Set element_form_default** appropriately
+4. **Import external namespaces** explicitly
+
+=== Documentation
+
+Add XSD annotations via `documentation` directive:
+
+[source,ruby]
+----
+class Product < Lutaml::Model::Serializable
+  xml do
+    element "product"
+    documentation "Represents a product in the catalog"
+
+    map_element "name", to: :name,
+      documentation: "Product display name"
+  end
+end
+----
+
+== Common Patterns
+
+=== ID/IDREF Pattern
+
+[source,ruby]
+----
+class Category < Lutaml::Model::Serializable
+  attribute :id, :id
+  attribute :name, :string
+
+  xml do
+    element "category"
+    map_attribute "id", to: :id
+    map_element "name", to: :name
+  end
+end
+
+class Product < Lutaml::Model::Serializable
+  attribute :category_ref, :idref
+
+  xml do
+    element "product"
+    map_attribute "categoryRef", to: :category_ref
+  end
+end
+----
+
+=== Choice Pattern
+
+Use `choice` for mutually exclusive options:
+
+[source,ruby]
+----
+class Contact < Lutaml::Model::Serializable
+  choice(min: 1, max: 1) do
+    attribute :email, :string
+    attribute :phone, :string
+  end
+
+  xml do
+    element "contact"
+    map_element "email", to: :email
+    map_element "phone", to: :phone
+  end
+end
+----
+
+=== Sequence Pattern
+
+Use `sequence` for strict ordering:
+
+[source,ruby]
+----
+class Document < Lutaml::Model::Serializable
+  xml do
+    element "document"
+    sequence do
+      map_element "title", to: :title
+      map_element "author", to: :author
+      map_element "content", to: :content
+    end
+  end
+end
+----
+
+== Troubleshooting
+
+=== Type Not Appearing in XSD
+
+**Problem**: Custom type's xsd_type not in generated schema.
+
+**Solution**: Ensure type is actually used by a model attribute:
+
+[source,ruby]
+----
+class IdType < Lutaml::Model::Type::String
+  xsd_type 'xs:ID'  # Won't appear unless used
+end
+
+class Product < Lutaml::Model::Serializable
+  attribute :id, IdType  # ← Must use the type
+end
+----
+
+=== Namespace Import Not Generated
+
+**Problem**: Type namespace not imported in schema.
+
+**Solution**: Use XmlNamespace class and set schema_location:
+
+[source,ruby]
+----
+class TypeNamespace < Lutaml::Model::XmlNamespace
+  uri "https://example.com/types"
+  schema_location "types.xsd"  # ← Enables import
+end
+----
+
+=== Anonymous vs Named Type Confusion
+
+**Problem**: Not sure when type gets a name.
+
+**Solution**: Check pattern:
+
+* `element` only → Anonymous (no name)
+* `type_name` only → Named type (no element)
+* Both → Named type + element
+
+=== Pattern Selection Errors
+
+**Problem**: Not sure which pattern to use.
+
+**Solution**: Follow the decision tree:
+
+1. Will this structure be reused? → YES: Use Pattern 2 or 3
+2. Need element declaration too? → YES: Use Pattern 3, NO: Use Pattern 2
+3. Single use only? → Use Pattern 1
+
+== Type Resolution and Validation
+
+=== Overview
+
+When generating XSD schemas, Lutaml::Model validates all `xsd_type` declarations
+to ensure they reference valid types. This prevents generation of invalid schemas
+with unresolvable type references.
+
+=== Three Type Categories
+
+Every `xsd_type` value falls into one of three categories:
+
+[cols="1,2,3"]
+|===
+| Category | Description | Example
+
+| **Standard XS Types**
+| W3C XML Schema 1.1 Part 2 built-in types
+| `xs:string`, `xs:integer`, `xs:ID`, `xs:token`
+
+| **Custom Types**
+| LutaML `Type::Value` or `Serializable` models with `xsd_type` or `type_name`
+| Your custom types with proper definitions
+
+| **External Types**
+| References to types not defined or resolvable
+| **Error**: Causes `UnresolvableTypeError`
+|===
+
+=== Standard XS Type Reference
+
+LutaML recognizes all W3C XML Schema 1.1 Part 2 built-in types:
+
+**Primitive Types**:
+
+[source]
+----
+xs:string          # Character strings
+xs:boolean         # true/false values
+xs:decimal         # Arbitrary precision decimals
+xs:float           # 32-bit floating point
+xs:double          # 64-bit floating point
+xs:duration        # Time duration (P1Y2M3DT4H5M6S)
+xs:dateTime        # Date and time (YYYY-MM-DDTHH:MM:SS)
+xs:time            # Time of day (HH:MM:SS)
+xs:date            # Calendar date (YYYY-MM-DD)
+xs:gYearMonth      # Year and month (YYYY-MM)
+xs:gYear           # Year (YYYY)
+xs:gMonthDay       # Month and day (--MM-DD)
+xs:gDay            # Day of month (---DD)
+xs:gMonth          # Month (--MM)
+xs:hexBinary       # Hex-encoded binary data
+xs:base64Binary    # Base64-encoded binary data
+xs:anyURI          # URI reference
+xs:QName           # Qualified name (prefix:localPart)
+xs:NOTATION        # Notation declaration
+----
+
+**Derived Types**:
+
+[source]
+----
+# String variants
+xs:normalizedString    # No line breaks/tabs
+xs:token              # Normalized, no extra whitespace
+xs:language           # Language identifier (en, en-US)
+xs:NMTOKEN            # XML name token
+xs:NMTOKENS           # Space-separated NMTOKEN list
+xs:Name               # XML name
+xs:NCName             # Non-colonized name
+xs:ID                 # Unique identifier
+xs:IDREF              # Reference to ID
+xs:IDREFS             # Space-separated IDREF list
+xs:ENTITY             # Entity name
+xs:ENTITIES           # Space-separated ENTITY list
+
+# Integer variants
+xs:integer              # Arbitrary precision integer
+xs:nonPositiveInteger   # ≤ 0
+xs:negativeInteger      # < 0
+xs:long                 # -9223372036854775808 to 9223372036854775807
+xs:int                  # -2147483648 to 2147483647
+xs:short                # -32768 to 32767
+xs:byte                 # -128 to 127
+xs:nonNegativeInteger   # ≥ 0
+xs:unsignedLong         # 0 to 18446744073709551615
+xs:unsignedInt          # 0 to 4294967295
+xs:unsignedShort        # 0 to 65535
+xs:unsignedByte         # 0 to 255
+xs:positiveInteger      # > 0
+
+# Duration variants
+xs:yearMonthDuration    # Year-month duration only
+xs:dayTimeDuration      # Day-time duration only
+xs:dateTimeStamp        # dateTime with required timezone
+----
+
+**Special Types**:
+
+[source]
+----
+xs:anyType           # Base for all types
+xs:anySimpleType     # Base for all simple types
+----
+
+=== Validation Process
+
+XSD generation validates types automatically:
+
+[source,ruby]
+----
+# This works - standard type
+class Product < Lutaml::Model::Serializable
+  attribute :name, :string  # xs:string is standard
+
+  xml do
+    element "product"
+  end
+end
+
+xsd = Lutaml::Model::Schema.to_xsd(Product)  # ✓ Success
+----
+
+[source,ruby]
+----
+# This fails - undefined custom type
+class BadType < Lutaml::Model::Type::String
+  xsd_type "UndefinedType"  # Not xs: prefixed, not defined
+end
+
+class Product < Lutaml::Model::Serializable
+  attribute :field, BadType
+
+  xml do
+    element "product"
+  end
+end
+
+# Raises: Lutaml::Model::UnresolvableTypeError
+# Attribute 'field' uses unresolvable xsd_type 'UndefinedType'.
+# Custom types must be defined as LutaML Type::Value or Model classes.
+xsd = Lutaml::Model::Schema.to_xsd(Product)  # ✗ Error
+----
+
+=== Custom Type Resolution
+
+Custom types are resolved through:
+
+1. **Type-only models with `type_name`**:
+
+[source,ruby]
+----
+class AddressType < Lutaml::Model::Serializable
+  attribute :street, :string
+
+  xml do
+    type_name "AddressType"  # ← Defines resolvable custom type
+  end
+end
+
+class Person < Lutaml::Model::Serializable
+  attribute :address, AddressType  # ← Resolves to AddressType
+end
+----
+
+2. **Type::Value classes with `xsd_type` matching a model's `type_name`**:
+
+[source,ruby]
+----
+# Define a model with type_name
+class CustomType < Lutaml::Model::Serializable
+  xml do
+    type_name "CustomDataType"
+  end
+end
+
+# Value type referencing it
+class CustomValueType < Lutaml::Model::Type::String
+  xsd_type "CustomDataType"  # ← References CustomType's type_name
+end
+----
+
+=== Validation Errors
+
+**Error: Unresolvable custom type**
+
+[source,ruby]
+----
+# Bad: Type not defined anywhere
+class UndefinedType < Lutaml::Model::Type::String
+  xsd_type "MysteryType"  # Not xs:, not defined in models
+end
+
+class Model < Lutaml::Model::Serializable
+  attribute :field, UndefinedType
+end
+
+Lutaml::Model::Schema.to_xsd(Model)
+# UnresolvableTypeError: Attribute 'field' uses unresolvable xsd_type 'MysteryType'.
+# Custom types must be defined as LutaML Type::Value or Model classes.
+----
+
+**Fix: Define the type**
+
+[source,ruby]
+----
+# Good: Type defined as model
+class MysteryType < Lutaml::Model::Serializable
+  xml do
+    type_name "MysteryType"  # ← Now resolvable
+  end
+end
+
+class CustomType < Lutaml::Model::Type::String
+  xsd_type "MysteryType"  # ← Can now resolve
+end
+----
+
+**Error: Nested model with unresolvable type**
+
+[source,ruby]
+----
+class BadType < Lutaml::Model::Type::String
+  xsd_type "BadCustomType"
+end
+
+class NestedModel < Lutaml::Model::Serializable
+  attribute :bad, BadType
+end
+
+class ParentModel < Lutaml::Model::Serializable
+  attribute :nested, NestedModel
+end
+
+Lutaml::Model::Schema.to_xsd(ParentModel)
+# UnresolvableTypeError: In nested model NestedModel:
+# Attribute 'bad' uses unresolvable xsd_type 'BadCustomType'.
+----
+
+=== Skipping Validation
+
+For development or special cases, validation can be skipped:
+
+[source,ruby]
+----
+# Skip validation (use with caution)
+xsd = Lutaml::Model::Schema.to_xsd(Model, skip_validation: true)
+----
+
+**Warning**: Skipping validation may produce invalid XSD with unresolvable
+type references. Only use for:
+
+* Prototyping and development
+* Generated schemas to be manually edited
+* Schemas with external type definitions not visible to Lutaml
+
+=== Best Practices
+
+1. **Always use standard xs: types** when possible:
++
+[source,ruby]
+----
+# Good: Standard types work everywhere
+attribute :id, :string       # Uses xs:string
+attribute :count, :integer   # Uses xs:integer
+----
+
+2. **Define custom types properly**:
++
+[source,ruby]
+----
+# Good: Custom type with standard base
+class EmailType < Lutaml::Model::Type::String
+  xsd_type 'xs:string'  # Uses standard type
+
+  def self.cast(value)
+    # Add validation
+  end
+end
+----
+
+3. **Use type_name for reusable model types**:
++
+[source,ruby]
+----
+# Good: Reusable address type
+class AddressType < Lutaml::Model::Serializable
+  xml do
+    type_name "AddressType"  # Makes it resolvable
+  end
+end
+----
+
+4. **Check validation errors carefully**:
++
+They indicate real problems that would produce invalid XSD.
+
+== See Also
+
+* link:../../migrations/xsd-type-migration[XSD Type Migration Guide]
+* link:../value-transformations[Value Transformations]
+* link:https://www.w3.org/TR/xmlschema-1/[W3C XML Schema Part 1: Structures]
+* link:https://www.w3.org/TR/xmlschema-2/[W3C XML Schema Part 2: Datatypes]

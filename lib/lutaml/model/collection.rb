@@ -11,6 +11,8 @@ module Lutaml
           sort_direction
         ].freeze
 
+        ALLOWED_OPTIONS = %i[polymorphic].freeze
+
         def inherited(subclass)
           super
 
@@ -27,8 +29,13 @@ module Lutaml
                     :sort_by_field,
                     :sort_direction
 
-        def instances(name, type, &block)
-          attribute(name, type, collection: true, validations: block)
+        def instances(name, type, options = {}, &block)
+          if (invalid_opts = options.keys - ALLOWED_OPTIONS).any?
+            raise Lutaml::Model::InvalidAttributeOptionsError.new(name,
+                                                                  invalid_opts)
+          end
+
+          attribute(name, type, collection: true, validations: block, **options)
 
           @instance_type = Lutaml::Model::Attribute.cast_type!(type)
           @instance_name = name
@@ -39,7 +46,7 @@ module Lutaml
         end
 
         def sort(by:, order: :asc)
-          @sort_by_field = by.to_sym
+          @sort_by_field = by.is_a?(Proc) ? by : by.to_sym
           @sort_direction = order
 
           check_sort_configs! if @mappings[:xml]
@@ -111,7 +118,8 @@ module Lutaml
 
       attr_reader :__register
 
-      def initialize(items = [], __register: Lutaml::Model::Config.default_register)
+      def initialize(items = [],
+__register: Lutaml::Model::Config.default_register)
         super()
 
         @__register = __register
@@ -120,7 +128,7 @@ module Lutaml
         register_object = Lutaml::Model::GlobalRegister.lookup(@__register)
         type = register_object.get_class(self.class.instance_type)
         self.collection = items.map do |item|
-          if item.is_a?(type)
+          if item.is_a?(type) || item.is_a?(Lutaml::Model::Serializable)
             item
           elsif type <= Lutaml::Model::Type::Value
             type.cast(item)
@@ -202,13 +210,19 @@ module Lutaml
       def sort_items!
         return if collection.nil?
         return unless order_defined?
+        return if collection.one?
 
-        unless collection&.one?
-          field = self.class.sort_by_field
-          direction = self.class.sort_direction
+        apply_sort!
+        collection.reverse! if self.class.sort_direction == :desc
+      end
 
+      def apply_sort!
+        field = self.class.sort_by_field
+
+        if field.is_a?(Proc)
+          collection.sort_by!(&field)
+        else
           collection.sort_by! { |item| item.send(field) }
-          collection.reverse! if direction == :desc
         end
       end
     end

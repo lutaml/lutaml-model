@@ -1,4 +1,5 @@
 require "spec_helper"
+require_relative "../../support/xml_mapping_namespaces"
 
 module NamespaceSpec
   class NestedChild < Lutaml::Model::Serializable
@@ -26,7 +27,7 @@ module NamespaceSpec
 
     xml do
       root "Parent"
-      namespace "https://abc.com"
+      namespace AbcNamespace
 
       map_element :Child, to: :child
     end
@@ -52,6 +53,6 @@ RSpec.describe "NamespaceSpec" do
   end
 
   it "round-trips xml" do
-    expect(parsed.to_xml).to be_equivalent_to(xml)
+    expect(parsed.to_xml).to be_xml_equivalent_to(xml)
   end
 end

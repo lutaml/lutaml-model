@@ -22,12 +22,12 @@ module Lutaml
         @attributes << @model.map_element(name, **kwargs)
       end
 
-      def import_model_mappings(model)
+      def import_model_mappings(model, register = nil)
         return import_mappings_later(model) if later_importable?(model)
-        raise Lutaml::Model::ImportModelWithRootError.new(model) if model.root?
+        raise Lutaml::Model::ImportModelWithRootError.new(model) if model.root?(register)
 
-        @model.import_model_mappings(model)
-        @attributes.concat(Utils.deep_dup(model.mappings_for(:xml).elements))
+        @model.import_model_mappings(model, register)
+        @attributes.concat(Utils.deep_dup(model.mappings_for(:xml, register).elements))
       end
 
       def map_attribute(*)
@@ -42,36 +42,77 @@ module Lutaml
         raise Lutaml::Model::UnknownSequenceMappingError.new("map_all")
       end
 
-      def validate_content!(element_order, model_class)
+      def validate_content!(element_order, instance, register = nil)
         validate_sequence!(
-          extract_defined_order(model_class.attributes),
+          extract_defined_order(instance.class.attributes(register).transform_keys(&:to_s)),
           element_order,
         )
+        validate_child_content(instance, register)
       end
 
       private
 
+      def validate_child_content(instance, register)
+        instance.class.attributes(register).each_key do |name|
+          value = instance.public_send(name)
+          if value.respond_to?(:validate!)
+            value.validate!
+          elsif value.is_a?(Array)
+            value.each { |v| v.validate!(register: register) if v.respond_to?(:validate!) }
+          end
+        end
+      end
+
       def validate_sequence!(defined_order, element_order)
         eo_index = element_order_index(element_order, defined_order)
+        choices = {}
 
         defined_order.each do |element, klass_attr|
-          if klass_attr.collection?
-            if add_missing_element?(element_order, eo_index, element, klass_attr)
-              element_order.insert(eo_index, element)
-            else
-              occurrences = klass_attr.sequenced_appearance_count(element_order, element, eo_index)
-              next eo_index += occurrences if occurrences.positive?
-            end
-          end
+          eo_index = validate_sequence(element_order, eo_index, element,
+                                       klass_attr, choices)
+        end
+      end
 
-          next eo_index += 1 if element_order[eo_index] == element
+      def validate_sequence(element_order, eo_index, element, klass_attr,
+choices)
+        if klass_attr.choice
+          return process_choice(element_order, eo_index, element, klass_attr,
+                                choices)
+        end
 
-          raise Lutaml::Model::IncorrectSequenceError.new(element, element_order[eo_index])
+        if klass_attr.collection?
+          occurrences = process_collection(element_order, eo_index, element,
+                                           klass_attr)
+        end
+        return eo_index + occurrences if occurrences&.positive?
+        return eo_index + 1 if element_order[eo_index] == element
+
+        raise_incorrect_sequence_error!(element, element_order[eo_index])
+      end
+
+      def process_choice(element_order, eo_index, element, klass_attr, choices)
+        return eo_index if choices[klass_attr.choice] || element_order[eo_index] != element
+
+        choices[klass_attr.choice] = true
+        eo_index + klass_attr.choice.validate_sequence_content!(element_order[eo_index..])
+      end
+
+      def raise_incorrect_sequence_error!(expected, found)
+        raise Lutaml::Model::IncorrectSequenceError.new(expected, found)
+      end
+
+      def process_collection(element_order, eo_index, element, klass_attr)
+        if add_missing_element?(element_order, eo_index, element, klass_attr)
+          element_order.insert(eo_index, element)
+          nil
+        else
+          klass_attr.sequenced_appearance_count(element_order, element,
+                                                eo_index)
         end
       end
 
       def add_missing_element?(element_order, eo_index, element, klass_attr)
-        return false unless klass_attr.collection_range.min.zero?
+        return false unless klass_attr.resolved_collection.min.zero?
 
         element_order[eo_index] != element && !element_order.include?(element)
       end
@@ -82,8 +123,7 @@ module Lutaml
 
       def extract_defined_order(model_attrs)
         @attributes.each_with_object({}) do |rule, acc|
-          acc[rule.name.to_s] = model_attrs[rule.to.to_s] ||
-            model_attrs[rule.to.to_sym]
+          acc[rule.name.to_s] = model_attrs[rule.to.to_s]
         end
       end
 

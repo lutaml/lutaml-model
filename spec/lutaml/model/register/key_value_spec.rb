@@ -64,7 +64,9 @@ end
 
 RSpec.describe "RegisterKeyValueSpec" do
   let(:register) { Lutaml::Model::Register.new(:json_test_register) }
-  let(:person) { RegisterKeyValueSpec::Person.from_json(json, register: register) }
+  let(:person) do
+    RegisterKeyValueSpec::Person.from_json(json, register: register)
+  end
 
   before do
     # Register the registers in the global registry
@@ -177,7 +179,8 @@ RSpec.describe "RegisterKeyValueSpec" do
         register.register_model(RegisterKeyValueSpec::EnhancedContactInfo)
         register_substitution
 
-        enhanced_person = RegisterKeyValueSpec::Person.from_json(json, register: register.id)
+        enhanced_person = RegisterKeyValueSpec::Person.from_json(json,
+                                                                 register: register.id)
 
         expect(enhanced_person.contact).to be_a(RegisterKeyValueSpec::EnhancedContactInfo)
         expect(enhanced_person.contact).to respond_to(:preferred)
@@ -235,7 +238,8 @@ RSpec.describe "RegisterKeyValueSpec" do
     end
 
     it "correctly handles arrays of complex objects" do
-      team = RegisterKeyValueSpec::Team.from_json(complex_json, register: register)
+      team = RegisterKeyValueSpec::Team.from_json(complex_json,
+                                                  register: register)
 
       expect(team.name).to eq("Team Alpha")
       expect(team.members.size).to eq(2)
@@ -248,7 +252,8 @@ RSpec.describe "RegisterKeyValueSpec" do
 
       # Test round-trip serialization
       toml_output = team.to_toml
-      team2 = RegisterKeyValueSpec::Team.from_toml(toml_output, register: register)
+      team2 = RegisterKeyValueSpec::Team.from_toml(toml_output,
+                                                   register: register)
 
       expect(team2).to eq(team)
       expect(team2.members[0].name).to eq("Alice")
@@ -258,7 +263,8 @@ RSpec.describe "RegisterKeyValueSpec" do
 
   describe "#resolve" do
     before do
-      stub_const("RegisterKeyValueSpec::Team", Class.new(Lutaml::Model::Serializable))
+      stub_const("RegisterKeyValueSpec::Team",
+                 Class.new(Lutaml::Model::Serializable))
       register.register_model(RegisterKeyValueSpec::Team)
     end
 

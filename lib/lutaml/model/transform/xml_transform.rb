@@ -8,6 +8,7 @@ module Lutaml
           instance = model_class.new
           register_accessor_methods_for(instance, __register)
         end
+        root_and_parent_assignment(instance, options)
         apply_xml_mapping(data, instance, options)
       end
 
@@ -31,16 +32,18 @@ module Lutaml
         set_schema_location(instance, doc)
 
         defaults_used = []
-        validate_sequence!(doc.root.order)
 
         mappings.each do |rule|
           attr = attribute_for_rule(rule)
           next if attr&.derived?
 
-          raise "Attribute '#{rule.to}' not found in #{context}" unless valid_rule?(rule, attr)
+          raise "Attribute '#{rule.to}' not found in #{context}" unless valid_rule?(
+            rule, attr
+          )
 
           new_opts = options.dup
-          if rule.namespace_set?
+          # Don't overwrite default_namespace for :inherit - it needs the parent's namespace
+          if rule.namespace_set? && rule.instance_variable_get(:@namespace_param) != :inherit
             new_opts[:default_namespace] = rule.namespace
           end
 
@@ -51,7 +54,8 @@ module Lutaml
                   else
                     val = value_for_rule(doc, rule, new_opts, instance)
 
-                    if (val.nil? || Utils.uninitialized?(val)) && (instance.using_default?(rule.to) || rule.render_default)
+                    if (val.nil? || Utils.uninitialized?(val)) &&
+                        (instance.using_default?(rule.to) || rule.render_default)
                       defaults_used << rule.to
                       attr&.default(__register) || rule.to_value_for(instance)
                     else
@@ -61,6 +65,7 @@ module Lutaml
 
           value = apply_value_map(value, rule.value_map(:from, new_opts), attr)
           value = normalize_xml_value(value, rule, attr, new_opts)
+          value = rule.transform_value(attr, value, :from, :xml)
           rule.deserialize(instance, value, attributes, context)
         end
 
@@ -109,15 +114,64 @@ module Lutaml
         )
       end
 
-      def value_for_rule(doc, rule, options, instance)
-        rule_names = rule.namespaced_names(options[:default_namespace])
-        return doc.root.find_attribute_value(rule_names) if rule.attribute?
+      def value_for_xml_attribute(doc, rule, rule_names)
+        # For attributes, rule_names may contain URI:name format, but find_attribute_value
+        # expects prefix:name or just name, so we need to convert URI to prefix
+        attribute_names = rule_names.filter_map do |rn|
+          if rn.include?("://")
+            # This is a URI:name format, need to find the actual prefix used in the document
+            uri, local_name = rn.split(":", 2)
+            # Get all matching attributes by URI and local name
+            doc.root.attributes.values.find do |attr|
+              attr.namespace == uri && attr.unprefixed_name == local_name
+            end&.name || rn
+          else
+            rn
+          end
+        end
 
+        value = doc.root.find_attribute_value(attribute_names)
+
+        value = value&.split(rule.delimiter) if rule.delimiter
+
+        value = rule.as_list[:import].call(value) if rule.as_list && rule.as_list[:import]
+
+        value
+      end
+
+      def value_for_rule(doc, rule, options, instance)
         attr = attribute_for_rule(rule)
+
+        # Enhanced namespace resolution with type support
+        rule_names = resolve_rule_names_with_type(rule, attr, options)
+
+        return value_for_xml_attribute(doc, rule, rule_names) if rule.attribute?
+
         attr_type = attr&.type(__register)
 
         children = doc.children.select do |child|
-          rule_names.include?(child.namespaced_name) && !child.text?
+          next false if child.text?
+
+          # CRITICAL FIX: Handle explicit namespace: nil
+          # When namespace: nil is explicitly set, only match elements with NO namespace URI
+          if rule.namespace_set? && rule.namespace.nil? && rule.instance_variable_get(:@namespace_param).nil?
+            # Child must have:
+            # 1. Matching local name
+            # 2. NO namespace URI (namespaced_name == unprefixed_name indicates no namespace)
+            next child.unprefixed_name == rule.name.to_s &&
+              child.namespaced_name == child.unprefixed_name
+          end
+
+          # First try exact namespace match
+          next true if rule_names.include?(child.namespaced_name)
+
+          # Fallback: if the child has a different namespace and attr_type is Serializable,
+          # match by unprefixed name (child declares its own namespace)
+          if attr_type && attr_type <= Serialize
+            rule_names.any? { |rn| rn.split(":").last == child.unprefixed_name }
+          else
+            false
+          end
         end
 
         if rule.has_custom_method_for_deserialization? || attr_type == Lutaml::Model::Type::Hash
@@ -137,6 +191,8 @@ module Lutaml
             cast_options = options.except(:mappings)
             cast_options[:polymorphic] = rule.polymorphic if rule.polymorphic
             cast_options[:register] = __register
+            cast_options[:__parent] = instance
+            cast_options[:__root] = instance.__root || instance
 
             values << attr.cast(child, :xml, __register, cast_options)
           elsif attr.raw?
@@ -213,14 +269,27 @@ module Lutaml
         end
       end
 
-      def validate_sequence!(element_order)
-        mapping_sequence = mappings_for(:xml).element_sequence
-        return if mapping_sequence.empty?
+      # Resolve rule names with type namespace support
+      #
+      # @param rule [Xml::MappingRule] the mapping rule
+      # @param attr [Attribute, nil] the attribute
+      # @param options [Hash] options including default_namespace
+      # @return [Array<String>] possible namespaced names for matching
+      def resolve_rule_names_with_type(rule, attr, options)
+        # If rule has explicit namespace or no type namespace, use standard logic
+        if rule.namespace_set? || !attr
+          return rule.namespaced_names(options[:default_namespace])
+        end
 
-        current_order = element_order.filter_map(&:element_tag)
+        # Check if attribute type has namespace
+        type_ns_uri = attr.type_namespace_uri(__register)
 
-        mapping_sequence.each do |mapping|
-          mapping.validate_content!(current_order, context)
+        if type_ns_uri
+          # Use type namespace URI for matching (child.namespaced_name uses URI:localname format)
+          ["#{type_ns_uri}:#{rule.name}"]
+        else
+          # Use existing logic
+          rule.namespaced_names(options[:default_namespace])
         end
       end
     end

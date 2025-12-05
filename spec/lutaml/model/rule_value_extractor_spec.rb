@@ -72,46 +72,6 @@ RSpec.describe Lutaml::Model::RuleValueExtractor do
       end
     end
 
-    context "when value needs transformation" do
-      let(:options) do
-        {
-          key_mappings: instance_double(Lutaml::Model::KeyValueMappingRule, to_instance: :key),
-          value_mappings: instance_double(Lutaml::Model::KeyValueMappingRule, as_attribute: :value),
-        }
-      end
-
-      before do
-        allow(rule).to receive_messages(
-          multiple_mappings?: false,
-          name: "data",
-          root_mapping?: false,
-          raw_mapping?: false,
-        )
-      end
-
-      it "transforms hash values" do
-        doc = { "data" => { "test" => { "nested" => "value" } } }
-        extractor = described_class.new(rule, doc, format, attr, register, options)
-
-        expected = [{
-          "key" => "test",
-          "nested" => "value",
-        }]
-        expect(extractor.call).to eq(expected)
-      end
-
-      it "transforms simple values" do
-        doc = { "data" => { "test" => "value" } }
-        extractor = described_class.new(rule, doc, format, attr, register, options)
-
-        expected = [{
-          "key" => "test",
-          "value" => "value",
-        }]
-        expect(extractor.call).to eq(expected)
-      end
-    end
-
     context "when value is not found" do
       before do
         allow(rule).to receive_messages(

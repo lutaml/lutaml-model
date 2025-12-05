@@ -4,11 +4,13 @@ require_relative "key_value_mapping_rule"
 module Lutaml
   module Model
     class KeyValueMapping < Mapping
-      attr_reader :format, :key_mappings, :value_mappings
+      attr_reader :format
 
       def initialize(format = nil)
         super()
         @mappings = {}
+        @key_mapping = {}
+        @value_mapping = {}
         @format = format
       end
 
@@ -92,37 +94,31 @@ module Lutaml
 
       alias map_all_content map_all
 
-      def map_instances(to:)
-        map(root_name || to, to: to)
+      def map_instances(to:, polymorphic: {})
+        @instance = to
+        map(root_name || to, to: to, polymorphic: polymorphic)
+        map_to_instance
       end
 
       def map_key(to_instance: nil, as_attribute: nil)
-        @key_mappings = KeyValueMappingRule.new(
-          Constants::KEY_MAPPING_KEY,
-          to: nil,
-          to_instance: to_instance,
-          as_attribute: as_attribute,
-        )
+        @key_mapping = { "#{to_instance || as_attribute}": :key }
+        map_to_instance
       end
 
       def map_value(to_instance: nil, as_attribute: nil)
-        @value_mappings = KeyValueMappingRule.new(
-          Constants::VALUE_MAPPING_KEY,
-          to: nil,
-          to_instance: to_instance,
-          as_attribute: as_attribute,
-        )
+        @value_mapping = { "#{to_instance || as_attribute}": :value }
+        map_to_instance
       end
 
-      def key_value_mappings
-        {
-          key: @key_mappings,
-          value: @value_mappings,
-        }.compact
+      def instance_mapping?
+        @instance && (!@key_mapping.empty? || !@value_mapping.empty?)
       end
 
-      def key_value_mappings?
-        Utils.present?(@key_mappings) || Utils.present?(@value_mappings)
+      def map_to_instance
+        return if !instance_mapping?
+
+        mapping_name = name_for_mapping(nil, root_name || @instance)
+        @mappings[mapping_name].child_mappings = @key_mapping.merge(@value_mapping)
       end
 
       def name_for_mapping(root_mappings, name)
@@ -179,7 +175,8 @@ module Lutaml
       def validate_blank_mappings!(render_nil, render_empty)
         if render_nil == :as_blank || render_empty == :as_blank
           raise IncorrectMappingArgumentsError.new(
-            ":as_blank is not supported for key-value mappings",
+            ":as_blank is not supported for key-value mappings. " \
+            "Use :as_empty instead to create explicit empty values.",
           )
         end
       end

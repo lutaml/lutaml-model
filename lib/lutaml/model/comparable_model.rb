@@ -315,6 +315,7 @@ module Lutaml
         # @param array2 [Array] The second array to compare
         # @return [String] Formatted diff output for the collection
         def format_collection(array1, array2, parent_node)
+          array1 = [] if array1.nil?
           array2 = [] if array2.nil?
           max_length = [array1.length, array2.length].max
 
@@ -349,6 +350,8 @@ module Lutaml
               format_diff_item(item2, :green, node)
             elsif item2.nil?
               format_diff_item(item1, :red, node)
+            elsif item1.is_a?(ComparableModel) && item2.is_a?(ComparableModel)
+              format_object_attributes(item1, item2, node)
             else
               format_value_tree(item1, item2, node, "")
             end
@@ -446,6 +449,10 @@ module Lutaml
                 format_single_value(value1, parent_node,
                                     "#{attr} (#{attr_type})")
               end
+            elsif obj1.class.attributes[attr].collection?
+              attr_node = Tree.new("#{attr} (#{attr_type})")
+              parent_node.add_child(attr_node)
+              format_collection(value1, value2, attr_node)
             else
               format_value_tree(value1, value2, parent_node, attr, attr_type)
             end
@@ -459,7 +466,8 @@ module Lutaml
         # @param label [String] The label for the value
         # @param type_info [String, nil] Additional type information
         # @return [String] Formatted value tree
-        def format_value_tree(value1, value2, parent_node, label, type_info = nil)
+        def format_value_tree(value1, value2, parent_node, label,
+type_info = nil)
           return if value1 == value2 && !@show_unchanged
 
           if value1 == value2

@@ -30,7 +30,8 @@ class RenderNil < Lutaml::Model::Serializable
   xml do
     root "render_nil"
     map_element "name", to: :name, render_nil: true, render_empty: true
-    map_element "clay_type", to: :clay_type, render_nil: false, render_empty: true
+    map_element "clay_type", to: :clay_type, render_nil: false,
+                             render_empty: true
     map_element "glaze", to: :glaze, render_nil: true, render_empty: true
     map_element "render_nil_nested", to: :render_nil_nested, render_nil: true,
                                      render_default: true
@@ -139,7 +140,7 @@ RSpec.describe RenderNil do
       </render_nil>
     XML
 
-    expect(model.to_xml).to be_equivalent_to(expected_xml)
+    expect(model.to_xml).to be_xml_equivalent_to(expected_xml)
   end
 
   it "deserializes from XML with render_nil option" do

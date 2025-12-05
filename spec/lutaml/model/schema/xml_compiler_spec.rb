@@ -8,7 +8,9 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
       context "with valid xml schema, it generates the models" do
         before do
           described_class.to_models(schema, output_dir: dir, create_files: true)
-          Dir.each_child(dir) { |child| require_relative File.expand_path("#{dir}/#{child}") }
+          Dir.each_child(dir) do |child|
+            require_relative File.expand_path("#{dir}/#{child}")
+          end
         end
 
         after do
@@ -48,11 +50,13 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         end
 
         it "creates the model files, requires them, and tests them with valid and invalid xml" do
-          expect(CTMathTest.from_xml(valid_value_xml_example).to_xml).to be_equivalent_to(valid_value_xml_example)
+          expect(CTMathTest.from_xml(valid_value_xml_example).to_xml).to be_xml_equivalent_to(valid_value_xml_example)
         end
 
         it "raises error when processing invalid example" do
-          expect { CTMathTest.from_xml(invalid_value_xml_example) }.to raise_error(Lutaml::Model::Type::MinBoundError)
+          expect do
+            CTMathTest.from_xml(invalid_value_xml_example)
+          end.to raise_error(Lutaml::Model::Type::MinBoundError)
         end
       end
 
@@ -68,15 +72,19 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
           end
         end
 
-        let(:valid_example) { File.read("spec/fixtures/xml/valid_math_document.xml") }
-        let(:invalid_example) { File.read("spec/fixtures/xml/invalid_math_document.xml") }
+        let(:valid_example) do
+          File.read("spec/fixtures/xml/valid_math_document.xml")
+        end
+        let(:invalid_example) do
+          File.read("spec/fixtures/xml/invalid_math_document.xml")
+        end
 
         it "does not raise error with valid example and creates files" do
           expect(defined?(MathDocument)).to eq("constant")
           parsed = MathDocument.from_xml(valid_example)
           expect(parsed.title).to eql("Example Title")
           expect(parsed.ipv4_address).to eql("192.168.1.1")
-          expect(parsed.to_xml).to be_equivalent_to(valid_example)
+          expect(parsed.to_xml).to be_xml_equivalent_to(valid_example)
         end
 
         it "raises PatternNotMatchedError" do
@@ -110,7 +118,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
 
         it "matches parsed xml with input" do
           expect(defined?(Address)).to eq("constant")
-          expect(Address.from_xml(address).to_xml).to be_equivalent_to(address)
+          expect(Address.from_xml(address).to_xml).to be_xml_equivalent_to(address)
         end
       end
 
@@ -154,7 +162,9 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
 
         let(:expected_classes) do
           types = described_class::SimpleType::SUPPORTED_DATA_TYPES
-          types.filter_map { |name, value| name.to_s unless value[:skippable] } << "User"
+          types.filter_map do |name, value|
+            name.to_s unless value[:skippable]
+          end << "User"
         end
 
         it "matches the expected class names of the schema" do
@@ -198,14 +208,16 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
           expected_classes.each do |klass|
             expect(be_const_defined(klass)).to be_truthy
           end
-          expect(User.from_xml(xml).to_xml).to be_equivalent_to(xml)
+          expect(User.from_xml(xml).to_xml).to be_xml_equivalent_to(xml)
         end
       end
 
       context "when classes are generated and loaded but files are not created for specifications schema" do
         before { described_class.to_models(schema, load_classes: true) }
 
-        let(:schema) { File.read("spec/fixtures/xml/specifications_schema.xsd") }
+        let(:schema) do
+          File.read("spec/fixtures/xml/specifications_schema.xsd")
+        end
 
         let(:spec_xml) do
           <<~XML
@@ -228,11 +240,11 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         end
 
         it "successfully processes the Spec example" do
-          expect(Spec.from_xml(spec_xml).to_xml).to be_equivalent_to(spec_xml)
+          expect(Spec.from_xml(spec_xml).to_xml).to be_xml_equivalent_to(spec_xml)
         end
 
         it "successfully processes the ShortSpec example" do
-          expect(ShortSpec.from_xml(short_spec_xml).to_xml).to be_equivalent_to(short_spec_xml)
+          expect(ShortSpec.from_xml(short_spec_xml).to_xml).to be_xml_equivalent_to(short_spec_xml)
         end
       end
     end
@@ -251,9 +263,15 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         Dir.mktmpdir do |dir|
           loaded_classes.each do |name, klass|
             content = "module #{module_name}\n#{klass}\nend\n"
-            File.write(File.join(dir, "#{Lutaml::Model::Utils.snake_case(name)}.rb"), content)
+            File.write(
+              File.join(dir,
+                        "#{Lutaml::Model::Utils.snake_case(name)}.rb"), content
+            )
           end
-          loaded_classes.each_key { |name| require File.join(dir, "#{Lutaml::Model::Utils.snake_case(name)}.rb") }
+          loaded_classes.each_key do |name|
+            require File.join(dir,
+                              "#{Lutaml::Model::Utils.snake_case(name)}.rb")
+          end
         end
       end
 
@@ -292,11 +310,8 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
 
         it "matches the expected class names of the schema" do
           expect(defined?(OOXML::CTOMath)).to eq("constant")
-          # TODO: The error is not expected once the issue#359 is implemented.
           expect(OOXML::CTOMath.instance_variable_get(:@attributes)).to be_empty
-          expect { OOXML::CTF.from_xml(xml) }.to raise_error(Lutaml::Model::IncorrectSequenceError) do |error|
-            expect(error.message).to match(/does not match the expected sequence/)
-          end
+          expect(OOXML::CTF.from_xml(xml).to_xml).to be_xml_equivalent_to(xml)
           expect(OOXML::CTF.instance_variable_get(:@attributes)).not_to be_empty
         end
       end
@@ -437,11 +452,11 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         end
 
         it "matches the converted xml with the expected xml with a short example" do
-          expect(UnitsMLV0919::UnitsMLType.from_xml(xml).to_xml).to be_equivalent_to(xml)
+          expect(UnitsMLV0919::UnitsMLType.from_xml(xml).to_xml).to be_xml_equivalent_to(xml)
         end
 
         it "matches the converted xml with the expected xml with a detailed example" do
-          expect(UnitsMLV0919::UnitsMLType.from_xml(detailed_xml).to_xml).to be_equivalent_to(detailed_xml)
+          expect(UnitsMLV0919::UnitsMLType.from_xml(detailed_xml).to_xml).to be_xml_equivalent_to(detailed_xml)
         end
       end
 
@@ -524,11 +539,11 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         end
 
         it "matches the converted xml with the expected xml with a short example" do
-          expect(UnitsMLV10CSD03::UnitsMLType.from_xml(xml).to_xml).to be_equivalent_to(xml)
+          expect(UnitsMLV10CSD03::UnitsMLType.from_xml(xml).to_xml).to be_xml_equivalent_to(xml)
         end
 
         it "matches the converted xml with the expected xml with a detailed example" do
-          expect(UnitsMLV10CSD03::UnitsMLType.from_xml(detailed_xml).to_xml).to be_equivalent_to(detailed_xml)
+          expect(UnitsMLV10CSD03::UnitsMLType.from_xml(detailed_xml).to_xml).to be_xml_equivalent_to(detailed_xml)
         end
       end
 
@@ -611,11 +626,11 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         end
 
         it "matches the converted xml with the expected xml with a short example" do
-          expect(UnitsMLV10CSD04::UnitsMLType.from_xml(xml).to_xml).to be_equivalent_to(xml)
+          expect(UnitsMLV10CSD04::UnitsMLType.from_xml(xml).to_xml).to be_xml_equivalent_to(xml)
         end
 
         it "matches the converted xml with the expected xml with a detailed example" do
-          expect(UnitsMLV10CSD04::UnitsMLType.from_xml(detailed_xml).to_xml).to be_equivalent_to(detailed_xml)
+          expect(UnitsMLV10CSD04::UnitsMLType.from_xml(detailed_xml).to_xml).to be_xml_equivalent_to(detailed_xml)
         end
       end
     end

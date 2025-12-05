@@ -18,7 +18,8 @@ module Lutaml
           super
 
           if [true, :as_nil].include?(render_nil) || render_empty == :as_nil
-            raise IncorrectMappingArgumentsError, "nil values are not supported in toml format"
+            raise IncorrectMappingArgumentsError,
+                  "nil values are not supported in toml format"
           end
         end
       end

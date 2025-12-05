@@ -24,7 +24,9 @@ module Lutaml
           end
 
           def to_attributes(indent)
-            instances.filter_map { |instance| instance.to_attributes(indent) }.join
+            instances.filter_map do |instance|
+              instance.to_attributes(indent)
+            end.join
           end
 
           def to_xml_mapping(indent)
@@ -41,7 +43,9 @@ module Lutaml
           private
 
           def xml_block_content(indent)
-            instances.filter_map { |instance| instance.to_xml_mapping(indent * 2) }.join
+            instances.filter_map do |instance|
+              instance.to_xml_mapping(indent * 2)
+            end.join
           end
         end
       end

@@ -1,4 +1,5 @@
 require_relative "validator/string"
+require_relative "validator/symbol"
 require_relative "validator/number"
 
 module Lutaml

@@ -12,7 +12,14 @@ module Lutaml
         date_time: "Lutaml::Model::Type::DateTime",
         time_without_date: "Lutaml::Model::Type::TimeWithoutDate",
         boolean: "Lutaml::Model::Type::Boolean",
+        reference: "Lutaml::Model::Type::Reference",
         hash: "Lutaml::Model::Type::Hash",
+        symbol: "Lutaml::Model::Type::Symbol",
+        duration: "Lutaml::Model::Type::Duration",
+        uri: "Lutaml::Model::Type::Uri",
+        qname: "Lutaml::Model::Type::QName",
+        base64_binary: "Lutaml::Model::Type::Base64Binary",
+        hex_binary: "Lutaml::Model::Type::HexBinary",
       }.freeze
 
       class << self
@@ -70,6 +77,13 @@ require_relative "type/date_time"
 require_relative "type/time_without_date"
 require_relative "type/boolean"
 require_relative "type/decimal"
+require_relative "type/reference"
 require_relative "type/hash"
+require_relative "type/symbol"
+require_relative "type/duration"
+require_relative "type/uri"
+require_relative "type/qname"
+require_relative "type/base64_binary"
+require_relative "type/hex_binary"
 
 Lutaml::Model::Type.register_builtin_types

@@ -5,7 +5,8 @@ module EnumSpec
   class WithEnum < Lutaml::Model::Serializable
     attribute :without_enum, :string
     attribute :single_value, :string, values: %w[user admin super_admin]
-    attribute :multi_value, :string, values: %w[singular dual plural], collection: true, initialize_empty: true
+    attribute :multi_value, :string, values: %w[singular dual plural],
+                                     collection: true, initialize_empty: true
   end
 end
 
