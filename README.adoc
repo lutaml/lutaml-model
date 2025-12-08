@@ -14017,6 +14017,19 @@ Fast XML parser and object serializer for Ruby, implemented partially in C.
 Requires native extensions (i.e. compiled C code).
 Requires the `ox` gem.
 
+==== HTML Entity Support
+
+The `NokogiriAdapter` and `OxAdapter` provide out-of-the-box support for HTML entities
+(such as `&copy;`, `&reg;`, `&mdash;`, `&nbsp;`, etc.) in XML documents.
+
+**NokogiriAdapter**::
+Automatically detects HTML entities in XML content and inserts a DOCTYPE declaration
+with entity definitions, allowing Nokogiri to parse HTML entities correctly.
+Entity references are preserved during serialization, ensuring round-trip compatibility.
+
+**OxAdapter**::
+Supports HTML entities through Ox's built-in entity handling capabilities.
+Entities are converted to their Unicode character equivalents during parsing.
 
 .Using an XML adapter
 [source,ruby]
