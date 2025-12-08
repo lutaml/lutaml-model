@@ -157,7 +157,7 @@ lutaml-model compare data/file1.xml data/file1.xml \
 Output:
 [source,text]
 ----
-Differences between data/file1.xml data/file1.xml:
+Differences between data/file1.xml and data/file1.xml:
   └── TermiumExtract
 Similarity score: 100%
 ----

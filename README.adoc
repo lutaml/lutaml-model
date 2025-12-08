@@ -363,7 +363,7 @@ Similarity score: 12.5%
 The compare command supports cross-format comparison between:
 
 * XML (`.xml`)
-* JSON (`.json`)  
+* JSON (`.json`)
 * YAML (`.yml`, `.yaml`)
 * TOML (`.toml`)
 * Any other formats supported by your model mappings

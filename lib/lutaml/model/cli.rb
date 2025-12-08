@@ -14,7 +14,7 @@ module Lutaml
       desc "compare PATH_1 PATH_2", "Compare two files using a Lutaml::Model model. Outputs similarity and differences. Supports XML, YAML, JSON, and more."
       option :model_file, aliases: "-m", type: :string, default: nil, desc: "Path to the Ruby file defining your Lutaml::Model classes (required)"
       option :root_class, aliases: "-r", type: :string, default: nil, desc: "Name of the root model class to use for parsing (required)"
-      def compare(path1, path2 = nil)
+      def compare(path1, path2)
         raise ArgumentError, "File not found: #{path1}" unless File.file?(path1)
         raise ArgumentError, "File not found: #{path2}" unless File.file?(path2)
 

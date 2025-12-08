@@ -113,7 +113,8 @@ RSpec.describe Lutaml::Model::Cli do
   end
 
   before do
-    $LOAD_PATH.unshift(File.expand_path("../../../lib", __dir__)) unless $LOAD_PATH.include?(File.expand_path("../../../lib", __dir__))
+    lib_path = File.expand_path("../../../lib", __dir__)
+    $LOAD_PATH.unshift(lib_path) unless $LOAD_PATH.include?(lib_path)
   end
 
   describe "#compare" do
