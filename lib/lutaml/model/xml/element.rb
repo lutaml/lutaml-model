@@ -2,9 +2,6 @@ module Lutaml
   module Model
     module Xml
       class Element
-        TEXT_TYPE = "Text".freeze
-        ENTITY_MARKER = "__entity".freeze
-
         include Lutaml::Model::Liquefiable
 
         attr_reader :type, :name
@@ -15,16 +12,8 @@ module Lutaml
         end
 
         def text?
-          @type == TEXT_TYPE &&
-            @name != "#cdata-section" &&
-            @name != ENTITY_MARKER
-        end
-
-        # Checks if this element represents an XML entity reference
-        # @return [Boolean] true if this is an entity node, false otherwise
-        def entity?
-          @type == TEXT_TYPE &&
-            @name == ENTITY_MARKER
+          @type == "Text" &&
+            @name != "#cdata-section"
         end
 
         def element_tag
@@ -52,7 +41,7 @@ module Lutaml
         private
 
         def register_liquid_methods
-          %i[text? entity? element_tag type name].each do |attr_name|
+          %i[text? element_tag type name].each do |attr_name|
             self.class.register_drop_method(attr_name)
           end
 

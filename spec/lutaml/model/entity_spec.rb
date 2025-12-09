@@ -54,7 +54,6 @@ RSpec.describe "XMLEntityHandling" do
       Lutaml::Model::Config.xml_adapter = original_adapter
     end
 
-    let(:entity_marker) { Lutaml::Model::Xml::Element::ENTITY_MARKER }
     let(:nokogiri_adapter) { Lutaml::Model::Xml::NokogiriAdapter }
     let(:oga_adapter) { Lutaml::Model::Xml::OgaAdapter }
     let(:ox_adapter) { Lutaml::Model::Xml::OxAdapter }
@@ -70,25 +69,16 @@ RSpec.describe "XMLEntityHandling" do
       let(:serialized) { parsed.to_xml }
 
       it "tracks entity references in element_order" do
-        if adapter_class == nokogiri_adapter
-          expect(parsed.element_order.count(&:entity?)).to eq(2)
-          expect(parsed.element_order.map(&:name)).to include(entity_marker)
-        else
-          expect(parsed.element_order.count(&:entity?)).to eq(0)
-          expect(parsed.element_order.map(&:name)).not_to include(entity_marker)
-        end
+        expect(parsed.element_order.map(&:name)).to include("text", "em")
       end
 
       it "round-trips XML without affecting Ox/Oga behavior" do
-        case adapter_class
-        when nokogiri_adapter
-          expect(serialized).to include("&mdash;", "&reg;")
-        when oga_adapter
+        if adapter_class == oga_adapter
           # TODO: Oga currently skips named entities like &mdash; and &reg; while
           # parsing mixed content, so serialized XML lacks their literal forms.
           # See https://github.com/lutaml/moxml/issues/48
           # expect(serialized).to include("&mdash;", "&reg;")
-        when ox_adapter
+        else
           expect(serialized).to include("—", "®")
         end
       end
@@ -97,7 +87,7 @@ RSpec.describe "XMLEntityHandling" do
     context "with ordered: true root" do
       let(:xml) do
         <<~XML.strip
-          <OrderedEntityArticle><headline>Launch</headline>&spacer;<description>Done</description>&spacer;</OrderedEntityArticle>
+          <OrderedEntityArticle><headline>Launch</headline>&nbsp;<description>Done</description>&nbsp;</OrderedEntityArticle>
         XML
       end
 
@@ -105,18 +95,12 @@ RSpec.describe "XMLEntityHandling" do
       let(:serialized) { parsed.to_xml }
 
       it "keeps entity markers when rebuilding ordered elements" do
-        case adapter_class
-        when nokogiri_adapter
-          expect(parsed.element_order.count(&:entity?)).to eq(2)
-          expect(serialized).to include("&spacer;")
-        when oga_adapter
-          expect(parsed.element_order.count(&:entity?)).to eq(0)
-          # TODO: Oga skips &spacer; nodes while parsing ordered content, so the
+        if adapter_class == oga_adapter
+          # TODO: Oga skips &nbsp; nodes while parsing ordered content, so the
           # serialized XML currently lacks the literal entity.
           # See https://github.com/lutaml/moxml/issues/48
-          # expect(serialized).to include("&spacer;")
-        when ox_adapter
-          expect(parsed.element_order.count(&:entity?)).to eq(0)
+          # expect(serialized).to include("&nbsp;")
+        else
           expect(serialized).to include("\u00A0")
         end
       end
@@ -125,7 +109,7 @@ RSpec.describe "XMLEntityHandling" do
     context "with default root options" do
       let(:xml) do
         <<~XML.strip
-          <PlainEntityArticle>Budget&approx;Plan</PlainEntityArticle>
+          <PlainEntityArticle>Budget&ap;Plan</PlainEntityArticle>
         XML
       end
 
@@ -133,19 +117,15 @@ RSpec.describe "XMLEntityHandling" do
       let(:serialized) { parsed.to_xml }
 
       it "records standalone entity nodes" do
-        case adapter_class
-        when nokogiri_adapter
-          expect(parsed.element_order.count(&:entity?)).to eq(1)
-          expect(serialized).to include("&approx;")
-        when oga_adapter
-          expect(parsed.element_order.count(&:entity?)).to eq(0)
+        if adapter_class == oga_adapter
           # TODO: Oga currently skips &approx; during parsing, so the serialized
           # XML never receives the literal entity reference.
           # See https://github.com/lutaml/moxml/issues/48
           # expect(serialized).to include("&approx;")
-        when ox_adapter
-          expect(parsed.element_order.count(&:entity?)).to eq(0)
+        elsif adapter_class == nokogiri_adapter
           expect(serialized).to include("≈")
+        else
+          expect(serialized).to include("&amp;ap;")
         end
       end
     end

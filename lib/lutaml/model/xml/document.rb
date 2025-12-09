@@ -1,3 +1,4 @@
+require "htmlentities"
 require_relative "../mapping_hash"
 require_relative "xml_element"
 require_relative "xml_attribute"
@@ -27,6 +28,13 @@ module Lutaml
 
         def attributes
           root.attributes
+        end
+
+        def self.sanitize_xml_for_entities(xml, encoding = "UTF-8")
+          coder = ::HTMLEntities.new(:expanded)
+          xml.gsub(/&(\w+);/) do |char|
+            "&##{coder.decode(char).ord};".force_encoding(encoding)
+          end
         end
 
         def self.encoding(xml, options)
@@ -164,14 +172,9 @@ module Lutaml
             )
           else
             text = content_rule.serialize(element)
-            cdata = content_rule.cdata
-            if !cdata && element.element_order&.any?
-              update_xml_with_entity_and_text(xml, element, Array(text))
-            else
-              text = text.join if text.is_a?(Array)
+            text = text.join if text.is_a?(Array)
 
-              xml.add_text(xml, text, cdata: cdata)
-            end
+            xml.add_text(xml, text, cdata: content_rule.cdata)
           end
         end
 
@@ -222,20 +225,6 @@ module Lutaml
         end
 
         private
-
-        def update_xml_with_entity_and_text(xml, element, text)
-          order = element.element_order.select { |obj| obj.text? || obj.entity? }
-          order&.each_with_index do |object, index|
-            str = text[index]
-            next if str.nil?
-
-            if object.entity?
-              xml.add_entity(xml, str)
-            else
-              xml.add_text(xml, str)
-            end
-          end
-        end
 
         def setup_register(register)
           return register if register.is_a?(Symbol)

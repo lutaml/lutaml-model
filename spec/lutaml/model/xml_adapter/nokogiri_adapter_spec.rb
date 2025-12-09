@@ -139,8 +139,9 @@ RSpec.describe Lutaml::Model::Xml::NokogiriAdapter do
 
       it "handles HTML entities in mixed content" do
         doc = described_class.parse(xml_with_mixed_entities)
-        expect(doc.root.text).to include("—")
-        expect(doc.root.text).to include("®")
+        root_text = doc.root.text
+        expect(root_text.first).to include("—")
+        expect(root_text.last).to include("®")
       end
 
       it "round-trips HTML entities correctly" do

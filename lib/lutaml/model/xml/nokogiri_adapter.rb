@@ -9,8 +9,8 @@ module Lutaml
     module Xml
       class NokogiriAdapter < Document
         def self.parse(xml, options = {})
-          new_xml, dtd_validate = insert_doctype_if_entities_exist?(xml)
-          parsed = Nokogiri::XML(new_xml, nil, encoding(new_xml, options), dtd_validate)
+          encoding = encoding(xml, options)
+          parsed = Nokogiri::XML(sanitize_xml_for_entities(xml, encoding), nil, encoding)
           @root = NokogiriElement.new(parsed.root)
           new(@root, parsed.encoding)
         end
@@ -800,30 +800,6 @@ mapping: nil)
           end
           xml
         end
-
-        def self.insert_doctype_if_entities_exist?(xml)
-          entities = xml.scan(/&(?=\w+)([^;]+);/).flatten
-          return [xml, ::Nokogiri::XML::ParseOptions::RECOVER] unless entities.any?
-
-          declaration_tag, updated_xml = remove_declaration_tag(xml)
-          new_xml = <<~XML
-            #{declaration_tag}
-            <!DOCTYPE root [
-              #{entities_xml(entities).join("\n")}
-            ]>
-            #{updated_xml}
-          XML
-          [new_xml, ::Nokogiri::XML::ParseOptions::DTDVALID]
-        end
-
-        def self.remove_declaration_tag(xml)
-          declaration_tag = xml.match(/<\?[^\?]+\?>/).to_s
-          [declaration_tag, xml.sub(declaration_tag, "")]
-        end
-
-        def self.entities_xml(entities)
-          entities.map { |entity| %(<!ENTITY #{entity} "#{entity}">) }
-        end
       end
 
       class NokogiriElement < XmlElement
@@ -868,21 +844,13 @@ mapping: nil)
             default_namespace = node.namespace&.href ||
               root_node&.instance_variable_get(:@default_namespace)
           end
-
-          node_name, node_text = if node.type == ::Nokogiri::XML::Node::ENTITY_REF_NODE
-                                   [Xml::Element::ENTITY_MARKER, node.to_xml]
-                                 else
-                                   children = node.children
-                                   [node.name, children.empty? ? node.text : extract_text(children)]
-                                 end
-
           super(
             node,
             attributes,
             parse_all_children(node, root_node: root_node || self,
                                      default_namespace: default_namespace),
-            node_text,
-            name: node_name,
+            node.text,
+            name: node.name,
             parent_document: root_node,
             namespace_prefix: node.namespace&.prefix,
             default_namespace: default_namespace,
@@ -893,18 +861,6 @@ mapping: nil)
         def text?
           # false
           children.empty? && text.length.positive?
-        end
-
-        def text_children
-          find_children_by_name(["text", Xml::Element::ENTITY_MARKER])
-        end
-
-        def entity?
-          children.any? { |child| child.name == Xml::Element::ENTITY_MARKER }
-        end
-
-        def extract_text(nodes)
-          nodes.reject(&:element?).map(&:to_xml).join
         end
 
         def to_xml
@@ -934,12 +890,6 @@ mapping: nil)
         end
 
         private
-
-        def parse_children(node, root_node: nil)
-          node.children.select(&:element?).map do |child|
-            NokogiriElement.new(child, root_node: root_node)
-          end
-        end
 
         def parse_all_children(node, root_node: nil, default_namespace: nil)
           node.children.map do |child|

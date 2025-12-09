@@ -31,6 +31,7 @@ Gem::Specification.new do |spec|
   spec.executables = spec.files.grep(%r{^exe/}) { |f| File.basename(f) }
 
   spec.add_dependency "activesupport"
+  spec.add_dependency "htmlentities"
   spec.add_dependency "moxml", ">= 0.1.2"
   spec.add_dependency "openssl"
   spec.add_dependency "thor"

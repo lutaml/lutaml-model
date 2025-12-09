@@ -76,13 +76,6 @@ module Lutaml
             element.add_child(text_node)
           end
 
-          def add_entity(element, entity)
-            element = element.xml.parent if element.is_a?(self.class)
-
-            entity_node = ::Nokogiri::XML::EntityReference.new(element.document, entity)
-            element.add_child(entity_node)
-          end
-
           def add_cdata(element, value)
             if element.is_a?(self.class)
               element = element.xml.parent
