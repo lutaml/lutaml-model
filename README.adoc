@@ -14019,17 +14019,21 @@ Requires the `ox` gem.
 
 ==== HTML Entity Support
 
-The `NokogiriAdapter` and `OxAdapter` provide out-of-the-box support for HTML entities
-(such as `&copy;`, `&reg;`, `&mdash;`, `&nbsp;`, etc.) in XML documents.
+Lutaml::Model XML adapters handle HTML entities differently:
 
-**NokogiriAdapter**::
-Automatically detects HTML entities in XML content and inserts a DOCTYPE declaration
-with entity definitions, allowing Nokogiri to parse HTML entities correctly.
-Entity references are preserved during serialization, ensuring round-trip compatibility.
+**NokogiriAdapter**
++
+Handles standard HTML named entities out of the box. You can use XML input or output with entities like `&copy;`, `&mdash;`, or `&nbsp;` and they will be correctly parsed and serialized.
 
-**OxAdapter**::
-Supports HTML entities through Ox's built-in entity handling capabilities.
-Entities are converted to their Unicode character equivalents during parsing.
+**OxAdapter**
++
+Also supports most standard named HTML entities. Entity references in XML will generally be correctly parsed and handled during serialization.
+
+**OgaAdapter**
++
+Currently does not expand or support named HTML entities other than the five XML predefined ones. Documents containing `&copy;`, `&reg;`, etc. will not decode those entities.
+
+For best compatibility with entity-rich XML documents, use the NokogiriAdapter or OxAdapter.  
 
 .Using an XML adapter
 [source,ruby]
