@@ -844,6 +844,7 @@ mapping: nil)
             default_namespace = node.namespace&.href ||
               root_node&.instance_variable_get(:@default_namespace)
           end
+
           super(
             node,
             attributes,

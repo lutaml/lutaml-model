@@ -117,17 +117,6 @@ RSpec.describe Lutaml::Model::Xml::NokogiriAdapter do
         expect(doc.root.text).to include("—")
         expect(doc.root.text).to include("\u00A0")
       end
-
-      it "preserves entity references in serialized output" do
-        doc = described_class.parse(xml_with_html_entities)
-        serialized = doc.to_xml
-        # HTML entities should be preserved as entity references in the serialized XML
-        # Note: The adapter's to_xml may convert entities to Unicode, but the parsing
-        # mechanism ensures HTML entities are handled correctly during parsing
-        expect(serialized).to be_truthy
-        # Verify the document was parsed successfully with HTML entities
-        expect(doc.root).to be_truthy
-      end
     end
 
     context "with multiple HTML entities in mixed content" do

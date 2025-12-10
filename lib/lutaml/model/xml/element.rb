@@ -12,8 +12,7 @@ module Lutaml
         end
 
         def text?
-          @type == "Text" &&
-            @name != "#cdata-section"
+          @type == "Text" && @name != "#cdata-section"
         end
 
         def element_tag
