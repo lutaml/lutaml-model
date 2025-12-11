@@ -440,7 +440,7 @@ module Lutaml
         def format_object_attributes(obj1, obj2, parent_node)
           obj1.class.attributes.each_key do |attr|
             value1 = obj1.send(attr)
-            value2 = obj2&.send(attr)
+            value2 = obj2.send(attr) if obj2.respond_to?(attr)
 
             attr_type = obj1.class.attributes[attr].collection? ? "collection" : type_name(obj1.class.attributes[attr])
 
