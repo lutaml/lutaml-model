@@ -65,6 +65,9 @@ module Lutaml
 
           attributes = mapper_class.respond_to?(:attributes) ? mapper_class.attributes : {}
 
+          mapping.namespace_class.uri(options[:ns_class].uri) if options[:ns_class]&.uri
+          mapping.namespace_class.prefix_default(options[:ns_class].prefix_default) if options[:ns_class]&.prefix_default
+
           # ==================================================================
           # PHASE 1: OWN NAMESPACE COLLECTION (for non-type-only models)
           # ==================================================================
@@ -76,6 +79,7 @@ module Lutaml
             if mapping.namespace_class
               validate_namespace_class(mapping.namespace_class)
               track_namespace(needs, mapping.namespace_class, :elements)
+              track_namespace_source(needs, mapping.namespace_class, :root_element)
             end
 
             # ==================================================================
@@ -122,6 +126,7 @@ module Lutaml
               if ns_class
                 validate_namespace_class(ns_class)
                 track_namespace(needs, ns_class, :attributes)
+                track_namespace_source(needs, ns_class, attr_rule.to)
               end
             end
 
@@ -149,6 +154,7 @@ module Lutaml
             if elem_rule.namespace_set? && elem_rule.namespace_class
               validate_namespace_class(elem_rule.namespace_class)
               track_namespace(needs, elem_rule.namespace_class, :elements)
+              track_namespace_source(needs, elem_rule.namespace_class, elem_rule.to)
             end
 
             # Skip if we can't resolve attributes
@@ -174,6 +180,7 @@ module Lutaml
                 # This is a Value type (String, Integer, custom Type::Value) with namespace
                 needs[:type_namespaces][elem_rule.to] = type_ns_class
               end
+              track_namespace_source(needs, type_ns_class, elem_rule.to)
             end
 
             # NATIVE TYPE NAMESPACE INHERITANCE (Bug Fix #1 from Session 39)
@@ -203,6 +210,7 @@ module Lutaml
                 # Store for serialization to use parent's format
                 # This allows adapter to find parent namespace via type_namespaces lookup
                 needs[:type_namespaces][elem_rule.to] = mapping.namespace_class
+                track_namespace_source(needs, mapping.namespace_class, elem_rule.to)
               end
             end
 
@@ -216,7 +224,10 @@ module Lutaml
             next unless child_mapping
 
             # Recursively collect child needs, passing mapper_class in options
-            child_options = { mapper_class: child_type }
+            child_options = {
+              mapper_class: child_type,
+              ns_class: elem_rule.namespace_class,
+            }
             child_needs = collect(nil, child_mapping, **child_options)
             needs[:children][elem_rule.to] = child_needs
 
@@ -314,6 +325,24 @@ module Lutaml
           false
         end
 
+        # Get sources for a namespace
+        #
+        # @param needs [Hash] the needs structure
+        # @param namespace_class [Class] the XmlNamespace class
+        # @return [Array<Hash>] array of source information hashes
+        def namespace_sources(needs, namespace_class)
+          key = namespace_class.to_key
+          needs[:namespaces][key]&.dig(:sources) || []
+        end
+
+        # Format source information for human-readable output
+        #
+        # @param source [String] the attribute/element name
+        # @return [String] formatted description
+        def format_source_info(source)
+          source.to_s
+        end
+
         private
 
         attr_reader :register
@@ -343,8 +372,24 @@ module Lutaml
             ns_object: ns_class,
             used_in: Set.new,
             children_use: Set.new,
+            sources: [],
           }
           needs[:namespaces][key][:used_in] << usage
+        end
+
+        # Track the source/origin of a namespace usage
+        #
+        # @param needs [Hash] the needs structure
+        # @param ns_class [Class] the XmlNamespace class
+        # @param source [String, Symbol] the attribute/element name that introduced this namespace
+        def track_namespace_source(needs, ns_class, source)
+          key = ns_class.to_key
+          return unless needs[:namespaces][key]
+
+          sources = needs[:namespaces][key][:sources]
+          # Avoid duplicates - store as string for consistency
+          source_str = source.to_s
+          sources << source_str unless sources.include?(source_str)
         end
 
         # Merge child namespace needs into parent needs
@@ -357,9 +402,16 @@ module Lutaml
               ns_object: ns_data[:ns_object],
               used_in: Set.new,
               children_use: Set.new,
+              sources: [],
             }
             parent_needs[:namespaces][key][:used_in].merge(ns_data[:used_in])
             parent_needs[:namespaces][key][:children_use] << ns_data[:ns_object]
+
+            # Merge sources from child, avoiding duplicates
+            ns_data[:sources]&.each do |source|
+              parent_needs[:namespaces][key][:sources] << source unless
+                parent_needs[:namespaces][key][:sources].include?(source)
+            end
           end
         end
 
@@ -372,6 +424,7 @@ module Lutaml
             children: {},
             namespace_scope_configs: nil,
             type_namespaces: {},
+            sources: [],
           }
         end
       end

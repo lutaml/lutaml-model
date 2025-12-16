@@ -92,13 +92,16 @@ module Lutaml
             plan[:namespaces] = parent_plan[:namespaces].transform_values do |ns_config|
               if ns_config[:declared_at] == :here
                 # Parent declared this at its level - child inherits it
-                ns_config.merge(declared_at: :inherited)
+                # Remove sources - they only apply where namespace is declared
+                ns_config.merge(declared_at: :inherited).except(:sources)
               elsif ns_config[:declared_at] == :inherited
                 # Parent inherited this - child also inherits it (keep as :inherited)
-                ns_config.dup
+                # No sources since it's inherited
+                ns_config.dup.except(:sources)
               else
                 # :local_on_use - pass through unchanged
-                ns_config.dup
+                # Remove sources - they only apply where namespace is declared
+                ns_config.dup.except(:sources)
               end
             end
             plan[:type_namespaces] = parent_plan[:type_namespaces].dup
@@ -130,6 +133,7 @@ module Lutaml
                   format: format,
                   xmlns_declaration: xmlns_decl,
                   declared_at: :here,
+                  sources: needs[:namespaces][key]&.dig(:sources) || [],
                 }
               end
             end
@@ -159,6 +163,7 @@ module Lutaml
                     format: :prefix,
                     xmlns_declaration: build_declaration(ns_class, :prefix, {}),
                     declared_at: :here,
+                    sources: needs[:namespaces][key]&.dig(:sources) || [],
                   }
                 elsif declare_mode == :auto
                   # Only declare if actually used (check by key)
@@ -170,6 +175,7 @@ module Lutaml
                       xmlns_declaration: build_declaration(ns_class, :prefix,
                                                            {}),
                       declared_at: :here,
+                      sources: needs[:namespaces][key]&.dig(:sources) || [],
                     }
                   end
                 end
@@ -209,7 +215,7 @@ module Lutaml
                 # If this namespace has no prefix AND root already has a default namespace,
                 # we MUST use prefix format (even though ns has no prefix configured)
                 # This means we need to force a prefix or error
-                if format == :default && !parent_plan
+                if format == :default && !parent_plan && ns_data[:sources]&.include?("root_element")
                   # Check if root element already declared a default namespace
                   root_ns_key = effective_ns_class&.to_key
                   if root_ns_key && plan[:namespaces][root_ns_key] && plan[:namespaces][root_ns_key][:format] == :default && (key != root_ns_key)
@@ -225,6 +231,7 @@ module Lutaml
                   format: format,
                   xmlns_declaration: build_declaration(ns_class, format, {}),
                   declared_at: :here,
+                  sources: ns_data[:sources] || [],
                 }
               else
                 # OUT OF SCOPE: Don't declare at root, mark for local declaration
@@ -258,11 +265,14 @@ module Lutaml
                 # Determine format (prefer prefix if namespace has one)
                 format = ns_class.prefix_default ? :prefix : :default
 
+                # Include sources from needs for type namespaces declared here
+                sources = needs[:type_namespaces_sources]&.dig(attr_name) || []
                 plan[:namespaces][key] = {
                   ns_object: ns_class,
                   format: format,
                   xmlns_declaration: build_declaration(ns_class, format, {}),
                   declared_at: :here,
+                  sources: sources,
                 }
               end
             end
@@ -291,10 +301,6 @@ module Lutaml
 
             # Pass child_type as mapper_class and inherit options (including use_prefix for custom prefixes)
             child_options = options.merge(mapper_class: child_type)
-
-            if elem_rule.prefix_set? && elem_rule.prefix
-              child_options = child_options.merge(prefix: elem_rule.prefix)
-            end
 
             plan[:children_plans][elem_rule.to] = plan(
               nil,

@@ -61,7 +61,24 @@ module Lutaml
         # @param plan [Hash] the declaration plan from DeclarationPlanner
         # @param options [Hash] serialization options
         def build_element_with_plan(xml, element, plan, options = {})
+          # Provide default empty plan if nil (e.g., for custom methods)
+          plan ||= {
+            namespaces: {},
+            children_plans: {},
+            type_namespaces: {},
+          }
+
           mapper_class = options[:mapper_class] || element.class
+
+          # NEW: Handle simple types that don't have mappings
+          unless mapper_class.respond_to?(:mappings_for)
+            tag_name = options[:tag_name] || "element"
+            xml.create_and_add_element(tag_name) do |inner_xml|
+              inner_xml.text(element.to_s)
+            end
+            return xml
+          end
+
           xml_mapping = mapper_class.mappings_for(:xml)
           return xml unless xml_mapping
 
@@ -153,16 +170,26 @@ module Lutaml
               prefix = decl[/xmlns:(\w+)=/, 1]
               attributes["xmlns:#{prefix}"] = ns_class.uri
             else
+              # Only declare namespaces used by the root element itself
+              next unless ns_config[:sources]&.include?("root_element")
+
               # Default namespace: "xmlns=\"uri\""
               attributes["xmlns"] = ns_class.uri
             end
           end
 
-          # Add regular attributes (non-xmlns)
+          # Collect attribute custom methods to call after element creation
+          attribute_custom_methods = []
 
+          # Add regular attributes (non-xmlns)
           xml_mapping.attributes.each do |attribute_rule|
-            next if attribute_rule.custom_methods[:to] ||
-              options[:except]&.include?(attribute_rule.to)
+            next if options[:except]&.include?(attribute_rule.to)
+
+            # Collect custom methods for later execution (after element is created)
+            if attribute_rule.custom_methods[:to]
+              attribute_custom_methods << attribute_rule
+              next
+            end
 
             mapping_rule_name = if attribute_rule.multiple_mappings?
                                   attribute_rule.name.first
@@ -207,8 +234,10 @@ module Lutaml
           if xml_mapping.namespace_class
             key = xml_mapping.namespace_class.to_key
             ns_config = plan[:namespaces][key]
+
             if ns_config && ns_config[:format] == :prefix
-              prefix = xml_mapping.namespace_class.prefix_default
+              # Use prefix from the plan's namespace object (may be custom override)
+              prefix = ns_config[:ns_object].prefix_default
             end
           end
 
@@ -217,12 +246,18 @@ module Lutaml
 
           xml.create_and_add_element(tag_name, prefix: prefix,
                                                attributes: attributes.compact) do
+            # Call attribute custom methods now that element is created
+            attribute_custom_methods.each do |attribute_rule|
+              mapper_class.new.send(attribute_rule.custom_methods[:to],
+                                    element, xml.parent, xml)
+            end
+
             if ordered?(element, options.merge(mapper_class: mapper_class))
               build_ordered_element_with_plan(xml, element, plan,
-                                              options.merge(mapper_class: mapper_class))
+                                              options.merge(mapper_class: mapper_class, parent_prefix: prefix))
             else
               build_unordered_children_with_plan(xml, element, plan,
-                                                 options.merge(mapper_class: mapper_class))
+                                                 options.merge(mapper_class: mapper_class, parent_prefix: prefix))
             end
           end
         end
@@ -443,150 +478,130 @@ mapping: nil)
             return
           end
 
-          # Determine prefix for this element based on namespace rules
-          resolved_prefix = nil
-          false
-          nil
+          # Get form_default from parent's schema (namespace class)
+          form_default = mapping&.namespace_class&.element_form_default || :qualified
 
-          # TYPE NAMESPACE INTEGRATION: Check attribute's type namespace first
-          # Priority: explicit mapping namespace > Type namespace > parent inheritance
-          type_ns_info = nil
+          # Resolve element's namespace first to know which namespace we're dealing with
+          temp_ns_info = rule.resolve_namespace(
+            attr: attribute,
+            register: register,
+            parent_ns_uri: mapping&.namespace_uri,
+            parent_ns_class: mapping&.namespace_class,
+            form_default: form_default,
+            use_prefix: false, # Temporary, just to get namespace
+            parent_prefix: nil,
+          )
 
-          # Check for explicit namespace on the rule
-          if rule.namespace_set?
-            resolved_prefix = rule.prefix
-            if rule.namespace
-              # Only declare if not already in plan
-              already_declared = plan && plan[:namespaces]&.any? do |_key, ns_config|
-                ns_config[:ns_object].uri == rule.namespace && ns_config[:declared_at] == :here
+          element_ns_uri = temp_ns_info[:uri]
+
+          # NAMESPACE RESOLUTION: Determine if element should use prefix
+          use_prefix = false
+          parent_prefix = nil
+
+          if rule.namespace_param == :inherit
+            # Case 1: Explicit :inherit - always use parent format
+            use_prefix = true
+            if plan && mapping&.namespace_class
+              key = mapping.namespace_class.to_key
+              ns_config = plan[:namespaces][key]
+              if ns_config && ns_config[:format] == :prefix
+                # CRITICAL: Use the ns_object from plan (may be override with custom prefix)
+                parent_prefix = ns_config[:ns_object].prefix_default
               end
-              !already_declared
-              rule.namespace
             end
           elsif plan && plan[:type_namespaces] && plan[:type_namespaces][rule.to]
-            # Type namespace - this attribute's type defines its own namespace
+            # Case 2: Type namespace - this attribute's type defines its own namespace
             # Priority: Type namespace takes precedence over parent inheritance
             type_ns_class = plan[:type_namespaces][rule.to]
             key = type_ns_class.to_key
             ns_config = plan[:namespaces][key]
             if ns_config && ns_config[:format] == :prefix
-              resolved_prefix = type_ns_class.prefix_default
+              use_prefix = true
+              # CRITICAL: Use ns_object from plan (may be override with custom prefix)
+              parent_prefix = ns_config[:ns_object].prefix_default
             end
-          end
-
-          # If no explicit namespace and no Type namespace, check attribute's type namespace next
-          if !resolved_prefix && !rule.namespace_set?
-
-            # Only check type namespace if attribute is present
-            type_ns_info = rule.resolve_namespace(
-              attr: attribute,
-              register: register,
-              parent_ns_uri: mapping&.namespace_uri,
-              parent_ns_class: mapping&.namespace_class,
-            )
-
-            # Check if type namespace provides prefix and URI
-            if type_ns_info[:prefix]
-              resolved_prefix = type_ns_info[:prefix]
+          elsif !rule.namespace_set? && !element_ns_uri && mapping&.namespace_class && plan
+            # Case 3: NEW - Format Matching Rule
+            # When parent uses prefix format AND element has no explicit namespace AND no type namespace,
+            # element inherits parent's namespace and prefix for consistent formatting.
+            # This handles the test case where children should match parent's serialization format.
+            # IMPORTANT: Only applies when element_form_default is :qualified
+            key = mapping.namespace_class.to_key
+            ns_config = plan[:namespaces][key]
+            if ns_config && ns_config[:format] == :prefix && form_default == :qualified
+              # Parent is using prefix format AND schema requires qualified elements
+              use_prefix = true
+              parent_prefix = ns_config[:ns_object].prefix_default
+              # Override element_ns_uri to parent's URI for proper resolution
+              element_ns_uri = mapping.namespace_uri
             end
-
-            # Check only once for xmlns declaration (if URI present in ns_info)
-            if type_ns_info[:uri] && !resolved_prefix
-              uri = type_ns_info[:uri]
-
-              already_declared = plan && plan[:namespaces]&.any? do |_key, ns_config|
-                ns_config[:ns_object].uri == uri && ns_config[:declared_at] == :here
+          elsif element_ns_uri
+            # Case 4: Element has explicit namespace - check if it's in prefix mode
+            # Need to find the namespace class by URI to look up config
+            if plan && plan[:namespaces]
+              # Find namespace entry that matches this URI
+              ns_entry = plan[:namespaces].find do |_key, ns_config|
+                ns_config[:ns_object].uri == element_ns_uri && ns_config[:sources]&.include?(rule.to)
               end
-              !already_declared
-              uri
-            end
-          end
-
-          # If explicit Type is set (ignores parent namespace settings),
-          # then the above rules can be overridden.
-          # No need to fallback to parent namespace inheritance directly; let child elements manage that.
-
-          # Inherit from parent only as a fallback if all other checks failed
-          if !resolved_prefix
-
-            # Check parent namespaces (mapped or defaulted), but only if the attribute
-            # allows being declared on this level
-            # (Some types may be declared only on root or higher levels)
-            if mapping&.namespace_uri
-              # NAMESPACE PREFIX INHERITANCE: Comprehensive case handling
-              # Cases:
-              # 1. namespace: :inherit → always use parent's prefix
-              # 2. Element namespace matches parent → check plan[:namespaces]
-              # 3. Element is unqualified but should inherit → check parent format
-              # 4. Element has explicit namespace: nil → NO prefix ever
-
-              if rule.namespace_param == :inherit
-                # Case 1: Explicit :inherit - always use parent's prefix
-                if mapping.namespace_class
-                  key = mapping.namespace_class.to_key
-                  ns_config = plan[:namespaces][key]
-                  if ns_config && ns_config[:format] == :prefix
-                    resolved_prefix = mapping.namespace_class.prefix_default
-                  end
-                end
-              elsif type_ns_info && type_ns_info[:uri] && type_ns_info[:uri] == mapping.namespace_uri
-                # Case 2: Element has namespace matching parent - check format
-                if plan && mapping.namespace_class
-                  key = mapping.namespace_class.to_key
-                  ns_config = plan[:namespaces][key]
-                  if ns_config && ns_config[:format] == :prefix
-                    resolved_prefix = mapping.namespace_class.prefix_default
-                  end
-                end
-              elsif type_ns_info && type_ns_info[:uri] && type_ns_info[:uri] != mapping.namespace_uri
-                # Case 2b: Element has DIFFERENT namespace - use its own prefix
-                # Find the namespace class by URI
-                if plan && plan[:namespaces]
-                  ns_entry = plan[:namespaces].find do |_key, ns_config|
-                    ns_config[:ns_object].uri == type_ns_info[:uri]
-                  end
-                  if ns_entry
-                    _key, ns_config = ns_entry
-                    if ns_config[:format] == :prefix
-                      resolved_prefix = ns_config[:ns_object].prefix_default
-                    end
-                  end
-                end
-              elsif !rule.namespace_set? && type_ns_info && type_ns_info[:uri] && type_ns_info[:uri] == mapping.namespace_uri
-                # Case 3: Element has SAME namespace as parent (not nil, not unqualified)
-                # Element has a resolved namespace that matches parent -> inherit parent format
-                # Truly unqualified elements (type_ns_info[:uri].nil?) do NOT inherit
-                if plan && mapping.namespace_class
-                  key = mapping.namespace_class.to_key
-                  ns_config = plan[:namespaces][key]
-                  if ns_config && ns_config[:format] == :prefix
-                    resolved_prefix = mapping.namespace_class.prefix_default
-                  end
-                end
+              if ns_entry
+                _key, ns_config = ns_entry
+                use_prefix = ns_config[:format] == :prefix
+                parent_prefix = ns_config[:ns_object].prefix_default if use_prefix
               end
-              # Case 4: explicit namespace: nil falls through with resolved_prefix = nil
-              # Case 5: truly unqualified (type_ns_info[:uri].nil?) falls through with resolved_prefix = nil
             end
-
-            # No inheritance from parent namespace if mapping not available
-            resolved_prefix ||= nil
+          elsif !rule.namespace_set? && element_ns_uri && element_ns_uri == mapping&.namespace_uri
+            # Case 5: Element has SAME namespace as parent (not nil, not unqualified)
+            if plan && mapping&.namespace_class
+              key = mapping.namespace_class.to_key
+              ns_config = plan[:namespaces][key]
+              if ns_config && ns_config[:format] == :prefix
+                use_prefix = true
+                # CRITICAL: Use the ns_object from plan (may be override with custom prefix)
+                parent_prefix = ns_config[:ns_object].prefix_default
+              end
+            end
           end
 
-          # Parent namespace attribute will be inherited in child elements if
-          # needed. Document interpreters must be prepared for this.
+          # Now resolve with correct use_prefix
+          ns_info = rule.resolve_namespace(
+            attr: attribute,
+            register: register,
+            parent_ns_uri: mapping&.namespace_uri,
+            parent_ns_class: mapping&.namespace_class,
+            form_default: form_default,
+            use_prefix: use_prefix,
+            parent_prefix: parent_prefix,
+          )
 
-          # Prepare attributes with xmlns if needed
+          # Use resolved namespace directly
+          resolved_prefix = if rule.namespace_param == :inherit
+                              parent_prefix
+                            elsif use_prefix && parent_prefix
+                              parent_prefix
+                            else
+                              ns_info[:prefix]
+                            end
+
+          # Prepare attributes for element creation
           attributes = {}
-          # FIX: Never declare Type namespaces locally - rely on root-level declarations from plan
-          # This prevents over-declaration and follows "never declare twice" principle
-          # Type namespaces should be declared at root level by DeclarationPlanner
 
           # Check if this namespace needs local declaration (out of scope)
-          if resolved_prefix && plan && plan[:namespaces]
-            # Find the namespace config for this prefix
+          if !resolved_prefix && !ns_info[:uri].nil? && plan && plan[:namespaces]
+            # Handle default namespace local declaration
+            ns_entry = plan[:namespaces].find do |_key, ns_config|
+              ns_config[:ns_object].uri == ns_info[:uri] &&
+                ns_config[:ns_object].prefix_default.nil?
+            end
+
+            if ns_entry
+              _key, ns_config = ns_entry
+              attributes["xmlns"] = ns_config[:ns_object].uri
+            end
+          elsif resolved_prefix && plan && plan[:namespaces]
+            # Find the namespace config for this prefix/URI
             ns_entry = plan[:namespaces].find do |_key, ns_config|
               ns_config[:ns_object].prefix_default == resolved_prefix ||
-                (type_ns_info && type_ns_info[:uri] && ns_config[:ns_object].uri == type_ns_info[:uri])
+                (ns_info[:uri] && ns_config[:ns_object].uri == ns_info[:uri])
             end
 
             if ns_entry
@@ -609,6 +624,17 @@ mapping: nil)
                                        prefix: resolved_prefix)
           elsif rule.raw_mapping?
             xml.add_xml_fragment(xml, value)
+          elsif value.is_a?(::Hash) && attribute&.type(register) == Lutaml::Model::Type::Hash
+            # Check if value is Hash type that needs wrapper
+            xml.create_and_add_element(rule.name,
+                                       attributes: attributes.empty? ? nil : attributes,
+                                       prefix: resolved_prefix) do
+              value.each do |key, val|
+                xml.create_and_add_element(key.to_s) do
+                  xml.add_text(xml, val.to_s)
+                end
+              end
+            end
           else
             xml.create_and_add_element(rule.name,
                                        attributes: attributes.empty? ? nil : attributes,
