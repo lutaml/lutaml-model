@@ -25,7 +25,7 @@ module Lutaml
 
           # Visited type tracking prevents infinite recursion during type analysis
           # When element is nil (type analysis mode), we track which types we've seen
-          @visited_types = Set.new
+          @visited_types = {}
         end
 
         # Create declaration plan for an element and its descendants
@@ -69,9 +69,9 @@ module Lutaml
 
           # Prevent infinite recursion for type analysis (when element is nil)
           if element.nil? && mapper_class
-            return empty_plan if @visited_types.include?(mapper_class)
+            return @visited_types[mapper_class] if @visited_types.key?(mapper_class)
 
-            @visited_types << mapper_class
+            @visited_types[mapper_class] = plan
           end
 
           attributes = if mapper_class.respond_to?(:attributes)

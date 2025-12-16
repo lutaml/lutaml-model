@@ -163,14 +163,17 @@ module Lutaml
         #
         # @raise [ArgumentError] if invalid arguments provided
         # @raise [Lutaml::Model::NoRootNamespaceError] if called with no_root
-        def namespace(uri_or_class, prefix = nil)
+        def namespace(uri_or_class, prefix = (prefix_unset = true; nil))
           raise Lutaml::Model::NoRootNamespaceError if no_root?
 
           if uri_or_class.is_a?(Class) && uri_or_class < Lutaml::Model::XmlNamespace
             # XmlNamespace class passed
-            @namespace_class = uri_or_class
             @namespace_uri = uri_or_class.uri
-            @namespace_prefix = prefix || uri_or_class.prefix_default
+            @namespace_prefix = prefix || uri_or_class.prefix_default unless prefix_unset
+            @namespace_class = Class.new(uri_or_class) do
+              uri @namespace_uri
+              prefix_default @namespace_prefix
+            end
           elsif uri_or_class.is_a?(String)
             # Legacy: String URI passed - create anonymous XmlNamespace class
             validate_namespace_prefix!(prefix)

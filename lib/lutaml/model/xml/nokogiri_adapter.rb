@@ -242,7 +242,7 @@ module Lutaml
             key = namespace_class.to_key
             ns_config = plan[:namespaces][key]
 
-            if ns_config && ns_config[:format] == :prefix
+            if ns_config && (ns_config[:format] == :prefix || ns_config[:declared_at] == :here)
               # Use prefix from the plan's namespace object (may be custom override)
               prefix = ns_config[:ns_object].prefix_default
             end

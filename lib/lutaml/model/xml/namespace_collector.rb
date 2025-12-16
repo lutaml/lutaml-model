@@ -35,7 +35,7 @@ module Lutaml
           #
           # NOTE: Only used during type analysis (element is nil)
           # Actual instances don't need this - they're finite data structures
-          @visited_types = Set.new
+          @visited_types = {}
         end
 
         # Collect namespace needs for an element and its descendants
@@ -58,12 +58,12 @@ module Lutaml
           # When collecting from actual instance (element not nil), skip this check
           # Instances are finite - only type graphs can be circular
           if element.nil? && mapper_class
-            return empty_needs if @visited_types.include?(mapper_class)
+            return @visited_types[mapper_class] if @visited_types.key?(mapper_class)
 
-            @visited_types << mapper_class
+            @visited_types[mapper_class] = needs
           end
 
-          attributes = mapper_class.respond_to?(:attributes) ? mapper_class.attributes : {}
+          attributes = mapper_class.respond_to?(:attributes) ? mapper_class.attributes(register) : {}
 
           # ==================================================================
           # PHASE 1: OWN NAMESPACE COLLECTION (for non-type-only models)
@@ -82,46 +82,45 @@ module Lutaml
             # PHASE 2: XML ATTRIBUTE NAMESPACE COLLECTION
             # ==================================================================
             # Collect XML attribute namespaces (only for non-type-only models)
-            mapping.attributes.each do |attr_rule|
-              next unless attr_rule.attribute?
+            if attributes&.any?
+              mapping.attributes.each do |attr_rule|
+                next unless attr_rule.attribute?
 
-              # Skip if we can't resolve attributes
-              next unless attributes&.any?
+                attr_def = attributes[attr_rule.to]
 
-              attr_def = attributes[attr_rule.to]
-
-              # Resolve attribute namespace
-              ns_class = nil
-              if attr_rule.namespace_set?
-                # Explicit namespace on attribute rule
-                ns_class = attr_rule.namespace_class || mapping.namespace_class
-              elsif attr_rule.namespace_class
-                ns_class = attr_rule.namespace_class
-              elsif attr_def
-                # TYPE NAMESPACE INTEGRATION
-                # ==========================
-                # Check if attribute's type (Type::Value subclass) declares a namespace
-                #
-                # EXAMPLE: EmailType < Type::String with xml_namespace EmailNamespace
-                # RESULT: XML attribute gets EmailNamespace prefix automatically
-                #
-                # WHY: Type-level namespaces apply to the serialized value's format
-                # Allows email addresses, phone numbers, etc. to live in their own namespace
-                #
-                # KEY CLASSES:
-                # - Type::Value.xml_namespace() - declares namespace for Value type
-                # - Attribute.type_namespace_class() - retrieves Type's namespace
-                type_ns_class = attr_def.type_namespace_class(@register)
-                if type_ns_class
-                  ns_class = type_ns_class
-                  # Track that this attribute uses a Type namespace
-                  needs[:type_namespaces][attr_rule.to] = type_ns_class
+                # Resolve attribute namespace
+                ns_class = nil
+                if attr_rule.namespace_set?
+                  # Explicit namespace on attribute rule
+                  ns_class = attr_rule.namespace_class || mapping.namespace_class
+                elsif attr_rule.namespace_class
+                  ns_class = attr_rule.namespace_class
+                elsif attr_def
+                  # TYPE NAMESPACE INTEGRATION
+                  # ==========================
+                  # Check if attribute's type (Type::Value subclass) declares a namespace
+                  #
+                  # EXAMPLE: EmailType < Type::String with xml_namespace EmailNamespace
+                  # RESULT: XML attribute gets EmailNamespace prefix automatically
+                  #
+                  # WHY: Type-level namespaces apply to the serialized value's format
+                  # Allows email addresses, phone numbers, etc. to live in their own namespace
+                  #
+                  # KEY CLASSES:
+                  # - Type::Value.xml_namespace() - declares namespace for Value type
+                  # - Attribute.type_namespace_class() - retrieves Type's namespace
+                  type_ns_class = attr_def.type_namespace_class(@register)
+                  if type_ns_class
+                    ns_class = type_ns_class
+                    # Track that this attribute uses a Type namespace
+                    needs[:type_namespaces][attr_rule.to] = type_ns_class
+                  end
                 end
-              end
 
-              if ns_class
-                validate_namespace_class(ns_class)
-                track_namespace(needs, ns_class, :attributes)
+                if ns_class
+                  validate_namespace_class(ns_class)
+                  track_namespace(needs, ns_class, :attributes)
+                end
               end
             end
 

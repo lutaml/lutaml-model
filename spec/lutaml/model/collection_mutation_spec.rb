@@ -46,7 +46,7 @@ RSpec.describe "Collection attribute mutations" do
         xml = container.to_xml
 
         expect(xml).not_to include("<item")
-        expect(xml).to include("<container")
+        expect(xml).to include("<t:container")
       end
     end
 

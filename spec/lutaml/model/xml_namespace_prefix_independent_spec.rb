@@ -490,7 +490,7 @@ RSpec.describe "XML Namespace Prefix-Independent Parsing" do
           expect(parsed.type).to eq("Porcelain")
 
           serialized_default = parsed.to_xml
-          expect(serialized_default).to include('<Ceramic xmlns="http://example.com/ceramic">')
+          expect(serialized_default).to include('<cer:Ceramic xmlns="http://example.com/ceramic">')
         end
 
         it "parses arbitrary prefix and can round-trip" do
