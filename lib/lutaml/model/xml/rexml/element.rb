@@ -86,7 +86,7 @@ module Lutaml
           end
 
           def node_attributes(node)
-            return {} unless node.native && node.native.respond_to?(:attributes)
+            return {} unless node.native.respond_to?(:attributes)
 
             parse_native_attributes(node.native)
           end

@@ -78,7 +78,8 @@ module Lutaml
 
           def create_and_add_element(
             element_name,
-            prefix: (prefix_unset = true; nil),
+            prefix: (prefix_unset = true
+                     nil),
             attributes: {}
           )
             name = element_name.is_a?(Array) ? element_name.first : element_name
@@ -157,7 +158,7 @@ module Lutaml
           # Helper methods for add_xml_fragment
           def parse_and_add_fragment(target, content)
             parse_fragment_as_is(target, content)
-          rescue REXML::ParseException, RuntimeError
+          rescue REXML::ParseException
             parse_fragment_with_escaping(target, content)
           end
 
@@ -169,7 +170,7 @@ module Lutaml
           def parse_fragment_with_escaping(target, content)
             escaped_content = content.gsub(/&(?![a-zA-Z]+;|#[0-9]+;|#x[0-9a-fA-F]+;)/, "&amp;")
             parse_fragment_as_is(target, escaped_content)
-          rescue REXML::ParseException, RuntimeError
+          rescue REXML::ParseException
             target << ::REXML::Text.new(content, false, nil, false)
           end
 
