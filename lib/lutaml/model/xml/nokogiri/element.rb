@@ -4,6 +4,7 @@ require_relative "../xml_element"
 require_relative "../xml_attribute"
 require_relative "../xml_namespace"
 require_relative "entity_resolver"
+require_relative "../encoding_normalizer"
 
 module Lutaml
   module Model
@@ -58,7 +59,7 @@ module Lutaml
             attributes,
             parse_all_children(node, root_node: root_node || self,
                                      default_namespace: default_namespace),
-            node.text,
+            EncodingNormalizer.normalize_to_utf8(node.text),
             name: node.name,
             parent_document: root_node,
             namespace_prefix: node.namespace&.prefix,

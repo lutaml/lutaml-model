@@ -3,6 +3,7 @@
 require_relative "../xml_element"
 require_relative "../xml_attribute"
 require_relative "../xml_namespace"
+require_relative "../encoding_normalizer"
 
 module Lutaml
   module Model
@@ -11,11 +12,11 @@ module Lutaml
         def initialize(node, root_node: nil, default_namespace: nil)
           case node
           when String
-            super("text", {}, [], node, parent_document: root_node, name: "text", explicit_no_namespace: false)
+            super("text", {}, [], EncodingNormalizer.normalize_to_utf8(node), parent_document: root_node, name: "text", explicit_no_namespace: false)
           when Ox::Comment
-            super("comment", {}, [], node.value, parent_document: root_node, name: "comment", explicit_no_namespace: false)
+            super("comment", {}, [], EncodingNormalizer.normalize_to_utf8(node.value), parent_document: root_node, name: "comment", explicit_no_namespace: false)
           when Ox::CData
-            super("#cdata-section", {}, [], node.value, parent_document: root_node, name: "#cdata-section", explicit_no_namespace: false)
+            super("#cdata-section", {}, [], EncodingNormalizer.normalize_to_utf8(node.value), parent_document: root_node, name: "#cdata-section", explicit_no_namespace: false)
           else
             # Check for xmlns="" in node's attributes before processing
             has_empty_xmlns = node.attributes[:xmlns] == ""
@@ -65,7 +66,7 @@ module Lutaml
               attributes,
               parse_children(node, root_node: root_node || self,
                                    default_namespace: default_namespace),
-              node.text,
+              EncodingNormalizer.normalize_to_utf8(node.text),
               parent_document: root_node,
               name: name,
               namespace_prefix: prefix,
