@@ -544,7 +544,13 @@ RSpec.describe "XmlNamespace" do
 
         # Should have units namespace on Unit root
         expect(xml).to include('xmlns="https://schema.example.org/units/1.0"')
-        # Should have MathML namespace declared locally on math element
+        
+        # UnitSymbol declares UnitsNamespace (same as parent Unit)
+        # Should NOT have xmlns declaration (inherits)
+        expect(xml).not_to match(/<UnitSymbol[^>]*xmlns=/)
+        
+        # math declares MathMlNamespace (different from parent)
+        # Should have xmlns declaration
         expect(xml).to include('<math xmlns="http://www.w3.org/1998/Math/MathML"')
       end
 
