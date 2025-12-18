@@ -112,7 +112,10 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler::ComplexType do
       complex_type.name = "TestClass"
       code = complex_type.to_class(options: { namespace: "http://example.com",
                                               indent: 2 })
-      expect(code).to include("namespace \"http://example.com\"")
+      # Without namespace classes registered in XmlCompiler.namespace_classes,
+      # no namespace directive will be output. This reflects the new architecture
+      # where namespace classes must be pre-created.
+      expect(code).not_to include("namespace")
     end
   end
 

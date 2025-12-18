@@ -318,7 +318,6 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
           # Output XML correctly prefixes first <m:r/> in <num> but loses prefix on second <m:r/> in <den>
           # Root cause: Schema compiler's handling of identical child elements in different parent contexts
           # Needs investigation of namespace inheritance for reused element types
-          pending "Schema compiler issue: Second instance of reused child element loses namespace prefix"
 
           expect(defined?(OOXML::CTOMath)).to eq("constant")
           expect(OOXML::CTOMath.instance_variable_get(:@attributes)).to be_empty

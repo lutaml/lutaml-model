@@ -26,9 +26,6 @@ module Lutaml
         def initialize(register = nil)
           @register = register || Lutaml::Model::Config.default_register
 
-          # Visited type tracking prevents infinite recursion during type analysis
-          # When element is nil (type analysis mode), we track which types we've seen
-          @visited_types = Set.new
         end
 
         # Create declaration plan for an element and its descendants
@@ -43,8 +40,9 @@ module Lutaml
         # @param needs [Hash] namespace needs from collector (with string keys)
         # @param parent_plan [DeclarationPlan, nil] parent element's plan
         # @param options [Hash] serialization options (may include :input_namespaces)
+        # @param visited_types [Set] types visited in THIS recursion path (prevents infinite loops)
         # @return [DeclarationPlan] declaration plan structure
-        def plan(element, mapping, needs, parent_plan: nil, options: {})
+        def plan(element, mapping, needs, parent_plan: nil, options: {}, visited_types: Set.new)
           plan = DeclarationPlan.new
 
           # ==================================================================
@@ -67,10 +65,11 @@ module Lutaml
           custom_prefix ||= options[:use_prefix] if options[:use_prefix].is_a?(String)
 
           # Prevent infinite recursion for type analysis (when element is nil)
+          # CRITICAL FIX (Session 101): visited_types is now per-recursion-path, not per-planner
+          # This prevents sibling children from contaminating each other's type tracking
           if element.nil? && mapper_class
-            if @visited_types.include?(mapper_class)
-              # CRITICAL FIX FOR BUG #3:
-              # When we've already visited this type, return early to prevent infinite recursion.
+            if visited_types.include?(mapper_class)
+              # Already visited this type in THIS recursion path - prevent infinite loop
               # BUT: if we have a parent_plan, we must inherit its namespaces!
               # Otherwise, deeply nested structures lose namespace configuration.
               if parent_plan
@@ -83,7 +82,8 @@ module Lutaml
               end
             end
 
-            @visited_types << mapper_class
+            # Add to THIS path's visited set (will be passed down to children)
+            visited_types = visited_types.dup.add(mapper_class)
           end
 
           attributes = if mapper_class.respond_to?(:attributes)
@@ -492,7 +492,8 @@ module Lutaml
               child_mapping,
               child_needs,
               parent_plan: plan,
-              options: child_options
+              options: child_options,
+              visited_types: visited_types  # Pass current path's visited types
             )
 
             plan.add_child_plan(elem_rule.to, child_plan)
@@ -509,7 +510,7 @@ module Lutaml
         # @param options [Hash] serialization options
         # @return [DeclarationPlan] declaration plan structure
         def plan_collection(_collection, mapping, needs, options: {})
-          plan(nil, mapping, needs, parent_plan: nil, options: options)
+          plan(nil, mapping, needs, parent_plan: nil, options: options, visited_types: Set.new)
         end
 
         private

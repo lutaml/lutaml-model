@@ -524,8 +524,12 @@ module Lutaml
           raise Lutaml::Model::ImportModelWithRootError.new(model) if model.root?(reg_id)
 
           mappings = model.mappings_for(:xml, reg_id)
-          @elements.merge!(mappings.instance_variable_get(:@elements))
-          @attributes.merge!(mappings.instance_variable_get(:@attributes))
+
+          # CRITICAL FIX: Deep-copy mapping rules to prevent shared state
+          # When multiple classes import the same model, each must have independent MappingRule instances
+          # Otherwise, any state mutation during serialization affects ALL importing classes
+          @elements.merge!(dup_mappings(mappings.instance_variable_get(:@elements)))
+          @attributes.merge!(dup_mappings(mappings.instance_variable_get(:@attributes)))
           (@element_sequence << mappings.element_sequence).flatten!
         end
 
