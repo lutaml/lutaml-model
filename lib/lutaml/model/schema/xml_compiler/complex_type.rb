@@ -66,6 +66,10 @@ module Lutaml
 
           def required_files
             files = [base_class_require]
+            if @namespace_class_name
+              # Add require for the namespace class
+              files << "require_relative \"#{Utils.snake_case(@namespace_class_name)}\""
+            end
             files.concat(@instances.map(&:required_files).flatten.compact.uniq)
             files.concat(simple_content.required_files) if simple_content?
             files
@@ -74,8 +78,15 @@ module Lutaml
           private
 
           def setup_options(options)
-            @namespace, @prefix = options.values_at(:namespace, :prefix)
+            namespace_uri = options[:namespace]
+            @prefix = options[:prefix]
             @indent = " " * options&.fetch(:indent, 2)
+
+            # Get the namespace class name if namespace URI is provided
+            if namespace_uri && XmlCompiler.namespace_classes
+              ns_class = XmlCompiler.namespace_classes.values.find { |ns| ns.uri == namespace_uri }
+              @namespace_class_name = ns_class&.class_name
+            end
           end
 
           def simple_content_type
@@ -95,9 +106,9 @@ module Lutaml
           end
 
           def namespace_and_prefix
-            return "" if Utils.blank?(@namespace) && Utils.blank?(@prefix)
+            return "" unless @namespace_class_name
 
-            [namespace_option, @prefix&.inspect].compact.join(", ")
+            "#{extended_indent}namespace #{@namespace_class_name}"
           end
 
           def extended_indent
@@ -105,7 +116,9 @@ module Lutaml
           end
 
           def namespace_option
-            "#{extended_indent}namespace #{@namespace.inspect}"
+            # Kept for backwards compatibility
+            return "" unless @namespace_class_name
+            "#{extended_indent}namespace #{@namespace_class_name}"
           end
 
           def base_class_name

@@ -15,6 +15,7 @@ require_relative "xml_compiler/sequence"
 require_relative "xml_compiler/element"
 require_relative "xml_compiler/choice"
 require_relative "xml_compiler/group"
+require_relative "xml_compiler/xml_namespace_class"
 
 module Lutaml
   module Model
@@ -27,7 +28,8 @@ module Lutaml
                     :complex_types,
                     :elements,
                     :attributes,
-                    :attribute_groups
+                    :attribute_groups,
+                    :namespace_classes
 
         ELEMENT_ORDER_IGNORABLE = %w[import include].freeze
 
@@ -50,8 +52,17 @@ module Lutaml
           as_models(schema, options: options)
           options[:indent] = options[:indent] ? options[:indent].to_i : 2
           @simple_types.merge!(XmlCompiler::SimpleType.setup_supported_types)
-          classes_list = @simple_types.merge(@complex_types).merge(@group_types)
+
+          # Generate namespace classes
+          namespace_classes_hash = {}
+          @namespace_classes.each do |name, ns_class|
+            namespace_classes_hash[name] = ns_class.to_class
+          end
+
+          classes_list = namespace_classes_hash.merge(@simple_types).merge(@complex_types).merge(@group_types)
           classes_list = classes_list.transform_values do |type|
+            # Skip namespace classes (already strings) and only process model types
+            next type if type.is_a?(String)
             type.to_class(options: options)
           end
           if options[:create_files]
@@ -94,8 +105,10 @@ module Lutaml
           @simple_types = MappingHash.new
           @complex_types = MappingHash.new
           @attribute_groups = MappingHash.new
+          @namespace_classes = MappingHash.new
 
           populate_default_values
+          collect_namespaces(Array(parsed_schema), options)
           schema_to_models(Array(parsed_schema))
         end
 
@@ -429,6 +442,32 @@ compiler_complex_type)
                 Array(object.send(Utils.snake_case(builder_instance.name)))[index]
               index += 1
             end
+          end
+        end
+
+        def collect_namespaces(schemas, options)
+          # Collect unique namespace URIs from the schemas
+          namespace_uris = Set.new
+
+          # Add the main namespace from options if provided
+          if options[:namespace]
+            namespace_uris.add(options[:namespace])
+          end
+
+          # Extract namespaces from schema elements
+          schemas.each do |schema|
+            namespace_uris.add(schema.target_namespace) if schema.target_namespace
+          end
+
+          # Create XmlNamespaceClass for each unique namespace
+          namespace_uris.each do |uri|
+            next if uri.nil? || uri.empty?
+
+            # Use provided prefix if available
+            prefix = options[:prefix] if options[:namespace] == uri
+
+            ns_class = XmlNamespaceClass.new(uri: uri, prefix: prefix)
+            @namespace_classes[ns_class.class_name] = ns_class
           end
         end
       end
