@@ -156,7 +156,7 @@ module Lutaml
                   # This allows default format unless W3C rules require prefix
                 end
 
-                xmlns_decl = build_declaration(ns_class, format, options)
+                xmlns_decl = build_declaration(ns_class, format, options, prefix_override: custom_prefix)
 
                 plan.add_namespace(
                   ns_class,
@@ -173,12 +173,13 @@ module Lutaml
                 if existing.prefix_format?
                   # Parent used PREFIX format → child MUST preserve it
                   # Do NOT re-evaluate format - this would break prefix inheritance
+                  # CRITICAL: Preserve parent's prefix_override, don't replace with child's
                   plan.add_namespace(
                   ns_class,
                     format: existing.format,
                     xmlns_declaration: existing.xmlns_declaration,
                     declared_at: existing.declared_at.to_sym,  # Keep as inherited
-                    prefix_override: custom_prefix  # Propagate custom prefix if present
+                    prefix_override: existing.prefix_override  # Preserve parent's override
                   )
                 else
                   # Parent used DEFAULT format - check if we need to redeclare
@@ -196,20 +197,22 @@ module Lutaml
                     # Redeclare because parent changed the default namespace
                     format = choose_format_with_override(mapping,
                                                          ns_class, needs, options)
-                    xmlns_decl = build_declaration(ns_class, format, options)
+                    # CRITICAL: Preserve parent's prefix_override when redeclaring
+                    inherited_prefix_override = existing.prefix_override || custom_prefix
+                    xmlns_decl = build_declaration(ns_class, format, options, prefix_override: inherited_prefix_override)
 
                     plan.add_namespace(
                       ns_class,
                       format: format,
                       xmlns_declaration: xmlns_decl,
                       declared_at: :here,  # Must declare here, not inherited
-                      prefix_override: custom_prefix
+                      prefix_override: inherited_prefix_override
                     )
                   else
                     # Parent used default and we can inherit → keep as inherited
                     format = choose_format_with_override(mapping,
                                                          ns_class, needs, options)
-                    xmlns_decl = build_declaration(ns_class, format, options)
+                    xmlns_decl = build_declaration(ns_class, format, options, prefix_override: custom_prefix)
 
                     plan.add_namespace(
                       ns_class,
@@ -595,26 +598,23 @@ module Lutaml
         # @param ns_class [Class] the XmlNamespace class
         # @param format [Symbol] :default or :prefix
         # @param options [Hash] serialization options (may contain custom prefix)
+        # @param prefix_override [String, nil] explicit custom prefix override
         # @return [String] the xmlns declaration attribute
-        def build_declaration(ns_class, format, options = {})
+        def build_declaration(ns_class, format, options = {}, prefix_override: nil)
           # CRITICAL: If namespace has no prefix, MUST use default format
           # Using prefix format without a prefix creates invalid xmlns:=""
-          if format == :prefix && !ns_class.prefix_default
+          if format == :prefix && !ns_class.prefix_default && !prefix_override
             format = :default
           end
 
           if format == :default
             "xmlns=\"#{ns_class.uri}\""
           else
-            # Use custom prefix from options if provided, otherwise use class default
-            # Check options[:prefix] first for backward compatibility
-            prefix = if options[:prefix].is_a?(String)
-                       options[:prefix]
-                     elsif options[:use_prefix].is_a?(String)
-                       options[:use_prefix]
-                     else
-                       ns_class.prefix_default
-                     end
+            # PRIORITY ORDER: explicit override > options > class default
+            prefix = prefix_override ||
+                     (options[:prefix].is_a?(String) ? options[:prefix] : nil) ||
+                     (options[:use_prefix].is_a?(String) ? options[:use_prefix] : nil) ||
+                     ns_class.prefix_default
             "xmlns:#{prefix}=\"#{ns_class.uri}\""
           end
         end

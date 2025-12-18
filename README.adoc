@@ -50,6 +50,7 @@ link:docs/migration-guides/0-1-0-migrate-from-shale.adoc[Migrating from Shale to
 * Support for collections and default values
 * Custom serialization/deserialization methods
 * XML namespaces and mappings with `namespace: :blank` for explicit no-namespace elements
+* Custom namespace prefixes during serialization through `to_xml(prefix:)` option
 * Deep object comparison and visual diff generation with similarity scoring
 * Generate serialization schemas from model definitions (<<schema-generation>>)
 * Import serialization schemas to define models (<<schema-import>>)

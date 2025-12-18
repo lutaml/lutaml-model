@@ -88,7 +88,7 @@ RSpec.describe "namespace_scope Declaration Modes" do
 
     # TODO: This test is pending full Hash format implementation
     # The feature is designed but not yet implemented in validate_namespace_scope!
-    xit "respects per-namespace declaration modes" do
+    it "respects per-namespace declaration modes" do
       ns = app_namespace
       vt_ns = vt_namespace
       other_ns = other_namespace

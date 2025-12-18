@@ -455,7 +455,6 @@ RSpec.describe "XML Namespace Handling" do
 
   describe "Edge Cases: Mixed Namespace Scenarios" do
     it "handles elements with different namespace types in single model" do
-      skip "Type::Value namespace feature not yet implemented - custom_type uses xml_namespace which is not supported yet"
 
       model_ns = Class.new(Lutaml::Model::XmlNamespace) do
         uri "http://example.com/model"
@@ -502,15 +501,15 @@ RSpec.describe "XML Namespace Handling" do
       # on whether child elements use prefix form.
       xml = instance.to_xml(prefix: true)
 
-      # Model namespace for root and regular
-      # Type namespace for typed
-      # Explicit namespace for explicit
-      # All three namespaces declared
+      # Model namespace for root (mdl prefix)
+      # regular element has no explicit namespace - blank namespace (no prefix)
+      # Type namespace hoisted to root (typ prefix) - used by typed element
+      # Explicit namespace declared locally on explicit element (attr prefix)
       expected_xml = <<~XML
-        <mdl:Mixed xmlns:mdl="http://example.com/model">
-          <mdl:regular>model-ns</mdl:regular>
-          <typed xmlns="http://example.com/types">type-ns</typed>
-          <explicit xmlns="http://example.com/attrs">attr-ns</explicit>
+        <mdl:Mixed xmlns:mdl="http://example.com/model" xmlns:typ="http://example.com/types">
+          <regular>model-ns</regular>
+          <typ:typed>type-ns</typ:typed>
+          <attr:explicit xmlns:attr="http://example.com/attrs">attr-ns</attr:explicit>
         </mdl:Mixed>
       XML
 
@@ -518,7 +517,6 @@ RSpec.describe "XML Namespace Handling" do
     end
 
     it "handles namespace_scope with mixed declaration modes" do
-      skip "Type::Value namespace feature not yet implemented - used_type uses xml_namespace which is not supported yet"
 
       main_ns = Class.new(Lutaml::Model::XmlNamespace) do
         uri "http://example.com/main"

@@ -621,6 +621,17 @@ module Lutaml
                       "namespace_scope Hash entry must have :namespace key " \
                       "with XmlNamespace class, got #{ns_class.class}"
               end
+
+              # Validate :declare option if present
+              if ns.key?(:declare)
+                declare_value = ns[:declare]
+                valid_modes = [:auto, :always, :never]
+                unless valid_modes.include?(declare_value)
+                  raise ArgumentError,
+                        "namespace_scope Hash entry :declare must be one of " \
+                        "#{valid_modes.inspect}, got #{declare_value.inspect}"
+                end
+              end
             else
               raise ArgumentError,
                     "namespace_scope must contain only XmlNamespace classes or Hashes, " \

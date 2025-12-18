@@ -1992,6 +1992,62 @@ https://www.w3.org/TR/xmlschema-1/#xsi_schemaLocation[W3C XML standard].
 
 == Deprecated ways of working with namespaces
 
+
+[[custom-prefixes]]
+== Custom namespace prefixes
+
+LutaML Model allows you to customize the namespace prefix used during XML serialization through the `prefix` option on `to_xml`.
+
+=== Usage
+
+The `prefix` option accepts three types of values:
+
+String:: Use a custom prefix for serialization
+Boolean `true`:: Use the namespace's configured `prefix_default`
+Boolean `false`:: Use default namespace format (`xmlns="..."`, no prefix)
+
+[source,ruby]
+----
+class Document < Lutaml::Model::Serializable
+  attribute :title, :string
+
+  xml do
+    namespace DocumentNamespace  # has prefix_default "doc"
+    element "Document"
+    map_element "title", to: :title
+  end
+end
+
+doc = Document.new(title: "Example")
+
+# Default format
+doc.to_xml
+# => <Document xmlns="http://example.com">...</Document>
+
+# Use namespace's default prefix
+doc.to_xml(prefix: true)
+# => <doc:Document xmlns:doc="http://example.com">...</doc:Document>
+
+# Use custom prefix
+doc.to_xml(prefix: "d")
+# => <d:Document xmlns:d="http://example.com">...</d:Document>
+----
+
+=== Prefix inheritance
+
+Custom prefixes are automatically inherited by child elements in the same namespace:
+
+[source,ruby]
+----
+parent.to_xml(prefix: "custom")
+# All elements in same namespace use "custom:" prefix
+----
+
+=== Namespace identity vs presentation
+
+IMPORTANT: The `prefix` option controls *presentation* (default vs prefix format), not namespace *identity* (which URI). The same namespace URI with different prefixes is still the same namespace semantically.
+
+
 .(DEPRECATED) Setting default namespace at the root element
 [source,ruby]
 ----

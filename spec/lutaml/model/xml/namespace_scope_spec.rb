@@ -187,7 +187,6 @@ RSpec.describe "XML namespace_scope feature" do
     end
 
     it "declares all namespaces on root element" do
-      skip "Type::Value namespace feature not yet implemented - required for dc_title and dcterms_created types"
       xml = vcard_instance.to_xml
 
       # Should have all three namespaces declared at root
@@ -228,7 +227,6 @@ RSpec.describe "XML namespace_scope feature" do
     end
 
     it "roundtrips correctly with namespace_scope" do
-      skip "Type::Value namespace feature not yet implemented - required for dc_title and dcterms_created types"
       xml = vcard_instance.to_xml
       parsed = vcard_model.from_xml(xml)
 
@@ -303,7 +301,6 @@ RSpec.describe "XML namespace_scope feature" do
     end
 
     it "declares only vcard namespace at root, others locally" do
-      skip "Type::Value namespace feature not yet implemented - required for dc_title and dcterms_created types"
       xml = vcard_instance.to_xml
 
       # Find root element using XPath with registered namespace
@@ -344,7 +341,6 @@ RSpec.describe "XML namespace_scope feature" do
     end
 
     it "roundtrips correctly with limited namespace_scope" do
-      skip "Type::Value namespace feature not yet implemented - required for dc_title and dcterms_created types"
       xml = vcard_instance.to_xml
       parsed = vcard_model_limited.from_xml(xml)
 

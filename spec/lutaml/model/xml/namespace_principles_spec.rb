@@ -415,7 +415,6 @@ RSpec.describe "XML Namespace principles" do
       end
 
       it "round-trips correctly with either presentation" do
-        skip "Type::Value namespace feature not yet implemented"
         xml_default = instance.to_xml
         xml_prefixed = instance.to_xml(prefix: true)
 
