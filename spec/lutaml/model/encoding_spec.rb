@@ -250,7 +250,7 @@ RSpec.describe "XML Encoding Handling" do
         iso_xml = parsed.to_xml(encoding: "ISO-8859-1")
 
         expect(iso_xml.encoding).to eq(Encoding::ISO_8859_1)
-        expect(iso_xml).to include("café")
+        expect(iso_xml).to include("café".encode("ISO-8859-1"))
       end
     end
   end

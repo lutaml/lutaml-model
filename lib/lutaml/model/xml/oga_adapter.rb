@@ -75,7 +75,8 @@ module Lutaml
 
           result = ""
           # Use DeclarationHandler methods instead of Document#declaration
-          if options[:declaration]
+          # Include declaration when encoding is specified OR when declaration is requested
+          if (options[:encoding] && !options[:encoding].nil?) || options[:declaration]
             result += generate_declaration(options)
           end
 

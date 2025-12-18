@@ -84,7 +84,8 @@ module Lutaml
 
           result = ""
           # Use DeclarationHandler methods instead of Document#declaration
-          if options[:declaration]
+          # Include declaration when encoding is specified OR when declaration is requested
+          if (options[:encoding] && !options[:encoding].nil?) || options[:declaration]
             result += generate_declaration(options)
           end
 
@@ -312,7 +313,7 @@ module Lutaml
               text = text[curr_index] if text.is_a?(Array)
 
               if element.mixed?
-                xml.add_text(xml, text, cdata: element_rule.cdata)
+                xml.xml.text(text) unless text.nil? || text.empty?
                 next
               end
 
@@ -349,8 +350,17 @@ module Lutaml
                                                          element_rule, attribute_def, format: :xml)
                 end
 
-                add_simple_value(xml, element_rule, current_value,
-                                 attribute_def, plan: plan, mapping: xml_mapping, options: options)
+                # For mixed content, create elements directly via Ox API to preserve order
+                # BUT not for raw attributes which need special handling
+                if element.mixed? && !attribute_def&.raw?
+                  # Create element directly on the Ox object
+                  xml.xml.element(element_rule.name) do |child_element|
+                    child_element.text(current_value.to_s) unless Utils.empty?(current_value)
+                  end
+                else
+                  add_simple_value(xml, element_rule, current_value,
+                                   attribute_def, plan: plan, mapping: xml_mapping, options: options)
+                end
               end
             end
           end

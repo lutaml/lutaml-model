@@ -113,7 +113,8 @@ module Lutaml
           result = ""
 
           # Handle XML declaration based on Issue #1: XML Declaration Preservation
-          if should_include_declaration?(options)
+          # Include declaration when encoding is specified OR when declaration is requested
+          if (options[:encoding] && !options[:encoding].nil?) || should_include_declaration?(options)
             result += generate_declaration(options)
           end
 
