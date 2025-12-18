@@ -290,8 +290,8 @@ module Lutaml
           mappings_for(:xml, register)&.root?
         end
 
-        def import_model_with_root_error(model, register = nil)
-          return unless model.mappings.key?(:xml) && model.root?(register)
+        def import_model_with_root_error(model, register_id = nil)
+          return unless model.mappings.key?(:xml) && model.root?(register_id)
 
           raise Lutaml::Model::ImportModelWithRootError.new(model)
         end
@@ -313,7 +313,7 @@ module Lutaml
           @choice_attributes.concat(deep_duplicate_choice_attributes(model))
         end
 
-        def import_model_mappings(model)
+        def import_model_mappings(model, register_id = nil)
           if model.is_a?(Symbol) || model.is_a?(String)
             importable_models[:import_model_mappings] << model.to_sym
             @models_imported = false
@@ -321,11 +321,11 @@ module Lutaml
             return
           end
 
-          import_model_with_root_error(model)
+          import_model_with_root_error(model, register_id)
           Lutaml::Model::Config::AVAILABLE_FORMATS.each do |format|
             next unless model.mappings.key?(format)
 
-            mapping = model.mappings_for(format)
+            mapping = model.mappings_for(format, register_id)
             mapping = Utils.deep_dup(mapping)
 
             klass = ::Lutaml::Model::Config.mappings_class_for(format)
@@ -336,7 +336,7 @@ module Lutaml
               @mappings[format].merge_mapping_elements(mapping)
               @mappings[format].merge_elements_sequence(mapping)
             else
-              @mappings[format].mappings_hash.merge!(mapping.mappings_hash)
+              @mappings[format].mappings_hash.merge!(Utils.deep_dup(mapping.mappings_hash))
             end
           end
         end
@@ -350,9 +350,9 @@ module Lutaml
             return
           end
 
-          import_model_with_root_error(model)
+          import_model_with_root_error(model, register_id)
           import_model_attributes(model, register_id)
-          import_model_mappings(model)
+          import_model_mappings(model, register_id)
         end
 
         def importable_models
@@ -597,12 +597,13 @@ collection)
           Lutaml::Model::Config::KEY_VALUE_FORMATS.each do |format|
             mappings[format] ||= KeyValueMapping.new(format)
             mappings[format].instance_eval(&block)
+            mappings[format].finalize(self)
           end
         end
 
         def mappings_for(format, register = nil)
-          if @mappings&.dig(:xml)&.finalized?
-            @mappings[:xml]&.ensure_mappings_imported!(extract_register_id(register))
+          if @mappings&.dig(format)&.finalized?
+            @mappings[format]&.ensure_mappings_imported!(extract_register_id(register))
           end
           mappings[format] || default_mappings(format)
         end
