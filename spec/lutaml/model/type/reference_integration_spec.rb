@@ -6,7 +6,7 @@ class Author < Lutaml::Model::Serializable
   attribute :email, :string
 
   xml do
-    root "author"
+    element "author"
     map_element "id", to: :id
     map_element "name", to: :name
     map_element "email", to: :email
@@ -20,7 +20,7 @@ class Book < Lutaml::Model::Serializable
   attribute :co_authors, { ref: ["Author", :id] }, collection: true, default: []
 
   xml do
-    root "book"
+    element "book"
     map_element "id", to: :id
     map_element "title", to: :title
     map_element "authorRef", to: :author_ref

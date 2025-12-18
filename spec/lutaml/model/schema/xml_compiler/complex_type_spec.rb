@@ -111,8 +111,8 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler::ComplexType do
     it "renders a class with namespace and prefix options" do
       complex_type.name = "TestClass"
       code = complex_type.to_class(options: { namespace: "http://example.com",
-                                              prefix: "ex", indent: 2 })
-      expect(code).to include("namespace \"http://example.com\"", "\"ex\"")
+                                              indent: 2 })
+      expect(code).to include("namespace \"http://example.com\"")
     end
   end
 

@@ -8,7 +8,7 @@ module CDATA
     attribute :element1, :string
 
     xml do
-      root "beta"
+      element "beta"
       map_content to: :element1, cdata: true
     end
   end
@@ -20,7 +20,7 @@ module CDATA
     attribute :beta, Beta
 
     xml do
-      root "alpha"
+      element "alpha"
 
       map_element "element1", to: :element1, cdata: false
       map_element "element2", to: :element2, cdata: true
@@ -36,7 +36,7 @@ module CDATA
     attribute :address, Address
 
     xml do
-      root "address"
+      element "address"
       map_element "street", to: :street
       map_element "city", with: { from: :city_from_xml, to: :city_to_xml },
                           cdata: true
@@ -99,7 +99,7 @@ module CDATA
     attribute :child_mapper, CustomModelChildMapper
 
     xml do
-      root "CustomModelParent"
+      element "CustomModelParent"
       map_element :first_name, to: :first_name, cdata: true
       map_element :middle_name, to: :middle_name, cdata: true
       map_element :last_name, to: :last_name, cdata: false
@@ -166,7 +166,7 @@ module CDATA
     attribute :content, :string, default: -> { " " }
 
     xml do
-      root "DefaultValue"
+      element "DefaultValue"
       map_element "name", to: :name, render_default: true, cdata: true
       map_element "temperature", to: :temperature, render_default: true,
                                  cdata: true

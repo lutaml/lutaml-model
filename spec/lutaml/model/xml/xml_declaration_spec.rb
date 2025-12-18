@@ -11,7 +11,7 @@ RSpec.describe "XML Declaration Preservation" do
       attribute :value, :integer
 
       xml do
-        root "simple"
+        element "simple"
         map_element "name", to: :name
         map_element "value", to: :value
       end

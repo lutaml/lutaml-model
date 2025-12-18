@@ -6,7 +6,7 @@ module NamespaceSpec
     attribute :name, :string
 
     xml do
-      root "NestedChild"
+      element "NestedChild"
 
       map_element :name, to: :name
     end
@@ -16,7 +16,7 @@ module NamespaceSpec
     attribute :nested_child, NestedChild
 
     xml do
-      root "NestedChild"
+      element "NestedChild"
 
       map_element :NestedChild, to: :nested_child
     end
@@ -26,7 +26,7 @@ module NamespaceSpec
     attribute :child, Child
 
     xml do
-      root "Parent"
+      element "Parent"
       namespace AbcNamespace
 
       map_element :Child, to: :child

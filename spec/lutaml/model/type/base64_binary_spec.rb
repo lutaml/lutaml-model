@@ -183,7 +183,7 @@ RSpec.describe Lutaml::Model::Type::Base64Binary do
         attribute :filename, :string
 
         xml do
-          root "attachment"
+          element "attachment"
           map_element "content", to: :content
           map_attribute "filename", to: :filename
         end

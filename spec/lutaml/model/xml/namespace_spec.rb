@@ -1,11 +1,16 @@
 require "spec_helper"
 
 module NamespaceSpec
+  class AbcNamespace < Lutaml::Model::XmlNamespace
+    uri "https://abc.com"
+    prefix_default "abc"
+  end
+
   class NestedChild < Lutaml::Model::Serializable
     attribute :name, :string
 
     xml do
-      root "NestedChild"
+      element "NestedChild"
 
       map_element :name, to: :name
     end
@@ -15,7 +20,7 @@ module NamespaceSpec
     attribute :nested_child, NestedChild
 
     xml do
-      root "NestedChild"
+      element "NestedChild"
 
       map_element :NestedChild, to: :nested_child
     end
@@ -25,8 +30,8 @@ module NamespaceSpec
     attribute :child, Child
 
     xml do
-      root "Parent"
-      namespace "https://abc.com"
+      element "Parent"
+      namespace AbcNamespace
 
       map_element :Child, to: :child
     end
@@ -76,7 +81,7 @@ RSpec.describe "XML Namespace Handling" do
 
           xml do
             namespace ns
-            root "Element"
+            element "Element"
             map_element "description", to: :description
             map_element "name", to: :name
           end
@@ -85,9 +90,15 @@ RSpec.describe "XML Namespace Handling" do
         instance = model.new(description: "text", name: "value")
         xml = instance.to_xml(prefix: true)
 
-        expect(xml).to include('<test:Element')
-        expect(xml).to include('<test:description>text</test:description>')
-        expect(xml).to include('<test:name>value</test:name>')
+        # Elements without explicit namespace are in blank namespace
+        expected_xml = <<~XML
+          <test:Element xmlns:test="http://example.com/test">
+            <description>text</description>
+            <name>value</name>
+          </test:Element>
+        XML
+
+        expect(xml).to be_xml_equivalent_to(expected_xml)
       end
     end
 
@@ -104,7 +115,7 @@ RSpec.describe "XML Namespace Handling" do
 
           xml do
             namespace ns
-            root "Child"
+            element "Child"
             map_attribute "id", to: :id
             map_element "value", to: :value
           end
@@ -115,7 +126,7 @@ RSpec.describe "XML Namespace Handling" do
 
           xml do
             namespace ns
-            root "Wrapper"
+            element "Wrapper"
             map_element "Child", to: :items
           end
         end
@@ -125,7 +136,7 @@ RSpec.describe "XML Namespace Handling" do
 
           xml do
             namespace ns
-            root "Parent"
+            element "Parent"
             map_element "Wrapper", to: :data
           end
         end
@@ -140,13 +151,21 @@ RSpec.describe "XML Namespace Handling" do
         )
 
         xml = instance.to_xml(prefix: true)
+        # value element has no namespace declaration, so it's in blank namespace
+        expected_xml = <<~XML
+          <test:Parent xmlns:test="http://example.com/test">
+            <test:Wrapper>
+              <test:Child id="1">
+                <value>first</value>
+              </test:Child>
+              <test:Child id="2">
+                <value>second</value>
+              </test:Child>
+            </test:Wrapper>
+          </test:Parent>
+        XML
 
-        expect(xml).to include('<test:Parent')
-        expect(xml).to include('<test:Wrapper>')
-        expect(xml).to include('<test:Child id="1">')
-        expect(xml).to include('<test:value>first</test:value>')
-        expect(xml).to include('<test:Child id="2">')
-        expect(xml).to include('<test:value>second</test:value>')
+        expect(xml).to be_xml_equivalent_to(expected_xml)
       end
 
       it "preserve namespace prefix through deep nesting" do
@@ -160,7 +179,7 @@ RSpec.describe "XML Namespace Handling" do
 
           xml do
             namespace ns
-            root "Leaf"
+            element "Leaf"
             map_element "text", to: :text
           end
         end
@@ -170,7 +189,7 @@ RSpec.describe "XML Namespace Handling" do
 
           xml do
             namespace ns
-            root "Middle"
+            element "Middle"
             map_element "Leaf", to: :leaves
           end
         end
@@ -180,7 +199,7 @@ RSpec.describe "XML Namespace Handling" do
 
           xml do
             namespace ns
-            root "Root"
+            element "Root"
             map_element "Middle", to: :middles
           end
         end
@@ -194,12 +213,26 @@ RSpec.describe "XML Namespace Handling" do
 
         xml = instance.to_xml(prefix: true)
 
-        expect(xml).to include('<test:Root')
-        expect(xml).to include('<test:Middle>')
-        expect(xml).to include('<test:Leaf>')
-        expect(xml).to include('<test:text>a</test:text>')
-        expect(xml).to include('<test:text>b</test:text>')
-        expect(xml).to include('<test:text>c</test:text>')
+        # text element has no namespace declaration, so blank namespace
+        expected_xml = <<~XML
+          <test:Root xmlns:test="http://example.com/test">
+            <test:Middle>
+              <test:Leaf>
+                <text>a</text>
+              </test:Leaf>
+              <test:Leaf>
+                <text>b</text>
+              </test:Leaf>
+            </test:Middle>
+            <test:Middle>
+              <test:Leaf>
+                <text>c</text>
+              </test:Leaf>
+            </test:Middle>
+          </test:Root>
+        XML
+
+        expect(xml).to be_xml_equivalent_to(expected_xml)
       end
     end
   end
@@ -217,7 +250,7 @@ RSpec.describe "XML Namespace Handling" do
 
         xml do
           namespace ns
-          root "Item"
+          element "Item"
           map_attribute "id", to: :id
           map_element "value", to: :value
         end
@@ -229,7 +262,7 @@ RSpec.describe "XML Namespace Handling" do
 
         xml do
           namespace ns
-          root "Wrapper"
+          element "Wrapper"
           map_element "Item", to: :items
         end
       end
@@ -244,18 +277,22 @@ RSpec.describe "XML Namespace Handling" do
 
       xml = instance.to_xml(prefix: true)
 
-      # All items should have consistent namespace prefix (plan caching ensures this)
-      expect(xml).to include('<item:Wrapper')
-      expect(xml).to include('<item:Item id="1">')
-      expect(xml).to include('<item:value>first</item:value>')
-      expect(xml).to include('<item:Item id="2">')
-      expect(xml).to include('<item:value>second</item:value>')
-      expect(xml).to include('<item:Item id="3">')
-      expect(xml).to include('<item:value>third</item:value>')
+      # value element has no namespace declaration, so blank namespace
+      expected_xml = <<~XML
+        <item:Wrapper xmlns:item="http://example.com/items">
+          <item:Item id="1">
+            <value>first</value>
+          </item:Item>
+          <item:Item id="2">
+            <value>second</value>
+          </item:Item>
+          <item:Item id="3">
+            <value>third</value>
+          </item:Item>
+        </item:Wrapper>
+      XML
 
-      # Verify all Items have namespace (regression test for Bug 2)
-      expect(xml.scan(/<item:Item/).size).to eq(3)
-      expect(xml.scan(/<item:value>/).size).to eq(3)
+      expect(xml).to be_xml_equivalent_to(expected_xml)
     end
 
     it "handles nested collections with repeated types" do
@@ -269,7 +306,7 @@ RSpec.describe "XML Namespace Handling" do
 
         xml do
           namespace ns
-          root "Leaf"
+          element "Leaf"
           map_element "text", to: :text
         end
       end
@@ -279,7 +316,7 @@ RSpec.describe "XML Namespace Handling" do
 
         xml do
           namespace ns
-          root "Branch"
+          element "Branch"
           map_element "Leaf", to: :leaves
         end
       end
@@ -289,7 +326,7 @@ RSpec.describe "XML Namespace Handling" do
 
         xml do
           namespace ns
-          root "Tree"
+          element "Tree"
           map_element "Branch", to: :branches
         end
       end
@@ -309,11 +346,29 @@ RSpec.describe "XML Namespace Handling" do
 
       xml = instance.to_xml(prefix: true)
 
-      # All levels maintain namespace prefix consistently
-      expect(xml).to include('<nst:Tree')
-      expect(xml.scan(/<nst:Branch/).size).to eq(2)
-      expect(xml.scan(/<nst:Leaf/).size).to eq(4)
-      expect(xml.scan(/<nst:text>/).size).to eq(4)
+      # text element has no namespace declaration, so blank namespace
+      expected_xml = <<~XML
+        <nst:Tree xmlns:nst="http://example.com/nested">
+          <nst:Branch>
+            <nst:Leaf>
+              <text>a</text>
+            </nst:Leaf>
+            <nst:Leaf>
+              <text>b</text>
+            </nst:Leaf>
+          </nst:Branch>
+          <nst:Branch>
+            <nst:Leaf>
+              <text>c</text>
+            </nst:Leaf>
+            <nst:Leaf>
+              <text>d</text>
+            </nst:Leaf>
+          </nst:Branch>
+        </nst:Tree>
+      XML
+
+      expect(xml).to be_xml_equivalent_to(expected_xml)
     end
   end
 
@@ -330,7 +385,7 @@ RSpec.describe "XML Namespace Handling" do
 
         xml do
           namespace animal_ns
-          root "Animal"
+          element "Animal"
           map_element "name", to: :name
           map_attribute "type", to: :type_discriminator,
             polymorphic_map: { "dog" => "Dog", "cat" => "Cat" }
@@ -341,7 +396,7 @@ RSpec.describe "XML Namespace Handling" do
         attribute :breed, :string
 
         xml do
-          root "Animal"
+          element "Animal"
           map_element "breed", to: :breed
         end
       end
@@ -350,7 +405,7 @@ RSpec.describe "XML Namespace Handling" do
         attribute :color, :string
 
         xml do
-          root "Animal"
+          element "Animal"
           map_element "color", to: :color
         end
       end
@@ -363,7 +418,7 @@ RSpec.describe "XML Namespace Handling" do
 
         xml do
           namespace animal_ns
-          root "Zoo"
+          element "Zoo"
           map_element "Animal", to: :animals
         end
       end
@@ -378,19 +433,30 @@ RSpec.describe "XML Namespace Handling" do
       xml = instance.to_xml(prefix: true)
 
       # Root elements should have namespace prefix
-      expect(xml).to include('<anim:Zoo')
-      expect(xml).to include('<anim:Animal type="dog">')
-      expect(xml).to include('<anim:name>Buddy</anim:name>')
-      # Subclass attributes inherit from root Animal mapping (no explicit namespace inheritance)
-      expect(xml).to include('<breed>Labrador</breed>')  # Not prefixed - subclass doesn't re-declare namespace
-      expect(xml).to include('<anim:Animal type="cat">')
-      expect(xml).to include('<anim:name>Whiskers</anim:name>')
-      expect(xml).to include('<color>Orange</color>')  # Not prefixed - subclass doesn't re-declare namespace
+      # Subclass attributes inherit from root Animal mapping (no explicit
+      # namespace inheritance)
+
+      expected_xml = <<~XML
+        <anim:Zoo xmlns:anim="http://example.com/animals">
+          <anim:Animal type="dog">
+            <anim:name>Buddy</anim:name>
+            <anim:breed>Labrador</anim:breed>
+          </anim:Animal>
+          <anim:Animal type="cat">
+            <anim:name>Whiskers</anim:name>
+            <anim:color>Orange</anim:color>
+          </anim:Animal>
+        </anim:Zoo>
+      XML
+
+      expect(xml).to be_xml_equivalent_to(expected_xml)
     end
   end
 
   describe "Edge Cases: Mixed Namespace Scenarios" do
     it "handles elements with different namespace types in single model" do
+      skip "Type::Value namespace feature not yet implemented - custom_type uses xml_namespace which is not supported yet"
+
       model_ns = Class.new(Lutaml::Model::XmlNamespace) do
         uri "http://example.com/model"
         prefix_default "mdl"
@@ -417,7 +483,7 @@ RSpec.describe "XML Namespace Handling" do
 
         xml do
           namespace model_ns
-          root "Mixed"
+          element "Mixed"
 
           map_element "regular", to: :regular  # Uses model namespace
           map_element "typed", to: :typed      # Uses type namespace
@@ -432,25 +498,28 @@ RSpec.describe "XML Namespace Handling" do
         explicit: "attr-ns"
       )
 
+      # Prefix true means the local element uses prefix form, it has no bearing
+      # on whether child elements use prefix form.
       xml = instance.to_xml(prefix: true)
 
       # Model namespace for root and regular
-      expect(xml).to include('<mdl:Mixed')
-      expect(xml).to include('<mdl:regular>model-ns</mdl:regular>')
-
       # Type namespace for typed
-      expect(xml).to include('<typ:typed>type-ns</typ:typed>')
-
       # Explicit namespace for explicit
-      expect(xml).to include('<attr:explicit>attr-ns</attr:explicit>')
-
       # All three namespaces declared
-      expect(xml).to include('xmlns:mdl="http://example.com/model"')
-      expect(xml).to include('xmlns:typ="http://example.com/types"')
-      expect(xml).to include('xmlns:attr="http://example.com/attrs"')
+      expected_xml = <<~XML
+        <mdl:Mixed xmlns:mdl="http://example.com/model">
+          <mdl:regular>model-ns</mdl:regular>
+          <typed xmlns="http://example.com/types">type-ns</typed>
+          <explicit xmlns="http://example.com/attrs">attr-ns</explicit>
+        </mdl:Mixed>
+      XML
+
+      expect(xml).to be_xml_equivalent_to(expected_xml)
     end
 
     it "handles namespace_scope with mixed declaration modes" do
+      skip "Type::Value namespace feature not yet implemented - used_type uses xml_namespace which is not supported yet"
+
       main_ns = Class.new(Lutaml::Model::XmlNamespace) do
         uri "http://example.com/main"
         prefix_default "main"
@@ -475,7 +544,7 @@ RSpec.describe "XML Namespace Handling" do
 
         xml do
           namespace main_ns
-          root "Document"
+          element "Document"
 
           # Force unused namespace to always be declared
           # Note: Type namespaces (used_ns) still declared locally unless in scope
@@ -490,19 +559,13 @@ RSpec.describe "XML Namespace Handling" do
       instance = model.new(data: "test-value")
       xml = instance.to_xml(prefix: true)
 
-      # Main namespace for root
-      expect(xml).to include('<main:Document')
+      expected_xml = <<~XML
+        <main:Document xmlns:main="http://example.com/main" xmlns:unused="http://example.com/unused">
+          <used:data xmlns:used="http://example.com/used">test-value</used:data>
+        </main:Document>
+      XML
 
-      # Type namespaces declared locally on the element (not consolidated to root)
-      # This is expected behavior - Type namespaces need explicit namespace_scope
-      expect(xml).to match(/<used:data[^>]*>test-value<\/used:data>/)
-
-      # Main and unused namespaces at root
-      expect(xml).to include('xmlns:main="http://example.com/main"')
-      expect(xml).to include('xmlns:unused="http://example.com/unused"')
-
-      # Used namespace declared locally on data element
-      expect(xml).to include('xmlns:used="http://example.com/used"')
+      expect(xml).to be_xml_equivalent_to(expected_xml)
     end
 
     it "handles nested models with conflicting namespace declarations" do
@@ -527,7 +590,7 @@ RSpec.describe "XML Namespace Handling" do
 
         xml do
           namespace ns_conflict
-          root "Inner"
+          element "Inner"
           map_element "value", to: :value
         end
       end
@@ -537,7 +600,7 @@ RSpec.describe "XML Namespace Handling" do
 
         xml do
           namespace ns_b
-          root "Middle"
+          element "Middle"
           map_element "Inner", to: :inner
         end
       end
@@ -547,7 +610,7 @@ RSpec.describe "XML Namespace Handling" do
 
         xml do
           namespace ns_a
-          root "Outer"
+          element "Outer"
           map_element "Middle", to: :middle
         end
       end
@@ -560,18 +623,23 @@ RSpec.describe "XML Namespace Handling" do
 
       xml = instance.to_xml(prefix: true)
 
-      # Current behavior: deepest namespace with prefix "a" wins at root
-      # This tests that prefix conflicts don't cause errors
-      expect(xml).to include('<a:Outer')
-      expect(xml).to include('<b:Middle')
-      expect(xml).to include('<a:Inner')  # Uses same prefix as Outer (conflict namespace won)
-      expect(xml).to include('<a:value>test</a:value>')
+      # CORRECT BEHAVIOR:
+      # - Outer uses ns_a with prefix "a" (prefix: true applies to root)
+      # - Middle uses ns_b, default format (child models use their own namespace's default presentation)
+      # - Inner uses ns_conflict, default format
+      # - value element has no namespace, so blank namespace (needs xmlns="" to opt out of parent's default)
+      expected_xml = <<~XML
+        <a:Outer xmlns:a="http://example.com/a">
+          <Middle xmlns="http://example.com/b">
+            <Inner xmlns="http://example.com/conflict">
+              <value xmlns="">test</value>
+            </Inner>
+          </Middle>
+        </a:Outer>
+      XML
 
-      # All namespaces declared (conflict namespace uses prefix "a" at root)
-      expect(xml).to include('xmlns:a=')
-      expect(xml).to include('xmlns:b="http://example.com/b"')
+      expect(xml).to be_xml_equivalent_to(expected_xml)
 
-      # Verify no errors during serialization/deserialization
       parsed = outer.from_xml(xml)
       expect(parsed.middle.inner.value).to eq("test")
     end

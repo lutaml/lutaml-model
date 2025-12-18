@@ -7,6 +7,11 @@ require "lutaml/model"
 # Related to: https://github.com/lutaml/lutaml-model/issues/XXX
 # NISO-JATS Issue: Entities in mixed content cause text loss
 RSpec.describe "XML Entity Fragmentation Issue #5" do
+  # Ensure adapter is always reset after each example to prevent pollution
+  after(:each) do
+    Lutaml::Model::Config.xml_adapter_type = :nokogiri
+  end
+
   context "single entity with surrounding text" do
     it "preserves text before entity" do
       xml = <<~XML
@@ -121,7 +126,7 @@ RSpec.describe "XML Entity Fragmentation Issue #5" do
         attribute :statement, :string
 
         xml do
-          root "copyright"
+          element "copyright"
           map_element "statement", to: :statement
         end
       end
@@ -201,7 +206,7 @@ RSpec.describe "XML Entity Fragmentation Issue #5" do
       "gt" => ">",
       "quot" => '"',
     }
-    
+
     entities.each do |entity_name, expected_char|
       it "correctly handles &#{entity_name}; entity" do
         xml = "<text>Before &#{entity_name}; After</text>"

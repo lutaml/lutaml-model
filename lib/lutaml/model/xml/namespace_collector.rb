@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "set"
+require_relative "../utils"
 
 module Lutaml
   module Model
@@ -48,7 +49,10 @@ module Lutaml
           needs = {
             namespaces: {},      # String key (from to_key) => { ns_object: XmlNamespace CLASS, used_in: Set[:elements, :attributes], children_use: Set[ChildNS] }
             children: {},        # Child element => child needs
-            type_namespaces: {}, # Attribute name => XmlNamespace CLASS
+            type_namespaces: {}, # Attribute name => XmlNamespace CLASS (element-local only)
+            type_namespace_classes: Set.new, # Set of XmlNamespace CLASSes that are Type namespaces (bubbles up)
+            type_attribute_namespaces: Set.new, # Set of XmlNamespace CLASSes used for XML ATTRIBUTES (must use prefix format)
+            type_element_namespaces: Set.new, # Set of XmlNamespace CLASSes used for XML ELEMENTS (can use default or prefix format)
           }
 
           # Get mapper_class from element or from options (for recursive calls)
@@ -84,11 +88,23 @@ module Lutaml
             # Collect XML attribute namespaces (only for non-type-only models)
             mapping.attributes.each do |attr_rule|
               next unless attr_rule.attribute?
+              next if attr_rule.to.nil?  # Guard against nil attribute mapping
 
               # Skip if we can't resolve attributes
               next unless attributes&.any?
 
               attr_def = attributes[attr_rule.to]
+
+              # INSTANCE-AWARE COLLECTION:
+              # If we have an actual element instance, only collect namespaces
+              # for attributes that are actually set (not nil/uninitialized)
+              # During type analysis (element == nil), collect all potential attributes
+              if element
+                value = element.send(attr_rule.to) if element.respond_to?(attr_rule.to)
+                # Skip unset attributes during instance serialization
+                next if value.nil? || Utils.uninitialized?(value)
+              end
+              # During type analysis, collect all to understand potential namespace needs
 
               # Resolve attribute namespace
               ns_class = nil
@@ -116,6 +132,10 @@ module Lutaml
                   ns_class = type_ns_class
                   # Track that this attribute uses a Type namespace
                   needs[:type_namespaces][attr_rule.to] = type_ns_class
+                  # Also track the class itself so it can bubble up
+                  needs[:type_namespace_classes] << type_ns_class
+                  # CRITICAL: Mark as XML attribute Type namespace (must use prefix format)
+                  needs[:type_attribute_namespaces] << type_ns_class
                 end
               end
 
@@ -173,6 +193,10 @@ module Lutaml
               unless is_model
                 # This is a Value type (String, Integer, custom Type::Value) with namespace
                 needs[:type_namespaces][elem_rule.to] = type_ns_class
+                # Also track the class itself so it can bubble up
+                needs[:type_namespace_classes] << type_ns_class
+                # CRITICAL: Track as element Type namespace (separate from attributes)
+                needs[:type_element_namespaces] << type_ns_class
               end
             end
 
@@ -203,6 +227,8 @@ module Lutaml
                 # Store for serialization to use parent's format
                 # This allows adapter to find parent namespace via type_namespaces lookup
                 needs[:type_namespaces][elem_rule.to] = mapping.namespace_class
+                # Also track as Type namespace class
+                needs[:type_namespace_classes] << mapping.namespace_class
               end
             end
 
@@ -215,9 +241,30 @@ module Lutaml
             child_mapping = child_type.mappings_for(:xml)
             next unless child_mapping
 
-            # Recursively collect child needs, passing mapper_class in options
-            child_options = { mapper_class: child_type }
-            child_needs = collect(nil, child_mapping, **child_options)
+            # CRITICAL FIX: Pass actual child instance when available
+            # This enables instance-aware attribute collection for children too
+            # For collections/arrays, collect from all instances and merge
+            child_instance = if element && element.respond_to?(elem_rule.to)
+                              element.send(elem_rule.to)
+                            end
+
+            # Handle collections and arrays specially
+            if child_instance.is_a?(Array) || child_instance.is_a?(Lutaml::Model::Collection)
+              instances = child_instance.is_a?(Lutaml::Model::Collection) ? child_instance.collection : child_instance
+              # Collect needs from all instances and merge
+              merged_needs = empty_needs
+              instances.each do |item|
+                child_options = { mapper_class: child_type }
+                item_needs = collect(item, child_mapping, **child_options)
+                merge_namespace_needs(merged_needs, item_needs)
+              end
+              child_needs = merged_needs
+            else
+              # Single instance - collect normally
+              child_options = { mapper_class: child_type }
+              child_needs = collect(child_instance, child_mapping, **child_options)
+            end
+
             needs[:children][elem_rule.to] = child_needs
 
             # Bubble up child namespace requirements
@@ -324,6 +371,7 @@ module Lutaml
         # @raise [ArgumentError] if not an XmlNamespace class
         def validate_namespace_class(ns_class)
           return if ns_class.nil?
+          return if ns_class == :blank  # Allow :blank symbol for explicit blank namespace
 
           unless ns_class.is_a?(Class) && ns_class < Lutaml::Model::XmlNamespace
             raise ArgumentError,
@@ -338,16 +386,29 @@ module Lutaml
         # @param ns_class [Class] the XmlNamespace class
         # @param usage [Symbol] :elements or :attributes
         def track_namespace(needs, ns_class, usage)
+          # Skip tracking for :blank namespace (explicit no namespace)
+          return if ns_class == :blank
+
           key = ns_class.to_key
           needs[:namespaces][key] ||= {
             ns_object: ns_class,
             used_in: Set.new,
             children_use: Set.new,
+            children_need_prefix: false,
           }
           needs[:namespaces][key][:used_in] << usage
         end
 
         # Merge child namespace needs into parent needs
+        #
+        # CRITICAL: Do NOT merge used_in from children!
+        # used_in is element-local only (tracks this element's own usage)
+        # children_use tracks that descendants use the namespace
+        #
+        # CASCADING PREFIX REQUIREMENT:
+        # If child uses namespace X in :attributes, parent must provide X with prefix
+        # If child already has children_need_prefix for X, parent must also have it
+        # Track this via children_need_prefix flag
         #
         # @param parent_needs [Hash] the parent needs structure
         # @param child_needs [Hash] the child needs structure
@@ -357,9 +418,39 @@ module Lutaml
               ns_object: ns_data[:ns_object],
               used_in: Set.new,
               children_use: Set.new,
+              children_need_prefix: false,
             }
-            parent_needs[:namespaces][key][:used_in].merge(ns_data[:used_in])
+            # DON'T merge used_in - that's element-local
+            # parent_needs[:namespaces][key][:used_in].merge(ns_data[:used_in])
+
+            # Track that children use this namespace
             parent_needs[:namespaces][key][:children_use] << ns_data[:ns_object]
+
+            # CASCADING PREFIX: If child uses this namespace in attributes OR
+            # if child already needs prefix for its children, cascade upward
+            if ns_data[:used_in]&.include?(:attributes) || ns_data[:children_need_prefix]
+              parent_needs[:namespaces][key][:children_need_prefix] = true
+            end
+          end
+
+          # CRITICAL FIX: Merge Type namespace CLASSES (not attr_name mappings)
+          # This allows DeclarationPlanner to identify which namespaces are Type namespaces
+          # when making hoisting decisions based on namespace_scope
+          if child_needs[:type_namespace_classes]&.any?
+            parent_needs[:type_namespace_classes] ||= Set.new
+            parent_needs[:type_namespace_classes].merge(child_needs[:type_namespace_classes])
+          end
+
+          # Merge Type attribute namespaces (XML attributes that need prefix format)
+          if child_needs[:type_attribute_namespaces]&.any?
+            parent_needs[:type_attribute_namespaces] ||= Set.new
+            parent_needs[:type_attribute_namespaces].merge(child_needs[:type_attribute_namespaces])
+          end
+
+          # Merge Type element namespaces (XML elements that can use default or prefix format)
+          if child_needs[:type_element_namespaces]&.any?
+            parent_needs[:type_element_namespaces] ||= Set.new
+            parent_needs[:type_element_namespaces].merge(child_needs[:type_element_namespaces])
           end
         end
 
@@ -372,6 +463,9 @@ module Lutaml
             children: {},
             namespace_scope_configs: nil,
             type_namespaces: {},
+            type_namespace_classes: Set.new,
+            type_attribute_namespaces: Set.new,
+            type_element_namespaces: Set.new,
           }
         end
       end

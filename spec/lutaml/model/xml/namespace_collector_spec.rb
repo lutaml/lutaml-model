@@ -48,7 +48,7 @@ RSpec.describe Lutaml::Model::Xml::NamespaceCollector do
 
           xml do
             namespace vcard_ns
-            root "vCard"
+            element "vCard"
             map_element "version", to: :version
           end
         end
@@ -87,7 +87,7 @@ RSpec.describe Lutaml::Model::Xml::NamespaceCollector do
 
           xml do
             namespace vcard_ns
-            root "vCard"
+            element "vCard"
             map_element "version", to: :version
             map_attribute "lang", to: :lang, namespace: vcard_ns
           end
@@ -118,7 +118,7 @@ RSpec.describe Lutaml::Model::Xml::NamespaceCollector do
           attribute :custom, custom_t
 
           xml do
-            root "Model"
+            element "Model"
             map_element "custom", to: :custom
           end
         end
@@ -141,7 +141,7 @@ RSpec.describe Lutaml::Model::Xml::NamespaceCollector do
 
           xml do
             namespace dc_ns
-            root "Model"
+            element "Model"
             map_element "custom", to: :custom
           end
         end
@@ -163,7 +163,7 @@ RSpec.describe Lutaml::Model::Xml::NamespaceCollector do
 
           xml do
             namespace vcard_ns
-            root "n"
+            element "n"
             map_element "given", to: :given
             map_element "family", to: :family
           end
@@ -179,7 +179,7 @@ RSpec.describe Lutaml::Model::Xml::NamespaceCollector do
 
           xml do
             namespace vcard_ns
-            root "vCard"
+            element "vCard"
             map_element "version", to: :version
             map_element "n", to: :n
           end
@@ -218,7 +218,7 @@ RSpec.describe Lutaml::Model::Xml::NamespaceCollector do
 
           xml do
             namespace vcard_ns
-            root "vCard"
+            element "vCard"
             namespace_scope [{ namespace: dc_ns, declare: :auto }]
             map_element "version", to: :version
           end
@@ -257,7 +257,9 @@ RSpec.describe Lutaml::Model::Xml::NamespaceCollector do
         # Type-only models don't have root elements, but child elements
         # with native types inherit parent namespace
         expect(needs[:namespaces].keys).to include(vcard_namespace.to_key)
-        expect(needs[:type_namespaces][:value]).to eq(vcard_namespace)
+        # W3C Rule: Compare namespaces by URI, not object identity
+        # NamespaceClassRegistry may canonicalize classes
+        expect(needs[:type_namespaces][:value].to_key).to eq(vcard_namespace.to_key)
       end
 
       it "collects inherited namespaces for native type children" do
@@ -278,7 +280,7 @@ RSpec.describe Lutaml::Model::Xml::NamespaceCollector do
 
           xml do
             namespace vcard_ns
-            root "vCard"
+            element "vCard"
             map_element "title", to: :title, namespace: dc_ns
           end
         end
@@ -317,7 +319,7 @@ RSpec.describe Lutaml::Model::Xml::NamespaceCollector do
         attribute :value, :string
 
         xml do
-          root "item"
+          element "item"
           map_element "value", to: :value
         end
       end
@@ -327,7 +329,7 @@ RSpec.describe Lutaml::Model::Xml::NamespaceCollector do
         instances :items, i_model
 
         xml do
-          root "items"
+          element "items"
           map_element "item", to: :items
         end
       end
@@ -351,7 +353,7 @@ RSpec.describe Lutaml::Model::Xml::NamespaceCollector do
 
           xml do
             namespace vcard_ns
-            root "vCard"
+            element "vCard"
             map_element "version", to: :version
             map_attribute "lang", to: :lang, namespace: vcard_ns
           end
@@ -376,7 +378,7 @@ RSpec.describe Lutaml::Model::Xml::NamespaceCollector do
 
           xml do
             namespace vcard_ns
-            root "vCard"
+            element "vCard"
             map_element "version", to: :version
           end
         end
@@ -398,7 +400,7 @@ RSpec.describe Lutaml::Model::Xml::NamespaceCollector do
           attribute :version, :string
 
           xml do
-            root "vCard"
+            element "vCard"
             map_element "version", to: :version
           end
         end
@@ -423,7 +425,7 @@ RSpec.describe Lutaml::Model::Xml::NamespaceCollector do
 
         xml do
           namespace dc_ns
-          root "name"
+          element "name"
           map_element "title", to: :title
         end
       end
@@ -438,7 +440,7 @@ RSpec.describe Lutaml::Model::Xml::NamespaceCollector do
 
         xml do
           namespace vcard_ns
-          root "contact"
+          element "contact"
           map_element "title", to: :title
           map_element "n", to: :n
         end
@@ -451,8 +453,10 @@ RSpec.describe Lutaml::Model::Xml::NamespaceCollector do
       needs = collector.collect(nil, mapping, mapper_class: contact_model)
       all_ns = collector.all_namespaces(needs)
 
-      expect(all_ns).to include(dc_namespace)
-      expect(all_ns).to include(vcard_namespace)
+      # W3C Rule: Compare namespaces by URI, not object identity
+      # NamespaceClassRegistry may canonicalize classes
+      expect(all_ns.map(&:to_key)).to include(dc_namespace.to_key)
+      expect(all_ns.map(&:to_key)).to include(vcard_namespace.to_key)
     end
 
     it "returns a Set" do
@@ -471,7 +475,7 @@ RSpec.describe Lutaml::Model::Xml::NamespaceCollector do
 
         xml do
           namespace vcard_ns
-          root "vCard"
+          element "vCard"
           map_element "version", to: :version
         end
       end
@@ -505,7 +509,7 @@ RSpec.describe Lutaml::Model::Xml::NamespaceCollector do
 
         xml do
           namespace dc_ns
-          root "name"
+          element "name"
           map_element "title", to: :title
         end
       end
@@ -516,7 +520,7 @@ RSpec.describe Lutaml::Model::Xml::NamespaceCollector do
 
         xml do
           namespace vcard_ns
-          root "parent"
+          element "parent"
           map_element "n", to: :n
         end
       end
@@ -537,6 +541,9 @@ RSpec.describe Lutaml::Model::Xml::NamespaceCollector do
                              namespaces: {},
                              children: {},
                              namespace_scope_configs: nil,
+                             type_attribute_namespaces: Set.new,
+                             type_element_namespaces: Set.new,
+                             type_namespace_classes: Set.new,
                              type_namespaces: {},
                            })
     end

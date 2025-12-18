@@ -7,6 +7,7 @@ RSpec.describe "Type-level namespace integration" do
     Class.new(Lutaml::Model::XmlNamespace) do
       uri "http://schemas.openxmlformats.org/package/2006/metadata/core-properties"
       prefix_default "cp"
+      element_form_default :qualified
     end
   end
 
@@ -14,6 +15,7 @@ RSpec.describe "Type-level namespace integration" do
     Class.new(Lutaml::Model::XmlNamespace) do
       uri "http://purl.org/dc/elements/1.1/"
       prefix_default "dc"
+      element_form_default :qualified
     end
   end
 
@@ -21,6 +23,7 @@ RSpec.describe "Type-level namespace integration" do
     Class.new(Lutaml::Model::XmlNamespace) do
       uri "http://purl.org/dc/terms/"
       prefix_default "dcterms"
+      element_form_default :qualified
     end
   end
 
@@ -28,6 +31,7 @@ RSpec.describe "Type-level namespace integration" do
     Class.new(Lutaml::Model::XmlNamespace) do
       uri "http://www.w3.org/2001/XMLSchema-instance"
       prefix_default "xsi"
+      element_form_default :qualified
     end
   end
 
@@ -44,7 +48,7 @@ RSpec.describe "Type-level namespace integration" do
         attribute :title, dc_title_type
 
         xml do
-          root "document"
+          element "document"
           map_element "title", to: :title
         end
 
@@ -82,7 +86,7 @@ RSpec.describe "Type-level namespace integration" do
         attribute :title, dc_title_type
 
         xml do
-          root "document"
+          element "document"
           # Explicit namespace should override type namespace
           map_element "title", to: :title, namespace: override_ns
         end
@@ -97,7 +101,8 @@ RSpec.describe "Type-level namespace integration" do
 
       # Explicit namespace takes priority
       expect(xml).to include('xmlns:override="http://example.com/override"')
-      expect(xml).to include("<override:title>Test Title</override:title>")
+      expect(xml).to include("<override:title")
+      expect(xml).to include(">Test Title</override:title>")
       expect(xml).not_to include("dc:title")
     end
   end
@@ -116,7 +121,7 @@ RSpec.describe "Type-level namespace integration" do
         attribute :schema_type, xsi_type_type
 
         xml do
-          root "document"
+          element "document"
           map_attribute "name", to: :name
           map_attribute "type", to: :schema_type
         end
@@ -148,7 +153,7 @@ RSpec.describe "Type-level namespace integration" do
         attribute :title, :string
 
         xml do
-          root "document"
+          element "document"
           map_attribute "id", to: :id
           map_attribute "title", to: :title
         end
@@ -194,7 +199,7 @@ RSpec.describe "Type-level namespace integration" do
         attribute :revision, cp_revision_type
 
         xml do
-          root "coreProperties"
+          element "coreProperties"
           namespace cp_uri, "cp"
           map_element "title", to: :title
           map_element "creator", to: :creator
@@ -244,7 +249,7 @@ RSpec.describe "Type-level namespace integration" do
         attribute :special_field, special_type
 
         xml do
-          root "document"
+          element "document"
           map_element "special_field", to: :special_field
         end
 
@@ -275,7 +280,7 @@ RSpec.describe "Type-level namespace integration" do
         attribute :title, dc_title_type
 
         xml do
-          root "document"
+          element "document"
           map_element "title", to: :title
         end
 

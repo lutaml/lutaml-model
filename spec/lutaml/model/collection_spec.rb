@@ -6,7 +6,7 @@ module CollectionTests
     attribute :material, Lutaml::Model::Type::String
 
     xml do
-      root "pot"
+      element "pot"
       map_element "material", to: :material
     end
   end
@@ -25,7 +25,7 @@ module CollectionTests
                                                      }
 
     xml do
-      root "kiln"
+      element "kiln"
       map_attribute "brand", to: :brand
       map_element "pot", to: :pots
       map_element "temperature", to: :temperatures
@@ -40,7 +40,7 @@ module CollectionTests
     attribute :address, Address
 
     xml do
-      root "address"
+      element "address"
       map_element "street", to: :street
       map_element "city", with: { from: :city_from_xml, to: :city_to_xml }
       map_element "address", to: :address
@@ -85,7 +85,7 @@ module PolymorphicCollectionTests
     attribute :name, :string
 
     xml do
-      root "animal"
+      element "animal"
       map_attribute "type", to: :type
       map_element "name", to: :name
     end
@@ -482,7 +482,7 @@ RSpec.describe Lutaml::Model::Collection do
         sort by: :name, order: :asc
 
         xml do
-          root "people"
+          element "people"
           map_element "person", to: :items
         end
       end

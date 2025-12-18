@@ -25,6 +25,9 @@ prefix) is used, as long as the namespace URI matches.
 This W3C-compliant behavior ensures maximum interoperability when consuming XML
 from different sources.
 
+The namespace URI determines identity, not the prefix.
+
+
 ==== Supported prefix formats
 
 When a model is defined with a namespace, it will successfully parse XML using
@@ -42,6 +45,11 @@ Prefixed namespace with ANY arbitrary prefix::
 All three formats are semantically identical according to W3C XML Namespaces
 specification.
 
+When there is no default namespace declared, unprefixed elements are treated as
+having the "blank" namespace, i.e. `xmlns=""`. It is possible to force elements
+to have a blank namespace using `#to_xml(prefix: "")` or `#to_xml(prefix: nil)`.
+
+
 .Parsing XML with different prefix formats
 [example]
 ====
@@ -56,7 +64,7 @@ class Ceramic < Lutaml::Model::Serializable
   attribute :type, :string
 
   xml do
-    root 'Ceramic'
+    element 'Ceramic'
     namespace CeramicNamespace
     map_element 'Type', to: :type
   end
@@ -98,7 +106,7 @@ class Glaze < Lutaml::Model::Serializable
   attribute :color, :string
 
   xml do
-    root 'Glaze'
+    element 'Glaze'
     namespace GlazeNamespace
     map_element 'Color', to: :color
   end
@@ -109,7 +117,7 @@ class Ceramic < Lutaml::Model::Serializable
   attribute :glaze, Glaze
 
   xml do
-    root 'Ceramic'
+    element 'Ceramic'
     namespace CeramicNamespace
     map_element 'Type', to: :type
     map_element 'Glaze', to: :glaze
@@ -157,7 +165,7 @@ class Ceramic < Lutaml::Model::Serializable
   attribute :color, ColorType
 
   xml do
-    root 'Ceramic'
+    element 'Ceramic'
     namespace CeramicNamespace
     map_element 'Type', to: :type
     map_element 'Color', to: :color
@@ -221,7 +229,7 @@ class MixedModel < Lutaml::Model::Serializable
   attribute :note, :string
 
   xml do
-    root "Ceramic"
+    element "Ceramic"
     namespace CeramicNamespace  # Has namespace
     map_element "Type", to: :type
     map_element "Note", to: :note, namespace: nil  # Explicitly NO namespace
@@ -260,12 +268,220 @@ inheritance.
 **Parsing support**: All three adapters (Nokogiri, Ox, Oga) correctly handle both patterns.
 ====
 
+[[explicit-blank-namespace]]
+==== Explicit blank namespace (`namespace :blank`)
+
+When you need to explicitly specify that an element should have NO namespace
+and prevent any namespace inheritance, use `namespace: :blank` in the mapping.
+
+This is a more explicit alternative to `namespace: nil` that clearly indicates
+"blank namespace" intent in your code.
+
+.Mapping elements with explicit blank namespace
+[example]
+====
+[source,ruby]
+----
+class MixedModel < Lutaml::Model::Serializable
+  attribute :type, :string
+  attribute :note, :string
+
+  xml do
+    element "Ceramic"
+    namespace CeramicNamespace  # Has namespace
+    map_element "Type", to: :type
+    map_element "Note", to: :note, namespace: :blank  # Explicitly NO namespace
+  end
+end
+----
+
+**When parent uses prefixed namespace** (recommended):
+
+Unprefixed child elements naturally have no namespace:
+
+[source,xml]
+----
+<cer:Ceramic xmlns:cer="http://example.com/ceramic">
+  <cer:Type>Porcelain</cer:Type>
+  <Note>This element has no namespace</Note>
+</cer:Ceramic>
+----
+
+**When parent uses default namespace**:
+
+Must use `xmlns=""` to explicitly remove the namespace:
+
+[source,xml]
+----
+<Ceramic xmlns="http://example.com/ceramic">
+  <Type>Porcelain</Type>
+  <Note xmlns="">This element has no namespace</Note>
+</Ceramic>
+----
+
+Per W3C XML Namespace specification, unprefixed elements normally inherit their
+parent's default namespace. The `xmlns=""` declaration explicitly removes that
+inheritance.
+
+NOTE: Both `namespace: nil` and `namespace: :blank` produce the same output.
+Use `:blank` for clearer intent in code.
+====
+
+[[namespace-priority-system]]
+==== Namespace assignment priority
+
+Namespace resolution follows a strict priority system when multiple namespace
+sources are available:
+
+.Namespace priority (highest to lowest)
+[cols="1,3,2"]
+|===
+| Priority | Source | Example
+
+| 1 (HIGHEST)
+| Explicit mapping level
+| `map_element "name", to: :attr, namespace: SomeNamespace`
+
+| 2
+| Type level
+| `attribute :attr, CustomType` where `CustomType` has `xml_namespace`
+
+| 3 (LOWEST)
+| Context level (schema defaults)
+| `element_form_default: :qualified` in parent namespace
+|===
+
+.Priority in action
+[example]
+====
+[source,ruby]
+----
+class ItemNamespace < Lutaml::Model::XmlNamespace
+  uri "http://example.com/items"
+  prefix_default "item"
+  element_form_default :qualified
+end
+
+class PriceType < Lutaml::Model::Type::String
+  xml_namespace PriceNamespace  # Type-level namespace
+end
+
+class Product < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :price, PriceType
+  attribute :note, :string
+
+  xml do
+    element "product"
+    namespace ItemNamespace
+    
+    # Priority 1: Explicit mapping namespace (highest)
+    map_element "name", to: :name, namespace: :blank
+    
+    # Priority 2: Type-level namespace
+    map_element "price", to: :price
+    
+    # Priority 3: Context from schema (qualified by default)
+    map_element "note", to: :note
+  end
+end
+----
+
+Result with `prefix: true`:
+
+[source,xml]
+----
+<item:product xmlns:item="http://example.com/items"
+              xmlns:price="http://example.com/prices">
+  <name>Widget</name>                    <!-- Priority 1: explicit :blank -->
+  <price:price>19.99</price:price>       <!-- Priority 2: type namespace -->
+  <item:note>Description</item:note>     <!-- Priority 3: schema qualified -->
+</item:product>
+----
+====
+
 ==== Implementation note
 
 This prefix-independent behavior is achieved through namespace URI matching
 during XML parsing. The implementation compares namespace URIs (not prefix
 strings) when matching elements to model attributes, ensuring W3C compliance and
 maximum interoperability.
+
+=== W3C Standard Namespaces
+
+==== The xml Namespace
+
+The `xml` namespace (`http://www.w3.org/XML/1998/namespace`) has special status in W3C XML specifications:
+
+* The prefix `xml` is **reserved and implicitly bound** to this URI
+* **MUST NOT** be declared with `xmlns:xml="..."`
+* Always available for xml:lang, xml:space, xml:base, xml:id attributes
+
+Lutaml::Model correctly handles this W3C requirement - the xml namespace is never declared in serialized XML.
+
+.Using W3C xml namespace attributes
+[example]
+====
+[source,ruby]
+----
+class XmlNamespace < Lutaml::Model::XmlNamespace
+  uri "http://www.w3.org/XML/1998/namespace"
+  prefix_default "xml"
+end
+
+class XmlLangType < Lutaml::Model::Type::String
+  xml_namespace XmlNamespace
+end
+
+class XmlSpaceType < Lutaml::Model::Type::String
+  xml_namespace XmlNamespace
+end
+
+class Document < Lutaml::Model::Serializable
+  attribute :lang, XmlLangType
+  attribute :space, XmlSpaceType
+  attribute :content, :string
+
+  xml do
+    root "doc"
+    map_attribute "lang", to: :lang
+    map_attribute "space", to: :space
+    map_content to: :content
+  end
+end
+
+doc = Document.new(lang: "en", space: "preserve", content: "  Text  ")
+puts doc.to_xml
+----
+
+Output:
+
+[source,xml]
+----
+<doc xml:lang="en" xml:space="preserve">  Text  </doc>
+----
+
+NOTE: No `xmlns:xml` declaration appears - the xml namespace is implicitly bound per W3C specification.
+====
+
+.Common xml namespace attributes
+[cols="1,3"]
+|===
+| Attribute | Purpose
+
+| `xml:lang`
+| Specifies the natural language of content (RFC 5646 language tags)
+
+| `xml:space`
+| Controls whitespace handling (`default` or `preserve`)
+
+| `xml:id`
+| Provides unique identifiers (W3C XML ID)
+
+| `xml:base`
+| Sets base URI for relative URI resolution
+
+|===
 
 === XML namespace
 
@@ -278,6 +494,93 @@ XML namespace class.
 The `XmlNamespace` class provides a declarative way to define XML namespace
 metadata following W3C XML Namespace and XSD specifications.
 
+
+==== W3C XML namespace types
+
+Lutaml::Model provides pre-defined type classes for W3C xml namespace attributes with built-in validation and serialization support.
+
+.Available W3C XML attribute types
+[cols="1,2,2"]
+|===
+| Type Class | Purpose | Validation
+
+| `Lutaml::Model::Xml::W3c::XmlLangType`
+| Language identification (RFC 5646)
+| Accepts any valid language tag
+
+| `Lutaml::Model::Xml::W3c::XmlSpaceType`
+| Whitespace handling control
+| Only "default" or "preserve"
+
+| `Lutaml::Model::Xml::W3c::XmlBaseType`
+| Base URI for relative references
+| Accepts any valid URI string
+
+| `Lutaml::Model::Xml::W3c::XmlIdType`
+| Unique identifier (XML ID type)
+| Must be valid NCName
+|===
+
+.Using W3C XML attribute types with validation
+[example]
+====
+[source,ruby]
+----
+class Article < Lutaml::Model::Serializable
+  attribute :lang, Lutaml::Model::Xml::W3c::XmlLangType
+  attribute :space, Lutaml::Model::Xml::W3c::XmlSpaceType
+  attribute :id, Lutaml::Model::Xml::W3c::XmlIdType
+  attribute :base, Lutaml::Model::Xml::W3c::XmlBaseType
+  attribute :title, :string
+  attribute :content, :string
+
+  xml do
+    root "article"
+    map_attribute "lang", to: :lang
+    map_attribute "space", to: :space
+    map_attribute "id", to: :id
+    map_attribute "base", to: :base
+    map_element "title", to: :title
+    map_content to: :content
+  end
+end
+
+# Valid usage
+article = Article.new(
+  lang: "en-US",
+  space: "preserve",
+  id: "article1",
+  base: "http://example.com/",
+  title: "Title",
+  content: "  Content with spaces  "
+)
+
+puts article.to_xml
+----
+
+Output:
+
+[source,xml]
+----
+<article xml:lang="en-US" xml:space="preserve" xml:id="article1" xml:base="http://example.com/">
+  <title>Title</title>
+  Content with spaces
+</article>
+----
+
+Invalid usage raises errors:
+
+[source,ruby]
+----
+# Invalid xml:space value
+Article.new(space: "compact")
+# => ArgumentError: xml:space must be 'default' or 'preserve'
+
+# All W3C xml attributes serialize with xml: prefix
+# No xmlns:xml declaration is ever generated
+----
+====
+
 This enables automatic namespace qualification of elements and attributes based
 on their type, following W3C XML Namespace specifications.
 
@@ -288,6 +591,158 @@ This approach centralizes namespace configuration and enables:
 * Control over element and attribute qualification
 * Documentation and versioning of schemas
 * Schema imports and includes
+
+According to the W3C XML Namespace specification, unprefixed elements and
+attributes are handled differently:
+
+* unprefixed elements are considered to be in the default namespace (the
+declared default namespace of the parent, or the blank namespace if none is
+declared)
+
+* unprefixed attributes are considered to be in the blank namespace unless
+explicitly declared with a prefix.
+
+Lutaml Models and Value types can each be specified to belong to an XML
+namespace via their respective namespace methods (model: `namespace` method in
+the `xml` block, value: `xml_namespace` method in the class). These models and
+types will always serialize their elements and attributes qualified with their
+namespace, either as the default namespace or with a prefix.
+
+For models (i.e. serialized into XSD Types) and value types, the
+`element_form_default` and `attribute_form_default` settings in the
+`XmlNamespace` class are used to control the qualification of them within the
+parent.
+
+For example:
+
+.Unqualified elements and attributes by default
+====
+[source,ruby]
+----
+class MyNamespace < Lutaml::Model::XmlNamespace
+  uri 'http://example.com/myns'
+  prefix_default 'myns'
+  element_form_default :qualified
+  attribute_form_default :unqualified
+end
+
+class MyModel < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :age, :integer
+
+  xml do
+    element 'MyType'
+    namespace MyNamespace
+    map_element 'name', to: :name
+    map_attribute 'age', to: :age
+  end
+end
+
+my_model = MyModel.new(name: "Example", age: 30)
+
+puts my_model.to_xml # defaults to using default prefix
+#=>
+  <MyType xmlns:hello="http://example.com/myns" age="30">
+    <name>Example</name>
+  </MyType>
+# Note: No prefix on elements (W3C Namespace standard says unprefixed elements
+# are in default namespace), no prefix on attribute (W3C Namespace standard says
+# unprefixed attributes are in blank namespace)
+
+puts my_model.to_xml(prefix: "hello") # Force custom prefix usage
+#=>
+  <hello:MyType xmlns:hello="http://example.com/myns" age="30">
+    <hello:name>Example</hello:name>
+  </hello:MyType>
+# Note: Prefix on elements (qualified), no prefix on attribute (unqualified)
+----
+====
+
+.Qualified attributes force prefixes
+====
+[source,ruby]
+----
+class MyNamespace < Lutaml::Model::XmlNamespace
+  uri 'http://example.com/myns'
+  prefix_default 'myns'
+  element_form_default :qualified
+  attribute_form_default :qualified
+end
+
+class MyModel < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :age, :integer
+
+  xml do
+    element 'MyType'
+    namespace MyNamespace
+    map_element 'name', to: :name
+    map_attribute 'age', to: :age
+  end
+end
+
+my_model = MyModel.new(name: "Example", age: 30)
+puts my_model.to_xml # defaults to using default prefix, prefix is forced
+# because attribute_form_default is :qualified, an attribute MUST be prefixed
+# to indicate its namespace, hence the parent element must provide a prefixed
+# namespace.
+#=>
+  <myns:MyType xmlns:myns="http://example.com/myns" myns:age="30">
+    <myns:name>Example</myns:name>
+  </myns:MyType>
+----
+
+Remember it is only the no-namespace model attributes that are affected by these
+settings of `element_form_default` and `attribute_form_default`. If an
+attribute or element is mapped to a type that belongs to a namespace, it will be
+qualified according to that namespace's rules.
+====
+
+
+.Different element and attribute namespaces
+====
+[source,ruby]
+----
+class ElementNamespace < Lutaml::Model::XmlNamespace
+  uri 'http://example.com/elementns'
+  prefix_default 'elns'
+end
+
+class AttributeNamespace < Lutaml::Model::XmlNamespace
+  uri 'http://example.com/attributens'
+  prefix_default 'atns'
+end
+
+class AttributeValue < Lutaml::Model::Type::String
+  xml_namespace AttributeNamespace
+end
+
+class MyModel < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :type, AttributeValue
+
+  xml do
+    element 'MyType'
+    namespace ElementNamespace
+    map_element 'name', to: :name
+    map_attribute 'type', to: :type
+  end
+end
+
+my_model = MyModel.new(name: "Example", type: "Special")
+puts my_model.to_xml # element uses element namespace (which defaults to the
+# default namespace), attribute uses attribute namespace, forcing a prefixed
+# namespace
+#=>
+  <MyType xmlns="http://example.com/elementns"
+          xmlns:atns="http://example.com/attributens"
+          atns:type="Special">
+    <name>Example</name>
+  </MyType>
+----
+====
+
+
 
 ==== Creating namespace classes
 
@@ -395,6 +850,7 @@ end
 ====
 
 ===== `element_form_default`
+
 
 Controls whether locally declared elements must be namespace-qualified by
 default.
@@ -631,13 +1087,13 @@ puts person.to_xml
 ====
 
 [[root-namespace]]
-==== Namespace assignment to element or type (`namespace` method)
+==== Namespace identity of element or type (`namespace` method)
 
 [[xml-namespace-declaration]]
 ===== Declaration of namespace
 
-The `namespace` method in the `xml` block sets the namespace for the element
-or type.
+The `namespace` method in the `xml` block indicates that the element or type
+belongs to the specified XML namespace.
 
 Syntax:
 
@@ -651,23 +1107,8 @@ xml do
 end
 ----
 
-.(DEPRECATED) Setting default namespace at the root element
-[source,ruby]
-----
-xml do
-  namespace 'http://example.com/namespace'
-end
-----
 
-.(DEPRECATED) Setting a prefixed namespace at the root element
-[source,ruby]
-----
-xml do
-  namespace 'http://example.com/namespace', 'prefix'
-end
-----
-
-.Using the `namespace` method to set the namespace for the root element
+.Using the `namespace` method to set namespace for an element
 [example]
 ====
 [source,ruby]
@@ -682,7 +1123,7 @@ class Ceramic < Lutaml::Model::Serializable
   attribute :glaze, :string
 
   xml do
-    root 'Ceramic'
+    element 'Ceramic'
     namespace CeramicXmlNamespace
     map_element 'Type', to: :type
     map_element 'Glaze', to: :glaze
@@ -722,6 +1163,17 @@ Use the `#to_xml` `prefix: true` option to force the defined prefix:
   #  <cer:Glaze>Clear</cer:Glaze>
   #</cer:Ceramic>
 ----
+
+Use the `#to_xml` `prefix: "custom"` option to forces a custom prefix:
+
+[source,ruby]
+----
+> Ceramic.new(type: "Porcelain", glaze: "Clear").to_xml(prefix: "custom")
+> #<custom:Ceramic xmlns:custom="http://example.com/ceramic">
+  #  <custom:Type>Porcelain</custom:Type>
+  #  <custom:Glaze>Clear</custom:Glaze>
+  #</custom:Ceramic>
+----
 ====
 
 
@@ -756,7 +1208,7 @@ class Properties < Lutaml::Model::Serializable
   attribute :template, :string
 
   xml do
-    root "Properties"
+    element "Properties"
     namespace AppNamespace
 
     # Force vt namespace to be declared even if unused
@@ -845,15 +1297,21 @@ ShortPerson.new.to_xml
 [[namespace-scope]]
 ==== Namespace scope consolidation (`namespace_scope` method)
 
+NOTE: For detailed information on xmlns declaration strategies and the
+minimal-subtree principle, see
+link:xml-namespace-declarations.adoc[XML Namespace Declarations Guide].
+
 ===== General
 
-The `namespace_scope` directive controls where namespace declarations appear in
-serialized XML. By default, namespaces are declared on the elements where they
+The `namespace_scope` directive controls where namespace declarations
+*are eligible to* appear in serialized XML.
+
+By default, namespaces are declared on the elements where they
 are used. With `namespace_scope`, you can consolidate multiple namespace
 declarations at a parent element for cleaner, more compact XML.
 
-The `namespace_scope` directive now supports a `declare:` option to control
-whether unused namespaces are included in the output.
+The `namespace_scope` directive supports a `declare:` option to force unused
+namespaces to be included in the output.
 
 Syntax:
 
@@ -862,12 +1320,18 @@ Syntax:
 xml do
   namespace RootNamespace
   namespace_scope [Namespace1, Namespace2, Namespace3]  # <1>
+  # is identical to:
+  # namespace_scope [
+  #   { namespace: Namespace1, declare: :auto },
+  #   { namespace: Namespace2, declare: :auto },
+  #   { namespace: Namespace3, declare: :auto }
+  # ]
 
   # Per-namespace control with hash format
   namespace_scope [  # <2>
     { namespace: Namespace1, declare: :always },
     { namespace: Namespace2, declare: :auto },
-    Namespace3  # Can mix hash and class
+    # Namespace3  # CANNOT mix hash and class
   ]
 end
 ----
@@ -882,8 +1346,8 @@ mode.
 
 `declare:`:: Controls when namespace is declared:
 
-`:auto`::: (default) Declare only if namespace is actually used in elements/attributes
-`:always`::: Always declare namespace, even if unused in elements/attributes
+`:auto`::: (default) Declare only if namespace is actually used in child elements/attributes (or the element itself)
+`:always`::: Always declare namespace, even if unused in child elements/attributes or the element itself
 `:never`::: Never declare (error if used)
 
 ===== Basic namespace consolidation
@@ -922,7 +1386,7 @@ class Vcard < Lutaml::Model::Serializable
   attribute :created, DctermsCreatedType
 
   xml do
-    root "vCard"
+    element "vCard"
     namespace VcardNamespace
     namespace_scope [VcardNamespace, DcNamespace, DctermsNamespace]  # <1>
 
@@ -986,7 +1450,7 @@ class Properties < Lutaml::Model::Serializable
   attribute :template, :string
 
   xml do
-    root "Properties"
+    element "Properties"
     namespace AppNamespace
 
     # Force vt namespace declaration even though unused
@@ -1044,7 +1508,7 @@ class CoreProperties < Lutaml::Model::Serializable
   attribute :title, :string
 
   xml do
-    root "coreProperties"
+    element "coreProperties"
     namespace CorePropertiesNamespace
 
     # Per-namespace declaration control
@@ -1351,7 +1815,7 @@ class KilnCollection < Lutaml::Model::Serializable
   attribute :kiln, Kiln, collection: 1..2
 
   xml do
-    root "collection"
+    element "collection"
     map_element "kiln", to: :kiln
   end
 end
@@ -1463,7 +1927,7 @@ class Ceramic < Lutaml::Model::Serializable
   attribute :color, :string
 
   xml do
-    root 'Ceramic'
+    element 'Ceramic'
     namespace 'http://example.com/ceramic', 'cera'
     map_element 'Type', to: :type, namespace: :inherit
     map_element 'Glaze', to: :glaze
@@ -1525,3 +1989,21 @@ HERE
 NOTE: For details on `xsi:schemaLocation`, please refer to the
 https://www.w3.org/TR/xmlschema-1/#xsi_schemaLocation[W3C XML standard].
 
+
+== Deprecated ways of working with namespaces
+
+.(DEPRECATED) Setting default namespace at the root element
+[source,ruby]
+----
+xml do
+  namespace 'http://example.com/namespace'
+end
+----
+
+.(DEPRECATED) Setting a prefixed namespace at the root element
+[source,ruby]
+----
+xml do
+  namespace 'http://example.com/namespace', 'prefix'
+end
+----

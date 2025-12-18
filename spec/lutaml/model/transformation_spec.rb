@@ -35,7 +35,7 @@ module TransformationSpec
     end
 
     xml do
-      root "person"
+      element "person"
       map_element "full-name", to: :name, transform: {
         export: ->(value) { "Dr. #{value}" },
       }
@@ -77,7 +77,7 @@ module TransformationSpec
     end
 
     xml do
-      root "person"
+      element "person"
       map_element "full-name", to: :name, transform: {
         export: ->(value) { "Prof. #{value}" },
         import: ->(value) { value.gsub("Prof. ", "") },
@@ -104,7 +104,7 @@ module TransformationSpec
     end
 
     xml do
-      root "RoundTripTransformations"
+      element "RoundTripTransformations"
 
       map_element "number", to: :number, transform: {
         import: ->(value) { ((value.to_f * 10) + 1).to_s },
@@ -285,7 +285,7 @@ module TransformationSpec
       map "tags", to: :tags
     end
     xml do
-      root "StringTransformModel"
+      element "StringTransformModel"
       map_element "name", to: :name
       map_element "email", to: :email
       map_element "tags", to: :tags
@@ -340,7 +340,7 @@ module TransformationSpec
       map "title", to: :title, transform: SuffixTransformer
     end
     xml do
-      root "CombinedTransformModel"
+      element "CombinedTransformModel"
       map_element "title", to: :title, transform: SuffixTransformer
     end
   end
@@ -513,7 +513,7 @@ RSpec.describe "Value Transformations" do
 
     it "correctly round trips JSON" do
       parsed = TransformationSpec::RoundTripTransformations.from_json(json)
-      expect(parsed.to_json).to be_xml_equivalent_to(json)
+      expect(JSON.parse(parsed.to_json)).to eq(JSON.parse(json))
     end
   end
 

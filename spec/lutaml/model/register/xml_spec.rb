@@ -12,7 +12,7 @@ module RegisterXmlSpec
     attribute :value, :string
 
     xml do
-      root "mi"
+      element "mi"
       namespace MathMlNamespace
 
       map_content to: :value
@@ -24,7 +24,7 @@ module RegisterXmlSpec
     attribute :value, :string
 
     xml do
-      root "mo"
+      element "mo"
       namespace MathMlNamespace
 
       map_content to: :value
@@ -37,7 +37,7 @@ module RegisterXmlSpec
     attribute :denominator, :mi
 
     xml do
-      root "mfrac"
+      element "mfrac"
       namespace MathMlNamespace
 
       map_element "mo", to: :numerator
@@ -52,7 +52,7 @@ module RegisterXmlSpec
     attribute :fraction, :mfrac
 
     xml do
-      root "math"
+      element "math"
       namespace MathMlNamespace
 
       map_element "mi", to: :symbol
@@ -66,7 +66,7 @@ module RegisterXmlSpec
     attribute :color, :string
 
     xml do
-      root "mi"
+      element "mi"
       namespace MathMlNamespace
 
       map_content to: :value

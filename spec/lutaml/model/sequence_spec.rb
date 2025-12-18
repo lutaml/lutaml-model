@@ -17,7 +17,7 @@ module SequenceSpec
     attribute :temperature, :string
 
     xml do
-      root "Ceramic"
+      element "Ceramic"
       map_element :tag, to: :tag
 
       sequence do
@@ -46,7 +46,7 @@ module SequenceSpec
     attribute :ceramic, Ceramic, collection: 1..2
 
     xml do
-      root "collection"
+      element "collection"
 
       map_element "ceramic", to: :ceramic
     end
@@ -107,7 +107,7 @@ module SequenceSpec
     end
 
     xml do
-      root "mstyle"
+      element "mstyle"
 
       sequence do
         map_element :mi, to: :mi
@@ -125,7 +125,7 @@ module SequenceSpec
     end
 
     xml do
-      root "mstyle"
+      element "mstyle"
 
       sequence do
         map_element :mrow, to: :mrow
@@ -147,7 +147,7 @@ module SequenceSpec
     attribute :ms, :string, collection: true
 
     xml do
-      root "math"
+      element "math"
 
       sequence do
         map_element :mstyle, to: :mstyle

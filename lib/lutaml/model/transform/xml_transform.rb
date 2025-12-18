@@ -127,7 +127,14 @@ module Lutaml
         attribute_names = rule_names.filter_map do |rn|
           if rn.include?("://")
             # This is a URI:name format, need to find the actual prefix used in the document
-            uri, local_name = rn.split(":", 2)
+            # CRITICAL FIX: Split on LAST colon to handle URIs with colons (http://...)
+            # "http://www.w3.org/XML/1998/namespace:lang" should split into:
+            #   uri = "http://www.w3.org/XML/1998/namespace"
+            #   local_name = "lang"
+            last_colon_index = rn.rindex(":")
+            uri = rn[0...last_colon_index]
+            local_name = rn[(last_colon_index + 1)..-1]
+            
             # Get all matching attributes by URI and local name
             doc.root.attributes.values.find do |attr|
               attr.namespace == uri && attr.unprefixed_name == local_name

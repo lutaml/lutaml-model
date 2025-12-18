@@ -41,7 +41,7 @@ RSpec.describe "XML Namespace Prefix-Independent Parsing" do
             attribute :temperature, :integer
 
             xml do
-              root "Ceramic"
+              element "Ceramic"
               namespace ns
               map_element "Type", to: :type
               map_element "Temperature", to: :temperature
@@ -143,7 +143,7 @@ RSpec.describe "XML Namespace Prefix-Independent Parsing" do
             attribute :finish, :string
 
             xml do
-              root "Glaze"
+              element "Glaze"
               namespace ns
               map_element "Color", to: :color
               map_element "Finish", to: :finish
@@ -159,7 +159,7 @@ RSpec.describe "XML Namespace Prefix-Independent Parsing" do
             attribute :glaze, glaze
 
             xml do
-              root "Ceramic"
+              element "Ceramic"
               namespace ns
               map_element "Type", to: :type
               map_element "Glaze", to: :glaze
@@ -247,7 +247,7 @@ RSpec.describe "XML Namespace Prefix-Independent Parsing" do
             attribute :color, color
 
             xml do
-              root "Ceramic"
+              element "Ceramic"
               namespace ns
               map_element "Type", to: :type
               map_element "Color", to: :color
@@ -297,7 +297,7 @@ RSpec.describe "XML Namespace Prefix-Independent Parsing" do
             attribute :items, :string, collection: true
 
             xml do
-              root "Ceramics"
+              element "Ceramics"
               namespace ns
               map_element "Item", to: :items
             end
@@ -347,7 +347,7 @@ RSpec.describe "XML Namespace Prefix-Independent Parsing" do
             attribute :description, :string
 
             xml do
-              root "Parent"
+              element "Parent"
               namespace ns
               map_element "Name", to: :name
               map_element "Description", to: :description, namespace: :inherit
@@ -415,7 +415,7 @@ RSpec.describe "XML Namespace Prefix-Independent Parsing" do
             attribute :note, :string
 
             xml do
-              root "Ceramic"
+              element "Ceramic"
               namespace ns
               map_element "Type", to: :type
               map_element "Note", to: :note, namespace: nil
@@ -465,7 +465,7 @@ RSpec.describe "XML Namespace Prefix-Independent Parsing" do
             attribute :type, :string
 
             xml do
-              root "Ceramic"
+              element "Ceramic"
               namespace ns
               map_element "Type", to: :type
             end

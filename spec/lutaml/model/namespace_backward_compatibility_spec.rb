@@ -9,7 +9,7 @@ RSpec.describe "Namespace Backward Compatibility" do
           attribute :name, :string
 
           xml do
-            root "test"
+            element "test"
             namespace "http://example.com/test", "ex"
             map_element "name", to: :name
           end
@@ -21,7 +21,7 @@ RSpec.describe "Namespace Backward Compatibility" do
           attribute :name, :string
 
           xml do
-            root "test"
+            element "test"
             namespace TestNamespace
             map_element "name", to: :name
           end
@@ -54,7 +54,7 @@ RSpec.describe "Namespace Backward Compatibility" do
           attribute :content, :string
 
           xml do
-            root "element"
+            element "element"
             namespace "http://example.com/default"
             map_element "content", to: :content
           end
@@ -64,6 +64,7 @@ RSpec.describe "Namespace Backward Compatibility" do
       let(:default_namespace_class) do
         Class.new(Lutaml::Model::XmlNamespace) do
           uri "http://example.com/default"
+          element_form_default :qualified
         end
       end
 
@@ -73,7 +74,7 @@ RSpec.describe "Namespace Backward Compatibility" do
           attribute :content, :string
 
           xml do
-            root "element"
+            element "element"
             namespace ns_class
             map_element "content", to: :content
           end
@@ -97,7 +98,7 @@ RSpec.describe "Namespace Backward Compatibility" do
           attribute :value, :string
 
           xml do
-            root "data"
+            element "data"
             namespace "http://example.com/data", nil
             map_element "value", to: :value
           end
@@ -107,6 +108,7 @@ RSpec.describe "Namespace Backward Compatibility" do
       let(:data_namespace_class) do
         Class.new(Lutaml::Model::XmlNamespace) do
           uri "http://example.com/data"
+          element_form_default :qualified
         end
       end
 
@@ -116,7 +118,7 @@ RSpec.describe "Namespace Backward Compatibility" do
           attribute :value, :string
 
           xml do
-            root "data"
+            element "data"
             namespace ns_class, nil
             map_element "value", to: :value
           end
@@ -143,12 +145,11 @@ RSpec.describe "Namespace Backward Compatibility" do
           attribute :description, :string
 
           xml do
-            root "item"
+            element "item"
             namespace "http://example.com/main", "main"
             map_element "title", to: :title
             map_element "desc", to: :description,
-                                namespace: "http://example.com/desc",
-                                prefix: "desc"
+                                namespace: "http://example.com/desc"
           end
         end
       end
@@ -157,6 +158,7 @@ RSpec.describe "Namespace Backward Compatibility" do
         Class.new(Lutaml::Model::XmlNamespace) do
           uri "http://example.com/main"
           prefix_default "main"
+          element_form_default :qualified
         end
       end
 
@@ -164,6 +166,7 @@ RSpec.describe "Namespace Backward Compatibility" do
         Class.new(Lutaml::Model::XmlNamespace) do
           uri "http://example.com/desc"
           prefix_default "desc"
+          element_form_default :qualified
         end
       end
 
@@ -175,7 +178,7 @@ RSpec.describe "Namespace Backward Compatibility" do
           attribute :description, :string
 
           xml do
-            root "item"
+            element "item"
             namespace main_ns
             map_element "title", to: :title
             map_element "desc", to: :description, namespace: desc_ns
@@ -207,11 +210,10 @@ RSpec.describe "Namespace Backward Compatibility" do
           attribute :type, :string
 
           xml do
-            root "element"
+            element "element"
             map_attribute "id", to: :id
             map_attribute "type", to: :type,
-                                  namespace: "http://www.w3.org/2001/XMLSchema-instance",
-                                  prefix: "xsi"
+                                  namespace: "http://www.w3.org/2001/XMLSchema-instance"
           end
         end
       end
@@ -220,6 +222,7 @@ RSpec.describe "Namespace Backward Compatibility" do
         Class.new(Lutaml::Model::XmlNamespace) do
           uri "http://www.w3.org/2001/XMLSchema-instance"
           prefix_default "xsi"
+          element_form_default :qualified
         end
       end
 
@@ -230,7 +233,7 @@ RSpec.describe "Namespace Backward Compatibility" do
           attribute :type, :string
 
           xml do
-            root "element"
+            element "element"
             map_attribute "id", to: :id
             map_attribute "type", to: :type, namespace: xsi_ns
           end
@@ -253,6 +256,7 @@ RSpec.describe "Namespace Backward Compatibility" do
         Class.new(Lutaml::Model::XmlNamespace) do
           uri "http://example.com/parent"
           prefix_default "p"
+          element_form_default :qualified
         end
       end
 
@@ -262,12 +266,11 @@ RSpec.describe "Namespace Backward Compatibility" do
           attribute :no_namespace_child, :string
 
           xml do
-            root "parent"
+            element "parent"
             namespace "http://example.com/parent", "p"
             map_element "withNs", to: :namespaced_child
             map_element "noNs", to: :no_namespace_child,
-                                namespace: nil,
-                                prefix: nil
+                                namespace: nil
           end
         end
       end
@@ -279,12 +282,11 @@ RSpec.describe "Namespace Backward Compatibility" do
           attribute :no_namespace_child, :string
 
           xml do
-            root "parent"
+            element "parent"
             namespace parent_ns
             map_element "withNs", to: :namespaced_child
             map_element "noNs", to: :no_namespace_child,
-                                namespace: nil,
-                                prefix: nil
+                                namespace: nil
           end
         end
       end

@@ -76,6 +76,11 @@ module Lutaml
           attr_value = instance.public_send(mapping.to)
           return if attr_value.nil? || attr_value.empty?
 
+          # Handle custom Collection classes - extract the actual items array
+          if attr_value.is_a?(Lutaml::Model::Collection)
+            attr_value = attr_value.collection
+          end
+
           attr_value = [attr_value] unless attr_value.is_a?(Array)
           attr_value.map { |v| v.public_send(:"to_#{format}", options) }
         end

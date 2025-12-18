@@ -16,7 +16,7 @@ class CustomSerialization < Lutaml::Model::Serializable
   end
 
   xml do
-    root "CustomSerialization"
+    element "CustomSerialization"
 
     # name, color are used to test XML elements with custom methods
     map_element "Name", with: { to: :name_to_xml, from: :name_from_xml }
@@ -108,7 +108,7 @@ class GrammarInfo < Lutaml::Model::Serializable
   end
 
   xml do
-    root "GrammarInfo"
+    element "GrammarInfo"
     map_element :part_of_speech,
                 with: { to: :part_of_speech_to_xml,
                         from: :part_of_speech_from_xml }
@@ -191,13 +191,7 @@ RSpec.describe CustomSerialization do
 
   context "with XML serialization" do
     it "serializes to XML with custom methods" do
-      expected_xml = <<~XML
-        <CustomSerialization Size="15">
-          <Name>XML Masterpiece: Vase</Name>
-          <Color>BLUE</Color>
-          XML Description: A beautiful ceramic vase
-        </CustomSerialization>
-      XML
+      expected_xml = '<CustomSerialization Size="15"><Name>XML Masterpiece: Vase</Name><Color>BLUE</Color>XML Description: A beautiful ceramic vase</CustomSerialization>'
 
       expect(model.to_xml).to be_xml_equivalent_to(expected_xml)
     end

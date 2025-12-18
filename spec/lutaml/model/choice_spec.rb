@@ -88,7 +88,7 @@ module ChoiceSpec
     import_model_attributes ContactAttributes
 
     xml do
-      root "Person"
+      element "Person"
 
       import_model_mappings ContactAttributes
     end

@@ -26,6 +26,7 @@ require_relative "model/hash"
 require_relative "model/xml"
 require_relative "model/store"
 require_relative "model/type/reference"
+require_relative "model/schema"
 
 module Lutaml
   module Model

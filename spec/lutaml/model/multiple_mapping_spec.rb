@@ -1,5 +1,7 @@
 require "spec_helper"
 require "lutaml/model"
+require "lutaml/model/xml/nokogiri_adapter"
+require "lutaml/model/xml/ox_adapter"
 
 module MultipleMapping
   class Product < Lutaml::Model::Serializable
@@ -25,7 +27,7 @@ module MultipleMapping
     end
 
     xml do
-      root "product"
+      element "product"
       map_element ["name", "product-name"], to: :name
       map_element ["localized-name", "localized_name"], to: :localized_name
       map_element ["desc", "description"], to: :description
@@ -53,7 +55,7 @@ module MultipleMapping
     end
 
     xml do
-      root "CustomModel"
+      element "CustomModel"
       map_attribute ["id", "identifier"],
                     with: { to: :id_to_xml, from: :id_from_xml }
       map_element ["name", "custom-name"],

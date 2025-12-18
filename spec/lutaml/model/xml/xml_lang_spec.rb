@@ -7,6 +7,12 @@ module XmlLangSpec
     prefix_default "xml"
   end
 
+  class ExNamespace < Lutaml::Model::XmlNamespace
+    uri "http://example.com/ns"
+    prefix_default "ex"
+    attribute_form_default :qualified  # Attributes should be prefixed
+  end
+
   class XmlLang < Lutaml::Model::Type::String
     xml_namespace XmlNamespace
   end
@@ -16,7 +22,7 @@ module XmlLangSpec
     attribute :lang, XmlLang
 
     xml do
-      root "doc"
+      element "doc"
       map_element "content", to: :content
       map_attribute "lang", to: :lang
     end
@@ -37,7 +43,7 @@ module XmlLangSpec
     attribute :content, :string
 
     xml do
-      root "element"
+      element "element"
       map_attribute "lang", to: :lang
       map_attribute "space", to: :space
       map_attribute "id", to: :id
@@ -50,7 +56,7 @@ module XmlLangSpec
     attribute :text, :string
 
     xml do
-      root "p"
+      element "p"
       map_attribute "lang", to: :lang
       map_content to: :text
     end
@@ -62,16 +68,11 @@ module XmlLangSpec
     attribute :paragraph, NestedParagraphModel
 
     xml do
-      root "article"
+      element "article"
       map_attribute "lang", to: :lang
       map_element "title", to: :title
       map_element "p", to: :paragraph
     end
-  end
-
-  class ExNamespace < Lutaml::Model::XmlNamespace
-    uri "http://example.com/ns"
-    prefix_default "ex"
   end
 
   class ExCustomAttr < Lutaml::Model::Type::String
@@ -84,8 +85,8 @@ module XmlLangSpec
     attribute :content, :string
 
     xml do
-      root "doc"
-      namespace "http://example.com/ns", "ex"
+      element "doc"
+      namespace ExNamespace
       map_attribute "lang", to: :lang
       map_attribute "attr", to: :custom_attr
       map_content to: :content
@@ -98,7 +99,7 @@ module XmlLangSpec
     attribute :text, :string
 
     xml do
-      root "section"
+      element "section"
       map_attribute "lang", to: :lang
       map_element "title", to: :title
       map_element "text", to: :text
@@ -110,7 +111,7 @@ module XmlLangSpec
     attribute :sections, InheritanceSectionModel, collection: true
 
     xml do
-      root "document"
+      element "document"
       map_attribute "lang", to: :lang
       map_element "section", to: :sections
     end
@@ -121,7 +122,7 @@ module XmlLangSpec
     attribute :content, :string
 
     xml do
-      root "doc"
+      element "doc"
       map_attribute "lang", to: :lang
       map_content to: :content
     end
@@ -132,7 +133,7 @@ module XmlLangSpec
     attribute :name, :string
 
     xml do
-      root "item"
+      element "item"
       map_attribute "lang", to: :lang
       map_element "name", to: :name
     end
@@ -142,7 +143,7 @@ module XmlLangSpec
     attribute :items, CollectionItemModel, collection: true
 
     xml do
-      root "items"
+      element "items"
       map_element "item", to: :items
     end
   end

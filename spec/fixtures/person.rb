@@ -11,17 +11,17 @@ class Person < Lutaml::Model::Serializable
   attribute :active, Lutaml::Model::Type::Boolean
 
   xml do
-    root "Person"
-    namespace "http://example.com/person", "p"
+    element "Person"
+    namespace PersonNamespace
 
     map_element "FirstName",
                 to: :first_name,
-                namespace: "http://example.com/nsp1",
-                prefix: "nsp1", render_empty: :omit
+                namespace: Nsp1Namespace,
+                render_empty: :omit
     map_element "LastName",
                 to: :last_name,
-                namespace: "http://example.com/nsp1",
-                prefix: "nsp1", render_empty: :as_blank
+                namespace: Nsp1Namespace,
+                render_empty: :as_blank
     map_element "Age", to: :age
     map_element "Height", to: :height
     map_element "Birthdate", to: :birthdate

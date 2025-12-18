@@ -106,24 +106,26 @@ RSpec.describe "Except" do
       end
 
       let(:xml_without_annotations) do
+        # W3C-compliant: Use DEFAULT namespace format
         <<~XML
-          <xsd:schema id="testing" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
-            <xsd:attribute id="attr1" name="test"/>
-            <xsd:attributeGroup id="attr2">
-              <xsd:attribute id="nested_attr" name="nested"/>
-            </xsd:attributeGroup>
-          </xsd:schema>
+          <schema xmlns="http://www.w3.org/2001/XMLSchema" id="testing">
+            <attribute id="attr1" name="test"/>
+            <attributeGroup id="attr2">
+              <attribute id="nested_attr" name="nested"/>
+            </attributeGroup>
+          </schema>
         XML
       end
 
       let(:xml_without_annotations_and_ids) do
+        # W3C-compliant: Use DEFAULT namespace format
         <<~XML
-          <xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema">
-            <xsd:attribute name="test"/>
-            <xsd:attributeGroup>
-              <xsd:attribute name="nested"/>
-            </xsd:attributeGroup>
-          </xsd:schema>
+          <schema xmlns="http://www.w3.org/2001/XMLSchema">
+            <attribute name="test"/>
+            <attributeGroup>
+              <attribute name="nested"/>
+            </attributeGroup>
+          </schema>
         XML
       end
 
@@ -194,12 +196,14 @@ RSpec.describe "Except" do
 
       it "excludes 'annotation' keys from the YAML output" do
         parsed_yaml = parsed_instances.to_yaml(except: %i[annotation])
-        expect(parsed_yaml).to be_xml_equivalent_to(yaml_without_annotations)
+        # Compare YAML strings, not XML
+        expect(parsed_yaml).to eq(yaml_without_annotations)
       end
 
       it "excludes 'annotation' and 'id' from the YAML output" do
         parsed_yaml = parsed_instances.to_yaml(except: %i[annotation id])
-        expect(parsed_yaml).to be_xml_equivalent_to(yaml_without_annotations_and_ids)
+        # Compare YAML strings, not XML
+        expect(parsed_yaml).to eq(yaml_without_annotations_and_ids)
       end
     end
   end

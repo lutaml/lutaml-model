@@ -1,4 +1,5 @@
 require_relative "../mapping/mapping_rule"
+require "uri"
 
 module Lutaml
   module Model
@@ -28,11 +29,9 @@ module Lutaml
           with: {},
           delegate: nil,
           namespace: nil,
-          prefix: nil,
           mixed_content: false,
           cdata: false,
           namespace_set: false,
-          prefix_set: false,
           attribute: false,
           default_namespace: nil,
           polymorphic: {},
@@ -66,16 +65,15 @@ module Lutaml
           @namespace_param = namespace
 
           # Normalize namespace to XmlNamespace class
-          @namespace_class = normalize_namespace(namespace, prefix)
-          @namespace = @namespace_class&.uri
-          @prefix = @namespace_class&.prefix_default || prefix&.to_s
+          @namespace_class = normalize_namespace(namespace)
+          @namespace = @namespace_class == :blank ? nil : @namespace_class&.uri
+          @prefix = @namespace_class == :blank ? nil : @namespace_class&.prefix_default
           @mixed_content = mixed_content
           @cdata = cdata
 
           @default_namespace = default_namespace
 
           @namespace_set = namespace_set
-          @prefix_set = prefix_set
           @as_list = as_list
           @delimiter = delimiter
           @form = validate_form(form)
@@ -84,10 +82,6 @@ module Lutaml
 
         def namespace_set?
           !!@namespace_set
-        end
-
-        def prefix_set?
-          !!@prefix_set
         end
 
         def content_mapping?
@@ -190,10 +184,6 @@ module Lutaml
                        @namespace_param&.dup
                      end
 
-          # Only pass prefix separately if namespace_param is not a Class
-          # (Classes may have prefix_default, so don't override it)
-          prefix_param = @namespace_param.is_a?(Class) ? nil : prefix&.dup
-
           self.class.new(
             name.dup,
             to: to,
@@ -202,11 +192,9 @@ module Lutaml
             with: Utils.deep_dup(custom_methods),
             delegate: delegate,
             namespace: ns_param,
-            prefix: prefix_param,
             mixed_content: mixed_content,
             cdata: cdata,
             namespace_set: namespace_set?,
-            prefix_set: prefix_set?,
             attribute: attribute,
             polymorphic: polymorphic.dup,
             default_namespace: default_namespace&.dup,
@@ -261,42 +249,81 @@ module Lutaml
         # Normalize namespace parameter to XmlNamespace class
         #
         # Converts various namespace formats to a consistent XmlNamespace class:
-        # - XmlNamespace class: returned as-is
-        # - String URI: converted to anonymous XmlNamespace class
+        # - XmlNamespace class: registered in registry and returned
+        # - String URI: NO LONGER SUPPORTED - must use XmlNamespace class
         # - :inherit symbol: returns nil (handled specially in resolution)
         # - nil: returns nil
         #
-        # @param namespace [Class, String, Symbol, nil] the namespace parameter
-        # @param prefix [String, Symbol, nil] optional prefix for string URIs
+        # @param namespace [Class, Symbol, nil] the namespace parameter
         # @return [Class, nil] XmlNamespace class or nil
-        def normalize_namespace(namespace, prefix)
-          return nil if namespace.nil? && prefix.nil?
-          return nil if namespace.to_s == "inherit"
+        def normalize_namespace(namespace)
+          return nil if namespace.nil?
+          return :blank if namespace == :blank  # Store :blank symbol
+          return nil if namespace.to_s == "inherit"  # :inherit handled in resolution
 
-          # Already an XmlNamespace class
+          # Named XmlNamespace class - register and return
           if namespace.is_a?(Class) && namespace < Lutaml::Model::XmlNamespace
-            return namespace
+            return NamespaceClassRegistry.instance.register_named(namespace)
           end
 
-          # String URI - create anonymous XmlNamespace class
+          # String URI - NO LONGER SUPPORTED
+          # Kept for backward compatibility during migration only
           if namespace.is_a?(String)
-            uri_val = namespace
-            prefix_val = prefix&.to_s
-            return Class.new(Lutaml::Model::XmlNamespace) do
-              uri uri_val
-              prefix_default prefix_val if prefix_val
-            end
-          end
+            warn "[DEPRECATED] String namespace URIs are no longer supported. " \
+                 "Define an XmlNamespace class instead. " \
+                 "URI: #{namespace}"
 
-          # Only prefix provided (e.g., xml:lang case)
-          if !prefix.nil?
-            prefix_val = prefix.to_s
-            return Class.new(Lutaml::Model::XmlNamespace) do
-              prefix_default prefix_val
-            end
+            # Auto-generate prefix from last URI segment for backward compatibility
+            auto_prefix = extract_prefix_from_uri(namespace)
+
+            return NamespaceClassRegistry.instance.get_or_create(
+              uri: namespace,
+              prefix: auto_prefix,
+              element_form_default: :qualified,
+              attribute_form_default: :unqualified
+            )
           end
 
           nil
+        end
+
+        # Well-known namespace URIs with standard prefixes
+        WELL_KNOWN_NAMESPACES = {
+          "http://www.w3.org/2001/XMLSchema-instance" => "xsi",
+          "http://www.w3.org/2001/XMLSchema" => "xsd",
+          "http://www.w3.org/1999/xhtml" => "html",
+          "http://www.w3.org/XML/1998/namespace" => "xml",
+        }.freeze
+
+        # Extract prefix from URI for backward compatibility
+        # Uses last segment of path, first 3 chars (or full if <= 4 chars)
+        def extract_prefix_from_uri(uri_string)
+          return nil if uri_string.nil? || uri_string.empty?
+
+          # Check for well-known namespaces first
+          return WELL_KNOWN_NAMESPACES[uri_string] if WELL_KNOWN_NAMESPACES.key?(uri_string)
+
+          # Parse URI and get last path segment
+          uri = URI.parse(uri_string)
+          path_segments = uri.path.split('/').reject(&:empty?)
+
+          if path_segments.empty?
+            # Use last part of host if no path
+            host_parts = (uri.host || '').split('.')
+            segment = host_parts.first || 'ns'
+          else
+            segment = path_segments.last
+          end
+
+          # If segment contains hyphen, use first part
+          segment = segment.split('-').first if segment.include?('-')
+
+          # Clean up segment and lowercase
+          clean_segment = segment.gsub(/[^a-zA-Z0-9]/, '').downcase
+          return 'ns' if clean_segment.empty?
+
+          # Use full segment if 4 chars or less, otherwise first 3 chars
+          clean_segment.length <= 4 ? clean_segment : clean_segment[0, 3]
         end
 
         # Resolve namespace for XML attributes (W3C compliant)
@@ -304,7 +331,7 @@ module Lutaml
         # Priority:
         # 1. Explicit namespace in mapping (highest)
         # 2. Type-level namespace
-        # 3. Schema-level attributeFormDefault :qualified (NEW)
+        # 3. Schema-level attributeFormDefault :qualified
         # 4. NO NAMESPACE (W3C default - unprefixed attributes never inherit)
         #
         # @param attr [Attribute] the attribute
@@ -313,14 +340,37 @@ module Lutaml
         # @param form_default [Symbol] :qualified or :unqualified from schema
         # @return [Hash] namespace info
         def resolve_attribute_namespace(attr, register, parent_ns_class = nil, form_default = :unqualified)
+          # 0. HIGHEST: Explicit namespace: :blank
+          if @namespace_param == :blank
+            return {
+              uri: nil,
+              prefix: nil,
+              ns_class: nil,
+              explicit_blank: true
+            }
+          end
+
           # 1. Explicit mapping namespace
           if namespace_set? && @namespace_class
             return build_namespace_result_from_class(@namespace_class)
           end
 
+          # 1.5. Form attribute override (overrides type namespace and schema defaults)
+          if form == :unqualified
+            return { uri: nil, prefix: nil, ns_class: nil }
+          elsif form == :qualified && parent_ns_class
+            return build_namespace_result_from_class(parent_ns_class)
+          end
+
           # 2. Type-level namespace
           if attr && (type_ns_class = attr.type_namespace_class(register))
-            return build_namespace_result_from_class(type_ns_class)
+            result = build_namespace_result_from_class(type_ns_class)
+            # CRITICAL W3C FLAG: Mark when attribute is in same namespace as parent with :unqualified
+            # Serialization code will check this to omit prefix per attributeFormDefault
+            if type_ns_class.uri == parent_ns_class&.uri && form_default == :unqualified
+              result[:unqualified_same_ns] = true
+            end
+            return result
           end
 
           # 3. Schema-level attributeFormDefault :qualified
@@ -357,13 +407,23 @@ module Lutaml
         def resolve_element_namespace(attr, register, parent_ns_uri,
                                      parent_ns_class, form_default, use_prefix = nil,
                                      parent_prefix = nil)
-          # 0. FIRST: Check for explicit namespace: nil
+          # 0. HIGHEST: Explicit namespace: :blank
+          if @namespace_param == :blank
+            return {
+              uri: nil,
+              prefix: nil,
+              ns_class: nil,
+              explicit_blank: true  # Flag for xmlns="" generation
+            }
+          end
+
+          # 1. FIRST: Check for explicit namespace: nil
           # This takes precedence over EVERYTHING - even type namespace
           if namespace_set? && @namespace.nil? && @namespace_param.nil?
             return { uri: nil, prefix: nil, ns_class: nil }
           end
 
-          # 1. Explicit namespace: :inherit - Use parent namespace BEFORE checking type
+          # 2. Explicit namespace: :inherit - Use parent namespace BEFORE checking type
           # This overrides any type-level namespace
           if @namespace_param == :inherit && parent_ns_uri
             effective_prefix = if parent_ns_class
@@ -374,12 +434,12 @@ module Lutaml
             return build_namespace_result(parent_ns_uri, effective_prefix)
           end
 
-          # 2. Explicit mapping namespace (namespace: SomeNamespace)
+          # 3. Explicit mapping namespace (namespace: SomeNamespace)
           if namespace_set? && @namespace_class
             return build_namespace_result_from_class(@namespace_class)
           end
 
-          # 3. Type-level namespace
+          # 4. Type-level namespace
           if attr && (type_ns_class = attr.type_namespace_class(register))
             # Check if Type namespace matches parent default namespace
             # If so, use parent's namespace with parent's actual prefix
@@ -395,7 +455,7 @@ module Lutaml
             return build_namespace_result_from_class(type_ns_class)
           end
 
-          # 4. Schema-level qualification rules
+          # 5. Schema-level qualification rules
           #
           # At this point:
           # - No explicit namespace options (nil or :inherit)
@@ -410,7 +470,9 @@ module Lutaml
 
           # B. Explicit form: :qualified OR schema default qualified
           # These elements inherit parent namespace
-          will_inherit_from_schema = qualified? || (form_default == :qualified)
+          # BUT don't inherit if namespace explicitly set to :blank
+          will_inherit_from_schema = qualified? ||
+            (form_default == :qualified && @namespace_param != :blank)
           if will_inherit_from_schema && parent_ns_uri
             # Format matching: use parent's format (prefix or default)
             # - If parent_prefix exists: parent is using prefix format, match it
@@ -424,7 +486,7 @@ module Lutaml
             return build_namespace_result(parent_ns_uri, effective_prefix)
           end
 
-          # 5. No namespace (unqualified default)
+          # 6. No namespace (unqualified default)
           # Default W3C behavior: elements are unqualified unless schema says otherwise
           { uri: nil, prefix: nil, ns_class: nil }
         end

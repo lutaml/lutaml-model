@@ -20,7 +20,7 @@ RSpec.describe "Type Namespace Prefix Issue #6" do
         attribute :math_content, MathMLType
 
         xml do
-          root "article"
+          element "article"
           map_element "math", to: :math_content
         end
       end
@@ -28,7 +28,7 @@ RSpec.describe "Type Namespace Prefix Issue #6" do
       # Create instance and serialize
       instance = test_class.new(math_content: "<apply><plus/></apply>")
       xml_output = instance.to_xml
-      
+
       # The element should have the mml prefix from the type's namespace
       expect(xml_output).to include("<mml:math>")
       expect(xml_output).to include("</mml:math>")
@@ -44,10 +44,10 @@ RSpec.describe "Type Namespace Prefix Issue #6" do
 
       # Parse
       doc = Lutaml::Model::Xml::NokogiriAdapter.parse(xml_input)
-      
+
       # Re-serialize
       output = doc.to_xml
-      
+
       # Verify prefix is preserved
       expect(output).to include('<mml:math>')
       expect(output).to include('</mml:math>')
@@ -71,7 +71,7 @@ RSpec.describe "Type Namespace Prefix Issue #6" do
         attribute :special_content, SpecialType
 
         xml do
-          root "inner"
+          element "inner"
           namespace SpecialNamespace
           map_element "content", to: :special_content
         end
@@ -81,7 +81,7 @@ RSpec.describe "Type Namespace Prefix Issue #6" do
         attribute :inner, inner_class
 
         xml do
-          root "outer"
+          element "outer"
           map_element "inner", to: :inner
         end
       end
@@ -89,13 +89,15 @@ RSpec.describe "Type Namespace Prefix Issue #6" do
       instance = outer_class.new(
         inner: inner_class.new(special_content: "test")
       )
-      
+
       xml_output = instance.to_xml
-      
-      # Both inner element and its content should have spec prefix
-      expect(xml_output).to include("<spec:inner>")
-      expect(xml_output).to include("</spec:inner>")
-      expect(xml_output).to include('xmlns:spec="http://example.com/special"')
+
+      # W3C-compliant: inner element uses DEFAULT namespace format
+      # (semantically equivalent to prefix format)
+      # Expected: <inner xmlns="http://example.com/special">
+      # Namespace declared locally since not in parent scope
+      expect(xml_output).to include('<inner xmlns="http://example.com/special"')
+      expect(xml_output).to include("</inner>")
     end
   end
 
@@ -105,7 +107,7 @@ RSpec.describe "Type Namespace Prefix Issue #6" do
         attribute :math_items, MathMLType, collection: true
 
         xml do
-          root "article"
+          element "article"
           map_element "math", to: :math_items
         end
       end
@@ -113,9 +115,9 @@ RSpec.describe "Type Namespace Prefix Issue #6" do
       instance = test_class.new(
         math_items: ["<expr>x+y</expr>", "<expr>a*b</expr>"]
       )
-      
+
       xml_output = instance.to_xml
-      
+
       # All math elements should have mml prefix
       expect(xml_output.scan(/<mml:math>/).count).to eq(2)
       expect(xml_output.scan(/<\/mml:math>/).count).to eq(2)
@@ -128,7 +130,7 @@ RSpec.describe "Type Namespace Prefix Issue #6" do
       xml_input = <<~XML
         <article xmlns:mml="http://www.w3.org/1998/Math/MathML">
           <body>
-            <p>The equation 
+            <p>The equation
               <mml:math>
                 <mml:mrow>
                   <mml:mi>E</mml:mi>
@@ -148,7 +150,7 @@ RSpec.describe "Type Namespace Prefix Issue #6" do
 
       doc = Lutaml::Model::Xml::NokogiriAdapter.parse(xml_input)
       output = doc.to_xml
-      
+
       # Verify all MathML elements retain their prefix
       expect(output).to include('<mml:math>')
       expect(output).to include('<mml:mrow>')
@@ -156,7 +158,7 @@ RSpec.describe "Type Namespace Prefix Issue #6" do
       expect(output).to include('<mml:mo>')
       expect(output).to include('<mml:msup>')
       expect(output).to include('<mml:mn>')
-      
+
       # Verify namespace declaration is present
       expect(output).to include('xmlns:mml="http://www.w3.org/1998/Math/MathML"')
     end
@@ -179,7 +181,7 @@ RSpec.describe "Type Namespace Prefix Issue #6" do
         attribute :text, :string
 
         xml do
-          root "link"
+          element "link"
           map_attribute "href", to: :href
           map_content to: :text
         end
@@ -187,7 +189,7 @@ RSpec.describe "Type Namespace Prefix Issue #6" do
 
       instance = test_class.new(href: "http://example.com", text: "Click here")
       xml_output = instance.to_xml
-      
+
       # xlink:href attribute should have prefix
       expect(xml_output).to include('xlink:href="http://example.com"')
       expect(xml_output).to include('xmlns:xlink="http://www.w3.org/1999/xlink"')
@@ -200,7 +202,7 @@ RSpec.describe "Type Namespace Prefix Issue #6" do
         attribute :math, MathMLType
 
         xml do
-          root "doc"
+          element "doc"
           map_element "math", to: :math
         end
       end
@@ -208,11 +210,11 @@ RSpec.describe "Type Namespace Prefix Issue #6" do
       mapping = test_class.mappings_for(:xml)
       collector = Lutaml::Model::Xml::NamespaceCollector.new
       needs = collector.collect(nil, mapping, mapper_class: test_class)
-      
+
       # Verify type namespace is captured
       expect(needs[:type_namespaces]).to include(:math)
       expect(needs[:type_namespaces][:math]).to eq(MathMLNamespace)
-      
+
       # Verify it's in the namespaces collection
       key = MathMLNamespace.to_key
       expect(needs[:namespaces]).to have_key(key)
@@ -226,7 +228,7 @@ RSpec.describe "Type Namespace Prefix Issue #6" do
         attribute :math, MathMLType
 
         xml do
-          root "doc"
+          element "doc"
           map_element "math", to: :math
         end
       end
@@ -234,19 +236,19 @@ RSpec.describe "Type Namespace Prefix Issue #6" do
       mapping = test_class.mappings_for(:xml)
       collector = Lutaml::Model::Xml::NamespaceCollector.new
       needs = collector.collect(nil, mapping, mapper_class: test_class)
-      
+
       planner = Lutaml::Model::Xml::DeclarationPlanner.new
       plan = planner.plan(nil, mapping, needs, options: { mapper_class: test_class })
-      
+
       # Verify type namespace is in plan
-      expect(plan[:type_namespaces]).to include(:math)
-      expect(plan[:type_namespaces][:math]).to eq(MathMLNamespace)
-      
-      # Verify namespace is in main plan with prefix format
+      expect(plan.type_namespaces).to include(:math)
+      expect(plan.type_namespaces[:math]).to eq(MathMLNamespace)
+
+      # Verify namespace is in main plan and hoisted to root
       key = MathMLNamespace.to_key
-      expect(plan[:namespaces]).to have_key(key)
-      expect(plan[:namespaces][key][:format]).to eq(:prefix)
-      expect(plan[:namespaces][key][:ns_object]).to eq(MathMLNamespace)
+      expect(plan.namespaces).to have_key(key)
+      expect(plan.namespaces[key].declared_at).to eq(:here)
+      expect(plan.namespaces[key].ns_object).to eq(MathMLNamespace)
     end
   end
 
@@ -262,7 +264,7 @@ RSpec.describe "Type Namespace Prefix Issue #6" do
         attribute :content, MathMLType
 
         xml do
-          root "doc"
+          element "doc"
           # Explicit namespace override
           map_element "content", to: :content, namespace: DefaultNamespace
         end
@@ -270,10 +272,11 @@ RSpec.describe "Type Namespace Prefix Issue #6" do
 
       instance = test_class.new(content: "test")
       xml_output = instance.to_xml
-      
+
       # Should use explicit namespace, not type namespace
       expect(xml_output).to include('xmlns:def="http://example.com/default"')
-      expect(xml_output).to include("<def:content>")
+      expect(xml_output).to include("<def:content")
+      expect(xml_output).to include(">test</def:content>")
     end
 
     it "handles type without namespace (regular type)" do
@@ -281,14 +284,14 @@ RSpec.describe "Type Namespace Prefix Issue #6" do
         attribute :simple, :string
 
         xml do
-          root "doc"
+          element "doc"
           map_element "simple", to: :simple
         end
       end
 
       instance = test_class.new(simple: "text")
       xml_output = instance.to_xml
-      
+
       # Should not have any namespace prefix
       expect(xml_output).to include("<simple>")
       expect(xml_output).not_to include(":")
@@ -312,7 +315,7 @@ RSpec.describe "Type Namespace Prefix Issue #6" do
         attribute :graphic, SVGType
 
         xml do
-          root "article"
+          element "article"
           map_element "math", to: :math
           map_element "graphic", to: :graphic
         end
@@ -322,9 +325,9 @@ RSpec.describe "Type Namespace Prefix Issue #6" do
         math: "<expr>x+y</expr>",
         graphic: "<circle/>"
       )
-      
+
       xml_output = instance.to_xml
-      
+
       # Both namespaces should be declared and used
       expect(xml_output).to include('xmlns:mml="http://www.w3.org/1998/Math/MathML"')
       expect(xml_output).to include('xmlns:svg="http://www.w3.org/2000/svg"')

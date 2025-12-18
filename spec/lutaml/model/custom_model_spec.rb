@@ -22,7 +22,7 @@ class Mi < Lutaml::Model::Serializable
   attribute :value, :string
 
   xml do
-    root "mi"
+    element "mi"
 
     map_content to: :value
   end
@@ -34,7 +34,7 @@ class Mstyle < Lutaml::Model::Serializable
   attribute :value, Mi, collection: true
 
   xml do
-    root "mstyle"
+    element "mstyle"
 
     map_element :mi, to: :value
   end
@@ -46,7 +46,7 @@ class MmlMath < Lutaml::Model::Serializable
   attribute :value, Mstyle, collection: true
 
   xml do
-    root "math"
+    element "math"
 
     map_element :mstyle, to: :value
   end
@@ -109,7 +109,7 @@ module CustomModelSpecs
     attribute :text, :string
 
     xml do
-      root "text-element"
+      element "text-element"
 
       map_content to: :text
 
@@ -195,7 +195,7 @@ module CustomModelSpecs
     attribute :prefix, :string
 
     xml do
-      root "custom-id"
+      element "custom-id"
       map_attribute "prefix", to: :prefix
       map_content with: { to: :id_to_xml, from: :id_from_xml }
     end

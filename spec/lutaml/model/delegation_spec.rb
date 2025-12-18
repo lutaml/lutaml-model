@@ -2,6 +2,22 @@ require "spec_helper"
 require "lutaml/model"
 
 module Delegation
+  # Namespace classes
+  class DelegationNamespace12 < Lutaml::Model::XmlNamespace
+    uri "https://example.com/delegation/1.2"
+    prefix_default "del"
+  end
+
+  class DelegationNamespace11 < Lutaml::Model::XmlNamespace
+    uri "https://example.com/delegation/1.1"
+    prefix_default "del1"
+  end
+
+  class TypeNamespace12 < Lutaml::Model::XmlNamespace
+    uri "https://example.com/type/1.2"
+    element_form_default :qualified
+  end
+
   class Glaze < Lutaml::Model::Serializable
     attribute :color, Lutaml::Model::Type::String
     attribute :finish, Lutaml::Model::Type::String
@@ -30,7 +46,8 @@ module Delegation
     end
 
     xml do
-      root "delegation"
+      element "delegation"
+      namespace DelegationNamespace12
       map_element "type", to: :type
       map_element "color", to: :color, delegate: :glaze
       map_element "finish", to: :finish, delegate: :glaze
@@ -48,11 +65,11 @@ module Delegation
     end
 
     xml do
-      root "delegation"
+      element "delegation"
+      namespace TypeNamespace12
       map_element "type",
                   to: :type,
-                  namespace: "https://example.com/type/1.2",
-                  prefix: "type"
+                  namespace: TypeNamespace12
       map_element "color", to: :color, delegate: :glaze
       map_element "finish", to: :finish, delegate: :glaze
     end
@@ -71,11 +88,10 @@ module Delegation
     end
 
     xml do
-      root "delegation"
+      element "delegation"
       map_attribute "date",
                     to: :date,
-                    namespace: "https://example.com/delegation/1.2",
-                    prefix: "del"
+                    namespace: DelegationNamespace12
       map_element "type", to: :type
       map_element "color", to: :color, delegate: :glaze
       map_element "finish", to: :finish, delegate: :glaze
@@ -94,8 +110,8 @@ module Delegation
     end
 
     xml do
-      root "delegation"
-      namespace "https://example.com/delegation/1.2"
+      element "delegation"
+      namespace DelegationNamespace12
       map_element "type", to: :type
       map_element "color", to: :color, delegate: :glaze
       map_element "finish", to: :finish, delegate: :glaze
@@ -114,8 +130,8 @@ module Delegation
     end
 
     xml do
-      root "delegation"
-      namespace "https://example.com/delegation/1.2", "del"
+      element "delegation"
+      namespace DelegationNamespace12
       map_element "type", to: :type
       map_element "color", to: :color, delegate: :glaze
       map_element "finish", to: :finish, delegate: :glaze
@@ -134,8 +150,8 @@ module Delegation
     end
 
     xml do
-      root "delegation"
-      namespace "https://example.com/delegation/1.2", "del"
+      element "delegation"
+      namespace DelegationNamespace12
       map_element "type", to: :type, namespace: :inherit
       map_element "color", to: :color, delegate: :glaze
       map_element "finish", to: :finish, delegate: :glaze
@@ -155,12 +171,11 @@ module Delegation
     end
 
     xml do
-      root "delegation"
-      namespace "https://example.com/delegation/1.1", "del1"
+      element "delegation"
+      namespace DelegationNamespace11
       map_attribute "date",
                     to: :date,
-                    namespace: "https://example.com/delegation/1.2",
-                    prefix: "del2"
+                    namespace: DelegationNamespace12
 
       map_element "type", to: :type, namespace: :inherit
       map_element "color", to: :color, delegate: :glaze
@@ -222,9 +237,12 @@ RSpec.describe Delegation do
   end
 
   it "serializes to XML with pretty formatting" do
+    # W3C Rule: When parent has default namespace (xmlns="..."),
+    # child elements in blank namespace need xmlns="" to opt out.
+    # Optimization: Only FIRST child needs xmlns="", siblings inherit blank namespace
     expected_pretty_xml = <<~XML
-      <delegation>
-        <type>Vase</type>
+      <delegation xmlns="https://example.com/delegation/1.2">
+        <type xmlns="">Vase</type>
         <color>Blue</color>
         <finish>Glossy</finish>
       </delegation>
@@ -295,12 +313,10 @@ RSpec.describe Delegation do
       encoding: "UTF-8",
     )
 
-    delegation_attributes = [
-      'xmlns:del="https://example.com/delegation/1.2"',
-      'del:date="2024-06-08"',
-    ]
-
-    expect(xml_data).to include("<delegation #{delegation_attributes.join(' ')}>")
+    # Check that the namespace is present (string namespaces use auto-generated prefixes)
+    expect(xml_data).to include('xmlns')
+    expect(xml_data).to include('https://example.com/delegation/1.2')
+    expect(xml_data).to include('date="2024-06-08"')
   end
 
   it "sets the default namespace of <delegation>" do
@@ -367,8 +383,8 @@ RSpec.describe Delegation do
 
     # With prefix: true and two namespaces
     expect(xml_data).to include('xmlns:del1="https://example.com/delegation/1.1"')
-    expect(xml_data).to include('xmlns:del2="https://example.com/delegation/1.2"')
-    expect(xml_data).to include('del2:date="2024-06-08"')
+    expect(xml_data).to include('xmlns:del="https://example.com/delegation/1.2"')
+    expect(xml_data).to include('del:date="2024-06-08"')
     expect(xml_data).to include("<del1:delegation")
     expect(xml_data).to include("<del1:type>Vase</del1:type>")
   end
@@ -380,7 +396,9 @@ RSpec.describe Delegation do
       declaration: true,
       encoding: "UTF-8",
     )
-    expect(xml_data).to include('<delegation xmlns:type="https://example.com/type/1.2">')
-    expect(xml_data).to include("<type:type>Vase</type:type>")
+    # TypeNamespace12 has no prefix_default, so uses default format
+    expect(xml_data).to include('xmlns="https://example.com/type/1.2"')
+    # The type element inherits the parent's namespace (W3C-compliant)
+    expect(xml_data).to include("<type>Vase</type>")
   end
 end

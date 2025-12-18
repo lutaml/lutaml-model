@@ -18,7 +18,7 @@ module CustomCollection
     attribute :author, :string
 
     xml do
-      root "publication"
+      element "publication"
 
       map_attribute "title", to: :title
       map_attribute "year", to: :year
@@ -404,7 +404,16 @@ RSpec.describe CustomCollection do
     end
 
     it "serializes to XML" do
-      expect(no_root_collection.to_xml).to be_xml_equivalent_to(expected_xml_no_root)
+      # Note: no_root collections cannot produce valid standalone XML
+      # They must be wrapped in a root element or embedded in a parent model
+      # Here we test that items are serialized correctly (without their own root wrapper)
+      xml_output = no_root_collection.to_xml
+
+      # Wrap in a root element to make it valid XML for comparison
+      wrapped_xml = "<root>#{xml_output}</root>"
+      expected_wrapped = "<root>#{expected_xml_no_root}</root>"
+
+      expect(wrapped_xml).to be_xml_equivalent_to(expected_wrapped)
     end
 
     it "deserializes from XML" do

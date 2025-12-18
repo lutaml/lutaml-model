@@ -32,7 +32,7 @@ module OrderedContentSpec
       attribute :content, :string
 
       xml do
-        root "annotation"
+        element "annotation"
         namespace ExampleSchemaNamespace
 
         map_content to: :content
@@ -126,7 +126,17 @@ RSpec.describe "OrderedContent" do
       end
 
       it "deserializes and serializes ordered prefixed elements correctly for prefixed elements" do
-        expect(serialized).to be_xml_equivalent_to(xml)
+        # W3C Compliance: Models with namespace use default format by default
+        # Input uses prefix format, but output uses default format (semantically equivalent)
+        expected_xml = <<~XML
+          <schema xmlns="http://example.com/schema">
+            <element>
+              <annotation>Testing annotation</annotation>
+            </element>
+          </schema>
+        XML
+
+        expect(serialized).to be_xml_equivalent_to(expected_xml)
       end
     end
   end

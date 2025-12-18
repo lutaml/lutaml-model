@@ -166,7 +166,7 @@ RSpec.describe "XSD Type Validation" do
             attribute :value, :string
 
             xml do
-              root "NestedModel"
+              element "NestedModel"
               type_name "CustomNestedType"
             end
           end
@@ -197,7 +197,7 @@ RSpec.describe "XSD Type Validation" do
           attribute :value, :string
 
           xml do
-            root "NestedModel"
+            element "NestedModel"
             type_name "ResolvedType"
           end
         end
@@ -264,7 +264,7 @@ RSpec.describe "XSD Type Validation" do
             attribute :value, :string
 
             xml do
-              root "NestedModel"
+              element "NestedModel"
               type_name "ValidCustomType"
             end
           end
@@ -387,7 +387,7 @@ RSpec.describe "XSD Type Validation" do
           attribute :field, bad_type
 
           xml do
-            root "TestModel"
+            element "TestModel"
           end
         end
 
@@ -407,7 +407,7 @@ RSpec.describe "XSD Type Validation" do
           attribute :field, bad_type
 
           xml do
-            root "TestModel"
+            element "TestModel"
           end
         end
 
@@ -422,7 +422,7 @@ RSpec.describe "XSD Type Validation" do
           attribute :count, :integer
 
           xml do
-            root "ValidModel"
+            element "ValidModel"
           end
         end
 

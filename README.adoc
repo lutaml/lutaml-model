@@ -49,7 +49,7 @@ link:docs/migration-guides/0-1-0-migrate-from-shale.adoc[Migrating from Shale to
 * Configurable adapters for different serialization formats
 * Support for collections and default values
 * Custom serialization/deserialization methods
-* XML namespaces and mappings
+* XML namespaces and mappings with `namespace: :blank` for explicit no-namespace elements
 * Deep object comparison and visual diff generation with similarity scoring
 * Generate serialization schemas from model definitions (<<schema-generation>>)
 * Import serialization schemas to define models (<<schema-import>>)
@@ -5332,6 +5332,77 @@ puts person.to_xml
 ----
 ====
 
+==== W3C standard namespace support
+
+Lutaml::Model provides built-in support for W3C-defined standard namespaces:
+
+* `Lutaml::Model::Xml::W3c::XmlNamespace` - W3C XML namespace (xml:lang, xml:space, xml:id, xml:base)
+* `Lutaml::Model::Xml::W3c::XsiNamespace` - W3C XMLSchema-instance namespace (xsi:nil, xsi:type, xsi:schemaLocation)
+* `Lutaml::Model::Xml::W3c::XsNamespace` - W3C XMLSchema namespace for XSD type definitions
+
+These namespace classes adhere to W3C specifications and handle reserved prefixes correctly.
+
+IMPORTANT: The `xml` prefix is implicitly bound per W3C specification and must NEVER be declared with `xmlns:xml`. Lutaml::Model automatically prevents this forbidden declaration.
+
+.W3C XML namespace attribute types
+[cols="1,2,2"]
+|===
+| Type Class | Purpose | Example Values
+
+| `W3c::XmlLangType`
+| Language identification (RFC 5646)
+| "en", "en-US", "fr", "de-DE", "zh-Hans"
+
+| `W3c::XmlSpaceType`
+| Whitespace handling
+| "default", "preserve"
+
+| `W3c::XmlBaseType`
+| Base URI for relative references
+| "http://example.com/", "./path/"
+
+| `W3c::XmlIdType`
+| Unique identifier (type ID)
+| "elem1", "section_2"
+|===
+
+.Using W3C XML namespace attributes
+[example]
+====
+[source,ruby]
+----
+class Document < Lutaml::Model::Serializable
+  attribute :lang, Lutaml::Model::Xml::W3c::XmlLangType
+  attribute :space, Lutaml::Model::Xml::W3c::XmlSpaceType
+  attribute :id, Lutaml::Model::Xml::W3c::XmlIdType
+  attribute :content, :string
+
+  xml do
+    root "doc"
+    map_attribute "lang", to: :lang
+    map_attribute "space", to: :space
+    map_attribute "id", to: :id
+    map_content to: :content
+  end
+end
+
+doc = Document.new(
+  lang: "en",
+  space: "preserve",
+  id: "doc1",
+  content: "  Text with spaces  "
+)
+
+puts doc.to_xml
+# => <doc xml:lang="en" xml:space="preserve" xml:id="doc1">  Text with spaces  </doc>
+
+# Note: No xmlns:xml declaration - it's implicitly bound per W3C specification
+----
+====
+
+See link:docs/_guides/xml-namespaces.adoc#w3c-standard-namespaces[W3C Standard Namespaces Guide] for comprehensive documentation.
+
+
 
 === XML elements and XML types (for Lutaml::Model)
 
@@ -5987,7 +6058,12 @@ ShortPerson.new.to_xml
 
 ===== General
 
-The `namespace_scope` directive controls where namespace declarations appear in
+
+NOTE: For comprehensive information on namespace declaration strategies including
+the minimal-subtree principle and how `namespace_scope` grants ELIGIBILITY (not
+automatic hoisting), see link:docs/_guides/xml-namespace-declarations.adoc[XML Namespace Declarations Guide].
+The `namespace_scope` directive controls where namespace declarations
+**are eligible to** appear in
 serialized XML. By default, namespaces are declared on the elements where they
 are used. With `namespace_scope`, you can consolidate multiple namespace
 declarations at a parent element for cleaner, more compact XML.
