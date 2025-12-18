@@ -18,7 +18,8 @@ module Lutaml
           # Match XML declaration at start of document
           # Format: <?xml version="1.0" encoding="UTF-8"?>
           # Both version and encoding are optional in the match
-          if xml.match(/\A\s*<\?xml\s+([^?]*)\?>/)
+          # Use non-greedy match and character class to prevent ReDoS
+          if xml.match(/\A[ \t\r\n]*<\?xml[ \t\r\n]+((?:[^?]|\?(?!>))*?)\?>/)
             decl_content = ::Regexp.last_match(1)
 
             # Extract version (defaults to "1.0")
