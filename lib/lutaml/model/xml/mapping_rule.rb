@@ -138,7 +138,7 @@ module Lutaml
           else
             names = [namespaced_name(parent_namespace)]
 
-            # CRITICAL FIX: When no explicit namespace is set and we're using parent/default namespace,
+            # CRITICAL: When no explicit namespace is set and we're using parent/default namespace,
             # also include the unprefixed name. This handles cases where elements are unqualified
             # (element_form_default: :unqualified) but parent uses a namespace.
             # This allows matching both <Template> and <ns:Template> forms during parsing.

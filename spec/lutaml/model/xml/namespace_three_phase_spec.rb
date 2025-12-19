@@ -194,7 +194,6 @@ RSpec.describe "Three-phase namespace algorithm" do
         end
       end
 
-      # SKIPPED: Phase 3 tests require adapter refactoring (Session 20)
       it "produces clean XML with default namespace inheritance" do
         name = name_model.new(given: "John", family: "Doe")
         contact = contact_model.new(version: "4.0", n: name)
@@ -236,7 +235,6 @@ RSpec.describe "Three-phase namespace algorithm" do
         end
       end
 
-      # SKIPPED: Phase 3 tests require adapter refactoring (Session 20)
       it "handles Type namespace matching root default namespace" do
         instance = model_class.new(version: "4.0")
         xml = instance.to_xml
@@ -286,7 +284,6 @@ RSpec.describe "Three-phase namespace algorithm" do
         end
       end
 
-      # SKIPPED: Phase 3 tests require adapter refactoring (Session 20)
       it "round-trips correctly" do
         name = name_model.new(given: "John", family: "Doe")
         contact = contact_model.new(

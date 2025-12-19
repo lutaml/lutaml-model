@@ -174,7 +174,7 @@ module Lutaml
                 # Override element_ns_uri to parent's URI for proper resolution
                 element_ns_uri = mapping.namespace_uri
               elsif ns_decl
-                # CRITICAL FIX: Also set element_ns_uri for default format
+                # CRITICAL: Also set element_ns_uri for default format
                 # Native elements inherit parent's namespace regardless of format
                 # This prevents xmlns="" from being added incorrectly
                 element_ns_uri = mapping.namespace_uri
@@ -226,7 +226,7 @@ module Lutaml
             parent_prefix: parent_prefix,
           )
 
-          # CRITICAL FIX: resolved_prefix now depends on qualification_reason
+          # CRITICAL: resolved_prefix now depends on qualification_reason
           # Only EXPLICIT directives should inherit prefix presentation
           resolved_prefix = if rule.unqualified?
                               # Explicit form: :unqualified - NEVER use prefix
@@ -248,7 +248,7 @@ module Lutaml
                               # Prevents cascading of `prefix: true` to children
                               nil
                             else
-                              # CRITICAL FIX: Look up prefix from PLAN using namespace CLASS
+                              # CRITICAL: Look up prefix from PLAN using namespace CLASS
                               # When element has explicit namespace, use namespace CLASS to find declaration
                               # Architecture Principle: XmlNamespace CLASS is atomic unit, not URI alone
                               if rule.namespace_class && plan
@@ -269,7 +269,7 @@ module Lutaml
           blank_xmlns = false
           parent_uses_default_ns = options[:parent_uses_default_ns]
 
-          # CRITICAL FIX: xmlns="" ONLY for EXPLICIT :blank namespace
+          # CRITICAL: xmlns="" ONLY for EXPLICIT :blank namespace
           # When element_ns_uri is nil (no namespace specified), element should silently inherit parent's namespace
           # The blank namespace ≠ "no namespace" - it's an intentional choice to be in the blank namespace
           if ns_info[:explicit_blank] && parent_uses_default_ns

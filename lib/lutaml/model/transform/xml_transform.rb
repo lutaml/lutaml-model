@@ -23,12 +23,12 @@ module Lutaml
         options = prepare_options(options)
         instance.encoding = options[:encoding]
         instance.doctype = options[:doctype] if options[:doctype]
-        
+
         # Transfer XML declaration info if present (Issue #1)
         if doc.respond_to?(:xml_declaration) && doc.xml_declaration
           instance.instance_variable_set(:@xml_declaration, doc.xml_declaration)
         end
-        
+
         return instance unless doc
 
         mappings = options[:mappings] || mappings_for(:xml).mappings
@@ -127,14 +127,14 @@ module Lutaml
         attribute_names = rule_names.filter_map do |rn|
           if rn.include?("://")
             # This is a URI:name format, need to find the actual prefix used in the document
-            # CRITICAL FIX: Split on LAST colon to handle URIs with colons (http://...)
+            # CRITICAL: Split on LAST colon to handle URIs with colons (http://...)
             # "http://www.w3.org/XML/1998/namespace:lang" should split into:
             #   uri = "http://www.w3.org/XML/1998/namespace"
             #   local_name = "lang"
             last_colon_index = rn.rindex(":")
             uri = rn[0...last_colon_index]
             local_name = rn[(last_colon_index + 1)..-1]
-            
+
             # Get all matching attributes by URI and local name
             doc.root.attributes.values.find do |attr|
               attr.namespace == uri && attr.unprefixed_name == local_name

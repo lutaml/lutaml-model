@@ -197,7 +197,7 @@ module Lutaml
             @type_namespaces[attr_name] = ns_class
           end
 
-          # CRITICAL FIX: Also inherit element strategies
+          # CRITICAL: Also inherit element strategies
           # Element strategies are set at parent level but child elements need them
           parent_plan.element_strategies.each do |attr_name, strategy|
             @element_strategies[attr_name] = strategy

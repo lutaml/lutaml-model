@@ -458,7 +458,7 @@ options, parent_plan: nil)
                                       attribute.type(register)
                                     end
 
-                # CRITICAL FIX: Collect and plan for each item individually
+                # CRITICAL: Collect and plan for each item individually
                 item_mapping = item_mapper_class.mappings_for(:xml)
                 if item_mapping
                   collector = NamespaceCollector.new(register)
@@ -487,7 +487,7 @@ options, parent_plan: nil)
                                     attribute.type(register)
                                   end
 
-              # CRITICAL FIX: Collect and plan for each array item individually
+              # CRITICAL: Collect and plan for each array item individually
               item_mapping = item_mapper_class.mappings_for(:xml)
               if item_mapping
                 collector = NamespaceCollector.new(register)

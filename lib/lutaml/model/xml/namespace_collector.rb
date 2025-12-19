@@ -241,7 +241,7 @@ module Lutaml
             child_mapping = child_type.mappings_for(:xml)
             next unless child_mapping
 
-            # CRITICAL FIX: Pass actual child instance when available
+            # CRITICAL: Pass actual child instance when available
             # This enables instance-aware attribute collection for children too
             # For collections/arrays, collect from all instances and merge
             child_instance = if element && element.respond_to?(elem_rule.to)
@@ -433,7 +433,7 @@ module Lutaml
             end
           end
 
-          # CRITICAL FIX: Merge Type namespace CLASSES (not attr_name mappings)
+          # CRITICAL: Merge Type namespace CLASSES (not attr_name mappings)
           # This allows DeclarationPlanner to identify which namespaces are Type namespaces
           # when making hoisting decisions based on namespace_scope
           if child_needs[:type_namespace_classes]&.any?

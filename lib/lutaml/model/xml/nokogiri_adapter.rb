@@ -501,7 +501,7 @@ child_plan, options, parent_plan: nil, parent_uses_default_ns: nil)
             mapper_class: attribute.type(@register), # Override with child's type
           )
 
-          # CRITICAL FIX: For wrappers (like CurveArrayProperty),
+          # CRITICAL: For wrappers (like CurveArrayProperty),
           # child_plan is the plan for the wrapper, which contains children_plans for the actual items.
           # When serializing the wrapper, we'll recursively call build_element_with_plan,
           # which will use child_plan[:children_plans] to find plans for the wrapper's children.
@@ -533,7 +533,7 @@ child_plan, options, parent_plan: nil, parent_uses_default_ns: nil)
                                       attribute.type(@register)
                                     end
 
-                # CRITICAL FIX: Collect and plan for each array item individually
+                # CRITICAL: Collect and plan for each array item individually
                 # This ensures each item's actual attributes determine namespace declarations
                 item_mapping = item_mapper_class.mappings_for(:xml)
                 if item_mapping

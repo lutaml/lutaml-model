@@ -26,6 +26,8 @@ module Lutaml
         def initialize(register = nil)
           @register = register || Lutaml::Model::Config.default_register
 
+          # NOTE: @visited_types removed - now passed as parameter to prevent
+          # sibling contamination. Each recursion path needs its own visited set.
         end
 
         # Create declaration plan for an element and its descendants
@@ -65,7 +67,7 @@ module Lutaml
           custom_prefix ||= options[:use_prefix] if options[:use_prefix].is_a?(String)
 
           # Prevent infinite recursion for type analysis (when element is nil)
-          # CRITICAL FIX (Session 101): visited_types is now per-recursion-path, not per-planner
+          # CRITICAL: visited_types is per-recursion-path, not per-planner
           # This prevents sibling children from contaminating each other's type tracking
           if element.nil? && mapper_class
             if visited_types.include?(mapper_class)
@@ -106,7 +108,7 @@ module Lutaml
           # TYPE-ONLY MODELS: No element_name means no xmlns declarations
           # BUT we still need to plan children
           unless mapping.no_element?
-           # CRITICAL FIX #1: Elements WITHOUT namespace identity cannot declare xmlns
+           # CRITICAL: Elements WITHOUT namespace identity cannot declare xmlns
             # Architecture Principle (line 89-91): "if an element does not declare any namespace itself,
             # it cannot set any default namespace, but it can hoist namespaces with prefixes"
             #
@@ -132,7 +134,7 @@ module Lutaml
                 format = choose_format_with_override(mapping,
                                                      ns_class, needs, options)
 
-                # CRITICAL FIX: Local namespace declarations (not in parent's scope)
+                # CRITICAL: Local namespace declarations (not in parent's scope)
                 # MUST use prefix format to avoid conflicting with parent's default namespace.
                 # If we have a parent and our namespace is NOT in parent's plan,
                 # we're declaring locally - force prefix format.
@@ -144,7 +146,7 @@ module Lutaml
                   # must use prefix when declaring locally.
                   is_own_namespace = ns_class == mapping.namespace_class
 
-                  # CRITICAL FIX: Only force prefix for DIFFERENT namespaces (not own)
+                  # CRITICAL: Only force prefix for DIFFERENT namespaces (not own)
                   # Own namespace can use default format per W3C semantics - xmlns="uri" shadows parent
                   # The prefix_default configuration is for when prefix IS needed, not a requirement
                   # Let choose_format_with_override decide based on W3C rules (attributes, etc.)
@@ -166,7 +168,7 @@ module Lutaml
                   prefix_override: custom_prefix
                 )
               elsif existing.inherited?
-                # CRITICAL FIX #2: PREFIX INHERITANCE
+                # CRITICAL: PREFIX INHERITANCE
                 # Parent declared this namespace - check if we must preserve PREFIX format
                 # Architecture Principle (line 102-114): "If a namespace is hoisted as prefix,
                 # all elements in that namespace should also utilize the same prefix"
@@ -293,12 +295,12 @@ module Lutaml
             # Skip if already declared - "never declare twice" principle
             next if plan.namespace?(key)
 
-            # CRITICAL FIX: Skip Type namespaces - they're handled in PHASE 5
+            # CRITICAL: Skip Type namespaces - they're handled in PHASE 5
             # Type namespaces need special namespace_scope awareness
             is_type_namespace = needs[:type_namespace_classes]&.include?(ns_class)
             next if is_type_namespace
 
-            # CRITICAL FIX: Check if this namespace should be in scope
+            # CRITICAL: Check if this namespace should be in scope
             # Per three-phase architecture (Phase 2: Declaration Planning):
             # A node can hoist a namespace if it is ELIGIBLE:
             # 1. Node belongs to that namespace (can hoist as default or prefix)
@@ -326,7 +328,7 @@ module Lutaml
               # CRITICAL: Only use prefix format if namespace actually has a prefix
               format = :default
 
-              # CRITICAL FIX: Prevent multiple default namespaces conflict
+              # CRITICAL: Prevent multiple default namespaces conflict
               # If this namespace has no prefix AND root already has a default namespace,
               # we MUST use prefix format (even though ns has no prefix configured)
               # This means we need to force a prefix or error
@@ -391,7 +393,7 @@ module Lutaml
 
               if in_scope
                 # IN SCOPE: Hoist Type namespace to this element
-                # CRITICAL FIX: Type element namespaces should use prefix format by default
+                # CRITICAL: Type element namespaces should use prefix format by default
                 # Only allow default format if Type namespace IS the element's own namespace
                 format = :prefix
 
@@ -407,7 +409,7 @@ module Lutaml
                   format = :prefix
                 end
 
-                # CRITICAL FIX: If parent already declared this namespace, inherit its format
+                # CRITICAL: If parent already declared this namespace, inherit its format
                 # This ensures Type namespaces respect parent's format choice
                 # Architecture Principle: "If a namespace is hoisted as prefix,
                 # all elements in that namespace should also utilize the same prefix"
@@ -466,7 +468,7 @@ module Lutaml
             child_needs = needs[:children][elem_rule.to] || empty_needs
 
             # Pass child_type as mapper_class
-            # CRITICAL FIX: Only pass use_prefix to children with SAME namespace as parent
+            # CRITICAL: Only pass use_prefix to children with SAME namespace as parent
             # Children with different namespaces should use their own namespace's prefix
             #
             # SPECIAL CASE: W3C reserved namespaces (xml:, xsi:, xs:) always use their
@@ -487,13 +489,16 @@ module Lutaml
                               )
                             end
 
+            # CRITICAL FIX: Each sibling gets a COPY of parent's visited_types
+            # This prevents first sibling from contaminating second sibling's type tracking
+            # BUT preserves cycle detection since each child inherits parent's visited types
             child_plan = plan(
               nil,
               child_mapping,
               child_needs,
               parent_plan: plan,
               options: child_options,
-              visited_types: visited_types  # Pass current path's visited types
+              visited_types: visited_types.dup  # Copy parent's set for this sibling
             )
 
             plan.add_child_plan(elem_rule.to, child_plan)
