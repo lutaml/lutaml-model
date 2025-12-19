@@ -290,12 +290,6 @@ module Lutaml
           mappings_for(:xml, register)&.root?
         end
 
-        def import_model_with_root_error(model, register_id = nil)
-          return unless model.mappings.key?(:xml) && model.root?(register_id)
-
-          raise Lutaml::Model::ImportModelWithRootError.new(model)
-        end
-
         def import_model_attributes(model, register_id = nil)
           if model.is_a?(Symbol) || model.is_a?(String)
             importable_models[:import_model_attributes] << model.to_sym
@@ -314,30 +308,12 @@ module Lutaml
         end
 
         def import_model_mappings(model, register_id = nil)
-          if model.is_a?(Symbol) || model.is_a?(String)
-            importable_models[:import_model_mappings] << model.to_sym
-            @models_imported = false
-            setup_trace_point
-            return
-          end
-
-          import_model_with_root_error(model, register_id)
           Lutaml::Model::Config::AVAILABLE_FORMATS.each do |format|
             next unless model.mappings.key?(format)
 
-            mapping = model.mappings_for(format, register_id)
-            mapping = Utils.deep_dup(mapping)
-
             klass = ::Lutaml::Model::Config.mappings_class_for(format)
             @mappings[format] ||= klass.new
-
-            if format == :xml
-              @mappings[format].merge_mapping_attributes(mapping)
-              @mappings[format].merge_mapping_elements(mapping)
-              @mappings[format].merge_elements_sequence(mapping)
-            else
-              @mappings[format].mappings_hash.merge!(Utils.deep_dup(mapping.mappings_hash))
-            end
+            @mappings[format].import_model_mappings(model, register_id)
           end
         end
 
@@ -350,7 +326,6 @@ module Lutaml
             return
           end
 
-          import_model_with_root_error(model, register_id)
           import_model_attributes(model, register_id)
           import_model_mappings(model, register_id)
         end
@@ -731,7 +706,6 @@ collection)
           importable_models.each do |method, models|
             models.uniq.each do |model|
               model_class = register.get_class_without_register(model)
-              import_model_with_root_error(model_class, register_id)
               @model.public_send(method, model_class, register_id)
             end
           end
