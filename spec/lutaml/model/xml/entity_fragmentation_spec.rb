@@ -167,7 +167,9 @@ RSpec.describe "XML Entity Fragmentation Issue #5" do
         attribute :emphasis, :string
 
         xml do
-          root "paragraph", mixed: true
+          element "paragraph"
+          mixed_content
+
           map_content to: :content, mixed: true
           map_element "em", to: :emphasis
         end

@@ -51,7 +51,7 @@ module RegisterSpec
     restrict :active, values: ["yes", "no"]
 
     xml do
-      root "user"
+      element "user"
 
       import_model_mappings :address_fields
     end

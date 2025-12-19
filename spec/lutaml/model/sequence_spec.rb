@@ -77,7 +77,8 @@ module SequenceSpec
     end
 
     xml do
-      root "Person", mixed: true
+      element "Person"
+      mixed_content
 
       sequence do
         map_element :FirstName, to: :first_name
@@ -169,7 +170,8 @@ module SequenceSpec
     end
 
     xml do
-      root "r", ordered: true
+      element "r"
+      ordered
 
       sequence do
         map_element :t, to: :t
@@ -185,7 +187,8 @@ module SequenceSpec
     end
 
     xml do
-      root "oMath", ordered: true
+      element "oMath"
+      ordered
 
       sequence do
         map_element :t, to: :t
@@ -198,7 +201,8 @@ module SequenceSpec
     attribute :omath, OMath, collection: true
 
     xml do
-      root "oMathPara", ordered: true
+      element "oMathPara"
+      ordered
 
       sequence do
         map_element :oMath, to: :omath

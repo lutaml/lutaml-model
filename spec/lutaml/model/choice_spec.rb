@@ -95,7 +95,7 @@ module ChoiceSpec
   end
 
   class User < Person
-    xml { root "User" }
+    xml { element "User" }
   end
 end
 

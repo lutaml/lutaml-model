@@ -10,7 +10,7 @@ RSpec.describe "Reused Elements with Imported Mappings" do
   # Shared child model
   class SharedChild < Lutaml::Model::Serializable
     xml do
-      root "child"
+      element "child"
       namespace TestNamespace
     end
   end
@@ -37,7 +37,7 @@ RSpec.describe "Reused Elements with Imported Mappings" do
     import_model_attributes :shared_group
 
     xml do
-      root "parent"
+      element "parent"
       namespace TestNamespace
       import_model_mappings :shared_group
     end
@@ -49,7 +49,7 @@ RSpec.describe "Reused Elements with Imported Mappings" do
     attribute :second, Parent
 
     xml do
-      root "container"
+      element "container"
       namespace TestNamespace
       map_element "first", to: :first
       map_element "second", to: :second

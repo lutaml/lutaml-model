@@ -13,7 +13,7 @@ module MixedContentSpec
     attribute :name, :string
     attribute :distance_from_earth, :integer
     xml do
-      root "PlanetaryBody"
+      element "PlanetaryBody"
       map_element "Name", to: :name
       map_element "DistanceFromEarth", to: :distance_from_earth
     end
@@ -23,7 +23,7 @@ module MixedContentSpec
     attribute :content, :string
 
     xml do
-      root "source"
+      element "source"
       map_content to: :content
     end
   end
@@ -32,7 +32,7 @@ module MixedContentSpec
     attribute :source, Source
 
     xml do
-      root "element-citation"
+      element "element-citation"
       map_element "source", to: :source
     end
   end
@@ -41,7 +41,7 @@ module MixedContentSpec
     attribute :element_citation, ElementCitation
 
     xml do
-      root "ref"
+      element "ref"
       map_element "element-citation", to: :element_citation
     end
   end
@@ -50,7 +50,7 @@ module MixedContentSpec
     attribute :ref, Ref
 
     xml do
-      root "ref-list"
+      element "ref-list"
       map_element "ref", to: :ref
     end
   end
@@ -59,7 +59,7 @@ module MixedContentSpec
     attribute :ref_list, RefList
 
     xml do
-      root "back"
+      element "back"
       map_element "ref-list", to: :ref_list
     end
   end
@@ -68,7 +68,7 @@ module MixedContentSpec
     attribute :back, Back
 
     xml do
-      root "article"
+      element "article"
       map_element "back", to: :back
     end
   end
@@ -79,7 +79,7 @@ module MixedContentSpec
     attribute :heading, :string
 
     xml do
-      root "note"
+      element "note"
       map_element "to", to: :the
       map_element "from", to: :from
       map_element "heading", to: :heading
@@ -90,7 +90,7 @@ module MixedContentSpec
     attribute :field, :string, collection: true
 
     xml do
-      root "root"
+      element "root"
       map_element "FieldName", to: :field
     end
   end
@@ -99,7 +99,8 @@ module MixedContentSpec
     attribute :content, :string
 
     xml do
-      root "SpecialCharContentWithMixedTrue", mixed: true
+      element "SpecialCharContentWithMixedTrue"
+      mixed_content
       map_content to: :content
     end
   end
@@ -108,7 +109,8 @@ module MixedContentSpec
     attribute :special, :string, raw: true
 
     xml do
-      root "SpecialCharContentWithRawOptionAndMixedOption", mixed: true
+      element "SpecialCharContentWithRawOptionAndMixedOption"
+      mixed_content
       map_element :special, to: :special
     end
   end
@@ -121,7 +123,8 @@ module MixedContentSpec
     attribute :content, :string
 
     xml do
-      root "RootMixedContent", mixed: true
+      element "RootMixedContent"
+      mixed_content
       map_attribute :id, to: :id
       map_element :bold, to: :bold
       map_element :italic, to: :italic
@@ -139,7 +142,8 @@ module MixedContentSpec
     attribute :content, :string
 
     xml do
-      root "RootMixedContentWithModel", mixed: true
+      element "RootMixedContentWithModel"
+      mixed_content
       map_content to: :content
       map_attribute :id, to: :id
       map_element :bold, to: :bold
@@ -157,7 +161,8 @@ module MixedContentSpec
     attribute :sub, :string, collection: true
 
     xml do
-      root "RootMixedContentNested", mixed: true
+      element "RootMixedContentNested"
+      mixed_content
       map_content to: :text
       map_attribute :id, to: :id
       map_element :sup, to: :sup
@@ -174,7 +179,8 @@ module MixedContentSpec
     attribute :sub, :string, collection: true
 
     xml do
-      root "RootMixedContentNestedWithModel", mixed: true
+      element "RootMixedContentNestedWithModel"
+      mixed_content
 
       map_content to: :text
       map_attribute :id, to: :id
@@ -188,7 +194,7 @@ module MixedContentSpec
     attribute :value, :string
 
     xml do
-      root "TextualSupport"
+      element "TextualSupport"
 
       map_element :value, to: :value
     end
@@ -198,7 +204,7 @@ module MixedContentSpec
     attribute :content, :string
 
     xml do
-      root "HexCode"
+      element "HexCode"
       map_content to: :content
     end
   end
@@ -208,7 +214,7 @@ module MixedContentSpec
       attribute :content, :string
 
       xml do
-        root "annotation"
+        element "annotation"
         namespace ExampleSchemaNamespace
 
         map_content to: :content
@@ -221,7 +227,8 @@ module MixedContentSpec
       attribute :annotation, Annotation
 
       xml do
-        root "element", mixed: true
+        element "element"
+        mixed_content
 
         namespace ExampleSchemaNamespace
 
@@ -235,7 +242,7 @@ module MixedContentSpec
       attribute :element, Element, collection: true
 
       xml do
-        root "schema"
+        element "schema"
         namespace ExampleSchemaNamespace
 
         map_element :element, to: :element
@@ -417,7 +424,7 @@ RSpec.describe "MixedContent" do
           expect(content).to eq(expected_output)
         end
         serialized = parsed.to_xml
-        
+
         # Ox normalizes whitespace in mixed content per XML spec (semantically equivalent)
         # Canon can't compare whitespace-normalized XML, so we normalize both sides for Ox
         if adapter_class == Lutaml::Model::Xml::OxAdapter
@@ -487,7 +494,7 @@ RSpec.describe "MixedContent" do
         expect(parsed.content.planetary_body.distance_from_earth).to eq(384400)
 
         serialized = parsed.to_xml
-        
+
         # Ox normalizes whitespace in mixed content per XML spec (semantically equivalent)
         # Canon can't compare whitespace-normalized XML, so we normalize both sides for Ox
         if adapter_class == Lutaml::Model::Xml::OxAdapter
@@ -506,7 +513,7 @@ RSpec.describe "MixedContent" do
             attribute :id, :string
 
             xml do
-              root "Invalid"
+              element "Invalid"
               map_element :id, to: :id, mixed: true
             end
           end
@@ -521,7 +528,7 @@ RSpec.describe "MixedContent" do
             attribute :id, :string
 
             xml do
-              root "Invalid"
+              element "Invalid"
               map_attribute :id, to: :id, mixed: true
             end
           end

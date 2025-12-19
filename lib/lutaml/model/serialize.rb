@@ -818,7 +818,7 @@ collection)
                 namespace #{ns_class.name}  # ❌ Does nothing!
             #{'    '}
                 xml do
-                  root "element"
+                  element "element"
                   map_element "field", to: :field
                 end
               end
@@ -826,7 +826,7 @@ collection)
             CORRECT (use namespace inside xml block):
               class #{name} < Lutaml::Model::Serializable
                 xml do
-                  root "element"
+                  element "element"
                   namespace #{ns_class.name}  # ✅ Works correctly!
                   map_element "field", to: :field
                 end
@@ -1012,12 +1012,12 @@ collection)
 
         options[:parse_encoding] = encoding if encoding
         options[:doctype] = doctype if format == :xml && doctype
-        
+
         # Pass XML declaration info for Issue #1: XML Declaration Preservation
         if format == :xml && @xml_declaration
           options[:xml_declaration] = @xml_declaration
         end
-        
+
         self.class.to(format, self, options)
       end
 

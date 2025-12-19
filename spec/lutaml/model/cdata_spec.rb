@@ -133,7 +133,8 @@ module CDATA
     attribute :content, :string
 
     xml do
-      root "RootMixedContent", mixed: true
+      element "RootMixedContent"
+      mixed_content
       map_attribute :id, to: :id
       map_element :bold, to: :bold, cdata: true
       map_element :italic, to: :italic, cdata: true
@@ -150,7 +151,8 @@ module CDATA
     attribute :sub, :string, collection: true
 
     xml do
-      root "RootMixedContentNested", mixed: true
+      element "RootMixedContentNested"
+      mixed_content
       map_content to: :data, cdata: true
       map_attribute :id, to: :id
       map_element :sup, to: :sup, cdata: true
@@ -361,7 +363,7 @@ RSpec.describe "CDATA" do
       end
     end
 
-    context "when mixed: true is set for nested content" do
+    context "when mixed_content is set for nested content" do
       let(:xml) do
         <<~XML
           <RootMixedContentNested id="outer123">

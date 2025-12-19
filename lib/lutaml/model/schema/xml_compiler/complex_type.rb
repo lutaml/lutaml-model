@@ -25,7 +25,8 @@ module Lutaml
             <%= instances.flat_map { |instance| instance.to_attributes(@indent) }.join + "\n" -%>
             <%= simple_content_attribute -%>
             <%= @indent %>xml do
-            <%= extended_indent %>root "<%= name %>"<%= root_options %>
+            <%= extended_indent %>element "<%= name %>"
+            <%= extended_indent %><%= mixed_content? %>
             <%= namespace_and_prefix %>
             <%= "\#{extended_indent}map_content to: :content" if simple_content? || mixed %>
             <%= instances.flat_map { |instance| instance.to_xml_mapping(extended_indent) }.join -%>
@@ -99,10 +100,8 @@ module Lutaml
             SIMPLE_CONTENT_ATTRIBUTE_TEMPLATE.result(binding) if simple_content? || mixed
           end
 
-          def root_options
-            return "" unless mixed
-
-            ", mixed: true"
+          def mixed_content?
+            mixed ? "mixed_content" : ""
           end
 
           def namespace_and_prefix
@@ -113,12 +112,6 @@ module Lutaml
 
           def extended_indent
             @indent * 2
-          end
-
-          def namespace_option
-            # Kept for backwards compatibility
-            return "" unless @namespace_class_name
-            "#{extended_indent}namespace #{@namespace_class_name}"
           end
 
           def base_class_name

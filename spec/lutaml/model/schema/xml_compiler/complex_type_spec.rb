@@ -105,7 +105,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler::ComplexType do
       complex_type.name = "TestClass"
       complex_type.mixed = true
       code = complex_type.to_class
-      expect(code).to include(", mixed: true")
+      expect(code).to include("mixed_content")
     end
 
     it "renders a class with namespace and prefix options" do

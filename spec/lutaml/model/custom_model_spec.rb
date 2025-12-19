@@ -127,7 +127,8 @@ module CustomModelSpecs
     attribute :id, TextElement
 
     xml do
-      root "docid", mixed: true
+      element "docid"
+      mixed_content
 
       map_content to: :text, delegate: :id
       map_element :sub, to: :sub, delegate: :id
@@ -156,7 +157,8 @@ module CustomModelSpecs
     attribute :bibdata, Bibdata
 
     xml do
-      root "MixedWithNestedContent", mixed: true
+      element "MixedWithNestedContent"
+      mixed_content
 
       map_element "street", to: :street
       map_element "city", to: :city

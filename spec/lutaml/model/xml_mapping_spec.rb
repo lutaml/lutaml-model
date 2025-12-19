@@ -157,7 +157,8 @@ module XmlMapping
     attribute :on, :string
 
     xml do
-      root "date", mixed: true
+      element "date"
+      mixed_content
       map_attribute "type", to: :type
       map_attribute "text", to: :text
       map_content to: :content
@@ -182,7 +183,8 @@ module XmlMapping
     attribute :second, SchemaLocationOrdered
 
     xml do
-      root "schemaLocationOrdered", mixed: true
+      element "schemaLocationOrdered"
+      mixed_content
 
       map_content to: :content
       map_element "schemaLocationOrdered", to: :second
@@ -293,7 +295,8 @@ module XmlMapping
     attribute :content, :string
 
     xml do
-      root "documentation", mixed: true
+      element "documentation"
+      mixed_content
       namespace XsdNamespace
 
       map_content to: :content
@@ -795,7 +798,7 @@ RSpec.describe Lutaml::Model::Xml::Mapping do
     end
 
     context "with schemaLocation" do
-      context "when mixed: false" do
+      context "when no mixed_content" do
         let(:xml) do
           '<p xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.opengis.net/gml/3.2 http://schemas.opengis.net/gml/3.2.1/gml.xsd"><p xmlns:xsi="http://another-instance" xsi:schemaLocation="http://www.opengis.net/gml/3.7"> Some text inside paragraph </p></p>'
         end
@@ -813,7 +816,7 @@ RSpec.describe Lutaml::Model::Xml::Mapping do
         end
       end
 
-      context "when mixed: true" do
+      context "when mixed_content" do
         let(:xml) do
           '<schemaLocationOrdered xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.opengis.net/gml/3.2 http://schemas.opengis.net/gml/3.2.1/gml.xsd"><schemaLocationOrdered xmlns:xsi="http://another-instance" xsi:schemaLocation="http://www.opengis.net/gml/3.7"> Some text inside paragraph </schemaLocationOrdered></schemaLocationOrdered>'
         end

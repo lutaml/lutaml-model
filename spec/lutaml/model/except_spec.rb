@@ -11,7 +11,8 @@ module ExceptSpecs
     attribute :documentation, :string
 
     xml do
-      root "annotation", mixed: true
+      element "annotation"
+      mixed_content
       namespace XsdNamespace
 
       map_element :documentation, to: :documentation
@@ -27,7 +28,8 @@ module ExceptSpecs
     attribute :annotation, Annotation
 
     xml do
-      root "attribute", mixed: true
+      element "attribute"
+      mixed_content
       namespace XsdNamespace
 
       map_attribute :id, to: :id
@@ -45,7 +47,8 @@ module ExceptSpecs
     attribute :attribute, Attribute
 
     xml do
-      root "attributeGroup", mixed: true
+      element "attributeGroup"
+      mixed_content
       namespace XsdNamespace
 
       map_attribute :id, to: :id
@@ -62,7 +65,8 @@ module ExceptSpecs
     attribute :attribute_group, AttributeGroup
 
     xml do
-      root "schema", mixed: true
+      element "schema"
+      mixed_content
       namespace XsdNamespace
 
       map_attribute :id, to: :id

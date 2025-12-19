@@ -55,7 +55,7 @@ module CustomCollection
     instances :items, Item
 
     xml do
-      root "items"
+      element "items"
       map_element "item", to: :items
     end
 
@@ -125,7 +125,7 @@ module CustomCollection
     instances :items, Item
 
     xml do
-      root "items"
+      element "items"
       map_element "item", to: :items, value_map: {
         from: { empty: :empty, omitted: :omitted, nil: :nil },
         to: { empty: :empty, omitted: :omitted, nil: :nil },
@@ -194,7 +194,7 @@ module CustomCollection
     instances :items, BaseItem
 
     xml do
-      root "items"
+      element "items"
 
       map_element "item", to: :items
     end

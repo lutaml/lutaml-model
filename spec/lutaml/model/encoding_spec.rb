@@ -18,7 +18,7 @@ RSpec.describe "XML Encoding Handling" do
         attribute :description, :string
 
         xml do
-          root "Document"
+          element "Document"
           map_element "text", to: :text
           map_element "description", to: :description
         end

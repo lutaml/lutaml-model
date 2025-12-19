@@ -71,7 +71,8 @@ module CollectionTests
     attribute :age, :integer
 
     xml do
-      root "person", ordered: true
+      element "person"
+      ordered
       map_element "name", to: :name
       map_element "age", to: :age
     end
@@ -143,7 +144,7 @@ class PolyAnimalCollectionAny < Lutaml::Model::Collection
   instances :animals, PolymorphicCollectionTests::Animal, polymorphic: true
 
   xml do
-    root "zoo"
+    element "zoo"
     map_element "animal", to: :animals, polymorphic: {
       attribute: "type",
       class_map: {
@@ -467,7 +468,8 @@ RSpec.describe Lutaml::Model::Collection do
           sort by: :name, order: :asc
 
           xml do
-            root "people", ordered: true
+            element "people"
+            ordered
             map_element "person", to: :items
           end
         end
@@ -509,7 +511,8 @@ RSpec.describe Lutaml::Model::Collection do
         instances :items, CollectionTests::Person
 
         xml do
-          root "people", ordered: true
+          element "people"
+          ordered
           map_element "person", to: :items
         end
       end
