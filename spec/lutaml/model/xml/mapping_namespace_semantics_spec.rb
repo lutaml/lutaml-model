@@ -35,7 +35,7 @@ RSpec.describe "Mapping-Level Namespace Semantics" do
           attribute :value, typed_str # Type has own namespace
 
           xml do
-            root "parent"
+            element "parent"
             namespace par_ns
             # Override type's namespace - use parent's instead
             map_element "child", to: :value, namespace: :inherit
@@ -78,7 +78,7 @@ RSpec.describe "Mapping-Level Namespace Semantics" do
           attribute :value, typed_str
 
           xml do
-            root "parent"
+            element "parent"
             namespace par_ns
             map_element "child", to: :value, namespace: :inherit
           end
@@ -124,7 +124,7 @@ RSpec.describe "Mapping-Level Namespace Semantics" do
           attribute :plain_value, :string
 
           xml do
-            root "parent"
+            element "parent"
             namespace par_ns
             # This inherits parent namespace (qualified by schema setting)
             map_element "namespaced", to: :namespaced_value
@@ -166,7 +166,7 @@ RSpec.describe "Mapping-Level Namespace Semantics" do
           attribute :value, :string
 
           xml do
-            root "parent"
+            element "parent"
             namespace par_ns
             map_element "child", to: :value, namespace: nil
           end
@@ -183,8 +183,8 @@ RSpec.describe "Mapping-Level Namespace Semantics" do
 
         # Parent uses default namespace
         expect(xml).to include('xmlns="http://example.com/parent"')
-        # Child explicitly has no namespace
-        expect(xml).to include("<child>test</child>")
+        # W3C Rule: Child in blank namespace needs xmlns="" when parent uses default namespace
+        expect(xml).to include('<child xmlns="">test</child>')
         expect(xml).not_to match(/<\w+:child>/)
       end
     end
@@ -200,7 +200,7 @@ RSpec.describe "Mapping-Level Namespace Semantics" do
           attribute :value, typed_str
 
           xml do
-            root "parent"
+            element "parent"
             namespace par_ns
             # No namespace: option - uses type's namespace
             map_element "child", to: :value
@@ -235,7 +235,7 @@ RSpec.describe "Mapping-Level Namespace Semantics" do
           attribute :value, :string # Plain string - no type namespace
 
           xml do
-            root "parent"
+            element "parent"
             namespace par_ns
             # No namespace: option with plain type
             map_element "child", to: :value
@@ -254,8 +254,9 @@ RSpec.describe "Mapping-Level Namespace Semantics" do
         # Parent is prefixed
         expect(xml).to include('xmlns:par="http://example.com/parent"')
         expect(xml).to include("<par:parent")
-        # Child inherits parent namespace (native types always inherit)
-        expect(xml).to include("<par:child>test</par:child>")
+        # W3C Rule: Native types without explicit namespace are in blank namespace
+        # They appear unqualified (no prefix, no xmlns)
+        expect(xml).to include("<child>test</child>")
       end
     end
   end
@@ -272,7 +273,7 @@ RSpec.describe "Mapping-Level Namespace Semantics" do
         attribute :implicit_plain, :string
 
         xml do
-          root "parent"
+          element "parent"
           namespace par_ns
 
           # Pattern 1: Explicit inherit - override type, use parent
@@ -318,8 +319,9 @@ RSpec.describe "Mapping-Level Namespace Semantics" do
       # Pattern 3a: Implicit uses type namespace
       expect(xml).to include("<typ:typed>typed</typ:typed>")
 
-      # Pattern 3b: Implicit plain inherits parent namespace (native types inherit)
-      expect(xml).to include("<par:plain>plain</par:plain>")
+      # Pattern 3b: Native types without explicit namespace are in blank namespace
+      # They appear unqualified when parent uses prefix format
+      expect(xml).to include("<plain>plain</plain>")
     end
   end
 end

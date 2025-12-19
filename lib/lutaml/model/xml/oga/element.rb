@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "../xml_element"
+require_relative "../encoding_normalizer"
 
 module Lutaml
   module Model
@@ -33,9 +34,9 @@ module Lutaml
                                                default_namespace: default_namespace)
                      attributes = node_attributes(node)
                      @root = node
-                     node.inner_text
+                     EncodingNormalizer.normalize_to_utf8(node.inner_text)
                    when Moxml::Text
-                     node.content
+                     EncodingNormalizer.normalize_to_utf8(node.content)
                    end
 
             name = OgaAdapter.name_of(node)

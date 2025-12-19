@@ -105,29 +105,29 @@ RSpec.describe Address do
 
   it "serializes to XML with a collection of persons" do
     expected_xml = <<~XML
-      <Address xmlns:p="http://example.com/person" xmlns:nsp1="http://example.com/nsp1">
+      <Address>
         <Country>USA</Country>
         <PostCode>01001</PostCode>
-        <p:Person>
-          <nsp1:FirstName>Tom</nsp1:FirstName>
-          <nsp1:LastName>Warren</nsp1:LastName>
-          <p:Age>40</p:Age>
-          <p:Height>5.8</p:Height>
-          <p:Birthdate>1980-02-15</p:Birthdate>
-          <p:LastLogin>1980-02-15T10:00:00+00:00</p:LastLogin>
-          <p:WakeupTime>07:30:00</p:WakeupTime>
-          <p:Active>true</p:Active>
-        </p:Person>
-        <p:Person>
-          <nsp1:FirstName>Jack</nsp1:FirstName>
-          <nsp1:LastName>Warren</nsp1:LastName>
-          <p:Age>35</p:Age>
-          <p:Height>5.9</p:Height>
-          <p:Birthdate>1985-05-20</p:Birthdate>
-          <p:LastLogin>1985-05-20T09:00:00+00:00</p:LastLogin>
-          <p:WakeupTime>06:45:00</p:WakeupTime>
-          <p:Active>false</p:Active>
-        </p:Person>
+        <Person xmlns="http://example.com/person">
+          <nsp1:FirstName xmlns="" xmlns:nsp1="http://example.com/nsp1">Tom</nsp1:FirstName>
+          <nsp1:LastName xmlns="" xmlns:nsp1="http://example.com/nsp1">Warren</nsp1:LastName>
+          <Age>40</Age>
+          <Height>5.8</Height>
+          <Birthdate>1980-02-15</Birthdate>
+          <LastLogin>1980-02-15T10:00:00+00:00</LastLogin>
+          <WakeupTime>07:30:00</WakeupTime>
+          <Active>true</Active>
+        </Person>
+        <Person xmlns="http://example.com/person">
+          <nsp1:FirstName xmlns="" xmlns:nsp1="http://example.com/nsp1">Jack</nsp1:FirstName>
+          <nsp1:LastName xmlns="" xmlns:nsp1="http://example.com/nsp1">Warren</nsp1:LastName>
+          <Age>35</Age>
+          <Height>5.9</Height>
+          <Birthdate>1985-05-20</Birthdate>
+          <LastLogin>1985-05-20T09:00:00+00:00</LastLogin>
+          <WakeupTime>06:45:00</WakeupTime>
+          <Active>false</Active>
+        </Person>
       </Address>
     XML
 

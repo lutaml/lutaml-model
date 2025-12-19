@@ -3,6 +3,11 @@
 require "spec_helper"
 
 RSpec.describe "XML Namespace Placement" do
+  # Ensure adapter is always reset after each example to prevent pollution
+  after(:each) do
+    Lutaml::Model::Config.xml_adapter_type = :nokogiri
+  end
+
   context "when namespace is at class level (Type::Value)" do
     it "applies namespace to value types correctly" do
       ns = Class.new(Lutaml::Model::XmlNamespace) do
@@ -20,7 +25,7 @@ RSpec.describe "XML Namespace Placement" do
         attribute :name, value_type
 
         xml do
-          root "model"
+          element "model"
           namespace ns
           map_element "name", to: :name
         end
@@ -52,7 +57,7 @@ RSpec.describe "XML Namespace Placement" do
         attribute :value, :string
 
         xml do
-          root "nested"
+          element "nested"
           namespace child_ns
           map_content to: :value
         end
@@ -64,7 +69,7 @@ RSpec.describe "XML Namespace Placement" do
         attribute :child, child_model
 
         xml do
-          root "parent"
+          element "parent"
           namespace parent_ns
           namespace_scope [parent_ns, child_ns]
           map_element "nested", to: :child
@@ -95,7 +100,7 @@ RSpec.describe "XML Namespace Placement" do
         attribute :value, :string
 
         xml do
-          root "broken"
+          element "broken"
           map_content to: :value
         end
       end
@@ -111,7 +116,7 @@ RSpec.describe "XML Namespace Placement" do
         attribute :child, broken_model
 
         xml do
-          root "parent"
+          element "parent"
           namespace parent_ns
           namespace_scope [parent_ns, ns]
           map_element "broken", to: :child
@@ -157,7 +162,7 @@ RSpec.describe "XML Namespace Placement" do
         attribute :type, xsi_type
 
         xml do
-          root "created"
+          element "created"
           namespace dcterms_ns # ✅ CORRECT: namespace in xml block
           map_attribute "type", to: :type
           map_content to: :value
@@ -171,7 +176,7 @@ RSpec.describe "XML Namespace Placement" do
         attribute :created, created_type
 
         xml do
-          root "coreProperties"
+          element "coreProperties"
           namespace cp_ns
           namespace_scope [cp_ns, dcterms_ns, xsi_ns]
           map_element "title", to: :title
@@ -220,7 +225,7 @@ RSpec.describe "XML Namespace Placement" do
         attribute :value, :string
 
         xml do
-          root "nested"
+          element "nested"
           namespace model_ns # ✅ Correct for Serializable
           map_content to: :value
         end
@@ -239,7 +244,7 @@ RSpec.describe "XML Namespace Placement" do
         attribute :model_attr, nested_model
 
         xml do
-          root "parent"
+          element "parent"
           namespace parent_ns
           namespace_scope [parent_ns, type_ns, model_ns]
           map_element "typeAttr", to: :type_attr

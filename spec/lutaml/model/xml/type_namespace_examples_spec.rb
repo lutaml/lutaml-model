@@ -55,7 +55,7 @@ RSpec.describe "Type Namespace Examples" do
         attribute :suffix, :string
 
         xml do
-          root "personName"
+          element "personName"
           namespace ns
 
           map_element "givenName", to: :given_name
@@ -78,7 +78,7 @@ RSpec.describe "Type Namespace Examples" do
         attribute :person_name, person_name
 
         xml do
-          root "ContactInfo"
+          element "ContactInfo"
           namespace ns
 
           map_element "personName", to: :person_name
@@ -276,7 +276,7 @@ RSpec.describe "Type Namespace Examples" do
         attribute :type, xsi_type
 
         xml do
-          root "created"
+          element "created"
           namespace ns
 
           map_attribute "type", to: :type
@@ -298,7 +298,7 @@ RSpec.describe "Type Namespace Examples" do
         attribute :type, xsi_type
 
         xml do
-          root "modified"
+          element "modified"
           namespace ns
 
           map_attribute "type", to: :type
@@ -330,7 +330,7 @@ RSpec.describe "Type Namespace Examples" do
         attribute :modified, modified
 
         xml do
-          root "coreProperties"
+          element "coreProperties"
           namespace ns
 
           map_element "title", to: :title
@@ -403,17 +403,19 @@ RSpec.describe "Type Namespace Examples" do
       props = core_properties_class.from_xml(xml)
       serialized = props.to_xml
 
-      # dc:title and dc:creator should use dc: namespace from DcTitleType and DcCreatorType
+      # Elements with Type namespaces use their Type's namespace
       expect(serialized).to include("<dc:title>")
       expect(serialized).to include("<dc:creator>")
-
-      # lastModifiedBy and revision are in the default cp: namespace (no prefix needed)
+      # Elements without Type namespace inherit cp namespace as default from coreProperties root
       expect(serialized).to include("<lastModifiedBy>")
       expect(serialized).to include("<revision>")
 
-      # dcterms:created and dcterms:modified should use dcterms: namespace from model classes
-      expect(serialized).to include("<dcterms:created")
-      expect(serialized).to include("<dcterms:modified")
+      # W3C-compliant: created and modified use DEFAULT namespace format
+      # (semantically equivalent to prefix format)
+      # Input: <dcterms:created xsi:type="dcterms:W3CDTF">
+      # Output: <created xmlns="http://purl.org/dc/terms/" xsi:type="dcterms:W3CDTF">
+      expect(serialized).to include('<created xmlns="http://purl.org/dc/terms/"')
+      expect(serialized).to include('<modified xmlns="http://purl.org/dc/terms/"')
     end
 
     it "verifies Type namespace application to attributes" do
@@ -457,7 +459,7 @@ RSpec.describe "Type Namespace Examples" do
         attribute :value, type
 
         xml do
-          root "example"
+          element "example"
           namespace ns
 
           map_element "value", to: :value

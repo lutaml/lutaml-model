@@ -360,13 +360,14 @@ RSpec.describe "Enhanced XML Mapping Features" do
   end
 
   describe "root() as backward-compatible alias" do
-    context "with mixed: true" do
+    context "with mixed_content" do
       let(:model_class) do
         Class.new(Lutaml::Model::Serializable) do
           attribute :text, :string
 
           xml do
-            root "paragraph", mixed: true
+            element "paragraph"
+            mixed_content
             map_element "b", to: :text
           end
         end
@@ -388,13 +389,14 @@ RSpec.describe "Enhanced XML Mapping Features" do
       end
     end
 
-    context "with ordered: true" do
+    context "with ordered" do
       let(:model_class) do
         Class.new(Lutaml::Model::Serializable) do
           attribute :items, :string, collection: true
 
           xml do
-            root "list", ordered: true
+            element "list"
+            ordered
             map_element "item", to: :items
           end
         end

@@ -6,6 +6,7 @@ RSpec.describe "OOXML Extended Properties" do
     Class.new(Lutaml::Model::XmlNamespace) do
       uri "http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"
       prefix_default "app"
+      element_form_default :qualified
     end
   end
 
@@ -40,7 +41,7 @@ RSpec.describe "OOXML Extended Properties" do
       attribute :app_version, :string
 
       xml do
-        root "Properties"
+        element "Properties"
         namespace ns
 
         # Solution 2: Force VtNamespace declaration even though unused

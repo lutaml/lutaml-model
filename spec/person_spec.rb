@@ -45,16 +45,16 @@ RSpec.describe Person do
 
   let(:xml) do
     <<~XML
-      <p:Person xmlns:p="http://example.com/person" xmlns:nsp1="http://example.com/nsp1">
-        <nsp1:FirstName>John</nsp1:FirstName>
-        <nsp1:LastName>Doe</nsp1:LastName>
-        <p:Age>30</p:Age>
-        <p:Height>5.9</p:Height>
-        <p:Birthdate>1990-01-01</p:Birthdate>
-        <p:LastLogin>2023-06-08T10:00:00+00:00</p:LastLogin>
-        <p:WakeupTime>07:00:00</p:WakeupTime>
-        <p:Active>true</p:Active>
-      </p:Person>
+      <Person xmlns="http://example.com/person">
+        <nsp1:FirstName xmlns="" xmlns:nsp1="http://example.com/nsp1">John</nsp1:FirstName>
+        <nsp1:LastName xmlns="" xmlns:nsp1="http://example.com/nsp1">Doe</nsp1:LastName>
+        <Age>30</Age>
+        <Height>5.9</Height>
+        <Birthdate>1990-01-01</Birthdate>
+        <LastLogin>2023-06-08T10:00:00+00:00</LastLogin>
+        <WakeupTime>07:00:00</WakeupTime>
+        <Active>true</Active>
+      </Person>
     XML
   end
 

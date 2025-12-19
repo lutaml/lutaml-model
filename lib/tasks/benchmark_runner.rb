@@ -108,7 +108,7 @@ direction: nil)
     attribute :item, BenchItem, collection: true
 
     xml do
-      root "root"
+      element "root"
       map_element "item", to: :item
     end
 

@@ -49,7 +49,8 @@ link:docs/migration-guides/0-1-0-migrate-from-shale.adoc[Migrating from Shale to
 * Configurable adapters for different serialization formats
 * Support for collections and default values
 * Custom serialization/deserialization methods
-* XML namespaces and mappings
+* XML namespaces and mappings with `namespace: :blank` for explicit no-namespace elements
+* Custom namespace prefixes during serialization through `to_xml(prefix:)` option
 * Deep object comparison and visual diff generation with similarity scoring
 * Generate serialization schemas from model definitions (<<schema-generation>>)
 * Import serialization schemas to define models (<<schema-import>>)
@@ -5332,6 +5333,77 @@ puts person.to_xml
 ----
 ====
 
+==== W3C standard namespace support
+
+Lutaml::Model provides built-in support for W3C-defined standard namespaces:
+
+* `Lutaml::Model::Xml::W3c::XmlNamespace` - W3C XML namespace (xml:lang, xml:space, xml:id, xml:base)
+* `Lutaml::Model::Xml::W3c::XsiNamespace` - W3C XMLSchema-instance namespace (xsi:nil, xsi:type, xsi:schemaLocation)
+* `Lutaml::Model::Xml::W3c::XsNamespace` - W3C XMLSchema namespace for XSD type definitions
+
+These namespace classes adhere to W3C specifications and handle reserved prefixes correctly.
+
+IMPORTANT: The `xml` prefix is implicitly bound per W3C specification and must NEVER be declared with `xmlns:xml`. Lutaml::Model automatically prevents this forbidden declaration.
+
+.W3C XML namespace attribute types
+[cols="1,2,2"]
+|===
+| Type Class | Purpose | Example Values
+
+| `W3c::XmlLangType`
+| Language identification (RFC 5646)
+| "en", "en-US", "fr", "de-DE", "zh-Hans"
+
+| `W3c::XmlSpaceType`
+| Whitespace handling
+| "default", "preserve"
+
+| `W3c::XmlBaseType`
+| Base URI for relative references
+| "http://example.com/", "./path/"
+
+| `W3c::XmlIdType`
+| Unique identifier (type ID)
+| "elem1", "section_2"
+|===
+
+.Using W3C XML namespace attributes
+[example]
+====
+[source,ruby]
+----
+class Document < Lutaml::Model::Serializable
+  attribute :lang, Lutaml::Model::Xml::W3c::XmlLangType
+  attribute :space, Lutaml::Model::Xml::W3c::XmlSpaceType
+  attribute :id, Lutaml::Model::Xml::W3c::XmlIdType
+  attribute :content, :string
+
+  xml do
+    root "doc"
+    map_attribute "lang", to: :lang
+    map_attribute "space", to: :space
+    map_attribute "id", to: :id
+    map_content to: :content
+  end
+end
+
+doc = Document.new(
+  lang: "en",
+  space: "preserve",
+  id: "doc1",
+  content: "  Text with spaces  "
+)
+
+puts doc.to_xml
+# => <doc xml:lang="en" xml:space="preserve" xml:id="doc1">  Text with spaces  </doc>
+
+# Note: No xmlns:xml declaration - it's implicitly bound per W3C specification
+----
+====
+
+See link:docs/_guides/xml-namespaces.adoc#w3c-standard-namespaces[W3C Standard Namespaces Guide] for comprehensive documentation.
+
+
 
 === XML elements and XML types (for Lutaml::Model)
 
@@ -5987,7 +6059,12 @@ ShortPerson.new.to_xml
 
 ===== General
 
-The `namespace_scope` directive controls where namespace declarations appear in
+
+NOTE: For comprehensive information on namespace declaration strategies including
+the minimal-subtree principle and how `namespace_scope` grants ELIGIBILITY (not
+automatic hoisting), see link:docs/_guides/xml-namespace-declarations.adoc[XML Namespace Declarations Guide].
+The `namespace_scope` directive controls where namespace declarations
+**are eligible to** appear in
 serialized XML. By default, namespaces are declared on the elements where they
 are used. With `namespace_scope`, you can consolidate multiple namespace
 declarations at a parent element for cleaner, more compact XML.
@@ -7780,6 +7857,104 @@ puts Ceramic.new(type: "Porcelain", glaze: "Clear", id: "C001").to_xml
 * Rarely needed in practice
 * Only when attributes are from different namespace than parent element
 * Most schemas use `:unqualified` for attributes
+
+[[form-override]]
+==== Form override for element qualification
+
+The `form:` option provides per-element control over W3C XML Schema qualification, allowing you to override namespace defaults on individual elements or attributes.
+
+===== General
+
+Per W3C XML Schema specification, the `form` attribute controls whether elements must be qualified (namespace-prefixed) or unqualified (no prefix), independent of the schema's `elementFormDefault` setting.
+
+Form override takes **highest priority** in namespace resolution, above type namespaces, inheritance, and schema defaults.
+
+===== Syntax
+
+[source,ruby]
+----
+xml do
+  map_element 'name', to: :attr, form: :qualified   # Force prefix
+  map_element 'name', to: :attr, form: :unqualified # Force no prefix
+  map_attribute 'id', to: :id, form: :qualified     # Force prefix (unusual)
+end
+----
+
+Values:
+
+`:qualified`::: Element **MUST** use namespace prefix, even if schema default is unqualified
+`:unqualified`::: Element **MUST NOT** use namespace prefix, even if parent has namespace
+
+===== Priority order
+
+Form takes highest priority in namespace resolution:
+
+. **`form: :unqualified`** → Forces NO prefix (local scope)
+. **`form: :qualified`** → Forces prefix usage
+. `namespace: :inherit` → Uses parent namespace
+. Type namespace → Uses type's namespace
+. Schema `elementFormDefault` → Follows default
+. Unqualified → No namespace
+
+===== Example: Mixed qualification
+
+.Using form to mix qualified and unqualified elements
+[example]
+====
+[source,ruby]
+----
+class ProductNamespace < Lutaml::Model::XmlNamespace
+  uri "http://example.com/products"
+  prefix_default "prod"
+  element_form_default :qualified  # Default: all elements qualified
+end
+
+class Product < Lutaml::Model::Serializable
+  attribute :id, :string
+  attribute :name, :string
+  attribute :internal_code, :string
+
+  xml do
+    element "product"
+    namespace ProductNamespace
+
+    map_element "id", to: :id, form: :qualified          # Uses prefix (follows default)
+    map_element "name", to: :name, form: :qualified      # Uses prefix (follows default)
+    map_element "code", to: :internal_code, form: :unqualified  # NO prefix (override)
+  end
+end
+
+product = Product.new(id: "P123", name: "Widget", internal_code: "INTERNAL-001")
+puts product.to_xml(prefix: true)
+----
+
+Output:
+
+[source,xml]
+----
+<prod:product xmlns:prod="http://example.com/products">
+  <prod:id>P123</prod:id>
+  <prod:name>Widget</prod:name>
+  <code>INTERNAL-001</code>  <!-- No prefix, local scope -->
+</prod:product>
+----
+
+NOTE: The `code` element is unqualified despite the schema's `element_form_default: :qualified`. The `form: :unqualified` override forces local scope.
+====
+
+===== Use cases
+
+**Use `form: :qualified` when:**
+
+* Schema specifies `elementFormDefault="unqualified"` but specific elements need qualification
+* Ensuring element is unambiguous across namespace boundaries
+* Legacy system requires specific elements to be prefixed
+
+**Use `form: :unqualified` when:**
+
+* Schema specifies `elementFormDefault="qualified"` but specific elements should be local
+* Element represents internal data not part of public schema
+* Mixing qualified and unqualified elements in same namespace
 
 
 

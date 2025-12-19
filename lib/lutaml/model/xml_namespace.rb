@@ -82,13 +82,13 @@ module Lutaml
         # in instance documents.
         #
         # @param value [Symbol, nil] :qualified or :unqualified
-        # @return [Symbol] the attribute form default (defaults to :unqualified)
+        # @return [Symbol] the attribute form default (defaults to :unqualified per W3C)
         def attribute_form_default(value = nil)
           if value
             validate_form_value!(value, "attribute_form_default")
             @attribute_form_default_value = value
           end
-          @attribute_form_default_value || :unqualified
+          @attribute_form_default_value || :unqualified  # W3C default is :unqualified
         end
 
         # Add imported namespaces (xs:import in XSD)
@@ -161,6 +161,24 @@ module Lutaml
         # @return [XmlNamespace] instance with resolved metadata
         def build(prefix: nil)
           new(prefix: prefix)
+        end
+
+        # Get the inheritance strategy for this namespace
+        #
+        # Returns the appropriate strategy based on element_form_default setting.
+        # This determines whether child elements inherit the parent namespace.
+        #
+        # @return [Lutaml::Model::Xml::NamespaceInheritanceStrategy]
+        def inheritance_strategy
+          case element_form_default
+          when :qualified
+            Lutaml::Model::Xml::QualifiedInheritanceStrategy.new
+          when :unqualified
+            Lutaml::Model::Xml::UnqualifiedInheritanceStrategy.new
+          else
+            raise ArgumentError,
+                  "Invalid element_form_default: #{element_form_default.inspect}"
+          end
         end
 
         # Generate unique key for this namespace configuration

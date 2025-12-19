@@ -54,7 +54,7 @@ module ValueTransformationComprehensive
     attribute :name, :string
 
     xml do
-      root "event"
+      element "event"
       map_element "eventDate", to: :event_date
       map_element "name", to: :name
     end
@@ -133,7 +133,7 @@ module ValueTransformationComprehensive
     attribute :activity, :string
 
     xml do
-      root "schedule"
+      element "schedule"
       map_element "date", to: :week_date
       map_element "activity", to: :activity
     end
@@ -154,7 +154,7 @@ module ValueTransformationComprehensive
     attribute :event_date, :date
 
     xml do
-      root "event"
+      element "event"
       map_element "eventDate", to: :event_date, transform: {
         export: ->(date) { date&.strftime("%Y%m%d") },
         import: lambda { |str|

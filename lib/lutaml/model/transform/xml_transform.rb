@@ -22,6 +22,13 @@ module Lutaml
       def apply_xml_mapping(doc, instance, options = {})
         options = prepare_options(options)
         instance.encoding = options[:encoding]
+        instance.doctype = options[:doctype] if options[:doctype]
+
+        # Transfer XML declaration info if present (Issue #1)
+        if doc.respond_to?(:xml_declaration) && doc.xml_declaration
+          instance.instance_variable_set(:@xml_declaration, doc.xml_declaration)
+        end
+
         return instance unless doc
 
         mappings = options[:mappings] || mappings_for(:xml).mappings
@@ -120,7 +127,14 @@ module Lutaml
         attribute_names = rule_names.filter_map do |rn|
           if rn.include?("://")
             # This is a URI:name format, need to find the actual prefix used in the document
-            uri, local_name = rn.split(":", 2)
+            # CRITICAL: Split on LAST colon to handle URIs with colons (http://...)
+            # "http://www.w3.org/XML/1998/namespace:lang" should split into:
+            #   uri = "http://www.w3.org/XML/1998/namespace"
+            #   local_name = "lang"
+            last_colon_index = rn.rindex(":")
+            uri = rn[0...last_colon_index]
+            local_name = rn[(last_colon_index + 1)..-1]
+
             # Get all matching attributes by URI and local name
             doc.root.attributes.values.find do |attr|
               attr.namespace == uri && attr.unprefixed_name == local_name
@@ -152,14 +166,14 @@ module Lutaml
         children = doc.children.select do |child|
           next false if child.text?
 
-          # CRITICAL FIX: Handle explicit namespace: nil
-          # When namespace: nil is explicitly set, only match elements with NO namespace URI
-          if rule.namespace_set? && rule.namespace.nil? && rule.instance_variable_get(:@namespace_param).nil?
-            # Child must have:
-            # 1. Matching local name
-            # 2. NO namespace URI (namespaced_name == unprefixed_name indicates no namespace)
-            next child.unprefixed_name == rule.name.to_s &&
-              child.namespaced_name == child.unprefixed_name
+          # Handle explicit namespace: nil with prefix: nil
+          # When both namespace: nil and prefix: nil are set, this means "no namespace constraint"
+          # The child element can declare its own namespace and should still match by local name
+          if rule.namespace_set? && rule.namespace.nil? &&
+             rule.instance_variable_get(:@namespace_param).nil? &&
+             rule.instance_variable_get(:@prefix_param).nil?
+            # Match by unprefixed name only, regardless of child's namespace
+            next child.unprefixed_name == rule.name.to_s
           end
 
           # First try exact namespace match

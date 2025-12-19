@@ -43,7 +43,7 @@ module SerializeableSpec
     attribute :content, :string
 
     xml do
-      root "recordDate"
+      element "recordDate"
       map_content to: :content
     end
   end
@@ -52,7 +52,7 @@ module SerializeableSpec
     attribute :date_issued, RecordDate, collection: true
 
     xml do
-      root "originInfo"
+      element "originInfo"
       map_element "dateIssued", to: :date_issued
     end
   end
@@ -113,7 +113,7 @@ module SerializeableSpec
     end
 
     xml do
-      root "person"
+      element "person"
       map_element "name", to: :name
       map_element "age", to: :age
       map_element "phone", to: :phone, with: { to: :phone_to_xml }

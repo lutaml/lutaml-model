@@ -50,7 +50,7 @@ RSpec.describe Lutaml::Model::Xml::DeclarationPlanner do
 
             xml do
               namespace vcard_ns
-              root "vCard"
+              element "vCard"
               map_element "version", to: :version
             end
           end
@@ -75,22 +75,28 @@ RSpec.describe Lutaml::Model::Xml::DeclarationPlanner do
           plan = planner.plan(nil, mapping, needs,
                               options: { mapper_class: model_class })
 
-          expect(plan[:namespaces]).to have_key(vcard_namespace.to_key)
-          expect(plan[:namespaces][vcard_namespace.to_key][:xmlns_declaration]).to eq("xmlns=\"urn:ietf:params:xml:ns:vcard-4.0\"")
+          # W3C-compliant: Use OOP API to access NamespaceDeclaration
+          expect(plan.namespaces).to have_key(vcard_namespace.to_key)
+          ns_decl = plan.namespace(vcard_namespace.to_key)
+          expect(ns_decl.xmlns_declaration).to eq("xmlns=\"urn:ietf:params:xml:ns:vcard-4.0\"")
         end
 
         it "sets format to :default" do
           plan = planner.plan(nil, mapping, needs,
                               options: { mapper_class: model_class })
 
-          expect(plan[:namespaces][vcard_namespace.to_key][:format]).to eq(:default)
+          # W3C-compliant: Use OOP API to access format
+          ns_decl = plan.namespace(vcard_namespace.to_key)
+          expect(ns_decl.format).to eq(:default)
         end
 
         it "marks namespace as declared_at :here" do
           plan = planner.plan(nil, mapping, needs,
                               options: { mapper_class: model_class })
 
-          expect(plan[:namespaces][vcard_namespace.to_key][:declared_at]).to eq(:here)
+          # W3C-compliant: Use OOP API to access declared_at
+          ns_decl = plan.namespace(vcard_namespace.to_key)
+          expect(ns_decl.declared_at).to eq(:here)
         end
       end
 
@@ -103,7 +109,7 @@ RSpec.describe Lutaml::Model::Xml::DeclarationPlanner do
 
             xml do
               namespace vcard_ns
-              root "vCard"
+              element "vCard"
               map_element "version", to: :version
               # W3C rule: attribute in same namespace requires prefix
               map_attribute "lang", to: :lang, namespace: vcard_ns
@@ -130,21 +136,27 @@ RSpec.describe Lutaml::Model::Xml::DeclarationPlanner do
           plan = planner.plan(nil, mapping, needs,
                               options: { mapper_class: model_class })
 
-          expect(plan[:namespaces][vcard_namespace.to_key][:xmlns_declaration]).to eq("xmlns:vcard=\"urn:ietf:params:xml:ns:vcard-4.0\"")
+          # W3C-compliant: Use OOP API to access NamespaceDeclaration
+          ns_decl = plan.namespace(vcard_namespace.to_key)
+          expect(ns_decl.xmlns_declaration).to eq("xmlns:vcard=\"urn:ietf:params:xml:ns:vcard-4.0\"")
         end
 
         it "sets format to :prefix" do
           plan = planner.plan(nil, mapping, needs,
                               options: { mapper_class: model_class })
 
-          expect(plan[:namespaces][vcard_namespace.to_key][:format]).to eq(:prefix)
+          # W3C-compliant: Use OOP API to access format
+          ns_decl = plan.namespace(vcard_namespace.to_key)
+          expect(ns_decl.format).to eq(:prefix)
         end
 
         it "marks namespace as declared_at :here" do
           plan = planner.plan(nil, mapping, needs,
                               options: { mapper_class: model_class })
 
-          expect(plan[:namespaces][vcard_namespace.to_key][:declared_at]).to eq(:here)
+          # W3C-compliant: Use OOP API to access declared_at
+          ns_decl = plan.namespace(vcard_namespace.to_key)
+          expect(ns_decl.declared_at).to eq(:here)
         end
       end
 
@@ -156,7 +168,7 @@ RSpec.describe Lutaml::Model::Xml::DeclarationPlanner do
 
             xml do
               namespace vcard_ns
-              root "vCard"
+              element "vCard"
               map_element "version", to: :version
             end
           end
@@ -181,8 +193,10 @@ RSpec.describe Lutaml::Model::Xml::DeclarationPlanner do
           plan = planner.plan(nil, mapping, needs,
                               options: { mapper_class: model_class, use_prefix: true })
 
-          expect(plan[:namespaces][vcard_namespace.to_key][:format]).to eq(:prefix)
-          expect(plan[:namespaces][vcard_namespace.to_key][:xmlns_declaration]).to eq("xmlns:vcard=\"urn:ietf:params:xml:ns:vcard-4.0\"")
+          # W3C-compliant: Use OOP API
+          ns_decl = plan.namespace(vcard_namespace.to_key)
+          expect(ns_decl.format).to eq(:prefix)
+          expect(ns_decl.xmlns_declaration).to eq("xmlns:vcard=\"urn:ietf:params:xml:ns:vcard-4.0\"")
         end
 
         it "forces default format when use_prefix: false" do
@@ -192,16 +206,20 @@ RSpec.describe Lutaml::Model::Xml::DeclarationPlanner do
           plan = planner.plan(nil, mapping, needs,
                               options: { mapper_class: model_class, use_prefix: false })
 
-          expect(plan[:namespaces][vcard_namespace.to_key][:format]).to eq(:default)
-          expect(plan[:namespaces][vcard_namespace.to_key][:xmlns_declaration]).to eq("xmlns=\"urn:ietf:params:xml:ns:vcard-4.0\"")
+          # W3C-compliant: Use OOP API
+          ns_decl = plan.namespace(vcard_namespace.to_key)
+          expect(ns_decl.format).to eq(:default)
+          expect(ns_decl.xmlns_declaration).to eq("xmlns=\"urn:ietf:params:xml:ns:vcard-4.0\"")
         end
 
         it "uses custom prefix string when provided" do
           plan = planner.plan(nil, mapping, needs,
                               options: { mapper_class: model_class, use_prefix: "custom" })
 
-          expect(plan[:namespaces][vcard_namespace.to_key][:format]).to eq(:prefix)
-          expect(plan[:namespaces][vcard_namespace.to_key][:xmlns_declaration]).to eq("xmlns:custom=\"urn:ietf:params:xml:ns:vcard-4.0\"")
+          # W3C-compliant: Use OOP API
+          ns_decl = plan.namespace(vcard_namespace.to_key)
+          expect(ns_decl.format).to eq(:prefix)
+          expect(ns_decl.xmlns_declaration).to eq("xmlns:custom=\"urn:ietf:params:xml:ns:vcard-4.0\"")
         end
       end
     end
@@ -216,7 +234,7 @@ RSpec.describe Lutaml::Model::Xml::DeclarationPlanner do
 
             xml do
               namespace vcard_ns
-              root "n"
+              element "n"
               map_element "given", to: :given
               map_element "family", to: :family
             end
@@ -232,7 +250,7 @@ RSpec.describe Lutaml::Model::Xml::DeclarationPlanner do
 
             xml do
               namespace vcard_ns
-              root "vCard"
+              element "vCard"
               map_element "version", to: :version
               map_element "n", to: :n
             end
@@ -271,22 +289,26 @@ RSpec.describe Lutaml::Model::Xml::DeclarationPlanner do
           plan = planner.plan(nil, mapping, needs,
                               options: { mapper_class: contact_model })
 
-          expect(plan[:namespaces]).to have_key(vcard_namespace.to_key)
-          expect(plan[:namespaces][vcard_namespace.to_key][:xmlns_declaration]).to eq("xmlns=\"urn:ietf:params:xml:ns:vcard-4.0\"")
-          expect(plan[:namespaces][vcard_namespace.to_key][:format]).to eq(:default)
+          # W3C-compliant: Use OOP API
+          expect(plan.namespaces).to have_key(vcard_namespace.to_key)
+          ns_decl = plan.namespace(vcard_namespace.to_key)
+          expect(ns_decl.xmlns_declaration).to eq("xmlns=\"urn:ietf:params:xml:ns:vcard-4.0\"")
+          expect(ns_decl.format).to eq(:default)
         end
 
         it "child inherits parent's namespace declaration" do
           plan = planner.plan(nil, mapping, needs,
                               options: { mapper_class: contact_model })
-          child_plan = plan[:children_plans][:n]
+          # W3C-compliant: Use OOP API to get child plan
+          child_plan = plan.child_plan(:n)
 
           # Child should have namespace in its plan (inherited from parent)
-          expect(child_plan[:namespaces]).to have_key(vcard_namespace.to_key)
+          expect(child_plan.namespaces).to have_key(vcard_namespace.to_key)
 
           # Child's namespace should be inherited, not redeclared
           # (We don't set declared_at on inherited namespaces, they remain from parent)
-          expect(child_plan[:namespaces][vcard_namespace.to_key][:format]).to eq(:default)
+          ns_decl = child_plan.namespace(vcard_namespace.to_key)
+          expect(ns_decl.format).to eq(:default)
         end
       end
 
@@ -299,7 +321,7 @@ RSpec.describe Lutaml::Model::Xml::DeclarationPlanner do
 
             xml do
               namespace dc_ns
-              root "metadata"
+              element "metadata"
               map_element "title", to: :title
               map_element "creator", to: :creator
             end
@@ -315,7 +337,7 @@ RSpec.describe Lutaml::Model::Xml::DeclarationPlanner do
 
             xml do
               namespace vcard_ns
-              root "document"
+              element "document"
               map_element "version", to: :version
               map_element "metadata", to: :metadata
             end
@@ -359,23 +381,27 @@ RSpec.describe Lutaml::Model::Xml::DeclarationPlanner do
                               options: { mapper_class: document_model })
 
           # Parent declares own namespace
-          expect(plan[:namespaces]).to have_key(vcard_namespace.to_key)
-          expect(plan[:namespaces][vcard_namespace.to_key][:format]).to eq(:default)
+          # W3C-compliant: Use OOP API
+          expect(plan.namespaces).to have_key(vcard_namespace.to_key)
+          vcard_decl = plan.namespace(vcard_namespace.to_key)
+          expect(vcard_decl.format).to eq(:default)
 
           # Parent also declares child's namespace (declared once at root principle)
-          expect(plan[:namespaces]).to have_key(dc_namespace.to_key)
-          expect(plan[:namespaces][dc_namespace.to_key][:format]).to eq(:prefix)
-          expect(plan[:namespaces][dc_namespace.to_key][:xmlns_declaration]).to eq("xmlns:dc=\"http://purl.org/dc/elements/1.1/\"")
+          expect(plan.namespaces).to have_key(dc_namespace.to_key)
+          dc_decl = plan.namespace(dc_namespace.to_key)
+          expect(dc_decl.format).to eq(:prefix)
+          expect(dc_decl.xmlns_declaration).to eq("xmlns:dc=\"http://purl.org/dc/elements/1.1/\"")
         end
 
         it "child inherits parent's namespace declarations" do
           plan = planner.plan(nil, mapping, needs,
                               options: { mapper_class: document_model })
-          child_plan = plan[:children_plans][:metadata]
+          # W3C-compliant: Use OOP API to get child plan
+          child_plan = plan.child_plan(:metadata)
 
           # Child should have both namespaces (inherited from parent)
-          expect(child_plan[:namespaces]).to have_key(vcard_namespace.to_key)
-          expect(child_plan[:namespaces]).to have_key(dc_namespace.to_key)
+          expect(child_plan.namespaces).to have_key(vcard_namespace.to_key)
+          expect(child_plan.namespaces).to have_key(dc_namespace.to_key)
         end
       end
     end
@@ -391,7 +417,7 @@ RSpec.describe Lutaml::Model::Xml::DeclarationPlanner do
 
           xml do
             namespace vcard_ns
-            root "vCard"
+            element "vCard"
             namespace_scope [dc_ns, dcterms_ns]
             map_element "version", to: :version
           end
@@ -428,11 +454,14 @@ RSpec.describe Lutaml::Model::Xml::DeclarationPlanner do
         plan = planner.plan(nil, mapping, needs,
                             options: { mapper_class: contact_model })
 
-        expect(plan[:namespaces]).to have_key(dc_namespace.to_key)
-        expect(plan[:namespaces][dc_namespace.to_key][:xmlns_declaration]).to eq("xmlns:dc=\"http://purl.org/dc/elements/1.1/\"")
+        # W3C-compliant: Use OOP API
+        expect(plan.namespaces).to have_key(dc_namespace.to_key)
+        dc_decl = plan.namespace(dc_namespace.to_key)
+        expect(dc_decl.xmlns_declaration).to eq("xmlns:dc=\"http://purl.org/dc/elements/1.1/\"")
 
-        expect(plan[:namespaces]).to have_key(dcterms_namespace.to_key)
-        expect(plan[:namespaces][dcterms_namespace.to_key][:xmlns_declaration]).to eq("xmlns:dcterms=\"http://purl.org/dc/terms/\"")
+        expect(plan.namespaces).to have_key(dcterms_namespace.to_key)
+        dcterms_decl = plan.namespace(dcterms_namespace.to_key)
+        expect(dcterms_decl.xmlns_declaration).to eq("xmlns:dcterms=\"http://purl.org/dc/terms/\"")
       end
 
       it "tracks namespace_scope namespaces with :prefix format (with :always mode)" do
@@ -445,8 +474,12 @@ RSpec.describe Lutaml::Model::Xml::DeclarationPlanner do
         plan = planner.plan(nil, mapping, needs,
                             options: { mapper_class: contact_model })
 
-        expect(plan[:namespaces][dc_namespace.to_key][:format]).to eq(:prefix)
-        expect(plan[:namespaces][dcterms_namespace.to_key][:format]).to eq(:prefix)
+        # W3C-compliant: Use OOP API
+        dc_decl = plan.namespace(dc_namespace.to_key)
+        expect(dc_decl.format).to eq(:prefix)
+
+        dcterms_decl = plan.namespace(dcterms_namespace.to_key)
+        expect(dcterms_decl.format).to eq(:prefix)
       end
     end
 
@@ -467,7 +500,7 @@ RSpec.describe Lutaml::Model::Xml::DeclarationPlanner do
 
           xml do
             namespace vcard_ns
-            root "vCard"
+            element "vCard"
             map_element "version", to: :version
           end
         end
@@ -493,8 +526,10 @@ RSpec.describe Lutaml::Model::Xml::DeclarationPlanner do
                             options: { mapper_class: model_class })
 
         # Type namespace matches root, should use default format
-        expect(plan[:namespaces][vcard_namespace.to_key][:format]).to eq(:default)
-        expect(plan[:namespaces][vcard_namespace.to_key][:xmlns_declaration]).to eq("xmlns=\"urn:ietf:params:xml:ns:vcard-4.0\"")
+        # W3C-compliant: Use OOP API
+        ns_decl = plan.namespace(vcard_namespace.to_key)
+        expect(ns_decl.format).to eq(:default)
+        expect(ns_decl.xmlns_declaration).to eq("xmlns=\"urn:ietf:params:xml:ns:vcard-4.0\"")
       end
     end
 
@@ -523,7 +558,8 @@ RSpec.describe Lutaml::Model::Xml::DeclarationPlanner do
         plan = planner.plan(nil, mapping, needs,
                             options: { mapper_class: type_only_model })
 
-        expect(plan[:namespaces]).to be_empty
+        # W3C-compliant: Use OOP API
+        expect(plan.namespaces).to be_empty
       end
     end
   end
@@ -534,7 +570,7 @@ RSpec.describe Lutaml::Model::Xml::DeclarationPlanner do
         attribute :name, :string
 
         xml do
-          root "item"
+          element "item"
           map_element "name", to: :name
         end
       end
@@ -546,7 +582,7 @@ RSpec.describe Lutaml::Model::Xml::DeclarationPlanner do
         instances :items, item_m
 
         xml do
-          root "items"
+          element "items"
           map_element "item", to: :items
         end
       end
@@ -565,9 +601,10 @@ RSpec.describe Lutaml::Model::Xml::DeclarationPlanner do
     it "creates plan for collection" do
       plan = planner.plan_collection(collection, mapping, needs)
 
-      expect(plan).to be_a(Hash)
-      expect(plan).to have_key(:namespaces)
-      expect(plan).to have_key(:children_plans)
+      # W3C-compliant: DeclarationPlan is now an object, not a hash
+      expect(plan).to be_a(Lutaml::Model::Xml::DeclarationPlan)
+      expect(plan.namespaces).to be_a(Hash)
+      expect(plan.children_plans).to be_a(Hash)
     end
   end
 
@@ -623,7 +660,7 @@ RSpec.describe Lutaml::Model::Xml::DeclarationPlanner do
 
         xml do
           namespace vcard_ns
-          root "vCard"
+          element "vCard"
           map_element "version", to: :version
         end
       end
@@ -634,7 +671,8 @@ RSpec.describe Lutaml::Model::Xml::DeclarationPlanner do
     context "with no namespace_class" do
       it "returns :default" do
         mapping_no_ns = double("Mapping", namespace_class: nil)
-        result = planner.send(:choose_format, mapping_no_ns, {}, {})
+        # NOTE: choose_format_with_override handles nil namespace_class
+        result = planner.send(:choose_format_with_override, mapping_no_ns, nil, {}, {})
         expect(result).to eq(:default)
       end
     end
@@ -649,8 +687,9 @@ RSpec.describe Lutaml::Model::Xml::DeclarationPlanner do
             },
           },
         }
-        result = planner.send(:choose_format, mapping, needs,
-                              { use_prefix: true })
+        # NOTE: Use choose_format_with_override which properly handles boolean use_prefix
+        result = planner.send(:choose_format_with_override, mapping,
+                             vcard_namespace, needs, { use_prefix: true })
         expect(result).to eq(:prefix)
       end
 
@@ -663,8 +702,10 @@ RSpec.describe Lutaml::Model::Xml::DeclarationPlanner do
             },
           },
         }
-        result = planner.send(:choose_format, mapping, needs,
-                              { use_prefix: false })
+        # NOTE: Use choose_format_with_override which properly handles boolean use_prefix
+        # Even with attributes (which normally requires prefix), use_prefix: false overrides
+        result = planner.send(:choose_format_with_override, mapping,
+                             vcard_namespace, needs, { use_prefix: false })
         expect(result).to eq(:default)
       end
     end
@@ -680,7 +721,9 @@ RSpec.describe Lutaml::Model::Xml::DeclarationPlanner do
             },
           },
         }
-        result = planner.send(:choose_format, mapping, needs, {})
+        # NOTE: Use choose_format_with_override for consistency
+        result = planner.send(:choose_format_with_override, mapping,
+                             vcard_namespace, needs, {})
         expect(result).to eq(:prefix)
       end
     end
@@ -695,7 +738,9 @@ RSpec.describe Lutaml::Model::Xml::DeclarationPlanner do
             },
           },
         }
-        result = planner.send(:choose_format, mapping, needs, {})
+        # NOTE: Use choose_format_with_override for consistency
+        result = planner.send(:choose_format_with_override, mapping,
+                             vcard_namespace, needs, {})
         expect(result).to eq(:default)
       end
     end

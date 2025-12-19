@@ -7,7 +7,7 @@ module SimpleModel
     attribute :city, :string
 
     xml do
-      root "address"
+      element "address"
       map_element "street", to: :street
       map_element "city", to: :city
     end
@@ -33,7 +33,7 @@ module SimpleModel
     attribute :size, :integer
 
     xml do
-      root "room"
+      element "room"
       map_element "name", to: :name
       map_element "size", to: :size
     end
@@ -60,7 +60,7 @@ module SimpleModel
     attribute :rooms, Room, collection: true
 
     xml do
-      root "building"
+      element "building"
       map_attribute "name", to: :name
       map_element "address", to: :address, treat_omitted: :omited
       map_element "room", to: :rooms, treat_omitted: :omited

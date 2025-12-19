@@ -20,7 +20,7 @@ RSpec.describe "Attribute form default behavior" do
         attribute :value, :integer
 
         xml do
-          root "item"
+          element "item"
           namespace ns
           map_attribute "id", to: :id
           map_attribute "value", to: :value
@@ -65,7 +65,7 @@ RSpec.describe "Attribute form default behavior" do
         attribute :value, :integer
 
         xml do
-          root "item"
+          element "item"
           namespace ns
           map_attribute "id", to: :id
           map_attribute "value", to: :value
@@ -118,7 +118,7 @@ RSpec.describe "Attribute form default behavior" do
         attribute :before, :integer
 
         xml do
-          root "spacing"
+          element "spacing"
           namespace ns
           map_attribute "val", to: :val
           map_attribute "after", to: :after
@@ -177,7 +177,7 @@ RSpec.describe "Attribute form default behavior" do
         attribute :explicit_attr, :string
 
         xml do
-          root "item"
+          element "item"
           namespace ns1
           map_attribute "normal", to: :normal_attr
           map_attribute "explicit", to: :explicit_attr, namespace: ns2
@@ -225,7 +225,7 @@ RSpec.describe "Attribute form default behavior" do
         attribute :typed, type
 
         xml do
-          root "item"
+          element "item"
           namespace ns
           map_attribute "normal", to: :normal
           map_attribute "typed", to: :typed

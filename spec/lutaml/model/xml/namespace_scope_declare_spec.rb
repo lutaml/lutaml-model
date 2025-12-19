@@ -25,7 +25,7 @@ RSpec.describe "namespace_scope Declaration Modes" do
         attribute :template, :string
 
         xml do
-          root "Properties"
+          element "Properties"
           namespace ns
           namespace_scope [{ namespace: vt_ns, declare: :auto }]
 
@@ -56,7 +56,7 @@ RSpec.describe "namespace_scope Declaration Modes" do
         attribute :template, :string
 
         xml do
-          root "Properties"
+          element "Properties"
           namespace ns
           namespace_scope [{ namespace: vt_ns, declare: :always }]
 
@@ -88,7 +88,7 @@ RSpec.describe "namespace_scope Declaration Modes" do
 
     # TODO: This test is pending full Hash format implementation
     # The feature is designed but not yet implemented in validate_namespace_scope!
-    xit "respects per-namespace declaration modes" do
+    it "respects per-namespace declaration modes" do
       ns = app_namespace
       vt_ns = vt_namespace
       other_ns = other_namespace
@@ -97,7 +97,7 @@ RSpec.describe "namespace_scope Declaration Modes" do
         attribute :template, :string
 
         xml do
-          root "Properties"
+          element "Properties"
           namespace ns
           namespace_scope [
             { namespace: vt_ns, declare: :always },
@@ -132,7 +132,7 @@ RSpec.describe "namespace_scope Declaration Modes" do
         attribute :template, :string
 
         xml do
-          root "Properties"
+          element "Properties"
           namespace ns
           namespace_scope [vt_ns] # No declare option - defaults to :auto
 
@@ -163,7 +163,7 @@ RSpec.describe "namespace_scope Declaration Modes" do
         attribute :template, :string
 
         xml do
-          root "Properties"
+          element "Properties"
           namespace ns
           namespace_scope [{ namespace: vt_ns, declare: :always }]
 

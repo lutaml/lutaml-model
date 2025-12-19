@@ -47,6 +47,8 @@ RSpec.describe "Type-level namespace round-trip tests" do
       gn_type = given_name_type
       sn_type = surname_type
       np_type = name_prefix_type
+      ct_ns = contact_namespace
+      name_ns = name_attribute_namespace
 
       Class.new do
         include Lutaml::Model::Serialize
@@ -57,7 +59,8 @@ RSpec.describe "Type-level namespace round-trip tests" do
         attribute :suffix, :string
 
         xml do
-          root "personName"
+          element "personName"
+          namespace_scope [ct_ns, name_ns]
           map_element "givenName", to: :given_name
           map_element "surname", to: :surname
           map_attribute "prefix", to: :prefix
@@ -80,7 +83,7 @@ RSpec.describe "Type-level namespace round-trip tests" do
         attribute :person_name, pn_class
 
         xml do
-          root "ContactInfo"
+          element "ContactInfo"
           map_element "personName", to: :person_name
         end
 
@@ -307,7 +310,7 @@ RSpec.describe "Type-level namespace round-trip tests" do
         attribute :type, xsi_type
 
         xml do
-          root "created"
+          element "created"
           namespace dcterms_ns
           map_attribute "type", to: :type
           map_content to: :value
@@ -331,7 +334,7 @@ RSpec.describe "Type-level namespace round-trip tests" do
         attribute :type, xsi_type
 
         xml do
-          root "modified"
+          element "modified"
           namespace dcterms_ns
           map_attribute "type", to: :type
           map_content to: :value
@@ -351,6 +354,10 @@ RSpec.describe "Type-level namespace round-trip tests" do
       cp_rev = cp_revision_type
       dcterms_created = dcterms_created_class
       dcterms_modified = dcterms_modified_class
+      dc_ns = dc_namespace
+      cp_ns = cp_namespace
+      dcterms_ns = dcterms_namespace
+      xsi_ns = xsi_namespace
 
       Class.new do
         include Lutaml::Model::Serialize
@@ -363,7 +370,8 @@ RSpec.describe "Type-level namespace round-trip tests" do
         attribute :modified, dcterms_modified
 
         xml do
-          root "coreProperties"
+          element "coreProperties"
+          namespace_scope [dc_ns, cp_ns]
           map_element "title", to: :title
           map_element "creator", to: :creator
           map_element "lastModifiedBy", to: :last_modified_by
@@ -411,14 +419,16 @@ RSpec.describe "Type-level namespace round-trip tests" do
       original = core_properties_class.from_xml(ooxml_core_properties)
       serialized = original.to_xml
 
+      # W3C-compliant: dcterms elements use DEFAULT namespace format
+      # (semantically equivalent to prefix format in input)
       expected_xml = <<~XML
         <coreProperties xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties">
           <dc:title>Untitled</dc:title>
           <dc:creator>Uniword</dc:creator>
           <cp:lastModifiedBy>Uniword</cp:lastModifiedBy>
           <cp:revision>1</cp:revision>
-          <dcterms:created xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="dcterms:W3CDTF">2025-11-13T17:11:03+00:00</dcterms:created>
-          <dcterms:modified xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="dcterms:W3CDTF">2025-11-13T17:11:03+00:00</dcterms:modified>
+          <created xmlns="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="dcterms:W3CDTF">2025-11-13T17:11:03+00:00</created>
+          <modified xmlns="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="dcterms:W3CDTF">2025-11-13T17:11:03+00:00</modified>
         </coreProperties>
       XML
 
@@ -455,14 +465,15 @@ RSpec.describe "Type-level namespace round-trip tests" do
 
       xml = instance.to_xml
 
+      # W3C-compliant: dcterms elements use DEFAULT namespace format
       expected_xml = <<~XML
         <coreProperties xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties">
           <dc:title>Test Document</dc:title>
           <dc:creator>Test Author</dc:creator>
           <cp:lastModifiedBy>Test Modifier</cp:lastModifiedBy>
           <cp:revision>1</cp:revision>
-          <dcterms:created xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="dcterms:W3CDTF">2025-11-13T17:11:03+00:00</dcterms:created>
-          <dcterms:modified xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="dcterms:W3CDTF">2025-11-13T17:11:03+00:00</dcterms:modified>
+          <created xmlns="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="dcterms:W3CDTF">2025-11-13T17:11:03+00:00</created>
+          <modified xmlns="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="dcterms:W3CDTF">2025-11-13T17:11:03+00:00</modified>
         </coreProperties>
       XML
 
@@ -486,14 +497,15 @@ RSpec.describe "Type-level namespace round-trip tests" do
 
       xml = instance.to_xml
 
+      # W3C-compliant: dcterms elements use DEFAULT namespace format
       expected_xml = <<~XML
         <coreProperties xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties">
           <dc:title>Test</dc:title>
           <dc:creator>Author</dc:creator>
           <cp:lastModifiedBy>Modifier</cp:lastModifiedBy>
           <cp:revision>1</cp:revision>
-          <dcterms:created xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="dcterms:W3CDTF">2025-11-13T17:11:03+00:00</dcterms:created>
-          <dcterms:modified xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="dcterms:W3CDTF">2025-11-13T17:11:03+00:00</dcterms:modified>
+          <created xmlns="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="dcterms:W3CDTF">2025-11-13T17:11:03+00:00</created>
+          <modified xmlns="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="dcterms:W3CDTF">2025-11-13T17:11:03+00:00</modified>
         </coreProperties>
       XML
 
@@ -522,14 +534,15 @@ RSpec.describe "Type-level namespace round-trip tests" do
 
       xml = instance.to_xml
 
+      # W3C-compliant: dcterms elements use DEFAULT namespace format
       expected_xml = <<~XML
         <coreProperties xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties">
           <dc:title>Complex Document</dc:title>
           <dc:creator>Complex Author</dc:creator>
           <cp:lastModifiedBy>Complex Modifier</cp:lastModifiedBy>
           <cp:revision>5</cp:revision>
-          <dcterms:created xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="dcterms:W3CDTF">2025-11-13T17:11:03+00:00</dcterms:created>
-          <dcterms:modified xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="dcterms:W3CDTF">2025-11-14T10:20:30+00:00</dcterms:modified>
+          <created xmlns="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="dcterms:W3CDTF">2025-11-13T17:11:03+00:00</created>
+          <modified xmlns="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="dcterms:W3CDTF">2025-11-14T10:20:30+00:00</modified>
         </coreProperties>
       XML
 

@@ -27,7 +27,7 @@ end
 class SampleModel < Lutaml::Model::Serializable
   attribute :custom_type, CustomSerializationType
   xml do
-    root "sample"
+    element "sample"
     map_element "custom_type", to: :custom_type
   end
   json do
@@ -38,7 +38,7 @@ end
 class SampleModelAttribute < Lutaml::Model::Serializable
   attribute :custom_type, CustomSerializationType
   xml do
-    root "sample"
+    element "sample"
     map_attribute "custom_type", to: :custom_type
   end
   json do
@@ -220,7 +220,7 @@ RSpec.describe Lutaml::Model::Type do
         attribute :hash_value, :hash
 
         xml do
-          root "test"
+          element "test"
           map_element "string_symbol", to: :string_symbol
           map_element "string_class", to: :string_class
           map_element "integer", to: :integer_value

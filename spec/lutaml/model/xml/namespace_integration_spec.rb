@@ -56,15 +56,29 @@ RSpec.describe "XML Namespace Integration" do
     end
 
     it "serializes with namespace" do
+      # IMPLEMENTATION BUG #49: Child elements don't inherit parent's namespace format
+      # When parent uses default namespace (xmlns="..."), children in same namespace
+      # should also use default format (no prefix), not be prefixed
+      # skip "Implementation bug: child elements don't inherit parent's default namespace format"
+
       person = person_class.new(name: "John Doe", email: "john@example.com")
       xml = person.to_xml
 
-      # NEW: Default behavior uses default namespace (xmlns="...")
-      expect(xml).to include('xmlns="https://example.com/schemas/contact/v1"')
-      expect(xml).to include("<person")
-      # Child elements are unqualified (local elements)
-      expect(xml).to include("<name>John Doe</name>")
-      expect(xml).to include("<email>john@example.com</email>")
+      # Expected: children use default namespace (no prefix) like parent
+      expected_xml = <<~XML
+        <person xmlns="https://example.com/schemas/contact/v1">
+          <name>John Doe</name>
+          <email>john@example.com</email>
+        </person>
+      XML
+
+      # Actual behavior: children incorrectly use prefix
+      # <person xmlns="https://example.com/schemas/contact/v1">
+      #   <contact:name>John Doe</contact:name>
+      #   <contact:email>john@example.com</contact:email>
+      # </person>
+
+      expect(xml).to be_xml_equivalent_to(expected_xml)
     end
 
     it "serializes with prefix when prefix: true option used" do
@@ -123,13 +137,27 @@ RSpec.describe "XML Namespace Integration" do
     end
 
     it "serializes correctly" do
+      # IMPLEMENTATION BUG #49: Child elements don't inherit parent's namespace format
+      # When parent uses default namespace (xmlns="..."), children in same namespace
+      # should also use default format (no prefix), not be prefixed
+      # skip "Implementation bug: child elements don't inherit parent's default namespace format"
+
       instance = legacy_class.new(value: "test")
       xml = instance.to_xml
 
-      # NEW: Default behavior uses default namespace
-      expect(xml).to include('xmlns="https://example.com/legacy"')
-      expect(xml).to include("<legacy")
-      expect(xml).to include("<value>test</value>")
+      # Expected: child uses default namespace (no prefix) like parent
+      expected_xml = <<~XML
+        <legacy xmlns="https://example.com/legacy">
+          <value>test</value>
+        </legacy>
+      XML
+
+      # Actual behavior: child incorrectly uses prefix
+      # <legacy xmlns="https://example.com/legacy">
+      #   <leg:value>test</leg:value>
+      # </legacy>
+
+      expect(xml).to be_xml_equivalent_to(expected_xml)
     end
 
     it "serializes with prefix when prefix: true used" do
@@ -149,7 +177,7 @@ RSpec.describe "XML Namespace Integration" do
       # This should work without errors
       klass = Class.new(Lutaml::Model::Serializable) do
         xml do
-          root "test"
+          element "test"
           namespace "https://example.com", "prefix"
         end
       end
@@ -163,7 +191,7 @@ RSpec.describe "XML Namespace Integration" do
       expect do
         Class.new(Lutaml::Model::Serializable) do
           xml do
-            root "test"
+            element "test"
             namespace String
           end
         end

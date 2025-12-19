@@ -18,7 +18,7 @@ module DerivedAttributesSpecs
     end
 
     xml do
-      root "ceramic-collection"
+      element "ceramic-collection"
       map_element "total-value", to: :total_value
       map_element "item", to: :items
     end

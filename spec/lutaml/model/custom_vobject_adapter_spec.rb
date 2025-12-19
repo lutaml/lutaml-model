@@ -13,7 +13,7 @@
 #
 #     vobject do
 #       type :component          # Declare as component (like VCARD, VCALENDAR)
-#       component_root "MYCOMP"  # Root component name
+#       component_element "MYCOMP"  # Root component name
 #
 #       # Map vObject properties to model attributes
 #       map_property "PROP1", to: :field1
@@ -31,7 +31,7 @@
 #
 #     vobject do
 #       type :component
-#       component_root "X-CUSTOM"  # Use X- prefix for custom components
+#       component_element "X-CUSTOM"  # Use X- prefix for custom components
 #
 #       map_property "X-NAME", to: :name
 #       map_property "X-DETAILS", to: :details, type: :structured

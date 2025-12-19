@@ -151,43 +151,80 @@ module Lutaml
 
         # Set the XML namespace for this mapping
         #
-        # @param uri_or_class [String, Class] namespace URI or XmlNamespace class
-        # @param prefix [String, Symbol, nil] optional prefix (for String URI only)
+        # @param ns_class_or_symbol [Class, Symbol] XmlNamespace class or :blank/:inherit
+        # @param _deprecated_prefix [String, nil] DEPRECATED - no longer used
         # @return [void]
         #
-        # @example Using XmlNamespace class (preferred)
+        # @example Using XmlNamespace class (REQUIRED)
         #   namespace ContactNamespace
         #
-        # @example Using String URI (legacy, still supported)
-        #   namespace 'https://example.com/ns', 'ex'
+        # @example Using :inherit to inherit parent namespace
+        #   namespace :inherit
+        #
+        # @example Using :blank for explicit no namespace
+        #   namespace :blank
         #
         # @raise [ArgumentError] if invalid arguments provided
         # @raise [Lutaml::Model::NoRootNamespaceError] if called with no_root
-        def namespace(uri_or_class, prefix = nil)
+        def namespace(ns_class_or_symbol, _deprecated_prefix = nil)
           raise Lutaml::Model::NoRootNamespaceError if no_root?
 
-          if uri_or_class.is_a?(Class) && uri_or_class < Lutaml::Model::XmlNamespace
-            # XmlNamespace class passed
-            @namespace_class = uri_or_class
-            @namespace_uri = uri_or_class.uri
-            @namespace_prefix = prefix || uri_or_class.prefix_default
-          elsif uri_or_class.is_a?(String)
-            # Legacy: String URI passed - create anonymous XmlNamespace class
-            validate_namespace_prefix!(prefix)
-            @namespace_uri = uri_or_class
-            @namespace_prefix = prefix
+          # Warn if prefix parameter is provided
+          if _deprecated_prefix
+            warn "[DEPRECATED] The prefix parameter on namespace() is deprecated. " \
+                 "Define prefix_default in your XmlNamespace class instead. " \
+                 "Prefix '#{_deprecated_prefix}' will be ignored."
+          end
 
-            # Create anonymous XmlNamespace class to maintain namespace_class API
-            uri_val = uri_or_class
-            prefix_val = prefix
-            @namespace_class = Class.new(Lutaml::Model::XmlNamespace) do
-              uri uri_val
-              prefix_default prefix_val if prefix_val
-            end
+          # Handle :blank symbol - explicit blank namespace
+          if ns_class_or_symbol == :blank
+            @namespace_class = nil
+            @namespace_uri = nil
+            @namespace_prefix = nil
+            @namespace_set = true  # Mark as explicitly set
+            @namespace_param = :blank  # Store original value
+            return
+          end
+
+          # Handle :inherit symbol
+          if ns_class_or_symbol == :inherit
+            @namespace_set = true
+            @namespace_param = :inherit
+            return
+          end
+
+          # nil means "not set" - DON'T set @namespace_set
+          if ns_class_or_symbol.nil?
+            @namespace_class = nil
+            @namespace_uri = nil
+            @namespace_prefix = nil
+            @namespace_set = false  # Explicitly NOT set
+            @namespace_param = nil
+            return
+          end
+
+          if ns_class_or_symbol.is_a?(Class) && ns_class_or_symbol < Lutaml::Model::XmlNamespace
+            # XmlNamespace class passed - register and use
+            @namespace_class = NamespaceClassRegistry.instance.register_named(ns_class_or_symbol)
+            @namespace_uri = ns_class_or_symbol.uri
+            @namespace_prefix = ns_class_or_symbol.prefix_default
+          elsif ns_class_or_symbol.is_a?(String)
+            # String URI - backward compatibility with deprecation
+            warn "[DEPRECATED] String namespace URIs are no longer supported. " \
+                 "Define an XmlNamespace class instead. URI: #{ns_class_or_symbol}"
+            @namespace_uri = ns_class_or_symbol
+            @namespace_prefix = _deprecated_prefix&.to_s
+            @namespace_class = NamespaceClassRegistry.instance.get_or_create(
+              uri: ns_class_or_symbol,
+              prefix: _deprecated_prefix&.to_s,
+              element_form_default: :qualified,
+              attribute_form_default: :unqualified
+            )
           else
             raise ArgumentError,
-                  "namespace must be a String URI or XmlNamespace class, " \
-                  "got #{uri_or_class.class}"
+                  "namespace must be an XmlNamespace class, :inherit, or :blank, " \
+                  "got #{ns_class_or_symbol.class}. " \
+                  "String URIs are deprecated - define an XmlNamespace class instead."
           end
         end
 
@@ -276,7 +313,7 @@ module Lutaml
           polymorphic: {},
           namespace: (namespace_set = false
                       nil),
-          prefix: (prefix_set = false
+          prefix: (prefix_provided = false
                    nil),
           transform: {},
           value_map: {},
@@ -288,6 +325,13 @@ module Lutaml
           validate!(
             name, to, with, render_nil, render_empty, type: TYPES[:element]
           )
+
+          # Warn if prefix parameter is provided
+          if prefix_provided != false
+            warn "[DEPRECATED] The prefix parameter on map_element is deprecated. " \
+                 "Define prefix_default in your XmlNamespace class instead. " \
+                 "Prefix '#{prefix}' will be ignored."
+          end
 
           # Raise error if xsd_type parameter is provided
           if xsd_type_provided != false
@@ -311,10 +355,8 @@ module Lutaml
             cdata: cdata,
             namespace: namespace,
             default_namespace: namespace_uri,
-            prefix: prefix,
             polymorphic: polymorphic,
             namespace_set: namespace_set != false || namespace == :inherit,
-            prefix_set: prefix_set != false,
             transform: transform,
             value_map: value_map,
             form: form,
@@ -334,7 +376,7 @@ module Lutaml
           polymorphic_map: {},
           namespace: (namespace_set = false
                       nil),
-          prefix: (prefix_set = false
+          prefix: (prefix_provided = false
                    nil),
           transform: {},
           value_map: {},
@@ -348,6 +390,13 @@ module Lutaml
           validate!(
             name, to, with, render_nil, render_empty, type: TYPES[:attribute]
           )
+
+          # Warn if prefix parameter is provided
+          if prefix_provided != false
+            warn "[DEPRECATED] The prefix parameter on map_attribute is deprecated. " \
+                 "Define prefix_default in your XmlNamespace class instead. " \
+                 "Prefix '#{prefix}' will be ignored."
+          end
 
           # Raise error if xsd_type parameter is provided
           if xsd_type_provided != false
@@ -373,12 +422,10 @@ module Lutaml
             with: with,
             delegate: delegate,
             namespace: namespace,
-            prefix: prefix,
             attribute: true,
             polymorphic_map: polymorphic_map,
             default_namespace: namespace_uri,
             namespace_set: namespace_set != false,
-            prefix_set: prefix_set != false,
             transform: transform,
             value_map: value_map,
             as_list: as_list,
@@ -428,7 +475,7 @@ module Lutaml
           with: {},
           namespace: (namespace_set = false
                       nil),
-          prefix: (prefix_set = false
+          prefix: (prefix_provided = false
                    nil),
           render_empty: false
         )
@@ -441,6 +488,13 @@ module Lutaml
             type: TYPES[:all_content],
           )
 
+          # Warn if prefix parameter is provided
+          if prefix_provided != false
+            warn "[DEPRECATED] The prefix parameter on map_all is deprecated. " \
+                 "Define prefix_default in your XmlNamespace class instead. " \
+                 "Prefix '#{prefix}' will be ignored."
+          end
+
           rule = MappingRule.new(
             Constants::RAW_MAPPING_KEY,
             to: to,
@@ -449,10 +503,8 @@ module Lutaml
             with: with,
             delegate: delegate,
             namespace: namespace,
-            prefix: prefix,
             default_namespace: namespace_uri,
             namespace_set: namespace_set != false,
-            prefix_set: prefix_set != false,
           )
 
           @raw_mapping = rule
@@ -472,8 +524,12 @@ module Lutaml
           raise Lutaml::Model::ImportModelWithRootError.new(model) if model.root?(reg_id)
 
           mappings = model.mappings_for(:xml, reg_id)
-          @elements.merge!(mappings.instance_variable_get(:@elements))
-          @attributes.merge!(mappings.instance_variable_get(:@attributes))
+
+          # CRITICAL: Deep-copy mapping rules to prevent shared state
+          # When multiple classes import the same model, each must have independent MappingRule instances
+          # Otherwise, any state mutation during serialization affects ALL importing classes
+          @elements.merge!(dup_mappings(mappings.instance_variable_get(:@elements)))
+          @attributes.merge!(dup_mappings(mappings.instance_variable_get(:@attributes)))
           (@element_sequence << mappings.element_sequence).flatten!
         end
 
@@ -568,6 +624,17 @@ module Lutaml
                 raise ArgumentError,
                       "namespace_scope Hash entry must have :namespace key " \
                       "with XmlNamespace class, got #{ns_class.class}"
+              end
+
+              # Validate :declare option if present
+              if ns.key?(:declare)
+                declare_value = ns[:declare]
+                valid_modes = [:auto, :always, :never]
+                unless valid_modes.include?(declare_value)
+                  raise ArgumentError,
+                        "namespace_scope Hash entry :declare must be one of " \
+                        "#{valid_modes.inspect}, got #{declare_value.inspect}"
+                end
               end
             else
               raise ArgumentError,
@@ -664,7 +731,7 @@ module Lutaml
 
           return mapping if !!mapping
 
-          raise raise Lutaml::Model::NoMappingFoundError.new(to.to_s)
+          raise Lutaml::Model::NoMappingFoundError.new(to.to_s)
         end
 
         def mapping_attributes_hash

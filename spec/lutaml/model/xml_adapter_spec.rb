@@ -11,7 +11,7 @@ module XmlAdapterSpec
     attribute :finish, :string, default: -> { "yes" }
 
     xml do
-      root "mstyle"
+      element "mstyle"
 
       map_attribute :displaystyle, to: :displaystyle, render_default: true
     end
@@ -22,7 +22,7 @@ module XmlAdapterSpec
     attribute :style, Mstyle, default: -> { Mstyle.new }
 
     xml do
-      root "math"
+      element "math"
 
       map_attribute :display, to: :display
       map_attribute "color", to: :color, delegate: :style
@@ -137,7 +137,7 @@ RSpec.describe "XmlAdapter" do
           attribute :content, :string
 
           xml do
-            root "title"
+            element "title"
 
             map_attribute "lang", to: :lang
             map_content to: :content
@@ -169,9 +169,7 @@ RSpec.describe "XmlAdapter" do
 
     it "serializes to XML with only content" do
       expected_xml = <<~XML
-        <Tag>
-          Bug
-        </Tag>
+        <Tag>Bug</Tag>
       XML
 
       doc = SampleModelTag.from_xml(expected_xml)

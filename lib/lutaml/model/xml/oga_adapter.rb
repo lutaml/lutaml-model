@@ -6,18 +6,39 @@ require_relative "oga/element"
 require_relative "builder/oga"
 require_relative "namespace_collector"
 require_relative "declaration_planner"
+require_relative "namespace_resolver"
+require_relative "declaration_handler"
+require_relative "input_namespace_extractor"
+require_relative "polymorphic_value_handler"
+require_relative "doctype_extractor"
+require_relative "namespace_declaration_builder"
+require_relative "attribute_namespace_resolver"
+require_relative "element_prefix_resolver"
 
 module Lutaml
   module Model
     module Xml
       class OgaAdapter < Document
+        include DeclarationHandler
+        include PolymorphicValueHandler
+        extend DocTypeExtractor
+
         TEXT_CLASSES = [Moxml::Text, Moxml::Cdata].freeze
 
         def self.parse(xml, options = {})
           parsed = Moxml::Adapter::Oga.parse(xml)
           root_element = parsed.children.find { |child| child.is_a?(Moxml::Element) }
+
+          # Extract DOCTYPE information
+          # Moxml/Oga doesn't directly expose DOCTYPE, extract from raw XML
+          doctype_info = extract_doctype_from_xml(xml)
+
+          # Extract input namespace declarations for Issue #3: Namespace Preservation
+          input_namespaces = InputNamespaceExtractor.extract(root_element, :oga)
+
           @root = Oga::Element.new(root_element)
-          new(@root, encoding(xml, options))
+          new(@root, encoding(xml, options), doctype: doctype_info,
+              input_namespaces: input_namespaces)
         end
 
         def to_xml(options = {})
@@ -51,7 +72,22 @@ module Lutaml
             end
           end
           xml_data = builder.to_xml
-          options[:declaration] ? declaration(options) + xml_data : xml_data
+
+          result = ""
+          # Use DeclarationHandler methods instead of Document#declaration
+          # Include declaration when encoding is specified OR when declaration is requested
+          if (options[:encoding] && !options[:encoding].nil?) || options[:declaration]
+            result += generate_declaration(options)
+          end
+
+          # Add DOCTYPE if present - use DeclarationHandler method
+          doctype_to_use = options[:doctype] || @doctype
+          if doctype_to_use && !options[:omit_doctype]
+            result += generate_doctype_declaration(doctype_to_use)
+          end
+
+          result += xml_data
+          result
         end
 
         # Build element using prepared namespace declaration plan
@@ -85,11 +121,7 @@ module Lutaml
                   # Serialize children directly
                   if value && attribute_def.type(register)&.<=(Lutaml::Model::Serialize)
                     # Nested model - recursively build it
-                    child_plan = plan[:children_plans][element_rule.to] || {
-                      namespaces: {},
-                      children_plans: {},
-                      type_namespaces: {},
-                    }
+                    child_plan = plan.child_plan(element_rule.to) || DeclarationPlan.empty
                     build_element_with_plan(
                       inner_xml,
                       value,
@@ -117,7 +149,7 @@ module Lutaml
                 value = element.send(element_rule.to)
                 next unless element_rule.render?(value, element)
 
-                child_plan = plan[:children_plans][element_rule.to]
+                child_plan = plan.child_plan(element_rule.to)
 
                 if value && attribute_def.type(register)&.<=(Lutaml::Model::Serialize)
                   handle_nested_elements_with_plan(
@@ -140,23 +172,8 @@ module Lutaml
           # Use xmlns declarations from plan
           attributes = {}
 
-          # Apply namespace declarations from plan
-          plan[:namespaces]&.each_value do |ns_config|
-            next unless ns_config[:declared_at] == :here
-
-            ns_class = ns_config[:ns_object]
-
-            # Parse the ready-to-use declaration string
-            decl = ns_config[:xmlns_declaration]
-            if decl.start_with?("xmlns:")
-              # Prefixed namespace: "xmlns:prefix=\"uri\""
-              prefix = decl[/xmlns:(\w+)=/, 1]
-              attributes["xmlns:#{prefix}"] = ns_class.uri
-            else
-              # Default namespace: "xmlns=\"uri\""
-              attributes["xmlns"] = ns_class.uri
-            end
-          end
+          # Apply namespace declarations from plan using extracted module
+          attributes.merge!(NamespaceDeclarationBuilder.build_xmlns_attributes(plan))
 
           # Add regular attributes (non-xmlns)
 
@@ -183,15 +200,27 @@ module Lutaml
             end
 
             if render_element?(attribute_rule, element, value)
-              # Resolve attribute namespace from plan
-              ns_info = resolve_attribute_namespace(attribute_rule, attr,
-                                                    options.merge(mapper_class: mapper_class))
-              attr_name = if ns_info[:prefix]
-                            "#{ns_info[:prefix]}:#{mapping_rule_name}"
-                          else
-                            attribute_rule.prefixed_name
-                          end
+              # Resolve attribute namespace using extracted module
+              ns_info = AttributeNamespaceResolver.resolve(
+                rule: attribute_rule,
+                attribute: attr,
+                plan: plan,
+                mapper_class: mapper_class,
+                register: register
+              )
+
+              # Build qualified attribute name based on W3C semantics
+              attr_name = AttributeNamespaceResolver.build_qualified_name(
+                ns_info,
+                mapping_rule_name,
+                attribute_rule
+              )
               attributes[attr_name] = value ? value.to_s : value
+
+              # Add local xmlns declaration if needed
+              if ns_info[:needs_local_declaration]
+                attributes[ns_info[:local_xmlns_attr]] = ns_info[:local_xmlns_uri]
+              end
             end
           end
 
@@ -202,15 +231,9 @@ module Lutaml
             attributes.merge!(element.schema_location.to_xml_attributes)
           end
 
-          # Determine prefix from plan
-          prefix = nil
-          if xml_mapping.namespace_class
-            key = xml_mapping.namespace_class.to_key
-            ns_config = plan[:namespaces][key]
-            if ns_config && ns_config[:format] == :prefix
-              prefix = xml_mapping.namespace_class.prefix_default
-            end
-          end
+          # Determine prefix from plan using extracted module
+          prefix_info = ElementPrefixResolver.resolve(mapping: xml_mapping, plan: plan)
+          prefix = prefix_info[:prefix]
 
           tag_name = options[:tag_name] || xml_mapping.root_element
           return if options[:except]&.include?(tag_name)
@@ -219,10 +242,18 @@ module Lutaml
                                                attributes: attributes.compact) do
             if ordered?(element, options.merge(mapper_class: mapper_class))
               build_ordered_element_with_plan(xml, element, plan,
-                                              options.merge(mapper_class: mapper_class))
+                                              options.merge(
+                                                mapper_class: mapper_class,
+                                                parent_namespace_class: xml_mapping.namespace_class,
+                                                parent_ns_decl: prefix_info[:ns_decl]
+                                              ))
             else
               build_unordered_children_with_plan(xml, element, plan,
-                                                 options.merge(mapper_class: mapper_class))
+                                                 options.merge(
+                                                   mapper_class: mapper_class,
+                                                   parent_namespace_class: xml_mapping.namespace_class,
+                                                   parent_ns_decl: prefix_info[:ns_decl]
+                                                 ))
             end
           end
         end
@@ -273,7 +304,7 @@ module Lutaml
             next unless element_rule.render?(value, element)
 
             # Get child's plan if available
-            child_plan = plan[:children_plans][element_rule.to]
+            child_plan = plan.child_plan(element_rule.to)
 
             # NEW: Check if value is a Collection instance
             is_collection_instance = value.is_a?(Lutaml::Model::Collection)
@@ -286,14 +317,15 @@ module Lutaml
                 attribute_def,
                 child_plan,
                 options,
+                parent_plan: plan,
               )
             elsif element_rule.delegate && attribute_def.nil?
               # Handle non-model values (strings, etc.)
               add_simple_value(xml, element_rule, value, nil, plan: plan,
-                                                              mapping: xml_mapping)
+                                                            mapping: xml_mapping, options: options)
             else
               add_simple_value(xml, element_rule, value, attribute_def,
-                               plan: plan, mapping: xml_mapping)
+                               plan: plan, mapping: xml_mapping, options: options)
             end
           end
 
@@ -369,7 +401,7 @@ module Lutaml
                               end
 
               # Get child's plan if available
-              child_plan = plan[:children_plans][element_rule.to]
+              child_plan = plan.child_plan(element_rule.to)
 
               is_collection_instance = current_value.is_a?(Lutaml::Model::Collection)
 
@@ -381,10 +413,11 @@ module Lutaml
                   attribute_def,
                   child_plan,
                   options,
+                  parent_plan: plan,
                 )
               else
                 add_simple_value(xml, element_rule, current_value, attribute_def,
-                                 plan: plan, mapping: xml_mapping)
+                                 plan: plan, mapping: xml_mapping, options: options)
               end
             end
           end
@@ -396,7 +429,7 @@ module Lutaml
 
         # Handle nested model elements with plan
         def handle_nested_elements_with_plan(xml, value, rule, attribute, plan,
-options)
+options, parent_plan: nil)
           element_options = options.merge(
             rule: rule,
             attribute: attribute,
@@ -405,8 +438,41 @@ options)
           )
 
           if value.is_a?(Lutaml::Model::Collection)
-            value.collection.each do |val|
-              build_element_with_plan(xml, val, plan, element_options)
+            items = value.collection
+            attr_type = attribute.type(register)
+
+            if attr_type <= Lutaml::Model::Type::Value
+              # Simple types - use add_simple_value for each item
+              items.each do |val|
+                xml_mapping = options[:mapper_class]&.mappings_for(:xml)
+                add_simple_value(xml, rule, val, attribute, plan: parent_plan,
+                                mapping: xml_mapping, options: options)
+              end
+            else
+              # Model types - build elements with plans
+              items.each do |val|
+                # For polymorphic collections, use each item's actual class
+                item_mapper_class = if polymorphic_value?(attribute, val)
+                                      val.class
+                                    else
+                                      attribute.type(register)
+                                    end
+
+                # CRITICAL: Collect and plan for each item individually
+                item_mapping = item_mapper_class.mappings_for(:xml)
+                if item_mapping
+                  collector = NamespaceCollector.new(register)
+                  item_needs = collector.collect(val, item_mapping)
+
+                  planner = DeclarationPlanner.new(register)
+                  item_plan = planner.plan(val, item_mapping, item_needs, parent_plan: parent_plan, options: options)
+                else
+                  item_plan = plan
+                end
+
+                item_options = element_options.merge(mapper_class: item_mapper_class)
+                build_element_with_plan(xml, val, item_plan, item_options)
+              end
             end
             return
           end
@@ -414,11 +480,30 @@ options)
           case value
           when Array
             value.each do |val|
-              if plan
-                build_element_with_plan(xml, val, plan, element_options)
+              # For polymorphic arrays, use each item's actual class
+              item_mapper_class = if polymorphic_value?(attribute, val)
+                                    val.class
+                                  else
+                                    attribute.type(register)
+                                  end
+
+              # CRITICAL: Collect and plan for each array item individually
+              item_mapping = item_mapper_class.mappings_for(:xml)
+              if item_mapping
+                collector = NamespaceCollector.new(register)
+                item_needs = collector.collect(val, item_mapping)
+
+                planner = DeclarationPlanner.new(register)
+                item_plan = planner.plan(val, item_mapping, item_needs, parent_plan: parent_plan, options: options)
               else
-                # Fallback for cases without plan
-                build_element(xml, val, element_options)
+                item_plan = plan
+              end
+
+              item_options = element_options.merge(mapper_class: item_mapper_class)
+              if item_plan
+                build_element_with_plan(xml, val, item_plan, item_options)
+              else
+                build_element(xml, val, item_options)
               end
             end
           else
@@ -433,169 +518,79 @@ options)
 
         # Add simple (non-model) values to XML
         def add_simple_value(xml, rule, value, attribute, plan: nil,
-mapping: nil)
+mapping: nil, options: {})
           # Handle array values by creating multiple elements
           if value.is_a?(Array)
             value.each do |val|
               add_simple_value(xml, rule, val, attribute, plan: plan,
-                                                          mapping: mapping)
+                                                      mapping: mapping, options: options)
             end
             return
           end
 
           # Determine prefix for this element based on namespace rules
-          resolved_prefix = nil
-          false
-          nil
+          # Initialize namespace resolver
+          resolver = NamespaceResolver.new(register)
 
-          # TYPE NAMESPACE INTEGRATION: Check attribute's type namespace first
-          # Priority: explicit mapping namespace > Type namespace > parent inheritance
-          type_ns_info = nil
-
-          # Check for explicit namespace on the rule
-          if rule.namespace_set?
-            resolved_prefix = rule.prefix
-            if rule.namespace
-              # Only declare if not already in plan
-              already_declared = plan && plan[:namespaces]&.any? do |_key, ns_config|
-                ns_config[:ns_object].uri == rule.namespace && ns_config[:declared_at] == :here
-              end
-              !already_declared
-              rule.namespace
-            end
-          elsif plan && plan[:type_namespaces] && plan[:type_namespaces][rule.to]
-            # Type namespace - this attribute's type defines its own namespace
-            # Priority: Type namespace takes precedence over parent inheritance
-            type_ns_class = plan[:type_namespaces][rule.to]
-            key = type_ns_class.to_key
-            ns_config = plan[:namespaces][key]
-            if ns_config && ns_config[:format] == :prefix
-              resolved_prefix = type_ns_class.prefix_default
+          # Extract parent_uses_default_ns from options or calculate it
+          parent_uses_default_ns = options[:parent_uses_default_ns]
+          if parent_uses_default_ns.nil?
+            parent_uses_default_ns = if mapping&.namespace_class && plan
+              key = mapping.namespace_class.to_key
+              ns_decl = plan.namespace(key)
+              ns_decl&.declared_here? && ns_decl&.default_format?
+            else
+              false
             end
           end
 
-          # If no explicit namespace and no Type namespace, check attribute's type namespace next
-          if !resolved_prefix && !rule.namespace_set?
+          # Resolve namespace using the resolver
+          ns_result = resolver.resolve_for_element(rule, attribute, mapping, plan, options)
+          resolved_prefix = ns_result[:prefix]
+          type_ns_info = ns_result[:ns_info]
 
-            # Only check type namespace if attribute is present
-            type_ns_info = rule.resolve_namespace(
-              attr: attribute,
-              register: register,
-              parent_ns_uri: mapping&.namespace_uri,
-              parent_ns_class: mapping&.namespace_class,
-            )
+          # BUG FIX #49: Check if child element is in same namespace as parent
+          # If yes, inherit parent's format (default vs prefix)
 
-            # Check if type namespace provides prefix and URI
-            if type_ns_info[:prefix]
-              resolved_prefix = type_ns_info[:prefix]
-            end
+          # Get parent's namespace URI
+          parent_ns_class = options[:parent_namespace_class]
+          parent_ns_decl = options[:parent_ns_decl]
+          parent_ns_uri = parent_ns_class&.uri
 
-            # Check only once for xmlns declaration (if URI present in ns_info)
-            if type_ns_info[:uri] && !resolved_prefix
-              uri = type_ns_info[:uri]
+          # Get child's resolved namespace URI
+          child_ns_uri = ns_result[:uri]
 
-              already_declared = plan && plan[:namespaces]&.any? do |_key, ns_config|
-                ns_config[:ns_object].uri == uri && ns_config[:declared_at] == :here
-              end
-              !already_declared
-              uri
+          # Only inherit format if child is in SAME namespace as parent (matching URIs)
+          if parent_ns_class && parent_ns_decl &&
+             child_ns_uri && parent_ns_uri &&
+             child_ns_uri == parent_ns_uri
+            # Same namespace URI - inherit parent's format
+            if parent_ns_decl.prefix_format?
+              resolved_prefix = parent_ns_decl.prefix
+            else
+              # Parent uses default format, child should too (no prefix)
+              resolved_prefix = nil
             end
           end
-
-          # If explicit Type is set (ignores parent namespace settings),
-          # then the above rules can be overridden.
-          # No need to fallback to parent namespace inheritance directly; let child elements manage that.
-
-          # Inherit from parent only as a fallback if all other checks failed
-          if !resolved_prefix
-
-            # Check parent namespaces (mapped or defaulted), but only if the attribute
-            # allows being declared on this level
-            # (Some types may be declared only on root or higher levels)
-            if mapping&.namespace_uri
-              # NAMESPACE PREFIX INHERITANCE: Comprehensive case handling
-              # Cases:
-              # 1. namespace: :inherit → always use parent's prefix
-              # 2. Element namespace matches parent → check plan[:namespaces]
-              # 3. Element is unqualified but should inherit → check parent format
-              # 4. Element has explicit namespace: nil → NO prefix ever
-
-              if rule.namespace_param == :inherit
-                # Case 1: Explicit :inherit - always use parent's prefix
-                if mapping.namespace_class
-                  key = mapping.namespace_class.to_key
-                  ns_config = plan[:namespaces][key]
-                  if ns_config && ns_config[:format] == :prefix
-                    resolved_prefix = mapping.namespace_class.prefix_default
-                  end
-                end
-              elsif type_ns_info && type_ns_info[:uri] && type_ns_info[:uri] == mapping.namespace_uri
-                # Case 2: Element has namespace matching parent - check format
-                if plan && mapping.namespace_class
-                  key = mapping.namespace_class.to_key
-                  ns_config = plan[:namespaces][key]
-                  if ns_config && ns_config[:format] == :prefix
-                    resolved_prefix = mapping.namespace_class.prefix_default
-                  end
-                end
-              elsif type_ns_info && type_ns_info[:uri] && type_ns_info[:uri] != mapping.namespace_uri
-                # Case 2b: Element has DIFFERENT namespace - use its own prefix
-                # Find the namespace class by URI
-                if plan && plan[:namespaces]
-                  ns_entry = plan[:namespaces].find do |_key, ns_config|
-                    ns_config[:ns_object].uri == type_ns_info[:uri]
-                  end
-                  if ns_entry
-                    _key, ns_config = ns_entry
-                    if ns_config[:format] == :prefix
-                      resolved_prefix = ns_config[:ns_object].prefix_default
-                    end
-                  end
-                end
-              elsif !rule.namespace_set? && type_ns_info && type_ns_info[:uri] && type_ns_info[:uri] == mapping.namespace_uri
-                # Case 3: Element has SAME namespace as parent (not nil, not unqualified)
-                # Element has a resolved namespace that matches parent -> inherit parent format
-                # Truly unqualified elements (type_ns_info[:uri].nil?) do NOT inherit
-                if plan && mapping.namespace_class
-                  key = mapping.namespace_class.to_key
-                  ns_config = plan[:namespaces][key]
-                  if ns_config && ns_config[:format] == :prefix
-                    resolved_prefix = mapping.namespace_class.prefix_default
-                  end
-                end
-              end
-              # Case 4: explicit namespace: nil falls through with resolved_prefix = nil
-              # Case 5: truly unqualified (type_ns_info[:uri].nil?) falls through with resolved_prefix = nil
-            end
-
-            # No inheritance from parent namespace if mapping not available
-            resolved_prefix ||= nil
-          end
-
-          # Parent namespace attribute will be inherited in child elements if
-          # needed. Document interpreters must be prepared for this.
 
           # Prepare attributes with xmlns if needed
           attributes = {}
-          # FIX: Never declare Type namespaces locally - rely on root-level declarations from plan
-          # This prevents over-declaration and follows "never declare twice" principle
-          # Type namespaces should be declared at root level by DeclarationPlanner
+
+          # W3C COMPLIANCE: Use resolver to determine xmlns="" requirement
+          if resolver.xmlns_blank_required?(ns_result, parent_uses_default_ns)
+            attributes["xmlns"] = ""
+          end
 
           # Check if this namespace needs local declaration (out of scope)
-          if resolved_prefix && plan && plan[:namespaces]
-            # Find the namespace config for this prefix
-            ns_entry = plan[:namespaces].find do |_key, ns_config|
-              ns_config[:ns_object].prefix_default == resolved_prefix ||
-                (type_ns_info && type_ns_info[:uri] && ns_config[:ns_object].uri == type_ns_info[:uri])
+          if resolved_prefix && plan && plan.namespaces
+            ns_entry = plan.namespaces.values.find do |ns_decl|
+              ns_decl.ns_object.prefix_default == resolved_prefix ||
+                (type_ns_info && type_ns_info[:uri] && ns_decl.ns_object.uri == type_ns_info[:uri])
             end
 
-            if ns_entry
-              _key, ns_config = ns_entry
-              # If namespace is marked for local declaration, add xmlns attribute
-              if ns_config[:declared_at] == :local_on_use
-                xmlns_attr = "xmlns:#{resolved_prefix}"
-                attributes[xmlns_attr] = ns_config[:ns_object].uri
-              end
+            if ns_entry && ns_entry.local_on_use?
+              xmlns_attr = resolved_prefix ? "xmlns:#{resolved_prefix}" : "xmlns"
+              attributes[xmlns_attr] = ns_entry.ns_object.uri
             end
           end
 

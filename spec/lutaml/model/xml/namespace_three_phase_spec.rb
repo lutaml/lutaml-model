@@ -40,7 +40,7 @@ RSpec.describe "Three-phase namespace algorithm" do
 
           xml do
             namespace vcard_ns
-            root "n"
+            element "n"
             map_element "given", to: :given
             map_element "family", to: :family
           end
@@ -56,7 +56,7 @@ RSpec.describe "Three-phase namespace algorithm" do
 
           xml do
             namespace vcard_ns
-            root "vCard"
+            element "vCard"
             map_element "version", to: :version
             map_element "n", to: :n
           end
@@ -70,7 +70,9 @@ RSpec.describe "Three-phase namespace algorithm" do
         # All models use vcard namespace - check string key from to_key
         vcard_key = vcard_namespace.to_key
         expect(needs[:namespaces]).to have_key(vcard_key)
-        expect(needs[:namespaces][vcard_key][:ns_object]).to eq(vcard_namespace)
+        # W3C Rule: Compare namespaces by URI, not object identity
+        # NamespaceClassRegistry may canonicalize classes, creating different instances
+        expect(needs[:namespaces][vcard_key][:ns_object].to_key).to eq(vcard_namespace.to_key)
         expect(needs[:namespaces][vcard_key][:used_in]).to include(:elements)
 
         # NOTE: Currently may collect duplicate entries for same namespace
@@ -97,7 +99,7 @@ RSpec.describe "Three-phase namespace algorithm" do
 
           xml do
             namespace vcard_ns
-            root "n"
+            element "n"
             map_element "given", to: :given
             map_element "family", to: :family
           end
@@ -113,7 +115,7 @@ RSpec.describe "Three-phase namespace algorithm" do
 
           xml do
             namespace vcard_ns
-            root "vCard"
+            element "vCard"
             map_element "version", to: :version
             map_element "n", to: :n
           end
@@ -128,10 +130,14 @@ RSpec.describe "Three-phase namespace algorithm" do
 
         # Root declares default namespace - check string key from to_key
         vcard_key = vcard_namespace.to_key
-        expect(plan[:namespaces]).to have_key(vcard_key)
-        expect(plan[:namespaces][vcard_key][:ns_object]).to eq(vcard_namespace)
-        expect(plan[:namespaces][vcard_key][:xmlns_declaration]).to eq("xmlns=\"urn:ietf:params:xml:ns:vcard-4.0\"")
-        expect(plan[:namespaces][vcard_key][:format]).to eq(:default)
+        # Use OOP API: plan.namespace(key) returns NamespaceDeclaration object
+        expect(plan.namespaces).to have_key(vcard_key)
+        ns_decl = plan.namespace(vcard_key)
+        # W3C Rule: Compare namespaces by URI, not object identity
+        # NamespaceClassRegistry may canonicalize classes, creating different instances
+        expect(ns_decl.ns_object.to_key).to eq(vcard_namespace.to_key)
+        expect(ns_decl.xmlns_declaration).to eq("xmlns=\"urn:ietf:params:xml:ns:vcard-4.0\"")
+        expect(ns_decl.format).to eq(:default)
       end
 
       it "child inherits parent's default namespace format" do
@@ -139,15 +145,18 @@ RSpec.describe "Three-phase namespace algorithm" do
         needs = collector.collect(nil, mapping, mapper_class: contact_model)
         plan = planner.plan(nil, mapping, needs,
                             options: { mapper_class: contact_model })
-        child_plan = plan[:children_plans][:n]
+        # Use OOP API: plan.child_plan(attr_name) returns child DeclarationPlan
+        child_plan = plan.child_plan(:n)
 
         # Child should have namespace in plan (inherited from parent) - check string key
         vcard_key = vcard_namespace.to_key
-        expect(child_plan[:namespaces]).to have_key(vcard_key)
-        expect(child_plan[:namespaces][vcard_key][:ns_object]).to eq(vcard_namespace)
+        expect(child_plan.namespaces).to have_key(vcard_key)
+        child_ns_decl = child_plan.namespace(vcard_key)
+        # W3C Rule: Compare namespaces by URI, not object identity
+        expect(child_ns_decl.ns_object.to_key).to eq(vcard_namespace.to_key)
 
         # Child should inherit :default format
-        expect(child_plan[:namespaces][vcard_key][:format]).to eq(:default)
+        expect(child_ns_decl.format).to eq(:default)
       end
     end
   end
@@ -162,7 +171,7 @@ RSpec.describe "Three-phase namespace algorithm" do
 
           xml do
             namespace vcard_ns
-            root "n"
+            element "n"
             map_element "given", to: :given
             map_element "family", to: :family
           end
@@ -178,14 +187,13 @@ RSpec.describe "Three-phase namespace algorithm" do
 
           xml do
             namespace vcard_ns
-            root "vCard"
+            element "vCard"
             map_element "version", to: :version
             map_element "n", to: :n
           end
         end
       end
 
-      # SKIPPED: Phase 3 tests require adapter refactoring (Session 20)
       it "produces clean XML with default namespace inheritance" do
         name = name_model.new(given: "John", family: "Doe")
         contact = contact_model.new(version: "4.0", n: name)
@@ -194,20 +202,22 @@ RSpec.describe "Three-phase namespace algorithm" do
         # Should have default namespace on root
         expect(xml).to include('xmlns="urn:ietf:params:xml:ns:vcard-4.0"')
 
+        # W3C Rule: When parent uses default namespace (xmlns="..."),
+        # children in blank namespace MUST have xmlns="" to opt out
         # Elements should not be prefixed when using default namespace
-        expect(xml).to include("<version>")
+        expect(xml).to include('<version xmlns="">')
         expect(xml).to include("<n>")
-        expect(xml).to include("<given>")
-        expect(xml).to include("<family>")
+        expect(xml).to include('<given xmlns="">')
+        expect(xml).to include('<family xmlns="">')
       end
     end
 
     context "with Type namespaces" do
       let(:vcard_version_type) do
         vcard_ns = vcard_namespace
-        t = Class.new(Lutaml::Model::Type::String)
-        t.xml_namespace(vcard_ns)
-        t
+        Class.new(Lutaml::Model::Type::String) do
+          xml_namespace(vcard_ns)
+        end
       end
 
       let(:model_class) do
@@ -219,13 +229,12 @@ RSpec.describe "Three-phase namespace algorithm" do
 
           xml do
             namespace vcard_ns
-            root "vCard"
+            element "vCard"
             map_element "version", to: :version
           end
         end
       end
 
-      # SKIPPED: Phase 3 tests require adapter refactoring (Session 20)
       it "handles Type namespace matching root default namespace" do
         instance = model_class.new(version: "4.0")
         xml = instance.to_xml
@@ -250,7 +259,7 @@ RSpec.describe "Three-phase namespace algorithm" do
 
           xml do
             namespace vcard_ns
-            root "n"
+            element "n"
             map_element "given", to: :given
             map_element "family", to: :family
           end
@@ -268,14 +277,13 @@ RSpec.describe "Three-phase namespace algorithm" do
           xml do
             namespace vcard_ns
             namespace_scope [dc_ns]
-            root "vCard"
+            element "vCard"
             map_element "version", to: :version
             map_element "n", to: :n
           end
         end
       end
 
-      # SKIPPED: Phase 3 tests require adapter refactoring (Session 20)
       it "round-trips correctly" do
         name = name_model.new(given: "John", family: "Doe")
         contact = contact_model.new(
