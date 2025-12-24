@@ -57,7 +57,12 @@ module Lutaml
                     if (val.nil? || Utils.uninitialized?(val)) &&
                         (instance.using_default?(rule.to) || rule.render_default)
                       defaults_used << rule.to
-                      attr&.default(__register) || rule.to_value_for(instance)
+                      if attr
+                        resolver = Services::DefaultValueResolver.new(attr, __register, instance)
+                        resolver.default
+                      else
+                        rule.to_value_for(instance)
+                      end
                     else
                       val
                     end
