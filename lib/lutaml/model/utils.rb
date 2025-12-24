@@ -124,6 +124,16 @@ module Lutaml
           end
         end
 
+        def add_method(instance, method_name, &block)
+          if instance.is_a?(Class)
+            instance.class_eval do
+              define_method(method_name, &block)
+            end
+          else
+            instance.define_singleton_method(method_name, &block)
+          end
+        end
+
         def add_singleton_method_if_not_defined(instance, method_name, &block)
           return if instance.respond_to?(method_name)
 
@@ -179,7 +189,10 @@ module Lutaml
         private
 
         def deep_dup_hash(hash)
-          hash.transform_values { |value| deep_dup(value) }
+          new_hash = hash.transform_values { |value| deep_dup(value) }
+          new_hash.default_proc = hash.default_proc if hash.default_proc
+          new_hash.default = hash.default if hash.default
+          new_hash
         end
 
         def deep_dup_array(array)

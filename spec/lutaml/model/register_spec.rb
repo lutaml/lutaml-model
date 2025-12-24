@@ -56,6 +56,37 @@ module RegisterSpec
       import_model_mappings :address_fields
     end
   end
+
+  # Test classes for register-specific attribute casting
+  class BaseModel < Lutaml::Model::Serializable
+    attribute :base_field, :string
+  end
+
+  class ExtendedModel < Lutaml::Model::Serializable
+    attribute :extended_field, :integer
+    import_model BaseModel
+  end
+
+  class DynamicImporter < Lutaml::Model::Serializable
+    import_model :dynamic_model
+  end
+
+  # Test classes for choice with register-specific imports
+  class ChoiceFieldsA < Lutaml::Model::Serializable
+    attribute :field_a, :string
+    attribute :field_b, :integer
+  end
+
+  class ChoiceFieldsB < Lutaml::Model::Serializable
+    attribute :field_x, :string
+    attribute :field_y, :boolean
+  end
+
+  class DynamicChoiceModel < Lutaml::Model::Serializable
+    choice(min: 1, max: 1) do
+      import_model_attributes :choice_fields
+    end
+  end
 end
 
 RSpec.describe Lutaml::Model::Register do
@@ -212,17 +243,131 @@ RSpec.describe Lutaml::Model::Register do
       expect(RegisterSpec::User.restrict_attributes).to eq({ active: { values: ["yes", "no"] } })
     end
 
-    it "preserves and accumulates attributes in main model when importing additional ones" do
-      expect do
-        RegisterSpec::User.ensure_imports!(register.id)
-      end.to change {
-        RegisterSpec::User.instance_variable_get(:@attributes).count
-      }.from(0).to(6)
+    it "preserves and accumulates attributes in register-specific storage when importing" do
+      RegisterSpec::User.ensure_imports!(register.id)
+      expect(RegisterSpec::User.instance_variable_get(:@attributes).count).to eq(0)
+      expect(RegisterSpec::User.attributes(register.id).count).to eq(6)
     end
 
     it "tracks changes made to attribute updated using 'restrict'" do
-      expect(RegisterSpec::AddressFields.attributes[:active].options.keys).to be_empty
-      expect(RegisterSpec::User.attributes[:active].options.keys).to eq(%i[choice values])
+      expect(RegisterSpec::AddressFields.attributes(register.id)[:active].options.keys).to be_empty
+      expect(RegisterSpec::User.attributes(register.id)[:active].options.keys).to eq(%i[choice values])
+    end
+  end
+
+  describe "register-specific attribute casting and method availability" do
+    let(:extended_register) { described_class.new(:casting_test_r1) }
+    let(:base_register) { described_class.new(:casting_test_r2) }
+
+    before do
+      Lutaml::Model::GlobalRegister.register(extended_register)
+      Lutaml::Model::GlobalRegister.register(base_register)
+      extended_register.register_model(RegisterSpec::ExtendedModel, id: :dynamic_model)
+      base_register.register_model(RegisterSpec::BaseModel, id: :dynamic_model)
+    end
+
+    it "imports different attributes based on register mapping" do
+      RegisterSpec::DynamicImporter.ensure_imports!(extended_register.id)
+      RegisterSpec::DynamicImporter.ensure_imports!(base_register.id)
+
+      expect(RegisterSpec::DynamicImporter.attributes(extended_register.id).keys).to include(:extended_field, :base_field)
+      expect(RegisterSpec::DynamicImporter.attributes(base_register.id).keys).to eq([:base_field])
+    end
+
+    it "provides attribute accessor methods based on register-specific imports" do
+      extended_instance = RegisterSpec::DynamicImporter.new(__register: extended_register)
+      base_instance = RegisterSpec::DynamicImporter.new(__register: base_register)
+
+      expect(extended_instance).to respond_to(:extended_field)
+      expect(extended_instance).to respond_to(:extended_field=)
+      expect(extended_instance).to respond_to(:base_field)
+      expect(extended_instance).to respond_to(:base_field=)
+
+      expect(base_instance).to respond_to(:base_field)
+      expect(base_instance).to respond_to(:base_field=)
+      expect(base_instance).not_to respond_to(:extended_field)
+      expect(base_instance).not_to respond_to(:extended_field=)
+    end
+
+    it "casts attribute values correctly based on register-specific type definitions" do
+      extended_instance = RegisterSpec::DynamicImporter.new(__register: extended_register)
+      base_instance = RegisterSpec::DynamicImporter.new(__register: base_register)
+
+      extended_instance.extended_field = "42"
+      expect(extended_instance.extended_field).to eq(42)
+      expect(extended_instance.extended_field).to be_a(Integer)
+
+      extended_instance.base_field = "test"
+      expect(extended_instance.base_field).to eq("test")
+      expect(extended_instance.base_field).to be_a(String)
+
+      base_instance.base_field = "test"
+      expect(base_instance.base_field).to eq("test")
+      expect(base_instance.base_field).to be_a(String)
+    end
+
+    it "raises NoMethodError for attributes not in the register" do
+      base_instance = RegisterSpec::DynamicImporter.new(__register: base_register)
+
+      expect { base_instance.extended_field }.to raise_error(NoMethodError)
+      expect { base_instance.extended_field = 42 }.to raise_error(NoMethodError)
+    end
+  end
+
+  describe "register-specific choice imports" do
+    let(:fields_a_register) { described_class.new(:choice_test_a) }
+    let(:fields_b_register) { described_class.new(:choice_test_b) }
+
+    before do
+      Lutaml::Model::GlobalRegister.register(fields_a_register)
+      Lutaml::Model::GlobalRegister.register(fields_b_register)
+      fields_a_register.register_model(RegisterSpec::ChoiceFieldsA, id: :choice_fields)
+      fields_b_register.register_model(RegisterSpec::ChoiceFieldsB, id: :choice_fields)
+    end
+
+    it "imports different choice attributes based on register" do
+      RegisterSpec::DynamicChoiceModel.ensure_imports!(fields_a_register.id)
+      RegisterSpec::DynamicChoiceModel.ensure_imports!(fields_b_register.id)
+
+      expect(RegisterSpec::DynamicChoiceModel.attributes(fields_a_register.id).keys).to match_array(%i[field_a field_b])
+      expect(RegisterSpec::DynamicChoiceModel.attributes(fields_b_register.id).keys).to match_array(%i[field_x field_y])
+    end
+
+    it "sets choice option on imported attributes" do
+      RegisterSpec::DynamicChoiceModel.ensure_imports!(fields_a_register.id)
+
+      field_a = RegisterSpec::DynamicChoiceModel.attributes(fields_a_register.id)[:field_a]
+      field_b = RegisterSpec::DynamicChoiceModel.attributes(fields_a_register.id)[:field_b]
+
+      expect(field_a.options[:choice]).to be_a(Lutaml::Model::Choice)
+      expect(field_b.options[:choice]).to be_a(Lutaml::Model::Choice)
+    end
+
+    it "provides correct accessor methods for choice attributes by register" do
+      fields_a_instance = RegisterSpec::DynamicChoiceModel.new(__register: fields_a_register)
+      fields_b_instance = RegisterSpec::DynamicChoiceModel.new(__register: fields_b_register)
+
+      expect(fields_a_instance).to respond_to(:field_a)
+      expect(fields_a_instance).to respond_to(:field_b)
+      expect(fields_a_instance).not_to respond_to(:field_x)
+      expect(fields_a_instance).not_to respond_to(:field_y)
+
+      expect(fields_b_instance).to respond_to(:field_x)
+      expect(fields_b_instance).to respond_to(:field_y)
+      expect(fields_b_instance).not_to respond_to(:field_a)
+      expect(fields_b_instance).not_to respond_to(:field_b)
+    end
+
+    it "casts choice attribute values correctly by register-specific types" do
+      fields_a_instance = RegisterSpec::DynamicChoiceModel.new(__register: fields_a_register)
+
+      fields_a_instance.field_a = "test_value"
+      fields_a_instance.field_b = "123"
+
+      expect(fields_a_instance.field_a).to eq("test_value")
+      expect(fields_a_instance.field_a).to be_a(String)
+      expect(fields_a_instance.field_b).to eq(123)
+      expect(fields_a_instance.field_b).to be_a(Integer)
     end
   end
 end
