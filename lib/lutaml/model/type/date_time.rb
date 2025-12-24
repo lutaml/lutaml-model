@@ -37,7 +37,7 @@ module Lutaml
           return nil unless value
 
           if value.sec_fraction.zero?
-            value.strftime("%FT%TZ")
+            value.strftime("%FT%T").sub(/\+00:00$/, "Z")
           else
             value.iso8601(6).sub(/(\.\d{3})0{3}([+-])/, '\1\2').sub(/\+00:00$/, "Z")
           end
