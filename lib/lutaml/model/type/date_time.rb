@@ -36,11 +36,13 @@ module Lutaml
         def to_xml
           return nil unless value
 
-          if value.sec_fraction.zero?
-            value.strftime("%FT%T").sub(/\+00:00$/, "Z")
-          else
-            value.iso8601(6).sub(/(\.\d{3})0{3}([+-])/, '\1\2').sub(/\+00:00$/, "Z")
-          end
+          result = if value.sec_fraction.zero?
+                     value.strftime("%FT%T%:z")
+                   else
+                     value.iso8601(6).sub(/(\.\d{3})0{3}([+-])/, '\1\2')
+                   end
+
+          value.offset.zero? ? result.sub(/\+00:00$/, "Z") : result
         end
 
         # RFC3339 (ISO8601 with timezone)
