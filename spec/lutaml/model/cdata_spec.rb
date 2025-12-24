@@ -340,10 +340,10 @@ RSpec.describe "CDATA" do
           "<first_name><![CDATA[John]]></first_name>" \
           "<last_name>Doe</last_name>" \
           "<CustomModelChild>" \
-            "<street><![CDATA[Oxford Street]]></street>" \
-            "<city><![CDATA[London]]></city>" \
+          "<street><![CDATA[Oxford Street]]></street>" \
+          "<city><![CDATA[London]]></city>" \
           "</CustomModelChild>" \
-        "</CustomModelParent>"
+          "</CustomModelParent>"
       end
 
       describe ".from_xml" do
