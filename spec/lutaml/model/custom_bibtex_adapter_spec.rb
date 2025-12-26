@@ -278,6 +278,14 @@ module CustomBibtexAdapterSpec
       @mappings = []
     end
 
+    def finalize(_mapper_class)
+      @finalized = true
+    end
+
+    def finalized?
+      @finalized
+    end
+
     def map_entry_type(to:)
       add_mapping("__entry_type", to, field_type: :entry_type)
     end

@@ -471,10 +471,10 @@ module Lutaml
           return import_mappings_later(model) if model_importable?(model)
           raise Lutaml::Model::ImportModelWithRootError.new(model) if model.root?(reg_id)
 
-          mappings = model.mappings_for(:xml, reg_id)
-          @elements.merge!(mappings.instance_variable_get(:@elements))
-          @attributes.merge!(mappings.instance_variable_get(:@attributes))
-          (@element_sequence << mappings.element_sequence).flatten!
+          mappings = Utils.deep_dup(model.mappings_for(:xml, reg_id))
+          merge_mapping_attributes(mappings)
+          merge_mapping_elements(mappings)
+          merge_elements_sequence(mappings)
         end
 
         def set_mappings_imported(value)
@@ -621,10 +621,6 @@ module Lutaml
           @mappings_imported = true
         end
 
-        def importable_mappings
-          @importable_mappings ||= []
-        end
-
         def sequence_importable_mappings
           @sequence_importable_mappings ||= ::Hash.new { |h, k| h[k] = [] }
         end
@@ -762,20 +758,6 @@ module Lutaml
               }
             end
           end
-        end
-
-        def register(register_id = nil)
-          register_id ||= Lutaml::Model::Config.default_register
-          Lutaml::Model::GlobalRegister.lookup(register_id)
-        end
-
-        def model_importable?(model)
-          model.is_a?(Symbol) || model.is_a?(String)
-        end
-
-        def import_mappings_later(model)
-          importable_mappings << model.to_sym
-          @mappings_imported = false
         end
       end
     end

@@ -12,6 +12,15 @@ module Lutaml
         @key_mapping = {}
         @value_mapping = {}
         @format = format
+        @finalized = false
+      end
+
+      def finalize(_mapper_class)
+        @finalized = true
+      end
+
+      def finalized?
+        @finalized
       end
 
       def root(name = nil)
@@ -133,6 +142,13 @@ module Lutaml
 
       def mappings_hash
         @mappings
+      end
+
+      def import_model_mappings(model, register_id = nil)
+        reg_id = register(register_id).id
+        return import_mappings_later(model) if model_importable?(model)
+
+        @mappings.merge!(Utils.deep_dup(model.mappings_for(@format, reg_id).mappings_hash))
       end
 
       def validate!(key, to, with, render_nil, render_empty)

@@ -59,8 +59,8 @@ module Lutaml
         ""
       end
 
-      def mappings_for(format)
-        context.mappings_for(format)
+      def mappings_for(format, register = nil)
+        context.mappings_for(format, register)
       end
 
       def defined_mappings_for(format)

@@ -206,7 +206,7 @@ format)
       end
 
       def extract_mappings(options, format)
-        options[:mappings] || mappings_for(format)
+        options[:mappings] || mappings_for(format, __register)
       end
 
       def process_mapping_rule(doc, instance, format, rule, options = {})
