@@ -696,11 +696,7 @@ module Lutaml
           # Use resolved namespace directly, BUT handle special cases:
           # 1. namespace: :inherit → ALWAYS use parent prefix (resolved has parent URI)
           # 2. Truly unqualified elements (element_ns_uri==nil) → NO prefix unless :inherit
-          resolved_prefix = if rule.namespace_param == :inherit
-                              # Explicit :inherit - always use parent's prefix
-                              parent_prefix
-                            elsif use_prefix && parent_prefix
-                              # Element has same namespace as parent and parent uses prefix
+          resolved_prefix = if rule.namespace_param == :inherit || (use_prefix && parent_prefix)
                               parent_prefix
                             else
                               ns_info[:prefix]
