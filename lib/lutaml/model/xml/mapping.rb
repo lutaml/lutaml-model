@@ -466,11 +466,12 @@ module Lutaml
           end
         end
 
-        def import_model_mappings(model)
+        def import_model_mappings(model, register_id = nil)
+          reg_id = register(register_id).id
           return import_mappings_later(model) if model_importable?(model)
-          raise Lutaml::Model::ImportModelWithRootError.new(model) if model.root?
+          raise Lutaml::Model::ImportModelWithRootError.new(model) if model.root?(reg_id)
 
-          mappings = model.mappings_for(:xml)
+          mappings = model.mappings_for(:xml, reg_id)
           @elements.merge!(mappings.instance_variable_get(:@elements))
           @attributes.merge!(mappings.instance_variable_get(:@attributes))
           (@element_sequence << mappings.element_sequence).flatten!
@@ -600,16 +601,19 @@ module Lutaml
         def ensure_mappings_imported!(register_id = nil)
           return if @mappings_imported
 
+          register_object = register(register_id)
           importable_mappings.each do |model|
             import_model_mappings(
-              register(register_id).get_class_without_register(model),
+              register_object.get_class_without_register(model),
+              register_object.id,
             )
           end
 
           sequence_importable_mappings.each do |sequence, models|
             models.each do |model|
               sequence.import_model_mappings(
-                register(register_id).get_class_without_register(model),
+                register_object.get_class_without_register(model),
+                register_object.id,
               )
             end
           end

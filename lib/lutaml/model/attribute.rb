@@ -154,6 +154,8 @@ module Lutaml
                                                   @options[:ref_model_class], @options[:ref_key_attribute])
         end
 
+        validate_attr_type!(resolved_type)
+
         resolved_type.cast(value)
       end
 
@@ -509,7 +511,7 @@ module Lutaml
 
         # Check if type is a Serializable model with namespace in XML mappings
         if resolved_type <= Lutaml::Model::Serialize
-          xml_mapping = resolved_type.mappings_for(:xml)
+          xml_mapping = resolved_type.mappings_for(:xml, register)
           if xml_mapping&.namespace_uri
             # Create an anonymous XmlNamespace class to wrap the mapping's namespace
             return Class.new(Lutaml::Model::XmlNamespace) do
@@ -539,6 +541,13 @@ module Lutaml
       end
 
       private
+
+      def validate_attr_type!(resolved_type)
+        return true if resolved_type <= Serializable || resolved_type <= Type::Value
+        return true if resolved_type.included_modules.include?(Serialize)
+
+        raise Lutaml::Model::InvalidAttributeTypeError.new(name, resolved_type.name)
+      end
 
       def validated_range_object
         return collection if collection.end

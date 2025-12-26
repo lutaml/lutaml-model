@@ -119,6 +119,7 @@ module Lutaml
         def ensure_imports!(register = nil)
           ensure_model_imports!(register)
           ensure_choice_imports!(register)
+          ensure_restrict_attributes!(register)
         end
 
         def model(klass = nil)
@@ -165,8 +166,9 @@ module Lutaml
           end
         end
 
-        def define_attribute_methods(attr)
+        def define_attribute_methods(attr, register = nil)
           name = attr.name
+          register_id = extract_register_id(register)
 
           if attr.enum?
             add_enum_methods_to_model(
@@ -179,16 +181,17 @@ module Lutaml
             define_method(name) do
               value = public_send(attr.method_name)
               # Cast the derived value to the specified type
-              attr.cast_element(value, __register)
+              attr.cast_element(value, register_id)
             end
           elsif attr.unresolved_type == Lutaml::Model::Type::Reference
-            define_reference_methods(name)
+            define_reference_methods(name, register_id)
           else
             define_regular_attribute_methods(name, attr)
           end
         end
 
-        def define_reference_methods(name)
+        def define_reference_methods(name, register)
+          register_id = register || __register
           attr = attributes[name]
 
           define_method("#{name}_ref") do
@@ -215,8 +218,7 @@ module Lutaml
             value_set_for(name)
             casted_value = value
             unless casted_value.is_a?(Lutaml::Model::Type::Reference)
-              casted_value = attr.cast_value(value,
-                                             __register)
+              casted_value = attr.cast_value(value, register_id)
             end
 
             instance_variable_set(:"@#{name}_ref", casted_value)
@@ -255,11 +257,22 @@ module Lutaml
         end
 
         def restrict(name, options = {})
+          if !@attributes.key?(name)
+            return restrict_attributes[name] = options if any_importable_models?
+
+            raise Lutaml::Model::UndefinedAttributeError.new(name, self)
+          end
+
+          register_id = options.delete(:register) || Lutaml::Model::Config.default_register
           validate_attribute_options!(name, options)
-          attr = attributes[name]
+          attr = attributes(register_id)[name]
           attr.options.merge!(options)
           attr.process_options!
           name
+        end
+
+        def any_importable_models?
+          importable_choices.any? || importable_models.any?
         end
 
         def validate_attribute_options!(name, options)
@@ -274,17 +287,17 @@ module Lutaml
           name&.to_sym
         end
 
-        def root?
-          mappings_for(:xml)&.root?
+        def root?(register)
+          mappings_for(:xml, register)&.root?
         end
 
-        def import_model_with_root_error(model)
-          return unless model.mappings.key?(:xml) && model.root?
+        def import_model_with_root_error(model, register = nil)
+          return unless model.mappings.key?(:xml) && model.root?(register)
 
           raise Lutaml::Model::ImportModelWithRootError.new(model)
         end
 
-        def import_model_attributes(model)
+        def import_model_attributes(model, register_id = nil)
           if model.is_a?(Symbol) || model.is_a?(String)
             importable_models[:import_model_attributes] << model.to_sym
             @models_imported = false
@@ -293,8 +306,8 @@ module Lutaml
             return
           end
 
-          model.attributes.each_value do |attr|
-            define_attribute_methods(attr)
+          model.attributes(register_id).each_value do |attr|
+            define_attribute_methods(attr, register_id)
           end
 
           @attributes.merge!(Utils.deep_dup(model.attributes))
@@ -329,7 +342,7 @@ module Lutaml
           end
         end
 
-        def import_model(model)
+        def import_model(model, register_id = nil)
           if model.is_a?(Symbol) || model.is_a?(String)
             importable_models[:import_model] << model.to_sym
             @models_imported = false
@@ -339,12 +352,16 @@ module Lutaml
           end
 
           import_model_with_root_error(model)
-          import_model_attributes(model)
+          import_model_attributes(model, register_id)
           import_model_mappings(model)
         end
 
         def importable_models
           @importable_models ||= MappingHash.new { |h, k| h[k] = [] }
+        end
+
+        def restrict_attributes
+          @restrict_attributes ||= MappingHash.new
         end
 
         def importable_choices
@@ -374,7 +391,7 @@ collection: false)
             end
 
             Utils.add_method_if_not_defined(klass, value.to_s) do
-              public_send(:"#{value}=")
+              public_send(:"#{value}?")
             end
 
             Utils.add_method_if_not_defined(klass, "#{value}=") do |val|
@@ -494,13 +511,14 @@ collection)
             return doc.map { |item| send(:"of_#{format}", item) }
           end
 
+          register = extract_register_id(options[:register])
           if format == :xml
-            valid = root? || options[:from_collection]
+            valid = root?(register) || options[:from_collection]
             raise Lutaml::Model::NoRootMappingError.new(self) unless valid
 
             options[:encoding] = doc.encoding
           end
-          options[:register] = extract_register_id(options[:register])
+          options[:register] = register
 
           transformer = Lutaml::Model::Config.transformer_for(format)
           transformer.data_to_model(self, doc, format, options)
@@ -583,8 +601,10 @@ collection)
           end
         end
 
-        def mappings_for(format)
-          @mappings[:xml]&.ensure_mappings_imported! if @mappings&.dig(:xml)&.finalized?
+        def mappings_for(format, register = nil)
+          if @mappings&.dig(:xml)&.finalized?
+            @mappings[:xml]&.ensure_mappings_imported!(extract_register_id(register))
+          end
           mappings[format] || default_mappings(format)
         end
 
@@ -617,7 +637,7 @@ collection)
                      end
           return instance if Utils.blank?(doc)
 
-          mappings = mappings_for(format)
+          mappings = mappings_for(format, register)
 
           if mappings.polymorphic_mapping
             return resolve_polymorphic(doc, format, mappings, instance, options)
@@ -711,12 +731,12 @@ collection)
           importable_models.each do |method, models|
             models.uniq.each do |model|
               model_class = register.get_class_without_register(model)
-              import_model_with_root_error(model_class)
-
-              @model.public_send(method, model_class)
+              import_model_with_root_error(model_class, register_id)
+              @model.public_send(method, model_class, register_id)
             end
           end
 
+          importable_models.clear
           @models_imported = true
         end
 
@@ -727,13 +747,29 @@ collection)
           register = Lutaml::Model::GlobalRegister.lookup(register_id)
           importable_choices.each do |choice, choice_imports|
             choice_imports.each do |method, models|
-              models.uniq!
-              choice.public_send(method,
-                                 register.get_class_without_register(models.shift)) until models.empty?
+              until models.uniq.empty?
+                choice.public_send(
+                  method,
+                  register.get_class_without_register(models.shift),
+                  register_id,
+                )
+              end
             end
           end
 
           @choices_imported = true
+        end
+
+        def ensure_restrict_attributes!(register_id = nil)
+          return if restrict_attributes.empty?
+
+          attrs = restrict_attributes.dup
+          restrict_attributes.clear
+          register_id ||= Lutaml::Model::Config.default_register
+          attrs.each do |name, options_list|
+            options_list[:register] = register_id
+            restrict(name, options_list)
+          end
         end
 
         def setup_trace_point
@@ -873,9 +909,9 @@ collection)
 
       def initialize(attrs = {}, options = {})
         @using_default = {}
-        return unless self.class.attributes
-
         @__register = extract_register_id(attrs, options)
+        return unless self.class.attributes(__register)
+
         set_ordering(attrs)
         set_schema_location(attrs)
         initialize_attributes(attrs, options)
@@ -980,7 +1016,7 @@ collection)
 
       def validate_root_mapping!(format, options)
         return if format != :xml
-        return if options[:collection] || self.class.root?
+        return if options[:collection] || self.class.root?(__register)
 
         raise Lutaml::Model::NoRootMappingError.new(self.class)
       end
@@ -999,7 +1035,7 @@ collection)
       end
 
       def initialize_attributes(attrs, options = {})
-        self.class.attributes.each do |name, attr|
+        self.class.attributes(__register).each do |name, attr|
           next if attr.derived?
 
           value = determine_value(attrs, name, attr)
