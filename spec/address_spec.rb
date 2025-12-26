@@ -114,7 +114,7 @@ RSpec.describe Address do
           <p:Age>40</p:Age>
           <p:Height>5.8</p:Height>
           <p:Birthdate>1980-02-15</p:Birthdate>
-          <p:LastLogin>1980-02-15T10:00:00+00:00</p:LastLogin>
+          <p:LastLogin>1980-02-15T10:00:00Z</p:LastLogin>
           <p:WakeupTime>07:30:00</p:WakeupTime>
           <p:Active>true</p:Active>
         </p:Person>
@@ -124,7 +124,7 @@ RSpec.describe Address do
           <p:Age>35</p:Age>
           <p:Height>5.9</p:Height>
           <p:Birthdate>1985-05-20</p:Birthdate>
-          <p:LastLogin>1985-05-20T09:00:00+00:00</p:LastLogin>
+          <p:LastLogin>1985-05-20T09:00:00Z</p:LastLogin>
           <p:WakeupTime>06:45:00</p:WakeupTime>
           <p:Active>false</p:Active>
         </p:Person>
