@@ -601,4 +601,14 @@ RSpec.describe "XML Namespace Handling" do
 
     it_behaves_like "namespace inheritance behavior"
   end
+
+  describe "with REXML adapter" do
+    around do |example|
+      Lutaml::Model::Config.xml_adapter_type = :rexml
+      example.run
+      Lutaml::Model::Config.xml_adapter_type = :nokogiri
+    end
+
+    it_behaves_like "namespace inheritance behavior"
+  end
 end

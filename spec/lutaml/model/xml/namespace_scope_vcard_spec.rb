@@ -1,7 +1,9 @@
 require "spec_helper"
 require "lutaml/model"
 require "lutaml/model/xml/nokogiri_adapter"
+require "lutaml/model/xml/ox_adapter"
 require "lutaml/model/xml/oga_adapter"
+require "lutaml/model/xml/rexml_adapter"
 
 # WARNING: This is a fictitious XML namespace example for vCard, vCard does not
 # actually use XML in this way. This is solely for testing namespace_scope
@@ -580,7 +582,15 @@ RSpec.describe "namespace_scope with vCard" do
     it_behaves_like "namespace_scope behavior", Lutaml::Model::Xml::NokogiriAdapter
   end
 
+  context "with Ox adapter" do
+    it_behaves_like "namespace_scope behavior", Lutaml::Model::Xml::OxAdapter
+  end
+
   context "with Oga adapter" do
     it_behaves_like "namespace_scope behavior", Lutaml::Model::Xml::OgaAdapter
+  end
+
+  context "with REXML adapter" do
+    it_behaves_like "namespace_scope behavior", Lutaml::Model::Xml::RexmlAdapter
   end
 end
