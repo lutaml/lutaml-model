@@ -1,0 +1,769 @@
+= LutaML Model — Transformations
+:doctype: book
+
+== Overview
+
+LutaML Model provides a transformation facility to map between models and values while preserving structure and intent. Transformations cover:
+
+- Value-to-value transforms
+- Model-to-model transforms
+- Cross model–value transforms
+- Nested mappings and collections
+- Forward-only and bidirectional flows
+
+The API centers around `Lutaml::Model::ModelTransformer` with `source`, `target`, and a `transform do ... end` block. Value transforms can be declared via blocks, callable symbols (instance methods), procs/lambdas, or other transformer classes. Reverse direction is supported for value and model-to-model transforms via `reverse_transform do ... end`, and for model-to-model transforms (which uses mappings) by inverting declared mappings (no separate reverse mapping block is allowed for model-to-model).
+
+== Quick start
+
+[source,ruby]
+----
+class StringToDate < Lutaml::Model::ModelTransformer
+  source :string
+  target :date
+
+  transform do |val|
+    Date.parse(val)
+  end
+
+  reverse_transform do |date|
+    date.strftime('%Y-%m-%d')
+  end
+end
+----
+
+== Model-to-model mapping
+
+[source,ruby]
+----
+class Person < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :year_born, :string
+  attribute :birth_date, :string
+end
+
+class User < Lutaml::Model::Serializable
+  attribute :full_name, :string
+  attribute :birth_year, :string
+  attribute :birth_date, :date
+end
+
+class PersonToUser < Lutaml::Model::ModelTransformer
+  source Person
+  target User
+
+  transform do
+    map from: 'name',       to: 'full_name'
+    map from: 'year_born',  to: 'birth_year'
+    map from: 'birth_date', to: 'birth_date', transform: StringToDate
+  end
+end
+----
+
+=== Using proc transforms in model mappings
+
+You can also use proc-based transforms directly in model mappings:
+
+[source,ruby]
+----
+class ProcMappingTransform < Lutaml::Model::ModelTransformer
+  source Person
+  target User
+
+  transform do
+    map from: 'name', to: 'full_name', 
+        transform: ->(val) { val&.upcase },
+        reverse_transform: ->(val) { val&.downcase }
+  end
+end
+----
+
+Reverse transformation for model-to-model is automatic by inverting mappings:
+
+[source,ruby]
+----
+user  = PersonToUser.transform(Person.new(name: 'Alice', year_born: '1980', birth_date: '2021-01-01'))
+person_back = PersonToUser.reverse_transform(user)
+----
+
+== Nested mappings
+
+- Map nested objects using a nested `transform` block:
+
+[source,ruby]
+----
+class Address < Lutaml::Model::Serializable
+  attribute :street, :string
+  attribute :city, :string
+end
+
+class PersonWithAddress < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :address, Address
+end
+
+class Location < Lutaml::Model::Serializable
+  attribute :road, :string
+  attribute :town, :string
+end
+
+class UserWithLocation < Lutaml::Model::Serializable
+  attribute :full_name, :string
+  attribute :location, Location
+end
+
+class PersonLocationTransform < Lutaml::Model::ModelTransformer
+  source PersonWithAddress
+  target UserWithLocation
+
+  transform do
+    map from: 'name',    to: 'full_name'
+    map from: 'address', to: 'location' do
+      map from: 'street', to: 'road'
+      map from: 'city',   to: 'town'
+    end
+  end
+end
+----
+
+== Collections with map_each
+
+Use `map_each` to transform elements of a collection. Nil sources propagate nil; empty arrays pass through as empty.
+
+IMPORTANT: Both `from:` and `to:` attributes must be collections to use `map_each`. If either side is not a collection, an error will be raised. Use `map` instead when aggregating a collection into a single value or distributing a single value into a collection.
+
+[source,ruby]
+----
+class Author < Lutaml::Model::Serializable
+  attribute :name, :string
+end
+
+class Contributor < Lutaml::Model::Serializable
+  attribute :name, :string
+end
+
+class Publication < Lutaml::Model::Serializable
+  attribute :title, :string
+  attribute :authors, Author, collection: true
+end
+
+class CatalogEntry < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :contributors, Contributor, collection: true
+end
+
+class AuthorTransform < Lutaml::Model::ModelTransformer
+  source Author
+  target Contributor
+
+  transform { map from: 'name', to: 'name' }
+end
+
+class PublicationTransform < Lutaml::Model::ModelTransformer
+  source Publication
+  target CatalogEntry
+
+  transform { map_each from: 'authors', to: 'contributors', transform: AuthorTransform }
+end
+----
+
+=== Aggregating a collection into a single attribute
+
+When you need to aggregate a collection into a single attribute in the target, do NOT use `map_each`. Use `map` with a value transformer that accepts the whole collection.
+
+[source,ruby]
+----
+class StandardsPublication < Lutaml::Model::Serializable
+  attribute :title, :string, collection: true
+end
+
+class BibliographyEntry < Lutaml::Model::Serializable
+  attribute :title, :string
+end
+
+class TitleAggregationTransform < Lutaml::Model::ModelTransformer
+  source :string
+  target :string
+
+  transform do |source_values|
+    source_values.join(', ')
+  end
+end
+
+class StandardsPublicationTransform < Lutaml::Model::ModelTransformer
+  source StandardsPublication
+  target BibliographyEntry
+
+  transform do
+    # CORRECT: aggregates collection -> single value
+    map from: 'title', to: 'title', transform: TitleAggregationTransform
+  end
+end
+
+publication = StandardsPublication.new(title: ['Title 1', 'Title 2'])
+entry = StandardsPublicationTransform.transform(publication)
+entry.title
+# => "Title 1, Title 2"
+----
+
+If you try to use `map_each` in this case (collection -> single attribute), an error will be raised because the `to:` attribute is not a collection.
+
+[source,ruby]
+----
+class InvalidAggregation < Lutaml::Model::ModelTransformer
+  source StandardsPublication
+  target BibliographyEntry
+
+  transform do
+    # INCORRECT: both sides must be collections for map_each
+    map_each from: 'title', to: 'title', transform: TitleAggregationTransform
+  end
+end
+
+# Raises: MappingAttributeTypeError because 'to' is not a collection
+InvalidAggregation.transform(StandardsPublication.new(title: ['Title 1', 'Title 2']))
+----
+
+=== Aggregating a collection with a value transformer
+
+You can use `map_each` with a value transformer to aggregate a collection of values into a single value:
+
+[source,ruby]
+----
+class StandardsPublication < Lutaml::Model::Serializable
+  attribute :title, :string, collection: true
+end
+
+class BibliographyEntry < Lutaml::Model::Serializable
+  attribute :title, :string, collection: true
+end
+
+class TitleAggregationTransform < Lutaml::Model::ModelTransformer
+  source :string
+  target :string
+
+  transform do |source_value|
+    source_value.upcase
+  end
+end
+
+class StandardsPublicationTransform < Lutaml::Model::ModelTransformer
+  source StandardsPublication
+  target BibliographyEntry
+
+  transform do
+    map_each from: "title", to: "title", transform: TitleAggregationTransform
+  end
+end
+
+publication = StandardsPublication.new(title: ["Title 1", "Title 2"])
+entry = StandardsPublicationTransform.transform(publication)
+puts entry.title # Output: ["TITLE 1", "TITLE 2"]
+----
+
+== Cross model–value transforms
+
+Transform between a value wrapper and a structured model using a value transformer inside a model mapping.
+
+[source,ruby]
+----
+class UnstructuredDateTime < Lutaml::Model::Serializable
+  attribute :value, :string
+end
+
+class StructuredDateTime < Lutaml::Model::Serializable
+  attribute :date, :string
+  attribute :time, :string
+end
+
+class DateTimeSplit < Lutaml::Model::ModelTransformer
+  source UnstructuredDateTime
+  target StructuredDateTime
+
+  transform do |src|
+    date, time = (src.value || '').split('T', 2)
+    StructuredDateTime.new(date: date, time: time)
+  end
+
+  reverse_transform do |dst|
+    UnstructuredDateTime.new(value: [dst.date, dst.time].join('T'))
+  end
+end
+
+class OldDigitalTimepiece < Lutaml::Model::Serializable
+  attribute :raw_time, UnstructuredDateTime
+end
+
+class NewDigitalTimepiece < Lutaml::Model::Serializable
+  attribute :detailed_time, StructuredDateTime
+end
+
+class TimepieceTransform < Lutaml::Model::ModelTransformer
+  source OldDigitalTimepiece
+  target NewDigitalTimepiece
+  transform { map from: 'raw_time', to: 'detailed_time', transform: DateTimeSplit }
+end
+----
+
+== Transform styles
+
+- Block: `transform { |val| ... }`
+- Symbol (instance method): `transform: :method_name`, `reverse_transform: :other_method`
+- Transformer class: `transform: OtherTransformerClass`
+- Proc/Lambda: `transform: ->(val) { ... }`, `reverse_transform: ->(val) { ... }`
+
+=== Block-based transforms
+
+Use blocks for simple inline transformations:
+
+[source,ruby]
+----
+class BlockTransform < Lutaml::Model::ModelTransformer
+  source :string
+  target :date
+
+  transform do |val|
+    Date.parse(val)
+  end
+
+  reverse_transform do |date|
+    date.strftime('%Y-%m-%d')
+  end
+end
+----
+
+=== Symbol method transforms
+
+Use instance methods for more complex transformations:
+
+[source,ruby]
+----
+class MethodTransform < Lutaml::Model::ModelTransformer
+  source Person
+  target User
+
+  def upcase_name(value)
+    value&.upcase
+  end
+
+  def downcase_name(value)
+    value&.downcase
+  end
+
+  transform do
+    map from: 'name', to: 'full_name', 
+        transform: :upcase_name, 
+        reverse_transform: :downcase_name
+  end
+end
+----
+
+=== Transformer class-based transforms
+
+Use other transformer classes for reusable transformations:
+
+[source,ruby]
+----
+class StringToDate < Lutaml::Model::ModelTransformer
+  source :string
+  target :date
+
+  transform { |val| Date.parse(val) }
+
+  reverse_transform { |date| date.strftime('%Y-%m-%d') }
+end
+
+class Person < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :birth_date, :string
+end
+
+class User < Lutaml::Model::Serializable
+  attribute :full_name, :string
+  attribute :birth_date, :date
+end
+
+class ClassTransform < Lutaml::Model::ModelTransformer
+  source Person
+  target User
+
+  transform do
+    map from: 'name', to: 'full_name'
+    map from: 'birth_date', to: 'birth_date', transform: StringToDate
+  end
+end
+----
+
+=== Proc-based transforms
+
+You can use procs and lambdas for inline transformations:
+
+[source,ruby]
+----
+class Person < Lutaml::Model::Serializable
+  attribute :name, :string
+end
+
+class User < Lutaml::Model::Serializable
+  attribute :full_name, :string
+end
+
+class ProcTransform < Lutaml::Model::ModelTransformer
+  source Person
+  target User
+
+  transform do
+    map from: 'name', to: 'full_name', 
+        transform: ->(val) { val&.upcase },
+        reverse_transform: ->(val) { val&.downcase }
+  end
+end
+----
+
+== Directionality rules
+
+- Value transforms can be bidirectional if both `transform` and `reverse_transform` are provided.
+- Model-to-model transforms do not accept a `reverse_transform do` declaration; reversing is performed by inverting mappings.
+- If a one-way value transform is used inside a model-to-model mapping, reversing that mapping raises an error.
+
+== Detailed Example: Transforming Art Information Collections
+
+This example demonstrates a real-world transformation between two model trees representing generic art information and detailed ceramic art information. It covers nested mappings, value transforms, collections, and custom extraction logic.
+
+[source,ruby]
+----
+# First model tree
+class CreatorInformation < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :bio, :string
+  attribute :website, :string
+  attribute :year_born, :integer
+  attribute :year_died, :integer
+end
+
+class GenericArtInformation < Lutaml::Model::Serializable
+  attribute :title, :string
+  attribute :description, :string
+  attribute :artist, CreatorInformation
+  attribute :creation_date, :string
+  attribute :place_of_work, :string
+end
+
+class GenericArtInformationCollection < Lutaml::Model::Serializable
+  attribute :items, GenericArtInformation, collection: true
+end
+
+# Second model tree
+class CeramicCreatorInformation < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :bio, :string
+  attribute :website, :string
+  attribute :year_of_birth, :integer
+  attribute :year_of_death, :integer
+  attribute :techniques, :string, collection: true
+  attribute :awards, :string, collection: true
+end
+
+class Dimensions < Lutaml::Model::Serializable
+  attribute :height, :integer
+  attribute :width, :integer
+  attribute :depth, :integer
+end
+
+class CeramicArtInformation < Lutaml::Model::Serializable
+  attribute :title, :string
+  attribute :description, :string
+  attribute :artist, CeramicCreatorInformation
+  attribute :creation_date, :date_time
+  attribute :location, :string
+  attribute :dimensions, Dimensions
+  attribute :fire_temperature, :integer
+  attribute :fire_temperature_unit, :string, values: %w[°C °F]
+  attribute :clay_type, :string
+  attribute :glaze, :string
+end
+
+class CeramicArtInformationCollection < Lutaml::Model::Serializable
+  attribute :items, CeramicArtInformation, collection: true
+end
+
+# Value transforms
+class DimensionsTransform < Lutaml::Model::ModelTransformer
+  source :string
+  target Dimensions
+
+  transform do |source_value|
+    height, width, depth = source_value.match(/Dimensions: (\d+)x(\d+)x(\d+)/).captures
+    Dimensions.new(
+      height: height.to_i,
+      width: width.to_i,
+      depth: depth.to_i,
+    )
+  end
+
+  reverse_transform do |target_model|
+    "#{target_model.height}x#{target_model.width}x#{target_model.depth}"
+  end
+end
+
+class DateFormatTransform < Lutaml::Model::ModelTransformer
+  source :string
+  target :date_time
+
+  transform do |source_value|
+    Date.parse(source_value)
+  end
+
+  reverse_transform do |target_value|
+    target_value.strftime("%Y-%m-%d")
+  end
+end
+
+# Main transformation
+class CeramicArtInformationTransform < Lutaml::Model::ModelTransformer
+  source GenericArtInformation
+  target CeramicArtInformation
+
+  transform do
+    map from: "title", to: "title"
+    map from: "description", to: "description"
+    map from: "place_of_work", to: "location"
+    map from: "artist", to: "artist" do
+      map from: "name", to: "name"
+      map from: "bio", to: "bio"
+      map from: "website", to: "website"
+      map from: "year_born", to: "year_of_birth"
+      map from: "year_died", to: "year_of_death"
+      map from: "bio", to: "techniques", transform: :extract_techniques
+      map from: "bio", to: "awards", transform: :extract_awards
+    end
+    map from: "creation_date", to: "creation_date", transform: DateFormatTransform
+    map from: "description", to: "dimensions", transform: DimensionsTransform
+    map from: "description", to: "clay_type", transform: ->(description) {
+      description.match(/Clay type: ([\w\s]+)/)[1]
+    }
+    map from: "description", to: "glaze", transform: ->(description) {
+      begin
+        description.match(/Glaze: (.+)/)[1]
+      rescue StandardError
+        nil
+      end
+    }
+    map from: "description", to: "fire_temperature", transform: :extract_fire_temperature
+    map from: "description", to: "fire_temperature_unit", transform: :extract_fire_temperature_unit
+  end
+
+  def extract_fire_temperature_unit(description)
+    description.match(/Fire temperature: \d+(°\w+)/)[1]&.to_s
+  end
+
+  def extract_techniques(bio)
+    bio.scan(/Technique: ([\w\s]+)/).flatten
+  end
+
+  def extract_awards(bio)
+    bio.scan(/Award: ([\w\s]+)/).flatten
+  end
+
+  def extract_fire_temperature(description)
+    description.match(/Fire temperature: (\d+)/)[1]&.to_i
+  end
+end
+
+class CeramicArtInformationCollectionTransform < Lutaml::Model::ModelTransformer
+  source GenericArtInformationCollection
+  target CeramicArtInformationCollection
+
+  transform do
+    map_each from: "items", to: "items", transform: CeramicArtInformationTransform
+  end
+end
+----
+
+**Input YAML**
+
+[source,yaml]
+----
+items:
+- title: Translucent Vase
+  description: |
+    A tall and beautiful translucent vase created in the celadon color.
+
+    Dimensions: 10x10x10 cm
+    Fire temperature: 1000°C
+    Clay type: Porcelain
+  artist:
+    name: Masaaki Shibata
+    bio: |
+      Masaaki Shibata is a Japanese ceramic artist.
+
+      Awards: Japan Ceramic Society Award, 2005.
+
+      Skills: Glazing, painting
+    website: https://www.masaakishibata.com
+    year_born: 1947
+  creation_date: '2010-01-01'
+  place_of_work: Tokyo, Japan
+- title: Blue and White Bowl
+  description: |
+    A blue and white bowl with a floral pattern.
+
+    Dimensions: 20x20x20 cm
+    Fire temperature: 1200°C
+    Clay type: Stoneware
+    Glaze: Blue and white
+  artist:
+    name: Lucie Rie
+    bio: |
+      Lucie Rie was an Austrian-born British studio potter.
+
+      Awards: Potter's Gold Medal, 1987.
+
+      Skills: Throwing, glazing
+    website: https://www.lucierie.com
+    year_born: 1902
+    year_died: 1995
+  creation_date: '1970-01-01'
+  place_of_work: London, UK
+- title: Ceramic Sculpture
+  description: |
+    A ceramic sculpture in form of a golden fish.
+
+    Dimensions: 30x10x20 cm
+    Fire temperature: 800°C
+    Clay type: Earthenware
+    Glaze: Gold
+  artist:
+    name: Peter Voulkos
+    bio: |
+      Peter Voulkos was an American artist of Greek descent.
+
+      Awards: National Medal of Arts, 2001.
+
+      Skills: Throwing, hand-building, glazing
+    website: https://www.petervoulkos.com
+    year_born: 1924
+    year_died: 2002
+  creation_date: '1980-01-01'
+  place_of_work: Portopolous, Greece
+----
+
+**Usage**
+
+[source,ruby]
+----
+generic_art_info = GenericArtInformationCollection.from_yaml(input_yaml)
+transformed_data = CeramicArtInformationCollectionTransform.transform(generic_art_info)
+puts transformed_data.to_yaml
+----
+
+The output YAML will be:
+
+[source,yaml]
+----
+items:
+- title: Translucent Vase
+  description: |
+    A tall and beautiful translucent vase created in the celadon color.
+
+    Dimensions: 10x10x10 cm
+    Fire temperature: 1000°C
+    Clay type: Porcelain
+  artist:
+    name: Masaaki Shibata
+    bio: |
+      Masaaki Shibata is a Japanese ceramic artist.
+
+      Awards: Japan Ceramic Society Award, 2005.
+
+      Skills: Glazing, painting
+    website: https://www.masaakishibata.com
+    year_of_birth: 1947
+  creation_date: '2010-01-01T00:00:00+00:00'
+  location: Tokyo, Japan
+  dimensions:
+    height: 10
+    width: 10
+    depth: 10
+  fire_temperature: 1000
+  fire_temperature_unit: "°C"
+  clay_type: 'Porcelain'
+- title: Blue and White Bowl
+  description: |
+    A blue and white bowl with a floral pattern.
+
+    Dimensions: 20x20x20 cm
+    Fire temperature: 1200°C
+    Clay type: Stoneware
+    Glaze: Blue and white
+  artist:
+    name: Lucie Rie
+    bio: |
+      Lucie Rie was an Austrian-born British studio potter.
+
+      Awards: Potter's Gold Medal, 1987.
+
+      Skills: Throwing, glazing
+    website: https://www.lucierie.com
+    year_of_birth: 1902
+    year_of_death: 1995
+  creation_date: '1970-01-01T00:00:00+00:00'
+  location: London, UK
+  dimensions:
+    height: 20
+    width: 20
+    depth: 20
+  fire_temperature: 1200
+  fire_temperature_unit: "°C"
+  clay_type: |-
+    Stoneware
+    Glaze
+  glaze: Blue and white
+- title: Ceramic Sculpture
+  description: |
+    A ceramic sculpture in form of a golden fish.
+
+    Dimensions: 30x10x20 cm
+    Fire temperature: 800°C
+    Clay type: Earthenware
+    Glaze: Gold
+  artist:
+    name: Peter Voulkos
+    bio: |
+      Peter Voulkos was an American artist of Greek descent.
+
+      Awards: National Medal of Arts, 2001.
+
+      Skills: Throwing, hand-building, glazing
+    website: https://www.petervoulkos.com
+    year_of_birth: 1924
+    year_of_death: 2002
+  creation_date: '1980-01-01T00:00:00+00:00'
+  location: Portopolous, Greece
+  dimensions:
+    height: 30
+    width: 10
+    depth: 20
+  fire_temperature: 800
+  fire_temperature_unit: "°C"
+  clay_type: |-
+    Earthenware
+    Glaze
+  glaze: Gold
+----
+
+== Error handling
+
+- `UnknownTypeError`: unsupported source/target types for a declaration
+- `ReverseTransformationDeclarationError`: `reverse_transform do` declared for model-to-model mapping
+- `TransformBlockNotDefinedError`: calling forward value transform without block
+- `ReverseTransformBlockNotDefinedError`: calling reverse value transform without block
+- `MappingAttributeMissingError`: `from:` or `to:` attribute invalid or missing
+- `MappingAttributeTypeError`: incompatible attribute types for `map_each` (both sides must be collections)
+- `MappingAlreadyExistsError`: duplicate `map` declaration between the same attributes
+
+== Behaviors and edge cases
+
+- Nil propagation: nested targets become nil if the mapped source is nil; `map_each` with nil source yields nil target; empty arrays pass through unchanged.
+- Nested mapping blocks support arbitrarily deep structures.
+- Repeated attributes are not allowed for the same mapping pair.
+- Transformations are not recursive; nested objects require explicit mapping declarations or a custom transformer.
