@@ -639,7 +639,7 @@ mapping: nil)
           when Moxml::Text
             "text"
           when Moxml::Cdata
-            "cdata"
+            "#cdata-section"
           when Moxml::ProcessingInstruction
             "processing_instruction"
           else
