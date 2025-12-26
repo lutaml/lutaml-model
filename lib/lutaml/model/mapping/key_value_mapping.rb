@@ -146,7 +146,7 @@ module Lutaml
 
       def import_model_mappings(model, register_id = nil)
         reg_id = register(register_id).id
-        return import_mappings_later(model) if model_importable?(model)
+        return import_mappings_later(model, reg_id) if model_importable?(model)
 
         @mappings.merge!(Utils.deep_dup(model.mappings_for(@format, reg_id).mappings_hash))
       end

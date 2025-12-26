@@ -36,7 +36,7 @@ module Lutaml
           @raw_mapping = nil
           @mixed_content = false
           @format = :xml
-          @mappings_imported = true
+          @mappings_imported = {}
           @finalized = false
           @element_name = nil
           @namespace_class = nil
@@ -468,7 +468,7 @@ module Lutaml
 
         def import_model_mappings(model, register_id = nil)
           reg_id = register(register_id).id
-          return import_mappings_later(model) if model_importable?(model)
+          return import_mappings_later(model, reg_id) if model_importable?(model)
           raise Lutaml::Model::ImportModelWithRootError.new(model) if model.root?(reg_id)
 
           mappings = Utils.deep_dup(model.mappings_for(:xml, reg_id))
@@ -599,7 +599,7 @@ module Lutaml
         end
 
         def ensure_mappings_imported!(register_id = nil)
-          return if @mappings_imported
+          return if @mappings_imported[register_id]
 
           register_object = register(register_id)
           importable_mappings.each do |model|
@@ -618,7 +618,7 @@ module Lutaml
             end
           end
 
-          @mappings_imported = true
+          @mappings_imported[register_id] = true
         end
 
         def sequence_importable_mappings
