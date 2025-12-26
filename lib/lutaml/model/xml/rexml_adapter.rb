@@ -249,10 +249,18 @@ module Lutaml
             end
           end
 
+          # Collect attribute custom methods to call after element creation
+          attribute_custom_methods = []
+
           # Add regular attributes (non-xmlns)
           xml_mapping.attributes.each do |attribute_rule|
-            next if attribute_rule.custom_methods[:to] ||
-              options[:except]&.include?(attribute_rule.to)
+            next if options[:except]&.include?(attribute_rule.to)
+
+            # Collect custom methods for later execution (after element is created)
+            if attribute_rule.custom_methods[:to]
+              attribute_custom_methods << attribute_rule
+              next
+            end
 
             mapping_rule_name = if attribute_rule.multiple_mappings?
                                   attribute_rule.name.first
@@ -294,9 +302,16 @@ module Lutaml
 
           # Determine prefix from plan
           prefix = nil
-          if xml_mapping.namespace_class
-            key = xml_mapping.namespace_class.to_key
+          option_rule = options[:rule]
+          namespace_class = if option_rule&.prefix_set? || option_rule&.namespace_set?
+                              option_rule.namespace_class
+                            else
+                              xml_mapping.namespace_class
+                            end
+          if namespace_class
+            key = namespace_class.to_key
             ns_config = plan[:namespaces][key]
+
             if ns_config && ns_config[:format] == :prefix
               # Use prefix from the plan's namespace object (may be custom override)
               prefix = ns_config[:ns_object].prefix_default
@@ -308,12 +323,18 @@ module Lutaml
 
           xml.create_and_add_element(tag_name, prefix: prefix,
                                                attributes: attributes.compact) do
+            # Call attribute custom methods now that element is created
+            attribute_custom_methods.each do |attribute_rule|
+              mapper_class.new.send(attribute_rule.custom_methods[:to],
+                                    element, xml.parent, xml)
+            end
+
             if ordered?(element, options.merge(mapper_class: mapper_class))
               build_ordered_element_with_plan(xml, element, plan,
-                                              options.merge(mapper_class: mapper_class))
+                                              options.merge(mapper_class: mapper_class, parent_prefix: prefix))
             else
               build_unordered_children_with_plan(xml, element, plan,
-                                                 options.merge(mapper_class: mapper_class))
+                                                 options.merge(mapper_class: mapper_class, parent_prefix: prefix))
             end
           end
         end
@@ -498,8 +519,34 @@ module Lutaml
         end
 
         def add_simple_value(xml, rule, value, attribute, plan: nil, mapping: nil)
+          # Apply value_map transformation BEFORE checking if should render
+          value = rule.render_value_for(value) if rule
+
           # Handle array values by creating multiple elements
           if value.is_a?(Array)
+            # For empty arrays, check if we should render based on render_empty option
+            if value.empty?
+              # Only create element if render_empty is set to render (not :omit)
+              if rule.render_empty?
+                # Create single empty element for the collection
+                # Determine how to render based on render_empty option
+                if rule.render_empty_as_nil?
+                  # render_empty: :as_nil
+                  xml.create_and_add_element(rule.name,
+                                             attributes: { "xsi:nil" => true },
+                                             prefix: nil)
+                else
+                  # render_empty: :as_blank or :as_empty
+                  xml.create_and_add_element(rule.name,
+                                             attributes: nil,
+                                             prefix: nil)
+                end
+              end
+              # Don't iterate over empty array
+              return
+            end
+
+            # Non-empty array: create element for each value
             value.each do |val|
               add_simple_value(xml, rule, val, attribute, plan: plan, mapping: mapping)
             end
@@ -523,10 +570,18 @@ module Lutaml
           element_ns_uri = temp_ns_info[:uri]
 
           # NAMESPACE RESOLUTION: Determine if element should use prefix
+          # Cases:
+          # 1. namespace: :inherit → always use parent prefix
+          # 2. Type namespace → use Type's namespace from plan
+          # 3. Parent uses prefix format AND element has no explicit/type namespace → inherit parent
+          # 4. Element has namespace matching parent → check plan[:namespaces][ns_class]
+          # 5. Element has explicit namespace: nil → NO prefix ever
+
           use_prefix = false
           parent_prefix = nil
 
           # PRIORITY: Check explicit form and prefix options FIRST
+          # These override all other considerations
           if rule.qualified?
             # Explicit form: :qualified - element MUST use prefix
             use_prefix = true
@@ -547,53 +602,60 @@ module Lutaml
           elsif rule.prefix_set?
             # Explicit prefix option - element should use specified prefix
             use_prefix = true
-            # If prefix is a string (not "true"/"false"), use it directly
-            # If prefix is "true"/"false" (converted from boolean), use parent's namespace prefix
-            # If prefix is nil, check if parent uses prefix format and match it
-            if rule.prefix.is_a?(String) && rule.prefix != "true" && rule.prefix != "false"
+            # If prefix is a string, use it; if true, use namespace's default prefix
+            if rule.prefix.is_a?(String)
               parent_prefix = rule.prefix
-            elsif plan && mapping&.namespace_class
-              # prefix: true or prefix: nil - use parent's namespace prefix if parent uses prefix format
-              key = mapping.namespace_class.to_key
-              ns_config = plan[:namespaces][key]
-              if ns_config && ns_config[:format] == :prefix
+            elsif element_ns_uri && plan && plan[:namespaces]
+              ns_entry = plan[:namespaces].find do |_key, ns_config|
+                ns_config[:ns_object].uri == element_ns_uri
+              end
+              if ns_entry
+                _key, ns_config = ns_entry
                 parent_prefix = ns_config[:ns_object].prefix_default
-              elsif rule.prefix.nil?
-                # Parent is not using prefix format, so don't force prefix
-                use_prefix = false
               end
             end
           elsif rule.namespace_param == :inherit
-            # Explicit :inherit - always use parent format
+            # Case 1: Explicit :inherit - always use parent format
             use_prefix = true
             if plan && mapping&.namespace_class
               key = mapping.namespace_class.to_key
               ns_config = plan[:namespaces][key]
               if ns_config && ns_config[:format] == :prefix
+                # CRITICAL: Use the ns_object from plan (may be override with custom prefix)
                 parent_prefix = ns_config[:ns_object].prefix_default
               end
             end
           elsif plan && plan[:type_namespaces] && plan[:type_namespaces][rule.to]
-            # Type namespace - this attribute's type defines its own namespace
+            # Case 2: Type namespace - this attribute's type defines its own namespace
+            # Priority: Type namespace takes precedence over parent inheritance
             type_ns_class = plan[:type_namespaces][rule.to]
             key = type_ns_class.to_key
             ns_config = plan[:namespaces][key]
             if ns_config && ns_config[:format] == :prefix
               use_prefix = true
+              # CRITICAL: Use ns_object from plan (may be override with custom prefix)
               parent_prefix = ns_config[:ns_object].prefix_default
             end
           elsif !rule.namespace_set? && !element_ns_uri && mapping&.namespace_class && plan
-            # Format Matching Rule: When parent uses prefix format AND element has no explicit namespace
+            # Case 3: NEW - Format Matching Rule
+            # When parent uses prefix format AND element has no explicit namespace AND no type namespace,
+            # element inherits parent's namespace and prefix for consistent formatting.
+            # This handles the test case where children should match parent's serialization format.
+            # IMPORTANT: Only applies when element_form_default is :qualified
             key = mapping.namespace_class.to_key
             ns_config = plan[:namespaces][key]
             if ns_config && ns_config[:format] == :prefix && form_default == :qualified
+              # Parent is using prefix format AND schema requires qualified elements
               use_prefix = true
               parent_prefix = ns_config[:ns_object].prefix_default
+              # Override element_ns_uri to parent's URI for proper resolution
               element_ns_uri = mapping.namespace_uri
             end
           elsif element_ns_uri
-            # Element has explicit namespace - check if it's in prefix mode
+            # Case 4: Element has explicit namespace - check if it's in prefix mode
+            # Need to find the namespace class by URI to look up config
             if plan && plan[:namespaces]
+              # Find namespace entry that matches this URI
               ns_entry = plan[:namespaces].find do |_key, ns_config|
                 ns_config[:ns_object].uri == element_ns_uri
               end
@@ -603,10 +665,22 @@ module Lutaml
                 parent_prefix = ns_config[:ns_object].prefix_default if use_prefix
               end
             end
-          elsif rule.namespace_set?
-            # Legacy: Check for explicit namespace on the rule
-            resolved_prefix = rule.prefix
+          elsif !rule.namespace_set? && element_ns_uri && element_ns_uri == mapping&.namespace_uri
+            # Case 5: Element has SAME namespace as parent (not nil, not unqualified)
+            # Element has a resolved namespace that matches parent -> inherit parent format
+            # Truly unqualified elements (element_ns_uri.nil?) do NOT inherit
+            if plan && mapping&.namespace_class
+              key = mapping.namespace_class.to_key
+              ns_config = plan[:namespaces][key]
+              if ns_config && ns_config[:format] == :prefix
+                use_prefix = true
+                # CRITICAL: Use the ns_object from plan (may be override with custom prefix)
+                parent_prefix = ns_config[:ns_object].prefix_default
+              end
+            end
           end
+          # Case 6: explicit namespace: nil is handled by namespace_set? && namespace_param == nil
+          # Case 7: truly unqualified (element_ns_uri.nil?) falls through with use_prefix = false
 
           # Now resolve with correct use_prefix
           ns_info = rule.resolve_namespace(
@@ -619,10 +693,14 @@ module Lutaml
             parent_prefix: parent_prefix,
           )
 
-          # Determine final resolved prefix
+          # Use resolved namespace directly, BUT handle special cases:
+          # 1. namespace: :inherit → ALWAYS use parent prefix (resolved has parent URI)
+          # 2. Truly unqualified elements (element_ns_uri==nil) → NO prefix unless :inherit
           resolved_prefix = if rule.namespace_param == :inherit
+                              # Explicit :inherit - always use parent's prefix
                               parent_prefix
                             elsif use_prefix && parent_prefix
+                              # Element has same namespace as parent and parent uses prefix
                               parent_prefix
                             else
                               ns_info[:prefix]
@@ -650,15 +728,41 @@ module Lutaml
           end
 
           if value.nil?
-            xml.create_and_add_element(rule.name,
-                                       attributes: attributes.merge({ "xsi:nil" => true }),
-                                       prefix: resolved_prefix)
+            # Check render_nil option to determine how to render nil value
+            if rule.render_nil_as_blank? || rule.render_nil_as_empty?
+              # render_nil: :as_blank or :as_empty - create blank element without xsi:nil
+              xml.create_and_add_element(rule.name,
+                                         attributes: attributes,
+                                         prefix: resolved_prefix)
+            else
+              # render_nil: :as_nil or default - create element with xsi:nil="true"
+              xml.create_and_add_element(rule.name,
+                                         attributes: attributes.merge({ "xsi:nil" => true }),
+                                         prefix: resolved_prefix)
+            end
+          elsif Utils.uninitialized?(value)
+            # Handle uninitialized values - don't try to serialize them as text
+            # This should not normally happen as render? should filter these out
+            # But if render_omitted is set, we might reach here
+            nil
           elsif Utils.empty?(value)
             xml.create_and_add_element(rule.name,
                                        attributes: attributes,
                                        prefix: resolved_prefix)
           elsif rule.raw_mapping?
             xml.add_xml_fragment(xml, value)
+          elsif value.is_a?(::Hash) && attribute&.type(register) == Lutaml::Model::Type::Hash
+            # Check if value is Hash type that needs wrapper - do this BEFORE any wrapping/serialization
+            # Value is already transformed by ExportTransformer before reaching here
+            xml.create_and_add_element(rule.name,
+                                       attributes: attributes,
+                                       prefix: resolved_prefix) do
+              value.each do |key, val|
+                xml.create_and_add_element(key.to_s) do
+                  xml.add_text(xml, val.to_s)
+                end
+              end
+            end
           else
             xml.create_and_add_element(rule.name,
                                        attributes: attributes,
