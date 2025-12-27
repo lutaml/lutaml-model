@@ -1,0 +1,102 @@
+= Generic Steps to Migrate a Gem to Use Lutaml-Model
+:doctype: article
+
+== Introduction
+
+This guide provides a comprehensive approach to migrating a Ruby gem to use `Lutaml-Model`. These steps ensure consistency and leverage Lutaml's serialization capabilities for streamlined data handling.
+
+== Steps for Migration
+
+* **Inherit From Lutaml::Model::Serializable**
+
+Replace the current data model implementation by inheriting from `Lutaml::Model::Serializable`. Update each class representing the domain model. For example:
+
+[source,ruby]
+----
+class MyClass < Lutaml::Model::Serializable
+  attribute :name, String
+  attribute :age, Integer
+end
+----
+
+* **Define Attributes Explicitly**
+
+Ensure all attributes in the model are explicitly defined using the `attribute` method. This avoids runtime errors and ensures proper serialization.
+
+* **Create Subclasses as Collections**
+
+For models requiring a collection of items that are not supported types (e.g., a list of objects), create a dedicated subclass to represent the collection.
+
+[source,ruby]
+----
+class MyItem < Lutaml::Model::Serializable
+  attribute :id, :integer
+  attribute :value, :string
+end
+
+class MyItemsCollection < Lutaml::Model::Serializable
+  attribute :items, MyItem, collection: true
+end
+----
+
+For more information see https://github.com/lutaml/lutaml-model?tab=readme-ov-file#supported-attribute-value-types[supported types]
+
+This ensures the collection is properly serialized and deserialized, maintaining consistency with `Lutaml::Model::Serializable`.
+
+* **Handle Attribute Name Mismatches**
+
+For attributes with names that do not directly map between formats (e.g., `temperature-K`), add key mappings alongwith other mappings:
+
+[source,ruby]
+----
+# JSON, YAML, and TOML
+
+key_value do
+  map "geometrical-altitude-m", to: :geometrical_altitude_m
+  map "temperature-K", to: :temperature_k
+end
+
+# For XML
+
+xml do
+  map_element 'geometrical-altitude-m', to: :geometrical_altitude_m
+end
+----
+
+This allows format keys to be correctly parsed into Ruby-compatible attribute names.
+
+* **Update Tests to Verify Round-Trip Serialization**
+
+Update the tests to load models from content files and verify round-trip serialization, For example in YAML:
+
+[source,ruby]
+----
+require 'lutaml/model'
+
+RSpec.describe "MyClass Serialization" do
+  let(:yaml_path) { "spec/fixtures/my_class.yaml" }
+
+  it "verifies round-trip serialization" do
+    original_yaml = File.read(yaml_path)
+    model_instance = model_class.from_yaml(original_yaml)
+    generated_yaml = model_instance.to_yaml
+    expect(YAML.safe_load(generated_yaml)).to eq(YAML.safe_load(original_yaml))
+  end
+end
+----
+
+* **Update Documentation**
+
+Ensure the gem's README and other documentation reflect the changes introduced by `Lutaml-Model`.
+
+== Troubleshooting and Important Considerations
+
+* If the `bigdecimal` library is not loaded, usage of the `Decimal` type will raise a `Lutaml::Model::TypeNotEnabledError`.
+* Verify that the gem's current entry points work correctly and produce accurate results.
+* Always require the attributes classes in their respective parent classes.
+* Make sure the `Lutaml::Model` is available wherever serialization functionality is needed
+* Create methods in subclasses to set attributes of attributes classes if objects involve calculated values by default. This ensures proper serialization.
+
+== Conclusion
+
+Migrating to `Lutaml-Model` ensures better serialization support and attribute handling in your gem. By following these steps and addressing common pitfalls, you can achieve a smooth transition.
