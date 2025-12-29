@@ -3,6 +3,7 @@
 require "spec_helper"
 require "lutaml/model/xml/ox_adapter"
 require "lutaml/model/xml/oga_adapter"
+require_relative "../../support/xml_mapping_namespaces"
 
 # Test for issue #504: Default namespace handling
 # https://github.com/lutaml/lutaml-model/issues/504
@@ -13,7 +14,7 @@ module DefaultNamespaceSpec
 
     xml do
       root "nested"
-      namespace "http://example.com/ns"
+      namespace ExampleNamespaceDefault
       map_element "name", to: :name
       map_element "value", to: :value
     end
@@ -24,7 +25,7 @@ module DefaultNamespaceSpec
 
     xml do
       root "root"
-      namespace "http://example.com/ns"
+      namespace ExampleNamespaceDefault
       map_element "child", to: :child
     end
   end
@@ -35,7 +36,7 @@ module DefaultNamespaceSpec
 
     xml do
       root "root"
-      namespace "http://example.com/ns"
+      namespace ExampleNamespaceDefault
       map_element "title", to: :title
       map_element "nested", to: :nested
     end
@@ -46,7 +47,7 @@ module DefaultNamespaceSpec
 
     xml do
       root "item"
-      namespace "http://example.com/ns"
+      namespace ExampleNamespaceDefault
       map_element "name", to: :name
     end
   end
@@ -56,7 +57,7 @@ module DefaultNamespaceSpec
 
     xml do
       root "root"
-      namespace "http://example.com/ns"
+      namespace ExampleNamespaceDefault
       map_element "item", to: :items
     end
   end

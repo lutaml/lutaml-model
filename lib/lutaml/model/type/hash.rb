@@ -60,7 +60,7 @@ module Lutaml
         # XSD type for Hash
         #
         # @return [String] xs:anyType
-        def self.xsd_type
+        def self.default_xsd_type
           "xs:anyType"
         end
       end

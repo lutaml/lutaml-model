@@ -39,10 +39,10 @@ module Lutaml
           cast(value)
         end
 
-        # XSD type for Integer
+        # Default XSD type for Integer
         #
         # @return [String] xs:integer
-        def self.xsd_type
+        def self.default_xsd_type
           "xs:integer"
         end
       end

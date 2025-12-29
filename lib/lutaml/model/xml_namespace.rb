@@ -163,6 +163,33 @@ module Lutaml
           new(prefix: prefix)
         end
 
+        # Generate unique key for this namespace configuration
+        #
+        # The key is based on prefix and URI, ensuring that same config = same key.
+        # This enables proper deduplication and lookup in hash structures.
+        #
+        # Format:
+        # - With prefix: "prefix:uri"
+        # - Without prefix (default namespace): ":uri"
+        #
+        # @return [String] unique key for hash lookups
+        #
+        # @example
+        #   FooNamespace.to_key  # => "foo:http://example.com/foo"
+        #   BarNamespace.to_key  # => ":http://example.com/bar"
+        #
+        # @api private
+        def to_key
+          prefix = prefix_default
+          namespace_uri = uri
+
+          if prefix && !prefix.empty?
+            "#{prefix}:#{namespace_uri}"
+          else
+            ":#{namespace_uri}"
+          end
+        end
+
         private
 
         def validate_form_value!(value, method_name)

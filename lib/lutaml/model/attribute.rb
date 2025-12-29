@@ -154,6 +154,8 @@ module Lutaml
                                                   @options[:ref_model_class], @options[:ref_key_attribute])
         end
 
+        validate_attr_type!(resolved_type)
+
         resolved_type.cast(value)
       end
 
@@ -496,7 +498,56 @@ module Lutaml
         self.class.new(name, unresolved_type, Utils.deep_dup(options))
       end
 
+      # Get namespace class from Type::Value or Model class
+      #
+      # @param register [Symbol, nil] register ID for type resolution
+      # @return [Class, nil] XmlNamespace class if type has namespace
+      def type_namespace_class(register = nil)
+        resolved_type = type(register)
+        return nil unless resolved_type
+
+        # Check if type responds to xml_namespace (Type::Value classes)
+        return resolved_type.xml_namespace if resolved_type.respond_to?(:xml_namespace)
+
+        # Check if type is a Serializable model with namespace in XML mappings
+        if resolved_type <= Lutaml::Model::Serialize
+          xml_mapping = resolved_type.mappings_for(:xml, register)
+          if xml_mapping&.namespace_uri
+            # Create an anonymous XmlNamespace class to wrap the mapping's namespace
+            return Class.new(Lutaml::Model::XmlNamespace) do
+              uri xml_mapping.namespace_uri
+              prefix_default xml_mapping.namespace_prefix
+            end
+          end
+        end
+
+        nil
+      end
+
+      # Get namespace URI from type
+      #
+      # @param register [Symbol, nil] register ID for type resolution
+      # @return [String, nil] namespace URI
+      def type_namespace_uri(register = nil)
+        type_namespace_class(register)&.uri
+      end
+
+      # Get namespace prefix from type
+      #
+      # @param register [Symbol, nil] register ID for type resolution
+      # @return [String, nil] namespace prefix
+      def type_namespace_prefix(register = nil)
+        type_namespace_class(register)&.prefix_default
+      end
+
       private
+
+      def validate_attr_type!(resolved_type)
+        return true if resolved_type <= Serializable || resolved_type <= Type::Value
+        return true if resolved_type.included_modules.include?(Serialize)
+
+        raise Lutaml::Model::InvalidAttributeTypeError.new(name, resolved_type.name)
+      end
 
       def validated_range_object
         return collection if collection.end
@@ -568,6 +619,9 @@ module Lutaml
 
       def serialize_model(value, format, register, options)
         as_options = options.merge(register: register)
+        # Remove mappings from options for nested model serialization
+        # Nested models should use their own format mappings
+        as_options.delete(:mappings)
         return unless Utils.present?(value)
 
         resolved_type = as_options.delete(:resolved_type) || type(register)
@@ -620,6 +674,14 @@ module Lutaml
         if (invalid_opts = options.keys - ALLOWED_OPTIONS).any?
           raise Lutaml::Model::InvalidAttributeOptionsError.new(name,
                                                                 invalid_opts)
+        end
+
+        # Deprecation warning for :xsd_type attribute option
+        if options.key?(:xsd_type)
+          warn "[DEPRECATION] The :xsd_type attribute option is deprecated and will be removed in v1.0.0. " \
+               "Create a custom Type::Value class with xsd_type at class level instead. " \
+               "See: docs/migration-guides/xsd-type-migration.adoc " \
+               "Called from #{caller(1..1).first}"
         end
 
         # No need to change user register#get_class, only checks if type is LutaML-Model string.

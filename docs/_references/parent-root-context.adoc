@@ -1,0 +1,122 @@
+---
+title: Parent and Root Context
+nav_order: 7
+---
+
+= Parent and root context accessors
+:toc:
+:toclevels: 3
+
+== General
+
+Models created during deserialization can access their immediate parent and the document
+root via two special accessors:
+
+* `__parent`:: The direct parent model instance
+* `__root`:: The top-level/root model instance
+
+These accessors are automatically assigned during deserialization, enabling nested child
+models to reference their context within the model hierarchy.
+
+
+root via two special accessors added:
+
+* `__parent`:: The direct parent model instance
+* `__root`:: The top-level/root model instance
+
+These are assigned during deserialization so nested child models can reference context.
+
+[example]
+====
+[source,ruby]
+----
+class Tag < Lutaml::Model::Serializable
+  attribute :text, :string
+
+  xml do
+    root "Tag"
+
+    map_content to: :text
+  end
+
+  key_value do
+    map "text", to: :text
+  end
+end
+
+class Tags < Lutaml::Model::Serializable
+  attribute :tag, Tag, collection: true
+
+  xml do
+    root "Tags"
+
+    map_element "Tag", to: :tag
+  end
+
+  key_value do
+    map "Tag", to: :tag
+  end
+end
+
+class Post < Lutaml::Model::Serializable
+  attribute :tags, Tags, collection: true
+
+  xml do
+    root "Post"
+    map_element "Tags", to: :tags
+  end
+
+  key_value do
+    map "Tags", to: :tags
+  end
+end
+
+post = Post.from_xml(<<~XML)
+<Post>
+  <Tags>
+    <Tag>ruby</Tag>
+    <Tag>coding</Tag>
+  </Tags>
+  <Tags>
+    <Tag>JSON</Tag>
+    <Tag>coding</Tag>
+  </Tags>
+</Post>
+XML
+
+first_tag = post.tags.first.tag.first # #<Tag:0x00000002e661a650 @text="ruby">
+first_tag.__parent # #<Tags:0x00000002e5e90010 @tag=[#<Tag:0x00000002e5e5bb80 @text="ruby">, #<Tag:0x00000002e5e58ca0 @text="coding">]>
+first_tag.__root # should return the `post` object
+
+# Key-value formats also set these accessors
+yaml = {
+  "Tags" => [
+    {
+      "Tag" => [
+        { "text" => "ruby" },
+        { "text" => "coding"}
+      ]
+    },
+    {
+      "Tag" => [
+        { "text" => "JSON" },
+        { "text" => "coding" }
+      ]
+    }
+  ]
+}.to_yaml
+post2 = Post.from_yaml(yaml)
+# Same as explained in XML `post` example
+post2.tags.first.__parent
+post2.tags.first.__root
+----
+====
+
+NOTE: If you manually instantiate models, you can set these accessors yourself if needed:
+
+[source,ruby]
+----
+child.__parent = parent
+child.__root   = parent.__root || parent
+----
+

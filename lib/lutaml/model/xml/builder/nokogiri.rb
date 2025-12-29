@@ -37,18 +37,25 @@ module Lutaml
                      nil),
             attributes: {}
           )
-            add_namespace_prefix(prefix)
-
+            # CORRECT ARCHITECTURE: Don't use xml[prefix] which requires pre-registration
+            # Instead, build the prefixed element name and let xmlns attributes handle resolution
             element_name = element_name.first if element_name.is_a?(Array)
             element_name = "#{element_name}_" if respond_to?(element_name)
 
+            # Build the fully qualified element name if prefix is provided
+            qualified_name = if !prefix_unset && prefix
+                               "#{prefix}:#{element_name}"
+                             else
+                               element_name
+                             end
+
             if block_given?
-              public_send(element_name, attributes) do
+              xml.public_send(qualified_name, attributes) do
                 xml.parent.namespace = nil if prefix.nil? && !prefix_unset
                 yield(self)
               end
             else
-              public_send(element_name, attributes)
+              xml.public_send(qualified_name, attributes)
             end
           end
 
@@ -74,7 +81,13 @@ module Lutaml
           end
 
           def add_cdata(element, value)
-            element.cdata(value)
+            if element.is_a?(self.class)
+              element = element.xml.parent
+            end
+
+            cdata_node = ::Nokogiri::XML::CDATA.new(element.document,
+                                                    value.to_s)
+            element.add_child(cdata_node)
           end
 
           def add_namespace_prefix(prefix)

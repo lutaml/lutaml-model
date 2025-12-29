@@ -1,3 +1,6 @@
+require "spec_helper"
+require_relative "../../../../support/xml_mapping_namespaces"
+
 # <Base xmlns:test="https://test-namespace">
 #   <test:Element1>
 #     <test:Element>Value</test:Element>
@@ -45,7 +48,7 @@ module NestedWithExplicitNamespaceSpec
 
     xml do
       root "Base"
-      namespace "https://test-namespace", "test"
+      namespace TestBaseNamespace
 
       map_element "Element1", to: :element1
     end

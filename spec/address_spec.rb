@@ -131,7 +131,7 @@ RSpec.describe Address do
       </Address>
     XML
 
-    expect(address.to_xml).to be_equivalent_to(expected_xml)
+    expect(address.to_xml).to be_xml_equivalent_to(expected_xml)
   end
 
   it "deserializes from XML with a collection of persons" do

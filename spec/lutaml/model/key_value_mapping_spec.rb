@@ -143,7 +143,8 @@ RSpec.describe Lutaml::Model::KeyValueMapping do
         mapping.map("test", to: :field, render_nil: :as_blank)
       end.to raise_error(
         Lutaml::Model::IncorrectMappingArgumentsError,
-        ":as_blank is not supported for key-value mappings",
+        ":as_blank is not supported for key-value mappings. " \
+        "Use :as_empty instead to create explicit empty values.",
       )
     end
 

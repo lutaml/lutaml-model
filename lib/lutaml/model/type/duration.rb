@@ -46,7 +46,7 @@ module Lutaml
         # XSD type for Duration
         #
         # @return [String] xs:duration
-        def self.xsd_type
+        def self.default_xsd_type
           "xs:duration"
         end
 

@@ -272,7 +272,7 @@ RSpec.describe "Polymorphic" do
       end
 
       it "serializes correctly" do
-        expect(parsed_xml.to_xml.strip).to be_equivalent_to(xml.strip)
+        expect(parsed_xml.to_xml.strip).to be_xml_equivalent_to(xml.strip)
       end
     end
   end
@@ -391,7 +391,7 @@ RSpec.describe "Polymorphic" do
       end
 
       it "serializes correctly" do
-        expect(parsed_xml.to_xml.strip).to be_equivalent_to(xml.strip)
+        expect(parsed_xml.to_xml.strip).to be_xml_equivalent_to(xml.strip)
       end
 
       it "does not raise error if polymorphic is set to true" do
@@ -508,7 +508,7 @@ RSpec.describe "Polymorphic" do
       end
 
       it "serializes correctly" do
-        expect(parsed_xml.to_xml.strip).to be_equivalent_to(xml.strip)
+        expect(parsed_xml.to_xml.strip).to be_xml_equivalent_to(xml.strip)
       end
 
       it "does not raises error for valid polymorphic class" do

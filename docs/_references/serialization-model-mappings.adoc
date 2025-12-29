@@ -1,0 +1,102 @@
+---
+title: Serialization model mappings
+nav_order: 11
+---
+
+= Serialization model mappings
+
+Lutaml::Model allows you to translate a data model into serialization models of
+various serialization formats.
+
+Depending on the serialization format, different methods are supported for
+defining serialization and deserialization mappings.
+
+A serialization model mapping is defined using a format-specific DSL block
+in this syntax:
+
+[source,ruby]
+----
+class Example < Lutaml::Model::Serializable
+  {format-short-name} do <1>
+    # ...
+  end
+end
+----
+<1> `{format-short-name}` is the serialization format short name.
+
+There are two kinds of serialization models:
+
+* Represents a singular model (maps to a Lutaml::Model::Serializable)
+* Represents a group/collection of models (maps to Lutaml::Model::Collection)
+
+A collection contains instances of singular models, and therefore is always
+inextricably linked to an underlying serialization format for singular models.
+For instance, JSONL represents a collection (itself being invalid JSON) that
+uses JSON for singular models.
+
+The supported serialization formats and their short names are defined as follows:
+
+Model serialization formats::
+
+`xml`::: XML (see <<mapping-xml>>)
+`hsh`::: Hash
++
+NOTE: Yes a 3-letter abbreviation for Hash!
+
+`json`::: JSON (see <<mapping-key-value-models>>)
+`yaml`::: YAML (see <<mapping-key-value-models>>)
+`toml`::: TOML (see <<mapping-key-value-models>>)
+`key_value`::: Key-value format, a shorthand for all key-value formats (including
+JSON, YAML and TOML). (see <<mapping-key-value-models>>)
+
+Collection serialization formats::
+
+`jsonl`::: JSONL (JSON Lines) (see <<mapping-collections>>)
+`yamls`::: YAML Stream (multi-document format) (see <<mapping-collections>>)
+
+
+.Using the `xml`, `hsh`, `json`, `yaml`, `toml` and `key_value` blocks to define serialization mappings
+[example]
+====
+[source,ruby]
+----
+class Example < Lutaml::Model::Serializable
+  xml do
+    # ...
+  end
+
+  hsh do
+    # ...
+  end
+
+  json do
+    # ...
+  end
+
+  yaml do
+    # ...
+  end
+
+  toml do
+    # ...
+  end
+
+  key_value do
+    # ...
+  end
+end
+----
+====
+
+.Using the `jsonl` block to define serialization mappings to a collection
+[example]
+====
+[source,ruby]
+----
+class Example < Lutaml::Model::Collection
+  jsonl do
+    # ...
+  end
+end
+----
+====

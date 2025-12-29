@@ -255,8 +255,8 @@ RSpec.describe MultipleMapping do
         expect(product1.status).to eq("active")
         expect(product2.status).to eq("in-stock")
 
-        expect(product1.to_xml).to be_equivalent_to(expected_xml_product1)
-        expect(product2.to_xml).to be_equivalent_to(expected_xml_product2)
+        expect(product1.to_xml).to be_xml_equivalent_to(expected_xml_product1)
+        expect(product2.to_xml).to be_xml_equivalent_to(expected_xml_product2)
       end
     end
 
@@ -335,8 +335,8 @@ RSpec.describe MultipleMapping do
               <desc>XML Description: A beautiful ceramic vase</desc>
             </CustomModel>
           XML
-          expect(model1.to_xml).to be_equivalent_to(expected_xml)
-          expect(model2.to_xml).to be_equivalent_to(expected_xml)
+          expect(model1.to_xml).to be_xml_equivalent_to(expected_xml)
+          expect(model2.to_xml).to be_xml_equivalent_to(expected_xml)
         end
       end
 

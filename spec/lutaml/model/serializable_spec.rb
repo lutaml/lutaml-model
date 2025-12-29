@@ -278,7 +278,7 @@ RSpec.describe Lutaml::Model::Serializable do
 
     it "raises an error if the attribute does not exist" do
       expect { RestrictTestClass.restrict(:bar, collection: 1..2) }
-        .to raise_error(NoMethodError)
+        .to raise_error(Lutaml::Model::UndefinedAttributeError, "bar is not defined in RestrictTestClass")
     end
   end
 
@@ -393,7 +393,7 @@ RSpec.describe Lutaml::Model::Serializable do
     it "uses root name defined at the component class" do
       record_date = SerializeableSpec::RecordDate.new(content: "2021-01-01")
       expected_xml = "<recordDate>2021-01-01</recordDate>"
-      expect(record_date.to_xml).to eq(expected_xml)
+      expect(record_date.to_xml).to be_xml_equivalent_to(expected_xml)
     end
 
     it "uses mapped element name at the aggregating class, overriding root name" do
@@ -401,7 +401,7 @@ RSpec.describe Lutaml::Model::Serializable do
       expected_xml = <<~XML
         <originInfo><dateIssued>2021-01-01</dateIssued></originInfo>
       XML
-      expect(origin_info.to_xml).to be_equivalent_to(expected_xml)
+      expect(origin_info.to_xml).to be_xml_equivalent_to(expected_xml)
     end
   end
 
@@ -543,7 +543,7 @@ RSpec.describe Lutaml::Model::Serializable do
       end
 
       it "serializes to XML with custom name transformation" do
-        expect(model.to_xml).to be_equivalent_to(expected_xml)
+        expect(model.to_xml).to be_xml_equivalent_to(expected_xml)
       end
 
       it "deserializes from XML with custom name transformation" do

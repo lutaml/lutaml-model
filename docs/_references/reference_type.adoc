@@ -1,3 +1,8 @@
+---
+title: Reference Type
+nav_order: 2
+---
+
 = Reference Type Documentation
 :toc:
 :toclevels: 3

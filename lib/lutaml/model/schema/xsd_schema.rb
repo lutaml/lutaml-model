@@ -1,4 +1,5 @@
 require_relative "schema_builder"
+require_relative "xs_builtin_types"
 
 module Lutaml
   module Model
@@ -9,6 +10,9 @@ module Lutaml
         def self.generate(klass, options = {})
           register = extract_register_from(klass)
           xml_mapping = klass.mappings_for(:xml)
+
+          # Validate XSD types unless explicitly skipped
+          validate_xsd_types!(klass, register) unless options[:skip_validation]
 
           # Use SchemaBuilder with adapter from options or config
           adapter_type = options[:adapter] || Config.xml_adapter_type || :nokogiri
@@ -21,6 +25,84 @@ module Lutaml
           end
 
           schema_builder.to_xml(options)
+        end
+
+        # Classify an XSD type name into one of three categories
+        #
+        # @param type_name [String] The XSD type name to classify
+        # @param klass [Class] The model class being processed
+        # @param register [Register] The register for type resolution
+        # @return [Symbol] :builtin, :custom, :unresolvable, or :unknown
+        def self.classify_xsd_type(type_name, klass, register)
+          return :builtin if XsBuiltinTypes.builtin?(type_name)
+
+          # Custom type - check if resolvable
+          if type_name && !type_name.start_with?("xs:")
+            return :custom if type_resolvable?(type_name, klass, register)
+
+            return :unresolvable
+          end
+
+          :unknown
+        end
+
+        # Check if a custom XSD type can be resolved in the model hierarchy
+        #
+        # @param type_name [String] The custom type name to resolve
+        # @param klass [Class] The model class being processed
+        # @param register [Register] The register for type resolution
+        # @return [Boolean] true if the type can be resolved
+        def self.type_resolvable?(type_name, klass, register)
+          # Search in nested model attributes
+          klass.attributes.each_value do |attr|
+            attr_type = attr.type(register)
+            next unless attr_type <= Lutaml::Model::Serialize
+
+            nested_mapping = attr_type.mappings_for(:xml)
+            return true if nested_mapping&.type_name_value == type_name
+          end
+
+          # Could be extended in the future to search in:
+          # - Register for custom Type::Value classes with matching xsd_type
+          # - Global namespace registry
+          # - External schema imports
+
+          false
+        end
+
+        # Validate all XSD types referenced by the model
+        #
+        # @param klass [Class] The model class to validate
+        # @param register [Register] The register for type resolution
+        # @raise [UnresolvableTypeError] if any types cannot be resolved
+        def self.validate_xsd_types!(klass, register)
+          errors = []
+
+          klass.attributes.each do |name, attr|
+            attr_type = attr.type(register)
+
+            # Validate Type::Value xsd_type
+            if attr_type.respond_to?(:xsd_type)
+              type_name = attr_type.xsd_type
+              classification = classify_xsd_type(type_name, klass, register)
+
+              if classification == :unresolvable
+                errors << "Attribute '#{name}' uses unresolvable xsd_type '#{type_name}'. " \
+                          "Custom types must be defined as LutaML Type::Value or Model classes."
+              end
+            end
+
+            # Recursively validate nested models
+            if attr_type <= Lutaml::Model::Serialize
+              begin
+                validate_xsd_types!(attr_type, register)
+              rescue UnresolvableTypeError => e
+                errors << "In nested model #{attr_type.name}: #{e.message}"
+              end
+            end
+          end
+
+          raise UnresolvableTypeError, errors.join("\n") if errors.any?
         end
 
         def self.generate_schema(xml, klass, xml_mapping, register, _options)
@@ -58,34 +140,56 @@ module Lutaml
               generate_includes(xml, xml_mapping.namespace_class)
             end
 
+            # Generate imports for Type namespaces
+            type_namespaces = collect_type_namespaces(klass, register)
+            type_namespaces.each do |ns_class|
+              # Only import if different from target namespace
+              next if ns_class.uri == schema_attrs[:targetNamespace]
+
+              import_attrs = { namespace: ns_class.uri }
+              if ns_class.schema_location
+                import_attrs[:schemaLocation] = ns_class.schema_location
+              end
+              xml.import(import_attrs)
+            end
+
             # Generate annotation if present
             if xml_mapping.documentation_text || xml_mapping.namespace_class&.documentation
               generate_annotation(xml, xml_mapping)
             end
 
-            # Determine element name for XSD
-            # If there's an explicit element declaration, use that
-            # If there's an explicit XML mapping with root, use that
-            # Otherwise use full class name (not the default mapping's root)
+            # Determine element name and type name for XSD pattern selection
             element_name = if has_explicit_xml_mapping?(klass, xml_mapping)
-                             # Explicit XML mapping defined by user
-                             if xml_mapping.element_name
-                               xml_mapping.element_name
-                             elsif xml_mapping.root_element
-                               xml_mapping.root_element
-                             else
-                               klass.name
-                             end
+                             xml_mapping.element_name || xml_mapping.root_element
                            else
-                             # No explicit mapping - use full class name
-                             klass.name
+                             nil
                            end
 
-            # Generate element wrapper with inline complexType
-            # This maintains backward compatibility with existing tests
-            xml.element(name: element_name) do
-              generate_complex_type_content(xml, klass, register, xml_mapping)
+            type_name = xml_mapping.type_name_value
+
+            # Generate XSD based on three patterns:
+            # Pattern 1: element only -> inline anonymous complexType
+            # Pattern 2: type_name only -> named complexType (no element)
+            # Pattern 3: both element and type_name -> element + named complexType
+
+            if element_name && type_name
+              # Pattern 3: Both element and named type
+              xml.element(name: element_name, type: type_name)
+              generate_complex_type(xml, klass, type_name, register, xml_mapping)
+            elsif type_name && !element_name
+              # Pattern 2: Type-only (no element)
+              generate_complex_type(xml, klass, type_name, register, xml_mapping)
+            else
+              # Pattern 1: Anonymous inline (element with no type_name)
+              # Use class name as fallback element name if not specified
+              elem_name = element_name || klass.name
+              xml.element(name: elem_name) do
+                generate_complex_type_content(xml, klass, register, xml_mapping)
+              end
             end
+
+            # Generate type definitions for nested models with type_name
+            generate_nested_type_definitions(xml, klass, register)
           end
         end
 
@@ -116,6 +220,23 @@ module Lutaml
             doc_text ||= xml_mapping.namespace_class&.documentation if xml_mapping.namespace_class
 
             xml.documentation(doc_text) if doc_text
+          end
+        end
+
+        def self.generate_nested_type_definitions(xml, klass, register)
+          klass.attributes.each_value do |attr|
+            attr_type = attr.type(register)
+            next unless attr_type <= Lutaml::Model::Serialize
+
+            nested_mapping = attr_type.mappings_for(:xml)
+            nested_type_name = nested_mapping&.type_name_value
+
+            # Generate type definition if nested model has type_name
+            if nested_type_name
+              generate_complex_type(xml, attr_type, nested_type_name, register, nested_mapping)
+              # Recursively generate nested types
+              generate_nested_type_definitions(xml, attr_type, register)
+            end
           end
         end
 
@@ -150,32 +271,51 @@ xml_mapping = nil)
           klass.attributes.each do |name, attr|
             next if xml_mapping && attr_is_xml_attribute?(xml_mapping, name)
 
+            # Find the mapping rule for this attribute
+            mapping_rule = xml_mapping&.find_element(name)
+
             attr_type = attr.type(register)
 
             if attr_type <= Lutaml::Model::Serialize
-              # Nested model - generate inline complexType
+              # Nested model - check if it has a type_name for reference
+              nested_mapping = attr_type.mappings_for(:xml)
+              nested_type_name = nested_mapping&.type_name_value
+
               if attr.collection?
-                # Collection of models - special handling
+                # Collection of models
                 element_attrs = { name: name.to_s }
                 element_attrs[:minOccurs] = "0"
                 element_attrs[:maxOccurs] = "unbounded"
 
-                xml.element(element_attrs) do
-                  xml.complexType do
-                    xml.sequence do
-                      xml.element(name: "item", type: get_xsd_type(attr_type))
+                if nested_type_name
+                  # Reference named type
+                  element_attrs[:type] = nested_type_name
+                  xml.element(element_attrs)
+                else
+                  # Inline anonymous complexType
+                  xml.element(element_attrs) do
+                    xml.complexType do
+                      xml.sequence do
+                        xml.element(name: "item", type: get_xsd_type(attr_type))
+                      end
                     end
                   end
                 end
               else
                 # Single nested model
-                xml.element(name: name.to_s) do
-                  generate_complex_type_content(xml, attr_type, register, nil)
+                if nested_type_name
+                  # Reference named type
+                  xml.element(name: name.to_s, type: nested_type_name)
+                else
+                  # Inline anonymous complexType
+                  xml.element(name: name.to_s) do
+                    generate_complex_type_content(xml, attr_type, register, nil)
+                  end
                 end
               end
             else
               # Value type
-              xsd_type = get_attribute_xsd_type(attr, attr_type, register)
+              xsd_type = get_attribute_xsd_type(attr, attr_type, register, mapping_rule)
 
               if attr.collection?
                 # Collection of simple types
@@ -208,7 +348,7 @@ xml_mapping = nil)
             next unless attr
 
             attr_type = attr.type(register)
-            xsd_type = get_attribute_xsd_type(attr, attr_type, register)
+            xsd_type = get_attribute_xsd_type(attr, attr_type, register, rule)
 
             attr_attrs = { name: rule.name, type: xsd_type }
             attr_attrs[:use] = "required" if attr.options[:required]
@@ -286,13 +426,16 @@ attr_name)
           xml_mapping.root_element != base_name
         end
 
-        def self.get_attribute_xsd_type(attr, attr_type, register)
-          # Priority: explicit xsd_type > type.xsd_type() > default mapping
+        def self.get_attribute_xsd_type(attr, attr_type, register, mapping_rule = nil)
+          # Priority:
+          # 1. Attribute-level xsd_type (deprecated but still supported)
+          # 2. Type-level xsd_type (from Type class)
+          # 3. Default mapping
 
-          # 1. Check for explicit xsd_type override
+          # 1. Check for deprecated attribute-level xsd_type override
           return attr.options[:xsd_type] if attr.options[:xsd_type]
 
-          # 2. Check if type has xsd_type method
+          # 2. Check if type has xsd_type method (Type-level)
           if attr_type.respond_to?(:xsd_type)
             # Special handling for Reference type
             if attr_type == Lutaml::Model::Type::Reference
@@ -306,6 +449,29 @@ attr_name)
 
           # 3. Fall back to default mapping
           get_xsd_type(attr_type)
+        end
+
+        def self.collect_type_namespaces(klass, register)
+          require "set"
+          namespaces = Set.new
+
+          klass.attributes.each_value do |attr|
+            type_class = attr.type(register)
+            next unless type_class
+
+            # Get Type::Value namespace
+            if type_class.respond_to?(:xml_namespace) && type_class.xml_namespace
+              namespaces << type_class.xml_namespace
+            end
+
+            # Get Model namespace
+            if type_class <= Lutaml::Model::Serialize &&
+                type_class.respond_to?(:namespace) && type_class.namespace
+              namespaces << type_class.namespace
+            end
+          end
+
+          namespaces.to_a
         end
 
         def self.get_target_xsd_type(attr, register)

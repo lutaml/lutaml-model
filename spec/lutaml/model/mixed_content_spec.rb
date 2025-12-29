@@ -6,6 +6,7 @@ require "lutaml/model/xml/nokogiri_adapter"
 require "lutaml/model/xml/ox_adapter"
 require "lutaml/model/xml/oga_adapter"
 require_relative "../../fixtures/sample_model"
+require_relative "../../support/xml_mapping_namespaces"
 
 module MixedContentSpec
   class PlanetaryBody < Lutaml::Model::Serializable
@@ -208,7 +209,7 @@ module MixedContentSpec
 
       xml do
         root "annotation"
-        namespace "http://example.com/schema", "xsd"
+        namespace ExampleSchemaNamespace
 
         map_content to: :content
       end
@@ -222,7 +223,7 @@ module MixedContentSpec
       xml do
         root "element", mixed: true
 
-        namespace "http://example.com/schema", "xsd"
+        namespace ExampleSchemaNamespace
 
         map_attribute :name, to: :name
         map_attribute :status, to: :status
@@ -235,7 +236,7 @@ module MixedContentSpec
 
       xml do
         root "schema"
-        namespace "http://example.com/schema", "xsd"
+        namespace ExampleSchemaNamespace
 
         map_element :element, to: :element
       end
@@ -290,11 +291,11 @@ RSpec.describe "MixedContent" do
             expected_output = expected_output.gsub(/\n\s*/, " ")
           end
 
-          expect(content).to be_equivalent_to(expected_output)
+          expect(content).to be_xml_equivalent_to(expected_output)
         end
 
         serialized = parsed.to_xml
-        expect(serialized).to be_equivalent_to(xml)
+        expect(serialized).to be_xml_equivalent_to(xml)
       end
     end
 
@@ -348,7 +349,7 @@ RSpec.describe "MixedContent" do
         expect(parsed.planetary_body.distance_from_earth).to eq(384400)
 
         serialized = parsed.to_xml
-        expect(serialized).to be_equivalent_to(xml)
+        expect(serialized).to be_xml_equivalent_to(xml)
       end
     end
 
@@ -401,7 +402,7 @@ RSpec.describe "MixedContent" do
         end
 
         serialized = parsed.to_xml
-        expect(serialized).to be_equivalent_to(xml)
+        expect(serialized).to be_xml_equivalent_to(xml)
       end
     end
 
@@ -463,7 +464,7 @@ RSpec.describe "MixedContent" do
         expect(parsed.content.planetary_body.distance_from_earth).to eq(384400)
 
         serialized = parsed.to_xml
-        expect(serialized).to be_equivalent_to(xml)
+        expect(serialized).to be_xml_equivalent_to(xml)
       end
     end
 
@@ -625,7 +626,7 @@ RSpec.describe "MixedContent" do
           parsed = MixedContentSpec::SpecialCharContentWithRawAndMixedOption.from_xml(xml)
           serialized = parsed.to_xml
 
-          expect(serialized).to be_equivalent_to(send(:"expected_#{adapter_class.type}_xml"))
+          expect(serialized).to be_xml_equivalent_to(send(:"expected_#{adapter_class.type}_xml"))
         end
       end
     end
@@ -655,8 +656,8 @@ RSpec.describe "MixedContent" do
 
       describe ".to_xml" do
         let(:expected_nokogiri_xml) { "B <p>R</p>" }
-        let(:expected_oga_xml) { "B <p>R&amp;C</p>" }
         let(:expected_ox_xml) { "B <p>R&amp;C</p>" }
+        let(:expected_oga_xml) { "B <p>R&amp;C</p>" }
 
         it "serializes special char mixed content correctly" do
           parsed = MixedContentSpec::SpecialCharContentWithRawAndMixedOption.from_xml(xml)
@@ -871,7 +872,7 @@ RSpec.describe "MixedContent" do
 
             expected_xml = "<?xml version=\"1.0\" encoding=\"Shift_JIS\"?>\n<root>\n  <FieldName>\x8E\xE8\x8F\x91\x82\xAB\x89p\x8E\x9A\x82P</FieldName>\n  <FieldName>123456</FieldName>\n</root>"
 
-            expect(serialized).to be_equivalent_to(expected_xml)
+            expect(serialized).to be_xml_equivalent_to(expected_xml)
             expect(serialized.encoding.to_s).to eq("Shift_JIS")
           end
 
@@ -896,7 +897,7 @@ RSpec.describe "MixedContent" do
                                                       encoding: "Shift_JIS")
             serialized = parsed.to_xml(encoding: "Shift_JIS")
 
-            expect(serialized).to be_equivalent_to(xml)
+            expect(serialized).to be_xml_equivalent_to(xml)
           end
 
           it "serializes SHIFT-JIS encoding content correctly" do
@@ -904,7 +905,7 @@ RSpec.describe "MixedContent" do
                                                       encoding: "Shift_JIS")
             serialized = parsed.to_xml(encoding: "Shift_JIS")
 
-            expect(serialized).to be_equivalent_to(fixture)
+            expect(serialized).to be_xml_equivalent_to(fixture)
           end
         end
       end
@@ -984,7 +985,7 @@ RSpec.describe "MixedContent" do
       end
 
       it "deserializes and serializes mixed prefixed elements correctly for prefixed elements" do
-        expect(serialized).to be_equivalent_to(xml)
+        expect(serialized).to be_xml_equivalent_to(xml)
       end
     end
   end

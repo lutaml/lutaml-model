@@ -1,0 +1,139 @@
+---
+title: Comparison with Shale
+nav_order: 12
+---
+
+= Comparison with Shale
+
+Lutaml::Model is a modelling library that offers a superset of features that Shale provides. Its API is similar but has several key differences.
+
+A migration guide from Shale to Lutaml::Model is provided at link:../migrations/0-1-0-migrate-from-shale[Migrating from Shale to Lutaml::Model].
+
+[cols="a,a,a,a",options="header"]
+|===
+| Feature | Lutaml::Model | Shale | Notes
+
+| Data model definition
+|
+3 types:
+
+* Inherit from `Lutaml::Model::Serializable`
+* Include `Lutaml::Model::Serialize`
+* Separate serialization model class
+|
+2 types:
+
+* Inherit from `Shale::Mapper`
+* Custom model class
+|
+
+| Value types
+| `Lutaml::Model::Type` includes: `Integer`, `String`, `Float`, `Boolean`, `Date`, `DateTime`, `Time`, `Decimal`, `Hash`.
+| `Shale::Type` includes: `Integer`, `String`, `Float`, `Boolean`, `Date`, `Time`.
+| Lutaml::Model supports additional value types `Decimal`, `DateTime` and `Hash`.
+
+| Configuration
+| `Lutaml::Model::Config`
+| `Shale.{type}_adapter`
+| Lutaml::Model uses a configuration block to set the serialization adapters.
+
+| Custom serialization methods
+| `:with`, on individual attributes
+| `:using`, on entire object/document
+| Lutaml::Model uses the `:with` keyword for custom serialization methods.
+
+| Serialization formats
+| XML, YAML, JSON, TOML
+| XML, YAML, JSON, TOML, CSV
+| Lutaml::Model does not support CSV.
+
+| Validation
+| Supports collection range, fixed values, and custom validation
+| Requires implementation
+|
+
+| Adapter support
+| XML (Nokogiri, Ox, Oga), YAML, JSON (JSON, MultiJson), TOML (Toml-rb, Tomlib)
+| XML (Nokogiri, Ox), YAML, JSON (JSON, MultiJson), TOML (Toml-rb, Tomlib), CSV
+| Lutaml::Model does not support CSV.
+
+4+h| XML features
+
+| XML default namespace
+| Yes. Supports `<root xmlns='http://example.com'>` through the `namespace` option without prefix.
+| No. Only supports `<root xmlns:prefix='http://example.com'>`.
+|
+
+| XML mixed content support
+| Yes. Supports mixed content through dedicated `mixed_content` method.
+
+[source,xml]
+----
+<description>My name is
+<bold>John Doe</bold>,
+and I'm <i>28</i>
+years old</description>
+----
+| No. Shale's `map_content` only supports the first text node.
+|
+
+| XML namespace inheritance
+| Yes. Supports the `inherit` option to inherit the namespace from the root element.
+| No.
+|
+
+| Support for `xsi:schemaLocation`
+| Yes. Automatically supports the `xsi:schemaLocation` attribute for every element.
+| Requires manual specification on every XML element that uses it.
+|
+
+| Compiling XML Schema to classes
+| Yes. Using `Lutaml::Model::Schema#from_xml`
+
+1. ComplexTypes compiled to `Lutaml::Model::Serializable` classes
+2. SimpleTypes compiled to `Lutaml::Model::Type::Value` classes with validations
+| Yes, provides only an array of classes and doesn't support simple types with restrictions.
+|
+
+4+h| Attribute features
+
+| Attribute delegation
+| `:delegate` option to delegate attribute mappings to a model.
+| `:receiver` option to delegate attribute mappings to a model.
+|
+
+| Enumerations
+| Yes. Supports enumerations as value types through the `values:` option.
+| No.
+| Lutaml::Model supports enumerations as value types.
+
+| Attribute extraction
+| Yes. Supports attribute extraction from key-value data models.
+| No.
+| Lutaml::Model supports attribute extraction from key-value data models.
+
+| Register
+| Yes. Supports three types of registers with different functionalities.
+| Supports `register` functionality for `Shale::Type` classes only.
+| Lutaml::Model registers both `Registrable` classes and `Lutaml::Model::Type` classes.
+
+|===
+
+== Migration path
+
+If you're migrating from Shale to Lutaml::Model:
+
+. Read the link:../migrations/0-1-0-migrate-from-shale[Migration Guide]
+. Update adapter configuration syntax
+. Change `:receiver` to `:delegate` in delegations
+. Consider using new features like XML namespaces
+. Test thoroughly with your specific use cases
+
+== Key advantages of Lutaml::Model
+
+* **XML namespace support**: Full W3C namespace implementation
+* **Schema import/export**: XSD, JSON Schema, YAML Schema
+* **Built-in validation**: Collection ranges, enumerations, patterns
+* **Type system**: Custom types with format-specific serialization
+* **Polymorphism**: Flexible polymorphic attribute support
+* **Value transformations**: Multiple transformation strategies

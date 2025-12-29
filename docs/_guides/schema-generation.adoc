@@ -1,3 +1,8 @@
+---
+title: Schema Generation
+nav_order: 12
+---
+
 = Schema generation
 
 This document describes how to generate schemas from LutaML models.

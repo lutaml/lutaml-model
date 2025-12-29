@@ -1,3 +1,8 @@
+---
+title: Schema Import
+nav_order: 13
+---
+
 = Schema import
 
 This document describes how to import schemas into LutaML models.

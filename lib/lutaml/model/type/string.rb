@@ -46,10 +46,10 @@ module Lutaml
           cast(value)
         end
 
-        # XSD type for String
+        # Default XSD type for String
         #
         # @return [String] xs:string
-        def self.xsd_type
+        def self.default_xsd_type
           "xs:string"
         end
       end

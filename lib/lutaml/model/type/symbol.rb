@@ -46,7 +46,7 @@ module Lutaml
         #
         # Symbols are serialized as strings in XSD
         # @return [String] xs:string
-        def self.xsd_type
+        def self.default_xsd_type
           "xs:string"
         end
 

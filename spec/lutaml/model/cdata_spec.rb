@@ -243,7 +243,7 @@ RSpec.describe "CDATA" do
           beta: CDATA::Beta.new(element1: "child"),
         )
 
-        expect(instance.to_xml).to be_equivalent_to(expected_xml)
+        expect(instance.to_xml).to be_xml_equivalent_to(expected_xml)
       end
     end
 
@@ -284,7 +284,7 @@ RSpec.describe "CDATA" do
 
       it "round-trips XML" do
         model = CDATA::Address.from_xml(xml)
-        expect(model.to_xml).to be_equivalent_to(expected_xml)
+        expect(model.to_xml).to be_xml_equivalent_to(expected_xml)
       end
     end
 

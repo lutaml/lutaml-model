@@ -26,7 +26,7 @@ module Lutaml
         # XSD type for HexBinary
         #
         # @return [String] xs:hexBinary
-        def self.xsd_type
+        def self.default_xsd_type
           "xs:hexBinary"
         end
 

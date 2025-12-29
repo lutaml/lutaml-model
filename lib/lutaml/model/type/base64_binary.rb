@@ -27,7 +27,7 @@ module Lutaml
         # XSD type for Base64Binary
         #
         # @return [String] xs:base64Binary
-        def self.xsd_type
+        def self.default_xsd_type
           "xs:base64Binary"
         end
 

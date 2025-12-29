@@ -41,7 +41,7 @@ module Lutaml
         # XSD type for QName
         #
         # @return [String] xs:QName
-        def self.xsd_type
+        def self.default_xsd_type
           "xs:QName"
         end
 
