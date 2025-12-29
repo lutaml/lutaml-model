@@ -14,9 +14,7 @@ RSpec.describe Lutaml::Model::RuleValueExtractor do
   let(:options) { {} }
 
   def mock_resolver(default_set_value, default_value_data = nil)
-    double_methods = { default_set?: default_set_value }
-    double_methods[:default_value] = default_value_data if default_value_data
-    resolver_double = double(double_methods)
+    resolver_double = double(default_set?: default_set_value, default_value: default_value_data)
     allow(Lutaml::Model::Services::DefaultValueResolver).to receive(:new)
       .with(attr, register, instance)
       .and_return(resolver_double)
