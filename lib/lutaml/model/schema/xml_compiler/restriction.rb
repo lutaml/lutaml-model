@@ -47,7 +47,8 @@ module Lutaml
           def required_files
             if base_class_name == :decimal
               "require \"bigdecimal\""
-            elsif !SimpleType::SUPPORTED_DATA_TYPES.dig(base_class_name, :skippable)
+            elsif !SimpleType::SUPPORTED_DATA_TYPES.dig(base_class_name,
+                                                        :skippable)
               "require_relative \"#{Utils.snake_case(base_class_name)}\""
             end
           end
@@ -92,7 +93,9 @@ module Lutaml
           end
 
           def casted_enumerations
-            enumerations.map { |enumeration| "super(#{enumeration.inspect})" }.join(", ")
+            enumerations.map do |enumeration|
+              "super(#{enumeration.inspect})"
+            end.join(", ")
           end
         end
       end

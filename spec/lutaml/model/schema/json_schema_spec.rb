@@ -380,7 +380,9 @@ RSpec.describe Lutaml::Model::Schema::JsonSchema do
 
     context "with register class" do
       let(:register) { Lutaml::Model::Register.new(:json_schema) }
-      let(:schema) { described_class.generate(register.get_class(:vase), pretty: true) }
+      let(:schema) do
+        described_class.generate(register.get_class(:vase), pretty: true)
+      end
       let(:expected_schema) do
         {
           "$schema" => "https://json-schema.org/draft/2020-12/schema",

@@ -175,7 +175,8 @@ module Lutaml
       def validate_blank_mappings!(render_nil, render_empty)
         if render_nil == :as_blank || render_empty == :as_blank
           raise IncorrectMappingArgumentsError.new(
-            ":as_blank is not supported for key-value mappings",
+            ":as_blank is not supported for key-value mappings. " \
+            "Use :as_empty instead to create explicit empty values.",
           )
         end
       end

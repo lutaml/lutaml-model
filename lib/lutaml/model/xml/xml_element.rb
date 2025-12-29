@@ -14,6 +14,16 @@ module Lutaml
 
         attr_accessor :adapter_node
 
+        # Detect if xmlns="" is explicitly set (W3C explicit no namespace)
+        # This is a helper method for adapters to use during element initialization
+        #
+        # @param has_empty_xmlns [Boolean] true if xmlns="" is present
+        # @param node_namespace_nil [Boolean] true if the node has no namespace
+        # @return [Boolean] true if both conditions met (explicit no namespace)
+        def self.detect_explicit_no_namespace(has_empty_xmlns:, node_namespace_nil:)
+          has_empty_xmlns && node_namespace_nil
+        end
+
         def initialize(
           node,
           attributes = {},
@@ -22,7 +32,8 @@ module Lutaml
           name: nil,
           parent_document: nil,
           namespace_prefix: nil,
-          default_namespace: nil
+          default_namespace: nil,
+          explicit_no_namespace: false
         )
           @name = name
           @namespace_prefix = namespace_prefix
@@ -31,6 +42,7 @@ module Lutaml
           @text = text
           @parent_document = parent_document
           @default_namespace = default_namespace
+          @explicit_no_namespace = explicit_no_namespace
 
           self.adapter_node = node
         end
@@ -42,6 +54,10 @@ module Lutaml
           (instance_variables - %i[@adapter_node @parent_document]).sort
         end
 
+        def text?
+          @name == "text"
+        end
+
         def name
           return @name unless namespace_prefix
 
@@ -49,10 +65,22 @@ module Lutaml
         end
 
         def namespaced_name
-          if namespaces[namespace_prefix] && !text?
+          return @name if text?
+          # If xmlns="" was explicitly set, element has NO namespace
+          return @name if @explicit_no_namespace
+
+          # Priority order for namespace resolution:
+          # 1. If has explicit prefix, use namespaces[prefix]
+          # 2. If has @default_namespace, use it (preferred for default ns)
+          # 3. Fall back to namespaces[nil] if exists
+          # 4. Return unprefixed name
+
+          if namespace_prefix && namespaces[namespace_prefix]
             "#{namespaces[namespace_prefix].uri}:#{@name}"
-          elsif @default_namespace && !text?
-            "#{@default_namespace}:#{name}"
+          elsif @default_namespace
+            "#{@default_namespace}:#{@name}"
+          elsif namespaces[nil]
+            "#{namespaces[nil].uri}:#{@name}"
           else
             @name
           end

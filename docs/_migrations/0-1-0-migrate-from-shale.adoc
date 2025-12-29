@@ -1,0 +1,304 @@
+---
+title: Migrate from Shale to Lutaml::Model
+nav_order: 2
+---
+
+= Migrate from Shale to Lutaml::Model
+
+== Scope
+
+The following sections provide a guide for migrating from Shale to Lutaml::Model.
+
+== Overview
+
+Lutaml::Model is a modelling library that provides a rich superset
+of features compared to Shale, including enhanced XML and JSON
+serialization capabilities, better namespace management, and more.
+
+
+== Step 1: Replace inheritance class
+
+`Lutaml::Model` uses `Lutaml::Model::Serializable` as the base inheritance class.
+
+[source,ruby]
+----
+class Example < Lutaml::Model::Serializable
+  # ...
+end
+----
+
+[NOTE]
+====
+`Lutaml::Model` also supports an inclusion method as in the following example,
+which is not supported by Shale. This is useful for cases where you want to
+include the serialization methods in a class that already inherits from another
+class.
+
+[source,ruby]
+----
+class Example
+  include Lutaml::Model::Serialize
+  # ...
+end
+----
+====
+
+Shale uses `Shale::Mapper` as the base inheritance class.
+
+[source,ruby]
+----
+class Example < Shale::Mapper
+  # ...
+end
+----
+
+Actions:
+
+* Replace mentions of `Shale::Mapper` with `Lutaml::Model::Serializable`.
+* Potentially replace inheritance with inclusion for suitable cases.
+
+
+== Step 2: Replace value type definitions
+
+Value types in `Lutaml::Model` are under the `Lutaml::Model::Type` module,
+or use the LutaML type symbols.
+
+[source,ruby]
+----
+class Example < Lutaml::Model::Serializable
+  attribute :length, :integer
+  attribute :description, :string
+end
+----
+
+[NOTE]
+====
+`Lutaml::Model` supports specifying predefined value types as strings or
+symbols, which is not supported by Shale.
+
+[source,ruby]
+----
+class Example < Lutaml::Model::Serializable
+  attribute :length, Lutaml::Model::Type::Integer
+  attribute :description, "String"
+end
+----
+====
+
+Value types in Shale are under the `Shale::Type` module.
+
+[source,ruby]
+----
+class Example < Shale::Mapper
+  attribute :length, Shale::Type::Integer
+  attribute :description, Shale::Type::String
+end
+----
+
+Action:
+
+* Replace mentions of `Shale::Type` with `Lutaml::Model::Type`.
+* Potentially replace value type definitions with strings or symbols.
+
+
+== Step 3: Configure serialization adapters
+
+`Lutaml::Model` uses a configuration block to set the serialization adapters.
+
+[source,ruby]
+----
+require 'lutaml/model/xml/nokogiri_adapter'
+Lutaml::Model::Config.configure do |config|
+  config.xml_adapter = Lutaml::Model::Xml::NokogiriAdapter
+end
+----
+
+The equivalent for Shale is this:
+
+[source,ruby]
+----
+require 'shale/adapter/nokogiri'
+Shale.xml_adapter = Shale::Adapter::Nokogiri
+----
+
+NOTE: `Lutaml::Model::XmlAdapter` is deprecated and will be removed in the next major upgrade. Use `Lutaml::Model::Xml` instead.
+
+Here are places that this code may reside at:
+
+* If your code is a standalone Ruby script, this code will be present in your code.
+* If your code is organized in a Ruby gem, this code will be specified somewhere referenced by `lib/your_gem_name.rb`.
+* If your code contains tests or specs, they will be in the test setup file, e.g. RSpec `spec/spec_helper.rb`.
+
+Actions:
+
+* Replace the Shale configuration block with the `Lutaml::Model::Config`
+configuration block.
+
+* Replace the Shale adapter with the `Lutaml::Model` adapter.
+
+
+
+== Step 4: Rewrite custom serialization methods
+
+There is an implementation difference between Lutaml::Model and Shale for custom
+serialization methods.
+
+Custom serialization methods in `Lutaml::Model` map to individual attributes.
+
+For custom serialization methods, Lutaml::Model uses the `:with` keyword
+instead of the `:using` keyword used by Shale.
+
+[source,ruby]
+----
+class Example < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :size, :integer
+  attribute :color, :string
+  attribute :description, :string
+
+  json do
+    map "name", to: :name, with: { to: :name_to_json, from: :name_from_json }
+    map "size", to: :size
+    map "color", to: :color,
+                 with: { to: :color_to_json, from: :color_from_json }
+    map "description", to: :description,
+                       with: { to: :description_to_json, from: :description_from_json }
+  end
+
+  xml do
+    root "CustomSerialization"
+    map_element "Name", to: :name,
+                        with: { to: :name_to_xml, from: :name_from_xml }
+    map_attribute "Size", to: :size
+    map_element "Color", to: :color,
+                         with: { to: :color_to_xml, from: :color_from_xml }
+    map_content to: :description,
+                with: { to: :description_to_xml,
+                        from: :description_from_xml }
+  end
+
+  def name_to_json(model, doc)
+    doc["name"] = "JSON Masterpiece: #{model.name}"
+  end
+
+  def name_from_json(model, value)
+    model.name = value.sub(/^JSON Masterpiece: /, "")
+  end
+
+  def color_to_json(model, doc)
+    doc["color"] = model.color.upcase
+  end
+
+  def color_from_json(model, value)
+    model.color = value.downcase
+  end
+
+  def description_to_json(model, doc)
+    doc["description"] = "JSON Description: #{model.description}"
+  end
+
+  def description_from_json(model, value)
+    model.description = value.sub(/^JSON Description: /, "")
+  end
+
+  def name_to_xml(model, parent, doc)
+    el = doc.create_element("Name")
+    doc.add_text(el, "XML Masterpiece: #{model.name}")
+    doc.add_element(parent, el)
+  end
+
+  def name_from_xml(model, value)
+    model.name = value.sub(/^XML Masterpiece: /, "")
+  end
+
+  def color_to_xml(model, parent, doc)
+    color_element = doc.create_element("Color")
+    doc.add_text(color_element, model.color.upcase)
+    doc.add_element(parent, color_element)
+  end
+
+  def color_from_xml(model, value)
+    model.color = value.downcase
+  end
+
+  def description_to_xml(model, parent, doc)
+    doc.add_text(parent, "XML Description: #{model.description}")
+  end
+
+  def description_from_xml(model, value)
+    model.description = value.join.strip.sub(/^XML Description: /, "")
+  end
+end
+----
+
+Custom serialization methods in Shale do not map to specific attributes, but
+allow the user to specify where the data goes.
+
+[source,ruby]
+----
+class Example < Shale::Mapper
+  attribute :name, Shale::Type::String
+  attribute :size, Shale::Type::Integer
+  attribute :color, Shale::Type::String
+  attribute :description, Shale::Type::String
+
+  json do
+    map "name", using: { from: :name_from_json, to: :name_to_json }
+    map "size", to: :size
+    map "color", using: { from: :color_from_json, to: :color_to_json }
+    map "description", to: :description, using: { from: :description_from_json, to: :description_to_json }
+  end
+
+  xml do
+    root "CustomSerialization"
+    map_element "Name", using: { from: :name_from_xml, to: :name_to_xml }
+    map_attribute "Size", to: :size
+    map_element "Color", using: { from: :color_from_xml, to: :color_to_xml }
+    map_content to: :description, using: { from: :description_from_xml, to: :description_to_xml }
+  end
+
+  def name_to_json(model, doc)
+    doc['name'] = "JSON Masterpiece: #{model.name}"
+  end
+
+  def name_from_json(model, value)
+    model.name = value.sub(/^JSON Masterpiece: /, "")
+  end
+
+  def color_to_json(model, doc)
+    doc['color'] = model.color.upcase
+  end
+
+  def color_from_json(model, doc)
+    model.color = doc['color'].downcase
+  end
+
+  def description_to_json(model, doc)
+    doc['description'] = "JSON Description: #{model.description}"
+  end
+
+  def description_from_json(model, doc)
+    model.description = doc['description'].sub(/^JSON Description: /, "")
+  end
+
+  def name_from_xml(model, node)
+    model.name = node.text.sub(/^XML Masterpiece: /, "")
+  end
+
+  def name_to_xml(model, parent, doc)
+    name_element = doc.create_element('Name')
+    doc.add_text(name_element, model.street.to_s)
+    doc.add_element(parent, name_element)
+  end
+end
+----
+
+NOTE: There are cases where the Shale implementation of custom methods work
+differently from the Lutaml::Model implementation. In these cases, you will need
+to adjust the custom methods accordingly.
+
+Actions:
+
+* Replace the `using` keyword with the `with` keyword.
+* Adjust the custom methods.
+

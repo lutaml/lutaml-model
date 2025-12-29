@@ -10,29 +10,52 @@ module Lutaml
           LUTAML_VALUE_CLASS_NAME = "Lutaml::Model::Type::Value"
 
           SUPPORTED_DATA_TYPES = {
-            nonNegativeInteger: { skippable: false, class_name: "Lutaml::Model::Type::String", validations: { pattern: /\+?[0-9]+/ } },
-            normalizedString: { skippable: false, class_name: "Lutaml::Model::Type::String", validations: { transform: "value.gsub(/[\\r\\n\\t]/, ' ')" } },
-            positiveInteger: { skippable: false, class_name: "Lutaml::Model::Type::Integer", validations: { min_inclusive: 0 } },
-            unsignedShort: { skippable: false, class_name: "Lutaml::Model::Type::Integer", validations: { min_inclusive: 0, max_inclusive: 65535 } },
-            base64Binary: { skippable: false, class_name: "Lutaml::Model::Type::String", validations: { pattern: /\A([A-Za-z0-9+\/]+={0,2}|\s)*\z/ } },
-            unsignedLong: { skippable: false, class_name: "Lutaml::Model::Type::Integer", validations: { min_inclusive: 0, max_inclusive: 18446744073709551615 } },
-            unsignedByte: { skippable: false, class_name: "Lutaml::Model::Type::Integer", validations: { min_inclusive: 0, max_inclusive: 255 } },
-            unsignedInt: { skippable: false, class_name: "Lutaml::Model::Type::Integer", validations: { min_inclusive: 0, max_inclusive: 4294967295 } },
-            hexBinary: { skippable: false, class_name: "Lutaml::Model::Type::String", validations: { pattern: /([0-9a-fA-F]{2})*/ } },
-            language: { skippable: false, class_name: "Lutaml::Model::Type::String", validations: { pattern: /\A[a-zA-Z]{1,8}(-[a-zA-Z0-9]{1,8})*\z/ } },
-            dateTime: { skippable: true, class_name: "Lutaml::Model::Type::DateTime" },
-            boolean: { skippable: true, class_name: "Lutaml::Model::Type::Boolean" },
-            integer: { skippable: true, class_name: "Lutaml::Model::Type::Integer" },
-            decimal: { skippable: true, class_name: "Lutaml::Model::Type::Decimal" },
-            string: { skippable: true, class_name: "Lutaml::Model::Type::String" },
-            double: { skippable: true, class_name: "Lutaml::Model::Type::Float" },
-            NCName: { skippable: false, class_name: "Lutaml::Model::Type::String", validations: { pattern: /\A[a-zA-Z_][\w.-]*\z/ } },
-            anyURI: { skippable: false, class_name: "Lutaml::Model::Type::String", validations: { pattern: "\\A\#{URI::DEFAULT_PARSER.make_regexp(%w[http https ftp])}\\z" } },
-            token: { skippable: false, class_name: "Lutaml::Model::Type::String", validations: { pattern: /\A[^\t\n\f\r ]+(?: [^\t\n\f\r ]+)*\z/ } },
-            byte: { skippable: false, class_name: "Lutaml::Model::Type::Integer", validations: { min_inclusive: -128, max_inclusive: 127 } },
-            long: { skippable: false, class_name: "Lutaml::Model::Type::Decimal" },
-            int: { skippable: true, class_name: "Lutaml::Model::Type::Integer" },
-            id: { skippable: false, class_name: "Lutaml::Model::Type::String", validations: { pattern: /\A[a-zA-Z_][\w.-]*\z/ } },
+            nonNegativeInteger: { skippable: false,
+                                  class_name: "Lutaml::Model::Type::String", validations: { pattern: /\+?[0-9]+/ } },
+            normalizedString: { skippable: false,
+                                class_name: "Lutaml::Model::Type::String", validations: { transform: "value.gsub(/[\\r\\n\\t]/, ' ')" } },
+            positiveInteger: { skippable: false,
+                               class_name: "Lutaml::Model::Type::Integer", validations: { min_inclusive: 0 } },
+            unsignedShort: { skippable: false,
+                             class_name: "Lutaml::Model::Type::Integer", validations: { min_inclusive: 0, max_inclusive: 65535 } },
+            base64Binary: { skippable: false,
+                            class_name: "Lutaml::Model::Type::String", validations: { pattern: /\A([A-Za-z0-9+\/]+={0,2}|\s)*\z/ } },
+            unsignedLong: { skippable: false,
+                            class_name: "Lutaml::Model::Type::Integer", validations: { min_inclusive: 0, max_inclusive: 18446744073709551615 } },
+            unsignedByte: { skippable: false,
+                            class_name: "Lutaml::Model::Type::Integer", validations: { min_inclusive: 0, max_inclusive: 255 } },
+            unsignedInt: { skippable: false,
+                           class_name: "Lutaml::Model::Type::Integer", validations: { min_inclusive: 0, max_inclusive: 4294967295 } },
+            hexBinary: { skippable: false,
+                         class_name: "Lutaml::Model::Type::String", validations: { pattern: /([0-9a-fA-F]{2})*/ } },
+            language: { skippable: false,
+                        class_name: "Lutaml::Model::Type::String", validations: { pattern: /\A[a-zA-Z]{1,8}(-[a-zA-Z0-9]{1,8})*\z/ } },
+            dateTime: { skippable: true,
+                        class_name: "Lutaml::Model::Type::DateTime" },
+            boolean: { skippable: true,
+                       class_name: "Lutaml::Model::Type::Boolean" },
+            integer: { skippable: true,
+                       class_name: "Lutaml::Model::Type::Integer" },
+            decimal: { skippable: true,
+                       class_name: "Lutaml::Model::Type::Decimal" },
+            string: { skippable: true,
+                      class_name: "Lutaml::Model::Type::String" },
+            double: { skippable: true,
+                      class_name: "Lutaml::Model::Type::Float" },
+            NCName: { skippable: false,
+                      class_name: "Lutaml::Model::Type::String", validations: { pattern: /\A[a-zA-Z_][\w.-]*\z/ } },
+            anyURI: { skippable: false,
+                      class_name: "Lutaml::Model::Type::String", validations: { pattern: "\\A\#{URI::DEFAULT_PARSER.make_regexp(%w[http https ftp])}\\z" } },
+            token: { skippable: false,
+                     class_name: "Lutaml::Model::Type::String", validations: { pattern: /\A[^\t\n\f\r ]+(?: [^\t\n\f\r ]+)*\z/ } },
+            byte: { skippable: false,
+                    class_name: "Lutaml::Model::Type::Integer", validations: { min_inclusive: -128, max_inclusive: 127 } },
+            long: { skippable: false,
+                    class_name: "Lutaml::Model::Type::Decimal" },
+            int: { skippable: true,
+                   class_name: "Lutaml::Model::Type::Integer" },
+            id: { skippable: false, class_name: "Lutaml::Model::Type::String",
+                  validations: { pattern: /\A[a-zA-Z_][\w.-]*\z/ } },
           }.freeze
 
           INSTANCE_MODEL_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
@@ -134,7 +157,8 @@ module Lutaml
 
           def union_required_files
             unions.filter_map do |union|
-              next if SUPPORTED_DATA_TYPES.dig(last_of_split(union).to_sym, :skippable)
+              next if SUPPORTED_DATA_TYPES.dig(last_of_split(union).to_sym,
+                                               :skippable)
 
               "require_relative \"#{down_union_class_name(union)}\""
             end.join("\n")
@@ -154,13 +178,12 @@ module Lutaml
 
           class << self
             def setup_supported_types
-              SUPPORTED_DATA_TYPES
-                .reject { |_, simple_type| simple_type[:skippable] }
-                .each_with_object({}) do |(name, simple_type), hash|
+              SUPPORTED_DATA_TYPES.reject { |_, simple_type| simple_type[:skippable] }.each_with_object({}) do |(name, simple_type), hash|
                 str_name = name.to_s
                 new(str_name).tap do |instance|
                   instance.base_class = Utils.base_class_snake_case(simple_type[:class_name])
-                  instance.instance = setup_restriction(instance.base_class, simple_type[:validations])
+                  instance.instance = setup_restriction(instance.base_class,
+                                                        simple_type[:validations])
                   hash[str_name] = instance
                 end
               end

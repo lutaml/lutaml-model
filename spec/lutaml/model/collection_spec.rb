@@ -168,7 +168,8 @@ class PolyAnimalCollectionAny < Lutaml::Model::Collection
 end
 
 class PolyAnimalCollectionSome < Lutaml::Model::Collection
-  instances :animals, PolymorphicCollectionTests::Animal, polymorphic: [PolymorphicCollectionTests::Dog, PolymorphicCollectionTests::Cat]
+  instances :animals, PolymorphicCollectionTests::Animal,
+            polymorphic: [PolymorphicCollectionTests::Dog, PolymorphicCollectionTests::Cat]
 end
 
 RSpec.describe Lutaml::Model::Collection do
@@ -291,7 +292,7 @@ RSpec.describe Lutaml::Model::Collection do
       it "round-trips XML" do
         model = CollectionTests::Address.from_xml(xml)
 
-        expect(model.to_xml).to be_equivalent_to(xml)
+        expect(model.to_xml).to be_xml_equivalent_to(xml)
       end
     end
 
@@ -490,8 +491,8 @@ RSpec.describe Lutaml::Model::Collection do
     it "sorts the output by the given field" do
       collection = collection_class.from_xml(xml_input)
 
-      expect(collection.to_xml).to eq(
-        <<~XML.strip,
+      expect(collection.to_xml).to be_xml_equivalent_to(
+        <<~XML,
           <people>
             <person><age>30</age><name>Alice</name></person>
             <person><name>Bob</name><age>25</age></person>
@@ -517,7 +518,7 @@ RSpec.describe Lutaml::Model::Collection do
     it "preserves the element order from XML" do
       collection = collection_class.from_xml(xml_input)
 
-      expect(collection.to_xml).to eq(
+      expect(collection.to_xml).to be_xml_equivalent_to(
         "<people><person><name>Bob</name><age>25</age></person><person><age>30</age><name>Alice</name></person><person><name>Charlie</name><age>35</age></person></people>",
       )
     end
@@ -583,7 +584,8 @@ RSpec.describe Lutaml::Model::Collection do
       round_trip_collection = title_collection_class.from_json(json_output)
 
       expect(round_trip_collection.titles.size).to eq(3)
-      expect(round_trip_collection.titles.map(&:content)).to eq(["Title One", "Title Two", "Title Three"])
+      expect(round_trip_collection.titles.map(&:content)).to eq(["Title One",
+                                                                 "Title Two", "Title Three"])
     end
 
     it "handles YAML round-trip correctly" do
@@ -592,7 +594,8 @@ RSpec.describe Lutaml::Model::Collection do
       round_trip_collection = title_collection_class.from_yaml(yaml_output)
 
       expect(round_trip_collection.titles.size).to eq(3)
-      expect(round_trip_collection.titles.map(&:content)).to eq(["Title One", "Title Two", "Title Three"])
+      expect(round_trip_collection.titles.map(&:content)).to eq(["Title One",
+                                                                 "Title Two", "Title Three"])
     end
 
     it "handles cross-format conversion correctly" do
@@ -621,29 +624,44 @@ RSpec.describe Lutaml::Model::Collection do
 
       # JSON.parse should only be called once on the main array, not on individual strings
       expect(JSON).to have_received(:parse).once.with(json_data, anything)
-      expect(collection.titles.map(&:content)).to eq(["Title One", "Title Two", "Title Three"])
+      expect(collection.titles.map(&:content)).to eq(["Title One", "Title Two",
+                                                      "Title Three"])
     end
   end
 
   describe "Polymorphic Collection validation errors" do
-    let(:dog) { PolymorphicCollectionTests::Dog.new(name: "Fido", breed: "Labrador") }
-    let(:car) { PolymorphicCollectionTests::Car.new(name: "Tesla", model: "Model S") }
-    let(:rabbit) { PolymorphicCollectionTests::Rabbit.new(name: "Fluffy", color: "Tabby") }
+    let(:dog) do
+      PolymorphicCollectionTests::Dog.new(name: "Fido", breed: "Labrador")
+    end
+    let(:car) do
+      PolymorphicCollectionTests::Car.new(name: "Tesla", model: "Model S")
+    end
+    let(:rabbit) do
+      PolymorphicCollectionTests::Rabbit.new(name: "Fluffy", color: "Tabby")
+    end
 
     it "raises error for non-subclass in polymorphic: true" do
       collection = PolyAnimalCollectionAny.new([dog, car])
-      expect { collection.validate! }.to raise_error(Lutaml::Model::ValidationError)
+      expect do
+        collection.validate!
+      end.to raise_error(Lutaml::Model::ValidationError)
     end
 
     it "raises error for not-in-list in polymorphic: [Dog, Cat]" do
       collection = PolyAnimalCollectionSome.new([dog, rabbit])
-      expect { collection.validate! }.to raise_error(Lutaml::Model::ValidationError)
+      expect do
+        collection.validate!
+      end.to raise_error(Lutaml::Model::ValidationError)
     end
   end
 
   describe "Polymorphic Collection (instances :animals, ..., polymorphic: [Dog, Cat])" do
-    let(:dog) { PolymorphicCollectionTests::Dog.new(name: "Fido", breed: "Labrador") }
-    let(:cat) { PolymorphicCollectionTests::Cat.new(name: "Whiskers", color: "Tabby") }
+    let(:dog) do
+      PolymorphicCollectionTests::Dog.new(name: "Fido", breed: "Labrador")
+    end
+    let(:cat) do
+      PolymorphicCollectionTests::Cat.new(name: "Whiskers", color: "Tabby")
+    end
     let(:collection) { PolyAnimalCollectionSome.new([dog, cat]) }
 
     it "accepts only Dog and Cat and validates successfully" do
@@ -655,8 +673,12 @@ RSpec.describe Lutaml::Model::Collection do
   end
 
   describe "Polymorphic Collection (instances :animals, ..., polymorphic: true)" do
-    let(:dog) { PolymorphicCollectionTests::Dog.new(name: "Fido", breed: "Labrador") }
-    let(:cat) { PolymorphicCollectionTests::Cat.new(name: "Whiskers", color: "Tabby") }
+    let(:dog) do
+      PolymorphicCollectionTests::Dog.new(name: "Fido", breed: "Labrador")
+    end
+    let(:cat) do
+      PolymorphicCollectionTests::Cat.new(name: "Whiskers", color: "Tabby")
+    end
     let(:collection) { PolyAnimalCollectionAny.new([dog, cat]) }
 
     it "accepts any subclass and validates successfully" do
@@ -668,8 +690,14 @@ RSpec.describe Lutaml::Model::Collection do
   end
 
   describe "Polymorphic Collection XML/YAML/JSON mapping" do
-    let(:dog) { PolymorphicCollectionTests::Dog.new(name: "Fido", breed: "Labrador", type: "dog") }
-    let(:cat) { PolymorphicCollectionTests::Cat.new(name: "Whiskers", color: "Tabby", type: "cat") }
+    let(:dog) do
+      PolymorphicCollectionTests::Dog.new(name: "Fido", breed: "Labrador",
+                                          type: "dog")
+    end
+    let(:cat) do
+      PolymorphicCollectionTests::Cat.new(name: "Whiskers", color: "Tabby",
+                                          type: "cat")
+    end
     let(:collection) { PolyAnimalCollectionAny.new([dog, cat]) }
 
     let(:xml) do
@@ -708,7 +736,7 @@ RSpec.describe Lutaml::Model::Collection do
     end
 
     it "serializes to XML correctly" do
-      expect(collection.to_xml.strip).to be_equivalent_to(xml.strip)
+      expect(collection.to_xml.strip).to be_xml_equivalent_to(xml.strip)
     end
 
     it "deserializes from YAML correctly" do

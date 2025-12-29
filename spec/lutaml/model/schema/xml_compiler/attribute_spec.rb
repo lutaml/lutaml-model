@@ -13,7 +13,8 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler::Attribute do
 
   describe "#to_attributes" do
     it "returns attribute line if not skippable" do
-      allow(attribute).to receive_messages(skippable?: false, resolved_name: "foo", resolved_type: "string")
+      allow(attribute).to receive_messages(skippable?: false,
+                                           resolved_name: "foo", resolved_type: "string")
       expect(attribute.to_attributes("  ")).to include("attribute :foo, :string")
     end
 
@@ -25,7 +26,8 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler::Attribute do
 
   describe "#to_xml_mapping" do
     it "returns map_attribute line if not skippable" do
-      allow(attribute).to receive_messages(skippable?: false, resolved_name: "foo")
+      allow(attribute).to receive_messages(skippable?: false,
+                                           resolved_name: "foo")
       expect(attribute.to_xml_mapping("  ")).to include("map_attribute :foo, to: :foo")
     end
 
@@ -37,12 +39,14 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler::Attribute do
 
   describe "#required_files" do
     it "returns require 'bigdecimal' for decimal type" do
-      allow(attribute).to receive_messages(skippable?: false, resolved_type: "decimal")
+      allow(attribute).to receive_messages(skippable?: false,
+                                           resolved_type: "decimal")
       expect(attribute.required_files).to eq("require \"bigdecimal\"")
     end
 
     it "returns require_relative for non-skippable type" do
-      allow(attribute).to receive_messages(skippable?: false, resolved_type: "foo")
+      allow(attribute).to receive_messages(skippable?: false,
+                                           resolved_type: "foo")
       allow(Lutaml::Model::Schema::XmlCompiler::SimpleType).to receive(:skippable?).and_return(false)
       expect(attribute.required_files).to eq("require_relative \"foo\"")
     end

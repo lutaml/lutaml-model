@@ -1,43 +1,29 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<ProductCatalog version="1.0" lastUpdated="2024-03-20T10:00:00+00:00">
-  <categories>
-    <category>
-      <id>1</id>
-      <name>Electronics</name>
-      <parentCategory>0</parentCategory>
-      <description>Electronic devices and accessories</description>
-    </category>
-  </categories>
-  <products>
-    <product id="1" status="active">
-      <sku>ABC12345678</sku>
-      <name>Smartphone X</name>
-      <description>A high-end smartphone with advanced features</description>
-      <category>
-        <id>1</id>
-        <name>Electronics</name>
-        <parentCategory>0</parentCategory>
-        <description>Electronic devices and accessories</description>
-      </category>
-      <price>99.99</price>
-      <salePrice>89.99</salePrice>
-      <inventory>100</inventory>
-      <dimensions>
-        <length>15.0</length>
-        <width>7.5</width>
-        <height>0.8</height>
-        <weight>0.2</weight>
-      </dimensions>
-      <rating>4.5</rating>
-      <features>
-        <feature>5G Connectivity</feature>
-        <feature>128GB Storage</feature>
-        <feature>Triple Camera System</feature>
-      </features>
-      <images>
-        <image url="https://example.com/images/smartphone-x-1.jpg" alt="Smartphone X Front View" isPrimary="true"/>
-        <image url="https://example.com/images/smartphone-x-2.jpg" alt="Smartphone X Back View"/>
-      </images>
+<ProductCatalog>
+  <category>
+    <name>Electronics</name>
+    <description>Electronic devices and accessories</description>
+    <product>
+      <id>P001</id>
+      <name>Smartphone</name>
+      <price>599.99</price>
+      <description>Latest model smartphone with advanced features</description>
     </product>
-  </products>
+    <product>
+      <id>P002</id>
+      <name>Laptop</name>
+      <price>1299.99</price>
+      <description>High-performance laptop for professionals</description>
+    </product>
+  </category>
+  <category>
+    <name>Books</name>
+    <description>Various books and publications</description>
+    <product>
+      <id>P003</id>
+      <name>Programming Guide</name>
+      <price>49.99</price>
+      <description>Comprehensive programming reference</description>
+    </product>
+  </category>
 </ProductCatalog>

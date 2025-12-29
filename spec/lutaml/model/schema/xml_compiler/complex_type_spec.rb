@@ -46,12 +46,16 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler::ComplexType do
   describe "#<<" do
     it "adds instances to the list" do
       instance = instance_double(dummy_class)
-      expect { complex_type << instance }.to change { complex_type.instances.size }.by(1)
+      expect { complex_type << instance }.to change {
+        complex_type.instances.size
+      }.by(1)
       expect(complex_type.instances).to include(instance)
     end
 
     it "ignores nil instances" do
-      expect { complex_type << nil }.not_to(change { complex_type.instances.size })
+      expect { complex_type << nil }.not_to(change do
+        complex_type.instances.size
+      end)
     end
   end
 
@@ -77,7 +81,8 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler::ComplexType do
     end
 
     it "renders a class with instances" do
-      instance = instance_double(dummy_class, to_attributes: "  attribute :foo, :string\n", to_xml_mapping: "  map_element 'foo', to: :foo\n", required_files: [])
+      instance = instance_double(dummy_class,
+                                 to_attributes: "  attribute :foo, :string\n", to_xml_mapping: "  map_element 'foo', to: :foo\n", required_files: [])
       complex_type.name = "TestClass"
       complex_type << instance
       code = complex_type.to_class
@@ -86,7 +91,8 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler::ComplexType do
     end
 
     it "renders a class with simple_content" do
-      simple_content = instance_double(simple_content_class, base_class: "string", to_attributes: "  attribute :content, :string\n", to_xml_mapping: "  map_content to: :content\n", required_files: ["require 'simple_content'"])
+      simple_content = instance_double(simple_content_class,
+                                       base_class: "string", to_attributes: "  attribute :content, :string\n", to_xml_mapping: "  map_content to: :content\n", required_files: ["require 'simple_content'"])
       complex_type.name = "TestClass"
       complex_type.simple_content = simple_content
       code = complex_type.to_class
@@ -104,7 +110,8 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler::ComplexType do
 
     it "renders a class with namespace and prefix options" do
       complex_type.name = "TestClass"
-      code = complex_type.to_class(options: { namespace: "http://example.com", prefix: "ex", indent: 2 })
+      code = complex_type.to_class(options: { namespace: "http://example.com",
+                                              prefix: "ex", indent: 2 })
       expect(code).to include("namespace \"http://example.com\"", "\"ex\"")
     end
   end
@@ -121,7 +128,8 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler::ComplexType do
 
     it "includes required_files from instances and simple_content" do
       instance = instance_double(dummy_class, required_files: ["require 'foo'"])
-      simple_content = instance_double(simple_content_class, required_files: ["require 'bar'"])
+      simple_content = instance_double(simple_content_class,
+                                       required_files: ["require 'bar'"])
       complex_type << instance
       complex_type.simple_content = simple_content
       expect(complex_type.required_files).to include("require 'foo'")

@@ -35,7 +35,8 @@ module Lutaml
 
         def instances(name, type, options = {}, &block)
           if (invalid_opts = options.keys - ALLOWED_OPTIONS).any?
-            raise Lutaml::Model::InvalidAttributeOptionsError.new(name, invalid_opts)
+            raise Lutaml::Model::InvalidAttributeOptionsError.new(name,
+                                                                  invalid_opts)
           end
 
           attribute(name, type, collection: true, validations: block, **options)
@@ -199,7 +200,8 @@ module Lutaml
 
       attr_reader :__register
 
-      def initialize(items = [], __register: Lutaml::Model::Config.default_register)
+      def initialize(items = [],
+__register: Lutaml::Model::Config.default_register)
         super()
 
         @__register = __register

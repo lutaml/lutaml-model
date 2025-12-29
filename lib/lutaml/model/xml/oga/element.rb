@@ -8,14 +8,29 @@ module Lutaml
       module Oga
         class Element < XmlElement
           def initialize(node, parent: nil, default_namespace: nil)
+            explicit_no_namespace = false
+
             text = case node
                    when Moxml::Element
                      namespace_name = node.namespace&.prefix
+
+                     # Detect explicit xmlns="" for no namespace
+                     # Oga reports this as namespace with prefix=nil and uri=""
+                     has_empty_xmlns = node.namespaces.any? do |ns|
+                       ns.prefix.nil? && ns.uri == ""
+                     end
+
+                     explicit_no_namespace = XmlElement.detect_explicit_no_namespace(
+                       has_empty_xmlns: has_empty_xmlns,
+                       node_namespace_nil: node.namespace.nil? || node.namespace&.uri == "",
+                     )
+
                      add_namespaces(node, is_root: parent.nil?)
 
-                     default_namespace = node.namespace&.uri if parent.nil? && !namespace_name
+                     default_namespace = node.namespace&.uri if parent.nil? && !namespace_name && node.namespace&.uri != ""
 
-                     children = parse_children(node, default_namespace: default_namespace)
+                     children = parse_children(node,
+                                               default_namespace: default_namespace)
                      attributes = node_attributes(node)
                      @root = node
                      node.inner_text
@@ -33,6 +48,7 @@ module Lutaml
               parent_document: parent,
               namespace_prefix: namespace_name,
               default_namespace: default_namespace,
+              explicit_no_namespace: explicit_no_namespace
             )
           end
 
@@ -85,7 +101,12 @@ module Lutaml
           end
 
           def parse_children(node, default_namespace: nil)
-            node.children.map { |child| self.class.new(child, parent: self, default_namespace: default_namespace) }
+            node.children.filter_map do |child|
+              next if child.is_a?(Moxml::ProcessingInstruction)
+
+              self.class.new(child, parent: self,
+                                    default_namespace: default_namespace)
+            end
           end
 
           def add_namespaces(node, is_root: false)

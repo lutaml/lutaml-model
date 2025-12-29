@@ -24,7 +24,9 @@ module Lutaml
           end
 
           def to_xml_mapping(indent)
-            resolved_instances.map { |instance| instance.to_xml_mapping(indent) }
+            resolved_instances.map do |instance|
+              instance.to_xml_mapping(indent)
+            end
           end
 
           def required_files

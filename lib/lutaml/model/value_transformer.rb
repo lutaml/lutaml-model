@@ -16,7 +16,7 @@ module Lutaml
       end
 
       def self.can_transform?(method, format)
-        instance_methods(false).include?(:"#{method}_#{format}")
+        method_defined?(:"#{method}_#{format}", false)
       end
     end
   end
