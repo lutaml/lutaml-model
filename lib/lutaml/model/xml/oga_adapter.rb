@@ -240,6 +240,7 @@ module Lutaml
         # @param options [Hash] serialization options
         def build_unordered_children_with_plan(xml, element, plan, options)
           mapper_class = options[:mapper_class] || element.class
+          metadata = options[:metadata]
           xml_mapping = mapper_class.mappings_for(:xml)
 
           # Process child elements with their plans (INCLUDING raw_mapping for map_all)
@@ -248,9 +249,13 @@ module Lutaml
             next if options[:except]&.include?(element_rule.to)
 
             # Handle custom methods
-            if element_rule.custom_methods[:to]
-              mapper_class.new.send(element_rule.custom_methods[:to], element,
-                                    xml.parent, xml)
+            if to_method = element_rule.custom_methods[:to]
+              method_obj = mapper_class.new.method(to_method)
+              arity = method_obj.arity
+              args = [element, xml.parent, xml]
+              args << metadata unless arity.between?(0, 3)
+
+              method_obj.call(*args)
               next
             end
 
@@ -305,7 +310,7 @@ module Lutaml
 
           # Process content mapping
           process_content_mapping(element, xml_mapping.content_mapping,
-                                  xml, mapper_class)
+                                  xml, mapper_class, metadata)
         end
 
         # Build element using prepared namespace declaration plan

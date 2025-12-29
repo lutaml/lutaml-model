@@ -238,8 +238,8 @@ module Lutaml
         end
       end
 
-      def deserialize(model, value, attributes, mapper_class = nil)
-        handle_custom_method(model, value, mapper_class) ||
+      def deserialize(model, value, attributes, mapper_class, metadata)
+        handle_custom_method(model, value, mapper_class, metadata) ||
           handle_delegate(model, value, attributes) ||
           handle_transform_method(model, value, attributes)
       end
@@ -321,10 +321,18 @@ module Lutaml
           (!render_omitted?(options) && Utils.uninitialized?(value))
       end
 
-      def handle_custom_method(model, value, mapper_class)
-        return if !custom_methods[:from] || value.nil?
+      def handle_custom_method(model, value, mapper_class, metadata)
+        from_method = custom_methods[:from]
+        return if !from_method || value.nil?
 
-        mapper_class.new.send(custom_methods[:from], model, value)
+        instance = mapper_class.new
+        method_obj = instance.method(from_method)
+
+        args = [model, value]
+        arity = method_obj.arity
+        args << metadata unless arity.between?(0, 2)
+
+        method_obj.call(*args)
         true
       end
 

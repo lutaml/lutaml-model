@@ -20,6 +20,7 @@ module Lutaml
       private
 
       def apply_xml_mapping(doc, instance, options = {})
+        metadata = options[:metadata]
         options = prepare_options(options)
         instance.encoding = options[:encoding]
         return instance unless doc
@@ -66,7 +67,7 @@ module Lutaml
           value = apply_value_map(value, rule.value_map(:from, new_opts), attr)
           value = normalize_xml_value(value, rule, attr, new_opts)
           value = rule.transform_value(attr, value, :from, :xml)
-          rule.deserialize(instance, value, attributes, context)
+          rule.deserialize(instance, value, attributes, context, metadata)
         end
 
         defaults_used.each do |attr_name|

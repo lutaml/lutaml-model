@@ -406,7 +406,7 @@ module Lutaml
                                  options)
         end
 
-        serialize_value(value, format, resolved_type)
+        serialize_value(value, format, resolved_type, options)
       end
 
       def reference_key(value)
@@ -633,9 +633,15 @@ module Lutaml
         resolved_type.as(format, value, as_options)
       end
 
-      def serialize_value(value, format, resolved_type)
+      def serialize_value(value, format, resolved_type, options)
         value = wrap_in_type_if_needed(value, resolved_type)
-        value.send(:"to_#{format}")
+        method_obj = value.method(:"to_#{format}")
+        arity = method_obj.arity
+        if arity.zero?
+          method_obj.call
+        else
+          method_obj.call(**options)
+        end
       end
 
       def wrap_in_type_if_needed(value, resolved_type)

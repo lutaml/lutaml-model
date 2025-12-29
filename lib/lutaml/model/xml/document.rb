@@ -152,16 +152,15 @@ module Lutaml
           end
         end
 
-        def process_content_mapping(element, content_rule, xml, mapper_class)
+        def process_content_mapping(element, content_rule, xml, mapper_class, metadata)
           return unless content_rule
 
-          if content_rule.custom_methods[:to]
-            mapper_class.new.send(
-              content_rule.custom_methods[:to],
-              element,
-              xml.parent,
-              xml,
-            )
+          if to_method = content_rule.custom_methods[:to]
+            method_obj = mapper_class.new.method(to_method)
+            arity = method_obj.arity
+            args = [element, xml.parent, xml]
+            args << metadata unless arity.between?(0, 3)
+            method_obj.call(*args)
           else
             text = content_rule.serialize(element)
             text = text.join if text.is_a?(Array)

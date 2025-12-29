@@ -255,8 +255,11 @@ module Lutaml
                                                prefix: prefix) do
             # Call attribute custom methods now that element is created
             attribute_custom_methods.each do |attribute_rule|
-              mapper_class.new.send(attribute_rule.custom_methods[:to],
-                                    element, xml.parent, xml)
+              method_obj = mapper_class.new.method(attribute_rule.custom_methods[:to])
+              arity = method_obj.arity
+              args = [element, xml.parent, xml]
+              args << options[:metadata] unless arity.between?(0, 3)
+              method_obj.call(*args)
             end
 
             if ordered?(element, options.merge(mapper_class: mapper_class))
@@ -271,6 +274,7 @@ module Lutaml
 
         def build_unordered_children_with_plan(xml, element, plan, options)
           mapper_class = options[:mapper_class] || element.class
+          metadata = options[:metadata]
           xml_mapping = mapper_class.mappings_for(:xml)
 
           # Process child elements with their plans (INCLUDING raw_mapping for map_all)
@@ -279,9 +283,13 @@ module Lutaml
             next if options[:except]&.include?(element_rule.to)
 
             # Handle custom methods
-            if element_rule.custom_methods[:to]
-              mapper_class.new.send(element_rule.custom_methods[:to], element,
-                                    xml.parent, xml)
+            if to_method = element_rule.custom_methods[:to]
+              mapper_instance = mapper_class.new
+              method_obj = mapper_instance.method(to_method)
+              args = [element, xml.parent, xml]
+              arity = method_obj.arity
+              args << metadata unless arity.between?(0, 3)
+              method_obj.call(*args)
               next
             end
 
@@ -344,7 +352,7 @@ module Lutaml
 
           # Process content mapping
           process_content_mapping(element, xml_mapping.content_mapping,
-                                  xml, mapper_class)
+                                  xml, mapper_class, metadata)
         end
 
         def build_ordered_element_with_plan(xml, element, plan, options)
@@ -363,7 +371,7 @@ module Lutaml
             next if element_rule.nil? || options[:except]&.include?(element_rule.to)
 
             # Handle custom methods
-            if element_rule.custom_methods[:to]
+            if to_method = element_rule.custom_methods[:to]
               # Custom methods usually handle their own iteration/logic, but here we are inside an ordered loop.
               # If the custom method handles the whole attribute, we might be calling it multiple times if we are not careful.
               # However, element_order usually contains individual items for mixed content.
@@ -390,8 +398,11 @@ module Lutaml
               # It calls add_to_xml. add_to_xml handles custom_methods.
               # So yes, it calls custom method.
 
-              mapper_class.new.send(element_rule.custom_methods[:to], element,
-                                    xml.parent, xml)
+              method_obj = mapper_class.new.method(to_method)
+              arity = method_obj.arity
+              args = [element, xml.parent, xml]
+              args << options[:metadata] unless arity.between?(0, 3)
+              method_obj.call(*args)
               next
             end
 
