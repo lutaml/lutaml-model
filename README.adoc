@@ -11490,6 +11490,187 @@ end
 ----
 ====
 
+==== Passing Custom Arguments (metadata) to from_* Methods
+
+You can pass custom arguments to `from_*` methods (e.g., `from_xml`, `from_<key-value>`) using the `metadata` option. These arguments will be forwarded to your custom deserialization methods when they accept 3 or more arguments. This is useful when you need to pass context-specific information or configuration to your custom methods.
+
+[source,ruby]
+----
+# Custom method signature options:
+# 1. Two arguments: (model, value) - metadata is NOT passed
+# 2. Three arguments: (model, value, metadata) - metadata IS passed
+----
+
+[example]
+====
+[source,ruby]
+----
+class Product < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :price, :decimal
+
+  json do
+    map "name", to: :name, with: { from: :name_from_json }
+    map "price", to: :price
+  end
+
+  # Custom method accepting metadata (custom arguments)
+  def name_from_json(model, value, metadata)
+    prefix = metadata&.dig(:prefix) || ""
+    suffix = metadata&.dig(:suffix) || ""
+    model.name = "#{prefix}#{value}#{suffix}"
+  end
+end
+----
+
+[source,ruby]
+----
+json_data = '{"name": "Widget", "price": 19.99}'
+
+# Without metadata
+product = Product.from_json(json_data)
+product.name  # => "Widget"
+
+# With metadata (custom arguments)
+metadata = { prefix: "[", suffix: "]" }
+product = Product.from_json(json_data, metadata: metadata)
+product.name  # => "[Widget]"
+----
+====
+
+[example]
+====
+Using metadata with XML:
+
+[source,ruby]
+----
+class Order < Lutaml::Model::Serializable
+  attribute :order_id, :string
+  attribute :total, :decimal
+
+  xml do
+    root "Order"
+    map_element "OrderId", to: :order_id, with: { from: :order_id_from_xml }
+    map_element "Total", to: :total
+  end
+
+  def order_id_from_xml(model, value, metadata)
+    namespace = metadata&.dig(:namespace) || "default"
+    model.order_id = "#{namespace}:#{value.first.text}"
+  end
+end
+----
+
+[source,xml]
+----
+<Order>
+  <OrderId>12345</OrderId>
+  <Total>99.99</Total>
+</Order>
+----
+
+[source,ruby]
+----
+xml_data = <<~XML
+  <Order>
+    <OrderId>12345</OrderId>
+    <Total>99.99</Total>
+  </Order>
+XML
+
+# With metadata (custom arguments)
+metadata = { namespace: "ORD" }
+order = Order.from_xml(xml_data, metadata: metadata)
+order.order_id  # => "ORD:12345"
+----
+====
+
+[NOTE]
+====
+* `metadata` is only passed to custom methods that accept 3 or more arguments
+* If your custom method accepts 2 arguments `(model, value)`, `metadata` will NOT be passed
+* If your custom method accepts 3 arguments `(model, value, metadata)`, `metadata` will be passed only if it's provided (it will be `nil` if not provided)
+* `metadata` can be any object (Hash, Array, String, etc.) - it's passed through as-is
+* The method's arity (number of arguments) determines whether `metadata` is passed
+====
+
+[example]
+====
+Method signature detection based on arity:
+
+[source,ruby]
+----
+class Example < Lutaml::Model::Serializable
+  attribute :data, :string
+
+  json do
+    map "data", to: :data, with: { from: :data_from_json }
+  end
+
+  # 2 arguments - metadata NOT passed
+  def data_from_json(model, value)
+    model.data = value
+  end
+
+  # 3 arguments - metadata IS passed (if provided)
+  def data_from_json(model, value, metadata)
+    source = metadata&.dig(:source) || "default"
+    model.data = "#{source}: #{value}"
+  end
+end
+----
+
+[source,ruby]
+----
+json_data = '{"data": "test"}'
+
+# Method with 2 arguments - metadata not used
+instance1 = Example.from_json(json_data, metadata: { source: "api" })
+instance1.data  # => "test" (metadata ignored)
+
+# Method with 3 arguments - metadata is used
+instance2 = Example.from_json(json_data, metadata: { source: "api" })
+instance2.data  # => "api: test"
+----
+====
+
+[example]
+====
+Using metadata with different data types:
+
+[source,ruby]
+----
+class Processor < Lutaml::Model::Serializable
+  attribute :result, :string
+
+  json do
+    map "result", to: :result, with: { from: :result_from_json }
+  end
+
+  def result_from_json(model, value, metadata)
+    # metadata can contain any type of data
+    timestamp = metadata&.dig(:timestamp)
+    options = metadata&.dig(:options) || {}
+    
+    prefix = options[:prefix] || ""
+    model.result = "#{prefix}#{value}"
+  end
+end
+----
+
+[source,ruby]
+----
+json_data = '{"result": "processed"}'
+
+metadata = {
+  timestamp: Time.now,
+  options: { prefix: "[", validate: true }
+}
+processor = Processor.from_json(json_data, metadata: metadata)
+processor.result  # => "[processed]"
+----
+====
+
 
 == Serialization: Handling the missing values family
 

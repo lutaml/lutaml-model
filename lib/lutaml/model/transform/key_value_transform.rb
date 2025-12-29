@@ -40,8 +40,8 @@ module Lutaml
       end
 
       def process_mapping_for_instance(instance, hash, format, rule, options)
-        if rule.custom_methods[:to]
-          return instance.send(rule.custom_methods[:to], instance, hash)
+        if to_method = rule.custom_methods[:to]
+          return handle_to_custom_method(instance, to_method, hash, options[:metadata])
         end
 
         attribute = attributes[rule.to]
@@ -81,6 +81,14 @@ module Lutaml
 
         (except.nil? || !except.include?(name)) &&
           (only.nil? || only.include?(name))
+      end
+
+      def handle_to_custom_method(instance, to_method, hash, metadata)
+        method_obj = instance.method(to_method)
+        args = [instance, hash]
+        arity = method_obj.arity
+        args << metadata unless arity.between?(0, 2)
+        method_obj.call(*args)
       end
 
       def handle_raw_mapping(hash, value, format, options)
@@ -223,7 +231,7 @@ format)
 
         if rule.has_custom_method_for_deserialization?
           return process_custom_method(rule, instance,
-                                       value)
+                                       value, options[:metadata])
         end
 
         value = rule.transform_value(attr, value, :from, format)
@@ -235,13 +243,20 @@ format)
         end
 
         attr.valid_collection!(value, context)
-        rule.deserialize(instance, value, attributes, self)
+        rule.deserialize(instance, value, attributes, self, options[:metadata])
       end
 
-      def process_custom_method(rule, instance, value)
+      def process_custom_method(rule, instance, value, metadata)
         return unless Utils.present?(value)
 
-        model_class.new.send(rule.custom_methods[:from], instance, value)
+        new_instance = model_class.new
+        method_obj = new_instance.method(rule.custom_methods[:from])
+
+        args = [instance, value]
+        arity = method_obj.arity
+        args << metadata unless arity.between?(0, 2)
+
+        method_obj.call(*args)
       end
 
       def cast_value(value, attr, format, rule, instance)
