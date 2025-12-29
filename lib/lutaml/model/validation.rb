@@ -4,7 +4,7 @@ module Lutaml
       def validate(register: Lutaml::Model::Config.default_register)
         errors = []
 
-        self.class.attributes.each do |name, attr|
+        self.class.attributes(register).each do |name, attr|
           value = public_send(:"#{name}")
 
           begin
@@ -26,7 +26,7 @@ module Lutaml
           end
         end
 
-        validate_helper(errors)
+        validate_helper(errors, register)
       end
 
       def validate!(register: Lutaml::Model::Config.default_register)
@@ -34,24 +34,24 @@ module Lutaml
         raise Lutaml::Model::ValidationError.new(errors) if errors.any?
       end
 
-      def validate_helper(errors)
+      def validate_helper(errors, register)
         self.class.choice_attributes.each do |attribute|
           attribute.validate_content!(self)
         end
 
-        validate_sequence!(errors, order_names)
+        validate_sequence!(errors, order_names, register)
         errors
       rescue Lutaml::Model::ChoiceUpperBoundError,
              Lutaml::Model::ChoiceLowerBoundError => e
         errors << e
       end
 
-      def validate_sequence!(errors, names)
-        sequences = self.class.mappings_for(:xml)&.element_sequence
+      def validate_sequence!(errors, names, register)
+        sequences = self.class.mappings_for(:xml, register)&.element_sequence
         return errors if names.empty? || sequences.nil?
 
         sequences.each do |sequence|
-          sequence.validate_content!(names, self)
+          sequence.validate_content!(names, self, register)
         end
         errors
       rescue Lutaml::Model::IncorrectSequenceError,

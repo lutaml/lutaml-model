@@ -14,8 +14,8 @@ module Lutaml
 
       def initialize(context, register = nil)
         @context = context
-        @attributes = context.attributes
         @__register = register || Lutaml::Model::Config.default_register
+        @attributes = context.attributes(__register)
       end
 
       def model_class
