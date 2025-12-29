@@ -9,7 +9,8 @@ module Lutaml
     module Xml
       class NokogiriAdapter < Document
         def self.parse(xml, options = {})
-          parsed = Nokogiri::XML(xml, nil, encoding(xml, options))
+          encoding = encoding(xml, options)
+          parsed = Nokogiri::XML(sanitize_xml_for_entities(xml, encoding), nil, encoding)
           @root = NokogiriElement.new(parsed.root)
           new(@root, parsed.encoding)
         end
@@ -896,12 +897,6 @@ mapping: nil)
         end
 
         private
-
-        def parse_children(node, root_node: nil)
-          node.children.select(&:element?).map do |child|
-            NokogiriElement.new(child, root_node: root_node)
-          end
-        end
 
         def parse_all_children(node, root_node: nil, default_namespace: nil)
           node.children.map do |child|

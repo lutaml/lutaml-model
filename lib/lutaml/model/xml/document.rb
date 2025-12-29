@@ -1,3 +1,4 @@
+require "htmlentities"
 require_relative "../mapping_hash"
 require_relative "xml_element"
 require_relative "xml_attribute"
@@ -27,6 +28,13 @@ module Lutaml
 
         def attributes
           root.attributes
+        end
+
+        def self.sanitize_xml_for_entities(xml, encoding = "UTF-8")
+          coder = ::HTMLEntities.new(:expanded)
+          xml.gsub(/&(\w+);/) do |char|
+            "&##{coder.decode(char).ord};".force_encoding(encoding)
+          end
         end
 
         def self.encoding(xml, options)

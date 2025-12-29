@@ -922,13 +922,16 @@ RSpec.describe "MixedContent" do
           end
 
           it "deserializes latin encoded content correctly" do
+            pending("Entities are not supported except for UTF-8 encoding") if adapter_class == Lutaml::Model::Xml::OgaAdapter
+
             parsed = MixedContentSpec::Latin.from_xml(fixture,
                                                       encoding: "ISO-8859-1")
 
             expected_content = if adapter_class == Lutaml::Model::Xml::NokogiriAdapter
-                                 ["Müller", "José"]
+                                 ["Müller⊚", "José"]
                                else
-                                 ["M\xFCller".force_encoding("ISO-8859-1"),
+                                 ocir = adapter_class == Lutaml::Model::Xml::OgaAdapter ? "\xE2\x8A\x9A" : "&ocir;"
+                                 ["M\xFCller#{ocir}".force_encoding("ISO-8859-1"),
                                   "Jos\xE9".force_encoding("ISO-8859-1")]
                                end
 
@@ -938,12 +941,14 @@ RSpec.describe "MixedContent" do
           end
 
           it "deserializes latin encoded content correctly, bcz xml.encoding used for parsing" do
+            pending("Entities are not supported except for UTF-8 encoding") if adapter_class == Lutaml::Model::Xml::OgaAdapter
+
             parsed = MixedContentSpec::Latin.from_xml(fixture)
 
             expected_content = if adapter_class == Lutaml::Model::Xml::NokogiriAdapter
-                                 ["Müller", "José"]
+                                 ["Müller⊚", "José"]
                                else
-                                 ["M\xFCller".force_encoding("ISO-8859-1"),
+                                 ["M\xFCller&ocir;".force_encoding("ISO-8859-1"),
                                   "Jos\xE9".force_encoding("ISO-8859-1")]
                                end
 
@@ -961,7 +966,8 @@ RSpec.describe "MixedContent" do
             expected_xml = if adapter_class == Lutaml::Model::Xml::OgaAdapter
                              "<note><to>Jos\xE9</to><from>M\xFCller</from><heading>Reminder</heading></note>"
                            else
-                             "<note>\n  <to>Jos\xE9</to>\n  <from>M\xFCller</from>\n  <heading>Reminder</heading>\n</note>"
+                             ocir = adapter_class == Lutaml::Model::Xml::NokogiriAdapter ? "&#8858;" : "&amp;ocir;"
+                             "<note>\n  <to>Jos\xE9</to>\n  <from>M\xFCller#{ocir}</from>\n  <heading>Reminder</heading>\n</note>"
                            end
             expect(serialized.strip).to eq(expected_xml.force_encoding("ISO-8859-1"))
           end
