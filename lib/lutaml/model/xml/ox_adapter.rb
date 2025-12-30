@@ -164,8 +164,13 @@ module Lutaml
                                                attributes: attributes.compact) do |el|
             # Call attribute custom methods now that element is created
             attribute_custom_methods.each do |attribute_rule|
-              mapper_class.new.send(attribute_rule.custom_methods[:to],
-                                    element, el.parent, el)
+              handle_custom_method(
+                element,
+                attribute_rule.custom_methods[:to],
+                el,
+                mapper_class,
+                options[:state],
+              )
             end
 
             if ordered?(element, options.merge(mapper_class: mapper_class))
@@ -180,7 +185,7 @@ module Lutaml
 
         def build_unordered_children_with_plan(xml, element, plan, options)
           mapper_class = options[:mapper_class] || element.class
-          metadata = options[:metadata]
+          state = options[:state]
           xml_mapping = mapper_class.mappings_for(:xml)
 
           # Process child elements with their plans (INCLUDING raw_mapping for map_all)
@@ -190,13 +195,7 @@ module Lutaml
 
             # Handle custom methods
             if to_method = element_rule.custom_methods[:to]
-              method_obj = mapper_class.new.method(to_method)
-              arity = method_obj.arity
-              args = [element, xml.parent, xml]
-              args << metadata unless arity.between?(0, 3)
-
-              method_obj.call(*args)
-              next
+              next handle_custom_method(element, to_method, xml, mapper_class, state)
             end
 
             attribute_def = attribute_definition_for(element, element_rule,
@@ -227,7 +226,7 @@ module Lutaml
 
           # Process content mapping
           process_content_mapping(element, xml_mapping.content_mapping,
-                                  xml, mapper_class, metadata)
+                                  xml, mapper_class, state)
         end
 
         def build_ordered_element_with_plan(xml, element, plan, options)
@@ -247,10 +246,8 @@ module Lutaml
             next if element_rule.nil? || options[:except]&.include?(element_rule.to)
 
             # Handle custom methods
-            if element_rule.custom_methods[:to]
-              mapper_class.new.send(element_rule.custom_methods[:to], element,
-                                    xml.parent, xml)
-              next
+            if to_method = element_rule.custom_methods[:to]
+              next handle_custom_method(element, to_method, xml, mapper_class, options[:state])
             end
 
             # Handle delegation - get attribute definition and value from delegated object

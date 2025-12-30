@@ -41,7 +41,7 @@ module Lutaml
 
       def process_mapping_for_instance(instance, hash, format, rule, options)
         if to_method = rule.custom_methods[:to]
-          return handle_to_custom_method(instance, to_method, hash, options[:metadata])
+          return handle_to_custom_method(instance, to_method, hash, options[:state])
         end
 
         attribute = attributes[rule.to]
@@ -83,11 +83,11 @@ module Lutaml
           (only.nil? || only.include?(name))
       end
 
-      def handle_to_custom_method(instance, to_method, hash, metadata)
+      def handle_to_custom_method(instance, to_method, hash, state)
         method_obj = instance.method(to_method)
         args = [instance, hash]
         arity = method_obj.arity
-        args << metadata unless arity.between?(0, 2)
+        args << state unless arity.between?(0, 2)
         method_obj.call(*args)
       end
 
@@ -231,7 +231,7 @@ format)
 
         if rule.has_custom_method_for_deserialization?
           return process_custom_method(rule, instance,
-                                       value, options[:metadata])
+                                       value, options[:state])
         end
 
         value = rule.transform_value(attr, value, :from, format)
@@ -243,10 +243,10 @@ format)
         end
 
         attr.valid_collection!(value, context)
-        rule.deserialize(instance, value, attributes, self, options[:metadata])
+        rule.deserialize(instance, value, attributes, self, options[:state])
       end
 
-      def process_custom_method(rule, instance, value, metadata)
+      def process_custom_method(rule, instance, value, state)
         return unless Utils.present?(value)
 
         new_instance = model_class.new
@@ -254,7 +254,7 @@ format)
 
         args = [instance, value]
         arity = method_obj.arity
-        args << metadata unless arity.between?(0, 2)
+        args << state unless arity.between?(0, 2)
 
         method_obj.call(*args)
       end

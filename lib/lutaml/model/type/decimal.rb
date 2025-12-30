@@ -3,7 +3,7 @@ module Lutaml
     module Type
       class Decimal < Value
         def self.cast(value, options = {})
-          return nil if value.nil?
+          return nil if value.nil? || value.is_a?(UninitializedClass)
 
           check_dependencies!(value)
           value = case value

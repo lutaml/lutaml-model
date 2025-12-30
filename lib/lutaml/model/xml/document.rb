@@ -152,15 +152,19 @@ module Lutaml
           end
         end
 
-        def process_content_mapping(element, content_rule, xml, mapper_class, metadata)
+        def handle_custom_method(element, to_method, xml, mapper_class, state)
+          method_obj = mapper_class.new.method(to_method)
+          arity = method_obj.arity
+          args = [element, xml.parent, xml]
+          args << state unless arity.between?(0, 3)
+          method_obj.call(*args)
+        end
+
+        def process_content_mapping(element, content_rule, xml, mapper_class, state)
           return unless content_rule
 
           if to_method = content_rule.custom_methods[:to]
-            method_obj = mapper_class.new.method(to_method)
-            arity = method_obj.arity
-            args = [element, xml.parent, xml]
-            args << metadata unless arity.between?(0, 3)
-            method_obj.call(*args)
+            handle_custom_method(element, to_method, xml, mapper_class, state)
           else
             text = content_rule.serialize(element)
             text = text.join if text.is_a?(Array)
