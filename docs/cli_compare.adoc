@@ -1,0 +1,249 @@
+= CLI Compare Feature in Lutaml::Model
+
+The Lutaml::Model CLI provides a powerful `compare` command that allows you to compare two data files of different formats using your Lutaml::Model classes. This feature calculates similarity scores and provides detailed difference reports, making it valuable for data validation, testing, and migration scenarios.
+
+== Overview
+
+The `compare` command:
+
+* Supports multiple file formats: XML, JSON, YAML (.yml/.yaml), TOML, and any other format supported by your Lutaml::Model classes
+* Provides cross-format comparison (e.g., compare XML with JSON)
+* Calculates similarity percentage scores
+* Shows detailed differences between files
+* Uses your existing Lutaml::Model classes for parsing and comparison logic
+
+== Installation
+
+The CLI is available as part of the lutaml-model gem:
+
+[source,bash]
+----
+gem install lutaml-model
+----
+
+Or add to your Gemfile:
+
+[source,ruby]
+----
+gem 'lutaml-model'
+----
+
+== Basic Usage
+
+=== Command Syntax
+
+[source,bash]
+----
+lutaml-model compare PATH_1 PATH_2 -m MODEL_FILE -r ROOT_CLASS
+----
+
+=== Required Parameters
+
+* `PATH_1` - Path to the first file to compare
+* `PATH_2` - Path to the second file to compare
+* `-m, --model-file` - Path to the Ruby file containing your Lutaml::Model class definitions
+* `-r, --root-class` - Name of the root model class to use for parsing both files
+
+== Examples
+
+=== Comparing XML Files
+
+Given a model definition in `models/document.rb`:
+
+[source,ruby]
+----
+require "lutaml/model"
+
+class ExtractLanguage < Lutaml::Model::Serializable
+  attribute :language, :string
+  attribute :order, :integer
+
+  xml do
+    map_attribute "language", to: :language, namespace: nil
+    map_attribute "order", to: :order, namespace: nil
+  end
+end
+
+class TermiumExtract < Lutaml::Model::Serializable
+  attribute :language, :string
+  attribute :extract_language, ExtractLanguage, collection: true
+
+  xml do
+    root "termium_extract"
+    namespace "http://termium.tpsgc-pwgsc.gc.ca/schemas/2012/06/Termium", "ns2"
+
+    map_attribute "language", to: :language, namespace: nil
+    map_element "extractLanguage", to: :extract_language, namespace: nil
+  end
+
+  yaml do
+    map "language", to: :language
+    map "extract_language", to: :extract_language
+  end
+
+  json do
+    map "language", to: :language
+    map "extract_language", to: :extract_language
+  end
+end
+----
+
+Compare two XML files:
+
+[source,bash]
+----
+lutaml-model compare data/file1.xml data/file2.xml \
+  -m models/document.rb \
+  -r TermiumExtract
+----
+
+Sample output:
+
+[source,text]
+----
+Differences between data/file1.xml and data/file2.xml:
+  └── TermiumExtract
+      ├── language (Lutaml::Model::Type::String):
+      │   └──  (Lutaml::Model::Type::String):
+      │       ├── - (String) "EN"
+      │       └── + (nil)
+      └── extract_language (collection):
+          ├── [1] (ExtractLanguage)
+          │   ├── language (Lutaml::Model::Type::String):
+          │   │   ├── - (String) "EN"
+          │   │   └── + (String) "EN1"
+          │   └── order (Lutaml::Model::Type::Integer):
+          │       ├── - (Integer) 0
+          │       └── + (Integer) 1
+          └── - [2] (ExtractLanguage)
+              ├── language (Lutaml::Model::Type::String):
+              │   └── (String) "FR"
+              └── order (Lutaml::Model::Type::Integer):
+                  └── (Integer) 1
+Similarity score: 12.5%
+----
+
+=== Cross-Format Comparison
+
+Compare an XML file with a JSON file:
+
+[source,bash]
+----
+lutaml-model compare data/source.xml data/target.json \
+  -m models/document.rb \
+  -r TermiumExtract
+----
+
+Compare YAML with XML:
+
+[source,bash]
+----
+lutaml-model compare config.yml data.xml \
+  -m models/document.rb \
+  -r TermiumExtract
+----
+
+=== Checking for Identical Files
+
+When files are identical (100% similarity):
+
+[source,bash]
+----
+lutaml-model compare data/file1.xml data/file1.xml \
+  -m models/document.rb \
+  -r TermiumExtract
+----
+
+Output:
+[source,text]
+----
+Differences between data/file1.xml and data/file1.xml:
+  └── TermiumExtract
+Similarity score: 100%
+----
+
+== Advanced Use Cases
+
+=== Data Migration Validation
+
+When migrating data between formats:
+
+[source,bash]
+----
+# Validate XML to JSON conversion
+lutaml-model compare original.xml converted.json \
+  -m models/schema.rb \
+  -r MyModel
+
+# Check YAML to TOML migration
+lutaml-model compare config.yml config.toml \
+  -m models/config.rb \
+  -r ConfigModel
+----
+
+=== Testing Data Transformations
+
+[source,bash]
+----
+# Compare before and after data processing
+lutaml-model compare input/raw_data.xml output/processed_data.xml \
+  -m models/data_model.rb \
+  -r DataRecord
+----
+
+=== Configuration Validation
+
+[source,bash]
+----
+# Compare production vs development configs
+lutaml-model compare config/production.yml config/development.yml \
+  -m models/config.rb \
+  -r AppConfig
+----
+
+== Error Handling
+
+=== Common Errors and Solutions
+
+**File not found:**
+[source,text]
+----
+Error: File not found: /path/to/file.xml
+----
+*Solution:* Verify the file path exists and is accessible.
+
+**Model file not found:**
+[source,text]
+----
+Error: Model file not found: models/missing.rb
+----
+*Solution:* Check that the model file path is correct.
+
+**Class not defined:**
+[source,text]
+----
+Error: MyClass not defined in model-file
+----
+*Solution:* Ensure the class name matches exactly and is properly defined in your model file.
+
+**Parsing errors:**
+[source,text]
+----
+Error parsing file data.xml: Invalid XML syntax
+----
+*Solution:* Verify file format and syntax. The CLI will attempt to parse files according to their extension.
+
+== Supported File Formats
+
+The compare command automatically detects file format based on extension:
+
+* `.xml` → XML format
+* `.json` → JSON format
+* `.yml`, `.yaml` → YAML format
+* `.toml` → TOML format
+* Any other format supported by your model's format mappings
+
+== Limitations
+
+* Both files must be parseable by the same model class
+* The model class must define appropriate format mappings for both file types
