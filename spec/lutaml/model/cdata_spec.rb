@@ -2,6 +2,7 @@ require "spec_helper"
 require "lutaml/model"
 require "lutaml/model/xml/nokogiri_adapter"
 require "lutaml/model/xml/ox_adapter"
+require "lutaml/model/xml/oga_adapter"
 
 module CDATA
   class Beta < Lutaml::Model::Serializable
@@ -334,6 +335,17 @@ RSpec.describe "CDATA" do
         XML
       end
 
+      let(:expected_oga_xml) do
+        "<CustomModelParent>" \
+          "<first_name><![CDATA[John]]></first_name>" \
+          "<last_name>Doe</last_name>" \
+          "<CustomModelChild>" \
+          "<street><![CDATA[Oxford Street]]></street>" \
+          "<city><![CDATA[London]]></city>" \
+          "</CustomModelChild>" \
+          "</CustomModelParent>"
+      end
+
       describe ".from_xml" do
         it "maps XML content to custom model using custom methods" do
           instance = parent_mapper.from_xml(input_xml)
@@ -354,7 +366,13 @@ RSpec.describe "CDATA" do
           instance = parent_mapper.from_xml(input_xml)
           result_xml = parent_mapper.to_xml(instance)
 
-          expected_output = adapter_class == Lutaml::Model::Xml::OxAdapter ? expected_ox_xml : expected_nokogiri_xml
+          expected_output = if adapter_class == Lutaml::Model::Xml::OgaAdapter
+                              expected_oga_xml
+                            elsif adapter_class == Lutaml::Model::Xml::OxAdapter
+                              expected_ox_xml
+                            else
+                              expected_nokogiri_xml
+                            end
 
           expect(result_xml.strip).to eq(expected_output.strip)
         end
@@ -530,6 +548,10 @@ RSpec.describe "CDATA" do
   end
 
   describe Lutaml::Model::Xml::OxAdapter do
+    it_behaves_like "cdata behavior", described_class
+  end
+
+  describe Lutaml::Model::Xml::OgaAdapter do
     it_behaves_like "cdata behavior", described_class
   end
 end
