@@ -19,6 +19,7 @@ gem "oga"
 gem "oj"
 gem "ox"
 gem "rake"
+gem "rexml"
 gem "rspec"
 gem "rubocop"
 gem "rubocop-performance", require: false

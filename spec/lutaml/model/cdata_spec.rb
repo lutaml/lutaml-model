@@ -3,6 +3,7 @@ require "lutaml/model"
 require "lutaml/model/xml/nokogiri_adapter"
 require "lutaml/model/xml/ox_adapter"
 require "lutaml/model/xml/oga_adapter"
+require "lutaml/model/xml/rexml_adapter"
 
 module CDATA
   class Beta < Lutaml::Model::Serializable
@@ -552,6 +553,10 @@ RSpec.describe "CDATA" do
   end
 
   describe Lutaml::Model::Xml::OgaAdapter do
+    it_behaves_like "cdata behavior", described_class
+  end
+
+  describe Lutaml::Model::Xml::RexmlAdapter do
     it_behaves_like "cdata behavior", described_class
   end
 end
