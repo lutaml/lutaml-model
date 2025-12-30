@@ -240,7 +240,7 @@ module Lutaml
         # @param options [Hash] serialization options
         def build_unordered_children_with_plan(xml, element, plan, options)
           mapper_class = options[:mapper_class] || element.class
-          metadata = options[:metadata]
+          state = options[:state]
           xml_mapping = mapper_class.mappings_for(:xml)
 
           # Process child elements with their plans (INCLUDING raw_mapping for map_all)
@@ -250,13 +250,7 @@ module Lutaml
 
             # Handle custom methods
             if to_method = element_rule.custom_methods[:to]
-              method_obj = mapper_class.new.method(to_method)
-              arity = method_obj.arity
-              args = [element, xml.parent, xml]
-              args << metadata unless arity.between?(0, 3)
-
-              method_obj.call(*args)
-              next
+              next handle_custom_method(element, to_method, xml, mapper_class, state)
             end
 
             attribute_def = mapper_class.attributes[element_rule.to]
@@ -310,7 +304,7 @@ module Lutaml
 
           # Process content mapping
           process_content_mapping(element, xml_mapping.content_mapping,
-                                  xml, mapper_class, metadata)
+                                  xml, mapper_class, state)
         end
 
         # Build element using prepared namespace declaration plan
@@ -334,7 +328,7 @@ module Lutaml
             next if element_rule.nil? || options[:except]&.include?(element_rule.to)
 
             # Handle custom methods
-            if element_rule.custom_methods[:to]
+            if to_method = element_rule.custom_methods[:to]
               # Custom methods usually handle their own iteration/logic, but here we are inside an ordered loop.
               # If the custom method handles the whole attribute, we might be calling it multiple times if we are not careful.
               # However, element_order usually contains individual items for mixed content.
@@ -347,9 +341,7 @@ module Lutaml
               # It calls add_to_xml. add_to_xml handles custom_methods.
               # So yes, it calls custom method.
 
-              mapper_class.new.send(element_rule.custom_methods[:to], element,
-                                    xml.parent, xml)
-              next
+              next handle_custom_method(element, to_method, xml, mapper_class, options[:state])
             end
 
             attribute_def = mapper_class.attributes[element_rule.to]

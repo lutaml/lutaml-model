@@ -214,12 +214,6 @@ module Lutaml
         polymorphic_map && !polymorphic_map.empty?
       end
 
-      def serialize_attribute(model, element, doc)
-        if custom_methods[:to]
-          model.send(custom_methods[:to], model, element, doc)
-        end
-      end
-
       def to_value_for(model)
         if delegate
           model.public_send(delegate).public_send(to)
@@ -238,8 +232,8 @@ module Lutaml
         end
       end
 
-      def deserialize(model, value, attributes, mapper_class, metadata)
-        handle_custom_method(model, value, mapper_class, metadata) ||
+      def deserialize(model, value, attributes, mapper_class, state)
+        handle_custom_method(model, value, mapper_class, state) ||
           handle_delegate(model, value, attributes) ||
           handle_transform_method(model, value, attributes)
       end
@@ -321,7 +315,7 @@ module Lutaml
           (!render_omitted?(options) && Utils.uninitialized?(value))
       end
 
-      def handle_custom_method(model, value, mapper_class, metadata)
+      def handle_custom_method(model, value, mapper_class, state)
         from_method = custom_methods[:from]
         return if !from_method || value.nil?
 
@@ -330,7 +324,7 @@ module Lutaml
 
         args = [model, value]
         arity = method_obj.arity
-        args << metadata unless arity.between?(0, 2)
+        args << state unless arity.between?(0, 2)
 
         method_obj.call(*args)
         true

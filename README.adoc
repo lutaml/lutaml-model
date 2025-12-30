@@ -11490,15 +11490,26 @@ end
 ----
 ====
 
-==== Passing Custom Arguments (metadata) to from_* Methods
+==== Passing Custom Argument (state) to from_* and to_* Methods
 
-You can pass custom arguments to `from_*` methods (e.g., `from_xml`, `from_<key-value>`) using the `metadata` option. These arguments will be forwarded to your custom deserialization methods when they accept 3 or more arguments. This is useful when you need to pass context-specific information or configuration to your custom methods.
+You can pass custom arguments to `from_*` methods (e.g., `from_xml`, `from_<key-value>`) and `to_*` methods (e.g., `to_xml`, `to_<key-value>`) using the `state` option. This argument will be forwarded to your custom serialization and deserialization methods based on their method arity (number of arguments).
+
+For information about custom method signatures, see <<Key-value data model serialization with custom methods>> and <<XML serialization with custom methods>>.
 
 [source,ruby]
 ----
-# Custom method signature options:
-# 1. Two arguments: (model, value) - metadata is NOT passed
-# 2. Three arguments: (model, value, metadata) - metadata IS passed
+# Method signature detection based on arity:
+# 
+# Key-value formats (JSON, YAML, TOML, Hash):
+#   from_* methods: (model, value) or (model, value, state)
+#   to_* methods: (model, hash) or (model, hash, state)
+#   State passed if method accepts 3+ arguments
+#
+# XML format:
+#   from_* methods: (model, value) or (model, value, state)
+#   to_* methods: (model, parent, doc) or (model, parent, doc, state)
+#   State passed if from_* method accepts 3+ arguments
+#   State passed if to_* method accepts 4+ arguments
 ----
 
 [example]
@@ -11514,10 +11525,10 @@ class Product < Lutaml::Model::Serializable
     map "price", to: :price
   end
 
-  # Custom method accepting metadata (custom arguments)
-  def name_from_json(model, value, metadata)
-    prefix = metadata&.dig(:prefix) || ""
-    suffix = metadata&.dig(:suffix) || ""
+  # Custom method accepting state (custom arguments)
+  def name_from_json(model, value, state)
+    prefix = state&.dig(:prefix) || ""
+    suffix = state&.dig(:suffix) || ""
     model.name = "#{prefix}#{value}#{suffix}"
   end
 end
@@ -11527,20 +11538,20 @@ end
 ----
 json_data = '{"name": "Widget", "price": 19.99}'
 
-# Without metadata
+# Without state
 product = Product.from_json(json_data)
 product.name  # => "Widget"
 
-# With metadata (custom arguments)
-metadata = { prefix: "[", suffix: "]" }
-product = Product.from_json(json_data, metadata: metadata)
+# With state (custom arguments)
+state = { prefix: "[", suffix: "]" }
+product = Product.from_json(json_data, state: state)
 product.name  # => "[Widget]"
 ----
 ====
 
 [example]
 ====
-Using metadata with XML:
+Using state with XML:
 
 [source,ruby]
 ----
@@ -11554,9 +11565,9 @@ class Order < Lutaml::Model::Serializable
     map_element "Total", to: :total
   end
 
-  def order_id_from_xml(model, value, metadata)
-    namespace = metadata&.dig(:namespace) || "default"
-    model.order_id = "#{namespace}:#{value.first.text}"
+  def order_id_from_xml(model, value, state)
+    namespace = state&.dig(:namespace) || "default"
+    model.order_id = "#{namespace}:#{value.text}"
   end
 end
 ----
@@ -11578,25 +11589,113 @@ xml_data = <<~XML
   </Order>
 XML
 
-# With metadata (custom arguments)
-metadata = { namespace: "ORD" }
-order = Order.from_xml(xml_data, metadata: metadata)
+# With state (custom arguments)
+state = { namespace: "ORD" }
+order = Order.from_xml(xml_data, state: state)
 order.order_id  # => "ORD:12345"
 ----
 ====
 
 [NOTE]
 ====
-* `metadata` is only passed to custom methods that accept 3 or more arguments
-* If your custom method accepts 2 arguments `(model, value)`, `metadata` will NOT be passed
-* If your custom method accepts 3 arguments `(model, value, metadata)`, `metadata` will be passed only if it's provided (it will be `nil` if not provided)
-* `metadata` can be any object (Hash, Array, String, etc.) - it's passed through as-is
-* The method's arity (number of arguments) determines whether `metadata` is passed
+* For key-value formats (JSON, YAML, TOML, Hash):
+  ** `from_*` methods: state passed if method accepts 3+ arguments `(model, value, state)`
+  ** `to_*` methods: state passed if method accepts 3+ arguments `(model, hash, state)`
+* For XML format:
+  ** `from_*` methods: state passed if method accepts 3+ arguments `(model, value, state)`
+  ** `to_*` methods: state passed if method accepts 4+ arguments `(model, parent, doc, state)`
+* If your custom method accepts fewer arguments than required, `state` will NOT be passed
+* If `state` is not provided when calling `from_*` or `to_*` methods, it will be `nil` in your custom method
+* `state` can be any object (Hash, Array, String, etc.) - it's passed through as-is
+* The method's arity (number of arguments) determines whether `state` is passed
 ====
 
 [example]
 ====
-Method signature detection based on arity:
+Using state with `to_*` methods (serialization):
+
+[source,ruby]
+----
+class Product < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :price, :decimal
+
+  json do
+    map "name", to: :name, with: { to: :name_to_json, from: :name_from_json }
+    map "price", to: :price
+  end
+
+  def name_to_json(model, hash, state)
+    prefix = state&.dig(:prefix) || ""
+    suffix = state&.dig(:suffix) || ""
+    hash["name"] = "#{prefix}#{model.name}#{suffix}"
+  end
+
+  def name_from_json(model, value, state)
+    prefix = state&.dig(:prefix) || ""
+    suffix = state&.dig(:suffix) || ""
+    model.name = value.sub(/^#{Regexp.escape(prefix)}/, '').sub(/#{Regexp.escape(suffix)}$/, '')
+  end
+end
+----
+
+[source,ruby]
+----
+product = Product.new(name: "Widget", price: 19.99)
+
+# Without state
+product.to_json  # => {"name":"Widget","price":19.99}
+
+# With state
+state = { prefix: "[", suffix: "]" }
+product.to_json(state: state)  # => {"name":"[Widget]","price":19.99}
+----
+====
+
+[example]
+====
+Using state with XML `to_*` methods (note: requires 4+ arguments):
+
+[source,ruby]
+----
+class Order < Lutaml::Model::Serializable
+  attribute :order_id, :string
+  attribute :total, :decimal
+
+  xml do
+    root "Order"
+    map_element "OrderId", to: :order_id, with: { to: :order_id_to_xml, from: :order_id_from_xml }
+    map_element "Total", to: :total
+  end
+
+  def order_id_to_xml(model, parent, doc, state)
+    namespace = state&.dig(:namespace) || ""
+    el = doc.create_element("OrderId")
+    doc.add_text(el, "#{namespace}#{model.order_id}")
+    doc.add_element(parent, el)
+  end
+
+  def order_id_from_xml(model, value, state)
+    namespace = state&.dig(:namespace) || ""
+    model.order_id = value.first.text.sub(/^#{Regexp.escape(namespace)}/, '')
+  end
+end
+----
+
+[source,ruby]
+----
+order = Order.new(order_id: "12345", total: 99.99)
+
+# With state
+state = { namespace: "ORD-" }
+xml = order.to_xml(state: state)
+# => <Order><OrderId>ORD-12345</OrderId><Total>99.99</Total></Order>
+----
+====
+
+[example]
+====
+Method arity determines state passing:
 
 [source,ruby]
 ----
@@ -11607,14 +11706,34 @@ class Example < Lutaml::Model::Serializable
     map "data", to: :data, with: { from: :data_from_json }
   end
 
-  # 2 arguments - metadata NOT passed
+  # Method with 2 arguments - state NOT passed
   def data_from_json(model, value)
     model.data = value
   end
+end
+----
 
-  # 3 arguments - metadata IS passed (if provided)
-  def data_from_json(model, value, metadata)
-    source = metadata&.dig(:source) || "default"
+[source,ruby]
+----
+json_data = '{"data": "test"}'
+
+# Method accepts 2 arguments - state ignored
+instance = Example.from_json(json_data, state: { source: "api" })
+instance.data  # => "test" (state not passed)
+----
+
+[source,ruby]
+----
+class ExampleWithState < Lutaml::Model::Serializable
+  attribute :data, :string
+
+  json do
+    map "data", to: :data, with: { from: :data_from_json }
+  end
+
+  # Method with 3 arguments - state IS passed (if provided)
+  def data_from_json(model, value, state)
+    source = state&.dig(:source) || "default"
     model.data = "#{source}: #{value}"
   end
 end
@@ -11624,19 +11743,19 @@ end
 ----
 json_data = '{"data": "test"}'
 
-# Method with 2 arguments - metadata not used
-instance1 = Example.from_json(json_data, metadata: { source: "api" })
-instance1.data  # => "test" (metadata ignored)
+# Method accepts 3 arguments - state is used
+instance = ExampleWithMetadata.from_json(json_data, state: { source: "api" })
+instance.data  # => "api: test"
 
-# Method with 3 arguments - metadata is used
-instance2 = Example.from_json(json_data, metadata: { source: "api" })
-instance2.data  # => "api: test"
+# State is nil if not provided
+instance2 = ExampleWithMetadata.from_json(json_data)
+instance2.data  # => "default: test"
 ----
 ====
 
 [example]
 ====
-Using metadata with different data types:
+Using state with different data types:
 
 [source,ruby]
 ----
@@ -11647,10 +11766,10 @@ class Processor < Lutaml::Model::Serializable
     map "result", to: :result, with: { from: :result_from_json }
   end
 
-  def result_from_json(model, value, metadata)
-    # metadata can contain any type of data
-    timestamp = metadata&.dig(:timestamp)
-    options = metadata&.dig(:options) || {}
+  def result_from_json(model, value, state)
+    # state can contain any type of data
+    timestamp = state&.dig(:timestamp)
+    options = state&.dig(:options) || {}
     
     prefix = options[:prefix] || ""
     model.result = "#{prefix}#{value}"
@@ -11662,11 +11781,11 @@ end
 ----
 json_data = '{"result": "processed"}'
 
-metadata = {
+state = {
   timestamp: Time.now,
   options: { prefix: "[", validate: true }
 }
-processor = Processor.from_json(json_data, metadata: metadata)
+processor = Processor.from_json(json_data, state: state)
 processor.result  # => "[processed]"
 ----
 ====
