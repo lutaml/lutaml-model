@@ -4,6 +4,7 @@ require_relative "config"
 require_relative "type"
 require_relative "attribute"
 require_relative "mapping_hash"
+require_relative "model_transformer"
 require_relative "json_adapter"
 require_relative "comparable_model"
 require_relative "schema_location"
@@ -290,12 +291,6 @@ module Lutaml
           mappings_for(:xml, register)&.root?
         end
 
-        def import_model_with_root_error(model, register = nil)
-          return unless model.mappings.key?(:xml) && model.root?(register)
-
-          raise Lutaml::Model::ImportModelWithRootError.new(model)
-        end
-
         def import_model_attributes(model, register_id = nil)
           if model.is_a?(Symbol) || model.is_a?(String)
             importable_models[:import_model_attributes] << model.to_sym
@@ -313,31 +308,13 @@ module Lutaml
           @choice_attributes.concat(deep_duplicate_choice_attributes(model))
         end
 
-        def import_model_mappings(model)
-          if model.is_a?(Symbol) || model.is_a?(String)
-            importable_models[:import_model_mappings] << model.to_sym
-            @models_imported = false
-            setup_trace_point
-            return
-          end
-
-          import_model_with_root_error(model)
+        def import_model_mappings(model, register_id = nil)
           Lutaml::Model::Config::AVAILABLE_FORMATS.each do |format|
             next unless model.mappings.key?(format)
 
-            mapping = model.mappings_for(format)
-            mapping = Utils.deep_dup(mapping)
-
             klass = ::Lutaml::Model::Config.mappings_class_for(format)
             @mappings[format] ||= klass.new
-
-            if format == :xml
-              @mappings[format].merge_mapping_attributes(mapping)
-              @mappings[format].merge_mapping_elements(mapping)
-              @mappings[format].merge_elements_sequence(mapping)
-            else
-              @mappings[format].mappings_hash.merge!(mapping.mappings_hash)
-            end
+            @mappings[format].import_model_mappings(model, register_id)
           end
         end
 
@@ -350,9 +327,8 @@ module Lutaml
             return
           end
 
-          import_model_with_root_error(model)
           import_model_attributes(model, register_id)
-          import_model_mappings(model)
+          import_model_mappings(model, register_id)
         end
 
         def importable_models
@@ -390,7 +366,7 @@ collection: false)
             end
 
             Utils.add_method_if_not_defined(klass, value.to_s) do
-              public_send(:"#{value}=")
+              public_send(:"#{value}?")
             end
 
             Utils.add_method_if_not_defined(klass, "#{value}=") do |val|
@@ -488,6 +464,7 @@ collection)
           %w[
             Nokogiri::XML::SyntaxError
             Ox::ParseError
+            REXML::ParseException
             TomlRB::ParseError
             Tomlib::ParseError
           ].each do |error_class|
@@ -597,12 +574,13 @@ collection)
           Lutaml::Model::Config::KEY_VALUE_FORMATS.each do |format|
             mappings[format] ||= KeyValueMapping.new(format)
             mappings[format].instance_eval(&block)
+            mappings[format].finalize(self)
           end
         end
 
         def mappings_for(format, register = nil)
-          if @mappings&.dig(:xml)&.finalized?
-            @mappings[:xml]&.ensure_mappings_imported!(extract_register_id(register))
+          if @mappings&.dig(format)&.finalized?
+            @mappings[format]&.ensure_mappings_imported!(extract_register_id(register))
           end
           mappings[format] || default_mappings(format)
         end
@@ -730,7 +708,6 @@ collection)
           importable_models.each do |method, models|
             models.uniq.each do |model|
               model_class = register.get_class_without_register(model)
-              import_model_with_root_error(model_class, register_id)
               @model.public_send(method, model_class, register_id)
             end
           end

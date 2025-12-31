@@ -1,5 +1,8 @@
 require "spec_helper"
 require "lutaml/model"
+require "lutaml/model/xml/nokogiri_adapter"
+require "lutaml/model/xml/ox_adapter"
+require "lutaml/model/xml/rexml_adapter"
 
 module MultipleMapping
   class Product < Lutaml::Model::Serializable
@@ -269,6 +272,10 @@ RSpec.describe MultipleMapping do
       it_behaves_like "xml adapter with multiple mappings",
                       Lutaml::Model::Xml::OxAdapter
     end
+
+    context "with Rexml adapter" do
+      it_behaves_like "xml adapter with multiple mappings", Lutaml::Model::Xml::RexmlAdapter
+    end
   end
 
   context "with CustomModel" do
@@ -348,6 +355,10 @@ RSpec.describe MultipleMapping do
       context "with Ox adapter" do
         it_behaves_like "xml adapter with custom methods",
                         Lutaml::Model::Xml::OxAdapter
+      end
+
+      context "with Rexml adapter" do
+        it_behaves_like "xml adapter with custom methods", Lutaml::Model::Xml::RexmlAdapter
       end
     end
   end

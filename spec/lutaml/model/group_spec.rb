@@ -165,6 +165,36 @@ module GroupSpec
   class ModelElement < Lutaml::Model::Serializable
     import_model Identifier
   end
+
+  class Address < Lutaml::Model::Serializable
+    attribute :street, :string
+    attribute :city, :string
+
+    key_value do
+      map :street, to: :street
+      map :city, to: :city
+    end
+  end
+
+  class Location < Lutaml::Model::Serializable
+    attribute :id, :string
+    import_model_attributes Address
+
+    key_value do
+      map :id, to: :id
+      import_model_mappings Address
+    end
+  end
+
+  class UserLocation < Lutaml::Model::Serializable
+    attribute :username, :string
+    import_model_attributes :location
+
+    key_value do
+      map :username, to: :username
+      import_model_mappings :location
+    end
+  end
 end
 
 RSpec.describe "Group" do
@@ -513,6 +543,52 @@ RSpec.describe "Group" do
         end
       end.to raise_error(Lutaml::Model::NoRootNamespaceError,
                          "Cannot assign namespace to `no_root`")
+    end
+  end
+
+  context "when importing model in key-value mappings" do
+    let(:custom_register) do
+      register = Lutaml::Model::Register.new(:custom_register)
+      Lutaml::Model::GlobalRegister.register(register)
+      register
+    end
+
+    it "imports mappings from the model correctly with default register" do
+      instance = GroupSpec::Location.new(
+        id: "LOC123",
+        street: "123 Main St",
+        city: "Metropolis",
+      )
+
+      expect(instance.to_yaml).to eq(
+        <<~YAML,
+          ---
+          id: LOC123
+          street: 123 Main St
+          city: Metropolis
+        YAML
+      )
+    end
+
+    it "imports mappings from the model correctly with custom register" do
+      custom_register.register_model(GroupSpec::Location, id: :location)
+      instance = GroupSpec::UserLocation.new(
+        id: "LOC123",
+        username: "johndoe",
+        street: "123 Main St",
+        city: "Metropolis",
+        __register: custom_register,
+      )
+
+      expect(instance.to_yaml(register: custom_register)).to eq(
+        <<~YAML,
+          ---
+          username: johndoe
+          id: LOC123
+          street: 123 Main St
+          city: Metropolis
+        YAML
+      )
     end
   end
 end
