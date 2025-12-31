@@ -178,9 +178,7 @@ module Lutaml
 
           class << self
             def setup_supported_types
-              SUPPORTED_DATA_TYPES
-                .reject { |_, simple_type| simple_type[:skippable] }
-                .each_with_object({}) do |(name, simple_type), hash|
+              SUPPORTED_DATA_TYPES.reject { |_, simple_type| simple_type[:skippable] }.each_with_object({}) do |(name, simple_type), hash|
                 str_name = name.to_s
                 new(str_name).tap do |instance|
                   instance.base_class = Utils.base_class_snake_case(simple_type[:class_name])

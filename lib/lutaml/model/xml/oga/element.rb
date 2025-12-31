@@ -49,6 +49,8 @@ module Lutaml
                      node.inner_text
                    when Moxml::Text
                      node.content
+                   when Moxml::Cdata
+                     node.native.text
                    end
 
             name = OgaAdapter.name_of(node)

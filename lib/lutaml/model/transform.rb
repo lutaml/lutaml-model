@@ -14,8 +14,8 @@ module Lutaml
 
       def initialize(context, register = nil)
         @context = context
-        @attributes = context.attributes
         @__register = register || Lutaml::Model::Config.default_register
+        @attributes = context.attributes(__register)
       end
 
       def model_class
@@ -59,8 +59,8 @@ module Lutaml
         ""
       end
 
-      def mappings_for(format)
-        context.mappings_for(format)
+      def mappings_for(format, register = nil)
+        context.mappings_for(format, register)
       end
 
       def defined_mappings_for(format)

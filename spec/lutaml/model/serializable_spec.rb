@@ -278,7 +278,7 @@ RSpec.describe Lutaml::Model::Serializable do
 
     it "raises an error if the attribute does not exist" do
       expect { RestrictTestClass.restrict(:bar, collection: 1..2) }
-        .to raise_error(NoMethodError)
+        .to raise_error(Lutaml::Model::UndefinedAttributeError, "bar is not defined in RestrictTestClass")
     end
   end
 
@@ -559,6 +559,7 @@ RSpec.describe Lutaml::Model::Serializable do
           nokogiri: "<<<<name>John Doe</name>",
           ox: "<<<<name>John Doe</name>",
           oga: '<person xmlns="http://example.com" xmlns="http://another.com"><name>John Doe</name></person>',
+          rexml: "<root><tag></root>",
         },
         json: {
           standard_json: '{"name": "John", "age": 30,}',
@@ -600,6 +601,7 @@ RSpec.describe Lutaml::Model::Serializable do
       it_behaves_like "invalid format error", :xml, :nokogiri, :from_xml, :xml
       it_behaves_like "invalid format error", :xml, :ox, :from_xml, :xml
       it_behaves_like "invalid format error", :xml, :oga, :from_xml, :xml
+      it_behaves_like "invalid format error", :xml, :rexml, :from_xml, :xml
     end
 
     describe "invalid format handling for invalid JSON" do

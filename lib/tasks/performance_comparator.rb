@@ -11,7 +11,7 @@ class PerformanceComparator
   BENCH_SCRIPT = File.join(TMP_PERF_DIR, "benchmark_runner.rb")
 
   BENCHMARK_MATRIX = {
-    xml: %i[nokogiri ox oga],
+    xml: %i[nokogiri ox oga rexml],
     json: %i[standard_json multi_json oj],
     yaml: %i[standard_yaml],
     toml: %i[toml_rb tomlib],

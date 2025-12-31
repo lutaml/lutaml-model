@@ -1,36 +1,42 @@
-require "nokogiri"
+require "rexml/document"
+require "moxml"
+require "moxml/adapter/rexml"
 require_relative "document"
-require_relative "builder/nokogiri"
+require_relative "rexml/element"
+require_relative "builder/rexml"
 require_relative "namespace_collector"
 require_relative "declaration_planner"
 
 module Lutaml
   module Model
     module Xml
-      class NokogiriAdapter < Document
+      class RexmlAdapter < Document
+        TEXT_CLASSES = [Moxml::Text, Moxml::Cdata].freeze
+
         def self.parse(xml, options = {})
-          parsed = Nokogiri::XML(xml, nil, encoding(xml, options))
-          @root = NokogiriElement.new(parsed.root)
-          new(@root, parsed.encoding)
+          parse_encoding = encoding(xml, options)
+          xml = normalize_xml_for_rexml(xml)
+
+          parsed = Moxml::Adapter::Rexml.parse(xml)
+          root_element = parsed.root || parse_with_escaped_ampersands(xml)
+
+          if root_element.nil?
+            raise REXML::ParseException.new(
+              "Malformed XML: Unable to parse the provided XML document. " \
+              "The document structure is invalid or incomplete.",
+            )
+          end
+
+          @root = Rexml::Element.new(root_element, target_encoding: parse_encoding)
+          new(@root, parse_encoding)
         end
 
         def to_xml(options = {})
-          builder_options = {}
+          builder_options = { encoding: determine_encoding(options) }
 
-          if options.key?(:encoding)
-            unless options[:encoding].nil?
-              builder_options[:encoding] =
-                options[:encoding]
-            end
-          elsif options.key?(:parse_encoding)
-            builder_options[:encoding] = options[:parse_encoding]
-          else
-            builder_options[:encoding] = "UTF-8"
-          end
-
-          builder = Builder::Nokogiri.build(builder_options) do |xml|
-            if root.is_a?(Lutaml::Model::Xml::NokogiriElement)
-              root.build_xml(xml)
+          builder = Builder::Rexml.build(builder_options) do |xml|
+            if @root.is_a?(Rexml::Element)
+              @root.build_xml(xml)
             else
               # THREE-PHASE ARCHITECTURE
               mapper_class = options[:mapper_class] || @root.class
@@ -49,43 +55,107 @@ module Lutaml
             end
           end
 
-          xml_options = {}
-          if options[:pretty]
-            xml_options[:indent] = 2
-          end
-
-          xml_data = builder.doc.root.to_xml(xml_options)
+          xml_data = builder.to_xml
           options[:declaration] ? declaration(options) + xml_data : xml_data
         end
 
-        # Build element using prepared namespace declaration plan
-        #
-        # @param xml [Builder] the XML builder
-        # @param element [Object] the model instance
-        # @param plan [Hash] the declaration plan from DeclarationPlanner
-        # @param options [Hash] serialization options
+        def attributes_hash(element)
+          result = Lutaml::Model::MappingHash.new
+
+          element.attributes.each_value do |attr|
+            if attr.name == "schemaLocation"
+              result["__schema_location"] = {
+                namespace: attr.namespace,
+                prefix: attr.namespace.prefix,
+                schema_location: attr.value,
+              }
+            else
+              result[self.class.namespaced_attr_name(attr)] = attr.value
+            end
+          end
+
+          result
+        end
+
+        def self.name_of(element)
+          return nil if element.nil?
+
+          case element
+          when Moxml::Text
+            "text"
+          when Moxml::Cdata
+            "#cdata-section"
+          else
+            element.name
+          end
+        end
+
+        def self.prefixed_name_of(node)
+          return name_of(node) if TEXT_CLASSES.include?(node.class)
+
+          [node&.namespace&.prefix, node.name].compact.join(":")
+        end
+
+        def self.text_of(element)
+          element.content
+        end
+
+        def self.namespaced_attr_name(attribute)
+          attr_ns = attribute.namespace
+          attr_name = attribute.name
+          return attr_name unless attr_ns
+
+          prefix = attr_name == "lang" ? attr_ns.prefix : attr_ns.uri
+          [prefix, attr_name].compact.join(":")
+        end
+
+        def self.namespaced_name_of(node)
+          return name_of(node) unless node.respond_to?(:namespace)
+
+          [node&.namespace&.uri, node.name].compact.join(":")
+        end
+
+        def order
+          children.map do |child|
+            type = child.text? ? "Text" : "Element"
+            Element.new(type, child.unprefixed_name)
+          end
+        end
+
+        def self.order_of(element)
+          element.children.map do |child|
+            instance_args = if TEXT_CLASSES.include?(child.class)
+                              ["Text", "text"]
+                            else
+                              ["Element", name_of(child)]
+                            end
+            Element.new(*instance_args)
+          end
+        end
+
+        def self.normalize_xml_for_rexml(xml)
+          return xml unless xml.is_a?(String) && xml.encoding.to_s != "UTF-8"
+
+          xml.encode("UTF-8")
+        end
+
+        def self.parse_with_escaped_ampersands(xml)
+          return nil unless xml.is_a?(String)
+
+          escaped_xml = xml.gsub(/&(?![a-zA-Z]+;|#[0-9]+;|#x[0-9a-fA-F]+;)/, "&amp;")
+          Moxml::Adapter::Rexml.parse(escaped_xml).root
+        end
+
         def build_element_with_plan(xml, element, plan, options = {})
-          # Provide default empty plan if nil (e.g., for custom methods)
+          mapper_class = options[:mapper_class] || element.class
+          xml_mapping = mapper_class.mappings_for(:xml)
+          return xml unless xml_mapping
+
           plan ||= {
             namespaces: {},
             children_plans: {},
             type_namespaces: {},
           }
-
-          mapper_class = options[:mapper_class] || element.class
-
-          # NEW: Handle simple types that don't have mappings
-          unless mapper_class.respond_to?(:mappings_for)
-            tag_name = options[:tag_name] || "element"
-            xml.create_and_add_element(tag_name) do |inner_xml|
-              inner_xml.text(element.to_s)
-            end
-            return xml
-          end
-
-          xml_mapping = mapper_class.mappings_for(:xml)
-          return xml unless xml_mapping
-
           # TYPE-ONLY MODELS: No element wrapper, serialize children directly
           # BUT if we have a tag_name in options, that means parent wants a wrapper
           if xml_mapping.no_element?
@@ -174,9 +244,6 @@ module Lutaml
               prefix = decl[/xmlns:(\w+)=/, 1]
               attributes["xmlns:#{prefix}"] = ns_class.uri
             else
-              # Only declare namespaces used by the root element itself
-              next unless ns_config[:sources]&.include?("root_element")
-
               # Default namespace: "xmlns=\"uri\""
               attributes["xmlns"] = ns_class.uri
             end
@@ -254,8 +321,8 @@ module Lutaml
           tag_name = options[:tag_name] || xml_mapping.root_element
           return if options[:except]&.include?(tag_name)
 
-          xml.create_and_add_element(tag_name, attributes: attributes,
-                                               prefix: prefix) do
+          xml.create_and_add_element(tag_name, prefix: prefix,
+                                               attributes: attributes.compact) do
             # Call attribute custom methods now that element is created
             attribute_custom_methods.each do |attribute_rule|
               mapper_class.new.send(attribute_rule.custom_methods[:to],
@@ -291,8 +358,7 @@ module Lutaml
             attribute_def = mapper_class.attributes[element_rule.to]
 
             # For delegated attributes, attribute_def might be nil since the attribute
-            # doesn't exist directly on the main class (e.g., :color doesn't exist on Ceramic,
-            # it exists on the delegated :glaze object)
+            # doesn't exist directly on the main class
             next unless attribute_def || element_rule.delegate
 
             # Handle delegation - if rule has delegate option, get value from delegated object
@@ -303,7 +369,6 @@ module Lutaml
               if delegate_obj.respond_to?(element_rule.to)
                 value = delegate_obj.send(element_rule.to)
               end
-
             else
               # Use safe attribute access for non-delegated attributes
               value = if element.respond_to?(element_rule.to)
@@ -316,7 +381,7 @@ module Lutaml
             # Get child's plan if available
             child_plan = plan[:children_plans][element_rule.to]
 
-            # NEW: Check if value is a Collection instance
+            # Check if value is a Collection instance
             is_collection_instance = value.is_a?(Lutaml::Model::Collection)
 
             if value && (attribute_def&.type(register)&.<=(Lutaml::Model::Serialize) || is_collection_instance)
@@ -328,20 +393,13 @@ module Lutaml
                 child_plan,
                 options,
               )
-            else
-              # Apply transformations BEFORE adding to XML
-              if attribute_def
-                value = ExportTransformer.call(value, element_rule,
-                                               attribute_def, format: :xml)
-              end
+            elsif element_rule.delegate && attribute_def.nil?
               # Handle non-model values (strings, etc.)
-              if element_rule.delegate && attribute_def.nil?
-                add_simple_value(xml, element_rule, value, nil, plan: plan,
-                                                                mapping: xml_mapping)
-              else
-                add_simple_value(xml, element_rule, value, attribute_def,
-                                 plan: plan, mapping: xml_mapping)
-              end
+              add_simple_value(xml, element_rule, value, nil, plan: plan,
+                                                              mapping: xml_mapping)
+            else
+              add_simple_value(xml, element_rule, value, attribute_def,
+                               plan: plan, mapping: xml_mapping)
             end
           end
 
@@ -367,58 +425,15 @@ module Lutaml
 
             # Handle custom methods
             if element_rule.custom_methods[:to]
-              # Custom methods usually handle their own iteration/logic, but here we are inside an ordered loop.
-              # If the custom method handles the whole attribute, we might be calling it multiple times if we are not careful.
-              # However, element_order usually contains individual items for mixed content.
-              # For non-mixed ordered content, it might contain the attribute name.
-
-              # If it's a custom method, we delegate and hope it handles the current context or value correctly.
-              # But wait, custom methods usually take the whole model.
-              # If we are iterating element_order, we might be looking at specific values.
-
-              # For now, let's assume custom methods are not used with mixed content in a way that breaks this,
-              # or that they handle the specific value if we could pass it.
-              # But the signature is (model, parent, doc).
-
-              # If we call it here, it might render ALL values of that attribute.
-              # This is tricky for ordered content if the attribute has multiple values interspersed with others.
-
-              # If custom method is used, maybe we should skip it in element_order loop and rely on it being called?
-              # But then order is lost.
-
-              # Let's assume for now custom methods are compatible with standard rendering or not used in mixed/ordered complex scenarios.
-              # Or we call it once and track it?
-
-              # Re-reading Document#build_ordered_element:
-              # It calls add_to_xml. add_to_xml handles custom_methods.
-              # So yes, it calls custom method.
-
               mapper_class.new.send(element_rule.custom_methods[:to], element,
                                     xml.parent, xml)
               next
             end
 
-            # Handle delegation - get attribute definition and value from delegated object
-            attribute_def = nil
-            value = nil
-
-            if element_rule.delegate
-              # Get the delegated object
-              delegate_obj = element.send(element_rule.delegate)
-              if delegate_obj.respond_to?(element_rule.to)
-                # Get attribute definition from delegated object's class
-                attribute_def = delegate_obj.class.attributes[element_rule.to]
-                # Get value from delegated object
-                value = delegate_obj.send(element_rule.to)
-              end
-
-            else
-              # Normal (non-delegated) attribute handling
-              attribute_def = mapper_class.attributes[element_rule.to]
-              value = if element.respond_to?(element_rule.to)
-                        element.send(element_rule.to)
-                      end
-            end
+            attribute_def = mapper_class.attributes[element_rule.to]
+            value = if element.respond_to?(element_rule.to)
+                      element.send(element_rule.to)
+                    end
 
             if element_rule == xml_mapping.content_mapping
               next if element_rule.cdata && object.text?
@@ -427,7 +442,7 @@ module Lutaml
               text = text[curr_index] if text.is_a?(Array)
 
               if element.mixed?
-                xml.add_text(xml.parent, text, cdata: element_rule.cdata)
+                xml.add_text(xml, text, cdata: element_rule.cdata)
                 next
               end
 
@@ -457,12 +472,6 @@ module Lutaml
                   options,
                 )
               else
-                # Apply transformations if attribute_def exists
-                if attribute_def
-                  current_value = ExportTransformer.call(current_value,
-                                                         element_rule, attribute_def, format: :xml)
-                end
-
                 add_simple_value(xml, element_rule, current_value, attribute_def,
                                  plan: plan, mapping: xml_mapping)
               end
@@ -470,13 +479,11 @@ module Lutaml
           end
 
           unless content.empty?
-            xml.text content.join
+            xml.add_text(xml, content.join)
           end
         end
 
-        # Handle nested model elements with plan
-        def handle_nested_elements_with_plan(xml, value, rule, attribute,
-child_plan, options)
+        def handle_nested_elements_with_plan(xml, value, rule, attribute, plan, options)
           element_options = options.merge(
             rule: rule,
             attribute: attribute,
@@ -484,23 +491,9 @@ child_plan, options)
             mapper_class: attribute.type(register), # Override with child's type
           )
 
-          # CRITICAL FIX: For wrappers (like CurveArrayProperty),
-          # child_plan is the plan for the wrapper, which contains children_plans for the actual items.
-          # When serializing the wrapper, we'll recursively call build_element_with_plan,
-          # which will use child_plan[:children_plans] to find plans for the wrapper's children.
-          # So we don't need special logic here - just pass child_plan as-is.
-
           if value.is_a?(Lutaml::Model::Collection)
             value.collection.each do |val|
-              # For polymorphic collections, use each item's actual class
-              # Check both attribute polymorphic flag and value's class polymorphic markers
-              item_mapper_class = if polymorphic_value?(attribute, val)
-                                    val.class
-                                  else
-                                    attribute.type(register)
-                                  end
-              item_options = element_options.merge(mapper_class: item_mapper_class)
-              build_element_with_plan(xml, val, child_plan, item_options)
+              build_element_with_plan(xml, val, plan, element_options)
             end
             return
           end
@@ -508,42 +501,24 @@ child_plan, options)
           case value
           when Array
             value.each do |val|
-              # For polymorphic arrays, use each item's actual class
-              item_mapper_class = if polymorphic_value?(attribute, val)
-                                    val.class
-                                  else
-                                    attribute.type(register)
-                                  end
-              item_options = element_options.merge(mapper_class: item_mapper_class)
-              build_element_with_plan(xml, val, child_plan, item_options)
+              if plan
+                build_element_with_plan(xml, val, plan, element_options)
+              else
+                # Fallback for cases without plan
+                build_element(xml, val, element_options)
+              end
             end
           else
-            # For single polymorphic values, use the value's actual class
-            if polymorphic_value?(attribute, value)
-              element_options = element_options.merge(mapper_class: value.class)
+            if plan
+              build_element_with_plan(xml, value, plan, element_options)
+            else
+              # Fallback for cases without plan
+              build_element(xml, value, element_options)
             end
-            build_element_with_plan(xml, value, child_plan, element_options)
           end
         end
 
-        def polymorphic_value?(attribute, value)
-          return false unless attribute
-          return false unless value.respond_to?(:class)
-
-          # Check if attribute explicitly declares polymorphism
-          return true if attribute.options[:polymorphic] || attribute.polymorphic?
-
-          # Check if value's class is part of a polymorphic hierarchy
-          # (has an attribute with polymorphic_class: true)
-          value_class = value.class
-          return false unless value_class.respond_to?(:attributes)
-
-          value_class.attributes.values.any?(&:polymorphic?)
-        end
-
-        # Add simple (non-model) values to XML
-        def add_simple_value(xml, rule, value, attribute, plan: nil,
-mapping: nil)
+        def add_simple_value(xml, rule, value, attribute, plan: nil, mapping: nil)
           # Apply value_map transformation BEFORE checking if should render
           value = rule.render_value_for(value) if rule
 
@@ -573,8 +548,7 @@ mapping: nil)
 
             # Non-empty array: create element for each value
             value.each do |val|
-              add_simple_value(xml, rule, val, attribute, plan: plan,
-                                                          mapping: mapping)
+              add_simple_value(xml, rule, val, attribute, plan: plan, mapping: mapping)
             end
             return
           end
@@ -683,7 +657,7 @@ mapping: nil)
             if plan && plan[:namespaces]
               # Find namespace entry that matches this URI
               ns_entry = plan[:namespaces].find do |_key, ns_config|
-                ns_config[:ns_object].uri == element_ns_uri && ns_config[:sources]&.include?(rule.to)
+                ns_config[:ns_object].uri == element_ns_uri
               end
               if ns_entry
                 _key, ns_config = ns_entry
@@ -705,8 +679,8 @@ mapping: nil)
               end
             end
           end
-          # Case 5: explicit namespace: nil is handled by namespace_set? && namespace_param == nil
-          # Case 6: truly unqualified (element_ns_uri.nil?) falls through with use_prefix = false
+          # Case 6: explicit namespace: nil is handled by namespace_set? && namespace_param == nil
+          # Case 7: truly unqualified (element_ns_uri.nil?) falls through with use_prefix = false
 
           # Now resolve with correct use_prefix
           ns_info = rule.resolve_namespace(
@@ -722,11 +696,7 @@ mapping: nil)
           # Use resolved namespace directly, BUT handle special cases:
           # 1. namespace: :inherit → ALWAYS use parent prefix (resolved has parent URI)
           # 2. Truly unqualified elements (element_ns_uri==nil) → NO prefix unless :inherit
-          resolved_prefix = if rule.namespace_param == :inherit
-                              # Explicit :inherit - always use parent's prefix
-                              parent_prefix
-                            elsif use_prefix && parent_prefix
-                              # Element has same namespace as parent and parent uses prefix
+          resolved_prefix = if rule.namespace_param == :inherit || (use_prefix && parent_prefix)
                               parent_prefix
                             else
                               ns_info[:prefix]
@@ -736,18 +706,7 @@ mapping: nil)
           attributes = {}
 
           # Check if this namespace needs local declaration (out of scope)
-          if !resolved_prefix && !ns_info[:uri].nil? && plan && plan[:namespaces]
-            # Handle default namespace local declaration
-            ns_entry = plan[:namespaces].find do |_key, ns_config|
-              ns_config[:ns_object].uri == ns_info[:uri] &&
-                ns_config[:ns_object].prefix_default.nil?
-            end
-
-            if ns_entry
-              _key, ns_config = ns_entry
-              attributes["xmlns"] = ns_config[:ns_object].uri
-            end
-          elsif resolved_prefix && plan && plan[:namespaces]
+          if resolved_prefix && plan && plan[:namespaces]
             # Find the namespace config for this prefix/URI
             ns_entry = plan[:namespaces].find do |_key, ns_config|
               ns_config[:ns_object].prefix_default == resolved_prefix ||
@@ -769,7 +728,7 @@ mapping: nil)
             if rule.render_nil_as_blank? || rule.render_nil_as_empty?
               # render_nil: :as_blank or :as_empty - create blank element without xsi:nil
               xml.create_and_add_element(rule.name,
-                                         attributes: attributes.empty? ? nil : attributes,
+                                         attributes: attributes,
                                          prefix: resolved_prefix)
             else
               # render_nil: :as_nil or default - create element with xsi:nil="true"
@@ -784,7 +743,7 @@ mapping: nil)
             nil
           elsif Utils.empty?(value)
             xml.create_and_add_element(rule.name,
-                                       attributes: attributes.empty? ? nil : attributes,
+                                       attributes: attributes,
                                        prefix: resolved_prefix)
           elsif rule.raw_mapping?
             xml.add_xml_fragment(xml, value)
@@ -792,17 +751,17 @@ mapping: nil)
             # Check if value is Hash type that needs wrapper - do this BEFORE any wrapping/serialization
             # Value is already transformed by ExportTransformer before reaching here
             xml.create_and_add_element(rule.name,
-                                       attributes: attributes.empty? ? nil : attributes,
+                                       attributes: attributes,
                                        prefix: resolved_prefix) do
               value.each do |key, val|
                 xml.create_and_add_element(key.to_s) do
-                  xml.text(val.to_s)
+                  xml.add_text(xml, val.to_s)
                 end
               end
             end
           else
             xml.create_and_add_element(rule.name,
-                                       attributes: attributes.empty? ? nil : attributes,
+                                       attributes: attributes,
                                        prefix: resolved_prefix) do
               add_value(xml, value, attribute, cdata: rule.cdata)
             end
@@ -811,139 +770,96 @@ mapping: nil)
 
         private
 
-        def prefix_xml(xml, mapping, options)
-          if options.key?(:namespace_prefix)
-            xml[options[:namespace_prefix]] if options[:namespace_prefix]
-          elsif mapping.namespace_prefix
-            xml[mapping.namespace_prefix]
-          end
-          xml
-        end
-      end
-
-      class NokogiriElement < XmlElement
-        def initialize(node, root_node: nil, default_namespace: nil)
-          if root_node
-            node.namespaces.each do |prefix, name|
-              namespace = XmlNamespace.new(name, prefix)
-
-              root_node.add_namespace(namespace)
-            end
-          end
-
-          attributes = {}
-
-          # Using `attribute_nodes` instead of `attributes` because
-          # `attribute_nodes` handles name collisions as well
-          # More info: https://devdocs.io/nokogiri/nokogiri/xml/node#method-i-attributes
-          node.attribute_nodes.each do |attr|
-            name = if attr.namespace
-                     "#{attr.namespace.prefix}:#{attr.name}"
-                   else
-                     attr.name
-                   end
-
-            attributes[name] = XmlAttribute.new(
-              name,
-              attr.value,
-              namespace: attr.namespace&.href,
-              namespace_prefix: attr.namespace&.prefix,
-            )
-          end
-
-          # Detect if xmlns="" is explicitly set (explicit no namespace)
-          # Use shared helper method for consistency across all adapters
-          explicit_no_namespace = XmlElement.detect_explicit_no_namespace(
-            has_empty_xmlns: node.namespaces.key?("xmlns") && node.namespaces["xmlns"] == "",
-            node_namespace_nil: node.namespace.nil?,
-          )
-
-          # Set default namespace for root, or inherit from parent for children
-          if !node.namespace&.prefix
-            default_namespace = node.namespace&.href ||
-              root_node&.instance_variable_get(:@default_namespace)
-          end
-
-          super(
-            node,
-            attributes,
-            parse_all_children(node, root_node: root_node || self,
-                                     default_namespace: default_namespace),
-            node.text,
-            name: node.name,
-            parent_document: root_node,
-            namespace_prefix: node.namespace&.prefix,
-            default_namespace: default_namespace,
-            explicit_no_namespace: explicit_no_namespace
-          )
+        def determine_encoding(options)
+          options[:encoding] ||
+            options[:parse_encoding] ||
+            @encoding ||
+            "UTF-8"
         end
 
-        def text?
-          # false
-          children.empty? && text.length.positive?
-        end
+        def build_ordered_element(builder, element, options = {})
+          mapper_class = determine_mapper_class(element, options)
+          xml_mapping = mapper_class.mappings_for(:xml)
+          return builder unless xml_mapping
 
-        def to_xml
-          return text if text?
+          attributes = build_attributes(element, xml_mapping, options).compact
+          prefix = determine_namespace_prefix(options, xml_mapping)
+          prefixed_xml = builder.add_namespace_prefix(prefix)
+          tag_name = options[:tag_name] || xml_mapping.root_element
 
-          build_xml.doc.root.to_xml
-        end
-
-        def inner_xml
-          children.map(&:to_xml).join
-        end
-
-        def build_xml(builder = nil)
-          builder ||= Builder::Nokogiri.build
-
-          if name == "text"
-            builder.text(text)
-          else
-            builder.public_send(name, build_attributes(self)) do |xml|
-              children.each do |child|
-                child.build_xml(xml)
-              end
-            end
-          end
-
-          builder
-        end
-
-        private
-
-        def parse_children(node, root_node: nil)
-          node.children.select(&:element?).map do |child|
-            NokogiriElement.new(child, root_node: root_node)
+          prefixed_xml.create_and_add_element(tag_name, attributes: attributes) do |el|
+            process_element_order(el, element, xml_mapping, mapper_class, options)
           end
         end
 
-        def parse_all_children(node, root_node: nil, default_namespace: nil)
-          node.children.map do |child|
-            NokogiriElement.new(child, root_node: root_node,
-                                       default_namespace: default_namespace)
+        def process_element_order(builder, element, xml_mapping, mapper_class, options)
+          index_hash = {}
+          content = []
+
+          element.element_order.each do |object|
+            process_ordered_object(builder, element, object, xml_mapping, mapper_class,
+                                   index_hash, content, options)
+          end
+
+          builder.add_text(builder, content.join)
+        end
+
+        def process_ordered_object(builder, element, object, xml_mapping, mapper_class,
+                                    index_hash, content, options)
+          curr_index = increment_object_index(index_hash, object)
+          element_rule = xml_mapping.find_by_name(object.name, type: object.type)
+
+          return if skip_element_rule?(element_rule, options)
+
+          attribute_def = attribute_definition_for(element, element_rule, mapper_class: mapper_class)
+          value = attribute_value_for(element, element_rule)
+
+          return if skip_cdata_text?(element_rule, xml_mapping, object)
+
+          handle_ordered_element_content(builder, element, element_rule, xml_mapping,
+                                         attribute_def, value, curr_index, content, options, mapper_class)
+        end
+
+        def increment_object_index(index_hash, object)
+          object_key = "#{object.name}-#{object.type}"
+          index_hash[object_key] ||= -1
+          index_hash[object_key] += 1
+        end
+
+        def skip_element_rule?(element_rule, options)
+          element_rule.nil? || options[:except]&.include?(element_rule.to)
+        end
+
+        def skip_cdata_text?(element_rule, xml_mapping, object)
+          element_rule == xml_mapping.content_mapping && element_rule.cdata && object.text?
+        end
+
+        def handle_ordered_element_content(builder, element, element_rule, xml_mapping,
+                                            attribute_def, value, curr_index, content, options, mapper_class)
+          if element_rule == xml_mapping.content_mapping
+            handle_ordered_content_text(builder, element, element_rule, xml_mapping, curr_index, content)
+          elsif !value.nil? || element_rule.render_nil?
+            add_ordered_element_value(builder, element, attribute_def, value, curr_index,
+                                      element_rule, options, mapper_class)
           end
         end
 
-        def build_attributes(node, _options = {})
-          attrs = node.attributes.transform_values(&:value)
+        def handle_ordered_content_text(builder, element, element_rule, xml_mapping, curr_index, content)
+          text = xml_mapping.content_mapping.serialize(element)
+          text = text[curr_index] if text.is_a?(Array)
 
-          attrs.merge(build_namespace_attributes(node))
+          return builder.add_text(builder, text, cdata: element_rule.cdata) if element.mixed?
+
+          content << text
         end
 
-        def build_namespace_attributes(node)
-          namespace_attrs = {}
+        def add_ordered_element_value(builder, element, attribute_def, value, curr_index,
+                                       element_rule, options, mapper_class)
+          value = value[curr_index] if attribute_def.collection?
 
-          node.own_namespaces.each_value do |namespace|
-            namespace_attrs[namespace.attr_name] = namespace.uri
-          end
-
-          node.children.each do |child|
-            namespace_attrs = namespace_attrs.merge(
-              build_namespace_attributes(child),
-            )
-          end
-
-          namespace_attrs
+          add_to_xml(builder, element, nil, value,
+                     options.merge(attribute: attribute_def, rule: element_rule,
+                                   mapper_class: mapper_class))
         end
       end
     end

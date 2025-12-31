@@ -2,6 +2,7 @@ require "spec_helper"
 
 require "lutaml/model/xml/ox_adapter"
 require "lutaml/model/xml/oga_adapter"
+require "lutaml/model/xml/rexml_adapter"
 require_relative "../../support/xml_mapping_namespaces"
 
 # Define a sample class for testing map_content
@@ -569,6 +570,7 @@ RSpec.describe Lutaml::Model::Xml::Mapping do
           Lutaml::Model::Xml::NokogiriAdapter => nokogiri_pattern,
           Lutaml::Model::Xml::OxAdapter => oga_ox_pattern,
           Lutaml::Model::Xml::OgaAdapter => oga_ox_pattern,
+          Lutaml::Model::Xml::RexmlAdapter => oga_ox_pattern,
         }
       end
 
@@ -1385,6 +1387,10 @@ RSpec.describe Lutaml::Model::Xml::Mapping do
   end
 
   describe Lutaml::Model::Xml::OgaAdapter do
+    it_behaves_like "having XML Mappings", described_class
+  end
+
+  describe Lutaml::Model::Xml::RexmlAdapter do
     it_behaves_like "having XML Mappings", described_class
   end
 end
