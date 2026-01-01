@@ -318,7 +318,7 @@ RSpec.describe "namespace_scope with vCard" do
                 <postal-code>12345</postal-code>
                 <country-name>USA</country-name>
               </address>
-              <dcterms:created>2024-06-01T12:00:00+00:00</dcterms:created>
+              <dcterms:created>2024-06-01T12:00:00Z</dcterms:created>
             </contact>
             <contact>
               <dc:title>Contact: Robin Hoodwella</dc:title>
@@ -336,7 +336,7 @@ RSpec.describe "namespace_scope with vCard" do
                 <postal-code>67890</postal-code>
                 <country-name>USA</country-name>
               </address>
-              <dcterms:created>2024-06-02T15:30:00+00:00</dcterms:created>
+              <dcterms:created>2024-06-02T15:30:00Z</dcterms:created>
             </contact>
           </vCard>
         XML
@@ -427,7 +427,7 @@ RSpec.describe "namespace_scope with vCard" do
                 <postal-code>12345</postal-code>
                 <country-name>USA</country-name>
               </address>
-              <dcterms:created xmlns:dcterms="http://purl.org/dc/terms/">2024-06-01T12:00:00+00:00</dcterms:created>
+              <dcterms:created xmlns:dcterms="http://purl.org/dc/terms/">2024-06-01T12:00:00Z</dcterms:created>
             </contact>
             <contact>
               <dc:title xmlns:dc="http://purl.org/dc/elements/1.1/">Contact: Robin Hoodwella</dc:title>
@@ -445,7 +445,7 @@ RSpec.describe "namespace_scope with vCard" do
                 <postal-code>67890</postal-code>
                 <country-name>USA</country-name>
               </address>
-              <dcterms:created xmlns:dcterms="http://purl.org/dc/terms/">2024-06-02T15:30:00+00:00</dcterms:created>
+              <dcterms:created xmlns:dcterms="http://purl.org/dc/terms/">2024-06-02T15:30:00Z</dcterms:created>
             </contact>
           </vCard>
         XML
