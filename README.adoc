@@ -4542,28 +4542,126 @@ count = collection.count
 
 // ==== Collection validation
 
-// Collections can define validation rules for their elements.
+Collections can define validation rules for their elements and for the collection as a whole.
 
-// [example]
-// ====
-// [source,ruby]
-// ----
-// class PublicationCollection < Lutaml::Model::Collection
-//   instances(:publications, Publication) do
-//     validates :year, numericality: { greater_than: 1900 }
+===== Instance-level validation
 
-//     validate :must_have_author
+Instance-level validations are applied to each individual item in the collection:
 
-//     def must_have_author(publications)
-//       publications.each do |publication|
-//         next unless publication.author.nil?
-//         errors.add(:author, "`#{publication.title}` must have an author")
-//       end
-//     end
-//   end
-// end
-// ----
-// ====
+[example]
+====
+[source,ruby]
+----
+class PublicationCollection < Lutaml::Model::Collection
+  instances(:publications, Publication) do
+    validates :year, numericality: { greater_than: 1900 }
+    validates :title, presence: true
+
+    validate :must_have_author
+
+    def must_have_author(publications)
+      publications.each do |publication|
+        next unless publication.author.nil?
+        errors.add(:author, "`#{publication.title}` must have an author")
+      end
+    end
+  end
+end
+----
+====
+
+===== Collection-level validation
+
+Collection-level validations are applied to the entire collection as a unit. These are useful for enforcing constraints that depend on the collection as a whole, such as uniqueness across items, collection size requirements, or business rules that involve multiple items.
+
+====== Built-in collection validators
+
+[example]
+====
+[source,ruby]
+----
+class UniquePublicationCollection < Lutaml::Model::Collection
+  instances :publications, Publication
+  
+  # Ensure uniqueness of IDs across all publications
+  validates_uniqueness_of :id, message: "Publication IDs must be unique"
+  
+  # Ensure collection size constraints
+  validates_min_count 2, message: "Must have at least 2 publications"
+  validates_max_count 10, message: "Cannot have more than 10 publications"
+  
+  # Ensure all publications have required fields
+  validates_all_present :author, message: "All publications must have an author"
+  validates_all_present :year
+end
+----
+====
+
+====== Custom collection validators
+
+[example]
+====
+[source,ruby]
+----
+class BusinessRuleCollection < Lutaml::Model::Collection
+  instances :publications, Publication
+  
+  # Custom validation: ensure publication years are sequential
+  validate_collection do |publications, errors|
+    years = publications.map(&:year).compact.sort
+    (1...years.length).each do |i|
+      unless years[i] == years[i-1] + 1
+        errors.add(:collection, "Publication years must be sequential")
+        break
+      end
+    end
+  end
+  
+  # Another custom validation: ensure category diversity
+  validate_collection do |publications, errors|
+    categories = publications.map(&:category).compact.uniq
+    if categories.length < 2
+      errors.add(:collection, "Must have publications from at least 2 categories")
+    end
+  end
+end
+----
+====
+
+====== Combining instance and collection validations
+
+[example]
+====
+[source,ruby]
+----
+class ComprehensiveCollection < Lutaml::Model::Collection
+  # Instance-level validations (for each item)
+  instances(:publications, Publication) do
+    validates :year, numericality: { greater_than: 1900 }
+    validates :title, presence: true
+  end
+  
+  # Collection-level validations (for the collection as a whole)
+  validates_uniqueness_of :id
+  validates_min_count 1
+  validates_all_present :author
+end
+
+# Usage
+collection = ComprehensiveCollection.new([...])
+collection.validate!  # Runs both instance and collection validations
+----
+====
+
+Available collection validation methods:
+
+* `validates_uniqueness_of(field, message: nil)` - Ensures field values are unique across all items
+* `validates_min_count(count, message: nil)` - Ensures minimum number of items in collection
+* `validates_max_count(count, message: nil)` - Ensures maximum number of items in collection
+* `validates_all_present(field, message: nil)` - Ensures all items have the specified field with a non-blank value
+* `validate_collection(&block)` - Define custom validation logic that receives the collection and errors object
+
+See full documentation for collection validations at link:docs/collection_validation.adoc[Collection Validations].
 
 ==== Initialization
 

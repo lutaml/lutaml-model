@@ -1,3 +1,5 @@
+require "set"
+
 module Lutaml
   module Model
     class Collection < Lutaml::Model::Serializable
@@ -9,6 +11,7 @@ module Lutaml
           instance_name
           sort_by_field
           sort_direction
+          collection_validations
         ].freeze
 
         ALLOWED_OPTIONS = %i[polymorphic].freeze
@@ -27,7 +30,8 @@ module Lutaml
         attr_reader :instance_type,
                     :instance_name,
                     :sort_by_field,
-                    :sort_direction
+                    :sort_direction,
+                    :collection_validations
 
         def instances(name, type, options = {}, &block)
           if (invalid_opts = options.keys - ALLOWED_OPTIONS).any?
@@ -56,6 +60,55 @@ module Lutaml
 
         def sort_configured?
           !!@sort_by_field
+        end
+
+        # Define collection-level validations
+        def validate_collection(&block)
+          @collection_validations ||= []
+          @collection_validations << block if block
+        end
+
+        # Validate uniqueness of a field across all instances in the collection
+        def validates_uniqueness_of(field, message: nil)
+          validate_collection do |collection, errors|
+            duplicates = find_duplicate_values(collection, field)
+            add_uniqueness_error(errors, field, duplicates, message) if duplicates.any?
+          end
+        end
+
+        # Validate minimum count requirement
+        def validates_min_count(count, message: nil)
+          validate_collection do |collection, errors|
+            if collection.size < count
+              default_message = "collection must have at least #{count} items, but has #{collection.size}"
+              errors.add(:collection, message || default_message)
+            end
+          end
+        end
+
+        # Validate maximum count requirement
+        def validates_max_count(count, message: nil)
+          validate_collection do |collection, errors|
+            if collection.size > count
+              default_message = "collection must have at most #{count} items, but has #{collection.size}"
+              errors.add(:collection, message || default_message)
+            end
+          end
+        end
+
+        # Validate that all instances have a specific attribute
+        def validates_all_present(field, message: nil)
+          validate_collection do |collection, errors|
+            missing_items = collection.select do |instance|
+              value = instance.respond_to?(field) ? instance.public_send(field) : nil
+              Utils.blank?(value)
+            end
+
+            unless missing_items.empty?
+              default_message = "all items must have #{field}, but #{missing_items.size} items are missing it"
+              errors.add(:collection, message || default_message)
+            end
+          end
         end
 
         def to(format, instance, options = {})
@@ -113,6 +166,35 @@ module Lutaml
 
         def apply_mappings(data, format, options = {})
           super(data, format, options.merge(collection: true))
+        end
+
+        private
+
+        def find_duplicate_values(collection, field)
+          seen_values = Set.new
+          duplicates = Set.new
+
+          collection.each do |instance|
+            value = extract_field_value(instance, field)
+            next if value.nil?
+
+            if seen_values.include?(value)
+              duplicates.add(value)
+            else
+              seen_values.add(value)
+            end
+          end
+
+          duplicates
+        end
+
+        def extract_field_value(instance, field)
+          instance.respond_to?(field) ? instance.public_send(field) : nil
+        end
+
+        def add_uniqueness_error(errors, field, duplicates, message)
+          default_message = "#{field} values must be unique across collection, found duplicates: #{duplicates.to_a.join(', ')}"
+          errors.add(:collection, message || default_message)
         end
       end
 
@@ -224,6 +306,34 @@ __register: Lutaml::Model::Config.default_register)
         else
           collection.sort_by! { |item| item.send(field) }
         end
+      end
+
+      # Override validate to support both instance and collection-level validations
+      def validate(register: Lutaml::Model::Config.default_register)
+        errors = []
+
+        # Run standard instance-level validations first (inherited from Serializable)
+        errors.concat(super)
+
+        # Run collection-level validations
+        errors.concat(validate_collection_rules)
+
+        errors
+      end
+
+      private
+
+      def validate_collection_rules
+        return [] unless self.class.collection_validations
+
+        errors = Errors.new
+        collection_items = collection || []
+
+        self.class.collection_validations.each do |validation_block|
+          validation_block.call(collection_items, errors)
+        end
+
+        errors.messages.map { |msg| ValidationFailedError.new([msg]) }
       end
     end
   end

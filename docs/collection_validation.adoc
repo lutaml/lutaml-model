@@ -1,0 +1,227 @@
+= Collection Validation Examples
+
+This document demonstrates the new collection-level validation functionality in `Lutaml::Model::Collection`.
+
+== Overview
+
+Collections now support two types of validations:
+
+. *Instance-level validations*: Applied to each individual item in the collection (existing functionality)
+. *Collection-level validations*: Applied to the collection as a whole (new functionality)
+
+== Instance-level Validations (Existing)
+
+These validations work on each individual item in the collection:
+
+[source,ruby]
+----
+class PublicationCollection < Lutaml::Model::Collection
+  instances(:publications, Publication) do
+    validates :year, numericality: { greater_than: 1900 }
+    validates :title, presence: true
+
+    validate :must_have_author
+
+    def must_have_author(publications)
+      publications.each do |publication|
+        next unless publication.author.nil?
+        errors.add(:author, "`#{publication.title}` must have an author")
+      end
+    end
+  end
+end
+----
+
+== Collection-level Validations (New)
+
+These validations work on the entire collection:
+
+=== 1. Uniqueness Validation
+
+Ensures that a field value is unique across all instances in the collection:
+
+[source,ruby]
+----
+class UniquePublicationCollection < Lutaml::Model::Collection
+  instances :publications, Publication
+  validates_uniqueness_of :id, message: "Publication IDs must be unique"
+  validates_uniqueness_of :title  # Uses default message
+end
+
+# Usage
+collection = UniquePublicationCollection.new([
+  Publication.new(id: "1", title: "Title A"),
+  Publication.new(id: "1", title: "Title B")  # Duplicate ID!
+])
+
+collection.validate!
+# => Raises ValidationError: "Publication IDs must be unique"
+----
+
+=== 2. Count Validations
+
+Ensures the collection has the right number of items:
+
+[source,ruby]
+----
+class SizedPublicationCollection < Lutaml::Model::Collection
+  instances :publications, Publication
+  validates_min_count 2, message: "Must have at least 2 publications"
+  validates_max_count 10, message: "Cannot have more than 10 publications"
+end
+
+# Usage
+collection = SizedPublicationCollection.new([Publication.new(id: "1")])
+collection.validate!
+# => Raises ValidationError: "Must have at least 2 publications"
+----
+
+=== 3. "All Must Have" Validation
+
+Ensures all instances have specific required attributes:
+
+[source,ruby]
+----
+class CompletePublicationCollection < Lutaml::Model::Collection
+  instances :publications, Publication
+  validates_all_present :author, message: "All publications must have an author"
+  validates_all_present :year
+end
+
+# Usage
+collection = CompletePublicationCollection.new([
+  Publication.new(id: "1", title: "Title A", author: "Author A"),
+  Publication.new(id: "2", title: "Title B")  # Missing author!
+])
+
+collection.validate!
+# => Raises ValidationError: "All publications must have an author"
+----
+
+=== 4. Custom Collection Validations
+
+Define custom validation logic that operates on the entire collection:
+
+[source,ruby]
+----
+class CustomValidatedPublicationCollection < Lutaml::Model::Collection
+  instances :publications, Publication
+
+  # Ensure publication years are sequential
+  validate_collection do |publications, errors|
+    return if publications.empty?
+
+    years = publications.map(&:year).compact.sort
+    (1...years.length).each do |i|
+      unless years[i] == years[i-1] + 1
+        errors.add(:collection, "Publication years must be sequential")
+        break
+      end
+    end
+  end
+
+  # Ensure diversity of categories
+  validate_collection do |publications, errors|
+    categories = publications.map(&:category).compact
+    if categories.uniq.length < 2
+      errors.add(:collection, "Collection must have publications from at least 2 different categories")
+    end
+  end
+end
+
+# Usage
+collection = CustomValidatedPublicationCollection.new([
+  Publication.new(id: "1", year: 2020, category: "Science"),
+  Publication.new(id: "2", year: 2022, category: "Science")  # Gap in years, same category
+])
+
+collection.validate!
+# => Raises ValidationError: "Publication years must be sequential, Collection must have publications from at least 2 different categories"
+----
+
+== Combining Instance and Collection Validations
+
+You can use both types of validations together:
+
+[source,ruby]
+----
+class MixedValidationPublicationCollection < Lutaml::Model::Collection
+  # Instance-level validations (applied to each item)
+  instances(:publications, Publication) do
+    validates :year, numericality: { greater_than: 1900 }
+    validates :title, presence: true
+  end
+
+  # Collection-level validations (applied to the whole collection)
+  validates_uniqueness_of :id
+  validates_min_count 1
+  validates_all_present :author
+
+  # Custom collection validation
+  validate_collection do |publications, errors|
+    total_pages = publications.sum { |pub| pub.pages || 0 }
+    if total_pages > 10000
+      errors.add(:collection, "Total pages across all publications cannot exceed 10,000")
+    end
+  end
+end
+----
+
+== Available Collection Validation Methods
+
+=== Built-in Validators
+
+* `validates_uniqueness_of(field, message: nil)` - Ensures field values are unique
+* `validates_min_count(count, message: nil)` - Ensures minimum number of items
+* `validates_max_count(count, message: nil)` - Ensures maximum number of items
+* `validates_all_present(field, message: nil)` - Ensures all items have the field
+
+=== Custom Validators
+
+* `validate_collection(&block)` - Define custom validation logic
+
+The block receives two parameters:
+
+* `collection` - Array of collection items
+* `errors` - Errors object to add validation messages to
+
+== Error Handling
+
+Collection validations integrate with the existing error handling system:
+
+[source,ruby]
+----
+collection = UniquePublicationCollection.new([duplicate_items])
+
+# Check for errors without raising
+errors = collection.validate
+if errors.any?
+  puts "Validation failed: #{errors.map(&:message).join(', ')}"
+end
+
+# Raise on validation failure
+begin
+  collection.validate!
+rescue Lutaml::Model::ValidationError => e
+  puts "Validation error: #{e.message}"
+end
+----
+
+== Use Cases
+
+Collection-level validations are ideal for:
+
+. *Uniqueness constraints*: Ensuring IDs, names, or other identifiers are unique
+. *Business rules*: Enforcing domain-specific collection constraints
+. *Data integrity*: Ensuring the collection as a whole makes sense
+. *Size constraints*: Limiting or requiring minimum collection sizes
+. *Cross-item relationships*: Validating relationships between items
+. *Aggregated properties*: Validating sums, averages, or other aggregate values
+
+== Migration Guide
+
+Existing collections will continue to work without changes. To add collection-level validations:
+
+. Keep existing instance validations in the `instances` block
+. Add collection validations using the new class methods or `validate_collection`
+. Both types of validations will run when `validate` or `validate!` is called
