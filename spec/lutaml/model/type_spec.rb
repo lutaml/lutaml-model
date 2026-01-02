@@ -282,7 +282,7 @@ RSpec.describe Lutaml::Model::Type do
             <date>2024-01-01</date>
             <time>#{Time.parse('12:00:00').iso8601}</time>
             <time_without_date>10:06:15</time_without_date>
-            <date_time>2024-01-01T12:00:00+00:00</date_time>
+            <date_time>2024-01-01T12:00:00Z</date_time>
             <boolean>true</boolean>
             <hash>
               <key>value</key>

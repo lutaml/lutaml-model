@@ -67,6 +67,12 @@ module Lutaml
 
           # TYPE-ONLY MODELS: No element wrapper, serialize children directly
           # BUT if we have a tag_name in options, that means parent wants a wrapper
+          plan ||= {
+            namespaces: {},
+            children_plans: {},
+            type_namespaces: {},
+          }
+
           if xml_mapping.no_element?
             # If parent provided a tag_name, create that wrapper first
             if options[:tag_name]
@@ -634,7 +640,7 @@ mapping: nil)
           when Moxml::Text
             "text"
           when Moxml::Cdata
-            "cdata"
+            "#cdata-section"
           when Moxml::ProcessingInstruction
             "processing_instruction"
           else

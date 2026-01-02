@@ -466,14 +466,15 @@ module Lutaml
           end
         end
 
-        def import_model_mappings(model)
+        def import_model_mappings(model, register_id = nil)
+          reg_id = register(register_id).id
           return import_mappings_later(model) if model_importable?(model)
-          raise Lutaml::Model::ImportModelWithRootError.new(model) if model.root?
+          raise Lutaml::Model::ImportModelWithRootError.new(model) if model.root?(reg_id)
 
-          mappings = model.mappings_for(:xml)
-          @elements.merge!(mappings.instance_variable_get(:@elements))
-          @attributes.merge!(mappings.instance_variable_get(:@attributes))
-          (@element_sequence << mappings.element_sequence).flatten!
+          mappings = Utils.deep_dup(model.mappings_for(:xml, reg_id))
+          merge_mapping_attributes(mappings)
+          merge_mapping_elements(mappings)
+          merge_elements_sequence(mappings)
         end
 
         def set_mappings_imported(value)
@@ -600,25 +601,24 @@ module Lutaml
         def ensure_mappings_imported!(register_id = nil)
           return if @mappings_imported
 
+          register_object = register(register_id)
           importable_mappings.each do |model|
             import_model_mappings(
-              register(register_id).get_class_without_register(model),
+              register_object.get_class_without_register(model),
+              register_object.id,
             )
           end
 
           sequence_importable_mappings.each do |sequence, models|
             models.each do |model|
               sequence.import_model_mappings(
-                register(register_id).get_class_without_register(model),
+                register_object.get_class_without_register(model),
+                register_object.id,
               )
             end
           end
 
           @mappings_imported = true
-        end
-
-        def importable_mappings
-          @importable_mappings ||= []
         end
 
         def sequence_importable_mappings
@@ -758,20 +758,6 @@ module Lutaml
               }
             end
           end
-        end
-
-        def register(register_id = nil)
-          register_id ||= Lutaml::Model::Config.default_register
-          Lutaml::Model::GlobalRegister.lookup(register_id)
-        end
-
-        def model_importable?(model)
-          model.is_a?(Symbol) || model.is_a?(String)
-        end
-
-        def import_mappings_later(model)
-          importable_mappings << model.to_sym
-          @mappings_imported = false
         end
       end
     end

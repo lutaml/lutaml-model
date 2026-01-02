@@ -78,6 +78,11 @@ module Lutaml
 
           # Use xmlns declarations from plan
           attributes = {}
+          plan ||= {
+            namespaces: {},
+            children_plans: {},
+            type_namespaces: {},
+          }
 
           # Apply namespace declarations from plan
           plan[:namespaces]&.each_value do |ns_config|
