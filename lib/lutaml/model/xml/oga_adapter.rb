@@ -61,13 +61,6 @@ module Lutaml
         # @param plan [Hash] the declaration plan from DeclarationPlanner
         # @param options [Hash] serialization options
         def build_element_with_plan(xml, element, plan, options = {})
-          # Provide default empty plan if nil (e.g., for custom methods)
-          plan ||= {
-            namespaces: {},
-            children_plans: {},
-            type_namespaces: {},
-          }
-
           mapper_class = options[:mapper_class] || element.class
 
           # NEW: Handle simple types that don't have mappings
@@ -237,8 +230,9 @@ module Lutaml
 
           # Determine prefix from plan
           prefix = nil
-          if xml_mapping.namespace_class
-            key = xml_mapping.namespace_class.to_key
+          namespace_class = determine_namespace(options[:rule], xml_mapping)
+          if namespace_class
+            key = namespace_class.to_key
             ns_config = plan[:namespaces][key]
 
             if ns_config && ns_config[:format] == :prefix

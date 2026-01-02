@@ -151,8 +151,9 @@ module Lutaml
 
           # Determine prefix from plan
           prefix = nil
-          if xml_mapping.namespace_class
-            key = xml_mapping.namespace_class.to_key
+          namespace_class = determine_namespace(options[:rule], xml_mapping)
+          if namespace_class
+            key = namespace_class.to_key
             ns_config = plan[:namespaces][key]
             if ns_config && ns_config[:format] == :prefix
               # CRITICAL: Use the ns_object from plan (may be override with custom prefix)

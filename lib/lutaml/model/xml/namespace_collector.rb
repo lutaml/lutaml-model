@@ -65,8 +65,8 @@ module Lutaml
 
           attributes = mapper_class.respond_to?(:attributes) ? mapper_class.attributes : {}
 
-          mapping.namespace_class.uri(options[:ns_class].uri) if options[:ns_class]&.uri
-          mapping.namespace_class.prefix_default(options[:ns_class].prefix_default) if options[:ns_class]&.prefix_default
+          mapping.namespace_class.uri(options[:ns_class].uri) if options[:ns_class]&.uri && mapping.namespace_class
+          mapping.namespace_class.prefix_default(options[:ns_class].prefix_default) if options[:ns_class]&.prefix_default && mapping.namespace_class
 
           # ==================================================================
           # PHASE 1: OWN NAMESPACE COLLECTION (for non-type-only models)
@@ -226,7 +226,7 @@ module Lutaml
             # Recursively collect child needs, passing mapper_class in options
             child_options = {
               mapper_class: child_type,
-              ns_class: elem_rule.namespace_class,
+              ns_class: elem_rule.prefix_set? || elem_rule.namespace_set? ? elem_rule.namespace_class : nil,
             }
             child_needs = collect(nil, child_mapping, **child_options)
             needs[:children][elem_rule.to] = child_needs
