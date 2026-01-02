@@ -239,6 +239,21 @@ module Lutaml
           end
         end
 
+        def determine_namespace(rule, mapping)
+          # Check if parent explicitly suppresses namespace with nil
+          parent_suppresses_ns = rule &&
+            (rule.namespace_set? || rule.prefix_set?) &&
+            rule.namespace_class.nil?
+
+          return nil if parent_suppresses_ns
+
+          parent_declared_ns = rule&.namespace_set? && rule.prefix_set?
+
+          return rule.namespace_class if parent_declared_ns
+
+          mapping.namespace_class
+        end
+
         # Resolve namespace for element using MappingRule.resolve_namespace
         #
         # @param rule [MappingRule] the mapping rule
