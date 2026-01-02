@@ -2,15 +2,23 @@ require "spec_helper"
 
 RSpec.describe Lutaml::Model::RuleValueExtractor do
   subject(:extractor) do
-    described_class.new(rule, doc, format, attr, register, options)
+    described_class.new(rule, doc, format, attr, register, options, instance)
   end
 
+  let(:instance) { instance_double(Lutaml::Model::Serializable) }
   let(:rule) { instance_double(Lutaml::Model::Jsonl::MappingRule) }
   let(:doc) { { "name" => "Test", "value" => 123 } }
   let(:format) { :json }
   let(:attr) { instance_double(Lutaml::Model::Attribute) }
   let(:register) { instance_double(Lutaml::Model::Register) }
   let(:options) { {} }
+
+  def mock_resolver(default_set_value, default_value_data = nil)
+    resolver_double = double(default_set?: default_set_value, default_value: default_value_data)
+    allow(Lutaml::Model::Services::DefaultValueResolver).to receive(:new)
+      .with(attr, register, instance)
+      .and_return(resolver_double)
+  end
 
   describe "#call" do
     context "when rule has single mapping" do
@@ -80,7 +88,7 @@ RSpec.describe Lutaml::Model::RuleValueExtractor do
           root_mapping?: false,
           raw_mapping?: false,
         )
-        allow(attr).to receive(:default_set?).with(register).and_return(false)
+        mock_resolver(false)
       end
 
       it "returns uninitialized value" do
@@ -96,8 +104,7 @@ RSpec.describe Lutaml::Model::RuleValueExtractor do
           root_mapping?: false,
           raw_mapping?: false,
         )
-        allow(attr).to receive(:default_set?).with(register).and_return(true)
-        allow(attr).to receive(:default).with(register).and_return("default_value")
+        mock_resolver(true, "default_value")
       end
 
       it "returns default value" do

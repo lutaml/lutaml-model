@@ -221,38 +221,44 @@ RSpec.describe Lutaml::Model::Attribute do
     end
   end
 
-  describe "#default" do
+  describe "#default via DefaultValueResolver" do
+    let(:register) { Lutaml::Model::Config.default_register }
+
+    def create_resolver(attribute)
+      Lutaml::Model::Services::DefaultValueResolver.new(attribute, register, nil)
+    end
+
     context "when default is not set" do
       let(:attribute) { described_class.new("name", :string) }
 
       it "returns uninitialized" do
-        expect(attribute.default).to be(Lutaml::Model::UninitializedClass.instance)
+        expect(create_resolver(attribute).default).to be(Lutaml::Model::UninitializedClass.instance)
       end
     end
 
     context "when default is set as a proc" do
       it "returns the value" do
         attribute = described_class.new("name", :string, default: -> { "John" })
-        expect(attribute.default).to eq("John")
+        expect(create_resolver(attribute).default).to eq("John")
       end
 
       it "returns the value casted to correct type" do
         file = Pathname.new("avatar.png")
         attribute = described_class.new("image", :string, default: -> { file })
 
-        expect(attribute.default).to eq("avatar.png")
+        expect(create_resolver(attribute).default).to eq("avatar.png")
       end
     end
 
     context "when default is set as value" do
       it "returns the value" do
         attribute = described_class.new("name", :string, default: "John Doe")
-        expect(attribute.default).to eq("John Doe")
+        expect(create_resolver(attribute).default).to eq("John Doe")
       end
 
       it "returns the value casted to correct type" do
         attribute = described_class.new("age", :integer, default: "24")
-        expect(attribute.default).to eq(24)
+        expect(create_resolver(attribute).default).to eq(24)
       end
     end
   end
