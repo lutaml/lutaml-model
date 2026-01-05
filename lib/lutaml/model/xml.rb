@@ -7,6 +7,7 @@ module Lutaml
         return :nokogiri if Utils.safe_load("nokogiri", :Nokogiri)
         return :ox if Utils.safe_load("ox", :Ox)
         return :oga if Utils.safe_load("oga", :Oga)
+        return :rexml if Utils.safe_load("rexml", :REXML)
 
         nil
       end

@@ -351,7 +351,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
               <!-- Units -->
               <UnitSet>
                 <!-- Base unit: meter -->
-                <Unit xml:id="u1" timeStamp="2024-06-01T00:00:00+00:00" dimensionURL="http://unitsml.nist.gov/si/length">
+                <Unit xml:id="u1" timeStamp="2024-06-01T00:00:00Z" dimensionURL="http://unitsml.nist.gov/si/length">
                   <UnitSystem name="SI" type="SI_base"/>
                   <UnitName>meter</UnitName>
                   <UnitSymbol type="ASCII">m</UnitSymbol>
@@ -366,7 +366,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
                 </Unit>
 
                 <!-- Derived unit: meter per second -->
-                <Unit xml:id="u2" timeStamp="2024-06-01T00:00:00+00:00" dimensionURL="http://unitsml.nist.gov/si/speed">
+                <Unit xml:id="u2" timeStamp="2024-06-01T00:00:00Z" dimensionURL="http://unitsml.nist.gov/si/speed">
                   <UnitSystem name="SI" type="SI_derived"/>
                   <UnitName>meter per second</UnitName>
                   <UnitSymbol type="ASCII">m/s</UnitSymbol>
@@ -384,7 +384,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
                 </Unit>
 
                 <!-- Non-SI unit: kilometer per hour -->
-                <Unit xml:id="u3" timeStamp="2024-06-01T00:00:00+00:00" dimensionURL="http://unitsml.nist.gov/si/speed">
+                <Unit xml:id="u3" timeStamp="2024-06-01T00:00:00Z" dimensionURL="http://unitsml.nist.gov/si/speed">
                   <UnitSystem name="SI" type="non-SI_accepted"/>
                   <UnitName>kilometer per hour</UnitName>
                   <UnitSymbol type="ASCII">km/h</UnitSymbol>
@@ -499,7 +499,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
           <<~XML
             <UnitsMLType>
               <UnitSet>
-                <Unit xml:id="u_meter" timeStamp="2024-06-01T12:00:00+00:00" dimensionURL="http://unitsml.nist.gov/si/meter">
+                <Unit xml:id="u_meter" timeStamp="2024-06-01T12:00:00Z" dimensionURL="http://unitsml.nist.gov/si/meter">
                   <UnitSystem name="SI" type="SI_base"/>
                   <UnitName xml:lang="en">meter</UnitName>
                   <UnitSymbol type="ASCII">m</UnitSymbol>
@@ -512,7 +512,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
                   <UnitHistory>Defined as the distance light travels in vacuum in 1/299792458 seconds.</UnitHistory>
                   <UnitRemark>Commonly used in science and engineering.</UnitRemark>
                 </Unit>
-                <Unit xml:id="u_second" timeStamp="2024-06-01T12:00:00+00:00" dimensionURL="http://unitsml.nist.gov/si/second">
+                <Unit xml:id="u_second" timeStamp="2024-06-01T12:00:00Z" dimensionURL="http://unitsml.nist.gov/si/second">
                   <UnitSystem name="SI" type="SI_base"/>
                   <UnitName xml:lang="en">second</UnitName>
                   <UnitSymbol type="ASCII">s</UnitSymbol>
@@ -520,7 +520,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
                     <EnumeratedRootUnit unit="second"/>
                   </RootUnits>
                 </Unit>
-                <Unit xml:id="u_newton" timeStamp="2024-06-01T12:00:00+00:00" dimensionURL="http://unitsml.nist.gov/si/newton">
+                <Unit xml:id="u_newton" timeStamp="2024-06-01T12:00:00Z" dimensionURL="http://unitsml.nist.gov/si/newton">
                   <UnitSystem name="SI" type="SI_derived"/>
                   <UnitName xml:lang="en">newton</UnitName>
                   <UnitSymbol type="ASCII">N</UnitSymbol>
@@ -586,7 +586,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
           <<~XML
             <UnitsMLType>
               <UnitSet>
-                <Unit xml:id="u_meter" timeStamp="2024-06-01T12:00:00+00:00" dimensionURL="http://unitsml.nist.gov/si/meter">
+                <Unit xml:id="u_meter" timeStamp="2024-06-01T12:00:00Z" dimensionURL="http://unitsml.nist.gov/si/meter">
                   <UnitSystem name="SI" type="SI_base"/>
                   <UnitName xml:lang="en">meter</UnitName>
                   <UnitSymbol type="ASCII">m</UnitSymbol>
@@ -599,7 +599,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
                   <UnitHistory>Defined as the distance light travels in vacuum in 1/299792458 seconds.</UnitHistory>
                   <UnitRemark>Commonly used in science and engineering.</UnitRemark>
                 </Unit>
-                <Unit xml:id="u_second" timeStamp="2024-06-01T12:00:00+00:00" dimensionURL="http://unitsml.nist.gov/si/second">
+                <Unit xml:id="u_second" timeStamp="2024-06-01T12:00:00Z" dimensionURL="http://unitsml.nist.gov/si/second">
                   <UnitSystem name="SI" type="SI_base"/>
                   <UnitName xml:lang="en">second</UnitName>
                   <UnitSymbol type="ASCII">s</UnitSymbol>
@@ -607,7 +607,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
                     <EnumeratedRootUnit unit="second"/>
                   </RootUnits>
                 </Unit>
-                <Unit xml:id="u_newton" timeStamp="2024-06-01T12:00:00+00:00" dimensionURL="http://unitsml.nist.gov/si/newton">
+                <Unit xml:id="u_newton" timeStamp="2024-06-01T12:00:00Z" dimensionURL="http://unitsml.nist.gov/si/newton">
                   <UnitSystem name="SI" type="SI_derived"/>
                   <UnitName xml:lang="en">newton</UnitName>
                   <UnitSymbol type="ASCII">N</UnitSymbol>

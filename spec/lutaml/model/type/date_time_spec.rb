@@ -124,4 +124,56 @@ RSpec.describe Lutaml::Model::Type::DateTime do
       end
     end
   end
+
+  describe "#to_xml" do
+    subject(:xml_value) { described_class.new(value).to_xml }
+
+    context "with UTC DateTime without fractional seconds" do
+      let(:value) { DateTime.new(2024, 1, 1, 12, 0, 0, "+00:00") }
+
+      it "uses Z notation for UTC" do
+        expect(xml_value).to eq("2024-01-01T12:00:00Z")
+      end
+    end
+
+    context "with UTC DateTime with fractional seconds" do
+      let(:value) { DateTime.new(2024, 1, 1, 12, 0, 0.5, "+00:00") }
+
+      it "uses Z notation for UTC with fractional seconds" do
+        expect(xml_value).to eq("2024-01-01T12:00:00.500Z")
+      end
+    end
+
+    context "with positive offset DateTime without fractional seconds" do
+      let(:value) { DateTime.new(2024, 1, 1, 12, 0, 0, "+08:00") }
+
+      it "uses offset notation for non-UTC" do
+        expect(xml_value).to eq("2024-01-01T12:00:00+08:00")
+      end
+    end
+
+    context "with negative offset DateTime without fractional seconds" do
+      let(:value) { DateTime.new(2024, 1, 1, 12, 0, 0, "-05:00") }
+
+      it "uses offset notation for non-UTC" do
+        expect(xml_value).to eq("2024-01-01T12:00:00-05:00")
+      end
+    end
+
+    context "with positive offset DateTime with fractional seconds" do
+      let(:value) { DateTime.new(2024, 1, 1, 12, 0, 0.5, "+08:00") }
+
+      it "uses offset notation for non-UTC with fractional seconds" do
+        expect(xml_value).to eq("2024-01-01T12:00:00.500+08:00")
+      end
+    end
+
+    context "with fractional offset DateTime" do
+      let(:value) { DateTime.new(2024, 1, 1, 12, 0, 0, "+05:30") }
+
+      it "uses offset notation with fractional offset" do
+        expect(xml_value).to eq("2024-01-01T12:00:00+05:30")
+      end
+    end
+  end
 end

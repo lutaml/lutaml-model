@@ -493,6 +493,7 @@ collection)
           %w[
             Nokogiri::XML::SyntaxError
             Ox::ParseError
+            REXML::ParseException
             TomlRB::ParseError
             Tomlib::ParseError
           ].each do |error_class|

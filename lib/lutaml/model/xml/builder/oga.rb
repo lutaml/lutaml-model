@@ -134,7 +134,7 @@ module Lutaml
           end
 
           def add_cdata(element, value)
-            oga_cdata = ::Oga::XML::CData.new(text: value.to_s)
+            oga_cdata = ::Oga::XML::Cdata.new(text: value.to_s)
             if element.is_a?(Xml::Oga::Document)
               element.children.last.children << oga_cdata
             else

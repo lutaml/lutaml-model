@@ -2,6 +2,7 @@ require "spec_helper"
 require "lutaml/model"
 require "lutaml/model/xml/ox_adapter"
 require "lutaml/model/xml/oga_adapter"
+require "lutaml/model/xml/rexml_adapter"
 require_relative "../../support/xml_mapping_namespaces"
 
 module ExceptSpecs
@@ -213,6 +214,10 @@ RSpec.describe "Except" do
   end
 
   describe Lutaml::Model::Xml::OxAdapter do
+    it_behaves_like "xml", described_class
+  end
+
+  describe Lutaml::Model::Xml::RexmlAdapter do
     it_behaves_like "xml", described_class
   end
 end
