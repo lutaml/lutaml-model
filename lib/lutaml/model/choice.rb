@@ -44,21 +44,23 @@ module Lutaml
         end
       end
 
-      def validate_sequence_content!(elements, appearance_count = 0)
+      def validate_sequence_content!(elements, appearance_count = 0, register = nil)
         choices_hash = ::Hash.new { |h, k| h[k] = 0 }
         choices_hash[self] = appearance_count
-        current_index = validate_choices(elements, choices_hash)
+        current_index = validate_choices(elements, choices_hash, register)
         raise_errors(choices_hash)
         current_index
       end
 
-      def validate_content!(object)
+      def validate_content!(object, register = nil)
         validated_attributes = []
-        valid = valid_attributes(object, validated_attributes)
+        valid = valid_attributes(object, validated_attributes, register)
         validate_count_errors!(valid.count, validated_attributes)
       end
 
       def __import_model_attributes(model, register_id = nil)
+        return import_model_attributes(model) if register_id == :default
+
         current_record = @model.instance_variable_get(:@__register_record)[register_id]
         imported_attributes = Utils.deep_dup(model.attributes(register_id))
         imported_attributes.each_value do |attr|
@@ -145,9 +147,9 @@ module Lutaml
         end
       end
 
-      def validate_choices(elements, choices_hash)
+      def validate_choices(elements, choices_hash, register = nil)
         eo_index = 0
-        filtered = extract_choice_defined_names
+        filtered = extract_choice_defined_names(register)
         appeared_elements = elements
           .take_while { |d| filtered.key?(d) }
           .slice_when { |prev, curr| prev != curr }
@@ -157,25 +159,26 @@ module Lutaml
             attr.name == filtered[element.first]
           end
           choices_hash[self] += choice_appearances(choices_hash, choice_attr,
-                                                   element)
+                                                   element, register)
         end
         eo_index
       end
 
-      def choice_appearances(choices_hash, choice_attr, element)
+      def choice_appearances(choices_hash, choice_attr, element, register = nil)
         if choice_attr.choice == self
           choice_attr.validate_choice_content!(element)
         else
           choices_hash[choice_attr.choice] += choice_attr.choice.validate_sequence_content!(
             element,
             choices_hash[choice_attr.choice],
+            register,
           )
           1
         end
       end
 
-      def extract_choice_defined_names
-        mapping_elements = @model.mappings_for(:xml).elements
+      def extract_choice_defined_names(register = nil)
+        mapping_elements = @model.mappings_for(:xml, register).elements(register)
         attribute_names  = flat_attributes.to_h do |attr|
           [attr.name.to_sym, attr]
         end
@@ -191,11 +194,11 @@ module Lutaml
         raise Lutaml::Model::ImportModelWithRootError.new(model)
       end
 
-      def valid_attributes(object, validated_attributes)
+      def valid_attributes(object, validated_attributes, register = nil)
         @attributes.each do |attribute|
           if attribute.is_a?(Choice)
             begin
-              attribute.validate_content!(object)
+              attribute.validate_content!(object, register)
               validated_attributes << attribute
             rescue Lutaml::Model::ChoiceLowerBoundError
             end

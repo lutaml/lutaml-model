@@ -35,7 +35,7 @@ module Lutaml
 
       def validate_helper(errors, register)
         self.class.choice_attributes.each do |attribute|
-          attribute.validate_content!(self)
+          attribute.validate_content!(self, register)
         end
 
         validate_sequence!(errors, order_names, register)

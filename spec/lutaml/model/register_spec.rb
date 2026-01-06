@@ -87,6 +87,52 @@ module RegisterSpec
       import_model_attributes :choice_fields
     end
   end
+
+  # Test classes for register-specific mapping imports
+  class MappingModelA < Lutaml::Model::Serializable
+    attribute :field_one, :string
+    attribute :field_two, :integer
+
+    xml do
+      type_name "MappingModelAType"
+      map_element "fieldOne", to: :field_one
+      map_element "fieldTwo", to: :field_two
+    end
+
+    json do
+      map "field_one", to: :field_one
+      map "field_two", to: :field_two
+    end
+  end
+
+  class MappingModelB < Lutaml::Model::Serializable
+    attribute :field_alpha, :string
+    attribute :field_beta, :boolean
+
+    xml do
+      type_name "MappingModelBType"
+      map_element "fieldAlpha", to: :field_alpha
+      map_element "fieldBeta", to: :field_beta
+    end
+
+    json do
+      map "field_alpha", to: :field_alpha
+      map "field_beta", to: :field_beta
+    end
+  end
+
+  class DynamicMappingImporter < Lutaml::Model::Serializable
+    import_model :mapping_model
+
+    xml do
+      root "importer"
+      import_model_mappings :mapping_model
+    end
+
+    json do
+      import_model_mappings :mapping_model
+    end
+  end
 end
 
 RSpec.describe Lutaml::Model::Register do
@@ -368,6 +414,111 @@ RSpec.describe Lutaml::Model::Register do
       expect(fields_a_instance.field_a).to be_a(String)
       expect(fields_a_instance.field_b).to eq(123)
       expect(fields_a_instance.field_b).to be_a(Integer)
+    end
+  end
+
+  describe "register-specific mapping imports" do
+    let(:mapping_a_register) { described_class.new(:mapping_test_a) }
+    let(:mapping_b_register) { described_class.new(:mapping_test_b) }
+
+    before do
+      Lutaml::Model::GlobalRegister.register(mapping_a_register)
+      Lutaml::Model::GlobalRegister.register(mapping_b_register)
+      mapping_a_register.register_model(RegisterSpec::MappingModelA, id: :mapping_model)
+      mapping_b_register.register_model(RegisterSpec::MappingModelB, id: :mapping_model)
+    end
+
+    it "imports different XML mappings based on register" do
+      RegisterSpec::DynamicMappingImporter.ensure_imports!(mapping_a_register.id)
+      RegisterSpec::DynamicMappingImporter.ensure_imports!(mapping_b_register.id)
+
+      xml_mapping_a = RegisterSpec::DynamicMappingImporter.mappings_for(:xml, mapping_a_register.id)
+      xml_mapping_b = RegisterSpec::DynamicMappingImporter.mappings_for(:xml, mapping_b_register.id)
+
+      # Check that mapping A has the correct element mappings
+      expect(xml_mapping_a.elements(mapping_a_register.id).map(&:to)).to include(:field_one, :field_two)
+      expect(xml_mapping_a.elements(mapping_a_register.id).map(&:to)).not_to include(:field_alpha, :field_beta)
+
+      # Check that mapping B has the correct element mappings
+      expect(xml_mapping_b.elements(mapping_b_register.id).map(&:to)).to include(:field_alpha, :field_beta)
+      expect(xml_mapping_b.elements(mapping_b_register.id).map(&:to)).not_to include(:field_one, :field_two)
+    end
+
+    it "imports different JSON mappings based on register" do
+      RegisterSpec::DynamicMappingImporter.ensure_imports!(mapping_a_register.id)
+      RegisterSpec::DynamicMappingImporter.ensure_imports!(mapping_b_register.id)
+
+      json_mapping_a = RegisterSpec::DynamicMappingImporter.mappings_for(:json, mapping_a_register.id)
+      json_mapping_b = RegisterSpec::DynamicMappingImporter.mappings_for(:json, mapping_b_register.id)
+
+      # Check that mapping A has the correct mappings
+      mapping_a_names = json_mapping_a.mappings(mapping_a_register.id).map(&:to)
+      expect(mapping_a_names).to include(:field_one, :field_two)
+      expect(mapping_a_names).not_to include(:field_alpha, :field_beta)
+
+      # Check that mapping B has the correct mappings
+      mapping_b_names = json_mapping_b.mappings(mapping_b_register.id).map(&:to)
+      expect(mapping_b_names).to include(:field_alpha, :field_beta)
+      expect(mapping_b_names).not_to include(:field_one, :field_two)
+    end
+
+    it "serializes to XML with correct mappings per register" do
+      mapping_a_instance = RegisterSpec::DynamicMappingImporter.new(__register: mapping_a_register)
+      mapping_a_instance.field_one = "test_value"
+      mapping_a_instance.field_two = 42
+
+      xml_output = mapping_a_instance.to_xml
+      expect(xml_output).to include("<fieldOne>test_value</fieldOne>")
+      expect(xml_output).to include("<fieldTwo>42</fieldTwo>")
+      expect(xml_output).not_to include("fieldAlpha")
+      expect(xml_output).not_to include("fieldBeta")
+    end
+
+    it "serializes to JSON with correct mappings per register" do
+      mapping_b_instance = RegisterSpec::DynamicMappingImporter.new(__register: mapping_b_register)
+      mapping_b_instance.field_alpha = "alpha_value"
+      mapping_b_instance.field_beta = true
+
+      json_output = mapping_b_instance.to_json
+      parsed = JSON.parse(json_output)
+      expect(parsed["field_alpha"]).to eq("alpha_value")
+      expect(parsed["field_beta"]).to eq(true)
+      expect(parsed).not_to have_key("field_one")
+      expect(parsed).not_to have_key("field_two")
+    end
+
+    it "deserializes from XML with correct mappings per register" do
+      xml_a = <<~XML
+        <importer>
+          <fieldOne>deserialized_value</fieldOne>
+          <fieldTwo>99</fieldTwo>
+        </importer>
+      XML
+
+      instance_a = RegisterSpec::DynamicMappingImporter.from_xml(xml_a, register: mapping_a_register.id)
+      expect(instance_a.field_one).to eq("deserialized_value")
+      expect(instance_a.field_two).to eq(99)
+    end
+
+    it "deserializes from JSON with correct mappings per register" do
+      json_b = '{"field_alpha":"beta_test","field_beta":false}'
+
+      instance_b = RegisterSpec::DynamicMappingImporter.from_json(json_b, register: mapping_b_register.id)
+      expect(instance_b.field_alpha).to eq("beta_test")
+      expect(instance_b.field_beta).to be(false)
+    end
+
+    it "does not leak mappings between registers" do
+      RegisterSpec::DynamicMappingImporter.ensure_imports!(mapping_a_register.id)
+      RegisterSpec::DynamicMappingImporter.ensure_imports!(mapping_b_register.id)
+
+      # Verify register A doesn't have register B's mappings
+      xml_mapping_a = RegisterSpec::DynamicMappingImporter.mappings_for(:xml, mapping_a_register.id)
+      expect(xml_mapping_a.elements(mapping_a_register.id).map(&:name)).not_to include("fieldAlpha", "fieldBeta")
+
+      # Verify register B doesn't have register A's mappings
+      xml_mapping_b = RegisterSpec::DynamicMappingImporter.mappings_for(:xml, mapping_b_register.id)
+      expect(xml_mapping_b.elements(mapping_b_register.id).map(&:name)).not_to include("fieldOne", "fieldTwo")
     end
   end
 end

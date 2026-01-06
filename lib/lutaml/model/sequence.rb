@@ -27,7 +27,14 @@ module Lutaml
         raise Lutaml::Model::ImportModelWithRootError.new(model) if model.root?(register)
 
         @model.import_model_mappings(model, register)
-        @attributes.concat(Utils.deep_dup(model.mappings_for(:xml, register).elements))
+        @attributes.concat(Utils.deep_dup(model.mappings_for(:xml, register).elements(register)))
+      end
+
+      def __import_model_mappings(model, register = nil)
+        return import_model_mappings(model, register) if register == :default
+        raise Lutaml::Model::ImportModelWithRootError.new(model) if model.root?(register)
+
+        @model.__import_model_mappings(model, register)
       end
 
       def map_attribute(*)
@@ -46,6 +53,7 @@ module Lutaml
         validate_sequence!(
           extract_defined_order(instance.class.attributes(register).transform_keys(&:to_s)),
           element_order,
+          register,
         )
         validate_child_content(instance, register)
       end
@@ -63,21 +71,21 @@ module Lutaml
         end
       end
 
-      def validate_sequence!(defined_order, element_order)
+      def validate_sequence!(defined_order, element_order, register = nil)
         eo_index = element_order_index(element_order, defined_order)
         choices = {}
 
         defined_order.each do |element, klass_attr|
           eo_index = validate_sequence(element_order, eo_index, element,
-                                       klass_attr, choices)
+                                       klass_attr, choices, register)
         end
       end
 
       def validate_sequence(element_order, eo_index, element, klass_attr,
-choices)
+choices, register = nil)
         if klass_attr.choice
           return process_choice(element_order, eo_index, element, klass_attr,
-                                choices)
+                                choices, register)
         end
 
         if klass_attr.collection?
@@ -90,11 +98,11 @@ choices)
         raise_incorrect_sequence_error!(element, element_order[eo_index])
       end
 
-      def process_choice(element_order, eo_index, element, klass_attr, choices)
+      def process_choice(element_order, eo_index, element, klass_attr, choices, register = nil)
         return eo_index if choices[klass_attr.choice] || element_order[eo_index] != element
 
         choices[klass_attr.choice] = true
-        eo_index + klass_attr.choice.validate_sequence_content!(element_order[eo_index..])
+        eo_index + klass_attr.choice.validate_sequence_content!(element_order[eo_index..], 0, register)
       end
 
       def raise_incorrect_sequence_error!(expected, found)
@@ -134,7 +142,6 @@ choices)
 
       def import_mappings_later(model)
         @model.sequence_importable_mappings[self] << model.to_sym
-        @model.set_mappings_imported(false)
       end
     end
   end

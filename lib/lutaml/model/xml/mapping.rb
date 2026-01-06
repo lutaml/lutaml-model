@@ -36,7 +36,10 @@ module Lutaml
           @raw_mapping = nil
           @mixed_content = false
           @format = :xml
-          @mappings_imported = true
+          @mappings_imported = ::Hash.new { |h, k| h[k] = true }
+          @register_elements = ::Hash.new { |h, k| h[k] = {} }
+          @register_attributes = ::Hash.new { |h, k| h[k] = {} }
+          @register_element_sequences = ::Hash.new { |h, k| h[k] = [] }
           @finalized = false
           @element_name = nil
           @namespace_class = nil
@@ -468,7 +471,7 @@ module Lutaml
 
         def import_model_mappings(model, register_id = nil)
           reg_id = register(register_id).id
-          return import_mappings_later(model) if model_importable?(model)
+          return import_mappings_later(model, reg_id) if model_importable?(model)
           raise Lutaml::Model::ImportModelWithRootError.new(model) if model.root?(reg_id)
 
           mappings = Utils.deep_dup(model.mappings_for(:xml, reg_id))
@@ -477,8 +480,18 @@ module Lutaml
           merge_elements_sequence(mappings)
         end
 
-        def set_mappings_imported(value)
-          @mappings_imported = value
+        def __import_model_mappings(model, register_id = nil)
+          reg_id = register(register_id).id
+          return import_model_mappings(model, register_id) if reg_id == :default
+
+          raise Lutaml::Model::ImportModelWithRootError.new(model) if model.root?(reg_id)
+
+          mappings = Utils.deep_dup(model.mappings_for(:xml, reg_id))
+          @register_attributes[register_id].merge!(mappings.mapping_attributes_hash(register_id))
+          @register_elements[register_id].merge!(mappings.mapping_elements_hash(register_id))
+          mappings.element_sequence.each do |sequence|
+            @register_element_sequences[register_id] << sequence_dup(sequence)
+          end
         end
 
         def validate!(key, to, with, render_nil, render_empty, type: nil)
@@ -577,12 +590,12 @@ module Lutaml
           end
         end
 
-        def elements
-          @elements.values
+        def elements(register_id = nil)
+          mapping_elements_hash(register_id).values
         end
 
-        def attributes
-          @attributes.values
+        def attributes(register_id = nil)
+          mapping_attributes_hash(register_id).values
         end
 
         def content_mapping
@@ -595,15 +608,15 @@ module Lutaml
 
         def mappings(register_id = nil)
           ensure_mappings_imported!(register_id) if finalized?
-          elements + attributes + [content_mapping, raw_mapping].compact
+          elements(register_id) + attributes(register_id) + [content_mapping, raw_mapping].compact
         end
 
         def ensure_mappings_imported!(register_id = nil)
-          return if @mappings_imported
+          return if @mappings_imported[register_id]
 
           register_object = register(register_id)
           importable_mappings.each do |model|
-            import_model_mappings(
+            __import_model_mappings(
               register_object.get_class_without_register(model),
               register_object.id,
             )
@@ -611,14 +624,14 @@ module Lutaml
 
           sequence_importable_mappings.each do |sequence, models|
             models.each do |model|
-              sequence.import_model_mappings(
+              sequence.__import_model_mappings(
                 register_object.get_class_without_register(model),
                 register_object.id,
               )
             end
           end
 
-          @mappings_imported = true
+          @mappings_imported[register_id] = true
         end
 
         def sequence_importable_mappings
@@ -629,8 +642,8 @@ module Lutaml
         #
         # @param name [Symbol, String] the attribute name
         # @return [MappingRule, nil] the matching element rule
-        def find_element(name)
-          elements.detect { |rule| name == rule.to }
+        def find_element(name, register_id = nil)
+          elements(register_id).detect { |rule| name == rule.to }
         end
 
         # Find attribute mapping rule by attribute name
@@ -663,12 +676,20 @@ module Lutaml
           raise raise Lutaml::Model::NoMappingFoundError.new(to.to_s)
         end
 
-        def mapping_attributes_hash
-          @attributes
+        def mapping_attributes_hash(register_id = nil)
+          if register_id.nil? || register_id == :default
+            @attributes
+          else
+            @attributes.merge(@register_attributes[register_id])
+          end
         end
 
-        def mapping_elements_hash
-          @elements
+        def mapping_elements_hash(register_id = nil)
+          if register_id.nil? || register_id == :default
+            @elements
+          else
+            @elements.merge(@register_elements[register_id])
+          end
         end
 
         def merge_mapping_attributes(mapping)
@@ -681,10 +702,14 @@ module Lutaml
 
         def merge_elements_sequence(mapping)
           mapping.element_sequence.each do |sequence|
-            element_sequence << Lutaml::Model::Sequence.new(self).tap do |instance|
-              sequence.attributes.each do |attr|
-                instance.attributes << attr.deep_dup
-              end
+            element_sequence << sequence_dup(sequence)
+          end
+        end
+
+        def sequence_dup(sequence)
+          Lutaml::Model::Sequence.new(self).tap do |instance|
+            sequence.attributes.each do |attr|
+              instance.attributes << attr.deep_dup
             end
           end
         end
@@ -704,6 +729,7 @@ module Lutaml
               value = instance_variable_get(var_name)
               xml_mapping.instance_variable_set(var_name, Utils.deep_dup(value))
             end
+
             xml_mapping.instance_variable_set(:@finalized, true)
           end
         end
@@ -719,6 +745,10 @@ module Lutaml
             @element_sequence
             @attributes
             @elements
+            @mappings_imported
+            @register_elements
+            @register_attributes
+            @register_element_sequences
           ]
         end
 

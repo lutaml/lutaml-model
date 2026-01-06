@@ -104,7 +104,7 @@ module Lutaml
           @attributes = Utils.deep_dup(source_class.instance_variable_get(:@attributes)) || {}
           @choice_attributes = deep_duplicate_choice_attributes(source_class)
           @__register_record = Utils.deep_dup(source_class.instance_variable_get(:@__register_record)) ||
-            ::Hash.new { |hash, key| hash[key] = { attributes: {}, choice_attributes: [], mappings: {} } }
+            ::Hash.new { |hash, key| hash[key] = { attributes: {}, choice_attributes: [] } }
           instance_variable_set(:@model, self)
         end
 
@@ -313,9 +313,24 @@ module Lutaml
 
         def __import_model_attributes(model, register_id = nil)
           register = extract_register_id(register_id)
+          return import_model_attributes(model, register_id) if register == :default
+
           current_record = @__register_record[register]
           current_record[:attributes].merge!(Utils.deep_dup(model.attributes(register)))
           current_record[:choice_attributes].concat(deep_duplicate_choice_attributes(model, register))
+        end
+
+        def __import_model_mappings(model, register_id = nil)
+          register = extract_register_id(register_id)
+          return import_model_mappings(model, register_id) if register == :default
+
+          Lutaml::Model::Config::AVAILABLE_FORMATS.each do |format|
+            next unless model.mappings.key?(format)
+
+            klass = ::Lutaml::Model::Config.mappings_class_for(format)
+            @mappings[format] ||= klass.new
+            @mappings[format].__import_model_mappings(model, register_id)
+          end
         end
 
         def import_model_attributes(model, register_id = nil)
@@ -344,7 +359,7 @@ module Lutaml
 
         def __import_model(model, register_id = nil)
           __import_model_attributes(model, register_id)
-          import_model_mappings(model, register_id)
+          __import_model_mappings(model, register_id)
         end
 
         def import_model(model, register_id = nil)

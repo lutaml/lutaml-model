@@ -39,7 +39,7 @@ module Lutaml
           else
             # THREE-PHASE ARCHITECTURE
             mapper_class = options[:mapper_class] || @root.class
-            xml_mapping = mapper_class.mappings_for(:xml)
+            xml_mapping = mapper_class.mappings_for(:xml, register)
 
             # Phase 1: Collect namespace needs
             collector = NamespaceCollector.new(register)
@@ -66,7 +66,7 @@ module Lutaml
         # @param options [Hash] serialization options
         def build_element_with_plan(xml, element, plan, options = {})
           mapper_class = options[:mapper_class] || element.class
-          xml_mapping = mapper_class.mappings_for(:xml)
+          xml_mapping = mapper_class.mappings_for(:xml, register)
           return xml unless xml_mapping
 
           # Use xmlns declarations from plan
@@ -99,7 +99,7 @@ module Lutaml
           attribute_custom_methods = []
 
           # Add regular attributes (non-xmlns)
-          xml_mapping.attributes.each do |attribute_rule|
+          xml_mapping.attributes(register).each do |attribute_rule|
             next if options[:except]&.include?(attribute_rule.to)
 
             # Collect custom methods for later execution (after element is created)
@@ -180,10 +180,10 @@ module Lutaml
 
         def build_unordered_children_with_plan(xml, element, plan, options)
           mapper_class = options[:mapper_class] || element.class
-          xml_mapping = mapper_class.mappings_for(:xml)
+          xml_mapping = mapper_class.mappings_for(:xml, register)
 
           # Process child elements with their plans (INCLUDING raw_mapping for map_all)
-          mappings = xml_mapping.elements + [xml_mapping.raw_mapping].compact
+          mappings = xml_mapping.elements(register) + [xml_mapping.raw_mapping].compact
           mappings.each do |element_rule|
             next if options[:except]&.include?(element_rule.to)
 
@@ -227,7 +227,7 @@ module Lutaml
 
         def build_ordered_element_with_plan(xml, element, plan, options)
           mapper_class = options[:mapper_class] || element.class
-          xml_mapping = mapper_class.mappings_for(:xml)
+          xml_mapping = mapper_class.mappings_for(:xml, register)
 
           index_hash = {}
           content = []
@@ -257,7 +257,7 @@ module Lutaml
               delegate_obj = element.send(element_rule.delegate)
               if delegate_obj.respond_to?(element_rule.to)
                 # Get attribute definition from delegated object's class
-                attribute_def = delegate_obj.class.attributes[element_rule.to]
+                attribute_def = delegate_obj.class.attributes(register)[element_rule.to]
                 # Get value from delegated object
                 value = delegate_obj.send(element_rule.to)
               end

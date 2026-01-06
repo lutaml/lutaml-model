@@ -3,6 +3,7 @@ module Lutaml
     class Mapping
       def initialize
         @mappings = []
+        @mappings_imported = ::Hash.new { |h, k| h[k] = false }
       end
 
       def mappings
@@ -11,11 +12,11 @@ module Lutaml
       end
 
       def ensure_mappings_imported!(register_id = nil)
-        return if @mappings_imported
-
         register_object = register(register_id)
+        return if @mappings_imported[register_object.id]
+
         importable_mappings.each do |model|
-          import_model_mappings(
+          __import_model_mappings(
             register_object.get_class_without_register(model),
             register_object.id,
           )
@@ -33,9 +34,10 @@ module Lutaml
         model.is_a?(Symbol) || model.is_a?(String)
       end
 
-      def import_mappings_later(model)
+      def import_mappings_later(model, register_id)
+        register_object = register(register_id)
         importable_mappings << model.to_sym
-        @mappings_imported = false
+        @mappings_imported[register_object.id] = false
       end
 
       def importable_mappings
