@@ -159,6 +159,7 @@ module Lutaml
 
       def __import_model_mappings(model, register_id = nil)
         reg_id = register(register_id).id
+        # change to class definition only when register is default
         return import_model_mappings(model, register_id) if reg_id == :default
 
         @register_mappings[register_id].merge!(
