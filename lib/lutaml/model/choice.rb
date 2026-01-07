@@ -88,17 +88,17 @@ module Lutaml
 
       def deep_duplicate(new_model, register = nil)
         choice = self.class.new(new_model, @min, @max)
-        @attributes.map do |attr|
-          choice.attributes << if attr.is_a?(Choice)
-                                 attr.deep_duplicate(new_model, register)
-                               else
-                                 choice_attr = new_model.attributes(register)[attr.name]
-                                 next if choice_attr.nil?
+        attrs = @attributes.map do |attr|
+          next attr.deep_duplicate(new_model, register) if attr.is_a?(Choice)
 
-                                 choice_attr.options[:choice] = choice
-                                 choice_attr
-                               end
+          choice_attr = new_model.attributes(register)[attr.name]
+          next if choice_attr.nil?
+
+          choice_attr.options[:choice] = choice
+          choice_attr
         end
+
+        choice.attributes.concat(attrs.compact)
         choice
       end
 

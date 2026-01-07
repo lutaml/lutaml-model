@@ -22,6 +22,8 @@ module Lutaml
             register_object.id,
           )
         end
+
+        @mappings_imported[register_object.id] = true
       end
 
       private

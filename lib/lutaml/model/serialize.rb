@@ -756,7 +756,6 @@ collection)
             end
           end
 
-          # importable_models.clear
           @models_imported[register_id] = true
         end
 
