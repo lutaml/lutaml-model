@@ -537,6 +537,7 @@ RSpec.describe Lutaml::Model::Xml::NamespaceCollector do
                              namespaces: {},
                              children: {},
                              namespace_scope_configs: nil,
+                             sources: [],
                              type_namespaces: {},
                            })
     end

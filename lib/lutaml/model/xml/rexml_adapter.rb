@@ -244,6 +244,9 @@ module Lutaml
               prefix = decl[/xmlns:(\w+)=/, 1]
               attributes["xmlns:#{prefix}"] = ns_class.uri
             else
+              # Only declare namespaces used by the root element itself
+              next unless ns_config[:sources]&.include?("default")
+
               # Default namespace: "xmlns=\"uri\""
               attributes["xmlns"] = ns_class.uri
             end
@@ -302,12 +305,7 @@ module Lutaml
 
           # Determine prefix from plan
           prefix = nil
-          option_rule = options[:rule]
-          namespace_class = if option_rule&.prefix_set? || option_rule&.namespace_set?
-                              option_rule.namespace_class
-                            else
-                              xml_mapping.namespace_class
-                            end
+          namespace_class = determine_namespace(options[:rule], xml_mapping)
           if namespace_class
             key = namespace_class.to_key
             ns_config = plan[:namespaces][key]
@@ -657,7 +655,7 @@ module Lutaml
             if plan && plan[:namespaces]
               # Find namespace entry that matches this URI
               ns_entry = plan[:namespaces].find do |_key, ns_config|
-                ns_config[:ns_object].uri == element_ns_uri
+                ns_config[:ns_object].uri == element_ns_uri && ns_config[:sources]&.include?(rule.to)
               end
               if ns_entry
                 _key, ns_config = ns_entry
@@ -706,7 +704,18 @@ module Lutaml
           attributes = {}
 
           # Check if this namespace needs local declaration (out of scope)
-          if resolved_prefix && plan && plan[:namespaces]
+          if !resolved_prefix && !ns_info[:uri].nil? && plan && plan[:namespaces]
+            # Handle default namespace local declaration
+            ns_entry = plan[:namespaces].find do |_key, ns_config|
+              ns_config[:ns_object].uri == ns_info[:uri] &&
+                ns_config[:ns_object].prefix_default.nil?
+            end
+
+            if ns_entry
+              _key, ns_config = ns_entry
+              attributes["xmlns"] = ns_config[:ns_object].uri
+            end
+          elsif resolved_prefix && plan && plan[:namespaces]
             # Find the namespace config for this prefix/URI
             ns_entry = plan[:namespaces].find do |_key, ns_config|
               ns_config[:ns_object].prefix_default == resolved_prefix ||

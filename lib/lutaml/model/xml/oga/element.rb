@@ -7,7 +7,7 @@ module Lutaml
     module Xml
       module Oga
         class Element < XmlElement
-          def initialize(node, parent: nil, default_namespace: nil)
+          def initialize(node, parent: nil, root_node: nil, default_namespace: nil)
             explicit_no_namespace = false
 
             text = case node
@@ -25,11 +25,24 @@ module Lutaml
                        node_namespace_nil: node.namespace.nil? || node.namespace&.uri == "",
                      )
 
-                     add_namespaces(node, is_root: parent.nil?)
+                     # Add namespaces to root_node if provided (for namespace resolution)
+                     if root_node
+                       node.namespaces.each do |namespace|
+                         ns = XmlNamespace.new(namespace.uri, namespace.prefix)
+                         root_node.add_namespace(ns)
+                       end
+                     else
+                       add_namespaces(node, is_root: parent.nil?)
+                     end
 
-                     default_namespace = node.namespace&.uri if parent.nil? && !namespace_name && node.namespace&.uri != ""
+                     # Set default namespace for root, or inherit from parent for children
+                     if !namespace_name
+                       default_namespace = node.namespace&.uri ||
+                         root_node&.instance_variable_get(:@default_namespace)
+                     end
 
                      children = parse_children(node,
+                                               root_node: root_node || self,
                                                default_namespace: default_namespace)
                      attributes = node_attributes(node)
                      @root = node
@@ -102,11 +115,12 @@ module Lutaml
             end
           end
 
-          def parse_children(node, default_namespace: nil)
+          def parse_children(node, root_node: nil, default_namespace: nil)
             node.children.filter_map do |child|
               next if child.is_a?(Moxml::ProcessingInstruction)
 
               self.class.new(child, parent: self,
+                                    root_node: root_node,
                                     default_namespace: default_namespace)
             end
           end
