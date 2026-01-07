@@ -36,7 +36,7 @@ module Lutaml
           @raw_mapping = nil
           @mixed_content = false
           @format = :xml
-          @mappings_imported = ::Hash.new { |h, k| h[k] = true }
+          @mappings_imported = ::Hash.new { |h, k| h[k] = false }
           @register_elements = ::Hash.new { |h, k| h[k] = {} }
           @register_attributes = ::Hash.new { |h, k| h[k] = {} }
           @register_element_sequences = ::Hash.new { |h, k| h[k] = [] }
@@ -612,9 +612,9 @@ module Lutaml
         end
 
         def ensure_mappings_imported!(register_id = nil)
-          return if @mappings_imported[register_id]
-
           register_object = register(register_id)
+          return if @mappings_imported[register_object.id]
+
           importable_mappings.each do |model|
             __import_model_mappings(
               register_object.get_class_without_register(model),
@@ -631,7 +631,7 @@ module Lutaml
             end
           end
 
-          @mappings_imported[register_id] = true
+          @mappings_imported[register_object.id] = true
         end
 
         def sequence_importable_mappings
@@ -749,6 +749,7 @@ module Lutaml
             @register_elements
             @register_attributes
             @register_element_sequences
+            @sequence_importable_mappings
           ]
         end
 

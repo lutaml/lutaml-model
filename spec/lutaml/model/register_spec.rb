@@ -482,7 +482,7 @@ RSpec.describe Lutaml::Model::Register do
       json_output = mapping_b_instance.to_json
       parsed = JSON.parse(json_output)
       expect(parsed["field_alpha"]).to eq("alpha_value")
-      expect(parsed["field_beta"]).to eq(true)
+      expect(parsed["field_beta"]).to be(true)
       expect(parsed).not_to have_key("field_one")
       expect(parsed).not_to have_key("field_two")
     end

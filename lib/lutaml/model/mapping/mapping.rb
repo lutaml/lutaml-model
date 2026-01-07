@@ -3,6 +3,7 @@ module Lutaml
     class Mapping
       def initialize
         @mappings = []
+        @importable_mappings = []
         @mappings_imported = ::Hash.new { |h, k| h[k] = false }
       end
 
@@ -25,6 +26,8 @@ module Lutaml
 
       private
 
+      attr_accessor :importable_mappings
+
       def register(register_id = nil)
         register_id ||= Lutaml::Model::Config.default_register
         Lutaml::Model::GlobalRegister.lookup(register_id)
@@ -38,10 +41,6 @@ module Lutaml
         register_object = register(register_id)
         importable_mappings << model.to_sym
         @mappings_imported[register_object.id] = false
-      end
-
-      def importable_mappings
-        @importable_mappings ||= []
       end
     end
   end
