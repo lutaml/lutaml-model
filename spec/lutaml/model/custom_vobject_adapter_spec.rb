@@ -230,6 +230,14 @@ module CustomVobjectAdapterSpec
       @element_type = nil
     end
 
+    def finalize(_mapper_class)
+      @finalized = true
+    end
+
+    def finalized?
+      @finalized
+    end
+
     def field_set?
       @field_set
     end

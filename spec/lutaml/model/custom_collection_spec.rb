@@ -286,10 +286,14 @@ RSpec.describe CustomCollection do
   end
 
   describe "ItemCollection" do
-    before do
+    around do |example|
       Lutaml::Model::GlobalRegister.register(register)
+      default_register = Lutaml::Model::Config.default_register
       Lutaml::Model::Config.default_register = register.id
       register.register_model(CustomCollection::Text, id: :text)
+      example.run
+      Lutaml::Model::GlobalRegister.remove(register.id)
+      Lutaml::Model::Config.default_register = default_register
     end
 
     let(:collection) { CustomCollection::ItemCollection.new(items) }
@@ -353,10 +357,14 @@ RSpec.describe CustomCollection do
   end
 
   describe "ItemNoRootCollection" do
-    before do
+    around do |example|
       Lutaml::Model::GlobalRegister.register(register)
-      Lutaml::Model::Config.default_register = register
+      default_register = Lutaml::Model::Config.default_register
+      Lutaml::Model::Config.default_register = register.id
       register.register_model(CustomCollection::Text, id: :text)
+      example.run
+      Lutaml::Model::GlobalRegister.remove(register.id)
+      Lutaml::Model::Config.default_register = default_register
     end
 
     let(:register) { Lutaml::Model::Register.new(:no_collections) }

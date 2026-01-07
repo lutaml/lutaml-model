@@ -3,7 +3,7 @@ module Lutaml
     module Yamls
       class Transform < Lutaml::Model::KeyValueTransform
         def data_to_model(data, format, options = {})
-          mappings = defined_mappings_for(:yamls) || mappings_for(:yaml)
+          mappings = defined_mappings_for(:yamls) || mappings_for(:yaml, __register)
 
           super(data, format, options.merge(mappings: mappings))
         end
@@ -12,7 +12,7 @@ module Lutaml
           # For YAMLS collections, use yamls mappings for this collection
           # But let nested instances use their own yaml mappings
           # by passing :yaml format without forcing mappings parameter
-          defined_mappings_for(:yamls) || mappings_for(:yaml)
+          defined_mappings_for(:yamls) || mappings_for(:yaml, __register)
 
           # Override format to :yaml - nested instances will auto-select yaml mappings
           super(instance, :yaml, options)

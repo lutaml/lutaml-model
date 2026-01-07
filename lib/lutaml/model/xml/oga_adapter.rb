@@ -36,7 +36,7 @@ module Lutaml
             else
               # THREE-PHASE ARCHITECTURE
               mapper_class = options[:mapper_class] || @root.class
-              xml_mapping = mapper_class.mappings_for(:xml)
+              xml_mapping = mapper_class.mappings_for(:xml, register)
 
               # Phase 1: Collect namespace needs
               collector = NamespaceCollector.new(register)
@@ -62,20 +62,26 @@ module Lutaml
         # @param options [Hash] serialization options
         def build_element_with_plan(xml, element, plan, options = {})
           mapper_class = options[:mapper_class] || element.class
-          xml_mapping = mapper_class.mappings_for(:xml)
+          xml_mapping = mapper_class.mappings_for(:xml, register)
           return xml unless xml_mapping
 
           # TYPE-ONLY MODELS: No element wrapper, serialize children directly
           # BUT if we have a tag_name in options, that means parent wants a wrapper
+          plan ||= {
+            namespaces: {},
+            children_plans: {},
+            type_namespaces: {},
+          }
+
           if xml_mapping.no_element?
             # If parent provided a tag_name, create that wrapper first
             if options[:tag_name]
               xml.create_and_add_element(options[:tag_name]) do |inner_xml|
                 # Serialize type-only model's children inside parent's wrapper
-                xml_mapping.elements.each do |element_rule|
+                xml_mapping.elements(register).each do |element_rule|
                   next if options[:except]&.include?(element_rule.to)
 
-                  attribute_def = mapper_class.attributes[element_rule.to]
+                  attribute_def = mapper_class.attributes(register)[element_rule.to]
                   next unless attribute_def
 
                   value = element.send(element_rule.to)
@@ -108,10 +114,10 @@ module Lutaml
               end
             else
               # No wrapper at all - serialize children directly (for root-level type-only)
-              xml_mapping.elements.each do |element_rule|
+              xml_mapping.elements(register).each do |element_rule|
                 next if options[:except]&.include?(element_rule.to)
 
-                attribute_def = mapper_class.attributes[element_rule.to]
+                attribute_def = mapper_class.attributes(register)[element_rule.to]
                 next unless attribute_def
 
                 value = element.send(element_rule.to)
@@ -160,7 +166,7 @@ module Lutaml
 
           # Add regular attributes (non-xmlns)
 
-          xml_mapping.attributes.each do |attribute_rule|
+          xml_mapping.attributes(register).each do |attribute_rule|
             next if attribute_rule.custom_methods[:to] ||
               options[:except]&.include?(attribute_rule.to)
 
@@ -234,10 +240,10 @@ module Lutaml
         # @param options [Hash] serialization options
         def build_unordered_children_with_plan(xml, element, plan, options)
           mapper_class = options[:mapper_class] || element.class
-          xml_mapping = mapper_class.mappings_for(:xml)
+          xml_mapping = mapper_class.mappings_for(:xml, register)
 
           # Process child elements with their plans (INCLUDING raw_mapping for map_all)
-          mappings = xml_mapping.elements + [xml_mapping.raw_mapping].compact
+          mappings = xml_mapping.elements(register) + [xml_mapping.raw_mapping].compact
           mappings.each do |element_rule|
             next if options[:except]&.include?(element_rule.to)
 
@@ -248,7 +254,7 @@ module Lutaml
               next
             end
 
-            attribute_def = mapper_class.attributes[element_rule.to]
+            attribute_def = mapper_class.attributes(register)[element_rule.to]
 
             # For delegated attributes, attribute_def might be nil since the attribute
             # doesn't exist directly on the main class (e.g., :color doesn't exist on Ceramic,
@@ -309,7 +315,7 @@ module Lutaml
         # @param options [Hash] serialization options
         def build_ordered_element_with_plan(xml, element, plan, options)
           mapper_class = options[:mapper_class] || element.class
-          xml_mapping = mapper_class.mappings_for(:xml)
+          xml_mapping = mapper_class.mappings_for(:xml, register)
 
           index_hash = ::Hash.new { |key, value| key[value] = -1 }
           content = []
@@ -341,7 +347,7 @@ module Lutaml
               next
             end
 
-            attribute_def = mapper_class.attributes[element_rule.to]
+            attribute_def = mapper_class.attributes(register)[element_rule.to]
             value = if element.respond_to?(element_rule.to)
                       element.send(element_rule.to)
                     end
@@ -414,20 +420,10 @@ options)
           case value
           when Array
             value.each do |val|
-              if plan
-                build_element_with_plan(xml, val, plan, element_options)
-              else
-                # Fallback for cases without plan
-                build_element(xml, val, element_options)
-              end
+              build_element_with_plan(xml, val, plan, element_options)
             end
           else
-            if plan
-              build_element_with_plan(xml, value, plan, element_options)
-            else
-              # Fallback for cases without plan
-              build_element(xml, value, element_options)
-            end
+            build_element_with_plan(xml, value, plan, element_options)
           end
         end
 
@@ -643,7 +639,7 @@ mapping: nil)
           when Moxml::Text
             "text"
           when Moxml::Cdata
-            "cdata"
+            "#cdata-section"
           when Moxml::ProcessingInstruction
             "processing_instruction"
           else
