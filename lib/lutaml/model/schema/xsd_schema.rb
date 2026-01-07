@@ -343,7 +343,7 @@ xml_mapping = nil)
         def self.generate_attributes(xml, klass, register, xml_mapping)
           return unless xml_mapping
 
-          xml_mapping.attributes.each do |rule|
+          xml_mapping.attributes(register).each do |rule|
             attr = klass.attributes[rule.to]
             next unless attr
 

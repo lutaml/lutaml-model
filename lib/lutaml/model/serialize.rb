@@ -26,7 +26,7 @@ module Lutaml
       include Lutaml::Model::Registrable
 
       INTERNAL_ATTRIBUTES = %i[@using_default @__register @__parent
-                               @__root].freeze
+                               @__root @__register_record].freeze
 
       def self.included(base)
         base.extend(ClassMethods)
@@ -36,7 +36,7 @@ module Lutaml
       module ClassMethods
         include Lutaml::Model::Liquefiable::ClassMethods
 
-        attr_accessor :choice_attributes, :mappings
+        attr_accessor :mappings, :__register_record
 
         # Class-level directive to set the namespace for this Model
         #
@@ -103,20 +103,39 @@ module Lutaml
           @mappings = Utils.deep_dup(source_class.instance_variable_get(:@mappings)) || {}
           @attributes = Utils.deep_dup(source_class.instance_variable_get(:@attributes)) || {}
           @choice_attributes = deep_duplicate_choice_attributes(source_class)
+          @__register_record = Utils.deep_dup(source_class.instance_variable_get(:@__register_record)) ||
+            ::Hash.new { |hash, key| hash[key] = { attributes: {}, choice_attributes: [] } }
           instance_variable_set(:@model, self)
         end
 
-        def deep_duplicate_choice_attributes(source_class)
+        def deep_duplicate_choice_attributes(source_class, register = nil)
           choice_attrs = Array(source_class.instance_variable_get(:@choice_attributes))
-          choice_attrs.map { |choice_attr| choice_attr.deep_duplicate(self) }
+          choice_attrs.map { |choice_attr| choice_attr.deep_duplicate(self, register) }
         end
 
         def attributes(register = nil)
           ensure_imports!(register) if finalized?
-          @attributes
+          if @__register_record&.any?
+            @attributes.merge(@__register_record[extract_register_id(register)][:attributes])
+          else
+            @attributes
+          end
+        end
+
+        def choice_attributes(register = nil)
+          ensure_imports!(register) if finalized?
+          if @__register_record&.any?
+            @choice_attributes + @__register_record[extract_register_id(register)][:choice_attributes]
+          else
+            @choice_attributes
+          end
         end
 
         def ensure_imports!(register = nil)
+          @models_imported ||= {}
+          @choices_imported ||= {}
+          @models_imported[register] = false unless @models_imported.key?(register)
+          @choices_imported[register] = false unless @choices_imported.key?(register)
           ensure_model_imports!(register)
           ensure_choice_imports!(register)
           ensure_restrict_attributes!(register)
@@ -166,9 +185,8 @@ module Lutaml
           end
         end
 
-        def define_attribute_methods(attr, register = nil)
+        def define_attribute_methods(attr, instance = self)
           name = attr.name
-          register_id = extract_register_id(register)
 
           if attr.enum?
             add_enum_methods_to_model(
@@ -178,23 +196,23 @@ module Lutaml
               collection: attr.options[:collection],
             )
           elsif attr.derived? && name != attr.method_name
-            define_method(name) do
+            Utils.add_method(instance, name) do
               value = public_send(attr.method_name)
               # Cast the derived value to the specified type
-              attr.cast_element(value, register_id)
+              attr.cast_element(value, __register)
             end
           elsif attr.unresolved_type == Lutaml::Model::Type::Reference
-            define_reference_methods(name, register_id)
+            define_reference_methods(name, attr.options[:register], instance)
           else
-            define_regular_attribute_methods(name, attr)
+            define_regular_attribute_methods(name, attr, instance)
           end
         end
 
-        def define_reference_methods(name, register)
-          register_id = register || __register
-          attr = attributes[name]
+        def define_reference_methods(name, register = nil, instance = self)
+          register_id = extract_register_id(register)
+          attr = attributes(register_id)[name]
 
-          define_method("#{name}_ref") do
+          Utils.add_method(instance, "#{name}_ref") do
             instance_variable_get(:"@#{name}_ref")
           end
 
@@ -204,17 +222,17 @@ module Lutaml
                               attr.options[:ref_key_attribute]
                             end
 
-          define_method("#{name}_#{key_method_name}") do
+          Utils.add_method(instance, "#{name}_#{key_method_name}") do
             ref = instance_variable_get(:"@#{name}_ref")
             resolve_reference_key(ref)
           end
 
-          define_method(name) do
+          Utils.add_method(instance, name) do
             ref = instance_variable_get(:"@#{name}_ref")
             resolve_reference_value(ref)
           end
 
-          define_method(:"#{name}=") do |value|
+          Utils.add_method(instance, :"#{name}=") do |value|
             value_set_for(name)
             casted_value = value
             unless casted_value.is_a?(Lutaml::Model::Type::Reference)
@@ -228,12 +246,12 @@ module Lutaml
           end
         end
 
-        def define_regular_attribute_methods(name, attr)
-          define_method(name) do
+        def define_regular_attribute_methods(name, attr, instance = self)
+          Utils.add_method(instance, name) do
             instance_variable_get(:"@#{name}")
           end
 
-          define_method(:"#{name}=") do |value|
+          Utils.add_method(instance, :"#{name}=") do |value|
             value_set_for(name)
             value = attr.cast_value(value, __register)
             instance_variable_set(:"@#{name}", value)
@@ -257,15 +275,17 @@ module Lutaml
         end
 
         def restrict(name, options = {})
-          if !@attributes.key?(name)
+          register_id = options.delete(:register) || Lutaml::Model::Config.default_register
+          attrs = attributes(register_id)
+
+          if !attrs.key?(name)
             return restrict_attributes[name] = options if any_importable_models?
 
             raise Lutaml::Model::UndefinedAttributeError.new(name, self)
           end
 
-          register_id = options.delete(:register) || Lutaml::Model::Config.default_register
           validate_attribute_options!(name, options)
-          attr = attributes(register_id)[name]
+          attr = attrs[name]
           attr.options.merge!(options)
           attr.process_options!
           name
@@ -291,21 +311,40 @@ module Lutaml
           mappings_for(:xml, register)&.root?
         end
 
+        def __import_model_attributes(model, register_id = nil)
+          register = extract_register_id(register_id)
+          return import_model_attributes(model, register_id) if register == :default
+
+          current_record = @__register_record[register]
+          current_record[:attributes].merge!(Utils.deep_dup(model.attributes(register)))
+          current_record[:choice_attributes].concat(deep_duplicate_choice_attributes(model, register))
+        end
+
+        def __import_model_mappings(model, register_id = nil)
+          register = extract_register_id(register_id)
+          return import_model_mappings(model, register_id) if register == :default
+
+          Lutaml::Model::Config::AVAILABLE_FORMATS.each do |format|
+            next unless model.mappings.key?(format)
+
+            klass = ::Lutaml::Model::Config.mappings_class_for(format)
+            @mappings[format] ||= klass.new
+            @mappings[format].__import_model_mappings(model, register_id)
+          end
+        end
+
         def import_model_attributes(model, register_id = nil)
           if model.is_a?(Symbol) || model.is_a?(String)
-            importable_models[:import_model_attributes] << model.to_sym
-            @models_imported = false
-            @choices_imported = false
+            importable_models[:__import_model_attributes] << model.to_sym
+            @models_imported = (@models_imported || {}).merge({ register_id => false })
+            @choices_imported = (@choices_imported || {}).merge({ register_id => false })
             setup_trace_point
             return
           end
 
-          model.attributes(register_id).each_value do |attr|
-            define_attribute_methods(attr, register_id)
-          end
-
+          model.attributes.each_value { |attr| define_attribute_methods(attr) }
           @attributes.merge!(Utils.deep_dup(model.attributes))
-          @choice_attributes.concat(deep_duplicate_choice_attributes(model))
+          @choice_attributes.concat(deep_duplicate_choice_attributes(model, nil))
         end
 
         def import_model_mappings(model, register_id = nil)
@@ -318,11 +357,16 @@ module Lutaml
           end
         end
 
+        def __import_model(model, register_id = nil)
+          __import_model_attributes(model, register_id)
+          __import_model_mappings(model, register_id)
+        end
+
         def import_model(model, register_id = nil)
           if model.is_a?(Symbol) || model.is_a?(String)
-            importable_models[:import_model] << model.to_sym
-            @models_imported = false
-            @choices_imported = false
+            importable_models[:__import_model] << model.to_sym
+            @models_imported = (@models_imported || {}).merge({ register_id => false })
+            @choices_imported = (@choices_imported || {}).merge({ register_id => false })
             setup_trace_point
             return
           end
@@ -701,7 +745,7 @@ collection)
         end
 
         def ensure_model_imports!(register_id = nil)
-          return if @models_imported
+          return if @models_imported[register_id] || Utils.present?(@__register_record[register_id][:attributes])
 
           register_id ||= Lutaml::Model::Config.default_register
           register = Lutaml::Model::GlobalRegister.lookup(register_id)
@@ -712,28 +756,27 @@ collection)
             end
           end
 
-          importable_models.clear
-          @models_imported = true
+          @models_imported[register_id] = true
         end
 
         def ensure_choice_imports!(register_id = nil)
-          return if @choices_imported
+          return if @choices_imported[register_id] || Utils.present?(@__register_record[register_id][:choice_attributes])
 
           register_id ||= Lutaml::Model::Config.default_register
           register = Lutaml::Model::GlobalRegister.lookup(register_id)
           importable_choices.each do |choice, choice_imports|
             choice_imports.each do |method, models|
-              until models.uniq.empty?
+              models.uniq.each do |model|
                 choice.public_send(
                   method,
-                  register.get_class_without_register(models.shift),
+                  register.get_class_without_register(model),
                   register_id,
                 )
               end
             end
           end
 
-          @choices_imported = true
+          @choices_imported[register_id] = true
         end
 
         def ensure_restrict_attributes!(register_id = nil)
@@ -927,10 +970,11 @@ collection)
       end
 
       def method_missing(method_name, *args)
-        if method_name.to_s.end_with?("=") && attribute_exist?(method_name)
-          define_singleton_method(method_name) do |value|
-            instance_variable_set(:"@#{method_name.to_s.chomp('=')}", value)
-          end
+        if attribute_exist?(method_name)
+          self.class.define_attribute_methods(
+            self.class.attributes(__register)[method_name.to_s.chomp("=").to_sym],
+            self,
+          )
           send(method_name, *args)
         else
           super
@@ -945,7 +989,7 @@ collection)
       def attribute_exist?(name)
         name = name.to_s.chomp("=").to_sym if name.end_with?("=")
 
-        self.class.attributes.key?(name)
+        self.class.attributes(__register).key?(name)
       end
 
       def validate_attribute!(attr_name)

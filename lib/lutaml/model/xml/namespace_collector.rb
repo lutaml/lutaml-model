@@ -63,7 +63,7 @@ module Lutaml
             @visited_types << mapper_class
           end
 
-          attributes = mapper_class.respond_to?(:attributes) ? mapper_class.attributes : {}
+          attributes = mapper_class.respond_to?(:attributes) ? mapper_class.attributes(@register) : {}
 
           # ==================================================================
           # PHASE 1: OWN NAMESPACE COLLECTION (for non-type-only models)
@@ -82,7 +82,7 @@ module Lutaml
             # PHASE 2: XML ATTRIBUTE NAMESPACE COLLECTION
             # ==================================================================
             # Collect XML attribute namespaces (only for non-type-only models)
-            mapping.attributes.each do |attr_rule|
+            mapping.attributes(@register).each do |attr_rule|
               next unless attr_rule.attribute?
 
               # Skip if we can't resolve attributes
@@ -144,7 +144,7 @@ module Lutaml
           # PHASE 4: ELEMENT NAMESPACE COLLECTION & RECURSION
           # ==================================================================
           # Recurse to child elements
-          mapping.elements.each do |elem_rule|
+          mapping.elements(@register).each do |elem_rule|
             # Collect explicit element namespace if set
             if elem_rule.namespace_set? && elem_rule.namespace_class
               validate_namespace_class(elem_rule.namespace_class)
@@ -212,7 +212,7 @@ module Lutaml
               child_type < Lutaml::Model::Serialize
 
             # Get child mapping
-            child_mapping = child_type.mappings_for(:xml)
+            child_mapping = child_type.mappings_for(:xml, @register)
             next unless child_mapping
 
             # Recursively collect child needs, passing mapper_class in options
@@ -238,15 +238,15 @@ module Lutaml
           # If collection has instances, collect needs from instance type
           if collection.respond_to?(:instances) &&
               mapping.respond_to?(:find_element)
-            instance_rule = mapping.find_element(:instances) ||
-              mapping.elements.first
+            instance_rule = mapping.find_element(:instances, @register) ||
+              mapping.elements(@register).first
             if instance_rule
-              attr_def = collection.class.attributes[instance_rule.to]
+              attr_def = collection.class.attributes(@register)[instance_rule.to]
               if attr_def
                 instance_type = attr_def.type(@register)
                 if instance_type.respond_to?(:<) &&
                     instance_type < Lutaml::Model::Serialize
-                  instance_mapping = instance_type.mappings_for(:xml)
+                  instance_mapping = instance_type.mappings_for(:xml, @register)
                   if instance_mapping
                     instance_needs = collect(nil, instance_mapping)
                     merge_namespace_needs(needs, instance_needs)

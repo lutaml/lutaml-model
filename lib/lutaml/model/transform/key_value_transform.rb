@@ -11,7 +11,7 @@ module Lutaml
         root_and_parent_assignment(instance, options)
         mappings = extract_mappings(options, format)
 
-        mappings.mappings.each do |rule|
+        mappings.mappings(__register).each do |rule|
           process_mapping_rule(data, instance, format, rule, options)
         end
 
@@ -22,7 +22,7 @@ module Lutaml
         mappings = extract_mappings(options, format)
 
         hash = {}
-        mappings.mappings.each do |rule|
+        mappings.mappings(__register).each do |rule|
           next unless valid_mapping?(rule, options)
 
           process_rule!(instance, rule, hash, format, mappings, options)
@@ -143,9 +143,9 @@ module Lutaml
         return if child_mappings.values != [:key]
 
         klass = value.first.class
-        mappings = klass.mappings_for(format)
+        mappings = klass.mappings_for(format, __register)
 
-        klass.attributes.each_key do |name|
+        klass.attributes(__register).each_key do |name|
           next if Utils.string_or_symbol_key?(child_mappings, name)
 
           child_mappings[name.to_sym] = child_mapping_for(name, mappings)
@@ -196,7 +196,7 @@ format)
         value = extract_value_for_delegate(instance, rule)
         return if value.nil? && !rule.render_nil
 
-        attribute = instance.send(rule.delegate).class.attributes[rule.to]
+        attribute = instance.send(rule.delegate).class.attributes(__register)[rule.to]
         hash[rule_from_name(rule)] =
           attribute.serialize(value, format, __register)
       end
@@ -275,7 +275,7 @@ instance)
         attr_type = attr.type(__register)
         child_mappings.to_h do |attr_name, path|
           attr_value = extract_attr_value(path, key, value)
-          attr_rule = attr_type.mappings_for(format).find_by_to!(attr_name)
+          attr_rule = attr_type.mappings_for(format, __register).find_by_to!(attr_name)
           [attr_rule.from.to_s, attr_value]
         end
       end
@@ -297,7 +297,7 @@ instance)
       def map_child_data(child_hash, attr, format, instance)
         attr_type = attr.type(__register)
         options = {
-          mappings: attr_type.mappings_for(format),
+          mappings: attr_type.mappings_for(format, __register),
           __parent: instance,
           __root: instance.__root || instance,
         }

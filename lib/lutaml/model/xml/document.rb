@@ -117,7 +117,7 @@ module Lutaml
           return options[:mixed_content] if options.key?(:mixed_content)
 
           mapper_class = options[:mapper_class]
-          mapper_class ? mapper_class.mappings_for(:xml).mixed_content? : false
+          mapper_class ? mapper_class.mappings_for(:xml, register).mixed_content? : false
         end
 
         def render_element?(rule, element, value)
@@ -172,12 +172,12 @@ module Lutaml
 
         def attribute_definition_for(element, rule, mapper_class: nil)
           klass = mapper_class || element.class
-          return klass.attributes[rule.to] unless rule.delegate
+          return klass.attributes(register)[rule.to] unless rule.delegate
 
           delegated_obj = element.send(rule.delegate)
           return nil if delegated_obj.nil?
 
-          delegated_obj.class.attributes[rule.to]
+          delegated_obj.class.attributes(register)[rule.to]
         end
 
         def attribute_value_for(element, rule)
@@ -253,7 +253,7 @@ module Lutaml
 
           # Try to get parent namespace class if available
           parent_ns_class = if mapper_class.respond_to?(:mappings_for)
-                              mapper_class.mappings_for(:xml)&.namespace_class
+                              mapper_class.mappings_for(:xml, register)&.namespace_class
                             end
 
           # Default form is unqualified unless specified
@@ -287,7 +287,7 @@ module Lutaml
 
           # Get parent namespace class if available
           parent_ns_class = if mapper_class.respond_to?(:mappings_for)
-                              mapper_class.mappings_for(:xml)&.namespace_class
+                              mapper_class.mappings_for(:xml, register)&.namespace_class
                             end
 
           # Get attribute form default from parent's schema (namespace class)

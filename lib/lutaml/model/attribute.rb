@@ -207,7 +207,7 @@ module Lutaml
 
       def default_value(register)
         if delegate
-          type(register).attributes[to].default(register)
+          type(register).attributes(register)[to].default(register)
         elsif options[:default].is_a?(Proc)
           options[:default].call
         elsif options.key?(:default)

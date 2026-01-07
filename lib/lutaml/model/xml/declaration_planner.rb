@@ -75,7 +75,7 @@ module Lutaml
           end
 
           attributes = if mapper_class.respond_to?(:attributes)
-                         mapper_class.attributes
+                         mapper_class.attributes(@register)
                        else
                          {}
                        end
@@ -272,7 +272,7 @@ module Lutaml
           # PHASE 6: PLAN CHILDREN RECURSIVELY
           # ==================================================================
           # Plan children
-          mapping.elements.each do |elem_rule|
+          mapping.elements(@register).each do |elem_rule|
             # Skip if we can't resolve attributes
             next unless attributes&.any?
 
@@ -284,7 +284,7 @@ module Lutaml
             next unless child_type.respond_to?(:<) &&
               child_type < Lutaml::Model::Serialize
 
-            child_mapping = child_type.mappings_for(:xml)
+            child_mapping = child_type.mappings_for(:xml, @register)
             next unless child_mapping
 
             child_needs = needs[:children][elem_rule.to] || empty_needs
@@ -403,14 +403,14 @@ module Lutaml
           # If they do and we have a prefix, use prefixed format
           # so children can properly reference the namespace
           if mapping.namespace_class.prefix_default && mapping.respond_to?(:elements)
-            has_inherit_children = mapping.elements.any? do |elem_rule|
+            has_inherit_children = mapping.elements(@register).any? do |elem_rule|
               elem_rule.namespace_param == :inherit
             end
             return :prefix if has_inherit_children
 
             # Also check if any children have form: :qualified
             # They need prefixed format to reference parent namespace
-            has_qualified_children = mapping.elements.any?(&:qualified?)
+            has_qualified_children = mapping.elements(@register).any?(&:qualified?)
             return :prefix if has_qualified_children
           end
 
@@ -461,12 +461,12 @@ options)
 
           # 3. Check if any child elements use :inherit or form: :qualified
           if effective_ns_class.prefix_default && mapping.respond_to?(:elements)
-            has_inherit_children = mapping.elements.any? do |elem_rule|
+            has_inherit_children = mapping.elements(@register).any? do |elem_rule|
               elem_rule.namespace_param == :inherit
             end
             return :prefix if has_inherit_children
 
-            has_qualified_children = mapping.elements.any?(&:qualified?)
+            has_qualified_children = mapping.elements(@register).any?(&:qualified?)
             return :prefix if has_qualified_children
           end
 
