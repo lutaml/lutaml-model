@@ -215,7 +215,7 @@ module Lutaml
                 # If this namespace has no prefix AND root already has a default namespace,
                 # we MUST use prefix format (even though ns has no prefix configured)
                 # This means we need to force a prefix or error
-                if format == :default && !parent_plan && ns_data[:sources]&.include?("root_element")
+                if format == :default && !parent_plan && ns_data[:sources]&.include?("default")
                   # Check if root element already declared a default namespace
                   root_ns_key = effective_ns_class&.to_key
                   if root_ns_key && plan[:namespaces][root_ns_key] && plan[:namespaces][root_ns_key][:format] == :default && (key != root_ns_key)

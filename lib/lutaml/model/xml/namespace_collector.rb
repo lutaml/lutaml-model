@@ -79,7 +79,7 @@ module Lutaml
             if mapping.namespace_class
               validate_namespace_class(mapping.namespace_class)
               track_namespace(needs, mapping.namespace_class, :elements)
-              track_namespace_source(needs, mapping.namespace_class, :root_element)
+              track_namespace_source(needs, mapping.namespace_class, :default)
             end
 
             # ==================================================================

@@ -91,7 +91,7 @@ module Lutaml
               attributes["xmlns:#{prefix}"] = ns_class.uri
             else
               # Only declare namespaces used by the root element itself
-              next unless ns_config[:sources]&.include?("root_element")
+              next unless ns_config[:sources]&.include?("default")
 
               # Default namespace: "xmlns=\"uri\""
               attributes["xmlns"] = ns_class.uri
