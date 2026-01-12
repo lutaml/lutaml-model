@@ -11744,11 +11744,11 @@ end
 json_data = '{"data": "test"}'
 
 # Method accepts 3 arguments - state is used
-instance = ExampleWithMetadata.from_json(json_data, state: { source: "api" })
+instance = ExampleWithState.from_json(json_data, state: { source: "api" })
 instance.data  # => "api: test"
 
 # State is nil if not provided
-instance2 = ExampleWithMetadata.from_json(json_data)
+instance2 = ExampleWithState.from_json(json_data)
 instance2.data  # => "default: test"
 ----
 ====

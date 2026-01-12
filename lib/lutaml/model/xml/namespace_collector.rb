@@ -63,7 +63,7 @@ module Lutaml
             @visited_types << mapper_class
           end
 
-          attributes = mapper_class.respond_to?(:attributes) ? mapper_class.attributes : {}
+          attributes = mapper_class.respond_to?(:attributes) ? mapper_class.attributes(@register) : {}
 
           # ==================================================================
           # PHASE 1: OWN NAMESPACE COLLECTION (for non-type-only models)
