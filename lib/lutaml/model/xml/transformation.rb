@@ -1209,6 +1209,46 @@ module Lutaml
           @rule = rule
         end
 
+        # Create an element (mimics old adapter API)
+        #
+        # @param name [String] Element name
+        # @return [XmlDataModel::XmlElement] The created element
+        def create_element(name)
+          Lutaml::Model::XmlDataModel::XmlElement.new(name)
+        end
+
+        # Add an element to parent (mimics old adapter API)
+        #
+        # @param parent [XmlDataModel::XmlElement] Parent element
+        # @param element_or_string [XmlDataModel::XmlElement, String] Element to add or string content
+        # @return [XmlDataModel::XmlElement] The added element
+        def add_element(parent, element_or_string)
+          if element_or_string.is_a?(String)
+            # Parse XML string and add to parent as raw content
+            # This handles cases like doc.add_element(parent, "<city>B</city>")
+            # Store as raw content for adapter to handle XML fragment parsing
+            existing_raw = parent.instance_variable_get(:@raw_content)
+            if existing_raw
+              parent.instance_variable_set(:@raw_content, existing_raw + element_or_string)
+            else
+              parent.instance_variable_set(:@raw_content, element_or_string)
+            end
+            element_or_string
+          else
+            # Add as child element
+            parent.add_child(element_or_string)
+            element_or_string
+          end
+        end
+
+        # Add text to element (mimics old adapter API)
+        #
+        # @param element [XmlDataModel::XmlElement] Element to add text to
+        # @param text [String] Text content
+        def add_text(element, text)
+          element.text_content = text
+        end
+
         # Create and add an element (mimics old adapter API)
         #
         # @param name [String] Element name
