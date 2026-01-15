@@ -142,9 +142,10 @@ RSpec.describe "Type-level namespace round-trip tests" do
       original = contact_class.from_xml(xml_with_default_ns)
       serialized = original.to_xml
 
+      # Type namespace declarations are hoisted to root element (W3C compliant)
       expected_xml = <<~XML
-        <ContactInfo>
-          <personName xmlns:ct="https://example.com/schemas/contact/v1" xmlns:name="https://example.com/schemas/name-attributes/v1" name:prefix="Dr." suffix="Jr.">
+        <ContactInfo xmlns:ct="https://example.com/schemas/contact/v1" xmlns:name="https://example.com/schemas/name-attributes/v1">
+          <personName name:prefix="Dr." suffix="Jr.">
             <ct:givenName>John</ct:givenName>
             <ct:surname>Doe</ct:surname>
           </personName>
@@ -166,9 +167,10 @@ RSpec.describe "Type-level namespace round-trip tests" do
       original = contact_class.from_xml(xml_with_custom_prefixes)
       serialized = original.to_xml
 
+      # Type namespace declarations are hoisted to root element (W3C compliant)
       expected_xml = <<~XML
-        <ContactInfo>
-          <personName xmlns:ct="https://example.com/schemas/contact/v1" xmlns:name="https://example.com/schemas/name-attributes/v1" name:prefix="Dr." suffix="Jr.">
+        <ContactInfo xmlns:ct="https://example.com/schemas/contact/v1" xmlns:name="https://example.com/schemas/name-attributes/v1">
+          <personName name:prefix="Dr." suffix="Jr.">
             <ct:givenName>John</ct:givenName>
             <ct:surname>Doe</ct:surname>
           </personName>
@@ -196,9 +198,10 @@ RSpec.describe "Type-level namespace round-trip tests" do
 
       xml = contact.to_xml
 
+      # Type namespace declarations are hoisted to root element (W3C compliant)
       expected_xml = <<~XML
-        <ContactInfo>
-          <personName xmlns:ct="https://example.com/schemas/contact/v1" xmlns:name="https://example.com/schemas/name-attributes/v1" name:prefix="Mrs." suffix="Sr.">
+        <ContactInfo xmlns:ct="https://example.com/schemas/contact/v1" xmlns:name="https://example.com/schemas/name-attributes/v1">
+          <personName name:prefix="Mrs." suffix="Sr.">
             <ct:givenName>Jane</ct:givenName>
             <ct:surname>Smith</ct:surname>
           </personName>
@@ -219,9 +222,10 @@ RSpec.describe "Type-level namespace round-trip tests" do
 
       xml = contact.to_xml
 
+      # Type namespace declarations are hoisted to root element (W3C compliant)
       expected_xml = <<~XML
-        <ContactInfo>
-          <personName xmlns:ct="https://example.com/schemas/contact/v1" xmlns:name="https://example.com/schemas/name-attributes/v1" name:prefix="Prof." suffix="PhD">
+        <ContactInfo xmlns:ct="https://example.com/schemas/contact/v1" xmlns:name="https://example.com/schemas/name-attributes/v1">
+          <personName name:prefix="Prof." suffix="PhD">
             <ct:givenName>Bob</ct:givenName>
             <ct:surname>Johnson</ct:surname>
           </personName>
