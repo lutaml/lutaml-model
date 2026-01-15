@@ -22,6 +22,10 @@ module Lutaml
         include PolymorphicValueHandler
 
         def self.parse(xml, options = {})
+          # Pre-process XML to escape unescaped & characters
+          # This prevents Nokogiri from dropping data after invalid entities
+          xml = escape_unescaped_ampersands(xml)
+
           parsed = ::Nokogiri::XML(xml, nil, encoding(xml, options))
 
           # Extract DOCTYPE information for model serialization
@@ -61,6 +65,17 @@ module Lutaml
         # @return [Hash] map of prefix/uri pairs from input
         def self.extract_input_namespaces(root_element)
           InputNamespaceExtractor.extract(root_element, :nokogiri)
+        end
+
+        # Escape unescaped ampersands in XML
+        # Only escapes & that are NOT part of valid entities (including HTML entities)
+        # Valid entities: &xxx; where xxx is alphanumeric, #digits, or #xhex
+        def self.escape_unescaped_ampersands(xml)
+          # Match & that are NOT followed by entity-like patterns
+          # Entity patterns: &name; (alphanumeric), #ddd; (decimal), #xHH; (hex)
+          # Negative lookahead: (?![a-zA-Z0-9#]+;)
+          # This preserves ALL entities (XML, HTML, custom) while escaping bare &
+          xml.gsub(/&(?![a-zA-Z0-9#]+;)/, "&amp;")
         end
 
         def to_xml(options = {})
