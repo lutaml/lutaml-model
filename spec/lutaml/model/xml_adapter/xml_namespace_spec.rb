@@ -267,8 +267,8 @@ RSpec.describe "XmlNamespace" do
       let(:xml) do
         <<~XML
           <SamplePrefixedNamespacedModel xmlns="http://example.com/foo">
-            <Name>John Doe</Name>
-            <Age>30</Age>
+            <Name xmlns="http://example.com/bar">John Doe</Name>
+            <Age xmlns="http://example.com/baz">30</Age>
           </SamplePrefixedNamespacedModel>
         XML
       end
@@ -276,8 +276,8 @@ RSpec.describe "XmlNamespace" do
       let(:xml_with_lang) do
         <<~XML
           <SamplePrefixedNamespacedModel xmlns="http://example.com/foo" xml:lang="en" xmlns:xml="http://www.w3.org/XML/1998/namespace">
-            <Name>John Doe</Name>
-            <Age>30</Age>
+            <Name xmlns="http://example.com/bar">John Doe</Name>
+            <Age xmlns="http://example.com/baz">30</Age>
           </SamplePrefixedNamespacedModel>
         XML
       end
@@ -311,8 +311,8 @@ RSpec.describe "XmlNamespace" do
       it "serializes to XML" do
         expected_xml = <<~XML
           <SampleDefaultNamespacedModel xmlns="http://example.com/foo">
-            <Name>Jane Smith</Name>
-            <Age>25</Age>
+            <Name xmlns="http://example.com/bar">Jane Smith</Name>
+            <Age xmlns="http://example.com/baz">25</Age>
           </SampleDefaultNamespacedModel>
         XML
 
@@ -322,8 +322,8 @@ RSpec.describe "XmlNamespace" do
       it "deserializes from XML" do
         xml = <<~XML
           <SampleDefaultNamespacedModel xmlns="http://example.com/foo">
-            <Name>Jane Smith</Name>
-            <Age>25</Age>
+            <Name xmlns="http://example.com/bar">Jane Smith</Name>
+            <Age xmlns="http://example.com/baz">25</Age>
           </SampleDefaultNamespacedModel>
         XML
 
@@ -335,8 +335,8 @@ RSpec.describe "XmlNamespace" do
       it "round-trips if namespace is set" do
         xml = <<~XML
           <SampleDefaultNamespacedModel xmlns="http://example.com/foo" xml:lang="en" xmlns:xml="http://www.w3.org/XML/1998/namespace">
-            <Name>Jane Smith</Name>
-            <Age>25</Age>
+            <Name xmlns="http://example.com/bar">Jane Smith</Name>
+            <Age xmlns="http://example.com/baz">25</Age>
           </SampleDefaultNamespacedModel>
         XML
 
