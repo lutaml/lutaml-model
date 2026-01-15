@@ -480,8 +480,8 @@ RSpec.describe "XmlNamespace" do
       let(:expected_xml) do
         <<~XML
           <Unit xmlns="https://schema.example.org/units/1.0" id="U_m.kg-2">
-            <UnitSymbol type="MathML">
-              <math xmlns="http://www.w3.org/1998/Math/MathML">x+y</math>
+            <UnitSymbol xmlns:math="http://www.w3.org/1998/Math/MathML" type="MathML">
+              <math:math>x+y</math:math>
             </UnitSymbol>
           </Unit>
         XML
