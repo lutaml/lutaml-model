@@ -218,22 +218,22 @@ RSpec.describe AddressPersonSpec do
           <Person xmlns="http://example.com/person" xmlns:nsp1="http://example.com/nsp1">
             <nsp1:FirstName>Tom</nsp1:FirstName>
             <nsp1:LastName>Warren</nsp1:LastName>
-            <Age>40</Age>
-            <Height>5.8</Height>
-            <Birthdate>1980-02-15</Birthdate>
-            <LastLogin>1980-02-15T10:00:00+00:00</LastLogin>
-            <WakeupTime>07:30:00</WakeupTime>
-            <Active>true</Active>
+            <Age xmlns="">40</Age>
+            <Height xmlns="">5.8</Height>
+            <Birthdate xmlns="">1980-02-15</Birthdate>
+            <LastLogin xmlns="">1980-02-15T10:00:00+00:00</LastLogin>
+            <WakeupTime xmlns="">07:30:00</WakeupTime>
+            <Active xmlns="">true</Active>
           </Person>
           <Person xmlns="http://example.com/person" xmlns:nsp1="http://example.com/nsp1">
             <nsp1:FirstName>Jack</nsp1:FirstName>
             <nsp1:LastName>Warren</nsp1:LastName>
-            <Age>35</Age>
-            <Height>5.9</Height>
-            <Birthdate>1985-05-20</Birthdate>
-            <LastLogin>1985-05-20T09:00:00+00:00</LastLogin>
-            <WakeupTime>06:45:00</WakeupTime>
-            <Active/>
+            <Age xmlns="">35</Age>
+            <Height xmlns="">5.9</Height>
+            <Birthdate xmlns="">1985-05-20</Birthdate>
+            <LastLogin xmlns="">1985-05-20T09:00:00+00:00</LastLogin>
+            <WakeupTime xmlns="">06:45:00</WakeupTime>
+            <Active xmlns="">false</Active>
           </Person>
         </Address>
       XML
@@ -324,12 +324,12 @@ RSpec.describe AddressPersonSpec do
         <Person xmlns="http://example.com/person">
           <nsp1:FirstName xmlns:nsp1="http://example.com/nsp1">John</nsp1:FirstName>
           <nsp1:LastName xmlns:nsp1="http://example.com/nsp1">Doe</nsp1:LastName>
-          <Age>30</Age>
-          <Height>5.9</Height>
-          <Birthdate>1990-01-01</Birthdate>
-          <LastLogin>2023-06-08T10:00:00+00:00</LastLogin>
-          <WakeupTime>07:00:00</WakeupTime>
-          <Active>true</Active>
+          <Age xmlns="">30</Age>
+          <Height xmlns="">5.9</Height>
+          <Birthdate xmlns="">1990-01-01</Birthdate>
+          <LastLogin xmlns="">2023-06-08T10:00:00+00:00</LastLogin>
+          <WakeupTime xmlns="">07:00:00</WakeupTime>
+          <Active xmlns="">true</Active>
         </Person>
       XML
     end
