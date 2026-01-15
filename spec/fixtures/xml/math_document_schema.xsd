@@ -1,8 +1,10 @@
-<schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns="http://schemas.openxmlformats.org/officeDocument/2006/math">
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="http://schemas.openxmlformats.org/officeDocument/2006/math"
+>
   <xs:simpleType name="StringDatatype">
     <xs:annotation>
       <xs:documentation>
-        A string data type to be used for the example. 
+        A string data type to be used for the example.
       </xs:documentation>
     </xs:annotation>
     <xs:restriction base="xs:string"></xs:restriction>
@@ -15,7 +17,7 @@
       </xs:documentation>
     </xs:annotation>
     <xs:restriction base="StringDatatype">
-      <xs:pattern value="((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9]).){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])" />
+      <xs:pattern value="((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])" />
     </xs:restriction>
   </xs:simpleType>
 
@@ -29,7 +31,7 @@
     <xs:restriction base="xs:string">
       <xs:annotation>
         <xs:documentation>
-          The 'string' datatype restricts the XSD type by prohibiting leading 
+          The 'string' datatype restricts the XSD type by prohibiting leading
           and trailing whitespace, and something (not only whitespace) is required.
         </xs:documentation>
       </xs:annotation>
@@ -53,4 +55,4 @@
   </xs:complexType>
 
   <xs:element name="MathDocument" type="MathDocument"/>
-</schema>
+</xs:schema>

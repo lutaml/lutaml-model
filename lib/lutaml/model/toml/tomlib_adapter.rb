@@ -26,7 +26,16 @@ module Lutaml
         end
 
         def to_toml(*)
-          Tomlib.dump(to_h)
+          # Handle KeyValueElement input (new symmetric architecture)
+          attributes_to_serialize = if @attributes.is_a?(Lutaml::Model::KeyValueDataModel::KeyValueElement)
+                                      # Unwrap __root__ wrapper to get actual content
+                                      @attributes.to_hash["__root__"]
+                                    else
+                                      # Legacy Hash input (backward compatibility)
+                                      @attributes
+                                    end
+
+          Tomlib.dump(attributes_to_serialize)
           # Tomlib::Generator.new(to_h).toml_str
         end
       end

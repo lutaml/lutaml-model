@@ -1,0 +1,9 @@
+# lib/lutaml/model/xml/decisions/rules.rb
+require_relative 'rules/inherit_from_parent_rule'
+require_relative 'rules/hoisted_on_parent_rule'
+require_relative 'rules/format_preservation_rule'
+require_relative 'rules/explicit_option_rule'
+require_relative 'rules/namespace_scope_rule'
+require_relative 'rules/attribute_usage_rule'
+require_relative 'rules/element_form_default_rule'
+require_relative 'rules/default_preference_rule'

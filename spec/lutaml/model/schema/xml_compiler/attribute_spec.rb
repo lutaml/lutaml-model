@@ -39,16 +39,15 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler::Attribute do
 
   describe "#required_files" do
     it "returns require 'bigdecimal' for decimal type" do
-      allow(attribute).to receive_messages(skippable?: false,
-                                           resolved_type: "decimal")
-      expect(attribute.required_files).to eq("require \"bigdecimal\"")
+      attribute = described_class.new(name: "test")
+      attribute.type = "decimal"
+      expect(attribute.required_files).to eq(["require \"bigdecimal\""])
     end
 
     it "returns require_relative for non-skippable type" do
-      allow(attribute).to receive_messages(skippable?: false,
-                                           resolved_type: "foo")
-      allow(Lutaml::Model::Schema::XmlCompiler::SimpleType).to receive(:skippable?).and_return(false)
-      expect(attribute.required_files).to eq("require_relative \"foo\"")
+      attribute = described_class.new(name: "test")
+      attribute.type = "foo"
+      expect(attribute.required_files).to eq(["require_relative \"foo\""])
     end
 
     it "returns nil for skippable type" do

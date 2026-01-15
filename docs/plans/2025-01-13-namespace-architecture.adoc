@@ -1,0 +1,71 @@
+= Namespace System Architecture
+
+== Overview
+
+The namespace system uses a three-phase architecture with OOP decision-making:
+
+. Phase 1: NamespaceCollector (collection)
+. Phase 2: DeclarationPlanner (planning)
+. Phase 3: Adapter Rendering (application)
+
+== Decision System
+
+=== Architecture
+
+The decision system uses Strategy Pattern + Chain of Responsibility:
+
+* DecisionEngine: Evaluates rules in priority order
+* DecisionRule: Abstract base for decision criteria
+* Concrete Rules: Each encapsulates ONE decision criterion
+* ElementPrefixResolver: Public API for prefix decisions
+* DecisionContext: Immutable context object
+* Decision: Immutable value object for decisions
+
+=== Priority Order
+
+| Priority | Rule | Description |
+|----------|------|-------------|
+| 0 | InheritFromParentRule | Parent uses default format, same namespace |
+| 0.5 | HoistedOnParentRule | Namespace hoisted on parent |
+| 1 | FormatPreservationRule | Preserve input format (round-trip) |
+| 2 | ExplicitOptionRule | User-specified prefix option |
+| 3 | NamespaceScopeRule | namespace_scope configuration |
+| 4 | AttributeUsageRule | W3C rule: namespace in attributes |
+| 5 | DefaultPreferenceRule | Default: prefer default format |
+
+== Type Namespace Subsystem
+
+Type namespaces are namespaces declared on attribute types via xml_namespace.
+
+=== Components
+
+* Collector: Collects type namespace references from mappings
+* Reference: Value object for lazy namespace resolution
+* Resolver: Resolves type namespace prefixes
+* Planner: Plans type namespace declarations
+* Declaration: Value object for namespace declarations
+
+=== Scoping Rules
+
+Type namespaces are declared on PARENT elements and used as prefixes
+on CHILD elements. This is different from element namespaces.
+
+== Design Principles
+
+* Model-Driven: Decisions are explicit models, not implicit code
+* OOP Polymorphism: Strategy pattern instead of conditionals
+* MECE: Each decision path is mutually exclusive and exhaustive
+* Single Responsibility: Each class does ONE thing well
+* Dumb Adapter: Adapters apply decisions, never make them
+* Registry-Based: Configuration via registry, not hardcoding
+* Immutable: All value objects are frozen
+
+== Migration Notes
+
+Session 263 refactored the namespace system to use OOP principles.
+
+* Removed: TypeReference (replaced by TypeNamespace::Reference)
+* Removed: TypeNamespaceHandler (replaced by TypeNamespace subsystem)
+* Removed: DeclarationPlanQuery (integrated into subsystem)
+* Added: Decision engine with 7 decision rules
+* Added: TypeNamespace subsystem (Collector, Resolver, Planner)

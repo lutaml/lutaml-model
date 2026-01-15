@@ -3,11 +3,12 @@
 module Lutaml
   module Model
     class Register
-      attr_reader :id, :models
+      attr_reader :id, :models, :fallback
 
-      def initialize(id)
+      def initialize(id, fallback: nil)
         @id = id
         @models = {}
+        @fallback = determine_fallback(id, fallback)
         @global_substitutions = {}
         @type_class_cache = {}
       end
@@ -15,8 +16,7 @@ module Lutaml
       def register_model(klass, id: nil)
         id ||= Utils.base_class_snake_case(klass).to_sym
         if klass <= Lutaml::Model::Type::Value
-          return Lutaml::Model::Type.register(id,
-                                              klass)
+          return Lutaml::Model::Type.register(id, klass)
         end
         raise NotRegistrableClassError.new(klass) unless klass.include?(Lutaml::Model::Registrable)
 
@@ -30,8 +30,9 @@ module Lutaml
 
       def get_class(klass_name)
         expected_class = get_class_without_register(klass_name)
-        if !(expected_class < Lutaml::Model::Type::Value)
-          expected_class.class_variable_set(:@@__register, id)
+        # Only set @register if it's not already set (module-namespaced classes have it pre-set)
+        if !(expected_class < Lutaml::Model::Type::Value) && !expected_class.instance_variable_defined?(:@register)
+          expected_class.instance_variable_set(:@register, id)
         end
         expected_class
       end
@@ -94,14 +95,39 @@ module Lutaml
         return @type_class_cache[klass] if @type_class_cache.key?(klass)
 
         # If not in cache, try to get type class and cache it
-        if type_klass = get_type_class(klass)
-          @type_class_cache[klass] = type_klass
-          type_klass
+        begin
+          if type_klass = get_type_class(klass)
+            @type_class_cache[klass] = type_klass
+            return type_klass
+          end
+        rescue Lutaml::Model::UnknownTypeError
+          # Type not in global Type registry, will try fallback chain
         end
+
+        # Try fallback chain (check @models directly to avoid Type lookup)
+        @fallback.each do |fallback_id|
+          next if fallback_id == @id  # Prevent circular reference
+          fallback_register = Lutaml::Model::GlobalRegister.lookup(fallback_id)
+          # Direct @models check, then recurse if not found
+          if fallback_register.models.key?(klass)
+            return fallback_register.models[klass]
+          elsif result = fallback_register.extract_class_from(klass) rescue nil
+            return result
+          end
+        end
+
+        nil
       end
 
       def clear_type_class_cache
         @type_class_cache.clear
+      end
+
+      def determine_fallback(id, explicit_fallback)
+        return [] if explicit_fallback == []  # Explicit isolation
+        return explicit_fallback if explicit_fallback  # Explicit fallback
+        return [] if id == :default  # Default has no fallback
+        [:default]  # Non-default registers fallback to default
       end
     end
   end

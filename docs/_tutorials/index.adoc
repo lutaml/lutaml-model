@@ -44,6 +44,7 @@ Master complex features:
 
 * link:../custom-types-tutorial[Custom Types Tutorial]
 * link:../polymorphic-models-tutorial[Polymorphic Models Tutorial]
+* link:../schema-compiler-module-namespaces[Schema Compiler Module Namespaces]
 
 == After tutorials
 

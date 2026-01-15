@@ -6,14 +6,14 @@ RSpec.describe "Type Namespace Examples" do
   describe "Contact with multiple namespaces using Type namespaces" do
     # Define namespace classes
     let(:contact_namespace) do
-      Class.new(Lutaml::Model::XmlNamespace) do
+      Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
         uri "https://example.com/schemas/contact/v1"
         prefix_default "ct"
       end
     end
 
     let(:name_attribute_namespace) do
-      Class.new(Lutaml::Model::XmlNamespace) do
+      Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
         uri "https://example.com/schemas/name-attributes/v1"
         prefix_default "name"
       end
@@ -55,7 +55,7 @@ RSpec.describe "Type Namespace Examples" do
         attribute :suffix, :string
 
         xml do
-          root "personName"
+          element "personName"
           namespace ns
 
           map_element "givenName", to: :given_name
@@ -78,7 +78,7 @@ RSpec.describe "Type Namespace Examples" do
         attribute :person_name, person_name
 
         xml do
-          root "ContactInfo"
+          element "ContactInfo"
           namespace ns
 
           map_element "personName", to: :person_name
@@ -203,28 +203,28 @@ RSpec.describe "Type Namespace Examples" do
   describe "OOXML Core Properties with 4 namespaces using Type namespaces" do
     # Define namespace classes
     let(:cp_namespace) do
-      Class.new(Lutaml::Model::XmlNamespace) do
+      Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
         uri "http://schemas.openxmlformats.org/package/2006/metadata/core-properties"
         prefix_default "cp"
       end
     end
 
     let(:dc_namespace) do
-      Class.new(Lutaml::Model::XmlNamespace) do
+      Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
         uri "http://purl.org/dc/elements/1.1/"
         prefix_default "dc"
       end
     end
 
     let(:dcterms_namespace) do
-      Class.new(Lutaml::Model::XmlNamespace) do
+      Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
         uri "http://purl.org/dc/terms/"
         prefix_default "dcterms"
       end
     end
 
     let(:xsi_namespace) do
-      Class.new(Lutaml::Model::XmlNamespace) do
+      Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
         uri "http://www.w3.org/2001/XMLSchema-instance"
         prefix_default "xsi"
       end
@@ -276,7 +276,7 @@ RSpec.describe "Type Namespace Examples" do
         attribute :type, xsi_type
 
         xml do
-          root "created"
+          element "created"
           namespace ns
 
           map_attribute "type", to: :type
@@ -298,7 +298,7 @@ RSpec.describe "Type Namespace Examples" do
         attribute :type, xsi_type
 
         xml do
-          root "modified"
+          element "modified"
           namespace ns
 
           map_attribute "type", to: :type
@@ -320,6 +320,9 @@ RSpec.describe "Type Namespace Examples" do
       created = dcterms_created_type
       modified = dcterms_modified_type
       ns = cp_namespace
+      dc_ns = dc_namespace
+      dcterms_ns = dcterms_namespace
+      xsi_ns = xsi_namespace
 
       Class.new(Lutaml::Model::Serializable) do
         attribute :title, title
@@ -330,8 +333,13 @@ RSpec.describe "Type Namespace Examples" do
         attribute :modified, modified
 
         xml do
-          root "coreProperties"
+          element "coreProperties"
           namespace ns
+
+          # OOXML hoists dc and xsi namespaces to root
+          # cp is root namespace (uses default format)
+          # dcterms uses local default format (not hoisted)
+          namespace_scope [dc_ns, xsi_ns]
 
           map_element "title", to: :title
           map_element "creator", to: :creator
@@ -403,17 +411,43 @@ RSpec.describe "Type Namespace Examples" do
       props = core_properties_class.from_xml(xml)
       serialized = props.to_xml
 
-      # dc:title and dc:creator should use dc: namespace from DcTitleType and DcCreatorType
+      # Debug: check if serialized is a string
+      # puts "serialized.class = #{serialized.class}"
+      # puts "serialized.length = #{serialized.length}"
+      # puts "serialized.include?('<dcterms:created>') = #{serialized.include?('<dcterms:created>')}"
+      # puts "serialized.include?('dcterms:created') = #{serialized.include?('dcterms:created')}"
+      # puts "serialized.include?('&lt;dcterms:created&gt;') = #{serialized.include?('&lt;dcterms:created&gt;')}"
+      # # Find position of dcterms:created
+      # idx = serialized.index('dcterms:created')
+      # if idx
+      #   puts "Found 'dcterms:created' at index #{idx}"
+      #   puts "Context: #{serialized[[idx-20, 0].max..idx+30]}"
+      #   # Check characters before and after
+      #   if idx > 0
+      #     puts "Char before: '#{serialized[idx-1]}' (#{serialized[idx-1].ord})"
+      #   end
+      #   if idx + 15 < serialized.length
+      #     puts "Char after 'dcterms:created': '#{serialized[idx+15]}' (#{serialized[idx+15].ord})"
+      #   end
+      # end
+
+      # Elements with Type namespaces use their Type's namespace
       expect(serialized).to include("<dc:title>")
       expect(serialized).to include("<dc:creator>")
+      # Elements with cp Type namespace use cp: prefix (matching input format)
+      expect(serialized).to include("<cp:lastModifiedBy>")
+      expect(serialized).to include("<cp:revision>")
 
-      # lastModifiedBy and revision are in the default cp: namespace (no prefix needed)
-      expect(serialized).to include("<lastModifiedBy>")
-      expect(serialized).to include("<revision>")
+      # dcterms elements use prefix format (hoisted to root)
+      # Note: elements have attributes, so check for opening tag with space
+      expect(serialized).to include("<dcterms:created ")
+      expect(serialized).to include("</dcterms:created>")
+      expect(serialized).to include("<dcterms:modified ")
+      expect(serialized).to include("</dcterms:modified>")
+      expect(serialized).to include('xsi:type="dcterms:W3CDTF"')
 
-      # dcterms:created and dcterms:modified should use dcterms: namespace from model classes
-      expect(serialized).to include("<dcterms:created")
-      expect(serialized).to include("<dcterms:modified")
+      # Verify dcterms namespace is declared at root (hoisted)
+      expect(serialized).to match(/xmlns:dcterms="http:\/\/purl\.org\/dc\/terms\/"/)
     end
 
     it "verifies Type namespace application to attributes" do
@@ -436,7 +470,7 @@ RSpec.describe "Type Namespace Examples" do
 
   describe "Integration with existing namespace system" do
     let(:custom_namespace) do
-      Class.new(Lutaml::Model::XmlNamespace) do
+      Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
         uri "https://example.com/custom"
         prefix_default "custom"
       end
@@ -457,7 +491,7 @@ RSpec.describe "Type Namespace Examples" do
         attribute :value, type
 
         xml do
-          root "example"
+          element "example"
           namespace ns
 
           map_element "value", to: :value

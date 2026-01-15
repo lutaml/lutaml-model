@@ -3,9 +3,14 @@
 require "spec_helper"
 
 RSpec.describe "XML Namespace Placement" do
+  # Ensure adapter is always reset after each example to prevent pollution
+  after(:each) do
+    Lutaml::Model::Config.xml_adapter_type = :nokogiri
+  end
+
   context "when namespace is at class level (Type::Value)" do
     it "applies namespace to value types correctly" do
-      ns = Class.new(Lutaml::Model::XmlNamespace) do
+      ns = Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
         uri "http://example.com/ns"
         prefix_default "ex"
       end
@@ -20,7 +25,7 @@ RSpec.describe "XML Namespace Placement" do
         attribute :name, value_type
 
         xml do
-          root "model"
+          element "model"
           namespace ns
           map_element "name", to: :name
         end
@@ -36,12 +41,12 @@ RSpec.describe "XML Namespace Placement" do
 
   context "when namespace is inside xml block (Serializable/Model)" do
     it "applies namespace to nested model elements correctly" do
-      parent_ns = Class.new(Lutaml::Model::XmlNamespace) do
+      parent_ns = Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
         uri "http://example.com/parent"
         prefix_default "parent"
       end
 
-      child_ns = Class.new(Lutaml::Model::XmlNamespace) do
+      child_ns = Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
         uri "http://example.com/child"
         prefix_default "child"
       end
@@ -52,7 +57,7 @@ RSpec.describe "XML Namespace Placement" do
         attribute :value, :string
 
         xml do
-          root "nested"
+          element "nested"
           namespace child_ns
           map_content to: :value
         end
@@ -64,7 +69,7 @@ RSpec.describe "XML Namespace Placement" do
         attribute :child, child_model
 
         xml do
-          root "parent"
+          element "parent"
           namespace parent_ns
           namespace_scope [parent_ns, child_ns]
           map_element "nested", to: :child
@@ -81,7 +86,7 @@ RSpec.describe "XML Namespace Placement" do
 
   context "when namespace is at class level for Serializable (INCORRECT)" do
     it "does NOT apply namespace - demonstrating the incorrect pattern" do
-      ns = Class.new(Lutaml::Model::XmlNamespace) do
+      ns = Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
         uri "http://example.com/ns"
         prefix_default "ex"
       end
@@ -95,12 +100,12 @@ RSpec.describe "XML Namespace Placement" do
         attribute :value, :string
 
         xml do
-          root "broken"
+          element "broken"
           map_content to: :value
         end
       end
 
-      parent_ns = Class.new(Lutaml::Model::XmlNamespace) do
+      parent_ns = Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
         uri "http://example.com/parent"
         prefix_default "parent"
       end
@@ -111,7 +116,7 @@ RSpec.describe "XML Namespace Placement" do
         attribute :child, broken_model
 
         xml do
-          root "parent"
+          element "parent"
           namespace parent_ns
           namespace_scope [parent_ns, ns]
           map_element "broken", to: :child
@@ -130,17 +135,17 @@ RSpec.describe "XML Namespace Placement" do
 
   context "real-world example: Dublin Core Terms with xsi:type" do
     it "correctly applies dcterms namespace when declared in xml block" do
-      dcterms_ns = Class.new(Lutaml::Model::XmlNamespace) do
+      dcterms_ns = Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
         uri "http://purl.org/dc/terms/"
         prefix_default "dcterms"
       end
 
-      xsi_ns = Class.new(Lutaml::Model::XmlNamespace) do
+      xsi_ns = Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
         uri "http://www.w3.org/2001/XMLSchema-instance"
         prefix_default "xsi"
       end
 
-      cp_ns = Class.new(Lutaml::Model::XmlNamespace) do
+      cp_ns = Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
         uri "http://schemas.openxmlformats.org/package/2006/metadata/core-properties"
         prefix_default "cp"
         element_form_default :qualified
@@ -157,7 +162,7 @@ RSpec.describe "XML Namespace Placement" do
         attribute :type, xsi_type
 
         xml do
-          root "created"
+          element "created"
           namespace dcterms_ns # ✅ CORRECT: namespace in xml block
           map_attribute "type", to: :type
           map_content to: :value
@@ -171,7 +176,7 @@ RSpec.describe "XML Namespace Placement" do
         attribute :created, created_type
 
         xml do
-          root "coreProperties"
+          element "coreProperties"
           namespace cp_ns
           namespace_scope [cp_ns, dcterms_ns, xsi_ns]
           map_element "title", to: :title
@@ -199,7 +204,7 @@ RSpec.describe "XML Namespace Placement" do
   context "summary of namespace placement rules" do
     it "documents the correct patterns" do
       # Pattern 1: Type::Value classes - namespace at CLASS level
-      type_ns = Class.new(Lutaml::Model::XmlNamespace) do
+      type_ns = Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
         uri "http://example.com/type"
         prefix_default "type"
       end
@@ -209,7 +214,7 @@ RSpec.describe "XML Namespace Placement" do
       end
 
       # Pattern 2: Serializable classes - namespace in XML block
-      model_ns = Class.new(Lutaml::Model::XmlNamespace) do
+      model_ns = Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
         uri "http://example.com/model"
         prefix_default "model"
       end
@@ -220,14 +225,14 @@ RSpec.describe "XML Namespace Placement" do
         attribute :value, :string
 
         xml do
-          root "nested"
+          element "nested"
           namespace model_ns # ✅ Correct for Serializable
           map_content to: :value
         end
       end
 
       # Pattern 3: Parent model with namespace_scope
-      parent_ns = Class.new(Lutaml::Model::XmlNamespace) do
+      parent_ns = Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
         uri "http://example.com/parent"
         prefix_default "parent"
       end
@@ -239,7 +244,7 @@ RSpec.describe "XML Namespace Placement" do
         attribute :model_attr, nested_model
 
         xml do
-          root "parent"
+          element "parent"
           namespace parent_ns
           namespace_scope [parent_ns, type_ns, model_ns]
           map_element "typeAttr", to: :type_attr

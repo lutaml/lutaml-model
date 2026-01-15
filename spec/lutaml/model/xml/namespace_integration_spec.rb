@@ -5,7 +5,7 @@ require "spec_helper"
 RSpec.describe "XML Namespace Integration" do
   # Define test namespaces
   let(:contact_namespace) do
-    Class.new(Lutaml::Model::XmlNamespace) do
+    Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
       uri "https://example.com/schemas/contact/v1"
       schema_location "https://example.com/schemas/contact/v1/contact.xsd"
       prefix_default "contact"
@@ -16,7 +16,7 @@ RSpec.describe "XML Namespace Integration" do
   end
 
   let(:address_namespace) do
-    Class.new(Lutaml::Model::XmlNamespace) do
+    Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
       uri "https://example.com/schemas/address/v1"
       schema_location "https://example.com/schemas/address/v1/address.xsd"
       prefix_default "addr"
@@ -56,15 +56,29 @@ RSpec.describe "XML Namespace Integration" do
     end
 
     it "serializes with namespace" do
+      # IMPLEMENTATION BUG #49: Child elements don't inherit parent's namespace format
+      # When parent uses default namespace (xmlns="..."), children in same namespace
+      # should also use default format (no prefix), not be prefixed
+      # skip "Implementation bug: child elements don't inherit parent's default namespace format"
+
       person = person_class.new(name: "John Doe", email: "john@example.com")
       xml = person.to_xml
 
-      # NEW: Default behavior uses default namespace (xmlns="...")
-      expect(xml).to include('xmlns="https://example.com/schemas/contact/v1"')
-      expect(xml).to include("<person")
-      # Child elements are unqualified (local elements)
-      expect(xml).to include("<name>John Doe</name>")
-      expect(xml).to include("<email>john@example.com</email>")
+      # Expected: children use default namespace (no prefix) like parent
+      expected_xml = <<~XML
+        <person xmlns="https://example.com/schemas/contact/v1">
+          <name>John Doe</name>
+          <email>john@example.com</email>
+        </person>
+      XML
+
+      # Actual behavior: children incorrectly use prefix
+      # <person xmlns="https://example.com/schemas/contact/v1">
+      #   <contact:name>John Doe</contact:name>
+      #   <contact:email>john@example.com</contact:email>
+      # </person>
+
+      expect(xml).to be_xml_equivalent_to(expected_xml)
     end
 
     it "serializes with prefix when prefix: true option used" do
@@ -102,68 +116,31 @@ RSpec.describe "XML Namespace Integration" do
     end
   end
 
-  describe "backward compatibility with string namespaces" do
-    let(:legacy_class) do
-      Class.new(Lutaml::Model::Serializable) do
-        attribute :value, :string
+  describe "validation of namespace parameters" do
+it "validates correctly with proper parameters" do
+  # This should work without errors
+  test_ns = Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+    uri "https://example.com"
+    prefix_default "prefix"
+  end
 
-        xml do
-          root "legacy", mixed: true
-          namespace "https://example.com/legacy", "leg"
-          map_element "value", to: :value
-        end
-      end
-    end
-
-    it "still works with string URI and prefix" do
-      mapping = legacy_class.mappings_for(:xml)
-      expect(mapping.namespace_uri).to eq("https://example.com/legacy")
-      expect(mapping.namespace_prefix).to eq("leg")
-      expect(mapping.mixed_content?).to be true
-    end
-
-    it "serializes correctly" do
-      instance = legacy_class.new(value: "test")
-      xml = instance.to_xml
-
-      # NEW: Default behavior uses default namespace
-      expect(xml).to include('xmlns="https://example.com/legacy"')
-      expect(xml).to include("<legacy")
-      expect(xml).to include("<value>test</value>")
-    end
-
-    it "serializes with prefix when prefix: true used" do
-      instance = legacy_class.new(value: "test")
-      xml = instance.to_xml(prefix: true)
-
-      # With prefix: true, root uses prefix
-      # Native type children inherit parent namespace
-      expect(xml).to include('xmlns:leg="https://example.com/legacy"')
-      expect(xml).to include("<leg:legacy")
-      expect(xml).to include("<leg:value>test</leg:value>") # Child inherits parent namespace
+  klass = Class.new(Lutaml::Model::Serializable) do
+    xml do
+      element "test"
+      namespace test_ns
     end
   end
 
-  describe "validation of namespace parameters" do
-    it "validates correctly with proper parameters" do
-      # This should work without errors
-      klass = Class.new(Lutaml::Model::Serializable) do
-        xml do
-          root "test"
-          namespace "https://example.com", "prefix"
-        end
-      end
-
-      mapping = klass.mappings_for(:xml)
-      expect(mapping.namespace_uri).to eq("https://example.com")
-      expect(mapping.namespace_prefix).to eq("prefix")
-    end
+  mapping = klass.mappings_for(:xml)
+  expect(mapping.namespace_uri).to eq("https://example.com")
+  expect(mapping.namespace_prefix).to eq("prefix")
+end
 
     it "raises error for invalid namespace class" do
       expect do
         Class.new(Lutaml::Model::Serializable) do
           xml do
-            root "test"
+            element "test"
             namespace String
           end
         end

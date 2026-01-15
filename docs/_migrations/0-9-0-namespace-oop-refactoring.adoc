@@ -1,0 +1,400 @@
+# Namespace OOP Refactoring Migration Guide
+
+**Version:** 0.9.0
+**Release Date:** 2026-01-13
+**Status:** Internal Refactoring (No User Breaking Changes)
+
+## Overview
+
+Version 0.9.0 includes a comprehensive Object-Oriented Programming (OOP) refactoring of the lutaml-model gem's namespace system. This refactoring replaces procedural namespace decision logic with a clean, extensible decision system architecture.
+
+### What Changed
+
+The namespace system has been refactored from procedural code to an object-oriented architecture:
+
+* **Decision System**: Namespace format decisions now use Strategy pattern with prioritized rules
+* **TypeNamespace Subsystem**: Type-level namespaces have dedicated handling with Collector, Resolver, and Planner
+* **Improved Testability**: Each decision rule is independently testable
+* **Better Extensibility**: New decision rules can be added without modifying existing code
+
+### Why This Change
+
+The previous implementation had several limitations:
+
+* Procedural code with 400+ line methods
+* Difficult to test individual decision logic
+* Hard to extend with new decision criteria
+* Tight coupling between decision concerns
+
+The OOP architecture provides:
+
+* **Separation of Concerns**: Each rule handles one decision criterion
+* **Testability**: Independent testing of each rule
+* **Extensibility**: Add new rules without modifying existing ones
+* **Maintainability**: Clear, focused classes with single responsibilities
+
+## Breaking Changes
+
+**None** - This is an internal refactoring with no breaking changes for users.
+
+All public APIs remain unchanged. The refactoring only affects internal implementation details.
+
+## New Features
+
+### Decision System
+
+The decision system provides a clear, prioritized approach to namespace format selection.
+
+#### Decision Rules (Priority Order)
+
+1. **Priority 0**: Inherit parent's default namespace
+2. **Priority 0.5**: Use prefix hoisted on parent
+3. **Priority 1**: User explicit option (`to_xml(prefix: true/false/"custom")`)
+4. **Priority 2**: Preserved format from input (round-trip)
+5. **Priority 3**: W3C disambiguation (attributes need prefix)
+6. **Priority 4**: namespace_scope (multiple namespaces at root)
+7. **Priority 5**: Prefer default format (cleanest)
+
+#### TypeNamespace Subsystem
+
+Type namespaces are now handled by a dedicated subsystem:
+
+* `Lutaml::Model::Xml::TypeNamespace::Reference` - Type namespace reference model
+* `Lutaml::Model::Xml::TypeNamespace::Collector` - Discovers type namespaces
+* `Lutaml::Model::Xml::TypeNamespace::Resolver` - Resolves type namespace prefixes
+* `Lutaml::Model::Xml::TypeNamespace::Planner` - Plans type namespace declarations
+
+## Migration Guide for Users
+
+### No Action Required
+
+This refactoring is entirely internal. Your existing code will continue to work without any changes.
+
+### Example: No Changes Needed
+
+.Before (Still Works)
+[source,ruby]
+----
+class Book < Lutaml::Model::Serializable
+  attribute :title, :string
+
+  xml do
+    root "Book"
+    namespace "http://example.com/book", "book"
+    map_element "title", to: :title
+  end
+end
+
+book = Book.new(title: "My Book")
+book.to_xml  # Works exactly as before
+----
+
+.After (Same Code)
+[source,ruby]
+----
+# No changes needed - same code works identically
+class Book < Lutaml::Model::Serializable
+  attribute :title, :string
+
+  xml do
+    root "Book"
+    namespace "http://example.com/book", "book"
+    map_element "title", to: :title
+  end
+end
+
+book = Book.new(title: "My Book")
+book.to_xml  # Works exactly as before
+----
+
+## Migration Guide for Contributors
+
+### Understanding the New Architecture
+
+#### Decision System Location
+
+The decision system is located in `lib/lutaml/model/xml/decisions/`:
+
+* `decision.rb` - Immutable decision result
+* `decision_context.rb` - Context for decision-making
+* `decision_rule.rb` - Abstract base for rules
+* `decision_engine.rb` - Chain-of-responsibility engine
+* `element_prefix_resolver.rb` - Format decision orchestrator
+* `rules/` - Concrete decision rules (7 files)
+
+#### TypeNamespace Subsystem Location
+
+The TypeNamespace subsystem is located in `lib/lutaml/model/xml/type_namespace/`:
+
+* `reference.rb` - Type namespace reference model
+* `collector.rb` - Type namespace discovery
+* `resolver.rb` - Prefix resolution
+* `planner.rb` - Declaration planning
+
+### Adding a New Decision Rule
+
+To add a new decision rule, create a new class in `lib/lutaml/model/xml/decisions/rules/`:
+
+[source,ruby]
+----
+module Lutaml
+  module Model
+    module Xml
+      module Decisions
+        module Rules
+          class PriorityXMyNewRule < DecisionRule
+            # Define priority level
+            def priority
+              X  # Replace X with actual priority (0-5+)
+            end
+
+            # Check if rule applies
+            def can_apply?(context)
+              # Return true if this rule should handle the decision
+              context.some_condition
+            end
+
+            # Apply the rule and return decision
+            def apply(context)
+              Decision.new(
+                format: :default_or_prefix,
+                prefix: "optional_prefix"
+              )
+            end
+          end
+        end
+      end
+    end
+  end
+end
+----
+
+Then register the rule in `ElementPrefixResolver`:
+
+[source,ruby]
+----
+# In lib/lutaml/model/xml/decisions/element_prefix_resolver.rb
+
+def initialize(register = Lutaml::Model::Xml::QualifiedName::Register.default)
+  @rules = [
+    Rules::Priority0InheritDefaultRule.new,
+    Rules::Priority0_5UseHoistedPrefixRule.new,
+    Rules::Priority1UserOptionRule.new,
+    # ... other rules ...
+    Rules::PriorityXMyNewRule.new,  # Add here
+  ].sort_by(&:priority)
+end
+----
+
+### Working with TypeNamespace
+
+#### Creating a Type Namespace
+
+To create a type namespace:
+
+[source,ruby]
+----
+class DublinCoreNamespace < Lutaml::Model::XmlNamespace
+  uri "http://purl.org/dc/elements/1.1/"
+  prefix_default "dc"
+end
+
+class DublinCoreString < Lutaml::Model::Type::String
+  xml_namespace DublinCoreNamespace
+end
+----
+
+#### Using Type Namespace in Models
+
+[source,ruby]
+----
+class Book < Lutaml::Model::Serializable
+  attribute :title, DublinCoreString
+
+  xml do
+    root "Book"
+    namespace "http://example.com/book", "book"
+    map_element "Title", to: :title
+  end
+end
+----
+
+#### Type Namespace Resolution
+
+Type namespaces are automatically resolved by the TypeNamespace subsystem:
+
+1. `TypeNamespace::Collector` discovers type namespaces from XmlDataModel
+2. `TypeNamespace::Resolver` resolves prefixes for each type namespace
+3. `TypeNamespace::Planner` determines where to declare type namespaces
+
+### Testing Decision Rules
+
+Each decision rule should have comprehensive tests:
+
+[source,ruby]
+----
+RSpec.describe Lutaml::Model::Xml::Decisions::Rules::PriorityXMyNewRule do
+  let(:register) { Lutaml::Model::Xml::QualifiedName::Register.default }
+  let(:rule) { described_class.new }
+
+  describe "#can_apply?" do
+    it "returns true when condition is met" do
+      context = Lutaml::Model::Xml::Decisions::DecisionContext.new(
+        mapping: mapping,
+        namespace_class: ns_class,
+        needs: needs,
+        options: options
+      )
+
+      expect(rule.can_apply?(context)).to be true
+    end
+  end
+
+  describe "#apply" do
+    it "returns correct decision" do
+      context = Lutaml::Model::Xml::Decisions::DecisionContext.new(...)
+      decision = rule.apply(context)
+
+      expect(decision.format).to eq(:expected_format)
+      expect(decision.prefix).to eq("expected_prefix")
+    end
+  end
+end
+----
+
+## Testing Your Code After Migration
+
+### Run Full Test Suite
+
+[source,shell]
+----
+bundle exec rspec
+----
+
+### Run Namespace-Specific Tests
+
+[source,shell]
+----
+# Format preservation (must always pass)
+bundle exec rspec spec/lutaml/model/xml/namespace_format_preservation_spec.rb
+
+# vCard tests (baseline for namespace features)
+bundle exec rspec spec/lutaml/model/xml/namespace_scope_vcard_spec.rb
+
+# Decision system tests
+bundle exec rspec spec/lutaml/model/xml/decisions/
+
+# Type namespace tests
+bundle exec rspec spec/lutaml/model/xml/type_namespace/
+----
+
+## Common Issues and Solutions
+
+### Issue: Decision Rule Not Applied
+
+**Symptom:** Your new decision rule is not being used.
+
+**Solution:**
+
+1. Check that the rule is registered in `ElementPrefixResolver#initialize`
+2. Verify the priority level is correct
+3. Ensure `can_apply?` returns `true` for your scenario
+4. Check that higher-priority rules are not handling the case first
+
+### Issue: Type Namespace Not Declared
+
+**Symptom:** Type namespace is not appearing in XML output.
+
+**Solution:**
+
+1. Verify that the type class declares `xml_namespace`
+2. Check that the attribute uses the type with namespace
+3. Ensure `TypeNamespace::Collector` is being called
+4. Verify the namespace is in the register
+
+### Issue: Format Not Preserved
+
+**Symptom:** Round-trip serialization changes namespace format.
+
+**Solution:**
+
+1. Run format preservation test: `bundle exec rspec spec/lutaml/model/xml/namespace_format_preservation_spec.rb`
+2. Check that Priority 2 (Preserved Format) rule is working
+3. Verify input format is captured during parsing
+4. Ensure stored plan is used during serialization
+
+## Performance Considerations
+
+The OOP refactoring has minimal performance impact:
+
+* Decision rules are evaluated in priority order (stops at first match)
+* Type namespace collection is a single tree traversal
+* No additional object allocations compared to previous implementation
+
+For very large documents, consider:
+
+* Using namespace hoisting to reduce redundant declarations
+* Caching frequently-used decisions
+* Optimizing type namespace collection for specific use cases
+
+## Additional Resources
+
+### Documentation
+
+* `docs/_guides/xml/type-namespaces.adoc` - Type namespace user guide
+* `docs/_references/lutaml-namespace-planning.md` - Architecture reference
+* `docs/_references/xml-w3c-namespace-qualification.adoc` - W3C compliance guide
+
+### Memory Bank Documents
+
+* `.kilocode/rules/memory-bank/namespace-principles.md` - Core namespace principles
+* `.kilocode/rules/memory-bank/w3c-xmlns-semantics.md` - W3C xmlns="" semantics
+* `.kilocode/rules/memory-bank/type-namespace-rules.md` - Type namespace rules
+
+### Test Files
+
+* `spec/lutaml/model/xml/decisions/` - Decision system tests (66 tests)
+* `spec/lutaml/model/xml/type_namespace/` - TypeNamespace subsystem tests
+* `spec/lutaml/model/xml/namespace_format_preservation_spec.rb` - Format preservation tests
+* `spec/lutaml/model/xml/namespace_scope_vcard_spec.rb` - vCard baseline tests
+
+## Changelog
+
+### Added
+
+* Decision system with 7 prioritized rules
+* TypeNamespace subsystem (Collector, Resolver, Planner)
+* 66 comprehensive tests for decision system
+* Type namespace documentation
+
+### Changed
+
+* `DeclarationPlanner` now uses `ElementPrefixResolver`
+* `NamespaceCollector` uses `TypeNamespace::Reference`
+* Improved code organization and separation of concerns
+
+### Removed
+
+* `TypeReference` class (deprecated)
+* `TypeNamespaceHandler` class (deprecated)
+
+### Fixed
+
+* namespace_scope handling for type namespaces
+* Parent context threading for namespace inheritance
+
+## Support
+
+For questions or issues:
+
+1. Check the documentation in `docs/_guides/` and `docs/_references/`
+2. Review memory bank documents in `.kilocode/rules/memory-bank/`
+3. Examine test files for examples
+4. Open an issue on GitHub
+
+---
+
+**Migration Status:** Complete
+**Breaking Changes:** None
+**Action Required:** None for users, optional for contributors
+**Backward Compatibility:** 100%

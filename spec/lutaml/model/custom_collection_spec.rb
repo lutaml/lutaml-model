@@ -18,7 +18,7 @@ module CustomCollection
     attribute :author, :string
 
     xml do
-      root "publication"
+      element "publication"
 
       map_attribute "title", to: :title
       map_attribute "year", to: :year
@@ -55,7 +55,7 @@ module CustomCollection
     instances :items, Item
 
     xml do
-      root "items"
+      element "items"
       map_element "item", to: :items
     end
 
@@ -125,7 +125,7 @@ module CustomCollection
     instances :items, Item
 
     xml do
-      root "items"
+      element "items"
       map_element "item", to: :items, value_map: {
         from: { empty: :empty, omitted: :omitted, nil: :nil },
         to: { empty: :empty, omitted: :omitted, nil: :nil },
@@ -194,7 +194,7 @@ module CustomCollection
     instances :items, BaseItem
 
     xml do
-      root "items"
+      element "items"
 
       map_element "item", to: :items
     end
@@ -404,7 +404,16 @@ RSpec.describe CustomCollection do
     end
 
     it "serializes to XML" do
-      expect(no_root_collection.to_xml).to be_xml_equivalent_to(expected_xml_no_root)
+      # Note: no_root collections cannot produce valid standalone XML
+      # They must be wrapped in a root element or embedded in a parent model
+      # Here we test that items are serialized correctly (without their own root wrapper)
+      xml_output = no_root_collection.to_xml
+
+      # Wrap in a root element to make it valid XML for comparison
+      wrapped_xml = "<root>#{xml_output}</root>"
+      expected_wrapped = "<root>#{expected_xml_no_root}</root>"
+
+      expect(wrapped_xml).to be_xml_equivalent_to(expected_wrapped)
     end
 
     it "deserializes from XML" do
@@ -423,6 +432,14 @@ RSpec.describe CustomCollection do
   end
 
   describe "KeyedItemCollection" do
+    before do
+      Lutaml::Model::GlobalRegister.register(register)
+      Lutaml::Model::Config.default_register = register.id
+      register.register_model(CustomCollection::Text, id: :text)
+    end
+
+    let(:register) { Lutaml::Model::Register.new(:collections) }
+
     let(:yaml_keyed) do
       <<~YAML
         ---
@@ -470,6 +487,14 @@ RSpec.describe CustomCollection do
   end
 
   describe "KeyedValueItemCollection" do
+    before do
+      Lutaml::Model::GlobalRegister.register(register)
+      Lutaml::Model::Config.default_register = register.id
+      register.register_model(CustomCollection::Text, id: :text)
+    end
+
+    let(:register) { Lutaml::Model::Register.new(:collections) }
+
     let(:yaml) do
       <<~YAML
         ---

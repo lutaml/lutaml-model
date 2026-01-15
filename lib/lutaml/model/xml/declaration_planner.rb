@@ -1,20 +1,20 @@
 # frozen_string_literal: true
 
+require_relative "declaration_plan"
+require_relative "namespace_declaration"
+require_relative "namespace_needs"
+require_relative "namespace_usage"
+require_relative "decisions/element_prefix_resolver"
+
 module Lutaml
   module Model
     module Xml
       # Phase 2: Declaration Planning
       #
-      # Makes top-down declaration decisions using bottom-up knowledge.
-      # This ensures "never declare twice" and optimal namespace format selection.
+      # Builds ElementNode tree with W3C-compliant attribute prefix decisions.
+      # The tree is isomorphic to XmlDataModel for index-based parallel traversal.
       #
-      # CRITICAL ARCHITECTURAL PRINCIPLE:
-      # XmlNamespace CLASS is the atomic unit of namespace configuration.
-      # Never track URI and prefix separately - they are inseparable.
-      #
-      # @example
-      #   planner = DeclarationPlanner.new(register)
-      #   plan = planner.plan(model_instance, mapping, needs)
+      # CRITICAL: This planner ONLY builds trees. NO flat mode.
       #
       class DeclarationPlanner
         # Initialize planner with register for type resolution
@@ -22,478 +22,1125 @@ module Lutaml
         # @param register [Symbol] the register ID for type resolution
         def initialize(register = nil)
           @register = register || Lutaml::Model::Config.default_register
-
-          # Visited type tracking prevents infinite recursion during type analysis
-          # When element is nil (type analysis mode), we track which types we've seen
-          @visited_types = Set.new
         end
 
-        # Create declaration plan for an element and its descendants
+        # Create declaration plan tree for XmlElement
         #
-        # @param element [Object] the model instance (can be nil for type analysis)
-        # @param mapping [Xml::Mapping] the XML mapping for this element
-        # @param needs [Hash] namespace needs from collector (with string keys)
-        # @param parent_plan [Hash, nil] parent element's plan
-        # @param options [Hash] serialization options
-        # @return [Hash] declaration plan structure
-        def plan(element, mapping, needs, parent_plan: nil, options: {})
-          plan = {
-            namespaces: {},        # String key (from to_key) => { ns_object: XmlNamespace CLASS, format:, xmlns_declaration:, declared_at: }
-            children_plans: {},    # Child element => child plans
-            type_namespaces: {},   # Attribute name => XmlNamespace CLASS
-          }
+        # @param root_element [XmlDataModel::XmlElement, Model, nil, Class] root element, model instance, or nil/Class for unit testing
+        # @param mapping [Xml::Mapping] the XML mapping
+        # @param needs [NamespaceNeeds] namespace needs from collector
+        # @param options [Hash] serialization options (may contain :__stored_plan with input_formats)
+        # @return [DeclarationPlan] declaration plan with tree structure
+        def plan(root_element, mapping, needs, parent_plan: nil, options: {},
+visited_types: Set.new)
+          # Normalize root_element: transform Model instances to XmlElement
+          root_element = normalize_root_element(root_element, mapping, options)
 
-          # Get mapper_class and attributes early for Type namespace lookups
-          mapper_class = element&.class || options[:mapper_class]
+          # Allow nil and Class for unit testing (type analysis without element instance)
+          if root_element && !root_element.is_a?(Lutaml::Model::XmlDataModel::XmlElement) && !root_element.is_a?(Class)
+            raise ArgumentError,
+                  "DeclarationPlanner ONLY works with XmlElement trees. Got: #{root_element.class}"
+          end
 
-          # Handle custom prefix override by creating anonymous XmlNamespace class
-          # ARCHITECTURAL PRINCIPLE: XmlNamespace CLASS is atomic - same URI + different prefix = different class
-          # Check both options[:prefix] (direct call) and options[:use_prefix] (from serialize.rb transformation)
-          namespace_class_override = nil
-          custom_prefix = options[:prefix] if options[:prefix].is_a?(String)
-          custom_prefix ||= options[:use_prefix] if options[:use_prefix].is_a?(String)
+          # Handle nil or Class root_element for unit testing
+          if root_element.nil? || root_element.is_a?(Class)
+            require_relative "type_namespace_resolver"
 
-          if custom_prefix && mapping.namespace_class
-            original_ns = mapping.namespace_class
-            namespace_class_override = Class.new(Lutaml::Model::XmlNamespace) do
-              uri original_ns.uri
-              prefix_default custom_prefix
-              # Copy other settings if needed
-              element_form_default original_ns.element_form_default if original_ns.respond_to?(:element_form_default)
-              attribute_form_default original_ns.attribute_form_default if original_ns.respond_to?(:attribute_form_default)
+            # CRITICAL: Resolve type namespace refs BEFORE using type_attribute_namespaces
+            TypeNamespaceResolver.new(@register).resolve(needs)
+
+            # Build namespace_classes hash from needs for unit testing
+            namespace_classes = {}
+            needs.all_namespace_classes.each do |ns_class|
+              namespace_classes[ns_class.uri] = ns_class
             end
-          end
 
-          # Use override if present, otherwise use mapping's namespace_class
-          effective_ns_class = namespace_class_override || mapping.namespace_class
+            # CRITICAL: Add namespace_scope namespaces to namespace_classes
+            # (even if not used, :always mode requires them to be declared)
+            needs.namespace_scope_configs.each do |scope_config|
+              ns_class = scope_config.namespace_class
+              namespace_classes[ns_class.uri] ||= ns_class
+            end
 
-          # Prevent infinite recursion for type analysis (when element is nil)
-          if element.nil? && mapper_class
-            return empty_plan if @visited_types.include?(mapper_class)
+            # Get element's own namespace (from mapping)
+            element_namespace = mapping&.namespace_class
 
-            @visited_types << mapper_class
-          end
+            # Create minimal root node with namespace hoisting info
+            # W3C rule: Namespaces used in attributes MUST use prefix format
+            hoisted = {}
 
-          attributes = if mapper_class.respond_to?(:attributes)
-                         mapper_class.attributes
-                       else
-                         {}
-                       end
+            # FIRST: Process namespace_scope configurations (root-only)
+            needs.namespace_scope_configs.each do |scope_config|
+              ns_class = scope_config.namespace_class
+              next if ns_class == element_namespace # Don't add root's own namespace here
 
-          # ==================================================================
-          # PHASE 1: INHERIT PARENT NAMESPACE DECLARATIONS
-          # ==================================================================
-          # Inherit parent's namespace declarations
-          if parent_plan
-            # CRITICAL: Preserve :local_on_use marker through inheritance
-            # Children inherit ALL parent namespaces (:here and :inherited)
-            # Only :here becomes :inherited, :inherited stays :inherited
-            # :local_on_use stays as :local_on_use so children know to declare locally
-            plan[:namespaces] = parent_plan[:namespaces].transform_values do |ns_config|
-              if ns_config[:declared_at] == :here
-                # Parent declared this at its level - child inherits it
-                ns_config.merge(declared_at: :inherited)
-              elsif ns_config[:declared_at] == :inherited
-                # Parent inherited this - child also inherits it (keep as :inherited)
-                ns_config.dup
+              # Check :always mode or :auto mode with usage
+              ns_usage = needs.namespace(ns_class.to_key)
+              should_declare = scope_config.always_mode? ||
+                (scope_config.auto_mode? && ns_usage&.used_in&.any?)
+
+              if should_declare
+                prefix = ns_class.prefix_default || "ns#{hoisted.keys.length}"
+                hoisted[prefix] = ns_class.uri
+              end
+            end
+
+            # SECOND: Add element's own namespace (if not already added)
+            if element_namespace && !hoisted.value?(element_namespace.uri)
+              # Check if element's namespace is used in type attributes
+              # If so, use prefix format (W3C rule: namespaces in attributes MUST use prefix)
+              element_ns_in_attributes = needs.type_attribute_namespaces.any? do |ns|
+                ns.uri == element_namespace.uri
+              end
+
+              # Check use_prefix option (Tier 1 priority)
+              use_prefix_option = options[:use_prefix]
+
+              if element_ns_in_attributes
+                # Namespace used in attributes - MUST use prefix format
+                prefix = element_namespace.prefix_default || "ns#{hoisted.keys.length}"
+                hoisted[prefix] = element_namespace.uri
+              elsif use_prefix_option == true
+                # Force prefix format when use_prefix: true
+                prefix = element_namespace.prefix_default || "ns#{hoisted.keys.length}"
+                hoisted[prefix] = element_namespace.uri
+              elsif use_prefix_option.is_a?(String)
+                # Use custom prefix string
+                hoisted[use_prefix_option] = element_namespace.uri
+              elsif use_prefix_option == false
+                # Force default format when use_prefix: false
+                hoisted[nil] = element_namespace.uri
               else
-                # :local_on_use - pass through unchanged
-                ns_config.dup
-              end
-            end
-            plan[:type_namespaces] = parent_plan[:type_namespaces].dup
-          end
-
-          # ==================================================================
-          # PHASE 2: DECLARE OWN NAMESPACE (for non-type-only models)
-          # ==================================================================
-          # TYPE-ONLY MODELS: No element_name means no xmlns declarations
-          # BUT we still need to plan children
-          unless mapping.no_element?
-            # Decide format for own namespace (only for non-type-only models)
-            if effective_ns_class
-              validate_namespace_class(effective_ns_class)
-
-              # CRITICAL: Use ORIGINAL namespace class's key for lookup
-              # even if we have a custom prefix override
-              # This ensures adapter can find the overridden config
-              key = mapping.namespace_class.to_key
-              unless plan[:namespaces][key]
-                # Make new declaration
-                format = choose_format_with_override(mapping,
-                                                     effective_ns_class, needs, options)
-                xmlns_decl = build_declaration(effective_ns_class, format,
-                                               options)
-
-                plan[:namespaces][key] = {
-                  ns_object: effective_ns_class, # Store effective (may be override)
-                  format: format,
-                  xmlns_declaration: xmlns_decl,
-                  declared_at: :here,
-                }
+                # Default: prefer default format (cleaner)
+                hoisted[nil] = element_namespace.uri
               end
             end
 
-            # ==================================================================
-            # PHASE 3: DECLARE NAMESPACE_SCOPE NAMESPACES
-            # ==================================================================
-            # Declare namespace_scope namespaces as prefixed (only for non-type-only models)
-            # These are declared at root for descendants to use
-            if needs[:namespace_scope_configs]&.any?
-              needs[:namespace_scope_configs].each do |ns_config|
-                ns_class = ns_config[:namespace]
-                declare_mode = ns_config[:declare] || :auto
+            # THIRD: Add type namespaces (W3C: type namespaces MUST use prefix)
+            # CRITICAL: Type namespaces respect namespace_scope directive.
+            # When namespace_scope is configured, only hoist type namespaces in scope.
+            #
+            # Check if namespace_scope is configured
+            has_namespace_scope = !needs.namespace_scope_configs.empty?
 
-                validate_namespace_class(ns_class)
+            # Type attribute namespaces
+            needs.type_attribute_namespaces.each do |ns_class|
+              ns_uri = ns_class.uri
+              next if hoisted.value?(ns_uri) # Skip if already added
 
-                # Skip if already in plan (by key lookup)
-                key = ns_class.to_key
-                next if plan[:namespaces][key]
-
-                # Decide based on declare mode
-                if declare_mode == :always
-                  # Always declare, regardless of usage
-                  # CRITICAL: Don't pass options - namespace_scope namespaces use their own prefix
-                  plan[:namespaces][key] = {
-                    ns_object: ns_class,
-                    format: :prefix,
-                    xmlns_declaration: build_declaration(ns_class, :prefix, {}),
-                    declared_at: :here,
-                  }
-                elsif declare_mode == :auto
-                  # Only declare if actually used (check by key)
-                  if needs[:namespaces][key]
-                    # CRITICAL: Don't pass options - namespace_scope namespaces use their own prefix
-                    plan[:namespaces][key] = {
-                      ns_object: ns_class,
-                      format: :prefix,
-                      xmlns_declaration: build_declaration(ns_class, :prefix,
-                                                           {}),
-                      declared_at: :here,
-                    }
-                  end
-                end
+              # If namespace_scope is configured, only hoist if in scope
+              if has_namespace_scope
+                scope_config = needs.scope_config_for(ns_class)
+                next unless scope_config
               end
+
+              # Namespaces in attributes MUST use prefix format (W3C rule)
+              prefix = ns_class.prefix_default || "ns#{hoisted.keys.length}"
+              hoisted[prefix] = ns_class.uri
             end
 
-            # ==================================================================
-            # PHASE 4: DECLARE COLLECTED CHILD NAMESPACES
-            # ==================================================================
-            # Declare collected child element/attribute namespaces at root
-            # This implements "never declare twice" - declare once at root, use everywhere
-            # BUT: namespace_scope limits which namespaces are declared at root
-            needs[:namespaces].each do |key, ns_data|
-              ns_class = ns_data[:ns_object]
-              validate_namespace_class(ns_class)
+            # Type element namespaces
+            needs.type_element_namespaces.each do |ns_class|
+              ns_uri = ns_class.uri
+              next if hoisted.value?(ns_uri) # Skip if already added
+              next if ns_class == element_namespace # Skip element's own namespace
 
-              # Skip if already declared - "never declare twice" principle
-              next if plan[:namespaces][key]
+              # NOTE: Type namespaces are different from child element namespaces.
+              # Type namespaces are declared on Type::Value subclasses and used as
+              # prefixes on child elements. They MUST be hoisted to root with prefix
+              # format (W3C constraint: only one default namespace per element).
+              #
+              # The condition below only applies to child element namespaces, NOT Type
+              # namespaces. Type namespaces should ALWAYS be hoisted.
+              #
+              # Examples of child element namespaces (should NOT be hoisted if different):
+              # - Root has XMI namespace, child has XMI_NEW namespace → child declares
+              # - Root has NO namespace, child has XMI namespace → child declares
+              #
+              # Examples of Type namespaces (should ALWAYS be hoisted):
+              # - Root has any namespace, attribute type has XMI namespace → hoist XMI
+              # - Root has NO namespace, attribute type has XMI namespace → hoist XMI
+              # Type namespaces are NOT about element structure, they're about type identity.
 
-              # Check if namespace is in scope (should be declared at root)
-              in_scope = if needs[:namespace_scope_configs]&.any?
-                           # namespace_scope is defined - check if this namespace is in it
-                           needs[:namespace_scope_configs].any? do |cfg|
-                             cfg[:namespace] == ns_class
-                           end
-                         else
-                           # No namespace_scope defined - all namespaces declared at root (default)
-                           true
-                         end
-
-              if in_scope
-                # IN SCOPE: Declare at root level
-                # CRITICAL: Only use prefix format if namespace actually has a prefix
-                format = ns_class.prefix_default ? :prefix : :default
-
-                # CRITICAL FIX: Prevent multiple default namespaces conflict
-                # If this namespace has no prefix AND root already has a default namespace,
-                # we MUST use prefix format (even though ns has no prefix configured)
-                # This means we need to force a prefix or error
-                if format == :default && !parent_plan
-                  # Check if root element already declared a default namespace
-                  root_ns_key = effective_ns_class&.to_key
-                  if root_ns_key && plan[:namespaces][root_ns_key] && plan[:namespaces][root_ns_key][:format] == :default && (key != root_ns_key)
-                    # Root already has default format, this child namespace cannot also be default
-                    # Skip adding it as default - it should have been given a prefix
-                    # This is a configuration error: two namespaces without prefixes
-                    next # Skip non-root default namespaces
-                  end
-                end
-
-                plan[:namespaces][key] = {
-                  ns_object: ns_class,
-                  format: format,
-                  xmlns_declaration: build_declaration(ns_class, format, {}),
-                  declared_at: :here,
-                }
-              else
-                # OUT OF SCOPE: Don't declare at root, mark for local declaration
-                # Local declarations always use prefix format
-                plan[:namespaces][key] = {
-                  ns_object: ns_class,
-                  format: :prefix,
-                  xmlns_declaration: build_declaration(ns_class, :prefix, {}),
-                  declared_at: :local_on_use,
-                }
+              # If namespace_scope is configured, only hoist if in scope
+              if has_namespace_scope
+                scope_config = needs.scope_config_for(ns_class)
+                next unless scope_config
               end
+
+              # Type element namespaces MUST use prefix format
+              prefix = ns_class.prefix_default || "ns#{hoisted.keys.length}"
+              hoisted[prefix] = ns_class.uri
             end
-          end
 
-          # ==================================================================
-          # PHASE 5: TRACK TYPE NAMESPACES
-          # ==================================================================
-          # Track Type namespaces from needs
-          # This provides a lookup for adapters: attribute_name -> XmlNamespace CLASS
-          # CRITICAL: If there's an override for a Type namespace, use the override
-          # BUG FIX #2: Also add Type namespaces to plan[:namespaces] so children can inherit them
-          if needs[:type_namespaces]&.any?
-            needs[:type_namespaces].each do |attr_name, ns_class|
-              validate_namespace_class(ns_class)
-              plan[:type_namespaces][attr_name] = ns_class
+            # FOURTH: Add remaining namespaces not in namespace_scope
+            needs.all_namespace_classes.each do |ns_class|
+              ns_uri = ns_class.uri
+              next if hoisted.value?(ns_uri) # Skip if already added
 
-              # Also add to plan[:namespaces] if not already present
-              # This allows children to inherit Type namespace configurations
-              key = ns_class.to_key
-              unless plan[:namespaces][key]
-                # Determine format (prefer prefix if namespace has one)
-                format = ns_class.prefix_default ? :prefix : :default
+              # Check if this namespace is in namespace_scope (skip if yes)
+              scope_config = needs.scope_config_for(ns_class)
+              next if scope_config
 
-                plan[:namespaces][key] = {
-                  ns_object: ns_class,
-                  format: format,
-                  xmlns_declaration: build_declaration(ns_class, format, {}),
-                  declared_at: :here,
-                }
-              end
+              # Add remaining namespace (default format preferred)
+              hoisted[nil] = ns_class.uri
             end
-          end
 
-          # ==================================================================
-          # PHASE 6: PLAN CHILDREN RECURSIVELY
-          # ==================================================================
-          # Plan children
-          mapping.elements.each do |elem_rule|
-            # Skip if we can't resolve attributes
-            next unless attributes&.any?
+            root_node = DeclarationPlan::ElementNode.new(
+              qualified_name: "",
+              use_prefix: nil,
+              hoisted_declarations: hoisted,
+            )
 
-            attr_def = attributes[elem_rule.to]
-            next unless attr_def
+            # Build children_plans for attributes with Serializable types
+            children_plans = build_children_plans_from_metadata(mapping, needs,
+                                                                options)
 
-            child_type = attr_def.type(@register)
-            next unless child_type
-            next unless child_type.respond_to?(:<) &&
-              child_type < Lutaml::Model::Serialize
-
-            child_mapping = child_type.mappings_for(:xml)
-            next unless child_mapping
-
-            child_needs = needs[:children][elem_rule.to] || empty_needs
-
-            # Pass child_type as mapper_class and inherit options (including use_prefix for custom prefixes)
-            child_options = options.merge(mapper_class: child_type)
-
-            plan[:children_plans][elem_rule.to] = plan(
-              nil,
-              child_mapping,
-              child_needs,
-              parent_plan: plan,
-              options: child_options,
+            return DeclarationPlan.new(
+              root_node: root_node,
+              global_prefix_registry: build_prefix_registry(needs),
+              input_formats: {},
+              namespace_classes: namespace_classes,
+              children_plans: children_plans,
             )
           end
 
-          plan
+          # TREE PATH: XmlElement tree path
+          # CRITICAL: Resolve type namespace refs BEFORE using type_attribute_namespaces
+          require_relative "type_namespace_resolver"
+          TypeNamespaceResolver.new(@register).resolve(needs)
+
+          # Extract input_formats from stored plan if present (format preservation)
+          input_formats = options[:__stored_plan]&.input_formats || {}
+          build_options = options.merge(input_formats: input_formats)
+
+          # Build namespace_classes hash for unit testing compatibility
+          namespace_classes = {}
+          needs.all_namespace_classes.each do |ns_class|
+            namespace_classes[ns_class.uri] = ns_class
+          end
+
+          # Build the element node tree recursively (mark root, no parent context)
+          root_node = build_element_node(
+            root_element, mapping, needs, build_options,
+            is_root: true,
+            parent_format: nil,
+            parent_namespace_class: nil,
+            parent_hoisted: {}
+          )
+
+          # Build children_plans for each child element (for child_plan() method)
+          children_plans = build_children_plans(root_element, mapping, needs,
+                                                build_options)
+
+          # Create DeclarationPlan with tree and input_formats
+          DeclarationPlan.new(
+            root_node: root_node,
+            global_prefix_registry: build_prefix_registry(needs),
+            input_formats: input_formats,
+            namespace_classes: namespace_classes,
+            children_plans: children_plans,
+          )
         end
 
         # Create declaration plan for a collection
         #
-        # @param collection [Collection] the collection instance
-        # @param mapping [Xml::Mapping] the XML mapping for the collection
-        # @param needs [Hash] namespace needs from collector
-        # @param options [Hash] serialization options
-        # @return [Hash] declaration plan structure
-        def plan_collection(_collection, mapping, needs, options: {})
-          plan(nil, mapping, needs, parent_plan: nil, options: options)
+        # @param collection [Collection] the collection object
+        # @param mapping [Xml::Mapping] the XML mapping
+        # @param needs [NamespaceNeeds] namespace needs from collector
+        # @return [DeclarationPlan] declaration plan with children_plans
+        def plan_collection(_collection, mapping, needs)
+          # For collections, create a plan with children_plans for each item
+          root_node = DeclarationPlan::ElementNode.new(
+            qualified_name: mapping.root_element || "",
+            use_prefix: nil,
+            hoisted_declarations: {},
+          )
+
+          # Build namespace_classes from needs
+          namespace_classes = {}
+          needs.all_namespace_classes.each do |ns_class|
+            namespace_classes[ns_class.uri] = ns_class
+          end
+
+          # TODO: Build individual child plans for collection items
+          # For now, return empty children_plans
+          children_plans = {}
+
+          DeclarationPlan.new(
+            root_node: root_node,
+            global_prefix_registry: build_prefix_registry(needs),
+            input_formats: {},
+            namespace_classes: namespace_classes,
+            children_plans: children_plans,
+          )
         end
 
         private
 
         attr_reader :register
 
-        # Validate that namespace is an XmlNamespace class
+        # Normalize root element: transform Model instances to XmlElement
         #
-        # @param ns_class [Class] the namespace class to validate
-        # @raise [ArgumentError] if not a valid XmlNamespace class
-        def validate_namespace_class(ns_class)
-          return if ns_class.nil?
+        # @param root_element [XmlDataModel::XmlElement, Model, nil, Class] Root element
+        # @param mapping [Xml::Mapping] XML mapping
+        # @param options [Hash] Serialization options
+        # @return [XmlDataModel::XmlElement, nil, Class] Normalized root element
+        def normalize_root_element(root_element, _mapping, options)
+          return root_element if root_element.nil? || root_element.is_a?(Class)
+          return root_element if root_element.is_a?(Lutaml::Model::XmlDataModel::XmlElement)
 
-          unless ns_class.is_a?(Class) && ns_class < Lutaml::Model::XmlNamespace
-            raise ArgumentError,
-                  "Namespace must be XmlNamespace class, got #{ns_class.class}. " \
-                  "Same URI + different prefix = different config = different class."
+          # Check if root_element is a Model instance (has xml mapping)
+          if root_element.is_a?(Lutaml::Model::Serialize)
+            require_relative "transformation"
+
+            # Get mapper_class from options or infer from root_element
+            mapper_class = options[:mapper_class] || root_element.class
+
+            # Get mapping for the model class
+            mapping_dsl = mapper_class.mappings_for(:xml, @register)
+
+            # Get the Register object (not just the ID)
+            register_obj = Lutaml::Model::GlobalRegister.lookup(@register) if @register
+
+            # Use Xml::Transformation to convert model to XmlElement
+            transformation = Xml::Transformation.new(mapper_class, mapping_dsl,
+                                                     :xml, register_obj)
+            transformed = transformation.transform(root_element, options)
+
+            # Return transformed XmlElement
+            return transformed if transformed.is_a?(Lutaml::Model::XmlDataModel::XmlElement)
           end
+
+          # Return as-is if no transformation needed
+          root_element
         end
 
-        # Build xmlns declaration string from XmlNamespace class
+        # Build children_plans hash for child_plan() method
         #
-        # @param ns_class [Class] the XmlNamespace class
-        # @param format [Symbol] :default or :prefix
-        # @param options [Hash] serialization options (may contain custom prefix)
-        # @return [String] the xmlns declaration attribute
-        def build_declaration(ns_class, format, options = {})
-          # CRITICAL: If namespace has no prefix, MUST use default format
-          # Using prefix format without a prefix creates invalid xmlns:=""
-          if format == :prefix && !ns_class.prefix_default
-            format = :default
+        # @param xml_element [XmlDataModel::XmlElement] Parent element
+        # @param mapping [Xml::Mapping] XML mapping
+        # @param needs [NamespaceNeeds] Namespace needs
+        # @param options [Hash] Serialization options
+        # @return [Hash<Symbol, DeclarationPlan>] Children plans by attribute name
+        def build_children_plans(xml_element, mapping, needs, options)
+          children_plans = {}
+
+          # Get mapper_class to find child attributes
+          mapper_class = options[:mapper_class]
+          return children_plans unless mapper_class.respond_to?(:attributes)
+
+          # Build namespace_classes hash for child plans
+          namespace_classes = {}
+          needs.all_namespace_classes.each do |ns_class|
+            namespace_classes[ns_class.uri] = ns_class
           end
 
-          if format == :default
-            "xmlns=\"#{ns_class.uri}\""
-          else
-            # Use custom prefix from options if provided, otherwise use class default
-            # Check options[:prefix] first for backward compatibility
-            prefix = if options[:prefix].is_a?(String)
-                       options[:prefix]
-                     elsif options[:use_prefix].is_a?(String)
-                       options[:use_prefix]
-                     else
-                       ns_class.prefix_default
-                     end
-            "xmlns:#{prefix}=\"#{ns_class.uri}\""
-          end
-        end
+          # Iterate through XmlElement children
+          xml_element.children.each do |xml_child|
+            next unless xml_child.is_a?(Lutaml::Model::XmlDataModel::XmlElement)
 
-        # Choose format for namespace declaration
-        #
-        # Implements the decision logic:
-        # 1. Explicit user preference (options[:prefix] or options[:use_prefix])
-        # 2. W3C rule: prefix required if attributes in same namespace
-        # 3. Check if we're declaring in child context with qualified elements
-        # 4. Default: prefer default namespace (cleaner)
-        #
-        # @param mapping [Xml::Mapping] the element mapping
-        # @param needs [Hash] namespace needs (with string keys)
-        # @param options [Hash] serialization options
-        # @return [Symbol] :default or :prefix
-        def choose_format(mapping, needs, options)
-          return :default unless mapping.namespace_class
-
-          # 1. Explicit user preference via prefix or use_prefix option
-          # Check options[:prefix] first for backward compatibility
-          if options.key?(:prefix)
-            # options[:prefix] can be true, false, or a string
-            case options[:prefix]
-            when true, String
-              return :prefix
-            when false, nil
-              return :default
+            # Find the matching mapping rule for this child
+            child_name = xml_child.name
+            matching_rule = mapping.elements.find do |rule|
+              rule.name.to_s == child_name
             end
-          elsif options.key?(:use_prefix)
-            return options[:use_prefix] ? :prefix : :default
+            next unless matching_rule
+
+            # Get the attribute definition for this child
+            attr_def = mapper_class.attributes[matching_rule.to]
+            next unless attr_def
+
+            # Build child's hoisted declarations
+            # CRITICAL: Child elements with type namespace attributes need those
+            # namespaces declared on themselves. Get type attribute namespaces from
+            # child's own needs (stored in needs.children)
+            child_hoisted = build_child_hoisted_declarations(attr_def, needs, options)
+
+            # Create child DeclarationPlan with the child's namespace info
+            # Children inherit parent's namespace_classes
+            child_plan = DeclarationPlan.new(
+              root_node: DeclarationPlan::ElementNode.new(
+                qualified_name: xml_child.name,
+                use_prefix: nil,
+                hoisted_declarations: child_hoisted,
+              ),
+              global_prefix_registry: build_prefix_registry(needs),
+              input_formats: {},
+              namespace_classes: namespace_classes,
+            )
+
+            # Store by attribute name
+            children_plans[attr_def.name] = child_plan
           end
 
-          # 2. W3C rule: attributes in own namespace REQUIRE prefix
-          # Check if this namespace is used for attributes (by key lookup)
-          key = mapping.namespace_class.to_key
-          if needs[:namespaces][key]
-            ns_entry = needs[:namespaces][key]
-            return :prefix if ns_entry[:used_in].include?(:attributes)
-          end
-
-          # 3. Check if any child elements use :inherit
-          # If they do and we have a prefix, use prefixed format
-          # so children can properly reference the namespace
-          if mapping.namespace_class.prefix_default && mapping.respond_to?(:elements)
-            has_inherit_children = mapping.elements.any? do |elem_rule|
-              elem_rule.namespace_param == :inherit
-            end
-            return :prefix if has_inherit_children
-
-            # Also check if any children have form: :qualified
-            # They need prefixed format to reference parent namespace
-            has_qualified_children = mapping.elements.any?(&:qualified?)
-            return :prefix if has_qualified_children
-          end
-
-          # 4. Default: prefer default namespace (cleaner, no prefix needed)
-          # Child elements will inherit the default namespace automatically
-          :default
+          children_plans
         end
 
-        # Choose format for namespace declaration with custom namespace class override
+        # Build children_plans from mapper metadata (for nil/Class root_element)
         #
-        # Similar to choose_format but accepts an effective namespace class parameter
-        # to support custom prefix overrides via options[:prefix]
+        # @param mapping [Xml::Mapping] XML mapping
+        # @param needs [NamespaceNeeds] Namespace needs
+        # @param options [Hash] Serialization options
+        # @return [Hash<Symbol, DeclarationPlan>] Children plans by attribute name
+        def build_children_plans_from_metadata(mapping, needs, options)
+          children_plans = {}
+
+          # Get mapper_class to find child attributes
+          mapper_class = options[:mapper_class]
+          return children_plans unless mapper_class.respond_to?(:attributes)
+
+          # Build namespace_classes hash for child plans
+          namespace_classes = {}
+          needs.all_namespace_classes.each do |ns_class|
+            namespace_classes[ns_class.uri] = ns_class
+          end
+
+          # Get parent's hoisted declarations for child inheritance
+          parent_hoisted = build_parent_hoisted_for_children(mapping, needs,
+                                                             options)
+
+          # Iterate through mapper_class attributes
+          mapper_class.attributes.each_value do |attr_def|
+            # Check if attribute has a Serializable type
+            attr_type = attr_def.type(@register)
+            next unless attr_type
+            next unless attr_type.is_a?(Class)
+            next unless attr_type < Lutaml::Model::Serialize
+
+            # Create child DeclarationPlan with parent's namespace_classes
+            # Child inherits parent's hoisted declarations
+            child_plan = DeclarationPlan.new(
+              root_node: DeclarationPlan::ElementNode.new(
+                qualified_name: "",
+                use_prefix: nil,
+                hoisted_declarations: parent_hoisted,
+              ),
+              global_prefix_registry: build_prefix_registry(needs),
+              input_formats: {},
+              namespace_classes: namespace_classes,
+            )
+
+            # Store by attribute name
+            children_plans[attr_def.name] = child_plan
+          end
+
+          children_plans
+        end
+
+        # Build parent's hoisted declarations for child inheritance
         #
-        # @param mapping [Xml::Mapping] the element mapping
-        # @param effective_ns_class [Class] the effective namespace class (may be override)
-        # @param needs [Hash] namespace needs (with string keys)
-        # @param options [Hash] serialization options
-        # @return [Symbol] :default or :prefix
-        def choose_format_with_override(mapping, effective_ns_class, needs,
+        # @param mapping [Xml::Mapping] XML mapping
+        # @param needs [NamespaceNeeds] Namespace needs
+        # @param options [Hash] Serialization options
+        # @return [Hash<String|nil, String>] Hoisted declarations {prefix => uri}
+        def build_parent_hoisted_for_children(mapping, needs, options)
+          hoisted = {}
+
+          # Get element's own namespace (from mapping's namespace_class)
+          element_namespace = mapping&.namespace_class
+
+          # Process namespace_scope configurations
+          needs.namespace_scope_configs.each do |scope_config|
+            ns_class = scope_config.namespace_class
+            next if ns_class == element_namespace
+
+            ns_usage = needs.namespace(ns_class.to_key)
+            should_declare = scope_config.always_mode? ||
+              (scope_config.auto_mode? && ns_usage&.used_in&.any?)
+
+            if should_declare
+              prefix = ns_class.prefix_default || "ns#{hoisted.keys.length}"
+              hoisted[prefix] = ns_class.uri
+            end
+          end
+
+          # Add element's own namespace (if not already added)
+          if element_namespace && !hoisted.value?(element_namespace.uri)
+            use_prefix_option = options[:use_prefix]
+
+            case use_prefix_option
+            when true
+              prefix = element_namespace.prefix_default || "ns#{hoisted.keys.length}"
+              hoisted[prefix] = element_namespace.uri
+            when String
+              hoisted[use_prefix_option] = element_namespace.uri
+            when false
+              hoisted[nil] = element_namespace.uri
+            else
+              # Default: prefer default format (cleaner)
+              hoisted[nil] = element_namespace.uri
+            end
+          end
+
+          # Add type namespaces
+          # Type attribute namespaces
+          needs.type_attribute_namespaces.each do |ns_class|
+            ns_uri = ns_class.uri
+            next if hoisted.value?(ns_uri)
+
+            prefix = ns_class.prefix_default || "ns#{hoisted.keys.length}"
+            hoisted[prefix] = ns_class.uri
+          end
+
+          # Type element namespaces
+          needs.type_element_namespaces.each do |ns_class|
+            ns_uri = ns_class.uri
+            next if hoisted.value?(ns_uri)
+
+            prefix = ns_class.prefix_default || "ns#{hoisted.keys.length}"
+            hoisted[prefix] = ns_class.uri
+          end
+
+          # Add remaining namespaces
+          needs.all_namespace_classes.each do |ns_class|
+            ns_uri = ns_class.uri
+            next if hoisted.value?(ns_uri)
+
+            scope_config = needs.scope_config_for(ns_class)
+            next if scope_config
+
+            hoisted[nil] = ns_class.uri
+          end
+
+          hoisted
+        end
+
+        # Build hoisted declarations for a child element
+        #
+        # When a child element has attributes with type namespaces, those namespaces
+        # must be declared on the child element itself (W3C compliance).
+        #
+        # @param attr_def [Attribute] The attribute definition for the child
+        # @param needs [NamespaceNeeds] Namespace needs
+        # @param options [Hash] Serialization options
+        # @return [Hash<String|nil, String>] Hoisted declarations {prefix => uri}
+        def build_child_hoisted_declarations(attr_def, needs, options)
+          hoisted = {}
+
+          # Get the child's own namespace needs
+          child_needs = needs.child(attr_def.name)
+          return hoisted unless child_needs
+
+          # Add type attribute namespaces for the child element
+          # CRITICAL: Type attribute namespaces MUST use prefix format (W3C rule)
+          # NOTE: We only add type ATTRIBUTE namespaces, not type ELEMENT namespaces.
+          # Type element namespaces are used by child elements and should be declared
+          # on the parent element (or root, depending on namespace_scope).
+          child_needs.type_attribute_namespaces.each do |ns_class|
+            ns_uri = ns_class.uri
+            next if hoisted.value?(ns_uri)
+
+            prefix = ns_class.prefix_default || "ns#{hoisted.keys.length}"
+            hoisted[prefix] = ns_class.uri
+          end
+
+          # Get child's element namespace if available
+          child_type = attr_def.type(@register)
+          if child_type && child_type.respond_to?(:<) && child_type < Lutaml::Model::Serialize
+            child_mapping = child_type.mappings_for(:xml)
+            if child_mapping && child_mapping.namespace_class
+              element_namespace = child_mapping.namespace_class
+              # Only add if not already present
+              unless hoisted.value?(element_namespace.uri)
+                # For child elements, prefer default format (cleaner)
+                hoisted[nil] = element_namespace.uri
+              end
+            end
+          end
+
+          hoisted
+        end
+
+        # Build ElementNode for an XmlElement (recursive)
+        #
+        # @param xml_element [XmlDataModel::XmlElement] Element to plan
+        # @param mapping [Xml::Mapping] XML mapping
+        # @param needs [NamespaceNeeds] Namespace needs
+        # @param options [Hash] Serialization options (may contain :input_formats)
+        # @param parent_node [ElementNode, nil] Parent element node
+        # @param is_root [Boolean] Whether this is the root element
+        # @param parent_format [Symbol, nil] Parent's namespace format (:default or :prefix)
+        # @param parent_namespace_class [Class, nil] Parent's namespace class
+        # @param parent_hoisted [Hash] Namespaces hoisted on parent {prefix => uri}
+        # @return [ElementNode] Element node with all decisions
+        def build_element_node(xml_element, mapping, needs, options,
+parent_node: nil, is_root: false, parent_format: nil, parent_namespace_class: nil, parent_hoisted: {})
+          # Determine element's prefix (checks input_formats, parent context for preservation)
+          element_prefix = determine_element_prefix(
+            xml_element, mapping, needs, options,
+            is_root: is_root,
+            parent_format: parent_format,
+            parent_namespace_class: parent_namespace_class,
+            parent_hoisted: parent_hoisted
+          )
+
+          # Determine hoisted xmlns declarations at this element
+          # CRITICAL: Pass element_prefix to avoid calling determine_element_prefix twice
+          # which could return different results due to context differences
+          hoisted = determine_hoisted_declarations(xml_element, mapping, needs,
+                                                   options, is_root: is_root, parent_hoisted: parent_hoisted, element_prefix: element_prefix)
+
+          # Determine if child needs xmlns="" (W3C compliance)
+          # When parent has default namespace and child has no namespace,
+          # child must explicitly opt out with xmlns="" ONLY for native type elements.
+          # Child models should inherit parent's namespace by default.
+          child_needs_xmlns_blank = xml_element.namespace_class.nil? &&
+            parent_hoisted&.key?(nil) &&
+            native_type_element?(xml_element)
+
+          # Create ElementNode
+          element_node = DeclarationPlan::ElementNode.new(
+            qualified_name: build_qualified_element_name(xml_element,
+                                                         element_prefix),
+            use_prefix: element_prefix,
+            hoisted_declarations: hoisted,
+            needs_xmlns_blank: child_needs_xmlns_blank,
+          )
+
+          # Calculate this element's format for passing to children
+          this_format = element_prefix.nil? ? :default : :prefix
+          this_namespace = xml_element.namespace_class
+
+          # Plan ALL attributes (PRESERVES ORDER)
+          xml_element.attributes.each do |xml_attr|
+            attr_node = plan_attribute(xml_attr, xml_element, mapping, options)
+            element_node.add_attribute_node(attr_node)
+          end
+
+          # Get mapper_class from options to match children to mapping rules
+          mapper_class = options[:mapper_class]
+          attributes = mapper_class.respond_to?(:attributes) ? mapper_class.attributes : {}
+
+          # Recursively plan ALL children (PRESERVES ORDER, mark as NOT root, pass parent context)
+          xml_element.children.each do |xml_child|
+            next unless xml_child.is_a?(Lutaml::Model::XmlDataModel::XmlElement)
+
+            # Match child XmlElement to its mapping rule to get correct child mapping
+            child_name = xml_child.name
+            matching_rule = mapping.elements.find do |rule|
+              rule.name.to_s == child_name
+            end
+
+            child_mapping = mapping # Default to parent mapping
+            child_options = options
+
+            if matching_rule && attributes.any?
+              # Get child's mapper_class and mapping
+              attr_def = attributes[matching_rule.to]
+              if attr_def
+                child_type = attr_def.type(@register)
+                if child_type.respond_to?(:<) && child_type < Lutaml::Model::Serialize
+                  child_mapping_obj = child_type.mappings_for(:xml)
+                  if child_mapping_obj
+                    child_mapping = child_mapping_obj
+                    # CRITICAL: Pass parent's mapping so child can find its attribute name
+                    child_options = options.merge(mapper_class: child_type, parent_mapping: mapping)
+                  end
+                end
+              end
+            end
+
+            child_node = build_element_node(
+              xml_child, child_mapping, needs, child_options,
+              parent_node: element_node,
+              is_root: false,
+              parent_format: this_format,
+              parent_namespace_class: this_namespace,
+              parent_hoisted: hoisted
+            )
+            element_node.add_element_node(child_node)
+          end
+
+          element_node
+        end
+
+        # Plan attribute prefix using W3C attributeFormDefault semantics
+        #
+        # W3C Rules (MECE):
+        # 1. Same namespace + unqualified → NO prefix
+        # 2. Different namespace OR qualified → YES prefix
+        # 3. Only attribute has namespace → YES prefix
+        # 4. No namespace but qualified → inherit element prefix
+        # 5. No namespace, unqualified → NO prefix (W3C default)
+        #
+        # @param xml_attr [XmlDataModel::XmlAttribute] Attribute to plan
+        # @param xml_element [XmlDataModel::XmlElement] Parent element
+        # @param mapping [Xml::Mapping] XML mapping
+        # @param options [Hash] Serialization options
+        # @return [AttributeNode] Attribute decision node
+        def plan_attribute(xml_attr, xml_element, _mapping, _options)
+          attr_ns_class = xml_attr.namespace_class
+          element_ns_class = xml_element.namespace_class
+
+          # Get W3C attributeFormDefault setting
+          attribute_form_default = element_ns_class&.attribute_form_default || :unqualified
+
+          # W3C Attribute Prefix Decision (MECE)
+          use_prefix = if attr_ns_class && element_ns_class
+                         if attr_ns_class == element_ns_class &&
+                             attribute_form_default == :unqualified
+                           # Priority 1: Same namespace + unqualified → NO prefix
+                           nil
+                         else
+                           # Priority 2: Different namespace OR qualified → YES prefix
+                           attr_ns_class.prefix_default
+                         end
+                       elsif attr_ns_class
+                         # Priority 3: Only attribute has namespace → YES prefix
+                         attr_ns_class.prefix_default
+                       elsif attribute_form_default == :qualified
+                         # Priority 4: No namespace but qualified → inherit element prefix
+                         element_ns_class&.prefix_default
+                       else
+                         # Priority 5: No namespace, unqualified → NO prefix (W3C default)
+                         nil
+                       end
+
+          DeclarationPlan::AttributeNode.new(
+            local_name: xml_attr.name,
+            use_prefix: use_prefix,
+            namespace_uri: attr_ns_class&.uri,
+          )
+        end
+
+        # Determine element's prefix using the OOP decision system
+        #
+        # Uses ElementPrefixResolver instead of procedural if-else chain.
+        #
+        # @param xml_element [XmlDataModel::XmlElement] Element
+        # @param mapping [Xml::Mapping] XML mapping
+        # @param needs [NamespaceNeeds] Namespace needs
+        # @param options [Hash] Serialization options
+        # @param is_root [Boolean] Whether this is the root element
+        # @param parent_format [Symbol, nil] Parent's format (:prefix or :default)
+        # @param parent_namespace_class [Class, nil] Parent's namespace class
+        # @param parent_hoisted [Hash] Namespaces hoisted on parent {prefix => uri}
+        # @return [String, nil] The prefix to use, or nil for default format
+        def find_type_namespace_for_element(xml_element, mapping, needs,
 options)
-          return :default unless effective_ns_class
+          # Get mapper_class from options
+          mapper_class = options[:mapper_class]
+          return nil unless mapper_class
 
-          # 1. Explicit user preference via prefix or use_prefix option
-          # Check both options[:prefix] (direct call) and options[:use_prefix] (from serialize.rb)
-          if options.key?(:prefix)
-            case options[:prefix]
-            when true, String
-              return :prefix
-            when false, nil
-              return :default
-            end
-          elsif options.key?(:use_prefix)
-            # options[:use_prefix] can be a string (custom prefix) or boolean
-            case options[:use_prefix]
-            when true, String
-              return :prefix
-            when false, nil
-              return :default
-            end
+          # Get attributes from mapper_class
+          attributes = mapper_class.respond_to?(:attributes) ? mapper_class.attributes : {}
+          return nil unless attributes.any?
+
+          # Find matching element rule
+          element_name = xml_element.name.to_s
+          matching_rule = mapping.elements.find do |rule|
+            rule.name.to_s == element_name
           end
+          return nil unless matching_rule
 
-          # 2. W3C rule: attributes in own namespace REQUIRE prefix
-          key = effective_ns_class.to_key
-          if needs[:namespaces][key]
-            ns_entry = needs[:namespaces][key]
-            return :prefix if ns_entry[:used_in].include?(:attributes)
-          end
+          # Get attribute definition
+          attr_def = attributes[matching_rule.to]
+          return nil unless attr_def
 
-          # 3. Check if any child elements use :inherit or form: :qualified
-          if effective_ns_class.prefix_default && mapping.respond_to?(:elements)
-            has_inherit_children = mapping.elements.any? do |elem_rule|
-              elem_rule.namespace_param == :inherit
-            end
-            return :prefix if has_inherit_children
-
-            has_qualified_children = mapping.elements.any?(&:qualified?)
-            return :prefix if has_qualified_children
-          end
-
-          # 4. Default: prefer default namespace (cleaner, no prefix needed)
-          :default
+          # Look up type namespace from needs.type_namespaces
+          needs.type_namespaces[attr_def&.name]
         end
 
-        # Return empty plan structure for type-only models
-        #
-        # @return [Hash] empty declaration plan
-        def empty_plan
-          {
-            namespaces: {},
-            children_plans: {},
-            type_namespaces: {},
-          }
+        def determine_element_prefix(xml_element, mapping, needs, options,
+                                     is_root: false,
+                                     parent_format: nil,
+                                     parent_namespace_class: nil,
+                                     parent_hoisted: {})
+          # CRITICAL: Check for Type namespace FIRST
+          # Type namespaces are declared on Type::Value subclasses and used as
+          # prefixes on child elements. They take precedence over element namespace.
+          type_ns_class = find_type_namespace_for_element(xml_element, mapping,
+                                                          needs, options)
+          if type_ns_class
+            # If parent uses default format AND Type namespace matches parent's namespace,
+            # inherit parent's namespace (return nil for prefix)
+            if parent_format == :default && parent_namespace_class&.uri == type_ns_class.uri
+              return nil
+            end
+
+            # CRITICAL: Check if parent hoisted this type namespace with a custom prefix
+            # When user specifies prefix: "custom", the parent hoists the namespace
+            # with that custom prefix, and child elements must use the same prefix
+            parent_prefix = parent_hoisted.find do |_prefix, uri|
+              uri == type_ns_class.uri
+            end&.first
+            if parent_prefix
+              return parent_prefix
+            end
+
+            # CRITICAL: Check if user specified an explicit custom prefix option
+            # This handles the case where parent hasn't hoisted yet AND the type namespace
+            # matches the parent's namespace (i.e., they share the same namespace)
+            use_prefix_option = options[:use_prefix]
+            if use_prefix_option && parent_namespace_class && parent_namespace_class.uri == type_ns_class.uri
+              # Parent has the same namespace as the type namespace
+              # Use the prefix option to maintain consistency
+              case use_prefix_option
+              when String
+                return use_prefix_option
+              when true
+                return parent_namespace_class.prefix_default
+              when false
+                return nil
+              end
+            end
+
+            # Default: use the Type namespace's prefix_default
+            return type_ns_class.prefix_default
+          end
+
+          # If no Type namespace, check element's own namespace
+          return nil unless xml_element.namespace_class
+
+          # Use the OOP decision resolver
+          @prefix_resolver ||= Decisions::ElementPrefixResolver.new
+          decision = @prefix_resolver.resolve_with_decision(
+            xml_element, mapping, needs, options,
+            is_root: is_root,
+            parent_format: parent_format,
+            parent_namespace_class: parent_namespace_class,
+            parent_hoisted: parent_hoisted
+          )
+
+          decision.prefix
         end
 
-        # Return empty needs structure (used when child needs not found)
+        # Build qualified element name with prefix
         #
-        # @return [Hash] empty needs structure
-        def empty_needs
-          {
-            namespaces: {},
-            children: {},
-            type_namespaces: {},
-          }
+        # @param xml_element [XmlDataModel::XmlElement] Element
+        # @param prefix [String, nil] Prefix (nil = no prefix)
+        # @return [String] Qualified name: "prefix:name" or "name"
+        def build_qualified_element_name(xml_element, prefix)
+          if prefix
+            "#{prefix}:#{xml_element.name}"
+          else
+            xml_element.name
+          end
+        end
+
+        # Determine which xmlns declarations to hoist at this element
+        #
+        # Checks input_formats to preserve input format during round-trip.
+        #
+        # @param xml_element [XmlDataModel::XmlElement] Element
+        # @param mapping [Xml::Mapping] XML mapping
+        # @param needs [NamespaceNeeds] Namespace needs
+        # @param options [Hash] Serialization options (may contain :input_formats)
+        # @param is_root [Boolean] Whether this is the root element
+        # @param parent_hoisted [Hash] Namespaces hoisted on parent {prefix => uri}
+        # @return [Hash<String|nil, String>] xmlns attributes: {prefix_or_nil => uri}
+        def determine_hoisted_declarations(xml_element, mapping, needs,
+options, is_root: false, parent_hoisted: {}, element_prefix: nil)
+          hoisted = {}
+
+          # CRITICAL: Get the current element's namespace_scope_configs
+          # For child elements, use their own namespace_scope, not the parent's
+          current_scope_configs = get_element_namespace_scope_configs(xml_element, mapping, needs, options)
+
+          # Check if element's namespace is hoisted to root via namespace_scope
+          element_ns_hoisted_to_root = false
+          if xml_element.namespace_class
+            scope_config = find_scope_config_for(xml_element.namespace_class, current_scope_configs)
+            if scope_config
+              ns_usage = needs.namespaces[xml_element.namespace_class.to_key]
+              element_ns_hoisted_to_root = scope_config.always_mode? ||
+                (scope_config.auto_mode? && ns_usage&.used_in&.any?)
+            end
+          end
+
+          # Check if element's namespace was already hoisted on parent (locally)
+          false
+          if xml_element.namespace_class
+            ns_uri = xml_element.namespace_class.uri
+            parent_hoisted.value?(ns_uri)
+          end
+
+          # FIRST: Add element's OWN namespace if it has one
+          # This ensures the namespace is declared with the correct format (prefix or default)
+          # even when it's already hoisted by parent, to maintain consistency.
+          if xml_element.namespace_class
+            ns_class = xml_element.namespace_class
+            ns_uri = ns_class.uri
+
+            # Check if namespace is hoisted on parent
+            ns_hoisted_by_parent = parent_hoisted.value?(ns_uri)
+
+            # Check if namespace is hoisted to root via namespace_scope (for non-root elements)
+            ns_hoisted_to_root = element_ns_hoisted_to_root && !is_root
+
+            # Determine the prefix to use for this namespace
+            if !ns_hoisted_by_parent && !ns_hoisted_to_root
+              # Namespace is NOT already hoisted - need to determine prefix
+              element_prefix = determine_element_prefix(xml_element, mapping,
+                                                        needs, options, is_root: is_root, parent_hoisted: parent_hoisted)
+              hoisted[element_prefix] = ns_uri
+            elsif element_prefix
+              # Namespace is already hoisted, and we have a prefix from build_element_node
+              # Use this prefix to maintain consistency
+              hoisted[element_prefix] = ns_uri
+            else
+              # Namespace is hoisted by parent, but we don't have a prefix
+              # Check if parent used default format (nil prefix) for this namespace
+              parent_prefix = parent_hoisted.find do |_prefix, uri|
+                uri == ns_uri
+              end&.first
+              if parent_prefix
+                # Parent used prefix format - use same prefix
+                hoisted[parent_prefix] = ns_uri
+              else
+                # Parent used default format - use default format
+                hoisted[nil] = ns_uri
+              end
+            end
+          end
+
+          # SECOND: Add namespace_scope namespaces (ONLY at root!)
+          if is_root
+            current_scope_configs.each do |scope_config|
+              ns_class = scope_config.namespace_class
+
+              # Skip if already added (element's own namespace)
+              next if ns_class == xml_element.namespace_class
+
+              # CRITICAL: Skip if namespace URI is already in hoisted hash
+              # An element can declare the same URI with both default and prefix formats
+              next if hoisted.value?(ns_class.uri) || hoisted.key?(ns_class.prefix_default)
+
+              # Check :always mode or :auto mode with usage
+              ns_usage = needs.namespace(ns_class.to_key)
+              should_declare_here = scope_config.always_mode? ||
+                (scope_config.auto_mode? && ns_usage&.used_in&.any?)
+
+              if should_declare_here
+                prefix = ns_class.prefix_default
+                hoisted[prefix] = ns_class.uri
+              end
+            end
+          end
+
+          # THIRD: Add type namespaces
+          # Type namespaces are declared on PARENT elements and used by child elements.
+          # W3C rule: Namespaces in attributes MUST use prefix format.
+          # Type namespaces for elements MUST also be declared at root with prefix.
+          # Example: ContactInfo declares xmlns:name for personName's name:prefix attribute.
+          # Example: Document declares xmlns:dc for title's dc:title element.
+          #
+          # CRITICAL: Type namespaces respect namespace_scope directive.
+          # When namespace_scope is configured, hoist type namespaces to root.
+          # When namespace_scope is NOT configured, type namespaces are declared
+          # locally on the elements that use them.
+          if is_root
+            # Check if namespace_scope is configured
+            has_namespace_scope = !current_scope_configs.empty?
+
+            # Only hoist type namespaces to root when namespace_scope is configured
+            if has_namespace_scope
+              # Type attribute namespaces
+              needs.type_attribute_namespaces.each do |ns_class|
+                ns_uri = ns_class.uri
+                next if hoisted.value?(ns_uri) # Skip if already declared
+                next if ns_class == xml_element.namespace_class # Skip element's own namespace
+
+                # If namespace_scope is configured, only hoist if in scope
+                scope_config = find_scope_config_for(ns_class, current_scope_configs)
+                next unless scope_config
+
+                # Type attribute namespaces MUST use prefix format (W3C rule)
+                prefix = ns_class.prefix_default || "ns#{hoisted.keys.length}"
+                hoisted[prefix] = ns_uri
+              end
+
+              # Type element namespaces
+              needs.type_element_namespaces.each do |ns_class|
+                ns_uri = ns_class.uri
+                next if hoisted.value?(ns_uri) # Skip if already declared
+                next if ns_class == xml_element.namespace_class # Skip element's own namespace
+
+                # CRITICAL: Type namespaces are different from child element namespaces.
+                # Type namespaces are declared on Type::Value subclasses (via xml_namespace
+                # directive) and MUST ALWAYS be hoisted to root with prefix format (W3C
+                # constraint: only one default namespace per element).
+                #
+                # The restriction below applies ONLY to child element namespaces (from nested
+                # models), NOT to Type namespaces. Type namespaces are about TYPE identity,
+                # not about element structure.
+                #
+                # Examples of child element namespaces (should NOT be hoisted if different):
+                # - Root has XMI namespace, child model has XMI_NEW namespace → child declares
+                # - Root has NO namespace, child model has XMI namespace → child declares
+                #
+                # Examples of Type namespaces (should ALWAYS be hoisted):
+                # - Root has any namespace, attribute type has XMI namespace → hoist XMI
+                # - Root has NO namespace, attribute type has XMI namespace → hoist XMI
+
+                # If namespace_scope is configured, only hoist if in scope
+                scope_config = find_scope_config_for(ns_class, current_scope_configs)
+                next unless scope_config
+
+                # Type element namespaces MUST use prefix format
+                prefix = ns_class.prefix_default || "ns#{hoisted.keys.length}"
+                hoisted[prefix] = ns_uri
+              end
+            end
+          else
+            # For non-root (child) elements, add their own type attribute namespaces
+            # CRITICAL: Child elements with type namespace attributes need those
+            # namespaces declared on themselves (W3C compliance)
+            #
+            # NOTE: We only add type ATTRIBUTE namespaces, not type ELEMENT namespaces.
+            # Type element namespaces are used by child elements and should be declared
+            # on the parent element (or root, depending on namespace_scope).
+            #
+            # Get the child's own namespace needs by matching the current element
+            # to its corresponding attribute name in the parent's mapping
+            child_attr_name = find_child_attribute_name(xml_element, mapping, options)
+            if child_attr_name
+              child_needs = needs.child(child_attr_name)
+              if child_needs
+                # Add child's type attribute namespaces
+                child_needs.type_attribute_namespaces.each do |ns_class|
+                  ns_uri = ns_class.uri
+                  next if hoisted.value?(ns_uri) # Skip if already declared
+                  next if parent_hoisted.value?(ns_uri) # Skip if parent already declared
+
+                  # Type attribute namespaces MUST use prefix format (W3C rule)
+                  prefix = ns_class.prefix_default || "ns#{hoisted.keys.length}"
+                  hoisted[prefix] = ns_uri
+                end
+              end
+            end
+          end
+
+          # FOURTH: Add namespaces NOT in namespace_scope (LOCAL hoisting)
+          # W3C minimal-subtree principle: declare namespace at first element using it
+          if !is_root
+            needs.namespaces.each_value do |ns_usage|
+              ns_class = ns_usage.namespace_class
+
+              # Skip if already added (element's own namespace)
+              next if ns_class == xml_element.namespace_class
+
+              # Skip if already hoisted on parent (don't redeclare!)
+              next if parent_hoisted.value?(ns_class.uri)
+
+              scope_config = find_scope_config_for(ns_class, current_scope_configs)
+
+              # Only hoist if NOT in namespace_scope (local hoisting)
+              # Check if any child/grandchild uses this namespace
+              if !scope_config && element_needs_namespace?(xml_element,
+                                                           ns_class)
+                prefix = ns_class.prefix_default
+                hoisted[prefix] = ns_class.uri
+              end
+            end
+          end
+
+          hoisted
+        end
+
+        # Find the attribute name for a child XmlElement
+        #
+        # When building child element nodes, we need to match the XmlElement to its
+        # corresponding attribute name in the parent's mapping to access the child's
+        # own namespace needs.
+        #
+        # @param xml_element [XmlDataModel::XmlElement] The child element
+        # @param mapping [Xml::Mapping] The current element's mapping (parent's for child elements)
+        # @param options [Hash] Serialization options (may contain :parent_mapping)
+        # @return [Symbol, nil] The attribute name, or nil if not found
+        def find_child_attribute_name(xml_element, mapping, options = {})
+          # Use parent's mapping if available (for child elements)
+          search_mapping = options[:parent_mapping] || mapping
+
+          element_name = xml_element.name.to_s
+          matching_rule = search_mapping.elements.find do |rule|
+            rule.name.to_s == element_name
+          end
+
+          matching_rule&.to
+        end
+
+        # Get the current element's namespace_scope_configs
+        #
+        # For child elements, use their own namespace_scope, not the parent's.
+        # This ensures that namespace_scope directives are scoped to the model that defines them.
+        #
+        # @param xml_element [XmlDataModel::XmlElement] The element
+        # @param mapping [Xml::Mapping] The element's mapping
+        # @param needs [NamespaceNeeds] Namespace needs
+        # @param options [Hash] Serialization options
+        # @return [Array<NamespaceScopeConfig>] The element's namespace_scope_configs
+        def get_element_namespace_scope_configs(xml_element, mapping, needs, options)
+          # Use the parent's namespace_scope_configs
+          needs.namespace_scope_configs
+        end
+
+        # Find a scope config for a namespace class
+        #
+        # @param ns_class [Class] The namespace class
+        # @param scope_configs [Array<NamespaceScopeConfig>] The scope configs to search
+        # @return [NamespaceScopeConfig, nil] The matching scope config, or nil
+        def find_scope_config_for(ns_class, scope_configs)
+          scope_configs.find { |config| config.namespace_class == ns_class }
+        end
+
+        # Build global prefix registry from needs
+        #
+        # @param needs [NamespaceNeeds] Namespace needs
+        # @return [Hash<String, String>] URI => prefix mapping
+        def build_prefix_registry(needs)
+          registry = {}
+          needs.namespaces.each_value do |ns_usage|
+            ns_class = ns_usage.namespace_class
+            if ns_class.prefix_default
+              registry[ns_class.uri] =
+                ns_class.prefix_default
+            end
+          end
+          registry
+        end
+
+        # Check if element or its descendants use a namespace
+        #
+        # @param xml_element [XmlDataModel::XmlElement] Element to check
+        # @param ns_class [Class] Namespace class to search for
+        # @return [Boolean] true if namespace is used in subtree
+        def element_needs_namespace?(xml_element, ns_class)
+          # Check direct children
+          xml_element.children.each do |child|
+            next unless child.is_a?(Lutaml::Model::XmlDataModel::XmlElement)
+
+            # Does child use this namespace?
+            return true if child.namespace_class == ns_class
+
+            # Does child have attributes using this namespace?
+            child.attributes.each do |attr|
+              return true if attr.namespace_class == ns_class
+            end
+
+            # Recurse to grandchildren
+            return true if element_needs_namespace?(child, ns_class)
+          end
+
+          false
+        end
+
+        # Check if element is a native type element (leaf with text content)
+        #
+        # Native type elements (like :string, :integer) are simple values
+        # that need xmlns="" when parent uses default namespace format.
+        # Child models are complex elements with their own structure.
+        #
+        # @param xml_element [XmlDataModel::XmlElement] Element to check
+        # @return [Boolean] true if element is a native type element
+        def native_type_element?(xml_element)
+          # Native type elements have:
+          # - text_content (not nil)
+          # - No element children (all children are Strings, not XmlElement)
+          return false unless xml_element.text_content
+
+          xml_element.children.all?(String)
         end
       end
     end

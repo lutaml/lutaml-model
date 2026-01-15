@@ -25,7 +25,7 @@ module IncludedSpec
     attribute :age, Lutaml::Model::Type::Integer
 
     xml do
-      root "impl_one"
+      element "impl_one"
       map_content to: :text
       map_attribute "id", to: :id
       map_element "name", to: :name
@@ -42,7 +42,7 @@ module IncludedSpec
     attribute :age, Lutaml::Model::Type::Integer
 
     xml do
-      root "impl_two"
+      element "impl_two"
       map_content to: :text
       map_attribute "id", to: :id
       map_element "name", to: :name
@@ -57,7 +57,7 @@ module IncludedSpec
     attribute :parent_id, Lutaml::Model::Type::String
 
     xml do
-      root "parent"
+      element "parent"
       map_attribute "id", to: :parent_id
       map_element "parent_name", to: :parent_name
     end
@@ -71,7 +71,7 @@ module IncludedSpec
     attribute :child_text, Lutaml::Model::Type::String
 
     xml do
-      root "child"
+      element "child"
       map_attribute "type", to: :child_type
       map_element "child_name", to: :child_name
       map_content to: :child_text
@@ -86,7 +86,7 @@ module IncludedSpec
     attribute :grandchild_text, Lutaml::Model::Type::String
 
     xml do
-      root "grandchild"
+      element "grandchild"
       map_attribute "version", to: :grandchild_version
       map_element "grandchild_name", to: :grandchild_name
       map_content to: :grandchild_text
@@ -171,14 +171,7 @@ RSpec.describe "Included" do
     end
 
     it "maintains correct XML mappings through inheritance" do
-      expected_xml = <<~XML
-        <grandchild id="P123" type="Type A" version="1.0">
-          <parent_name>Parent Name</parent_name>
-          <child_name>Child Name</child_name>
-          <grandchild_name>GrandChild Name</grandchild_name>
-          GrandChild Text
-        </grandchild>
-      XML
+      expected_xml = '<grandchild id="P123" type="Type A" version="1.0"><parent_name>Parent Name</parent_name><child_name>Child Name</child_name><grandchild_name>GrandChild Name</grandchild_name>GrandChild Text</grandchild>'
 
       expect(grandchild.to_xml(pretty: true)).to be_xml_equivalent_to(expected_xml)
     end

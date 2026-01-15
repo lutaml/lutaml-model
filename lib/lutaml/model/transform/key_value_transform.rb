@@ -19,6 +19,26 @@ module Lutaml
       end
 
       def model_to_data(instance, format, options = {})
+        # NEW ARCHITECTURE: Use KeyValue::Transformation if available
+        # This provides symmetric OOP architecture with XmlDataModel
+        if context.respond_to?(:transformation_for)
+          transformation = context.transformation_for(format, __register)
+
+          # transformation_for returns nil for cyclic dependencies or :building sentinel
+          # Fall back to legacy approach in these cases
+          if transformation && transformation.respond_to?(:transform)
+            # Use new Transformation to get KeyValueElement
+            kv_element = transformation.transform(instance, options)
+            # Convert KeyValueElement to hash for backward compatibility with adapters
+            # The to_hash method returns {"__root__" => {actual_hash}}
+            kv_hash = kv_element.to_hash
+            # For root element, return just the content hash
+            return kv_hash["__root__"] || kv_hash
+          end
+        end
+
+        # LEGACY ARCHITECTURE: Fall back to Hash-based approach
+        # This maintains backward compatibility for models without transformations
         mappings = extract_mappings(options, format)
 
         hash = {}

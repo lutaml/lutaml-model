@@ -76,6 +76,11 @@ module Lutaml
           attr_value = instance.public_send(mapping.to)
           return if attr_value.nil? || attr_value.empty?
 
+          # Handle custom Collection classes - extract the actual items array
+          if attr_value.is_a?(Lutaml::Model::Collection)
+            attr_value = attr_value.collection
+          end
+
           attr_value = [attr_value] unless attr_value.is_a?(Array)
           attr_value.map { |v| v.public_send(:"to_#{format}", options) }
         end
@@ -85,7 +90,25 @@ module Lutaml
           data = super
 
           if mappings.no_root? && format != :xml && !mappings.root_mapping
-            Utils.fetch_str_or_sym(data, instance_name)
+            # Convert KeyValueElement to Hash if needed
+            hash = data.is_a?(Hash) ? data : data.to_hash
+            # Handle "__root__" wrapper for key-value formats (created by transformation)
+            hash = hash["__root__"] if hash.key?("__root__")
+            result = Utils.fetch_str_or_sym(hash, instance_name)
+
+            # Extract values from nested hashes with empty string keys
+            # (created by transformation for simple models with single attribute)
+            if result.is_a?(Array)
+              result = result.map do |item|
+                if item.is_a?(Hash) && item.key?("") && item.size == 1
+                  item[""]
+                else
+                  item
+                end
+              end
+            end
+
+            result
           else
             data
           end

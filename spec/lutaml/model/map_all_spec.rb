@@ -5,7 +5,7 @@ module MapAllSpec
     attribute :content, :string
 
     xml do
-      root "document"
+      element "document"
       map_all to: :content
     end
 
@@ -50,18 +50,17 @@ module MapAllSpec
       end
 
       let(:sub_xml_content) do
-        <<~XML
-          Content with <b>tags</b> and <i>formatting</i>.
-          <metadata>
-            <author>John Doe</author>
-            <date>2024-01-15</date>
-          </metadata>
-        XML
+        # Match the exact whitespace as captured: leading newline + 2 spaces
+        "\n  Content with <b>tags</b> and <i>formatting</i>.\n  <metadata>\n    <author>John Doe</author>\n    <date>2024-01-15</date>\n  </metadata>\n"
       end
 
       it "captures all XML content" do
         doc = Document.from_xml(xml_content)
-        expect(doc.content).to be_xml_equivalent_to(sub_xml_content)
+        # Wrap both in a temporary root element for comparison since the content
+        # starts with text (mixed content) and cannot be parsed as standalone XML
+        wrapped_actual = "<root>#{doc.content}</root>"
+        wrapped_expected = "<root>#{sub_xml_content}</root>"
+        expect(wrapped_actual).to be_xml_equivalent_to(wrapped_expected)
       end
 
       it "preserves XML content through round trip" do

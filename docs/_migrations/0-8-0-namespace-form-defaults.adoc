@@ -1,0 +1,229 @@
+= Migration Guide: Namespace Form Defaults (v0.8.0)
+:toc:
+:toclevels: 3
+
+== Overview
+
+Version 0.8.0 corrects the W3C XML Schema defaults for `attribute_form_default`.
+
+**BREAKING CHANGE**: Attributes in namespaced elements may now serialize without prefixes by default.
+
+---
+
+== What Changed
+
+=== Previous Behavior (INCORRECT)
+
+```ruby
+class MyNamespace < Lutaml::Model::XmlNamespace
+  uri "http://example.com/ns"
+  prefix_default "my"
+  # attribute_form_default defaulted to :qualified (WRONG)
+end
+```
+
+**Output**:
+```xml
+<my:element xmlns:my="http://example.com/ns" my:attr="value"/>
+```
+
+All attributes were prefixed by default.
+
+=== New Behavior (W3C CORRECT)
+
+```ruby
+class MyNamespace < Lutaml::Model::XmlNamespace
+  uri "http://example.com/ns"
+  prefix_default "my"
+  # attribute_form_default now defaults to :unqualified (CORRECT)
+end
+```
+
+**Output**:
+```xml
+<my:element xmlns:my="http://example.com/ns" attr="value"/>
+```
+
+Attributes have NO namespace by default per W3C spec.
+
+---
+
+== W3C 3-Level Architecture
+
+LutaML Model CORRECTLY implements W3C XML Schema's 3-level qualification system:
+
+=== Level 1: Schema-Level Defaults (XmlNamespace class)
+
+Set defaults for ALL elements/attributes in the namespace:
+
+```ruby
+class MyNamespace < Lutaml::Model::XmlNamespace
+  uri "http://example.com/ns"
+  prefix_default "my"
+  
+  # Control child elements (default: :unqualified)
+  element_form_default :qualified  # Children INHERIT parent namespace
+  
+  # Control attributes (default: :unqualified)  
+  attribute_form_default :qualified  # Attributes are PREFIXED
+end
+```
+
+=== Level 2: Per-Mapping Overrides (form: option)
+
+Override schema default for specific elements/attributes:
+
+```ruby
+xml do
+  element "Product"
+  namespace MyNamespace
+  
+  # Override element qualification
+  map_element "id", to: :id, form: :unqualified  # Explicit override
+  map_element "name", to: :name  # Uses schema default
+  
+  # Override attribute qualification
+  map_attribute "version", to: :version, form: :qualified  # Explicit override
+  map_attribute "status", to: :status  # Uses schema default
+end
+```
+
+=== Level 3: Top-Level Declarations (Always Qualified)
+
+Top-level declarations ALWAYS use their schema's `targetNamespace`:
+
+```ruby
+class MyNamespace < Lutaml::Model::XmlNamespace
+  uri "http://example.com/ns"
+end
+
+class Product < Lutaml::Model::Serializable
+  attribute :name, :string
+  
+  xml do
+    element "Product"  # Top-level, always qualified
+    namespace MyNamespace
+    map_element "name", to: :name
+  end
+end
+```
+
+---
+
+== Migration Path
+
+=== If You Want Attributes Prefixed
+
+**Option A**: Set `attribute_form_default :qualified` on namespace:
+
+```ruby
+class MyNamespace < Lutaml::Model::XmlNamespace
+  uri "http://example.com/ns"
+  prefix_default "my"
+  attribute_form_default :qualified  # All attributes prefixed
+end
+```
+
+**Option B**: Use `form: :qualified` per attribute:
+
+```ruby
+xml do
+  map_attribute "id", to: :id, form: :qualified  # This one prefixed
+  map_attribute "status", to: :status  # This one unprefixed
+end
+```
+
+=== If You Want Child Elements to Inherit Parent Namespace
+
+```ruby
+class MyNamespace < Lutaml::Model::XmlNamespace
+  uri "http://example.com/ns"
+  element_form_default :qualified  # Children inherit
+end
+```
+
+**Output**:
+```xml
+<parent xmlns="http://example.com/ns">
+  <child>content</child>  <!-- Inherits, no xmlns="" -->
+</parent>
+```
+
+**Without this** (default `:unqualified`):
+```xml
+<parent xmlns="http://example.com/ns">
+  <child xmlns="">content</child>  <!-- Blank namespace -->
+</parent>
+```
+
+---
+
+== Common Scenarios
+
+=== Scenario 1: OOXML-Style (Most Attributes Qualified)
+
+```ruby
+class OoxmlCoreNamespace < Lutaml::Model::XmlNamespace
+  uri "http://schemas.openxmlformats.org/package/2006/metadata/core-properties"
+  prefix_default "cp"
+  attribute_form_default :qualified  # OOXML attributes are prefixed
+  element_form_default :qualified    # Elements inherit
+end
+```
+
+=== Scenario 2: vCard-Style (Mixed Namespaces)
+
+```ruby
+class VCardNamespace < Lutaml::Model::XmlNamespace
+  uri "urn:ietf:params:xml:ns:vcard-4.0"
+  prefix_default "vcard"
+  # Defaults OK - unqualified for both
+end
+
+xml do
+  # Explicitly qualify where needed
+  map_attribute "type", to: :type, form: :qualified  # vcard:type
+  map_element "email", to: :email  # No prefix
+end
+```
+
+=== Scenario 3: Default Namespace (No Prefixes)
+
+```ruby
+class MyNamespace < Lutaml::Model::XmlNamespace
+  uri "http://example.com/ns"
+  # No prefix_default - uses default namespace format
+  element_form_default :qualified  # Children inherit
+end
+```
+
+**Output**:
+```xml
+<parent xmlns="http://example.com/ns">
+  <child>content</child>  <!-- Inherits default namespace -->
+</parent>
+```
+
+---
+
+== Verification
+
+Run your tests after migration:
+
+```bash
+bundle exec rspec
+```
+
+Look for failures related to attribute prefixing or `xmlns=""` declarations.
+
+---
+
+== Reference
+
+* W3C XML Schema spec: lines 1478-1485 (attributes), 2097-2103 (elements)
+* W3C default: BOTH `element_form_default` and `attribute_form_default` are `:unqualified`
+
+---
+
+**Version**: 0.8.0
+**Date**: 2025-12-15

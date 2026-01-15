@@ -9,7 +9,7 @@ require "lutaml/model/xml/ox_adapter"
 RSpec.describe "XML Prefix Control" do
   # Define test namespace
   let(:app_namespace) do
-    Class.new(Lutaml::Model::XmlNamespace) do
+    Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
       uri "http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"
       prefix_default "app"
       element_form_default :qualified
@@ -265,6 +265,6 @@ RSpec.describe "XML Prefix Control" do
   end
 
   context "with Ox adapter" do
-    it_behaves_like "prefix control behavior", Lutaml::Model::Xml::OxAdapter
+    it_behaves_like "prefix control behavior", Lutaml::Model::Xml::OxAdapter if TestAdapterConfig.adapter_enabled?(:ox)
   end
 end

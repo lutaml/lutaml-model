@@ -30,8 +30,8 @@ module Lutaml
 
           XML_MAPPING_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
             <%= @indent %>xml do
-            <%= extended_indent %>no_root
-            <%= instance&.to_xml_mapping(extended_indent) -%>
+            <%= extended_indent %>type_name "<%= base_name %>"
+            <%= xml_mapping_content -%>
             <%= @indent %>end
           TEMPLATE
 
@@ -89,6 +89,20 @@ module Lutaml
 
           def xml_mapping_block
             XML_MAPPING_TEMPLATE.result(binding)
+          end
+
+          # Generate XML mapping content, unwrapping sequence for importable groups
+          def xml_mapping_content
+            return "" unless instance
+
+            # For Groups (importable models without root), unwrap sequence content
+            # because sequence requires a root element
+            if instance.is_a?(Sequence)
+              # Output sequence content directly without the wrapper
+              instance.send(:xml_block_content, extended_indent)
+            else
+              instance.to_xml_mapping(extended_indent)
+            end
           end
         end
       end

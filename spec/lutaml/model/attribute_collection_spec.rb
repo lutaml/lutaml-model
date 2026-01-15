@@ -14,7 +14,7 @@ module AttributeCollection
     attribute :title_parts, :string, collection: StringParts
 
     xml do
-      root "titles"
+      element "titles"
       map_element "title", to: :title_parts
     end
 

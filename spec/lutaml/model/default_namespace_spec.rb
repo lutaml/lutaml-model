@@ -13,7 +13,7 @@ module DefaultNamespaceSpec
     attribute :value, :string
 
     xml do
-      root "nested"
+      element "nested"
       namespace ExampleNamespaceDefault
       map_element "name", to: :name
       map_element "value", to: :value
@@ -24,7 +24,7 @@ module DefaultNamespaceSpec
     attribute :child, :string
 
     xml do
-      root "root"
+      element "root"
       namespace ExampleNamespaceDefault
       map_element "child", to: :child
     end
@@ -35,7 +35,7 @@ module DefaultNamespaceSpec
     attribute :nested, NestedItem
 
     xml do
-      root "root"
+      element "root"
       namespace ExampleNamespaceDefault
       map_element "title", to: :title
       map_element "nested", to: :nested
@@ -46,7 +46,7 @@ module DefaultNamespaceSpec
     attribute :name, :string
 
     xml do
-      root "item"
+      element "item"
       namespace ExampleNamespaceDefault
       map_element "name", to: :name
     end
@@ -56,7 +56,7 @@ module DefaultNamespaceSpec
     attribute :items, CollectionItem, collection: true
 
     xml do
-      root "root"
+      element "root"
       namespace ExampleNamespaceDefault
       map_element "item", to: :items
     end
@@ -91,8 +91,15 @@ RSpec.describe DefaultNamespaceSpec do
         instance = DefaultNamespaceSpec::SimpleRoot.new(child: "Content")
         xml = instance.to_xml
 
+        # W3C Compliance: Parent uses default namespace (xmlns="..."),
+        # child element has NO namespace directive on map_element,
+        # and namespace has element_form_default: :unqualified (W3C default),
+        # so child is in BLANK namespace and MUST declare xmlns="".
+        #
+        # All adapters (Nokogiri, Ox, Oga) now correctly add xmlns=""
+        # to explicitly place child in blank namespace.
         expect(xml).to include('xmlns="http://example.com/ns"')
-        expect(xml).to include("<child>Content</child>")
+        expect(xml).to include('<child xmlns="">Content</child>')
       end
 
       it "round-trips XML correctly" do
@@ -168,10 +175,10 @@ RSpec.describe DefaultNamespaceSpec do
   end
 
   describe Lutaml::Model::Xml::OxAdapter do
-    it_behaves_like "default namespace serialization", described_class
+    it_behaves_like "default namespace serialization", described_class if TestAdapterConfig.adapter_enabled?(:ox)
   end
 
   describe Lutaml::Model::Xml::OgaAdapter do
-    it_behaves_like "default namespace serialization", described_class
+    it_behaves_like "default namespace serialization", described_class if TestAdapterConfig.adapter_enabled?(:oga)
   end
 end

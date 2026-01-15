@@ -3,21 +3,21 @@ require "spec_helper"
 RSpec.describe "XML namespace_scope feature" do
   # Define namespace classes
   let(:vcard_namespace) do
-    Class.new(Lutaml::Model::XmlNamespace) do
+    Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
       uri "urn:ietf:params:xml:ns:vcard-4.0"
       prefix_default "vcard"
     end
   end
 
   let(:dcterms_namespace) do
-    Class.new(Lutaml::Model::XmlNamespace) do
+    Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
       uri "http://purl.org/dc/terms/"
       prefix_default "dcterms"
     end
   end
 
   let(:dc_elements_namespace) do
-    Class.new(Lutaml::Model::XmlNamespace) do
+    Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
       uri "http://purl.org/dc/elements/1.1/"
       prefix_default "dc"
     end
@@ -59,7 +59,7 @@ RSpec.describe "XML namespace_scope feature" do
 
       xml do
         namespace vcard_ns
-        root "n"
+        element "n"
         map_element "given", to: :given
         map_element "family", to: :family
         map_element "suffix", to: :suffix
@@ -79,7 +79,7 @@ RSpec.describe "XML namespace_scope feature" do
 
       xml do
         namespace vcard_ns
-        root "address"
+        element "address"
         map_element "street-address", to: :street_address
         map_element "locality", to: :locality
         map_element "region", to: :region
@@ -110,7 +110,7 @@ RSpec.describe "XML namespace_scope feature" do
 
       xml do
         namespace vcard_ns
-        root "contact"
+        element "contact"
         map_element "title", to: :title
         map_element "fn", to: :fn
         map_element "n", to: :name
@@ -139,7 +139,7 @@ RSpec.describe "XML namespace_scope feature" do
         xml do
           namespace vcard_ns
           namespace_scope [vcard_ns, dcterms_ns, dc_ns]
-          root "vCard"
+          element "vCard"
           map_element "version", to: :version
           map_element "contacts", to: :contacts
         end
@@ -255,7 +255,7 @@ RSpec.describe "XML namespace_scope feature" do
         xml do
           namespace vcard_ns
           namespace_scope [vcard_ns] # Only vcard in scope
-          root "vCard"
+          element "vCard"
           map_element "version", to: :version
           map_element "contacts", to: :contacts
         end

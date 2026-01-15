@@ -2,7 +2,7 @@
 
 require "spec_helper"
 
-RSpec.describe Lutaml::Model::XmlNamespace do
+RSpec.describe Lutaml::Model::Xml::W3c::XmlNamespace do
   describe "class methods" do
     let(:namespace_class) do
       Class.new(described_class) do

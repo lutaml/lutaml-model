@@ -10,7 +10,16 @@ module Lutaml
         end
 
         def to_toml(*)
-          TomlRB.dump(to_h)
+          # Handle KeyValueElement input (new symmetric architecture)
+          attributes_to_serialize = if @attributes.is_a?(Lutaml::Model::KeyValueDataModel::KeyValueElement)
+                                      # Unwrap __root__ wrapper to get actual content
+                                      @attributes.to_hash["__root__"]
+                                    else
+                                      # Legacy Hash input (backward compatibility)
+                                      @attributes
+                                    end
+
+          TomlRB.dump(attributes_to_serialize)
         end
       end
     end

@@ -3,7 +3,7 @@ require "spec_helper"
 RSpec.describe "Collection attribute mutations" do
   describe "serialization after mutation" do
     let(:namespace_class) do
-      Class.new(Lutaml::Model::XmlNamespace) do
+      Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
         uri "http://example.com/test"
         prefix_default "t"
       end

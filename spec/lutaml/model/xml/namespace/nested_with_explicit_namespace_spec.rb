@@ -36,10 +36,10 @@ module NestedWithExplicitNamespaceSpec
     attribute :element_without_namespace, ElementWithoutNamespace
 
     xml do
+      element "Element1"
+      namespace TestBaseNamespace
       map_element "Element", to: :element
-      map_element "ElementWithoutNamespace", to: :element_without_namespace,
-                                             namespace: nil,
-                                             prefix: nil
+      map_element "ElementWithoutNamespace", to: :element_without_namespace
     end
   end
 
@@ -47,7 +47,7 @@ module NestedWithExplicitNamespaceSpec
     attribute :element1, Element1
 
     xml do
-      root "Base"
+      element "Base"
       namespace TestBaseNamespace
 
       map_element "Element1", to: :element1

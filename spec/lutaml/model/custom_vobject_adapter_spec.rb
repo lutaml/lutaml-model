@@ -167,8 +167,9 @@ module CustomVobjectAdapterSpec
   class VobjectDocument
     attr_reader :objects
 
-    def initialize(objects = [])
+    def initialize(objects = [], options = {})
       @objects = objects
+      @options = options
     end
 
     def self.parse(vobject_data, _options = {})

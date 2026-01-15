@@ -1,5 +1,23 @@
 # frozen_string_literal: true
 
+require_relative "xml/mapping_rule"
+require_relative "xml/mapping"
+require_relative "xml/namespace_declaration"
+require_relative "xml/namespace_class_registry"
+require_relative "xml/namespace_resolution_strategy"
+require_relative "xml/namespace_inheritance_strategy"
+require_relative "xml/qualified_inheritance_strategy"
+require_relative "xml/unqualified_inheritance_strategy"
+require_relative "xml/declaration_plan"
+require_relative "xml/namespace_collector"
+require_relative "xml/declaration_planner"
+require_relative "xml/blank_namespace"
+require_relative "xml/encoding_normalizer"
+require_relative "xml/builder/nokogiri"
+require_relative "xml/builder/ox"
+require_relative "xml/builder/oga"
+require_relative "xml/transformation"
+
 module Lutaml
   module Model
     module Xml
@@ -15,6 +33,7 @@ module Lutaml
 end
 
 require_relative "xml_namespace"
+require_relative "xml/w3c"
 require_relative "xml/document"
 require_relative "xml/mapping"
 require_relative "xml/mapping_rule"

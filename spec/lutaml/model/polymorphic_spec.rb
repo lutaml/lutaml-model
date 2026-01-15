@@ -84,7 +84,7 @@ module PolymorphicSpec
       attribute :references, Reference, collection: true, polymorphic: true
 
       xml do
-        root "ReferenceSet"
+        element "ReferenceSet"
         map_element "references", to: :references, polymorphic: {
           attribute: "reference-type",
           class_map: {
@@ -158,7 +158,7 @@ module PolymorphicSpec
       ]
 
       xml do
-        root "ReferenceSet"
+        element "ReferenceSet"
 
         map_element "references", to: :references, polymorphic: {
           # This refers to the attribute in the polymorphic model, you need

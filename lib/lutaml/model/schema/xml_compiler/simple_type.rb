@@ -63,6 +63,7 @@ module Lutaml
             require "lutaml/model"
 
             <%= "\#{required_files}\n" -%>
+            <%= module_opening -%>
             class <%= klass_name %><%= " < \#{parent_class}" if parent_class %>
             <%= @indent %>def self.cast(value, options = {})
             <%= extended_indent %>return if value.nil?
@@ -71,17 +72,10 @@ module Lutaml
                 value = super(value, options)
                 value
               end
-
-            <%= @indent %>def self.register
-            <%= extended_indent %>@register ||= Lutaml::Model::GlobalRegister.lookup(Lutaml::Model::Config.default_register)
-            <%= @indent %>end
-
-            <%= @indent %>def self.register_class_with_id
-            <%= extended_indent %>register.register_model(self, id: :<%= Utils.snake_case(class_name) %>)
-            <%= @indent %>end
+            <%= registration_methods -%>
             end
-
-            <%= klass_name %>.register_class_with_id
+            <%= module_closing -%>
+            <%= registration_execution -%>
           TEMPLATE
 
           UNION_MODEL_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
@@ -89,28 +83,23 @@ module Lutaml
             require "lutaml/model"
             <%= union_required_files %>
 
+            <%= module_opening -%>
             class <%= klass_name %> < <%= LUTAML_VALUE_CLASS_NAME %>
             <%= @indent %>def self.cast(value, options = {})
             <%= extended_indent %>return if value.nil?
 
             <%= union_class_method_body %>
               end
-
-            <%= @indent %>def self.register
-            <%= extended_indent %>@register ||= Lutaml::Model::GlobalRegister.lookup(Lutaml::Model::Config.default_register)
-            <%= @indent %>end
-
-            <%= @indent %>def self.register_class_with_id
-            <%= extended_indent %>register.register_model(self, id: :<%= Utils.snake_case(class_name) %>)
-            <%= @indent %>end
+            <%= registration_methods -%>
             end
-
-            <%= klass_name %>.register_class_with_id
+            <%= module_closing -%>
+            <%= registration_execution -%>
           TEMPLATE
 
           def initialize(name, unions = [])
             @class_name = name
             @unions = unions
+            @module_namespace = nil
           end
 
           def to_class(options: {})
@@ -121,7 +110,11 @@ module Lutaml
 
           def required_files
             files = Array(instance&.required_files)
-            files << "require_relative \"#{Utils.snake_case(parent_class)}\"" if require_parent?
+            # Don't add requires for parent classes if using module namespace
+            # They're handled via central autoload registry
+            unless @module_namespace
+              files << "require_relative \"#{Utils.snake_case(parent_class)}\"" if require_parent?
+            end
             files.join("\n")
           end
 
@@ -129,6 +122,51 @@ module Lutaml
 
           def setup_options(options)
             @indent = " " * options&.fetch(:indent, 2)
+            @module_namespace = options[:module_namespace]
+            @register_id = options[:register_id]
+          end
+
+          def module_opening
+            return "" unless @module_namespace
+
+            modules = @module_namespace.split("::")
+            modules.map.with_index { |mod, i| "#{'  ' * i}module #{mod}" }.join("\n") + "\n"
+          end
+
+          def module_closing
+            return "" unless @module_namespace
+
+            modules = @module_namespace.split("::")
+            modules.reverse.map.with_index { |_mod, i| "#{'  ' * (modules.size - i - 1)}end" }.join("\n")
+          end
+
+          def registration_methods
+            if @module_namespace
+              # Still need register method for union types that call register.get_class
+              <<~REGISTRATION
+
+#{@indent}def self.register
+#{extended_indent}Lutaml::Model::GlobalRegister.lookup(@register)
+#{@indent}end
+              REGISTRATION
+            else
+              <<~REGISTRATION
+
+#{@indent}def self.register
+#{extended_indent}@register ||= Lutaml::Model::GlobalRegister.lookup(Lutaml::Model::Config.default_register)
+#{@indent}end
+
+#{@indent}def self.register_class_with_id
+#{extended_indent}register.register_model(self, id: :#{Utils.snake_case(class_name)})
+#{@indent}end
+              REGISTRATION
+            end
+          end
+
+          def registration_execution
+            return "" if @module_namespace
+
+            "\n#{klass_name}.register_class_with_id"
           end
 
           def klass_name
@@ -156,6 +194,10 @@ module Lutaml
           end
 
           def union_required_files
+            # Don't add requires for union classes if using module namespace
+            # They're handled via central autoload registry
+            return "" if @module_namespace
+
             unions.filter_map do |union|
               next if SUPPORTED_DATA_TYPES.dig(last_of_split(union).to_sym,
                                                :skippable)

@@ -159,7 +159,7 @@ RSpec.describe Lutaml::Model::Type::Duration do
         attribute :processing_time, :duration
 
         xml do
-          root "task"
+          element "task"
           map_element "processingTime", to: :processing_time
         end
       end

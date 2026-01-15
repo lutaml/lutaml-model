@@ -125,7 +125,7 @@ RSpec.describe "Enhanced XML Mapping Features" do
 
   describe "form option on map_element" do
     let(:namespace_class) do
-      Class.new(Lutaml::Model::XmlNamespace) do
+      Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
         uri "https://example.com/ns"
         prefix_default "ex"
         element_form_default :unqualified
@@ -185,7 +185,7 @@ RSpec.describe "Enhanced XML Mapping Features" do
 
   describe "form option on map_attribute" do
     let(:namespace_class) do
-      Class.new(Lutaml::Model::XmlNamespace) do
+      Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
         uri "https://example.com/ns"
         prefix_default "ex"
         attribute_form_default :unqualified
@@ -282,7 +282,7 @@ RSpec.describe "Enhanced XML Mapping Features" do
 
   describe "combined enhanced features" do
     let(:namespace_class) do
-      Class.new(Lutaml::Model::XmlNamespace) do
+      Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
         uri "https://example.com/catalog"
         prefix_default "cat"
         element_form_default :qualified
@@ -360,13 +360,14 @@ RSpec.describe "Enhanced XML Mapping Features" do
   end
 
   describe "root() as backward-compatible alias" do
-    context "with mixed: true" do
+    context "with mixed_content" do
       let(:model_class) do
         Class.new(Lutaml::Model::Serializable) do
           attribute :text, :string
 
           xml do
-            root "paragraph", mixed: true
+            element "paragraph"
+            mixed_content
             map_element "b", to: :text
           end
         end
@@ -388,13 +389,14 @@ RSpec.describe "Enhanced XML Mapping Features" do
       end
     end
 
-    context "with ordered: true" do
+    context "with ordered" do
       let(:model_class) do
         Class.new(Lutaml::Model::Serializable) do
           attribute :items, :string, collection: true
 
           xml do
-            root "list", ordered: true
+            element "list"
+            ordered
             map_element "item", to: :items
           end
         end
@@ -451,7 +453,7 @@ RSpec.describe "Enhanced XML Mapping Features" do
 
     context "with namespace and form" do
       let(:namespace_class) do
-        Class.new(Lutaml::Model::XmlNamespace) do
+        Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
           uri "https://example.com/test"
           prefix_default "t"
           element_form_default :qualified
@@ -579,7 +581,7 @@ RSpec.describe "Enhanced XML Mapping Features" do
 
   describe "serialization and deserialization" do
     let(:namespace_class) do
-      Class.new(Lutaml::Model::XmlNamespace) do
+      Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
         uri "https://example.com/product"
         prefix_default "prod"
         element_form_default :qualified

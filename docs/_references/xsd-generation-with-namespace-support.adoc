@@ -34,6 +34,12 @@ Options:
 `location`::: Schema location URL
 `output_dir`::: Directory to save generated XSD file
 `create_files`::: Boolean, whether to write files to disk (default: `false`)
+`module_namespace`::: (Optional) Ruby module namespace for generated classes (e.g., `"UnitsMLV0919"`)
+`register_id`::: (Optional) Register ID for model registration, required when `module_namespace` is provided
+
+NOTE: When `module_namespace` is provided but `module_namespace` is not, the
+module namespace will be auto-generated from the `output_dir` parameter using
+PascalCase conversion.
 
 == Element and type inference
 
@@ -134,7 +140,9 @@ xsd = Lutaml::Model::Schema.to_xml(
   namespace: ContactNamespace.uri,
   prefix: ContactNamespace.prefix_default,
   output_dir: 'schemas',
-  create_files: true
+  create_files: true,
+  module_namespace: 'ContactML',
+  register_id: :contacts
 )
 
 puts xsd

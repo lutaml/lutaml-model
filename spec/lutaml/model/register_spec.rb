@@ -51,7 +51,7 @@ module RegisterSpec
     restrict :active, values: ["yes", "no"]
 
     xml do
-      root "user"
+      element "user"
 
       import_model_mappings :address_fields
     end
@@ -223,6 +223,80 @@ RSpec.describe Lutaml::Model::Register do
     it "tracks changes made to attribute updated using 'restrict'" do
       expect(RegisterSpec::AddressFields.attributes[:active].options.keys).to be_empty
       expect(RegisterSpec::User.attributes[:active].options.keys).to eq(%i[choice values])
+    end
+  end
+
+  describe "fallback behavior" do
+    let(:default_register) { Lutaml::Model::GlobalRegister.lookup(:default) }
+
+    context "when register is :default" do
+      it "has no fallback" do
+        expect(default_register.fallback).to eq([])
+      end
+    end
+
+    context "when register is custom without explicit fallback" do
+      let(:custom_register) { described_class.new(:custom) }
+
+      before do
+        Lutaml::Model::GlobalRegister.register(custom_register)
+      end
+
+      it "defaults to fallback: [:default]" do
+        expect(custom_register.fallback).to eq([:default])
+      end
+
+      it "can resolve types from default register" do
+        # Register a model only in default
+        default_register.register_model(RegisterSpec::Address, id: :fallback_address)
+
+        # Custom register should find it via fallback (returns class, not raises)
+        result = custom_register.get_class_without_register(:fallback_address)
+        expect(result).to eq(RegisterSpec::Address)
+      end
+    end
+
+    context "when register has explicit fallback: []" do
+      let(:isolated_register) { described_class.new(:isolated, fallback: []) }
+
+      before do
+        Lutaml::Model::GlobalRegister.register(isolated_register)
+      end
+
+      it "has empty fallback (isolated)" do
+        expect(isolated_register.fallback).to eq([])
+      end
+
+      it "cannot resolve types from default register" do
+        # Register a model only in default (not a Type::Value)
+        default_register.register_model(RegisterSpec::Address, id: :isolated_type)
+
+        # Isolated register should NOT find it
+        expect { isolated_register.get_class(:isolated_type) }
+          .to raise_error(Lutaml::Model::UnknownTypeError)
+      end
+    end
+
+    context "when register has custom fallback chain" do
+      let(:core_register) { described_class.new(:core) }
+      let(:profile_register) { described_class.new(:profile, fallback: [:core, :default]) }
+
+      before do
+        Lutaml::Model::GlobalRegister.register(core_register)
+        Lutaml::Model::GlobalRegister.register(profile_register)
+      end
+
+      it "uses specified fallback chain" do
+        expect(profile_register.fallback).to eq([:core, :default])
+      end
+
+      it "tries fallback registers in order" do
+        # Register type only in core
+        core_register.register_model(RegisterSpec::CustomString, id: :core_type)
+
+        # Profile should find it via :core fallback
+        expect(profile_register.get_class(:core_type)).to eq(RegisterSpec::CustomString)
+      end
     end
   end
 end

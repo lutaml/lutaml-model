@@ -15,6 +15,8 @@ require_relative "xml_compiler/sequence"
 require_relative "xml_compiler/element"
 require_relative "xml_compiler/choice"
 require_relative "xml_compiler/group"
+require_relative "xml_compiler/xml_namespace_class"
+require_relative "xml_compiler/registry_generator"
 
 module Lutaml
   module Model
@@ -27,7 +29,8 @@ module Lutaml
                     :complex_types,
                     :elements,
                     :attributes,
-                    :attribute_groups
+                    :attribute_groups,
+                    :namespace_classes
 
         ELEMENT_ORDER_IGNORABLE = %w[import include].freeze
 
@@ -40,24 +43,71 @@ module Lutaml
         MSG
 
         XML_DEFINED_ATTRIBUTES = {
-          "id" => "id",
-          "lang" => "language",
-          "space" => "NCName",
-          "base" => "anyURI",
+          "id" => "Lutaml::Model::Xml::W3c::XmlIdType",
+          "lang" => "Lutaml::Model::Xml::W3c::XmlLangType",
+          "space" => "Lutaml::Model::Xml::W3c::XmlSpaceType",
+          "base" => "Lutaml::Model::Xml::W3c::XmlBaseType",
         }.freeze
 
         def to_models(schema, options = {})
           as_models(schema, options: options)
           options[:indent] = options[:indent] ? options[:indent].to_i : 2
+
+          # Auto-generate module namespace from output directory if not explicitly set
+          unless options.key?(:module_namespace)
+            output_dir = options.fetch(:output_dir, "lutaml_models_#{Time.now.to_i}")
+            # Generate a namespace from the directory name (e.g., "my_models" -> "MyModels")
+            dir_name = File.basename(output_dir).split('_').map(&:capitalize).join
+            options[:module_namespace] = dir_name
+          end
+
+          # Allow explicit nil to disable namespace
+          # only set default register_id if module_namespace is present
+          if options[:module_namespace]
+            options[:register_id] ||= :default
+          end
+
           @simple_types.merge!(XmlCompiler::SimpleType.setup_supported_types)
-          classes_list = @simple_types.merge(@complex_types).merge(@group_types)
+
+          # Generate namespace classes
+          namespace_classes_hash = {}
+          @namespace_classes.each do |name, ns_class|
+            namespace_classes_hash[name] = ns_class.to_class
+          end
+
+          classes_list = namespace_classes_hash.merge(@simple_types).merge(@complex_types).merge(@group_types)
           classes_list = classes_list.transform_values do |type|
-            type.to_class(options: options)
+            # Skip namespace classes (already strings) and only process model types
+            next type if type.is_a?(String)
+            type.to_class(options: options.merge(
+              module_namespace: options[:module_namespace],
+              register_id: options[:register_id]
+            ))
           end
           if options[:create_files]
             dir = options.fetch(:output_dir, "lutaml_models_#{Time.now.to_i}")
-            FileUtils.mkdir_p(dir)
-            classes_list.each { |name, klass| create_file(name, klass, dir) }
+
+            # If module_namespace provided, create subdirectories
+            if options[:module_namespace]
+              module_path = options[:module_namespace].split("::").map(&:downcase).join("/")
+              full_dir = File.join(dir, module_path)
+              FileUtils.mkdir_p(full_dir)
+
+              # Generate central registry file
+              registry_content = RegistryGenerator.generate(classes_list, options)
+              if registry_content
+                # Registry file goes in parent directory of module path
+                registry_name = module_path.split("/").last
+                registry_file = File.join(dir, "#{registry_name}_registry.rb")
+                File.write(registry_file, registry_content)
+              end
+
+              # Write class files
+              classes_list.each { |name, klass| create_file(name, klass, full_dir) }
+            else
+              FileUtils.mkdir_p(dir)
+              classes_list.each { |name, klass| create_file(name, klass, dir) }
+            end
             true
           else
             require_classes(classes_list) if options[:load_classes]
@@ -94,8 +144,10 @@ module Lutaml
           @simple_types = MappingHash.new
           @complex_types = MappingHash.new
           @attribute_groups = MappingHash.new
+          @namespace_classes = MappingHash.new
 
           populate_default_values
+          collect_namespaces(Array(parsed_schema), options)
           schema_to_models(Array(parsed_schema))
         end
 
@@ -104,6 +156,9 @@ module Lutaml
             @attributes[name] = Attribute.new(name: name)
             @attributes[name].type = value
           end
+
+          # W3C XmlNamespace is now auto-loaded via lutaml/model.rb
+          # Reference: Lutaml::Model::Xml::W3c::XmlNamespace
         end
 
         def schema_to_models(schemas)
@@ -429,6 +484,32 @@ compiler_complex_type)
                 Array(object.send(Utils.snake_case(builder_instance.name)))[index]
               index += 1
             end
+          end
+        end
+
+        def collect_namespaces(schemas, options)
+          # Collect unique namespace URIs from the schemas
+          namespace_uris = Set.new
+
+          # Add the main namespace from options if provided
+          if options[:namespace]
+            namespace_uris.add(options[:namespace])
+          end
+
+          # Extract namespaces from schema elements
+          schemas.each do |schema|
+            namespace_uris.add(schema.target_namespace) if schema.target_namespace
+          end
+
+          # Create XmlNamespaceClass for each unique namespace
+          namespace_uris.each do |uri|
+            next if uri.nil? || uri.empty?
+
+            # Use provided prefix if available
+            prefix = options[:prefix] if options[:namespace] == uri
+
+            ns_class = XmlNamespaceClass.new(uri: uri, prefix: prefix)
+            @namespace_classes[ns_class.class_name] = ns_class
           end
         end
       end

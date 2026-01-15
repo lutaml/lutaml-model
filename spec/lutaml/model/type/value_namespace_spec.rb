@@ -4,14 +4,14 @@ require "lutaml/model"
 RSpec.describe Lutaml::Model::Type::Value, "xml_namespace directive" do
   # Define test namespace classes
   let(:test_namespace) do
-    Class.new(Lutaml::Model::XmlNamespace) do
+    Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
       uri "https://example.com/test"
       prefix_default "test"
     end
   end
 
   let(:other_namespace) do
-    Class.new(Lutaml::Model::XmlNamespace) do
+    Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
       uri "https://example.com/other"
       prefix_default "other"
     end

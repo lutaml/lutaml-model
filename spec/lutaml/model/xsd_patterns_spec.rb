@@ -23,8 +23,8 @@ RSpec.describe "XSD Three Pattern Architecture" do
       expect(xsd).to include('<element name="product">')
       expect(xsd).to include('<complexType>')
       expect(xsd).not_to include('<complexType name=')
-      expect(xsd).to include('<element name="name" type="xs:string" />')
-      expect(xsd).to include('<element name="value" type="xs:integer" />')
+      expect(xsd).to include('<element name="name" type="xs:string"/>')
+      expect(xsd).to include('<element name="value" type="xs:integer"/>')
     end
 
     it "generates inline complexType for nested model without type_name" do
@@ -44,7 +44,7 @@ RSpec.describe "XSD Three Pattern Architecture" do
       expect(xsd).to include('<element name="item">')
       expect(xsd).to include('<complexType>')
       expect(xsd).not_to match(/<complexType name=/)
-      expect(xsd).to include('<attribute name="id" type="xs:string" />')
+      expect(xsd).to include('<attribute name="id" type="xs:string"/>')
     end
   end
 
@@ -65,8 +65,8 @@ RSpec.describe "XSD Three Pattern Architecture" do
 
       # Should generate named complexType only (no element)
       expect(xsd).to include('<complexType name="ProductType">')
-      expect(xsd).to include('<element name="name" type="xs:string" />')
-      expect(xsd).to include('<element name="value" type="xs:integer" />')
+      expect(xsd).to include('<element name="name" type="xs:string"/>')
+      expect(xsd).to include('<element name="value" type="xs:integer"/>')
       # Should NOT generate standalone element declaration
       expect(xsd).not_to match(/<element name="product"/)
     end
@@ -99,7 +99,7 @@ RSpec.describe "XSD Three Pattern Architecture" do
       xsd = Lutaml::Model::Schema.to_xsd(person_klass)
 
       # Should reference AddressType
-      expect(xsd).to include('<element name="address" type="AddressType" />')
+      expect(xsd).to include('<element name="address" type="AddressType"/>')
       expect(xsd).to include('<complexType name="AddressType">')
     end
   end
@@ -121,10 +121,10 @@ RSpec.describe "XSD Three Pattern Architecture" do
       xsd = Lutaml::Model::Schema.to_xsd(klass)
 
       # Should generate both element and named type
-      expect(xsd).to include('<element name="product" type="ProductType" />')
+      expect(xsd).to include('<element name="product" type="ProductType"/>')
       expect(xsd).to include('<complexType name="ProductType">')
-      expect(xsd).to include('<element name="name" type="xs:string" />')
-      expect(xsd).to include('<element name="value" type="xs:integer" />')
+      expect(xsd).to include('<element name="name" type="xs:string"/>')
+      expect(xsd).to include('<element name="value" type="xs:integer"/>')
     end
 
     it "allows reuse of named type by other elements" do
@@ -143,7 +143,7 @@ RSpec.describe "XSD Three Pattern Architecture" do
       xsd = Lutaml::Model::Schema.to_xsd(klass)
 
       # Element references the named type
-      expect(xsd).to include('<element name="catalog" type="CatalogType" />')
+      expect(xsd).to include('<element name="catalog" type="CatalogType"/>')
       # Type definition exists separately
       expect(xsd).to include('<complexType name="CatalogType">')
     end
@@ -192,7 +192,7 @@ RSpec.describe "XSD Three Pattern Architecture" do
 
       # Both should generate identical XSD
       expect(xsd1).to eq(xsd2)
-      expect(xsd1).to include('<element name="test" type="TestType" />')
+      expect(xsd1).to include('<element name="test" type="TestType"/>')
       expect(xsd1).to include('<complexType name="TestType">')
     end
 
@@ -268,7 +268,7 @@ RSpec.describe "XSD Three Pattern Architecture" do
       expect(mapping.type_name_value).to eq("SimpleType")
 
       xsd = Lutaml::Model::Schema.to_xsd(klass)
-      expect(xsd).to include('<element name="simple" type="SimpleType" />')
+      expect(xsd).to include('<element name="simple" type="SimpleType"/>')
       expect(xsd).to include('<complexType name="SimpleType">')
     end
   end

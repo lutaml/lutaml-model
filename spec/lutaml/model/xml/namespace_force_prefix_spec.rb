@@ -3,8 +3,13 @@
 require "spec_helper"
 
 RSpec.describe "Force Prefixed Namespace" do
+  # Ensure adapter is always reset after each example to prevent pollution
+  after(:each) do
+    Lutaml::Model::Config.xml_adapter_type = :nokogiri
+  end
+
   let(:vcard_ns) do
-    Class.new(Lutaml::Model::XmlNamespace) do
+    Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
       uri "urn:ietf:params:xml:ns:vcard-4.0"
       prefix_default "vcard"
       element_form_default :qualified
@@ -18,7 +23,7 @@ RSpec.describe "Force Prefixed Namespace" do
 
       xml do
         namespace ns
-        root "n"
+        element "n"
         map_element "given", to: :given
       end
     end
@@ -33,7 +38,7 @@ RSpec.describe "Force Prefixed Namespace" do
 
       xml do
         namespace ns
-        root "vCard"
+        element "vCard"
         map_element "n", to: :name
       end
     end

@@ -74,28 +74,43 @@ module Lutaml
       end
 
       def initialize(name, type, options = {})
-        validate_name!(
-          name, reserved_methods: Lutaml::Model::Serializable.instance_methods
-        )
+        skip_validation = options.fetch(:skip_validation, false)
+
+        unless skip_validation
+          validate_name!(
+            name, reserved_methods: Lutaml::Model::Serializable.instance_methods
+          )
+        end
 
         @name = name
-        @options = options
+        @options = options.reject { |k, _| k == :skip_validation }
+        @type_cache = {}  # Cache for resolved types per register
+        @type_namespace_cache = {}  # Cache for type namespace classes per register
 
-        validate_presence!(type)
+        validate_presence!(type) unless skip_validation
         @type = type
-        process_options!
+        process_options! unless skip_validation
       end
 
       def type(register_id = nil)
         return if unresolved_type.nil?
 
         register_id ||= Lutaml::Model::Config.default_register
+
+        # PERFORMANCE FIX: Cache resolved type per register
+        # In large schemas (OOXML), type() is called thousands of times
+        # Caching eliminates redundant register lookups
+        cache_key = register_id
+        return @type_cache[cache_key] if @type_cache.key?(cache_key)
+
         register = Lutaml::Model::GlobalRegister.lookup(register_id)
-        register.get_class_without_register(unresolved_type)
+        resolved = register.get_class_without_register(unresolved_type)
+        @type_cache[cache_key] = resolved
+        resolved
       end
 
       def unresolved_type
-        @type
+        @unresolved_type ||= @type
       end
 
       def polymorphic?
@@ -436,6 +451,13 @@ module Lutaml
 
         return value if already_serialized?(resolved_type, value)
 
+        # Special handling for Reference types - pass the metadata
+        # Check @options[:ref_model_class] which is set when type is { ref: [...] }
+        if @options[:ref_model_class] && resolved_type == Lutaml::Model::Type::Reference
+          return resolved_type.cast_with_metadata(value,
+                                                  @options[:ref_model_class], @options[:ref_key_attribute])
+        end
+
         klass = resolve_polymorphic_class(resolved_type, value, options)
         if can_serialize?(klass, value, format, options)
           klass.apply_mappings(value, format, options.merge(register: register))
@@ -495,7 +517,43 @@ module Lutaml
       end
 
       def deep_dup
-        self.class.new(name, unresolved_type, Utils.deep_dup(options))
+        # Don't deep_dup the entire options hash because:
+        # 1. Lambdas/Procs (like :default) should not be duplicated
+        # 2. Classes (like :collection class) are immutable
+        # 3. Deep dupping creates circular references when lambdas close over the attribute
+
+        # Selectively copy options using direct type checks to avoid method calls
+        duped_options = { skip_validation: true }
+        options.each do |key, value|
+          duped_options[key] = case value
+                               when Symbol, TrueClass, FalseClass, Numeric, Class, Module, Proc, Method, NilClass
+                                 value  # Immutable, don't dup
+                               when Range
+                                 # Only dup if bounds are mutable strings
+                                 if value.begin.is_a?(String) || (value.end && value.end.is_a?(String))
+                                   Range.new(value.begin.dup, value.end&.dup, value.exclude_end?)
+                                 else
+                                   value  # Immutable bounds, safe to reuse
+                                 end
+                               when Hash
+                                 Utils.deep_dup(value)
+                               when Array
+                                 Utils.deep_dup(value)
+                               else
+                                 value  # Keep as-is (might be a complex object)
+                               end
+        end
+
+        # Skip validation during deep_dup - options are already validated in original
+        # This prevents infinite recursion when process_options! tries to access collection
+        self.class.new(name, unresolved_type, duped_options).tap do |dup_attr|
+          # Copy already-processed instance variables directly
+          dup_attr.instance_variable_set(:@raw, @raw)
+          dup_attr.instance_variable_set(:@validations, @validations)
+          # Initialize empty caches for the duplicate (don't share cache between instances)
+          dup_attr.instance_variable_set(:@type_cache, {})
+          dup_attr.instance_variable_set(:@type_namespace_cache, {})
+        end
       end
 
       # Get namespace class from Type::Value or Model class
@@ -503,25 +561,42 @@ module Lutaml
       # @param register [Symbol, nil] register ID for type resolution
       # @return [Class, nil] XmlNamespace class if type has namespace
       def type_namespace_class(register = nil)
+        register ||= Lutaml::Model::Config.default_register
+
+        # PERFORMANCE FIX: Cache type namespace lookups per register
+        # In large schemas (OOXML), type_namespace_class() is called 1000+ times
+        # Caching eliminates redundant type resolution and namespace checks
+        cache_key = register
+        return @type_namespace_cache[cache_key] if @type_namespace_cache.key?(cache_key)
+
+        # Resolve type namespace
+        # NO RECURSION GUARD NEEDED (Session 126):
+        # This method is now only called from DeclarationPlanner AFTER all imports complete
+        # No risk of triggering imports mid-resolution
         resolved_type = type(register)
-        return nil unless resolved_type
+        result = if resolved_type.nil?
+                   nil
+                 # Check if type responds to xml_namespace (Type::Value classes)
+                 elsif resolved_type.respond_to?(:xml_namespace)
+                   resolved_type.xml_namespace
+                 # Check if type is a Serializable model with namespace in XML mappings
+                 elsif resolved_type <= Lutaml::Model::Serialize
+                   xml_mapping = resolved_type.mappings_for(:xml, register)
+                   if xml_mapping&.mappings_imported && xml_mapping&.namespace_uri
+                     # Create an anonymous XmlNamespace class to wrap the mapping's namespace
+                     Class.new(Lutaml::Model::Xml::Namespace) do
+                       uri xml_mapping.namespace_uri
+                       prefix_default xml_mapping.namespace_prefix
+                     end
+                   else
+                     nil
+                   end
+                 else
+                   nil
+                 end
 
-        # Check if type responds to xml_namespace (Type::Value classes)
-        return resolved_type.xml_namespace if resolved_type.respond_to?(:xml_namespace)
-
-        # Check if type is a Serializable model with namespace in XML mappings
-        if resolved_type <= Lutaml::Model::Serialize
-          xml_mapping = resolved_type.mappings_for(:xml, register)
-          if xml_mapping&.namespace_uri
-            # Create an anonymous XmlNamespace class to wrap the mapping's namespace
-            return Class.new(Lutaml::Model::XmlNamespace) do
-              uri xml_mapping.namespace_uri
-              prefix_default xml_mapping.namespace_prefix
-            end
-          end
-        end
-
-        nil
+        @type_namespace_cache[cache_key] = result
+        result
       end
 
       # Get namespace URI from type
@@ -622,7 +697,15 @@ module Lutaml
         # Remove mappings from options for nested model serialization
         # Nested models should use their own format mappings
         as_options.delete(:mappings)
-        return unless Utils.present?(value)
+
+        # Respect mapping layer policy: render_empty from MappingRule
+        # Allow empty Serializable models when render_empty: true
+        render_empty = options[:render_empty]
+        if render_empty && value.is_a?(Lutaml::Model::Serializable)
+          # Mapping layer says render this empty model - bypass present check
+        else
+          return unless Utils.present?(value)
+        end
 
         resolved_type = as_options.delete(:resolved_type) || type(register)
         if value.is_a?(resolved_type)

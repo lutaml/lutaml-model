@@ -32,9 +32,10 @@ module Lutaml
 
           def element(name, attributes = {})
             oga_element = ::Oga::XML::Element.new(name: name)
+            element_attributes(oga_element, attributes)
+            @current_node.children << oga_element
+
             if block_given?
-              element_attributes(oga_element, attributes)
-              @current_node.children << oga_element
               # Save previous node to reset the pointer for the rest of the iteration
               previous_node = @current_node
               # Set current node to new element as pointer for the block
@@ -97,7 +98,7 @@ module Lutaml
           end
 
           def <<(text)
-            @current_node.text(text)
+            @current_node.text(text.to_s)
           end
 
           def add_xml_fragment(element, content)
@@ -154,17 +155,43 @@ module Lutaml
           def text(value = nil)
             return @current_node.inner_text if value.nil?
 
-            str = value.is_a?(Array) ? value.join : value
-            @current_node.children << ::Oga::XML::Text.new(text: str)
+            str = if value.is_a?(Array)
+                    value.join
+                  else
+                    value.to_s
+                  end
+            @current_node.children << ::Oga::XML::Text.new(text: str.to_s)
           end
 
           def method_missing(method_name, *args)
-            if block_given?
-              @current_node.public_send(method_name, *args) do
-                yield(self)
+            # Guard against invalid delegation - only delegate to @current_node
+            # if it's an Oga element that can handle XML methods
+            # Integer values (age 30) should not receive XML method calls
+            unless @current_node.is_a?(::Oga::XML::Element) ||
+                  @current_node.is_a?(::Oga::XML::Document) ||
+                  @current_node.is_a?(::Oga::XML::Text) ||
+                  @current_node.is_a?(::Oga::XML::CData) ||
+                  @current_node.is_a?(::Oga::XML::Attribute)
+              raise NoMethodError, "cannot delegate method `#{method_name}' to non-XML node #{@current_node.inspect} (expected Oga element, got #{@current_node.class})"
+            end
+
+            if @current_node.respond_to?(method_name)
+              # Special handling for text method: ensure type conversion
+              # Oga expects String for text content, but caller may pass Integer/Float
+              if method_name == :text && args.size == 1 && !args.first.is_a?(String)
+                args = [args.first.to_s]
+              end
+
+              if block_given?
+                @current_node.public_send(method_name, *args) do
+                  yield(self)
+                end
+              else
+                @current_node.public_send(method_name, *args)
               end
             else
-              @current_node.public_send(method_name, *args)
+              # Method not found on @current_node, raise standard NoMethodError
+              raise NoMethodError, "undefined method `#{method_name}' for #{@current_node.inspect}"
             end
           end
 
@@ -179,7 +206,20 @@ module Lutaml
 
             attributes = attributes.compact if attributes.respond_to?(:compact)
 
-            oga_element.attributes = attributes.map do |name, value|
+            # CRITICAL FIX (Session 197): Filter out duplicate xmlns declarations
+            # Nokogiri automatically handles this, but Oga needs explicit filtering
+            # Check parent chain for existing xmlns declarations
+            filtered_attributes = attributes.reject do |name, value|
+              if name.to_s.start_with?("xmlns")
+                # Check if this xmlns is already declared on a parent
+                # Use @current_node which will be the parent of this element
+                parent_has_xmlns?(@current_node, name, value)
+              else
+                false
+              end
+            end
+
+            oga_element.attributes = filtered_attributes.map do |name, value|
               value = value.uri unless value.is_a?(String)
 
               ::Oga::XML::Attribute.new(
@@ -188,6 +228,33 @@ module Lutaml
                 element: oga_element,
               )
             end
+          end
+
+          # Check if an xmlns declaration exists on any parent element
+          #
+          # @param element [Oga::XML::Element] the current parent element
+          # @param xmlns_name [String] the xmlns attribute name (e.g., "xmlns", "xmlns:dc")
+          # @param xmlns_value [String] the namespace URI
+          # @return [Boolean] true if parent chain has matching xmlns
+          def parent_has_xmlns?(element, xmlns_name, xmlns_value)
+            visited = Set.new
+            current = element
+
+            while current && current.respond_to?(:attributes)
+              # Prevent infinite loops
+              break if visited.include?(current.object_id)
+              visited.add(current.object_id)
+
+              # Check if this element has the xmlns with same value
+              existing_xmlns = current.attributes.find { |attr| attr.name == xmlns_name }
+              return true if existing_xmlns && existing_xmlns.value == xmlns_value
+
+              # Stop at Document boundary
+              break if current.is_a?(Xml::Oga::Document)
+
+              current = current.parent if current.respond_to?(:parent)
+            end
+            false
           end
         end
       end

@@ -4,30 +4,34 @@ require "lutaml/model"
 RSpec.describe "Type-level namespace integration" do
   # Define test namespaces mirroring Core Properties structure
   let(:cp_namespace) do
-    Class.new(Lutaml::Model::XmlNamespace) do
+    Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
       uri "http://schemas.openxmlformats.org/package/2006/metadata/core-properties"
       prefix_default "cp"
+      element_form_default :qualified
     end
   end
 
   let(:dc_namespace) do
-    Class.new(Lutaml::Model::XmlNamespace) do
+    Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
       uri "http://purl.org/dc/elements/1.1/"
       prefix_default "dc"
+      element_form_default :qualified
     end
   end
 
   let(:dcterms_namespace) do
-    Class.new(Lutaml::Model::XmlNamespace) do
+    Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
       uri "http://purl.org/dc/terms/"
       prefix_default "dcterms"
+      element_form_default :qualified
     end
   end
 
   let(:xsi_namespace) do
-    Class.new(Lutaml::Model::XmlNamespace) do
+    Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
       uri "http://www.w3.org/2001/XMLSchema-instance"
       prefix_default "xsi"
+      element_form_default :qualified
     end
   end
 
@@ -44,7 +48,7 @@ RSpec.describe "Type-level namespace integration" do
         attribute :title, dc_title_type
 
         xml do
-          root "document"
+          element "document"
           map_element "title", to: :title
         end
 
@@ -70,21 +74,38 @@ RSpec.describe "Type-level namespace integration" do
       dc_title_type = Class.new(Lutaml::Model::Type::String)
       dc_title_type.xml_namespace(dc_ns)
 
-      override_ns = Class.new(Lutaml::Model::XmlNamespace) do
+      override_ns = Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
         uri "http://example.com/override"
         prefix_default "override"
       end
 
-      # Define Model with explicit namespace override
-      document_class = Class.new do
+      # Create child model with explicit namespace override
+      title_class = Class.new do
         include Lutaml::Model::Serialize
 
-        attribute :title, dc_title_type
+        attribute :value, :string
 
         xml do
-          root "document"
-          # Explicit namespace should override type namespace
-          map_element "title", to: :title, namespace: override_ns
+          element "title"
+          namespace override_ns
+          map_content to: :value
+        end
+
+        def self.name
+          "Title"
+        end
+      end
+
+      # Define Model using child model with explicit namespace
+      document_class = Class.new do
+        include Lutaml::Model::Serialize
+        t_class = title_class
+
+        attribute :title, t_class
+
+        xml do
+          element "document"
+          map_element "title", to: :title
         end
 
         def self.name
@@ -92,12 +113,13 @@ RSpec.describe "Type-level namespace integration" do
         end
       end
 
-      doc = document_class.new(title: "Test Title")
+      doc = document_class.new(title: title_class.new(value: "Test Title"))
       xml = doc.to_xml
 
       # Explicit namespace takes priority
       expect(xml).to include('xmlns:override="http://example.com/override"')
-      expect(xml).to include("<override:title>Test Title</override:title>")
+      expect(xml).to include("<override:title")
+      expect(xml).to include(">Test Title</override:title>")
       expect(xml).not_to include("dc:title")
     end
   end
@@ -116,7 +138,7 @@ RSpec.describe "Type-level namespace integration" do
         attribute :schema_type, xsi_type_type
 
         xml do
-          root "document"
+          element "document"
           map_attribute "name", to: :name
           map_attribute "type", to: :schema_type
         end
@@ -148,7 +170,7 @@ RSpec.describe "Type-level namespace integration" do
         attribute :title, :string
 
         xml do
-          root "document"
+          element "document"
           map_attribute "id", to: :id
           map_attribute "title", to: :title
         end
@@ -182,8 +204,8 @@ RSpec.describe "Type-level namespace integration" do
       cp_revision_type = Class.new(Lutaml::Model::Type::Integer)
       cp_revision_type.xml_namespace(cp_namespace)
 
-      # Get the namespace URIs for use in xml block
-      cp_uri = "http://schemas.openxmlformats.org/package/2006/metadata/core-properties"
+      # Capture namespace class for use in xml block
+      cp_ns = cp_namespace
 
       # Define Model
       document_class = Class.new do
@@ -194,8 +216,8 @@ RSpec.describe "Type-level namespace integration" do
         attribute :revision, cp_revision_type
 
         xml do
-          root "coreProperties"
-          namespace cp_uri, "cp"
+          element "coreProperties"
+          namespace cp_ns
           map_element "title", to: :title
           map_element "creator", to: :creator
           map_element "revision", to: :revision
@@ -232,7 +254,7 @@ RSpec.describe "Type-level namespace integration" do
       special_type.xml_namespace(dc_namespace)
 
       # Define Model with different namespace
-      model_namespace = Class.new(Lutaml::Model::XmlNamespace) do
+      model_namespace = Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
         uri "http://example.com/model"
         prefix_default "model"
       end
@@ -244,7 +266,7 @@ RSpec.describe "Type-level namespace integration" do
         attribute :special_field, special_type
 
         xml do
-          root "document"
+          element "document"
           map_element "special_field", to: :special_field
         end
 
@@ -275,7 +297,7 @@ RSpec.describe "Type-level namespace integration" do
         attribute :title, dc_title_type
 
         xml do
-          root "document"
+          element "document"
           map_element "title", to: :title
         end
 

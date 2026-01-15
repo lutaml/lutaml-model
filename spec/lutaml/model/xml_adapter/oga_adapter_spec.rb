@@ -2,7 +2,7 @@ require "spec_helper"
 require "oga"
 require_relative "../../../../lib/lutaml/model/xml/oga_adapter"
 
-RSpec.describe Lutaml::Model::Xml::OgaAdapter do
+RSpec.describe Lutaml::Model::Xml::OgaAdapter, :oga_adapter do
   let(:xml_string) do
     <<~XML
       <root xmlns="http://example.com/default" xmlns:prefix="http://example.com/prefixed">

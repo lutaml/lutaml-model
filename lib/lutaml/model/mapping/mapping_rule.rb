@@ -81,9 +81,15 @@ module Lutaml
         @polymorphic_map = polymorphic_map
         @transform = transform
 
-        @value_map = default_value_map
-        @value_map[:from].merge!(value_map[:from] || {})
-        @value_map[:to].merge!(value_map[:to] || {})
+        # Only calculate default_value_map if value_map is not fully provided
+        if value_map.empty? || !value_map[:from] || !value_map[:to]
+          @value_map = default_value_map
+          @value_map[:from].merge!(value_map[:from] || {})
+          @value_map[:to].merge!(value_map[:to] || {})
+        else
+          # Complete value_map provided (e.g., from deep_dup), use it directly
+          @value_map = value_map
+        end
       end
 
       def default_value_map(options = {})
@@ -234,7 +240,20 @@ module Lutaml
         if custom_methods[:to]
           model.send(custom_methods[:to], model, parent, doc)
         else
-          to_value_for(model)
+          value = to_value_for(model)
+
+          # Handle Reference types - extract the key for serialization
+          # This ensures references serialize as their key, not the resolved object
+          if value.is_a?(Lutaml::Model::Type::Reference)
+            value = value.key
+          elsif value.is_a?(Array)
+            # Handle collection of references
+            value = value.map do |v|
+              v.is_a?(Lutaml::Model::Type::Reference) ? v.key : v
+            end
+          end
+
+          value
         end
       end
 

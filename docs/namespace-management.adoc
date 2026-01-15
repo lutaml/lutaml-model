@@ -1,0 +1,793 @@
+= XML Namespace Management Guide
+:toc:
+:toclevels: 3
+
+== Introduction
+
+This guide provides comprehensive information about XML namespace management in Lutaml::Model, including the `namespace_scope` directive, W3C compliance, and best practices for multi-namespace documents.
+
+== Understanding XML Namespaces
+
+XML namespaces provide a method to avoid element name conflicts by qualifying names used in XML documents through a URI reference.
+
+=== Namespace Declaration Formats
+
+**Default namespace format:**
+```xml
+<element xmlns="http://example.com/ns">
+  <child>Content</child>  <!-- Inherits default namespace -->
+</element>
+```
+
+**Prefix namespace format:**
+```xml
+<prefix:element xmlns:prefix="http://example.com/ns">
+  <prefix:child>Content</prefix:child>
+</element>
+```
+
+== The namespace_scope Directive
+
+=== General
+
+The `namespace_scope` directive controls WHERE namespace declarations appear in serialized XML. By default, Lutaml::Model follows the **minimal-subtree principle**: namespaces are declared locally (as close to their usage as possible).
+
+With `namespace_scope`, you can consolidate (hoist) multiple namespace declarations at a parent element for cleaner, more compact XML.
+
+IMPORTANT: `namespace_scope` grants **ELIGIBILITY** to hoist namespaces to the root, not automatic hoisting. Namespaces are only declared if actually used in the document (`:auto` mode) unless explicitly forced (`:always` mode).
+
+=== Syntax
+
+[source,ruby]
+----
+xml do
+  namespace RootNamespace
+  
+  # Simple list (all use :auto mode)
+  namespace_scope [Namespace1, Namespace2, Namespace3]
+  
+  # Per-namespace control with hash format
+  namespace_scope [
+    { namespace: Namespace1, declare: :always },
+    { namespace: Namespace2, declare: :auto },
+    Namespace3  # Can mix hash and class
+  ]
+end
+----
+
+=== Declaration Modes
+
+[cols="1,3"]
+|===
+| Mode | Behavior
+
+| `:auto` (default)
+| Namespace declared only if actually used in elements or attributes. Most common mode for clean, minimal XML.
+
+| `:always`
+| Namespace always declared at root, even if unused. Required by some formats like Office Open XML that mandate specific namespace presence.
+
+| `:never`
+| Namespace never declared. Error raised if namespace is used. Reserved for future extensibility.
+|===
+
+== Child Namespace Inheritance
+
+=== W3C Inheritance Semantics
+
+Children in the same namespace as their parent automatically inherit the parent's namespace without redeclaration. This follows W3C XML namespace specifications and prevents duplicate xmlns declarations.
+
+**Inheritance Rules:**
+
+1. **Priority 0** - Inherit parent's default namespace (highest priority)
+2. **Priority 0.5** - Use prefix hoisted on parent
+3. **Priority 1-5** - Standard namespace resolution
+
+=== Basic Inheritance Example
+
+.Children inheriting parent's default namespace
+[example]
+====
+[source,ruby]
+----
+class VcardNamespace < Lutaml::Model::XmlNamespace
+  uri "urn:ietf:params:xml:ns:vcard-4.0"
+  prefix_default "vcard"
+end
+
+class Vcard < Lutaml::Model::Serializable
+  attribute :version, :string
+  attribute :fn, :string
+  attribute :email, :string
+
+  xml do
+    root "vCard"
+    namespace VcardNamespace
+
+    map_element "version", to: :version
+    map_element "fn", to: :fn
+    map_element "email", to: :email
+  end
+end
+
+vcard = Vcard.new(
+  version: "4.0",
+  fn: "Dr. John Doe",
+  email: "john@example.com"
+)
+
+puts vcard.to_xml
+----
+
+Output (default namespace format):
+
+[source,xml]
+----
+<vCard xmlns="urn:ietf:params:xml:ns:vcard-4.0">
+  <version>4.0</version>
+  <fn>Dr. John Doe</fn>
+  <email>john@example.com</email>
+</vCard>
+----
+
+NOTE: All child elements inherit parent's default namespace—no xmlns redeclaration needed.
+
+Output with `prefix: true`:
+
+[source,ruby]
+----
+puts vcard.to_xml(prefix: true)
+----
+
+[source,xml]
+----
+<vcard:vCard xmlns:vcard="urn:ietf:params:xml:ns:vcard-4.0">
+  <vcard:version>4.0</vcard:version>
+  <vcard:fn>Dr. John Doe</vcard:fn>
+  <vcard:email>john@example.com</vcard:email>
+</vcard:vCard>
+----
+
+NOTE: All elements in same namespace use consistent vcard: prefix.
+====
+
+== Type Namespaces with namespace_scope
+
+=== Local Hoisting (Without namespace_scope)
+
+When Type namespaces are used without `namespace_scope`, they are hoisted locally to the element where first used:
+
+.Type namespace with local hoisting
+[example]
+====
+[source,ruby]
+----
+class DcNamespace < Lutaml::Model::XmlNamespace
+  uri "http://purl.org/dc/elements/1.1/"
+  prefix_default "dc"
+end
+
+class DcTitleType < Lutaml::Model::Type::String
+  xml_namespace DcNamespace
+end
+
+class Contact < Lutaml::Model::Serializable
+  attribute :title, DcTitleType
+  attribute :note, DcTitleType
+
+  xml do
+    root "contact"
+
+    map_element "title", to: :title
+    map_element "note", to: :note
+  end
+end
+
+class Vcard < Lutaml::Model::Serializable
+  attribute :contact, Contact
+
+  xml do
+    root "vCard"
+    namespace VcardNamespace
+
+    map_element "contact", to: :contact
+  end
+end
+
+vcard = Vcard.new(
+  contact: Contact.new(
+    title: "Dr. John Doe",
+    note: "Lead Researcher"
+  )
+)
+
+puts vcard.to_xml
+----
+
+Output:
+
+[source,xml]
+----
+<vCard xmlns="urn:ietf:params:xml:ns:vcard-4.0">
+  <contact xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:title>Dr. John Doe</dc:title>
+    <dc:note>Lead Researcher</dc:note>
+  </contact>
+</vCard>
+----
+
+NOTE: DcNamespace declared once on <contact> (local hoisting), both children use dc: prefix.
+====
+
+=== Root Hoisting (With namespace_scope)
+
+With `namespace_scope`, Type namespaces are hoisted to root, eliminating intermediate declarations:
+
+.Type namespace with root hoisting via namespace_scope
+[example]
+====
+[source,ruby]
+----
+class Vcard < Lutaml::Model::Serializable
+  attribute :contact, Contact
+
+  xml do
+    root "vCard"
+    namespace VcardNamespace
+
+    # Hoist DcNamespace to root
+    namespace_scope [
+      { namespace: DcNamespace, declare: :always }
+    ]
+
+    map_element "contact", to: :contact
+  end
+end
+
+vcard = Vcard.new(
+  contact: Contact.new(
+    title: "Dr. John Doe",
+    note: "Lead Researcher"
+  )
+)
+
+puts vcard.to_xml
+----
+
+Output:
+
+[source,xml]
+----
+<vCard xmlns="urn:ietf:params:xml:ns:vcard-4.0"
+       xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <contact>
+    <dc:title>Dr. John Doe</dc:title>
+    <dc:note>Lead Researcher</dc:note>
+  </contact>
+</vCard>
+----
+
+NOTE: DcNamespace hoisted to root. Children in <contact> recognize and use parent's xmlns:dc declaration without redeclaration.
+====
+
+== Multi-Namespace Documents
+
+=== Complete Example: vCard with Metadata
+
+This example demonstrates all namespace_scope features with four namespaces:
+
+.Complete vCard with Dublin Core and DCTerms metadata
+[example]
+====
+[source,ruby]
+----
+# 1. Define namespaces
+class VcardNamespace < Lutaml::Model::XmlNamespace
+  uri "urn:ietf:params:xml:ns:vcard-4.0"
+  prefix_default "vcard"
+end
+
+class DcNamespace < Lutaml::Model::XmlNamespace
+  uri "http://purl.org/dc/elements/1.1/"
+  prefix_default "dc"
+end
+
+class DctermsNamespace < Lutaml::Model::XmlNamespace
+  uri "http://purl.org/dc/terms/"
+  prefix_default "dcterms"
+end
+
+class XsiNamespace < Lutaml::Model::XmlNamespace
+  uri "http://www.w3.org/2001/XMLSchema-instance"
+  prefix_default "xsi"
+end
+
+# 2. Define Type classes
+class DcTitleType < Lutaml::Model::Type::String
+  xml_namespace DcNamespace
+end
+
+class DcCreatorType < Lutaml::Model::Type::String
+  xml_namespace DcNamespace
+end
+
+class DctermsCreatedType < Lutaml::Model::Type::DateTime
+  xml_namespace DctermsNamespace
+end
+
+class XsiTypeType < Lutaml::Model::Type::String
+  xml_namespace XsiNamespace
+end
+
+# 3. Define nested model
+class Metadata < Lutaml::Model::Serializable
+  attribute :title, DcTitleType
+  attribute :creator, DcCreatorType
+  attribute :created, DctermsCreatedType
+  attribute :format, XsiTypeType
+
+  xml do
+    root "metadata"
+
+    map_element "title", to: :title
+    map_element "creator", to: :creator
+    map_element "created", to: :created
+    map_attribute "type", to: :format
+  end
+end
+
+# 4. Define root model with namespace_scope
+class Vcard < Lutaml::Model::Serializable
+  attribute :version, :string
+  attribute :fn, :string
+  attribute :metadata, Metadata
+
+  xml do
+    root "vCard"
+    namespace VcardNamespace
+
+    # Consolidate all namespaces at root
+    namespace_scope [
+      { namespace: VcardNamespace, declare: :always },
+      { namespace: DcNamespace, declare: :always },
+      { namespace: DctermsNamespace, declare: :always },
+      { namespace: XsiNamespace, declare: :always }
+    ]
+
+    map_element "version", to: :version
+    map_element "fn", to: :fn
+    map_element "metadata", to: :metadata
+  end
+end
+
+# 5. Create and serialize
+vcard = Vcard.new(
+  version: "4.0",
+  fn: "Dr. John Doe",
+  metadata: Metadata.new(
+    title: "Chief Technology Officer",
+    creator: "John Doe",
+    created: DateTime.parse("2024-06-01T12:00:00Z"),
+    format: "vcard"
+  )
+)
+
+puts vcard.to_xml
+----
+
+Output:
+
+[source,xml]
+----
+<vCard xmlns="urn:ietf:params:xml:ns:vcard-4.0"
+       xmlns:dc="http://purl.org/dc/elements/1.1/"
+       xmlns:dcterms="http://purl.org/dc/terms/"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <version>4.0</version>
+  <fn>Dr. John Doe</fn>
+  <metadata xsi:type="vcard">
+    <dc:title>Chief Technology Officer</dc:title>
+    <dc:creator>John Doe</dc:creator>
+    <dcterms:created>2024-06-01T12:00:00+00:00</dcterms:created>
+  </metadata>
+</vCard>
+----
+
+Key features:
+
+* **Four namespaces consolidated**: All declared at root
+* **Default namespace for vCard**: <version> and <fn> use no prefix
+* **Prefixed Type namespaces**: dc:, dcterms:, xsi: use prefixes throughout
+* **Child inheritance**: Metadata children recognize parent's declarations
+* **No redeclaration**: Each xmlns appears exactly once
+* **W3C compliant**: Full round-trip serialization support
+====
+
+=== Auto vs Always Declaration
+
+.Comparing :auto vs :always declaration modes
+[example]
+====
+[source,ruby]
+----
+class Vcard < Lutaml::Model::Serializable
+  attribute :version, :string
+  # No DcTitleType attributes used
+
+  xml do
+    root "vCard"
+    namespace VcardNamespace
+
+    # Try to hoist unused DcNamespace
+    namespace_scope [
+      { namespace: DcNamespace, declare: :auto }
+    ]
+
+    map_element "version", to: :version
+  end
+end
+
+vcard = Vcard.new(version: "4.0")
+puts vcard.to_xml
+----
+
+With `:auto` mode (namespace unused):
+
+[source,xml]
+----
+<vCard xmlns="urn:ietf:params:xml:ns:vcard-4.0">
+  <version>4.0</version>
+</vCard>
+----
+
+NOTE: DcNamespace NOT declared because unused (`:auto` mode).
+
+With `:always` mode:
+
+[source,ruby]
+----
+namespace_scope [
+  { namespace: DcNamespace, declare: :always }
+]
+----
+
+[source,xml]
+----
+<vCard xmlns="urn:ietf:params:xml:ns:vcard-4.0"
+       xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <version>4.0</version>
+</vCard>
+----
+
+NOTE: DcNamespace IS declared even though unused (`:always` mode required by specification).
+====
+
+== W3C Compliance
+
+=== Namespace Inheritance Rules
+
+Lutaml::Model follows W3C XML Namespace specifications for child element qualification:
+
+1. **Default namespace inheritance**: Children in same namespace as parent inherit automatically
+2. **Prefix consistency**: Same namespace always uses same prefix throughout document
+3. **No duplicate declarations**: xmlns declared once per scope
+4. **Explicit opt-out**: Children in different namespace use xmlns="" when needed
+
+=== element_form_default
+
+The `element_form_default` setting in XmlNamespace classes controls child element namespace qualification:
+
+`:qualified`::: Children inherit parent namespace (W3C default for Lutaml::Model)
+`:unqualified`::: Children in blank namespace (requires xmlns="" in output)
+
+.element_form_default behavior
+[example]
+====
+[source,ruby]
+----
+class ParentNamespace < Lutaml::Model::XmlNamespace
+  uri "http://example.com/parent"
+  prefix_default "parent"
+  element_form_default :unqualified  # Children in blank namespace
+end
+
+class Parent < Lutaml::Model::Serializable
+  attribute :child_value, :string
+
+  xml do
+    root "parent"
+    namespace ParentNamespace
+
+    map_element "child", to: :child_value
+  end
+end
+
+parent = Parent.new(child_value: "value")
+puts parent.to_xml(prefix: true)
+----
+
+Output:
+
+[source,xml]
+----
+<parent:parent xmlns:parent="http://example.com/parent">
+  <child xmlns="">value</child>
+</parent:parent>
+----
+
+NOTE: Child uses xmlns="" to explicitly declare blank namespace (opt out of parent's namespace).
+====
+
+== Format Preservation
+
+Lutaml::Model preserves the exact namespace format (default vs prefix) from input XML during round-trip serialization.
+
+.Format preservation example
+[example]
+====
+Input XML (default format):
+
+[source,xml]
+----
+<vCard xmlns="urn:ietf:params:xml:ns:vcard-4.0">
+  <version>4.0</version>
+</vCard>
+----
+
+[source,ruby]
+----
+vcard = Vcard.from_xml(xml)
+vcard.to_xml  # Preserves default format
+----
+
+Output (default format preserved):
+
+[source,xml]
+----
+<vCard xmlns="urn:ietf:params:xml:ns:vcard-4.0">
+  <version>4.0</version>
+</vCard>
+----
+
+Input XML (prefix format):
+
+[source,xml]
+----
+<vcard:vCard xmlns:vcard="urn:ietf:params:xml:ns:vcard-4.0">
+  <vcard:version>4.0</vcard:version>
+</vcard:vCard>
+----
+
+[source,ruby]
+----
+vcard = Vcard.from_xml(xml)
+vcard.to_xml  # Preserves prefix format
+----
+
+Output (prefix format preserved):
+
+[source,xml]
+----
+<vcard:vCard xmlns:vcard="urn:ietf:params:xml:ns:vcard-4.0">
+  <vcard:version>4.0</vcard:version>
+</vcard:vCard>
+----
+====
+
+== Best Practices
+
+=== When to Use namespace_scope
+
+**Use namespace_scope when:**
+
+* Multiple child elements share same namespaces
+* Document structure benefits from consolidated declarations
+* Format specification requires specific namespaces at root (e.g., OOXML)
+* Cleaner XML readability is important
+
+**Don't use namespace_scope when:**
+
+* Namespace used in limited scope only
+* Default (local) declaration is sufficient
+* Simplest possible XML output desired
+
+=== Choosing Declaration Modes
+
+**Use `:auto` mode when:**
+
+* Standard W3C behavior desired
+* Minimize unnecessary declarations
+* Generate clean, minimal XML
+* Most common case
+
+**Use `:always` mode when:**
+
+* Schema requires specific namespace declarations
+* External tools validate namespace presence
+* Format specifications mandate unused namespaces (e.g., Office Open XML with xmlns:vt)
+
+**Use `:never` mode when:**
+
+* Explicitly prevent namespace usage
+* Catch errors during development
+* Reserved for future features
+
+=== Type Namespaces
+
+**Type-level namespaces** (via `xml_namespace` on custom types) are particularly useful for:
+
+* Reusable types belonging to specific namespaces (Dublin Core, custom XSD types)
+* Multi-namespace document structures (Office Open XML, metadata)
+* Automatic namespace application
+* W3C-compliant round-trip serialization
+
+.Using Type namespaces
+[example]
+====
+[source,ruby]
+----
+class DcTitleType < Lutaml::Model::Type::String
+  xml_namespace DcNamespace
+  xsd_type 'titleType'
+end
+
+class Document < Lutaml::Model::Serializable
+  attribute :title, DcTitleType  # Automatically uses DcNamespace
+
+  xml do
+    root "document"
+    namespace DocumentNamespace
+
+    map_element "title", to: :title  # Becomes <dc:title>
+  end
+end
+----
+====
+
+== Common Patterns
+
+=== Pattern 1: Single Root Namespace
+
+Simplest case—all elements in one namespace:
+
+[source,ruby]
+----
+class Document < Lutaml::Model::Serializable
+  xml do
+    root "document"
+    namespace DocumentNamespace
+    # No namespace_scope needed
+  end
+end
+----
+
+=== Pattern 2: Root + Type Namespaces (Local Hoisting)
+
+Root namespace for structure, Type namespaces for specific attributes:
+
+[source,ruby]
+----
+class Document < Lutaml::Model::Serializable
+  attribute :title, DcTitleType  # DcNamespace
+  attribute :created, DctermsCreatedType  # DctermsNamespace
+
+  xml do
+    root "document"
+    namespace DocumentNamespace
+    # No namespace_scope - Type namespaces hoist locally
+  end
+end
+----
+
+=== Pattern 3: Full Consolidation with namespace_scope
+
+All namespaces declared at root for clean, organized XML:
+
+[source,ruby]
+----
+class Document < Lutaml::Model::Serializable
+  attribute :title, DcTitleType
+  attribute :created, DctermsCreatedType
+
+  xml do
+    root "document"
+    namespace DocumentNamespace
+
+    # Hoist all Type namespaces to root
+    namespace_scope [
+      { namespace: DcNamespace, declare: :always },
+      { namespace: DctermsNamespace, declare: :always }
+    ]
+  end
+end
+----
+
+=== Pattern 4: Mixed Declaration Modes
+
+Some namespaces always declared, others conditional:
+
+[source,ruby]
+----
+xml do
+  namespace RootNamespace
+
+  namespace_scope [
+    { namespace: CommonNamespace, declare: :always },   # Always present
+    { namespace: OptionalNamespace, declare: :auto }    # Only if used
+  ]
+end
+----
+
+== Troubleshooting
+
+=== Duplicate xmlns Declarations
+
+**Problem**: Same xmlns appears multiple times
+
+[source,xml]
+----
+<root xmlns:dc="...">
+  <child xmlns:dc="...">  <!-- Duplicate! -->
+  </child>
+</root>
+----
+
+**Solution**: Ensure child inherits parent's declaration:
+
+[source,ruby]
+----
+# Correct: namespace_scope hoists to root
+xml do
+  namespace_scope [DcNamespace]
+end
+----
+
+=== Missing Namespace Prefixes
+
+**Problem**: Elements missing expected prefixes
+
+[source,xml]
+----
+<title>...</title>  <!-- Expected <dc:title> -->
+----
+
+**Solution**: Verify Type namespace declaration:
+
+[source,ruby]
+----
+class DcTitleType < Lutaml::Model::Type::String
+  xml_namespace DcNamespace  # Must be declared
+end
+----
+
+=== Unnecessary xmlns="" Declarations
+
+**Problem**: Blank xmlns on children
+
+[source,xml]
+----
+<parent xmlns="...">
+  <child xmlns="">...</child>  <!-- Unnecessary if same namespace -->
+</parent>
+----
+
+**Solution**: Verify child is in same namespace as parent. xmlns="" only needed when child is in different namespace or blank namespace.
+
+== Related Documentation
+
+* link:../README.adoc#namespace-scope[namespace_scope in README]
+* link:_guides/xml-namespaces.adoc[XML Namespaces Guide]
+* link:_references/xml-w3c-namespace-qualification.adoc[W3C Namespace Qualification Reference]
+* link:_references/three-phase-namespace-architecture.adoc[Three-Phase Namespace Architecture]
+
+== Architecture Notes
+
+For developers working on Lutaml::Model internals:
+
+* **DeclarationPlanner**: Makes ALL namespace decisions (where to declare, what format)
+* **Adapters**: Only apply decisions (Dumb Adapter Principle)
+* **Three Phases**: Collect → Plan → Render
+* **XmlDataModel**: Content layer (WHAT to serialize)
+* **DeclarationPlan**: Declaration layer (WHERE and HOW to declare namespaces)
+
+See link:../.kilocode/rules/memory-bank/[Memory Bank] for detailed architecture documentation.

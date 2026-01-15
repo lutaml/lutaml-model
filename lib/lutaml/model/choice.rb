@@ -55,7 +55,29 @@ module Lutaml
       def validate_content!(object)
         validated_attributes = []
         valid = valid_attributes(object, validated_attributes)
+
+        # Allow empty choice if it can render empty elements
+        if valid.count.zero? && can_render_empty?(object)
+          return
+        end
+
         validate_count_errors!(valid.count, validated_attributes)
+      end
+
+      def can_render_empty?(object)
+        # Check if ALL attributes in the choice have render_empty: true
+        # This allows empty instances of required elements to pass validation
+        mapping = @model.mappings_for(:xml)
+        return false unless mapping&.elements
+
+        @attributes.all? do |attribute|
+          next true if attribute.is_a?(Choice)  # Nested choices handled separately
+
+          rule = mapping.elements.find { |r| r.to == attribute.name }
+          rule&.render_empty?
+        end
+      rescue StandardError
+        false
       end
 
       def import_model_attributes(model, register = nil)
@@ -190,10 +212,33 @@ module Lutaml
             end
           elsif Utils.present?(object.public_send(attribute.name))
             validate_attribute_content!(object, attribute, validated_attributes)
+          elsif should_render_empty?(object, attribute)
+            # Empty value but should render (e.g., required element with render_empty)
+            validated_attributes << attribute.name
           end
         end
 
         validated_attributes
+      end
+
+      def should_render_empty?(object, attribute)
+        value = object.public_send(attribute.name)
+        return false if Utils.uninitialized?(value)
+        return false unless Utils.empty?(value) || (value.respond_to?(:empty?) && value.empty?)
+
+        # Check if this attribute should render when empty
+        mapping = @model.mappings_for(:xml)
+        return false unless mapping&.elements
+
+        # Search through all elements (including imported ones after resolution)
+        rule = mapping.elements.find { |r| r.to == attribute.name }
+        return false unless rule
+
+        # Check if rule has render_empty option set
+        rule.render_empty?
+      rescue StandardError
+        # If anything fails, default to false (don't render)
+        false
       end
 
       def validate_attribute_content!(object, attribute, validated_attributes)

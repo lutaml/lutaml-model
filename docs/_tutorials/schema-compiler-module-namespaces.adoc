@@ -1,0 +1,497 @@
+---
+title: Schema Compiler Module Namespaces
+nav_order: 9
+---
+
+= Schema Compiler Module Namespaces
+:toc:
+:toclevels: 3
+
+== Introduction
+
+This tutorial demonstrates how to use module namespacing when compiling XSD
+schemas into LutaML models. Module namespacing enables multi-version schema
+support and clean code organization by wrapping generated models in Ruby modules.
+
+== Why use module namespacing?
+
+Module namespacing solves several challenges when working with compiled schemas:
+
+**Multi-version schema support**::
+Different schema versions can coexist without naming conflicts:
++
+[source,ruby]
+----
+UnitsMLV0919::UnitType  # Version 0.9.19
+UnitsMLV1::UnitType     # Version 1.0 (future)
+----
+
+**Namespace isolation**::
+Models from different schemas remain separate, preventing accidental type
+conflicts:
++
+[source,ruby]
+----
+MathMLV3::Expression  # MathML version 3
+MathMLV4::Expression  # MathML version 4 (different class)
+----
+
+**Clean code organization**::
+Generated models are logically grouped under a module, making the codebase more
+maintainable:
++
+[source,ruby]
+----
+UnitsMLV0919::UnitsMLType
+UnitsMLV0919::UnitType
+UnitsMLV0919::QuantityType
+# All organized under UnitsMLV0919 module
+----
+
+== Compiling schemas with module namespaces
+
+=== Basic compilation
+
+Use the `module_namespace` parameter to wrap generated models in a Ruby module:
+
+[source,ruby]
+----
+require 'lutaml/model'
+require 'net/http'
+
+# Fetch schema
+schema_url = "http://unitsml.nist.gov/unitsml-v0.9.19.xsd"
+xsd_content = Net::HTTP.get(URI(schema_url))
+
+# Compile with module namespace
+Lutaml::Model::Schema::XmlCompiler.to_models(
+  xsd_content,
+  namespace: "http://unitsml.nist.gov/unitsml-v0.9.19",
+  module_namespace: "UnitsMLV0919",  # <1>
+  register_id: :unitsmlv0919,        # <2>
+  output_dir: "lib/unitsml",         # <3>
+  create_files: true                 # <4>
+)
+----
+<1> Module namespace for generated classes (e.g., `UnitsMLV0919::UnitType`)
+<2> Register ID for model registration (required with `module_namespace`)
+<3> Output directory for generated files
+<4> Write files to disk
+
+=== Generated file structure
+
+The compiler generates:
+
+[source]
+----
+lib/unitsml/
+├── unitsmlv0919_registry.rb  # Central registry with autoload
+├── unit_type.rb              # UnitsMLV0919::UnitType
+├── quantity_type.rb          # UnitsMLV0919::QuantityType
+├── dimension_type.rb         # UnitsMLV0919::DimensionType
+└── ...                       # Other model files
+----
+
+=== Auto-generated module namespace
+
+If `module_namespace` is not provided but `register_id` is, the module namespace
+will be auto-generated from the `output_dir` parameter:
+
+[source,ruby]
+----
+Lutaml::Model::Schema::XmlCompiler.to_models(
+  xsd_content,
+  register_id: :unitsml,
+  output_dir: "lib/units_ml_v0919",  # Converts to UnitsMLV0919
+  create_files: true
+)
+
+# Generated module: UnitsMLV0919
+----
+
+== Understanding the central registry
+
+=== Registry file structure
+
+The generated `{module_name}_registry.rb` file provides:
+
+[source,ruby]
+----
+module UnitsMLV0919
+  autoload :UnitsMLType, "unitsml/units_ml_type"  # <1>
+  autoload :UnitType, "unitsml/unit_type"
+  autoload :QuantityType, "unitsml/quantity_type"
+  # ... other models
+
+  def self.register_all  # <2>
+    register = Lutaml::Model::Register.new(:unitsmlv0919)  # <3>
+    Lutaml::Model::GlobalRegister.instance.register(register)
+
+    # Register each model
+    register.register_model(UnitsMLType, id: :units_ml_type)
+    register.register_model(UnitType, id: :unit_type)
+    register.register_model(QuantityType, id: :quantity_type)
+    # ...
+
+    # Associate register with each class
+    [UnitsMLType, UnitType, QuantityType, ...].each do |klass|
+      klass.instance_variable_set(:@register, register)  # <4>
+    end
+  end
+end
+----
+<1> Autoload pattern - models loaded lazily as needed
+<2> Single method to register all models
+<3> Creates register with specified ID
+<4> Thread-safe register association using instance variable
+
+=== How autoload works
+
+Ruby's `autoload` mechanism loads files only when constants are first accessed:
+
+[source,ruby]
+----
+require "unitsml/unitsmlv0919_registry"
+
+# Files NOT loaded yet
+UnitsMLV0919.constants    # => [:UnitsMLType, :UnitType, ...]
+
+# First access triggers autoload
+doc = UnitsMLV0919::UnitsMLType.new(...)
+# NOW lib/unitsml/units_ml_type.rb is loaded
+
+# Subsequent access uses loaded class
+doc2 = UnitsMLV0919::UnitsMLType.new(...)  # No file loading
+----
+
+=== Register association
+
+Each generated class stores its register reference via `@register` instance
+variable. This enables:
+
+**Thread safety**: No `@@` class variables used
+
+**Automatic resolution**: Models know which register to use for type lookup
+
+**Import resolution**: `import_model` and similar directives work correctly
+
+[source,ruby]
+----
+# After UnitsMLV0919.register_all:
+UnitsMLV0919::UnitType.instance_variable_get(:@register)
+# => #<Lutaml::Model::Register:0x... @id=:unitsmlv0919>
+----
+
+== Working with namespaced models
+
+=== Loading models
+
+Always require the registry file and call `register_all`:
+
+[source,ruby]
+----
+require "unitsml/unitsmlv0919_registry"
+UnitsMLV0919.register_all  # <1>
+
+# Now use the models
+xml_content = File.read("document.xml")
+doc = UnitsMLV0919::UnitsMLType.from_xml(xml_content)
+----
+<1> Registers all models and associates them with the register
+
+=== Accessing namespaced models
+
+Models are accessed through their module namespace:
+
+[source,ruby]
+----
+# Direct class access
+unit = UnitsMLV0919::UnitType.new(...)
+
+# From XML
+doc = UnitsMLV0919::UnitsMLType.from_xml(xml)
+
+# Via register lookup (alternative)
+register = Lutaml::Model::GlobalRegister.lookup(:unitsmlv0919)
+klass = register.get_class(:unit_type)
+unit = klass.new(...)
+----
+
+=== Register fallback in action
+
+Models in the namespaced register can resolve both domain-specific and common
+types:
+
+[source,ruby]
+----
+# UnitsMLV0919 models resolve:
+# 1. Domain types from :unitsmlv0919 register
+unit = UnitsMLV0919::UnitType.new(...)
+
+# 2. Common types from :default register (via fallback)
+# If AnnotationType is registered in :default but not :unitsmlv0919,
+# it will be found via fallback
+----
+
+== Multi-version schema support
+
+=== Compiling multiple versions
+
+Compile different schema versions with distinct module namespaces:
+
+[source,ruby]
+----
+# Compile version 0.9.19
+Lutaml::Model::Schema::XmlCompiler.to_models(
+  xsd_v0919,
+  module_namespace: "UnitsMLV0919",
+  register_id: :unitsmlv0919,
+  output_dir: "lib/unitsml/v0919",
+  create_files: true
+)
+
+# Compile version 1.0 (hypothetical)
+Lutaml::Model::Schema::XmlCompiler.to_models(
+  xsd_v1,
+  module_namespace: "UnitsMLV1",
+  register_id: :unitsmlv1,
+  output_dir: "lib/unitsml/v1",
+  create_files: true
+)
+----
+
+=== Using multiple versions
+
+Load and use both versions in the same application:
+
+[source,ruby]
+----
+require "unitsml/v0919/unitsmlv0919_registry"
+require "unitsml/v1/unitsmlv1_registry"
+
+UnitsMLV0919.register_all
+UnitsMLV1.register_all
+
+# Use version-specific models
+doc_v0919 = UnitsMLV0919::UnitsMLType.from_xml(xml_v0919)
+doc_v1 = UnitsMLV1::UnitsMLType.from_xml(xml_v1)
+
+# Classes are distinct
+doc_v0919.class  # => UnitsMLV0919::UnitsMLType
+doc_v1.class     # => UnitsMLV1::UnitsMLType
+----
+
+== Best practices
+
+=== Naming conventions
+
+**Module names**: Use PascalCase with version suffix:
+* `UnitsMLV0919` (good)
+* `MathMLV3` (good)
+* `unitsml_v0919` (bad - not PascalCase)
+
+**Register IDs**: Use symbols with version suffix:
+* `:unitsmlv0919` (good)
+* `:mathmlv3` (good)
+* `:UnitsMLV0919` (bad - should be symbol, lowercase)
+
+=== Directory structure
+
+Organize by version for clarity:
+
+[source]
+----
+lib/
+├── my_schema/
+│   ├── v1/
+│   │   ├── my_schemav1_registry.rb
+│   │   ├── model1.rb
+│   │   └── model2.rb
+│   ├── v2/
+│   │   ├── my_schemav2_registry.rb
+│   │   ├── model1.rb
+│   │   └── model3.rb  # New in v2
+----
+
+=== Register initialization
+
+Always initialize registers in loading order (dependencies first):
+
+[source,ruby]
+----
+# Load base schemas first
+require "iso_types/iso_types_registry"
+ISOTypes.register_all
+
+# Then specialized schemas
+require "gml/core/gml_core_registry"
+require "gml/profile/gml_profile_registry"
+
+GMLCore.register_all     # Falls back to :default
+GMLProfile.register_all  # Falls back to :gml_core, then :default
+----
+
+=== Thread safety
+
+The `@register` instance variable approach is thread-safe:
+
+* Each class has its own `@register` reference
+* No shared `@@` class variables
+* Safe for concurrent usage across threads
+
+[source,ruby]
+----
+# Thread-safe usage
+threads = 10.times.map do
+  Thread.new do
+    UnitsMLV0919::UnitType.new(...)  # Safe
+  end
+end
+
+threads.each(&:join)
+----
+
+== Advanced topics
+
+=== Custom fallback chains
+
+For complex schema hierarchies, define explicit fallback chains:
+
+[source,ruby]
+----
+# JATS Article with multiple dependencies
+jats_register = Lutaml::Model::Register.new(
+  :jats_article,
+  fallback: [:jats_common, :mathml, :oasis_table, :default]
+)
+
+# Resolution order:
+# :jats_article → :jats_common → :mathml → :oasis_table → :default
+----
+
+=== Isolated registers
+
+For testing or strict schema validation, use isolated registers:
+
+[source,ruby]
+----
+test_register = Lutaml::Model::Register.new(:test_schema, fallback: [])
+
+# This register will ONLY resolve explicitly registered types
+# No fallback to :default or any other register
+----
+
+=== Register inspection
+
+Inspect register contents and fallback chains:
+
+[source,ruby]
+----
+register = Lutaml::Model::GlobalRegister.lookup(:unitsmlv0919)
+
+# Check fallback chain
+register.fallback            # => [:default]
+
+# List registered models
+register.models.keys         # => [:units_ml_type, :unit_type, ...]
+
+# Get specific model
+klass = register.get_class(:unit_type)
+klass                        # => UnitsMLV0919::UnitType
+----
+
+== Troubleshooting
+
+=== Common issues
+
+**Issue**: `UnknownTypeError: Type not found`
+
+**Solution**: Ensure `register_all` is called before using models:
+
+[source,ruby]
+----
+require "unitsml/unitsmlv0919_registry"
+UnitsMLV0919.register_all  # DON'T forget this!
+
+doc = UnitsMLV0919::UnitsMLType.from_xml(xml)
+----
+
+**Issue**: Models can't find common types
+
+**Solution**: Check fallback chain includes `:default`:
+
+[source,ruby]
+----
+register = Lutaml::Model::GlobalRegister.lookup(:my_schema)
+register.fallback  # Should include [:default] unless isolated
+----
+
+**Issue**: Multiple versions conflict
+
+**Solution**: Use distinct module namespaces and register IDs:
+
+[source,ruby]
+----
+# Bad - same module name
+module_namespace: "MathML"   # Conflict!
+module_namespace: "MathML"   # Conflict!
+
+# Good - distinct names
+module_namespace: "MathMLV3"
+module_namespace: "MathMLV4"
+----
+
+== Next steps
+
+After mastering module namespaces, explore:
+
+* link:../../_references/custom_registers[Custom Registers Reference] - Deep
+dive into register functionality
+* link:../../plans/register-fallback-architecture.md[Register Fallback
+Architecture] - Architectural patterns
+* link:../../_guides/creating-xsd.adoc[Creating XSD Schemas] - Generate schemas
+from models
+
+== Complete example
+
+.Real-world UnitsML compilation
+[example]
+====
+[source,ruby]
+----
+require 'lutaml/model'
+require 'net/http'
+
+# 1. Download and compile schema
+schema_url = "http://unitsml.nist.gov/unitsml-v0.9.19.xsd"
+xsd_content = Net::HTTP.get(URI(schema_url))
+
+Lutaml::Model::Schema::XmlCompiler.to_models(
+  xsd_content,
+  namespace: "http://unitsml.nist.gov/unitsml-v0.9.19",
+  module_namespace: "UnitsMLV0919",
+  register_id: :unitsmlv0919,
+  output_dir: "lib/unitsml",
+  create_files: true
+)
+
+# 2. Load and register models
+require "unitsml/unitsmlv0919_registry"
+UnitsMLV0919.register_all
+
+# 3. Parse XML documents
+xml = File.read("units_document.xml")
+doc = UnitsMLV0919::UnitsMLType.from_xml(xml)
+
+# 4. Access model data
+doc.class              # => UnitsMLV0919::UnitsMLType
+doc.unit.first.class   # => UnitsMLV0919::UnitType
+
+# 5. Generate new documents
+new_unit = UnitsMLV0919::UnitType.new(
+  name: "meter",
+  symbol: "m"
+)
+puts new_unit.to_xml
+----
+====

@@ -60,7 +60,7 @@ module Lutaml
         #   end
         def self.xml_namespace(ns_class = nil)
           if ns_class
-            unless ns_class.is_a?(Class) && ns_class < Lutaml::Model::XmlNamespace
+            unless ns_class.is_a?(Class) && ns_class < Lutaml::Model::Xml::Namespace
               raise ArgumentError,
                     "xml_namespace must be an XmlNamespace class, got #{ns_class.class}"
             end
@@ -188,7 +188,7 @@ module Lutaml
           #
           # @raise [ArgumentError] if invalid argument or prefix provided
           def namespace(uri_or_class)
-            if uri_or_class.is_a?(Class) && uri_or_class < Lutaml::Model::XmlNamespace
+            if uri_or_class.is_a?(Class) && uri_or_class < Lutaml::Model::Xml::Namespace
               @namespace_class = uri_or_class
               @namespace_uri = uri_or_class.uri
             elsif uri_or_class.is_a?(String)

@@ -26,6 +26,13 @@ module Lutaml
         return import_mappings_later(model) if later_importable?(model)
         raise Lutaml::Model::ImportModelWithRootError.new(model) if model.root?(register)
 
+        # When importing a model into a sequence, we need BOTH:
+        # 1. Object model (attributes/structure) - what data exists
+        # 2. Serialization mappings (how to serialize) - how data maps to XML
+        # This mimics XSD where using a complexType in a sequence means
+        # adopting both its structure and its serialization rules
+
+        # Import serialization mappings first (XML element names → model attributes)
         @model.import_model_mappings(model, register)
         @attributes.concat(Utils.deep_dup(model.mappings_for(:xml, register).elements))
       end

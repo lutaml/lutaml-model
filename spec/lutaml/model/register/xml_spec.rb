@@ -12,7 +12,7 @@ module RegisterXmlSpec
     attribute :value, :string
 
     xml do
-      root "mi"
+      element "mi"
       namespace MathMlNamespace
 
       map_content to: :value
@@ -24,7 +24,7 @@ module RegisterXmlSpec
     attribute :value, :string
 
     xml do
-      root "mo"
+      element "mo"
       namespace MathMlNamespace
 
       map_content to: :value
@@ -37,7 +37,7 @@ module RegisterXmlSpec
     attribute :denominator, :mi
 
     xml do
-      root "mfrac"
+      element "mfrac"
       namespace MathMlNamespace
 
       map_element "mo", to: :numerator
@@ -52,7 +52,7 @@ module RegisterXmlSpec
     attribute :fraction, :mfrac
 
     xml do
-      root "math"
+      element "math"
       namespace MathMlNamespace
 
       map_element "mi", to: :symbol
@@ -66,7 +66,7 @@ module RegisterXmlSpec
     attribute :color, :string
 
     xml do
-      root "mi"
+      element "mi"
       namespace MathMlNamespace
 
       map_content to: :value
@@ -83,11 +83,11 @@ RSpec.describe "RegisterXmlSpec" do
     # Register the register in the global registry
     Lutaml::Model::GlobalRegister.register(register)
 
-    # Register all the model classes
-    register.register_model_tree(RegisterXmlSpec::Math)
-    register.register_model(RegisterXmlSpec::Mi)
-    register.register_model(RegisterXmlSpec::Mo)
-    register.register_model(RegisterXmlSpec::Mfrac)
+    # Register all the model classes with explicit IDs matching attribute types
+    register.register_model(RegisterXmlSpec::Math, id: :math)
+    register.register_model(RegisterXmlSpec::Mi, id: :mi)
+    register.register_model(RegisterXmlSpec::Mo, id: :mo)
+    register.register_model(RegisterXmlSpec::Mfrac, id: :mfrac)
   end
 
   describe "parsing MathML XML" do

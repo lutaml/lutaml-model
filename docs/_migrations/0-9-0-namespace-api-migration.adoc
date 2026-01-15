@@ -1,0 +1,314 @@
+= Namespace API Migration Guide
+
+== Breaking Change: namespace Parameter Removed
+
+Starting with version 0.9.0, the `namespace:` parameter on `map_element`, `map_attribute`, and `map_all` mapping directives has been removed.
+
+This parameter was **never a supported API feature** and has been removed to enforce proper architectural patterns.
+
+== Migration Required
+
+If your code uses `namespace:` on mapping directives, you will see this error:
+
+[source,text]
+----
+Lutaml::Model::IncorrectMappingArgumentsError:
+  namespace is not allowed at element mapping level.
+  Namespaces must be declared on the MODEL CLASS itself using 'namespace'
+  at the xml block level. Each model class should declare its own namespace,
+  not individual elements.
+----
+
+== Migration Patterns
+
+=== Pattern 1: Element with Different Namespace
+
+==== Old API (Removed)
+
+[source,ruby]
+----
+class Parent < Lutaml::Model::Serializable
+  attribute :child_data, :string
+
+  xml do
+    element "Parent"
+    namespace ParentNamespace
+    map_element "Child", to: :child_data, namespace: ChildNamespace  # ❌ ERROR
+  end
+end
+----
+
+==== New API (Required)
+
+[source,ruby]
+----
+# 1. Create child model class with its own namespace
+class Child < Lutaml::Model::Serializable
+  attribute :value, :string
+
+  xml do
+    element "Child"
+    namespace ChildNamespace  # ✅ Namespace at model level
+    map_content to: :value
+  end
+end
+
+# 2. Update parent to use typed attribute
+class Parent < Lutaml::Model::Serializable
+  attribute :child_data, Child  # ✅ Changed type
+
+  xml do
+    element "Parent"
+    namespace ParentNamespace
+    map_element "Child", to: :child_data  # ✅ No namespace parameter
+  end
+end
+----
+
+=== Pattern 2: Attribute with Different Namespace
+
+==== Old API (Removed)
+
+[source,ruby]
+----
+class Model < Lutaml::Model::Serializable
+  attribute :id, :string
+
+  xml do
+    element "Model"
+    map_attribute "id", to: :id, namespace: XmiNamespace  # ❌ ERROR
+  end
+end
+----
+
+==== New API (Required - Use Type Namespace)
+
+[source,ruby]
+----
+# 1. Create custom type with namespace
+class XmiString < Lutaml::Model::Type::String
+  xml_namespace XmiNamespace
+end
+
+# 2. Use typed attribute
+class Model < Lutaml::Model::Serializable
+  attribute :id, XmiString  # ✅ Type declares namespace
+
+  xml do
+    element "Model"
+    map_attribute "id", to: :id  # ✅ No namespace parameter
+  end
+end
+----
+
+== Rationale
+
+=== Why This Change Was Made
+
+1. **Architectural Correctness**: Each model class should declare its own namespace. Namespace is a model-level concern, not a mapping-level concern.
+
+2. **Separation of Concerns**: Model structure (what classes exist) should be separate from serialization mapping (how they serialize).
+
+3. **Type Safety**: Using typed attributes provides better type safety and clearer code structure.
+
+4. **W3C Compliance**: Proper model-level namespaces enable correct W3C namespace inheritance and qualification rules.
+
+=== Benefits
+
+- **Clearer Code**: Namespace declaration at model level is more explicit
+- **Type Safety**: Typed attributes catch errors earlier
+- **Proper OOP**: Each class has single responsibility
+- **Extensibility**: Easier to add format-specific behavior to model classes
+- **Testability**: Individual model classes can be tested independently
+
+== Common Migration Scenarios
+
+=== Scenario 1: Simple Element Namespace
+
+[source,ruby]
+----
+# OLD:
+map_element "Title", to: :title, namespace: DublinCoreNamespace
+
+# NEW:
+class DcTitle < Lutaml::Model::Serializable
+  attribute :value, :string
+  xml do
+    element "Title"
+    namespace DublinCoreNamespace
+    map_content to: :value
+  end
+end
+
+attribute :title, DcTitle
+map_element "Title", to: :title
+----
+
+=== Scenario 2: Attribute Namespace (Type Namespace)
+
+[source,ruby]
+----
+# OLD:
+map_attribute "type", to: :type, namespace: XsiNamespace
+
+# NEW:
+class XsiType < Lutaml::Model::Type::String
+  xml_namespace XsiNamespace
+end
+
+attribute :type, XsiType
+map_attribute "type", to: :type
+----
+
+=== Scenario 3: Multiple Elements Same Name, Different Namespaces
+
+[source,ruby]
+----
+# OLD:
+map_element "Item", to: :gml_item, namespace: GmlNamespace
+map_element "Item", to: :citygml_item, namespace: CityGmlNamespace
+
+# NEW:
+class GmlItem < Lutaml::Model::Serializable
+  xml do
+    element "Item"
+    namespace GmlNamespace
+  end
+end
+
+class CityGmlItem < Lutaml::Model::Serializable
+  xml do
+    element "Item"
+    namespace CityGmlNamespace
+  end
+end
+
+attribute :gml_item, GmlItem
+attribute :citygml_item, CityGmlItem
+map_element "Item", to: :gml_item
+map_element "Item", to: :citygml_item
+----
+
+== Special Cases
+
+=== Case 1: Elements in Blank Namespace (No Namespace)
+
+If you had `namespace: nil` to indicate an element should have no namespace:
+
+[source,ruby]
+----
+# OLD:
+map_element "Plain", to: :plain, namespace: nil
+
+# NEW:
+class PlainElement < Lutaml::Model::Serializable
+  xml do
+    element "Plain"
+    # No namespace declaration = blank namespace
+  end
+end
+
+attribute :plain, PlainElement
+map_element "Plain", to: :plain
+----
+
+=== Case 2: Inheritance from Parent (`:inherit` symbol)
+
+The `:inherit` symbol was never a supported feature. Elements naturally inherit parent namespace via `element_form_default: :qualified`:
+
+[source,ruby]
+----
+# OLD (never supported):
+map_element "Child", to: :child, namespace: :inherit
+
+# NEW (natural inheritance):
+class ParentNamespace < Lutaml::Model::Xml::W3c::XmlNamespace
+  uri "http://example.com/parent"
+  element_form_default :qualified  # Children inherit namespace
+end
+
+class Parent < Lutaml::Model::Serializable
+  attribute :child, :string
+
+  xml do
+    element "Parent"
+    namespace ParentNamespace
+    map_element "Child", to: :child  # Inherits parent namespace
+  end
+end
+----
+
+== FAQ
+
+=== Q: Can I still use namespace at the model level?
+
+**A**: Yes! The `namespace` directive at the `xml do` block level is the **correct and required** way to declare namespaces:
+
+[source,ruby]
+----
+class Model < Lutaml::Model::Serializable
+  xml do
+    element "Model"
+    namespace MyNamespace  # ✅ CORRECT - model level
+    map_element "Data", to: :data
+  end
+end
+----
+
+=== Q: What about Type namespaces?
+
+**A**: Type namespaces (declared on custom Type classes) are fully supported and the correct way to handle attribute namespaces:
+
+[source,ruby]
+----
+class CustomType < Lutaml::Model::Type::String
+  xml_namespace TypeNamespace  # ✅ Type-level namespace
+end
+
+attribute :field, CustomType  # Attribute gets namespace from type
+----
+
+=== Q: How do I handle multiple namespaces in one document?
+
+**A**: Create separate model classes for elements in different namespaces:
+
+[source,ruby]
+----
+class DcMetadata < Lutaml::Model::Serializable
+  xml do
+    namespace DublinCoreNamespace
+  end
+end
+
+class BookData < Lutaml::Model::Serializable
+  xml do
+    namespace BookNamespace
+  end
+end
+
+class Book < Lutaml::Model::Serializable
+  attribute :metadata, DcMetadata
+  attribute :data, BookData
+  
+  xml do
+    namespace BookNamespace
+    map_element "Metadata", to: :metadata
+    map_element "Data", to: :data
+  end
+end
+----
+
+== Summary
+
+The `namespace:` parameter on `map_element`, `map_attribute`, and `map_all` has been removed because:
+
+1. It was never a supported API feature
+2. Namespaces belong at the model class level
+3. Proper OOP architecture requires typed attributes
+4. W3C namespace semantics work correctly with model-level namespaces
+
+**Migration is straightforward**:
+- Elements with different namespaces → create child model classes
+- Attributes with different namespaces → create custom type classes
+
+This ensures clean, maintainable, and architecturally sound code.
