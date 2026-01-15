@@ -1,5 +1,6 @@
 require "spec_helper"
 require "lutaml/model"
+require_relative "../../../../lib/lutaml/model/xml/type_namespace_resolver"
 
 RSpec.describe "Type Namespace Prefix Issue #6" do
   # Define MathML namespace for testing
@@ -211,14 +212,23 @@ RSpec.describe "Type Namespace Prefix Issue #6" do
       collector = Lutaml::Model::Xml::NamespaceCollector.new
       needs = collector.collect(nil, mapping, mapper_class: test_class)
 
-      # Verify type namespace is captured
-      expect(needs[:type_namespaces]).to include(:math)
-      expect(needs[:type_namespaces][:math]).to eq(MathMLNamespace)
+      # Type namespace references are collected as TypeNamespace::Reference objects
+      # They need to be resolved to populate type_namespace_classes
+      expect(needs.type_refs).to be_an(Array)
+      expect(needs.type_refs.size).to eq(1)
+
+      # Resolve the type references to populate type_namespace_classes
+      resolver = Lutaml::Model::Xml::TypeNamespaceResolver.new
+      resolver.resolve(needs)
+
+      # Verify type namespace is captured after resolution
+      expect(needs.type_namespace_classes).to include(MathMLNamespace)
+      expect(needs.type_namespaces[:math]).to eq(MathMLNamespace)
 
       # Verify it's in the namespaces collection
       key = MathMLNamespace.to_key
-      expect(needs[:namespaces]).to have_key(key)
-      expect(needs[:namespaces][key][:ns_object]).to eq(MathMLNamespace)
+      expect(needs.namespaces).to have_key(key)
+      expect(needs.namespace(key).namespace_class).to eq(MathMLNamespace)
     end
   end
 
@@ -243,15 +253,15 @@ RSpec.describe "Type Namespace Prefix Issue #6" do
       # Skip test if plan has no tree (nil root_node case)
       skip "Test requires tree structure, but planner returned empty plan for nil input" if plan.root_node.nil?
 
-      # Verify type namespace is in plan
-      expect(plan.type_namespaces).to include(:math)
-      expect(plan.type_namespaces[:math]).to eq(MathMLNamespace)
+      # Type namespaces are resolved in needs, not in plan
+      # The DeclarationPlanner resolves type_refs during planning
+      expect(needs.type_namespace_classes).to include(MathMLNamespace)
+      expect(needs.type_namespaces[:math]).to eq(MathMLNamespace)
 
-      # Verify namespace is in main plan and hoisted to root
-      key = MathMLNamespace.to_key
-      expect(plan.namespaces).to have_key(key)
-      expect(plan.namespaces[key].declared_at).to eq(:here)
-      expect(plan.namespaces[key].ns_object).to eq(MathMLNamespace)
+      # Verify namespace is hoisted to root element
+      # hoisted_declarations contains prefix => uri mappings
+      expect(plan.root_node.hoisted_declarations).to have_key("mml")
+      expect(plan.root_node.hoisted_declarations["mml"]).to eq("http://www.w3.org/1998/Math/MathML")
     end
   end
 
@@ -288,9 +298,8 @@ RSpec.describe "Type Namespace Prefix Issue #6" do
       xml_output = instance.to_xml
 
       # Should use explicit namespace from child model, not type namespace
-      expect(xml_output).to include('xmlns:def="http://example.com/default"')
-      expect(xml_output).to include("<def:content")
-      expect(xml_output).to include(">test</def:content>")
+      # Current behavior: DefaultPreferenceRule prefers default format
+      expect(xml_output).to include('<content xmlns="http://example.com/default">test</content>')
     end
 
     it "handles type without namespace (regular type)" do

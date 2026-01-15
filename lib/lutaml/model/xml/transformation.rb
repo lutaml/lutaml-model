@@ -422,7 +422,7 @@ module Lutaml
         def transform(model_instance, options = {})
           # Get root element name from mapping
           mapping = model_class.mappings_for(:xml, register&.id)
-          root_name = mapping.root_element || model_class.name.split("::").last
+          root_name = mapping.root_element || (model_class.name&.split("::")&.last || "anonymous")
 
           # Get root namespace
           root_namespace = mapping.namespace_class
