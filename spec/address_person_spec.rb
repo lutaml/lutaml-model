@@ -321,9 +321,9 @@ RSpec.describe AddressPersonSpec do
 
     let(:xml) do
       <<~XML
-        <Person xmlns="http://example.com/person">
-          <nsp1:FirstName xmlns:nsp1="http://example.com/nsp1">John</nsp1:FirstName>
-          <nsp1:LastName xmlns:nsp1="http://example.com/nsp1">Doe</nsp1:LastName>
+        <Person xmlns="http://example.com/person" xmlns:nsp1="http://example.com/nsp1">
+          <nsp1:FirstName>John</nsp1:FirstName>
+          <nsp1:LastName>Doe</nsp1:LastName>
           <Age xmlns="">30</Age>
           <Height xmlns="">5.9</Height>
           <Birthdate xmlns="">1990-01-01</Birthdate>

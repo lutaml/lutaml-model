@@ -28,6 +28,10 @@ module Lutaml
         # @return [Boolean] Whether text content should be wrapped in CDATA section
         attr_accessor :cdata
 
+        # @return [Symbol, nil] Form option (:qualified, :unqualified, or nil)
+        #   :qualified forces prefix format, :unqualified forces default format
+        attr_accessor :form
+
         # Initialize a new XML element
         #
         # @param name [String] Element local name
@@ -39,6 +43,7 @@ module Lutaml
           @children = []
           @text_content = nil
           @cdata = false
+          @form = nil
         end
 
         # Add a child element or text node

@@ -349,9 +349,6 @@ module Lutaml
                 needs.add_type_ref(ref)
               end
 
-              # Skip child recursion during type-only collection
-              next if element.nil?
-
               child_type = attr_def.type(@register)
               next unless child_type
               next unless child_type.respond_to?(:<) &&

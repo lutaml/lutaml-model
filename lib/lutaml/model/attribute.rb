@@ -577,20 +577,11 @@ module Lutaml
         result = if resolved_type.nil?
                    nil
                  # Check if type responds to xml_namespace (Type::Value classes)
+                 # Type namespaces are ONLY declared on Type::Value subclasses,
+                 # not on Serializable models. Serializable models have element
+                 # namespaces, which are handled separately.
                  elsif resolved_type.respond_to?(:xml_namespace)
                    resolved_type.xml_namespace
-                 # Check if type is a Serializable model with namespace in XML mappings
-                 elsif resolved_type <= Lutaml::Model::Serialize
-                   xml_mapping = resolved_type.mappings_for(:xml, register)
-                   if xml_mapping&.mappings_imported && xml_mapping&.namespace_uri
-                     # Create an anonymous XmlNamespace class to wrap the mapping's namespace
-                     Class.new(Lutaml::Model::Xml::Namespace) do
-                       uri xml_mapping.namespace_uri
-                       prefix_default xml_mapping.namespace_prefix
-                     end
-                   else
-                     nil
-                   end
                  else
                    nil
                  end

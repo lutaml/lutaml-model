@@ -635,7 +635,21 @@ parent_node: nil, is_root: false, parent_format: nil, parent_namespace_class: ni
                   if child_mapping_obj
                     child_mapping = child_mapping_obj
                     # CRITICAL: Pass parent's mapping so child can find its attribute name
-                    child_options = options.merge(mapper_class: child_type, parent_mapping: mapping)
+                    # NOTE: do NOT propagate use_prefix to child elements
+                    # use_prefix only applies to root element, not to children
+                    # Children should use their own namespace's default presentation
+                    use_prefix_value = options[:use_prefix]
+                    if use_prefix_value == true
+                      # Do NOT propagate use_prefix: true to children
+                      # Children should use their own namespace's default presentation
+                      child_options = options.except(:use_prefix).merge(mapper_class: child_type, parent_mapping: mapping)
+                    elsif use_prefix_value.is_a?(String)
+                      # Custom string prefix is specific to root's namespace - don't propagate
+                      child_options = options.except(:use_prefix).merge(mapper_class: child_type, parent_mapping: mapping)
+                    else
+                      # use_prefix: false or nil - don't propagate
+                      child_options = options.except(:use_prefix).merge(mapper_class: child_type, parent_mapping: mapping)
+                    end
                   end
                 end
               end
@@ -676,16 +690,18 @@ parent_node: nil, is_root: false, parent_format: nil, parent_namespace_class: ni
           # Get W3C attributeFormDefault setting
           attribute_form_default = element_ns_class&.attribute_form_default || :unqualified
 
+          # Compare by URI since namespace classes can be different instances
+          # with the same URI (e.g., dynamically created in tests with Class.new)
+          same_namespace = attr_ns_class && element_ns_class &&
+                          attr_ns_class.uri == element_ns_class.uri
+
           # W3C Attribute Prefix Decision (MECE)
-          use_prefix = if attr_ns_class && element_ns_class
-                         if attr_ns_class == element_ns_class &&
-                             attribute_form_default == :unqualified
-                           # Priority 1: Same namespace + unqualified → NO prefix
-                           nil
-                         else
-                           # Priority 2: Different namespace OR qualified → YES prefix
-                           attr_ns_class.prefix_default
-                         end
+          use_prefix = if same_namespace && attribute_form_default == :unqualified
+                         # Priority 1: Same namespace + unqualified → NO prefix
+                         nil
+                       elsif attr_ns_class && element_ns_class
+                         # Priority 2: Different namespace OR qualified → YES prefix
+                         attr_ns_class.prefix_default
                        elsif attr_ns_class
                          # Priority 3: Only attribute has namespace → YES prefix
                          attr_ns_class.prefix_default
@@ -876,9 +892,16 @@ options, is_root: false, parent_hoisted: {}, element_prefix: nil)
                                                         needs, options, is_root: is_root, parent_hoisted: parent_hoisted)
               hoisted[element_prefix] = ns_uri
             elsif element_prefix
-              # Namespace is already hoisted, and we have a prefix from build_element_node
-              # Use this prefix to maintain consistency
-              hoisted[element_prefix] = ns_uri
+              # Namespace is already hoisted by parent
+              # Check if parent has the SAME prefix declaration
+              parent_has_same_prefix = parent_hoisted.key?(element_prefix) && parent_hoisted[element_prefix] == ns_uri
+              if parent_has_same_prefix
+                # Parent already declared this namespace with the same prefix - don't re-declare
+                # Just keep track that we're using the parent's prefix (no need to add to hoisted)
+              else
+                # Parent has different prefix or no prefix - add our declaration
+                hoisted[element_prefix] = ns_uri
+              end
             else
               # Namespace is hoisted by parent, but we don't have a prefix
               # Check if parent used default format (nil prefix) for this namespace
@@ -891,6 +914,28 @@ options, is_root: false, parent_hoisted: {}, element_prefix: nil)
               else
                 # Parent used default format - use default format
                 hoisted[nil] = ns_uri
+              end
+            end
+
+            # CRITICAL FIX: If root element uses default format (nil prefix) and child elements
+            # need prefix format for the same namespace (due to form: :qualified), also declare
+            # the namespace with prefix format on the root element.
+            # This allows child elements to use the prefix without declaring it locally.
+            # IMPORTANT: This only applies to the element's OWN namespace, not type namespaces.
+            # Type namespaces should be declared locally on the element that uses the type.
+            if is_root && hoisted.key?(nil) && hoisted[nil] == ns_uri
+              # Check if any child elements have form: :qualified for this namespace
+              # by checking the children's form attribute in the XmlElement tree
+              if xml_element.respond_to?(:children)
+                child_needs_prefix = xml_element.children.any? do |child|
+                  next unless child.is_a?(Lutaml::Model::XmlDataModel::XmlElement)
+                  # Check if child has form: :qualified and same namespace
+                  child.form == :qualified && child.namespace_class&.uri == ns_uri
+                end
+                if child_needs_prefix
+                  prefix = ns_class.prefix_default
+                  hoisted[prefix] = ns_uri
+                end
               end
             end
           end
@@ -982,15 +1027,110 @@ options, is_root: false, parent_hoisted: {}, element_prefix: nil)
                 prefix = ns_class.prefix_default || "ns#{hoisted.keys.length}"
                 hoisted[prefix] = ns_uri
               end
+            else
+              # Root element without namespace_scope: hoist type namespaces
+              # Type namespaces MUST use prefix format (W3C rule)
+              #
+              # CRITICAL: Don't hoist type namespaces that are also child element
+              # namespaces. When a type namespace is also a child's element namespace, it
+              # should be declared on that child element (not hoisted to root).
+
+              # Type element namespaces (for Type::Value classes used by root's attributes)
+              needs.type_element_namespaces.each do |ns_class|
+                ns_uri = ns_class.uri
+                next if hoisted.value?(ns_uri) # Skip if already declared
+                next if ns_class == xml_element.namespace_class # Skip element's own namespace
+
+                # Check if this namespace is used by any child element as its element namespace
+                # If so, don't hoist - let the child declare it locally
+                # UNLESS the parent also uses this namespace for its attributes
+                child_uses_namespace = needs.children&.any? do |_attr_name, child_needs|
+                  child_needs.namespaces.any? do |_key, ns_usage|
+                    ns_usage.used_in_elements? && ns_usage.namespace_class.uri == ns_uri
+                  end
+                end
+
+                # Only skip hoisting if child uses namespace AND parent doesn't use it for attributes
+                # Check if parent element instance has attributes with this namespace
+                parent_has_attr_with_ns = if xml_element && xml_element.respond_to?(:attributes)
+                  xml_element.attributes.any? do |xml_attr|
+                    next false unless xml_attr.namespace_class
+                    xml_attr.namespace_class.uri == ns_uri
+                  end
+                else
+                  # For nil/Class root_element, check if mapping has attributes with this namespace
+                  # This handles the case where parent doesn't have the attribute set
+                  # Only hoist if parent's MAPPING declares attributes with this namespace
+                  mapping.attributes.any? do |attr_rule|
+                    next false unless attr_rule.attribute?
+
+                    # Get the mapper_class to find attribute definition
+                    mapper_class = options[:mapper_class] || mapping.owner
+                    next false unless mapper_class
+                    next false unless mapper_class.respond_to?(:attributes)
+
+                    attr_def = mapper_class.attributes[attr_rule.to]
+                    next false unless attr_def
+
+                    # Check if this attribute's type has the namespace
+                    type_ns_class = attr_def.type_namespace_class(@register)
+                    type_ns_class&.uri == ns_uri
+                  end
+                end
+                next if child_uses_namespace && !parent_has_attr_with_ns
+
+                prefix = ns_class.prefix_default || "ns#{hoisted.keys.length}"
+                hoisted[prefix] = ns_uri
+              end
+
+              # Type attribute namespaces (for Type::Value classes used in child element attributes)
+              # CRITICAL: Don't hoist if namespace is also child element's namespace
+              needs.type_attribute_namespaces.each do |ns_class|
+                ns_uri = ns_class.uri
+                next if hoisted.value?(ns_uri) # Skip if already declared
+                next if ns_class == xml_element.namespace_class # Skip element's own namespace
+
+                # Check if this namespace is used by any child element as its element namespace
+                # If so, don't hoist - let the child declare it locally
+                child_uses_namespace = needs.children&.any? do |_attr_name, child_needs|
+                  child_needs.namespaces.any? do |_key, ns_usage|
+                    ns_usage.used_in_elements? && ns_usage.namespace_class.uri == ns_uri
+                  end
+                end
+
+                # Only skip hoisting if child uses namespace AND parent doesn't use it for attributes
+                parent_has_attr_with_ns = if xml_element && xml_element.respond_to?(:attributes)
+                  xml_element.attributes.any? do |xml_attr|
+                    next false unless xml_attr.namespace_class
+                    xml_attr.namespace_class.uri == ns_uri
+                  end
+                else
+                  # For nil/Class root_element, check if mapping has attributes with this namespace
+                  mapping.attributes.any? do |attr_rule|
+                    next false unless attr_rule.attribute?
+
+                    mapper_class = options[:mapper_class] || mapping.owner
+                    next false unless mapper_class
+                    next false unless mapper_class.respond_to?(:attributes)
+
+                    attr_def = mapper_class.attributes[attr_rule.to]
+                    next false unless attr_def
+
+                    type_ns_class = attr_def.type_namespace_class(@register)
+                    type_ns_class&.uri == ns_uri
+                  end
+                end
+
+                next if child_uses_namespace && !parent_has_attr_with_ns
+
+                prefix = ns_class.prefix_default || "ns#{hoisted.keys.length}"
+                hoisted[prefix] = ns_uri
+              end
             end
           else
-            # For non-root (child) elements, add their own type attribute namespaces
+            # For non-root (child) elements, add their own type namespaces
             # CRITICAL: Child elements with type namespace attributes need those
             # namespaces declared on themselves (W3C compliance)
-            #
-            # NOTE: We only add type ATTRIBUTE namespaces, not type ELEMENT namespaces.
-            # Type element namespaces are used by child elements and should be declared
-            # on the parent element (or root, depending on namespace_scope).
             #
             # Get the child's own namespace needs by matching the current element
             # to its corresponding attribute name in the parent's mapping
@@ -998,11 +1138,27 @@ options, is_root: false, parent_hoisted: {}, element_prefix: nil)
             if child_attr_name
               child_needs = needs.child(child_attr_name)
               if child_needs
+                # Add child's type element namespaces (for Type::Value attributes)
+                # These need to be hoisted to the child element
+                child_needs.type_element_namespaces.each do |ns_class|
+                  ns_uri = ns_class.uri
+                  next if hoisted.value?(ns_uri) # Skip if already declared
+                  next if parent_hoisted.value?(ns_uri) # Skip if parent already declared
+                  next if ns_class == xml_element.namespace_class # Skip element's own namespace
+
+                  # Type namespaces MUST use prefix format (W3C rule)
+                  prefix = ns_class.prefix_default || "ns#{hoisted.keys.length}"
+                  hoisted[prefix] = ns_uri
+                end
+
                 # Add child's type attribute namespaces
+                # CRITICAL: Skip if namespace is child's own element namespace
+                # The element's namespace declaration already covers it
                 child_needs.type_attribute_namespaces.each do |ns_class|
                   ns_uri = ns_class.uri
                   next if hoisted.value?(ns_uri) # Skip if already declared
                   next if parent_hoisted.value?(ns_uri) # Skip if parent already declared
+                  next if ns_class == xml_element.namespace_class # Skip element's own namespace
 
                   # Type attribute namespaces MUST use prefix format (W3C rule)
                   prefix = ns_class.prefix_default || "ns#{hoisted.keys.length}"
@@ -1023,6 +1179,15 @@ options, is_root: false, parent_hoisted: {}, element_prefix: nil)
 
               # Skip if already hoisted on parent (don't redeclare!)
               next if parent_hoisted.value?(ns_class.uri)
+
+              # CRITICAL: Skip if this namespace is ONLY used by child elements (not by
+              # the current element). Child elements should declare their own namespace
+              # locally using default format. But if the current element uses this namespace
+              # for its attributes, it should be hoisted.
+              # Check: if NOT used in attributes AND used in elements → skip hoisting
+              # NOTE: Also check type_attribute_namespaces (attribute type namespaces)
+              used_in_attributes = ns_usage.used_in_attributes? || needs.type_attribute_namespaces.include?(ns_class)
+              next if !used_in_attributes && ns_usage.used_in_elements?
 
               scope_config = find_scope_config_for(ns_class, current_scope_configs)
 

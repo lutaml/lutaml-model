@@ -123,6 +123,13 @@ module Lutaml
             return false unless @parent_hoisted.key?(nil)
             @parent_hoisted[nil] == @namespace_uri
           end
+
+          # Check if there are Type namespaces that need prefix format
+          # Type namespaces are declared on parent and used by child elements
+          def has_type_namespaces?
+            return false unless @needs
+            @needs.type_refs.any?
+          end
         end
       end
     end

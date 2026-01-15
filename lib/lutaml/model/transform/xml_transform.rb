@@ -222,8 +222,17 @@ module Lutaml
           # This handles the case where elements have prefixed names but are in blank namespace
           # e.g., <GML:ApplicationSchema xmlns=""> should match the rule expecting GML namespace
           if child.namespace_prefix && attr_type && attr_type <= Serialize
-            # Get the type namespace class from the attribute
-            type_ns_class = attr.type_namespace_class(__register)
+            # Get the namespace class from the attribute's type
+            # For Type::Value classes, use type_namespace_class (Type namespaces)
+            # For Serializable classes, use their mapping's namespace_class (element namespaces)
+            type_ns_class = if attr_type.respond_to?(:mappings_for)
+                              # Serializable class - use its mapping's namespace
+                              attr_type.mappings_for(:xml)&.namespace_class
+                            else
+                              # Type::Value class - use type namespace
+                              attr.type_namespace_class(__register)
+                            end
+
             if type_ns_class && child.namespace_prefix == type_ns_class.prefix_default.to_s
               next true
             end

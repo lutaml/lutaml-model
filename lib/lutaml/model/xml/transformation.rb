@@ -66,7 +66,21 @@ module Lutaml
         # @param mapping_rule [Xml::MappingRule] The mapping rule to compile
         # @return [CompiledRule, nil] Compiled rule or nil
         def compile_element_rule(mapping_rule)
+          # Access custom_methods early to check if we need to infer attribute name
+          custom_methods_value = mapping_rule.custom_methods
+
+          # Get attribute name from mapping rule, or infer from custom methods
           attr_name = mapping_rule.to
+          if attr_name.nil? && !custom_methods_value.empty?
+            # Infer attribute name from element name or custom method
+            attr_name = if mapping_rule.name && model_class.attributes(register&.id)&.key?(mapping_rule.name.to_sym)
+                          mapping_rule.name.to_sym
+                        elsif custom_methods_value[:to]
+                          # For custom methods with only `to:`, infer from element name
+                          mapping_rule.name&.to_sym
+                        end
+          end
+
           return nil unless attr_name
 
           # Handle delegated attributes
@@ -114,6 +128,8 @@ module Lutaml
             # Access value_map instance variable directly
             value_map = mapping_rule.instance_variable_get(:@value_map)
 
+            # custom_methods_value was already fetched at the beginning of the method
+
             return CompiledRule.new(
               attribute_name: attr_name,
               serialized_name: mapping_rule.name.to_s,
@@ -130,7 +146,9 @@ module Lutaml
               render_default: mapping_rule.render_default,
               render_empty: mapping_rule.render_empty,
               value_map: value_map,
+              custom_methods: custom_methods_value,
               polymorphic: mapping_rule.polymorphic,
+              form: mapping_rule.form,
               delegate_from: delegate_target  # Store delegation info
             )
           end
@@ -168,6 +186,8 @@ module Lutaml
           # Access value_map instance variable directly
           value_map = mapping_rule.instance_variable_get(:@value_map)
 
+          # custom_methods_value was already fetched at the beginning of the method
+
           CompiledRule.new(
             attribute_name: attr_name,
             serialized_name: mapping_rule.name.to_s,
@@ -184,7 +204,9 @@ module Lutaml
             render_default: mapping_rule.render_default,
             render_empty: mapping_rule.render_empty,
             value_map: value_map,
-            polymorphic: mapping_rule.polymorphic
+            custom_methods: custom_methods_value,
+            polymorphic: mapping_rule.polymorphic,
+            form: mapping_rule.form
           )
         end
 
@@ -469,7 +491,9 @@ module Lutaml
             # Check if this rule should be applied based on only/except options
             next unless valid_mapping?(rule, options)
 
-            apply_rule(root, rule, model_instance, options)
+            # Add current_model to options for custom method access
+            rule_options = options.merge(current_model: model_instance)
+            apply_rule(root, rule, model_instance, rule_options)
           end
 
           root
@@ -546,7 +570,10 @@ module Lutaml
 
             # Fall back to value_map
             value_map = rule.option(:value_map) || {}
-            return value_map[:nil] == :omit
+            # Check new format with :to hash first
+            to_map = value_map[:to] || value_map
+            # Skip if mapped to :omit or :omitted
+            return [:omit, :omitted].include?(to_map[:nil])
           elsif Lutaml::Model::Utils.empty?(value)
             # Check render_empty option (convenience shortcut)
             render_empty = rule.option(:render_empty)
@@ -557,10 +584,20 @@ module Lutaml
 
             # For false or unset, default to skipping empty values (legacy behavior)
             value_map = rule.option(:value_map) || {}
-            return value_map[:empty] == :omit
+            # Check new format with :to hash first
+            to_map = value_map[:to] || value_map
+            # Skip if mapped to :omit or :omitted
+            return [:omit, :omitted].include?(to_map[:empty])
           elsif Lutaml::Model::Utils.uninitialized?(value)
             value_map = rule.option(:value_map) || {}
-            return value_map[:omitted] == :omit || true # Default: omit uninitialized
+            # Check new format with :to hash first
+            to_map = value_map[:to] || value_map
+            # Return true to skip if:
+            # - to_map[:omitted] is nil (not set, so default to omit)
+            # - to_map[:omitted] is explicitly set to :omit (legacy format)
+            # - to_map[:omitted] is explicitly set to :omitted (new format)
+            # Return false to render if to_map[:omitted] is set to something else (e.g., :nil, :empty)
+            return to_map[:omitted].nil? || [:omit, :omitted].include?(to_map[:omitted])
           end
 
           # Handle boolean value_map for true/false values
@@ -615,7 +652,10 @@ module Lutaml
 
             # Fall back to value_map
             value_map = rule.option(:value_map) || {}
-            return value_map[:nil] == :omit
+            # Check new format with :to hash first
+            to_map = value_map[:to] || value_map
+            # Skip if mapped to :omit or :omitted
+            return [:omit, :omitted].include?(to_map[:nil])
           elsif Lutaml::Model::Utils.empty?(value)
             # Check render_empty option (convenience shortcut)
             render_empty = rule.option(:render_empty)
@@ -626,10 +666,20 @@ module Lutaml
 
             # For false or unset, default to skipping empty values (legacy behavior)
             value_map = rule.option(:value_map) || {}
-            return value_map[:empty] == :omit
+            # Check new format with :to hash first
+            to_map = value_map[:to] || value_map
+            # Skip if mapped to :omit or :omitted
+            return [:omit, :omitted].include?(to_map[:empty])
           elsif Lutaml::Model::Utils.uninitialized?(value)
             value_map = rule.option(:value_map) || {}
-            return value_map[:omitted] == :omit || true # Default: omit uninitialized
+            # Check new format with :to hash first
+            to_map = value_map[:to] || value_map
+            # Return true to skip if:
+            # - to_map[:omitted] is nil (not set, so default to omit)
+            # - to_map[:omitted] is explicitly set to :omit (legacy format)
+            # - to_map[:omitted] is explicitly set to :omitted (new format)
+            # Return false to render if to_map[:omitted] is set to something else (e.g., :nil, :empty)
+            return to_map[:omitted].nil? || [:omit, :omitted].include?(to_map[:omitted])
           end
 
           # Handle boolean value_map for true/false values
@@ -668,6 +718,17 @@ module Lutaml
         # @param value [Object] The value
         # @param options [Hash] Options
         def apply_element_rule(parent, rule, value, options)
+          # Handle custom serialization methods (with: { to: ... })
+          # Custom methods use the old adapter API, so we need special handling
+          if rule.has_custom_methods? && rule.custom_methods[:to]
+            # Create a compatibility wrapper that mimics the old adapter interface
+            # but works with XmlDataModel elements
+            wrapper = CustomMethodWrapper.new(parent, rule)
+            model_instance = options[:current_model]
+            model_instance.send(rule.custom_methods[:to], model_instance, parent, wrapper)
+            return
+          end
+
           # Extract parent's namespace info for element_form_default inheritance
           parent_ns_class = parent.namespace_class
           parent_element_form_default = parent_ns_class&.element_form_default
@@ -725,8 +786,18 @@ module Lutaml
             end
           else
             # Handle single value
-            element = create_element_for_value(rule, value, child_options)
-            parent.add_child(element) if element
+            # BUT: If value is an Array, serialize each item as a separate element
+            # This maintains backward compatibility where scalar attributes can hold arrays
+            # and serialize to multiple elements
+            if value.is_a?(Array)
+              value.each do |item|
+                element = create_element_for_value(rule, item, child_options)
+                parent.add_child(element) if element
+              end
+            else
+              element = create_element_for_value(rule, value, child_options)
+              parent.add_child(element) if element
+            end
           end
         end
 
@@ -740,13 +811,23 @@ module Lutaml
           # Check render_nil option - if true, create element even for nil values
           # This allows xsi:nil attribute to be added by the adapter
           if value.nil?
-            # Only return nil (skip element) if render_nil is not explicitly set
-            # But also check render_empty which can apply to nil collections
+            # Check if value_map says to render nil as something other than omitted
+            value_map = rule.option(:value_map) || {}
+            to_map = value_map[:to] || value_map
+            mapped_value = to_map[:nil]
+
+            # Only return nil (skip element) if:
+            # - render_nil and render_empty are not set, AND
+            # - value_map doesn't map nil to something renderable
             render_nil = rule.option(:render_nil)
             render_empty = rule.option(:render_empty)
 
-            # Create element if render_nil or render_empty option is set
-            return nil unless render_nil || render_empty
+            # Create element if any of these conditions are true:
+            # - render_nil is set
+            # - render_empty is set
+            # - value_map maps nil to :nil (render with xsi:nil)
+            # - value_map maps nil to :empty (render as empty element)
+            return nil unless render_nil || render_empty || mapped_value == :nil || mapped_value == :empty
           end
 
           # Check if this is a nested model (even if child_transformation is nil due to cycles)
@@ -814,6 +895,9 @@ module Lutaml
                 element_namespace_class
               )
 
+              # Pass form option from rule to element for DecisionEngine
+              element.form = rule.form if rule.form
+
               text = serialize_value(value, rule)
               element.text_content = text if text
               return element
@@ -832,15 +916,36 @@ module Lutaml
               element_namespace_class
             )
 
+            # Pass form option from rule to element for DecisionEngine
+            element.form = rule.form if rule.form
+
             # Get the value as text
             text = serialize_value(value, rule)
 
             # Mark element as nil for xsi:nil rendering when render_nil or render_empty is :as_nil
             # This allows adapters to add xsi:nil="true" attribute
+            # Also check value_map for nil/uninitialized/empty -> :nil mappings
             if value.nil?
               render_nil = rule.option(:render_nil)
               render_empty = rule.option(:render_empty)
-              if render_nil == :as_nil || render_empty == :as_nil
+              value_map = rule.option(:value_map) || {}
+              to_map = value_map[:to] || value_map
+
+              if render_nil == :as_nil || render_empty == :as_nil || to_map[:nil] == :nil
+                element.instance_variable_set(:@is_nil, true)
+              end
+            elsif Lutaml::Model::Utils.uninitialized?(value)
+              # Check value_map for :omitted -> :nil mapping
+              value_map = rule.option(:value_map) || {}
+              to_map = value_map[:to] || value_map
+              if to_map[:omitted] == :nil
+                element.instance_variable_set(:@is_nil, true)
+              end
+            elsif Lutaml::Model::Utils.empty?(value)
+              # Check value_map for :empty -> :nil mapping
+              value_map = rule.option(:value_map) || {}
+              to_map = value_map[:to] || value_map
+              if to_map[:empty] == :nil
                 element.instance_variable_set(:@is_nil, true)
               end
             end
@@ -869,7 +974,8 @@ module Lutaml
         #   1. Type xml_namespace (explicit type-level namespace)
         #   2. Rule namespace_class (explicit mapping-level namespace)
         #   3. Parent inheritance (element_form_default: :qualified)
-        #   4. Blank namespace (no inheritance)
+        #   4. Form override (form: :qualified forces namespace inheritance)
+        #   5. Blank namespace (no inheritance)
         #
         # @param rule [CompiledRule] The rule
         # @param parent_namespace_class [Class, nil] Parent's namespace class
@@ -891,7 +997,14 @@ module Lutaml
             return parent_namespace_class
           end
 
-          # Priority 4: Blank namespace (no inheritance)
+          # Priority 4: Form override (form: :qualified forces namespace inheritance)
+          # When form: :qualified is explicitly set on map_element, the element should
+          # inherit the parent's namespace regardless of element_form_default setting
+          if rule.form == :qualified && parent_namespace_class
+            return parent_namespace_class
+          end
+
+          # Priority 5: Blank namespace (no inheritance)
           nil
         end
 
@@ -1076,6 +1189,69 @@ module Lutaml
             rule.attribute_type.serialize(value)
           else
             value.to_s
+          end
+        end
+      end
+
+      # Compatibility wrapper for custom serialization methods
+      #
+      # Custom methods use the old adapter API (doc.create_and_add_element),
+      # but the new transformation works with XmlDataModel. This wrapper
+      # bridges the gap by implementing the old adapter interface while
+      # working with XmlDataModel elements under the hood.
+      class CustomMethodWrapper
+        # Initialize the wrapper
+        #
+        # @param parent [XmlDataModel::XmlElement] Parent element to add children to
+        # @param rule [CompiledRule] The transformation rule
+        def initialize(parent, rule)
+          @parent = parent
+          @rule = rule
+        end
+
+        # Create and add an element (mimics old adapter API)
+        #
+        # @param name [String] Element name
+        # @yield [XmlElement] The created element for customization
+        # @return [XmlElement] The created element
+        def create_and_add_element(name, &block)
+          # Create XmlDataModel element
+          element = Lutaml::Model::XmlDataModel::XmlElement.new(name)
+
+          # Wrap the element with compatibility methods
+          wrapped_element = ElementWrapper.new(element)
+
+          # Add to parent
+          @parent.add_child(element)
+
+          # Yield for customization (e.g., adding text, attributes)
+          yield wrapped_element if block_given?
+
+          element
+        end
+
+        # Wrapper for XmlDataModel::XmlElement that adds compatibility methods
+        # expected by custom serialization methods
+        class ElementWrapper
+          def initialize(element)
+            @element = element
+          end
+
+          # Add text content to the element (old adapter API)
+          #
+          # @param _self [XmlElement] Self parameter (ignored, for compatibility)
+          # @param text [String] Text content
+          # @param cdata [Boolean, Hash] Whether to use CDATA (true or {cdata: true})
+          def add_text(_self, text, cdata = false)
+            # Handle both cdata: true and cdata: {cdata: true} formats
+            use_cdata = if cdata.is_a?(Hash)
+                          cdata[:cdata] || false
+                        else
+                          cdata
+                        end
+
+            @element.text_content = text
+            @element.cdata = use_cdata
           end
         end
       end

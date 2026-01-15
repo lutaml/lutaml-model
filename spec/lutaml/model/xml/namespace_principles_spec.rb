@@ -454,15 +454,17 @@ RSpec.describe "XML Namespace principles" do
       it "applies namespaces correctly in nested structure with prefixed namespace" do
         xml = instance.to_xml(prefix: true)
 
-        # NOTE: Current implementation reuses parent prefix for child namespace
-        # This may need fixing - child should use its own namespace declaration
+        # CORRECT BEHAVIOR: Child uses its own namespace's default presentation
         # Type namespace feature with all prefixed
+        # - Root uses prefix format (use_prefix: true applies to root)
+        # - Child uses default format for its namespace (child uses its own namespace's default presentation)
+        # - Type namespaces use prefix format (W3C constraint: only one default namespace per element)
         expected_xml = <<~XML
           <wr:wrapper xmlns:wr="http://example.com/wrapper">
-            <wr:item xmlns:wr="http://example.com/second" xmlns:first="http://example.com/first">
+            <item xmlns="http://example.com/second" xmlns:first="http://example.com/first">
               <first:name>Item Name</first:name>
-              <wr:alt_name>Alt Item Name</wr:alt_name>
-            </wr:item>
+              <alt_name>Alt Item Name</alt_name>
+            </item>
           </wr:wrapper>
         XML
 
@@ -533,7 +535,7 @@ RSpec.describe "XML Namespace principles" do
       XML
 
       parsed = NamespacePrinciplesSpec::SimpleItem.from_xml(xml_input)
-      xml_output = parsed.to_xml
+      xml_output = parsed.to_xml(prefix: false)
 
       # W3C-compliant: Child elements without namespace need xmlns=""
       expected_xml = <<~XML

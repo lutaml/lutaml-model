@@ -54,6 +54,8 @@ module Lutaml
             rules = [
               Rules::InheritFromParentRule.new,
               Rules::HoistedOnParentRule.new,
+              Rules::ElementFormOptionRule.new,
+              Rules::ReuseParentPrefixRule.new,
               Rules::FormatPreservationRule.new,
               Rules::ExplicitOptionRule.new,
               Rules::NamespaceScopeRule.new,

@@ -149,6 +149,8 @@ RSpec.describe "XML namespace inheritance" do
       parent = parent_model.new(child_elem: child)
       xml = parent.to_xml(prefix: true)
 
+      # CORRECT BEHAVIOR: When parent forces prefix format, child uses default format
+      # for its own namespace (child uses its own namespace's default presentation)
       expected = <<~XML.chomp
         <parent:parent xmlns:parent="http://example.com/parent">
           <child xmlns="http://example.com/child">test</child>
@@ -869,11 +871,14 @@ RSpec.describe "XML namespace inheritance" do
 
       xml = collection.to_xml
 
+      # Architecture: Collection and items use prefix because items have attributes
+      # in child_namespace (different from collection's parent_namespace)
+      # Type namespace (child_ns_attr) is declared on root for efficiency
       expected = <<~XML.chomp
-        <collection xmlns="http://example.com/parent">
-          <item xmlns:child="http://example.com/child" child:child_ns_attr="value1">first</item>
-          <item xmlns:child="http://example.com/child" child:child_ns_attr="value2">second</item>
-          <item xmlns:child="http://example.com/child" child:child_ns_attr="value3">third</item>
+        <collection xmlns="http://example.com/parent" xmlns:child="http://example.com/child">
+          <item child:child_ns_attr="value1">first</item>
+          <item child:child_ns_attr="value2">second</item>
+          <item child:child_ns_attr="value3">third</item>
         </collection>
       XML
 
@@ -915,11 +920,12 @@ RSpec.describe "XML namespace inheritance" do
 
       # W3C attributeFormDefault="unqualified": attributes in same namespace as element
       # have NO prefix (inherit from element's namespace context)
+      # Type namespace (child_ns_attr) is declared on root for efficiency
       expected = <<~XML.chomp
-        <parent:collection xmlns:parent="http://example.com/parent">
-          <parent:item xmlns:child="http://example.com/child" parent_ns_attr="value1" child:child_ns_attr="value1">first</parent:item>
-          <parent:item xmlns:child="http://example.com/child" parent_ns_attr="value2" child:child_ns_attr="value2">second</parent:item>
-          <parent:item xmlns:child="http://example.com/child" parent_ns_attr="value3" child:child_ns_attr="value3">third</parent:item>
+        <parent:collection xmlns:parent="http://example.com/parent" xmlns:child="http://example.com/child">
+          <parent:item parent_ns_attr="value1" child:child_ns_attr="value1">first</parent:item>
+          <parent:item parent_ns_attr="value2" child:child_ns_attr="value2">second</parent:item>
+          <parent:item parent_ns_attr="value3" child:child_ns_attr="value3">third</parent:item>
         </parent:collection>
       XML
 

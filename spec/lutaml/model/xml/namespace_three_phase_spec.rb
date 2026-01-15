@@ -69,22 +69,22 @@ RSpec.describe "Three-phase namespace algorithm" do
 
         # All models use vcard namespace - check string key from to_key
         vcard_key = vcard_namespace.to_key
-        expect(needs[:namespaces]).to have_key(vcard_key)
+        expect(needs.namespaces).to have_key(vcard_key)
         # W3C Rule: Compare namespaces by URI, not object identity
         # NamespaceClassRegistry may canonicalize classes, creating different instances
-        expect(needs[:namespaces][vcard_key][:ns_object].to_key).to eq(vcard_namespace.to_key)
-        expect(needs[:namespaces][vcard_key][:used_in]).to include(:elements)
+        expect(needs.namespaces[vcard_key][:ns_object].to_key).to eq(vcard_namespace.to_key)
+        expect(needs.namespaces[vcard_key][:used_in]).to include(:elements)
 
         # NOTE: Currently may collect duplicate entries for same namespace
         # This is a known issue to fix in future - doesn't affect Phases 2-3
-        expect(needs[:namespaces].size).to be >= 1
+        expect(needs.namespaces.size).to be >= 1
       end
 
       it "tracks child namespace needs separately" do
         mapping = contact_model.mappings_for(:xml)
         needs = collector.collect(nil, mapping, mapper_class: contact_model)
 
-        expect(needs[:children]).to have_key(:n)
+        expect(needs.children).to have_key(:n)
       end
     end
   end

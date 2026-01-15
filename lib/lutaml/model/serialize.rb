@@ -556,15 +556,17 @@ collection)
             xml_mapping = mappings_for(:xml)
 
             if prefix_option == true
-              # Use defined default prefix
-              options[:use_prefix] = xml_mapping.namespace_prefix
+              # Force prefix format for all namespaces
+              # Each namespace uses its own prefix_default
+              options[:use_prefix] = true
             elsif prefix_option.is_a?(String)
               # Use specific custom prefix
               options[:use_prefix] = prefix_option
-            elsif prefix_option == false || prefix_option.nil?
-              # Explicitly use default namespace (no prefix)
-              options[:use_prefix] = nil
+            elsif prefix_option == false
+              # Explicitly force default format (disable format preservation)
+              options[:use_prefix] = false
             end
+            # If prefix_option is nil, don't set use_prefix (allow format preservation)
             options.delete(:prefix) # Remove original option
           end
 
@@ -758,7 +760,8 @@ collection)
             value_for_option(value_map[:nil], attr)
           elsif Utils.empty?(value)
             # Check for new boolean value_map format (from: { empty: true/false })
-            if value_map[:from] && !value_map[:from][:empty].nil?
+            # Only use new format if the value is explicitly boolean (TrueClass or FalseClass)
+            if value_map[:from] && (value_map[:from][:empty].is_a?(TrueClass) || value_map[:from][:empty].is_a?(FalseClass))
               return value_map[:from][:empty]
             end
             # Check for direct boolean format (rule.value_map(:from) returns { empty: true })
@@ -770,7 +773,8 @@ collection)
             value_for_option(value_map[:empty], attr, value)
           elsif Utils.uninitialized?(value)
             # Check for new boolean value_map format (from: { omitted: true/false })
-            if value_map[:from] && !value_map[:from][:omitted].nil?
+            # Only use new format if the value is explicitly boolean (TrueClass or FalseClass)
+            if value_map[:from] && (value_map[:from][:omitted].is_a?(TrueClass) || value_map[:from][:omitted].is_a?(FalseClass))
               return value_map[:from][:omitted]
             end
             # Check for direct boolean format (rule.value_map(:from) returns { omitted: false })

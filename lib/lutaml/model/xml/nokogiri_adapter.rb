@@ -483,7 +483,12 @@ module Lutaml
           xml.create_and_add_element(tag_name, attributes: attributes, prefix: prefix) do |inner_xml|
             # Add text content if present
             if element.text_content
-              inner_xml.text(element.text_content)
+              # Check if content should be wrapped in CDATA
+              if element.cdata
+                inner_xml.cdata(element.text_content)
+              else
+                inner_xml.text(element.text_content)
+              end
             end
 
             # Recursively build child elements, passing namespace context
@@ -562,11 +567,46 @@ module Lutaml
             if ns
               element.namespace = ns
             else
-              # CRITICAL FIX: Namespace not found in scopes
-              # This means the element needs to declare its own namespace locally
-              # This happens when child element has different namespace from parent
+              # CRITICAL FIX: Check if namespace is declared on parent before adding locally
+              # When parent declares the namespace with the SAME format (prefix or default),
+              # child should use parent's namespace declaration without re-declaring it
               target_prefix = element_node.use_prefix
-              if target_prefix.nil?
+              parent_has_namespace = parent && parent.namespace_scopes.any? { |n| n.href == target_uri }
+
+              if parent_has_namespace
+                # Parent has the namespace declared - check if it's using the SAME format
+                parent_ns = if target_prefix
+                             # Child wants prefix format - check if parent has prefix declaration
+                             parent.namespace_scopes.find { |n| n.href == target_uri && n.prefix == target_prefix }
+                           else
+                             # Child wants default format - check if parent has default declaration
+                             parent.namespace_scopes.find { |n| n.href == target_uri && n.prefix.nil? }
+                           end
+
+                if parent_ns
+                  # Parent has the SAME format declaration - use parent's namespace
+                  # Set element's namespace to parent's namespace (after adding to parent)
+                  # We need to defer setting the namespace until after adding to parent
+                  # Store the parent namespace for later use
+                  @deferred_namespace = parent_ns
+                  nil
+                else
+                  # Parent has different format - add namespace declaration locally
+                  if target_prefix.nil?
+                    # Default format: add xmlns="uri" declaration
+                    element.add_namespace(nil, target_uri)
+                    # Find the newly added namespace and set it
+                    ns = element.namespace_scopes.find { |n| n.href == target_uri }
+                    element.namespace = ns if ns
+                  else
+                    # Prefix format: add xmlns:prefix="uri" declaration
+                    element.add_namespace(target_prefix, target_uri)
+                    # Find the newly added namespace and set it
+                    ns = element.namespace_scopes.find { |n| n.href == target_uri && n.prefix == target_prefix }
+                    element.namespace = ns if ns
+                  end
+                end
+              elsif target_prefix.nil?
                 # Default format: add xmlns="uri" declaration
                 element.add_namespace(nil, target_uri)
                 # Find the newly added namespace and set it
@@ -585,6 +625,13 @@ module Lutaml
           # Add to parent AFTER namespace is set
           # This prevents the element from inheriting parent's namespace before declaring its own
           parent.add_child(element) if parent
+
+          # CRITICAL FIX: Set deferred namespace after adding to parent
+          # This allows the element to use parent's namespace declaration without re-declaring it
+          if @deferred_namespace
+            element.namespace = @deferred_namespace
+            @deferred_namespace = nil
+          end
 
           # CRITICAL FIX: Handle blank namespace elements
           # When element has no namespace_class, it should remain in blank namespace
@@ -630,8 +677,14 @@ module Lutaml
 
           # Add text content
           if xml_element.text_content
-            text_node = ::Nokogiri::XML::Text.new(xml_element.text_content.to_s, doc)
-            element.add_child(text_node)
+            # Check if content should be wrapped in CDATA
+            if xml_element.cdata
+              cdata_node = ::Nokogiri::XML::CDATA.new(doc, xml_element.text_content.to_s)
+              element.add_child(cdata_node)
+            else
+              text_node = ::Nokogiri::XML::Text.new(xml_element.text_content.to_s, doc)
+              element.add_child(text_node)
+            end
           end
 
           # Recursively build children (PARALLEL TRAVERSAL by index)
