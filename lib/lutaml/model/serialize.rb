@@ -757,8 +757,28 @@ collection)
           if value.nil?
             value_for_option(value_map[:nil], attr)
           elsif Utils.empty?(value)
+            # Check for new boolean value_map format (from: { empty: true/false })
+            if value_map[:from] && !value_map[:from][:empty].nil?
+              return value_map[:from][:empty]
+            end
+            # Check for direct boolean format (rule.value_map(:from) returns { empty: true })
+            # Only return directly if it's a boolean value (TrueClass/FalseClass), not a symbol
+            if value_map[:empty].is_a?(TrueClass) || value_map[:empty].is_a?(FalseClass)
+              return value_map[:empty]
+            end
+            # Fall back to legacy value_map format
             value_for_option(value_map[:empty], attr, value)
           elsif Utils.uninitialized?(value)
+            # Check for new boolean value_map format (from: { omitted: true/false })
+            if value_map[:from] && !value_map[:from][:omitted].nil?
+              return value_map[:from][:omitted]
+            end
+            # Check for direct boolean format (rule.value_map(:from) returns { omitted: false })
+            # Only return directly if it's a boolean value (TrueClass/FalseClass), not a symbol
+            if value_map[:omitted].is_a?(TrueClass) || value_map[:omitted].is_a?(FalseClass)
+              return value_map[:omitted]
+            end
+            # Fall back to legacy value_map format
             value_for_option(value_map[:omitted], attr)
           else
             value

@@ -128,7 +128,7 @@ RSpec.describe Address do
           <Birthdate>1985-05-20</Birthdate>
           <LastLogin>1985-05-20T09:00:00+00:00</LastLogin>
           <WakeupTime>06:45:00</WakeupTime>
-          <Active/>
+          <Active>false</Active>
         </Person>
       </Address>
     XML

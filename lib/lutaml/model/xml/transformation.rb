@@ -563,6 +563,18 @@ module Lutaml
             return value_map[:omitted] == :omit || true # Default: omit uninitialized
           end
 
+          # Handle boolean value_map for true/false values
+          # Check if this is a boolean type with custom value_map
+          if value.is_a?(TrueClass) || value.is_a?(FalseClass)
+            value_map = rule.option(:value_map) || {}
+            # Convert boolean to symbol key for hash access
+            boolean_key = value ? :true : :false
+            if value_map[:to] && value_map[:to][boolean_key]
+              mapped_value = value_map[:to][boolean_key]
+              return true if mapped_value == :omitted
+            end
+          end
+
           # Skip if using default and render_default is false
           # But for collections, check if they were mutated (non-empty)
           if model_instance.respond_to?(:using_default?) &&
@@ -618,6 +630,18 @@ module Lutaml
           elsif Lutaml::Model::Utils.uninitialized?(value)
             value_map = rule.option(:value_map) || {}
             return value_map[:omitted] == :omit || true # Default: omit uninitialized
+          end
+
+          # Handle boolean value_map for true/false values
+          # Check if this is a boolean type with custom value_map
+          if value.is_a?(TrueClass) || value.is_a?(FalseClass)
+            value_map = rule.option(:value_map) || {}
+            # Convert boolean to symbol key for hash access
+            boolean_key = value ? :true : :false
+            if value_map[:to] && value_map[:to][boolean_key]
+              mapped_value = value_map[:to][boolean_key]
+              return true if mapped_value == :omitted
+            end
           end
 
           # Skip if delegate object is using default and render_default is false
@@ -1003,6 +1027,21 @@ module Lutaml
         def serialize_value(value, rule)
           return nil if value.nil?
           return nil if Lutaml::Model::Utils.uninitialized?(value)
+
+          # Handle boolean value_map for true: :empty
+          # This MUST be checked before the Value type wrapping below
+          # When boolean true maps to :empty, serialize as empty string (<Active/>)
+          if value.is_a?(TrueClass) || value.is_a?(FalseClass)
+            value_map = rule.option(:value_map) || {}
+            # Convert boolean to symbol key for hash access
+            boolean_key = value ? :true : :false
+            if value_map[:to] && value_map[:to][boolean_key]
+              mapped_value = value_map[:to][boolean_key]
+              return "" if mapped_value == :empty
+              # For :omitted, return nil (caller will skip rendering)
+              return nil if mapped_value == :omitted
+            end
+          end
 
           # Handle as_list and delimiter for array values BEFORE serialization
           # These features convert arrays to delimited strings for XML attributes
