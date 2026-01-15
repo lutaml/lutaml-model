@@ -422,7 +422,13 @@ RSpec.describe "XML Namespace Handling" do
         xml do
           namespace animal_ns
           element "Zoo"
-          map_element "Animal", to: :animals
+          map_element "Animal", to: :animals, polymorphic: {
+            attribute: :type_discriminator,
+            class_map: {
+              "dog" => "Dog",
+              "cat" => "Cat",
+            },
+          }
         end
       end
 
@@ -478,10 +484,21 @@ RSpec.describe "XML Namespace Handling" do
         xml_namespace type_ns
       end
 
+      # Create separate model for explicit namespace element
+      explicit_model = Class.new(Lutaml::Model::Serializable) do
+        attribute :value, :string
+
+        xml do
+          namespace attr_ns
+          element "explicit"
+          map_content to: :value
+        end
+      end
+
       model = Class.new(Lutaml::Model::Serializable) do
         attribute :regular, :string
         attribute :typed, custom_type
-        attribute :explicit, :string
+        attribute :explicit, explicit_model
 
         xml do
           namespace model_ns
@@ -489,15 +506,14 @@ RSpec.describe "XML Namespace Handling" do
 
           map_element "regular", to: :regular  # Uses model namespace
           map_element "typed", to: :typed      # Uses type namespace
-          map_element "explicit", to: :explicit,
-            namespace: attr_ns                 # Uses explicit namespace
+          map_element "explicit", to: :explicit  # Uses explicit model's namespace
         end
       end
 
       instance = model.new(
         regular: "model-ns",
         typed: "type-ns",
-        explicit: "attr-ns"
+        explicit: explicit_model.new(value: "attr-ns")
       )
 
       # Prefix true means the local element uses prefix form, it has no bearing
@@ -507,12 +523,12 @@ RSpec.describe "XML Namespace Handling" do
       # Model namespace for root (mdl prefix)
       # regular element has no explicit namespace - blank namespace (no prefix)
       # Type namespace hoisted to root (typ prefix) - used by typed element
-      # Explicit namespace declared locally on explicit element (attr prefix)
+      # Explicit namespace from explicit model's class (default format)
       expected_xml = <<~XML
         <mdl:Mixed xmlns:mdl="http://example.com/model" xmlns:typ="http://example.com/types">
           <regular>model-ns</regular>
           <typ:typed>type-ns</typ:typed>
-          <attr:explicit xmlns:attr="http://example.com/attrs">attr-ns</attr:explicit>
+          <explicit xmlns="http://example.com/attrs">attr-ns</explicit>
         </mdl:Mixed>
       XML
 
