@@ -59,6 +59,8 @@ create corresponding LutaML models.
 Currently, the following schema formats are supported for import:
 
 * XSD (https://w3.org/TR/xmlschema-1/[XML Schema Definition Language])
+* JSON Schema (https://json-schema.org/[JSON Schema specification])
+* YAML Schema (YAML-based JSON Schema definitions)
 
 === XML Schema (XSD) import
 
@@ -224,7 +226,7 @@ require_relative 'path/to/directory/*.rb'
 ----
 ====
 
-=== JSON/YAML Schema import
+=== JSON Schema import
 
 Lutaml::Model supports importing JSON Schema definitions to generate Ruby model classes. This enables you to create Ruby models that match your JSON Schema, supporting schema-driven development and interoperability.
 
@@ -366,4 +368,249 @@ class PolymorphicModel < Lutaml::Model::Serializable
 end
 ----
 
-This approach enables polymorphic deserialization and validation, matching the intent of the JSON
+This approach enables polymorphic deserialization and validation, matching the intent of the JSON Schema definition.
+
+==== Advanced features
+
+===== File generation options
+
+Like XML Schema import, JSON Schema import supports file generation:
+
+[source,ruby]
+----
+require 'lutaml/model/schema/json_schema'
+require 'json'
+
+# Load your JSON Schema
+schema = JSON.parse(File.read("your_schema.json"))
+
+# Generate model classes with file output
+model_classes = Lutaml::Model::Schema::JsonSchema.generate_model_classes(schema)
+
+# Save to files
+output_dir = 'generated_models'
+Dir.mkdir(output_dir) unless Dir.exist?(output_dir)
+
+model_classes.each do |class_name, class_code|
+  # Convert class name to file name (e.g., "MyApp_User" -> "my_app_user.rb")
+  file_name = class_name.gsub(/([A-Z]+)([A-Z][a-z])/,'\\1_\\2')
+                        .gsub(/([a-z\d])([A-Z])/,'\\1_\\2')
+                        .downcase + '.rb'
+  
+  File.write(File.join(output_dir, file_name), class_code)
+end
+----
+
+===== Validation constraints
+
+JSON Schema validation constraints are preserved in the generated models:
+
+[source,ruby]
+----
+# Schema with validation constraints
+schema = {
+  "$defs" => {
+    "User" => {
+      "type" => "object",
+      "properties" => {
+        "name" => { 
+          "type" => "string",
+          "enum" => ["Alice", "Bob", "Charlie"]
+        },
+        "email" => { 
+          "type" => "string",
+          "pattern" => "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+        }
+      }
+    }
+  }
+}
+
+# Generated Ruby class includes validations
+model_classes = Lutaml::Model::Schema::JsonSchema.generate_model_classes(schema)
+puts model_classes["User"]
+# => class User < Lutaml::Model::Serializable
+#      attribute :name, :string, values: ["Alice", "Bob", "Charlie"]
+#      attribute :email, :string, pattern: /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
+#    end
+----
+
+===== Collection support
+
+Arrays in JSON Schema are automatically mapped to LutaML collections:
+
+[source,ruby]
+----
+# Schema with array property
+schema = {
+  "$defs" => {
+    "Library" => {
+      "type" => "object",
+      "properties" => {
+        "books" => {
+          "type" => "array",
+          "items" => { "$ref" => "#/$defs/Book" },
+          "minItems" => 1,
+          "maxItems" => 1000
+        }
+      }
+    },
+    "Book" => {
+      "type" => "object",
+      "properties" => {
+        "title" => { "type" => "string" },
+        "isbn" => { "type" => "string" }
+      }
+    }
+  }
+}
+
+# Generates collection with constraints
+model_classes = Lutaml::Model::Schema::JsonSchema.generate_model_classes(schema)
+puts model_classes["Library"]
+# => class Library < Lutaml::Model::Serializable
+#      attribute :books, Book, collection: 1..1000
+#    end
+----
+
+===== Working with generated models
+
+Once generated, the models work seamlessly with JSON/YAML:
+
+[example]
+====
+[source,ruby]
+----
+# Generate and evaluate the models
+model_classes = Lutaml::Model::Schema::JsonSchema.generate_model_classes(schema)
+
+# Evaluate the class definitions to make them available
+model_classes.each { |name, code| eval(code) }
+
+# Or require from files if saved to disk
+# require_relative 'generated_models/person'
+
+# Create instances
+person = Person.new(name: "Alice", age: 30)
+
+# Serialize to JSON
+json = person.to_json
+# => {"name":"Alice","age":30}
+
+# Parse from JSON
+parsed_person = Person.from_json(json)
+parsed_person.name # => "Alice"
+parsed_person.age  # => 30
+----
+====
+
+=== YAML Schema import
+
+YAML Schema import works identically to JSON Schema import, using the same underlying implementation. YAML Schema definitions follow the JSON Schema specification but are written in YAML format for better readability.
+
+==== Overview
+
+The `Lutaml::Model::Schema::YamlSchema.generate_model_classes` method takes a YAML Schema (as a Ruby hash) and generates Ruby class definitions, just like the JSON Schema import functionality.
+
+==== Usage
+
+[source,ruby]
+----
+require 'lutaml/model/schema/yaml_schema'
+require 'yaml'
+
+# Load YAML Schema
+yaml_content = File.read("your_schema.yaml")
+schema = YAML.safe_load(yaml_content)
+
+# Generate Ruby model classes
+model_classes = Lutaml::Model::Schema::YamlSchema.generate_model_classes(schema)
+
+# Use the generated models
+model_classes.each { |name, code| eval(code) }
+----
+
+==== Example YAML Schema
+
+[source,yaml]
+----
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$defs:
+  Person:
+    type: object
+    properties:
+      name:
+        type: string
+      age:
+        type: integer
+      address:
+        $ref: "#/$defs/Address"
+    required: [name]
+  
+  Address:
+    type: object
+    properties:
+      street:
+        type: string
+      city:
+        type: string
+      postal_code:
+        type: string
+        pattern: "^[0-9]{5}(-[0-9]{4})?$"
+----
+
+==== Integration with existing workflows
+
+YAML schema import integrates with existing LutaML workflows just like JSON Schema import:
+
+[source,ruby]
+----
+# Import YAML schema and generate models
+schema = YAML.safe_load(File.read("api_schema.yaml"))
+model_classes = Lutaml::Model::Schema::YamlSchema.generate_model_classes(schema)
+
+# Or import JSON schema
+# schema = JSON.parse(File.read("api_schema.json"))
+# model_classes = Lutaml::Model::Schema::JsonSchema.generate_model_classes(schema)
+
+# Save generated models to your project
+model_classes.each do |class_name, code|
+  File.write("app/models/#{class_name.downcase}.rb", code)
+end
+
+# Use in your application
+require_relative 'app/models/user'
+require_relative 'app/models/profile'
+
+# Models work with all supported formats
+user = User.new(name: "Alice", email: "alice@example.com")
+
+# Serialize to different formats
+user.to_json   # JSON output
+user.to_xml    # XML output (if XML mappings defined)
+user.to_yaml   # YAML output
+----
+
+=== Best practices
+
+==== Schema organization
+
+Structure your schemas for optimal code generation:
+
+* Use clear, descriptive names for schema definitions
+* Group related schemas in the same file
+* Use `$ref` for reusability and to avoid duplication
+* Include validation constraints in the schema rather than adding them later
+
+==== Generated code management
+
+* Save generated models to a dedicated directory
+* Consider adding a header comment to generated files indicating they are auto-generated
+* Use version control to track changes when regenerating models
+* Test generated models with real data to ensure correctness
+
+==== Performance considerations
+
+* Large schemas may generate many classes - consider splitting into modules
+* Use collection constraints to prevent unbounded arrays
+* Consider lazy loading for deeply nested object hierarchies
