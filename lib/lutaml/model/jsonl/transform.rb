@@ -3,7 +3,8 @@ module Lutaml
     module Jsonl
       class Transform < Lutaml::Model::KeyValueTransform
         def data_to_model(data, format, options = {})
-          mappings = defined_mappings_for(:jsonl) || mappings_for(:json, __register)
+          mappings = defined_mappings_for(:jsonl) || mappings_for(:json,
+                                                                  __register)
 
           super(data, format, options.merge(mappings: mappings))
         end

@@ -6,7 +6,7 @@ require "lutaml/model"
 #     attribute :text, Lutaml::Model::Type::String
 
 #     xml do
-#       root "italic"
+#       element "italic"
 #       map_content to: :text
 #     end
 #   end
@@ -16,7 +16,7 @@ require "lutaml/model"
 #     attribute :italic, Italic
 
 #     xml do
-#       root "b"
+#       element "b"
 #       mixed do
 #         map_content to: :text
 #         map "italic", to: :italic
@@ -43,7 +43,7 @@ require "lutaml/model"
 #     attribute :make, Lutaml::Model::Type::String
 
 #     xml do
-#       root "car"
+#       element "car"
 #       map_element "description", to: :description
 #       map_element "make", to: :make
 #     end

@@ -1,0 +1,1394 @@
+---
+title: W3C XML Schema Primer Style Guide
+nav_order: 10
+---
+
+= XML Schema Primer Style Guide for LutaML::Model
+
+== Introduction
+
+This guide provides a comprehensive introduction to XML modeling with LutaML::Model, structured similarly to the W3C XML Schema Primer (https://www.w3.org/TR/xmlschema-0/). It covers all essential concepts from basic type definitions to advanced namespace handling and type derivation.
+
+=== What You Will Learn
+
+* How to define XML models with namespaces
+* Namespace qualification (qualified vs unqualified)
+* Type system: simple types, complex types, inheritance
+* Type namespaces for attribute/element typing
+* Prefix control and namespace hoisting
+* Multi-namespace documents
+* W3C compliance and best practices
+
+=== Prerequisites
+
+* Basic Ruby knowledge
+* Familiarity with XML concepts
+* Understanding of link:../README.adoc[LutaML::Model basics]
+
+== Section 1: Basic Concepts - The Purchase Order
+
+=== General
+
+We'll start with a simple purchase order model to demonstrate core LutaML::Model concepts. This example mirrors the classic W3C XML Schema Primer's purchase order but expressed in LutaML::Model's Ruby DSL.
+
+=== 1.1 Defining a Simple Model
+
+Let's create a basic US address model:
+
+.Defining a simple address model
+[source,ruby]
+----
+class UsAddress < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :street, :string
+  attribute :city, :string
+  attribute :state, :string
+  attribute :zip, :decimal
+
+  xml do
+    root "USAddress"
+    map_element "name", to: :name
+    map_element "street", to: :street
+    map_element "city", to: :city
+    map_element "state", to: :state
+    map_element "zip", to: :zip
+  end
+end
+----
+
+.Serialization output
+[source,xml]
+----
+<USAddress>
+  <name>John Smith</name>
+  <street>123 Maple Street</street>
+  <city>Mill Valley</city>
+  <state>CA</state>
+  <zip>90952</zip>
+</USAddress>
+----
+
+=== 1.2 Defining a Complex Model with Nested Elements
+
+Now let's create a purchase order that uses the address:
+
+.Purchase order with nested address
+[source,ruby]
+----
+class PurchaseOrder < Lutaml::Model::Serializable
+  attribute :ship_to, UsAddress
+  attribute :bill_to, UsAddress
+  attribute :comment, :string
+
+  xml do
+    root "purchaseOrder"
+    map_element "shipTo", to: :ship_to
+    map_element "billTo", to: :bill_to
+    map_element "comment", to: :comment
+  end
+end
+----
+
+.Nested model serialization
+[source,xml]
+----
+<purchaseOrder>
+  <shipTo>
+    <name>John Smith</name>
+    <street>123 Maple Street</street>
+    <city>Mill Valley</city>
+    <state>CA</state>
+    <zip>90952</zip>
+  </shipTo>
+  <billTo>
+    <name>John Smith</name>
+    <street>123 Maple Street</street>
+    <city>Mill Valley</city>
+    <state>CA</state>
+    <zip>90952</zip>
+  </billTo>
+  <comment>Hurry, my lawn is going wild!</comment>
+</purchaseOrder>
+----
+
+=== 1.3 Attributes
+
+In XML Schema, attributes define element properties. In LutaML::Model, use `map_attribute`:
+
+.Model with XML attributes
+[source,ruby]
+----
+class PurchaseOrder < Lutaml::Model::Serializable
+  attribute :order_date, :string
+  attribute :ship_to, UsAddress
+
+  xml do
+    root "purchaseOrder"
+    map_attribute "orderDate", to: :order_date
+    map_element "shipTo", to: :ship_to
+  end
+end
+----
+
+.Serialization with attributes
+[source,xml]
+----
+<purchaseOrder orderDate="1999-10-20">
+  <shipTo>
+    <name>Alice Smith</name>
+    <street>123 Maple Street</street>
+    <city>Mill Valley</city>
+    <state>CA</state>
+    <zip>90952</zip>
+  </shipTo>
+</purchaseOrder>
+----
+
+=== 1.4 Collections
+
+Model repeating elements using the `collection:` option:
+
+.Item collection
+[source,ruby]
+----
+class Item < Lutaml::Model::Serializable
+  attribute :product_name, :string
+  attribute :quantity, :integer
+  attribute :us_price, :decimal
+
+  xml do
+    root "Item"
+    map_element "productName", to: :product_name
+    map_element "quantity", to: :quantity
+    map_element "USPrice", to: :us_price
+  end
+end
+
+class PurchaseOrder < Lutaml::Model::Serializable
+  attribute :items, Item, collection: true
+
+  xml do
+    root "purchaseOrder"
+    map_element "items", to: :items
+  end
+end
+----
+
+.Collection serialization
+[source,xml]
+----
+<purchaseOrder>
+  <items>
+    <Item>
+      <productName>Laptop</productName>
+      <quantity>1</quantity>
+      <USPrice>999.99</USPrice>
+    </Item>
+    <Item>
+      <productName>Mouse</productName>
+      <quantity>2</quantity>
+      <USPrice>29.99</USPrice>
+    </Item>
+  </items>
+</purchaseOrder>
+----
+
+== Section 2: Advanced Concepts I - Namespaces, Schemas & Qualification
+
+=== General
+
+XML namespaces prevent element name conflicts when combining XML from different sources. LutaML::Model provides comprehensive namespace support through `XmlNamespace` classes.
+
+=== 2.1 Defining Namespaces
+
+Create namespace classes inheriting from `Lutaml::Model::Xml::W3c::XmlNamespace`:
+
+.Defining a namespace
+[source,ruby]
+----
+class PoNamespace < Lutaml::Model::Xml::W3c::XmlNamespace
+  uri "http://example.com/po"
+  prefix_default "po"
+end
+----
+
+Where,
+
+`uri`:: The unique namespace URI (required)
+`prefix_default`:: The default prefix to use (required)
+
+=== 2.2 Target Namespaces & Unqualified Locals
+
+The default behavior in LutaML::Model (similar to W3C's `elementFormDefault="unqualified"`) is:
+
+* **Root element**: In target namespace
+* **Local elements**: In blank namespace (no namespace)
+
+NOTE: This differs from W3C XML Schema's `elementFormDefault="qualified"` default. LutaML::Model defaults to unqualified locals for cleaner XML.
+
+.Unqualified locals example
+[source,ruby]
+----
+class PoNamespace < Lutaml::Model::Xml::W3c::XmlNamespace
+  uri "http://example.com/po"
+  prefix_default "po"
+end
+
+class PurchaseOrder < Lutaml::Model::Serializable
+  attribute :ship_to, UsAddress
+  attribute :bill_to, UsAddress
+
+  xml do
+    root "purchaseOrder"
+    namespace PoNamespace
+
+    map_element "shipTo", to: :ship_to
+    map_element "billTo", to: :bill_to
+  end
+end
+----
+
+.Output (default namespace format)
+[source,xml]
+----
+<purchaseOrder xmlns="http://example.com/po">
+  <shipTo>
+    <name>Alice Smith</name>
+    <street>123 Maple Street</street>
+    <city>Mill Valley</city>
+    <state>CA</state>
+    <zip>90952</zip>
+  </shipTo>
+  <billTo>
+    <name>Robert Smith</name>
+    <street>8 Oak Avenue</street>
+    <city>Mill Valley</city>
+    <state>CA</state>
+    <zip>90952</zip>
+  </billTo>
+</purchaseOrder>
+----
+
+NOTE: Root element `<purchaseOrder>` is in the namespace (via default xmlns), but children `<shipTo>`, `<billTo>`, and their contents are in blank namespace.
+
+=== 2.3 Qualified Locals (elementFormDefault="qualified")
+
+To force ALL elements into the target namespace (including local elements), use `element_form_default :qualified`:
+
+.Qualified locals with element_form_default
+[source,ruby]
+----
+class PoNamespace < Lutaml::Model::Xml::W3c::XmlNamespace
+  uri "http://example.com/po"
+  prefix_default "po"
+  element_form_default :qualified  # Force ALL elements into namespace
+end
+
+class PurchaseOrder < Lutaml::Model::Serializable
+  attribute :ship_to, UsAddress
+
+  xml do
+    root "purchaseOrder"
+    namespace PoNamespace
+
+    map_element "shipTo", to: :ship_to
+  end
+end
+----
+
+.Output (default namespace format with qualified locals)
+[source,xml]
+----
+<purchaseOrder xmlns="http://example.com/po">
+  <shipTo>
+    <name>Alice Smith</name>
+    <street>123 Maple Street</street>
+    <city>Mill Valley</city>
+    <state>CA</state>
+    <zip>90952</zip>
+  </shipTo>
+</purchaseOrder>
+----
+
+NOTE: With `element_form_default :qualified`, ALL elements are in the namespace via default xmlns.
+
+.Output (prefix format with qualified locals)
+[source,xml]
+----
+<po:purchaseOrder xmlns:po="http://example.com/po">
+  <po:shipTo>
+    <po:name>Alice Smith</po:name>
+    <po:street>123 Maple Street</po:street>
+    <po:city>Mill Valley</po:city>
+    <po:state>CA</po:state>
+    <po:zip>90952</po:zip>
+  </po:shipTo>
+</po:purchaseOrder>
+----
+
+NOTE: With prefix format, ALL elements use the `po:` prefix.
+
+=== 2.4 attributeFormDefault
+
+The `attribute_form_default` setting controls attribute namespace qualification:
+
+* **`:unqualified`** (default): Attributes have no namespace
+* **`:qualified`**: Attributes must use prefix format
+
+IMPORTANT: Per W3C specification, namespaced attributes CANNOT use default namespace format—they MUST use a prefix.
+
+.attributeFormDefault behavior
+[source,ruby]
+----
+class PoNamespace < Lutaml::Model::Xml::W3c::XmlNamespace
+  uri "http://example.com/po"
+  prefix_default "po"
+  attribute_form_default :unqualified  # Default
+end
+
+class PurchaseOrder < Lutaml::Model::Serializable
+  attribute :order_date, :string
+
+  xml do
+    root "purchaseOrder"
+    namespace PoNamespace
+
+    map_attribute "orderDate", to: :order_date
+  end
+end
+----
+
+.Output (unqualified attributes)
+[source,xml]
+----
+<purchaseOrder xmlns="http://example.com/po" orderDate="1999-10-20">
+  <!-- ... -->
+</purchaseOrder>
+----
+
+NOTE: Attribute `orderDate` has no namespace prefix (unqualified).
+
+.Qualified attributes example
+[source,ruby]
+----
+class PoNamespace < Lutaml::Model::Xml::W3c::XmlNamespace
+  uri "http://example.com/po"
+  prefix_default "po"
+  attribute_form_default :qualified  # Force attribute qualification
+end
+----
+
+.Output (qualified attributes with prefix)
+[source,xml]
+----
+<po:purchaseOrder xmlns:po="http://example.com/po" po:orderDate="1999-10-20">
+  <!-- ... -->
+</po:purchaseOrder>
+----
+
+NOTE: Qualified attribute MUST use prefix format (cannot use default xmlns per W3C).
+
+=== 2.5 Global vs Local Declarations
+
+In W3C XML Schema:
+
+* **Global declarations**: Direct children of `<schema>` element, always qualified
+* **Local declarations**: Within complex types, inherit `elementFormDefault`
+
+In LutaML::Model:
+
+* **Root element**: Always global (qualified)
+* **Child elements**: Local, inherit namespace behavior from `element_form_default`
+
+=== 2.6 Per-Element Form Override
+
+Override the default `element_form_default` for specific elements using the `form:` option:
+
+.Per-element form override
+[source,ruby]
+----
+class PoNamespace < Lutaml::Model::Xml::W3c::XmlNamespace
+  uri "http://example.com/po"
+  prefix_default "po"
+  element_form_default :qualified  # Default to qualified
+end
+
+class PurchaseOrder < Lutaml::Model::Serializable
+  attribute :ship_to, UsAddress
+  attribute :comment, :string  # This one will be unqualified
+
+  xml do
+    root "purchaseOrder"
+    namespace PoNamespace
+
+    map_element "shipTo", to: :ship_to
+    map_element "comment", to: :comment, form: :unqualified  # Override
+  end
+end
+----
+
+.Output (mixed qualification)
+[source,xml]
+----
+<purchaseOrder xmlns="http://example.com/po">
+  <shipTo>
+    <name>Alice Smith</name>
+    <!-- All children qualified by default -->
+  </shipTo>
+  <comment xmlns="">Hurry, my lawn is going wild!</comment>
+</purchaseOrder>
+----
+
+NOTE: The `<comment>` element uses `xmlns=""` to explicitly declare blank namespace (form: :unqualified override).
+
+== Section 3: Type Namespaces
+
+=== General
+
+**Type namespaces** allow you to associate namespaces with specific types, ensuring those types automatically use their namespace wherever they're used. This is particularly powerful for:
+
+* Reusable types from standard vocabularies (Dublin Core, DCTerms)
+* Multi-namespace document structures
+* Automatic namespace application without manual mapping
+
+=== 3.1 Defining Type Namespaces
+
+Use the `xml do` block with `namespace` directive to assign a namespace to custom Type classes:
+
+.Defining a Type with namespace using xml do block (RECOMMENDED)
+[source,ruby]
+----
+class DcNamespace < Lutaml::Model::Xml::W3c::XmlNamespace
+  uri "http://purl.org/dc/elements/1.1/"
+  prefix_default "dc"
+end
+
+class DcTitleType < Lutaml::Model::Type::String
+  xml do
+    namespace DcNamespace
+  end
+end
+----
+
+Where,
+
+`xml do`:: Block for XML configuration (consistent with Models)
+`namespace`:: Associates a namespace class with this Type
+`DcTitleType`:: Inherits from String but adds Dublin Core namespace
+
+IMPORTANT: The class-level `xml_namespace` directive is deprecated and will raise a `RuntimeError`. Always use the `xml do` block syntax for Type namespace configuration.
+
+=== 3.2 Using Type Namespaces in Models
+
+When a Type has a namespace, LutaML::Model automatically applies it:
+
+.Type namespace usage
+[source,ruby]
+----
+class Document < Lutaml::Model::Serializable
+  attribute :title, DcTitleType  # Automatically uses DcNamespace
+
+  xml do
+    root "document"
+    map_element "title", to: :title
+  end
+end
+
+doc = Document.new(title: "Example Document")
+puts doc.to_xml
+----
+
+.Output
+[source,xml]
+----
+<document xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <dc:title>Example Document</dc:title>
+</document>
+----
+
+NOTE: The `title` element automatically uses `dc:` prefix because its Type (`DcTitleType`) has `namespace DcNamespace` in its `xml do` block.
+
+=== 3.3 Multiple Type Namespaces
+
+A single model can use multiple Type namespaces:
+
+.Multiple Type namespaces
+[source,ruby]
+----
+class DcNamespace < Lutaml::Model::Xml::W3c::XmlNamespace
+  uri "http://purl.org/dc/elements/1.1/"
+  prefix_default "dc"
+end
+
+class DctermsNamespace < Lutaml::Model::Xml::W3c::XmlNamespace
+  uri "http://purl.org/dc/terms/"
+  prefix_default "dcterms"
+end
+
+class DcTitleType < Lutaml::Model::Type::String
+  xml do
+    namespace DcNamespace
+  end
+end
+
+class DctermsCreatedType < Lutaml::Model::Type::DateTime
+  xml do
+    namespace DctermsNamespace
+  end
+end
+
+class Metadata < Lutaml::Model::Serializable
+  attribute :title, DcTitleType
+  attribute :created, DctermsCreatedType
+
+  xml do
+    root "metadata"
+    map_element "title", to: :title
+    map_element "created", to: :created
+  end
+end
+----
+
+.Output
+[source,xml]
+----
+<metadata xmlns:dc="http://purl.org/dc/elements/1.1/"
+          xmlns:dcterms="http://purl.org/dc/terms/">
+  <dc:title>Example</dc:title>
+  <dcterms:created>2024-01-15T10:00:00Z</dcterms:created>
+</metadata>
+----
+
+=== 3.4 Type Namespaces vs Model Namespaces
+
+When both a Model namespace and a Type namespace apply, **Type namespace takes precedence** for elements:
+
+.Type namespace precedence
+[source,ruby]
+----
+class ModelNamespace < Lutaml::Model::Xml::W3c::XmlNamespace
+  uri "http://example.com/model"
+  prefix_default "mod"
+end
+
+class DcNamespace < Lutaml::Model::Xml::W3c::XmlNamespace
+  uri "http://purl.org/dc/elements/1.1/"
+  prefix_default "dc"
+end
+
+class DcTitleType < Lutaml::Model::Type::String
+  xml do
+    namespace DcNamespace
+  end
+end
+
+class Document < Lutaml::Model::Serializable
+  attribute :title, DcTitleType
+
+  xml do
+    root "document"
+    namespace ModelNamespace  # Model namespace
+    map_element "title", to: :title  # Uses Type namespace (DcNamespace)
+  end
+end
+----
+
+.Output (Type namespace wins)
+[source,xml]
+----
+<document xmlns:mod="http://example.com/model"
+          xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <dc:title>Example</dc:title>
+</document>
+----
+
+NOTE: `<title>` uses `dc:` prefix (Type namespace), not `mod:` (Model namespace).
+
+=== 3.5 Explicit Namespace Override
+
+Override Type namespace with explicit namespace on mapping:
+
+.Explicit override of Type namespace
+[source,ruby]
+----
+class OverrideNamespace < Lutaml::Model::Xml::W3c::XmlNamespace
+  uri "http://example.com/override"
+  prefix_default "ovr"
+end
+
+class Document < Lutaml::Model::Serializable
+  attribute :title, DcTitleType
+
+  xml do
+    root "document"
+    map_element "title", to: :title, namespace: OverrideNamespace
+  end
+end
+----
+
+.Output (explicit namespace overrides Type namespace)
+[source,xml]
+----
+<document xmlns:ovr="http://example.com/override">
+  <ovr:title>Example</ovr:title>
+</document>
+----
+
+NOTE: Explicit namespace on mapping overrides Type's namespace (set via `xml do` block).
+
+=== 3.6 Type Namespaces for Attributes
+
+Type namespaces also apply to attributes:
+
+.Type namespace on attribute
+[source,ruby]
+----
+class XsiNamespace < Lutaml::Model::Xml::W3c::XmlNamespace
+  uri "http://www.w3.org/2001/XMLSchema-instance"
+  prefix_default "xsi"
+end
+
+class XsiTypeType < Lutaml::Model::Type::String
+  xml do
+    namespace XsiNamespace
+  end
+end
+
+class Document < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :schema_type, XsiTypeType
+
+  xml do
+    root "document"
+    map_attribute "name", to: :name
+    map_attribute "type", to: :schema_type
+  end
+end
+----
+
+.Output (namespaced attribute)
+[source,xml]
+----
+<document name="example" xsi:type="DocumentType"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+----
+
+IMPORTANT: W3C specification requires namespaced attributes to ALWAYS use prefix format (cannot use default xmlns).
+
+== Section 4: Prefix Control and Namespace Hoisting
+
+=== General
+
+LutaML::Model provides multiple ways to control namespace prefix format and declaration location.
+
+=== 4.1 Prefix Control Options
+
+Control prefix format using the `prefix:` option on `to_xml`:
+
+* `prefix: true` - Use prefix format (xmlns:prefix)
+* `prefix: false` - Use default format (xmlns)
+* `prefix: "custom"` - Use custom prefix string
+
+.Prefix control examples
+[source,ruby]
+----
+class PoNamespace < Lutaml::Model::Xml::W3c::XmlNamespace
+  uri "http://example.com/po"
+  prefix_default "po"
+end
+
+class PurchaseOrder < Lutaml::Model::Serializable
+  attribute :ship_to, UsAddress
+
+  xml do
+    root "purchaseOrder"
+    namespace PoNamespace
+    map_element "shipTo", to: :ship_to
+  end
+end
+
+po = PurchaseOrder.new(ship_to: UsAddress.new(name: "Alice"))
+----
+
+.Default format (prefix: false or no option)
+[source,xml]
+----
+<purchaseOrder xmlns="http://example.com/po">
+  <shipTo>
+    <name>Alice</name>
+  </shipTo>
+</purchaseOrder>
+----
+
+.Prefix format (prefix: true)
+[source,xml]
+----
+<po:purchaseOrder xmlns:po="http://example.com/po">
+  <po:shipTo>
+    <po:name>Alice</po:name>
+  </po:shipTo>
+</po:purchaseOrder>
+----
+
+.Custom prefix (prefix: "order")
+[source,xml]
+----
+<order:purchaseOrder xmlns:order="http://example.com/po">
+  <order:shipTo>
+    <order:name>Alice</order:name>
+  </order:shipTo>
+</order:purchaseOrder>
+----
+
+=== 4.2 namespace_scope Directive
+
+The `namespace_scope` directive consolidates multiple namespace declarations at the root element (namespace hoisting):
+
+.namespace_scope syntax
+[source,ruby]
+----
+class Document < Lutaml::Model::Serializable
+  xml do
+    root "document"
+    namespace RootNamespace
+
+    # Hoist multiple namespaces to root
+    namespace_scope [
+      Namespace1,
+      { namespace: Namespace2, declare: :always },
+      { namespace: Namespace3, declare: :auto }
+    ]
+
+    # ...
+  end
+end
+----
+
+Where,
+
+`namespace_scope`:: Array of namespace classes or hash options
+`declare: :auto`:: Only declare if namespace is used (default)
+`declare: :always`:: Always declare, even if unused
+
+.namespace_scope example
+[source,ruby]
+----
+class VcardNamespace < Lutaml::Model::Xml::W3c::XmlNamespace
+  uri "urn:ietf:params:xml:ns:vcard-4.0"
+  prefix_default "vcard"
+end
+
+class DcNamespace < Lutaml::Model::Xml::W3c::XmlNamespace
+  uri "http://purl.org/dc/elements/1.1/"
+  prefix_default "dc"
+end
+
+class DcTitleType < Lutaml::Model::Type::String
+  xml do
+    namespace DcNamespace
+  end
+end
+
+class Vcard < Lutaml::Model::Serializable
+  attribute :fn, :string
+  attribute :title, DcTitleType
+
+  xml do
+    root "vCard"
+    namespace VcardNamespace
+
+    # Hoist DcNamespace to root
+    namespace_scope [
+      { namespace: DcNamespace, declare: :always }
+    ]
+
+    map_element "fn", to: :fn
+    map_element "title", to: :title
+  end
+end
+----
+
+.Output (without namespace_scope)
+[source,xml]
+----
+<vCard xmlns="urn:ietf:params:xml:ns:vcard-4.0">
+  <fn>John Doe</fn>
+  <title xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:title>Dr.</dc:title>
+  </title>
+</vCard>
+----
+
+.Output (with namespace_scope)
+[source,xml]
+----
+<vCard xmlns="urn:ietf:params:xml:ns:vcard-4.0"
+       xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <fn>John Doe</fn>
+  <title>
+    <dc:title>Dr.</dc:title>
+  </title>
+</vCard>
+----
+
+NOTE: With `namespace_scope`, the `xmlns:dc` declaration is hoisted to root instead of being declared on `<title>`.
+
+=== 4.3 Auto vs Always Declaration
+
+.Using :auto mode (default)
+[source,ruby]
+----
+namespace_scope [
+  { namespace: OptionalNamespace, declare: :auto }
+]
+----
+
+Behavior: Namespace declared ONLY if actually used in document.
+
+.Using :always mode
+[source,ruby]
+----
+namespace_scope [
+  { namespace: RequiredNamespace, declare: :always }
+]
+----
+
+Behavior: Namespace ALWAYS declared at root, even if unused.
+
+Use `:always` when:
+
+* Schema specification requires namespace presence
+* External tools validate namespace declarations
+* Format mandates specific namespaces (e.g., Office Open XML)
+
+== Section 5: Model Representations
+
+=== General
+
+In LutaML::Model, classes can represent different XML schema constructs depending on configuration:
+
+* **XML Element** (most common): Model serializes as an XML element
+* **complexType**: Model can be used as type for other elements
+* **Attribute**: Model serializes as an XML attribute
+
+=== 5.1 Model as XML Element
+
+Default behavior - model serializes as XML element:
+
+[source,ruby]
+----
+class Address < Lutaml::Model::Serializable
+  attribute :street, :string
+  attribute :city, :string
+
+  xml do
+    root "Address"
+    map_element "street", to: :street
+    map_element "city", to: :city
+  end
+end
+
+class Person < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :address, Address
+
+  xml do
+    root "Person"
+    map_element "name", to: :name
+    map_element "address", to: :address
+  end
+end
+----
+
+.Output
+[source,xml]
+----
+<Person>
+  <name>John Doe</name>
+  <Address>
+    <street>123 Main St</street>
+    <city>Anytown</city>
+  </Address>
+</Person>
+----
+
+=== 5.2 Model as ComplexType (Reusable Component)
+
+Use `type_name` to define a reusable type without root element:
+
+[source,ruby]
+----
+class AddressType < Lutaml::Model::Serializable
+  attribute :street, :string
+  attribute :city, :string
+
+  xml do
+    type_name "AddressType"  # Defines complexType, not element
+    map_element "street", to: :street
+    map_element "city", to: :city
+  end
+end
+
+class Person < Lutaml::Model::Serializable
+  attribute :home_address, AddressType
+  attribute :work_address, AddressType
+
+  xml do
+    root "Person"
+    map_element "homeAddress", to: :home_address
+    map_element "workAddress", to: :work_address
+  end
+end
+----
+
+.Output
+[source,xml]
+----
+<Person>
+  <homeAddress>
+    <street>123 Home St</street>
+    <city>Hometown</city>
+  </homeAddress>
+  <workAddress>
+    <street>456 Work Ave</street>
+    <city>Worktown</city>
+  </workAddress>
+</Person>
+----
+
+NOTE: `AddressType` is used as a reusable component (like XSD complexType), embedded in parent elements.
+
+=== 5.3 Model as Attribute
+
+Model can serialize as attribute when using `map_attribute`:
+
+[source,ruby]
+----
+class Price < Lutaml::Model::Type::Decimal
+  xml do
+    xsd_type "priceType"
+  end
+end
+
+class Item < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :price, Price
+
+  xml do
+    root "Item"
+    map_element "name", to: :name
+    map_attribute "price", to: :price
+  end
+end
+----
+
+.Output
+[source,xml]
+----
+<Item price="99.99">
+  <name>Widget</name>
+</Item>
+----
+
+== Section 6: Simple Types and Value Types
+
+=== General
+
+LutaML::Model provides built-in value types that map to XSD simple types:
+
+* `:string` → xs:string
+* `:integer` → xs:integer
+* `:decimal` → xs:decimal
+* `:boolean` → xs:boolean
+* `:date` → xs:date
+* `:datetime` → xs:dateTime
+* `:time` → xs:time
+
+=== 6.1 Built-in Value Types
+
+.Using built-in types
+[source,ruby]
+----
+class Product < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :price, :decimal
+  attribute :quantity, :integer
+  attribute :available, :boolean
+  attribute :release_date, :date
+
+  xml do
+    root "Product"
+    map_element "name", to: :name
+    map_element "price", to: :price
+    map_element "quantity", to: :quantity
+    map_element "available", to: :available
+    map_element "releaseDate", to: :release_date
+  end
+end
+----
+
+.Output
+[source,xml]
+----
+<Product>
+  <name>Laptop</name>
+  <price>999.99</price>
+  <quantity>10</quantity>
+  <available>true</available>
+  <releaseDate>2024-01-15</releaseDate>
+</Product>
+----
+
+=== 6.2 Custom Value Types
+
+Create custom value types by inheriting from built-in types:
+
+[source,ruby]
+----
+class UsPriceType < Lutaml::Model::Type::Decimal
+  xml do
+    xsd_type "USPrice"
+  end
+end
+
+class Item < Lutaml::Model::Serializable
+  attribute :price, UsPriceType
+
+  xml do
+    root "Item"
+    map_element "USPrice", to: :price
+  end
+end
+----
+
+NOTE: Custom types can add validation, formatting, or other behavior.
+
+=== 6.3 Type Namespaces on Custom Types
+
+Combine custom types with type namespaces:
+
+[source,ruby]
+----
+class DcNamespace < Lutaml::Model::Xml::W3c::XmlNamespace
+  uri "http://purl.org/dc/elements/1.1/"
+  prefix_default "dc"
+end
+
+class DcTitleType < Lutaml::Model::Type::String
+  xml do
+    namespace DcNamespace
+    xsd_type "titleType"
+  end
+end
+----
+
+This creates a type that:
+* Inherits from String
+* Has Dublin Core namespace
+* Has XSD type name "titleType"
+
+== Section 7: Advanced Type Derivation
+
+=== General
+
+XML Schema supports type derivation through extension (adding) and restriction (constraining). LutaML::Model supports extension through Ruby inheritance.
+
+=== 7.1 Type Extension by Inheritance
+
+Extend existing models by inheritance:
+
+[source,ruby]
+----
+# Base address type
+class Address < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :street, :string
+  attribute :city, :string
+
+  xml do
+    root "Address"
+    map_element "name", to: :name
+    map_element "street", to: :street
+    map_element "city", to: :city
+  end
+end
+
+# Extended address type (adds country)
+class InternationalAddress < Address
+  attribute :country, :string
+
+  xml do
+    root "InternationalAddress"
+    map_element *Address.mappings  # Inherit mappings
+    map_element "country", to: :country
+  end
+end
+----
+
+=== 7.2 Using xsi:type
+
+When a derived type is used in place of base type, use `xsi:type` to indicate actual type:
+
+[source,ruby]
+----
+class XsiNamespace < Lutaml::Model::Xml::W3c::XmlNamespace
+  uri "http://www.w3.org/2001/XMLSchema-instance"
+  prefix_default "xsi"
+end
+
+class Shipment < Lutaml::Model::Serializable
+  attribute :address, Address
+
+  xml do
+    root "Shipment"
+    namespace_scope [XsiNamespace]
+    map_element "address", to: :address
+  end
+end
+
+ship = Shipment.new(
+  address: InternationalAddress.new(
+    name: "Alice",
+    street: "123 Main St",
+    city: "Paris",
+    country: "France"
+  )
+)
+----
+
+NOTE: Full xsi:type support requires additional configuration. See link:../README.adoc[README] for details.
+
+== Section 8: Best Practices
+
+=== 8.1 Namespace Design
+
+* Use stable, permanent URIs for namespace names
+* Include version in URI if breaking changes are likely
+* Use descriptive prefix_default values
+
+=== 8.2 element_form_default Guidelines
+
+* Use `:qualified` when all elements belong in the namespace (most cases)
+* Use `:unqualified` for mixed-content documents with text-heavy content
+* Be consistent across related schemas
+
+=== 8.3 Type Namespace Usage
+
+* Use type namespaces for reusable standard types (Dublin Core, DCTerms)
+* Use model namespaces for document structure
+* Explicit overrides should be rare—design types with correct namespaces
+
+=== 8.4 namespace_scope Usage
+
+* Use for documents with 3+ namespaces
+* Prefer `:auto` mode for clean XML
+* Use `:always` only when schema specification requires
+
+== Section 9: Complete Examples
+
+=== 9.1 Multi-Namespace Document
+
+Complete example with model namespace, type namespaces, and namespace_scope:
+
+[source,ruby]
+----
+# Namespaces
+class PoNamespace < Lutaml::Model::Xml::W3c::XmlNamespace
+  uri "http://example.com/po"
+  prefix_default "po"
+  element_form_default :qualified
+end
+
+class DcNamespace < Lutaml::Model::Xml::W3c::XmlNamespace
+  uri "http://purl.org/dc/elements/1.1/"
+  prefix_default "dc"
+end
+
+class DctermsNamespace < Lutaml::Model::Xml::W3c::XmlNamespace
+  uri "http://purl.org/dc/terms/"
+  prefix_default "dcterms"
+end
+
+# Type namespaces
+class DcTitleType < Lutaml::Model::Type::String
+  xml do
+    namespace DcNamespace
+  end
+end
+
+class DctermsCreatedType < Lutaml::Model::Type::DateTime
+  xml do
+    namespace DctermsNamespace
+  end
+end
+
+# Models
+class UsAddress < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :street, :string
+  attribute :city, :string
+  attribute :state, :string
+  attribute :zip, :decimal
+
+  xml do
+    root "USAddress"
+    map_element "name", to: :name
+    map_element "street", to: :street
+    map_element "city", to: :city
+    map_element "state", to: :state
+    map_element "zip", to: :zip
+  end
+end
+
+class Item < Lutaml::Model::Serializable
+  attribute :product_name, :string
+  attribute :quantity, :integer
+  attribute :us_price, :decimal
+  attribute :comment, :string
+
+  xml do
+    root "Item"
+    map_element "productName", to: :product_name
+    map_element "quantity", to: :quantity
+    map_element "USPrice", to: :us_price
+    map_element "comment", to: :comment, form: :unqualified
+  end
+end
+
+class PurchaseOrder < Lutaml::Model::Serializable
+  attribute :order_date, :string
+  attribute :ship_to, UsAddress
+  attribute :bill_to, UsAddress
+  attribute :items, Item, collection: true
+  attribute :title, DcTitleType
+  attribute :created, DctermsCreatedType
+
+  xml do
+    root "purchaseOrder"
+    namespace PoNamespace
+
+    namespace_scope [
+      { namespace: DcNamespace, declare: :always },
+      { namespace: DctermsNamespace, declare: :always }
+    ]
+
+    map_attribute "orderDate", to: :order_date
+    map_element "shipTo", to: :ship_to
+    map_element "billTo", to: :bill_to
+    map_element "items", to: :items
+    map_element "title", to: :title
+    map_element "created", to: :created
+  end
+end
+----
+
+.Output
+[source,xml]
+----
+<po:purchaseOrder xmlns:po="http://example.com/po"
+                 xmlns:dc="http://purl.org/dc/elements/1.1/"
+                 xmlns:dcterms="http://purl.org/dc/terms/"
+                 po:orderDate="2024-01-15">
+  <po:shipTo>
+    <po:name>Alice Smith</po:name>
+    <po:street>123 Maple Street</po:street>
+    <po:city>Mill Valley</po:city>
+    <po:state>CA</po:state>
+    <po:zip>90952</po:zip>
+  </po:shipTo>
+  <po:billTo>
+    <po:name>Robert Smith</po:name>
+    <po:street>8 Oak Avenue</po:street>
+    <po:city>Mill Valley</po:city>
+    <po:state>CA</po:state>
+    <po:zip>90952</po:zip>
+  </po:billTo>
+  <po:items>
+    <po:Item>
+      <po:productName>Laptop</po:productName>
+      <po:quantity>1</po:quantity>
+      <po:USPrice>999.99</po:USPrice>
+      <po:comment xmlns="">Gift wrap</po:comment>
+    </po:Item>
+  </po:items>
+  <dc:title>Office Supplies</dc:title>
+  <dcterms:created>2024-01-15T10:00:00Z</dcterms:created>
+</po:purchaseOrder>
+----
+
+NOTE: This example demonstrates:
+* Model namespace (po:) for structure
+* Type namespaces (dc:, dcterms:) for metadata
+* namespace_scope consolidating all namespaces at root
+* element_form_default :qualified for all elements
+* Per-element form override (comment element)
+
+== Section 10: Troubleshooting
+
+=== 10.1 Elements Not in Expected Namespace
+
+**Problem**: Elements missing namespace prefix
+
+[source,xml]
+----
+<title>My Title</title>  <!-- Expected <dc:title> -->
+----
+
+**Solution**: Verify Type has namespace configured in `xml do` block:
+
+[source,ruby]
+----
+class DcTitleType < Lutaml::Model::Type::String
+  xml do
+    namespace DcNamespace  # Must be configured here
+  end
+end
+----
+
+=== 10.2 Duplicate xmlns Declarations
+
+**Problem**: Same namespace declared multiple times
+
+[source,xml]
+----
+<root xmlns:dc="...">
+  <child xmlns:dc="...">  <!-- Duplicate -->
+  </child>
+</root>
+----
+
+**Solution**: Use namespace_scope to hoist to root:
+
+[source,ruby]
+----
+xml do
+  namespace_scope [DcNamespace]
+end
+----
+
+=== 10.3 Attributes Without Prefix
+
+**Problem**: Namespaced attribute not using prefix
+
+[source,xml]
+----
+<root xmlns:dc="..." dc:title="...">
+----
+
+This is CORRECT for unqualified attributes.
+
+For qualified attributes:
+
+[source,xml]
+----
+<root xmlns:dc="..." dc:title="...">  <!-- CORRECT -->
+----
+
+NOTE: Per W3C spec, qualified attributes MUST use prefix (cannot use default xmlns).
+
+== Related Documentation
+
+* link:../README.adoc[LutaML::Model README]
+* link:namespace-management.adoc[Namespace Management Guide]
+* link:xml-namespaces-basics.adoc[XML Namespaces Basics Tutorial]
+* link:../plans/2025-01-16-w3c-schema-compliance-analysis.md[W3C Schema Compliance Analysis]

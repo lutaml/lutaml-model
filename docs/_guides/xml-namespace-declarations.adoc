@@ -1,0 +1,659 @@
+---
+title: XML namespace declarations
+parent: XML namespaces
+nav_order: 5
+---
+= XML namespace declarations
+:toc:
+:toclevels: 3
+
+== General
+
+This guide explains how Lutaml::Model handles XML namespace declarations (`xmlns`
+and `xmlns:prefix`) in serialized XML output.
+
+Understanding namespace declaration placement is crucial for:
+
+* Generating clean, W3C-compliant XML
+* Controlling xmlns declaration verbosity
+* Meeting specific schema requirements
+* Ensuring interoperability with external systems
+
+== Declaration strategies
+
+=== Two valid approaches
+
+Lutaml::Model implements **local xmlns declarations** as the default strategy,
+following the W3C **minimal-subtree principle**. However, both approaches below
+are W3C-compliant:
+
+**Local declarations** (Lutaml::Model default)::
+Namespaces are declared on the first element that uses them
++
+[source,xml]
+----
+<root xmlns:foo="...">
+  <child>
+    <item xmlns:bar="..."/>
+  </child>
+</root>
+----
++
+**Advantages:**
++
+* Minimal scope (namespace only valid where needed)
+* Cleaner nested structures
+* Clear ownership of namespace
+* Follows minimal-subtree principle
+
+**Hoisted declarations** (alternative, not default)::
+All namespaces declared at document root
++
+[source,xml]
+----
+<root xmlns:foo="..." xmlns:bar="...">
+  <child>
+    <item/>
+  </child>
+</root>
+----
++
+**Advantages:**
++
+* Single declaration location
+* Slightly smaller file size (fewer xmlns attributes)
+* Traditional style preferred by some tools
+
+=== Why local declarations?
+
+Lutaml::Model defaults to local declarations because:
+
+. **W3C Minimal-Subtree Principle**: Namespaces should be declared in the
+smallest subtree that needs them
+. **Scope clarity**: Easy to see which elements use which namespaces
+. **Modularity**: Subtrees can be extracted without losing namespace context
+. **Cleaner structure**: No namespace pollution at root for deeply nested
+namespaces
+
+== The `namespace_scope` directive
+
+=== What it does (and doesn't do)
+
+**IMPORTANT**: `namespace_scope` makes namespaces **ELIGIBLE** for declaration at
+the root element. It does **NOT** automatically hoist all declarations.
+
+`namespace_scope` behavior with `declare:` modes:
+
+`:auto` (default)::
+Namespace declared at root **ONLY IF** actually used in elements/attributes
+
+`:always`::
+Namespace declared at root **even if unused** (for schema compliance)
+
+`:never`::
+Namespace never declared (error if used)
+
+=== Eligibility vs. automatic hoisting
+
+The key concept: **`namespace_scope` grants eligibility, not certainty**.
+
+.namespace_scope with `:auto` mode (default)
+[example]
+====
+[source,ruby]
+----
+class Vcard < Lutaml::Model::Serializable
+  xml do
+    element "vCard"
+    namespace VcardNamespace
+    namespace_scope [VcardNamespace, DcNamespace, DctermsNamespace]
+    # namespace_scope makes these three namespaces ELIGIBLE for root declaration
+
+    map_element "title", to: :title
+    map_element "created", to: :created
+  end
+end
+----
+
+**If title and created use DcNamespace and DctermsNamespace**:
+
+[source,xml]
+----
+<vCard xmlns="..." xmlns:dc="..." xmlns:dcterms="...">
+  <dc:title>...</dc:title>
+  <dcterms:created>...</dcterms:created>
+</vCard>
+----
+
+**If title and created DON'T use those namespaces**:
+
+[source,xml]
+----
+<vCard xmlns="...">
+  <title>...</title>
+  <created>...</created>
+</vCard>
+----
+
+NOTE: With `:auto` mode, unused namespaces in `namespace_scope` are **NOT**
+declared. They are only declared if actually used.
+====
+
+=== Forcing declarations with `:always`
+
+Use `declare: :always` for namespaces that **MUST** appear regardless of usage:
+
+.Forcing namespace declarations
+[example]
+====
+[source,ruby]
+----
+class Properties < Lutaml::Model::Serializable
+  xml do
+    element "Properties"
+    namespace AppNamespace
+
+    namespace_scope [
+      { namespace: VtNamespace, declare: :always }  # Force VtNamespace
+    ]
+
+    map_element "Template", to: :template
+  end
+end
+----
+
+Output (VtNamespace declared even though unused):
+
+[source,xml]
+----
+<Properties xmlns="..."
+            xmlns:vt="...">
+  <Template>Normal.dotm</Template>
+</Properties>
+----
+
+This is required by some formats like Office Open XML where xmlns:vt must always
+be present.
+====
+
+== Collection prefix behavior
+
+=== Parent-child prefix inheritance
+
+Collection `<item>` elements follow their parent's prefix style:
+
+**Parent WITH prefix** → Items WITH prefix::
+[source,xml]
+----
+<first:collection xmlns:first="...">
+  <first:item>
+    <name>Value</name>
+  </first:item>
+</first:collection>
+----
+
+**Parent WITHOUT prefix** → Items WITHOUT prefix::
+[source,xml]
+----
+<collection xmlns="...">
+  <item>
+    <name>Value</name>
+  </item>
+</collection>
+----
+
+=== Grandchildren inherit context
+
+Elements within collection items **inherit** the namespace context and do **NOT**
+repeat the prefix:
+
+.Grandchildren don't repeat prefixes
+[example]
+====
+[source,xml]
+----
+<first:collection xmlns:first="http://example.com/first">
+  <first:item>
+    <name>John</name>         <!-- No prefix, inherits default ns -->
+    <address>
+      <street>123 Main</street>  <!-- No prefix, inherits default ns -->
+    </address>
+  </first:item>
+</first:collection>
+----
+
+The `<name>` and `<street>` elements don't need `first:` prefix because they
+are in the first namespace context established by `<first:item>`.
+====
+
+== Understanding declaration planning
+
+=== The declaration algorithm
+
+When serializing, Lutaml::Model uses this algorithm to decide where to declare
+namespaces:
+
+. **Collect used namespaces**: Scan all elements/attributes to determine which
+namespaces are actually used
+
+. **Check namespace_scope eligibility**: For each used namespace, check if it's
+in the `namespace_scope` list
+
+. **Declare at root if eligible**: Namespaces in `namespace_scope` with `:auto`
+or `:always` mode are declared at root (if `:auto`, only when used)
+
+. **Declare locally otherwise**: Namespaces not in `namespace_scope` are
+declared on the first element that uses them
+
+. **Never redeclare**: Once declared, namespace prefixes are reused without
+redeclaration
+
+=== Visual examples
+
+.Example 1: No namespace_scope (all local)
+[example]
+====
+[source,ruby]
+----
+class Parent < Lutaml::Model::Serializable
+  xml do
+    element "Parent"
+    namespace NamespaceA
+    # NO namespace_scope directive
+
+    map_element "Child", to: :child
+  end
+end
+----
+
+Output:
+
+[source,xml]
+----
+<Parent xmlns="http://a.com">
+  <Child xmlns="http://b.com">...</Child>
+</Parent>
+----
+
+Each namespace declared where first used.
+====
+
+.Example 2: With namespace_scope (eligible for root)
+[example]
+====
+[source,ruby]
+----
+class Parent < Lutaml::Model::Serializable
+  xml do
+    element "Parent"
+    namespace NamespaceA
+    namespace_scope [NamespaceA, NamespaceB]  # Both eligible
+
+    map_element "Child", to: :child
+  end
+end
+----
+
+Output:
+
+[source,xml]
+----
+<Parent xmlns="http://a.com" xmlns:b="http://b.com">
+  <b:Child>...</b:Child>
+</Parent>
+----
+
+Both namespaces declared at root because they're in `namespace_scope` and both
+are used.
+====
+
+.Example 3: namespace_scope with unused namespace
+[example]
+====
+[source,ruby]
+----
+class Parent < Lutaml::Model::Serializable
+  xml do
+    element "Parent"
+    namespace NamespaceA
+    namespace_scope [NamespaceA, NamespaceB, NamespaceC]  # C is unused
+
+    map_element "Child", to: :child  # Uses NamespaceB
+  end
+end
+----
+
+Output with `:auto` mode (default):
+
+[source,xml]
+----
+<Parent xmlns="http://a.com" xmlns:b="http://b.com">
+  <b:Child>...</b:Child>
+</Parent>
+----
+
+NamespaceC is NOT declared because it's not used (`:auto` mode).
+
+Output with `declare: :always` for NamespaceC:
+
+[source,xml]
+----
+<Parent xmlns="http://a.com"
+        xmlns:b="http://b.com"
+        xmlns:c="http://c.com">
+  <b:Child>...</b:Child>
+</Parent>
+----
+
+NamespaceC IS declared even though unused (`:always` mode).
+====
+
+== Common patterns
+
+=== Pattern 1: Single namespace document
+
+[source,ruby]
+----
+class Document < Lutaml::Model::Serializable
+  xml do
+    element "document"
+    namespace DocNamespace
+
+    map_element "title", to: :title
+    map_element "content", to: :content
+  end
+end
+----
+
+Output (default namespace, no prefixes):
+
+[source,xml]
+----
+<document xmlns="http://example.com/doc">
+  <title>My Document</title>
+  <content>Text content</content>
+</document>
+----
+
+=== Pattern 2: Multi-namespace with consolidation
+
+[source,ruby]
+----
+class Document < Lutaml::Model::Serializable
+  xml do
+    element "document"
+    namespace DocNamespace
+    namespace_scope [DocNamespace, MetaNamespace, AuthorNamespace]
+
+    map_element "title", to: :title
+    map_element "meta", to: :meta
+    map_element "author", to: :author
+  end
+end
+----
+
+Output (all namespaces at root if used):
+
+[source,xml]
+----
+<document xmlns="http://example.com/doc"
+          xmlns:meta="http://example.com/meta"
+          xmlns:author="http://example.com/author">
+  <title>My Document</title>
+  <meta:keywords>...</meta:keywords>
+  <author:name>...</author:name>
+</document>
+----
+
+=== Pattern 3: Mixed local and scoped namespaces
+
+[source,ruby]
+----
+class Document < Lutaml::Model::Serializable
+  xml do
+    element "document"
+    namespace DocNamespace
+    namespace_scope [DocNamespace, MetaNamespace]  # Only these two at root
+
+    map_element "title", to: :title
+    map_element "meta", to: :meta      # Uses MetaNamespace
+    map_element "internal", to: :internal  # Uses InternalNamespace (not in scope)
+  end
+end
+----
+
+Output (meta at root, internal local):
+
+[source,xml]
+----
+<document xmlns="http://example.com/doc"
+          xmlns:meta="http://example.com/meta">
+  <title>My Document</title>
+  <meta:keywords>...</meta:keywords>
+  <internal xmlns="http://example.com/internal">...</internal>
+</document>
+----
+
+=== Pattern 4: Collection with different namespace
+
+[source,ruby]
+----
+class Wrapper < Lutaml::Model::Serializable
+  attribute :items, Item, collection: true
+
+  xml do
+    element "wrapper"
+    namespace WrapperNamespace
+
+    map_element "item", to: :items  # Item class uses ItemNamespace
+  end
+end
+----
+
+Output (wrapper in one ns, items in another):
+
+[source,xml]
+----
+<wr:wrapper xmlns:wr="http://wrapper.com">
+  <item xmlns="http://item.com">
+    <name>Value</name>
+  </item>
+</wr:wrapper>
+----
+
+Item elements get their own namespace declaration on first usage.
+
+== Best practices
+
+=== When to use namespace_scope
+
+**Use `namespace_scope` when:**
+
+* You want cleaner XML with fewer xmlns declarations
+* Multiple child elements use the same external namespace
+* Schema requires specific namespace declarations at root
+* Generating documents for legacy tools expecting hoisted declarations
+
+**Don't use `namespace_scope` when:**
+
+* Single namespace document (no benefit)
+* Namespaces only used deep in the tree (adds clutter at root)
+* Different subtrees use different namespaces (defeats consolidation)
+
+=== Choosing declaration mode
+
+**Use `:auto` (default) when:**
+
+* Standard W3C behavior desired
+* Clean, minimal XML preferred
+* Namespaces should only appear when actually used
+
+**Use `:always` when:**
+
+* External schema validation requires namespace presence
+* Tool compatibility demands specific xmlns declarations
+* Format specification mandates unused namespaces (e.g., Office Open XML)
+
+=== Prefix vs. default namespace
+
+**Use default namespace** (`xmlns="..."`) **when:**
+
+* Single dominant namespace in document
+* Cleaner, more readable XML desired
+* No prefix preferred for main elements
+
+**Use prefixed namespace** (`xmlns:prefix="..."`) **when:**
+
+* Multiple namespaces at same level
+* Need to distinguish element sources clearly
+* Attributes require namespace (attributes MUST use prefix)
+* Legacy tools expect prefixed format
+
+== Known limitations
+
+=== Type::Value namespace feature
+
+**Status**: Not yet implemented
+
+Custom type classes (inheriting from `Lutaml::Model::Type::Value`) cannot
+currently declare namespaces via `xml_namespace` for automatic serialization.
+
+.Type namespace feature (future enhancement)
+[example]
+====
+[source,ruby]
+----
+# This feature does NOT work yet:
+class DcTitleType < Lutaml::Model::Type::String
+  xml_namespace DcNamespace  # Not yet supported for Type::Value classes
+end
+
+class Vcard < Lutaml::Model::Serializable
+  attribute :title, DcTitleType
+
+  xml do
+    element "vCard"
+    map_element "title", to: :title
+  end
+end
+
+# Current output:
+# <vCard><title>Dr. John Doe</title></vCard>
+
+# Expected future output:
+# <vCard xmlns:dc="..."><dc:title>Dr. John Doe</dc:title></vCard>
+----
+====
+
+**Workaround**: Use `Lutaml::Model::Serializable` classes instead of
+`Type::Value` classes for attributes that need namespace-qualified serialization.
+
+== Troubleshooting
+
+=== Namespace not declared at root
+
+**Problem**: Used namespace appears locally instead of at root
+
+**Cause**: Namespace not in `namespace_scope` list
+
+**Solution**: Add to `namespace_scope`:
+
+[source,ruby]
+----
+namespace_scope [MyNamespace, OtherNamespace]
+----
+
+=== Namespace declared but unused
+
+**Problem**: Namespace appears at root even though not used
+
+**Cause**: Using `declare: :always` mode
+
+**Solution**: Change to `:auto` or remove from `namespace_scope`:
+
+[source,ruby]
+----
+namespace_scope [
+  { namespace: MyNamespace, declare: :auto }  # Change to :auto
+]
+----
+
+=== xmlns="" appearing unexpectedly
+
+**Problem**: Child elements get `xmlns=""` attribute
+
+**Cause**: Child model has no namespace but parent uses default namespace
+
+**Solution**: Either:
+
+. Give child model a namespace
+. Use prefixed namespace for parent (not default)
+. Accept xmlns="" as correct W3C behavior (removes parent's default namespace)
+
+=== Collection items missing prefix
+
+**Problem**: Expected `<first:item>` but got `<item>`
+
+**Cause**: Parent element not using prefix (using default namespace instead)
+
+**Solution**: Use `prefix: true` when serializing:
+
+[source,ruby]
+----
+model.to_xml(prefix: true)
+----
+
+== W3C compliance notes
+
+=== Namespace URI is identity
+
+Remember: **Namespace URI determines identity, NOT the prefix**.
+
+These are semantically identical:
+
+[source,xml]
+----
+<!-- All three are equivalent: -->
+<Ceramic xmlns="http://ex.com/cer">...</Ceramic>
+<cer:Ceramic xmlns:cer="http://ex.com/cer">...</cer:Ceramic>
+<pottery:Ceramic xmlns:pottery="http://ex.com/cer">...</pottery:Ceramic>
+----
+
+Lutaml::Model correctly handles all three formats during parsing.
+
+=== Unprefixed attributes
+
+Per W3C XML Namespace specification: **Unprefixed attributes have NO namespace**.
+
+Only attributes with explicit prefixes belong to namespaces:
+
+[source,xml]
+----
+<Ceramic id="C001"                    <!-- id has NO namespace -->
+         xmlns:cer="http://ex.com">
+  <cer:Type>Porcelain</cer:Type>
+</Ceramic>
+----
+
+=== Minimal-subtree principle
+
+W3C XML Namespace specification recommends declaring namespaces in the minimal
+subtree that needs them. This is why Lutaml::Model defaults to local
+declarations instead of hoisting everything to the root.
+
+== Summary
+
+Key points to remember:
+
+. **Local declarations are the default** (minimal-subtree principle)
+. **`namespace_scope` grants ELIGIBILITY**, not automatic hoisting
+. **Both local and hoisted are W3C-compliant**, Lutaml chooses local
+. **Collection items inherit parent's prefix style**
+. **Grandchildren inherit context** (no repeated prefixes)
+. **Type::Value namespace is a future enhancement** (not yet implemented)
+
+For detailed namespace configuration options, see
+link:xml-namespaces.adoc[XML Namespaces Guide].
+
+For architectural details, see
+link:../references/three-phase-namespace-architecture.adoc[Three-Phase Namespace Architecture].

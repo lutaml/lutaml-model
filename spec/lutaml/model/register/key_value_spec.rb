@@ -77,6 +77,48 @@ RSpec.describe "RegisterKeyValueSpec" do
     register.register_model(RegisterKeyValueSpec::Address)
     register.register_model(RegisterKeyValueSpec::GeoCoordinate)
     register.register_model(RegisterKeyValueSpec::ContactInfo)
+
+    # Clear attribute type caches on all model classes BEFORE each test
+    [RegisterKeyValueSpec::Person, RegisterKeyValueSpec::Address,
+     RegisterKeyValueSpec::GeoCoordinate, RegisterKeyValueSpec::ContactInfo].each do |klass|
+      next unless klass.respond_to?(:attributes)
+
+      klass.attributes.each_value do |attr|
+        if attr.instance_variable_defined?(:@type_cache)
+          attr.instance_variable_set(:@type_cache,
+                                     {})
+        end
+        if attr.instance_variable_defined?(:@type_namespace_cache)
+          attr.instance_variable_set(:@type_namespace_cache,
+                                     {})
+        end
+      end
+    end
+  end
+
+  after do
+    # Clear type class cache and global substitutions to prevent test pollution
+    register.clear_type_class_cache if register.respond_to?(:clear_type_class_cache)
+    register.clear_global_substitutions if register.respond_to?(:clear_global_substitutions)
+
+    # Clear transformation cache on all model classes to prevent test pollution
+    [RegisterKeyValueSpec::Person, RegisterKeyValueSpec::Address,
+     RegisterKeyValueSpec::GeoCoordinate, RegisterKeyValueSpec::ContactInfo,
+     RegisterKeyValueSpec::EnhancedContactInfo].each do |klass|
+      next unless klass.respond_to?(:instance_variable_defined?)
+
+      if klass.instance_variable_defined?(:@transformations)
+        klass.remove_instance_variable(:@transformations)
+      end
+      cache_key = :@resolved_mapping_json
+      if klass.instance_variable_defined?(cache_key)
+        klass.remove_instance_variable(cache_key)
+      end
+    end
+
+    # Clean up the register to prevent test pollution
+    Lutaml::Model::GlobalRegister.unregister(:json_test_register)
+    Lutaml::Model::Config.default_register = :default
   end
 
   describe "parsing JSON" do

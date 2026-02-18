@@ -13,21 +13,16 @@ module Lutaml
       def ensure_mappings_imported!(register_id = nil)
         return if @mappings_imported
 
-        register_object = register(register_id)
+        register_id ||= Lutaml::Model::Config.default_register
         importable_mappings.each do |model|
           import_model_mappings(
-            register_object.get_class_without_register(model),
-            register_object.id,
+            Lutaml::Model::GlobalContext.resolve_type(model, register_id),
+            register_id,
           )
         end
       end
 
       private
-
-      def register(register_id = nil)
-        register_id ||= Lutaml::Model::Config.default_register
-        Lutaml::Model::GlobalRegister.lookup(register_id)
-      end
 
       def model_importable?(model)
         model.is_a?(Symbol) || model.is_a?(String)

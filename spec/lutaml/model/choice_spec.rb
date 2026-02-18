@@ -77,8 +77,7 @@ module ChoiceSpec
     end
 
     xml do
-      no_root
-
+      type_name "ContactAttributesType"
       map_element :email, to: :email
       map_element :phone, to: :phone
     end
@@ -88,14 +87,14 @@ module ChoiceSpec
     import_model_attributes ContactAttributes
 
     xml do
-      root "Person"
+      element "Person"
 
       import_model_mappings ContactAttributes
     end
   end
 
   class User < Person
-    xml { root "User" }
+    xml { element "User" }
   end
 end
 

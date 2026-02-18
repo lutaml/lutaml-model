@@ -143,13 +143,15 @@ RSpec.describe "XSD Type Validation" do
       context "with standard XS types" do
         it "classifies xs:string as builtin" do
           model = Class.new(Lutaml::Model::Serializable)
-          result = described_class.classify_xsd_type("xs:string", model, register)
+          result = described_class.classify_xsd_type("xs:string", model,
+                                                     register)
           expect(result).to eq(:builtin)
         end
 
         it "classifies xs:integer as builtin" do
           model = Class.new(Lutaml::Model::Serializable)
-          result = described_class.classify_xsd_type("xs:integer", model, register)
+          result = described_class.classify_xsd_type("xs:integer", model,
+                                                     register)
           expect(result).to eq(:builtin)
         end
 
@@ -166,7 +168,7 @@ RSpec.describe "XSD Type Validation" do
             attribute :value, :string
 
             xml do
-              root "NestedModel"
+              element "NestedModel"
               type_name "CustomNestedType"
             end
           end
@@ -175,7 +177,8 @@ RSpec.describe "XSD Type Validation" do
             attribute :nested, nested_model
           end
 
-          result = described_class.classify_xsd_type("CustomNestedType", parent_model, register)
+          result = described_class.classify_xsd_type("CustomNestedType",
+                                                     parent_model, register)
           expect(result).to eq(:custom)
         end
       end
@@ -183,7 +186,8 @@ RSpec.describe "XSD Type Validation" do
       context "with undefined custom types" do
         it "classifies undefined custom type as unresolvable" do
           model = Class.new(Lutaml::Model::Serializable)
-          result = described_class.classify_xsd_type("UndefinedCustomType", model, register)
+          result = described_class.classify_xsd_type("UndefinedCustomType",
+                                                     model, register)
           expect(result).to eq(:unresolvable)
         end
       end
@@ -197,7 +201,7 @@ RSpec.describe "XSD Type Validation" do
           attribute :value, :string
 
           xml do
-            root "NestedModel"
+            element "NestedModel"
             type_name "ResolvedType"
           end
         end
@@ -206,7 +210,8 @@ RSpec.describe "XSD Type Validation" do
           attribute :nested, nested_model
         end
 
-        result = described_class.type_resolvable?("ResolvedType", parent_model, register)
+        result = described_class.type_resolvable?("ResolvedType", parent_model,
+                                                  register)
         expect(result).to be true
       end
 
@@ -215,7 +220,8 @@ RSpec.describe "XSD Type Validation" do
           attribute :value, :string
         end
 
-        result = described_class.type_resolvable?("UndefinedType", model, register)
+        result = described_class.type_resolvable?("UndefinedType", model,
+                                                  register)
         expect(result).to be false
       end
     end
@@ -229,9 +235,9 @@ RSpec.describe "XSD Type Validation" do
             attribute :name, :string
           end
 
-          expect {
+          expect do
             described_class.validate_xsd_types!(model, register)
-          }.not_to raise_error
+          end.not_to raise_error
         end
 
         it "accepts model with xs:integer attribute" do
@@ -239,9 +245,9 @@ RSpec.describe "XSD Type Validation" do
             attribute :count, :integer
           end
 
-          expect {
+          expect do
             described_class.validate_xsd_types!(model, register)
-          }.not_to raise_error
+          end.not_to raise_error
         end
 
         it "accepts model with multiple standard types" do
@@ -252,9 +258,9 @@ RSpec.describe "XSD Type Validation" do
             attribute :enabled, :boolean
           end
 
-          expect {
+          expect do
             described_class.validate_xsd_types!(model, register)
-          }.not_to raise_error
+          end.not_to raise_error
         end
       end
 
@@ -264,7 +270,7 @@ RSpec.describe "XSD Type Validation" do
             attribute :value, :string
 
             xml do
-              root "NestedModel"
+              element "NestedModel"
               type_name "ValidCustomType"
             end
           end
@@ -273,9 +279,9 @@ RSpec.describe "XSD Type Validation" do
             attribute :nested, nested_model
           end
 
-          expect {
+          expect do
             described_class.validate_xsd_types!(parent_model, register)
-          }.not_to raise_error
+          end.not_to raise_error
         end
       end
 
@@ -291,11 +297,11 @@ RSpec.describe "XSD Type Validation" do
             attribute :custom_field, custom_type
           end
 
-          expect {
+          expect do
             described_class.validate_xsd_types!(model, register)
-          }.to raise_error(
+          end.to raise_error(
             Lutaml::Model::UnresolvableTypeError,
-            /Attribute 'custom_field' uses unresolvable xsd_type 'UndefinedCustomType'/
+            /Attribute 'custom_field' uses unresolvable xsd_type 'UndefinedCustomType'/,
           )
         end
 
@@ -310,11 +316,11 @@ RSpec.describe "XSD Type Validation" do
             attribute :field, custom_type
           end
 
-          expect {
+          expect do
             described_class.validate_xsd_types!(model, register)
-          }.to raise_error(
+          end.to raise_error(
             Lutaml::Model::UnresolvableTypeError,
-            /Custom types must be defined as LutaML Type::Value or Model classes/
+            /Custom types must be defined as LutaML Type::Value or Model classes/,
           )
         end
 
@@ -336,9 +342,9 @@ RSpec.describe "XSD Type Validation" do
             attribute :field2, type2
           end
 
-          expect {
+          expect do
             described_class.validate_xsd_types!(model, register)
-          }.to raise_error(Lutaml::Model::UnresolvableTypeError) do |error|
+          end.to raise_error(Lutaml::Model::UnresolvableTypeError) do |error|
             expect(error.message).to include("field1")
             expect(error.message).to include("field2")
             expect(error.message).to include("BadType1")
@@ -363,11 +369,11 @@ RSpec.describe "XSD Type Validation" do
             attribute :nested, nested_model
           end
 
-          expect {
+          expect do
             described_class.validate_xsd_types!(parent_model, register)
-          }.to raise_error(
+          end.to raise_error(
             Lutaml::Model::UnresolvableTypeError,
-            /In nested model.*NestedBadType/
+            /In nested model.*NestedBadType/,
           )
         end
       end
@@ -387,13 +393,13 @@ RSpec.describe "XSD Type Validation" do
           attribute :field, bad_type
 
           xml do
-            root "TestModel"
+            element "TestModel"
           end
         end
 
-        expect {
+        expect do
           described_class.generate(model)
-        }.to raise_error(Lutaml::Model::UnresolvableTypeError)
+        end.to raise_error(Lutaml::Model::UnresolvableTypeError)
       end
 
       it "allows skipping validation with skip_validation option" do
@@ -407,13 +413,13 @@ RSpec.describe "XSD Type Validation" do
           attribute :field, bad_type
 
           xml do
-            root "TestModel"
+            element "TestModel"
           end
         end
 
-        expect {
+        expect do
           described_class.generate(model, skip_validation: true)
-        }.not_to raise_error
+        end.not_to raise_error
       end
 
       it "successfully generates XSD for valid model" do
@@ -422,7 +428,7 @@ RSpec.describe "XSD Type Validation" do
           attribute :count, :integer
 
           xml do
-            root "ValidModel"
+            element "ValidModel"
           end
         end
 

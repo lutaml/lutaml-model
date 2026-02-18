@@ -145,10 +145,12 @@ module Lutaml
       end
 
       def import_model_mappings(model, register_id = nil)
-        reg_id = register(register_id).id
+        register_id ||= Lutaml::Model::Config.default_register
+        reg_id = register_id
         return import_mappings_later(model) if model_importable?(model)
 
-        @mappings.merge!(Utils.deep_dup(model.mappings_for(@format, reg_id).mappings_hash))
+        @mappings.merge!(Utils.deep_dup(model.mappings_for(@format,
+                                                           reg_id).mappings_hash))
       end
 
       def validate!(key, to, with, render_nil, render_empty)

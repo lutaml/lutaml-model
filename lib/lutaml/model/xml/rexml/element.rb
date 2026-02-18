@@ -59,7 +59,8 @@ module Lutaml
             elsif name == "#cdata-section"
               builder.add_text(builder.current_node, text, cdata: true)
             else
-              builder.create_and_add_element(name, attributes: build_attributes_hash) do |xml|
+              builder.create_and_add_element(name,
+                                             attributes: build_attributes_hash) do |xml|
                 children.each do |child|
                   child.build_xml(xml)
                 end

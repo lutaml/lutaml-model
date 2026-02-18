@@ -29,3 +29,10 @@ Gemfile.lock
 /_site
 /docs/_site
 /docs/.jekyll-cache
+
+*.md
+old-docs/
+.kilocode/
+old/
+
+.orig
