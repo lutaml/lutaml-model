@@ -13,7 +13,19 @@ module Lutaml
       end
 
       # TODO: this should be extracted from adapters and moved here to be reused
-      def model_to_data(model, _format, _options = {})
+      def model_to_data(model, _format, options = {})
+        # Check if model class has a pre-compiled transformation
+        model_class = model.class
+        if model_class.is_a?(Class) && model_class.include?(Lutaml::Model::Serialize)
+          transformation = model_class.transformation_for(:xml, __register)
+
+          # If transformation exists and is an XmlTransformation, use it
+          if transformation.is_a?(Lutaml::Model::Xml::Transformation)
+            return transformation.transform(model, options)
+          end
+        end
+
+        # Fallback to returning model for classes without transformation
         model
       end
 
@@ -22,6 +34,19 @@ module Lutaml
       def apply_xml_mapping(doc, instance, options = {})
         options = prepare_options(options)
         instance.encoding = options[:encoding]
+        instance.doctype = options[:doctype] if options[:doctype]
+
+        # Transfer XML declaration info if present (Issue #1)
+        if doc.respond_to?(:xml_declaration) && doc.xml_declaration
+          instance.instance_variable_set(:@xml_declaration, doc.xml_declaration)
+        end
+
+        # Transfer input namespaces if present (Issue #3: Namespace Preservation)
+        if doc.respond_to?(:input_namespaces) && doc.input_namespaces&.any?
+          instance.instance_variable_set(:@__input_namespaces,
+                                         doc.input_namespaces)
+        end
+
         return instance unless doc
 
         mappings = options[:mappings] || mappings_for(:xml).mappings
@@ -63,7 +88,8 @@ module Lutaml
                     end
                   end
 
-          value = apply_value_map(value, rule.value_map(:from, new_opts), attr)
+          from_map = rule.value_map(:from, new_opts)
+          value = apply_value_map(value, from_map, attr)
           value = normalize_xml_value(value, rule, attr, new_opts)
           value = rule.transform_value(attr, value, :from, :xml)
           rule.deserialize(instance, value, attributes, context)
@@ -73,7 +99,66 @@ module Lutaml
           instance.using_default_for(attr_name)
         end
 
+        # CRITICAL: Create DeclarationPlan AFTER model is fully populated
+        # This captures WHERE namespaces were declared and in WHAT format
+        # The plan will be used during serialization to preserve the original structure
+        if model_class.is_a?(Class) && model_class.include?(Lutaml::Model::Serialize)
+          mapping = model_class.mappings_for(:xml, __register)
+          # Check if doc responds to input_namespaces (handles nested elements that are OxElement)
+          # CRITICAL: Collect input_namespaces from ALL elements, not just root
+          all_input_namespaces = collect_all_input_namespaces(doc)
+          if mapping && all_input_namespaces&.any?
+            # Create plan from input namespaces (format preservation)
+            plan = Lutaml::Model::Xml::DeclarationPlan.from_input(
+              all_input_namespaces,
+              mapping,
+            )
+
+            # Store plan in instance for use during serialization
+            if instance.respond_to?(:__input_declaration_plan=)
+              instance.__input_declaration_plan = plan
+            end
+          end
+        end
+
         instance
+      end
+
+      # Collect input_namespaces from all elements in the document tree
+      #
+      # Namespaces can be declared on any element, not just the root.
+      # We need to collect them all for proper format preservation.
+      #
+      # @param element [XmlElement] The element to collect from
+      # @param visited [Set] Set of visited elements to prevent cycles
+      # @return [Hash] Merged namespace info from all elements
+      def collect_all_input_namespaces(element, visited = Set.new)
+        return {} unless element
+        # Prevent infinite recursion for circular references
+        return {} if visited.include?(element.object_id)
+
+        visited.add(element.object_id)
+        namespaces = {}
+
+        # Get this element's input_namespaces
+        if element.respond_to?(:input_namespaces) && element.input_namespaces
+          namespaces.merge!(element.input_namespaces)
+        end
+
+        # Recursively collect from children
+        if element.respond_to?(:children)
+          element.children.each do |child|
+            next if child.is_a?(String) # Skip text nodes
+
+            child_namespaces = collect_all_input_namespaces(child, visited)
+            # Merge, but don't overwrite (first declaration wins)
+            child_namespaces.each do |key, value|
+              namespaces[key] ||= value
+            end
+          end
+        end
+
+        namespaces
       end
 
       def prepare_options(options)
@@ -107,11 +192,11 @@ module Lutaml
 
         return if schema_location.nil?
 
-        instance.schema_location = Lutaml::Model::SchemaLocation.new(
-          schema_location: schema_location.value,
-          prefix: schema_location.namespace_prefix,
-          namespace: schema_location.namespace,
-        )
+        # Store raw schemaLocation string as metadata
+        # SchemaLocation class is for programmatic creation with XmlNamespace classes only
+        # When parsing XML, we just preserve the string value as-is
+        instance.instance_variable_set(:@raw_schema_location,
+                                       schema_location.value)
       end
 
       def value_for_xml_attribute(doc, rule, rule_names)
@@ -120,7 +205,14 @@ module Lutaml
         attribute_names = rule_names.filter_map do |rn|
           if rn.include?("://")
             # This is a URI:name format, need to find the actual prefix used in the document
-            uri, local_name = rn.split(":", 2)
+            # CRITICAL: Split on LAST colon to handle URIs with colons (http://...)
+            # "http://www.w3.org/XML/1998/namespace:lang" should split into:
+            #   uri = "http://www.w3.org/XML/1998/namespace"
+            #   local_name = "lang"
+            last_colon_index = rn.rindex(":")
+            uri = rn[0...last_colon_index]
+            local_name = rn[(last_colon_index + 1)..]
+
             # Get all matching attributes by URI and local name
             doc.root.attributes.values.find do |attr|
               attr.namespace == uri && attr.unprefixed_name == local_name
@@ -150,25 +242,61 @@ module Lutaml
         attr_type = attr&.type(__register)
 
         children = doc.children.select do |child|
-          next false if child.text?
+          next false if child.is_a?(String)
 
-          # CRITICAL FIX: Handle explicit namespace: nil
-          # When namespace: nil is explicitly set, only match elements with NO namespace URI
-          if rule.namespace_set? && rule.namespace.nil? && rule.instance_variable_get(:@namespace_param).nil?
-            # Child must have:
-            # 1. Matching local name
-            # 2. NO namespace URI (namespaced_name == unprefixed_name indicates no namespace)
-            next child.unprefixed_name == rule.name.to_s &&
-              child.namespaced_name == child.unprefixed_name
+          # Handle XmlElement children with text? method
+          next false if child.respond_to?(:text?) && child.text?
+
+          # Handle explicit namespace: nil with prefix: nil
+          # When both namespace: nil and prefix: nil are set, this means "no namespace constraint"
+          # The child element can declare its own namespace and should still match by local name
+          if rule.namespace_set? && rule.namespace.nil? &&
+              rule.instance_variable_get(:@namespace_param).nil? &&
+              rule.instance_variable_get(:@prefix_param).nil?
+            # Match by unprefixed name only, regardless of child's namespace
+            next child.unprefixed_name == rule.name.to_s
           end
 
           # First try exact namespace match
           next true if rule_names.include?(child.namespaced_name)
 
+          # Second: try to match by prefix when child has xmlns="" (explicit blank namespace)
+          # This handles the case where elements have prefixed names but are in blank namespace
+          # e.g., <GML:ApplicationSchema xmlns=""> should match the rule expecting GML namespace
+          if child.namespace_prefix && attr_type && attr_type <= Serialize
+            # Get the namespace class from the attribute's type
+            # For Type::Value classes, use type_namespace_class (Type namespaces)
+            # For Serializable classes, use their mapping's namespace_class (element namespaces)
+            type_ns_class = if attr_type.is_a?(Class) && attr_type.include?(Lutaml::Model::Serialize)
+                              # Serializable class - use its mapping's namespace
+                              attr_type.mappings_for(:xml)&.namespace_class
+                            else
+                              # Type::Value class - use type namespace
+                              attr.type_namespace_class(__register)
+                            end
+
+            # Match by prefix AND local name to avoid matching unrelated elements
+            # with the same namespace prefix (e.g., xsd:attributeGroup should not
+            # match a rule for xsd:attribute)
+            if type_ns_class && child.namespace_prefix == type_ns_class.prefix_default.to_s &&
+                child.unprefixed_name == rule.name.to_s
+              next true
+            end
+          end
+
           # Fallback: if the child has a different namespace and attr_type is Serializable,
           # match by unprefixed name (child declares its own namespace)
+          #
+          # CRITICAL: Only use fallback for unqualified children (no prefix).
+          # Children with explicit prefixes should NOT match via fallback, even if xmlns="" is set.
+          # This ensures that GML:ApplicationSchema doesn't match CityGML:ApplicationSchema just because
+          # they have the same unprefixed name.
           if attr_type && attr_type <= Serialize
-            rule_names.any? { |rn| rn.split(":").last == child.unprefixed_name }
+            # Only match by unprefixed name if child doesn't have an explicit namespace prefix
+            # This prevents cross-namespace matching when elements have the same local name
+            !child.namespace_prefix && rule_names.any? do |rn|
+              rn.split(":").last == child.unprefixed_name
+            end
           else
             false
           end

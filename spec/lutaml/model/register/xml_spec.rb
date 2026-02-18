@@ -12,7 +12,7 @@ module RegisterXmlSpec
     attribute :value, :string
 
     xml do
-      root "mi"
+      element "mi"
       namespace MathMlNamespace
 
       map_content to: :value
@@ -24,7 +24,7 @@ module RegisterXmlSpec
     attribute :value, :string
 
     xml do
-      root "mo"
+      element "mo"
       namespace MathMlNamespace
 
       map_content to: :value
@@ -37,7 +37,7 @@ module RegisterXmlSpec
     attribute :denominator, :mi
 
     xml do
-      root "mfrac"
+      element "mfrac"
       namespace MathMlNamespace
 
       map_element "mo", to: :numerator
@@ -52,7 +52,7 @@ module RegisterXmlSpec
     attribute :fraction, :mfrac
 
     xml do
-      root "math"
+      element "math"
       namespace MathMlNamespace
 
       map_element "mi", to: :symbol
@@ -66,7 +66,7 @@ module RegisterXmlSpec
     attribute :color, :string
 
     xml do
-      root "mi"
+      element "mi"
       namespace MathMlNamespace
 
       map_content to: :value
@@ -76,18 +76,64 @@ module RegisterXmlSpec
 end
 
 RSpec.describe "RegisterXmlSpec" do
-  let(:register) { Lutaml::Model::Register.new(:mathml_register) }
+  let(:register_id) { :mathml_register }
+  let(:register) { Lutaml::Model::Register.new(register_id) }
   let(:formula) { RegisterXmlSpec::Math.from_xml(xml, register: register) }
 
   before do
+    # Ensure any existing register with this ID is removed first
+    Lutaml::Model::GlobalRegister.unregister(register_id) if Lutaml::Model::GlobalRegister.lookup(register_id)
+
+    # Clear attribute type caches on all model classes BEFORE each test
+    # This prevents pollution from previous tests
+    [RegisterXmlSpec::Math, RegisterXmlSpec::Mi, RegisterXmlSpec::Mo, RegisterXmlSpec::Mfrac,
+     RegisterXmlSpec::NewMi].each do |klass|
+      next unless klass.respond_to?(:attributes)
+
+      klass.attributes.each_value do |attr|
+        if attr.instance_variable_defined?(:@type_cache)
+          attr.instance_variable_set(:@type_cache,
+                                     {})
+        end
+        if attr.instance_variable_defined?(:@type_namespace_cache)
+          attr.instance_variable_set(:@type_namespace_cache,
+                                     {})
+        end
+      end
+    end
+
     # Register the register in the global registry
     Lutaml::Model::GlobalRegister.register(register)
 
-    # Register all the model classes
-    register.register_model_tree(RegisterXmlSpec::Math)
-    register.register_model(RegisterXmlSpec::Mi)
-    register.register_model(RegisterXmlSpec::Mo)
-    register.register_model(RegisterXmlSpec::Mfrac)
+    # Register all the model classes with explicit IDs matching attribute types
+    register.register_model(RegisterXmlSpec::Math, id: :math)
+    register.register_model(RegisterXmlSpec::Mi, id: :mi)
+    register.register_model(RegisterXmlSpec::Mo, id: :mo)
+    register.register_model(RegisterXmlSpec::Mfrac, id: :mfrac)
+  end
+
+  after do
+    # Clear type class cache and global substitutions to prevent test pollution
+    register.clear_type_class_cache if register.respond_to?(:clear_type_class_cache)
+    register.clear_global_substitutions if register.respond_to?(:clear_global_substitutions)
+
+    # Clear transformation cache on all model classes to prevent test pollution
+    [RegisterXmlSpec::Math, RegisterXmlSpec::Mi, RegisterXmlSpec::Mo,
+     RegisterXmlSpec::Mfrac, RegisterXmlSpec::NewMi].each do |klass|
+      next unless klass.respond_to?(:instance_variable_defined?)
+
+      if klass.instance_variable_defined?(:@transformations)
+        klass.remove_instance_variable(:@transformations)
+      end
+      cache_key = :@resolved_mapping_xml
+      if klass.instance_variable_defined?(cache_key)
+        klass.remove_instance_variable(cache_key)
+      end
+    end
+
+    # Clean up the register to prevent test pollution
+    Lutaml::Model::GlobalRegister.unregister(register_id)
+    Lutaml::Model::Config.default_register = :default
   end
 
   describe "parsing MathML XML" do

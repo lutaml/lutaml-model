@@ -16,6 +16,7 @@ require_relative "liquefiable"
 require_relative "transform"
 require_relative "value_transformer"
 require_relative "registrable"
+require_relative "transformation_registry"
 
 module Lutaml
   module Model
@@ -62,7 +63,7 @@ module Lutaml
         #   end
         def namespace(ns_class = nil)
           if ns_class
-            unless ns_class.is_a?(Class) && ns_class < Lutaml::Model::XmlNamespace
+            unless ns_class.is_a?(Class) && ns_class < Lutaml::Model::Xml::Namespace
               raise ArgumentError,
                     "namespace must be an XmlNamespace class, got #{ns_class.class}"
             end
@@ -120,6 +121,30 @@ module Lutaml
           ensure_model_imports!(register)
           ensure_choice_imports!(register)
           ensure_restrict_attributes!(register)
+          # REMOVED: XML mapping resolution here causes exponential cascade
+          # Mappings will be resolved lazily in mappings_for when actually needed
+          # CRITICAL: Ensure XML mapping imports are resolved (including sequence imports)
+          # This handles deferred imports inside sequence blocks
+          mappings[:xml]&.ensure_mappings_imported!(register)
+        end
+
+        # Clear all cached data for this model class
+        #
+        # Centralized caching (Phase 11.5):
+        # - Type caches: GlobalContext.resolver
+        # - Mapping caches: TransformationRegistry
+        # - Transformation caches: TransformationRegistry
+        #
+        # @param register_id [Symbol, nil] If provided, only clear cache for this specific context
+        def clear_cache(register_id = nil)
+          # Clear centralized type cache in GlobalContext.resolver
+          if defined?(Lutaml::Model::GlobalContext)
+            GlobalContext.resolver.clear_cache(register_id)
+          end
+
+          # Clear centralized mapping and transformation caches
+          # (Single Source of Truth - no longer uses instance variables)
+          TransformationRegistry.instance.clear
         end
 
         def model(klass = nil)
@@ -136,6 +161,7 @@ module Lutaml
           Utils.add_boolean_accessor_if_not_defined(klass, :mixed)
           Utils.add_accessor_if_not_defined(klass, :element_order)
           Utils.add_accessor_if_not_defined(klass, :encoding)
+          Utils.add_accessor_if_not_defined(klass, :doctype)
 
           Utils.add_method_if_not_defined(klass,
                                           :using_default_for) do |attribute_name|
@@ -289,6 +315,12 @@ module Lutaml
 
         def root?(register)
           mappings_for(:xml, register)&.root?
+        end
+
+        def import_model_with_root_error(model, register = nil)
+          return unless model.mappings.key?(:xml) && model.root?(register)
+
+          raise Lutaml::Model::ImportModelWithRootError.new(model)
         end
 
         def import_model_attributes(model, register_id = nil)
@@ -446,6 +478,18 @@ collection)
 
           raise Lutaml::Model::FormatAdapterNotSpecifiedError.new(format) if adapter.nil?
 
+          # CRITICAL: Resolve ALL imports at the ENTRY POINT of deserialization
+          # This ensures symbol-based imports registered after class definition are resolved
+          # before we start parsing the document
+          register = options[:register] || Lutaml::Model::Config.default_register
+          if format == :xml && mappings[:xml]
+            mappings[:xml].ensure_mappings_imported!(register)
+          end
+
+          # Recursively resolve child model imports
+          # This ensures the entire model tree is finalized before parsing
+          ensure_child_imports_resolved!(register)
+
           doc = adapter.parse(data, options)
           send("of_#{format}", doc, options)
         rescue *format_error_types => e
@@ -493,6 +537,10 @@ collection)
             raise Lutaml::Model::NoRootMappingError.new(self) unless valid
 
             options[:encoding] = doc.encoding
+            if doc.respond_to?(:doctype) && doc.doctype
+              options[:doctype] =
+                doc.doctype
+            end
           end
           options[:register] = register
 
@@ -509,18 +557,21 @@ collection)
           # Handle prefix option for XML
           if format == :xml && options.key?(:prefix)
             prefix_option = options[:prefix]
-            xml_mapping = mappings_for(:xml)
+            mappings_for(:xml)
 
-            if prefix_option == true
-              # Use defined default prefix
-              options[:use_prefix] = xml_mapping.namespace_prefix
-            elsif prefix_option.is_a?(String)
+            case prefix_option
+            when true
+              # Force prefix format for all namespaces
+              # Each namespace uses its own prefix_default
+              options[:use_prefix] = true
+            when String
               # Use specific custom prefix
               options[:use_prefix] = prefix_option
-            elsif prefix_option == false || prefix_option.nil?
-              # Explicitly use default namespace (no prefix)
-              options[:use_prefix] = nil
+            when false
+              # Explicitly force default format (disable format preservation)
+              options[:use_prefix] = false
             end
+            # If prefix_option is nil, don't set use_prefix (allow format preservation)
             options.delete(:prefix) # Remove original option
           end
 
@@ -529,7 +580,9 @@ collection)
             options = apply_namespace_overrides(options)
           end
 
-          adapter.new(value).public_send(:"to_#{format}", options)
+          adapter.new(value, register: options[:register]).public_send(
+            :"to_#{format}", options
+          )
         end
 
         def apply_namespace_overrides(options)
@@ -543,7 +596,7 @@ collection)
               ns_class = ns_config[:namespace]
               prefix = ns_config[:prefix]
 
-              if ns_class.is_a?(Class) && ns_class < Lutaml::Model::XmlNamespace && prefix
+              if ns_class.is_a?(Class) && ns_class < Lutaml::Model::Xml::Namespace && prefix
                 ns_prefix_map[ns_class.uri] = prefix.to_s
               end
             end
@@ -566,6 +619,20 @@ collection)
             raise Lutaml::Model::IncorrectModelError, msg
           end
 
+          # CRITICAL: Resolve ALL imports at the START of serialization
+          # This ensures symbol-based imports registered after class definition are resolved
+          # before we start building the document, without triggering infinite loops
+          register = options[:register] || Lutaml::Model::Config.default_register
+
+          # Resolve top-level mapping imports
+          if format == :xml && mappings[:xml]
+            mappings[:xml].ensure_mappings_imported!(register)
+          end
+
+          # Recursively resolve child model imports
+          # This ensures the entire model tree is finalized before serialization
+          ensure_child_imports_resolved!(register)
+
           transformer = Lutaml::Model::Config.transformer_for(format)
           transformer.model_to_data(self, instance, format, options)
         end
@@ -578,11 +645,16 @@ collection)
           end
         end
 
+        # Get resolved mapping for a format.
+        #
+        # Delegates to TransformationRegistry for centralized caching
+        # (Single Source of Truth - Phase 11.5).
+        #
+        # @param format [Symbol] The format (:xml, :json, :yaml, :toml, :hash)
+        # @param register [Symbol, Register, nil] The register for import resolution
+        # @return [Mapping, nil] The resolved mapping or nil
         def mappings_for(format, register = nil)
-          if @mappings&.dig(format)&.finalized?
-            @mappings[format]&.ensure_mappings_imported!(extract_register_id(register))
-          end
-          mappings[format] || default_mappings(format)
+          TransformationRegistry.instance.get_or_build_mapping(self, format, register)
         end
 
         def default_mappings(format)
@@ -599,6 +671,26 @@ collection)
 
             mapping.root(Utils.base_class_name(self)) if format == :xml
           end
+        end
+
+        # Get or build a pre-compiled transformation for the specified format
+        #
+        # Transformations are cached centrally in TransformationRegistry singleton
+        # to ensure compilation happens only once per model class and format.
+        #
+        # CRITICAL: Uses TransformationRegistry for cycle detection to prevent
+        # infinite recursion on self-referential models (e.g., Address.address: Address)
+        #
+        # Architecture (Phase 5.1 refactoring):
+        # - Model classes define mappings (declarative DSL) - stateless
+        # - TransformationRegistry manages ALL transformation caches - single source of truth
+        # - Transformation objects execute serialization - runtime instances
+        #
+        # @param format [Symbol] The format (:xml, :json, :yaml, etc.)
+        # @param register [Symbol, Register, nil] The register for type resolution
+        # @return [Transformation, nil] The pre-compiled transformation, or nil if cycle detected
+        def transformation_for(format, register = nil)
+          TransformationRegistry.instance.get_or_build_transformation(self, format, register)
         end
 
         def apply_mappings(doc, format, options = {})
@@ -640,8 +732,32 @@ collection)
           if value.nil?
             value_for_option(value_map[:nil], attr)
           elsif Utils.empty?(value)
+            # Check for new boolean value_map format (from: { empty: true/false })
+            # Only use new format if the value is explicitly boolean (TrueClass or FalseClass)
+            if value_map[:from] && (value_map[:from][:empty].is_a?(TrueClass) || value_map[:from][:empty].is_a?(FalseClass))
+              return value_map[:from][:empty]
+            end
+            # Check for direct boolean format (rule.value_map(:from) returns { empty: true })
+            # Only return directly if it's a boolean value (TrueClass/FalseClass), not a symbol
+            if value_map[:empty].is_a?(TrueClass) || value_map[:empty].is_a?(FalseClass)
+              return value_map[:empty]
+            end
+
+            # Fall back to legacy value_map format
             value_for_option(value_map[:empty], attr, value)
           elsif Utils.uninitialized?(value)
+            # Check for new boolean value_map format (from: { omitted: true/false })
+            # Only use new format if the value is explicitly boolean (TrueClass or FalseClass)
+            if value_map[:from] && (value_map[:from][:omitted].is_a?(TrueClass) || value_map[:from][:omitted].is_a?(FalseClass))
+              return value_map[:from][:omitted]
+            end
+            # Check for direct boolean format (rule.value_map(:from) returns { omitted: false })
+            # Only return directly if it's a boolean value (TrueClass/FalseClass), not a symbol
+            if value_map[:omitted].is_a?(TrueClass) || value_map[:omitted].is_a?(FalseClass)
+              return value_map[:omitted]
+            end
+
+            # Fall back to legacy value_map format
             value_for_option(value_map[:omitted], attr)
           else
             value
@@ -693,8 +809,8 @@ collection)
         def extract_register_id(register)
           if register
             register.is_a?(Lutaml::Model::Register) ? register.id : register
-          elsif class_variable_defined?(:@@__register)
-            class_variable_get(:@@__register)
+          elsif instance_variable_defined?(:@register)
+            instance_variable_get(:@register)
           else
             Lutaml::Model::Config.default_register
           end
@@ -703,37 +819,79 @@ collection)
         def ensure_model_imports!(register_id = nil)
           return if @models_imported
 
+          # CRITICAL: Prevent re-entrant calls during import resolution
+          # Set flag BEFORE processing to prevent infinite recursion
+          @models_imported = true
+
           register_id ||= Lutaml::Model::Config.default_register
-          register = Lutaml::Model::GlobalRegister.lookup(register_id)
+
+          # Track if all imports were successfully resolved
+          all_resolved = true
+
           importable_models.each do |method, models|
             models.uniq.each do |model|
-              model_class = register.get_class_without_register(model)
+              model_class = Lutaml::Model::GlobalContext.resolve_type(model, register_id)
+
+              # Skip if model not registered yet - will retry later
+              if model_class.nil?
+                all_resolved = false
+                next
+              end
+
+              # CRITICAL: Recursively finalize imported class BEFORE using it
+              # This ensures ALL imports are resolved at definition time, not runtime
+              if model_class.is_a?(Class) && model_class.include?(Lutaml::Model::Serialize)
+                model_class.ensure_imports!(register_id)
+              end
+
+              import_model_with_root_error(model_class, register_id)
               @model.public_send(method, model_class, register_id)
             end
           end
 
           importable_models.clear
-          @models_imported = true
+
+          # CRITICAL: Only mark as imported if ALL imports were successfully resolved
+          # If any were skipped (not registered yet), allow retry later
+          @models_imported = true if all_resolved
         end
 
         def ensure_choice_imports!(register_id = nil)
           return if @choices_imported
 
           register_id ||= Lutaml::Model::Config.default_register
-          register = Lutaml::Model::GlobalRegister.lookup(register_id)
+
+          # Track if all imports were successfully resolved
+          all_resolved = true
+
           importable_choices.each do |choice, choice_imports|
             choice_imports.each do |method, models|
               until models.uniq.empty?
+                model_class = Lutaml::Model::GlobalContext.resolve_type(models.shift, register_id)
+
+                # Skip if model not registered yet - will retry later
+                if model_class.nil?
+                  all_resolved = false
+                  next
+                end
+
+                # CRITICAL: Recursively finalize imported class BEFORE using it
+                if model_class.is_a?(Class) && model_class.include?(Lutaml::Model::Serialize)
+                  model_class.ensure_imports!(register_id)
+                end
+
                 choice.public_send(
                   method,
-                  register.get_class_without_register(models.shift),
+                  model_class,
                   register_id,
                 )
               end
             end
           end
 
-          @choices_imported = true
+          # CRITICAL: Only mark as imported if ALL imports were successfully resolved
+          # If any were skipped (not registered yet), allow retry later
+          @choices_imported = true if all_resolved
         end
 
         def ensure_restrict_attributes!(register_id = nil)
@@ -752,6 +910,10 @@ collection)
           @trace ||= TracePoint.new(:end) do |_tp|
             if include?(Lutaml::Model::Serialize)
               @finalized = true
+              # NOTE: Do NOT resolve imports here - it's too early in the load process
+              # Classes being imported may not be defined yet, causing circular errors
+              # Imports will be resolved lazily on first use via ensure_imports!
+              # BUT they will be resolved RECURSIVELY, preventing redundant resolution
               @trace.disable
             end
           end
@@ -774,6 +936,55 @@ collection)
             !!@sort_by_field
         end
 
+        # Recursively ensure all child model imports are resolved
+        #
+        # Walks through all attributes and ensures any Serializable types
+        # have BOTH model-level imports (attributes) AND mapping-level imports (XML) resolved
+        # before serialization/deserialization begins.
+        #
+        # CRITICAL PERFORMANCE FIX (Session 122):
+        # Uses a visited set to prevent redundant processing in large schemas.
+        # Without this, OOXML-scale schemas (hundreds of classes) create exponential cascades.
+        #
+        # @param register [Symbol] the register ID
+        # @param visited [Set<Class>, nil] classes already processed (internal use only)
+        # @return [void]
+        def ensure_child_imports_resolved!(register, visited = nil)
+          return unless finalized?
+
+          # Create visited set ONLY at top level (first call)
+          # All recursive calls share the SAME set to prevent redundant processing
+          visited ||= Set.new
+
+          return if visited.include?(self) # Already processed this class
+
+          visited.add(self) # Mark as visited BEFORE processing to prevent cycles
+
+          # CRITICAL: Use direct instance variable access to avoid triggering ensure_imports!
+          # Calling attributes(register) would trigger ensure_imports! which creates circular chains
+          attrs = @attributes || {}
+          attrs.each_value do |attr|
+            type_class = attr.type(register)
+            next unless type_class
+            # Check if type_class is a Serializable class that needs import resolution
+            next unless type_class.is_a?(Class) && type_class < Lutaml::Model::Serialize
+            next if visited.include?(type_class) # Skip if already visited
+
+            # Mark child as visited BEFORE processing to prevent cycles
+            visited.add(type_class)
+
+            # Ensure model-level imports (attributes, choices)
+            type_class.ensure_imports!(register)
+
+            # CRITICAL: Also ensure mapping-level imports (XML element/attribute mappings)
+            # Child models may have symbol-based import_model_mappings that need resolution
+            type_class.mappings[:xml]&.ensure_mappings_imported!(register)
+
+            # Recursively process child's children, passing THE SAME visited set
+            type_class.ensure_child_imports_resolved!(register, visited)
+          end
+        end
+
         private
 
         # Issue deprecation warning for class-level namespace usage
@@ -793,7 +1004,7 @@ collection)
                 namespace #{ns_class.name}  # ❌ Does nothing!
             #{'    '}
                 xml do
-                  root "element"
+                  element "element"
                   map_element "field", to: :field
                 end
               end
@@ -801,7 +1012,7 @@ collection)
             CORRECT (use namespace inside xml block):
               class #{name} < Lutaml::Model::Serializable
                 xml do
-                  root "element"
+                  element "element"
                   namespace #{ns_class.name}  # ✅ Works correctly!
                   map_element "field", to: :field
                 end
@@ -811,6 +1022,44 @@ collection)
           WARNING
 
           @namespace_warning_issued = true
+        end
+
+        # Build a new transformation instance for the format
+        #
+        # This method creates a pre-compiled transformation by:
+        # 1. Ensuring all mappings are imported
+        # 2. Getting the mapping DSL for the format
+        # 3. Creating format-specific transformation class
+        #
+        # @param format [Symbol] The format (:xml, :json, :yaml, etc.)
+        # @param register_id [Symbol] The register ID
+        # @return [Transformation] The transformation instance
+        def build_transformation(format, register_id)
+          # Ensure mappings are imported before building transformation
+          if format == :xml && mappings[:xml]
+            mappings[:xml].ensure_mappings_imported!(register_id)
+          end
+
+          # Get the mapping DSL for this format
+          mapping_dsl = mappings_for(format, register_id)
+
+          # Pass register_id directly (Attribute#type handles Symbol)
+
+          # Create format-specific transformation
+          case format
+          when :xml
+            require_relative "xml/transformation"
+            Lutaml::Model::Xml::Transformation.new(self, mapping_dsl, format,
+                                                   register_id)
+          when :json, :yaml, :toml, :hash
+            # Key-value formats use KeyValue::Transformation (symmetric OOP architecture)
+            require_relative "key_value/transformation"
+            Lutaml::Model::KeyValue::Transformation.new(self, mapping_dsl,
+                                                        format, register_id)
+          else
+            # For other formats, return mapping_dsl as stub for backward compatibility
+            mapping_dsl
+          end
         end
 
         def process_type_hash(type, options)
@@ -879,8 +1128,8 @@ collection)
         end
       end
 
-      attr_accessor :element_order, :schema_location, :encoding, :__register,
-                    :__parent, :__root
+      attr_accessor :element_order, :schema_location, :encoding, :doctype,
+                    :__register, :__parent, :__root, :__input_declaration_plan
       attr_writer :ordered, :mixed
 
       def initialize(attrs = {}, options = {})
@@ -890,6 +1139,7 @@ collection)
 
         set_ordering(attrs)
         set_schema_location(attrs)
+        set_doctype(attrs)
         initialize_attributes(attrs, options)
 
         register_in_reference_store
@@ -984,7 +1234,29 @@ collection)
       def to_format(format, options = {})
         validate_root_mapping!(format, options)
 
+        # Pass instance's __register if not explicitly provided
+        # NOTE: __register is always defined on Serialize instances
+        options[:register] ||= __register if __register
+
         options[:parse_encoding] = encoding if encoding
+        options[:doctype] = doctype if format == :xml && doctype
+
+        # Pass XML declaration info for Issue #1: XML Declaration Preservation
+        if format == :xml && @xml_declaration
+          options[:xml_declaration] = @xml_declaration
+        end
+
+        # Pass input namespaces for Issue #3: Namespace Preservation
+        if format == :xml && @__input_namespaces&.any?
+          options[:input_namespaces] = @__input_namespaces
+        end
+
+        # Pass stored DeclarationPlan for format preservation
+        # NOTE: __input_declaration_plan is always defined on Serialize instances
+        if format == :xml && __input_declaration_plan
+          options[:__stored_plan] = __input_declaration_plan
+        end
+
         self.class.to(format, self, options)
       end
 
@@ -1008,6 +1280,12 @@ collection)
         return unless attrs.key?(:schema_location)
 
         self.schema_location = attrs[:schema_location]
+      end
+
+      def set_doctype(attrs)
+        return unless attrs.key?(:doctype)
+
+        self.doctype = attrs[:doctype]
       end
 
       def initialize_attributes(attrs, options = {})

@@ -209,7 +209,7 @@ RSpec.describe ChildMapping do
         instance = ChildMapping::Prefixes.from_json(prefixes_json)
         serialized = instance.to_json
 
-        expect(serialized).to be_xml_equivalent_to(prefixes_json)
+        expect(JSON.parse(serialized)).to eq(JSON.parse(prefixes_json))
       end
     end
   end

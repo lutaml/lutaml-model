@@ -3,7 +3,7 @@ module RenderEmptySpec
     attribute :items, :string, collection: true
 
     xml do
-      root "default-model"
+      element "default-model"
       map_element "items", to: :items
     end
   end
@@ -12,7 +12,7 @@ module RenderEmptySpec
     attribute :items, :string, collection: true, initialize_empty: true
 
     xml do
-      root "empty-init-model"
+      element "empty-init-model"
       map_element "items", to: :items
     end
   end
@@ -21,7 +21,7 @@ module RenderEmptySpec
     attribute :items, :string, collection: true
 
     xml do
-      root "omit-empty-model"
+      element "omit-empty-model"
       map_element "items", to: :items, render_empty: :omit
     end
 
@@ -50,7 +50,7 @@ module RenderEmptySpec
     attribute :items, :string, collection: true
 
     xml do
-      root "explicit-nil-model"
+      element "explicit-nil-model"
       map_element "items", to: :items, render_empty: :as_nil
     end
 

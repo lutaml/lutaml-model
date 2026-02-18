@@ -1,7 +1,7 @@
 require "rexml/document"
 require "moxml"
 require "moxml/adapter/rexml"
-require_relative "document"
+require_relative "base_adapter"
 require_relative "rexml/element"
 require_relative "builder/rexml"
 require_relative "namespace_collector"
@@ -10,7 +10,7 @@ require_relative "declaration_planner"
 module Lutaml
   module Model
     module Xml
-      class RexmlAdapter < Document
+      class RexmlAdapter < BaseAdapter
         TEXT_CLASSES = [Moxml::Text, Moxml::Cdata].freeze
 
         def self.parse(xml, options = {})
@@ -27,12 +27,14 @@ module Lutaml
             )
           end
 
-          @root = Rexml::Element.new(root_element, target_encoding: parse_encoding)
+          @root = Rexml::Element.new(root_element,
+                                     target_encoding: parse_encoding)
           new(@root, parse_encoding)
         end
 
         def to_xml(options = {})
-          builder_options = { encoding: determine_encoding(options) }
+          encoding = determine_encoding(options)
+          builder_options = encoding ? { encoding: encoding } : {}
 
           builder = Builder::Rexml.build(builder_options) do |xml|
             if @root.is_a?(Rexml::Element)
@@ -142,7 +144,8 @@ module Lutaml
         def self.parse_with_escaped_ampersands(xml)
           return nil unless xml.is_a?(String)
 
-          escaped_xml = xml.gsub(/&(?![a-zA-Z]+;|#[0-9]+;|#x[0-9a-fA-F]+;)/, "&amp;")
+          escaped_xml = xml.gsub(/&(?![a-zA-Z]+;|#[0-9]+;|#x[0-9a-fA-F]+;)/,
+                                 "&amp;")
           Moxml::Adapter::Rexml.parse(escaped_xml).root
         end
 
@@ -483,7 +486,8 @@ module Lutaml
           end
         end
 
-        def handle_nested_elements_with_plan(xml, value, rule, attribute, plan, options)
+        def handle_nested_elements_with_plan(xml, value, rule, attribute, plan,
+options)
           element_options = options.merge(
             rule: rule,
             attribute: attribute,
@@ -518,7 +522,8 @@ module Lutaml
           end
         end
 
-        def add_simple_value(xml, rule, value, attribute, plan: nil, mapping: nil)
+        def add_simple_value(xml, rule, value, attribute, plan: nil,
+mapping: nil)
           # Apply value_map transformation BEFORE checking if should render
           value = rule.render_value_for(value) if rule
 
@@ -548,7 +553,8 @@ module Lutaml
 
             # Non-empty array: create element for each value
             value.each do |val|
-              add_simple_value(xml, rule, val, attribute, plan: plan, mapping: mapping)
+              add_simple_value(xml, rule, val, attribute, plan: plan,
+                                                          mapping: mapping)
             end
             return
           end
@@ -787,12 +793,15 @@ module Lutaml
           prefixed_xml = builder.add_namespace_prefix(prefix)
           tag_name = options[:tag_name] || xml_mapping.root_element
 
-          prefixed_xml.create_and_add_element(tag_name, attributes: attributes) do |el|
-            process_element_order(el, element, xml_mapping, mapper_class, options)
+          prefixed_xml.create_and_add_element(tag_name,
+                                              attributes: attributes) do |el|
+            process_element_order(el, element, xml_mapping, mapper_class,
+                                  options)
           end
         end
 
-        def process_element_order(builder, element, xml_mapping, mapper_class, options)
+        def process_element_order(builder, element, xml_mapping, mapper_class,
+options)
           index_hash = {}
           content = []
 
@@ -807,11 +816,13 @@ module Lutaml
         def process_ordered_object(builder, element, object, xml_mapping, mapper_class,
                                     index_hash, content, options)
           curr_index = increment_object_index(index_hash, object)
-          element_rule = xml_mapping.find_by_name(object.name, type: object.type)
+          element_rule = xml_mapping.find_by_name(object.name,
+                                                  type: object.type)
 
           return if skip_element_rule?(element_rule, options)
 
-          attribute_def = attribute_definition_for(element, element_rule, mapper_class: mapper_class)
+          attribute_def = attribute_definition_for(element, element_rule,
+                                                   mapper_class: mapper_class)
           value = attribute_value_for(element, element_rule)
 
           return if skip_cdata_text?(element_rule, xml_mapping, object)
@@ -837,18 +848,23 @@ module Lutaml
         def handle_ordered_element_content(builder, element, element_rule, xml_mapping,
                                             attribute_def, value, curr_index, content, options, mapper_class)
           if element_rule == xml_mapping.content_mapping
-            handle_ordered_content_text(builder, element, element_rule, xml_mapping, curr_index, content)
+            handle_ordered_content_text(builder, element, element_rule,
+                                        xml_mapping, curr_index, content)
           elsif !value.nil? || element_rule.render_nil?
             add_ordered_element_value(builder, element, attribute_def, value, curr_index,
                                       element_rule, options, mapper_class)
           end
         end
 
-        def handle_ordered_content_text(builder, element, element_rule, xml_mapping, curr_index, content)
+        def handle_ordered_content_text(builder, element, element_rule,
+xml_mapping, curr_index, content)
           text = xml_mapping.content_mapping.serialize(element)
           text = text[curr_index] if text.is_a?(Array)
 
-          return builder.add_text(builder, text, cdata: element_rule.cdata) if element.mixed?
+          if element.mixed?
+            return builder.add_text(builder, text,
+                                    cdata: element_rule.cdata)
+          end
 
           content << text
         end

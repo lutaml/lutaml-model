@@ -23,7 +23,10 @@ module Lutaml
         end
 
         def namespaced_name
-          if unprefixed_name == "lang"
+          # For type-namespaced attributes (those with xml_namespace declaration),
+          # return the prefixed name (e.g., "xml:lang", "ex:attr")
+          # rather than URI:name format (e.g., "http://www.w3.org/XML/1998/namespace:lang")
+          if namespace_prefix
             name
           elsif namespace
             "#{namespace}:#{unprefixed_name}"

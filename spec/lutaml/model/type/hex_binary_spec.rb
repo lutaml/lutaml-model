@@ -206,7 +206,7 @@ RSpec.describe Lutaml::Model::Type::HexBinary do
         attribute :algorithm, :string
 
         xml do
-          root "checksum"
+          element "checksum"
           map_element "value", to: :hash_value
           map_attribute "algorithm", to: :algorithm
         end

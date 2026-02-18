@@ -3,7 +3,8 @@ module Lutaml
     module Yamls
       class Transform < Lutaml::Model::KeyValueTransform
         def data_to_model(data, format, options = {})
-          mappings = defined_mappings_for(:yamls) || mappings_for(:yaml, __register)
+          mappings = defined_mappings_for(:yamls) || mappings_for(:yaml,
+                                                                  __register)
 
           super(data, format, options.merge(mappings: mappings))
         end

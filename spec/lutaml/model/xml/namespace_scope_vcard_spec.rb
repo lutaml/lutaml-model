@@ -12,23 +12,26 @@ require "lutaml/model/xml/rexml_adapter"
 RSpec.describe "namespace_scope with vCard" do
   # Define namespace classes
   let(:vcard_namespace) do
-    Class.new(Lutaml::Model::XmlNamespace) do
+    Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
       uri "urn:ietf:params:xml:ns:vcard-4.0"
       prefix_default "vcard"
+      element_form_default :qualified
     end
   end
 
   let(:dcterms_namespace) do
-    Class.new(Lutaml::Model::XmlNamespace) do
+    Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
       uri "http://purl.org/dc/terms/"
       prefix_default "dcterms"
+      element_form_default :qualified
     end
   end
 
   let(:dc_elements_namespace) do
-    Class.new(Lutaml::Model::XmlNamespace) do
+    Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
       uri "http://purl.org/dc/elements/1.1/"
       prefix_default "dc"
+      element_form_default :qualified
     end
   end
 
@@ -65,12 +68,14 @@ RSpec.describe "namespace_scope with vCard" do
       attribute :suffix, :string
 
       xml do
-        root "n"
+        element "n"
         namespace v_ns
         map_element "given", to: :given
         map_element "family", to: :family
-        map_element "prefix", to: :prefix
-        map_element "suffix", to: :suffix
+        map_element "prefix", to: :prefix, render_nil: :omit,
+                              render_empty: :omit
+        map_element "suffix", to: :suffix, render_nil: :omit,
+                              render_empty: :omit
       end
 
       def self.name
@@ -87,7 +92,7 @@ RSpec.describe "namespace_scope with vCard" do
       attribute :type, :string
 
       xml do
-        root "email"
+        element "email"
         namespace v_ns
         map_attribute "type", to: :type
         map_content to: :value
@@ -107,7 +112,7 @@ RSpec.describe "namespace_scope with vCard" do
       attribute :type, :string
 
       xml do
-        root "tel"
+        element "tel"
         namespace v_ns
         map_attribute "type", to: :type
         map_content to: :value
@@ -130,7 +135,7 @@ RSpec.describe "namespace_scope with vCard" do
       attribute :country_name, :string
 
       xml do
-        root "address"
+        element "address"
         namespace v_ns
         map_element "street-address", to: :street_address
         map_element "locality", to: :locality
@@ -164,7 +169,7 @@ RSpec.describe "namespace_scope with vCard" do
       attribute :created, dcterms_created
 
       xml do
-        root "contact"
+        element "contact"
         namespace v_ns
         map_element "title", to: :title
         map_element "fn", to: :fn
@@ -194,7 +199,7 @@ RSpec.describe "namespace_scope with vCard" do
       attribute :contacts, contact_class, collection: true
 
       xml do
-        root "vCard"
+        element "vCard"
         namespace v_ns
         namespace_scope [v_ns, dc_ns, dcterms_ns]
         map_element "version", to: :version
@@ -218,7 +223,7 @@ RSpec.describe "namespace_scope with vCard" do
       attribute :contacts, contact_class, collection: true
 
       xml do
-        root "vCard"
+        element "vCard"
         namespace v_ns
         namespace_scope [v_ns]
         map_element "version", to: :version
@@ -266,6 +271,8 @@ RSpec.describe "namespace_scope with vCard" do
       name: name_class.new(
         given: "Robin",
         family: "Hoodwella",
+        prefix: nil,
+        suffix: nil,
       ),
       email: email_class.new(value: "robin.hoodwella@example.com",
                              type: "home"),
@@ -409,8 +416,8 @@ RSpec.describe "namespace_scope with vCard" do
         <<~XML
           <vCard xmlns="urn:ietf:params:xml:ns:vcard-4.0">
             <version>4.0</version>
-            <contact>
-              <dc:title xmlns:dc="http://purl.org/dc/elements/1.1/">Contact: Dr. John Doe, Jr.</dc:title>
+            <contact xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/">
+              <dc:title>Contact: Dr. John Doe, Jr.</dc:title>
               <fn>Dr. John Doe, Jr.</fn>
               <n>
                 <given>John</given>
@@ -427,10 +434,10 @@ RSpec.describe "namespace_scope with vCard" do
                 <postal-code>12345</postal-code>
                 <country-name>USA</country-name>
               </address>
-              <dcterms:created xmlns:dcterms="http://purl.org/dc/terms/">2024-06-01T12:00:00Z</dcterms:created>
+              <dcterms:created>2024-06-01T12:00:00Z</dcterms:created>
             </contact>
-            <contact>
-              <dc:title xmlns:dc="http://purl.org/dc/elements/1.1/">Contact: Robin Hoodwella</dc:title>
+            <contact xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/">
+              <dc:title>Contact: Robin Hoodwella</dc:title>
               <fn>Robin Hoodwella</fn>
               <n>
                 <given>Robin</given>
@@ -445,7 +452,7 @@ RSpec.describe "namespace_scope with vCard" do
                 <postal-code>67890</postal-code>
                 <country-name>USA</country-name>
               </address>
-              <dcterms:created xmlns:dcterms="http://purl.org/dc/terms/">2024-06-02T15:30:00Z</dcterms:created>
+              <dcterms:created>2024-06-02T15:30:00Z</dcterms:created>
             </contact>
           </vCard>
         XML
@@ -464,6 +471,10 @@ RSpec.describe "namespace_scope with vCard" do
         expect(xml).to be_xml_equivalent_to(expected_xml_limited_scope)
       end
 
+      # W3C Rule: Namespaces can be declared at any ancestor element, not just
+      # the individual elements that use them. The implementation optimizes by
+      # declaring dc and dcterms at the lowest common ancestor (<contact>),
+      # which is more efficient than declaring them on each individual element.
       it "declares dc and dcterms locally on elements using them" do
         vcard = create_test_vcard(vcard_class_with_limited_scope)
         xml = vcard.to_xml
@@ -472,10 +483,11 @@ RSpec.describe "namespace_scope with vCard" do
         dc_declarations = xml.scan('xmlns:dc="').count
         dcterms_declarations = xml.scan('xmlns:dcterms="').count
 
-        expect(dc_declarations).to be >= 2,
-                                   "dc namespace should be declared at least twice (once per contact)"
-        expect(dcterms_declarations).to be >= 2,
-                                        "dcterms namespace should be declared at least twice (once per contact)"
+        # W3C compliant: namespaces declared at container level (contact), not root
+        expect(dc_declarations).to eq(2),
+                                   "dc namespace should be declared twice (once per contact)"
+        expect(dcterms_declarations).to eq(2),
+                                        "dcterms namespace should be declared twice (once per contact)"
 
         # Verify that dc and dcterms namespaces are declared locally
         expect(xml).to include('xmlns:dc="http://purl.org/dc/elements/1.1/"')
@@ -583,14 +595,22 @@ RSpec.describe "namespace_scope with vCard" do
   end
 
   context "with Ox adapter" do
-    it_behaves_like "namespace_scope behavior", Lutaml::Model::Xml::OxAdapter
+    if TestAdapterConfig.adapter_enabled?(:ox)
+      it_behaves_like "namespace_scope behavior", Lutaml::Model::Xml::OxAdapter
+    end
   end
 
   context "with Oga adapter" do
-    it_behaves_like "namespace_scope behavior", Lutaml::Model::Xml::OgaAdapter
+    if TestAdapterConfig.adapter_enabled?(:oga)
+      it_behaves_like "namespace_scope behavior",
+                      Lutaml::Model::Xml::OgaAdapter
+    end
   end
 
   context "with REXML adapter" do
-    it_behaves_like "namespace_scope behavior", Lutaml::Model::Xml::RexmlAdapter
+    if TestAdapterConfig.adapter_enabled?(:rexml)
+      it_behaves_like "namespace_scope behavior",
+                      Lutaml::Model::Xml::RexmlAdapter
+    end
   end
 end

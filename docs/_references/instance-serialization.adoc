@@ -74,11 +74,47 @@ Please refer to <<xml-instance-character-encoding>> for details.
 === Namespace prefix handling (`prefix:` option)
 
 The `prefix:` option is used to customize namespace prefix behavior for the
-serialized content.
+serialized XML content.
 
-Please refer to these links for details:
+==== Values
 
-`prefix: true`:: Force display of unused prefix: <<xml-namespace-instance-prefix-force>>
+The `prefix` option accepts the following values:
 
-`prefix: {prefix-name}`:: Namespace prefix override: <<xml-namespace-instance-prefix-override>>
+[cols="1,3"]
+|===
+| Value | Behavior
 
+| (not specified), `nil`, or `false`
+| Use default namespace (`xmlns="..."`) with no prefix. This is the default behavior.
+
+| `true`
+| Use the namespace's `prefix_default` from XmlNamespace class
+
+| `String`
+| Use the provided custom prefix string
+
+|===
+
+==== Examples
+
+Using namespace's default prefix:
+
+[source,ruby]
+----
+model.to_xml(prefix: true)
+# Uses prefix_default from namespace class
+----
+
+Using custom prefix:
+
+[source,ruby]
+----
+model.to_xml(prefix: "custom")
+# Uses "custom" as the prefix
+----
+
+==== Documentation
+
+For comprehensive coverage of namespace prefix customization including inheritance
+and semantic vs presentation distinction, see:
+link:../_guides/xml-namespaces.adoc#custom-prefixes[Custom Namespace Prefixes].

@@ -28,8 +28,8 @@ class Vase < Lutaml::Model::Serializable
   end
 
   xml do
-    root "vase"
-    namespace "https://example.com/vase/1.0"
+    element "vase"
+    namespace VaseNamespace
     map_element "height", to: :height
     map_element "diameter", to: :diameter
     map_element "material", to: :material

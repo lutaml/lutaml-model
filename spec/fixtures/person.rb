@@ -1,8 +1,13 @@
 require "lutaml/model"
 
+# Custom types for elements with different namespaces
+class Nsp1String < Lutaml::Model::Type::String
+  xml_namespace Nsp1Namespace
+end
+
 class Person < Lutaml::Model::Serializable
-  attribute :first_name, Lutaml::Model::Type::String
-  attribute :last_name, Lutaml::Model::Type::String
+  attribute :first_name, Nsp1String
+  attribute :last_name, Nsp1String
   attribute :age, Lutaml::Model::Type::Integer
   attribute :height, Lutaml::Model::Type::Float
   attribute :birthdate, Lutaml::Model::Type::Date
@@ -11,17 +16,11 @@ class Person < Lutaml::Model::Serializable
   attribute :active, Lutaml::Model::Type::Boolean
 
   xml do
-    root "Person"
-    namespace "http://example.com/person", "p"
+    element "Person"
+    namespace PersonNamespace
 
-    map_element "FirstName",
-                to: :first_name,
-                namespace: "http://example.com/nsp1",
-                prefix: "nsp1", render_empty: :omit
-    map_element "LastName",
-                to: :last_name,
-                namespace: "http://example.com/nsp1",
-                prefix: "nsp1", render_empty: :as_blank
+    map_element "FirstName", to: :first_name, render_empty: :omit
+    map_element "LastName", to: :last_name, render_empty: :as_blank
     map_element "Age", to: :age
     map_element "Height", to: :height
     map_element "Birthdate", to: :birthdate

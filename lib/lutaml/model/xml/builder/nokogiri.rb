@@ -35,7 +35,8 @@ module Lutaml
             element_name,
             prefix: (prefix_unset = true
                      nil),
-            attributes: {}
+            attributes: {},
+            blank_xmlns: false
           )
             # CORRECT ARCHITECTURE: Don't use xml[prefix] which requires pre-registration
             # Instead, build the prefixed element name and let xmlns attributes handle resolution
@@ -48,6 +49,10 @@ module Lutaml
                              else
                                element_name
                              end
+
+            # W3C Compliance: Add xmlns="" if needed to prevent default namespace inheritance
+            attributes = attributes&.dup || {}
+            attributes["xmlns"] = "" if blank_xmlns
 
             if block_given?
               xml.public_send(qualified_name, attributes) do

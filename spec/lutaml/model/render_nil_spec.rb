@@ -5,7 +5,7 @@ class RenderNilNested < Lutaml::Model::Serializable
   attribute :name, Lutaml::Model::Type::String
 
   xml do
-    root "render_nil_nested"
+    element "render_nil_nested"
 
     map_element "name", to: :name
   end
@@ -28,7 +28,7 @@ class RenderNil < Lutaml::Model::Serializable
   end
 
   xml do
-    root "render_nil"
+    element "render_nil"
     map_element "name", to: :name, render_nil: true, render_empty: true
     map_element "clay_type", to: :clay_type, render_nil: false,
                              render_empty: true
@@ -59,7 +59,7 @@ module RenderNilSpec
     attribute :items, :string, collection: true
 
     xml do
-      root "omit-nil-model"
+      element "omit-nil-model"
       map_element "items", to: :items, render_nil: :omit
     end
 
@@ -72,7 +72,7 @@ module RenderNilSpec
     attribute :items, :string, collection: true
 
     xml do
-      root "explicit-nil-model"
+      element "explicit-nil-model"
       map_element "items", to: :items, render_nil: :as_nil
     end
 
@@ -85,7 +85,7 @@ module RenderNilSpec
     attribute :items, :string, collection: true
 
     xml do
-      root "omit-nil-model"
+      element "omit-nil-model"
       map_element "items", to: :items, render_nil: :as_blank
     end
   end

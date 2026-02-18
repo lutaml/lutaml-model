@@ -5,11 +5,11 @@ require "spec_helper"
 RSpec.describe "Attribute form default behavior" do
   context "with attributeFormDefault :unqualified (W3C default)" do
     let(:namespace_class) do
-      Class.new(Lutaml::Model::XmlNamespace) do
+      Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
         uri "http://example.com/ns"
         prefix_default "ex"
         element_form_default :qualified
-        attribute_form_default :unqualified  # Default - attributes NOT qualified
+        attribute_form_default :unqualified # Default - attributes NOT qualified
       end
     end
 
@@ -20,7 +20,7 @@ RSpec.describe "Attribute form default behavior" do
         attribute :value, :integer
 
         xml do
-          root "item"
+          element "item"
           namespace ns
           map_attribute "id", to: :id
           map_attribute "value", to: :value
@@ -32,11 +32,11 @@ RSpec.describe "Attribute form default behavior" do
       item = model_class.new(id: "123", value: 42)
       xml = item.to_xml(prefix: true)
 
-      expect(xml).to include('<ex:item')
-      expect(xml).to include('id="123"')  # No prefix
-      expect(xml).to include('value="42"')  # No prefix
-      expect(xml).not_to include('ex:id=')
-      expect(xml).not_to include('ex:value=')
+      expect(xml).to include("<ex:item")
+      expect(xml).to include('id="123"') # No prefix
+      expect(xml).to include('value="42"') # No prefix
+      expect(xml).not_to include("ex:id=")
+      expect(xml).not_to include("ex:value=")
     end
 
     it "deserializes attributes without namespace prefix" do
@@ -50,11 +50,11 @@ RSpec.describe "Attribute form default behavior" do
 
   context "with attributeFormDefault :qualified (W3C qualified)" do
     let(:namespace_class) do
-      Class.new(Lutaml::Model::XmlNamespace) do
+      Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
         uri "http://example.com/ns"
         prefix_default "ex"
         element_form_default :qualified
-        attribute_form_default :qualified  # Attributes MUST be qualified
+        attribute_form_default :qualified # Attributes MUST be qualified
       end
     end
 
@@ -65,7 +65,7 @@ RSpec.describe "Attribute form default behavior" do
         attribute :value, :integer
 
         xml do
-          root "item"
+          element "item"
           namespace ns
           map_attribute "id", to: :id
           map_attribute "value", to: :value
@@ -77,9 +77,9 @@ RSpec.describe "Attribute form default behavior" do
       item = model_class.new(id: "123", value: 42)
       xml = item.to_xml(prefix: true)
 
-      expect(xml).to include('<ex:item')
-      expect(xml).to include('ex:id="123"')  # WITH prefix
-      expect(xml).to include('ex:value="42"')  # WITH prefix
+      expect(xml).to include("<ex:item")
+      expect(xml).to include('ex:id="123"') # WITH prefix
+      expect(xml).to include('ex:value="42"') # WITH prefix
     end
 
     it "deserializes attributes with namespace prefix" do
@@ -102,11 +102,11 @@ RSpec.describe "Attribute form default behavior" do
 
   context "OOXML-like scenario (user bug report)" do
     let(:word_processing_ml) do
-      Class.new(Lutaml::Model::XmlNamespace) do
+      Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
         uri "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
         prefix_default "w"
         element_form_default :qualified
-        attribute_form_default :qualified  # OOXML requires qualified attributes
+        attribute_form_default :qualified # OOXML requires qualified attributes
       end
     end
 
@@ -118,7 +118,7 @@ RSpec.describe "Attribute form default behavior" do
         attribute :before, :integer
 
         xml do
-          root "spacing"
+          element "spacing"
           namespace ns
           map_attribute "val", to: :val
           map_attribute "after", to: :after
@@ -132,7 +132,7 @@ RSpec.describe "Attribute form default behavior" do
       xml = spacing.to_xml(prefix: true)
 
       # All attributes should have w: prefix per OOXML spec
-      expect(xml).to include('<w:spacing')
+      expect(xml).to include("<w:spacing")
       expect(xml).to include('w:val="20"')
       expect(xml).to include('w:after="100"')
       expect(xml).to include('w:before="0"')
@@ -155,7 +155,7 @@ RSpec.describe "Attribute form default behavior" do
 
   context "explicit attribute namespace overrides form default" do
     let(:namespace1) do
-      Class.new(Lutaml::Model::XmlNamespace) do
+      Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
         uri "http://example.com/ns1"
         prefix_default "ns1"
         attribute_form_default :unqualified
@@ -163,24 +163,32 @@ RSpec.describe "Attribute form default behavior" do
     end
 
     let(:namespace2) do
-      Class.new(Lutaml::Model::XmlNamespace) do
+      Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
         uri "http://example.com/ns2"
         prefix_default "ns2"
       end
     end
 
+    # Create custom type for explicit namespace attribute
+    let(:ns2_string) do
+      ns2 = namespace2
+      Class.new(Lutaml::Model::Type::String) do
+        xml_namespace ns2
+      end
+    end
+
     let(:model_class) do
       ns1 = namespace1
-      ns2 = namespace2
+      ns2_type = ns2_string
       Class.new(Lutaml::Model::Serializable) do
         attribute :normal_attr, :string
-        attribute :explicit_attr, :string
+        attribute :explicit_attr, ns2_type
 
         xml do
-          root "item"
+          element "item"
           namespace ns1
           map_attribute "normal", to: :normal_attr
-          map_attribute "explicit", to: :explicit_attr, namespace: ns2
+          map_attribute "explicit", to: :explicit_attr
         end
       end
     end
@@ -189,14 +197,14 @@ RSpec.describe "Attribute form default behavior" do
       item = model_class.new(normal_attr: "a", explicit_attr: "b")
       xml = item.to_xml(prefix: true)
 
-      expect(xml).to include('normal="a"')  # Unqualified (form default)
-      expect(xml).to include('ns2:explicit="b"')  # Qualified (explicit namespace)
+      expect(xml).to include('normal="a"') # Unqualified (form default)
+      expect(xml).to include('ns2:explicit="b"') # Qualified (type namespace)
     end
   end
 
   context "type-level attribute namespace takes precedence" do
     let(:namespace_class) do
-      Class.new(Lutaml::Model::XmlNamespace) do
+      Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
         uri "http://example.com/ns"
         prefix_default "ex"
         attribute_form_default :unqualified
@@ -204,7 +212,7 @@ RSpec.describe "Attribute form default behavior" do
     end
 
     let(:type_namespace) do
-      Class.new(Lutaml::Model::XmlNamespace) do
+      Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
         uri "http://example.com/type-ns"
         prefix_default "type"
       end
@@ -225,7 +233,7 @@ RSpec.describe "Attribute form default behavior" do
         attribute :typed, type
 
         xml do
-          root "item"
+          element "item"
           namespace ns
           map_attribute "normal", to: :normal
           map_attribute "typed", to: :typed
@@ -237,8 +245,8 @@ RSpec.describe "Attribute form default behavior" do
       item = model_class.new(normal: "a", typed: "b")
       xml = item.to_xml(prefix: true)
 
-      expect(xml).to include('normal="a"')  # Unqualified (form default)
-      expect(xml).to include('type:typed="b"')  # Qualified (type namespace)
+      expect(xml).to include('normal="a"') # Unqualified (form default)
+      expect(xml).to include('type:typed="b"') # Qualified (type namespace)
     end
   end
 end

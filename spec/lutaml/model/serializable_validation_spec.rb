@@ -6,7 +6,7 @@ class TestSerializable < Lutaml::Model::Serializable
   attribute :age, :integer, collection: 1..3
 
   xml do
-    root "test"
+    element "test"
     map_element "name", to: :name
     map_element "age", to: :age
   end

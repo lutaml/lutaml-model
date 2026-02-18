@@ -231,3 +231,151 @@ global_register.remove(:v1) # remove a ModelRegister using the its ID
 # OR
 global_register.instance.remove(:v1) # remove a ModelRegister using the it's ID
 ```
+
+== Register resolution fallback
+
+=== General
+
+Model registers support hierarchical fallback register resolution, which allows
+registers to depend on other registers for type resolution.
+
+The following use cases benefit from this feature:
+
+* Shared types: Common types like `xs:annotation`, `xs:documentation` can
+resolved from parent registers without duplicating them in every register
+
+* Isolation: Registers can disable fallback for strict schema isolation
+
+* Inheritance: Specialized schemas can extend base schemas by falling back to
+core registers
+
+=== Default behavior
+
+By default, all custom registers (except `:default`) automatically fall back to
+the `:default` (global) register.
+
+This means if a type is not found in a custom register, it will be searched in
+the `:default` register.
+
+[source,ruby]
+----
+register = Lutaml::Model::Register.new(:my_schema)
+register.fallback  # => [:default]
+----
+
+The `:default` register itself has no fallback chain:
+
+[source,ruby]
+----
+default_register = Lutaml::Model::GlobalRegister.lookup(:default)
+default_register.fallback  # => []
+----
+
+=== Isolated registers
+
+To create a register that does not fall back to any other register (complete
+isolation), pass an empty array as the `fallback` parameter:
+
+[source,ruby]
+----
+isolated = Lutaml::Model::Register.new(:pristine, fallback: [])
+isolated.fallback  # => []
+----
+
+Isolated registers will only resolve models explicitly registered within them.
+
+This is useful for:
+
+* Testing schema isolation
+* Ensuring no dependency on external types
+* Strict schema validation
+
+=== Explicit fallback chains
+
+For complex schema hierarchies, you can specify an explicit fallback chain:
+
+[source,ruby]
+----
+# Multi-level fallback: :profile → :core → :default
+profile = Lutaml::Model::Register.new(
+  :gml_profile,
+  fallback: [:gml_core, :iso_types, :default]
+)
+
+profile.fallback  # => [:gml_core, :iso_types, :default]
+----
+
+Resolution order is by the order of the fallback array.
+
+For example, when resolving a type in the `:gml_profile` register:
+
+. Search in local register (`:gml_profile`)
+. If not found, search in first fallback (`:gml_core`)
+. If not found, search in second fallback (`:iso_types`)
+. If not found, search in third fallback (`:default`)
+. If still not found, raise `UnknownTypeError`
+
+
+=== Use cases
+
+==== Vertical separation (schema profiles)
+
+Use fallback chains when specialized schemas extend base schemas:
+
+.GML Profile extending GML Core
+[example]
+====
+[source,ruby]
+----
+# Base schema with core types
+core_register = Lutaml::Model::Register.new(:gml_core)
+Lutaml::Model::GlobalRegister.instance.register(core_register)
+core_register.register_model(GeometryType, id: :geometry_type)
+core_register.register_model(CoordinateType, id: :coordinate_type)
+
+# Specialized profile extends core
+profile_register = Lutaml::Model::Register.new(
+  :gml_profile,
+  fallback: [:gml_core, :default]
+)
+Lutaml::Model::GlobalRegister.instance.register(profile_register)
+profile_register.register_model(ProfileGeometryType, id: :profile_geometry)
+
+# Profile models can use both profile-specific and core types
+class ProfileDocument < Lutaml::Model::Serializable
+  @register = profile_register
+
+  attribute :geometry, :profile_geometry    # From :gml_profile
+  attribute :coordinate, :coordinate_type   # From :gml_core (fallback)
+end
+----
+====
+
+==== Multi-version schema support
+
+Use fallback when newer schema versions build on older versions:
+
+.UnitsML v0.9.19 falling back to common types
+[example]
+====
+[source,ruby]
+----
+# Generate UnitsML schema with module namespace
+Lutaml::Model::Schema::XmlCompiler.to_models(
+  xsd_content,
+  module_namespace: "UnitsMLV0919",
+  register_id: :unitsmlv0919,  # Implicitly falls back to :default
+  output_dir: "lib/unitsml",
+  create_files: true
+)
+
+# Load models
+require "unitsml/unitsmlv0919_registry"
+UnitsMLV0919.register_all
+
+# UnitsMLV0919 models resolve:
+# 1. Domain-specific types from :unitsmlv0919 register
+# 2. Common types (annotation, documentation) from :default register (fallback)
+doc = UnitsMLV0919::UnitsMLType.from_xml(xml)
+----
+====

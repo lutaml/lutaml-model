@@ -95,8 +95,8 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler::SimpleType do
 
     it "union_class_method_body returns correct code" do
       st = described_class.new("UnionType", ["foo:Bar", "baz:Qux"])
-      expect(st.send(:union_class_method_body)).to include("register.get_class(:bar).cast(value, options)")
-      expect(st.send(:union_class_method_body)).to include("register.get_class(:qux).cast(value, options)")
+      expect(st.send(:union_class_method_body)).to include("Lutaml::Model::GlobalContext.resolve_type(:bar, @register).cast(value, options)")
+      expect(st.send(:union_class_method_body)).to include("Lutaml::Model::GlobalContext.resolve_type(:qux, @register).cast(value, options)")
     end
 
     it "union_required_files returns correct require lines" do

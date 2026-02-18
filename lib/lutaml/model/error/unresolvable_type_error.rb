@@ -20,7 +20,7 @@ module Lutaml
       #
       # @param message [String] The error message describing the unresolvable type
       def initialize(message = "XSD type cannot be resolved")
-        super(message)
+        super
       end
     end
   end

@@ -12,7 +12,8 @@ module ExceptSpecs
     attribute :documentation, :string
 
     xml do
-      root "annotation", mixed: true
+      element "annotation"
+      mixed_content
       namespace XsdNamespace
 
       map_element :documentation, to: :documentation
@@ -28,7 +29,8 @@ module ExceptSpecs
     attribute :annotation, Annotation
 
     xml do
-      root "attribute", mixed: true
+      element "attribute"
+      mixed_content
       namespace XsdNamespace
 
       map_attribute :id, to: :id
@@ -46,7 +48,8 @@ module ExceptSpecs
     attribute :attribute, Attribute
 
     xml do
-      root "attributeGroup", mixed: true
+      element "attributeGroup"
+      mixed_content
       namespace XsdNamespace
 
       map_attribute :id, to: :id
@@ -63,7 +66,8 @@ module ExceptSpecs
     attribute :attribute_group, AttributeGroup
 
     xml do
-      root "schema", mixed: true
+      element "schema"
+      mixed_content
       namespace XsdNamespace
 
       map_attribute :id, to: :id
@@ -107,6 +111,7 @@ RSpec.describe "Except" do
       end
 
       let(:xml_without_annotations) do
+        # W3C-compliant: Format preserved from input (prefix format)
         <<~XML
           <xsd:schema id="testing" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
             <xsd:attribute id="attr1" name="test"/>
@@ -118,6 +123,7 @@ RSpec.describe "Except" do
       end
 
       let(:xml_without_annotations_and_ids) do
+        # W3C-compliant: Format preserved from input (prefix format)
         <<~XML
           <xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema">
             <xsd:attribute name="test"/>
@@ -195,12 +201,14 @@ RSpec.describe "Except" do
 
       it "excludes 'annotation' keys from the YAML output" do
         parsed_yaml = parsed_instances.to_yaml(except: %i[annotation])
-        expect(parsed_yaml).to be_xml_equivalent_to(yaml_without_annotations)
+        # Compare YAML strings, not XML
+        expect(parsed_yaml).to eq(yaml_without_annotations)
       end
 
       it "excludes 'annotation' and 'id' from the YAML output" do
         parsed_yaml = parsed_instances.to_yaml(except: %i[annotation id])
-        expect(parsed_yaml).to be_xml_equivalent_to(yaml_without_annotations_and_ids)
+        # Compare YAML strings, not XML
+        expect(parsed_yaml).to eq(yaml_without_annotations_and_ids)
       end
     end
   end
@@ -210,14 +218,23 @@ RSpec.describe "Except" do
   end
 
   describe Lutaml::Model::Xml::OgaAdapter do
-    it_behaves_like "xml", described_class
+    if TestAdapterConfig.adapter_enabled?(:oga)
+      it_behaves_like "xml",
+                      described_class
+    end
   end
 
   describe Lutaml::Model::Xml::OxAdapter do
-    it_behaves_like "xml", described_class
+    if TestAdapterConfig.adapter_enabled?(:ox)
+      it_behaves_like "xml",
+                      described_class
+    end
   end
 
   describe Lutaml::Model::Xml::RexmlAdapter do
-    it_behaves_like "xml", described_class
+    if TestAdapterConfig.adapter_enabled?(:rexml)
+      it_behaves_like "xml",
+                      described_class
+    end
   end
 end

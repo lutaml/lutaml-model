@@ -24,7 +24,7 @@ module Lutaml
         end
 
         def to_yamls(*_args)
-          @yamls.map do |yaml|
+          (@yamls || []).map do |yaml|
             YAML.dump(yaml).strip
           end.join("\n")
         end

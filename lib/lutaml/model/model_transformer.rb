@@ -29,14 +29,19 @@ module Lutaml
           elsif transformation_block?(block)
             @reverse_transform_method = block
           else
-            raise ReverseTransformationDeclarationError, "Cannot declare reverse_transform for Model to Model transformation"
+            raise ReverseTransformationDeclarationError,
+                  "Cannot declare reverse_transform for Model to Model transformation"
           end
         end
 
         private
 
         def transform_to_target(input, mapping: false)
-          return input.map { |i| transform_to_target(i) } if input.is_a?(Array) && !mapping
+          if input.is_a?(Array) && !mapping
+            return input.map do |i|
+              transform_to_target(i)
+            end
+          end
 
           if @mapping
             transformed = @mapping.process_mappings(input)
@@ -44,14 +49,19 @@ module Lutaml
           end
 
           if @transform_method.nil?
-            raise TransformBlockNotDefinedError, "transform block not defined for #{@source} to #{@target}"
+            raise TransformBlockNotDefinedError,
+                  "transform block not defined for #{@source} to #{@target}"
           end
 
           @transform_method.call(input)
         end
 
         def transform_to_source(input, mapping: false)
-          return input.map { |i| transform_to_source(i) } if input.is_a?(Array) && !mapping
+          if input.is_a?(Array) && !mapping
+            return input.map do |i|
+              transform_to_source(i)
+            end
+          end
 
           if @mapping
             transformed = @mapping.process_mappings(input, reverse: true)
@@ -59,7 +69,8 @@ module Lutaml
           end
 
           if @reverse_transform_method.nil?
-            raise ReverseTransformBlockNotDefinedError, "reverse_transform block not defined for #{@target} to #{@source}"
+            raise ReverseTransformBlockNotDefinedError,
+                  "reverse_transform block not defined for #{@target} to #{@source}"
           end
 
           @reverse_transform_method.call(input)
@@ -77,7 +88,8 @@ module Lutaml
             if Type::TYPE_CODES[typ]
               Type.lookup(typ)
             else
-              raise Lutaml::Model::UnknownTypeError, "Unsupported type #{typ} for transformation"
+              raise Lutaml::Model::UnknownTypeError,
+                    "Unsupported type #{typ} for transformation"
             end
           when Class
             typ

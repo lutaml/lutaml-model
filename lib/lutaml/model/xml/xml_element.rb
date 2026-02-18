@@ -20,7 +20,8 @@ module Lutaml
         # @param has_empty_xmlns [Boolean] true if xmlns="" is present
         # @param node_namespace_nil [Boolean] true if the node has no namespace
         # @return [Boolean] true if both conditions met (explicit no namespace)
-        def self.detect_explicit_no_namespace(has_empty_xmlns:, node_namespace_nil:)
+        def self.detect_explicit_no_namespace(has_empty_xmlns:,
+node_namespace_nil:)
           has_empty_xmlns && node_namespace_nil
         end
 
@@ -123,8 +124,15 @@ module Lutaml
 
         def order
           children.map do |child|
-            type = child.text? ? "Text" : "Element"
-            Lutaml::Model::Xml::Element.new(type, child.unprefixed_name)
+            if child.text?
+              # For text nodes:
+              # - name is "text" for backward compatibility with tests
+              # - text_content contains the actual text for round-trip serialization
+              Lutaml::Model::Xml::Element.new("Text", "text",
+                                              text_content: child.text)
+            else
+              Lutaml::Model::Xml::Element.new("Element", child.unprefixed_name)
+            end
           end
         end
 

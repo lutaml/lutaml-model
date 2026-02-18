@@ -4,7 +4,7 @@ class SampleModelTag < Lutaml::Model::Serializable
   attribute :text, :string, default: -> { "" }
 
   xml do
-    root "Tag"
+    element "Tag"
     map_content to: :text
   end
 end
@@ -21,7 +21,7 @@ class SampleModel < Lutaml::Model::Serializable
   attribute :role, :string, values: %w[user admin guest], default: -> { "user" }
 
   xml do
-    root "SampleModel"
+    element "SampleModel"
     map_element "Name", to: :name
     map_element "Age", to: :age
     map_element "Balance", to: :balance
