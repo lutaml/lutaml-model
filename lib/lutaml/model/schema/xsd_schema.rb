@@ -161,8 +161,6 @@ module Lutaml
             # Determine element name and type name for XSD pattern selection
             element_name = if has_explicit_xml_mapping?(klass, xml_mapping)
                              xml_mapping.element_name || xml_mapping.root_element
-                           else
-                             nil
                            end
 
             type_name = xml_mapping.type_name_value
@@ -175,10 +173,12 @@ module Lutaml
             if element_name && type_name
               # Pattern 3: Both element and named type
               xml.element(name: element_name, type: type_name)
-              generate_complex_type(xml, klass, type_name, register, xml_mapping)
+              generate_complex_type(xml, klass, type_name, register,
+                                    xml_mapping)
             elsif type_name && !element_name
               # Pattern 2: Type-only (no element)
-              generate_complex_type(xml, klass, type_name, register, xml_mapping)
+              generate_complex_type(xml, klass, type_name, register,
+                                    xml_mapping)
             else
               # Pattern 1: Anonymous inline (element with no type_name)
               # Use class name as fallback element name if not specified
@@ -233,7 +233,8 @@ module Lutaml
 
             # Generate type definition if nested model has type_name
             if nested_type_name
-              generate_complex_type(xml, attr_type, nested_type_name, register, nested_mapping)
+              generate_complex_type(xml, attr_type, nested_type_name, register,
+                                    nested_mapping)
               # Recursively generate nested types
               generate_nested_type_definitions(xml, attr_type, register)
             end
@@ -301,21 +302,20 @@ xml_mapping = nil)
                     end
                   end
                 end
-              else
+              elsif nested_type_name
                 # Single nested model
-                if nested_type_name
-                  # Reference named type
-                  xml.element(name: name.to_s, type: nested_type_name)
-                else
-                  # Inline anonymous complexType
-                  xml.element(name: name.to_s) do
-                    generate_complex_type_content(xml, attr_type, register, nil)
-                  end
+                # Reference named type
+                xml.element(name: name.to_s, type: nested_type_name)
+              else
+                # Inline anonymous complexType
+                xml.element(name: name.to_s) do
+                  generate_complex_type_content(xml, attr_type, register, nil)
                 end
               end
             else
               # Value type
-              xsd_type = get_attribute_xsd_type(attr, attr_type, register, mapping_rule)
+              xsd_type = get_attribute_xsd_type(attr, attr_type, register,
+                                                mapping_rule)
 
               if attr.collection?
                 # Collection of simple types
@@ -426,7 +426,8 @@ attr_name)
           xml_mapping.root_element != base_name
         end
 
-        def self.get_attribute_xsd_type(attr, attr_type, register, mapping_rule = nil)
+        def self.get_attribute_xsd_type(attr, attr_type, register,
+_mapping_rule = nil)
           # Priority:
           # 1. Attribute-level xsd_type (deprecated but still supported)
           # 2. Type-level xsd_type (from Type class)

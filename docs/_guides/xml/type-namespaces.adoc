@@ -1,0 +1,946 @@
+= Type-level XML Namespaces Guide
+:toc:
+:toclevels: 3
+
+== Introduction
+
+Type-level namespaces allow `Lutaml::Model::Type::Value` classes to declare their XML namespace using the `xml_namespace` directive. This enables:
+
+* **Reusable types** that belong to specific namespaces (e.g., Dublin Core properties, custom XSD types)
+* **Multi-namespace documents** where different types use different namespaces
+* **Consistent namespace handling** across all uses of the type
+* **W3C-compliant** round-trip serialization and deserialization
+
+Type namespaces are particularly useful when working with standard vocabularies like Dublin Core, where properties have well-defined namespaces that should be consistent regardless of where they're used.
+
+== Basic Usage
+
+=== Declaring a type namespace
+
+Use the `xml_namespace` class-level directive in your custom type class:
+
+[source,ruby]
+----
+class DcTitleType < Lutaml::Model::Type::String
+  xml_namespace DublinCoreNamespace
+end
+----
+
+Where `DublinCoreNamespace` is an `XmlNamespace` class:
+
+[source,ruby]
+----
+class DublinCoreNamespace < Lutaml::Model::XmlNamespace
+  uri "http://purl.org/dc/elements/1.1/"
+  prefix_default "dc"
+end
+----
+
+=== Using types with namespaces
+
+Once declared, use the type in model attributes as normal:
+
+[source,ruby]
+----
+class Article < Lutaml::Model::Serializable
+  attribute :title, DcTitleType
+  attribute :creator, DcCreatorType
+
+  xml do
+    root "article"
+    namespace ArticleNamespace
+
+    map_element "title", to: :title
+    map_element "creator", to: :creator
+  end
+end
+----
+
+The type's namespace is automatically applied during serialization.
+
+== Serialization Behavior
+
+=== Default: Local declaration with prefix
+
+Type namespaces automatically use **prefix format with local declaration** to avoid conflicting with the element's default namespace.
+
+.Local declaration (default)
+[example]
+====
+[source,ruby]
+----
+class ArticleNamespace < Lutaml::Model::XmlNamespace
+  uri "http://example.com/article"
+  prefix_default "art"
+end
+
+class DcTitleType < Lutaml::Model::Type::String
+  xml_namespace DublinCoreNamespace
+end
+
+class Article < Lutaml::Model::Serializable
+  attribute :title, DcTitleType
+
+  xml do
+    root "article"
+    namespace ArticleNamespace
+    map_element "title", to: :title
+  end
+end
+
+article = Article.new(title: "Introduction to Pottery")
+puts article.to_xml
+----
+
+Output:
+
+[source,xml]
+----
+<article xmlns="http://example.com/article">
+  <dc:title xmlns:dc="http://purl.org/dc/elements/1.1/">Introduction to Pottery</dc:title>
+</article>
+----
+
+Note:
+- Article uses default namespace format (`xmlns="..."`)
+- Title uses prefix format with local declaration (`xmlns:dc="..."` on the element)
+====
+
+=== Why prefix format?
+
+Type namespaces use prefix format (not default format) because:
+
+1. **Avoid conflicts**: If the element uses default namespace, type cannot also use default
+2. **W3C compliance**: Multiple namespaces require prefixes to distinguish them
+3. **Clarity**: Explicit prefix shows which namespace each element belongs to
+
+=== Why local declaration?
+
+By default, type namespace declarations are local (on the element) because:
+
+1. **Scope minimization**: Lutaml::Model's namespace scope minimization principle
+2. **Clean XML**: Only declare namespaces where they're used
+3. **Flexibility**: Can be overridden with `namespace_scope` for hoisting
+
+== Integration with namespace_scope
+
+=== Hoisting type namespaces
+
+Use `namespace_scope` to declare type namespaces at the root element:
+
+.Hoisting with namespace_scope
+[example]
+====
+[source,ruby]
+----
+class Article < Lutaml::Model::Serializable
+  attribute :title, DcTitleType
+  attribute :creator, DcCreatorType
+
+  xml do
+    root "article"
+    namespace ArticleNamespace
+    namespace_scope [ArticleNamespace, DublinCoreNamespace]  # <1>
+
+    map_element "title", to: :title
+    map_element "creator", to: :creator
+  end
+end
+
+article = Article.new(
+  title: "Introduction to Pottery",
+  creator: "Jane Smith"
+)
+puts article.to_xml
+----
+<1> Include DublinCoreNamespace in `namespace_scope` to hoist it
+
+Output:
+
+[source,xml]
+----
+<article xmlns="http://example.com/article"
+         xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <dc:title>Introduction to Pottery</dc:title>
+  <dc:creator>Jane Smith</dc:creator>
+</article>
+----
+
+Note:
+- DublinCore namespace declared at root (hoisted)
+- No local xmlns declarations on title or creator
+====
+
+=== Declaration modes
+
+Type namespaces support all `namespace_scope` declaration modes:
+
+[source,ruby]
+----
+namespace_scope [
+  { namespace: DublinCoreNamespace, declare: :auto },    # Default: declare if used
+  { namespace: DcTermsNamespace, declare: :always },     # Always declare
+]
+----
+
+`:auto` (default):: Declare only if type is actually used in attributes
+`:always`:: Always declare, even if no attributes use the type
+`:never`:: Never declare (error if type is used)
+
+== Advanced Patterns
+
+=== Multi-namespace documents
+
+Type namespaces excel in documents using multiple vocabularies:
+
+.Office Open XML with four namespaces
+[example]
+====
+[source,ruby]
+----
+# 1. Define namespaces
+class CorePropertiesNamespace < Lutaml::Model::XmlNamespace
+  uri 'http://schemas.openxmlformats.org/package/2006/metadata/core-properties'
+  prefix_default 'cp'
+end
+
+class DublinCoreNamespace < Lutaml::Model::XmlNamespace
+  uri 'http://purl.org/dc/elements/1.1/'
+  prefix_default 'dc'
+end
+
+class DCTermsNamespace < Lutaml::Model::XmlNamespace
+  uri 'http://purl.org/dc/terms/'
+  prefix_default 'dcterms'
+end
+
+# 2. Define types with namespaces
+class DcTitleType < Lutaml::Model::Type::String
+  xml_namespace DublinCoreNamespace
+end
+
+class DcCreatorType < Lutaml::Model::Type::String
+  xml_namespace DublinCoreNamespace
+end
+
+class DctermsCreatedType < Lutaml::Model::Type::DateTime
+  xml_namespace DCTermsNamespace
+end
+
+# 3. Use in model
+class CoreProperties < Lutaml::Model::Serializable
+  attribute :title, DcTitleType
+  attribute :creator, DcCreatorType
+  attribute :created, DctermsCreatedType
+
+  xml do
+    root 'coreProperties'
+    namespace CorePropertiesNamespace
+    namespace_scope [
+      CorePropertiesNamespace,
+      DublinCoreNamespace,
+      DCTermsNamespace
+    ]
+
+    map_element 'title', to: :title
+    map_element 'creator', to: :creator
+    map_element 'created', to: :created
+  end
+end
+
+props = CoreProperties.new(
+  title: 'Document Title',
+  creator: 'John Doe',
+  created: DateTime.parse('2024-01-01T12:00:00Z')
+)
+puts props.to_xml
+----
+
+Output:
+
+[source,xml]
+----
+<coreProperties xmlns="http://schemas.openxmlformats.org/package/2006/metadata/core-properties"
+                xmlns:dc="http://purl.org/dc/elements/1.1/"
+                xmlns:dcterms="http://purl.org/dc/terms/">
+  <dc:title>Document Title</dc:title>
+  <dc:creator>John Doe</dc:creator>
+  <dcterms:created>2024-01-01T12:00:00+00:00</dcterms:created>
+</coreProperties>
+----
+====
+
+=== Attribute type namespaces
+
+Type namespaces work with XML attributes too:
+
+.Type namespace for XML attributes
+[example]
+====
+[source,ruby]
+----
+class XsiTypeType < Lutaml::Model::Type::String
+  xml_namespace XsiNamespace
+  xsd_type 'type'
+end
+
+class Product < Lutaml::Model::Serializable
+  attribute :schema_type, XsiTypeType
+
+  xml do
+    root 'product'
+    map_attribute 'type', to: :schema_type  # <1>
+  end
+end
+
+product = Product.new(schema_type: "ProductType")
+puts product.to_xml
+----
+<1> Attribute mapping automatically applies XsiNamespace
+
+Output:
+
+[source,xml]
+----
+<product xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:type="ProductType"/>
+----
+====
+
+=== Namespace resolution priority
+
+Type namespaces fit into the namespace resolution priority:
+
+. **Explicit mapping namespace** (highest)
++
+[source,ruby]
+----
+map_element 'title', to: :title, namespace: OverrideNamespace
+----
+
+. **Type-level namespace**
++
+[source,ruby]
+----
+class TitleType < Lutaml::Model::Type::String
+  xml_namespace DublinCoreNamespace
+end
+attribute :title, TitleType
+map_element 'title', to: :title  # Uses DublinCoreNamespace
+----
+
+. **Inherited namespace** (via `namespace: :inherit`)
+
+. **Form default** (from `element_form_default`)
+
+== Deserialization Support
+
+Type namespaces work bidirectionally - both serialization (`to_xml`) and deserialization (`from_xml`).
+
+.Round-trip with type namespaces
+[example]
+====
+[source,ruby]
+----
+xml = <<~XML
+  <article xmlns="http://example.com/article"
+           xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:title>Article Title</dc:title>
+  </article>
+XML
+
+# Parse XML
+article = Article.from_xml(xml)
+article.title  # => "Article Title"
+
+# Serialize back
+article.to_xml
+# => Same structure as input (round-trip)
+----
+====
+
+== XSD Generation
+
+Type namespaces are properly reflected in generated XSD:
+
+.XSD with type namespace import
+[example]
+====
+[source,ruby]
+----
+xsd = Lutaml::Model::Schema.to_xml(Article)
+puts xsd
+----
+
+Output:
+
+[source,xml]
+----
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:art="http://example.com/article"
+           xmlns:dc="http://purl.org/dc/elements/1.1/"
+           targetNamespace="http://example.com/article">
+
+  <xs:import namespace="http://purl.org/dc/elements/1.1/"
+             schemaLocation="..."/>
+
+  <xs:element name="article" type="art:ArticleType"/>
+
+  <xs:complexType name="ArticleType">
+    <xs:sequence>
+      <xs:element name="title" type="dc:titleType"/>
+    </xs:sequence>
+  </xs:complexType>
+</xs:schema>
+----
+====
+
+== Best Practices
+
+=== When to use type namespaces
+
+**Use type-level namespaces when:**
+
+* Type belongs to a well-defined vocabulary (e.g., Dublin Core, Schema.org)
+* Type will be reused across multiple models or projects
+* Namespace should be consistent wherever type is used
+* Working with standard metadata schemas
+
+**Don't use type namespaces when:**
+
+* Type is model-specific and won't be reused
+* Namespace varies depending on context
+* Simple string/integer types without special namespace requirements
+
+=== Namespace class organization
+
+Create namespace classes once and reuse:
+
+[source,ruby]
+----
+# lib/namespaces/dublin_core.rb
+class DublinCoreNamespace < Lutaml::Model::XmlNamespace
+  uri "http://purl.org/dc/elements/1.1/"
+  schema_location "http://dublincore.org/schemas/xmls/qdc/dc.xsd"
+  prefix_default "dc"
+  element_form_default :qualified
+  documentation "Dublin Core Metadata Element Set"
+end
+
+# lib/types/dc_title_type.rb
+class DcTitleType < Lutaml::Model::Type::String
+  xml_namespace DublinCoreNamespace
+  xsd_type 'titleType'
+end
+----
+
+=== Combine with xsd_type
+
+Type namespaces work well with `xsd_type` for full XSD support:
+
+[source,ruby]
+----
+class DcTitleType < Lutaml::Model::Type::String
+  xml_namespace DublinCoreNamespace  # Namespace
+  xsd_type 'titleType'               # XSD type name
+
+  def self.cast(value)
+    # Custom validation/normalization
+    value.to_s.strip
+  end
+end
+----
+
+=== Test both formats
+
+Always test type namespace behavior with both default and prefix formats:
+
+[source,ruby]
+----
+RSpec.describe Article do
+  let(:article) { Article.new(title: "Test") }
+
+  it "works with default format" do
+    xml = article.to_xml(prefix: false)
+    expect(xml).to include('<article xmlns=')
+    expect(xml).to include('<dc:title')
+  end
+
+  it "works with prefix format" do
+    xml = article.to_xml(prefix: true)
+    expect(xml).to include('<art:article')
+    expect(xml).to include('<dc:title')
+  end
+
+  it "round-trips correctly" do
+    parsed = Article.from_xml(article.to_xml)
+    expect(parsed.title).to eq(article.title)
+  end
+end
+----
+
+== Complete Examples
+
+=== Dublin Core metadata
+
+.Complete Dublin Core example
+[example]
+====
+[source,ruby]
+----
+# Namespace definition
+class DublinCoreNamespace < Lutaml::Model::XmlNamespace
+  uri "http://purl.org/dc/elements/1.1/"
+  prefix_default "dc"
+  documentation "Dublin Core Metadata Element Set, Version 1.1"
+end
+
+# Type definitions
+class DcTitleType < Lutaml::Model::Type::String
+  xml_namespace DublinCoreNamespace
+  xsd_type 'titleType'
+end
+
+class DcCreatorType < Lutaml::Model::Type::String
+  xml_namespace DublinCoreNamespace
+  xsd_type 'creatorType'
+end
+
+class DcSubjectType < Lutaml::Model::Type::String
+  xml_namespace DublinCoreNamespace
+  xsd_type 'subjectType'
+end
+
+class DcDateType < Lutaml::Model::Type::Date
+  xml_namespace DublinCoreNamespace
+  xsd_type 'dateType'
+end
+
+# Model using Dublin Core types
+class BookMetadata < Lutaml::Model::Serializable
+  attribute :title, DcTitleType
+  attribute :creator, DcCreatorType, collection: true
+  attribute :subject, DcSubjectType, collection: true
+  attribute :date, DcDateType
+
+  xml do
+    root "metadata"
+    namespace_scope [DublinCoreNamespace]
+
+    map_element "title", to: :title
+    map_element "creator", to: :creator
+    map_element "subject", to: :subject
+    map_element "date", to: :date
+  end
+end
+
+# Usage
+metadata = BookMetadata.new(
+  title: "The Art of Ceramics",
+  creator: ["Jane Smith", "John Doe"],
+  subject: ["pottery", "ceramics", "art"],
+  date: Date.new(2024, 1, 15)
+)
+
+puts metadata.to_xml
+----
+
+Output:
+
+[source,xml]
+----
+<metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <dc:title>The Art of Ceramics</dc:title>
+  <dc:creator>Jane Smith</dc:creator>
+  <dc:creator>John Doe</dc:creator>
+  <dc:subject>pottery</dc:subject>
+  <dc:subject>ceramics</dc:subject>
+  <dc:subject>art</dc:subject>
+  <dc:date>2024-01-15</dc:date>
+</metadata>
+----
+====
+
+=== vCard with multiple type namespaces
+
+.vCard with Dublin Core and DC Terms
+[example]
+====
+[source,ruby]
+----
+# Namespace definitions
+class VcardNamespace < Lutaml::Model::XmlNamespace
+  uri "urn:ietf:params:xml:ns:vcard-4.0"
+  prefix_default "vcard"
+end
+
+class DublinCoreNamespace < Lutaml::Model::XmlNamespace
+  uri "http://purl.org/dc/elements/1.1/"
+  prefix_default "dc"
+end
+
+class DcTermsNamespace < Lutaml::Model::XmlNamespace
+  uri "http://purl.org/dc/terms/"
+  prefix_default "dcterms"
+end
+
+# Type definitions
+class DcTitleType < Lutaml::Model::Type::String
+  xml_namespace DublinCoreNamespace
+end
+
+class DctermsCreatedType < Lutaml::Model::Type::DateTime
+  xml_namespace DcTermsNamespace
+end
+
+class DctermsModifiedType < Lutaml::Model::Type::DateTime
+  xml_namespace DcTermsNamespace
+end
+
+# vCard model
+class Vcard < Lutaml::Model::Serializable
+  attribute :title, DcTitleType
+  attribute :created, DctermsCreatedType
+  attribute :modified, DctermsModifiedType
+  attribute :version, :string
+
+  xml do
+    root "vCard"
+    namespace VcardNamespace
+    namespace_scope [
+      VcardNamespace,
+      DublinCoreNamespace,
+      DcTermsNamespace
+    ]
+
+    map_element "title", to: :title
+    map_element "created", to: :created
+    map_element "modified", to: :modified
+    map_element "version", to: :version
+  end
+end
+
+# Usage
+vcard = Vcard.new(
+  title: "Dr. John Smith",
+  created: DateTime.parse("2024-01-01T10:00:00Z"),
+  modified: DateTime.parse("2024-06-01T15:30:00Z"),
+  version: "4.0"
+)
+
+puts vcard.to_xml
+----
+
+Output:
+
+[source,xml]
+----
+<vCard xmlns="urn:ietf:params:xml:ns:vcard-4.0"
+       xmlns:dc="http://purl.org/dc/elements/1.1/"
+       xmlns:dcterms="http://purl.org/dc/terms/">
+  <dc:title>Dr. John Smith</dc:title>
+  <dcterms:created>2024-01-01T10:00:00+00:00</dcterms:created>
+  <dcterms:modified>2024-06-01T15:30:00+00:00</dcterms:modified>
+  <version>4.0</version>
+</vCard>
+----
+====
+
+=== Overriding type namespaces
+
+Explicit mapping namespace overrides type namespace:
+
+.Overriding type namespace
+[example]
+====
+[source,ruby]
+----
+class CustomNamespace < Lutaml::Model::XmlNamespace
+  uri "http://example.com/custom"
+  prefix_default "custom"
+end
+
+class Article < Lutaml::Model::Serializable
+  attribute :title, DcTitleType
+
+  xml do
+    root "article"
+    # Override type namespace with explicit namespace
+    map_element "title", to: :title, namespace: CustomNamespace
+  end
+end
+
+article = Article.new(title: "Test")
+puts article.to_xml
+----
+
+Output:
+
+[source,xml]
+----
+<article>
+  <custom:title xmlns:custom="http://example.com/custom">Test</custom:title>
+</article>
+----
+
+Note: CustomNamespace used instead of DublinCoreNamespace from type
+====
+
+== Common Patterns
+
+=== Pattern 1: Standard vocabulary types
+
+Create a library of reusable types for standard vocabularies:
+
+[source,ruby]
+----
+# lib/types/dublin_core.rb
+module DublinCore
+  NAMESPACE = Class.new(Lutaml::Model::XmlNamespace) do
+    uri "http://purl.org/dc/elements/1.1/"
+    prefix_default "dc"
+  end
+
+  class TitleType < Lutaml::Model::Type::String
+    xml_namespace NAMESPACE
+  end
+
+  class CreatorType < Lutaml::Model::Type::String
+    xml_namespace NAMESPACE
+  end
+
+  class SubjectType < Lutaml::Model::Type::String
+    xml_namespace NAMESPACE
+  end
+
+  # ... more types
+end
+----
+
+=== Pattern 2: Mixing namespaced and non-namespaced types
+
+[source,ruby]
+----
+class Article < Lutaml::Model::Serializable
+  attribute :title, DcTitleType      # Has namespace
+  attribute :abstract, :string       # No namespace
+  attribute :keywords, :string, collection: true  # No namespace
+
+  xml do
+    root "article"
+    namespace ArticleNamespace
+    namespace_scope [ArticleNamespace, DublinCoreNamespace]
+
+    map_element "title", to: :title        # <dc:title>
+    map_element "abstract", to: :abstract  # <abstract> (no namespace)
+    map_element "keyword", to: :keywords   # <keyword> (no namespace)
+  end
+end
+----
+
+=== Pattern 3: Type namespace with custom validation
+
+[source,ruby]
+----
+class DcIdentifierType < Lutaml::Model::Type::String
+  xml_namespace DublinCoreNamespace
+  xsd_type 'identifierType'
+
+  def self.cast(value)
+    id = super(value)
+    # Validate DOI format
+    unless id.match?(%r{^10\.\d{4,}/\S+$})
+      raise Lutaml::Model::TypeError, "Invalid DOI format: #{id}"
+    end
+    id
+  end
+end
+----
+
+== Troubleshooting
+
+=== Type namespace not appearing
+
+**Problem**: Type namespace not showing in XML output
+
+**Solutions**:
+
+1. Verify type has `xml_namespace` declared:
++
+[source,ruby]
+----
+class MyType < Lutaml::Model::Type::String
+  xml_namespace MyNamespace  # Must be present
+end
+----
+
+2. Check attribute uses the type:
++
+[source,ruby]
+----
+attribute :field, MyType  # Not :string
+----
+
+3. Ensure mapping exists:
++
+[source,ruby]
+----
+map_element "field", to: :field  # Must be mapped
+----
+
+=== xmlns="" appearing unexpectedly
+
+**Problem**: Elements show `xmlns=""` when they shouldn't
+
+**Cause**: Child element in blank namespace under parent with default namespace
+
+**Solution**: This is W3C-compliant behavior. If unwanted, give child a namespace:
+
+[source,ruby]
+----
+map_element "child", to: :child, namespace: :inherit
+----
+
+=== Namespace declared locally instead of at root
+
+**Problem**: Expected namespace at root, but it's on element
+
+**Cause**: Not using `namespace_scope`
+
+**Solution**: Add namespace to `namespace_scope`:
+
+[source,ruby]
+----
+xml do
+  namespace_scope [DublinCoreNamespace]
+end
+----
+
+== Migration from Explicit Mapping
+
+If you're currently using explicit namespace on every mapping:
+
+.Before (explicit namespace on each mapping)
+[source,ruby]
+----
+class Article < Lutaml::Model::Serializable
+  attribute :title, :string
+  attribute :creator, :string
+
+  xml do
+    map_element "title", to: :title,
+      namespace: DublinCoreNamespace
+    map_element "creator", to: :creator,
+      namespace: DublinCoreNamespace
+  end
+end
+----
+
+.After (using type namespaces)
+[source,ruby]
+----
+class DcTitleType < Lutaml::Model::Type::String
+  xml_namespace DublinCoreNamespace
+end
+
+class DcCreatorType < Lutaml::Model::Type::String
+  xml_namespace DublinCoreNamespace
+end
+
+class Article < Lutaml::Model::Serializable
+  attribute :title, DcTitleType
+  attribute :creator, DcCreatorType
+
+  xml do
+    map_element "title", to: :title     # Namespace from type
+    map_element "creator", to: :creator  # Namespace from type
+  end
+end
+----
+
+Benefits:
+- Centralized namespace definition
+- Reusable across models
+- Consistent behavior
+- Easier to maintain
+
+== Implementation Architecture
+
+As of Session 197 (2026-01-01), Type namespace handling follows the "Dumb Adapter" architectural principle:
+
+**Planning Phase** (DeclarationPlanner)::
+  All Type namespace decisions are made during the planning phase:
+  +
+  * Detection: `DeclarationPlanner.plan_type_namespaces` identifies which attributes use Type namespaces
+  * Format: Type namespaces always use prefix format (never default)
+  * Location: Respects `namespace_scope` hoisting rules
+  * Result: Type namespaces added to `DeclarationPlan`
+
+**Resolution Phase** (NamespaceResolver)::
+  Adapters read Type namespace decisions from the plan:
+  +
+  * `NamespaceResolver.resolve_for_element` extracts Type namespace info
+  * Returns `{prefix:, uri:, format:}` hash
+  * NO decision-making logic in adapters
+
+**Rendering Phase** (Adapters)::
+  Adapters apply decisions blindly:
+  +
+  * Read prefix from `DeclarationPlan`
+  * Build element name: `"#{prefix}:#{element_name}"`
+  * Add xmlns declarations if needed
+  * NO Type namespace logic in adapters
+
+This architecture ensures:
+
+* **Consistency**: Same logic across all adapters (Nokogiri, Oga, Ox)
+* **Testability**: Planning and rendering can be tested independently
+* **Maintainability**: Type namespace features added in one place only
+* **No Duplication**: xmlns filtering prevents redundant declarations
+
+=== Migration from TypeNamespaceHandler
+
+NOTE: The `TypeNamespaceHandler` module is DEPRECATED as of Session 197. All Type namespace handling is now done by `DeclarationPlanner`.
+
+If you see references to `TypeNamespaceHandler` in older documentation or code:
+
+**Old approach** (deprecated):
+[source,ruby]
+----
+# In adapters (WRONG - violates Dumb Adapter principle):
+type_ns = TypeNamespaceHandler.type_namespace_for(attr, rule, register)
+prefix = TypeNamespaceHandler.prefix_for(type_ns, plan, options)
+----
+
+**Current approach** (Session 197+):
+[source,ruby]
+----
+# In DeclarationPlanner (CORRECT - planning phase):
+plan_type_namespaces(element, mapping, plan)
+
+# In adapters (CORRECT - rendering phase):
+resolver = NamespaceResolver.new(@register)
+ns_result = resolver.resolve_for_element(rule, attr, mapping, plan, options)
+prefix = ns_result[:prefix]
+----
+
+For more details, see link:../../.kilocode/rules/memory-bank/dumb-adapter-principle.adoc[Dumb Adapter Principle].
+
+== Related Documentation
+
+* link:../xml-namespaces.adoc[XML Namespaces Guide] - General namespace concepts
+* link:../../_references/three-phase-namespace-architecture.adoc[Three-Phase Architecture] - Implementation details
+* link:../../_pages/value_types.adoc[Value Types] - Custom type creation
+* link:../creating-xsd.adoc[Creating XSD] - Schema generation with namespaces
+
+== Summary
+
+Type-level namespaces provide a powerful way to:
+
+1. **Centralize** namespace configuration in reusable type classes
+2. **Automate** namespace application during serialization
+3. **Ensure consistency** across all uses of the type
+4. **Support** W3C-compliant round-trip processing
+5. **Generate** proper XSD schemas with namespace imports
+
+Use type namespaces when working with standard vocabularies or creating reusable type libraries. Combine with `namespace_scope` for optimal XML structure.

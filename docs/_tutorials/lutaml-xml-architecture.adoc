@@ -1,0 +1,1354 @@
+# LutaML XML Architecture
+
+## Overview
+
+This document provides a comprehensive architectural overview of LutaML::Model's XML serialization system, including class structures, method responsibilities, data flow, and key design patterns.
+
+**Last Updated**: 2026-01-16
+**Status**: ACTIVE - Architecture Reference
+
+---
+
+## Table of Contents
+
+1. [Architecture Overview](#architecture-overview)
+2. [Core Components](#core-components)
+3. [Serialization Paths](#serialization-paths)
+4. [Decision System](#decision-system)
+5. [TypeNamespace Subsystem](#typenamespace-subsystem)
+6. [Class Reference](#class-reference)
+
+---
+
+## Architecture Overview
+
+### Three-Layer Architecture
+
+```
+╔═══════════════════════════════════════════════════════════════════════╗
+║                        LutaML XML Architecture                          ║
+╚═══════════════════════════════════════════════════════════════════════╝
+
+┌─────────────────────┐       ┌──────────────────────┐       ┌──────────────────┐
+│   Core Model Layer   │       │ Transformation Layer  │       │ Rendering Layer  │
+│                      │       │                      │       │                  │
+│  - Serializable       │──────▶│  - XmlDataModel       │──────▶│  - Adapters       │
+│  - Type::Value       │       │  - DeclarationPlan    │       │  - Documents      │
+│  - Attribute         │       │  - Mappings           │       │  - XML Libraries  │
+│  - XmlNamespace      │       │  - Transforms         │       │                  │
+│  - xml do DSL        │       │  - Decision System    │       │                  │
+└─────────────────────┘       └──────────────────────┘       └──────────────────┘
+```
+
+### Key Architectural Principles
+
+1. **Separation of Concerns**: Content (XmlDataModel) separate from presentation (DeclarationPlan)
+2. **Dumb Adapter Pattern**: Adapters only apply decisions, never make them
+3. **Model-Driven Design**: Models manipulated, not serializations
+4. **Planning Before Rendering**: Namespace decisions made before XML generation
+
+---
+
+## Core Components
+
+### Component Relationship Diagram
+
+```
+                        ┌─────────────────────┐
+                        │     XmlNamespace    │
+                        │   (Schema Definition)│
+                        │  - uri: String       │
+                        │  - prefix_default:   │
+                        │  - element_form_default│
+                        │  - attribute_form_default│
+                        └──────────▲───────────┘
+                                   │
+                        ┌──────────┴───────────┐
+                        │                      │
+                ┌───────┴──────┐      ┌───────┴──────┐
+                │  xml do DSL  │      │    Model     │
+                │              │      │              │
+                │ root "name"  │      │ namespace    │
+                │ namespace    │      │ map_element  │
+                │ map_element  │      │ map_attribute│
+                │ map_attribute│      │ namespace_scope│
+                │ type_name    │      └──────▲───────┘
+                └───────┬──────┘             │
+                        │                    │
+                ┌───────┴───────┐    ┌───────┴───────┐
+                │     Type      │    │   Serializable │
+                │              │    │               │
+                │ xml do       │    │ attributes    │
+                │ namespace    │    │ methods       │
+                │ xsd_type     │    │ to_xml        │
+                └───────┬──────┘    └───────┬───────┘
+                        │                    │
+                        └──────────┬─────────┘
+                                   │
+                        ┌──────────┴───────────┐
+                        │  Xml::Transformation│
+                        │                      │
+                        │  Transforms Model    │
+                        │  to XmlDataModel     │
+                        └──────────┬───────────┘
+                                   │
+                                   ▼
+                        ┌──────────────────────┐
+                        │    XmlDataModel      │
+                        │   (Content Layer)    │
+                        │                      │
+                        │  - XmlElement        │
+                        │  -XmlAttribute      │
+                        │  - XmlText           │
+                        │  - Namespace info    │
+                        └──────────┬───────────┘
+                                   │
+                        ┌──────────┴───────────┐
+                        │                      │
+                ┌───────┴────────┐    ┌───────┴────────┐
+                │NamespaceCollector│    │DeclarationPlanner│
+                │  (Phase 1)      │    │  (Phase 2)      │
+                │                  │    │                  │
+                │ Collect ns needs │    │ Decide WHERE     │
+                │ Build needs hash │    │ Decide FORMAT    │
+                │ ns_scope_config  │    │ Create plan      │
+                └───────┬──────────┘    └───────┬────────┘
+                        │                      │
+                        └──────────┬───────────┘
+                                   │
+                        ┌──────────┴───────────┐
+                        │   DeclarationPlan    │
+                        │  (Declaration Layer) │
+                        │                      │
+                        │  - Namespace         │
+                        │  - ElementNamespace  │
+                        │  - AttributeNamespace │
+                        │  - UsePrefix         │
+                        │  - Strategy          │
+                        └──────────┬───────────┘
+                                   │
+                        ┌──────────┴───────────┐
+                        │       Adapter         │
+                        │  (Rendering Phase)   │
+                        │                      │
+                        │  - NokogiriAdapter   │
+                        │  - OgaAdapter        │
+                        │  - OxAdapter         │
+                        └──────────┬───────────┘
+                                   │
+                                   ▼
+                              ┌─────────┐
+                              │   XML   │
+                              │ String  │
+                              └─────────┘
+```
+
+---
+
+## Serialization Paths
+
+### Path 1: Initial Serialization (No Plan)
+
+```
+┌──────────────┐
+│    Model     │
+│              │
+│ PurchaseOrder│
+│   .to_xml    │
+└──────┬───────┘
+       │
+       ▼
+┌──────────────────────────┐
+│  Xml::Transformation     │
+│  (lib/lutaml/model/xml/  │
+│   serialization/         │
+│   transformation.rb)     │
+│                          │
+│  - transform(model)      │
+│  - build_xml_data_model  │
+└──────┬───────────────────┘
+       │
+       ▼
+┌──────────────────────────┐
+│    XmlDataModel          │
+│  (Intermediate Content)  │
+│                          │
+│  - root: XmlElement       │
+│  - elements: []          │
+│  - attributes: {}        │
+│  - namespace: NamespaceClass│
+└──────┬───────────────────┘
+       │
+       ▼
+┌──────────────────────────┐
+│  DeclarationPlanner      │
+│  (lib/lutaml/model/xml/  │
+│   declaration_planner.rb)│
+│                          │
+│  - plan(xml_data_model)  │
+│  - Three-Phase:          │
+│    1. NamespaceCollector │
+│    2. Decision Engine    │
+│    3. Plan Builder       │
+└──────┬───────────────────┘
+       │
+       ▼
+┌──────────────────────────┐
+│   DeclarationPlan       │
+│  (Namespace Decisions)  │
+│                          │
+│  - namespace_declarations│
+│  - element_formats      │
+│  - attribute_formats    │
+│  - prefix_assignments   │
+└──────┬───────────────────┘
+       │
+       ▼
+┌──────────────────────────┐
+│  build_xml_element_      │
+│    with_plan             │
+│  (Applies plan to model) │
+└──────┬───────────────────┘
+       │
+       ▼
+┌──────────────────────────┐
+│       Adapter            │
+│  (Dumb - applies plan)   │
+│                          │
+│  - add xmlns attributes  │
+│  - add prefixes          │
+│  - build XML string      │
+└──────┬───────────────────┘
+       │
+       ▼
+    ┌─────────┐
+    │   XML   │
+    │ String  │
+    └─────────┘
+```
+
+### Path 2: Round-Trip (With Plan)
+
+```
+┌──────────────┐
+│  XML Input   │
+│              │
+│  <po:order/> │
+└──────┬───────┘
+       │
+       ▼
+┌──────────────────────────┐
+│  XML Parser              │
+│  (Nokogiri/Oga/Ox)       │
+└──────┬───────────────────┘
+       │
+       ▼
+┌──────────────────────────┐
+│  NamespaceCollector      │
+│  (Phase 1)               │
+│                          │
+│  - Collect ns from XML   │
+│  - Preserve format info  │
+└──────┬───────────────────┘
+       │
+       ▼
+┌──────────────────────────┐
+│  DeclarationPlanner      │
+│  (Phase 2 & 3)           │
+│                          │
+│  - Create plan from XML  │
+│  - Store for round-trip  │
+└──────┬───────────────────┘
+       │
+       ├─────────────────┐
+       │                 │
+       ▼                 ▼
+┌──────────────┐  ┌──────────────┐
+│ Declaration  │  │    Model     │
+│    Plan      │  │  (parsed)    │
+│  (preserved) │  │              │
+└──────┬───────┘  └──────┬───────┘
+       │                 │
+       └────────┬────────┘
+                │
+                ▼
+       ┌─────────────────┐
+       │ Model + Plan    │
+       │ together        │
+       └────────┬────────┘
+                │
+                ▼
+       ┌─────────────────┐
+       │ Transformation │
+       │ (with plan)     │
+       └────────┬────────┘
+                │
+                ▼
+       ┌─────────────────┐
+       │  XmlDataModel   │
+       │  + Plan         │
+       └────────┬────────┘
+                │
+                ▼
+       ┌─────────────────┐
+       │    Adapter      │
+       │ (applies plan)  │
+       └────────┬────────┘
+                │
+                ▼
+           ┌─────────┐
+           │   XML   │
+           │ Output  │
+           └─────────┘
+```
+
+---
+
+## Decision System
+
+### Decision Engine Priority Order
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    Decision Engine (Session 263)               │
+│                                                                 │
+│  Evaluates rules in priority order to determine element format  │
+└─────────────────────────────────────────────────────────────────┘
+                          │
+                          ▼
+        ┌─────────────────────────────────────┐
+        │         DecisionContext              │
+        │  (Input data for decision making)    │
+        │  - element                           │
+        │  - namespace_class                   │
+        │  - parent_plan                       │
+        │  - options (prefix: true/false)      │
+        │  - preserved_format                  │
+        └─────────────────┬───────────────────┘
+                          │
+                          ▼
+        ┌─────────────────────────────────────┐
+        │         DecisionEngine               │
+        │  (lib/.../declaration_plan/          │
+        │   decision_engine.rb)                │
+        │                                     │
+        │  evaluate(context, rules)           │
+        └─────────────────┬───────────────────┘
+                          │
+                          ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                     Priority Levels                            │
+│                                                                 │
+│  Priority 0:   Inherit parent's default namespace              │
+│  Priority 0.5: Use prefix hoisted on parent                    │
+│  Tier 1:       User explicit option (prefix: true/false)      │
+│  Tier 2:       Preserved format from input (round-trip)       │
+│  Tier 3:       W3C disambiguation (attributes need prefix)    │
+│  Tier 4:       namespace_scope (multiple namespaces at root)  │
+│  Tier 5:       Prefer default format (cleanest)               │
+└─────────────────────────────────────────────────────────────────┘
+                          │
+                          ▼
+        ┌─────────────────────────────────────┐
+        │    ElementPrefixResolver            │
+        │  (lib/.../element_prefix_resolver.rb)│
+        │                                     │
+        │  resolve(element, ns_class, ...)    │
+        └─────────────────┬───────────────────┘
+                          │
+                          ▼
+        ┌─────────────────────────────────────┐
+        │       DecisionResult                │
+        │  - use_prefix: boolean              │
+        │  - prefix: string                   │
+        │  - reason: string                   │
+        └─────────────────┬───────────────────┘
+                          │
+                          ▼
+        ┌─────────────────────────────────────┐
+        │      DeclarationPlan                │
+        │  (Stores all decisions)             │
+        └─────────────────────────────────────┘
+```
+
+### Decision Rule Classes
+
+```
+lib/lutaml/model/xml/declaration_plan/rules/
+│
+├── priority0_inherit_default.rb
+│   └── Priority0InheritDefault
+│       Condition: Parent uses default AND element inherits it
+│       Action: Use default format, no redeclaration
+│
+├── priority05_use_prefix_hoisted.rb
+│   └── Priority05UsePrefixHoisted
+│       Condition: Parent hoisted element's namespace as prefix
+│       Action: Use the hoisted prefix
+│
+├── tier1_user_option.rb
+│   └── Tier1UserOption
+│       Condition: User explicitly set prefix option
+│       Action: Use user's choice (true/false/custom)
+│
+├── tier2_preserve_format.rb
+│   └── Tier2PreserveFormat
+│       Condition: Element has preserved format from XML parsing
+│       Action: Use the preserved format
+│
+├── tier3_w3c_disambiguation.rb
+│   └── Tier3W3cDisambiguation
+│       Condition: Namespace has prefix_default: true (attribute namespace)
+│       Action: Use prefix format (W3C requirement)
+│
+├── tier4_namespace_scope.rb
+│   └── Tier4NamespaceScope
+│       Condition: Element in namespace_scope group
+│       Action: Use prefix format (multiple namespaces at root)
+│
+└── tier5_prefer_default.rb
+    └── Tier5PreferDefault
+        Condition: Fallback (no other rules matched)
+        Action: Use default format (cleanest)
+```
+
+---
+
+## TypeNamespace Subsystem
+
+### TypeNamespace Flow
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                   TypeNamespace Subsystem                       │
+│                   (Session 263)                                 │
+│                                                                 │
+│  Handles namespaces declared on custom Type classes             │
+└─────────────────────────────────────────────────────────────────┘
+
+┌──────────────────┐
+│  Custom Type     │
+│                  │
+│  class DcTitle   │
+│    < String      │
+│                  │
+│    xml do        │
+│      namespace   │
+│        DcNamespace│
+│    end           │
+└────────┬─────────┘
+         │
+         ▼
+┌─────────────────────────────────────┐
+│   TypeNamespace::Collector          │
+│  (lib/.../type_namespace/           │
+│   collector.rb)                      │
+│                                     │
+│  - collect_type_namespaces(model)   │
+│  - find Type with xml_namespace     │
+│  - build TypeNamespaceReference list│
+└────────┬────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────┐
+│   TypeNamespace::Reference          │
+│  (lib/.../type_namespace/           │
+│   reference.rb)                     │
+│                                     │
+│  - namespace: NamespaceClass        │
+│  - element_name: string             │
+│  - attribute_name: string           │
+│  - type_class: Class                │
+└────────┬────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────┐
+│   TypeNamespace::Resolver           │
+│  (lib/.../type_namespace/           │
+│   resolver.rb)                      │
+│                                     │
+│  - resolve_prefixes(references,     │
+│      namespace_register)            │
+│  - Assign prefix to each reference  │
+└────────┬────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────┐
+│   TypeNamespace::Planner            │
+│  (lib/.../type_namespace/           │
+│   planner.rb)                       │
+│                                     │
+│  - plan_type_namespace_declarations │
+│  - Decide WHERE to declare          │
+│  - Add to DeclarationPlan           │
+└────────┬────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────┐
+│      DeclarationPlan                │
+│                                     │
+│  - type_namespace_references        │
+│  - type_namespace_declarations      │
+│  - prefix assignments                │
+└─────────────────────────────────────┘
+```
+
+### TypeNamespace Rules
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    Type Namespace Rules                        │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│  1. As an attribute → MUST use prefix                          │
+│                                                                 │
+│     W3C Constraint: Attributes don't inherit default namespace │
+│                                                                 │
+│     Example:                                                     │
+│     <document xml:lang="en"/>                                   │
+│              ^^^^^^^^^^ Must use prefix                        │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│  2. As an element with same namespace as parent → Can inherit   │
+│                                                                 │
+│     Inherits parent's default namespace                         │
+│                                                                 │
+│     Example:                                                     │
+│     <po:purchaseOrder xmlns:po="...">                           │
+│       <comment>Text</comment>                                   │
+│       ^^^^^^^ Inherits po: namespace                            │
+│     </po:purchaseOrder>                                         │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│  3. As an element with different namespace than parent →        │
+│     Can use default OR prefix                                   │
+│                                                                 │
+│     Example 1 (default):                                        │
+│     <Book xmlns="book">                                         │
+│       <title xmlns="dc">My Book</title>                         │
+│     </Book>                                                     │
+│                                                                 │
+│     Example 2 (prefix):                                         │
+│     <Book xmlns="book" xmlns:dc="dc">                           │
+│       <dc:title>My Book</dc:title>                              │
+│     </Book>                                                     │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Class Reference
+
+### XmlNamespace
+
+**Location**: `lib/lutaml/model/xml/w3c/xml_namespace.rb`
+
+**Purpose**: Defines a namespace for XML schema validation
+
+**Key Methods**:
+```ruby
+class PoNamespace < Lutaml::Model::Xml::W3c::XmlNamespace
+  uri "http://example.com/po"              # Required: namespace URI
+  prefix_default "po"                      # Required: default prefix
+  element_form_default :qualified           # Optional: :qualified or :unqualified
+  attribute_form_default :unqualified        # Optional: :qualified or :unqualified
+end
+```
+
+**Attributes**:
+- `uri`: String - The unique namespace URI
+- `prefix_default`: String - Default prefix to use
+- `element_form_default`: Symbol - Controls child element namespace
+- `attribute_form_default`: Symbol - Controls attribute namespace
+
+---
+
+### xml do DSL
+
+**Purpose**: Declarative DSL for XML configuration
+
+**Used By**: Both `Serializable` (Model) and `Type::Value` classes
+
+**For Models**:
+```ruby
+class PurchaseOrder < Lutaml::Model::Serializable
+  xml do
+    root "purchaseOrder"                    # Root element name
+    namespace PoNamespace                    # Model namespace
+
+    map_element "shipTo", to: :ship_to       # Map element
+    map_attribute "orderDate", to: :date     # Map attribute
+    namespace_scope [DcNamespace]           # Hoist namespaces
+
+    # Options:
+    #   namespace: OtherNamespace           # Override namespace
+    #   form: :unqualified                   # Override element_form_default
+    #   render_empty: :omit                  # Empty rendering
+  end
+end
+```
+
+**For Types**:
+```ruby
+class DcTitleType < Lutaml::Model::Type::String
+  xml do
+    namespace DcNamespace                    # Type namespace
+    xsd_type "titleType"                    # XSD type name
+  end
+end
+```
+
+---
+
+### Type::Value
+
+**Location**: `lib/lutaml/model/type/`
+
+**Purpose**: Base class for all XML schema simple types
+
+**Built-in Types**:
+- `String` → xs:string
+- `Integer` → xs:integer
+- `Decimal` → xs:decimal
+- `Boolean` → xs:boolean
+- `Date` → xs:date
+- `DateTime` → xs:dateTime
+- `TimeWithoutDate` → xs:time
+
+**Custom Type Example**:
+```ruby
+class UsPriceType < Lutaml::Model::Type::Decimal
+  xml do
+    namespace PoNamespace
+    xsd_type "USPrice"
+  end
+
+  def cast(value)
+    # Custom validation/logic
+    super
+  end
+end
+```
+
+**Key Methods**:
+- `cast(value)`: Convert raw value to typed value
+- `serialize(value)`: Convert typed value to XML string
+- `xml_namespace`: Returns namespace from xml do block
+- `xsd_type`: Returns XSD type name
+
+---
+
+### Serializable
+
+**Location**: `lib/lutaml/model/serializable.rb`
+
+**Purpose**: Base class for XML element models
+
+**Key Methods**:
+```ruby
+class Book < Lutaml::Model::Serializable
+  attribute :title, :string
+  attribute :author, Person
+
+  xml do
+    root "Book"
+    namespace BookNamespace
+    map_element "title", to: :title
+    map_element "author", to: :author
+  end
+end
+
+book = Book.new(title: "My Book")
+book.to_xml                            # Serialize
+Book.from_xml(xml_string)              # Deserialize
+book.to_xml(prefix: true)              # With prefix format
+book.to_xml(pretty: true)              # Formatted
+```
+
+**Serialization Options**:
+- `prefix`: true/false/"custom" - Control prefix format
+- `pretty`: true - Format output
+- `declaration`: true/"1.1" - Add XML declaration
+- `encoding`: "UTF-8" - Set encoding
+
+---
+
+### XmlDataModel
+
+**Location**: `lib/lutaml/model/xml/adapter/adapter.rb`
+
+**Purpose**: Intermediate representation between Model and XML
+
+**Structure**:
+```ruby
+XmlElement = {
+  name: "purchaseOrder",
+  namespace: PoNamespace,
+  attributes: { orderDate: "1999-10-20" },
+  elements: [
+    XmlElement(name: "shipTo", ...),
+    XmlText("Text content")
+  ],
+  content: "Text content",  # For mixed content
+}
+
+XmlAttribute = {
+  name: "orderDate",
+  value: "1999-10-20",
+  namespace: PoNamespace,
+}
+
+XmlText = {
+  content: "Text content",
+  namespace: nil,  # or NamespaceClass
+}
+```
+
+**Key Properties**:
+- **Content Layer**: Defines WHAT to serialize (element names, structure, namespace identity)
+- **Namespace Identity**: Knows which namespace each element belongs to
+- **No Format Info**: Does NOT specify prefix vs default (DeclarationPlan's job)
+
+---
+
+### DeclarationPlan
+
+**Location**: `lib/lutaml/model/xml/declaration_plan/`
+
+**Purpose**: Stores namespace declaration and format decisions
+
+**Structure**:
+```ruby
+DeclarationPlan = {
+  # Namespace declarations
+  namespace_declarations: {
+    "po" => {
+      uri: "http://example.com/po",
+      prefix: "po",
+      format: :default,  # or :prefix
+    }
+  },
+
+  # Element format decisions
+  element_formats: {
+    "purchaseOrder" => :default,
+    "shipTo" => :default,
+    "title" => :prefix,  # Type namespace
+  },
+
+  # Prefix assignments
+  prefix_assignments: {
+    PoNamespace => "po",
+    DcNamespace => "dc",
+  },
+
+  # Element-specific namespace nodes
+  element_namespace_nodes: [
+    {
+      element: "title",
+      namespace: DcNamespace,
+      prefix: "dc",
+      use_prefix: true,
+    }
+  ],
+
+  # Type namespace references
+  type_namespace_references: [
+    TypeNamespaceReference.new(...)
+  ],
+}
+```
+
+**Key Files**:
+- `declaration_plan.rb` - Main DeclarationPlan class
+- `element_namespace_node.rb` - Per-element namespace info
+- `decision_context.rb` - Input for decision engine
+- `decision.rb` - Base decision class
+
+---
+
+### DeclarationPlanner
+
+**Location**: `lib/lutaml/model/xml/declaration_planner.rb`
+
+**Purpose**: Orchestrates namespace planning (Three-Phase Architecture)
+
+**Key Methods**:
+```ruby
+planner = DeclarationPlanner.new(namespace_register)
+
+# Main entry point
+plan = planner.plan(xml_data_model, options)
+
+# Three phases
+plan = planner.develop_declaration_plan(xml_data_model, options)
+```
+
+**Three-Phase Process**:
+
+```
+Phase 1: Namespace Collection
+├── NamespaceCollector.collect(xml_data_model)
+├── Builds needs hash
+└── Identifies namespace_scope_config
+
+Phase 2: Declaration Planning
+├── DecisionEngine.evaluate(context)
+├── Applies 7 prioritized rules
+└── Creates NamespaceDeclaration strategies
+
+Phase 3: Plan Building
+├── Build final DeclarationPlan
+├── Add element_namespace_nodes
+└── Resolve type namespaces
+```
+
+---
+
+### NamespaceCollector
+
+**Location**: `lib/lutaml/model/xml/namespace_collector.rb`
+
+**Purpose**: Collects namespace needs from XmlDataModel tree (Phase 1)
+
+**Key Methods**:
+```ruby
+collector = NamespaceCollector.new(namespace_register)
+
+# Collect all namespace references
+needs_hash = collector.collect(xml_data_model)
+
+# Result structure:
+{
+  root: {
+    namespace: PoNamespace,
+    namespace_scope: [DcNamespace],
+    element_form_default: :qualified,
+  },
+  children: [
+    {
+      element: xml_element,
+      namespace: PoNamespace,
+      type_namespace: DcNamespace,
+    }
+  ]
+}
+```
+
+**Key Responsibilities**:
+- Traverse XmlDataModel tree
+- Identify all namespace references
+- Build namespace_scope configuration
+- Capture element_form_default settings
+
+---
+
+### ElementPrefixResolver
+
+**Location**: `lib/lutaml/model/xml/element_prefix_resolver.rb`
+
+**Purpose**: Applies Decision Engine to resolve element prefixes
+
+**Key Methods**:
+```ruby
+resolver = ElementPrefixResolver.new(namespace_register)
+
+result = resolver.resolve(
+  element: xml_element,
+  namespace_class: PoNamespace,
+  options: { prefix: true },
+  parent_plan: parent_element_node
+)
+
+# Result:
+{
+  use_prefix: true,
+  prefix: "po",
+  reason: "Tier1UserOption"
+}
+```
+
+**Process**:
+1. Create DecisionContext from inputs
+2. Call DecisionEngine.evaluate(context)
+3. Return winning decision
+4. Store in DeclarationPlan
+
+---
+
+### DecisionEngine
+
+**Location**: `lib/lutaml/model/xml/declaration_plan/decision_engine.rb`
+
+**Purpose**: Evaluates decision rules in priority order
+
+**Key Methods**:
+```ruby
+engine = DecisionEngine.new(rules)
+
+result = engine.evaluate(context)
+
+# Returns first rule that matches
+# Rules evaluated in priority order (0 → 5)
+```
+
+**Decision Rules Priority**:
+```
+Priority 0:   Priority0InheritDefault
+Priority 0.5: Priority05UsePrefixHoisted
+Tier 1:       Tier1UserOption
+Tier 2:       Tier2PreserveFormat
+Tier 3:       Tier3W3cDisambiguation
+Tier 4:       Tier4NamespaceScope
+Tier 5:       Tier5PreferDefault
+```
+
+---
+
+### Adapters
+
+**Location**: `lib/lutaml/model/xml/`
+
+**Purpose**: Render XML by applying DeclarationPlan decisions
+
+**Dumb Adapter Pattern**:
+- Adapters ONLY read from DeclarationPlan
+- Adapters NEVER make namespace decisions
+- All decisions made by Decision System
+
+**Adapter Classes**:
+
+**NokogiriAdapter** (`nokogiri_adapter.rb`):
+```ruby
+adapter = NokogiriAdapter.new
+
+xml_string = adapter.build_xml(
+  xml_data_model,
+  declaration_plan,
+  options
+)
+
+# Key methods:
+# - build_xml_element(xml, element, element_node)
+# - add_namespace_declaration(xml, ns_declaration)
+# - apply_prefix(element_name, prefix)
+```
+
+**OgaAdapter** (`oga_adapter.rb`):
+```ruby
+# Same interface as NokogiriAdapter
+# Uses Oga XML library
+```
+
+**OxAdapter** (`ox_adapter.rb`):
+```ruby
+# Same interface as NokogiriAdapter
+# Uses Ox XML library
+```
+
+**Key Adapter Responsibilities**:
+1. Read `use_prefix` from DeclarationPlan
+2. Add xmlns attributes based on plan
+3. Apply element name prefixes
+4. Build final XML string
+5. NO decision-making logic
+
+---
+
+## Data Flow Examples
+
+### Example 1: Simple Serialization
+
+```ruby
+# Define model
+class PoNamespace < Lutaml::Model::Xml::W3c::XmlNamespace
+  uri "http://example.com/po"
+  prefix_default "po"
+  element_form_default :qualified
+end
+
+class PurchaseOrder < Lutaml::Model::Serializable
+  attribute :comment, :string
+
+  xml do
+    root "purchaseOrder"
+    namespace PoNamespace
+    map_element "comment", to: :comment
+  end
+end
+
+# Create instance
+po = PurchaseOrder.new(comment: "Hurry, my lawn is going wild!")
+
+# Serialize
+po.to_xml
+```
+
+**Flow**:
+
+```
+PurchaseOrder instance
+    │
+    ▼
+Xml::Transformation.transform(po)
+    │
+    ├─► Build XmlDataModel:
+    │   XmlElement(
+    │     name: "purchaseOrder",
+    │     namespace: PoNamespace,
+    │     elements: [
+    │       XmlElement(name: "comment", namespace: PoNamespace)
+    │     ]
+    │   )
+    │
+    ▼
+DeclarationPlanner.plan(xml_data_model)
+    │
+    ├─► Phase 1: NamespaceCollector
+    │   Collect: PoNamespace needed
+    │
+    ├─► Phase 2: DecisionEngine
+    │   Evaluate: Tier5PreferDefault → default format
+    │
+    └─► Phase 3: Build DeclarationPlan
+    │   Plan: {
+    │     namespace_declarations: {
+    │       PoNamespace => { format: :default }
+    │     },
+    │     element_formats: {
+    │       "purchaseOrder" => :default,
+    │       "comment" => :default
+    │     }
+    │   }
+    │
+    ▼
+Adapter.build_xml(xml_data_model, declaration_plan)
+    │
+    ├─► Read plan: use_prefix = false
+    ├─► Add xmlns="http://example.com/po"
+    └─► Build XML string
+    │
+    ▼
+<purchaseOrder xmlns="http://example.com/po">
+  <comment>Hurry, my lawn is going wild!</comment>
+</purchaseOrder>
+```
+
+### Example 2: Type Namespace
+
+```ruby
+# Define Type with namespace
+class DcNamespace < Lutaml::Model::Xml::W3c::XmlNamespace
+  uri "http://purl.org/dc/elements/1.1/"
+  prefix_default "dc"
+end
+
+class DcTitleType < Lutaml::Model::Type::String
+  xml do
+    namespace DcNamespace
+  end
+end
+
+# Use in model
+class Document < Lutaml::Model::Serializable
+  attribute :title, DcTitleType
+
+  xml do
+    root "document"
+    map_element "title", to: :title
+  end
+end
+
+# Serialize
+doc = Document.new(title: "Example")
+doc.to_xml
+```
+
+**Flow**:
+
+```
+Document instance
+    │
+    ▼
+Xml::Transformation.transform(doc)
+    │
+    ├─► Detect Type namespace:
+    │   title attribute has type DcTitleType
+    │   DcTitleType.xml_namespace = DcNamespace
+    │
+    ├─► Build XmlDataModel:
+    │   XmlElement(
+    │     name: "document",
+    │     namespace: nil,
+    │     elements: [
+    │       XmlElement(
+    │         name: "title",
+    │         namespace: DcNamespace,  # Type namespace!
+    │         ...
+    │       )
+    │     ]
+    │   )
+    │
+    ▼
+TypeNamespace::Collector.collect(xml_data_model)
+    │
+    └─► Find Type with xml_namespace
+    │   Create TypeNamespaceReference:
+    │   - namespace: DcNamespace
+    │   - element_name: "title"
+    │   - type_class: DcTitleType
+    │
+    ▼
+DeclarationPlanner.plan(xml_data_model)
+    │
+    ├─► TypeNamespace::Resolver.resolve_prefixes
+    │   Assign prefix: "dc" to DcNamespace
+    │
+    ├─► DecisionEngine for "title" element
+    │   Evaluate: Tier5 → BUT Type namespace takes precedence
+    │   Result: use_prefix = true (Type namespace rule)
+    │
+    └─► Build DeclarationPlan
+    │   Plan: {
+    │     type_namespace_declarations: {
+    │       DcNamespace => { prefix: "dc", declare_on: root }
+    │     },
+    │     element_formats: {
+    │       "title" => :prefix  # Type namespace requires prefix
+    │     }
+    │   }
+    │
+    ▼
+Adapter.build_xml(xml_data_model, declaration_plan)
+    │
+    ├─► Read plan: title uses prefix
+    ├─► Add xmlns:dc="http://purl.org/dc/elements/1.1/" on root
+    ├─► Render <dc:title>
+    └─► Build XML string
+    │
+    ▼
+<document xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <dc:title>Example</dc:title>
+</document>
+```
+
+### Example 3: Round-Trip with Plan Preservation
+
+```ruby
+# Parse XML
+xml_input = '<po:purchaseOrder xmlns:po="http://example.com/po">
+  <po:comment>Hurry!</po:comment>
+</po:purchaseOrder>'
+
+po = PurchaseOrder.from_xml(xml_input)
+```
+
+**Flow (Parsing)**:
+
+```
+XML Input
+    │
+    ▼
+NokogiriAdapter.parse(xml_input)
+    │
+    ├─► Parse XML with Nokogiri
+    ├─► Build Ruby objects
+    │
+    ▼
+NamespaceCollector.collect_from_xml(parsed_xml)
+    │
+    ├─► Collect namespaces from XML
+    │   Found: po="http://example.com/po" (prefixed)
+    │
+    ├─► Preserve format info
+    │   - purchaseOrder: prefix format
+    │   - comment: prefix format
+    │
+    ▼
+DeclarationPlanner.plan_from_xml(collected_info)
+    │
+    └─► Create DeclarationPlan with preserved formats
+    │   Plan: {
+    │     namespace_declarations: {...},
+    │     element_formats: {
+    │       "purchaseOrder" => :prefix,  # Preserved!
+    │       "comment" => :prefix         # Preserved!
+    │     }
+    │   }
+    │
+    ▼
+Store DeclarationPlan in model instance
+```
+
+**Flow (Serialization)**:
+
+```
+po.to_xml
+    │
+    ▼
+Check: Does model have DeclarationPlan?
+    │
+    ├─► YES: Use stored plan
+    │
+    ▼
+Xml::Transformation.transform(po, plan)
+    │
+    └─► Build XmlDataModel (skip planning phase)
+    │
+    ▼
+Adapter.build_xml(xml_data_model, stored_plan)
+    │
+    ├─► Apply stored format decisions
+    ├─► Render with preserved prefixes
+    │
+    ▼
+<po:purchaseOrder xmlns:po="http://example.com/po">
+  <po:comment>Hurry!</po:comment>
+</po:purchaseOrder>
+```
+
+---
+
+## Key Design Patterns
+
+### 1. Dumb Adapter Pattern
+
+**Problem**: Adapters making namespace decisions leads to:
+- Inconsistent behavior across adapters
+- Duplicate logic
+- Violation of Single Responsibility Principle
+
+**Solution**: Adapters ONLY apply decisions from DeclarationPlan
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Dumb Adapter Pattern                      │
+└─────────────────────────────────────────────────────────────┘
+
+Planning Phase (Decision System)        Rendering Phase (Adapters)
+┌─────────────────────────────┐       ┌─────────────────────────┐
+│  DeclarationPlanner          │       │  NokogiriAdapter        │
+│  - DecisionEngine            │  ───▶ │  - Read plan            │
+│  - ElementPrefixResolver     │       │  - Apply xmlns          │
+│  - TypeNamespacePlanner      │       │  - Add prefixes         │
+│  - MAKE ALL DECISIONS        │       │  - Build XML            │
+└─────────────────────────────┘       │  - NO DECISIONS         │
+                                      └─────────────────────────┘
+```
+
+### 2. Registry Pattern
+
+**Purpose**: Centralized namespace and prefix management
+
+```ruby
+register = NamespaceRegister.new
+
+# Register namespace
+register.register_namespace(PoNamespace)
+
+# Get prefix
+prefix = register.prefix_for(PoNamespace)  # => "po"
+
+# Assign custom prefix
+register.assign_prefix(PoNamespace, "custom")  # => "custom"
+
+# Get namespace from prefix
+ns = register.namespace_for_prefix("po")  # => PoNamespace
+```
+
+### 3. Strategy Pattern
+
+**Purpose**: Runtime adapter selection
+
+```ruby
+# Configure adapter
+Lutaml::Model::Config.configure do |config|
+  config.xml_adapter = :nokogiri  # or :oga, :ox
+end
+
+# Used at runtime
+adapter = Lutaml::Model::Xml.adapter
+# => NokogiriAdapter instance
+```
+
+### 4. Template Method Pattern
+
+**Purpose**: Type::Value base class with customizable hooks
+
+```ruby
+class CustomType < Lutaml::Model::Type::String
+  def cast(value)
+    # Custom validation/conversion
+    raise ArgumentError unless valid?(value)
+    super
+  end
+
+  def serialize(value)
+    # Custom serialization
+    super.upcase
+  end
+end
+```
+
+---
+
+## W3C Compliance Notes
+
+### xmlns="" Semantics
+
+**When REQUIRED**:
+- Child in different namespace than parent
+- Parent uses default namespace format (xmlns="uri")
+- Child's namespace has no prefix on child element
+
+```xml
+<!-- CORRECT -->
+<parent xmlns="http://example.com/parent">
+  <child xmlns="">Value</child>
+  <!-- ^^^^^^^^ REQUIRED to opt out -->
+</parent>
+
+<!-- CORRECT: Child has prefix -->
+<parent xmlns="http://example.com/parent">
+  <other:child xmlns:other="http://other">Value</other:child>
+  <!-- No xmlns="" needed - prefix makes it clear -->
+</parent>
+```
+
+### Element Form Default
+
+**`:qualified`** (default):
+- Children inherit parent namespace
+- All elements in target namespace
+
+**`:unqualified`**:
+- Children in blank namespace
+- Need xmlns="" to opt out
+
+### Attribute Form Default
+
+**W3C Default**: `:unqualified`
+- Attributes have NO namespace
+- Don't inherit parent's namespace
+
+**`:qualified`**:
+- Attributes MUST use prefix format
+- Cannot use default xmlns (W3C constraint)
+
+---
+
+## Related Documentation
+
+- `CLAUDE.md` - Development guidelines and common mistakes
+- `docs/_tutorials/xml-element-attribute-namespace-guide.adoc` - XML namespace semantics
+- `docs/_tutorials/xml-schema-primer-style-guide.adoc` - User-facing style guide
+- `.kilocode/rules/memory-bank/` - Detailed architectural documentation
+
+---
+
+**Document Status**: ACTIVE
+**Last Updated**: 2026-01-16
+**Maintainer**: LutaML Development Team

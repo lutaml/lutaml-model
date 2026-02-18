@@ -168,12 +168,31 @@ module Lutaml
 
         def deep_dup(object)
           return object if object.nil?
+          return object if immutable?(object)
 
           case object
           when ::Hash then deep_dup_hash(object)
           when Array then deep_dup_array(object)
           else deep_dup_object(object)
           end
+        end
+
+        # Check if object is immutable and should not be duplicated
+        def immutable?(object)
+          object.is_a?(Symbol) ||
+            object.is_a?(TrueClass) ||
+            object.is_a?(FalseClass) ||
+            object.is_a?(Numeric) ||
+            object.is_a?(Class) ||
+            object.is_a?(Module) ||
+            object.is_a?(Proc) ||
+            object.is_a?(Method) ||
+            (object.is_a?(Range) && immutable_range?(object))
+        end
+
+        # Check if Range has immutable bounds
+        def immutable_range?(range)
+          immutable?(range.begin) && (range.end.nil? || immutable?(range.end))
         end
 
         private

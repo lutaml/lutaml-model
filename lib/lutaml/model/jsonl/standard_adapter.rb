@@ -23,7 +23,7 @@ module Lutaml
         end
 
         def to_jsonl(*_args)
-          @jsons.map do |json|
+          (@jsons || []).map do |json|
             JSON.generate(json)
           end.join("\n")
         end

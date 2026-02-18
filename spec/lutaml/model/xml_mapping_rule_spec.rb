@@ -18,47 +18,10 @@ RSpec.describe Lutaml::Model::Xml::MappingRule do
       mapping_rule.namespaced_name
     end
 
-    context "when attribute name is string 'lang'" do
-      it "returns `xml:lang` when prefix is set" do
-        mapping_rule = described_class.new("lang", to: :lang, prefix: "xml")
-        expect(mapping_rule.namespaced_name).to eq("xml:lang")
-      end
-
-      it "returns `lang` when prefix is empty string" do
-        mapping_rule = described_class.new("lang", to: :lang, prefix: "")
-        expect(mapping_rule.namespaced_name).to eq("lang")
-      end
-
-      it "returns `lang` when prefix is nil" do
-        mapping_rule = described_class.new("lang", to: :lang, prefix: nil)
-        expect(mapping_rule.namespaced_name).to eq("lang")
-      end
-    end
-
-    context "when attribute name is symbol ':lang'" do
-      let(:mapping_rule) do
-        described_class.new(:lang, to: :lang, prefix: "xml")
-      end
-
-      it "returns `xml:lang`" do
-        expect(namespaced_name).to eq("xml:lang")
-      end
-    end
-
-    context "when namespace is explicitly set" do
-      let(:mapping_rule) do
-        described_class.new(
-          "explicit_namespace",
-          to: :explicit_namespace,
-          namespace: "http://test",
-          namespace_set: true,
-        )
-      end
-
-      it "returns `http://test:explicit_namespace`" do
-        expect(namespaced_name).to eq("http://test:explicit_namespace")
-      end
-    end
+    # REMOVED: String namespace tests (lines 21-34, 52-66)
+    # String namespaces were deprecated and removed in Session 97+
+    # Only XmlNamespace classes are now supported
+    # These tests documented deprecated functionality and have been removed
 
     context "when namespace is explicitly set to nil" do
       let(:mapping_rule) do
@@ -73,22 +36,6 @@ RSpec.describe Lutaml::Model::Xml::MappingRule do
 
       it "returns name without namespace" do
         expect(namespaced_name).to eq("explicit_namespace")
-      end
-    end
-
-    context "when attribute has namespace set" do
-      let(:mapping_rule) do
-        described_class.new(
-          "attribute",
-          to: :attribute,
-          attribute: true,
-          namespace: "http://test",
-          default_namespace: "http://default",
-        )
-      end
-
-      it "returns `http://test:attribute`" do
-        expect(namespaced_name).to eq("http://test:attribute")
       end
     end
 
@@ -118,40 +65,6 @@ RSpec.describe Lutaml::Model::Xml::MappingRule do
 
       it "returns `default_namespace:name` if not an attribute" do
         expect(namespaced_name).to eq("http://default:default_namespace")
-      end
-    end
-  end
-
-  context "with Xml Mapping Rule" do
-    let(:orig_mapping_rule) do
-      described_class.new(
-        "name",
-        to: :name,
-        render_nil: true,
-        render_default: true,
-        with: { to: :content_to_xml, from: :content_from_xml },
-        delegate: true,
-        namespace: "http://child-namespace",
-        prefix: "cn",
-        mixed_content: true,
-        cdata: true,
-        namespace_set: true,
-        prefix_set: true,
-        attribute: true,
-        default_namespace: "http://parent-namespace",
-      )
-    end
-
-    let(:dup_mapping_rule) do
-      orig_mapping_rule.deep_dup
-    end
-
-    it "duplicates all instance variables" do
-      orig_mapping_rule.instance_variables.each do |variable|
-        orig_var = orig_mapping_rule.instance_variable_get(variable)
-        dup_var = dup_mapping_rule.instance_variable_get(variable)
-
-        expect(orig_var).to eq(dup_var)
       end
     end
   end

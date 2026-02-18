@@ -19,7 +19,7 @@ module InheritanceSpec
     attribute :age, Lutaml::Model::Type::Integer
 
     xml do
-      root "child"
+      element "child"
 
       map_element "age", to: :age
     end
@@ -29,7 +29,7 @@ module InheritanceSpec
     attribute :age, Lutaml::Model::Type::Integer
 
     xml do
-      root "child_two"
+      element "child_two"
 
       map_element "gender", to: :age
     end
@@ -47,7 +47,7 @@ module InheritanceSpec
 
   class Child < ParentWithMapAll
     xml do
-      root "child"
+      element "child"
     end
   end
 

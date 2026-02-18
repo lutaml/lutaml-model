@@ -207,7 +207,7 @@ RSpec.describe Lutaml::Model::Type::QName do
         attribute :target, :qname
 
         xml do
-          root "reference"
+          element "reference"
           map_attribute "type", to: :ref_type
           map_element "target", to: :target
         end

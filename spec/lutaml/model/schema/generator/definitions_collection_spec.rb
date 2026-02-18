@@ -32,6 +32,10 @@ RSpec.describe Lutaml::Model::Schema::Generator::DefinitionsCollection do
     Lutaml::Model::GlobalRegister.register(collection_register)
   end
 
+  after do
+    Lutaml::Model::GlobalRegister.unregister(register)
+  end
+
   describe ".from_class" do
     subject(:collection) { described_class.from_class(klass) }
 

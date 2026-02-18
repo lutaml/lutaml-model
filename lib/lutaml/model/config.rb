@@ -102,6 +102,17 @@ module Lutaml
                             end
       end
 
+      # New API (preferred) - aliases for terminology alignment with GlobalContext
+      # @see #default_register
+      def default_context_id
+        default_register
+      end
+
+      # @see #default_register=
+      def default_context_id=(value)
+        self.default_register = value
+      end
+
       # @api private
       def to_class_name(str)
         str.to_s.split("_").map(&:capitalize).join

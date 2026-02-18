@@ -374,7 +374,8 @@ RSpec.describe Lutaml::Model::Attribute do
         end
 
         it "successfully casts the value" do
-          attribute = described_class.new("test_attr", serialize_including_class)
+          attribute = described_class.new("test_attr",
+                                          serialize_including_class)
 
           expect { attribute.cast_element({}, register) }.not_to raise_error
         end
@@ -413,7 +414,9 @@ RSpec.describe Lutaml::Model::Attribute do
           )
 
           # Reference type should bypass the validation check
-          expect { attribute.cast_element("test_key", register) }.not_to raise_error
+          expect do
+            attribute.cast_element("test_key", register)
+          end.not_to raise_error
         end
       end
 

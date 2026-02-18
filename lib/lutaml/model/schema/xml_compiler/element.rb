@@ -30,7 +30,7 @@ module Lutaml
             return if skippable?
             return unless resolved_type
 
-            "#{indent}map_element :#{resolved_name(change_case: false)}, to: :#{resolved_name}#{render_default_option}\n"
+            "#{indent}map_element :#{resolved_name(change_case: false)}, to: :#{resolved_name}#{render_options}\n"
           end
 
           def required_files
@@ -84,6 +84,23 @@ module Lutaml
             return if default.nil?
 
             ", render_default: true"
+          end
+
+          def render_options
+            options = []
+            options << render_default_option if default
+            options << render_empty_option if required?
+            options.compact.join
+          end
+
+          def render_empty_option
+            ", render_empty: true"
+          end
+
+          def required?
+            # Element is required if minOccurs is >= 1 OR minOccurs is nil (schema default is 1)
+            # Only NOT required if minOccurs is explicitly 0
+            min_occurs.nil? || min_occurs.to_i >= 1
           end
 
           def attribute_options

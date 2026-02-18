@@ -43,7 +43,7 @@ module SerializeableSpec
     attribute :content, :string
 
     xml do
-      root "recordDate"
+      element "recordDate"
       map_content to: :content
     end
   end
@@ -52,7 +52,7 @@ module SerializeableSpec
     attribute :date_issued, RecordDate, collection: true
 
     xml do
-      root "originInfo"
+      element "originInfo"
       map_element "dateIssued", to: :date_issued
     end
   end
@@ -113,7 +113,7 @@ module SerializeableSpec
     end
 
     xml do
-      root "person"
+      element "person"
       map_element "name", to: :name
       map_element "age", to: :age
       map_element "phone", to: :phone, with: { to: :phone_to_xml }
@@ -278,7 +278,8 @@ RSpec.describe Lutaml::Model::Serializable do
 
     it "raises an error if the attribute does not exist" do
       expect { RestrictTestClass.restrict(:bar, collection: 1..2) }
-        .to raise_error(Lutaml::Model::UndefinedAttributeError, "bar is not defined in RestrictTestClass")
+        .to raise_error(Lutaml::Model::UndefinedAttributeError,
+                        "bar is not defined in RestrictTestClass")
     end
   end
 
@@ -297,6 +298,12 @@ RSpec.describe Lutaml::Model::Serializable do
 
     context "when mapping is not defined" do
       it "maps attributes to mappings" do
+        # Clear cached mapping to ensure the mock is triggered
+        cache_key = :@resolved_mapping_yaml
+        if SerializeableSpec::TestMapper.instance_variable_defined?(cache_key)
+          SerializeableSpec::TestMapper.remove_instance_variable(cache_key)
+        end
+
         allow(SerializeableSpec::TestMapper.mappings).to receive(:[]).with(:yaml).and_return(nil)
 
         actual_mappings = SerializeableSpec::TestMapper.mappings_for(:yaml).mappings

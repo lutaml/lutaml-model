@@ -18,7 +18,7 @@ module ValueMapSpec
     attribute :empty_as_omitted, :string
 
     xml do
-      root "WithValueMaps"
+      element "WithValueMaps"
 
       map_element "omittedAsOmitted", to: :omitted_as_omitted, value_map: {
         from: { omitted: :omitted },

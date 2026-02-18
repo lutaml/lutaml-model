@@ -11,7 +11,7 @@ RSpec.describe "XSD Three Pattern Architecture" do
         attribute :value, :integer
 
         xml do
-          element "product"  # Only element, no type_name
+          element "product" # Only element, no type_name
           map_element "name", to: :name
           map_element "value", to: :value
         end
@@ -21,10 +21,10 @@ RSpec.describe "XSD Three Pattern Architecture" do
 
       # Should generate inline complexType
       expect(xsd).to include('<element name="product">')
-      expect(xsd).to include('<complexType>')
-      expect(xsd).not_to include('<complexType name=')
-      expect(xsd).to include('<element name="name" type="xs:string" />')
-      expect(xsd).to include('<element name="value" type="xs:integer" />')
+      expect(xsd).to include("<complexType>")
+      expect(xsd).not_to include("<complexType name=")
+      expect(xsd).to include('<element name="name" type="xs:string"/>')
+      expect(xsd).to include('<element name="value" type="xs:integer"/>')
     end
 
     it "generates inline complexType for nested model without type_name" do
@@ -42,9 +42,9 @@ RSpec.describe "XSD Three Pattern Architecture" do
       xsd = Lutaml::Model::Schema.to_xsd(klass)
 
       expect(xsd).to include('<element name="item">')
-      expect(xsd).to include('<complexType>')
+      expect(xsd).to include("<complexType>")
       expect(xsd).not_to match(/<complexType name=/)
-      expect(xsd).to include('<attribute name="id" type="xs:string" />')
+      expect(xsd).to include('<attribute name="id" type="xs:string"/>')
     end
   end
 
@@ -55,7 +55,7 @@ RSpec.describe "XSD Three Pattern Architecture" do
         attribute :value, :integer
 
         xml do
-          type_name "ProductType"  # Only type, no element
+          type_name "ProductType" # Only type, no element
           map_element "name", to: :name
           map_element "value", to: :value
         end
@@ -65,8 +65,8 @@ RSpec.describe "XSD Three Pattern Architecture" do
 
       # Should generate named complexType only (no element)
       expect(xsd).to include('<complexType name="ProductType">')
-      expect(xsd).to include('<element name="name" type="xs:string" />')
-      expect(xsd).to include('<element name="value" type="xs:integer" />')
+      expect(xsd).to include('<element name="name" type="xs:string"/>')
+      expect(xsd).to include('<element name="value" type="xs:integer"/>')
       # Should NOT generate standalone element declaration
       expect(xsd).not_to match(/<element name="product"/)
     end
@@ -99,7 +99,7 @@ RSpec.describe "XSD Three Pattern Architecture" do
       xsd = Lutaml::Model::Schema.to_xsd(person_klass)
 
       # Should reference AddressType
-      expect(xsd).to include('<element name="address" type="AddressType" />')
+      expect(xsd).to include('<element name="address" type="AddressType"/>')
       expect(xsd).to include('<complexType name="AddressType">')
     end
   end
@@ -121,10 +121,10 @@ RSpec.describe "XSD Three Pattern Architecture" do
       xsd = Lutaml::Model::Schema.to_xsd(klass)
 
       # Should generate both element and named type
-      expect(xsd).to include('<element name="product" type="ProductType" />')
+      expect(xsd).to include('<element name="product" type="ProductType"/>')
       expect(xsd).to include('<complexType name="ProductType">')
-      expect(xsd).to include('<element name="name" type="xs:string" />')
-      expect(xsd).to include('<element name="value" type="xs:integer" />')
+      expect(xsd).to include('<element name="name" type="xs:string"/>')
+      expect(xsd).to include('<element name="value" type="xs:integer"/>')
     end
 
     it "allows reuse of named type by other elements" do
@@ -134,7 +134,7 @@ RSpec.describe "XSD Three Pattern Architecture" do
 
         xml do
           element "catalog"
-          type_name "CatalogType"  # Named type can be referenced
+          type_name "CatalogType" # Named type can be referenced
           map_element "name", to: :name
           map_element "code", to: :code
         end
@@ -143,7 +143,7 @@ RSpec.describe "XSD Three Pattern Architecture" do
       xsd = Lutaml::Model::Schema.to_xsd(klass)
 
       # Element references the named type
-      expect(xsd).to include('<element name="catalog" type="CatalogType" />')
+      expect(xsd).to include('<element name="catalog" type="CatalogType"/>')
       # Type definition exists separately
       expect(xsd).to include('<complexType name="CatalogType">')
     end
@@ -192,7 +192,7 @@ RSpec.describe "XSD Three Pattern Architecture" do
 
       # Both should generate identical XSD
       expect(xsd1).to eq(xsd2)
-      expect(xsd1).to include('<element name="test" type="TestType" />')
+      expect(xsd1).to include('<element name="test" type="TestType"/>')
       expect(xsd1).to include('<complexType name="TestType">')
     end
 
@@ -201,14 +201,14 @@ RSpec.describe "XSD Three Pattern Architecture" do
         attribute :name, :string
 
         xml do
-          xsd_type "TestType"  # Does NOT imply type-only
+          xsd_type "TestType" # Does NOT imply type-only
           map_element "name", to: :name
         end
       end
 
       mapping = klass.mappings_for(:xml)
       # NO MAGIC: xsd_type doesn't set @no_root
-      expect(mapping.no_root?).to be_falsy
+      expect(mapping).not_to be_no_root
       # Type name is still set
       expect(mapping.type_name_value).to eq("TestType")
     end
@@ -227,7 +227,7 @@ RSpec.describe "XSD Three Pattern Architecture" do
       mapping = klass.mappings_for(:xml)
       expect(mapping.element_name).to eq("simple")
       expect(mapping.type_name_value).to be_nil
-      expect(mapping.no_root?).to be_falsy
+      expect(mapping).not_to be_no_root
 
       xsd = Lutaml::Model::Schema.to_xsd(klass)
       expect(xsd).to include('<element name="simple">')
@@ -238,7 +238,7 @@ RSpec.describe "XSD Three Pattern Architecture" do
       klass = Class.new(Lutaml::Model::Serializable) do
         attribute :value, :string
         xml do
-          type_name "SimpleType"  # No element
+          type_name "SimpleType" # No element
           map_element "value", to: :value
         end
       end
@@ -268,7 +268,7 @@ RSpec.describe "XSD Three Pattern Architecture" do
       expect(mapping.type_name_value).to eq("SimpleType")
 
       xsd = Lutaml::Model::Schema.to_xsd(klass)
-      expect(xsd).to include('<element name="simple" type="SimpleType" />')
+      expect(xsd).to include('<element name="simple" type="SimpleType"/>')
       expect(xsd).to include('<complexType name="SimpleType">')
     end
   end

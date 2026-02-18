@@ -6,6 +6,57 @@ This release introduces significant enhancements to the lutaml-model library, fo
 
 == Key changes
 
+=== XML namespace_scope directive (v0.8.0+)
+
+**NEW**: Complete implementation of the `namespace_scope` directive for controlling XML namespace hoisting and consolidation.
+
+The `namespace_scope` directive allows you to control WHERE namespace declarations appear in serialized XML, enabling cleaner output for multi-namespace documents.
+
+**Key Features:**
+
+* **Namespace consolidation**: Hoist multiple namespaces to root element
+* **Declaration control**: Per-namespace `:auto`, `:always`, `:never` modes
+* **Child inheritance**: W3C-compliant namespace inheritance (no duplicate declarations)
+* **Type namespace support**: Automatic handling of Type-level namespaces
+* **Format preservation**: Round-trip serialization preserves input format exactly
+
+==== Basic Usage
+
+[source,ruby]
+----
+class Vcard < Lutaml::Model::Serializable
+  xml do
+    root "vCard"
+    namespace VcardNamespace
+
+    # Consolidate namespaces at root
+    namespace_scope [
+      { namespace: DcNamespace, declare: :always },
+      { namespace: DctermsNamespace, declare: :auto }
+    ]
+  end
+end
+----
+
+==== Child Inheritance Behavior
+
+Children in the same namespace as their parent now correctly inherit the parent's namespace without redeclaration:
+
+[source,xml]
+----
+<vCard xmlns="urn:ietf:params:xml:ns:vcard-4.0"
+       xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <version>4.0</version>  <!-- Inherits default namespace -->
+  <contact>
+    <dc:title>Dr. John Doe</dc:title>  <!-- Uses parent's dc: prefix -->
+  </contact>
+</vCard>
+----
+
+==== Comprehensive Documentation
+
+For complete information including W3C compliance, Type namespace interaction, and multi-namespace examples, see link:docs/namespace-management.adoc[XML Namespace Management Guide].
+
 === Missing values handling family
 
 A comprehensive set of features for handling the "missing values" family (empty,

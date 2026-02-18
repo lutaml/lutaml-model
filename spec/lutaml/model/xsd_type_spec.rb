@@ -180,7 +180,7 @@ RSpec.describe "XSD Type Declaration" do
         end
       end.to raise_error(
         Lutaml::Model::IncorrectMappingArgumentsError,
-        /xsd_type is not allowed at mapping level/
+        /xsd_type is not allowed at mapping level/,
       )
     end
 
@@ -196,7 +196,7 @@ RSpec.describe "XSD Type Declaration" do
         end
       end.to raise_error(
         Lutaml::Model::IncorrectMappingArgumentsError,
-        /xsd_type is not allowed at mapping level/
+        /xsd_type is not allowed at mapping level/,
       )
     end
 
@@ -246,7 +246,7 @@ RSpec.describe "XSD Type Declaration" do
       end.to output(/DEPRECATION/).to_stderr
 
       xsd1 = Lutaml::Model::Schema.to_xsd(klass1)
-      expect(xsd1).to include('type="xs:token"')  # Attribute-level
+      expect(xsd1).to include('type="xs:token"') # Attribute-level
 
       # Test 2: Type-level used when no attribute override
       klass2 = Class.new(Lutaml::Model::Serializable) do
@@ -259,7 +259,7 @@ RSpec.describe "XSD Type Declaration" do
       end
 
       xsd2 = Lutaml::Model::Schema.to_xsd(klass2)
-      expect(xsd2).to include('type="xs:normalizedString"')  # Type-level
+      expect(xsd2).to include('type="xs:normalizedString"') # Type-level
 
       # Test 3: Default used when no custom type
       klass3 = Class.new(Lutaml::Model::Serializable) do
@@ -272,7 +272,7 @@ RSpec.describe "XSD Type Declaration" do
       end
 
       xsd3 = Lutaml::Model::Schema.to_xsd(klass3)
-      expect(xsd3).to include('type="xs:string"')  # Default
+      expect(xsd3).to include('type="xs:string"') # Default
     end
   end
 

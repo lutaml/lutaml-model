@@ -35,7 +35,9 @@ module Lutaml
 
           def create_element(name, attributes = {})
             element = ::REXML::Element.new(name.to_s)
-            attributes.each { |key, value| element.attributes[key.to_s] = value.to_s }
+            attributes.each do |key, value|
+              element.attributes[key.to_s] = value.to_s
+            end
             element
           end
 
@@ -168,7 +170,9 @@ module Lutaml
           end
 
           def parse_fragment_with_escaping(target, content)
-            escaped_content = content.gsub(/&(?![a-zA-Z]+;|#[0-9]+;|#x[0-9a-fA-F]+;)/, "&amp;")
+            escaped_content = content.gsub(
+              /&(?![a-zA-Z]+;|#[0-9]+;|#x[0-9a-fA-F]+;)/, "&amp;"
+            )
             parse_fragment_as_is(target, escaped_content)
           rescue REXML::ParseException
             target << ::REXML::Text.new(content, false, nil, false)
@@ -187,7 +191,9 @@ module Lutaml
           end
 
           def empty_element?(children)
-            children.reject { |child| child.is_a?(::REXML::Text) && child.value.empty? }.empty?
+            children.reject do |child|
+              child.is_a?(::REXML::Text) && child.value.empty?
+            end.empty?
           end
 
           def single_text_child?(children)
@@ -200,15 +206,22 @@ module Lutaml
             "#{indent_str}<#{name} #{attrs}/>"
           end
 
-          def render_single_text_element(name, attrs, indent_str, children, indent)
+          def render_single_text_element(name, attrs, indent_str, children,
+indent)
             child = children.first
-            text = child.is_a?(::REXML::CData) ? serialize_text_node(child, indent) : child.to_s
+            text = if child.is_a?(::REXML::CData)
+                     serialize_text_node(child,
+                                         indent)
+                   else
+                     child.to_s
+                   end
             return "#{indent_str}<#{name}>#{text}</#{name}>" if attrs.empty?
 
             "#{indent_str}<#{name} #{attrs}>#{text}</#{name}>"
           end
 
-          def render_element_with_children(name, attrs, indent_str, children, indent, force_inline)
+          def render_element_with_children(name, attrs, indent_str, children,
+indent, force_inline)
             if @pretty && !force_inline
               render_pretty_element(name, attrs, indent_str, children, indent)
             else
@@ -232,7 +245,9 @@ module Lutaml
 
           def render_mixed_content_element(name, attrs, indent_str, children)
             open_tag = build_open_tag(name, attrs, indent_str, false)
-            inner = children.map { |child| serialize_element(child, 0, force_inline: true) }.join
+            inner = children.map do |child|
+              serialize_element(child, 0, force_inline: true)
+            end.join
             close_tag = mixed_content_close_tag(children, name)
             open_tag + inner + close_tag
           end
@@ -244,14 +259,18 @@ module Lutaml
 
           def render_indented_element(name, attrs, indent_str, children, indent)
             open_tag = build_open_tag(name, attrs, indent_str, true)
-            inner = children.map { |child| serialize_element(child, indent + 1) }.join("\n")
+            inner = children.map do |child|
+              serialize_element(child, indent + 1)
+            end.join("\n")
             close_tag = "\n#{indent_str}</#{name}>"
             open_tag + inner + close_tag
           end
 
           def render_compact_element(name, attrs, children)
             open_tag = build_open_tag(name, attrs, "", false)
-            inner = children.map { |child| serialize_element(child, 0, force_inline: true) }.join
+            inner = children.map do |child|
+              serialize_element(child, 0, force_inline: true)
+            end.join
             close_tag = "</#{name}>"
             open_tag + inner + close_tag
           end
@@ -282,10 +301,17 @@ module Lutaml
             indent_str = @pretty && !force_inline ? "  " * indent : ""
             children = element.children
 
-            return render_empty_element(name, attrs, indent_str) if empty_element?(children)
-            return render_single_text_element(name, attrs, indent_str, children, indent) if single_text_child?(children)
+            if empty_element?(children)
+              return render_empty_element(name, attrs,
+                                          indent_str)
+            end
+            if single_text_child?(children)
+              return render_single_text_element(name, attrs, indent_str,
+                                                children, indent)
+            end
 
-            render_element_with_children(name, attrs, indent_str, children, indent, force_inline)
+            render_element_with_children(name, attrs, indent_str, children,
+                                         indent, force_inline)
           end
 
           def serialize_text_node(node, _indent)

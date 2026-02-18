@@ -8,7 +8,7 @@ module DefaultsSpec
     attribute :text, :string, default: -> { "" }
 
     xml do
-      root "Tag"
+      element "Tag"
       map_content to: :text
     end
   end
@@ -30,7 +30,7 @@ module DefaultsSpec
     }
 
     xml do
-      root "Glaze"
+      element "Glaze"
       map_element "Name", to: :name
       map_element "Color", to: :color
       map_element "Opacity", to: :opacity, render_default: true
@@ -73,7 +73,7 @@ module DefaultsSpec
     attribute :opacity, :string, default: -> { "Opaque" }
 
     xml do
-      root "BasicGlaze"
+      element "BasicGlaze"
       map_element "name", to: :name
       map_element "temperature", to: :temperature
       map_element "opacity", to: :opacity
@@ -93,7 +93,7 @@ module DefaultsSpec
     attribute :opacity, :string, default: -> { "Opaque" }
 
     xml do
-      root "NoDefaultGlaze"
+      element "NoDefaultGlaze"
       map_element "name", to: :name, render_default: false
       map_element "temperature", to: :temperature, render_default: false
       map_element "opacity", to: :opacity, render_default: false
@@ -120,7 +120,7 @@ module DefaultsSpec
     }
 
     xml do
-      root "CustomModelWithDefaultValue"
+      element "CustomModelWithDefaultValue"
       map_attribute "lang", to: :lang, render_default: true
       map_content to: :content, render_default: false
     end

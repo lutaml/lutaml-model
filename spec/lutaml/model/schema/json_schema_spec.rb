@@ -434,6 +434,10 @@ RSpec.describe Lutaml::Model::Schema::JsonSchema do
         )
       end
 
+      after do
+        Lutaml::Model::GlobalRegister.unregister(:json_schema)
+      end
+
       it "generates a JSON schema with substituted registered class" do
         expect(parsed_schema).to eq(expected_schema)
       end

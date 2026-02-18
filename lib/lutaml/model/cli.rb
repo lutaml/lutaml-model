@@ -11,9 +11,12 @@ module Lutaml
       #
       # Example:
       #   lutaml-model compare file1.xml file2.xml -m model.rb -r RootClass
-      desc "compare PATH_1 PATH_2", "Compare two files using a Lutaml::Model model. Outputs similarity and differences. Supports XML, YAML, JSON, and more."
-      option :model_file, aliases: "-m", type: :string, default: nil, desc: "Path to the Ruby file defining your Lutaml::Model classes (required)"
-      option :root_class, aliases: "-r", type: :string, default: nil, desc: "Name of the root model class to use for parsing (required)"
+      desc "compare PATH_1 PATH_2",
+           "Compare two files using a Lutaml::Model model. Outputs similarity and differences. Supports XML, YAML, JSON, and more."
+      option :model_file, aliases: "-m", type: :string, default: nil,
+                          desc: "Path to the Ruby file defining your Lutaml::Model classes (required)"
+      option :root_class, aliases: "-r", type: :string, default: nil,
+                          desc: "Name of the root model class to use for parsing (required)"
       def compare(path1, path2)
         raise ArgumentError, "File not found: #{path1}" unless File.file?(path1)
         raise ArgumentError, "File not found: #{path2}" unless File.file?(path2)
@@ -48,9 +51,18 @@ module Lutaml
       end
 
       def validate_compare_options!(options)
-        raise ArgumentError, "model_file argument is required" unless options[:model_file]
-        raise ArgumentError, "Model file not found: #{options[:model_file]}" unless File.file?(options[:model_file])
-        raise ArgumentError, "root_class argument is required" unless options[:root_class]
+        unless options[:model_file]
+          raise ArgumentError,
+                "model_file argument is required"
+        end
+        unless File.file?(options[:model_file])
+          raise ArgumentError,
+                "Model file not found: #{options[:model_file]}"
+        end
+        unless options[:root_class]
+          raise ArgumentError,
+                "root_class argument is required"
+        end
       end
 
       def model_from_file(path, model)

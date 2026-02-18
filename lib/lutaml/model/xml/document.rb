@@ -8,11 +8,17 @@ module Lutaml
   module Model
     module Xml
       class Document
-        attr_reader :root, :encoding, :register
+        attr_reader :root, :encoding, :register, :doctype, :parsed_doc,
+                    :input_namespaces, :xml_declaration
 
-        def initialize(root, encoding = nil, register: nil, **options)
+        def initialize(root, encoding = nil, register: nil, doctype: nil,
+parsed_doc: nil, input_namespaces: nil, xml_declaration: nil, **options)
           @root = root
           @encoding = encoding
+          @doctype = doctype
+          @parsed_doc = parsed_doc
+          @input_namespaces = input_namespaces || {}
+          @xml_declaration = xml_declaration
           @register = setup_register(register)
           @options = options # NEW: Store options
         end
@@ -48,6 +54,32 @@ module Lutaml
           declaration += " encoding=\"#{encoding}\"" if encoding
           declaration += "?>\n"
           declaration
+        end
+
+        # Generate DOCTYPE declaration string
+        #
+        # Uses native Nokogiri DOCTYPE if available, otherwise generates from hash
+        #
+        # @return [String, nil] the DOCTYPE declaration or nil if no DOCTYPE
+        def doctype_declaration
+          # Prefer native Nokogiri DOCTYPE
+          if @parsed_doc.respond_to?(:internal_subset) && @parsed_doc.internal_subset
+            return "#{@parsed_doc.internal_subset}\n"
+          end
+
+          # Fallback to manual generation for model serialization
+          return nil unless @doctype
+
+          parts = ["<!DOCTYPE #{@doctype[:name]}"]
+
+          if @doctype[:public_id]
+            parts << %(PUBLIC "#{@doctype[:public_id]}")
+            parts << %("#{@doctype[:system_id]}") if @doctype[:system_id]
+          elsif @doctype[:system_id]
+            parts << %(SYSTEM "#{@doctype[:system_id]}")
+          end
+
+          "#{parts.join(' ')}>\n"
         end
 
         def to_h
@@ -252,7 +284,8 @@ module Lutaml
           mapper_class = options[:mapper_class]
 
           # Try to get parent namespace class if available
-          parent_ns_class = if mapper_class.respond_to?(:mappings_for)
+          parent_ns_class = if mapper_class.is_a?(Class) &&
+                               mapper_class.include?(Lutaml::Model::Serialize)
                               mapper_class.mappings_for(:xml)&.namespace_class
                             end
 
@@ -286,7 +319,8 @@ module Lutaml
           mapper_class = options[:mapper_class]
 
           # Get parent namespace class if available
-          parent_ns_class = if mapper_class.respond_to?(:mappings_for)
+          parent_ns_class = if mapper_class.is_a?(Class) &&
+                               mapper_class.include?(Lutaml::Model::Serialize)
                               mapper_class.mappings_for(:xml)&.namespace_class
                             end
 

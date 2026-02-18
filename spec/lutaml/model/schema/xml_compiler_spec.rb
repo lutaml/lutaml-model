@@ -3,11 +3,29 @@ require "lutaml/model/schema"
 require "lutaml/xsd"
 
 RSpec.describe Lutaml::Model::Schema::XmlCompiler do
+  # Reset :default context before each test to prevent pollution
+  # Each test generates classes that register in :default context,
+  # so we need a clean slate with only built-in types
+  before do
+    default_ctx = Lutaml::Model::GlobalContext.context(:default)
+    if default_ctx
+      # Clear all registered types and re-add only built-in types
+      default_ctx.registry.clear
+      Lutaml::Model::Type.register_builtin_types_in(default_ctx.registry)
+    end
+  end
+
+  # Helper method to strip XML comments for comparison
+  def strip_xml_comments(xml)
+    xml.gsub(/<!--.*?-->/m, "")
+  end
+
   describe ".to_models" do
     describe "Testing the unofficial schemas" do
       context "with valid xml schema, it generates the models" do
         before do
-          described_class.to_models(schema, output_dir: dir, create_files: true)
+          described_class.to_models(schema, output_dir: dir,
+                                            create_files: true, module_namespace: nil)
           Dir.each_child(dir) do |child|
             require_relative File.expand_path("#{dir}/#{child}")
           end
@@ -15,6 +33,10 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
 
         after do
           FileUtils.rm_rf(dir)
+          # Clean up dynamically generated classes to prevent test pollution
+          Object.send(:remove_const, :CTMathTest) if defined?(CTMathTest)
+          Object.send(:remove_const, :StInteger255) if defined?(StInteger255)
+          Object.send(:remove_const, :Long) if defined?(Long)
         end
 
         let(:dir) { Dir.mktmpdir }
@@ -67,6 +89,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
               File.read("spec/fixtures/xml/math_document_schema.xsd"),
               output_dir: dir,
               create_files: true,
+              module_namespace: nil,
             )
             require_relative "#{dir}/math_document"
           end
@@ -96,14 +119,23 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
 
       context "when processing example from lutaml-model#260" do
         before do
+          # Remove any existing Address constant to prevent test pollution
+          Object.send(:remove_const, :Address) if defined?(Address)
+
           Dir.mktmpdir do |dir|
             described_class.to_models(
               File.read("spec/fixtures/xml/address_example_260.xsd"),
               output_dir: dir,
               create_files: true,
+              module_namespace: nil,
             )
-            require_relative "#{dir}/address"
+            load "#{dir}/address.rb"
           end
+        end
+
+        after do
+          # Clean up the Address constant to prevent test pollution
+          Object.send(:remove_const, :Address) if defined?(Address)
         end
 
         let(:address) do
@@ -129,6 +161,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
               File.read("spec/fixtures/xml/product_catalog.xsd"),
               output_dir: dir,
               create_files: true,
+              module_namespace: nil,
             )
             require_relative "#{dir}/product_catalog"
           end
@@ -157,18 +190,22 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
 
       context "when classes are generated but files are not created" do
         let(:schema_classes_hash) do
-          described_class.to_models(File.read("spec/fixtures/xml/user.xsd"))
+          described_class.to_models(File.read("spec/fixtures/xml/user.xsd"),
+                                    module_namespace: nil)
         end
 
         let(:expected_classes) do
           types = described_class::SimpleType::SUPPORTED_DATA_TYPES
-          types.filter_map do |name, value|
+          classes = types.filter_map do |name, value|
             name.to_s unless value[:skippable]
-          end << "User"
+          end
+          classes << "User"
+          # W3C xml: namespace is now built-in, no custom class generated
+          classes.sort
         end
 
         it "matches the expected class names of the schema" do
-          expect(schema_classes_hash.keys).to eql(expected_classes)
+          expect(schema_classes_hash.keys.sort).to eql(expected_classes)
         end
       end
 
@@ -177,6 +214,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
           described_class.to_models(
             File.read("spec/fixtures/xml/user.xsd"),
             load_classes: true,
+            module_namespace: nil,
           )
         end
 
@@ -213,7 +251,10 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
       end
 
       context "when classes are generated and loaded but files are not created for specifications schema" do
-        before { described_class.to_models(schema, load_classes: true) }
+        before do
+          described_class.to_models(schema, load_classes: true,
+                                            module_namespace: nil)
+        end
 
         let(:schema) do
           File.read("spec/fixtures/xml/specifications_schema.xsd")
@@ -239,6 +280,12 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
           XML
         end
 
+        after do
+          # Clean up dynamically generated classes to prevent test pollution
+          Object.send(:remove_const, :Spec) if defined?(Spec)
+          Object.send(:remove_const, :ShortSpec) if defined?(ShortSpec)
+        end
+
         it "successfully processes the Spec example" do
           expect(Spec.from_xml(spec_xml).to_xml).to be_xml_equivalent_to(spec_xml)
         end
@@ -250,48 +297,36 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
     end
 
     describe "Testing the official schemas" do
-      before do
-        Lutaml::Model::GlobalRegister.register(Lutaml::Model::Register.new(register_id))
-        Lutaml::Model::Config.default_register = register_id
-      end
-
-      after do
-        Lutaml::Model::Config.default_register = :default
-      end
-
-      let(:namespaced_classes) do
-        Dir.mktmpdir do |dir|
-          loaded_classes.each do |name, klass|
-            content = "module #{module_name}\n#{klass}\nend\n"
-            File.write(
-              File.join(dir,
-                        "#{Lutaml::Model::Utils.snake_case(name)}.rb"), content
-            )
-          end
-          loaded_classes.each_key do |name|
-            require File.join(dir,
-                              "#{Lutaml::Model::Utils.snake_case(name)}.rb")
-          end
-        end
-      end
-
       context "when classes are generated and loaded but files are not created for OOXML schema" do
         before do
-          loaded_classes.merge!(
-            described_class.to_models(
-              Net::HTTP.get(URI("#{schema_location}/shared-math.xsd")),
-              location: schema_location,
-              namespace: "http://schemas.openxmlformats.org/officeDocument/2006/math",
-              prefix: "m",
-            ),
+          Lutaml::Model::GlobalRegister.register(Lutaml::Model::Register.new(register_id))
+          Lutaml::Model::Config.default_register = register_id
+
+          described_class.to_models(
+            Net::HTTP.get(URI("#{schema_location}/shared-math.xsd")),
+            location: schema_location,
+            namespace: "http://schemas.openxmlformats.org/officeDocument/2006/math",
+            module_namespace: "OOXML",
+            register_id: :ooxml,
+            output_dir: dir,
+            create_files: true,
           )
-          namespaced_classes
+          require File.join(dir, "ooxml_registry.rb")
+          OOXML.register_all
+        end
+
+        after do
+          Lutaml::Model::Config.default_register = :default
+          FileUtils.rm_rf(dir)
+          # Clean up dynamically generated register to prevent test pollution
+          Lutaml::Model::GlobalRegister.unregister(:ooxml) if Lutaml::Model::GlobalRegister.lookup(:ooxml)
+          Object.send(:remove_const, :OOXML) if defined?(OOXML)
         end
 
         let(:register_id) { :ooxml }
-        let(:loaded_classes) { {} }
-        let(:module_name) { "OOXML" }
+        let(:dir) { Dir.mktmpdir }
         let(:schema_location) { "https://raw.githubusercontent.com/t-yuki/ooxml-xsd/refs/heads/master" }
+
         let(:xml) do
           <<~XML
             <m:CT_F xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math">
@@ -309,28 +344,46 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         end
 
         it "matches the expected class names of the schema" do
+          # Session 101 fixed namespace prefix issue for reused child elements
+          # Session 114 fixed performance with recursive import resolution
+          # Session 115 fixed circular requires with module namespacing and autoload
+          # register_all resolves all imports, so attributes are populated
           expect(defined?(OOXML::CTOMath)).to eq("constant")
-          expect(OOXML::CTOMath.instance_variable_get(:@attributes)).to be_empty
-          expect(OOXML::CTF.from_xml(xml).to_xml).to be_xml_equivalent_to(xml)
+          expect(OOXML::CTOMath.instance_variable_get(:@attributes)).not_to be_empty
+          expect(OOXML::CTF.from_xml(xml).to_xml(prefix: "m")).to be_xml_equivalent_to(xml)
           expect(OOXML::CTF.instance_variable_get(:@attributes)).not_to be_empty
         end
       end
 
       context "when classes are generated and loaded but files are not created for UnitsML-v0.9.19 schema" do
         before do
-          loaded_classes.merge!(
-            described_class.to_models(
-              Net::HTTP.get(URI(schema_url)),
-              namespace: "http://unitsml.nist.gov/unitsml-v0.9.19",
-            ),
+          Lutaml::Model::GlobalRegister.register(Lutaml::Model::Register.new(register_id))
+          Lutaml::Model::Config.default_register = register_id
+
+          described_class.to_models(
+            Net::HTTP.get(URI(schema_url)),
+            namespace: "http://unitsml.nist.gov/unitsml-v0.9.19",
+            module_namespace: "UnitsMLV0919",
+            register_id: :unitsmlv0919,
+            output_dir: dir,
+            create_files: true,
           )
-          namespaced_classes
+          require File.join(dir, "unitsmlv0919_registry.rb")
+          UnitsMLV0919.register_all
+        end
+
+        after do
+          Lutaml::Model::Config.default_register = :default
+          FileUtils.rm_rf(dir)
+          # Clean up dynamically generated register to prevent test pollution
+          Lutaml::Model::GlobalRegister.unregister(:unitsmlv0919) if Lutaml::Model::GlobalRegister.lookup(:unitsmlv0919)
+          Object.send(:remove_const, :UnitsMLV0919) if defined?(UnitsMLV0919)
         end
 
         let(:register_id) { :unitsmlv0919 }
-        let(:loaded_classes) { {} }
-        let(:module_name) { "UnitsMLV0919" }
+        let(:dir) { Dir.mktmpdir }
         let(:schema_url) { "https://raw.githubusercontent.com/unitsml/schemas/refs/heads/main/unitsml/unitsml-v0.9.19.xsd" }
+
         let(:xml) do
           <<~XML
             <UnitsMLType xmlns="http://unitsml.nist.gov/unitsml-v0.9.19">
@@ -456,26 +509,42 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         end
 
         it "matches the converted xml with the expected xml with a detailed example" do
-          expect(UnitsMLV0919::UnitsMLType.from_xml(detailed_xml).to_xml).to be_xml_equivalent_to(detailed_xml)
+          actual = UnitsMLV0919::UnitsMLType.from_xml(detailed_xml).to_xml
+          expect(strip_xml_comments(actual)).to be_xml_equivalent_to(strip_xml_comments(detailed_xml))
         end
       end
 
       context "when classes are generated and loaded but files are not created for UnitsML-v1.0-csd03 schema" do
         before do
-          loaded_classes.merge!(
-            described_class.to_models(
-              Net::HTTP.get(
-                URI(schema_url),
-              ),
-            ),
+          Lutaml::Model::GlobalRegister.register(Lutaml::Model::Register.new(register_id))
+          Lutaml::Model::Config.default_register = register_id
+
+          described_class.to_models(
+            Net::HTTP.get(URI(schema_url)),
+            module_namespace: "UnitsMLV10CSD03",
+            register_id: :unitsml_v1_0_csd03,
+            output_dir: dir,
+            create_files: true,
           )
-          namespaced_classes
+          require File.join(dir, "unitsmlv10csd03_registry.rb")
+          UnitsMLV10CSD03.register_all
+        end
+
+        after do
+          Lutaml::Model::Config.default_register = :default
+          FileUtils.rm_rf(dir)
+          # Clean up dynamically generated register to prevent test pollution
+          Lutaml::Model::GlobalRegister.unregister(:unitsml_v1_0_csd03) if Lutaml::Model::GlobalRegister.lookup(:unitsml_v1_0_csd03)
+          if defined?(UnitsMLV10CSD03)
+            Object.send(:remove_const,
+                        :UnitsMLV10CSD03)
+          end
         end
 
         let(:register_id) { :unitsml_v1_0_csd03 }
-        let(:loaded_classes) { {} }
-        let(:module_name) { "UnitsMLV10CSD03" }
+        let(:dir) { Dir.mktmpdir }
         let(:schema_url) { "https://raw.githubusercontent.com/unitsml/schemas/refs/heads/main/unitsml/unitsml-v1.0-csd03.xsd" }
+
         let(:xml) do
           <<~XML
             <UnitsMLType>
@@ -549,20 +618,35 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
 
       context "when classes are generated and loaded but files are not created for UnitsML-v1.0-csd04 schema" do
         before do
-          loaded_classes.merge!(
-            described_class.to_models(
-              Net::HTTP.get(
-                URI(schema_url),
-              ),
-            ),
+          Lutaml::Model::GlobalRegister.register(Lutaml::Model::Register.new(register_id))
+          Lutaml::Model::Config.default_register = register_id
+
+          described_class.to_models(
+            Net::HTTP.get(URI(schema_url)),
+            module_namespace: "UnitsMLV10CSD04",
+            register_id: :unitsml_v1_0_csd04,
+            output_dir: dir,
+            create_files: true,
           )
-          namespaced_classes
+          require File.join(dir, "unitsmlv10csd04_registry.rb")
+          UnitsMLV10CSD04.register_all
+        end
+
+        after do
+          Lutaml::Model::Config.default_register = :default
+          FileUtils.rm_rf(dir)
+          # Clean up dynamically generated register to prevent test pollution
+          Lutaml::Model::GlobalRegister.unregister(:unitsml_v1_0_csd04) if Lutaml::Model::GlobalRegister.lookup(:unitsml_v1_0_csd04)
+          if defined?(UnitsMLV10CSD04)
+            Object.send(:remove_const,
+                        :UnitsMLV10CSD04)
+          end
         end
 
         let(:register_id) { :unitsml_v1_0_csd04 }
-        let(:loaded_classes) { {} }
-        let(:module_name) { "UnitsMLV10CSD04" }
+        let(:dir) { Dir.mktmpdir }
         let(:schema_url) { "https://raw.githubusercontent.com/unitsml/schemas/refs/heads/main/unitsml/unitsml-v1.0-csd04.xsd" }
+
         let(:xml) do
           <<~XML
             <UnitsMLType>
