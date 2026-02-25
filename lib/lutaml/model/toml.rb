@@ -1,11 +1,27 @@
 # frozen_string_literal: true
 
+# TOML format entry point - uses Lutaml::KeyValue::Adapter::Toml namespace
+require_relative "../key_value/adapter/toml/tomlib_adapter"
+require_relative "../key_value/adapter/toml/toml_rb_adapter"
+require_relative "../key_value/adapter/toml/document"
+require_relative "../key_value/adapter/toml/mapping"
+require_relative "../key_value/adapter/toml/mapping_rule"
+require_relative "../key_value/adapter/toml/transform"
+
+# Backward compatibility alias
 module Lutaml
   module Model
     module Toml
+      TomlibAdapter = Lutaml::KeyValue::Adapter::Toml::TomlibAdapter
+      TomlRbAdapter = Lutaml::KeyValue::Adapter::Toml::TomlRbAdapter
+      Document = Lutaml::KeyValue::Adapter::Toml::Document
+      Mapping = Lutaml::KeyValue::Adapter::Toml::Mapping
+      MappingRule = Lutaml::KeyValue::Adapter::Toml::MappingRule
+      Transform = Lutaml::KeyValue::Adapter::Toml::Transform
+
       def self.detect_toml_adapter
-        return :tomlib if Utils.safe_load("tomlib", :Tomlib)
-        return :toml_rb if Utils.safe_load("toml-rb", :TomlRb)
+        return :tomlib if Lutaml::Model::Utils.safe_load("tomlib", :Tomlib)
+        return :toml_rb if Lutaml::Model::Utils.safe_load("toml-rb", :TomlRb)
 
         nil
       end
@@ -13,16 +29,11 @@ module Lutaml
   end
 end
 
-require_relative "toml/document"
-require_relative "toml/mapping"
-require_relative "toml/mapping_rule"
-require_relative "toml/transform"
-
 Lutaml::Model::FormatRegistry.register(
   :toml,
-  mapping_class: Lutaml::Model::Toml::Mapping,
+  mapping_class: Lutaml::KeyValue::Adapter::Toml::Mapping,
   adapter_class: nil,
-  transformer: Lutaml::Model::Toml::Transform,
+  transformer: Lutaml::KeyValue::Adapter::Toml::Transform,
 )
 
 if (adapter = Lutaml::Model::Toml.detect_toml_adapter)

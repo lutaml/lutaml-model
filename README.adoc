@@ -9035,12 +9035,12 @@ formats (JSON, YAML, TOML). It provides an object-oriented container for:
 
 [source,ruby]
 ----
-element = Lutaml::Model::KeyValueDataModel::KeyValueElement.new(
+element = Lutaml::KeyValue::DataModel::Element.new(
   "person",
   nil,  # No direct value
   [
-    Lutaml::Model::KeyValueDataModel::KeyValueElement.new("name", "John Doe"),
-    Lutaml::Model::KeyValueDataModel::KeyValueElement.new("age", "30")
+    Lutaml::KeyValue::DataModel::Element.new("name", "John Doe"),
+    Lutaml::KeyValue::DataModel::Element.new("age", "30")
   ]
 )
 ----

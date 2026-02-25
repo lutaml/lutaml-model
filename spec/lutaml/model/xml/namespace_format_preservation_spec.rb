@@ -4,7 +4,7 @@ require "spec_helper"
 
 RSpec.describe "Namespace format preservation" do
   let(:test_namespace) do
-    Class.new(Lutaml::Model::Xml::Namespace) do
+    Class.new(Lutaml::Xml::Namespace) do
       uri "http://test.com"
       prefix_default "test"
     end

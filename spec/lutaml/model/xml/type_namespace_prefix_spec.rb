@@ -1,10 +1,10 @@
 require "spec_helper"
 require "lutaml/model"
-require_relative "../../../../lib/lutaml/model/xml/type_namespace_resolver"
+require_relative "../../../../lib/lutaml/xml/type_namespace_resolver"
 
 RSpec.describe "Type Namespace Prefix Issue #6" do
   # Define MathML namespace for testing
-  class MathMLNamespace < Lutaml::Model::Xml::W3c::XmlNamespace
+  class MathMLNamespace < Lutaml::Xml::W3c::XmlNamespace
     uri "http://www.w3.org/1998/Math/MathML"
     prefix_default "mml"
   end
@@ -44,7 +44,7 @@ RSpec.describe "Type Namespace Prefix Issue #6" do
       XML
 
       # Parse
-      doc = Lutaml::Model::Xml::NokogiriAdapter.parse(xml_input)
+      doc = Lutaml::Xml::NokogiriAdapter.parse(xml_input)
 
       # Re-serialize
       output = doc.to_xml
@@ -58,7 +58,7 @@ RSpec.describe "Type Namespace Prefix Issue #6" do
 
   context "nested types with namespaces" do
     # Define nested namespace for testing
-    class SpecialNamespace < Lutaml::Model::Xml::W3c::XmlNamespace
+    class SpecialNamespace < Lutaml::Xml::W3c::XmlNamespace
       uri "http://example.com/special"
       prefix_default "spec"
     end
@@ -149,7 +149,7 @@ RSpec.describe "Type Namespace Prefix Issue #6" do
         </article>
       XML
 
-      doc = Lutaml::Model::Xml::NokogiriAdapter.parse(xml_input)
+      doc = Lutaml::Xml::NokogiriAdapter.parse(xml_input)
       output = doc.to_xml
 
       # Verify all MathML elements retain their prefix
@@ -168,7 +168,7 @@ RSpec.describe "Type Namespace Prefix Issue #6" do
   context "mixed content with type namespaces" do
     it "preserves type namespace prefixes in mixed content" do
       # Define link namespace
-      class XLinkNamespace < Lutaml::Model::Xml::W3c::XmlNamespace
+      class XLinkNamespace < Lutaml::Xml::W3c::XmlNamespace
         uri "http://www.w3.org/1999/xlink"
         prefix_default "xlink"
       end
@@ -209,7 +209,7 @@ RSpec.describe "Type Namespace Prefix Issue #6" do
       end
 
       mapping = test_class.mappings_for(:xml)
-      collector = Lutaml::Model::Xml::NamespaceCollector.new
+      collector = Lutaml::Xml::NamespaceCollector.new
       needs = collector.collect(nil, mapping, mapper_class: test_class)
 
       # Type namespace references are collected as TypeNamespace::Reference objects
@@ -218,7 +218,7 @@ RSpec.describe "Type Namespace Prefix Issue #6" do
       expect(needs.type_refs.size).to eq(1)
 
       # Resolve the type references to populate type_namespace_classes
-      resolver = Lutaml::Model::Xml::TypeNamespaceResolver.new
+      resolver = Lutaml::Xml::TypeNamespaceResolver.new
       resolver.resolve(needs)
 
       # Verify type namespace is captured after resolution
@@ -244,10 +244,10 @@ RSpec.describe "Type Namespace Prefix Issue #6" do
       end
 
       mapping = test_class.mappings_for(:xml)
-      collector = Lutaml::Model::Xml::NamespaceCollector.new
+      collector = Lutaml::Xml::NamespaceCollector.new
       needs = collector.collect(nil, mapping, mapper_class: test_class)
 
-      planner = Lutaml::Model::Xml::DeclarationPlanner.new
+      planner = Lutaml::Xml::DeclarationPlanner.new
       plan = planner.plan(nil, mapping, needs,
                           options: { mapper_class: test_class })
 
@@ -269,7 +269,7 @@ RSpec.describe "Type Namespace Prefix Issue #6" do
   context "edge cases" do
     it "handles type namespace when element has explicit namespace override" do
       # Type has one namespace, but element explicitly uses different namespace
-      class DefaultNamespace < Lutaml::Model::Xml::W3c::XmlNamespace
+      class DefaultNamespace < Lutaml::Xml::W3c::XmlNamespace
         uri "http://example.com/default"
         prefix_default "def"
       end
@@ -324,7 +324,7 @@ RSpec.describe "Type Namespace Prefix Issue #6" do
 
   context "multiple type namespaces" do
     # Define another namespace for testing
-    class SVGNamespace < Lutaml::Model::Xml::W3c::XmlNamespace
+    class SVGNamespace < Lutaml::Xml::W3c::XmlNamespace
       uri "http://www.w3.org/2000/svg"
       prefix_default "svg"
     end

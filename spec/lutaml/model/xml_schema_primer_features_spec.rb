@@ -4,24 +4,24 @@ require "lutaml/model"
 # Define all test classes in a module to prevent namespace pollution
 module XmlSchemaPrimerFeaturesSpec
   # Namespaces
-  class PoNamespace < Lutaml::Model::Xml::W3c::XmlNamespace
+  class PoNamespace < Lutaml::Xml::W3c::XmlNamespace
     uri "http://example.com/po"
     prefix_default "po"
   end
 
-  class PoNamespaceQualified < Lutaml::Model::Xml::W3c::XmlNamespace
-    uri "http://example.com/po"
-    prefix_default "po"
-    element_form_default :qualified
-  end
-
-  class PoNamespacePrefixed < Lutaml::Model::Xml::W3c::XmlNamespace
+  class PoNamespaceQualified < Lutaml::Xml::W3c::XmlNamespace
     uri "http://example.com/po"
     prefix_default "po"
     element_form_default :qualified
   end
 
-  class MixedNamespace < Lutaml::Model::Xml::W3c::XmlNamespace
+  class PoNamespacePrefixed < Lutaml::Xml::W3c::XmlNamespace
+    uri "http://example.com/po"
+    prefix_default "po"
+    element_form_default :qualified
+  end
+
+  class MixedNamespace < Lutaml::Xml::W3c::XmlNamespace
     uri "http://example.com/mixed"
     prefix_default "mx"
     element_form_default :qualified

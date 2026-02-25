@@ -9,7 +9,7 @@ RSpec.describe "Force Prefixed Namespace" do
   end
 
   let(:vcard_ns) do
-    Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+    Class.new(Lutaml::Xml::W3c::XmlNamespace) do
       uri "urn:ietf:params:xml:ns:vcard-4.0"
       prefix_default "vcard"
       element_form_default :qualified

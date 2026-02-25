@@ -81,8 +81,8 @@ end
 require_relative "../lib/lutaml/model"
 require_relative "support/test_namespaces"
 require_relative "support/test_adapter_config"
-# require_relative "../lib/lutaml/model/xml/nokogiri_adapter"
-# require_relative "../lib/lutaml/model/xml/ox_adapter"
+# require_relative "../lib/lutaml/xml/nokogiri_adapter"
+# require_relative "../lib/lutaml/xml/ox_adapter"
 # require_relative "../lib/lutaml/model/toml_adapter/toml_rb_adapter"
 
 Lutaml::Model::Config.configure do |config|

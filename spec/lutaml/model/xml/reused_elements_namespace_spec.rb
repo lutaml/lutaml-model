@@ -2,7 +2,7 @@ require "spec_helper"
 
 module ReusedElementsNamespaceSpec
   # Define namespace
-  class ReusedTestNamespace < Lutaml::Model::Xml::W3c::XmlNamespace
+  class ReusedTestNamespace < Lutaml::Xml::W3c::XmlNamespace
     uri "http://example.com/test"
     prefix_default "t"
   end

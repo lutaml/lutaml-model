@@ -122,5 +122,5 @@ module Lutaml
   end
 end
 
-require_relative "transform/key_value_transform"
-require_relative "transform/xml_transform"
+require_relative "../key_value/transform"
+require_relative "../xml/model_transform"

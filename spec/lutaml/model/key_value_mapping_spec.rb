@@ -1,6 +1,6 @@
 require "spec_helper"
 
-RSpec.describe Lutaml::Model::KeyValueMapping do
+RSpec.describe Lutaml::KeyValue::Mapping do
   let(:mapping) { described_class.new(:json) }
 
   describe "find_by_to! error handling" do

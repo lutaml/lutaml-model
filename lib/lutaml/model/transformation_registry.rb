@@ -4,8 +4,8 @@ require "set"
 require_relative "global_register"
 require_relative "register"
 require_relative "transformation_builder"
-require_relative "xml_transformation_builder"
-require_relative "key_value_transformation_builder"
+require_relative "../xml/transformation_builder"
+require_relative "../key_value/transformation_builder"
 
 module Lutaml
   module Model
@@ -37,11 +37,11 @@ module Lutaml
     class TransformationRegistry
       # Default builders for built-in formats
       DEFAULT_BUILDERS = {
-        xml: XmlTransformationBuilder,
-        json: KeyValueTransformationBuilder,
-        yaml: KeyValueTransformationBuilder,
-        toml: KeyValueTransformationBuilder,
-        hash: KeyValueTransformationBuilder,
+        xml: ::Lutaml::Xml::TransformationBuilder,
+        json: ::Lutaml::KeyValue::TransformationBuilder,
+        yaml: ::Lutaml::KeyValue::TransformationBuilder,
+        toml: ::Lutaml::KeyValue::TransformationBuilder,
+        hash: ::Lutaml::KeyValue::TransformationBuilder,
       }.freeze
 
       class << self

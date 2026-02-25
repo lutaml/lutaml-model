@@ -13,21 +13,21 @@ RSpec.describe "XML namespace inheritance" do
 
   # Define test namespaces
   let(:parent_namespace) do
-    Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+    Class.new(Lutaml::Xml::W3c::XmlNamespace) do
       uri "http://example.com/parent"
       prefix_default "parent"
     end
   end
 
   let(:child_namespace) do
-    Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+    Class.new(Lutaml::Xml::W3c::XmlNamespace) do
       uri "http://example.com/child"
       prefix_default "child"
     end
   end
 
   let(:grandchild_namespace) do
-    Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+    Class.new(Lutaml::Xml::W3c::XmlNamespace) do
       uri "http://example.com/grandchild"
       prefix_default "gc"
     end
@@ -580,7 +580,7 @@ RSpec.describe "XML namespace inheritance" do
 
   context "attribute namespaces do not affect element namespaces" do
     let(:attr_namespace) do
-      Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+      Class.new(Lutaml::Xml::W3c::XmlNamespace) do
         uri "http://example.com/attr"
         prefix_default "attr"
       end
@@ -626,14 +626,14 @@ RSpec.describe "XML namespace inheritance" do
 
   context "namespace_scope does not cause bleeding" do
     let(:scoped_namespace) do
-      Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+      Class.new(Lutaml::Xml::W3c::XmlNamespace) do
         uri "http://example.com/scoped"
         prefix_default "scoped"
       end
     end
 
     let(:unused_namespace) do
-      Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+      Class.new(Lutaml::Xml::W3c::XmlNamespace) do
         uri "http://example.com/unused"
         prefix_default "unused"
       end

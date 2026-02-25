@@ -27,7 +27,7 @@ The adapter class is responsible for parsing input data and converting it back t
 .Example of a custom adapter for parsing string pairs
 [source,ruby]
 ----
-class PairsAdapter < Lutaml::Model::KeyValueDocument
+class PairsAdapter < Lutaml::KeyValue::Document
   attr_reader :parsed_data
 
   def initialize(parsed_data)

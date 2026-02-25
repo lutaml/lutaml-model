@@ -1,9 +1,9 @@
 require "spec_helper"
 require "lutaml/model"
-require "lutaml/model/xml/nokogiri_adapter"
-require "lutaml/model/xml/ox_adapter"
-require "lutaml/model/xml/oga_adapter"
-require "lutaml/model/xml/rexml_adapter"
+require "lutaml/xml/nokogiri_adapter"
+require "lutaml/xml/ox_adapter"
+require "lutaml/xml/oga_adapter"
+require "lutaml/xml/rexml_adapter"
 
 # Tests for Solution 1: Prefix Control Feature
 # These tests validate the prefix control functionality described in PROPOSAL-default-namespace.md
@@ -11,7 +11,7 @@ require "lutaml/model/xml/rexml_adapter"
 RSpec.describe "XML Prefix Control" do
   # Define test namespace
   let(:app_namespace) do
-    Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+    Class.new(Lutaml::Xml::W3c::XmlNamespace) do
       uri "http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"
       prefix_default "app"
       element_form_default :qualified
@@ -96,7 +96,7 @@ RSpec.describe "XML Prefix Control" do
       describe "prefix: 'custom'" do
         # Custom prefix support not yet implemented - uses default prefix_default instead
         it "uses custom prefix string",
-           skip: (adapter_class == Lutaml::Model::Xml::OgaAdapter ? "Oga adapter does not support custom prefix strings yet" : false) do
+           skip: (adapter_class == Lutaml::Xml::OgaAdapter ? "Oga adapter does not support custom prefix strings yet" : false) do
           xml = instance.to_xml(prefix: "custom")
 
           expect(xml).to include('<custom:Properties xmlns:custom="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties">')
@@ -206,7 +206,7 @@ RSpec.describe "XML Prefix Control" do
       describe "prefix: 'custom'" do
         # Custom prefix support not yet implemented - uses default prefix_default instead
         it "uses custom prefix string",
-           skip: (adapter_class == Lutaml::Model::Xml::OgaAdapter ? "Oga adapter does not support custom prefix strings yet" : false) do
+           skip: (adapter_class == Lutaml::Xml::OgaAdapter ? "Oga adapter does not support custom prefix strings yet" : false) do
           xml = instance.to_xml(prefix: "custom")
 
           expect(xml).to include('<custom:Properties xmlns:custom="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties">')
@@ -265,26 +265,26 @@ RSpec.describe "XML Prefix Control" do
   end
 
   context "with Nokogiri adapter" do
-    it_behaves_like "prefix control behavior", Lutaml::Model::Xml::NokogiriAdapter
+    it_behaves_like "prefix control behavior", Lutaml::Xml::NokogiriAdapter
   end
 
   context "with Ox adapter" do
     if TestAdapterConfig.adapter_enabled?(:ox)
       it_behaves_like "prefix control behavior",
-                      Lutaml::Model::Xml::OxAdapter
+                      Lutaml::Xml::OxAdapter
     end
   end
 
   context "with Oga adapter" do
     if TestAdapterConfig.adapter_enabled?(:oga)
-      it_behaves_like "prefix control behavior", Lutaml::Model::Xml::OgaAdapter
+      it_behaves_like "prefix control behavior", Lutaml::Xml::OgaAdapter
     end
   end
 
   context "with REXML adapter" do
     if TestAdapterConfig.adapter_enabled?(:rexml)
       it_behaves_like "prefix control behavior",
-                      Lutaml::Model::Xml::RexmlAdapter
+                      Lutaml::Xml::RexmlAdapter
     end
   end
 end

@@ -1,8 +1,8 @@
 require "spec_helper"
-require "lutaml/model/xml/nokogiri_adapter"
-require "lutaml/model/xml/ox_adapter"
-require "lutaml/model/xml/oga_adapter"
-require "lutaml/model/xml/rexml_adapter"
+require "lutaml/xml/nokogiri_adapter"
+require "lutaml/xml/ox_adapter"
+require "lutaml/xml/oga_adapter"
+require "lutaml/xml/rexml_adapter"
 require "lutaml/model"
 require_relative "../../../support/xml_mapping_namespaces"
 
@@ -29,7 +29,7 @@ module XmlNamespaceSpec
 
   # Create custom type for xml:lang attribute
   class XmlLangString < Lutaml::Model::Type::String
-    xml_namespace ::Lutaml::Model::Xml::W3c::XmlNamespace
+    xml_namespace ::Lutaml::Xml::W3c::XmlNamespace
   end
 
   # Create child models for elements with different namespaces
@@ -509,11 +509,11 @@ RSpec.describe "XmlNamespace" do
     end
   end
 
-  describe Lutaml::Model::Xml::NokogiriAdapter do
+  describe Lutaml::Xml::NokogiriAdapter do
     it_behaves_like "an XML namespace parser", described_class
   end
 
-  describe Lutaml::Model::Xml::OxAdapter do
+  describe Lutaml::Xml::OxAdapter do
     around do |example|
       if /(with prefixed namespace|with default namespace|mixing different namespaces)/.match?(example.metadata[:description])
         skip "Ox adapter has known broken namespace implementation"
@@ -528,7 +528,7 @@ RSpec.describe "XmlNamespace" do
     end
   end
 
-  describe Lutaml::Model::Xml::OgaAdapter do
+  describe Lutaml::Xml::OgaAdapter do
     around do |example|
       # Skip only failing tests - Oga serialization differs from Nokogiri
       if /(with prefixed namespace serializes|with prefixed namespace round-trips|with default namespace serializes|with default namespace round-trips|does not repeat xmlns)/.match?(example.metadata[:full_description])
@@ -544,7 +544,7 @@ RSpec.describe "XmlNamespace" do
     end
   end
 
-  describe Lutaml::Model::Xml::RexmlAdapter do
+  describe Lutaml::Xml::RexmlAdapter do
     if TestAdapterConfig.adapter_enabled?(:rexml)
       it_behaves_like "an XML namespace parser",
                       described_class
