@@ -1,5 +1,5 @@
 require "spec_helper"
-require_relative "../../../../support/xml_mapping_namespaces"
+require_relative "../../../support/xml_mapping_namespaces"
 
 # <Base xmlns:test="https://test-namespace">
 #   <test:Element1>

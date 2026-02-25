@@ -1,5 +1,5 @@
 require "spec_helper"
-require_relative "../../../support/xml_mapping_namespaces"
+require_relative "../../support/xml_mapping_namespaces"
 
 module RegisterXmlSpec
   class String < Lutaml::Model::Type::String

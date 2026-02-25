@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "spec_helper"
-require "lutaml/model/key_value/transformation"
+require "lutaml/key_value/transformation"
 
 RSpec.describe Lutaml::KeyValue::Transformation do
   # Simple model for testing

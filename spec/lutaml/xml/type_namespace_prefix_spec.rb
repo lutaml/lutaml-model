@@ -1,6 +1,6 @@
 require "spec_helper"
 require "lutaml/model"
-require_relative "../../../../lib/lutaml/xml/type_namespace_resolver"
+require_relative "../../../lib/lutaml/xml/type_namespace_resolver"
 
 RSpec.describe "Type Namespace Prefix Issue #6" do
   # Define MathML namespace for testing

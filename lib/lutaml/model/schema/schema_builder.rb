@@ -5,11 +5,29 @@ module Lutaml
     module Schema
       # SchemaBuilder provides an adapter-agnostic interface for XSD schema generation
       # It wraps XML builders (Nokogiri, Oga) to generate XSD documents
+      #
+      # NOTE: Schema generation is separate from XML parsing. While the XML parsing
+      # adapters (Nokogiri, Oga, Ox, REXML) handle reading/writing XML documents,
+      # schema generation requires an XML builder API which is only implemented for
+      # Nokogiri and Oga. When the configured XML adapter is Ox or REXML, we use
+      # Nokogiri for schema generation since it has the most complete builder API.
       class SchemaBuilder
         attr_reader :builder, :adapter_type
 
+        # Supported schema builders (separate from XML parsing adapters)
+        SUPPORTED_BUILDERS = %i[nokogiri oga].freeze
+
         def initialize(adapter_type: nil, options: {}, &block)
-          @adapter_type = adapter_type || Config.xml_adapter_type || :nokogiri
+          # Use specified adapter, or configured XML adapter, or default to Nokogiri
+          requested_adapter = adapter_type || Config.xml_adapter_type || :nokogiri
+
+          # Schema generation requires a builder API which only Nokogiri and Oga provide
+          # Ox and REXML are valid XML parsing adapters but don't have schema builder implementations
+          @adapter_type = if SUPPORTED_BUILDERS.include?(requested_adapter)
+                            requested_adapter
+                          else
+                            :nokogiri
+                          end
           @options = options
           @builder = create_builder(&block)
         end
@@ -32,9 +50,6 @@ module Lutaml
           when :oga
             require_relative "schema_builder/oga"
             SchemaBuilder::Oga.new(@options, &block)
-          else
-            raise UnknownAdapterTypeError,
-                  "Unknown adapter type: #{@adapter_type}. Supported: [:nokogiri, :oga]"
           end
         end
       end

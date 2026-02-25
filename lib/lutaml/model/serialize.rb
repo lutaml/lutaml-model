@@ -1052,7 +1052,7 @@ collection)
                                                    register_id)
           when :json, :yaml, :toml, :hash
             # Key-value formats use KeyValue::Transformation (symmetric OOP architecture)
-            require_relative "key_value/transformation"
+            require_relative "../key_value/transformation"
             Lutaml::KeyValue::Transformation.new(self, mapping_dsl,
                                                         format, register_id)
           else
