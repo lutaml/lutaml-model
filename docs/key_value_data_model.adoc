@@ -702,7 +702,7 @@ All adapters follow this pattern:
 [source,ruby]
 ----
 def to_json(root, options = {})
-  if root.is_a?(Lutaml::Model::KeyValueDataModel::KeyValueElement)
+  if root.is_a?(Lutaml::KeyValue::DataModel::Element)
     build_from_key_value_element(root)
   elsif root.is_a?(Hash)
     build_from_hash(root)  # Legacy path

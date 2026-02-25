@@ -1,34 +1,34 @@
 require "spec_helper"
-require "lutaml/model/xml/namespace_collector"
-require "lutaml/model/xml/declaration_planner"
+require "lutaml/xml/namespace_collector"
+require "lutaml/xml/declaration_planner"
 
 RSpec.describe "Three-phase namespace algorithm" do
   # Define reusable namespace classes - using let! for memoization
   # This ensures the SAME class instance is used everywhere
   let!(:vcard_namespace) do
-    Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+    Class.new(Lutaml::Xml::W3c::XmlNamespace) do
       uri "urn:ietf:params:xml:ns:vcard-4.0"
       prefix_default "vcard"
     end
   end
 
   let!(:dc_namespace) do
-    Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+    Class.new(Lutaml::Xml::W3c::XmlNamespace) do
       uri "http://purl.org/dc/elements/1.1/"
       prefix_default "dc"
     end
   end
 
   let!(:dcterms_namespace) do
-    Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+    Class.new(Lutaml::Xml::W3c::XmlNamespace) do
       uri "http://purl.org/dc/terms/"
       prefix_default "dcterms"
     end
   end
 
   let(:register) { :default }
-  let(:collector) { Lutaml::Model::Xml::NamespaceCollector.new(register) }
-  let(:planner) { Lutaml::Model::Xml::DeclarationPlanner.new(register) }
+  let(:collector) { Lutaml::Xml::NamespaceCollector.new(register) }
+  let(:planner) { Lutaml::Xml::DeclarationPlanner.new(register) }
 
   describe "Phase 1: Collection" do
     context "with nested models sharing default namespace" do

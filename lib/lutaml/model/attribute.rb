@@ -668,7 +668,7 @@ module Lutaml
 
       def castable?(value, format)
         value.is_a?(::Hash) ||
-          (format == :xml && value.is_a?(Lutaml::Model::Xml::XmlElement))
+          (format == :xml && value.is_a?(Lutaml::Xml::XmlElement))
       end
 
       def can_serialize?(klass, value, format, options)

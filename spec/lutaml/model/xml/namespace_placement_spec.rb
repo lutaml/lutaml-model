@@ -10,7 +10,7 @@ RSpec.describe "XML Namespace Placement" do
 
   context "when namespace is at class level (Type::Value)" do
     it "applies namespace to value types correctly" do
-      ns = Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+      ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
         uri "http://example.com/ns"
         prefix_default "ex"
       end
@@ -41,12 +41,12 @@ RSpec.describe "XML Namespace Placement" do
 
   context "when namespace is inside xml block (Serializable/Model)" do
     it "applies namespace to nested model elements correctly" do
-      parent_ns = Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+      parent_ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
         uri "http://example.com/parent"
         prefix_default "parent"
       end
 
-      child_ns = Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+      child_ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
         uri "http://example.com/child"
         prefix_default "child"
       end
@@ -86,7 +86,7 @@ RSpec.describe "XML Namespace Placement" do
 
   context "when namespace is at class level for Serializable (INCORRECT)" do
     it "does NOT apply namespace - demonstrating the incorrect pattern" do
-      ns = Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+      ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
         uri "http://example.com/ns"
         prefix_default "ex"
       end
@@ -105,7 +105,7 @@ RSpec.describe "XML Namespace Placement" do
         end
       end
 
-      parent_ns = Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+      parent_ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
         uri "http://example.com/parent"
         prefix_default "parent"
       end
@@ -135,17 +135,17 @@ RSpec.describe "XML Namespace Placement" do
 
   context "real-world example: Dublin Core Terms with xsi:type" do
     it "correctly applies dcterms namespace when declared in xml block" do
-      dcterms_ns = Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+      dcterms_ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
         uri "http://purl.org/dc/terms/"
         prefix_default "dcterms"
       end
 
-      xsi_ns = Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+      xsi_ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
         uri "http://www.w3.org/2001/XMLSchema-instance"
         prefix_default "xsi"
       end
 
-      cp_ns = Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+      cp_ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
         uri "http://schemas.openxmlformats.org/package/2006/metadata/core-properties"
         prefix_default "cp"
         element_form_default :qualified
@@ -204,7 +204,7 @@ RSpec.describe "XML Namespace Placement" do
   context "summary of namespace placement rules" do
     it "documents the correct patterns" do
       # Pattern 1: Type::Value classes - namespace at CLASS level
-      type_ns = Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+      type_ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
         uri "http://example.com/type"
         prefix_default "type"
       end
@@ -214,7 +214,7 @@ RSpec.describe "XML Namespace Placement" do
       end
 
       # Pattern 2: Serializable classes - namespace in XML block
-      model_ns = Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+      model_ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
         uri "http://example.com/model"
         prefix_default "model"
       end
@@ -232,7 +232,7 @@ RSpec.describe "XML Namespace Placement" do
       end
 
       # Pattern 3: Parent model with namespace_scope
-      parent_ns = Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+      parent_ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
         uri "http://example.com/parent"
         prefix_default "parent"
       end

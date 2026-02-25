@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
 require "spec_helper"
-require "lutaml/model/xml"
+require "lutaml/xml"
 
-RSpec.describe Lutaml::Model::Xml do
+RSpec.describe Lutaml::Xml do
   describe ".detect_xml_adapter" do
     before do
       # Hide any existing constants first

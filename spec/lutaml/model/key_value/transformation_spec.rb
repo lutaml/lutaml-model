@@ -3,7 +3,7 @@
 require "spec_helper"
 require "lutaml/model/key_value/transformation"
 
-RSpec.describe Lutaml::Model::KeyValue::Transformation do
+RSpec.describe Lutaml::KeyValue::Transformation do
   # Simple model for testing
   class KVSimpleModel < Lutaml::Model::Serializable
     attribute :name, :string
@@ -60,7 +60,7 @@ RSpec.describe Lutaml::Model::KeyValue::Transformation do
 
         result = transformation.transform(model)
 
-        expect(result).to be_a(Lutaml::Model::KeyValueDataModel::KeyValueElement)
+        expect(result).to be_a(Lutaml::KeyValue::DataModel::Element)
         expect(result.key).to eq("__root__")
         expect(result.children.length).to eq(3)
       end
@@ -242,11 +242,11 @@ RSpec.describe Lutaml::Model::KeyValue::Transformation do
       result = transformation.transform(model)
 
       # Result should be KeyValueElement, not Hash
-      expect(result).to be_a(Lutaml::Model::KeyValueDataModel::KeyValueElement)
+      expect(result).to be_a(Lutaml::KeyValue::DataModel::Element)
       expect(result).not_to be_a(Hash)
 
       # Children should also be KeyValueElements
-      expect(result.children).to all(be_a(Lutaml::Model::KeyValueDataModel::KeyValueElement))
+      expect(result.children).to all(be_a(Lutaml::KeyValue::DataModel::Element))
     end
 
     it "separates content (KeyValueElement) from presentation (Hash)" do
@@ -256,7 +256,7 @@ RSpec.describe Lutaml::Model::KeyValue::Transformation do
 
       # Transformation produces content model
       result = transformation.transform(model)
-      expect(result).to be_a(Lutaml::Model::KeyValueDataModel::KeyValueElement)
+      expect(result).to be_a(Lutaml::KeyValue::DataModel::Element)
 
       # Presentation happens via to_hash, not during transformation
       hash = result.to_hash

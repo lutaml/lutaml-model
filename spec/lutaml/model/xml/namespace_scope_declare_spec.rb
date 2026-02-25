@@ -3,14 +3,14 @@ require "spec_helper"
 RSpec.describe "namespace_scope Declaration Modes" do
   # Define test namespaces
   let(:app_namespace) do
-    Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+    Class.new(Lutaml::Xml::W3c::XmlNamespace) do
       uri "http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"
       prefix_default "app"
     end
   end
 
   let(:vt_namespace) do
-    Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+    Class.new(Lutaml::Xml::W3c::XmlNamespace) do
       uri "http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"
       prefix_default "vt"
     end
@@ -80,7 +80,7 @@ RSpec.describe "namespace_scope Declaration Modes" do
 
   describe "per-namespace control with hash format" do
     let(:other_namespace) do
-      Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+      Class.new(Lutaml::Xml::W3c::XmlNamespace) do
         uri "http://example.com/other"
         prefix_default "other"
       end

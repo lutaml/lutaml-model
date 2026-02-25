@@ -85,7 +85,7 @@ module Lutaml
           end
 
           def w3c_type?(type_name)
-            type_name&.to_s&.start_with?("Lutaml::Model::Xml::W3c::")
+            type_name&.to_s&.start_with?("Lutaml::Xml::W3c::")
           end
 
           def referenced_instance

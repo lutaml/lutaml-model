@@ -1,7 +1,7 @@
 require "spec_helper"
 
 module XmlNamespaceSpec
-  class AbcNamespace < Lutaml::Model::Xml::W3c::XmlNamespace
+  class AbcNamespace < Lutaml::Xml::W3c::XmlNamespace
     uri "https://abc.com"
     prefix_default "abc"
     element_form_default :qualified
@@ -71,7 +71,7 @@ RSpec.describe "XML Namespace Handling" do
   shared_examples "namespace inheritance behavior" do
     describe "native type elements" do
       it "inherit parent namespace prefix" do
-        ns = Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+        ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
           uri "http://example.com/test"
           prefix_default "test"
         end
@@ -105,7 +105,7 @@ RSpec.describe "XML Namespace Handling" do
 
     describe "collection elements" do
       it "preserve parent namespace prefix in wrapper models" do
-        ns = Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+        ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
           uri "http://example.com/test"
           prefix_default "test"
         end
@@ -170,7 +170,7 @@ RSpec.describe "XML Namespace Handling" do
       end
 
       it "preserve namespace prefix through deep nesting" do
-        ns = Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+        ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
           uri "http://example.com/test"
           prefix_default "test"
         end
@@ -240,7 +240,7 @@ RSpec.describe "XML Namespace Handling" do
 
   describe "Edge Cases: Repeated Model Types with Namespaces" do
     it "handles same model type repeated in collections with namespace inheritance" do
-      ns = Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+      ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
         uri "http://example.com/items"
         prefix_default "item"
       end
@@ -297,7 +297,7 @@ RSpec.describe "XML Namespace Handling" do
     end
 
     it "handles nested collections with repeated types" do
-      ns = Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+      ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
         uri "http://example.com/nested"
         prefix_default "nst"
       end
@@ -375,7 +375,7 @@ RSpec.describe "XML Namespace Handling" do
 
   describe "Edge Cases: Polymorphic Collections with Namespaces" do
     it "maintains namespace consistency across polymorphic types" do
-      animal_ns = Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+      animal_ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
         uri "http://example.com/animals"
         prefix_default "anim"
         element_form_default :qualified
@@ -465,17 +465,17 @@ RSpec.describe "XML Namespace Handling" do
 
   describe "Edge Cases: Mixed Namespace Scenarios" do
     it "handles elements with different namespace types in single model" do
-      model_ns = Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+      model_ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
         uri "http://example.com/model"
         prefix_default "mdl"
       end
 
-      type_ns = Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+      type_ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
         uri "http://example.com/types"
         prefix_default "typ"
       end
 
-      attr_ns = Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+      attr_ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
         uri "http://example.com/attrs"
         prefix_default "attr"
       end
@@ -536,17 +536,17 @@ RSpec.describe "XML Namespace Handling" do
     end
 
     it "handles namespace_scope with mixed declaration modes" do
-      main_ns = Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+      main_ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
         uri "http://example.com/main"
         prefix_default "main"
       end
 
-      used_ns = Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+      used_ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
         uri "http://example.com/used"
         prefix_default "used"
       end
 
-      unused_ns = Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+      unused_ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
         uri "http://example.com/unused"
         prefix_default "unused"
       end
@@ -585,18 +585,18 @@ RSpec.describe "XML Namespace Handling" do
     end
 
     it "handles nested models with conflicting namespace declarations" do
-      ns_a = Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+      ns_a = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
         uri "http://example.com/a"
         prefix_default "a"
       end
 
-      ns_b = Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+      ns_b = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
         uri "http://example.com/b"
         prefix_default "b"
       end
 
       # Same prefix but different URIs
-      ns_conflict = Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+      ns_conflict = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
         uri "http://example.com/conflict"
         prefix_default "a" # Conflicts with ns_a
       end

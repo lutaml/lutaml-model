@@ -15,12 +15,12 @@ RSpec.describe Lutaml::Model::TransformationBuilder do
     context "when FORMATS constant is defined" do
       it "returns true for formats in FORMATS" do
         # Use XmlTransformationBuilder which has FORMATS defined
-        expect(Lutaml::Model::XmlTransformationBuilder.handles?(:xml)).to be true
+        expect(Lutaml::Xml::TransformationBuilder.handles?(:xml)).to be true
       end
 
       it "returns false for formats not in FORMATS" do
-        expect(Lutaml::Model::XmlTransformationBuilder.handles?(:json)).to be false
-        expect(Lutaml::Model::XmlTransformationBuilder.handles?(:protobuf)).to be false
+        expect(Lutaml::Xml::TransformationBuilder.handles?(:json)).to be false
+        expect(Lutaml::Xml::TransformationBuilder.handles?(:protobuf)).to be false
       end
     end
 
@@ -35,7 +35,7 @@ RSpec.describe Lutaml::Model::TransformationBuilder do
   end
 end
 
-RSpec.describe Lutaml::Model::XmlTransformationBuilder do
+RSpec.describe Lutaml::Xml::TransformationBuilder do
   describe "FORMATS" do
     it "includes :xml" do
       expect(described_class::FORMATS).to include(:xml)
@@ -73,7 +73,7 @@ RSpec.describe Lutaml::Model::XmlTransformationBuilder do
       mapping = model_class.mappings[:xml]
       result = described_class.build(model_class, mapping, :xml, nil)
 
-      expect(result).to be_a(Lutaml::Model::Xml::Transformation)
+      expect(result).to be_a(Lutaml::Xml::Transformation)
     end
 
     it "passes correct parameters to transformation" do
@@ -86,7 +86,7 @@ RSpec.describe Lutaml::Model::XmlTransformationBuilder do
   end
 end
 
-RSpec.describe Lutaml::Model::KeyValueTransformationBuilder do
+RSpec.describe Lutaml::KeyValue::TransformationBuilder do
   describe "FORMATS" do
     it "includes :json, :yaml, :toml, :hash" do
       expect(described_class::FORMATS).to contain_exactly(:json, :yaml, :toml, :hash)
@@ -126,7 +126,7 @@ RSpec.describe Lutaml::Model::KeyValueTransformationBuilder do
       mapping = model_class.mappings[:json]
       result = described_class.build(model_class, mapping, :json, nil)
 
-      expect(result).to be_a(Lutaml::Model::KeyValue::Transformation)
+      expect(result).to be_a(Lutaml::KeyValue::Transformation)
     end
 
     it "works with different key-value formats" do
@@ -134,7 +134,7 @@ RSpec.describe Lutaml::Model::KeyValueTransformationBuilder do
         mapping = model_class.mappings[format] || model_class.send(:default_mappings, format)
         result = described_class.build(model_class, mapping, format, nil)
 
-        expect(result).to be_a(Lutaml::Model::KeyValue::Transformation)
+        expect(result).to be_a(Lutaml::KeyValue::Transformation)
         expect(result.format).to eq(format)
       end
     end
@@ -175,15 +175,15 @@ RSpec.describe "TransformationRegistry Builder Pattern" do
 
   describe ".builder_for" do
     it "returns XmlTransformationBuilder for :xml" do
-      expect(Lutaml::Model::TransformationRegistry.builder_for(:xml)).to eq(Lutaml::Model::XmlTransformationBuilder)
+      expect(Lutaml::Model::TransformationRegistry.builder_for(:xml)).to eq(Lutaml::Xml::TransformationBuilder)
     end
 
     it "returns KeyValueTransformationBuilder for :json" do
-      expect(Lutaml::Model::TransformationRegistry.builder_for(:json)).to eq(Lutaml::Model::KeyValueTransformationBuilder)
+      expect(Lutaml::Model::TransformationRegistry.builder_for(:json)).to eq(Lutaml::KeyValue::TransformationBuilder)
     end
 
     it "returns KeyValueTransformationBuilder for :yaml" do
-      expect(Lutaml::Model::TransformationRegistry.builder_for(:yaml)).to eq(Lutaml::Model::KeyValueTransformationBuilder)
+      expect(Lutaml::Model::TransformationRegistry.builder_for(:yaml)).to eq(Lutaml::KeyValue::TransformationBuilder)
     end
 
     it "returns nil for unregistered format" do
@@ -205,7 +205,7 @@ RSpec.describe "TransformationRegistry Builder Pattern" do
       Lutaml::Model::TransformationRegistry.reset_builders!
 
       # Should have default builders again
-      expect(Lutaml::Model::TransformationRegistry.builder_for(:xml)).to eq(Lutaml::Model::XmlTransformationBuilder)
+      expect(Lutaml::Model::TransformationRegistry.builder_for(:xml)).to eq(Lutaml::Xml::TransformationBuilder)
     end
   end
 
@@ -230,7 +230,7 @@ RSpec.describe "TransformationRegistry Builder Pattern" do
       registry = Lutaml::Model::TransformationRegistry.instance
 
       result = registry.send(:build_transformation, model_class, mapping, :xml, nil)
-      expect(result).to be_a(Lutaml::Model::Xml::Transformation)
+      expect(result).to be_a(Lutaml::Xml::Transformation)
     end
 
     it "uses registered builder for JSON format" do
@@ -238,7 +238,7 @@ RSpec.describe "TransformationRegistry Builder Pattern" do
       registry = Lutaml::Model::TransformationRegistry.instance
 
       result = registry.send(:build_transformation, model_class, mapping, :json, nil)
-      expect(result).to be_a(Lutaml::Model::KeyValue::Transformation)
+      expect(result).to be_a(Lutaml::KeyValue::Transformation)
     end
 
     it "returns mapping directly for unregistered format" do

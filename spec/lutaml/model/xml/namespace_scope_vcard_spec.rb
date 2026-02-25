@@ -1,9 +1,9 @@
 require "spec_helper"
 require "lutaml/model"
-require "lutaml/model/xml/nokogiri_adapter"
-require "lutaml/model/xml/ox_adapter"
-require "lutaml/model/xml/oga_adapter"
-require "lutaml/model/xml/rexml_adapter"
+require "lutaml/xml/nokogiri_adapter"
+require "lutaml/xml/ox_adapter"
+require "lutaml/xml/oga_adapter"
+require "lutaml/xml/rexml_adapter"
 
 # WARNING: This is a fictitious XML namespace example for vCard, vCard does not
 # actually use XML in this way. This is solely for testing namespace_scope
@@ -12,7 +12,7 @@ require "lutaml/model/xml/rexml_adapter"
 RSpec.describe "namespace_scope with vCard" do
   # Define namespace classes
   let(:vcard_namespace) do
-    Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+    Class.new(Lutaml::Xml::W3c::XmlNamespace) do
       uri "urn:ietf:params:xml:ns:vcard-4.0"
       prefix_default "vcard"
       element_form_default :qualified
@@ -20,7 +20,7 @@ RSpec.describe "namespace_scope with vCard" do
   end
 
   let(:dcterms_namespace) do
-    Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+    Class.new(Lutaml::Xml::W3c::XmlNamespace) do
       uri "http://purl.org/dc/terms/"
       prefix_default "dcterms"
       element_form_default :qualified
@@ -28,7 +28,7 @@ RSpec.describe "namespace_scope with vCard" do
   end
 
   let(:dc_elements_namespace) do
-    Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+    Class.new(Lutaml::Xml::W3c::XmlNamespace) do
       uri "http://purl.org/dc/elements/1.1/"
       prefix_default "dc"
       element_form_default :qualified
@@ -591,26 +591,26 @@ RSpec.describe "namespace_scope with vCard" do
   end
 
   context "with Nokogiri adapter" do
-    it_behaves_like "namespace_scope behavior", Lutaml::Model::Xml::NokogiriAdapter
+    it_behaves_like "namespace_scope behavior", Lutaml::Xml::NokogiriAdapter
   end
 
   context "with Ox adapter" do
     if TestAdapterConfig.adapter_enabled?(:ox)
-      it_behaves_like "namespace_scope behavior", Lutaml::Model::Xml::OxAdapter
+      it_behaves_like "namespace_scope behavior", Lutaml::Xml::OxAdapter
     end
   end
 
   context "with Oga adapter" do
     if TestAdapterConfig.adapter_enabled?(:oga)
       it_behaves_like "namespace_scope behavior",
-                      Lutaml::Model::Xml::OgaAdapter
+                      Lutaml::Xml::OgaAdapter
     end
   end
 
   context "with REXML adapter" do
     if TestAdapterConfig.adapter_enabled?(:rexml)
       it_behaves_like "namespace_scope behavior",
-                      Lutaml::Model::Xml::RexmlAdapter
+                      Lutaml::Xml::RexmlAdapter
     end
   end
 end

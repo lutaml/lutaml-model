@@ -1,11 +1,11 @@
 # frozen_string_literal: true
 
 require "spec_helper"
-require "lutaml/model/xml/decisions/decision"
+require "lutaml/xml/decisions/decision"
 
-RSpec.describe Lutaml::Model::Xml::Decisions::Decision do
+RSpec.describe Lutaml::Xml::Decisions::Decision do
   let(:namespace_class) do
-    Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+    Class.new(Lutaml::Xml::W3c::XmlNamespace) do
       uri "http://example.com/ns"
       prefix_default "ex"
     end
@@ -100,7 +100,7 @@ RSpec.describe Lutaml::Model::Xml::Decisions::Decision do
     end
 
     it "returns false for different namespace_class" do
-      other_ns = Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+      other_ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
         uri "http://other.com/ns"
         prefix_default "other"
       end

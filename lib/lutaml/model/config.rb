@@ -85,8 +85,14 @@ module Lutaml
       end
 
       def class_for(adapter, type)
-        Lutaml::Model.const_get(to_class_name(adapter))
-          .const_get(to_class_name(type))
+        # XML adapters are now in Lutaml::Xml namespace
+        if adapter == "xml"
+          Lutaml::Xml.const_get(to_class_name(type))
+        else
+          # Key-value adapters are now in Lutaml::KeyValue::Adapter namespace
+          Lutaml::KeyValue::Adapter.const_get(to_class_name(adapter))
+            .const_get(to_class_name(type))
+        end
       end
 
       def default_register
@@ -131,7 +137,13 @@ module Lutaml
       end
 
       def load_adapter_file(adapter, type)
-        adapter_file = File.join(adapter, type)
+        # XML adapters are now in lib/lutaml/xml/
+        if adapter == "xml"
+          adapter_file = File.join("../xml", type)
+        else
+          # Key-value adapters are now in lib/lutaml/key_value/adapter/
+          adapter_file = File.join("../key_value/adapter", adapter, type)
+        end
         require_relative adapter_file
       rescue LoadError
         raise UnknownAdapterTypeError.new(adapter, type), cause: nil

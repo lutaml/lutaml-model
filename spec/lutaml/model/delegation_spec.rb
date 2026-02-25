@@ -3,17 +3,17 @@ require "lutaml/model"
 
 module Delegation
   # Namespace classes
-  class DelegationNamespace12 < Lutaml::Model::Xml::W3c::XmlNamespace
+  class DelegationNamespace12 < Lutaml::Xml::W3c::XmlNamespace
     uri "https://example.com/delegation/1.2"
     prefix_default "del"
   end
 
-  class DelegationNamespace11 < Lutaml::Model::Xml::W3c::XmlNamespace
+  class DelegationNamespace11 < Lutaml::Xml::W3c::XmlNamespace
     uri "https://example.com/delegation/1.1"
     prefix_default "del1"
   end
 
-  class TypeNamespace12 < Lutaml::Model::Xml::W3c::XmlNamespace
+  class TypeNamespace12 < Lutaml::Xml::W3c::XmlNamespace
     uri "https://example.com/type/1.2"
     element_form_default :qualified
   end

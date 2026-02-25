@@ -1,9 +1,9 @@
 require "spec_helper"
 require "lutaml/model"
-require "lutaml/model/xml/nokogiri_adapter"
-require "lutaml/model/xml/ox_adapter"
-require "lutaml/model/xml/oga_adapter"
-require "lutaml/model/xml/rexml_adapter"
+require "lutaml/xml/nokogiri_adapter"
+require "lutaml/xml/ox_adapter"
+require "lutaml/xml/oga_adapter"
+require "lutaml/xml/rexml_adapter"
 
 module CdataSpec
   class Beta < Lutaml::Model::Serializable
@@ -369,9 +369,9 @@ RSpec.describe CdataSpec do
           instance = parent_mapper.from_xml(input_xml)
           result_xml = parent_mapper.to_xml(instance)
 
-          expected_output = if adapter_class == Lutaml::Model::Xml::OgaAdapter
+          expected_output = if adapter_class == Lutaml::Xml::OgaAdapter
                               expected_oga_xml
-                            elsif adapter_class == Lutaml::Model::Xml::OxAdapter
+                            elsif adapter_class == Lutaml::Xml::OxAdapter
                               expected_ox_xml
                             else
                               expected_nokogiri_xml
@@ -463,7 +463,7 @@ RSpec.describe CdataSpec do
 
         # due to the difference in capturing
         # newlines in ox and nokogiri adapters
-        expected_result = if adapter_class == Lutaml::Model::Xml::OxAdapter
+        expected_result = if adapter_class == Lutaml::Xml::OxAdapter
                             expected_ox_xml
                           else
                             expected_xml
@@ -529,7 +529,7 @@ RSpec.describe CdataSpec do
 
         # due to the difference in capturing
         # newlines in ox and nokogiri adapters
-        expected_result = if adapter_class == Lutaml::Model::Xml::OxAdapter
+        expected_result = if adapter_class == Lutaml::Xml::OxAdapter
                             expected_ox_xml
                           else
                             expected_xml
@@ -557,22 +557,22 @@ RSpec.describe CdataSpec do
     end
   end
 
-  describe Lutaml::Model::Xml::NokogiriAdapter do
+  describe Lutaml::Xml::NokogiriAdapter do
     it_behaves_like "cdata behavior", described_class
   end
 
-  describe Lutaml::Model::Xml::OxAdapter do
+  describe Lutaml::Xml::OxAdapter do
     if TestAdapterConfig.adapter_enabled?(:ox)
       it_behaves_like "cdata behavior",
                       described_class
     end
   end
 
-  describe Lutaml::Model::Xml::OgaAdapter do
+  describe Lutaml::Xml::OgaAdapter do
     it_behaves_like "cdata behavior", described_class
   end
 
-  describe Lutaml::Model::Xml::RexmlAdapter do
+  describe Lutaml::Xml::RexmlAdapter do
     if TestAdapterConfig.adapter_enabled?(:rexml)
       it_behaves_like "cdata behavior",
                       described_class

@@ -5,7 +5,7 @@ RSpec.describe "Type-level namespace round-trip tests" do
   describe "Contact example with 2 namespaces" do
     # Define namespace classes
     let(:contact_namespace) do
-      Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+      Class.new(Lutaml::Xml::W3c::XmlNamespace) do
         uri "https://example.com/schemas/contact/v1"
         schema_location "https://example.com/schemas/contact/v1/contact.xsd"
         prefix_default "ct"
@@ -13,7 +13,7 @@ RSpec.describe "Type-level namespace round-trip tests" do
     end
 
     let(:name_attribute_namespace) do
-      Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+      Class.new(Lutaml::Xml::W3c::XmlNamespace) do
         uri "https://example.com/schemas/name-attributes/v1"
         schema_location "https://example.com/schemas/name-attributes/v1/name-attributes.xsd"
         prefix_default "name"
@@ -240,28 +240,28 @@ RSpec.describe "Type-level namespace round-trip tests" do
   describe "OOXML Core Properties with 4 namespaces" do
     # Define namespace classes
     let(:cp_namespace) do
-      Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+      Class.new(Lutaml::Xml::W3c::XmlNamespace) do
         uri "http://schemas.openxmlformats.org/package/2006/metadata/core-properties"
         prefix_default "cp"
       end
     end
 
     let(:dc_namespace) do
-      Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+      Class.new(Lutaml::Xml::W3c::XmlNamespace) do
         uri "http://purl.org/dc/elements/1.1/"
         prefix_default "dc"
       end
     end
 
     let(:dcterms_namespace) do
-      Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+      Class.new(Lutaml::Xml::W3c::XmlNamespace) do
         uri "http://purl.org/dc/terms/"
         prefix_default "dcterms"
       end
     end
 
     let(:xsi_namespace) do
-      Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+      Class.new(Lutaml::Xml::W3c::XmlNamespace) do
         uri "http://www.w3.org/2001/XMLSchema-instance"
         prefix_default "xsi"
       end

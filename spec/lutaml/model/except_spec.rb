@@ -1,8 +1,8 @@
 require "spec_helper"
 require "lutaml/model"
-require "lutaml/model/xml/ox_adapter"
-require "lutaml/model/xml/oga_adapter"
-require "lutaml/model/xml/rexml_adapter"
+require "lutaml/xml/ox_adapter"
+require "lutaml/xml/oga_adapter"
+require "lutaml/xml/rexml_adapter"
 require_relative "../../support/xml_mapping_namespaces"
 
 module ExceptSpecs
@@ -213,25 +213,25 @@ RSpec.describe "Except" do
     end
   end
 
-  describe Lutaml::Model::Xml::NokogiriAdapter do
+  describe Lutaml::Xml::NokogiriAdapter do
     it_behaves_like "xml", described_class
   end
 
-  describe Lutaml::Model::Xml::OgaAdapter do
+  describe Lutaml::Xml::OgaAdapter do
     if TestAdapterConfig.adapter_enabled?(:oga)
       it_behaves_like "xml",
                       described_class
     end
   end
 
-  describe Lutaml::Model::Xml::OxAdapter do
+  describe Lutaml::Xml::OxAdapter do
     if TestAdapterConfig.adapter_enabled?(:ox)
       it_behaves_like "xml",
                       described_class
     end
   end
 
-  describe Lutaml::Model::Xml::RexmlAdapter do
+  describe Lutaml::Xml::RexmlAdapter do
     if TestAdapterConfig.adapter_enabled?(:rexml)
       it_behaves_like "xml",
                       described_class

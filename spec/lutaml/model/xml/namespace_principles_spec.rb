@@ -3,17 +3,17 @@ require "spec_helper"
 # Module to namespace all test classes and prevent global pollution
 module NamespacePrinciplesSpec
   # Namespace definitions
-  class FirstItemNamespace < Lutaml::Model::Xml::W3c::XmlNamespace
+  class FirstItemNamespace < Lutaml::Xml::W3c::XmlNamespace
     prefix_default "first"
     uri "http://example.com/first"
   end
 
-  class SecondItemNamespace < Lutaml::Model::Xml::W3c::XmlNamespace
+  class SecondItemNamespace < Lutaml::Xml::W3c::XmlNamespace
     prefix_default "second"
     uri "http://example.com/second"
   end
 
-  class WrapperNamespace < Lutaml::Model::Xml::W3c::XmlNamespace
+  class WrapperNamespace < Lutaml::Xml::W3c::XmlNamespace
     prefix_default "wr"
     uri "http://example.com/wrapper"
   end

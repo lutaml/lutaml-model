@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
 require "spec_helper"
-require "lutaml/model/key_value_data_model"
+require "lutaml/key_value/data_model"
 
-RSpec.describe Lutaml::Model::KeyValueDataModel::KeyValueElement do
+RSpec.describe Lutaml::KeyValue::DataModel::Element do
   describe "#initialize" do
     it "creates element with key and no value" do
       element = described_class.new("name")
