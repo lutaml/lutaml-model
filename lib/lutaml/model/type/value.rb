@@ -60,7 +60,12 @@ module Lutaml
         #   end
         def self.xml_namespace(ns_class = nil)
           if ns_class
-            unless ns_class.is_a?(Class) && ns_class < Lutaml::Model::Xml::Namespace
+            # Accept both old (Lutaml::Xml::Namespace) and new (Lutaml::Xml::Namespace)
+            valid_namespace = ns_class.is_a?(Class) && (
+              (defined?(::Lutaml::Xml::Namespace) && ns_class < ::Lutaml::Xml::Namespace) ||
+              (defined?(::Lutaml::Xml::Namespace) && ns_class < ::Lutaml::Xml::Namespace)
+            )
+            unless valid_namespace
               raise ArgumentError,
                     "xml_namespace must be an XmlNamespace class, got #{ns_class.class}"
             end
@@ -134,7 +139,7 @@ module Lutaml
         # @deprecated Use class-level `namespace` and `xsd_type` directives instead
         #
         # @yield block for XML configuration
-        # @return [Lutaml::Model::Xml::ValueMapping] the XML mapping
+        # @return [Lutaml::Xml::ValueMapping] the XML mapping
         #
         # @example Old approach (deprecated)
         #   class NamePrefix < Lutaml::Model::Type::String
@@ -188,7 +193,7 @@ module Lutaml
           #
           # @raise [ArgumentError] if invalid argument or prefix provided
           def namespace(uri_or_class)
-            if uri_or_class.is_a?(Class) && uri_or_class < Lutaml::Model::Xml::Namespace
+            if uri_or_class.is_a?(Class) && uri_or_class < Lutaml::Xml::Namespace
               @namespace_class = uri_or_class
               @namespace_uri = uri_or_class.uri
             elsif uri_or_class.is_a?(String)

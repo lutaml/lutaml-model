@@ -60,13 +60,13 @@ class TestAdapterConfig
     def adapter_class(name)
       case name
       when :nokogiri
-        Lutaml::Model::Xml::NokogiriAdapter
+        Lutaml::Xml::NokogiriAdapter
       when :ox
-        defined?(Lutaml::Model::Xml::OxAdapter) ? Lutaml::Model::Xml::OxAdapter : nil
+        defined?(Lutaml::Xml::OxAdapter) ? Lutaml::Xml::OxAdapter : nil
       when :oga
-        defined?(Lutaml::Model::Xml::OgaAdapter) ? Lutaml::Model::Xml::OgaAdapter : nil
+        defined?(Lutaml::Xml::OgaAdapter) ? Lutaml::Xml::OgaAdapter : nil
       when :rexml
-        defined?(Lutaml::Model::Xml::RexmlAdapter) ? Lutaml::Model::Xml::RexmlAdapter : nil
+        defined?(Lutaml::Xml::RexmlAdapter) ? Lutaml::Xml::RexmlAdapter : nil
       end
     end
 
@@ -81,13 +81,13 @@ class TestAdapterConfig
     # @return [Symbol, nil] Adapter name or nil if not found
     def adapter_name(klass)
       case klass
-      when Lutaml::Model::Xml::NokogiriAdapter
+      when Lutaml::Xml::NokogiriAdapter
         :nokogiri
-      when Lutaml::Model::Xml::OxAdapter
+      when Lutaml::Xml::OxAdapter
         :ox
-      when Lutaml::Model::Xml::OgaAdapter
+      when Lutaml::Xml::OgaAdapter
         :oga
-      when defined?(Lutaml::Model::Xml::RexmlAdapter) && Lutaml::Model::Xml::RexmlAdapter
+      when defined?(Lutaml::Xml::RexmlAdapter) && Lutaml::Xml::RexmlAdapter
         :rexml
       end
     end

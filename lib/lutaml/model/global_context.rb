@@ -45,7 +45,7 @@ module Lutaml
       # @return [ImportRegistry] The import registry
       attr_reader :imports
 
-      # @return [Xml::NamespaceClassRegistry] The XML namespace class registry
+      # @return [Lutaml::Xml::NamespaceClassRegistry] The XML namespace class registry
       attr_reader :xml_namespace_registry
 
       # @return [Symbol] The current default context ID
@@ -216,10 +216,10 @@ module Lutaml
       #
       # Lazy load to avoid circular dependencies.
       #
-      # @return [Xml::NamespaceClassRegistry] The registry
+      # @return [Lutaml::Xml::NamespaceClassRegistry] The registry
       def create_xml_namespace_registry
-        require_relative "xml/namespace_class_registry"
-        Xml::NamespaceClassRegistry.new
+        require_relative "../xml/namespace_class_registry"
+        ::Lutaml::Xml::NamespaceClassRegistry.new
       end
 
       class << self

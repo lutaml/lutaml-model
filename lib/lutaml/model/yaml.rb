@@ -1,21 +1,28 @@
 # frozen_string_literal: true
 
+# YAML format entry point - uses Lutaml::KeyValue::Adapter::Yaml namespace
+require_relative "../key_value/adapter/yaml/standard_adapter"
+require_relative "../key_value/adapter/yaml/document"
+require_relative "../key_value/adapter/yaml/mapping"
+require_relative "../key_value/adapter/yaml/mapping_rule"
+require_relative "../key_value/adapter/yaml/transform"
+
+# Backward compatibility alias
 module Lutaml
   module Model
     module Yaml
+      StandardAdapter = Lutaml::KeyValue::Adapter::Yaml::StandardAdapter
+      Document = Lutaml::KeyValue::Adapter::Yaml::Document
+      Mapping = Lutaml::KeyValue::Adapter::Yaml::Mapping
+      MappingRule = Lutaml::KeyValue::Adapter::Yaml::MappingRule
+      Transform = Lutaml::KeyValue::Adapter::Yaml::Transform
     end
   end
 end
 
-require_relative "yaml/standard_adapter"
-require_relative "yaml/document"
-require_relative "yaml/mapping"
-require_relative "yaml/mapping_rule"
-require_relative "yaml/transform"
-
 Lutaml::Model::FormatRegistry.register(
   :yaml,
-  mapping_class: Lutaml::Model::Yaml::Mapping,
-  adapter_class: Lutaml::Model::Yaml::StandardAdapter,
-  transformer: Lutaml::Model::Yaml::Transform,
+  mapping_class: Lutaml::KeyValue::Adapter::Yaml::Mapping,
+  adapter_class: Lutaml::KeyValue::Adapter::Yaml::StandardAdapter,
+  transformer: Lutaml::KeyValue::Adapter::Yaml::Transform,
 )

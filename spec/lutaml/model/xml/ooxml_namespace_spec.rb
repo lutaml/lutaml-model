@@ -3,7 +3,7 @@ require "spec_helper"
 RSpec.describe "OOXML Extended Properties" do
   # Define OOXML namespaces
   let(:app_namespace) do
-    Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+    Class.new(Lutaml::Xml::W3c::XmlNamespace) do
       uri "http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"
       prefix_default "app"
       element_form_default :qualified
@@ -11,7 +11,7 @@ RSpec.describe "OOXML Extended Properties" do
   end
 
   let(:vt_namespace) do
-    Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+    Class.new(Lutaml::Xml::W3c::XmlNamespace) do
       uri "http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"
       prefix_default "vt"
     end

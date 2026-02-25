@@ -1,18 +1,18 @@
 # frozen_string_literal: true
 
 require "spec_helper"
-require "lutaml/model/xml/type_namespace/planner"
+require "lutaml/xml/type_namespace/planner"
 
-RSpec.describe Lutaml::Model::Xml::TypeNamespace::Planner do
+RSpec.describe Lutaml::Xml::TypeNamespace::Planner do
   let(:type_namespace_class) do
-    Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+    Class.new(Lutaml::Xml::W3c::XmlNamespace) do
       uri "http://purl.org/dc/elements/1.1/"
       prefix_default "dc"
     end
   end
 
   let(:element_namespace_class) do
-    Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+    Class.new(Lutaml::Xml::W3c::XmlNamespace) do
       uri "http://example.com/document"
       prefix_default "doc"
     end
@@ -47,8 +47,8 @@ RSpec.describe Lutaml::Model::Xml::TypeNamespace::Planner do
     it "initializes with collector and resolver" do
       planner = described_class.new
 
-      expect(planner.collector).to be_a(Lutaml::Model::Xml::TypeNamespace::Collector)
-      expect(planner.resolver).to be_a(Lutaml::Model::Xml::TypeNamespace::Resolver)
+      expect(planner.collector).to be_a(Lutaml::Xml::TypeNamespace::Collector)
+      expect(planner.resolver).to be_a(Lutaml::Xml::TypeNamespace::Resolver)
     end
 
     it "initializes with custom register" do
@@ -64,7 +64,7 @@ RSpec.describe Lutaml::Model::Xml::TypeNamespace::Planner do
         declarations = planner.plan_for_element(mapping, model_class, nil, {})
 
         expect(declarations).to be_an(Array)
-        expect(declarations.all?(Lutaml::Model::Xml::TypeNamespace::Declaration)).to be true
+        expect(declarations.all?(Lutaml::Xml::TypeNamespace::Declaration)).to be true
       end
 
       it "creates declarations with prefix" do
@@ -137,7 +137,7 @@ RSpec.describe Lutaml::Model::Xml::TypeNamespace::Planner do
 
     context "when type class has no prefix_default" do
       let(:type_namespace_without_prefix) do
-        Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+        Class.new(Lutaml::Xml::W3c::XmlNamespace) do
           uri "http://purl.org/dc/elements/1.1/"
         end
       end
@@ -219,7 +219,7 @@ RSpec.describe Lutaml::Model::Xml::TypeNamespace::Planner do
       declarations = planner.plan_for_root(mapping, model_class, nil)
 
       expect(declarations).to be_an(Array)
-      expect(declarations.all?(Lutaml::Model::Xml::TypeNamespace::Declaration)).to be true
+      expect(declarations.all?(Lutaml::Xml::TypeNamespace::Declaration)).to be true
     end
 
     it "sets declared_at to :root" do

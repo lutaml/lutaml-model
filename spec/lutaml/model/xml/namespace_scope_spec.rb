@@ -3,21 +3,21 @@ require "spec_helper"
 RSpec.describe "XML namespace_scope feature" do
   # Define namespace classes
   let(:vcard_namespace) do
-    Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+    Class.new(Lutaml::Xml::W3c::XmlNamespace) do
       uri "urn:ietf:params:xml:ns:vcard-4.0"
       prefix_default "vcard"
     end
   end
 
   let(:dcterms_namespace) do
-    Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+    Class.new(Lutaml::Xml::W3c::XmlNamespace) do
       uri "http://purl.org/dc/terms/"
       prefix_default "dcterms"
     end
   end
 
   let(:dc_elements_namespace) do
-    Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+    Class.new(Lutaml::Xml::W3c::XmlNamespace) do
       uri "http://purl.org/dc/elements/1.1/"
       prefix_default "dc"
     end

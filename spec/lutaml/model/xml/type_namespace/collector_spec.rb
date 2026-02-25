@@ -1,11 +1,11 @@
 # frozen_string_literal: true
 
 require "spec_helper"
-require "lutaml/model/xml/type_namespace/collector"
+require "lutaml/xml/type_namespace/collector"
 
-RSpec.describe Lutaml::Model::Xml::TypeNamespace::Collector do
+RSpec.describe Lutaml::Xml::TypeNamespace::Collector do
   let(:type_namespace_class) do
-    Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+    Class.new(Lutaml::Xml::W3c::XmlNamespace) do
       uri "http://purl.org/dc/elements/1.1/"
       prefix_default "dc"
     end
@@ -56,7 +56,7 @@ RSpec.describe Lutaml::Model::Xml::TypeNamespace::Collector do
     let(:attribute) { model_class.attributes[:title] }
 
     let(:rule) do
-      instance_double(Lutaml::Model::Xml::MappingRule,
+      instance_double(Lutaml::Xml::MappingRule,
                       namespace_set?: false)
     end
 
@@ -64,7 +64,7 @@ RSpec.describe Lutaml::Model::Xml::TypeNamespace::Collector do
       it "returns Reference" do
         ref = collector.collect_from_attribute(attribute, rule, :element)
 
-        expect(ref).to be_a(Lutaml::Model::Xml::TypeNamespace::Reference)
+        expect(ref).to be_a(Lutaml::Xml::TypeNamespace::Reference)
         expect(ref.attribute).to eq(attribute)
         expect(ref.context).to eq(:element)
       end
@@ -72,14 +72,14 @@ RSpec.describe Lutaml::Model::Xml::TypeNamespace::Collector do
       it "returns Reference with :attribute context" do
         ref = collector.collect_from_attribute(attribute, rule, :attribute)
 
-        expect(ref).to be_a(Lutaml::Model::Xml::TypeNamespace::Reference)
+        expect(ref).to be_a(Lutaml::Xml::TypeNamespace::Reference)
         expect(ref.context).to eq(:attribute)
       end
     end
 
     context "when rule has namespace set" do
       let(:rule_with_namespace) do
-        instance_double(Lutaml::Model::Xml::MappingRule,
+        instance_double(Lutaml::Xml::MappingRule,
                         namespace_set?: true)
       end
 
@@ -107,7 +107,7 @@ RSpec.describe Lutaml::Model::Xml::TypeNamespace::Collector do
                                                :element)
 
         # Reference is created, but namespace_class will return nil
-        expect(ref).to be_a(Lutaml::Model::Xml::TypeNamespace::Reference)
+        expect(ref).to be_a(Lutaml::Xml::TypeNamespace::Reference)
         expect(ref.namespace_class(collector.register)).to be_nil
       end
     end
@@ -119,7 +119,7 @@ RSpec.describe Lutaml::Model::Xml::TypeNamespace::Collector do
         references = collector.collect_from_mapping(mapping, model_class)
 
         expect(references).to be_an(Array)
-        expect(references.all?(Lutaml::Model::Xml::TypeNamespace::Reference)).to be true
+        expect(references.all?(Lutaml::Xml::TypeNamespace::Reference)).to be true
       end
 
       it "collects from element rules" do
@@ -161,11 +161,11 @@ RSpec.describe Lutaml::Model::Xml::TypeNamespace::Collector do
     let(:attribute_without_ns) { model_class.attributes[:author] }
 
     let(:rule1) do
-      instance_double(Lutaml::Model::Xml::MappingRule, namespace_set?: false)
+      instance_double(Lutaml::Xml::MappingRule, namespace_set?: false)
     end
 
     let(:rule2) do
-      instance_double(Lutaml::Model::Xml::MappingRule, namespace_set?: false)
+      instance_double(Lutaml::Xml::MappingRule, namespace_set?: false)
     end
 
     let(:references) do

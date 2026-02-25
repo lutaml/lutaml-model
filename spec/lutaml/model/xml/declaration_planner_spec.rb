@@ -1,25 +1,25 @@
 require "spec_helper"
-require "lutaml/model/xml/namespace_collector"
-require "lutaml/model/xml/declaration_planner"
+require "lutaml/xml/namespace_collector"
+require "lutaml/xml/declaration_planner"
 
-RSpec.describe Lutaml::Model::Xml::DeclarationPlanner do
+RSpec.describe Lutaml::Xml::DeclarationPlanner do
   # Define reusable namespace classes
   let(:vcard_namespace) do
-    Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+    Class.new(Lutaml::Xml::W3c::XmlNamespace) do
       uri "urn:ietf:params:xml:ns:vcard-4.0"
       prefix_default "vcard"
     end
   end
 
   let(:dc_namespace) do
-    Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+    Class.new(Lutaml::Xml::W3c::XmlNamespace) do
       uri "http://purl.org/dc/elements/1.1/"
       prefix_default "dc"
     end
   end
 
   let(:dcterms_namespace) do
-    Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+    Class.new(Lutaml::Xml::W3c::XmlNamespace) do
       uri "http://purl.org/dc/terms/"
       prefix_default "dcterms"
     end
@@ -27,7 +27,7 @@ RSpec.describe Lutaml::Model::Xml::DeclarationPlanner do
 
   let(:register) { :default }
   let(:planner) { described_class.new(register) }
-  let(:collector) { Lutaml::Model::Xml::NamespaceCollector.new(register) }
+  let(:collector) { Lutaml::Xml::NamespaceCollector.new(register) }
 
   describe "#initialize" do
     it "initializes with default register" do
@@ -96,7 +96,7 @@ RSpec.describe Lutaml::Model::Xml::DeclarationPlanner do
         # This prevents any sharing of namespace classes, attributes, or mappings
         def create_fresh_model_with_prefixed_namespace
           # Create fresh namespace
-          vcard_ns = Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+          vcard_ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
             uri "urn:ietf:params:xml:ns:vcard-4.0"
             prefix_default "vcard"
           end
@@ -166,7 +166,7 @@ RSpec.describe Lutaml::Model::Xml::DeclarationPlanner do
         # Helper method to create everything fresh for each test
         def create_fresh_simple_model
           # Create fresh namespace
-          vcard_ns = Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+          vcard_ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
             uri "urn:ietf:params:xml:ns:vcard-4.0"
             prefix_default "vcard"
           end
@@ -517,7 +517,7 @@ RSpec.describe Lutaml::Model::Xml::DeclarationPlanner do
       plan = planner.plan_collection(collection, mapping, needs)
 
       # W3C-compliant: DeclarationPlan is now an object, not a hash
-      expect(plan).to be_a(Lutaml::Model::Xml::DeclarationPlan)
+      expect(plan).to be_a(Lutaml::Xml::DeclarationPlan)
       expect(plan.namespaces).to be_a(Hash)
       expect(plan.children_plans).to be_a(Hash)
     end

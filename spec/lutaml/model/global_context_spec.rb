@@ -355,7 +355,7 @@ RSpec.describe Lutaml::Model::GlobalContext do
 
   describe "#xml_namespace_registry" do
     it "returns an Xml::NamespaceClassRegistry instance" do
-      expect(described_class.xml_namespace_registry).to be_a(Lutaml::Model::Xml::NamespaceClassRegistry)
+      expect(described_class.xml_namespace_registry).to be_a(Lutaml::Xml::NamespaceClassRegistry)
     end
 
     it "returns the same instance on subsequent calls" do
@@ -401,7 +401,7 @@ RSpec.describe Lutaml::Model::GlobalContext do
       expect(described_class.registry).to be_a(Lutaml::Model::ContextRegistry)
       expect(described_class.resolver).to be_a(Lutaml::Model::CachedTypeResolver)
       expect(described_class.imports).to be_a(Lutaml::Model::ImportRegistry)
-      expect(described_class.xml_namespace_registry).to be_a(Lutaml::Model::Xml::NamespaceClassRegistry)
+      expect(described_class.xml_namespace_registry).to be_a(Lutaml::Xml::NamespaceClassRegistry)
     end
 
     it "clears all registries with reset!" do

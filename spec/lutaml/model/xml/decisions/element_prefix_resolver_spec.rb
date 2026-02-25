@@ -1,35 +1,35 @@
 # frozen_string_literal: true
 
 require "spec_helper"
-require "lutaml/model/xml/decisions/element_prefix_resolver"
-require "lutaml/model/xml/decisions/decision_engine"
-require "lutaml/model/xml/decisions/decision_context"
+require "lutaml/xml/decisions/element_prefix_resolver"
+require "lutaml/xml/decisions/decision_engine"
+require "lutaml/xml/decisions/decision_context"
 
-RSpec.describe Lutaml::Model::Xml::Decisions::ElementPrefixResolver do
+RSpec.describe Lutaml::Xml::Decisions::ElementPrefixResolver do
   let(:namespace_class) do
-    Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+    Class.new(Lutaml::Xml::W3c::XmlNamespace) do
       uri "http://example.com/ns"
       prefix_default "ex"
     end
   end
 
   let(:mock_element) do
-    instance_double(Lutaml::Model::XmlDataModel::XmlElement,
+    instance_double(Lutaml::Xml::DataModel::XmlElement,
                     namespace_class: namespace_class)
   end
 
-  let(:mock_mapping) { instance_double(Lutaml::Model::Xml::Mapping) }
-  let(:mock_needs) { instance_double(Lutaml::Model::Xml::NamespaceNeeds) }
+  let(:mock_mapping) { instance_double(Lutaml::Xml::Mapping) }
+  let(:mock_needs) { instance_double(Lutaml::Xml::NamespaceNeeds) }
 
   describe "#initialize" do
     it "initializes with default engine" do
       resolver = described_class.new
 
-      expect(resolver.engine).to be_a(Lutaml::Model::Xml::Decisions::DecisionEngine)
+      expect(resolver.engine).to be_a(Lutaml::Xml::Decisions::DecisionEngine)
     end
 
     it "initializes with custom engine" do
-      custom_engine = Lutaml::Model::Xml::Decisions::DecisionEngine.new([])
+      custom_engine = Lutaml::Xml::Decisions::DecisionEngine.new([])
       resolver = described_class.new(custom_engine)
 
       expect(resolver.engine).to eq(custom_engine)
@@ -39,13 +39,13 @@ RSpec.describe Lutaml::Model::Xml::Decisions::ElementPrefixResolver do
   describe "#resolve" do
     it "returns prefix for prefix format decision" do
       # Create a mock engine that returns prefix decision
-      prefix_decision = Lutaml::Model::Xml::Decisions::Decision.prefix(
+      prefix_decision = Lutaml::Xml::Decisions::Decision.prefix(
         prefix: "test",
         namespace_class: namespace_class,
         reason: "test",
       )
 
-      mock_engine = instance_double(Lutaml::Model::Xml::Decisions::DecisionEngine)
+      mock_engine = instance_double(Lutaml::Xml::Decisions::DecisionEngine)
       allow(mock_engine).to receive(:execute).and_return(prefix_decision)
 
       resolver = described_class.new(mock_engine)
@@ -62,12 +62,12 @@ RSpec.describe Lutaml::Model::Xml::Decisions::ElementPrefixResolver do
 
     it "returns nil for default format decision" do
       # Create a mock engine that returns default decision
-      default_decision = Lutaml::Model::Xml::Decisions::Decision.default(
+      default_decision = Lutaml::Xml::Decisions::Decision.default(
         namespace_class: namespace_class,
         reason: "test",
       )
 
-      mock_engine = instance_double(Lutaml::Model::Xml::Decisions::DecisionEngine)
+      mock_engine = instance_double(Lutaml::Xml::Decisions::DecisionEngine)
       allow(mock_engine).to receive(:execute).and_return(default_decision)
 
       resolver = described_class.new(mock_engine)
@@ -86,10 +86,10 @@ RSpec.describe Lutaml::Model::Xml::Decisions::ElementPrefixResolver do
       context_captured = nil
 
       # Capture the context passed to the engine
-      mock_engine = instance_double(Lutaml::Model::Xml::Decisions::DecisionEngine)
+      mock_engine = instance_double(Lutaml::Xml::Decisions::DecisionEngine)
       allow(mock_engine).to receive(:execute) do |context|
         context_captured = context
-        Lutaml::Model::Xml::Decisions::Decision.default(
+        Lutaml::Xml::Decisions::Decision.default(
           namespace_class: namespace_class,
           reason: "test",
         )
@@ -121,13 +121,13 @@ RSpec.describe Lutaml::Model::Xml::Decisions::ElementPrefixResolver do
 
   describe "#resolve_with_decision" do
     it "returns full Decision object" do
-      expected_decision = Lutaml::Model::Xml::Decisions::Decision.prefix(
+      expected_decision = Lutaml::Xml::Decisions::Decision.prefix(
         prefix: "test",
         namespace_class: namespace_class,
         reason: "test reason",
       )
 
-      mock_engine = instance_double(Lutaml::Model::Xml::Decisions::DecisionEngine)
+      mock_engine = instance_double(Lutaml::Xml::Decisions::DecisionEngine)
       allow(mock_engine).to receive(:execute).and_return(expected_decision)
 
       resolver = described_class.new(mock_engine)
@@ -145,13 +145,13 @@ RSpec.describe Lutaml::Model::Xml::Decisions::ElementPrefixResolver do
     end
 
     it "returns decision with format information" do
-      prefix_decision = Lutaml::Model::Xml::Decisions::Decision.prefix(
+      prefix_decision = Lutaml::Xml::Decisions::Decision.prefix(
         prefix: "ex",
         namespace_class: namespace_class,
         reason: "explicit option",
       )
 
-      mock_engine = instance_double(Lutaml::Model::Xml::Decisions::DecisionEngine)
+      mock_engine = instance_double(Lutaml::Xml::Decisions::DecisionEngine)
       allow(mock_engine).to receive(:execute).and_return(prefix_decision)
 
       resolver = described_class.new(mock_engine)

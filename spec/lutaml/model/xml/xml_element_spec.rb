@@ -88,7 +88,7 @@ RSpec.describe "XmlElement" do
   end
 
   def create_element(name, attributes: {}, children: [], text: "")
-    Lutaml::Model::Xml::XmlElement.new(
+    Lutaml::Xml::XmlElement.new(
       name,
       attributes,
       children,

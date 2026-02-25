@@ -6,14 +6,14 @@ RSpec.describe "Type Namespace Examples" do
   describe "Contact with multiple namespaces using Type namespaces" do
     # Define namespace classes
     let(:contact_namespace) do
-      Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+      Class.new(Lutaml::Xml::W3c::XmlNamespace) do
         uri "https://example.com/schemas/contact/v1"
         prefix_default "ct"
       end
     end
 
     let(:name_attribute_namespace) do
-      Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+      Class.new(Lutaml::Xml::W3c::XmlNamespace) do
         uri "https://example.com/schemas/name-attributes/v1"
         prefix_default "name"
       end
@@ -203,28 +203,28 @@ RSpec.describe "Type Namespace Examples" do
   describe "OOXML Core Properties with 4 namespaces using Type namespaces" do
     # Define namespace classes
     let(:cp_namespace) do
-      Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+      Class.new(Lutaml::Xml::W3c::XmlNamespace) do
         uri "http://schemas.openxmlformats.org/package/2006/metadata/core-properties"
         prefix_default "cp"
       end
     end
 
     let(:dc_namespace) do
-      Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+      Class.new(Lutaml::Xml::W3c::XmlNamespace) do
         uri "http://purl.org/dc/elements/1.1/"
         prefix_default "dc"
       end
     end
 
     let(:dcterms_namespace) do
-      Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+      Class.new(Lutaml::Xml::W3c::XmlNamespace) do
         uri "http://purl.org/dc/terms/"
         prefix_default "dcterms"
       end
     end
 
     let(:xsi_namespace) do
-      Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+      Class.new(Lutaml::Xml::W3c::XmlNamespace) do
         uri "http://www.w3.org/2001/XMLSchema-instance"
         prefix_default "xsi"
       end
@@ -469,7 +469,7 @@ RSpec.describe "Type Namespace Examples" do
 
   describe "Integration with existing namespace system" do
     let(:custom_namespace) do
-      Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+      Class.new(Lutaml::Xml::W3c::XmlNamespace) do
         uri "https://example.com/custom"
         prefix_default "custom"
       end

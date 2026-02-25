@@ -139,7 +139,7 @@ module TransformationSpecModels
   end
 
   module TestNs
-    class MyNamespace < Lutaml::Model::Xml::Namespace
+    class MyNamespace < Lutaml::Xml::Namespace
       uri "http://example.com/test"
       prefix_default "test"
     end
@@ -156,12 +156,12 @@ module TransformationSpecModels
   end
 
   module NsTest
-    class Ns1 < Lutaml::Model::Xml::Namespace
+    class Ns1 < Lutaml::Xml::Namespace
       uri "http://example.com/ns1"
       prefix_default "ns1"
     end
 
-    class Ns2 < Lutaml::Model::Xml::Namespace
+    class Ns2 < Lutaml::Xml::Namespace
       uri "http://example.com/ns2"
       prefix_default "ns2"
     end
@@ -228,7 +228,7 @@ module TransformationSpecModels
   end
 end
 
-RSpec.describe Lutaml::Model::Xml::Transformation do
+RSpec.describe Lutaml::Xml::Transformation do
   describe "rule compilation" do
     it "compiles element mappings into rules" do
       transformation = TransformationSpecModels::SimpleModel.transformation_for(:xml)
@@ -274,11 +274,11 @@ RSpec.describe Lutaml::Model::Xml::Transformation do
 
       xml_element = transformation.transform(contact)
 
-      expect(xml_element).to be_a(Lutaml::Model::XmlDataModel::XmlElement)
+      expect(xml_element).to be_a(Lutaml::Xml::DataModel::XmlElement)
       expect(xml_element.name).to eq("Contact")
       expect(xml_element.children.length).to eq(2)
 
-      name_child = xml_element.children.find { |c| c.is_a?(Lutaml::Model::XmlDataModel::XmlElement) && c.name == "name" }
+      name_child = xml_element.children.find { |c| c.is_a?(Lutaml::Xml::DataModel::XmlElement) && c.name == "name" }
       expect(name_child.text_content).to eq("John Doe")
     end
 
@@ -321,7 +321,7 @@ RSpec.describe Lutaml::Model::Xml::Transformation do
       expect(xml_element.name).to eq("Person")
       expect(xml_element.children.length).to eq(2)
 
-      address_child = xml_element.children.find { |c| c.is_a?(Lutaml::Model::XmlDataModel::XmlElement) && c.name == "Address" }
+      address_child = xml_element.children.find { |c| c.is_a?(Lutaml::Xml::DataModel::XmlElement) && c.name == "Address" }
       expect(address_child).not_to be_nil
       expect(address_child.children.length).to eq(2)
 

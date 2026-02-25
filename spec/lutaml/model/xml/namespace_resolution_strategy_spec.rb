@@ -2,7 +2,7 @@
 
 require "spec_helper"
 
-RSpec.describe Lutaml::Model::Xml::NamespaceResolutionStrategy do
+RSpec.describe Lutaml::Xml::NamespaceResolutionStrategy do
   describe ".resolve" do
     it "returns namespace info hash" do
       strategy = described_class.new(
@@ -23,7 +23,7 @@ RSpec.describe Lutaml::Model::Xml::NamespaceResolutionStrategy do
   end
 end
 
-RSpec.describe Lutaml::Model::Xml::BlankNamespaceStrategy do
+RSpec.describe Lutaml::Xml::BlankNamespaceStrategy do
   describe "#resolve" do
     it "resolves to blank namespace" do
       strategy = described_class.new
@@ -49,9 +49,9 @@ RSpec.describe Lutaml::Model::Xml::BlankNamespaceStrategy do
   end
 end
 
-RSpec.describe Lutaml::Model::Xml::InheritedNamespaceStrategy do
+RSpec.describe Lutaml::Xml::InheritedNamespaceStrategy do
   let(:test_namespace) do
-    Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+    Class.new(Lutaml::Xml::W3c::XmlNamespace) do
       def self.uri
         "http://example.com/test"
       end
@@ -68,12 +68,12 @@ RSpec.describe Lutaml::Model::Xml::InheritedNamespaceStrategy do
 
   describe "#resolve with default format" do
     it "inherits default namespace from parent" do
-      data = Lutaml::Model::Xml::NamespaceDeclarationData.new(
+      data = Lutaml::Xml::NamespaceDeclarationData.new(
         namespace_class: test_namespace,
         format: :default,
         declared_at: :here,
       )
-      parent_decl = Lutaml::Model::Xml::NamespaceDeclaration.new(data)
+      parent_decl = Lutaml::Xml::NamespaceDeclaration.new(data)
 
       strategy = described_class.new(parent_decl)
       result = strategy.resolve
@@ -86,12 +86,12 @@ RSpec.describe Lutaml::Model::Xml::InheritedNamespaceStrategy do
 
   describe "#resolve with prefix format" do
     it "inherits prefixed namespace from parent" do
-      data = Lutaml::Model::Xml::NamespaceDeclarationData.new(
+      data = Lutaml::Xml::NamespaceDeclarationData.new(
         namespace_class: test_namespace,
         format: :prefix,
         declared_at: :here,
       )
-      parent_decl = Lutaml::Model::Xml::NamespaceDeclaration.new(data)
+      parent_decl = Lutaml::Xml::NamespaceDeclaration.new(data)
 
       strategy = described_class.new(parent_decl)
       result = strategy.resolve
@@ -103,9 +103,9 @@ RSpec.describe Lutaml::Model::Xml::InheritedNamespaceStrategy do
   end
 end
 
-RSpec.describe Lutaml::Model::Xml::TypeNamespaceStrategy do
+RSpec.describe Lutaml::Xml::TypeNamespaceStrategy do
   let(:type_namespace) do
-    Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+    Class.new(Lutaml::Xml::W3c::XmlNamespace) do
       def self.uri
         "http://example.com/custom"
       end
@@ -129,12 +129,12 @@ RSpec.describe Lutaml::Model::Xml::TypeNamespaceStrategy do
 
   describe "#resolve with default format" do
     it "uses type's namespace in default format" do
-      data = Lutaml::Model::Xml::NamespaceDeclarationData.new(
+      data = Lutaml::Xml::NamespaceDeclarationData.new(
         namespace_class: type_namespace,
         format: :default,
         declared_at: :local_on_use,
       )
-      type_ns_decl = Lutaml::Model::Xml::NamespaceDeclaration.new(data)
+      type_ns_decl = Lutaml::Xml::NamespaceDeclaration.new(data)
 
       strategy = described_class.new(type_ns_decl, custom_type)
       result = strategy.resolve
@@ -147,12 +147,12 @@ RSpec.describe Lutaml::Model::Xml::TypeNamespaceStrategy do
 
   describe "#resolve with prefix format" do
     it "uses type's namespace with prefix" do
-      data = Lutaml::Model::Xml::NamespaceDeclarationData.new(
+      data = Lutaml::Xml::NamespaceDeclarationData.new(
         namespace_class: type_namespace,
         format: :prefix,
         declared_at: :local_on_use,
       )
-      type_ns_decl = Lutaml::Model::Xml::NamespaceDeclaration.new(data)
+      type_ns_decl = Lutaml::Xml::NamespaceDeclaration.new(data)
 
       strategy = described_class.new(type_ns_decl, custom_type)
       result = strategy.resolve
@@ -164,9 +164,9 @@ RSpec.describe Lutaml::Model::Xml::TypeNamespaceStrategy do
   end
 end
 
-RSpec.describe Lutaml::Model::Xml::ExplicitNamespaceStrategy do
+RSpec.describe Lutaml::Xml::ExplicitNamespaceStrategy do
   let(:test_namespace) do
-    Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+    Class.new(Lutaml::Xml::W3c::XmlNamespace) do
       def self.uri
         "http://example.com/explicit"
       end
@@ -182,12 +182,12 @@ RSpec.describe Lutaml::Model::Xml::ExplicitNamespaceStrategy do
   end
 
   let(:ns_decl) do
-    data = Lutaml::Model::Xml::NamespaceDeclarationData.new(
+    data = Lutaml::Xml::NamespaceDeclarationData.new(
       namespace_class: test_namespace,
       format: :prefix,
       declared_at: :here,
     )
-    Lutaml::Model::Xml::NamespaceDeclaration.new(data)
+    Lutaml::Xml::NamespaceDeclaration.new(data)
   end
 
   describe "#resolve with unqualified element" do
@@ -246,12 +246,12 @@ RSpec.describe Lutaml::Model::Xml::ExplicitNamespaceStrategy do
 
   describe "#resolve with default namespace declaration" do
     let(:default_ns_decl) do
-      data = Lutaml::Model::Xml::NamespaceDeclarationData.new(
+      data = Lutaml::Xml::NamespaceDeclarationData.new(
         namespace_class: test_namespace,
         format: :default,
         declared_at: :here,
       )
-      Lutaml::Model::Xml::NamespaceDeclaration.new(data)
+      Lutaml::Xml::NamespaceDeclaration.new(data)
     end
 
     it "follows declaration format when no explicit directive" do

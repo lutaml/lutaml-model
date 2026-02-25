@@ -79,7 +79,7 @@ module AddressPersonSpec
 
     def yaml_from_last_name(model, doc)
       # doc is now a KeyValueElement - use add_child to add custom elements
-      doc.add_child(Lutaml::Model::KeyValueDataModel::KeyValueElement.new(
+      doc.add_child(Lutaml::KeyValue::DataModel::Element.new(
                       "lastName", model.last_name
                     ))
     end

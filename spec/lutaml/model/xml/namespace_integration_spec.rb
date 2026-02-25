@@ -5,7 +5,7 @@ require "spec_helper"
 RSpec.describe "XML Namespace Integration" do
   # Define test namespaces
   let(:contact_namespace) do
-    Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+    Class.new(Lutaml::Xml::W3c::XmlNamespace) do
       uri "https://example.com/schemas/contact/v1"
       schema_location "https://example.com/schemas/contact/v1/contact.xsd"
       prefix_default "contact"
@@ -16,7 +16,7 @@ RSpec.describe "XML Namespace Integration" do
   end
 
   let(:address_namespace) do
-    Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+    Class.new(Lutaml::Xml::W3c::XmlNamespace) do
       uri "https://example.com/schemas/address/v1"
       schema_location "https://example.com/schemas/address/v1/address.xsd"
       prefix_default "addr"
@@ -121,7 +121,7 @@ RSpec.describe "XML Namespace Integration" do
   describe "validation of namespace parameters" do
     it "validates correctly with proper parameters" do
       # This should work without errors
-      test_ns = Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+      test_ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
         uri "https://example.com"
         prefix_default "prefix"
       end

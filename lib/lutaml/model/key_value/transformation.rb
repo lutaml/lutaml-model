@@ -1,13 +1,10 @@
 # frozen_string_literal: true
 
-require_relative "../transformation"
-require_relative "../compiled_rule"
-require_relative "../key_value_data_model"
+require_relative "../../key_value/data_model"
 
 module Lutaml
-  module Model
-    module KeyValue
-      # KeyValue-specific transformation implementation.
+  module KeyValue
+    # KeyValue-specific transformation implementation.
       #
       # Transforms model instances into KeyValueElement trees without
       # serialization concerns. This provides the same architectural
@@ -91,7 +88,6 @@ module Lutaml
             attr_name = first_name&.to_sym || :__custom_method__
 
             # Create a dummy attribute type for custom methods
-            nil
             attr_type = nil
             child_transformation = nil
             collection_info = nil
@@ -199,7 +195,7 @@ module Lutaml
                               attr_name.to_s
                             end
 
-          CompiledRule.new(
+          Lutaml::Model::CompiledRule.new(
             attribute_name: attr_name,
             serialized_name: serialized_name,
             attribute_type: attr_type,
@@ -281,11 +277,11 @@ module Lutaml
         #
         # @param model_instance [Object] The model instance to transform
         # @param options [Hash] Transformation options (supports :only, :except for filtering)
-        # @return [KeyValueDataModel::KeyValueElement] The root element
+        # @return [Lutaml::KeyValue::DataModel::Element] The root element
         def transform(model_instance, options = {})
           # For key-value formats, we typically don't have a named root
           # Instead, we create an anonymous root that holds all attributes
-          root = KeyValueDataModel::KeyValueElement.new("__root__")
+          root = Lutaml::KeyValue::DataModel::Element.new("__root__")
 
           # Apply each compiled rule (with filtering support)
           compiled_rules.each do |rule|
@@ -311,7 +307,7 @@ module Lutaml
 
         # Apply a single transformation rule
         #
-        # @param parent [KeyValueDataModel::KeyValueElement] Parent element
+        # @param parent [Lutaml::KeyValue::DataModel::Element] Parent element
         # @param rule [CompiledRule] The rule to apply
         # @param model_instance [Object] The model instance
         # @param options [Hash] Transformation options
@@ -529,7 +525,7 @@ module Lutaml
 
         # Create a collection element
         #
-        # @param parent [KeyValueDataModel::KeyValueElement] Parent element
+        # @param parent [Lutaml::KeyValue::DataModel::Element] Parent element
         # @param rule [CompiledRule] The rule
         # @param collection [Array] The collection value
         # @param options [Hash] Options
@@ -542,21 +538,21 @@ converted_from_empty_to_nil: false, converted_from_nil_to_empty: false)
             render_nil = rule.option(:render_nil)
             if render_nil == :as_empty || converted_from_nil_to_empty
               # Render as empty collection
-              element = KeyValueDataModel::KeyValueElement.new(
+              element = Lutaml::KeyValue::DataModel::Element.new(
                 rule.serialized_name, []
               )
               parent.add_child(element)
             elsif render_nil == :as_blank
               # Render as blank collection (single empty string element)
               # This is used for XML serialization to create <items/>
-              element = KeyValueDataModel::KeyValueElement.new(
+              element = Lutaml::KeyValue::DataModel::Element.new(
                 rule.serialized_name, [""]
               )
               parent.add_child(element)
             elsif should_render_nil?(rule) || converted_from_empty_to_nil
               # Render nil collection as nil value
               # converted_from_empty_to_nil is true when render_empty: :as_nil was applied
-              element = KeyValueDataModel::KeyValueElement.new(
+              element = Lutaml::KeyValue::DataModel::Element.new(
                 rule.serialized_name, nil
               )
               parent.add_child(element)
@@ -635,7 +631,7 @@ converted_from_empty_to_nil: false, converted_from_nil_to_empty: false)
                   # Get the child transformation for the collection item type
                   if item_type.is_a?(Class) && item_type < Lutaml::Model::Serialize
                     # Create a temporary parent KeyValueElement to hold the collection
-                    temp_parent = KeyValueDataModel::KeyValueElement.new("__temp__")
+                    temp_parent = Lutaml::KeyValue::DataModel::Element.new("__temp__")
 
                     # Convert to array
                     coll_items = Array(attr_value)
@@ -779,7 +775,7 @@ converted_from_empty_to_nil: false, converted_from_nil_to_empty: false)
 
         # Create a keyed collection element (map_key feature)
         #
-        # @param parent [KeyValueDataModel::KeyValueElement] Parent element
+        # @param parent [Lutaml::KeyValue::DataModel::Element] Parent element
         # @param rule [CompiledRule] The rule
         # @param items [Array] The collection items
         # @param key_attribute [Symbol] The attribute to use as hash key
@@ -961,7 +957,7 @@ child_mappings, options)
           end
 
           # Create element with hash value
-          element = KeyValueDataModel::KeyValueElement.new(
+          element = Lutaml::KeyValue::DataModel::Element.new(
             rule.serialized_name, keyed_hash
           )
 
@@ -975,13 +971,13 @@ child_mappings, options)
 
         # Create an array collection element (default)
         #
-        # @param parent [KeyValueDataModel::KeyValueElement] Parent element
+        # @param parent [Lutaml::KeyValue::DataModel::Element] Parent element
         # @param rule [CompiledRule] The rule
         # @param items [Array] The collection items
         # @param options [Hash] Options
         def create_array_collection_element(parent, rule, items, options)
           # Create an element for the collection
-          coll_element = KeyValueDataModel::KeyValueElement.new(rule.serialized_name)
+          coll_element = Lutaml::KeyValue::DataModel::Element.new(rule.serialized_name)
 
           if items.empty?
             # For empty collections, set value to empty array explicitly
@@ -1074,7 +1070,7 @@ child_mappings, options)
 
         # Create a value element
         #
-        # @param parent [KeyValueDataModel::KeyValueElement] Parent element
+        # @param parent [Lutaml::KeyValue::DataModel::Element] Parent element
         # @param rule [CompiledRule] The rule
         # @param value [Object] The value
         # @param options [Hash] Options
@@ -1090,13 +1086,13 @@ child_mappings, options)
               render_nil = rule.option(:render_nil)
               if render_nil == :as_empty
                 # Render as empty collection
-                element = KeyValueDataModel::KeyValueElement.new(
+                element = Lutaml::KeyValue::DataModel::Element.new(
                   rule.serialized_name, []
                 )
                 parent.add_child(element)
               elsif should_render_nil?(rule)
                 # Render as nil
-                element = KeyValueDataModel::KeyValueElement.new(
+                element = Lutaml::KeyValue::DataModel::Element.new(
                   rule.serialized_name, nil
                 )
                 parent.add_child(element)
@@ -1108,13 +1104,13 @@ child_mappings, options)
 
               if to_omitted == :nil
                 # Render as nil
-                element = KeyValueDataModel::KeyValueElement.new(
+                element = Lutaml::KeyValue::DataModel::Element.new(
                   rule.serialized_name, nil
                 )
                 parent.add_child(element)
               elsif to_omitted == :empty
                 # Render as empty string
-                element = KeyValueDataModel::KeyValueElement.new(
+                element = Lutaml::KeyValue::DataModel::Element.new(
                   rule.serialized_name, ""
                 )
                 parent.add_child(element)
@@ -1123,7 +1119,7 @@ child_mappings, options)
             # If child_value is nil but original value was not nil or uninitialized,
             # it means the nested model serialized to empty - skip it
           else
-            element = KeyValueDataModel::KeyValueElement.new(
+            element = Lutaml::KeyValue::DataModel::Element.new(
               rule.serialized_name, child_value
             )
             parent.add_child(element)
@@ -1245,7 +1241,7 @@ child_mappings, options)
         # Raw mappings parse the stored content (JSON/YAML/TOML string) and merge it
         # directly into the parent element, rather than creating a child element.
         #
-        # @param parent [KeyValueDataModel::KeyValueElement] Parent element
+        # @param parent [Lutaml::KeyValue::DataModel::Element] Parent element
         # @param value [String] The raw content (JSON/YAML/TOML string)
         # @param options [Hash] Options
         def handle_raw_mapping(parent, value, options)
@@ -1260,13 +1256,13 @@ child_mappings, options)
           # For each key-value pair in the parsed content, add as a child element
           if parsed_content.is_a?(::Hash)
             parsed_content.each do |key, val|
-              element = KeyValueDataModel::KeyValueElement.new(key.to_s, val)
+              element = Lutaml::KeyValue::DataModel::Element.new(key.to_s, val)
               parent.add_child(element)
             end
           elsif parsed_content.is_a?(::Array)
             # If the parsed content is an array, we can't merge it directly
             # This shouldn't happen with valid map_all usage, but handle it gracefully
-            element = KeyValueDataModel::KeyValueElement.new("__root__",
+            element = Lutaml::KeyValue::DataModel::Element.new("__root__",
                                                              parsed_content)
             parent.add_child(element)
           end
@@ -1315,4 +1311,3 @@ child_mappings, options)
       end
     end
   end
-end

@@ -7,14 +7,14 @@ require "lutaml/model"
 # Tests how child classes can modify or remove parent class namespaces
 RSpec.describe "Namespace Inheritance and Override" do
   let(:parent_namespace) do
-    Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+    Class.new(Lutaml::Xml::W3c::XmlNamespace) do
       uri "http://example.com/parent"
       prefix_default "parent"
     end
   end
 
   let(:child_namespace) do
-    Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+    Class.new(Lutaml::Xml::W3c::XmlNamespace) do
       uri "http://example.com/child"
       prefix_default "child"
     end

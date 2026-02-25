@@ -2,8 +2,8 @@
 
 require "spec_helper"
 
-RSpec.describe Lutaml::Model::XmlDataModel do
-  describe Lutaml::Model::XmlDataModel::XmlElement do
+RSpec.describe Lutaml::Xml::DataModel do
+  describe Lutaml::Xml::DataModel::XmlElement do
     let(:element_name) { "test-element" }
     let(:namespace_class) do
       Class.new do
@@ -70,7 +70,7 @@ RSpec.describe Lutaml::Model::XmlDataModel do
     describe "#add_attribute" do
       it "adds an attribute" do
         element = described_class.new("element")
-        attribute = Lutaml::Model::XmlDataModel::XmlAttribute.new(
+        attribute = Lutaml::Xml::DataModel::XmlAttribute.new(
           "attr",
           "value",
         )
@@ -83,8 +83,8 @@ RSpec.describe Lutaml::Model::XmlDataModel do
 
       it "supports chaining" do
         element = described_class.new("element")
-        attr1 = Lutaml::Model::XmlDataModel::XmlAttribute.new("a1", "v1")
-        attr2 = Lutaml::Model::XmlDataModel::XmlAttribute.new("a2", "v2")
+        attr1 = Lutaml::Xml::DataModel::XmlAttribute.new("a1", "v1")
+        attr2 = Lutaml::Xml::DataModel::XmlAttribute.new("a2", "v2")
 
         element.add_attribute(attr1).add_attribute(attr2)
 
@@ -116,7 +116,7 @@ RSpec.describe Lutaml::Model::XmlDataModel do
 
       it "returns true for element with attributes" do
         element = described_class.new("element")
-        attribute = Lutaml::Model::XmlDataModel::XmlAttribute.new(
+        attribute = Lutaml::Xml::DataModel::XmlAttribute.new(
           "attr",
           "value",
         )
@@ -173,7 +173,7 @@ RSpec.describe Lutaml::Model::XmlDataModel do
       it "shows attribute count" do
         element = described_class.new("element")
         element.add_attribute(
-          Lutaml::Model::XmlDataModel::XmlAttribute.new("a", "v"),
+          Lutaml::Xml::DataModel::XmlAttribute.new("a", "v"),
         )
 
         expect(element.to_s).to include("attrs: 1")
@@ -204,7 +204,7 @@ RSpec.describe Lutaml::Model::XmlDataModel do
     end
   end
 
-  describe Lutaml::Model::XmlDataModel::XmlAttribute do
+  describe Lutaml::Xml::DataModel::XmlAttribute do
     let(:attr_name) { "test-attr" }
     let(:attr_value) { "test-value" }
     let(:namespace_class) do

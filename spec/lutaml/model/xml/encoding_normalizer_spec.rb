@@ -2,7 +2,7 @@
 
 require "spec_helper"
 
-RSpec.describe Lutaml::Model::Xml::EncodingNormalizer do
+RSpec.describe Lutaml::Xml::EncodingNormalizer do
   describe ".normalize_to_utf8" do
     context "with nil or empty input" do
       it "returns nil for nil input" do

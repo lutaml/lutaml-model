@@ -1,28 +1,28 @@
 # frozen_string_literal: true
 
 require "spec_helper"
-require "lutaml/model/xml/decisions/decision_engine"
-require "lutaml/model/xml/decisions/decision_context"
-require "lutaml/model/xml/decisions/decision_rule"
+require "lutaml/xml/decisions/decision_engine"
+require "lutaml/xml/decisions/decision_context"
+require "lutaml/xml/decisions/decision_rule"
 
-RSpec.describe Lutaml::Model::Xml::Decisions::DecisionEngine do
+RSpec.describe Lutaml::Xml::Decisions::DecisionEngine do
   let(:namespace_class) do
-    Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+    Class.new(Lutaml::Xml::W3c::XmlNamespace) do
       uri "http://example.com/ns"
       prefix_default "ex"
     end
   end
 
   let(:mock_element) do
-    instance_double(Lutaml::Model::XmlDataModel::XmlElement,
+    instance_double(Lutaml::Xml::DataModel::XmlElement,
                     namespace_class: namespace_class)
   end
 
-  let(:mock_mapping) { instance_double(Lutaml::Model::Xml::Mapping) }
-  let(:mock_needs) { instance_double(Lutaml::Model::Xml::NamespaceNeeds) }
+  let(:mock_mapping) { instance_double(Lutaml::Xml::Mapping) }
+  let(:mock_needs) { instance_double(Lutaml::Xml::NamespaceNeeds) }
 
   let(:context) do
-    Lutaml::Model::Xml::Decisions::DecisionContext.new(
+    Lutaml::Xml::Decisions::DecisionContext.new(
       element: mock_element,
       mapping: mock_mapping,
       needs: mock_needs,
@@ -32,7 +32,7 @@ RSpec.describe Lutaml::Model::Xml::Decisions::DecisionEngine do
 
   describe "#initialize" do
     it "sorts rules by priority" do
-      low_priority_rule = Class.new(Lutaml::Model::Xml::Decisions::DecisionRule) do
+      low_priority_rule = Class.new(Lutaml::Xml::Decisions::DecisionRule) do
         def priority
           10
         end
@@ -42,13 +42,13 @@ RSpec.describe Lutaml::Model::Xml::Decisions::DecisionEngine do
         end
 
         def decide(_context)
-          Lutaml::Model::Xml::Decisions::Decision.default(
+          Lutaml::Xml::Decisions::Decision.default(
             namespace_class: Object, reason: "low",
           )
         end
       end.new
 
-      high_priority_rule = Class.new(Lutaml::Model::Xml::Decisions::DecisionRule) do
+      high_priority_rule = Class.new(Lutaml::Xml::Decisions::DecisionRule) do
         def priority
           1
         end
@@ -58,7 +58,7 @@ RSpec.describe Lutaml::Model::Xml::Decisions::DecisionEngine do
         end
 
         def decide(_context)
-          Lutaml::Model::Xml::Decisions::Decision.default(
+          Lutaml::Xml::Decisions::Decision.default(
             namespace_class: Object, reason: "high",
           )
         end
@@ -74,7 +74,7 @@ RSpec.describe Lutaml::Model::Xml::Decisions::DecisionEngine do
 
   describe "#execute" do
     it "returns first applicable decision" do
-      first_rule = Class.new(Lutaml::Model::Xml::Decisions::DecisionRule) do
+      first_rule = Class.new(Lutaml::Xml::Decisions::DecisionRule) do
         def priority
           1
         end
@@ -84,7 +84,7 @@ RSpec.describe Lutaml::Model::Xml::Decisions::DecisionEngine do
         end
 
         def decide(_context)
-          Lutaml::Model::Xml::Decisions::Decision.prefix(
+          Lutaml::Xml::Decisions::Decision.prefix(
             prefix: "first",
             namespace_class: Object,
             reason: "first rule",
@@ -92,7 +92,7 @@ RSpec.describe Lutaml::Model::Xml::Decisions::DecisionEngine do
         end
       end.new
 
-      second_rule = Class.new(Lutaml::Model::Xml::Decisions::DecisionRule) do
+      second_rule = Class.new(Lutaml::Xml::Decisions::DecisionRule) do
         def priority
           2
         end
@@ -102,7 +102,7 @@ RSpec.describe Lutaml::Model::Xml::Decisions::DecisionEngine do
         end
 
         def decide(_context)
-          Lutaml::Model::Xml::Decisions::Decision.prefix(
+          Lutaml::Xml::Decisions::Decision.prefix(
             prefix: "second",
             namespace_class: Object,
             reason: "second rule",
@@ -118,7 +118,7 @@ RSpec.describe Lutaml::Model::Xml::Decisions::DecisionEngine do
     end
 
     it "skips non-applicable rules" do
-      non_applicable_rule = Class.new(Lutaml::Model::Xml::Decisions::DecisionRule) do
+      non_applicable_rule = Class.new(Lutaml::Xml::Decisions::DecisionRule) do
         def priority
           1
         end
@@ -132,7 +132,7 @@ RSpec.describe Lutaml::Model::Xml::Decisions::DecisionEngine do
         end
       end.new
 
-      applicable_rule = Class.new(Lutaml::Model::Xml::Decisions::DecisionRule) do
+      applicable_rule = Class.new(Lutaml::Xml::Decisions::DecisionRule) do
         def priority
           2
         end
@@ -142,7 +142,7 @@ RSpec.describe Lutaml::Model::Xml::Decisions::DecisionEngine do
         end
 
         def decide(_context)
-          Lutaml::Model::Xml::Decisions::Decision.prefix(
+          Lutaml::Xml::Decisions::Decision.prefix(
             prefix: "applicable",
             namespace_class: Object,
             reason: "applicable rule",
@@ -157,7 +157,7 @@ RSpec.describe Lutaml::Model::Xml::Decisions::DecisionEngine do
     end
 
     it "raises RuntimeError if no rule applies" do
-      never_applies_rule = Class.new(Lutaml::Model::Xml::Decisions::DecisionRule) do
+      never_applies_rule = Class.new(Lutaml::Xml::Decisions::DecisionRule) do
         def priority
           1
         end
@@ -200,7 +200,7 @@ RSpec.describe Lutaml::Model::Xml::Decisions::DecisionEngine do
     it "returns new engine with rule added" do
       original_engine = described_class.new([])
 
-      new_rule = Class.new(Lutaml::Model::Xml::Decisions::DecisionRule) do
+      new_rule = Class.new(Lutaml::Xml::Decisions::DecisionRule) do
         def priority
           5
         end
@@ -210,7 +210,7 @@ RSpec.describe Lutaml::Model::Xml::Decisions::DecisionEngine do
         end
 
         def decide(_context)
-          Lutaml::Model::Xml::Decisions::Decision.default(
+          Lutaml::Xml::Decisions::Decision.default(
             namespace_class: Object,
             reason: "new rule",
           )

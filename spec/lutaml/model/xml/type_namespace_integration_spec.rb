@@ -4,7 +4,7 @@ require "lutaml/model"
 RSpec.describe "Type-level namespace integration" do
   # Define test namespaces mirroring Core Properties structure
   let(:cp_namespace) do
-    Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+    Class.new(Lutaml::Xml::W3c::XmlNamespace) do
       uri "http://schemas.openxmlformats.org/package/2006/metadata/core-properties"
       prefix_default "cp"
       element_form_default :qualified
@@ -12,7 +12,7 @@ RSpec.describe "Type-level namespace integration" do
   end
 
   let(:dc_namespace) do
-    Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+    Class.new(Lutaml::Xml::W3c::XmlNamespace) do
       uri "http://purl.org/dc/elements/1.1/"
       prefix_default "dc"
       element_form_default :qualified
@@ -20,7 +20,7 @@ RSpec.describe "Type-level namespace integration" do
   end
 
   let(:dcterms_namespace) do
-    Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+    Class.new(Lutaml::Xml::W3c::XmlNamespace) do
       uri "http://purl.org/dc/terms/"
       prefix_default "dcterms"
       element_form_default :qualified
@@ -28,7 +28,7 @@ RSpec.describe "Type-level namespace integration" do
   end
 
   let(:xsi_namespace) do
-    Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+    Class.new(Lutaml::Xml::W3c::XmlNamespace) do
       uri "http://www.w3.org/2001/XMLSchema-instance"
       prefix_default "xsi"
       element_form_default :qualified
@@ -74,7 +74,7 @@ RSpec.describe "Type-level namespace integration" do
       dc_title_type = Class.new(Lutaml::Model::Type::String)
       dc_title_type.xml_namespace(dc_ns)
 
-      override_ns = Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+      override_ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
         uri "http://example.com/override"
         prefix_default "override"
       end
@@ -254,7 +254,7 @@ RSpec.describe "Type-level namespace integration" do
       special_type.xml_namespace(dc_namespace)
 
       # Define Model with different namespace
-      model_namespace = Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+      model_namespace = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
         uri "http://example.com/model"
         prefix_default "model"
       end

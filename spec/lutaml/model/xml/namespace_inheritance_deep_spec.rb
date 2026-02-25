@@ -7,7 +7,7 @@ RSpec.describe "Deep namespace inheritance through collections" do
 
   context "when parent has no namespace and child has prefixed namespace" do
     let(:child_ns) do
-      Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+      Class.new(Lutaml::Xml::W3c::XmlNamespace) do
         uri "http://example.com/child"
         prefix_default "child"
       end
@@ -86,7 +86,7 @@ RSpec.describe "Deep namespace inheritance through collections" do
 
   context "when deeply nested structures have prefixed namespaces" do
     let(:ns) do
-      Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+      Class.new(Lutaml::Xml::W3c::XmlNamespace) do
         uri "http://example.com/deep"
         prefix_default "deep"
       end

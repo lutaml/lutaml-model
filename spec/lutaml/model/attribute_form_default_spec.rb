@@ -5,7 +5,7 @@ require "spec_helper"
 RSpec.describe "Attribute form default behavior" do
   context "with attributeFormDefault :unqualified (W3C default)" do
     let(:namespace_class) do
-      Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+      Class.new(Lutaml::Xml::W3c::XmlNamespace) do
         uri "http://example.com/ns"
         prefix_default "ex"
         element_form_default :qualified
@@ -50,7 +50,7 @@ RSpec.describe "Attribute form default behavior" do
 
   context "with attributeFormDefault :qualified (W3C qualified)" do
     let(:namespace_class) do
-      Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+      Class.new(Lutaml::Xml::W3c::XmlNamespace) do
         uri "http://example.com/ns"
         prefix_default "ex"
         element_form_default :qualified
@@ -102,7 +102,7 @@ RSpec.describe "Attribute form default behavior" do
 
   context "OOXML-like scenario (user bug report)" do
     let(:word_processing_ml) do
-      Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+      Class.new(Lutaml::Xml::W3c::XmlNamespace) do
         uri "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
         prefix_default "w"
         element_form_default :qualified
@@ -155,7 +155,7 @@ RSpec.describe "Attribute form default behavior" do
 
   context "explicit attribute namespace overrides form default" do
     let(:namespace1) do
-      Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+      Class.new(Lutaml::Xml::W3c::XmlNamespace) do
         uri "http://example.com/ns1"
         prefix_default "ns1"
         attribute_form_default :unqualified
@@ -163,7 +163,7 @@ RSpec.describe "Attribute form default behavior" do
     end
 
     let(:namespace2) do
-      Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+      Class.new(Lutaml::Xml::W3c::XmlNamespace) do
         uri "http://example.com/ns2"
         prefix_default "ns2"
       end
@@ -204,7 +204,7 @@ RSpec.describe "Attribute form default behavior" do
 
   context "type-level attribute namespace takes precedence" do
     let(:namespace_class) do
-      Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+      Class.new(Lutaml::Xml::W3c::XmlNamespace) do
         uri "http://example.com/ns"
         prefix_default "ex"
         attribute_form_default :unqualified
@@ -212,7 +212,7 @@ RSpec.describe "Attribute form default behavior" do
     end
 
     let(:type_namespace) do
-      Class.new(Lutaml::Model::Xml::W3c::XmlNamespace) do
+      Class.new(Lutaml::Xml::W3c::XmlNamespace) do
         uri "http://example.com/type-ns"
         prefix_default "type"
       end

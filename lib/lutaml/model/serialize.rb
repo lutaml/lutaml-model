@@ -1,5 +1,4 @@
 require "active_support/inflector"
-require_relative "xml_adapter"
 require_relative "config"
 require_relative "type"
 require_relative "attribute"
@@ -63,7 +62,7 @@ module Lutaml
         #   end
         def namespace(ns_class = nil)
           if ns_class
-            unless ns_class.is_a?(Class) && ns_class < Lutaml::Model::Xml::Namespace
+            unless ns_class.is_a?(Class) && ns_class < Lutaml::Xml::Namespace
               raise ArgumentError,
                     "namespace must be an XmlNamespace class, got #{ns_class.class}"
             end
@@ -596,7 +595,7 @@ collection)
               ns_class = ns_config[:namespace]
               prefix = ns_config[:prefix]
 
-              if ns_class.is_a?(Class) && ns_class < Lutaml::Model::Xml::Namespace && prefix
+              if ns_class.is_a?(Class) && ns_class < Lutaml::Xml::Namespace && prefix
                 ns_prefix_map[ns_class.uri] = prefix.to_s
               end
             end
@@ -639,7 +638,7 @@ collection)
 
         def key_value(&block)
           Lutaml::Model::Config::KEY_VALUE_FORMATS.each do |format|
-            mappings[format] ||= KeyValueMapping.new(format)
+            mappings[format] ||= Lutaml::KeyValue::Mapping.new(format)
             mappings[format].instance_eval(&block)
             mappings[format].finalize(self)
           end
@@ -1049,12 +1048,12 @@ collection)
           case format
           when :xml
             require_relative "xml/transformation"
-            Lutaml::Model::Xml::Transformation.new(self, mapping_dsl, format,
+            Lutaml::Xml::Transformation.new(self, mapping_dsl, format,
                                                    register_id)
           when :json, :yaml, :toml, :hash
             # Key-value formats use KeyValue::Transformation (symmetric OOP architecture)
             require_relative "key_value/transformation"
-            Lutaml::Model::KeyValue::Transformation.new(self, mapping_dsl,
+            Lutaml::KeyValue::Transformation.new(self, mapping_dsl,
                                                         format, register_id)
           else
             # For other formats, return mapping_dsl as stub for backward compatibility

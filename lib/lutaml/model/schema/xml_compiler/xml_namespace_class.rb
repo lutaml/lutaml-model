@@ -14,7 +14,7 @@ module Lutaml
             require "lutaml/model"
 
             # Namespace: <%= uri %>
-            class <%= class_name %> < Lutaml::Model::Xml::W3c::XmlNamespace
+            class <%= class_name %> < Lutaml::Xml::W3c::XmlNamespace
               uri <%= uri.inspect %>
               prefix_default <%= prefix_default.inspect %>
             end

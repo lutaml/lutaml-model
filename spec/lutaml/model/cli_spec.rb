@@ -13,7 +13,7 @@ RSpec.describe Lutaml::Model::Cli do
     <<~RUBY
       require "lutaml/model"
 
-      class TermiumNamespace < Lutaml::Model::Xml::W3c::XmlNamespace
+      class TermiumNamespace < Lutaml::Xml::W3c::XmlNamespace
         uri "http://termium.tpsgc-pwgsc.gc.ca/schemas/2012/06/Termium"
         prefix_default "ns2"
       end

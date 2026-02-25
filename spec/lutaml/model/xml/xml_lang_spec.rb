@@ -2,12 +2,12 @@ require "spec_helper"
 require "lutaml/model"
 
 module XmlLangSpec
-  class XmlNamespace < Lutaml::Model::Xml::W3c::XmlNamespace
+  class XmlNamespace < Lutaml::Xml::W3c::XmlNamespace
     uri "http://www.w3.org/XML/1998/namespace"
     prefix_default "xml"
   end
 
-  class ExNamespace < Lutaml::Model::Xml::W3c::XmlNamespace
+  class ExNamespace < Lutaml::Xml::W3c::XmlNamespace
     uri "http://example.com/ns"
     prefix_default "ex"
     attribute_form_default :qualified # Attributes should be prefixed

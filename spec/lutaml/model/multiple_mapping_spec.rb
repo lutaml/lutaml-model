@@ -1,8 +1,8 @@
 require "spec_helper"
 require "lutaml/model"
-require "lutaml/model/xml/nokogiri_adapter"
-require "lutaml/model/xml/ox_adapter"
-require "lutaml/model/xml/rexml_adapter"
+require "lutaml/xml/nokogiri_adapter"
+require "lutaml/xml/ox_adapter"
+require "lutaml/xml/rexml_adapter"
 
 module MultipleMapping
   class Product < Lutaml::Model::Serializable
@@ -265,18 +265,18 @@ RSpec.describe MultipleMapping do
 
     context "with Nokogiri adapter" do
       it_behaves_like "xml adapter with multiple mappings",
-                      Lutaml::Model::Xml::NokogiriAdapter
+                      Lutaml::Xml::NokogiriAdapter
     end
 
     context "with Ox adapter" do
       it_behaves_like "xml adapter with multiple mappings",
-                      Lutaml::Model::Xml::OxAdapter
+                      Lutaml::Xml::OxAdapter
     end
 
     context "with Rexml adapter" do
       if TestAdapterConfig.adapter_enabled?(:rexml)
         it_behaves_like "xml adapter with multiple mappings",
-                        Lutaml::Model::Xml::RexmlAdapter
+                        Lutaml::Xml::RexmlAdapter
       end
     end
   end
@@ -306,7 +306,7 @@ RSpec.describe MultipleMapping do
     context "with XML format" do
       shared_examples "xml adapter with custom methods" do |_adapter_class|
         before do
-          Lutaml::Model::Config.xml_adapter = Lutaml::Model::Xml::NokogiriAdapter
+          Lutaml::Model::Config.xml_adapter = Lutaml::Xml::NokogiriAdapter
         end
 
         let(:xml_with_alternate) do
@@ -352,20 +352,20 @@ RSpec.describe MultipleMapping do
 
       context "with Nokogiri adapter" do
         it_behaves_like "xml adapter with custom methods",
-                        Lutaml::Model::Xml::NokogiriAdapter
+                        Lutaml::Xml::NokogiriAdapter
       end
 
       context "with Ox adapter" do
         if TestAdapterConfig.adapter_enabled?(:ox)
           it_behaves_like "xml adapter with custom methods",
-                          Lutaml::Model::Xml::OxAdapter
+                          Lutaml::Xml::OxAdapter
         end
       end
 
       context "with Rexml adapter" do
         if TestAdapterConfig.adapter_enabled?(:rexml)
           it_behaves_like "xml adapter with custom methods",
-                          Lutaml::Model::Xml::RexmlAdapter
+                          Lutaml::Xml::RexmlAdapter
         end
       end
     end

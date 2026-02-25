@@ -13,7 +13,7 @@ RSpec.describe "Namespace Preservation Issue #3" do
       XML
 
       # Parse the XML
-      doc = Lutaml::Model::Xml::NokogiriAdapter.parse(xml_input)
+      doc = Lutaml::Xml::NokogiriAdapter.parse(xml_input)
 
       # Verify input namespaces were captured
       expect(doc.input_namespaces).to include(:default)
@@ -37,7 +37,7 @@ RSpec.describe "Namespace Preservation Issue #3" do
         </root>
       XML
 
-      doc = Lutaml::Model::Xml::NokogiriAdapter.parse(xml_input)
+      doc = Lutaml::Xml::NokogiriAdapter.parse(xml_input)
       output = doc.to_xml
 
       # All three namespaces should be preserved
@@ -55,7 +55,7 @@ RSpec.describe "Namespace Preservation Issue #3" do
         </article>
       XML
 
-      doc = Lutaml::Model::Xml::NokogiriAdapter.parse(xml_input)
+      doc = Lutaml::Xml::NokogiriAdapter.parse(xml_input)
       output = doc.to_xml
 
       # Should preserve mml namespace
@@ -77,7 +77,7 @@ RSpec.describe "Namespace Preservation Issue #3" do
         </article>
       XML
 
-      doc = Lutaml::Model::Xml::NokogiriAdapter.parse(xml_input)
+      doc = Lutaml::Xml::NokogiriAdapter.parse(xml_input)
       output = doc.to_xml
 
       expect(output).to include('xmlns="http://jats.nlm.nih.gov/publishing/1.3"')
@@ -91,7 +91,7 @@ RSpec.describe "Namespace Preservation Issue #3" do
         </article>
       XML
 
-      doc = Lutaml::Model::Xml::NokogiriAdapter.parse(xml_input)
+      doc = Lutaml::Xml::NokogiriAdapter.parse(xml_input)
       output = doc.to_xml
 
       expect(output).to include('xmlns="http://example.com/default"')
@@ -117,7 +117,7 @@ RSpec.describe "Namespace Preservation Issue #3" do
         </article>
       XML
 
-      doc = Lutaml::Model::Xml::NokogiriAdapter.parse(xml_input)
+      doc = Lutaml::Xml::NokogiriAdapter.parse(xml_input)
       output = doc.to_xml
 
       # All four namespaces should be preserved
@@ -136,7 +136,7 @@ RSpec.describe "Namespace Preservation Issue #3" do
         </root>
       XML
 
-      doc = Lutaml::Model::Xml::NokogiriAdapter.parse(xml_input)
+      doc = Lutaml::Xml::NokogiriAdapter.parse(xml_input)
       output = doc.to_xml
 
       # All namespaces should be present (order not strictly required by XML spec)
@@ -154,7 +154,7 @@ RSpec.describe "Namespace Preservation Issue #3" do
         </root>
       XML
 
-      doc = Lutaml::Model::Xml::NokogiriAdapter.parse(xml_input)
+      doc = Lutaml::Xml::NokogiriAdapter.parse(xml_input)
       output = doc.to_xml
 
       # Empty namespace (explicit no namespace)
@@ -168,7 +168,7 @@ RSpec.describe "Namespace Preservation Issue #3" do
         </root>
       XML
 
-      doc = Lutaml::Model::Xml::NokogiriAdapter.parse(xml_input)
+      doc = Lutaml::Xml::NokogiriAdapter.parse(xml_input)
 
       expect(doc.input_namespaces).to be_empty
 
@@ -191,7 +191,7 @@ RSpec.describe "Namespace Preservation Issue #3" do
         </article>
       XML
 
-      doc = Lutaml::Model::Xml::NokogiriAdapter.parse(xml_input)
+      doc = Lutaml::Xml::NokogiriAdapter.parse(xml_input)
       output = doc.to_xml
 
       # All namespaces preserved, including unused
@@ -225,7 +225,7 @@ RSpec.describe "Namespace Preservation Issue #3" do
         </article>
       XML
 
-      doc = Lutaml::Model::Xml::NokogiriAdapter.parse(xml_input)
+      doc = Lutaml::Xml::NokogiriAdapter.parse(xml_input)
       output = doc.to_xml
 
       # Verify all JATS namespaces are preserved
@@ -246,7 +246,7 @@ RSpec.describe "Namespace Preservation Issue #3" do
       XML
 
       parsed = Nokogiri::XML(xml)
-      namespaces = Lutaml::Model::Xml::NokogiriAdapter.extract_input_namespaces(parsed.root)
+      namespaces = Lutaml::Xml::NokogiriAdapter.extract_input_namespaces(parsed.root)
 
       expect(namespaces).to be_a(Hash)
       expect(namespaces[:default]).to eq({ uri: "http://default.com",
@@ -256,7 +256,7 @@ RSpec.describe "Namespace Preservation Issue #3" do
     end
 
     it "extract_input_namespaces handles nil root element" do
-      namespaces = Lutaml::Model::Xml::NokogiriAdapter.extract_input_namespaces(nil)
+      namespaces = Lutaml::Xml::NokogiriAdapter.extract_input_namespaces(nil)
       expect(namespaces).to eq({})
     end
   end

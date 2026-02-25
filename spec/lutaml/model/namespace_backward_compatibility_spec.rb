@@ -37,7 +37,7 @@ RSpec.describe "XmlNamespace Class API" do
 
   describe "programmatic namespace method" do
     it "mapping.namespace() with XmlNamespace class works" do
-      mapping = Lutaml::Model::Xml::Mapping.new
+      mapping = Lutaml::Xml::Mapping.new
       mapping.root("element")
       mapping.namespace(TestNamespace)
 

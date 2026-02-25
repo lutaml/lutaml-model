@@ -6,7 +6,7 @@ module Lutaml
     # Used within xsi:schemaLocation attribute values
     #
     # @example
-    #   class MyNs < Lutaml::Model::Xml::W3c::XmlNamespace
+    #   class MyNs < Lutaml::Xml::W3c::XmlNamespace
     #     uri "http://example.com/ns"
     #   end
     #
@@ -61,7 +61,7 @@ module Lutaml
     # Each location pair associates a namespace (via XmlNamespace class) with its schema URL.
     #
     # @example Creating a schema location
-    #   class MyNs < Lutaml::Model::Xml::W3c::XmlNamespace
+    #   class MyNs < Lutaml::Xml::W3c::XmlNamespace
     #     uri "http://example.com/ns"
     #   end
     #

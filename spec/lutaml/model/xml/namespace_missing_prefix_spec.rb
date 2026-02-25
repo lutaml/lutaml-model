@@ -1,6 +1,6 @@
 require "spec_helper"
 require "lutaml/model"
-require "lutaml/model/xml_adapter/nokogiri_adapter"
+require "lutaml/xml/nokogiri_adapter"
 
 # Namespace Prefix Missing on First Element in Chain
 #
@@ -19,7 +19,7 @@ require "lutaml/model/xml_adapter/nokogiri_adapter"
 
 module NamespaceMissingPrefixSpec
   # Define a namespace for OASIS table elements
-  class OasisNamespace < Lutaml::Model::Xml::W3c::XmlNamespace
+  class OasisNamespace < Lutaml::Xml::W3c::XmlNamespace
     uri "http://www.niso.org/standards/z39-96/ns/oasis-exchange/table"
     prefix_default "oasis"
   end

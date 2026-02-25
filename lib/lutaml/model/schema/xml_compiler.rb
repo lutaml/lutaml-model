@@ -43,10 +43,10 @@ module Lutaml
         MSG
 
         XML_DEFINED_ATTRIBUTES = {
-          "id" => "Lutaml::Model::Xml::W3c::XmlIdType",
-          "lang" => "Lutaml::Model::Xml::W3c::XmlLangType",
-          "space" => "Lutaml::Model::Xml::W3c::XmlSpaceType",
-          "base" => "Lutaml::Model::Xml::W3c::XmlBaseType",
+          "id" => "Lutaml::Xml::W3c::XmlIdType",
+          "lang" => "Lutaml::Xml::W3c::XmlLangType",
+          "space" => "Lutaml::Xml::W3c::XmlSpaceType",
+          "base" => "Lutaml::Xml::W3c::XmlBaseType",
         }.freeze
 
         def to_models(schema, options = {})
@@ -163,7 +163,7 @@ module Lutaml
           end
 
           # W3C XmlNamespace is now auto-loaded via lutaml/model.rb
-          # Reference: Lutaml::Model::Xml::W3c::XmlNamespace
+          # Reference: Lutaml::Xml::W3c::XmlNamespace
         end
 
         def schema_to_models(schemas)
