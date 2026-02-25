@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative "../../key_value/data_model"
+require_relative "data_model"
 
 module Lutaml
   module KeyValue
