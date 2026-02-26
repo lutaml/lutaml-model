@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "data_model"
+require_relative "../model/render_policy"
 
 module Lutaml
   module KeyValue
@@ -18,6 +19,8 @@ module Lutaml
       # This is a critical step toward symmetric OOP architecture
       # across all serialization formats.
       class Transformation < Lutaml::Model::Transformation
+        include Lutaml::Model::RenderPolicy
+
         private
 
         # Get the register ID, handling both Symbol and Register objects
@@ -440,87 +443,21 @@ module Lutaml
 
         # Check if value should be skipped based on render options
         #
+        # Delegates to the shared RenderPolicy module for consistent
+        # behavior across XML and KeyValue formats.
+        #
         # @param value [Object] The value to check
         # @param rule [CompiledRule] The rule
         # @param model_instance [Object] The model instance
         # @param delegate [Symbol, nil] The delegate attribute name if present
         # @return [Boolean] true if should skip
         def should_skip_value?(value, rule, model_instance, delegate = nil)
-          attr_name = rule.attribute_name
-
-          # For delegated attributes, check using_default? on the delegated object
-          target_instance = if delegate
-                              model_instance.public_send(delegate)
-                            else
-                              model_instance
-                            end
-
-          # Check render shortcuts FIRST
-          # This ensures mutated collections with default values are still serialized
-          if value.nil?
-            render_nil = rule.option(:render_nil)
-            return true if render_nil == :omit
-            return false if render_nil == true # true means DO render nil
-            return false if render_nil == :as_nil # :as_nil means DO render nil
-            return false if render_nil == :as_empty # :as_empty means render as empty collection
-
-            # For false or unset, check value_map for to directive
-            value_map = rule.option(:value_map) || {}
-            # value_map[:to][:nil] tells us how to serialize nil values
-            # - :omit means skip the value
-            # - :nil means render as nil (don't skip)
-            # - :empty means render as empty string (don't skip)
-            # If not specified in value_map, default to skipping nil
-            return !%i[nil
-                       empty].include?(value_map[:to]&.[](:nil)) && !%i[omit
-                                                                        omitted].include?(value_map[:to]&.[](:nil)) && value_map[:nil] != :omit
-          elsif Lutaml::Model::Utils.empty?(value)
-            render_empty = rule.option(:render_empty)
-
-            return true if render_empty == :omit
-            return false if render_empty == true # true means DO render empty
-
-            # For false or unset (nil), fall through to check value_map
-            # Default is to render empty values (legacy behavior)
-
-            # For unset, check value_map for to directive
-            value_map = rule.option(:value_map) || {}
-            # value_map[:to][:empty] tells us how to serialize empty string values
-            # - :omit or :omitted means skip the value
-            # - :empty means render as empty string (don't skip)
-            # - :nil means render as nil (don't skip)
-            to_empty = value_map[:to]&.[](:empty)
-
-            return %i[omit omitted].include?(to_empty) if to_empty
-
-            return value_map[:empty] == :omit
-          elsif Lutaml::Model::Utils.uninitialized?(value)
-            value_map = rule.option(:value_map) || {}
-            # value_map[:to][:omitted] tells us how to serialize uninitialized values
-            # - :omit or :omitted means skip the value
-            # - :nil means render as nil (don't skip)
-            # - :empty means render as empty string (don't skip)
-            to_omitted = value_map[:to]&.[](:omitted)
-            return %i[omit omitted].include?(to_omitted) if to_omitted
-
-            return value_map[:omitted] == :omit || true
+          if delegate
+            delegate_obj = model_instance.public_send(delegate)
+            should_skip_delegated_value?(value, rule, delegate_obj)
+          else
+            super(value, rule, model_instance)
           end
-
-          # Skip if using default and render_default is false
-          # But for collections, check if they were mutated (non-empty)
-          if target_instance.respond_to?(:using_default?) &&
-              target_instance.using_default?(attr_name) &&
-              !rule.option(:render_default)
-            # For collections: if mutated to non-empty, serialize them
-            # For scalars: skip if using default
-            if rule.collection?
-              return false unless Lutaml::Model::Utils.empty?(value)
-            else
-              return true
-            end
-          end
-
-          false
         end
 
         # Create a collection element
@@ -820,12 +757,12 @@ child_mappings, options)
               end
 
               # Serialize the attribute value
-              if attr_def
-                serialized_value = serialize_collection_item_value(attr_value,
+              serialized_value = if attr_def
+                serialize_collection_item_value(attr_value,
                                                                    attr_def, options)
-              else
-                serialized_value = attr_value
-              end
+                                 else
+                attr_value
+                                 end
 
               unless serialized_value.nil?
                 keyed_hash[key_value.to_s] =

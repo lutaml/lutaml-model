@@ -42,6 +42,7 @@ module RenderEmptySpec
     attribute :items, :string, collection: true
 
     xml do
+      element "explicit-blank-model"
       map_element "items", to: :items, render_empty: :as_blank
     end
   end

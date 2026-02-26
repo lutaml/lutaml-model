@@ -3,6 +3,8 @@ module Lutaml
     class Attribute
       attr_reader :name, :options
 
+      include CollectionHandler
+
       ALLOWED_OPTIONS = %i[
         raw
         default
@@ -212,31 +214,7 @@ module Lutaml
         :"#{@name}="
       end
 
-      def collection
-        @options[:collection]
-      end
-
-      def collection?
-        collection || false
-      end
-
-      def singular?
-        !collection?
-      end
-
-      def collection_class
-        return Array unless custom_collection?
-
-        collection
-      end
-
-      def collection_instance?(value)
-        value.is_a?(collection_class)
-      end
-
-      def build_collection(*args)
-        collection_class.new(args.flatten)
-      end
+      # Collection methods are provided by CollectionHandler module
 
       def raw?
         @raw
@@ -504,11 +482,7 @@ module Lutaml
         type(register) <= Serialize
       end
 
-      def resolved_collection
-        return unless collection?
-
-        collection.is_a?(Range) ? validated_range_object : 0..Float::INFINITY
-      end
+      # resolved_collection is provided by CollectionHandler module
 
       def sequenced_appearance_count(element_order, mapped_name, current_index)
         elements = element_order[current_index..]
@@ -531,9 +505,7 @@ module Lutaml
         elements.each_slice(resolved_collection.max).count
       end
 
-      def min_collection_zero?
-        collection? && resolved_collection.min.zero?
-      end
+      # min_collection_zero? is provided by CollectionHandler module
 
       def choice
         @options[:choice]
@@ -629,11 +601,7 @@ module Lutaml
                                                            resolved_type.name)
       end
 
-      def validated_range_object
-        return collection if collection.end
-
-        collection.begin..Float::INFINITY
-      end
+      # validated_range_object is provided by CollectionHandler module
 
       def validate_name!(name, reserved_methods:)
         return unless reserved_methods.include?(name.to_sym)
@@ -677,13 +645,7 @@ module Lutaml
         castable?(value, format) || options[:converted]
       end
 
-      def custom_collection?
-        return false if singular?
-        return false if collection == true
-        return false if collection.is_a?(Range)
-
-        collection <= Lutaml::Model::Collection
-      end
+      # custom_collection? is provided by CollectionHandler module
 
       def needs_conversion?(klass, value)
         !value.nil? && !value.is_a?(klass) && Utils.initialized?(value)

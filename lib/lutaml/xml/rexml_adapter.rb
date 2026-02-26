@@ -6,10 +6,13 @@ require_relative "rexml/element"
 require_relative "builder/rexml"
 require_relative "namespace_collector"
 require_relative "declaration_planner"
+require_relative "adapter_helpers"
 
 module Lutaml
   module Xml
       class RexmlAdapter < BaseAdapter
+      extend AdapterHelpers
+
       TEXT_CLASSES = [Moxml::Text, Moxml::Cdata].freeze
 
       def self.parse(xml, options = {})
@@ -78,42 +81,11 @@ module Lutaml
       result
       end
 
-      def self.name_of(element)
-      return nil if element.nil?
-
-      case element
-      when Moxml::Text
-        "text"
-      when Moxml::Cdata
-        "#cdata-section"
-      else
-        element.name
-      end
-      end
-
-      def self.prefixed_name_of(node)
-      return name_of(node) if TEXT_CLASSES.include?(node.class)
-
-      [node&.namespace&.prefix, node.name].compact.join(":")
-      end
+      # NOTE: name_of, prefixed_name_of, namespaced_attr_name, namespaced_name_of
+      # are provided by AdapterHelpers module via extend
 
       def self.text_of(element)
       element.content
-      end
-
-      def self.namespaced_attr_name(attribute)
-      attr_ns = attribute.namespace
-      attr_name = attribute.name
-      return attr_name unless attr_ns
-
-      prefix = attr_name == "lang" ? attr_ns.prefix : attr_ns.uri
-      [prefix, attr_name].compact.join(":")
-      end
-
-      def self.namespaced_name_of(node)
-      return name_of(node) unless node.respond_to?(:namespace)
-
-      [node&.namespace&.uri, node.name].compact.join(":")
       end
 
       def order

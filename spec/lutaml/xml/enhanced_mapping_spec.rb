@@ -38,20 +38,25 @@ RSpec.describe "Enhanced XML Mapping Features" do
           attribute :street, :string
 
           xml do
+            # No element declaration - type-only model
             map_element "street", to: :street
           end
         end
       end
 
-      it "auto-generates element_name from class" do
+      it "is a type-only model without element_name" do
         mapping = model_class.mappings_for(:xml)
-        # Class name is auto-generated like #<Class:0x...>, finalize sets it
-        expect(mapping.element_name).to be_a(String)
+        expect(mapping.element_name).to be_nil
       end
 
-      it "has root? return true after finalization" do
+      it "has root? return false for type-only models" do
         mapping = model_class.mappings_for(:xml)
-        expect(mapping.root?).to be true
+        expect(mapping.root?).to be false
+      end
+
+      it "has no_root? return true for type-only models" do
+        mapping = model_class.mappings_for(:xml)
+        expect(mapping.no_root?).to be true
       end
     end
   end

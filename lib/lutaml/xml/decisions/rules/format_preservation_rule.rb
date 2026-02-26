@@ -30,7 +30,7 @@ module Lutaml
           # share namespace with parent.
           #
           # Skip this check for root elements - they should always preserve format
-          if !context.is_root? && context.namespace_class
+          if !context.root? && context.namespace_class
             parent_ns = context.parent_namespace_class
             # If parent has no namespace but child has a namespace,
             # don't preserve format - use default format

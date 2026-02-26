@@ -138,12 +138,12 @@ module Lutaml
 
       def load_adapter_file(adapter, type)
         # XML adapters are now in lib/lutaml/xml/
-        if adapter == "xml"
-          adapter_file = File.join("../xml", type)
-        else
+        adapter_file = if adapter == "xml"
+          File.join("../xml", type)
+                       else
           # Key-value adapters are now in lib/lutaml/key_value/adapter/
-          adapter_file = File.join("../key_value/adapter", adapter, type)
-        end
+          File.join("../key_value/adapter", adapter, type)
+                       end
         require_relative adapter_file
       rescue LoadError
         raise UnknownAdapterTypeError.new(adapter, type), cause: nil

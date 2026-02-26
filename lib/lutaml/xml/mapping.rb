@@ -28,40 +28,40 @@ module Lutaml
                 :mapper_class
 
       def initialize
-      super
+        super
 
-      @elements = {}
-      @attributes = {}
-      @element_sequence = []
-      @content_mapping = nil
-      @raw_mapping = nil
-      @mixed_content = false
-      @format = :xml
-      @mappings_imported = true
-      @finalized = false
-      @element_name = nil
-      @namespace_class = nil
-      @documentation_text = nil
-      @type_name_value = nil
-      @namespace_scope = []
-      @namespace_scope_config = []
-      @mapper_class = nil
-      @importing_mappings = false
-      @attributes_with_methods_defined = Set.new
+        @elements = {}
+        @attributes = {}
+        @element_sequence = []
+        @content_mapping = nil
+        @raw_mapping = nil
+        @mixed_content = false
+        @format = :xml
+        @mappings_imported = true
+        @finalized = false
+        @element_name = nil
+        @namespace_class = nil
+        @documentation_text = nil
+        @type_name_value = nil
+        @namespace_scope = []
+        @namespace_scope_config = []
+        @mapper_class = nil
+        @importing_mappings = false
+        @attributes_with_methods_defined = Set.new
       end
 
       def finalize(mapper_class)
-      # Store mapper class for later use in deferred imports
-      @mapper_class = mapper_class
+        # Store mapper class for later use in deferred imports
+        @mapper_class = mapper_class
 
-      if !root_element && !no_root? && !@type_name_value
-        root(mapper_class.model.to_s)
-      end
+        # DO NOT auto-generate root element
+        # Models should explicitly declare root in their xml block if needed
+        # Type-only models (used as nested types) don't need a root element
 
-      # Resolve any deferred mapping imports before finalizing
-      ensure_mappings_imported!
+        # Resolve any deferred mapping imports before finalizing
+        ensure_mappings_imported!
 
-      @finalized = true
+        @finalized = true
       end
 
       def finalized?
@@ -146,15 +146,22 @@ module Lutaml
       @no_root = true
       end
 
+      # Check if this mapping has no root element
+      #
+      # Returns true if:
+      # - The deprecated @no_root flag is explicitly set, OR
+      # - No element is declared (modern pattern - just omit element() call)
+      #
+      # @return [Boolean] true if no root element
       def no_root?
-      !!@no_root
+        !!@no_root || no_element?
       end
 
       # Check if this mapping has no element declaration
       #
       # @return [Boolean] true if no element is declared
       def no_element?
-      !element_name
+        !element_name
       end
 
       def prefixed_root
@@ -181,68 +188,70 @@ module Lutaml
       #   namespace :blank
       #
       # @raise [ArgumentError] if invalid arguments provided
-      # @raise [Lutaml::Model::NoRootNamespaceError] if called with no_root
+      # @raise [Lutaml::Model::NoRootNamespaceError] if explicitly marked as no_root
       def namespace(ns_class_or_symbol, _deprecated_prefix = nil)
-      raise Lutaml::Model::NoRootNamespaceError if no_root?
+        # Only raise error for explicitly marked no_root (using deprecated method)
+        # Type-only models (no element declared) CAN have namespaces
+        raise Lutaml::Model::NoRootNamespaceError if @no_root
 
-      # Warn if prefix parameter is provided
-      if _deprecated_prefix
-        warn "[DEPRECATED] The prefix parameter on namespace() is deprecated. " \
-             "Define prefix_default in your XmlNamespace class instead. " \
-             "Prefix '#{_deprecated_prefix}' will be ignored."
-      end
+        # Warn if prefix parameter is provided
+        if _deprecated_prefix
+          warn "[DEPRECATED] The prefix parameter on namespace() is deprecated. " \
+               "Define prefix_default in your XmlNamespace class instead. " \
+               "Prefix '#{_deprecated_prefix}' will be ignored."
+        end
 
-      # Handle :blank symbol - explicit blank namespace
-      if ns_class_or_symbol == :blank
-        @namespace_class = nil
-        @namespace_uri = nil
-        @namespace_prefix = nil
-        @namespace_set = true # Mark as explicitly set
-        @namespace_param = :blank # Store original value
-        return
-      end
+        # Handle :blank symbol - explicit blank namespace
+        if ns_class_or_symbol == :blank
+          @namespace_class = nil
+          @namespace_uri = nil
+          @namespace_prefix = nil
+          @namespace_set = true # Mark as explicitly set
+          @namespace_param = :blank # Store original value
+          return
+        end
 
-      # Handle :inherit symbol
-      if ns_class_or_symbol == :inherit
-        @namespace_set = true
-        @namespace_param = :inherit
-        return
-      end
+        # Handle :inherit symbol
+        if ns_class_or_symbol == :inherit
+          @namespace_set = true
+          @namespace_param = :inherit
+          return
+        end
 
-      # nil means "not set" - DON'T set @namespace_set
-      if ns_class_or_symbol.nil?
-        @namespace_class = nil
-        @namespace_uri = nil
-        @namespace_prefix = nil
-        @namespace_set = false # Explicitly NOT set
-        @namespace_param = nil
-        return
-      end
+        # nil means "not set" - DON'T set @namespace_set
+        if ns_class_or_symbol.nil?
+          @namespace_class = nil
+          @namespace_uri = nil
+          @namespace_prefix = nil
+          @namespace_set = false # Explicitly NOT set
+          @namespace_param = nil
+          return
+        end
 
-      # Accept both Lutaml::Xml::Namespace and Lutaml::Model::Xml::Namespace for compatibility
-      is_namespace_class = ns_class_or_symbol.is_a?(Class) && (
-        (defined?(::Lutaml::Xml::Namespace) && ns_class_or_symbol < ::Lutaml::Xml::Namespace) ||
-        (defined?(::Lutaml::Model::Xml::Namespace) && ns_class_or_symbol < ::Lutaml::Model::Xml::Namespace)
-      )
+        # Accept both Lutaml::Xml::Namespace and Lutaml::Model::Xml::Namespace for compatibility
+        is_namespace_class = ns_class_or_symbol.is_a?(Class) && (
+          (defined?(::Lutaml::Xml::Namespace) && ns_class_or_symbol < ::Lutaml::Xml::Namespace) ||
+          (defined?(::Lutaml::Model::Xml::Namespace) && ns_class_or_symbol < ::Lutaml::Model::Xml::Namespace)
+        )
 
-      if is_namespace_class
-        # XmlNamespace class passed - register and use
-        @namespace_class = NamespaceClassRegistry.instance.register_named(ns_class_or_symbol)
-        @namespace_uri = ns_class_or_symbol.uri
-        @namespace_prefix = ns_class_or_symbol.prefix_default
-      elsif ns_class_or_symbol.is_a?(String)
-        # String URI - NOT SUPPORTED
-        raise ArgumentError,
-              "String namespace URIs are not supported. " \
-              "Define an XmlNamespace class instead. " \
-              "See docs/_guides/xml-namespaces.adoc for migration guide. " \
-              "Got: #{ns_class_or_symbol.inspect}"
-      else
-        raise ArgumentError,
-              "namespace must be an XmlNamespace class, :inherit, or :blank, " \
-              "got #{ns_class_or_symbol.class}. " \
-              "String URIs are deprecated - define an XmlNamespace class instead."
-      end
+        if is_namespace_class
+          # XmlNamespace class passed - register and use
+          @namespace_class = NamespaceClassRegistry.instance.register_named(ns_class_or_symbol)
+          @namespace_uri = ns_class_or_symbol.uri
+          @namespace_prefix = ns_class_or_symbol.prefix_default
+        elsif ns_class_or_symbol.is_a?(String)
+          # String URI - NOT SUPPORTED
+          raise ArgumentError,
+                "String namespace URIs are not supported. " \
+                "Define an XmlNamespace class instead. " \
+                "See docs/_guides/xml-namespaces.adoc for migration guide. " \
+                "Got: #{ns_class_or_symbol.inspect}"
+        else
+          raise ArgumentError,
+                "namespace must be an XmlNamespace class, :inherit, or :blank, " \
+                "got #{ns_class_or_symbol.class}. " \
+                "String URIs are deprecated - define an XmlNamespace class instead."
+        end
     end
 
       # Set the namespace scope for this mapping

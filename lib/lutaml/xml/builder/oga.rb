@@ -240,6 +240,7 @@ module Lutaml
       def parent_has_xmlns?(element, xmlns_name, xmlns_value)
         visited = Set.new
         current = element
+        xmlns_name_str = xmlns_name.to_s
 
         while current.respond_to?(:attributes)
           # Prevent infinite loops
@@ -249,9 +250,9 @@ module Lutaml
 
           # Check if this element has the xmlns with same value
           existing_xmlns = current.attributes.find do |attr|
-            attr.name == xmlns_name
+            attr.name.to_s == xmlns_name_str && attr.value == xmlns_value
           end
-          return true if existing_xmlns && existing_xmlns.value == xmlns_value
+          return true if existing_xmlns
 
           # Stop at Document boundary
           break if current.is_a?(Xml::Oga::Document)
