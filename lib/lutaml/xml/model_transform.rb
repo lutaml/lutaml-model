@@ -174,10 +174,16 @@ module Lutaml
       end
 
       def prepare_options(options)
-        opts = ::Lutaml::Model::Utils.deep_dup(options)
-        opts[:default_namespace] ||= mappings_for(:xml)&.namespace_uri
+        # Only create a new hash if we need to add default_namespace
+        # This avoids unnecessary deep copying of the entire options hash
+        return options if options[:default_namespace]
 
-        opts
+        namespace_uri = mappings_for(:xml)&.namespace_uri
+        return options unless namespace_uri
+
+        # Use merge instead of deep_dup for better performance
+        # This creates a new hash but doesn't deep copy nested objects
+        options.merge(default_namespace: namespace_uri)
       end
 
       def validate_document!(doc, options)
