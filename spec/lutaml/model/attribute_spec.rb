@@ -337,8 +337,7 @@ RSpec.describe Lutaml::Model::Attribute do
           expect { attribute.cast_element("test_value", register) }
             .to raise_error(
               Lutaml::Model::InvalidAttributeTypeError,
-              "Unsupported type `InvalidTypeClass` specified for test_attr, " \
-              "type must inherit Lutaml::Model::Type::Value or Lutaml::Model::Serializable",
+              /Invalid type .*InvalidTypeClass.* for attribute `test_attr`/,
             )
         end
       end

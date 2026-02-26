@@ -1,12 +1,12 @@
 require "spec_helper"
 
 module AddressPersonSpec
-  class PersonNamespace < Lutaml::Model::XmlNamespace
+  class PersonNamespace < Lutaml::Xml::Namespace
     uri "http://example.com/person"
     prefix_default "p"
   end
 
-  class Nsp1Namespace < Lutaml::Model::XmlNamespace
+  class Nsp1Namespace < Lutaml::Xml::Namespace
     uri "http://example.com/nsp1"
     prefix_default "nsp1"
   end
