@@ -201,6 +201,7 @@ RSpec.describe "XSD Three Pattern Architecture" do
         attribute :name, :string
 
         xml do
+          element "test" # Need element to be a root model
           xsd_type "TestType" # Does NOT imply type-only
           map_element "name", to: :name
         end
@@ -208,7 +209,9 @@ RSpec.describe "XSD Three Pattern Architecture" do
 
       mapping = klass.mappings_for(:xml)
       # NO MAGIC: xsd_type doesn't set @no_root
-      expect(mapping).not_to be_no_root
+      expect(mapping.instance_variable_get(:@no_root)).to be_nil
+      # Model is a root model because element is declared
+      expect(mapping.no_root?).to be false
       # Type name is still set
       expect(mapping.type_name_value).to eq("TestType")
     end

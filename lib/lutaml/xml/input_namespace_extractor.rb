@@ -62,26 +62,26 @@ module Lutaml
       def self.extract_oga(root_element)
       namespaces = {}
 
-      # Moxml elements have namespaces as attributes
-      # Extract xmlns and xmlns:prefix attributes
-      return namespaces unless root_element.respond_to?(:attributes)
-
-      root_element.attributes.each do |attr|
-        if attr.name == "xmlns"
-          # Default namespace
-          namespaces[:default] = {
-            uri: attr.value,
-            prefix: nil,
-            format: :default,
-          }
-        elsif attr.name.start_with?("xmlns:")
-          # Prefixed namespace
-          prefix = attr.name.sub("xmlns:", "")
-          namespaces[prefix.to_sym] = {
-            uri: attr.value,
-            prefix: prefix,
-            format: :prefix,
-          }
+      # Moxml exposes namespace declarations via the namespaces collection,
+      # NOT as regular attributes. Use namespaces method to get all declarations.
+      if root_element.respond_to?(:namespaces)
+        root_element.namespaces.each do |ns|
+          prefix = ns.prefix
+          if prefix.nil? || prefix.empty?
+            # Default namespace (xmlns="uri")
+            namespaces[:default] = {
+              uri: ns.uri,
+              prefix: nil,
+              format: :default,
+            }
+          else
+            # Prefixed namespace (xmlns:prefix="uri")
+            namespaces[prefix.to_sym] = {
+              uri: ns.uri,
+              prefix: prefix,
+              format: :prefix,
+            }
+          end
         end
       end
 

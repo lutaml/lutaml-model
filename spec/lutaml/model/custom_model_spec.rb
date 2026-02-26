@@ -74,6 +74,7 @@ class CustomModelParentMapper < Lutaml::Model::Serializable
   attribute :math, MmlMath
 
   xml do
+    element "CustomModelParent"
     map_element :first_name, to: :first_name
     map_element :middle_name, to: :middle_name
     map_element :last_name, to: :last_name

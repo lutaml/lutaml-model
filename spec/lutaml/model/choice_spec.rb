@@ -62,12 +62,12 @@ module ChoiceSpec
 
   class ContactEmail < Lutaml::Model::Serializable
     attribute :email, :string
-    xml { no_root }
+    # Type-only model - no xml block needed
   end
 
   class ContactPhone < Lutaml::Model::Serializable
     attribute :phone, :string
-    xml { no_root }
+    # Type-only model - no xml block needed
   end
 
   class ContactAttributes < Lutaml::Model::Serializable

@@ -56,15 +56,6 @@ RSpec.configure do |config|
     end
   end
 
-  # Skip Ox and Oga adapter tests to focus on Nokogiri fixes
-  config.before(:each, :ox_adapter) do
-    skip("Ox adapter tests pending - focusing on Nokogiri")
-  end
-
-  config.before(:each, :oga_adapter) do
-    skip("Oga adapter tests pending - focusing on Nokogiri")
-  end
-
   # Show XML adapter testing configuration at test suite start
   config.before(:suite) do
     enabled = TestAdapterConfig.adapters_to_test

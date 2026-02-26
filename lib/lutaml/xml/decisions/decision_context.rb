@@ -45,7 +45,7 @@ module Lutaml
       end
 
       # Check if this is the root element
-      def is_root?
+      def root?
         @is_root
       end
 

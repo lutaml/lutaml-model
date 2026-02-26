@@ -767,11 +767,11 @@ mapping: nil, options: {})
             # Namespace in plan - inherit its format
             # CRITICAL: local_on_use namespaces MUST use prefix format
             # (can't use default format - parent already using default)
-            if stored_ns_decl.local_on_use? || stored_ns_decl.prefix_format?
-              resolved_prefix = stored_ns_decl.prefix
-            else
-              resolved_prefix = nil # Use default format
-            end
+            resolved_prefix = if stored_ns_decl.local_on_use? || stored_ns_decl.prefix_format?
+              stored_ns_decl.prefix
+                              else
+              nil # Use default format
+                              end
             format_from_stored_plan = true # Don't let subsequent logic override this
             false # Using plan namespace format, no xmlns="" needed
           end

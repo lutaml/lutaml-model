@@ -587,7 +587,7 @@ parent_node: nil, is_root: false, parent_format: nil, parent_namespace_class: ni
       # with xmlns="" to prevent inheriting parent's default namespace.
       #
       # This applies when:
-      # 1. Transformation marked the element as needing xmlns="" (explicit blank namespace)
+      # 1. Transformation marked the element as needing xmlns="" (explicit :blank)
       # 2. OR element has no namespace AND parent uses default format AND the default
       #    namespace does NOT have element_form_default :qualified
       #
@@ -626,11 +626,11 @@ parent_node: nil, is_root: false, parent_format: nil, parent_namespace_class: ni
       # This is used to determine if children should inherit the default namespace
       # If this element declares a default namespace (hoisted[nil]), use its element_form_default
       # Otherwise, inherit from parent
-      if hoisted.key?(nil) && this_namespace&.element_form_default
-        effective_default_ns_form = this_namespace.element_form_default
-      else
-        effective_default_ns_form = options[:default_ns_element_form_default]
-      end
+      effective_default_ns_form = if hoisted.key?(nil) && this_namespace&.element_form_default
+        this_namespace.element_form_default
+                                  else
+        options[:default_ns_element_form_default]
+                                  end
 
       # Plan ALL attributes (PRESERVES ORDER)
       xml_element.attributes.each do |xml_attr|
@@ -937,7 +937,7 @@ options, is_root: false, parent_hoisted: {}, element_prefix: nil)
                                                     needs, options, is_root: is_root, parent_hoisted: parent_hoisted)
           hoisted[element_prefix] = ns_uri
         elsif element_prefix
-          # Namespace is already hoisted by parent
+          # Namespace is already hoisted by parent, and we have an explicit prefix
           # Check if parent has the SAME prefix declaration
           parent_has_same_prefix = parent_hoisted.key?(element_prefix) && parent_hoisted[element_prefix] == ns_uri
           if parent_has_same_prefix
@@ -948,18 +948,10 @@ options, is_root: false, parent_hoisted: {}, element_prefix: nil)
             hoisted[element_prefix] = ns_uri
           end
         else
-          # Namespace is hoisted by parent, but we don't have a prefix
-          # Check if parent used default format (nil prefix) for this namespace
-          parent_prefix = parent_hoisted.find do |_prefix, uri|
-            uri == ns_uri
-          end&.first
-          if parent_prefix
-            # Parent used prefix format - use same prefix
-            hoisted[parent_prefix] = ns_uri
-          else
-            # Parent used default format - use default format
-            hoisted[nil] = ns_uri
-          end
+          # Namespace is hoisted by parent, and we don't have an explicit prefix
+          # W3C XML Namespaces 1.0 §6.2: Child elements inherit namespace from parent
+          # DO NOT re-declare the namespace - the child will inherit it
+          # This prevents redundant xmlns declarations on nested elements with same namespace
         end
 
         # CRITICAL FIX: If root element uses default format (nil prefix) and child elements

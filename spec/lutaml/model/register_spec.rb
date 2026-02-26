@@ -13,8 +13,7 @@ module RegisterSpec
     attribute :active, :custom_string
 
     xml do
-      no_root
-
+      # Type-only model - no element declaration needed
       sequence do
         map_element :location, to: :location
         map_element :postalCode, to: :postal_code
@@ -35,8 +34,7 @@ module RegisterSpec
     end
 
     xml do
-      no_root
-
+      # Type-only model - no element declaration needed
       map_element :firstName, to: :first_name
       map_element :middleName, to: :middle_name
       map_element :lastName, to: :last_name

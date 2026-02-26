@@ -12,11 +12,13 @@ require_relative "doctype_extractor"
 require_relative "namespace_declaration_builder"
 require_relative "attribute_namespace_resolver"
 require_relative "element_prefix_resolver"
+require_relative "adapter_helpers"
 
 module Lutaml
   module Xml
       class OgaAdapter < BaseAdapter
       extend DocTypeExtractor
+      extend AdapterHelpers
 
       TEXT_CLASSES = [Moxml::Text, Moxml::Cdata].freeze
 
@@ -121,6 +123,12 @@ module Lutaml
       end
 
       result += xml_data
+
+      # Encode result to desired encoding (Oga outputs UTF-8 by default)
+      if encoding && encoding != Encoding::UTF_8
+        result = result.encode(encoding)
+      end
+
       result
       end
 
@@ -585,22 +593,18 @@ parent = nil)
       # Check if immediate parent element has xmlns declaration
       # (Session 197: Oga-specific xmlns deduplication)
       #
-      # @param element [Oga::XML::Element] parent element
+      # @param element [Oga::XML::Element] parent element to check
       # @param prefix [String, nil] namespace prefix (nil for default namespace)
       # @param uri [String] namespace URI
       # @return [Boolean] true if immediate parent has matching xmlns
       def parent_has_xmlns_in_chain?(element, prefix, uri)
-      # Only check immediate parent, not entire chain
-      return false unless element&.parent
-
-      parent = element.parent
-      return false if parent.is_a?(::Oga::XML::Document)
+      return false unless element
 
       xmlns_name = prefix ? "xmlns:#{prefix}" : "xmlns"
-      existing_xmlns = parent.attributes.find do |attr|
-        attr.name == xmlns_name
+      existing_xmlns = element.attributes.find do |attr|
+        attr.name.to_s == xmlns_name && attr.value == uri
       end
-      existing_xmlns && existing_xmlns.value == uri
+      !existing_xmlns.nil?
       end
 
       public
@@ -997,44 +1001,11 @@ mapping: nil)
       result
       end
 
-      def self.name_of(element)
-      return nil if element.nil?
-
-      case element
-      when Moxml::Text
-        "text"
-      when Moxml::Cdata
-        "#cdata-section"
-      when Moxml::ProcessingInstruction
-        "processing_instruction"
-      else
-        element.name
-      end
-      end
-
-      def self.prefixed_name_of(node)
-      return name_of(node) if TEXT_CLASSES.include?(node.class)
-
-      [node&.namespace&.prefix, node.name].compact.join(":")
-      end
+      # NOTE: name_of, prefixed_name_of, namespaced_attr_name, namespaced_name_of
+      # are provided by AdapterHelpers module via extend
 
       def self.text_of(element)
       element.text
-      end
-
-      def self.namespaced_attr_name(attribute)
-      attr_ns = attribute.namespace
-      attr_name = attribute.name
-      return attr_name unless attr_ns
-
-      prefix = attr_name == "lang" ? attr_ns.prefix : attr_ns.uri
-      [prefix, attr_name].compact.join(":")
-      end
-
-      def self.namespaced_name_of(node)
-      return name_of(node) unless node.respond_to?(:namespace)
-
-      [node&.namespace&.uri, node.name].compact.join(":")
       end
 
       def order
