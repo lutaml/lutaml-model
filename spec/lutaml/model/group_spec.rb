@@ -7,7 +7,7 @@ module GroupSpec
     attribute :name, :string, default: "Starc"
 
     xml do
-      no_root
+      # Type-only model - no element declaration needed
       map_element :type, to: :type
       map_element :name, to: :name
     end
@@ -53,7 +53,7 @@ module GroupSpec
     attribute :code, ExampleCodeType
 
     xml do
-      no_root
+      # Type-only model - no element declaration needed
       sequence do
         map_element "name", to: :name
         map_element "type", to: :type
@@ -103,7 +103,7 @@ module GroupSpec
     end
 
     xml do
-      no_root
+      # Type-only model - no element declaration needed
       sequence do
         map_element :mstyle, to: :mstyle
         map_element :mr, to: :mr
@@ -145,7 +145,7 @@ module GroupSpec
     attribute :organization, :string
 
     xml do
-      no_root
+      # Type-only model - no element declaration needed
       map_element "person", to: :person
       map_element "organization", to: :organization
     end

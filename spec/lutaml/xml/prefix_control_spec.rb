@@ -94,9 +94,7 @@ RSpec.describe "XML Prefix Control" do
       end
 
       describe "prefix: 'custom'" do
-        # Custom prefix support not yet implemented - uses default prefix_default instead
-        it "uses custom prefix string",
-           skip: (adapter_class == Lutaml::Xml::OgaAdapter ? "Oga adapter does not support custom prefix strings yet" : false) do
+        it "uses custom prefix string" do
           xml = instance.to_xml(prefix: "custom")
 
           expect(xml).to include('<custom:Properties xmlns:custom="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties">')
@@ -204,9 +202,7 @@ RSpec.describe "XML Prefix Control" do
       end
 
       describe "prefix: 'custom'" do
-        # Custom prefix support not yet implemented - uses default prefix_default instead
-        it "uses custom prefix string",
-           skip: (adapter_class == Lutaml::Xml::OgaAdapter ? "Oga adapter does not support custom prefix strings yet" : false) do
+        it "uses custom prefix string" do
           xml = instance.to_xml(prefix: "custom")
 
           expect(xml).to include('<custom:Properties xmlns:custom="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties">')

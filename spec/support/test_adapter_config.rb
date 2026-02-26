@@ -38,7 +38,7 @@ class TestAdapterConfig
     # Get list of adapters to test
     # @return [Array<Symbol>] List of enabled adapter names
     def adapters_to_test
-      @adapters_to_test ||= [PRIMARY_ADAPTER]
+      @adapters_to_test ||= enabled_adapters || [PRIMARY_ADAPTER]
     end
 
     # Enable an adapter for testing
@@ -97,5 +97,5 @@ end
 # Initial configuration: Primary adapter (Nokogiri) only
 # Enable other adapters (Ox, Oga) incrementally once they pass full test suite
 TestAdapterConfig.configure do |config|
-  config.enabled_adapters = [:nokogiri]
+  config.enabled_adapters = %i[nokogiri oga]
 end

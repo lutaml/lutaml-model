@@ -81,8 +81,7 @@ module CustomCollection
     instances :items, Item
 
     xml do
-      no_root
-
+      # Type-only model - no element declaration needed
       map_element "item", to: :items
     end
 

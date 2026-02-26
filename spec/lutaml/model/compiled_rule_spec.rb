@@ -270,7 +270,6 @@ RSpec.describe Lutaml::Model::CompiledRule do
     end
 
     it "applies hash transformer with export direction" do
-      skip "Transform value implementation pending for Session 128"
       transformer = {
         export: lambda(&:upcase),
         import: lambda(&:downcase),
@@ -285,7 +284,6 @@ RSpec.describe Lutaml::Model::CompiledRule do
     end
 
     it "applies hash transformer with import direction" do
-      skip "Transform value implementation pending for Session 128"
       transformer = {
         export: lambda(&:upcase),
         import: lambda(&:downcase),

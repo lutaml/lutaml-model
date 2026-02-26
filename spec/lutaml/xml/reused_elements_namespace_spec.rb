@@ -20,7 +20,7 @@ module ReusedElementsNamespaceSpec
     attribute :child, SharedChild
 
     xml do
-      no_root
+      # Type-only model - no element declaration needed
       map_element "child", to: :child
     end
   end

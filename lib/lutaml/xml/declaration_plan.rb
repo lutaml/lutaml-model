@@ -43,12 +43,66 @@ module Lutaml
       # @param namespace_classes [Hash<String, Class>] Namespace classes by URI
       # @param children_plans [Hash] Children plans for collections
       def initialize(root_node:, global_prefix_registry: {},
-input_formats: {}, namespace_classes: {}, children_plans: {})
-      @root_node = root_node
-      @global_prefix_registry = global_prefix_registry
-      @input_formats = input_formats
-      @namespace_classes = namespace_classes
-      @children_plans = children_plans
+                     input_formats: {}, namespace_classes: {}, children_plans: {})
+        @root_node = root_node
+        @global_prefix_registry = global_prefix_registry
+        @input_formats = input_formats
+        @namespace_classes = namespace_classes
+        @children_plans = children_plans
+      end
+
+      # Backward-compatible Hash-like access for older adapters
+      #
+      # @param key [Symbol] Key to access (:namespaces, :children_plans, :type_namespaces)
+      # @return [Hash, nil] The requested data as a Hash, or nil for unknown keys
+      def [](key)
+        case key
+        when :namespaces
+          # Convert namespaces to the old Hash format expected by REXML adapter
+          ns_hash = {}
+          return nil unless @namespace_classes
+
+          @namespace_classes.each do |uri, ns_class|
+            key_str = ns_class.to_key
+
+            # Determine format and build ns_config hash
+            format = @input_formats[uri] || (
+              if @root_node.hoisted_declarations.value?(uri)
+                hoisted_key = @root_node.hoisted_declarations.key(uri)
+                hoisted_key.nil? ? :default : :prefix
+              else
+                ns_class.prefix_default ? :prefix : :default
+              end
+            )
+
+            prefix_override = nil
+            if format == :prefix
+              hoisted_key = @root_node.hoisted_declarations.key(uri)
+              prefix_override = hoisted_key if hoisted_key
+            end
+
+            # Build xmlns_declaration string
+            xmlns_decl = if format == :prefix
+              "xmlns:#{prefix_override || ns_class.prefix_default}=\"#{uri}\""
+                         else
+              "xmlns=\"#{uri}\""
+                         end
+
+            ns_hash[key_str] = {
+              ns_object: ns_class,
+              format: format,
+              declared_at: :here,
+              xmlns_declaration: xmlns_decl,
+              prefix_override: prefix_override,
+            }
+          end
+          ns_hash
+        when :children_plans
+          @children_plans
+        when :type_namespaces
+          # type_namespaces is no longer used in the same way, return empty hash
+          {}
+        end
       end
 
       # Create an empty plan (for compatibility)
@@ -154,11 +208,14 @@ input_formats: {}, namespace_classes: {}, children_plans: {})
           end
         end
 
+        # Check if this format came from input (for from_input? method)
+        from_input = @input_formats.key?(uri)
+
         data = NamespaceDeclarationData.new(
           namespace_class: ns_class,
           format: format,
           declared_at: :here,
-          source: nil,
+          source: from_input ? :input : nil,
           prefix_override: prefix_override,
         )
         result[key] = NamespaceDeclaration.new(data)

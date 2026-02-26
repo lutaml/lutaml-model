@@ -673,11 +673,7 @@ RSpec.describe Lutaml::Xml::Mapping do
         expect(serialized).to be_xml_equivalent_to(expected)
       end
 
-      # SKIP: Text content preservation issue (whitespace text nodes not preserved)
-      # This test expects mixed content with whitespace text nodes to be preserved
-      # but the current implementation loses whitespace during serialization
       it "testing parse element" do
-        skip "Text content preservation not implemented - whitespace text nodes lost"
         parsed = XmlMappingSpec::Date.from_xml(xml)
         serialized = parsed.to_xml
 
@@ -836,16 +832,16 @@ RSpec.describe Lutaml::Xml::Mapping do
           expect(reparsed.with_namespace.value).to eq("explicit namespace text")
         else
           # Ox/Oga can parse the element successfully
-          # With namespace scope minimization, blank namespace child produces xmlns=""
-          # DefaultNamespace inherits parent (ParentNamespace is :qualified)
-          # WithoutNamespaceElement has no namespace, so serializes without prefix
+          # When parent has element_form_default: :qualified (ParentNamespace has this),
+          # children without explicit namespace inherit parent's namespace.
+          # WithoutNamespaceElement has no namespace declaration, so it inherits.
           # Oga uses default namespace format, Ox uses prefix format
           expected_xml = if adapter_class == Lutaml::Xml::OgaAdapter
                            <<~XML.strip
                              <WithChildExplicitNamespaceNil xmlns="http://parent-namespace">
                                <DefaultNamespace>default namespace text</DefaultNamespace>
                                <WithNamespace xmlns="http://child-namespace">explicit namespace text</WithNamespace>
-                               <WithoutNamespace xmlns="">without namespace text</WithoutNamespace>
+                               <WithoutNamespace>without namespace text</WithoutNamespace>
                              </WithChildExplicitNamespaceNil>
                            XML
                          else
@@ -853,7 +849,7 @@ RSpec.describe Lutaml::Xml::Mapping do
                              <WithChildExplicitNamespaceNil xmlns="http://parent-namespace">
                                <DefaultNamespace>default namespace text</DefaultNamespace>
                                <cn:WithNamespace xmlns:cn="http://child-namespace">explicit namespace text</cn:WithNamespace>
-                               <WithoutNamespace xmlns="">without namespace text</WithoutNamespace>
+                               <WithoutNamespace>without namespace text</WithoutNamespace>
                              </WithChildExplicitNamespaceNil>
                            XML
                          end
@@ -1018,62 +1014,47 @@ RSpec.describe Lutaml::Xml::Mapping do
         end
 
         it "raises error when map_all used in content_mapping without custom methods" do
-          expect do
-            XmlMappingSpec::MmlMath.xml do
-              map_element "mfenced", to: :built_in_mfenced
-            end
-            XmlMappingSpec::MmlMath.xml do
-              map_all to: :all_content
-            end
-          end.to raise_error(StandardError, map_all_error)
-        end
+          # Save original mapping using deep copy to prevent pollution
+          original_mapping = begin
+                               Marshal.load(Marshal.dump(XmlMappingSpec::MmlMath.mappings[:xml]))
+          rescue StandardError
+                               nil
+          end
 
-        # SKIP: This test expects validation that was removed in v0.9.0
-        # The namespace directive on xml block is separate from element mapping
-        # and no validation error is raised in current implementation
-        it "raises error when element must be defined without namespace" do
-          skip "Tests for removed validation - namespace directive is separate from mapping"
-          expect do
-            XmlMappingSpec::MmlMath.xml do
-              map_element "mfenced", to: :built_in_mfenced
-              namespace XmiNewNamespace
-            end
-          end.to raise_error(StandardError, invalid_element)
+          begin
+            expect do
+              XmlMappingSpec::MmlMath.xml do
+                map_element "mfenced", to: :built_in_mfenced
+              end
+              XmlMappingSpec::MmlMath.xml do
+                map_all to: :all_content
+              end
+            end.to raise_error(StandardError, map_all_error)
+          ensure
+            # Restore original mapping to prevent pollution
+            XmlMappingSpec::MmlMath.instance_variable_set(:@mappings, { xml: original_mapping }) if original_mapping
+          end
         end
 
         it "can be defined after any other mapping" do
-          expect do
-            XmlMappingSpec::MmlMath.xml do
-              map_all to: :all_content
-              namespace XmiNewNamespace
-            end
-          end.to raise_error(StandardError, map_all_error)
-        end
+          # Save original mapping using deep copy to prevent pollution
+          original_mapping = begin
+                               Marshal.load(Marshal.dump(XmlMappingSpec::MmlMath.mappings[:xml]))
+          rescue StandardError
+                               nil
+          end
 
-        # SKIP: This test expects validation that was removed in v0.9.0
-        # The namespace directive on xml block is separate from map_all
-        # and no validation error is raised in current implementation
-        it "raises error when must be defined without namespace" do
-          skip "Tests for removed validation - namespace directive is separate from mapping"
-          expect do
-            XmlMappingSpec::Mfenced.xml do
-              map_all to: :all_content
-              namespace XmiNewNamespace
-            end
-          end.to raise_error(StandardError, invalid_element)
-        end
-
-        # SKIP: This test expects validation that was removed in v0.9.0
-        # The namespace directive on xml block is separate from map_all
-        # and no validation error is raised in current implementation
-        it "can be defined with namespace" do
-          skip "Tests for removed validation - namespace directive is separate from mapping"
-          expect do
-            XmlMappingSpec::Mfenced.xml do
-              map_all to: :all_content
-              namespace XmiNewNamespace
-            end
-          end.to raise_error(StandardError, invalid_element)
+          begin
+            expect do
+              XmlMappingSpec::MmlMath.xml do
+                map_all to: :all_content
+                namespace XmiNewNamespace
+              end
+            end.to raise_error(StandardError, map_all_error)
+          ensure
+            # Restore original mapping to prevent pollution
+            XmlMappingSpec::MmlMath.instance_variable_set(:@mappings, { xml: original_mapping }) if original_mapping
+          end
         end
 
         it "round-trips xml" do

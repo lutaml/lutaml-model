@@ -773,6 +773,73 @@ end
 
 **Solution**: Verify child is in same namespace as parent. xmlns="" only needed when child is in different namespace or blank namespace.
 
+=== Redundant xmlns Declarations on Nested Elements
+
+**Problem**: Nested elements re-declare the same namespace
+
+[source,xml]
+----
+<Unit xmlns="http://example.com/units">
+  <RootUnits>
+    <EnumeratedRootUnit xmlns="http://example.com/units"/>  <!-- Redundant! -->
+  </RootUnits>
+</Unit>
+----
+
+**Solution**: This was a bug fixed in version 0.7.x. Child elements in the same namespace as their parent now correctly inherit the namespace without re-declaration.
+
+[source,xml]
+----
+<Unit xmlns="http://example.com/units">
+  <RootUnits>
+    <EnumeratedRootUnit/>  <!-- Correctly inherits parent namespace -->
+  </RootUnits>
+</Unit>
+----
+
+This follows W3C XML Namespaces 1.0 §6.2 which states that child elements inherit the default namespace from their parent.
+
+== Adapter Compatibility
+
+All four XML adapters (Nokogiri, Ox, Oga, REXML) now support the same namespace features:
+
+[cols="1,1,1,1,1"]
+|===
+| Feature | Nokogiri | Ox | Oga | REXML
+
+| Default namespace format
+| ✓
+| ✓
+| ✓
+| ✓
+
+| Prefixed namespace format
+| ✓
+| ✓
+| ✓
+| ✓
+
+| Namespace inheritance
+| ✓
+| ✓
+| ✓
+| ✓
+
+| Custom prefix strings (`prefix: "custom"`)
+| ✓
+| ✓
+| ✓
+| ✓
+
+| Round-trip namespace preservation
+| ✓
+| ✓
+| ✓
+| ✓
+|===
+
+NOTE: All adapters now produce identical namespace output. The Oga adapter namespace issues that existed in earlier versions have been resolved.
+
 == Related Documentation
 
 * link:../README.adoc#namespace-scope[namespace_scope in README]

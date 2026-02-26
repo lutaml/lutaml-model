@@ -186,8 +186,7 @@ RSpec.describe "XML Namespace Integration" do
         attribute :city, :string
 
         xml do
-          # No element declaration - type-only model
-          no_root # Explicitly mark as no root
+          # Type-only model - no element declaration needed
           sequence do
             map_element "street", to: :street
             map_element "city", to: :city
@@ -212,11 +211,8 @@ RSpec.describe "XML Namespace Integration" do
       end
     end
 
-    it "cannot be serialized standalone when marked no_root" do
-      address = nil
-      expect do
-        address = address_type_class.new(street: "123 Main St", city: "Boston")
-      end.to output(/DEPRECATED/).to_stderr
+    it "cannot be serialized standalone without element declaration" do
+      address = address_type_class.new(street: "123 Main St", city: "Boston")
 
       expect do
         address.to_xml
@@ -224,20 +220,18 @@ RSpec.describe "XML Namespace Integration" do
     end
 
     it "can be used as embedded type" do
-      expect do
-        person = person_with_address_class.new(
-          name: "Jane",
-          address: address_type_class.new(street: "123 Main St",
-                                          city: "Boston"),
-        )
-        xml = person.to_xml
+      person = person_with_address_class.new(
+        name: "Jane",
+        address: address_type_class.new(street: "123 Main St",
+                                        city: "Boston"),
+      )
+      xml = person.to_xml
 
-        expect(xml).to include("<person")
-        expect(xml).to include("<name>Jane</name>")
-        expect(xml).to include("<address")
-        expect(xml).to include("<street>123 Main St</street>")
-        expect(xml).to include("<city>Boston</city>")
-      end.to output(/DEPRECATED/).to_stderr
+      expect(xml).to include("<person")
+      expect(xml).to include("<name>Jane</name>")
+      expect(xml).to include("<address")
+      expect(xml).to include("<street>123 Main St</street>")
+      expect(xml).to include("<city>Boston</city>")
     end
   end
 

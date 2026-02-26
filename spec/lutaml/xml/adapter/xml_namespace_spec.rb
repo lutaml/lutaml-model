@@ -389,21 +389,6 @@ RSpec.describe "XmlNamespace" do
       end
     end
 
-    context "when two attributes have same name but different namespace" do
-      skip "Multiple attributes with same XML name but different namespaces not supported in model-level namespace architecture" do
-        let(:xml_input) do
-          <<~XML
-            <ownedEnd xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
-                      xmi:type="xmi_type"
-                      xmi:id="my_id"
-                      type="test" />
-          XML
-        end
-
-        # Test removed - scenario not supported
-      end
-    end
-
     context "when nested elements share the same namespace" do
       let(:unit_system) { XmlNamespaceSpec::UnitSystem.new(name: "SI", type: "SI_derived") }
       let(:unit_name) { XmlNamespaceSpec::UnitName.new(value: "meter") }
@@ -529,15 +514,6 @@ RSpec.describe "XmlNamespace" do
   end
 
   describe Lutaml::Xml::OgaAdapter do
-    around do |example|
-      # Skip only failing tests - Oga serialization differs from Nokogiri
-      if /(with prefixed namespace serializes|with prefixed namespace round-trips|with default namespace serializes|with default namespace round-trips|does not repeat xmlns)/.match?(example.metadata[:full_description])
-        skip "Oga adapter namespace implementation differs from Nokogiri - needs investigation"
-      else
-        example.run
-      end
-    end
-
     if TestAdapterConfig.adapter_enabled?(:oga)
       it_behaves_like "an XML namespace parser",
                       described_class
