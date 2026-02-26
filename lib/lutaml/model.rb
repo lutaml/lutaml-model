@@ -19,6 +19,8 @@ require_relative "model/serializable"
 require_relative "model/error"
 require_relative "model/constants"
 require_relative "model/config"
+require_relative "model/configuration"
+require_relative "model/instrumentation"
 require_relative "model/global_register"
 require_relative "model/register"
 require_relative "model/transformation"
@@ -47,6 +49,36 @@ module Lutaml
     end
 
     class BaseModel < Serializable
+    end
+
+    # Module-level configuration
+    #
+    # @example
+    #   Lutaml::Model.configure do |config|
+    #     config.xml_adapter = :nokogiri
+    #     config.json_adapter = :oj
+    #   end
+    #
+    # @yield [Configuration] the configuration object
+    # @return [Configuration] the configuration object
+    def self.configure
+      @configuration ||= Configuration.new
+      yield @configuration if block_given?
+      @configuration
+    end
+
+    # Get the current configuration
+    #
+    # @return [Configuration] the current configuration
+    def self.configuration
+      @configuration ||= Configuration.new
+    end
+
+    # Reset configuration to defaults
+    #
+    # @return [void]
+    def self.reset_configuration!
+      @configuration = nil
     end
   end
 end

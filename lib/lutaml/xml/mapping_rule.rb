@@ -77,6 +77,10 @@ module Lutaml
       @delimiter = delimiter
       @form = validate_form(form)
       @documentation = documentation
+
+      # Memoize prefixed_name at initialization for performance
+      # This is safe because prefix and name are immutable after initialization
+      @cached_prefixed_name = compute_prefixed_name
       end
 
       def namespace_set?
@@ -120,7 +124,20 @@ module Lutaml
       !form.nil?
       end
 
+      # Returns the prefixed name for this mapping rule
+      # Uses memoized value computed at initialization for performance
+      #
+      # @return [String] The prefixed name (e.g., "ns:name" or "name")
       def prefixed_name
+      @cached_prefixed_name
+      end
+
+      private
+
+      # Compute the prefixed name - called once at initialization
+      #
+      # @return [String] The computed prefixed name
+      def compute_prefixed_name
       rule_name = multiple_mappings? ? name.first : name
       if prefix
         "#{prefix}:#{rule_name}"
@@ -128,6 +145,8 @@ module Lutaml
         rule_name
       end
       end
+
+      public
 
       def namespaced_names(parent_namespace = nil)
       if multiple_mappings?

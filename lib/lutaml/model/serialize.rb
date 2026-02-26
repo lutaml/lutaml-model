@@ -473,24 +473,26 @@ collection)
         end
 
         def from(format, data, options = {})
-          adapter = Lutaml::Model::Config.adapter_for(format)
+          Instrumentation.instrument(:from, model: name, format: format) do
+            adapter = Lutaml::Model::Config.adapter_for(format)
 
-          raise Lutaml::Model::FormatAdapterNotSpecifiedError.new(format) if adapter.nil?
+            raise Lutaml::Model::FormatAdapterNotSpecifiedError.new(format) if adapter.nil?
 
-          # CRITICAL: Resolve ALL imports at the ENTRY POINT of deserialization
-          # This ensures symbol-based imports registered after class definition are resolved
-          # before we start parsing the document
-          register = options[:register] || Lutaml::Model::Config.default_register
-          if format == :xml && mappings[:xml]
-            mappings[:xml].ensure_mappings_imported!(register)
+            # CRITICAL: Resolve ALL imports at the ENTRY POINT of deserialization
+            # This ensures symbol-based imports registered after class definition are resolved
+            # before we start parsing the document
+            register = options[:register] || Lutaml::Model::Config.default_register
+            if format == :xml && mappings[:xml]
+              mappings[:xml].ensure_mappings_imported!(register)
+            end
+
+            # Recursively resolve child model imports
+            # This ensures the entire model tree is finalized before parsing
+            ensure_child_imports_resolved!(register)
+
+            doc = adapter.parse(data, options)
+            send("of_#{format}", doc, options)
           end
-
-          # Recursively resolve child model imports
-          # This ensures the entire model tree is finalized before parsing
-          ensure_child_imports_resolved!(register)
-
-          doc = adapter.parse(data, options)
-          send("of_#{format}", doc, options)
         rescue *format_error_types => e
           raise Lutaml::Model::InvalidFormatError.new(format, e.message)
         end
@@ -548,40 +550,42 @@ collection)
         end
 
         def to(format, instance, options = {})
-          value = public_send(:"as_#{format}", instance, options)
-          adapter = Lutaml::Model::Config.adapter_for(format)
+          Instrumentation.instrument(:to, model: name, format: format) do
+            value = public_send(:"as_#{format}", instance, options)
+            adapter = Lutaml::Model::Config.adapter_for(format)
 
-          options[:mapper_class] = self if format == :xml
+            options[:mapper_class] = self if format == :xml
 
-          # Handle prefix option for XML
-          if format == :xml && options.key?(:prefix)
-            prefix_option = options[:prefix]
-            mappings_for(:xml)
+            # Handle prefix option for XML
+            if format == :xml && options.key?(:prefix)
+              prefix_option = options[:prefix]
+              mappings_for(:xml)
 
-            case prefix_option
-            when true
-              # Force prefix format for all namespaces
-              # Each namespace uses its own prefix_default
-              options[:use_prefix] = true
-            when String
-              # Use specific custom prefix
-              options[:use_prefix] = prefix_option
-            when false
-              # Explicitly force default format (disable format preservation)
-              options[:use_prefix] = false
+              case prefix_option
+              when true
+                # Force prefix format for all namespaces
+                # Each namespace uses its own prefix_default
+                options[:use_prefix] = true
+              when String
+                # Use specific custom prefix
+                options[:use_prefix] = prefix_option
+              when false
+                # Explicitly force default format (disable format preservation)
+                options[:use_prefix] = false
+              end
+              # If prefix_option is nil, don't set use_prefix (allow format preservation)
+              options.delete(:prefix) # Remove original option
             end
-            # If prefix_option is nil, don't set use_prefix (allow format preservation)
-            options.delete(:prefix) # Remove original option
-          end
 
-          # Apply namespace prefix overrides for XML format
-          if format == :xml && options[:namespaces]
-            options = apply_namespace_overrides(options)
-          end
+            # Apply namespace prefix overrides for XML format
+            if format == :xml && options[:namespaces]
+              options = apply_namespace_overrides(options)
+            end
 
-          adapter.new(value, register: options[:register]).public_send(
-            :"to_#{format}", options
-          )
+            adapter.new(value, register: options[:register]).public_send(
+              :"to_#{format}", options
+            )
+          end
         end
 
         def apply_namespace_overrides(options)
