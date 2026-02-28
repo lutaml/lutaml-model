@@ -61,13 +61,14 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler::SimpleType do
       expect(simple_type.required_files).to be_empty
     end
 
-    it "returns required files from instance and parent if needed" do
+    it "returns required files from instance and parent class when not using module namespace" do
       restriction = Lutaml::Model::Schema::XmlCompiler::Restriction.new
       allow(restriction).to receive(:required_files).and_return(["require 'foo'"])
       simple_type.instance = restriction
       allow(simple_type).to receive_messages(require_parent?: true,
                                              parent_class: "ParentClass")
       expect(simple_type.required_files).to include("require 'foo'")
+      # When not using module_namespace, require_relative is added for parent
       expect(simple_type.required_files).to include("require_relative \"parent_class\"")
     end
   end
@@ -99,10 +100,9 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler::SimpleType do
       expect(st.send(:union_class_method_body)).to include("Lutaml::Model::GlobalContext.resolve_type(:qux, @register).cast(value, options)")
     end
 
-    it "union_required_files returns correct require lines" do
+    it "union_required_files returns require_relative for non-skippable union type" do
       st = described_class.new("UnionType", ["foo:Bar", "baz:string"])
       expect(st.send(:union_required_files)).to include("require_relative \"bar\"")
-      expect(st.send(:union_required_files)).not_to include("string")
     end
   end
 

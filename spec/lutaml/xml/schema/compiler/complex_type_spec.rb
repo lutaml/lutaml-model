@@ -120,13 +120,13 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler::ComplexType do
   end
 
   describe "#required_files" do
-    it "returns require lutaml/model for default base_class" do
-      expect(complex_type.required_files).to include("require \"lutaml/model\"")
+    it "returns empty array for default base_class (require lutaml/model is in template)" do
+      expect(complex_type.required_files).to eq([])
     end
 
-    it "returns require_relative for custom base_class" do
+    it "returns empty array for custom base_class (autoload handles dependencies)" do
       ct = described_class.new(base_class: "foo:BarBase")
-      expect(ct.required_files).to include("require_relative \"bar_base\"")
+      expect(ct.required_files).to eq([])
     end
 
     it "includes required_files from instances and simple_content" do
@@ -145,12 +145,6 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler::ComplexType do
       expect(complex_type.send(:base_class_name)).to eq("Lutaml::Model::Serializable")
       ct = described_class.new(base_class: "foo:BarBase")
       expect(ct.send(:base_class_name)).to eq("BarBase")
-    end
-
-    it "base_class_require returns correct require line" do
-      expect(complex_type.send(:base_class_require)).to eq("require \"lutaml/model\"")
-      ct = described_class.new(base_class: "foo:BarBase")
-      expect(ct.send(:base_class_require)).to eq("require_relative \"bar_base\"")
     end
 
     it "last_of_split returns last part after colon" do

@@ -1,6 +1,3 @@
-require_relative "schema_builder"
-require_relative "xs_builtin_types"
-
 module Lutaml
   module Model
     module Schema

@@ -1,4 +1,4 @@
-require_relative "serialize"
+# frozen_string_literal: true
 
 module Lutaml
   module Model
@@ -7,5 +7,3 @@ module Lutaml
     end
   end
 end
-
-require_relative "comparable_nil"

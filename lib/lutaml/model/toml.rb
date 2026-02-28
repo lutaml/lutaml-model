@@ -1,12 +1,6 @@
 # frozen_string_literal: true
 
 # TOML format entry point - uses Lutaml::KeyValue::Adapter::Toml namespace
-require_relative "../key_value/adapter/toml/tomlib_adapter"
-require_relative "../key_value/adapter/toml/toml_rb_adapter"
-require_relative "../key_value/adapter/toml/document"
-require_relative "../key_value/adapter/toml/mapping"
-require_relative "../key_value/adapter/toml/mapping_rule"
-require_relative "../key_value/adapter/toml/transform"
 
 # Backward compatibility alias
 module Lutaml

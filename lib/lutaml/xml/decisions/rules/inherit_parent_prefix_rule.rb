@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
 # lib/lutaml/model/xml/decisions/rules/inherit_parent_prefix_rule.rb
-require_relative "../decision_rule"
-
 module Lutaml
   module Xml
       module Decisions

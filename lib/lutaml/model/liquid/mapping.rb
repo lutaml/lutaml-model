@@ -1,9 +1,9 @@
-require_relative "../mapping/mapping"
+# frozen_string_literal: true
 
 module Lutaml
   module Model
     module Liquid
-      class Mapping < Mapping
+      class Mapping < Lutaml::Model::Mapping
         attr_reader :drop_mappings
 
         def initialize

@@ -1,8 +1,6 @@
 require "erb"
 require "ostruct"
 
-require_relative "helpers/template_helper"
-
 module Lutaml
   module Model
     module Schema

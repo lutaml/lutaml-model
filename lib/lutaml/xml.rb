@@ -57,6 +57,36 @@ module Lutaml
     autoload :TransformationBuilder, "lutaml/xml/transformation_builder"
     autoload :Element, "lutaml/xml/element"
     autoload :ModelTransform, "lutaml/xml/model_transform"
+    autoload :TypeNamespaceResolver, "lutaml/xml/type_namespace_resolver"
+    autoload :NamespaceNeeds, "lutaml/xml/namespace_needs"
+    autoload :NamespaceUsage, "lutaml/xml/namespace_usage"
+    autoload :NamespaceDeclarationData, "lutaml/xml/namespace_declaration_data"
+    autoload :DeclarationHandler, "lutaml/xml/declaration_handler"
+    autoload :PolymorphicValueHandler, "lutaml/xml/polymorphic_value_handler"
+    autoload :AttributeNamespaceResolver, "lutaml/xml/attribute_namespace_resolver"
+    autoload :BlankNamespaceHandler, "lutaml/xml/blank_namespace_handler"
+    autoload :DeclarationPlanQuery, "lutaml/xml/declaration_plan_query"
+    autoload :DocTypeExtractor, "lutaml/xml/doctype_extractor"
+    autoload :InputNamespaceExtractor, "lutaml/xml/input_namespace_extractor"
+    autoload :NamespaceDeclarationBuilder, "lutaml/xml/namespace_declaration_builder"
+    autoload :ElementPrefixResolver, "lutaml/xml/element_prefix_resolver"
+    autoload :AdapterHelpers, "lutaml/xml/adapter_helpers"
+    autoload :FormatChooser, "lutaml/xml/format_chooser"
+    autoload :HoistingAlgorithm, "lutaml/xml/hoisting_algorithm"
+    autoload :NamespaceInheritanceResolver, "lutaml/xml/namespace_inheritance_resolver"
+    autoload :NamespaceScopeConfig, "lutaml/xml/namespace_scope_config"
+    autoload :Builder, "lutaml/xml/builder"
+    autoload :TypeNamespace, "lutaml/xml/type_namespace"
+    autoload :TransformationSupport, "lutaml/xml/transformation_support"
+
+    # Autoload adapter element classes (defined in subdirectories)
+    autoload :NokogiriElement, "lutaml/xml/nokogiri/element"
+    autoload :OxElement, "lutaml/xml/ox/element"
+
+    # Autoload adapter module namespaces
+    autoload :Nokogiri, "lutaml/xml/nokogiri"
+    autoload :Oga, "lutaml/xml/oga"
+    autoload :Rexml, "lutaml/xml/rexml"
   end
 end
 

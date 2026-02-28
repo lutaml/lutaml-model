@@ -1,8 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "skip_logic"
-require_relative "element_builder"
-
 module Lutaml
   module Xml
     module TransformationSupport

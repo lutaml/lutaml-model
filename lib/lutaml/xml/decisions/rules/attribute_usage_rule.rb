@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
 # lib/lutaml/model/xml/decisions/rules/attribute_usage_rule.rb
-require_relative "../decision_rule"
-
 module Lutaml
   module Xml
       module Decisions

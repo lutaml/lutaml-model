@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require "set"
-require_relative "type_namespace/reference"
 
 module Lutaml
   module Xml

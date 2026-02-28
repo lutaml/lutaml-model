@@ -1,38 +1,19 @@
 # frozen_string_literal: true
 
 require "active_support/inflector"
-require_relative "config"
-require_relative "type"
-require_relative "collection_handler"
-require_relative "attribute_validator"
-require_relative "attribute"
-require_relative "mapping_hash"
-require_relative "model_transformer"
-require_relative "json_adapter"
-require_relative "comparable_model"
-require_relative "schema_location"
-require_relative "validation"
-require_relative "error"
-require_relative "choice"
-require_relative "sequence"
-require_relative "liquefiable"
-require_relative "transform"
-require_relative "value_transformer"
-require_relative "registrable"
-require_relative "transformation_registry"
-
-# Load serialize submodules
-require_relative "serialize/initialization"
-require_relative "serialize/attribute_definition"
-require_relative "serialize/enum_handling"
-require_relative "serialize/model_import"
-require_relative "serialize/format_conversion"
-require_relative "serialize/value_mapping"
-require_relative "serialize/transformation_builder"
 
 module Lutaml
   module Model
     module Serialize
+      # Autoload subdirectory modules
+      autoload :Initialization, "#{__dir__}/serialize/initialization"
+      autoload :AttributeDefinition, "#{__dir__}/serialize/attribute_definition"
+      autoload :EnumHandling, "#{__dir__}/serialize/enum_handling"
+      autoload :ModelImport, "#{__dir__}/serialize/model_import"
+      autoload :FormatConversion, "#{__dir__}/serialize/format_conversion"
+      autoload :ValueMapping, "#{__dir__}/serialize/value_mapping"
+      autoload :TransformationBuilder, "#{__dir__}/serialize/transformation_builder"
+
       include ComparableModel
       include Validation
       include Lutaml::Model::Liquefiable

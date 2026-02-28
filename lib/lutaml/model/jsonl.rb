@@ -1,11 +1,7 @@
 # frozen_string_literal: true
 
 # JSONL format entry point - uses Lutaml::KeyValue::Adapter::Jsonl namespace
-require_relative "../key_value/adapter/jsonl/standard_adapter"
-require_relative "../key_value/adapter/jsonl/document"
-require_relative "../key_value/adapter/jsonl/mapping"
-require_relative "../key_value/adapter/jsonl/mapping_rule"
-require_relative "../key_value/adapter/jsonl/transform"
+# Constants are accessed via autoload from key_value/adapter/jsonl.rb
 
 # Backward compatibility alias
 module Lutaml

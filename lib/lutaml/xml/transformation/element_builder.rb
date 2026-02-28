@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "value_serializer"
-
 module Lutaml
   module Xml
     module TransformationSupport

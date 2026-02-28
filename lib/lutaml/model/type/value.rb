@@ -1,4 +1,4 @@
-require_relative "../config"
+# frozen_string_literal: true
 
 module Lutaml
   module Model

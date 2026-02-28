@@ -1,8 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "decision"
-require_relative "decision_context"
-
 module Lutaml
   module Xml
       module Decisions

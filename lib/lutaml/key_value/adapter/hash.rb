@@ -3,13 +3,12 @@
 module Lutaml
   module KeyValue
     module Adapter
-      module HashAdapter
-        autoload :Document, "lutaml/key_value/adapter/hash/document"
-        autoload :Mapping, "lutaml/key_value/adapter/hash/mapping"
-        autoload :MappingRule, "lutaml/key_value/adapter/hash/mapping_rule"
-        autoload :Transform, "lutaml/key_value/adapter/hash/transform"
-        autoload :StandardAdapter,
-                 "lutaml/key_value/adapter/hash/standard_adapter"
+      module Hash
+        autoload :Document, "#{__dir__}/hash/document"
+        autoload :Mapping, "#{__dir__}/hash/mapping"
+        autoload :MappingRule, "#{__dir__}/hash/mapping_rule"
+        autoload :Transform, "#{__dir__}/hash/transform"
+        autoload :StandardAdapter, "#{__dir__}/hash/standard_adapter"
       end
     end
   end

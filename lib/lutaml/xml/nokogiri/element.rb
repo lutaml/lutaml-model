@@ -1,11 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "../xml_element"
-require_relative "../xml_attribute"
-require_relative "../xml_namespace"
-require_relative "entity_resolver"
-require_relative "../encoding_normalizer"
-
 module Lutaml
   module Xml
       class NokogiriElement < XmlElement

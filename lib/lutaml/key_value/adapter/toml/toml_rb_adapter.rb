@@ -1,5 +1,6 @@
+# frozen_string_literal: true
+
 require "toml-rb"
-require_relative "document"
 
 module Lutaml
   module KeyValue

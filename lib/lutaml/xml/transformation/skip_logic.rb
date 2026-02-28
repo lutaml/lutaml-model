@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "../../model/render_policy"
-
 module Lutaml
   module Xml
     module TransformationSupport

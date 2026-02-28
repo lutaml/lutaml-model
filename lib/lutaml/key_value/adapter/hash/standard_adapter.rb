@@ -1,4 +1,4 @@
-require_relative "document"
+# frozen_string_literal: true
 
 module Lutaml
   module KeyValue

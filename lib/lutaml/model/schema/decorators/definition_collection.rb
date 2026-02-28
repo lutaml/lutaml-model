@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "class_definition"
-
 module Lutaml
   module Model
     module Schema

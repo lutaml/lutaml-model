@@ -46,10 +46,10 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler::Group do
   end
 
   describe "#required_files" do
-    it "returns require_relative if name is blank and ref is present" do
+    it "returns require_relative for ref type when name is blank" do
       group.name = nil
       group.ref = "foo:Bar"
-      expect(group.required_files).to include("require_relative \"bar\"")
+      expect(group.required_files).to eq("require_relative \"bar\"")
     end
 
     it "delegates to instance if name is present" do

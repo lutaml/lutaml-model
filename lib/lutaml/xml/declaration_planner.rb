@@ -1,11 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "declaration_plan"
-require_relative "namespace_declaration"
-require_relative "namespace_needs"
-require_relative "namespace_usage"
-require_relative "decisions/element_prefix_resolver"
-
 module Lutaml
   module Xml
       # Phase 2: Declaration Planning
@@ -43,8 +37,6 @@ visited_types: Set.new)
 
       # Handle nil or Class root_element for unit testing
       if root_element.nil? || root_element.is_a?(Class)
-        require_relative "type_namespace_resolver"
-
         # CRITICAL: Resolve type namespace refs BEFORE using type_attribute_namespaces
         TypeNamespaceResolver.new(@register).resolve(needs)
 
@@ -206,7 +198,6 @@ visited_types: Set.new)
 
       # TREE PATH: XmlElement tree path
       # CRITICAL: Resolve type namespace refs BEFORE using type_attribute_namespaces
-      require_relative "type_namespace_resolver"
       TypeNamespaceResolver.new(@register).resolve(needs)
 
       # Extract input_formats from stored plan if present (format preservation)
@@ -291,8 +282,6 @@ visited_types: Set.new)
 
       # Check if root_element is a Model instance (has xml mapping)
       if root_element.is_a?(Lutaml::Model::Serialize)
-        require_relative "transformation"
-
         # Get mapper_class from options or infer from root_element
         mapper_class = options[:mapper_class] || root_element.class
 
