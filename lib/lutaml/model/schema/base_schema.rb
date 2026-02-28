@@ -1,6 +1,4 @@
-require_relative "generator/definitions_collection"
-# require_relative "generator/collection"
-require_relative "generator/ref"
+# frozen_string_literal: true
 
 module Lutaml
   module Model

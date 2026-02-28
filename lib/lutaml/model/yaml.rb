@@ -1,11 +1,7 @@
 # frozen_string_literal: true
 
 # YAML format entry point - uses Lutaml::KeyValue::Adapter::Yaml namespace
-require_relative "../key_value/adapter/yaml/standard_adapter"
-require_relative "../key_value/adapter/yaml/document"
-require_relative "../key_value/adapter/yaml/mapping"
-require_relative "../key_value/adapter/yaml/mapping_rule"
-require_relative "../key_value/adapter/yaml/transform"
+# Constants are accessed via autoload from key_value/adapter/yaml.rb
 
 # Backward compatibility alias
 module Lutaml

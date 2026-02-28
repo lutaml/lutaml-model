@@ -1,8 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "../../model/config"
-require_relative "reference"
-
 module Lutaml
   module Xml
       module TypeNamespace

@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "singleton"
+
 module Lutaml
   module Model
     # GlobalRegister is a singleton facade for managing all Register instances.

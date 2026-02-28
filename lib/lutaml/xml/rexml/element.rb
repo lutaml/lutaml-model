@@ -1,8 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "../xml_element"
-require_relative "../xml_namespace"
-
 module Lutaml
   module Xml
       module Rexml

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Lutaml
   module Model
     class Transform
@@ -121,6 +123,3 @@ module Lutaml
     end
   end
 end
-
-require_relative "../key_value/transform"
-require_relative "../xml/model_transform"

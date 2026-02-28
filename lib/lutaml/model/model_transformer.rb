@@ -1,4 +1,4 @@
-require_relative "mapping/model_mapping"
+# frozen_string_literal: true
 
 module Lutaml
   module Model

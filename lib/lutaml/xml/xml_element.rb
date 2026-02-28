@@ -1,6 +1,3 @@
-require_relative "xml_attribute"
-require_relative "document"
-
 module Lutaml
   module Xml
       class XmlElement

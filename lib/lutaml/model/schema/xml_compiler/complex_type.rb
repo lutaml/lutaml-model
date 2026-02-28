@@ -20,6 +20,7 @@ module Lutaml
           TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
             # frozen_string_literal: true
 
+            require "lutaml/model"
             <%= required_files.uniq.join("\n") + "\n" -%>
             <%= module_opening -%>
             class <%= Utils.camel_case(name) %> < <%= base_class_name %>
@@ -61,13 +62,9 @@ module Lutaml
           end
 
           def required_files
-            files = [base_class_require]
-            if @namespace_class_name
-              # Add require for the namespace class
-              files << "require_relative \"#{Utils.snake_case(@namespace_class_name)}\""
-            end
-            # Don't add requires for other schema classes if using module namespace
-            # They're handled via central autoload registry
+            files = []
+            # Only include external gem requires, not schema class requires
+            # Schema class dependencies are handled via autoload registry
             unless @module_namespace
               files.concat(@instances.map(&:required_files).flatten.compact.uniq)
               files.concat(simple_content.required_files) if simple_content?
@@ -163,15 +160,6 @@ module Lutaml
               SERIALIZABLE_BASE_CLASS
             else
               Utils.camel_case(last_of_split(base_class))
-            end
-          end
-
-          def base_class_require
-            case base_class
-            when SERIALIZABLE_BASE_CLASS
-              "require \"lutaml/model\""
-            else
-              "require_relative \"#{Utils.snake_case(last_of_split(base_class))}\""
             end
           end
 

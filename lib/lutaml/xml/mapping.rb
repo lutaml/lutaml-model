@@ -1,7 +1,3 @@
-require_relative "../model/mapping/mapping"
-require_relative "../model/constants"
-require_relative "mapping_rule"
-
 module Lutaml
   module Xml
     class Mapping < ::Lutaml::Model::Mapping

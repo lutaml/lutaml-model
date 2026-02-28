@@ -290,5 +290,10 @@ module Lutaml
         substituted || klass
       end
     end
+
+    # Reopen Register class to add autoload for error class
+    class Register
+      autoload :NotRegistrableClassError, "#{File.dirname(__FILE__)}/error/register/not_registrable_class_error"
+    end
   end
 end

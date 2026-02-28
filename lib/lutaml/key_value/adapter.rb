@@ -3,12 +3,12 @@
 module Lutaml
   module KeyValue
     module Adapter
-      autoload :Json, "lutaml/key_value/adapter/json"
-      autoload :Yaml, "lutaml/key_value/adapter/yaml"
-      autoload :Toml, "lutaml/key_value/adapter/toml"
-      autoload :HashAdapter, "lutaml/key_value/adapter/hash"
-      autoload :Jsonl, "lutaml/key_value/adapter/jsonl"
-      autoload :Yamls, "lutaml/key_value/adapter/yamls"
+      autoload :Json, "#{__dir__}/adapter/json"
+      autoload :Yaml, "#{__dir__}/adapter/yaml"
+      autoload :Toml, "#{__dir__}/adapter/toml"
+      autoload :Hash, "#{__dir__}/adapter/hash"
+      autoload :Jsonl, "#{__dir__}/adapter/jsonl"
+      autoload :Yamls, "#{__dir__}/adapter/yamls"
     end
   end
 end

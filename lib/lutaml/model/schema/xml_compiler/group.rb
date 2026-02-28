@@ -10,6 +10,7 @@ module Lutaml
           GROUP_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
             # frozen_string_literal: true
 
+            require "lutaml/model"
             <%=  "\n" + required_files.uniq.join("\n") -%>
 
             class <%= Utils.camel_case(base_name) %> < Lutaml::Model::Serializable

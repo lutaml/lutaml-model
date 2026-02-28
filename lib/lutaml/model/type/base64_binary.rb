@@ -1,4 +1,5 @@
-require_relative "string"
+# frozen_string_literal: true
+
 require "base64"
 
 module Lutaml

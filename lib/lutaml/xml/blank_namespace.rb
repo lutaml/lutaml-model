@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "namespace"
-
 module Lutaml
   module Xml
     # Special namespace class representing the blank namespace (xmlns="")

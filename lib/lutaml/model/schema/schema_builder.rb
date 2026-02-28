@@ -12,6 +12,9 @@ module Lutaml
       # Nokogiri and Oga. When the configured XML adapter is Ox or REXML, we use
       # Nokogiri for schema generation since it has the most complete builder API.
       class SchemaBuilder
+        autoload :Nokogiri, "#{__dir__}/schema_builder/nokogiri"
+        autoload :Oga, "#{__dir__}/schema_builder/oga"
+
         attr_reader :builder, :adapter_type
 
         # Supported schema builders (separate from XML parsing adapters)
@@ -45,11 +48,9 @@ module Lutaml
         def create_builder(&block)
           case @adapter_type
           when :nokogiri
-            require_relative "schema_builder/nokogiri"
-            SchemaBuilder::Nokogiri.new(@options, &block)
+            Nokogiri.new(@options, &block)
           when :oga
-            require_relative "schema_builder/oga"
-            SchemaBuilder::Oga.new(@options, &block)
+            Oga.new(@options, &block)
           end
         end
       end

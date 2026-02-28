@@ -1,8 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "../model/transformation_builder"
-require_relative "transformation"
-
 module Lutaml
   module Xml
     # Builder for XML format transformations.

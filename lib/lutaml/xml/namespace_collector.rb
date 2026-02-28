@@ -1,11 +1,6 @@
 # frozen_string_literal: true
 
 require "set"
-require_relative "../model/utils"
-require_relative "namespace_needs"
-require_relative "namespace_usage"
-require_relative "type_namespace/reference"
-require_relative "namespace_scope_config"
 
 module Lutaml
   module Xml

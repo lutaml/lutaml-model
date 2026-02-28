@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "namespace_inheritance_strategy"
-
 module Lutaml
   module Xml
       # Strategy for elementFormDefault="unqualified" (W3C DEFAULT)

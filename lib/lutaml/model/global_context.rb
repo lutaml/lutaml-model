@@ -218,7 +218,6 @@ module Lutaml
       #
       # @return [Lutaml::Xml::NamespaceClassRegistry] The registry
       def create_xml_namespace_registry
-        require_relative "../xml/namespace_class_registry"
         ::Lutaml::Xml::NamespaceClassRegistry.new
       end
 

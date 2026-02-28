@@ -1,5 +1,3 @@
-require_relative "base"
-
 module Lutaml
   module Model
     class RuleValueExtractor < Services::Base

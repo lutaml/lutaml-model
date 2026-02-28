@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "declaration_plan_query"
-
 module Lutaml
   module Xml
       # Resolves namespace inheritance between parent and child elements

@@ -4,13 +4,13 @@ require "lutaml/model"
 
 module Lutaml
   module KeyValue
-    autoload :DataModel, "lutaml/key_value/data_model"
-    autoload :Document, "lutaml/key_value/document"
-    autoload :Mapping, "lutaml/key_value/mapping"
-    autoload :MappingRule, "lutaml/key_value/mapping_rule"
-    autoload :Transform, "lutaml/key_value/transform"
-    autoload :Transformation, "lutaml/key_value/transformation"
-    autoload :TransformationBuilder, "lutaml/key_value/transformation_builder"
-    autoload :Adapter, "lutaml/key_value/adapter"
+    autoload :DataModel, "#{__dir__}/key_value/data_model"
+    autoload :Document, "#{__dir__}/key_value/document"
+    autoload :Mapping, "#{__dir__}/key_value/mapping"
+    autoload :MappingRule, "#{__dir__}/key_value/mapping_rule"
+    autoload :Transform, "#{__dir__}/key_value/transform"
+    autoload :Transformation, "#{__dir__}/key_value/transformation"
+    autoload :TransformationBuilder, "#{__dir__}/key_value/transformation_builder"
+    autoload :Adapter, "#{__dir__}/key_value/adapter"
   end
 end
