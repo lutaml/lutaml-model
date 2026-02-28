@@ -1,16 +1,4 @@
 require "ox"
-require_relative "base_adapter"
-require_relative "builder/ox"
-require_relative "namespace_collector"
-require_relative "declaration_planner"
-require_relative "namespace_resolver"
-require_relative "input_namespace_extractor"
-require_relative "doctype_extractor"
-require_relative "namespace_declaration_builder"
-require_relative "attribute_namespace_resolver"
-require_relative "element_prefix_resolver"
-require_relative "ox/element"
-require_relative "declaration_plan_query"
 
 module Lutaml
   module Xml

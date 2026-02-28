@@ -1,10 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "namespace_declaration"
-require_relative "namespace_declaration_data"
-require_relative "declaration_plan/element_node"
-require_relative "declaration_plan/attribute_node"
-
 module Lutaml
   module Xml
       # Represents the complete namespace declaration plan for an XML element
@@ -20,6 +15,10 @@ module Lutaml
       #   plan = DeclarationPlan.new(root_node: root_node, global_prefix_registry: {...})
       #
       class DeclarationPlan
+      # Autoload inner classes
+      autoload :ElementNode, "#{__dir__}/declaration_plan/element_node"
+      autoload :AttributeNode, "#{__dir__}/declaration_plan/attribute_node"
+
       # @return [ElementNode] Root of the element tree containing all decisions
       attr_reader :root_node
 

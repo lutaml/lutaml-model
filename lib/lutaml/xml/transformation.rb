@@ -1,16 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "../model/transformation"
-require_relative "../model/compiled_rule"
-require_relative "data_model"
-require_relative "transformation/custom_method_wrapper"
-require_relative "transformation/rule_compiler"
-require_relative "transformation/skip_logic"
-require_relative "transformation/value_serializer"
-require_relative "transformation/element_builder"
-require_relative "transformation/ordered_applier"
-require_relative "transformation/rule_applier"
-
 module Lutaml
   module Xml
     # XML-specific transformation implementation.

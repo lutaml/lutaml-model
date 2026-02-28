@@ -1,4 +1,3 @@
-require_relative "../model/mapping/mapping_rule"
 require "uri"
 
 module Lutaml

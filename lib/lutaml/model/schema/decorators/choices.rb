@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "attribute"
-
 module Lutaml
   module Model
     module Schema

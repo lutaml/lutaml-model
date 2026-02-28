@@ -1,9 +1,6 @@
 # frozen_string_literal: true
 
 # lib/lutaml/model/xml/decisions/element_prefix_resolver.rb
-require_relative "decision_engine"
-require_relative "decision_context"
-
 module Lutaml
   module Xml
       module Decisions

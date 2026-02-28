@@ -1,8 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "declaration_plan"
-require_relative "declaration_plan_query"
-
 module Lutaml
   module Xml
       # Encapsulates all namespace resolution logic for XML serialization

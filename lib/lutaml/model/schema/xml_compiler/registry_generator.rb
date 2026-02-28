@@ -68,9 +68,6 @@ module Lutaml
           def autoload_declarations
             indent = "  " * module_depth
             @classes.keys.filter_map do |name|
-              # Skip namespace classes (check the name, not the content)
-              next if name.to_s.include?("Namespace")
-
               class_name = Utils.camel_case(name)
               file_name = Utils.snake_case(name)
               # Use relative path from registry file location

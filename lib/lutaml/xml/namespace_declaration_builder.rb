@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "namespace_declaration"
-
 module Lutaml
   module Xml
       # NamespaceDeclarationBuilder - Build xmlns attributes from DeclarationPlan

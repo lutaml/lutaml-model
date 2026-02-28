@@ -1,6 +1,35 @@
+# frozen_string_literal: true
+
 module Lutaml
   module Model
     module Type
+      autoload :Value, "#{__dir__}/type/value"
+      autoload :String, "#{__dir__}/type/string"
+      autoload :Integer, "#{__dir__}/type/integer"
+      autoload :Float, "#{__dir__}/type/float"
+      autoload :Date, "#{__dir__}/type/date"
+      autoload :Time, "#{__dir__}/type/time"
+      autoload :DateTime, "#{__dir__}/type/date_time"
+      autoload :TimeWithoutDate, "#{__dir__}/type/time_without_date"
+      autoload :Boolean, "#{__dir__}/type/boolean"
+      autoload :Decimal, "#{__dir__}/type/decimal"
+      autoload :Reference, "#{__dir__}/type/reference"
+      autoload :Hash, "#{__dir__}/type/hash"
+      autoload :Symbol, "#{__dir__}/type/symbol"
+      autoload :Duration, "#{__dir__}/type/duration"
+      autoload :Uri, "#{__dir__}/type/uri"
+      autoload :QName, "#{__dir__}/type/qname"
+      autoload :Base64Binary, "#{__dir__}/type/base64_binary"
+      autoload :HexBinary, "#{__dir__}/type/hex_binary"
+
+      # Error classes (defined in error/type/ but under Type namespace)
+      autoload :InvalidValueError, "#{__dir__}/error/type/invalid_value_error"
+      autoload :MinBoundError, "#{__dir__}/error/type/min_bound_error"
+      autoload :MaxBoundError, "#{__dir__}/error/type/max_bound_error"
+      autoload :PatternNotMatchedError, "#{__dir__}/error/type/pattern_not_matched_error"
+      autoload :MinLengthError, "#{__dir__}/error/type/min_length_error"
+      autoload :MaxLengthError, "#{__dir__}/error/type/max_length_error"
+
       TYPE_CODES = {
         string: "Lutaml::Model::Type::String",
         integer: "Lutaml::Model::Type::Integer",
@@ -122,26 +151,6 @@ module Lutaml
     end
   end
 end
-
-# Load type classes
-require_relative "type/value"
-require_relative "type/string"
-require_relative "type/integer"
-require_relative "type/float"
-require_relative "type/date"
-require_relative "type/time"
-require_relative "type/date_time"
-require_relative "type/time_without_date"
-require_relative "type/boolean"
-require_relative "type/decimal"
-require_relative "type/reference"
-require_relative "type/hash"
-require_relative "type/symbol"
-require_relative "type/duration"
-require_relative "type/uri"
-require_relative "type/qname"
-require_relative "type/base64_binary"
-require_relative "type/hex_binary"
 
 # Register built-in types in Type module's internal registry
 # (for backward compatibility)

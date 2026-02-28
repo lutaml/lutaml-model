@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "../data_model"
-
 module Lutaml
   module Xml
     # Wrapper for custom method compatibility with XmlDataModel.

@@ -115,6 +115,10 @@ module Lutaml
             if !@module_namespace && require_parent?
               files << "require_relative \"#{Utils.snake_case(parent_class)}\""
             end
+            # Filter out require_relative when using autoload, keep external requires
+            if @module_namespace
+              files = files.select { |f| f.start_with?("require \"") }
+            end
             files.join("\n")
           end
 

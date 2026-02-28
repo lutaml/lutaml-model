@@ -1,8 +1,4 @@
-require_relative "shared_methods"
-require_relative "base_schema"
-require_relative "renderer"
-require_relative "decorators/class_definition"
-require_relative "decorators/definition_collection"
+# frozen_string_literal: true
 
 require "json"
 

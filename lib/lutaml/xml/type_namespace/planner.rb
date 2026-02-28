@@ -1,9 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "collector"
-require_relative "resolver"
-require_relative "declaration"
-
 module Lutaml
   module Xml
       module TypeNamespace

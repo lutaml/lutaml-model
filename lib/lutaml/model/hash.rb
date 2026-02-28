@@ -1,11 +1,7 @@
 # frozen_string_literal: true
 
 # Hash format entry point - uses Lutaml::KeyValue::Adapter::Hash namespace
-require_relative "../key_value/adapter/hash/standard_adapter"
-require_relative "../key_value/adapter/hash/document"
-require_relative "../key_value/adapter/hash/mapping"
-require_relative "../key_value/adapter/hash/mapping_rule"
-require_relative "../key_value/adapter/hash/transform"
+# Constants are accessed via autoload from key_value/adapter/hash.rb
 
 # Backward compatibility alias
 module Lutaml

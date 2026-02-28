@@ -13,20 +13,24 @@ module Lutaml
 
             require "lutaml/model"
 
+            <%= module_opening -%>
             # Namespace: <%= uri %>
             class <%= class_name %> < Lutaml::Xml::W3c::XmlNamespace
               uri <%= uri.inspect %>
               prefix_default <%= prefix_default.inspect %>
             end
+            <%= module_closing -%>
           TEMPLATE
 
           def initialize(uri:, prefix: nil, class_name: nil)
             @uri = uri
             @prefix_default = prefix || derive_prefix_from_uri(uri)
             @class_name = class_name || derive_class_name_from_uri(uri)
+            @module_namespace = nil
           end
 
-          def to_class
+          def to_class(options: {})
+            @module_namespace = options[:module_namespace]
             TEMPLATE.result(binding)
           end
 
@@ -39,6 +43,24 @@ module Lutaml
           end
 
           private
+
+          def module_opening
+            return "" unless @module_namespace
+
+            modules = @module_namespace.split("::")
+            modules.map.with_index do |mod, i|
+              "#{'  ' * i}module #{mod}"
+            end.join("\n") + "\n"
+          end
+
+          def module_closing
+            return "" unless @module_namespace
+
+            modules = @module_namespace.split("::")
+            modules.reverse.map.with_index do |_mod, i|
+              "#{'  ' * (modules.size - i - 1)}end"
+            end.join("\n")
+          end
 
           def derive_prefix_from_uri(uri)
             # Extract meaningful part from URI

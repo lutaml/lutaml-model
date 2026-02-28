@@ -1,12 +1,14 @@
-require_relative "validator/string"
-require_relative "validator/symbol"
-require_relative "validator/number"
+# frozen_string_literal: true
 
 module Lutaml
   module Model
     module Services
       module Type
         class Validator
+          autoload :String, "#{__dir__}/validator/string"
+          autoload :Symbol, "#{__dir__}/validator/symbol"
+          autoload :Number, "#{__dir__}/validator/number"
+
           module ClassMethods
             def validate_values!(value, values)
               return if Utils.blank?(values) || values.include?(value)

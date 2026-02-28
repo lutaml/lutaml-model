@@ -1,4 +1,3 @@
-require_relative "base_schema"
 require "yaml"
 
 module Lutaml

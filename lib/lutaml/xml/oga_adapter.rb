@@ -1,18 +1,5 @@
 require "oga"
 require "moxml/adapter/oga"
-require_relative "base_adapter"
-require_relative "oga/document"
-require_relative "oga/element"
-require_relative "builder/oga"
-require_relative "namespace_collector"
-require_relative "declaration_planner"
-require_relative "namespace_resolver"
-require_relative "input_namespace_extractor"
-require_relative "doctype_extractor"
-require_relative "namespace_declaration_builder"
-require_relative "attribute_namespace_resolver"
-require_relative "element_prefix_resolver"
-require_relative "adapter_helpers"
 
 module Lutaml
   module Xml

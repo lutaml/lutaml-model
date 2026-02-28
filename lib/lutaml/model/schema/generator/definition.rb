@@ -1,5 +1,4 @@
-require_relative "properties_collection"
-require_relative "../shared_methods"
+# frozen_string_literal: true
 
 module Lutaml
   module Model

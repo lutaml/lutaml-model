@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "namespace_declaration_data"
-
 module Lutaml
   module Xml
       # Represents a single namespace declaration in an XML element

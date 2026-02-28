@@ -1,16 +1,4 @@
 require "nokogiri"
-require_relative "base_adapter"
-require_relative "builder/nokogiri"
-require_relative "namespace_collector"
-require_relative "declaration_planner"
-require_relative "input_namespace_extractor"
-require_relative "nokogiri/entity_resolver"
-require_relative "nokogiri/element"
-require_relative "namespace_declaration_builder"
-require_relative "attribute_namespace_resolver"
-require_relative "element_prefix_resolver"
-require_relative "blank_namespace_handler"
-require_relative "namespace_resolver"
 
 module Lutaml
   module Xml

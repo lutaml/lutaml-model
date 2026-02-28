@@ -1,12 +1,6 @@
 require "rexml/document"
 require "moxml"
 require "moxml/adapter/rexml"
-require_relative "base_adapter"
-require_relative "rexml/element"
-require_relative "builder/rexml"
-require_relative "namespace_collector"
-require_relative "declaration_planner"
-require_relative "adapter_helpers"
 
 module Lutaml
   module Xml

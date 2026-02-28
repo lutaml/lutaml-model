@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "../model/transform"
-
 module Lutaml
   module Xml
     # ModelTransform is the XML transform handler for the model layer.

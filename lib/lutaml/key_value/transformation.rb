@@ -1,8 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "data_model"
-require_relative "../model/render_policy"
-
 module Lutaml
   module KeyValue
     # KeyValue-specific transformation implementation.

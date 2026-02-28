@@ -1,9 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "document"
-require_relative "declaration_handler"
-require_relative "polymorphic_value_handler"
-
 module Lutaml
   module Xml
       # Base class for XML adapters providing shared functionality.

@@ -3,26 +3,28 @@
 require "erb"
 require "tmpdir"
 require "lutaml/xsd"
-require_relative "xml_compiler/complex_content_restriction"
-require_relative "xml_compiler/attribute_group"
-require_relative "xml_compiler/complex_content"
-require_relative "xml_compiler/simple_content"
-require_relative "xml_compiler/complex_type"
-require_relative "xml_compiler/restriction"
-require_relative "xml_compiler/simple_type"
-require_relative "xml_compiler/attribute"
-require_relative "xml_compiler/sequence"
-require_relative "xml_compiler/element"
-require_relative "xml_compiler/choice"
-require_relative "xml_compiler/group"
-require_relative "xml_compiler/xml_namespace_class"
-require_relative "xml_compiler/registry_generator"
 
 module Lutaml
   module Model
     module Schema
       module XmlCompiler
         extend self
+
+        # Autoload subdirectory classes
+        autoload :ComplexContentRestriction, "#{__dir__}/xml_compiler/complex_content_restriction"
+        autoload :AttributeGroup, "#{__dir__}/xml_compiler/attribute_group"
+        autoload :ComplexContent, "#{__dir__}/xml_compiler/complex_content"
+        autoload :SimpleContent, "#{__dir__}/xml_compiler/simple_content"
+        autoload :ComplexType, "#{__dir__}/xml_compiler/complex_type"
+        autoload :Restriction, "#{__dir__}/xml_compiler/restriction"
+        autoload :SimpleType, "#{__dir__}/xml_compiler/simple_type"
+        autoload :Attribute, "#{__dir__}/xml_compiler/attribute"
+        autoload :Sequence, "#{__dir__}/xml_compiler/sequence"
+        autoload :Element, "#{__dir__}/xml_compiler/element"
+        autoload :Choice, "#{__dir__}/xml_compiler/choice"
+        autoload :Group, "#{__dir__}/xml_compiler/group"
+        autoload :XmlNamespaceClass, "#{__dir__}/xml_compiler/xml_namespace_class"
+        autoload :RegistryGenerator, "#{__dir__}/xml_compiler/registry_generator"
 
         attr_reader :simple_types,
                     :group_types,
@@ -73,7 +75,7 @@ module Lutaml
           # Generate namespace classes
           namespace_classes_hash = {}
           @namespace_classes.each do |name, ns_class|
-            namespace_classes_hash[name] = ns_class.to_class
+            namespace_classes_hash[name] = ns_class.to_class(options: options)
           end
 
           classes_list = namespace_classes_hash.merge(@simple_types).merge(@complex_types).merge(@group_types)
@@ -95,7 +97,7 @@ module Lutaml
               full_dir = File.join(dir, module_path)
               FileUtils.mkdir_p(full_dir)
 
-              # Generate central registry file
+              # Generate central registry file with autoload
               registry_content = RegistryGenerator.generate(classes_list,
                                                             options)
               if registry_content
@@ -110,7 +112,11 @@ module Lutaml
                 create_file(name, klass, full_dir)
               end
             else
+              # When no module_namespace, write files directly to output dir
+              # Generated files use require_relative for dependencies (traditional approach)
               FileUtils.mkdir_p(dir)
+
+              # Write class files
               classes_list.each { |name, klass| create_file(name, klass, dir) }
             end
             true
@@ -127,11 +133,28 @@ module Lutaml
 
         def require_classes(classes_hash)
           Dir.mktmpdir do |dir|
-            classes_hash.each { |name, klass| create_file(name, klass, dir) }
-            # Some files are not created at the time of the require, so we need to require them after all the files are created.
-            classes_hash.each_key do |name|
-              require "#{dir}/#{Utils.snake_case(name)}"
+            # Create subdirectory for class files (matches autoload path in registry)
+            module_subdir = "generatedmodels"
+            full_dir = File.join(dir, module_subdir)
+            FileUtils.mkdir_p(full_dir)
+
+            # Generate registry file first with autoload
+            registry_content = RegistryGenerator.generate(classes_hash,
+                                                          module_namespace: "GeneratedModels",
+                                                          register_id: :default)
+            if registry_content
+              registry_file = File.join(dir, "registry.rb")
+              File.write(registry_file, registry_content)
             end
+
+            # Write class files to subdirectory
+            classes_hash.each { |name, klass| create_file(name, klass, full_dir) }
+
+            # Require the registry first to set up autoloads
+            require "#{dir}/registry"
+
+            # Call register_all to register all classes
+            GeneratedModels.register_all if GeneratedModels.respond_to?(:register_all)
           end
         end
 

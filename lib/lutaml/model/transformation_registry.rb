@@ -1,11 +1,6 @@
 # frozen_string_literal: true
 
 require "set"
-require_relative "global_register"
-require_relative "register"
-require_relative "transformation_builder"
-require_relative "../xml/transformation_builder"
-require_relative "../key_value/transformation_builder"
 
 module Lutaml
   module Model
@@ -35,16 +30,20 @@ module Lutaml
     #
     #   TransformationRegistry.register_builder(:protobuf, ProtobufBuilder)
     class TransformationRegistry
-      # Default builders for built-in formats
-      DEFAULT_BUILDERS = {
-        xml: ::Lutaml::Xml::TransformationBuilder,
-        json: ::Lutaml::KeyValue::TransformationBuilder,
-        yaml: ::Lutaml::KeyValue::TransformationBuilder,
-        toml: ::Lutaml::KeyValue::TransformationBuilder,
-        hash: ::Lutaml::KeyValue::TransformationBuilder,
-      }.freeze
-
       class << self
+        # Get default builders (lazy initialization to avoid load order issues)
+        #
+        # @return [Hash] Default builders for built-in formats
+        def default_builders
+          @default_builders ||= {
+            xml: ::Lutaml::Xml::TransformationBuilder,
+            json: ::Lutaml::KeyValue::TransformationBuilder,
+            yaml: ::Lutaml::KeyValue::TransformationBuilder,
+            toml: ::Lutaml::KeyValue::TransformationBuilder,
+            hash: ::Lutaml::KeyValue::TransformationBuilder,
+          }.freeze
+        end
+
         # Get singleton instance
         def instance
           @instance ||= new
@@ -67,7 +66,7 @@ module Lutaml
                   "Builder must inherit from TransformationBuilder"
           end
 
-          @builders ||= DEFAULT_BUILDERS.dup
+          @builders ||= default_builders.dup
           @builders[format] = builder
         end
 
@@ -76,7 +75,7 @@ module Lutaml
         # @param format [Symbol] The format
         # @return [Class, nil] The builder class or nil
         def builder_for(format)
-          @builders ||= DEFAULT_BUILDERS.dup
+          @builders ||= default_builders.dup
           @builders[format]
         end
 
@@ -84,7 +83,7 @@ module Lutaml
         #
         # @return [void]
         def reset_builders!
-          @builders = DEFAULT_BUILDERS.dup
+          @builders = default_builders.dup
         end
       end
 

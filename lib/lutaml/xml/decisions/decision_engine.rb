@@ -1,10 +1,6 @@
 # frozen_string_literal: true
 
 # lib/lutaml/model/xml/decisions/decision_engine.rb
-require_relative "decision"
-require_relative "decision_context"
-require_relative "decision_rule"
-
 module Lutaml
   module Xml
       module Decisions
@@ -49,7 +45,6 @@ module Lutaml
       #
       # @return [DecisionEngine] An engine with all priority rules
       def self.default
-        require_relative "rules"
         rules = [
           Rules::InheritFromParentRule.new,
           Rules::HoistedOnParentRule.new,
