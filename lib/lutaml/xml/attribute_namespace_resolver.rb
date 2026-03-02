@@ -61,17 +61,32 @@ module Lutaml
       local_xmlns_uri = nil
 
       if ns_info[:prefix] && plan&.namespaces
-        # Find namespace declaration by URI or prefix
+        # Performance: Use O(1) lookup via find_namespace_by_uri
         ns_decl = if ns_info[:uri]
-                    plan.namespaces.values.find do |decl|
-                      decl.uri == ns_info[:uri]
-                    end
-                  else
-                    plan.namespaces.values.find do |decl|
-                      decl.ns_object.prefix_default == ns_info[:prefix] ||
-                        decl.prefix == ns_info[:prefix]
+                    # Try O(1) lookup first
+                    ns_info_from_uri = plan.find_namespace_by_uri(ns_info[:uri])
+                    if ns_info_from_uri
+                      # Build a minimal declaration object for local_on_use check
+                      Struct.new(:uri, :local_on_use?, :prefix, :ns_object).new(
+                        ns_info[:uri],
+                        false, # Will be checked via namespace_classes
+                        ns_info_from_uri[:prefix],
+                        nil,
+                      )
                     end
                   end
+
+        # Fallback to linear search if O(1) lookup didn't find it
+        ns_decl ||= if ns_info[:uri]
+                      plan.namespaces.values.find do |decl|
+                        decl.uri == ns_info[:uri]
+                      end
+                    else
+                      plan.namespaces.values.find do |decl|
+                        decl.ns_object.prefix_default == ns_info[:prefix] ||
+                          decl.prefix == ns_info[:prefix]
+                      end
+                    end
 
         # Check if namespace is marked for local declaration
         if ns_decl&.local_on_use?

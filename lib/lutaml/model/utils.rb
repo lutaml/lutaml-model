@@ -6,6 +6,15 @@ module Lutaml
       class << self
         UNINITIALIZED = Lutaml::Model::UninitializedClass.instance
 
+        # Cache size limit to prevent memory leaks
+        CACHE_SIZE_LIMIT = 1000
+
+        # Clear all caches (call between schema compilations)
+        def clear_caches
+          @camel_case_cache = {}
+          @snake_case_cache = {}
+        end
+
         # Safely attempts to require a file and check for a constant
         #
         # @param file [String] the file to require
@@ -21,11 +30,19 @@ module Lutaml
           false
         end
 
-        # Convert string to camel case
+        # Convert string to camel case (cached)
         def camel_case(str)
           return "" if str.nil? || str.empty?
 
-          str.split("/").map { |part| camelize_part(part) }.join("::")
+          @camel_case_cache ||= {}
+          cached = @camel_case_cache[str]
+          return cached if cached
+
+          result = str.split("/").map { |part| camelize_part(part) }.join("::")
+
+          # Evict oldest entry if cache is full
+          @camel_case_cache.shift if @camel_case_cache.size >= CACHE_SIZE_LIMIT
+          @camel_case_cache[str] = result
         end
 
         # Convert string to class name
@@ -40,15 +57,23 @@ module Lutaml
           end
         end
 
-        # Convert string to snake case
+        # Convert string to snake case (cached)
         def snake_case(str)
           str = str.to_s.tr(".", "_")
           return str unless /[A-Z-]|::/.match?(str)
 
-          str.gsub("::", "/")
+          @snake_case_cache ||= {}
+          cached = @snake_case_cache[str]
+          return cached if cached
+
+          result = str.gsub("::", "/")
             .gsub(/([A-Z]+)(?=[A-Z][a-z])|([a-z\d])(?=[A-Z])/) { "#{$1 || $2}_" }
             .tr("-", "_")
             .downcase
+
+          # Evict oldest entry if cache is full
+          @snake_case_cache.shift if @snake_case_cache.size >= CACHE_SIZE_LIMIT
+          @snake_case_cache[str] = result
         end
 
         # Extract the base name of the class

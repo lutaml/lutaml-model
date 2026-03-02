@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Lutaml
   module Model
     class Attribute
@@ -121,24 +123,32 @@ module Lutaml
       end
 
       # Normalize register/context to TypeContext for resolution
+      # Performance: Optimized to reduce allocations in hot path
       def normalize_context(context_or_register)
-        case context_or_register
-        when nil
-          # Use Config.default_register to look up the correct context
-          default_id = Lutaml::Model::Config.default_register
-          ctx = GlobalContext.context(default_id)
-          ctx || GlobalContext.default_context
-        when Lutaml::Model::Register
-          ctx = GlobalContext.context(context_or_register.id)
-          ctx || GlobalContext.default_context
-        when Symbol
-          ctx = GlobalContext.context(context_or_register)
-          ctx || GlobalContext.default_context
-        when Lutaml::Model::TypeContext
-          context_or_register
-        else
-          GlobalContext.default_context
-        end
+        # Fast path for nil - most common case
+        return default_type_context if context_or_register.nil?
+
+        # Fast path for TypeContext - no conversion needed
+        return context_or_register if context_or_register.is_a?(Lutaml::Model::TypeContext)
+
+        # Handle Register and Symbol cases
+        context_id = case context_or_register
+                     when Lutaml::Model::Register
+                       context_or_register.id
+                     when Symbol
+                       context_or_register
+                     else
+                       return GlobalContext.default_context
+                     end
+
+        GlobalContext.context(context_id) || GlobalContext.default_context
+      end
+
+      # Performance: Cache default type context lookup
+      def default_type_context
+        default_id = Lutaml::Model::Config.default_register
+        ctx = GlobalContext.context(default_id)
+        ctx || GlobalContext.default_context
       end
 
       def unresolved_type
@@ -157,8 +167,11 @@ module Lutaml
         @options[:delegate]
       end
 
+      # Performance: Frozen empty hash to reduce allocations
+      EMPTY_TRANSFORM_HASH = {}.freeze
+
       def transform
-        @options[:transform] || {}
+        @options[:transform] || EMPTY_TRANSFORM_HASH
       end
 
       def method_name
@@ -248,8 +261,11 @@ module Lutaml
         options[:pattern]
       end
 
+      # Performance: Frozen empty array to reduce allocations
+      EMPTY_VALUES_ARRAY = [].freeze
+
       def enum_values
-        @options.key?(:values) ? @options[:values] : []
+        @options.key?(:values) ? @options[:values] : EMPTY_VALUES_ARRAY
       end
 
       def transform_import_method

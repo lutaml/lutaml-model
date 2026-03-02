@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Lutaml
   module Model
     module Type
@@ -14,7 +16,8 @@ module Lutaml
                     # Convert to string first to handle various input types
                     BigDecimal(value.to_s)
                   end
-          Model::Services::Type::Validator::Number.validate!(value, options)
+          # Use identity check for EMPTY_OPTIONS (faster than .empty?)
+          Model::Services::Type::Validator::Number.validate!(value, options) unless options.equal?(EMPTY_OPTIONS)
           value
         rescue ArgumentError
           nil

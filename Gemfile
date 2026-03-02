@@ -27,3 +27,6 @@ gem "rubocop-rake", require: false
 gem "rubocop-rspec", require: false
 gem "tomlib"
 gem "toml-rb"
+
+gem "memory_profiler", "~> 1.1", :group => :development
+gem "stackprof", "~> 0.2.28", :group => :development

@@ -48,6 +48,10 @@ module Lutaml
         @input_formats = input_formats
         @namespace_classes = namespace_classes
         @children_plans = children_plans
+
+        # Performance: Cached lookups
+        @namespaces_cache = nil
+        @uri_to_info_cache = nil
       end
 
       # Backward-compatible Hash-like access for older adapters
@@ -173,10 +177,13 @@ module Lutaml
       #
       # @return [Hash<String, NamespaceDeclaration>] Map of namespace key => declaration
       def namespaces
-      return {} unless @namespace_classes
+        # Performance: Return cached result if available
+        return @namespaces_cache if @namespaces_cache
 
-      result = {}
-      @namespace_classes.each do |uri, ns_class|
+        return {} unless @namespace_classes
+
+        result = {}
+        @namespace_classes.each do |uri, ns_class|
         key = ns_class.to_key
 
         # Determine format by checking hoisted_declarations
@@ -218,8 +225,9 @@ module Lutaml
           prefix_override: prefix_override,
         )
         result[key] = NamespaceDeclaration.new(data)
-      end
-      result
+        end
+        # Performance: Cache the result
+        @namespaces_cache = result
       end
 
       # Get a specific namespace declaration by key
@@ -235,14 +243,37 @@ module Lutaml
       # @param ns_class [Class] Namespace class to look up
       # @return [NamespaceDeclaration, nil] Namespace declaration or nil if not found
       def namespace_for_class(ns_class)
-      return nil unless ns_class && @namespace_classes
+        return nil unless ns_class && @namespace_classes
 
-      # Find the URI for this namespace class
-      uri = @namespace_classes.key(ns_class)
-      return nil unless uri
+        # Find the URI for this namespace class
+        uri = @namespace_classes.key(ns_class)
+        return nil unless uri
 
-      # Get the namespace using the class's to_key method
-      namespace(ns_class.to_key)
+        # Get the namespace using the class's to_key method
+        namespace(ns_class.to_key)
+      end
+
+      # Performance: O(1) namespace lookup by URI
+      #
+      # @param uri [String] Namespace URI to search for
+      # @return [Hash, nil] Namespace info hash or nil
+      def find_namespace_by_uri(uri)
+        return nil unless uri
+
+        # Build cache on first access
+        unless @uri_to_info_cache
+          @uri_to_info_cache = {}
+          @root_node.hoisted_declarations.each do |xmlns_key, xmlns_uri|
+            @uri_to_info_cache[xmlns_uri] = {
+              prefix: xmlns_key,
+              format: xmlns_key ? :prefix : :default,
+              declared_at: :here,
+              uri: xmlns_uri,
+            }
+          end
+        end
+
+        @uri_to_info_cache[uri]
       end
 
       # Get child element plan by attribute name

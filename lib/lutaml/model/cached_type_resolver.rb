@@ -90,7 +90,8 @@ module Lutaml
       # @return [void]
       def clear_cache(context_id)
         @mutex.synchronize do
-          @cache.delete_if { |key, _| key.start_with?("#{context_id}:") }
+          # Array keys: [context_id, type_name]
+          @cache.delete_if { |key, _| key[0] == context_id }
         end
       end
 
@@ -118,12 +119,13 @@ module Lutaml
       private
 
       # Build a cache key from name and context.
+      # Uses array for faster comparison than string concatenation.
       #
       # @param name [Symbol, String] The type name
       # @param context [TypeContext] The resolution context
-      # @return [String] The cache key
+      # @return [Array] The cache key (faster than string)
       def build_cache_key(name, context)
-        "#{context.id}:#{name}"
+        [context.id, name.to_sym]
       end
     end
   end
