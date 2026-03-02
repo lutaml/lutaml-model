@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require "forwardable"
-
 module Lutaml
   module Model
     # GlobalContext provides global state management and context coordination.
@@ -222,19 +220,82 @@ module Lutaml
       end
 
       class << self
-        extend Forwardable
+        # Performance: Define delegation methods without closures
+        # Using class_eval with string avoids closure allocation per call
 
-        # Delegate instance methods to the singleton instance.
-        #
-        # This allows calling GlobalContext.resolve_type instead of
-        # GlobalContext.instance.resolve_type
+        class_eval <<-RUBY, __FILE__, __LINE__ + 1
+          def registry
+            instance.registry
+          end
 
-        def_delegators :instance, :registry, :resolver, :imports,
-                       :xml_namespace_registry, :clear_xml_namespace_registry!,
-                       :default_context_id, :default_context_id=,
-                       :default_context, :context, :resolve_type, :resolvable?,
-                       :register_context, :create_context, :unregister_context,
-                       :with_context, :reset!, :clear_caches, :stats
+          def resolver
+            instance.resolver
+          end
+
+          def imports
+            instance.imports
+          end
+
+          def xml_namespace_registry
+            instance.xml_namespace_registry
+          end
+
+          def default_context_id
+            instance.default_context_id
+          end
+
+          def default_context
+            instance.default_context
+          end
+
+          def context(*args, **kwargs, &block)
+            instance.context(*args, **kwargs, &block)
+          end
+
+          def clear_xml_namespace_registry!
+            instance.clear_xml_namespace_registry!
+          end
+
+          def reset!
+            instance.reset!
+          end
+
+          def clear_caches
+            instance.clear_caches
+          end
+
+          def stats
+            instance.stats
+          end
+
+          def default_context_id=(id)
+            instance.default_context_id = id
+          end
+
+          def register_context(ctx)
+            instance.register_context(ctx)
+          end
+
+          def unregister_context(id)
+            instance.unregister_context(id)
+          end
+
+          def create_context(**kwargs)
+            instance.create_context(**kwargs)
+          end
+
+          def resolve_type(name, ctx = nil)
+            instance.resolve_type(name, ctx)
+          end
+
+          def resolvable?(name, ctx = nil)
+            instance.resolvable?(name, ctx)
+          end
+
+          def with_context(ctx_id)
+            instance.with_context(ctx_id) { yield }
+          end
+        RUBY
       end
     end
   end

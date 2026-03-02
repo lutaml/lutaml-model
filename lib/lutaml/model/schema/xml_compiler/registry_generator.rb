@@ -7,6 +7,30 @@ module Lutaml
     module Schema
       module XmlCompiler
         class RegistryGenerator
+          TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
+            # frozen_string_literal: true
+            # Auto-generated central registry for <%= @module_namespace %>
+
+            <%= module_opening %>
+            <%= autoload_declarations %>
+
+              def self.register_all
+                # Ensure context exists before using it
+                context = Lutaml::Model::GlobalContext.context(:<%= @register_id %>) ||
+                          Lutaml::Model::GlobalContext.create_context(id: :<%= @register_id %>)
+
+                # Phase 1: Register all models (no imports)
+            <%= registration_calls %>
+
+                # Phase 2: Resolve model, choice, and restrict imports
+            <%= model_import_resolution_calls %>
+
+                # Phase 3: Resolve mapping and sequence imports
+            <%= mapping_import_resolution_calls %>
+              end
+            <%= module_closing %>
+          TEMPLATE
+
           def self.generate(classes_hash, options = {})
             new(classes_hash, options).generate
           end
@@ -15,53 +39,31 @@ module Lutaml
             @classes = classes_hash
             @module_namespace = options[:module_namespace]
             @register_id = options[:register_id] || :default
+            # Cache split modules for reuse
+            @modules = @module_namespace&.split("::") || []
           end
 
           def generate
             return nil unless @module_namespace
 
-            template.result(binding)
+            TEMPLATE.result(binding)
           end
 
           private
 
-          def template
-            ERB.new(<<~TEMPLATE, trim_mode: "-")
-              # frozen_string_literal: true
-              # Auto-generated central registry for <%= @module_namespace %>
-
-              <%= module_opening %>
-              <%= autoload_declarations %>
-
-                def self.register_all
-                  # Ensure context exists before using it
-                  context = Lutaml::Model::GlobalContext.context(:<%= @register_id %>) ||
-                            Lutaml::Model::GlobalContext.create_context(id: :<%= @register_id %>)
-
-                  # Phase 1: Register all models (no imports)
-              <%= registration_calls %>
-
-                  # Phase 2: Resolve model, choice, and restrict imports
-              <%= model_import_resolution_calls %>
-
-                  # Phase 3: Resolve mapping and sequence imports
-              <%= mapping_import_resolution_calls %>
-                end
-              <%= module_closing %>
-            TEMPLATE
-          end
-
           def module_opening
-            modules = @module_namespace.split("::")
-            modules.map.with_index do |mod, i|
+            return "" if @modules.empty?
+
+            @modules.map.with_index do |mod, i|
               "#{'  ' * i}module #{mod}"
             end.join("\n")
           end
 
           def module_closing
-            modules = @module_namespace.split("::")
-            modules.reverse.map.with_index do |_mod, i|
-              "#{'  ' * (modules.size - i - 1)}end"
+            return "" if @modules.empty?
+
+            @modules.reverse.map.with_index do |_mod, i|
+              "#{'  ' * (@modules.size - i - 1)}end"
             end.join("\n")
           end
 
@@ -112,11 +114,11 @@ module Lutaml
           end
 
           def module_depth
-            @module_namespace.split("::").size
+            @modules.size
           end
 
           def module_path
-            @module_namespace.split("::").map(&:downcase).join("/")
+            @modules.map(&:downcase).join("/")
           end
         end
       end

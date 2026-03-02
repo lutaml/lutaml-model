@@ -536,18 +536,32 @@ attribute_def, plan, options, parent_plan: nil)
               item_plan = plan
             end
 
-            item_options = options.merge(mapper_class: item_mapper_class)
-            if item_plan
-              build_element_with_plan(xml, val, item_plan, item_options)
-            else
-              build_element(xml, val, item_options)
-            end
+              # Performance: Use dup with direct assignment to avoid merge allocations
+              # when mapper_class differs from current
+              if options[:mapper_class] == item_mapper_class
+                item_options = options
+              else
+                item_options = options.dup
+                item_options[:mapper_class] = item_mapper_class
+              end
+              if item_plan
+                build_element_with_plan(xml, val, item_plan, item_options)
+              else
+                build_element(xml, val, item_options)
+              end
           end
         end
       else
         # Single Serialize instance
-        build_element_with_plan(xml, value, plan,
-                                options.merge(mapper_class: attribute_def.type(@register)))
+        # Performance: Use dup with direct assignment
+        child_mapper = attribute_def.type(@register)
+        if options[:mapper_class] == child_mapper
+          child_options = options
+        else
+          child_options = options.dup
+          child_options[:mapper_class] = child_mapper
+        end
+        build_element_with_plan(xml, value, plan, child_options)
       end
       end
 
@@ -599,12 +613,18 @@ attribute_def, plan:, mapping: nil, options: {})
         child_mapper_class = value.class
         child_mapper_class.mappings_for(:xml)
 
-        if child_plan
-          build_element_with_plan(xml, value, child_plan,
-                                  options.merge(mapper_class: child_mapper_class))
+        # Performance: Use dup with direct assignment to avoid merge allocations
+        if options[:mapper_class] == child_mapper_class
+          child_options = options
         else
-          build_element(xml, value,
-                        options.merge(mapper_class: child_mapper_class))
+          child_options = options.dup
+          child_options[:mapper_class] = child_mapper_class
+        end
+
+        if child_plan
+          build_element_with_plan(xml, value, child_plan, child_options)
+        else
+          build_element(xml, value, child_options)
         end
       elsif value.nil? && element_rule.render_nil?
         # Render nil value

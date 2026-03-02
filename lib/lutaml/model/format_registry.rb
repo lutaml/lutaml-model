@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Lutaml
   module Model
     # Registry for serialization formats and their associated components

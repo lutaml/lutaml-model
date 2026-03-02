@@ -31,7 +31,7 @@ module Lutaml
           end
 
           def required_files
-            instances.map(&:required_files).flatten.compact.uniq
+            instances.flat_map(&:required_files).compact.uniq
           end
         end
       end

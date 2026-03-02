@@ -5,6 +5,10 @@ module Lutaml
     module Type
       # Base class for all value types
       class Value
+        # Performance optimization: reusable empty options hash
+        # Use options.equal?(EMPTY_OPTIONS) for fast-path checks
+        EMPTY_OPTIONS = {}.freeze
+
         attr_reader :value
 
         def initialize(value)

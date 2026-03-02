@@ -25,19 +25,8 @@ module Lutaml
       #   - declared_at: :here (root hoisted) or :local_on_use
       #   - uri: the namespace URI
       def self.find_namespace_by_uri(plan, uri)
-      # Search root_node.hoisted_declarations
-      plan.root_node.hoisted_declarations.each do |xmlns_key, xmlns_uri|
-        next unless xmlns_uri == uri
-
-        return {
-          prefix: xmlns_key, # nil or "prefix"
-          format: xmlns_key ? :prefix : :default,
-          declared_at: :here,
-          uri: uri,
-        }
-      end
-
-      nil
+        # Performance: Use O(1) lookup on DeclarationPlan
+        plan.find_namespace_by_uri(uri)
       end
 
       # Check if element needs xmlns="" based on plan
