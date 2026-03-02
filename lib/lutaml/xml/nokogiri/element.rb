@@ -5,7 +5,14 @@ module Lutaml
       class NokogiriElement < XmlElement
       include Nokogiri::EntityResolver
 
-      attr_accessor :input_namespaces
+      # Performance: Frozen empty collections to reduce allocations
+      EMPTY_NAMESPACES = {}.freeze
+      EMPTY_ATTRIBUTES = {}.freeze
+      EMPTY_CHILDREN = [].freeze
+
+      # Custom accessor for lazy input_namespaces initialization
+      # Performance: Store node for lazy extraction, then clear reference
+      attr_writer :input_namespaces
 
       def initialize(node, root_node: nil, default_namespace: nil)
       # Collect namespaces declared on THIS element only
@@ -23,27 +30,12 @@ module Lutaml
       # CRITICAL: Capture input_namespaces with FORMAT info for this element
       # This enables round-trip preservation of namespace format (prefixed vs default)
       # Each element stores its own namespace declarations with format
-      @input_namespaces = extract_input_namespaces_from_node(node)
+      # Performance: Lazy-initialize input_namespaces only when accessed
+      @input_namespaces_node = node # Store for lazy extraction
+      @input_namespaces = nil
 
-      attributes = {}
-
-      # Using `attribute_nodes` instead of `attributes` because
-      # `attribute_nodes` handles name collisions as well
-      # More info: https://devdocs.io/nokogiri/nokogiri/xml/node#method-i-attribute_nodes
-      node.attribute_nodes.each do |attr|
-        name = if attr.namespace
-                 "#{attr.namespace.prefix}:#{attr.name}"
-               else
-                 attr.name
-               end
-
-        attributes[name] = XmlAttribute.new(
-          name,
-          attr.value,
-          namespace: attr.namespace&.href,
-          namespace_prefix: attr.namespace&.prefix,
-        )
-      end
+      # Performance: Use frozen empty hash when no attributes, otherwise build hash
+      attributes = build_attributes_hash(node)
 
       # Detect if xmlns="" is explicitly set (explicit no namespace)
       # Use shared helper method for consistency across all adapters
@@ -77,6 +69,38 @@ module Lutaml
       children.empty? && text.length.positive?
       end
 
+      # Performance: Lazy getter for input_namespaces
+      # Only extracts namespaces when first accessed
+      def input_namespaces
+        @input_namespaces ||= begin
+          node = @input_namespaces_node
+          @input_namespaces_node = nil # Clear reference after use
+          extract_input_namespaces_from_node(node)
+        end
+      end
+
+      # Performance: Build attributes hash, return frozen empty when no attributes
+      def build_attributes_hash(node)
+        return EMPTY_ATTRIBUTES if node.attribute_nodes.empty?
+
+        attributes = {}
+        node.attribute_nodes.each do |attr|
+          name = if attr.namespace
+                   "#{attr.namespace.prefix}:#{attr.name}"
+                 else
+                   attr.name
+                 end
+
+          attributes[name] = XmlAttribute.new(
+            name,
+            attr.value,
+            namespace: attr.namespace&.href,
+            namespace_prefix: attr.namespace&.prefix,
+          )
+        end
+        attributes
+      end
+
       # Extract namespace declarations from Nokogiri node with format info
       #
       # Captures the format (prefixed vs default) for round-trip preservation.
@@ -85,19 +109,22 @@ module Lutaml
       # @param node [Nokogiri::XML::Element] The node to extract from
       # @return [Hash] Map of namespace info with :uri, :prefix, :format keys
       def extract_input_namespaces_from_node(node)
-      namespaces = {}
+        # Performance: Return frozen empty hash when no definitions
+        return EMPTY_NAMESPACES if node.namespace_definitions.empty?
 
-      # Nokogiri's namespace_definitions returns xmlns declarations on this element
-      node.namespace_definitions.each do |ns_def|
-        prefix_key = ns_def.prefix || :default
-        namespaces[prefix_key] = {
-          uri: ns_def.href,
-          prefix: ns_def.prefix, # nil for default namespace
-          format: ns_def.prefix ? :prefix : :default,
-        }
-      end
+        namespaces = {}
 
-      namespaces
+        # Nokogiri's namespace_definitions returns xmlns declarations on this element
+        node.namespace_definitions.each do |ns_def|
+          prefix_key = ns_def.prefix || :default
+          namespaces[prefix_key] = {
+            uri: ns_def.href,
+            prefix: ns_def.prefix, # nil for default namespace
+            format: ns_def.prefix ? :prefix : :default,
+          }
+        end
+
+        namespaces
       end
 
       def to_xml
@@ -151,19 +178,21 @@ module Lutaml
       end
 
       def build_namespace_attributes(node)
-      namespace_attrs = {}
+        # Performance: Use merge! to avoid creating intermediate hashes
+        namespace_attrs = {}
 
-      node.own_namespaces.each_value do |namespace|
-        namespace_attrs[namespace.attr_name] = namespace.uri
-      end
+        node.own_namespaces.each_value do |namespace|
+          namespace_attrs[namespace.attr_name] = namespace.uri
+        end
 
-      node.children.each do |child|
-        namespace_attrs = namespace_attrs.merge(
-          build_namespace_attributes(child),
-        )
-      end
+        node.children.each do |child|
+          # Performance: Use merge! instead of merge to avoid allocation
+          build_namespace_attributes(child).each do |key, value|
+            namespace_attrs[key] ||= value
+          end
+        end
 
-      namespace_attrs
+        namespace_attrs
       end
       end
   end

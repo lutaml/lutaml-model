@@ -1,7 +1,12 @@
+# frozen_string_literal: true
+
 module Lutaml
   module Xml
       class XmlElement
       XML_NAMESPACE_URI = "http://www.w3.org/XML/1998/namespace".freeze
+
+      # Performance: Frozen empty hash to reduce allocations
+      EMPTY_NAMESPACES = {}.freeze
 
       attr_reader :attributes,
                 :children,
@@ -9,6 +14,9 @@ module Lutaml
                 :parent_document
 
       attr_accessor :adapter_node
+
+      # Cache for order method - invalidated when children change
+      attr_writer :order_cache
 
       # Detect if xmlns="" is explicitly set (W3C explicit no namespace)
       # This is a helper method for adapters to use during element initialization
@@ -92,11 +100,13 @@ node_namespace_nil:)
       end
 
       def namespaces
-      @namespaces || @parent_document&.namespaces || {}
+        # Performance: Return frozen empty hash instead of creating new one
+        @namespaces || @parent_document&.namespaces || EMPTY_NAMESPACES
       end
 
       def own_namespaces
-      @namespaces || {}
+        # Performance: Return frozen empty hash instead of creating new one
+        @namespaces || EMPTY_NAMESPACES
       end
 
       def namespace
@@ -119,17 +129,19 @@ node_namespace_nil:)
       end
 
       def order
-      children.map do |child|
-        if child.text?
-          # For text nodes:
-          # - name is "text" for backward compatibility with tests
-          # - text_content contains the actual text for round-trip serialization
-          Lutaml::Xml::Element.new("Text", "text",
-                                          text_content: child.text)
-        else
-          Lutaml::Xml::Element.new("Element", child.unprefixed_name)
+        return @order_cache if @order_cache
+
+        @order_cache = children.map do |child|
+          if child.text?
+            # For text nodes:
+            # - name is "text" for backward compatibility with tests
+            # - text_content contains the actual text for round-trip serialization
+            Lutaml::Xml::Element.new("Text", "text",
+                                            text_content: child.text)
+          else
+            Lutaml::Xml::Element.new("Element", child.unprefixed_name)
+          end
         end
-      end
       end
 
       def root

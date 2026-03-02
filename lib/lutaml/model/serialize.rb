@@ -19,6 +19,13 @@ module Lutaml
       include Lutaml::Model::Liquefiable
       include Lutaml::Model::Registrable
 
+      # Performance: Pre-computed default value map to avoid per-call allocations
+      DEFAULT_VALUE_MAP = {
+        omitted: :nil,
+        nil: :nil,
+        empty: :empty,
+      }.freeze
+
       INTERNAL_ATTRIBUTES = %i[@using_default @__register @__parent
                                @__root].freeze
 
@@ -95,6 +102,11 @@ module Lutaml
       end
 
       def value_map(options)
+        # Fast path: return default map if no custom options
+        return DEFAULT_VALUE_MAP if options.equal?(Type::Value::EMPTY_OPTIONS)
+        return DEFAULT_VALUE_MAP if options.empty?
+
+        # Slow path: merge with custom options
         {
           omitted: options[:omitted] || :nil,
           nil: options[:nil] || :nil,
@@ -233,21 +245,32 @@ module Lutaml
       end
 
       def initialize_attributes(attrs, options = {})
+        # Performance: Get value_map once for all attributes
+        vmap = value_map(options)
+
         self.class.attributes(__register).each do |name, attr|
           next if attr.derived?
 
           value = determine_value(attrs, name, attr)
           default = using_default?(name)
-          value = self.class.apply_value_map(value, value_map(options), attr)
-          public_send(:"#{name}=", self.class.ensure_utf8(value))
+          value = self.class.apply_value_map(value, vmap, attr)
+          # Performance: Only call ensure_utf8 for string values
+          value = self.class.ensure_utf8(value) if value.is_a?(::String)
+          public_send(:"#{name}=", value)
           using_default_for(name) if default
         end
       end
 
       def determine_value(attrs, name, attr)
-        if attrs.key?(name) || attrs.key?(name.to_s)
-          attr_value(attrs, name, attr)
-        elsif attr.default_set?(__register)
+        # Performance: Single-pass key lookup with value retrieval
+        # Check symbol key first (most common), then string key
+        if attrs.key?(name)
+          return attr.cast_value(attrs[name], __register)
+        elsif attrs.key?(name.to_s)
+          return attr.cast_value(attrs[name.to_s], __register)
+        end
+
+        if attr.default_set?(__register)
           using_default_for(name)
           attr.default(__register)
         else

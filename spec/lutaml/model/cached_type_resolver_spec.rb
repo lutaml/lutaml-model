@@ -28,10 +28,10 @@ RSpec.describe Lutaml::Model::CachedTypeResolver do
       # First call
       resolver.resolve(:custom, context)
 
-      # Verify it's cached
+      # Verify it's cached (array keys: [context_id, type_name])
       stats = resolver.cache_stats
       expect(stats[:size]).to eq(1)
-      expect(stats[:keys]).to include("test:custom")
+      expect(stats[:keys]).to include([:test, :custom])
     end
 
     it "returns cached value on second call" do
@@ -129,7 +129,7 @@ RSpec.describe Lutaml::Model::CachedTypeResolver do
 
       resolver.clear_cache(:test)
       expect(resolver.cache_stats[:size]).to eq(1)
-      expect(resolver.cache_stats[:keys]).to include("other:other")
+      expect(resolver.cache_stats[:keys]).to include([:other, :other])
     end
   end
 
@@ -156,7 +156,7 @@ RSpec.describe Lutaml::Model::CachedTypeResolver do
       resolver.resolve(:custom, context)
       stats = resolver.cache_stats
       expect(stats[:size]).to eq(1)
-      expect(stats[:keys]).to eq(["test:custom"])
+      expect(stats[:keys]).to eq([[:test, :custom]])
     end
   end
 
@@ -199,7 +199,7 @@ RSpec.describe Lutaml::Model::CachedTypeResolver do
       expect(result).to eq(Lutaml::Model::Type::String)
 
       stats = resolver.cache_stats
-      expect(stats[:keys]).to include("default:string")
+      expect(stats[:keys]).to include([:default, :string])
     end
 
     it "clears cache for default context" do
@@ -222,7 +222,7 @@ RSpec.describe Lutaml::Model::CachedTypeResolver do
 
       stats = resolver.cache_stats
       expect(stats[:size]).to eq(2)
-      expect(stats[:keys]).to contain_exactly("ctx1:custom", "ctx2:custom")
+      expect(stats[:keys]).to contain_exactly([:ctx1, :custom], [:ctx2, :custom])
     end
 
     it "clears cache for specific context only" do
@@ -233,7 +233,7 @@ RSpec.describe Lutaml::Model::CachedTypeResolver do
 
       stats = resolver.cache_stats
       expect(stats[:size]).to eq(1)
-      expect(stats[:keys]).to contain_exactly("ctx2:custom")
+      expect(stats[:keys]).to contain_exactly([:ctx2, :custom])
     end
   end
 end

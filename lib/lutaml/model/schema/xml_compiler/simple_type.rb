@@ -126,25 +126,25 @@ module Lutaml
 
           def setup_options(options)
             @indent = " " * options&.fetch(:indent, 2)
+            @extended_indent = @indent * 2
             @module_namespace = options[:module_namespace]
+            @modules = @module_namespace&.split("::") || []
             @register_id = options[:register_id]
           end
 
           def module_opening
-            return "" unless @module_namespace
+            return "" if @modules.empty?
 
-            modules = @module_namespace.split("::")
-            modules.map.with_index do |mod, i|
+            @modules.map.with_index do |mod, i|
               "#{'  ' * i}module #{mod}"
             end.join("\n") + "\n"
           end
 
           def module_closing
-            return "" unless @module_namespace
+            return "" if @modules.empty?
 
-            modules = @module_namespace.split("::")
-            modules.reverse.map.with_index do |_mod, i|
-              "#{'  ' * (modules.size - i - 1)}end"
+            @modules.reverse.map.with_index do |_mod, i|
+              "#{'  ' * (@modules.size - i - 1)}end"
             end.join("\n")
           end
 
@@ -224,7 +224,7 @@ module Lutaml
           end
 
           def extended_indent
-            (@indent || "  ") * 2
+            @extended_indent || "    "
           end
 
           class << self

@@ -1,9 +1,16 @@
+# frozen_string_literal: true
+
 module Lutaml
   module Model
     module Type
       class Integer < Value
+        # Performance-optimized cast with short-circuit for already-correct types
         def self.cast(value, options = {})
           return nil if value.nil?
+          # Short-circuit: return immediately if already an Integer
+          # Use identity check for EMPTY_OPTIONS (faster than .empty?)
+          return value if value.is_a?(::Integer) && options.equal?(EMPTY_OPTIONS)
+
           return 1 if value === true
           return 0 if value === false
 
@@ -28,7 +35,7 @@ module Lutaml
                     end
                   end
 
-          Model::Services::Type::Validator::Number.validate!(value, options)
+          Model::Services::Type::Validator::Number.validate!(value, options) unless options.equal?(EMPTY_OPTIONS)
           value
         end
 

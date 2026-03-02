@@ -1,11 +1,15 @@
+# frozen_string_literal: true
+
 module Lutaml
   module Model
     module Type
       class Float < Value
         def self.cast(value, options = {})
           return nil if value.nil?
-
-          Model::Services::Type::Validator::Number.validate!(value, options)
+          # Use identity check for EMPTY_OPTIONS (faster than .empty?)
+          unless options.equal?(EMPTY_OPTIONS)
+            Model::Services::Type::Validator::Number.validate!(value, options)
+          end
           value.to_f
         end
 

@@ -12,6 +12,9 @@ module Lutaml
     # - Used by model's serialization pipeline via Transform.for(:xml)
     #
     class ModelTransform < ::Lutaml::Model::Transform
+      # Performance: Frozen empty hash to reduce allocations
+      EMPTY_HASH = {}.freeze
+
       def data_to_model(data, _format, options = {})
         if model_class.include?(::Lutaml::Model::Serialize)
           instance = model_class.new({ __register: __register })
@@ -143,28 +146,35 @@ module Lutaml
       # @param visited [Set] Set of visited elements to prevent cycles
       # @return [Hash] Merged namespace info from all elements
       def collect_all_input_namespaces(element, visited = Set.new)
-        return {} unless element
+        # Performance: Early return for nil
+        return EMPTY_HASH unless element
         # Prevent infinite recursion for circular references
-        return {} if visited.include?(element.object_id)
+        return EMPTY_HASH if visited.include?(element.object_id)
 
         visited.add(element.object_id)
-        namespaces = {}
 
-        # Get this element's input_namespaces
-        if element.respond_to?(:input_namespaces) && element.input_namespaces
-          namespaces.merge!(element.input_namespaces)
+        # Performance: Get own namespaces first
+        own_ns = if element.respond_to?(:input_namespaces) && element.input_namespaces
+                   element.input_namespaces
+                 end
+
+        # Performance: Early return if no children to recurse
+        children_empty = !element.respond_to?(:children) || element.children.empty?
+        if children_empty
+          return own_ns || EMPTY_HASH
         end
 
-        # Recursively collect from children
-        if element.respond_to?(:children)
-          element.children.each do |child|
-            next if child.is_a?(String) # Skip text nodes
+        # Start with own namespaces
+        namespaces = own_ns ? own_ns.dup : {}
 
-            child_namespaces = collect_all_input_namespaces(child, visited)
-            # Merge, but don't overwrite (first declaration wins)
-            child_namespaces.each do |key, value|
-              namespaces[key] ||= value
-            end
+        # Recursively collect from children
+        element.children.each do |child|
+          next if child.is_a?(String) # Skip text nodes
+
+          child_namespaces = collect_all_input_namespaces(child, visited)
+          # Merge, but don't overwrite (first declaration wins)
+          child_namespaces.each do |key, value|
+            namespaces[key] ||= value
           end
         end
 
