@@ -1,0 +1,46 @@
+<!--
+XML Schema for the SMIL 2.0 modules
+
+This is SMIL 2.0
+Copyright: 1998-2004 W3C (MIT, ERCIM, Keio), All Rights Reserved.
+See http://www.w3.org/Consortium/Legal/.
+
+Public URI: http://www.w3.org/2001/SMIL20/smil20-HierarchicalLayout.xsd
+Author: Aaron Michael Cohen (Intel)
+Revision: 2001/07/31
+
+Schema for the HierarchicalLayout module namespace,
+-->
+<schema xmlns="http://www.w3.org/2001/XMLSchema"
+        xmlns:smil20="http://www.w3.org/2001/SMIL20/"
+        xmlns:smil20lang="http://www.w3.org/2001/SMIL20/Language"
+        xmlns:HierarchicalLayout="http://www.w3.org/2001/SMIL20/HierarchicalLayout"
+        targetNamespace="http://www.w3.org/2001/SMIL20/HierarchicalLayout"
+        elementFormDefault="qualified">
+    
+    <!-- these URL's will have to be expanded to their full and proper locations -->
+
+    <!-- import the definitions in the smil20 namespace -->
+    <import namespace="http://www.w3.org/2001/SMIL20/" schemaLocation="smil20.xsd"/>
+
+    <!-- declare global elements in this module -->
+    <element name="layout" type="smil20lang:layoutType" substitutionGroup="smil20lang:layout"/>
+    <element name="root-layout" type="smil20lang:root-layoutType" substitutionGroup="smil20lang:root-layout"/>
+    <element name="region" type="smil20lang:regionType" substitutionGroup="smil20lang:region"/>
+    <element name="regPoint" type="smil20lang:regPointType" substitutionGroup="smil20lang:regPoint"/>
+    
+    <!-- declare global attributes in this module -->
+    <attribute name="region" type="string"/>
+    <attribute name="fit" type="smil20:fitAttributeType"/>    
+    <attribute name="backgroundColor" type="string"/>    
+    <attribute name="z-index" type="smil20:zIndexValueType"/> 
+    <attribute name="bottom" type="string"/>
+    <attribute name="left" type="string"/>   
+    <attribute name="right" type="string"/>
+    <attribute name="top" type="string"/>        
+    <attribute name="width" type="string"/>        
+    <attribute name="height" type="string"/>            
+    <attribute name="regPoint" type="smil20:regPointValueType"/>
+    <attribute name="regAlign" type="smil20:regPointAlignValueType"/>
+
+</schema>

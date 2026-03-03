@@ -130,7 +130,7 @@ module Lutaml
         # Generate test data
         class << self
           def simple_model_xml(count: 1)
-            items = count.times.map do |i|
+            items = Array.new(count) do |i|
               <<~XML
                 <simple id="#{i}">
                   <name>Test Name #{i}</name>
@@ -144,7 +144,7 @@ module Lutaml
           end
 
           def person_xml(count: 1)
-            people = count.times.map do |i|
+            people = Array.new(count) do |i|
               <<~XML
                 <person id="#{i}">
                   <first_name>John#{i}</first_name>
@@ -168,10 +168,10 @@ module Lutaml
           end
 
           def order_xml(count: 1)
-            orders = count.times.map do |i|
-              items_xml = 5.times.map do |j|
+            orders = Array.new(count) do |i|
+              items_xml = Array.new(5) do |j|
                 <<~XML
-                  <item product_id="#{i * 10 + j}">
+                  <item product_id="#{(i * 10) + j}">
                     <quantity>#{j + 1}</quantity>
                     <price>#{(j + 1) * 9.99}</price>
                   </item>
@@ -230,9 +230,9 @@ module Lutaml
           end
 
           def order_instance(id: 0)
-            items = 5.times.map do |j|
+            items = Array.new(5) do |j|
               OrderItem.new(
-                product_id: id * 10 + j,
+                product_id: (id * 10) + j,
                 quantity: j + 1,
                 price: (j + 1) * 9.99,
               )

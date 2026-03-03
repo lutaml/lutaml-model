@@ -22,7 +22,10 @@ module Lutaml
                       end
 
           # Use identity check for EMPTY_OPTIONS (faster than .empty?)
-          Model::Services::Type::Validator::Symbol.validate!(str_value, options) unless options.equal?(EMPTY_OPTIONS)
+          unless options.equal?(EMPTY_OPTIONS)
+            Model::Services::Type::Validator::Symbol.validate!(str_value,
+                                                               options)
+          end
 
           # Convert to symbol after validation passes
           str_value.to_sym

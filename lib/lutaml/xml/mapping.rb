@@ -2,26 +2,26 @@ module Lutaml
   module Xml
     class Mapping < ::Lutaml::Model::Mapping
       TYPES = {
-      attribute: :map_attribute,
-      element: :map_element,
-      content: :map_content,
-      all_content: :map_all,
+        attribute: :map_attribute,
+        element: :map_element,
+        content: :map_content,
+        all_content: :map_all,
       }.freeze
 
       attr_reader :root_element,
-                :namespace_uri,
-                :namespace_prefix,
-                :mixed_content,
-                :element_sequence,
-                :mappings_imported,
-                :namespace_class,
-                :namespace_param,
-                :element_name,
-                :documentation_text,
-                :type_name_value,
-                :namespace_scope,
-                :namespace_scope_config,
-                :mapper_class
+                  :namespace_uri,
+                  :namespace_prefix,
+                  :mixed_content,
+                  :element_sequence,
+                  :mappings_imported,
+                  :namespace_class,
+                  :namespace_param,
+                  :element_name,
+                  :documentation_text,
+                  :type_name_value,
+                  :namespace_scope,
+                  :namespace_scope_config,
+                  :mapper_class
 
       def initialize
         super
@@ -61,7 +61,7 @@ module Lutaml
       end
 
       def finalized?
-      @finalized
+        @finalized
       end
 
       alias mixed_content? mixed_content
@@ -69,7 +69,7 @@ module Lutaml
       # Return whether this mapping uses ordered content
       # @return [Boolean, nil] true if ordered, nil if not set
       def ordered?
-      @ordered
+        @ordered
       end
 
       # Set the XML element name for this mapping
@@ -80,8 +80,8 @@ module Lutaml
       # @param name [String] the element name
       # @return [String] the element name
       def element(name)
-      @element_name = name
-      @root_element = name # Maintain backward compatibility
+        @element_name = name
+        @root_element = name # Maintain backward compatibility
       end
 
       # Set the root element name with optional configuration
@@ -94,9 +94,9 @@ module Lutaml
       # @param ordered [Boolean] whether to preserve element order
       # @return [String] the root element name
       def root(name, mixed: false, ordered: false)
-      element(name)
-      @mixed_content = mixed
-      @ordered = ordered || mixed # mixed content is always ordered
+        element(name)
+        @mixed_content = mixed
+        @ordered = ordered || mixed # mixed content is always ordered
       end
 
       # Enable mixed content for this element
@@ -106,8 +106,8 @@ module Lutaml
       #
       # @return [Boolean] true
       def mixed_content
-      @mixed_content = true
-      @ordered = true # mixed content implies ordered
+        @mixed_content = true
+        @ordered = true # mixed content implies ordered
       end
 
       # Enable ordered content for this element
@@ -125,21 +125,21 @@ module Lutaml
       #
       # @return [Boolean] true
       def ordered
-      @ordered = true
+        @ordered = true
       end
 
       def root?
-      !!root_element
+        !!root_element
       end
 
       # Mark this model as having no root element (type-only)
       #
       # @deprecated Use absence of element() declaration and type_name() instead
       def no_root
-      warn "[Lutaml::Model] DEPRECATED: no_root is deprecated. " \
-           "Simply omit the element declaration for type-only models. " \
-           "Use type_name() to set the XSD type name."
-      @no_root = true
+        warn "[Lutaml::Model] DEPRECATED: no_root is deprecated. " \
+             "Simply omit the element declaration for type-only models. " \
+             "Use type_name() to set the XSD type name."
+        @no_root = true
       end
 
       # Check if this mapping has no root element
@@ -161,11 +161,11 @@ module Lutaml
       end
 
       def prefixed_root
-      if namespace_uri && namespace_prefix
-        "#{namespace_prefix}:#{root_element}"
-      else
-        root_element
-      end
+        if namespace_uri && namespace_prefix
+          "#{namespace_prefix}:#{root_element}"
+        else
+          root_element
+        end
       end
 
       # Set the XML namespace for this mapping
@@ -248,7 +248,7 @@ module Lutaml
                 "got #{ns_class_or_symbol.class}. " \
                 "String URIs are deprecated - define an XmlNamespace class instead."
         end
-    end
+      end
 
       # Set the namespace scope for this mapping
       #
@@ -273,16 +273,16 @@ module Lutaml
       #     XsiNamespace  # Can mix hash and class entries
       #   ]
       def namespace_scope(namespaces = nil)
-      if namespaces
-        validate_namespace_scope!(namespaces)
+        if namespaces
+          validate_namespace_scope!(namespaces)
 
-        # Convert to normalized format
-        @namespace_scope_config = normalize_namespace_scope(namespaces)
-        @namespace_scope = @namespace_scope_config.map do |cfg|
-          cfg[:namespace]
+          # Convert to normalized format
+          @namespace_scope_config = normalize_namespace_scope(namespaces)
+          @namespace_scope = @namespace_scope_config.map do |cfg|
+            cfg[:namespace]
+          end
         end
-      end
-      @namespace_scope
+        @namespace_scope
       end
 
       # Set documentation text for this mapping
@@ -292,7 +292,7 @@ module Lutaml
       # @param text [String] the documentation text
       # @return [String] the documentation text
       def documentation(text)
-      @documentation_text = text
+        @documentation_text = text
       end
 
       # Set explicit type name for XSD generation
@@ -303,8 +303,8 @@ module Lutaml
       # @param name [String, nil] the type name
       # @return [String, nil] the type name
       def type_name(name = nil)
-      @type_name_value = name if name
-      @type_name_value
+        @type_name_value = name if name
+        @type_name_value
       end
 
       # Alias for type_name - both methods are equivalent
@@ -317,11 +317,11 @@ module Lutaml
       alias xsd_type type_name
 
       def map_instances(to:, polymorphic: {})
-      map_element(to, to: to, polymorphic: polymorphic)
+        map_element(to, to: to, polymorphic: polymorphic)
       end
 
       def map_element(
-      name,
+        name,
       to: nil,
       render_nil: false,
       render_default: false,
@@ -344,74 +344,74 @@ module Lutaml
       xsd_type: (xsd_type_provided = false
                  nil)
       )
-      validate!(
-        name, to, with, render_nil, render_empty, type: TYPES[:element]
-      )
+        validate!(
+          name, to, with, render_nil, render_empty, type: TYPES[:element]
+        )
 
-      # Warn if prefix parameter is provided
-      if prefix_provided != false
-        warn "[DEPRECATED] The prefix parameter on map_element is deprecated. " \
-             "Define prefix_default in your XmlNamespace class instead. " \
-             "Prefix '#{prefix}' will be ignored."
-      end
-
-      # Raise error if xsd_type parameter is provided
-      if xsd_type_provided != false
-        raise Lutaml::Model::IncorrectMappingArgumentsError,
-              "xsd_type is not allowed at mapping level. " \
-              "XSD type must be declared in Type::Value classes using the xsd_type directive. " \
-              "See docs/migration-guides/xsd-type-migration.adoc"
-      end
-
-      # Raise error if namespace parameter is a non-nil value at element level
-      # This is NOT allowed - namespaces should be declared at model level
-      # However, namespace: nil is allowed to explicitly opt out of namespace
-      # Note: namespace_set is false when default is used, nil when explicit arg passed
-      if namespace_set != false && !namespace.nil?
-        raise Lutaml::Model::IncorrectMappingArgumentsError,
-              "namespace is not allowed at element mapping level. " \
-              "Namespaces must be declared on the MODEL CLASS itself using 'namespace' at the xml block level. " \
-              "Each model class should declare its own namespace, not individual elements."
-      end
-
-      rule = MappingRule.new(
-        name,
-        to: to,
-        render_nil: render_nil,
-        render_default: render_default,
-        render_empty: render_empty,
-        treat_nil: treat_nil,
-        treat_empty: treat_empty,
-        treat_omitted: treat_omitted,
-        with: with,
-        delegate: delegate,
-        cdata: cdata,
-        namespace: namespace,
-        default_namespace: namespace_uri,
-        polymorphic: polymorphic,
-        namespace_set: namespace_set != false || namespace == :inherit,
-        transform: transform,
-        value_map: value_map,
-        form: form,
-        documentation: documentation,
-      )
-      # Store rules with the same element name in an array to support
-      # multiple mapping rules for the same element name with different target types
-      key = rule.namespaced_name
-      if @elements[key]
-        # Key already exists, convert to array or append to existing array
-        if @elements[key].is_a?(Array)
-          @elements[key] << rule
-        else
-          @elements[key] = [@elements[key], rule]
+        # Warn if prefix parameter is provided
+        if prefix_provided != false
+          warn "[DEPRECATED] The prefix parameter on map_element is deprecated. " \
+               "Define prefix_default in your XmlNamespace class instead. " \
+               "Prefix '#{prefix}' will be ignored."
         end
-      else
-        @elements[key] = rule
-      end
+
+        # Raise error if xsd_type parameter is provided
+        if xsd_type_provided != false
+          raise Lutaml::Model::IncorrectMappingArgumentsError,
+                "xsd_type is not allowed at mapping level. " \
+                "XSD type must be declared in Type::Value classes using the xsd_type directive. " \
+                "See docs/migration-guides/xsd-type-migration.adoc"
+        end
+
+        # Raise error if namespace parameter is a non-nil value at element level
+        # This is NOT allowed - namespaces should be declared at model level
+        # However, namespace: nil is allowed to explicitly opt out of namespace
+        # Note: namespace_set is false when default is used, nil when explicit arg passed
+        if namespace_set != false && !namespace.nil?
+          raise Lutaml::Model::IncorrectMappingArgumentsError,
+                "namespace is not allowed at element mapping level. " \
+                "Namespaces must be declared on the MODEL CLASS itself using 'namespace' at the xml block level. " \
+                "Each model class should declare its own namespace, not individual elements."
+        end
+
+        rule = MappingRule.new(
+          name,
+          to: to,
+          render_nil: render_nil,
+          render_default: render_default,
+          render_empty: render_empty,
+          treat_nil: treat_nil,
+          treat_empty: treat_empty,
+          treat_omitted: treat_omitted,
+          with: with,
+          delegate: delegate,
+          cdata: cdata,
+          namespace: namespace,
+          default_namespace: namespace_uri,
+          polymorphic: polymorphic,
+          namespace_set: namespace_set != false || namespace == :inherit,
+          transform: transform,
+          value_map: value_map,
+          form: form,
+          documentation: documentation,
+        )
+        # Store rules with the same element name in an array to support
+        # multiple mapping rules for the same element name with different target types
+        key = rule.namespaced_name
+        if @elements[key]
+          # Key already exists, convert to array or append to existing array
+          if @elements[key].is_a?(Array)
+            @elements[key] << rule
+          else
+            @elements[key] = [@elements[key], rule]
+          end
+        else
+          @elements[key] = rule
+        end
       end
 
       def map_attribute(
-      name,
+        name,
       to: nil,
       render_nil: false,
       render_default: false,
@@ -432,67 +432,67 @@ module Lutaml
       xsd_type: (xsd_type_provided = false
                  nil)
       )
-      validate!(
-        name, to, with, render_nil, render_empty, type: TYPES[:attribute]
-      )
-
-      # Warn if prefix parameter is provided
-      if prefix_provided != false
-        warn "[DEPRECATED] The prefix parameter on map_attribute is deprecated. " \
-             "Define prefix_default in your XmlNamespace class instead. " \
-             "Prefix '#{prefix}' will be ignored."
-      end
-
-      # Raise error if xsd_type parameter is provided
-      if xsd_type_provided != false
-        raise Lutaml::Model::IncorrectMappingArgumentsError,
-              "xsd_type is not allowed at mapping level. " \
-              "XSD type must be declared in Type::Value classes using the xsd_type directive. " \
-              "See docs/migration-guides/xsd-type-migration.adoc"
-      end
-
-      # Raise error if namespace parameter is a non-nil value at attribute level
-      # This is NOT allowed - namespaces should be declared at model level
-      # However, namespace: nil is allowed to explicitly opt out of namespace
-      # Note: namespace_set is false when default is used, nil when explicit arg passed
-      if namespace_set != false && !namespace.nil?
-        raise Lutaml::Model::IncorrectMappingArgumentsError,
-              "namespace is not allowed at attribute mapping level. " \
-              "Namespaces should be declared on the MODEL CLASS itself using 'namespace' at the xml block level."
-      end
-
-      if name == "schemaLocation"
-        ::Lutaml::Model::Logger.warn_auto_handling(
-          name: name,
-          caller_file: File.basename(caller_locations(1, 1)[0].path),
-          caller_line: caller_locations(1, 1)[0].lineno,
+        validate!(
+          name, to, with, render_nil, render_empty, type: TYPES[:attribute]
         )
-      end
 
-      rule = MappingRule.new(
-        name,
-        to: to,
-        render_nil: render_nil,
-        render_default: render_default,
-        with: with,
-        delegate: delegate,
-        namespace: namespace,
-        attribute: true,
-        polymorphic_map: polymorphic_map,
-        default_namespace: namespace_uri,
-        namespace_set: namespace_set != false,
-        transform: transform,
-        value_map: value_map,
-        as_list: as_list,
-        delimiter: delimiter,
-        form: form,
-        documentation: documentation,
-      )
-      @attributes[rule.namespaced_name] = rule
+        # Warn if prefix parameter is provided
+        if prefix_provided != false
+          warn "[DEPRECATED] The prefix parameter on map_attribute is deprecated. " \
+               "Define prefix_default in your XmlNamespace class instead. " \
+               "Prefix '#{prefix}' will be ignored."
+        end
+
+        # Raise error if xsd_type parameter is provided
+        if xsd_type_provided != false
+          raise Lutaml::Model::IncorrectMappingArgumentsError,
+                "xsd_type is not allowed at mapping level. " \
+                "XSD type must be declared in Type::Value classes using the xsd_type directive. " \
+                "See docs/migration-guides/xsd-type-migration.adoc"
+        end
+
+        # Raise error if namespace parameter is a non-nil value at attribute level
+        # This is NOT allowed - namespaces should be declared at model level
+        # However, namespace: nil is allowed to explicitly opt out of namespace
+        # Note: namespace_set is false when default is used, nil when explicit arg passed
+        if namespace_set != false && !namespace.nil?
+          raise Lutaml::Model::IncorrectMappingArgumentsError,
+                "namespace is not allowed at attribute mapping level. " \
+                "Namespaces should be declared on the MODEL CLASS itself using 'namespace' at the xml block level."
+        end
+
+        if name == "schemaLocation"
+          ::Lutaml::Model::Logger.warn_auto_handling(
+            name: name,
+            caller_file: File.basename(caller_locations(1, 1)[0].path),
+            caller_line: caller_locations(1, 1)[0].lineno,
+          )
+        end
+
+        rule = MappingRule.new(
+          name,
+          to: to,
+          render_nil: render_nil,
+          render_default: render_default,
+          with: with,
+          delegate: delegate,
+          namespace: namespace,
+          attribute: true,
+          polymorphic_map: polymorphic_map,
+          default_namespace: namespace_uri,
+          namespace_set: namespace_set != false,
+          transform: transform,
+          value_map: value_map,
+          as_list: as_list,
+          delimiter: delimiter,
+          form: form,
+          documentation: documentation,
+        )
+        @attributes[rule.namespaced_name] = rule
       end
 
       def map_content(
-      to: nil,
+        to: nil,
       render_nil: false,
       render_default: false,
       render_empty: false,
@@ -503,27 +503,27 @@ module Lutaml
       transform: {},
       value_map: {}
       )
-      validate!(
-        "content", to, with, render_nil, render_empty, type: TYPES[:content]
-      )
+        validate!(
+          "content", to, with, render_nil, render_empty, type: TYPES[:content]
+        )
 
-      @content_mapping = MappingRule.new(
-        nil,
-        to: to,
-        render_nil: render_nil,
-        render_default: render_default,
-        render_empty: render_empty,
-        with: with,
-        delegate: delegate,
-        mixed_content: mixed,
-        cdata: cdata,
-        transform: transform,
-        value_map: value_map,
-      )
+        @content_mapping = MappingRule.new(
+          nil,
+          to: to,
+          render_nil: render_nil,
+          render_default: render_default,
+          render_empty: render_empty,
+          with: with,
+          delegate: delegate,
+          mixed_content: mixed,
+          cdata: cdata,
+          transform: transform,
+          value_map: value_map,
+        )
       end
 
       def map_all(
-      to:,
+        to:,
       render_nil: false,
       render_default: false,
       delegate: nil,
@@ -534,151 +534,151 @@ module Lutaml
                nil),
       render_empty: false
       )
-      validate!(
-        ::Lutaml::Model::Constants::RAW_MAPPING_KEY,
-        to,
-        with,
-        render_nil,
-        render_empty,
-        type: TYPES[:all_content],
-      )
+        validate!(
+          ::Lutaml::Model::Constants::RAW_MAPPING_KEY,
+          to,
+          with,
+          render_nil,
+          render_empty,
+          type: TYPES[:all_content],
+        )
 
-      # Warn if prefix parameter is provided
-      if prefix_provided != false
-        warn "[DEPRECATED] The prefix parameter on map_all is deprecated. " \
-             "Define prefix_default in your XmlNamespace class instead. " \
-             "Prefix '#{prefix}' will be ignored."
-      end
+        # Warn if prefix parameter is provided
+        if prefix_provided != false
+          warn "[DEPRECATED] The prefix parameter on map_all is deprecated. " \
+               "Define prefix_default in your XmlNamespace class instead. " \
+               "Prefix '#{prefix}' will be ignored."
+        end
 
-      # Raise error if namespace parameter is provided
-      if namespace_set != false
-        raise Lutaml::Model::IncorrectMappingArgumentsError,
-              "namespace is not allowed at map_all level. " \
-              "Namespaces must be declared on the MODEL CLASS itself using 'namespace' at the xml block level."
-      end
+        # Raise error if namespace parameter is provided
+        if namespace_set != false
+          raise Lutaml::Model::IncorrectMappingArgumentsError,
+                "namespace is not allowed at map_all level. " \
+                "Namespaces must be declared on the MODEL CLASS itself using 'namespace' at the xml block level."
+        end
 
-      rule = MappingRule.new(
-        ::Lutaml::Model::Constants::RAW_MAPPING_KEY,
-        to: to,
-        render_nil: render_nil,
-        render_default: render_default,
-        with: with,
-        delegate: delegate,
-        namespace: namespace,
-        default_namespace: namespace_uri,
-        namespace_set: namespace_set != false,
-      )
+        rule = MappingRule.new(
+          ::Lutaml::Model::Constants::RAW_MAPPING_KEY,
+          to: to,
+          render_nil: render_nil,
+          render_default: render_default,
+          with: with,
+          delegate: delegate,
+          namespace: namespace,
+          default_namespace: namespace_uri,
+          namespace_set: namespace_set != false,
+        )
 
-      @raw_mapping = rule
+        @raw_mapping = rule
       end
 
       alias map_all_content map_all
 
       def sequence(&block)
-      @element_sequence << ::Lutaml::Model::Sequence.new(self).tap do |s|
-        s.instance_eval(&block)
-      end
+        @element_sequence << ::Lutaml::Model::Sequence.new(self).tap do |s|
+          s.instance_eval(&block)
+        end
       end
 
       def import_model_mappings(model, register_id = nil)
-      register_id ||= Lutaml::Model::Config.default_register
-      reg_id = register_id
-      return import_mappings_later(model) if model_importable?(model)
-      raise Lutaml::Model::ImportModelWithRootError.new(model) if model.root?(reg_id)
+        register_id ||= Lutaml::Model::Config.default_register
+        reg_id = register_id
+        return import_mappings_later(model) if model_importable?(model)
+        raise Lutaml::Model::ImportModelWithRootError.new(model) if model.root?(reg_id)
 
-      # CRITICAL: Access raw mapping structure directly without triggering import resolution
-      # Calling model.mappings_for() can trigger ensure_imports! on that model
-      # which creates circular chains: A imports B, B's mappings_for imports C, C imports A
-      # Architecture: Access data structure directly, don't call methods that trigger resolutions
-      mappings = model.instance_variable_get(:@mappings)&.dig(:xml)
-      return unless mappings # Skip if no XML mappings defined
+        # CRITICAL: Access raw mapping structure directly without triggering import resolution
+        # Calling model.mappings_for() can trigger ensure_imports! on that model
+        # which creates circular chains: A imports B, B's mappings_for imports C, C imports A
+        # Architecture: Access data structure directly, don't call methods that trigger resolutions
+        mappings = model.instance_variable_get(:@mappings)&.dig(:xml)
+        return unless mappings # Skip if no XML mappings defined
 
-      # ATOMIC IMPORT: Both object model (attributes) AND serialization mappings
-      # This mimics XSD complexType composition where importing a type means
-      # getting both its structure (attributes) and serialization rules (mappings)
+        # ATOMIC IMPORT: Both object model (attributes) AND serialization mappings
+        # This mimics XSD complexType composition where importing a type means
+        # getting both its structure (attributes) and serialization rules (mappings)
 
-      # 1. Import object model (attributes with accessors)
-      #    This defines the data structure of the model
-      # CRITICAL: Access attributes directly to avoid triggering ensure_imports!
-      imported_attributes = ::Lutaml::Model::Utils.deep_dup(model.instance_variable_get(:@attributes)&.values || [])
-      if @mapper_class
-        imported_attributes.each do |attr|
-          # CRITICAL: Check LOCAL set to avoid calling @mapper_class.attributes()
-          # which can trigger ensure_imports! and create circular calls
-          unless @attributes_with_methods_defined.include?(attr.name)
-            # Define accessor methods on the model class
-            @mapper_class.define_attribute_methods(attr, reg_id)
-            @attributes_with_methods_defined.add(attr.name)
+        # 1. Import object model (attributes with accessors)
+        #    This defines the data structure of the model
+        # CRITICAL: Access attributes directly to avoid triggering ensure_imports!
+        imported_attributes = ::Lutaml::Model::Utils.deep_dup(model.instance_variable_get(:@attributes)&.values || [])
+        if @mapper_class
+          imported_attributes.each do |attr|
+            # CRITICAL: Check LOCAL set to avoid calling @mapper_class.attributes()
+            # which can trigger ensure_imports! and create circular calls
+            unless @attributes_with_methods_defined.include?(attr.name)
+              # Define accessor methods on the model class
+              @mapper_class.define_attribute_methods(attr, reg_id)
+              @attributes_with_methods_defined.add(attr.name)
+            end
           end
+          # Merge attributes data - use direct access to avoid triggering imports
+          attrs_hash = imported_attributes.to_h { |attr| [attr.name, attr] }
+          existing_attrs = @mapper_class.instance_variable_get(:@attributes) || {}
+          existing_attrs.merge!(attrs_hash)
+          @mapper_class.instance_variable_set(:@attributes, existing_attrs)
         end
-        # Merge attributes data - use direct access to avoid triggering imports
-        attrs_hash = imported_attributes.to_h { |attr| [attr.name, attr] }
-        existing_attrs = @mapper_class.instance_variable_get(:@attributes) || {}
-        existing_attrs.merge!(attrs_hash)
-        @mapper_class.instance_variable_set(:@attributes, existing_attrs)
-      end
 
-      # 2. Import serialization mappings (XML element/attribute names → model attributes)
-      #    This defines how the data structure maps to/from XML
-      # CRITICAL: Deep-copy mapping rules to prevent shared state
-      # When multiple classes import the same model, each must have independent MappingRule instances
-      # Otherwise, any state mutation during serialization affects ALL importing classes
-      @elements.merge!(dup_mappings(mappings.instance_variable_get(:@elements)))
-      @attributes.merge!(dup_mappings(mappings.instance_variable_get(:@attributes)))
-      # CRITICAL: Deep-copy sequences to prevent shared state
-      # Each importing class must have its own Sequence objects
-      imported_sequences = mappings.element_sequence.map do |seq|
-        seq.deep_dup(self)
-      end
-      (@element_sequence << imported_sequences).flatten!
+        # 2. Import serialization mappings (XML element/attribute names → model attributes)
+        #    This defines how the data structure maps to/from XML
+        # CRITICAL: Deep-copy mapping rules to prevent shared state
+        # When multiple classes import the same model, each must have independent MappingRule instances
+        # Otherwise, any state mutation during serialization affects ALL importing classes
+        @elements.merge!(dup_mappings(mappings.instance_variable_get(:@elements)))
+        @attributes.merge!(dup_mappings(mappings.instance_variable_get(:@attributes)))
+        # CRITICAL: Deep-copy sequences to prevent shared state
+        # Each importing class must have its own Sequence objects
+        imported_sequences = mappings.element_sequence.map do |seq|
+          seq.deep_dup(self)
+        end
+        (@element_sequence << imported_sequences).flatten!
       end
 
       def set_mappings_imported(value)
-      @mappings_imported = value
+        @mappings_imported = value
       end
 
       def validate!(key, to, with, render_nil, render_empty, type: nil)
-      validate_raw_mappings!(type)
-      validate_to_and_with_arguments!(key, to, with)
+        validate_raw_mappings!(type)
+        validate_to_and_with_arguments!(key, to, with)
 
-      if render_nil == :as_empty || render_empty == :as_empty
-        raise ::Lutaml::Model::IncorrectMappingArgumentsError.new(
-          ":as_empty is not supported for XML mappings. " \
-          "Use :as_blank instead to create blank XML elements.",
-        )
-      end
+        if render_nil == :as_empty || render_empty == :as_empty
+          raise ::Lutaml::Model::IncorrectMappingArgumentsError.new(
+            ":as_empty is not supported for XML mappings. " \
+            "Use :as_blank instead to create blank XML elements.",
+          )
+        end
       end
 
       def validate_to_and_with_arguments!(key, to, with)
-      if to.nil? && with.empty?
-        raise ::Lutaml::Model::IncorrectMappingArgumentsError.new(
-          ":to or :with argument is required for mapping '#{key}'",
-        )
-      end
+        if to.nil? && with.empty?
+          raise ::Lutaml::Model::IncorrectMappingArgumentsError.new(
+            ":to or :with argument is required for mapping '#{key}'",
+          )
+        end
 
-      validate_with_options!(key, to, with)
+        validate_with_options!(key, to, with)
       end
 
       def validate_with_options!(key, to, with)
-      return true if to
+        return true if to
 
-      if !with.empty? && (with[:from].nil? || with[:to].nil?)
-        raise ::Lutaml::Model::IncorrectMappingArgumentsError.new(
-          ":with argument for mapping '#{key}' requires :to and :from keys",
-        )
-      end
+        if !with.empty? && (with[:from].nil? || with[:to].nil?)
+          raise ::Lutaml::Model::IncorrectMappingArgumentsError.new(
+            ":with argument for mapping '#{key}' requires :to and :from keys",
+          )
+        end
       end
 
       def validate_raw_mappings!(type)
-      if !@raw_mapping.nil? && type != TYPES[:attribute]
-        raise StandardError, "#{type} is not allowed, only #{TYPES[:attribute]} " \
-                             "is allowed with #{TYPES[:all_content]}"
-      end
+        if !@raw_mapping.nil? && type != TYPES[:attribute]
+          raise StandardError, "#{type} is not allowed, only #{TYPES[:attribute]} " \
+                               "is allowed with #{TYPES[:all_content]}"
+        end
 
-      if !(elements.empty? && content_mapping.nil?) && type == TYPES[:all_content]
-        raise StandardError,
-              "#{TYPES[:all_content]} is not allowed with other mappings"
-      end
+        if !(elements.empty? && content_mapping.nil?) && type == TYPES[:all_content]
+          raise StandardError,
+                "#{TYPES[:all_content]} is not allowed with other mappings"
+        end
       end
 
       # Validate namespace prefix parameter
@@ -690,11 +690,11 @@ module Lutaml
       # @raise [ArgumentError] if prefix is Hash or Array
       # @return [void]
       def validate_namespace_prefix!(prefix)
-      if prefix.is_a?(Hash) || prefix.is_a?(Array)
-        raise ArgumentError,
-              "namespace prefix must be a String or Symbol, not #{prefix.class}. " \
-              "Did you mean to use 'root' with mixed: true?"
-      end
+        if prefix.is_a?(Hash) || prefix.is_a?(Array)
+          raise ArgumentError,
+                "namespace prefix must be a String or Symbol, not #{prefix.class}. " \
+                "Did you mean to use 'root' with mixed: true?"
+        end
       end
 
       # Validate namespace_scope parameter
@@ -705,164 +705,167 @@ module Lutaml
       # @raise [ArgumentError] if invalid namespace classes provided
       # @return [void]
       def validate_namespace_scope!(namespaces)
-      unless namespaces.is_a?(Array)
-        raise ArgumentError,
-              "namespace_scope must be an Array of XmlNamespace classes, " \
-              "got #{namespaces.class}"
-      end
-
-      namespaces.each do |ns|
-        if ns.is_a?(Class)
-          unless ns < Lutaml::Xml::Namespace
-            raise ArgumentError,
-                  "namespace_scope must contain only XmlNamespace classes, " \
-                  "got #{ns}"
-          end
-        elsif ns.is_a?(::Hash)
-          ns_class = ns[:namespace]
-          unless ns_class.is_a?(Class) && ns_class < Lutaml::Xml::Namespace
-            raise ArgumentError,
-                  "namespace_scope Hash entry must have :namespace key " \
-                  "with XmlNamespace class, got #{ns_class.class}"
-          end
-
-          # Validate :declare option if present
-          if ns.key?(:declare)
-            declare_value = ns[:declare]
-            valid_modes = %i[auto always never]
-            unless valid_modes.include?(declare_value)
-              raise ArgumentError,
-                    "namespace_scope Hash entry :declare must be one of " \
-                    "#{valid_modes.inspect}, got #{declare_value.inspect}"
-            end
-          end
-        else
+        unless namespaces.is_a?(Array)
           raise ArgumentError,
-                "namespace_scope must contain only XmlNamespace classes or Hashes, " \
-                "got #{ns.class}"
+                "namespace_scope must be an Array of XmlNamespace classes, " \
+                "got #{namespaces.class}"
         end
-      end
+
+        namespaces.each do |ns|
+          if ns.is_a?(Class)
+            unless ns < Lutaml::Xml::Namespace
+              raise ArgumentError,
+                    "namespace_scope must contain only XmlNamespace classes, " \
+                    "got #{ns}"
+            end
+          elsif ns.is_a?(::Hash)
+            ns_class = ns[:namespace]
+            unless ns_class.is_a?(Class) && ns_class < Lutaml::Xml::Namespace
+              raise ArgumentError,
+                    "namespace_scope Hash entry must have :namespace key " \
+                    "with XmlNamespace class, got #{ns_class.class}"
+            end
+
+            # Validate :declare option if present
+            if ns.key?(:declare)
+              declare_value = ns[:declare]
+              valid_modes = %i[auto always never]
+              unless valid_modes.include?(declare_value)
+                raise ArgumentError,
+                      "namespace_scope Hash entry :declare must be one of " \
+                      "#{valid_modes.inspect}, got #{declare_value.inspect}"
+              end
+            end
+          else
+            raise ArgumentError,
+                  "namespace_scope must contain only XmlNamespace classes or Hashes, " \
+                  "got #{ns.class}"
+          end
+        end
       end
 
       def elements
-      # Flatten arrays that are created when multiple rules have the same element name
-      @elements.values.flat_map { |v| v.is_a?(Array) ? v : [v] }
+        # Flatten arrays that are created when multiple rules have the same element name
+        @elements.values.flat_map { |v| v.is_a?(Array) ? v : [v] }
       end
 
       def attributes
-      @attributes.values
+        @attributes.values
       end
 
       def content_mapping
-      @content_mapping
+        @content_mapping
       end
 
       def raw_mapping
-      @raw_mapping
+        @raw_mapping
       end
 
       def mappings(_register_id = nil)
-      # REMOVED LAZY LOADING - imports resolved at class finalization
-      elements + attributes + [content_mapping, raw_mapping].compact
+        # REMOVED LAZY LOADING - imports resolved at class finalization
+        elements + attributes + [content_mapping, raw_mapping].compact
       end
 
       def importable_mappings
-      @importable_mappings ||= []
+        @importable_mappings ||= []
       end
 
       def ensure_mappings_imported!(register_id = nil)
-      # CRITICAL: Return immediately if already imported to prevent redundant processing
-      # This prevents the exponential explosion of recursive ensure_imports! calls
-      # in complex schemas with hundreds of interdependent classes
-      return if @mappings_imported
+        # CRITICAL: Return immediately if already imported to prevent redundant processing
+        # This prevents the exponential explosion of recursive ensure_imports! calls
+        # in complex schemas with hundreds of interdependent classes
+        return if @mappings_imported
 
-      # CRITICAL: Prevent re-entrant calls during import processing
-      # This prevents infinite loops when importing models that themselves have imports
-      # Architecture: Import resolution should be atomic and non-recursive
-      return if @importing_mappings
+        # CRITICAL: Prevent re-entrant calls during import processing
+        # This prevents infinite loops when importing models that themselves have imports
+        # Architecture: Import resolution should be atomic and non-recursive
+        return if @importing_mappings
 
-      # Check if there's any work to do - either regular imports OR sequence imports
-      return if importable_mappings.empty? && sequence_importable_mappings.empty?
+        # Check if there's any work to do - either regular imports OR sequence imports
+        return if importable_mappings.empty? && sequence_importable_mappings.empty?
 
-      # Mark as currently importing to prevent re-entrance
-      @importing_mappings = true
+        # Mark as currently importing to prevent re-entrance
+        @importing_mappings = true
 
-      register_id ||= Lutaml::Model::Config.default_register
+        register_id ||= Lutaml::Model::Config.default_register
 
-      # Track if all imports were successfully resolved
-      all_resolved = true
+        # Track if all imports were successfully resolved
+        all_resolved = true
 
-      # Process each deferred mapping import
-      importable_mappings.dup.each do |model_sym|
-        begin
-          model_class = Lutaml::Model::GlobalContext.resolve_type(model_sym, register_id)
-        rescue Lutaml::Model::UnknownTypeError
-          # Model not registered yet - skip for now, will retry later
-          all_resolved = false
-          next
-        end
-
-        next if model_class.nil? # Skip if not registered yet
-
-        # Recursively ensure the imported model's imports are resolved
-        if model_class.is_a?(Class) && model_class.include?(Lutaml::Model::Serialize)
-          model_class.ensure_imports!(register_id)
-        end
-
-        # Now import the mappings
-        import_model_mappings(model_class, register_id)
-      end
-
-      # Clear regular imports queue if all resolved
-      if all_resolved
-        importable_mappings.clear
-      end
-
-      # CRITICAL FIX: Process sequence importable mappings
-      # Sequence blocks can have their own deferred imports via import_model_mappings
-      # These need to be resolved separately because they add attributes to sequences
-      unless sequence_importable_mappings.empty?
-        sequence_importable_mappings.each do |sequence, model_syms|
-          model_syms.dup.each do |model_sym|
-            begin
-              model_class = Lutaml::Model::GlobalContext.resolve_type(model_sym, register_id)
-            rescue Lutaml::Model::UnknownTypeError
-              # Model not registered yet - skip for now
-              all_resolved = false
-              next
-            end
-
-            next if model_class.nil?
-
-            # Recursively ensure the imported model's imports are resolved
-            if model_class.is_a?(Class) && model_class.include?(Lutaml::Model::Serialize)
-              model_class.ensure_imports!(register_id)
-            end
-
-            # Now import into the sequence
-            # This will call Sequence#import_model_mappings which adds to sequence.attributes
-            # and also calls @model.import_model_mappings to add to main mapping
-            sequence.import_model_mappings(model_class, register_id)
-
-            # Remove from queue after successful import
-            model_syms.delete(model_sym)
+        # Process each deferred mapping import
+        importable_mappings.dup.each do |model_sym|
+          begin
+            model_class = Lutaml::Model::GlobalContext.resolve_type(model_sym,
+                                                                    register_id)
+          rescue Lutaml::Model::UnknownTypeError
+            # Model not registered yet - skip for now, will retry later
+            all_resolved = false
+            next
           end
+
+          next if model_class.nil? # Skip if not registered yet
+
+          # Recursively ensure the imported model's imports are resolved
+          if model_class.is_a?(Class) && model_class.include?(Lutaml::Model::Serialize)
+            model_class.ensure_imports!(register_id)
+          end
+
+          # Now import the mappings
+          import_model_mappings(model_class, register_id)
         end
 
-        # Clean up empty sequence entries
-        sequence_importable_mappings.reject! { |_, models| models.empty? }
-      end
+        # Clear regular imports queue if all resolved
+        if all_resolved
+          importable_mappings.clear
+        end
 
-      # Mark as fully imported only if both queues are empty
-      @mappings_imported = all_resolved && importable_mappings.empty? && sequence_importable_mappings.empty?
+        # CRITICAL FIX: Process sequence importable mappings
+        # Sequence blocks can have their own deferred imports via import_model_mappings
+        # These need to be resolved separately because they add attributes to sequences
+        unless sequence_importable_mappings.empty?
+          sequence_importable_mappings.each do |sequence, model_syms|
+            model_syms.dup.each do |model_sym|
+              begin
+                model_class = Lutaml::Model::GlobalContext.resolve_type(
+                  model_sym, register_id
+                )
+              rescue Lutaml::Model::UnknownTypeError
+                # Model not registered yet - skip for now
+                all_resolved = false
+                next
+              end
+
+              next if model_class.nil?
+
+              # Recursively ensure the imported model's imports are resolved
+              if model_class.is_a?(Class) && model_class.include?(Lutaml::Model::Serialize)
+                model_class.ensure_imports!(register_id)
+              end
+
+              # Now import into the sequence
+              # This will call Sequence#import_model_mappings which adds to sequence.attributes
+              # and also calls @model.import_model_mappings to add to main mapping
+              sequence.import_model_mappings(model_class, register_id)
+
+              # Remove from queue after successful import
+              model_syms.delete(model_sym)
+            end
+          end
+
+          # Clean up empty sequence entries
+          sequence_importable_mappings.reject! { |_, models| models.empty? }
+        end
+
+        # Mark as fully imported only if both queues are empty
+        @mappings_imported = all_resolved && importable_mappings.empty? && sequence_importable_mappings.empty?
       ensure
-      # CRITICAL: Always reset the importing flag to prevent deadlock
-      # Even if an exception occurs, we must allow future import attempts
-      @importing_mappings = false
+        # CRITICAL: Always reset the importing flag to prevent deadlock
+        # Even if an exception occurs, we must allow future import attempts
+        @importing_mappings = false
       end
 
       def sequence_importable_mappings
-      @sequence_importable_mappings ||= ::Hash.new { |h, k| h[k] = [] }
+        @sequence_importable_mappings ||= ::Hash.new { |h, k| h[k] = [] }
       end
 
       # Find element mapping rule by attribute name
@@ -870,7 +873,7 @@ module Lutaml
       # @param name [Symbol, String] the attribute name
       # @return [MappingRule, nil] the matching element rule
       def find_element(name)
-      elements.detect { |rule| name == rule.to }
+        elements.detect { |rule| name == rule.to }
       end
 
       # Find attribute mapping rule by attribute name
@@ -878,105 +881,105 @@ module Lutaml
       # @param name [Symbol, String] the attribute name
       # @return [MappingRule, nil] the matching attribute rule
       def find_attribute(name)
-      attributes.detect { |rule| name == rule.to }
+        attributes.detect { |rule| name == rule.to }
       end
 
       def find_by_name(name, type: "Text")
-      if ["text", "#cdata-section"].include?(name.to_s) && type == "Text"
-        content_mapping
-      else
-        mappings.detect do |rule|
-          rule.name == name.to_s || rule.name == name.to_sym
-        end
-      end
-      end
-
-      def find_by_to(to)
-      mappings.detect { |rule| rule.to.to_s == to.to_s }
-      end
-
-      def find_by_to!(to)
-      mapping = find_by_to(to)
-
-      return mapping if !!mapping
-
-      raise Lutaml::Model::NoMappingFoundError.new(to.to_s)
-      end
-
-      def mapping_attributes_hash
-      @attributes
-      end
-
-      def mapping_elements_hash
-      @elements
-      end
-
-      def merge_mapping_attributes(mapping)
-      mapping_attributes_hash.merge!(mapping.mapping_attributes_hash)
-      end
-
-      def merge_mapping_elements(mapping)
-      mapping_elements_hash.merge!(mapping.mapping_elements_hash)
-      end
-
-      def merge_elements_sequence(mapping)
-      mapping.element_sequence.each do |sequence|
-        element_sequence << Lutaml::Model::Sequence.new(self).tap do |instance|
-          sequence.attributes.each do |attr|
-            instance.attributes << attr.deep_dup
+        if ["text", "#cdata-section"].include?(name.to_s) && type == "Text"
+          content_mapping
+        else
+          mappings.detect do |rule|
+            rule.name == name.to_s || rule.name == name.to_sym
           end
         end
       end
+
+      def find_by_to(to)
+        mappings.detect { |rule| rule.to.to_s == to.to_s }
+      end
+
+      def find_by_to!(to)
+        mapping = find_by_to(to)
+
+        return mapping if !!mapping
+
+        raise Lutaml::Model::NoMappingFoundError.new(to.to_s)
+      end
+
+      def mapping_attributes_hash
+        @attributes
+      end
+
+      def mapping_elements_hash
+        @elements
+      end
+
+      def merge_mapping_attributes(mapping)
+        mapping_attributes_hash.merge!(mapping.mapping_attributes_hash)
+      end
+
+      def merge_mapping_elements(mapping)
+        mapping_elements_hash.merge!(mapping.mapping_elements_hash)
+      end
+
+      def merge_elements_sequence(mapping)
+        mapping.element_sequence.each do |sequence|
+          element_sequence << Lutaml::Model::Sequence.new(self).tap do |instance|
+            sequence.attributes.each do |attr|
+              instance.attributes << attr.deep_dup
+            end
+          end
+        end
       end
 
       def deep_dup
-      self.class.new.tap do |xml_mapping|
-        if @root_element
-          xml_mapping.root(@root_element.dup, mixed: @mixed_content,
-                                              ordered: @ordered)
-        end
-        if @namespace_class
-          xml_mapping.namespace(@namespace_class)
-        elsif @namespace_param == :inherit
-          xml_mapping.namespace(:inherit)
-        elsif @namespace_param == :blank
-          xml_mapping.namespace(:blank)
-        end
+        self.class.new.tap do |xml_mapping|
+          if @root_element
+            xml_mapping.root(@root_element.dup, mixed: @mixed_content,
+                                                ordered: @ordered)
+          end
+          if @namespace_class
+            xml_mapping.namespace(@namespace_class)
+          elsif @namespace_param == :inherit
+            xml_mapping.namespace(:inherit)
+          elsif @namespace_param == :blank
+            xml_mapping.namespace(:blank)
+          end
 
-        attributes_to_dup.each do |var_name|
-          value = instance_variable_get(var_name)
-          xml_mapping.instance_variable_set(var_name, ::Lutaml::Model::Utils.deep_dup(value))
+          attributes_to_dup.each do |var_name|
+            value = instance_variable_get(var_name)
+            xml_mapping.instance_variable_set(var_name, ::Lutaml::Model::Utils.deep_dup(value))
+          end
+          xml_mapping.instance_variable_set(:@finalized, true)
+          # CRITICAL: Do NOT copy @mapper_class to the duplicate
+          # The duplicate may be used in a different class context
+          # and should not carry over the original's mapper_class reference
+          xml_mapping.instance_variable_set(:@mapper_class, nil)
         end
-        xml_mapping.instance_variable_set(:@finalized, true)
-        # CRITICAL: Do NOT copy @mapper_class to the duplicate
-        # The duplicate may be used in a different class context
-        # and should not carry over the original's mapper_class reference
-        xml_mapping.instance_variable_set(:@mapper_class, nil)
-      end
       end
 
       def polymorphic_mapping
-      mappings.find(&:polymorphic_mapping?)
+        mappings.find(&:polymorphic_mapping?)
       end
 
       def attributes_to_dup
-      @attributes_to_dup ||= %i[
-        @content_mapping
-        @raw_mapping
-        @element_sequence
-        @attributes
-        @elements
-      ]
+        @attributes_to_dup ||= %i[
+          @content_mapping
+          @raw_mapping
+          @element_sequence
+          @attributes
+          @elements
+        ]
       end
 
       def dup_mappings(mappings)
-      new_mappings = {}
+        new_mappings = {}
 
-      mappings.each do |key, mapping_rule|
-        new_mappings[key] = mapping_rule.deep_dup
-      end
+        mappings.each do |key, mapping_rule|
+          new_mappings[key] = mapping_rule.deep_dup
+        end
 
-      new_mappings
+        new_mappings
       end
 
       private
@@ -989,23 +992,23 @@ module Lutaml
       # @param namespaces [Array] array of namespace classes or hashes
       # @return [Array<Hash>] normalized config array
       def normalize_namespace_scope(namespaces)
-      namespaces.map do |ns_entry|
-        if ns_entry.is_a?(::Hash) # Use ::Hash explicitly
-          # Hash format already has namespace and optional declare
-          # Don't double-nest!
-          {
-            namespace: ns_entry[:namespace],
-            declare: ns_entry[:declare] || :auto, # Default to :auto
-          }
-        else
-          # Simple namespace class - wrap it
-          {
-            namespace: ns_entry,
-            declare: :auto,
-          }
+        namespaces.map do |ns_entry|
+          if ns_entry.is_a?(::Hash) # Use ::Hash explicitly
+            # Hash format already has namespace and optional declare
+            # Don't double-nest!
+            {
+              namespace: ns_entry[:namespace],
+              declare: ns_entry[:declare] || :auto, # Default to :auto
+            }
+          else
+            # Simple namespace class - wrap it
+            {
+              namespace: ns_entry,
+              declare: :auto,
+            }
+          end
         end
       end
-      end
-      end
+    end
   end
 end

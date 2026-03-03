@@ -1,0 +1,86 @@
+<!--
+XML Schema for the SMIL 2.0 modules
+
+This is SMIL 2.0
+Copyright: 1998-2004 W3C (MIT, ERCIM, Keio), All Rights Reserved.
+See http://www.w3.org/Consortium/Legal/.
+
+Public URI: http://www.w3.org/2001/SMIL20/smil20.xsd
+Author: Aaron Michael Cohen (Intel)
+Revision: 2001/07/31
+-->
+<schema xmlns="http://www.w3.org/2001/XMLSchema"
+        xmlns:smil20="http://www.w3.org/2001/SMIL20/"
+        xmlns:smil20lang="http://www.w3.org/2001/SMIL20/Language"
+        targetNamespace="http://www.w3.org/2001/SMIL20/"
+        elementFormDefault="qualified">
+    
+    <!-- these URL's may have to be expanded to their full and proper locations -->
+    
+    <!-- include the schema files for the building block types -->
+    <include schemaLocation="smil20-utility.xsd"/>
+    <include schemaLocation="smil20-layout.xsd"/>
+    <include schemaLocation="smil20-struct.xsd"/>
+    <include schemaLocation="smil20-animate.xsd"/>
+    <include schemaLocation="smil20-media.xsd"/>
+    <include schemaLocation="smil20-content.xsd"/>
+    <include schemaLocation="smil20-linking.xsd"/>
+    <include schemaLocation="smil20-meta.xsd"/>
+    <include schemaLocation="smil20-timemanip.xsd"/>
+    <include schemaLocation="smil20-transitions.xsd"/>
+    <include schemaLocation="smil20-timing.xsd"/>
+
+    <!-- import the smil20 language namespace -->
+    <import namespace="http://www.w3.org/2001/SMIL20/Language" schemaLocation="smil20-language.xsd"/>
+
+    <!-- import the definitions in the modules namespaces -->
+    <import namespace="http://www.w3.org/2001/SMIL20/AccessKeyTiming" schemaLocation="smil20-AccessKeyTiming.xsd"/>
+    <import namespace="http://www.w3.org/2001/SMIL20/AudioLayout" schemaLocation="smil20-AudioLayout.xsd"/>
+    <import namespace="http://www.w3.org/2001/SMIL20/BasicAnimation" schemaLocation="smil20-BasicAnimation.xsd"/>
+    <import namespace="http://www.w3.org/2001/SMIL20/BasicContentControl" schemaLocation="smil20-BasicContentControl.xsd"/>    
+    <import namespace="http://www.w3.org/2001/SMIL20/BasicInlineTiming" schemaLocation="smil20-BasicInlineTiming.xsd"/>
+    <import namespace="http://www.w3.org/2001/SMIL20/BasicLayout" schemaLocation="smil20-BasicLayout.xsd"/>
+    <import namespace="http://www.w3.org/2001/SMIL20/BasicLinking" schemaLocation="smil20-BasicLinking.xsd"/>
+    <import namespace="http://www.w3.org/2001/SMIL20/BasicMedia" schemaLocation="smil20-BasicMedia.xsd"/>    
+    <import namespace="http://www.w3.org/2001/SMIL20/BasicTimeContainers" schemaLocation="smil20-BasicTimeContainers.xsd"/>
+    <import namespace="http://www.w3.org/2001/SMIL20/BasicTransitions" schemaLocation="smil20-BasicTransitions.xsd"/>
+    <import namespace="http://www.w3.org/2001/SMIL20/BrushMedia" schemaLocation="smil20-BrushMedia.xsd"/>    
+    <import namespace="http://www.w3.org/2001/SMIL20/CustomTestAttributes" schemaLocation="smil20-CustomTestAttributes.xsd"/>
+    <import namespace="http://www.w3.org/2001/SMIL20/EventTiming" schemaLocation="smil20-EventTiming.xsd"/>
+    <import namespace="http://www.w3.org/2001/SMIL20/ExclTimeContainers" schemaLocation="smil20-ExclTimeContainers.xsd"/>
+    <import namespace="http://www.w3.org/2001/SMIL20/FillDefault" schemaLocation="smil20-FillDefault.xsd"/>
+    <import namespace="http://www.w3.org/2001/SMIL20/HierarchicalLayout" schemaLocation="smil20-HierarchicalLayout.xsd"/>
+    <import namespace="http://www.w3.org/2001/SMIL20/InlineTransitions" schemaLocation="smil20-InlineTransitions.xsd"/>
+    <import namespace="http://www.w3.org/2001/SMIL20/LinkingAttributes" schemaLocation="smil20-LinkingAttributes.xsd"/>
+    <import namespace="http://www.w3.org/2001/SMIL20/MediaAccessibility" schemaLocation="smil20-MediaAccessibility.xsd"/>
+    <import namespace="http://www.w3.org/2001/SMIL20/MediaClipMarkers" schemaLocation="smil20-MediaClipMarkers.xsd"/>
+    <import namespace="http://www.w3.org/2001/SMIL20/MediaClipping" schemaLocation="smil20-MediaClipping.xsd"/>
+    <import namespace="http://www.w3.org/2001/SMIL20/MediaDescription" schemaLocation="smil20-MediaDescription.xsd"/>
+    <import namespace="http://www.w3.org/2001/SMIL20/MediaMarkerTiming" schemaLocation="smil20-MediaMarkerTiming.xsd"/>
+    <import namespace="http://www.w3.org/2001/SMIL20/MediaParam" schemaLocation="smil20-MediaParam.xsd"/>
+    <import namespace="http://www.w3.org/2001/SMIL20/Metainformation" schemaLocation="smil20-Metainformation.xsd"/>
+    <import namespace="http://www.w3.org/2001/SMIL20/MinMaxTiming" schemaLocation="smil20-MinMaxTiming.xsd"/>
+    <import namespace="http://www.w3.org/2001/SMIL20/MultiArcTiming" schemaLocation="smil20-MultiArcTiming.xsd"/>
+    <import namespace="http://www.w3.org/2001/SMIL20/MultiWindowLayout" schemaLocation="smil20-MultiWindowLayout.xsd"/>
+    <import namespace="http://www.w3.org/2001/SMIL20/PrefetchControl" schemaLocation="smil20-PrefetchControl.xsd"/>
+    <import namespace="http://www.w3.org/2001/SMIL20/RepeatTiming" schemaLocation="smil20-RepeatTiming.xsd"/>
+    <import namespace="http://www.w3.org/2001/SMIL20/RepeatValueTiming" schemaLocation="smil20-RepeatValueTiming.xsd"/>
+    <import namespace="http://www.w3.org/2001/SMIL20/RestartDefault" schemaLocation="smil20-RestartDefault.xsd"/>
+    <import namespace="http://www.w3.org/2001/SMIL20/RestartTiming" schemaLocation="smil20-RestartTiming.xsd"/>
+    <import namespace="http://www.w3.org/2001/SMIL20/SkipContentControl" schemaLocation="smil20-SkipContentControl.xsd"/>
+    <import namespace="http://www.w3.org/2001/SMIL20/SplineAnimation" schemaLocation="smil20-SplineAnimation.xsd"/>
+    <import namespace="http://www.w3.org/2001/SMIL20/Structure" schemaLocation="smil20-Structure.xsd"/>
+    <import namespace="http://www.w3.org/2001/SMIL20/SyncbaseTiming" schemaLocation="smil20-SyncbaseTiming.xsd"/>    
+    <import namespace="http://www.w3.org/2001/SMIL20/SyncBehavior" schemaLocation="smil20-SyncBehavior.xsd"/>
+    <import namespace="http://www.w3.org/2001/SMIL20/SyncBehaviorDefault" schemaLocation="smil20-SyncBehaviorDefault.xsd"/>
+    <import namespace="http://www.w3.org/2001/SMIL20/SyncMaster" schemaLocation="smil20-SyncMaster.xsd"/>
+    <import namespace="http://www.w3.org/2001/SMIL20/TimeContainerAttributes" schemaLocation="smil20-TimeContainerAttributes.xsd"/>
+    <import namespace="http://www.w3.org/2001/SMIL20/TimeManipulations" schemaLocation="smil20-TimeManipulations.xsd"/>
+    <import namespace="http://www.w3.org/2001/SMIL20/TransitionModifiers" schemaLocation="smil20-TransitionModifiers.xsd"/>
+    <import namespace="http://www.w3.org/2001/SMIL20/WallclockTiming" schemaLocation="smil20-WallclockTiming.xsd"/>
+
+    <!-- import the definitions in the module collection namespaces -->
+    <import namespace="http://www.w3.org/2001/SMIL20/HostLanguage" schemaLocation="smil20-HostLanguage.xsd"/>
+    <import namespace="http://www.w3.org/2001/SMIL20/IntegrationSet" schemaLocation="smil20-IntegrationSet.xsd"/>
+    
+</schema>

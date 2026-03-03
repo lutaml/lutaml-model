@@ -3,7 +3,8 @@
 module Lutaml
   module Xml
     module TransformationSupport
-      autoload :CustomMethodWrapper, "#{__dir__}/transformation/custom_method_wrapper"
+      autoload :CustomMethodWrapper,
+               "#{__dir__}/transformation/custom_method_wrapper"
       autoload :RuleCompiler, "#{__dir__}/transformation/rule_compiler"
       autoload :SkipLogic, "#{__dir__}/transformation/skip_logic"
       autoload :ValueSerializer, "#{__dir__}/transformation/value_serializer"

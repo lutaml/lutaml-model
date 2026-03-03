@@ -1,117 +1,117 @@
 module Lutaml
   module Xml
-      module Builder
+    module Builder
       class Nokogiri
-      def self.build(options = {})
-        if block_given?
-          ::Nokogiri::XML::Builder.new(options) do |xml|
-            yield(new(xml))
+        def self.build(options = {})
+          if block_given?
+            ::Nokogiri::XML::Builder.new(options) do |xml|
+              yield(new(xml))
+            end
+          else
+            new(::Nokogiri::XML::Builder.new(options))
           end
-        else
-          new(::Nokogiri::XML::Builder.new(options))
         end
-      end
 
-      attr_reader :xml
+        attr_reader :xml
 
-      def initialize(xml)
-        @xml = xml
-      end
+        def initialize(xml)
+          @xml = xml
+        end
 
-      def create_element(name, attributes = {})
-        xml.doc.create_element(name, attributes)
-      end
+        def create_element(name, attributes = {})
+          xml.doc.create_element(name, attributes)
+        end
 
-      def add_element(element, child)
-        element.add_child(child)
-      end
+        def add_element(element, child)
+          element.add_child(child)
+        end
 
-      def add_attribute(element, name, value)
-        element[name] = value
-      end
+        def add_attribute(element, name, value)
+          element[name] = value
+        end
 
-      def create_and_add_element(
-        element_name,
-        prefix: (prefix_unset = true
-                 nil),
-        attributes: {},
-        blank_xmlns: false
-      )
-        # CORRECT ARCHITECTURE: Don't use xml[prefix] which requires pre-registration
-        # Instead, build the prefixed element name and let xmlns attributes handle resolution
-        element_name = element_name.first if element_name.is_a?(Array)
-        element_name = "#{element_name}_" if respond_to?(element_name)
+        def create_and_add_element(
+          element_name,
+          prefix: (prefix_unset = true
+                   nil),
+          attributes: {},
+          blank_xmlns: false
+        )
+          # CORRECT ARCHITECTURE: Don't use xml[prefix] which requires pre-registration
+          # Instead, build the prefixed element name and let xmlns attributes handle resolution
+          element_name = element_name.first if element_name.is_a?(Array)
+          element_name = "#{element_name}_" if respond_to?(element_name)
 
-        # Build the fully qualified element name if prefix is provided
-        qualified_name = if !prefix_unset && prefix
-                           "#{prefix}:#{element_name}"
-                         else
-                           element_name
-                         end
+          # Build the fully qualified element name if prefix is provided
+          qualified_name = if !prefix_unset && prefix
+                             "#{prefix}:#{element_name}"
+                           else
+                             element_name
+                           end
 
-        # W3C Compliance: Add xmlns="" if needed to prevent default namespace inheritance
-        attributes = attributes&.dup || {}
-        attributes["xmlns"] = "" if blank_xmlns
+          # W3C Compliance: Add xmlns="" if needed to prevent default namespace inheritance
+          attributes = attributes&.dup || {}
+          attributes["xmlns"] = "" if blank_xmlns
 
-        if block_given?
-          xml.public_send(qualified_name, attributes) do
-            xml.parent.namespace = nil if prefix.nil? && !prefix_unset
-            yield(self)
+          if block_given?
+            xml.public_send(qualified_name, attributes) do
+              xml.parent.namespace = nil if prefix.nil? && !prefix_unset
+              yield(self)
+            end
+          else
+            xml.public_send(qualified_name, attributes)
           end
-        else
-          xml.public_send(qualified_name, attributes)
-        end
-      end
-
-      def add_xml_fragment(element, content)
-        if element.is_a?(self.class)
-          element = element.xml.parent
         end
 
-        fragment = ::Nokogiri::XML::DocumentFragment.parse(content)
+        def add_xml_fragment(element, content)
+          if element.is_a?(self.class)
+            element = element.xml.parent
+          end
 
-        element.add_child(fragment)
-      end
+          fragment = ::Nokogiri::XML::DocumentFragment.parse(content)
 
-      def add_text(element, text, cdata: false)
-        return add_cdata(element, text) if cdata
-
-        if element.is_a?(self.class)
-          element = element.xml.parent
+          element.add_child(fragment)
         end
 
-        text_node = ::Nokogiri::XML::Text.new(text.to_s, element)
-        element.add_child(text_node)
-      end
+        def add_text(element, text, cdata: false)
+          return add_cdata(element, text) if cdata
 
-      def add_cdata(element, value)
-        if element.is_a?(self.class)
-          element = element.xml.parent
+          if element.is_a?(self.class)
+            element = element.xml.parent
+          end
+
+          text_node = ::Nokogiri::XML::Text.new(text.to_s, element)
+          element.add_child(text_node)
         end
 
-        cdata_node = ::Nokogiri::XML::CDATA.new(element.document,
-                                                value.to_s)
-        element.add_child(cdata_node)
-      end
+        def add_cdata(element, value)
+          if element.is_a?(self.class)
+            element = element.xml.parent
+          end
 
-      def add_namespace_prefix(prefix)
-        xml[prefix] if prefix
+          cdata_node = ::Nokogiri::XML::CDATA.new(element.document,
+                                                  value.to_s)
+          element.add_child(cdata_node)
+        end
 
-        self
-      end
+        def add_namespace_prefix(prefix)
+          xml[prefix] if prefix
 
-      def method_missing(method_name, *args, &block)
-        if block
-          xml.public_send(method_name, *args, &block)
-        else
-          xml.public_send(method_name, *args)
+          self
+        end
+
+        def method_missing(method_name, *args, &block)
+          if block
+            xml.public_send(method_name, *args, &block)
+          else
+            xml.public_send(method_name, *args)
+          end
+        end
+
+        def respond_to_missing?(method_name, include_private = false)
+          xml.respond_to?(method_name) || super
         end
       end
-
-      def respond_to_missing?(method_name, include_private = false)
-        xml.respond_to?(method_name) || super
-      end
-      end
-      end
+    end
   end
 end

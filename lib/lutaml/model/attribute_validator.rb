@@ -146,7 +146,8 @@ module Lutaml
       def validate_polymorphic!(value, resolved_type)
         return true if validate_polymorphic(value, resolved_type)
 
-        raise Lutaml::Model::PolymorphicError.new(value, attribute.options, resolved_type)
+        raise Lutaml::Model::PolymorphicError.new(value, attribute.options,
+                                                  resolved_type)
       end
 
       # Validate collection range configuration

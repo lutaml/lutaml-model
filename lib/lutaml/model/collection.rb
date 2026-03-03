@@ -150,7 +150,9 @@ __register: Lutaml::Model::Config.default_register)
         @__register = __register
         items = [items].compact unless items.is_a?(Array)
 
-        type = Lutaml::Model::GlobalContext.resolve_type(self.class.instance_type, @__register)
+        type = Lutaml::Model::GlobalContext.resolve_type(
+          self.class.instance_type, @__register
+        )
         self.collection = items.map do |item|
           if item.is_a?(type) || item.is_a?(Lutaml::Model::Serializable)
             item

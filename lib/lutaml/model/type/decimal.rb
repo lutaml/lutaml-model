@@ -17,7 +17,10 @@ module Lutaml
                     BigDecimal(value.to_s)
                   end
           # Use identity check for EMPTY_OPTIONS (faster than .empty?)
-          Model::Services::Type::Validator::Number.validate!(value, options) unless options.equal?(EMPTY_OPTIONS)
+          unless options.equal?(EMPTY_OPTIONS)
+            Model::Services::Type::Validator::Number.validate!(value,
+                                                               options)
+          end
           value
         rescue ArgumentError
           nil

@@ -1,0 +1,344 @@
+<!--
+XML Schema for the SMIL 2.0 Timing and Synchronization functionality.
+
+This is SMIL 2.0
+Copyright: 1998-2004 W3C (MIT, ERCIM, Keio), All Rights Reserved.
+See http://www.w3.org/Consortium/Legal/.
+
+Public URI: http://www.w3.org/2001/SMIL20/smil20-timing.xsd
+Author: Aaron Michael Cohen (Intel)
+Revision: 2001/07/31
+
+Defines both the local and global smil20 timing attributes.
+-->
+<schema xmlns="http://www.w3.org/2001/XMLSchema"
+        xmlns:smil20="http://www.w3.org/2001/SMIL20/"
+        xmlns:smil20lang="http://www.w3.org/2001/SMIL20/Language"
+        targetNamespace="http://www.w3.org/2001/SMIL20/"
+        elementFormDefault="qualified">
+
+    <!-- define the begin/end timing attributes -->
+    <attribute name="begin" type="string"/>
+    <attribute name="end" type="string"/>
+
+    <!-- define the begin/end timing attribute group -->
+    <!-- other attribute groups require inclusion of this group -->
+    <attributeGroup name="beginEndTimingAttrs">
+        <attribute name="begin" type="string"/>
+        <attribute name="end" type="string"/>    
+    </attributeGroup>
+
+    <!-- define the dur timing attribute -->
+    <attribute name="dur" type="string"/>
+
+    <!-- define the durTimingAttrs attribute group -->
+    <attributeGroup name="durTimingAttrs">
+        <attribute name="dur" type="string"/>
+    </attributeGroup>
+
+    <!-- define the repeat timing attributes -->
+    <attribute name="repeatDur" type="string"/>
+    <attribute name="repeatCount" type="smil20:nonNegativeDecimalType"/>
+
+    <!-- define the repeatTiming attribute group -->
+    <!-- requires inclusion of the basicInlineTimingAttrs group -->
+    <attributeGroup name="repeatTimingAttrs">
+        <attribute name="repeatDur" type="string"/>
+        <attribute name="repeatCount" type="smil20:nonNegativeDecimalType"/>
+    </attributeGroup>
+
+    <!-- define the repeat attribute -->
+    <attribute name="repeat" type="nonNegativeInteger"/>
+
+    <!-- define the deprecatedRepeatTiming attribute group -->
+    <!-- requires inclusion of the basicInlineTimingAttrs group -->
+    <attributeGroup name="deprecatedRepeatTiming">
+        <attribute name="repeat" type="nonNegativeInteger"/>
+    </attributeGroup>
+
+    <!-- define the min, max attributes -->
+    <attribute name="min" type="string"/>
+    <attribute name="max" type="string"/>
+
+    <!-- define the minMaxTimingAttrs attribute group -->
+    <attributeGroup name="minMaxTimingAttrs">
+        <attribute name="min" type="string"/>
+        <attribute name="max" type="string"/>
+    </attributeGroup>
+
+    <!-- define the fillTimingAttrs attribute type -->
+    <simpleType name="fillTimingAttrsType">
+        <restriction base="string">
+            <enumeration value="remove"/>
+            <enumeration value="freeze"/>
+            <enumeration value="hold"/>
+            <enumeration value="auto"/>
+            <enumeration value="default"/>
+            
+            <!-- 
+                this value is only legal when transitions are included
+                in the profile. may need a means to separate out this
+                attribute value, but not clear whether or how XML Schemas 
+                provides this.
+            -->                    
+            <enumeration value="transition"/>                    
+        </restriction>
+    </simpleType>
+
+    <!-- define the fill attribute -->
+    <attribute name="fill" type="smil20:fillTimingAttrsType"/>
+
+    <!-- define the fillTimingAttrs attribute group -->
+    <attributeGroup name="fillTimingAttrs">
+        <attribute name="fill" type="smil20:fillTimingAttrsType" use="optional"  default="default"/>
+    </attributeGroup>
+
+    <!-- utility type for endsync attribute arg values -->
+    <simpleType name="endsyncArgType">
+        <restriction base="string">
+            <enumeration value="first"/>
+            <enumeration value="last"/>
+            <enumeration value="all"/>
+            <enumeration value="media"/>
+        </restriction>
+    </simpleType>
+
+    <!-- define the endsyncTimingAttrsType -->
+    <simpleType name="endsyncTimingAttrsType">
+        <union memberTypes="smil20:endsyncArgType IDREF"/>
+    </simpleType>
+
+    <!-- define the endsync attribute-->
+    <attribute name="endsync" type="smil20:endsyncTimingAttrsType"/>
+
+    <!-- define the endsyncTimingAttrs attribute group -->
+    <attributeGroup name="endsyncTimingAttrs">
+        <attribute name="endsync" type="smil20:endsyncTimingAttrsType" use="optional"/>
+    </attributeGroup>
+
+    <!-- define the timeContainersAttrs attribute value types -->
+    <simpleType name="timeContainerArgType">
+        <restriction base="string">
+            <enumeration value="par"/>
+            <enumeration value="seq"/>
+            <enumeration value="excl"/>
+            <enumeration value="none"/>
+        </restriction>
+    </simpleType>
+
+    <simpleType name="timeActionArgType">
+        <restriction base="string">
+            <enumeration value="intrinsic"/>
+            <enumeration value="display"/>
+            <enumeration value="visibility"/>
+            <enumeration value="style"/>
+            <enumeration value="none"/>
+        </restriction>
+    </simpleType>
+
+    <simpleType name="timeActionClassArgType">
+        <restriction base="string">
+            <pattern value="class:.*"/>
+        </restriction>
+    </simpleType>
+
+    <simpleType name="timeActionType">
+        <union memberTypes="smil20:timeActionArgType smil20:timeActionClassArgType"/>
+    </simpleType>
+
+    <!-- define the timeContainer attribute -->
+    <attribute name="timeContainer" type="smil20:timeContainerArgType"/>
+
+    <!-- define the timeAction attribute -->
+    <attribute name="timeAction" type="smil20:timeActionType"/>
+
+    <!-- define the timeContainersAttrs attribute group -->
+    <attributeGroup name="timeContainersAttrs">
+        <attribute name="timeContainer" type="smil20:timeContainerArgType" use="optional"  default="none"/>
+        <attribute name="timeAction" type="smil20:timeActionType" use="optional"  default="intrinsic"/>
+    </attributeGroup>
+
+    <!-- define the restartTimingAttrs attribute value types -->
+    <simpleType name="restartTimingType">
+        <restriction base="string">
+            <enumeration value="never"/>
+            <enumeration value="always"/>
+            <enumeration value="whenNotActive"/>
+            <enumeration value="default"/>
+        </restriction>
+    </simpleType>
+
+    <!-- define the restart attribute -->
+    <attribute name="restart" type="smil20:restartTimingType"/>
+
+    <!-- define the restartTimingAttrs attribute group -->
+    <attributeGroup name="restartTimingAttrs">
+        <attribute name="restart" type="smil20:restartTimingType" use="optional"  default="default"/>
+    </attributeGroup>
+
+    <!-- define the syncBehaviorAttrs attribute value types -->
+    <simpleType name="syncBehaviorType">
+        <restriction base="string">
+            <enumeration value="canSlip"/>
+            <enumeration value="locked"/>
+            <enumeration value="independent"/>
+            <enumeration value="default"/>
+        </restriction>
+    </simpleType>            
+
+    <!-- define the syncBehavior attributes -->
+    <attribute name="syncBehavior" type="smil20:syncBehaviorType"/>
+    <attribute name="syncTolerance" type="string"/>
+
+    <!-- define the syncBehaviorAttrs attribute group -->
+    <attributeGroup name="syncBehaviorAttrs">
+        <attribute name="syncBehavior" type="smil20:syncBehaviorType" use="optional"  default="default"/>
+        <attribute name="syncTolerance" type="string" use="optional"/>
+    </attributeGroup>
+
+    <!-- define the syncBehaviorDefault attribute type -->
+    <simpleType name="syncBehaviorDefaultType">
+        <restriction base="string">
+            <enumeration value="canSlip"/>
+            <enumeration value="locked"/>
+            <enumeration value="independent"/>
+            <enumeration value="inherit"/>
+        </restriction>
+    </simpleType>            
+
+    <!-- define the syncBehaviorDefault attributes -->
+    <attribute name="syncBehaviorDefault" type="smil20:syncBehaviorDefaultType"/>
+    <attribute name="syncToleranceDefault" type="string"/>
+
+    <!-- define the syncBehaviorDefaultAttrs attribute group -->
+    <attributeGroup name="syncBehaviorDefaultAttrs">
+        <attribute name="syncBehaviorDefault" type="smil20:syncBehaviorDefaultType" use="optional"  default="inherit"/>
+        <attribute name="syncToleranceDefault" type="string" use="optional"  default="inherit"/>
+    </attributeGroup>
+
+    <!-- define the syncMaster attribute -->
+    <attribute name="syncMaster" type="boolean"/>
+
+    <!-- define the syncMasterAttrs attribute group -->
+    <attributeGroup name="syncMasterAttrs">
+        <attribute name="syncMaster" type="boolean" use="optional"  default="false"/>
+    </attributeGroup>
+    
+    <!-- define the restartDefaultType attribute value type -->
+    <simpleType name="restartDefaultType">
+        <restriction base="string">
+            <enumeration value="never"/>
+            <enumeration value="always"/>
+            <enumeration value="whenNotActive"/>
+            <enumeration value="inherit"/>
+        </restriction>
+    </simpleType>
+
+    <!-- define the restartDefault attribute -->
+    <attribute name="restartDefault" type="smil20:restartDefaultType"/>
+
+    <!-- define the restartDefaultAttrs attribute group -->
+    <attributeGroup name="restartDefaultAttrs">
+        <attribute name="restartDefault" type="smil20:restartDefaultType" use="optional"  default="inherit"/>
+    </attributeGroup>
+
+    <!-- define the fillDefaultType attribute value type -->
+    <simpleType name="fillDefaultType">
+        <restriction base="string">
+            <enumeration value="remove"/>
+            <enumeration value="freeze"/>
+            <enumeration value="hold"/>                    
+            <enumeration value="auto"/>
+            <enumeration value="inherit"/>
+            
+            <!-- 
+                this value is only legal when transitions are included
+                in the profile. may need a means to separate out this
+                attribute value, but not clear whether or how XML Schemas 
+                provides this.
+            -->                    
+            <enumeration value="transition"/>                    
+        </restriction>
+    </simpleType>
+
+    <!-- define the fillDefault attribute -->
+    <attribute name="fillDefault" type="smil20:fillDefaultType"/>
+
+    <!-- define the fillDefaultAttrs attribute group -->
+    <attributeGroup name="fillDefaultAttrs">
+        <attribute name="fillDefault" type="smil20:fillDefaultType" use="optional"  default="inherit"/>
+    </attributeGroup>
+
+    <!-- define the par element prototype -->
+    <complexType name="parPrototype">
+        <attributeGroup ref="smil20:beginEndTimingAttrs"/>
+        <attributeGroup ref="smil20:durTimingAttrs"/>        
+        <attributeGroup ref="smil20:fillTimingAttrs"/>
+        <attributeGroup ref="smil20:endsyncTimingAttrs"/>
+    </complexType>
+
+    <!-- define the seq element prototype -->
+    <complexType name="seqPrototype">
+        <attributeGroup ref="smil20:beginEndTimingAttrs"/>
+        <attributeGroup ref="smil20:durTimingAttrs"/>
+        <attributeGroup ref="smil20:fillTimingAttrs"/>
+    </complexType>
+
+    <!-- define the priorityClass element prototype -->
+    <complexType name="priorityClassPrototype">        
+        <attribute name="peers" use="optional"  default="stop">
+            <simpleType>
+                <restriction base="string">
+                    <enumeration value="stop"/>
+                    <enumeration value="pause"/>
+                    <enumeration value="defer"/>
+                    <enumeration value="never"/>
+                </restriction>
+            </simpleType>
+        </attribute>
+
+        <attribute name="higher" use="optional"  default="pause">
+            <simpleType>
+                <restriction base="string">
+                    <enumeration value="stop"/>
+                    <enumeration value="pause"/>
+                </restriction>
+            </simpleType>
+        </attribute>
+
+        <attribute name="lower" use="optional"  default="defer">
+            <simpleType>
+                <restriction base="string">
+                    <enumeration value="defer"/>
+                    <enumeration value="never"/>
+                </restriction>
+            </simpleType>
+        </attribute>
+
+        <attribute name="pauseDisplay" use="optional"  default="show">
+            <simpleType>
+                <restriction base="string">
+                    <enumeration value="disable"/>
+                    <enumeration value="hide"/>
+                    <enumeration value="show"/>
+                </restriction>
+            </simpleType>
+        </attribute>
+
+    </complexType>
+
+    <!-- define the excl element prototype -->
+    <complexType name="exclPrototype">        
+        <attributeGroup ref="smil20:beginEndTimingAttrs"/>
+        <attributeGroup ref="smil20:durTimingAttrs"/>    
+        <attributeGroup ref="smil20:fillTimingAttrs"/>
+        <attributeGroup ref="smil20:endsyncTimingAttrs"/>
+    </complexType>
+
+    <!-- global timing elements -->
+    <element name="par" type="smil20lang:parType" substitutionGroup="smil20lang:par"/>
+    <element name="seq" type="smil20lang:seqType" substitutionGroup="smil20lang:seq"/>
+    <element name="excl" type="smil20lang:exclType" substitutionGroup="smil20lang:excl"/>
+    <element name="priorityClass" type="smil20lang:priorityClassType" substitutionGroup="smil20lang:priorityClass"/>
+                   
+</schema>        

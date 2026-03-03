@@ -328,8 +328,8 @@ end
 # Benchmark Configuration
 # ============================================================================
 
-ITERATIONS = (ENV.fetch("BENCHMARK_ITERATIONS", 100)).to_i
-WARMUP = (ENV.fetch("BENCHMARK_WARMUP", 10)).to_i
+ITERATIONS = ENV.fetch("BENCHMARK_ITERATIONS", 100).to_i
+WARMUP = ENV.fetch("BENCHMARK_WARMUP", 10).to_i
 MEMORY_PROFILING = ENV.fetch("BENCHMARK_MEMORY", "true") == "true"
 
 # ============================================================================
@@ -348,12 +348,12 @@ class BenchmarkRunner
 
     # Warmup
     puts "Warming up (#{WARMUP} iterations)..."
-    WARMUP.times { block.call }
+    WARMUP.times(&block)
 
     # Speed benchmark
     puts "\nSpeed Benchmark (#{ITERATIONS} iterations):"
     time = Benchmark.measure do
-      ITERATIONS.times { block.call }
+      ITERATIONS.times(&block)
     end
 
     avg_time = time.real / ITERATIONS * 1000 # ms
@@ -384,7 +384,7 @@ class BenchmarkRunner
     GC.compact if GC.respond_to?(:compact)
 
     result = MemoryProfiler.report do
-      10.times { block.call }
+      10.times(&block)
     end
 
     result.pretty_print(scale_bytes: true, normalize_paths: true)
@@ -421,12 +421,13 @@ class BenchmarkRunner
 
     puts "\nPerformance Summary Table:"
     puts "-" * 60
-    puts format("%-35s %10s %10s", "Benchmark", "Avg (ms)", "Ops/sec")
+    puts "Benchmark                             Avg (ms)    Ops/sec"
     puts "-" * 60
     @results.each do |name, data|
       next if name == :memory
 
-      puts format("%-35s %10.3f %10.0f", name, data[:avg_time_ms], data[:ops_per_sec])
+      puts format("%-35s %10.3f %10.0f", name, data[:avg_time_ms],
+                  data[:ops_per_sec])
     end
     puts "-" * 60
   end
@@ -452,7 +453,7 @@ def main
   # Simple Model Benchmarks
   # ==========================================================================
 
-  puts "\n" + "=" * 60
+  puts "\n#{'=' * 60}"
   puts "SIMPLE MODEL BENCHMARKS"
   puts "=" * 60
 
@@ -489,7 +490,7 @@ def main
   # Complex Model Benchmarks
   # ==========================================================================
 
-  puts "\n" + "=" * 60
+  puts "\n#{'=' * 60}"
   puts "COMPLEX MODEL BENCHMARKS (Person with nested Address)"
   puts "=" * 60
 
@@ -517,7 +518,7 @@ def main
   # Collection Benchmarks
   # ==========================================================================
 
-  puts "\n" + "=" * 60
+  puts "\n#{'=' * 60}"
   puts "COLLECTION BENCHMARKS (Department with 10 employees)"
   puts "=" * 60
 
@@ -545,7 +546,7 @@ def main
   # Large Collection Benchmarks
   # ==========================================================================
 
-  puts "\n" + "=" * 60
+  puts "\n#{'=' * 60}"
   puts "LARGE COLLECTION BENCHMARKS (Department with 50 employees)"
   puts "=" * 60
 

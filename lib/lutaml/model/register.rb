@@ -33,7 +33,6 @@ module Lutaml
       attr_reader :fallback
 
       def initialize(id, fallback: nil)
-
         @id = id
         @fallback = determine_fallback(id, fallback)
         @global_substitutions = {} # For backward compatibility with tests
@@ -293,7 +292,8 @@ module Lutaml
 
     # Reopen Register class to add autoload for error class
     class Register
-      autoload :NotRegistrableClassError, "#{File.dirname(__FILE__)}/error/register/not_registrable_class_error"
+      autoload :NotRegistrableClassError,
+               "#{File.dirname(__FILE__)}/error/register/not_registrable_class_error"
     end
   end
 end

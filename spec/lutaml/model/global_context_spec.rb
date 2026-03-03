@@ -78,9 +78,9 @@ RSpec.describe Lutaml::Model::GlobalContext do
     end
 
     it "raises UnknownTypeError for unknown types" do
-      expect {
+      expect do
         described_class.resolve_type(:nonexistent)
-      }.to raise_error(Lutaml::Model::UnknownTypeError)
+      end.to raise_error(Lutaml::Model::UnknownTypeError)
     end
   end
 
@@ -112,7 +112,8 @@ RSpec.describe Lutaml::Model::GlobalContext do
     end
 
     it "accepts fallback_to with symbols" do
-      context = described_class.create_context(id: :my_app, fallback_to: [:default])
+      context = described_class.create_context(id: :my_app,
+                                               fallback_to: [:default])
       expect(context.has_fallbacks?).to be true
     end
 
@@ -120,7 +121,8 @@ RSpec.describe Lutaml::Model::GlobalContext do
       from_class = Class.new
       context = described_class.create_context(
         id: :my_app,
-        substitutions: [{ from_type: from_class, to_type: Lutaml::Model::Type::String }]
+        substitutions: [{ from_type: from_class,
+                          to_type: Lutaml::Model::Type::String }],
       )
       expect(context.substitutions.size).to eq(1)
     end
@@ -293,7 +295,7 @@ RSpec.describe Lutaml::Model::GlobalContext do
 
       results = []
 
-      threads = 2.times.map do |i|
+      threads = Array.new(2) do |i|
         Thread.new do
           ctx_id = i.even? ? :ctx1 : :ctx2
           described_class.with_context(ctx_id) do
@@ -310,7 +312,7 @@ RSpec.describe Lutaml::Model::GlobalContext do
     end
 
     it "handles concurrent resolve_type calls" do
-      threads = 10.times.map do
+      threads = Array.new(10) do
         Thread.new do
           100.times { described_class.resolve_type(:string) }
         end
@@ -331,7 +333,7 @@ RSpec.describe Lutaml::Model::GlobalContext do
       described_class.create_context(
         id: :my_app,
         registry: custom_registry,
-        fallback_to: [:default]
+        fallback_to: [:default],
       )
 
       # Resolve custom type
@@ -368,7 +370,7 @@ RSpec.describe Lutaml::Model::GlobalContext do
       # Create a namespace class
       described_class.xml_namespace_registry.get_or_create(
         uri: "http://example.com",
-        prefix: "ex"
+        prefix: "ex",
       )
 
       # Reset
@@ -385,7 +387,7 @@ RSpec.describe Lutaml::Model::GlobalContext do
       # Create a namespace class
       described_class.xml_namespace_registry.get_or_create(
         uri: "http://example.com",
-        prefix: "ex"
+        prefix: "ex",
       )
 
       # Clear

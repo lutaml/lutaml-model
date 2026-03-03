@@ -1,0 +1,44 @@
+<!--
+XML Schema for the SMIL 2.0 Metainformation functionality.
+
+This is SMIL 2.0
+Copyright: 1998-2004 W3C (MIT, ERCIM, Keio), All Rights Reserved.
+See http://www.w3.org/Consortium/Legal/.
+
+Public URI: http://www.w3.org/2001/SMIL20/smil20-meta.xsd
+Author: Aaron Michael Cohen (Intel)
+Revision: 2001/07/31
+-->
+<schema xmlns="http://www.w3.org/2001/XMLSchema"
+        xmlns:smil20="http://www.w3.org/2001/SMIL20/"
+        xmlns:smil20lang="http://www.w3.org/2001/SMIL20/Language"
+        xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+        targetNamespace="http://www.w3.org/2001/SMIL20/"
+        elementFormDefault="qualified">
+        
+    <!-- the RDF namespace needs to be verified -->
+
+    <!-- import rdf:RDF -->
+    <!-- fix schemaLocation later -->
+    <import namespace="http://www.w3.org/1999/02/22-rdf-syntax-ns#" schemaLocation="rdf.xsd"/>
+        
+    <!-- define the meta element prototype -->
+    <complexType name="metaPrototype">
+        <attribute name="content" type="string" use="required"/>
+        <attribute name="name" type="string" use="required"/>
+    </complexType>        
+
+   
+    <!-- define the metadata element prototype -->
+    <complexType name="metadataPrototype">
+      <choice minOccurs="0" maxOccurs="unbounded">
+         <any namespace="##other" processContents="lax"/>
+      </choice>
+    </complexType>
+        
+
+    <!-- define the global metainformation elements -->
+    <element name="metadata" type="smil20lang:metadataType" substitutionGroup="smil20lang:metadata"/>
+    <element name="meta" type="smil20lang:metaType" substitutionGroup="smil20lang:meta"/>
+
+</schema>

@@ -36,3 +36,4 @@ old-docs/
 old/
 
 .orig
+.rubocop-*

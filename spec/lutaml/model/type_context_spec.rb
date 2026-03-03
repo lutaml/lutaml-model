@@ -10,7 +10,7 @@ RSpec.describe Lutaml::Model::TypeContext do
         id: :test,
         registry: registry,
         substitutions: [],
-        fallback_contexts: []
+        fallback_contexts: [],
       )
     end
 
@@ -97,7 +97,7 @@ RSpec.describe Lutaml::Model::TypeContext do
     let(:substitution) do
       Lutaml::Model::TypeSubstitution.new(
         from_type: custom_class,
-        to_type: Lutaml::Model::Type::String
+        to_type: Lutaml::Model::Type::String,
       )
     end
 
@@ -111,10 +111,10 @@ RSpec.describe Lutaml::Model::TypeContext do
     end
 
     it "accepts fallback context by symbol" do
-      context = described_class.derived(
+      described_class.derived(
         id: :my_app,
         registry: registry,
-        fallback_to: [:default]
+        fallback_to: [:default],
       )
       # Note: fallback resolution requires GlobalContext which we haven't set up
       # So fallback_contexts will be empty or contain resolved contexts
@@ -125,7 +125,7 @@ RSpec.describe Lutaml::Model::TypeContext do
       context = described_class.derived(
         id: :my_app,
         registry: registry,
-        fallback_to: [default]
+        fallback_to: [default],
       )
       expect(context.fallback_contexts).to include(default)
     end
@@ -134,7 +134,7 @@ RSpec.describe Lutaml::Model::TypeContext do
       context = described_class.derived(
         id: :my_app,
         registry: registry,
-        substitutions: [substitution]
+        substitutions: [substitution],
       )
       expect(context.substitutions).to include(substitution)
     end
@@ -143,7 +143,8 @@ RSpec.describe Lutaml::Model::TypeContext do
       context = described_class.derived(
         id: :my_app,
         registry: registry,
-        substitutions: [{ from_type: custom_class, to_type: Lutaml::Model::Type::String }]
+        substitutions: [{ from_type: custom_class,
+                          to_type: Lutaml::Model::Type::String }],
       )
       expect(context.substitutions.first.from_type).to eq(custom_class)
       expect(context.substitutions.first.to_type).to eq(Lutaml::Model::Type::String)
@@ -158,11 +159,11 @@ RSpec.describe Lutaml::Model::TypeContext do
     it "returns a new context with the substitution added" do
       new_context = context.add_substitution(
         from_type: from_class,
-        to_type: Lutaml::Model::Type::String
+        to_type: Lutaml::Model::Type::String,
       )
 
       # Different object (not same identity)
-      expect(new_context).not_to be_equal(context)
+      expect(new_context).not_to equal(context)
       # Same id
       expect(new_context.id).to eq(context.id)
       # Has the new substitution
@@ -173,7 +174,7 @@ RSpec.describe Lutaml::Model::TypeContext do
       original_subs = context.substitutions.dup
       context.add_substitution(
         from_type: from_class,
-        to_type: Lutaml::Model::Type::String
+        to_type: Lutaml::Model::Type::String,
       )
 
       expect(context.substitutions).to eq(original_subs)
@@ -189,7 +190,7 @@ RSpec.describe Lutaml::Model::TypeContext do
       new_context = context.with_fallbacks(fallback_to: [default])
 
       # Different object (not same identity)
-      expect(new_context).not_to be_equal(context)
+      expect(new_context).not_to equal(context)
       # Has the fallback
       expect(new_context.fallback_contexts).to include(default)
     end
@@ -215,7 +216,7 @@ RSpec.describe Lutaml::Model::TypeContext do
       context = described_class.derived(
         id: :test,
         registry: registry,
-        fallback_to: [default]
+        fallback_to: [default],
       )
 
       expect(context.has_fallbacks?).to be true
@@ -236,7 +237,7 @@ RSpec.describe Lutaml::Model::TypeContext do
       context = described_class.derived(
         id: :test,
         registry: registry,
-        fallback_to: [default]
+        fallback_to: [default],
       )
 
       expect(context.fallback_ids).to eq([:default])
@@ -265,7 +266,7 @@ RSpec.describe Lutaml::Model::TypeContext do
       context_with_fallback = described_class.derived(
         id: :test,
         registry: registry,
-        fallback_to: [default]
+        fallback_to: [default],
       )
 
       # has_type? only checks local registry, not fallbacks
@@ -305,7 +306,7 @@ RSpec.describe Lutaml::Model::TypeContext do
       context = described_class.derived(
         id: :my_context,
         registry: registry,
-        fallback_to: [default]
+        fallback_to: [default],
       )
 
       expect(context.to_s).to include("fallbacks=")

@@ -49,10 +49,14 @@ module Lutaml
     autoload :BlankNamespace, "lutaml/xml/blank_namespace"
     autoload :EncodingNormalizer, "lutaml/xml/encoding_normalizer"
     autoload :W3c, "lutaml/xml/w3c"
-    autoload :NamespaceResolutionStrategy, "lutaml/xml/namespace_resolution_strategy"
-    autoload :NamespaceInheritanceStrategy, "lutaml/xml/namespace_inheritance_strategy"
-    autoload :QualifiedInheritanceStrategy, "lutaml/xml/qualified_inheritance_strategy"
-    autoload :UnqualifiedInheritanceStrategy, "lutaml/xml/unqualified_inheritance_strategy"
+    autoload :NamespaceResolutionStrategy,
+             "lutaml/xml/namespace_resolution_strategy"
+    autoload :NamespaceInheritanceStrategy,
+             "lutaml/xml/namespace_inheritance_strategy"
+    autoload :QualifiedInheritanceStrategy,
+             "lutaml/xml/qualified_inheritance_strategy"
+    autoload :UnqualifiedInheritanceStrategy,
+             "lutaml/xml/unqualified_inheritance_strategy"
     autoload :DataModel, "lutaml/xml/data_model"
     autoload :TransformationBuilder, "lutaml/xml/transformation_builder"
     autoload :Element, "lutaml/xml/element"
@@ -63,17 +67,20 @@ module Lutaml
     autoload :NamespaceDeclarationData, "lutaml/xml/namespace_declaration_data"
     autoload :DeclarationHandler, "lutaml/xml/declaration_handler"
     autoload :PolymorphicValueHandler, "lutaml/xml/polymorphic_value_handler"
-    autoload :AttributeNamespaceResolver, "lutaml/xml/attribute_namespace_resolver"
+    autoload :AttributeNamespaceResolver,
+             "lutaml/xml/attribute_namespace_resolver"
     autoload :BlankNamespaceHandler, "lutaml/xml/blank_namespace_handler"
     autoload :DeclarationPlanQuery, "lutaml/xml/declaration_plan_query"
     autoload :DocTypeExtractor, "lutaml/xml/doctype_extractor"
     autoload :InputNamespaceExtractor, "lutaml/xml/input_namespace_extractor"
-    autoload :NamespaceDeclarationBuilder, "lutaml/xml/namespace_declaration_builder"
+    autoload :NamespaceDeclarationBuilder,
+             "lutaml/xml/namespace_declaration_builder"
     autoload :ElementPrefixResolver, "lutaml/xml/element_prefix_resolver"
     autoload :AdapterHelpers, "lutaml/xml/adapter_helpers"
     autoload :FormatChooser, "lutaml/xml/format_chooser"
     autoload :HoistingAlgorithm, "lutaml/xml/hoisting_algorithm"
-    autoload :NamespaceInheritanceResolver, "lutaml/xml/namespace_inheritance_resolver"
+    autoload :NamespaceInheritanceResolver,
+             "lutaml/xml/namespace_inheritance_resolver"
     autoload :NamespaceScopeConfig, "lutaml/xml/namespace_scope_config"
     autoload :Builder, "lutaml/xml/builder"
     autoload :TypeNamespace, "lutaml/xml/type_namespace"

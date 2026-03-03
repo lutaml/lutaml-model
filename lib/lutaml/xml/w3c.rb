@@ -2,18 +2,18 @@
 
 module Lutaml
   module Xml
-      # W3C Standard XML Namespaces
-      #
-      # These namespace classes represent the standard W3C-defined XML namespaces
-      # that have special semantics and reserved prefixes.
-      #
-      # Per W3C specifications:
-      # - xml: prefix is ALWAYS bound to http://www.w3.org/XML/1998/namespace
-      # - xsi: prefix is conventionally used for XMLSchema-instance
-      # - These prefixes should never be overridden
-      #
-      # @see https://www.w3.org/TR/xml-names/
-      module W3c
+    # W3C Standard XML Namespaces
+    #
+    # These namespace classes represent the standard W3C-defined XML namespaces
+    # that have special semantics and reserved prefixes.
+    #
+    # Per W3C specifications:
+    # - xml: prefix is ALWAYS bound to http://www.w3.org/XML/1998/namespace
+    # - xsi: prefix is conventionally used for XMLSchema-instance
+    # - These prefixes should never be overridden
+    #
+    # @see https://www.w3.org/TR/xml-names/
+    module W3c
       # W3C XML Namespace (xml:lang, xml:space, xml:base, xml:id, xml:Father)
       #
       # Per W3C Namespaces in XML Recommendation:
@@ -36,20 +36,20 @@ module Lutaml
       # @see https://www.w3.org/TR/xml-names/#ns-decl
       # @see https://www.w3.org/XML/1998/namespace
       class XmlNamespace < Lutaml::Xml::Namespace
-      uri "http://www.w3.org/XML/1998/namespace"
-      prefix_default "xml"
-      attribute_form_default :qualified # All xml: attributes are qualified
+        uri "http://www.w3.org/XML/1998/namespace"
+        prefix_default "xml"
+        attribute_form_default :qualified # All xml: attributes are qualified
 
-      documentation <<~DOC
-        W3C XML Namespace for reserved xml: attributes.
+        documentation <<~DOC
+          W3C XML Namespace for reserved xml: attributes.
 
-        Defines standard attributes:
-        - xml:lang: Language identification
-        - xml:space: Whitespace handling (preserve/default)
-        - xml:base: Base URI for relative references
-        - xml:id: Unique identifier (type ID)
-        - xml:Father: Reserved for Jon Bosak
-      DOC
+          Defines standard attributes:
+          - xml:lang: Language identification
+          - xml:space: Whitespace handling (preserve/default)
+          - xml:base: Base URI for relative references
+          - xml:id: Unique identifier (type ID)
+          - xml:Father: Reserved for Jon Bosak
+        DOC
       end
 
       # Type for xml:lang attribute
@@ -67,7 +67,7 @@ module Lutaml
       # @see https://www.w3.org/TR/xml/#sec-lang-tag
       # @see https://www.rfc-editor.org/rfc/rfc5646.html
       class XmlLangType < Lutaml::Model::Type::String
-      xml_namespace XmlNamespace
+        xml_namespace XmlNamespace
       end
 
       # Type for xml:space attribute
@@ -80,16 +80,16 @@ module Lutaml
       #
       # @see https://www.w3.org/TR/xml/#sec-white-space
       class XmlSpaceType < Lutaml::Model::Type::String
-      xml_namespace XmlNamespace
+        xml_namespace XmlNamespace
 
-      def self.cast(value)
-        val = super
-        unless ["default", "preserve"].include?(val)
-          raise ArgumentError, "xml:space must be 'default' or 'preserve'"
+        def self.cast(value)
+          val = super
+          unless ["default", "preserve"].include?(val)
+            raise ArgumentError, "xml:space must be 'default' or 'preserve'"
+          end
+
+          val
         end
-
-        val
-      end
       end
 
       # Type for xml:base attribute
@@ -105,7 +105,7 @@ module Lutaml
       #
       # @see https://www.w3.org/TR/xmlbase/
       class XmlBaseType < Lutaml::Model::Type::String
-      xml_namespace XmlNamespace
+        xml_namespace XmlNamespace
       end
 
       # Type for xml:id attribute
@@ -120,7 +120,7 @@ module Lutaml
       #
       # @see https://www.w3.org/TR/xml-id/
       class XmlIdType < Lutaml::Model::Type::String
-      xml_namespace XmlNamespace
+        xml_namespace XmlNamespace
       end
 
       # W3C XMLSchema-instance Namespace (xsi:schemaLocation, xsi:type, xsi:nil)
@@ -137,11 +137,11 @@ module Lutaml
       # @see https://www.w3.org/TR/xmlschema-1/#xsi_schemaLocation
       # @see https://www.w3.org/TR/xmlschema-1/#xsi_type
       class XsiNamespace < Lutaml::Xml::Namespace
-      uri "http://www.w3.org/2001/XMLSchema-instance"
-      prefix_default "xsi"
-      attribute_form_default :qualified # xsi:nil, xsi:type always qualified
+        uri "http://www.w3.org/2001/XMLSchema-instance"
+        prefix_default "xsi"
+        attribute_form_default :qualified # xsi:nil, xsi:type always qualified
 
-      documentation "W3C XMLSchema-instance namespace for validation hints"
+        documentation "W3C XMLSchema-instance namespace for validation hints"
       end
 
       # W3C XMLSchema Namespace (xs:string, xs:int, etc.)
@@ -155,11 +155,11 @@ module Lutaml
       #
       # @see https://www.w3.org/TR/xmlschema-2/
       class XsNamespace < Lutaml::Xml::Namespace
-      uri "http://www.w3.org/2001/XMLSchema"
-      prefix_default "xs"
+        uri "http://www.w3.org/2001/XMLSchema"
+        prefix_default "xs"
 
-      documentation "W3C XMLSchema namespace for XSD type definitions"
+        documentation "W3C XMLSchema namespace for XSD type definitions"
       end
-      end
+    end
   end
 end

@@ -89,7 +89,8 @@ end
 RSpec.describe Lutaml::KeyValue::TransformationBuilder do
   describe "FORMATS" do
     it "includes :json, :yaml, :toml, :hash" do
-      expect(described_class::FORMATS).to contain_exactly(:json, :yaml, :toml, :hash)
+      expect(described_class::FORMATS).to contain_exactly(:json, :yaml, :toml,
+                                                          :hash)
     end
 
     it "is frozen" do
@@ -131,7 +132,9 @@ RSpec.describe Lutaml::KeyValue::TransformationBuilder do
 
     it "works with different key-value formats" do
       %i[json yaml toml hash].each do |format|
-        mapping = model_class.mappings[format] || model_class.send(:default_mappings, format)
+        mapping = model_class.mappings[format] || model_class.send(
+          :default_mappings, format
+        )
         result = described_class.build(model_class, mapping, format, nil)
 
         expect(result).to be_a(Lutaml::KeyValue::Transformation)
@@ -142,7 +145,7 @@ RSpec.describe Lutaml::KeyValue::TransformationBuilder do
 end
 
 RSpec.describe "TransformationRegistry Builder Pattern" do
-  before(:each) do
+  before do
     Lutaml::Model::TransformationRegistry.reset_builders!
     Lutaml::Model::TransformationRegistry.instance.clear
   end
@@ -151,12 +154,13 @@ RSpec.describe "TransformationRegistry Builder Pattern" do
     context "when builder inherits from TransformationBuilder" do
       it "registers the builder for the format" do
         custom_builder = Class.new(Lutaml::Model::TransformationBuilder) do
-          def self.build(model_class, mapping, format, register)
+          def self.build(_model_class, _mapping, _format, _register)
             "custom_transformation"
           end
         end
 
-        Lutaml::Model::TransformationRegistry.register_builder(:custom, custom_builder)
+        Lutaml::Model::TransformationRegistry.register_builder(:custom,
+                                                               custom_builder)
 
         expect(Lutaml::Model::TransformationRegistry.builder_for(:custom)).to eq(custom_builder)
       end
@@ -167,8 +171,10 @@ RSpec.describe "TransformationRegistry Builder Pattern" do
         invalid_builder = Class.new
 
         expect do
-          Lutaml::Model::TransformationRegistry.register_builder(:invalid, invalid_builder)
-        end.to raise_error(ArgumentError, /must inherit from TransformationBuilder/)
+          Lutaml::Model::TransformationRegistry.register_builder(:invalid,
+                                                                 invalid_builder)
+        end.to raise_error(ArgumentError,
+                           /must inherit from TransformationBuilder/)
       end
     end
   end
@@ -199,7 +205,8 @@ RSpec.describe "TransformationRegistry Builder Pattern" do
           "custom"
         end
       end
-      Lutaml::Model::TransformationRegistry.register_builder(:xml, custom_builder)
+      Lutaml::Model::TransformationRegistry.register_builder(:xml,
+                                                             custom_builder)
 
       # Reset
       Lutaml::Model::TransformationRegistry.reset_builders!
@@ -229,7 +236,8 @@ RSpec.describe "TransformationRegistry Builder Pattern" do
       mapping = model_class.mappings[:xml]
       registry = Lutaml::Model::TransformationRegistry.instance
 
-      result = registry.send(:build_transformation, model_class, mapping, :xml, nil)
+      result = registry.send(:build_transformation, model_class, mapping, :xml,
+                             nil)
       expect(result).to be_a(Lutaml::Xml::Transformation)
     end
 
@@ -237,7 +245,8 @@ RSpec.describe "TransformationRegistry Builder Pattern" do
       mapping = model_class.mappings[:json]
       registry = Lutaml::Model::TransformationRegistry.instance
 
-      result = registry.send(:build_transformation, model_class, mapping, :json, nil)
+      result = registry.send(:build_transformation, model_class, mapping,
+                             :json, nil)
       expect(result).to be_a(Lutaml::KeyValue::Transformation)
     end
 
@@ -245,7 +254,8 @@ RSpec.describe "TransformationRegistry Builder Pattern" do
       mapping = double("mapping")
       registry = Lutaml::Model::TransformationRegistry.instance
 
-      result = registry.send(:build_transformation, model_class, mapping, :unknown_format, nil)
+      result = registry.send(:build_transformation, model_class, mapping,
+                             :unknown_format, nil)
       expect(result).to eq(mapping)
     end
   end

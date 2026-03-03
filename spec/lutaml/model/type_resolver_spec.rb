@@ -43,7 +43,7 @@ RSpec.describe Lutaml::Model::TypeResolver do
         Lutaml::Model::TypeContext.derived(
           id: :test,
           registry: registry,
-          fallback_to: [fallback_context]
+          fallback_to: [fallback_context],
         )
       end
 
@@ -76,7 +76,7 @@ RSpec.describe Lutaml::Model::TypeResolver do
         Lutaml::Model::TypeContext.derived(
           id: :level1,
           registry: level1_registry,
-          fallback_to: [level2_context]
+          fallback_to: [level2_context],
         )
       end
 
@@ -85,7 +85,7 @@ RSpec.describe Lutaml::Model::TypeResolver do
         Lutaml::Model::TypeContext.derived(
           id: :root,
           registry: root_registry,
-          fallback_to: [level1_context]
+          fallback_to: [level1_context],
         )
       end
 
@@ -102,16 +102,16 @@ RSpec.describe Lutaml::Model::TypeResolver do
     context "when type is not found" do
       it "raises UnknownTypeError" do
         context = Lutaml::Model::TypeContext.isolated(:test, registry)
-        expect {
+        expect do
           described_class.resolve(:unknown, context)
-        }.to raise_error(Lutaml::Model::UnknownTypeError)
+        end.to raise_error(Lutaml::Model::UnknownTypeError)
       end
 
       it "includes context id in error message" do
         context = Lutaml::Model::TypeContext.isolated(:my_context, registry)
-        expect {
+        expect do
           described_class.resolve(:unknown, context)
-        }.to raise_error(Lutaml::Model::UnknownTypeError, /my_context/)
+        end.to raise_error(Lutaml::Model::UnknownTypeError, /my_context/)
       end
 
       it "includes available types in error message" do
@@ -119,9 +119,9 @@ RSpec.describe Lutaml::Model::TypeResolver do
         registry.register(:integer, Lutaml::Model::Type::Integer)
         context = Lutaml::Model::TypeContext.isolated(:test, registry)
 
-        expect {
+        expect do
           described_class.resolve(:unknown, context)
-        }.to raise_error(Lutaml::Model::UnknownTypeError, /integer.*string/)
+        end.to raise_error(Lutaml::Model::UnknownTypeError, /integer.*string/)
       end
     end
 
@@ -164,7 +164,8 @@ RSpec.describe Lutaml::Model::TypeResolver do
 
     it "returns the resolved type" do
       context = Lutaml::Model::TypeContext.isolated(:test, registry)
-      expect(described_class.resolve_or_nil(:custom, context)).to eq(custom_class)
+      expect(described_class.resolve_or_nil(:custom,
+                                            context)).to eq(custom_class)
     end
 
     it "returns nil for unresolvable types" do
@@ -177,7 +178,8 @@ RSpec.describe Lutaml::Model::TypeResolver do
     let(:from_class) { Class.new }
     let(:to_class) { Class.new }
     let(:substitution) do
-      Lutaml::Model::TypeSubstitution.new(from_type: from_class, to_type: to_class)
+      Lutaml::Model::TypeSubstitution.new(from_type: from_class,
+                                          to_type: to_class)
     end
 
     before do
@@ -188,7 +190,7 @@ RSpec.describe Lutaml::Model::TypeResolver do
       context = Lutaml::Model::TypeContext.derived(
         id: :test,
         registry: registry,
-        substitutions: [substitution]
+        substitutions: [substitution],
       )
 
       result = described_class.resolve(:my_type, context)
@@ -202,7 +204,7 @@ RSpec.describe Lutaml::Model::TypeResolver do
       context = Lutaml::Model::TypeContext.derived(
         id: :test,
         registry: registry,
-        substitutions: [substitution]
+        substitutions: [substitution],
       )
 
       result = described_class.resolve(:other_type, context)
@@ -218,7 +220,7 @@ RSpec.describe Lutaml::Model::TypeResolver do
         Lutaml::Model::TypeContext.derived(
           id: :my_app,
           registry: custom_registry,
-          fallback_to: [Lutaml::Model::TypeContext.default]
+          fallback_to: [Lutaml::Model::TypeContext.default],
         )
       end
 
@@ -250,8 +252,8 @@ RSpec.describe Lutaml::Model::TypeResolver do
           registry: primary_registry,
           fallback_to: [
             Lutaml::Model::TypeContext.isolated(:fallback1, fallback1_registry),
-            Lutaml::Model::TypeContext.isolated(:fallback2, fallback2_registry)
-          ]
+            Lutaml::Model::TypeContext.isolated(:fallback2, fallback2_registry),
+          ],
         )
       end
 

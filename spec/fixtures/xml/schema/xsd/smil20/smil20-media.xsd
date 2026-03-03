@@ -1,0 +1,175 @@
+<!--
+XML Schema for the SMIL 2.0 Media functionality.
+
+This is SMIL 2.0
+Copyright: 1998-2004 W3C (MIT, ERCIM, Keio), All Rights Reserved.
+See http://www.w3.org/Consortium/Legal/.
+
+Public URI: http://www.w3.org/2001/SMIL20/smil20-media.xsd
+Author: Aaron Michael Cohen (Intel)
+Revision: 2001/07/31
+
+Defines both the local and global smil20 media attributes.
+-->
+<schema xmlns="http://www.w3.org/2001/XMLSchema"
+        xmlns:smil20="http://www.w3.org/2001/SMIL20/"
+        xmlns:smil20lang="http://www.w3.org/2001/SMIL20/Language"
+        targetNamespace="http://www.w3.org/2001/SMIL20/"
+        elementFormDefault="qualified">
+
+    <!-- define the alternative content attributes -->
+    <attribute name="alt" type="string"/>   
+    <attribute name="longdesc" type="anyURI"/>   
+
+    <!-- define the alternative content attribute group-->
+    <attributeGroup name="alternateContentAttrs">
+        <attribute name="alt" type="string" use="optional"/>   
+        <attribute name="longdesc" type="anyURI" use="optional"/>   
+    </attributeGroup>
+
+    <!-- define the media annotation attributes -->
+    <attribute name="abstract" type="string"/>   
+    <attribute name="author" type="string"/>   
+    <attribute name="copyright" type="string"/>   
+    <attribute name="title" type="string"/>   
+
+    <!-- define the media annotation attribute group -->
+    <attributeGroup name="mediaAnnotateAttrs">
+        <attribute name="abstract" type="string" use="optional"/>   
+        <attribute name="author" type="string" use="optional"/>   
+        <attribute name="copyright" type="string" use="optional"/>   
+        <attribute name="title" type="string" use="optional"/>   
+    </attributeGroup>
+
+    <!-- define the media access attributes -->
+    <attribute name="readIndex" type="integer"/>   
+
+    <!-- define the media access attribute group -->
+    <attributeGroup name="mediaAccessAttrs">
+        <attribute name="readIndex" type="integer" use="optional"/>   
+    </attributeGroup>
+
+    <!-- define the media src attributes-->
+    <attribute name="type" type="string"/>          
+    <attribute name="src" type="anyURI"/>   
+
+    <!-- define the media src attribute group -->
+    <attributeGroup name="mediaSrcAttrs">
+        <attribute name="type" type="string" use="optional"/>          
+        <attribute name="src" type="anyURI" use="optional"/>   
+    </attributeGroup>
+
+    <!-- define the erase media attribute value type -->
+    <simpleType name="eraseMediaType">
+        <restriction base="string">
+            <enumeration value="whenDone"/>
+            <enumeration value="never"/>
+        </restriction>
+    </simpleType>
+
+    <!-- define the erase media attribute -->
+    <attribute name="erase" type="smil20:eraseMediaType"/>
+
+    <!-- define the eraseMediaAttrs attribute group -->
+    <attributeGroup name="eraseMediaAttrs">
+        <attribute name="erase" type="smil20:eraseMediaType" use="optional"  default="whenDone"/>
+    </attributeGroup>
+
+    <!-- define the media repeat attribute value type -->
+    <simpleType name="mediaRepeatType">
+        <restriction base="string">
+            <enumeration value="preserve"/>
+            <enumeration value="strip"/>
+        </restriction>
+    </simpleType>
+    
+    <!-- define the media repeat attribute -->
+    <attribute name="mediaRepeat" type="smil20:mediaRepeatType"/>
+
+    <!-- define the media repeat attribute group -->
+    <attributeGroup name="mediaRepeatAttrs">
+        <attribute name="mediaRepeat" type="smil20:mediaRepeatType" use="optional"  default="preserve"/>
+    </attributeGroup>
+
+
+    <!-- define the media sensitivity attribute value type -->
+    <simpleType name="opaqueOrTransparentType">
+        <restriction base="string">
+            <enumeration value="opaque"/>
+            <enumeration value="transparent"/>
+        </restriction>
+    </simpleType>            
+    <simpleType name="sensitivityType">
+        <union memberTypes="smil20:opaqueOrTransparentType smil20:positivePercentageType"/>
+    </simpleType>
+    
+    <!-- define the media sensitivity attribute -->
+    <attribute name="sensitivity" type="smil20:sensitivityType"/>
+
+    <!-- define the media sensitivity attribute group -->
+    <attributeGroup name="sensitivityMediaAttrs">
+        <attribute name="sensitivity" type="smil20:sensitivityType" use="optional"  default="opaque"/>
+    </attributeGroup>
+
+    <!-- define the media clipping attributes-->
+    <attribute name="clipBegin" type="string"/>          
+    <attribute name="clipEnd" type="string"/>   
+
+    <!-- define the media clipping attribute group -->
+    <attributeGroup name="mediaClippingAttrs">
+        <attribute name="clipBegin" type="string" use="optional"/>          
+        <attribute name="clipEnd" type="string" use="optional"/>   
+    </attributeGroup>
+
+    <!-- define the deprecated media clipping attributes-->
+    <attribute name="clip-begin" type="string"/>          
+    <attribute name="clip-end" type="string"/>   
+
+    <!-- define the deprecated media clipping attribute group -->
+    <attributeGroup name="deprecatedMediaClippingAttrs">
+        <attribute name="clip-begin" type="string" use="optional"/>          
+        <attribute name="clip-end" type="string" use="optional"/>   
+    </attributeGroup>
+
+    <!-- 
+        define the media object element prototype 
+        ref, animation, audio, img, text, textstream, video
+        are all identical and use this prototype
+    -->
+    <complexType name="mediaPrototype">
+        <attributeGroup ref="smil20:mediaSrcAttrs" />
+    </complexType>
+    
+    <!-- define the param element prototype -->
+    <complexType name="paramPrototype">
+        <attribute name="name" type="string" use="optional"/>   
+        <attribute name="value" type="string" use="optional"/>   
+        <attribute name="valueType" use="optional"  default="data">
+            <simpleType>
+                <restriction base="string">
+                    <enumeration value="data"/>
+                    <enumeration value="ref"/>
+                    <enumeration value="object"/>
+                </restriction>
+            </simpleType>
+        </attribute>   
+        <attribute name="type" type="string" use="optional"/>   
+    </complexType>
+
+    <!-- define the brush element prototype -->
+    <complexType name="brushPrototype">
+        <attribute name="color" type="string" use="optional"/>   
+    </complexType>
+
+    <!-- define the global media elements -->
+    <element name="text" type="smil20lang:mediaType" substitutionGroup="smil20lang:text"/>
+    <element name="img" type="smil20lang:mediaType" substitutionGroup="smil20lang:img"/>
+    <element name="audio" type="smil20lang:mediaType" substitutionGroup="smil20lang:audio"/>
+    <element name="animation" type="smil20lang:mediaType" substitutionGroup="smil20lang:animation"/>
+    <element name="video" type="smil20lang:mediaType" substitutionGroup="smil20lang:video"/>
+    <element name="textstream" type="smil20lang:mediaType" substitutionGroup="smil20lang:textstream"/>
+    <element name="ref" type="smil20lang:mediaType" substitutionGroup="smil20lang:ref"/>
+    <element name="brush" type="smil20lang:brushType" substitutionGroup="smil20lang:brush"/>
+    <element name="param" type="smil20lang:paramType" substitutionGroup="smil20lang:param"/>
+
+</schema>

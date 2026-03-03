@@ -1,0 +1,148 @@
+<!--
+XML Schema for the SMIL 2.0 Content Control functionality.
+
+This is SMIL 2.0
+Copyright: 1998-2004 W3C (MIT, ERCIM, Keio), All Rights Reserved.
+See http://www.w3.org/Consortium/Legal/.
+
+Public URI: http://www.w3.org/2001/SMIL20/smil20-content.xsd
+Author: Aaron Michael Cohen (Intel)
+Revision: 2001/07/31
+
+Defines both the local and global smil20 content control attributes.
+-->
+<schema xmlns="http://www.w3.org/2001/XMLSchema"
+        xmlns:smil20="http://www.w3.org/2001/SMIL20/"
+        xmlns:smil20lang="http://www.w3.org/2001/SMIL20/Language"
+        targetNamespace="http://www.w3.org/2001/SMIL20/"
+        elementFormDefault="qualified">
+
+    <!-- utility type for test attribute values -->
+    <simpleType name="onOrOffType">
+        <restriction base="string">    
+            <enumeration value="on"/>
+            <enumeration value="off"/>
+        </restriction>
+    </simpleType>
+
+    <simpleType name="overdubOrSubtitleType">
+        <restriction base="string">    
+            <enumeration value="overdub"/>
+            <enumeration value="subtitle"/>
+        </restriction>
+    </simpleType>
+
+    <simpleType name="overdubOrCaptionsType">
+        <restriction base="string">    
+            <enumeration value="overdub"/>
+            <enumeration value="caption"/>
+        </restriction>
+    </simpleType>
+
+    <!-- is there a type for a namespace prefix? -->
+    <!-- currently using NMTOKEN -->
+
+    <!-- global system test attributes-->
+    <attribute name="systemAudioDesc" type="smil20:onOrOffType"/>
+    <attribute name="systemBitrate" type="string"/>
+    <attribute name="systemCaptions" type="smil20:onOrOffType"/>
+    <attribute name="systemComponent" type="string"/>    
+    <attribute name="systemCPU" type="NMTOKEN"/>    
+    <attribute name="systemLanguage" type="string"/>          
+    <attribute name="systemOperatingSystem" type="NMTOKEN"/>        
+    <attribute name="systemOverdubOrSubtitle" type="smil20:overdubOrSubtitleType"/>
+    <attribute name="systemRequired" type="string"/>               
+    <attribute name="systemScreenDepth" type="positiveInteger"/>
+    <attribute name="systemScreenSize" type="string"/>                
+
+    <!-- system test attribute group -->
+    <attributeGroup name="systemTestAttrs">
+        <attribute name="systemAudioDesc" type="smil20:onOrOffType" use="optional"/>
+        <attribute name="systemBitrate" type="string" use="optional"/>
+        <attribute name="systemCaptions" type="smil20:onOrOffType" use="optional"/>
+        <attribute name="systemComponent" type="string" use="optional"/>    
+        <attribute name="systemCPU" type="NMTOKEN" use="optional"/>    
+        <attribute name="systemLanguage" type="string" use="optional"/>          
+        <attribute name="systemOperatingSystem" type="NMTOKEN" use="optional"/>        
+        <attribute name="systemOverdubOrSubtitle" type="smil20:overdubOrSubtitleType" use="optional"/>
+        <attribute name="systemRequired" type="string" use="optional"/>               
+        <attribute name="systemScreenDepth" type="positiveInteger" use="optional"/>
+        <attribute name="systemScreenSize" type="string" use="optional"/>                
+    </attributeGroup>
+
+    <!-- deprecated global system test attributes-->
+    <attribute name="system-bitrate" type="string"/>
+    <attribute name="system-captions" type="smil20:onOrOffType"/>          
+    <attribute name="system-language" type="string"/>          
+    <attribute name="system-overdub-or-caption" type="smil20:overdubOrCaptionsType"/>
+    <attribute name="system-required" type="string"/>
+    <attribute name="system-screen-depth" type="positiveInteger"/>
+    <attribute name="system-screen-size" type="string"/>
+
+    <!-- deprecated system test attribute group -->
+    <attributeGroup name="deprecatedSystemTestAttrs">
+        <attribute name="system-bitrate" type="string" use="optional"/>
+        <attribute name="system-captions" type="smil20:onOrOffType" use="optional"/>          
+        <attribute name="system-language" type="string" use="optional"/>          
+        <attribute name="system-overdub-or-caption" type="smil20:overdubOrCaptionsType" use="optional"/>
+        <attribute name="system-required" type="string" use="optional"/>
+        <attribute name="system-screen-depth" type="positiveInteger" use="optional"/>
+        <attribute name="system-screen-size" type="string" use="optional"/>
+    </attributeGroup>
+
+    <!-- define the switch element prototype -->
+    <complexType name="switchPrototype">
+        <attributeGroup ref="smil20:systemTestAttrs"/>
+    </complexType>
+
+    <!-- define the global customTest attribute -->
+    <attribute name="customTest" type="string"/>
+
+    <!-- define the customTest attribute group -->
+    <attributeGroup name="customTestAttrs">
+        <attribute name="customTest" type="string" use="optional"/>
+    </attributeGroup>
+
+    <!-- define the global skip-content attribute -->
+    <attribute name="skip-content" type="boolean"/>
+
+    <!-- define the skip-content attribute group -->
+    <attributeGroup name="skipContentAttrs">
+        <attribute name="skip-content" type="boolean" use="optional"  default="true"/>
+    </attributeGroup>
+
+    <!-- define the customTest element prototype -->
+    <complexType name="customTestPrototype">
+        <attribute name="defaultState" type="boolean" use="optional"  default="false"/>
+
+        <attribute name="override" use="optional"  default="hidden">    
+            <simpleType>
+                <restriction base="string">
+                    <enumeration value="visible"/>
+                    <enumeration value="hidden"/>
+                </restriction>
+            </simpleType>
+        </attribute>
+
+        <attribute name="uid" type="anyURI" use="optional"/>
+    </complexType>
+
+    <!-- define the customAttributes element prototype -->
+    <complexType name="customAttributesPrototype">
+    </complexType>
+
+    <!-- define the prefetch element prototype -->
+    <complexType name="prefetchPrototype">
+        <attribute name="src" type="anyURI" use="optional"/>
+        <attribute name="mediaSize" type="string" use="optional"/>
+        <attribute name="mediaTime" type="string" use="optional"/>
+        <attribute name="bandwidth" type="string" use="optional"/>
+    </complexType>
+
+    <!-- define the global content control elements -->
+    <element name="switch" type="smil20lang:switchType" substitutionGroup="smil20lang:switch"/>    
+    <element name="prefetch" type="smil20lang:prefetchType" substitutionGroup="smil20lang:prefetch"/>
+    <element name="customAttributes" type="smil20lang:customAttributesType" substitutionGroup="smil20lang:customAttributes"/>
+    <element name="customTest" type="smil20lang:customTestType" substitutionGroup="smil20lang:customTest"/>    
+
+</schema>

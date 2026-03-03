@@ -12,7 +12,8 @@ module Lutaml
       autoload :ModelImport, "#{__dir__}/serialize/model_import"
       autoload :FormatConversion, "#{__dir__}/serialize/format_conversion"
       autoload :ValueMapping, "#{__dir__}/serialize/value_mapping"
-      autoload :TransformationBuilder, "#{__dir__}/serialize/transformation_builder"
+      autoload :TransformationBuilder,
+               "#{__dir__}/serialize/transformation_builder"
 
       include ComparableModel
       include Validation
