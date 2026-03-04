@@ -14,36 +14,66 @@ module Lutaml
       # @param xml [String] the XML string to parse
       # @return [Hash] declaration info { version:, encoding:, had_declaration: }
       def self.extract_xml_declaration(xml)
-        # Match XML declaration at start of document
-        # Format: <?xml version="1.0" encoding="UTF-8"?>
-        # Use \s for whitespace and [^?] to avoid ReDoS vulnerability
-        # The pattern avoids polynomial backtracking by using negated character class
-        if xml =~ /\A\s*<\?xml\s+([^?]*)\?>/
-          decl_content = ::Regexp.last_match(1)
+        # Use string operations instead of regex to avoid ReDoS vulnerability
+        # This approach is O(n) with no backtracking
 
-          # Extract version (defaults to "1.0")
-          version = if decl_content =~ /version\s*=\s*["']([^"']+)["']/
-                      ::Regexp.last_match(1)
-                    else
-                      "1.0"
-                    end
+        # Strip leading whitespace
+        trimmed = xml.lstrip
 
-          # Extract encoding (may be absent)
-          encoding = if decl_content =~ /encoding\s*=\s*["']([^"']+)["']/
-                       ::Regexp.last_match(1)
-                     end
+        # Fast prefix check - no regex needed
+        return { had_declaration: false } unless trimmed.start_with?("<?xml")
 
-          {
-            version: version,
-            encoding: encoding,
-            had_declaration: true,
-          }
-        else
-          # No XML declaration found
-          {
-            had_declaration: false,
-          }
-        end
+        # Find the end of the declaration (?>)
+        # Limit search to first 100 chars to avoid scanning entire document
+        search_region = trimmed[0, 100]
+        end_pos = search_region.index("?>", 5)
+        return { had_declaration: false } unless end_pos
+
+        # Extract content between <?xml and ?>
+        decl_content = trimmed[5...end_pos]
+
+        # Extract version (defaults to "1.0")
+        version = extract_attribute(decl_content, "version") || "1.0"
+
+        # Extract encoding (may be absent)
+        encoding = extract_attribute(decl_content, "encoding")
+
+        {
+          version: version,
+          encoding: encoding,
+          had_declaration: true,
+        }
+      end
+
+      # Extract an attribute value from declaration content
+      # Uses simple string parsing to avoid regex ReDoS
+      #
+      # @param content [String] the declaration content (between <?xml and ?>)
+      # @param attr_name [String] the attribute name to find
+      # @return [String, nil] the attribute value or nil if not found
+      def self.extract_attribute(content, attr_name)
+        # Find attribute name followed by =
+        name_start = content.index("#{attr_name}=")
+        return nil unless name_start
+
+        # Get the position after attr=
+        pos = name_start + attr_name.length + 1
+
+        # Skip any whitespace
+        pos += 1 while pos < content.length && content[pos] == " "
+
+        return nil if pos >= content.length
+
+        # Check quote character
+        quote = content[pos]
+        return nil unless quote == '"' || quote == "'"
+
+        # Find closing quote
+        end_quote = content.index(quote, pos + 1)
+        return nil unless end_quote
+
+        # Extract value between quotes
+        content[(pos + 1)...end_quote]
       end
 
       # Determine if XML declaration should be included in output
