@@ -12,14 +12,23 @@
 #   BENCHMARK_ITERATIONS - Number of iterations (default: 100)
 #   BENCHMARK_WARMUP     - Number of warmup iterations (default: 10)
 #   BENCHMARK_MEMORY     - Enable memory profiling (default: true)
+#   BENCHMARK_CPU        - Enable CPU profiling with ruby-prof (default: false)
 #
 
 require "bundler/setup"
 require "lutaml/model"
+require "benchmark" # Standard library benchmark (before benchmark/ips)
 require "benchmark/ips"
-require "memory_profiler"
 require "json"
 require "yaml"
+
+# ruby-prof works on all platforms including Windows
+# Provides both CPU and memory profiling
+# Enable with BENCHMARK_CPU=true or BENCHMARK_MEMORY=true
+require "ruby-prof"
+
+CPU_PROFILING = ENV.fetch("BENCHMARK_CPU", "false") == "true"
+MEMORY_PROFILING = ENV.fetch("BENCHMARK_MEMORY", "true") == "true"
 
 # Configure adapters
 Lutaml::Model.configure do |config|
@@ -37,7 +46,7 @@ class SimpleModel < Lutaml::Model::Serializable
   attribute :id, :integer
   attribute :name, :string
   attribute :active, :boolean
-  attribute :created_at, :datetime
+  attribute :created_at, :date_time
 
   xml do
     root "simple"
@@ -330,7 +339,7 @@ end
 
 ITERATIONS = ENV.fetch("BENCHMARK_ITERATIONS", 100).to_i
 WARMUP = ENV.fetch("BENCHMARK_WARMUP", 10).to_i
-MEMORY_PROFILING = ENV.fetch("BENCHMARK_MEMORY", "true") == "true"
+# MEMORY_PROFILING and CPU_PROFILING are defined at the top of the file
 
 # ============================================================================
 # Benchmark Runner
@@ -339,6 +348,7 @@ MEMORY_PROFILING = ENV.fetch("BENCHMARK_MEMORY", "true") == "true"
 class BenchmarkRunner
   def initialize
     @results = {}
+    @cpu_profiles = {}
   end
 
   def run_benchmark(name, &block)
@@ -346,27 +356,31 @@ class BenchmarkRunner
     puts "Benchmark: #{name}"
     puts "=" * 60
 
-    # Warmup
-    puts "Warming up (#{WARMUP} iterations)..."
-    WARMUP.times(&block)
-
-    # Speed benchmark
-    puts "\nSpeed Benchmark (#{ITERATIONS} iterations):"
-    time = Benchmark.measure do
-      ITERATIONS.times(&block)
+    # CPU profiling (ruby-prof)
+    if CPU_PROFILING
+      puts "\nCPU Profiling..."
+      run_cpu_profile(name, &block)
     end
 
-    avg_time = time.real / ITERATIONS * 1000 # ms
-    ops_per_sec = ITERATIONS / time.real
+    # Speed benchmark using benchmark-ips for accurate measurements
+    puts "\nSpeed Benchmark:"
+    report = Benchmark.ips do |x|
+      x.config(warmup: WARMUP, time: ITERATIONS / 60.0) # time in seconds
+      x.report(name, &block)
+    end
 
-    puts "  Total time: #{format('%.3f', time.real)}s"
-    puts "  Average time: #{format('%.3f', avg_time)}ms"
-    puts "  Operations/sec: #{format('%.0f', ops_per_sec)}"
+    entry = report.entries.first
+    ips = entry.ips
+    iterations = entry.iterations
+    total_us = entry.microseconds
+    avg_time_us = total_us / iterations
+
+    puts "  Iterations/sec: #{format('%.0f', ips)}"
+    puts "  Average time: #{format('%.3f', avg_time_us)}µs (#{format('%.6f', avg_time_us / 1_000_000.0)}ms)"
 
     @results[name] = {
-      total_time: time.real,
-      avg_time_ms: avg_time,
-      ops_per_sec: ops_per_sec,
+      ips: ips,
+      avg_time_us: avg_time_us,
     }
 
     # Memory benchmark
@@ -383,21 +397,41 @@ class BenchmarkRunner
     GC.start
     GC.compact if GC.respond_to?(:compact)
 
-    result = MemoryProfiler.report do
-      10.times(&block)
-    end
+    # ruby-prof with ALLOCATIONS mode for memory profiling
+    profile = RubyProf::Profile.new(measure_mode: RubyProf::ALLOCATIONS)
 
-    result.pretty_print(scale_bytes: true, normalize_paths: true)
+    profile.start
+    10.times(&block)
+    result = profile.stop
+
+    # Print allocation report
+    printer = RubyProf::FlatPrinter.new(result)
+    printer.print($stdout, min_percent: 1.0)
 
     @results[:memory] ||= {}
     @results[:memory][caller_locations(1..1).first.label] = {
-      total_allocated: result.total_allocated,
-      total_retained: result.total_retained,
-      allocated_memory: result.allocated_memory,
-      retained_memory: result.retained_memory,
+      profile: result,
     }
   rescue StandardError => e
     puts "  Memory profiling skipped: #{e.message}"
+  end
+
+  def run_cpu_profile(name, &block)
+    # ruby-prof 2.0 API: create a profile with wall time measurement
+    profile = RubyProf::Profile.new(measure_mode: RubyProf::WALL_TIME)
+
+    profile.start
+    ITERATIONS.times(&block)
+    result = profile.stop
+
+    # Print flat report to console
+    printer = RubyProf::FlatPrinter.new(result)
+    printer.print($stdout, min_percent: 2.0)
+
+    # Save result for later
+    @cpu_profiles[name] = result
+  rescue StandardError => e
+    puts "  CPU profiling skipped: #{e.message}"
   end
 
   def print_summary
@@ -444,6 +478,7 @@ def main
   puts "  Iterations: #{ITERATIONS}"
   puts "  Warmup: #{WARMUP}"
   puts "  Memory Profiling: #{MEMORY_PROFILING}"
+  puts "  CPU Profiling: #{CPU_PROFILING}"
   puts "  Ruby: #{RUBY_VERSION}"
   puts "  RUBY_ENGINE: #{RUBY_ENGINE}"
 

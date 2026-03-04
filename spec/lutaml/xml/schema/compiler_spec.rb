@@ -19,8 +19,15 @@ if XSD_AVAILABLE && defined?(Lutaml::Model::Schema::XmlCompiler)
     end
 
     # Helper method to strip XML comments for comparison
+    # Loop to handle nested/adjacent comments that may create new <!-- patterns
     def strip_xml_comments(xml)
-      xml.gsub(/<!--.*?-->/m, "")
+      previous = nil
+      current = xml
+      while current != previous
+        previous = current
+        current = current.gsub(/<!--.*?-->/m, "")
+      end
+      current
     end
 
     describe ".to_models" do

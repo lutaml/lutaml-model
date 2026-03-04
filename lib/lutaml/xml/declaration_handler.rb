@@ -16,9 +16,9 @@ module Lutaml
       def self.extract_xml_declaration(xml)
         # Match XML declaration at start of document
         # Format: <?xml version="1.0" encoding="UTF-8"?>
-        # Both version and encoding are optional in the match
-        # Use character class excluding '>' to prevent ReDoS
-        if xml =~ /\A[ \t\r\n]*<\?xml[ \t\r\n]+([^>]+)\?>/
+        # Use \s for whitespace and [^?] to avoid ReDoS vulnerability
+        # The pattern avoids polynomial backtracking by using negated character class
+        if xml =~ /\A\s*<\?xml\s+([^?]*)\?>/
           decl_content = ::Regexp.last_match(1)
 
           # Extract version (defaults to "1.0")

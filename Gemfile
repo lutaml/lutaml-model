@@ -27,5 +27,6 @@ gem "openssl", "~> 3.0"
 gem "toml-rb"
 gem "tomlib"
 
-gem "memory_profiler", "~> 1.1", group: :development
-gem "stackprof", "~> 0.2.28", group: :development
+# ruby-prof works on all platforms including Windows (unlike stackprof)
+# Provides both CPU and memory profiling
+gem "ruby-prof", "~> 2.0", group: :development
