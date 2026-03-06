@@ -9,6 +9,7 @@ module Lutaml
           instance_name
           sort_by_field
           sort_direction
+          indexes
         ].freeze
 
         ALLOWED_OPTIONS = %i[polymorphic].freeze
@@ -27,7 +28,8 @@ module Lutaml
         attr_reader :instance_type,
                     :instance_name,
                     :sort_by_field,
-                    :sort_direction
+                    :sort_direction,
+                    :indexes
 
         def instances(name, type, options = {}, &block)
           if (invalid_opts = options.keys - ALLOWED_OPTIONS).any?
@@ -56,6 +58,30 @@ module Lutaml
 
         def sort_configured?
           !!@sort_by_field
+        end
+
+        # Index by one or more fields for O(1) lookups
+        # Example: index_by :id, :email
+        def index_by(*fields)
+          @indexes ||= {}
+          fields.each do |field|
+            if field.is_a?(Proc)
+              raise ArgumentError,
+                    "Proc indexes require a name. Use: index :name, by: ->(item) { ... }"
+            end
+            @indexes[field.to_sym] = field.to_sym
+          end
+        end
+
+        # Named index with optional proc for custom key extraction
+        # Example: index :email, by: ->(item) { item.email.downcase }
+        def index(name, by:)
+          @indexes ||= {}
+          @indexes[name.to_sym] = by
+        end
+
+        def index_configured?
+          @indexes && !@indexes.empty?
         end
 
         def to(format, instance, options = {})
@@ -138,6 +164,7 @@ __register: Lutaml::Model::Config.default_register)
         end
 
         sort_items!
+        build_index_caches!
       end
 
       def to_format(format, options = {})
@@ -151,6 +178,7 @@ __register: Lutaml::Model::Config.default_register)
       def collection=(collection)
         instance_variable_set(:"@#{self.class.instance_name}", collection)
         sort_items!
+        build_index_caches!
       end
 
       def union(other)
@@ -188,6 +216,7 @@ __register: Lutaml::Model::Config.default_register)
       def push(item)
         collection.push(item)
         sort_items!
+        build_index_caches!
       end
 
       def [](index)
@@ -197,6 +226,7 @@ __register: Lutaml::Model::Config.default_register)
       def []=(index, value)
         collection[index] = value
         sort_items!
+        build_index_caches!
       end
 
       def empty?
@@ -214,6 +244,57 @@ __register: Lutaml::Model::Config.default_register)
 
         apply_sort!
         collection.reverse! if self.class.sort_direction == :desc
+      end
+
+      # Index methods for O(1) lookups
+
+      # @return [Hash, nil] Hash of { field_name => { key => item } } or nil
+      attr_reader :index_caches
+
+      # Build index caches for all configured indexes
+      def build_index_caches!
+        return unless self.class.index_configured?
+        return if collection.nil? || collection.empty?
+
+        @index_caches = {}
+
+        self.class.indexes.each do |name, field_or_proc|
+          @index_caches[name] = {}
+
+          collection.each do |item|
+            key = if field_or_proc.is_a?(Proc)
+                    field_or_proc.call(item)
+                  else
+                    item.send(field_or_proc)
+                  end
+            @index_caches[name][key] = item
+          end
+        end
+      end
+
+      # Find an item by index field and key
+      # @param field [Symbol] The index field name
+      # @param key [Object] The key to look up
+      # @return [Object, nil] The item or nil if not found
+      def find_by(field, key)
+        return nil unless @index_caches
+
+        cache = @index_caches[field.to_sym]
+        cache&.fetch(key, nil)
+      end
+
+      # Fetch an item by key (only for single-index collections)
+      # @param key [Object] The key to look up
+      # @return [Object, nil] The item or nil if not found
+      # @raise [ArgumentError] If multiple indexes are configured
+      def fetch(key)
+        unless self.class.indexes&.one?
+          raise ArgumentError,
+                "#fetch only works with single index. Use #find_by(field, key)"
+        end
+
+        field = self.class.indexes.keys.first
+        find_by(field, key)
       end
 
       def apply_sort!
