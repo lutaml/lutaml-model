@@ -26,7 +26,9 @@ module Lutaml
             end
 
             def process_attribute(collection, attribute, register)
-              attr_type = Lutaml::Model::GlobalContext.resolve_type(attribute.type, register)
+              attr_type = Lutaml::Model::GlobalContext.resolve_type(
+                attribute.type, register
+              )
               collection.merge(DefinitionsCollection.from_class(attr_type))
 
               process_polymorphic_types(collection, attribute)

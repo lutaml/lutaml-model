@@ -43,7 +43,7 @@ module Lutaml
         to: nil,
         transform: nil,
         reverse_transform: nil,
-        &block
+        &
       )
         map(
           from: from,
@@ -51,7 +51,7 @@ module Lutaml
           transform: transform,
           reverse_transform: reverse_transform,
           collection: true,
-          &block
+          &
         )
       end
 

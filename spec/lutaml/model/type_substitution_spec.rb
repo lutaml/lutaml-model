@@ -5,7 +5,9 @@ require "spec_helper"
 RSpec.describe Lutaml::Model::TypeSubstitution do
   let(:from_class) { Class.new }
   let(:to_class) { Class.new }
-  let(:substitution) { described_class.new(from_type: from_class, to_type: to_class) }
+  let(:substitution) do
+    described_class.new(from_type: from_class, to_type: to_class)
+  end
 
   describe "#initialize" do
     it "stores from_type and to_type" do
@@ -147,7 +149,8 @@ RSpec.describe Lutaml::Model::TypeSubstitution do
     it "can be used as hash key" do
       hash = {}
       hash[substitution] = "first"
-      hash[described_class.new(from_type: from_class, to_type: to_class)] = "second"
+      hash[described_class.new(from_type: from_class, to_type: to_class)] =
+        "second"
 
       expect(hash.size).to eq(1)
       expect(hash[substitution]).to eq("second")
@@ -159,7 +162,7 @@ RSpec.describe Lutaml::Model::TypeSubstitution do
       custom_text = Class.new(Lutaml::Model::Type::String)
       sub = described_class.new(
         from_type: custom_text,
-        to_type: Lutaml::Model::Type::String
+        to_type: Lutaml::Model::Type::String,
       )
 
       expect(sub.applies_to?(custom_text)).to be true

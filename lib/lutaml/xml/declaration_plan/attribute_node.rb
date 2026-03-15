@@ -2,7 +2,7 @@
 
 module Lutaml
   module Xml
-      class DeclarationPlan
+    class DeclarationPlan
       # AttributeNode represents the namespace prefix decision for a single XML attribute
       #
       # This is a PURE DATA structure - it stores the W3C-compliant prefix decision
@@ -31,51 +31,51 @@ module Lutaml
       #   attr_node.qualified_name  # => "child:child_attr"
       #
       class AttributeNode
-      # @return [String] Attribute local name (without prefix)
-      attr_reader :local_name
+        # @return [String] Attribute local name (without prefix)
+        attr_reader :local_name
 
-      # @return [String, nil] Prefix to use for this attribute
-      #   nil = no prefix (W3C :unqualified or blank namespace)
-      #   String = use this prefix
-      attr_reader :use_prefix
+        # @return [String, nil] Prefix to use for this attribute
+        #   nil = no prefix (W3C :unqualified or blank namespace)
+        #   String = use this prefix
+        attr_reader :use_prefix
 
-      # @return [String, nil] Namespace URI for this attribute
-      attr_reader :namespace_uri
+        # @return [String, nil] Namespace URI for this attribute
+        attr_reader :namespace_uri
 
-      # Initialize an attribute node
-      #
-      # @param local_name [String] Attribute name without prefix
-      # @param use_prefix [String, nil] Prefix for attribute (nil = no prefix)
-      # @param namespace_uri [String, nil] Namespace URI
-      def initialize(local_name:, use_prefix:, namespace_uri: nil)
-        @local_name = local_name
-        @use_prefix = use_prefix
-        @namespace_uri = namespace_uri
-      end
+        # Initialize an attribute node
+        #
+        # @param local_name [String] Attribute name without prefix
+        # @param use_prefix [String, nil] Prefix for attribute (nil = no prefix)
+        # @param namespace_uri [String, nil] Namespace URI
+        def initialize(local_name:, use_prefix:, namespace_uri: nil)
+          @local_name = local_name
+          @use_prefix = use_prefix
+          @namespace_uri = namespace_uri
+        end
 
-      # Get the qualified attribute name (with prefix if applicable)
-      #
-      # This is what adapters should use when creating XML attributes.
-      #
-      # @return [String] Qualified name: "prefix:name" or "name"
-      def qualified_name
-        use_prefix ? "#{use_prefix}:#{local_name}" : local_name
-      end
+        # Get the qualified attribute name (with prefix if applicable)
+        #
+        # This is what adapters should use when creating XML attributes.
+        #
+        # @return [String] Qualified name: "prefix:name" or "name"
+        def qualified_name
+          use_prefix ? "#{use_prefix}:#{local_name}" : local_name
+        end
 
-      # Check if attribute has a prefix
-      #
-      # @return [Boolean] true if prefix present
-      def prefixed?
-        !use_prefix.nil?
-      end
+        # Check if attribute has a prefix
+        #
+        # @return [Boolean] true if prefix present
+        def prefixed?
+          !use_prefix.nil?
+        end
 
-      # Check if attribute is unqualified (no prefix)
-      #
-      # @return [Boolean] true if no prefix
-      def unqualified?
-        use_prefix.nil?
+        # Check if attribute is unqualified (no prefix)
+        #
+        # @return [Boolean] true if no prefix
+        def unqualified?
+          use_prefix.nil?
+        end
       end
-      end
-      end
+    end
   end
 end

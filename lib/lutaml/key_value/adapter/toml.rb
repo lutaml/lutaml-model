@@ -4,12 +4,12 @@ module Lutaml
   module KeyValue
     module Adapter
       module Toml
-        autoload :Document, "lutaml/key_value/adapter/toml/document"
-        autoload :Mapping, "lutaml/key_value/adapter/toml/mapping"
-        autoload :MappingRule, "lutaml/key_value/adapter/toml/mapping_rule"
-        autoload :Transform, "lutaml/key_value/adapter/toml/transform"
-        autoload :TomlibAdapter, "lutaml/key_value/adapter/toml/tomlib_adapter"
-        autoload :TomlRbAdapter, "lutaml/key_value/adapter/toml/toml_rb_adapter"
+        autoload :Document, "#{__dir__}/toml/document"
+        autoload :Mapping, "#{__dir__}/toml/mapping"
+        autoload :MappingRule, "#{__dir__}/toml/mapping_rule"
+        autoload :Transform, "#{__dir__}/toml/transform"
+        autoload :TomlibAdapter, "#{__dir__}/toml/tomlib_adapter"
+        autoload :TomlRbAdapter, "#{__dir__}/toml/toml_rb_adapter"
       end
     end
   end

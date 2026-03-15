@@ -203,7 +203,8 @@ RSpec.describe Lutaml::Model::Register do
 
       # Also register in default register for tests that use attributes() without register arg
       default_register = Lutaml::Model::GlobalRegister.lookup(:default)
-      default_register.register_model(RegisterSpec::AddressFields, id: :address_fields)
+      default_register.register_model(RegisterSpec::AddressFields,
+                                      id: :address_fields)
       default_register.register_model(RegisterSpec::Names, id: :names)
     end
 
@@ -225,7 +226,8 @@ RSpec.describe Lutaml::Model::Register do
       # Restore the restrict_attributes that were set by 'restrict' directive at class definition
       # These get cleared after ensure_restrict_attributes! runs
       RegisterSpec::User.instance_variable_set(:@restrict_attributes,
-                                               { active: { values: ["yes", "no"] } })
+                                               { active: { values: ["yes",
+                                                                    "no"] } })
 
       expect(RegisterSpec::User.restrict_attributes).to eq({ active: { values: [
                                                              "yes", "no"
@@ -242,7 +244,8 @@ RSpec.describe Lutaml::Model::Register do
       importable_models = Lutaml::Model::MappingHash.new { |h, k| h[k] = [] }
       importable_models[:import_model_attributes] = [:address_fields]
       importable_models[:import_model] = [:names]
-      RegisterSpec::User.instance_variable_set(:@importable_models, importable_models)
+      RegisterSpec::User.instance_variable_set(:@importable_models,
+                                               importable_models)
 
       initial_count = RegisterSpec::User.instance_variable_get(:@attributes).count
       RegisterSpec::User.ensure_imports!(register.id)
@@ -256,7 +259,8 @@ RSpec.describe Lutaml::Model::Register do
       # Ensure restrict_attributes is set for this test
       # (it gets cleared after ensure_restrict_attributes! runs in other tests)
       RegisterSpec::User.instance_variable_set(:@restrict_attributes,
-                                               { active: { values: ["yes", "no"] } })
+                                               { active: { values: ["yes",
+                                                                    "no"] } })
 
       expect(RegisterSpec::AddressFields.attributes[:active].options.keys).to be_empty
       expect(RegisterSpec::User.attributes[:active].options.keys).to eq(%i[

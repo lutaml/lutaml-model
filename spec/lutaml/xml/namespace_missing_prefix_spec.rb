@@ -1,5 +1,5 @@
 require "spec_helper"
-require "lutaml/model"
+require_relative "../../../lib/lutaml/model"
 require "lutaml/xml/nokogiri_adapter"
 
 # Namespace Prefix Missing on First Element in Chain

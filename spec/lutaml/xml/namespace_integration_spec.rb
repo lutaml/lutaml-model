@@ -146,7 +146,7 @@ RSpec.describe "XML Namespace Integration" do
             namespace String
           end
         end
-      end.to raise_error(ArgumentError, /XmlNamespace class/)
+      end.to raise_error(Lutaml::Xml::Error::InvalidNamespaceError, /XmlNamespace class/)
     end
   end
 

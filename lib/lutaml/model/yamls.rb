@@ -1,24 +1,27 @@
 # frozen_string_literal: true
 
-# YAMLS format entry point - uses Lutaml::KeyValue::Adapter::Yamls namespace
-# Constants are accessed via autoload from key_value/adapter/yamls.rb
+# YAMLS format entry point
+# Provides Lutaml::Model::Yamls namespace that delegates to Lutaml::Yamls
 
-# Backward compatibility alias
+require_relative "../yamls"
+
+# Backward compatibility aliases
 module Lutaml
   module Model
     module Yamls
-      StandardAdapter = Lutaml::KeyValue::Adapter::Yamls::StandardAdapter
-      Document = Lutaml::KeyValue::Adapter::Yamls::Document
-      Mapping = Lutaml::KeyValue::Adapter::Yamls::Mapping
-      MappingRule = Lutaml::KeyValue::Adapter::Yamls::MappingRule
-      Transform = Lutaml::KeyValue::Adapter::Yamls::Transform
+      StandardAdapter = ::Lutaml::Yamls::Adapter::StandardAdapter
+      Document = ::Lutaml::Yamls::Adapter::Document
+      Mapping = ::Lutaml::Yamls::Adapter::Mapping
+      MappingRule = ::Lutaml::Yamls::Adapter::MappingRule
+      Transform = ::Lutaml::Yamls::Adapter::Transform
     end
   end
 end
 
+# Register YAMLS format with the format registry
 Lutaml::Model::FormatRegistry.register(
   :yamls,
-  mapping_class: Lutaml::KeyValue::Adapter::Yamls::Mapping,
-  adapter_class: Lutaml::KeyValue::Adapter::Yamls::StandardAdapter,
-  transformer: Lutaml::KeyValue::Adapter::Yamls::Transform,
+  mapping_class: Lutaml::Yamls::Adapter::Mapping,
+  adapter_class: Lutaml::Yamls::Adapter::StandardAdapter,
+  transformer: Lutaml::Yamls::Adapter::Transform,
 )

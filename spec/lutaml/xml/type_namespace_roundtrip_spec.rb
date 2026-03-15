@@ -1,5 +1,5 @@
 require "spec_helper"
-require "lutaml/model"
+require_relative "../../../lib/lutaml/model"
 
 RSpec.describe "Type-level namespace round-trip tests" do
   describe "Contact example with 2 namespaces" do

@@ -6,12 +6,11 @@ module Lutaml
   module KeyValue
     module Adapter
       module Jsonl
-        autoload :Document, "lutaml/key_value/adapter/jsonl/document"
-        autoload :Mapping, "lutaml/key_value/adapter/jsonl/mapping"
-        autoload :MappingRule, "lutaml/key_value/adapter/jsonl/mapping_rule"
-        autoload :Transform, "lutaml/key_value/adapter/jsonl/transform"
-        autoload :StandardAdapter,
-                 "lutaml/key_value/adapter/jsonl/standard_adapter"
+        autoload :Document, "#{__dir__}/jsonl/document"
+        autoload :Mapping, "#{__dir__}/jsonl/mapping"
+        autoload :MappingRule, "#{__dir__}/jsonl/mapping_rule"
+        autoload :Transform, "#{__dir__}/jsonl/transform"
+        autoload :StandardAdapter, "#{__dir__}/jsonl/standard_adapter"
       end
     end
   end

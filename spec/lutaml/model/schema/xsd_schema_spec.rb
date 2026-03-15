@@ -15,7 +15,7 @@ module SchemaGeneration
   end
 end
 
-RSpec.describe Lutaml::Model::Schema::XsdSchema do
+RSpec.describe Lutaml::Xml::Schema::XsdSchema do
   describe ".generate" do
     it "generates an XSD schema for nested Serialize objects" do
       schema = described_class.generate(SchemaGeneration::Vase, pretty: true)

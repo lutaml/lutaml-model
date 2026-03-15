@@ -14,7 +14,10 @@ module Lutaml
           end
 
           value = value.to_s
-          Model::Services::Type::Validator::String.validate!(value, options) unless options.equal?(EMPTY_OPTIONS)
+          unless options.equal?(EMPTY_OPTIONS)
+            Model::Services::Type::Validator::String.validate!(value,
+                                                               options)
+          end
           value
         end
 

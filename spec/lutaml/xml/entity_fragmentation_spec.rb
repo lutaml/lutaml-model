@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "spec_helper"
-require "lutaml/model"
+require_relative "../../../lib/lutaml/model"
 
 # Issue #5: HTML Entity Fragmentation in Mixed Content
 # Related to: https://github.com/lutaml/lutaml-model/issues/XXX

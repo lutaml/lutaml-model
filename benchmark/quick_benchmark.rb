@@ -81,19 +81,21 @@ def generate_xml(items)
 end
 
 def generate_json(items)
-  { items: items.map { |i| { id: i.id, name: i.name, value: i.value } } }.to_json
+  { items: items.map do |i|
+    { id: i.id, name: i.name, value: i.value }
+  end }.to_json
 end
 
-def benchmark_operation(name, iterations: ITERATIONS, warmup: WARMUP)
+def benchmark_operation(name, iterations: ITERATIONS, warmup: WARMUP, &block)
   # Warmup
-  warmup.times { yield }
+  warmup.times(&block)
 
   # Force GC
   GC.start
 
   # Benchmark
   total_time = Benchmark.measure do
-    iterations.times { yield }
+    iterations.times(&block)
   end.real
 
   avg_ms = (total_time / iterations) * 1000
@@ -139,10 +141,18 @@ item = Item.new(id: 1, name: "Test Item", value: 99.99)
 item_xml = '<item id="1"><name>Test Item</name><value>99.99</value></item>'
 item_json = '{"id":1,"name":"Test Item","value":99.99}'
 
-results << benchmark_operation("XML Serialization (single item)") { item.to_xml }
-results << benchmark_operation("XML Deserialization (single item)") { Item.from_xml(item_xml) }
-results << benchmark_operation("JSON Serialization (single item)") { item.to_json }
-results << benchmark_operation("JSON Deserialization (single item)") { Item.from_json(item_json) }
+results << benchmark_operation("XML Serialization (single item)") do
+  item.to_xml
+end
+results << benchmark_operation("XML Deserialization (single item)") do
+  Item.from_xml(item_xml)
+end
+results << benchmark_operation("JSON Serialization (single item)") do
+  item.to_json
+end
+results << benchmark_operation("JSON Deserialization (single item)") do
+  Item.from_json(item_json)
+end
 
 results.each { |r| print_result(r) }
 puts
@@ -157,10 +167,18 @@ small_container = Container.new(items: small_items)
 small_xml = generate_xml(small_items)
 small_json = generate_json(small_items)
 
-small_results << benchmark_operation("XML Serialization (10 items)") { small_container.to_xml }
-small_results << benchmark_operation("XML Deserialization (10 items)") { Container.from_xml(small_xml) }
-small_results << benchmark_operation("JSON Serialization (10 items)") { small_container.to_json }
-small_results << benchmark_operation("JSON Deserialization (10 items)") { Container.from_json(small_json) }
+small_results << benchmark_operation("XML Serialization (10 items)") do
+  small_container.to_xml
+end
+small_results << benchmark_operation("XML Deserialization (10 items)") do
+  Container.from_xml(small_xml)
+end
+small_results << benchmark_operation("JSON Serialization (10 items)") do
+  small_container.to_json
+end
+small_results << benchmark_operation("JSON Deserialization (10 items)") do
+  Container.from_json(small_json)
+end
 
 small_results.each { |r| print_result(r) }
 results.concat(small_results)
@@ -176,10 +194,18 @@ medium_container = Container.new(items: medium_items)
 medium_xml = generate_xml(medium_items)
 medium_json = generate_json(medium_items)
 
-medium_results << benchmark_operation("XML Serialization (50 items)") { medium_container.to_xml }
-medium_results << benchmark_operation("XML Deserialization (50 items)") { Container.from_xml(medium_xml) }
-medium_results << benchmark_operation("JSON Serialization (50 items)") { medium_container.to_json }
-medium_results << benchmark_operation("JSON Deserialization (50 items)") { Container.from_json(medium_json) }
+medium_results << benchmark_operation("XML Serialization (50 items)") do
+  medium_container.to_xml
+end
+medium_results << benchmark_operation("XML Deserialization (50 items)") do
+  Container.from_xml(medium_xml)
+end
+medium_results << benchmark_operation("JSON Serialization (50 items)") do
+  medium_container.to_json
+end
+medium_results << benchmark_operation("JSON Deserialization (50 items)") do
+  Container.from_json(medium_json)
+end
 
 medium_results.each { |r| print_result(r) }
 results.concat(medium_results)
@@ -195,10 +221,22 @@ large_container = Container.new(items: large_items)
 large_xml = generate_xml(large_items)
 large_json = generate_json(large_items)
 
-large_results << benchmark_operation("XML Serialization (100 items)", iterations: 500) { large_container.to_xml }
-large_results << benchmark_operation("XML Deserialization (100 items)", iterations: 500) { Container.from_xml(large_xml) }
-large_results << benchmark_operation("JSON Serialization (100 items)", iterations: 500) { large_container.to_json }
-large_results << benchmark_operation("JSON Deserialization (100 items)", iterations: 500) { Container.from_json(large_json) }
+large_results << benchmark_operation("XML Serialization (100 items)",
+                                     iterations: 500) do
+  large_container.to_xml
+end
+large_results << benchmark_operation("XML Deserialization (100 items)",
+                                     iterations: 500) do
+  Container.from_xml(large_xml)
+end
+large_results << benchmark_operation("JSON Serialization (100 items)",
+                                     iterations: 500) do
+  large_container.to_json
+end
+large_results << benchmark_operation("JSON Deserialization (100 items)",
+                                     iterations: 500) do
+  Container.from_json(large_json)
+end
 
 large_results.each { |r| print_result(r) }
 results.concat(large_results)

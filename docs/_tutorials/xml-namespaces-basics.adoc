@@ -144,7 +144,7 @@ class Ceramic < Lutaml::Model::Serializable
     namespace CeramicNamespace
 
     map_element 'type', to: :type
-    map_element 'glaze', to: :glaze, namespace: GlazeNamespace
+    map_element 'glaze', to: :glaze  # Uses Glaze's type namespace
   end
 end
 

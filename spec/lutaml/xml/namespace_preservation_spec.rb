@@ -1,5 +1,5 @@
 require "spec_helper"
-require "lutaml/model"
+require_relative "../../../lib/lutaml/model"
 
 RSpec.describe "Namespace Preservation Issue #3" do
   context "unused namespace preservation" do

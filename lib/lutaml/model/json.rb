@@ -1,24 +1,29 @@
 # frozen_string_literal: true
 
-# JSON format entry point - uses Lutaml::KeyValue::Adapter::Json namespace
-# Constants are accessed via autoload from key_value/adapter/json.rb
+# JSON format entry point
+# Provides Lutaml::Json namespace that delegates to KeyValue::Adapter::Json
 
-# Backward compatibility alias
+require_relative "../json"
+
+# Backward compatibility aliases for Lutaml::Model::Json namespace
 module Lutaml
   module Model
     module Json
-      StandardAdapter = Lutaml::KeyValue::Adapter::Json::StandardAdapter
-      Document = Lutaml::KeyValue::Adapter::Json::Document
-      Mapping = Lutaml::KeyValue::Adapter::Json::Mapping
-      MappingRule = Lutaml::KeyValue::Adapter::Json::MappingRule
-      Transform = Lutaml::KeyValue::Adapter::Json::Transform
+      StandardAdapter = ::Lutaml::Json::Adapter::StandardAdapter
+      Document = ::Lutaml::Json::Adapter::Document
+      Mapping = ::Lutaml::Json::Mapping
+      MappingRule = ::Lutaml::Json::MappingRule
+      Transform = ::Lutaml::Json::Transform
+      OjAdapter = ::Lutaml::Json::Adapter::OjAdapter
+      MultiJsonAdapter = ::Lutaml::Json::Adapter::MultiJsonAdapter
     end
   end
 end
 
+# Register JSON format with the format registry
 Lutaml::Model::FormatRegistry.register(
   :json,
-  mapping_class: Lutaml::KeyValue::Adapter::Json::Mapping,
-  adapter_class: Lutaml::KeyValue::Adapter::Json::StandardAdapter,
-  transformer: Lutaml::KeyValue::Adapter::Json::Transform,
+  mapping_class: Lutaml::Json::Mapping,
+  adapter_class: Lutaml::Json::Adapter::StandardAdapter,
+  transformer: Lutaml::Json::Transform,
 )

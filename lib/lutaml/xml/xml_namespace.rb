@@ -2,7 +2,7 @@
 
 module Lutaml
   module Xml
-      class XmlNamespace
+    class XmlNamespace
       # Return name
       #
       # @return [String]
@@ -24,8 +24,8 @@ module Lutaml
       #
       # @api private
       def initialize(uri = nil, prefix = nil)
-      @uri = uri
-      @prefix = normalize_prefix(prefix)
+        @uri = uri
+        @prefix = normalize_prefix(prefix)
       end
 
       # Generate unique key for this namespace configuration
@@ -37,30 +37,30 @@ module Lutaml
       #
       # @api private
       def self.to_key
-      prefix = prefix_default
-      uri = self.uri
+        prefix = prefix_default
+        uri = self.uri
 
-      if prefix && !prefix.empty?
-        "#{prefix}:#{uri}"
-      else
-        ":#{uri}"
-      end
+        if prefix && !prefix.empty?
+          "#{prefix}:#{uri}"
+        else
+          ":#{uri}"
+        end
       end
 
       def normalize_prefix(prefix)
-      normalized_prefix = prefix.to_s.gsub(/xmlns:?/, "")
-      return if normalized_prefix.empty?
+        normalized_prefix = prefix.to_s.gsub(/xmlns:?/, "")
+        return if normalized_prefix.empty?
 
-      normalized_prefix
+        normalized_prefix
       end
 
       def attr_name
-      if ::Lutaml::Model::Utils.present?(prefix)
-        "xmlns:#{prefix}"
-      else
-        "xmlns"
+        if ::Lutaml::Model::Utils.present?(prefix)
+          "xmlns:#{prefix}"
+        else
+          "xmlns"
+        end
       end
-      end
-      end
+    end
   end
 end

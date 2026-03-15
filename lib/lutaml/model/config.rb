@@ -141,10 +141,11 @@ module Lutaml
       def load_adapter_file(adapter, type)
         # XML adapters are now in lib/lutaml/xml/
         adapter_path = if adapter == "xml"
-          File.join(__dir__, "../xml", type)
+                         File.join(__dir__, "../xml", type)
                        else
-          # Key-value adapters are now in lib/lutaml/key_value/adapter/
-          File.join(__dir__, "../key_value/adapter", adapter, type)
+                         # Key-value adapters are now in lib/lutaml/key_value/adapter/
+                         File.join(__dir__, "../key_value/adapter", adapter,
+                                   type)
                        end
         require adapter_path
       rescue LoadError

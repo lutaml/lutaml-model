@@ -2,6 +2,9 @@
 
 require "json"
 
+# Backward compatibility - delegates to Lutaml::Json::Adapter
+# @deprecated Use Lutaml::Json::Adapter::StandardAdapter instead
+
 module Lutaml
   module KeyValue
     module Adapter

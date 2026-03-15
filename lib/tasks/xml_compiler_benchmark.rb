@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 require "benchmark/ips"
-require "lutaml/model"
-require "lutaml/model/schema"
+require_relative "../lutaml/model"
+require_relative "../lutaml/model/schema"
 
 # Ensure Nokogiri adapter is set
 Lutaml::Model::Config.xml_adapter_type = :nokogiri
@@ -22,7 +22,7 @@ module XmlCompilerBenchmarks
         </xs:complexType>
       </xs:schema>
     XSD
-    medium: <<~XSD
+    medium: <<~XSD,
       <?xml version="1.0" encoding="UTF-8"?>
       <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
                  targetNamespace="http://example.com/test"

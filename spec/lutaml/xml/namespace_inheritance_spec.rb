@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "spec_helper"
-require "lutaml/model"
+require_relative "../../../lib/lutaml/model"
 
 # Comprehensive spec to guard against namespace bleeding bugs
 # Tests that elements correctly inherit or declare namespaces based on their relationships

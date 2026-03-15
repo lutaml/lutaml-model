@@ -287,25 +287,36 @@ All three XML adapters support format preservation:
 * **Oga** - Full support ✅
 
 
-==== Explicit no namespace with `namespace: nil`
+==== Elements in blank namespace
 
-When you need to explicitly specify that an element should have NO namespace,
-use `namespace: nil` in the mapping:
+When you need an element to have NO namespace (not even inherit parent
+namespace), create a child model class without a namespace declaration.
 
-.Mapping elements with explicit no namespace
+.Using child model class for elements in blank namespace
 [example]
 ====
 [source,ruby]
 ----
+# Child model with no namespace
+class Note < Lutaml::Model::Serializable
+  attribute :value, :string
+
+  xml do
+    element "Note"
+    # No namespace declaration = blank namespace
+    map_content to: :value
+  end
+end
+
 class MixedModel < Lutaml::Model::Serializable
   attribute :type, :string
-  attribute :note, :string
+  attribute :note, Note
 
   xml do
     element "Ceramic"
-    namespace CeramicNamespace  # Has namespace
+    namespace CeramicNamespace
     map_element "Type", to: :type
-    map_element "Note", to: :note, namespace: nil  # Explicitly NO namespace
+    map_element "Note", to: :note  # Uses Note's namespace (blank)
   end
 end
 ----
@@ -341,65 +352,6 @@ inheritance.
 **Parsing support**: All three adapters (Nokogiri, Ox, Oga) correctly handle both patterns.
 ====
 
-[[explicit-blank-namespace]]
-==== Explicit blank namespace (`namespace :blank`)
-
-When you need to explicitly specify that an element should have NO namespace
-and prevent any namespace inheritance, use `namespace: :blank` in the mapping.
-
-This is a more explicit alternative to `namespace: nil` that clearly indicates
-"blank namespace" intent in your code.
-
-.Mapping elements with explicit blank namespace
-[example]
-====
-[source,ruby]
-----
-class MixedModel < Lutaml::Model::Serializable
-  attribute :type, :string
-  attribute :note, :string
-
-  xml do
-    element "Ceramic"
-    namespace CeramicNamespace  # Has namespace
-    map_element "Type", to: :type
-    map_element "Note", to: :note, namespace: :blank  # Explicitly NO namespace
-  end
-end
-----
-
-**When parent uses prefixed namespace** (recommended):
-
-Unprefixed child elements naturally have no namespace:
-
-[source,xml]
-----
-<cer:Ceramic xmlns:cer="http://example.com/ceramic">
-  <cer:Type>Porcelain</cer:Type>
-  <Note>This element has no namespace</Note>
-</cer:Ceramic>
-----
-
-**When parent uses default namespace**:
-
-Must use `xmlns=""` to explicitly remove the namespace:
-
-[source,xml]
-----
-<Ceramic xmlns="http://example.com/ceramic">
-  <Type>Porcelain</Type>
-  <Note xmlns="">This element has no namespace</Note>
-</Ceramic>
-----
-
-Per W3C XML Namespace specification, unprefixed elements normally inherit their
-parent's default namespace. The `xmlns=""` declaration explicitly removes that
-inheritance.
-
-NOTE: Both `namespace: nil` and `namespace: :blank` produce the same output.
-Use `:blank` for clearer intent in code.
-====
-
 [[namespace-priority-system]]
 ==== Namespace assignment priority
 
@@ -412,8 +364,8 @@ sources are available:
 | Priority | Source | Example
 
 | 1 (HIGHEST)
-| Explicit mapping level
-| `map_element "name", to: :attr, namespace: SomeNamespace`
+| Model-level namespace
+| `attribute :attr, ChildModel` where `ChildModel` has `namespace`
 
 | 2
 | Type level
@@ -435,25 +387,40 @@ class ItemNamespace < Lutaml::Model::XmlNamespace
   element_form_default :qualified
 end
 
+class BlankNamespace < Lutaml::Model::XmlNamespace
+  uri ""  # Blank namespace
+end
+
 class PriceType < Lutaml::Model::Type::String
   xml_namespace PriceNamespace  # Type-level namespace
 end
 
+# Child model in blank namespace
+class Name < Lutaml::Model::Serializable
+  attribute :value, :string
+
+  xml do
+    element "name"
+    namespace BlankNamespace  # Model-level namespace (blank)
+    map_content to: :value
+  end
+end
+
 class Product < Lutaml::Model::Serializable
-  attribute :name, :string
+  attribute :name, Name
   attribute :price, PriceType
   attribute :note, :string
 
   xml do
     element "product"
     namespace ItemNamespace
-    
-    # Priority 1: Explicit mapping namespace (highest)
-    map_element "name", to: :name, namespace: :blank
-    
+
+    # Priority 1: Model-level namespace (blank)
+    map_element "name", to: :name
+
     # Priority 2: Type-level namespace
     map_element "price", to: :price
-    
+
     # Priority 3: Context from schema (qualified by default)
     map_element "note", to: :note
   end
@@ -466,7 +433,7 @@ Result with `prefix: true`:
 ----
 <item:product xmlns:item="http://example.com/items"
               xmlns:price="http://example.com/prices">
-  <name>Widget</name>                    <!-- Priority 1: explicit :blank -->
+  <name>Widget</name>                    <!-- Priority 1: model namespace (blank) -->
   <price:price>19.99</price:price>       <!-- Priority 2: type namespace -->
   <item:note>Description</item:note>     <!-- Priority 3: schema qualified -->
 </item:product>
@@ -2002,9 +1969,9 @@ class Ceramic < Lutaml::Model::Serializable
   xml do
     element 'Ceramic'
     namespace 'http://example.com/ceramic', 'cera'
-    map_element 'Type', to: :type, namespace: :inherit
+    map_element 'Type', to: :type  # Inherits parent namespace
     map_element 'Glaze', to: :glaze
-    map_attribute 'color', to: :color, ColorXmlNamespace
+    map_attribute 'color', to: :color  # Per W3C, attributes don't inherit namespace
   end
 end
 

@@ -2,7 +2,7 @@
 
 module Lutaml
   module Xml
-      module Decisions
+    module Decisions
       # Abstract base class for namespace decision rules
       #
       # Each rule encapsulates ONE decision criterion.
@@ -11,44 +11,44 @@ module Lutaml
       #
       # @abstract Subclass and implement {#applies?} and {#decide}
       class DecisionRule
-      # Check if this rule applies to the given context
-      #
-      # @param context [DecisionContext] The decision context
-      # @return [Boolean] true if this rule should be applied
-      def applies?(context)
-        raise NotImplementedError, "#{self.class} must implement #applies?"
-      end
+        # Check if this rule applies to the given context
+        #
+        # @param context [DecisionContext] The decision context
+        # @return [Boolean] true if this rule should be applied
+        def applies?(context)
+          raise NotImplementedError, "#{self.class} must implement #applies?"
+        end
 
-      # Make the decision for this rule
-      #
-      # @param context [DecisionContext] The decision context
-      # @return [Decision] The decision
-      def decide(context)
-        raise NotImplementedError, "#{self.class} must implement #decide"
-      end
+        # Make the decision for this rule
+        #
+        # @param context [DecisionContext] The decision context
+        # @return [Decision] The decision
+        def decide(context)
+          raise NotImplementedError, "#{self.class} must implement #decide"
+        end
 
-      # Get the priority of this rule (lower = higher priority)
-      #
-      # @return [Integer] Priority (0-10)
-      def priority
-        raise NotImplementedError, "#{self.class} must implement #priority"
-      end
+        # Get the priority of this rule (lower = higher priority)
+        #
+        # @return [Integer] Priority (0-10)
+        def priority
+          raise NotImplementedError, "#{self.class} must implement #priority"
+        end
 
-      # Human-readable name of this rule
-      #
-      # @return [String]
-      def name
-        self.class.name.split("::").last
-      end
+        # Human-readable name of this rule
+        #
+        # @return [String]
+        def name
+          self.class.name.split("::").last
+        end
 
-      # Compare rules by priority (for sorting)
-      #
-      # @param other [DecisionRule] Another rule
-      # @return [Integer] -1, 0, or 1
-      def <=>(other)
-        priority <=> other.priority
+        # Compare rules by priority (for sorting)
+        #
+        # @param other [DecisionRule] Another rule
+        # @return [Integer] -1, 0, or 1
+        def <=>(other)
+          priority <=> other.priority
+        end
       end
-      end
-      end
+    end
   end
 end

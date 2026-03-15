@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "spec_helper"
-require "lutaml/model"
+require_relative "../../../lib/lutaml/model"
 
 # Namespace Inheritance and Override Spec
 # Tests how child classes can modify or remove parent class namespaces

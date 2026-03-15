@@ -554,36 +554,32 @@ end
 ----
 ====
 
-===== Namespace mapping overrides
+===== Using elements in different namespaces
 
 ====== General
 
-Elements can override the declared namespaces of attributes through the
-`namespace:` and `prefix:` options on mapping rules.
+When elements need different namespaces, create separate model classes for
+each namespace.
+The `namespace:` parameter on `map_element` and `map_attribute` has been
+removed.
+See the
+link:../_migrations/0-9-0-namespace-api-migration.adoc[migration guide]
+for details.
 
 
-====== Overriding a namespace
+====== Elements with different namespaces
 
-Syntax:
-
-[source,ruby]
-----
-xml do
-  map_element 'name', to: :attr, namespace: XmlNamespaceClass
-end
-----
-
-
-Deprecated syntax:
+Create child model classes for elements in different namespaces:
 
 [source,ruby]
 ----
 xml do
-  map_element 'name', to: :attr,
-    namespace: 'namespace-uri',
-    prefix: 'prefix'
+  # Parent model namespace
+  namespace ParentNamespace
+  map_element 'child', to: :child  # Child type determines namespace
 end
 ----
+
 
 .Using different namespaces for elements
 [example]
@@ -600,27 +596,37 @@ class GlazeNamespace < Lutaml::Model::XmlNamespace
   prefix_default 'glz'
 end
 
+# Child model with its own namespace
+class Glaze < Lutaml::Model::Serializable
+  attribute :value, :string
+
+  xml do
+    element 'glaze'
+    namespace GlazeNamespace  # Model-level namespace
+    map_content to: :value
+  end
+end
+
 class Ceramic < Lutaml::Model::Serializable
   attribute :type, :string
-  attribute :glaze, :string
+  attribute :glaze, Glaze  # Typed attribute
 
   xml do
     element 'ceramic'
     namespace CeramicNamespace
 
-    # This element uses parent namespace
+    # This element uses parent namespace (follows element_form_default)
     map_element 'type', to: :type
 
-    # This element uses different namespace
-    map_element 'glaze', to: :glaze,
-      namespace: GlazeNamespace
+    # This element uses Glaze's namespace (GlazeNamespace)
+    map_element 'glaze', to: :glaze
   end
 end
 
-puts Ceramic.new(type: "Porcelain", glaze: "Celadon").to_xml
+puts Ceramic.new(type: "Porcelain", glaze: Glaze.new(value: "Celadon")).to_xml
 # => <cer:ceramic xmlns:cer="https://example.com/ceramic"
 #                 xmlns:glz="https://example.com/glaze">
-#      <type>Porcelain</type>
+#      <cer:type>Porcelain</cer:type>
 #      <glz:glaze>Celadon</glz:glaze>
 #    </cer:ceramic>
 ----
@@ -629,20 +635,21 @@ puts Ceramic.new(type: "Porcelain", glaze: "Celadon").to_xml
 [[namespace-inherit]]
 ====== Inheriting parent namespace
 
-Use `namespace: :inherit` to explicitly qualify an element with the parent's
-namespace.
+Use `element_form_default :qualified` on the namespace class to make child
+elements inherit the parent namespace.
 
-Syntax:
-
+.Syntax:
 [source,ruby]
 ----
-xml do
-  map_element 'xml_element_name', to: :name_of_attribute, namespace: :inherit
+class MyNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/my'
+  prefix_default 'my'
+  element_form_default :qualified  # Children inherit namespace
 end
 ----
 
 
-.Using `namespace: :inherit`
+.Using `element_form_default :qualified` for namespace inheritance
 [example]
 ====
 [source,ruby]
@@ -650,7 +657,7 @@ end
 class CeramicNamespace < Lutaml::Model::XmlNamespace
   uri 'https://example.com/ceramic'
   prefix_default 'cer'
-  element_form_default :unqualified  # Local elements normally unqualified
+  element_form_default :qualified  # All child elements inherit namespace
 end
 
 class Ceramic < Lutaml::Model::Serializable
@@ -661,70 +668,17 @@ class Ceramic < Lutaml::Model::Serializable
     element 'ceramic'
     namespace CeramicNamespace
 
-    map_element 'type', to: :type  # Follows default: unqualified
-
-    # Force this element to inherit parent namespace
-    map_element 'specialType', to: :special_type, namespace: :inherit
+    # Both elements inherit parent namespace (qualified)
+    map_element 'type', to: :type
+    map_element 'specialType', to: :special_type
   end
 end
 
 puts Ceramic.new(type: "Porcelain", special_type: "Fine").to_xml
 # => <cer:ceramic xmlns:cer="https://example.com/ceramic">
-#      <type>Porcelain</type>
+#      <cer:type>Porcelain</cer:type>
 #      <cer:specialType>Fine</cer:specialType>
 #    </cer:ceramic>
-----
-====
-
-.Using the `inherit` option to inherit the namespace from the root element
-[example]
-====
-In this example, the `Type` element will inherit the namespace from the root.
-
-[source,ruby]
-----
-class ColorXmlNamespace < Lutaml::Model::XmlNamespace
-  uri 'http://example.com/color'
-  default_prefix 'clr'
-end
-
-class Ceramic < Lutaml::Model::Serializable
-  attribute :type, :string
-  attribute :glaze, :string
-  attribute :color, :string
-
-  xml do
-    root 'Ceramic'
-    namespace 'http://example.com/ceramic', 'cera'
-    map_element 'Type', to: :type, namespace: :inherit
-    map_element 'Glaze', to: :glaze
-    map_attribute 'color', to: :color, namespace: ColorXmlNamespace
-  end
-end
-----
-
-[source,xml]
-----
-<cera:Ceramic
-  xmlns:cera='http://example.com/ceramic'
-  xmlns:clr='http://example.com/color'
-  clr:color="navy-blue">
-  <cera:Type>Porcelain</cera:Type>
-  <Glaze>Clear</Glaze>
-</cera:Ceramic>
-----
-
-[source,ruby]
-----
-> Ceramic.from_xml(xml_file)
-> #<Ceramic:0x0000000104ac7240 @type="Porcelain", @glaze="Clear", @color="navy-blue">
-> Ceramic.new(type: "Porcelain", glaze: "Clear", color: "navy-blue").to_xml
-> #<cera:Ceramic xmlns:cera="http://example.com/ceramic"
-  # xmlns:clr='http://example.com/color'
-  # clr:color="navy-blue">
-  #  <cera:Type>Porcelain</cera:Type>
-  #  <Glaze>Clear</Glaze>
-  # </cera:Ceramic>
 ----
 ====
 
@@ -1181,37 +1135,42 @@ Type-level namespaces are particularly useful for:
 * XSD schema generation with proper namespace imports
 * W3C-compliant round-trip serialization and deserialization
 
-==== Value `xml_namespace` directive
+==== Value `xml` block (unified API)
 
-Custom value types declare their namespace using the `xml_namespace` class-level
-directive.
+Custom value types declare their XML configuration using the unified `xml do ... end` block.
 
 Syntax:
 
 [source,ruby]
 ----
 class CustomType < Lutaml::Model::Type::Value
-  xml_namespace CustomNamespace  # <1>
-  xsd_type 'CustomType'          # <2>
+  xml do                    # <1>
+    namespace CustomNamespace  # <2>
+    xsd_type 'CustomType'     # <3>
+  end
 
   def self.cast(value)
     # Type conversion logic
   end
 end
 ----
-<1> The `xml_namespace` directive associates an `XmlNamespace` class
-<2> The `xsd_type` directive sets the XSD type name for schema generation
+<1> The `xml` block provides unified XML configuration (same API as Model classes)
+<2> The `namespace` directive associates an `XmlNamespace` class
+<3> The `xsd_type` directive sets the XSD type name for schema generation
 
 Where,
 
-`xml_namespace`:: Class-level directive that accepts an `XmlNamespace` class.
+`namespace`:: Directive inside `xml` block that accepts an `XmlNamespace` class.
 This namespace will be applied to any element or attribute using this type,
 unless overridden by explicit mapping namespace. Works for both serialization
 and deserialization.
 
-`xsd_type`:: Class-level directive that sets the XSD type name. If not
+`xsd_type`:: Directive inside `xml` block that sets the XSD type name. If not
 specified, defaults to `default_xsd_type` from the parent class (e.g.,
 `xs:string` for `Type::String`).
+
+NOTE: The old class-level `xml_namespace` and `xsd_type` directives are deprecated.
+Use the unified `xml do ... end` block for new code.
 
 
 Type-level namespaces are resolved during both serialization and deserialization:
@@ -1229,7 +1188,7 @@ Type-level namespaces are resolved during both serialization and deserialization
 * Both prefixed (`dc:title`) and default namespace elements are handled
 * Type namespaces work with `namespace: :inherit` and explicit mappings
 
-.Using namespace directive with a custom type
+.Using namespace directive with a custom type (unified API)
 [example]
 ====
 [source,ruby]
@@ -1240,8 +1199,10 @@ class EmailNamespace < Lutaml::Model::XmlNamespace
 end
 
 class EmailType < Lutaml::Model::Type::String
-  xml_namespace EmailNamespace
-  xsd_type 'EmailAddress'
+  xml do
+    namespace EmailNamespace
+    xsd_type 'EmailAddress'
+  end
 
   def self.cast(value)
     email = super(value)

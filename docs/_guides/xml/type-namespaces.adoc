@@ -4,7 +4,7 @@
 
 == Introduction
 
-Type-level namespaces allow `Lutaml::Model::Type::Value` classes to declare their XML namespace using the `xml_namespace` directive. This enables:
+Type-level namespaces allow `Lutaml::Model::Type::Value` classes to declare their XML namespace using the unified `xml do ... end` block. This enables:
 
 * **Reusable types** that belong to specific namespaces (e.g., Dublin Core properties, custom XSD types)
 * **Multi-namespace documents** where different types use different namespaces
@@ -15,14 +15,16 @@ Type namespaces are particularly useful when working with standard vocabularies 
 
 == Basic Usage
 
-=== Declaring a type namespace
+=== Declaring a type namespace (unified API)
 
-Use the `xml_namespace` class-level directive in your custom type class:
+Use the `xml do ... end` block in your custom type class with the `namespace` directive:
 
 [source,ruby]
 ----
 class DcTitleType < Lutaml::Model::Type::String
-  xml_namespace DublinCoreNamespace
+  xml do
+    namespace DublinCoreNamespace
+  end
 end
 ----
 
@@ -35,6 +37,9 @@ class DublinCoreNamespace < Lutaml::Model::XmlNamespace
   prefix_default "dc"
 end
 ----
+
+NOTE: The unified `xml do ... end` block API is consistent with Model classes.
+The old `xml_namespace` directive at class level is deprecated but still supported.
 
 === Using types with namespaces
 
@@ -75,7 +80,9 @@ class ArticleNamespace < Lutaml::Model::XmlNamespace
 end
 
 class DcTitleType < Lutaml::Model::Type::String
-  xml_namespace DublinCoreNamespace
+  xml do
+    namespace DublinCoreNamespace
+  end
 end
 
 class Article < Lutaml::Model::Serializable
@@ -216,15 +223,21 @@ end
 
 # 2. Define types with namespaces
 class DcTitleType < Lutaml::Model::Type::String
-  xml_namespace DublinCoreNamespace
+  xml do
+    namespace DublinCoreNamespace
+  end
 end
 
 class DcCreatorType < Lutaml::Model::Type::String
-  xml_namespace DublinCoreNamespace
+  xml do
+    namespace DublinCoreNamespace
+  end
 end
 
 class DctermsCreatedType < Lutaml::Model::Type::DateTime
-  xml_namespace DCTermsNamespace
+  xml do
+    namespace DCTermsNamespace
+  end
 end
 
 # 3. Use in model
@@ -280,8 +293,10 @@ Type namespaces work with XML attributes too:
 [source,ruby]
 ----
 class XsiTypeType < Lutaml::Model::Type::String
-  xml_namespace XsiNamespace
-  xsd_type 'type'
+  xml do
+    namespace XsiNamespace
+    xsd_type 'type'
+  end
 end
 
 class Product < Lutaml::Model::Serializable
@@ -311,11 +326,23 @@ Output:
 
 Type namespaces fit into the namespace resolution priority:
 
-. **Explicit mapping namespace** (highest)
+. **Model-level namespace** (highest)
 +
 [source,ruby]
 ----
-map_element 'title', to: :title, namespace: OverrideNamespace
+# Child model declares its own namespace
+class Title < Lutaml::Model::Serializable
+  xml do
+    element 'title'
+    namespace OverrideNamespace
+  end
+end
+
+# Parent uses child's namespace
+class Document < Lutaml::Model::Serializable
+  attribute :title, Title
+  map_element 'title', to: :title  # Uses Title's namespace
+end
 ----
 
 . **Type-level namespace**
@@ -323,13 +350,13 @@ map_element 'title', to: :title, namespace: OverrideNamespace
 [source,ruby]
 ----
 class TitleType < Lutaml::Model::Type::String
-  xml_namespace DublinCoreNamespace
+  xml do
+    namespace DublinCoreNamespace
+  end
 end
 attribute :title, TitleType
 map_element 'title', to: :title  # Uses DublinCoreNamespace
 ----
-
-. **Inherited namespace** (via `namespace: :inherit`)
 
 . **Form default** (from `element_form_default`)
 
@@ -497,23 +524,31 @@ end
 
 # Type definitions
 class DcTitleType < Lutaml::Model::Type::String
-  xml_namespace DublinCoreNamespace
-  xsd_type 'titleType'
+  xml do
+    namespace DublinCoreNamespace
+    xsd_type 'titleType'
+  end
 end
 
 class DcCreatorType < Lutaml::Model::Type::String
-  xml_namespace DublinCoreNamespace
-  xsd_type 'creatorType'
+  xml do
+    namespace DublinCoreNamespace
+    xsd_type 'creatorType'
+  end
 end
 
 class DcSubjectType < Lutaml::Model::Type::String
-  xml_namespace DublinCoreNamespace
-  xsd_type 'subjectType'
+  xml do
+    namespace DublinCoreNamespace
+    xsd_type 'subjectType'
+  end
 end
 
 class DcDateType < Lutaml::Model::Type::Date
-  xml_namespace DublinCoreNamespace
-  xsd_type 'dateType'
+  xml do
+    namespace DublinCoreNamespace
+    xsd_type 'dateType'
+  end
 end
 
 # Model using Dublin Core types
@@ -586,15 +621,21 @@ end
 
 # Type definitions
 class DcTitleType < Lutaml::Model::Type::String
-  xml_namespace DublinCoreNamespace
+  xml do
+    namespace DublinCoreNamespace
+  end
 end
 
 class DctermsCreatedType < Lutaml::Model::Type::DateTime
-  xml_namespace DcTermsNamespace
+  xml do
+    namespace DcTermsNamespace
+  end
 end
 
 class DctermsModifiedType < Lutaml::Model::Type::DateTime
-  xml_namespace DcTermsNamespace
+  xml do
+    namespace DcTermsNamespace
+  end
 end
 
 # vCard model
@@ -648,9 +689,9 @@ Output:
 
 === Overriding type namespaces
 
-Explicit mapping namespace overrides type namespace:
+Child model class namespace overrides type namespace:
 
-.Overriding type namespace
+.Overriding type namespace with child model
 [example]
 ====
 [source,ruby]
@@ -660,17 +701,27 @@ class CustomNamespace < Lutaml::Model::XmlNamespace
   prefix_default "custom"
 end
 
-class Article < Lutaml::Model::Serializable
-  attribute :title, DcTitleType
+# Child model with its own namespace
+class CustomTitle < Lutaml::Model::Serializable
+  attribute :value, :string
 
   xml do
-    root "article"
-    # Override type namespace with explicit namespace
-    map_element "title", to: :title, namespace: CustomNamespace
+    element "title"
+    namespace CustomNamespace
+    map_content to: :value
   end
 end
 
-article = Article.new(title: "Test")
+class Article < Lutaml::Model::Serializable
+  attribute :title, CustomTitle  # Uses CustomTitle's namespace
+
+  xml do
+    root "article"
+    map_element "title", to: :title
+  end
+end
+
+article = Article.new(title: CustomTitle.new(value: "Test"))
 puts article.to_xml
 ----
 
@@ -702,15 +753,21 @@ module DublinCore
   end
 
   class TitleType < Lutaml::Model::Type::String
-    xml_namespace NAMESPACE
+    xml do
+      namespace NAMESPACE
+    end
   end
 
   class CreatorType < Lutaml::Model::Type::String
-    xml_namespace NAMESPACE
+    xml do
+      namespace NAMESPACE
+    end
   end
 
   class SubjectType < Lutaml::Model::Type::String
-    xml_namespace NAMESPACE
+    xml do
+      namespace NAMESPACE
+    end
   end
 
   # ... more types
@@ -743,8 +800,10 @@ end
 [source,ruby]
 ----
 class DcIdentifierType < Lutaml::Model::Type::String
-  xml_namespace DublinCoreNamespace
-  xsd_type 'identifierType'
+  xml do
+    namespace DublinCoreNamespace
+    xsd_type 'identifierType'
+  end
 
   def self.cast(value)
     id = super(value)
@@ -765,12 +824,14 @@ end
 
 **Solutions**:
 
-1. Verify type has `xml_namespace` declared:
+1. Verify type has namespace declared in `xml do` block:
 +
 [source,ruby]
 ----
 class MyType < Lutaml::Model::Type::String
-  xml_namespace MyNamespace  # Must be present
+  xml do
+    namespace MyNamespace  # Must be present
+  end
 end
 ----
 
@@ -840,11 +901,15 @@ end
 [source,ruby]
 ----
 class DcTitleType < Lutaml::Model::Type::String
-  xml_namespace DublinCoreNamespace
+  xml do
+    namespace DublinCoreNamespace
+  end
 end
 
 class DcCreatorType < Lutaml::Model::Type::String
-  xml_namespace DublinCoreNamespace
+  xml do
+    namespace DublinCoreNamespace
+  end
 end
 
 class Article < Lutaml::Model::Serializable

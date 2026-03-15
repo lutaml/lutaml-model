@@ -57,6 +57,7 @@ link:docs/migration-guides/0-1-0-migrate-from-shale.adoc[Migrating from Shale to
 * Create custom adapters for additional data formats (see <<custom-adapters>>)
 * Dynamically modify model attribute types using registers (see <<custom-registers>>)
 * Symmetric OOP architecture for all formats with KeyValueDataModel (see <<keyvaluedatamodel-architecture>>)
+* Parse XSD schemas into Ruby objects for inspection and manipulation (see <<xsd-schema-parsing>>)
 
 
 == Data modeling in a nutshell
@@ -6307,11 +6308,15 @@ end
 
 # Types with different namespaces
 class DcTitleType < Lutaml::Model::Type::String
-  xml_namespace DcNamespace
+  xml do
+    namespace DcNamespace
+  end
 end
 
 class DctermsCreatedType < Lutaml::Model::Type::DateTime
-  xml_namespace DctermsNamespace
+  xml do
+    namespace DctermsNamespace
+  end
 end
 
 class Vcard < Lutaml::Model::Serializable
@@ -6714,36 +6719,32 @@ end
 ----
 ====
 
-===== Namespace mapping overrides
+===== Using elements in different namespaces
 
 ====== General
 
-Elements can override the declared namespaces of attributes through the
-`namespace:` and `prefix:` options on mapping rules.
+When elements need different namespaces, create separate model classes for
+each namespace.
+The `namespace:` parameter on `map_element` and `map_attribute` has been
+removed.
+See the
+link:docs/_migrations/0-9-0-namespace-api-migration.adoc[migration guide]
+for details.
 
 
-====== Overriding a namespace
+====== Elements with different namespaces
 
-Syntax:
-
-[source,ruby]
-----
-xml do
-  map_element 'name', to: :attr, namespace: XmlNamespaceClass
-end
-----
-
-
-Deprecated syntax:
+Create child model classes for elements in different namespaces:
 
 [source,ruby]
 ----
 xml do
-  map_element 'name', to: :attr,
-    namespace: 'namespace-uri',
-    prefix: 'prefix'
+  # Parent model namespace
+  namespace ParentNamespace
+  map_element 'child', to: :child  # Child type determines namespace
 end
 ----
+
 
 .Using different namespaces for elements
 [example]
@@ -6760,27 +6761,37 @@ class GlazeNamespace < Lutaml::Model::XmlNamespace
   prefix_default 'glz'
 end
 
+# Child model with its own namespace
+class Glaze < Lutaml::Model::Serializable
+  attribute :value, :string
+
+  xml do
+    element 'glaze'
+    namespace GlazeNamespace  # Model-level namespace
+    map_content to: :value
+  end
+end
+
 class Ceramic < Lutaml::Model::Serializable
   attribute :type, :string
-  attribute :glaze, :string
+  attribute :glaze, Glaze  # Typed attribute
 
   xml do
     element 'ceramic'
     namespace CeramicNamespace
 
-    # This element uses parent namespace
+    # This element uses parent namespace (follows element_form_default)
     map_element 'type', to: :type
 
-    # This element uses different namespace
-    map_element 'glaze', to: :glaze,
-      namespace: GlazeNamespace
+    # This element uses Glaze's namespace (GlazeNamespace)
+    map_element 'glaze', to: :glaze
   end
 end
 
-puts Ceramic.new(type: "Porcelain", glaze: "Celadon").to_xml
+puts Ceramic.new(type: "Porcelain", glaze: Glaze.new(value: "Celadon")).to_xml
 # => <cer:ceramic xmlns:cer="https://example.com/ceramic"
 #                 xmlns:glz="https://example.com/glaze">
-#      <type>Porcelain</type>
+#      <cer:type>Porcelain</cer:type>
 #      <glz:glaze>Celadon</glz:glaze>
 #    </cer:ceramic>
 ----
@@ -6789,20 +6800,21 @@ puts Ceramic.new(type: "Porcelain", glaze: "Celadon").to_xml
 [[namespace-inherit]]
 ====== Inheriting parent namespace
 
-Use `namespace: :inherit` to explicitly qualify an element with the parent's
-namespace.
+Use `element_form_default :qualified` on the namespace class to make child
+elements inherit the parent namespace.
 
-Syntax:
-
+.Syntax:
 [source,ruby]
 ----
-xml do
-  map_element 'xml_element_name', to: :name_of_attribute, namespace: :inherit
+class MyNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/my'
+  prefix_default 'my'
+  element_form_default :qualified  # Children inherit namespace
 end
 ----
 
 
-.Using `namespace: :inherit`
+.Using `element_form_default :qualified` for namespace inheritance
 [example]
 ====
 [source,ruby]
@@ -6810,7 +6822,7 @@ end
 class CeramicNamespace < Lutaml::Model::XmlNamespace
   uri 'https://example.com/ceramic'
   prefix_default 'cer'
-  element_form_default :unqualified  # Local elements normally unqualified
+  element_form_default :qualified  # All child elements inherit namespace
 end
 
 class Ceramic < Lutaml::Model::Serializable
@@ -6821,70 +6833,70 @@ class Ceramic < Lutaml::Model::Serializable
     element 'ceramic'
     namespace CeramicNamespace
 
-    map_element 'type', to: :type  # Follows default: unqualified
-
-    # Force this element to inherit parent namespace
-    map_element 'specialType', to: :special_type, namespace: :inherit
+    # Both elements inherit parent namespace (qualified)
+    map_element 'type', to: :type
+    map_element 'specialType', to: :special_type
   end
 end
 
 puts Ceramic.new(type: "Porcelain", special_type: "Fine").to_xml
 # => <cer:ceramic xmlns:cer="https://example.com/ceramic">
-#      <type>Porcelain</type>
+#      <cer:type>Porcelain</cer:type>
 #      <cer:specialType>Fine</cer:specialType>
 #    </cer:ceramic>
 ----
 ====
 
-.Using the `inherit` option to inherit the namespace from the root element
+.Using `element_form_default :unqualified` for mixed qualification
 [example]
 ====
-In this example, the `Type` element will inherit the namespace from the root.
+When `element_form_default :unqualified`, child elements are not qualified
+by default. To have qualified elements, create child model classes.
 
 [source,ruby]
 ----
-class ColorXmlNamespace < Lutaml::Model::XmlNamespace
-  uri 'http://example.com/color'
-  default_prefix 'clr'
+class CeramicNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/ceramic'
+  prefix_default 'cer'
+  element_form_default :unqualified  # Local elements unqualified
+end
+
+class GlazeNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/glaze'
+  prefix_default 'glz'
+  element_form_default :qualified
+end
+
+# Child model in different namespace
+class Glaze < Lutaml::Model::Serializable
+  attribute :value, :string
+
+  xml do
+    element 'glaze'
+    namespace GlazeNamespace
+    map_content to: :value
+  end
 end
 
 class Ceramic < Lutaml::Model::Serializable
   attribute :type, :string
-  attribute :glaze, :string
-  attribute :color, :string
+  attribute :glaze, Glaze
 
   xml do
-    root 'Ceramic'
-    namespace 'http://example.com/ceramic', 'cera'
-    map_element 'Type', to: :type, namespace: :inherit
-    map_element 'Glaze', to: :glaze
-    map_attribute 'color', to: :color, namespace: ColorXmlNamespace
+    element 'ceramic'
+    namespace CeramicNamespace
+
+    map_element 'type', to: :type  # Unqualified (follows element_form_default)
+    map_element 'glaze', to: :glaze  # Uses GlazeNamespace (qualified)
   end
 end
-----
 
-[source,xml]
-----
-<cera:Ceramic
-  xmlns:cera='http://example.com/ceramic'
-  xmlns:clr='http://example.com/color'
-  clr:color="navy-blue">
-  <cera:Type>Porcelain</cera:Type>
-  <Glaze>Clear</Glaze>
-</cera:Ceramic>
-----
-
-[source,ruby]
-----
-> Ceramic.from_xml(xml_file)
-> #<Ceramic:0x0000000104ac7240 @type="Porcelain", @glaze="Clear", @color="navy-blue">
-> Ceramic.new(type: "Porcelain", glaze: "Clear", color: "navy-blue").to_xml
-> #<cera:Ceramic xmlns:cera="http://example.com/ceramic"
-  # xmlns:clr='http://example.com/color'
-  # clr:color="navy-blue">
-  #  <cera:Type>Porcelain</cera:Type>
-  #  <Glaze>Clear</Glaze>
-  # </cera:Ceramic>
+puts Ceramic.new(type: "Porcelain", glaze: Glaze.new(value: "Celadon")).to_xml
+# => <cer:ceramic xmlns:cer="https://example.com/ceramic"
+#                 xmlns:glz="https://example.com/glaze">
+#      <type>Porcelain</type>
+#      <glz:glaze>Celadon</glz:glaze>
+#    </cer:ceramic>
 ----
 ====
 
@@ -7577,37 +7589,44 @@ Type-level namespaces are particularly useful for:
 * XSD schema generation with proper namespace imports
 * W3C-compliant round-trip serialization and deserialization
 
-==== Value `xml_namespace` directive
+==== Value `xml` block (unified API)
 
-Custom value types declare their namespace using the `xml_namespace` class-level
-directive.
+Custom value types declare their XML configuration using the unified `xml do ... end` block.
 
-Syntax:
+This provides consistency with Model classes (which use the same `xml do ... end` block).
+
+.Syntax:
 
 [source,ruby]
 ----
 class CustomType < Lutaml::Model::Type::Value
-  xml_namespace CustomNamespace  # <1>
-  xsd_type 'CustomType'          # <2>
+  xml do                    # <1>
+    namespace CustomNamespace  # <2>
+    xsd_type 'CustomType'     # <3>
+  end
 
   def self.cast(value)
     # Type conversion logic
   end
 end
 ----
-<1> The `xml_namespace` directive associates an `XmlNamespace` class
-<2> The `xsd_type` directive sets the XSD type name for schema generation
+<1> The `xml` block provides unified XML configuration
+<2> The `namespace` directive associates an `XmlNamespace` class
+<3> The `xsd_type` directive sets the XSD type name for schema generation
 
 Where,
 
-`xml_namespace`:: Class-level directive that accepts an `XmlNamespace` class.
+`namespace`:: Directive inside `xml` block that accepts an `XmlNamespace` class.
 This namespace will be applied to any element or attribute using this type,
 unless overridden by explicit mapping namespace. Works for both serialization
 and deserialization.
 
-`xsd_type`:: Class-level directive that sets the XSD type name. If not
+`xsd_type`:: Directive inside `xml` block that sets the XSD type name. If not
 specified, defaults to `default_xsd_type` from the parent class (e.g.,
 `xs:string` for `Type::String`).
+
+NOTE: The old class-level `xml_namespace` and `xsd_type` directives are deprecated.
+Use the unified `xml do ... end` block for new code.
 
 
 Type-level namespaces are resolved during both serialization and deserialization:
@@ -7625,7 +7644,7 @@ Type-level namespaces are resolved during both serialization and deserialization
 * Both prefixed (`dc:title`) and default namespace elements are handled
 * Type namespaces work with `namespace: :inherit` and explicit mappings
 
-.Using namespace directive with a custom type
+.Using namespace directive with a custom type (unified API)
 [example]
 ====
 [source,ruby]
@@ -7636,8 +7655,10 @@ class EmailNamespace < Lutaml::Model::XmlNamespace
 end
 
 class EmailType < Lutaml::Model::Type::String
-  xml_namespace EmailNamespace
-  xsd_type 'EmailAddress'
+  xml do
+    namespace EmailNamespace
+    xsd_type 'EmailAddress'
+  end
 
   def self.cast(value)
     email = super(value)
@@ -8150,31 +8171,38 @@ The namespace for an element or attribute is determined by this priority
 
 ===== For elements (`map_element`)
 
-. **Explicit mapping namespace** (highest priority)
+. **Model-level namespace** (from the attribute's type class)
 +
 [source,ruby]
 ----
-map_element 'title', to: :title, namespace: ExplicitNamespace
+# Child model declares its own namespace
+class Title < Lutaml::Model::Serializable
+  xml do
+    element 'title'
+    namespace DublinCoreNamespace
+  end
+end
+
+# Parent uses child's namespace
+class Document < Lutaml::Model::Serializable
+  attribute :title, Title
+  map_element 'title', to: :title  # Uses Title's namespace (DublinCoreNamespace)
+end
 ----
 
-. **Type-level namespace** (from `Type::Value` or Model class)
+. **Type-level namespace** (from `Type::Value` class)
 +
 [source,ruby]
 ----
 class TitleType < Lutaml::Model::Type::String
-  xml_namespace DublinCoreNamespace
+  xml do
+    namespace DublinCoreNamespace
+  end
 end
 
 # in model class
 attribute :title, TitleType
 map_element 'title', to: :title  # Uses DublinCoreNamespace
-----
-
-. **Inherited namespace** (via `namespace: :inherit`)
-+
-[source,ruby]
-----
-map_element 'title', to: :title, namespace: :inherit  # Uses parent namespace
 ----
 
 . **Form default qualification** (from `element_form_default`)
@@ -8184,19 +8212,14 @@ map_element 'title', to: :title, namespace: :inherit  # Uses parent namespace
 
 ===== For attributes (`map_attribute`)
 
-. **Explicit mapping namespace** (highest priority)
-+
-[source,ruby]
-----
-map_attribute 'type', to: :type, namespace: XsiNamespace
-----
-
 . **Type-level namespace** (from `Type::Value` class)
 +
 [source,ruby]
 ----
 class XsiTypeType < Lutaml::Model::Type::String
-  xml_namespace XsiNamespace
+  xml do
+    namespace XsiNamespace
+  end
 end
 attribute :type, XsiTypeType
 map_attribute 'type', to: :type  # Uses XsiNamespace, becomes xsi:type
@@ -8248,8 +8271,10 @@ end
 
 # 2. Define Type::Value classes with namespaces
 class DcTitleType < Lutaml::Model::Type::String
-  xml_namespace DublinCoreNamespace
-  xsd_type 'titleType'
+  xml do
+    namespace DublinCoreNamespace
+    xsd_type 'titleType'
+  end
 end
 
 class DcCreatorType < Lutaml::Model::Type::String
@@ -14905,6 +14930,16 @@ Currently, the following schema formats are supported:
 Please refer to link:docs/schema_import.adoc[Schema Import] for details
 and examples.
 
+NOTE: There are two XSD-related features in lutaml-model:
+
+1. *<<xsd-schema-parsing,XSD Schema Parsing>>* - Parse XSD schemas into Ruby
+   objects for inspection, manipulation, and round-tripping.
+2. *<<schema-import,Schema import>>* (this section) - Generate Ruby model
+   classes from XSD schemas that can be used for serialization.
+
+Use XSD Schema Parsing when you need to work with the schema itself.
+Use Schema import when you want to create serializable Ruby classes from XSD.
+
 
 
 [[xsd-generation-namespace-support]]
@@ -15091,6 +15126,440 @@ Generated XSD:
 </xs:schema>
 ----
 ====
+
+
+
+[[xsd-schema-parsing]]
+== XSD Schema Parsing
+
+Lutaml::Model provides functionality to parse XSD (XML Schema Definition)
+schemas into Ruby objects for inspection, manipulation, and round-tripping.
+This allows you to work with XSD schemas programmatically without generating
+Ruby model classes.
+
+=== General
+
+The XSD parsing functionality is available in the `Lutaml::Xml::Schema::Xsd`
+namespace and provides a complete object model for XSD schema constructs.
+
+Key use cases include:
+
+* Schema inspection and documentation generation
+* Schema validation before processing
+* Schema transformation and manipulation
+* Round-tripping XSD content (parse, modify, serialize)
+* Programmatic access to schema components
+
+NOTE: This feature is distinct from <<schema-import,Schema import>> which
+generates Ruby model classes from XSD schemas. XSD Schema Parsing is for
+working with XSD schemas as objects.
+
+[[xsd-basic-parsing]]
+=== Basic parsing
+
+To parse an XSD schema into Ruby objects, use the `Lutaml::Xml::Schema::Xsd.parse`
+method.
+
+[source,ruby]
+----
+require "lutaml/xml/schema/xsd"  # <1>
+
+schema = Lutaml::Xml::Schema::Xsd.parse(xsd_content)  # <2>
+
+schema.complex_type.each do |type|  # <3>
+  puts "Complex type: #{type.name}"
+end
+----
+
+Where,
+
+`require "lutaml/xml/schema/xsd"`::: Loads the XSD parsing module and all
+required model classes.
+`Lutaml::Xml::Schema::Xsd.parse(xsd_content)`::: Parses the XSD content string
+and returns a `Schema` object representing the root `xs:schema` element.
+`schema.complex_type`::: Accesses the collection of complex type definitions in
+the schema.
+
+.Parsing an XSD schema and accessing its components
+[example]
+====
+[source,ruby]
+----
+require "lutaml/xml/schema/xsd"
+
+xsd = <<~XSD
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="http://example.com/test"
+           elementFormDefault="qualified">
+
+  <xs:complexType name="AddressType">
+    <xs:sequence>
+      <xs:element name="street" type="xs:string"/>
+      <xs:element name="city" type="xs:string"/>
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:ID"/>
+  </xs:complexType>
+
+  <xs:element name="Address" type="AddressType"/>
+</xs:schema>
+XSD
+
+schema = Lutaml::Xml::Schema::Xsd.parse(xsd)
+
+# Access schema properties
+puts schema.target_namespace    # => "http://example.com/test"
+puts schema.element_form_default # => "qualified"
+
+# Access complex types
+schema.complex_type.each do |type|
+  puts "Complex type: #{type.name}"
+  type.elements.each { |e| puts "  - Element: #{e.name}" }
+end
+
+# Access elements
+schema.element.each do |elem|
+  puts "Global element: #{elem.name}, type: #{elem.type}"
+end
+
+# Get schema statistics
+puts schema.stats
+# => {:elements=>1, :complex_types=>1, :simple_types=>0, :attributes=>0,
+#     :groups=>0, :attribute_groups=>0, :imports=>0, :includes=>0, :namespaces=>1}
+----
+====
+
+[[xsd-parsing-options]]
+=== Parsing options
+
+The `parse` method accepts several options to control parsing behavior:
+
+[source,ruby]
+----
+schema = Lutaml::Xml::Schema::Xsd.parse(
+  xsd,
+  location: base_path,
+  schema_mappings: mappings,
+  validate_schema: true
+)
+----
+
+Options:
+
+`location`::: Base path or URL for resolving relative paths in `xs:include` and
+`xs:import` statements. When provided, referenced schemas are automatically
+loaded and merged into the main schema.
+
+`schema_mappings`::: Array of `SchemaLocationMapping` objects to redirect schema
+locations. Useful when working with local copies of remote schemas.
+
+`validate_schema`::: When `true` (default), validates the XSD structure before
+parsing using `SchemaValidator`. Set to `false` to skip validation for
+malformed schemas that you want to parse anyway.
+
+`nested_schema`::: Internal flag used when recursively parsing included/imported
+schemas. Should not be set by users.
+
+`register`::: Custom type register to use for parsing. Defaults to the built-in
+`:xsd` register.
+
+.Using location option to resolve includes
+[example]
+====
+[source,ruby]
+----
+require "lutaml/xml/schema/xsd"
+
+# Parse schema with base location for resolving includes
+schema = Lutaml::Xml::Schema::Xsd.parse(
+  File.read("schemas/main.xsd"),
+  location: "schemas/"
+)
+
+# Included schemas are automatically parsed and merged
+puts "Total complex types: #{schema.complex_type.size}"
+----
+====
+
+[[xsd-working-with-schemas]]
+=== Working with parsed schemas
+
+The `Schema` object provides several methods for accessing and querying schema
+components.
+
+==== Accessing schema components
+
+[source,ruby]
+----
+# Access collections
+schema.element           # Array of global element declarations
+schema.complex_type      # Array of complex type definitions
+schema.simple_type       # Array of simple type definitions
+schema.attribute         # Array of global attribute declarations
+schema.group             # Array of named model groups
+schema.attribute_group   # Array of attribute groups
+schema.import            # Array of xs:import statements
+schema.include           # Array of xs:include statements
+
+# Plural aliases are also available
+schema.elements
+schema.complex_types
+schema.simple_types
+schema.attributes
+schema.groups
+----
+
+==== Finding specific components
+
+[source,ruby]
+----
+# Find a type definition by name (searches both simple and complex types)
+type = schema.find_type("AddressType")
+
+# Find a specific complex type
+complex = schema.find_complex_type("AddressType")
+
+# Find a specific simple type
+simple = schema.find_simple_type("StatusType")
+
+# Find a global element by name
+elem = schema.find_element("Address")
+----
+
+==== Schema information and validation
+
+[source,ruby]
+----
+# Get human-readable summary
+puts schema.summary
+# => "http://example.com/test: 1 elements, 1 complex types, 0 simple types"
+
+# Get statistics hash
+stats = schema.stats
+# => {:elements=>1, :complex_types=>1, :simple_types=>0, ...}
+
+# Basic validation check (has target namespace)
+puts schema.valid? # => true/false
+
+# Get schema name derived from target namespace
+puts schema.name # => "test" (from "http://example.com/test")
+----
+
+==== Round-tripping
+
+Parsed schemas can be serialized back to XML:
+
+[source,ruby]
+----
+# Parse schema
+schema = Lutaml::Xml::Schema::Xsd.parse(xsd_content)
+
+# Modify if needed
+schema.complex_type.first.name = "NewTypeName"
+
+# Serialize back to XML
+xml_output = schema.to_xml
+----
+
+.Navigating content models
+[example]
+====
+[source,ruby]
+----
+require "lutaml/xml/schema/xsd"
+
+xsd = <<~XSD
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="PersonType">
+    <xs:sequence>
+      <xs:element name="firstName" type="xs:string"/>
+      <xs:element name="lastName" type="xs:string"/>
+      <xs:choice>
+        <xs:element name="email" type="xs:string"/>
+        <xs:element name="phone" type="xs:string"/>
+      </xs:choice>
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:ID" use="required"/>
+  </xs:complexType>
+</xs:schema>
+XSD
+
+schema = Lutaml::Xml::Schema::Xsd.parse(xsd)
+
+# Navigate into complex type
+person_type = schema.find_complex_type("PersonType")
+
+# Access sequence content
+sequence = person_type.sequence
+puts "Sequence has #{sequence.element.size} direct elements"
+
+# Access nested choice
+choice = sequence.choice.first
+puts "Choice between: #{choice.element.map(&:name).join(", ")}"
+
+# Access attributes
+person_type.attribute.each do |attr|
+  puts "Attribute: #{attr.name}, use: #{attr.use}"
+end
+----
+====
+
+[[xsd-validation]]
+=== XSD validation
+
+Before parsing, XSD content can be validated using `SchemaValidator`:
+
+[source,ruby]
+----
+require "lutaml/xml/schema/xsd"
+
+# Detect XSD version
+version = Lutaml::Xml::Schema::Xsd::SchemaValidator.detect_version(xsd_content)
+puts "Detected version: #{version}"  # => "1.0" or "1.1"
+
+# Create validator for specific version
+validator = Lutaml::Xml::Schema::Xsd::SchemaValidator.new(version: "1.0")
+
+# Validate (returns true or raises error)
+begin
+  validator.validate(xsd_content)
+  puts "Schema is valid"
+rescue Lutaml::Xml::Schema::Xsd::SchemaValidationError => e
+  puts "Validation failed: #{e.message}"
+end
+----
+
+The validator checks:
+
+* XML syntax validity
+* Root element is `xs:schema`
+* Correct XML Schema namespace
+* Version compatibility (XSD 1.0 vs 1.1 features)
+
+.Schema validation example
+[example]
+====
+[source,ruby]
+----
+require "lutaml/xml/schema/xsd"
+
+# Valid XSD schema
+valid_xsd = <<~XSD
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="Test" type="xs:string"/>
+</xs:schema>
+XSD
+
+validator = Lutaml::Xml::Schema::Xsd::SchemaValidator.new(version: "1.0")
+puts validator.validate(valid_xsd)  # => true
+
+# Invalid: wrong root element
+invalid_xsd = "<notASchema/>"
+begin
+  validator.validate(invalid_xsd)
+rescue => e
+  puts "Error: #{e.message}"
+  # => "Not a valid XSD schema: root element must be 'schema', found 'notASchema'"
+end
+----
+====
+
+[[xsd-supported-elements]]
+=== Supported XSD elements
+
+The XSD parser supports the following XSD constructs:
+
+[cols="1,2,3"]
+|===
+| XSD Element | Ruby Class | Key Attributes
+
+| `xs:schema`
+| `Schema`
+| `target_namespace`, `element_form_default`, `attribute_form_default`
+
+| `xs:element`
+| `Element`
+| `name`, `type`, `min_occurs`, `max_occurs`, `ref`
+
+| `xs:complexType`
+| `ComplexType`
+| `name`, `mixed`, `abstract`, `block`, `final`
+
+| `xs:simpleType`
+| `SimpleType`
+| `name`, `final`, `list`, `union`, `restriction`
+
+| `xs:attribute`
+| `Attribute`
+| `name`, `type`, `use`, `default`, `fixed`
+
+| `xs:sequence`
+| `Sequence`
+| `min_occurs`, `max_occurs`
+
+| `xs:choice`
+| `Choice`
+| `min_occurs`, `max_occurs`
+
+| `xs:all`
+| `All`
+| `min_occurs`, `max_occurs`
+
+| `xs:group`
+| `Group`
+| `name`, `ref`
+
+| `xs:attributeGroup`
+| `AttributeGroup`
+| `name`, `ref`
+
+| `xs:import`
+| `Import`
+| `namespace`, `schema_path`
+
+| `xs:include`
+| `Include`
+| `schema_path`
+
+| `xs:annotation`
+| `Annotation`
+| `id`
+
+| `xs:documentation`
+| `Documentation`
+| `source`, `lang`
+
+| `xs:restriction`
+| `RestrictionSimpleType`
+| `base`
+
+| `xs:extension`
+| `ExtensionComplexContent`, `ExtensionSimpleContent`
+| `base`
+
+| `xs:complexContent`
+| `ComplexContent`
+| `mixed`
+
+| `xs:simpleContent`
+| `SimpleContent`
+| -
+|===
+
+[[xsd-limitations]]
+=== Limitations
+
+The XSD Schema Parsing feature has the following limitations:
+
+* **No CLI interface** - This is a programmatic API only. Use it within Ruby
+  applications.
+* **No schema bundler** - The `SchemaRepository` functionality from lutaml-xsd
+  is not included. Use `location` and `schema_mappings` for complex schemas.
+* **No HTML/SPA generation** - Documentation generation features are not
+  included.
+* **No formatters** - Template-based output formatting is not available.
+
+For generating Ruby model classes from XSD schemas, use the
+<<schema-import,Schema import>> feature instead.
 
 
 

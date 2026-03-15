@@ -1,0 +1,34 @@
+<!--
+XML Schema for the SMIL 2.0 Time Manipulations functionality.
+
+This is SMIL 2.0
+Copyright: 1998-2004 W3C (MIT, ERCIM, Keio), All Rights Reserved.
+See http://www.w3.org/Consortium/Legal/.
+
+Public URI: http://www.w3.org/2001/SMIL20/smil20-timemanip.xsd
+Author: Aaron Michael Cohen (Intel)
+Revision: 2001/07/31
+
+Defines both the local and global smil20 time manipulation attributes.
+
+-->
+<schema xmlns="http://www.w3.org/2001/XMLSchema"
+        xmlns:smil20="http://www.w3.org/2001/SMIL20/"
+        targetNamespace="http://www.w3.org/2001/SMIL20/"
+        elementFormDefault="qualified">
+
+    <!-- global  attributes for time manipulation -->
+    <attribute name="accelerate" type="smil20:zeroToOneDecimalType"/>
+    <attribute name="decelerate" type="smil20:zeroToOneDecimalType"/>
+    <attribute name="autoReverse" type="boolean"/>
+    <attribute name="speed" type="smil20:nonZeroDecimalType"/>
+        
+    <!-- attribute group for time manipulation attributes -->
+    <attributeGroup name="timeManipAttrs">
+        <attribute name="accelerate" type="smil20:zeroToOneDecimalType" use="optional"  default="0.0"/>
+        <attribute name="decelerate" type="smil20:zeroToOneDecimalType" use="optional"  default="0.0"/>
+        <attribute name="autoReverse" type="boolean" use="optional"  default="false"/>
+        <attribute name="speed" type="smil20:nonZeroDecimalType" use="optional"  default="1.0"/>
+    </attributeGroup>
+
+</schema>

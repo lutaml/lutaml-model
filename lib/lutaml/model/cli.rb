@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "thor"
-require "lutaml/model"
+require_relative "../model"
 
 module Lutaml
   module Model

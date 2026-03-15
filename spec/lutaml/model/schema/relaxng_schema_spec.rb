@@ -15,7 +15,7 @@ module SchemaGeneration
   end
 end
 
-RSpec.describe Lutaml::Model::Schema::RelaxngSchema do
+RSpec.describe Lutaml::Xml::Schema::RelaxngSchema do
   describe ".generate" do
     it "generates a RELAX NG schema for nested Serialize objects" do
       schema = described_class.generate(SchemaGeneration::Vase, pretty: true)

@@ -1,7 +1,7 @@
 # spec/lutaml/model/ordered_content_spec.rb
 
 require "spec_helper"
-require "lutaml/model"
+require_relative "../../../lib/lutaml/model"
 require "lutaml/xml/nokogiri_adapter"
 require "lutaml/xml/ox_adapter"
 require "lutaml/xml/oga_adapter"

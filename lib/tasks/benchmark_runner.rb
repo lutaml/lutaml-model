@@ -117,10 +117,10 @@ direction: nil)
     end
   end
 
-  def time_runs(&block)
+  def time_runs(&)
     job = Benchmark::IPS::Job.new
     job.config(time: @run_time, warmup: 5)
-    job.report("#{@label} #{@adapter} #{@direction}_#{@format}", &block)
+    job.report("#{@label} #{@adapter} #{@direction}_#{@format}", &)
     job.run
 
     entry = job.full_report.entries.first

@@ -3,7 +3,7 @@ require "lutaml/xml/nokogiri_adapter"
 require "lutaml/xml/ox_adapter"
 require "lutaml/xml/oga_adapter"
 require "lutaml/xml/rexml_adapter"
-require "lutaml/model"
+require_relative "../../../../lib/lutaml/model"
 require_relative "../../../support/xml_mapping_namespaces"
 
 module XmlNamespaceSpec

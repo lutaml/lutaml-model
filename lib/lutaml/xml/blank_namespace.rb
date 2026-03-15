@@ -23,29 +23,29 @@ module Lutaml
 
       # @return [String] Unique key for namespace tracking
       def self.to_key
-      "blank"
+        "blank"
       end
 
       # Blank namespace has no prefix
       #
       # @return [nil] Always nil for blank namespace
       def self.prefix_default
-      nil
+        nil
       end
 
       # Blank namespace is always unqualified
       #
       # @return [Symbol] Always :unqualified
       def self.element_form_default
-      :unqualified
+        :unqualified
       end
 
       # Blank namespace has no attribute form default
       #
       # @return [Symbol] Always :unqualified
       def self.attribute_form_default
-      :unqualified
+        :unqualified
       end
-      end
+    end
   end
 end

@@ -1016,9 +1016,9 @@ RSpec.describe Lutaml::Xml::Mapping do
         it "raises error when map_all used in content_mapping without custom methods" do
           # Save original mapping using deep copy to prevent pollution
           original_mapping = begin
-                               Marshal.load(Marshal.dump(XmlMappingSpec::MmlMath.mappings[:xml]))
+            Marshal.load(Marshal.dump(XmlMappingSpec::MmlMath.mappings[:xml]))
           rescue StandardError
-                               nil
+            nil
           end
 
           begin
@@ -1032,16 +1032,19 @@ RSpec.describe Lutaml::Xml::Mapping do
             end.to raise_error(StandardError, map_all_error)
           ensure
             # Restore original mapping to prevent pollution
-            XmlMappingSpec::MmlMath.instance_variable_set(:@mappings, { xml: original_mapping }) if original_mapping
+            if original_mapping
+              XmlMappingSpec::MmlMath.instance_variable_set(:@mappings,
+                                                            { xml: original_mapping })
+            end
           end
         end
 
         it "can be defined after any other mapping" do
           # Save original mapping using deep copy to prevent pollution
           original_mapping = begin
-                               Marshal.load(Marshal.dump(XmlMappingSpec::MmlMath.mappings[:xml]))
+            Marshal.load(Marshal.dump(XmlMappingSpec::MmlMath.mappings[:xml]))
           rescue StandardError
-                               nil
+            nil
           end
 
           begin
@@ -1053,7 +1056,10 @@ RSpec.describe Lutaml::Xml::Mapping do
             end.to raise_error(StandardError, map_all_error)
           ensure
             # Restore original mapping to prevent pollution
-            XmlMappingSpec::MmlMath.instance_variable_set(:@mappings, { xml: original_mapping }) if original_mapping
+            if original_mapping
+              XmlMappingSpec::MmlMath.instance_variable_set(:@mappings,
+                                                            { xml: original_mapping })
+            end
           end
         end
 
