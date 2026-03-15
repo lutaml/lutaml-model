@@ -1,5 +1,5 @@
 require "spec_helper"
-require "lutaml/model"
+require_relative "../../../lib/lutaml/model"
 
 class RenderNilNested < Lutaml::Model::Serializable
   attribute :name, Lutaml::Model::Type::String

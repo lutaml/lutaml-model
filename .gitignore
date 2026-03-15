@@ -1,3 +1,4 @@
+.DS_Store
 .rubocop-https---*
 
 /.yardoc
@@ -36,3 +37,7 @@ old-docs/
 old/
 
 .orig
+.rubocop-*
+.DS_Store
+.ruby-lsp
+

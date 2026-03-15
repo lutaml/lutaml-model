@@ -1,24 +1,27 @@
 # frozen_string_literal: true
 
-# Hash format entry point - uses Lutaml::KeyValue::Adapter::Hash namespace
-# Constants are accessed via autoload from key_value/adapter/hash.rb
+# Hash format entry point
+# Provides Lutaml::Model::Hash namespace that delegates to Lutaml::HashFormat
 
-# Backward compatibility alias
+require_relative "../hash_format"
+
+# Backward compatibility aliases
 module Lutaml
   module Model
     module Hash
-      StandardAdapter = Lutaml::KeyValue::Adapter::Hash::StandardAdapter
-      Document = Lutaml::KeyValue::Adapter::Hash::Document
-      Mapping = Lutaml::KeyValue::Adapter::Hash::Mapping
-      MappingRule = Lutaml::KeyValue::Adapter::Hash::MappingRule
-      Transform = Lutaml::KeyValue::Adapter::Hash::Transform
+      StandardAdapter = ::Lutaml::HashFormat::Adapter::StandardAdapter
+      Document = ::Lutaml::HashFormat::Adapter::Document
+      Mapping = ::Lutaml::HashFormat::Adapter::Mapping
+      MappingRule = ::Lutaml::HashFormat::Adapter::MappingRule
+      Transform = ::Lutaml::HashFormat::Adapter::Transform
     end
   end
 end
 
+# Register Hash format with the format registry
 Lutaml::Model::FormatRegistry.register(
   :hash,
-  mapping_class: Lutaml::KeyValue::Adapter::Hash::Mapping,
-  adapter_class: Lutaml::KeyValue::Adapter::Hash::StandardAdapter,
-  transformer: Lutaml::KeyValue::Adapter::Hash::Transform,
+  mapping_class: Lutaml::HashFormat::Adapter::Mapping,
+  adapter_class: Lutaml::HashFormat::Adapter::StandardAdapter,
+  transformer: Lutaml::HashFormat::Adapter::Transform,
 )

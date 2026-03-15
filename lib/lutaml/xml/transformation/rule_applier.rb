@@ -91,12 +91,13 @@ register_id, register)
           # Performance: Only create new options hash if values differ
           # This avoids allocations for unchanged namespace inheritance
           if options[:parent_namespace_class] == parent_ns_class &&
-             options[:parent_element_form_default] == parent_element_form_default
+              options[:parent_element_form_default] == parent_element_form_default
             child_options = options
           else
             child_options = options.dup
             child_options[:parent_namespace_class] = parent_ns_class
-            child_options[:parent_element_form_default] = parent_element_form_default
+            child_options[:parent_element_form_default] =
+              parent_element_form_default
           end
 
           apply_element_value(parent, rule, value, child_options, model_class,

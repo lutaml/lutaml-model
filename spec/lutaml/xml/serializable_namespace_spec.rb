@@ -1,5 +1,5 @@
 require "spec_helper"
-require "lutaml/model"
+require_relative "../../../lib/lutaml/model"
 
 RSpec.describe Lutaml::Model::Serializable, "namespace directive" do
   # Define test namespace classes

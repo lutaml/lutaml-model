@@ -1,0 +1,14 @@
+validation:
+  strict_mode: false
+  stop_on_first_error: false
+  max_errors: 100
+  features:
+    validate_types: true
+    validate_attributes: true
+    validate_occurrences: true
+  error_reporting:
+    include_xpath: true
+    include_line_number: true
+    include_suggestions: true
+    colorize: false
+    verbosity: normal

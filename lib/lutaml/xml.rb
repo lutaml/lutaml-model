@@ -6,12 +6,39 @@
 # It requires lutaml/model to be loaded first for base classes.
 
 # Ensure base model is loaded
-require "lutaml/model"
+require_relative "model"
 
 module Lutaml
   module Xml
-    # Error class for XML-specific errors
-    class Error < Lutaml::Model::Error; end
+    # Error module for XML-specific errors
+    module Error
+      autoload :XmlError, "#{__dir__}/xml/error/xml_error"
+      autoload :InvalidNamespaceError, "#{__dir__}/xml/error/invalid_namespace_error"
+      autoload :InvalidXsdTypeError, "#{__dir__}/xml/error/invalid_xsd_type_error"
+      autoload :XmlConfigurationError, "#{__dir__}/xml/error/xml_configuration_error"
+      autoload :NamespaceMismatchError, "#{__dir__}/xml/error/namespace_mismatch_error"
+    end
+
+    # XML Configuration modules
+    autoload :Configurable, "#{__dir__}/xml/configurable"
+    autoload :NamespaceTypeResolver, "#{__dir__}/xml/namespace_type_resolver"
+
+    # XML Type modules
+    module Type
+      autoload :ValueXmlMapping, "#{__dir__}/xml/type/value_xml_mapping"
+      autoload :Configurable, "#{__dir__}/xml/type/configurable"
+    end
+
+    # XML Serialization modules
+    autoload :Serialization, "#{__dir__}/xml/serialization"
+
+    # XML Schema modules
+    module Schema
+      autoload :XsdSchema, "#{__dir__}/xml/schema/xsd_schema"
+      autoload :RelaxngSchema, "#{__dir__}/xml/schema/relaxng_schema"
+      autoload :Builder, "#{__dir__}/xml/schema/builder"
+      autoload :BuiltinTypes, "#{__dir__}/xml/schema/builtin_types"
+    end
 
     # Detect available XML adapter
     # @return [Symbol, nil] :nokogiri, :ox, :oga, :rexml, or nil
@@ -24,69 +51,103 @@ module Lutaml
       nil
     end
 
+    # Get the current XML adapter
+    #
+    # Provides unified access to the configured XML adapter.
+    # This is a convenience method for consistent adapter access across
+    # Model and Type classes.
+    #
+    # @return [Object] the configured XML adapter instance
+    #
+    # @example Using the adapter
+    #   adapter = Lutaml::Xml.adapter
+    #   doc = adapter.parse(xml_string)
+    #
+    def self.adapter
+      Lutaml::Model::Config.adapter_for(:xml)
+    end
+
+    # Get the current XML adapter type
+    #
+    # @return [Symbol] the configured XML adapter type (:nokogiri, :ox, etc.)
+    def self.adapter_type
+      Lutaml::Model::Config.xml_adapter_type
+    end
+
     # Autoload core classes
-    autoload :Namespace, "lutaml/xml/namespace"
-    autoload :Mapping, "lutaml/xml/mapping"
-    autoload :MappingRule, "lutaml/xml/mapping_rule"
-    autoload :Document, "lutaml/xml/document"
-    autoload :Transformation, "lutaml/xml/transformation"
-    autoload :Transform, "lutaml/xml/transform"
-    autoload :BaseAdapter, "lutaml/xml/base_adapter"
-    autoload :NokogiriAdapter, "lutaml/xml/nokogiri_adapter"
-    autoload :OgaAdapter, "lutaml/xml/oga_adapter"
-    autoload :OxAdapter, "lutaml/xml/ox_adapter"
-    autoload :RexmlAdapter, "lutaml/xml/rexml_adapter"
-    autoload :XmlElement, "lutaml/xml/xml_element"
-    autoload :XmlAttribute, "lutaml/xml/xml_attribute"
-    autoload :XmlNamespace, "lutaml/xml/xml_namespace"
-    autoload :Decisions, "lutaml/xml/decisions"
-    autoload :DeclarationPlan, "lutaml/xml/declaration_plan"
-    autoload :DeclarationPlanner, "lutaml/xml/declaration_planner"
-    autoload :NamespaceCollector, "lutaml/xml/namespace_collector"
-    autoload :NamespaceResolver, "lutaml/xml/namespace_resolver"
-    autoload :NamespaceDeclaration, "lutaml/xml/namespace_declaration"
-    autoload :NamespaceClassRegistry, "lutaml/xml/namespace_class_registry"
-    autoload :BlankNamespace, "lutaml/xml/blank_namespace"
-    autoload :EncodingNormalizer, "lutaml/xml/encoding_normalizer"
-    autoload :W3c, "lutaml/xml/w3c"
-    autoload :NamespaceResolutionStrategy, "lutaml/xml/namespace_resolution_strategy"
-    autoload :NamespaceInheritanceStrategy, "lutaml/xml/namespace_inheritance_strategy"
-    autoload :QualifiedInheritanceStrategy, "lutaml/xml/qualified_inheritance_strategy"
-    autoload :UnqualifiedInheritanceStrategy, "lutaml/xml/unqualified_inheritance_strategy"
-    autoload :DataModel, "lutaml/xml/data_model"
-    autoload :TransformationBuilder, "lutaml/xml/transformation_builder"
-    autoload :Element, "lutaml/xml/element"
-    autoload :ModelTransform, "lutaml/xml/model_transform"
-    autoload :TypeNamespaceResolver, "lutaml/xml/type_namespace_resolver"
-    autoload :NamespaceNeeds, "lutaml/xml/namespace_needs"
-    autoload :NamespaceUsage, "lutaml/xml/namespace_usage"
-    autoload :NamespaceDeclarationData, "lutaml/xml/namespace_declaration_data"
-    autoload :DeclarationHandler, "lutaml/xml/declaration_handler"
-    autoload :PolymorphicValueHandler, "lutaml/xml/polymorphic_value_handler"
-    autoload :AttributeNamespaceResolver, "lutaml/xml/attribute_namespace_resolver"
-    autoload :BlankNamespaceHandler, "lutaml/xml/blank_namespace_handler"
-    autoload :DeclarationPlanQuery, "lutaml/xml/declaration_plan_query"
-    autoload :DocTypeExtractor, "lutaml/xml/doctype_extractor"
-    autoload :InputNamespaceExtractor, "lutaml/xml/input_namespace_extractor"
-    autoload :NamespaceDeclarationBuilder, "lutaml/xml/namespace_declaration_builder"
-    autoload :ElementPrefixResolver, "lutaml/xml/element_prefix_resolver"
-    autoload :AdapterHelpers, "lutaml/xml/adapter_helpers"
-    autoload :FormatChooser, "lutaml/xml/format_chooser"
-    autoload :HoistingAlgorithm, "lutaml/xml/hoisting_algorithm"
-    autoload :NamespaceInheritanceResolver, "lutaml/xml/namespace_inheritance_resolver"
-    autoload :NamespaceScopeConfig, "lutaml/xml/namespace_scope_config"
-    autoload :Builder, "lutaml/xml/builder"
-    autoload :TypeNamespace, "lutaml/xml/type_namespace"
-    autoload :TransformationSupport, "lutaml/xml/transformation_support"
+    autoload :Namespace, "#{__dir__}/xml/namespace"
+    autoload :Mapping, "#{__dir__}/xml/mapping"
+    autoload :MappingRule, "#{__dir__}/xml/mapping_rule"
+    autoload :Document, "#{__dir__}/xml/document"
+    autoload :Transformation, "#{__dir__}/xml/transformation"
+    autoload :Transform, "#{__dir__}/xml/transform"
+    autoload :BaseAdapter, "#{__dir__}/xml/base_adapter"
+    autoload :NokogiriAdapter, "#{__dir__}/xml/nokogiri_adapter"
+    autoload :OgaAdapter, "#{__dir__}/xml/oga_adapter"
+    autoload :OxAdapter, "#{__dir__}/xml/ox_adapter"
+    autoload :RexmlAdapter, "#{__dir__}/xml/rexml_adapter"
+    autoload :XmlElement, "#{__dir__}/xml/xml_element"
+    autoload :XmlAttribute, "#{__dir__}/xml/xml_attribute"
+    autoload :XmlNamespace, "#{__dir__}/xml/xml_namespace"
+    autoload :Decisions, "#{__dir__}/xml/decisions"
+    autoload :DeclarationPlan, "#{__dir__}/xml/declaration_plan"
+    autoload :DeclarationPlanner, "#{__dir__}/xml/declaration_planner"
+    autoload :NamespaceCollector, "#{__dir__}/xml/namespace_collector"
+    autoload :NamespaceResolver, "#{__dir__}/xml/namespace_resolver"
+    autoload :NamespaceDeclaration, "#{__dir__}/xml/namespace_declaration"
+    autoload :NamespaceClassRegistry, "#{__dir__}/xml/namespace_class_registry"
+    autoload :BlankNamespace, "#{__dir__}/xml/blank_namespace"
+    autoload :EncodingNormalizer, "#{__dir__}/xml/encoding_normalizer"
+    autoload :W3c, "#{__dir__}/xml/w3c"
+    autoload :NamespaceResolutionStrategy,
+             "#{__dir__}/xml/namespace_resolution_strategy"
+    autoload :NamespaceInheritanceStrategy,
+             "#{__dir__}/xml/namespace_inheritance_strategy"
+    autoload :QualifiedInheritanceStrategy,
+             "#{__dir__}/xml/qualified_inheritance_strategy"
+    autoload :UnqualifiedInheritanceStrategy,
+             "#{__dir__}/xml/unqualified_inheritance_strategy"
+    autoload :DataModel, "#{__dir__}/xml/data_model"
+    autoload :TransformationBuilder, "#{__dir__}/xml/transformation_builder"
+    autoload :Element, "#{__dir__}/xml/element"
+    autoload :ModelTransform, "#{__dir__}/xml/model_transform"
+    autoload :TypeNamespaceResolver, "#{__dir__}/xml/type_namespace_resolver"
+    autoload :NamespaceNeeds, "#{__dir__}/xml/namespace_needs"
+    autoload :NamespaceUsage, "#{__dir__}/xml/namespace_usage"
+    autoload :NamespaceDeclarationData,
+             "#{__dir__}/xml/namespace_declaration_data"
+    autoload :DeclarationHandler, "#{__dir__}/xml/declaration_handler"
+    autoload :PolymorphicValueHandler,
+             "#{__dir__}/xml/polymorphic_value_handler"
+    autoload :AttributeNamespaceResolver,
+             "#{__dir__}/xml/attribute_namespace_resolver"
+    autoload :BlankNamespaceHandler, "#{__dir__}/xml/blank_namespace_handler"
+    autoload :DeclarationPlanQuery, "#{__dir__}/xml/declaration_plan_query"
+    autoload :DocTypeExtractor, "#{__dir__}/xml/doctype_extractor"
+    autoload :InputNamespaceExtractor,
+             "#{__dir__}/xml/input_namespace_extractor"
+    autoload :NamespaceDeclarationBuilder,
+             "#{__dir__}/xml/namespace_declaration_builder"
+    autoload :ElementPrefixResolver, "#{__dir__}/xml/element_prefix_resolver"
+    autoload :AdapterHelpers, "#{__dir__}/xml/adapter_helpers"
+    autoload :FormatChooser, "#{__dir__}/xml/format_chooser"
+    autoload :HoistingAlgorithm, "#{__dir__}/xml/hoisting_algorithm"
+    autoload :NamespaceInheritanceResolver,
+             "#{__dir__}/xml/namespace_inheritance_resolver"
+    autoload :NamespaceScopeConfig, "#{__dir__}/xml/namespace_scope_config"
+    autoload :Builder, "#{__dir__}/xml/builder"
+    autoload :TypeNamespace, "#{__dir__}/xml/type_namespace"
+    autoload :TransformationSupport, "#{__dir__}/xml/transformation_support"
+    autoload :SharedDsl, "#{__dir__}/xml/shared_dsl"
 
     # Autoload adapter element classes (defined in subdirectories)
-    autoload :NokogiriElement, "lutaml/xml/nokogiri/element"
-    autoload :OxElement, "lutaml/xml/ox/element"
+    autoload :NokogiriElement, "#{__dir__}/xml/nokogiri/element"
+    autoload :OxElement, "#{__dir__}/xml/ox/element"
 
     # Autoload adapter module namespaces
-    autoload :Nokogiri, "lutaml/xml/nokogiri"
-    autoload :Oga, "lutaml/xml/oga"
-    autoload :Rexml, "lutaml/xml/rexml"
+    autoload :Nokogiri, "#{__dir__}/xml/nokogiri"
+    autoload :Oga, "#{__dir__}/xml/oga"
+    autoload :Rexml, "#{__dir__}/xml/rexml"
   end
 end
 
@@ -96,6 +157,11 @@ Lutaml::Model::FormatRegistry.register(
   mapping_class: Lutaml::Xml::Mapping,
   adapter_class: nil,
   transformer: Lutaml::Xml::Transform,
+)
+
+# Include XML-specific serialization methods into Serialize::ClassMethods
+Lutaml::Model::Serialize::ClassMethods.include(
+  Lutaml::Xml::Serialization::FormatConversion,
 )
 
 # Auto-detect and set default XML adapter

@@ -12,7 +12,8 @@ module Lutaml
       autoload :ModelImport, "#{__dir__}/serialize/model_import"
       autoload :FormatConversion, "#{__dir__}/serialize/format_conversion"
       autoload :ValueMapping, "#{__dir__}/serialize/value_mapping"
-      autoload :TransformationBuilder, "#{__dir__}/serialize/transformation_builder"
+      autoload :TransformationBuilder,
+               "#{__dir__}/serialize/transformation_builder"
 
       include ComparableModel
       include Validation
@@ -132,12 +133,12 @@ module Lutaml
         @using_default[attribute_name]
       end
 
-      def method_missing(method_name, *args)
+      def method_missing(method_name, *)
         if method_name.to_s.end_with?("=") && attribute_exist?(method_name)
           define_singleton_method(method_name) do |value|
             instance_variable_set(:"@#{method_name.to_s.chomp('=')}", value)
           end
-          send(method_name, *args)
+          send(method_name, *)
         else
           super
         end

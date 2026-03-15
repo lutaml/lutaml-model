@@ -1,0 +1,33 @@
+<!--
+XML Schema for the SMIL 2.0 modules
+
+This is SMIL 2.0
+Copyright: 1998-2004 W3C (MIT, ERCIM, Keio), All Rights Reserved.
+See http://www.w3.org/Consortium/Legal/.
+
+Public URI: http://www.w3.org/2001/SMIL20/smil20-CustomTestAttributes.xsd
+Author: Aaron Michael Cohen (Intel)
+Revision: 2001/07/31
+
+Schema for the CustomTestAttributes module namespace,
+-->
+<schema xmlns="http://www.w3.org/2001/XMLSchema"
+        xmlns:smil20="http://www.w3.org/2001/SMIL20/"
+        xmlns:smil20lang="http://www.w3.org/2001/SMIL20/Language"
+        xmlns:CustomTestAttributes="http://www.w3.org/2001/SMIL20/CustomTestAttributes"
+        targetNamespace="http://www.w3.org/2001/SMIL20/CustomTestAttributes"
+        elementFormDefault="qualified">
+    
+    <!-- these URL's may have to be expanded to their full and proper locations -->
+
+    <!-- import the definitions in the smil20 namespace -->
+    <import namespace="http://www.w3.org/2001/SMIL20/" schemaLocation="smil20.xsd"/>
+
+    <!-- declare global elements in this module -->
+    <element name="customAttributes" type="smil20lang:customAttributesType" substitutionGroup="smil20lang:customAttributes"/>
+    <element name="customTest" type="smil20lang:customTestType" substitutionGroup="smil20lang:customTest"/>
+    
+    <!-- declare global attributes in this module -->
+    <attribute name="customTest" type="string"/>
+        
+</schema>

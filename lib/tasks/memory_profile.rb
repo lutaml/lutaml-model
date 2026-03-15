@@ -4,7 +4,7 @@
 # Usage: bundle exec ruby lib/tasks/memory_profile.rb
 
 require "memory_profiler"
-require "lutaml/model"
+require_relative "../lutaml/model"
 
 # Configure adapters
 Lutaml::Model::Config.xml_adapter_type = :nokogiri

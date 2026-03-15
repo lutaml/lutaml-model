@@ -12,10 +12,10 @@ module Lutaml
         #
         # @param format [Symbol] The format (:xml, :json, etc.)
         # @param block [Proc] The DSL block to evaluate
-        def process_mapping(format, &block)
+        def process_mapping(format, &)
           klass = ::Lutaml::Model::Config.mappings_class_for(format)
           mappings[format] ||= klass.new
-          mappings[format].instance_eval(&block)
+          mappings[format].instance_eval(&)
 
           if mappings[format].respond_to?(:finalize)
             mappings[format].finalize(self)

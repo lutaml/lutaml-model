@@ -1416,6 +1416,92 @@ end
 ====
 
 
+==== Indexed lookups
+
+Collections can be indexed for O(1) lookups by one or more attributes.
+This is particularly useful for large collections where repeated lookups
+by key would otherwise be O(n).
+
+===== Single index
+
+Use `index_by` with a single field for simple indexed lookups:
+
+[source,ruby]
+----
+class Person < Lutaml::Model::Serializable
+  attribute :id, :string
+  attribute :name, :string
+end
+
+class PersonCollection < Lutaml::Model::Collection
+  instances :people, Person
+  index_by :id
+end
+
+people = PersonCollection.new([
+  { id: '001', name: 'Alice' },
+  { id: '002', name: 'Bob' }
+])
+
+# O(1) lookup by id
+people.fetch('001')              # => #<Person id='001' name='Alice'>
+people.find_by(:id, '002')       # => #<Person id='002' name='Bob'>
+people.find_by(:id, 'missing')   # => nil
+----
+
+===== Multiple indexes
+
+Use `index_by` with multiple fields for lookups by different keys:
+
+[source,ruby]
+----
+class PersonCollection < Lutaml::Model::Collection
+  instances :people, Person
+  index_by :id, :email, :slug
+end
+
+# O(1) lookup by any indexed field
+people.find_by(:id, '001')
+people.find_by(:email, 'alice@example.com')
+people.find_by(:slug, 'alice-smith')
+----
+
+===== Named indexes with custom key extraction
+
+Use `index` with a name and proc for custom key extraction:
+
+[source,ruby]
+----
+class PersonCollection < Lutaml::Model::Collection
+  instances :people, Person
+  index_by :id
+  index :email, by: ->(person) { person.email.downcase }
+end
+
+# Lookup with normalized key (proc stores lowercase)
+people.find_by(:email, 'alice@example.com')  # => finds Alice
+----
+
+===== Combined with sorting
+
+Indexes work alongside sorting:
+
+[source,ruby]
+----
+class PersonCollection < Lutaml::Model::Collection
+  instances :people, Person
+  index_by :id
+  sort by: :name, order: :asc
+end
+
+# Collection is sorted by name, indexed by id
+people.fetch('001')
+----
+
+NOTE: The index is rebuilt after any mutation (`<<`, `push`, `[]=`).
+For best performance with large collections, batch mutations before lookups.
+
+
 ==== Polymorphic collections
 
 Collections can contain instances of different model classes that share a common base class.

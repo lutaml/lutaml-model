@@ -6,12 +6,11 @@ module Lutaml
   module KeyValue
     module Adapter
       module Yamls
-        autoload :Document, "lutaml/key_value/adapter/yamls/document"
-        autoload :Mapping, "lutaml/key_value/adapter/yamls/mapping"
-        autoload :MappingRule, "lutaml/key_value/adapter/yamls/mapping_rule"
-        autoload :Transform, "lutaml/key_value/adapter/yamls/transform"
-        autoload :StandardAdapter,
-                 "lutaml/key_value/adapter/yamls/standard_adapter"
+        autoload :Document, "#{__dir__}/yamls/document"
+        autoload :Mapping, "#{__dir__}/yamls/mapping"
+        autoload :MappingRule, "#{__dir__}/yamls/mapping_rule"
+        autoload :Transform, "#{__dir__}/yamls/transform"
+        autoload :StandardAdapter, "#{__dir__}/yamls/standard_adapter"
       end
     end
   end

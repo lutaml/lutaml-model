@@ -8,7 +8,7 @@ module Lutaml
     # serialization logic, allowing transformation to produce key-value data
     # that can be serialized by different adapters.
     module DataModel
-      autoload :Element, "lutaml/key_value/data_model/element"
+      autoload :Element, "#{__dir__}/data_model/element"
     end
   end
 end

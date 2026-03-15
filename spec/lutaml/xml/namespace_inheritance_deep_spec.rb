@@ -1,5 +1,5 @@
 require "spec_helper"
-require "lutaml/model"
+require_relative "../../../lib/lutaml/model"
 
 RSpec.describe "Deep namespace inheritance through collections" do
   # This test ensures Bug #3 fix: namespace configuration must be inherited

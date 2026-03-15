@@ -235,10 +235,11 @@ RSpec.describe Lutaml::Model::ImportRegistry do
 
   describe "thread safety" do
     it "handles concurrent deferral safely" do
-      threads = 10.times.map do |i|
+      threads = Array.new(10) do |i|
         Thread.new do
           10.times do |j|
-            registry.defer(owner_class, method: "method_#{i}_#{j}".to_sym, symbol: :string)
+            registry.defer(owner_class, method: :"method_#{i}_#{j}",
+                                        symbol: :string)
           end
         end
       end
@@ -249,10 +250,11 @@ RSpec.describe Lutaml::Model::ImportRegistry do
 
     it "handles concurrent resolution safely" do
       20.times do |i|
-        registry.defer(owner_class, method: "method_#{i}".to_sym, symbol: :string)
+        registry.defer(owner_class, method: :"method_#{i}",
+                                    symbol: :string)
       end
 
-      threads = 5.times.map do
+      threads = Array.new(5) do
         Thread.new do
           registry.resolve(owner_class, Lutaml::Model::TypeContext.default)
         end
@@ -269,7 +271,7 @@ RSpec.describe Lutaml::Model::ImportRegistry do
         owner_class: owner_class,
         method: :author,
         symbol: :Person,
-        resolved: false
+        resolved: false,
       )
 
       expect(import.owner_class).to eq(owner_class)
@@ -284,7 +286,7 @@ RSpec.describe Lutaml::Model::ImportRegistry do
         owner_class: owner_class,
         method: :author,
         symbol: :Person,
-        resolved: true
+        resolved: true,
       )
 
       expect(import.resolved?).to be true

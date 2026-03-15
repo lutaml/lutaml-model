@@ -1,5 +1,5 @@
 require "spec_helper"
-require "lutaml/model"
+require_relative "../../../lib/lutaml/model"
 
 RSpec.describe "Type-level namespace integration" do
   # Define test namespaces mirroring Core Properties structure

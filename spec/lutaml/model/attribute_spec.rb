@@ -1,5 +1,5 @@
 require "spec_helper"
-require "lutaml/model"
+require_relative "../../../lib/lutaml/model"
 require "pathname"
 
 RSpec.describe Lutaml::Model::Attribute do

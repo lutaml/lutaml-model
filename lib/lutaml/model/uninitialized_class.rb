@@ -48,7 +48,7 @@ module Lutaml
         "".encoding
       end
 
-      def method_missing(method, *_args, &_block)
+      def method_missing(method, *_args, &)
         if method.end_with?("?")
           false
         else

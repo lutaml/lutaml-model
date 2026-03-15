@@ -2,17 +2,17 @@
 
 module Lutaml
   module Xml
-      module Oga
+    module Oga
       class Document < ::Oga::XML::Document
-      def initialize(options = {})
-        super
-      end
+        def initialize(options = {})
+          super
+        end
 
-      def text(value = nil)
-        children << ::Oga::XML::Text.new(text: value)
-        self
+        def text(value = nil)
+          children << ::Oga::XML::Text.new(text: value)
+          self
+        end
       end
-      end
-      end
+    end
   end
 end

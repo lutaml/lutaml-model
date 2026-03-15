@@ -2,16 +2,16 @@
 
 module Lutaml
   module Xml
-      # Query helper for DeclarationPlan tree structure
-      #
-      # Provides OOP interface for extracting namespace information
-      # from DeclarationPlan without adding query methods to plan itself.
-      #
-      # ARCHITECTURE: Separate query logic from data structure (MECE)
-      #
-      # DeclarationPlan is a pure data structure (tree of ElementNode objects).
-      # This module contains all query/search logic for that structure.
-      module DeclarationPlanQuery
+    # Query helper for DeclarationPlan tree structure
+    #
+    # Provides OOP interface for extracting namespace information
+    # from DeclarationPlan without adding query methods to plan itself.
+    #
+    # ARCHITECTURE: Separate query logic from data structure (MECE)
+    #
+    # DeclarationPlan is a pure data structure (tree of ElementNode objects).
+    # This module contains all query/search logic for that structure.
+    module DeclarationPlanQuery
       # Find namespace declaration in plan by URI
       #
       # Searches the root node's hoisted declarations for a namespace
@@ -42,12 +42,12 @@ module Lutaml
       # @param element [XmlDataModel::XmlElement] Element to check
       # @return [Boolean] true if element needs xmlns=""
       def self.element_needs_xmlns_blank?(plan, element)
-      # Element with namespace doesn't need xmlns=""
-      return false if element.namespace_class
+        # Element with namespace doesn't need xmlns=""
+        return false if element.namespace_class
 
-      # Check if root declares default namespace (xmlns="...")
-      # If root has default namespace (key nil), blank children need xmlns=""
-      plan.root_node.hoisted_declarations.key?(nil)
+        # Check if root declares default namespace (xmlns="...")
+        # If root has default namespace (key nil), blank children need xmlns=""
+        plan.root_node.hoisted_declarations.key?(nil)
       end
 
       # Check if namespace is declared at root with default format
@@ -59,13 +59,13 @@ module Lutaml
       # @param namespace_class [Class] XmlNamespace class
       # @return [Boolean] true if declared at root with default format
       def self.declared_at_root_default_format?(plan, namespace_class)
-      return false unless namespace_class
-      return false if namespace_class == :blank # :blank has no URI
+        return false unless namespace_class
+        return false if namespace_class == :blank # :blank has no URI
 
-      uri = namespace_class.uri
-      ns_info = find_namespace_by_uri(plan, uri)
+        uri = namespace_class.uri
+        ns_info = find_namespace_by_uri(plan, uri)
 
-      ns_info && ns_info[:declared_at] == :here && ns_info[:format] == :default
+        ns_info && ns_info[:declared_at] == :here && ns_info[:format] == :default
       end
 
       # Check if namespace uses prefix format in plan
@@ -74,13 +74,13 @@ module Lutaml
       # @param namespace_class [Class] XmlNamespace class
       # @return [Boolean] true if namespace uses prefix format
       def self.prefix_format?(plan, namespace_class)
-      return false unless namespace_class
-      return false if namespace_class == :blank # :blank has no URI
+        return false unless namespace_class
+        return false if namespace_class == :blank # :blank has no URI
 
-      uri = namespace_class.uri
-      ns_info = find_namespace_by_uri(plan, uri)
+        uri = namespace_class.uri
+        ns_info = find_namespace_by_uri(plan, uri)
 
-      ns_info && ns_info[:format] == :prefix
+        ns_info && ns_info[:format] == :prefix
       end
 
       # Get prefix for namespace from plan
@@ -92,14 +92,14 @@ module Lutaml
       # @param namespace_class [Class] XmlNamespace class
       # @return [String, nil] Prefix string or nil
       def self.prefix_for(plan, namespace_class)
-      return nil unless namespace_class
-      return nil if namespace_class == :blank # :blank has no URI
+        return nil unless namespace_class
+        return nil if namespace_class == :blank # :blank has no URI
 
-      uri = namespace_class.uri
-      ns_info = find_namespace_by_uri(plan, uri)
+        uri = namespace_class.uri
+        ns_info = find_namespace_by_uri(plan, uri)
 
-      ns_info&.dig(:prefix)
+        ns_info&.dig(:prefix)
       end
-      end
+    end
   end
 end

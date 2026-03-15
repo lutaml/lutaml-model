@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "spec_helper"
-require "lutaml/model"
+require_relative "../../../lib/lutaml/model"
 
 module XmlDeclarationSpec
   class XmlDeclModel < Lutaml::Model::Serializable

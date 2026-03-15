@@ -1,5 +1,5 @@
 require "spec_helper"
-require "lutaml/model"
+require_relative "../../../lib/lutaml/model"
 require "lutaml/xml/nokogiri_adapter"
 require "lutaml/xml/ox_adapter"
 require "lutaml/xml/rexml_adapter"

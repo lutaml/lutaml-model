@@ -1,4 +1,4 @@
-require "lutaml/model"
+require_relative "../../lib/lutaml/model"
 
 # Custom types for elements with different namespaces
 class Nsp1String < Lutaml::Model::Type::String

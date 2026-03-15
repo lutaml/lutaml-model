@@ -1,0 +1,205 @@
+---
+title: XML Prefix Parameter Migration
+nav_order: 10
+---
+
+= XML Prefix Parameter Migration
+
+[IMPORTANT]
+====
+**Status**: ACTIVE - Deprecation warnings enabled
+
+**Current behavior**: Prefix parameters on XML mapping methods trigger deprecation warning
+
+**Timeline**:
+
+* v0.9.0: **Deprecation warnings introduced (CURRENT)**
+* v1.0.0: Prefix parameters will be removed (raises error)
+
+**Migration**: Define `prefix_default` in your `XmlNamespace` class instead.
+See examples below for migration patterns.
+====
+
+== Overview
+
+The `prefix` parameter on XML mapping methods is deprecated. Instead of passing
+prefix as a parameter, define `prefix_default` in your `XmlNamespace` class.
+
+This change improves separation of concerns by keeping namespace configuration
+in the `XmlNamespace` class rather than scattering it across mapping definitions.
+
+== Deprecated Methods
+
+The following methods have deprecated prefix parameters:
+
+1. `namespace(uri, prefix)` - Use `prefix_default` in `XmlNamespace` class
+2. `map_element(name, to:, prefix:)` - Use `prefix_default` in `XmlNamespace` class
+3. `map_attribute(name, to:, prefix:)` - Use `prefix_default` in `XmlNamespace` class
+4. `map_all(to:, prefix:)` - Use `prefix_default` in `XmlNamespace` class
+
+== Migration Examples
+
+=== namespace() Method
+
+[IMPORTANT]
+====
+The `no_root` method is also deprecated. Use `type_name()` for type-only models.
+====
+
+.Before (deprecated):
+[source,ruby]
+----
+class MyModel < Lutaml::Model::Serializable
+  xml do
+    namespace "http://example.com/ns", "ex"  # ❌ prefix parameter deprecated
+    element :name, :string
+  end
+end
+----
+
+.After (recommended):
+[source,ruby]
+----
+# Define namespace class with prefix_default
+class ExampleNamespace < Lutaml::Xml::Namespace
+  uri "http://example.com/ns"
+  prefix_default "ex"  # ✅ Define prefix in namespace class
+end
+
+class MyModel < Lutaml::Model::Serializable
+  xml do
+    namespace ExampleNamespace  # ✅ Pass namespace class
+    element :name, :string
+  end
+end
+----
+
+=== map_element() Method
+
+.Before (deprecated):
+[source,ruby]
+----
+class MyModel < Lutaml::Model::Serializable
+  xml do
+    root "MyModel"
+    map_element :title, to: :title, prefix: "dc"  # ❌ prefix parameter deprecated
+  end
+end
+----
+
+.After (recommended):
+[source,ruby]
+----
+# Define namespace class with prefix_default
+class DublinCoreNamespace < Lutaml::Xml::Namespace
+  uri "http://purl.org/dc/elements/1.1/"
+  prefix_default "dc"  # ✅ Define prefix in namespace class
+end
+
+class MyModel < Lutaml::Model::Serializable
+  xml do
+    root "MyModel"
+    map_element :title, to: :title, namespace: DublinCoreNamespace  # ✅ Use namespace class
+  end
+end
+----
+
+=== map_attribute() Method
+
+.Before (deprecated):
+[source,ruby]
+----
+class MyModel < Lutaml::Model::Serializable
+  xml do
+    root "MyModel"
+    map_attribute :lang, to: :language, prefix: "xml"  # ❌ prefix parameter deprecated
+  end
+end
+----
+
+.After (recommended):
+[source,ruby]
+----
+# Define or use built-in XML namespace
+class XmlNamespace < Lutaml::Xml::Namespace
+  uri "http://www.w3.org/XML/1998/namespace"
+  prefix_default "xml"  # ✅ Define prefix in namespace class
+end
+
+class MyModel < Lutaml::Model::Serializable
+  xml do
+    root "MyModel"
+    map_attribute :lang, to: :language, namespace: XmlNamespace  # ✅ Use namespace class
+  end
+end
+----
+
+=== map_all() Method
+
+.Before (deprecated):
+[source,ruby]
+----
+class MyModel < Lutaml::Model::Serializable
+  xml do
+    root "MyModel"
+    map_all to: :content, prefix: "xhtml"  # ❌ prefix parameter deprecated
+  end
+end
+----
+
+.After (recommended):
+[source,ruby]
+----
+# Define namespace class with prefix_default
+class XhtmlNamespace < Lutaml::Xml::Namespace
+  uri "http://www.w3.org/1999/xhtml"
+  prefix_default "xhtml"  # ✅ Define prefix in namespace class
+end
+
+class MyModel < Lutaml::Model::Serializable
+  xml do
+    root "MyModel"
+    map_all to: :content, namespace: XhtmlNamespace  # ✅ Use namespace class
+  end
+end
+----
+
+== no_root() Method Migration
+
+The `no_root` method is deprecated. For type-only models that should not have
+a root element, simply omit the element declaration.
+
+.Before (deprecated):
+[source,ruby]
+----
+class MyType < Lutaml::Model::Serializable
+  xml do
+    no_root  # ❌ Deprecated
+    element :value, :string
+  end
+end
+----
+
+.After (recommended):
+[source,ruby]
+----
+class MyType < Lutaml::Model::Serializable
+  xml do
+    type_name "MyType"  # ✅ Use type_name for XSD type naming
+    element :value, :string
+    # Simply omit root() declaration for type-only models
+  end
+end
+----
+
+== Benefits of Migration
+
+1. **Better separation of concerns**: Namespace configuration is centralized in `XmlNamespace` classes
+2. **Reusability**: Same namespace class can be used across multiple models
+3. **Consistency**: Single source of truth for namespace prefixes
+4. **Maintainability**: Changing a prefix requires updating only one location
+
+== See Also
+
+* xref:../_guides/xml-namespace-guide.adoc[XML Namespace Guide]
+* xref:./0-9-0-namespace-api-migration.adoc[0.9.0 Namespace API Migration]

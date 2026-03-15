@@ -1,4 +1,4 @@
-require "lutaml/model"
+require_relative "../../lib/lutaml/model"
 
 class HighPrecisionDateTime < Lutaml::Model::Type::DateTime
   def to_xml

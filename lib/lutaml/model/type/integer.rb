@@ -35,7 +35,10 @@ module Lutaml
                     end
                   end
 
-          Model::Services::Type::Validator::Number.validate!(value, options) unless options.equal?(EMPTY_OPTIONS)
+          unless options.equal?(EMPTY_OPTIONS)
+            Model::Services::Type::Validator::Number.validate!(value,
+                                                               options)
+          end
           value
         end
 

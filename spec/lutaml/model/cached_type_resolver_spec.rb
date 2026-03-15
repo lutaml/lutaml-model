@@ -31,7 +31,7 @@ RSpec.describe Lutaml::Model::CachedTypeResolver do
       # Verify it's cached (array keys: [context_id, type_name])
       stats = resolver.cache_stats
       expect(stats[:size]).to eq(1)
-      expect(stats[:keys]).to include([:test, :custom])
+      expect(stats[:keys]).to include(%i[test custom])
     end
 
     it "returns cached value on second call" do
@@ -57,16 +57,16 @@ RSpec.describe Lutaml::Model::CachedTypeResolver do
     end
 
     it "raises UnknownTypeError for unknown types" do
-      expect {
+      expect do
         resolver.resolve(:unknown, context)
-      }.to raise_error(Lutaml::Model::UnknownTypeError)
+      end.to raise_error(Lutaml::Model::UnknownTypeError)
     end
 
     it "caches nil results (unknown types) to avoid repeated lookups" do
       # First call raises
-      expect {
+      expect do
         resolver.resolve(:unknown, context)
-      }.to raise_error(Lutaml::Model::UnknownTypeError)
+      end.to raise_error(Lutaml::Model::UnknownTypeError)
 
       # But the cache should not store failures - each call delegates
       # (This is a design choice - we could also cache failures)
@@ -122,14 +122,15 @@ RSpec.describe Lutaml::Model::CachedTypeResolver do
     it "does not clear cache for other contexts" do
       other_registry = Lutaml::Model::TypeRegistry.new
       other_registry.register(:other, Class.new)
-      other_context = Lutaml::Model::TypeContext.isolated(:other, other_registry)
+      other_context = Lutaml::Model::TypeContext.isolated(:other,
+                                                          other_registry)
 
       resolver.resolve(:other, other_context)
       expect(resolver.cache_stats[:size]).to eq(2)
 
       resolver.clear_cache(:test)
       expect(resolver.cache_stats[:size]).to eq(1)
-      expect(resolver.cache_stats[:keys]).to include([:other, :other])
+      expect(resolver.cache_stats[:keys]).to include(%i[other other])
     end
   end
 
@@ -156,13 +157,13 @@ RSpec.describe Lutaml::Model::CachedTypeResolver do
       resolver.resolve(:custom, context)
       stats = resolver.cache_stats
       expect(stats[:size]).to eq(1)
-      expect(stats[:keys]).to eq([[:test, :custom]])
+      expect(stats[:keys]).to eq([%i[test custom]])
     end
   end
 
   describe "thread safety" do
     it "handles concurrent access safely" do
-      threads = 10.times.map do
+      threads = Array.new(10) do
         Thread.new do
           100.times { resolver.resolve(:custom, context) }
         end
@@ -176,7 +177,7 @@ RSpec.describe Lutaml::Model::CachedTypeResolver do
     end
 
     it "handles concurrent cache clearing safely" do
-      threads = 20.times.map do |i|
+      threads = Array.new(20) do |i|
         Thread.new do
           if i.even?
             50.times { resolver.resolve(:custom, context) }
@@ -199,7 +200,7 @@ RSpec.describe Lutaml::Model::CachedTypeResolver do
       expect(result).to eq(Lutaml::Model::Type::String)
 
       stats = resolver.cache_stats
-      expect(stats[:keys]).to include([:default, :string])
+      expect(stats[:keys]).to include(%i[default string])
     end
 
     it "clears cache for default context" do
@@ -222,7 +223,8 @@ RSpec.describe Lutaml::Model::CachedTypeResolver do
 
       stats = resolver.cache_stats
       expect(stats[:size]).to eq(2)
-      expect(stats[:keys]).to contain_exactly([:ctx1, :custom], [:ctx2, :custom])
+      expect(stats[:keys]).to contain_exactly(%i[ctx1 custom],
+                                              %i[ctx2 custom])
     end
 
     it "clears cache for specific context only" do
@@ -233,7 +235,7 @@ RSpec.describe Lutaml::Model::CachedTypeResolver do
 
       stats = resolver.cache_stats
       expect(stats[:size]).to eq(1)
-      expect(stats[:keys]).to contain_exactly([:ctx2, :custom])
+      expect(stats[:keys]).to contain_exactly(%i[ctx2 custom])
     end
   end
 end

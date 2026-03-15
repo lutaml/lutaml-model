@@ -1,0 +1,211 @@
+<!--
+XML Schema for the SMIL 2.0 Layout functionality.
+
+This is SMIL 2.0
+Copyright: 1998-2004 W3C (MIT, ERCIM, Keio), All Rights Reserved.
+See http://www.w3.org/Consortium/Legal/.
+
+Public URI: http://www.w3.org/2001/SMIL20/smil20-layout.xsd
+Author: Aaron Michael Cohen (Intel)
+Revision: 2001/07/31
+
+Defines both the local and global smil20 layout attributes.
+-->
+<schema xmlns="http://www.w3.org/2001/XMLSchema"
+        xmlns:smil20="http://www.w3.org/2001/SMIL20/"
+        xmlns:smil20lang="http://www.w3.org/2001/SMIL20/Language"
+        targetNamespace="http://www.w3.org/2001/SMIL20/"
+        elementFormDefault="qualified">
+
+    <!-- utility type for CSS style dimension attribute values -->
+    <simpleType name="autoOrInheritType">
+        <restriction base="string">    
+            <enumeration value="auto"/>
+            <enumeration value="inherit"/>
+        </restriction>
+    </simpleType>
+
+    <!-- utility type for fit attribute values -->
+    <simpleType name="fitAttributeType">
+        <restriction base="string">
+            <enumeration value="fill"/>
+            <enumeration value="hidden"/>
+            <enumeration value="meet"/>
+            <enumeration value="scroll"/>
+            <enumeration value="slice"/>
+        </restriction>
+    </simpleType>
+
+    <!-- utility type for regPoint values -->
+    <simpleType name="regPointAlignValueType">
+        <restriction base="string">
+            <enumeration value="topLeft"/>
+            <enumeration value="topMid"/>
+            <enumeration value="topRight"/>
+            <enumeration value="midLeft"/>
+            <enumeration value="center"/>
+            <enumeration value="midRight"/>
+            <enumeration value="bottomLeft"/>
+            <enumeration value="bottomMid"/>
+            <enumeration value="bottomRight"/>
+        </restriction>
+    </simpleType>
+
+    <!-- utility type for z-index values -->
+    <simpleType name="zIndexValueType">
+        <union memberTypes="smil20:autoOrInheritType integer"/> 
+    </simpleType>
+
+    <!-- define the layout element prototype -->
+    <complexType name="layoutPrototype">
+        <attribute name="type" type="string" use="optional"  default="text/smil-basic-layout"/>
+    </complexType>
+
+    <!-- define the region element prototype -->
+    <complexType name="regionPrototype">
+        <attribute name="backgroundColor" type="string" use="optional" />    
+
+        <attribute name="background-color" type="string" use="optional" />    
+
+        <attribute name="bottom" type="string" use="optional"  default="auto"/>    
+
+        <attribute name="fit" use="optional"  default="hidden" type="smil20:fitAttributeType"/>    
+
+        <attribute name="height" type="string" use="optional"  default="auto"/>    
+
+        <attribute name="left" type="string" use="optional"  default="auto"/>    
+
+        <attribute name="regionName" type="string" use="optional"/>    
+
+        <attribute name="right" type="string" use="optional"  default="auto"/>    
+
+        <attribute name="showBackground" use="optional"  default="always">    
+            <simpleType>
+                <restriction base="string">
+                    <enumeration value="always"/>
+                    <enumeration value="whenActive"/>
+                </restriction>
+            </simpleType>
+        </attribute>
+
+        <attribute name="top" type="string" use="optional"  default="auto"/>    
+
+        <attribute name="width" type="string" use="optional"  default="auto"/>    
+
+        <attribute name="z-index" type="smil20:zIndexValueType" use="optional"  default="auto"/> 
+
+    </complexType>
+
+    <!-- define the root-layout element prototype -->
+    <complexType name="root-layoutPrototype">
+        <attribute name="backgroundColor" type="string" use="optional" />   
+        <attribute name="background-color" type="string" use="optional" />   
+        <attribute name="height" type="string" use="optional"  default="auto"/>
+        <attribute name="width" type="string" use="optional"  default="auto"/>
+    </complexType> <!-- end root-layoutType -->
+
+    <!-- define the global region attribute -->
+    <attribute name="region" type="string"/>
+
+    <!-- define the region attributeGroup -->
+    <attributeGroup name="regionAttrs">
+        <attribute name="region" type="string" use="optional"/>
+    </attributeGroup>
+
+    <!-- define the global soundLevel attribute -->
+    <attribute name="soundLevel" type="smil20:positivePercentageType"/>
+
+    <!-- define the soundLevel attributeGroup -->
+    <attributeGroup name="soundLevelAttrs">
+        <attribute name="soundLevel" type="smil20:positivePercentageType" use="optional"/>
+    </attributeGroup>
+
+    <!-- define the topLayout element prototype -->
+    <complexType name="topLayoutPrototype">
+        <attribute name="backgroundColor" type="string" use="optional" />   
+
+        <attribute name="close" use="optional"  default="onRequest">    
+            <simpleType>
+                <restriction base="string">
+                    <enumeration value="onRequest"/>
+                    <enumeration value="whenNotActive"/>
+                </restriction>
+            </simpleType>
+        </attribute>
+
+        <attribute name="height" type="string" use="optional"  default="auto"/>
+
+        <attribute name="open" use="optional"  default="onStart">    
+            <simpleType>
+                <restriction base="string">
+                    <enumeration value="onStart"/>
+                    <enumeration value="whenActive"/>
+                </restriction>
+            </simpleType>
+        </attribute>
+
+        <attribute name="width" type="string" use="optional"  default="auto"/>
+    </complexType>
+
+    <!-- define the media object override global attributes -->
+    <attribute name="fit" type="smil20:fitAttributeType"/>    
+    <attribute name="backgroundColor" type="string"/>    
+    <attribute name="z-index" type="smil20:zIndexValueType"/> 
+
+    <!-- define the media object override attributeGroup -->
+    <attributeGroup name="mediaObjectOverrideAttrs">
+        <attribute name="fit" type="smil20:fitAttributeType"  use="optional" />    
+        <attribute name="backgroundColor" type="string" use="optional" />    
+        <attribute name="z-index" type="smil20:zIndexValueType" use="optional"/> 
+    </attributeGroup>
+
+    <!-- define the regPoint element prototype -->
+    <complexType name="regPointPrototype">
+        <attribute name="bottom" type="string" use="optional"  default="auto"/>
+        <attribute name="left" type="string" use="optional"  default="auto"/>   
+        <attribute name="right" type="string" use="optional"  default="auto"/>
+        <attribute name="top" type="string" use="optional"  default="auto"/>
+        <attribute name="regAlign" use="optional"  default="topLeft" type="smil20:regPointAlignValueType"/>
+    </complexType>
+
+    <!-- define the global subregion positioning attributes -->
+    <attribute name="bottom" type="string"/>
+    <attribute name="left" type="string"/>   
+    <attribute name="right" type="string"/>
+    <attribute name="top" type="string"/>        
+    <attribute name="width" type="string"/>        
+    <attribute name="height" type="string"/>            
+
+    <!-- define the subregion positioning attributeGroup -->
+    <attributeGroup name="subregionPositioningAttrs">
+        <attribute name="bottom" type="string" use="optional"  default="auto"/>
+        <attribute name="left" type="string" use="optional"  default="auto"/>   
+        <attribute name="right" type="string" use="optional"  default="auto"/>
+        <attribute name="top" type="string" use="optional"  default="auto"/>
+        <attribute name="width" type="string" use="optional"  default="auto"/>        
+        <attribute name="height" type="string" use="optional"  default="auto"/>            
+    </attributeGroup>
+
+    <!-- define the regPoint attribute type-->
+    <simpleType name="regPointValueType">
+        <union memberTypes="smil20:regPointAlignValueType string"/> 
+    </simpleType>            
+
+    <!-- define the global regPoint attributes -->
+    <attribute name="regPoint" type="smil20:regPointValueType"/>
+    <attribute name="regAlign" type="smil20:regPointAlignValueType"/>
+
+    <!-- define the regPoint attributeGroup -->
+    <attributeGroup name="regPointAttrs">
+        <attribute name="regPoint" type="smil20:regPointValueType" use="optional"/>
+        <attribute name="regAlign" type="smil20:regPointAlignValueType" use="optional"  default="topLeft"/>
+    </attributeGroup>
+
+    <!-- define the global layout elements -->
+    <element name="layout" type="smil20lang:layoutType" substitutionGroup="smil20lang:layout"/>
+    <element name="root-layout" type="smil20lang:root-layoutType" substitutionGroup="smil20lang:root-layout"/>
+    <element name="region" type="smil20lang:regionType" substitutionGroup="smil20lang:region"/>
+    <element name="regPoint" type="smil20lang:regPointType" substitutionGroup="smil20lang:regPoint"/>
+    <element name="topLayout" type="smil20lang:topLayoutType" substitutionGroup="smil20lang:topLayout"/>
+        
+</schema>

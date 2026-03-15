@@ -62,7 +62,7 @@ RSpec.describe Lutaml::Model::Type do
       end
 
       it "casts integer to BigDecimal" do
-        expect(decimal_class.cast(123)).to eq BigDecimal("123")
+        expect(decimal_class.cast(123)).to eq BigDecimal(123)
       end
 
       it "casts float to BigDecimal" do

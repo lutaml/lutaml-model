@@ -32,15 +32,16 @@ RSpec.describe Lutaml::Model::ContextRegistry do
 
     it "overwrites existing context with same id" do
       registry.register(context)
-      new_context = Lutaml::Model::TypeContext.isolated(:custom, custom_registry)
+      new_context = Lutaml::Model::TypeContext.isolated(:custom,
+                                                        custom_registry)
       registry.register(new_context)
       expect(registry.lookup(:custom)).to eq(new_context)
     end
 
     it "raises ArgumentError for non-TypeContext" do
-      expect {
+      expect do
         registry.register("not a context")
-      }.to raise_error(ArgumentError, /Expected TypeContext/)
+      end.to raise_error(ArgumentError, /Expected TypeContext/)
     end
   end
 
@@ -177,7 +178,7 @@ RSpec.describe Lutaml::Model::ContextRegistry do
 
       context = registry.create(
         id: :my_app,
-        substitutions: [{ from_type: from_class, to_type: to_class }]
+        substitutions: [{ from_type: from_class, to_type: to_class }],
       )
 
       expect(context.substitutions.size).to eq(1)
@@ -214,7 +215,7 @@ RSpec.describe Lutaml::Model::ContextRegistry do
 
     it "yields each context" do
       ids = []
-      registry.each { |id, _ctx| ids << id }
+      registry.each_key { |id| ids << id }
       expect(ids).to contain_exactly(:default, :custom1, :custom2)
     end
 
@@ -226,10 +227,11 @@ RSpec.describe Lutaml::Model::ContextRegistry do
 
   describe "thread safety" do
     it "handles concurrent registration safely" do
-      threads = 10.times.map do |i|
+      threads = Array.new(10) do |i|
         Thread.new do
           custom_registry = Lutaml::Model::TypeRegistry.new
-          context = Lutaml::Model::TypeContext.isolated("context_#{i}".to_sym, custom_registry)
+          context = Lutaml::Model::TypeContext.isolated(:"context_#{i}",
+                                                        custom_registry)
           registry.register(context)
         end
       end
@@ -241,7 +243,7 @@ RSpec.describe Lutaml::Model::ContextRegistry do
     it "handles concurrent lookup safely" do
       registry.create(id: :test_context)
 
-      threads = 20.times.map do
+      threads = Array.new(20) do
         Thread.new do
           100.times { registry.lookup(:test_context) }
         end
@@ -255,7 +257,7 @@ RSpec.describe Lutaml::Model::ContextRegistry do
   describe "integration with TypeResolver" do
     it "can resolve types from registered contexts" do
       resolver = Lutaml::Model::CachedTypeResolver.new(
-        delegate: Lutaml::Model::TypeResolver
+        delegate: Lutaml::Model::TypeResolver,
       )
 
       context = registry.lookup(:default)

@@ -1,4 +1,4 @@
-require "lutaml/model"
+require_relative "../../lib/lutaml/model"
 require_relative "person"
 
 class Address < Lutaml::Model::Serializable

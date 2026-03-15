@@ -2,7 +2,7 @@
 
 module Lutaml
   module Xml
-      class NokogiriElement < XmlElement
+    class NokogiriElement < XmlElement
       include Nokogiri::EntityResolver
 
       # Performance: Frozen empty collections to reduce allocations
@@ -15,58 +15,65 @@ module Lutaml
       attr_writer :input_namespaces
 
       def initialize(node, root_node: nil, default_namespace: nil)
-      # Collect namespaces declared on THIS element only
-      # Each element stores its own namespace declarations, not siblings'
-      # Child elements inherit from parent_document.namespaces (see XmlElement#namespaces)
-      #
-      # CRITICAL FIX: Previously, child elements added their namespaces to root_node,
-      # causing sibling elements to incorrectly inherit each other's namespaces.
-      # Now each element stores only its own declarations.
-      node.namespaces.each do |prefix, name|
-        namespace = XmlNamespace.new(name, prefix)
-        add_namespace(namespace)
-      end
+        # Defensive check: ensure node is not nil
+        if node.nil?
+          raise ArgumentError,
+                "Cannot create NokogiriElement from nil node. " \
+                "This usually means the XML document has no root element."
+        end
 
-      # CRITICAL: Capture input_namespaces with FORMAT info for this element
-      # This enables round-trip preservation of namespace format (prefixed vs default)
-      # Each element stores its own namespace declarations with format
-      # Performance: Lazy-initialize input_namespaces only when accessed
-      @input_namespaces_node = node # Store for lazy extraction
-      @input_namespaces = nil
+        # Collect namespaces declared on THIS element only
+        # Each element stores its own namespace declarations, not siblings'
+        # Child elements inherit from parent_document.namespaces (see XmlElement#namespaces)
+        #
+        # CRITICAL FIX: Previously, child elements added their namespaces to root_node,
+        # causing sibling elements to incorrectly inherit each other's namespaces.
+        # Now each element stores only its own declarations.
+        node.namespaces.each do |prefix, name|
+          namespace = XmlNamespace.new(name, prefix)
+          add_namespace(namespace)
+        end
 
-      # Performance: Use frozen empty hash when no attributes, otherwise build hash
-      attributes = build_attributes_hash(node)
+        # CRITICAL: Capture input_namespaces with FORMAT info for this element
+        # This enables round-trip preservation of namespace format (prefixed vs default)
+        # Each element stores its own namespace declarations with format
+        # Performance: Lazy-initialize input_namespaces only when accessed
+        @input_namespaces_node = node # Store for lazy extraction
+        @input_namespaces = nil
 
-      # Detect if xmlns="" is explicitly set (explicit no namespace)
-      # Use shared helper method for consistency across all adapters
-      explicit_no_namespace = XmlElement.detect_explicit_no_namespace(
-        has_empty_xmlns: node.namespaces.key?("xmlns") && node.namespaces["xmlns"] == "",
-        node_namespace_nil: node.namespace.nil?,
-      )
+        # Performance: Use frozen empty hash when no attributes, otherwise build hash
+        attributes = build_attributes_hash(node)
 
-      # Set default namespace for root, or inherit from parent for children
-      if !node.namespace&.prefix
-        default_namespace = node.namespace&.href ||
-          root_node&.instance_variable_get(:@default_namespace)
-      end
+        # Detect if xmlns="" is explicitly set (explicit no namespace)
+        # Use shared helper method for consistency across all adapters
+        explicit_no_namespace = XmlElement.detect_explicit_no_namespace(
+          has_empty_xmlns: node.namespaces.key?("xmlns") && node.namespaces["xmlns"] == "",
+          node_namespace_nil: node.namespace.nil?,
+        )
 
-      super(
-        node,
-        attributes,
-        parse_all_children(node, root_node: root_node || self,
-                                 default_namespace: default_namespace),
-        EncodingNormalizer.normalize_to_utf8(node.text),
-        name: node.name,
-        parent_document: root_node,
-        namespace_prefix: node.namespace&.prefix,
-        default_namespace: default_namespace,
-        explicit_no_namespace: explicit_no_namespace
-      )
+        # Set default namespace for root, or inherit from parent for children
+        if !node.namespace&.prefix
+          default_namespace = node.namespace&.href ||
+            root_node&.instance_variable_get(:@default_namespace)
+        end
+
+        super(
+          node,
+          attributes,
+          parse_all_children(node, root_node: root_node || self,
+                                   default_namespace: default_namespace),
+          EncodingNormalizer.normalize_to_utf8(node.text),
+          name: node.name,
+          parent_document: root_node,
+          namespace_prefix: node.namespace&.prefix,
+          default_namespace: default_namespace,
+          explicit_no_namespace: explicit_no_namespace
+        )
       end
 
       def text?
-      # false
-      children.empty? && text.length.positive?
+        # false
+        children.empty? && text.length.positive?
       end
 
       # Performance: Lazy getter for input_namespaces
@@ -128,53 +135,53 @@ module Lutaml
       end
 
       def to_xml
-      return text if text?
+        return text if text?
 
-      build_xml.doc.root.to_xml
+        build_xml.doc.root.to_xml
       end
 
       def inner_xml
-      children.map(&:to_xml).join
+        children.map(&:to_xml).join
       end
 
       def build_xml(builder = nil)
-      builder ||= Builder::Nokogiri.build
+        builder ||= Builder::Nokogiri.build
 
-      if name == "text"
-        builder.text(text)
-      else
-        builder.public_send(name, build_attributes(self)) do |xml|
-          children.each do |child|
-            child.build_xml(xml)
+        if name == "text"
+          builder.text(text)
+        else
+          builder.public_send(name, build_attributes(self)) do |xml|
+            children.each do |child|
+              child.build_xml(xml)
+            end
           end
         end
-      end
 
-      builder
+        builder
       end
 
       private
 
       def parse_children(node, root_node: nil)
-      node.children.select(&:element?).map do |child|
-        NokogiriElement.new(child, root_node: root_node)
-      end
+        node.children.select(&:element?).map do |child|
+          NokogiriElement.new(child, root_node: root_node)
+        end
       end
 
       def parse_all_children(node, root_node: nil, default_namespace: nil)
-      # Consolidate adjacent text-like nodes to fix entity fragmentation issue
-      consolidated = consolidate_text_nodes(node.children)
+        # Consolidate adjacent text-like nodes to fix entity fragmentation issue
+        consolidated = consolidate_text_nodes(node.children)
 
-      consolidated.map do |child|
-        NokogiriElement.new(child, root_node: root_node,
-                                   default_namespace: default_namespace)
-      end
+        consolidated.map do |child|
+          NokogiriElement.new(child, root_node: root_node,
+                                     default_namespace: default_namespace)
+        end
       end
 
       def build_attributes(node, _options = {})
-      attrs = node.attributes.transform_values(&:value)
+        attrs = node.attributes.transform_values(&:value)
 
-      attrs.merge(build_namespace_attributes(node))
+        attrs.merge(build_namespace_attributes(node))
       end
 
       def build_namespace_attributes(node)
@@ -194,6 +201,6 @@ module Lutaml
 
         namespace_attrs
       end
-      end
+    end
   end
 end

@@ -1,0 +1,35 @@
+<!--
+XML Schema for the SMIL 2.0 modules
+
+This is SMIL 2.0
+Copyright: 1998-2004 W3C (MIT, ERCIM, Keio), All Rights Reserved.
+See http://www.w3.org/Consortium/Legal/.
+
+Public URI: http://www.w3.org/2001/SMIL20/smil20-InlineTransitions.xsd
+Author: Aaron Michael Cohen (Intel)
+Revision: 2001/07/31
+
+Schema for the InlineTransitions module namespace.
+-->
+<schema xmlns="http://www.w3.org/2001/XMLSchema"
+        xmlns:smil20="http://www.w3.org/2001/SMIL20/"
+        xmlns:smil20lang="http://www.w3.org/2001/SMIL20/Language"        
+        xmlns:InlineTransitions="http://www.w3.org/2001/SMIL20/InlineTransitions"
+        targetNamespace="http://www.w3.org/2001/SMIL20/InlineTransitions"
+        elementFormDefault="qualified">
+    
+    <!-- these URL's will have to be expanded to their full and proper locations -->
+
+    <!-- import the definitions in the smil20 namespace -->
+    <import namespace="http://www.w3.org/2001/SMIL20/" schemaLocation="smil20.xsd"/>
+
+    <!-- import the definitions in the smil20 language namespace -->
+    <import namespace="http://www.w3.org/2001/SMIL20/Language" schemaLocation="smil20-language.xsd"/>
+
+    <!-- declare global elements in this module -->
+    <element name="transitionFilter" type="smil20:transitionFilterType" substitutionGroup="smil20:transitionFilter"/>
+    
+    <!-- declare global attributes in this module -->
+    <!-- none -->
+
+</schema>

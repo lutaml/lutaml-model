@@ -6,6 +6,7 @@ module Lutaml
       class Float < Value
         def self.cast(value, options = {})
           return nil if value.nil?
+
           # Use identity check for EMPTY_OPTIONS (faster than .empty?)
           unless options.equal?(EMPTY_OPTIONS)
             Model::Services::Type::Validator::Number.validate!(value, options)

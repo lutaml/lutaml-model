@@ -179,6 +179,16 @@ module Lutaml
         end
       end
 
+      # Iterate over all context IDs.
+      #
+      # @yield [Symbol] Yields context id
+      # @return [Enumerator] If no block given
+      def each_key(&block)
+        @mutex.synchronize do
+          @contexts.each_key(&block)
+        end
+      end
+
       private
 
       # Resolve a fallback reference to a TypeContext.

@@ -2,7 +2,7 @@ require "spec_helper"
 require "lutaml/model/schema"
 
 RSpec.describe "XSD Type Validation" do
-  describe Lutaml::Model::Schema::XsBuiltinTypes do
+  describe Lutaml::Xml::Schema::BuiltinTypes do
     describe ".builtin?" do
       context "with primitive types" do
         it "recognizes xs:string" do
@@ -136,7 +136,7 @@ RSpec.describe "XSD Type Validation" do
     end
   end
 
-  describe Lutaml::Model::Schema::XsdSchema do
+  describe Lutaml::Xml::Schema::XsdSchema do
     describe ".classify_xsd_type" do
       let(:register) { Lutaml::Model::Config.default_register }
 

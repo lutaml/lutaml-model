@@ -1,5 +1,5 @@
 require "spec_helper"
-require "lutaml/model"
+require_relative "../../../lib/lutaml/model"
 
 module CollectionTests
   class Pot < Lutaml::Model::Serializable

@@ -630,8 +630,16 @@ module Lutaml
       end
 
       def warn_name_conflict(name)
+        # Find the first caller location outside the lutaml-model gem's lib directory
+        # This ensures we report the user's code line, not internal gem code
+        gem_lib_pattern = %r{/lutaml[-/]model/lib/}
+        location = caller_locations.find do |cl|
+          !gem_lib_pattern.match?(cl.path)
+        end
+
         Logger.warn(
-          "Attribute name `#{name}` conflicts with a built-in method", caller_locations(5..5).first
+          "Attribute name `#{name}` conflicts with a built-in method",
+          location || caller_locations.first
         )
       end
 
