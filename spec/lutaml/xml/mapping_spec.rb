@@ -1,8 +1,8 @@
 require "spec_helper"
 
-require "lutaml/xml/ox_adapter"
-require "lutaml/xml/oga_adapter"
-require "lutaml/xml/rexml_adapter"
+require "lutaml/xml/adapter/ox_adapter"
+require "lutaml/xml/adapter/oga_adapter"
+require "lutaml/xml/adapter/rexml_adapter"
 require_relative "../../support/xml_mapping_namespaces"
 
 # Define a sample class for testing map content
@@ -489,7 +489,7 @@ RSpec.describe Lutaml::Xml::Mapping do
         expect(parsed.beta).to eq("bye")
 
         # Ox adapter omits xmlns:ex1 declaration (namespace hoisting difference)
-        expected = if adapter_class == Lutaml::Xml::OxAdapter
+        expected = if adapter_class == Lutaml::Xml::Adapter::OxAdapter
                      <<~XML
                        <example xmlns="http://www.check.com" ex1:alpha="hello" beta="bye"/>
                      XML
@@ -548,7 +548,7 @@ RSpec.describe Lutaml::Xml::Mapping do
       # (semantically equivalent to prefix format in input)
       # Note: Ox adapter does NOT hoist, keeps inline declarations
       let(:expected_xml) do
-        if adapter_class == Lutaml::Xml::OxAdapter
+        if adapter_class == Lutaml::Xml::Adapter::OxAdapter
           # Ox keeps namespaces inline on child elements
           <<~XML
             <OverrideDefaultNamespacePrefix>
@@ -636,7 +636,7 @@ RSpec.describe Lutaml::Xml::Mapping do
         # Different adapters have different hoisting behaviors:
         # - Nokogiri/Oga: Hoists namespace to parent
         # - Ox: No namespace declaration (uses inline xmi prefix without xmlns)
-        expected = if adapter_class == Lutaml::Xml::OxAdapter
+        expected = if adapter_class == Lutaml::Xml::Adapter::OxAdapter
                      # Ox doesn't add xmlns declaration when model has no namespace
                      <<~XML.strip
                        <ownedComment>
@@ -665,7 +665,7 @@ RSpec.describe Lutaml::Xml::Mapping do
         # Different adapters have different hoisting behaviors:
         # - Nokogiri/Oga: Hoists namespace to parent
         # - Ox: No namespace declaration (uses inline xmi prefix without xmlns)
-        expected = if adapter_class == Lutaml::Xml::OxAdapter
+        expected = if adapter_class == Lutaml::Xml::Adapter::OxAdapter
                      # Ox doesn't add xmlns declaration when model has no namespace
                      <<~XML.strip
                        <ownedComment annotatedElement="test2">
@@ -704,7 +704,7 @@ RSpec.describe Lutaml::Xml::Mapping do
       # Expected output with default namespace format instead of prefix format
       # Note: Ox adapter uses prefix format, Nokogiri/Oga use default format
       let(:expected_xml) do
-        if adapter_class == Lutaml::Xml::OxAdapter
+        if adapter_class == Lutaml::Xml::Adapter::OxAdapter
           # Ox uses prefix format
           <<~XML
             <SameElementName App="hello" xmlns="http://www.omg.org/spec/XMI/20131001">
@@ -749,10 +749,10 @@ RSpec.describe Lutaml::Xml::Mapping do
                                                 ])
 
         {
-          Lutaml::Xml::NokogiriAdapter => nokogiri_pattern,
-          Lutaml::Xml::OxAdapter => oga_ox_pattern,
-          Lutaml::Xml::OgaAdapter => oga_ox_pattern,
-          Lutaml::Xml::RexmlAdapter => oga_ox_pattern,
+          Lutaml::Xml::Adapter::NokogiriAdapter => nokogiri_pattern,
+          Lutaml::Xml::Adapter::OxAdapter => oga_ox_pattern,
+          Lutaml::Xml::Adapter::OgaAdapter => oga_ox_pattern,
+          Lutaml::Xml::Adapter::RexmlAdapter => oga_ox_pattern,
         }
       end
 
@@ -819,7 +819,7 @@ RSpec.describe Lutaml::Xml::Mapping do
         # NOTE: mapping with namespace: nil, prefix: nil has differing adapter behavior:
         # - Nokogiri: Cannot parse element with parent namespace prefix, returns nil
         # - Ox/Oga: Can parse element with parent namespace prefix successfully
-        if adapter_class == Lutaml::Xml::NokogiriAdapter
+        if adapter_class == Lutaml::Xml::Adapter::NokogiriAdapter
           expect(parsed.without_namespace).to be_nil
         else
           expect(parsed.without_namespace.value).to eq("without namespace text")
@@ -830,7 +830,7 @@ RSpec.describe Lutaml::Xml::Mapping do
         # Serialize the parsed model
         serialized = parsed.to_xml
 
-        if adapter_class == Lutaml::Xml::NokogiriAdapter
+        if adapter_class == Lutaml::Xml::Adapter::NokogiriAdapter
           # Nokogiri cannot parse the pn:WithoutNamespace element, so it's nil
           # and won't be in the serialized output. Verify other elements round-trip.
           reparsed = XmlMappingSpec::WithChildExplicitNamespace.from_xml(serialized)
@@ -842,7 +842,7 @@ RSpec.describe Lutaml::Xml::Mapping do
           # children without explicit namespace inherit parent's namespace.
           # WithoutNamespaceElement has no namespace declaration, so it inherits.
           # Oga uses default namespace format, Ox uses prefix format
-          expected_xml = if adapter_class == Lutaml::Xml::OgaAdapter
+          expected_xml = if adapter_class == Lutaml::Xml::Adapter::OgaAdapter
                            <<~XML.strip
                              <WithChildExplicitNamespaceNil xmlns="http://parent-namespace">
                                <DefaultNamespace>default namespace text</DefaultNamespace>
@@ -945,7 +945,7 @@ RSpec.describe Lutaml::Xml::Mapping do
       # Both are W3C compliant.
       let(:expected_xml) do
         # Ox uses prefix format, Nokogiri/Oga use default format
-        if adapter_class == Lutaml::Xml::OxAdapter
+        if adapter_class == Lutaml::Xml::Adapter::OxAdapter
           <<~XML
             <ChildNamespaceNil xmlns="http://www.omg.org/spec/XMI/20131001">
               <ElementDefaultNamespace>Default namespace</ElementDefaultNamespace>
@@ -1134,25 +1134,25 @@ RSpec.describe Lutaml::Xml::Mapping do
     end
   end
 
-  describe Lutaml::Xml::NokogiriAdapter do
+  describe Lutaml::Xml::Adapter::NokogiriAdapter do
     it_behaves_like "having XML Mappings", described_class
   end
 
-  describe Lutaml::Xml::OxAdapter do
+  describe Lutaml::Xml::Adapter::OxAdapter do
     if TestAdapterConfig.adapter_enabled?(:ox)
       it_behaves_like "having XML Mappings",
                       described_class
     end
   end
 
-  describe Lutaml::Xml::OgaAdapter do
+  describe Lutaml::Xml::Adapter::OgaAdapter do
     if TestAdapterConfig.adapter_enabled?(:oga)
       it_behaves_like "having XML Mappings",
                       described_class
     end
   end
 
-  describe Lutaml::Xml::RexmlAdapter do
+  describe Lutaml::Xml::Adapter::RexmlAdapter do
     if TestAdapterConfig.adapter_enabled?(:rexml)
       it_behaves_like "having XML Mappings", described_class
     end

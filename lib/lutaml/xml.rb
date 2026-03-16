@@ -82,13 +82,6 @@ module Lutaml
     autoload :Transformation, "#{__dir__}/xml/transformation"
     autoload :Transform, "#{__dir__}/xml/transform"
     autoload :Adapter, "#{__dir__}/xml/adapter"
-    # Backward compatibility autoloads for adapter classes (now in Adapter namespace)
-    autoload :BaseAdapter, "#{__dir__}/xml/base_adapter"
-    autoload :AdapterHelpers, "#{__dir__}/xml/adapter_helpers"
-    autoload :NokogiriAdapter, "#{__dir__}/xml/nokogiri_adapter"
-    autoload :OgaAdapter, "#{__dir__}/xml/oga_adapter"
-    autoload :OxAdapter, "#{__dir__}/xml/ox_adapter"
-    autoload :RexmlAdapter, "#{__dir__}/xml/rexml_adapter"
     autoload :XmlElement, "#{__dir__}/xml/xml_element"
     autoload :XmlAttribute, "#{__dir__}/xml/xml_attribute"
     autoload :Decisions, "#{__dir__}/xml/decisions"
@@ -131,7 +124,6 @@ module Lutaml
     autoload :NamespaceDeclarationBuilder,
              "#{__dir__}/xml/namespace_declaration_builder"
     autoload :ElementPrefixResolver, "#{__dir__}/xml/element_prefix_resolver"
-    autoload :AdapterHelpers, "#{__dir__}/xml/adapter_helpers"
     autoload :FormatChooser, "#{__dir__}/xml/format_chooser"
     autoload :HoistingAlgorithm, "#{__dir__}/xml/hoisting_algorithm"
     autoload :HoistingAlgorithm, "#{__dir__}/xml/hoisting_algorithm"

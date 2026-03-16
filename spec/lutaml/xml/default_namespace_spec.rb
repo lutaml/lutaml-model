@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 require "spec_helper"
-require "lutaml/xml/ox_adapter"
-require "lutaml/xml/oga_adapter"
+require "lutaml/xml/adapter/ox_adapter"
+require "lutaml/xml/adapter/oga_adapter"
 require_relative "../../support/xml_mapping_namespaces"
 
 # Test for issue #504: Default namespace handling
@@ -170,18 +170,18 @@ RSpec.describe DefaultNamespaceSpec do
     end
   end
 
-  describe Lutaml::Xml::NokogiriAdapter do
+  describe Lutaml::Xml::Adapter::NokogiriAdapter do
     it_behaves_like "default namespace serialization", described_class
   end
 
-  describe Lutaml::Xml::OxAdapter do
+  describe Lutaml::Xml::Adapter::OxAdapter do
     if TestAdapterConfig.adapter_enabled?(:ox)
       it_behaves_like "default namespace serialization",
                       described_class
     end
   end
 
-  describe Lutaml::Xml::OgaAdapter do
+  describe Lutaml::Xml::Adapter::OgaAdapter do
     if TestAdapterConfig.adapter_enabled?(:oga)
       it_behaves_like "default namespace serialization",
                       described_class

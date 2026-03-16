@@ -24,7 +24,7 @@ module Lutaml
                    node.content
                  end
 
-          name = RexmlAdapter.name_of(node)
+          name = Lutaml::Xml::Adapter::RexmlAdapter.name_of(node)
           super(
             node,
             Hash(attributes),
@@ -79,7 +79,7 @@ module Lutaml
           return [] unless node.children
 
           node.children.filter_map do |child|
-            next if RexmlAdapter::TEXT_CLASSES.include?(child.class) && child.content.empty?
+            next if Lutaml::Xml::Adapter::RexmlAdapter::TEXT_CLASSES.include?(child.class) && child.content.empty?
 
             Element.new(child, parent: self)
           end

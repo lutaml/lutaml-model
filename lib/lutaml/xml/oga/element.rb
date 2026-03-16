@@ -42,7 +42,7 @@ module Lutaml
                    EncodingNormalizer.normalize_to_utf8(node.native.text)
                  end
 
-          name = OgaAdapter.name_of(node)
+          name = Lutaml::Xml::Adapter::OgaAdapter.name_of(node)
           super(
             name,
             Hash(attributes),
