@@ -1,5 +1,4 @@
 require "erb"
-require "ostruct"
 
 module Lutaml
   module Model
