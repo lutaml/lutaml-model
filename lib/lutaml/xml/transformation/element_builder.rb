@@ -55,9 +55,10 @@ register_id, register)
         # @return [Class, nil] The namespace class to use
         def determine_element_namespace(rule, parent_namespace_class,
 parent_element_form_default)
-          # Priority 1: Type declares xml_namespace (HIGHEST)
-          if rule.attribute_type.respond_to?(:xml_namespace) && rule.attribute_type.xml_namespace
-            return rule.attribute_type.xml_namespace
+          # Priority 1: Type declares namespace (HIGHEST)
+          attr_type = rule.attribute_type
+          if attr_type.is_a?(Class) && attr_type <= Lutaml::Model::Type::Value && attr_type.namespace_class
+            return attr_type.namespace_class
           end
 
           # Priority 2: Explicit namespace on mapping rule

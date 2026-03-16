@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative "error/unknown_adapter_type_error"
+
 module Lutaml
   module Model
     module Config
@@ -87,9 +89,9 @@ module Lutaml
       end
 
       def class_for(adapter, type)
-        # XML adapters are now in Lutaml::Xml namespace
+        # XML adapters are now in Lutaml::Xml::Adapter namespace
         if adapter == "xml"
-          Lutaml::Xml.const_get(to_class_name(type))
+          Lutaml::Xml::Adapter.const_get(to_class_name(type))
         else
           # Key-value adapters are now in Lutaml::KeyValue::Adapter namespace
           Lutaml::KeyValue::Adapter.const_get(to_class_name(adapter))
@@ -139,9 +141,9 @@ module Lutaml
       end
 
       def load_adapter_file(adapter, type)
-        # XML adapters are now in lib/lutaml/xml/
+        # XML adapters are now in lib/lutaml/xml/adapter/
         adapter_path = if adapter == "xml"
-                         File.join(__dir__, "../xml", type)
+                         File.join(__dir__, "../xml/adapter", type)
                        else
                          # Key-value adapters are now in lib/lutaml/key_value/adapter/
                          File.join(__dir__, "../key_value/adapter", adapter,

@@ -25,26 +25,30 @@ RSpec.describe "XML namespace_scope feature" do
 
   # Define types with namespaces
   let(:vcard_version_type) do
+    ns = vcard_namespace
     t = Class.new(Lutaml::Model::Type::String)
-    t.xml_namespace(vcard_namespace)
+    t.xml { namespace ns }
     t
   end
 
   let(:vcard_fn_type) do
+    ns = vcard_namespace
     t = Class.new(Lutaml::Model::Type::String)
-    t.xml_namespace(vcard_namespace)
+    t.xml { namespace ns }
     t
   end
 
   let(:dc_title_type) do
+    ns = dc_elements_namespace
     t = Class.new(Lutaml::Model::Type::String)
-    t.xml_namespace(dc_elements_namespace)
+    t.xml { namespace ns }
     t
   end
 
   let(:dcterms_created_type) do
+    ns = dcterms_namespace
     t = Class.new(Lutaml::Model::Type::DateTime)
-    t.xml_namespace(dcterms_namespace)
+    t.xml { namespace ns }
     t
   end
 

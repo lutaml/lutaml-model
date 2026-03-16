@@ -15,9 +15,8 @@ RSpec.describe "XML Namespace Placement" do
         prefix_default "ex"
       end
 
-      value_type = Class.new(Lutaml::Model::Type::String) do
-        namespace ns
-      end
+      value_type = Class.new(Lutaml::Model::Type::String)
+      value_type.xml { namespace ns }
 
       model = Class.new do
         include Lutaml::Model::Serialize
@@ -151,9 +150,8 @@ RSpec.describe "XML Namespace Placement" do
         element_form_default :qualified
       end
 
-      xsi_type = Class.new(Lutaml::Model::Type::String) do
-        namespace xsi_ns
-      end
+      xsi_type = Class.new(Lutaml::Model::Type::String)
+      xsi_type.xml { namespace xsi_ns }
 
       created_type = Class.new do
         include Lutaml::Model::Serialize
@@ -209,9 +207,8 @@ RSpec.describe "XML Namespace Placement" do
         prefix_default "type"
       end
 
-      custom_type = Class.new(Lutaml::Model::Type::String) do
-        namespace type_ns # ✅ Correct for Type::Value
-      end
+      custom_type = Class.new(Lutaml::Model::Type::String)
+      custom_type.xml { namespace type_ns } # ✅ Correct for Type::Value
 
       # Pattern 2: Serializable classes - namespace in XML block
       model_ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do

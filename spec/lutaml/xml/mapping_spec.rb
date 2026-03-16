@@ -30,7 +30,9 @@ end
 
 # Custom type for alpha attribute with Example namespace
 class ExampleAlphaType < Lutaml::Model::Type::String
-  xml_namespace ExampleNamespace
+  xml do
+    namespace ExampleNamespace
+  end
 end
 
 module XmlMappingSpec
@@ -114,7 +116,9 @@ module XmlMappingSpec
 
   # Custom type for alpha attribute with Example namespace
   class ExampleAlphaType < Lutaml::Model::Type::String
-    xml_namespace ExampleNamespace
+    xml do
+      namespace ExampleNamespace
+    end
   end
 
   class AttributeNamespace < Lutaml::Model::Serializable
@@ -181,7 +185,9 @@ module XmlMappingSpec
 
   # Custom type for xmi:idref attribute
   class XmiIdrefType < Lutaml::Model::Type::String
-    xml_namespace XmiNamespace
+    xml do
+      namespace XmiNamespace
+    end
   end
 
   # Child model for element with TestElement namespace

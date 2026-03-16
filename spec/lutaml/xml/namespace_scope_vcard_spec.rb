@@ -39,21 +39,21 @@ RSpec.describe "namespace_scope with vCard" do
   let(:vcard_version_type) do
     ns = vcard_namespace
     Class.new(Lutaml::Model::Type::String).tap do |klass|
-      klass.xml_namespace(ns)
+      klass.xml { namespace ns }
     end
   end
 
   let(:dc_title_type) do
     ns = dc_elements_namespace
     Class.new(Lutaml::Model::Type::String).tap do |klass|
-      klass.xml_namespace(ns)
+      klass.xml { namespace ns }
     end
   end
 
   let(:dcterms_created_type) do
     ns = dcterms_namespace
     Class.new(Lutaml::Model::Type::DateTime).tap do |klass|
-      klass.xml_namespace(ns)
+      klass.xml { namespace ns }
     end
   end
 

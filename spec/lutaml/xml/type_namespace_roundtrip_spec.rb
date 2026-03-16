@@ -24,21 +24,21 @@ RSpec.describe "Type-level namespace round-trip tests" do
     let(:given_name_type) do
       ns = contact_namespace
       Class.new(Lutaml::Model::Type::String).tap do |klass|
-        klass.xml_namespace(ns)
+        klass.xml { namespace ns }
       end
     end
 
     let(:surname_type) do
       ns = contact_namespace
       Class.new(Lutaml::Model::Type::String).tap do |klass|
-        klass.xml_namespace(ns)
+        klass.xml { namespace ns }
       end
     end
 
     let(:name_prefix_type) do
       ns = name_attribute_namespace
       Class.new(Lutaml::Model::Type::String).tap do |klass|
-        klass.xml_namespace(ns)
+        klass.xml { namespace ns }
       end
     end
 
@@ -271,35 +271,35 @@ RSpec.describe "Type-level namespace round-trip tests" do
     let(:dc_title_type) do
       ns = dc_namespace
       Class.new(Lutaml::Model::Type::String).tap do |klass|
-        klass.xml_namespace(ns)
+        klass.xml { namespace ns }
       end
     end
 
     let(:dc_creator_type) do
       ns = dc_namespace
       Class.new(Lutaml::Model::Type::String).tap do |klass|
-        klass.xml_namespace(ns)
+        klass.xml { namespace ns }
       end
     end
 
     let(:cp_last_modified_by_type) do
       ns = cp_namespace
       Class.new(Lutaml::Model::Type::String).tap do |klass|
-        klass.xml_namespace(ns)
+        klass.xml { namespace ns }
       end
     end
 
     let(:cp_revision_type) do
       ns = cp_namespace
       Class.new(Lutaml::Model::Type::Integer).tap do |klass|
-        klass.xml_namespace(ns)
+        klass.xml { namespace ns }
       end
     end
 
     let(:xsi_type_type) do
       ns = xsi_namespace
       Class.new(Lutaml::Model::Type::String).tap do |klass|
-        klass.xml_namespace(ns)
+        klass.xml { namespace ns }
       end
     end
 

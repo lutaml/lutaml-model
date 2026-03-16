@@ -222,9 +222,9 @@ RSpec.describe "Three-phase namespace algorithm" do
     context "with Type namespaces" do
       let(:vcard_version_type) do
         vcard_ns = vcard_namespace
-        Class.new(Lutaml::Model::Type::String) do
-          xml_namespace(vcard_ns)
-        end
+        klass = Class.new(Lutaml::Model::Type::String)
+        klass.xml { namespace vcard_ns }
+        klass
       end
 
       let(:model_class) do

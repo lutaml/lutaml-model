@@ -41,9 +41,9 @@ module Lutaml
         # @return [XmlNamespace, nil] The namespace class
         def namespace_class(register)
           type = type_class(register)
-          return nil unless type.respond_to?(:xml_namespace)
+          return nil unless type.is_a?(Class) && type <= Lutaml::Model::Type::Value
 
-          type.xml_namespace
+          type.namespace_class
         end
 
         # Check if this is for an attribute context

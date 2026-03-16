@@ -8,6 +8,9 @@ module Lutaml
       # Performance: Frozen empty collections to reduce allocations
       EMPTY_NAMESPACES = {}.freeze
       EMPTY_ATTRIBUTES = {}.freeze
+
+      # Use NamespaceData for adapter-internal namespace data
+      NamespaceData = Lutaml::Xml::Adapter::NamespaceData
       EMPTY_CHILDREN = [].freeze
 
       # Custom accessor for lazy input_namespaces initialization
@@ -30,7 +33,7 @@ module Lutaml
         # causing sibling elements to incorrectly inherit each other's namespaces.
         # Now each element stores only its own declarations.
         node.namespaces.each do |prefix, name|
-          namespace = XmlNamespace.new(name, prefix)
+          namespace = NamespaceData.new(name, prefix)
           add_namespace(namespace)
         end
 

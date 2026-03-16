@@ -125,9 +125,9 @@ register_id)
           return unless text
 
           # Determine attribute namespace - type namespace takes precedence
-          attr_namespace_class = if rule.attribute_type.respond_to?(:xml_namespace) &&
-              rule.attribute_type.xml_namespace
-                                   rule.attribute_type.xml_namespace
+          attr_type = rule.attribute_type
+          attr_namespace_class = if attr_type.is_a?(Class) && attr_type <= Lutaml::Model::Type::Value && attr_type.namespace_class
+                                   attr_type.namespace_class
                                  else
                                    rule.namespace_class
                                  end

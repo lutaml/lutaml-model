@@ -4,6 +4,9 @@ module Lutaml
   module Xml
     module Oga
       class Element < XmlElement
+        # Use NamespaceData for adapter-internal namespace data
+        NamespaceData = Lutaml::Xml::Adapter::NamespaceData
+
         attr_accessor :input_namespaces
 
         def initialize(node, parent: nil, default_namespace: nil)
@@ -112,7 +115,7 @@ module Lutaml
 
         def add_namespaces(node, is_root: false)
           node.namespaces.each do |namespace|
-            ns = XmlNamespace.new(namespace.uri, namespace.prefix)
+            ns = NamespaceData.new(namespace.uri, namespace.prefix)
 
             if ns.prefix || is_root
               add_namespace(ns)

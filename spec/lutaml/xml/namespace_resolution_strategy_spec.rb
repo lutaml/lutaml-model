@@ -123,7 +123,7 @@ RSpec.describe Lutaml::Xml::TypeNamespaceStrategy do
   let(:custom_type) do
     ns = type_namespace
     Class.new(Lutaml::Model::Type::String) do
-      define_singleton_method(:xml_namespace) { ns }
+      define_singleton_method(:namespace_class) { ns }
     end
   end
 

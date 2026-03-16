@@ -4,6 +4,9 @@ module Lutaml
   module Xml
     module Rexml
       class Element < XmlElement
+        # Use NamespaceData for adapter-internal namespace data
+        NamespaceData = Lutaml::Xml::Adapter::NamespaceData
+
         attr_accessor :target_encoding
 
         def initialize(node, parent: nil, target_encoding: nil)
@@ -131,7 +134,7 @@ module Lutaml
           return unless node.respond_to?(:namespaces) && node.namespaces
 
           node.namespaces.each do |namespace|
-            add_namespace(XmlNamespace.new(namespace.uri, namespace.prefix))
+            add_namespace(NamespaceData.new(namespace.uri, namespace.prefix))
           end
         end
 

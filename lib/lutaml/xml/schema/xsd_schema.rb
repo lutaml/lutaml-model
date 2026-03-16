@@ -456,7 +456,7 @@ module Lutaml
 
           # Get namespace info from Type class (Type::Value)
           def get_type_namespace_info(klass)
-            ns = klass.respond_to?(:xml_namespace) ? klass.xml_namespace : nil
+            ns = klass.is_a?(Class) && klass <= Lutaml::Model::Type::Value ? klass.namespace_class : nil
             return {} unless ns
 
             # Handle special symbols

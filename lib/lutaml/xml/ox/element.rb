@@ -3,6 +3,9 @@
 module Lutaml
   module Xml
     class OxElement < XmlElement
+      # Use NamespaceData for adapter-internal namespace data
+      NamespaceData = Lutaml::Xml::Adapter::NamespaceData
+
       def initialize(node, root_node: nil, default_namespace: nil)
         case node
         when String
@@ -17,7 +20,7 @@ module Lutaml
           has_no_prefix = separate_name_and_prefix(node).first.nil?
 
           namespace_attributes(node.attributes).each do |(name, value)|
-            ns = XmlNamespace.new(value, name)
+            ns = NamespaceData.new(value, name)
 
             if root_node && ns.prefix
               root_node.add_namespace(ns)

@@ -43,7 +43,9 @@ module GroupSpec
 
   # Create custom type for code attribute with Example namespace
   class ExampleCodeType < Lutaml::Model::Type::String
-    xml_namespace ExampleNamespace
+    xml do
+      namespace ExampleNamespace
+    end
   end
 
   class GroupOfItems < Lutaml::Model::Serializable
