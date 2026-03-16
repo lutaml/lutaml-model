@@ -246,7 +246,7 @@ RSpec.describe "Namespace Preservation Issue #3" do
       XML
 
       parsed = Nokogiri::XML(xml)
-      namespaces = Lutaml::Xml::Adapter::NokogiriAdapter.extract_input_namespaces(parsed.root)
+      namespaces = Lutaml::Xml::InputNamespaceExtractor.extract(parsed.root, :nokogiri)
 
       expect(namespaces).to be_a(Hash)
       expect(namespaces[:default]).to eq({ uri: "http://default.com",
@@ -256,7 +256,7 @@ RSpec.describe "Namespace Preservation Issue #3" do
     end
 
     it "extract_input_namespaces handles nil root element" do
-      namespaces = Lutaml::Xml::Adapter::NokogiriAdapter.extract_input_namespaces(nil)
+      namespaces = Lutaml::Xml::InputNamespaceExtractor.extract(nil, :nokogiri)
       expect(namespaces).to eq({})
     end
   end

@@ -51,17 +51,6 @@ module Lutaml
             input_namespaces: input_namespaces)
       end
 
-      # Extract all xmlns namespace declarations from root element
-      #
-      # Wrapper method for backwards compatibility with tests.
-      # Delegates to InputNamespaceExtractor.
-      #
-      # @param root_element [Nokogiri::XML::Element] the root element
-      # @return [Hash] map of prefix/uri pairs from input
-      def self.extract_input_namespaces(root_element)
-        InputNamespaceExtractor.extract(root_element, :nokogiri)
-      end
-
       # Escape unescaped ampersands in XML
       # Only escapes & that are NOT part of valid entities (including HTML entities)
       # Valid entities: &xxx; where xxx is alphanumeric, #digits, or #xhex
