@@ -18,7 +18,7 @@ RSpec.describe "XML Entity Fragmentation Issue #5" do
         <copyright>&copy; 2005 Mulberry Technologies, Inc.</copyright>
       XML
 
-      doc = Lutaml::Xml::NokogiriAdapter.parse(xml.strip)
+      doc = Lutaml::Xml::Adapter::NokogiriAdapter.parse(xml.strip)
       text = doc.root.text
 
       expect(text).to include("©")
@@ -32,7 +32,7 @@ RSpec.describe "XML Entity Fragmentation Issue #5" do
         <text>Copyright &copy; notice here</text>
       XML
 
-      doc = Lutaml::Xml::NokogiriAdapter.parse(xml.strip)
+      doc = Lutaml::Xml::Adapter::NokogiriAdapter.parse(xml.strip)
       text = doc.root.text
 
       expect(text).to eq("Copyright © notice here")
@@ -43,7 +43,7 @@ RSpec.describe "XML Entity Fragmentation Issue #5" do
         <text>Before &mdash; After</text>
       XML
 
-      doc = Lutaml::Xml::NokogiriAdapter.parse(xml.strip)
+      doc = Lutaml::Xml::Adapter::NokogiriAdapter.parse(xml.strip)
       text = doc.root.text
 
       expect(text).to eq("Before — After")
@@ -56,7 +56,7 @@ RSpec.describe "XML Entity Fragmentation Issue #5" do
         <text>First &mdash; second &ndash; third</text>
       XML
 
-      doc = Lutaml::Xml::NokogiriAdapter.parse(xml.strip)
+      doc = Lutaml::Xml::Adapter::NokogiriAdapter.parse(xml.strip)
       text = doc.root.text
 
       expect(text).to eq("First — second – third")
@@ -67,7 +67,7 @@ RSpec.describe "XML Entity Fragmentation Issue #5" do
         <text>&copy;&reg;&trade;</text>
       XML
 
-      doc = Lutaml::Xml::NokogiriAdapter.parse(xml.strip)
+      doc = Lutaml::Xml::Adapter::NokogiriAdapter.parse(xml.strip)
       text = doc.root.text
 
       expect(text).to eq("©®™")
@@ -78,7 +78,7 @@ RSpec.describe "XML Entity Fragmentation Issue #5" do
         <text>&copy; &reg; &trade;</text>
       XML
 
-      doc = Lutaml::Xml::NokogiriAdapter.parse(xml.strip)
+      doc = Lutaml::Xml::Adapter::NokogiriAdapter.parse(xml.strip)
       text = doc.root.text
 
       expect(text).to eq("© ® ™")
@@ -91,7 +91,7 @@ RSpec.describe "XML Entity Fragmentation Issue #5" do
         <text>&copy; at start</text>
       XML
 
-      doc = Lutaml::Xml::NokogiriAdapter.parse(xml.strip)
+      doc = Lutaml::Xml::Adapter::NokogiriAdapter.parse(xml.strip)
       text = doc.root.text
 
       expect(text).to eq("© at start")
@@ -102,7 +102,7 @@ RSpec.describe "XML Entity Fragmentation Issue #5" do
         <text>at end &copy;</text>
       XML
 
-      doc = Lutaml::Xml::NokogiriAdapter.parse(xml.strip)
+      doc = Lutaml::Xml::Adapter::NokogiriAdapter.parse(xml.strip)
       text = doc.root.text
 
       expect(text).to eq("at end ©")
@@ -113,7 +113,7 @@ RSpec.describe "XML Entity Fragmentation Issue #5" do
         <text>&copy;</text>
       XML
 
-      doc = Lutaml::Xml::NokogiriAdapter.parse(xml.strip)
+      doc = Lutaml::Xml::Adapter::NokogiriAdapter.parse(xml.strip)
       text = doc.root.text
 
       expect(text).to eq("©")
@@ -213,7 +213,7 @@ RSpec.describe "XML Entity Fragmentation Issue #5" do
       it "correctly handles &#{entity_name}; entity" do
         xml = "<text>Before &#{entity_name}; After</text>"
 
-        doc = Lutaml::Xml::NokogiriAdapter.parse(xml)
+        doc = Lutaml::Xml::Adapter::NokogiriAdapter.parse(xml)
         text = doc.root.text
 
         expect(text).to eq("Before #{expected_char} After")
@@ -225,7 +225,7 @@ RSpec.describe "XML Entity Fragmentation Issue #5" do
     it "handles decimal numeric references" do
       xml = "<text>&#169; &#174; &#8212;</text>"
 
-      doc = Lutaml::Xml::NokogiriAdapter.parse(xml)
+      doc = Lutaml::Xml::Adapter::NokogiriAdapter.parse(xml)
       text = doc.root.text
 
       expect(text).to eq("© ® —")
@@ -234,7 +234,7 @@ RSpec.describe "XML Entity Fragmentation Issue #5" do
     it "handles hexadecimal numeric references" do
       xml = "<text>&#xa9; &#xae; &#x2014;</text>"
 
-      doc = Lutaml::Xml::NokogiriAdapter.parse(xml)
+      doc = Lutaml::Xml::Adapter::NokogiriAdapter.parse(xml)
       text = doc.root.text
 
       expect(text).to eq("© ® —")
@@ -243,7 +243,7 @@ RSpec.describe "XML Entity Fragmentation Issue #5" do
     it "handles numeric references with surrounding text" do
       xml = "<text>Copyright &#169; 2005</text>"
 
-      doc = Lutaml::Xml::NokogiriAdapter.parse(xml)
+      doc = Lutaml::Xml::Adapter::NokogiriAdapter.parse(xml)
       text = doc.root.text
 
       expect(text).to eq("Copyright © 2005")
@@ -256,7 +256,7 @@ RSpec.describe "XML Entity Fragmentation Issue #5" do
         <copyright-statement>&copy; 2005 Mulberry Technologies, Inc.</copyright-statement>
       XML
 
-      doc = Lutaml::Xml::NokogiriAdapter.parse(xml.strip)
+      doc = Lutaml::Xml::Adapter::NokogiriAdapter.parse(xml.strip)
       text = doc.root.text
 
       expect(text).to eq("© 2005 Mulberry Technologies, Inc.")
@@ -268,7 +268,7 @@ RSpec.describe "XML Entity Fragmentation Issue #5" do
         <mixed-citation>A citation &mdash; with em-dash</mixed-citation>
       XML
 
-      doc = Lutaml::Xml::NokogiriAdapter.parse(xml.strip)
+      doc = Lutaml::Xml::Adapter::NokogiriAdapter.parse(xml.strip)
       text = doc.root.text
 
       expect(text).to eq("A citation — with em-dash")
@@ -279,7 +279,7 @@ RSpec.describe "XML Entity Fragmentation Issue #5" do
         <article-title>Can&rsquo;t Help Loving That Man</article-title>
       XML
 
-      doc = Lutaml::Xml::NokogiriAdapter.parse(xml.strip)
+      doc = Lutaml::Xml::Adapter::NokogiriAdapter.parse(xml.strip)
       text = doc.root.text
 
       expect(text).to eq("Can't Help Loving That Man")
@@ -290,7 +290,7 @@ RSpec.describe "XML Entity Fragmentation Issue #5" do
     it "handles empty elements" do
       xml = "<text></text>"
 
-      doc = Lutaml::Xml::NokogiriAdapter.parse(xml)
+      doc = Lutaml::Xml::Adapter::NokogiriAdapter.parse(xml)
       text = doc.root.text
 
       expect(text).to eq("")
@@ -299,7 +299,7 @@ RSpec.describe "XML Entity Fragmentation Issue #5" do
     it "handles only whitespace" do
       xml = "<text>   </text>"
 
-      doc = Lutaml::Xml::NokogiriAdapter.parse(xml)
+      doc = Lutaml::Xml::Adapter::NokogiriAdapter.parse(xml)
       text = doc.root.text
 
       expect(text).to eq("   ")
@@ -308,7 +308,7 @@ RSpec.describe "XML Entity Fragmentation Issue #5" do
     it "handles entity with no surrounding text" do
       xml = "<text>&copy;</text>"
 
-      doc = Lutaml::Xml::NokogiriAdapter.parse(xml)
+      doc = Lutaml::Xml::Adapter::NokogiriAdapter.parse(xml)
       text = doc.root.text
 
       expect(text).to eq("©")
@@ -317,7 +317,7 @@ RSpec.describe "XML Entity Fragmentation Issue #5" do
     it "preserves significant whitespace around entities" do
       xml = "<text>  &copy;  </text>"
 
-      doc = Lutaml::Xml::NokogiriAdapter.parse(xml)
+      doc = Lutaml::Xml::Adapter::NokogiriAdapter.parse(xml)
       text = doc.root.text
 
       expect(text).to eq("  ©  ")

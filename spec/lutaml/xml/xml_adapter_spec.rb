@@ -1,8 +1,8 @@
 require "spec_helper"
-require "lutaml/xml/nokogiri_adapter"
-require "lutaml/xml/ox_adapter"
-require "lutaml/xml/oga_adapter"
-require "lutaml/xml/rexml_adapter"
+require "lutaml/xml/adapter/nokogiri_adapter"
+require "lutaml/xml/adapter/ox_adapter"
+require "lutaml/xml/adapter/oga_adapter"
+require "lutaml/xml/adapter/rexml_adapter"
 require_relative "../../fixtures/sample_model"
 
 module XmlAdapterSpec
@@ -195,25 +195,25 @@ RSpec.describe "XmlAdapter" do
     end
   end
 
-  describe Lutaml::Xml::NokogiriAdapter do
+  describe Lutaml::Xml::Adapter::NokogiriAdapter do
     it_behaves_like "an XML adapter", described_class
   end
 
-  describe Lutaml::Xml::OxAdapter do
+  describe Lutaml::Xml::Adapter::OxAdapter do
     if TestAdapterConfig.adapter_enabled?(:ox)
       it_behaves_like "an XML adapter",
                       described_class
     end
   end
 
-  describe Lutaml::Xml::OgaAdapter do
+  describe Lutaml::Xml::Adapter::OgaAdapter do
     if TestAdapterConfig.adapter_enabled?(:oga)
       it_behaves_like "an XML adapter",
                       described_class
     end
   end
 
-  describe Lutaml::Xml::RexmlAdapter do
+  describe Lutaml::Xml::Adapter::RexmlAdapter do
     if TestAdapterConfig.adapter_enabled?(:rexml)
       it_behaves_like "an XML adapter",
                       described_class

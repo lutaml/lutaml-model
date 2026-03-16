@@ -1,9 +1,9 @@
 require "spec_helper"
 require_relative "../../../lib/lutaml/model"
-require "lutaml/xml/nokogiri_adapter"
-require "lutaml/xml/ox_adapter"
-require "lutaml/xml/oga_adapter"
-require "lutaml/xml/rexml_adapter"
+require "lutaml/xml/adapter/nokogiri_adapter"
+require "lutaml/xml/adapter/ox_adapter"
+require "lutaml/xml/adapter/oga_adapter"
+require "lutaml/xml/adapter/rexml_adapter"
 
 # Tests for Solution 1: Prefix Control Feature
 # These tests validate the prefix control functionality described in PROPOSAL-default-namespace.md
@@ -261,26 +261,26 @@ RSpec.describe "XML Prefix Control" do
   end
 
   context "with Nokogiri adapter" do
-    it_behaves_like "prefix control behavior", Lutaml::Xml::NokogiriAdapter
+    it_behaves_like "prefix control behavior", Lutaml::Xml::Adapter::NokogiriAdapter
   end
 
   context "with Ox adapter" do
     if TestAdapterConfig.adapter_enabled?(:ox)
       it_behaves_like "prefix control behavior",
-                      Lutaml::Xml::OxAdapter
+                      Lutaml::Xml::Adapter::OxAdapter
     end
   end
 
   context "with Oga adapter" do
     if TestAdapterConfig.adapter_enabled?(:oga)
-      it_behaves_like "prefix control behavior", Lutaml::Xml::OgaAdapter
+      it_behaves_like "prefix control behavior", Lutaml::Xml::Adapter::OgaAdapter
     end
   end
 
   context "with REXML adapter" do
     if TestAdapterConfig.adapter_enabled?(:rexml)
       it_behaves_like "prefix control behavior",
-                      Lutaml::Xml::RexmlAdapter
+                      Lutaml::Xml::Adapter::RexmlAdapter
     end
   end
 end

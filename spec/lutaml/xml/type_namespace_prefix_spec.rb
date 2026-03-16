@@ -46,7 +46,7 @@ RSpec.describe "Type Namespace Prefix Issue #6" do
       XML
 
       # Parse
-      doc = Lutaml::Xml::NokogiriAdapter.parse(xml_input)
+      doc = Lutaml::Xml::Adapter::NokogiriAdapter.parse(xml_input)
 
       # Re-serialize
       output = doc.to_xml
@@ -153,7 +153,7 @@ RSpec.describe "Type Namespace Prefix Issue #6" do
         </article>
       XML
 
-      doc = Lutaml::Xml::NokogiriAdapter.parse(xml_input)
+      doc = Lutaml::Xml::Adapter::NokogiriAdapter.parse(xml_input)
       output = doc.to_xml
 
       # Verify all MathML elements retain their prefix

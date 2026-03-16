@@ -1,8 +1,8 @@
 require "spec_helper"
-require "lutaml/xml/nokogiri_adapter"
-require "lutaml/xml/ox_adapter"
-require "lutaml/xml/oga_adapter"
-require "lutaml/xml/rexml_adapter"
+require "lutaml/xml/adapter/nokogiri_adapter"
+require "lutaml/xml/adapter/ox_adapter"
+require "lutaml/xml/adapter/oga_adapter"
+require "lutaml/xml/adapter/rexml_adapter"
 require_relative "../../../../lib/lutaml/model"
 require_relative "../../../support/xml_mapping_namespaces"
 
@@ -496,11 +496,11 @@ RSpec.describe "XmlNamespace" do
     end
   end
 
-  describe Lutaml::Xml::NokogiriAdapter do
+  describe Lutaml::Xml::Adapter::NokogiriAdapter do
     it_behaves_like "an XML namespace parser", described_class
   end
 
-  describe Lutaml::Xml::OxAdapter do
+  describe Lutaml::Xml::Adapter::OxAdapter do
     around do |example|
       if /(with prefixed namespace|with default namespace|mixing different namespaces)/.match?(example.metadata[:description])
         skip "Ox adapter has known broken namespace implementation"
@@ -515,14 +515,14 @@ RSpec.describe "XmlNamespace" do
     end
   end
 
-  describe Lutaml::Xml::OgaAdapter do
+  describe Lutaml::Xml::Adapter::OgaAdapter do
     if TestAdapterConfig.adapter_enabled?(:oga)
       it_behaves_like "an XML namespace parser",
                       described_class
     end
   end
 
-  describe Lutaml::Xml::RexmlAdapter do
+  describe Lutaml::Xml::Adapter::RexmlAdapter do
     if TestAdapterConfig.adapter_enabled?(:rexml)
       it_behaves_like "an XML namespace parser",
                       described_class

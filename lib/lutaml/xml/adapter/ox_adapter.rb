@@ -60,61 +60,71 @@ module Lutaml
         end
 
         if @root.is_a?(Lutaml::Xml::OxElement)
+          # Case A: Old parsed XML (from OxElement) - use build_xml
           @root.build_xml(builder)
-        elsif @root.is_a?(Lutaml::Xml::DataModel::XmlElement)
-          # XmlDataModel MUST go through Three-Phase Architecture
-          mapper_class = options[:mapper_class] || @root.class
-          xml_mapping = mapper_class.mappings_for(:xml)
-
-          # Phase 1: Collect namespace needs from XmlElement tree
-          collector = NamespaceCollector.new(register)
-          needs = collector.collect(@root, xml_mapping)
-
-          # Phase 2: Plan namespace declarations with hoisting
-          planner = DeclarationPlanner.new(register)
-          plan_options = options.merge(input_namespaces: @input_namespaces)
-          plan = planner.plan(@root, xml_mapping, needs,
-                              options: plan_options)
-
-          # Phase 3: Build XmlElement structure (NOT model instance)
-          build_xml_element(builder, @root, plan: plan,
-                                            xml_mapping: xml_mapping)
         else
-          # THREE-PHASE ARCHITECTURE
-          mapper_class = options[:mapper_class] || @root.class
-          xml_mapping = mapper_class.mappings_for(:xml)
+          # Cases B & C: XmlElement or Model instance
+          # ARCHITECTURE: Normalize to XmlElement, then use single rendering path
 
-          # Check if model has map_all with custom methods
-          # Custom methods work with model instances, not XmlElement trees
-          has_custom_map_all = xml_mapping.raw_mapping&.custom_methods &&
-            xml_mapping.raw_mapping.custom_methods[:to]
+          # Determine the source (XmlElement or model instance)
+          original_model = nil
 
-          if has_custom_map_all
-            # Use legacy path for custom methods
+          xml_element = if @root.is_a?(Lutaml::Xml::DataModel::XmlElement)
+                          # Case B: Already an XmlElement
+                          @root
+                        else
+                          # Case C: Model instance - check for custom methods first
+                          mapper_class = options[:mapper_class] || @root.class
+                          xml_mapping = mapper_class.mappings_for(:xml)
+
+                          # Check if model has map_all with custom methods
+                          # Custom methods work with model instances, not XmlElement trees
+                          has_custom_map_all = xml_mapping.raw_mapping&.custom_methods &&
+                            xml_mapping.raw_mapping.custom_methods[:to]
+
+                          if has_custom_map_all
+                            # Use legacy path for custom methods - don't transform
+                            nil
+                          else
+                            # Transform model to XmlElement tree
+                            original_model = @root
+                            transformation = mapper_class.transformation_for(:xml, register)
+                            transformation.transform(@root, options)
+                          end
+                        end
+
+          if xml_element
+            # Modern path: Use XmlElement + DeclarationPlan tree
+            mapper_class = options[:mapper_class] || xml_element.class
+            mapping = mapper_class.mappings_for(:xml)
+
+            # Phase 1: Collect namespace needs from XmlElement tree
+            collector = NamespaceCollector.new(register)
+            needs = collector.collect(xml_element, mapping,
+                                      mapper_class: mapper_class)
+
+            # Phase 2: Plan namespace declarations (builds ElementNode tree)
+            planner = DeclarationPlanner.new(register)
+            plan = planner.plan(xml_element, mapping, needs, options: options)
+
+            # Phase 3: Render using XmlElement + DeclarationPlan
+            render_options = options.merge(is_root_element: true)
+            render_options[:original_model] = original_model if original_model
+            build_xml_element_with_plan(builder, xml_element, plan,
+                                        render_options)
+          else
+            # Legacy path: Model instance with custom methods
+            mapper_class = options[:mapper_class] || @root.class
+            xml_mapping = mapper_class.mappings_for(:xml)
+
             collector = NamespaceCollector.new(register)
             needs = collector.collect(@root, xml_mapping)
 
             planner = DeclarationPlanner.new(register)
             plan = planner.plan(@root, xml_mapping, needs, options: options)
 
-          else
-            # Transform model to XmlElement tree first
-            transformation = mapper_class.transformation_for(:xml, register)
-            xml_element = transformation.transform(@root, options)
-
-            # Phase 1: Collect namespace needs from XmlElement
-            collector = NamespaceCollector.new(register)
-            needs = collector.collect(xml_element, xml_mapping,
-                                      mapper_class: mapper_class)
-
-            # Phase 2: Plan declarations with XmlElement tree
-            planner = DeclarationPlanner.new(register)
-            plan = planner.plan(xml_element, xml_mapping, needs,
-                                options: options)
-
-            # Phase 3: Build with plan (still uses model instance for build_element_with_plan)
+            build_element_with_plan(builder, @root, plan, options)
           end
-          build_element_with_plan(builder, @root, plan, options)
         end
 
         xml_data = builder.xml.to_s
@@ -136,6 +146,94 @@ module Lutaml
         result += stripped_data
         result
       end
+
+      # Build XML from XmlDataModel::XmlElement using DeclarationPlan tree (PARALLEL TRAVERSAL)
+      #
+      # @param builder [Builder::Ox] XML builder
+      # @param xml_element [XmlDataModel::XmlElement] Element content
+      # @param plan [DeclarationPlan] Declaration plan with tree structure
+      # @param options [Hash] Serialization options
+      def build_xml_element_with_plan(builder, xml_element, plan, options = {})
+        build_ox_node(builder.xml, xml_element, plan.root_node,
+                      plan.global_prefix_registry)
+      end
+
+      private
+
+      # Recursively build Ox::Element tree manually (PARALLEL TRAVERSAL)
+      #
+      # @param xml [Ox::Builder] XML builder
+      # @param xml_element [XmlDataModel::XmlElement] Content
+      # @param element_node [ElementNode] Decisions
+      # @param global_registry [Hash] Global prefix registry (URI => prefix)
+      # @return [void]
+      def build_ox_node(xml, xml_element, element_node, global_registry)
+        qualified_name = element_node.qualified_name
+
+        # 1. Collect attributes (xmlns declarations + regular attributes)
+        attributes = {}
+
+        # 2. Add hoisted xmlns declarations
+        element_node.hoisted_declarations.each do |key, uri|
+          next if uri == "http://www.w3.org/XML/1998/namespace"
+
+          xmlns_name = key ? "xmlns:#{key}" : "xmlns"
+          attributes[xmlns_name] = uri
+        end
+
+        # 3. Add regular attributes by INDEX (PARALLEL TRAVERSAL)
+        xml_element.attributes.each_with_index do |xml_attr, idx|
+          attr_node = element_node.attribute_nodes[idx]
+          attributes[attr_node.qualified_name] = xml_attr.value.to_s
+        end
+
+        # Check for xsi:nil
+        if xml_element.instance_variable_defined?(:@is_nil) &&
+           xml_element.instance_variable_get(:@is_nil)
+          attributes["xsi:nil"] = "true"
+        end
+
+        # 4. Add xmlns="" if element needs to opt out of parent's default namespace
+        if element_node.needs_xmlns_blank
+          attributes["xmlns"] = ""
+        end
+
+        # 5. Create element with qualified name using block for proper nesting
+        xml.element(qualified_name, attributes) do
+          # 6. Handle raw content (map_all directive)
+          if xml_element.instance_variable_defined?(:@raw_content)
+            raw_content = xml_element.instance_variable_get(:@raw_content)
+            if raw_content && !raw_content.to_s.empty?
+              xml.raw(raw_content.to_s)
+              return
+            end
+          end
+
+          # 7. Add text content if present
+          if xml_element.text_content
+            if xml_element.cdata
+              xml.cdata(xml_element.text_content.to_s)
+            else
+              xml.text(xml_element.text_content.to_s)
+            end
+          end
+
+          # 8. Recursively build children by INDEX (PARALLEL TRAVERSAL)
+          child_element_index = 0
+          xml_element.children.each do |xml_child|
+            if xml_child.is_a?(Lutaml::Xml::DataModel::XmlElement)
+              child_node = element_node.element_nodes[child_element_index]
+              child_element_index += 1
+
+              build_ox_node(xml, xml_child, child_node, global_registry)
+            elsif xml_child.is_a?(String)
+              xml.text(xml_child)
+            end
+          end
+        end
+      end
+
+      public
 
       # Build element using prepared namespace declaration plan
       #

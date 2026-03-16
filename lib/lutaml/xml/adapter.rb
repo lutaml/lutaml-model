@@ -4,6 +4,7 @@ module Lutaml
   module Xml
     # Adapter namespace for XML adapter internal classes
     module Adapter
+      autoload :XmlSerialization, "#{__dir__}/adapter/xml_serialization"
       autoload :AdapterHelpers, "#{__dir__}/adapter/adapter_helpers"
       autoload :BaseAdapter, "#{__dir__}/adapter/base_adapter"
       autoload :NamespaceData, "#{__dir__}/adapter/namespace_data"

@@ -30,7 +30,7 @@ RSpec.describe "XML Declaration Preservation" do
           </simple>
         XML
 
-        doc = Lutaml::Xml::NokogiriAdapter.parse(xml)
+        doc = Lutaml::Xml::Adapter::NokogiriAdapter.parse(xml)
         expect(doc.xml_declaration).not_to be_nil
         expect(doc.xml_declaration[:had_declaration]).to be true
         expect(doc.xml_declaration[:version]).to eq("1.0")
@@ -46,7 +46,7 @@ RSpec.describe "XML Declaration Preservation" do
           </simple>
         XML
 
-        doc = Lutaml::Xml::NokogiriAdapter.parse(xml)
+        doc = Lutaml::Xml::Adapter::NokogiriAdapter.parse(xml)
         expect(doc.xml_declaration[:version]).to eq("1.1")
       end
 
@@ -59,7 +59,7 @@ RSpec.describe "XML Declaration Preservation" do
           </simple>
         XML
 
-        doc = Lutaml::Xml::NokogiriAdapter.parse(xml)
+        doc = Lutaml::Xml::Adapter::NokogiriAdapter.parse(xml)
         expect(doc.xml_declaration[:had_declaration]).to be true
         expect(doc.xml_declaration[:version]).to eq("1.0")
         expect(doc.xml_declaration[:encoding]).to be_nil
@@ -74,7 +74,7 @@ RSpec.describe "XML Declaration Preservation" do
           </simple>
         XML
 
-        doc = Lutaml::Xml::NokogiriAdapter.parse(xml)
+        doc = Lutaml::Xml::Adapter::NokogiriAdapter.parse(xml)
         expect(doc.xml_declaration[:encoding]).to eq("ISO-8859-1")
       end
 
@@ -86,7 +86,7 @@ RSpec.describe "XML Declaration Preservation" do
           </simple>
         XML
 
-        doc = Lutaml::Xml::NokogiriAdapter.parse(xml)
+        doc = Lutaml::Xml::Adapter::NokogiriAdapter.parse(xml)
         expect(doc.xml_declaration).not_to be_nil
         expect(doc.xml_declaration[:had_declaration]).to be false
       end
@@ -94,7 +94,7 @@ RSpec.describe "XML Declaration Preservation" do
       it "handles declaration with whitespace" do
         xml = "  \n  <?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<simple><name>Test</name><value>42</value></simple>"
 
-        doc = Lutaml::Xml::NokogiriAdapter.parse(xml)
+        doc = Lutaml::Xml::Adapter::NokogiriAdapter.parse(xml)
         expect(doc.xml_declaration[:had_declaration]).to be true
       end
     end
@@ -110,7 +110,7 @@ RSpec.describe "XML Declaration Preservation" do
             </simple>
           XML
 
-          doc = Lutaml::Xml::NokogiriAdapter.parse(xml_in)
+          doc = Lutaml::Xml::Adapter::NokogiriAdapter.parse(xml_in)
           xml_out = doc.to_xml
 
           expect(xml_out).to start_with("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
@@ -155,7 +155,7 @@ RSpec.describe "XML Declaration Preservation" do
             </simple>
           XML
 
-          doc = Lutaml::Xml::NokogiriAdapter.parse(xml_in)
+          doc = Lutaml::Xml::Adapter::NokogiriAdapter.parse(xml_in)
           xml_out = doc.to_xml
 
           expect(xml_out).to include("encoding=\"ISO-8859-1\"")
@@ -170,7 +170,7 @@ RSpec.describe "XML Declaration Preservation" do
             </simple>
           XML
 
-          doc = Lutaml::Xml::NokogiriAdapter.parse(xml_in)
+          doc = Lutaml::Xml::Adapter::NokogiriAdapter.parse(xml_in)
           xml_out = doc.to_xml
 
           expect(xml_out).to start_with("<?xml version=\"1.0\"?>")
@@ -187,7 +187,7 @@ RSpec.describe "XML Declaration Preservation" do
             </simple>
           XML
 
-          doc = Lutaml::Xml::NokogiriAdapter.parse(xml_in)
+          doc = Lutaml::Xml::Adapter::NokogiriAdapter.parse(xml_in)
           xml_out = doc.to_xml
 
           expect(xml_out).not_to start_with("<?xml")
@@ -326,7 +326,7 @@ RSpec.describe "XML Declaration Preservation" do
           </simple>
         XML
 
-        doc = Lutaml::Xml::NokogiriAdapter.parse(xml_in)
+        doc = Lutaml::Xml::Adapter::NokogiriAdapter.parse(xml_in)
         xml_out = doc.to_xml
 
         expect(xml_out).to include("encoding=\"Shift_JIS\"")
@@ -335,7 +335,7 @@ RSpec.describe "XML Declaration Preservation" do
       it "omits encoding attribute when none specified" do
         xml_in = "<?xml version=\"1.0\"?><simple><name>Test</name><value>42</value></simple>"
 
-        doc = Lutaml::Xml::NokogiriAdapter.parse(xml_in)
+        doc = Lutaml::Xml::Adapter::NokogiriAdapter.parse(xml_in)
         xml_out = doc.to_xml
 
         expect(xml_out).to start_with("<?xml version=\"1.0\"?>")
@@ -347,7 +347,7 @@ RSpec.describe "XML Declaration Preservation" do
       it "handles declaration with single quotes" do
         xml = "<?xml version='1.0' encoding='UTF-8'?><simple><name>Test</name><value>42</value></simple>"
 
-        doc = Lutaml::Xml::NokogiriAdapter.parse(xml)
+        doc = Lutaml::Xml::Adapter::NokogiriAdapter.parse(xml)
         expect(doc.xml_declaration[:had_declaration]).to be true
         expect(doc.xml_declaration[:version]).to eq("1.0")
         expect(doc.xml_declaration[:encoding]).to eq("UTF-8")
@@ -356,14 +356,14 @@ RSpec.describe "XML Declaration Preservation" do
       it "handles declaration with extra whitespace" do
         xml = "<?xml  version = \"1.0\"   encoding = \"UTF-8\" ?><simple><name>Test</name><value>42</value></simple>"
 
-        doc = Lutaml::Xml::NokogiriAdapter.parse(xml)
+        doc = Lutaml::Xml::Adapter::NokogiriAdapter.parse(xml)
         expect(doc.xml_declaration[:had_declaration]).to be true
       end
 
       it "handles standalone attribute in declaration" do
         xml = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><simple><name>Test</name><value>42</value></simple>"
 
-        doc = Lutaml::Xml::NokogiriAdapter.parse(xml)
+        doc = Lutaml::Xml::Adapter::NokogiriAdapter.parse(xml)
         expect(doc.xml_declaration[:had_declaration]).to be true
         expect(doc.xml_declaration[:version]).to eq("1.0")
         expect(doc.xml_declaration[:encoding]).to eq("UTF-8")
