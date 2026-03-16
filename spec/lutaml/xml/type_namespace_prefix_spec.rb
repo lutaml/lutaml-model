@@ -11,7 +11,9 @@ RSpec.describe "Type Namespace Prefix Issue #6" do
 
   # Define a type with namespace
   class MathMLType < Lutaml::Model::Type::String
-    xml_namespace MathMLNamespace
+    xml do
+      namespace MathMLNamespace
+    end
   end
 
   context "elements with type namespaces" do
@@ -64,7 +66,9 @@ RSpec.describe "Type Namespace Prefix Issue #6" do
     end
 
     class SpecialType < Lutaml::Model::Type::String
-      xml_namespace SpecialNamespace
+      xml do
+        namespace SpecialNamespace
+      end
     end
 
     it "preserves prefixes for nested model types" do
@@ -174,7 +178,9 @@ RSpec.describe "Type Namespace Prefix Issue #6" do
       end
 
       class XLinkType < Lutaml::Model::Type::String
-        xml_namespace XLinkNamespace
+        xml do
+          namespace XLinkNamespace
+        end
       end
 
       test_class = Class.new(Lutaml::Model::Serializable) do
@@ -330,7 +336,9 @@ RSpec.describe "Type Namespace Prefix Issue #6" do
     end
 
     class SVGType < Lutaml::Model::Type::String
-      xml_namespace SVGNamespace
+      xml do
+        namespace SVGNamespace
+      end
     end
 
     it "handles multiple different type namespaces in same document" do

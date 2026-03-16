@@ -28,8 +28,8 @@ module Lutaml
         def initialize(type_class, expected_namespace, message: nil)
           @type_class = type_class
           @expected_namespace = expected_namespace
-          @actual_namespace = if type_class.respond_to?(:xml_namespace)
-                                type_class.xml_namespace
+          @actual_namespace = if type_class.is_a?(Class) && type_class <= Lutaml::Model::Type::Value
+                                type_class.namespace_class
                               end
 
           super(message || default_message)

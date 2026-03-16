@@ -13,9 +13,9 @@ RSpec.describe Lutaml::Xml::TypeNamespace::Collector do
 
   let(:type_class_with_namespace) do
     ns = type_namespace_class
-    Class.new(Lutaml::Model::Type::String) do
-      xml_namespace ns
-    end
+    klass = Class.new(Lutaml::Model::Type::String)
+    klass.xml { namespace ns }
+    klass
   end
 
   let(:type_class_without_namespace) do

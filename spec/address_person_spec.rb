@@ -12,7 +12,9 @@ module AddressPersonSpec
   end
 
   class Nsp1String < Lutaml::Model::Type::String
-    xml_namespace Nsp1Namespace
+    xml do
+      namespace Nsp1Namespace
+    end
   end
 
   class Person < Lutaml::Model::Serializable

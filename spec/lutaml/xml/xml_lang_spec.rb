@@ -14,7 +14,9 @@ module XmlLangSpec
   end
 
   class XmlLang < Lutaml::Model::Type::String
-    xml_namespace XmlNamespace
+    xml do
+      namespace XmlNamespace
+    end
   end
 
   class BasicXmlLangModel < Lutaml::Model::Serializable
@@ -29,11 +31,15 @@ module XmlLangSpec
   end
 
   class XmlSpace < Lutaml::Model::Type::String
-    xml_namespace XmlNamespace
+    xml do
+      namespace XmlNamespace
+    end
   end
 
   class XmlId < Lutaml::Model::Type::String
-    xml_namespace XmlNamespace
+    xml do
+      namespace XmlNamespace
+    end
   end
 
   class MultiXmlAttributesModel < Lutaml::Model::Serializable
@@ -76,7 +82,9 @@ module XmlLangSpec
   end
 
   class ExCustomAttr < Lutaml::Model::Type::String
-    xml_namespace ExNamespace
+    xml do
+      namespace ExNamespace
+    end
   end
 
   class MixedNamespacesModel < Lutaml::Model::Serializable

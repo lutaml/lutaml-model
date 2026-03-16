@@ -39,7 +39,8 @@ RSpec.describe "Type-level namespace integration" do
     it "applies type namespace to elements" do
       # Define Type with namespace
       dc_title_type = Class.new(Lutaml::Model::Type::String)
-      dc_title_type.xml_namespace(dc_namespace)
+      ns = dc_namespace
+      dc_title_type.xml { namespace ns }
 
       # Define Model
       document_class = Class.new do
@@ -72,7 +73,7 @@ RSpec.describe "Type-level namespace integration" do
 
       # Define Type with namespace
       dc_title_type = Class.new(Lutaml::Model::Type::String)
-      dc_title_type.xml_namespace(dc_ns)
+      dc_title_type.xml { namespace dc_ns }
 
       override_ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
         uri "http://example.com/override"
@@ -128,7 +129,8 @@ RSpec.describe "Type-level namespace integration" do
     it "applies type namespace to attributes" do
       # Define Type with namespace for attribute
       xsi_type_type = Class.new(Lutaml::Model::Type::String)
-      xsi_type_type.xml_namespace(xsi_namespace)
+      ns = xsi_namespace
+      xsi_type_type.xml { namespace ns }
 
       # Define Model
       document_class = Class.new do
@@ -195,14 +197,17 @@ RSpec.describe "Type-level namespace integration" do
   describe "Multiple namespaces in one document" do
     it "handles multiple type namespaces correctly" do
       # Define multiple Types with different namespaces
+      dc_ns = dc_namespace
+      cp_ns = cp_namespace
+
       dc_title_type = Class.new(Lutaml::Model::Type::String)
-      dc_title_type.xml_namespace(dc_namespace)
+      dc_title_type.xml { namespace dc_ns }
 
       dc_creator_type = Class.new(Lutaml::Model::Type::String)
-      dc_creator_type.xml_namespace(dc_namespace)
+      dc_creator_type.xml { namespace dc_ns }
 
       cp_revision_type = Class.new(Lutaml::Model::Type::Integer)
-      cp_revision_type.xml_namespace(cp_namespace)
+      cp_revision_type.xml { namespace cp_ns }
 
       # Capture namespace class for use in xml block
       cp_ns = cp_namespace
@@ -250,8 +255,9 @@ RSpec.describe "Type-level namespace integration" do
   describe "Model namespace vs Type namespace" do
     it "type namespace takes precedence for attributes" do
       # Define Type with namespace
+      dc_ns = dc_namespace
       special_type = Class.new(Lutaml::Model::Type::String)
-      special_type.xml_namespace(dc_namespace)
+      special_type.xml { namespace dc_ns }
 
       # Define Model with different namespace
       model_namespace = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
@@ -287,8 +293,9 @@ RSpec.describe "Type-level namespace integration" do
   describe "Round-trip serialization" do
     it "deserializes namespaced elements correctly" do
       # Define Type with namespace
+      dc_ns = dc_namespace
       dc_title_type = Class.new(Lutaml::Model::Type::String)
-      dc_title_type.xml_namespace(dc_namespace)
+      dc_title_type.xml { namespace dc_ns }
 
       # Define Model
       document_class = Class.new do

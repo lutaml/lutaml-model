@@ -45,12 +45,6 @@ module Lutaml
             if block
               @xml_mapping ||= inherit_xml_mapping_from_parent # rubocop:disable Naming/MemoizedInstanceVariableName
               @xml_mapping.instance_eval(&block)
-
-              # Sync namespace from mapping to class-level directive
-              # This allows code that reads xml_namespace to get the value set via xml block
-              if @xml_mapping.namespace_class && !@namespace_class
-                @namespace_class = @xml_mapping.namespace_class
-              end
             end
             @xml_mapping ||= inherit_xml_mapping_from_parent # rubocop:disable Naming/MemoizedInstanceVariableName
           end
@@ -62,42 +56,11 @@ module Lutaml
             @xml_mapping
           end
 
-          # Class-level directive to set the XML namespace for this Value type
-          #
-          # @param ns_class [Class, Symbol, nil] XmlNamespace class, :blank, or :inherit
-          # @return [Class, Symbol, nil] the namespace class or symbol
-          #
-          # @example Setting XML namespace for a Value type
-          #   class EmailType < Lutaml::Model::Type::String
-          #     xml_namespace EmailNamespace
-          #     xsd_type 'EmailAddress'
-          #   end
-          #
-          # @example Inheriting parent namespace
-          #   class CustomEmailType < EmailType
-          #     xml_namespace :inherit  # Inherits EmailNamespace
-          #   end
-          def xml_namespace(ns_class = nil)
-            if ns_class
-              # Accept XmlNamespace classes
-              valid_namespace = ns_class.is_a?(::Class) && defined?(::Lutaml::Xml::Namespace) && ns_class < ::Lutaml::Xml::Namespace
-
-              unless valid_namespace || ns_class == :blank || ns_class == :inherit
-                raise Lutaml::Xml::Error::InvalidNamespaceError.new(
-                  expected: "XmlNamespace class, :blank, or :inherit",
-                  got: ns_class,
-                )
-              end
-              @namespace_class = ns_class
-            end
-            @namespace_class || inherited_namespace
-          end
-
           # Get the namespace URI for this Value type
           #
           # @return [String, nil] the namespace URI
           def namespace_uri
-            ns = xml_namespace
+            ns = namespace_class
             return nil unless ns
             return nil if %i[blank inherit].include?(ns)
 
@@ -108,20 +71,18 @@ module Lutaml
           #
           # @return [String, nil] the namespace prefix
           def namespace_prefix
-            ns = xml_namespace
+            ns = namespace_class
             return nil unless ns
             return nil if %i[blank inherit].include?(ns)
 
             ns.prefix_default
           end
 
-          # Backward compatibility alias for namespace directive
+          # Get the namespace class for this Value type
           #
-          # @deprecated Use {xml_namespace} instead
-          # @param ns_class [Class, nil] XmlNamespace class to associate with this type
-          # @return [Class, nil] the XmlNamespace class
-          def namespace(ns_class = nil)
-            xml_namespace(ns_class)
+          # @return [Class, Symbol, nil] the namespace class or symbol
+          def namespace_class
+            xml_mapping&.namespace_class || inherited_namespace
           end
 
           # Class-level directive to set the XSD type name
@@ -155,11 +116,10 @@ module Lutaml
           # @return [Class, Symbol, nil] parent's namespace class if set
           def inherited_namespace
             return nil if superclass == Lutaml::Model::Type::Value
-            return nil unless superclass.respond_to?(:xml_namespace)
+            return nil unless superclass.respond_to?(:xml_mapping)
 
-            # Get parent's @namespace_class directly
-            parent_ns = superclass.instance_variable_get(:@namespace_class)
-            parent_ns || superclass.inherited_namespace
+            parent_mapping = superclass.xml_mapping
+            parent_mapping&.namespace_class || superclass.inherited_namespace
           end
 
           # Default XSD type for this Value type

@@ -29,7 +29,9 @@ module XmlNamespaceSpec
 
   # Create custom type for xml:lang attribute
   class XmlLangString < Lutaml::Model::Type::String
-    xml_namespace ::Lutaml::Xml::W3c::XmlNamespace
+    xml do
+      namespace ::Lutaml::Xml::W3c::XmlNamespace
+    end
   end
 
   # Create child models for elements with different namespaces

@@ -111,15 +111,17 @@ module Lutaml
       end
     end
 
-    # Strategy for Type::Value with explicit xml_namespace
+    # Strategy for Type::Value with explicit namespace_class
     #
     # Used when a custom Type::Value class declares its own namespace via
-    # `xml_namespace MyNamespace`. The type's namespace takes precedence
+    # `xml { namespace MyNamespace }`. The type's namespace takes precedence
     # over parent namespace.
     #
     # @example Custom Type with namespace
     #   class CustomName < Lutaml::Model::Type::String
-    #     xml_namespace MyNamespace
+    #     xml do
+    #       namespace MyNamespace
+    #     end
     #   end
     #
     #   <parent xmlns="http://example.com/parent">
@@ -135,7 +137,7 @@ module Lutaml
         super(
           use_prefix: type_ns_decl.prefix_format?,
           prefix: type_ns_decl.prefix,
-          namespace_uri: type_class.xml_namespace.uri
+          namespace_uri: type_class.namespace_class.uri
         )
       end
     end

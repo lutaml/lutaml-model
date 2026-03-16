@@ -294,7 +294,7 @@ register_id, register, attr_name, custom_methods_value)
 
           namespace_class = mapping_rule.namespace_class
           if !namespace_class && attr_type.is_a?(Class) && attr_type.include?(Lutaml::Model::Serialize)
-            namespace_class = attr_type.xml_namespace
+            namespace_class = attr_type.namespace_class
           end
 
           value_transformer = build_value_transformer(mapping_rule, attr)
@@ -369,8 +369,8 @@ register_id, register, custom_methods_value)
           collection_info = { range: attr.options[:collection] } if attr.collection?
 
           namespace_class = mapping_rule.namespace_class
-          if !namespace_class && attr_type.respond_to?(:xml_namespace)
-            namespace_class = attr_type.xml_namespace
+          if !namespace_class && attr_type.is_a?(Class) && attr_type <= Lutaml::Model::Type::Value
+            namespace_class = attr_type.namespace_class
           end
 
           value_transformer = build_value_transformer(mapping_rule, attr)
@@ -420,7 +420,7 @@ register_id, attr_name, custom_methods_value)
 
           namespace_class = mapping_rule.namespace_class
           if !namespace_class && attr_type.is_a?(Class) && attr_type.include?(Lutaml::Model::Serialize)
-            namespace_class = attr_type.xml_namespace
+            namespace_class = attr_type.namespace_class
           end
 
           value_transformer = build_value_transformer(mapping_rule, attr)
@@ -479,8 +479,8 @@ register_id, custom_methods_value)
           attr_type = attr.type(register_id)
 
           namespace_class = mapping_rule.namespace_class
-          if !namespace_class && attr_type.respond_to?(:xml_namespace)
-            namespace_class = attr_type.xml_namespace
+          if !namespace_class && attr_type.is_a?(Class) && attr_type <= Lutaml::Model::Type::Value
+            namespace_class = attr_type.namespace_class
           end
 
           value_transformer = build_value_transformer(mapping_rule, attr)

@@ -480,9 +480,8 @@ RSpec.describe "XML Namespace Handling" do
         prefix_default "attr"
       end
 
-      custom_type = Class.new(Lutaml::Model::Type::String) do
-        xml_namespace type_ns
-      end
+      custom_type = Class.new(Lutaml::Model::Type::String)
+      custom_type.xml { namespace type_ns }
 
       # Create separate model for explicit namespace element
       explicit_model = Class.new(Lutaml::Model::Serializable) do
@@ -551,9 +550,8 @@ RSpec.describe "XML Namespace Handling" do
         prefix_default "unused"
       end
 
-      used_type = Class.new(Lutaml::Model::Type::String) do
-        xml_namespace used_ns
-      end
+      used_type = Class.new(Lutaml::Model::Type::String)
+      used_type.xml { namespace used_ns }
 
       model = Class.new(Lutaml::Model::Serializable) do
         attribute :data, used_type

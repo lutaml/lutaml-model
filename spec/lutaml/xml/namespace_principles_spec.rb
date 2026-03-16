@@ -40,11 +40,15 @@ module NamespacePrinciplesSpec
   end
 
   class FirstNamespacedName < Lutaml::Model::Type::String
-    xml_namespace FirstItemNamespace
+    xml do
+      namespace FirstItemNamespace
+    end
   end
 
   class SecondNamespacedName < Lutaml::Model::Type::String
-    xml_namespace SecondItemNamespace
+    xml do
+      namespace SecondItemNamespace
+    end
   end
 
   class NamespacedItem < Lutaml::Model::Serializable

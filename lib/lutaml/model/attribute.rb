@@ -584,11 +584,11 @@ module Lutaml
         resolved_type = type(register)
         return nil if resolved_type.nil?
 
-        # Check if type responds to xml_namespace (Type::Value classes)
+        # Check if type is a Type::Value class
         # Type namespaces are ONLY declared on Type::Value subclasses,
         # not on Serializable models. Serializable models have element
         # namespaces, which are handled separately.
-        resolved_type.respond_to?(:xml_namespace) ? resolved_type.xml_namespace : nil
+        resolved_type.is_a?(Class) && resolved_type <= Lutaml::Model::Type::Value ? resolved_type.namespace_class : nil
       end
 
       # Get namespace URI from type

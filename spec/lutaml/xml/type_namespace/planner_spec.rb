@@ -20,9 +20,9 @@ RSpec.describe Lutaml::Xml::TypeNamespace::Planner do
 
   let(:type_class_with_namespace) do
     ns = type_namespace_class
-    Class.new(Lutaml::Model::Type::String) do
-      xml_namespace ns
-    end
+    klass = Class.new(Lutaml::Model::Type::String)
+    klass.xml { namespace ns }
+    klass
   end
 
   let(:model_class) do
@@ -144,9 +144,9 @@ RSpec.describe Lutaml::Xml::TypeNamespace::Planner do
 
       let(:type_class_without_prefix) do
         ns = type_namespace_without_prefix
-        Class.new(Lutaml::Model::Type::String) do
-          xml_namespace ns
-        end
+        klass = Class.new(Lutaml::Model::Type::String)
+        klass.xml { namespace ns }
+        klass
       end
 
       let(:model_without_prefix) do

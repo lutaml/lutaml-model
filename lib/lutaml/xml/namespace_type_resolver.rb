@@ -63,7 +63,7 @@ module Lutaml
         context.registry.types.select do |_name, type_class|
           next false unless type_class <= Lutaml::Model::Type::Value
 
-          type_ns = type_class.respond_to?(:xml_namespace) ? type_class.xml_namespace : nil
+          type_ns = type_class.namespace_class
           type_ns&.uri == uri
         end.values
       end
@@ -74,9 +74,9 @@ module Lutaml
       # @param namespace [Class] the namespace class to check against
       # @return [Boolean] true if type is in the namespace
       def self.type_in_namespace?(type_class, namespace)
-        return false unless type_class.respond_to?(:xml_namespace)
+        return false unless type_class.is_a?(Class) && type_class <= Lutaml::Model::Type::Value
 
-        type_ns = type_class.xml_namespace
+        type_ns = type_class.namespace_class
         return false unless type_ns
 
         type_ns == namespace || type_ns.uri == namespace.uri
@@ -87,9 +87,9 @@ module Lutaml
       # @param type_class [Class] the type class
       # @return [String, nil] the namespace URI or nil
       def self.type_namespace_uri(type_class)
-        return nil unless type_class.respond_to?(:xml_namespace)
+        return nil unless type_class.is_a?(Class) && type_class <= Lutaml::Model::Type::Value
 
-        type_ns = type_class.xml_namespace
+        type_ns = type_class.namespace_class
         return nil unless type_ns
 
         type_ns.respond_to?(:uri) ? type_ns.uri : nil
@@ -103,9 +103,9 @@ module Lutaml
       # @param expected_ns [Class] the expected namespace class
       # @raise [NamespaceMismatchError] if namespaces don't match
       def validate_namespace_match!(type, expected_ns)
-        return unless type.respond_to?(:xml_namespace)
+        return unless type.is_a?(Class) && type <= Lutaml::Model::Type::Value
 
-        type_ns = type.xml_namespace
+        type_ns = type.namespace_class
 
         # Type has no namespace - this is OK, parent will provide
         return unless type_ns

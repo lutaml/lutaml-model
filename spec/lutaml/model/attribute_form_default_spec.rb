@@ -172,9 +172,9 @@ RSpec.describe "Attribute form default behavior" do
     # Create custom type for explicit namespace attribute
     let(:ns2_string) do
       ns2 = namespace2
-      Class.new(Lutaml::Model::Type::String) do
-        xml_namespace ns2
-      end
+      klass = Class.new(Lutaml::Model::Type::String)
+      klass.xml { namespace ns2 }
+      klass
     end
 
     let(:model_class) do
@@ -220,9 +220,9 @@ RSpec.describe "Attribute form default behavior" do
 
     let(:custom_type) do
       ns = type_namespace
-      Class.new(Lutaml::Model::Type::String) do
-        xml_namespace ns
-      end
+      klass = Class.new(Lutaml::Model::Type::String)
+      klass.xml { namespace ns }
+      klass
     end
 
     let(:model_class) do

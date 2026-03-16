@@ -102,9 +102,8 @@ RSpec.describe Lutaml::Xml::DeclarationPlanner do
           end
 
           # Create fresh type with namespace
-          lang_type = Class.new(Lutaml::Model::Type::String) do
-            xml_namespace vcard_ns
-          end
+          lang_type = Class.new(Lutaml::Model::Type::String)
+          lang_type.xml { namespace vcard_ns }
 
           # Create fresh model_class
           model_class = Class.new(Lutaml::Model::Serializable) do
@@ -424,7 +423,7 @@ RSpec.describe Lutaml::Xml::DeclarationPlanner do
       let(:vcard_version_type) do
         vcard_ns = vcard_namespace
         t = Class.new(Lutaml::Model::Type::String)
-        t.xml_namespace(vcard_ns)
+        t.xml { namespace vcard_ns }
         t
       end
 

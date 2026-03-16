@@ -79,16 +79,16 @@ RSpec.describe "XML namespace inheritance" do
   context "parent and child in different namespaces" do
     let(:child_attribute) do
       ns = child_namespace
-      Class.new(Lutaml::Model::Type::String) do
-        xml_namespace ns
-      end
+      klass = Class.new(Lutaml::Model::Type::String)
+      klass.xml { namespace ns }
+      klass
     end
 
     let(:parent_attribute) do
       ns = parent_namespace
-      Class.new(Lutaml::Model::Type::String) do
-        xml_namespace ns
-      end
+      klass = Class.new(Lutaml::Model::Type::String)
+      klass.xml { namespace ns }
+      klass
     end
 
     let(:child_model) do
@@ -589,7 +589,7 @@ RSpec.describe "XML namespace inheritance" do
     let(:attr_type) do
       ns = attr_namespace
       Class.new(Lutaml::Model::Type::String).tap do |klass|
-        klass.xml_namespace(ns)
+        klass.xml { namespace ns }
       end
     end
 
@@ -729,16 +729,16 @@ RSpec.describe "XML namespace inheritance" do
   context "collection elements respect namespace inheritance" do
     let(:parent_ns_attr) do
       ns = parent_namespace
-      Class.new(Lutaml::Model::Type::String) do
-        xml_namespace ns
-      end
+      klass = Class.new(Lutaml::Model::Type::String)
+      klass.xml { namespace ns }
+      klass
     end
 
     let(:child_ns_attr) do
       ns = child_namespace
-      Class.new(Lutaml::Model::Type::String) do
-        xml_namespace ns
-      end
+      klass = Class.new(Lutaml::Model::Type::String)
+      klass.xml { namespace ns }
+      klass
     end
 
     let(:item_model) do

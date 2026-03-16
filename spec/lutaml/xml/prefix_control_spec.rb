@@ -38,13 +38,13 @@ RSpec.describe "XML Prefix Control" do
 
       let(:template_string_class) do
         ns = app_namespace
-        Class.new(Lutaml::Model::Type::String) do
-          xml_namespace ns
+        klass = Class.new(Lutaml::Model::Type::String)
+        klass.xml { namespace ns }
 
-          def self.name
-            "TemplateString"
-          end
+        def klass.name
+          "TemplateString"
         end
+        klass
       end
 
       # Define test model
