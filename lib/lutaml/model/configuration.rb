@@ -2,115 +2,99 @@
 
 module Lutaml
   module Model
-    # Configuration class for Lutaml::Model settings
-    #
-    # This class provides a structured way to configure Lutaml::Model with
-    # validation and type safety. It replaces the module-based Config approach
-    # with a proper configuration object pattern.
+    # Single source of truth for Lutaml::Model configuration
     #
     # @example Basic configuration
     #   Lutaml::Model::Configuration.configure do |config|
     #     config.xml_adapter = :nokogiri
     #     config.json_adapter = :standard
-    #     config.default_register = :my_app
+    #     config.toml_adapter = :toml_rb
     #   end
     #
-    # @example With validation
-    #   config = Lutaml::Model::Configuration.new
-    #   config.xml_adapter = :nokogiri  # => :nokogiri
-    #   config.xml_adapter = :invalid   # => raises ConfigurationError
-    #
     class Configuration
-      # Available formats and their adapters
-      ADAPTERS = {
-        xml: {
-          available: %i[nokogiri ox oga rexml],
-          default: :nokogiri,
-        },
-        json: {
-          available: %i[standard multi_json oj],
-          default: :standard,
-        },
-        yaml: {
-          available: %i[standard],
-          default: :standard,
-        },
-        toml: {
-          available: %i[tomlib toml_rb],
-          default: windows_platform? ? :toml_rb : :tomlib,
-        },
-        hash: {
-          available: %i[standard],
-          default: :standard,
-        },
-        jsonl: {
-          available: %i[standard],
-          default: :standard,
-        },
-        yamls: {
-          available: %i[standard],
-          default: :standard,
-        },
-      }.freeze
+      AVAILABLE_FORMATS = %i[xml json jsonl yaml toml hash].freeze
+      KEY_VALUE_FORMATS = AVAILABLE_FORMATS - %i[xml]
 
-      # Check if running on Windows platform
-      #
-      # @return [Boolean] true if on Windows
-      def self.windows_platform?
-        Gem.win_platform?
+      # Available formats and their adapters
+      ADAPTERS = begin
+        h = {
+          xml: {
+            available: %i[nokogiri ox oga rexml],
+            default: :nokogiri,
+          },
+          json: {
+            available: %i[standard multi_json oj],
+            default: :standard,
+          },
+          yaml: {
+            available: %i[standard],
+            default: :standard,
+          },
+          toml: {
+            available: %i[tomlib toml_rb],
+            default: Gem.win_platform? ? :toml_rb : :tomlib,
+          },
+          hash: {
+            available: %i[standard],
+            default: :standard,
+          },
+          jsonl: {
+            available: %i[standard],
+            default: :standard,
+          },
+          yamls: {
+            available: %i[standard],
+            default: :standard,
+          },
+        }
+        h.freeze
       end
 
       attr_reader :adapter_types
 
       def initialize
         @adapter_types = {}
+        @adapters = {}
         @default_register = :default
         @configured = false
       end
 
+      # Singleton instance accessor via Config module
+      def self.instance
+        Config.instance
+      end
+
       # Configure the library using a block
-      #
-      # @yield [Configuration] self for configuration
-      # @return [Configuration] self for method chaining
-      #
-      # @example
-      #   config.configure do |c|
-      #     c.xml_adapter = :ox
-      #     c.json_adapter = :oj
-      #   end
       def configure
         yield self if block_given?
         @configured = true
-        apply_adapters!
         self
       end
 
-      # Check if configuration has been applied
-      #
-      # @return [Boolean]
       def configured?
         @configured
       end
 
+      # Check if running on Windows platform
+      def self.windows_platform?
+        Gem.win_platform?
+      end
+
       # Dynamic accessor for adapter types
-      #
-      # @param format [Symbol] the format name (e.g., :xml, :json)
-      # @return [Symbol, nil] the configured adapter type
       def adapter_for(format)
         @adapter_types[format.to_sym]
       end
 
-      # Dynamic setter for adapter types
-      #
-      # @param format [Symbol] the format name
-      # @param adapter_type [Symbol] the adapter type
-      # @raise [ConfigurationError] if adapter is not available
+      # Dynamic setter for adapter types with validation
       def set_adapter(format, adapter_type)
         format = format.to_sym
         adapter_type = adapter_type.to_sym
 
         validate_adapter!(format, adapter_type)
         @adapter_types[format] = adapter_type
+
+        # Load the adapter immediately
+        load_adapter(format, adapter_type)
       end
 
       # Define dynamic accessor methods for each format
@@ -124,17 +108,15 @@ module Lutaml
         define_method(:"#{format}_adapter=") do |adapter_type|
           set_adapter(format, adapter_type)
         end
+
+        # Aliased setter with _type suffix: config.xml_adapter_type = :nokogiri
+        alias_method :"#{format}_adapter_type=", :"#{format}_adapter="
+        alias_method :"#{format}_adapter_type", :"#{format}_adapter"
       end
 
       # Default register/context ID accessor
-      #
-      # @return [Symbol] the default register ID
       attr_reader :default_register
 
-      # Set the default register
-      #
-      # @param value [Symbol, Register] the register or its ID
-      # @raise [ArgumentError] if value is invalid
       def default_register=(value)
         @default_register = case value
                             when Symbol then value
@@ -150,18 +132,20 @@ module Lutaml
       alias default_context_id default_register
       alias default_context_id= default_register=
 
+      # Get adapter class for a format
+      def get_adapter(format)
+        @adapters[format.to_sym]
+      end
+
       # Reset configuration to defaults
-      #
-      # @return [void]
       def reset!
         @adapter_types = {}
+        @adapters = {}
         @default_register = :default
         @configured = false
       end
 
       # Get all current settings as a hash
-      #
-      # @return [Hash] current configuration settings
       def to_h
         {
           adapter_types: @adapter_types.dup,
@@ -170,13 +154,19 @@ module Lutaml
         }
       end
 
+      # Mappings class for a format
+      def mappings_class_for(format)
+        Lutaml::Model::FormatRegistry.mappings_class_for(format)
+      end
+
+      # Transformer for a format
+      def transformer_for(format)
+        Lutaml::Model::FormatRegistry.transformer_for(format)
+      end
+
       private
 
       # Validate that the adapter is available for the format
-      #
-      # @param format [Symbol] the format name
-      # @param adapter_type [Symbol] the adapter type
-      # @raise [ArgumentError] if adapter is not available
       def validate_adapter!(format, adapter_type)
         unless ADAPTERS.key?(format)
           available_formats = ADAPTERS.keys.map { |f| "`:#{f}`" }.join(", ")
@@ -204,24 +194,56 @@ module Lutaml
         raise ArgumentError, msg
       end
 
-      # Apply configured adapters to the legacy Config module
-      #
-      # This ensures backward compatibility with the existing configuration system
-      def apply_adapters!
-        @adapter_types.each do |format, adapter_type|
-          # Delegate to the legacy Config module for now
-          # This will be simplified once full migration is complete
-          Config.send(:"#{format}_adapter_type=", adapter_type)
-        end
+      # Load an adapter for a format
+      def load_adapter(format, adapter_type)
+        adapter = format.to_s
+        type = normalize_type_name(adapter_type, format)
 
-        Config.default_register = @default_register if @default_register != :default
+        load_adapter_file(adapter, type)
+        load_moxml_adapter(adapter_type, format)
+
+        @adapters[format] = class_for(adapter, type)
+      end
+
+      def normalize_type_name(type_name, adapter_name)
+        if type_name.to_s.start_with?('multi_json')
+          'multi_json_adapter'
+        else
+          "#{type_name.to_s.gsub("_#{adapter_name}", '')}_adapter"
+        end
+      end
+
+      def load_adapter_file(adapter, type)
+        adapter_path = if adapter == "xml"
+                         File.join(__dir__, "../xml/adapter", type)
+                       else
+                         File.join(__dir__, "../key_value/adapter", adapter, type)
+                       end
+        require adapter_path
+      rescue LoadError
+        raise UnknownAdapterTypeError.new(adapter, type), cause: nil
+      end
+
+      def load_moxml_adapter(type_name, adapter_name)
+        return if KEY_VALUE_FORMATS.include?(adapter_name)
+
+        Moxml::Adapter.load(type_name)
+      end
+
+      def class_for(adapter, type)
+        if adapter == "xml"
+          Lutaml::Xml::Adapter.const_get(to_class_name(type))
+        else
+          Lutaml::KeyValue::Adapter.const_get(to_class_name(adapter))
+            .const_get(to_class_name(type))
+        end
+      end
+
+      def to_class_name(str)
+        str.to_s.split("_").map(&:capitalize).join
       end
 
       # Find closest string match for suggestions
-      #
-      # @param input [String] the input string
-      # @param candidates [Array<String>] possible matches
-      # @return [String, nil] the closest match or nil
       def find_suggestion(input, candidates)
         return nil if input.nil? || input.empty?
 
