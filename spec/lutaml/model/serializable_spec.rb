@@ -671,15 +671,15 @@ RSpec.describe Lutaml::Model::Serializable do
       XML
     end
 
-    it "raises FormatAdapterNotSpecifiedError when XML adapter is not configured" do
+    it "uses default adapter from Configuration when adapter is nil in Config" do
       old_adapter = Lutaml::Model::Config.adapter_for(:xml)
       Lutaml::Model::Config.set_adapter_for(:xml, nil)
+
       begin
-        expect do
-          SerializeableSpec::SingleOptionModel.from_xml(xml)
-        end.to raise_error(Lutaml::Model::FormatAdapterNotSpecifiedError) do |error|
-          expect(error.message).to eq(msg)
-        end
+        # With consolidated configuration, the adapter is always available
+        # from Configuration instance, so no error is raised
+        model = SerializeableSpec::SingleOptionModel.from_xml(xml)
+        expect(model.name).to eq("John Doe")
       ensure
         Lutaml::Model::Config.set_adapter_for(:xml, old_adapter)
       end

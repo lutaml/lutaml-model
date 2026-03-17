@@ -23,11 +23,11 @@ module Lutaml
             default: :nokogiri,
           },
           json: {
-            available: %i[standard multi_json oj],
+            available: %i[standard standard_json multi_json oj],
             default: :standard,
           },
           yaml: {
-            available: %i[standard],
+            available: %i[standard standard_yaml],
             default: :standard,
           },
           toml: {
@@ -35,7 +35,7 @@ module Lutaml
             default: Gem.win_platform? ? :toml_rb : :tomlib,
           },
           hash: {
-            available: %i[standard],
+            available: %i[standard standard_hash],
             default: :standard,
           },
           jsonl: {
@@ -57,11 +57,6 @@ module Lutaml
         @adapters = {}
         @default_register = :default
         @configured = false
-      end
-
-      # Singleton instance accessor via Config module
-      def self.instance
-        Config.instance
       end
 
       # Configure the library using a block
@@ -202,7 +197,11 @@ module Lutaml
         load_adapter_file(adapter, type)
         load_moxml_adapter(adapter_type, format)
 
-        @adapters[format] = class_for(adapter, type)
+        adapter_class = class_for(adapter, type)
+        @adapters[format] = adapter_class
+
+        # Also set in Config's adapters for FormatRegistry compatibility
+        Config.set_adapter_for(format, adapter_class)
       end
 
       def normalize_type_name(type_name, adapter_name)
