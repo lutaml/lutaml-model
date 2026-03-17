@@ -118,12 +118,13 @@ module Lutaml
         if model_class.is_a?(Class) && model_class.include?(::Lutaml::Model::Serialize)
           mapping = model_class.mappings_for(:xml, __register)
           # Check if doc responds to input_namespaces (handles nested elements that are OxElement)
-          # CRITICAL: Collect input_namespaces from ALL elements, not just root
-          all_input_namespaces = collect_all_input_namespaces(doc)
-          if mapping && all_input_namespaces&.any?
-            # Create plan from input namespaces (format preservation)
-            plan = ::Lutaml::Xml::DeclarationPlan.from_input(
-              all_input_namespaces,
+          # CRITICAL: Collect input_namespaces from ALL elements with LOCATION info
+          # This preserves WHERE each namespace was declared, not just WHAT was declared
+          namespaces_with_locations = collect_input_namespaces_with_locations(doc)
+          if mapping && namespaces_with_locations&.any?
+            # Create plan from input namespaces with location info (format + location preservation)
+            plan = ::Lutaml::Xml::DeclarationPlan.from_input_with_locations(
+              namespaces_with_locations,
               mapping,
             )
 
@@ -179,6 +180,46 @@ module Lutaml
         end
 
         namespaces
+      end
+
+      # Collect input_namespaces WITH their declaration locations
+      #
+      # Returns a tree structure mapping element paths to namespace declarations.
+      # This enables preservation of WHERE each namespace was declared, not just WHAT was declared.
+      #
+      # @param element [XmlElement] The element to collect from
+      # @param path [Array<String>] Current element path (array of element names)
+      # @param result [Hash] Accumulated result { path => namespaces }
+      # @param visited [Set] Set of visited elements to prevent cycles
+      # @return [Hash] Location-aware namespace info { path_array => namespace_hash }
+      def collect_input_namespaces_with_locations(element, path = [], result = {}, visited = Set.new)
+        return result unless element
+        return result if visited.include?(element.object_id)
+
+        visited.add(element.object_id)
+
+        # Get namespaces declared on THIS element only
+        own_ns = if element.respond_to?(:input_namespaces) && element.input_namespaces
+                   element.input_namespaces
+                 end
+
+        # Store if this element has namespace declarations
+        if own_ns&.any?
+          result[path] = own_ns
+        end
+
+        # Recurse into children
+        return result unless element.respond_to?(:children)
+
+        element.children.each do |child|
+          next if child.is_a?(String) # Skip text nodes
+
+          child_name = child.respond_to?(:name) ? child.name.to_s : "unknown"
+          child_path = path + [child_name]
+          collect_input_namespaces_with_locations(child, child_path, result, visited)
+        end
+
+        result
       end
 
       def prepare_options(options)

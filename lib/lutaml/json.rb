@@ -16,6 +16,7 @@ require_relative "json/adapter/transform"
 require_relative "json/adapter/standard_adapter"
 require_relative "json/adapter/oj_adapter"
 require_relative "json/adapter/multi_json_adapter"
+require_relative "json/schema"
 
 module Lutaml
   module Json
