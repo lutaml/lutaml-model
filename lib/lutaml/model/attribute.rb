@@ -35,24 +35,25 @@ module Lutaml
         :string,
       ].freeze
 
-      # Safe methods than can be overriden without any crashing
-      ALLOW_OVERRIDING = %i[
-        display
-        validate
-        hash
-        itself
-        taint
-        untaint
-        trust
-        untrust
-        methods
-        instance_variables
-        tap
-        extend
-        freeze
-        encoding
-        method
-        object_id
+      # Methods where accidental override is likely to cause issues
+      # All names are allowed - this list only controls which ones get a warning
+      WARN_ON_OVERRIDE = %i[
+        # Ruby core - overriding breaks fundamental behavior
+        hash object_id class send method
+
+        # Object lifecycle - overriding without super breaks things
+        initialize
+
+        # Serialization methods - overriding breaks serialization
+        to_xml to_json to_yaml to_toml to_hash to_format
+
+        # Internal helpers - overriding breaks internal logic
+        attr_value attribute_exist? key_exist? key_value
+        using_default? using_default_for value_set_for
+        method_missing respond_to_missing?
+
+        # XML metadata - affects XML processing
+        element_order schema_location encoding doctype ordered? mixed?
       ].freeze
 
       def self.cast_type!(type)
@@ -620,13 +621,12 @@ module Lutaml
       # validated_range_object is provided by CollectionHandler module
 
       def validate_name!(name, reserved_methods:)
+        # No errors - all names are allowed
+        # Only warn for methods where accidental override is problematic
         return unless reserved_methods.include?(name.to_sym)
+        return unless WARN_ON_OVERRIDE.include?(name.to_sym)
 
-        if ALLOW_OVERRIDING.include?(name.to_sym)
-          warn_name_conflict(name)
-        else
-          raise Lutaml::Model::InvalidAttributeNameError.new(name)
-        end
+        warn_name_conflict(name)
       end
 
       def warn_name_conflict(name)
@@ -638,7 +638,8 @@ module Lutaml
         end
 
         Logger.warn(
-          "Attribute name `#{name}` conflicts with a built-in method",
+          "Attribute `#{name}` overrides a method. " \
+          "Ensure you call `super` if needed, or consider renaming.",
           location || caller_locations(1..1).first,
         )
       end

@@ -67,71 +67,82 @@ RSpec.describe Lutaml::Model::Attribute do
   end
 
   describe "#validate_name!" do
-    Lutaml::Model::Serializable.instance_methods.each do |method|
-      if Lutaml::Model::Attribute::ALLOW_OVERRIDING.include?(method)
-        before do
-          allow(Lutaml::Model::Logger).to receive(:warn)
+    # Test that all names are allowed (no errors raised)
+    # Only specific names trigger warnings
+    before do
+      allow(Lutaml::Model::Logger).to receive(:warn)
+    end
+
+    # Names that should NOT trigger warnings
+    # These are common Ruby methods that work fine when overridden
+    (Lutaml::Model::Serializable.instance_methods - Lutaml::Model::Attribute::WARN_ON_OVERRIDE).each do |method|
+      it "does not warn when attribute name is `#{method}`" do
+        Class.new(Lutaml::Model::Serializable) do
+          attribute method, :string
         end
 
-        it "does not raise an error when method is `#{method}`" do
-          expect do
-            Class.new(Lutaml::Model::Serializable) do
-              attribute method, :string
-            end
-          end.not_to raise_error
+        expect(Lutaml::Model::Logger).not_to have_received(:warn)
+      end
+    end
+
+    # Names that SHOULD trigger warnings
+    # These are methods where accidental override is likely to cause issues
+    Lutaml::Model::Attribute::WARN_ON_OVERRIDE.each do |method|
+      next unless Lutaml::Model::Serializable.instance_methods.include?(method)
+
+      it "logs a warning when attribute name is `#{method}`" do
+        Class.new(Lutaml::Model::Serializable) do
+          attribute method, :string
         end
 
-        it "logs a warning, when method is `#{method}`" do
-          Class.new(Lutaml::Model::Serializable) do
-            attribute method, :string
-          end
+        expect(Lutaml::Model::Logger)
+          .to have_received(:warn)
+          .with(a_string_including("Attribute `#{method}` overrides a method"), anything)
+      end
 
-          expect(Lutaml::Model::Logger)
-            .to have_received(:warn)
-            .with("Attribute name `#{method}` conflicts with a built-in method", anything)
+      it "logs a warning with the exact line of offense when attribute name is `#{method}`" do
+        # Capture the arguments passed to Logger.warn
+        warn_args = nil
+        allow(Lutaml::Model::Logger).to receive(:warn) do |message, location|
+          warn_args = [message, location]
         end
 
-        it "logs a warning with the exact line of offense when method is `#{method}`" do
-          # Capture the arguments passed to Logger.warn
-          warn_args = nil
-          allow(Lutaml::Model::Logger).to receive(:warn) do |message, location|
-            warn_args = [message, location]
-          end
-
-          # Get the line number where the attribute is defined
-          test_line = nil
-          Class.new(Lutaml::Model::Serializable) do
-            test_line = __LINE__ + 1 # Next line will be the attribute definition
-            attribute method, :string
-          end
-
-          # Verify the warning was called with correct message
-          expect(warn_args[0]).to eq("Attribute name `#{method}` conflicts with a built-in method")
-
-          # Verify the caller location points to the exact line where attribute was defined
-          expect(warn_args[1]).to be_a(Thread::Backtrace::Location)
-          expect(warn_args[1].lineno).to eq(test_line)
-          expect(warn_args[1].path).to include("attribute_spec.rb")
+        # Get the line number where the attribute is defined
+        test_line = nil
+        Class.new(Lutaml::Model::Serializable) do
+          test_line = __LINE__ + 1 # Next line will be the attribute definition
+          attribute method, :string
         end
-      else
-        it "raise exception, when method is `#{method}`" do
-          expect do
-            Class.new(Lutaml::Model::Serializable) do
-              attribute method, :string
-            end
-          end.to raise_error(
-            Lutaml::Model::InvalidAttributeNameError,
-            "Attribute name '#{method}' is not allowed",
-          )
+
+        # Verify the warning was called with correct message
+        expect(warn_args[0]).to include("Attribute `#{method}` overrides a method")
+
+        # Verify the caller location points to the exact line where attribute was defined
+        expect(warn_args[1]).to be_a(Thread::Backtrace::Location)
+        expect(warn_args[1].lineno).to eq(test_line)
+        expect(warn_args[1].path).to include("attribute_spec.rb")
+      end
+    end
+
+    context "when attribute name conflicts with a non-Serializable method" do
+      it "does not warn for `display` (Kernel method)" do
+        Class.new(Lutaml::Model::Serializable) do
+          attribute :display, :string
         end
+
+        expect(Lutaml::Model::Logger).not_to have_received(:warn)
+      end
+
+      it "does not warn for `validate` (designed to be overridden)" do
+        Class.new(Lutaml::Model::Serializable) do
+          attribute :validate, :string
+        end
+
+        expect(Lutaml::Model::Logger).not_to have_received(:warn)
       end
     end
 
     context "when multiple attributes with conflicting names are defined" do
-      before do
-        allow(Lutaml::Model::Logger).to receive(:warn)
-      end
-
       it "logs warnings with correct line numbers for each attribute" do
         # Capture all warning calls
         warning_calls = []
@@ -153,14 +164,24 @@ RSpec.describe Lutaml::Model::Attribute do
         expect(warning_calls.length).to eq(2)
 
         # Check first warning (:hash)
-        expect(warning_calls[0][0]).to eq("Attribute name `hash` conflicts with a built-in method")
+        expect(warning_calls[0][0]).to include("Attribute `hash` overrides a method")
         expect(warning_calls[0][1].lineno).to eq(hash_line)
         expect(warning_calls[0][1].path).to include("attribute_spec.rb")
 
         # Check second warning (:method)
-        expect(warning_calls[1][0]).to eq("Attribute name `method` conflicts with a built-in method")
+        expect(warning_calls[1][0]).to include("Attribute `method` overrides a method")
         expect(warning_calls[1][1].lineno).to eq(method_line)
         expect(warning_calls[1][1].path).to include("attribute_spec.rb")
+      end
+    end
+
+    context "when attribute name does not conflict with any method" do
+      it "does not log any warning" do
+        Class.new(Lutaml::Model::Serializable) do
+          attribute :my_custom_attribute, :string
+        end
+
+        expect(Lutaml::Model::Logger).not_to have_received(:warn)
       end
     end
   end
