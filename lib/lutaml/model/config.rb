@@ -2,25 +2,37 @@
 
 module Lutaml
   module Model
-    # Configuration module - delegates to Configuration singleton
-    # This is the single entry point for all configuration
+    # Configuration module - single entry point for all configuration
     module Config
       extend self
 
       AVAILABLE_FORMATS = %i[xml json jsonl yaml toml hash].freeze
       KEY_VALUE_FORMATS = AVAILABLE_FORMATS - %i[xml]
 
-
-
       # Singleton Configuration instance
       def instance
         @instance ||= Configuration.new
+      end
+
+      # Adapter storage - used by FormatRegistry for dynamic format registration
+      def adapters
+        @adapters ||= {}
       end
 
       # Delegate configure to Configuration
       def configure
         yield instance
         self
+      end
+
+      # Set adapter for a format (used by FormatRegistry)
+      def set_adapter_for(format, adapter)
+        adapters[format] = adapter
+      end
+
+      # Get adapter for a format
+      def adapter_for(format)
+        adapters[format] || instance.get_adapter(format)
       end
 
       # Delegate adapter setters to Configuration
@@ -32,15 +44,6 @@ module Lutaml
         define_method(:"#{format}_adapter_type") do
           instance.adapter_for(format)
         end
-      end
-
-      # Delegate other methods to Configuration
-      def adapter_for(format)
-        instance.get_adapter(format)
-      end
-
-      def set_adapter_for(format, adapter)
-        # No-op - adapters are managed by Configuration
       end
 
       def mappings_class_for(format)
@@ -67,7 +70,7 @@ module Lutaml
         instance.default_context_id = value
       end
 
-      # Utility method kept for compatibility
+      # Utility method
       def to_class_name(str)
         str.to_s.split("_").map(&:capitalize).join
       end
