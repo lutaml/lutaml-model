@@ -260,4 +260,157 @@ RSpec.describe "Namespace Preservation Issue #3" do
       expect(namespaces).to eq({})
     end
   end
+
+  context "model-level round-trip preservation" do
+    # These tests verify namespace preservation through the model layer
+    # (Model.from_xml -> model.to_xml), not just adapter layer
+
+    before do
+      # Reset global state for test isolation
+      Lutaml::Model::GlobalContext.clear_caches
+      Lutaml::Model::TransformationRegistry.instance.clear
+      Lutaml::Model::GlobalRegister.instance.reset
+    end
+
+    it "preserves unused namespace declarations at root through model round-trip" do
+      # Define namespace class
+      article_ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
+        uri "http://example.com/article"
+        prefix_default "art"
+      end
+
+      # Define model class
+      article_class = Class.new(Lutaml::Model::Serializable) do
+        define_method(:initialize) do |attrs = {}|
+          super(attrs)
+        end
+
+        attribute :title, :string
+
+        xml do
+          root "article"
+          namespace article_ns
+          map_element "title", to: :title
+        end
+
+        def self.name
+          "Article"
+        end
+      end
+
+      # Input XML has xmlns:xi for XInclude processing, but model doesn't use it
+      xml_input = <<~XML
+        <?xml version="1.0"?>
+        <art:article xmlns:art="http://example.com/article"
+                     xmlns:xi="http://www.w3.org/2001/XInclude">
+          <art:title>Test Article</art:title>
+        </art:article>
+      XML
+
+      # Parse to model
+      article = article_class.from_xml(xml_input)
+      expect(article.title).to eq("Test Article")
+
+      # Serialize back to XML
+      output = article.to_xml
+
+      # Verify xmlns:xi is preserved (was declared at root in input)
+      expect(output).to include('xmlns:xi="http://www.w3.org/2001/XInclude"')
+      expect(output).to include('xmlns:art="http://example.com/article"')
+    end
+
+    it "preserves multiple unused namespace declarations at root" do
+      # Define namespace class
+      article_ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
+        uri "http://example.com/article"
+        prefix_default "art"
+      end
+
+      # Define model class
+      article_class = Class.new(Lutaml::Model::Serializable) do
+        attribute :title, :string
+
+        xml do
+          root "article"
+          namespace article_ns
+          map_element "title", to: :title
+        end
+
+        def self.name
+          "Article"
+        end
+      end
+
+      xml_input = <<~XML
+        <?xml version="1.0"?>
+        <art:article xmlns:art="http://example.com/article"
+                     xmlns:xi="http://www.w3.org/2001/XInclude"
+                     xmlns:xlink="http://www.w3.org/1999/xlink"
+                     xmlns:mml="http://www.w3.org/1998/Math/MathML">
+          <art:title>Test Article</art:title>
+        </art:article>
+      XML
+
+      article = article_class.from_xml(xml_input)
+      output = article.to_xml
+
+      # All unused namespaces should be preserved
+      expect(output).to include('xmlns:xi="http://www.w3.org/2001/XInclude"')
+      expect(output).to include('xmlns:xlink="http://www.w3.org/1999/xlink"')
+      expect(output).to include('xmlns:mml="http://www.w3.org/1998/Math/MathML"')
+    end
+
+    it "does not hoist child-declared namespaces to root" do
+      # Define namespace classes
+      child_ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
+        uri "http://example.com/child"
+        prefix_default "child"
+      end
+
+      # Define child model class
+      child_class = Class.new(Lutaml::Model::Serializable) do
+        attribute :content, :string
+
+        xml do
+          root "child"
+          namespace child_ns
+          map_content to: :content
+        end
+
+        def self.name
+          "Child"
+        end
+      end
+
+      # Define parent model class
+      parent_class = Class.new(Lutaml::Model::Serializable) do
+        attribute :title, :string
+        attribute :child, child_class
+
+        xml do
+          root "parent"
+          map_element "title", to: :title
+          map_element "child", to: :child
+        end
+
+        def self.name
+          "Parent"
+        end
+      end
+
+      xml_input = <<~XML
+        <parent>
+          <title>Parent Title</title>
+          <child xmlns:child="http://example.com/child">Child Content</child>
+        </parent>
+      XML
+
+      parent = parent_class.from_xml(xml_input)
+      output = parent.to_xml
+
+      # The child namespace should NOT be hoisted to root
+      # (it was declared on child element in input)
+      expect(output).not_to match(%r{<parent[^>]*xmlns:child=})
+    end
+  end
 end

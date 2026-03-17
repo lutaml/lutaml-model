@@ -1275,6 +1275,57 @@ module Lutaml
           end
         end
 
+        # PRESERVATION: For root element, add stored input namespace declarations
+        # that were declared AT ROOT in the original input.
+        # This preserves namespaces like xmlns:xi that were in input at root level
+        # but are not "needed" by model. These namespaces may be required for
+        # downstream processing (XInclude, XSchema, etc.)
+        #
+        # CRITICAL: Only preserve namespaces that were ORIGINALLY declared at root.
+        # Namespaces declared on child elements in the input should remain on children.
+        # We use location tracking to determine WHERE each namespace was declared.
+        if is_root
+          stored_plan = options[:__stored_plan]
+
+          # Try location-aware approach first (preferred)
+          root_level_namespaces = stored_plan&.namespaces_at_path([])
+
+          if root_level_namespaces
+            # Location-aware preservation: Only preserve namespaces declared at root
+            root_level_namespaces.each do |prefix, uri|
+              # Skip if already declared by needs-based logic
+              next if hoisted.value?(uri)
+              # Skip if same prefix already used for different URI
+              next if hoisted.key?(prefix) && hoisted[prefix] != uri
+
+              # Safe to preserve at root (was declared here in input)
+              hoisted[prefix] = uri
+            end
+          elsif stored_plan&.root_node&.hoisted_declarations
+            # Fallback: Legacy behavior for plans without location data
+            # Only add namespaces that are NOT needed by any child
+            stored_hoisted = stored_plan.root_node.hoisted_declarations
+            stored_hoisted.each do |prefix, uri|
+              # Skip if already declared by needs-based logic
+              next if hoisted.value?(uri)
+              # Skip if same prefix already used for different URI
+              next if hoisted.key?(prefix) && hoisted[prefix] != uri
+
+              # Check if any child element needs this namespace
+              # If so, it will be declared locally on the child, not at root
+              child_needs_ns = needs.children&.any? do |_attr_name, child_needs|
+                child_needs.namespaces.any? do |_key, ns_usage|
+                  ns_usage.namespace_class&.uri == uri
+                end
+              end
+              next if child_needs_ns
+
+              # Safe to preserve at root
+              hoisted[prefix] = uri
+            end
+          end
+        end
+
         hoisted
       end
 

@@ -170,6 +170,103 @@ module Lutaml
             input_formats: input_formats)
       end
 
+      # Create DeclarationPlan from parsed XML input namespaces WITH location tracking
+      #
+      # This method preserves WHERE each namespace was declared in the original XML,
+      # enabling proper round-trip fidelity for namespace declarations.
+      #
+      # @param namespaces_with_locations [Hash] Location-aware namespace info
+      #   Format: { path_array => namespace_hash }
+      #   Where path_array is [] for root, ["child"] for child, etc.
+      #   And namespace_hash is { prefix_key => { uri:, format:, prefix: } }
+      # @param mapping [Xml::Mapping] XML mapping
+      # @return [DeclarationPlan] Plan capturing input format AND location
+      def self.from_input_with_locations(namespaces_with_locations, mapping)
+        # Build hoisted declarations for root (empty path)
+        root_namespaces = namespaces_with_locations[[]] || {}
+
+        # Track input formats for ALL namespaces (for format preservation)
+        input_formats = {}
+        root_hoisted = {}
+
+        # Process root namespaces
+        root_namespaces.each_value do |ns_config|
+          prefix = ns_config[:prefix]
+          uri = ns_config[:uri]
+          format = ns_config[:format] || (prefix ? :prefix : :default)
+
+          xmlns_key = format == :default ? nil : prefix
+          root_hoisted[xmlns_key] = uri
+          input_formats[uri] = format
+        end
+
+        # Build global prefix registry from ALL locations
+        registry = {}
+        namespaces_with_locations.each_value do |ns_hash|
+          ns_hash.each_value do |ns_config|
+            if ns_config[:format] == :prefix && ns_config[:prefix]
+              registry[ns_config[:uri]] = ns_config[:prefix]
+            end
+            # Track format for all namespaces
+            input_formats[ns_config[:uri]] ||= ns_config[:format] || :default
+          end
+        end
+
+        # Build element node tree with location info
+        root_node = ElementNode.new(
+          qualified_name: mapping.root_element || "",
+          use_prefix: nil,
+          hoisted_declarations: root_hoisted,
+        )
+
+        # Store location data for use during serialization
+        # This is the KEY addition - tracking WHERE namespaces were declared
+        location_data = {}
+        namespaces_with_locations.each do |path, ns_hash|
+          next if path.empty? # Root already handled
+
+          # Convert path array to string key for storage
+          path_key = path.join("/")
+          hoisted = {}
+          ns_hash.each_value do |ns_config|
+            prefix = ns_config[:prefix]
+            uri = ns_config[:uri]
+            format = ns_config[:format] || (prefix ? :prefix : :default)
+            xmlns_key = format == :default ? nil : prefix
+            hoisted[xmlns_key] = uri
+          end
+          location_data[path_key] = hoisted
+        end
+
+        plan = new(root_node: root_node, global_prefix_registry: registry,
+                   input_formats: input_formats)
+        plan.instance_variable_set(:@namespace_locations, location_data)
+        plan
+      end
+
+      # Get namespace declarations at a specific element path
+      #
+      # @param path [Array<String>] Element path (e.g., ["child", "grandchild"])
+      # @return [Hash, nil] Namespace declarations at that path, or nil if none
+      def namespaces_at_path(path)
+        return nil unless @namespace_locations
+
+        path_key = path.join("/")
+        @namespace_locations[path_key]
+      end
+
+      # Check if a namespace was declared at a specific path in the input
+      #
+      # @param uri [String] Namespace URI to check
+      # @param path [Array<String>] Element path
+      # @return [Boolean] True if namespace was declared at this path
+      def namespace_declared_at_path?(uri, path)
+        ns_at_path = namespaces_at_path(path)
+        return false unless ns_at_path
+
+        ns_at_path.value?(uri)
+      end
+
       # Get namespace declarations as a Hash
       #
       # Converts hoisted_declarations into NamespaceDeclaration objects

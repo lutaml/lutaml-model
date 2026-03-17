@@ -16,6 +16,7 @@ require_relative "yaml/adapter/mapping"
 require_relative "yaml/adapter/mapping_rule"
 require_relative "yaml/adapter/transform"
 require_relative "yaml/adapter/standard_adapter"
+require_relative "yaml/schema"
 
 module Lutaml
   module Yaml
