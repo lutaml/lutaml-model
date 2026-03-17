@@ -78,9 +78,9 @@ require_relative "support/test_adapter_config"
 
 Lutaml::Model::Config.configure do |config|
   config.xml_adapter_type = :nokogiri
-  config.hash_adapter_type = :standard_hash
-  config.json_adapter_type = :standard_json
-  config.yaml_adapter_type = :standard_yaml
+  config.hash_adapter_type = :standard
+  config.json_adapter_type = :standard
+  config.yaml_adapter_type = :standard
   config.toml_adapter_type = :toml_rb
 end
 

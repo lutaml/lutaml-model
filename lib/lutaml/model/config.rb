@@ -1,163 +1,73 @@
 # frozen_string_literal: true
 
-require_relative "error/unknown_adapter_type_error"
-
 module Lutaml
   module Model
+    # Configuration module - delegates to Configuration singleton
+    # This is the single entry point for all configuration
     module Config
       extend self
 
-      AVAILABLE_FORMATS = %i[xml json jsonl yaml toml hash].freeze
-      KEY_VALUE_FORMATS = AVAILABLE_FORMATS - %i[xml]
+      AVAILABLE_FORMATS = Configuration::AVAILABLE_FORMATS
+      KEY_VALUE_FORMATS = Configuration::KEY_VALUE_FORMATS
 
+      # Singleton Configuration instance
+      def instance
+        @instance ||= Configuration.new
+      end
+
+      # Delegate configure to Configuration
       def configure
-        yield self
-
+        yield instance
         self
       end
 
-      # This will generate the following methods
-      #
-      # xml_adapter_type=
-      #   @params:
-      #     one of [:nokogiri, :ox, :oga]
-      #   @example
-      #     Lutaml::Model::Config.xml_adapter = :nokogiri
-      #
-      # json_adapter_type=
-      #   @params:
-      #     one of [:standard_json, :multi_json]
-      #     if not set, :standard_json will be used by default
-      #   @example
-      #     Lutaml::Model::Config.json_adapter = :standard_json
-      #
-      # yaml_adapter_type=
-      #   @params:
-      #     one of [:standard_yaml]
-      #     if not set, :standard_yaml will be used by default
-      #   @example
-      #     Lutaml::Model::Config.yaml_adapter = :standard_yaml
-      #
-      # toml_adapter_type=
-      #   @params
-      #     one of [:tomlib, :toml_rb]
-      #   @example
-      #     Lutaml::Model::Config.toml_adapter = :tomlib
-      #
-      # AVAILABLE_FORMATS.each do |adapter_name|
-      #   define_method(:"#{adapter_name}_adapter_type=") do |type_name|
-      #     Lutaml::Model::FormatRegistry.send(:"#{adapter_name}_adapter_type=", type_name)
-      #   end
-      # end
-
-      AVAILABLE_FORMATS.each do |adapter_name|
-        # Setter
-        define_method(:"#{adapter_name}_adapter_type=") do |type_name|
-          adapter = adapter_name.to_s
-          type = normalize_type_name(type_name, adapter_name)
-          load_adapter_file(adapter, type)
-          load_moxml_adapter(type_name, adapter_name)
-          set_adapter_for(adapter_name, class_for(adapter, type))
-
-          # Store the adapter type for later retrieval
-          @adapter_types ||= {}
-          @adapter_types[adapter_name] = type_name
+      # Delegate adapter setters to Configuration
+      AVAILABLE_FORMATS.each do |format|
+        define_method(:"#{format}_adapter_type=") do |type_name|
+          instance.set_adapter(format, type_name)
         end
 
-        # Getter
-        define_method(:"#{adapter_name}_adapter_type") do
-          @adapter_types ||= {}
-          @adapter_types[adapter_name]
+        define_method(:"#{format}_adapter_type") do
+          instance.adapter_for(format)
         end
       end
 
+      # Delegate other methods to Configuration
       def adapter_for(format)
-        @adapters[format]
+        instance.get_adapter(format)
       end
 
       def set_adapter_for(format, adapter)
-        @adapters ||= {}
-        @adapters[format] = adapter
+        # No-op - adapters are managed by Configuration
       end
 
       def mappings_class_for(format)
-        Lutaml::Model::FormatRegistry.mappings_class_for(format)
+        instance.mappings_class_for(format)
       end
 
       def transformer_for(format)
-        Lutaml::Model::FormatRegistry.transformer_for(format)
-      end
-
-      def class_for(adapter, type)
-        # XML adapters are now in Lutaml::Xml::Adapter namespace
-        if adapter == "xml"
-          Lutaml::Xml::Adapter.const_get(to_class_name(type))
-        else
-          # Key-value adapters are now in Lutaml::KeyValue::Adapter namespace
-          Lutaml::KeyValue::Adapter.const_get(to_class_name(adapter))
-            .const_get(to_class_name(type))
-        end
+        instance.transformer_for(format)
       end
 
       def default_register
-        @default_register ||= :default
+        instance.default_register
       end
 
       def default_register=(value)
-        @default_register = case value
-                            when Symbol then value
-                            when Lutaml::Model::Register then value.id
-                            else
-                              raise "Unknown register: #{value}, expected a Symbol or a Lutaml::Model::Register instance"
-                            end
+        instance.default_register = value
       end
 
-      # New API (preferred) - aliases for terminology alignment with GlobalContext
-      # @see #default_register
       def default_context_id
-        default_register
+        instance.default_context_id
       end
 
-      # @see #default_register=
       def default_context_id=(value)
-        self.default_register = value
+        instance.default_context_id = value
       end
 
-      # @api private
+      # Utility method kept for compatibility
       def to_class_name(str)
         str.to_s.split("_").map(&:capitalize).join
-      end
-
-      private
-
-      def normalize_type_name(type_name, adapter_name)
-        "#{if type_name.start_with?('multi_json')
-             'multi_json'
-           else
-             type_name.to_s.gsub(
-               "_#{adapter_name}", ''
-             )
-           end}_adapter"
-      end
-
-      def load_adapter_file(adapter, type)
-        # XML adapters are now in lib/lutaml/xml/adapter/
-        adapter_path = if adapter == "xml"
-                         File.join(__dir__, "../xml/adapter", type)
-                       else
-                         # Key-value adapters are now in lib/lutaml/key_value/adapter/
-                         File.join(__dir__, "../key_value/adapter", adapter,
-                                   type)
-                       end
-        require adapter_path
-      rescue LoadError
-        raise UnknownAdapterTypeError.new(adapter, type), cause: nil
-      end
-
-      def load_moxml_adapter(type_name, adapter_name)
-        return if KEY_VALUE_FORMATS.include?(adapter_name)
-
-        Moxml::Adapter.load(type_name)
       end
     end
   end

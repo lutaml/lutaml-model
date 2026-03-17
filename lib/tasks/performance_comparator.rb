@@ -105,9 +105,8 @@ class PerformanceComparator
   def skip_adapter?(format_sym, adapter_sym)
     case [format_sym, adapter_sym]
     in [:toml, :tomlib]
-      # Lazy load the adapter class and check platform support
-      require "lutaml/key_value/adapter/toml/tomlib_adapter"
-      Lutaml::KeyValue::Adapter::Toml::TomlibAdapter.unsupported_on_windows_ruby4?
+      # Skip tomlib on Windows due to segmentation fault issues
+      Gem.win_platform?
     else
       false
     end
