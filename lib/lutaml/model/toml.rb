@@ -17,8 +17,13 @@ module Lutaml
       Transform = ::Lutaml::Toml::Adapter::Transform
 
       def self.detect_toml_adapter
-        # Skip tomlib on Windows due to segfault issues
-        return :toml_rb if Gem.win_platform? && Lutaml::Model::Utils.safe_load("toml-rb", :TomlRb)
+        # Skip tomlib on Windows entirely due to segfault issues
+        if Gem.win_platform?
+          return :toml_rb if Lutaml::Model::Utils.safe_load("toml-rb", :TomlRb)
+          return nil
+        end
+
+        # On non-Windows, prefer tomlib
         return :tomlib if Lutaml::Model::Utils.safe_load("tomlib", :Tomlib)
         return :toml_rb if Lutaml::Model::Utils.safe_load("toml-rb", :TomlRb)
 
