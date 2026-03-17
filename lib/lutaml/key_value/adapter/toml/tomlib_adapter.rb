@@ -9,16 +9,6 @@ module Lutaml
     module Adapter
       module Toml
         class TomlibAdapter < Document
-          # Issue warning for problematic platforms
-          if RUBY_PLATFORM.include?("mingw") && RUBY_VERSION < "3.5"
-            Lutaml::Model::Logger.warn(
-              "The Tomlib adapter may cause segmentation faults on Windows " \
-              "with Ruby < 3.5 when parsing invalid TOML. Consider using the " \
-              "TomlRB adapter instead.",
-              __FILE__,
-            )
-          end
-
           def self.parse(toml, _options = {})
             require "tomlib"
             Tomlib.load(toml)

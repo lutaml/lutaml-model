@@ -37,7 +37,7 @@ module Lutaml
         },
         toml: {
           available: %i[tomlib toml_rb],
-          default: :tomlib,
+          default: windows_platform? ? :toml_rb : :tomlib,
         },
         hash: {
           available: %i[standard],
@@ -52,6 +52,13 @@ module Lutaml
           default: :standard,
         },
       }.freeze
+
+      # Check if running on Windows platform
+      #
+      # @return [Boolean] true if on Windows
+      def self.windows_platform?
+        Gem.win_platform?
+      end
 
       attr_reader :adapter_types
 
@@ -175,6 +182,13 @@ module Lutaml
           available_formats = ADAPTERS.keys.map { |f| "`:#{f}`" }.join(", ")
           raise ArgumentError,
                 "Unknown format: `:#{format}`. Available formats: #{available_formats}."
+        end
+
+        # Check for Windows + tomlib incompatibility
+        if format == :toml && adapter_type == :tomlib && self.class.windows_platform?
+          raise ArgumentError,
+                "The `:tomlib` adapter is not supported on Windows due to " \
+                "segmentation fault issues. Please use `:toml_rb` instead."
         end
 
         available = ADAPTERS[format][:available]
