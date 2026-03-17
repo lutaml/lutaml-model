@@ -172,7 +172,6 @@ module XmlMappingSpec
     end
   end
 
-  # NOTE: With Session 114 recursive import resolution, Ox adapter now handles this correctly
   class OverrideDefaultNamespacePrefix < Lutaml::Model::Serializable
     attribute :same_element_name, SameNameDifferentNamespace
 
@@ -526,8 +525,6 @@ RSpec.describe Lutaml::Xml::Mapping do
       end
     end
 
-    # NOTE: With Session 114 recursive import resolution, Ox adapter now handles this correctly
-    # NOTE: Updated for Session 260 - Namespace hoisting behavior
     # The current implementation hoists namespace declarations to parent elements
     # for efficiency. This is W3C compliant. Tests updated to expect hoisted format.
     context "when overriding child namespace prefix" do
@@ -546,31 +543,16 @@ RSpec.describe Lutaml::Xml::Mapping do
       # Expected output with namespace hoisting (declarations moved to parent)
       # W3C-compliant: child elements with their own namespace use DEFAULT format
       # (semantically equivalent to prefix format in input)
-      # Note: Ox adapter does NOT hoist, keeps inline declarations
       let(:expected_xml) do
-        if adapter_class == Lutaml::Xml::Adapter::OxAdapter
-          # Ox keeps namespaces inline on child elements
-          <<~XML
-            <OverrideDefaultNamespacePrefix>
-              <SameElementName xmlns="http://www.omg.org/spec/XMI/20131001" App="hello">
-                <ApplicationSchema xmlns="http://www.sparxsystems.com/profiles/GML/1.0">GML App</ApplicationSchema>
-                <ApplicationSchema xmlns="http://www.sparxsystems.com/profiles/CityGML/1.0">CityGML App</ApplicationSchema>
-                <ApplicationSchema>App</ApplicationSchema>
-              </SameElementName>
-            </OverrideDefaultNamespacePrefix>
-          XML
-        else
-          # Nokogiri/Oga use default namespace format for child elements
-          <<~XML
-            <OverrideDefaultNamespacePrefix>
-              <SameElementName xmlns="http://www.omg.org/spec/XMI/20131001" App="hello">
-                <ApplicationSchema xmlns="http://www.sparxsystems.com/profiles/GML/1.0">GML App</ApplicationSchema>
-                <ApplicationSchema xmlns="http://www.sparxsystems.com/profiles/CityGML/1.0">CityGML App</ApplicationSchema>
-                <ApplicationSchema>App</ApplicationSchema>
-              </SameElementName>
-            </OverrideDefaultNamespacePrefix>
-          XML
-        end
+        <<~XML
+          <OverrideDefaultNamespacePrefix>
+            <SameElementName xmlns="http://www.omg.org/spec/XMI/20131001" App="hello">
+              <ApplicationSchema xmlns="http://www.sparxsystems.com/profiles/GML/1.0">GML App</ApplicationSchema>
+              <ApplicationSchema xmlns="http://www.sparxsystems.com/profiles/CityGML/1.0">CityGML App</ApplicationSchema>
+              <ApplicationSchema>App</ApplicationSchema>
+            </SameElementName>
+          </OverrideDefaultNamespacePrefix>
+        XML
       end
 
       it "expect to round-trips" do
@@ -580,7 +562,6 @@ RSpec.describe Lutaml::Xml::Mapping do
       end
     end
 
-    # NOTE: Updated for Session 260 - Namespace hoisting behavior
     # The current implementation hoists namespace declarations to parent elements
     # for efficiency. This is W3C compliant. Tests updated to expect hoisted format.
     context "with same element and attribute name" do
@@ -687,7 +668,6 @@ RSpec.describe Lutaml::Xml::Mapping do
       end
     end
 
-    # NOTE: Updated for Session 260 - Namespace format behavior
     # The current implementation uses default namespace format instead of prefix format
     # for child elements with different namespaces. Both are W3C compliant.
     context "with same name elements" do
@@ -940,7 +920,6 @@ RSpec.describe Lutaml::Xml::Mapping do
     end
 
     context "with nil element-level namespace" do
-      # NOTE: Updated for Session 260 - Current implementation uses default namespace format
       # instead of prefix format for child elements with different namespaces.
       # Both are W3C compliant.
       let(:expected_xml) do

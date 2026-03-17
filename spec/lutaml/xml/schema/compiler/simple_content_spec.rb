@@ -1,7 +1,6 @@
 require "spec_helper"
 require "support/xml/schema_helper"
 
-
 RSpec.describe Lutaml::Model::Schema::XmlCompiler::SimpleContent do
   let(:simple_content) { described_class.new }
   let(:dummy_class) do
@@ -59,5 +58,4 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler::SimpleContent do
       expect(simple_content.required_files).to include("files")
     end
   end
-  end
-
+end

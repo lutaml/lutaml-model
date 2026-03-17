@@ -275,13 +275,17 @@ module Lutaml
       # @param mapping [Xml::Mapping] the XML mapping
       # @param needs [NamespaceNeeds] namespace needs from collector
       # @return [Hash<Integer, DeclarationPlan>] Children plans by item index
-      def build_collection_item_plans(collection, mapping, needs)
+      def build_collection_item_plans(collection, _mapping, _needs)
         children_plans = {}
 
         return children_plans unless collection.respond_to?(:each)
 
         # Get the item type from the collection class
-        item_type = collection.class.instance_type rescue nil
+        item_type = begin
+          collection.class.instance_type
+        rescue StandardError
+          nil
+        end
 
         collection.each_with_index do |item, index|
           next unless item
@@ -289,7 +293,7 @@ module Lutaml
           # Get the item's mapper class
           item_mapper_class = if item.is_a?(Lutaml::Model::Serializable)
                                 item.class
-                              elsif item_type && item_type.is_a?(Class)
+                              elsif item_type.is_a?(Class)
                                 item_type
                               else
                                 next

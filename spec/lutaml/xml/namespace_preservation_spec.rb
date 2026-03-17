@@ -246,7 +246,8 @@ RSpec.describe "Namespace Preservation Issue #3" do
       XML
 
       parsed = Nokogiri::XML(xml)
-      namespaces = Lutaml::Xml::InputNamespaceExtractor.extract(parsed.root, :nokogiri)
+      namespaces = Lutaml::Xml::InputNamespaceExtractor.extract(parsed.root,
+                                                                :nokogiri)
 
       expect(namespaces).to be_a(Hash)
       expect(namespaces[:default]).to eq({ uri: "http://default.com",

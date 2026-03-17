@@ -26,7 +26,6 @@ module Lutaml
       #     end
       #   end
       module XmlSerialization
-
         # Serialize to XML using three-phase architecture
         #
         # @param options [Hash] Serialization options

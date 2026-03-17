@@ -6,8 +6,10 @@ RSpec.describe Lutaml::KeyValue::Transformation::ValueSerializer do
   let(:format) { :json }
   let(:register_id) { :default }
   let(:transformation_factory) do
-    ->(type_class) do
-      double("Transformation", transform: double("Element", to_hash: { "__root__" => { "name" => "test" } }))
+    ->(_type_class) do
+      double("Transformation",
+             transform: double("Element",
+                               to_hash: { "__root__" => { "name" => "test" } }))
     end
   end
 
@@ -15,7 +17,7 @@ RSpec.describe Lutaml::KeyValue::Transformation::ValueSerializer do
     described_class.new(
       format: format,
       register_id: register_id,
-      transformation_factory: transformation_factory
+      transformation_factory: transformation_factory,
     )
   end
 
@@ -44,7 +46,9 @@ RSpec.describe Lutaml::KeyValue::Transformation::ValueSerializer do
     context "with uninitialized value" do
       it "returns nil" do
         rule = build_rule(attribute_type: String)
-        expect(serializer.serialize_item(Lutaml::Model::UninitializedClass.instance, rule)).to be_nil
+        expect(serializer.serialize_item(
+                 Lutaml::Model::UninitializedClass.instance, rule
+               )).to be_nil
       end
     end
 
@@ -160,7 +164,7 @@ RSpec.describe Lutaml::KeyValue::Transformation::ValueSerializer do
         yaml_serializer = described_class.new(
           format: :yaml,
           register_id: register_id,
-          transformation_factory: transformation_factory
+          transformation_factory: transformation_factory,
         )
         rule = build_rule(attribute_type: Lutaml::Model::Type::Date)
         date = Date.new(2024, 1, 15)
@@ -185,7 +189,9 @@ RSpec.describe Lutaml::KeyValue::Transformation::ValueSerializer do
 
     it "returns nil for uninitialized values" do
       rule = build_rule(attribute_type: String)
-      expect(serializer.serialize_primitive(Lutaml::Model::UninitializedClass.instance, rule)).to be_nil
+      expect(serializer.serialize_primitive(
+               Lutaml::Model::UninitializedClass.instance, rule
+             )).to be_nil
     end
   end
 
@@ -204,7 +210,8 @@ RSpec.describe Lutaml::KeyValue::Transformation::ValueSerializer do
   end
 
   # Helper method to build a mock rule
-  def build_rule(attribute_type:, attribute_name: :test, child_transformation: nil)
+  def build_rule(attribute_type:, attribute_name: :test,
+child_transformation: nil)
     double("CompiledRule",
            attribute_type: attribute_type,
            attribute_name: attribute_name,

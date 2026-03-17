@@ -26,8 +26,7 @@ module Lutaml
     #
     class ImportRegistry
       # Represents a single deferred import
-      DeferredImport = Struct.new(:owner_class, :method, :symbol, :resolved,
-                                  keyword_init: true) do
+      DeferredImport = Struct.new(:owner_class, :method, :symbol, :resolved) do
         def resolved?
           resolved == true
         end

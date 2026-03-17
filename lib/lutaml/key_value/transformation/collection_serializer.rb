@@ -35,7 +35,8 @@ module Lutaml
         # @param register_id [Symbol, nil] The register ID
         # @param value_serializer [ValueSerializer] The value serializer
         # @param transformation_factory [Proc] Factory lambda ->(type_class) { Transformation }
-        def initialize(format:, register_id:, value_serializer:, transformation_factory:)
+        def initialize(format:, register_id:, value_serializer:,
+transformation_factory:)
           @format = format
           @register_id = register_id
           @value_serializer = value_serializer
@@ -70,8 +71,10 @@ module Lutaml
         # @param child_mappings [Hash] The child mappings configuration
         # @param options [Hash] Serialization options
         # @return [void]
-        def serialize_keyed(parent, items, rule, key_attribute, child_mappings, options = {})
-          create_keyed_collection_element(parent, rule, items, key_attribute, child_mappings, options)
+        def serialize_keyed(parent, items, rule, key_attribute, child_mappings,
+options = {})
+          create_keyed_collection_element(parent, rule, items, key_attribute,
+                                          child_mappings, options)
         end
 
         # Serialize an array collection.
@@ -136,13 +139,19 @@ module Lutaml
           render_nil = rule.option(:render_nil)
 
           if render_nil == :as_empty || converted_from_nil_to_empty
-            element = Lutaml::KeyValue::DataModel::Element.new(rule.serialized_name, [])
+            element = Lutaml::KeyValue::DataModel::Element.new(
+              rule.serialized_name, []
+            )
             parent.add_child(element)
           elsif render_nil == :as_blank
-            element = Lutaml::KeyValue::DataModel::Element.new(rule.serialized_name, [""])
+            element = Lutaml::KeyValue::DataModel::Element.new(
+              rule.serialized_name, [""]
+            )
             parent.add_child(element)
           elsif render_nil?(rule) || converted_from_empty_to_nil
-            element = Lutaml::KeyValue::DataModel::Element.new(rule.serialized_name, nil)
+            element = Lutaml::KeyValue::DataModel::Element.new(
+              rule.serialized_name, nil
+            )
             parent.add_child(element)
           end
           # else: Skip nil collection (default behavior)
@@ -166,7 +175,7 @@ module Lutaml
 
         # Handle root_mappings with both key and value attributes.
         def handle_root_mappings_key_value(parent, items, key_attribute,
-                                           value_attribute, rule, options)
+                                           value_attribute, _rule, options)
           items.each do |item|
             next if item.nil?
 
@@ -186,21 +195,21 @@ module Lutaml
             child_mappings = nil
             if item_class.is_a?(Class) && item_class.include?(Lutaml::Model::Serialize)
               item_mapping = item_class.mappings_for(format, register_id)
-              if item_mapping
-                item_mapping.mappings.each do |mapping_rule|
-                  if mapping_rule.to == value_attribute
-                    child_mappings = mapping_rule.child_mappings if mapping_rule.respond_to?(:child_mappings)
-                    break
-                  end
+              item_mapping&.mappings&.each do |mapping_rule|
+                if mapping_rule.to == value_attribute
+                  child_mappings = mapping_rule.child_mappings if mapping_rule.respond_to?(:child_mappings)
+                  break
                 end
               end
             end
 
             serialized_value = if child_mappings
                                  # Serialize as keyed collection
-                                 serialize_keyed_value_collection(attr_value, child_mappings, options)
+                                 serialize_keyed_value_collection(attr_value,
+                                                                  child_mappings, options)
                                elsif attr_def
-                                 serialize_item_value(attr_value, attr_def, options)
+                                 serialize_item_value(attr_value, attr_def,
+                                                      options)
                                else
                                  attr_value
                                end
@@ -209,7 +218,8 @@ module Lutaml
         end
 
         # Serialize a collection with child_mappings as a keyed hash.
-        def serialize_keyed_value_collection(collection, child_mappings, options)
+        def serialize_keyed_value_collection(collection, child_mappings,
+options)
           return {} if collection.nil?
 
           items = Array(collection)
@@ -242,8 +252,12 @@ module Lutaml
                   serialized_name = attr_name.to_s
                 end
 
-                serialized_val = serialize_item_value(attr_val, attr_def, options)
-                item_hash[serialized_name] = serialized_val unless serialized_val.nil?
+                serialized_val = serialize_item_value(attr_val, attr_def,
+                                                      options)
+                unless serialized_val.nil?
+                  item_hash[serialized_name] =
+                    serialized_val
+                end
               end
             end
 
@@ -283,6 +297,7 @@ module Lutaml
               attr_to_serialized = {}
               root_mappings.each do |attr_name, mapping_value|
                 next if mapping_value == :key
+
                 attr_to_serialized[attr_name] = mapping_value
               end
 
@@ -292,7 +307,8 @@ module Lutaml
                 attr_value = item.public_send(attr_name)
                 next if attr_value.nil? || Lutaml::Model::Utils.uninitialized?(attr_value)
 
-                serialized_value = serialize_item_value(attr_value, attr_def, options)
+                serialized_value = serialize_item_value(attr_value, attr_def,
+                                                        options)
                 next if serialized_value.nil?
 
                 # Check root_mappings first, then fall back to mapping
@@ -308,7 +324,9 @@ module Lutaml
                 else
                   # Fall back to serialized name from the mapping
                   item_mapping = item_class.mappings_for(format, register_id)
-                  serialized_name = find_serialized_name_for_attribute(item_mapping, attr_name) || attr_name.to_s
+                  serialized_name = find_serialized_name_for_attribute(
+                    item_mapping, attr_name
+                  ) || attr_name.to_s
                   item_hash[serialized_name] = serialized_value
                 end
               end
@@ -338,7 +356,9 @@ module Lutaml
             end
           end
 
-          element = Lutaml::KeyValue::DataModel::Element.new(rule.serialized_name, keyed_hash)
+          element = Lutaml::KeyValue::DataModel::Element.new(
+            rule.serialized_name, keyed_hash
+          )
           parent.add_child(element)
         end
 
@@ -365,12 +385,16 @@ module Lutaml
           end
 
           serialized_value = if attr_def
-                               serialize_item_value(attr_value, attr_def, options)
+                               serialize_item_value(attr_value, attr_def,
+                                                    options)
                              else
                                attr_value
                              end
 
-          keyed_hash[key_value.to_s] = serialized_value unless serialized_value.nil?
+          unless serialized_value.nil?
+            keyed_hash[key_value.to_s] =
+              serialized_value
+          end
         end
 
         # Serialize a keyed collection item as a hash.
@@ -379,7 +403,10 @@ module Lutaml
           item_hash = {}
           item_class = item.class
 
-          apply_child_mappings(item_hash, item, child_mappings, options) if child_mappings
+          if child_mappings
+            apply_child_mappings(item_hash, item, child_mappings,
+                                 options)
+          end
 
           if item_class.is_a?(Class) && item_class.include?(Lutaml::Model::Serialize)
             serialize_item_attributes(item_hash, item, item_class, key_attribute,
@@ -394,7 +421,7 @@ module Lutaml
           item_class = item.class
 
           child_mappings.each do |attr_name, path_spec|
-            next if path_spec == :key || path_spec == :value
+            next if %i[key value].include?(path_spec)
 
             attr_value = item.respond_to?(attr_name) ? item.public_send(attr_name) : nil
             next if attr_value.nil? || Lutaml::Model::Utils.uninitialized?(attr_value)
@@ -405,7 +432,8 @@ module Lutaml
             end
 
             serialized_value = if attr_def
-                                 serialize_item_value(attr_value, attr_def, options)
+                                 serialize_item_value(attr_value, attr_def,
+                                                      options)
                                else
                                  attr_value
                                end
@@ -430,8 +458,12 @@ module Lutaml
             attr_value = item.public_send(attr_name)
             next if attr_value.nil? || Lutaml::Model::Utils.uninitialized?(attr_value)
 
-            serialized_value = serialize_item_value(attr_value, attr_def, options)
-            item_hash[attr_name.to_s] = serialized_value unless serialized_value.nil?
+            serialized_value = serialize_item_value(attr_value, attr_def,
+                                                    options)
+            unless serialized_value.nil?
+              item_hash[attr_name.to_s] =
+                serialized_value
+            end
           end
         end
 

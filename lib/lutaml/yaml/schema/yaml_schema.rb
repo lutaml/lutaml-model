@@ -49,7 +49,8 @@ module Lutaml
           private
 
           def generate_model_class(schema)
-            template = File.join(__dir__, "..", "..", "model", "schema", "templates", "model.erb")
+            template = File.join(__dir__, "..", "..", "model", "schema",
+                                 "templates", "model.erb")
 
             Lutaml::Model::Schema::Renderer.render(template, schema: schema)
           end

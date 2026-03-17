@@ -1,7 +1,6 @@
 require "spec_helper"
 require "support/xml/schema_helper"
 
-
 RSpec.describe Lutaml::Model::Schema::XmlCompiler::AttributeGroup do
   let(:attribute_group) { described_class.new(name: "foo", ref: nil) }
   let(:dummy_class) do
@@ -69,5 +68,4 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler::AttributeGroup do
       expect(attribute_group.send(:resolved_instances)).to eq([1, 2])
     end
   end
-  end
-
+end

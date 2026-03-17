@@ -2,7 +2,6 @@ require "spec_helper"
 require "lutaml/model/schema"
 require "support/xml/schema_helper"
 
-
 RSpec.describe Lutaml::Model::Schema::XmlCompiler do
   # Reset :default context before each test to prevent pollution
   # Each test generates classes that register in :default context,
@@ -727,5 +726,4 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
       end
     end
   end
-  end
-
+end
