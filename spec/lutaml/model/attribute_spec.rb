@@ -88,7 +88,7 @@ RSpec.describe Lutaml::Model::Attribute do
     # Names that SHOULD trigger warnings
     # These are methods where accidental override is likely to cause issues
     Lutaml::Model::Attribute::WARN_ON_OVERRIDE.each do |method|
-      next unless Lutaml::Model::Serializable.instance_methods.include?(method)
+      next unless Lutaml::Model::Serializable.method_defined?(method)
 
       it "logs a warning when attribute name is `#{method}`" do
         Class.new(Lutaml::Model::Serializable) do

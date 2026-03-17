@@ -205,8 +205,8 @@ module Lutaml
       end
 
       def normalize_type_name(type_name, adapter_name)
-        if type_name.to_s.start_with?('multi_json')
-          'multi_json_adapter'
+        if type_name.to_s.start_with?("multi_json")
+          "multi_json_adapter"
         else
           "#{type_name.to_s.gsub("_#{adapter_name}", '')}_adapter"
         end
