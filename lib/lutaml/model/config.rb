@@ -7,8 +7,10 @@ module Lutaml
     module Config
       extend self
 
-      AVAILABLE_FORMATS = Configuration::AVAILABLE_FORMATS
-      KEY_VALUE_FORMATS = Configuration::KEY_VALUE_FORMATS
+      AVAILABLE_FORMATS = %i[xml json jsonl yaml toml hash].freeze
+      KEY_VALUE_FORMATS = AVAILABLE_FORMATS - %i[xml]
+
+
 
       # Singleton Configuration instance
       def instance
