@@ -20,6 +20,7 @@ module Lutaml
         # Skip tomlib on Windows entirely due to segfault issues
         if Gem.win_platform?
           return :toml_rb if Lutaml::Model::Utils.safe_load("toml-rb", :TomlRb)
+
           return nil
         end
 
