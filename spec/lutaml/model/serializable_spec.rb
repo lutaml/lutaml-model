@@ -576,6 +576,7 @@ RSpec.describe Lutaml::Model::Serializable do
         },
         toml: {
           toml_rb: 'name = "John Doe\nage = 30',
+          tomlib: 'name = "John Doe\nage = 30',
         },
         hash: {
           standard_hash: "This is not a hash",
@@ -624,13 +625,10 @@ RSpec.describe Lutaml::Model::Serializable do
     describe "invalid format handling for invalid TOML" do
       it_behaves_like "invalid format error", :toml, :toml_rb, :from_toml, :toml
 
-      # Only test Tomlib if not on problematic platform (Windows Ruby < 3.5)
-      if RUBY_PLATFORM.include?("mingw") && RUBY_VERSION < "3.5"
-        # NOTE: Skipped Tomlib case because it causes segmentation fault on
-        # Windows with Ruby < 3.5
-        it "skips Tomlib test on Windows Ruby < 3.5 due to segfault risk" do
-          skip "Tomlib causes segmentation faults on Windows with Ruby < 3.5 " \
-               "when parsing invalid TOML"
+      # Tomlib causes segmentation faults on Windows - skip entirely
+      if Gem.win_platform?
+        it "skips Tomlib test on Windows due to segfault risk" do
+          skip "Tomlib causes segmentation faults on Windows when parsing invalid TOML"
         end
       else
         it_behaves_like "invalid format error", :toml, :tomlib, :from_toml,

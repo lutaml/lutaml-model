@@ -19,8 +19,15 @@ RSpec.describe Lutaml::Model::Toml do
         stub_const("Tomlib", Module.new)
       end
 
-      it "returns :tomlib" do
+      it "returns :tomlib on non-Windows platforms" do
+        allow(Gem).to receive(:win_platform?).and_return(false)
         expect(described_class.detect_toml_adapter).to eq(:tomlib)
+      end
+
+      it "returns :toml_rb on Windows (skips tomlib due to segfaults)" do
+        allow(Gem).to receive(:win_platform?).and_return(true)
+        stub_const("TomlRb", Module.new)
+        expect(described_class.detect_toml_adapter).to eq(:toml_rb)
       end
     end
 
@@ -46,8 +53,14 @@ RSpec.describe Lutaml::Model::Toml do
         stub_const("TomlRb", Module.new)
       end
 
-      it "prefers Tomlib" do
+      it "prefers Tomlib on non-Windows platforms" do
+        allow(Gem).to receive(:win_platform?).and_return(false)
         expect(described_class.detect_toml_adapter).to eq(:tomlib)
+      end
+
+      it "prefers TomlRb on Windows (skips tomlib due to segfaults)" do
+        allow(Gem).to receive(:win_platform?).and_return(true)
+        expect(described_class.detect_toml_adapter).to eq(:toml_rb)
       end
     end
   end

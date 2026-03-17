@@ -1,7 +1,11 @@
 require "spec_helper"
 require "lutaml/key_value/adapter/toml/toml_rb_adapter"
-require "lutaml/key_value/adapter/toml/tomlib_adapter"
 require_relative "../../fixtures/sample_model"
+
+# Tomlib causes segmentation faults on Windows - only require on non-Windows
+unless Gem.win_platform?
+  require "lutaml/key_value/adapter/toml/tomlib_adapter"
+end
 
 RSpec.describe "TomlAdapter" do
   shared_examples "a TOML adapter" do |adapter_class|
@@ -35,7 +39,10 @@ RSpec.describe "TomlAdapter" do
     it_behaves_like "a TOML adapter", described_class
   end
 
-  describe Lutaml::Model::Toml::TomlibAdapter do
-    it_behaves_like "a TOML adapter", described_class
+  # Skip Tomlib tests on Windows due to segmentation faults
+  unless Gem.win_platform?
+    describe Lutaml::Model::Toml::TomlibAdapter do
+      it_behaves_like "a TOML adapter", described_class
+    end
   end
 end
