@@ -13,10 +13,14 @@ module Lutaml
     # Error module for XML-specific errors
     module Error
       autoload :XmlError, "#{__dir__}/xml/error/xml_error"
-      autoload :InvalidNamespaceError, "#{__dir__}/xml/error/invalid_namespace_error"
-      autoload :InvalidXsdTypeError, "#{__dir__}/xml/error/invalid_xsd_type_error"
-      autoload :XmlConfigurationError, "#{__dir__}/xml/error/xml_configuration_error"
-      autoload :NamespaceMismatchError, "#{__dir__}/xml/error/namespace_mismatch_error"
+      autoload :InvalidNamespaceError,
+               "#{__dir__}/xml/error/invalid_namespace_error"
+      autoload :InvalidXsdTypeError,
+               "#{__dir__}/xml/error/invalid_xsd_type_error"
+      autoload :XmlConfigurationError,
+               "#{__dir__}/xml/error/xml_configuration_error"
+      autoload :NamespaceMismatchError,
+               "#{__dir__}/xml/error/namespace_mismatch_error"
     end
 
     # XML Configuration modules

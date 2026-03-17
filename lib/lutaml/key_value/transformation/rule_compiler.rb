@@ -36,7 +36,8 @@ module Lutaml
         # @param register_id [Symbol, nil] The register ID
         # @param format [Symbol] The serialization format
         # @param transformation_factory [Proc] Factory lambda ->(type_class) { Transformation }
-        def initialize(model_class:, register_id:, format:, transformation_factory:)
+        def initialize(model_class:, register_id:, format:,
+transformation_factory:)
           @model_class = model_class
           @register_id = register_id
           @format = format

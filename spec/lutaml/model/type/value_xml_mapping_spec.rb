@@ -26,7 +26,8 @@ RSpec.describe Lutaml::Xml::Type::ValueXmlMapping do
       mapping = described_class.new
       expect do
         mapping.namespace(String)
-      end.to raise_error(Lutaml::Xml::Error::InvalidNamespaceError, /XmlNamespace/)
+      end.to raise_error(Lutaml::Xml::Error::InvalidNamespaceError,
+                         /XmlNamespace/)
     end
   end
 

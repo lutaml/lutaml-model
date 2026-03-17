@@ -82,7 +82,10 @@ module Lutaml
             # namespace_class is a class reference, no need to deep copy
             dup.instance_variable_set(:@namespace_class, @namespace_class)
             # xsd_type_name is a string, Duplicate for safety
-            dup.instance_variable_set(:@xsd_type_name, @xsd_type_name.dup) if @xsd_type_name
+            if @xsd_type_name
+              dup.instance_variable_set(:@xsd_type_name,
+                                        @xsd_type_name.dup)
+            end
           end
         end
       end

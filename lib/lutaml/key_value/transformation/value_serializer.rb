@@ -37,7 +37,8 @@ module Lutaml
         # @param register_id [Symbol, nil] The register ID
         # @param transformation_factory [Proc] Factory lambda ->(type_class) { Transformation }
         # @param model_class [Class, nil] The model class for attribute lookup
-        def initialize(format:, register_id:, transformation_factory:, model_class: nil)
+        def initialize(format:, register_id:, transformation_factory:,
+model_class: nil)
           @format = format
           @register_id = register_id
           @transformation_factory = transformation_factory
@@ -74,8 +75,11 @@ module Lutaml
         # @param rule [CompiledRule] The compiled rule
         # @return [Boolean] true if the rule defines a nested model
         def nested_model?(rule)
+          # rubocop:disable Style/IncludeOrExtend
+          # Use include? instead of < because < returns nil (not false) for non-subclasses
           rule.attribute_type.is_a?(Class) &&
-            rule.attribute_type < Lutaml::Model::Serialize ? true : false
+            rule.attribute_type.include?(Lutaml::Model::Serialize)
+          # rubocop:enable Style/IncludeOrExtend
         end
 
         # Serialize a nested model to a hash representation.
@@ -122,7 +126,7 @@ module Lutaml
 
           # For Serializable types, use to_#{format} method
           if rule.attribute_type.is_a?(Class) &&
-             rule.attribute_type < Lutaml::Model::Serialize
+              rule.attribute_type < Lutaml::Model::Serialize
             validate_serializable_type!(value, rule)
             return value.send(:"to_#{format}")
           end

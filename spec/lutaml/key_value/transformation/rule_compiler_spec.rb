@@ -27,7 +27,7 @@ RSpec.describe Lutaml::KeyValue::Transformation::RuleCompiler do
   end
 
   let(:transformation_factory) do
-    ->(type_class) { double("Transformation") }
+    ->(_type_class) { double("Transformation") }
   end
 
   let(:compiler) do
@@ -35,7 +35,7 @@ RSpec.describe Lutaml::KeyValue::Transformation::RuleCompiler do
       model_class: model_class,
       register_id: register_id,
       format: format,
-      transformation_factory: transformation_factory
+      transformation_factory: transformation_factory,
     )
   end
 
@@ -86,9 +86,7 @@ RSpec.describe Lutaml::KeyValue::Transformation::RuleCompiler do
 
       it "creates CompiledRule instances" do
         rules = compiler.compile(mapping_dsl)
-        rules.each do |rule|
-          expect(rule).to be_a(Lutaml::Model::CompiledRule)
-        end
+        expect(rules).to all(be_a(Lutaml::Model::CompiledRule))
       end
     end
   end
@@ -201,7 +199,7 @@ RSpec.describe Lutaml::KeyValue::Transformation::RuleCompiler do
     end
 
     context "with mapping-level transform" do
-      let(:transform_hash) { { export: ->(v) { v.upcase } } }
+      let(:transform_hash) { { export: lambda(&:upcase) } }
       let(:mapping_rule) do
         rule = super()
         allow(rule).to receive(:transform).and_return(transform_hash)
@@ -216,9 +214,10 @@ RSpec.describe Lutaml::KeyValue::Transformation::RuleCompiler do
     end
 
     context "with attribute-level transform" do
-      let(:transform_hash) { { export: ->(v) { v.upcase } } }
+      let(:transform_hash) { { export: lambda(&:upcase) } }
       let(:attr) do
-        double("Attribute", options: { transform: transform_hash }, respond_to?: false)
+        double("Attribute", options: { transform: transform_hash },
+                            respond_to?: false)
       end
 
       it "returns attribute transform when present" do

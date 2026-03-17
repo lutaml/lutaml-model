@@ -1,7 +1,6 @@
 require "spec_helper"
 require "support/xml/schema_helper"
 
-
 RSpec.describe Lutaml::Model::Schema::XmlCompiler::ComplexContentRestriction do
   let(:restriction) { described_class.new(base: "Base", instances: []) }
   let(:dummy_class) do
@@ -58,5 +57,4 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler::ComplexContentRestriction do
       expect(restriction.required_files).to include("files")
     end
   end
-  end
-
+end

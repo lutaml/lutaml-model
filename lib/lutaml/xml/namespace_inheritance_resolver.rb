@@ -18,8 +18,7 @@ module Lutaml
         :should_declare, # Boolean: should child declare this namespace?
         :format,              # Symbol: :default or :prefix
         :declared_at,         # Symbol: :here or :inherited
-        :prefix_override,     # String: custom prefix override
-        keyword_init: true,
+        :prefix_override,
       )
 
       # Initialize resolver

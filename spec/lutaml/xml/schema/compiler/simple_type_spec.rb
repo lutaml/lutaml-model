@@ -1,7 +1,6 @@
 require "spec_helper"
 require "support/xml/schema_helper"
 
-
 RSpec.describe Lutaml::Model::Schema::XmlCompiler::SimpleType do
   let(:class_name) { "TestType" }
   let(:base_class) { "string" }
@@ -182,5 +181,4 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler::SimpleType do
       expect(code).to include("register_class_with_id")
     end
   end
-  end
-
+end

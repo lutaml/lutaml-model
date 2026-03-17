@@ -1,7 +1,6 @@
 require "spec_helper"
 require "support/xml/schema_helper"
 
-
 RSpec.describe Lutaml::Model::Schema::XmlCompiler::Element do
   let(:element) { described_class.new(name: "foo", ref: "bar:Ref") }
 
@@ -66,5 +65,4 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler::Element do
       expect(element.send(:last_of_split, nil)).to be_nil
     end
   end
-  end
-
+end

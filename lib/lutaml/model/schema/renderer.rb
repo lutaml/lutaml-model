@@ -16,7 +16,9 @@ module Lutaml
         def render(variables = {})
           context = build_context(variables)
 
-          ERB.new(@template, trim_mode: "-").result(context.instance_eval { binding })
+          ERB.new(@template, trim_mode: "-").result(context.instance_eval do
+            binding
+          end)
         end
 
         private

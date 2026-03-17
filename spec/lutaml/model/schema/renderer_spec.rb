@@ -15,7 +15,7 @@ RSpec.describe Lutaml::Model::Schema::Renderer do
     end
 
     after do
-      File.delete(template_path) if File.exist?(template_path)
+      FileUtils.rm_f(template_path)
     end
 
     context "with simple variable" do
@@ -31,7 +31,8 @@ RSpec.describe Lutaml::Model::Schema::Renderer do
       let(:template_content) { "<%= first %> <%= last %>" }
 
       it "renders template with multiple variables" do
-        result = described_class.render(template_path, first: "John", last: "Doe")
+        result = described_class.render(template_path, first: "John",
+                                                       last: "Doe")
         expect(result).to eq("John Doe")
       end
     end
@@ -97,7 +98,7 @@ RSpec.describe Lutaml::Model::Schema::Renderer do
     end
 
     after do
-      File.delete(template_path) if File.exist?(template_path)
+      FileUtils.rm_f(template_path)
     end
 
     it "reads template file content" do

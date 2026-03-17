@@ -113,9 +113,7 @@ module Lutaml
             has_nested_elements = child.children.any?(::Nokogiri::XML::Element)
 
             # Extract text content from direct text children
-            text_children = child.children.select do |c|
-              c.is_a?(::Nokogiri::XML::Text)
-            end
+            text_children = child.children.grep(::Nokogiri::XML::Text)
             if text_children.any?
               text_content = text_children.map(&:text).join
               element.text_content = text_content unless text_content.empty?

@@ -20,7 +20,8 @@ module Lutaml
 
       autoload :RuleCompiler, "#{__dir__}/transformation/rule_compiler"
       autoload :ValueSerializer, "#{__dir__}/transformation/value_serializer"
-      autoload :CollectionSerializer, "#{__dir__}/transformation/collection_serializer"
+      autoload :CollectionSerializer,
+               "#{__dir__}/transformation/collection_serializer"
 
       # Initialize serializers before calling super
       # This must happen before super calls freeze
@@ -39,17 +40,21 @@ module Lutaml
           format: format,
           register_id: register_id,
           model_class: model_class,
-          transformation_factory: ->(type_class) { build_child_transformation(type_class) },
+          transformation_factory: ->(type_class) {
+            build_child_transformation(type_class)
+          },
         )
 
         @collection_serializer = CollectionSerializer.new(
           format: format,
           register_id: register_id,
           value_serializer: @value_serializer,
-          transformation_factory: ->(type_class) { build_child_transformation(type_class) },
+          transformation_factory: ->(type_class) {
+            build_child_transformation(type_class)
+          },
         )
 
-        super(model_class, mapping_dsl, format, register)
+        super
       end
 
       # Extract register_id from register parameter
@@ -73,7 +78,8 @@ module Lutaml
       # @param format [Symbol] The format
       # @param register [Register, nil] The register
       # @return [Transformation, nil] Child transformation or nil
-      def build_child_transformation(type_class, format = self.format, register = self.register)
+      def build_child_transformation(type_class, format = self.format,
+register = self.register)
         return nil unless type_class.is_a?(Class) &&
           type_class.include?(Lutaml::Model::Serialize)
 
@@ -112,7 +118,9 @@ module Lutaml
           model_class: model_class,
           register_id: register_id,
           format: format,
-          transformation_factory: ->(type_class) { build_child_transformation(type_class) },
+          transformation_factory: ->(type_class) {
+            build_child_transformation(type_class)
+          },
         )
       end
 
@@ -123,7 +131,9 @@ module Lutaml
         @value_serializer ||= ValueSerializer.new(
           format: format,
           register_id: register_id,
-          transformation_factory: ->(type_class) { build_child_transformation(type_class) },
+          transformation_factory: ->(type_class) {
+            build_child_transformation(type_class)
+          },
         )
       end
 
@@ -135,7 +145,9 @@ module Lutaml
           format: format,
           register_id: register_id,
           value_serializer: value_serializer,
-          transformation_factory: ->(type_class) { build_child_transformation(type_class) },
+          transformation_factory: ->(type_class) {
+            build_child_transformation(type_class)
+          },
         )
       end
 

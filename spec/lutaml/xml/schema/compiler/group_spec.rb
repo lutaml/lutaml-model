@@ -1,7 +1,6 @@
 require "spec_helper"
 require "support/xml/schema_helper"
 
-
 RSpec.describe Lutaml::Model::Schema::XmlCompiler::Group do
   let(:group) { described_class.new("GroupName", nil) }
   let(:dummy_class) do
@@ -88,5 +87,4 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler::Group do
       expect(group.base_name).to eq("Baz")
     end
   end
-  end
-
+end

@@ -192,7 +192,8 @@ module Lutaml
       # @param result [Hash] Accumulated result { path => namespaces }
       # @param visited [Set] Set of visited elements to prevent cycles
       # @return [Hash] Location-aware namespace info { path_array => namespace_hash }
-      def collect_input_namespaces_with_locations(element, path = [], result = {}, visited = Set.new)
+      def collect_input_namespaces_with_locations(element, path = [],
+result = {}, visited = Set.new)
         return result unless element
         return result if visited.include?(element.object_id)
 
@@ -216,7 +217,8 @@ module Lutaml
 
           child_name = child.respond_to?(:name) ? child.name.to_s : "unknown"
           child_path = path + [child_name]
-          collect_input_namespaces_with_locations(child, child_path, result, visited)
+          collect_input_namespaces_with_locations(child, child_path, result,
+                                                  visited)
         end
 
         result

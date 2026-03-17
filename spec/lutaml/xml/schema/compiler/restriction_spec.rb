@@ -1,7 +1,6 @@
 require "spec_helper"
 require "support/xml/schema_helper"
 
-
 RSpec.describe Lutaml::Model::Schema::XmlCompiler::Restriction do
   let(:restriction) { described_class.new }
 
@@ -75,5 +74,4 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler::Restriction do
       expect(restriction.send(:casted_enumerations)).to include("super(\"B\")")
     end
   end
-  end
-
+end

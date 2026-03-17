@@ -15,8 +15,10 @@ RSpec.describe Lutaml::KeyValue::Transformation::CollectionSerializer do
   end
 
   let(:transformation_factory) do
-    ->(type_class) do
-      double("Transformation", transform: double("Element", to_hash: { "__root__" => { "name" => "test" } }))
+    ->(_type_class) do
+      double("Transformation",
+             transform: double("Element",
+                               to_hash: { "__root__" => { "name" => "test" } }))
     end
   end
 
@@ -25,7 +27,7 @@ RSpec.describe Lutaml::KeyValue::Transformation::CollectionSerializer do
       format: format,
       register_id: register_id,
       value_serializer: value_serializer,
-      transformation_factory: transformation_factory
+      transformation_factory: transformation_factory,
     )
   end
 
@@ -102,14 +104,18 @@ RSpec.describe Lutaml::KeyValue::Transformation::CollectionSerializer do
 
     context "with array collection" do
       it "creates element with children for each item" do
-        allow(value_serializer).to receive(:serialize_item).and_return("item1", "item2")
+        allow(value_serializer).to receive(:serialize_item).and_return("item1",
+                                                                       "item2")
         serializer.serialize(parent, ["item1", "item2"], rule)
         expect(parent.children).not_to be_empty
       end
     end
 
     context "with keyed collection" do
-      let(:rule) { build_rule(is_collection: true, collection_info: { child_mappings: { id: :key } }) }
+      let(:rule) do
+        build_rule(is_collection: true,
+                   collection_info: { child_mappings: { id: :key } })
+      end
 
       it "creates keyed hash element" do
         item_class = Class.new do
@@ -121,7 +127,8 @@ RSpec.describe Lutaml::KeyValue::Transformation::CollectionSerializer do
           end
         end
 
-        items = [item_class.new("key1", "value1"), item_class.new("key2", "value2")]
+        items = [item_class.new("key1", "value1"),
+                 item_class.new("key2", "value2")]
         serializer.serialize(parent, items, rule)
         expect(parent.children).not_to be_empty
         expect(parent.children.first.value).to be_a(Hash)
@@ -139,7 +146,8 @@ RSpec.describe Lutaml::KeyValue::Transformation::CollectionSerializer do
     end
 
     it "creates element with children for each item" do
-      allow(value_serializer).to receive(:serialize_item).and_return("item1", "item2")
+      allow(value_serializer).to receive(:serialize_item).and_return("item1",
+                                                                     "item2")
       serializer.serialize_array(parent, ["item1", "item2"], rule, {})
       expect(parent.children).not_to be_empty
     end
@@ -161,13 +169,14 @@ RSpec.describe Lutaml::KeyValue::Transformation::CollectionSerializer do
         end
 
         # Return false for include? check so we don't try to serialize attributes
-        def self.include?(mod)
+        def self.include?(_mod)
           false
         end
       end
 
       items = [item_class.new("key1", "value1")]
-      serializer.serialize_keyed(parent, items, rule, key_attribute, child_mappings, {})
+      serializer.serialize_keyed(parent, items, rule, key_attribute,
+                                 child_mappings, {})
       expect(parent.children).not_to be_empty
       # The value should be a hash (may be empty if no attributes to serialize)
       expect(parent.children.first.value).to be_a(Hash)

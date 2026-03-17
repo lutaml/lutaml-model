@@ -102,7 +102,10 @@ module Lutaml
             end
           end
 
-          raise Lutaml::Model::UnresolvableTypeError, errors.join("\n") if errors.any?
+          if errors.any?
+            raise Lutaml::Model::UnresolvableTypeError,
+                  errors.join("\n")
+          end
         end
 
         def self.generate_schema(xml, klass, xml_mapping, register, _options)
@@ -147,7 +150,10 @@ module Lutaml
               next if ns_class.uri == schema_attrs[:targetNamespace]
 
               import_attrs = { namespace: ns_class.uri }
-              import_attrs[:schemaLocation] = ns_class.schema_location if ns_class.schema_location
+              if ns_class.schema_location
+                import_attrs[:schemaLocation] =
+                  ns_class.schema_location
+              end
               xml.import(import_attrs)
             end
 
@@ -171,10 +177,12 @@ module Lutaml
             if element_name && type_name
               # Pattern 3: Both element and named type
               xml.element(name: element_name, type: type_name)
-              generate_complex_type(xml, klass, type_name, register, xml_mapping)
+              generate_complex_type(xml, klass, type_name, register,
+                                    xml_mapping)
             elsif type_name && !element_name
               # Pattern 2: Type-only (no element)
-              generate_complex_type(xml, klass, type_name, register, xml_mapping)
+              generate_complex_type(xml, klass, type_name, register,
+                                    xml_mapping)
             else
               # Pattern 1: Anonymous inline (element with no type_name)
               # Use class name as fallback element name if not specified
@@ -194,7 +202,10 @@ module Lutaml
 
           namespace_class.imports.each do |imported_ns|
             import_attrs = { namespace: imported_ns.uri }
-            import_attrs[:schemaLocation] = imported_ns.schema_location if imported_ns.schema_location
+            if imported_ns.schema_location
+              import_attrs[:schemaLocation] =
+                imported_ns.schema_location
+            end
             xml.import(import_attrs)
           end
         end
@@ -226,25 +237,31 @@ module Lutaml
 
             # Generate type definition if nested model has type_name
             if nested_type_name
-              generate_complex_type(xml, attr_type, nested_type_name, register, nested_mapping)
+              generate_complex_type(xml, attr_type, nested_type_name, register,
+                                    nested_mapping)
               # Recursively generate nested types
               generate_nested_type_definitions(xml, attr_type, register)
             end
           end
         end
 
-        def self.generate_complex_type_content(xml, klass, register, xml_mapping)
+        def self.generate_complex_type_content(xml, klass, register,
+xml_mapping)
           xml.complexType do
             if klass.attributes.any?
               xml.sequence do
                 generate_elements(xml, klass, register, xml_mapping)
               end
             end
-            generate_attributes(xml, klass, register, xml_mapping) if xml_mapping
+            if xml_mapping
+              generate_attributes(xml, klass, register,
+                                  xml_mapping)
+            end
           end
         end
 
-        def self.generate_complex_type(xml, klass, type_name, register, xml_mapping = nil)
+        def self.generate_complex_type(xml, klass, type_name, register,
+xml_mapping = nil)
           xml.complexType(name: type_name) do
             if klass.attributes.any?
               xml.sequence do
@@ -300,7 +317,8 @@ module Lutaml
               end
             else
               # Value type
-              xsd_type = get_attribute_xsd_type(attr, attr_type, register, mapping_rule)
+              xsd_type = get_attribute_xsd_type(attr, attr_type, register,
+                                                mapping_rule)
 
               if attr.collection?
                 # Collection of simple types
@@ -317,7 +335,8 @@ module Lutaml
                 end
               else
                 # Simple element
-                element_attrs = build_element_attributes(name, xsd_type, attr, xml_mapping, name)
+                element_attrs = build_element_attributes(name, xsd_type, attr,
+                                                         xml_mapping, name)
                 xml.element(element_attrs)
               end
             end
@@ -354,7 +373,8 @@ module Lutaml
           xml_mapping.attributes.any? { |rule| rule.to == attr_name }
         end
 
-        def self.build_element_attributes(name, xsd_type, attr, xml_mapping, attr_name)
+        def self.build_element_attributes(name, xsd_type, attr, xml_mapping,
+attr_name)
           attrs = { name: name.to_s, type: xsd_type }
 
           # Handle collection cardinality
@@ -362,7 +382,8 @@ module Lutaml
             range = attr.resolved_collection
             if range
               attrs[:minOccurs] = range.min.to_s
-              attrs[:maxOccurs] = range.end.infinite? ? "unbounded" : range.max.to_s
+              attrs[:maxOccurs] =
+                range.end.infinite? ? "unbounded" : range.max.to_s
             else
               attrs[:minOccurs] = "0"
               attrs[:maxOccurs] = "unbounded"
@@ -386,7 +407,8 @@ module Lutaml
           xml_mapping.root_element != base_name
         end
 
-        def self.get_attribute_xsd_type(attr, attr_type, register, _mapping_rule = nil)
+        def self.get_attribute_xsd_type(attr, attr_type, register,
+_mapping_rule = nil)
           # 1. Check for deprecated attribute-level xsd_type override
           return attr.options[:xsd_type] if attr.options[:xsd_type]
 
@@ -460,7 +482,8 @@ module Lutaml
             return {} unless ns
 
             # Handle special symbols
-            return { uri: nil, prefix: nil, class: nil } if %i[blank inherit].include?(ns)
+            return { uri: nil, prefix: nil, class: nil } if %i[blank
+                                                               inherit].include?(ns)
 
             # XmlNamespace class
             {

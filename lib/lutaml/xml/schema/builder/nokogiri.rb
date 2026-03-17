@@ -14,7 +14,8 @@ module Lutaml
           def initialize(options = {}, &block)
             encoding = options[:encoding] || "UTF-8"
             @builder = if block
-                         ::Nokogiri::XML::Builder.new(encoding: encoding, &block)
+                         ::Nokogiri::XML::Builder.new(encoding: encoding,
+&block)
                        else
                          ::Nokogiri::XML::Builder.new(encoding: encoding)
                        end
