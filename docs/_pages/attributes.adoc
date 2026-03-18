@@ -1109,7 +1109,8 @@ class Person < Lutaml::Model::Serializable
   end
 
   xml do
-    root "Person", mixed: true
+    element "Person"
+    mixed_content
     sequence do
       map_element :FirstName, to: :first_name
       map_element :LastName, to: :last_name

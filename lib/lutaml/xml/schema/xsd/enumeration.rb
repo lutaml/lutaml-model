@@ -9,7 +9,8 @@ module Lutaml
           attribute :annotation, :annotation
 
           xml do
-            root "enumeration", mixed: true
+            element "enumeration"
+            mixed_content
             namespace Lutaml::Xml::Schema::XsdNamespace
 
             map_attribute :value, to: :value

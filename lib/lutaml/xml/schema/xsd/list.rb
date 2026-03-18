@@ -11,7 +11,8 @@ module Lutaml
           attribute :simple_type, :simple_type
 
           xml do
-            root "list", mixed: true
+            element "list"
+            mixed_content
             namespace Lutaml::Xml::Schema::XsdNamespace
 
             map_attribute :id, to: :id

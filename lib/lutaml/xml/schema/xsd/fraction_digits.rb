@@ -11,7 +11,8 @@ module Lutaml
           attribute :annotation, :annotation
 
           xml do
-            root "fractionDigits", mixed: true
+            element "fractionDigits"
+            mixed_content
             namespace Lutaml::Xml::Schema::XsdNamespace
 
             map_attribute :id, to: :id

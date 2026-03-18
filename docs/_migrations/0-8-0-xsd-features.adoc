@@ -1,0 +1,729 @@
+---
+title: v0.8.0 XSD Schema Features
+nav_order: 5
+---
+
+= v0.8.0 XSD Schema Features
+:toc:
+:toclevels: 3
+
+== Overview
+
+Version 0.8.0 integrates the XSD schema capabilities from lutaml-xsd directly into
+lutaml-model, providing comprehensive XML Schema (XSD) support:
+
+* **XSD Generation** - Convert Ruby models to XML Schema documents
+* **XSD Parsing** - Parse XSD files into Ruby model objects
+* **Code Generation** - Compile XSD into Ruby model class files
+* **Custom XSD Types** - Define XSD types on `Type::Value` subclasses
+* **RelaxNG Generation** - Generate RELAX NG schemas from models
+* **XSD Validation** - Pre-parsing validation of XSD documents
+
+This integration means lutaml-xsd is no longer a separate dependency - all XSD
+functionality is now built into lutaml-model.
+
+== Quick Start
+
+=== Generate XSD from Ruby Models
+
+[source,ruby]
+----
+require 'lutaml/model'
+
+class Person < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :age, :integer
+  attribute :email, :string
+
+  xml do
+    element "person"
+    map_element "name", to: :name
+    map_element "age", to: :age
+    map_attribute "email", to: :email
+  end
+end
+
+# Generate XSD schema
+xsd = Lutaml::Model::Schema.to_xsd(Person)
+puts xsd
+----
+
+**Output:**
+
+[source,xml]
+----
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="person">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="name" type="xs:string"/>
+        <xs:element name="age" type="xs:integer"/>
+      </xs:sequence>
+      <xs:attribute name="email" type="xs:string"/>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>
+----
+
+=== Parse XSD into Ruby Model Classes
+
+[source,ruby]
+----
+# Parse XSD and generate Ruby files
+Lutaml::Model::Schema.from_xml(xsd_content,
+  output_dir: "lib/models",
+  create_files: true,
+  module_namespace: "MyApp"
+)
+
+# Or load classes directly into memory
+classes = Lutaml::Model::Schema.from_xml(xsd_content, load_classes: true)
+----
+
+== XSD Generation
+
+=== Three Generation Patterns
+
+The XSD generator supports three patterns depending on your model configuration:
+
+==== Pattern 1: Anonymous Inline ComplexType
+
+When only an `element` name is declared (no `type_name`), generates an inline
+`<complexType>` inside the `<element>`.
+
+[source,ruby]
+----
+class Person < Lutaml::Model::Serializable
+  attribute :name, :string
+
+  xml do
+    element "person"  # Only element name
+    map_element "name", to: :name
+  end
+end
+----
+
+[source,xml]
+----
+<xs:element name="person">
+  <xs:complexType>
+    <xs:sequence>
+      <xs:element name="name" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+</xs:element>
+----
+
+==== Pattern 2: Named Reusable ComplexType
+
+When only `type_name` is declared (no element), generates a standalone
+`<complexType>` without an `<element>` declaration.
+
+[source,ruby]
+----
+class Address < Lutaml::Model::Serializable
+  attribute :street, :string
+  attribute :city, :string
+
+  xml do
+    type_name "AddressType"  # Only type name, no element
+    map_element "street", to: :street
+    map_element "city", to: :city
+  end
+end
+----
+
+[source,xml]
+----
+<xs:complexType name="AddressType">
+  <xs:sequence>
+    <xs:element name="street" type="xs:string"/>
+    <xs:element name="city" type="xs:string"/>
+  </xs:sequence>
+</xs:complexType>
+----
+
+==== Pattern 3: Element with Named Type
+
+When both element name and `type_name` are declared, generates an `<element>`
+with a `type` attribute plus a separate `<complexType>`.
+
+[source,ruby]
+----
+class Person < Lutaml::Model::Serializable
+  attribute :name, :string
+
+  xml do
+    element "person"
+    type_name "PersonType"  # Both element and type
+    map_element "name", to: :name
+  end
+end
+----
+
+[source,xml]
+----
+<xs:element name="person" type="PersonType"/>
+<xs:complexType name="PersonType">
+  <xs:sequence>
+    <xs:element name="name" type="xs:string"/>
+  </xs:sequence>
+</xs:complexType>
+----
+
+=== Namespace Support
+
+XSD generation respects `XmlNamespace` declarations:
+
+[source,ruby]
+----
+class PoNamespace < Lutaml::Model::XmlNamespace
+  uri "http://example.com/po"
+  prefix_default "po"
+  element_form_default :qualified
+end
+
+class PurchaseOrder < Lutaml::Model::Serializable
+  attribute :order_date, :date
+
+  xml do
+    element "purchaseOrder"
+    namespace PoNamespace
+    map_attribute "orderDate", to: :order_date
+  end
+end
+
+xsd = Lutaml::Model::Schema.to_xsd(PurchaseOrder)
+----
+
+**Output:**
+
+[source,xml]
+----
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:po="http://example.com/po"
+           targetNamespace="http://example.com/po">
+  <xs:element name="purchaseOrder">
+    <xs:complexType>
+      <xs:attribute name="orderDate" type="xs:date"/>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>
+----
+
+=== Collection Support
+
+Collections generate `minOccurs` and `maxOccurs` attributes:
+
+[source,ruby]
+----
+class Order < Lutaml::Model::Serializable
+  attribute :items, :string, collection: true
+
+  xml do
+    element "order"
+    map_element "item", to: :items
+  end
+end
+----
+
+[source,xml]
+----
+<xs:element name="item" type="xs:string" minOccurs="0" maxOccurs="unbounded"/>
+----
+
+=== Nested Models
+
+Nested models are handled automatically:
+
+[source,ruby]
+----
+class Address < Lutaml::Model::Serializable
+  attribute :city, :string
+
+  xml do
+    element "address"
+    map_element "city", to: :city
+  end
+end
+
+class Person < Lutaml::Model::Serializable
+  attribute :address, Address
+
+  xml do
+    element "person"
+    map_element "address", to: :address
+  end
+end
+----
+
+=== Documentation/Annotation
+
+Use the `documentation` directive to add XSD annotations:
+
+[source,ruby]
+----
+class Person < Lutaml::Model::Serializable
+  xml do
+    element "person"
+    documentation "A person record in the system"
+  end
+end
+----
+
+== Custom XSD Types
+
+=== The xsd_type Directive
+
+Custom `Type::Value` subclasses can define their XSD type using the `xsd_type`
+directive:
+
+[source,ruby]
+----
+class IdType < Lutaml::Model::Type::String
+  xsd_type "xs:ID"
+end
+
+class TokenType < Lutaml::Model::Type::String
+  xsd_type "xs:token"
+end
+
+class LanguageType < Lutaml::Model::Type::String
+  xsd_type "xs:language"
+end
+----
+
+When used in models, the custom XSD type is used in generated schemas:
+
+[source,ruby]
+----
+class Product < Lutaml::Model::Serializable
+  attribute :id, IdType
+  attribute :code, TokenType
+
+  xml do
+    element "product"
+    map_attribute "id", to: :id
+    map_element "code", to: :code
+  end
+end
+----
+
+[source,xml]
+----
+<xs:attribute name="id" type="xs:ID"/>
+<xs:element name="code" type="xs:token"/>
+----
+
+=== Type Inheritance
+
+The `xsd_type` is inherited by subclasses:
+
+[source,ruby]
+----
+class BaseType < Lutaml::Model::Type::String
+  xsd_type "xs:token"
+end
+
+class DerivedType < BaseType
+  # Inherits xsd_type "xs:token"
+end
+----
+
+=== Supported XSD Types
+
+The default type mapping is:
+
+|===
+| Lutaml::Model Type | XSD Type
+
+| `Type::String` | `xs:string`
+| `Type::Integer` | `xs:integer`
+| `Type::Boolean` | `xs:boolean`
+| `Type::Float` | `xs:float`
+| `Type::Decimal` | `xs:decimal`
+| `Type::Date` | `xs:date`
+| `Type::Time` | `xs:time`
+| `Type::DateTime` | `xs:dateTime`
+| `Type::Duration` | `xs:duration`
+| `Type::Uri` | `xs:anyURI`
+| `Type::QName` | `xs:QName`
+| `Type::Base64Binary` | `xs:base64Binary`
+| `Type::HexBinary` | `xs:hexBinary`
+| `Type::Hash` | `xs:anyType`
+| `Type::Symbol` | `xs:string`
+|===
+
+== XSD Parsing and Code Generation
+
+=== Basic Parsing
+
+Parse an XSD file into Ruby model objects:
+
+[source,ruby]
+----
+xsd_content = <<~XML
+  <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+    <xs:element name="person">
+      <xs:complexType>
+        <xs:sequence>
+          <xs:element name="name" type="xs:string"/>
+        </xs:sequence>
+      </xs:complexType>
+    </xs:element>
+  </xs:schema>
+XML
+
+# Parse into model objects
+schema = Lutaml::Xml::Schema::Xsd.parse(xsd_content)
+----
+
+=== Code Generation Options
+
+Generate Ruby files from XSD:
+
+[source,ruby]
+----
+Lutaml::Model::Schema.from_xml(xsd_content,
+  output_dir: "lib/my_app/models",  # Directory for generated files
+  create_files: true,                # Write files to disk
+  load_classes: false,               # Don't load into memory
+  module_namespace: "MyApp",         # Wrap in module
+  register_id: :my_app,              # Register for type resolution
+  location: "schemas/",              # Base location for imports
+  namespace: "http://example.com",   # Target namespace
+  indent: 2                          # Indentation level
+)
+----
+
+=== Generated Code Structure
+
+For a complex XSD, the generator creates:
+
+1. **Model classes** - `Lutaml::Model::Serializable` subclasses with attributes and mappings
+2. **Type classes** - `Lutaml::Model::Type::Value` subclasses for restricted simple types
+3. **Namespace classes** - `Lutaml::Model::XmlNamespace` subclasses
+4. **Registry file** - Central registry with autoload and `register_all` method
+
+=== Handling Imports and Includes
+
+The parser handles `<xs:import>` and `<xs:include>` recursively:
+
+[source,ruby]
+----
+Lutaml::Model::Schema.from_xml(xsd_content,
+  location: "https://example.com/schemas/",
+  schema_mappings: {
+    "http://example.com/types" => "vendor/types.xsd"
+  }
+)
+----
+
+=== Generated Type Validations
+
+Simple type restrictions generate validation code:
+
+[source,ruby]
+----
+# From XSD:
+# <xs:simpleType name="PositiveInteger">
+#   <xs:restriction base="xs:integer">
+#     <xs:minInclusive value="1"/>
+#   </xs:restriction>
+# </xs:simpleType>
+
+# Generates:
+class PositiveInteger < Lutaml::Model::Type::Integer
+  def cast(value)
+    result = super
+    raise ValidationError, "must be >= 1" if result < 1
+    result
+  end
+end
+----
+
+Supported restrictions:
+* `minInclusive`, `maxInclusive`
+* `minExclusive`, `maxExclusive`
+* `length`, `minLength`, `maxLength`
+* `pattern`
+* `enumeration`
+* `whiteSpace`
+* `totalDigits`, `fractionDigits`
+
+== XSD Model Classes
+
+The XSD parser uses model classes for each XSD element type:
+
+|===
+| XSD Element | Ruby Class
+
+| `<schema>` | `Lutaml::Xml::Schema::Xsd::Schema`
+| `<element>` | `Lutaml::Xml::Schema::Xsd::Element`
+| `<attribute>` | `Lutaml::Xml::Schema::Xsd::Attribute`
+| `<complexType>` | `Lutaml::Xml::Schema::Xsd::ComplexType`
+| `<simpleType>` | `Lutaml::Xml::Schema::Xsd::SimpleType`
+| `<sequence>` | `Lutaml::Xml::Schema::Xsd::Sequence`
+| `<choice>` | `Lutaml::Xml::Schema::Xsd::Choice`
+| `<all>` | `Lutaml::Xml::Schema::Xsd::All`
+| `<group>` | `Lutaml::Xml::Schema::Xsd::Group`
+| `<attributeGroup>` | `Lutaml::Xml::Schema::Xsd::AttributeGroup`
+| `<complexContent>` | `Lutaml::Xml::Schema::Xsd::ComplexContent`
+| `<simpleContent>` | `Lutaml::Xml::Schema::Xsd::SimpleContent`
+| `<restriction>` | `Lutaml::Xml::Schema::Xsd::RestrictionSimpleType`
+| `<extension>` | `Lutaml::Xml::Schema::Xsd::ExtensionComplexContent`
+| `<import>` | `Lutaml::Xml::Schema::Xsd::Import`
+| `<include>` | `Lutaml::Xml::Schema::Xsd::Include`
+| `<annotation>` | `Lutaml::Xml::Schema::Xsd::Annotation`
+|===
+
+You can parse XSD directly into these model objects:
+
+[source,ruby]
+----
+require 'lutaml/xml/schema/xsd'
+
+schema = Lutaml::Xml::Schema::Xsd::Schema.from_xml(xsd_string)
+schema.elements.each do |element|
+  puts "Element: #{element.name}"
+  puts "Type: #{element.type}" if element.type
+end
+----
+
+== XSD Validation
+
+Pre-parsing validation checks XSD syntax and structure:
+
+[source,ruby]
+----
+# Validation is automatic during parsing
+schema = Lutaml::Xml::Schema::Xsd.parse(xsd_content, validate_schema: true)
+
+# Or validate explicitly
+validator = Lutaml::Xml::Schema::Xsd::SchemaValidator.new(xsd_content)
+validator.validate  # raises ValidationError if invalid
+----
+
+Validation includes:
+* XML syntax validation
+* Proper `<schema>` root element
+* XSD version detection (1.0 vs 1.1)
+* XSD 1.1-specific element detection
+
+== RelaxNG Generation
+
+Generate RELAX NG schemas from Ruby models:
+
+[source,ruby]
+----
+class Person < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :age, :integer
+
+  xml do
+    element "person"
+    map_element "name", to: :name
+    map_element "age", to: :age
+  end
+end
+
+rng = Lutaml::Model::Schema.to_relaxng(Person)
+----
+
+**Output:**
+
+[source,xml]
+----
+<grammar xmlns="http://relaxng.org/ns/structure/1.0">
+  <start>
+    <ref name="person"/>
+  </start>
+  <define name="person">
+    <element name="person">
+      <element name="name">
+        <text/>
+      </element>
+      <element name="age">
+        <text/>
+      </element>
+    </element>
+  </define>
+</grammar>
+----
+
+== attribute_form_default :qualified Fix
+
+Version 0.8.0 also fixes a bug where `attribute_form_default :qualified` in
+`XmlNamespace` classes was not being respected during XML serialization.
+
+=== What Was Fixed
+
+Prior to v0.8.0, when a namespace declared `attribute_form_default :qualified`,
+attributes were incorrectly serialized **without** namespace prefixes.
+
+[source,ruby]
+----
+class MyNamespace < Lutaml::Model::XmlNamespace
+  uri "http://example.com/ns"
+  prefix_default "ex"
+  attribute_form_default :qualified  # Now WORKS correctly
+end
+
+class Item < Lutaml::Model::Serializable
+  attribute :id, :string
+  attribute :value, :integer
+
+  xml do
+    element "item"
+    namespace MyNamespace
+    map_attribute "id", to: :id
+    map_attribute "value", to: :value
+  end
+end
+
+item = Item.new(id: "123", value: 42)
+item.to_xml(prefix: true)
+----
+
+**Correct Output (v0.8.0+):**
+
+[source,xml]
+----
+<ex:item xmlns:ex="http://example.com/ns" ex:id="123" ex:value="42"/>
+----
+
+=== W3C Compliance
+
+This fix implements W3C XML Schema Part 1: Structures, Section 3.2.2:
+
+[quote, W3C XML Schema Part 1: Structures]
+____
+If the attribute form default is 'qualified', then locally declared attributes
+(those declared in complexType definitions) must be qualified in instance documents.
+____
+
+== Migration from v0.7.x
+
+=== Summary of Changes
+
+|===
+| Aspect | v0.7.x | v0.8.0
+
+| XSD support | Separate lutaml-xsd gem | Integrated into lutaml-model
+| XSD generation | Limited | Full support with patterns
+| XSD parsing | Manual | Automatic code generation
+| Custom types | Not supported | `xsd_type` directive
+| RelaxNG | Not supported | Supported
+| `attribute_form_default` | Buggy | Fixed
+|===
+
+=== Migration Steps
+
+1. **Remove lutaml-xsd dependency** - No longer needed
+
+[source,ruby]
+----
+# Gemfile - REMOVE this line
+gem 'lutaml-xsd'
+
+# Keep only
+gem 'lutaml-model', '~> 0.8.0'
+----
+
+2. **Update XSD generation code**
+
+[source,ruby]
+----
+# OLD (v0.7.x)
+require 'lutaml/xsd'
+schema = Lutaml::Xsd::Schema.from_xml(xsd)
+
+# NEW (v0.8.0)
+require 'lutaml/model'
+schema = Lutaml::Xml::Schema::Xsd::Schema.from_xml(xsd)
+# Or use the public API
+Lutaml::Model::Schema.from_xml(xsd)
+----
+
+3. **Update custom type definitions**
+
+[source,ruby]
+----
+# OLD - No way to specify XSD type
+
+# NEW - Use xsd_type directive
+class IdType < Lutaml::Model::Type::String
+  xsd_type "xs:ID"
+end
+----
+
+4. **Verify `attribute_form_default` behavior**
+
+If you use `attribute_form_default :qualified`, verify your XML output has
+properly prefixed attributes. This was a bug fix, so your output may change.
+
+== Troubleshooting
+
+=== XSD Generation Issues
+
+**Problem:** Missing type references in generated XSD
+
+**Solution:** Ensure all referenced model classes are loaded before generating:
+
+[source,ruby]
+----
+# Load all models first
+require_relative 'models/address'
+require_relative 'models/person'
+
+# Then generate
+Lutaml::Model::Schema.to_xsd(Person)
+----
+
+**Problem:** Custom XSD types not appearing
+
+**Solution:** Define `xsd_type` on your Type class:
+
+[source,ruby]
+----
+class MyCustomType < Lutaml::Model::Type::String
+  xsd_type "xs:token"  # Required for custom types
+end
+----
+
+=== Code Generation Issues
+
+**Problem:** Import/include not resolved
+
+**Solution:** Provide `location` and `schema_mappings`:
+
+[source,ruby]
+----
+Lutaml::Model::Schema.from_xml(xsd,
+  location: "schemas/",
+  schema_mappings: {
+    "http://external.com/types" => "vendor/types.xsd"
+  }
+)
+----
+
+**Problem:** Generated classes not loading
+
+**Solution:** Ensure output directory is in load path, or use `load_classes: true`:
+
+[source,ruby]
+----
+# Option 1: Load during generation
+classes = Lutaml::Model::Schema.from_xml(xsd, load_classes: true)
+
+# Option 2: Add to load path
+$LOAD_PATH.unshift("lib/my_app/models")
+require 'my_app/registry'
+MyApp.register_all
+----
+
+== See Also
+
+* link:0-8-0-namespace-restructuring.adoc[v0.8.0 Namespace Restructuring]
+* link:../_references/xsd-generation.adoc[XSD Schema Generation Reference]
+* link:../_guides/xml-namespaces.adoc[XML Namespaces Complete Guide]

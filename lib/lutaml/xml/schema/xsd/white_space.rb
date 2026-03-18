@@ -10,7 +10,8 @@ module Lutaml
           attribute :value, :string
 
           xml do
-            root "whiteSpace", mixed: true
+            element "whiteSpace"
+            mixed_content
             namespace Lutaml::Xml::Schema::XsdNamespace
 
             map_attribute :id, to: :id

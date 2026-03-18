@@ -125,32 +125,40 @@ puts Ceramic.new(type: "Porcelain").to_xml
 The `root` method is maintained as a backward-compatible alias to `element` that
 also supports the `mixed:` and `ordered:` options.
 
-[NOTE]
+[WARNING]
 ====
-In v0.8.0 onwards, these options are deprecated in favor of:
+In v0.8.0 onwards, the `mixed:` and `ordered:` options on `root()` are deprecated.
+Use the dedicated `mixed_content` and `ordered` methods instead:
 
-* the `mixed_content` method replaces `mixed: true`;
-* the `sequence do` block replaces the `ordered: true` option
+* Use `mixed_content` method instead of `mixed: true`
+* Use `ordered` method instead of `ordered: true`
+
+Note: `sequence do` is different from `ordered` - `sequence` enforces and validates
+order, while `ordered` only preserves order without validation.
 ====
 
-Syntax:
+==== (DEPRECATED) Root method with options
+
+[WARNING]
+====
+This syntax is deprecated. Use the `mixed_content` and `ordered` methods instead.
+====
+
+Syntax (deprecated):
 
 [source,ruby]
 ----
 xml do
-  root 'element-name', mixed: false, ordered: false
+  root 'element-name', mixed: false, ordered: false  # DEPRECATED
 end
 ----
 
 Values:
 
-`mixed`::: (optional) `true` to enable mixed content (text + elements), `false`
-otherwise (default)
+`mixed`::: (deprecated) `true` to enable mixed content (text + elements). Use `mixed_content` method instead.
+`ordered`::: (deprecated) `true` to preserve element order. Use `ordered` method instead.
 
-`ordered`::: (optional) `true` to preserve element order, `false` otherwise
-(default)
-
-.Using `root` with options
+.Deprecated: Using `root` with options (use `mixed_content` method instead)
 [example]
 ====
 [source,ruby]
@@ -160,7 +168,7 @@ class Paragraph < Lutaml::Model::Serializable
   attribute :italic, :string
 
   xml do
-    root 'p', mixed: true  # Enable mixed content
+    root 'p', mixed: true  # DEPRECATED - use mixed_content method instead
     map_element 'bold', to: :bold
     map_element 'i', to: :italic
   end
@@ -365,26 +373,29 @@ end
 
 
 [[ordered-content]]
-==== Ordered content
+==== Ordered content (`ordered` method)
 
-`ordered: true` maintains the order of **XML Elements**, while `mixed: true`
-preserves the order of **XML Elements and Content**.
+The `ordered` method preserves the order of **XML Elements** during round-trip
+serialization without validation.
 
-NOTE: When both options are used, `mixed: true` takes precedence.
+Use `ordered` when:
+* Element order matters for your application
+* You need to preserve input order exactly
+* You DON'T want to validate/enforce a specific order
 
-To specify ordered content, the `ordered: true` option needs to be set at the
-`xml` block's `root` method.
+Use `sequence` when you need strict order validation (see <<Sequence patterns>>).
 
 Syntax:
 
 [source,ruby]
 ----
 xml do
-  root 'xml_element_name', ordered: true
+  element 'xml_element_name'
+  ordered  # Enable ordered content
 end
 ----
 
-.Applying `ordered` to treat root as ordered content
+.Using `ordered` method to preserve element order
 [example]
 ====
 
@@ -396,7 +407,9 @@ class RootOrderedContent < Lutaml::Model::Serializable
   attribute :underline, :string
 
   xml do
-    root "RootOrderedContent", ordered: true
+    element "RootOrderedContent"
+    ordered  # Enable ordered content
+
     map_element :bold, to: :bold
     map_element :italic, to: :italic
     map_element :underline, to: :underline
@@ -425,7 +438,7 @@ end
   # </RootOrderedContent>
 ----
 
-**Without Ordered True:**
+**Without `ordered` (default behavior):**
 
 [source,ruby]
 ----
@@ -435,7 +448,8 @@ class RootOrderedContent < Lutaml::Model::Serializable
   attribute :underline, :string
 
   xml do
-    root "RootOrderedContent"
+    element "RootOrderedContent"
+    # No ordered method - order follows attribute declaration
     map_element :bold, to: :bold
     map_element :italic, to: :italic
     map_element :underline, to: :underline
@@ -464,6 +478,30 @@ end
   # </RootOrderedContent>
 ----
 ====
+
+==== (DEPRECATED) Ordered content declaration (`root` method with `ordered:`)
+
+[WARNING]
+====
+This syntax is deprecated. Use the `ordered` method instead:
+
+[source,ruby]
+----
+xml do
+  element 'element-name'
+  ordered  # Enable ordered content
+end
+----
+====
+
+(DEPRECATED) Syntax:
+
+[source,ruby]
+----
+xml do
+  root 'xml_element_name', ordered: true
+end
+----
 
 == XML content mapping
 

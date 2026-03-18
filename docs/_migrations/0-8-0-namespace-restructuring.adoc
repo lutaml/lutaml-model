@@ -1055,7 +1055,7 @@ The `namespace_scope` directive controls WHERE namespace declarations appear:
 [source,ruby]
 ----
 xml do
-  root "vCard"
+  element "vCard"
   namespace VcardNamespace
 
   # Consolidate namespaces at root
@@ -1100,7 +1100,7 @@ class Document < Lutaml::Model::Serializable
   attribute :title, DcTitleType  # Type namespace applies automatically
 
   xml do
-    root "document"
+    element "document"
     map_element "title", to: :title
   end
 end
@@ -1541,80 +1541,32 @@ attribute :field, :my_type  # Resolves from global register
 
 == XSD Schema Generation and Parsing
 
-Version 0.8.0 integrates XSD schema capabilities from lutaml-xsd, enabling both generation and parsing of XML Schema documents.
+Version 0.8.0 integrates XSD schema capabilities from lutaml-xsd directly into
+lutaml-model, enabling both generation and parsing of XML Schema documents.
 
-=== Generating XSD from Models
+This is a major new feature. For full documentation, see the dedicated
+link:0-8-0-xsd-features.adoc[XSD Features Migration Guide].
 
-[source,ruby]
-----
-class Person < Lutaml::Model::Serializable
-  attribute :name, :string
-  attribute :age, :integer
-  attribute :email, :string
-
-  xml do
-    element "person"
-    map_element "name", to: :name
-    map_element "age", to: :age
-    map_attribute "email", to: :email
-  end
-end
-
-# Generate XSD schema
-schema = Lutaml::Model::Schema::XmlCompiler.to_xsd(Person)
-puts schema
-# => <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-#      <xs:element name="person">
-#        <xs:complexType>
-#          <xs:sequence>
-#            <xs:element name="name" type="xs:string"/>
-#            <xs:element name="age" type="xs:integer"/>
-#          </xs:sequence>
-#          <xs:attribute name="email" type="xs:string"/>
-#        </xs:complexType>
-#      </xs:element>
-#    </xs:schema>
-----
-
-=== Parsing XSD to Models
+=== Quick Start
 
 [source,ruby]
 ----
-# Parse XSD file into Ruby model classes
-models = Lutaml::Model::Schema::XmlCompiler.from_xsd("schema.xsd")
+# Generate XSD from a Ruby model
+xsd = Lutaml::Model::Schema.to_xsd(Person)
 
-# Returns array of generated model classes
-models.each do |model_class|
-  puts model_class.name  # => "PurchaseOrder", "Address", etc.
-end
-
-# Use generated models
-order_data = models.find { |m| m.name == "PurchaseOrder" }
-order = order_data.from_xml(xml_string)
+# Parse XSD into Ruby model classes
+Lutaml::Model::Schema.from_xml(xsd_content, output_dir: "models", create_files: true)
 ----
 
-=== XSD to Ruby Type Mapping
+=== Key Capabilities
 
-|===
-| XSD Type | Lutaml::Model Type
+* **XSD generation** - Convert Ruby models to XML Schema (XSD) documents
+* **XSD parsing** - Parse XSD files into Ruby model objects
+* **Code generation** - Compile XSD into Ruby model class files
+* **Custom XSD types** - Define `xsd_type` on `Type::Value` subclasses
+* **RelaxNG generation** - Generate RELAX NG schemas from models
+* **XSD validation** - Pre-parsing validation of XSD documents
 
-| xs:string | :string
-| xs:integer | :integer
-| xs:int | :integer
-| xs:boolean | :boolean
-| xs:date | :date
-| xs:dateTime | :dateTime
-| xs:decimal | :decimal
-| xs:float | :float
-| xs:double | :float
-| xs:anyURI | :string
-|===
-
-=== Benefits
-
-1. **Round-trip engineering**: Generate XSD from code, or code from XSD
-2. **Documentation**: XSD serves as formal schema documentation
-3. **Validation**: Use XSD validators for XML documents
-4. **Integration**: Share schemas with external systems
-5. **Code generation**: Generate models from industry-standard XSDs
+For migration details and comprehensive examples, see
+link:0-8-0-xsd-features.adoc[XSD Features Migration Guide].
 

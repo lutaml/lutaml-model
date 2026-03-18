@@ -19,7 +19,8 @@ module Lutaml
                                                         initialize_empty: true
 
           xml do
-            root "extension", mixed: true
+            element "extension"
+            mixed_content
             namespace Lutaml::Xml::Schema::XsdNamespace
 
             map_attribute :id, to: :id

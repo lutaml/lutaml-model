@@ -9,7 +9,8 @@ module Lutaml
           attribute :value, :integer
 
           xml do
-            root "minLength", mixed: true
+            element "minLength"
+            mixed_content
             namespace Lutaml::Xml::Schema::XsdNamespace
 
             map_attribute :value, to: :value

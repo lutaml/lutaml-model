@@ -9,7 +9,8 @@ module Lutaml
           attribute :text, :string
 
           xml do
-            root "appinfo", mixed: true
+            element "appinfo"
+            mixed_content
             namespace Lutaml::Xml::Schema::XsdNamespace
 
             map_content to: :text

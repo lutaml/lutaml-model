@@ -433,7 +433,8 @@ Enable mixed content mode:
 ----
 class RichText < Lutaml::Model::Serializable
   xml do
-    root 'text', mixed: true  # Enable mixed content
+    element 'text'
+    mixed_content  # Enable mixed content
 
     map_element 'b', to: :bold
     map_element 'i', to: :italic
@@ -464,10 +465,11 @@ Use `ordered: true` or `sequence`:
 
 [source,ruby]
 ----
-# Option 1: ordered flag
+# Option 1: ordered method
 class Model < Lutaml::Model::Serializable
   xml do
-    root 'model', ordered: true
+    element 'model'
+    ordered  # Preserve element order
     map_element 'first', to: :first
     map_element 'second', to: :second
   end

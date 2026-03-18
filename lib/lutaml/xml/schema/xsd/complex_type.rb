@@ -25,7 +25,8 @@ module Lutaml
                                                         initialize_empty: true
 
           xml do
-            root "complexType", mixed: true
+            element "complexType"
+            mixed_content
             namespace Lutaml::Xml::Schema::XsdNamespace
 
             map_attribute :id, to: :id

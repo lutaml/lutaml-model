@@ -15,7 +15,8 @@ module Lutaml
           attribute :restriction, :restriction_simple_type
 
           xml do
-            root "simpleType", mixed: true
+            element "simpleType"
+            mixed_content
             namespace Lutaml::Xml::Schema::XsdNamespace
 
             map_attribute :id, to: :id

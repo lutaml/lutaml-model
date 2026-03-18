@@ -11,7 +11,8 @@ module Lutaml
           attribute :appinfo, :appinfo, collection: true, initialize_empty: true
 
           xml do
-            root "annotation", mixed: true
+            element "annotation"
+            mixed_content
             namespace Lutaml::Xml::Schema::XsdNamespace
 
             map_attribute :id, to: :id

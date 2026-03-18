@@ -16,7 +16,8 @@ module Lutaml
                                                         initialize_empty: true
 
           xml do
-            root "attributeGroup", mixed: true
+            element "attributeGroup"
+            mixed_content
             namespace Lutaml::Xml::Schema::XsdNamespace
 
             map_attribute :id, to: :id

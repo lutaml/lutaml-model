@@ -8,7 +8,8 @@ module Lutaml
           attribute :value, :string
 
           xml do
-            root "minInclusive", mixed: true
+            element "minInclusive"
+            mixed_content
             namespace Lutaml::Xml::Schema::XsdNamespace
 
             map_attribute :value, to: :value

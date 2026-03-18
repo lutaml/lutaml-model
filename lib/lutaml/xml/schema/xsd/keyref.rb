@@ -14,7 +14,8 @@ module Lutaml
           # Field should be one or more
 
           xml do
-            root "keyref", mixed: true
+            element "keyref"
+            mixed_content
             namespace Lutaml::Xml::Schema::XsdNamespace
 
             map_attribute :id, to: :id

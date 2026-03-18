@@ -9,7 +9,8 @@ module Lutaml
           attribute :value, :integer
 
           xml do
-            root "maxLength", mixed: true
+            element "maxLength"
+            mixed_content
             namespace Lutaml::Xml::Schema::XsdNamespace
 
             map_attribute :value, to: :value
