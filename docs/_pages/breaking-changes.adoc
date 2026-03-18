@@ -10,6 +10,46 @@ nav_order: 11
 This document lists breaking changes introduced in each version of Lutaml::Model.
 
 
+=== v0.8.0: Namespace Restructuring
+
+Version 0.8.0 is a **major refactoring release** that restructures namespaces for better organization.
+
+A comprehensive migration guide is provided at link:../migrations/0-8-0-namespace-restructuring[v0.8.0 Migration Guide: Namespace Restructuring].
+
+==== Key Changes
+
+1. **Namespace restructuring**: Format-specific code moved to dedicated namespaces
++
+|===
+| Old Namespace | New Namespace
+
+| `Lutaml::Model::Xml` | `Lutaml::Xml`
+| `Lutaml::Model::Json` | `Lutaml::Json`
+| `Lutaml::Model::Yaml` | `Lutaml::Yaml`
+| `Lutaml::Model::Toml` | `Lutaml::Toml`
+| `Lutaml::Model::Hash` | `Lutaml::HashFormat`
+|===
+
+2. **Default adapters**: XML defaults to `:nokogiri`, other formats have defaults
+
+3. **TOML on Windows**: `:tomlib` adapter disabled due to segfaults; use `:toml_rb`
+
+4. **Attribute name conflicts**: No more errors, only warnings
+
+==== Migration
+
+For most users, update your configuration:
+
+[source,ruby]
+----
+# Old (v0.7.x)
+config.xml_adapter = Lutaml::Model::Xml::NokogiriAdapter
+
+# New (v0.8.0) - use symbols (recommended)
+config.xml_adapter_type = :nokogiri
+----
+
+
 === v0.9.0: Type-only models by default
 
 Version 0.9.0 introduces a **breaking change** to XML root element
