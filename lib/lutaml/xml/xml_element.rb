@@ -73,7 +73,16 @@ module Lutaml
       end
 
       def text?
-        @name == TEXT_NODE_NAME
+        # A text node is one with name "text" that has no element children
+        # and contains actual text content. This distinguishes actual XML text nodes
+        # from XML elements named "text" (like SVG's <text> element) which may have
+        # children, attributes, or complex content.
+        return false unless @name == "text"
+        return false if @text.nil? || @text.to_s.empty?
+        return true if children_count.to_i.zero?
+
+        # If has children, check if they're all text nodes (no element children)
+        children.all? { |c| c.respond_to?(:text?) && c.text? }
       end
 
       def name

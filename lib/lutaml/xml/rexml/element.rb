@@ -53,7 +53,7 @@ module Lutaml
         end
 
         def build_xml(builder = Builder::Rexml.build)
-          if name == "text"
+          if text?
             builder.add_text(builder.current_node, text)
           elsif name == "#cdata-section"
             builder.add_text(builder.current_node, text, cdata: true)

@@ -69,7 +69,7 @@ module Lutaml
         end
 
         def build_xml(builder = Builder::Oga.build)
-          if name == "text"
+          if text?
             builder.add_text(builder.current_node, @text)
           else
             builder.create_element(name, build_attributes(self)) do |xml|
