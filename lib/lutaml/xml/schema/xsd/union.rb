@@ -12,7 +12,8 @@ module Lutaml
                                                 initialize_empty: true
 
           xml do
-            root "union", mixed: true
+            element "union"
+            mixed_content
             namespace Lutaml::Xml::Schema::XsdNamespace
 
             map_attribute :id, to: :id

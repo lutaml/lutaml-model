@@ -166,7 +166,7 @@ class Example < Lutaml::Model::Serializable
   end
 
   xml do
-    root "CustomSerialization"
+    element "CustomSerialization"
     map_element "Name", to: :name,
                         with: { to: :name_to_xml, from: :name_from_xml }
     map_attribute "Size", to: :size
@@ -250,7 +250,7 @@ class Example < Shale::Mapper
   end
 
   xml do
-    root "CustomSerialization"
+    element "CustomSerialization"
     map_element "Name", using: { from: :name_from_xml, to: :name_to_xml }
     map_attribute "Size", to: :size
     map_element "Color", using: { from: :color_from_xml, to: :color_to_xml }

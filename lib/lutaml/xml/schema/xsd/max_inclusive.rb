@@ -8,7 +8,8 @@ module Lutaml
           attribute :value, :string
 
           xml do
-            root "maxInclusive", mixed: true
+            element "maxInclusive"
+            mixed_content
             namespace Lutaml::Xml::Schema::XsdNamespace
 
             map_attribute :value, to: :value

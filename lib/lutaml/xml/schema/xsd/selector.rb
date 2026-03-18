@@ -10,7 +10,8 @@ module Lutaml
           attribute :annotation, :annotation
 
           xml do
-            root "selector", mixed: true
+            element "selector"
+            mixed_content
             namespace Lutaml::Xml::Schema::XsdNamespace
 
             map_attribute :id, to: :id

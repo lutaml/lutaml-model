@@ -9,7 +9,8 @@ module Lutaml
           attribute :xpath, :string
 
           xml do
-            root "field", mixed: true
+            element "field"
+            mixed_content
             namespace Lutaml::Xml::Schema::XsdNamespace
 
             map_attribute :id, to: :id

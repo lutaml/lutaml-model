@@ -10,7 +10,8 @@ module Lutaml
           attribute :annotation, :annotation
 
           xml do
-            root "length", mixed: true
+            element "length"
+            mixed_content
             namespace Lutaml::Xml::Schema::XsdNamespace
 
             map_attribute :fixed, to: :fixed

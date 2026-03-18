@@ -250,7 +250,8 @@ class Paragraph < Lutaml::Model::Serializable
   attribute :italic, :string
 
   xml do
-    root 'p', mixed: true
+    element 'p'
+    mixed_content  # Enable mixed content
     map_element 'bold', to: :bold
     map_element 'i', to: :italic
   end
@@ -282,7 +283,8 @@ class RootOrderedContent < Lutaml::Model::Serializable
   attribute :underline, :string
 
   xml do
-    root "RootOrderedContent", ordered: true
+    element "RootOrderedContent"
+    ordered  # Preserve element order
     map_element :bold, to: :bold
     map_element :italic, to: :italic
     map_element :underline, to: :underline

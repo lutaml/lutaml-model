@@ -12,7 +12,8 @@ module Lutaml
           attribute :element, :element, collection: true, initialize_empty: true
 
           xml do
-            root "all", mixed: true
+            element "all"
+            mixed_content
             namespace Lutaml::Xml::Schema::XsdNamespace
 
             map_attribute :id, to: :id

@@ -9,7 +9,8 @@ module Lutaml
           attribute :annotation, :annotation
 
           xml do
-            root "pattern", mixed: true
+            element "pattern"
+            mixed_content
             namespace Lutaml::Xml::Schema::XsdNamespace
 
             map_attribute :value, to: :value

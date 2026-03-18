@@ -339,13 +339,13 @@ class RichText < Lutaml::Model::Serializable
 end
 ----
 
-**Acceptable:**
+**Acceptable (deprecated):**
 
 [source,ruby]
 ----
 class RichText < Lutaml::Model::Serializable
   xml do
-    root 'text', mixed: true # Also works
+    root 'text', mixed: true # DEPRECATED - use mixed_content instead
     map_element 'b', to: :bold
   end
 end

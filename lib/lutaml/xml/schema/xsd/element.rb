@@ -27,7 +27,8 @@ module Lutaml
           attribute :unique, :unique, collection: true, initialize_empty: true
 
           xml do
-            root "element", mixed: true
+            element "element"
+            mixed_content
             namespace Lutaml::Xml::Schema::XsdNamespace
 
             map_attribute :id, to: :id

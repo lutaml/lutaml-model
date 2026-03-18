@@ -14,7 +14,8 @@ module Lutaml
           attribute :attribute_group, :attribute_group
 
           xml do
-            root "redefine", mixed: true
+            element "redefine"
+            mixed_content
             namespace Lutaml::Xml::Schema::XsdNamespace
 
             map_attribute :id, to: :id

@@ -40,7 +40,8 @@ module Lutaml
                                                         initialize_empty: true
 
           xml do
-            root "schema", mixed: true
+            element "schema"
+            mixed_content
             namespace Lutaml::Xml::Schema::XsdNamespace
 
             map_element :group, to: :group

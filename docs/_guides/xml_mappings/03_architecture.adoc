@@ -42,9 +42,10 @@ parent: XML Mappings Guide
 │  ┌───────────────────────────────────────────────────────────┐  │
 │  │                 Xml::Mapping                              │  │
 │  │  • element(name) - declare element                        │  │
-│  │  • root(name, mixed:, ordered:) - backward compat         │  │
-│  │  • mixed_content() - enable mixed mode                    │  │
-│  │  • namespace(XmlNamespace | String)                       │  │
+│  │  • root(name, mixed:, ordered:) - backward compat (DEP) │  │
+│  │  • mixed_content() - enable mixed mode                  │  │
+│  │  • ordered() - preserve element order                  │  │
+│  │  • namespace(XmlNamespace | String)                    │  │
 │  │  • documentation(text)                                    │  │
 │  │  • type_name(name)                                        │  │
 │  │  • map_element, map_attribute, map_content                │  │

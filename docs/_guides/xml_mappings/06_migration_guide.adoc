@@ -143,13 +143,30 @@ For models with complex namespace requirements:
 2. Define all metadata (URI, prefix, qualification, etc.)
 3. Replace string-based `namespace()` with class reference
 
-=== Step 4: Update element declarations (optional)
+=== Step 4: Update element declarations and options (optional)
 
 Replace `root()` with `element()` for clarity:
 
 1. Change `root 'element-name'` to `element 'element-name'`
-2. Move `mixed:` and `ordered:` options if needed
-3. Or use `mixed_content()` method explicitly
+2. Move `mixed: true` to use `mixed_content` method
+3. Move `ordered: true` to use `ordered` method
+
+**Example migration:**
+
+[source,ruby]
+----
+# Before (deprecated syntax)
+xml do
+  root 'element', mixed: true, ordered: true
+end
+
+# After (recommended syntax)
+xml do
+  element 'element'
+  mixed_content  # Replaces mixed: true
+  ordered        # Replaces ordered: true
+end
+----
 
 === Step 5: Test thoroughly
 
