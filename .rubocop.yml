@@ -12,3 +12,7 @@ AllCops:
   NewCops: enable
   Exclude:
     - 'vendor/**/*'
+
+Style/OneClassPerFile:
+  Exclude:
+    - 'spec/**/*'

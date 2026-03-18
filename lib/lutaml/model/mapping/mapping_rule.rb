@@ -307,7 +307,7 @@ module Lutaml
 
       def get_transformers(attribute)
         transformers = [transform, attribute&.transform].compact
-        transformers.select { |t| t.is_a?(Class) }
+        transformers.grep(Class)
       end
 
       private

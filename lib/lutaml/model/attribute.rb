@@ -544,7 +544,7 @@ module Lutaml
 
       def validate_attr_type!(resolved_type)
         return true if resolved_type <= Serializable || resolved_type <= Type::Value
-        return true if resolved_type.included_modules.include?(Serialize)
+        return true if resolved_type.include?(Serialize)
 
         raise Lutaml::Model::InvalidAttributeTypeError.new(name, resolved_type.name)
       end

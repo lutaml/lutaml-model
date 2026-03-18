@@ -122,8 +122,8 @@ choices)
       end
 
       def extract_defined_order(model_attrs)
-        @attributes.each_with_object({}) do |rule, acc|
-          acc[rule.name.to_s] = model_attrs[rule.to.to_s]
+        @attributes.to_h do |rule|
+          [rule.name.to_s, model_attrs[rule.to.to_s]]
         end
       end
 
