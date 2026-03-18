@@ -53,11 +53,10 @@ module Lutaml
           encoding = determine_encoding(options)
           builder_options[:encoding] = encoding if encoding
 
-          if builder_options[:encoding]
-            builder.xml.instruct(:xml, encoding: builder_options[:encoding])
-          else
-            builder.xml.instruct(:xml)
-          end
+          # CRITICAL: Do NOT call builder.xml.instruct() here!
+          # We handle XML declarations manually with generate_declaration()
+          # for full control over format preservation and to avoid duplicates.
+          # The Ox builder already has effort: :no_decl set to prevent auto-declaration.
 
           if @root.is_a?(Lutaml::Xml::OxElement)
             # Case A: Old parsed XML (from OxElement) - use build_xml
@@ -129,8 +128,11 @@ module Lutaml
             end
           end
 
+          # Ox::Builder.to_s produces output with leading newline
+          # Strip the leading newline to produce clean XML output
+          # We handle declarations manually with generate_declaration() for full control
           xml_data = builder.xml.to_s
-          stripped_data = xml_data.lines.drop(1).join
+          xml_data = xml_data.sub(/\A\n/, "")  # Remove leading newline from Ox output
 
           result = ""
           # Use DeclarationHandler methods instead of Document#declaration
@@ -145,7 +147,7 @@ module Lutaml
             result += generate_doctype_declaration(doctype_to_use)
           end
 
-          result += stripped_data
+          result += xml_data
           result
         end
 

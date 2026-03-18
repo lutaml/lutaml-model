@@ -119,7 +119,28 @@ module Lutaml
           end
 
           xml_options = {}
-          xml_options[:indent] = 2 if options[:pretty]
+          # CRITICAL: Explicitly tell Nokogiri NOT to add XML declaration
+          # We handle declarations manually with generate_declaration() for full control
+          # This ensures no duplicate declarations and proper preservation of input format
+          save_options = ::Nokogiri::XML::Node::SaveOptions::NO_DECLARATION |
+                         ::Nokogiri::XML::Node::SaveOptions::AS_XML
+
+          # Handle indentation and formatting
+          # Nokogiri's default behavior is to pretty-print XML
+          # We maintain this default for backwards compatibility
+          case options[:pretty]
+          when true
+            xml_options[:indent] = 2
+            save_options |= ::Nokogiri::XML::Node::SaveOptions::FORMAT
+          when false
+            # Explicitly disable formatting - compact output
+            # No additional options needed, just don't add FORMAT
+          else
+            # No pretty option specified - use default pretty-printing for backwards compat
+            save_options |= ::Nokogiri::XML::Node::SaveOptions::FORMAT
+          end
+
+          xml_options[:save_with] = save_options
 
           xml_data = builder.doc.root.to_xml(xml_options)
 

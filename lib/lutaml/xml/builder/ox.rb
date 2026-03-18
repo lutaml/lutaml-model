@@ -3,12 +3,17 @@ module Lutaml
     module Builder
       class Ox
         def self.build(options = {})
+          # CRITICAL: Tell Ox NOT to add XML declaration
+          # We handle declarations manually with generate_declaration() for full control
+          # This ensures no duplicate declarations and proper preservation of input format
+          builder_options = options.merge(effort: :no_decl)
+
           if block_given?
-            ::Ox::Builder.new(options) do |xml|
+            ::Ox::Builder.new(builder_options) do |xml|
               yield(new(xml, options))
             end
           else
-            new(::Ox::Builder.new(options), options)
+            new(::Ox::Builder.new(builder_options), options)
           end
         end
 
