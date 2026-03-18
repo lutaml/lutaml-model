@@ -1,11 +1,32 @@
 # frozen_string_literal: true
 
+# TOML format entry point
+# Provides Lutaml::Model::Toml namespace that delegates to Lutaml::Toml
+
+require_relative "../toml"
+
+# Backward compatibility aliases
 module Lutaml
   module Model
     module Toml
+      TomlibAdapter = ::Lutaml::Toml::Adapter::TomlibAdapter
+      TomlRbAdapter = ::Lutaml::Toml::Adapter::TomlRbAdapter
+      Document = ::Lutaml::Toml::Adapter::Document
+      Mapping = ::Lutaml::Toml::Adapter::Mapping
+      MappingRule = ::Lutaml::Toml::Adapter::MappingRule
+      Transform = ::Lutaml::Toml::Adapter::Transform
+
       def self.detect_toml_adapter
-        return :tomlib if Utils.safe_load("tomlib", :Tomlib)
-        return :toml_rb if Utils.safe_load("toml-rb", :TomlRb)
+        # Skip tomlib on Windows entirely due to segfault issues
+        if Gem.win_platform?
+          return :toml_rb if Lutaml::Model::Utils.safe_load("toml-rb", :TomlRb)
+
+          return nil
+        end
+
+        # On non-Windows, prefer tomlib
+        return :tomlib if Lutaml::Model::Utils.safe_load("tomlib", :Tomlib)
+        return :toml_rb if Lutaml::Model::Utils.safe_load("toml-rb", :TomlRb)
 
         nil
       end
@@ -13,16 +34,12 @@ module Lutaml
   end
 end
 
-require_relative "toml/document"
-require_relative "toml/mapping"
-require_relative "toml/mapping_rule"
-require_relative "toml/transform"
-
+# Register TOML format with the format registry
 Lutaml::Model::FormatRegistry.register(
   :toml,
-  mapping_class: Lutaml::Model::Toml::Mapping,
+  mapping_class: Lutaml::Toml::Adapter::Mapping,
   adapter_class: nil,
-  transformer: Lutaml::Model::Toml::Transform,
+  transformer: Lutaml::Toml::Adapter::Transform,
 )
 
 if (adapter = Lutaml::Model::Toml.detect_toml_adapter)

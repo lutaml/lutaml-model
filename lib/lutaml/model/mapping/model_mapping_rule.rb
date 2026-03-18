@@ -31,7 +31,8 @@ module Lutaml
         end
 
         if @reverse_transform && reverse
-          transform_call(transformer, @reverse_transform, value, :reverse_transform)
+          transform_call(transformer, @reverse_transform, value,
+                         :reverse_transform)
         elsif @transform
           transform_call(transformer, @transform, value, :transform)
         else

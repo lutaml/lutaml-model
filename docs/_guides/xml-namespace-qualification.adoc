@@ -198,16 +198,16 @@ class Model < Lutaml::Model::Serializable
 end
 ----
 
-=== 3. Mapping-Level: namespace: :inherit
+=== 3. Form-Level: form: :qualified
 
-*Best for*: Explicitly inherit parent namespace regardless of schema default
+*Best for*: Override schema default for specific elements
 
 [source,ruby]
 ----
 class Model < Lutaml::Model::Serializable
   xml do
     namespace MyNamespace
-    map_element "child", to: :value, namespace: :inherit
+    map_element "child", to: :value, form: :qualified
   end
 end
 ----
@@ -352,9 +352,6 @@ end
 
 # Option 2: Mapping-level
 map_element "child", to: :value, form: :qualified
-
-# Option 3: Explicit inherit
-map_element "child", to: :value, namespace: :inherit
 ----
 
 === Unexpected Namespace on Element

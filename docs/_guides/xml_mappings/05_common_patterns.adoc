@@ -203,17 +203,26 @@ class CeramicNamespace < Lutaml::Model::XmlNamespace
   element_form_default :unqualified
 end
 
+class SpecialType < Lutaml::Model::Serializable
+  attribute :value, :string
+
+  xml do
+    element 'specialType'
+    namespace CeramicNamespace  # Inherit parent namespace
+    map_content to: :value
+  end
+end
+
 class Ceramic < Lutaml::Model::Serializable
   attribute :type, :string
-  attribute :special_type, :string
+  attribute :special_type, SpecialType
 
   xml do
     element 'ceramic'
     namespace CeramicNamespace
 
-    map_element 'type', to: :type
-    # Force this to inherit parent namespace
-    map_element 'specialType', to: :special_type, namespace: :inherit
+    map_element 'type', to: :type  # Unqualified (follows element_form_default)
+    map_element 'specialType', to: :special_type  # Uses SpecialType's namespace
   end
 end
 ----
@@ -848,8 +857,10 @@ end
 
 # Define type with namespace
 class EmailType < Lutaml::Model::Type::String
-  namespace EmailNamespace  # <1>
-  xsd_type 'EmailAddress'   # <2>
+  xml do
+    namespace EmailNamespace  # <1>
+    xsd_type 'EmailAddress'   # <2>
+  end
 
   def self.cast(value)
     email = super(value)
@@ -906,13 +917,17 @@ end
 
 # Define DC types with namespaces
 class DcTitleType < Lutaml::Model::Type::String
-  xml_namespace DublinCoreNamespace
-  xsd_type 'titleType'
+  xml do
+    namespace DublinCoreNamespace
+    xsd_type 'titleType'
+  end
 end
 
 class DcCreatorType < Lutaml::Model::Type::String
-  xml_namespace DublinCoreNamespace
-  xsd_type 'creatorType'
+  xml do
+    namespace DublinCoreNamespace
+    xsd_type 'creatorType'
+  end
 end
 
 # Use in document model
@@ -978,15 +993,21 @@ end
 
 # Define types with namespaces
 class DcTitleType < Lutaml::Model::Type::String
-  xml_namespace DcNamespace
+  xml do
+    namespace DcNamespace
+  end
 end
 
 class DctermsCreatedType < Lutaml::Model::Type::DateTime
-  namespace DctermsNamespace
+  xml do
+    namespace DctermsNamespace
+  end
 end
 
 class VcardVersion < Lutaml::Model::Type::String
-  namespace VcardNamespace
+  xml do
+    namespace VcardNamespace
+  end
 end
 
 # Use namespace_scope to consolidate declarations
@@ -1042,6 +1063,17 @@ parsed == vcard  # => true
 ====
 [source,ruby]
 ----
+class CeramicNamespace < Lutaml::Model::XmlNamespace
+  uri 'http://example.com/ceramic'
+  prefix_default 'cera'
+  element_form_default :qualified
+end
+
+class ColorNamespace < Lutaml::Model::XmlNamespace
+  uri 'http://example.com/color'
+  prefix_default 'clr'
+end
+
 class Ceramic < Lutaml::Model::Serializable
   attribute :type, :string
   attribute :glaze, :string
@@ -1049,11 +1081,10 @@ class Ceramic < Lutaml::Model::Serializable
 
   xml do
     root 'Ceramic'
-    namespace 'http://example.com/ceramic', 'cera'
-    map_element 'Type', to: :type, namespace: :inherit
+    namespace CeramicNamespace
+    map_element 'Type', to: :type  # Inherits parent namespace (qualified)
     map_element 'Glaze', to: :glaze
-    map_attribute 'color', to: :color,
-      namespace: 'http://example.com/color', prefix: 'clr'
+    map_attribute 'color', to: :color  # Per W3C, attributes don't inherit namespace
   end
 end
 

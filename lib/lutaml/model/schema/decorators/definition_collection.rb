@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "class_definition"
-
 module Lutaml
   module Model
     module Schema
@@ -23,12 +21,12 @@ module Lutaml
             resolve_polymorphic_base_types!
           end
 
-          def each(&block)
-            @definitions.each(&block)
+          def each(&)
+            @definitions.each(&)
           end
 
-          def transform_values(&block)
-            @definitions.transform_values(&block)
+          def transform_values(&)
+            @definitions.transform_values(&)
           end
 
           def [](name)

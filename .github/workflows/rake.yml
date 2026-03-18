@@ -8,9 +8,15 @@ on:
     tags: [ v* ]
     paths-ignore:
       - '**.adoc'
+      - 'docs/**'
+      - '*.md'
+      - 'LICENSE'
   pull_request:
     paths-ignore:
       - '**.adoc'
+      - 'docs/**'
+      - '*.md'
+      - 'LICENSE'
 
 jobs:
   rake:

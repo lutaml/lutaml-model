@@ -1,4 +1,4 @@
-require "lutaml/model"
+require_relative "../../lib/lutaml/model"
 
 class HighPrecisionDateTime < Lutaml::Model::Type::DateTime
   def to_xml
@@ -15,7 +15,7 @@ class Ceramic < Lutaml::Model::Serializable
   attribute :kiln_firing_time_attribute, HighPrecisionDateTime
 
   xml do
-    root "ceramic"
+    element "ceramic"
     map_element "kilnFiringTime", to: :kiln_firing_time
     map_attribute "kilnFiringTimeAttribute", to: :kiln_firing_time_attribute
   end

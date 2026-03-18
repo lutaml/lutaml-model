@@ -1,7 +1,11 @@
+# frozen_string_literal: true
+
 module Lutaml
   module Model
     class Attribute
       attr_reader :name, :options
+
+      include CollectionHandler
 
       ALLOWED_OPTIONS = %i[
         raw
@@ -31,24 +35,25 @@ module Lutaml
         :string,
       ].freeze
 
-      # Safe methods than can be overriden without any crashing
-      ALLOW_OVERRIDING = %i[
-        display
-        validate
-        hash
-        itself
-        taint
-        untaint
-        trust
-        untrust
-        methods
-        instance_variables
-        tap
-        extend
-        freeze
-        encoding
-        method
-        object_id
+      # Methods where accidental override is likely to cause issues
+      # All names are allowed - this list only controls which ones get a warning
+      WARN_ON_OVERRIDE = %i[
+        # Ruby core - overriding breaks fundamental behavior
+        hash object_id class send method
+
+        # Object lifecycle - overriding without super breaks things
+        initialize
+
+        # Serialization methods - overriding breaks serialization
+        to_xml to_json to_yaml to_toml to_hash to_format
+
+        # Internal helpers - overriding breaks internal logic
+        attr_value attribute_exist? key_exist? key_value
+        using_default? using_default_for value_set_for
+        method_missing respond_to_missing?
+
+        # XML metadata - affects XML processing
+        element_order schema_location encoding doctype ordered? mixed?
       ].freeze
 
       def self.cast_type!(type)
@@ -74,28 +79,81 @@ module Lutaml
       end
 
       def initialize(name, type, options = {})
-        validate_name!(
-          name, reserved_methods: Lutaml::Model::Serializable.instance_methods
-        )
+        skip_validation = options.fetch(:skip_validation, false)
+
+        unless skip_validation
+          validate_name!(
+            name, reserved_methods: Lutaml::Model::Serializable.instance_methods
+          )
+        end
 
         @name = name
-        @options = options
+        @options = options.except(:skip_validation)
 
-        validate_presence!(type)
+        validate_presence!(type) unless skip_validation
         @type = type
-        process_options!
+        process_options! unless skip_validation
       end
 
-      def type(register_id = nil)
+      def type(context_or_register = nil)
         return if unresolved_type.nil?
 
-        register_id ||= Lutaml::Model::Config.default_register
-        register = Lutaml::Model::GlobalRegister.lookup(register_id)
-        register.get_class_without_register(unresolved_type)
+        # Check if we have a Register available for backward compatibility
+        # If so, use Register's resolution which includes type substitutions
+        fallback_register = extract_register(context_or_register)
+
+        if fallback_register
+          # Use Register for resolution (includes substitutions)
+          begin
+            return fallback_register.get_class_without_register(unresolved_type)
+          rescue Lutaml::Model::UnknownTypeError
+            # Fall through to GlobalContext
+          end
+        end
+
+        # Use GlobalContext.resolver for centralized caching
+        context = normalize_context(context_or_register)
+        GlobalContext.resolver.resolve(unresolved_type, context)
+      end
+
+      # Extract the Register from the context_or_register argument
+      def extract_register(_context_or_register)
+        # Register backward compatibility - now always returns nil
+        # Type resolution uses GlobalContext directly
+        nil
+      end
+
+      # Normalize register/context to TypeContext for resolution
+      # Performance: Optimized to reduce allocations in hot path
+      def normalize_context(context_or_register)
+        # Fast path for nil - most common case
+        return default_type_context if context_or_register.nil?
+
+        # Fast path for TypeContext - no conversion needed
+        return context_or_register if context_or_register.is_a?(Lutaml::Model::TypeContext)
+
+        # Handle Register and Symbol cases
+        context_id = case context_or_register
+                     when Lutaml::Model::Register
+                       context_or_register.id
+                     when Symbol
+                       context_or_register
+                     else
+                       return GlobalContext.default_context
+                     end
+
+        GlobalContext.context(context_id) || GlobalContext.default_context
+      end
+
+      # Performance: Cache default type context lookup
+      def default_type_context
+        default_id = Lutaml::Model::Config.default_register
+        ctx = GlobalContext.context(default_id)
+        ctx || GlobalContext.default_context
       end
 
       def unresolved_type
-        @type
+        @unresolved_type ||= @type
       end
 
       def polymorphic?
@@ -110,8 +168,11 @@ module Lutaml
         @options[:delegate]
       end
 
+      # Performance: Frozen empty hash to reduce allocations
+      EMPTY_TRANSFORM_HASH = {}.freeze
+
       def transform
-        @options[:transform] || {}
+        @options[:transform] || EMPTY_TRANSFORM_HASH
       end
 
       def method_name
@@ -167,31 +228,7 @@ module Lutaml
         :"#{@name}="
       end
 
-      def collection
-        @options[:collection]
-      end
-
-      def collection?
-        collection || false
-      end
-
-      def singular?
-        !collection?
-      end
-
-      def collection_class
-        return Array unless custom_collection?
-
-        collection
-      end
-
-      def collection_instance?(value)
-        value.is_a?(collection_class)
-      end
-
-      def build_collection(*args)
-        collection_class.new(args.flatten)
-      end
+      # Collection methods are provided by CollectionHandler module
 
       def raw?
         @raw
@@ -225,8 +262,11 @@ module Lutaml
         options[:pattern]
       end
 
+      # Performance: Frozen empty array to reduce allocations
+      EMPTY_VALUES_ARRAY = [].freeze
+
       def enum_values
-        @options.key?(:values) ? @options[:values] : []
+        @options.key?(:values) ? @options[:values] : EMPTY_VALUES_ARRAY
       end
 
       def transform_import_method
@@ -436,6 +476,13 @@ module Lutaml
 
         return value if already_serialized?(resolved_type, value)
 
+        # Special handling for Reference types - pass the metadata
+        # Check @options[:ref_model_class] which is set when type is { ref: [...] }
+        if @options[:ref_model_class] && resolved_type == Lutaml::Model::Type::Reference
+          return resolved_type.cast_with_metadata(value,
+                                                  @options[:ref_model_class], @options[:ref_key_attribute])
+        end
+
         klass = resolve_polymorphic_class(resolved_type, value, options)
         if can_serialize?(klass, value, format, options)
           klass.apply_mappings(value, format, options.merge(register: register))
@@ -452,11 +499,7 @@ module Lutaml
         type(register) <= Serialize
       end
 
-      def resolved_collection
-        return unless collection?
-
-        collection.is_a?(Range) ? validated_range_object : 0..Float::INFINITY
-      end
+      # resolved_collection is provided by CollectionHandler module
 
       def sequenced_appearance_count(element_order, mapped_name, current_index)
         elements = element_order[current_index..]
@@ -479,9 +522,7 @@ module Lutaml
         elements.each_slice(resolved_collection.max).count
       end
 
-      def min_collection_zero?
-        collection? && resolved_collection.min.zero?
-      end
+      # min_collection_zero? is provided by CollectionHandler module
 
       def choice
         @options[:choice]
@@ -495,7 +536,41 @@ module Lutaml
       end
 
       def deep_dup
-        self.class.new(name, unresolved_type, Utils.deep_dup(options))
+        # Don't deep_dup the entire options hash because:
+        # 1. Lambdas/Procs (like :default) should not be duplicated
+        # 2. Classes (like :collection class) are immutable
+        # 3. Deep dupping creates circular references when lambdas close over the attribute
+
+        # Selectively copy options using direct type checks to avoid method calls
+        duped_options = { skip_validation: true }
+        options.each do |key, value|
+          duped_options[key] = case value
+                               when Symbol, TrueClass, FalseClass, Numeric, Class, Module, Proc, Method, NilClass
+                                 value # Immutable, don't dup
+                               when Range
+                                 # Only dup if bounds are mutable strings
+                                 if value.begin.is_a?(String) || (value.end && value.end.is_a?(String))
+                                   Range.new(value.begin.dup, value.end&.dup, value.exclude_end?)
+                                 else
+                                   value # Immutable bounds, safe to reuse
+                                 end
+                               when Hash
+                                 Utils.deep_dup(value)
+                               when Array
+                                 Utils.deep_dup(value)
+                               else
+                                 value # Keep as-is (might be a complex object)
+                               end
+        end
+
+        # Skip validation during deep_dup - options are already validated in original
+        # This prevents infinite recursion when process_options! tries to access collection
+        self.class.new(name, unresolved_type, duped_options).tap do |dup_attr|
+          # Copy already-processed instance variables directly
+          dup_attr.instance_variable_set(:@raw, @raw)
+          dup_attr.instance_variable_set(:@validations, @validations)
+          # Note: @type_cache and @type_namespace_cache removed - caching now in GlobalContext
+        end
       end
 
       # Get namespace class from Type::Value or Model class
@@ -503,25 +578,18 @@ module Lutaml
       # @param register [Symbol, nil] register ID for type resolution
       # @return [Class, nil] XmlNamespace class if type has namespace
       def type_namespace_class(register = nil)
+        # NOTE: @type_namespace_cache removed - type() now uses GlobalContext.resolver
+        # which handles caching centrally. No need for scattered caching here.
+
+        # Resolve type namespace via type() which uses GlobalContext.resolver
         resolved_type = type(register)
-        return nil unless resolved_type
+        return nil if resolved_type.nil?
 
-        # Check if type responds to xml_namespace (Type::Value classes)
-        return resolved_type.xml_namespace if resolved_type.respond_to?(:xml_namespace)
-
-        # Check if type is a Serializable model with namespace in XML mappings
-        if resolved_type <= Lutaml::Model::Serialize
-          xml_mapping = resolved_type.mappings_for(:xml, register)
-          if xml_mapping&.namespace_uri
-            # Create an anonymous XmlNamespace class to wrap the mapping's namespace
-            return Class.new(Lutaml::Model::XmlNamespace) do
-              uri xml_mapping.namespace_uri
-              prefix_default xml_mapping.namespace_prefix
-            end
-          end
-        end
-
-        nil
+        # Check if type is a Type::Value class
+        # Type namespaces are ONLY declared on Type::Value subclasses,
+        # not on Serializable models. Serializable models have element
+        # namespaces, which are handled separately.
+        resolved_type.is_a?(Class) && resolved_type <= Lutaml::Model::Type::Value ? resolved_type.namespace_class : nil
       end
 
       # Get namespace URI from type
@@ -546,28 +614,33 @@ module Lutaml
         return true if resolved_type <= Serializable || resolved_type <= Type::Value
         return true if resolved_type.include?(Serialize)
 
-        raise Lutaml::Model::InvalidAttributeTypeError.new(name, resolved_type.name)
+        raise Lutaml::Model::InvalidAttributeTypeError.new(name,
+                                                           resolved_type.name)
       end
 
-      def validated_range_object
-        return collection if collection.end
-
-        collection.begin..Float::INFINITY
-      end
+      # validated_range_object is provided by CollectionHandler module
 
       def validate_name!(name, reserved_methods:)
+        # No errors - all names are allowed
+        # Only warn for methods where accidental override is problematic
         return unless reserved_methods.include?(name.to_sym)
+        return unless WARN_ON_OVERRIDE.include?(name.to_sym)
 
-        if ALLOW_OVERRIDING.include?(name.to_sym)
-          warn_name_conflict(name)
-        else
-          raise Lutaml::Model::InvalidAttributeNameError.new(name)
-        end
+        warn_name_conflict(name)
       end
 
       def warn_name_conflict(name)
+        # Find the first caller location outside the lutaml-model gem's lib directory
+        # This ensures we report the user's code line, not internal gem code
+        gem_lib_pattern = %r{/lutaml[-/]model/lib/}
+        location = caller_locations.find do |cl|
+          !gem_lib_pattern.match?(cl.path)
+        end
+
         Logger.warn(
-          "Attribute name `#{name}` conflicts with a built-in method", caller_locations(5..5).first
+          "Attribute `#{name}` overrides a method. " \
+          "Ensure you call `super` if needed, or consider renaming.",
+          location || caller_locations(1..1).first,
         )
       end
 
@@ -588,7 +661,7 @@ module Lutaml
 
       def castable?(value, format)
         value.is_a?(::Hash) ||
-          (format == :xml && value.is_a?(Lutaml::Model::Xml::XmlElement))
+          (format == :xml && value.is_a?(Lutaml::Xml::XmlElement))
       end
 
       def can_serialize?(klass, value, format, options)
@@ -597,13 +670,7 @@ module Lutaml
         castable?(value, format) || options[:converted]
       end
 
-      def custom_collection?
-        return false if singular?
-        return false if collection == true
-        return false if collection.is_a?(Range)
-
-        collection <= Lutaml::Model::Collection
-      end
+      # custom_collection? is provided by CollectionHandler module
 
       def needs_conversion?(klass, value)
         !value.nil? && !value.is_a?(klass) && Utils.initialized?(value)
@@ -622,7 +689,15 @@ module Lutaml
         # Remove mappings from options for nested model serialization
         # Nested models should use their own format mappings
         as_options.delete(:mappings)
-        return unless Utils.present?(value)
+
+        # Respect mapping layer policy: render_empty from MappingRule
+        # Allow empty Serializable models when render_empty: true
+        render_empty = options[:render_empty]
+        if render_empty && value.is_a?(Lutaml::Model::Serializable)
+          # Mapping layer says render this empty model - bypass present check
+        else
+          return unless Utils.present?(value)
+        end
 
         resolved_type = as_options.delete(:resolved_type) || type(register)
         if value.is_a?(resolved_type)

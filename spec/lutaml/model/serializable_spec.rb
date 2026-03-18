@@ -43,7 +43,7 @@ module SerializeableSpec
     attribute :content, :string
 
     xml do
-      root "recordDate"
+      element "recordDate"
       map_content to: :content
     end
   end
@@ -52,7 +52,7 @@ module SerializeableSpec
     attribute :date_issued, RecordDate, collection: true
 
     xml do
-      root "originInfo"
+      element "originInfo"
       map_element "dateIssued", to: :date_issued
     end
   end
@@ -113,7 +113,7 @@ module SerializeableSpec
     end
 
     xml do
-      root "person"
+      element "person"
       map_element "name", to: :name
       map_element "age", to: :age
       map_element "phone", to: :phone, with: { to: :phone_to_xml }
@@ -278,7 +278,8 @@ RSpec.describe Lutaml::Model::Serializable do
 
     it "raises an error if the attribute does not exist" do
       expect { RestrictTestClass.restrict(:bar, collection: 1..2) }
-        .to raise_error(Lutaml::Model::UndefinedAttributeError, "bar is not defined in RestrictTestClass")
+        .to raise_error(Lutaml::Model::UndefinedAttributeError,
+                        "bar is not defined in RestrictTestClass")
     end
   end
 
@@ -297,6 +298,12 @@ RSpec.describe Lutaml::Model::Serializable do
 
     context "when mapping is not defined" do
       it "maps attributes to mappings" do
+        # Clear cached mapping to ensure the mock is triggered
+        cache_key = :@resolved_mapping_yaml
+        if SerializeableSpec::TestMapper.instance_variable_defined?(cache_key)
+          SerializeableSpec::TestMapper.remove_instance_variable(cache_key)
+        end
+
         allow(SerializeableSpec::TestMapper.mappings).to receive(:[]).with(:yaml).and_return(nil)
 
         actual_mappings = SerializeableSpec::TestMapper.mappings_for(:yaml).mappings
@@ -569,6 +576,7 @@ RSpec.describe Lutaml::Model::Serializable do
         },
         toml: {
           toml_rb: 'name = "John Doe\nage = 30',
+          tomlib: 'name = "John Doe\nage = 30',
         },
         hash: {
           standard_hash: "This is not a hash",
@@ -617,13 +625,10 @@ RSpec.describe Lutaml::Model::Serializable do
     describe "invalid format handling for invalid TOML" do
       it_behaves_like "invalid format error", :toml, :toml_rb, :from_toml, :toml
 
-      # Only test Tomlib if not on problematic platform (Windows Ruby < 3.5)
-      if RUBY_PLATFORM.include?("mingw") && RUBY_VERSION < "3.5"
-        # NOTE: Skipped Tomlib case because it causes segmentation fault on
-        # Windows with Ruby < 3.5
-        it "skips Tomlib test on Windows Ruby < 3.5 due to segfault risk" do
-          skip "Tomlib causes segmentation faults on Windows with Ruby < 3.5 " \
-               "when parsing invalid TOML"
+      # Tomlib causes segmentation faults on Windows - skip entirely
+      if Gem.win_platform?
+        it "skips Tomlib test on Windows due to segfault risk" do
+          skip "Tomlib causes segmentation faults on Windows when parsing invalid TOML"
         end
       else
         it_behaves_like "invalid format error", :toml, :tomlib, :from_toml,
@@ -666,15 +671,15 @@ RSpec.describe Lutaml::Model::Serializable do
       XML
     end
 
-    it "raises FormatAdapterNotSpecifiedError when XML adapter is not configured" do
+    it "uses default adapter from Configuration when adapter is nil in Config" do
       old_adapter = Lutaml::Model::Config.adapter_for(:xml)
       Lutaml::Model::Config.set_adapter_for(:xml, nil)
+
       begin
-        expect do
-          SerializeableSpec::SingleOptionModel.from_xml(xml)
-        end.to raise_error(Lutaml::Model::FormatAdapterNotSpecifiedError) do |error|
-          expect(error.message).to eq(msg)
-        end
+        # With consolidated configuration, the adapter is always available
+        # from Configuration instance, so no error is raised
+        model = SerializeableSpec::SingleOptionModel.from_xml(xml)
+        expect(model.name).to eq("John Doe")
       ensure
         Lutaml::Model::Config.set_adapter_for(:xml, old_adapter)
       end

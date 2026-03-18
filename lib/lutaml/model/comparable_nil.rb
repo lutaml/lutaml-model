@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "serializable"
-
 module Lutaml
   module Model
     # Nil class substitute for comparison

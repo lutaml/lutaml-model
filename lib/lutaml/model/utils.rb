@@ -6,6 +6,15 @@ module Lutaml
       class << self
         UNINITIALIZED = Lutaml::Model::UninitializedClass.instance
 
+        # Cache size limit to prevent memory leaks
+        CACHE_SIZE_LIMIT = 1000
+
+        # Clear all caches (call between schema compilations)
+        def clear_caches
+          @camel_case_cache = {}
+          @snake_case_cache = {}
+        end
+
         # Safely attempts to require a file and check for a constant
         #
         # @param file [String] the file to require
@@ -21,11 +30,19 @@ module Lutaml
           false
         end
 
-        # Convert string to camel case
+        # Convert string to camel case (cached)
         def camel_case(str)
           return "" if str.nil? || str.empty?
 
-          str.split("/").map { |part| camelize_part(part) }.join("::")
+          @camel_case_cache ||= {}
+          cached = @camel_case_cache[str]
+          return cached if cached
+
+          result = str.split("/").map { |part| camelize_part(part) }.join("::")
+
+          # Evict oldest entry if cache is full
+          @camel_case_cache.shift if @camel_case_cache.size >= CACHE_SIZE_LIMIT
+          @camel_case_cache[str] = result
         end
 
         # Convert string to class name
@@ -40,15 +57,23 @@ module Lutaml
           end
         end
 
-        # Convert string to snake case
+        # Convert string to snake case (cached)
         def snake_case(str)
           str = str.to_s.tr(".", "_")
           return str unless /[A-Z-]|::/.match?(str)
 
-          str.gsub("::", "/")
+          @snake_case_cache ||= {}
+          cached = @snake_case_cache[str]
+          return cached if cached
+
+          result = str.gsub("::", "/")
             .gsub(/([A-Z]+)(?=[A-Z][a-z])|([a-z\d])(?=[A-Z])/) { "#{$1 || $2}_" }
             .tr("-", "_")
             .downcase
+
+          # Evict oldest entry if cache is full
+          @snake_case_cache.shift if @snake_case_cache.size >= CACHE_SIZE_LIMIT
+          @snake_case_cache[str] = result
         end
 
         # Extract the base name of the class
@@ -124,10 +149,10 @@ module Lutaml
           end
         end
 
-        def add_singleton_method_if_not_defined(instance, method_name, &block)
+        def add_singleton_method_if_not_defined(instance, method_name, &)
           return if instance.respond_to?(method_name)
 
-          instance.define_singleton_method(method_name, &block)
+          instance.define_singleton_method(method_name, &)
         end
 
         def add_method_if_not_defined(klass, method_name, &block)
@@ -168,12 +193,31 @@ module Lutaml
 
         def deep_dup(object)
           return object if object.nil?
+          return object if immutable?(object)
 
           case object
           when ::Hash then deep_dup_hash(object)
           when Array then deep_dup_array(object)
           else deep_dup_object(object)
           end
+        end
+
+        # Check if object is immutable and should not be duplicated
+        def immutable?(object)
+          object.is_a?(Symbol) ||
+            object.is_a?(TrueClass) ||
+            object.is_a?(FalseClass) ||
+            object.is_a?(Numeric) ||
+            object.is_a?(Class) ||
+            object.is_a?(Module) ||
+            object.is_a?(Proc) ||
+            object.is_a?(Method) ||
+            (object.is_a?(Range) && immutable_range?(object))
+        end
+
+        # Check if Range has immutable bounds
+        def immutable_range?(range)
+          immutable?(range.begin) && (range.end.nil? || immutable?(range.end))
         end
 
         private

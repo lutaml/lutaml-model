@@ -45,6 +45,10 @@ class PerformanceComparator
 
     BENCHMARK_MATRIX.each do |format_sym, adapters|
       adapters.each do |adapter_sym|
+        if skip_adapter?(format_sym, adapter_sym)
+          puts "\n== Skipping #{format_sym}:#{adapter_sym} (not supported on this platform) =="
+          next
+        end
         puts "\n== Running #{format_sym}:#{adapter_sym} (base then current) =="
         run_format_benchmarks(format_sym, adapter_sym, all_base, all_current)
       end
@@ -96,5 +100,15 @@ class PerformanceComparator
 
   def cleanup
     FileUtils.rm_rf(TMP_PERF_DIR)
+  end
+
+  def skip_adapter?(format_sym, adapter_sym)
+    case [format_sym, adapter_sym]
+    in [:toml, :tomlib]
+      # Skip tomlib on Windows due to segmentation fault issues
+      Gem.win_platform?
+    else
+      false
+    end
   end
 end

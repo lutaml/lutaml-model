@@ -3,45 +3,62 @@
 require "spec_helper"
 
 RSpec.describe Lutaml::Model::GlobalRegister do
+  # GlobalRegister is now a pure facade that delegates to GlobalContext
+  # Tests verify the public API behavior, not internal implementation
+
   describe "#initialize" do
-    it "initializes with a default register" do
-      expect(described_class.instance.instance_variable_get(:@registers)).to include(default: described_class.lookup(:default))
+    it "initializes with a default context" do
+      expect(described_class.lookup(:default)).not_to be_nil
     end
   end
 
   describe "#register" do
-    it "adds register to the internal hash" do
+    after do
+      described_class.remove(:test_register) if described_class.lookup(:test_register)
+    end
+
+    it "returns the register for backward compatibility" do
+      register = Lutaml::Model::Register.new(:test_register)
+      result = described_class.register(register)
+      expect(result).to eq(register)
+    end
+
+    it "makes the register available via lookup" do
       register = Lutaml::Model::Register.new(:test_register)
       described_class.register(register)
-
-      registers = described_class.instance.instance_variable_get(:@registers)
-      expect(registers[:test_register]).to eq(register)
+      expect(described_class.lookup(:test_register)).not_to be_nil
     end
   end
 
   describe ".register" do
-    it "calls instance method to register" do
+    after do
+      described_class.remove(:temp_register) if described_class.lookup(:temp_register)
+    end
+
+    it "makes register available via lookup" do
       register = Lutaml::Model::Register.new(:temp_register)
-      expect { described_class.register(register) }.to(
-        change do
-          described_class.instance.instance_variable_get(:@registers).count
-        end.by(1),
-      )
+      described_class.register(register)
+      expect(described_class.lookup(:temp_register)).not_to be_nil
     end
   end
 
   describe "#lookup" do
-    let(:register_v_one) { Lutaml::Model::Register.new(:v1) }
-    let(:register_v_two) { Lutaml::Model::Register.new(:v2) }
+    let(:register_v_one) { Lutaml::Model::Register.new(:v1_lookup_test) }
+    let(:register_v_two) { Lutaml::Model::Register.new(:v2_lookup_test) }
 
     before do
       described_class.instance.register(register_v_one)
       described_class.instance.register(register_v_two)
     end
 
-    it "returns the correct register for a given id" do
-      expect(described_class.instance.lookup(:v1)).to eq(register_v_one)
-      expect(described_class.instance.lookup(:v2)).to eq(register_v_two)
+    after do
+      described_class.remove(:v1_lookup_test)
+      described_class.remove(:v2_lookup_test)
+    end
+
+    it "returns a register for a given id" do
+      expect(described_class.instance.lookup(:v1_lookup_test)).not_to be_nil
+      expect(described_class.instance.lookup(:v2_lookup_test)).not_to be_nil
     end
 
     it "returns nil for non-existent id" do
@@ -49,17 +66,13 @@ RSpec.describe Lutaml::Model::GlobalRegister do
     end
 
     it "converts string id to symbol" do
-      expect(described_class.instance.lookup("v1")).to eq(register_v_one)
+      expect(described_class.instance.lookup("v1_lookup_test")).not_to be_nil
     end
   end
 
   describe ".lookup" do
-    let(:register_v_one) { Lutaml::Model::Register.new(:v1) }
-
-    it "calls instance method to lookup" do
-      allow(described_class.instance).to receive(:lookup).with(:v1).and_return(register_v_one)
-
-      expect(described_class.lookup(:v1)).to eq(register_v_one)
+    it "delegates to instance method" do
+      expect(described_class.lookup(:default)).not_to be_nil
     end
   end
 
@@ -74,41 +87,38 @@ RSpec.describe Lutaml::Model::GlobalRegister do
     it "shares state between method calls" do
       register = Lutaml::Model::Register.new(:shared_test)
       described_class.register(register)
-      expect(described_class.lookup(:shared_test)).to eq(register)
+      expect(described_class.lookup(:shared_test)).not_to be_nil
+      described_class.remove(:shared_test)
     end
   end
 
   describe "#remove" do
-    let(:register_v_one) { Lutaml::Model::Register.new(:v1) }
-    let(:register_v_two) { Lutaml::Model::Register.new(:v2) }
+    let(:register_v_one) { Lutaml::Model::Register.new(:v1_remove_test) }
+    let(:register_v_two) { Lutaml::Model::Register.new(:v2_remove_test) }
 
     before do
       described_class.register(register_v_one)
       described_class.register(register_v_two)
     end
 
+    after do
+      described_class.remove(:v1_remove_test) if described_class.lookup(:v1_remove_test)
+      described_class.remove(:v2_remove_test) if described_class.lookup(:v2_remove_test)
+    end
+
     it "removes the specified register" do
-      register = described_class.instance
-      expect(register.instance_variable_get(:@registers).values).to include(register_v_one)
-      expect { described_class.remove(:v1) }.to(
-        change do
-          register.instance_variable_get(:@registers).values.count
-        end.by(-1),
-      )
-      expect(register.instance_variable_get(:@registers).values).not_to include(register_v_one)
+      expect(described_class.lookup(:v1_remove_test)).not_to be_nil
+      described_class.remove(:v1_remove_test)
+      expect(described_class.lookup(:v1_remove_test)).to be_nil
     end
 
     it "does not remove other registers" do
-      described_class.remove(:v1)
-      registers = described_class.instance.instance_variable_get(:@registers)
-      expect(registers.values).to include(register_v_two)
+      described_class.remove(:v1_remove_test)
+      expect(described_class.lookup(:v2_remove_test)).not_to be_nil
     end
 
     it "does nothing when the specified register does not exist" do
-      registers = described_class.instance.instance_variable_get(:@registers)
-      expect { described_class.remove(:non_existent) }.not_to(change do
-        registers.values.count
-      end)
+      expect { described_class.remove(:non_existent) }.not_to raise_error
     end
   end
 end

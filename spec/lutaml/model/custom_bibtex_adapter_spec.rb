@@ -298,9 +298,9 @@ module CustomBibtexAdapterSpec
       add_mapping(name, to, field_type: :field, render_nil: render_nil)
     end
 
-    def add_mapping(name, to, **options)
+    def add_mapping(name, to, **)
       # validate!(name, to, {})
-      @mappings << BibtexMappingRule.new(name, to: to, **options)
+      @mappings << BibtexMappingRule.new(name, to: to, **)
     end
 
     def mapping_for_field(field)

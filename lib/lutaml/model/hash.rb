@@ -1,21 +1,27 @@
 # frozen_string_literal: true
 
+# Hash format entry point
+# Provides Lutaml::Model::Hash namespace that delegates to Lutaml::HashFormat
+
+require_relative "../hash_format"
+
+# Backward compatibility aliases
 module Lutaml
   module Model
     module Hash
+      StandardAdapter = ::Lutaml::HashFormat::Adapter::StandardAdapter
+      Document = ::Lutaml::HashFormat::Adapter::Document
+      Mapping = ::Lutaml::HashFormat::Adapter::Mapping
+      MappingRule = ::Lutaml::HashFormat::Adapter::MappingRule
+      Transform = ::Lutaml::HashFormat::Adapter::Transform
     end
   end
 end
 
-require_relative "hash/standard_adapter"
-require_relative "hash/document"
-require_relative "hash/mapping"
-require_relative "hash/mapping_rule"
-require_relative "hash/transform"
-
+# Register Hash format with the format registry
 Lutaml::Model::FormatRegistry.register(
   :hash,
-  mapping_class: Lutaml::Model::Hash::Mapping,
-  adapter_class: Lutaml::Model::Hash::StandardAdapter,
-  transformer: Lutaml::Model::Hash::Transform,
+  mapping_class: Lutaml::HashFormat::Adapter::Mapping,
+  adapter_class: Lutaml::HashFormat::Adapter::StandardAdapter,
+  transformer: Lutaml::HashFormat::Adapter::Transform,
 )

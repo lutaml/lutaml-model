@@ -1,0 +1,34 @@
+<!--
+XML Schema for the SMIL 2.0 modules
+
+This is SMIL 2.0
+Copyright: 1998-2004 W3C (MIT, ERCIM, Keio), All Rights Reserved.
+See http://www.w3.org/Consortium/Legal/.
+
+Public URI: http://www.w3.org/2001/SMIL20/smil20-Structure.xsd
+Author: Aaron Michael Cohen (Intel)
+Revision: 2001/07/31
+
+Schema for the Structure module namespace,
+-->
+<schema xmlns="http://www.w3.org/2001/XMLSchema"
+        xmlns:smil20="http://www.w3.org/2001/SMIL20/"
+        xmlns:smil20lang="http://www.w3.org/2001/SMIL20/Language"
+        xmlns:Structure="http://www.w3.org/2001/SMIL20/Structure"
+        targetNamespace="http://www.w3.org/2001/SMIL20/Structure"
+        elementFormDefault="qualified">
+    
+    <!-- these URL's will have to be expanded to their full and proper locations -->
+
+    <!-- import the definitions in the smil20 namespace -->
+    <import namespace="http://www.w3.org/2001/SMIL20/" schemaLocation="smil20.xsd"/>
+
+    <!-- declare global elements in this module -->
+    <element name="smil" type="smil20lang:smilType" substitutionGroup="smil20lang:smil"/>
+    <element name="head" type="smil20lang:headType" substitutionGroup="smil20lang:head"/>
+    <element name="body" type="smil20lang:bodyType" substitutionGroup="smil20lang:body"/>
+    
+    <!-- declare global attributes in this module -->
+    <!-- (none) -->
+    
+</schema>

@@ -1,5 +1,5 @@
 require "spec_helper"
-require "lutaml/model"
+require_relative "../../../lib/lutaml/model"
 
 module ChoiceSpec
   class CandidateType < Lutaml::Model::Serializable
@@ -62,12 +62,12 @@ module ChoiceSpec
 
   class ContactEmail < Lutaml::Model::Serializable
     attribute :email, :string
-    xml { no_root }
+    # Type-only model - no xml block needed
   end
 
   class ContactPhone < Lutaml::Model::Serializable
     attribute :phone, :string
-    xml { no_root }
+    # Type-only model - no xml block needed
   end
 
   class ContactAttributes < Lutaml::Model::Serializable
@@ -77,8 +77,7 @@ module ChoiceSpec
     end
 
     xml do
-      no_root
-
+      type_name "ContactAttributesType"
       map_element :email, to: :email
       map_element :phone, to: :phone
     end
@@ -88,14 +87,14 @@ module ChoiceSpec
     import_model_attributes ContactAttributes
 
     xml do
-      root "Person"
+      element "Person"
 
       import_model_mappings ContactAttributes
     end
   end
 
   class User < Person
-    xml { root "User" }
+    xml { element "User" }
   end
 end
 

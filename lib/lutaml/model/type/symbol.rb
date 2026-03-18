@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Lutaml
   module Model
     module Type
@@ -19,8 +21,11 @@ module Lutaml
                         value.to_s
                       end
 
-          # Validate the string representation
-          Model::Services::Type::Validator::Symbol.validate!(str_value, options)
+          # Use identity check for EMPTY_OPTIONS (faster than .empty?)
+          unless options.equal?(EMPTY_OPTIONS)
+            Model::Services::Type::Validator::Symbol.validate!(str_value,
+                                                               options)
+          end
 
           # Convert to symbol after validation passes
           str_value.to_sym

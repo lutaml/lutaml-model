@@ -59,8 +59,8 @@ class ExtractLanguage < Lutaml::Model::Serializable
   attribute :order, :integer
 
   xml do
-    map_attribute "language", to: :language, namespace: nil
-    map_attribute "order", to: :order, namespace: nil
+    map_attribute "language", to: :language
+    map_attribute "order", to: :order
   end
 end
 
@@ -72,8 +72,8 @@ class TermiumExtract < Lutaml::Model::Serializable
     root "termium_extract"
     namespace "http://termium.tpsgc-pwgsc.gc.ca/schemas/2012/06/Termium", "ns2"
 
-    map_attribute "language", to: :language, namespace: nil
-    map_element "extractLanguage", to: :extract_language, namespace: nil
+    map_attribute "language", to: :language
+    map_element "extractLanguage", to: :extract_language
   end
 
   yaml do

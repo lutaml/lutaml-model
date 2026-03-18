@@ -167,8 +167,9 @@ module CustomVobjectAdapterSpec
   class VobjectDocument
     attr_reader :objects
 
-    def initialize(objects = [])
+    def initialize(objects = [], options = {})
       @objects = objects
+      @options = options
     end
 
     def self.parse(vobject_data, _options = {})
@@ -200,8 +201,8 @@ module CustomVobjectAdapterSpec
       @objects
     end
 
-    def map(&block)
-      @objects.map(&block)
+    def map(&)
+      @objects.map(&)
     end
 
     private
@@ -259,16 +260,16 @@ module CustomVobjectAdapterSpec
       @element_type = element_type
     end
 
-    def map_value(to:, **options)
-      add_mapping(:value, to, type: :simple, **options)
+    def map_value(to:, **)
+      add_mapping(:value, to, type: :simple, **)
     end
 
-    def map_property(name, to:, type: :simple, **options)
-      add_mapping(name.downcase, to, type: type, **options)
+    def map_property(name, to:, type: :simple, **)
+      add_mapping(name.downcase, to, type: type, **)
     end
 
-    def map_component(name, to:, **options)
-      add_mapping(name.downcase, to, type: :component, **options)
+    def map_component(name, to:, **)
+      add_mapping(name.downcase, to, type: :component, **)
     end
 
     def map_field_set(count:, item_type:, item_options: {})

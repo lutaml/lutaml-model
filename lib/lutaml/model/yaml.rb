@@ -1,21 +1,27 @@
 # frozen_string_literal: true
 
+# YAML format entry point
+# Provides Lutaml::Model::Yaml namespace that delegates to Lutaml::Yaml
+
+require_relative "../yaml"
+
+# Backward compatibility aliases
 module Lutaml
   module Model
     module Yaml
+      StandardAdapter = ::Lutaml::Yaml::Adapter::StandardAdapter
+      Document = ::Lutaml::Yaml::Adapter::Document
+      Mapping = ::Lutaml::Yaml::Adapter::Mapping
+      MappingRule = ::Lutaml::Yaml::Adapter::MappingRule
+      Transform = ::Lutaml::Yaml::Adapter::Transform
     end
   end
 end
 
-require_relative "yaml/standard_adapter"
-require_relative "yaml/document"
-require_relative "yaml/mapping"
-require_relative "yaml/mapping_rule"
-require_relative "yaml/transform"
-
+# Register YAML format with the format registry
 Lutaml::Model::FormatRegistry.register(
   :yaml,
-  mapping_class: Lutaml::Model::Yaml::Mapping,
-  adapter_class: Lutaml::Model::Yaml::StandardAdapter,
-  transformer: Lutaml::Model::Yaml::Transform,
+  mapping_class: Lutaml::Yaml::Adapter::Mapping,
+  adapter_class: Lutaml::Yaml::Adapter::StandardAdapter,
+  transformer: Lutaml::Yaml::Adapter::Transform,
 )

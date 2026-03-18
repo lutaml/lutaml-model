@@ -1,5 +1,4 @@
-require_relative "definition"
-require_relative "../shared_methods"
+# frozen_string_literal: true
 
 module Lutaml
   module Model
@@ -27,7 +26,9 @@ module Lutaml
             end
 
             def process_attribute(collection, attribute, register)
-              attr_type = Lutaml::Model::GlobalRegister.lookup(register).get_class(attribute.type)
+              attr_type = Lutaml::Model::GlobalContext.resolve_type(
+                attribute.type, register
+              )
               collection.merge(DefinitionsCollection.from_class(attr_type))
 
               process_polymorphic_types(collection, attribute)

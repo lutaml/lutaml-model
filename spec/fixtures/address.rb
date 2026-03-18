@@ -1,4 +1,4 @@
-require "lutaml/model"
+require_relative "../../lib/lutaml/model"
 require_relative "person"
 
 class Address < Lutaml::Model::Serializable
@@ -13,7 +13,7 @@ class Address < Lutaml::Model::Serializable
   end
 
   xml do
-    root "Address"
+    element "Address"
     map_element "Country", to: :country
     map_element "PostCode", to: :post_code
     map_element "Person", to: :person

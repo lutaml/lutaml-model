@@ -1,5 +1,5 @@
 require "spec_helper"
-require "lutaml/model"
+require_relative "../../../lib/lutaml/model"
 
 module AttributeCollection
   class StringParts < Lutaml::Model::Collection
@@ -14,7 +14,7 @@ module AttributeCollection
     attribute :title_parts, :string, collection: StringParts
 
     xml do
-      root "titles"
+      element "titles"
       map_element "title", to: :title_parts
     end
 

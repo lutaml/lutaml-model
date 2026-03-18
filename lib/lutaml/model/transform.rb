@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Lutaml
   module Model
     class Transform
@@ -38,8 +40,26 @@ module Lutaml
         if value.nil?
           value_for_option(value_map[:nil], attr)
         elsif Utils.empty?(value)
+          # Check for boolean value_map format (value_map[:empty] is true/false)
+          # Only apply for Boolean type attributes
+          if value_map[:empty].is_a?(TrueClass) || value_map[:empty].is_a?(FalseClass)
+            # Check if attribute is a Boolean type
+            attr_type = attr&.type || attr&.unresolved_type
+            if attr_type == Lutaml::Model::Type::Boolean
+              return value_map[:empty]
+            end
+          end
           value_for_option(value_map[:empty], attr, value)
         elsif Utils.uninitialized?(value)
+          # Check for boolean value_map format (value_map[:omitted] is true/false)
+          # Only apply for Boolean type attributes
+          if value_map[:omitted].is_a?(TrueClass) || value_map[:omitted].is_a?(FalseClass)
+            # Check if attribute is a Boolean type
+            attr_type = attr&.type || attr&.unresolved_type
+            if attr_type == Lutaml::Model::Type::Boolean
+              return value_map[:omitted]
+            end
+          end
           value_for_option(value_map[:omitted], attr)
         else
           value
@@ -103,6 +123,3 @@ module Lutaml
     end
   end
 end
-
-require_relative "transform/key_value_transform"
-require_relative "transform/xml_transform"

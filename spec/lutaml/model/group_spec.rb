@@ -7,7 +7,7 @@ module GroupSpec
     attribute :name, :string, default: "Starc"
 
     xml do
-      no_root
+      # Type-only model - no element declaration needed
       map_element :type, to: :type
       map_element :name, to: :name
     end
@@ -22,7 +22,7 @@ module GroupSpec
     attribute :ceramic, Ceramic, collection: 1..2
 
     xml do
-      root "collection"
+      element "collection"
       map_element "ceramic", to: :ceramic
     end
   end
@@ -30,23 +30,38 @@ module GroupSpec
   class AttributeValueType < Lutaml::Model::Type::Decimal
   end
 
+  # Create child model for description element with GML namespace
+  class GmlDescription < Lutaml::Model::Serializable
+    attribute :value, :string
+
+    xml do
+      element "description"
+      namespace GmlNamespace
+      map_content to: :value
+    end
+  end
+
+  # Create custom type for code attribute with Example namespace
+  class ExampleCodeType < Lutaml::Model::Type::String
+    xml do
+      namespace ExampleNamespace
+    end
+  end
+
   class GroupOfItems < Lutaml::Model::Serializable
     attribute :name, :string
     attribute :type, :string
-    attribute :description, :string
-    attribute :code, :string
+    attribute :description, GmlDescription
+    attribute :code, ExampleCodeType
 
     xml do
-      no_root
+      # Type-only model - no element declaration needed
       sequence do
         map_element "name", to: :name
         map_element "type", to: :type
-        map_element "description", to: :description,
-                                   namespace: "http://www.sparxsystems.com/profiles/GML/1.0",
-                                   prefix: "GML"
+        map_element "description", to: :description
       end
-      map_attribute "code", to: :code, namespace: "http://www.example.com",
-                            prefix: "ex1"
+      map_attribute "code", to: :code
     end
   end
 
@@ -57,7 +72,7 @@ module GroupSpec
     import_model_attributes GroupOfItems
 
     xml do
-      root "GroupOfItems"
+      element "GroupOfItems"
       map_attribute "tag", to: :tag
       map_content to: :content
       map_element :group, to: :group
@@ -77,7 +92,7 @@ module GroupSpec
     attribute :name, :string
 
     xml do
-      root "group"
+      element "group"
       map_element :name, to: :name
     end
   end
@@ -90,7 +105,7 @@ module GroupSpec
     end
 
     xml do
-      no_root
+      # Type-only model - no element declaration needed
       sequence do
         map_element :mstyle, to: :mstyle
         map_element :mr, to: :mr
@@ -104,7 +119,7 @@ module GroupSpec
     import_model CommonAttributes
 
     xml do
-      root "mrow"
+      element "mrow"
       map_element :mi, to: :mi
     end
 
@@ -122,7 +137,7 @@ module GroupSpec
     import_model CommonAttributes
 
     xml do
-      root "mfrac"
+      element "mfrac"
       map_element :num, to: :num
     end
   end
@@ -132,7 +147,7 @@ module GroupSpec
     attribute :organization, :string
 
     xml do
-      no_root
+      # Type-only model - no element declaration needed
       map_element "person", to: :person
       map_element "organization", to: :organization
     end
@@ -143,7 +158,7 @@ module GroupSpec
     import_model_attributes ContributionInfo
 
     xml do
-      root "contributor"
+      element "contributor"
       map_element "role", to: :role
       map_element "person", to: :person
       map_element "organization", to: :organization
@@ -200,14 +215,16 @@ end
 RSpec.describe "Group" do
   context "when serializing and deserializing import model having no_root" do
     let(:xml) do
+      # W3C Rule: Namespaces can be declared at point of use (local) or at root (hoisted).
+      # Implementation prefers default format for cleaner output when creating new instances.
       <<~XML
-        <mrow xmlns:ex1="http://www.example.com" xmlns:GML="http://www.sparxsystems.com/profiles/GML/1.0">
+        <mrow>
           <mstyle>italic</mstyle>
           <mr>y</mr>
           <mi>x</mi>
           <name>Smith</name>
           <type>product</type>
-          <GML:description>Item</GML:description>
+          <description xmlns="http://www.sparxsystems.com/profiles/GML/1.0">Item</description>
         </mrow>
       XML
     end
@@ -228,7 +245,7 @@ RSpec.describe "Group" do
       expect(parsed.mstyle).to eq("italic")
       expect(parsed.name).to eq("Smith")
       expect(parsed.type).to eq("product")
-      expect(parsed.description).to eq("Item")
+      expect(parsed.description.value).to eq("Item")
     end
 
     it "parse the imported model attributes correctly" do
@@ -240,7 +257,7 @@ RSpec.describe "Group" do
 
     it "serialize the imported model correctly" do
       instance = GroupSpec::Mrow.new(mi: "x", mstyle: "italic", mr: "y",
-                                     name: "Smith", type: "product", description: "Item")
+                                     name: "Smith", type: "product", description: GroupSpec::GmlDescription.new(value: "Item"))
       expect(instance.to_xml).to be_xml_equivalent_to(xml)
     end
   end
@@ -390,7 +407,8 @@ RSpec.describe "Group" do
 
       it "maintains the correct XML serialization order from last import" do
         xml = mrow_instance.to_xml
-        expected_xml = "<mrow xmlns:ex1='http://www.example.com' xmlns:GML='http://www.sparxsystems.com/profiles/GML/1.0'/>"
+        # W3C Rule: Empty elements don't need namespace declarations
+        expected_xml = "<mrow/>"
 
         expect(xml).to be_xml_equivalent_to(expected_xml)
       end
@@ -398,8 +416,10 @@ RSpec.describe "Group" do
 
     context "when update the imported attribute" do
       it "updates the attribute `mstyle` only in `Mrow`" do
-        GroupSpec::Mrow.attributes[:mstyle].instance_variable_set(:@type,
-                                                                  :integer)
+        attr = GroupSpec::Mrow.attributes[:mstyle]
+        attr.instance_variable_set(:@type, :integer)
+        attr.instance_variable_set(:@unresolved_type, nil) # Clear unresolved_type cache
+        attr.instance_variable_set(:@type_cache, {}) # Clear type cache
         expect(GroupSpec::Mrow.attributes[:mstyle].type).to eq(Lutaml::Model::Type::Integer)
       end
 
@@ -436,7 +456,7 @@ RSpec.describe "Group" do
     end
 
     context "when updating imported mappings" do
-      let(:new_namespace) { "http://www.example.com/new" }
+      let(:new_namespace) { ExampleNewNamespace }
       let(:new_prefix) { "test" }
 
       context "with element mappings" do
@@ -496,11 +516,10 @@ RSpec.describe "Group" do
       context "with sequence elements" do
         it "updates sequence elements only in `Mrow`" do
           sequence = GroupSpec::Mrow.mappings_for(:xml).element_sequence.first
-          sequence.attributes << Lutaml::Model::Xml::MappingRule.new(
+          sequence.attributes << Lutaml::Xml::MappingRule.new(
             "new_element",
             to: :new_element,
-            namespace: "http://example.com",
-            prefix: "test",
+            namespace: ExampleComNamespace,
           )
 
           expect(sequence.attributes.map(&:name)).to include("new_element")
@@ -551,6 +570,10 @@ RSpec.describe "Group" do
       register = Lutaml::Model::Register.new(:custom_register)
       Lutaml::Model::GlobalRegister.register(register)
       register
+    end
+
+    after do
+      Lutaml::Model::GlobalRegister.unregister(:custom_register)
     end
 
     it "imports mappings from the model correctly with default register" do

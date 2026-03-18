@@ -1,0 +1,276 @@
+# frozen_string_literal: true
+
+require "spec_helper"
+
+RSpec.describe "XML Namespace Integration" do
+  # Define test namespaces
+  let(:contact_namespace) do
+    Class.new(Lutaml::Xml::W3c::XmlNamespace) do
+      uri "https://example.com/schemas/contact/v1"
+      schema_location "https://example.com/schemas/contact/v1/contact.xsd"
+      prefix_default "contact"
+      element_form_default :qualified
+      version "1.0"
+      documentation "Contact information schema"
+    end
+  end
+
+  let(:address_namespace) do
+    Class.new(Lutaml::Xml::W3c::XmlNamespace) do
+      uri "https://example.com/schemas/address/v1"
+      schema_location "https://example.com/schemas/address/v1/address.xsd"
+      prefix_default "addr"
+    end
+  end
+
+  describe "using XmlNamespace classes in mappings" do
+    let(:person_class) do
+      ns = contact_namespace
+      Class.new(Lutaml::Model::Serializable) do
+        attribute :name, :string
+        attribute :email, :string
+
+        xml do
+          element "person"
+          namespace ns
+          sequence do
+            map_element "name", to: :name
+            map_element "email", to: :email
+          end
+        end
+      end
+    end
+
+    it "resolves namespace from class" do
+      mapping = person_class.mappings_for(:xml)
+      expect(mapping.namespace_uri).to eq("https://example.com/schemas/contact/v1")
+      expect(mapping.namespace_prefix).to eq("contact")
+      # Compare namespace class properties instead of identity (anonymous classes)
+      expect(mapping.namespace_class.uri).to eq(contact_namespace.uri)
+      expect(mapping.namespace_class.prefix_default).to eq(contact_namespace.prefix_default)
+    end
+
+    it "uses element declaration" do
+      mapping = person_class.mappings_for(:xml)
+      expect(mapping.element_name).to eq("person")
+      expect(mapping.root_element).to eq("person")
+      expect(mapping.root?).to be true
+    end
+
+    it "serializes with namespace" do
+      # IMPLEMENTATION BUG #49: Child elements don't inherit parent's namespace format
+      # When parent uses default namespace (xmlns="..."), children in same namespace
+      # should also use default format (no prefix), not be prefixed
+      # skip "Implementation bug: child elements don't inherit parent's default namespace format"
+
+      person = person_class.new(name: "John Doe", email: "john@example.com")
+      xml = person.to_xml
+
+      # Expected: children use default namespace (no prefix) like parent
+      expected_xml = <<~XML
+        <person xmlns="https://example.com/schemas/contact/v1">
+          <name>John Doe</name>
+          <email>john@example.com</email>
+        </person>
+      XML
+
+      # Actual behavior: children incorrectly use prefix
+      # <person xmlns="https://example.com/schemas/contact/v1">
+      #   <contact:name>John Doe</contact:name>
+      #   <contact:email>john@example.com</contact:email>
+      # </person>
+
+      expect(xml).to be_xml_equivalent_to(expected_xml)
+    end
+
+    it "serializes with prefix when prefix: true option used" do
+      person = person_class.new(name: "John Doe", email: "john@example.com")
+      xml = person.to_xml(prefix: true)
+
+      # With prefix: true, root uses prefix
+      expect(xml).to include('xmlns:contact="https://example.com/schemas/contact/v1"')
+      expect(xml).to include("<contact:person")
+      # Children in same namespace match parent's prefix format
+      expect(xml).to include("<contact:name>John Doe</contact:name>")
+      expect(xml).to include("<contact:email>john@example.com</contact:email>")
+    end
+  end
+
+  describe "mixed_content as separate method" do
+    let(:paragraph_class) do
+      Class.new(Lutaml::Model::Serializable) do
+        attribute :bold_text, :string, collection: true
+        attribute :italic_text, :string, collection: true
+
+        xml do
+          element "p"
+          mixed_content # New explicit method
+          map_element "bold", to: :bold_text
+          map_element "i", to: :italic_text
+        end
+      end
+    end
+
+    it "enables mixed content flag" do
+      mapping = paragraph_class.mappings_for(:xml)
+      expect(mapping.mixed_content?).to be true
+      expect(mapping.ordered?).to be true
+    end
+  end
+
+  describe "validation of namespace parameters" do
+    it "validates correctly with proper parameters" do
+      # This should work without errors
+      test_ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
+        uri "https://example.com"
+        prefix_default "prefix"
+      end
+
+      klass = Class.new(Lutaml::Model::Serializable) do
+        xml do
+          element "test"
+          namespace test_ns
+        end
+      end
+
+      mapping = klass.mappings_for(:xml)
+      expect(mapping.namespace_uri).to eq("https://example.com")
+      expect(mapping.namespace_prefix).to eq("prefix")
+    end
+
+    it "raises error for invalid namespace class" do
+      expect do
+        Class.new(Lutaml::Model::Serializable) do
+          xml do
+            element "test"
+            namespace String
+          end
+        end
+      end.to raise_error(Lutaml::Xml::Error::InvalidNamespaceError,
+                         /XmlNamespace class/)
+    end
+  end
+
+  describe "no_root deprecation" do
+    it "shows deprecation warning" do
+      expect do
+        Class.new(Lutaml::Model::Serializable) do
+          xml do
+            no_root
+            map_element "value", to: :value
+          end
+        end
+      end.to output(/DEPRECATED: no_root is deprecated/).to_stderr
+    end
+
+    it "still works for backward compatibility" do
+      klass = nil
+      expect do
+        klass = Class.new(Lutaml::Model::Serializable) do
+          attribute :value, :string
+          xml do
+            no_root
+            map_element "value", to: :value
+          end
+        end
+      end.to output(/DEPRECATED/).to_stderr
+
+      mapping = klass.mappings_for(:xml)
+      expect(mapping.no_root?).to be true
+    end
+  end
+
+  describe "type-only models (no element declaration)" do
+    let(:address_type_class) do
+      Class.new(Lutaml::Model::Serializable) do
+        attribute :street, :string
+        attribute :city, :string
+
+        xml do
+          # Type-only model - no element declaration needed
+          sequence do
+            map_element "street", to: :street
+            map_element "city", to: :city
+          end
+        end
+      end
+    end
+
+    let(:person_with_address_class) do
+      addr_class = address_type_class
+      Class.new(Lutaml::Model::Serializable) do
+        attribute :name, :string
+        attribute :address, addr_class
+
+        xml do
+          element "person"
+          sequence do
+            map_element "name", to: :name
+            map_element "address", to: :address
+          end
+        end
+      end
+    end
+
+    it "cannot be serialized standalone without element declaration" do
+      address = address_type_class.new(street: "123 Main St", city: "Boston")
+
+      expect do
+        address.to_xml
+      end.to raise_error(Lutaml::Model::NoRootMappingError)
+    end
+
+    it "can be used as embedded type" do
+      person = person_with_address_class.new(
+        name: "Jane",
+        address: address_type_class.new(street: "123 Main St",
+                                        city: "Boston"),
+      )
+      xml = person.to_xml
+
+      expect(xml).to include("<person")
+      expect(xml).to include("<name>Jane</name>")
+      expect(xml).to include("<address")
+      expect(xml).to include("<street>123 Main St</street>")
+      expect(xml).to include("<city>Boston</city>")
+    end
+  end
+
+  describe "documentation support" do
+    let(:documented_class) do
+      Class.new(Lutaml::Model::Serializable) do
+        attribute :title, :string
+
+        xml do
+          element "document"
+          documentation "A test document structure"
+          map_element "title", to: :title
+        end
+      end
+    end
+
+    it "stores documentation in mapping" do
+      mapping = documented_class.mappings_for(:xml)
+      expect(mapping.documentation_text).to eq("A test document structure")
+    end
+  end
+
+  describe "type_name support" do
+    let(:custom_type_name_class) do
+      Class.new(Lutaml::Model::Serializable) do
+        attribute :value, :string
+
+        xml do
+          element "item"
+          type_name "CustomItemType"
+          map_element "value", to: :value
+        end
+      end
+    end
+
+    it "stores custom type name" do
+      mapping = custom_type_name_class.mappings_for(:xml)
+      expect(mapping.type_name).to eq("CustomItemType")
+    end
+  end
+end

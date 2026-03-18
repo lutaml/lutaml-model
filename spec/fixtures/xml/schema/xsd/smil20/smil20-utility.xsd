@@ -1,0 +1,57 @@
+<!--
+XML Schema utility types used by any or all of the schema documents.
+
+This is SMIL 2.0
+Copyright: 1998-2004 W3C (MIT, ERCIM, Keio), All Rights Reserved.
+See http://www.w3.org/Consortium/Legal/.
+
+Public URI: http://www.w3.org/2001/SMIL20/smil20-utility.xsd
+Author: Aaron Michael Cohen (Intel)
+Revision: 2004/06/03 by Thierry MICHEL
+Revision includes update of Errata E30
+see (http://www.w3.org/2001/07/REC-SMIL20-20010731-errata#E30)
+-->
+<schema xmlns="http://www.w3.org/2001/XMLSchema"
+        xmlns:smil20="http://www.w3.org/2001/SMIL20/"
+        targetNamespace="http://www.w3.org/2001/SMIL20/"
+        elementFormDefault="qualified">
+
+    <!-- utility type for values 0.0 to 1.0 inclusive -->
+    <simpleType name="zeroToOneDecimalType">
+        <restriction base="decimal">
+            <minInclusive value="0.0"/>
+            <maxInclusive value="1.0"/>
+        </restriction>
+    </simpleType>                
+
+    <!-- utility types for non-zero values -->
+    <simpleType name="greaterThanZeroDecimalType">
+        <restriction base="decimal">
+            <minExclusive value="0.0"/>
+        </restriction>
+    </simpleType>                
+
+    <simpleType name="nonNegativeDecimalType">
+        <restriction base="decimal">
+            <minInclusive value="0.0"/>
+        </restriction>
+    </simpleType>                
+
+    <simpleType name="lessThanZeroDecimalType">
+        <restriction base="decimal">
+            <maxExclusive value="0.0"/>
+        </restriction>
+    </simpleType>                
+            
+    <simpleType name="nonZeroDecimalType">
+        <union memberTypes="smil20:lessThanZeroDecimalType smil20:greaterThanZeroDecimalType"/>
+    </simpleType>                
+        
+    <!-- syntax for positive percentages, zero inclusive -->
+    <simpleType name="positivePercentageType">
+        <restriction base="string">
+            <pattern value="[0-9]*((\.)([0-9])*)?%"/>
+        </restriction>
+    </simpleType>
+        
+</schema>        

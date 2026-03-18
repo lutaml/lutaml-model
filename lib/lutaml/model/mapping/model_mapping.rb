@@ -1,4 +1,4 @@
-require_relative "model_mapping_rule"
+# frozen_string_literal: true
 
 module Lutaml
   module Model
@@ -30,7 +30,10 @@ module Lutaml
           transform: transform,
           reverse_transform: reverse_transform,
           collection: collection,
-          mapping: block ? self.class.new(from_attr.type, to_attr.type, @transformer) : nil,
+          mapping: if block
+                     self.class.new(from_attr.type, to_attr.type,
+                                    @transformer)
+                   end,
         )
         @mappings[mapping_name].mapping.instance_eval(&block) if block
       end
@@ -40,7 +43,7 @@ module Lutaml
         to: nil,
         transform: nil,
         reverse_transform: nil,
-        &block
+        &
       )
         map(
           from: from,
@@ -48,7 +51,7 @@ module Lutaml
           transform: transform,
           reverse_transform: reverse_transform,
           collection: true,
-          &block
+          &
         )
       end
 
@@ -62,7 +65,8 @@ module Lutaml
 
           value = input.send(from_attr.name)
 
-          value = transformed_value(value, rule, from_attr, to_attr, reverse: reverse)
+          value = transformed_value(value, rule, from_attr, to_attr,
+                                    reverse: reverse)
 
           transformed[to_attr.name] = value
         end
@@ -75,7 +79,10 @@ module Lutaml
       def transformed_value(value, rule, from_attr, to_attr, reverse: false)
         return value if Utils.blank?(value)
 
-        return transform_collection(value, rule, from_attr, to_attr, reverse) if rule.collection
+        if rule.collection
+          return transform_collection(value, rule, from_attr, to_attr,
+                                      reverse)
+        end
 
         rule.transform_value(@transformer, to_attr, value, reverse: reverse)
       end
@@ -84,10 +91,16 @@ module Lutaml
         return value if Utils.blank?(value)
 
         if !from_attr.options[:collection] || !to_attr.options[:collection]
-          raise MappingAttributeTypeError, "Both 'from' and 'to' attributes must be collections for collection mapping"
+          raise MappingAttributeTypeError,
+                "Both 'from' and 'to' attributes must be collections for collection mapping"
         end
 
-        return value.map { |v| transformed_value(v, rule, from_attr, to_attr, reverse: reverse) } if value.is_a?(Array)
+        if value.is_a?(Array)
+          return value.map do |v|
+            transformed_value(v, rule, from_attr, to_attr,
+                              reverse: reverse)
+          end
+        end
 
         rule.transform_value(@transformer, to_attr, value, reverse: reverse)
       end
@@ -102,9 +115,18 @@ module Lutaml
       end
 
       def validate!(mapping_name, from, to)
-        raise MappingAttributeMissingError, "Mapping 'from' is required" if from.nil? || from.name.to_s.strip.empty?
-        raise MappingAttributeMissingError, "Mapping 'to' is required" if to.nil? || to.name.to_s.strip.empty?
-        raise MappingAlreadyExistsError, "Mapping already exists from: #{from.name} to: #{to.name}" if @mappings.key?(mapping_name)
+        if from.nil? || from.name.to_s.strip.empty?
+          raise MappingAttributeMissingError,
+                "Mapping 'from' is required"
+        end
+        if to.nil? || to.name.to_s.strip.empty?
+          raise MappingAttributeMissingError,
+                "Mapping 'to' is required"
+        end
+        if @mappings.key?(mapping_name)
+          raise MappingAlreadyExistsError,
+                "Mapping already exists from: #{from.name} to: #{to.name}"
+        end
       end
     end
   end

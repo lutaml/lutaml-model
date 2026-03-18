@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Lutaml
   module Model
     class Errors
@@ -16,8 +18,8 @@ module Lutaml
         @errors.empty?
       end
 
-      def each(&block)
-        @errors.each(&block)
+      def each(&)
+        @errors.each(&)
       end
 
       def full_messages

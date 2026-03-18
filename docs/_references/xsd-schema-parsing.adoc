@@ -1,0 +1,736 @@
+---
+title: XSD Schema Parsing
+nav_order: 11
+---
+
+= XSD Schema Parsing
+:toc:
+:toclevels: 3
+
+== General
+
+The `Lutaml::Xml::Schema::Xsd` module provides functionality to parse XSD
+(XML Schema Definition) schemas into Ruby objects for inspection, manipulation,
+and round-tripping. This allows you to work with XSD schemas programmatically
+without generating Ruby model classes.
+
+The XSD parsing functionality is available in the `Lutaml::Xml::Schema::Xsd`
+namespace and provides a complete object model for XSD schema constructs.
+
+=== Key use cases
+
+* Schema inspection and documentation generation
+* Schema validation before processing
+* Schema transformation and manipulation
+* Round-tripping XSD content (parse, modify, serialize)
+* Programmatic access to schema components
+
+=== Feature distinction
+
+NOTE: This feature is distinct from link:./schema_import.adoc[Schema import]
+which generates Ruby model classes from XSD schemas. XSD Schema Parsing is for
+working with XSD schemas as objects.
+
+
+== Entry point
+
+=== Require statement
+
+[source,ruby]
+----
+require 'lutaml/xml/schema/xsd'
+----
+
+This loads the XSD parsing module and all required model classes.
+
+=== Parse method
+
+The main entry point is the `Lutaml::Xml::Schema::Xsd.parse` method:
+
+[source,ruby]
+----
+schema = Lutaml::Xml::Schema::Xsd.parse(xsd_content)
+----
+
+Where `xsd_content` is a string containing the XSD schema XML.
+
+
+== Parsing options
+
+The `parse` method accepts the following options:
+
+[source,ruby]
+----
+schema = Lutaml::Xml::Schema::Xsd.parse(
+  xsd,
+  location: base_path,
+  schema_mappings: mappings,
+  validate_schema: true
+)
+----
+
+[cols="1,4"]
+|===
+| Option | Description
+
+| `location`
+| Base path or URL for resolving relative paths in `xs:include` and
+`xs:import` statements. When provided, referenced schemas are automatically
+loaded and merged into the main schema.
+
+| `schema_mappings`
+| Array of `SchemaLocationMapping` objects to redirect schema locations.
+Useful when working with local copies of remote schemas.
+
+| `validate_schema`
+| When `true` (default), validates the XSD structure before parsing using
+`SchemaValidator`. Set to `false` to skip validation for malformed schemas.
+
+| `nested_schema`
+| Internal flag used when recursively parsing included/imported schemas.
+Should not be set by users.
+
+| `register`
+| Custom type register to use for parsing. Defaults to the built-in
+`:xsd` register.
+|===
+
+
+== Schema class reference
+
+The `Lutaml::Xml::Schema::Xsd::Schema` class represents an XSD schema element.
+
+=== Attributes
+
+[cols="1,2,2"]
+|===
+| Attribute | Type | Description
+
+| `id`
+| `String`
+| Schema ID
+
+| `version`
+| `String`
+| Schema version
+
+| `target_namespace`
+| `String`
+| Target namespace URI
+
+| `element_form_default`
+| `String`
+| Element form default (qualified/unqualified)
+
+| `attribute_form_default`
+| `String`
+| Attribute form default (qualified/unqualified)
+
+| `final_default`
+| `String`
+| Default final attribute
+
+| `block_default`
+| `String`
+| Default block attribute
+|===
+
+=== Collections
+
+[cols="1,2,2"]
+|===
+| Collection | Type | Description
+
+| `element`
+| `Array<Element>`
+| Global element declarations
+
+| `complex_type`
+| `Array<ComplexType>`
+| Complex type definitions
+
+| `simple_type`
+| `Array<SimpleType>`
+| Simple type definitions
+
+| `attribute`
+| `Array<Attribute>`
+| Global attribute declarations
+
+| `attribute_group`
+| `Array<AttributeGroup>`
+| Attribute group definitions
+
+| `group`
+| `Array<Group>`
+| Named model groups
+
+| `import`
+| `Array<Import>`
+| Schema imports
+
+| `include`
+| `Array<Include>`
+| Schema includes
+
+| `annotation`
+| `Array<Annotation>`
+| Schema annotations
+|===
+
+=== Methods
+
+[cols="1,4"]
+|===
+| Method | Description
+
+| `find_type(local_name)`
+| Find a type definition by local name (searches both simple and complex types)
+
+| `find_complex_type(name)`
+| Find a complex type definition by name
+
+| `find_simple_type(name)`
+| Find a simple type definition by name
+
+| `find_element(local_name)`
+| Find a global element declaration by name
+
+| `stats`
+| Returns a hash with counts of all schema components
+
+| `summary`
+| Returns a human-readable summary string
+
+| `valid?`
+| Basic validation check (has target namespace)
+
+| `name`
+| Schema name derived from target namespace
+
+| `to_xml`
+| Serialize schema back to XML string
+|===
+
+=== Example usage
+
+[source,ruby]
+----
+require 'lutaml/xml/schema/xsd'
+
+schema = Lutaml::Xml::Schema::Xsd.parse(xsd_content)
+
+# Access properties
+puts schema.target_namespace
+puts schema.element_form_default
+
+# Access collections
+schema.complex_type.each do |type|
+  puts "Complex type: #{type.name}"
+end
+
+# Find specific components
+type = schema.find_type("AddressType")
+elem = schema.find_element("Address")
+
+# Get statistics
+puts schema.stats
+# => {:elements=>1, :complex_types=>1, :simple_types=>0, :attributes=>0,
+#     :groups=>0, :attribute_groups=>0, :imports=>0, :includes=>0, :namespaces=>1}
+
+# Get summary
+puts schema.summary
+# => "http://example.com/test: 1 elements, 1 complex types, 0 simple types"
+
+# Round-trip
+xml_output = schema.to_xml
+----
+
+
+== Element class reference
+
+The `Lutaml::Xml::Schema::Xsd::Element` class represents an XSD element declaration.
+
+=== Attributes
+
+[cols="1,2,2"]
+|===
+| Attribute | Type | Description
+
+| `name`
+| `String`
+| Element name
+
+| `type`
+| `String`
+| Type reference (e.g., "xs:string", "tns:PersonType")
+
+| `ref`
+| `String`
+| Reference to another element
+
+| `min_occurs`
+| `String`
+| Minimum occurrences (default: "1")
+
+| `max_occurs`
+| `String`
+| Maximum occurrences (default: "1", or "unbounded")
+
+| `default`
+| `String`
+| Default value
+
+| `fixed`
+| `String`
+| Fixed value
+
+| `nillable`
+| `String`
+| Whether element can be nil
+
+| `form`
+| `String`
+| Form (qualified/unqualified)
+
+| `block`
+| `String`
+| Block attribute
+
+| `final`
+| `String`
+| Final attribute
+
+| `abstract`
+| `Boolean`
+| Whether element is abstract
+
+| `substitution_group`
+| `String`
+| Substitution group reference
+
+| `annotation`
+| `Annotation`
+| Element annotation
+
+| `simple_type`
+| `SimpleType`
+| Inline simple type
+
+| `complex_type`
+| `ComplexType`
+| Inline complex type
+|===
+
+
+== ComplexType class reference
+
+The `Lutaml::Xml::Schema::Xsd::ComplexType` class represents an XSD complex type.
+
+=== Attributes
+
+[cols="1,2,2"]
+|===
+| Attribute | Type | Description
+
+| `name`
+| `String`
+| Type name
+
+| `mixed`
+| `Boolean`
+| Whether mixed content is allowed
+
+| `abstract`
+| `Boolean`
+| Whether type is abstract
+
+| `block`
+| `String`
+| Block attribute
+
+| `final`
+| `String`
+| Final attribute
+
+| `sequence`
+| `Sequence`
+| Sequence content model
+
+| `choice`
+| `Choice`
+| Choice content model
+
+| `all`
+| `All`
+| All content model
+
+| `group`
+| `Group`
+| Group reference
+
+| `complex_content`
+| `ComplexContent`
+| Complex content extension/restriction
+
+| `simple_content`
+| `SimpleContent`
+| Simple content extension/restriction
+
+| `attribute`
+| `Array<Attribute>`
+| Attribute declarations
+
+| `attribute_group`
+| `Array<AttributeGroup>`
+| Attribute group references
+|===
+
+=== Methods
+
+[cols="1,4"]
+|===
+| Method | Description
+
+| `elements`
+| Returns elements from content model (sequence, choice, or all)
+|===
+
+
+== SimpleType class reference
+
+The `Lutaml::Xml::Schema::Xsd::SimpleType` class represents an XSD simple type.
+
+=== Attributes
+
+[cols="1,2,2"]
+|===
+| Attribute | Type | Description
+
+| `name`
+| `String`
+| Type name
+
+| `final`
+| `String`
+| Final attribute
+
+| `restriction`
+| `RestrictionSimpleType`
+| Restriction facet
+
+| `list`
+| `List`
+| List facet
+
+| `union`
+| `Union`
+| Union facet
+
+| `annotation`
+| `Annotation`
+| Type annotation
+|===
+
+
+== Content model classes
+
+=== Sequence
+
+The `Sequence` class represents an XSD sequence compositor.
+
+.Attributes
+[cols="1,2,2"]
+|===
+| Attribute | Type | Description
+
+| `min_occurs`
+| `String`
+| Minimum occurrences
+
+| `max_occurs`
+| `String`
+| Maximum occurrences
+
+| `element`
+| `Array<Element>`
+| Child elements
+
+| `choice`
+| `Array<Choice>`
+| Nested choices
+
+| `sequence`
+| `Array<Sequence>`
+| Nested sequences
+
+| `group`
+| `Array<Group>`
+| Group references
+
+| `any`
+| `Array<Any>`
+| Any elements
+|===
+
+=== Choice
+
+The `Choice` class represents an XSD choice compositor.
+
+.Attributes
+[cols="1,2,2"]
+|===
+| Attribute | Type | Description
+
+| `min_occurs`
+| `String`
+| Minimum occurrences
+
+| `max_occurs`
+| `String`
+| Maximum occurrences
+
+| `element`
+| `Array<Element>`
+| Child elements
+
+| `choice`
+| `Array<Choice>`
+| Nested choices
+
+| `sequence`
+| `Array<Sequence>`
+| Nested sequences
+
+| `group`
+| `Array<Group>`
+| Group references
+
+| `any`
+| `Array<Any>`
+| Any elements
+|===
+
+=== All
+
+The `All` class represents an XSD all compositor.
+
+.Attributes
+[cols="1,2,2"]
+|===
+| Attribute | Type | Description
+
+| `min_occurs`
+| `String`
+| Minimum occurrences
+
+| `max_occurs`
+| `String`
+| Maximum occurrences
+
+| `element`
+| `Array<Element>`
+| Child elements
+|===
+
+=== Group
+
+The `Group` class represents an XSD group definition or reference.
+
+.Attributes
+[cols="1,2,2"]
+|===
+| Attribute | Type | Description
+
+| `name`
+| `String`
+| Group name (for definitions)
+
+| `ref`
+| `String`
+| Group reference (for references)
+
+| `min_occurs`
+| `String`
+| Minimum occurrences
+
+| `max_occurs`
+| `String`
+| Maximum occurrences
+
+| `sequence`
+| `Sequence`
+| Sequence content
+
+| `choice`
+| `Choice`
+| Choice content
+
+| `all`
+| `All`
+| All content
+|===
+
+
+== Attribute class reference
+
+The `Lutaml::Xml::Schema::Xsd::Attribute` class represents an XSD attribute.
+
+=== Attributes
+
+[cols="1,2,2"]
+|===
+| Attribute | Type | Description
+
+| `name`
+| `String`
+| Attribute name
+
+| `type`
+| `String`
+| Type reference
+
+| `ref`
+| `String`
+| Reference to another attribute
+
+| `use`
+| `String`
+| Usage: "required", "optional", or "prohibited" (default: "optional")
+
+| `default`
+| `String`
+| Default value
+
+| `fixed`
+| `String`
+| Fixed value
+
+| `form`
+| `String`
+| Form (qualified/unqualified)
+
+| `annotation`
+| `Annotation`
+| Attribute annotation
+
+| `simple_type`
+| `SimpleType`
+| Inline simple type
+|===
+
+
+== Import and Include classes
+
+=== Import
+
+The `Import` class represents an XSD import statement.
+
+.Attributes
+[cols="1,2,2"]
+|===
+| Attribute | Type | Description
+
+| `namespace`
+| `String`
+| Namespace URI being imported
+
+| `schema_path`
+| `String`
+| Location of the imported schema
+|===
+
+=== Include
+
+The `Include` class represents an XSD include statement.
+
+.Attributes
+[cols="1,2,2"]
+|===
+| Attribute | Type | Description
+
+| `schema_path`
+| `String`
+| Location of the included schema
+|===
+
+
+== Validation
+
+=== SchemaValidator class
+
+The `Lutaml::Xml::Schema::Xsd::SchemaValidator` class validates XSD schemas
+before parsing.
+
+==== Constructor
+
+[source,ruby]
+----
+validator = Lutaml::Xml::Schema::Xsd::SchemaValidator.new(version: "1.0")
+----
+
+The `version` parameter specifies the XSD version to validate against
+("1.0" or "1.1").
+
+==== Methods
+
+[cols="1,4"]
+|===
+| Method | Description
+
+| `validate(content)`
+| Validate XSD content. Returns `true` if valid, raises `SchemaValidationError` if invalid.
+
+| `detect_version(content)`
+| Class method. Detects XSD version from content, returns "1.0" or "1.1".
+|===
+
+==== Example
+
+[source,ruby]
+----
+require 'lutaml/xml/schema/xsd'
+
+xsd_content = File.read('schema.xsd')
+
+# Detect version
+version = Lutaml::Xml::Schema::Xsd::SchemaValidator.detect_version(xsd_content)
+puts "Detected version: #{version}"
+
+# Validate
+validator = Lutaml::Xml::Schema::Xsd::SchemaValidator.new(version: version)
+begin
+  validator.validate(xsd_content)
+  puts "Schema is valid"
+rescue Lutaml::Xml::Schema::Xsd::SchemaValidationError => e
+  puts "Validation failed: #{e.message}"
+end
+----
+
+==== Validation checks
+
+The validator performs the following checks:
+
+* XML syntax validity
+* Root element is `xs:schema`
+* Correct XML Schema namespace (`http://www.w3.org/2001/XMLSchema`)
+* Version compatibility (XSD 1.0 vs 1.1 features)
+
+
+== Limitations
+
+The XSD Schema Parsing feature has the following limitations:
+
+* **No CLI interface** - This is a programmatic API only. Use it within Ruby
+  applications.
+* **No schema bundler** - The `SchemaRepository` functionality from lutaml-xsd
+  is not included. Use `location` and `schema_mappings` for complex schemas.
+* **No HTML/SPA generation** - Documentation generation features are not
+  included.
+* **No formatters** - Template-based output formatting is not available.
+
+
+== See Also
+
+* link:./schema_import.adoc[Schema Import] - Generate Ruby model classes from XSD
+* link:./xsd-generation-with-namespace-support.adoc[XSD Generation] - Generate XSD from LutaML models

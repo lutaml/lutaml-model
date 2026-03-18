@@ -1,0 +1,279 @@
+# XML Element and Attribute Namespace Guide
+
+## Overview
+
+This guide explains how XML namespaces work, particularly the distinction between "qualified" and "unqualified" elements/attributes, and how default namespace inheritance operates.
+
+**Key Principle:** "Qualified" vs "unqualified" has NOTHING to do with whether a prefix is present. It's about whether the element/attribute needs a namespace declared in the XML.
+
+- **Qualified**: Element/attribute needs a namespace declared in the XML
+- **Unqualified**: Element/attribute does not need a namespace declared (uses parent's namespace)
+
+## Default Namespace Inheritance
+
+**Critical Rule:** Default namespace inheritance ONLY applies to elements, NOT attributes.
+
+- **Child element**: Inherits parent's default namespace
+- **Attribute**: Does NOT inherit any namespace from parent element
+
+## When No XML Schema is Present
+
+Without an XML Schema:
+
+- **Element**: "Acts like" unqualified (because of default namespace inheritance, does not need prefix)
+- **Attribute**: "Acts like" qualified (because of no default namespace inheritance, requires prefix)
+
+## When XML Schema is Present
+
+With an XML Schema:
+
+- **Element**: Default is `unqualified` (children inherit parent's namespace)
+- **Attribute**: Default is `unqualified` (no inheritance from parent)
+
+## Case 1: No Namespace
+
+Both elements have blank namespace (no namespace declared).
+
+```xml
+<list>
+  <item>hi</item>
+</list>
+```
+
+**Namespace status:**
+- `<list>`: blank namespace (no namespace declared)
+- `<item>`: blank namespace (no namespace declared)
+
+**Schema considerations:**
+- Both elements are unqualified (no namespace to qualify them)
+
+---
+
+## Case 2: Parent Has Default Namespace
+
+Parent uses default namespace format, child inherits it.
+
+```xml
+<list xmlns="example">
+  <item>hi</item>
+</list>
+```
+
+**Namespace status:**
+- `<list>`: namespace "example" (qualified via default)
+- `<item>`: namespace "example" (inherits from parent)
+
+**Why this works:**
+- Default namespace inheritance applies to child elements
+- `<item>` doesn't need its own namespace declaration
+
+**Schema considerations:**
+- If `elementFormDefault="qualified"`: Both list and item are in "example" namespace
+- If `elementFormDefault="unqualified"`: Both list and item are in "example" namespace (unqualified means "inherit from parent")
+
+---
+
+## Case 3: Parent Has Prefixed Namespace (No Schema)
+
+Without a schema, elements "act like" they're unqualified.
+
+```xml
+<!-- no schema means element form acts like "unqualified" -->
+<ex:list xmlns:ex="example">
+  <item>hi</item>
+</ex:list>
+```
+
+**Namespace status:**
+- `<list>`: namespace "example" (qualified via prefix)
+- `<item>`: blank namespace (no namespace declared)
+
+**Why child has blank namespace:**
+- Without default namespace (`xmlns="uri"`), child doesn't inherit
+- Prefixed namespaces are NOT inherited by children
+- Child is in blank namespace unless it declares its own namespace
+
+**Schema considerations:**
+- If there's NO schema: `<item>` is in blank namespace
+- If there IS a schema with `elementFormDefault="unqualified"`: `<item>` inherits "example" namespace from `<list>`
+
+---
+
+## Case 4: Element Form Default is Unqualified (With Schema)
+
+When schema specifies `elementFormDefault="unqualified"`, children inherit parent's namespace.
+
+```xml
+<!-- has schema with elementFormDefault="unqualified" -->
+<ex:list xmlns:ex="example">
+  <item>hi</item>
+</ex:list>
+```
+
+**Namespace status:**
+- `<list>`: namespace "example" (qualified via prefix)
+- `<item>`: namespace "example" (inherits from parent due to unqualified form)
+
+**Why child inherits parent's namespace:**
+- "Unqualified" means "my children do not need extra qualification"
+- Children are considered to be in the same namespace as parent
+- This applies recursively to all descendants unless overridden
+
+**Contrast with Case 3:**
+- Case 3 (no schema): `<item>` is in blank namespace
+- Case 4 (with schema, unqualified): `<item>` is in "example" namespace
+
+---
+
+## Case 5: Element Form Default is Qualified
+
+When schema specifies `elementFormDefault="qualified"`, all elements must have their own namespace.
+
+### Case 5a: Qualified with Default Namespace
+
+```xml
+<list xmlns="example">
+  <item>hi</item>
+</list>
+```
+
+**Namespace status:**
+- `<list>`: namespace "example" (qualified via default)
+- `<item>`: namespace "example" (qualified via inherited default)
+
+**Why this works:**
+- Both elements explicitly declare the "example" namespace
+- `<item>` inherits the default namespace from parent
+
+### Case 5b: Qualified with Prefixed Namespace
+
+```xml
+<ex:list xmlns:ex="example">
+  <ex:item>hi</ex:item>
+</ex:list>
+```
+
+**Namespace status:**
+- `<list>`: namespace "example" (qualified via prefix)
+- `<item>`: namespace "example" (qualified via prefix)
+
+**Why child needs prefix:**
+- With `elementFormDefault="qualified"`, child must explicitly qualify
+- Prefixed format ensures child is explicitly qualified
+
+### Case 5c: Qualified Child Without Parent's Prefix
+
+```xml
+<ex:list xmlns:ex="example">
+  <item>hi</item>
+</ex:list>
+```
+
+**Namespace status:**
+- `<list>`: namespace "example" (qualified via prefix)
+- `<item>`: blank namespace (no namespace declared)
+
+**Why child is in blank namespace:**
+- Child doesn't use parent's prefix and doesn't declare its own namespace
+- Contrast with Case 4 (unqualified): Here child does NOT inherit parent's namespace
+- With `elementFormDefault="qualified"`, unqualified child is in blank namespace
+
+---
+
+## Case 6: Attribute Handling (Attributes Don't Inherit)
+
+Default namespace inheritance does NOT apply to attributes.
+
+```xml
+<list xmlns="example">
+  <item attr="hello">hi</item>
+</list>
+```
+
+**Namespace status:**
+- `<list>`: namespace "example" (qualified via default)
+- `<item>`: namespace "example" (inherits from parent)
+- `attr`: blank namespace (attributes don't inherit default namespace)
+
+**Qualification status:**
+- Elements `<list>` and `<item>`: qualified (they have a namespace)
+- Attribute `attr`: unqualified (no namespace)
+
+**Schema considerations:**
+- If `attributeFormDefault="unqualified"` (default): Schema considers `attr` to be in "example" namespace
+- If we want `attr` explicitly in "example" namespace in XML: Must use prefix
+
+### Case 6a: Qualified Attribute with Prefix
+
+```xml
+<list xmlns="example" xmlns:egg="example">
+  <item egg:attr="hello">hi</item>
+</list>
+```
+
+**Namespace status:**
+- `<list>`: namespace "example" (qualified via default)
+- `<item>`: namespace "example" (inherits from parent)
+- `attr`: namespace "example" (qualified via prefix)
+
+**Qualification status:**
+- All three are qualified (all have namespace "example")
+
+**Why attribute needs prefix:**
+- Attributes cannot inherit default namespace
+- To put attribute in "example" namespace, must use prefix
+- Note: Both `xmlns="example"` and `xmlns:egg="example"` point to same URI
+
+---
+
+## Summary Table
+
+| Case | Parent Format | Child Format | Child Namespace | Schema Required |
+|------|---------------|--------------|-----------------|-----------------|
+| 1 | None | None | Blank | No |
+| 2 | Default | None | Same as parent | No |
+| 3 | Prefixed | None | Blank (no schema) / Same (with unqualified schema) | Depends |
+| 4 | Prefixed | None | Same as parent | Yes (unqualified) |
+| 5a | Default | None | Same as parent | Yes (qualified) |
+| 5b | Prefixed | Prefixed | Same as parent | Yes (qualified) |
+| 5c | Prefixed | None | Blank | Yes (qualified) |
+| 6 | Default | Attribute | Blank | No |
+| 6a | Default + Prefix | Attribute with prefix | Same as parent | No |
+
+---
+
+## Key Takeaways
+
+1. **"Qualified" ≠ "Has Prefix"**
+   - Qualified = has a namespace declared
+   - Unqualified = uses parent's namespace (for elements) or has blank namespace (for attributes)
+
+2. **Default Namespace Inheritance**
+   - Elements: Inherit parent's default namespace
+   - Attributes: Do NOT inherit any namespace
+
+3. **Without Schema**
+   - Elements: Act like unqualified (inherit default)
+   - Attributes: Act like qualified (need prefix for namespace)
+
+4. **With Schema**
+   - `elementFormDefault="unqualified"` (default): Children inherit parent's namespace
+   - `elementFormDefault="qualified"`: Each element must have its own namespace
+   - `attributeFormDefault="unqualified"` (default): Attributes in parent's namespace per schema
+   - `attributeFormDefault="qualified"`: Attributes need prefix for namespace
+
+5. **Prefixed Namespaces**
+   - Are NOT inherited by children
+   - Child must explicitly use prefix to be in same namespace
+
+6. **Attributes Always Need Prefix for Namespaces**
+   - Because attributes don't inherit default namespace
+   - To put attribute in namespace, must use prefixed format
+
+---
+
+## References
+
+- W3C XML Schema: elementFormDefault and attributeFormDefault
+- W3C XML Namespaces: Default namespace inheritance
+- LutaML Type namespace rules: See CLAUDE.md for implementation-specific rules

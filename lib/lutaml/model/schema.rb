@@ -1,23 +1,33 @@
-require_relative "schema/shared_methods"
-require_relative "schema/json_schema"
-require_relative "schema/xsd_schema"
-require_relative "schema/relaxng_schema"
-require_relative "schema/yaml_schema"
-require_relative "schema/xml_compiler"
+# frozen_string_literal: true
 
 module Lutaml
   module Model
     module Schema
+      autoload :BaseSchema, "#{__dir__}/schema/base_schema"
+      autoload :SharedMethods, "#{__dir__}/schema/shared_methods"
+      autoload :Helpers, "#{__dir__}/schema/helpers"
+      autoload :JsonSchema, "#{__dir__}/schema/json_schema"
+      autoload :YamlSchema, "#{__dir__}/schema/yaml_schema"
+      autoload :XmlCompiler, "#{__dir__}/schema/xml_compiler"
+      autoload :Generator, "#{__dir__}/schema/generator"
+      autoload :Renderer, "#{__dir__}/schema/renderer"
+      autoload :Decorators, "#{__dir__}/schema/decorators"
+
+      # XML Schema classes are now in Lutaml::Xml::Schema
+      # Use Lutaml::Xml::Schema::XsdSchema, Lutaml::Xml::Schema::RelaxngSchema, etc.
+
       def self.to_json(klass, options = {})
         JsonSchema.generate(klass, options)
       end
 
       def self.to_xsd(klass, options = {})
-        XsdSchema.generate(klass, options)
+        require_relative "../xml/schema/xsd_schema"
+        Lutaml::Xml::Schema::XsdSchema.generate(klass, options)
       end
 
       def self.to_relaxng(klass, options = {})
-        RelaxngSchema.generate(klass, options)
+        require_relative "../xml/schema/relaxng_schema"
+        Lutaml::Xml::Schema::RelaxngSchema.generate(klass, options)
       end
 
       def self.to_yaml(klass, options = {})

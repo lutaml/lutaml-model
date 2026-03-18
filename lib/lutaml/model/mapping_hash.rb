@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 module Lutaml
   module Model
-    class MappingHash < Hash
+    class MappingHash < ::Hash
       attr_accessor :ordered, :node
 
       def initialize

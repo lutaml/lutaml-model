@@ -13,8 +13,7 @@ module RegisterSpec
     attribute :active, :custom_string
 
     xml do
-      no_root
-
+      # Type-only model - no element declaration needed
       sequence do
         map_element :location, to: :location
         map_element :postalCode, to: :postal_code
@@ -35,8 +34,7 @@ module RegisterSpec
     end
 
     xml do
-      no_root
-
+      # Type-only model - no element declaration needed
       map_element :firstName, to: :first_name
       map_element :middleName, to: :middle_name
       map_element :lastName, to: :last_name
@@ -51,7 +49,7 @@ module RegisterSpec
     restrict :active, values: ["yes", "no"]
 
     xml do
-      root "user"
+      element "user"
 
       import_model_mappings :address_fields
     end
@@ -202,6 +200,22 @@ RSpec.describe Lutaml::Model::Register do
       Lutaml::Model::GlobalRegister.register(register)
       register.register_model(RegisterSpec::AddressFields, id: :address_fields)
       register.register_model(RegisterSpec::Names, id: :names)
+
+      # Also register in default register for tests that use attributes() without register arg
+      default_register = Lutaml::Model::GlobalRegister.lookup(:default)
+      default_register.register_model(RegisterSpec::AddressFields,
+                                      id: :address_fields)
+      default_register.register_model(RegisterSpec::Names, id: :names)
+    end
+
+    after do
+      Lutaml::Model::GlobalRegister.unregister(register.id)
+      # Clean up default register
+      default_register = Lutaml::Model::GlobalRegister.lookup(:default)
+      default_register.models.delete(:address_fields)
+      default_register.models.delete(:names)
+      default_register.models.delete("RegisterSpec::AddressFields")
+      default_register.models.delete("RegisterSpec::Names")
     end
 
     it "tracks imported model attributes by symbolic id in importable_choices" do
@@ -209,20 +223,140 @@ RSpec.describe Lutaml::Model::Register do
     end
 
     it "tracks imported models attributes for 'restrict' functionality" do
-      expect(RegisterSpec::User.restrict_attributes).to eq({ active: { values: ["yes", "no"] } })
+      # Restore the restrict_attributes that were set by 'restrict' directive at class definition
+      # These get cleared after ensure_restrict_attributes! runs
+      RegisterSpec::User.instance_variable_set(:@restrict_attributes,
+                                               { active: { values: ["yes",
+                                                                    "no"] } })
+
+      expect(RegisterSpec::User.restrict_attributes).to eq({ active: { values: [
+                                                             "yes", "no"
+                                                           ] } })
     end
 
     it "preserves and accumulates attributes in main model when importing additional ones" do
-      expect do
-        RegisterSpec::User.ensure_imports!(register.id)
-      end.to change {
-        RegisterSpec::User.instance_variable_get(:@attributes).count
-      }.from(0).to(6)
+      # Reset state to ensure test isolation
+      # We need to restore importable_models and importable_choices because they get cleared after import
+      RegisterSpec::User.instance_variable_set(:@attributes, {})
+      RegisterSpec::User.instance_variable_set(:@models_imported, false)
+      RegisterSpec::User.instance_variable_set(:@choices_imported, false)
+      # Restore importable_models that were set by import_model_attributes and import_model at class def
+      importable_models = Lutaml::Model::MappingHash.new { |h, k| h[k] = [] }
+      importable_models[:import_model_attributes] = [:address_fields]
+      importable_models[:import_model] = [:names]
+      RegisterSpec::User.instance_variable_set(:@importable_models,
+                                               importable_models)
+
+      initial_count = RegisterSpec::User.instance_variable_get(:@attributes).count
+      RegisterSpec::User.ensure_imports!(register.id)
+      final_count = RegisterSpec::User.instance_variable_get(:@attributes).count
+
+      expect(initial_count).to eq(0)
+      expect(final_count).to eq(6)
     end
 
     it "tracks changes made to attribute updated using 'restrict'" do
+      # Ensure restrict_attributes is set for this test
+      # (it gets cleared after ensure_restrict_attributes! runs in other tests)
+      RegisterSpec::User.instance_variable_set(:@restrict_attributes,
+                                               { active: { values: ["yes",
+                                                                    "no"] } })
+
       expect(RegisterSpec::AddressFields.attributes[:active].options.keys).to be_empty
-      expect(RegisterSpec::User.attributes[:active].options.keys).to eq(%i[choice values])
+      expect(RegisterSpec::User.attributes[:active].options.keys).to eq(%i[
+                                                                          choice values
+                                                                        ])
+    end
+  end
+
+  describe "fallback behavior" do
+    let(:default_register) { Lutaml::Model::GlobalRegister.lookup(:default) }
+
+    context "when register is :default" do
+      it "has no fallback" do
+        expect(default_register.fallback).to eq([])
+      end
+    end
+
+    context "when register is custom without explicit fallback" do
+      let(:custom_register) { described_class.new(:custom) }
+
+      before do
+        Lutaml::Model::GlobalRegister.register(custom_register)
+      end
+
+      after do
+        Lutaml::Model::GlobalRegister.unregister(custom_register.id)
+      end
+
+      it "defaults to fallback: [:default]" do
+        expect(custom_register.fallback).to eq([:default])
+      end
+
+      it "can resolve types from default register" do
+        # Register a model only in default
+        default_register.register_model(RegisterSpec::Address,
+                                        id: :fallback_address)
+
+        # Custom register should find it via fallback (returns class, not raises)
+        result = custom_register.get_class_without_register(:fallback_address)
+        expect(result).to eq(RegisterSpec::Address)
+      end
+    end
+
+    context "when register has explicit fallback: []" do
+      let(:isolated_register) { described_class.new(:isolated, fallback: []) }
+
+      before do
+        Lutaml::Model::GlobalRegister.register(isolated_register)
+      end
+
+      after do
+        Lutaml::Model::GlobalRegister.unregister(isolated_register.id)
+      end
+
+      it "has empty fallback (isolated)" do
+        expect(isolated_register.fallback).to eq([])
+      end
+
+      it "cannot resolve types from default register" do
+        # Register a model only in default (not a Type::Value)
+        default_register.register_model(RegisterSpec::Address,
+                                        id: :isolated_type)
+
+        # Isolated register should NOT find it
+        expect { isolated_register.get_class(:isolated_type) }
+          .to raise_error(Lutaml::Model::UnknownTypeError)
+      end
+    end
+
+    context "when register has custom fallback chain" do
+      let(:core_register) { described_class.new(:core) }
+      let(:profile_register) do
+        described_class.new(:profile, fallback: %i[core default])
+      end
+
+      before do
+        Lutaml::Model::GlobalRegister.register(core_register)
+        Lutaml::Model::GlobalRegister.register(profile_register)
+      end
+
+      after do
+        Lutaml::Model::GlobalRegister.unregister(core_register.id)
+        Lutaml::Model::GlobalRegister.unregister(profile_register.id)
+      end
+
+      it "uses specified fallback chain" do
+        expect(profile_register.fallback).to eq(%i[core default])
+      end
+
+      it "tries fallback registers in order" do
+        # Register type only in core
+        core_register.register_model(RegisterSpec::CustomString, id: :core_type)
+
+        # Profile should find it via :core fallback
+        expect(profile_register.get_class(:core_type)).to eq(RegisterSpec::CustomString)
+      end
     end
   end
 end

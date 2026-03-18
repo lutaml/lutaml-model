@@ -1,3 +1,4 @@
+.DS_Store
 .rubocop-https---*
 
 /.yardoc
@@ -29,3 +30,14 @@ Gemfile.lock
 /_site
 /docs/_site
 /docs/.jekyll-cache
+
+*.md
+old-docs/
+.kilocode/
+old/
+
+.orig
+.rubocop-*
+.DS_Store
+.ruby-lsp
+

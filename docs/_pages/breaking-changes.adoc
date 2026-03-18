@@ -10,6 +10,139 @@ nav_order: 11
 This document lists breaking changes introduced in each version of Lutaml::Model.
 
 
+=== v0.8.0: Namespace Restructuring
+
+Version 0.8.0 is a **major refactoring release** that restructures namespaces for better organization.
+
+A comprehensive migration guide is provided at link:../migrations/0-8-0-namespace-restructuring[v0.8.0 Migration Guide: Namespace Restructuring].
+
+==== Key Changes
+
+1. **Namespace restructuring**: Format-specific code moved to dedicated namespaces
++
+|===
+| Old Namespace | New Namespace
+
+| `Lutaml::Model::Xml` | `Lutaml::Xml`
+| `Lutaml::Model::Json` | `Lutaml::Json`
+| `Lutaml::Model::Yaml` | `Lutaml::Yaml`
+| `Lutaml::Model::Toml` | `Lutaml::Toml`
+| `Lutaml::Model::Hash` | `Lutaml::HashFormat`
+|===
+
+2. **Default adapters**: XML defaults to `:nokogiri`, other formats have defaults
+
+3. **TOML on Windows**: `:tomlib` adapter disabled due to segfaults; use `:toml_rb`
+
+4. **Attribute name conflicts**: No more errors, only warnings
+
+==== Migration
+
+For most users, update your configuration:
+
+[source,ruby]
+----
+# Old (v0.7.x)
+config.xml_adapter = Lutaml::Model::Xml::NokogiriAdapter
+
+# New (v0.8.0) - use symbols (recommended)
+config.xml_adapter_type = :nokogiri
+----
+
+
+=== v0.9.0: Type-only models by default
+
+Version 0.9.0 introduces a **breaking change** to XML root element
+auto-generation behavior.
+
+==== What changed
+
+Models without an explicit `element()` (or `root()`) declaration are now
+**type-only models** by default, instead of auto-generating a root element
+from the class name.
+
+==== Before (v0.8.x)
+
+[source,ruby]
+----
+class Address < Lutaml::Model::Serializable
+  attribute :street, :string
+  attribute :city, :string
+
+  xml do
+    map_element 'street', to: :street
+    map_element 'city', to: :city
+  end
+end
+
+# Auto-generated root element from class name
+address.to_xml  # => <Address><street>...</street><city>...</city></Address>
+----
+
+==== After (v0.9.0)
+
+[source,ruby]
+----
+class Address < Lutaml::Model::Serializable
+  attribute :street, :string
+  attribute :city, :string
+
+  xml do
+    # No element declaration - type-only model
+    map_element 'street', to: :street
+    map_element 'city', to: :city
+  end
+end
+
+# Type-only models cannot be serialized standalone
+address.to_xml  # => NoRootMappingError
+----
+
+==== Migration
+
+For models that need a root element, add an explicit `element()` declaration:
+
+[source,ruby]
+----
+class Address < Lutaml::Model::Serializable
+  attribute :street, :string
+  attribute :city, :string
+
+  xml do
+    element 'address'  # Add explicit element declaration
+    map_element 'street', to: :street
+    map_element 'city', to: :city
+  end
+end
+
+address.to_xml  # => <address><street>...</street><city>...</city></address>
+----
+
+For type-only models (embedded in other models), no changes are needed - they
+now work without the deprecated `no_root` directive.
+
+==== Why this change
+
+* **Clearer intent**: Explicit element declarations make the model's purpose clear
+* **Type-only by default**: Models used as embedded types don't need `no_root`
+* **Consistency**: All models with root elements have explicit declarations
+* **Less magic**: No auto-generation from class names
+
+==== Deprecated: `no_root` method
+
+The `no_root` method is deprecated but still works with a warning:
+
+[source,ruby]
+----
+xml do
+  no_root  # DEPRECATED - shows warning
+  map_element 'street', to: :street
+end
+----
+
+Simply remove the `no_root` call - models without `element()` are type-only by default.
+
+
 === v0.8.0: XML default namespace behavior
 
 Version 0.8.0 introduces a **breaking change** to XML namespace serialization

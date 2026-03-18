@@ -10,6 +10,7 @@ module Lutaml
           GROUP_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
             # frozen_string_literal: true
 
+            require "lutaml/model"
             <%=  "\n" + required_files.uniq.join("\n") -%>
 
             class <%= Utils.camel_case(base_name) %> < Lutaml::Model::Serializable
@@ -17,11 +18,12 @@ module Lutaml
             <%= xml_mapping_block -%>
 
             <%= @indent %>def self.register
-            <%= extended_indent %>@register ||= Lutaml::Model::GlobalRegister.lookup(Lutaml::Model::Config.default_register)
+            <%= extended_indent %>@register ||= Lutaml::Model::Config.default_register
             <%= @indent %>end
 
             <%= @indent %>def self.register_class_with_id
-            <%= extended_indent %>register.register_model(self, id: :<%= Utils.snake_case(base_name) %>)
+            <%= extended_indent %>context = Lutaml::Model::GlobalContext.context(Lutaml::Model::Config.default_register)
+            <%= extended_indent %>context.registry.register(:<%= Utils.snake_case(base_name) %>, self)
             <%= @indent %>end
             end
 
@@ -30,8 +32,8 @@ module Lutaml
 
           XML_MAPPING_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
             <%= @indent %>xml do
-            <%= extended_indent %>no_root
-            <%= instance&.to_xml_mapping(extended_indent) -%>
+            <%= extended_indent %>type_name "<%= base_name %>"
+            <%= xml_mapping_content -%>
             <%= @indent %>end
           TEMPLATE
 
@@ -89,6 +91,20 @@ module Lutaml
 
           def xml_mapping_block
             XML_MAPPING_TEMPLATE.result(binding)
+          end
+
+          # Generate XML mapping content, unwrapping sequence for importable groups
+          def xml_mapping_content
+            return "" unless instance
+
+            # For Groups (importable models without root), unwrap sequence content
+            # because sequence requires a root element
+            if instance.is_a?(Sequence)
+              # Output sequence content directly without the wrapper
+              instance.send(:xml_block_content, extended_indent)
+            else
+              instance.to_xml_mapping(extended_indent)
+            end
           end
         end
       end

@@ -243,7 +243,7 @@ RSpec.describe Lutaml::Model::Type::Symbol do
         attribute :name, :string
 
         xml do
-          root "test"
+          element "test"
           map_element "status", to: :status
           map_element "name", to: :name
         end

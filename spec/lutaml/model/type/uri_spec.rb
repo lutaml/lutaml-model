@@ -144,7 +144,7 @@ RSpec.describe Lutaml::Model::Type::Uri do
         attribute :location, :uri
 
         xml do
-          root "resource"
+          element "resource"
           map_element "homepage", to: :homepage
           map_attribute "location", to: :location
         end

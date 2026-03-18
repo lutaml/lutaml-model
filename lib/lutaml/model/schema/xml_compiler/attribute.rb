@@ -12,11 +12,11 @@ module Lutaml
                         :default
 
           TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
-            <%= indent %>attribute :<%= resolved_name %>, :<%= resolved_type %>
+            <%= indent %>attribute :<%= resolved_name %>, <%= type_reference %>
           TEMPLATE
 
           XML_MAPPING_TEMPLATE = ERB.new(<<~XML_MAPPING_TEMPLATE, trim_mode: "-")
-            <%= indent %>map_attribute :<%= resolved_name(change_case: false) %>, to: :<%= resolved_name %><%= namespace_prefix_option %>
+            <%= indent %>map_attribute :<%= resolved_name(change_case: false) %>, to: :<%= resolved_name %>
           XML_MAPPING_TEMPLATE
 
           def initialize(name: nil, ref: nil)
@@ -39,12 +39,20 @@ module Lutaml
           def required_files
             return if skippable?
 
+            files = []
+
             raw_type = resolved_type(change_case: false)
-            if raw_type == "decimal"
-              "require \"bigdecimal\""
+
+            # Add W3C require for xml: attributes
+            if w3c_type?(raw_type)
+              files << "require \"lutaml/model/xml/w3c\""
+            elsif raw_type == "decimal"
+              files << "require \"bigdecimal\""
             elsif !SimpleType.skippable?(raw_type)
-              "require_relative \"#{Utils.snake_case(raw_type)}\""
+              files << "require_relative \"#{Utils.snake_case(raw_type)}\""
             end
+
+            files.compact # Return all files as array
           end
 
           private
@@ -56,8 +64,28 @@ module Lutaml
 
           def resolved_type(change_case: true)
             @current_type ||= type || referenced_instance&.type
+
+            # For W3C types, return the full class name
+            return @current_type if w3c_type?(@current_type)
+
             klass_name = last_of_split(@current_type)
             change_case ? Utils.snake_case(klass_name) : klass_name
+          end
+
+          def type_reference
+            raw_type = resolved_type(change_case: false)
+
+            # W3C types are full class names, use directly
+            if w3c_type?(raw_type)
+              "::#{raw_type}"
+            else
+              # Regular types are symbols
+              ":#{resolved_type}"
+            end
+          end
+
+          def w3c_type?(type_name)
+            type_name&.to_s&.start_with?("Lutaml::Xml::W3c::")
           end
 
           def referenced_instance
@@ -70,13 +98,6 @@ module Lutaml
 
           def skippable?
             resolved_name == "schema_location"
-          end
-
-          def namespace_prefix_option
-            return "" unless Utils.present?(ref)
-            return "" unless ref.start_with?("xml:")
-
-            ", namespace: \"http://www.w3.org/XML/1998/namespace\", prefix: \"xml\""
           end
         end
       end

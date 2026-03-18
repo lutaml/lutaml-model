@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Lutaml
   module Model
     class Sequence
@@ -9,25 +11,41 @@ module Lutaml
         @model = model
       end
 
+      # Deep copy a sequence, creating independent copies of attributes
+      # The model reference is updated to point to the new parent mapping
+      def deep_dup(new_model = nil)
+        dup_seq = Sequence.new(new_model || @model)
+        dup_seq.instance_variable_set(:@attributes, Utils.deep_dup(@attributes))
+        dup_seq
+      end
+
       def attribute(name, type, options = {})
         options[:sequence] = self
         @model.attribute(name, type, options)
       end
 
-      def sequence(&block)
-        instance_eval(&block)
+      def sequence(&)
+        instance_eval(&)
       end
 
-      def map_element(name, **kwargs)
-        @attributes << @model.map_element(name, **kwargs)
+      def map_element(name, **)
+        @attributes << @model.map_element(name, **)
       end
 
       def import_model_mappings(model, register = nil)
         return import_mappings_later(model) if later_importable?(model)
         raise Lutaml::Model::ImportModelWithRootError.new(model) if model.root?(register)
 
+        # When importing a model into a sequence, we need BOTH:
+        # 1. Object model (attributes/structure) - what data exists
+        # 2. Serialization mappings (how to serialize) - how data maps to XML
+        # This mimics XSD where using a complexType in a sequence means
+        # adopting both its structure and its serialization rules
+
+        # Import serialization mappings first (XML element names → model attributes)
         @model.import_model_mappings(model, register)
-        @attributes.concat(Utils.deep_dup(model.mappings_for(:xml, register).elements))
+        @attributes.concat(Utils.deep_dup(model.mappings_for(:xml,
+                                                             register).elements))
       end
 
       def map_attribute(*)
@@ -58,7 +76,9 @@ module Lutaml
           if value.respond_to?(:validate!)
             value.validate!
           elsif value.is_a?(Array)
-            value.each { |v| v.validate!(register: register) if v.respond_to?(:validate!) }
+            value.each do |v|
+              v.validate!(register: register) if v.respond_to?(:validate!)
+            end
           end
         end
       end

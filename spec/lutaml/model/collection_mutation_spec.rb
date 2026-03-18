@@ -3,7 +3,7 @@ require "spec_helper"
 RSpec.describe "Collection attribute mutations" do
   describe "serialization after mutation" do
     let(:namespace_class) do
-      Class.new(Lutaml::Model::XmlNamespace) do
+      Class.new(Lutaml::Xml::W3c::XmlNamespace) do
         uri "http://example.com/test"
         prefix_default "t"
       end
@@ -56,7 +56,7 @@ RSpec.describe "Collection attribute mutations" do
         container.items << item_class.new(value: "one")
         xml = container.to_xml
 
-        expect(xml).to include('<item')
+        expect(xml).to include("<item")
         expect(xml).to include('value="one"')
       end
     end
@@ -67,7 +67,7 @@ RSpec.describe "Collection attribute mutations" do
         container.add_item("two")
         xml = container.to_xml
 
-        expect(xml).to include('<item')
+        expect(xml).to include("<item")
         expect(xml).to include('value="two"')
       end
     end
@@ -77,7 +77,7 @@ RSpec.describe "Collection attribute mutations" do
         container = container_class.new(items: [item_class.new(value: "three")])
         xml = container.to_xml
 
-        expect(xml).to include('<item')
+        expect(xml).to include("<item")
         expect(xml).to include('value="three"')
       end
     end
@@ -90,7 +90,7 @@ RSpec.describe "Collection attribute mutations" do
         container.items << item_class.new(value: "six")
         xml = container.to_xml
 
-        expect(xml.scan(/<item/).size).to eq(3)
+        expect(xml.scan("<item").size).to eq(3)
         expect(xml).to include('value="four"')
         expect(xml).to include('value="five"')
         expect(xml).to include('value="six"')

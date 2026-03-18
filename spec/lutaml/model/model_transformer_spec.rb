@@ -17,7 +17,8 @@ class ProcMappingTransform < Lutaml::Model::ModelTransformer
   target ProcValueTransformed
 
   transform do
-    map from: "val", to: "val", transform: lambda(&:reverse), reverse_transform: lambda(&:reverse)
+    map from: "val", to: "val", transform: lambda(&:reverse),
+        reverse_transform: lambda(&:reverse)
   end
 end
 
@@ -282,7 +283,8 @@ class PublicationCatalogTransform < Lutaml::Model::ModelTransformer
   transform do
     map from: "title", to: "name"
     map from: "author", to: "creator"
-    map_each from: "authors", to: "contributors", transform: AuthorContributorTransform
+    map_each from: "authors", to: "contributors",
+             transform: AuthorContributorTransform
   end
 end
 
@@ -329,7 +331,8 @@ class StringToPersonTransform < Lutaml::Model::ModelTransformer
 
   transform do |input|
     parts = input.split(",")
-    Person.new(name: parts[0], year_born: parts[1], birth_date: parts[2], address: parts[3])
+    Person.new(name: parts[0], year_born: parts[1], birth_date: parts[2],
+               address: parts[3])
   end
 
   reverse_transform do |person|
@@ -350,7 +353,8 @@ class MethodTransform < Lutaml::Model::ModelTransformer
   end
 
   transform do
-    map from: "name", to: "full_name", transform: :upcase_name, reverse_transform: :downcase_name
+    map from: "name", to: "full_name", transform: :upcase_name,
+        reverse_transform: :downcase_name
   end
 end
 
@@ -371,7 +375,9 @@ class TagsSplitTransform < Lutaml::Model::ModelTransformer
   target Tag
 
   transform do |str|
-    (str || "").split(",").map { |t| Tag.new(name: t.strip) }.reject { |t| t.name.empty? }
+    (str || "").split(",").map do |t|
+      Tag.new(name: t.strip)
+    end.reject { |t| t.name.empty? }
   end
 end
 
@@ -409,12 +415,15 @@ end
 
 RSpec.describe Lutaml::Model::ModelTransformer do
   it "transforms string to date and back" do
-    expect(StringToDateTransform.transform("2025-03-15")).to eq(Date.new(2025, 3, 15))
-    expect(StringToDateTransform.reverse_transform(Date.new(2025, 3, 15))).to eq("2025-03-15")
+    expect(StringToDateTransform.transform("2025-03-15")).to eq(Date.new(2025,
+                                                                         3, 15))
+    expect(StringToDateTransform.reverse_transform(Date.new(2025, 3,
+                                                            15))).to eq("2025-03-15")
   end
 
   it "transforms person to user and back" do
-    person = Person.new(name: "Alice", year_born: "1980", birth_date: "2021-01-01", address: "Main St")
+    person = Person.new(name: "Alice", year_born: "1980",
+                        birth_date: "2021-01-01", address: "Main St")
     user = PersonUserTransform.transform(person)
     expect(user.full_name).to eq("Alice")
     expect(user.birth_year).to eq("1980")
@@ -429,7 +438,8 @@ RSpec.describe Lutaml::Model::ModelTransformer do
   end
 
   it "transforms publication to catalog entry and back (collections)" do
-    pub = Publication.new(title: "Book", author: "Author", authors: [Author.new(name: "A"), Author.new(name: "B")])
+    pub = Publication.new(title: "Book", author: "Author",
+                          authors: [Author.new(name: "A"), Author.new(name: "B")])
     cat = PublicationCatalogTransform.transform(pub)
     expect(cat.name).to eq("Book")
     expect(cat.creator).to eq("Author")
@@ -468,7 +478,12 @@ RSpec.describe Lutaml::Model::ModelTransformer do
   end
 
   describe "Nested model-to-model transforms" do
-    let(:person) { PersonWithAddress.new(name: "Alice", address: Address.new(street: "Main St", city: "Metropolis")) }
+    let(:person) do
+      PersonWithAddress.new(name: "Alice",
+                            address: Address.new(
+                              street: "Main St", city: "Metropolis",
+                            ))
+    end
 
     it "maps nested attributes between models" do
       user = PersonLocationTransform.transform(person)
@@ -526,7 +541,8 @@ RSpec.describe Lutaml::Model::ModelTransformer do
 
   describe "Collection transforms" do
     it "maps collections using map_each" do
-      pub = Publication.new(authors: [Author.new(name: "A"), Author.new(name: "B")])
+      pub = Publication.new(authors: [Author.new(name: "A"),
+                                      Author.new(name: "B")])
       cat = PublicationCollectionTransform.transform(pub)
       expect(cat.contributors.map(&:name)).to eq(["A", "B"])
       # Reverse
@@ -536,7 +552,11 @@ RSpec.describe Lutaml::Model::ModelTransformer do
 
     it "fails when using map_each to aggregate a collection into a single attribute" do
       pub = StandardsPublication.new(title: ["Title 1", "Title 2"])
-      expect { StandardsPublicationMapEachTransform.transform(pub) }.to raise_error(Lutaml::Model::MappingAttributeTypeError, /'from' and 'to' attributes must be collections/)
+      expect do
+        StandardsPublicationMapEachTransform.transform(pub)
+      end.to raise_error(
+        Lutaml::Model::MappingAttributeTypeError, /'from' and 'to' attributes must be collections/
+      )
     end
 
     it "aggregates a collection into a single attribute using map" do
@@ -548,11 +568,17 @@ RSpec.describe Lutaml::Model::ModelTransformer do
 
   describe "Validation errors" do
     it "raises when mapping refers to unknown attributes" do
-      expect { InvalidMap.build }.to raise_error(Lutaml::Model::MappingAttributeMissingError, /Mapping 'from' is required/)
+      expect do
+        InvalidMap.build
+      end.to raise_error(Lutaml::Model::MappingAttributeMissingError,
+                         /Mapping 'from' is required/)
     end
 
     it "raises when duplicate mapping is declared" do
-      expect { DuplicateMap.build }.to raise_error(Lutaml::Model::MappingAlreadyExistsError, /Mapping already exists/)
+      expect do
+        DuplicateMap.build
+      end.to raise_error(Lutaml::Model::MappingAlreadyExistsError,
+                         /Mapping already exists/)
     end
   end
 
@@ -591,7 +617,9 @@ RSpec.describe Lutaml::Model::ModelTransformer do
 
   describe "Value transformer without reverse" do
     it "raises when reverse_transform is not defined" do
-      expect { UniOnlyStringToDate.reverse_transform(Date.today) }.to raise_error(Lutaml::Model::ReverseTransformBlockNotDefinedError)
+      expect do
+        UniOnlyStringToDate.reverse_transform(Date.today)
+      end.to raise_error(Lutaml::Model::ReverseTransformBlockNotDefinedError)
     end
   end
 
@@ -605,11 +633,17 @@ RSpec.describe Lutaml::Model::ModelTransformer do
     end
 
     it "raises TransformBlockNotDefinedError when forward value transform block missing" do
-      expect { NoForwardValueTransform.transform("2021-01-01") }.to raise_error(Lutaml::Model::TransformBlockNotDefinedError)
+      expect do
+        NoForwardValueTransform.transform("2021-01-01")
+      end.to raise_error(Lutaml::Model::TransformBlockNotDefinedError)
     end
 
     it "raises MappingAttributeMissingError when 'to' attribute is unknown" do
-      expect { InvalidMapTo.build }.to raise_error(Lutaml::Model::MappingAttributeMissingError, /Mapping 'to' is required/)
+      expect do
+        InvalidMapTo.build
+      end.to raise_error(
+        Lutaml::Model::MappingAttributeMissingError, /Mapping 'to' is required/
+      )
     end
 
     it "propagates nil for map_each when source collection is nil" do

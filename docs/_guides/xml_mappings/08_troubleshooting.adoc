@@ -227,14 +227,23 @@ class MyType < Lutaml::Model::Type::String
   xsd_type 'MyCustomType'
 end
 
-# Check: explicit namespace overrides type namespace
+# Check: child model class namespace overrides type namespace
+class Value < Lutaml::Model::Serializable
+  attribute :content, :string
+
+  xml do
+    element 'value'
+    namespace OtherNamespace  # Model-level namespace
+    map_content to: :content
+  end
+end
+
 class Model < Lutaml::Model::Serializable
-  attribute :value, MyType
+  attribute :value, Value  # Uses Value's namespace
 
   xml do
     element 'model'
-    # This explicit namespace overrides MyType's namespace
-    map_element 'value', to: :value, namespace: OtherNamespace
+    map_element 'value', to: :value
   end
 end
 ----
@@ -372,18 +381,30 @@ class MyNamespace < Lutaml::Model::XmlNamespace
   element_form_default :qualified  # Now children are qualified
 end
 
-# Solution 2: Use namespace: :inherit on specific elements
+# Solution 2: Use child model class for specific elements
+class ChildValue < Lutaml::Model::Serializable
+  attribute :value, :string
+
+  xml do
+    element 'child'
+    namespace MyNamespace  # Model-level namespace
+    map_content to: :value
+  end
+end
+
 class Model < Lutaml::Model::Serializable
+  attribute :child, ChildValue
+
   xml do
     element 'model'
     namespace MyNamespace
-    map_element 'child', to: :child, namespace: :inherit  # Force qualified
+    map_element 'child', to: :child  # Uses ChildValue's namespace
   end
 end
 
 # Solution 3: Use Type-level namespace for specific elements
 class ChildType < Lutaml::Model::Type::String
-  namespace MyNamespace  # This element always qualified
+  xml_namespace MyNamespace  # This element always qualified
 end
 
 class Model < Lutaml::Model::Serializable
@@ -897,11 +918,9 @@ end
 **Why the change?**
 
 The `namespace` directive is reserved for future semantic namespace features
-(JSON-LD, RDF). The `xml_namespace` name clearly indicates XML-specific
-configuration.
+(JSON-LD, RDF). The unified `xml do ... end` block provides clear, XML-specific configuration.
 
-**No functional changes**: The behavior is identical, only the directive name
-changed.
+**No functional changes**: The behavior is identical, only the directive name changed.
 
 **See also:**
 

@@ -1,5 +1,10 @@
-require_relative "services/logger"
-require_relative "services/rule_value_extractor"
-require_relative "services/transformer"
-require_relative "services/validator"
-require_relative "services/type/validator"
+# frozen_string_literal: true
+
+module Lutaml
+  module Model
+    module Services
+      autoload :Base, "#{__dir__}/services/base"
+      autoload :Type, "#{__dir__}/services/type"
+    end
+  end
+end

@@ -36,7 +36,7 @@ module Lutaml
           end
 
           def required_files
-            @instances.map(&:required_files).flatten.compact
+            @instances.flat_map(&:required_files).compact
           end
 
           private

@@ -31,9 +31,14 @@ Gem::Specification.new do |spec|
   spec.executables = spec.files.grep(%r{^exe/}) { |f| File.basename(f) }
 
   spec.add_dependency "activesupport"
+  # required for liquid
+  spec.add_dependency "base64"
+  spec.add_dependency "liquid", "~> 5.0"
   spec.add_dependency "moxml", ">= 0.1.2"
-  spec.add_dependency "openssl", "< 4.0"
+  spec.add_dependency "openssl", "~> 3.0"
   spec.add_dependency "ostruct"
+  spec.add_dependency "rubyzip", "~> 2.3"
   spec.add_dependency "thor"
+
   spec.metadata["rubygems_mfa_required"] = "true"
 end

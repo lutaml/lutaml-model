@@ -78,13 +78,34 @@ module PolymorphicSpec
         DocumentReference,
         AnchorReference,
       ]
+
+      xml do
+        element "ReferenceSet"
+        map_element "references", to: :references, polymorphic: {
+          attribute: "reference-type",
+          class_map: {
+            "document-ref" => "PolymorphicSpec::Base::DocumentReference",
+            "anchor-ref" => "PolymorphicSpec::Base::AnchorReference",
+          },
+        }
+      end
+
+      key_value do
+        map "references", to: :references, polymorphic: {
+          attribute: "_class",
+          class_map: {
+            "Document" => "PolymorphicSpec::Base::DocumentReference",
+            "Anchor" => "PolymorphicSpec::Base::AnchorReference",
+          },
+        }
+      end
     end
 
     class SimpleReferenceSet < Lutaml::Model::Serializable
       attribute :references, Reference, collection: true, polymorphic: true
 
       xml do
-        root "ReferenceSet"
+        element "ReferenceSet"
         map_element "references", to: :references, polymorphic: {
           attribute: "reference-type",
           class_map: {
@@ -158,7 +179,7 @@ module PolymorphicSpec
       ]
 
       xml do
-        root "ReferenceSet"
+        element "ReferenceSet"
 
         map_element "references", to: :references, polymorphic: {
           # This refers to the attribute in the polymorphic model, you need

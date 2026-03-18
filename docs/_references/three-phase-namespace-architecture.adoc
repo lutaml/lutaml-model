@@ -1,23 +1,177 @@
 ---
-title: Three-Phase Namespace Architecture
+title: Namespace assignment architecture
 nav_order: 8
 ---
 
-= Three-Phase Namespace Declaration Architecture
+= Namespace assignment architecture
 
-Lutaml::Model implements a sophisticated three-phase namespace declaration
-architecture for XML serialization that ensures optimal xmlns declarations
-while maintaining W3C XML Namespace compliance.
+== General
+
+LutaML Model implements a sophisticated three-phase namespace assignment
+architecture for XML serialization that is compliant to the W3C XML Namespace
+specification while being consistent to the needs of complex model hierarchies.
+
+There are two approaches to XML namespace assignment:
+
+* W3C minimal-subtree approach: only declare namespaces at the elements that
+need them, reducing scope overreach and indicating clear ownership of
+namespaces. Cons: scattered declarations, complexity in tracking namespace
+scopes.
+
+* Traditional root-declaration approach: declare all namespaces at the root
+element, ensuring all namespaces are available throughout the document.
+Cons: overreach, potential conflicts, and ambiguity in ownership.
+
+LutaML's three-phase architecture achieves the W3C minimal-subtree approach
+while maintaining the clarity and simplicity of the traditional root-declaration
+approach.
+
+In regards to LutaML Models and XML namespaces, there are two kinds of
+models and value types:
+
+* models and value types that belong to a namespace (i.e. have a namespace
+identity)
+
+* models and value types that do not belong to any namespace (i.e. have no
+namespace identity)
+
+There is a difference in how these two kinds of models and value types are
+handled during XML serialization:
+
+* Models and value types that belong to a namespace always remain in that
+namespace, regardless of context. They always require proper `xmlns`
+declarations to be emitted in the XML output.
+
+* Models and value types that do not belong to any namespace, may end up
+belonging to the default namespace, the blank namespace, or a prefixed
+namespace, depending on the context in which they are used.
+
+In creating XML output, LutaML Model must ensure that all models and value types
+that belong to a namespace are properly declared, and that models and value
+types that do not belong to any namespace are assigned to the correct namespace
+based on context.
+
+The assignment of namespaces and the declaration of `xmlns` attributes is
+handled using a three-phase architecture:
+
+Discovery::
+Identity discovery::: Bottom-up traversal of the entire model tree to collect
+all namespace identities of models and value types.
+
+Scope coverage discovery::: Top-down traversal to determine the hoisting
+eligibility of each namespace based on `namespace_scope` directives and namespace
+identity.
+
+Planning::
+Hoisting planning:::
+Top-down planning to determine which namespaces (and prefixes) can be
+consolidated into a higher scope, and determining the element at which each
+namespace should be hoisted (namespace hoisting = the element that declares the
+namespace). The root element is always eligible and is the final backstop to
+hoist all namespaces (no namespace can be unhoisted).
+
+Prefix planning:::
+If the requirements specify prefixed namespaces at any point in the model tree,
+a prefix planning phase is executed to assign prefixes to each namespace,
+ensuring no conflicts occur (e.g. a user demanded namespace prefix conflicts
+with a XmlNamespace class's default prefix).
+
+Serialization::
+During XML serialization, the planned hoisting and prefix assignments are used
+to generate proper `xmlns` declarations at the appropriate elements.
+
+
+== Principles
+
+The LutaML Model three-phase namespace assignment architecture is based on
+several important principles that ensure correct and optimal namespace handling:
+
+. if an element does not declare any namespace itself, it cannot set any default
+namespace, but it can hoist namespaces with prefixes (if it is declare always or
+contain elements with namespaces)
+
+. Namespaced XML attributes must use prefixed namespace declaration: an XML
+attribute that represents a namespaced value requires a prefix to specify
+namespace, and cannot depend on the default namespace or blank namespace (this
+is specified by the W3C Namespace specification). This means that if an
+attribute's value belongs to a namespace, that namespace must be declared with a
+prefix.
+
+. an XML element is sensitive to the default namespace and prefix namespace.
+
+. Prefix inheritance: a namespace must not be double-hoisted as a default
+namespace and also with a prefix.
+
+.. If a namespace is hoisted as default, it should not also be hoisted with a
+prefix, however, if an element contains an attribute or a child element with any
+attribute in the same namespace, then the namespace should instead of hoisted as
+a prefixed namespace, which also means that all elements in that namespace
+should also utilize the same prefix (to prevent duplicate declarations).
+
+.. The scope of the namespace assignment is the subtree of the element that
+hoists the namespace. Within this subtree, all elements and attributes that
+belong to that namespace must use the same prefix.
+
+. important that if an element belongs to a namespace, its namespace is
+automatically part of the namespace_scope because of course an element can
+declare its own namespace (as default or prefix)
+
+
 
 == Architecture Overview
 
-The three-phase architecture consists of:
+=== General
 
-1. **Phase 1: Bottom-Up Collection** - Gathers all namespace requirements from the entire model tree
-2. **Phase 2: Declaration Planning** - Creates optimal xmlns declaration plans based on collected needs
-3. **Phase 3: Serialization Integration** - Applies the declaration plan during XML generation
+In Lutaml::Model, an XML element corresponds to a model instance being
+serialized to XML, with its inner XML elements and XML attributes corresponding
+to the model's attributes. These model attributes may themselves be models or
+value types (both types can be XML elements or XML attributes).
 
-== Phase 1: Namespace Collection
+In terms of namespacing, the architecture treats models and value types in the
+same manner.
+
+=== Phase 1A: Namespace Collection
+
+Walks the model tree from leaves to root, collecting namespace needs.
+
+Each model class or value type class either belongs to a namespace (has a
+namespace identity) or does not belong to any namespace.
+
+There are cases where a model or value type obtains (or overrides) its namespace
+identity from context:
+
+* From the namespace configuration of the parent model (e.g. XSD attribute_form_qualification or XSD element_form_qualification)
+
+* From the namespace configuration of the XML mapping (e.g. `namespace: xxx`
+override).
+
+Both cases allow the model or value type to be mapped into a different namespace
+than its own identity, enabling different parent elements to map the same model
+or value type into different namespaces.
+
+In these cases, the model or value type's namespace identity is determined
+during this collection phase.
+
+The default namespace is always preferred over prefixed namespaces:
+
+* If the root element of a model belongs to a namespace, the namespace is always
+  collected as a default namespace. This also means that if any child (element
+  or attribute) belongs to a different namespace, and that namespace needs to
+  be hoisted at the root, it must be hoisted as a prefixed namespace. Note that
+  any descendant elements or attributes that do not belong to the root's namespace
+  can still redeclare the default namespace to their own namespace according
+  to their scope.
+
+* If the root element of a model belongs to a namespace and is requested to
+  be declared with a prefix (e.g. via `#to_xml(prefix: true)` or
+  `#to_xml(prefix: "custom")`), the namespace is collected as a prefixed
+  namespace, and this namespace in this tree shall never be hoisted separately.
+
+* If the root element of a model does not belong to any namespace (i.e. belongs
+  to the blank namespace), then the element cannot hoist any default namespace.
+  If its one or more child elements or attributes belong to namespaces, those
+  namespaces are collected as prefixed namespaces.
+
 
 The `NamespaceCollector` class traverses the entire model hierarchy to collect:
 
@@ -27,12 +181,133 @@ The `NamespaceCollector` class traverses the entire model hierarchy to collect:
 * Type-only model namespaces (xsd_type/no_root models)
 * Custom namespace mappings
 
-**Key Features:**
+**Key roles:**
+
 * Prevents circular reference loops during traversal
-* Handles inheritance scenarios correctly
+* Handles inheritance scenarios
 * Supports complex nested namespace structures
 
-== Phase 2: Declaration Planning
+=== Phase 1B: Namespace scope coverage discovery
+
+Walks the model tree from root to leaves, determining namespace scope coverage.
+
+A namespace scope indicates that a namespace can be hoisted at that element or
+any ancestor element.
+
+An analogy is like a flash light that shines down from the element to the
+leaves, and it should not be turned on if its parent (or any ancestor) already
+has it on. Imagine that double-shining will be too bright that is blinding.
+
+An element can only hoist a default namespace if it belongs to that namespace.
+In no other case can it hoist a default namespace (`xmlns=[URI]`). Every element
+belonging to a namespace automatically has that namespace in its scope, because
+it can always hoist that namespace either the default namespace or a prefixed
+namespace.
+
+Declaring a namespace scope at an element means that the element is eligible to
+hoist that namespace with a prefix (`xmlns:pre="[URI]"`), because it cannot
+hoist a default namespace.
+
+The XML root element always has all namespaces in its scope, because it can
+always hoist all namespaces, but it is the least preferred element to do so,
+because it is best to hoist namespaces as low as possible in the tree to
+minimize the scope of each namespace. The objective is to hoist each namespace
+as close to the element as possible, unless a `namespace_scope` directive
+indicates otherwise.
+
+When an element has a namespace scope directive but does not belong to that
+namespace, it indicates that the namespace can be hoisted at that element with a
+prefix:
+
+* When it is set to "auto", it indicates that the namespace can be hoisted at
+that element if any descendant element or attribute belongs to that namespace.
+
+* When it is set to "always", it indicates that the namespace will be hoisted at
+that element as long as there is no ancestor element that already hoists it.
+
+The algorithm traverses the model tree top-down without the root (starting at the first child level), propagating namespace scopes
+from parent to child, and adding new namespace scopes when the element itself
+belongs to a namespace, or when the element's XML mapping specifies a
+`namespace_scope` directive.
+
+The `NamespaceCollector` class implements this phase by:
+
+* Creating a tree that mimics the XML tree structure
+* Obtaining the full set of namespaces from Phase 1A.
+
+* Create a processing queue initialized with all leaf nodes (XML elements and
+  XML attributes) as nodes, and process sequentially.
+
+* From each node, walk up to its immediate ancestor, adding itself to the first
+  ancestor it encounters that has its own namespace in the ancestor's scope.
+
+** Each leaf node carries the information of
+  "[namespace_uri, namespace_count, prefix_or_default]"
+  where namespace_uri indicates the namespace being requested,
+  namespace_count indicates the number of nodes it covers for that namespace,
+  and prefix_or_default indicates whether it needs a prefix or default
+  namespace.
+
+** It walks up the tree to the ancestor, and gives the ancestor the information
+  about the namespace URI, whether it needs prefix or default, and the count of
+  nodes it covers. The ancestor increments its counter for that namespace URI
+  accordingly. If the ancestor already has a count for that namespace URI, it
+  adds the current node's count to the ancestor's count. If the node requests
+  for a prefixed namespace, the ancestor prioritizes the prefixed request over
+  the default request, and from then on the ancestor will consider all default
+  requests for that namespace URI as prefixed requests. Rememeber that
+  a default namespace can only be hoisted by an element that belongs to that
+  namespace, so if any child requests a prefixed namespace, the ancestor must
+  hoist it as a prefixed namespace.
+
+** Then add this ancestor to the processing queue at the end, and the ancestor
+   will be processed in turn.
+
+* Once the processing queue is empty, the tree is done.
+
+=== Phase 2: Declaration Planning
+
+Makes declaration decisions using collected knowledge.
+
+We traverse the node tree from Phase 1B from top down:
+
+* For each node, we check the counts for each namespace URI it has collected
+  from its children.
+
+* If the count is greater than zero, it means that there are nodes under this
+  node that need this namespace URI. Remember only these nodes can hoist
+  a namespace:
+
+** Nodes belonging to that namespace can hoist it as default or prefixed.
+** Nodes that have namespace scope for that namespace URI can hoist it as prefixed.
+
+* If our node is eligible to hoist this namespace URI (either belongs to that
+  namespace, or has namespace scope for that namespace URI), we hoist it here,
+  so we mark this node as the hoisting node for that namespace URI, and
+  we can ignore any further descendants for this namespace URI.
+
+* If our node is not eligible to hoist this namespace URI, we cannot hoist it
+  and must leave it to "potentially eligible descendant nodes" (nodes
+  that have this namespace's count of > 0) to hoist it.
+
+* This happens until we reach the leaves.
+
+* Then, mark all the nodes with namespace scopes that have "declare: always"
+  as hoisting nodes for those namespaces. This means that these nodes will hoist
+  those namespaces no matter what, unless an ancestor node has already hoisted
+  them.
+
+* Then, remove any redundant hoisting nodes that have an ancestor node
+  that has already hoisted the same namespace.
+
+* Finally, assign prefixes to all hoisted namespaces that are
+  prefixed namespaces, ensuring no conflicts occur. We do not allow conflicts
+  because that would create ambiguity during XML serialization, and do not
+  allow declaring the same namespace twice with different prefixes in the same
+  document.
+
+* The result is the final declaration plan that indicates which element hoists
+  which namespace, and whether it is a default or prefixed namespace.
 
 The `DeclarationPlanner` creates optimal xmlns declaration strategies:
 
@@ -46,7 +321,10 @@ The `DeclarationPlanner` creates optimal xmlns declaration strategies:
 * **Prefixed namespace**: `xmlns:prefix="uri"` for additional namespaces
 * **Inheritance-aware**: Respects parent namespace declarations
 
-== Phase 3: Serialization Integration
+
+=== Phase 3: Serialization Integration
+
+Applies the plan during XML generation.
 
 All XML adapters (Nokogiri, Oga, Ox) use the three-phase architecture:
 
@@ -74,12 +352,17 @@ transparently behind the scenes to ensure optimal namespace declarations.
 
 [source,ruby]
 ----
+class ExampleNamespaceClass < Lutaml::Model::XmlNamespace
+  uri "http://example.com/schema"
+  prefix "ex"
+end
+
 class MyModel < Lutaml::Model::Serializable
   attribute :data, :string
 
   xml do
-    root "MyModel"
-    namespace "http://example.com/schema"
+    element "MyModel"
+    namespace ExampleNamespaceClass
     map_element "data", to: :data
   end
 end
@@ -120,16 +403,19 @@ The DeclarationPlanner analyzes collected namespace requirements and creates
 an optimal declaration strategy:
 
 **Prefix Generation:**
+
 - Uses intelligent prefix generation to avoid conflicts
 - Prefers common prefixes (xsd, xsi, etc.) when appropriate
 - Generates unique prefixes for conflicts
 
 **Declaration Ordering:**
+
 - Default namespace declared first when present
 - Prefixed namespaces declared in alphabetical order
 - Ensures deterministic output for testing
 
 **Inheritance Handling:**
+
 - Respects namespace declarations from parent contexts
 - Avoids redeclaration of already-scoped namespaces
 - Maintains proper scoping rules per W3C specifications
@@ -143,6 +429,7 @@ All XML adapters have been updated to use the three-phase architecture:
 **OxAdapter** (`lib/lutaml/model/xml/ox_adapter.rb`)
 
 Each adapter implements:
+
 - `build_element_with_plan` for namespace-aware element creation
 - `build_ordered_element_with_plan` for sequence-ordered content
 - `build_unordered_children_with_plan` for flexible child ordering
@@ -158,20 +445,12 @@ The three-phase architecture includes comprehensive testing:
 - **Circular reference handling** validation
 - **Inheritance scenario** coverage
 
-== Migration and Compatibility
 
-The three-phase architecture is fully backward compatible:
+== Related Documentation
 
-- **No breaking changes** to existing model definitions
-- **Automatic activation** for all XML serialization
-- **Transparent operation** - no user code changes required
-- **Performance improvements** in namespace handling
+For comprehensive user-facing documentation on namespace declaration strategies:
 
-== Future Extensions
-
-The architecture provides a foundation for future enhancements:
-
-- **Schema-aware declarations** for XSD generation
-- **Namespace optimization** for document size reduction
-- **Streaming serialization** support
-- **Custom declaration strategies** via plugins
+- link:../guides/xml-namespace-declarations.adoc[XML Namespace Declarations Guide] -
+  Comprehensive guide to declaration strategies and best practices
+- link:../guides/xml-namespaces.adoc[XML Namespaces Guide] -
+  Complete namespace feature documentation

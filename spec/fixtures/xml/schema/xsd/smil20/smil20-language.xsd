@@ -1,0 +1,834 @@
+<!--
+XML Schema for the SMIL 2.0 Language
+
+This is SMIL 2.0
+Copyright: 1998-2004 W3C (MIT, ERCIM, Keio), All Rights Reserved.
+See http://www.w3.org/Consortium/Legal/.
+
+Public URI: http://www.w3.org/2001/SMIL20/smil20-language.xsd
+Author: Aaron Michael Cohen (Intel)
+
+Revision: 2004/06/03 by Thierry MICHEL
+Revision includes update of Errata E35
+see (http://www.w3.org/2001/07/REC-SMIL20-20010731-errata#E35)
+
+
+Note: <any> wildcard element content is missing from most of the SMIL 2.0 elements because of a conflict 
+between substitutionGroups and wildcard content.
+-->
+<schema xmlns="http://www.w3.org/2001/XMLSchema"
+        xmlns:smil20="http://www.w3.org/2001/SMIL20/"
+ 	xmlns:smil20lang="http://www.w3.org/2001/SMIL20/Language"
+        targetNamespace="http://www.w3.org/2001/SMIL20/Language"
+        elementFormDefault="qualified">
+    
+    <!-- import the smil20 namespaces -->
+    <import namespace="http://www.w3.org/2001/SMIL20/" schemaLocation="smil20.xsd"/>
+
+    <!-- =================================================================== -->
+    <!-- CoreAttrs attribute group used on all SMIL2.0 profile elements      -->
+    <!-- =================================================================== -->
+    <attributeGroup name="CoreAttrs">
+        <attributeGroup ref="smil20:structureModuleAttrs"/>
+        <attributeGroup ref="smil20:alternateContentAttrs"/>
+        <!-- 
+            should have xml:base here, but no schema to refer to.
+            not a problem since it will validate anyway because of
+            the anyAttribute declarations.
+        -->            
+    </attributeGroup>    
+
+    <!-- =================================================================== -->
+    <!-- Structure Functionality                                             -->
+    <!-- =================================================================== -->
+
+    <!-- =================================================================== -->
+    <!-- define the top down structure of a SMIL 2.0 language document.      -->
+    <!-- =================================================================== -->
+    
+    <!-- top level smil element and content model -->
+    <element name="smil" type="smil20lang:smilType"/>
+    <complexType name="smilType">
+        <complexContent>
+            <extension base="smil20:smilPrototype">
+                <sequence>
+                    <element ref="smil20lang:head" minOccurs="0" maxOccurs="1"/>
+                    <element ref="smil20lang:body" minOccurs="1" maxOccurs="1"/>
+                </sequence>
+                <attributeGroup ref="smil20lang:CoreAttrs"/>
+                <attributeGroup ref="smil20:systemTestAttrs"/>            
+                <attributeGroup ref="smil20:deprecatedSystemTestAttrs"/>    
+                <anyAttribute namespace="##any" processContents="strict"/>
+            </extension>
+        </complexContent>
+    </complexType>
+    
+    <!-- head element and content model -->
+    <element name="head" type="smil20lang:headType"/>
+    <complexType name="headType">
+        <complexContent>
+            <extension base="smil20:headPrototype">
+                <sequence>
+                    <group ref="smil20lang:metaGroup" minOccurs="0" maxOccurs="unbounded"/>
+
+                    <sequence minOccurs="0" maxOccurs="1">
+                        <group ref="smil20lang:customAttributesGroup" minOccurs="1" maxOccurs="1"/>
+                        <group ref="smil20lang:metaGroup" minOccurs="0" maxOccurs="unbounded"/>
+                    </sequence>
+
+                    <sequence minOccurs="0" maxOccurs="1">
+                        <group ref="smil20lang:metadataGroup" minOccurs="1" maxOccurs="1"/>
+                        <group ref="smil20lang:metaGroup" minOccurs="0" maxOccurs="unbounded"/>
+                    </sequence>
+
+                    <sequence minOccurs="0" maxOccurs="1">
+                        <choice minOccurs="1" maxOccurs="1">
+                            <group ref="smil20lang:layoutGroup"/>                    
+                            <group ref="smil20lang:switchGroup"/>
+                        </choice>
+                        <group ref="smil20lang:metaGroup" minOccurs="0" maxOccurs="unbounded"/>
+                    </sequence>
+
+                    <sequence minOccurs="0" maxOccurs="1">
+                        <group ref="smil20lang:transitionGroup" minOccurs="1" maxOccurs="unbounded"/>
+                        <group ref="smil20lang:metaGroup" minOccurs="0" maxOccurs="unbounded"/>
+                    </sequence>                    
+
+                </sequence>
+                <attributeGroup ref="smil20lang:CoreAttrs"/>
+                <anyAttribute namespace="##any" processContents="strict"/>
+            </extension>
+        </complexContent>
+    </complexType>
+
+    <!-- body element and content model -->
+    <element name="body" type="smil20lang:bodyType"/>
+    <complexType name="bodyType">
+        <complexContent>
+            <extension base="smil20:bodyPrototype">
+                <choice minOccurs="0" maxOccurs="unbounded">
+                    <group ref="smil20lang:scheduleGroup"/>
+                    <group ref="smil20lang:mediaContentGroup"/>
+                    <group ref="smil20lang:contentControlGroup"/>
+                    <group ref="smil20lang:aElementGroup"/>
+                    <group ref="smil20lang:animationGroup"/>
+                </choice>
+                <attributeGroup ref="smil20lang:CoreAttrs"/>
+                <attributeGroup ref="smil20lang:TimingAttrs"/>            
+                <attributeGroup ref="smil20:mediaAnnotateAttrs"/>
+                <attributeGroup ref="smil20:endsyncTimingAttrs"/>
+                <attributeGroup ref="smil20:regionAttrs"/>
+                <anyAttribute namespace="##any" processContents="strict"/>
+            </extension>
+        </complexContent>
+    </complexType>
+
+    <!-- =================================================================== -->
+    <!-- Metainformation Functionality                                       -->
+    <!-- =================================================================== -->
+    <!-- metadata element and content model -->
+    <element name="metadata" type="smil20lang:metadataType"/>
+    <complexType name="metadataType">
+        <complexContent>
+            <extension base="smil20:metadataPrototype">
+                <attributeGroup ref="smil20lang:CoreAttrs"/>
+                <attributeGroup ref="smil20:skipContentAttrs"/>
+                <anyAttribute namespace="##any" processContents="strict"/>
+            </extension>
+        </complexContent>
+    </complexType>
+
+    <!-- meta element and content model -->
+    <element name="meta" type="smil20lang:metaType"/>
+    <complexType name="metaType">
+        <complexContent>
+            <extension base="smil20:metaPrototype">
+                <choice minOccurs="0" maxOccurs="unbounded">
+                    <any namespace="##other" processContents="lax"/>
+                </choice>                    
+                <attributeGroup ref="smil20lang:CoreAttrs"/>
+                <attributeGroup ref="smil20:skipContentAttrs"/>
+                <anyAttribute namespace="##other" processContents="strict"/>
+            </extension>
+        </complexContent>
+    </complexType>
+
+    <!-- metainformation groups -->
+    <group name="metaGroup">
+        <choice>
+            <element ref="smil20lang:meta"/>
+        </choice>
+    </group>
+
+    <group name="metadataGroup">
+        <choice>
+            <element ref="smil20lang:metadata"/>
+        </choice>
+    </group>
+
+    <!-- =================================================================== -->
+    <!-- Layout Functionality                                                -->
+    <!-- =================================================================== -->
+
+    <!-- layout element and content model -->
+    <!-- 
+        In smil 2.0 as in smil 1.0, the layout element can have almost any content, 
+        based on the value of the 'type' attribute, but we cannot syntax check that,
+        so here we only specify the content model for type="text/smil-basic-layout"
+    -->
+    <element name="layout" type="smil20lang:layoutType"/>
+    <complexType name="layoutType">
+        <complexContent>
+            <extension base="smil20:layoutPrototype">
+                <choice minOccurs="0" maxOccurs="unbounded">
+                    <group ref="smil20lang:regionGroup"/>
+                    <group ref="smil20lang:topLayoutGroup"/>
+                    <group ref="smil20lang:root-layoutGroup"/>
+                    <group ref="smil20lang:regPointGroup"/>
+                </choice>
+                <attributeGroup ref="smil20lang:CoreAttrs"/>
+                <anyAttribute namespace="##any" processContents="strict"/>
+            </extension>
+        </complexContent>
+    </complexType>
+
+    <!-- root-layout element and content model -->
+    <element name="root-layout" type="smil20lang:root-layoutType"/>
+    <complexType name="root-layoutType">
+        <complexContent>
+            <extension base="smil20:root-layoutPrototype">
+                <choice minOccurs="0" maxOccurs="unbounded">
+                    <any namespace="##other" processContents="lax"/>
+                </choice>
+                <attributeGroup ref="smil20lang:CoreAttrs"/>
+                <anyAttribute namespace="##any" processContents="strict"/>
+            </extension>
+        </complexContent>
+    </complexType>
+
+    <!-- region element and content model -->
+    <element name="region" type="smil20lang:regionType"/>
+    <complexType name="regionType">
+        <complexContent>
+            <extension base="smil20:regionPrototype">
+                <choice minOccurs="0" maxOccurs="unbounded">
+                    <element name="region" type="smil20lang:regionType"/>
+                </choice>
+                <attributeGroup ref="smil20lang:CoreAttrs"/>
+                <anyAttribute namespace="##any" processContents="strict"/>
+            </extension>
+        </complexContent>
+    </complexType>
+
+    <!-- topLayout element and content model -->
+    <element name="topLayout" type="smil20lang:topLayoutType"/>
+    <complexType name="topLayoutType">
+        <complexContent>
+            <extension base="smil20:topLayoutPrototype">
+                <choice minOccurs="0" maxOccurs="unbounded">
+                    <element name="region" type="smil20lang:regionType"/>
+                </choice>
+                <attributeGroup ref="smil20lang:CoreAttrs"/>            
+                <attributeGroup ref="smil20:skipContentAttrs"/>
+                <anyAttribute namespace="##any" processContents="strict"/>
+            </extension>
+        </complexContent>
+    </complexType>
+
+    <!-- regPoint element and content model -->
+    <element name="regPoint" type="smil20lang:regPointType"/>
+    <complexType name="regPointType">
+        <complexContent>
+            <extension base="smil20:regPointPrototype">
+                <choice minOccurs="0" maxOccurs="unbounded">
+                    <any namespace="##other" processContents="lax"/>
+                </choice>
+                <attributeGroup ref="smil20lang:CoreAttrs"/>            
+                <attributeGroup ref="smil20:skipContentAttrs"/>
+                <anyAttribute namespace="##any" processContents="strict"/>
+            </extension>
+        </complexContent>
+    </complexType>
+
+    <!-- layout groups -->
+    <group name="root-layoutGroup">
+        <sequence>
+            <element ref="smil20lang:root-layout"/>
+        </sequence>
+    </group>
+
+    <group name="regionGroup">
+        <sequence>
+            <element ref="smil20lang:region"/>
+        </sequence>
+    </group>
+
+    <group name="topLayoutGroup">
+        <sequence>
+            <element ref="smil20lang:topLayout"/>
+        </sequence>
+    </group>
+
+    <group name="layoutGroup">
+        <sequence>
+            <element ref="smil20lang:layout"/>
+        </sequence>
+    </group>
+
+    <group name="regPointGroup">
+        <sequence>
+            <element ref="smil20lang:regPoint"/>
+        </sequence>
+    </group>
+
+    <!-- =================================================================== -->
+    <!-- Transition Functionality                                            -->
+    <!-- =================================================================== -->
+    <element name="transition" type="smil20lang:transitionType"/>
+    <complexType name="transitionType">
+        <complexContent>
+            <extension base="smil20:transitionPrototype">
+                <choice minOccurs="0" maxOccurs="unbounded">
+                    <any namespace="##other" processContents="lax"/>
+                </choice>
+                <attributeGroup ref="smil20lang:CoreAttrs"/>            
+                <attributeGroup ref="smil20:systemTestAttrs"/>            
+                <attributeGroup ref="smil20:deprecatedSystemTestAttrs"/>    
+                <attributeGroup ref="smil20:customTestAttrs"/>
+                <attributeGroup ref="smil20:skipContentAttrs"/>
+                <anyAttribute namespace="##any" processContents="strict"/>
+            </extension>
+        </complexContent>
+    </complexType>
+
+    <!-- transition groups -->
+    <group name="transitionGroup">
+        <choice>
+            <element ref="smil20lang:transition"/>
+        </choice>
+    </group>
+
+    <!-- =================================================================== -->
+    <!-- Content Control Functionality                                       -->
+    <!-- =================================================================== -->
+
+    <!-- customAttributes element and content model -->
+    <element name="customAttributes" type="smil20lang:customAttributesType"/>    
+    <complexType name="customAttributesType">
+        <complexContent>
+            <extension base="smil20:customAttributesPrototype">
+                <choice minOccurs="0" maxOccurs="unbounded">
+                    <element name="customTest" type="smil20lang:customTestType"/>
+                </choice>
+                <attributeGroup ref="smil20lang:CoreAttrs"/>            
+                <attributeGroup ref="smil20:skipContentAttrs"/>
+                <anyAttribute namespace="##any" processContents="strict"/>
+            </extension>
+        </complexContent>
+    </complexType>
+
+    <!-- customTest element and content model -->
+    <element name="customTest" type="smil20lang:customTestType"/>    
+    <complexType name="customTestType">
+        <complexContent>
+            <extension base="smil20:customTestPrototype">
+                <choice minOccurs="0" maxOccurs="unbounded">
+                    <any namespace="##other" processContents="lax"/>
+                </choice>         
+                <attributeGroup ref="smil20lang:CoreAttrs"/>            
+                <attributeGroup ref="smil20:skipContentAttrs"/>
+                <anyAttribute namespace="##any" processContents="strict"/>
+            </extension>
+        </complexContent>
+    </complexType>
+
+    <!-- switch element and content model -->
+    <element name="switch" type="smil20lang:switchType"/>    
+    <complexType name="switchType">
+        <complexContent>
+            <extension base="smil20:switchPrototype">
+                <choice minOccurs="0" maxOccurs="unbounded">
+                    <group ref="smil20lang:layoutGroup"/>
+                    <group ref="smil20lang:scheduleGroup"/>
+                    <group ref="smil20lang:mediaContentGroup"/>
+                    <group ref="smil20lang:contentControlGroup"/>
+                    <group ref="smil20lang:aElementGroup"/>
+                    <group ref="smil20lang:animationGroup"/>
+                    <group ref="smil20lang:areaGroup"/>
+                </choice>
+                <attributeGroup ref="smil20lang:CoreAttrs"/>            
+                <attributeGroup ref="smil20:deprecatedSystemTestAttrs"/>    
+                <attributeGroup ref="smil20:customTestAttrs"/>
+                <anyAttribute namespace="##any" processContents="strict"/>
+            </extension>
+        </complexContent>
+    </complexType>
+
+    <!-- prefetch element and content model -->
+    <element name="prefetch" type="smil20lang:prefetchType"/>    
+    <complexType name="prefetchType">
+        <complexContent>
+            <extension base="smil20:prefetchPrototype">
+                <choice minOccurs="0" maxOccurs="unbounded">
+                    <any namespace="##other" processContents="lax"/>
+                </choice>
+                <attributeGroup ref="smil20lang:CoreAttrs"/>            
+                <attributeGroup ref="smil20:skipContentAttrs"/>
+                <attributeGroup ref="smil20:mediaClippingAttrs"/>
+                <attributeGroup ref="smil20:deprecatedMediaClippingAttrs"/>
+                <attributeGroup ref="smil20lang:TimingAttrs"/>            
+                <attributeGroup ref="smil20:systemTestAttrs"/>            
+                <attributeGroup ref="smil20:deprecatedSystemTestAttrs"/>
+                <attributeGroup ref="smil20:customTestAttrs"/>            
+                <anyAttribute namespace="##any" processContents="strict"/>
+            </extension>
+        </complexContent>
+    </complexType>
+
+
+    <!-- content control groups -->
+    <group name="customAttributesGroup">
+        <choice>
+            <element ref="smil20lang:customAttributes"/>
+        </choice>
+    </group>
+    
+    <group name="prefetchGroup">
+        <choice>
+            <element ref="smil20lang:prefetch"/>
+        </choice>
+    </group>
+
+    <group name="switchGroup">
+        <choice>
+            <element ref="smil20lang:switch"/>
+        </choice>
+    </group>
+
+    <group name="contentControlGroup">
+        <choice minOccurs="0" maxOccurs="unbounded">
+            <group ref="smil20lang:switchGroup"/>
+            <group ref="smil20lang:prefetchGroup"/>
+        </choice>
+    </group>
+
+    <!-- =================================================================== -->
+    <!-- Animation Functionality                                             -->
+    <!-- =================================================================== -->
+    
+    <!-- animate element and content model -->
+    <element name="animate" type="smil20lang:animateType"/>    
+    <complexType name="animateType">
+        <complexContent>
+            <extension base="smil20:animatePrototype">                
+                <choice minOccurs="0" maxOccurs="unbounded">
+                    <any namespace="##other" processContents="lax"/>
+                </choice>
+                <attributeGroup ref="smil20lang:CoreAttrs"/>   
+                <attributeGroup ref="smil20lang:TimingAttrs"/>                         
+                <attributeGroup ref="smil20:animTargetAttrs"/>
+                <attributeGroup ref="smil20:animModeAttrs"/>        
+                <attributeGroup ref="smil20:skipContentAttrs"/>
+                <anyAttribute namespace="##any" processContents="strict"/>
+            </extension>
+        </complexContent>
+    </complexType>
+
+    <!-- set element and content model -->
+    <element name="set" type="smil20lang:setType"/>    
+    <complexType name="setType">
+        <complexContent>
+            <extension base="smil20:setPrototype">                
+                <choice minOccurs="0" maxOccurs="unbounded">
+                    <any namespace="##other" processContents="lax"/>
+                </choice>
+                <attributeGroup ref="smil20lang:CoreAttrs"/>            
+                <attributeGroup ref="smil20lang:TimingAttrs"/>                         
+                <attributeGroup ref="smil20:animTargetAttrs"/>
+                <attributeGroup ref="smil20:skipContentAttrs"/>
+                <anyAttribute namespace="##any" processContents="strict"/>
+            </extension>
+        </complexContent>
+    </complexType>
+
+    <!-- animateMotion element and content model -->
+    <element name="animateMotion" type="smil20lang:animateMotionType"/>    
+    <complexType name="animateMotionType">
+        <complexContent>
+            <extension base="smil20:animateMotionPrototype">                
+                <choice minOccurs="0" maxOccurs="unbounded">
+                    <any namespace="##other" processContents="lax"/>
+                </choice>
+                <attributeGroup ref="smil20lang:CoreAttrs"/>            
+                <attributeGroup ref="smil20lang:TimingAttrs"/>                         
+                <attributeGroup ref="smil20:animTargetAttrs"/>
+                <attributeGroup ref="smil20:animModeAttrs"/>        
+                <attributeGroup ref="smil20:skipContentAttrs"/>
+                <anyAttribute namespace="##any" processContents="strict"/>
+            </extension>
+        </complexContent>
+    </complexType>
+
+    <!-- animateColor element and content model -->
+    <element name="animateColor" type="smil20lang:animateColorType"/>    
+    <complexType name="animateColorType">
+        <complexContent>
+            <extension base="smil20:animateColorPrototype">                
+                <choice minOccurs="0" maxOccurs="unbounded">
+                    <any namespace="##other" processContents="lax"/>
+                </choice>
+                <attributeGroup ref="smil20lang:CoreAttrs"/>            
+                <attributeGroup ref="smil20lang:TimingAttrs"/>                         
+                <attributeGroup ref="smil20:animTargetAttrs"/>
+                <attributeGroup ref="smil20:animModeAttrs"/>        
+                <attributeGroup ref="smil20:skipContentAttrs"/>
+                <anyAttribute namespace="##any" processContents="strict"/>
+            </extension>
+        </complexContent>
+    </complexType>
+
+    <!-- animation groups -->
+    <group name="animationGroup">
+        <choice minOccurs="0" maxOccurs="unbounded">
+            <element ref="smil20lang:animate"/>
+            <element ref="smil20lang:set"/>
+            <element ref="smil20lang:animateMotion"/>
+            <element ref="smil20lang:animateColor"/>
+        </choice>
+    </group>
+
+    <group name="simpleAnimationGroup">
+        <choice minOccurs="0" maxOccurs="unbounded">
+            <element ref="smil20lang:animate"/>
+            <element ref="smil20lang:set"/>
+        </choice>
+    </group>
+
+    <!-- =================================================================== -->
+    <!-- Linking Functionality                                               -->
+    <!-- =================================================================== -->
+    
+    <!-- a element and content model -->
+    <element name="a" type="smil20lang:aType"/>    
+    <complexType name="aType">
+        <complexContent>
+            <extension base="smil20:aPrototype">                
+                <choice minOccurs="0" maxOccurs="unbounded">
+                    <group ref="smil20lang:scheduleGroup"/>
+                    <group ref="smil20lang:mediaContentGroup"/>
+                    <group ref="smil20lang:contentControlGroup"/>
+                    <group ref="smil20lang:animationGroup"/>
+                </choice>
+                <attributeGroup ref="smil20lang:CoreAttrs"/>            
+                <attributeGroup ref="smil20lang:BasicTimingAttrs"/>            
+                <attributeGroup ref="smil20:systemTestAttrs"/>            
+                <attributeGroup ref="smil20:deprecatedSystemTestAttrs"/>    
+                <attributeGroup ref="smil20:customTestAttrs"/>                        
+                <anyAttribute namespace="##any" processContents="strict"/>
+            </extension>
+        </complexContent>
+    </complexType>
+
+    <!-- area element and content model -->
+    <element name="area" type="smil20lang:areaType"/>    
+    <complexType name="areaType">
+        <complexContent>
+            <extension base="smil20:areaPrototype">
+                <choice minOccurs="0" maxOccurs="unbounded">
+                    <group ref="smil20lang:simpleAnimationGroup"/>                
+                </choice>
+                <attributeGroup ref="smil20lang:CoreAttrs"/>            
+                <attributeGroup ref="smil20lang:BasicTimingAttrs"/>            
+                <attributeGroup ref="smil20:systemTestAttrs"/>            
+                <attributeGroup ref="smil20:deprecatedSystemTestAttrs"/>    
+                <attributeGroup ref="smil20:customTestAttrs"/>                        
+                <attributeGroup ref="smil20:skipContentAttrs"/>           
+                <attributeGroup ref="smil20:fragmentAttrs"/>                             
+                <anyAttribute namespace="##any" processContents="strict"/>
+            </extension>
+        </complexContent>
+    </complexType>
+
+    <!-- anchor element and content model -->
+    <element name="anchor" type="smil20lang:anchorType"/>    
+    <complexType name="anchorType">
+        <complexContent>
+            <extension base="smil20:areaPrototype">                
+                <choice minOccurs="0" maxOccurs="unbounded">
+                    <group ref="smil20lang:simpleAnimationGroup"/>                
+                </choice>
+                <attributeGroup ref="smil20lang:CoreAttrs"/>            
+                <attributeGroup ref="smil20lang:BasicTimingAttrs"/>            
+                <attributeGroup ref="smil20:systemTestAttrs"/>            
+                <attributeGroup ref="smil20:deprecatedSystemTestAttrs"/>    
+                <attributeGroup ref="smil20:customTestAttrs"/>                        
+                <attributeGroup ref="smil20:skipContentAttrs"/>                        
+                <attributeGroup ref="smil20:fragmentAttrs"/>                             
+                <anyAttribute namespace="##any" processContents="strict"/>
+            </extension>
+        </complexContent>
+    </complexType>
+
+    <!-- linking groups -->
+    <group name="aElementGroup">
+        <choice>
+            <element ref="smil20lang:a"/>
+        </choice>
+    </group>
+
+    <group name="areaGroup">
+        <choice>
+            <element ref="smil20lang:area"/>
+            <element ref="smil20lang:anchor"/>
+        </choice>
+    </group>
+    
+    <!-- =================================================================== -->
+    <!-- Media Functionality                                                 -->
+    <!-- =================================================================== -->
+
+    <!-- media elements and content model -->
+    <element name="text" type="smil20lang:mediaType"/>
+    <element name="img" type="smil20lang:mediaType"/>
+    <element name="audio" type="smil20lang:mediaType"/>
+    <element name="animation" type="smil20lang:mediaType"/>
+    <element name="video" type="smil20lang:mediaType"/>
+    <element name="textstream" type="smil20lang:mediaType"/>
+    <element name="ref" type="smil20lang:mediaType"/>
+    <complexType name="mediaType">
+        <complexContent>
+            <extension base="smil20:mediaPrototype">
+                <choice minOccurs="0" maxOccurs="unbounded">
+                    <group ref="smil20lang:paramGroup"/>
+                    <group ref="smil20lang:areaGroup"/>
+                    <group ref="smil20lang:switchGroup"/>
+                    <group ref="smil20lang:animationGroup"/>
+                </choice>            
+                <attributeGroup ref="smil20lang:CoreAttrs"/>            
+                <attributeGroup ref="smil20lang:TimingAttrs"/>            
+                <attributeGroup ref="smil20:systemTestAttrs"/>            
+                <attributeGroup ref="smil20:deprecatedSystemTestAttrs"/>    
+                <attributeGroup ref="smil20:customTestAttrs"/>                        
+                <attributeGroup ref="smil20:regionAttrs"/>
+                <attributeGroup ref="smil20:eraseMediaAttrs"/>
+                <attributeGroup ref="smil20:mediaRepeatAttrs"/>
+                <attributeGroup ref="smil20:sensitivityMediaAttrs"/>
+                <attributeGroup ref="smil20:transInOutAttrs"/>
+                <attributeGroup ref="smil20:tabindexAttrs"/>
+                <attributeGroup ref="smil20:mediaClippingAttrs"/>
+                <attributeGroup ref="smil20:deprecatedMediaClippingAttrs"/> 
+                <attributeGroup ref="smil20:mediaAccessAttrs"/>
+                <attributeGroup ref="smil20:mediaObjectOverrideAttrs"/>
+                <attributeGroup ref="smil20:subregionPositioningAttrs"/>
+                <attributeGroup ref="smil20:regPointAttrs"/>
+                <attributeGroup ref="smil20:mediaAnnotateAttrs"/>
+                <attributeGroup ref="smil20:endsyncTimingAttrs"/>
+                <anyAttribute namespace="##any" processContents="strict"/>
+            </extension>
+        </complexContent>
+    </complexType>
+
+    <!-- brush element and content model -->
+    <element name="brush" type="smil20lang:brushType"/>    
+    <complexType name="brushType">
+        <complexContent>
+            <extension base="smil20:brushPrototype">                
+                <choice minOccurs="0" maxOccurs="unbounded">
+                    <group ref="smil20lang:paramGroup"/>
+                    <group ref="smil20lang:areaGroup"/>
+                    <group ref="smil20lang:switchGroup"/>
+                    <group ref="smil20lang:animationGroup"/>
+                </choice>            
+                <attributeGroup ref="smil20lang:CoreAttrs"/>            
+                <attributeGroup ref="smil20lang:TimingAttrs"/>            
+                <attributeGroup ref="smil20:systemTestAttrs"/>            
+                <attributeGroup ref="smil20:deprecatedSystemTestAttrs"/>    
+                <attributeGroup ref="smil20:customTestAttrs"/>                        
+                <attributeGroup ref="smil20:regionAttrs"/>
+                <attributeGroup ref="smil20:eraseMediaAttrs"/>
+                <attributeGroup ref="smil20:sensitivityMediaAttrs"/>
+                <attributeGroup ref="smil20:tabindexAttrs"/>
+                <attributeGroup ref="smil20:transInOutAttrs"/>
+                <attributeGroup ref="smil20:mediaAccessAttrs"/>
+                <attributeGroup ref="smil20:mediaObjectOverrideAttrs"/>
+                <attributeGroup ref="smil20:subregionPositioningAttrs"/>
+                <attributeGroup ref="smil20:regPointAttrs"/>
+                <attributeGroup ref="smil20:mediaAnnotateAttrs"/>
+                <attributeGroup ref="smil20:endsyncTimingAttrs"/> 
+                <anyAttribute namespace="##any" processContents="strict"/>
+            </extension>
+        </complexContent>
+    </complexType>
+
+    <!-- param element and content model -->
+    <element name="param" type="smil20lang:paramType"/>    
+    <complexType name="paramType">
+        <complexContent>
+            <extension base="smil20:paramPrototype">                
+                <choice minOccurs="0" maxOccurs="unbounded">
+                    <any namespace="##other" processContents="lax"/>
+                </choice>
+                <attributeGroup ref="smil20lang:CoreAttrs"/>            
+                <anyAttribute namespace="##any" processContents="strict"/>
+            </extension>
+        </complexContent>
+    </complexType>
+
+    <!-- media groups -->
+    <group name="mediaContentGroup">
+        <choice>
+            <element ref="smil20lang:text"/>
+            <element ref="smil20lang:img"/>
+            <element ref="smil20lang:audio"/>
+            <element ref="smil20lang:animation"/>
+            <element ref="smil20lang:video"/>
+            <element ref="smil20lang:textstream"/>
+            <element ref="smil20lang:ref"/>
+            <element ref="smil20lang:brush"/>
+        </choice>
+    </group>
+
+    <group name="paramGroup">
+        <choice>
+            <element ref="smil20lang:param"/>
+        </choice>
+    </group>
+
+    <!-- =================================================================== -->
+    <!-- Timing Functionality                                                -->
+    <!-- =================================================================== -->
+
+    <attributeGroup name="BasicTimingAttrs">
+        <attributeGroup ref="smil20:beginEndTimingAttrs"/>
+        <attributeGroup ref="smil20:durTimingAttrs"/>
+        <attributeGroup ref="smil20:repeatTimingAttrs"/>
+        <attributeGroup ref="smil20:deprecatedRepeatTiming"/>
+        <attributeGroup ref="smil20:minMaxTimingAttrs"/>
+    </attributeGroup>
+
+    <attributeGroup name="TimingAttrs">
+        <attributeGroup ref="smil20lang:BasicTimingAttrs"/>
+        <attributeGroup ref="smil20:syncBehaviorAttrs"/>
+        <attributeGroup ref="smil20:syncBehaviorDefaultAttrs"/>
+        <attributeGroup ref="smil20:restartTimingAttrs"/>
+        <attributeGroup ref="smil20:restartDefaultAttrs"/>
+        <attributeGroup ref="smil20:fillTimingAttrs"/>
+        <attributeGroup ref="smil20:fillDefaultAttrs"/>
+    </attributeGroup>
+
+    <!-- par element and content model -->
+    <element name="par" type="smil20lang:parType"/>
+    <complexType name="parType">
+        <complexContent>
+            <extension base="smil20:parPrototype">              
+                <choice minOccurs="0" maxOccurs="unbounded">
+                    <group ref="smil20lang:scheduleGroup"/>
+                    <group ref="smil20lang:mediaContentGroup"/>
+                    <group ref="smil20lang:contentControlGroup"/>
+                    <group ref="smil20lang:aElementGroup"/>
+                    <group ref="smil20lang:animationGroup"/>
+                </choice>            
+                <attributeGroup ref="smil20lang:CoreAttrs"/>            
+                <attributeGroup ref="smil20:deprecatedRepeatTiming"/>
+                <attributeGroup ref="smil20:minMaxTimingAttrs"/>
+                <attributeGroup ref="smil20:systemTestAttrs"/>            
+                <attributeGroup ref="smil20:deprecatedSystemTestAttrs"/>    
+                <attributeGroup ref="smil20:customTestAttrs"/>                        
+                <attributeGroup ref="smil20:mediaAnnotateAttrs"/>                
+                <attributeGroup ref="smil20:regionAttrs"/>
+                <anyAttribute namespace="##any" processContents="strict"/>
+            </extension>
+        </complexContent>
+    </complexType>
+
+    <!-- seq element and content model -->
+    <element name="seq" type="smil20lang:seqType"/>
+    <complexType name="seqType">
+        <complexContent>
+            <extension base="smil20:seqPrototype">                
+                <choice minOccurs="0" maxOccurs="unbounded">
+                    <group ref="smil20lang:scheduleGroup"/>
+                    <group ref="smil20lang:mediaContentGroup"/>
+                    <group ref="smil20lang:contentControlGroup"/>
+                    <group ref="smil20lang:aElementGroup"/>
+                    <group ref="smil20lang:animationGroup"/>
+                </choice>            
+                <attributeGroup ref="smil20lang:CoreAttrs"/>            
+                <attributeGroup ref="smil20:deprecatedRepeatTiming"/>
+                <attributeGroup ref="smil20:minMaxTimingAttrs"/>
+                <attributeGroup ref="smil20:systemTestAttrs"/>            
+                <attributeGroup ref="smil20:deprecatedSystemTestAttrs"/>    
+                <attributeGroup ref="smil20:customTestAttrs"/>                        
+                <attributeGroup ref="smil20:mediaAnnotateAttrs"/>                
+                <attributeGroup ref="smil20:regionAttrs"/>
+                <anyAttribute namespace="##any" processContents="strict"/>
+            </extension>
+        </complexContent>
+    </complexType>
+
+    <!-- excl element and content model -->
+    <element name="excl" type="smil20lang:exclType"/>
+    <complexType name="exclType">
+        <complexContent>
+            <extension base="smil20:exclPrototype">            
+                <choice>
+                    <group ref="smil20lang:priorityClassGroup" minOccurs="0" maxOccurs="unbounded"/>
+                    <choice minOccurs="0" maxOccurs="unbounded">
+                        <group ref="smil20lang:scheduleGroup"/>
+                        <group ref="smil20lang:mediaContentGroup"/>
+                        <group ref="smil20lang:contentControlGroup"/>
+                        <group ref="smil20lang:aElementGroup"/>
+                        <group ref="smil20lang:animationGroup"/>
+                    </choice> 
+                </choice>     
+                <attributeGroup ref="smil20lang:CoreAttrs"/>            
+                <attributeGroup ref="smil20:deprecatedRepeatTiming"/>
+                <attributeGroup ref="smil20:minMaxTimingAttrs"/>
+                <attributeGroup ref="smil20:systemTestAttrs"/>            
+                <attributeGroup ref="smil20:deprecatedSystemTestAttrs"/>    
+                <attributeGroup ref="smil20:customTestAttrs"/>                        
+                <attributeGroup ref="smil20:mediaAnnotateAttrs"/>                
+                <attributeGroup ref="smil20:regionAttrs"/>
+                <anyAttribute namespace="##any" processContents="strict"/>
+            </extension>
+        </complexContent>
+    </complexType>
+
+    <!-- priorityClass element and content model -->
+    <element name="priorityClass" type="smil20lang:priorityClassType"/>
+    <complexType name="priorityClassType">
+        <complexContent>
+            <extension base="smil20:priorityClassPrototype">
+                <choice minOccurs="0" maxOccurs="unbounded">
+                    <group ref="smil20lang:scheduleGroup"/>
+                    <group ref="smil20lang:mediaContentGroup"/>
+                    <group ref="smil20lang:contentControlGroup"/>
+                    <group ref="smil20lang:aElementGroup"/>
+                    <group ref="smil20lang:animationGroup"/>
+                </choice>            
+                <attributeGroup ref="smil20lang:CoreAttrs"/>            
+                <attributeGroup ref="smil20:systemTestAttrs"/>            
+                <attributeGroup ref="smil20:deprecatedSystemTestAttrs"/>    
+                <attributeGroup ref="smil20:customTestAttrs"/>                        
+                <attributeGroup ref="smil20:mediaAnnotateAttrs"/>                
+                <anyAttribute namespace="##any" processContents="strict"/>
+            </extension>
+        </complexContent>
+    </complexType>
+
+    <!-- timing groups -->
+    <group name="scheduleGroup">
+        <choice>
+            <element ref="smil20lang:par"/>
+            <element ref="smil20lang:seq"/>
+            <element ref="smil20lang:excl"/>
+        </choice>
+    </group>
+
+    <group name="priorityClassGroup">
+        <sequence>
+            <element ref="smil20lang:priorityClass"/>
+        </sequence>
+    </group>
+
+</schema>

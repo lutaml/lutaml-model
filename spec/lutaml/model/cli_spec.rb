@@ -13,6 +13,11 @@ RSpec.describe Lutaml::Model::Cli do
     <<~RUBY
       require "lutaml/model"
 
+      class TermiumNamespace < Lutaml::Xml::W3c::XmlNamespace
+        uri "http://termium.tpsgc-pwgsc.gc.ca/schemas/2012/06/Termium"
+        prefix_default "ns2"
+      end
+
       class ExtractLanguage < Lutaml::Model::Serializable
         attribute :language, :string
         attribute :order, :integer
@@ -29,7 +34,7 @@ RSpec.describe Lutaml::Model::Cli do
 
         xml do
           root "termium_extract"
-          namespace "http://termium.tpsgc-pwgsc.gc.ca/schemas/2012/06/Termium", "ns2"
+          namespace TermiumNamespace
 
           map_attribute "language", to: :language, namespace: nil
           map_element "extractLanguage", to: :extract_language, namespace: nil
@@ -133,7 +138,9 @@ RSpec.describe Lutaml::Model::Cli do
       it "outputs differences and similarity score" do
         cli.options = options
 
-        expect { cli.compare(files[:source_xml_path], files[:target_xml_path]) }.to output(
+        expect do
+          cli.compare(files[:source_xml_path], files[:target_xml_path])
+        end.to output(
           a_string_including(
             "Differences between",
             "TermiumExtract",
@@ -147,7 +154,9 @@ RSpec.describe Lutaml::Model::Cli do
       it "shows the correct file paths in output" do
         cli.options = options
 
-        expect { cli.compare(files[:source_xml_path], files[:target_xml_path]) }.to output(
+        expect do
+          cli.compare(files[:source_xml_path], files[:target_xml_path])
+        end.to output(
           a_string_including("Differences between #{files[:source_xml_path]} and #{files[:target_xml_path]}:"),
         ).to_stdout
       end
@@ -155,7 +164,9 @@ RSpec.describe Lutaml::Model::Cli do
       it "includes similarity percentage in output" do
         cli.options = options
 
-        expect { cli.compare(files[:source_xml_path], files[:target_xml_path]) }.to output(
+        expect do
+          cli.compare(files[:source_xml_path], files[:target_xml_path])
+        end.to output(
           a_string_matching(/Similarity score: \d+(\.\d+)?%/),
         ).to_stdout
       end
@@ -163,7 +174,9 @@ RSpec.describe Lutaml::Model::Cli do
       it "shows 100% similarity when comparing identical files" do
         cli.options = options
 
-        expect { cli.compare(files[:source_xml_path], files[:source_xml_path]) }.to output(
+        expect do
+          cli.compare(files[:source_xml_path], files[:source_xml_path])
+        end.to output(
           a_string_including("Similarity score: 100%"),
         ).to_stdout
       end
@@ -184,7 +197,9 @@ RSpec.describe Lutaml::Model::Cli do
       it "successfully compares YAML and XML files" do
         cli.options = options
 
-        expect { cli.compare(files[:yaml_file_path], files[:target_xml_path]) }.to output(
+        expect do
+          cli.compare(files[:yaml_file_path], files[:target_xml_path])
+        end.to output(
           a_string_including(
             "Differences between",
             "TermiumExtract",
@@ -196,7 +211,9 @@ RSpec.describe Lutaml::Model::Cli do
       it "detects YAML vs XML format-specific differences correctly" do
         cli.options = options
 
-        expect { cli.compare(files[:yaml_file_path], files[:target_xml_path]) }.to output(
+        expect do
+          cli.compare(files[:yaml_file_path], files[:target_xml_path])
+        end.to output(
           a_string_including("language", "extract_language"),
         ).to_stdout
       end
@@ -204,7 +221,9 @@ RSpec.describe Lutaml::Model::Cli do
       it "successfully compares JSON and XML files" do
         cli.options = options
 
-        expect { cli.compare(files[:json_file_path], files[:target_xml_path]) }.to output(
+        expect do
+          cli.compare(files[:json_file_path], files[:target_xml_path])
+        end.to output(
           a_string_including(
             "Differences between",
             "TermiumExtract",
@@ -276,7 +295,8 @@ RSpec.describe Lutaml::Model::Cli do
 
         expect do
           cli.compare(files[:source_xml_path], files[:target_xml_path])
-        end.to raise_error(ArgumentError, /Model file not found: nonexistent_model\.rb/)
+        end.to raise_error(ArgumentError,
+                           /Model file not found: nonexistent_model\.rb/)
       end
 
       it "raises error when root class doesn't exist" do
@@ -288,7 +308,8 @@ RSpec.describe Lutaml::Model::Cli do
 
         expect do
           cli.compare(files[:source_xml_path], files[:target_xml_path])
-        end.to raise_error(NameError, /NonExistentClass not defined in model-file/)
+        end.to raise_error(NameError,
+                           /NonExistentClass not defined in model-file/)
       end
     end
 
@@ -306,7 +327,8 @@ RSpec.describe Lutaml::Model::Cli do
 
       before do
         # Create XML with invalid structure that Nokogiri will reject
-        File.write(malformed_xml, "<?xml version='1.0'?><invalid>>malformed<<xml>")
+        File.write(malformed_xml,
+                   "<?xml version='1.0'?><invalid>>malformed<<xml>")
         File.write(malformed_yaml, "invalid: yaml: content: [unclosed")
       end
 
@@ -316,7 +338,9 @@ RSpec.describe Lutaml::Model::Cli do
         cli.options = options
 
         # The XML parser is forgiving and creates empty models for malformed XML
-        expect { cli.compare(malformed_xml, files[:target_xml_path]) }.to output(
+        expect do
+          cli.compare(malformed_xml, files[:target_xml_path])
+        end.to output(
           a_string_including("Differences between", "Similarity score:"),
         ).to_stdout
       end

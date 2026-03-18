@@ -830,14 +830,26 @@ Namespace is determined by priority (highest to lowest):
 
 ==== For elements (`map_element`)
 
-1. **Explicit mapping namespace** (highest priority)
+1. **Model-level namespace** (from the attribute's type class)
 +
 [source,ruby]
 ----
-map_element 'title', to: :title, namespace: ExplicitNamespace
+# Child model declares its own namespace
+class Title < Lutaml::Model::Serializable
+  xml do
+    element 'title'
+    namespace DublinCoreNamespace
+  end
+end
+
+# Parent uses child's namespace
+class Document < Lutaml::Model::Serializable
+  attribute :title, Title
+  map_element 'title', to: :title  # Uses Title's namespace
+end
 ----
 
-2. **Type-level namespace** (from `Type::Value` or Model class)
+2. **Type-level namespace** (from `Type::Value` class)
 +
 [source,ruby]
 ----
@@ -848,28 +860,14 @@ attribute :title, TitleType
 map_element 'title', to: :title  # Uses DublinCoreNamespace
 ----
 
-3. **Inherited namespace** (via `namespace: :inherit`)
-+
-[source,ruby]
-----
-map_element 'title', to: :title, namespace: :inherit  # Uses parent namespace
-----
-
-4. **Form default qualification** (from `element_form_default`)
+3. **Form default qualification** (from `element_form_default`)
 +
 If `:qualified`: inherits parent namespace +
 If `:unqualified`: no namespace (default)
 
 ==== For attributes (`map_attribute`)
 
-1. **Explicit mapping namespace** (highest priority)
-+
-[source,ruby]
-----
-map_attribute 'type', to: :type, namespace: XsiNamespace
-----
-
-2. **Type-level namespace** (from `Type::Value` class)
+1. **Type-level namespace** (from `Type::Value` class)
 +
 [source,ruby]
 ----
@@ -880,7 +878,7 @@ attribute :type, XsiTypeType
 map_attribute 'type', to: :type  # Uses XsiNamespace, becomes xsi:type
 ----
 
-3. **No namespace** (W3C default)
+2. **No namespace** (W3C default)
 +
 Per W3C specifications: unprefixed attributes are NEVER in a namespace. +
 Only explicitly qualified attributes have namespaces.
