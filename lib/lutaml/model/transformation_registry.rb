@@ -89,6 +89,8 @@ module Lutaml
         @transformations = {}  # Cache for transformation instances
         @mappings = {}         # Cache for resolved mappings
         @mutex = Mutex.new
+        @building_threads = {} # Track which thread is building each transformation
+        @condition = ConditionVariable.new
       end
 
       # Get or build transformation for a model class and format.
@@ -97,23 +99,40 @@ module Lutaml
       # When a transformation is being built, it's marked with :building
       # to prevent infinite recursion.
       #
+      # THREAD SAFETY: Uses ConditionVariable to wait for in-progress builds
+      # from other threads, while still detecting cycles within the same thread.
+      #
       # @param model_class [Class] The model class (e.g., Person, Address)
       # @param format [Symbol] The format (:xml, :json, :yaml, :hash, :toml)
       # @param register [Symbol, Register, nil] The register for type resolution
       # @return [Transformation, nil] The transformation, or nil if cycle detected
       def get_or_build_transformation(model_class, format, register)
         key = transformation_key(model_class, format, register)
+        current_thread = Thread.current
 
         @mutex.synchronize do
-          # Return cached if available
-          cached = @transformations[key]
-          return cached if cached && cached != :building
+          loop do
+            cached = @transformations[key]
 
-          # Check for cycles (self-referential models)
-          return nil if cached == :building
+            # Return if already built
+            return cached if cached && cached != :building
 
-          # Mark as building to detect cycles
-          @transformations[key] = :building
+            # Check for cycles (same thread trying to build same transformation)
+            if cached == :building && @building_threads[key] == current_thread
+              return nil
+            end
+
+            # If another thread is building, wait for it
+            if cached == :building
+              @condition.wait(@mutex)
+              next # Re-check after waking
+            end
+
+            # Mark as building and record which thread
+            @transformations[key] = :building
+            @building_threads[key] = current_thread
+            break
+          end
         end
 
         # Build transformation OUTSIDE the lock to avoid deadlock
@@ -125,6 +144,8 @@ module Lutaml
         # Cache and return the result
         @mutex.synchronize do
           @transformations[key] = transformation
+          @building_threads.delete(key)
+          @condition.broadcast
         end
 
         transformation

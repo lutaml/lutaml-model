@@ -45,9 +45,16 @@ module Lutaml
       private
 
       def apply_xml_mapping(doc, instance, options = {})
-        options = prepare_options(options)
-        instance.encoding = options[:encoding]
-        instance.doctype = options[:doctype] if options[:doctype]
+        # Performance: Cache frequently accessed options in local variables
+        mappings = options[:mappings] || mappings_for(:xml).mappings
+        default_namespace = options[:default_namespace]
+        ordered_option = options[:ordered]
+        mixed_content_option = options[:mixed_content]
+        encoding = options[:encoding]
+        doctype = options[:doctype]
+
+        instance.encoding = encoding
+        instance.doctype = doctype if doctype
 
         # Transfer XML declaration info if present (Issue #1)
         if doc.respond_to?(:xml_declaration) && doc.xml_declaration
@@ -62,27 +69,39 @@ module Lutaml
 
         return instance unless doc
 
-        mappings = options[:mappings] || mappings_for(:xml).mappings
-
         validate_document!(doc, options)
 
-        set_instance_ordering(instance, doc, options)
+        set_instance_ordering(instance, doc, ordered_option, mixed_content_option)
         set_schema_location(instance, doc)
 
         defaults_used = []
 
+        # Performance: Get namespace_uri once if needed for default_namespace
+        xml_mapping = mappings_for(:xml)
+        namespace_uri = xml_mapping&.namespace_uri
+
         mappings.each do |rule|
+          # Performance: Cache rule properties accessed multiple times
+          rule_name = rule.name
+          rule_to = rule.to
+          rule_namespace_set = rule.namespace_set?
+          rule_namespace_param = rule_namespace_set ? rule.instance_variable_get(:@namespace_param) : nil
+
           attr = attribute_for_rule(rule)
           next if attr&.derived?
 
-          raise "Attribute '#{rule.to}' not found in #{context}" unless valid_rule?(
+          raise "Attribute '#{rule_to}' not found in #{context}" unless valid_rule?(
             rule, attr
           )
 
-          new_opts = options.dup
-          # Don't overwrite default_namespace for :inherit - it needs the parent's namespace
-          if rule.namespace_set? && rule.instance_variable_get(:@namespace_param) != :inherit
-            new_opts[:default_namespace] = rule.namespace
+          # Performance: Only create new_opts when we need to override default_namespace
+          # Avoid dup for the common case where namespace is not set
+          if rule_namespace_set && rule_namespace_param != :inherit
+            new_opts = { default_namespace: rule.namespace }
+          elsif default_namespace.nil? && namespace_uri
+            new_opts = { default_namespace: namespace_uri }
+          else
+            new_opts = options
           end
 
           value = if rule.raw_mapping?
@@ -90,11 +109,12 @@ module Lutaml
                   elsif rule.content_mapping?
                     rule.cdata ? doc.cdata : doc.text
                   else
-                    val = value_for_rule(doc, rule, new_opts, instance)
+                    # Performance: Pass cached attr to avoid recomputing attribute_for_rule
+                    val = value_for_rule(doc, rule, new_opts, instance, attr)
 
                     if (val.nil? || ::Lutaml::Model::Utils.uninitialized?(val)) &&
-                        (instance.using_default?(rule.to) || rule.render_default)
-                      defaults_used << rule.to
+                        (instance.using_default?(rule_to) || rule.render_default)
+                      defaults_used << rule_to
                       attr&.default(__register) || rule.to_value_for(instance)
                     else
                       val
@@ -155,13 +175,14 @@ module Lutaml
         visited.add(element.object_id)
 
         # Performance: Get own namespaces first
+        # input_namespaces is only available on certain adapter elements
         own_ns = if element.respond_to?(:input_namespaces) && element.input_namespaces
                    element.input_namespaces
                  end
 
         # Performance: Early return if no children to recurse
-        children_empty = !element.respond_to?(:children) || element.children.empty?
-        if children_empty
+        children = element.children
+        if children.empty?
           return own_ns || EMPTY_HASH
         end
 
@@ -169,7 +190,7 @@ module Lutaml
         namespaces = own_ns ? own_ns.dup : {}
 
         # Recursively collect from children
-        element.children.each do |child|
+        children.each do |child|
           next if child.is_a?(String) # Skip text nodes
 
           child_namespaces = collect_all_input_namespaces(child, visited)
@@ -200,6 +221,7 @@ result = {}, visited = Set.new)
         visited.add(element.object_id)
 
         # Get namespaces declared on THIS element only
+        # input_namespaces is only available on certain adapter elements
         own_ns = if element.respond_to?(:input_namespaces) && element.input_namespaces
                    element.input_namespaces
                  end
@@ -209,32 +231,18 @@ result = {}, visited = Set.new)
           result[path] = own_ns
         end
 
-        # Recurse into children
-        return result unless element.respond_to?(:children)
-
+        # Recurse into children - all XmlElement subclasses have children
         element.children.each do |child|
           next if child.is_a?(String) # Skip text nodes
 
-          child_name = child.respond_to?(:name) ? child.name.to_s : "unknown"
+          # All XmlElement subclasses have name method
+          child_name = child.is_a?(::Lutaml::Xml::XmlElement) ? child.name.to_s : "unknown"
           child_path = path + [child_name]
           collect_input_namespaces_with_locations(child, child_path, result,
                                                   visited)
         end
 
         result
-      end
-
-      def prepare_options(options)
-        # Only create a new hash if we need to add default_namespace
-        # This avoids unnecessary deep copying of the entire options hash
-        return options if options[:default_namespace]
-
-        namespace_uri = mappings_for(:xml)&.namespace_uri
-        return options unless namespace_uri
-
-        # Use merge instead of deep_dup for better performance
-        # This creates a new hash but doesn't deep copy nested objects
-        options.merge(default_namespace: namespace_uri)
       end
 
       def validate_document!(doc, options)
@@ -246,12 +254,12 @@ result = {}, visited = Set.new)
         )
       end
 
-      def set_instance_ordering(instance, doc, options)
+      def set_instance_ordering(instance, doc, ordered_option, mixed_content_option)
         return unless instance.respond_to?(:ordered=)
 
         instance.element_order = doc.root.order
-        instance.ordered = mappings_for(:xml).ordered? || options[:ordered]
-        instance.mixed = mappings_for(:xml).mixed_content? || options[:mixed_content]
+        instance.ordered = mappings_for(:xml).ordered? || ordered_option
+        instance.mixed = mappings_for(:xml).mixed_content? || mixed_content_option
       end
 
       def set_schema_location(instance, doc)
@@ -300,30 +308,54 @@ result = {}, visited = Set.new)
         value
       end
 
-      def value_for_rule(doc, rule, options, instance)
-        attr = attribute_for_rule(rule)
+      def value_for_rule(doc, rule, options, instance, cached_attr = nil)
+        # Performance: Use cached attr from caller if available
+        attr = cached_attr || attribute_for_rule(rule)
+        attr_type = attr&.type(__register)
+
+        # Performance: Cache rule properties accessed in hot loop
+        rule_name_str = rule.name.to_s
+        rule_namespace_set = rule.namespace_set?
+        rule_namespace_param = rule_namespace_set ? rule.instance_variable_get(:@namespace_param) : nil
+        rule_prefix_param = rule_namespace_set ? rule.instance_variable_get(:@prefix_param) : nil
+        rule_namespace = rule_namespace_set ? rule.namespace : nil
+        default_namespace = options[:default_namespace]
 
         # Enhanced namespace resolution with type support
         rule_names = resolve_rule_names_with_type(rule, attr, options)
 
         return value_for_xml_attribute(doc, rule, rule_names) if rule.attribute?
 
-        attr_type = attr&.type(__register)
+        # Performance: Pre-compute type-related values used in the hot loop
+        attr_type_is_serializable = attr_type && attr_type <= ::Lutaml::Model::Serialize
+        attr_type_is_class = attr_type.is_a?(Class) && attr_type.include?(::Lutaml::Model::Serialize)
+
+        # Pre-compute namespace class for prefix matching (only needed if attr_type is Serializable)
+        type_ns_class = nil
+        type_ns_prefix_str = nil
+        if attr_type_is_serializable
+          type_ns_class = if attr_type_is_class
+                            attr_type.mappings_for(:xml)&.namespace_class
+                          else
+                            attr.type_namespace_class(__register)
+                          end
+          type_ns_prefix_str = type_ns_class&.prefix_default&.to_s
+        end
 
         children = doc.children.select do |child|
           next false if child.is_a?(String)
 
           # Handle XmlElement children with text? method
-          next false if child.respond_to?(:text?) && child.text?
+          # Performance: Use is_a? check since all adapters inherit from XmlElement
+          next false if child.is_a?(::Lutaml::Xml::XmlElement) && child.text?
 
           # Handle explicit namespace: nil with prefix: nil
           # When both namespace: nil and prefix: nil are set, this means "no namespace constraint"
           # The child element can declare its own namespace and should still match by local name
-          if rule.namespace_set? && rule.namespace.nil? &&
-              rule.instance_variable_get(:@namespace_param).nil? &&
-              rule.instance_variable_get(:@prefix_param).nil?
+          if rule_namespace_set && rule_namespace.nil? &&
+              rule_namespace_param.nil? && rule_prefix_param.nil?
             # Match by unprefixed name only, regardless of child's namespace
-            next child.unprefixed_name == rule.name.to_s
+            next child.unprefixed_name == rule_name_str
           end
 
           # First try exact namespace match
@@ -332,23 +364,13 @@ result = {}, visited = Set.new)
           # Second: try to match by prefix when child has xmlns="" (explicit blank namespace)
           # This handles the case where elements have prefixed names but are in blank namespace
           # e.g., <GML:ApplicationSchema xmlns=""> should match the rule expecting GML namespace
-          if child.namespace_prefix && attr_type && attr_type <= ::Lutaml::Model::Serialize
-            # Get the namespace class from the attribute's type
-            # For Type::Value classes, use type_namespace_class (Type namespaces)
-            # For Serializable classes, use their mapping's namespace_class (element namespaces)
-            type_ns_class = if attr_type.is_a?(Class) && attr_type.include?(::Lutaml::Model::Serialize)
-                              # Serializable class - use its mapping's namespace
-                              attr_type.mappings_for(:xml)&.namespace_class
-                            else
-                              # Type::Value class - use type namespace
-                              attr.type_namespace_class(__register)
-                            end
-
+          child_ns_prefix = child.namespace_prefix
+          if child_ns_prefix && attr_type_is_serializable
             # Match by prefix AND local name to avoid matching unrelated elements
             # with the same namespace prefix (e.g., xsd:attributeGroup should not
             # match a rule for xsd:attribute)
-            if type_ns_class && child.namespace_prefix == type_ns_class.prefix_default.to_s &&
-                child.unprefixed_name == rule.name.to_s
+            if type_ns_prefix_str && child_ns_prefix == type_ns_prefix_str &&
+                child.unprefixed_name == rule_name_str
               next true
             end
           end
@@ -360,10 +382,10 @@ result = {}, visited = Set.new)
           # Children with explicit prefixes should NOT match via fallback, even if xmlns="" is set.
           # This ensures that GML:ApplicationSchema doesn't match CityGML:ApplicationSchema just because
           # they have the same unprefixed name.
-          if attr_type && attr_type <= ::Lutaml::Model::Serialize
+          if attr_type_is_serializable
             # Only match by unprefixed name if child doesn't have an explicit namespace prefix
             # This prevents cross-namespace matching when elements have the same local name
-            !child.namespace_prefix && rule_names.any? do |rn|
+            !child_ns_prefix && rule_names.any? do |rn|
               rn.split(":").last == child.unprefixed_name
             end
           else
@@ -384,7 +406,7 @@ result = {}, visited = Set.new)
         instance.value_set_for(attr.name)
 
         children.each do |child|
-          if !rule.has_custom_method_for_deserialization? && attr_type <= ::Lutaml::Model::Serialize
+          if !rule.has_custom_method_for_deserialization? && attr_type_is_serializable
             cast_options = options.except(:mappings)
             cast_options[:polymorphic] = rule.polymorphic if rule.polymorphic
             cast_options[:register] = __register

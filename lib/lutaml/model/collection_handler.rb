@@ -15,26 +15,27 @@ module Lutaml
       end
 
       # Check if this attribute is a collection
+      # Performance: Memoized to avoid repeated hash lookups
       #
       # @return [Boolean] true if attribute is a collection
       def collection?
-        collection || false
+        @is_collection ||= collection || false
       end
 
       # Check if this attribute is a singular (non-collection) value
+      # Performance: Memoized
       #
       # @return [Boolean] true if attribute is not a collection
       def singular?
-        !collection?
+        @is_singular ||= !collection?
       end
 
       # Get the collection class to use for this attribute
+      # Performance: Memoized
       #
       # @return [Class] The collection class (Array or custom collection class)
       def collection_class
-        return Array unless custom_collection?
-
-        collection
+        @collection_class ||= custom_collection? ? collection : Array
       end
 
       # Check if value is an instance of the collection class
@@ -54,23 +55,33 @@ module Lutaml
       end
 
       # Check if this attribute uses a custom collection class
+      # Performance: Memoized
       #
       # @return [Boolean] true if using a custom collection class
       def custom_collection?
-        return false if singular?
-        return false if collection == true
-        return false if collection.is_a?(Range)
+        return @is_custom_collection if defined?(@is_custom_collection)
 
-        collection <= Lutaml::Model::Collection
+        @is_custom_collection = if singular?
+          false
+        elsif collection == true
+          false
+        elsif collection.is_a?(Range)
+          false
+        else
+          collection <= Lutaml::Model::Collection
+        end
       end
 
       # Get the resolved collection range
+      # Performance: Memoized
       #
       # @return [Range, nil] The collection range or nil if not a collection
       def resolved_collection
-        return unless collection?
+        @resolved_collection ||= begin
+          return unless collection?
 
-        collection.is_a?(Range) ? validated_range_object : 0..Float::INFINITY
+          collection.is_a?(Range) ? validated_range_object : 0..Float::INFINITY
+        end
       end
 
       # Check if the collection minimum is zero
