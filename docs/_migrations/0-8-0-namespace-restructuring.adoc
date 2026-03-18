@@ -1,0 +1,1620 @@
+---
+title: v0.8.0 Comprehensive Migration Guide
+nav_order: 1
+---
+
+= v0.8.0 Comprehensive Migration Guide
+
+:toc:
+:toclevels: 3
+
+== Overview
+
+Version 0.8.0 is a **major release** that includes significant refactoring, new features, and breaking changes. This guide covers all migration topics in one place.
+
+**Key changes in v0.8.0:**
+
+1. **Namespace restructuring** - Format-specific code moved to dedicated namespaces
+2. **Configuration consolidation** - Streamlined adapter configuration with sensible defaults
+3. **XML namespace behavior** - Default namespace format, W3C-compliant defaults
+4. **TOML on Windows** - tomlib disabled due to segfaults
+5. **Attribute name conflicts** - Warnings only, no errors
+6. **DataModel transformation** - Two-phase serialization pipeline for all formats
+7. **Consolidated `xml do` syntax** - Unified syntax for models and Type classes
+8. **XSD-aligned concepts** - Element vs ComplexType distinction
+9. **Model-centric namespaces** - Namespaces defined on models only, not mappings
+10. **Register system refactoring** - Hierarchical fallbacks, composition, key-based registration
+11. **XSD schema generation** - Generate XSD from models, parse XSD to models
+
+== Quick Start Migration
+
+For most users, the migration is straightforward:
+
+[source,ruby]
+----
+# Update your configuration to use simplified adapter names
+Lutaml::Model::Config.configure do |config|
+  config.xml_adapter_type = :nokogiri      # Now the default
+  config.json_adapter_type = :standard     # Now the default
+  config.yaml_adapter_type = :standard     # Now the default
+  config.toml_adapter_type = :toml_rb      # Use :tomlib on non-Windows
+  config.hash_adapter_type = :standard     # Now the default
+end
+----
+
+== Namespace Restructuring
+
+=== What Changed
+
+Format-specific code has been moved to dedicated top-level namespaces:
+
+|===
+| Old Namespace (v0.7.x) | New Namespace (v0.8.0)
+
+| `Lutaml::Model::Xml::*` | `Lutaml::Xml::*`
+| `Lutaml::Model::Json::*` | `Lutaml::Json::*`
+| `Lutaml::Model::Yaml::*` | `Lutaml::Yaml::*`
+| `Lutaml::Model::Toml::*` | `Lutaml::Toml::*`
+| `Lutaml::Model::Hash::*` | `Lutaml::HashFormat::*`
+|===
+
+=== Adapter Class Locations
+
+|===
+| Old Path (v0.7.x) | New Path (v0.8.0)
+
+| `Lutaml::Model::Xml::NokogiriAdapter` | `Lutaml::Xml::Adapter::NokogiriAdapter`
+| `Lutaml::Model::Json::StandardAdapter` | `Lutaml::Json::Adapter::StandardAdapter`
+| `Lutaml::Model::Yaml::StandardAdapter` | `Lutaml::Yaml::Adapter::StandardAdapter`
+| `Lutaml::Model::Toml::TomlRbAdapter` | `Lutaml::Toml::Adapter::TomlRbAdapter`
+|===
+
+=== Migration
+
+If using explicit adapter class references, update the paths:
+
+[source,ruby]
+----
+# OLD (v0.7.x)
+require 'lutaml/model/xml/nokogiri_adapter'
+config.xml_adapter = Lutaml::Model::Xml::NokogiriAdapter
+
+# NEW (v0.8.0) - recommended approach
+config.xml_adapter_type = :nokogiri
+
+# NEW (v0.8.0) - if you need explicit class
+require 'lutaml/xml/adapter/nokogiri_adapter'
+config.xml_adapter = Lutaml::Xml::Adapter::NokogiriAdapter
+----
+
+== Configuration Changes
+
+=== Default Adapters
+
+No configuration is required for basic usage. Sensible defaults are provided:
+
+* XML: `:nokogiri`
+* JSON: `:standard`
+* YAML: `:standard`
+* TOML: `:tomlib` (non-Windows), `:toml_rb` (Windows)
+* Hash: `:standard`
+
+=== Simplified Adapter Names
+
+The adapter type names have been simplified:
+
+|===
+| Old Name | New Name (Preferred)
+
+| `:standard_json` | `:standard`
+| `:standard_yaml` | `:standard`
+| `:standard_hash` | `:standard`
+|===
+
+The old names still work as aliases for backward compatibility.
+
+== TOML on Windows
+
+The `:tomlib` adapter is **disabled on Windows** due to segmentation fault issues.
+
+[source,ruby]
+----
+# On Windows, this now raises ArgumentError
+config.toml_adapter_type = :tomlib  # ❌ Error on Windows
+
+# Use :toml_rb instead
+config.toml_adapter_type = :toml_rb  # ✅ Works on Windows
+----
+
+The default is automatically set to `:toml_rb` on Windows.
+
+== XML Namespace Behavior Changes
+
+=== Default Namespace Format
+
+Version 0.8.0 changes the default XML output format from prefixed namespaces to default namespaces for cleaner, more standards-compliant XML.
+
+==== Before (v0.7.x)
+
+[source,xml]
+----
+<app:Properties xmlns:app="http://example.com/app">
+  <app:Template>Normal.dotm</app:Template>
+</app:Properties>
+----
+
+==== After (v0.8.0)
+
+[source,xml]
+----
+<Properties xmlns="http://example.com/app">
+  <Template>Normal.dotm</Template>
+</Properties>
+----
+
+To restore old prefixed behavior:
+
+[source,ruby]
+----
+instance.to_xml(prefix: true)
+----
+
+=== Attribute Form Default
+
+The `attribute_form_default` now defaults to `:unqualified` (W3C correct).
+
+==== Before (v0.7.x) - INCORRECT
+
+[source,xml]
+----
+<my:element xmlns:my="http://example.com/ns" my:attr="value"/>
+----
+
+==== After (v0.8.0) - W3C CORRECT
+
+[source,xml]
+----
+<my:element xmlns:my="http://example.com/ns" attr="value"/>
+----
+
+To get prefixed attributes:
+
+[source,ruby]
+----
+class MyNamespace < Lutaml::Model::XmlNamespace
+  uri "http://example.com/ns"
+  prefix_default "my"
+  attribute_form_default :qualified  # All attributes prefixed
+end
+----
+
+=== Prefix Parameter Deprecation
+
+The `prefix` parameter on XML mapping methods is deprecated. Define `prefix_default` in your `XmlNamespace` class instead.
+
+==== Before (deprecated)
+
+[source,ruby]
+----
+xml do
+  namespace "http://example.com/ns", "ex"  # ❌ prefix parameter deprecated
+  map_element :title, to: :title, prefix: "dc"  # ❌ prefix parameter deprecated
+end
+----
+
+==== After (recommended)
+
+[source,ruby]
+----
+class ExampleNamespace < Lutaml::Xml::Namespace
+  uri "http://example.com/ns"
+  prefix_default "ex"  # ✅ Define prefix in namespace class
+end
+
+xml do
+  namespace ExampleNamespace  # ✅ Pass namespace class
+  map_element :title, to: :title  # ✅ No prefix parameter
+end
+----
+
+=== Namespace Parameter Removal
+
+The `namespace:` parameter on `map_element`, `map_attribute`, and `map_all` has been removed. Use typed attributes instead.
+
+==== Before (removed)
+
+[source,ruby]
+----
+map_element "Child", to: :child_data, namespace: ChildNamespace  # ❌ ERROR
+----
+
+==== After (required)
+
+[source,ruby]
+----
+# Create child model class with its own namespace
+class Child < Lutaml::Model::Serializable
+  attribute :value, :string
+
+  xml do
+    element "Child"
+    namespace ChildNamespace  # ✅ Namespace at model level
+    map_content to: :value
+  end
+end
+
+# Use typed attribute in parent
+class Parent < Lutaml::Model::Serializable
+  attribute :child_data, Child  # ✅ Changed type
+
+  xml do
+    element "Parent"
+    namespace ParentNamespace
+    map_element "Child", to: :child_data  # ✅ No namespace parameter
+  end
+end
+----
+
+=== Type::Value Namespace Directive
+
+For custom Type classes, use `xml_namespace` instead of `namespace`:
+
+==== Before (deprecated)
+
+[source,ruby]
+----
+class CustomType < Lutaml::Model::Type::String
+  namespace CustomNamespace  # ⚠️ DEPRECATED
+end
+----
+
+==== After (current)
+
+[source,ruby]
+----
+class CustomType < Lutaml::Model::Type::String
+  xml_namespace CustomNamespace  # ✅ CURRENT
+end
+----
+
+== Controlling XML Output Format
+
+Version 0.8.0 introduces powerful options for controlling XML output format. Understanding these options is essential when your XML must conform to specific schema requirements or integrate with external systems.
+
+=== Defining Prefixes with prefix_default
+
+Prefixes are defined in your `XmlNamespace` class using `prefix_default`:
+
+[source,ruby]
+----
+class PoNamespace < Lutaml::Xml::Namespace
+  uri "http://example.com/po"
+  prefix_default "po"  # ✅ Define prefix here
+  element_form_default :qualified
+end
+
+class DcNamespace < Lutaml::Xml::Namespace
+  uri "http://purl.org/dc/elements/"
+  prefix_default "dc"  # ✅ Define prefix here
+end
+----
+
+IMPORTANT: The `prefix_default` is the **preferred prefix** for the namespace. Whether it's actually used depends on:
+1. The output format you choose (`to_xml` options)
+2. W3C rules (attributes require prefixes)
+3. Whether children need the namespace
+
+=== XML Output Format Options
+
+The `to_xml` method accepts several options to control namespace formatting:
+
+==== Default Behavior (Default Namespace)
+
+[source,ruby]
+----
+order.to_xml
+----
+
+Produces **default namespace format** (cleaner, W3C-preferred):
+
+[source,xml]
+----
+<PurchaseOrder xmlns="http://example.com/po">
+  <orderDate>2024-01-15</orderDate>
+</PurchaseOrder>
+----
+
+This is the **new default** in v0.8.0. No prefix is used; the namespace is declared as `xmlns="..."`.
+
+==== Force Prefix Format
+
+[source,ruby]
+----
+order.to_xml(prefix: true)
+----
+
+Produces **prefixed format** using the namespace's `prefix_default`:
+
+[source,xml]
+----
+<po:PurchaseOrder xmlns:po="http://example.com/po">
+  <po:orderDate>2024-01-15</po:orderDate>
+</po:PurchaseOrder>
+----
+
+Use this when:
+- Consuming system requires prefixed elements
+- You prefer traditional namespace style
+- Backward compatibility with v0.7.x output
+
+==== Custom Prefix Override
+
+[source,ruby]
+----
+order.to_xml(prefix: "custom")
+----
+
+Produces **custom prefix** (overrides `prefix_default`):
+
+[source,xml]
+----
+<custom:PurchaseOrder xmlns:custom="http://example.com/po">
+  <custom:orderDate>2024-01-15</custom:orderDate>
+</custom:PurchaseOrder>
+----
+
+Use this when:
+- Integrating with systems that expect specific prefixes
+- Avoiding prefix conflicts with other namespaces
+
+==== Explicitly Disable Prefix
+
+[source,ruby]
+----
+order.to_xml(prefix: false)
+----
+
+Produces **default namespace format** and **disables format preservation**:
+
+[source,xml]
+----
+<PurchaseOrder xmlns="http://example.com/po">
+  <orderDate>2024-01-15</orderDate>
+</PurchaseOrder>
+----
+
+Use this when:
+- You want to override format preservation from parsed XML
+- You explicitly want default format regardless of input
+
+==== Override Prefix for Specific Namespaces
+
+[source,ruby]
+----
+order.to_xml(namespaces: [
+  { namespace: PoNamespace, prefix: "purchase" },
+  { namespace: DcNamespace, prefix: "dublin" }
+])
+----
+
+Produces **custom prefixes per namespace**:
+
+[source,xml]
+----
+<purchase:PurchaseOrder xmlns:purchase="http://example.com/po"
+                        xmlns:dublin="http://purl.org/dc/elements/">
+  <purchase:orderDate>2024-01-15</purchase:orderDate>
+  <dublin:title>Order #123</dublin:title>
+</purchase:PurchaseOrder>
+----
+
+Use this for:
+- Fine-grained control over multiple namespaces
+- Matching specific schema requirements
+
+=== Format Decision Priority
+
+When you call `to_xml`, the format (default vs prefix) is decided using this priority order:
+
+[cols="1,5"]
+|===
+| Priority | Rule
+
+| 1 (Highest) | **Stored plan from parsed XML** - Round-trip preservation
+| 2 | **Explicit user option** - `prefix: true/false/"custom"`
+| 3 | **W3C rules** - Attributes MUST use prefix if in their own namespace
+| 4 | **Qualified children** - If children need prefix, parent provides it
+| 5 (Lowest) | **Default preference** - Prefer default namespace (cleaner)
+|===
+
+=== Understanding DeclarationPlan
+
+The **DeclarationPlan** is the brain of XML namespace output. Before any XML is rendered, the plan decides:
+
+1. **Where** each namespace is declared (root or local element)
+2. **What format** each element uses (default or prefixed)
+3. **Which prefix** to use for each namespace
+
+==== How DeclarationPlan Works
+
+The serialization uses a **two-track system** that produces parallel outputs:
+
+```
+Your Model Instance
+        │
+        ├────────────────────────────────────────────────────────┐
+        │                                                         │
+        ▼                                                         ▼
+┌─────────────────────────┐                    ┌─────────────────────────────┐
+│     DATA MODEL TRACK    │                    │   DECLARATION PLAN TRACK    │
+│  (Content Layer)        │                    │  (Format Layer)             │
+│                         │                    │                             │
+│  XmlElement tree:       │                    │  DeclarationPlanner:        │
+│  - Element names        │                    │  - Format decisions         │
+│  - Structure            │                    │  - Prefix assignments       │
+│  - Namespace identity   │                    │  - Hoisting locations       │
+│  - Values               │                    │                             │
+│  - NO format info       │                    │  (from input or new)        │
+└─────────────────────────┘                    └─────────────────────────────┘
+        │                                                     │
+        │                                                     │
+        └──────────────────────┬──────────────────────────────┘
+                               │
+                               ▼
+              ┌────────────────────────────────────┐
+              │          ADAPTER MERGE             │
+              │  Parallel traversal:               │
+              │  - Read XmlElement for content     │
+              │  - Read DeclarationPlan for format │
+              │  - Generate XML with both          │
+              └────────────────────────────────────┘
+                               │
+                               ▼
+                         Final XML Output
+```
+
+**Key Insight:**
+
+- **DataModel (XmlElement)**: Contains WHAT to serialize (elements, values, structure)
+- **DeclarationPlan**: Contains HOW to serialize (format, prefixes, declarations)
+- **Adapter**: Merges both tracks during parallel traversal
+
+**Round-Trip Preservation:**
+
+When parsing XML, the input DeclarationPlan is stored:
+[source,ruby]
+----
+# Parse creates both DataModel AND DeclarationPlan
+doc = Order.from_xml(input_xml)
+# doc stores:
+#   - XmlElement tree (content)
+#   - DeclarationPlan from input (format preserved)
+
+# Serialize reuses stored plan
+doc.to_xml  # Format preserved from input!
+----
+
+==== Key Principle: Adapters Are "Dumb"
+
+**Adapters never make namespace decisions.** They only apply what the DeclarationPlan decides. This ensures:
+
+- Consistent output across all XML adapters (Nokogiri, Ox, Oga, REXML)
+- Predictable behavior
+- Testable decision logic
+
+=== Common Scenarios and Solutions
+
+==== "My XML looks different after upgrading!"
+
+**Problem:** XML output changed from prefixed to default namespace format.
+
+**Solution:** This is expected. v0.8.0 defaults to cleaner default namespace format.
+
+To restore old format:
+[source,ruby]
+----
+instance.to_xml(prefix: true)
+----
+
+==== "Consuming system rejects my XML!"
+
+**Problem:** External system requires specific namespace format.
+
+**Solutions:**
+
+1. If system requires prefixes:
+[source,ruby]
+----
+instance.to_xml(prefix: true)
+----
+
+2. If system requires specific prefix:
+[source,ruby]
+----
+instance.to_xml(prefix: "required_prefix")
+----
+
+3. If system requires multiple specific prefixes:
+[source,ruby]
+----
+instance.to_xml(namespaces: [
+  { namespace: Ns1, prefix: "a" },
+  { namespace: Ns2, prefix: "b" }
+])
+----
+
+==== "My attributes need prefixes!"
+
+**Problem:** Attributes should be prefixed but aren't.
+
+**Solution:** Set `attribute_form_default :qualified` in your namespace class:
+
+[source,ruby]
+----
+class MyNamespace < Lutaml::Xml::Namespace
+  uri "http://example.com/ns"
+  prefix_default "my"
+  attribute_form_default :qualified  # ✅ Force prefixed attributes
+end
+----
+
+==== "Prefix disappeared on child elements!"
+
+**Problem:** Parent uses prefix, children don't.
+
+**Solution:** Set `element_form_default :qualified`:
+
+[source,ruby]
+----
+class MyNamespace < Lutaml::Xml::Namespace
+  uri "http://example.com/ns"
+  prefix_default "my"
+  element_form_default :qualified  # ✅ Children inherit namespace
+end
+----
+
+Or use `to_xml(prefix: true)` to force prefix format globally.
+
+==== "I want round-trip preservation!"
+
+**Problem:** Want parsed XML format preserved on output.
+
+**Solution:** This happens automatically! The DeclarationPlan stores the input format and preserves it.
+
+[source,ruby]
+----
+# Parse XML with prefixed format
+parsed = Order.from_xml(prefixed_xml)
+
+# Serialize - format is preserved!
+parsed.to_xml  # Still uses prefixed format
+----
+
+To override preservation:
+[source,ruby]
+----
+parsed.to_xml(prefix: false)  # Force default format
+parsed.to_xml(prefix: true)   # Force prefix format
+----
+
+== Namespace Hoisting with namespace_scope
+
+The `namespace_scope` directive controls **where namespace declarations appear** in your XML output. This is called "Namespace Hoisting" - moving declarations from local elements to a higher (ancestor) element.
+
+=== What is Namespace Hoisting?
+
+By default, namespaces are declared on the **first element that uses them** (local declaration). Hoisting moves declarations to a designated ancestor element, typically the root.
+
+[cols="1,1"]
+|===
+| Local Declaration (Default) | Hoisted Declaration
+
+|
+[source,xml]
+----
+<root>
+  <parent>
+    <child xmlns:dc="...">
+      <dc:title>...</dc:title>
+    </child>
+  </parent>
+</root>
+----
+|
+[source,xml]
+----
+<root xmlns:dc="...">
+  <parent>
+    <child>
+      <dc:title>...</dc:title>
+    </child>
+  </parent>
+</root>
+----
+|===
+
+=== Using namespace_scope
+
+[source,ruby]
+----
+class Document < Lutaml::Model::Serializable
+  attribute :title, :string
+  attribute :creator, :string
+
+  xml do
+    element "document"
+    namespace DocNamespace
+
+    # Hoist these namespaces to this element
+    namespace_scope [
+      DcNamespace,        # Auto-declare if used
+      DctermsNamespace,   # Auto-declare if used
+    ]
+  end
+end
+----
+
+=== Declaration Modes
+
+The `declare:` option controls when hoisted namespaces appear:
+
+==== `:auto` (Default) - Declare Only If Used
+
+[source,ruby]
+----
+namespace_scope [DcNamespace, DctermsNamespace]
+# or explicitly:
+namespace_scope [{ namespace: DcNamespace, declare: :auto }]
+----
+
+Namespace declared at this element **ONLY IF** any descendant uses it.
+
+**Output when used:**
+[source,xml]
+----
+<document xmlns="http://doc.example.com"
+          xmlns:dc="http://purl.org/dc/">
+  <dc:title>My Document</dc:title>
+</document>
+----
+
+**Output when NOT used:**
+[source,xml]
+----
+<document xmlns="http://doc.example.com">
+  <title>My Document</title>
+</document>
+----
+
+==== `:always` - Force Declaration
+
+[source,ruby]
+----
+namespace_scope [{ namespace: VtNamespace, declare: :always }]
+----
+
+Namespace declared at this element **even if no descendant uses it**.
+
+**Use cases:**
+- Office Open XML requires `xmlns:vt` always present
+- Schema validation requires namespace declaration
+- Pre-declaring for dynamic content
+
+**Output:**
+[source,xml]
+----
+<Properties xmlns="http://app.example.com"
+            xmlns:vt="http://vt.example.com">
+  <!-- vt namespace declared but NOT used -->
+  <Template>Normal.dotm</Template>
+</Properties>
+----
+
+==== `:never` - Never Declare
+
+[source,ruby]
+----
+namespace_scope [{ namespace: InternalNamespace, declare: :never }]
+----
+
+Namespace never declared at this element (error if used here).
+
+**Use case:** Prevent accidental declaration at wrong level.
+
+=== Hoisting Use Cases
+
+==== Space Efficiency
+
+For documents with many repeated namespace usages, hoisting reduces file size:
+
+**Without hoisting** (repeated declarations):
+[source,xml]
+----
+<root>
+  <item xmlns:dc="http://purl.org/dc/">
+    <dc:title>Title 1</dc:title>
+  </item>
+  <item xmlns:dc="http://purl.org/dc/">
+    <dc:title>Title 2</dc:title>
+  </item>
+  <item xmlns:dc="http://purl.org/dc/">
+    <dc:title>Title 3</dc:title>
+  </item>
+</root>
+----
+
+**With hoisting** (single declaration):
+[source,xml]
+----
+<root xmlns:dc="http://purl.org/dc/">
+  <item>
+    <dc:title>Title 1</dc:title>
+  </item>
+  <item>
+    <dc:title>Title 2</dc:title>
+  </item>
+  <item>
+    <dc:title>Title 3</dc:title>
+  </item>
+</root>
+----
+
+==== Round-Trip Preservation
+
+When parsing XML, the input's namespace declaration structure is preserved:
+
+[source,ruby]
+----
+# Input has hoisted namespaces
+input_xml = <<~XML
+  <document xmlns:dc="http://purl.org/dc/">
+    <dc:title>Example</dc:title>
+  </document>
+XML
+
+doc = Document.from_xml(input_xml)
+
+# Output preserves hoisting
+doc.to_xml  # Still has xmlns:dc on root
+----
+
+==== Compatibility with Non-Namespace-Aware Software
+
+Some legacy XML parsers don't properly handle local namespace declarations. Hoisting all namespaces to root ensures compatibility:
+
+[source,ruby]
+----
+class LegacyFormat < Lutaml::Model::Serializable
+  xml do
+    element "data"
+    namespace MainNamespace
+
+    # Hoist ALL namespaces to root for legacy compatibility
+    namespace_scope [
+      { namespace: Ns1, declare: :always },
+      { namespace: Ns2, declare: :always },
+      { namespace: Ns3, declare: :always },
+    ]
+  end
+end
+----
+
+This ensures all namespaces are declared at root, even if unused:
+[source,xml]
+----
+<data xmlns="http://main"
+      xmlns:ns1="http://ns1"
+      xmlns:ns2="http://ns2"
+      xmlns:ns3="http://ns3">
+  <item>value</item>
+</data>
+----
+
+=== Multiple namespace_scope Directives
+
+If parent and child both use `namespace_scope`, the child's scope is additive:
+
+[source,ruby]
+----
+class Parent < Lutaml::Model::Serializable
+  xml do
+    element "parent"
+    namespace_scope [Ns1, Ns2]  # Parent hoists Ns1, Ns2
+  end
+end
+
+class Child < Lutaml::Model::Serializable
+  xml do
+    element "child"
+    namespace_scope [Ns3]  # Child additionally hoists Ns3
+  end
+end
+----
+
+== Attribute Name Conflicts
+
+Version 0.8.0 simplifies attribute name conflict handling:
+
+* **No more errors** for attribute names that conflict with built-in methods
+* Only **warnings** are shown for potentially problematic overrides
+* All attribute names are now usable
+
+[source,ruby]
+----
+# Before (v0.7.x) - Error raised
+attribute :display, :string  # ❌ InvalidAttributeNameError
+
+# After (v0.8.0) - Warning only
+attribute :display, :string  # ✅ Works (shows warning)
+----
+
+== no_root Method Deprecated
+
+The `no_root` method is deprecated. Simply omit the `element()` declaration for type-only models.
+
+==== Before (deprecated)
+
+[source,ruby]
+----
+xml do
+  no_root  # ❌ Deprecated
+  map_element "value", to: :value
+end
+----
+
+==== After (recommended)
+
+[source,ruby]
+----
+xml do
+  type_name "MyType"  # ✅ Use type_name for XSD type naming
+  map_element "value", to: :value
+  # Simply omit element() declaration for type-only models
+end
+----
+
+== Testing Your Migration
+
+After updating, run your test suite:
+
+[source,bash]
+----
+bundle exec rake spec
+----
+
+Pay attention to:
+
+1. Deprecation warnings in the output
+2. XML format changes (prefixes vs default namespaces)
+3. Attribute prefixing behavior
+
+== Troubleshooting
+
+=== Problem: XML looks different after upgrading
+
+**Solution:** This is expected. The new default uses clean XML with default namespaces. To restore old format:
+
+[source,ruby]
+----
+instance.to_xml(prefix: true)
+----
+
+=== Problem: Consuming system rejects my XML
+
+**Solution 1:** Check if system supports default namespaces (most do).
+
+**Solution 2:** If system requires prefixes:
+
+[source,ruby]
+----
+instance.to_xml(prefix: true)
+----
+
+=== Problem: tomlib fails on Windows
+
+**Solution:** Use `:toml_rb` adapter:
+
+[source,ruby]
+----
+config.toml_adapter_type = :toml_rb
+----
+
+=== Problem: My prefixes disappeared
+
+**Solution:** This is intentional for cleaner XML. Define `prefix_default` in your `XmlNamespace` class and use `prefix: true`:
+
+[source,ruby]
+----
+instance.to_xml(prefix: true)
+----
+
+=== Problem: Required namespace is missing from output
+
+**Solution:** Use `declare: :always` in `namespace_scope`:
+
+[source,ruby]
+----
+xml do
+  namespace_scope [RequiredNamespace], declare: :always
+end
+----
+
+== Summary Checklist
+
+=== Configuration & Adapters
+
+- [ ] Update adapter configuration to use new simplified names (`:standard` instead of `:standard_json`)
+- [ ] Update explicit adapter class references to new paths
+- [ ] Use `:toml_rb` on Windows instead of `:tomlib`
+
+=== XML Namespace Changes
+
+- [ ] Review XML output format changes (prefix vs default namespace)
+- [ ] Set `attribute_form_default :qualified` if you need prefixed attributes
+- [ ] Remove `prefix` parameters from mapping methods
+- [ ] Create child model classes for elements with different namespaces
+- [ ] Use `namespace_scope` for consolidated namespace declarations
+
+=== Model Definition Changes
+
+- [ ] Replace `root "name"` with `element "name"` for standalone models
+- [ ] Remove `no_root` calls - models without `element()` are type-only by default
+- [ ] Use `type_name "TypeName"` for XSD type naming
+- [ ] Move namespace definitions from mappings to model classes
+- [ ] Update Type classes to use unified `xml do` syntax
+
+=== New Architecture Adoption
+
+- [ ] Consider using hierarchical registers for type organization
+- [ ] Leverage XSD generation for schema documentation
+- [ ] Use DataModel transformation pipeline for custom serialization
+- [ ] Review attribute name conflict handling (warnings only, no errors)
+
+== See Also
+
+* link:../_pages/breaking-changes.adoc[Breaking Changes]
+* link:../_pages/configuration.adoc[Configuration Documentation]
+* link:../_pages/serialization_adapters.adoc[Serialization Adapters]
+* link:../_references/custom_registers.adoc[Custom Registers Guide]
+* link:../_references/xsd-generation.adoc[XSD Schema Generation]
+* link:../_guides/xml-namespaces.adoc[XML Namespaces Complete Guide]
+
+== New XML Architecture Concepts
+
+Version 0.8.0 introduces a completely revamped XML serialization architecture. Understanding these concepts is essential for working with complex XML documents.
+
+=== Three-Phase Architecture
+
+The XML serialization now uses a sophisticated three-phase architecture that is W3C-compliant while handling complex model hierarchies:
+
+==== Phase 1: Discovery
+
+**Phase 1A: Identity Discovery (Bottom-Up)**
+
+Walks the model tree from leaves to root, collecting all namespace identities of models and value types.
+
+**Phase 1B: Scope Coverage Discovery (Top-Down)**
+
+Determines the hoisting eligibility of each namespace based on `namespace_scope` directives and namespace identity.
+
+==== Phase 2: Planning
+
+**Hoisting Planning:** Determines which namespaces (and prefixes) can be consolidated into a higher scope.
+
+**Prefix Planning:** Assigns prefixes to each namespace, ensuring no conflicts occur.
+
+==== Phase 3: Serialization
+
+During XML serialization, the planned hoisting and prefix assignments are used to generate proper `xmlns` declarations.
+
+=== DeclarationPlan
+
+The `DeclarationPlan` is a new central concept that stores ALL namespace decisions before rendering:
+
+[source,ruby]
+----
+# The plan contains:
+DeclarationPlan = {
+  # Namespace declarations
+  namespace_declarations: {
+    "po" => {
+      uri: "http://example.com/po",
+      prefix: "po",
+      format: :default,  # or :prefix
+    }
+  },
+
+  # Element format decisions
+  element_formats: {
+    "purchaseOrder" => :default,
+    "title" => :prefix,  # Type namespace
+  },
+
+  # Prefix assignments
+  prefix_assignments: {
+    PoNamespace => "po",
+    DcNamespace => "dc",
+  }
+}
+----
+
+**Key Principle:** Adapters are "dumb" - they ONLY apply decisions from the DeclarationPlan. They NEVER make namespace decisions themselves.
+
+=== XmlDataModel (Content Layer)
+
+The `XmlDataModel` is an intermediate representation between your Model and XML:
+
+* **Content Layer:** Defines WHAT to serialize (element names, structure, namespace identity)
+* **Namespace Identity:** Knows which namespace each element belongs to
+* **No Format Info:** Does NOT specify prefix vs default (DeclarationPlan's job)
+
+=== Namespace Scopes
+
+The `namespace_scope` directive controls WHERE namespace declarations appear:
+
+[source,ruby]
+----
+xml do
+  root "vCard"
+  namespace VcardNamespace
+
+  # Consolidate namespaces at root
+  namespace_scope [
+    { namespace: DcNamespace, declare: :always },
+    { namespace: DctermsNamespace, declare: :auto }
+  ]
+end
+----
+
+**Declaration modes:**
+
+* `:auto` - Declare if any descendant element/attribute belongs to this namespace
+* `:always` - Always declare at this element (unless ancestor already declared)
+* `:never` - Never declare at this element
+
+=== Decision System (Element Format)
+
+The Decision System determines whether each element uses default or prefixed format. Rules are evaluated in priority order:
+
+1. **Priority 0:** Inherit parent's default namespace
+2. **Priority 0.5:** Use prefix hoisted on parent
+3. **Priority 1:** User explicit option (`to_xml(prefix: true/false/"custom")`)
+4. **Priority 2:** Preserved format from input (round-trip)
+5. **Priority 3:** W3C disambiguation (attributes need prefix)
+6. **Priority 4:** namespace_scope (multiple namespaces at root)
+7. **Priority 5:** Prefer default format (cleanest)
+
+=== TypeNamespace Subsystem
+
+Type namespaces (declared on custom Type classes) are now handled by a dedicated subsystem:
+
+[source,ruby]
+----
+# Define type with namespace
+class DcTitleType < Lutaml::Model::Type::String
+  xml_namespace DublinCoreNamespace  # Type-level namespace
+end
+
+# Use in model
+class Document < Lutaml::Model::Serializable
+  attribute :title, DcTitleType  # Type namespace applies automatically
+
+  xml do
+    root "document"
+    map_element "title", to: :title
+  end
+end
+----
+
+**Key rules:**
+
+* Type namespace as attribute → MUST use prefix (W3C constraint)
+* Type namespace as element with same namespace as parent → Can inherit
+* Type namespace as element with different namespace → Can use default OR prefix
+
+=== XmlNamespace Class
+
+The `XmlNamespace` class encapsulates all namespace configuration:
+
+[source,ruby]
+----
+class PoNamespace < Lutaml::Xml::Namespace
+  uri "http://example.com/po"              # Required: namespace URI
+  prefix_default "po"                      # Required: default prefix
+  element_form_default :qualified          # Optional: children inherit namespace
+  attribute_form_default :unqualified      # Optional: attributes unprefixed
+end
+----
+
+**W3C Compliance:**
+
+* `element_form_default :unqualified` (default) - Children in blank namespace
+* `element_form_default :qualified` - Children inherit parent namespace
+* `attribute_form_default :unqualified` (default) - Attributes have NO namespace
+* `attribute_form_default :qualified` - Attributes MUST use prefix format
+
+=== Benefits of New Architecture
+
+1. **Single Source of Truth:** DeclarationPlanner makes ALL xmlns decisions
+2. **Full Tree Knowledge:** NamespaceCollector provides complete context before decisions
+3. **Never Declare Twice:** xmlns declared at optimal location, children reference it
+4. **Clean Separation:** Three independent, testable phases
+5. **Circular Reference Handling:** Built-in recursion prevention
+6. **Type-Only Model Support:** Models without element wrapper fully supported
+7. **Round-Trip Preservation:** Input format preserved during serialization
+
+=== Key Design Patterns
+
+==== Dumb Adapter Pattern
+
+Adapters ONLY apply decisions from DeclarationPlan - they NEVER make namespace decisions:
+
+```
+Planning Phase                      Rendering Phase
+┌─────────────────────┐       ┌─────────────────────┐
+│  DeclarationPlanner  │       │  NokogiriAdapter    │
+│  - MAKE DECISIONS    │  ───▶ │  - Read plan        │
+│  - Create plan       │       │  - Apply xmlns      │
+└─────────────────────┘       │  - NO DECISIONS     │
+                              └─────────────────────┘
+```
+
+==== Registry Pattern
+
+Centralized namespace and prefix management:
+
+[source,ruby]
+----
+register = NamespaceRegister.new
+register.register_namespace(PoNamespace)
+prefix = register.prefix_for(PoNamespace)  # => "po"
+----
+
+=== Understanding xmlns="" Behavior
+
+**When REQUIRED:**
+
+* Child in different namespace than parent
+* Parent uses default namespace format (`xmlns="uri"`)
+* Child's namespace has no prefix on child element
+
+[source,xml]
+----
+<!-- CORRECT -->
+<parent xmlns="http://example.com/parent">
+  <child xmlns="">Value</child>
+  <!-- xmlns="" REQUIRED to opt out -->
+</parent>
+
+<!-- CORRECT: Child has prefix -->
+<parent xmlns="http://example.com/parent">
+  <other:child xmlns:other="http://other">Value</other:child>
+  <!-- No xmlns="" needed - prefix makes it clear -->
+</parent>
+----
+
+=== Related Documentation
+
+For comprehensive details on the new architecture:
+
+* link:../_references/three-phase-namespace-architecture.adoc[Three-Phase Namespace Architecture]
+* link:../_tutorials/lutaml-xml-architecture.adoc[LutaML XML Architecture Reference]
+* link:../_guides/xml-namespace-declarations.adoc[XML Namespace Declarations Guide]
+* link:../_guides/xml-namespaces.adoc[XML Namespaces Complete Guide]
+
+== DataModel Transformation Architecture
+
+Version 0.8.0 introduces a **two-phase transformation pipeline** for all serialization formats. Instead of directly serializing Lutaml::Model instances, the system now uses an intermediate representation.
+
+=== Transformation Pipeline
+
+```
+┌─────────────────┐     ┌─────────────────────┐     ┌─────────────────────┐
+│  Lutaml::Model  │     │   Format DataModel  │     │ Serialization Format│
+│    Instance     │ ──▶ │   (Intermediate)    │ ──▶ │    (String/Bytes)   │
+└─────────────────┘     └─────────────────────┘     └─────────────────────┘
+        │                        │                          │
+   Your model              XmlElement,               XML, JSON, YAML,
+   classes                 JsonObject,               TOML, Hash
+                           YamlNode, etc.
+```
+
+=== Phase 1: Model to DataModel Transformation
+
+Each format has a dedicated `Transformation` class that converts your model instances into format-specific DataModel objects:
+
+[source,ruby]
+----
+# XML Transformation
+transformation = Lutaml::Xml::Transformation.new
+xml_data_model = transformation.apply(person_instance)
+# => XmlElement tree with children, attributes, namespaces
+
+# JSON Transformation
+transformation = Lutaml::Json::Transformation.new
+json_data_model = transformation.apply(person_instance)
+# => JsonObject tree
+----
+
+=== Phase 2: DataModel to Serialization Format
+
+The DataModel objects are then serialized by the adapter:
+
+[source,ruby]
+----
+# XML adapter serializes XmlElement tree
+xml_string = Lutaml::Xml::Adapter.serialize(xml_data_model)
+
+# JSON adapter serializes JsonObject tree
+json_string = Lutaml::Json::Adapter.serialize(json_data_model)
+----
+
+=== Benefits
+
+1. **Format-agnostic logic**: Business logic stays in your models
+2. **Testable intermediate representation**: Debug DataModel objects directly
+3. **Clean separation**: Transformation logic isolated from serialization
+4. **Extensibility**: Add new formats by creating new Transformation classes
+5. **Round-trip support**: Parse → DataModel → Model → DataModel → Serialize
+
+== Consolidated `xml do` Syntax
+
+Version 0.8.0 unifies the `xml do` syntax for both model classes and custom Type classes.
+
+=== Before (v0.7.x) - Different Syntaxes
+
+[source,ruby]
+----
+# Model class - used namespace method
+class Person < Lutaml::Model::Serializable
+  xml do
+    namespace "http://example.com/ns", "p"  # Different syntax
+    root "person"
+  end
+end
+
+# Type class - used xml_namespace method
+class CustomType < Lutaml::Model::Type::String
+  xml_namespace CustomNamespace  # Different method name!
+end
+----
+
+=== After (v0.8.0) - Unified Syntax
+
+Both models and types now use the same `xml do` block syntax:
+
+[source,ruby]
+----
+# Model class
+class Person < Lutaml::Model::Serializable
+  xml do
+    namespace PersonNamespace  # Namespace class reference
+    element "person"           # element() replaces root()
+  end
+end
+
+# Type class - SAME syntax!
+class CustomType < Lutaml::Model::Type::String
+  xml do
+    namespace CustomNamespace  # Same method
+    # No element() - types don't have root elements
+  end
+end
+----
+
+=== Migration
+
+[cols="1,1"]
+|===
+| Old (v0.7.x) | New (v0.8.0)
+
+| `root "elementName"` | `element "elementName"`
+| `no_root` | (omit element() entirely)
+| `namespace "uri", "prefix"` | `namespace NamespaceClass`
+| `xml_namespace Namespace` (types only) | `xml do; namespace Namespace; end`
+|===
+
+== XSD-Aligned Concepts: Element vs ComplexType
+
+Version 0.8.0 aligns Lutaml::Model concepts with W3C XML Schema (XSD) terminology for better clarity and standards compliance.
+
+=== Element Declaration
+
+An **Element** is a model that can be serialized as a standalone XML document with a root element.
+
+[source,ruby]
+----
+class PurchaseOrder < Lutaml::Model::Serializable
+  attribute :order_date, :date
+  attribute :items, Item, collection: true
+
+  xml do
+    element "purchaseOrder"  # ✅ Element - can be root
+    namespace PoNamespace
+    map_element "orderDate", to: :order_date
+    map_element "item", to: :items
+  end
+end
+
+# Can be serialized standalone
+order = PurchaseOrder.new(...)
+order.to_xml  # => <purchaseOrder>...</purchaseOrder>
+----
+
+=== ComplexType (Type-Only Model)
+
+A **ComplexType** is a model that defines a type structure but cannot be serialized as a standalone document. It must be embedded in another model.
+
+[source,ruby]
+----
+# No element() declaration = ComplexType (type-only)
+class Address < Lutaml::Model::Serializable
+  attribute :street, :string
+  attribute :city, :string
+
+  xml do
+    # No element() - this is a ComplexType
+    type_name "AddressType"  # Optional: XSD type name
+    map_element "street", to: :street
+    map_element "city", to: :city
+  end
+end
+
+# Cannot be serialized standalone
+address = Address.new(...)
+address.to_xml  # => NoRootMappingError
+
+# Must be used in an Element
+class Person < Lutaml::Model::Serializable
+  attribute :address, Address  # Embed ComplexType
+
+  xml do
+    element "person"  # Element
+    map_element "address", to: :address
+  end
+end
+----
+
+=== Migration Summary
+
+|===
+| v0.7.x | v0.8.0 | Behavior
+
+| `root "name"` | `element "name"` | Element (standalone)
+| `no_root` | (omit element) | ComplexType (embedded)
+| (no root or no_root) | (omit element) | ComplexType (embedded)
+|===
+
+== Model-Centric Namespace Definitions
+
+Version 0.8.0 enforces **model-centric namespace definitions**. Namespaces are defined ONLY on models and types, not on individual mappings.
+
+=== Before (v0.7.x) - Namespace on Mappings
+
+[source,ruby]
+----
+class Parent < Lutaml::Model::Serializable
+  xml do
+    root "parent"
+    namespace "http://parent.com", "p"
+
+    # ❌ Namespace on mapping - NO LONGER SUPPORTED
+    map_element "child", to: :child, namespace: ChildNamespace
+    map_element "other", to: :other, prefix: "o"
+  end
+end
+----
+
+=== After (v0.8.0) - Namespace on Models Only
+
+[source,ruby]
+----
+# Child model has its own namespace
+class Child < Lutaml::Model::Serializable
+  attribute :value, :string
+
+  xml do
+    element "child"
+    namespace ChildNamespace  # ✅ Namespace on model
+    map_content to: :value
+  end
+end
+
+# Parent references child model
+class Parent < Lutaml::Model::Serializable
+  attribute :child, Child  # Typed attribute
+  attribute :other, Other
+
+  xml do
+    element "parent"
+    namespace ParentNamespace  # ✅ Namespace on model
+    map_element "child", to: :child  # No namespace parameter
+    map_element "other", to: :other
+  end
+end
+----
+
+=== Why This Change
+
+1. **Single source of truth**: Each model owns its namespace
+2. **Reusability**: Child models work in any parent context
+3. **Clarity**: No confusion about which namespace applies
+4. **XSD alignment**: Matches XSD's type-centric namespace model
+
+=== Migration
+
+[source,ruby]
+----
+# Before: Inline namespace on mapping
+map_element "item", to: :item, namespace: ItemNamespace
+
+# After: Create separate model with namespace
+class Item < Lutaml::Model::Serializable
+  attribute :value, :string
+  xml do
+    element "item"
+    namespace ItemNamespace
+    map_content to: :value
+  end
+end
+
+# Then use typed attribute
+attribute :item, Item
+map_element "item", to: :item
+----
+
+== Register System Refactoring
+
+Version 0.8.0 significantly enhances the `Register` system with hierarchical fallbacks, composition, and key-based registration.
+
+=== Hierarchical Fallback Chains
+
+Registers can now delegate to parent registers when a type is not found:
+
+[source,ruby]
+----
+# Parent register with base types
+base_register = Lutaml::Model::Register.new do
+  register_type(:string, Lutaml::Model::Type::String)
+  register_type(:integer, Lutaml::Model::Type::Integer)
+end
+
+# Child register with domain types, falls back to parent
+domain_register = Lutaml::Model::Register.new(
+  fallback: base_register  # ✅ Hierarchical fallback
+) do
+  register_type(:custom_id, CustomIdType)
+end
+
+# Resolution tries child first, then parent
+domain_register.resolve_type(:string)  # => From base_register
+domain_register.resolve_type(:custom_id)  # => From domain_register
+----
+
+=== Register Composition
+
+Multiple registers can be composed together:
+
+[source,ruby]
+----
+# Create specialized registers
+core_types = Lutaml::Model::Register.new { ... }
+xml_types = Lutaml::Model::Register.new { ... }
+domain_types = Lutaml::Model::Register.new { ... }
+
+# Compose into unified register
+composed = Lutaml::Model::Register.composite(
+  [domain_types, xml_types, core_types]
+)
+----
+
+=== Key-Based Registration
+
+Types can be registered under specific keys for namespacing:
+
+[source,ruby]
+----
+register = Lutaml::Model::Register.new do
+  # Register with key for namespacing
+  register_type(:id, MyIdType, key: :myapp)
+  register_type(:name, MyNameType, key: :myapp)
+end
+
+# Resolve with key
+register.resolve_type(:id, key: :myapp)  # => MyIdType
+register.resolve_type(:id)  # => nil (key required)
+----
+
+=== Global Register Access
+
+[source,ruby]
+----
+# Access global register
+global = Lutaml::Model::GlobalRegister.instance
+
+# Register globally
+global.register_type(:my_type, MyCustomType)
+
+# Use in models
+attribute :field, :my_type  # Resolves from global register
+----
+
+== XSD Schema Generation and Parsing
+
+Version 0.8.0 integrates XSD schema capabilities from lutaml-xsd, enabling both generation and parsing of XML Schema documents.
+
+=== Generating XSD from Models
+
+[source,ruby]
+----
+class Person < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :age, :integer
+  attribute :email, :string
+
+  xml do
+    element "person"
+    map_element "name", to: :name
+    map_element "age", to: :age
+    map_attribute "email", to: :email
+  end
+end
+
+# Generate XSD schema
+schema = Lutaml::Model::Schema::XmlCompiler.to_xsd(Person)
+puts schema
+# => <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+#      <xs:element name="person">
+#        <xs:complexType>
+#          <xs:sequence>
+#            <xs:element name="name" type="xs:string"/>
+#            <xs:element name="age" type="xs:integer"/>
+#          </xs:sequence>
+#          <xs:attribute name="email" type="xs:string"/>
+#        </xs:complexType>
+#      </xs:element>
+#    </xs:schema>
+----
+
+=== Parsing XSD to Models
+
+[source,ruby]
+----
+# Parse XSD file into Ruby model classes
+models = Lutaml::Model::Schema::XmlCompiler.from_xsd("schema.xsd")
+
+# Returns array of generated model classes
+models.each do |model_class|
+  puts model_class.name  # => "PurchaseOrder", "Address", etc.
+end
+
+# Use generated models
+order_data = models.find { |m| m.name == "PurchaseOrder" }
+order = order_data.from_xml(xml_string)
+----
+
+=== XSD to Ruby Type Mapping
+
+|===
+| XSD Type | Lutaml::Model Type
+
+| xs:string | :string
+| xs:integer | :integer
+| xs:int | :integer
+| xs:boolean | :boolean
+| xs:date | :date
+| xs:dateTime | :dateTime
+| xs:decimal | :decimal
+| xs:float | :float
+| xs:double | :float
+| xs:anyURI | :string
+|===
+
+=== Benefits
+
+1. **Round-trip engineering**: Generate XSD from code, or code from XSD
+2. **Documentation**: XSD serves as formal schema documentation
+3. **Validation**: Use XSD validators for XML documents
+4. **Integration**: Share schemas with external systems
+5. **Code generation**: Generate models from industry-standard XSDs
+
