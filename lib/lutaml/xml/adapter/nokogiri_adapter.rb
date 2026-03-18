@@ -123,7 +123,7 @@ module Lutaml
           # We handle declarations manually with generate_declaration() for full control
           # This ensures no duplicate declarations and proper preservation of input format
           save_options = ::Nokogiri::XML::Node::SaveOptions::NO_DECLARATION |
-                         ::Nokogiri::XML::Node::SaveOptions::AS_XML
+            ::Nokogiri::XML::Node::SaveOptions::AS_XML
 
           # Handle indentation and formatting
           # Nokogiri's default behavior is to pretty-print XML

@@ -132,7 +132,7 @@ module Lutaml
           # Strip the leading newline to produce clean XML output
           # We handle declarations manually with generate_declaration() for full control
           xml_data = builder.xml.to_s
-          xml_data = xml_data.sub(/\A\n/, "")  # Remove leading newline from Ox output
+          xml_data = xml_data.delete_prefix("\n") # Remove leading newline from Ox output
 
           result = ""
           # Use DeclarationHandler methods instead of Document#declaration

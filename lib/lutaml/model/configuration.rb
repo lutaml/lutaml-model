@@ -216,7 +216,8 @@ module Lutaml
         adapter_path = if adapter == "xml"
                          File.join(__dir__, "../xml/adapter", type)
                        else
-                         File.join(__dir__, "../key_value/adapter", adapter, type)
+                         File.join(__dir__, "../key_value/adapter", adapter,
+                                   type)
                        end
         require adapter_path
       rescue LoadError
