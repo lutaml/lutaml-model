@@ -147,9 +147,11 @@ module Lutaml
 
       # Performance: Cache default type context lookup
       def default_type_context
-        default_id = Lutaml::Model::Config.default_register
-        ctx = GlobalContext.context(default_id)
-        ctx || GlobalContext.default_context
+        @default_type_context ||= begin
+          default_id = Lutaml::Model::Config.default_register
+          ctx = GlobalContext.context(default_id)
+          ctx || GlobalContext.default_context
+        end
       end
 
       def unresolved_type
