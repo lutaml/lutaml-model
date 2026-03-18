@@ -54,9 +54,12 @@ module Lutaml
           attributes["xmlns"] = "" if blank_xmlns
 
           if block_given?
+            # Capture the wrapper before entering the Nokogiri block
+            # because Nokogiri's builder changes self binding inside the block
+            wrapper = self
             xml.public_send(qualified_name, attributes) do
               xml.parent.namespace = nil if prefix.nil? && !prefix_unset
-              yield(self)
+              yield(wrapper)
             end
           else
             xml.public_send(qualified_name, attributes)

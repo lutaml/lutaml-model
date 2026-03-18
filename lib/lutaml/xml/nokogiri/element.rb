@@ -150,10 +150,10 @@ module Lutaml
       def build_xml(builder = nil)
         builder ||= Builder::Nokogiri.build
 
-        if name == "text"
-          builder.text(text)
+        if text?
+          builder.add_text(builder, text)
         else
-          builder.public_send(name, build_attributes(self)) do |xml|
+          builder.create_and_add_element(name, attributes: build_attributes(self)) do |xml|
             children.each do |child|
               child.build_xml(xml)
             end
