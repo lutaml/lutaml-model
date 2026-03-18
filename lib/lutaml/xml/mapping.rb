@@ -399,16 +399,23 @@ module Lutaml
         )
         # Store rules with the same element name in an array to support
         # multiple mapping rules for the same element name with different target types
+        # Use eql? to detect and skip exact duplicates (prevents accumulation)
         key = rule.namespaced_name
-        if @elements[key]
-          # Key already exists, convert to array or append to existing array
-          if @elements[key].is_a?(Array)
-            @elements[key] << rule
-          else
-            @elements[key] = [@elements[key], rule]
-          end
-        else
+        existing = @elements[key]
+
+        if existing.nil?
+          # New mapping - store directly
           @elements[key] = rule
+        elsif existing.is_a?(Array)
+          # Array exists - check for duplicate or add
+          duplicate_index = existing.find_index { |r| r.eql?(rule) }
+          # Only add if not a duplicate
+          existing << rule unless duplicate_index
+        elsif existing.eql?(rule)
+          # Exact duplicate - already stored, no action needed
+        else
+          # Different mapping (polymorphic) - convert to array
+          @elements[key] = [existing, rule]
         end
       end
 
@@ -490,7 +497,24 @@ module Lutaml
           form: form,
           documentation: documentation,
         )
-        @attributes[rule.namespaced_name] = rule
+        # Use eql? to detect and skip exact duplicates (prevents accumulation)
+        key = rule.namespaced_name
+        existing = @attributes[key]
+
+        if existing.nil?
+          # New mapping - store directly
+          @attributes[key] = rule
+        elsif existing.is_a?(Array)
+          # Array exists - check for duplicate or add
+          duplicate_index = existing.find_index { |r| r.eql?(rule) }
+          # Only add if not a duplicate
+          existing << rule unless duplicate_index
+        elsif existing.eql?(rule)
+          # Exact duplicate - already stored, no action needed
+        else
+          # Different mapping (polymorphic) - convert to array
+          @attributes[key] = [existing, rule]
+        end
       end
 
       def map_content(
@@ -752,7 +776,8 @@ module Lutaml
       end
 
       def attributes
-        @attributes.values
+        # Flatten arrays that are created when multiple rules have the same attribute name
+        @attributes.values.flat_map { |v| v.is_a?(Array) ? v : [v] }
       end
 
       def content_mapping
