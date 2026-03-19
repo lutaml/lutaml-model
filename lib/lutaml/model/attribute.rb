@@ -98,6 +98,15 @@ module Lutaml
       def type(context_or_register = nil)
         return if unresolved_type.nil?
 
+        # Performance: Fast path for default context (most common case)
+        # Cache the result to avoid mutex overhead in CachedTypeResolver
+        if context_or_register.nil?
+          return @cached_type_default ||= begin
+            context = normalize_context(nil)
+            GlobalContext.resolver.resolve(unresolved_type, context)
+          end
+        end
+
         # Check if we have a Register available for backward compatibility
         # If so, use Register's resolution which includes type substitutions
         fallback_register = extract_register(context_or_register)
@@ -571,7 +580,6 @@ module Lutaml
           # Copy already-processed instance variables directly
           dup_attr.instance_variable_set(:@raw, @raw)
           dup_attr.instance_variable_set(:@validations, @validations)
-          # Note: @type_cache and @type_namespace_cache removed - caching now in GlobalContext
         end
       end
 

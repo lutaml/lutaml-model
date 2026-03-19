@@ -349,7 +349,7 @@ mixed_content_option)
           next false if child.is_a?(String)
 
           # Handle XmlElement children with text? method
-          # Performance: Use is_a? check since all adapters inherit from XmlElement
+          # Performance: All XML adapter children inherit from XmlElement
           next false if child.is_a?(::Lutaml::Xml::XmlElement) && child.text?
 
           # Handle explicit namespace: nil with prefix: nil
