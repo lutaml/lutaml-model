@@ -755,7 +755,7 @@ module Lutaml
       # @param mapping [Xml::Mapping] XML mapping
       # @param options [Hash] Serialization options
       # @return [AttributeNode] Attribute decision node
-      def plan_attribute(xml_attr, xml_element, _mapping, _options)
+      def plan_attribute(xml_attr, xml_element, mapping, options)
         attr_ns_class = xml_attr.namespace_class
         element_ns_class = xml_element.namespace_class
 
@@ -767,21 +767,36 @@ module Lutaml
         same_namespace = attr_ns_class && element_ns_class &&
           attr_ns_class.uri == element_ns_class.uri
 
+        # Get the attribute's mapping rule to check form option
+        mapper_class = options[:mapper_class]
+        attr_mapping_rule = nil
+        if mapper_class.is_a?(Class) && mapper_class.include?(Lutaml::Model::Serialize)
+          attrs = mapper_class.attributes
+          attr_def = attrs[xml_attr.name.to_sym] || attrs[xml_attr.name.to_s]
+          if attr_def
+            attr_mapping_rule = mapping.attributes.find { |r| r.to == attr_def.name }
+          end
+        end
+
         # W3C Attribute Prefix Decision (MECE)
-        use_prefix = if same_namespace && attribute_form_default == :unqualified
-                       # Priority 1: Same namespace + unqualified → NO prefix
+        # Priority: form option on mapping > same_namespace + attribute_form_default > type namespace
+        use_prefix = if attr_mapping_rule&.form == :qualified
+                       # Priority 1: Explicit form: :qualified → YES prefix
+                       attr_ns_class&.prefix_default || element_ns_class&.prefix_default
+                     elsif same_namespace && attribute_form_default == :unqualified
+                       # Priority 2: Same namespace + unqualified → NO prefix
                        nil
                      elsif attr_ns_class && element_ns_class
-                       # Priority 2: Different namespace OR qualified → YES prefix
+                       # Priority 3: Different namespace OR qualified → YES prefix
                        attr_ns_class.prefix_default
                      elsif attr_ns_class
-                       # Priority 3: Only attribute has namespace → YES prefix
+                       # Priority 4: Only attribute has namespace → YES prefix
                        attr_ns_class.prefix_default
                      elsif attribute_form_default == :qualified
-                       # Priority 4: No namespace but qualified → inherit element prefix
+                       # Priority 5: No namespace but qualified → inherit element prefix
                        element_ns_class&.prefix_default
                      else
-                       # Priority 5: No namespace, unqualified → NO prefix (W3C default)
+                       # Priority 6: No namespace, unqualified → NO prefix (W3C default)
                        nil
                      end
 
