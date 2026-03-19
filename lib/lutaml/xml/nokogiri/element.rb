@@ -86,15 +86,11 @@ module Lutaml
         )
       end
 
-      # Override text? for Nokogiri-specific structural check
-      # A text node has no children and has text content
-      # This is used for elements that have text content but are named "text" (like SVG)
+      # Override text? for Nokogiri-specific node type detection
+      # Only actual text/cdata nodes return true, NOT elements named "text"
+      # This fixes SVG <text> elements being incorrectly treated as text nodes
       def text?
-        # Use node_type for actual text/cdata nodes
-        return true if @node_type == :text || @node_type == :cdata
-
-        # For elements, check structural properties
-        children.empty? && text.length.positive?
+        @node_type == :text || @node_type == :cdata
       end
 
       # Performance: Lazy getter for input_namespaces
@@ -174,12 +170,15 @@ module Lutaml
           # CDATA sections are handled differently
           # For now, treat them as text since Nokogiri builder handles CDATA
           builder.text(text)
-        elsif text? && @node_type == :text
-          # Only actual text nodes (not elements named "text") get text output
+        elsif text?
+          # Actual text nodes get text output
           builder.text(text)
         else
           # Regular elements (including those named "text")
-          builder.public_send(name, build_attributes(self)) do |xml|
+          # Handle element names that conflict with Nokogiri builder methods
+          # (e.g., "text", "cdata", "comment") by appending underscore
+          element_name = builder.respond_to?(name) ? "#{name}_" : name
+          builder.public_send(element_name, build_attributes(self)) do |xml|
             children.each do |child|
               child.build_xml(xml)
             end

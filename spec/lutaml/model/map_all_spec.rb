@@ -68,6 +68,30 @@ module MapAllSpec
         regenerated = doc.to_xml
         expect(regenerated).to be_xml_equivalent_to(xml_content)
       end
+
+      describe "SVG <text> element handling" do
+        # Regression test for bug where SVG <text> elements were incorrectly
+        # treated as text nodes instead of XML elements due to element name
+        # conflicting with Nokogiri builder's text() method
+        let(:svg_xml_content) do
+          <<~XML
+            <document>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100">
+                <g transform="translate(10,20)">
+                  <text x="50" y="30" font-family="monospace">A</text>
+                  <text x="100" y="30" font-family="monospace">B</text>
+                  <text x="150" y="30" font-family="monospace">C</text>
+                </g>
+              </svg>
+            </document>
+          XML
+        end
+
+        it "preserves SVG <text> elements through round trip" do
+          doc = Document.from_xml(svg_xml_content)
+          expect(doc.to_xml).to be_xml_equivalent_to(svg_xml_content)
+        end
+      end
     end
 
     describe "JSON serialization" do

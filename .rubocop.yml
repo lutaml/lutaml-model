@@ -14,5 +14,8 @@ AllCops:
     - 'vendor/**/*'
 
 Style/OneClassPerFile:
+  inherit_mode:
+    merge:
+      - Exclude
   Exclude:
     - 'spec/**/*'
