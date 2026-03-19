@@ -796,7 +796,18 @@ module Lutaml
                        attr_ns_class.prefix_default
                      elsif attribute_form_default == :qualified
                        # Priority 5: No namespace but qualified → inherit element prefix
-                       element_ns_class&.prefix_default
+                       # CRITICAL: xmlns declarations (xmlns, xmlns:*) must NEVER have a prefix.
+                       # The "xmlns" part is part of the declaration syntax, not a namespace prefix.
+                       # These declarations are handled separately by the XML processor.
+                       # Also, xsi:* attributes (xsi:schemaLocation, xsi:type, xsi:nil) must
+                       # ALWAYS use the "xsi" prefix. They should never inherit element prefix.
+                       # They conventionally belong to the XSI namespace.
+                       attr_name = xml_attr.name.to_s
+                       if attr_name.start_with?("xmlns") || attr_name.start_with?("xsi:")
+                         nil
+                       else
+                         element_ns_class&.prefix_default
+                       end
                      else
                        # Priority 6: No namespace, unqualified → NO prefix (W3C default)
                        nil

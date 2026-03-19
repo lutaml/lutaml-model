@@ -282,7 +282,15 @@ module Lutaml
               # Raw string from parsing - reconstruct xsi attributes
               raw_value = element.instance_variable_get(:@raw_schema_location)
               if raw_value && !raw_value.empty?
-                attributes["xmlns:xsi"] = "http://www.w3.org/2001/XMLSchema-instance"
+                # CRITICAL: Don't add xmlns:xsi as an attribute if it's already
+                # in hoisted_declarations (which adds it via add_namespace).
+                # Adding it as an attribute creates duplicate xmlns declarations.
+                xsi_uri = "http://www.w3.org/2001/XMLSchema-instance"
+                hoisted = plan&.root_node&.hoisted_declarations || {}
+                already_hoisted = hoisted.any? do |_prefix, uri|
+                  uri == xsi_uri
+                end
+                attributes["xmlns:xsi"] = xsi_uri unless already_hoisted
                 attributes["xsi:schemaLocation"] = raw_value
               end
             end
@@ -835,7 +843,11 @@ module Lutaml
           end
 
           # Add regular attributes (PARALLEL TRAVERSAL by index)
+          # Skip xmlns attributes - they are already declared via hoisted_declarations
+          # and setting them as attributes creates duplicate namespace declarations
           xml_element.attributes.each_with_index do |xml_attr, idx|
+            next if xml_attr.name.to_s.start_with?("xmlns")
+
             attr_node = element_node.attribute_nodes[idx]
             element[attr_node.qualified_name] = xml_attr.value
           end
