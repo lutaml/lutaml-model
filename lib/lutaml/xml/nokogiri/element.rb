@@ -4,7 +4,7 @@ module Lutaml
   module Xml
     class NokogiriElement < XmlElement
       include Nokogiri::EntityResolver
-      include InputNamespacesCapable  # Marker for input_namespaces capability
+      include InputNamespacesCapable # Marker for input_namespaces capability
 
       # Performance: Frozen empty collections to reduce allocations
       EMPTY_NAMESPACES = {}.freeze
