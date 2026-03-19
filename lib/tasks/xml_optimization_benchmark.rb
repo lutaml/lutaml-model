@@ -31,7 +31,7 @@ class XmlElementBenchmark
   private
 
   def generate_xml(depth: 3, items_per_level: 10)
-    builder = String.new
+    builder = +""
     builder << "<root xmlns:ns1='http://example.com/ns1' xmlns:ns2='http://example.com/ns2'>"
 
     depth.times do |level|
@@ -82,9 +82,7 @@ class XmlElementBenchmark
     job.config(time: @run_time, warmup: 3)
 
     job.report("namespaced_name (memoized)") do
-      doc.root.children.each do |child|
-        child.namespaced_name
-      end
+      doc.root.children.each(&:namespaced_name)
     end
 
     job.run
@@ -154,15 +152,15 @@ class CollectionHandlerBenchmark
     job.config(time: @run_time, warmup: 3)
 
     job.report("collection? (memoized)") do
-      attr_defs.each { |a| a.collection? }
+      attr_defs.each(&:collection?)
     end
 
     job.report("singular? (memoized)") do
-      attr_defs.each { |a| a.singular? }
+      attr_defs.each(&:singular?)
     end
 
     job.report("collection_class (memoized)") do
-      attr_defs.each { |a| a.collection_class }
+      attr_defs.each(&:collection_class)
     end
 
     job.run

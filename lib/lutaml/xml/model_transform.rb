@@ -71,7 +71,8 @@ module Lutaml
 
         validate_document!(doc, options)
 
-        set_instance_ordering(instance, doc, ordered_option, mixed_content_option)
+        set_instance_ordering(instance, doc, ordered_option,
+                              mixed_content_option)
         set_schema_location(instance, doc)
 
         defaults_used = []
@@ -82,7 +83,7 @@ module Lutaml
 
         mappings.each do |rule|
           # Performance: Cache rule properties accessed multiple times
-          rule_name = rule.name
+          rule.name
           rule_to = rule.to
           rule_namespace_set = rule.namespace_set?
           rule_namespace_param = rule_namespace_set ? rule.instance_variable_get(:@namespace_param) : nil
@@ -96,13 +97,13 @@ module Lutaml
 
           # Performance: Only create new_opts when we need to override default_namespace
           # Avoid dup for the common case where namespace is not set
-          if rule_namespace_set && rule_namespace_param != :inherit
-            new_opts = { default_namespace: rule.namespace }
-          elsif default_namespace.nil? && namespace_uri
-            new_opts = { default_namespace: namespace_uri }
-          else
-            new_opts = options
-          end
+          new_opts = if rule_namespace_set && rule_namespace_param != :inherit
+                       { default_namespace: rule.namespace }
+                     elsif default_namespace.nil? && namespace_uri
+                       { default_namespace: namespace_uri }
+                     else
+                       options
+                     end
 
           value = if rule.raw_mapping?
                     doc.root.inner_xml
@@ -254,7 +255,8 @@ result = {}, visited = Set.new)
         )
       end
 
-      def set_instance_ordering(instance, doc, ordered_option, mixed_content_option)
+      def set_instance_ordering(instance, doc, ordered_option,
+mixed_content_option)
         return unless instance.respond_to?(:ordered=)
 
         instance.element_order = doc.root.order
@@ -319,7 +321,7 @@ result = {}, visited = Set.new)
         rule_namespace_param = rule_namespace_set ? rule.instance_variable_get(:@namespace_param) : nil
         rule_prefix_param = rule_namespace_set ? rule.instance_variable_get(:@prefix_param) : nil
         rule_namespace = rule_namespace_set ? rule.namespace : nil
-        default_namespace = options[:default_namespace]
+        options[:default_namespace]
 
         # Enhanced namespace resolution with type support
         rule_names = resolve_rule_names_with_type(rule, attr, options)
@@ -331,7 +333,7 @@ result = {}, visited = Set.new)
         attr_type_is_class = attr_type.is_a?(Class) && attr_type.include?(::Lutaml::Model::Serialize)
 
         # Pre-compute namespace class for prefix matching (only needed if attr_type is Serializable)
-        type_ns_class = nil
+        nil
         type_ns_prefix_str = nil
         if attr_type_is_serializable
           type_ns_class = if attr_type_is_class
@@ -365,14 +367,12 @@ result = {}, visited = Set.new)
           # This handles the case where elements have prefixed names but are in blank namespace
           # e.g., <GML:ApplicationSchema xmlns=""> should match the rule expecting GML namespace
           child_ns_prefix = child.namespace_prefix
-          if child_ns_prefix && attr_type_is_serializable
-            # Match by prefix AND local name to avoid matching unrelated elements
-            # with the same namespace prefix (e.g., xsd:attributeGroup should not
-            # match a rule for xsd:attribute)
-            if type_ns_prefix_str && child_ns_prefix == type_ns_prefix_str &&
-                child.unprefixed_name == rule_name_str
-              next true
-            end
+          # Match by prefix AND local name to avoid matching unrelated elements
+          # with the same namespace prefix (e.g., xsd:attributeGroup should not
+          # match a rule for xsd:attribute)
+          if child_ns_prefix && attr_type_is_serializable && type_ns_prefix_str && child_ns_prefix == type_ns_prefix_str &&
+              child.unprefixed_name == rule_name_str
+            next true
           end
 
           # Fallback: if the child has a different namespace and attr_type is Serializable,
