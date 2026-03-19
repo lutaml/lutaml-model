@@ -91,6 +91,7 @@ module Lutaml
       def text?
         # Use node_type for actual text/cdata nodes
         return true if @node_type == :text || @node_type == :cdata
+
         # For elements, check structural properties
         children.empty? && text.length.positive?
       end
