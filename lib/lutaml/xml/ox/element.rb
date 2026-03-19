@@ -89,6 +89,7 @@ module Lutaml
         # which properly escapes entities
         if text?
           return @node.to_xml if @node.respond_to?(:to_xml)
+
           return text
         end
 

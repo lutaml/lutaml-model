@@ -24,19 +24,13 @@ module Lutaml
       # - :processing_instruction - processing instruction
       NODE_TYPES = %i[element text cdata comment processing_instruction].freeze
 
-      attr_reader :attributes,
-                  :children,
-                  :namespace_prefix,
-                  :parent_document,
-                  :node_type
-
-      attr_accessor :adapter_node
+      attr_accessor :children, :adapter_node
+      attr_reader :attributes, :namespace_prefix, :parent_document, :node_type
 
       # Cache for order method - invalidated when children change
       attr_writer :order_cache
 
       # Performance: Invalidate child index when children are set
-      attr_writer :children
 
       # Detect if xmlns="" is explicitly set (W3C explicit no namespace)
       # This is a helper method for adapters to use during element initialization
@@ -87,7 +81,8 @@ module Lutaml
       # @parent_document and @adapter_node because they were causing
       # so much repeatative output.
       def pretty_print_instance_variables
-        (instance_variables - %i[@adapter_node @parent_document @children_index]).sort
+        (instance_variables - %i[@adapter_node @parent_document
+                                 @children_index]).sort
       end
 
       # Check if this is a text content node
