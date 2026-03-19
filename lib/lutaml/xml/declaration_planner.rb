@@ -774,7 +774,9 @@ module Lutaml
           attrs = mapper_class.attributes
           attr_def = attrs[xml_attr.name.to_sym] || attrs[xml_attr.name.to_s]
           if attr_def
-            attr_mapping_rule = mapping.attributes.find { |r| r.to == attr_def.name }
+            attr_mapping_rule = mapping.attributes.find do |r|
+              r.to == attr_def.name
+            end
           end
         end
 
