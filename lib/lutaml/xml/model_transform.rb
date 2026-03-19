@@ -62,7 +62,7 @@ module Lutaml
         end
 
         # Transfer input namespaces if present (Issue #3: Namespace Preservation)
-        if doc.respond_to?(:input_namespaces) && doc.input_namespaces&.any?
+        if doc.is_a?(::Lutaml::Xml::InputNamespacesCapable) && doc.input_namespaces&.any?
           instance.instance_variable_set(:@__input_namespaces,
                                          doc.input_namespaces)
         end
@@ -176,13 +176,14 @@ module Lutaml
         visited.add(element.object_id)
 
         # Performance: Get own namespaces first
-        # input_namespaces is only available on certain adapter elements
-        own_ns = if element.respond_to?(:input_namespaces) && element.input_namespaces
+        # Note: Using is_a?(InputNamespacesCapable) because both Document and Element classes include the marker
+        own_ns = if element.is_a?(::Lutaml::Xml::InputNamespacesCapable) && element.input_namespaces
                    element.input_namespaces
                  end
 
         # Performance: Early return if no children to recurse
-        children = element.children
+        # All XmlElement subclasses have children method
+        children = element.respond_to?(:children) ? element.children : []
         if children.empty?
           return own_ns || EMPTY_HASH
         end
@@ -190,7 +191,7 @@ module Lutaml
         # Start with own namespaces
         namespaces = own_ns ? own_ns.dup : {}
 
-        # Recursively collect from children
+        # Recursively collect from children (use cached children variable)
         children.each do |child|
           next if child.is_a?(String) # Skip text nodes
 
@@ -222,8 +223,8 @@ result = {}, visited = Set.new)
         visited.add(element.object_id)
 
         # Get namespaces declared on THIS element only
-        # input_namespaces is only available on certain adapter elements
-        own_ns = if element.respond_to?(:input_namespaces) && element.input_namespaces
+        # Note: Using is_a?(InputNamespacesCapable) because both Document and Element classes include the marker
+        own_ns = if element.is_a?(::Lutaml::Xml::InputNamespacesCapable) && element.input_namespaces
                    element.input_namespaces
                  end
 

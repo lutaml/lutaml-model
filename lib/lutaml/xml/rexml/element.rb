@@ -55,11 +55,15 @@ module Lutaml
         end
 
         def to_xml(builder = Builder::Rexml.build)
-          # For text and cdata nodes, return the text content directly
-          return text if text? || cdata?
-
-          build_xml(builder).to_xml
+        # For text and cdata nodes, use the native serialization
+        # which properly escapes entities
+        if text? || cdata?
+          return @node.to_xml if @node.respond_to?(:to_xml)
+          return text
         end
+
+        build_xml(builder).to_xml
+      end
 
         def build_xml(builder = Builder::Rexml.build)
           if cdata?

@@ -4,6 +4,7 @@ module Lutaml
   module Xml
     class NokogiriElement < XmlElement
       include Nokogiri::EntityResolver
+      include InputNamespacesCapable  # Marker for input_namespaces capability
 
       # Performance: Frozen empty collections to reduce allocations
       EMPTY_NAMESPACES = {}.freeze
@@ -155,7 +156,9 @@ module Lutaml
       end
 
       def to_xml
-        return text if text?
+        # For text/cdata nodes, use the native Nokogiri serialization
+        # which properly escapes entities
+        return @adapter_node.to_xml if text? && @adapter_node.respond_to?(:to_xml)
 
         build_xml.doc.root.to_xml
       end

@@ -13,6 +13,9 @@ module Lutaml
       # Performance: Frozen empty hash to reduce allocations
       EMPTY_NAMESPACES = {}.freeze
 
+      # Performance: Frozen empty array for child lookups
+      EMPTY_CHILDREN_ARRAY = [].freeze
+
       # Node types for XML elements
       # - :element - regular XML element
       # - :text - text content node
@@ -31,6 +34,9 @@ module Lutaml
 
       # Cache for order method - invalidated when children change
       attr_writer :order_cache
+
+      # Performance: Invalidate child index when children are set
+      attr_writer :children
 
       # Detect if xmlns="" is explicitly set (W3C explicit no namespace)
       # This is a helper method for adapters to use during element initialization
@@ -70,11 +76,18 @@ module Lutaml
         self.adapter_node = node
       end
 
+      # Performance: Override children= to invalidate caches
+      def children=(new_children)
+        @children = new_children
+        @children_index = nil
+        @order_cache = nil
+      end
+
       # This tells which attributes to pretty print, So we remove the
       # @parent_document and @adapter_node because they were causing
       # so much repeatative output.
       def pretty_print_instance_variables
-        (instance_variables - %i[@adapter_node @parent_document]).sort
+        (instance_variables - %i[@adapter_node @parent_document @children_index]).sort
       end
 
       # Check if this is a text content node
@@ -244,16 +257,44 @@ module Lutaml
         end
       end
 
+      # Performance: Build index for O(1) child lookups by name
+      # Called once per element, then reused for all lookups
+      def ensure_children_index
+        return if @children_index
+
+        @children_index = {}
+        @children.each do |child|
+          key = child.namespaced_name
+          @children_index[key] ||= []
+          @children_index[key] << child
+        end
+      end
+
+      # Find children by namespaced name using indexed lookup
+      # Performance: O(1) for single name, O(k) for k names
       def find_children_by_name(name)
+        ensure_children_index
+
         if name.is_a?(Array)
-          children.select { |child| name.include?(child.namespaced_name) }
+          # Multiple names: collect from index
+          name.flat_map { |n| @children_index[n] || EMPTY_CHILDREN_ARRAY }
         else
-          children.select { |child| child.namespaced_name == name }
+          @children_index[name] || EMPTY_CHILDREN_ARRAY
         end
       end
 
       def find_child_by_name(name)
-        find_children_by_name(name).first
+        ensure_children_index
+
+        if name.is_a?(Array)
+          name.each do |n|
+            found = @children_index[n]&.first
+            return found if found
+          end
+          nil
+        else
+          @children_index[name]&.first
+        end
       end
 
       def to_h

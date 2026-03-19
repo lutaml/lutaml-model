@@ -4,6 +4,8 @@ module Lutaml
   module Xml
     module Oga
       class Element < XmlElement
+        include InputNamespacesCapable  # Marker for input_namespaces capability
+
         # Use NamespaceData for adapter-internal namespace data
         NamespaceData = Lutaml::Xml::Adapter::NamespaceData
 

@@ -1,6 +1,8 @@
 module Lutaml
   module Xml
     class Document
+      include InputNamespacesCapable  # Marker for input_namespaces capability
+
       attr_reader :root, :encoding, :register, :doctype, :parsed_doc,
                   :input_namespaces, :xml_declaration
 
