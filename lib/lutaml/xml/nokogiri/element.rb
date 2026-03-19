@@ -25,6 +25,16 @@ module Lutaml
                 "This usually means the XML document has no root element."
         end
 
+        # Determine node type from Nokogiri's classification
+        # This is the authoritative source - not inferred from name
+        # IMPORTANT: Check CDATA before Text because CDATA inherits from Text
+        node_type = case node
+                    when ::Nokogiri::XML::CDATA then :cdata
+                    when ::Nokogiri::XML::Text then :text
+                    when ::Nokogiri::XML::Comment then :comment
+                    else :element
+                    end
+
         # Collect namespaces declared on THIS element only
         # Each element stores its own namespace declarations, not siblings'
         # Child elements inherit from parent_document.namespaces (see XmlElement#namespaces)
@@ -70,12 +80,18 @@ module Lutaml
           parent_document: root_node,
           namespace_prefix: node.namespace&.prefix,
           default_namespace: default_namespace,
-          explicit_no_namespace: explicit_no_namespace
+          explicit_no_namespace: explicit_no_namespace,
+          node_type: node_type
         )
       end
 
+      # Override text? for Nokogiri-specific structural check
+      # A text node has no children and has text content
+      # This is used for elements that have text content but are named "text" (like SVG)
       def text?
-        # false
+        # Use node_type for actual text/cdata nodes
+        return true if @node_type == :text || @node_type == :cdata
+        # For elements, check structural properties
         children.empty? && text.length.positive?
       end
 
@@ -150,10 +166,16 @@ module Lutaml
       def build_xml(builder = nil)
         builder ||= Builder::Nokogiri.build
 
-        if text?
-          builder.add_text(builder, text)
+        if cdata?
+          # CDATA sections are handled differently
+          # For now, treat them as text since Nokogiri builder handles CDATA
+          builder.text(text)
+        elsif text? && @node_type == :text
+          # Only actual text nodes (not elements named "text") get text output
+          builder.text(text)
         else
-          builder.create_and_add_element(name, attributes: build_attributes(self)) do |xml|
+          # Regular elements (including those named "text")
+          builder.public_send(name, build_attributes(self)) do |xml|
             children.each do |child|
               child.build_xml(xml)
             end

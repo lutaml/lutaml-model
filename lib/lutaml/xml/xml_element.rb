@@ -13,13 +13,24 @@ module Lutaml
       # Performance: Frozen empty hash to reduce allocations
       EMPTY_NAMESPACES = {}.freeze
 
-      attr_accessor :children, :adapter_node
-      attr_reader :attributes, :namespace_prefix, :parent_document
+      # Node types for XML elements
+      # - :element - regular XML element
+      # - :text - text content node
+      # - :cdata - CDATA section
+      # - :comment - XML comment
+      # - :processing_instruction - processing instruction
+      NODE_TYPES = %i[element text cdata comment processing_instruction].freeze
+
+      attr_reader :attributes,
+                  :children,
+                  :namespace_prefix,
+                  :parent_document,
+                  :node_type
+
+      attr_accessor :adapter_node
 
       # Cache for order method - invalidated when children change
       attr_writer :order_cache
-
-      # Performance: Invalidate child index when children are set
 
       # Detect if xmlns="" is explicitly set (W3C explicit no namespace)
       # This is a helper method for adapters to use during element initialization
@@ -41,7 +52,8 @@ module Lutaml
       parent_document: nil,
       namespace_prefix: nil,
       default_namespace: nil,
-      explicit_no_namespace: false
+      explicit_no_namespace: false,
+      node_type: nil
       )
         @name = name
         @namespace_prefix = namespace_prefix
@@ -51,18 +63,11 @@ module Lutaml
         @parent_document = parent_document
         @default_namespace = default_namespace
         @explicit_no_namespace = explicit_no_namespace
-        @children_index = nil
-        @children_count = nil
+        # Set node_type, defaulting to :element
+        # Backward compatibility: infer from name if node_type not provided
+        @node_type = node_type || infer_node_type_from_name(name)
 
         self.adapter_node = node
-      end
-
-      # Performance: Override children= to invalidate caches
-      def children=(new_children)
-        @children = new_children
-        @children_index = nil
-        @children_count = nil
-        @order_cache = nil
       end
 
       # This tells which attributes to pretty print, So we remove the
@@ -72,34 +77,54 @@ module Lutaml
         (instance_variables - %i[@adapter_node @parent_document]).sort
       end
 
+      # Check if this is a text content node
+      # Uses explicit node_type instead of name-based detection
       def text?
-        # A text node is one with name "text" that has no element children
-        # and contains actual text content. This distinguishes actual XML text nodes
-        # from XML elements named "text" (like SVG's <text> element) which may have
-        # children, attributes, or complex content.
-        return false unless @name == "text"
-        return false if @text.nil? || @text.to_s.empty?
-        return true if children_count.to_i.zero?
+        @node_type == :text
+      end
 
-        # If has children, check if they're all text nodes (no element children)
-        children.all? { |c| c.respond_to?(:text?) && c.text? }
+      # Check if this is a CDATA section
+      def cdata?
+        @node_type == :cdata
+      end
+
+      # Check if this is a comment node
+      def comment?
+        @node_type == :comment
+      end
+
+      # Check if this is a regular element (not text/cdata/comment)
+      def element?
+        @node_type == :element
+      end
+
+      # Check if this is a processing instruction
+      def processing_instruction?
+        @node_type == :processing_instruction
+      end
+
+      # Backward compatibility: infer node_type from name
+      # This allows old code that doesn't pass node_type to still work
+      private def infer_node_type_from_name(name)
+        case name
+        when "text" then :text
+        when "#cdata-section" then :cdata
+        when "comment" then :comment
+        when "processing_instruction" then :processing_instruction
+        else :element
+        end
       end
 
       def name
-        return @cached_name if @cached_name
+        return @name unless namespace_prefix
 
-        @cached_name = if namespace_prefix
-                         "#{namespace_prefix}:#{@name}"
-                       else
-                         @name
-                       end
+        "#{namespace_prefix}:#{@name}"
       end
 
       def namespaced_name
-        return @namespaced_name if @namespaced_name
-        return @namespaced_name = @name if text?
+        return @name if text?
         # If xmlns="" was explicitly set, element has NO namespace
-        return @namespaced_name = @name if @explicit_no_namespace
+        return @name if @explicit_no_namespace
 
         # Priority order for namespace resolution:
         # 1. If has explicit prefix, use namespaces[prefix]
@@ -107,15 +132,15 @@ module Lutaml
         # 3. Fall back to namespaces[nil] if exists
         # 4. Return unprefixed name
 
-        @namespaced_name = if namespace_prefix && namespaces[namespace_prefix]
-                             "#{namespaces[namespace_prefix].uri}:#{@name}"
-                           elsif @default_namespace
-                             "#{@default_namespace}:#{@name}"
-                           elsif namespaces[nil]
-                             "#{namespaces[nil].uri}:#{@name}"
-                           else
-                             @name
-                           end
+        if namespace_prefix && namespaces[namespace_prefix]
+          "#{namespaces[namespace_prefix].uri}:#{@name}"
+        elsif @default_namespace
+          "#{@default_namespace}:#{@name}"
+        elsif namespaces[nil]
+          "#{namespaces[nil].uri}:#{@name}"
+        else
+          @name
+        end
       end
 
       def unprefixed_name
@@ -167,10 +192,24 @@ module Lutaml
             # For text nodes:
             # - name is "text" for backward compatibility with tests
             # - text_content contains the actual text for round-trip serialization
+            # - node_type explicitly marks this as a text node
             Lutaml::Xml::Element.new("Text", "text",
-                                     text_content: child.text)
+                                     text_content: child.text,
+                                     node_type: :text)
+          elsif child.cdata?
+            # For CDATA sections:
+            # - name is "#cdata-section" for backward compatibility
+            # - text_content contains the actual CDATA content
+            # - node_type explicitly marks this as CDATA
+            Lutaml::Xml::Element.new("Text", "#cdata-section",
+                                     text_content: child.text,
+                                     node_type: :cdata)
           else
-            Lutaml::Xml::Element.new("Element", child.unprefixed_name)
+            # For regular elements:
+            # - name is the actual element name
+            # - node_type explicitly marks this as an element
+            Lutaml::Xml::Element.new("Element", child.unprefixed_name,
+                                     node_type: :element)
           end
         end
       end
@@ -180,30 +219,25 @@ module Lutaml
       end
 
       def text
-        return @text if children_count.zero?
-        return text_children.map(&:text) if children_count > 1
+        return @text if children.empty?
+        return text_children.map(&:text) if children.count > 1
 
         text_children.map(&:text).join
       end
 
       def cdata
-        return @text if children_count.zero?
-        return cdata_children.map(&:text) if children_count > 1
+        return @text if children.empty?
+        return cdata_children.map(&:text) if children.count > 1
 
         cdata_children.map(&:text).join
       end
 
-      # Performance: Cache children count to avoid repeated calls
-      def children_count
-        @children_count ||= @children.count
-      end
-
       def cdata_children
-        find_children_by_name(CDATA_NODE_NAME)
+        children.select(&:cdata?)
       end
 
       def text_children
-        find_children_by_name(TEXT_NODE_NAME)
+        children.select { |child| child.text? && !child.cdata? }
       end
 
       def [](name)
@@ -222,42 +256,16 @@ module Lutaml
         end
       end
 
-      # Performance: Build index for O(1) child lookups by name
-      # Called once per element, then reused for all lookups
-      def ensure_children_index
-        return if @children_index
-
-        @children_index = {}
-        @children.each do |child|
-          key = child.namespaced_name
-          @children_index[key] ||= []
-          @children_index[key] << child
-        end
-      end
-
       def find_children_by_name(name)
-        ensure_children_index
-
         if name.is_a?(Array)
-          # Multiple names: collect from index
-          name.flat_map { |n| @children_index[n] || [] }
+          children.select { |child| name.include?(child.namespaced_name) }
         else
-          @children_index[name] || []
+          children.select { |child| child.namespaced_name == name }
         end
       end
 
       def find_child_by_name(name)
-        ensure_children_index
-
-        if name.is_a?(Array)
-          name.each do |n|
-            found = @children_index[n]&.first
-            return found if found
-          end
-          nil
-        else
-          @children_index[name]&.first
-        end
+        find_children_by_name(name).first
       end
 
       def to_h

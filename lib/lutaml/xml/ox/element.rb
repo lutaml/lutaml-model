@@ -9,11 +9,11 @@ module Lutaml
       def initialize(node, root_node: nil, default_namespace: nil)
         case node
         when String
-          super("text", {}, [], EncodingNormalizer.normalize_to_utf8(node), parent_document: root_node, name: "text", explicit_no_namespace: false)
+          super("text", {}, [], EncodingNormalizer.normalize_to_utf8(node), parent_document: root_node, name: "text", explicit_no_namespace: false, node_type: :text)
         when Ox::Comment
-          super("comment", {}, [], EncodingNormalizer.normalize_to_utf8(node.value), parent_document: root_node, name: "comment", explicit_no_namespace: false)
+          super("comment", {}, [], EncodingNormalizer.normalize_to_utf8(node.value), parent_document: root_node, name: "comment", explicit_no_namespace: false, node_type: :comment)
         when Ox::CData
-          super("#cdata-section", {}, [], EncodingNormalizer.normalize_to_utf8(node.value), parent_document: root_node, name: "#cdata-section", explicit_no_namespace: false)
+          super("#cdata-section", {}, [], EncodingNormalizer.normalize_to_utf8(node.value), parent_document: root_node, name: "#cdata-section", explicit_no_namespace: false, node_type: :cdata)
         else
           # Check for xmlns="" in node's attributes before processing
           has_empty_xmlns = node.attributes[:xmlns] == ""
@@ -68,7 +68,8 @@ module Lutaml
             name: name,
             namespace_prefix: prefix,
             default_namespace: default_namespace,
-            explicit_no_namespace: explicit_no_namespace
+            explicit_no_namespace: explicit_no_namespace,
+            node_type: :element
           )
         end
       end
@@ -98,9 +99,14 @@ module Lutaml
         builder ||= Builder::Ox.build
         attrs = build_attributes(self)
 
-        if text?
+        if cdata?
+          # CDATA sections - output as CDATA-wrapped text
+          builder.add_text(builder, text, cdata: true)
+        elsif text? && !element?
+          # Only actual text nodes (not elements named "text")
           builder.add_text(builder, text)
         else
+          # Regular elements (including those named "text")
           builder.create_and_add_element(name, attributes: attrs) do |el|
             children.each { |child| child.build_xml(el) }
           end
@@ -114,8 +120,8 @@ module Lutaml
       end
 
       def text?
-        # false
-        children.empty? && text&.length&.positive?
+        # Text nodes have node_type == :text or :cdata
+        [:text, :cdata].include?(@node_type)
       end
 
       def build_attributes(node)

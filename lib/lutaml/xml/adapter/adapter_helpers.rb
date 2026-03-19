@@ -35,6 +35,28 @@ module Lutaml
           end
         end
 
+        # Get the node type of an XML element
+        #
+        # This returns the actual node type based on the underlying library's
+        # classification, not inferred from the element name.
+        #
+        # @param element [Moxml::Element, Moxml::Text, Moxml::Cdata, nil] The element
+        # @return [Symbol, nil] The node type (:element, :text, :cdata, :comment, :processing_instruction)
+        def node_type_of(element)
+          return nil if element.nil?
+
+          case element
+          when Moxml::Text
+            :text
+          when Moxml::Cdata
+            :cdata
+          when Moxml::ProcessingInstruction
+            :processing_instruction
+          else
+            :element
+          end
+        end
+
         # Get the prefixed name of an XML node
         #
         # @param node [Moxml::Node] The XML node
@@ -83,9 +105,9 @@ module Lutaml
         # @return [Element] The Element object
         def build_element_from_child(child)
           if text_node?(child)
-            Element.new("Text", "text")
+            Element.new("Text", "text", node_type: :text)
           else
-            Element.new("Element", name_of(child))
+            Element.new("Element", name_of(child), node_type: :element)
           end
         end
       end
