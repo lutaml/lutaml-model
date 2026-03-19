@@ -343,7 +343,8 @@ module Lutaml
             curr_index = index_hash[object_key] += 1
 
             element_rule = xml_mapping.find_by_name(object.name,
-                                                    type: object.type)
+                                                    type: object.type,
+                                                    node_type: object.node_type)
             next if element_rule.nil? || options[:except]&.include?(element_rule.to)
 
             # Handle custom methods

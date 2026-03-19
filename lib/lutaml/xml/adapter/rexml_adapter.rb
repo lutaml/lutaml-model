@@ -788,7 +788,8 @@ module Lutaml
                                   index_hash, content, options)
           curr_index = increment_object_index(index_hash, object)
           element_rule = xml_mapping.find_by_name(object.name,
-                                                  type: object.type)
+                                                  type: object.type,
+                                                  node_type: object.node_type)
 
           return if skip_element_rule?(element_rule, options)
 

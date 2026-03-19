@@ -12,6 +12,13 @@ module Lutaml
         def initialize(node, parent: nil, target_encoding: nil)
           @target_encoding = target_encoding || (parent.is_a?(Element) ? parent.target_encoding : nil)
 
+          # Determine node type from Moxml classification
+          node_type = case node
+                      when Moxml::Text then :text
+                      when Moxml::Cdata then :cdata
+                      else :element
+                      end
+
           text = case node
                  when Moxml::Element
                    namespace_name = node.namespace&.prefix
@@ -33,11 +40,13 @@ module Lutaml
             name: name,
             parent_document: parent,
             namespace_prefix: namespace_name,
+            node_type: node_type
           )
         end
 
         def text?
-          children.empty? && text&.length&.positive?
+          # Text nodes have node_type == :text or :cdata
+          [:text, :cdata].include?(@node_type)
         end
 
         def text
@@ -47,17 +56,20 @@ module Lutaml
 
         def to_xml(builder = Builder::Rexml.build)
           # For text and cdata nodes, return the text content directly
-          return text if ["text", "#cdata-section"].include?(name)
+          return text if text? || cdata?
 
           build_xml(builder).to_xml
         end
 
         def build_xml(builder = Builder::Rexml.build)
-          if text?
-            builder.add_text(builder.current_node, text)
-          elsif name == "#cdata-section"
+          if cdata?
+            # CDATA sections
             builder.add_text(builder.current_node, text, cdata: true)
+          elsif text? && !element?
+            # Only actual text nodes (not elements named "text")
+            builder.add_text(builder.current_node, text)
           else
+            # Regular elements (including those named "text")
             builder.create_and_add_element(name,
                                            attributes: build_attributes_hash) do |xml|
               children.each do |child|

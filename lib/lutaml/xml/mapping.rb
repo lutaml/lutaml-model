@@ -911,8 +911,12 @@ module Lutaml
         attributes.detect { |rule| name == rule.to }
       end
 
-      def find_by_name(name, type: "Text")
-        if ["text", "#cdata-section"].include?(name.to_s) && type == "Text"
+      def find_by_name(name, type: "Text", node_type: nil)
+        # If node_type is provided, use it for type detection (preferred)
+        if node_type && [:text, :cdata].include?(node_type)
+          content_mapping
+        # Backward compatibility: still check name for old code that doesn't pass node_type
+        elsif ["text", "#cdata-section"].include?(name.to_s) && type == "Text"
           content_mapping
         else
           mappings.detect do |rule|

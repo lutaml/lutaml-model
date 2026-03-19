@@ -3,21 +3,40 @@ module Lutaml
     class Element
       include Lutaml::Model::Liquefiable
 
-      attr_reader :type, :name, :text_content
+      attr_reader :type, :name, :text_content, :node_type
 
-      def initialize(type, name, text_content: nil)
-        @type = type
+      # Create a new Element for order tracking
+      #
+      # @param type [String] "Text" or "Element" (deprecated, use node_type)
+      # @param name [String] The element name or text marker
+      # @param text_content [String, nil] Actual text content for text nodes
+      # @param node_type [Symbol, nil] The node type (:text, :cdata, :element, :comment)
+      def initialize(type, name, text_content: nil, node_type: nil)
+        @type = type  # "Text" or "Element" - deprecated, kept for backward compatibility
         @name = name
         # For text nodes, store both marker ("text") and actual content
         @text_content = text_content || name
+        # Infer node_type from type for backward compatibility if not provided
+        @node_type = node_type || infer_node_type(type, name)
       end
 
+      # Check if this is a text content node (not CDATA)
       def text?
-        @type == "Text" && @name != "#cdata-section"
+        @node_type == :text
+      end
+
+      # Check if this is a CDATA section
+      def cdata?
+        @node_type == :cdata
+      end
+
+      # Check if this is a regular element
+      def element?
+        @node_type == :element
       end
 
       def element_tag
-        @name unless text?
+        @name unless text? || cdata?
       end
 
       def eql?(other)
@@ -40,8 +59,15 @@ module Lutaml
 
       private
 
+      # Infer node_type from legacy type/name parameters
+      def infer_node_type(type, name)
+        return :text if type == "Text" && name != "#cdata-section"
+        return :cdata if name == "#cdata-section" || (type == "Text" && name == "#cdata-section")
+        :element
+      end
+
       def register_liquid_methods
-        %i[text? element_tag type name text_content].each do |attr_name|
+        %i[text? element_tag type name text_content node_type cdata?].each do |attr_name|
           self.class.register_drop_method(attr_name)
         end
 

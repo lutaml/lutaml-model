@@ -12,6 +12,13 @@ module Lutaml
         def initialize(node, parent: nil, default_namespace: nil)
           explicit_no_namespace = false
 
+          # Determine node type from Moxml classification
+          node_type = case node
+                      when Moxml::Text then :text
+                      when Moxml::Cdata then :cdata
+                      else :element
+                      end
+
           text = case node
                  when Moxml::Element
                    namespace_name = node.namespace&.prefix
@@ -52,12 +59,14 @@ module Lutaml
             parent_document: parent,
             namespace_prefix: namespace_name,
             default_namespace: default_namespace,
-            explicit_no_namespace: explicit_no_namespace
+            explicit_no_namespace: explicit_no_namespace,
+            node_type: node_type
           )
         end
 
         def text?
-          children.empty? && text&.length&.positive?
+          # Text nodes have node_type == :text or :cdata
+          [:text, :cdata].include?(@node_type)
         end
 
         def text
@@ -69,9 +78,14 @@ module Lutaml
         end
 
         def build_xml(builder = Builder::Oga.build)
-          if text?
+          if cdata?
+            # CDATA sections
+            builder.add_text(builder.current_node, @text, cdata: true)
+          elsif text? && !element?
+            # Only actual text nodes (not elements named "text")
             builder.add_text(builder.current_node, @text)
           else
+            # Regular elements (including those named "text")
             builder.create_element(name, build_attributes(self)) do |xml|
               children.each { |child| child.build_xml(xml) }
             end
