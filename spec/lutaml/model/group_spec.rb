@@ -419,7 +419,8 @@ RSpec.describe "Group" do
         attr = GroupSpec::Mrow.attributes[:mstyle]
         attr.instance_variable_set(:@type, :integer)
         attr.instance_variable_set(:@unresolved_type, nil) # Clear unresolved_type cache
-        attr.instance_variable_set(:@type_cache, {}) # Clear type cache
+        attr.instance_variable_set(:@cached_type_default, nil) # Clear performance cache
+        attr.instance_variable_set(:@default_type_context, nil) # Clear context cache
         expect(GroupSpec::Mrow.attributes[:mstyle].type).to eq(Lutaml::Model::Type::Integer)
       end
 
