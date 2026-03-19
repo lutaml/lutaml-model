@@ -204,6 +204,9 @@ module Lutaml
         self.class.new(
           name.dup,
           to: to,
+          treat_nil: @treat_nil,
+          treat_empty: @treat_empty,
+          treat_omitted: @treat_omitted,
           render_nil: render_nil,
           render_default: render_default,
           with: ::Lutaml::Model::Utils.deep_dup(custom_methods),
