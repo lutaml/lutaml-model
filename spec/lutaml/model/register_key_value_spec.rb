@@ -84,9 +84,18 @@ RSpec.describe "RegisterKeyValueSpec" do
       next unless klass.respond_to?(:attributes)
 
       klass.attributes.each_value do |attr|
-        attr.instance_variable_set(:@cached_type_default, nil) if attr.instance_variable_defined?(:@cached_type_default)
-        attr.instance_variable_set(:@default_type_context, nil) if attr.instance_variable_defined?(:@default_type_context)
-        attr.instance_variable_set(:@unresolved_type, nil) if attr.instance_variable_defined?(:@unresolved_type)
+        if attr.instance_variable_defined?(:@cached_type_default)
+          attr.instance_variable_set(:@cached_type_default,
+                                     nil)
+        end
+        if attr.instance_variable_defined?(:@default_type_context)
+          attr.instance_variable_set(:@default_type_context,
+                                     nil)
+        end
+        if attr.instance_variable_defined?(:@unresolved_type)
+          attr.instance_variable_set(:@unresolved_type,
+                                     nil)
+        end
       end
     end
   end
