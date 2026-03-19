@@ -85,7 +85,12 @@ module Lutaml
       end
 
       def to_xml
-        return text if text?
+        # For text and cdata nodes, use the native serialization
+        # which properly escapes entities
+        if text?
+          return @node.to_xml if @node.respond_to?(:to_xml)
+          return text
+        end
 
         build_xml.xml.to_s
       end
