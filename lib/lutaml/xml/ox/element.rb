@@ -121,7 +121,7 @@ module Lutaml
 
       def text?
         # Text nodes have node_type == :text or :cdata
-        [:text, :cdata].include?(@node_type)
+        %i[text cdata].include?(@node_type)
       end
 
       def build_attributes(node)

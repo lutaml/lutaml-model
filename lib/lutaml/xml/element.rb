@@ -12,7 +12,7 @@ module Lutaml
       # @param text_content [String, nil] Actual text content for text nodes
       # @param node_type [Symbol, nil] The node type (:text, :cdata, :element, :comment)
       def initialize(type, name, text_content: nil, node_type: nil)
-        @type = type  # "Text" or "Element" - deprecated, kept for backward compatibility
+        @type = type # "Text" or "Element" - deprecated, kept for backward compatibility
         @name = name
         # For text nodes, store both marker ("text") and actual content
         @text_content = text_content || name
@@ -63,11 +63,13 @@ module Lutaml
       def infer_node_type(type, name)
         return :text if type == "Text" && name != "#cdata-section"
         return :cdata if name == "#cdata-section" || (type == "Text" && name == "#cdata-section")
+
         :element
       end
 
       def register_liquid_methods
-        %i[text? element_tag type name text_content node_type cdata?].each do |attr_name|
+        %i[text? element_tag type name text_content node_type
+           cdata?].each do |attr_name|
           self.class.register_drop_method(attr_name)
         end
 

@@ -103,18 +103,6 @@ module Lutaml
         @node_type == :processing_instruction
       end
 
-      # Backward compatibility: infer node_type from name
-      # This allows old code that doesn't pass node_type to still work
-      private def infer_node_type_from_name(name)
-        case name
-        when "text" then :text
-        when "#cdata-section" then :cdata
-        when "comment" then :comment
-        when "processing_instruction" then :processing_instruction
-        else :element
-        end
-      end
-
       def name
         return @name unless namespace_prefix
 
@@ -274,6 +262,20 @@ module Lutaml
 
       def nil_element?
         find_attribute_value("xsi:nil") == "true"
+      end
+
+      private
+
+      # Backward compatibility: infer node_type from name
+      # This allows old code that doesn't pass node_type to still work
+      def infer_node_type_from_name(name)
+        case name
+        when "text" then :text
+        when "#cdata-section" then :cdata
+        when "comment" then :comment
+        when "processing_instruction" then :processing_instruction
+        else :element
+        end
       end
     end
   end
