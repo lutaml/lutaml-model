@@ -183,7 +183,7 @@ module Lutaml
       def order
         return @order_cache if @order_cache
 
-        @order_cache = children.map do |child|
+        @order_cache = children.filter_map do |child|
           if child.text?
             # For text nodes:
             # - name is "text" for backward compatibility with tests
@@ -200,6 +200,9 @@ module Lutaml
             Lutaml::Xml::Element.new("Text", "#cdata-section",
                                      text_content: child.text,
                                      node_type: :cdata)
+          elsif child.comment?
+            # Skip comments - they're not part of schema element order
+            nil
           else
             # For regular elements:
             # - name is the actual element name
