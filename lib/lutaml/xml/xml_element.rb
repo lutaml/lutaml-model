@@ -6,25 +6,20 @@ module Lutaml
       XML_NAMESPACE_URI = "http://www.w3.org/XML/1998/namespace"
 
       # Performance: Frozen string constants for frequently used values
-      TEXT_NODE_NAME = "text".freeze
-      CDATA_NODE_NAME = "#cdata-section".freeze
-      XMLNS_PREFIX = "xmlns".freeze
+      TEXT_NODE_NAME = "text"
+      CDATA_NODE_NAME = "#cdata-section"
+      XMLNS_PREFIX = "xmlns"
 
       # Performance: Frozen empty hash to reduce allocations
       EMPTY_NAMESPACES = {}.freeze
 
-      attr_reader :attributes,
-                  :children,
-                  :namespace_prefix,
-                  :parent_document
-
-      attr_accessor :adapter_node
+      attr_accessor :children, :adapter_node
+      attr_reader :attributes, :namespace_prefix, :parent_document
 
       # Cache for order method - invalidated when children change
       attr_writer :order_cache
 
       # Performance: Invalidate child index when children are set
-      attr_writer :children
 
       # Detect if xmlns="" is explicitly set (W3C explicit no namespace)
       # This is a helper method for adapters to use during element initialization
@@ -85,10 +80,10 @@ module Lutaml
         return @cached_name if @cached_name
 
         @cached_name = if namespace_prefix
-          "#{namespace_prefix}:#{@name}"
-        else
-          @name
-        end
+                         "#{namespace_prefix}:#{@name}"
+                       else
+                         @name
+                       end
       end
 
       def namespaced_name
@@ -104,14 +99,14 @@ module Lutaml
         # 4. Return unprefixed name
 
         @namespaced_name = if namespace_prefix && namespaces[namespace_prefix]
-          "#{namespaces[namespace_prefix].uri}:#{@name}"
-        elsif @default_namespace
-          "#{@default_namespace}:#{@name}"
-        elsif namespaces[nil]
-          "#{namespaces[nil].uri}:#{@name}"
-        else
-          @name
-        end
+                             "#{namespaces[namespace_prefix].uri}:#{@name}"
+                           elsif @default_namespace
+                             "#{@default_namespace}:#{@name}"
+                           elsif namespaces[nil]
+                             "#{namespaces[nil].uri}:#{@name}"
+                           else
+                             @name
+                           end
       end
 
       def unprefixed_name
@@ -133,13 +128,13 @@ module Lutaml
       end
 
       def namespace
-        return @cached_namespace if defined?(@cached_namespace)
+        return @namespace if defined?(@namespace)
 
-        @cached_namespace = if namespace_prefix
-          namespaces[namespace_prefix]
-        else
-          default_namespace
-        end
+        @namespace = if namespace_prefix
+                       namespaces[namespace_prefix]
+                     else
+                       default_namespace
+                     end
       end
 
       def attribute_is_namespace?(name)

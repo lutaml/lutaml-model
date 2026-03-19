@@ -19,7 +19,7 @@ module Lutaml
       #
       # @return [Boolean] true if attribute is a collection
       def collection?
-        @is_collection ||= collection || false
+        @collection ||= collection || false
       end
 
       # Check if this attribute is a singular (non-collection) value
@@ -27,7 +27,7 @@ module Lutaml
       #
       # @return [Boolean] true if attribute is not a collection
       def singular?
-        @is_singular ||= !collection?
+        @singular ||= !collection?
       end
 
       # Get the collection class to use for this attribute
@@ -59,17 +59,17 @@ module Lutaml
       #
       # @return [Boolean] true if using a custom collection class
       def custom_collection?
-        return @is_custom_collection if defined?(@is_custom_collection)
+        return @custom_collection if defined?(@custom_collection)
 
-        @is_custom_collection = if singular?
-          false
-        elsif collection == true
-          false
-        elsif collection.is_a?(Range)
-          false
-        else
-          collection <= Lutaml::Model::Collection
-        end
+        @custom_collection = if singular?
+                               false
+                             elsif collection == true
+                               false
+                             elsif collection.is_a?(Range)
+                               false
+                             else
+                               collection <= Lutaml::Model::Collection
+                             end
       end
 
       # Get the resolved collection range
