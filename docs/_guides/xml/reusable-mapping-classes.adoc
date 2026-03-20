@@ -1,0 +1,181 @@
+---
+title: Reusable XML Mapping Classes
+nav_order: 7
+parent: xml-mappings-guide
+---
+
+= Reusable XML Mapping Classes
+:toc:
+:toclevels: 3
+
+== Overview
+
+Reusable XML mapping classes allow you to define XML mappings in a separate class
+that can be shared across multiple model classes. This pattern promotes code reuse
+and eliminates the need for eval hacks or other anti-patterns.
+
+== Defining a Reusable Mapping Class
+
+Create a class that inherits from `Lutaml::Xml::Mapping` and define your mappings
+in an `xml do...end` block:
+
+[source,ruby]
+----
+class BaseMapping < Lutaml::Xml::Mapping
+  xml do
+    # Set the default namespace for element name resolution
+    namespace MyNamespace
+
+    # Declare additional namespaces used in documents
+    namespace_scope [
+      MyNamespace,
+      AnotherNamespace
+    ]
+
+    # Define element mappings
+    map_element "Extension", to: :extension
+    map_element "Model", to: :model
+    map_element "Documentation", to: :documentation
+  end
+end
+----
+
+== Using a Reusable Mapping Class
+
+In your model class, reference the mapping class:
+
+[source,ruby]
+----
+class MyRoot < Lutaml::Model::Serializable
+  attribute :model, MyModel
+  attribute :extension, Extension
+
+  xml BaseMapping
+end
+----
+
+The `xml` method accepts:
+- A mapping class as the first argument
+- An optional block for additional configuration
+
+[source,ruby]
+----
+class MyRoot < Lutaml::Model::Serializable
+  xml BaseMapping do
+    # Add more mappings specific to this class
+    map_element "Extra", to: :extra
+  end
+end
+----
+
+== Inheritance
+
+Mapping classes can inherit from other mapping classes:
+
+[source,ruby]
+----
+class BaseMapping < Lutaml::Xml::Mapping
+  xml do
+    map_element "Model", to: :model
+  end
+end
+
+class ExtendedMapping < BaseMapping
+  xml do
+    # Inherits "Model" mapping from BaseMapping
+    map_element "Extension", to: :extension
+  end
+end
+----
+
+== Advanced: Listener-based Mappings
+
+For more complex scenarios, you can use listener-based mappings with `on_element`:
+
+[source,ruby]
+----
+class ComplexMapping < Lutaml::Xml::Mapping
+  xml do
+    # Simple listener - maps element to attribute
+    map_element "Documentation", to: :documentation
+
+    # Complex listener with custom block handler
+    on_element "CustomElement", id: :custom do |element, context|
+      context[:custom] = CustomParser.parse(element)
+    end
+  end
+end
+----
+
+== Omitting Listeners
+
+Remove specific listeners using `omit_listener`:
+
+[source,ruby]
+----
+class ModifiedMapping < ExtendedMapping
+  xml do
+    # Remove a specific listener from parent
+    omit_listener "Documentation", id: :log_docs
+  end
+end
+----
+
+== Best Practices
+
+1. **Namespace consistency**: Always set the default namespace in your mapping class
+   using `namespace` to ensure element names are properly qualified.
+
+2. **Composition over inheritance**: Prefer composition (multiple small mapping classes)
+   over deeply nested inheritance hierarchies.
+
+3. **Keep mappings focused**: Each mapping class should represent a logical grouping
+   of related elements (e.g., by document type, schema, or feature).
+
+== Example: XMI Document
+
+Here's a complete example for an XMI document structure:
+
+[source,ruby]
+----
+# Define reusable mappings for common XMI elements
+module XmiMappings
+  class BaseMapping < Lutaml::Xml::Mapping
+    xml do
+      namespace XmiNamespace
+
+      namespace_scope [
+        XmiNamespace,
+        UmlNamespace,
+        ExtensionNamespace
+      ]
+
+      map_element "Model", to: :model
+      map_element "Documentation", to: :documentation
+    end
+  end
+
+  # Extended mapping for Sparx EA-specific elements
+  class SparxMapping < BaseMapping
+    xml do
+      namespace_scope [
+        XmiNamespace,
+        UmlNamespace,
+        ExtensionNamespace,
+        SparxExtensionNamespace
+      ]
+
+      map_element "Extension", to: :extension
+      map_element "import", to: :import
+    end
+  end
+end
+
+# Use in your model
+class XmiDocument < Lutaml::Model::Serializable
+  attribute :model, UmlModel
+  attribute :documentation, Documentation
+
+  xml XmiMappings::SparxMapping
+end
+----

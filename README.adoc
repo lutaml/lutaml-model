@@ -58,6 +58,7 @@ link:docs/migration-guides/0-1-0-migrate-from-shale.adoc[Migrating from Shale to
 * Dynamically modify model attribute types using registers (see <<custom-registers>>)
 * Symmetric OOP architecture for all formats with KeyValueDataModel (see <<keyvaluedatamodel-architecture>>)
 * Parse XSD schemas into Ruby objects for inspection and manipulation (see <<xsd-schema-parsing>>)
+* Reusable XML mapping classes for sharing mappings across models
 
 
 == Data modeling in a nutshell
