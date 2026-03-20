@@ -316,6 +316,12 @@ The `DeclarationPlanner` creates optimal xmlns declaration strategies:
 * Handles namespace conflicts intelligently
 * Declares all namespaces at root level for optimal scoping
 
+**Schema Location Support:**
+* Collects `schema_location` from all XmlNamespace classes in scope
+* Automatically adds XSI namespace to hoisted declarations when needed
+* Emits `xsi:schemaLocation` attribute on appropriate elements
+* Follows W3C XML Schema Part 1 specification
+
 **Declaration Strategies:**
 * **Default namespace**: `xmlns="uri"` for the most common namespace
 * **Prefixed namespace**: `xmlns:prefix="uri"` for additional namespaces
@@ -413,6 +419,14 @@ an optimal declaration strategy:
 - Default namespace declared first when present
 - Prefixed namespaces declared in alphabetical order
 - Ensures deterministic output for testing
+
+**Schema Location Handling:**
+
+- Collects `schema_location` from all XmlNamespace classes in scope
+- Automatically adds XSI namespace (`http://www.w3.org/2001/XMLSchema-instance`)
+  to hoisted declarations when any namespace has a schema location
+- Builds `xsi:schemaLocation` attribute value from namespace-location pairs
+- Emits the attribute on the appropriate element (typically root)
 
 **Inheritance Handling:**
 

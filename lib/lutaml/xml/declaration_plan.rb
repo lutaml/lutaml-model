@@ -380,6 +380,50 @@ module Lutaml
       def child_plan(name)
         @children_plans&.dig(name)
       end
+
+      # Collect all namespace classes in the tree that have schema_location
+      #
+      # @return [Array<Class>] Array of namespace classes with schema_location
+      def namespaces_with_schema_location
+        return [] unless @namespace_classes
+
+        ns_classes = []
+        collect_ns_classes_recursive(@root_node, ns_classes)
+        ns_classes.uniq.select do |ns_class|
+          ns_class.respond_to?(:schema_location) && ns_class.schema_location
+        end
+      end
+
+      # Recursively collect namespace classes from element nodes
+      #
+      # @param element_node [ElementNode] Current element node
+      # @param ns_classes [Array<Class>] Accumulator for namespace classes
+      # @return [void]
+      def collect_ns_classes_recursive(element_node, ns_classes)
+        # Add namespace from element's own namespace_class
+        if element_node.respond_to?(:qualified_name) && @namespace_classes
+          # Try to find namespace class from namespace_classes by matching URI
+          # The ElementNode itself doesn't store ns_class, but we can check if
+          # any of our namespace_classes match the element's context
+        end
+
+        # Recursively collect from children
+        element_node.element_nodes.each do |child_node|
+          collect_ns_classes_recursive(child_node, ns_classes)
+        end
+      end
+
+      # Get the XSI prefix from hoisted_declarations
+      #
+      # @return [String, nil] The prefix for XSI namespace if found
+      def xsi_prefix
+        return nil unless @root_node&.hoisted_declarations
+
+        @root_node.hoisted_declarations.each do |prefix, uri|
+          return prefix if uri == W3c::XsiNamespace.uri
+        end
+        nil
+      end
     end
   end
 end

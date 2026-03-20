@@ -159,6 +159,9 @@ module Lutaml
             attributes["xsi:nil"] = "true"
           end
 
+          # Add schema_location attribute from ElementNode if present
+          attributes.merge!(element_node.schema_location_attr) if element_node.schema_location_attr
+
           # 5. Add xmlns="" if element needs to opt out of parent's default namespace
           if element_node.needs_xmlns_blank
             attributes["xmlns"] = ""
@@ -404,12 +407,9 @@ module Lutaml
             end
           end
 
-          # Add schema location if present
-          if element.respond_to?(:schema_location) &&
-              element.schema_location.is_a?(Lutaml::Model::SchemaLocation) &&
-              !options[:except]&.include?(:schema_location)
-            attributes.merge!(element.schema_location.to_xml_attributes)
-          end
+          # Add schema_location attribute from ElementNode if present
+          # This is for the plan-based path where schema_location_attr is computed during planning
+          attributes.merge!(plan.root_node.schema_location_attr) if plan.respond_to?(:root_node) && plan.root_node&.schema_location_attr
 
           # Determine prefix from plan
           prefix = nil

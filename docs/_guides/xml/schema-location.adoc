@@ -1,0 +1,245 @@
+---
+title: XML Schema Location
+parent: XML namespaces
+nav_order: 6
+---
+= XML Schema Location
+:toc:
+:toclevels: 3
+
+== General
+
+Lutaml::Model provides automatic `xsi:schemaLocation` support following W3C XML Schema
+Part 1 specifications. When namespace classes define a `schema_location`, the
+DeclarationPlanner automatically includes the appropriate `xsi:schemaLocation`
+attribute in the XML output.
+
+== How It Works
+
+=== Core Principle: Namespace Owns Schema Location
+
+Per W3C XML Schema Part 1:
+
+* `xsi:schemaLocation` contains pairs of (namespace URI, schema location URL)
+* Each **Namespace** owns its `schema_location` (where to find the schema)
+* `xsi:schemaLocation` is a **declaration** listing schema locations for multiple namespaces
+* DeclarationPlanner decides **WHERE** to place this declaration
+
+[source,xml]
+----
+<RootElement xmlns="http://example.com/ns"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="http://example.com/ns http://example.com/ns/schema.xsd">
+  <!-- content -->
+</RootElement>
+----
+
+=== Architecture
+
+The schema location feature is fully integrated into the three-phase namespace
+architecture:
+
+. **Namespace class defines `schema_location`**: Each namespace can optionally
+   specify where its XSD schema is located
+
+. **DeclarationPlanner collects all schema locations**: During the planning phase,
+   all namespaces with `schema_location` are collected
+
+. **XSI namespace is added to hoisted declarations**: If any namespace has
+   `schema_location`, the XSI namespace (`http://www.w3.org/2001/XMLSchema-instance`)
+   is automatically added to the root element's declarations
+
+. **xsi:schemaLocation attribute is emitted**: The DeclarationPlanner builds the
+   `xsi:schemaLocation` value from all namespace-schema location pairs
+
+== Defining Schema Location
+
+=== Basic Usage
+
+Define `schema_location` on your namespace class:
+
+[source,ruby]
+----
+class CeramicNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/schemas/ceramic/v1'
+  schema_location 'https://example.com/schemas/ceramic/v1/ceramic.xsd'
+end
+----
+
+=== Multiple Namespaces
+
+When multiple namespaces define `schema_location`, all are included in a single
+`xsi:schemaLocation` attribute:
+
+[source,ruby]
+----
+class DocNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/schemas/document/v1'
+  schema_location 'https://example.com/schemas/document/v1/document.xsd'
+  prefix_default 'doc'
+end
+
+class MetaNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/schemas/metadata/v1'
+  schema_location 'https://example.com/schemas/metadata/v1/metadata.xsd'
+  prefix_default 'meta'
+end
+----
+
+.Output XML:
+[source,xml]
+----
+<doc:document xmlns:doc="https://example.com/schemas/document/v1"
+              xmlns:meta="https://example.com/schemas/metadata/v1"
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:schemaLocation="https://example.com/schemas/document/v1 https://example.com/schemas/document/v1/document.xsd
+                                  https://example.com/schemas/metadata/v1 https://example.com/schemas/metadata/v1/metadata.xsd">
+  <!-- content -->
+</doc:document>
+----
+
+=== Complete Example
+
+[source,ruby]
+----
+# Define namespaces with schema locations
+class OrderNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/orders/v1'
+  schema_location 'https://example.com/orders/v1/order.xsd'
+  prefix_default 'ord'
+end
+
+class CustomerNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/customer/v1'
+  schema_location 'https://example.com/customer/v1/customer.xsd'
+  prefix_default 'cust'
+end
+
+# Define models using these namespaces
+class Customer < Lutaml::Model::Serializable
+  attribute :id, :string
+  attribute :name, :string
+
+  xml do
+    namespace CustomerNamespace
+    element "Customer"
+    map_element "id", to: :id
+    map_element "name", to: :name
+  end
+end
+
+class Order < Lutaml::Model::Serializable
+  attribute :order_id, :string
+  attribute :customer, Customer
+
+  xml do
+    namespace OrderNamespace
+    namespace_scope [OrderNamespace, CustomerNamespace]
+    element "Order"
+    map_element "orderId", to: :order_id
+    map_element "Customer", to: :customer
+  end
+end
+----
+
+.Serialized output:
+[source,xml]
+----
+<ord:Order xmlns:ord="https://example.com/orders/v1"
+           xmlns:cust="https://example.com/customer/v1"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xsi:schemaLocation="https://example.com/orders/v1 https://example.com/orders/v1/order.xsd
+                               https://example.com/customer/v1 https://example.com/customer/v1/customer.xsd">
+  <ord:orderId>ORD-12345</ord:orderId>
+  <cust:Customer>
+    <cust:id>CUST-001</cust:id>
+    <cust:name>Acme Corp</cust:name>
+  </cust:Customer>
+</ord:Order>
+----
+
+== Automatic XSI Namespace Handling
+
+The XSI namespace (`http://www.w3.org/2001/XMLSchema-instance`) is automatically
+added to the hoisted declarations when any namespace in scope has a `schema_location`.
+
+[source,ruby]
+----
+class MyNamespace < Lutaml::Model::XmlNamespace
+  uri 'http://example.com/ns'
+  schema_location 'http://example.com/ns/schema.xsd'
+end
+----
+
+.XML output automatically includes xmlns:xsi:
+[source,xml]
+----
+<Element xmlns="http://example.com/ns"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://example.com/ns http://example.com/ns/schema.xsd">
+</Element>
+----
+
+== Namespace Scope and Schema Location
+
+Schema locations are emitted based on the namespaces in scope. Use `namespace_scope`
+to control which namespaces contribute to the schema location:
+
+[source,ruby]
+----
+class Document < Lutaml::Model::Serializable
+  xml do
+    element "Document"
+    namespace DocNamespace
+    namespace_scope [DocNamespace, InternalNamespace]  # Only these two contribute
+
+    map_element "title", to: :title
+    map_element "internal", to: :internal  # Uses InternalNamespace
+  end
+end
+----
+
+.Output only includes namespaces in scope:
+[source,xml]
+----
+<Document xmlns="http://example.com/doc"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://example.com/doc http://example.com/doc/schema.xsd
+                              http://example.com/internal http://example.com/internal/schema.xsd">
+  <!-- InternalNamespace schema is included because it's in namespace_scope -->
+</Document>
+----
+
+== XSI Prefix
+
+By default, the XSI namespace uses the `xsi` prefix. You can customize this
+in your namespace configuration if needed:
+
+[source,ruby]
+----
+# XSI namespace is automatically managed
+# Default prefix: xsi
+# Default URI: http://www.w3.org/2001/XMLSchema-instance
+----
+
+== Key Points
+
+* **Define schema_location on XmlNamespace classes**: The namespace class owns
+  its schema location definition
+
+* **Automatic xsi:schemaLocation emission**: When any namespace in scope has
+  `schema_location`, the attribute is automatically generated
+
+* **Automatic xmlns:xsi**: The XSI namespace is automatically added to declarations
+
+* **Multiple namespaces supported**: All namespaces with `schema_location` are
+  included in a single `xsi:schemaLocation` attribute
+
+* **W3C compliant**: Follows the W3C XML Schema Part 1 specification for
+  `xsi:schemaLocation` format
+
+== Related Documentation
+
+* link:xml-namespace-declarations.adoc[XML Namespace Declarations] - Declaration strategies
+* link:xml-namespaces.adoc[XML Namespaces] - Complete namespace feature documentation
+* link:../references/three-phase-namespace-architecture.adoc[Three-Phase Namespace Architecture] - Architecture details

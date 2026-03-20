@@ -639,6 +639,12 @@ module Lutaml
 
         child_needs_xmlns_blank = element_marked_blank || implicit_blank_needs_xmlns
 
+        # Build schema_location_attr if root element and any namespace has schema_location
+        schema_location_attr = nil
+        if is_root
+          schema_location_attr = build_schema_location_attr_for_needs(needs)
+        end
+
         # Create ElementNode
         element_node = DeclarationPlan::ElementNode.new(
           qualified_name: build_qualified_element_name(xml_element,
@@ -646,6 +652,7 @@ module Lutaml
           use_prefix: element_prefix,
           hoisted_declarations: hoisted,
           needs_xmlns_blank: child_needs_xmlns_blank,
+          schema_location_attr: schema_location_attr,
         )
 
         # Calculate this element's format for passing to children
@@ -803,7 +810,7 @@ module Lutaml
                        # ALWAYS use the "xsi" prefix. They should never inherit element prefix.
                        # They conventionally belong to the XSI namespace.
                        attr_name = xml_attr.name.to_s
-                       if attr_name.start_with?("xmlns") || attr_name.start_with?("xsi:")
+                       if attr_name.start_with?("xmlns", "xsi:")
                          nil
                        else
                          element_ns_class&.prefix_default
@@ -1358,7 +1365,30 @@ module Lutaml
           end
         end
 
+        # FIFTH: Add XSI namespace if any Namespace in scope has schema_location
+        # Schema location is handled by DeclarationPlan.build_schema_location_attr
+        # which builds xsi:schemaLocation from all Namespace.schema_location values
+        if namespaces_have_schema_location?(needs, options)
+          xsi_uri = W3c::XsiNamespace.uri
+          xsi_prefix = W3c::XsiNamespace.prefix_default || "xsi"
+          hoisted[xsi_prefix] = xsi_uri unless hoisted.value?(xsi_uri)
+        end
+
         hoisted
+      end
+
+      # Check if any Namespace in scope has schema_location
+      #
+      # @param needs [NamespaceNeeds] Namespace needs
+      # @param options [Hash] Serialization options
+      # @return [Boolean] True if any namespace has schema_location
+      def namespaces_have_schema_location?(needs, options)
+        return false unless needs
+
+        # Check all namespace classes in needs
+        needs.all_namespace_classes.any? do |ns_class|
+          ns_class.respond_to?(:schema_location) && ns_class.schema_location
+        end
       end
 
       # Find the attribute name for a child XmlElement
@@ -1464,6 +1494,31 @@ module Lutaml
         return false unless xml_element.text_content
 
         xml_element.children.all?(String)
+      end
+
+      # Build schema_location attribute value from all Namespace.schema_location values
+      #
+      # @param needs [NamespaceNeeds] Namespace needs
+      # @return [Hash, nil] { "xsi:schemaLocation" => "uri1 loc1 uri2 loc2" } or nil
+      def build_schema_location_attr_for_needs(needs)
+        return nil unless needs
+
+        # Collect all namespace classes that have schema_location
+        namespaces_with_schema = needs.all_namespace_classes.select do |ns_class|
+          ns_class.respond_to?(:schema_location) && ns_class.schema_location
+        end
+
+        return nil if namespaces_with_schema.empty?
+
+        # Build xsi:schemaLocation value
+        value = namespaces_with_schema.map do |ns_class|
+          "#{ns_class.uri} #{ns_class.schema_location}"
+        end.join(" ")
+
+        # Get XSI prefix from hoisted declarations or use default
+        xsi_prefix = W3c::XsiNamespace.prefix_default || "xsi"
+
+        { "#{xsi_prefix}:schemaLocation" => value }
       end
     end
   end

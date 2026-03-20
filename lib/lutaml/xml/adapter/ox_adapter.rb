@@ -198,6 +198,9 @@ _options = {})
             attributes["xsi:nil"] = "true"
           end
 
+          # Add schema_location attribute from ElementNode if present
+          attributes.merge!(element_node.schema_location_attr) if element_node.schema_location_attr
+
           # 4. Add xmlns="" if element needs to opt out of parent's default namespace
           if element_node.needs_xmlns_blank
             attributes["xmlns"] = ""
@@ -325,20 +328,9 @@ _options = {})
             end
           end
 
-          # Add schema location if present
-          if element.respond_to?(:schema_location) && !options[:except]&.include?(:schema_location)
-            if element.schema_location.is_a?(Lutaml::Model::SchemaLocation)
-              # Programmatic SchemaLocation object
-              attributes.merge!(element.schema_location.to_xml_attributes)
-            elsif element.instance_variable_defined?(:@raw_schema_location)
-              # Raw string from parsing - reconstruct xsi attributes
-              raw_value = element.instance_variable_get(:@raw_schema_location)
-              if raw_value && !raw_value.empty?
-                attributes["xmlns:xsi"] = "http://www.w3.org/2001/XMLSchema-instance"
-                attributes["xsi:schemaLocation"] = raw_value
-              end
-            end
-          end
+          # Add schema_location attribute from ElementNode if present
+          # This is for the plan-based path where schema_location_attr is computed during planning
+          attributes.merge!(plan.root_node.schema_location_attr) if plan&.root_node&.schema_location_attr
 
           # Determine prefix from plan using extracted module
           prefix_info = ElementPrefixResolver.resolve(mapping: xml_mapping,

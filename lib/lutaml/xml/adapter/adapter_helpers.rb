@@ -110,6 +110,35 @@ module Lutaml
             Element.new("Element", name_of(child), node_type: :element)
           end
         end
+
+        # Get the prefix for a namespace URI from hoisted declarations
+        #
+        # This checks if a namespace URI is already declared in hoisted_declarations
+        # and returns the prefix that should be used. This prevents duplicate xmlns
+        # declarations when both hoisted_declarations and attribute code try to add
+        # the same namespace.
+        #
+        # @param namespace_uri [String] The namespace URI to look up
+        # @param hoisted_declarations [Hash{String, nil => String}] The hoisted declarations
+        #   (keys are prefixes or nil for default, values are URIs)
+        # @return [String, nil] The prefix if found, nil if not hoisted
+        def prefix_for_namespace_uri(namespace_uri, hoisted_declarations)
+          return nil unless hoisted_declarations
+
+          hoisted_declarations.each do |prefix, uri|
+            return prefix if uri == namespace_uri
+          end
+          nil
+        end
+
+        # Check if a namespace URI is already hoisted
+        #
+        # @param namespace_uri [String] The namespace URI to check
+        # @param hoisted_declarations [Hash{String, nil => String}] The hoisted declarations
+        # @return [Boolean] true if the namespace is already hoisted
+        def namespace_uri_hoisted?(namespace_uri, hoisted_declarations)
+          prefix_for_namespace_uri(namespace_uri, hoisted_declarations) != nil
+        end
       end
     end
   end

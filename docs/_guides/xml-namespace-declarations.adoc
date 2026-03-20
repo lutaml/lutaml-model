@@ -652,6 +652,9 @@ Key points to remember:
 . **Grandchildren inherit context** (no repeated prefixes)
 . **Type::Value namespace is a future enhancement** (not yet implemented)
 
+For schema location support, see
+link:xml/schema-location.adoc[XML Schema Location Guide].
+
 For detailed namespace configuration options, see
 link:xml-namespaces.adoc[XML Namespaces Guide].
 
