@@ -1382,7 +1382,7 @@ module Lutaml
       # @param needs [NamespaceNeeds] Namespace needs
       # @param options [Hash] Serialization options
       # @return [Boolean] True if any namespace has schema_location
-      def namespaces_have_schema_location?(needs, options)
+      def namespaces_have_schema_location?(needs, _options)
         return false unless needs
 
         # Check all namespace classes in needs
