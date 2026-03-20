@@ -1075,10 +1075,10 @@ module Lutaml
       #   end
       def on_element(name, id: nil, &block)
         add_listener(Lutaml::Xml::Listener.new(
-          target: name,
-          id: id,
-          handler: block,
-        ))
+                       target: name,
+                       id: id,
+                       handler: block,
+                     ))
       end
 
       # Add a complex listener for an XML attribute with a custom handler block.
@@ -1096,10 +1096,10 @@ module Lutaml
       #   end
       def on_attribute(name, id: nil, &block)
         add_listener(Lutaml::Xml::Listener.new(
-          target: name,
-          id: id,
-          handler: block,
-        ))
+                       target: name,
+                       id: id,
+                       handler: block,
+                     ))
       end
 
       # Remove ALL listeners for a given XML element name.
@@ -1111,9 +1111,6 @@ module Lutaml
       #   class MyMapping < ParentMapping
       #     omit_element "UnusedElement"
       #   end
-      def omit_element(name)
-        super
-      end
 
       # Remove a specific listener by XML element name and ID.
       #
@@ -1125,9 +1122,6 @@ module Lutaml
       #   class MyMapping < ParentMapping
       #     omit_listener "TaggedValue", id: :validate_tags
       #   end
-      def omit_listener(name, id:)
-        super
-      end
 
       private
 

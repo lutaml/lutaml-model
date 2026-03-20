@@ -76,27 +76,27 @@ module Lutaml
           # inherit mappings from it directly.
           # This supports the reusable mapping class pattern.
           if format == :xml &&
-             args.any? &&
-             args.first.is_a?(Class) &&
-             defined?(Lutaml::Xml::Mapping) &&
-             args.first < Lutaml::Xml::Mapping
+              args.any? &&
+              args.first.is_a?(Class) &&
+              defined?(Lutaml::Xml::Mapping) &&
+              args.first < Lutaml::Xml::Mapping
             mapping_class = args.first
 
             # Start with a copy of the parent class's XML mapping (if any).
             # This ensures child classes inherit their parent's mappings.
             parent_class = ::Lutaml::Model::Serialize.superclass_with_xml_mapping(self)
-            parent_xml_mapping = if parent_class && parent_class.respond_to?(:mappings)
+            parent_xml_mapping = if parent_class.respond_to?(:mappings)
                                    parent_class.mappings[:xml]
                                  end
             @xml_mapping = if parent_xml_mapping
-                            parent_xml_mapping.deep_dup
-                          else
-                            Lutaml::Xml::Mapping.new
-                          end
+                             parent_xml_mapping.deep_dup
+                           else
+                             Lutaml::Xml::Mapping.new
+                           end
 
             # Get the parent mapping instance (DSL already evaluated via xml_mapping_instance)
             parent_mapping = if mapping_class.respond_to?(:xml_mapping_instance) &&
-                                mapping_class.xml_mapping_instance
+                mapping_class.xml_mapping_instance
                                mapping_class.xml_mapping_instance
                              else
                                mapping_class.new
@@ -109,11 +109,12 @@ module Lutaml
             @xml_mapping.namespace_scope(all_ns) if all_ns.any?
             # Also copy namespace_scope_config if present
             if parent_mapping.respond_to?(:namespace_scope_config) &&
-               (parent_ns_config = parent_mapping.namespace_scope_config) &&
-               parent_ns_config.any?
+                (parent_ns_config = parent_mapping.namespace_scope_config) &&
+                parent_ns_config.any?
               existing_ns_config = @xml_mapping.namespace_scope_config || []
               merged_ns_config = (existing_ns_config + parent_ns_config).uniq
-              @xml_mapping.instance_variable_set(:@namespace_scope_config, merged_ns_config)
+              @xml_mapping.instance_variable_set(:@namespace_scope_config,
+                                                 merged_ns_config)
             end
 
             # --- Inherit element mappings ---
@@ -121,10 +122,15 @@ module Lutaml
               existing = @xml_mapping.mapping_elements_hash[key]
               if existing.nil?
                 # No existing mapping - add parent's rule
-                @xml_mapping.instance_variable_get(:@elements)[key] = rule.deep_dup
+                @xml_mapping.instance_variable_get(:@elements)[key] =
+                  rule.deep_dup
               elsif existing.is_a?(Array) && rule.is_a?(Array)
                 # Both arrays - merge, dedupe
-                merged = existing + rule.reject { |r| existing.any? { |e| e.eql?(r) } }
+                merged = existing + rule.reject do |r|
+                  existing.any? do |e|
+                    e.eql?(r)
+                  end
+                end
                 @xml_mapping.instance_variable_get(:@elements)[key] = merged
               elsif existing.is_a?(Array)
                 # Existing is array, parent has single
@@ -134,11 +140,13 @@ module Lutaml
               elsif rule.is_a?(Array)
                 # Parent has array, existing is single
                 unless rule.any? { |r| r.eql?(existing) }
-                  @xml_mapping.instance_variable_get(:@elements)[key] = [existing, *rule]
+                  @xml_mapping.instance_variable_get(:@elements)[key] =
+                    [existing, *rule]
                 end
               elsif !existing.eql?(rule)
                 # Different single rules - convert to polymorphic array
-                @xml_mapping.instance_variable_get(:@elements)[key] = [existing, rule.deep_dup]
+                @xml_mapping.instance_variable_get(:@elements)[key] =
+                  [existing, rule.deep_dup]
               end
             end
 
@@ -146,9 +154,14 @@ module Lutaml
             parent_mapping.mapping_attributes_hash.each do |key, rule|
               existing = @xml_mapping.mapping_attributes_hash[key]
               if existing.nil?
-                @xml_mapping.instance_variable_get(:@attributes)[key] = rule.deep_dup
+                @xml_mapping.instance_variable_get(:@attributes)[key] =
+                  rule.deep_dup
               elsif existing.is_a?(Array) && rule.is_a?(Array)
-                merged = existing + rule.reject { |r| existing.any? { |e| e.eql?(r) } }
+                merged = existing + rule.reject do |r|
+                  existing.any? do |e|
+                    e.eql?(r)
+                  end
+                end
                 @xml_mapping.instance_variable_get(:@attributes)[key] = merged
               elsif existing.is_a?(Array)
                 unless existing.any? { |e| e.eql?(rule) }
@@ -156,10 +169,12 @@ module Lutaml
                 end
               elsif rule.is_a?(Array)
                 unless rule.any? { |r| r.eql?(existing) }
-                  @xml_mapping.instance_variable_get(:@attributes)[key] = [existing, *rule]
+                  @xml_mapping.instance_variable_get(:@attributes)[key] =
+                    [existing, *rule]
                 end
               elsif !existing.eql?(rule)
-                @xml_mapping.instance_variable_get(:@attributes)[key] = [existing, rule.deep_dup]
+                @xml_mapping.instance_variable_get(:@attributes)[key] =
+                  [existing, rule.deep_dup]
               end
             end
 
@@ -169,12 +184,12 @@ module Lutaml
             end
 
             if parent_mapping.namespace_class &&
-               !@xml_mapping.instance_variable_get(:@namespace_class)
+                !@xml_mapping.instance_variable_get(:@namespace_class)
               @xml_mapping.namespace(parent_mapping.namespace_class)
             end
 
             if parent_mapping.namespace_param == :inherit &&
-               !@xml_mapping.instance_variable_get(:@namespace_set)
+                !@xml_mapping.instance_variable_get(:@namespace_set)
               @xml_mapping.namespace(:inherit)
             end
 

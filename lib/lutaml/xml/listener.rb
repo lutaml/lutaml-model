@@ -25,8 +25,8 @@ module Lutaml
       # @param target [String] XML element name this listener responds to.
       # @param handler [Proc, nil] Custom block handler.
       # @param options [Hash] Additional options.
-      def initialize(id:, target:, handler: nil, **options)
-        super(id: id, target: target, handler: handler, **options)
+      def initialize(id:, target:, handler: nil, **)
+        super
       end
     end
   end
