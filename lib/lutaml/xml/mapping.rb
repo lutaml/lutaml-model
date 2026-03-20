@@ -8,6 +8,35 @@ module Lutaml
         all_content: :map_all,
       }.freeze
 
+      # Class-level XML DSL for reusable mapping classes.
+      #
+      # When a subclass of Lutaml::Xml::Mapping uses `xml do...end` in its
+      # class body, this method creates an instance and evaluates the block.
+      #
+      # @param block [Proc] DSL block with map_element, namespace_scope, etc.
+      # @return [Lutaml::Xml::Mapping] the mapping instance
+      #
+      # @example
+      #   class BaseMapping < Lutaml::Xml::Mapping
+      #     xml do
+      #       namespace_scope [MyNamespace]
+      #       map_element "Foo", to: :foo
+      #     end
+      #   end
+      def self.xml(&block)
+        @xml_instance ||= new
+        @xml_instance.instance_eval(&block) if block
+        @xml_instance
+      end
+
+      # Get the shared XML mapping instance for this mapping class.
+      # Created lazily via the xml() class method.
+      #
+      # @return [Lutaml::Xml::Mapping, nil]
+      def self.xml_mapping_instance
+        @xml_instance
+      end
+
       attr_reader :root_element,
                   :namespace_uri,
                   :namespace_prefix,
@@ -1011,6 +1040,93 @@ module Lutaml
         end
 
         new_mappings
+      end
+
+      # Add a complex listener for an XML element with a custom handler block.
+      #
+      # Unlike map_element which creates a simple listener (framework handles
+      # deserialization), on_element allows custom deserialization logic.
+      #
+      # Multiple listeners for the same element are allowed — all matching
+      # listeners are invoked during parsing.
+      #
+      # @param name [String] XML element name
+      # @param id [Symbol, String, nil] Unique identifier for override/omit.
+      #   If omitted, listener cannot be targeted by omit_listener.
+      # @param block [Proc] Custom handler receiving (element, context)
+      # @return [void]
+      #
+      # @example Custom deserialization
+      #   class MyMapping < Lutaml::Xml::Mapping
+      #     on_element "CustomElement", id: :custom_parse do |element, context|
+      #       context[:custom] = CustomParser.parse(element)
+      #     end
+      #   end
+      #
+      # @example Multiple listeners for same element
+      #   class MyMapping < Lutaml::Xml::Mapping
+      #     on_element "Documentation", id: :parse_docs do |element, context|
+      #       context[:documentation] = Documentation.from_xml(element)
+      #     end
+      #
+      #     on_element "Documentation", id: :log_docs do |element, context|
+      #       logger.info("Parsing docs: #{element.text}")
+      #     end
+      #   end
+      def on_element(name, id: nil, &block)
+        add_listener(Lutaml::Xml::Listener.new(
+          target: name,
+          id: id,
+          handler: block,
+        ))
+      end
+
+      # Add a complex listener for an XML attribute with a custom handler block.
+      #
+      # @param name [String] XML attribute name
+      # @param id [Symbol, String, nil] Unique identifier for override/omit.
+      # @param block [Proc] Custom handler receiving (element, context)
+      # @return [void]
+      #
+      # @example
+      #   class MyMapping < Lutaml::Xml::Mapping
+      #     on_attribute "xmlAttr", id: :parse_attr do |element, context|
+      #       context[:custom] = element["xmlAttr"]
+      #     end
+      #   end
+      def on_attribute(name, id: nil, &block)
+        add_listener(Lutaml::Xml::Listener.new(
+          target: name,
+          id: id,
+          handler: block,
+        ))
+      end
+
+      # Remove ALL listeners for a given XML element name.
+      #
+      # @param name [String] XML element name
+      # @return [void]
+      #
+      # @example Remove all listeners for "UnusedElement"
+      #   class MyMapping < ParentMapping
+      #     omit_element "UnusedElement"
+      #   end
+      def omit_element(name)
+        super
+      end
+
+      # Remove a specific listener by XML element name and ID.
+      #
+      # @param name [String] XML element name
+      # @param id [Symbol, String] The listener ID to remove
+      # @return [void]
+      #
+      # @example Remove parent's :validate_tags listener
+      #   class MyMapping < ParentMapping
+      #     omit_listener "TaggedValue", id: :validate_tags
+      #   end
+      def omit_listener(name, id:)
+        super
       end
 
       private

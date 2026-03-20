@@ -82,6 +82,7 @@ module Lutaml
     autoload :Namespace, "#{__dir__}/xml/namespace"
     autoload :Mapping, "#{__dir__}/xml/mapping"
     autoload :MappingRule, "#{__dir__}/xml/mapping_rule"
+    autoload :Listener, "#{__dir__}/xml/listener"
     autoload :Document, "#{__dir__}/xml/document"
     autoload :Transformation, "#{__dir__}/xml/transformation"
     autoload :Transform, "#{__dir__}/xml/transform"

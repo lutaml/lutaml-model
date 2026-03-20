@@ -15,6 +15,7 @@ Task-oriented guides for accomplishing specific goals with Lutaml::Model.
 * link:../xml-mappings-guide[XML Mappings Guide] - Complete XML reference
 * link:../xml/namespace-semantics[XML Namespace Semantics] - XML Namespace Semantics
 * link:../xml/namespace-presentation[XML Namespace Presentation] - XML Namespace Presentation
+* link:../xml/reusable-mapping-classes[Reusable Mapping Classes] - Share mappings across models
 
 == Key-value serialization
 

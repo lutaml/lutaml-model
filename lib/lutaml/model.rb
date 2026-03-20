@@ -39,6 +39,7 @@ module Lutaml
     autoload :Liquefiable, "#{__dir__}/model/liquefiable"
     autoload :Mapping, "#{__dir__}/model/mapping/mapping"
     autoload :MappingRule, "#{__dir__}/model/mapping/mapping_rule"
+    autoload :Listener, "#{__dir__}/model/mapping/listener"
     autoload :ModelMapping, "#{__dir__}/model/mapping/model_mapping"
     autoload :ModelMappingRule, "#{__dir__}/model/mapping/model_mapping_rule"
     autoload :TransformationBuilder, "#{__dir__}/model/transformation_builder"

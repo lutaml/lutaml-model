@@ -54,6 +54,12 @@ class Example < Lutaml::Model::Serializable
 end
 ----
 
+[TIP]
+====
+For sharing XML mappings across multiple model classes, see
+link:xml/reusable-mapping-classes[Reusable XML Mapping Classes].
+====
+
 ==== Defining element name (`element`)
 
 The `element` method is the primary way to declare the XML element name
