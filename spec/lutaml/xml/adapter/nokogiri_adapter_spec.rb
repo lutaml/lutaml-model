@@ -100,7 +100,8 @@ RSpec.describe Lutaml::Xml::Adapter::NokogiriAdapter do
 
       # Count xmlns:xsi declarations - should be exactly 1
       xmlns_xsi_count = xml_output.scan("xmlns:xsi=").count
-      expect(xmlns_xsi_count).to eq(1), "Expected exactly 1 xmlns:xsi declaration, got #{xmlns_xsi_count} in:\n#{xml_output}"
+      expect(xmlns_xsi_count).to eq(1),
+                                 "Expected exactly 1 xmlns:xsi declaration, got #{xmlns_xsi_count} in:\n#{xml_output}"
     end
 
     it "round-trips XML with schemaLocation correctly" do
