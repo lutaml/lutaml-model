@@ -91,10 +91,13 @@ module Lutaml
       #
       # @param args [Array] Arguments to pass to the handler block
       # @return [Object] Result of the handler invocation
-      def call(*args)
-        raise NoHandlerError, "Cannot call simple listener #{id.inspect}" if simple?
+      def call(*)
+        if simple?
+          raise NoHandlerError,
+                "Cannot call simple listener #{id.inspect}"
+        end
 
-        @handler.call(*args)
+        @handler.call(*)
       end
 
       # Error raised when attempting to invoke a simple listener as a complex one.

@@ -3,7 +3,7 @@ module Lutaml
     class Mapping
       def initialize
         @mappings = []
-        @listeners = {}   # target => [Listener, ...]
+        @listeners = {} # target => [Listener, ...]
         @parent_mapping = nil
       end
 
