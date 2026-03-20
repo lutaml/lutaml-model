@@ -144,8 +144,9 @@ RSpec.describe "Type-level namespace round-trip tests" do
 
       # Type namespaces are declared on parent element (ContactInfo)
       # This is correct behavior: type namespaces are declared on PARENT elements
+      # Schema location is also emitted since the namespace classes define schema_location
       expected_xml = <<~XML
-        <ContactInfo xmlns:ct="https://example.com/schemas/contact/v1" xmlns:name="https://example.com/schemas/name-attributes/v1">
+        <ContactInfo xmlns:ct="https://example.com/schemas/contact/v1" xmlns:name="https://example.com/schemas/name-attributes/v1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="https://example.com/schemas/name-attributes/v1 https://example.com/schemas/name-attributes/v1/name-attributes.xsd https://example.com/schemas/contact/v1 https://example.com/schemas/contact/v1/contact.xsd">
           <personName name:prefix="Dr." suffix="Jr.">
             <ct:givenName>John</ct:givenName>
             <ct:surname>Doe</ct:surname>
@@ -169,8 +170,9 @@ RSpec.describe "Type-level namespace round-trip tests" do
       serialized = original.to_xml
 
       # Type namespaces are declared on parent element (ContactInfo)
+      # Schema location is also emitted since the namespace classes define schema_location
       expected_xml = <<~XML
-        <ContactInfo xmlns:ct="https://example.com/schemas/contact/v1" xmlns:name="https://example.com/schemas/name-attributes/v1">
+        <ContactInfo xmlns:ct="https://example.com/schemas/contact/v1" xmlns:name="https://example.com/schemas/name-attributes/v1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="https://example.com/schemas/name-attributes/v1 https://example.com/schemas/name-attributes/v1/name-attributes.xsd https://example.com/schemas/contact/v1 https://example.com/schemas/contact/v1/contact.xsd">
           <personName name:prefix="Dr." suffix="Jr.">
             <ct:givenName>John</ct:givenName>
             <ct:surname>Doe</ct:surname>
@@ -200,8 +202,9 @@ RSpec.describe "Type-level namespace round-trip tests" do
       xml = contact.to_xml
 
       # Type namespaces are declared on parent element (ContactInfo)
+      # Schema location is also emitted since the namespace classes define schema_location
       expected_xml = <<~XML
-        <ContactInfo xmlns:ct="https://example.com/schemas/contact/v1" xmlns:name="https://example.com/schemas/name-attributes/v1">
+        <ContactInfo xmlns:ct="https://example.com/schemas/contact/v1" xmlns:name="https://example.com/schemas/name-attributes/v1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="https://example.com/schemas/name-attributes/v1 https://example.com/schemas/name-attributes/v1/name-attributes.xsd https://example.com/schemas/contact/v1 https://example.com/schemas/contact/v1/contact.xsd">
           <personName name:prefix="Mrs." suffix="Sr.">
             <ct:givenName>Jane</ct:givenName>
             <ct:surname>Smith</ct:surname>
@@ -224,8 +227,9 @@ RSpec.describe "Type-level namespace round-trip tests" do
       xml = contact.to_xml
 
       # Type namespaces are declared on parent element (ContactInfo)
+      # Schema location is also emitted since the namespace classes define schema_location
       expected_xml = <<~XML
-        <ContactInfo xmlns:ct="https://example.com/schemas/contact/v1" xmlns:name="https://example.com/schemas/name-attributes/v1">
+        <ContactInfo xmlns:ct="https://example.com/schemas/contact/v1" xmlns:name="https://example.com/schemas/name-attributes/v1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="https://example.com/schemas/name-attributes/v1 https://example.com/schemas/name-attributes/v1/name-attributes.xsd https://example.com/schemas/contact/v1 https://example.com/schemas/contact/v1/contact.xsd">
           <personName name:prefix="Prof." suffix="PhD">
             <ct:givenName>Bob</ct:givenName>
             <ct:surname>Johnson</ct:surname>

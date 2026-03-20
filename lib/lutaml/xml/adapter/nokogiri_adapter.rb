@@ -273,28 +273,9 @@ module Lutaml
             end
           end
 
-          # Add schema location if present
-          if element.respond_to?(:schema_location) && !options[:except]&.include?(:schema_location)
-            if element.schema_location.is_a?(Lutaml::Model::SchemaLocation)
-              # Programmatic SchemaLocation object
-              attributes.merge!(element.schema_location.to_xml_attributes)
-            elsif element.instance_variable_defined?(:@raw_schema_location)
-              # Raw string from parsing - reconstruct xsi attributes
-              raw_value = element.instance_variable_get(:@raw_schema_location)
-              if raw_value && !raw_value.empty?
-                # CRITICAL: Don't add xmlns:xsi as an attribute if it's already
-                # in hoisted_declarations (which adds it via add_namespace).
-                # Adding it as an attribute creates duplicate xmlns declarations.
-                xsi_uri = "http://www.w3.org/2001/XMLSchema-instance"
-                hoisted = plan&.root_node&.hoisted_declarations || {}
-                already_hoisted = hoisted.any? do |_prefix, uri|
-                  uri == xsi_uri
-                end
-                attributes["xmlns:xsi"] = xsi_uri unless already_hoisted
-                attributes["xsi:schemaLocation"] = raw_value
-              end
-            end
-          end
+          # Add schema_location attribute from ElementNode if present
+          # This is for the plan-based path where schema_location_attr is computed during planning
+          attributes.merge!(plan.root_node.schema_location_attr) if plan&.root_node&.schema_location_attr
 
           # Determine prefix from plan using extracted module
           prefix_info = ElementPrefixResolver.resolve(mapping: mapping,
@@ -856,6 +837,11 @@ module Lutaml
           # Add xsi:nil="true" attribute for W3C compliance
           if xml_element.instance_variable_defined?(:@is_nil) && xml_element.instance_variable_get(:@is_nil)
             element["xsi:nil"] = true
+          end
+
+          # Add schema_location attribute from ElementNode if present
+          element_node.schema_location_attr&.each do |attr_name, attr_value|
+            element[attr_name] = attr_value
           end
 
           # Handle raw content (map_all directive)

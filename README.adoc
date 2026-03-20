@@ -5228,7 +5228,9 @@ end
 
 ===== `schema_location`
 
-Sets the URL where the XSD schema file can be found.
+Sets the URL where the XSD schema file can be found. When defined on a namespace
+class, Lutaml::Model automatically emits the `xsi:schemaLocation` attribute in
+the XML output following W3C XML Schema Part 1 specifications.
 
 Syntax:
 
@@ -5237,7 +5239,11 @@ Syntax:
 schema_location 'schema-url-or-path'
 ----
 
-Used in `xsi:schemaLocation` attributes for schema validation.
+When any namespace in scope defines `schema_location`, the DeclarationPlanner:
+
+. Adds the XSI namespace (`xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"`)
+   to the root element's declarations
+. Emits the `xsi:schemaLocation` attribute listing all namespace-location pairs
 
 .Setting schema location
 [example]
@@ -5249,7 +5255,21 @@ class CeramicNamespace < Lutaml::Model::XmlNamespace
   schema_location 'https://example.com/schemas/ceramic/v1/ceramic.xsd'
 end
 ----
+
+.Output XML (automatically generated):
+[source,xml]
+----
+<Ceramic xmlns="https://example.com/schemas/ceramic/v1"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="https://example.com/schemas/ceramic/v1
+                             https://example.com/schemas/ceramic/v1/ceramic.xsd">
+</Ceramic>
+----
 ====
+
+NOTE: The XSI namespace prefix is automatically managed. When multiple namespaces
+define `schema_location`, all are included in a single `xsi:schemaLocation`
+attribute on the root element.
 
 ===== `prefix_default`
 

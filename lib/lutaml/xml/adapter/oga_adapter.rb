@@ -277,20 +277,9 @@ module Lutaml
             end
           end
 
-          # Add schema location if present
-          if element.respond_to?(:schema_location) && !options[:except]&.include?(:schema_location)
-            if element.schema_location.is_a?(Lutaml::Model::SchemaLocation)
-              # Programmatic SchemaLocation object
-              attributes.merge!(element.schema_location.to_xml_attributes)
-            elsif element.instance_variable_defined?(:@raw_schema_location)
-              # Raw string from parsing - reconstruct xsi attributes
-              raw_value = element.instance_variable_get(:@raw_schema_location)
-              if raw_value && !raw_value.empty?
-                attributes["xmlns:xsi"] = "http://www.w3.org/2001/XMLSchema-instance"
-                attributes["xsi:schemaLocation"] = raw_value
-              end
-            end
-          end
+          # Add schema_location attribute from ElementNode if present
+          # This is for the plan-based path where schema_location_attr is computed during planning
+          attributes.merge!(plan.root_node.schema_location_attr) if plan&.root_node&.schema_location_attr
 
           # Determine prefix from plan using extracted module
           prefix_info = ElementPrefixResolver.resolve(mapping: xml_mapping,
@@ -526,6 +515,14 @@ module Lutaml
             attributes << ::Oga::XML::Attribute.new(
               name: "xsi:nil",
               value: "true",
+            )
+          end
+
+          # Add schema_location attribute from ElementNode if present
+          element_node.schema_location_attr&.each do |attr_name, attr_value|
+            attributes << ::Oga::XML::Attribute.new(
+              name: attr_name,
+              value: attr_value,
             )
           end
 

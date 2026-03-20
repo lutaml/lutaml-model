@@ -67,8 +67,9 @@ RSpec.describe "XML Namespace Integration" do
       xml = person.to_xml
 
       # Expected: children use default namespace (no prefix) like parent
+      # Schema location is emitted since the namespace class defines schema_location
       expected_xml = <<~XML
-        <person xmlns="https://example.com/schemas/contact/v1">
+        <person xmlns="https://example.com/schemas/contact/v1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="https://example.com/schemas/contact/v1 https://example.com/schemas/contact/v1/contact.xsd">
           <name>John Doe</name>
           <email>john@example.com</email>
         </person>

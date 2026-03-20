@@ -42,20 +42,26 @@ module Lutaml
         #   True when element is in blank namespace AND parent uses default format
         attr_reader :needs_xmlns_blank
 
+        # @return [Hash, nil] Schema location attribute to emit (key: attr name, value)
+        #   e.g., { "xsi:schemaLocation" => "uri1 loc1 uri2 loc2" }
+        attr_reader :schema_location_attr
+
         # Initialize an element node
         #
         # @param qualified_name [String] Element name with prefix
         # @param use_prefix [String, nil] Prefix for this element
         # @param hoisted_declarations [Hash<String, String>] xmlns attributes to declare here
         # @param needs_xmlns_blank [Boolean] Whether to add xmlns="" (W3C compliance)
+        # @param schema_location_attr [Hash, nil] Schema location attribute to emit
         def initialize(qualified_name:, use_prefix:,
-    hoisted_declarations: {}, needs_xmlns_blank: false)
+    hoisted_declarations: {}, needs_xmlns_blank: false, schema_location_attr: nil)
           @qualified_name = qualified_name
           @use_prefix = use_prefix
           @hoisted_declarations = hoisted_declarations
           @attribute_nodes = []
           @element_nodes = []
           @needs_xmlns_blank = needs_xmlns_blank
+          @schema_location_attr = schema_location_attr
         end
 
         # Add an attribute decision node
