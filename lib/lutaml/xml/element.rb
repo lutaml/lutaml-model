@@ -3,7 +3,8 @@ module Lutaml
     class Element
       include Lutaml::Model::Liquefiable
 
-      attr_reader :type, :name, :text_content, :node_type
+      attr_reader :type, :name, :text_content, :node_type, :namespace_uri,
+                  :namespace_prefix
 
       # Create a new Element for order tracking
       #
@@ -11,13 +12,18 @@ module Lutaml
       # @param name [String] The element name or text marker
       # @param text_content [String, nil] Actual text content for text nodes
       # @param node_type [Symbol, nil] The node type (:text, :cdata, :element, :comment)
-      def initialize(type, name, text_content: nil, node_type: nil)
+      # @param namespace_uri [String, nil] The namespace URI of this element
+      # @param namespace_prefix [String, nil] The namespace prefix of this element
+      def initialize(type, name, text_content: nil, node_type: nil,
+                     namespace_uri: nil, namespace_prefix: nil)
         @type = type # "Text" or "Element" - deprecated, kept for backward compatibility
         @name = name
         # For text nodes, store both marker ("text") and actual content
         @text_content = text_content || name
         # Infer node_type from type for backward compatibility if not provided
         @node_type = node_type || infer_node_type(type, name)
+        @namespace_uri = namespace_uri
+        @namespace_prefix = namespace_prefix
       end
 
       # Check if this is a text content node (not CDATA)
@@ -69,7 +75,7 @@ module Lutaml
 
       def register_liquid_methods
         %i[text? element_tag type name text_content node_type
-           cdata?].each do |attr_name|
+           cdata? namespace_uri namespace_prefix].each do |attr_name|
           self.class.register_drop_method(attr_name)
         end
 

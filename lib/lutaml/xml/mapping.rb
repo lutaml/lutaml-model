@@ -940,7 +940,7 @@ module Lutaml
         attributes.detect { |rule| name == rule.to }
       end
 
-      def find_by_name(name, type: "Text", node_type: nil)
+      def find_by_name(name, type: "Text", node_type: nil, namespace_uri: nil)
         # If node_type is provided, use it for type detection (preferred)
         if node_type && %i[text cdata].include?(node_type)
           content_mapping
@@ -948,9 +948,12 @@ module Lutaml
         elsif ["text", "#cdata-section"].include?(name.to_s) && type == "Text"
           content_mapping
         else
-          mappings.detect do |rule|
+          candidates = mappings.select do |rule|
             rule.name == name.to_s || rule.name == name.to_sym
           end
+          return candidates.first if namespace_uri.nil? || candidates.one?
+
+          candidates.find { |r| r.namespace_class&.uri == namespace_uri } || candidates.first
         end
       end
 

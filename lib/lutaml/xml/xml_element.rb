@@ -218,8 +218,11 @@ module Lutaml
             # For regular elements:
             # - name is the actual element name
             # - node_type explicitly marks this as an element
+            # - namespace_uri and namespace_prefix preserve namespace info for rule matching
             Lutaml::Xml::Element.new("Element", child.unprefixed_name,
-                                     node_type: :element)
+                                     node_type: :element,
+                                     namespace_uri: child.namespace_uri,
+                                     namespace_prefix: child.namespace_prefix)
           end
         end
       end
