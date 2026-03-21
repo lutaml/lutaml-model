@@ -174,9 +174,17 @@ end
 W3C XML Schema provides the `attributeFormDefault` directive to control whether
 locally declared attributes must be qualified (prefixed) in instance documents.
 
+This section implements the following W3C XML Schema Databinding Patterns:
+
+* *link:https://www.w3.org/2002/ws/databinding/edcopy/advanced/advanced.html#QualifiedLocalAttributes[QualifiedLocalAttributes pattern]*
+* *link:https://www.w3.org/2002/ws/databinding/edcopy/advanced/advanced.html#AttributeFormQualified[AttributeFormQualified pattern]*
+
 ==== W3C Default Behavior (Unqualified)
 
-By default, attributes are **unqualified** and do NOT inherit the parent element's namespace:
+By default, attributes are **unqualified** and do NOT inherit the parent element's namespace.
+This follows the W3C XML Schema convention where local attributes are typically unqualified.
+
+*Source: link:https://www.w3.org/2002/ws/databinding/edcopy/advanced/advanced.html#QualifiedLocalAttributes[W3C XML Schema Databinding Patterns §2.1.3]*
 
 [source,ruby]
 ----
@@ -209,8 +217,33 @@ end
 ==== Qualified Attributes (attributeFormDefault :qualified)
 
 When `attribute_form_default :qualified` is set, attributes MUST be qualified with
-the namespace prefix:
+the namespace prefix.
 
+*Source: link:https://www.w3.org/2002/ws/databinding/edcopy/advanced/advanced.html#AttributeFormQualified[W3C XML Schema Databinding Patterns §2.8.1]*
+
+.XSD Equivalent
+[source,xml]
+----
+<xs:schema attributeFormDefault="qualified">
+  <xs:element name="attributeFormQualified" type="ex:AttributeFormQualified" />
+  <xs:complexType name="AttributeFormQualified">
+    <xs:sequence>
+      <xs:element name="element1" type="xs:string" />
+    </xs:sequence>
+    <xs:attribute name="attribute" form="qualified" type="xs:string" />
+  </xs:complexType>
+</xs:schema>
+----
+
+.Valid Instance
+[source,xml]
+----
+<ex:attributeFormQualified ex:attribute="string">
+    <ex:element1>string</ex:element1>
+</ex:attributeFormQualified>
+----
+
+.Ruby Implementation
 [source,ruby]
 ----
 class MyNamespace < Lutaml::Model::XmlNamespace
@@ -447,7 +480,7 @@ The namespace for any attribute's serialization is determined by this algorithm:
 
 XML Schema defines two element/attribute forms:
 
-=== Qualified Form (Default for Elements)
+=== Qualified Form
 
 Elements inherit their parent's namespace:
 
@@ -458,16 +491,35 @@ Elements inherit their parent's namespace:
 </parent>
 ----
 
-=== Unqualified Form (Default for Attributes)
+=== Unqualified Form
 
-Elements/attributes have no namespace:
+Elements/attributes have no namespace (blank namespace):
 
 [source,xml]
 ----
 <parent xmlns="http://example.com/ns" attr="value">
-  <!-- attr has no namespace -->
+  <child>value</child>  <!-- Blank namespace - no xmlns needed -->
 </parent>
 ----
+
+[IMPORTANT]
+.Explicit vs Default element_form_default
+====
+The distinction between explicitly setting `element_form_default` and relying on the
+default is important:
+
+* **Explicitly set** `element_form_default :unqualified`:
+  - Children are placed in the blank namespace
+  - Matches XSD's `elementFormDefault="unqualified"`
+  - Predictable behavior during serialization
+
+* **Not set** (defaults to `:unqualified`):
+  - May not produce predictable unqualified behavior
+  - Context-dependent inheritance may occur
+  - Not recommended for XSD-compliant documents
+
+**Always explicitly set** `element_form_default` to match your XSD.
+====
 
 Configure via `XmlNamespace`:
 
@@ -475,8 +527,9 @@ Configure via `XmlNamespace`:
 ----
 class MyNamespace < Lutaml::Model::XmlNamespace
   uri "http://example.com/ns"
-  element_form_default :qualified    # or :unqualified
-  attribute_form_default :unqualified # or :qualified
+  element_form_default :qualified    # Explicitly set
+  # or
+  element_form_default :unqualified  # Explicitly set
 end
 ----
 

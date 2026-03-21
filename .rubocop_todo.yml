@@ -43,6 +43,7 @@ Lint/DuplicateBranch:
     - 'lib/lutaml/xml/mapping.rb'
     - 'lib/lutaml/xml/namespace_resolver.rb'
     - 'lib/lutaml/xml/nokogiri/element.rb'
+    - 'lib/lutaml/xml/transformation/element_builder.rb'
     - 'spec/lutaml/model/mixed_content_spec.rb'
     - 'spec/support/xml/xsd/code_example_validator.rb'
 
@@ -148,6 +149,8 @@ Metrics/CyclomaticComplexity:
 # Configuration parameters: CountComments, CountAsOne, AllowedMethods, AllowedPatterns.
 Metrics/MethodLength:
   Max: 360
+  Exclude:
+    - 'lib/lutaml/xml/declaration_planner.rb'
 
 # Offense count: 74
 # Configuration parameters: CountKeywordArgs, MaxOptionalParameters.

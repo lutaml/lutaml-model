@@ -5302,7 +5302,41 @@ end
 ===== `element_form_default`
 
 Controls whether locally declared elements must be namespace-qualified by
-default.
+default, corresponding to W3C XML Schema's `elementFormDefault` attribute.
+
+[IMPORTANT]
+.Explicit vs Default Values
+====
+The distinction between explicitly setting `element_form_default` and relying on the
+default value is significant:
+
+* When **explicitly set** (e.g., `element_form_default :unqualified`): The value is
+  propagated to child elements during serialization, causing them to be in the blank
+  namespace (no xmlns attribute).
+
+* When **not set** (defaults to `:unqualified`): The behavior depends on context.
+  Programmatically created objects may inherit the parent's namespace, while parsed
+  XML preserves the original format.
+
+Always explicitly set `element_form_default` to match your XSD's `elementFormDefault`
+attribute for predictable behavior.
+====
+
+W3C Compliance::
+
+This directive implements the following W3C XML Schema Databinding patterns:
+
+* *link:https://www.w3.org/2002/ws/databinding/edcopy/advanced/advanced.html#UnqualifiedLocalElements[UnqualifiedLocalElements pattern]*
+  - XSD: `elementFormDefault="unqualified"`
+  - Instance: Local elements appear without namespace prefix
+
+* *link:https://www.w3.org/2002/ws/databinding/edcopy/advanced/advanced.html#ElementFormQualified[ElementFormQualified pattern]*
+  - XSD: Local element with `form="qualified"`
+  - Instance: Element appears with namespace prefix
+
+* *link:https://www.w3.org/2002/ws/databinding/edcopy/advanced/advanced.html#ElementFormUnqualified[ElementFormUnqualified pattern]*
+  - XSD: Local element with `form="unqualified"`
+  - Instance: Element appears without namespace prefix
 
 Syntax:
 
@@ -5324,7 +5358,7 @@ Values:
 class CeramicNamespace < Lutaml::Model::XmlNamespace
   uri 'https://example.com/schemas/ceramic/v1'
   prefix_default 'cer'
-  element_form_default :qualified
+  element_form_default :qualified  # Explicitly set to match XSD
 end
 
 # With :qualified, child elements get: <cer:type>...</cer:type>
@@ -5335,7 +5369,34 @@ end
 ===== `attribute_form_default`
 
 Controls whether locally declared attributes must be namespace-qualified by
-default.
+default, corresponding to W3C XML Schema's `attributeFormDefault` attribute.
+
+[IMPORTANT]
+.Explicit vs Default Values
+====
+Always explicitly set `attribute_form_default` to match your XSD's `attributeFormDefault`
+attribute for predictable behavior.
+====
+
+W3C Compliance::
+
+This directive implements the following W3C XML Schema Databinding patterns:
+
+* *link:https://www.w3.org/2002/ws/databinding/edcopy/advanced/advanced.html#QualifiedLocalAttributes[QualifiedLocalAttributes pattern]*
+  - XSD: `attributeFormDefault="qualified"`
+  - Instance: Local attributes appear with namespace prefix
+
+* *link:https://www.w3.org/2002/ws/databinding/edcopy/advanced/advanced.html#AttributeFormQualified[AttributeFormQualified pattern]*
+  - XSD: Local attribute with `form="qualified"`
+  - Instance: Attribute appears with namespace prefix
+
+[NOTE]
+.Per W3C Conventions
+====
+Per W3C XML Schema conventions, attributes are typically unqualified (no namespace).
+Link:https://www.w3.org/2002/ws/databinding/edcopy/advanced/advanced.html#QualifiedLocalAttributes[QualifiedLocalAttributes]
+is required only when the XSD explicitly sets `attributeFormDefault="qualified"`.
+====
 
 Syntax:
 
@@ -5348,8 +5409,6 @@ Values:
 
 `:qualified`::: Local attributes must include namespace prefix
 `:unqualified`::: Local attributes have no namespace prefix (default)
-
-NOTE: Per W3C conventions, attributes are typically unqualified.
 
 .Setting attribute qualification default
 [example]

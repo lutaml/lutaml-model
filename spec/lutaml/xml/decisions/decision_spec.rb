@@ -153,11 +153,11 @@ RSpec.describe Lutaml::Xml::Decisions::Decision do
   end
 
   describe "#initialize" do
-    it "validates format is :prefix or :default" do
+    it "validates format is :prefix, :default, or :blank" do
       expect do
         described_class.new(format: :invalid, prefix: "ex",
                             namespace_class: namespace_class)
-      end.to raise_error(ArgumentError, "Format must be :prefix or :default")
+      end.to raise_error(ArgumentError, "Format must be :prefix, :default, or :blank")
     end
 
     it "validates prefix is required for :prefix format" do

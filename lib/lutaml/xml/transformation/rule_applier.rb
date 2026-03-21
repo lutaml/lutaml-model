@@ -86,7 +86,11 @@ register_id, register)
 
           # Extract parent's namespace info for element_form_default inheritance
           parent_ns_class = parent.namespace_class
-          parent_element_form_default = parent_ns_class&.element_form_default
+          # Only pass element_form_default VALUE if it was explicitly set
+          # When not set (defaults to :unqualified), pass nil to avoid incorrect blank namespace treatment
+          parent_element_form_default = if parent_ns_class&.element_form_default_set?
+                                          parent_ns_class.element_form_default
+                                        end
 
           # Performance: Only create new options hash if values differ
           # This avoids allocations for unchanged namespace inheritance

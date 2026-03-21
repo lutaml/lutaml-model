@@ -30,12 +30,15 @@ module Lutaml
       # @param prefix [String, nil] Default prefix
       # @param element_form_default [Symbol] :qualified or :unqualified
       # @param attribute_form_default [Symbol] :qualified or :unqualified
+      # @param element_form_default_set [Boolean] whether element_form_default was explicitly set
       # @return [Class] XmlNamespace subclass
       def get_or_create(uri: nil, prefix: nil,
                      element_form_default: :qualified,
-                     attribute_form_default: :unqualified)
+                     attribute_form_default: :unqualified,
+                     element_form_default_set: true)
         key = build_key(uri, prefix, element_form_default,
-                        attribute_form_default)
+                        attribute_form_default,
+                        element_form_default_set: element_form_default_set)
 
         @mutex.synchronize do
           # First check if a named class with this exact configuration exists
@@ -77,10 +80,11 @@ module Lutaml
       private
 
       # Build unique key for namespace configuration
-      def build_key(uri, prefix, element_form, attribute_form)
+      def build_key(uri, prefix, element_form, attribute_form, element_form_default_set: true)
         [
           uri || "nil",
           prefix || "nil",
+          element_form_default_set.to_s,
           element_form.to_s,
           attribute_form.to_s,
         ].join("|")
@@ -93,6 +97,7 @@ module Lutaml
           ns_class.prefix_default,
           ns_class.element_form_default,
           ns_class.attribute_form_default,
+          element_form_default_set: ns_class.element_form_default_set?,
         )
       end
 

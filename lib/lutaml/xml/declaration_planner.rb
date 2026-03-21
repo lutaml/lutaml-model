@@ -101,6 +101,15 @@ module Lutaml
             elsif use_prefix_option == false
               # Force default format when use_prefix: false
               hoisted[nil] = element_namespace.uri
+            elsif element_namespace.element_form_default_set? &&
+                element_namespace.element_form_default == :unqualified
+              # W3C elementFormDefault="unqualified": local elements should be unqualified.
+              # When parent uses prefix format, children can simply omit xmlns (blank namespace).
+              # When parent uses default format, children need xmlns="" to opt out.
+              # Prefer prefix format so children can be truly blank (no xmlns attribute).
+              # CRITICAL: Only applies when explicitly set, not when defaulted to :unqualified.
+              prefix = element_namespace.prefix_default || "ns#{hoisted.keys.length}"
+              hoisted[prefix] = element_namespace.uri
             else
               # Default: prefer default format (cleaner)
               hoisted[nil] = element_namespace.uri
@@ -629,13 +638,14 @@ module Lutaml
         # model has explicit `namespace :blank` declaration.
         element_marked_blank = xml_element.respond_to?(:needs_xmlns_blank) && xml_element.needs_xmlns_blank
 
-        # Check if the default namespace (from parent_hoisted) has element_form_default :qualified
-        # Use the value passed from parent, which correctly tracks the effective default namespace settings
-        default_ns_is_qualified = options[:default_ns_element_form_default] == :qualified
+        # Only add xmlns="" when element_form_default is NOT SET (nil)
+        # When element_form_default is :unqualified, children should have NO xmlns attribute
+        # (blank namespace, not xmlns="")
+        default_ns_form = options[:default_ns_element_form_default]
 
         implicit_blank_needs_xmlns = xml_element.namespace_class.nil? &&
           parent_hoisted&.key?(nil) &&
-          !default_ns_is_qualified
+          default_ns_form.nil? # Only when element_form_default is NOT explicitly set
 
         child_needs_xmlns_blank = element_marked_blank || implicit_blank_needs_xmlns
 
@@ -666,8 +676,8 @@ module Lutaml
         # Track the effective default namespace's element_form_default
         # This is used to determine if children should inherit the default namespace
         # If this element declares a default namespace (hoisted[nil]), use its element_form_default
-        # Otherwise, inherit from parent
-        effective_default_ns_form = if hoisted.key?(nil) && this_namespace&.element_form_default
+        # ONLY if it was explicitly set. Otherwise use nil (not set).
+        effective_default_ns_form = if hoisted.key?(nil) && this_namespace&.element_form_default_set?
                                       this_namespace.element_form_default
                                     else
                                       options[:default_ns_element_form_default]
@@ -1004,6 +1014,16 @@ module Lutaml
             # Namespace is NOT already hoisted - need to determine prefix
             element_prefix = determine_element_prefix(xml_element, mapping,
                                                       needs, options, is_root: is_root, parent_hoisted: parent_hoisted)
+
+            # W3C elementFormDefault="unqualified": prefer prefix format so children
+            # can be in blank namespace (no xmlns attribute). Only for non-root elements
+            # since elementFormDefault only applies to local elements.
+            # CRITICAL: Only applies when explicitly set, not when defaulted to :unqualified.
+            if element_prefix.nil? && ns_class.element_form_default_set? &&
+                ns_class.element_form_default == :unqualified && !is_root
+              element_prefix = ns_class.prefix_default || "ns"
+            end
+
             hoisted[element_prefix] = ns_uri
           elsif element_prefix
             # Namespace is already hoisted by parent, and we have an explicit prefix
