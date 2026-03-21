@@ -91,25 +91,33 @@ model_class, register_id)
         def find_rule_for_element(object, compiled_rules)
           return nil unless object.type == "Element"
 
+          object_ns_uri = object.namespace_uri # nil if old element_order (backward compat)
+
           compiled_rules.find do |r|
             r.is_a?(::Lutaml::Model::CompiledRule) &&
               r.option(:mapping_type) == :element &&
-              r.matches_name?(object.name)
+              matches_element_rule?(r, object.name, object_ns_uri)
           end
         end
 
         private
 
-        # Process a single item from element_order
+        # Match by name AND namespace when object has a namespace URI.
+        # Falls back to name-only match for backward compatibility.
         #
-        # @param object [Object] The element order item
-        # @param root [XmlElement] Root element
-        # @param model_instance [Object] The model instance
-        # @param options [Hash] Options
-        # @param compiled_rules [Array<CompiledRule>] The compiled rules
-        # @param mapping [Xml::Mapping] The mapping configuration
-        # @param element_indices [Hash] Index tracker for collections
-        # @return [Symbol, nil] :text_node if text was processed, nil otherwise
+        # @param rule [CompiledRule] The compiled rule
+        # @param name [String] Element name
+        # @param object_ns_uri [String, nil] Namespace URI from parsed XML
+        # @return [Boolean] true if the rule matches
+        def matches_element_rule?(rule, name, object_ns_uri)
+          return rule.matches_name?(name) if object_ns_uri.nil?
+
+          rule_ns_uri = rule.namespace_class&.uri
+          return rule.matches_name?(name) if rule_ns_uri.nil?
+
+          rule.matches_name?(name) && rule_ns_uri == object_ns_uri
+        end
+
         def process_element_order_item(object, root, model_instance, options,
 compiled_rules, _mapping, element_indices)
           # For text nodes in mixed content, add them directly to preserve interleaving

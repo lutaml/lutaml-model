@@ -344,7 +344,8 @@ module Lutaml
 
             element_rule = xml_mapping.find_by_name(object.name,
                                                     type: object.type,
-                                                    node_type: object.node_type)
+                                                    node_type: object.node_type,
+                                                    namespace_uri: object.namespace_uri)
             next if element_rule.nil? || options[:except]&.include?(element_rule.to)
 
             # Handle custom methods
