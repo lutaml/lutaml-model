@@ -379,3 +379,220 @@ UnitsMLV0919.register_all
 doc = UnitsMLV0919::UnitsMLType.from_xml(xml)
 ----
 ====
+
+[[namespace-bound-registers]]
+== Namespace-bound registers
+
+A `Register` manages models and type resolution in a format-agnostic way — it has no
+knowledge of the serialization format (XML, YAML, JSON, etc.). However, the
+`NamespaceBinding` mechanism specifically works with `Lutaml::Xml::Namespace` subclasses.
+The format-agnostic design allows this to be extended in the future; for now, the
+binding API accepts XML namespace classes.
+
+Namespace binding enables *version-aware type resolution*: the same type name can resolve
+to different classes depending on the namespace in the document. This is essential when
+different versions of a specification share the same type name but with different
+structures.
+
+=== Core concept
+
+A register can be *bound* to one or more `Lutaml::Xml::Namespace` subclasses. When
+resolving a type, the register checks whether the current XML namespace URI is one it
+handles and resolves accordingly. The binding is mediated by `Lutaml::Model::NamespaceBinding`,
+which stores the namespace class and its URI.
+
+[source,ruby]
+----
+# Define namespace classes inheriting from Lutaml::Xml::Namespace
+class Xmi20131001 < Lutaml::Xml::Namespace
+  uri "http://www.omg.org/spec/XMI/20131001"
+  prefix :xmi
+  element_form_default :qualified
+end
+
+# Create and bind a register to the namespace
+register = Lutaml::Model::Register.new(:spec_20131001)
+register.bind_namespace(Xmi20131001)
+
+register.handles_namespace?("http://www.omg.org/spec/XMI/20131001")
+# => true
+
+Once bound, the register becomes the authoritative register for that namespace.
+`GlobalContext` maintains a bidirectional mapping so that namespace URIs can be
+looked up to find the correct register, and vice versa.
+
+=== Bind a register to namespaces
+
+Use `Register#bind_namespace` to bind multiple `Lutaml::Xml::Namespace` subclasses to the
+same register. Each namespace class contributes its URI to the register's binding map:
+
+[source,ruby]
+----
+register.bind_namespace(Xmi20131001)
+register.bind_namespace(Uml20131001)
+register.bind_namespace(UmlDi20131001)
+register.bind_namespace(UmlDc20131001)
+
+# Each namespace URI maps to a binding in the register
+register.bound_namespace_uris
+# => [
+#      "http://www.omg.org/spec/XMI/20131001",
+#      "http://www.omg.org/spec/UML/20131001",
+#      "http://www.omg.org/spec/UML/20131001/UMLDI",
+#      "http://www.omg.org/spec/UML/20131001/UMLDC"
+#    ]
+----
+
+=== Namespace-aware type resolution
+
+Use `resolve_in_namespace` to resolve a type given an XML namespace URI. The XML parsing
+infrastructure supplies the namespace URI at parse time when building model objects,
+ensuring the correct version-specific class is instantiated:
+
+[source,ruby]
+----
+# Resolve :documentation in the context of the XMI 20131001 namespace
+klass = register.resolve_in_namespace(:documentation, "http://www.omg.org/spec/XMI/20131001")
+# Returns the class registered under :documentation in this register
+
+# Without a namespace, falls back to normal resolution through the fallback chain
+register.resolve_in_namespace(:documentation, nil)
+----
+
+=== Hierarchical fallback with namespace bindings
+
+When a newer specification version extends an older one (e.g., XMI 20161101
+extends XMI 20131001), the newer register falls back to the older register:
+
+[source,ruby]
+----
+# Older version
+v20131001 = Lutaml::Model::Register.new(:xmi_20131001)
+v20131001.bind_namespace(Xmi20131001)
+v20131001.register_model(V20131001::Documentation, id: :documentation)
+
+# Newer version extends older version
+v20161101 = Lutaml::Model::Register.new(:xmi_20161101, fallback: [:xmi_20131001])
+v20161101.bind_namespace(Xmi20161101)
+v20161101.register_model(V20161101::Extension, id: :extension)
+
+# V20161101::Extension is registered locally; V20131001::Documentation is
+# found via fallback chain resolution
+----
+
+WARNING: Do not create circular fallback chains. If register A falls back to B,
+and B already falls back to A (directly or indirectly), type resolution will
+enter an infinite loop. Always verify the fallback chain before use.
+
+=== Mixed namespace documents
+
+Some XML documents use different namespace versions for XMI, UML, UMLDI, and
+UMLDC. For example, an XMI document may declare:
+
+[source,xml]
+----
+<xmi:XMI xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101">
+----
+
+Here the XMI namespace is version 20131001, but the UML namespace is 20161101.
+When parsing this document, the XMI register must:
+
+1. Handle the XMI 20131001 namespace (primary)
+2. Also handle the UML 20161101 namespace (additional)
+3. Fall back to the UML 20161101 register for types specific to that version
+
+This is handled by *extending the fallback chain* for additional namespace
+versions. Given a primary register and a list of all detected versions:
+
+[source,ruby]
+----
+# Detect all namespace versions from the document
+versions = NamespaceDetector.detect_versions(xml_content)
+# => { xmi: "20131001", uml: "20161101", umldi: nil, umldc: nil }
+
+primary_register = register_for_version(versions[:xmi])  # xmi_20131001
+all_versions = [versions[:xmi], versions[:uml]].compact.uniq
+
+# For each additional version, bind its namespace URIs and extend the fallback
+all_versions.drop(1).each do |ver|
+  reg = register_for_version(ver)  # xmi_20161101
+  reg.bound_namespace_uris.each do |uri|
+    primary_register.bind_namespace(resolve_namespace_class(uri))
+  end
+  primary_register.fallback << reg.id unless reg.fallback.include?(primary_register.id)
+end
+----
+
+This ensures:
+
+* The primary register handles all namespace URIs present in the document
+* Type resolution searches the fallback chain for version-specific types
+* No cycles are introduced (guarded by checking whether the additional
+  register's fallback already includes the primary register)
+
+=== GlobalContext namespace registry
+
+`GlobalContext` maintains the global namespace-to-register mapping:
+
+[source,ruby]
+----
+# Bind a register to a namespace in GlobalContext
+register.bind_namespace(XmiNamespace)
+# This also calls GlobalContext.bind_register_to_namespace internally
+
+# Look up which register handles a namespace
+Lutaml::Model::GlobalContext.register_for_namespace(
+  "http://www.omg.org/spec/XMI/20131001"
+)
+# => the register bound to XmiNamespace
+----
+
+The `GlobalContext#register_for_namespace` method is the central lookup used by
+the parsing infrastructure to route XML elements to the correct register based
+on their namespace URI.
+
+=== Complete example: versioned schema with XML namespace bindings
+
+Here is a complete example showing how to set up a registry hierarchy with
+namespace bindings, suitable for a multi-version XML specification:
+
+[source,ruby]
+----
+# 1. Define Xml::Namespace subclasses for each version
+class Xmi20131001 < Lutaml::Xml::Namespace
+  uri "http://www.omg.org/spec/XMI/20131001"
+  prefix :xmi
+end
+
+class Xmi20161101 < Lutaml::Xml::Namespace
+  uri "http://www.omg.org/spec/XMI/20161101"
+  prefix :xmi
+end
+
+# 2. Create version-specific registers with fallback chains
+v20131001 = Lutaml::Model::Register.new(:spec_20131001)
+v20131001.bind_namespace(Xmi20131001)
+
+v20161101 = Lutaml::Model::Register.new(:spec_20161101, fallback: [:spec_20131001])
+v20161101.bind_namespace(Xmi20161101)
+
+# 3. Register models in each version
+v20131001.register_model(V20131001::Documentation, id: :documentation)
+v20131001.register_model(V20131001::Extension, id: :extension)
+
+v20161101.register_model(V20161101::Extension, id: :extension)  # different structure
+
+# 4. Register in GlobalRegister for global lookup
+Lutaml::Model::GlobalRegister.instance.register(v20131001)
+Lutaml::Model::GlobalRegister.instance.register(v20161101)
+
+# 5. Parse with the appropriate register
+doc = MyModel.from_xml(xml_content, register: v20161101)
+
+# 6. Detect the right register from document content
+detected = MyVersionRegistry.detect_register(xml_content)
+# Returns the appropriate register, with namespaces and fallbacks
+# already configured for the document
+doc = MyModel.from_xml(xml_content, register: detected)
+----

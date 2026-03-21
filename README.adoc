@@ -15604,6 +15604,29 @@ syntax:
 Lutaml::Model::Config.default_register = :default # the register id goes here.
 ----
 
+[[namespace-bound-registers]]
+==== Namespace-bound registers
+
+Registers manage models and type resolution in a format-agnostic way. The
+namespace binding mechanism specifically works with `Lutaml::Xml::Namespace` subclasses:
+bind XML namespace classes to a register to enable version-aware type resolution.
+
+[source,ruby]
+----
+# Bind Xml::Namespace subclasses to a register
+register.bind_namespace(XmiNamespace)
+register.handles_namespace?("http://example.com/ns/20131001")  # => true
+
+# Resolve type with namespace awareness
+klass = register.resolve_in_namespace(:documentation, "http://example.com/ns/20131001")
+----
+
+This enables *version-aware type resolution* where the same type name resolves to
+different classes depending on the XML namespace URI in the document. See
+link:docs/_references/custom_registers.adoc#namespace-bound-registers[Namespace-Bound Registers]
+in the Custom Registers Guide for a complete example with fallback chains and
+mixed-namespace document handling.
+
 [[global-context-api]]
 ==== GlobalContext API (v0.7+)
 

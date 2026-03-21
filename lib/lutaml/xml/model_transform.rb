@@ -414,6 +414,12 @@ mixed_content_option)
             cast_options[:__parent] = instance
             cast_options[:__root] = instance.__root || instance
 
+            # Namespace-aware type resolution: extract namespace URI from child
+            if child.is_a?(::Lutaml::Xml::XmlElement)
+              child_namespace_uri = child.namespace_uri
+              cast_options[:namespace_uri] = child_namespace_uri if child_namespace_uri
+            end
+
             values << attr.cast(child, :xml, __register, cast_options)
           elsif attr.raw?
             values << inner_xml_of(child)

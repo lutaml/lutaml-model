@@ -28,6 +28,8 @@ module Lutaml
     autoload :Instrumentation, "#{__dir__}/model/instrumentation"
     autoload :GlobalRegister, "#{__dir__}/model/global_register"
     autoload :Register, "#{__dir__}/model/register"
+    autoload :NamespaceBinding, "#{__dir__}/model/register/namespace_binding"
+    autoload :ModelTreeImporter, "#{__dir__}/model/register/model_tree_importer"
     autoload :Transformation, "#{__dir__}/model/transformation"
     autoload :CompiledRule, "#{__dir__}/model/compiled_rule"
     autoload :FormatRegistry, "#{__dir__}/model/format_registry"

@@ -49,6 +49,9 @@ module Lutaml
       # @return [Symbol] The current default context ID
       attr_reader :default_context_id
 
+      # @return [Hash{String => Symbol}] Namespace URI to register ID mapping
+      attr_reader :namespace_register_map
+
       # Thread-local storage for context switching
       THREAD_CONTEXT_KEY = :lutaml_model_context
 
@@ -59,6 +62,7 @@ module Lutaml
         @imports = ImportRegistry.new
         @xml_namespace_registry = create_xml_namespace_registry
         @default_context_id = :default
+        @namespace_register_map = {} # namespace_uri => register_id
         @mutex = Mutex.new
       end
 
@@ -168,6 +172,7 @@ module Lutaml
       # - All type resolution caches
       # - All pending imports
       # - All XML namespace class registry entries
+      # - All namespace-register mappings
       #
       # @return [void]
       def reset!
@@ -177,6 +182,7 @@ module Lutaml
           @imports.reset!
           @xml_namespace_registry&.clear!
           @xml_namespace_registry = create_xml_namespace_registry
+          @namespace_register_map.clear
           @default_context_id = :default
         end
       end
@@ -205,7 +211,71 @@ module Lutaml
           resolver_cache_size: @resolver.cache_stats[:size],
           imports: @imports.stats,
           xml_namespace_registry: "managed",
+          namespace_register_map_size: @namespace_register_map.size,
         }
+      end
+
+      # =====================================================================
+      # Namespace-Register Mapping Methods
+      # =====================================================================
+
+      # @api public
+      # Bind a register to a namespace URI.
+      #
+      # This enables reverse lookup: given a namespace URI, find the register.
+      #
+      # @param register_id [Symbol] The register ID
+      # @param namespace_uri [String] The namespace URI
+      # @return [void]
+      def bind_register_to_namespace(register_id, namespace_uri)
+        @mutex.synchronize do
+          @namespace_register_map[namespace_uri] = register_id.to_sym
+        end
+      end
+
+      # @api public
+      # Get register ID for a namespace URI.
+      #
+      # @param namespace_uri [String] The namespace URI
+      # @return [Symbol, nil] The register ID or nil if not bound
+      def register_id_for_namespace(namespace_uri)
+        @namespace_register_map[namespace_uri]
+      end
+
+      # @api public
+      # Get register for a namespace URI.
+      #
+      # @param namespace_uri [String] The namespace URI
+      # @return [Register, nil] The register or nil if not bound
+      def register_for_namespace(namespace_uri)
+        register_id = @namespace_register_map[namespace_uri]
+        return nil unless register_id
+
+        GlobalRegister.lookup(register_id)
+      end
+
+      # @api public
+      # Resolve type using namespace-aware lookup.
+      #
+      # If a namespace is specified and a register is bound to that namespace,
+      # uses that register for type resolution. Falls back to standard resolution.
+      #
+      # @param type_name [Symbol, String] The type name
+      # @param namespace_uri [String, nil] The namespace URI (optional)
+      # @param context_id [Symbol, nil] Optional explicit context
+      # @return [Class, nil] The resolved type or nil
+      def resolve_type_with_namespace(type_name, namespace_uri = nil, context_id = nil)
+        # If namespace specified, try namespace-aware resolution
+        if namespace_uri
+          register = register_for_namespace(namespace_uri)
+          if register
+            result = register.resolve_in_namespace(type_name, namespace_uri)
+            return result if result
+          end
+        end
+
+        # Fallback to standard resolution
+        resolve_type(type_name, context_id)
       end
 
       private
@@ -294,6 +364,27 @@ module Lutaml
 
           def with_context(ctx_id)
             instance.with_context(ctx_id) { yield }
+          end
+
+          # Namespace-register mapping methods
+          def bind_register_to_namespace(register_id, namespace_uri)
+            instance.bind_register_to_namespace(register_id, namespace_uri)
+          end
+
+          def register_id_for_namespace(namespace_uri)
+            instance.register_id_for_namespace(namespace_uri)
+          end
+
+          def register_for_namespace(namespace_uri)
+            instance.register_for_namespace(namespace_uri)
+          end
+
+          def resolve_type_with_namespace(type_name, namespace_uri = nil, context_id = nil)
+            instance.resolve_type_with_namespace(type_name, namespace_uri, context_id)
+          end
+
+          def namespace_register_map
+            instance.namespace_register_map
           end
         RUBY
       end
