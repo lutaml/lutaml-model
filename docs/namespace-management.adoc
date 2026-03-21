@@ -464,8 +464,6 @@ NOTE: DcNamespace IS declared even though unused (`:always` mode required by spe
 
 == W3C Compliance
 
-=== Namespace Inheritance Rules
-
 Lutaml::Model follows W3C XML Namespace specifications for child element qualification:
 
 1. **Default namespace inheritance**: Children in same namespace as parent inherit automatically
@@ -473,14 +471,83 @@ Lutaml::Model follows W3C XML Namespace specifications for child element qualifi
 3. **No duplicate declarations**: xmlns declared once per scope
 4. **Explicit opt-out**: Children in different namespace use xmlns="" when needed
 
+This section implements the following W3C XML Schema Databinding Patterns:
+
+* *link:https://www.w3.org/2002/ws/databinding/edcopy/advanced/advanced.html#UnqualifiedLocalElements[UnqualifiedLocalElements pattern]* (§2.1.2)
+* *link:https://www.w3.org/2002/ws/databinding/edcopy/advanced/advanced.html#QualifiedLocalAttributes[QualifiedLocalAttributes pattern]* (§2.1.3)
+* *link:https://www.w3.org/2002/ws/databinding/edcopy/advanced/advanced.html#ElementFormUnqualified[ElementFormUnqualified pattern]* (§2.7.4)
+* *link:https://www.w3.org/2002/ws/databinding/edcopy/advanced/advanced.html#AttributeFormQualified[AttributeFormQualified pattern]* (§2.8.1)
+
 === element_form_default
 
-The `element_form_default` setting in XmlNamespace classes controls child element namespace qualification:
+The `element_form_default` setting in XmlNamespace classes controls child element namespace qualification,
+corresponding to W3C XML Schema's `elementFormDefault` attribute.
 
 `:qualified`::: Children inherit parent namespace (W3C default for Lutaml::Model)
-`:unqualified`::: Children in blank namespace (requires xmlns="" in output)
+`:unqualified` (explicitly set)::: Children in blank namespace (requires xmlns="" in output)
 
-.element_form_default behavior
+**W3C Pattern: UnqualifiedLocalElements**
+
+*Source: link:https://www.w3.org/2002/ws/databinding/edcopy/advanced/advanced.html#UnqualifiedLocalElements[W3C XML Schema Databinding Patterns §2.1.2]*
+
+.XSD Schema
+[source,xml]
+----
+<xs:schema targetNamespace="http://example.com/ns"
+           elementFormDefault="unqualified">
+  <xs:element name="unqualifiedLocalElements" type="xs:string" />
+</xs:schema>
+----
+
+.Valid Instance
+[source,xml]
+----
+<unqualifiedLocalElements>some data</unqualifiedLocalElements>
+----
+
+**W3C Pattern: ElementFormUnqualified**
+
+*Source: link:https://www.w3.org/2002/ws/databinding/edcopy/advanced/advanced.html#ElementFormUnqualified[W3C XML Schema Databinding Patterns §2.7.4]*
+
+.XSD Schema
+[source,xml]
+----
+<xs:element name="elementFormUnqualified" type="ex:ElementFormUnqualified" />
+<xs:complexType name="ElementFormUnqualified">
+  <xs:sequence>
+    <xs:element name="element" type="xs:string" form="unqualified" />
+  </xs:sequence>
+</xs:complexType>
+----
+
+.Valid Instance
+[source,xml]
+----
+<ex:elementFormUnqualified>
+    <element>string</element>
+</ex:elementFormUnqualified>
+----
+
+[IMPORTANT]
+.Explicit Setting Required
+====
+For predictable behavior, always explicitly set `element_form_default` to match your
+XSD's `elementFormDefault` attribute.
+
+When `element_form_default :unqualified` is **explicitly set**:
+
+* Children are placed in the blank namespace
+* No namespace prefix on child elements
+* Appropriate when XSD declares `elementFormDefault="unqualified"`
+
+When `element_form_default` is **not set** (relies on default):
+
+* May not produce predictable unqualified behavior
+* Context-dependent inheritance may occur
+* Not recommended for XSD-compliant serialization
+====
+
+.element_form_default behavior (explicitly set to :unqualified)
 [example]
 ====
 [source,ruby]
@@ -488,7 +555,7 @@ The `element_form_default` setting in XmlNamespace classes controls child elemen
 class ParentNamespace < Lutaml::Model::XmlNamespace
   uri "http://example.com/parent"
   prefix_default "parent"
-  element_form_default :unqualified  # Children in blank namespace
+  element_form_default :unqualified  # EXPLICITLY SET
 end
 
 class Parent < Lutaml::Model::Serializable

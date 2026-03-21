@@ -220,3 +220,230 @@ syntax:
 ----
 Lutaml::Model::Config.default_register = :default # the register id goes here.
 ----
+
+== Element and Attribute Form Defaults
+
+XSD generation supports W3C XML Schema's `elementFormDefault` and `attributeFormDefault`
+attributes to control whether local elements and attributes must be namespace-qualified
+in instance documents.
+
+=== Understanding Form Defaults
+
+The W3C XML Schema specification defines two important attributes on `<xs:schema>`:
+
+* `elementFormDefault` - Controls whether local elements must be namespace-qualified
+* `attributeFormDefault` - Controls whether local attributes must be namespace-qualified
+
+The W3C default for both is `"unqualified"`, meaning elements and attributes
+appear without namespace prefixes in instance documents unless explicitly qualified.
+
+[IMPORTANT]
+====
+Per W3C XML Schema Part 1: Structures, Section 3.2.2:
+
+[quote, W3C XML Schema Part 1: Structures]
+____
+If the attribute form default is 'qualified', then locally declared attributes
+(those declared in complexType definitions) must be qualified in instance documents.
+____
+====
+
+=== Configuring Form Defaults
+
+Use the `element_form_default` and `attribute_form_default` methods in your
+`XmlNamespace` class:
+
+[source,ruby]
+----
+class MyNamespace < Lutaml::Model::XmlNamespace
+  uri "http://example.com/ns"
+  prefix_default "ex"
+
+  # Elements in instance documents will be namespace-qualified
+  element_form_default :qualified
+
+  # Attributes in instance documents will be namespace-qualified
+  attribute_form_default :qualified
+end
+----
+
+=== Form Attribute on Individual Elements/Attributes
+
+When a local element or attribute differs from the schema's form default,
+the XSD generator emits an explicit `form` attribute. The `form` option
+on `map_element` and `map_attribute` allows you to override the default:
+
+[source,ruby]
+----
+class FormUnqualifiedExample < Lutaml::Model::Serializable
+  attribute :content, :string
+
+  xml do
+    element "elementFormUnqualified"
+    type_name "ElementFormUnqualifiedType"
+    namespace MyNamespace  # elementFormDefault="qualified"
+
+    # Override: This element should be unqualified despite schema default
+    map_element "content", to: :content, form: :unqualified
+  end
+end
+----
+
+This generates:
+
+[source,xml]
+----
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:ex="http://example.com/ns"
+           targetNamespace="http://example.com/ns"
+           elementFormDefault="qualified">
+
+  <xs:element name="elementFormUnqualified" type="ex:ElementFormUnqualifiedType"/>
+
+  <xs:complexType name="ElementFormUnqualifiedType">
+    <xs:sequence>
+      <!-- form="unqualified" is emitted because it differs from elementFormDefault -->
+      <xs:element name="content" type="xs:string" form="unqualified"/>
+    </xs:sequence>
+  </xs:complexType>
+</xs:schema>
+----
+
+=== When the `form` Attribute is Emitted
+
+Per XSD specification, the `form` attribute on local declarations should only
+be emitted when it *differs* from the schema-level default:
+
+* If `elementFormDefault="qualified"` and an element has `form="qualified"` → NOT emitted
+* If `elementFormDefault="qualified"` and an element has `form="unqualified"` → EMITTED
+* If `elementFormDefault="unqualified"` and an element has `form="unqualified"` → NOT emitted
+* If `elementFormDefault="unqualified"` and an element has `form="qualified"` → EMITTED
+
+This optimization reduces XSD verbosity while maintaining correctness.
+
+=== Complete Example: ElementFormUnqualified Pattern
+
+This example demonstrates the W3C ElementFormUnqualified pattern where
+local elements appear without namespace prefixes:
+
+[source,ruby]
+----
+class ExampleNamespace < Lutaml::Model::XmlNamespace
+  uri "http://example.com/ns"
+  prefix_default "ex"
+  element_form_default :unqualified  # Local elements unqualified
+end
+
+class ElementFormUnqualified < Lutaml::Model::Serializable
+  attribute :premium, :string
+
+  xml do
+    element "elementFormUnqualified"
+    type_name "ElementFormUnqualifiedType"
+    namespace ExampleNamespace
+    map_element "premium", to: :premium
+  end
+end
+----
+
+**Generated XSD:**
+
+[source,xml]
+----
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:ex="http://example.com/ns"
+           targetNamespace="http://example.com/ns"
+           elementFormDefault="unqualified">
+
+  <xs:element name="elementFormUnqualified" type="ex:ElementFormUnqualifiedType"/>
+
+  <xs:complexType name="ElementFormUnqualifiedType">
+    <xs:sequence>
+      <!-- form attribute NOT emitted because it matches elementFormDefault -->
+      <xs:element name="premium" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+</xs:schema>
+----
+
+**Valid Instance Document:**
+
+[source,xml]
+----
+<ex:elementFormUnqualified xmlns:ex="http://example.com/ns">
+  <premium>1175</premium>
+</ex:elementFormUnqualified>
+----
+
+=== Complete Example: AttributeFormUnqualified Pattern
+
+This example demonstrates the W3C AttributeFormUnqualified pattern:
+
+[source,ruby]
+----
+class ExampleNamespace < Lutaml::Model::XmlNamespace
+  uri "http://example.com/ns"
+  prefix_default "ex"
+  element_form_default :qualified
+  attribute_form_default :unqualified  # Local attributes unqualified
+end
+
+class AttributeFormUnqualified < Lutaml::Model::Serializable
+  attribute :id, :string
+
+  xml do
+    element "attributeFormUnqualified"
+    type_name "AttributeFormUnqualifiedType"
+    namespace ExampleNamespace
+    map_attribute "id", to: :id
+  end
+end
+----
+
+**Valid Instance Document:**
+
+[source,xml]
+----
+<ex:attributeFormUnqualified xmlns:ex="http://example.com/ns" id="id01">
+  <ex:premium>1175</ex:premium>
+</ex:attributeFormUnqualified>
+----
+
+=== Mixing Qualified and Unqualified Forms
+
+You can mix qualified and unqualified forms within the same schema:
+
+[source,ruby]
+----
+class MixedFormNamespace < Lutaml::Model::XmlNamespace
+  uri "http://example.com/ns"
+  prefix_default "ex"
+  element_form_default :qualified  # Schema default
+  attribute_form_default :qualified # Schema default
+end
+
+class MixedFormExample < Lutaml::Model::Serializable
+  attribute :qualified_element, :string
+  attribute :unqualified_element, :string
+  attribute :qualified_attr, :string
+  attribute :unqualified_attr, :string
+
+  xml do
+    element "mixedFormExample"
+    type_name "MixedFormExampleType"
+    namespace MixedFormNamespace
+
+    # Explicitly unqualified - overrides element_form_default
+    map_element "unqualified_element", to: :unqualified_element, form: :unqualified
+
+    # Defaults to qualified (matches element_form_default)
+    map_element "qualified_element", to: :qualified_element
+
+    # Explicitly unqualified - overrides attribute_form_default
+    map_attribute "unqualified_attr", to: :unqualified_attr, form: :unqualified
+
+    # Defaults to qualified (matches attribute_form_default)
+    map_attribute "qualified_attr", to: :qualified_attr
+  end
+end
+----

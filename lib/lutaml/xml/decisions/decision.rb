@@ -5,18 +5,18 @@ module Lutaml
     module Decisions
       # Immutable value object representing a namespace decision
       #
-      # @attr_reader [Symbol] format - :prefix or :default
+      # @attr_reader [Symbol] format - :prefix, :default, or :blank
       # @attr_reader [String, nil] prefix - The prefix to use (nil for default format)
       # @attr_reader [Class, nil] namespace_class - The XmlNamespace class
       # @attr_reader [String, nil] reason - Human-readable reason for decision
       class Decision
         attr_reader :format, :prefix, :namespace_class, :reason
 
+        VALID_FORMATS = %i[prefix default blank].freeze
+
         def initialize(format:, prefix: nil, namespace_class: nil,
-    reason: nil)
-          raise ArgumentError, "Format must be :prefix or :default" unless %i[
-            prefix default
-          ].include?(format)
+reason: nil)
+          raise ArgumentError, "Format must be :prefix, :default, or :blank" unless VALID_FORMATS.include?(format)
 
           if format == :prefix && prefix.nil?
             raise ArgumentError,
@@ -25,6 +25,10 @@ module Lutaml
           if format == :default && !prefix.nil?
             raise ArgumentError,
                   "Prefix must be nil for :default format"
+          end
+          if format == :blank && !prefix.nil?
+            raise ArgumentError,
+                  "Prefix must be nil for :blank format"
           end
 
           @format = format
@@ -46,6 +50,13 @@ module Lutaml
               namespace_class: namespace_class, reason: reason)
         end
 
+        # Convenience factory for blank namespace decisions
+        # Blank namespace means no xmlns attribute (element not in any namespace)
+        def self.blank(namespace_class:, reason:)
+          new(format: :blank, prefix: nil,
+              namespace_class: namespace_class, reason: reason)
+        end
+
         # Check if this decision uses prefix format
         def uses_prefix?
           @format == :prefix
@@ -54,6 +65,11 @@ module Lutaml
         # Check if this decision uses default format
         def uses_default?
           @format == :default
+        end
+
+        # Check if this decision uses blank namespace (no xmlns)
+        def uses_blank?
+          @format == :blank
         end
 
         # Equality based on format, prefix, and namespace_class

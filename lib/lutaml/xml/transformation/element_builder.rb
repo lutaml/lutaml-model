@@ -44,6 +44,8 @@ register_id, register)
         # Priority:
         #   1. Type xml_namespace (explicit type-level namespace)
         #   2. Rule namespace_class (explicit mapping-level namespace)
+        #      - BUT: if parent has element_form_default :unqualified AND
+        #        the namespace is the same as parent's, override to blank
         #   3. Form override unqualified (form: :unqualified forces blank namespace)
         #   4. Parent inheritance (element_form_default: :qualified)
         #   5. Form override qualified (form: :qualified forces namespace inheritance)
@@ -62,21 +64,29 @@ parent_element_form_default)
           end
 
           # Priority 2: Explicit namespace on mapping rule
-          return rule.namespace_class if rule.namespace_class
-
-          # Priority 3: Form override unqualified
-          return nil if rule.form == :unqualified
-
-          # Priority 4: Inherit parent's namespace (element_form_default: :qualified)
-          if parent_element_form_default == :qualified && parent_namespace_class
-            return parent_namespace_class
+          # BUT: if parent has element_form_default :unqualified AND
+          # the namespace is the same as parent's, override to blank namespace
+          # W3C: elementFormDefault only applies to locally declared elements
+          # in the same namespace. Elements from other namespaces are always qualified.
+          if rule.namespace_class
+            if parent_element_form_default == :unqualified &&
+                rule.namespace_class == parent_namespace_class
+              # Parent schema says unqualified, and this is the same namespace
+              # Override to blank namespace (nil)
+              nil
+            else
+              rule.namespace_class
+            end
+          elsif rule.form == :unqualified
+            # Priority 3: Form override unqualified
+            nil
+          elsif parent_element_form_default == :qualified && parent_namespace_class
+            # Priority 4: Inherit parent's namespace (element_form_default: :qualified)
+            parent_namespace_class
+          elsif rule.form == :qualified && parent_namespace_class
+            # Priority 5: Form override qualified
+            parent_namespace_class
           end
-
-          # Priority 5: Form override qualified
-          return parent_namespace_class if rule.form == :qualified && parent_namespace_class
-
-          # Priority 6: Blank namespace (no inheritance)
-          nil
         end
 
         private
@@ -185,6 +195,16 @@ child_transformation)
           # Use parent's mapping name, not child's root name
           if rule.serialized_name != child_element.name
             child_element.instance_variable_set(:@name, rule.serialized_name)
+          end
+
+          # W3C elementFormDefault: unqualified override
+          # When parent's namespace has element_form_default :unqualified and the child's
+          # namespace is the same as the parent's, override to blank namespace.
+          # This ensures local elements are not namespace-qualified per W3C spec.
+          if parent_element_form_default == :unqualified &&
+              parent_ns_class &&
+              child_element.namespace_class == parent_ns_class
+            child_element.instance_variable_set(:@namespace_class, nil)
           end
 
           child_element

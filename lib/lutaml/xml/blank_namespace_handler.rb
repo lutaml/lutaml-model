@@ -32,12 +32,14 @@ module Lutaml
         end
 
         # Case 2: W3C compliance for unqualified children
-        # When parent has default namespace but NO element_form_default :qualified,
-        # children need xmlns="" to explicitly opt out of inheritance.
+        # When parent has default namespace but element_form_default is NOT set
+        # (defaults to :unqualified per W3C), children need xmlns="" to explicitly
+        # opt out of inheritance.
         # If parent has element_form_default :qualified, children inherit by default (no xmlns="").
+        # If parent has element_form_default :unqualified, children should have NO xmlns at all.
         if mapping.namespace_class.nil? &&
             parent_uses_default_ns &&
-            parent_element_form_default != :qualified
+            parent_element_form_default.nil?
           return true
         end
 

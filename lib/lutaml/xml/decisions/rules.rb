@@ -13,6 +13,8 @@ module Lutaml
       module Rules
         autoload :InheritFromParentRule,
                  "#{__dir__}/rules/inherit_from_parent_rule"
+        autoload :ElementFormDefaultUnqualifiedRule,
+                 "#{__dir__}/rules/element_form_default_unqualified_rule"
         autoload :HoistedOnParentRule, "#{__dir__}/rules/hoisted_on_parent_rule"
         autoload :ElementFormOptionRule,
                  "#{__dir__}/rules/element_form_option_rule"

@@ -72,6 +72,7 @@ module Lutaml
           if value
             validate_form_value!(value, "element_form_default")
             @element_form_default_value = value
+            @element_form_default_set = true
           end
           @element_form_default_value || :unqualified
         end
@@ -206,6 +207,13 @@ module Lutaml
           else
             ":#{namespace_uri}"
           end
+        end
+
+        # Check if element_form_default was explicitly set (vs defaulted to :unqualified)
+        #
+        # @return [Boolean] true if element_form_default was explicitly set on this class
+        def element_form_default_set?
+          @element_form_default_set == true
         end
 
         private

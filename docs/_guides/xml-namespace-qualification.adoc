@@ -54,26 +54,224 @@ instance.to_xml(prefix: "custom")  # Uses xmlns:custom="..." format
 
 == W3C XML Schema Compliance
 
-=== elementFormDefault Rules
+This section documents Lutaml::Model's compliance with W3C XML Schema namespace qualification patterns. The implementation follows the *link:https://www.w3.org/2002/ws/databinding/edcopy/advanced/advanced.html[W3C XML Schema Databinding Patterns]* specification.
+
+=== W3C Patterns for Element Qualification
+
+Lutaml::Model implements the following W3C-recognized patterns for element form qualification:
+
+[cols="1,2,2,2"]
+|===
+|W3C Pattern |XSD Declaration |Instance XML |element_form_default
+
+|UnqualifiedLocalElements
+|`<xs:schema elementFormDefault="unqualified">`
+|Local elements without prefix
+|`:unqualified`
+
+|ElementFormQualified
+|`form="qualified"` on element
+|Element with namespace prefix
+|`:qualified` (or use `form:` in mapping)
+
+|ElementFormUnqualified
+|`form="unqualified"` on element
+|Element without namespace prefix
+|N/A (per-element override)
+|===
+
+==== UnqualifiedLocalElements Pattern (W3C)
+
+*Source: link:https://www.w3.org/2002/ws/databinding/edcopy/advanced/advanced.html#UnqualifiedLocalElements[W3C XML Schema Databinding Patterns §2.1.2]*
+
+When the XSD declares `elementFormDefault="unqualified"`, local elements appear without namespace prefix in instance documents.
+
+.XSD Schema
+[source,xml]
+----
+<xs:schema targetNamespace="http://example.com/ns"
+           elementFormDefault="unqualified">
+  <xs:element name="unqualifiedLocalElements" type="xs:string" />
+</xs:schema>
+----
+
+.Valid Instance
+[source,xml]
+----
+<unqualifiedLocalElements>some data</unqualifiedLocalElements>
+----
+
+==== ElementFormQualified Pattern (W3C)
+
+*Source: link:https://www.w3.org/2002/ws/databinding/edcopy/basic/basic.html#ElementFormQualified[W3C XML Schema Databinding Patterns §2.7.6]*
+
+When local elements have `form="qualified"`, they must include the namespace prefix in instance documents.
+
+.XSD Schema
+[source,xml]
+----
+<xs:element name="elementFormQualified" type="ex:ElementFormQualified" />
+<xs:complexType name="ElementFormQualified">
+  <xs:sequence>
+    <xs:element name="premium" type="xs:string" form="qualified" />
+  </xs:sequence>
+</xs:complexType>
+----
+
+.Valid Instance
+[source,xml]
+----
+<ex:elementFormQualified>
+    <ex:premium>1175</ex:premium>
+</ex:elementFormQualified>
+----
+
+==== ElementFormUnqualified Pattern (W3C)
+
+*Source: link:https://www.w3.org/2002/ws/databinding/edcopy/advanced/advanced.html#ElementFormUnqualified[W3C XML Schema Databinding Patterns §2.7.4]*
+
+When local elements have `form="unqualified"`, they appear without namespace prefix even when `elementFormDefault="qualified"`.
+
+.XSD Schema
+[source,xml]
+----
+<xs:element name="elementFormUnqualified" type="ex:ElementFormUnqualified" />
+<xs:complexType name="ElementFormUnqualified">
+  <xs:sequence>
+    <xs:element name="element" type="xs:string" form="unqualified" />
+  </xs:sequence>
+</xs:complexType>
+----
+
+.Valid Instance
+[source,xml]
+----
+<ex:elementFormUnqualified>
+    <element>string</element>
+</ex:elementFormUnqualified>
+----
+
+=== W3C Patterns for Attribute Qualification
+
+Lutaml::Model implements the following W3C-recognized patterns for attribute form qualification:
+
+[cols="1,2,2,2"]
+|===
+|W3C Pattern |XSD Declaration |Instance XML |attribute_form_default
+
+|QualifiedLocalAttributes
+|`<xs:schema attributeFormDefault="qualified">`
+|Attributes with namespace prefix
+|`:qualified`
+
+|AttributeFormQualified
+|`form="qualified"` on attribute
+|Attribute with namespace prefix
+|N/A (per-attribute override)
+|===
+
+==== QualifiedLocalAttributes Pattern (W3C)
+
+*Source: link:https://www.w3.org/2002/ws/databinding/edcopy/advanced/advanced.html#QualifiedLocalAttributes[W3C XML Schema Databinding Patterns §2.1.3]*
+
+When the XSD declares `attributeFormDefault="qualified"`, local attributes must include the namespace prefix in instance documents.
+
+.XSD Schema
+[source,xml]
+----
+<xs:schema targetNamespace="http://example.com/ns"
+           attributeFormDefault="qualified">
+  <xs:element name="qualifiedLocalAttributes" type="xs:string" />
+</xs:schema>
+----
+
+.Valid Instance
+[source,xml]
+----
+<ex:qualifiedLocalAttributes>string</ex:qualifiedLocalAttributes>
+----
+
+==== AttributeFormQualified Pattern (W3C)
+
+*Source: link:https://www.w3.org/2002/ws/databinding/edcopy/advanced/advanced.html#AttributeFormQualified[W3C XML Schema Databinding Patterns §2.8.1]*
+
+When local attributes have `form="qualified"`, they must include the namespace prefix.
+
+.XSD Schema
+[source,xml]
+----
+<xs:element name="attributeFormQualified" type="ex:AttributeFormQualified" />
+<xs:complexType name="AttributeFormQualified">
+  <xs:sequence>
+    <xs:element name="element1" type="xs:string" />
+    <xs:element name="element2" type="xs:string" />
+  </xs:sequence>
+  <xs:attribute name="attribute" form="qualified" type="xs:string" />
+</xs:complexType>
+----
+
+.Valid Instance
+[source,xml]
+----
+<ex:attributeFormQualified ex:attribute="string">
+    <ex:element1>string</ex:element1>
+    <ex:element2>string</ex:element2>
+</ex:attributeFormQualified>
+----
+
+=== elementFormDefault Rules (Lutaml::Model)
 
 According to W3C XML Schema specification:
 
-[cols="1,2,2"]
+[cols="1,2,2,2"]
 |===
-|Setting |Meaning |Example
+|Setting |Meaning |Example |Behavior
 
 |`:qualified`
 |Child elements inherit parent's namespace
 |`<parent><child>` both in same namespace
+|Children get namespace prefix when `prefix: true`
 
-|`:unqualified` (default)
+|`:unqualified` (explicitly set)
 |Child elements are in NO namespace
 |`<parent><child>` child has no namespace
+|Children get `xmlns=""` when needed
 
 |Not set
 |Defaults to `:unqualified`
 |Same as `:unqualified`
+|Context-dependent behavior (may inherit parent)
 |===
+
+[IMPORTANT]
+.Explicit Setting Required for Predictable Behavior
+====
+For predictable serialization behavior, always **explicitly set** `element_form_default`
+in your namespace class to match your XSD's `elementFormDefault` attribute.
+
+When `element_form_default` is explicitly set to `:unqualified`:
+
+* Child elements are placed in the blank namespace (no xmlns attribute needed
+  if parent uses default namespace, or `xmlns=""` if parent uses prefixed namespace)
+
+* This matches W3C XML Schema semantics where `elementFormDefault="unqualified"`
+  means local elements should NOT be namespace-qualified
+
+When `element_form_default` is NOT set:
+
+* The system may use context-dependent behavior
+* Format preservation from parsed XML takes priority
+* May not produce the expected unqualified elements
+
+**Always match your XSD:**
+[source,ruby]
+----
+# Match: <xs:schema elementFormDefault="unqualified">
+class MyNamespace < Lutaml::Model::XmlNamespace
+  element_form_default :unqualified  # EXPLICITLY SET THIS
+end
+----
+====
 
 === Prefix Control Behavior
 
@@ -360,7 +558,7 @@ map_element "child", to: :value, form: :qualified
 
 *Check*:
 
-1. Is `element_form_default: :qualified` set?
+1. Is `element_form_default` explicitly set to `:unqualified`?
 2. Is `form: :qualified` on the mapping?
 3. Does the Type have a namespace?
 
@@ -368,8 +566,41 @@ map_element "child", to: :value, form: :qualified
 
 [source,ruby]
 ----
+class MyNamespace < Lutaml::Model::XmlNamespace
+  element_form_default :unqualified  # EXPLICITLY SET THIS
+end
+
+# Or at mapping level
 map_element "value", to: :value, form: :unqualified
 ----
+
+=== element_form_default Not Honored
+
+*Problem*: Set `element_form_default :unqualified` but children still get namespace prefix
+
+*Cause*: The value may not be explicitly set on the namespace class
+
+*Solution*: Ensure `element_form_default` is **explicitly** called in your namespace class:
+
+[source,ruby]
+----
+# CORRECT: Explicitly set
+class MyNamespace < Lutaml::Model::XmlNamespace
+  element_form_default :unqualified  # Explicitly set
+end
+
+# INCORRECT: Relies on default (may not work predictably)
+class MyNamespace < Lutaml::Model::XmlNamespace
+  # element_form_default NOT called
+  # May not produce expected unqualified behavior
+end
+----
+
+The distinction between "explicitly set" and "default value" matters because:
+
+1. When explicitly set, the value is properly propagated to child elements
+2. When not set, context-dependent behavior may occur
+3. This ensures W3C XML Schema compliance for `elementFormDefault="unqualified"`
 
 === Round-Trip Issues
 
@@ -381,20 +612,30 @@ map_element "value", to: :value, form: :unqualified
 
 == Best Practices
 
-=== 1. Be Explicit About Qualification
+=== 1. Always Explicitly Set element_form_default
 
 [source,ruby]
 ----
-# GOOD: Clear intent
+# GOOD: Clear intent, matches XSD
 class MyNamespace < Lutaml::Model::XmlNamespace
-  element_form_default :qualified  # or :unqualified
+  element_form_default :qualified  # Explicitly set
+end
+
+# GOOD: Explicitly set to unqualified
+class MyNamespace < Lutaml::Model::XmlNamespace
+  element_form_default :unqualified  # Explicitly set
 end
 
 # AVOID: Relying on default
 class MyNamespace < Lutaml::Model::XmlNamespace
   # Defaults to :unqualified, but intent unclear
+  # May not behave predictably in all contexts
 end
 ----
+
+When you explicitly set `element_form_default`, it is properly honored during
+serialization, ensuring child elements follow the expected namespace qualification
+rules.
 
 === 2. Document Namespace Decisions
 

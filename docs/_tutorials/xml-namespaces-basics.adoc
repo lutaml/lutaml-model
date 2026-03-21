@@ -163,6 +163,126 @@ Output:
 ----
 ====
 
+== Form Defaults: elementFormDefault and attributeFormDefault
+
+XSD schemas support `elementFormDefault` and `attributeFormDefault` to control
+whether local elements and attributes must be namespace-qualified.
+
+=== element_form_default
+
+Controls whether local elements (declared inside complexType) must be
+namespace-qualified in instance documents:
+
+[source,ruby]
+----
+class MyNamespace < Lutaml::Model::XmlNamespace
+  uri 'http://example.com/ceramic'
+  prefix_default 'cer'
+
+  # Local elements will be namespace-qualified
+  element_form_default :qualified
+end
+----
+
+With `element_form_default :qualified`, local elements appear with namespace prefix:
+
+[source,xml]
+----
+<cer:Ceramic xmlns:cer="http://example.com/ceramic">
+  <cer:type>Porcelain</cer:type>  <!-- Prefixed because elementFormDefault="qualified" -->
+</cer:Ceramic>
+----
+
+With `element_form_default :unqualified` (the W3C default), local elements
+appear without prefix:
+
+[source,xml]
+----
+<cer:Ceramic xmlns:cer="http://example.com/ceramic">
+  <type>Porcelain</type>  <!-- No prefix because elementFormDefault="unqualified" -->
+</cer:Ceramic>
+----
+
+=== attribute_form_default
+
+Controls whether local attributes must be namespace-qualified:
+
+[source,ruby]
+----
+class MyNamespace < Lutaml::Model::XmlNamespace
+  uri 'http://example.com/ceramic'
+  prefix_default 'cer'
+  attribute_form_default :qualified  # Local attributes will be prefixed
+end
+----
+
+With `attribute_form_default :qualified`, local attributes appear with namespace prefix:
+
+[source,xml]
+----
+<cer:Ceramic xmlns:cer="http://example.com/ceramic" cer:id="123">
+  <cer:type>Porcelain</cer:type>
+</cer:Ceramic>
+----
+
+With `attribute_form_default :unqualified` (the W3C default), local attributes
+appear without prefix:
+
+[source,xml]
+----
+<cer:Ceramic xmlns:cer="http://example.com/ceramic" id="123">
+  <cer:type>Porcelain</cer:type>
+</cer:Ceramic>
+----
+
+=== Overriding Form Defaults for Individual Elements/Attributes
+
+You can override the schema-level default for individual elements or attributes
+using the `form` option:
+
+[source,ruby]
+----
+class MixedForms < Lutaml::Model::Serializable
+  attribute :qualified_content, :string
+  attribute :unqualified_content, :string
+
+  xml do
+    element "mixedForms"
+    namespace MyNamespace  # elementFormDefault: :qualified
+
+    # Override: unqualified despite schema default
+    map_element "unqualified_content", to: :unqualified_content, form: :unqualified
+
+    # Default: qualified (matches element_form_default)
+    map_element "qualified_content", to: :qualified_content
+  end
+end
+----
+
+=== Using form Option with Attributes
+
+[source,ruby]
+----
+class MixedAttrForms < Lutaml::Model::Serializable
+  attribute :qualified_id, :string
+  attribute :unqualified_id, :string
+
+  xml do
+    element "mixedAttrForms"
+    namespace MyNamespace  # attributeFormDefault: :qualified
+
+    # Override: unqualified despite schema default
+    map_attribute "unqualified_id", to: :unqualified_id, form: :unqualified
+
+    # Default: qualified (matches attribute_form_default)
+    map_attribute "qualified_id", to: :qualified_id
+  end
+end
+----
+
+For more details on XSD form defaults and how they affect schema generation,
+see link:../_references/xsd-generation-with-namespace-support[ XSD Generation with Namespace Support].
+
 == Common pitfalls
 
 === Forgetting namespace declarations
@@ -190,5 +310,6 @@ Remember: only the root element's namespace can be default. Other namespaces mus
 Learn more about:
 
 * link:../../guides/xml-namespaces[Complete XML namespace guide]
-* link:../../guides/xml-namespace-qualification[Namespace qualification]
+* link:../../_references/xml-w3c-namespace-qualification[Namespace qualification]
+* link:../../_references/xsd-generation-with-namespace-support[XSD Generation with Namespace Support]
 * link:../../serialization_adapters[Configuring XML adapters]

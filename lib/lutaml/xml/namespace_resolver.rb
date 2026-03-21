@@ -109,21 +109,28 @@ module Lutaml
               parent_prefix = ns_decl.prefix
             end
           end
-        elsif !rule.namespace_set? && element_ns_uri == mapping&.namespace_uri && mapping&.namespace_class && plan
+        elsif (!rule.namespace_set? && element_ns_uri == mapping&.namespace_uri && mapping&.namespace_class && plan) ||
+            (!rule.namespace_set? && element_ns_uri.nil? && mapping&.namespace_uri)
           # Case 4: Element implicitly inherits parent's namespace (no explicit directive)
+          # Either:
+          # a) Element's namespace URI explicitly matches parent's (from resolve_namespace)
+          # b) Element has no namespace URI AND parent has namespace (implicit inheritance)
           # BUT check if it's qualified by SCHEMA DEFAULT
           if form_default == :qualified
             # Schema default says elements SHOULD be qualified
             # This is an explicit directive from the schema, so inherit prefix
             use_prefix = true
             qualification_reason = :explicit_qualified
-            ns_decl = plan.namespace_for_class(mapping.namespace_class)
-            if ns_decl
-              parent_prefix = ns_decl.prefix
+            if plan && mapping&.namespace_class
+              ns_decl = plan.namespace_for_class(mapping.namespace_class)
+              if ns_decl
+                parent_prefix = ns_decl.prefix
+              end
             end
           else
-            # Element's namespace URI matches parent's, but no qualification directive
-            # This is IMPLICIT qualification - should NOT inherit prefix presentation
+            # Element's namespace matches parent's (implicitly or explicitly)
+            # When element_form_default is :unqualified, child should be in blank namespace
+            # (no xmlns attribute). This is handled by xmlns="" logic below.
             qualification_reason = :implicit # stays implicit
             # Don't set use_prefix or parent_prefix - let them stay false/nil
           end
@@ -182,6 +189,7 @@ module Lutaml
         # Calculate if xmlns="" is needed based on explicit_blank and parent context
         blank_xmlns = false
         parent_uses_default_ns = options[:parent_uses_default_ns]
+        parent_element_form_default = options[:parent_element_form_default]
 
         # CRITICAL: xmlns="" ONLY for EXPLICIT :blank namespace
         # When element_ns_uri is nil (no namespace specified), element should silently inherit parent's namespace
@@ -191,9 +199,10 @@ module Lutaml
         elsif !rule.namespace_set? &&
             !element_ns_uri &&
             parent_uses_default_ns &&
-            (options[:parent_element_form_default].nil? || options[:parent_element_form_default] == :unqualified)
-          # W3C: unqualified child elements need xmlns="" when parent uses default format
-          # W3C default is :unqualified, so nil should be treated as :unqualified
+            parent_element_form_default == :qualified
+          # W3C: When element_form_default is :qualified, child opts out with xmlns=""
+          # When element_form_default is :unqualified, child should have NO xmlns at all (blank namespace).
+          # Only add xmlns="" when parent element_form_default is explicitly :qualified.
           blank_xmlns = true
         end
 

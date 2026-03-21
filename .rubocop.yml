@@ -12,6 +12,8 @@ AllCops:
   NewCops: enable
   Exclude:
     - 'vendor/**/*'
+    - '**/*.adoc'
+    - '**/*.md'
 
 Style/OneClassPerFile:
   inherit_mode:

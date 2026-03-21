@@ -206,8 +206,6 @@ module Lutaml
 
           # Use xmlns declarations from plan
           attributes = {}
-
-          # Apply namespace declarations from plan using extracted module
           attributes.merge!(NamespaceDeclarationBuilder.build_xmlns_attributes(plan))
 
           # Collect attribute custom methods to call after element creation
@@ -529,7 +527,10 @@ module Lutaml
           element_prefix = element_ns_class&.prefix_default
 
           # Get element_form_default for children
-          this_element_form_default = element_ns_class&.element_form_default || :unqualified
+          # Only set when explicitly configured, not when defaulted to :unqualified
+          this_element_form_default = if element_ns_class&.element_form_default_set?
+                                        element_ns_class.element_form_default
+                                      end
 
           # Add regular attributes
           element.attributes.each do |attr|
@@ -596,9 +597,13 @@ module Lutaml
             if parent_element_form_default == :qualified
               # Child should INHERIT parent's namespace - no xmlns="" needed
               # The child is in parent namespace (qualified)
+            elsif parent_element_form_default == :unqualified
+              # Parent's element_form_default is :unqualified - child should be in blank namespace
+              # WITHOUT xmlns="" (no xmlns attribute at all). The child is simply
+              # not in any namespace, which is the correct W3C behavior for unqualified.
             else
-              # Parent's element_form_default is :unqualified - child in blank namespace
-              # Add xmlns="" to explicitly opt out of parent's default namespace
+              # element_form_default is not set (nil/default :unqualified)
+              # Child needs xmlns="" to explicitly opt out of parent's default namespace
               attributes["xmlns"] = ""
             end
           end

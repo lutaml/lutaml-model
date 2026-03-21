@@ -42,7 +42,6 @@ module Lutaml
             return false unless ns_class
 
             # Check if namespace has element_form_default :qualified
-            return false unless ns_class.respond_to?(:element_form_default)
             return false unless ns_class.element_form_default == :qualified
 
             # Only apply if no input format preserved (not from parsed XML)
