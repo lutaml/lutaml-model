@@ -125,6 +125,38 @@ module Lutaml
         GlobalContext.resolver.resolve(unresolved_type, context)
       end
 
+      # @api public
+      # Get type with namespace-aware resolution.
+      #
+      # Uses the register's resolve_in_namespace method for version-aware
+      # type resolution. Falls back to standard resolution if no namespace
+      # or register is provided.
+      #
+      # @param register [Lutaml::Model::Register, Symbol, nil] The register or register ID
+      # @param namespace_uri [String, nil] The namespace URI for version awareness
+      # @return [Class, nil] The type class or nil
+      def type_with_namespace(register, namespace_uri = nil)
+        return type(register) unless register && namespace_uri
+        return if unresolved_type.nil?
+
+        # Resolve register from symbol if needed
+        actual_register = if register.is_a?(Symbol)
+                            Lutaml::Model::GlobalRegister.lookup(register)
+                          else
+                            register
+                          end
+
+        # If we don't have an actual Register object, fall back to standard resolution
+        return type(register) unless actual_register.respond_to?(:resolve_in_namespace)
+
+        # Try namespace-aware resolution first
+        result = actual_register.resolve_in_namespace(unresolved_type, namespace_uri)
+        return result if result
+
+        # Fallback to standard resolution
+        type(register)
+      end
+
       # Extract the Register from the context_or_register argument
       def extract_register(_context_or_register)
         # Register backward compatibility - now always returns nil
@@ -477,7 +509,15 @@ module Lutaml
       end
 
       def cast(value, format, register, options = {})
-        resolved_type = options[:resolved_type] || type(register)
+        # Namespace-aware type resolution: use type_with_namespace if namespace_uri provided
+        namespace_uri = options[:namespace_uri]
+        resolved_type = if options[:resolved_type]
+                          options[:resolved_type]
+                        elsif register && namespace_uri
+                          type_with_namespace(register, namespace_uri)
+                        else
+                          type(register)
+                        end
         if collection_instance?(value) || value.is_a?(Array)
           return build_collection(value.map do |v|
             cast(v, format, register,
@@ -583,6 +623,7 @@ module Lutaml
         end
       end
 
+      # @api public
       # Get namespace class from Type::Value or Model class
       #
       # @param register [Symbol, nil] register ID for type resolution
@@ -602,6 +643,7 @@ module Lutaml
         resolved_type.is_a?(Class) && resolved_type <= Lutaml::Model::Type::Value ? resolved_type.namespace_class : nil
       end
 
+      # @api public
       # Get namespace URI from type
       #
       # @param register [Symbol, nil] register ID for type resolution
@@ -610,6 +652,7 @@ module Lutaml
         type_namespace_class(register)&.uri
       end
 
+      # @api public
       # Get namespace prefix from type
       #
       # @param register [Symbol, nil] register ID for type resolution

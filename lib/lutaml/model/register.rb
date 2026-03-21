@@ -10,6 +10,7 @@ module Lutaml
     # 2. Hierarchical Fallbacks - Nested registers can inherit from each other
     # 3. Global Substitution - Swap entire subtrees of models at once
     # 4. Composition - A document model can "compose" other model trees
+    # 5. Namespace Binding - Registers can be bound to XML namespaces for versioning
     #
     # @example Creating a register with fallback
     #   register = Lutaml::Model::Register.new(:my_app, fallback: [:default])
@@ -22,8 +23,13 @@ module Lutaml
     # @example Resolution with fallback chain
     #   klass = register.get_class(:some_type)  # Resolves through fallback chain
     #
+    # @example Namespace binding for version-aware resolution
+    #   register.bind_namespace(Xmi::Namespace::Omg::Xmi20131001)
+    #   klass = register.resolve_in_namespace(:documentation, namespace_uri)
+    #
     # @see GlobalRegister For managing multiple registers
     # @see GlobalContext For context management and global operations
+    # @see NamespaceBinding For namespace-to-register bindings
     #
     class Register
       # @return [Symbol] The register ID
@@ -32,11 +38,15 @@ module Lutaml
       # @return [Array<Symbol>] The fallback register IDs
       attr_reader :fallback
 
+      # @return [Hash{String => NamespaceBinding}] Namespace URI to binding map
+      attr_reader :bound_namespaces
+
       def initialize(id, fallback: nil)
         @id = id
         @fallback = determine_fallback(id, fallback)
         @global_substitutions = {} # For backward compatibility with tests
         @models = {} # For backward compatibility - survives GlobalContext.reset!
+        @bound_namespaces = {} # Namespace URI => NamespaceBinding
 
         # Ensure context exists in GlobalContext
         ensure_context_exists
@@ -254,6 +264,107 @@ module Lutaml
         @global_substitutions.clear
       end
 
+      # =====================================================================
+      # Namespace Binding Methods
+      # =====================================================================
+
+      # @api public
+      # Bind this register to a namespace class.
+      #
+      # This enables version-aware type resolution where different namespaces
+      # can map to different type implementations.
+      #
+      # @param namespace_class [Class] A Lutaml::Xml::Namespace subclass
+      # @return [NamespaceBinding] The created binding
+      # @raise [ArgumentError] If namespace_class is not a Lutaml::Xml::Namespace
+      #
+      # @example
+      #   register.bind_namespace(Xmi::Namespace::Omg::Xmi20131001)
+      def bind_namespace(namespace_class)
+        binding = Lutaml::Model::NamespaceBinding.new(
+          register_id: @id,
+          namespace_class: namespace_class,
+        )
+
+        @bound_namespaces[namespace_class.uri] = binding
+
+        # Register in GlobalContext for reverse lookup
+        GlobalContext.bind_register_to_namespace(@id, namespace_class.uri)
+
+        binding
+      end
+
+      # @api public
+      # Check if this register handles a specific namespace URI.
+      #
+      # @param namespace_uri [String] The namespace URI to check
+      # @return [Boolean] true if this register is bound to this namespace
+      def handles_namespace?(namespace_uri)
+        @bound_namespaces.key?(namespace_uri)
+      end
+
+      # @api public
+      # Get all bound namespace URIs.
+      #
+      # @return [Array<String>] List of namespace URIs
+      def bound_namespace_uris
+        @bound_namespaces.keys
+      end
+
+      # @api public
+      # Get namespace binding for a URI.
+      #
+      # @param namespace_uri [String] The namespace URI
+      # @return [NamespaceBinding, nil] The binding or nil
+      def namespace_binding(namespace_uri)
+        @bound_namespaces[namespace_uri]
+      end
+
+      # @api public
+      # Resolve type with namespace-aware fallback.
+      #
+      # If the namespace is handled by this register, tries to resolve
+      # the type locally first. Falls back to the fallback chain if not found.
+      #
+      # @param type_name [Symbol, String] The type name
+      # @param namespace_uri [String, nil] The namespace URI (optional)
+      # @return [Class, nil] The resolved class or nil
+      #
+      # @example
+      #   klass = register.resolve_in_namespace(:documentation, "http://...")
+      def resolve_in_namespace(type_name, namespace_uri = nil)
+        # If namespace specified and this register handles it
+        if namespace_uri && handles_namespace?(namespace_uri)
+          result = safe_get_class(type_name)
+          return result if result
+        end
+
+        # Try fallback chain
+        @fallback&.each do |fallback_id|
+          result = resolve_in_fallback(fallback_id, type_name, namespace_uri)
+          return result if result
+        end
+
+        nil
+      end
+
+      # @api public
+      # Import a model tree with optional namespace binding.
+      #
+      # Recursively registers the root class and all nested attribute types.
+      # If a namespace is provided, binds the register to that namespace.
+      #
+      # @param root_class [Class] The root model class
+      # @param namespace [Class, nil] Optional namespace class for binding
+      # @return [Array<Class>] All registered classes
+      #
+      # @example
+      #   register.import_model_tree(Xmi::V20131001::Model, namespace: XmiNamespace)
+      def import_model_tree(root_class, namespace: nil)
+        importer = Lutaml::Model::ModelTreeImporter.new(self, namespace_class: namespace)
+        importer.import(root_class)
+      end
+
       private
 
       def global_context
@@ -288,12 +399,29 @@ module Lutaml
         substituted = substitute(klass)
         substituted || klass
       end
+
+      def safe_get_class(type_name)
+        get_class_without_register(type_name)
+      rescue UnknownTypeError
+        nil
+      end
+
+      def resolve_in_fallback(fallback_id, type_name, namespace_uri)
+        fallback_register = GlobalRegister.lookup(fallback_id)
+        return nil unless fallback_register
+
+        fallback_register.resolve_in_namespace(type_name, namespace_uri)
+      end
     end
 
-    # Reopen Register class to add autoload for error class
+    # Reopen Register class to add autoload for error class and new classes
     class Register
       autoload :NotRegistrableClassError,
                "#{File.dirname(__FILE__)}/error/register/not_registrable_class_error"
+      autoload :NamespaceBinding,
+               "#{File.dirname(__FILE__)}/register/namespace_binding"
+      autoload :ModelTreeImporter,
+               "#{File.dirname(__FILE__)}/register/model_tree_importer"
     end
   end
 end

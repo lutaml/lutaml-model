@@ -167,6 +167,17 @@ module Lutaml
                      end
       end
 
+      # Get the namespace URI of this element.
+      #
+      # Returns the URI string for namespace-aware type resolution.
+      # Returns nil if the element has no namespace.
+      #
+      # @return [String, nil] The namespace URI or nil
+      def namespace_uri
+        ns = namespace
+        ns&.uri
+      end
+
       def attribute_is_namespace?(name)
         name.to_s.start_with?(XMLNS_PREFIX)
       end
