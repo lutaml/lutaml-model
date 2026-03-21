@@ -417,7 +417,10 @@ mixed_content_option)
             # Namespace-aware type resolution: extract namespace URI from child
             if child.is_a?(::Lutaml::Xml::XmlElement)
               child_namespace_uri = child.namespace_uri
-              cast_options[:namespace_uri] = child_namespace_uri if child_namespace_uri
+              if child_namespace_uri
+                cast_options[:namespace_uri] =
+                  child_namespace_uri
+              end
             end
 
             values << attr.cast(child, :xml, __register, cast_options)

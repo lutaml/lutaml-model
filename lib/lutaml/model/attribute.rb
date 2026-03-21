@@ -150,7 +150,8 @@ module Lutaml
         return type(register) unless actual_register.respond_to?(:resolve_in_namespace)
 
         # Try namespace-aware resolution first
-        result = actual_register.resolve_in_namespace(unresolved_type, namespace_uri)
+        result = actual_register.resolve_in_namespace(unresolved_type,
+                                                      namespace_uri)
         return result if result
 
         # Fallback to standard resolution
