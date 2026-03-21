@@ -9090,6 +9090,134 @@ Format preservation is automatic and requires no code changes. The format is cap
 
 For more details, see link:docs/_guides/xml-namespaces.adoc[XML Namespaces Guide].
 
+=== Same-Named Elements in Different Namespaces
+
+When an XML document contains elements with the same local name but different namespace URIs (common in OOXML documents), Lutaml::Model correctly distinguishes them during round-trip serialization.
+
+==== The Problem
+
+In OOXML documents, you may encounter:
+
+[source,xml]
+----
+<w:settings xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+            xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml"
+            xmlns:w15="http://schemas.microsoft.com/office/word/2012/wordml">
+  <w14:docId w14:val="4C6D0839"/>
+  <w15:chartTrackingRefBased/>
+  <w15:docId w15:val="{A1B2C3D4}"/>
+</w:settings>
+----
+
+Both `<w14:docId>` and `<w15:docId>` have the same local name `docId` but different namespaces. Without namespace-aware matching, serialization would lose one of them.
+
+==== The Solution
+
+Lutaml::Model captures namespace information during parsing and uses it during serialization to correctly match elements to their mapping rules.
+
+.Supporting Same-Named Elements
+[example]
+====
+This requires defining separate model classes for each namespace variant:
+
+[source,ruby]
+----
+require "lutaml/model"
+
+# Define namespaces
+class W14Namespace < Lutaml::Xml::W3c::XmlNamespace
+  uri "http://schemas.microsoft.com/office/word/2010/wordml"
+  prefix_default "w14"
+  element_form_default :qualified
+end
+
+class W15Namespace < Lutaml::Xml::W3c::XmlNamespace
+  uri "http://schemas.microsoft.com/office/word/2012/wordml"
+  prefix_default "w15"
+  element_form_default :qualified
+end
+
+class WNamespace < Lutaml::Xml::W3c::XmlNamespace
+  uri "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+  prefix_default "w"
+  element_form_default :qualified
+end
+
+# W14 DocId model (in w14 namespace)
+class W14DocId < Lutaml::Model::Serializable
+  attribute :val, :string
+
+  xml do
+    element "docId"
+    namespace W14Namespace
+    map_attribute "val", to: :val
+  end
+end
+
+# W15 DocId model (in w15 namespace)
+class W15DocId < Lutaml::Model::Serializable
+  attribute :val, :string
+
+  xml do
+    element "docId"
+    namespace W15Namespace
+    map_attribute "val", to: :val
+  end
+end
+
+# Settings model with same-named elements
+class Settings < Lutaml::Model::Serializable
+  attribute :w14_doc_id, W14DocId
+  attribute :w15_doc_id, W15DocId
+  attribute :chart_tracking, :boolean
+
+  xml do
+    root "settings"
+    namespace WNamespace
+    namespace_scope [W14Namespace, W15Namespace]
+
+    map_element "docId", to: :w14_doc_id
+    map_element "chartTrackingRefBased", to: :chart_tracking
+    map_element "docId", to: :w15_doc_id
+  end
+end
+----
+
+.Round-Trip Serialization
+[source,ruby]
+----
+xml = <<~XML
+  <w:settings xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+              xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml"
+              xmlns:w15="http://schemas.microsoft.com/office/word/2012/wordml">
+    <w14:docId w14:val="4C6D0839"/>
+    <w15:chartTrackingRefBased/>
+    <w15:docId w15:val="{A1B2C3D4}"/>
+  </w:settings>
+XML
+
+# Parse - both elements are correctly captured
+settings = Settings.from_xml(xml)
+settings.w14_doc_id.val   # => "4C6D0839"
+settings.w15_doc_id.val   # => "{A1B2C3D4}"
+
+# Round-trip preserves both elements
+serialized = settings.to_xml
+reparsed = Settings.from_xml(serialized)
+
+reparsed.w14_doc_id.val   # => "4C6D0839" (preserved!)
+reparsed.w15_doc_id.val   # => "{A1B2C3D4}" (preserved!)
+----
+====
+
+==== How It Works
+
+1. **Parsing**: `XmlElement#order` captures namespace URI and prefix for each child element
+2. **Matching**: `OrderedApplier#find_rule_for_element` matches by both name AND namespace URI when available
+3. **Fallback**: Name-only matching is used for backward compatibility with existing code
+
+For more details on OOXML patterns, see link:docs/_guides/ooxml-examples.adoc[OOXML Examples].
+
 [[keyvaluedatamodel-architecture]]
 == KeyValueDataModel architecture
 
