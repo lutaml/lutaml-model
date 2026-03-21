@@ -75,7 +75,7 @@ RSpec.describe "Namespace-Aware XML Parsing" do
     # Create registers with fallback chain
     @common_register = Lutaml::Model::Register.new(:common)
     @v1_register = Lutaml::Model::Register.new(:v1, fallback: [:common])
-    @v2_register = Lutaml::Model::Register.new(:v2, fallback: [:v1, :common])
+    @v2_register = Lutaml::Model::Register.new(:v2, fallback: %i[v1 common])
 
     # Register in GlobalRegister
     Lutaml::Model::GlobalRegister.register(@common_register)
@@ -105,7 +105,8 @@ RSpec.describe "Namespace-Aware XML Parsing" do
 
     it "returns standard type when namespace not bound" do
       attr = v1_model_class.attributes[:name]
-      expect(attr.type_with_namespace(@v1_register, "http://unknown.com")).to eq(Lutaml::Model::Type::String)
+      expect(attr.type_with_namespace(@v1_register,
+                                      "http://unknown.com")).to eq(Lutaml::Model::Type::String)
     end
 
     it "handles Symbol register parameter" do

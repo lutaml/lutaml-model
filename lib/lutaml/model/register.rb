@@ -361,7 +361,8 @@ module Lutaml
       # @example
       #   register.import_model_tree(Xmi::V20131001::Model, namespace: XmiNamespace)
       def import_model_tree(root_class, namespace: nil)
-        importer = Lutaml::Model::ModelTreeImporter.new(self, namespace_class: namespace)
+        importer = Lutaml::Model::ModelTreeImporter.new(self,
+                                                        namespace_class: namespace)
         importer.import(root_class)
       end
 

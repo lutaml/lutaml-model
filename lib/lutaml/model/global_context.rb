@@ -264,7 +264,8 @@ module Lutaml
       # @param namespace_uri [String, nil] The namespace URI (optional)
       # @param context_id [Symbol, nil] Optional explicit context
       # @return [Class, nil] The resolved type or nil
-      def resolve_type_with_namespace(type_name, namespace_uri = nil, context_id = nil)
+      def resolve_type_with_namespace(type_name, namespace_uri = nil,
+context_id = nil)
         # If namespace specified, try namespace-aware resolution
         if namespace_uri
           register = register_for_namespace(namespace_uri)

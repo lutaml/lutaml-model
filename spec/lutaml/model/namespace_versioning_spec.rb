@@ -14,7 +14,7 @@ RSpec.describe Lutaml::Model::NamespaceBinding do
     it "creates a binding with register_id and namespace_class" do
       binding = described_class.new(
         register_id: :test_register,
-        namespace_class: namespace_class
+        namespace_class: namespace_class,
       )
 
       expect(binding.register_id).to eq(:test_register)
@@ -25,7 +25,7 @@ RSpec.describe Lutaml::Model::NamespaceBinding do
     it "is frozen after creation" do
       binding = described_class.new(
         register_id: :test,
-        namespace_class: namespace_class
+        namespace_class: namespace_class,
       )
 
       expect(binding).to be_frozen
@@ -36,11 +36,11 @@ RSpec.describe Lutaml::Model::NamespaceBinding do
     it "is equal if register_id and namespace_uri match" do
       binding1 = described_class.new(
         register_id: :test,
-        namespace_class: namespace_class
+        namespace_class: namespace_class,
       )
       binding2 = described_class.new(
         register_id: :test,
-        namespace_class: namespace_class
+        namespace_class: namespace_class,
       )
 
       expect(binding1).to eq(binding2)
@@ -49,11 +49,11 @@ RSpec.describe Lutaml::Model::NamespaceBinding do
     it "is not equal if register_id differs" do
       binding1 = described_class.new(
         register_id: :test1,
-        namespace_class: namespace_class
+        namespace_class: namespace_class,
       )
       binding2 = described_class.new(
         register_id: :test2,
-        namespace_class: namespace_class
+        namespace_class: namespace_class,
       )
 
       expect(binding1).not_to eq(binding2)
@@ -64,7 +64,7 @@ RSpec.describe Lutaml::Model::NamespaceBinding do
     it "can be used as hash key" do
       binding = described_class.new(
         register_id: :test,
-        namespace_class: namespace_class
+        namespace_class: namespace_class,
       )
 
       hash = { binding => "value" }
@@ -149,7 +149,7 @@ RSpec.describe "Register Namespace Binding" do
 
       expect(register.bound_namespace_uris).to contain_exactly(
         "http://example.com/v1",
-        "http://example.com/v2"
+        "http://example.com/v2",
       )
     end
 
@@ -208,12 +208,30 @@ RSpec.describe "GlobalContext Namespace Mapping" do
 end
 
 RSpec.describe "Register Fallback Chain with Namespaces" do
-  before { Lutaml::Model::GlobalContext.reset! }
-  after { Lutaml::Model::GlobalContext.reset! }
+  before do
+    Lutaml::Model::GlobalContext.reset!
+    Lutaml::Model::GlobalRegister.register(common_register)
+    Lutaml::Model::GlobalRegister.register(v1_register)
+    Lutaml::Model::GlobalRegister.register(v2_register)
+
+    v1_register.bind_namespace(ns_v1)
+    v2_register.bind_namespace(ns_v2)
+
+    common_register.register_model(common_model, id: :shared_model)
+    v1_register.register_model(v1_only_model, id: :v1_model)
+    v2_register.register_model(v2_only_model, id: :v2_model)
+  end
+
+  after do
+    Lutaml::Model::GlobalContext.reset!
+    Lutaml::Model::GlobalRegister.unregister(common_register.id)
+    Lutaml::Model::GlobalRegister.unregister(v1_register.id)
+    Lutaml::Model::GlobalRegister.unregister(v2_register.id)
+  end
 
   let(:common_register) { Lutaml::Model::Register.new(:common_ns, fallback: [:default]) }
-  let(:v1_register) { Lutaml::Model::Register.new(:v1_ns, fallback: [:common_ns, :default]) }
-  let(:v2_register) { Lutaml::Model::Register.new(:v2_ns, fallback: [:v1_ns, :common_ns, :default]) }
+  let(:v1_register) { Lutaml::Model::Register.new(:v1_ns, fallback: %i[common_ns default]) }
+  let(:v2_register) { Lutaml::Model::Register.new(:v2_ns, fallback: %i[v1_ns common_ns default]) }
 
   let(:ns_v1) do
     Class.new(Lutaml::Xml::Namespace) do
@@ -245,25 +263,6 @@ RSpec.describe "Register Fallback Chain with Namespaces" do
     Class.new(Lutaml::Model::Serializable) do
       attribute :v2_only, :string
     end
-  end
-
-  before do
-    Lutaml::Model::GlobalRegister.register(common_register)
-    Lutaml::Model::GlobalRegister.register(v1_register)
-    Lutaml::Model::GlobalRegister.register(v2_register)
-
-    v1_register.bind_namespace(ns_v1)
-    v2_register.bind_namespace(ns_v2)
-
-    common_register.register_model(common_model, id: :shared_model)
-    v1_register.register_model(v1_only_model, id: :v1_model)
-    v2_register.register_model(v2_only_model, id: :v2_model)
-  end
-
-  after do
-    Lutaml::Model::GlobalRegister.unregister(common_register.id)
-    Lutaml::Model::GlobalRegister.unregister(v1_register.id)
-    Lutaml::Model::GlobalRegister.unregister(v2_register.id)
   end
 
   describe "#resolve_in_namespace" do
