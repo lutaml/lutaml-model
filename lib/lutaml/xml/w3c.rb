@@ -87,6 +87,8 @@ module Lutaml
         end
 
         def self.cast(value)
+          return nil if value.nil?
+
           val = super
           unless ["default", "preserve"].include?(val)
             raise ArgumentError, "xml:space must be 'default' or 'preserve'"
