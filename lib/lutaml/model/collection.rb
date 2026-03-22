@@ -1,5 +1,3 @@
-require "set"
-
 module Lutaml
   module Model
     # Internal context class for validation chaining.
@@ -206,7 +204,9 @@ module Lutaml
         #   end
         #
         def validates_uniqueness_of(field, message: nil)
-          validate_collection(if_cond: ->(ctx) { !ctx.stopped? }) do |collection, errors, ctx|
+          validate_collection(if_cond: ->(ctx) {
+            !ctx.stopped?
+          }) do |collection, errors, ctx|
             duplicates = find_duplicate_values(collection, field)
 
             # Store duplicates in context for potential use by other validations
@@ -228,7 +228,9 @@ module Lutaml
         #   validates_min_count 1, message: "At least one item is required"
         #
         def validates_min_count(count, message: nil)
-          validate_collection(if_cond: ->(ctx) { !ctx.stopped? }) do |collection, errors, ctx|
+          validate_collection(if_cond: ->(ctx) {
+            !ctx.stopped?
+          }) do |collection, errors, ctx|
             if collection.size < count
               default_message = "collection must have at least #{count} items, but has #{collection.size}"
               errors.add(:collection, message || default_message)
@@ -246,7 +248,9 @@ module Lutaml
         #   validates_max_count 100, message: "Cannot exceed 100 items"
         #
         def validates_max_count(count, message: nil)
-          validate_collection(if_cond: ->(ctx) { !ctx.stopped? }) do |collection, errors, ctx|
+          validate_collection(if_cond: ->(ctx) {
+            !ctx.stopped?
+          }) do |collection, errors, ctx|
             if collection.size > count
               default_message = "collection must have at most #{count} items, but has #{collection.size}"
               errors.add(:collection, message || default_message)
@@ -273,7 +277,9 @@ module Lutaml
         #   end
         #
         def validates_all_present(field, message: nil)
-          validate_collection(if_cond: ->(ctx) { !ctx.stopped? }) do |collection, errors, ctx|
+          validate_collection(if_cond: ->(ctx) {
+            !ctx.stopped?
+          }) do |collection, errors, ctx|
             missing_items = collection.select do |instance|
               value = instance.respond_to?(field) ? instance.public_send(field) : nil
               Utils.blank?(value)

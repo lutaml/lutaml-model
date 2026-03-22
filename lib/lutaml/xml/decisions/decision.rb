@@ -16,7 +16,10 @@ module Lutaml
 
         def initialize(format:, prefix: nil, namespace_class: nil,
 reason: nil)
-          raise ArgumentError, "Format must be :prefix, :default, or :blank" unless VALID_FORMATS.include?(format)
+          unless VALID_FORMATS.include?(format)
+            raise ArgumentError,
+                  "Format must be :prefix, :default, or :blank"
+          end
 
           if format == :prefix && prefix.nil?
             raise ArgumentError,

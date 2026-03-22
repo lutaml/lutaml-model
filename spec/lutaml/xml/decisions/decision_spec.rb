@@ -157,7 +157,8 @@ RSpec.describe Lutaml::Xml::Decisions::Decision do
       expect do
         described_class.new(format: :invalid, prefix: "ex",
                             namespace_class: namespace_class)
-      end.to raise_error(ArgumentError, "Format must be :prefix, :default, or :blank")
+      end.to raise_error(ArgumentError,
+                         "Format must be :prefix, :default, or :blank")
     end
 
     it "validates prefix is required for :prefix format" do
