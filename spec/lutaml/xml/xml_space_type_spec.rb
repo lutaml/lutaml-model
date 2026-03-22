@@ -108,3 +108,54 @@ RSpec.describe "xml:space attribute with nil values" do
     end
   end
 end
+
+RSpec.describe "Self-referential models" do
+  # Self-referential model for testing circular reference handling
+  class TreeNode < Lutaml::Model::Serializable
+    attribute :name, :string
+    attribute :children, TreeNode, collection: true
+
+    xml do
+      element "node"
+      map_attribute "name", to: :name
+      map_element "node", to: :children
+    end
+  end
+
+  after do
+    Lutaml::Model::Config.xml_adapter_type = :nokogiri
+  end
+
+  describe "Issue: Self-referential models cause stack overflow" do
+    it "parses self-referential model without stack overflow" do
+      xml_in = '<node name="root"><node name="child1"></node><node name="child2"></node></node>'
+      model = TreeNode.from_xml(xml_in)
+      expect(model.name).to eq("root")
+      expect(model.children.size).to eq(2)
+      expect(model.children[0].name).to eq("child1")
+      expect(model.children[1].name).to eq("child2")
+    end
+
+    it "serializes self-referential model to YAML without stack overflow" do
+      model = TreeNode.new(name: "root", children: [
+                             TreeNode.new(name: "child1", children: []),
+                             TreeNode.new(name: "child2", children: []),
+                           ])
+      yaml = model.to_yaml
+      expect(yaml).to include("root")
+      expect(yaml).to include("child1")
+      expect(yaml).to include("child2")
+    end
+
+    it "serializes self-referential model to JSON without stack overflow" do
+      model = TreeNode.new(name: "root", children: [
+                             TreeNode.new(name: "child1", children: []),
+                             TreeNode.new(name: "child2", children: []),
+                           ])
+      json = model.to_json
+      expect(json).to include("root")
+      expect(json).to include("child1")
+      expect(json).to include("child2")
+    end
+  end
+end

@@ -83,11 +83,21 @@ register = self.register)
         return nil unless type_class.is_a?(Class) &&
           type_class.include?(Lutaml::Model::Serialize)
 
-        # Get the mapping for the current format
-        mapping = type_class.mappings_for(format, extract_register_id(register))
+        # Prevent infinite recursion for self-referential models
+        compilation_stack = Thread.current[:lutaml_compilation_stack] ||= []
+        return nil if compilation_stack.include?(type_class)
 
-        # Create a new Transformation instance with the mapping
-        self.class.new(type_class, mapping, format, register)
+        compilation_stack.push(type_class)
+        begin
+          # Get the mapping for the current format
+          mapping = type_class.mappings_for(format,
+                                            extract_register_id(register))
+
+          # Create a new Transformation instance with the mapping
+          self.class.new(type_class, mapping, format, register)
+        ensure
+          compilation_stack.pop
+        end
       end
 
       private
@@ -149,21 +159,6 @@ register = self.register)
             build_child_transformation(type_class)
           },
         )
-      end
-
-      # Build child transformation for nested model
-      #
-      # @param type_class [Class] The nested model class
-      # @return [Transformation, nil] Child transformation or nil
-      def build_child_transformation(type_class)
-        return nil unless type_class.is_a?(Class) &&
-          type_class.include?(Lutaml::Model::Serialize)
-
-        # Get the mapping for the current format
-        mapping = type_class.mappings_for(format, register_id)
-
-        # Create a new Transformation instance with the mapping
-        self.class.new(type_class, mapping, format, register)
       end
 
       # Check if a mapping rule should be applied based on only/except options
