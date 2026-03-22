@@ -9367,7 +9367,16 @@ reparsed.w15_doc_id.val   # => "{A1B2C3D4}" (preserved!)
 
 1. **Parsing**: `XmlElement#order` captures namespace URI and prefix for each child element
 2. **Matching**: `OrderedApplier#find_rule_for_element` matches by both name AND namespace URI when available
-3. **Fallback**: Name-only matching is used for backward compatibility with existing code
+3. **Namespace extraction**: For `Serializable` model attributes (e.g. `attribute :w14_doc_id, W14DocId`), the namespace is automatically extracted from the model's own XML mapping, not from the parent. This ensures correct round-trip serialization even when multiple `map_element` entries share the same local name but target different namespaces.
+4. **Fallback**: Name-only matching is used for backward compatibility with existing code
+
+[IMPORTANT]
+.Separate model classes are required
+====
+Each distinct namespace variant of a same-named element **must** have its own `Serializable` model class. The namespace-aware matching works by pairing the `map_element` rule with its target attribute's type. If two attributes share the same type, they will share the same namespace.
+
+For example, `attribute :w14_doc_id, W14DocId` and `attribute :w15_doc_id, W15DocId` must be distinct classes (e.g. `W14DocId` and `W15DocId`) so that each `map_element` rule picks up the correct namespace from its attribute's type.
+====
 
 For more details on OOXML patterns, see link:docs/_guides/ooxml-examples.adoc[OOXML Examples].
 

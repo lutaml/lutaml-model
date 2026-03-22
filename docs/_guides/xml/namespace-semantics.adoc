@@ -463,8 +463,9 @@ The namespace for any attribute's serialization is determined by this algorithm:
    YES → Use Type's namespace
    NO  → Continue to step 3
 
-3. Is the attribute's type a Model with its own namespace?
-   YES → Use Model's namespace
+3. Is the attribute's type a Serializable model with its own namespace?
+   YES → Extract namespace from the model's XML mapping
+         (via attr_type.mappings_for(:xml, register_id).namespace_class)
    NO  → Continue to step 4
 
 4. Is this an XML attribute (not element)?
@@ -475,6 +476,19 @@ The namespace for any attribute's serialization is determined by this algorithm:
    YES → Use parent's namespace (for qualified elements)
    NO  → No namespace
 ----
+
+[IMPORTANT]
+.Serializable model namespaces come from their XML mapping
+====
+For `Serializable` model attributes, the namespace is stored on the model's
+XML mapping rather than on the class itself. The rule compiler extracts it via
+`attr_type.mappings_for(:xml, register_id).namespace_class`.
+
+This means each distinct namespace variant of a same-named element must be
+a separate model class. For example, if you have `<w14:docId>` and `<w15:docId>`
+in the same document, you need two separate `Serializable` classes (`W14DocId`
+and `W15DocId`), each with its own `namespace` declaration in its XML mapping.
+====
 
 == Qualified vs Unqualified Forms
 
