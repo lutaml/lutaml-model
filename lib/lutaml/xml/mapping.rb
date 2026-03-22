@@ -512,6 +512,7 @@ module Lutaml
           to: to,
           render_nil: render_nil,
           render_default: render_default,
+          render_empty: render_empty,
           with: with,
           delegate: delegate,
           namespace: namespace,

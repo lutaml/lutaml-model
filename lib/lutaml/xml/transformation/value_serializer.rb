@@ -111,6 +111,11 @@ module Lutaml
         # @param attribute_type [Class] The custom Value type
         # @return [String, nil] Serialized value or nil
         def serialize_custom_value(value, attribute_type)
+          # Skip wrapping if value is already the correct type
+          if value.is_a?(attribute_type) && value.respond_to?(:to_xml)
+            return value.to_xml
+          end
+
           wrapped_value = attribute_type.new(value)
           if wrapped_value.respond_to?(:to_xml)
             wrapped_value.to_xml
