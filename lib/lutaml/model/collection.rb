@@ -2,6 +2,54 @@ require "set"
 
 module Lutaml
   module Model
+    # Internal context class for validation chaining.
+    # Allows validations to communicate state and share results.
+    # This is an internal API - its interface may change.
+    class ValidationContext
+      attr_reader :errors, :metadata
+
+      def initialize
+        @errors = []
+        @stopped = false
+        @metadata = {}
+      end
+
+      # Check if the validation chain has been stopped
+      def stopped?
+        @stopped
+      end
+
+      # Stop the validation chain - subsequent validations will not run
+      def stop!
+        @stopped = true
+      end
+
+      # Store metadata that can be accessed by subsequent validations
+      # @param key [Symbol] The key to store
+      # @param value [Object] The value to store
+      def [](key)
+        @metadata[key]
+      end
+
+      # Retrieve metadata stored by previous validations
+      # @param key [Symbol] The key to retrieve
+      # @param value [Object] The value to store
+      def []=(key, value)
+        @metadata[key] = value
+      end
+
+      # Check if any validation has added errors
+      def failed?
+        @errors.any?
+      end
+
+      # Record that this context received errors
+      # @param error_list [Array] List of error messages
+      def add_errors(error_list)
+        @errors.concat(error_list)
+      end
+    end
+
     class Collection < Lutaml::Model::Serializable
       include Enumerable
 
@@ -32,8 +80,7 @@ module Lutaml
                     :instance_name,
                     :sort_by_field,
                     :sort_direction,
-                    :indexes
-                    :sort_direction,
+                    :indexes,
                     :collection_validations
 
         def instances(name, type, options = {}, &block)
@@ -90,50 +137,155 @@ module Lutaml
         end
 
         # Define collection-level validations
-        def validate_collection(&block)
+        #
+        # @overload validate_collection(&block)
+        #   Define a custom validation block
+        #   @param block [Proc] Block receiving (collection, errors, context)
+        #
+        # @overload validate_collection(if_cond:, &block)
+        #   Define a conditional validation that only runs if the condition is met
+        #   @param if_cond [Proc] Block receiving (context) - validation runs if it returns true
+        #   @param block [Proc] Block receiving (collection, errors, context)
+        #
+        # @overload validate_collection(unless_cond:, &block)
+        #   Define a conditional validation that runs unless the condition is met
+        #   @param unless_cond [Proc] Block receiving (context) - validation skips if it returns true
+        #   @param block [Proc] Block receiving (collection, errors, context)
+        #
+        # @example Basic usage
+        #   validate_collection do |collection, errors, ctx|
+        #     # Custom validation logic
+        #   end
+        #
+        # @example Conditional execution based on context state
+        #   validate_collection do |collection, errors, ctx|
+        #     # Only run if uniqueness validation passed
+        #     return if ctx[:duplicates_found]
+        #     # Expensive cross-reference check...
+        #   end
+        #
+        # @example Conditional validation with :if_cond option
+        #   validate_collection(if_cond: ->(ctx) { !ctx[:skip_expensive_checks] }) do |collection, errors|
+        #     # This only runs when ctx[:skip_expensive_checks] is falsy
+        #   end
+        #
+        # @example Sharing results between validations
+        #   validates_uniqueness_of :id  # Stores duplicates in ctx[:duplicates_of_id]
+        #
+        #   validate_collection do |collection, errors, ctx|
+        #     if ctx[:duplicates_of_id]&.any?
+        #       errors.add(:collection, "Found duplicates that prevent cross-validation")
+        #     end
+        #   end
+        #
+        def validate_collection(if_cond: nil, unless_cond: nil, &block)
           @collection_validations ||= []
-          @collection_validations << block if block
+          return unless block
+
+          options = { if_cond: if_cond, unless_cond: unless_cond }
+          @collection_validations << [block, options]
         end
 
         # Validate uniqueness of a field across all instances in the collection
+        #
+        # @param field [Symbol] The attribute name to check for uniqueness
+        # @param message [String, nil] Custom error message
+        #
+        # @example Basic uniqueness
+        #   validates_uniqueness_of :id
+        #
+        # @example With custom message
+        #   validates_uniqueness_of :email, message: "Email addresses must be unique"
+        #
+        # @example Using context in subsequent validations
+        #   validates_uniqueness_of :id  # Stores duplicate values in ctx[:duplicates_of_id]
+        #
+        #   validate_collection do |collection, errors, ctx|
+        #     return if ctx[:duplicates_of_id].nil? || ctx[:duplicates_of_id].empty?
+        #     # Handle the duplicate IDs...
+        #   end
+        #
         def validates_uniqueness_of(field, message: nil)
-          validate_collection do |collection, errors|
+          validate_collection(if_cond: ->(ctx) { !ctx.stopped? }) do |collection, errors, ctx|
             duplicates = find_duplicate_values(collection, field)
-            add_uniqueness_error(errors, field, duplicates, message) if duplicates.any?
+
+            # Store duplicates in context for potential use by other validations
+            ctx[:"duplicates_of_#{field}"] = duplicates
+
+            if duplicates.any?
+              add_uniqueness_error(errors, field, duplicates, message)
+              ctx.add_errors(errors.messages)
+            end
           end
         end
 
         # Validate minimum count requirement
+        #
+        # @param count [Integer] Minimum number of items required
+        # @param message [String, nil] Custom error message
+        #
+        # @example Basic minimum count
+        #   validates_min_count 1, message: "At least one item is required"
+        #
         def validates_min_count(count, message: nil)
-          validate_collection do |collection, errors|
+          validate_collection(if_cond: ->(ctx) { !ctx.stopped? }) do |collection, errors, ctx|
             if collection.size < count
               default_message = "collection must have at least #{count} items, but has #{collection.size}"
               errors.add(:collection, message || default_message)
+              ctx.add_errors(errors.messages)
             end
           end
         end
 
         # Validate maximum count requirement
+        #
+        # @param count [Integer] Maximum number of items allowed
+        # @param message [String, nil] Custom error message
+        #
+        # @example Basic maximum count
+        #   validates_max_count 100, message: "Cannot exceed 100 items"
+        #
         def validates_max_count(count, message: nil)
-          validate_collection do |collection, errors|
+          validate_collection(if_cond: ->(ctx) { !ctx.stopped? }) do |collection, errors, ctx|
             if collection.size > count
               default_message = "collection must have at most #{count} items, but has #{collection.size}"
               errors.add(:collection, message || default_message)
+              ctx.add_errors(errors.messages)
             end
           end
         end
 
         # Validate that all instances have a specific attribute
+        #
+        # @param field [Symbol] The attribute name that must be present on all items
+        # @param message [String, nil] Custom error message
+        #
+        # @example Basic presence validation
+        #   validates_all_present :author, message: "All items must have an author"
+        #
+        # @example Checking context in subsequent validation
+        #   validates_all_present :email  # Sets ctx[:missing_email_count] if items are missing email
+        #
+        #   validate_collection do |collection, errors, ctx|
+        #     if ctx[:missing_email_count].to_i > 5
+        #       errors.add(:collection, "Too many items missing email addresses")
+        #     end
+        #   end
+        #
         def validates_all_present(field, message: nil)
-          validate_collection do |collection, errors|
+          validate_collection(if_cond: ->(ctx) { !ctx.stopped? }) do |collection, errors, ctx|
             missing_items = collection.select do |instance|
               value = instance.respond_to?(field) ? instance.public_send(field) : nil
               Utils.blank?(value)
             end
 
+            # Store count in context for downstream validations
+            ctx[:"missing_#{field}_count"] = missing_items.size
+
             unless missing_items.empty?
               default_message = "all items must have #{field}, but #{missing_items.size} items are missing it"
               errors.add(:collection, message || default_message)
+              ctx.add_errors(errors.messages)
             end
           end
         end
@@ -415,13 +567,39 @@ __register: Lutaml::Model::Config.default_register)
       end
 
       # Override validate to support both instance and collection-level validations
+      #
+      # Collection-level validations run in order and can share state through a
+      # context object. Validations can stop the chain early by calling ctx.stop!
+      # or by checking ctx[:some_key] to see results from previous validations.
+      #
+      # @return [Array<Lutaml::Model::ValidationFailedError>] List of validation errors
+      #
+      # @example Standard usage
+      #   collection.validate  # Returns array of errors, doesn't raise
+      #   collection.validate! # Raises if any errors found
+      #
+      # @example With chaining (context)
+      #   class PublicationCollection < Lutaml::Model::Collection
+      #     instances :publications, Publication
+      #
+      #     validates_uniqueness_of :id  # Stores ctx[:duplicates_of_id]
+      #
+      #     validate_collection do |collection, errors, ctx|
+      #       # Check if uniqueness validation found duplicates
+      #       return if ctx[:duplicates_of_id].nil? || ctx[:duplicates_of_id].empty?
+      #
+      #       # Skip expensive validation if duplicates exist
+      #       errors.add(:collection, "Cannot run expensive checks with duplicate IDs")
+      #     end
+      #   end
+      #
       def validate(register: Lutaml::Model::Config.default_register)
         errors = []
 
         # Run standard instance-level validations first (inherited from Serializable)
         errors.concat(super)
 
-        # Run collection-level validations
+        # Run collection-level validations with context for chaining
         errors.concat(validate_collection_rules)
 
         errors
@@ -434,9 +612,35 @@ __register: Lutaml::Model::Config.default_register)
 
         errors = Errors.new
         collection_items = collection || []
+        context = ValidationContext.new
 
-        self.class.collection_validations.each do |validation_block|
-          validation_block.call(collection_items, errors)
+        self.class.collection_validations.each do |validation_block, options|
+          # Check stop condition
+          break if context.stopped?
+
+          # Evaluate conditional options
+          next if options[:if_cond] && !options[:if_cond].call(context)
+          next if options[:unless_cond]&.call(context)
+
+          # Build block arguments based on arity for backwards compatibility
+          # Old blocks: |collection, errors|
+          # New blocks:  |collection, errors, context|
+          begin
+            case validation_block.arity
+            when 1
+              validation_block.call(collection_items)
+            when 2
+              validation_block.call(collection_items, errors)
+            else
+              validation_block.call(collection_items, errors, context)
+            end
+          rescue LocalJumpError
+            # ctx.stop! was called via `return` - this is a valid pattern
+            context.stop!
+          end
+
+          # Update context with current errors
+          context.add_errors(errors.messages)
         end
 
         errors.messages.map { |msg| ValidationFailedError.new([msg]) }

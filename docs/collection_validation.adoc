@@ -4,10 +4,11 @@ This document demonstrates the new collection-level validation functionality in 
 
 == Overview
 
-Collections now support two types of validations:
+Collections support two types of validations:
 
 . *Instance-level validations*: Applied to each individual item in the collection (existing functionality)
 . *Collection-level validations*: Applied to the collection as a whole (new functionality)
+. *Validation chaining*: Collection-level validations can share state and coordinate with each other
 
 == Instance-level Validations (Existing)
 
@@ -128,15 +129,125 @@ class CustomValidatedPublicationCollection < Lutaml::Model::Collection
     end
   end
 end
+----
 
-# Usage
-collection = CustomValidatedPublicationCollection.new([
-  Publication.new(id: "1", year: 2020, category: "Science"),
-  Publication.new(id: "2", year: 2022, category: "Science")  # Gap in years, same category
-])
+== Validation Chaining
 
-collection.validate!
-# => Raises ValidationError: "Publication years must be sequential, Collection must have publications from at least 2 different categories"
+Collection-level validations can share state through a context object, enabling sophisticated validation workflows:
+
+=== The ValidationContext Object
+
+Each validation receives a third parameter (context) that enables chaining:
+
+[source,ruby]
+----
+class PublicationCollection < Lutaml::Model::Collection
+  instances :publications, Publication
+
+  validates_uniqueness_of :id
+
+  validate_collection do |collection, errors, ctx|
+    # ctx stores results from previous validations
+    # ctx[:duplicates_of_id] contains any duplicate IDs found
+
+    if ctx[:duplicates_of_id]&.any?
+      errors.add(:collection, "Cannot proceed with duplicate IDs")
+    end
+  end
+end
+----
+
+=== Context Methods
+
+The context object provides these methods:
+
+* `ctx[:key]` - Get stored value
+* `ctx[:key] = value` - Store a value for downstream validations
+* `ctx.failed?` - Check if any errors have been added
+* `ctx.stopped?` - Check if chain was stopped
+* `ctx.stop!` - Stop the validation chain
+
+=== Built-in Context Values
+
+After validation methods run, these values are automatically stored:
+
+* `ctx[:duplicates_of_<field>]` - Set of duplicate values for uniqueness validations
+* `ctx[:missing_<field>_count]` - Count of items missing a field for `validates_all_present`
+
+=== Conditional Execution
+
+Validations can be conditionally run based on context state:
+
+[source,ruby]
+----
+class PublicationCollection < Lutaml::Model::Collection
+  instances :publications, Publication
+
+  validates_uniqueness_of :id
+
+  # Only run if uniqueness passed
+  validate_collection(if_cond: ->(ctx) { !ctx[:duplicates_of_id]&.any? }) do |collection, errors, ctx|
+    # This expensive validation only runs when IDs are unique
+  end
+
+  # Skip when condition is met
+  validate_collection(unless_cond: ->(ctx) { ctx[:duplicates_of_id]&.any? }) do |collection, errors, ctx|
+    # This also only runs when IDs are unique
+  end
+end
+----
+
+=== Early Exit
+
+Stop the validation chain when a critical validation fails:
+
+[source,ruby]
+----
+class PublicationCollection < Lutaml::Model::Collection
+  instances :publications, Publication
+
+  validate_collection do |collection, errors, ctx|
+    # Critical validation
+    if collection.empty?
+      errors.add(:collection, "Cannot have empty collection")
+      ctx.stop!  # Stop further validations
+    end
+  end
+
+  validate_collection do |collection, errors, ctx|
+    # This will NOT run if the first validation called ctx.stop!
+  end
+end
+----
+
+=== Complete Chaining Example
+
+[source,ruby]
+----
+class BusinessRuleCollection < Lutaml::Model::Collection
+  instances :publications, Publication
+
+  # Step 1: Basic data integrity
+  validates_uniqueness_of :id
+  validates_all_present :author
+  validates_min_count 1
+
+  # Step 2: Cross-validation (only runs if above passed)
+  validate_collection do |collection, errors, ctx|
+    return if ctx[:duplicates_of_id]&.any?
+
+    # Expensive cross-reference check
+    # (safely skipped if duplicates exist)
+  end
+
+  # Step 3: Aggregate business rules
+  validate_collection do |collection, errors, ctx|
+    # Can reference results from any previous validation
+    if ctx[:missing_author_count].to_i > 5
+      errors.add(:collection, "Too many items missing author")
+    end
+  end
+end
 ----
 
 == Combining Instance and Collection Validations
@@ -179,11 +290,14 @@ end
 === Custom Validators
 
 * `validate_collection(&block)` - Define custom validation logic
+* `validate_collection(if_cond: ->(ctx) { ... }, &block)` - Conditional validation
+* `validate_collection(unless_cond: ->(ctx) { ... }, &block)` - Skip on condition
 
-The block receives two parameters:
+The block can receive 1, 2, or 3 parameters:
 
-* `collection` - Array of collection items
-* `errors` - Errors object to add validation messages to
+* `|collection|` - Just the collection items
+* `|collection, errors|` - Collection and errors object
+* `|collection, errors, ctx|` - Collection, errors, and context for chaining
 
 == Error Handling
 
@@ -225,3 +339,28 @@ Existing collections will continue to work without changes. To add collection-le
 . Keep existing instance validations in the `instances` block
 . Add collection validations using the new class methods or `validate_collection`
 . Both types of validations will run when `validate` or `validate!` is called
+. For chaining, add `ctx` parameter and use context methods
+
+[source,ruby]
+----
+# Old code still works:
+class OldCollection < Lutaml::Model::Collection
+  instances :items, Item do
+    validates :name, presence: true
+  end
+end
+
+# Add collection-level validation:
+class NewCollection < Lutaml::Model::Collection
+  instances :items, Item do
+    validates :name, presence: true
+  end
+
+  validates_uniqueness_of :id
+
+  # Optional: Add chaining
+  validate_collection do |items, errors, ctx|
+    # ctx[:duplicates_of_id] is automatically available
+  end
+end
+----
