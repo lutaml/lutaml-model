@@ -36,6 +36,16 @@ class ExampleAlphaType < Lutaml::Model::Type::String
 end
 
 module XmlMappingSpec
+  # Model for testing render_empty passthrough on map_attribute
+  class RenderEmptyAttributeModel < Lutaml::Model::Serializable
+    attribute :tags, :string, collection: true, initialize_empty: true
+
+    xml do
+      element "render-empty-attr"
+      map_attribute "tags", to: :tags, render_empty: true
+    end
+  end
+
   # Child models for different namespaces
   class ElementNilNamespaceChild < Lutaml::Model::Serializable
     attribute :value, :string
@@ -1108,6 +1118,37 @@ RSpec.describe Lutaml::Xml::Mapping do
             Lutaml::Model::IncorrectMappingArgumentsError,
             ":to or :with argument is required for mapping 'content'",
           )
+        end
+      end
+
+      describe "map_attribute render_empty passthrough" do
+        # rubocop:disable all
+        let(:mapping) { Lutaml::Xml::Mapping.new }
+        # rubocop:enable all
+
+        it "passes render_empty: true through to MappingRule" do
+          mapping.map_attribute("tags", to: :tags, render_empty: true)
+          rule = mapping.find_by_to(:tags)
+          expect(rule.render_empty).to be(true)
+        end
+
+        it "passes render_empty: :omit through to MappingRule" do
+          mapping.map_attribute("tags", to: :tags, render_empty: :omit)
+          rule = mapping.find_by_to(:tags)
+          expect(rule.render_empty).to eq(:omit)
+        end
+
+        it "passes render_empty: :as_blank through to MappingRule" do
+          mapping.map_attribute("tags", to: :tags, render_empty: :as_blank)
+          rule = mapping.find_by_to(:tags)
+          expect(rule.render_empty).to eq(:as_blank)
+        end
+
+        it "renders empty collection as attribute when render_empty: true" do
+          model = XmlMappingSpec::RenderEmptyAttributeModel.new(tags: [])
+          result = model.to_xml
+          # render_empty: true renders the attribute even for empty collections
+          expect(result).to include('tags="[]"')
         end
       end
     end
