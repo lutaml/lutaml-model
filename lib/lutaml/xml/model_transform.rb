@@ -280,35 +280,91 @@ mixed_content_option)
       end
 
       def value_for_xml_attribute(doc, rule, rule_names)
-        # For attributes, rule_names may contain URI:name format, but find_attribute_value
-        # expects prefix:name or just name, so we need to convert URI to prefix
+        # For attributes, rule_names may contain namespaced names, but find_attribute_value
+        # expects prefix:name or just name, so we need to convert namespaced names to prefix format.
+        #
+        # Namespaced name formats:
+        # - URI format: "http://.../namespace:attr" or "urn:...:attr"
+        # - Simple prefix format: "my-ns:attr" (namespace URI is a simple string, not a URI)
+        # - Unprefixed: "attr" (no namespace)
         attribute_names = rule_names.filter_map do |rn|
-          if rn.include?("://")
-            # This is a URI:name format, need to find the actual prefix used in the document
-            # CRITICAL: Split on LAST colon to handle URIs with colons (http://...)
-            # "http://www.w3.org/XML/1998/namespace:lang" should split into:
-            #   uri = "http://www.w3.org/XML/1998/namespace"
-            #   local_name = "lang"
-            last_colon_index = rn.rindex(":")
-            uri = rn[0...last_colon_index]
-            local_name = rn[(last_colon_index + 1)..]
-
-            # Get all matching attributes by URI and local name
-            doc.root.attributes.values.find do |attr|
-              attr.namespace == uri && attr.unprefixed_name == local_name
-            end&.name || rn
-          else
-            rn
-          end
+          converted = convert_rule_name_to_attribute_name(doc, rn)
+          converted || rn
         end
 
         value = doc.root.find_attribute_value(attribute_names)
+
+        # Fallback: if value is nil, try to match by local name only.
+        # This handles the case where the namespace prefix is not declared in the document
+        # (e.g., v:ext without xmlns:v="...").
+        if value.nil? && rule_names.any? { |rn| rn.include?(":") }
+          value = find_attribute_by_local_name(doc, rule_names)
+        end
 
         value = value&.split(rule.delimiter) if rule.delimiter
 
         value = rule.as_list[:import].call(value) if rule.as_list && rule.as_list[:import]
 
         value
+      end
+
+      # Convert a rule name (URI:localname or prefix:localname) to an attribute name
+      # that can be used to find the attribute in the document.
+      #
+      # @param doc [XmlElement] the parsed XML document root
+      # @param rule_name [String] the rule name (e.g., "urn:...:ext", "http://.../ns:val", "my-ns:val")
+      # @return [String, nil] the attribute name to look up, or nil if no conversion needed
+      def convert_rule_name_to_attribute_name(doc, rule_name)
+        return nil unless rule_name.include?(":")
+
+        # Split on last colon to get namespace/localname
+        # This correctly handles URIs with colons (http://... or urn:...)
+        last_colon_index = rule_name.rindex(":")
+        namespace_part = rule_name[0...last_colon_index]
+        local_name = rule_name[(last_colon_index + 1)..]
+
+        # Determine if namespace_part is a URI format or a simple prefix
+        # URI formats: contains "://" (http/https) or starts with "urn:"
+        is_uri_format = namespace_part.include?("://") || namespace_part.start_with?("urn:")
+
+        if is_uri_format
+          # URI format: look up attribute by namespace URI and local name
+          doc.root.attributes.values.find do |attr|
+            attr.namespace == namespace_part && attr.unprefixed_name == local_name
+          end&.name
+        else
+          # Simple prefix format: look up the actual prefix from document's namespace declarations
+          # The namespace_part is the namespace URI declared in the document (e.g., "my-ns").
+          # Find the corresponding prefix (e.g., "my") and build "my:val".
+          ns_data = doc.root.namespaces.values.find { |nd| nd.uri == namespace_part }
+          return nil unless ns_data&.prefix
+
+          "#{ns_data.prefix}:#{local_name}"
+        end
+      end
+
+      # Fallback: find attribute by local name only when namespace prefix is unresolved.
+      #
+      # @param doc [XmlElement] the parsed XML document root
+      # @param rule_names [Array<String>] the rule names to match
+      # @return [String, nil] the attribute value or nil
+      def find_attribute_by_local_name(doc, rule_names)
+        rule_names.each do |rn|
+          next unless rn.include?(":")
+
+          last_colon_index = rn.rindex(":")
+          local_name = rn[(last_colon_index + 1)..]
+
+          matched_attr = doc.root.attributes.values.find do |attr|
+            # Match by the attribute's namespaced_name, unprefixed_name, or by extracting
+            # local name from the attribute's key (handles unresolved prefixes).
+            attr.namespaced_name == local_name ||
+              attr.unprefixed_name == local_name ||
+              (attr.namespace.nil? && attr.name.split(":").last == local_name)
+          end
+          return matched_attr&.value if matched_attr
+        end
+        nil
       end
 
       def value_for_rule(doc, rule, options, instance, cached_attr = nil)
