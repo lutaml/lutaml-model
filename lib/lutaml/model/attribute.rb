@@ -282,6 +282,30 @@ module Lutaml
         !enum_values.empty?
       end
 
+      def default(register = Lutaml::Model::Config.default_register, instance_object = nil)
+        cast_value(default_value(register, instance_object), register)
+      end
+
+      def default_value(register, instance_object = nil)
+        if delegate
+          type(register).attributes[to].default(register, instance_object)
+        elsif options[:default].is_a?(Proc)
+          if instance_object
+            instance_object.instance_exec(&options[:default])
+          else
+            options[:default].call
+          end
+        elsif options.key?(:default)
+          options[:default]
+        else
+          Lutaml::Model::UninitializedClass.instance
+        end
+      end
+
+      def default_set?(register, instance_object = nil)
+        !Utils.uninitialized?(default_value(register, instance_object))
+      end
+
       def pattern
         options[:pattern]
       end
