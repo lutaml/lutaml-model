@@ -406,5 +406,272 @@ RSpec.describe Lutaml::Model::Collection do
         end
       end
     end
+
+    describe "Validation chaining with context" do
+      context "with context sharing between validations" do
+        it "allows validations to read results from previous validations" do
+          chain_executed = []
+
+          chained_collection = Class.new(Lutaml::Model::Collection) do
+            instances :publications, CollectionValidationTests::Publication
+
+            validates_uniqueness_of :id
+
+            validate_collection do |_collection, _errors, ctx|
+              chain_executed << :first
+              ctx[:duplicates_found] = !ctx[:duplicates_of_id].nil? && ctx[:duplicates_of_id].any?
+            end
+
+            validate_collection do |_collection, errors, ctx|
+              chain_executed << :second
+              if ctx[:duplicates_found]
+                errors.add(:collection, "Cannot proceed with duplicates")
+              end
+            end
+          end
+
+          # Test with duplicates
+          collection = chained_collection.new([science_publication, duplicate_id_publication])
+          expect { collection.validate! }.to raise_error(Lutaml::Model::ValidationError) do |error|
+            expect(error.message).to include("Cannot proceed with duplicates")
+          end
+          expect(chain_executed).to eq([:first, :second])
+
+          # Test without duplicates
+          chain_executed.clear
+          collection = chained_collection.new([science_publication, fiction_publication])
+          expect { collection.validate! }.not_to raise_error
+          expect(chain_executed).to eq([:first, :second])
+        end
+
+        it "stores duplicate values in context for downstream validations" do
+          chained_collection = Class.new(Lutaml::Model::Collection) do
+            instances :publications, CollectionValidationTests::Publication
+
+            validates_uniqueness_of :id
+
+            validate_collection do |_collection, errors, ctx|
+              if ctx[:duplicates_of_id]&.include?("1")
+                errors.add(:collection, "Found duplicate ID: 1")
+              end
+            end
+          end
+
+          collection = chained_collection.new([science_publication, duplicate_id_publication])
+          expect { collection.validate! }.to raise_error(Lutaml::Model::ValidationError) do |error|
+            expect(error.message).to include("Found duplicate ID: 1")
+          end
+        end
+
+        it "stores missing count in context for validates_all_present" do
+          chained_collection = Class.new(Lutaml::Model::Collection) do
+            instances :publications, CollectionValidationTests::Publication
+
+            validates_all_present :author
+
+            validate_collection do |_collection, errors, ctx|
+              if ctx[:missing_author_count].to_i > 0
+                errors.add(:collection, "#{ctx[:missing_author_count]} items missing author")
+              end
+            end
+          end
+
+          collection = chained_collection.new([science_publication, publication_without_author])
+          expect { collection.validate! }.to raise_error(Lutaml::Model::ValidationError) do |error|
+            expect(error.message).to include("1 items missing author")
+          end
+        end
+      end
+
+      context "with conditional validation using :if_cond option" do
+        it "only runs validation when condition is met" do
+          chained_collection = Class.new(Lutaml::Model::Collection) do
+            instances :publications, CollectionValidationTests::Publication
+
+            validates_uniqueness_of :id
+
+            validate_collection(if_cond: ->(ctx) { ctx[:duplicates_of_id]&.any? }) do |_collection, errors, _ctx|
+              errors.add(:collection, "Validation ran because duplicates exist")
+            end
+          end
+
+          # With duplicates - conditional validation should run
+          collection = chained_collection.new([science_publication, duplicate_id_publication])
+          errors = collection.validate
+          error_messages = errors.map(&:message).join
+          expect(error_messages).to include("Validation ran because duplicates exist")
+          expect(error_messages).to include("id values must be unique")
+
+          # Without duplicates - conditional validation should not run
+          collection = chained_collection.new([science_publication, fiction_publication])
+          errors = collection.validate
+          expect(errors).to be_empty
+        end
+
+        it "can skip validation based on context state" do
+          expensive_validation_ran = false
+
+          chained_collection = Class.new(Lutaml::Model::Collection) do
+            instances :publications, CollectionValidationTests::Publication
+
+            validates_uniqueness_of :id
+
+            # This validation should only run if there are NO duplicates
+            validate_collection(if_cond: ->(ctx) { !ctx[:duplicates_of_id]&.any? }) do |_collection, _errors, _ctx|
+              expensive_validation_ran = true
+            end
+          end
+
+          # With duplicates - expensive validation should skip
+          collection = chained_collection.new([science_publication, duplicate_id_publication])
+          errors = collection.validate
+          expect(errors.map(&:message).join).to include("id values must be unique")
+          expect(expensive_validation_ran).to be false
+
+          # Without duplicates - expensive validation should run
+          expensive_validation_ran = false
+          collection = chained_collection.new([science_publication, fiction_publication])
+          errors = collection.validate
+          expect(errors).to be_empty
+          expect(expensive_validation_ran).to be true
+        end
+      end
+
+      context "with conditional validation using :unless_cond option" do
+        it "skips validation when condition is met" do
+          ran_count = 0
+
+          chained_collection = Class.new(Lutaml::Model::Collection) do
+            instances :publications, CollectionValidationTests::Publication
+
+            validates_uniqueness_of :id
+
+            # Skip when duplicates exist
+            validate_collection(unless_cond: ->(ctx) { ctx[:duplicates_of_id]&.any? }) do |_collection, _errors, _ctx|
+              ran_count += 1
+            end
+          end
+
+          # With duplicates - should skip (unless_cond returns true, so validation is skipped)
+          collection = chained_collection.new([science_publication, duplicate_id_publication])
+          collection.validate
+          expect(ran_count).to be 0
+
+          # Without duplicates - should run (unless_cond returns false, so validation runs)
+          collection = chained_collection.new([science_publication, fiction_publication])
+          collection.validate
+          expect(ran_count).to be 1
+        end
+      end
+
+      context "with ctx.stop!" do
+        it "stops validation chain when ctx.stop! is called" do
+          chain_order = []
+
+          chained_collection = Class.new(Lutaml::Model::Collection) do
+            instances :publications, CollectionValidationTests::Publication
+
+            validate_collection do |_collection, _errors, ctx|
+              chain_order << :first
+              ctx.stop!
+            end
+
+            validate_collection do |_collection, _errors, ctx|
+              chain_order << :second
+              ctx.stop!
+            end
+
+            validate_collection do |_collection, _errors, _ctx|
+              chain_order << :third
+            end
+          end
+
+          collection = chained_collection.new([science_publication])
+          collection.validate!
+          expect(chain_order).to eq([:first])
+        end
+      end
+
+      context "with backwards compatible block signatures" do
+        it "works with 1-argument blocks" do
+          ran = false
+
+          collection_class = Class.new(Lutaml::Model::Collection) do
+            instances :publications, CollectionValidationTests::Publication
+
+            validate_collection do |collection|
+              ran = true if !collection.empty?
+            end
+          end
+
+          collection = collection_class.new([science_publication])
+          collection.validate!
+          expect(ran).to be true
+        end
+
+        it "works with 2-argument blocks (original signature)" do
+          ran_args = []
+
+          collection_class = Class.new(Lutaml::Model::Collection) do
+            instances :publications, CollectionValidationTests::Publication
+
+            validate_collection do |collection, errors|
+              ran_args << [collection.size, errors.class.name]
+              errors.add(:collection, "Test error") if !collection.empty?
+            end
+          end
+
+          collection = collection_class.new([science_publication])
+          errors = collection.validate
+          expect(ran_args.first.first).to eq 1
+          expect(ran_args.first.last).to include("Errors")
+          expect(errors.map(&:message).first).to include("Test error")
+        end
+
+        it "works with 3-argument blocks (new signature with context)" do
+          received_context = nil
+
+          collection_class = Class.new(Lutaml::Model::Collection) do
+            instances :publications, CollectionValidationTests::Publication
+
+            validate_collection do |_collection, _errors, ctx|
+              received_context = ctx
+              ctx[:test_value] = "from_validation"
+            end
+          end
+
+          collection = collection_class.new([science_publication])
+          collection.validate
+          expect(received_context).to be_a(Lutaml::Model::ValidationContext)
+          expect(received_context[:test_value]).to eq("from_validation")
+        end
+      end
+
+      context "with ctx.failed? helper" do
+        it "returns true when errors have been added" do
+          result = nil
+
+          chained_collection = Class.new(Lutaml::Model::Collection) do
+            instances :publications, CollectionValidationTests::Publication
+
+            validates_uniqueness_of :id
+
+            validate_collection do |_collection, _errors, ctx|
+              result = ctx.failed?
+            end
+          end
+
+          # Without errors
+          collection = chained_collection.new([science_publication, fiction_publication])
+          collection.validate
+          expect(result).to be false
+
+          # With errors
+          collection = chained_collection.new([science_publication, duplicate_id_publication])
+          collection.validate
+          expect(result).to be true
+        end
+      end
+    end
   end
 end

@@ -4716,13 +4716,68 @@ collection.validate!  # Runs both instance and collection validations
 ----
 ====
 
+====== Validation chaining
+
+Collection-level validations can share state through a context object, enabling sophisticated validation workflows:
+
+[example]
+====
+[source,ruby]
+----
+class PublicationCollection < Lutaml::Model::Collection
+  instances :publications, Publication
+
+  validates_uniqueness_of :id
+
+  # Validation blocks receive a context object as the third parameter
+  validate_collection do |collection, errors, ctx|
+    # ctx stores results from previous validations
+    # ctx[:duplicates_of_id] contains any duplicate IDs found
+    if ctx[:duplicates_of_id]&.any?
+      errors.add(:collection, "Cannot proceed with duplicate IDs")
+    end
+  end
+end
+----
+====
+
+Context methods available:
+
+* `ctx[:key]` / `ctx[:key] = value` - Store and retrieve values
+* `ctx.failed?` - Check if any errors have been added
+* `ctx.stop!` - Stop the validation chain
+
+Conditional execution:
+
+[example]
+====
+[source,ruby]
+----
+class PublicationCollection < Lutaml::Model::Collection
+  instances :publications, Publication
+
+  validates_uniqueness_of :id
+
+  # Only run if uniqueness passed
+  validate_collection(if_cond: ->(ctx) { !ctx[:duplicates_of_id]&.any? }) do |collection, errors, ctx|
+    # This expensive validation only runs when IDs are unique
+  end
+
+  # Skip when condition is met
+  validate_collection(unless_cond: ->(ctx) { ctx[:duplicates_of_id]&.any? }) do |collection, errors, ctx|
+    # This also only runs when IDs are unique
+  end
+end
+----
+====
+
 Available collection validation methods:
 
 * `validates_uniqueness_of(field, message: nil)` - Ensures field values are unique across all items
 * `validates_min_count(count, message: nil)` - Ensures minimum number of items in collection
 * `validates_max_count(count, message: nil)` - Ensures maximum number of items in collection
 * `validates_all_present(field, message: nil)` - Ensures all items have the specified field with a non-blank value
-* `validate_collection(&block)` - Define custom validation logic that receives the collection and errors object
+* `validate_collection(&block)` - Define custom validation logic (block can receive `collection, errors, ctx`)
 
 See full documentation for collection validations at link:docs/collection_validation.adoc[Collection Validations].
 
