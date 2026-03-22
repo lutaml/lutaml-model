@@ -10,6 +10,9 @@ module Lutaml
         def self.cast(value, _options = {})
           return value if value.nil? || Utils.uninitialized?(value)
 
+          # If already a DateTime type wrapper, return as-is
+          return value if value.is_a?(self)
+
           case value
           when ::DateTime then value
           when ::Time then value.to_datetime
@@ -25,25 +28,30 @@ module Lutaml
           dt = cast(value)
           return nil unless dt
 
-          # Only include fractional seconds if they exist
-          if dt.sec_fraction.zero?
-            dt.iso8601
+          format_datetime_iso8601(dt)
+        end
+
+        # Format DateTime as ISO8601 string preserving fractional seconds and timezone offset.
+        # Keeps up to 6 decimal places, strips trailing zeros beyond 3.
+        #
+        # @param datetime [DateTime] the DateTime to format
+        # @return [String] ISO8601 formatted string, e.g. "2024-01-01T12:00:00.123+08:00"
+        def self.format_datetime_iso8601(datetime)
+          if datetime.sec_fraction.zero?
+            datetime.iso8601
           else
-            # Keep minimum 3 decimal places, remove last 3 zeros if present
-            dt.iso8601(6).sub(/(\.\d{3})0{3}([+-])/, '\1\2')
+            # iso8601(6) produces exactly 6 decimal places
+            # e.g. 0.5s -> "0.500000", 0.123456s -> "0.123456"
+            # Strip trailing zeros beyond 3 decimal places: ".500000" -> ".500"
+            datetime.iso8601(6).sub(/(\.\d{3})0{3}([+-])/, '\1\2')
           end
         end
 
-        # xs:dateTime format (ISO8601 with timezone)
+        # xs:dateTime format (ISO8601 with timezone, Z for UTC)
         def to_xml
           return nil unless value
 
-          result = if value.sec_fraction.zero?
-                     value.iso8601
-                   else
-                     value.iso8601(6).sub(/(\.\d{3})0{3}([+-])/, '\1\2')
-                   end
-
+          result = self.class.format_datetime_iso8601(value)
           value.offset.zero? ? result.sub(/\+00:00$/, "Z") : result
         end
 
@@ -51,11 +59,7 @@ module Lutaml
         def to_json(*_args)
           return nil unless value
 
-          if value.sec_fraction.zero?
-            value.iso8601
-          else
-            value.iso8601(6).sub(/(\.\d{3})0{3}([+-])/, '\1\2')
-          end
+          self.class.format_datetime_iso8601(value)
         end
 
         # YAML timestamp format (native)
@@ -67,11 +71,7 @@ module Lutaml
         def to_toml
           return nil unless value
 
-          if value.sec_fraction.zero?
-            value.iso8601
-          else
-            value.iso8601(6).sub(/(\.\d{3})0{3}([+-])/, '\1\2')
-          end
+          self.class.format_datetime_iso8601(value)
         end
 
         # Default XSD type for DateTime
