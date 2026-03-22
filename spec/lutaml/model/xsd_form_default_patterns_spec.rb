@@ -517,7 +517,8 @@ RSpec.describe "XSD Form Default Patterns" do
           type_name "CombinedFormTestType"
           namespace ns
           # Element: unqualified to override elementFormDefault
-          map_element "element_content", to: :element_content, form: :unqualified
+          map_element "element_content", to: :element_content,
+                                         form: :unqualified
           # Attribute: unqualified to override attributeFormDefault
           map_attribute "id", to: :id, form: :unqualified
         end

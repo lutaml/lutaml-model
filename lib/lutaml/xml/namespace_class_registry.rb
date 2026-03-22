@@ -80,7 +80,8 @@ module Lutaml
       private
 
       # Build unique key for namespace configuration
-      def build_key(uri, prefix, element_form, attribute_form, element_form_default_set: true)
+      def build_key(uri, prefix, element_form, attribute_form,
+element_form_default_set: true)
         [
           uri || "nil",
           prefix || "nil",
