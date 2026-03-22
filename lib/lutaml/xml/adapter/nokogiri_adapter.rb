@@ -63,7 +63,8 @@ module Lutaml
           #
           # Use alternation instead of a quantifier in lookahead to avoid
           # polynomial backtracking on crafted input (CodeQL ReDoS).
-          xml.gsub(/&(?!(?:[a-zA-Z][a-zA-Z0-9]*|#(?:[0-9]+|x[0-9A-Fa-f]+));)/, "&amp;")
+          xml.gsub(/&(?!(?:[a-zA-Z][a-zA-Z0-9]*|#(?:[0-9]+|x[0-9A-Fa-f]+));)/,
+                   "&amp;")
         end
 
         def to_xml(options = {})

@@ -953,7 +953,9 @@ module Lutaml
           end
           return candidates.first if namespace_uri.nil? || candidates.one?
 
-          candidates.find { |r| r.namespace_class&.uri == namespace_uri } || candidates.first
+          candidates.find do |r|
+            r.namespace_class&.uri == namespace_uri
+          end || candidates.first
         end
       end
 

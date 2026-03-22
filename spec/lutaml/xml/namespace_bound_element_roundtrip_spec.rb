@@ -149,14 +149,16 @@ RSpec.describe "Namespace-Aware Round-Trip Serialization" do
       end
 
       it "defaults namespace attributes to nil for backward compatibility" do
-        element = Lutaml::Xml::Element.new("Element", "docId", node_type: :element)
+        element = Lutaml::Xml::Element.new("Element", "docId",
+                                           node_type: :element)
 
         expect(element.namespace_uri).to be_nil
         expect(element.namespace_prefix).to be_nil
       end
 
       it "is still backward compatible with eql? and ==" do
-        element1 = Lutaml::Xml::Element.new("Element", "docId", node_type: :element)
+        element1 = Lutaml::Xml::Element.new("Element", "docId",
+                                            node_type: :element)
         element2 = Lutaml::Xml::Element.new(
           "Element", "docId", node_type: :element,
                               namespace_uri: "http://example.com/ns",
@@ -168,8 +170,10 @@ RSpec.describe "Namespace-Aware Round-Trip Serialization" do
       end
 
       it "returns false for eql? with different type or name" do
-        element1 = Lutaml::Xml::Element.new("Element", "docId", node_type: :element)
-        element2 = Lutaml::Xml::Element.new("Element", "other", node_type: :element)
+        element1 = Lutaml::Xml::Element.new("Element", "docId",
+                                            node_type: :element)
+        element2 = Lutaml::Xml::Element.new("Element", "other",
+                                            node_type: :element)
 
         expect(element1.eql?(element2)).to be false
       end
@@ -388,7 +392,8 @@ RSpec.describe "Namespace-Aware Round-Trip Serialization" do
 
     it "element_order items from older code (without namespace) still work" do
       # Simulate an old Element object without namespace attributes
-      old_element = Lutaml::Xml::Element.new("Element", "title", node_type: :element)
+      old_element = Lutaml::Xml::Element.new("Element", "title",
+                                             node_type: :element)
 
       expect(old_element.namespace_uri).to be_nil
       expect(old_element.namespace_prefix).to be_nil

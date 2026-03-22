@@ -598,6 +598,113 @@ class MyType < Lutaml::Model::Type::String
 end
 ----
 
+== Same-Named Elements in Different Namespaces
+
+When an OOXML document contains elements with the same local name but different namespace URIs (e.g. `w14:docId` and `w15:docId`), Lutaml::Model correctly distinguishes them during round-trip serialization.
+
+This requires defining a separate `Serializable` model class for each namespace variant.
+
+[source,ruby]
+----
+require "lutaml/model"
+
+# Define OOXML namespaces
+class WNamespace < Lutaml::Model::XmlNamespace
+  uri "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+  prefix_default "w"
+  element_form_default :qualified
+end
+
+class W14Namespace < Lutaml::Model::XmlNamespace
+  uri "http://schemas.microsoft.com/office/word/2010/wordml"
+  prefix_default "w14"
+  element_form_default :qualified
+end
+
+class W15Namespace < Lutaml::Model::XmlNamespace
+  uri "http://schemas.microsoft.com/office/word/2012/wordml"
+  prefix_default "w15"
+  element_form_default :qualified
+end
+
+# W14 DocId model (in w14 namespace)
+class W14DocId < Lutaml::Model::Serializable
+  attribute :val, :string
+
+  xml do
+    element "docId"
+    namespace W14Namespace
+    map_attribute "val", to: :val
+  end
+end
+
+# W15 DocId model (in w15 namespace)
+class W15DocId < Lutaml::Model::Serializable
+  attribute :val, :string
+
+  xml do
+    element "docId"
+    namespace W15Namespace
+    map_attribute "val", to: :val
+  end
+end
+
+# Settings model with two map_element entries sharing the same name
+class Settings < Lutaml::Model::Serializable
+  attribute :w14_doc_id, W14DocId
+  attribute :w15_doc_id, W15DocId
+
+  xml do
+    root "settings"
+    namespace WNamespace
+    namespace_scope [W14Namespace, W15Namespace]
+
+    # Each map_element maps to a distinct Serializable model type.
+    # The namespace is picked up from the attribute's type, not from here.
+    map_element "docId", to: :w14_doc_id
+    map_element "docId", to: :w15_doc_id
+  end
+end
+----
+
+[source,ruby]
+----
+# Parse XML with both namespaced docId elements
+xml = <<~XML
+  <w:settings xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+              xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml"
+              xmlns:w15="http://schemas.microsoft.com/office/word/2012/wordml">
+    <w14:docId w14:val="4C6D0839"/>
+    <w15:docId w15:val="{A1B2C3D4}"/>
+  </w:settings>
+XML
+
+settings = Settings.from_xml(xml)
+settings.w14_doc_id.val   # => "4C6D0839"
+settings.w15_doc_id.val   # => "{A1B2C3D4}"
+
+# Round-trip correctly serializes each element to its own namespace
+serialized = settings.to_xml
+reparsed = Settings.from_xml(serialized)
+
+reparsed.w14_doc_id.val   # => "4C6D0839" (preserved!)
+reparsed.w15_doc_id.val   # => "{A1B2C3D4}" (preserved!)
+----
+
+[IMPORTANT]
+.Each namespace variant needs its own Serializable class
+====
+The namespace-aware matching works because each `map_element` targets an attribute of a distinct type (`W14DocId` vs `W15DocId`). The rule compiler extracts the namespace from each type's XML mapping, so the two `map_element "docId"` entries correctly serialize to `w14:docId` and `w15:docId` respectively.
+
+If both attributes shared the same type, they would share the same namespace and one would overwrite the other.
+====
+
+=== Key Point: Serializable Model Namespaces
+
+For `Serializable` model attributes, the namespace is stored on the model's XML mapping (accessible via `attr_type.mappings_for(:xml, register_id).namespace_class`), not directly on the type class. This is different from `Type::Value` subclasses which have `namespace_class` directly on the class.
+
+The rule compiler handles this automatically, but understanding the distinction is important when debugging namespace-related issues.
+
 === Issue: Multiple Namespace Declarations
 
 *Problem*: Same namespace declared multiple times

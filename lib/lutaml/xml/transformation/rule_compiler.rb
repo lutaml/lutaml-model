@@ -294,7 +294,8 @@ register_id, register, attr_name, custom_methods_value)
 
           namespace_class = mapping_rule.namespace_class
           if !namespace_class && attr_type.is_a?(Class) && attr_type.include?(Lutaml::Model::Serialize)
-            namespace_class = attr_type.namespace_class
+            type_mapping = attr_type.mappings_for(:xml, register_id)
+            namespace_class = type_mapping.namespace_class if type_mapping
           end
 
           value_transformer = build_value_transformer(mapping_rule, attr)
@@ -369,8 +370,15 @@ register_id, register, custom_methods_value)
           collection_info = { range: attr.options[:collection] } if attr.collection?
 
           namespace_class = mapping_rule.namespace_class
-          if !namespace_class && attr_type.is_a?(Class) && attr_type <= Lutaml::Model::Type::Value
-            namespace_class = attr_type.namespace_class
+          if !namespace_class && attr_type.is_a?(Class)
+            if attr_type <= Lutaml::Model::Type::Value
+              # Type::Value classes have namespace_class directly on the type
+              namespace_class = attr_type.namespace_class
+            elsif attr_type.include?(Lutaml::Model::Serialize)
+              # Serializable models have namespace on their mapping
+              type_mapping = attr_type.mappings_for(:xml, register_id)
+              namespace_class = type_mapping.namespace_class if type_mapping
+            end
           end
 
           value_transformer = build_value_transformer(mapping_rule, attr)
@@ -420,7 +428,8 @@ register_id, attr_name, custom_methods_value)
 
           namespace_class = mapping_rule.namespace_class
           if !namespace_class && attr_type.is_a?(Class) && attr_type.include?(Lutaml::Model::Serialize)
-            namespace_class = attr_type.namespace_class
+            type_mapping = attr_type.mappings_for(:xml, register_id)
+            namespace_class = type_mapping.namespace_class if type_mapping
           end
 
           value_transformer = build_value_transformer(mapping_rule, attr)
@@ -479,8 +488,15 @@ register_id, custom_methods_value)
           attr_type = attr.type(register_id)
 
           namespace_class = mapping_rule.namespace_class
-          if !namespace_class && attr_type.is_a?(Class) && attr_type <= Lutaml::Model::Type::Value
-            namespace_class = attr_type.namespace_class
+          if !namespace_class && attr_type.is_a?(Class)
+            if attr_type <= Lutaml::Model::Type::Value
+              # Type::Value classes have namespace_class directly on the type
+              namespace_class = attr_type.namespace_class
+            elsif attr_type.include?(Lutaml::Model::Serialize)
+              # Serializable models have namespace on their mapping
+              type_mapping = attr_type.mappings_for(:xml, register_id)
+              namespace_class = type_mapping.namespace_class if type_mapping
+            end
           end
 
           value_transformer = build_value_transformer(mapping_rule, attr)
