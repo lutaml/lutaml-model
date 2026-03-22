@@ -55,11 +55,15 @@ module Lutaml
         # Only escapes & that are NOT part of valid entities (including HTML entities)
         # Valid entities: &xxx; where xxx is alphanumeric, #digits, or #xhex
         def self.escape_unescaped_ampersands(xml)
-          # Match & that are NOT followed by entity-like patterns
-          # Entity patterns: &name; (alphanumeric), #ddd; (decimal), #xHH; (hex)
-          # Negative lookahead: (?![a-zA-Z0-9#]+;)
-          # This preserves ALL entities (XML, HTML, custom) while escaping bare &
-          xml.gsub(/&(?![a-zA-Z0-9#]+;)/, "&amp;")
+          # Match bare & (not part of a valid XML entity) and escape it.
+          # Valid entity patterns:
+          #   Named:    &name;     (e.g. &amp; &lt; &#x1F4A9;)
+          #   Decimal: &#nnn;     (e.g. &#65;)
+          #   Hex:     &#xHHH;    (e.g. &#x41;)
+          #
+          # Use alternation instead of a quantifier in lookahead to avoid
+          # polynomial backtracking on crafted input (CodeQL ReDoS).
+          xml.gsub(/&(?!(?:[a-zA-Z][a-zA-Z0-9]*|#(?:[0-9]+|x[0-9A-Fa-f]+));)/, "&amp;")
         end
 
         def to_xml(options = {})
