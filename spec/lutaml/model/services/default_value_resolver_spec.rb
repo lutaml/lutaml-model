@@ -56,7 +56,9 @@ RSpec.describe Lutaml::Model::Services::DefaultValueResolver do
 
     context "when default is a proc" do
       let(:attribute) do
-        Lutaml::Model::Attribute.new("file", :string, default: -> { Pathname.new("avatar.png") })
+        Lutaml::Model::Attribute.new("file", :string, default: -> {
+          Pathname.new("avatar.png")
+        })
       end
 
       it "returns the casted proc result" do

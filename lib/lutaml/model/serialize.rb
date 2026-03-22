@@ -271,7 +271,8 @@ module Lutaml
       end
 
       def attr_value(attrs, name, attribute)
-        value = Utils.fetch_str_or_sym(attrs, name, attribute.default(__register, self))
+        value = Utils.fetch_str_or_sym(attrs, name,
+                                       attribute.default(__register, self))
         attribute.cast_value(value, __register)
       end
 

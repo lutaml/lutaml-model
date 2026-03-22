@@ -246,7 +246,8 @@ RSpec.describe Lutaml::Model::Attribute do
     let(:register) { Lutaml::Model::Config.default_register }
 
     def create_resolver(attribute)
-      Lutaml::Model::Services::DefaultValueResolver.new(attribute, register, nil)
+      Lutaml::Model::Services::DefaultValueResolver.new(attribute, register,
+                                                        nil)
     end
 
     context "when default is not set" do

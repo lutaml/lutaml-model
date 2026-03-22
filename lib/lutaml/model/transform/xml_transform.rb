@@ -58,7 +58,8 @@ module Lutaml
                         (instance.using_default?(rule.to) || rule.render_default)
                       defaults_used << rule.to
                       if attr
-                        resolver = Services::DefaultValueResolver.new(attr, __register, instance)
+                        resolver = Services::DefaultValueResolver.new(attr,
+                                                                      __register, instance)
                         resolver.default
                       else
                         rule.to_value_for(instance)

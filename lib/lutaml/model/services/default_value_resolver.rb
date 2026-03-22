@@ -37,7 +37,8 @@ module Lutaml
           if attribute.delegate
             # For delegated attributes, recursively resolve through the service
             delegated_attr = attribute.type(register).attributes[attribute.to]
-            self.class.new(delegated_attr, register, instance_object).raw_default_value
+            self.class.new(delegated_attr, register,
+                           instance_object).raw_default_value
           elsif attribute.options.key?(:default)
             attribute.options[:default]
           else
