@@ -13,7 +13,9 @@ module Lutaml
             if value.respond_to?(:validate)
               errors.concat(value.validate)
             else
-              resolver = Lutaml::Model::Services::DefaultValueResolver.new(attr, register, self)
+              resolver = Lutaml::Model::Services::DefaultValueResolver.new(
+                attr, register, self
+              )
               attr.validate_value!(value, register, resolver)
             end
           rescue Lutaml::Model::CollectionCountOutOfRangeError => e

@@ -282,7 +282,8 @@ module Lutaml
         !enum_values.empty?
       end
 
-      def default(register = Lutaml::Model::Config.default_register, instance_object = nil)
+      def default(register = Lutaml::Model::Config.default_register,
+instance_object = nil)
         cast_value(default_value(register, instance_object), register)
       end
 

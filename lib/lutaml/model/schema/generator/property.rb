@@ -82,7 +82,8 @@ module Lutaml
             constraints["pattern"] = attr.pattern.source if attr.pattern
 
             # Add default value
-            resolver = Lutaml::Model::Services::DefaultValueResolver.new(attr, register, nil)
+            resolver = Lutaml::Model::Services::DefaultValueResolver.new(attr,
+                                                                         register, nil)
             if resolver.default_set?
               constraints["default"] = resolver.default
             end

@@ -1,7 +1,8 @@
 module Lutaml
   module Model
     class RuleValueExtractor < Services::Base
-      def initialize(rule, doc, format, attr, register, options, instance_object)
+      def initialize(rule, doc, format, attr, register, options,
+instance_object)
         super()
 
         @rule = rule
@@ -24,7 +25,8 @@ module Lutaml
 
       private
 
-      attr_reader :rule, :doc, :format, :attr, :register, :options, :instance_object
+      attr_reader :rule, :doc, :format, :attr, :register, :options,
+                  :instance_object
 
       def rule_names
         rule.multiple_mappings? ? rule.name : [rule.name]
@@ -47,7 +49,8 @@ module Lutaml
         return fetch_value(name) if Utils.string_or_symbol_key?(doc, name)
 
         if attr
-          resolver = Services::DefaultValueResolver.new(attr, register, instance_object)
+          resolver = Services::DefaultValueResolver.new(attr, register,
+                                                        instance_object)
           return resolver.default_value if resolver.default_set?
         end
 
