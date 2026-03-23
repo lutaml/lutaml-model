@@ -88,6 +88,7 @@ module Lutaml
 
         def self.cast(value)
           return nil if value.nil?
+          return value if Lutaml::Model::Utils.uninitialized?(value)
 
           val = super
           unless ["default", "preserve"].include?(val)

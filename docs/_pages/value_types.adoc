@@ -267,6 +267,136 @@ decoded = Lutaml::Model::Type::HexBinary.decode(checksum.hash_value)
 ----
 ====
 
+==== W3C XML Attributes
+
+Lutaml::Model provides pre-defined type classes for W3C standard XML attributes
+with built-in validation and serialization support. These types automatically
+handle the `xml:` namespace prefix.
+
+.Available W3C XML attribute types
+[cols="1,2,2"]
+|===
+| Type Class | Purpose | Validation
+
+| `Lutaml::Xml::W3c::XmlLangType`
+| Language identification (RFC 5646)
+| Accepts any valid language tag
+
+| `Lutaml::Xml::W3c::XmlSpaceType`
+| Whitespace handling control
+| Only "default" or "preserve"
+
+| `Lutaml::Xml::W3c::XmlBaseType`
+| Base URI for relative references
+| Accepts any valid URI string
+
+| `Lutaml::Xml::W3c::XmlIdType`
+| Unique identifier (XML ID type)
+| Must be valid NCName
+|===
+
+.Using W3C XML attribute types
+[example]
+====
+[source,ruby]
+----
+class Article < Lutaml::Model::Serializable
+  attribute :lang, Lutaml::Xml::W3c::XmlLangType
+  attribute :space, Lutaml::Xml::W3c::XmlSpaceType
+  attribute :id, Lutaml::Xml::W3c::XmlIdType
+  attribute :title, :string
+
+  xml do
+    root "article"
+    map_attribute "lang", to: :lang
+    map_attribute "space", to: :space
+    map_attribute "id", to: :id
+    map_element "title", to: :title
+  end
+end
+
+article = Article.new(
+  lang: "en-US",
+  space: "preserve",
+  id: "article1",
+  title: "My Article"
+)
+
+puts article.to_xml
+# => <article xml:lang="en-US" xml:space="preserve" xml:id="article1">
+#      <title>My Article</title>
+#    </article>
+----
+====
+
+===== W3C Attributes Convenience Method
+
+For cleaner code when mapping multiple W3C attributes, use the `w3c_attributes`
+convenience method:
+
+.Using `w3c_attributes` shorthand
+[example]
+====
+[source,ruby]
+----
+class Paragraph < Lutaml::Model::Serializable
+  attribute :lang, Lutaml::Xml::W3c::XmlLangType
+  attribute :space, Lutaml::Xml::W3c::XmlSpaceType
+  attribute :content, :string
+
+  xml do
+    element "p"
+    w3c_attributes :lang, :space  # Shorthand for map_attribute
+    map_content to: :content
+  end
+end
+
+para = Paragraph.new(content: "Hello", lang: "en", space: "preserve")
+para.to_xml
+# => <p xml:lang="en" xml:space="preserve">Hello</p>
+----
+====
+
+===== Mixed Content and Whitespace Preservation
+
+Mixed content elements are whitespace-sensitive by definition. Use the
+`xml_space :preserve` method to automatically add `xml:space="preserve"`
+during serialization:
+
+.Using `xml_space` with mixed content
+[example]
+====
+[source,ruby]
+----
+class RichText < Lutaml::Model::Serializable
+  attribute :content, :string
+
+  xml do
+    element "text"
+    mixed_content        # Enables mixed content mode
+    xml_space :preserve  # Adds xml:space="preserve"
+    map_content to: :content
+  end
+end
+
+text = RichText.new(content: "  Important spacing  ")
+text.to_xml
+# => <text xml:space="preserve">  Important spacing  </text>
+----
+====
+
+You can also use `xml_space :default` to explicitly signal default whitespace
+handling, or omit it entirely for no xml:space attribute:
+
+[source,ruby]
+----
+xml do
+  element "text"
+  mixed_content  # Mixed content without xml:space attribute
+  map_content to: :content
+end
+----
+
 
 
 === Symbol type

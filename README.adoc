@@ -1346,6 +1346,37 @@ currency_type = Lutaml::Model::Type.lookup(:currency)
 # => Currency
 ----
 
+==== Handling special values
+
+Custom types automatically handle special sentinel values via the
+`UninitializedClassGuard` module. When `cast` is called:
+
+* `nil` is passed through to your type's `cast` method
+* `UninitializedClass.instance` is handled automatically - your type's `cast`
+  method will never receive this sentinel value
+
+This means you can write clean type implementations without needing to handle
+these internal details:
+
+[source,ruby]
+----
+class Email < Lutaml::Model::Type::String
+  def self.cast(value)
+    # nil check is optional - UninitializedClass is already filtered
+    return nil if value.nil?
+
+    # Your validation logic
+    value.to_s.downcase
+  end
+end
+----
+
+[IMPORTANT]
+====
+If your `cast` method calls `super`, sentinel values are handled automatically.
+You only need explicit handling if you override `cast` without calling `super`.
+====
+
 ==== Custom types with XSD types
 
 Define custom types with XSD type declarations for schema generation:
@@ -6072,6 +6103,47 @@ xml do
   mixed_content  # Enables mixed content + ordered
 end
 ----
+
+===== Whitespace preservation with `xml_space`
+
+Mixed content elements are whitespace-sensitive. Use the `xml_space` method
+to automatically add `xml:space="preserve"` during serialization:
+
+[source,ruby]
+----
+xml do
+  element 'text'
+  mixed_content        # Enables mixed content mode
+  xml_space :preserve  # Adds xml:space="preserve" to output
+end
+----
+
+This signals to XML processors that whitespace in the element is significant.
+
+.Using `mixed_content` with `xml_space`
+[example]
+====
+[source,ruby]
+----
+class WhitespaceSensitiveText < Lutaml::Model::Serializable
+  attribute :content, :string
+
+  xml do
+    element 'text'
+    mixed_content        # Enables mixed content
+    xml_space :preserve  # Auto-adds xml:space="preserve"
+    map_content to: :content
+  end
+end
+
+text = WhitespaceSensitiveText.new(content: "  Important spacing  ")
+text.to_xml
+# => <text xml:space="preserve">  Important spacing  </text>
+----
+====
+
+You can also use `xml_space :default` to explicitly signal default whitespace
+handling, or omit it entirely for no xml:space attribute.
 
 .Using `mixed_content` explicitly
 [example]

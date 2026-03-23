@@ -6,6 +6,7 @@ module Lutaml
       class Float < Value
         def self.cast(value, options = {})
           return nil if value.nil?
+          return value if Utils.uninitialized?(value)
 
           # Use identity check for EMPTY_OPTIONS (faster than .empty?)
           unless options.equal?(EMPTY_OPTIONS)

@@ -13,7 +13,8 @@ module Lutaml
         # ::Time.new(1, 1, 1, time.hour, time.min, time.sec)
 
         def self.cast(value, _options = {})
-          return value if value.nil? || Utils.uninitialized?(value)
+          return super if Utils.uninitialized?(value)
+          return nil if value.nil?
 
           case value
           when ::Time then value
@@ -31,7 +32,7 @@ module Lutaml
         end
 
         def self.serialize(value)
-          return value if value.nil? || Utils.uninitialized?(value)
+          return nil if value.nil?
 
           value = cast(value)
           value.strftime("%H:%M:%S") # Format as HH:MM:SS
