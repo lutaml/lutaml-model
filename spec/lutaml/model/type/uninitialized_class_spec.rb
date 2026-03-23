@@ -93,7 +93,8 @@ RSpec.describe "UninitializedClass handling in Type::Value" do
     it "validates non-nil, non-uninit values" do
       expect do
         Lutaml::Xml::W3c::XmlSpaceType.cast("invalid")
-      end.to raise_error(ArgumentError, "xml:space must be 'default' or 'preserve'")
+      end.to raise_error(ArgumentError,
+                         "xml:space must be 'default' or 'preserve'")
     end
 
     it "accepts 'preserve' value" do

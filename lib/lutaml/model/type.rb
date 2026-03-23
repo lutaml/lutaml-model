@@ -4,7 +4,8 @@ module Lutaml
   module Model
     module Type
       autoload :Value, "#{__dir__}/type/value"
-      autoload :UninitializedClassGuard, "#{__dir__}/type/uninitialized_class_guard"
+      autoload :UninitializedClassGuard,
+               "#{__dir__}/type/uninitialized_class_guard"
       autoload :String, "#{__dir__}/type/string"
       autoload :Integer, "#{__dir__}/type/integer"
       autoload :Float, "#{__dir__}/type/float"
