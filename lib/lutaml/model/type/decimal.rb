@@ -6,6 +6,7 @@ module Lutaml
       class Decimal < Value
         def self.cast(value, options = {})
           return nil if value.nil?
+          return value if Utils.uninitialized?(value)
 
           check_dependencies!(value)
           value = case value

@@ -7,6 +7,7 @@ module Lutaml
         # Performance-optimized cast with short-circuit for already-correct types
         def self.cast(value, options = {})
           return nil if value.nil?
+          return value if Utils.uninitialized?(value)
           # Short-circuit: return immediately if already an Integer
           # Use identity check for EMPTY_OPTIONS (faster than .empty?)
           return value if value.is_a?(::Integer) && options.equal?(EMPTY_OPTIONS)

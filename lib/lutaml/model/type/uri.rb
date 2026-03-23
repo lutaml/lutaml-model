@@ -14,6 +14,7 @@ module Lutaml
       class Uri < String
         def self.cast(value, _options = {})
           return nil if value.nil?
+          return value if Utils.uninitialized?(value)
           return value if value.is_a?(::URI)
           return value if value.is_a?(::String)
 

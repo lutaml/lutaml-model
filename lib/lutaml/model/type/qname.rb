@@ -26,6 +26,7 @@ module Lutaml
 
         def self.cast(value, _options = {})
           return nil if value.nil?
+          return value if Utils.uninitialized?(value)
           return value.to_s if value.is_a?(QName)
 
           value.to_s

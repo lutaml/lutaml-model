@@ -209,6 +209,46 @@ bad_contact = Contact.new(email: "not-an-email")
 ----
 ====
 
+== Handling special values
+
+The `cast` method may receive special sentinel values:
+
+* `nil` - Explicitly null value
+* `UninitializedClass.instance` - No value provided, no default set
+
+These are handled automatically at the base `Type::Value` level via the
+`UninitializedClassGuard` module. Your custom type's `cast` method will
+only be called with actual values, not these sentinels.
+
+[IMPORTANT]
+====
+If you call `super` in your `cast` method, the sentinel values are handled
+automatically. You only need explicit handling if you override `cast`
+completely without calling `super`.
+====
+
+.Example: Custom type that calls super
+[source,ruby]
+----
+class Email < Lutaml::Model::Type::String
+  EMAIL_REGEX = /\A[\w+\-.]+@[a-z\d\-]+(\.[a-z\d\-]+)*\.[a-z]+\z/i
+
+  def self.cast(value)
+    email = super(value)  # Sentinel values handled by UninitializedClassGuard
+
+    return email if Lutaml::Model::Utils.uninitialized?(email)
+    return nil if email.nil?
+
+    unless email.match?(EMAIL_REGEX)
+      raise Lutaml::Model::TypeError, "Invalid email: #{email}"
+    end
+
+    email.downcase
+  end
+end
+----
+====
+
 == Next steps
 
 Learn more about:

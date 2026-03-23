@@ -5,7 +5,8 @@ module Lutaml
     module Type
       class Date < Value
         def self.cast(value, _options = {})
-          return value if value.nil? || Utils.uninitialized?(value)
+          return super if Utils.uninitialized?(value)
+          return nil if value.nil?
 
           case value
           when ::DateTime, ::Time

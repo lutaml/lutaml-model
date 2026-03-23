@@ -58,6 +58,9 @@ module Lutaml
         # Handle schema_location if present
         handle_schema_location(root, model_instance)
 
+        # Handle xml:space="preserve" for mixed content elements
+        handle_xml_space(root, mapping)
+
         # Determine serialization mode
         use_element_order = should_use_element_order?(model_instance, mapping)
 
@@ -145,6 +148,35 @@ module Lutaml
           nil,
         )
         root.add_attribute(schema_loc_attr)
+      end
+
+      # Handle xml:space="preserve" for mixed content elements
+      #
+      # Mixed content elements are whitespace-sensitive by definition.
+      # This method automatically adds xml:space="preserve" when serializing
+      # mixed content, unless the user has explicitly set a value.
+      #
+      # @param root [XmlElement] Root element
+      # @param model_instance [Object] The model instance
+      # @param mapping [Xml::Mapping] The mapping
+      def handle_xml_space(root, mapping)
+        return unless mapping&.preserve_whitespace?
+
+        # Don't add if user has defined a space attribute
+        # (user controls xml:space themselves)
+        space_rule = compiled_rules.find do |rule|
+          rule.attribute_name == :space || rule.serialized_name == "space"
+        end
+
+        return if space_rule
+
+        # Add xml:space="preserve" attribute
+        space_attr = ::Lutaml::Xml::DataModel::XmlAttribute.new(
+          "space",
+          "preserve",
+          ::Lutaml::Xml::W3c::XmlNamespace,
+        )
+        root.add_attribute(space_attr)
       end
 
       # Check if element order should be used for serialization

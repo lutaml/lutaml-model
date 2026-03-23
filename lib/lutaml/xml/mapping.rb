@@ -40,7 +40,6 @@ module Lutaml
       attr_reader :root_element,
                   :namespace_uri,
                   :namespace_prefix,
-                  :mixed_content,
                   :element_sequence,
                   :mappings_imported,
                   :namespace_class,
@@ -50,7 +49,8 @@ module Lutaml
                   :type_name_value,
                   :namespace_scope,
                   :namespace_scope_config,
-                  :mapper_class
+                  :mapper_class,
+                  :xml_space
 
       def initialize
         super
@@ -61,6 +61,7 @@ module Lutaml
         @content_mapping = nil
         @raw_mapping = nil
         @mixed_content = false
+        @xml_space = nil
         @format = :xml
         @mappings_imported = true
         @finalized = false
@@ -93,7 +94,22 @@ module Lutaml
         @finalized
       end
 
-      alias mixed_content? mixed_content
+      # Enable mixed content for this element
+      #
+      # Mixed content means the element can contain both text nodes
+      # and child elements interspersed.
+      #
+      # @return [Boolean] true
+      def mixed_content
+        @mixed_content = true
+        @ordered = true
+      end
+
+      # Check if mixed content is enabled
+      # @return [Boolean] true if mixed content is enabled
+      def mixed_content?
+        @mixed_content || false
+      end
 
       # Return whether this mapping uses ordered content
       # @return [Boolean, nil] true if ordered, nil if not set
@@ -134,9 +150,72 @@ module Lutaml
       # and child elements interspersed.
       #
       # @return [Boolean] true
-      def mixed_content
+      def enable_mixed_content
         @mixed_content = true
         @ordered = true # mixed content implies ordered
+      end
+
+      # Alias for enable_mixed_content for DSL usage
+      # @return [Boolean] true
+      alias mixed_content enable_mixed_content
+
+      # Control the xml:space attribute for this element
+      #
+      # When set to :preserve, automatically adds `xml:space="preserve"`
+      # during serialization. When set to :default, adds `xml:space="default"`.
+      # When false or nil, no xml:space attribute is added.
+      #
+      # @param value [Symbol, Boolean, nil] :preserve, :default, false, or nil
+      # @return [Symbol, nil] the xml_space value
+      #
+      # @example Add xml:space="preserve"
+      #   xml do
+      #     element "text"
+      #     mixed_content
+      #     xml_space :preserve  # Adds xml:space="preserve"
+      #   end
+      #
+      # @example Add xml:space="default"
+      #   xml do
+      #     element "text"
+      #     xml_space :default
+      #   end
+      def xml_space(value = nil)
+        @xml_space = value if value
+        @xml_space
+      end
+
+      # Whether this mapping should auto-add xml:space="preserve"
+      #
+      # @return [Boolean]
+      def preserve_whitespace?
+        @xml_space == :preserve
+      end
+
+      # Convenience method for standard W3C XML attributes
+      #
+      # Automatically creates attribute mappings for attributes that use
+      # W3C types. The attribute must already be declared with a W3C type.
+      #
+      # Available options: :lang, :space, :base, :id
+      #
+      # @param attrs [Array<Symbol>] List of W3C attribute names to auto-map
+      # @example
+      #   class Paragraph < Lutaml::Model::Serializable
+      #     attribute :lang, Lutaml::Xml::W3c::XmlLangType
+      #     attribute :space, Lutaml::Xml::W3c::XmlSpaceType
+      #     attribute :content, :string
+      #
+      #     xml do
+      #       element "p"
+      #       w3c_attributes :lang, :space  # Maps to xml:lang and xml:space
+      #       map_content to: :content
+      #     end
+      #   end
+      def w3c_attributes(*attrs)
+        attrs.each do |attr|
+          map_attribute attr.to_s, to: attr
+        end
       end
 
       # Enable ordered content for this element

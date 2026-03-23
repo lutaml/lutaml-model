@@ -6,7 +6,7 @@ module Lutaml
       class Symbol < Value
         def self.cast(value, options = {})
           return nil if value.nil?
-          return nil if value.is_a?(Lutaml::Model::UninitializedClass)
+          return value if Utils.uninitialized?(value)
           return nil if value.respond_to?(:empty?) && value.empty?
 
           # Convert to string for validation and unwrapping
@@ -33,7 +33,7 @@ module Lutaml
 
         def self.serialize(value)
           return nil if value.nil?
-          return nil if value.is_a?(Lutaml::Model::UninitializedClass)
+          return value if Utils.uninitialized?(value)
 
           # If it's already a symbol, return it
           return value if value.is_a?(::Symbol)

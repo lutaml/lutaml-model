@@ -5,6 +5,8 @@ module Lutaml
     module Type
       # Base class for all value types
       class Value
+        prepend UninitializedClassGuard
+
         include Lutaml::Xml::Type::Configurable
 
         # Performance optimization: reusable empty options hash
@@ -23,12 +25,14 @@ module Lutaml
 
         def self.cast(value, _options = {})
           return nil if value.nil?
+          return value if Utils.uninitialized?(value)
 
           value
         end
 
         def self.serialize(value)
           return nil if value.nil?
+          return value if Utils.uninitialized?(value)
 
           new(value).to_s
         end

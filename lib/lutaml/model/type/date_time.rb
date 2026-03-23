@@ -8,7 +8,8 @@ module Lutaml
       # Date and time representation
       class DateTime < Value
         def self.cast(value, _options = {})
-          return value if value.nil? || Utils.uninitialized?(value)
+          return super if Utils.uninitialized?(value)
+          return nil if value.nil?
 
           # If already a DateTime type wrapper, return as-is
           return value if value.is_a?(self)
@@ -23,7 +24,7 @@ module Lutaml
         end
 
         def self.serialize(value)
-          return value if value.nil? || Utils.uninitialized?(value)
+          return nil if value.nil?
 
           dt = cast(value)
           return nil unless dt
