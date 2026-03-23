@@ -22,25 +22,25 @@ RSpec.describe Lutaml::Xml::W3c::XmlSpaceType do
     it "raises ArgumentError for invalid value" do
       expect { described_class.cast("invalid") }.to raise_error(
         ArgumentError,
-        "xml:space must be 'default' or 'preserve'"
+        "xml:space must be 'default' or 'preserve'",
       )
     end
 
     it "raises ArgumentError for empty string" do
       expect { described_class.cast("") }.to raise_error(
         ArgumentError,
-        "xml:space must be 'default' or 'preserve'"
+        "xml:space must be 'default' or 'preserve'",
       )
     end
 
     it "raises ArgumentError for mixed case values" do
       expect { described_class.cast("PRESERVE") }.to raise_error(
         ArgumentError,
-        "xml:space must be 'default' or 'preserve'"
+        "xml:space must be 'default' or 'preserve'",
       )
       expect { described_class.cast("Default") }.to raise_error(
         ArgumentError,
-        "xml:space must be 'default' or 'preserve'"
+        "xml:space must be 'default' or 'preserve'",
       )
     end
   end
@@ -86,7 +86,8 @@ RSpec.describe "xml:space attribute with nil values" do
     end
 
     it "serializes model with xml:space value" do
-      model = OptionalXmlSpaceModel.new(content: "Some content", space: "preserve")
+      model = OptionalXmlSpaceModel.new(content: "Some content",
+                                        space: "preserve")
       xml = model.to_xml
       expect(xml).to include('xml:space="preserve"')
     end

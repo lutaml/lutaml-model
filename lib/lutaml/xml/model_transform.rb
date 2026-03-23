@@ -336,7 +336,9 @@ mixed_content_option)
           # Simple prefix format: look up the actual prefix from document's namespace declarations
           # The namespace_part is the namespace URI declared in the document (e.g., "my-ns").
           # Find the corresponding prefix (e.g., "my") and build "my:val".
-          ns_data = doc.root.namespaces.values.find { |nd| nd.uri == namespace_part }
+          ns_data = doc.root.namespaces.values.find do |nd|
+            nd.uri == namespace_part
+          end
           return nil unless ns_data&.prefix
 
           "#{ns_data.prefix}:#{local_name}"
