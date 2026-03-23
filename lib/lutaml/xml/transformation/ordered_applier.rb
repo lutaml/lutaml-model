@@ -206,6 +206,14 @@ _options)
 
             # Apply the rule for this single item
             yield(:apply_single, rule, single_value) if block_given?
+          elsif index.zero? && value_length.zero?
+            # Handle empty collections with render_empty option
+            render_empty = rule.option(:render_empty)
+            if render_empty == :as_nil
+              yield(:apply_single, rule, nil) if block_given?
+            elsif render_empty == :as_blank
+              yield(:apply_single, rule, "") if block_given?
+            end
           end
         end
 

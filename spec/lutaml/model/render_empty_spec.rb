@@ -59,6 +59,30 @@ module RenderEmptySpec
       map "items", to: :items, render_empty: :as_nil
     end
   end
+
+  # Model with ordered mapping to test element_order serialization path
+  class ExplicitBlankOrderedModel < Lutaml::Model::Serializable
+    attribute :authority, :string
+    attribute :topic, :string, collection: true
+
+    xml do
+      element "subject"
+      ordered
+      map_element "topic", to: :topic, render_empty: :as_blank
+    end
+  end
+
+  # Model with ordered mapping to test element_order with :as_nil
+  class ExplicitNilOrderedModel < Lutaml::Model::Serializable
+    attribute :authority, :string
+    attribute :topic, :string, collection: true
+
+    xml do
+      element "subject"
+      ordered
+      map_element "topic", to: :topic, render_empty: :as_nil
+    end
+  end
 end
 
 RSpec.describe "RenderEmptySpec" do
@@ -189,6 +213,26 @@ RSpec.describe "RenderEmptySpec" do
           model = RenderEmptySpec::ExplicitNilModel.from_yaml(yaml)
           expect(model.items).to eq([])
         end
+      end
+    end
+
+    context "when :as_blank with ordered mapping (element_order path)" do
+      it "renders empty collection as blank element on parsed model with element_order" do
+        xml = '<subject authority="lcsh"><topic/></subject>'
+        parsed = RenderEmptySpec::ExplicitBlankOrderedModel.from_xml(xml)
+        # Verify element_order is set (meaning ordered path will be used)
+        expect(parsed.respond_to?(:element_order)).to be true
+        expect(parsed.to_xml).to include("<topic/>")
+      end
+    end
+
+    context "when :as_nil with ordered mapping (element_order path)" do
+      it "renders empty collection as nil element on parsed model with element_order" do
+        xml = '<subject authority="lcsh"><topic xsi:nil="true"/></subject>'
+        parsed = RenderEmptySpec::ExplicitNilOrderedModel.from_xml(xml)
+        # Verify element_order is set (meaning ordered path will be used)
+        expect(parsed.respond_to?(:element_order)).to be true
+        expect(parsed.to_xml).to include('<topic xsi:nil="true"/>')
       end
     end
   end
