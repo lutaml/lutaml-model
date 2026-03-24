@@ -29,7 +29,7 @@ module Lutaml
       #
       # @return [Boolean] true if registration succeeded or already done
       def register_types!
-        return true if @types_registered
+        return true if @types_registered && registered?
 
         if defined?(Lutaml::Model::Type)
           W3C_TYPES.each do |symbol, type_class|
@@ -38,6 +38,18 @@ module Lutaml
           @types_registered = true
         end
         @types_registered
+      end
+
+      # Check if W3C types are actually registered in the Type registry.
+      #
+      # @return [Boolean] true if all W3C types are registered
+      def registered?
+        return false unless defined?(Lutaml::Model::Type)
+        return false unless Lutaml::Model::Type.instance_variable_get(:@registry)
+
+        W3C_TYPES.keys.all? do |symbol|
+          Lutaml::Model::Type.instance_variable_get(:@registry)&.key?(symbol)
+        end
       end
 
       # Automatically register types when a constant is accessed via const_missing.
