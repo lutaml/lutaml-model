@@ -10,6 +10,12 @@ module Lutaml
           # This prevents Nokogiri from dropping data after invalid entities
           xml = escape_unescaped_ampersands(xml)
 
+          # CRITICAL: Extract xmlns declarations from raw XML string BEFORE parsing.
+          # This captures what was actually in the input, before any pre-processing.
+          # Even if XML was pre-normalized, the caller can pass original_namespaces
+          # in options to preserve alias URIs for round-trip fidelity.
+          raw_xml_namespaces = InputNamespaceExtractor.extract_from_raw_xml(xml)
+
           parsed = ::Nokogiri::XML(xml, nil, encoding(xml, options))
 
           # Validate that we have a root element
@@ -40,6 +46,18 @@ module Lutaml
           # These will be preserved during serialization (Tier 1 priority)
           input_namespaces = InputNamespaceExtractor.extract(parsed.root,
                                                              :nokogiri)
+
+          # Merge original_namespaces from options (if provided) to override
+          # canonical URIs with original alias URIs for round-trip fidelity.
+          # This is needed when XML is pre-normalized before calling parse.
+          if options[:original_namespaces]&.any?
+            options[:original_namespaces].each do |key, original_config|
+              if raw_xml_namespaces.key?(key)
+                # Use the original namespace from options
+                input_namespaces[key] = original_config
+              end
+            end
+          end
 
           # Store both parsed document (for native DOCTYPE) and extracted info (for model)
           @parsed_doc = parsed
