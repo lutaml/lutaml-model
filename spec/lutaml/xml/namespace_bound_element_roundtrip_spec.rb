@@ -1,6 +1,10 @@
 # frozen_string_literal: true
 
+# rubocop:disable Lint/DuplicateMethods -- Anonymous class definitions with
+# identical method signatures (e.g. `self.name`) are intentionally defined per-let block.
+
 require "spec_helper"
+require_relative "../../../lib/lutaml/model"
 
 RSpec.describe "Namespace-Aware Round-Trip Serialization" do
   # OOXML-style namespaces for same-named elements
@@ -425,3 +429,5 @@ RSpec.describe "Namespace-Aware Round-Trip Serialization" do
     end
   end
 end
+
+# rubocop:enable Lint/DuplicateMethods
