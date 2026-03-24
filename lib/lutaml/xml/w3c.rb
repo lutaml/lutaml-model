@@ -387,36 +387,7 @@ module Lutaml
         documentation "W3C XMLSchema namespace for XSD type definitions"
       end
 
-      # Register W3C types with lutaml-model's Type registry for symbol-based access.
-      #
-      # This enables convenient syntax:
-      #   attribute :href, :xlink_href
-      #
-      # While still supporting class-based access:
-      #   attribute :href, XlinkHrefType
-      #
-      # Only registers if lutaml-model's Type module is available, avoiding gem coupling.
-      if defined?(Lutaml::Model::Type)
-        {
-          xml_lang: XmlLangType,
-          xml_space: XmlSpaceType,
-          xml_base: XmlBaseType,
-          xml_id: XmlIdType,
-          xsi_type: XsiType,
-          xsi_nil: XsiNil,
-          xsi_schema_location: XsiSchemaLocationType,
-          xsi_no_namespace_schema_location: XsiNoNamespaceSchemaLocationType,
-          xlink_href: XlinkHrefType,
-          xlink_type: XlinkTypeAttrType,
-          xlink_role: XlinkRoleType,
-          xlink_arcrole: XlinkArcroleType,
-          xlink_title: XlinkTitleType,
-          xlink_show: XlinkShowType,
-          xlink_actuate: XlinkActuateType,
-        }.each do |symbol, type_class|
-          Lutaml::Model::Type.register(symbol, type_class)
-        end
-      end
+      require_relative "w3c/registration"
     end
   end
 end
