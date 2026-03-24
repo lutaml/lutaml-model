@@ -1,5 +1,9 @@
 # frozen_string_literal: true
 
+# rubocop:disable Lint/DuplicateMethods
+# Anonymous DecisionRule subclasses with identical method signatures are intentionally
+# defined per-example to ensure test isolation; they do not pollute the global scope.
+
 require "spec_helper"
 require "lutaml/xml/decisions/decision_engine"
 require "lutaml/xml/decisions/decision_context"
@@ -234,3 +238,5 @@ RSpec.describe Lutaml::Xml::Decisions::DecisionEngine do
     end
   end
 end
+
+# rubocop:enable Lint/DuplicateMethods
