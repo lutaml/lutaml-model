@@ -404,7 +404,8 @@ module Lutaml
 
         prefix_value = self.class.prefix_default
         if prefix_value && (message = W3C_RESERVED_PREFIXES[prefix_value])
-          warn_w3c_reserved("W3C-reserved prefix '#{prefix_value}'", prefix_value, message)
+          warn_w3c_reserved("W3C-reserved prefix '#{prefix_value}'",
+                            prefix_value, message)
         end
       end
 

@@ -24,9 +24,9 @@ RSpec.describe Lutaml::Xml::Namespace do
           uri "http://www.w3.org/XML/1998/namespace"
         end
 
-        expect {
+        expect do
           klass.new  # Instantiate to trigger warning
-        }.not_to raise_error
+        end.not_to raise_error
 
         expect(warnings.join).to include("W3C-reserved URI")
         expect(warnings.join).to include("xml: attributes")
@@ -45,9 +45,9 @@ RSpec.describe Lutaml::Xml::Namespace do
           prefix_default "xsi"
         end
 
-        expect {
+        expect do
           klass.new  # Instantiate to trigger warning
-        }.not_to raise_error
+        end.not_to raise_error
 
         expect(warnings.join).to include("W3C-reserved prefix")
         expect(warnings.join).to include("xsi")
@@ -64,9 +64,9 @@ RSpec.describe Lutaml::Xml::Namespace do
           prefix_default "xml"
         end
 
-        expect {
+        expect do
           klass.new  # Instantiate to trigger warning
-        }.not_to raise_error
+        end.not_to raise_error
 
         expect(warnings.join).to include("W3C-reserved prefix")
         expect(warnings.join).to include("RESERVED")
@@ -83,9 +83,9 @@ RSpec.describe Lutaml::Xml::Namespace do
           prefix_default "xlink"
         end
 
-        expect {
+        expect do
           klass.new  # Instantiate to trigger warning
-        }.not_to raise_error
+        end.not_to raise_error
 
         expect(warnings.join).to include("W3C-reserved prefix")
         expect(warnings.join).to include("xlink")
@@ -102,9 +102,9 @@ RSpec.describe Lutaml::Xml::Namespace do
           prefix_default "xs"
         end
 
-        expect {
+        expect do
           klass.new  # Instantiate to trigger warning
-        }.not_to raise_error
+        end.not_to raise_error
 
         expect(warnings.join).to include("W3C-reserved prefix")
         expect(warnings.join).to include("xs")
@@ -123,9 +123,9 @@ RSpec.describe Lutaml::Xml::Namespace do
           prefix_default "my"
         end
 
-        expect {
+        expect do
           klass.new  # Instantiate to trigger potential warning
-        }.not_to raise_error
+        end.not_to raise_error
 
         expect(warnings).to be_empty
       end
