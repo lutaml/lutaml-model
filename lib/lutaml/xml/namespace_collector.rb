@@ -161,10 +161,12 @@ module Lutaml
 
         if existing
           existing.mark_used_in(usage)
+          existing
         else
           usage_obj = NamespaceUsage.new(ns_class)
           usage_obj.mark_used_in(usage)
           needs.add_namespace(key, usage_obj)
+          usage_obj
         end
       end
 
@@ -194,6 +196,14 @@ module Lutaml
             if child_usage.used_in_attributes? || child_usage.children_need_prefix
               parent_usage.children_need_prefix = true
             end
+
+            # CASCADE used_prefix from child to parent when parent has no used_prefix.
+            # This is needed for doubly-defined namespaces: when parent has no namespace class
+            # (so its own used_prefix is nil), the child's used_prefix should propagate so
+            # determine_element_prefix can use it for format decisions.
+            if child_usage.used_prefix && !parent_usage.used_prefix
+              parent_usage.used_prefix = child_usage.used_prefix
+            end
           else
             # Create new usage for parent
             new_usage = NamespaceUsage.new(child_usage.namespace_class)
@@ -209,6 +219,9 @@ module Lutaml
             if child_usage.used_in_attributes? || child_usage.children_need_prefix
               new_usage.children_need_prefix = true
             end
+
+            # NEW: Copy used_prefix from child
+            new_usage.used_prefix = child_usage.used_prefix
 
             parent_needs.add_namespace(key, new_usage)
           end
@@ -271,7 +284,22 @@ module Lutaml
             # Collect own element namespace
             if mapping.namespace_class
               validate_namespace_class(mapping.namespace_class)
-              track_namespace(needs, mapping.namespace_class, :elements)
+              usage = track_namespace(needs, mapping.namespace_class, :elements)
+
+              # Set used_prefix from __xml_namespace_prefix option (passed from parent).
+              # This preserves the original prefix used during deserialization for
+              # doubly-defined namespace support when collecting from model instances.
+              # BUT: Only set if the prefix differs from the model's default.
+              # If the prefix matches the model's default, let the DecisionEngine
+              # determine the format normally (avoids bypassing FormatPreservationRule).
+              # Also don't cascade to parent's used_prefix - each element decides independently.
+              ns_prefix = options[:__xml_namespace_prefix]
+              if ns_prefix && !ns_prefix.empty?
+                model_default_prefix = mapping.namespace_class.prefix_default
+                if model_default_prefix.nil? || ns_prefix != model_default_prefix
+                  usage.used_prefix = ns_prefix
+                end
+              end
             end
 
             # ==================================================================
@@ -364,13 +392,27 @@ module Lutaml
                                element.send(elem_rule.to)
                              end
 
+            # NEW: Extract namespace prefix from model instance (set during deserialization).
+            # This preserves the original prefix used in the input XML for doubly-defined
+            # namespace support (where <a:item> and <b:item> both map to the same model).
+            child_ns_prefix = nil
+            if child_instance.is_a?(::Lutaml::Model::Serialize)
+              child_ns_prefix = child_instance.instance_variable_get(:@__xml_namespace_prefix)
+            end
+
             # Handle collections and arrays
             if child_instance.is_a?(Array) || child_instance.is_a?(Lutaml::Model::Collection)
               instances = child_instance.is_a?(Lutaml::Model::Collection) ? child_instance.collection : child_instance
               # Collect needs from all instances and merge
               merged_needs = NamespaceNeeds.new
               instances.each do |item|
-                child_options = { mapper_class: child_type }
+                item_ns_prefix = if item.is_a?(::Lutaml::Model::Serialize)
+                                   item.instance_variable_get(:@__xml_namespace_prefix)
+                                 end
+                child_options = {
+                  mapper_class: child_type,
+                  __xml_namespace_prefix: item_ns_prefix,
+                }
                 item_needs = collect_internal(item, child_mapping,
                                               **child_options)
                 merged_needs.merge(item_needs)
@@ -378,7 +420,10 @@ module Lutaml
               child_needs = merged_needs
             else
               # Single instance - collect normally
-              child_options = { mapper_class: child_type }
+              child_options = {
+                mapper_class: child_type,
+                __xml_namespace_prefix: child_ns_prefix,
+              }
               child_needs = collect_internal(child_instance, child_mapping,
                                              **child_options)
             end
@@ -408,7 +453,23 @@ module Lutaml
         # Collect this element's namespace
         if element.namespace_class
           validate_namespace_class(element.namespace_class)
-          track_namespace(needs, element.namespace_class, :elements)
+          usage = track_namespace(needs, element.namespace_class, :elements)
+
+          # NEW: Record the namespace prefix used during parsing/transform.
+          # (a) From Lutaml::Xml::XmlElement (original parsed XML):
+          #     has namespace_prefix_explicit + namespace_prefix
+          # (b) From DataModel::XmlElement (after transform):
+          #     has @__xml_namespace_prefix (set during serialization transform)
+          ns_prefix = if element.is_a?(Lutaml::Xml::XmlElement) &&
+              element.namespace_prefix_explicit && element.namespace_prefix
+                        element.namespace_prefix
+                      else
+                        # DataModel::XmlElement: check @__xml_namespace_prefix
+                        element.instance_variable_get(:@__xml_namespace_prefix)
+                      end
+          if ns_prefix && !ns_prefix.empty?
+            usage.used_prefix = ns_prefix
+          end
         end
 
         # Collect attribute namespaces

@@ -9,7 +9,7 @@ module Lutaml
     # It does NOT make decisions about format or location.
     class NamespaceUsage
       attr_reader :namespace_class, :used_in, :children_use
-      attr_accessor :children_need_prefix
+      attr_accessor :children_need_prefix, :used_prefix
 
       # Initialize namespace usage tracking
       # @param namespace_class [Class] XmlNamespace class
@@ -18,6 +18,7 @@ module Lutaml
         @used_in = Set.new # Set of contexts: :elements, :attributes, :content
         @children_use = Set.new # Set of child attribute names
         @children_need_prefix = false
+        @used_prefix = nil
       end
 
       # Mark namespace as used in a specific context
@@ -77,6 +78,7 @@ module Lutaml
         @used_in.merge(other.used_in)
         @children_use.merge(other.children_use)
         @children_need_prefix ||= other.children_need_prefix
+        @used_prefix ||= other.used_prefix
 
         self
       end
@@ -103,6 +105,7 @@ module Lutaml
         when :used_in then @used_in
         when :children_use then @children_use
         when :children_need_prefix then @children_need_prefix
+        when :used_prefix then @used_prefix
         else
           raise KeyError, "Unknown key: #{key.inspect}"
         end

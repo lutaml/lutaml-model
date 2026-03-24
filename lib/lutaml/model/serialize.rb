@@ -347,6 +347,21 @@ module Lutaml
       def to_format(format, options = {})
         validate_root_mapping!(format, options)
 
+        # Handle prefix option for XML (converts to use_prefix for transformation phase)
+        # This must happen BEFORE self.class.to is called so transformation sees use_prefix
+        if format == :xml && options.key?(:prefix)
+          prefix_option = options[:prefix]
+          case prefix_option
+          when true
+            options[:use_prefix] = true
+          when String
+            options[:use_prefix] = prefix_option
+          when false
+            options[:use_prefix] = false
+          end
+          options.delete(:prefix)
+        end
+
         # Pass instance's __register if not explicitly provided
         # NOTE: __register is always defined on Serialize instances
         options[:register] ||= __register if __register

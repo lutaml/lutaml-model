@@ -202,6 +202,7 @@ module Lutaml
             input_formats: {},
             namespace_classes: namespace_classes,
             children_plans: children_plans,
+            original_namespace_uris: options[:__original_namespace_uris] || {},
           )
         end
 
@@ -239,6 +240,7 @@ module Lutaml
           input_formats: input_formats,
           namespace_classes: namespace_classes,
           children_plans: children_plans,
+          original_namespace_uris: options[:__original_namespace_uris] || {},
         )
       end
 
@@ -608,21 +610,40 @@ module Lutaml
       # @param parent_hoisted [Hash] Namespaces hoisted on parent {prefix => uri}
       # @return [ElementNode] Element node with all decisions
       def build_element_node(xml_element, mapping, needs, options,
-  parent_node: nil, is_root: false, parent_format: nil, parent_namespace_class: nil, parent_hoisted: {})
+  parent_node: nil, is_root: false, parent_format: nil, parent_namespace_class: nil, parent_hoisted: {}, element_path: [])
         # Determine element's prefix (checks input_formats, parent context for preservation)
+        # Priority:
+        # 1. Lutaml::Xml::XmlElement (from parsed XML): has namespace_prefix_explicit
+        # 2. DataModel::XmlElement (from serialization): has @__xml_namespace_prefix
+        element_prefix_explicit = xml_element.is_a?(Lutaml::Xml::XmlElement) &&
+          xml_element.namespace_prefix_explicit
+        # For ROOT elements: don't use @__xml_namespace_prefix from XmlElement.
+        # The root's prefix should be determined by the DecisionEngine (model's prefix_default).
+        # This ensures mixed content roots use their namespace's default prefix, not the input prefix.
+        # For NESTED elements: use @__xml_namespace_prefix if set (supports doubly-defined namespaces).
+        element_used_prefix = if is_root
+                                nil
+                              elsif xml_element.is_a?(Lutaml::Xml::XmlElement)
+                                xml_element.namespace_prefix
+                              else
+                                xml_element.instance_variable_get(:@__xml_namespace_prefix)
+                              end
+
         element_prefix = determine_element_prefix(
           xml_element, mapping, needs, options,
           is_root: is_root,
           parent_format: parent_format,
           parent_namespace_class: parent_namespace_class,
-          parent_hoisted: parent_hoisted
+          parent_hoisted: parent_hoisted,
+          element_prefix_explicit: element_prefix_explicit,
+          element_used_prefix: element_used_prefix
         )
 
         # Determine hoisted xmlns declarations at this element
         # CRITICAL: Pass element_prefix to avoid calling determine_element_prefix twice
         # which could return different results due to context differences
         hoisted = determine_hoisted_declarations(xml_element, mapping, needs,
-                                                 options, is_root: is_root, parent_hoisted: parent_hoisted, element_prefix: element_prefix)
+                                                 options, is_root: is_root, parent_hoisted: parent_hoisted, element_prefix: element_prefix, element_path: element_path)
 
         # Determine if child needs xmlns="" (W3C compliance)
         # W3C XML Namespaces 1.0 §6.2: When parent has default namespace and child
@@ -638,14 +659,31 @@ module Lutaml
         # model has explicit `namespace :blank` declaration.
         element_marked_blank = xml_element.respond_to?(:needs_xmlns_blank) && xml_element.needs_xmlns_blank
 
-        # Only add xmlns="" when element_form_default is NOT SET (nil)
-        # When element_form_default is :unqualified, children should have NO xmlns attribute
-        # (blank namespace, not xmlns="")
+        # Add xmlns="" when parent's effective namespace form is :qualified.
+        # This implements the W3C XML Schema default behavior:
+        # - element_form_default :qualified (explicit) → children with no namespace get xmlns=""
+        #   to opt out of parent's default namespace
+        # - element_form_default :unqualified (explicit) → children inherit parent's ns, no xmlns=""
+        # - not set (nil) → W3C default is :qualified, BUT children opt out when parent's
+        #   namespace doesn't have an explicit form set (nested conflict case)
+        #
+        # The parent's effective namespace form (default_ns_form) is:
+        # - nil when no form was explicitly set on the parent's namespace
+        # - :qualified when explicitly set to qualified
+        # - :unqualified when explicitly set to unqualified
         default_ns_form = options[:default_ns_element_form_default]
+        parent_ns_class = parent_namespace_class
 
+        # Skip xmlns="" when parent explicitly set :unqualified.
+        # Override original default_ns_form.nil? with parent_explicitly_unqualified check.
+        parent_explicitly_unqualified = parent_ns_class&.element_form_default_set? &&
+          parent_ns_class.element_form_default == :unqualified
+
+        # Original: default_ns_form.nil? (W3C default is :qualified, opt out with xmlns="")
+        # Override: if parent explicitly set :unqualified, don't opt out (inherit parent's ns)
         implicit_blank_needs_xmlns = xml_element.namespace_class.nil? &&
           parent_hoisted&.key?(nil) &&
-          default_ns_form.nil? # Only when element_form_default is NOT explicitly set
+          default_ns_form.nil? && !parent_explicitly_unqualified
 
         child_needs_xmlns_blank = element_marked_blank || implicit_blank_needs_xmlns
 
@@ -676,7 +714,7 @@ module Lutaml
         # Track the effective default namespace's element_form_default
         # This is used to determine if children should inherit the default namespace
         # If this element declares a default namespace (hoisted[nil]), use its element_form_default
-        # ONLY if it was explicitly set. Otherwise use nil (not set).
+        # ONLY if it was explicitly set. Otherwise use the parent's effective value.
         effective_default_ns_form = if hoisted.key?(nil) && this_namespace&.element_form_default_set?
                                       this_namespace.element_form_default
                                     else
@@ -750,7 +788,8 @@ module Lutaml
             is_root: false,
             parent_format: this_format,
             parent_namespace_class: this_namespace,
-            parent_hoisted: parent_hoisted.merge(hoisted)
+            parent_hoisted: parent_hoisted.merge(hoisted),
+            element_path: element_path + [xml_child.name]
           )
           element_node.add_element_node(child_node)
         end
@@ -883,7 +922,9 @@ module Lutaml
                                  is_root: false,
                                  parent_format: nil,
                                  parent_namespace_class: nil,
-                                 parent_hoisted: {})
+                                 parent_hoisted: {},
+                                 element_prefix_explicit: false,
+                                 element_used_prefix: nil)
         # CRITICAL: Check for Type namespace FIRST
         # Type namespaces are declared on Type::Value subclasses and used as
         # prefixes on child elements. They take precedence over element namespace.
@@ -930,6 +971,52 @@ module Lutaml
         # If no Type namespace, check element's own namespace
         return nil unless xml_element.namespace_class
 
+        # NEW: If element used explicit prefix during deserialization, use that prefix.
+        # This handles doubly-defined namespaces where <a:item> and <b:item> both
+        # map to same URI but need different prefixes.
+        # Check: (a) from XmlElement (root), (b) from NamespaceUsage (children)
+        used_prefix = element_used_prefix
+        unless used_prefix
+          # Look up from NamespaceUsage in needs (set during collection from model instance).
+          # CRITICAL: Only use NamespaceUsage.used_prefix when the XmlElement is a
+          # Lutaml::Xml::XmlElement wrapper (from original parsed XML, has namespace_prefix_explicit).
+          # Do NOT use it when the XmlElement is a DataModel::XmlElement (from transformation)
+          # because NamespaceUsage.used_prefix may have been set from a parent/r sibling element.
+          # For DataModel::XmlElement, the prefix must come from @__xml_namespace_prefix on the
+          # XmlElement itself (which is set during transformation for doubly-defined case).
+          ns_key = xml_element.namespace_class.to_key
+          ns_usage = needs.namespaces[ns_key]
+          ns_from_wrapper = xml_element.is_a?(Lutaml::Xml::XmlElement) &&
+            xml_element.respond_to?(:namespace_prefix_explicit) &&
+            xml_element.namespace_prefix_explicit
+          if ns_from_wrapper
+            used_prefix = ns_usage&.used_prefix
+          end
+        end
+
+        # For the ROOT element: always use DecisionEngine (model's prefix_default).
+        # The root's format should be determined by the namespace's default, not the input.
+        # This prevents mixed content roots from using input prefixes like "examplecom:".
+        #
+        # For CHILD elements: use input prefix when it differs from model default.
+        # This handles doubly-defined namespaces where input uses "xyzabc:" but
+        # the input uses a different prefix than the model defines (e.g., input has
+        # "xyzabc:" but model has prefix_default "a:").
+        #
+        # When used_prefix == model_default_prefix, fall through to DecisionEngine
+        # to preserve the original format decision (default vs prefix).
+        if used_prefix && !is_root
+          ns_class = xml_element.namespace_class
+          model_default_prefix = ns_class.prefix_default
+
+          # Only use used_prefix when it differs from model default
+          # This preserves arbitrary input prefixes (xyzabc:) while allowing
+          # the DecisionEngine to decide format when input matches model default.
+          if model_default_prefix.nil? || used_prefix != model_default_prefix
+            return used_prefix
+          end
+        end
+
         # Use the OOP decision resolver
         @prefix_resolver ||= Decisions::ElementPrefixResolver.new
         decision = @prefix_resolver.resolve_with_decision(
@@ -966,9 +1053,10 @@ module Lutaml
       # @param options [Hash] Serialization options (may contain :input_formats)
       # @param is_root [Boolean] Whether this is the root element
       # @param parent_hoisted [Hash] Namespaces hoisted on parent {prefix => uri}
+      # @param element_path [Array<String>] Element path in the tree for namespace_locations lookup
       # @return [Hash<String|nil, String>] xmlns attributes: {prefix_or_nil => uri}
       def determine_hoisted_declarations(xml_element, mapping, needs,
-  options, is_root: false, parent_hoisted: {}, element_prefix: nil)
+  options, is_root: false, parent_hoisted: {}, element_prefix: nil, element_path: [])
         hoisted = {}
 
         # CRITICAL: Get the current element's namespace_scope_configs
@@ -1002,6 +1090,26 @@ module Lutaml
         if xml_element.namespace_class
           ns_class = xml_element.namespace_class
           ns_uri = ns_class.uri
+
+          # Check if namespace_locations has an original URI that should be used instead.
+          # This handles namespace aliases - when the original XML used an alias URI,
+          # we preserve it during serialization for round-trip fidelity.
+          #
+          # NOTE: namespace_locations is keyed by element NAME (with prefix), not by tree path.
+          # The key "c:childName" means the element named "c:childName", not a path.
+          # So we use xml_element.name directly for lookup.
+          stored_plan = options[:__stored_plan]
+          if stored_plan && !is_root
+            element_ns_loc = stored_plan.namespace_locations&.dig(xml_element.name)
+            # Check if any URI in the stored location is an alias of the canonical URI
+            element_ns_loc&.each_value do |stored_uri|
+              if ns_class.is_alias?(stored_uri)
+                # Use the original alias URI instead of canonical
+                ns_uri = stored_uri
+                break
+              end
+            end
+          end
 
           # Check if namespace is hoisted on parent
           ns_hoisted_by_parent = parent_hoisted.value?(ns_uri)
@@ -1335,43 +1443,58 @@ module Lutaml
         end
 
         # PRESERVATION: For root element, add stored input namespace declarations
-        # that were declared AT ROOT in the original input.
-        # This preserves namespaces like xmlns:xi that were in input at root level
+        # that were declared AT ROOT in the original XML.
+        # This includes namespaces like xmlns:xi that were in input at root level
         # but are not "needed" by model. These namespaces may be required for
         # downstream processing (XInclude, XSchema, etc.)
         #
+        # For doubly-defined namespaces (same URI with different prefixes), we allow
+        # each prefix variant to be preserved if used by children.
+        #
         # CRITICAL: Only preserve namespaces that were ORIGINALLY declared at root.
         # Namespaces declared on child elements in the input should remain on children.
-        # We use location tracking to determine WHERE each namespace was declared.
-        if is_root
+        #
+        # NOTE: Skip PRESERVATION when explicit format preference is set.
+        # When user specifies prefix: true/false, that overrides input format.
+        has_explicit_pref = options.key?(:prefix) || options.key?(:use_prefix)
+        if is_root && !has_explicit_pref
           stored_plan = options[:__stored_plan]
 
           # Try location-aware approach first (preferred)
           root_level_namespaces = stored_plan&.namespaces_at_path([])
 
           if root_level_namespaces
-            # Location-aware preservation: Only preserve namespaces declared at root
+            # Location-aware preservation
             root_level_namespaces.each do |prefix, uri|
-              # Skip if already declared by needs-based logic
-              next if hoisted.value?(uri)
               # Skip if same prefix already used for different URI
               next if hoisted.key?(prefix) && hoisted[prefix] != uri
 
-              # Safe to preserve at root (was declared here in input)
-              hoisted[prefix] = uri
+              # NEW: Check if children use this specific prefix variant
+              # This enables doubly-defined namespace preservation
+              child_uses_this_prefix = needs.children&.any? do |_attr_name, child_needs|
+                child_needs.namespaces.values.any? do |ns_usage|
+                  ns_usage.used_prefix == prefix &&
+                    ns_usage.namespace_class.uri == uri
+                end
+              end
+
+              # Hoist if:
+              # - URI not yet declared (no prefix+URI combo), OR
+              # - This specific prefix variant is used by children (doubly-defined ns)
+              uri_already_hoisted = hoisted.value?(uri)
+              if !uri_already_hoisted || child_uses_this_prefix
+                hoisted[prefix] = uri
+              end
             end
           elsif stored_plan&.root_node&.hoisted_declarations
             # Fallback: Legacy behavior for plans without location data
             # Only add namespaces that are NOT needed by any child
             stored_hoisted = stored_plan.root_node.hoisted_declarations
             stored_hoisted.each do |prefix, uri|
-              # Skip if already declared by needs-based logic
-              next if hoisted.value?(uri)
               # Skip if same prefix already used for different URI
               next if hoisted.key?(prefix) && hoisted[prefix] != uri
 
               # Check if any child element needs this namespace
-              # If so, it will be declared locally on the child, not at root
               child_needs_ns = needs.children&.any? do |_attr_name, child_needs|
                 child_needs.namespaces.any? do |_key, ns_usage|
                   ns_usage.namespace_class&.uri == uri

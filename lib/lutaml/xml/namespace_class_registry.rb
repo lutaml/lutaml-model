@@ -68,6 +68,21 @@ module Lutaml
         end
       end
 
+      # Find namespace class by URI or alias URI
+      #
+      # @param uri [String] URI that may be canonical or an alias
+      # @return [Class, nil] The XmlNamespace class whose canonical URI or aliases match
+      def find_by_uri_or_alias(uri)
+        @mutex.synchronize do
+          # Check named classes first
+          @named_classes.each_value.find do |ns_class|
+            ns_class.uri == uri || ns_class.is_alias?(uri)
+          end || @classes.each_value.find do |ns_class|
+            ns_class.uri == uri || ns_class.is_alias?(uri)
+          end
+        end
+      end
+
       # Clear registry (for testing only)
       # @api private
       def clear!

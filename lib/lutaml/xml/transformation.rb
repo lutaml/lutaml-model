@@ -44,6 +44,34 @@ module Lutaml
         root = ::Lutaml::Xml::DataModel::XmlElement.new(root_name,
                                                         root_namespace)
 
+        # Preserve original namespace prefix for doubly-defined namespace support.
+        # The model instance carries @__xml_namespace_prefix from deserialization.
+        # ONLY set on root XmlElement when:
+        # (a) This is the root of the to_xml call (no parent) OR
+        # (b) The child's namespace matches the parent's namespace (same namespace).
+        # DO NOT set when child's namespace differs from parent's - the FormatPreservationRule
+        # will correctly determine the format based on input_prefix_formats.
+        if model_instance.is_a?(::Lutaml::Model::Serialize)
+          ns_prefix = model_instance.instance_variable_get(:@__xml_namespace_prefix)
+          if ns_prefix && !ns_prefix.empty?
+            # Only set if root of to_xml call OR namespaces match
+            parent_ns_class = options[:parent_namespace_class]
+            if parent_ns_class.nil? || parent_ns_class == root_namespace
+              root.instance_variable_set(:@__xml_namespace_prefix, ns_prefix)
+            end
+          end
+
+          # Preserve original namespace URI for namespace alias support.
+          # When the model's namespace URI differs from the canonical URI (it's an alias),
+          # transfer this information to the XmlElement so it can be used during
+          # serialization for round-trip fidelity.
+          original_ns_uri = model_instance.instance_variable_get(:@__xml_original_namespace_uri)
+          if original_ns_uri && !original_ns_uri.empty?
+            root.instance_variable_set(:@__xml_original_namespace_uri,
+                                       original_ns_uri)
+          end
+        end
+
         # Mark that this element needs xmlns="" (for DeclarationPlanner)
         if needs_xmlns_blank
           root.instance_variable_set(:@needs_xmlns_blank,

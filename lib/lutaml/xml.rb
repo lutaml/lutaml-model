@@ -116,6 +116,9 @@ module Lutaml
     autoload :NamespaceUsage, "#{__dir__}/xml/namespace_usage"
     autoload :NamespaceDeclarationData,
              "#{__dir__}/xml/namespace_declaration_data"
+    autoload :ParsedNamespaceDeclaration,
+             "#{__dir__}/xml/parsed_namespace_declaration"
+    autoload :ParsedNamespaceSet, "#{__dir__}/xml/parsed_namespace_set"
     autoload :DeclarationHandler, "#{__dir__}/xml/declaration_handler"
     autoload :PolymorphicValueHandler,
              "#{__dir__}/xml/polymorphic_value_handler"

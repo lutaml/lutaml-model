@@ -836,6 +836,61 @@ end
 ----
 ====
 
+===== `uri_aliases`
+
+Declares additional URI strings that should resolve to this namespace class.
+This enables a single namespace class to accept multiple URI variants during parsing
+and preserves the original URI during serialization.
+
+Syntax:
+
+[source,ruby]
+----
+uri_aliases 'alias-uri-1', 'alias-uri-2', ...
+----
+
+Use this when a schema uses multiple URI forms for the same namespace
+(e.g., a schema with trailing slash variant like `http://example.com/ns/` alongside
+the canonical `http://example.com/ns/schema.xsd`).
+
+.Validating URI aliases
+[NOTE]
+====
+All alias URIs must be non-empty strings. Attempting to set an invalid alias
+(like a number or empty string) raises an `ArgumentError`.
+====
+
+.Setting URI aliases
+[example]
+====
+[source,ruby]
+----
+class ReqIfNamespace < Lutaml::Model::XmlNamespace
+  uri "http://www.omg.org/spec/ReqIF/20110401/reqif.xsd"
+  uri_aliases "http://www.omg.org/spec/ReqIF/20110401/"
+  prefix_default "reqif"
+end
+
+# During parsing, both URIs resolve to ReqIfNamespace:
+# - "http://www.omg.org/spec/ReqIF/20110401/reqif.xsd" (canonical)
+# - "http://www.omg.org/spec/ReqIF/20110401/" (alias)
+
+# The namespace class methods:
+ReqIfNamespace.uri
+# => "http://www.omg.org/spec/ReqIF/20110401/reqif.xsd"
+
+ReqIfNamespace.uri_aliases
+# => ["http://www.omg.org/spec/ReqIF/20110401/"]
+
+ReqIfNamespace.all_uris
+# => ["http://www.omg.org/spec/ReqIF/20110401/reqif.xsd",
+#     "http://www.omg.org/spec/ReqIF/20110401/"]
+
+ReqIfNamespace.is_alias?("http://www.omg.org/spec/ReqIF/20110401/")
+# => true
+----
+====
+
 ===== `schema_location`
 
 Sets the URL where the XSD schema file can be found.
@@ -2028,6 +2083,179 @@ HERE
 
 NOTE: For details on `xsi:schemaLocation`, please refer to the
 https://www.w3.org/TR/xmlschema-1/#xsi_schemaLocation[W3C XML standard].
+
+
+== Namespace Aliases (URI Aliases)
+
+Some XML schemas use multiple URI variants for the same logical namespace. For example,
+ReqIF schemas commonly use both `http://www.omg.org/spec/ReqIF/20110401/reqif.xsd` and
+`http://www.omg.org/spec/ReqIF/20110401/` as namespace URIs. Lutaml::Model supports
+this through the `uri_aliases` DSL method.
+
+=== Defining URI Aliases
+
+Use `uri_aliases` to declare additional URIs that should resolve to the same namespace class:
+
+[source,ruby]
+----
+class ReqIfNamespace < Lutaml::Model::XmlNamespace
+  uri "http://www.omg.org/spec/ReqIF/20110401/reqif.xsd"
+  uri_aliases "http://www.omg.org/spec/ReqIF/20110401/"
+  prefix_default "reqif"
+end
+----
+
+The `uri_aliases` method accepts multiple alias URIs:
+
+[source,ruby]
+----
+class MyNamespace < Lutaml::Model::XmlNamespace
+  uri "http://example.com/schema/main.xsd"
+  uri_aliases "http://example.com/schema/", "http://example.com/schema"
+  prefix_default "ex"
+end
+----
+
+=== How URI Aliases Work
+
+When parsing XML, Lutaml::Model accepts either the canonical URI or any alias URI.
+When serializing, the original URI from the input XML is preserved for round-trip fidelity.
+
+[cols="1,2"]
+|===
+| Method | Description
+
+| `uri`
+| The canonical namespace URI (required)
+
+| `uri_aliases`
+| Additional URIs that resolve to this namespace class
+
+| `is_alias?(uri)`
+| Returns true if the URI is an alias of this namespace
+
+| `all_uris`
+| Returns array of all URIs (canonical + aliases)
+|===
+
+=== Parsing with Aliases
+
+XML with either canonical or alias URIs parses successfully:
+
+[source,ruby]
+----
+# Parse with canonical URI
+xml1 = '<Item xmlns="http://example.com/schema/main.xsd"><Name>Item1</Name></Item>'
+model1 = Item.from_xml(xml1)
+
+# Parse with alias URI
+xml2 = '<Item xmlns="http://example.com/schema/"><Name>Item2</Name></Item>'
+model2 = Item.from_xml(xml2)
+----
+
+Both parse successfully because both URIs resolve to the same namespace class.
+
+=== Round-Trip Preservation
+
+When you parse XML with an alias URI and serialize it back, the original alias URI is preserved:
+
+[source,ruby]
+----
+xml = '<Item xmlns="http://example.com/schema/"><Name>Item1</Name></Item>'
+model = Item.from_xml(xml)
+
+# Serialization preserves the alias URI from the original XML
+model.to_xml
+# => <Item xmlns="http://example.com/schema/"><Name>Item1</Name></Item>
+----
+
+If you create a new model instance programmatically (without parsing from XML),
+the canonical URI is used:
+
+[source,ruby]
+----
+model = Item.new(name: "New Item")
+model.to_xml
+# => <Item xmlns="http://example.com/schema/main.xsd"><Name>New Item</Name></Item>
+----
+
+=== Mixed Content with Aliases
+
+When a parent element uses one URI variant and a child element uses another variant
+for the same namespace class, both are correctly preserved during round-trip:
+
+[source,ruby]
+----
+xml = <<~XML
+  <p:Parent xmlns:p="http://example.com/parent/">
+    <c:childName xmlns:c="http://example.com/child/">mixed content</c:childName>
+  </p:Parent>
+XML
+
+model = Parent.from_xml(xml)
+model.to_xml  # Preserves original URIs
+# => <p:Parent xmlns:p="http://example.com/parent/">
+#      <c:childName xmlns:c="http://example.com/child/">mixed content</c:childName>
+#    </p:Parent>
+----
+
+
+== Doubly-Defined Namespace Prefixes
+
+In some XML documents, the same namespace URI appears with multiple different prefixes.
+For example, an element might be declared with both `xmlns:a="http://example.com/items"` and
+`xmlns:b="http://example.com/items"`. Lutaml::Model automatically handles this through
+the format preservation system.
+
+=== How It Works
+
+Lutaml::Model tracks the specific prefix used for each element during parsing. When
+serializing, it preserves:
+
+1. The original prefix format (default or prefixed) from the input XML
+2. For doubly-defined namespaces, the specific prefix variant used at each element
+
+[source,ruby]
+----
+# Input XML with doubly-defined prefixes
+xml = <<~XML
+  <root xmlns:a="http://example.com/items" xmlns:b="http://example.com/items">
+    <a:item>using a</a:item>
+    <b:item>using b</b:item>
+  </root>
+XML
+
+model = ItemContainer.from_xml(xml)
+output = model.to_xml
+
+# Output preserves both prefix declarations
+# => <root xmlns:a="http://example.com/items" xmlns:b="http://example.com/items">
+#      <a:item>using a</a:item>
+#      <b:item>using b</b:item>
+#    </root>
+----
+
+=== Prefix Independence
+
+The parsing side is already prefix-independent (per W3C spec) - elements are matched by
+namespace URI, not prefix. So `<a:item>` and `<b:item>` both correctly map to the same
+attribute regardless of which prefix was used in the input.
+
+=== Format Priority for Doubly-Defined Namespaces
+
+When the same namespace URI appears with multiple prefix variants, the serialization uses
+the same prefix variant that was present in the original input:
+
+[source,ruby]
+----
+# Elements parsed with prefix "a" serialize with prefix "a"
+# Elements parsed with prefix "b" serialize with prefix "b"
+# Elements parsed with default namespace serialize with default namespace
+----
+
+This behavior is automatic and transparent - you don't need to configure anything in your
+model definitions. The system tracks which prefix was used for each element during parsing
+and preserves it during serialization.
 
 
 == Deprecated ways of working with namespaces

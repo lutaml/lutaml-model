@@ -92,19 +92,45 @@ module Lutaml
         return :default unless effective_ns_class
 
         # Tier 1: Check for stored plan format (preserve from parsed XML)
-        # CRITICAL: This is the format preservation fix from Session 167
-        if plan && options[:__stored_plan]
+        # Tier 1a: Check input_prefix_formats for doubly-defined prefix variants
+        # When same URI appears with multiple prefixes (e.g., xmlns:a="..." and xmlns:b="..."),
+        # we need to preserve the specific prefix format used at each element.
+        # Only check if no explicit user preference is set (prefix: true/false overrides this).
+        has_explicit_pref = options.key?(:prefix) || options.key?(:use_prefix)
+        if !has_explicit_pref && options[:__stored_plan]
           stored_plan = options[:__stored_plan]
-          input_ns_decl = stored_plan.namespaces.values.find do |decl|
-            decl.from_input? && decl.uri == effective_ns_class.uri
+          if stored_plan.respond_to?(:input_prefix_formats)
+            # Check canonical URI and all aliases
+            uris_to_check = [effective_ns_class.uri] + effective_ns_class.uri_aliases
+            stored_plan.input_prefix_formats.each do |key, format|
+              matching_uri = uris_to_check.find { |u| key.end_with?(":#{u}") }
+              next unless matching_uri
+
+              prefix_in_key = key.split(":").first
+              next if prefix_in_key.empty? # skip default namespace
+
+              return format
+            end
           end
-          return input_ns_decl.format if input_ns_decl
-        elsif plan
-          # Fallback: check current plan for input namespaces
-          input_ns_decl = plan.namespaces.values.find do |decl|
-            decl.from_input? && decl.uri == effective_ns_class.uri
+        end
+
+        # Tier 1b: Check stored plan format (legacy namespace-level format)
+        # CRITICAL: This is the format preservation fix from Session 167
+        # Only check if no explicit user preference is set (prefix: true/false overrides this).
+        unless has_explicit_pref
+          if plan && options[:__stored_plan]
+            stored_plan = options[:__stored_plan]
+            input_ns_decl = stored_plan.namespaces.values.find do |decl|
+              decl.from_input? && decl.uri == effective_ns_class.uri
+            end
+            return input_ns_decl.format if input_ns_decl
+          elsif plan
+            # Fallback: check current plan for input namespaces
+            input_ns_decl = plan.namespaces.values.find do |decl|
+              decl.from_input? && decl.uri == effective_ns_class.uri
+            end
+            return input_ns_decl.format if input_ns_decl
           end
-          return input_ns_decl.format if input_ns_decl
         end
 
         # Tier 2: Explicit user preference via prefix or use_prefix option

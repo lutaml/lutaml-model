@@ -77,6 +77,7 @@ model_class, register_id)
           child_options = options.merge(
             parent_namespace_class: parent_ns_class,
             parent_element_form_default: parent_element_form_default,
+            parent_element: parent,
           )
 
           element = yield(rule, value, child_options)

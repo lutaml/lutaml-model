@@ -121,7 +121,7 @@ module Lutaml
         # @param options [Hash] Serialization options
         def build_xml_element_with_plan(xml, xml_element, plan, _options = {})
           build_rexml_element(xml, xml_element, plan.root_node,
-                              plan.global_prefix_registry)
+                              plan.global_prefix_registry, plan)
         end
 
         private
@@ -133,18 +133,22 @@ module Lutaml
         # @param element_node [ElementNode] Decisions
         # @param global_registry [Hash] Global prefix registry (URI => prefix)
         # @return [void]
-        def build_rexml_element(xml, xml_element, element_node, global_registry)
+        def build_rexml_element(xml, xml_element, element_node,
+global_registry, plan)
           qualified_name = element_node.qualified_name
 
           # 1. Collect attributes (xmlns declarations + regular attributes)
           attributes = {}
 
           # 2. Add hoisted xmlns declarations
+          original_ns_uris = plan&.original_namespace_uris || {}
           element_node.hoisted_declarations.each do |key, uri|
             next if uri == "http://www.w3.org/XML/1998/namespace"
 
+            # Use original alias URI if available (for namespace alias round-trip fidelity)
+            effective_uri = original_ns_uris[uri] || uri
             xmlns_name = key ? "xmlns:#{key}" : "xmlns"
-            attributes[xmlns_name] = uri
+            attributes[xmlns_name] = effective_uri
           end
 
           # 3. Add regular attributes by INDEX (PARALLEL TRAVERSAL)
@@ -193,7 +197,7 @@ module Lutaml
                 child_element_index += 1
 
                 build_rexml_element(inner_xml, xml_child, child_node,
-                                    global_registry)
+                                    global_registry, plan)
               elsif xml_child.is_a?(String)
                 inner_xml.add_text(inner_xml, xml_child)
               end

@@ -41,6 +41,57 @@ module Lutaml
           @uri_value
         end
 
+        # Get or set URI aliases for this namespace
+        #
+        # URI aliases allow a namespace to accept multiple URI variants during parsing.
+        # The canonical URI (from `uri`) is used for model resolution, while alias URIs
+        # are accepted on parse and serialized back as the original alias URI for round-trip fidelity.
+        #
+        # @param values [Array<String>] Array of alias URI strings
+        # @return [Array<String>] All alias URIs
+        #
+        # @example ReqIF namespace with trailing slash variant
+        #   class ReqIfNamespace < Lutaml::Xml::Namespace
+        #     uri "http://www.omg.org/spec/ReqIF/20110401/reqif.xsd"
+        #     uri_aliases "http://www.omg.org/spec/ReqIF/20110401/"
+        #     prefix_default "reqif"
+        #   end
+        #
+        # @example Multiple alias variants
+        #   class XHTMLNamespace < Lutaml::Xml::Namespace
+        #     uri "http://www.w3.org/1999/xhtml"
+        #     uri_aliases "http://www.w3.org/1999/xhtml/", "http://www.w3.org/1999/xhtml"
+        #     prefix_default "xhtml"
+        #   end
+        def uri_aliases(*values)
+          @uri_aliases ||= []
+          if values.any?
+            values.each do |v|
+              unless v.is_a?(String) && !v.empty?
+                raise ArgumentError,
+                      "uri_aliases requires non-empty String URIs"
+              end
+            end
+            @uri_aliases.concat(values)
+          end
+          @uri_aliases
+        end
+
+        # Check if a URI is an alias of this namespace
+        #
+        # @param uri [String] The URI to check
+        # @return [Boolean] true if the URI is an alias
+        def is_alias?(uri)
+          uri_aliases.include?(uri)
+        end
+
+        # Get all URIs for this namespace (canonical + aliases)
+        #
+        # @return [Array<String>] Array of all URI strings
+        def all_uris
+          [uri].compact + uri_aliases
+        end
+
         # Get or set the schema location URL
         #
         # @param value [String, nil] the schema location URL
