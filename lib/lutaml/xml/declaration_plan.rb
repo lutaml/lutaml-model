@@ -28,11 +28,25 @@ module Lutaml
       # @return [Hash<String, Symbol>] Input format tracking (URI => :default or :prefix)
       attr_reader :input_formats
 
+      # @return [Hash<String, Symbol>] Per-(prefix, URI) format tracking for doubly-defined namespaces
+      # Key: "#{prefix}:#{uri}" for prefixed, ":#{uri}" for default
+      # Value: :default or :prefix
+      attr_reader :input_prefix_formats
+
       # @return [Hash<String, Class>] Namespace classes by URI (for namespace lookup)
       attr_reader :namespace_classes
 
       # @return [Hash] Children plans (for collection items)
       attr_reader :children_plans
+
+      # @return [Hash<String, String>] Original alias URI mapping (canonical URI => original alias URI)
+      # Used for round-trip fidelity when namespace has uri_aliases.
+      attr_reader :original_namespace_uris
+
+      # @return [Hash<String, Hash>] Namespace declarations by element path
+      # Format: { "elementName" => { nil => "uri" } or { "prefix" => "uri" } }
+      # Used for preserving original namespace URIs during serialization.
+      attr_reader :namespace_locations
 
       # Initialize a declaration plan with tree structure
       #
@@ -41,13 +55,17 @@ module Lutaml
       # @param input_formats [Hash<String, Symbol>] Input format tracking (URI => format)
       # @param namespace_classes [Hash<String, Class>] Namespace classes by URI
       # @param children_plans [Hash] Children plans for collections
+      # @param original_namespace_uris [Hash<String, String>] Original alias URI mapping
       def initialize(root_node:, global_prefix_registry: {},
-                     input_formats: {}, namespace_classes: {}, children_plans: {})
+                     input_formats: {}, namespace_classes: {}, children_plans: {},
+                     input_prefix_formats: {}, original_namespace_uris: {})
         @root_node = root_node
         @global_prefix_registry = global_prefix_registry
         @input_formats = input_formats
         @namespace_classes = namespace_classes
         @children_plans = children_plans
+        @input_prefix_formats = input_prefix_formats
+        @original_namespace_uris = original_namespace_uris
 
         # Performance: Cached lookups
         @namespaces_cache = nil
@@ -132,6 +150,7 @@ module Lutaml
 
         # Track input formats
         input_formats = {}
+        input_prefix_formats = {} # NEW: per-(prefix, URI) format
 
         input_namespaces.each_value do |ns_config|
           prefix = ns_config[:prefix]
@@ -150,6 +169,10 @@ module Lutaml
 
           # Track format used in input for this URI
           input_formats[uri] = format
+
+          # NEW: Build per-prefix-URI format
+          key = prefix ? "#{prefix}:#{uri}" : ":#{uri}"
+          input_prefix_formats[key] = format
         end
 
         # Build global prefix registry (only for prefixed namespaces)
@@ -167,7 +190,7 @@ module Lutaml
         )
 
         new(root_node: root_node, global_prefix_registry: registry,
-            input_formats: input_formats)
+            input_formats: input_formats, input_prefix_formats: input_prefix_formats)
       end
 
       # Create DeclarationPlan from parsed XML input namespaces WITH location tracking
@@ -187,6 +210,7 @@ module Lutaml
 
         # Track input formats for ALL namespaces (for format preservation)
         input_formats = {}
+        input_prefix_formats = {} # NEW: per-(prefix, URI) format
         root_hoisted = {}
 
         # Process root namespaces
@@ -198,6 +222,10 @@ module Lutaml
           xmlns_key = format == :default ? nil : prefix
           root_hoisted[xmlns_key] = uri
           input_formats[uri] = format
+
+          # NEW: Build per-prefix-URI format
+          key = prefix ? "#{prefix}:#{uri}" : ":#{uri}"
+          input_prefix_formats[key] = format
         end
 
         # Build global prefix registry from ALL locations
@@ -209,6 +237,13 @@ module Lutaml
             end
             # Track format for all namespaces
             input_formats[ns_config[:uri]] ||= ns_config[:format] || :default
+
+            # NEW: Build per-prefix-URI format for all locations
+            prefix = ns_config[:prefix]
+            uri = ns_config[:uri]
+            key = prefix ? "#{prefix}:#{uri}" : ":#{uri}"
+            input_prefix_formats[key] =
+              ns_config[:format] || (prefix ? :prefix : :default)
           end
         end
 
@@ -239,7 +274,8 @@ module Lutaml
         end
 
         plan = new(root_node: root_node, global_prefix_registry: registry,
-                   input_formats: input_formats)
+                   input_formats: input_formats,
+                   input_prefix_formats: input_prefix_formats)
         plan.instance_variable_set(:@namespace_locations, location_data)
         plan
       end

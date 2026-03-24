@@ -463,7 +463,7 @@ module Lutaml
         # @param options [Hash] Serialization options
         def build_xml_element_with_plan(xml, xml_element, plan, _options = {})
           root_element = build_oga_node(xml_element, plan.root_node,
-                                        plan.global_prefix_registry)
+                                        plan.global_prefix_registry, plan: plan)
           xml.document.children << root_element
         end
 
@@ -475,9 +475,10 @@ module Lutaml
         # @param element_node [ElementNode] Decisions
         # @param global_registry [Hash] Global prefix registry (URI => prefix)
         # @param parent [Oga::XML::Element, nil] Parent element for xmlns deduplication
+        # @param plan [DeclarationPlan] Declaration plan with original namespace URIs
         # @return [Oga::XML::Element] Created node
         def build_oga_node(xml_element, element_node, global_registry,
-    parent = nil)
+    parent = nil, plan: nil)
           qualified_name = element_node.qualified_name
 
           # 1. Create attributes array for xmlns and regular attributes
@@ -486,17 +487,22 @@ module Lutaml
           # 2. Add hoisted xmlns declarations (Session 197: filter duplicates from parent)
           # CRITICAL: Only add xmlns if this element is supposed to declare it
           # (not if parent already has it)
+          original_ns_uris = plan&.original_namespace_uris || {}
           element_node.hoisted_declarations.each do |key, uri|
             next if uri == "http://www.w3.org/XML/1998/namespace"
 
+            # Use original alias URI if available (for namespace alias round-trip fidelity)
+            effective_uri = original_ns_uris[uri] || uri
+
             # Check if parent already has this xmlns (Oga-specific deduplication)
             prefix = key
-            next if parent && parent_has_xmlns_in_chain?(parent, prefix, uri)
+            next if parent && parent_has_xmlns_in_chain?(parent, prefix,
+                                                         effective_uri)
 
             xmlns_name = prefix ? "xmlns:#{prefix}" : "xmlns"
             attributes << ::Oga::XML::Attribute.new(
               name: xmlns_name,
-              value: uri,
+              value: effective_uri,
             )
           end
 
@@ -574,7 +580,7 @@ module Lutaml
 
               # Recurse - pass THIS element as parent for xmlns deduplication
               child_element = build_oga_node(xml_child, child_node,
-                                             global_registry, element)
+                                             global_registry, element, plan: plan)
               element.children << child_element
             elsif xml_child.is_a?(String)
               text_node = ::Oga::XML::Text.new(text: xml_child)

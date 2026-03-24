@@ -102,6 +102,37 @@ module Lutaml
                               transformation.transform(root, options)
                             end
 
+              # Collect original namespace URIs for namespace alias support.
+              # This enables round-trip fidelity when XML uses alias URIs.
+              original_ns_uris = {}
+              if original_model
+                # Case C: Model instance was transformed to XmlElement
+                mapping_for_original = options[:mapper_class]&.mappings_for(:xml) || original_model.class.mappings_for(:xml)
+                original_ns_uris = collect_original_namespace_uris(
+                  original_model, mapping_for_original
+                )
+              elsif xml_element.is_a?(Lutaml::Xml::DataModel::XmlElement)
+                # Case B: XmlElement from transformation may have @__xml_original_namespace_uri
+                original_ns_uri = xml_element.instance_variable_get(:@__xml_original_namespace_uri)
+                if original_ns_uri
+                  # Get mapping from the mapper_class (model class) not from XmlElement
+                  mapper_klass = options[:mapper_class] || xml_element.class
+                  xml_mapping = begin
+                    mapper_klass.mappings_for(:xml)
+                  rescue StandardError
+                    nil
+                  end
+                  if xml_mapping&.namespace_class
+                    canonical_uri = xml_mapping.namespace_class.uri
+                    if canonical_uri != original_ns_uri
+                      original_ns_uris[canonical_uri] =
+                        original_ns_uri
+                    end
+                  end
+                end
+              end
+              options_with_original_ns = options.merge(__original_namespace_uris: original_ns_uris)
+
               mapper_class = options[:mapper_class] || xml_element.class
               mapping = mapper_class.mappings_for(:xml)
 
@@ -112,7 +143,8 @@ module Lutaml
 
               # Phase 2: Plan namespace declarations (builds ElementNode tree)
               planner = DeclarationPlanner.new(@register)
-              plan = planner.plan(xml_element, mapping, needs, options: options)
+              plan = planner.plan(xml_element, mapping, needs,
+                                  options: options_with_original_ns)
 
               # Phase 3: Render using XmlElement + DeclarationPlan
               # Pass original model for custom method invocation
@@ -166,6 +198,10 @@ module Lutaml
           end
 
           result += xml_data
+
+          # Post-process: Fix OOXML format issues (opt-in)
+          result = fix_ooxml_format(result) if options[:fix_boolean_elements]
+
           result
         end
 
@@ -658,7 +694,7 @@ module Lutaml
           doc = xml.respond_to?(:doc) ? xml.doc : xml.xml.doc
 
           root_node = build_nokogiri_node(xml_element, plan.root_node, doc,
-                                          plan.global_prefix_registry, nil, options: options)
+                                          plan.global_prefix_registry, nil, options: options, plan: plan)
           doc.root = root_node
         end
 
@@ -672,10 +708,11 @@ module Lutaml
         # @param global_registry [Hash] Global prefix registry (URI => prefix)
         # @param parent [Nokogiri::XML::Element, nil] Parent element for namespace inheritance
         # @param options [Hash] Serialization options
+        # @param plan [DeclarationPlan] Declaration plan with original namespace URIs
         # @param previous_sibling_had_xmlns_blank [Boolean] Previous sibling had xmlns="" for W3C optimization
         # @return [Nokogiri::XML::Element] Created node
         def build_nokogiri_node(xml_element, element_node, doc,
-    global_registry, parent = nil, options: {}, previous_sibling_had_xmlns_blank: false)
+    global_registry, parent = nil, options: {}, plan: nil, previous_sibling_had_xmlns_blank: false)
           qualified_name = element_node.qualified_name
 
           # Split qualified_name to get prefix and local_name
@@ -695,15 +732,19 @@ module Lutaml
           # Add xmlns declarations FIRST (before adding to parent!)
           # This ensures the element's own namespace is declared before it can inherit parent's
           # Keys: nil = default namespace, "prefix" = prefixed namespace
+          original_ns_uris = plan&.original_namespace_uris || {}
           element_node.hoisted_declarations.each do |key, uri|
             next if uri == "http://www.w3.org/XML/1998/namespace"
 
+            # Use original alias URI if available (for namespace alias round-trip fidelity)
+            effective_uri = original_ns_uris[uri] || uri
+
             if key.nil?
               # Default namespace (xmlns="uri")
-              element.add_namespace(nil, uri)
+              element.add_namespace(nil, effective_uri)
             else
               # Prefixed namespace (xmlns:prefix="uri")
-              element.add_namespace(key, uri)
+              element.add_namespace(key, effective_uri)
             end
           end
 
@@ -883,7 +924,7 @@ module Lutaml
               # Recurse - child auto-adds itself to element (parent)
               # Pass previous_sibling_had_xmlns_blank for W3C optimization
               build_nokogiri_node(xml_child, child_node, doc, global_registry, element,
-                                  options: options,
+                                  options: options, plan: plan,
                                   previous_sibling_had_xmlns_blank: previous_sibling_had_xmlns_blank)
               # Track if this child had xmlns="" for next sibling
               # Blank namespace children get xmlns="" to opt out of parent's default namespace
@@ -920,6 +961,49 @@ module Lutaml
           end
 
           element
+        end
+
+        # Post-process XML string to fix OOXML format issues.
+        # Handles two normalization rules:
+        # 1. Boolean elements: <w:elem w:val="true"/> -> <w:elem/>
+        # 2. XML namespace attribute: <w:t w:xml:space=...> -> <w:t xml:space=...>
+        #
+        # @param xml [String] The XML string to process
+        # @return [String] The processed XML string
+        # OOXML boolean element names: self-closing elements where presence = true.
+        # This is a whitelist of known boolean element names to avoid incorrectly
+        # transforming non-boolean elements like numId, colSpan, etc.
+        OOXML_BOOLEAN_ELEMENTS = %w[
+          b i strike bCs iCs smallCaps caps vanish noProof
+          shadow emboss imprint keepNext keepLines outline
+          tblHeader cantSplit contextualSpacing highlight
+          rPr pPr trPr tcPr
+        ].freeze
+
+        def fix_ooxml_format(xml)
+          # Build regex pattern that only matches known boolean element names
+          bool_elem_pattern = OOXML_BOOLEAN_ELEMENTS.join("|")
+
+          # Fix self-closing: <ns:elem w:val="true"/> or <ns:elem w:val="1"/>
+          # Only for known boolean elements
+          xml = xml.gsub(
+            /<([a-zA-Z][a-zA-Z0-9]*):(#{bool_elem_pattern})(\s+w:val=")(true|1)("\s*\/?>)/,
+          ) { "<#{$1}:#{$2}/>" }
+
+          # Fix with content: <ns:elem w:val="true">true</ns:elem> or <ns:elem w:val="1">1</ns:elem>
+          xml = xml.gsub(
+            /<([a-zA-Z][a-zA-Z0-9]*):(#{bool_elem_pattern})(\s+w:val=")(true|1)(">)true<\/\1:\2>/,
+          ) { "<#{$1}:#{$2}>" }
+
+          # Fix content-only: <ns:elem>true</ns:elem> -> <ns:elem/>
+          # For elements that serialize boolean value as text content
+          xml = xml.gsub(
+            /<([a-zA-Z][a-zA-Z0-9]*):(#{bool_elem_pattern})>true<\/\1:\2>/,
+          ) { "<#{$1}:#{$2}/>" }
+
+          # Fix xml:space attribute: <w:t w:xml:space=...> -> <w:t xml:space=...>
+          # The xml: attribute belongs to the xml: namespace, not w:
+          xml.gsub(/\bw:xml:space=/, "xml:space=")
         end
       end
     end

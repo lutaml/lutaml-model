@@ -39,15 +39,24 @@ module Lutaml
         #
         # @param name [String] Element local name
         # @param namespace_class [Class, nil] XmlNamespace class
-        def initialize(name, namespace_class = nil)
+        # @param explicit_namespace [Boolean] Whether namespace was explicitly set on this element
+        #   (true = from rule's namespace; false = inherited from parent or no namespace)
+        def initialize(name, namespace_class = nil, explicit_namespace: false)
           @name = name
           @namespace_class = namespace_class
+          @explicit_namespace = explicit_namespace
           @attributes = []
           @children = []
           @text_content = nil
           @cdata = false
           @form = nil
         end
+
+        # Whether this element's namespace was explicitly declared (from mapping rule)
+        # vs inherited from parent or unset.
+        #
+        # @return [Boolean]
+        attr_reader :explicit_namespace
 
         # Add a child element or text node
         #

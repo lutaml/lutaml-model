@@ -160,7 +160,7 @@ module Lutaml
         def build_xml_element_with_plan(builder, xml_element, plan,
 _options = {})
           build_ox_node(builder.xml, xml_element, plan.root_node,
-                        plan.global_prefix_registry)
+                        plan.global_prefix_registry, plan: plan)
         end
 
         private
@@ -171,19 +171,25 @@ _options = {})
         # @param xml_element [XmlDataModel::XmlElement] Content
         # @param element_node [ElementNode] Decisions
         # @param global_registry [Hash] Global prefix registry (URI => prefix)
+        # @param plan [DeclarationPlan] Declaration plan with original namespace URIs
         # @return [void]
-        def build_ox_node(xml, xml_element, element_node, global_registry)
+        def build_ox_node(xml, xml_element, element_node, global_registry,
+plan: nil)
           qualified_name = element_node.qualified_name
 
           # 1. Collect attributes (xmlns declarations + regular attributes)
           attributes = {}
 
           # 2. Add hoisted xmlns declarations
+          original_ns_uris = plan&.original_namespace_uris || {}
           element_node.hoisted_declarations.each do |key, uri|
             next if uri == "http://www.w3.org/XML/1998/namespace"
 
+            # Use original alias URI if available (for namespace alias round-trip fidelity)
+            effective_uri = original_ns_uris[uri] || uri
+
             xmlns_name = key ? "xmlns:#{key}" : "xmlns"
-            attributes[xmlns_name] = uri
+            attributes[xmlns_name] = effective_uri
           end
 
           # 3. Add regular attributes by INDEX (PARALLEL TRAVERSAL)
@@ -233,7 +239,8 @@ _options = {})
                 child_node = element_node.element_nodes[child_element_index]
                 child_element_index += 1
 
-                build_ox_node(xml, xml_child, child_node, global_registry)
+                build_ox_node(xml, xml_child, child_node, global_registry,
+                              plan: plan)
               elsif xml_child.is_a?(String)
                 xml.text(xml_child)
               end

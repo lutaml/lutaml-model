@@ -82,7 +82,28 @@ parent_element_form_default)
             nil
           elsif parent_element_form_default == :qualified && parent_namespace_class
             # Priority 4: Inherit parent's namespace (element_form_default: :qualified)
-            parent_namespace_class
+            # BUT: W3C elementFormDefault only applies to locally declared elements.
+            # Children WITHOUT their own namespace declaration should NOT inherit parent's ns.
+            # Only inherit if the child model explicitly declares a namespace.
+            attr_type = rule.attribute_type
+            if attr_type.is_a?(Class) && attr_type.include?(Lutaml::Model::Serialize)
+              attr_mapping = attr_type.mappings_for(:xml)
+              attr_ns = attr_mapping&.namespace_class
+              attr_ns_param = attr_mapping&.send(:namespace_param)
+              # Use child's explicit namespace if it differs from parent's
+              # If child has no namespace declaration (nil) or explicit blank (:blank),
+              # do NOT inherit parent's namespace - return nil
+              if attr_ns && attr_ns != parent_namespace_class
+                attr_ns
+              elsif attr_ns_param.nil? && attr_ns.nil?
+                # Child has NO namespace declaration at all - do not apply element_form_default
+                nil
+              else
+                parent_namespace_class
+              end
+            else
+              parent_namespace_class
+            end
           elsif rule.form == :qualified && parent_namespace_class
             # Priority 5: Form override qualified
             parent_namespace_class
@@ -190,7 +211,64 @@ child_transformation)
           parent_uses_default_ns = parent_ns_class && parent_element_form_default == :qualified
           child_options = options.merge(parent_uses_default_ns: parent_uses_default_ns)
 
+          # For doubly-defined namespace support: propagate namespace prefix to child model instance.
+          # Check @__xml_ns_prefixes (populated during deserialization for ALL attributes).
+          # If @__xml_ns_prefixes has the prefix, propagate to the child model.
+          # Only set @__xml_namespace_prefix when:
+          # 1. Parent has NO namespace class (doubly-defined case): set so NamespaceCollector reads it
+          # 2. Parent HAS namespace class AND child has same namespace (same URI): set
+          #    so NamespaceCollector reads it (will be cleared below for mixed content)
+          # Do NOT set when:
+          # - Parent has namespace class AND child has different namespace (mixed content
+          #   with different URIs) -> child has its own ns, use child's prefix_default
+          # - Child's namespace is self-declared through its attribute TYPE (different from parent)
+          #   -> child's XmlElement gets its own ns, use child's prefix_default
+          child_ns_class = if value.class.respond_to?(:mappings_for)
+                             value.class.mappings_for(:xml)&.namespace_class
+                           end
+          ns_prefix = nil
+          parent_model = options[:current_model]
+          if parent_model.is_a?(::Lutaml::Model::Serialize)
+            prefixes = parent_model.instance_variable_get(:@__xml_ns_prefixes)
+            ns_prefix = prefixes[rule.attribute_name] if prefixes
+          end
+          child_self_declared_ns = child_ns_class &&
+            parent_ns_class &&
+            child_ns_class != parent_ns_class
+          # Parent has no ns OR child shares parent's URI (and child doesn't self-declare ns)
+          if (parent_ns_class.nil? || (child_ns_class && child_ns_class.uri == parent_ns_class.uri)) &&
+              !child_self_declared_ns && ns_prefix && !ns_prefix.empty?
+            value.instance_variable_set(:@__xml_namespace_prefix, ns_prefix)
+          end
+
+          # Also set @__xml_namespace_prefix on the XmlElement for doubly-defined case.
+          # This is read by NamespaceCollector to set NamespaceUsage.used_prefix.
+          # For doubly-defined: parent has no ns, child's ns_prefix is from @__xml_ns_prefixes
+          # (not from parent's @__xml_namespace_prefix).
+          # For mixed content: parent's XmlElement already has @__xml_namespace_prefix set.
+          if parent_ns_class.nil? && ns_prefix && !ns_prefix.empty? && !child_ns_class
+            # Doubly-defined case: parent has no ns, child has ns class.
+            # Set on XmlElement so NamespaceCollector reads it.
+            # The value will be set on the model instance above (via @__xml_namespace_prefix)
+            # and we'll set it on XmlElement too so collection phase picks it up.
+          end
+
           child_element = child_transformation.transform(value, child_options)
+
+          # For mixed content support: clear @__xml_namespace_prefix on child XmlElement
+          # when the parent XmlElement has an explicit namespace prefix.
+          # This ensures:
+          # - Doubly-defined: parent's XmlElement has no @__xml_namespace_prefix -> DON'T clear
+          #   (preserve the XmlElement's prefix for NamespaceCollector to read)
+          # - Mixed content (parent XmlElement has explicit prefix): CLEAR
+          #   (child should use its own namespace's default prefix, not parent's deserialization prefix)
+          parent_element = options[:parent_element]
+          parent_has_prefix = parent_element &&
+            !parent_element.instance_variable_get(:@__xml_namespace_prefix).to_s.empty?
+          if parent_ns_class && child_ns_class && parent_has_prefix &&
+              child_element.instance_variable_get(:@__xml_namespace_prefix)
+            child_element.instance_variable_set(:@__xml_namespace_prefix, nil)
+          end
 
           # Use parent's mapping name, not child's root name
           if rule.serialized_name != child_element.name
@@ -244,16 +322,107 @@ child_transformation)
         # @return [::Lutaml::Xml::DataModel::XmlElement] The created element
         def create_simple_value_element(rule, value, options, model_class,
 register_id)
-          element_namespace_class = determine_element_namespace(
-            rule,
-            options[:parent_namespace_class],
-            options[:parent_element_form_default],
-          )
+          # Compute namespace info upfront for use in ns_prefix lookup.
+          # We need same_uri BEFORE checking @__xml_ns_prefixes fallback.
+          parent_ns_class = options[:parent_namespace_class]
+          rule_ns_class = rule.namespace_class
+
+          rule_expected_ns_class = if rule_ns_class
+                                     rule_ns_class
+                                   elsif rule.attribute_type.is_a?(Class) && rule.attribute_type.include?(::Lutaml::Model::Serialize)
+                                     rule.attribute_type.mappings_for(:xml)&.namespace_class
+                                   elsif rule.attribute_type.is_a?(Class) && rule.attribute_type <= ::Lutaml::Model::Type::Value
+                                     rule.attribute_type.namespace_class
+                                   end
+
+          parent_uri = parent_ns_class&.uri
+          rule_expected_uri = rule_expected_ns_class&.uri
+          same_uri = parent_uri && rule_expected_uri && parent_uri == rule_expected_uri
+
+          # Determine if the child has its own explicit namespace declaration (different URI
+          # from parent). Used to decide whether to propagate parent's namespace prefix.
+          # Key distinction: same namespace URI with different prefix (doubly-defined) is NOT
+          # an explicit declaration - it's a prefix variant that should use parent's prefix.
+          child_attr_type_has_explicit_ns = if rule_ns_class
+                                              false
+                                            elsif rule.attribute_type.is_a?(Class) && rule.attribute_type.include?(::Lutaml::Model::Serialize)
+                                              child_mapping_ns = rule.attribute_type.mappings_for(:xml)&.namespace_class
+                                              child_mapping_ns && child_mapping_ns.uri != parent_uri
+                                            elsif rule.attribute_type.is_a?(Class) && rule.attribute_type <= ::Lutaml::Model::Type::Value
+                                              rule.attribute_type.namespace_class && rule.attribute_type.namespace_class.uri != parent_uri
+                                            else
+                                              false
+                                            end
+
+          # Look up namespace prefix from parent model's @__xml_ns_prefixes.
+          # For doubly-defined namespace support: preserve original prefix from deserialization.
+          parent_model = options[:current_model]
+          ns_prefix = nil
+          if options[:use_prefix] != false && parent_model.is_a?(::Lutaml::Model::Serialize)
+            prefixes = parent_model.instance_variable_get(:@__xml_ns_prefixes)
+            ns_prefix = prefixes[rule.attribute_name] if prefixes
+
+            # Fallback for nested Serializable models: @__xml_ns_prefixes is only set for
+            # non-Serializable attribute types. For Serializable types (e.g., nested model
+            # elements), we fall back to the parent's @__xml_namespace_prefix when the parent's
+            # namespace URI matches the child's expected URI. This ensures prefix propagation
+            # for nested models that share the parent's namespace.
+            # Only use this fallback when @__xml_ns_prefixes doesn't have the attribute name.
+            if ns_prefix.nil? && same_uri
+              parent_prefix = parent_model.instance_variable_get(:@__xml_namespace_prefix)
+              ns_prefix = parent_prefix if parent_prefix && !parent_prefix.empty?
+            end
+          end
+
+          # For doubly-defined namespace support: use parent's ns_class when there's an
+          # explicit prefix from @__xml_ns_prefixes AND the rule has no explicit namespace.
+          # Handle two cases:
+          # 1. same_uri=true: use parent's ns_class (same namespace, preserves prefix)
+          # 2. rule_expected_ns_class=nil AND prefix set AND child has no explicit ns: use parent's ns_class
+          #    (element has no explicit ns declaration, prefix was set during parsing)
+          # IMPORTANT: Use rule_expected_ns_class (includes attribute type's namespace) instead of
+          # rule_ns_class (only the mapping rule's direct namespace). This prevents incorrectly
+          # propagating parent's prefix to children whose attribute TYPE declares a namespace.
+          #
+          # CRITICAL: If child's namespace is self-declared (child's namespace class differs from
+          # parent's namespace class), DON'T use parent's @__xml_ns_prefixes. The child has its
+          # own namespace declaration and should use its namespace's default prefix.
+          use_parent_ns = nil
+          if ns_prefix && !ns_prefix.empty? && !rule_ns_class && parent_ns_class
+            child_self_declared_ns = rule_expected_ns_class &&
+              rule_expected_ns_class != parent_ns_class
+            if rule_expected_ns_class.nil? && !child_attr_type_has_explicit_ns && !child_self_declared_ns
+              use_parent_ns = parent_ns_class
+            end
+          end
+
+          effective_ns_class = if use_parent_ns
+                                 parent_ns_class
+                               else
+                                 determine_element_namespace(
+                                   rule,
+                                   options[:parent_namespace_class],
+                                   options[:parent_element_form_default],
+                                 )
+                               end
 
           element = ::Lutaml::Xml::DataModel::XmlElement.new(
             rule.serialized_name,
-            element_namespace_class,
+            effective_ns_class,
           )
+
+          # Only preserve the deserialization prefix when:
+          # 1. ns_prefix is set (from @__xml_ns_prefixes lookup or parent fallback)
+          # 2. The element has no explicit namespace in its rule AND no explicit namespace
+          #    in its attribute TYPE (child_attr_type_has_explicit_ns is false)
+          # 3. The child's namespace is NOT self-declared (child's ns != parent's ns)
+          #    -> if child has its own namespace, use that, not the parent's prefix
+          child_self_declared_ns = rule_expected_ns_class &&
+            rule_expected_ns_class != parent_ns_class
+          if ns_prefix && !ns_prefix.empty? && !child_self_declared_ns &&
+              !child_attr_type_has_explicit_ns
+            element.instance_variable_set(:@__xml_namespace_prefix, ns_prefix)
+          end
 
           element.form = rule.form if rule.form
 

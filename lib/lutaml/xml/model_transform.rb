@@ -22,6 +22,39 @@ module Lutaml
           instance = model_class.new
           register_accessor_methods_for(instance, __register)
         end
+        # Set @__xml_namespace_prefix on root model for doubly-defined namespace support.
+        # This is read during serialization to determine if the root element should use
+        # an explicit prefix from the input XML.
+        # Check the XmlElement's namespace_prefix (not the model's):
+        # - Nil/empty: root uses default format (doubly-defined case)
+        # - Set: root has explicit prefix (mixed content case)
+        root_element = if data.is_a?(::Lutaml::Xml::XmlElement)
+                         data
+                       elsif data.respond_to?(:root)
+                         data.root
+                       end
+        if root_element && instance.is_a?(::Lutaml::Model::Serialize)
+          root_ns_prefix = if root_element.namespace_prefix_explicit && root_element.namespace_prefix
+                             root_element.namespace_prefix
+                           else
+                             root_element.instance_variable_get(:@__xml_namespace_prefix)
+                           end
+          if root_ns_prefix && !root_ns_prefix.empty?
+            instance.instance_variable_set(:@__xml_namespace_prefix,
+                                           root_ns_prefix)
+          end
+          # Track original namespace URI for namespace alias support.
+          # When root element's namespace URI differs from the model's canonical URI,
+          # it's an alias that should be preserved during serialization.
+          root_ns_uri = root_element.namespace_uri
+          if root_ns_uri
+            model_ns_class = instance.class.mappings_for(:xml)&.namespace_class
+            if model_ns_class && model_ns_class.uri != root_ns_uri
+              instance.instance_variable_set(:@__xml_original_namespace_uri,
+                                             root_ns_uri)
+            end
+          end
+        end
         root_and_parent_assignment(instance, options)
         apply_xml_mapping(data, instance, options)
       end
@@ -238,7 +271,14 @@ result = {}, visited = Set.new)
           next if child.is_a?(String) # Skip text nodes
 
           # All XmlElement subclasses have name method
-          child_name = child.is_a?(::Lutaml::Xml::XmlElement) ? child.name.to_s : "unknown"
+          # Use unprefixed name (local name) for consistent key lookup
+          # NokogiriElement returns prefixed name like "c:childName", but we want just "childName"
+          # so that lookup works during serialization when XmlElement.name is unprefixed
+          child_name = if child.is_a?(::Lutaml::Xml::XmlElement)
+                         child.name.to_s.split(":").last
+                       else
+                         "unknown"
+                       end
           child_path = path + [child_name]
           collect_input_namespaces_with_locations(child, child_path, result,
                                                   visited)
@@ -422,7 +462,32 @@ mixed_content_option)
           # First try exact namespace match
           next true if rule_names.include?(child.namespaced_name)
 
-          # Second: try to match by prefix when child has xmlns="" (explicit blank namespace)
+          # Second: alias-aware matching for nested models
+          # When child's namespace URI is an alias of the rule's namespace class,
+          # match by local name. This enables parsing XML with alias URIs
+          # (e.g., "http://.../") against the canonical namespace class
+          # (e.g., "http://.../reqif.xsd").
+          child_uri = child.namespace_uri
+          if child_uri && type_ns_class && attr_type_is_serializable && type_ns_class.all_uris.include?(child_uri) &&
+              child.unprefixed_name == rule_name_str
+            next true
+          end
+
+          # Third: alias-aware matching for simple types
+          # When rule has no explicit namespace but model's namespace class has aliases,
+          # match by local name if child's URI is an alias of the model's namespace.
+          # This handles cases like <a:item xmlns:a="http://example.com/items/">
+          # where the model has namespace with canonical URI "http://example.com/items".
+          if child_uri && !rule_namespace_set && !attr_type_is_serializable
+            model_mapping = instance.class.mappings_for(:xml)
+            model_ns_class = model_mapping&.namespace_class
+            if model_ns_class&.all_uris&.include?(child_uri) &&
+                child.unprefixed_name == rule_name_str
+              next true
+            end
+          end
+
+          # Fourth: try to match by prefix when child has xmlns="" (explicit blank namespace)
           # This handles the case where elements have prefixed names but are in blank namespace
           # e.g., <GML:ApplicationSchema xmlns=""> should match the rule expecting GML namespace
           child_ns_prefix = child.namespace_prefix
@@ -481,7 +546,62 @@ mixed_content_option)
               end
             end
 
-            values << attr.cast(child, :xml, __register, cast_options)
+            cast_result = attr.cast(child, :xml, __register, cast_options)
+
+            # Track original namespace prefix for doubly-defined namespace support.
+            # When parsing <a:item> and <b:item> (same URI, different prefixes),
+            # we need to preserve which prefix was used for round-trip fidelity.
+            # Store on the PARENT model instance keyed by attribute name.
+            # Set for ALL attributes (both Serializable and non-Serializable).
+            ns_prefix = if child.is_a?(::Lutaml::Xml::XmlElement) &&
+                child.namespace_prefix_explicit && child.namespace_prefix
+                          child.namespace_prefix
+                        end
+            if ns_prefix && instance.is_a?(::Lutaml::Model::Serialize)
+              prefixes = instance.instance_variable_get(:@__xml_ns_prefixes) || {}
+              prefixes[attr.name] = ns_prefix
+              instance.instance_variable_set(:@__xml_ns_prefixes, prefixes)
+            end
+
+            # Track original alias URI for namespace alias support.
+            # When parsing XML with alias URIs (e.g., "http://.../") against a namespace
+            # class with canonical URI (e.g., "http://.../reqif.xsd"), store the original
+            # alias URI so it can be serialized back correctly.
+            child_uri = if child.is_a?(::Lutaml::Xml::XmlElement)
+                          child.namespace_uri
+                        end
+            if child_uri && cast_result.is_a?(::Lutaml::Model::Serialize)
+              child_mapping = cast_result.class.mappings_for(:xml)
+              child_ns_class = child_mapping&.namespace_class
+              if child_ns_class && child_ns_class.uri != child_uri
+                # Child's URI differs from canonical - it's an alias
+                cast_result.instance_variable_set(
+                  :@__xml_original_namespace_uri, child_uri
+                )
+              end
+            end
+
+            if cast_result.is_a?(::Lutaml::Model::Serialize) && ns_prefix
+              # Set @__xml_namespace_prefix on nested Serializable model instances
+              # for doubly-defined namespace support.
+              #
+              # Key distinction between doubly-defined and mixed content:
+              # - Doubly-defined: parent's XmlElement uses default format (no explicit prefix).
+              #   Parent's @__xml_namespace_prefix is nil. Child should use input prefix.
+              # - Mixed content: parent's XmlElement has explicit prefix (e.g., "examplecom:").
+              #   Parent's @__xml_namespace_prefix is set. Child should use its own namespace.
+              #
+              # Check if parent model has @__xml_namespace_prefix set:
+              # - Nil/empty: doubly-defined case -> set @__xml_namespace_prefix on child
+              # - Set: mixed content case -> don't set (child has its own namespace)
+              parent_has_explicit_prefix = instance.instance_variable_get(:@__xml_namespace_prefix)
+              if parent_has_explicit_prefix.to_s.empty?
+                cast_result.instance_variable_set(:@__xml_namespace_prefix,
+                                                  ns_prefix)
+              end
+            end
+
+            values << cast_result
           elsif attr.raw?
             values << inner_xml_of(child)
           else
@@ -489,6 +609,24 @@ mixed_content_option)
 
             text = child.nil_element? ? nil : (child&.text&.+ child&.cdata)
             values << text
+
+            # Track namespace prefix for doubly-defined namespace support.
+            # Store on parent model instance keyed by attribute name.
+            ns_prefix = if child.is_a?(::Lutaml::Xml::XmlElement) &&
+                child.namespace_prefix_explicit && child.namespace_prefix
+                          child.namespace_prefix
+                        end
+            if ns_prefix && instance.is_a?(::Lutaml::Model::Serialize)
+              # Skip Serializable attribute types (same reason as above)
+              attr_type_class = attr.type(__register)
+              unless attr_type_class.is_a?(Class) &&
+                  (attr_type_class.include?(Lutaml::Model::Serialize) ||
+                   (attr_type_class.respond_to?(:<) && attr_type_class < Lutaml::Model::Serialize))
+                prefixes = instance.instance_variable_get(:@__xml_ns_prefixes) || {}
+                prefixes[attr.name] = ns_prefix
+                instance.instance_variable_set(:@__xml_ns_prefixes, prefixes)
+              end
+            end
           end
         end
 
