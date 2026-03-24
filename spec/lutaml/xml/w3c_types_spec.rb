@@ -174,7 +174,7 @@ RSpec.describe Lutaml::Xml::W3c do
   describe "Symbol Registration" do
     before do
       # Force loading of W3c module and registration of all types
-      Lutaml::Xml::W3c.register_types!
+      described_class.register_types!
     end
 
     describe "XML types registered" do
