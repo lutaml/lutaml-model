@@ -31,6 +31,27 @@ module Lutaml
     #     end
     #   end
     class Namespace
+      # W3C-reserved namespace URIs and recommended alternatives
+      W3C_RESERVED_URIS = {
+        "http://www.w3.org/XML/1998/namespace" =>
+          "Use Lutaml::Xml::W3c::XmlNamespace for xml: attributes (xml:lang, xml:space, etc.)",
+        "http://www.w3.org/2001/XMLSchema-instance" =>
+          "Use Lutaml::Xml::W3c::XsiNamespace for xsi: attributes (xsi:type, xsi:nil, etc.)",
+        "http://www.w3.org/1999/xlink" =>
+          "Use Lutaml::Xml::W3c::XlinkNamespace for xlink: attributes (xlink:href, xlink:type, etc.)",
+        "http://www.w3.org/2001/XMLSchema" =>
+          "Use Lutaml::Xml::W3c::XsNamespace for xs: schema elements (xs:element, xs:complexType, etc.)",
+      }.freeze
+
+      # W3C-reserved prefixes and recommended alternatives
+      W3C_RESERVED_PREFIXES = {
+        "xml" => "The 'xml' prefix is RESERVED per W3C. Use Lutaml::Xml::W3c::XmlNamespace for xml: attributes.",
+        "xsi" => "Use Lutaml::Xml::W3c::XsiNamespace for xsi: attributes.",
+        "xlink" => "Use Lutaml::Xml::W3c::XlinkNamespace for xlink: attributes.",
+        "xs" => "Use Lutaml::Xml::W3c::XsNamespace for xs: schema elements.",
+        "xsd" => "Use Lutaml::Xml::W3c::XsNamespace for xs: schema elements.",
+      }.freeze
+
       class << self
         # Get or set the namespace URI
         #
@@ -207,6 +228,20 @@ module Lutaml
           @documentation_value
         end
 
+        # Skip W3C reserved namespace checks for built-in namespaces
+        #
+        # Built-in W3C namespaces (XmlNamespace, XsiNamespace, etc.) call this
+        # to indicate they should not trigger warnings when instantiated.
+        #
+        # @param value [Boolean] true to skip W3C checks
+        # @return [Boolean] the skip flag value
+        def skip_w3c_reserved_check(value = nil)
+          if value
+            @skip_w3c_reserved_check = value
+          end
+          @skip_w3c_reserved_check
+        end
+
         # Create an instance with optional runtime prefix override
         #
         # @param prefix [String, Symbol, nil] runtime prefix override
@@ -303,6 +338,8 @@ module Lutaml
         @imports = self.class.imports
         @includes = self.class.includes
         @documentation = self.class.documentation
+
+        check_w3c_reserved!
       end
 
       # Get the XML attribute name for namespace declaration
@@ -335,6 +372,61 @@ module Lutaml
       # @return [Boolean] true if attribute_form_default is :qualified
       def attributes_qualified?
         attribute_form_default == :qualified
+      end
+
+      private
+
+      # Check if this namespace class is built-in and should skip W3C reserved checks
+      #
+      # Built-in W3C namespaces (XmlNamespace, XsiNamespace, etc.) set
+      # skip_w3c_reserved_check = true in their class body to opt out of warnings.
+      #
+      # @return [Boolean] true if this class has opted out of W3C checks
+      def built_in_namespace?
+        # Check the class object's own instance variable (not inherited)
+        self.class.instance_variable_defined?(:@skip_w3c_reserved_check) &&
+          self.class.instance_variable_get(:@skip_w3c_reserved_check)
+      end
+
+      # Check for W3C-reserved namespace definitions and warn users
+      #
+      # This warns users if they define a namespace that conflicts with
+      # W3C-reserved URIs or prefixes, guiding them to use the
+      # official Lutaml-provided W3C namespace classes instead.
+      def check_w3c_reserved!
+        return if built_in_namespace?
+
+        uri_value = self.class.uri
+        if uri_value && (message = W3C_RESERVED_URIS[uri_value])
+          warn_w3c_reserved("W3C-reserved URI", uri_value, message)
+          return
+        end
+
+        prefix_value = self.class.prefix_default
+        if prefix_value && (message = W3C_RESERVED_PREFIXES[prefix_value])
+          warn_w3c_reserved("W3C-reserved prefix '#{prefix_value}'", prefix_value, message)
+        end
+      end
+
+      # Issue a W3C reserved namespace warning
+      #
+      # @param type_desc [String] description of what is reserved
+      # @param value [String] the reserved value
+      # @param recommendation [String] what to use instead
+      def warn_w3c_reserved(type_desc, value, recommendation)
+        # Find the caller's location outside the gem
+        gem_path = File.dirname(__dir__)
+        location = caller_locations.find do |cl|
+          !cl.path.start_with?(gem_path)
+        end
+
+        path = location ? "#{location.path}:#{location.lineno}:" : nil
+
+        Lutaml::Model::Logger.warn(
+          "Defining a namespace with #{type_desc} '#{value}'. " \
+          "#{recommendation}",
+          path,
+        )
       end
     end
   end
