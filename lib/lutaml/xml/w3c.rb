@@ -391,3 +391,8 @@ module Lutaml
     end
   end
 end
+
+# Auto-register W3C types with Lutaml::Model::Type registry.
+# This ensures symbol-based type references like `attribute :href, :xlink_href`
+# work without requiring explicit registration.
+Lutaml::Xml::W3c.register_types!

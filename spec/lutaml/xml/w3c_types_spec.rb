@@ -258,4 +258,30 @@ RSpec.describe Lutaml::Xml::W3c do
       end
     end
   end
+
+  describe "Symbol-based attribute definition (without explicit registration)" do
+    it "allows defining attribute with symbol type :xlink_href" do
+      expect do
+        Class.new(Lutaml::Model::Serializable) do
+          attribute :href, :xlink_href
+        end
+      end.not_to raise_error
+    end
+
+    it "allows defining attribute with symbol type :xml_lang" do
+      expect do
+        Class.new(Lutaml::Model::Serializable) do
+          attribute :lang, :xml_lang
+        end
+      end.not_to raise_error
+    end
+
+    it "allows defining attribute with symbol type :xsi_nil" do
+      expect do
+        Class.new(Lutaml::Model::Serializable) do
+          attribute :nil_attr, :xsi_nil
+        end
+      end.not_to raise_error
+    end
+  end
 end
