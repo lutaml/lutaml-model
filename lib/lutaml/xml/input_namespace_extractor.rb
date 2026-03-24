@@ -34,6 +34,48 @@ module Lutaml
         end
       end
 
+      # Extract xmlns declarations directly from raw XML string.
+      #
+      # This method parses the raw XML string to extract xmlns declarations
+      # BEFORE any XML parsing occurs. This is critical for preserving the
+      # original namespace URIs when XML has been pre-normalized (e.g., alias
+      # URIs converted to canonical URIs before lutaml's parse).
+      #
+      # Unlike #extract which works on parsed elements (and thus only sees
+      # what Nokogiri observed after parsing), this method captures what was
+      # actually in the input string.
+      #
+      # @param raw_xml [String] the raw XML string before parsing
+      # @return [Hash] map of prefix/uri pairs with format information
+      #   Keys are prefix symbols (:default for default namespace, or prefix name)
+      #   Values are hashes with :uri, :prefix, and :format keys
+      def self.extract_from_raw_xml(raw_xml)
+        namespaces = {}
+
+        # Only process actual XML (check for XML declaration or root element)
+        return namespaces unless raw_xml.is_a?(String) &&
+          raw_xml.strip.start_with?("<", "<?")
+
+        # Match xmlns="uri" and xmlns:prefix="uri" patterns
+        # This regex captures:
+        # - xmlns="uri" (default namespace, prefix will be nil)
+        # - xmlns:prefix="uri" (prefixed namespace)
+        raw_xml.scan(/xmlns(?::([a-zA-Z0-9_-]+))="([^"]+)"/) do |prefix, uri|
+          key = if prefix.nil? || prefix.empty?
+                  :default
+                else
+                  prefix.to_sym
+                end
+          namespaces[key] = {
+            uri: uri,
+            prefix: prefix,
+            format: prefix && !prefix.empty? ? :prefix : :default,
+          }
+        end
+
+        namespaces
+      end
+
       # Extract namespaces from Nokogiri root element
       #
       # @param root_element [Nokogiri::XML::Element] the root element

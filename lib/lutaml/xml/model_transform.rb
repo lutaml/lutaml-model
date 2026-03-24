@@ -44,14 +44,39 @@ module Lutaml
                                            root_ns_prefix)
           end
           # Track original namespace URI for namespace alias support.
+          #
           # When root element's namespace URI differs from the model's canonical URI,
           # it's an alias that should be preserved during serialization.
+          #
+          # ALSO: When XML is pre-normalized (alias -> canonical) before parsing,
+          # Nokogiri only sees the canonical URI. But if the Document's
+          # input_namespaces contains the original alias URI, we should use it.
           root_ns_uri = root_element.namespace_uri
           if root_ns_uri
             model_ns_class = instance.class.mappings_for(:xml)&.namespace_class
-            if model_ns_class && model_ns_class.uri != root_ns_uri
-              instance.instance_variable_set(:@__xml_original_namespace_uri,
-                                             root_ns_uri)
+            if model_ns_class
+              if model_ns_class.uri != root_ns_uri
+                # root_ns_uri differs from canonical - preserve it (alias or other)
+                instance.instance_variable_set(:@__xml_original_namespace_uri,
+                                               root_ns_uri)
+              elsif data.respond_to?(:input_namespaces) && data.input_namespaces&.any?
+                # root_ns_uri == canonical URI (pre-normalized case)
+                # Check if input_namespaces has an original alias URI
+                input_ns = data.input_namespaces
+                ns_prefix = root_element.namespace_prefix
+                ns_key = if ns_prefix.nil? || ns_prefix.empty?
+                           :default
+                         else
+                           ns_prefix.to_sym
+                         end
+                stored_ns = input_ns[ns_key]
+                if stored_ns && stored_ns[:uri] != model_ns_class.uri &&
+                    model_ns_class.is_alias?(stored_ns[:uri])
+                  # input_namespaces has an alias URI - preserve it
+                  instance.instance_variable_set(:@__xml_original_namespace_uri,
+                                                 stored_ns[:uri])
+                end
+              end
             end
           end
         end

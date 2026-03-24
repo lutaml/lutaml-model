@@ -611,6 +611,10 @@ module Lutaml
       # @return [ElementNode] Element node with all decisions
       def build_element_node(xml_element, mapping, needs, options,
   parent_node: nil, is_root: false, parent_format: nil, parent_namespace_class: nil, parent_hoisted: {}, element_path: [])
+        # Add xml_element to options so it can be used in determine_hoisted_declarations
+        # This is needed for checking if xsi:* attributes are present
+        options = options.merge(xml_element: xml_element)
+
         # Determine element's prefix (checks input_formats, parent context for preservation)
         # Priority:
         # 1. Lutaml::Xml::XmlElement (from parsed XML): has namespace_prefix_explicit
@@ -1509,12 +1513,62 @@ module Lutaml
         end
 
         # FIFTH: Add XSI namespace if any Namespace in scope has schema_location
+        # OR if xsi namespace was in the input (for round-trip preservation).
+        #
+        # This handles two cases:
+        # 1. xsi:schemaLocation is actually used (from Namespace classes)
+        # 2. xsi namespace was declared in input XML (for round-trip fidelity)
+        #
         # Schema location is handled by DeclarationPlan.build_schema_location_attr
-        # which builds xsi:schemaLocation from all Namespace.schema_location values
+        # which builds xsi:schemaLocation from all Namespace.schema_location values.
         if namespaces_have_schema_location?(needs, options)
           xsi_uri = W3c::XsiNamespace.uri
           xsi_prefix = W3c::XsiNamespace.prefix_default || "xsi"
           hoisted[xsi_prefix] = xsi_uri unless hoisted.value?(xsi_uri)
+        end
+
+        # Also hoist W3C namespaces from input that are NOT needed by children
+        # (even if PRESERVATION is skipped due to explicit format preference).
+        # This ensures round-trip fidelity for W3C namespace declarations.
+        #
+        # W3C namespaces like xsi (XMLSchema-instance) have special semantics in XML
+        # processing and MUST be declared when used, even if user specifies explicit
+        # format preference.
+        #
+        # Non-W3C namespaces declared in input but not used follow the explicit
+        # format preference (PRESERVATION is skipped in that case).
+        has_explicit_pref = options.key?(:prefix) || options.key?(:use_prefix)
+        if is_root && has_explicit_pref && stored_plan&.root_node&.hoisted_declarations
+          # Get namespace_classes from needs to identify W3C namespaces
+          # namespace_classes is {uri => namespace_class}
+          ns_classes = {}
+          needs.all_namespace_classes.each do |ns_class|
+            ns_classes[ns_class.uri] = ns_class
+          end
+
+          stored_hoisted = stored_plan.root_node.hoisted_declarations
+          stored_hoisted.each do |prefix, uri|
+            # Get namespace class for this URI to check if W3C
+            ns_class = ns_classes[uri]
+            next unless ns_class
+            # W3C namespaces are defined inside Lutaml::Xml::W3c module
+            # Use ancestors for proper OOP check instead of string matching
+            next unless ns_class.ancestors.any? { |a| a.is_a?(Module) && a.name == "Lutaml::Xml::W3c" }
+
+            # Skip if same prefix already used for different URI
+            next if hoisted.key?(prefix) && hoisted[prefix] != uri
+
+            # Check if any child element needs this namespace
+            child_needs_ns = needs.children&.any? do |_attr_name, child_needs|
+              child_needs.namespaces.any? do |_key, ns_usage|
+                ns_usage.namespace_class&.uri == uri
+              end
+            end
+            next if child_needs_ns
+
+            # Safe to preserve at root
+            hoisted[prefix] = uri
+          end
         end
 
         hoisted
@@ -1525,13 +1579,30 @@ module Lutaml
       # @param needs [NamespaceNeeds] Namespace needs
       # @param options [Hash] Serialization options
       # @return [Boolean] True if any namespace has schema_location
-      def namespaces_have_schema_location?(needs, _options)
+      def namespaces_have_schema_location?(needs, options)
         return false unless needs
 
         # Check all namespace classes in needs
-        needs.all_namespace_classes.any? do |ns_class|
+        return true if needs.all_namespace_classes.any? do |ns_class|
           ns_class.respond_to?(:schema_location) && ns_class.schema_location
         end
+
+        # Check if any attribute on any element uses the XSI namespace
+        # This handles round-trip preservation when XML was parsed and
+        # xsi:* attributes (like xsi:schemaLocation) were stored as XmlAttributes.
+        # Per XML namespace rules, when a prefixed attribute is used (xsi:XYZ),
+        # the corresponding xmlns:xsi must be declared in scope.
+        xml_element = options[:xml_element]
+        if xml_element
+          # xml_element is always DataModel::XmlElement with Array attributes at this point
+          has_xsi_attribute = xml_element.attributes.any? do |attr|
+            # Check if attribute name starts with "xsi:" prefix
+            attr.name.to_s.start_with?("xsi:")
+          end
+          return true if has_xsi_attribute
+        end
+
+        false
       end
 
       # Find the attribute name for a child XmlElement
