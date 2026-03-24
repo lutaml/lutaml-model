@@ -169,12 +169,6 @@ class GmlNamespace3_7 < Lutaml::Xml::W3c::XmlNamespace
   element_form_default :qualified
 end
 
-class XlinkNamespace < Lutaml::Xml::W3c::XmlNamespace
-  uri "http://www.w3.org/1999/xlink"
-  prefix_default "xlink"
-  element_form_default :qualified
-end
-
 class GmdNamespace < Lutaml::Xml::W3c::XmlNamespace
   uri "http://www.isotc211.org/2005/gmd"
   prefix_default "gmd"

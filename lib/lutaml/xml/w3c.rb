@@ -36,6 +36,8 @@ module Lutaml
       # @see https://www.w3.org/TR/xml-names/#ns-decl
       # @see https://www.w3.org/XML/1998/namespace
       class XmlNamespace < Lutaml::Xml::Namespace
+        skip_w3c_reserved_check(true)
+
         uri "http://www.w3.org/XML/1998/namespace"
         prefix_default "xml"
         attribute_form_default :qualified # All xml: attributes are qualified
@@ -148,11 +150,222 @@ module Lutaml
       # @see https://www.w3.org/TR/xmlschema-1/#xsi_schemaLocation
       # @see https://www.w3.org/TR/xmlschema-1/#xsi_type
       class XsiNamespace < Lutaml::Xml::Namespace
+        skip_w3c_reserved_check(true)
+
         uri "http://www.w3.org/2001/XMLSchema-instance"
         prefix_default "xsi"
         attribute_form_default :qualified # xsi:nil, xsi:type always qualified
 
         documentation "W3C XMLSchema-instance namespace for validation hints"
+      end
+
+      # Type for xsi:type attribute
+      #
+      # Identifies the type of an element for validation purposes.
+      # Value is a QName referencing a type definition.
+      #
+      # @see https://www.w3.org/TR/xmlschema-1/#xsi_type
+      class XsiType < Lutaml::Model::Type::String
+        xml do
+          namespace XsiNamespace
+        end
+      end
+
+      # Type for xsi:nil attribute
+      #
+      # Indicates that an element should be treated as nil.
+      # Valid values: "true" or "false"
+      #
+      # @see https://www.w3.org/TR/xmlschema-1/#xsi_nil
+      class XsiNil < Lutaml::Model::Type::String
+        xml do
+          namespace XsiNamespace
+        end
+
+        def self.cast(value)
+          return nil if value.nil?
+          return value if Lutaml::Model::Utils.uninitialized?(value)
+
+          val = super
+          unless ["true", "false"].include?(val)
+            raise ArgumentError, "xsi:nil must be 'true' or 'false'"
+          end
+
+          val
+        end
+      end
+
+      # Type for xsi:schemaLocation attribute
+      #
+      # Provides hints for locating schema documents.
+      # Value is a whitespace-separated list of namespace URI and schema location URI pairs.
+      #
+      # @see https://www.w3.org/TR/xmlschema-1/#xsi_schemaLocation
+      class XsiSchemaLocationType < Lutaml::Model::Type::String
+        xml do
+          namespace XsiNamespace
+        end
+      end
+
+      # Type for xsi:noNamespaceSchemaLocation attribute
+      #
+      # Provides hints for locating schema documents when no namespace is involved.
+      # Value is a URI pointing to the schema document.
+      #
+      # @see https://www.w3.org/TR/xmlschema-1/#xsi_noNamespaceSchemaLocation
+      class XsiNoNamespaceSchemaLocationType < Lutaml::Model::Type::String
+        xml do
+          namespace XsiNamespace
+        end
+      end
+
+      # W3C XLink Namespace (xlink:href, xlink:type, xlink:role, xlink:arcrole, xlink:title, xlink:show, xlink:actuate)
+      #
+      # W3C XLink namespace for hyperlinks and references.
+      # Conventionally uses 'xlink' prefix.
+      #
+      # Provides standard attributes:
+      # - xlink:href: Link target (URI)
+      # - xlink:type: Link type (simple, extended, locator, arc, resource, title)
+      # - xlink:role: Role/meaning of the link
+      # - xlink:arcrole: Arc-specific role
+      # - xlink:title: Human-readable title
+      # - xlink:show: Display behavior (new, replace, embed, other, none)
+      # - xlink:actuate: Timing (onLoad, onRequest, other, none)
+      #
+      # @see https://www.w3.org/TR/xlink/
+      class XlinkNamespace < Lutaml::Xml::Namespace
+        skip_w3c_reserved_check(true)
+
+        uri "http://www.w3.org/1999/xlink"
+        prefix_default "xlink"
+
+        documentation "W3C XLink namespace for hyperlinks and references"
+      end
+
+      # Type for xlink:href attribute
+      #
+      # The link target URI. Can be absolute or relative.
+      #
+      # @see https://www.w3.org/TR/xlink/#link-locators
+      class XlinkHrefType < Lutaml::Model::Type::String
+        xml do
+          namespace XlinkNamespace
+        end
+      end
+
+      # Type for xlink:type attribute
+      #
+      # Identifies the link type.
+      # Valid values: "simple", "extended", "locator", "arc", "resource", "title"
+      #
+      # @see https://www.w3.org/TR/xlink/#link-types
+      class XlinkTypeAttrType < Lutaml::Model::Type::String
+        xml do
+          namespace XlinkNamespace
+        end
+
+        VALID_TYPES = %w[simple extended locator arc resource title].freeze
+
+        def self.cast(value)
+          return nil if value.nil?
+          return value if Lutaml::Model::Utils.uninitialized?(value)
+
+          val = super
+          unless VALID_TYPES.include?(val)
+            raise ArgumentError,
+                  "xlink:type must be one of: #{VALID_TYPES.join(', ')}"
+          end
+
+          val
+        end
+      end
+
+      # Type for xlink:role attribute
+      #
+      # A URI that describes the role of the link.
+      #
+      # @see https://www.w3.org/TR/xlink/#link-arcs
+      class XlinkRoleType < Lutaml::Model::Type::String
+        xml do
+          namespace XlinkNamespace
+        end
+      end
+
+      # Type for xlink:arcrole attribute
+      #
+      # A URI that describes the arc role of the link.
+      #
+      # @see https://www.w3.org/TR/xlink/#link-arcs
+      class XlinkArcroleType < Lutaml::Model::Type::String
+        xml do
+          namespace XlinkNamespace
+        end
+      end
+
+      # Type for xlink:title attribute
+      #
+      # A human-readable title for the link.
+      #
+      # @see https://www.w3.org/TR/xlink/#link-semantics
+      class XlinkTitleType < Lutaml::Model::Type::String
+        xml do
+          namespace XlinkNamespace
+        end
+      end
+
+      # Type for xlink:show attribute
+      #
+      # Indicates how the link target should be displayed.
+      # Valid values: "new", "replace", "embed", "other", "none"
+      #
+      # @see https://www.w3.org/TR/xlink/#show
+      class XlinkShowType < Lutaml::Model::Type::String
+        xml do
+          namespace XlinkNamespace
+        end
+
+        VALID_SHOW = %w[new replace embed other none].freeze
+
+        def self.cast(value)
+          return nil if value.nil?
+          return value if Lutaml::Model::Utils.uninitialized?(value)
+
+          val = super
+          unless VALID_SHOW.include?(val)
+            raise ArgumentError,
+                  "xlink:show must be one of: #{VALID_SHOW.join(', ')}"
+          end
+
+          val
+        end
+      end
+
+      # Type for xlink:actuate attribute
+      #
+      # Indicates when the link should be activated.
+      # Valid values: "onLoad", "onRequest", "other", "none"
+      #
+      # @see https://www.w3.org/TR/xlink/#actuate
+      class XlinkActuateType < Lutaml::Model::Type::String
+        xml do
+          namespace XlinkNamespace
+        end
+
+        VALID_ACTUATE = %w[onLoad onRequest other none].freeze
+
+        def self.cast(value)
+          return nil if value.nil?
+          return value if Lutaml::Model::Utils.uninitialized?(value)
+
+          val = super
+          unless VALID_ACTUATE.include?(val)
+            raise ArgumentError,
+                  "xlink:actuate must be one of: #{VALID_ACTUATE.join(', ')}"
+          end
+
+          val
+        end
       end
 
       # W3C XMLSchema Namespace (xs:string, xs:int, etc.)
@@ -166,10 +379,43 @@ module Lutaml
       #
       # @see https://www.w3.org/TR/xmlschema-2/
       class XsNamespace < Lutaml::Xml::Namespace
+        skip_w3c_reserved_check(true)
+
         uri "http://www.w3.org/2001/XMLSchema"
         prefix_default "xs"
 
         documentation "W3C XMLSchema namespace for XSD type definitions"
+      end
+
+      # Register W3C types with lutaml-model's Type registry for symbol-based access.
+      #
+      # This enables convenient syntax:
+      #   attribute :href, :xlink_href
+      #
+      # While still supporting class-based access:
+      #   attribute :href, XlinkHrefType
+      #
+      # Only registers if lutaml-model's Type module is available, avoiding gem coupling.
+      if defined?(Lutaml::Model::Type)
+        {
+          xml_lang: XmlLangType,
+          xml_space: XmlSpaceType,
+          xml_base: XmlBaseType,
+          xml_id: XmlIdType,
+          xsi_type: XsiType,
+          xsi_nil: XsiNil,
+          xsi_schema_location: XsiSchemaLocationType,
+          xsi_no_namespace_schema_location: XsiNoNamespaceSchemaLocationType,
+          xlink_href: XlinkHrefType,
+          xlink_type: XlinkTypeAttrType,
+          xlink_role: XlinkRoleType,
+          xlink_arcrole: XlinkArcroleType,
+          xlink_title: XlinkTitleType,
+          xlink_show: XlinkShowType,
+          xlink_actuate: XlinkActuateType,
+        }.each do |symbol, type_class|
+          Lutaml::Model::Type.register(symbol, type_class)
+        end
       end
     end
   end

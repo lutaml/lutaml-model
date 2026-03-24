@@ -540,26 +540,212 @@ metadata following W3C XML Namespace and XSD specifications.
 Lutaml::Model provides pre-defined type classes for W3C xml namespace attributes with built-in validation and serialization support.
 
 .Available W3C XML attribute types
-[cols="1,2,2"]
+[cols="1,2,2,2"]
 |===
-| Type Class | Purpose | Validation
+| Type Class | Symbol | Purpose | Validation
 
 | `Lutaml::Model::Xml::W3c::XmlLangType`
+| `:xml_lang`
 | Language identification (RFC 5646)
 | Accepts any valid language tag
 
 | `Lutaml::Model::Xml::W3c::XmlSpaceType`
+| `:xml_space`
 | Whitespace handling control
 | Only "default" or "preserve"
 
 | `Lutaml::Model::Xml::W3c::XmlBaseType`
+| `:xml_base`
 | Base URI for relative references
 | Accepts any valid URI string
 
 | `Lutaml::Model::Xml::W3c::XmlIdType`
+| `:xml_id`
 | Unique identifier (XML ID type)
 | Must be valid NCName
 |===
+
+==== W3C XSI namespace types
+
+The XSI namespace (`xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"`) is used for schema validation hints.
+
+.Available W3C XSI attribute types
+[cols="1,2,2,2"]
+|===
+| Type Class | Symbol | Purpose | Validation
+
+| `Lutaml::Model::Xml::W3c::XsiType`
+| `:xsi_type`
+| Element type annotation (QName)
+| Accepts any QName string
+
+| `Lutaml::Model::Xml::W3c::XsiNil`
+| `:xsi_nil`
+| Nil indicator
+| Only "true" or "false"
+
+| `Lutaml::Model::Xml::W3c::XsiSchemaLocationType`
+| `:xsi_schema_location`
+| Schema location pairs
+| Whitespace-separated URI pairs
+
+| `Lutaml::Model::Xml::W3c::XsiNoNamespaceSchemaLocationType`
+| `:xsi_no_namespace_schema_location`
+| Schema location without namespace
+| Single URI
+|===
+
+.Using W3C XSI attribute types
+[example]
+====
+[source,ruby]
+----
+class Item < Lutaml::Model::Serializable
+  attribute :nil_attr, :xsi_nil
+  attribute :type_attr, :xsi_type
+
+  xml do
+    element "Item"
+  end
+end
+
+item = Item.new(nil_attr: "true", type_attr: "string")
+puts item.to_xml
+# => <Item xsi:nil="true" xsi:type="string"
+#        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+
+# Invalid xsi:nil value raises error
+Item.new(nil_attr: "maybe")
+# => ArgumentError: xsi:nil must be 'true' or 'false'
+----
+====
+
+==== W3C XLink namespace types
+
+The XLink namespace (`xmlns:xlink="http://www.w3.org/1999/xlink"`) is used for hyperlinks and references.
+
+.Available W3C XLink attribute types
+[cols="1,2,2,2"]
+|===
+| Type Class | Symbol | Purpose | Validation
+
+| `Lutaml::Model::Xml::W3c::XlinkHrefType`
+| `:xlink_href`
+| Link target URI
+| Any valid URI
+
+| `Lutaml::Model::Xml::W3c::XlinkTypeAttrType`
+| `:xlink_type`
+| Link type
+| "simple", "extended", "locator", "arc", "resource", "title"
+
+| `Lutaml::Model::Xml::W3c::XlinkRoleType`
+| `:xlink_role`
+| Role URI
+| Any valid URI
+
+| `Lutaml::Model::Xml::W3c::XlinkArcroleType`
+| `:xlink_arcrole`
+| Arc role URI
+| Any valid URI
+
+| `Lutaml::Model::Xml::W3c::XlinkTitleType`
+| `:xlink_title`
+| Human-readable title
+| Any string
+
+| `Lutaml::Model::Xml::W3c::XlinkShowType`
+| `:xlink_show`
+| Display behavior
+| "new", "replace", "embed", "other", "none"
+
+| `Lutaml::Model::Xml::W3c::XlinkActuateType`
+| `:xlink_actuate`
+| Timing
+| "onLoad", "onRequest", "other", "none"
+|===
+
+.Using W3C XLink attribute types
+[example]
+====
+[source,ruby]
+----
+class Link < Lutaml::Model::Serializable
+  attribute :href, :xlink_href
+  attribute :title, :xlink_title
+  attribute :show, :xlink_show
+  attribute :actuate, :xlink_actuate
+
+  xml do
+    element "Link"
+  end
+end
+
+link = Link.new(
+  href: "http://example.com",
+  title: "Example",
+  show: "new",
+  actuate: "onRequest"
+)
+
+puts link.to_xml
+# => <Link xlink:href="http://example.com" xlink:title="Example"
+#          xlink:show="new" xlink:actuate="onRequest"
+#          xmlns:xlink="http://www.w3.org/1999/xlink"/>
+
+# Invalid xlink:show value raises error
+Link.new(show: "invalid")
+# => ArgumentError: xlink:show must be one of: new, replace, embed, other, none
+----
+====
+
+==== Symbol-based access for W3C types
+
+All W3C types are registered with `Lutaml::Model::Type.register`, enabling convenient symbol-based attribute access:
+
+[source,ruby]
+----
+# Instead of:
+attribute :lang, Lutaml::Model::Xml::W3c::XmlLangType
+
+# You can use:
+attribute :lang, :xml_lang
+
+# All symbols map to their corresponding type:
+# :xml_lang       => XmlLangType
+# :xml_space      => XmlSpaceType
+# :xml_base       => XmlBaseType
+# :xml_id         => XmlIdType
+# :xsi_type       => XsiType
+# :xsi_nil        => XsiNil
+# :xsi_schema_location => XsiSchemaLocationType
+# :xlink_href     => XlinkHrefType
+# :xlink_type     => XlinkTypeAttrType
+# :xlink_role     => XlinkRoleType
+# :xlink_arcrole  => XlinkArcroleType
+# :xlink_title    => XlinkTitleType
+# :xlink_show     => XlinkShowType
+# :xlink_actuate  => XlinkActuateType
+----
+
+==== W3C reserved namespace warning
+
+When defining a namespace, if you use a W3C-reserved URI or prefix, Lutaml::Model will issue a warning:
+
+[source,ruby]
+----
+# WARNING: Defining namespace with W3C-reserved URI/prefix
+class BadNamespace < Lutaml::Model::Xml::Namespace
+  uri "http://www.w3.org/XML/1998/namespace"  # W3C-reserved URI
+  prefix_default "xsi"  # W3C-reserved prefix
+end
+
+ns = BadNamespace.new
+# => [WARNING] Defining a namespace with W3C-reserved URI 'http://www.w3.org/XML/1998/namespace'.
+#    Use Lutaml::Model::Xml::W3c::XmlNamespace for xml: attributes...
+----
+
+This helps ensure you use the official Lutaml-provided W3C namespace classes instead of redefining them.
 
 .Using W3C XML attribute types with validation
 [example]
