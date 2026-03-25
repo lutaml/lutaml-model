@@ -38,9 +38,6 @@ module Lutaml
           # Accept xml_declaration from options if present (for model serialization)
           @xml_declaration = options[:xml_declaration] if options[:xml_declaration]
 
-          # Accept input_namespaces from options if present (for namespace format preservation)
-          @input_namespaces = options[:input_namespaces] if options[:input_namespaces]
-
           # Build XML using adapter-specific builder
           build_xml_document(options)
         end

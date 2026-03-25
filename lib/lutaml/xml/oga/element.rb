@@ -4,12 +4,8 @@ module Lutaml
   module Xml
     module Oga
       class Element < XmlElement
-        include InputNamespacesCapable # Marker for input_namespaces capability
-
         # Use NamespaceData for adapter-internal namespace data
         NamespaceData = Lutaml::Xml::Adapter::NamespaceData
-
-        attr_accessor :input_namespaces
 
         def initialize(node, parent: nil, default_namespace: nil)
           explicit_no_namespace = false
@@ -130,10 +126,18 @@ module Lutaml
         end
 
         def add_namespaces(node, is_root: false)
+          # Oga's node.namespaces returns ALL in-scope namespaces (including inherited).
+          # Prefixed namespaces are always added (ensuring prefix resolution works on
+          # every element). Default namespace (nil prefix) is only added if this is the
+          # root element OR if there's an explicit xmlns="..." attribute on this element.
+          has_default_xmlns = is_root || node.attributes.any? do |a|
+            a.name == "xmlns"
+          end
+
           node.namespaces.each do |namespace|
             ns = NamespaceData.new(namespace.uri, namespace.prefix)
 
-            if ns.prefix || is_root
+            if ns.prefix || has_default_xmlns
               add_namespace(ns)
             end
           end

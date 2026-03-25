@@ -150,12 +150,19 @@ module Lutaml
       end
 
       def namespaces
-        # Performance: Return frozen empty hash instead of creating new one
-        @namespaces || @parent_document&.namespaces || EMPTY_NAMESPACES
+        # When @namespaces is non-empty, return it directly (element has own declarations)
+        # When @namespaces is nil or empty, fall back to parent's in-scope namespaces
+        # This supports the new namespace_definitions approach where each element only
+        # stores its own declarations, and child elements inherit from parent
+        if @namespaces&.any?
+          @namespaces
+        else
+          @parent_document&.namespaces || EMPTY_NAMESPACES
+        end
       end
 
       def own_namespaces
-        # Performance: Return frozen empty hash instead of creating new one
+        # Return only this element's own namespace declarations (not inherited)
         @namespaces || EMPTY_NAMESPACES
       end
 

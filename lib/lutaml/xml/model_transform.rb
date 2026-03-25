@@ -47,41 +47,107 @@ module Lutaml
           #
           # When root element's namespace URI differs from the model's canonical URI,
           # it's an alias that should be preserved during serialization.
-          #
-          # ALSO: When XML is pre-normalized (alias -> canonical) before parsing,
-          # Nokogiri only sees the canonical URI. But if the Document's
-          # input_namespaces contains the original alias URI, we should use it.
           root_ns_uri = root_element.namespace_uri
           if root_ns_uri
             model_ns_class = instance.class.mappings_for(:xml)&.namespace_class
-            if model_ns_class
-              if model_ns_class.uri != root_ns_uri
-                # root_ns_uri differs from canonical - preserve it (alias or other)
-                instance.instance_variable_set(:@__xml_original_namespace_uri,
-                                               root_ns_uri)
-              elsif data.respond_to?(:input_namespaces) && data.input_namespaces&.any?
-                # root_ns_uri == canonical URI (pre-normalized case)
-                # Check if input_namespaces has an original alias URI
-                input_ns = data.input_namespaces
-                ns_prefix = root_element.namespace_prefix
-                ns_key = if ns_prefix.nil? || ns_prefix.empty?
-                           :default
-                         else
-                           ns_prefix.to_sym
-                         end
-                stored_ns = input_ns[ns_key]
-                if stored_ns && stored_ns[:uri] != model_ns_class.uri &&
-                    model_ns_class.is_alias?(stored_ns[:uri])
-                  # input_namespaces has an alias URI - preserve it
-                  instance.instance_variable_set(:@__xml_original_namespace_uri,
-                                                 stored_ns[:uri])
-                end
-              end
+            if model_ns_class && model_ns_class.uri != root_ns_uri
+              # root_ns_uri differs from canonical - preserve it (alias or other)
+              instance.instance_variable_set(:@__xml_original_namespace_uri,
+                                             root_ns_uri)
             end
+          end
+
+          # Extract namespace declarations from the parsed element tree.
+          # This captures ALL xmlns declarations (including unused ones) from the input
+          # for round-trip preservation. The own_namespaces on the root element contains
+          # all namespaces declared at the root level.
+          input_declaration_plan = build_input_declaration_plan(root_element)
+          if input_declaration_plan
+            instance.__input_declaration_plan = input_declaration_plan
           end
         end
         root_and_parent_assignment(instance, options)
         apply_xml_mapping(data, instance, options)
+      end
+
+      # Build a DeclarationPlan from the parsed element tree's namespace declarations.
+      #
+      # Walks the entire element tree to capture ALL xmlns declarations from input XML,
+      # including unused ones (like xmlns:xi for XInclude) and declarations on child elements.
+      # The plan preserves WHERE each namespace was declared and its original format/URI.
+      #
+      # @param root_element [XmlElement] The parsed root element
+      # @return [DeclarationPlan, nil] The plan or nil if no namespaces
+      def build_input_declaration_plan(root_element)
+        return nil unless root_element
+
+        # Walk the element tree collecting namespaces with their declaration locations
+        namespaces_with_locations = collect_element_namespaces(root_element)
+        return nil if namespaces_with_locations.nil? || namespaces_with_locations.empty?
+
+        # Get the mapping for namespace resolution
+        xml_mapping = mappings_for(:xml)
+
+        # Create location-aware DeclarationPlan
+        DeclarationPlan.from_input_with_locations(namespaces_with_locations,
+                                                  xml_mapping)
+      end
+
+      # Recursively collect namespace declarations from all elements in the tree.
+      #
+      # Each element may declare namespaces via xmlns attributes. The path array tracks
+      # the element names from root to current element. Root has path [], its children
+      # have path ["childName"], etc. This matches DeclarationPlan.from_input_with_locations
+      # expectations where root path is [] and child paths are built by appending.
+      #
+      # @param element [XmlElement] The element to collect from
+      # @param path [Array<String>] Element path from root (empty for root element)
+      # @param result [Hash] Accumulated result { path_array => { key => { uri:, prefix:, format: } } }
+      # @param visited [Set] Set of visited element object_ids to prevent cycles
+      # @return [Hash] { [path_array] => { key => { uri:, prefix:, format: } } }
+      def collect_element_namespaces(element, path = [], result = {},
+visited = Set.new)
+        return result unless element
+        return result if visited.include?(element.object_id)
+
+        visited.add(element.object_id)
+
+        # Collect this element's own namespace declarations
+        own_ns = element.own_namespaces
+        if own_ns&.any?
+          input_namespaces = {}
+          own_ns.each do |prefix, ns_data|
+            key = prefix.nil? ? :default : prefix
+            input_namespaces[key] = {
+              uri: ns_data.uri,
+              prefix: prefix,
+              format: prefix.nil? ? :default : :prefix,
+            }
+          end
+
+          result[path] = input_namespaces unless input_namespaces.empty?
+        end
+
+        # Recurse into children with path extended by child local name
+        # Use local name (without prefix) since serialization lookup uses
+        # xml_element.name which is the local name without namespace prefix
+        element.children.each do |child|
+          next if child.is_a?(String) # Skip text nodes
+
+          # Strip namespace prefix if present (e.g., "c:childName" -> "childName")
+          # to match the key format used during serialization lookup
+          full_name = child.name.to_s
+          child_local_name = if full_name.include?(":")
+                               full_name.split(":",
+                                               2).last
+                             else
+                               full_name
+                             end
+          child_path = path + [child_local_name]
+          collect_element_namespaces(child, child_path, result, visited)
+        end
+
+        result
       end
 
       def model_to_data(model, _format, options = {})
@@ -117,12 +183,6 @@ module Lutaml
         # Transfer XML declaration info if present (Issue #1)
         if doc.respond_to?(:xml_declaration) && doc.xml_declaration
           instance.instance_variable_set(:@xml_declaration, doc.xml_declaration)
-        end
-
-        # Transfer input namespaces if present (Issue #3: Namespace Preservation)
-        if doc.is_a?(::Lutaml::Xml::InputNamespacesCapable) && doc.input_namespaces&.any?
-          instance.instance_variable_set(:@__input_namespaces,
-                                         doc.input_namespaces)
         end
 
         return instance unless doc
@@ -191,125 +251,7 @@ module Lutaml
           instance.using_default_for(attr_name)
         end
 
-        # CRITICAL: Create DeclarationPlan AFTER model is fully populated
-        # This captures WHERE namespaces were declared and in WHAT format
-        # The plan will be used during serialization to preserve the original structure
-        if model_class.is_a?(Class) && model_class.include?(::Lutaml::Model::Serialize)
-          mapping = model_class.mappings_for(:xml, __register)
-          # Check if doc responds to input_namespaces (handles nested elements that are OxElement)
-          # CRITICAL: Collect input_namespaces from ALL elements with LOCATION info
-          # This preserves WHERE each namespace was declared, not just WHAT was declared
-          namespaces_with_locations = collect_input_namespaces_with_locations(doc)
-          if mapping && namespaces_with_locations&.any?
-            # Create plan from input namespaces with location info (format + location preservation)
-            plan = ::Lutaml::Xml::DeclarationPlan.from_input_with_locations(
-              namespaces_with_locations,
-              mapping,
-            )
-
-            # Store plan in instance for use during serialization
-            if instance.respond_to?(:__input_declaration_plan=)
-              instance.__input_declaration_plan = plan
-            end
-          end
-        end
-
         instance
-      end
-
-      # Collect input_namespaces from all elements in the document tree
-      #
-      # Namespaces can be declared on any element, not just the root.
-      # We need to collect them all for proper format preservation.
-      #
-      # @param element [XmlElement] The element to collect from
-      # @param visited [Set] Set of visited elements to prevent cycles
-      # @return [Hash] Merged namespace info from all elements
-      def collect_all_input_namespaces(element, visited = Set.new)
-        # Performance: Early return for nil
-        return EMPTY_HASH unless element
-        # Prevent infinite recursion for circular references
-        return EMPTY_HASH if visited.include?(element.object_id)
-
-        visited.add(element.object_id)
-
-        # Performance: Get own namespaces first
-        # Note: Using is_a?(InputNamespacesCapable) because both Document and Element classes include the marker
-        own_ns = if element.is_a?(::Lutaml::Xml::InputNamespacesCapable) && element.input_namespaces
-                   element.input_namespaces
-                 end
-
-        # Performance: Early return if no children to recurse
-        # All XmlElement subclasses have children method
-        children = element.respond_to?(:children) ? element.children : []
-        if children.empty?
-          return own_ns || EMPTY_HASH
-        end
-
-        # Start with own namespaces
-        namespaces = own_ns ? own_ns.dup : {}
-
-        # Recursively collect from children (use cached children variable)
-        children.each do |child|
-          next if child.is_a?(String) # Skip text nodes
-
-          child_namespaces = collect_all_input_namespaces(child, visited)
-          # Merge, but don't overwrite (first declaration wins)
-          child_namespaces.each do |key, value|
-            namespaces[key] ||= value
-          end
-        end
-
-        namespaces
-      end
-
-      # Collect input_namespaces WITH their declaration locations
-      #
-      # Returns a tree structure mapping element paths to namespace declarations.
-      # This enables preservation of WHERE each namespace was declared, not just WHAT was declared.
-      #
-      # @param element [XmlElement] The element to collect from
-      # @param path [Array<String>] Current element path (array of element names)
-      # @param result [Hash] Accumulated result { path => namespaces }
-      # @param visited [Set] Set of visited elements to prevent cycles
-      # @return [Hash] Location-aware namespace info { path_array => namespace_hash }
-      def collect_input_namespaces_with_locations(element, path = [],
-result = {}, visited = Set.new)
-        return result unless element
-        return result if visited.include?(element.object_id)
-
-        visited.add(element.object_id)
-
-        # Get namespaces declared on THIS element only
-        # Note: Using is_a?(InputNamespacesCapable) because both Document and Element classes include the marker
-        own_ns = if element.is_a?(::Lutaml::Xml::InputNamespacesCapable) && element.input_namespaces
-                   element.input_namespaces
-                 end
-
-        # Store if this element has namespace declarations
-        if own_ns&.any?
-          result[path] = own_ns
-        end
-
-        # Recurse into children - all XmlElement subclasses have children
-        element.children.each do |child|
-          next if child.is_a?(String) # Skip text nodes
-
-          # All XmlElement subclasses have name method
-          # Use unprefixed name (local name) for consistent key lookup
-          # NokogiriElement returns prefixed name like "c:childName", but we want just "childName"
-          # so that lookup works during serialization when XmlElement.name is unprefixed
-          child_name = if child.is_a?(::Lutaml::Xml::XmlElement)
-                         child.name.to_s.split(":").last
-                       else
-                         "unknown"
-                       end
-          child_path = path + [child_name]
-          collect_input_namespaces_with_locations(child, child_path, result,
-                                                  visited)
-        end
-
-        result
       end
 
       def validate_document!(doc, options)

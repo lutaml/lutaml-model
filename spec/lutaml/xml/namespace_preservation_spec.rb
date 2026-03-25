@@ -6,7 +6,7 @@ RSpec.describe "Namespace Preservation Issue #3" do
     it "preserves unused xmlns:xsi declaration from input" do
       xml_input = <<~XML
         <?xml version="1.0"?>
-        <article xmlns="http://example.com/article"#{' '}
+        <article xmlns="http://example.com/article"
                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
           <title>Test Article</title>
         </article>
@@ -14,11 +14,6 @@ RSpec.describe "Namespace Preservation Issue #3" do
 
       # Parse the XML
       doc = Lutaml::Xml::Adapter::NokogiriAdapter.parse(xml_input)
-
-      # Verify input namespaces were captured
-      expect(doc.input_namespaces).to include(:default)
-      expect(doc.input_namespaces).to include("xsi")
-      expect(doc.input_namespaces["xsi"][:uri]).to eq("http://www.w3.org/2001/XMLSchema-instance")
 
       # Re-serialize
       output = doc.to_xml
@@ -170,8 +165,6 @@ RSpec.describe "Namespace Preservation Issue #3" do
 
       doc = Lutaml::Xml::Adapter::NokogiriAdapter.parse(xml_input)
 
-      expect(doc.input_namespaces).to be_empty
-
       output = doc.to_xml
       # Should not have any xmlns declarations
       expect(output).not_to include("xmlns")
@@ -233,32 +226,6 @@ RSpec.describe "Namespace Preservation Issue #3" do
       expect(output).to include('xmlns:xlink="http://www.w3.org/1999/xlink"')
       expect(output).to include('xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"')
       expect(output).to include('xmlns:ali="http://www.niso.org/schemas/ali/1.0/"')
-    end
-  end
-
-  context "namespace extraction API" do
-    it "extract_input_namespaces returns correct structure" do
-      xml = <<~XML
-        <root xmlns="http://default.com"
-              xmlns:pre="http://prefix.com">
-          <child/>
-        </root>
-      XML
-
-      parsed = Nokogiri::XML(xml)
-      namespaces = Lutaml::Xml::InputNamespaceExtractor.extract(parsed.root,
-                                                                :nokogiri)
-
-      expect(namespaces).to be_a(Hash)
-      expect(namespaces[:default]).to eq({ uri: "http://default.com",
-                                           prefix: nil, format: :default })
-      expect(namespaces["pre"]).to eq({ uri: "http://prefix.com",
-                                        prefix: "pre", format: :prefix })
-    end
-
-    it "extract_input_namespaces handles nil root element" do
-      namespaces = Lutaml::Xml::InputNamespaceExtractor.extract(nil, :nokogiri)
-      expect(namespaces).to eq({})
     end
   end
 

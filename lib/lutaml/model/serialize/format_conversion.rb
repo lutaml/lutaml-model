@@ -159,6 +159,15 @@ module Lutaml
               options = apply_namespace_overrides(options)
             end
 
+            # Retrieve stored declaration plan from model instance for namespace preservation.
+            # This plan captures the original namespace declarations from the parsed XML,
+            # enabling round-trip fidelity for unused namespaces (like xmlns:xi for XInclude).
+            if format == :xml && instance.respond_to?(:__input_declaration_plan) &&
+                !options.key?(:__stored_plan)
+              stored_plan = instance.__input_declaration_plan
+              options[:__stored_plan] = stored_plan if stored_plan
+            end
+
             adapter.new(value, register: options[:register]).public_send(
               :"to_#{format}", options
             )
