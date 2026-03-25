@@ -1,18 +1,15 @@
 module Lutaml
   module Xml
     class Document
-      include InputNamespacesCapable # Marker for input_namespaces capability
-
       attr_reader :root, :encoding, :register, :doctype, :parsed_doc,
-                  :input_namespaces, :xml_declaration
+                  :xml_declaration
 
       def initialize(root, encoding = nil, register: nil, doctype: nil,
-  parsed_doc: nil, input_namespaces: nil, xml_declaration: nil, **options)
+                     parsed_doc: nil, xml_declaration: nil, **options)
         @root = root
         @encoding = encoding
         @doctype = doctype
         @parsed_doc = parsed_doc
-        @input_namespaces = input_namespaces || {}
         @xml_declaration = xml_declaration
         @register = setup_register(register)
         @options = options # NEW: Store options

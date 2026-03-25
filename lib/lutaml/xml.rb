@@ -127,10 +127,6 @@ module Lutaml
     autoload :BlankNamespaceHandler, "#{__dir__}/xml/blank_namespace_handler"
     autoload :DeclarationPlanQuery, "#{__dir__}/xml/declaration_plan_query"
     autoload :DocTypeExtractor, "#{__dir__}/xml/doctype_extractor"
-    autoload :InputNamespaceExtractor,
-             "#{__dir__}/xml/input_namespace_extractor"
-    autoload :InputNamespacesCapable,
-             "#{__dir__}/xml/input_namespaces_capable"
     autoload :NamespaceDeclarationBuilder,
              "#{__dir__}/xml/namespace_declaration_builder"
     autoload :ElementPrefixResolver, "#{__dir__}/xml/element_prefix_resolver"

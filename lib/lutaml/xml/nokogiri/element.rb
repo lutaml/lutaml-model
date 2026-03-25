@@ -4,7 +4,6 @@ module Lutaml
   module Xml
     class NokogiriElement < XmlElement
       include Nokogiri::EntityResolver
-      include InputNamespacesCapable # Marker for input_namespaces capability
 
       # Performance: Frozen empty collections to reduce allocations
       EMPTY_NAMESPACES = {}.freeze
@@ -14,11 +13,8 @@ module Lutaml
       NamespaceData = Lutaml::Xml::Adapter::NamespaceData
       EMPTY_CHILDREN = [].freeze
 
-      # Custom accessor for lazy input_namespaces initialization
-      # Performance: Store node for lazy extraction, then clear reference
-      attr_writer :input_namespaces
-
-      def initialize(node, root_node: nil, default_namespace: nil)
+      def initialize(node, root_node: nil, default_namespace: nil,
+                     parent_document: nil)
         # Defensive check: ensure node is not nil
         if node.nil?
           raise ArgumentError,
@@ -37,23 +33,16 @@ module Lutaml
                     end
 
         # Collect namespaces declared on THIS element only
-        # Each element stores its own namespace declarations, not siblings'
-        # Child elements inherit from parent_document.namespaces (see XmlElement#namespaces)
+        # namespace_definitions returns only xmlns declarations on this element,
+        # unlike namespaces which returns all in-scope namespaces (including inherited)
         #
         # CRITICAL FIX: Previously, child elements added their namespaces to root_node,
         # causing sibling elements to incorrectly inherit each other's namespaces.
         # Now each element stores only its own declarations.
-        node.namespaces.each do |prefix, name|
-          namespace = NamespaceData.new(name, prefix)
+        node.namespace_definitions.each do |ns_def|
+          namespace = NamespaceData.new(ns_def.href, ns_def.prefix)
           add_namespace(namespace)
         end
-
-        # CRITICAL: Capture input_namespaces with FORMAT info for this element
-        # This enables round-trip preservation of namespace format (prefixed vs default)
-        # Each element stores its own namespace declarations with format
-        # Performance: Lazy-initialize input_namespaces only when accessed
-        @input_namespaces_node = node # Store for lazy extraction
-        @input_namespaces = nil
 
         # Performance: Use frozen empty hash when no attributes, otherwise build hash
         attributes = build_attributes_hash(node)
@@ -65,10 +54,14 @@ module Lutaml
           node_namespace_nil: node.namespace.nil?,
         )
 
+        # Use parent_document if explicitly provided (for child elements),
+        # otherwise fall back to root_node (for root element)
+        effective_parent = parent_document || root_node
+
         # Set default namespace for root, or inherit from parent for children
         if !node.namespace&.prefix
           default_namespace = node.namespace&.href ||
-            root_node&.instance_variable_get(:@default_namespace)
+            effective_parent&.instance_variable_get(:@default_namespace)
         end
 
         super(
@@ -78,7 +71,7 @@ module Lutaml
                                    default_namespace: default_namespace),
           EncodingNormalizer.normalize_to_utf8(node.text),
           name: node.name,
-          parent_document: root_node,
+          parent_document: effective_parent,
           namespace_prefix: node.namespace&.prefix,
           default_namespace: default_namespace,
           explicit_no_namespace: explicit_no_namespace,
@@ -91,16 +84,6 @@ module Lutaml
       # This fixes SVG <text> elements being incorrectly treated as text nodes
       def text?
         @node_type == :text || @node_type == :cdata
-      end
-
-      # Performance: Lazy getter for input_namespaces
-      # Only extracts namespaces when first accessed
-      def input_namespaces
-        @input_namespaces ||= begin
-          node = @input_namespaces_node
-          @input_namespaces_node = nil # Clear reference after use
-          extract_input_namespaces_from_node(node)
-        end
       end
 
       # Performance: Build attributes hash, return frozen empty when no attributes
@@ -123,32 +106,6 @@ module Lutaml
           )
         end
         attributes
-      end
-
-      # Extract namespace declarations from Nokogiri node with format info
-      #
-      # Captures the format (prefixed vs default) for round-trip preservation.
-      # This is called for EACH element, not just the root.
-      #
-      # @param node [Nokogiri::XML::Element] The node to extract from
-      # @return [Hash] Map of namespace info with :uri, :prefix, :format keys
-      def extract_input_namespaces_from_node(node)
-        # Performance: Return frozen empty hash when no definitions
-        return EMPTY_NAMESPACES if node.namespace_definitions.empty?
-
-        namespaces = {}
-
-        # Nokogiri's namespace_definitions returns xmlns declarations on this element
-        node.namespace_definitions.each do |ns_def|
-          prefix_key = ns_def.prefix || :default
-          namespaces[prefix_key] = {
-            uri: ns_def.href,
-            prefix: ns_def.prefix, # nil for default namespace
-            format: ns_def.prefix ? :prefix : :default,
-          }
-        end
-
-        namespaces
       end
 
       def to_xml
@@ -202,6 +159,7 @@ module Lutaml
 
         consolidated.map do |child|
           NokogiriElement.new(child, root_node: root_node,
+                                     parent_document: self,
                                      default_namespace: default_namespace)
         end
       end

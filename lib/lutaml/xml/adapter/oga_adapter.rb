@@ -28,12 +28,8 @@ module Lutaml
           # Moxml/Oga doesn't directly expose DOCTYPE, extract from raw XML
           doctype_info = extract_doctype_from_xml(xml)
 
-          # Extract input namespace declarations for Issue #3: Namespace Preservation
-          input_namespaces = InputNamespaceExtractor.extract(root_element, :oga)
-
           @root = Oga::Element.new(root_element)
-          new(@root, encoding(xml, options), doctype: doctype_info,
-                                             input_namespaces: input_namespaces)
+          new(@root, encoding(xml, options), doctype: doctype_info)
         end
 
         def to_xml(options = {})
@@ -42,9 +38,6 @@ module Lutaml
           builder_options[:encoding] = encoding if encoding
 
           builder = Builder::Oga.new do |xml|
-            # Accept input_namespaces from options if present (for namespace format preservation)
-            @input_namespaces = options[:input_namespaces] if options[:input_namespaces]
-
             if @root.is_a?(Oga::Element)
               @root.build_xml(xml)
             elsif @root.is_a?(Lutaml::Xml::DataModel::XmlElement)
@@ -59,9 +52,8 @@ module Lutaml
 
               # Phase 2: Plan namespace declarations with hoisting
               planner = DeclarationPlanner.new(register)
-              plan_options = options.merge(input_namespaces: @input_namespaces)
               plan = planner.plan(@root, xml_mapping, needs,
-                                  options: plan_options)
+                                  options: options)
 
               # Phase 3: Build with plan (TREE-BASED for XmlElement)
               build_xml_element_with_plan(xml, @root, plan, options)

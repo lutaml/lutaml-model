@@ -33,20 +33,13 @@ module Lutaml
           # Ox doesn't directly expose DOCTYPE, so we need to parse it from the original XML
           doctype_info = extract_doctype_from_xml(xml)
 
-          # Extract input namespace declarations for Issue #3: Namespace Preservation
-          input_namespaces = InputNamespaceExtractor.extract(root_element, :ox)
-
           @root = OxElement.new(root_element)
-          new(@root, Ox.default_options[:encoding], doctype: doctype_info,
-                                                    input_namespaces: input_namespaces)
+          new(@root, Ox.default_options[:encoding], doctype: doctype_info)
         end
 
         def to_xml(options = {})
           # Accept xml_declaration from options if present (for model serialization)
           @xml_declaration = options[:xml_declaration] if options[:xml_declaration]
-
-          # Accept input_namespaces from options if present (for namespace format preservation)
-          @input_namespaces = options[:input_namespaces] if options[:input_namespaces]
 
           builder = Builder::Ox.build
           builder_options = { version: options[:version] }
