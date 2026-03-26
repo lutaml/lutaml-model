@@ -175,6 +175,9 @@ module Lutaml
           return :prefix if has_qualified_children
         end
 
+        # 4. If namespace has prefix_default set, use prefixed format
+        return :prefix if effective_ns_class.prefix_default
+
         # Tier 4: Default: prefer default namespace (cleaner, no prefix needed)
         :default
       end

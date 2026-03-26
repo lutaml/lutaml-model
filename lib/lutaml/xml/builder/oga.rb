@@ -211,7 +211,10 @@ module Lutaml
           # Nokogiri automatically handles this, but Oga needs explicit filtering
           # Check parent chain for existing xmlns declarations
           filtered_attributes = attributes.reject do |name, value|
-            if name.to_s.start_with?("xmlns")
+            name_str = name.to_s
+            # Match "xmlns" (default) or "xmlns:..." (prefixed) but NOT
+            # regular attribute prefixes like "xmlns_1.0" (valid NCName)
+            if name_str == "xmlns" || name_str.start_with?("xmlns:")
               # Check if this xmlns is already declared on a parent
               # Use @current_node which will be the parent of this element
               parent_has_xmlns?(@current_node, name, value)

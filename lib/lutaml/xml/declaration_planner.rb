@@ -645,6 +645,38 @@ module Lutaml
         hoisted = determine_hoisted_declarations(xml_element, mapping, needs,
                                                  options, is_root: is_root, parent_hoisted: parent_hoisted, element_prefix: element_prefix, element_path: element_path)
 
+        # For ROOT element with a stored input plan, merge additional declarations
+        # from the stored plan that the normal computation didn't include.
+        # This preserves namespace prefix declarations from input XML that
+        # the recomputation would not produce. Specifically:
+        # - Doubly-defined: xmlns="..." AND xmlns:b="..." on the same element
+        # - Non-default prefix: xmlns:xyzabc="..." when model uses prefix_default "a:"
+        #
+        # Only merge when the root element itself did NOT use a prefix in the input.
+        # When the root's element name had a prefix (e.g., <examplecom:schema>),
+        # the deserialization sets @__xml_namespace_prefix on the root XmlElement,
+        # and element_builder clears child prefixes — so the stored plan's
+        # prefix declarations are NOT needed by any child element.
+        if is_root && !options.key?(:use_prefix)
+          stored_plan = options[:__stored_plan]
+          if stored_plan.respond_to?(:root_node) && stored_plan.root_node.respond_to?(:hoisted_declarations)
+            root_has_input_prefix = xml_element.instance_variable_get(:@__xml_namespace_prefix).to_s != ""
+
+            unless root_has_input_prefix
+              stored_hoisted = stored_plan.root_node.hoisted_declarations
+              original_ns_uris = options[:__original_namespace_uris] || {}
+
+              stored_hoisted.each do |prefix, uri|
+                effective_uri = original_ns_uris[uri] || uri
+                already_present = hoisted.any? { |_k, v| v == effective_uri || v == uri }
+                if already_present && !hoisted.key?(prefix)
+                  hoisted[prefix] = uri
+                end
+              end
+            end
+          end
+        end
+
         # Determine if child needs xmlns="" (W3C compliance)
         # W3C XML Namespaces 1.0 §6.2: When parent has default namespace and child
         # has NO namespace (namespace_class is nil), child MUST explicitly opt out
@@ -859,7 +891,10 @@ module Lutaml
                        # ALWAYS use the "xsi" prefix. They should never inherit element prefix.
                        # They conventionally belong to the XSI namespace.
                        attr_name = xml_attr.name.to_s
-                       if attr_name.start_with?("xmlns", "xsi:")
+                       # Skip xmlns attributes (default "xmlns" or prefixed "xmlns:...")
+                       # and xsi:* attributes. Do NOT skip regular attribute
+                       # prefixes like "xmlns_1.0" (valid NCName).
+                       if attr_name == "xmlns" || attr_name.start_with?("xmlns:") || attr_name.start_with?("xsi:")
                          nil
                        else
                          element_ns_class&.prefix_default
@@ -994,27 +1029,27 @@ module Lutaml
           end
         end
 
-        # For the ROOT element: always use DecisionEngine (model's prefix_default).
-        # The root's format should be determined by the namespace's default, not the input.
-        # This prevents mixed content roots from using input prefixes like "examplecom:".
-        #
-        # For CHILD elements: use input prefix when it differs from model default.
-        # This handles doubly-defined namespaces where input uses "xyzabc:" but
-        # the input uses a different prefix than the model defines (e.g., input has
-        # "xyzabc:" but model has prefix_default "a:").
-        #
-        # When used_prefix == model_default_prefix, fall through to DecisionEngine
-        # to preserve the original format decision (default vs prefix).
-        if used_prefix && !is_root
-          ns_class = xml_element.namespace_class
-          model_default_prefix = ns_class.prefix_default
-
-          # Only use used_prefix when it differs from model default
-          # This preserves arbitrary input prefixes (xyzabc:) while allowing
-          # the DecisionEngine to decide format when input matches model default.
-          if model_default_prefix.nil? || used_prefix != model_default_prefix
-            return used_prefix
+        # For the ROOT element: check input_prefix_formats to preserve format.
+        # When input uses default namespace (xmlns="uri"), the root should stay
+        # in default format — not switch to the model's prefix_default.
+        # This is critical for doubly-defined namespaces where the root uses
+        # default format but children use a different prefix.
+        # Only applies when no explicit format override is given (use_prefix option).
+        if is_root && xml_element.namespace_class && !options.key?(:use_prefix)
+          stored_plan = options[:__stored_plan]
+          if stored_plan.respond_to?(:input_prefix_formats)
+            default_key = ":#{xml_element.namespace_class.uri}"
+            if stored_plan.input_prefix_formats[default_key] == :default
+              return nil
+            end
           end
+        end
+
+        # CRITICAL: Always use used_prefix when it exists - this preserves
+        # the actual prefix format from input XML (e.g., xhtml:div).
+        # DecisionEngine fallback is only needed when we have no input prefix info.
+        if used_prefix && !is_root
+          return used_prefix
         end
 
         # Use the OOP decision resolver
@@ -1109,16 +1144,21 @@ module Lutaml
             end
           end
           # Check if namespace is hoisted on parent
-          ns_hoisted_by_parent = parent_hoisted.value?(ns_uri)
+          # Also check alias URIs when original_namespace_uris is present
+          original_ns_uris = options[:__original_namespace_uris] || {}
+          effective_ns_uri = original_ns_uris[ns_uri] || ns_uri
+          ns_hoisted_by_parent = parent_hoisted.value?(ns_uri) || parent_hoisted.value?(effective_ns_uri)
 
           # Check if namespace is hoisted to root via namespace_scope (for non-root elements)
           ns_hoisted_to_root = element_ns_hoisted_to_root && !is_root
 
           # Determine the prefix to use for this namespace
           if !ns_hoisted_by_parent && !ns_hoisted_to_root
-            # Namespace is NOT already hoisted - need to determine prefix
-            element_prefix = determine_element_prefix(xml_element, mapping,
-                                                      needs, options, is_root: is_root, parent_hoisted: parent_hoisted)
+            # Namespace is NOT already hoisted - use element_prefix from
+            # build_element_node (already computed with element_used_prefix).
+            # Do NOT re-call determine_element_prefix here — it would lose
+            # element_used_prefix context and return a different result.
+            # element_prefix is nil when the element uses default namespace format.
 
             # W3C elementFormDefault="unqualified": prefer prefix format so children
             # can be in blank namespace (no xmlns attribute). Only for non-root elements
@@ -1129,17 +1169,21 @@ module Lutaml
               element_prefix = ns_class.prefix_default || "ns"
             end
 
-            hoisted[element_prefix] = ns_uri
+            # Use effective URI (alias) when available for namespace alias round-trip fidelity
+            hoisted[element_prefix] = effective_ns_uri
           elsif element_prefix
             # Namespace is already hoisted by parent, and we have an explicit prefix
             # Check if parent has the SAME prefix declaration
-            parent_has_same_prefix = parent_hoisted.key?(element_prefix) && parent_hoisted[element_prefix] == ns_uri
+            # Compare using effective URI (alias) when original_namespace_uris is present
+            parent_has_same_prefix = parent_hoisted.key?(element_prefix) &&
+              [ns_uri, effective_ns_uri].include?(parent_hoisted[element_prefix])
             if parent_has_same_prefix
               # Parent already declared this namespace with the same prefix - don't re-declare
               # Just keep track that we're using the parent's prefix (no need to add to hoisted)
             else
               # Parent has different prefix or no prefix - add our declaration
-              hoisted[element_prefix] = ns_uri
+              # Use effective URI (alias) when available for namespace alias round-trip fidelity
+              hoisted[element_prefix] = effective_ns_uri
             end
           else
             # Namespace is hoisted by parent, and we don't have an explicit prefix
@@ -1189,6 +1233,11 @@ module Lutaml
 
             if should_declare_here
               prefix = ns_class.prefix_default
+              stored_plan = options[:__stored_plan]
+              if is_root && stored_plan
+                root_hoisted = stored_plan.root_node&.hoisted_declarations || {}
+                next unless root_hoisted.key?(prefix) || root_hoisted.value?(ns_class.uri)
+              end
               hoisted[prefix] = ns_class.uri
             end
           end

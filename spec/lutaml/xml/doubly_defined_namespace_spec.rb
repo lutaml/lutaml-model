@@ -75,6 +75,37 @@ RSpec.describe "Doubly-defined namespace prefixes" do
       expect(output).to include('xmlns:a="http://example.com/items"')
       expect(output).to include("<a:item>hello</a:item>")
     end
+
+    it "round-trips doubly-defined: default ns + prefixed child on root" do
+      xml = <<~XML
+        <root xmlns="http://example.com/items" xmlns:b="http://example.com/items">
+          <b:item>hello</b:item>
+        </root>
+      XML
+
+      model = model_class.from_xml(xml)
+      expect(model.item).to eq("hello")
+
+      output = model.to_xml
+      expect(output).to include('xmlns="http://example.com/items"')
+      expect(output).to include('xmlns:b="http://example.com/items"')
+      expect(output).to include("<b:item>hello</b:item>")
+    end
+
+    it "round-trips doubly-defined: only prefixed ns on root" do
+      xml = <<~XML
+        <root xmlns:c="http://example.com/items">
+          <c:item>hello</c:item>
+        </root>
+      XML
+
+      model = model_class.from_xml(xml)
+      expect(model.item).to eq("hello")
+
+      output = model.to_xml
+      expect(output).to include('xmlns:c="http://example.com/items"')
+      expect(output).to include("<c:item>hello</c:item>")
+    end
   end
 
   describe "cross-parse: explicit format override" do
@@ -173,9 +204,25 @@ RSpec.describe "Doubly-defined namespace prefixes" do
 
       output = model.to_xml
       expect(output).to include('xmlns:xyzabc="http://example.com/items"')
-      # Note: Inner has attributes, so no ">" immediately after the tag name
-      expect(output).to include("<xyzabc:Inner ")
+      expect(output).to include("<xyzabc:Inner>")
       expect(output).to include("<xyzabc:name>from xyzabc</xyzabc:name>")
+    end
+
+    it "round-trips doubly-defined: default ns on outer, prefixed child" do
+      xml = <<~XML
+        <Outer xmlns="http://example.com/items" xmlns:d="http://example.com/items">
+          <d:Inner><d:name>from d</d:name></d:Inner>
+        </Outer>
+      XML
+
+      model = outer_class.from_xml(xml)
+      expect(model.child.name).to eq("from d")
+
+      output = model.to_xml
+      expect(output).to include('xmlns="http://example.com/items"')
+      expect(output).to include('xmlns:d="http://example.com/items"')
+      expect(output).to include("<d:Inner>")
+      expect(output).to include("<d:name>from d</d:name>")
     end
   end
 

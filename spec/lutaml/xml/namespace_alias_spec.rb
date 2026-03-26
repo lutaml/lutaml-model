@@ -201,13 +201,15 @@ RSpec.describe "Namespace alias support" do
       model = outer_class.from_xml(xml)
       expect(model.child.name).to eq("from alias")
 
-      # Verify original namespace URI is stored
-      original_uri = model.child.instance_variable_get(:@__xml_original_namespace_uri)
-      expect(original_uri).to eq("http://example.com/items/")
+      # Verify original namespace URI is stored in DeclarationPlan
+      stored_plan = model.__input_declaration_plan
+      expect(stored_plan&.original_namespace_uris).to eq(
+        { "http://example.com/items" => "http://example.com/items/" },
+      )
 
       output = model.to_xml
       expect(output).to include('xmlns:xyzabc="http://example.com/items/"')
-      expect(output).to include("<xyzabc:Inner ")
+      expect(output).to include("<xyzabc:Inner>")
       expect(output).to include("<xyzabc:name>from alias</xyzabc:name>")
     end
   end

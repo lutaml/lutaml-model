@@ -116,7 +116,7 @@ model_class, register_id)
           rule_ns_uri = rule.namespace_class&.uri
           return rule.matches_name?(name) if rule_ns_uri.nil?
 
-          rule.matches_name?(name) && rule_ns_uri == object_ns_uri
+          rule.matches_name?(name) && rule.namespace_class&.all_uris&.include?(object_ns_uri)
         end
 
         def process_element_order_item(object, root, model_instance, options,

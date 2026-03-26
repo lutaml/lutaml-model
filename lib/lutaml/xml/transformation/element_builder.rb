@@ -251,9 +251,15 @@ child_transformation)
             # Set on XmlElement so NamespaceCollector reads it.
             # The value will be set on the model instance above (via @__xml_namespace_prefix)
             # and we'll set it on XmlElement too so collection phase picks it up.
+          elsif ns_prefix && !ns_prefix.empty? && value.instance_variable_get(:@__xml_namespace_prefix) == ns_prefix
+            # Model instance has @__xml_namespace_prefix set - also set on XmlElement wrapper
+            # so NamespaceCollector can read it during collection phase.
+            # Transform first, then set on the created XmlElement.
+            child_element = child_transformation.transform(value, child_options)
+            child_element.instance_variable_set(:@__xml_namespace_prefix, ns_prefix)
+          else
+            child_element = child_transformation.transform(value, child_options)
           end
-
-          child_element = child_transformation.transform(value, child_options)
 
           # For mixed content support: clear @__xml_namespace_prefix on child XmlElement
           # when the parent XmlElement has an explicit namespace prefix.

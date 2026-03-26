@@ -273,9 +273,22 @@ module Lutaml
           location_data[path_key] = hoisted
         end
 
+        # Populate original_namespace_uris: identify alias URIs in input_formats
+        # and map canonical URI => original alias URI for round-trip fidelity.
+        original_namespace_uris = {}
+        registry = Lutaml::Xml::NamespaceClassRegistry.instance
+        input_formats.each_key do |uri|
+          ns_class = registry.find_by_uri_or_alias(uri)
+          next unless ns_class
+          next if ns_class.uri == uri # canonical URI, not an alias
+
+          original_namespace_uris[ns_class.uri] = uri
+        end
+
         plan = new(root_node: root_node, global_prefix_registry: registry,
                    input_formats: input_formats,
-                   input_prefix_formats: input_prefix_formats)
+                   input_prefix_formats: input_prefix_formats,
+                   original_namespace_uris: original_namespace_uris)
         plan.instance_variable_set(:@namespace_locations, location_data)
         plan
       end

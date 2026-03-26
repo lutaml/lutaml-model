@@ -60,16 +60,6 @@ module Lutaml
               root.instance_variable_set(:@__xml_namespace_prefix, ns_prefix)
             end
           end
-
-          # Preserve original namespace URI for namespace alias support.
-          # When the model's namespace URI differs from the canonical URI (it's an alias),
-          # transfer this information to the XmlElement so it can be used during
-          # serialization for round-trip fidelity.
-          original_ns_uri = model_instance.instance_variable_get(:@__xml_original_namespace_uri)
-          if original_ns_uri && !original_ns_uri.empty?
-            root.instance_variable_set(:@__xml_original_namespace_uri,
-                                       original_ns_uri)
-          end
         end
 
         # Mark that this element needs xmlns="" (for DeclarationPlanner)

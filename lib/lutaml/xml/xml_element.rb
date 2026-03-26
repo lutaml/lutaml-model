@@ -188,7 +188,10 @@ module Lutaml
       end
 
       def attribute_is_namespace?(name)
-        name.to_s.start_with?(XMLNS_PREFIX)
+        name_str = name.to_s
+        # Match "xmlns" (default namespace) or "xmlns:..." (prefixed namespace).
+        # Do NOT match regular attribute prefixes like "xmlns_1.0" (valid NCName).
+        name_str == "xmlns" || name_str.start_with?("xmlns:")
       end
 
       def add_namespace(namespace)

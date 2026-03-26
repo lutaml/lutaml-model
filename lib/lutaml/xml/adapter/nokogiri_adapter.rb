@@ -10,6 +10,11 @@ module Lutaml
           # This prevents Nokogiri from dropping data after invalid entities
           xml = escape_unescaped_ampersands(xml)
 
+          # Workaround for Nokogiri bug: comments before XML declaration cause &gt; to be
+          # incorrectly decoded as spaces. Strip comments that appear before <?xml
+          # https://github.com/sparklemotion/nokogiri/issues/2628
+          xml = strip_pre_xml_comments(xml)
+
           parsed = ::Nokogiri::XML(xml, nil, encoding(xml, options))
 
           # Validate that we have a root element
@@ -60,6 +65,17 @@ module Lutaml
                    "&amp;")
         end
 
+        # Strip comments that appear before the XML declaration
+        #
+        # Nokogiri bug: comments before <?xml cause &gt; to be incorrectly decoded as spaces.
+        # This is a workaround that removes comments that appear before the XML declaration.
+        # See: https://github.com/sparklemotion/nokogiri/issues/2628
+        def self.strip_pre_xml_comments(xml)
+          # Remove comments that appear before <?xml
+          # Pattern: <!--...--> followed by whitespace before <?xml
+          xml.sub(/^(\s*<!--.*?-->\s*)+(?=\s*<\?xml)/m, "")
+        end
+
         def to_xml(options = {})
           # Accept xml_declaration from options if present (for model serialization)
           @xml_declaration = options[:xml_declaration] if options[:xml_declaration]
@@ -92,36 +108,23 @@ module Lutaml
                               transformation.transform(root, options)
                             end
 
-              # Collect original namespace URIs for namespace alias support.
+              # Read original namespace URIs from the stored input DeclarationPlan.
               # This enables round-trip fidelity when XML uses alias URIs.
+              # The plan carries original_namespace_uris as first-class public data.
               original_ns_uris = {}
-              if original_model
-                # Case C: Model instance was transformed to XmlElement
-                mapping_for_original = options[:mapper_class]&.mappings_for(:xml) || original_model.class.mappings_for(:xml)
-                original_ns_uris = collect_original_namespace_uris(
-                  original_model, mapping_for_original
-                )
-              elsif xml_element.is_a?(Lutaml::Xml::DataModel::XmlElement)
-                # Case B: XmlElement from transformation may have @__xml_original_namespace_uri
-                original_ns_uri = xml_element.instance_variable_get(:@__xml_original_namespace_uri)
-                if original_ns_uri
-                  # Get mapping from the mapper_class (model class) not from XmlElement
-                  mapper_klass = options[:mapper_class] || xml_element.class
-                  xml_mapping = begin
-                    mapper_klass.mappings_for(:xml)
-                  rescue StandardError
-                    nil
-                  end
-                  if xml_mapping&.namespace_class
-                    canonical_uri = xml_mapping.namespace_class.uri
-                    if canonical_uri != original_ns_uri
-                      original_ns_uris[canonical_uri] =
-                        original_ns_uri
-                    end
-                  end
-                end
+              if original_model.respond_to?(:__input_declaration_plan)
+                stored_plan = original_model.__input_declaration_plan
+                original_ns_uris = stored_plan&.original_namespace_uris || {}
+              elsif options[:__stored_plan]
+                original_ns_uris = options[:__stored_plan].original_namespace_uris || {}
               end
               options_with_original_ns = options.merge(__original_namespace_uris: original_ns_uris)
+
+              # Pass stored input plan so the new plan can access input_prefix_formats
+              # for format preservation (doubly-defined namespace round-trip)
+              if original_model.respond_to?(:__input_declaration_plan)
+                options_with_original_ns[:__stored_plan] = original_model.__input_declaration_plan
+              end
 
               mapper_class = options[:mapper_class] || xml_element.class
               mapping = mapper_class.mappings_for(:xml)
@@ -763,7 +766,12 @@ module Lutaml
 
           if target_namespace_class && target_namespace_class != :blank
             target_uri = target_namespace_class.uri
-            ns = element.namespace_scopes.find { |n| n.href == target_uri }
+            # Resolve to effective URI (alias) when original namespace URIs are present.
+            # When the input XML uses alias URIs, the xmlns declarations use the alias,
+            # but target_namespace_class.uri is the canonical URI. We need to match
+            # against the actual declared URIs in the document.
+            effective_target_uri = original_ns_uris[target_uri] || target_uri
+            ns = element.namespace_scopes.find { |n| n.href == effective_target_uri }
             if ns
               element.namespace = ns
             else
@@ -772,7 +780,7 @@ module Lutaml
               # child should use parent's namespace declaration without re-declaring it
               target_prefix = element_node.use_prefix
               parent_has_namespace = parent&.namespace_scopes&.any? do |n|
-                n.href == target_uri
+                n.href == effective_target_uri
               end
 
               if parent_has_namespace
@@ -780,12 +788,12 @@ module Lutaml
                 parent_ns = if target_prefix
                               # Child wants prefix format - check if parent has prefix declaration
                               parent.namespace_scopes.find do |n|
-                                n.href == target_uri && n.prefix == target_prefix
+                                n.href == effective_target_uri && n.prefix == target_prefix
                               end
                             else
                               # Child wants default format - check if parent has default declaration
                               parent.namespace_scopes.find do |n|
-                                n.href == target_uri && n.prefix.nil?
+                                n.href == effective_target_uri && n.prefix.nil?
                               end
                             end
 
@@ -800,33 +808,33 @@ module Lutaml
                   # Parent has different format - add namespace declaration locally
                   if target_prefix.nil?
                     # Default format: add xmlns="uri" declaration
-                    element.add_namespace(nil, target_uri)
+                    element.add_namespace(nil, effective_target_uri)
                     # Find the newly added namespace and set it
                     ns = element.namespace_scopes.find do |n|
-                      n.href == target_uri
+                      n.href == effective_target_uri
                     end
                   else
                     # Prefix format: add xmlns:prefix="uri" declaration
-                    element.add_namespace(target_prefix, target_uri)
+                    element.add_namespace(target_prefix, effective_target_uri)
                     # Find the newly added namespace and set it
                     ns = element.namespace_scopes.find do |n|
-                      n.href == target_uri && n.prefix == target_prefix
+                      n.href == effective_target_uri && n.prefix == target_prefix
                     end
                   end
                   element.namespace = ns if ns
                 end
               elsif target_prefix.nil?
                 # Default format: add xmlns="uri" declaration
-                element.add_namespace(nil, target_uri)
+                element.add_namespace(nil, effective_target_uri)
                 # Find the newly added namespace and set it
-                ns = element.namespace_scopes.find { |n| n.href == target_uri }
+                ns = element.namespace_scopes.find { |n| n.href == effective_target_uri }
                 element.namespace = ns if ns
               else
                 # Prefix format: add xmlns:prefix="uri" declaration
-                element.add_namespace(target_prefix, target_uri)
+                element.add_namespace(target_prefix, effective_target_uri)
                 # Find the newly added namespace and set it
                 ns = element.namespace_scopes.find do |n|
-                  n.href == target_uri && n.prefix == target_prefix
+                  n.href == effective_target_uri && n.prefix == target_prefix
                 end
                 element.namespace = ns if ns
               end
@@ -868,7 +876,10 @@ module Lutaml
           # Skip xmlns attributes - they are already declared via hoisted_declarations
           # and setting them as attributes creates duplicate namespace declarations
           xml_element.attributes.each_with_index do |xml_attr, idx|
-            next if xml_attr.name.to_s.start_with?("xmlns")
+            attr_name = xml_attr.name.to_s
+            # Skip xmlns attributes (default "xmlns" or prefixed "xmlns:...")
+            # but NOT regular attribute prefixes like "xmlns_1.0"
+            next if attr_name == "xmlns" || attr_name.start_with?("xmlns:")
 
             attr_node = element_node.attribute_nodes[idx]
             element[attr_node.qualified_name] = xml_attr.value

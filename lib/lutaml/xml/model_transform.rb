@@ -43,19 +43,6 @@ module Lutaml
             instance.instance_variable_set(:@__xml_namespace_prefix,
                                            root_ns_prefix)
           end
-          # Track original namespace URI for namespace alias support.
-          #
-          # When root element's namespace URI differs from the model's canonical URI,
-          # it's an alias that should be preserved during serialization.
-          root_ns_uri = root_element.namespace_uri
-          if root_ns_uri
-            model_ns_class = instance.class.mappings_for(:xml)&.namespace_class
-            if model_ns_class && model_ns_class.uri != root_ns_uri
-              # root_ns_uri differs from canonical - preserve it (alias or other)
-              instance.instance_variable_set(:@__xml_original_namespace_uri,
-                                             root_ns_uri)
-            end
-          end
 
           # Extract namespace declarations from the parsed element tree.
           # This captures ALL xmlns declarations (including unused ones) from the input
@@ -535,24 +522,6 @@ mixed_content_option)
               prefixes = instance.instance_variable_get(:@__xml_ns_prefixes) || {}
               prefixes[attr.name] = ns_prefix
               instance.instance_variable_set(:@__xml_ns_prefixes, prefixes)
-            end
-
-            # Track original alias URI for namespace alias support.
-            # When parsing XML with alias URIs (e.g., "http://.../") against a namespace
-            # class with canonical URI (e.g., "http://.../reqif.xsd"), store the original
-            # alias URI so it can be serialized back correctly.
-            child_uri = if child.is_a?(::Lutaml::Xml::XmlElement)
-                          child.namespace_uri
-                        end
-            if child_uri && cast_result.is_a?(::Lutaml::Model::Serialize)
-              child_mapping = cast_result.class.mappings_for(:xml)
-              child_ns_class = child_mapping&.namespace_class
-              if child_ns_class && child_ns_class.uri != child_uri
-                # Child's URI differs from canonical - it's an alias
-                cast_result.instance_variable_set(
-                  :@__xml_original_namespace_uri, child_uri
-                )
-              end
             end
 
             if cast_result.is_a?(::Lutaml::Model::Serialize) && ns_prefix

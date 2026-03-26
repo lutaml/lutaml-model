@@ -1078,7 +1078,7 @@ module Lutaml
           return candidates.first if namespace_uri.nil? || candidates.one?
 
           candidates.find do |r|
-            r.namespace_class&.uri == namespace_uri
+            r.namespace_class&.all_uris&.include?(namespace_uri)
           end || candidates.first
         end
       end
