@@ -116,7 +116,7 @@ RSpec.describe "Doubly-defined namespace prefixes" do
       XML
 
       model = model_class.from_xml(xml)
-      plan = model.instance_variable_get(:@__input_declaration_plan)
+      plan = model.xml_declaration_plan
 
       expect(plan).to be_a(Lutaml::Xml::DeclarationPlan)
       expect(plan.input_prefix_formats).to include("xyzabc:http://example.com/items" => :prefix)
@@ -126,7 +126,7 @@ RSpec.describe "Doubly-defined namespace prefixes" do
       xml = '<root xmlns="http://example.com/items"><item>x</item></root>'
 
       model = model_class.from_xml(xml)
-      plan = model.instance_variable_get(:@__input_declaration_plan)
+      plan = model.xml_declaration_plan
 
       expect(plan).to be_a(Lutaml::Xml::DeclarationPlan)
       expect(plan.input_prefix_formats).to include(":http://example.com/items" => :default)

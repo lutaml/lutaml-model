@@ -162,10 +162,10 @@ module Lutaml
             # Retrieve stored declaration plan from model instance for namespace preservation.
             # This plan captures the original namespace declarations from the parsed XML,
             # enabling round-trip fidelity for unused namespaces (like xmlns:xi for XInclude).
-            if format == :xml && instance.respond_to?(:__input_declaration_plan) &&
-                !options.key?(:__stored_plan)
-              stored_plan = instance.__input_declaration_plan
-              options[:__stored_plan] = stored_plan if stored_plan
+            if format == :xml && instance.respond_to?(:xml_declaration_plan) &&
+                !options.key?(:stored_xml_declaration_plan)
+              stored_plan = instance.xml_declaration_plan
+              options[:stored_xml_declaration_plan] = stored_plan if stored_plan
             end
 
             adapter.new(value, register: options[:register]).public_send(

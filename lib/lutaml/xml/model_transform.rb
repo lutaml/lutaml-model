@@ -63,7 +63,7 @@ module Lutaml
           # all namespaces declared at the root level.
           input_declaration_plan = build_input_declaration_plan(root_element)
           if input_declaration_plan
-            instance.__input_declaration_plan = input_declaration_plan
+            instance.xml_declaration_plan = input_declaration_plan
           end
         end
         root_and_parent_assignment(instance, options)
