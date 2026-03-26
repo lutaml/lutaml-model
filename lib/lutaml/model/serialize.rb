@@ -27,8 +27,8 @@ module Lutaml
         empty: :empty,
       }.freeze
 
-      INTERNAL_ATTRIBUTES = %i[@using_default @__register @__parent
-                               @__root].freeze
+      INTERNAL_ATTRIBUTES = %i[@using_default @lutaml_register @lutaml_parent @lutaml_root
+                               @register_records @xml_declaration_plan @xml_input_namespaces].freeze
 
       def self.included(base)
         base.extend(ClassMethods)
@@ -45,7 +45,7 @@ module Lutaml
         include Serialize::ValueMapping
         include Serialize::TransformationBuilder
 
-        attr_accessor :choice_attributes, :mappings
+        attr_accessor :choice_attributes, :mappings, :register_records
       end
 
       # Find the nearest superclass that has an XML mapping.
@@ -236,24 +236,25 @@ module Lutaml
       end
 
       attr_accessor :element_order, :schema_location, :encoding, :doctype,
-                    :__register, :__parent, :__root, :__input_declaration_plan
+                    :lutaml_register, :lutaml_parent, :lutaml_root, :xml_declaration_plan
       attr_writer :ordered, :mixed
 
       def initialize(attrs = {}, options = {})
         @using_default = {}
-        @__register = extract_register_id(attrs, options)
-        return unless self.class.attributes(__register)
+        @lutaml_register = extract_register_id(attrs, options)
+        return unless self.class.attributes(@lutaml_register)
 
         set_ordering(attrs)
         set_schema_location(attrs)
         set_doctype(attrs)
         initialize_attributes(attrs, options)
+        define_singleton_attribute_methods
 
         register_in_reference_store
       end
 
       def extract_register_id(attrs, options)
-        register = attrs&.dig(:__register) || options&.dig(:register)
+        register = attrs&.dig(:lutaml_register) || options&.dig(:register)
         self.class.extract_register_id(register)
       end
 
@@ -272,8 +273,8 @@ module Lutaml
 
       def attr_value(attrs, name, attribute)
         value = Utils.fetch_str_or_sym(attrs, name,
-                                       attribute.default(__register, self))
-        attribute.cast_value(value, __register)
+                                       attribute.default(lutaml_register, self))
+        attribute.cast_value(value, lutaml_register)
       end
 
       def using_default_for(attribute_name)
@@ -307,14 +308,14 @@ module Lutaml
       def attribute_exist?(name)
         name = name.to_s.chomp("=").to_sym if name.end_with?("=")
 
-        self.class.attributes.key?(name)
+        self.class.attributes(lutaml_register).key?(name)
       end
 
       def validate_attribute!(attr_name)
         attr = self.class.attributes[attr_name]
         value = instance_variable_get(:"@#{attr_name}")
-        resolver = Services::DefaultValueResolver.new(attr, __register, self)
-        attr.validate_value!(value, __register, resolver)
+        resolver = Services::DefaultValueResolver.new(attr, lutaml_register, self)
+        attr.validate_value!(value, lutaml_register, resolver)
       end
 
       def ordered?
@@ -362,9 +363,9 @@ module Lutaml
           options.delete(:prefix)
         end
 
-        # Pass instance's __register if not explicitly provided
-        # NOTE: __register is always defined on Serialize instances
-        options[:register] ||= __register if __register
+        # Pass instance's lutaml_register if not explicitly provided
+        # NOTE: lutaml_register is always defined on Serialize instances
+        options[:register] ||= lutaml_register if lutaml_register
 
         options[:parse_encoding] = encoding if encoding
         options[:doctype] = doctype if format == :xml && doctype
@@ -375,14 +376,14 @@ module Lutaml
         end
 
         # Pass input namespaces for Issue #3: Namespace Preservation
-        if format == :xml && @__input_namespaces&.any?
-          options[:input_namespaces] = @__input_namespaces
+        if format == :xml && @xml_input_namespaces&.any?
+          options[:input_namespaces] = @xml_input_namespaces
         end
 
         # Pass stored DeclarationPlan for format preservation
-        # NOTE: __input_declaration_plan is always defined on Serialize instances
-        if format == :xml && __input_declaration_plan
-          options[:__stored_plan] = __input_declaration_plan
+        # NOTE: xml_declaration_plan is always defined on Serialize instances
+        if format == :xml && xml_declaration_plan
+          options[:stored_xml_declaration_plan] = xml_declaration_plan
         end
 
         self.class.to(format, self, options)
@@ -392,7 +393,7 @@ module Lutaml
 
       def validate_root_mapping!(format, options)
         return if format != :xml
-        return if options[:collection] || self.class.root?(__register)
+        return if options[:collection] || self.class.root?(lutaml_register)
 
         raise Lutaml::Model::NoRootMappingError.new(self.class)
       end
@@ -416,11 +417,45 @@ module Lutaml
         self.doctype = attrs[:doctype]
       end
 
+      # Define attribute accessor methods on the instance's singleton class
+      # for attributes that are register-specific (not defined at class level).
+      def define_singleton_attribute_methods
+        return if lutaml_register == :default
+
+        # Access class-level register_records via self.class to avoid
+        # triggering ensure_imports! which would resolve types in wrong context
+        reg_records = self.class.register_records
+        return unless reg_records
+
+        reg_record = reg_records[lutaml_register]
+        return unless reg_record
+
+        reg_record_attrs = reg_record[:attributes] || {}
+        # @attributes contains default register's class-level attributes
+        default_attrs = self.class.instance_variable_get(:@attributes) || {}
+
+        reg_record_attrs.each do |name, attr|
+          # Skip if already defined at class level (from default register)
+          next if default_attrs.key?(name)
+
+          # Define getter on singleton class
+          singleton_class.define_method(name) do
+            instance_variable_get(:"@#{name}")
+          end
+
+          # Define setter on singleton class with type casting
+          singleton_class.define_method(:"#{name}=") do |value|
+            value = attr.cast_value(value, lutaml_register)
+            instance_variable_set(:"@#{name}", value)
+          end
+        end
+      end
+
       def initialize_attributes(attrs, options = {})
         # Performance: Get value_map once for all attributes
         vmap = value_map(options)
 
-        self.class.attributes(__register).each do |name, attr|
+        self.class.attributes(lutaml_register).each do |name, attr|
           next if attr.derived?
 
           value = determine_value(attrs, name, attr)
@@ -438,9 +473,9 @@ module Lutaml
           return attr_value(attrs, name, attr)
         end
 
-        if attr.default_set?(__register, self)
+        if attr.default_set?(lutaml_register, self)
           using_default_for(name)
-          attr.default(__register, self)
+          attr.default(lutaml_register, self)
         else
           Lutaml::Model::UninitializedClass.instance
         end

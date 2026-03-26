@@ -523,3 +523,32 @@ Style/StringConcatenation:
     - 'lib/lutaml/model/schema/xml_compiler/complex_type.rb'
     - 'lib/lutaml/model/schema/xml_compiler/simple_type.rb'
     - 'lib/lutaml/model/schema/xml_compiler/xml_namespace_class.rb'
+
+# Offense count: 25
+# Lint/DuplicateMethods: Methods defined multiple times in spec files due to test pollution
+# (test classes redefine Object methods across multiple contexts)
+Lint/DuplicateMethods:
+  Exclude:
+    - 'spec/lutaml/xml/decisions/decision_engine_spec.rb'
+    - 'spec/lutaml/xml/namespace_bound_element_roundtrip_spec.rb'
+    - 'spec/lutaml/xml/namespace_scope_declare_spec.rb'
+    - 'spec/lutaml/xml/namespace_scope_vcard_spec.rb'
+    - 'spec/lutaml/xml/prefix_control_spec.rb'
+    - 'spec/lutaml/xml/type_namespace_examples_spec.rb'
+    - 'spec/lutaml/xml/type_namespace_roundtrip_spec.rb'
+
+# Offense count: 5
+# Lint/DuplicateMethods: attr_reader + explicit method definition with same name
+# (pre-existing in original code, rubocop 1.86.0 is stricter)
+Lint/DuplicateMethods:
+  Exclude:
+    - 'lib/lutaml/model/instrumentation.rb'
+    - 'lib/lutaml/xml/mapping.rb'
+    - 'lib/lutaml/xml/xml_element.rb'
+    - 'spec/lutaml/xml/decisions/decision_engine_spec.rb'
+    - 'spec/lutaml/xml/namespace_bound_element_roundtrip_spec.rb'
+    - 'spec/lutaml/xml/namespace_scope_declare_spec.rb'
+    - 'spec/lutaml/xml/namespace_scope_vcard_spec.rb'
+    - 'spec/lutaml/xml/prefix_control_spec.rb'
+    - 'spec/lutaml/xml/type_namespace_examples_spec.rb'
+    - 'spec/lutaml/xml/type_namespace_roundtrip_spec.rb'

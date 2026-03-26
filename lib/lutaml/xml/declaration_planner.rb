@@ -22,7 +22,7 @@ module Lutaml
       # @param root_element [XmlDataModel::XmlElement, Model, nil, Class] root element, model instance, or nil/Class for unit testing
       # @param mapping [Xml::Mapping] the XML mapping
       # @param needs [NamespaceNeeds] namespace needs from collector
-      # @param options [Hash] serialization options (may contain :__stored_plan with input_formats)
+      # @param options [Hash] serialization options (may contain :stored_xml_declaration_plan with input_formats)
       # @return [DeclarationPlan] declaration plan with tree structure
       def plan(root_element, mapping, needs, parent_plan: nil, options: {},
   visited_types: Set.new)
@@ -211,7 +211,7 @@ module Lutaml
         TypeNamespaceResolver.new(@register).resolve(needs)
 
         # Extract input_formats from stored plan if present (format preservation)
-        input_formats = options[:__stored_plan]&.input_formats || {}
+        input_formats = options[:stored_xml_declaration_plan]&.input_formats || {}
         build_options = options.merge(input_formats: input_formats)
 
         # Build namespace_classes hash for unit testing compatibility
@@ -1450,12 +1450,11 @@ module Lutaml
         #
         # CRITICAL: Only preserve namespaces that were ORIGINALLY declared at root.
         # Namespaces declared on child elements in the input should remain on children.
-        #
         # NOTE: Skip PRESERVATION when explicit format preference is set.
         # When user specifies prefix: true/false, that overrides input format.
         has_explicit_pref = options.key?(:prefix) || options.key?(:use_prefix)
         if is_root && !has_explicit_pref
-          stored_plan = options[:__stored_plan]
+          stored_plan = options[:stored_xml_declaration_plan]
 
           # Try location-aware approach first (preferred)
           root_level_namespaces = stored_plan&.namespaces_at_path([])

@@ -21,13 +21,13 @@ RSpec.describe "ParentRootSpec" do
       XML
     end
 
-    it "sets __parent and __root on child model instances" do
+    it "sets lutaml_parent and lutaml_root on child model instances" do
       sample = SampleModel.from_xml(xml)
 
       expect(sample.tags).to all(be_a(SampleModelTag))
       sample.tags.each do |tag|
-        expect(tag.__parent).to be(sample)
-        expect(tag.__root).to be(sample)
+        expect(tag.lutaml_parent).to be(sample)
+        expect(tag.lutaml_root).to be(sample)
       end
     end
   end
@@ -50,13 +50,13 @@ RSpec.describe "ParentRootSpec" do
       }.to_yaml
     end
 
-    it "sets __parent and __root on child model instances" do
+    it "sets lutaml_parent and lutaml_root on child model instances" do
       sample = SampleModel.from_yaml(yaml)
 
       expect(sample.tags).to all(be_a(SampleModelTag))
       sample.tags.each do |tag|
-        expect(tag.__parent).to be(sample)
-        expect(tag.__root).to be(sample)
+        expect(tag.lutaml_parent).to be(sample)
+        expect(tag.lutaml_root).to be(sample)
       end
     end
   end

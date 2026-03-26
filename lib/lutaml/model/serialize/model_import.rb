@@ -29,26 +29,43 @@ module Lutaml
 
         # Import attributes from another model
         #
+        # Deferred path (model is a Symbol/String): stores model reference per-register
+        # and resolves lazily on first access via ensure_imports!.
+        #
+        # Immediate path (model is a Class): merges into class-level @attributes
+        # for default register, or register-specific storage for non-default registers.
+        #
         # @param model [Class, Symbol, String] The model to import from
         # @param register_id [Symbol, nil] The register context
         def import_model_attributes(model, register_id = nil)
           if model.is_a?(Symbol) || model.is_a?(String)
+            reg = extract_register_id(register_id)
             importable_models[:import_model_attributes] << model.to_sym
-            @models_imported = false
-            @choices_imported = false
+            @models_imported = (@models_imported || {}).merge(reg => false)
+            @choices_imported = (@choices_imported || {}).merge(reg => false)
             setup_trace_point
             return
           end
 
-          model.attributes(register_id).each_value do |attr|
-            define_attribute_methods(attr, register_id)
+          reg = extract_register_id(register_id)
+          if reg != :default
+            register_only_import_model_attributes(model, register_id)
+            return
           end
 
+          # Default register: merge into class-level storage
+          model.attributes.each_value { |attr| define_attribute_methods(attr) }
           @attributes.merge!(Utils.deep_dup(model.attributes))
           @choice_attributes.concat(deep_duplicate_choice_attributes(model))
+          # Ensure @models_imported is a hash; migrate from legacy nil/false state
+          @models_imported ||= {}
+          @models_imported[reg] = true
         end
 
         # Import mappings from another model
+        #
+        # Delegates to format-specific import_model_mappings which stores in
+        # register-specific storage when register_id is non-default.
         #
         # @param model [Class] The model to import from
         # @param register_id [Symbol, nil] The register context
@@ -58,7 +75,8 @@ module Lutaml
 
             klass = ::Lutaml::Model::Config.mappings_class_for(format)
             @mappings[format] ||= klass.new
-            @mappings[format].import_model_mappings(model, register_id)
+            mapping = @mappings[format]
+            mapping.import_model_mappings(model, register_id) if mapping.respond_to?(:import_model_mappings)
           end
         end
 
@@ -68,9 +86,10 @@ module Lutaml
         # @param register_id [Symbol, nil] The register context
         def import_model(model, register_id = nil)
           if model.is_a?(Symbol) || model.is_a?(String)
+            reg = extract_register_id(register_id)
             importable_models[:import_model] << model.to_sym
-            @models_imported = false
-            @choices_imported = false
+            @models_imported = (@models_imported || {}).merge(reg => false)
+            @choices_imported = (@choices_imported || {}).merge(reg => false)
             setup_trace_point
             return
           end
@@ -78,6 +97,25 @@ module Lutaml
           import_model_attributes(model, register_id)
           import_model_mappings(model, register_id)
         end
+
+        # Import attributes from another model into register-specific storage only.
+        # Used for non-default registers where attributes should NOT be merged
+        # into the class-level @attributes.
+        #
+        # @param model [Class] The model to import from
+        # @param register_id [Symbol] The register context (must be non-default)
+        def register_only_import_model_attributes(model, register_id)
+          model.attributes(register_id).each_value do |attr|
+            define_attribute_methods(attr, register_id)
+          end
+
+          @register_records[register_id] ||= { attributes: {}, choice_attributes: [] }
+          @register_records[register_id][:attributes].merge!(Utils.deep_dup(model.attributes(register_id)))
+          @register_records[register_id][:choice_attributes].concat(
+            deep_duplicate_choice_attributes(model, register_id),
+          )
+        end
+        private :register_only_import_model_attributes
 
         # Get hash of importable models (deferred imports)
         #
@@ -104,34 +142,30 @@ module Lutaml
           end
         end
 
-        # Ensure all model imports are resolved
+        # Ensure all model imports are resolved for a specific register
         #
         # @param register_id [Symbol, nil] The register context
         def ensure_model_imports!(register_id = nil)
-          return if @models_imported
-
-          # CRITICAL: Prevent re-entrant calls during import resolution
-          # Set flag BEFORE processing to prevent infinite recursion
-          @models_imported = true
-
           register_id ||= Lutaml::Model::Config.default_register
+          @models_imported = {} if @models_imported.nil? || @models_imported == false
+          return if @models_imported[register_id] || Utils.present?(@register_records[register_id][:attributes])
 
-          # Track if all imports were successfully resolved
+          @models_imported[register_id] = true
           all_resolved = true
 
           importable_models.each do |method, models|
             models.uniq.each do |model|
-              model_class = Lutaml::Model::GlobalContext.resolve_type(model,
-                                                                      register_id)
+              model_class = begin
+                Lutaml::Model::GlobalContext.resolve_type(model, register_id)
+              rescue Lutaml::Model::UnknownTypeError
+                nil
+              end
 
-              # Skip if model not registered yet - will retry later
               if model_class.nil?
                 all_resolved = false
                 next
               end
 
-              # CRITICAL: Recursively finalize imported class BEFORE using it
-              # This ensures ALL imports are resolved at definition time, not runtime
               if model_class.is_a?(Class) && model_class.include?(Lutaml::Model::Serialize)
                 model_class.ensure_imports!(register_id)
               end
@@ -141,54 +175,44 @@ module Lutaml
             end
           end
 
-          importable_models.clear
-
-          # CRITICAL: Only mark as imported if ALL imports were successfully resolved
-          # If any were skipped (not registered yet), allow retry later
-          @models_imported = true if all_resolved
+          @models_imported[register_id] = all_resolved
         end
 
-        # Ensure all choice imports are resolved
+        # Ensure all choice imports are resolved for a specific register
         #
         # @param register_id [Symbol, nil] The register context
         def ensure_choice_imports!(register_id = nil)
-          return if @choices_imported
-
           register_id ||= Lutaml::Model::Config.default_register
+          @choices_imported = {} if @choices_imported.nil? || @choices_imported == false
+          return if @choices_imported[register_id] || Utils.present?(@register_records[register_id][:choice_attributes])
 
-          # Track if all imports were successfully resolved
+          @choices_imported[register_id] = true
           all_resolved = true
 
           importable_choices.each do |choice, choice_imports|
             choice_imports.each do |method, models|
-              until models.uniq.empty?
-                model_class = Lutaml::Model::GlobalContext.resolve_type(
-                  models.shift, register_id
-                )
+              models.uniq.each do |model|
+                model_class = begin
+                  Lutaml::Model::GlobalContext.resolve_type(model, register_id)
+                rescue Lutaml::Model::UnknownTypeError
+                  nil
+                end
 
-                # Skip if model not registered yet - will retry later
                 if model_class.nil?
                   all_resolved = false
                   next
                 end
 
-                # CRITICAL: Recursively finalize imported class BEFORE using it
                 if model_class.is_a?(Class) && model_class.include?(Lutaml::Model::Serialize)
                   model_class.ensure_imports!(register_id)
                 end
 
-                choice.public_send(
-                  method,
-                  model_class,
-                  register_id,
-                )
+                choice.public_send(method, model_class, register_id)
               end
             end
           end
 
-          # CRITICAL: Only mark as imported if ALL imports were successfully resolved
-          # If any were skipped (not registered yet), allow retry later
-          @choices_imported = true if all_resolved
+          @choices_imported[register_id] = true if all_resolved
         end
 
         # Ensure all restrict attributes are applied

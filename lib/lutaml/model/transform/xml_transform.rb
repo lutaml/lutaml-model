@@ -3,10 +3,10 @@ module Lutaml
     class XmlTransform < Lutaml::Model::Transform
       def data_to_model(data, _format, options = {})
         if model_class.include?(Lutaml::Model::Serialize)
-          instance = model_class.new({ __register: __register })
+          instance = model_class.new({ lutaml_register: lutaml_register })
         else
           instance = model_class.new
-          register_accessor_methods_for(instance, __register)
+          register_accessor_methods_for(instance, lutaml_register)
         end
         root_and_parent_assignment(instance, options)
         apply_xml_mapping(data, instance, options)
@@ -24,7 +24,7 @@ module Lutaml
         instance.encoding = options[:encoding]
         return instance unless doc
 
-        mappings = options[:mappings] || mappings_for(:xml).mappings
+        mappings = options[:mappings] || mappings_for(:xml, lutaml_register).mappings(lutaml_register)
 
         validate_document!(doc, options)
 
@@ -59,7 +59,7 @@ module Lutaml
                       defaults_used << rule.to
                       if attr
                         resolver = Services::DefaultValueResolver.new(attr,
-                                                                      __register, instance)
+                                                                      lutaml_register, instance)
                         resolver.default
                       else
                         rule.to_value_for(instance)
@@ -84,7 +84,7 @@ module Lutaml
 
       def prepare_options(options)
         opts = Utils.deep_dup(options)
-        opts[:default_namespace] ||= mappings_for(:xml)&.namespace_uri
+        opts[:default_namespace] ||= mappings_for(:xml, lutaml_register)&.namespace_uri
 
         opts
       end
@@ -102,8 +102,8 @@ module Lutaml
         return unless instance.respond_to?(:ordered=)
 
         instance.element_order = doc.root.order
-        instance.ordered = mappings_for(:xml).ordered? || options[:ordered]
-        instance.mixed = mappings_for(:xml).mixed_content? || options[:mixed_content]
+        instance.ordered = mappings_for(:xml, lutaml_register).ordered? || options[:ordered]
+        instance.mixed = mappings_for(:xml, lutaml_register).mixed_content? || options[:mixed_content]
       end
 
       def set_schema_location(instance, doc)
@@ -153,7 +153,7 @@ module Lutaml
 
         return value_for_xml_attribute(doc, rule, rule_names) if rule.attribute?
 
-        attr_type = attr&.type(__register)
+        attr_type = attr&.type(lutaml_register)
 
         children = doc.children.select do |child|
           next false if child.text?
@@ -196,11 +196,11 @@ module Lutaml
           if !rule.has_custom_method_for_deserialization? && attr_type <= Serialize
             cast_options = options.except(:mappings)
             cast_options[:polymorphic] = rule.polymorphic if rule.polymorphic
-            cast_options[:register] = __register
-            cast_options[:__parent] = instance
-            cast_options[:__root] = instance.__root || instance
+            cast_options[:register] = lutaml_register
+            cast_options[:lutaml_parent] = instance
+            cast_options[:lutaml_root] = instance.lutaml_root || instance
 
-            values << attr.cast(child, :xml, __register, cast_options)
+            values << attr.cast(child, :xml, lutaml_register, cast_options)
           elsif attr.raw?
             values << inner_xml_of(child)
           else
@@ -241,7 +241,7 @@ module Lutaml
 
         return value unless cast_value?(attr, rule)
 
-        attr.cast(value, :xml, __register, options)
+        attr.cast(value, :xml, lutaml_register, options)
       end
 
       def cast_value?(attr, rule)
@@ -288,7 +288,7 @@ module Lutaml
         end
 
         # Check if attribute type has namespace
-        type_ns_uri = attr.type_namespace_uri(__register)
+        type_ns_uri = attr.type_namespace_uri(lutaml_register)
 
         if type_ns_uri
           # Use type namespace URI for matching (child.namespaced_name uses URI:localname format)

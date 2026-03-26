@@ -162,7 +162,7 @@ RSpec.describe "RegisterXmlSpec" do
           {
             numerator: RegisterXmlSpec::Mo.new(value: "a"),
             denominator: RegisterXmlSpec::Mi.new(value: "b"),
-            __register: register,
+            lutaml_register: register,
           },
         ),
       )

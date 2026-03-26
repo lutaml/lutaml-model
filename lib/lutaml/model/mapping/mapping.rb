@@ -5,6 +5,8 @@ module Lutaml
         @mappings = []
         @listeners = {} # target => [Listener, ...]
         @parent_mapping = nil
+        @importable_mappings = []
+        @mappings_imported = ::Hash.new { |h, k| h[k] = false }
       end
 
       # Get listeners for a specific target (element name/key).
@@ -73,30 +75,36 @@ module Lutaml
       end
 
       def ensure_mappings_imported!(register_id = nil)
-        return if @mappings_imported
+        register_object = register(register_id)
+        return if @mappings_imported[register_object.id]
 
-        register_id ||= Lutaml::Model::Config.default_register
         importable_mappings.each do |model|
           import_model_mappings(
-            Lutaml::Model::GlobalContext.resolve_type(model, register_id),
-            register_id,
+            register_object.get_class_without_register(model),
+            register_object.id,
           )
         end
+
+        @mappings_imported[register_object.id] = true
       end
 
       private
+
+      attr_accessor :importable_mappings
+
+      def register(register_id = nil)
+        register_id ||= Lutaml::Model::Config.default_register
+        Lutaml::Model::GlobalRegister.lookup(register_id)
+      end
 
       def model_importable?(model)
         model.is_a?(Symbol) || model.is_a?(String)
       end
 
-      def import_mappings_later(model)
+      def import_mappings_later(model, register_id)
+        register_object = register(register_id)
         importable_mappings << model.to_sym
-        @mappings_imported = false
-      end
-
-      def importable_mappings
-        @importable_mappings ||= []
+        @mappings_imported[register_object.id] = false
       end
     end
   end

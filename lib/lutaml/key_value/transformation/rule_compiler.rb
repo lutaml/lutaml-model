@@ -56,7 +56,13 @@ transformation_factory:)
           rules = []
 
           # Compile all mappings (key-value formats don't distinguish elements/attributes)
-          mapping_dsl.mappings.each do |mapping_rule|
+          mappings_to_compile = if @register_id && @register_id != :default &&
+              mapping_dsl.mappings(@register_id).any?
+                                  mapping_dsl.mappings(@register_id)
+                                else
+                                  mapping_dsl.mappings
+                                end
+          mappings_to_compile.each do |mapping_rule|
             rule = compile_rule(mapping_rule, mapping_dsl)
             rules << rule if rule
           end
@@ -150,20 +156,20 @@ transformation_factory:)
                                 child_mappings_value = nil
 
                                 # First try to get child_mappings from the rule
-                                if mapping_rule.respond_to?(:child_mappings) && mapping_rule.child_mappings
+                                if mapping_rule.child_mappings
                                   child_mappings_value = mapping_rule.child_mappings
-                                elsif mapping_rule.respond_to?(:hash_mappings) && mapping_rule.hash_mappings
+                                elsif mapping_rule.hash_mappings
                                   child_mappings_value = mapping_rule.hash_mappings
                                 end
 
                                 # If not found on the rule, check the mapping_dsl for @key_mappings or @value_mappings
-                                if child_mappings_value.nil? && mapping_dsl.respond_to?(:instance_variables)
+                                if child_mappings_value.nil?
                                   # Check for @key_mappings (from map_key)
                                   key_mappings = mapping_dsl.instance_variable_get(:@key_mappings)
                                   if key_mappings
                                     # Extract the key attribute from the __key_mapping rule
                                     # The key_mappings has @to_instance which tells us which attribute is the key
-                                    to_instance = key_mappings.instance_variable_get(:@to_instance) if key_mappings.respond_to?(:instance_variable_get)
+                                    to_instance = key_mappings.instance_variable_get(:@to_instance)
                                     if to_instance
                                       # Create the child_mappings hash format: { id: :key }
                                       child_mappings_value = { to_instance.to_sym => :key }
@@ -196,7 +202,7 @@ transformation_factory:)
           value_map = mapping_rule.instance_variable_get(:@value_map)
 
           # Check if this is a raw mapping (map_all directive)
-          is_raw_mapping = mapping_rule.respond_to?(:raw_mapping?) && mapping_rule.raw_mapping?
+          is_raw_mapping = mapping_rule.raw_mapping?
 
           # Get serialized name (key name in output)
           # For raw mappings, serialized_name is nil (content is merged directly)
@@ -264,13 +270,13 @@ transformation_factory:)
         # @return [Proc, Hash, nil] Value transformer
         def build_value_transformer(mapping_rule, attr)
           # Mapping-level transform takes precedence
-          mapping_transform = mapping_rule.transform if mapping_rule.respond_to?(:transform)
+          mapping_transform = mapping_rule.transform
 
           # Try to get attribute-level transform
-          attr_transform = if attr.respond_to?(:transform)
+          attr_transform = if attr.nil?
+                             nil
+                           else
                              attr.transform
-                           elsif attr.options
-                             attr.options[:transform]
                            end
 
           # Return mapping transform if present and non-empty

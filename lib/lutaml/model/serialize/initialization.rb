@@ -82,6 +82,9 @@ module Lutaml
           @mappings = Utils.deep_dup(source_class.instance_variable_get(:@mappings)) || {}
           @attributes = Utils.deep_dup(source_class.instance_variable_get(:@attributes)) || {}
           @choice_attributes = deep_duplicate_choice_attributes(source_class)
+          @register_records = Utils.deep_dup(
+            source_class.instance_variable_get(:@register_records),
+          ) || ::Hash.new { |hash, key| hash[key] = { attributes: {}, choice_attributes: [] } }
           instance_variable_set(:@model, self)
         end
 
@@ -89,18 +92,39 @@ module Lutaml
         #
         # @param source_class [Class] The source class
         # @return [Array] The duplicated choice attributes
-        def deep_duplicate_choice_attributes(source_class)
+        def deep_duplicate_choice_attributes(source_class, register = nil)
           choice_attrs = Array(source_class.instance_variable_get(:@choice_attributes))
-          choice_attrs.map { |choice_attr| choice_attr.deep_duplicate(self) }
+          choice_attrs.map { |choice_attr| choice_attr.deep_duplicate(self, register) }
         end
 
         # Get all attributes for this model
+        #
+        # Merges class-level attributes with register-specific attributes.
         #
         # @param register [Symbol, nil] The register context
         # @return [Hash] The attributes hash
         def attributes(register = nil)
           ensure_imports!(register) if finalized?
-          @attributes
+          if @register_records&.any?
+            @attributes.merge(@register_records[extract_register_id(register)][:attributes])
+          else
+            @attributes
+          end
+        end
+
+        # Get all choice attributes for this model
+        #
+        # Merges class-level choice attributes with register-specific choice attributes.
+        #
+        # @param register [Symbol, nil] The register context
+        # @return [Array] The choice attributes array
+        def choice_attributes(register = nil)
+          ensure_imports!(register) if finalized?
+          if @register_records&.any?
+            @choice_attributes + @register_records[extract_register_id(register)][:choice_attributes]
+          else
+            @choice_attributes
+          end
         end
 
         # Ensure all imports are resolved
@@ -197,6 +221,14 @@ module Lutaml
           end
         end
 
+        # Get the register record for a specific register ID
+        #
+        # @param register_id [Symbol, nil] The register context
+        # @return [Hash, nil] The register record hash or nil
+        def register_record(register_id = nil)
+          register_records[extract_register_id(register_id)]
+        end
+
         # Convert register parameter to symbol
         #
         # @param name [Symbol, String, nil] The register name
@@ -206,6 +238,14 @@ module Lutaml
         end
 
         private
+
+        # Extract and normalize register ID with default fallback
+        #
+        # @param register [Symbol, String, nil] The register identifier
+        # @return [Symbol] The normalized register ID
+        def extract_register_id(register)
+          register&.to_sym || Lutaml::Model::Config.default_register
+        end
 
         # Issue deprecation warning for class-level namespace usage
         #

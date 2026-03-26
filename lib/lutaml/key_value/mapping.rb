@@ -8,6 +8,7 @@ module Lutaml
         @mappings = {}
         @key_mapping = {}
         @value_mapping = {}
+        @register_mappings = ::Hash.new { |h, k| h[k] = {} }
         @format = format
         @finalized = false
       end
@@ -134,21 +135,30 @@ module Lutaml
         name
       end
 
-      def mappings
-        @mappings.values
+      def mappings(register_id = nil)
+        ensure_mappings_imported!(register_id) if finalized?
+        mappings_hash(register_id).values
       end
 
-      def mappings_hash
-        @mappings
+      def mappings_hash(register_id = nil)
+        if register_id.nil? || register_id == :default
+          @mappings
+        else
+          @mappings.merge(@register_mappings[register_id])
+        end
       end
 
       def import_model_mappings(model, register_id = nil)
-        register_id ||= Lutaml::Model::Config.default_register
-        reg_id = register_id
-        return import_mappings_later(model) if model_importable?(model)
+        reg_id = register(register_id).id
+        return import_mappings_later(model, reg_id) if model_importable?(model)
 
-        @mappings.merge!(Lutaml::Model::Utils.deep_dup(model.mappings_for(@format,
-                                                                          reg_id).mappings_hash))
+        if reg_id == :default
+          @mappings.merge!(::Lutaml::Model::Utils.deep_dup(model.mappings_for(@format, reg_id).mappings_hash))
+        else
+          @register_mappings[register_id].merge!(
+            ::Lutaml::Model::Utils.deep_dup(model.mappings_for(@format, register_id).mappings_hash),
+          )
+        end
       end
 
       def validate!(key, to, with, render_nil, render_empty)
@@ -207,6 +217,8 @@ module Lutaml
       def deep_dup
         self.class.new(@format).tap do |new_mapping|
           new_mapping.instance_variable_set(:@mappings, duplicate_mappings)
+          new_mapping.instance_variable_set(:@register_mappings,
+                                            Lutaml::Model::Utils.deep_dup(@register_mappings))
         end
       end
 

@@ -216,8 +216,7 @@ RSpec.describe Lutaml::KeyValue::Transformation::RuleCompiler do
     context "with attribute-level transform" do
       let(:transform_hash) { { export: lambda(&:upcase) } }
       let(:attr) do
-        double("Attribute", options: { transform: transform_hash },
-                            respond_to?: false)
+        double("Attribute", transform: transform_hash)
       end
 
       it "returns attribute transform when present" do

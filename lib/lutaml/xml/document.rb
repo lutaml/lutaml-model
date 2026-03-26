@@ -247,10 +247,8 @@ module Lutaml
 
         return_register = if register.is_a?(Lutaml::Model::Register)
                             register.id
-                          elsif @root.respond_to?(:__register)
-                            @root.__register
-                          elsif @root.instance_variable_defined?(:@__register)
-                            @root.instance_variable_get(:@__register)
+                          elsif @root.respond_to?(:lutaml_register)
+                            @root.lutaml_register
                           end
         return_register || Lutaml::Model::Config.default_register
       end

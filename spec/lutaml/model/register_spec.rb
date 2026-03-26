@@ -238,6 +238,8 @@ RSpec.describe Lutaml::Model::Register do
       # Reset state to ensure test isolation
       # We need to restore importable_models and importable_choices because they get cleared after import
       RegisterSpec::User.instance_variable_set(:@attributes, {})
+      RegisterSpec::User.instance_variable_set(:@register_records,
+                                               ::Hash.new { |h, k| h[k] = { attributes: {}, choice_attributes: [] } })
       RegisterSpec::User.instance_variable_set(:@models_imported, false)
       RegisterSpec::User.instance_variable_set(:@choices_imported, false)
       # Restore importable_models that were set by import_model_attributes and import_model at class def
@@ -247,25 +249,34 @@ RSpec.describe Lutaml::Model::Register do
       RegisterSpec::User.instance_variable_set(:@importable_models,
                                                importable_models)
 
-      initial_count = RegisterSpec::User.instance_variable_get(:@attributes).count
+      # Check raw storage before import resolution (avoid triggering ensure_imports!)
+      reg_record = RegisterSpec::User.instance_variable_get(:@register_records)
+      initial_count = reg_record[register.id][:attributes].count
       RegisterSpec::User.ensure_imports!(register.id)
-      final_count = RegisterSpec::User.instance_variable_get(:@attributes).count
+      final_count = RegisterSpec::User.attributes(register.id).count
 
       expect(initial_count).to eq(0)
       expect(final_count).to eq(6)
     end
 
     it "tracks changes made to attribute updated using 'restrict'" do
+      # Ensure imports are resolved for the register
+      RegisterSpec::User.ensure_imports!(register.id)
+
       # Ensure restrict_attributes is set for this test
       # (it gets cleared after ensure_restrict_attributes! runs in other tests)
       RegisterSpec::User.instance_variable_set(:@restrict_attributes,
                                                { active: { values: ["yes",
                                                                     "no"] } })
+      RegisterSpec::User.ensure_restrict_attributes!(register.id)
 
+      # AddressFields does not have :choice option on :active
       expect(RegisterSpec::AddressFields.attributes[:active].options.keys).to be_empty
-      expect(RegisterSpec::User.attributes[:active].options.keys).to eq(%i[
-                                                                          choice values
-                                                                        ])
+      # User has :active via choice import which adds :choice option
+      # Attributes are stored in register-specific storage, so access via register
+      expect(RegisterSpec::User.attributes(register.id)[:active].options.keys).to eq(%i[
+                                                                              choice values
+                                                                            ])
     end
   end
 

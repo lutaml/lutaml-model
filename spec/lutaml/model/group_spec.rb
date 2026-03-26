@@ -601,7 +601,7 @@ RSpec.describe "Group" do
         username: "johndoe",
         street: "123 Main St",
         city: "Metropolis",
-        __register: custom_register,
+        lutaml_register: custom_register,
       )
 
       expect(instance.to_yaml(register: custom_register)).to eq(
