@@ -356,9 +356,9 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
           # Session 115 fixed circular requires with module namespacing and autoload
           # register_all resolves all imports, so attributes are populated
           expect(defined?(OOXML::CTOMath)).to eq("constant")
-          expect(OOXML::CTOMath.instance_variable_get(:@attributes)).not_to be_empty
+          expect(OOXML::CTOMath.attributes(:ooxml)).not_to be_empty
           expect(OOXML::CTF.from_xml(xml).to_xml(prefix: "m")).to be_xml_equivalent_to(xml)
-          expect(OOXML::CTF.instance_variable_get(:@attributes)).not_to be_empty
+          expect(OOXML::CTF.attributes(:ooxml)).not_to be_empty
         end
       end
 

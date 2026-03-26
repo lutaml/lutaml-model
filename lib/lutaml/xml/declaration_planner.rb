@@ -1095,7 +1095,7 @@ module Lutaml
           # namespace_locations is keyed by element path (e.g., "child/grandchild")
           # matching the key format from collect_element_namespaces in model_transform.rb.
           # Use element_path for lookup, not xml_element.name (which is just the local name).
-          stored_plan = options[:__stored_plan]
+          stored_plan = options[:stored_xml_declaration_plan]
           if stored_plan && !is_root && element_path.any?
             loc_key = element_path.join("/")
             element_ns_loc = stored_plan.namespace_locations&.dig(loc_key)
