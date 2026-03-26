@@ -406,17 +406,17 @@ module Lutaml
         end
       end
 
-      attr_reader :__register
+      attr_reader :lutaml_register
 
       def initialize(items = [],
-__register: Lutaml::Model::Config.default_register)
+lutaml_register: Lutaml::Model::Config.default_register)
         super()
 
-        @__register = __register
+        @lutaml_register = lutaml_register
         items = [items].compact unless items.is_a?(Array)
 
         type = Lutaml::Model::GlobalContext.resolve_type(
-          self.class.instance_type, @__register
+          self.class.instance_type, @lutaml_register
         )
         self.collection = items.map do |item|
           if item.is_a?(type) || item.is_a?(Lutaml::Model::Serializable)

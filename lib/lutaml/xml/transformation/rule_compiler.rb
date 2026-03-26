@@ -21,14 +21,26 @@ module Lutaml
           rules = []
 
           # Compile element mappings
-          mapping_dsl.elements.each do |mapping_rule|
+          elements_to_compile = if register_id && register_id != :default &&
+              mapping_dsl.elements(register_id).any?
+                                  mapping_dsl.elements(register_id)
+                                else
+                                  mapping_dsl.elements
+                                end
+          elements_to_compile.each do |mapping_rule|
             rule = compile_element_rule(mapping_rule, model_class, register_id,
                                         register)
             rules << rule if rule
           end
 
           # Compile attribute mappings
-          mapping_dsl.attributes.each do |mapping_rule|
+          attributes_to_compile = if register_id && register_id != :default &&
+              mapping_dsl.attributes(register_id).any?
+                                    mapping_dsl.attributes(register_id)
+                                  else
+                                    mapping_dsl.attributes
+                                  end
+          attributes_to_compile.each do |mapping_rule|
             rule = compile_attribute_rule(mapping_rule, model_class,
                                           register_id, register)
             rules << rule if rule
@@ -155,7 +167,7 @@ _register)
 
           # Get attribute name from mapping rule, or use placeholder for custom methods
           attr_name = mapping_rule.to
-          if (attr_name.nil? || (attr_name.respond_to?(:empty?) && attr_name.empty?)) && !custom_methods_value.empty?
+          if (attr_name.nil? || attr_name.empty?) && !custom_methods_value.empty?
             attr_name = :__content__
           end
 
@@ -226,10 +238,8 @@ _register)
 
           attr_transform = if attr.nil?
                              nil
-                           elsif attr.respond_to?(:transform)
+                           else
                              attr.transform
-                           elsif attr.options
-                             attr.options[:transform]
                            end
 
           if mapping_transform && !mapping_transform.empty?
@@ -255,7 +265,7 @@ _register)
         def infer_attribute_name(mapping_rule, custom_methods_value,
 model_class, register_id)
           attr_name = mapping_rule.to
-          if (attr_name.nil? || (attr_name.respond_to?(:empty?) && attr_name.empty?)) && !custom_methods_value.empty?
+          if (attr_name.nil? || attr_name.empty?) && !custom_methods_value.empty?
             if mapping_rule.name
               names = mapping_rule.name.is_a?(Array) ? mapping_rule.name : [mapping_rule.name]
               matched = names.map(&:to_sym).find do |n|

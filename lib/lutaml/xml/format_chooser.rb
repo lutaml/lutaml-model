@@ -97,8 +97,8 @@ module Lutaml
         # we need to preserve the specific prefix format used at each element.
         # Only check if no explicit user preference is set (prefix: true/false overrides this).
         has_explicit_pref = options.key?(:prefix) || options.key?(:use_prefix)
-        if !has_explicit_pref && options[:__stored_plan]
-          stored_plan = options[:__stored_plan]
+        if !has_explicit_pref && options[:stored_xml_declaration_plan]
+          stored_plan = options[:stored_xml_declaration_plan]
           if stored_plan.respond_to?(:input_prefix_formats)
             # Check canonical URI and all aliases
             uris_to_check = [effective_ns_class.uri] + effective_ns_class.uri_aliases
@@ -118,8 +118,8 @@ module Lutaml
         # CRITICAL: This is the format preservation fix from Session 167
         # Only check if no explicit user preference is set (prefix: true/false overrides this).
         unless has_explicit_pref
-          if plan && options[:__stored_plan]
-            stored_plan = options[:__stored_plan]
+          if plan && options[:stored_xml_declaration_plan]
+            stored_plan = options[:stored_xml_declaration_plan]
             input_ns_decl = stored_plan.namespaces.values.find do |decl|
               decl.from_input? && decl.uri == effective_ns_class.uri
             end

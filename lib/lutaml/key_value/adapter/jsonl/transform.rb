@@ -5,7 +5,7 @@ module Lutaml
         class Transform < Lutaml::KeyValue::Transform
           def data_to_model(data, format, options = {})
             mappings = defined_mappings_for(:jsonl) || mappings_for(:json,
-                                                                    __register)
+                                                                    lutaml_register)
 
             super(data, format, options.merge(mappings: mappings))
           end
@@ -14,7 +14,7 @@ module Lutaml
             # For JSONL collections, use jsonl mappings for this collection
             # But let nested instances use their own json mapping
             # by passing :json format without forcing mappings parameter
-            defined_mappings_for(:jsonl) || mappings_for(:json, __register)
+            defined_mappings_for(:jsonl) || mappings_for(:json, lutaml_register)
 
             # Override format to :json - nested instances will auto-select json mappings
             super(instance, :json, options)

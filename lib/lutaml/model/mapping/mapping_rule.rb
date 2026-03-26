@@ -360,7 +360,7 @@ module Lutaml
         return if Utils.initialized?(delegate_value) && !delegate_value.nil?
 
         model.public_send(:"#{delegate}=",
-                          attributes[delegate].type(model.__register).new)
+                          attributes[delegate].type(model.lutaml_register).new)
       end
 
       def handle_transform_method(model, value, attributes)

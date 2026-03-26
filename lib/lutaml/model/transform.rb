@@ -8,16 +8,16 @@ module Lutaml
       end
 
       def self.model_to_data(context, model, format, options = {})
-        register = model.__register if model.respond_to?(:__register)
+        register = model.lutaml_register if model.respond_to?(:lutaml_register)
         new(context, register).model_to_data(model, format, options)
       end
 
-      attr_reader :context, :attributes, :__register
+      attr_reader :context, :attributes, :lutaml_register
 
       def initialize(context, register = nil)
         @context = context
-        @__register = register || Lutaml::Model::Config.default_register
-        @attributes = context.attributes(__register)
+        @lutaml_register = register || Lutaml::Model::Config.default_register
+        @attributes = context.attributes(lutaml_register)
       end
 
       def model_class
@@ -94,31 +94,31 @@ module Lutaml
       def attribute_for_rule(rule)
         return attributes[rule.to] unless rule.delegate
 
-        attributes[rule.delegate].type(__register).attributes[rule.to]
+        attributes[rule.delegate].type(lutaml_register).attributes[rule.to]
       end
 
       def register_accessor_methods_for(object, register)
         klass = object.class
-        Utils.add_method_if_not_defined(klass, :__register) do
-          @__register
+        Utils.add_method_if_not_defined(klass, :lutaml_register) do
+          @lutaml_register
         end
-        Utils.add_method_if_not_defined(klass, :__register=) do |value|
-          @__register = value
+        Utils.add_method_if_not_defined(klass, :lutaml_register=) do |value|
+          @lutaml_register = value
         end
-        object.__register = register
+        object.lutaml_register = register
       end
 
       def root_and_parent_assignment(instance, options)
         root_and_parent_accessor_methods_for(instance)
-        return unless options.key?(:__parent) && options.key?(:__root)
+        return unless options.key?(:lutaml_parent) && options.key?(:lutaml_root)
 
-        instance.__root = options[:__root] || options[:__parent]
-        instance.__parent = options[:__parent]
+        instance.lutaml_root = options[:lutaml_root] || options[:lutaml_parent]
+        instance.lutaml_parent = options[:lutaml_parent]
       end
 
       def root_and_parent_accessor_methods_for(instance)
-        Utils.add_accessor_if_not_defined(instance.class, :__parent)
-        Utils.add_accessor_if_not_defined(instance.class, :__root)
+        Utils.add_accessor_if_not_defined(instance.class, :lutaml_parent)
+        Utils.add_accessor_if_not_defined(instance.class, :lutaml_root)
       end
     end
   end

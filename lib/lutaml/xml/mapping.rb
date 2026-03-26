@@ -63,7 +63,9 @@ module Lutaml
         @mixed_content = false
         @xml_space = nil
         @format = :xml
-        @mappings_imported = true
+        @register_elements = ::Hash.new { |h, k| h[k] = {} }
+        @register_attributes = ::Hash.new { |h, k| h[k] = {} }
+        @register_element_sequences = ::Hash.new { |h, k| h[k] = [] }
         @finalized = false
         @element_name = nil
         @namespace_class = nil
@@ -715,11 +717,23 @@ module Lutaml
         end
       end
 
+      # Import mappings from another model.
+      # For default register: imports BOTH attributes (into @mapper_class) AND mappings.
+      # For non-default register: stores mappings in register-specific storage
+      # (@register_elements, @register_attributes).
+      #
+      # @param model [Class] The model to import from
+      # @param register_id [Symbol, nil] The register context
       def import_model_mappings(model, register_id = nil)
         register_id ||= Lutaml::Model::Config.default_register
         reg_id = register_id
-        return import_mappings_later(model) if model_importable?(model)
+        return import_mappings_later(model, reg_id) if model_importable?(model)
         raise Lutaml::Model::ImportModelWithRootError.new(model) if model.root?(reg_id)
+
+        if register_id != :default
+          register_only_import_model_mappings(model, register_id)
+          return
+        end
 
         # CRITICAL: Access raw mapping structure directly without triggering import resolution
         # Calling model.mappings_for() can trigger ensure_imports! on that model
@@ -749,7 +763,13 @@ module Lutaml
           # Merge attributes data - use direct access to avoid triggering imports
           attrs_hash = imported_attributes.to_h { |attr| [attr.name, attr] }
           existing_attrs = @mapper_class.instance_variable_get(:@attributes) || {}
-          existing_attrs.merge!(attrs_hash)
+          attrs_hash.each do |name, attr|
+            if existing_attrs.key?(name)
+              existing_attrs[name].options.merge!(attr.options)
+            else
+              existing_attrs[name] = attr
+            end
+          end
           @mapper_class.instance_variable_set(:@attributes, existing_attrs)
         end
 
@@ -768,8 +788,29 @@ module Lutaml
         (@element_sequence << imported_sequences).flatten!
       end
 
+      # Register-specific import: stores mappings in register-specific storage
+      # (@register_elements, @register_attributes) without modifying class-level mappings.
+      #
+      # @param model [Class] The model to import mappings from
+      # @param register_id [Symbol] The register context (must be non-default)
+      def register_only_import_model_mappings(model, register_id)
+        mappings = model.instance_variable_get(:@mappings)&.dig(:xml)
+        return unless mappings
+
+        @register_attributes[register_id].merge!(mappings.mapping_attributes_hash(register_id))
+        @register_elements[register_id].merge!(mappings.mapping_elements_hash(register_id))
+        mappings.element_sequence.each do |sequence|
+          @register_element_sequences[register_id] << sequence_dup(sequence)
+        end
+      end
+      private :register_only_import_model_mappings
+
       def set_mappings_imported(value)
-        @mappings_imported = value
+        if @mappings_imported.is_a?(Hash)
+          @mappings_imported.each_key { |k| @mappings_imported[k] = value }
+        else
+          @mappings_imported = value
+        end
       end
 
       def validate!(key, to, with, render_nil, render_empty, type: nil)
@@ -879,14 +920,14 @@ module Lutaml
         end
       end
 
-      def elements
+      def elements(register_id = nil)
         # Flatten arrays that are created when multiple rules have the same element name
-        @elements.values.flat_map { |v| v.is_a?(Array) ? v : [v] }
+        mapping_elements_hash(register_id).values.flat_map { |v| v.is_a?(Array) ? v : [v] }
       end
 
-      def attributes
+      def attributes(register_id = nil)
         # Flatten arrays that are created when multiple rules have the same attribute name
-        @attributes.values.flat_map { |v| v.is_a?(Array) ? v : [v] }
+        mapping_attributes_hash(register_id).values.flat_map { |v| v.is_a?(Array) ? v : [v] }
       end
 
       def content_mapping
@@ -897,9 +938,9 @@ module Lutaml
         @raw_mapping
       end
 
-      def mappings(_register_id = nil)
+      def mappings(register_id = nil)
         # REMOVED LAZY LOADING - imports resolved at class finalization
-        elements + attributes + [content_mapping, raw_mapping].compact
+        elements(register_id) + attributes(register_id) + [content_mapping, raw_mapping].compact
       end
 
       def importable_mappings
@@ -910,7 +951,11 @@ module Lutaml
         # CRITICAL: Return immediately if already imported to prevent redundant processing
         # This prevents the exponential explosion of recursive ensure_imports! calls
         # in complex schemas with hundreds of interdependent classes
-        return if @mappings_imported
+        register_id ||= Lutaml::Model::Config.default_register
+
+        # Use per-register tracking
+        imported_flag = register_id || :default
+        return if @mappings_imported[imported_flag]
 
         # CRITICAL: Prevent re-entrant calls during import processing
         # This prevents infinite loops when importing models that themselves have imports
@@ -922,8 +967,6 @@ module Lutaml
 
         # Mark as currently importing to prevent re-entrance
         @importing_mappings = true
-
-        register_id ||= Lutaml::Model::Config.default_register
 
         # Track if all imports were successfully resolved
         all_resolved = true
@@ -948,11 +991,6 @@ module Lutaml
 
           # Now import the mappings
           import_model_mappings(model_class, register_id)
-        end
-
-        # Clear regular imports queue if all resolved
-        if all_resolved
-          importable_mappings.clear
         end
 
         # CRITICAL FIX: Process sequence importable mappings
@@ -993,7 +1031,7 @@ module Lutaml
         end
 
         # Mark as fully imported only if both queues are empty
-        @mappings_imported = all_resolved && importable_mappings.empty? && sequence_importable_mappings.empty?
+        @mappings_imported[imported_flag] = all_resolved && importable_mappings.empty? && sequence_importable_mappings.empty?
       ensure
         # CRITICAL: Always reset the importing flag to prevent deadlock
         # Even if an exception occurs, we must allow future import attempts
@@ -1008,8 +1046,8 @@ module Lutaml
       #
       # @param name [Symbol, String] the attribute name
       # @return [MappingRule, nil] the matching element rule
-      def find_element(name)
-        elements.detect { |rule| name == rule.to }
+      def find_element(name, register_id = nil)
+        elements(register_id).detect { |rule| name == rule.to }
       end
 
       # Find attribute mapping rule by attribute name
@@ -1051,29 +1089,33 @@ module Lutaml
         raise Lutaml::Model::NoMappingFoundError.new(to.to_s)
       end
 
-      def mapping_attributes_hash
-        @attributes
+      def mapping_attributes_hash(register_id = nil)
+        if register_id.nil? || register_id == :default
+          @attributes
+        else
+          @attributes.merge(@register_attributes[register_id])
+        end
       end
 
-      def mapping_elements_hash
-        @elements
+      def mapping_elements_hash(register_id = nil)
+        if register_id.nil? || register_id == :default
+          @elements
+        else
+          @elements.merge(@register_elements[register_id])
+        end
       end
 
-      def merge_mapping_attributes(mapping)
-        mapping_attributes_hash.merge!(mapping.mapping_attributes_hash)
-      end
-
-      def merge_mapping_elements(mapping)
-        mapping_elements_hash.merge!(mapping.mapping_elements_hash)
+      def sequence_dup(sequence)
+        Lutaml::Model::Sequence.new(self).tap do |instance|
+          sequence.attributes.each do |attr|
+            instance.attributes << attr.deep_dup
+          end
+        end
       end
 
       def merge_elements_sequence(mapping)
         mapping.element_sequence.each do |sequence|
-          element_sequence << Lutaml::Model::Sequence.new(self).tap do |instance|
-            sequence.attributes.each do |attr|
-              instance.attributes << attr.deep_dup
-            end
-          end
+          element_sequence << sequence_dup(sequence)
         end
       end
 
@@ -1093,8 +1135,20 @@ module Lutaml
 
           attributes_to_dup.each do |var_name|
             value = instance_variable_get(var_name)
+            # Skip nil values (e.g., @register_elements not yet initialized on fresh copies)
+            # Accessor methods will lazily initialize when needed
+            next if value.nil?
+
             xml_mapping.instance_variable_set(var_name, ::Lutaml::Model::Utils.deep_dup(value))
           end
+          xml_mapping.instance_variable_set(:@mappings_imported,
+                                            ::Hash.new { |h, k| h[k] = false })
+          xml_mapping.instance_variable_set(:@register_elements,
+                                            ::Hash.new { |h, k| h[k] = {} })
+          xml_mapping.instance_variable_set(:@register_attributes,
+                                            ::Hash.new { |h, k| h[k] = {} })
+          xml_mapping.instance_variable_set(:@register_element_sequences,
+                                            ::Hash.new { |h, k| h[k] = [] })
           xml_mapping.instance_variable_set(:@finalized, true)
           # CRITICAL: Do NOT copy @mapper_class to the duplicate
           # The duplicate may be used in a different class context
@@ -1114,6 +1168,11 @@ module Lutaml
           @element_sequence
           @attributes
           @elements
+          @register_elements
+          @register_attributes
+          @register_element_sequences
+          @mappings_imported
+          @sequence_importable_mappings
         ]
       end
 

@@ -289,7 +289,7 @@ instance_object = nil)
 
       def default_value(register, instance_object = nil)
         if delegate
-          type(register).attributes[to].default(register, instance_object)
+          type(register).attributes(register)[to].default(register, instance_object)
         elsif options[:default].is_a?(Proc)
           if instance_object
             instance_object.instance_exec(&options[:default])

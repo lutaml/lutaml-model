@@ -703,7 +703,7 @@ plan: nil)
 
           if type_ns_class
             # Check BOTH the current plan (programmatic) and stored plan (round-trip)
-            check_plan = plan || options[:__stored_plan]
+            check_plan = plan || options[:stored_xml_declaration_plan]
             if check_plan
               stored_ns_decl = check_plan.namespaces.values.find do |decl|
                 decl.uri == type_ns_class.uri

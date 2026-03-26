@@ -19,7 +19,7 @@ module Lutaml
           instance = if options.key?(:instance)
                        options[:instance]
                      elsif model.include?(Lutaml::Model::Serialize)
-                       model.new({ __register: register })
+                       model.new({ lutaml_register: register })
                      else
                        object = model.new
                        register_accessor_methods_for(object, register)
@@ -54,7 +54,7 @@ module Lutaml
           klass = Object.const_get(klass_name)
 
           klass.apply_mappings(doc, format,
-                               options.merge(register: instance.__register))
+                               options.merge(register: instance.lutaml_register))
         end
 
         # Apply a value map to transform a value
@@ -151,14 +151,14 @@ module Lutaml
         # @param object [Object] The object to add methods to
         # @param register [Symbol] The register ID
         def register_accessor_methods_for(object, register)
-          Utils.add_singleton_method_if_not_defined(object, :__register) do
-            @__register
+          Utils.add_singleton_method_if_not_defined(object, :lutaml_register) do
+            @lutaml_register
           end
           Utils.add_singleton_method_if_not_defined(object,
-                                                    :__register=) do |value|
-            @__register = value
+                                                    :lutaml_register=) do |value|
+            @lutaml_register = value
           end
-          object.__register = register
+          object.lutaml_register = register
         end
 
         # Extract register ID from various formats

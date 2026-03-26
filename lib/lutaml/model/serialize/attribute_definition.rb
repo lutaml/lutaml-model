@@ -44,7 +44,7 @@ module Lutaml
         # @param name [Symbol] The attribute name
         # @param register [Symbol] The register ID
         def define_reference_methods(name, register)
-          register_id = register || __register
+          register_id = register
           attr = attributes[name]
 
           define_method("#{name}_ref") do
@@ -92,7 +92,7 @@ module Lutaml
 
           define_method(:"#{name}=") do |value|
             value_set_for(name)
-            value = attr.cast_value(value, __register)
+            value = attr.cast_value(value, lutaml_register)
             instance_variable_set(:"@#{name}", value)
           end
         end
@@ -124,13 +124,14 @@ module Lutaml
         # @param options [Hash] New options to merge
         # @return [Symbol] The attribute name
         def restrict(name, options = {})
-          if !@attributes.key?(name)
+          register_id = options.delete(:register) || Lutaml::Model::Config.default_register
+
+          if !@attributes.key?(name) && !register_record(register_id)&.dig(:attributes, name)
             return restrict_attributes[name] = options if any_importable_models?
 
             raise Lutaml::Model::UndefinedAttributeError.new(name, self)
           end
 
-          register_id = options.delete(:register) || Lutaml::Model::Config.default_register
           validate_attribute_options!(name, options)
           attr = attributes(register_id)[name]
           attr.options.merge!(options)

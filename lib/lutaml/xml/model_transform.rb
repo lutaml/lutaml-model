@@ -17,10 +17,10 @@ module Lutaml
 
       def data_to_model(data, _format, options = {})
         if model_class.include?(::Lutaml::Model::Serialize)
-          instance = model_class.new({ __register: __register })
+          instance = model_class.new({ lutaml_register: lutaml_register })
         else
           instance = model_class.new
-          register_accessor_methods_for(instance, __register)
+          register_accessor_methods_for(instance, lutaml_register)
         end
         # Set @__xml_namespace_prefix on root model for doubly-defined namespace support.
         # This is read during serialization to determine if the root element should use
@@ -154,7 +154,7 @@ visited = Set.new)
         # Check if model class has a pre-compiled transformation
         model_class = model.class
         if model_class.is_a?(Class) && model_class.include?(::Lutaml::Model::Serialize)
-          transformation = model_class.transformation_for(:xml, __register)
+          transformation = model_class.transformation_for(:xml, lutaml_register)
 
           # If transformation exists and is an Xml::Transformation, use it
           if transformation.is_a?(::Lutaml::Xml::Transformation)
@@ -170,7 +170,13 @@ visited = Set.new)
 
       def apply_xml_mapping(doc, instance, options = {})
         # Performance: Cache frequently accessed options in local variables
-        mappings = options[:mappings] || mappings_for(:xml).mappings
+        # CRITICAL: Use lutaml_register to ensure mappings are resolved for the correct register.
+        # When options[:register] is non-default, the imported mappings are stored in
+        # register-specific storage. Without lutaml_register, mappings_for(:xml) uses the
+        # default register which only has the root element, not the imported child rules.
+        # NOTE: Also pass lutaml_register to .mappings since it defaults to nil register,
+        # which would lose the register context and return only class-level rules.
+        mappings = options[:mappings] || mappings_for(:xml, lutaml_register).mappings(lutaml_register)
         default_namespace = options[:default_namespace]
         ordered_option = options[:ordered]
         mixed_content_option = options[:mixed_content]
@@ -234,7 +240,7 @@ visited = Set.new)
                     if (val.nil? || ::Lutaml::Model::Utils.uninitialized?(val)) &&
                         (instance.using_default?(rule_to) || rule.render_default)
                       defaults_used << rule_to
-                      attr&.default(__register) || rule.to_value_for(instance)
+                      attr&.default(lutaml_register) || rule.to_value_for(instance)
                     else
                       val
                     end
@@ -379,7 +385,7 @@ mixed_content_option)
       def value_for_rule(doc, rule, options, instance, cached_attr = nil)
         # Performance: Use cached attr from caller if available
         attr = cached_attr || attribute_for_rule(rule)
-        attr_type = attr&.type(__register)
+        attr_type = attr&.type(lutaml_register)
 
         # Performance: Cache rule properties accessed in hot loop
         rule_name_str = rule.name.to_s
@@ -405,7 +411,7 @@ mixed_content_option)
           type_ns_class = if attr_type_is_class
                             attr_type.mappings_for(:xml)&.namespace_class
                           else
-                            attr.type_namespace_class(__register)
+                            attr.type_namespace_class(lutaml_register)
                           end
           type_ns_prefix_str = type_ns_class&.prefix_default&.to_s
         end
@@ -500,9 +506,9 @@ mixed_content_option)
           if !rule.has_custom_method_for_deserialization? && attr_type_is_serializable
             cast_options = options.except(:mappings)
             cast_options[:polymorphic] = rule.polymorphic if rule.polymorphic
-            cast_options[:register] = __register
-            cast_options[:__parent] = instance
-            cast_options[:__root] = instance.__root || instance
+            cast_options[:register] = lutaml_register
+            cast_options[:lutaml_parent] = instance
+            cast_options[:lutaml_root] = instance.lutaml_root || instance
 
             # Namespace-aware type resolution: extract namespace URI from child
             if child.is_a?(::Lutaml::Xml::XmlElement)
@@ -513,7 +519,7 @@ mixed_content_option)
               end
             end
 
-            cast_result = attr.cast(child, :xml, __register, cast_options)
+            cast_result = attr.cast(child, :xml, lutaml_register, cast_options)
 
             # Track original namespace prefix for doubly-defined namespace support.
             # When parsing <a:item> and <b:item> (same URI, different prefixes),
@@ -585,7 +591,7 @@ mixed_content_option)
                         end
             if ns_prefix && instance.is_a?(::Lutaml::Model::Serialize)
               # Skip Serializable attribute types (same reason as above)
-              attr_type_class = attr.type(__register)
+              attr_type_class = attr.type(lutaml_register)
               unless attr_type_class.is_a?(Class) &&
                   (attr_type_class.include?(Lutaml::Model::Serialize) ||
                    (attr_type_class.respond_to?(:<) && attr_type_class < Lutaml::Model::Serialize))
@@ -627,7 +633,7 @@ mixed_content_option)
 
         return value unless cast_value?(attr, rule)
 
-        attr.cast(value, :xml, __register, options)
+        attr.cast(value, :xml, lutaml_register, options)
       end
 
       def cast_value?(attr, rule)
@@ -674,7 +680,7 @@ mixed_content_option)
         end
 
         # Check if attribute type has namespace
-        type_ns_uri = attr.type_namespace_uri(__register)
+        type_ns_uri = attr.type_namespace_uri(lutaml_register)
 
         if type_ns_uri
           # Use type namespace URI for matching (child.namespaced_name uses URI:localname format)

@@ -3,15 +3,15 @@ module Lutaml
     class Transform < Lutaml::Model::Transform
       def data_to_model(data, format, options = {})
         if model_class.include?(Lutaml::Model::Serialize)
-          instance = model_class.new(__register: __register)
+          instance = model_class.new(lutaml_register: lutaml_register)
         else
           instance = model_class.new
-          register_accessor_methods_for(instance, __register)
+          register_accessor_methods_for(instance, lutaml_register)
         end
         root_and_parent_assignment(instance, options)
         mappings = extract_mappings(options, format)
 
-        mappings.mappings.each do |rule|
+        mappings.mappings(lutaml_register).each do |rule|
           process_mapping_rule(data, instance, format, rule, options)
         end
 
@@ -22,7 +22,7 @@ module Lutaml
         # NEW ARCHITECTURE: Use KeyValue::Transformation if available
         # This provides symmetric OOP architecture with XmlDataModel
         if context.is_a?(Class) && context.include?(Lutaml::Model::Serialize)
-          transformation = context.transformation_for(format, __register)
+          transformation = context.transformation_for(format, lutaml_register)
 
           # transformation_for returns nil for cyclic dependencies or :building sentinel
           # Fall back to legacy approach in these cases
@@ -42,7 +42,7 @@ module Lutaml
         mappings = extract_mappings(options, format)
 
         hash = {}
-        mappings.mappings.each do |rule|
+        mappings.mappings(lutaml_register).each do |rule|
           next unless valid_mapping?(rule, options)
 
           process_rule!(instance, rule, hash, format, mappings, options)
@@ -122,7 +122,7 @@ module Lutaml
 
       def serialize_value(value, rule, attr, format, options)
         unless rule.child_mappings
-          return attr.serialize(value, format, __register,
+          return attr.serialize(value, format, lutaml_register,
                                 options)
         end
 
@@ -142,7 +142,7 @@ module Lutaml
 
         generate_remaining_mappings_for_value(child_mappings, value, format)
 
-        attr_type = attr.type(__register)
+        attr_type = attr.type(lutaml_register)
         value.each do |child_obj|
           rules = attr_type.mappings_for(format)
 
@@ -163,9 +163,9 @@ module Lutaml
         return if child_mappings.values != [:key]
 
         klass = value.first.class
-        mappings = klass.mappings_for(format)
+        mappings = klass.mappings_for(format, lutaml_register)
 
-        klass.attributes.each_key do |name|
+        klass.attributes(lutaml_register).each_key do |name|
           next if Utils.string_or_symbol_key?(child_mappings, name)
 
           child_mappings[name.to_sym] = child_mapping_for(name, mappings)
@@ -216,9 +216,9 @@ format)
         value = extract_value_for_delegate(instance, rule)
         return if value.nil? && !rule.render_nil
 
-        attribute = instance.send(rule.delegate).class.attributes[rule.to]
+        attribute = instance.send(rule.delegate).class.attributes(lutaml_register)[rule.to]
         hash[rule_from_name(rule)] =
-          attribute.serialize(value, format, __register)
+          attribute.serialize(value, format, lutaml_register)
       end
 
       def extract_value_for_delegate(instance, rule)
@@ -226,7 +226,7 @@ format)
       end
 
       def extract_mappings(options, format)
-        options[:mappings] || mappings_for(format, __register)
+        options[:mappings] || mappings_for(format, lutaml_register)
       end
 
       def process_mapping_rule(doc, instance, format, rule, options = {})
@@ -238,7 +238,7 @@ format)
         )
 
         value = rule_value_extractor_class.call(rule, doc, format, attr,
-                                                __register, options, instance)
+                                                lutaml_register, options, instance)
         value = apply_value_map(value, rule.value_map(:from, options), attr)
 
         if rule.has_custom_method_for_deserialization?
@@ -266,9 +266,9 @@ format)
 
       def cast_value(value, attr, format, rule, instance)
         cast_options = rule.polymorphic ? { polymorphic: rule.polymorphic } : {}
-        cast_options[:__parent] = instance if instance
-        cast_options[:__root] = (instance.__root || instance) if instance
-        attr.cast(value, format, __register, cast_options)
+        cast_options[:lutaml_parent] = instance if instance
+        cast_options[:lutaml_root] = (instance.lutaml_root || instance) if instance
+        attr.cast(value, format, lutaml_register, cast_options)
       end
 
       def translate_mappings(hash, child_mappings, attr, format, instance)
@@ -292,10 +292,10 @@ instance)
       end
 
       def build_child_hash(key, value, child_mappings, attr, format)
-        attr_type = attr.type(__register)
+        attr_type = attr.type(lutaml_register)
         child_mappings.to_h do |attr_name, path|
           attr_value = extract_attr_value(path, key, value)
-          attr_rule = attr_type.mappings_for(format).find_by_to!(attr_name)
+          attr_rule = attr_type.mappings_for(format, lutaml_register).find_by_to!(attr_name)
           [attr_rule.from.to_s, attr_value]
         end
       end
@@ -315,11 +315,11 @@ instance)
       end
 
       def map_child_data(child_hash, attr, format, instance)
-        attr_type = attr.type(__register)
+        attr_type = attr.type(lutaml_register)
         options = {
-          mappings: attr_type.mappings_for(format),
-          __parent: instance,
-          __root: instance.__root || instance,
+          mappings: attr_type.mappings_for(format, lutaml_register),
+          lutaml_parent: instance,
+          lutaml_root: instance.lutaml_root || instance,
         }
         self.class.data_to_model(attr_type, child_hash, format, options)
       end
