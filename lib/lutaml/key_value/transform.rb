@@ -267,7 +267,10 @@ format)
       def cast_value(value, attr, format, rule, instance)
         cast_options = rule.polymorphic ? { polymorphic: rule.polymorphic } : {}
         cast_options[:lutaml_parent] = instance if instance
-        cast_options[:lutaml_root] = (instance.lutaml_root || instance) if instance
+        if instance
+          cast_options[:lutaml_root] =
+            (instance.lutaml_root || instance)
+        end
         attr.cast(value, format, lutaml_register, cast_options)
       end
 
@@ -295,7 +298,8 @@ instance)
         attr_type = attr.type(lutaml_register)
         child_mappings.to_h do |attr_name, path|
           attr_value = extract_attr_value(path, key, value)
-          attr_rule = attr_type.mappings_for(format, lutaml_register).find_by_to!(attr_name)
+          attr_rule = attr_type.mappings_for(format,
+                                             lutaml_register).find_by_to!(attr_name)
           [attr_rule.from.to_s, attr_value]
         end
       end

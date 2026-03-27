@@ -239,7 +239,11 @@ RSpec.describe Lutaml::Model::Register do
       # We need to restore importable_models and importable_choices because they get cleared after import
       RegisterSpec::User.instance_variable_set(:@attributes, {})
       RegisterSpec::User.instance_variable_set(:@register_records,
-                                               ::Hash.new { |h, k| h[k] = { attributes: {}, choice_attributes: [] } })
+                                               Hash.new do |h, k|
+                                                 h[k] =
+                                                   { attributes: {},
+                                                     choice_attributes: [] }
+                                               end)
       RegisterSpec::User.instance_variable_set(:@models_imported, false)
       RegisterSpec::User.instance_variable_set(:@choices_imported, false)
       # Restore importable_models that were set by import_model_attributes and import_model at class def
@@ -275,8 +279,8 @@ RSpec.describe Lutaml::Model::Register do
       # User has :active via choice import which adds :choice option
       # Attributes are stored in register-specific storage, so access via register
       expect(RegisterSpec::User.attributes(register.id)[:active].options.keys).to eq(%i[
-                                                                              choice values
-                                                                            ])
+                                                                                       choice values
+                                                                                     ])
     end
   end
 

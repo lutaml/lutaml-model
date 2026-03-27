@@ -153,10 +153,13 @@ module Lutaml
         return import_mappings_later(model, reg_id) if model_importable?(model)
 
         if reg_id == :default
-          @mappings.merge!(::Lutaml::Model::Utils.deep_dup(model.mappings_for(@format, reg_id).mappings_hash))
+          @mappings.merge!(::Lutaml::Model::Utils.deep_dup(model.mappings_for(
+            @format, reg_id
+          ).mappings_hash))
         else
           @register_mappings[register_id].merge!(
-            ::Lutaml::Model::Utils.deep_dup(model.mappings_for(@format, register_id).mappings_hash),
+            ::Lutaml::Model::Utils.deep_dup(model.mappings_for(@format,
+                                                               register_id).mappings_hash),
           )
         end
       end

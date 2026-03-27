@@ -46,7 +46,8 @@ module Lutaml
         end
       end
 
-      def validate_sequence_content!(elements, appearance_count = 0, register = nil)
+      def validate_sequence_content!(elements, appearance_count = 0,
+register = nil)
         choices_hash = ::Hash.new { |h, k| h[k] = 0 }
         choices_hash[self] = appearance_count
         current_index = validate_choices(elements, choices_hash, register)
@@ -92,7 +93,9 @@ module Lutaml
 
         if register_id != :default
           # Non-default register: store in register-specific storage only
-          current_record = @model.register_records[register_id] ||= { attributes: {}, choice_attributes: [] }
+          current_record = @model.register_records[register_id] ||= {
+            attributes: {}, choice_attributes: []
+          }
           imported_attributes = Utils.deep_dup(model.attributes(register_id))
           imported_attributes.each_value do |attr|
             attr.options[:choice] = self
@@ -204,8 +207,9 @@ module Lutaml
       end
 
       def extract_choice_defined_names(register = nil)
-        mapping_elements = @model.mappings_for(:xml, register).elements(register)
-        attribute_names  = flat_attributes.to_h do |attr|
+        mapping_elements = @model.mappings_for(:xml,
+                                               register).elements(register)
+        attribute_names = flat_attributes.to_h do |attr|
           [attr.name.to_sym, attr]
         end
         name_with_to = mapping_elements.to_h do |element|

@@ -84,7 +84,9 @@ module Lutaml
           @choice_attributes = deep_duplicate_choice_attributes(source_class)
           @register_records = Utils.deep_dup(
             source_class.instance_variable_get(:@register_records),
-          ) || ::Hash.new { |hash, key| hash[key] = { attributes: {}, choice_attributes: [] } }
+          ) || ::Hash.new do |hash, key|
+                 hash[key] = { attributes: {}, choice_attributes: [] }
+               end
           instance_variable_set(:@model, self)
         end
 
@@ -94,7 +96,9 @@ module Lutaml
         # @return [Array] The duplicated choice attributes
         def deep_duplicate_choice_attributes(source_class, register = nil)
           choice_attrs = Array(source_class.instance_variable_get(:@choice_attributes))
-          choice_attrs.map { |choice_attr| choice_attr.deep_duplicate(self, register) }
+          choice_attrs.map do |choice_attr|
+            choice_attr.deep_duplicate(self, register)
+          end
         end
 
         # Get all attributes for this model

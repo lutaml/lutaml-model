@@ -314,7 +314,8 @@ module Lutaml
       def validate_attribute!(attr_name)
         attr = self.class.attributes[attr_name]
         value = instance_variable_get(:"@#{attr_name}")
-        resolver = Services::DefaultValueResolver.new(attr, lutaml_register, self)
+        resolver = Services::DefaultValueResolver.new(attr, lutaml_register,
+                                                      self)
         attr.validate_value!(value, lutaml_register, resolver)
       end
 

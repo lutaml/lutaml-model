@@ -291,7 +291,7 @@ RSpec.describe Lutaml::Xml::W3c do
     # is called, without requiring any additional explicit requires.
     # This tests the fix for: https://github.com/riboseinc/lutaml-model/issues/XXX
 
-    let(:lib_path) { File.expand_path("../../../../lib", __FILE__) }
+    let(:lib_path) { File.expand_path("../../../lib", __dir__) }
 
     it "registers all W3C types in Type registry after require 'lutaml/model'" do
       # Use subprocess to ensure fresh require - write code to temp file to avoid shell escaping issues
@@ -312,9 +312,9 @@ RSpec.describe Lutaml::Xml::W3c do
         result = `#{RbConfig.ruby} -I#{lib_path} #{temp_script.path} 2>&1`
         # rubocop:enable Style/CommandLiteral
 
-        expect($?.success?).to eq(true),
-          "W3C types not registered after require 'lutaml/model'. " \
-          "Types should be automatically loaded. Output: #{result}"
+        expect($?.success?).to be(true),
+                               "W3C types not registered after require 'lutaml/model'. " \
+                               "Types should be automatically loaded. Output: #{result}"
       ensure
         temp_script.unlink
       end
@@ -340,9 +340,9 @@ RSpec.describe Lutaml::Xml::W3c do
         result = `#{RbConfig.ruby} -I#{lib_path} #{temp_script.path} 2>&1`
         # rubocop:enable Style/CommandLiteral
 
-        expect($?.success?).to eq(true),
-          "Type.lookup failed for W3C symbols after require 'lutaml/model'. " \
-          "Output: #{result}"
+        expect($?.success?).to be(true),
+                               "Type.lookup failed for W3C symbols after require 'lutaml/model'. " \
+                               "Output: #{result}"
       ensure
         temp_script.unlink
       end
@@ -366,9 +366,9 @@ RSpec.describe Lutaml::Xml::W3c do
         result = `#{RbConfig.ruby} -I#{lib_path} #{temp_script.path} 2>&1`
         # rubocop:enable Style/CommandLiteral
 
-        expect($?.success?).to eq(true),
-          "Symbol-based attribute definition failed after require 'lutaml/model'. " \
-          "Output: #{result}"
+        expect($?.success?).to be(true),
+                               "Symbol-based attribute definition failed after require 'lutaml/model'. " \
+                               "Output: #{result}"
       ensure
         temp_script.unlink
       end

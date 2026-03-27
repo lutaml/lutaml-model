@@ -922,12 +922,16 @@ module Lutaml
 
       def elements(register_id = nil)
         # Flatten arrays that are created when multiple rules have the same element name
-        mapping_elements_hash(register_id).values.flat_map { |v| v.is_a?(Array) ? v : [v] }
+        mapping_elements_hash(register_id).values.flat_map do |v|
+          v.is_a?(Array) ? v : [v]
+        end
       end
 
       def attributes(register_id = nil)
         # Flatten arrays that are created when multiple rules have the same attribute name
-        mapping_attributes_hash(register_id).values.flat_map { |v| v.is_a?(Array) ? v : [v] }
+        mapping_attributes_hash(register_id).values.flat_map do |v|
+          v.is_a?(Array) ? v : [v]
+        end
       end
 
       def content_mapping
@@ -940,7 +944,8 @@ module Lutaml
 
       def mappings(register_id = nil)
         # REMOVED LAZY LOADING - imports resolved at class finalization
-        elements(register_id) + attributes(register_id) + [content_mapping, raw_mapping].compact
+        elements(register_id) + attributes(register_id) + [content_mapping,
+                                                           raw_mapping].compact
       end
 
       def importable_mappings
@@ -1031,7 +1036,8 @@ module Lutaml
         end
 
         # Mark as fully imported only if both queues are empty
-        @mappings_imported[imported_flag] = all_resolved && importable_mappings.empty? && sequence_importable_mappings.empty?
+        @mappings_imported[imported_flag] =
+          all_resolved && importable_mappings.empty? && sequence_importable_mappings.empty?
       ensure
         # CRITICAL: Always reset the importing flag to prevent deadlock
         # Even if an exception occurs, we must allow future import attempts
