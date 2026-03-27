@@ -189,7 +189,7 @@ Lutaml::Model::Serialize.prepend(
 )
 
 # Register XML-specific attribute override warning names
-Lutaml::Model::Attribute::FORMAT_SPECIFIC_WARN_NAMES.push(:element_order, :schema_location, :encoding, :doctype, :ordered?, :mixed?)
+Lutaml::Model::Attribute.format_specific_warn_names.push(:element_order, :schema_location, :encoding, :doctype, :ordered?, :mixed?)
 
 # Prepend XML-specific Collection overrides (no_root handling for XML)
 require_relative "xml/serialization/collection_ext"

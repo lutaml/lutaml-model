@@ -53,11 +53,16 @@ module Lutaml
         method_missing respond_to_missing?
       ].freeze
 
-      # Format-specific warning names, appended at load time by format modules
-      FORMAT_SPECIFIC_WARN_NAMES = [].freeze
+      # Format-specific warning names, appended at load time by format modules.
+      # Uses a class ivar instead of a constant since it's mutated at load time.
+      @format_specific_warn_names = []
+
+      def self.format_specific_warn_names
+        @format_specific_warn_names
+      end
 
       def self.warn_on_override_names
-        WARN_ON_OVERRIDE + FORMAT_SPECIFIC_WARN_NAMES
+        WARN_ON_OVERRIDE + @format_specific_warn_names
       end
 
       def self.cast_type!(type)
