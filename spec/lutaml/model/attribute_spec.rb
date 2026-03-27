@@ -75,7 +75,7 @@ RSpec.describe Lutaml::Model::Attribute do
 
     # Names that should NOT trigger warnings
     # These are common Ruby methods that work fine when overridden
-    (Lutaml::Model::Serializable.instance_methods - Lutaml::Model::Attribute.warn_on_override_names).each do |method|
+    (Lutaml::Model::Serializable.instance_methods - described_class.warn_on_override_names).each do |method|
       it "does not warn when attribute name is `#{method}`" do
         Class.new(Lutaml::Model::Serializable) do
           attribute method, :string
@@ -87,7 +87,7 @@ RSpec.describe Lutaml::Model::Attribute do
 
     # Names that SHOULD trigger warnings
     # These are methods where accidental override is likely to cause issues
-    Lutaml::Model::Attribute.warn_on_override_names.each do |method|
+    described_class.warn_on_override_names.each do |method|
       next unless Lutaml::Model::Serializable.method_defined?(method)
 
       it "logs a warning when attribute name is `#{method}`" do

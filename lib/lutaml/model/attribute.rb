@@ -54,7 +54,7 @@ module Lutaml
       ].freeze
 
       # Format-specific warning names, appended at load time by format modules
-      FORMAT_SPECIFIC_WARN_NAMES = []
+      FORMAT_SPECIFIC_WARN_NAMES = [].freeze
 
       def self.warn_on_override_names
         WARN_ON_OVERRIDE + FORMAT_SPECIFIC_WARN_NAMES

@@ -235,7 +235,6 @@ module Lutaml
         def extract_register_id(register)
           register&.to_sym || Lutaml::Model::Config.default_register
         end
-
       end
     end
   end

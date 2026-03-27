@@ -45,8 +45,8 @@ module Lutaml
         end
 
         # Override choice to set format: :xml so Choice knows which format it belongs to.
-        def choice(min: 1, max: 1, format: :xml, &block)
-          super(min: min, max: max, format: format, &block)
+        def choice(min: 1, max: 1, format: :xml, &)
+          super
         end
 
         # Override process_mapping for XML format to handle mapping class inheritance.
