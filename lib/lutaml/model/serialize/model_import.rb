@@ -25,7 +25,7 @@ module Lutaml
         # @param register [Symbol, nil] The register context
         # @raise [ImportModelWithRootError] If model has a root mapping
         def import_model_with_root_error(model, register = nil)
-          return unless model.mappings.key?(:xml) && model.root?(register)
+          return unless model.root?(register)
 
           raise Lutaml::Model::ImportModelWithRootError.new(model)
         end

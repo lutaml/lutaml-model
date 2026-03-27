@@ -7,14 +7,16 @@ module Lutaml
                   :model,
                   :min,
                   :max
+      attr_accessor :format
 
       INTERNAL_ATTRIBUTES = %i[@flat_attributes].freeze
 
-      def initialize(model, min, max)
+      def initialize(model, min, max, format: nil)
         @attributes = []
         @model = model
         @min = min
         @max = max
+        @format = format
 
         if @min.negative? || @max.negative?
           raise Lutaml::Model::InvalidChoiceRangeError.new(@min,
@@ -35,7 +37,7 @@ module Lutaml
       end
 
       def choice(min: 1, max: 1, &block)
-        @attributes << Choice.new(@model, min, max).tap do |c|
+        @attributes << Choice.new(@model, min, max, format: @format).tap do |c|
           c.instance_eval(&block)
         end
       end
@@ -70,7 +72,9 @@ register = nil)
       def can_render_empty?(_object)
         # Check if ALL attributes in the choice have render_empty: true
         # This allows empty instances of required elements to pass validation
-        mapping = @model.mappings_for(:xml)
+        return false unless @format
+
+        mapping = @model.mappings_for(@format)
         return false unless mapping&.elements
 
         @attributes.all? do |attribute|
@@ -116,7 +120,7 @@ register = nil)
       end
 
       def deep_duplicate(new_model, register = nil)
-        choice = self.class.new(new_model, @min, @max)
+        choice = self.class.new(new_model, @min, @max, format: @format)
         attrs = @attributes.map do |attr|
           next attr.deep_duplicate(new_model, register) if attr.is_a?(Choice)
 
@@ -207,7 +211,9 @@ register = nil)
       end
 
       def extract_choice_defined_names(register = nil)
-        mapping_elements = @model.mappings_for(:xml,
+        return {} unless @format
+
+        mapping_elements = @model.mappings_for(@format,
                                                register).elements(register)
         attribute_names = flat_attributes.to_h do |attr|
           [attr.name.to_sym, attr]
@@ -247,9 +253,10 @@ register = nil)
         value = object.public_send(attribute.name)
         return false if Utils.uninitialized?(value)
         return false unless Utils.empty?(value) || (value.respond_to?(:empty?) && value.empty?)
+        return false unless @format
 
         # Check if this attribute should render when empty
-        mapping = @model.mappings_for(:xml)
+        mapping = @model.mappings_for(@format)
         return false unless mapping&.elements
 
         # Search through all elements (including imported ones after resolution)

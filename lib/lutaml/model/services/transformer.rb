@@ -2,14 +2,14 @@ module Lutaml
   module Model
     class Transformer
       class << self
-        def call(value, rule, attribute, format: :xml)
+        def call(value, rule, attribute, format: nil)
           new(rule, attribute, format).call(value)
         end
       end
 
       attr_reader :rule, :attribute, :format
 
-      def initialize(rule, attribute, format = :xml)
+      def initialize(rule, attribute, format = nil)
         @rule = rule
         @attribute = attribute
         @format = format

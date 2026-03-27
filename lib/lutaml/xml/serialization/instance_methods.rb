@@ -5,14 +5,33 @@ module Lutaml
     module Serialization
       # XML-specific instance methods for Serialize.
       #
-      # Included into Lutaml::Model::Serialize when XML is loaded.
+      # Prepended into Lutaml::Model::Serialize when XML is loaded.
       # Provides XML-specific instance-level behavior:
+      # - XML instance attributes (element_order, schema_location, encoding, doctype, ordered, mixed)
       # - xml_declaration_plan accessor
       # - XML-specific format options preparation
       # - XML root mapping validation
       module InstanceMethods
         # XML declaration plan for namespace preservation during round-trip
-        attr_accessor :xml_declaration_plan
+        attr_accessor :xml_declaration_plan, :element_order, :schema_location,
+                      :encoding, :doctype
+        attr_writer :ordered, :mixed
+
+        def ordered?
+          !!@ordered
+        end
+
+        def mixed?
+          !!@mixed
+        end
+
+        # Override initialize to extract XML-specific attrs
+        def initialize(attrs = {}, options = {})
+          super
+          set_ordering(attrs)
+          set_schema_location(attrs)
+          set_doctype(attrs)
+        end
 
         # Extend INTERNAL_ATTRIBUTES with XML-specific ones
         def pretty_print_instance_variables
@@ -52,6 +71,7 @@ module Lutaml
             options.delete(:prefix)
           end
 
+          options[:parse_encoding] = encoding if encoding
           options[:doctype] = doctype if doctype
 
           # Pass XML declaration info for XML Declaration Preservation
@@ -68,6 +88,35 @@ module Lutaml
           if xml_declaration_plan
             options[:stored_xml_declaration_plan] = xml_declaration_plan
           end
+        end
+
+        # XML-specific element sequences for validation
+        #
+        # @param register [Symbol, nil] The register context
+        # @return [Array, nil] Element sequences from XML mapping
+        def format_element_sequences(register)
+          self.class.mappings_for(:xml, register)&.element_sequence
+        end
+
+        private
+
+        def set_ordering(attrs)
+          return unless attrs.respond_to?(:ordered?)
+
+          @ordered = attrs.ordered?
+          @element_order = attrs.item_order
+        end
+
+        def set_schema_location(attrs)
+          return unless attrs.is_a?(Hash) && attrs.key?(:schema_location)
+
+          self.schema_location = attrs[:schema_location]
+        end
+
+        def set_doctype(attrs)
+          return unless attrs.is_a?(Hash) && attrs.key?(:doctype)
+
+          self.doctype = attrs[:doctype]
         end
       end
     end

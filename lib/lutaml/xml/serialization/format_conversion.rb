@@ -11,6 +11,44 @@ module Lutaml
       # It is prepended into Serialize::ClassMethods when XML format is loaded,
       # overriding the hook methods defined in FormatConversion.
       module FormatConversion
+        # Class-level namespace directive for XML.
+        #
+        # @deprecated Use namespace inside `xml do ... end` blocks instead.
+        #
+        # @param ns_class [Class, nil] XmlNamespace class to associate with this model
+        # @return [Class, nil] the XmlNamespace class
+        def namespace(ns_class = nil)
+          if ns_class
+            unless ns_class.is_a?(Class) && ns_class < Lutaml::Xml::Namespace
+              raise ArgumentError,
+                    "namespace must be an XmlNamespace class, got #{ns_class.class}"
+            end
+
+            warn_class_level_namespace_usage(ns_class)
+            @namespace_class = ns_class
+          end
+          @namespace_class
+        end
+
+        # Get the namespace URI for this Model
+        #
+        # @return [String, nil] the namespace URI
+        def namespace_uri
+          @namespace_class&.uri
+        end
+
+        # Get the default namespace prefix for this Model
+        #
+        # @return [String, nil] the namespace prefix
+        def namespace_prefix
+          @namespace_class&.prefix_default
+        end
+
+        # Override choice to set format: :xml so Choice knows which format it belongs to.
+        def choice(min: 1, max: 1, format: :xml, &block)
+          super(min: min, max: max, format: format, &block)
+        end
+
         # Override process_mapping for XML format to handle mapping class inheritance.
         #
         # When `xml SomeMapping` is called with a mapping class argument,
@@ -97,7 +135,7 @@ module Lutaml
           end
 
           # Retrieve stored declaration plan from model instance for namespace preservation
-          if instance.respond_to?(:xml_declaration_plan) &&
+          if instance.is_a?(Lutaml::Model::Serialize) &&
               !options.key?(:stored_xml_declaration_plan)
             stored_plan = instance.xml_declaration_plan
             options[:stored_xml_declaration_plan] = stored_plan if stored_plan
@@ -114,6 +152,19 @@ module Lutaml
           return super unless format == :xml
 
           mappings[:xml]&.ensure_mappings_imported!(register)
+        end
+
+        # Add XML-specific model methods (ordered, mixed, element_order, etc.)
+        # when `model CustomClass` is used with a plain Ruby class.
+        #
+        # @param klass [Class] The model class
+        def add_format_specific_model_methods(klass)
+          super
+          Lutaml::Model::Utils.add_boolean_accessor_if_not_defined(klass, :ordered)
+          Lutaml::Model::Utils.add_boolean_accessor_if_not_defined(klass, :mixed)
+          Lutaml::Model::Utils.add_accessor_if_not_defined(klass, :element_order)
+          Lutaml::Model::Utils.add_accessor_if_not_defined(klass, :encoding)
+          Lutaml::Model::Utils.add_accessor_if_not_defined(klass, :doctype)
         end
 
         # Apply namespace prefix overrides for XML serialization
@@ -281,6 +332,44 @@ module Lutaml
           end
 
           @xml_mapping.inherit_from(mapping_class)
+        end
+
+        # Issue deprecation warning for class-level namespace usage
+        #
+        # @param ns_class [Class] The namespace class
+        def warn_class_level_namespace_usage(ns_class)
+          return if @namespace_warning_issued
+
+          warn <<~WARNING
+            [Lutaml::Model] DEPRECATION WARNING: Class-level `namespace` directive is deprecated for Serializable classes.
+            Class: #{name}
+            Namespace: #{ns_class.name} (#{ns_class.uri})
+
+            The class-level namespace directive does NOT apply namespace prefixes during serialization.
+
+            INCORRECT (current usage):
+              class #{name} < Lutaml::Model::Serializable
+                namespace #{ns_class.name}  # Does nothing!
+            #{'    '}
+                xml do
+                  element "element"
+                  map_element "field", to: :field
+                end
+              end
+
+            CORRECT (use namespace inside xml block):
+              class #{name} < Lutaml::Model::Serializable
+                xml do
+                  element "element"
+                  namespace #{ns_class.name}  # Works correctly!
+                  map_element "field", to: :field
+                end
+              end
+
+            This warning will become an error in the next major release.
+          WARNING
+
+          @namespace_warning_issued = true
         end
       end
     end

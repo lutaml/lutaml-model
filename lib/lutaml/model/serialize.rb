@@ -80,18 +80,13 @@ module Lutaml
         end
       end
 
-      attr_accessor :element_order, :schema_location, :encoding, :doctype,
-                    :lutaml_register, :lutaml_parent, :lutaml_root
-      attr_writer :ordered, :mixed
+      attr_accessor :lutaml_register, :lutaml_parent, :lutaml_root
 
       def initialize(attrs = {}, options = {})
         @using_default = {}
         @lutaml_register = extract_register_id(attrs, options)
         return unless self.class.attributes(@lutaml_register)
 
-        set_ordering(attrs)
-        set_schema_location(attrs)
-        set_doctype(attrs)
         initialize_attributes(attrs, options)
         define_singleton_attribute_methods
 
@@ -164,14 +159,6 @@ module Lutaml
         attr.validate_value!(value, lutaml_register, resolver)
       end
 
-      def ordered?
-        !!@ordered
-      end
-
-      def mixed?
-        !!@mixed
-      end
-
       def key_exist?(hash, key)
         hash.key?(key.to_sym) || hash.key?(key.to_s)
       end
@@ -197,8 +184,6 @@ module Lutaml
 
         # Pass instance's lutaml_register if not explicitly provided
         options[:register] ||= lutaml_register if lutaml_register
-
-        options[:parse_encoding] = encoding if encoding
 
         # Hook for format-specific options preparation
         # XML overrides to handle prefix, doctype, declaration, namespaces
@@ -226,25 +211,6 @@ module Lutaml
       end
 
       private
-
-      def set_ordering(attrs)
-        return unless attrs.respond_to?(:ordered?)
-
-        @ordered = attrs.ordered?
-        @element_order = attrs.item_order
-      end
-
-      def set_schema_location(attrs)
-        return unless attrs.key?(:schema_location)
-
-        self.schema_location = attrs[:schema_location]
-      end
-
-      def set_doctype(attrs)
-        return unless attrs.key?(:doctype)
-
-        self.doctype = attrs[:doctype]
-      end
 
       # Define attribute accessor methods on the instance's singleton class
       # for attributes that are register-specific (not defined at class level).

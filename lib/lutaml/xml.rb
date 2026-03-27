@@ -188,6 +188,17 @@ Lutaml::Model::Serialize.prepend(
   Lutaml::Xml::Serialization::InstanceMethods,
 )
 
+# Register XML-specific attribute override warning names
+Lutaml::Model::Attribute::FORMAT_SPECIFIC_WARN_NAMES.concat(
+  %i[element_order schema_location encoding doctype ordered? mixed?],
+)
+
+# Prepend XML-specific Collection overrides (no_root handling for XML)
+require_relative "xml/serialization/collection_ext"
+Lutaml::Model::Collection.singleton_class.prepend(
+  Lutaml::Xml::Serialization::CollectionExt,
+)
+
 # Auto-detect and set default XML adapter
 if (adapter = Lutaml::Xml.detect_xml_adapter)
   Lutaml::Model::Config.xml_adapter_type = adapter

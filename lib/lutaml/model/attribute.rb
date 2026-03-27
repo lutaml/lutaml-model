@@ -51,10 +51,14 @@ module Lutaml
         attr_value attribute_exist? key_exist? key_value
         using_default? using_default_for value_set_for
         method_missing respond_to_missing?
-
-        # XML metadata - affects XML processing
-        element_order schema_location encoding doctype ordered? mixed?
       ].freeze
+
+      # Format-specific warning names, appended at load time by format modules
+      FORMAT_SPECIFIC_WARN_NAMES = []
+
+      def self.warn_on_override_names
+        WARN_ON_OVERRIDE + FORMAT_SPECIFIC_WARN_NAMES
+      end
 
       def self.cast_type!(type)
         case type
@@ -647,7 +651,7 @@ instance_object = nil)
         # Type namespaces are ONLY declared on Type::Value subclasses,
         # not on Serializable models. Serializable models have element
         # namespaces, which are handled separately.
-        if resolved_type.is_a?(Class) && resolved_type <= Lutaml::Model::Type::Value && resolved_type.respond_to?(:namespace_class)
+        if resolved_type.is_a?(Class) && resolved_type <= Lutaml::Model::Type::Value
           resolved_type.namespace_class
         end
       end
@@ -686,7 +690,7 @@ instance_object = nil)
         # No errors - all names are allowed
         # Only warn for methods where accidental override is problematic
         return unless reserved_methods.include?(name.to_sym)
-        return unless WARN_ON_OVERRIDE.include?(name.to_sym)
+        return unless self.class.warn_on_override_names.include?(name.to_sym)
 
         warn_name_conflict(name)
       end

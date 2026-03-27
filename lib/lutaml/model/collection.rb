@@ -101,7 +101,7 @@ module Lutaml
           @sort_by_field = by.is_a?(Proc) ? by : by.to_sym
           @sort_direction = order
 
-          check_sort_configs! if @mappings[:xml]
+          check_sort_configs!
         end
 
         alias_method :ordered, :sort
@@ -299,54 +299,19 @@ module Lutaml
         def to(format, instance, options = {})
           mappings = mappings_for(format)
 
-          if mappings.no_root? && format == :xml
-            mappings.mappings.map do |mapping|
-              serialize_for_mapping(mapping, instance, format, options)
-            end.join("\n")
+          if mappings.no_root? && collection_no_root_to?(format)
+            collection_no_root_to(format, mappings, instance, options)
           else
             super(format, instance, options.merge(collection: true))
           end
-        end
-
-        def serialize_for_mapping(mapping, instance, format, options)
-          options[:tag_name] = mapping.name
-
-          attr_value = instance.public_send(mapping.to)
-          return if attr_value.nil? || attr_value.empty?
-
-          # Handle custom Collection classes - extract the actual items array
-          if attr_value.is_a?(Lutaml::Model::Collection)
-            attr_value = attr_value.collection
-          end
-
-          attr_value = [attr_value] unless attr_value.is_a?(Array)
-          attr_value.map { |v| v.public_send(:"to_#{format}", options) }
         end
 
         def as(format, instance, options = {})
           mappings = mappings_for(format)
           data = super
 
-          if mappings.no_root? && format != :xml && !mappings.root_mapping
-            # Convert KeyValueElement to Hash if needed
-            hash = data.is_a?(Hash) ? data : data.to_hash
-            # Handle "__root__" wrapper for key-value formats (created by transformation)
-            hash = hash["__root__"] if hash.key?("__root__")
-            result = Utils.fetch_str_or_sym(hash, instance_name)
-
-            # Extract values from nested hashes with empty string keys
-            # (created by transformation for simple models with single attribute)
-            if result.is_a?(Array)
-              result = result.map do |item|
-                if item.is_a?(Hash) && item.key?("") && item.size == 1
-                  item[""]
-                else
-                  item
-                end
-              end
-            end
-
-            result
+          if !collection_structured_format?(format) && mappings.no_root? && !mappings.root_mapping
+            unwrap_no_root_data(data)
           else
             data
           end
@@ -354,9 +319,9 @@ module Lutaml
 
         def from(format, data, options = {})
           mappings = mappings_for(format)
-          if mappings.no_root? && format == :xml
-            tag_name = mappings.find_by_to!(instance_name).name
-            data = "<#{tag_name}>#{data}</#{tag_name}>"
+
+          if collection_structured_format?(format) && mappings.no_root?
+            data = wrap_no_root_input(format, mappings, data)
           end
 
           super(format, data, options.merge(from_collection: true))
@@ -365,11 +330,36 @@ module Lutaml
         def of(format, data, options = {})
           mappings = mappings_for(format)
 
-          if mappings.no_root? && format != :xml && !mappings.root_mapping
+          if !collection_structured_format?(format) && mappings.no_root? && !mappings.root_mapping
             data = { mappings.find_by_to!(instance_name).name => data }
           end
 
           super(format, data, options.merge(from_collection: true))
+        end
+
+        # Hook: returns true for formats that use structured (tree-based) serialization
+        # like XML. Key-value formats (JSON, YAML, TOML) return false (default).
+        # XML overrides to return true.
+        def collection_structured_format?(_format)
+          false
+        end
+
+        # Hook: returns true if this format handles no_root serialization specially.
+        # XML overrides to return true for :xml format.
+        def collection_no_root_to?(_format)
+          false
+        end
+
+        # Hook for structured-format no_root serialization (e.g., XML).
+        # XML overrides to serialize each mapping separately.
+        def collection_no_root_to(_format, _mappings, _instance, _options)
+          raise NotImplementedError
+        end
+
+        # Hook for structured-format no_root input wrapping (e.g., XML).
+        # XML overrides to wrap raw data in a fake root tag.
+        def wrap_no_root_input(_format, _mappings, data)
+          data
         end
 
         def apply_mappings(data, format, options = {})
@@ -377,6 +367,28 @@ module Lutaml
         end
 
         private
+
+        def unwrap_no_root_data(data)
+          # Convert KeyValueElement to Hash if needed
+          hash = data.is_a?(Hash) ? data : data.to_hash
+          # Handle "__root__" wrapper for key-value formats (created by transformation)
+          hash = hash["__root__"] if hash.key?("__root__")
+          result = Utils.fetch_str_or_sym(hash, instance_name)
+
+          # Extract values from nested hashes with empty string keys
+          # (created by transformation for simple models with single attribute)
+          if result.is_a?(Array)
+            result = result.map do |item|
+              if item.is_a?(Hash) && item.key?("") && item.size == 1
+                item[""]
+              else
+                item
+              end
+            end
+          end
+
+          result
+        end
 
         def find_duplicate_values(collection, field)
           seen_values = Set.new
