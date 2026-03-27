@@ -256,7 +256,8 @@ child_transformation)
             # so NamespaceCollector can read it during collection phase.
             # Transform first, then set on the created XmlElement.
             child_element = child_transformation.transform(value, child_options)
-            child_element.instance_variable_set(:@__xml_namespace_prefix, ns_prefix)
+            child_element.instance_variable_set(:@__xml_namespace_prefix,
+                                                ns_prefix)
           else
             child_element = child_transformation.transform(value, child_options)
           end

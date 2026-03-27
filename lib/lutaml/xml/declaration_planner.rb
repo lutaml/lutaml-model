@@ -668,7 +668,9 @@ module Lutaml
 
               stored_hoisted.each do |prefix, uri|
                 effective_uri = original_ns_uris[uri] || uri
-                already_present = hoisted.any? { |_k, v| v == effective_uri || v == uri }
+                already_present = hoisted.any? do |_k, v|
+                  v == effective_uri || v == uri
+                end
                 if already_present && !hoisted.key?(prefix)
                   hoisted[prefix] = uri
                 end
@@ -1176,7 +1178,8 @@ module Lutaml
             # Check if parent has the SAME prefix declaration
             # Compare using effective URI (alias) when original_namespace_uris is present
             parent_has_same_prefix = parent_hoisted.key?(element_prefix) &&
-              [ns_uri, effective_ns_uri].include?(parent_hoisted[element_prefix])
+              [ns_uri,
+               effective_ns_uri].include?(parent_hoisted[element_prefix])
             if parent_has_same_prefix
               # Parent already declared this namespace with the same prefix - don't re-declare
               # Just keep track that we're using the parent's prefix (no need to add to hoisted)

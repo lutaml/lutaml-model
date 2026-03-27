@@ -123,7 +123,8 @@ module Lutaml
               # Pass stored input plan so the new plan can access input_prefix_formats
               # for format preservation (doubly-defined namespace round-trip)
               if original_model.respond_to?(:__input_declaration_plan)
-                options_with_original_ns[:__stored_plan] = original_model.__input_declaration_plan
+                options_with_original_ns[:__stored_plan] =
+                  original_model.__input_declaration_plan
               end
 
               mapper_class = options[:mapper_class] || xml_element.class
@@ -771,7 +772,9 @@ module Lutaml
             # but target_namespace_class.uri is the canonical URI. We need to match
             # against the actual declared URIs in the document.
             effective_target_uri = original_ns_uris[target_uri] || target_uri
-            ns = element.namespace_scopes.find { |n| n.href == effective_target_uri }
+            ns = element.namespace_scopes.find do |n|
+              n.href == effective_target_uri
+            end
             if ns
               element.namespace = ns
             else
@@ -827,7 +830,9 @@ module Lutaml
                 # Default format: add xmlns="uri" declaration
                 element.add_namespace(nil, effective_target_uri)
                 # Find the newly added namespace and set it
-                ns = element.namespace_scopes.find { |n| n.href == effective_target_uri }
+                ns = element.namespace_scopes.find do |n|
+                  n.href == effective_target_uri
+                end
                 element.namespace = ns if ns
               else
                 # Prefix format: add xmlns:prefix="uri" declaration
