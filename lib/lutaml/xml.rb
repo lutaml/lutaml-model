@@ -109,6 +109,7 @@ module Lutaml
              "#{__dir__}/xml/unqualified_inheritance_strategy"
     autoload :DataModel, "#{__dir__}/xml/data_model"
     autoload :TransformationBuilder, "#{__dir__}/xml/transformation_builder"
+    autoload :AdapterLoader, "#{__dir__}/xml/adapter_loader"
     autoload :Element, "#{__dir__}/xml/element"
     autoload :ModelTransform, "#{__dir__}/xml/model_transform"
     autoload :TypeNamespaceResolver, "#{__dir__}/xml/type_namespace_resolver"
@@ -158,11 +159,33 @@ Lutaml::Model::FormatRegistry.register(
   mapping_class: Lutaml::Xml::Mapping,
   adapter_class: nil,
   transformer: Lutaml::Xml::Transform,
+  adapter_loader: Lutaml::Xml::AdapterLoader,
+  castable_type: Lutaml::Xml::XmlElement,
 )
 
-# Include XML-specific serialization methods into Serialize::ClassMethods
-Lutaml::Model::Serialize::ClassMethods.include(
+# Register XML transformation builder
+Lutaml::Model::TransformationRegistry.register_builder(
+  :xml, Lutaml::Xml::TransformationBuilder
+)
+
+# Extend Type::Value with XML configuration (namespace, xsd_type, xml block)
+Lutaml::Model::Type::Value.include(Lutaml::Xml::Type::Configurable)
+
+# Prepend XML-specific serialization hooks into Serialize::ClassMethods
+# Uses prepend so XML's hook overrides (pre_deserialize_hook, validate_document, etc.)
+# take priority over core's no-op defaults.
+Lutaml::Model::Serialize::ClassMethods.prepend(
   Lutaml::Xml::Serialization::FormatConversion,
+)
+
+# Prepend XML-specific ModelImport overrides (root?, ensure_format_mapping_imports!, etc.)
+Lutaml::Model::Serialize::ModelImport.prepend(
+  Lutaml::Xml::Serialization::ModelImportExt,
+)
+
+# Prepend XML-specific instance methods (xml_declaration_plan, validate_root_mapping!, etc.)
+Lutaml::Model::Serialize.prepend(
+  Lutaml::Xml::Serialization::InstanceMethods,
 )
 
 # Auto-detect and set default XML adapter

@@ -8,12 +8,15 @@ module Lutaml
       # Extracted from serialize.rb to improve code organization.
       # Provides methods for importing attributes and mappings from other models.
       module ModelImport
-        # Check if register has a root mapping
+        # Check if register has a root mapping (XML-specific)
+        #
+        # Returns false by default. When Lutaml::Xml is loaded,
+        # this is overridden to check XML mappings via prepend.
         #
         # @param register [Symbol, nil] The register to check
         # @return [Boolean] True if the model has a root mapping
-        def root?(register)
-          mappings_for(:xml, register)&.root?
+        def root?(_register = nil)
+          false
         end
 
         # Raise error if importing a model with a root element
@@ -259,13 +262,13 @@ module Lutaml
           @finalized
         end
 
-        # Check for conflicting sort configurations
+        # Check for conflicting sort configurations (XML-specific)
+        #
+        # Returns false by default. XML overrides to check @mappings[:xml].ordered?
         #
         # @return [Boolean] True if there's a conflict
         def collection_with_conflicting_sort?
-          self <= Lutaml::Model::Collection &&
-            @mappings[:xml].ordered? &&
-            !!@sort_by_field
+          false
         end
 
         # Check and validate sort configurations
@@ -314,12 +317,9 @@ module Lutaml
             # Mark child as visited BEFORE processing to prevent cycles
             visited.add(type_class)
 
-            # Ensure model-level imports (attributes, choices)
+            # Ensure model-level imports (attributes, choices, and format-specific mappings)
+            # ensure_imports! calls ensure_format_mapping_imports! which is overridden by XML
             type_class.ensure_imports!(register)
-
-            # CRITICAL: Also ensure mapping-level imports (XML element/attribute mappings)
-            # Child models may have symbol-based import_model_mappings that need resolution
-            type_class.mappings[:xml]&.ensure_mappings_imported!(register)
 
             # Recursively process child's children, passing THE SAME visited set
             type_class.ensure_child_imports_resolved!(register, visited)

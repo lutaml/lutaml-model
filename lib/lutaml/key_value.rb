@@ -15,3 +15,10 @@ module Lutaml
     autoload :Adapter, "#{__dir__}/key_value/adapter"
   end
 end
+
+# Register KeyValue transformation builders for all key-value formats
+%i[json yaml toml hash].each do |format|
+  Lutaml::Model::TransformationRegistry.register_builder(
+    format, Lutaml::KeyValue::TransformationBuilder
+  )
+end

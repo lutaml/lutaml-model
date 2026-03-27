@@ -7,8 +7,6 @@ module Lutaml
       class Value
         prepend UninitializedClassGuard
 
-        include Lutaml::Xml::Type::Configurable
-
         # Performance optimization: reusable empty options hash
         # Use options.equal?(EMPTY_OPTIONS) for fast-path checks
         EMPTY_OPTIONS = {}.freeze

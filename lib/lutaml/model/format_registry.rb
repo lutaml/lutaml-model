@@ -30,13 +30,16 @@ module Lutaml
         # @param transformer [Class] the transformer class for serialization
         # @raise [ArgumentError] if format is invalid or required params missing
         # @return [Hash] the registered format configuration
-        def register(format, mapping_class:, adapter_class:, transformer:)
+        # @param adapter_loader [Module, nil] optional module with load_adapter_file and class_for methods
+        def register(format, mapping_class:, adapter_class:, transformer:, adapter_loader: nil, castable_type: nil)
           validate_registration!(format, mapping_class, transformer)
 
           registered_formats[format] = {
             mapping_class: mapping_class,
             transformer: transformer,
             adapter_class: adapter_class,
+            adapter_loader: adapter_loader,
+            castable_type: castable_type,
             registered_at: Time.now,
           }
 
@@ -98,6 +101,22 @@ module Lutaml
         # @return [Class, nil] the adapter class or nil if not registered
         def adapter_class_for(format)
           registered_formats.dig(format, :adapter_class)
+        end
+
+        # Get the adapter loader for a format
+        #
+        # @param format [Symbol] the format name
+        # @return [Module, nil] the adapter loader or nil
+        def adapter_loader_for(format)
+          registered_formats.dig(format, :adapter_loader)
+        end
+
+        # Get the castable type for a format
+        #
+        # @param format [Symbol] the format name
+        # @return [Class, nil] the castable type or nil
+        def castable_type_for(format)
+          registered_formats.dig(format, :castable_type)
         end
 
         # Get all registered format names

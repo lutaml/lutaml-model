@@ -647,7 +647,9 @@ instance_object = nil)
         # Type namespaces are ONLY declared on Type::Value subclasses,
         # not on Serializable models. Serializable models have element
         # namespaces, which are handled separately.
-        resolved_type.is_a?(Class) && resolved_type <= Lutaml::Model::Type::Value ? resolved_type.namespace_class : nil
+        if resolved_type.is_a?(Class) && resolved_type <= Lutaml::Model::Type::Value && resolved_type.respond_to?(:namespace_class)
+          resolved_type.namespace_class
+        end
       end
 
       # @api public
@@ -721,7 +723,7 @@ instance_object = nil)
 
       def castable?(value, format)
         value.is_a?(::Hash) ||
-          (format == :xml && value.is_a?(Lutaml::Xml::XmlElement))
+          ((castable_type = FormatRegistry.castable_type_for(format)) && value.is_a?(castable_type))
       end
 
       def can_serialize?(klass, value, format, options)

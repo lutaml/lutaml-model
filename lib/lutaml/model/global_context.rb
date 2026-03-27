@@ -284,9 +284,12 @@ context_id = nil)
       # Create a new XML namespace class registry.
       #
       # Lazy load to avoid circular dependencies.
+      # Returns nil if Lutaml::Xml is not loaded.
       #
-      # @return [Lutaml::Xml::NamespaceClassRegistry] The registry
+      # @return [Lutaml::Xml::NamespaceClassRegistry, nil] The registry or nil
       def create_xml_namespace_registry
+        return nil unless defined?(::Lutaml::Xml::NamespaceClassRegistry)
+
         ::Lutaml::Xml::NamespaceClassRegistry.new
       end
 

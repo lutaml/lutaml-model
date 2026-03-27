@@ -213,30 +213,43 @@ module Lutaml
       end
 
       def load_adapter_file(adapter, type)
-        adapter_path = if adapter == "xml"
-                         File.join(__dir__, "../xml/adapter", type)
-                       else
-                         File.join(__dir__, "../key_value/adapter", adapter,
-                                   type)
-                       end
+        # Check FormatRegistry for a custom adapter loader
+        loader = FormatRegistry.adapter_loader_for(adapter.to_sym)
+        if loader && loader.respond_to?(:load_adapter_file)
+          loader.load_adapter_file(adapter, type)
+          return
+        end
+
+        # Default key-value adapter loading
+        adapter_path = File.join(__dir__, "../key_value/adapter", adapter, type)
         require adapter_path
       rescue LoadError
         raise UnknownAdapterTypeError.new(adapter, type), cause: nil
       end
 
       def load_moxml_adapter(type_name, adapter_name)
+        # Check FormatRegistry for a custom adapter loader
+        loader = FormatRegistry.adapter_loader_for(adapter_name)
+        if loader && loader.respond_to?(:load_moxml_adapter)
+          loader.load_moxml_adapter(type_name, adapter_name)
+          return
+        end
+
         return if KEY_VALUE_FORMATS.include?(adapter_name)
 
         Moxml::Adapter.load(type_name)
       end
 
       def class_for(adapter, type)
-        if adapter == "xml"
-          Lutaml::Xml::Adapter.const_get(to_class_name(type))
-        else
-          Lutaml::KeyValue::Adapter.const_get(to_class_name(adapter))
-            .const_get(to_class_name(type))
+        # Check FormatRegistry for a custom adapter loader
+        loader = FormatRegistry.adapter_loader_for(adapter.to_sym)
+        if loader && loader.respond_to?(:class_for)
+          return loader.class_for(adapter, type)
         end
+
+        # Default key-value adapter class resolution
+        Lutaml::KeyValue::Adapter.const_get(to_class_name(adapter))
+          .const_get(to_class_name(type))
       end
 
       def to_class_name(str)

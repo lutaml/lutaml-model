@@ -23,11 +23,15 @@ module Lutaml
       def self.to_xsd(klass, options = {})
         require_relative "../xml/schema/xsd_schema"
         Lutaml::Xml::Schema::XsdSchema.generate(klass, options)
+      rescue LoadError
+        raise "XSD schema generation requires lutaml-xml. Add it to your Gemfile."
       end
 
       def self.to_relaxng(klass, options = {})
         require_relative "../xml/schema/relaxng_schema"
         Lutaml::Xml::Schema::RelaxngSchema.generate(klass, options)
+      rescue LoadError
+        raise "RELAX NG schema generation requires lutaml-xml. Add it to your Gemfile."
       end
 
       def self.to_yaml(klass, options = {})

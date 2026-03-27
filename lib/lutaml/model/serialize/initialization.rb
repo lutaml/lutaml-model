@@ -32,7 +32,8 @@ module Lutaml
         #   end
         def namespace(ns_class = nil)
           if ns_class
-            unless ns_class.is_a?(Class) && ns_class < Lutaml::Xml::Namespace
+            if defined?(Lutaml::Xml::Namespace) &&
+                !(ns_class.is_a?(Class) && ns_class < Lutaml::Xml::Namespace)
               raise ArgumentError,
                     "namespace must be an XmlNamespace class, got #{ns_class.class}"
             end
@@ -138,11 +139,17 @@ module Lutaml
           ensure_model_imports!(register)
           ensure_choice_imports!(register)
           ensure_restrict_attributes!(register)
-          # REMOVED: XML mapping resolution here causes exponential cascade
-          # Mappings will be resolved lazily in mappings_for when actually needed
-          # CRITICAL: Ensure XML mapping imports are resolved (including sequence imports)
-          # This handles deferred imports inside sequence blocks
-          mappings[:xml]&.ensure_mappings_imported!(register)
+          # Hook for format-specific mapping import resolution.
+          # XML overrides this to call mappings[:xml]&.ensure_mappings_imported!(register)
+          ensure_format_mapping_imports!(register)
+        end
+
+        # Hook for format-specific mapping import resolution.
+        # Override in format modules (e.g., XML prepends to resolve XML mapping imports).
+        #
+        # @param _register [Symbol, nil] The register context
+        def ensure_format_mapping_imports!(_register = nil)
+          # No-op by default; XML overrides via prepend
         end
 
         # Clear all cached data for this model class
