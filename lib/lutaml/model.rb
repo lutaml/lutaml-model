@@ -194,6 +194,7 @@ end
 # Format files register DSL methods, so must be required
 require "#{__dir__}/xml/data_model"
 require "#{__dir__}/xml"
+require "#{__dir__}/xml/w3c"
 require "#{__dir__}/key_value"
 require "#{__dir__}/model/json"
 require "#{__dir__}/model/yaml"

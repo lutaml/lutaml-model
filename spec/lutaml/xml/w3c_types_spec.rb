@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "spec_helper"
+require "tempfile"
 
 RSpec.describe Lutaml::Xml::W3c do
   describe "XML Namespace Types" do
@@ -282,6 +283,95 @@ RSpec.describe Lutaml::Xml::W3c do
           attribute :nil_attr, :xsi_nil
         end
       end.not_to raise_error
+    end
+  end
+
+  describe "W3C types loaded with require 'lutaml/model'" do
+    # Regression test: ensure W3C types are registered when require "lutaml/model"
+    # is called, without requiring any additional explicit requires.
+    # This tests the fix for: https://github.com/riboseinc/lutaml-model/issues/XXX
+
+    let(:lib_path) { File.expand_path("../../../../lib", __FILE__) }
+
+    it "registers all W3C types in Type registry after require 'lutaml/model'" do
+      # Use subprocess to ensure fresh require - write code to temp file to avoid shell escaping issues
+      temp_script = Tempfile.new(["w3c_test", ".rb"])
+      begin
+        temp_script.write(<<~RUBY)
+          require "lutaml/model"
+          types = [:xml_lang, :xml_space, :xml_base, :xml_id,
+                    :xsi_type, :xsi_nil, :xsi_schema_location, :xsi_no_namespace_schema_location,
+                    :xlink_href, :xlink_type, :xlink_role, :xlink_arcrole,
+                    :xlink_title, :xlink_show, :xlink_actuate]
+          missing = types.reject { |t| Lutaml::Model::Type.instance_variable_get(:@registry)&.key?(t) }
+          exit(missing.any? ? 1 : 0)
+        RUBY
+        temp_script.close
+
+        # rubocop:disable Style/CommandLiteral
+        result = `#{RbConfig.ruby} -I#{lib_path} #{temp_script.path} 2>&1`
+        # rubocop:enable Style/CommandLiteral
+
+        expect($?.success?).to eq(true),
+          "W3C types not registered after require 'lutaml/model'. " \
+          "Types should be automatically loaded. Output: #{result}"
+      ensure
+        temp_script.unlink
+      end
+    end
+
+    it "allows Type.lookup for all W3C symbols after require 'lutaml/model'" do
+      temp_script = Tempfile.new(["w3c_test", ".rb"])
+      begin
+        temp_script.write(<<~RUBY)
+          require "lutaml/model"
+          types = [:xml_lang, :xml_space, :xml_base, :xml_id,
+                    :xsi_type, :xsi_nil, :xsi_schema_location, :xsi_no_namespace_schema_location,
+                    :xlink_href, :xlink_type, :xlink_role, :xlink_arcrole,
+                    :xlink_title, :xlink_show, :xlink_actuate]
+          types.each do |t|
+            Lutaml::Model::Type.lookup(t)
+          end
+          exit(0)
+        RUBY
+        temp_script.close
+
+        # rubocop:disable Style/CommandLiteral
+        result = `#{RbConfig.ruby} -I#{lib_path} #{temp_script.path} 2>&1`
+        # rubocop:enable Style/CommandLiteral
+
+        expect($?.success?).to eq(true),
+          "Type.lookup failed for W3C symbols after require 'lutaml/model'. " \
+          "Output: #{result}"
+      ensure
+        temp_script.unlink
+      end
+    end
+
+    it "allows symbol-based attribute definition after require 'lutaml/model'" do
+      temp_script = Tempfile.new(["w3c_test", ".rb"])
+      begin
+        temp_script.write(<<~RUBY)
+          require "lutaml/model"
+          Class.new(Lutaml::Model::Serializable) do
+            attribute :href, :xlink_href
+            attribute :lang, :xml_lang
+            attribute :nil_attr, :xsi_nil
+          end
+          exit(0)
+        RUBY
+        temp_script.close
+
+        # rubocop:disable Style/CommandLiteral
+        result = `#{RbConfig.ruby} -I#{lib_path} #{temp_script.path} 2>&1`
+        # rubocop:enable Style/CommandLiteral
+
+        expect($?.success?).to eq(true),
+          "Symbol-based attribute definition failed after require 'lutaml/model'. " \
+          "Output: #{result}"
+      ensure
+        temp_script.unlink
+      end
     end
   end
 end
