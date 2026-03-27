@@ -215,7 +215,7 @@ module Lutaml
       def load_adapter_file(adapter, type)
         # Check FormatRegistry for a custom adapter loader
         loader = FormatRegistry.adapter_loader_for(adapter.to_sym)
-        if loader && loader.respond_to?(:load_adapter_file)
+        if loader.respond_to?(:load_adapter_file)
           loader.load_adapter_file(adapter, type)
           return
         end
@@ -230,7 +230,7 @@ module Lutaml
       def load_moxml_adapter(type_name, adapter_name)
         # Check FormatRegistry for a custom adapter loader
         loader = FormatRegistry.adapter_loader_for(adapter_name)
-        if loader && loader.respond_to?(:load_moxml_adapter)
+        if loader.respond_to?(:load_moxml_adapter)
           loader.load_moxml_adapter(type_name, adapter_name)
           return
         end
@@ -243,7 +243,7 @@ module Lutaml
       def class_for(adapter, type)
         # Check FormatRegistry for a custom adapter loader
         loader = FormatRegistry.adapter_loader_for(adapter.to_sym)
-        if loader && loader.respond_to?(:class_for)
+        if loader.respond_to?(:class_for)
           return loader.class_for(adapter, type)
         end
 

@@ -19,9 +19,9 @@ module Lutaml
         # @param format [Symbol] The format
         # @param args [Array] Additional arguments (mapping class for XML)
         # @param block [Proc] The DSL block
-        def process_mapping(format, *args, &block)
+        def process_mapping(format, *args, &)
           if format == :xml && args.any? && args.first.is_a?(Class) && args.first < Lutaml::Xml::Mapping
-            process_xml_mapping_class_inheritance(args.first, &block)
+            process_xml_mapping_class_inheritance(args.first, &)
           else
             super
           end
