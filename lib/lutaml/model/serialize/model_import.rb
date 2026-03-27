@@ -76,7 +76,10 @@ module Lutaml
             klass = ::Lutaml::Model::Config.mappings_class_for(format)
             @mappings[format] ||= klass.new
             mapping = @mappings[format]
-            mapping.import_model_mappings(model, register_id) if mapping.respond_to?(:import_model_mappings)
+            if mapping.respond_to?(:import_model_mappings)
+              mapping.import_model_mappings(model,
+                                            register_id)
+            end
           end
         end
 
@@ -109,7 +112,8 @@ module Lutaml
             define_attribute_methods(attr, register_id)
           end
 
-          @register_records[register_id] ||= { attributes: {}, choice_attributes: [] }
+          @register_records[register_id] ||= { attributes: {},
+                                               choice_attributes: [] }
           @register_records[register_id][:attributes].merge!(Utils.deep_dup(model.attributes(register_id)))
           @register_records[register_id][:choice_attributes].concat(
             deep_duplicate_choice_attributes(model, register_id),

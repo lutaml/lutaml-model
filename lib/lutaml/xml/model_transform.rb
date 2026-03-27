@@ -176,7 +176,8 @@ visited = Set.new)
         # default register which only has the root element, not the imported child rules.
         # NOTE: Also pass lutaml_register to .mappings since it defaults to nil register,
         # which would lose the register context and return only class-level rules.
-        mappings = options[:mappings] || mappings_for(:xml, lutaml_register).mappings(lutaml_register)
+        mappings = options[:mappings] || mappings_for(:xml,
+                                                      lutaml_register).mappings(lutaml_register)
         default_namespace = options[:default_namespace]
         ordered_option = options[:ordered]
         mixed_content_option = options[:mixed_content]

@@ -126,7 +126,9 @@ module Lutaml
         def restrict(name, options = {})
           register_id = options.delete(:register) || Lutaml::Model::Config.default_register
 
-          if !@attributes.key?(name) && !register_record(register_id)&.dig(:attributes, name)
+          if !@attributes.key?(name) && !register_record(register_id)&.dig(
+            :attributes, name
+          )
             return restrict_attributes[name] = options if any_importable_models?
 
             raise Lutaml::Model::UndefinedAttributeError.new(name, self)

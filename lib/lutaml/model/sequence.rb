@@ -33,7 +33,10 @@ module Lutaml
       end
 
       def import_model_mappings(model, register = nil)
-        return import_mappings_later(model, register) if later_importable?(model)
+        if later_importable?(model)
+          return import_mappings_later(model,
+                                       register)
+        end
         raise Lutaml::Model::ImportModelWithRootError.new(model) if model.root?(register)
 
         register ||= Lutaml::Model::Config.default_register
@@ -46,7 +49,8 @@ module Lutaml
 
         # Import serialization mappings first (XML element names → model attributes)
         @model.import_model_mappings(model, register)
-        @attributes.concat(Utils.deep_dup(model.mappings_for(:xml, register).elements(register)))
+        @attributes.concat(Utils.deep_dup(model.mappings_for(:xml,
+                                                             register).elements(register)))
       end
 
       def map_attribute(*)
@@ -112,11 +116,14 @@ choices, register = nil)
         raise_incorrect_sequence_error!(element, element_order[eo_index])
       end
 
-      def process_choice(element_order, eo_index, element, klass_attr, choices, register = nil)
+      def process_choice(element_order, eo_index, element, klass_attr, choices,
+register = nil)
         return eo_index if choices[klass_attr.choice] || element_order[eo_index] != element
 
         choices[klass_attr.choice] = true
-        eo_index + klass_attr.choice.validate_sequence_content!(element_order[eo_index..], 0, register)
+        eo_index + klass_attr.choice.validate_sequence_content!(
+          element_order[eo_index..], 0, register
+        )
       end
 
       def raise_incorrect_sequence_error!(expected, found)

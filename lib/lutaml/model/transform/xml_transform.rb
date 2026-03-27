@@ -24,7 +24,8 @@ module Lutaml
         instance.encoding = options[:encoding]
         return instance unless doc
 
-        mappings = options[:mappings] || mappings_for(:xml, lutaml_register).mappings(lutaml_register)
+        mappings = options[:mappings] || mappings_for(:xml,
+                                                      lutaml_register).mappings(lutaml_register)
 
         validate_document!(doc, options)
 
@@ -84,7 +85,8 @@ module Lutaml
 
       def prepare_options(options)
         opts = Utils.deep_dup(options)
-        opts[:default_namespace] ||= mappings_for(:xml, lutaml_register)&.namespace_uri
+        opts[:default_namespace] ||= mappings_for(:xml,
+                                                  lutaml_register)&.namespace_uri
 
         opts
       end
@@ -102,8 +104,10 @@ module Lutaml
         return unless instance.respond_to?(:ordered=)
 
         instance.element_order = doc.root.order
-        instance.ordered = mappings_for(:xml, lutaml_register).ordered? || options[:ordered]
-        instance.mixed = mappings_for(:xml, lutaml_register).mixed_content? || options[:mixed_content]
+        instance.ordered = mappings_for(:xml,
+                                        lutaml_register).ordered? || options[:ordered]
+        instance.mixed = mappings_for(:xml,
+                                      lutaml_register).mixed_content? || options[:mixed_content]
       end
 
       def set_schema_location(instance, doc)
