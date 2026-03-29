@@ -105,6 +105,7 @@ model_class, register_id)
 
         # Match by name AND namespace when object has a namespace URI.
         # Falls back to name-only match for backward compatibility.
+        # Also checks uri_aliases for namespace alias support (e.g., ReqIF versions).
         #
         # @param rule [CompiledRule] The compiled rule
         # @param name [String] Element name
@@ -113,10 +114,16 @@ model_class, register_id)
         def matches_element_rule?(rule, name, object_ns_uri)
           return rule.matches_name?(name) if object_ns_uri.nil?
 
-          rule_ns_uri = rule.namespace_class&.uri
-          return rule.matches_name?(name) if rule_ns_uri.nil?
+          rule_ns_class = rule.namespace_class
+          return rule.matches_name?(name) if rule_ns_class.nil?
 
-          rule.matches_name?(name) && rule_ns_uri == object_ns_uri
+          return rule.matches_name?(name) if rule_ns_class.uri.nil?
+
+          rule_ns_matches = rule_ns_class.uri == object_ns_uri ||
+            (rule_ns_class.respond_to?(:uri_aliases) &&
+              rule_ns_class.uri_aliases&.include?(object_ns_uri))
+
+          rule.matches_name?(name) && rule_ns_matches
         end
 
         def process_element_order_item(object, root, model_instance, options,

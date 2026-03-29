@@ -863,7 +863,7 @@ module Lutaml
                        # ALWAYS use the "xsi" prefix. They should never inherit element prefix.
                        # They conventionally belong to the XSI namespace.
                        attr_name = xml_attr.name.to_s
-                       if attr_name.start_with?("xmlns", "xsi:")
+                       if attr_name.start_with?("xmlns", "xsi:", "xml:")
                          nil
                        else
                          element_ns_class&.prefix_default
@@ -1129,7 +1129,20 @@ module Lutaml
             end
           end
           # Check if namespace is hoisted on parent
+          # When namespace has uri_aliases, the parent may have declared a different
+          # URI (alias or canonical) than what this element wants to use.
+          # Rules:
+          # 1. Exact match → already hoisted, don't re-declare
+          # 2. Parent declared alias, child wants canonical → already hoisted (alias covers canonical)
+          # 3. Parent declared canonical/alias-A, child wants alias-B → NOT hoisted (child must declare its alias)
+          # This ensures round-trip fidelity: if input used alias URI, output preserves it.
           ns_hoisted_by_parent = parent_hoisted.value?(ns_uri)
+          if !ns_hoisted_by_parent && ns_class.respond_to?(:all_uris) &&
+              ns_uri == ns_class.uri # child is using canonical URI
+            # Parent declared an alias of this namespace — child doesn't need to re-declare
+            # because the alias already establishes the namespace binding
+            ns_hoisted_by_parent = ns_class.uri_aliases.any? { |alias_uri| parent_hoisted.value?(alias_uri) }
+          end
 
           # Check if namespace is hoisted to root via namespace_scope (for non-root elements)
           element_ns_hoisted_to_root && !is_root
@@ -1481,26 +1494,33 @@ module Lutaml
 
           if root_level_namespaces
             # Location-aware preservation
+            # Preserve root-level namespaces from input that were explicitly declared.
+            # For doubly-defined namespaces (same URI, different prefixes),
+            # each prefix variant is preserved independently.
+            #
+            # Decision logic:
+            # - If direct child uses this specific prefix+URI → don't hoist (child declares)
+            # - If only deeper descendants use it OR no descendant uses it → hoist to root
             root_level_namespaces.each do |prefix, uri|
-              # Skip if same prefix already used for different URI
+              # Skip if same prefix already used for different URI (conflict)
               next if hoisted.key?(prefix) && hoisted[prefix] != uri
 
-              # NEW: Check if children use this specific prefix variant
-              # This enables doubly-defined namespace preservation
-              child_uses_this_prefix = needs.children&.any? do |_attr_name, child_needs|
+              # Check if ANY direct child uses this specific prefix+URI combination
+              # This is the key distinction: direct children will declare their own
+              # namespaces, so we shouldn't hoist for them. But deeply nested usage
+              # needs to be hoisted to root since intermediate elements don't use it.
+              child_uses_ns_direct = needs.children&.any? do |_attr_name, child_needs|
                 child_needs.namespaces.values.any? do |ns_usage|
-                  ns_usage.used_prefix == prefix &&
-                    ns_usage.namespace_class.uri == uri
+                  ns_usage.namespace_class&.uri == uri &&
+                    ns_usage.used_prefix == prefix
                 end
               end
 
-              # Hoist if:
-              # - URI not yet declared (no prefix+URI combo), OR
-              # - This specific prefix variant is used by children (doubly-defined ns)
-              uri_already_hoisted = hoisted.value?(uri)
-              if !uri_already_hoisted || child_uses_this_prefix
-                hoisted[prefix] = uri
-              end
+              # Only skip hoisting if direct child uses the specific prefix+URI
+              # (child will declare it in SECOND phase)
+              next if child_uses_ns_direct
+
+              hoisted[prefix] = uri
             end
           elsif stored_plan&.root_node&.hoisted_declarations
             # Fallback: Legacy behavior for plans without location data
@@ -1679,6 +1699,7 @@ module Lutaml
 
         { "#{xsi_prefix}:schemaLocation" => value }
       end
+
     end
   end
 end

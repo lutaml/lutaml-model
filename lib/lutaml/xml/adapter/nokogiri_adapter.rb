@@ -769,23 +769,29 @@ module Lutaml
             else
               # CRITICAL FIX: Check if namespace is declared on parent before adding locally
               # When parent declares the namespace with the SAME format (prefix or default),
-              # child should use parent's namespace declaration without re-declaring it
+              # child should use parent's namespace declaration without re-declaring it.
+              # Also check namespace aliases: if parent declared alias URI and child uses
+              # canonical URI (or vice versa), the namespace is already established on parent.
               target_prefix = element_node.use_prefix
-              parent_has_namespace = parent&.namespace_scopes&.any? do |n|
-                n.href == target_uri
-              end
+              parent_has_namespace = parent_has_matching_namespace?(parent, target_uri,
+                                                                    target_namespace_class)
 
               if parent_has_namespace
-                # Parent has the namespace declared - check if it's using the SAME format
+                # Parent has the namespace declared - find the matching namespace object
+                # Must check all URIs (canonical + aliases) since parent may have declared
+                # with an alias URI while child uses canonical (or vice versa)
+                matching_uris = if target_namespace_class.respond_to?(:all_uris)
+                                  target_namespace_class.all_uris
+                                else
+                                  [target_uri]
+                                end
                 parent_ns = if target_prefix
-                              # Child wants prefix format - check if parent has prefix declaration
                               parent.namespace_scopes.find do |n|
-                                n.href == target_uri && n.prefix == target_prefix
+                                matching_uris.include?(n.href) && n.prefix == target_prefix
                               end
                             else
-                              # Child wants default format - check if parent has default declaration
                               parent.namespace_scopes.find do |n|
-                                n.href == target_uri && n.prefix.nil?
+                                matching_uris.include?(n.href) && n.prefix.nil?
                               end
                             end
 
@@ -951,6 +957,32 @@ module Lutaml
           end
 
           element
+        end
+
+        # Check if parent already has a namespace declaration matching the target URI,
+        # including namespace aliases. If parent declared an alias URI and child uses
+        # the canonical URI (or another alias of the same namespace), the namespace
+        # is already established on parent and child should not re-declare.
+        #
+        # @param parent [Nokogiri::XML::Element, nil] Parent element
+        # @param target_uri [String] The canonical URI the child wants to use
+        # @param target_namespace_class [Class] The namespace class with uri_aliases
+        # @return [Boolean] true if parent already declares this namespace (exact or alias)
+        def parent_has_matching_namespace?(parent, target_uri, target_namespace_class)
+          return false unless parent
+
+          parent_uris = parent.namespace_scopes.map(&:href)
+
+          # Check exact match first
+          return true if parent_uris.include?(target_uri)
+
+          # Check if parent declared an alias URI for the same namespace
+          if target_namespace_class.respond_to?(:all_uris)
+            all_ns_uris = target_namespace_class.all_uris
+            return parent_uris.any? { |href| all_ns_uris.include?(href) }
+          end
+
+          false
         end
 
         # Post-process XML string to fix OOXML format issues.
