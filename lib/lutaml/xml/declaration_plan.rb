@@ -287,6 +287,13 @@ module Lutaml
       def namespaces_at_path(path)
         return nil unless @namespace_locations
 
+        # For root path (empty array), return root_node's hoisted declarations
+        # since root namespaces are stored there (not in @namespace_locations
+        # which only has child paths)
+        if path.empty?
+          return root_node.hoisted_declarations
+        end
+
         path_key = path.join("/")
         @namespace_locations[path_key]
       end
