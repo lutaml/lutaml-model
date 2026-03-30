@@ -15,16 +15,20 @@ module Lutaml
                     :is_root,
                     :parent_format,
                     :parent_namespace_class,
+                    :parent_namespace_prefix,
                     :parent_hoisted,
                     :namespace_class,
                     :namespace_uri,
-                    :namespace_key
+                    :namespace_key,
+                    :element_used_prefix
 
         def initialize(element:, mapping:, needs:, options: {},
                        is_root: false,
                        parent_format: nil,
                        parent_namespace_class: nil,
-                       parent_hoisted: {})
+                       parent_namespace_prefix: nil,
+                       parent_hoisted: {},
+                       element_used_prefix: nil)
           @element = element
           @mapping = mapping
           @needs = needs
@@ -32,7 +36,9 @@ module Lutaml
           @is_root = is_root
           @parent_format = parent_format
           @parent_namespace_class = parent_namespace_class
+          @parent_namespace_prefix = parent_namespace_prefix
           @parent_hoisted = parent_hoisted || {}
+          @element_used_prefix = element_used_prefix
 
           # Extract namespace info from element
           @namespace_class = element&.namespace_class

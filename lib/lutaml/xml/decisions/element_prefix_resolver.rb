@@ -25,12 +25,14 @@ module Lutaml
         # @param is_root [Boolean] Whether this is the root element
         # @param parent_format [Symbol, nil] Parent's format (:prefix or :default)
         # @param parent_namespace_class [Class, nil] Parent's namespace class
+        # @param parent_namespace_prefix [String, nil] Parent's actual namespace prefix (nil if default format)
         # @param parent_hoisted [Hash] Namespaces hoisted on parent {prefix => uri}
         # @return [String, nil] The prefix to use, or nil for default format
         def resolve(xml_element, mapping, needs, options,
                    is_root: false,
                    parent_format: nil,
                    parent_namespace_class: nil,
+                   parent_namespace_prefix: nil,
                    parent_hoisted: {})
           # Create decision context
           context = DecisionContext.new(
@@ -41,6 +43,7 @@ module Lutaml
             is_root: is_root,
             parent_format: parent_format,
             parent_namespace_class: parent_namespace_class,
+            parent_namespace_prefix: parent_namespace_prefix,
             parent_hoisted: parent_hoisted,
           )
 
@@ -58,7 +61,9 @@ module Lutaml
                                  is_root: false,
                                  parent_format: nil,
                                  parent_namespace_class: nil,
-                                 parent_hoisted: {})
+                                 parent_namespace_prefix: nil,
+                                 parent_hoisted: {},
+                                 element_used_prefix: nil)
           context = DecisionContext.new(
             element: xml_element,
             mapping: mapping,
@@ -67,7 +72,9 @@ module Lutaml
             is_root: is_root,
             parent_format: parent_format,
             parent_namespace_class: parent_namespace_class,
+            parent_namespace_prefix: parent_namespace_prefix,
             parent_hoisted: parent_hoisted,
+            element_used_prefix: element_used_prefix,
           )
 
           @engine.execute(context)

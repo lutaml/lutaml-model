@@ -31,6 +31,8 @@ module Lutaml
                  "#{__dir__}/rules/default_preference_rule"
         autoload :InheritParentPrefixRule,
                  "#{__dir__}/rules/inherit_parent_prefix_rule"
+        autoload :UsedPrefixRule,
+                 "#{__dir__}/rules/used_prefix_rule"
       end
     end
   end
