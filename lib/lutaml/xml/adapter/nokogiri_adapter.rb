@@ -968,7 +968,8 @@ module Lutaml
         # @param target_uri [String] The canonical URI the child wants to use
         # @param target_namespace_class [Class] The namespace class with uri_aliases
         # @return [Boolean] true if parent already declares this namespace (exact or alias)
-        def parent_has_matching_namespace?(parent, target_uri, target_namespace_class)
+        def parent_has_matching_namespace?(parent, target_uri,
+target_namespace_class)
           return false unless parent
 
           parent_uris = parent.namespace_scopes.map(&:href)

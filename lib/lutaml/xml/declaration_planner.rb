@@ -1174,7 +1174,9 @@ module Lutaml
               ns_uri == ns_class.uri # child is using canonical URI
             # Parent declared an alias of this namespace — child doesn't need to re-declare
             # because the alias already establishes the namespace binding
-            ns_hoisted_by_parent = ns_class.uri_aliases.any? { |alias_uri| parent_hoisted.value?(alias_uri) }
+            ns_hoisted_by_parent = ns_class.uri_aliases.any? do |alias_uri|
+              parent_hoisted.value?(alias_uri)
+            end
           end
 
           # Check if namespace is hoisted to root via namespace_scope (for non-root elements)
@@ -1538,7 +1540,7 @@ module Lutaml
                 child_needs.namespaces.values.any? do |ns_usage|
                   ns_usage.namespace_class.uri == uri &&
                     ns_usage.used_in_elements? &&
-                    !needs.type_namespace_classes.any? { |tc| tc.uri == uri }
+                    needs.type_namespace_classes.none? { |tc| tc.uri == uri }
                 end
               end
               next if child_own_element_ns
@@ -1737,7 +1739,6 @@ module Lutaml
 
         { "#{xsi_prefix}:schemaLocation" => value }
       end
-
     end
   end
 end
