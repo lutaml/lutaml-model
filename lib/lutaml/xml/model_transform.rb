@@ -686,10 +686,32 @@ mixed_content_option)
         if type_ns_uri
           # Use type namespace URI for matching (child.namespaced_name uses URI:localname format)
           ["#{type_ns_uri}:#{rule.name}"]
+        elsif attr_type_is_serializable(attr)
+          # For Serializable models, get namespace from the type's XML mappings
+          attr_type = attr.type(lutaml_register)
+          attr_type_class = if attr_type.is_a?(Class) && attr_type.include?(::Lutaml::Model::Serialize)
+                              attr_type
+                            else
+                              attr.type_namespace_class(lutaml_register)
+                            end
+          if attr_type_class
+            attr_type_ns_class = attr_type_class.respond_to?(:mappings_for) ?
+              attr_type_class.mappings_for(:xml)&.namespace_class : nil
+            if attr_type_ns_class
+              return ["#{attr_type_ns_class.uri}:#{rule.name}"]
+            end
+          end
+          # Use existing logic
+          rule.namespaced_names(options[:default_namespace])
         else
           # Use existing logic
           rule.namespaced_names(options[:default_namespace])
         end
+      end
+
+      def attr_type_is_serializable(attr)
+        attr_type = attr&.type(lutaml_register)
+        attr_type && attr_type.is_a?(Class) && attr_type.include?(::Lutaml::Model::Serialize)
       end
     end
   end

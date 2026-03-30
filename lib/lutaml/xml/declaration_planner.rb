@@ -226,6 +226,7 @@ module Lutaml
           is_root: true,
           parent_format: nil,
           parent_namespace_class: nil,
+          parent_namespace_prefix: nil,
           parent_hoisted: {}
         )
 
@@ -607,10 +608,11 @@ module Lutaml
       # @param is_root [Boolean] Whether this is the root element
       # @param parent_format [Symbol, nil] Parent's namespace format (:default or :prefix)
       # @param parent_namespace_class [Class, nil] Parent's namespace class
+      # @param parent_namespace_prefix [String, nil] Parent's actual namespace prefix
       # @param parent_hoisted [Hash] Namespaces hoisted on parent {prefix => uri}
       # @return [ElementNode] Element node with all decisions
       def build_element_node(xml_element, mapping, needs, options,
-  parent_node: nil, is_root: false, parent_format: nil, parent_namespace_class: nil, parent_hoisted: {}, element_path: [])
+  parent_node: nil, is_root: false, parent_format: nil, parent_namespace_class: nil, parent_namespace_prefix: nil, parent_hoisted: {}, element_path: [])
         # Determine element's prefix (checks input_formats, parent context for preservation)
         # Priority:
         # 1. Lutaml::Xml::XmlElement (from parsed XML): has namespace_prefix_explicit
@@ -634,6 +636,7 @@ module Lutaml
           is_root: is_root,
           parent_format: parent_format,
           parent_namespace_class: parent_namespace_class,
+          parent_namespace_prefix: parent_namespace_prefix,
           parent_hoisted: parent_hoisted,
           element_prefix_explicit: element_prefix_explicit,
           element_used_prefix: element_used_prefix
@@ -643,7 +646,7 @@ module Lutaml
         # CRITICAL: Pass element_prefix to avoid calling determine_element_prefix twice
         # which could return different results due to context differences
         hoisted = determine_hoisted_declarations(xml_element, mapping, needs,
-                                                 options, is_root: is_root, parent_hoisted: parent_hoisted, element_prefix: element_prefix, element_path: element_path)
+                                                 options, is_root: is_root, parent_hoisted: parent_hoisted, element_prefix: element_prefix, element_path: element_path, parent_namespace_class: parent_namespace_class, parent_namespace_prefix: parent_namespace_prefix)
 
         # Determine if child needs xmlns="" (W3C compliance)
         # W3C XML Namespaces 1.0 §6.2: When parent has default namespace and child
@@ -788,6 +791,7 @@ module Lutaml
             is_root: false,
             parent_format: this_format,
             parent_namespace_class: this_namespace,
+            parent_namespace_prefix: element_prefix,
             parent_hoisted: parent_hoisted.merge(hoisted),
             element_path: element_path + [xml_child.name]
           )
@@ -922,6 +926,7 @@ module Lutaml
                                  is_root: false,
                                  parent_format: nil,
                                  parent_namespace_class: nil,
+                                 parent_namespace_prefix: nil,
                                  parent_hoisted: {},
                                  element_prefix_explicit: false,
                                  element_used_prefix: nil)
@@ -1024,7 +1029,9 @@ module Lutaml
           is_root: is_root,
           parent_format: parent_format,
           parent_namespace_class: parent_namespace_class,
-          parent_hoisted: parent_hoisted
+          parent_namespace_prefix: parent_namespace_prefix,
+          parent_hoisted: parent_hoisted,
+          element_used_prefix: element_used_prefix
         )
 
         decision.prefix
@@ -1054,10 +1061,23 @@ module Lutaml
       # @param is_root [Boolean] Whether this is the root element
       # @param parent_hoisted [Hash] Namespaces hoisted on parent {prefix => uri}
       # @param element_path [Array<String>] Element path in the tree for namespace_locations lookup
+      # @param parent_namespace_class [Class, nil] Parent's namespace class
+      # @param parent_namespace_prefix [String, nil] Parent's actual namespace prefix
       # @return [Hash<String|nil, String>] xmlns attributes: {prefix_or_nil => uri}
       def determine_hoisted_declarations(xml_element, mapping, needs,
-  options, is_root: false, parent_hoisted: {}, element_prefix: nil, element_path: [])
+  options, is_root: false, parent_hoisted: {}, element_prefix: nil, element_path: [], parent_namespace_class: nil, parent_namespace_prefix: nil)
         hoisted = {}
+
+        # Compute element_used_prefix the same way it's done in build_element_node.
+        # This is needed because determine_element_prefix is called again inside this method,
+        # and it needs element_used_prefix to correctly determine the prefix.
+        element_used_prefix = if is_root
+                                nil
+                              elsif xml_element.is_a?(Lutaml::Xml::XmlElement)
+                                xml_element.namespace_prefix
+                              else
+                                xml_element.instance_variable_get(:@__xml_namespace_prefix)
+                              end
 
         # CRITICAL: Get the current element's namespace_scope_configs.
         # For child elements, use their own namespace_scope, not the parent's.
@@ -1115,10 +1135,10 @@ module Lutaml
           ns_hoisted_to_root = element_ns_hoisted_to_root && !is_root
 
           # Determine the prefix to use for this namespace
-          if !ns_hoisted_by_parent && !ns_hoisted_to_root
-            # Namespace is NOT already hoisted - need to determine prefix
+          if !ns_hoisted_by_parent
+            # Namespace is NOT already hoisted by parent - need to determine prefix
             element_prefix = determine_element_prefix(xml_element, mapping,
-                                                      needs, options, is_root: is_root, parent_hoisted: parent_hoisted)
+                                                      needs, options, is_root: is_root, parent_hoisted: parent_hoisted, element_used_prefix: element_used_prefix, parent_namespace_class: parent_namespace_class, parent_namespace_prefix: parent_namespace_prefix)
 
             # W3C elementFormDefault="unqualified": prefer prefix format so children
             # can be in blank namespace (no xmlns attribute). Only for non-root elements
