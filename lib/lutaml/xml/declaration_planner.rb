@@ -648,6 +648,39 @@ module Lutaml
         hoisted = determine_hoisted_declarations(xml_element, mapping, needs,
                                                  options, is_root: is_root, parent_hoisted: parent_hoisted, element_prefix: element_prefix, element_path: element_path, parent_namespace_class: parent_namespace_class, parent_namespace_prefix: parent_namespace_prefix)
 
+        # For ROOT element with a stored input plan, merge additional declarations
+        # from the stored plan that the normal computation didn't include.
+        # This preserves namespace prefix declarations from input XML that
+        # the recomputation would not produce. Specifically:
+        # - Doubly-defined: xmlns="..." AND xmlns:b="..." on the same element
+        # - Non-default prefix: xmlns:xyzabc="..." when model uses prefix_default "a:"
+        #
+        # Only merge when the root element itself did NOT use a prefix in the input.
+        # When the root's element name had a prefix (e.g., <examplecom:schema>),
+        # the deserialization sets @__xml_namespace_prefix on the root XmlElement,
+        # and element_builder clears child prefixes — so the stored plan's
+        # prefix declarations are NOT needed by any child element.
+        if is_root && !options.key?(:use_prefix)
+          stored_plan = options[:stored_xml_declaration_plan]
+          if stored_plan.respond_to?(:root_node) && stored_plan.root_node.respond_to?(:hoisted_declarations)
+            root_has_input_prefix = xml_element.instance_variable_get(:@__xml_namespace_prefix).to_s != ""
+
+            unless root_has_input_prefix
+              stored_hoisted = stored_plan.root_node.hoisted_declarations
+              stored_original_uris = stored_plan.original_namespace_uris || {}
+
+              stored_hoisted.each do |prefix, uri|
+                effective_uri = stored_original_uris[uri] || uri
+                already_present = hoisted.any? do |_k, v|
+                  v == effective_uri || v == uri
+                end
+                if already_present && !hoisted.key?(prefix)
+                  hoisted[prefix] = uri
+                end
+              end
+            end
+          end
+        end
         # Determine if child needs xmlns="" (W3C compliance)
         # W3C XML Namespaces 1.0 §6.2: When parent has default namespace and child
         # has NO namespace (namespace_class is nil), child MUST explicitly opt out
@@ -1489,38 +1522,43 @@ module Lutaml
         if is_root && !has_explicit_pref
           stored_plan = options[:stored_xml_declaration_plan]
 
-          # Try location-aware approach first (preferred)
+          # Get root-level namespaces from location tracking.
+          # This properly distinguishes namespaces declared at root vs hoisted there.
           root_level_namespaces = stored_plan&.namespaces_at_path([])
 
           if root_level_namespaces
-            # Location-aware preservation
-            # Preserve root-level namespaces from input that were explicitly declared.
-            # For doubly-defined namespaces (same URI, different prefixes),
-            # each prefix variant is preserved independently.
-            #
-            # Decision logic:
-            # - If direct child uses this specific prefix+URI → don't hoist (child declares)
-            # - If only deeper descendants use it OR no descendant uses it → hoist to root
             root_level_namespaces.each do |prefix, uri|
-              # Skip if same prefix already used for different URI (conflict)
+              # Skip if same prefix already used for different URI
               next if hoisted.key?(prefix) && hoisted[prefix] != uri
 
-              # Check if ANY direct child uses this specific prefix+URI combination
-              # This is the key distinction: direct children will declare their own
-              # namespaces, so we shouldn't hoist for them. But deeply nested usage
-              # needs to be hoisted to root since intermediate elements don't use it.
-              child_uses_ns_direct = needs.children&.any? do |_attr_name, child_needs|
+              # Skip if this namespace is a child element's OWN element namespace
+              # (not a type namespace). Children should declare their own namespace
+              # locally rather than having it hoisted to root.
+              child_own_element_ns = needs.children&.any? do |_attr_name, child_needs|
                 child_needs.namespaces.values.any? do |ns_usage|
-                  ns_usage.namespace_class&.uri == uri &&
-                    ns_usage.used_prefix == prefix
+                  ns_usage.namespace_class.uri == uri &&
+                    ns_usage.used_in_elements? &&
+                    !needs.type_namespace_classes.any? { |tc| tc.uri == uri }
+                end
+              end
+              next if child_own_element_ns
+
+              # Check if children use this specific prefix variant
+              # This enables doubly-defined namespace preservation
+              child_uses_this_prefix = needs.children&.any? do |_attr_name, child_needs|
+                child_needs.namespaces.values.any? do |ns_usage|
+                  ns_usage.used_prefix == prefix &&
+                    ns_usage.namespace_class.uri == uri
                 end
               end
 
-              # Only skip hoisting if direct child uses the specific prefix+URI
-              # (child will declare it in SECOND phase)
-              next if child_uses_ns_direct
-
-              hoisted[prefix] = uri
+              # Hoist if:
+              # - URI not yet declared (no prefix+URI combo), OR
+              # - This specific prefix variant is used by children (doubly-defined ns)
+              uri_already_hoisted = hoisted.value?(uri)
+              if !uri_already_hoisted || child_uses_this_prefix
+                hoisted[prefix] = uri
+              end
             end
           elsif stored_plan&.root_node&.hoisted_declarations
             # Fallback: Legacy behavior for plans without location data
