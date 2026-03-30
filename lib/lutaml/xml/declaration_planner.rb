@@ -1132,7 +1132,7 @@ module Lutaml
           ns_hoisted_by_parent = parent_hoisted.value?(ns_uri)
 
           # Check if namespace is hoisted to root via namespace_scope (for non-root elements)
-          ns_hoisted_to_root = element_ns_hoisted_to_root && !is_root
+          element_ns_hoisted_to_root && !is_root
 
           # Determine the prefix to use for this namespace
           if !ns_hoisted_by_parent

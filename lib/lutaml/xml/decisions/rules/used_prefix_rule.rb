@@ -45,8 +45,8 @@ module Lutaml
             # Namespaces without explicit :qualified should use default format
             # (e.g., dcterms namespace uses default format, not prefix)
             return false unless ns_class.respond_to?(:element_form_default_set?) &&
-                                ns_class.element_form_default_set? &&
-                                ns_class.element_form_default == :qualified
+              ns_class.element_form_default_set? &&
+              ns_class.element_form_default == :qualified
 
             # The used_prefix should match the namespace's prefix_default
             # AND parent must have actually used prefix format (not default namespace)
