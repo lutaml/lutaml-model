@@ -243,11 +243,12 @@ child_transformation)
           # deserialization (e.g., parent's dcterms prefix) from being applied to children
           # that don't expect that prefix.
           ns_prefix_valid = if ns_prefix && !ns_prefix.empty? && child_ns_class
-                             child_ns_class.prefix_default == ns_prefix ||
-                               namespace_prefix_valid_for_class(ns_prefix, child_ns_class)
-                           else
-                             false
-                           end
+                              child_ns_class.prefix_default == ns_prefix ||
+                                namespace_prefix_valid_for_class(ns_prefix,
+                                                                 child_ns_class)
+                            else
+                              false
+                            end
           # Dual-namespace case: when child has a different namespace URI than parent,
           # only use ns_prefix if it actually matches the child's expected prefix.
           # This preserves the dual-namespace behavior (w:rPr inside m:r) while preventing
@@ -280,7 +281,6 @@ child_transformation)
 
           child_element = child_transformation.transform(value, child_options)
 
-
           # Dual-namespace support: when the child model was deserialized from an element
           # with a different namespace than the parent (e.g., w:rPr child of m:r),
           # transfer the model's @__xml_namespace_prefix to the child XmlElement so the
@@ -292,7 +292,8 @@ child_transformation)
               child_element.instance_variable_get(:@__xml_namespace_prefix).nil?
             model_prefix = value.instance_variable_get(:@__xml_namespace_prefix)
             if model_prefix && !model_prefix.empty?
-              child_element.instance_variable_set(:@__xml_namespace_prefix, model_prefix)
+              child_element.instance_variable_set(:@__xml_namespace_prefix,
+                                                  model_prefix)
             end
           end
 
@@ -342,6 +343,7 @@ child_transformation)
         # @return [Boolean] True if prefix is valid for this namespace class
         def namespace_prefix_valid_for_class(prefix, ns_class)
           return false unless prefix && ns_class
+
           ns_class.prefix_default == prefix
         end
 

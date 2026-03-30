@@ -695,8 +695,9 @@ mixed_content_option)
                               attr.type_namespace_class(lutaml_register)
                             end
           if attr_type_class
-            attr_type_ns_class = attr_type_class.respond_to?(:mappings_for) ?
-              attr_type_class.mappings_for(:xml)&.namespace_class : nil
+            attr_type_ns_class = if attr_type_class.respond_to?(:mappings_for)
+                                   attr_type_class.mappings_for(:xml)&.namespace_class
+                                 end
             if attr_type_ns_class
               return ["#{attr_type_ns_class.uri}:#{rule.name}"]
             end
@@ -711,7 +712,7 @@ mixed_content_option)
 
       def attr_type_is_serializable(attr)
         attr_type = attr&.type(lutaml_register)
-        attr_type && attr_type.is_a?(Class) && attr_type.include?(::Lutaml::Model::Serialize)
+        attr_type.is_a?(Class) && attr_type.include?(::Lutaml::Model::Serialize)
       end
     end
   end
