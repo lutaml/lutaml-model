@@ -358,7 +358,7 @@ module Lutaml
             options[:use_prefix] = true
           when String
             options[:use_prefix] = prefix_option
-          when false
+          when false, nil
             options[:use_prefix] = false
           end
           options.delete(:prefix)
