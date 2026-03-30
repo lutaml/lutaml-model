@@ -422,18 +422,16 @@ module Lutaml
                 merged_needs.merge(item_needs)
               end
               child_needs = merged_needs
-            else
+            elsif child_instance.nil?
               # Single instance - skip if nil (no value to serialize)
-              if child_instance.nil?
-                child_needs = NamespaceNeeds.new
-              else
-                child_options = {
-                  mapper_class: child_type,
-                  __xml_namespace_prefix: child_ns_prefix,
-                }
-                child_needs = collect_internal(child_instance, child_mapping,
-                                              **child_options)
-              end
+              child_needs = NamespaceNeeds.new
+            else
+              child_options = {
+                mapper_class: child_type,
+                __xml_namespace_prefix: child_ns_prefix,
+              }
+              child_needs = collect_internal(child_instance, child_mapping,
+                                             **child_options)
             end
 
             needs.add_child(elem_rule.to, child_needs)
@@ -519,7 +517,7 @@ module Lutaml
 
           # Collect Type refs for XML elements (only for present elements)
           # Get actual element names from XmlElement children
-          actual_elem_names = Set.new(element.children.select { |c| c.is_a?(Lutaml::Xml::DataModel::XmlElement) }.map(&:name))
+          actual_elem_names = Set.new(element.children.grep(Lutaml::Xml::DataModel::XmlElement).map(&:name))
           mapping.elements.each do |elem_rule|
             # Skip if element not present in XmlElement tree
             next unless actual_elem_names.include?(elem_rule.name.to_s)
