@@ -868,7 +868,20 @@ module Lutaml
           # Skip xmlns attributes - they are already declared via hoisted_declarations
           # and setting them as attributes creates duplicate namespace declarations
           xml_element.attributes.each_with_index do |xml_attr, idx|
-            next if xml_attr.name.to_s.start_with?("xmlns")
+            attr_name_str = xml_attr.name.to_s
+            if attr_name_str.start_with?("xmlns")
+              # xmlns attributes from hoisted_declarations are already added above.
+              # However, xmlns attributes added by transformation (e.g., xmlns:xsi
+              # from @raw_schema_location) may not be in hoisted_declarations.
+              # Add them as namespace declarations if not already present.
+              if attr_name_str.include?(":")
+                prefix = attr_name_str.split(":", 2).last
+                unless element_node.hoisted_declarations.key?(prefix)
+                  element.add_namespace(prefix, xml_attr.value)
+                end
+              end
+              next
+            end
 
             attr_node = element_node.attribute_nodes[idx]
             element[attr_node.qualified_name] = xml_attr.value
