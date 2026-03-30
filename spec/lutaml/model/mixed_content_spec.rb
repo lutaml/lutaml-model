@@ -1005,6 +1005,7 @@ RSpec.describe "MixedContent" do
 
         expect(serialized).to be_xml_equivalent_to(expected_xml)
       end
+
       it "deserializes and serializes mixed prefixed elements correctly when asked to have no prefix" do
         serialized = MixedContentSpec::PrefixedElements::Schema.from_xml(xml).to_xml(prefix: nil)
         # `prefix: nil` gives uses default namespace instead of prefix
