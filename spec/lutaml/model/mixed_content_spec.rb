@@ -984,18 +984,36 @@ RSpec.describe "MixedContent" do
         XML
       end
 
-      let(:serialized) do
-        MixedContentSpec::PrefixedElements::Schema.from_xml(xml).to_xml
+      it "deserializes and serializes mixed prefixed elements correctly for round-trip elements" do
+        serialized = MixedContentSpec::PrefixedElements::Schema.from_xml(xml).to_xml
+        expected_xml = xml
+        # Format preservation: Output maintains prefix format from input
+
+        expect(serialized).to be_xml_equivalent_to(expected_xml)
       end
 
-      it "deserializes and serializes mixed prefixed elements correctly for prefixed elements" do
-        # Format preservation: Output maintains prefix format from input (semantically equivalent)
+      it "deserializes and serializes mixed prefixed elements correctly when asked to have default prefix" do
+        serialized = MixedContentSpec::PrefixedElements::Schema.from_xml(xml).to_xml(prefix: true)
+        # `prefix: true` uses namespace's prefix_default value as prefix
         expected_xml = <<~XML
           <xsd:schema xmlns:xsd="http://example.com/schema">
             <xsd:element>
               <xsd:annotation>Testing annotation examplecom</xsd:annotation>
             </xsd:element>
           </xsd:schema>
+        XML
+
+        expect(serialized).to be_xml_equivalent_to(expected_xml)
+      end
+      it "deserializes and serializes mixed prefixed elements correctly when asked to have no prefix" do
+        serialized = MixedContentSpec::PrefixedElements::Schema.from_xml(xml).to_xml(prefix: nil)
+        # `prefix: nil` gives uses default namespace instead of prefix
+        expected_xml = <<~XML
+          <schema xmlns="http://example.com/schema">
+            <element>
+              <annotation>Testing annotation examplecom</annotation>
+            </element>
+          </schema>
         XML
 
         expect(serialized).to be_xml_equivalent_to(expected_xml)
