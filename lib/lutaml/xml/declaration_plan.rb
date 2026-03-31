@@ -168,7 +168,11 @@ module Lutaml
           hoisted[xmlns_key] = uri
 
           # Track format used in input for this URI
-          input_formats[uri] = format
+          # ONLY for default namespace declarations (xmlns="...").
+          # For prefixed namespaces (xmlns:prefix="..."), the format is tracked
+          # in input_prefix_formats, not input_formats. input_formats tracks
+          # namespace-level format for elements WITHOUT their own prefix.
+          input_formats[uri] = format if format == :default
 
           # NEW: Build per-prefix-URI format
           key = prefix ? "#{prefix}:#{uri}" : ":#{uri}"
@@ -221,7 +225,9 @@ module Lutaml
 
           xmlns_key = format == :default ? nil : prefix
           root_hoisted[xmlns_key] = uri
-          input_formats[uri] = format
+          # Only track default namespace format in input_formats
+          # Prefixed namespaces are tracked in input_prefix_formats
+          input_formats[uri] = format if format == :default
 
           # NEW: Build per-prefix-URI format
           key = prefix ? "#{prefix}:#{uri}" : ":#{uri}"
@@ -235,8 +241,10 @@ module Lutaml
             if ns_config[:format] == :prefix && ns_config[:prefix]
               registry[ns_config[:uri]] = ns_config[:prefix]
             end
-            # Track format for all namespaces
-            input_formats[ns_config[:uri]] ||= ns_config[:format] || :default
+            # Track format for default namespaces only
+            # Prefixed namespaces are tracked in input_prefix_formats
+            format = ns_config[:format] || (prefix ? :prefix : :default)
+            input_formats[ns_config[:uri]] = format if format == :default
 
             # NEW: Build per-prefix-URI format for all locations
             prefix = ns_config[:prefix]

@@ -18,8 +18,14 @@ module Lutaml
           end
 
           # Applies when namespace is hoisted on parent
+          # BUT: If child has its own used prefix from deserialization,
+          # don't let this rule override. Let FormatPreservationRule handle it.
           def applies?(context)
             return false unless context.has_namespace?
+
+            # If child has its own used prefix from deserialization, don't apply.
+            # Let FormatPreservationRule handle it to preserve the child's prefix.
+            return false if context.element_used_prefix
 
             # Apply if this element's namespace is hoisted on parent
             # (either as default or with a prefix)

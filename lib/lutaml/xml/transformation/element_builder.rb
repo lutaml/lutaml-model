@@ -365,6 +365,14 @@ child_transformation)
             element_namespace_class,
           )
 
+          # Transfer @__xml_namespace_prefix from model to element for round-trip support.
+          # This ensures the original prefix from deserialization is preserved during
+          # serialization, even when using fallback element creation.
+          if value.is_a?(::Lutaml::Model::Serialize)
+            model_ns_prefix = value.instance_variable_get(:@__xml_namespace_prefix)
+            element.instance_variable_set(:@__xml_namespace_prefix, model_ns_prefix)
+          end
+
           element.form = rule.form if rule.form
           text = serialize_value(value, rule, rule.attribute_type, nil)
           element.text_content = text if text
@@ -419,15 +427,22 @@ register_id)
           ns_prefix = nil
           if options[:use_prefix] != false && parent_model.is_a?(::Lutaml::Model::Serialize)
             prefixes = parent_model.instance_variable_get(:@__xml_ns_prefixes)
-            ns_prefix = prefixes[rule.attribute_name] if prefixes
+
+            # Only use @__xml_ns_prefixes lookup when the child's XmlElement was explicit.
+            # If prefixes.key?(attr.name) is false, the child's XmlElement was not explicit
+            # (inherited namespace), so @__xml_ns_prefixes was not set and we should NOT
+            # use the fallback to parent's @__xml_namespace_prefix.
+            if prefixes && prefixes.key?(rule.attribute_name)
+              ns_prefix = prefixes[rule.attribute_name]
+            end
 
             # Fallback for nested Serializable models: @__xml_ns_prefixes is only set for
             # non-Serializable attribute types. For Serializable types (e.g., nested model
             # elements), we fall back to the parent's @__xml_namespace_prefix when the parent's
             # namespace URI matches the child's expected URI. This ensures prefix propagation
             # for nested models that share the parent's namespace.
-            # Only use this fallback when @__xml_ns_prefixes doesn't have the attribute name.
-            if ns_prefix.nil? && same_uri
+            # Only use this fallback when @__xml_ns_prefixes was set (child's XmlElement was explicit).
+            if ns_prefix.nil? && same_uri && prefixes && prefixes.key?(rule.attribute_name)
               parent_prefix = parent_model.instance_variable_get(:@__xml_namespace_prefix)
               ns_prefix = parent_prefix if parent_prefix && !parent_prefix.empty?
             end

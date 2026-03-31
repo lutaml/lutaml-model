@@ -57,8 +57,16 @@ module Lutaml
                 reason: "Priority 1: Input used default format - preserve it",
               )
             else
+              # For nested elements, use element_used_prefix which is correctly set
+              # during deserialization. For root elements, use element_namespace_prefix
+              # which reads from the original XmlElement.
+              prefix = if context.root?
+                         context.element_namespace_prefix
+                       else
+                         context.element_used_prefix
+                       end
               Decision.prefix(
-                prefix: context.namespace_class.prefix_default,
+                prefix: prefix,
                 namespace_class: context.namespace_class,
                 reason: "Priority 1: Input used prefix format - preserve it",
               )
