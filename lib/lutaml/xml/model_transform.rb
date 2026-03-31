@@ -589,6 +589,11 @@ mixed_content_option)
             ns_prefix = if child.is_a?(::Lutaml::Xml::XmlElement) &&
                 child.namespace_prefix_explicit && child.namespace_prefix
                           child.namespace_prefix
+                        else
+                          # Only set ns_prefix for @__xml_ns_prefixes lookup when child's
+                          # XmlElement is explicit. For inherited namespaces (child's XmlElement
+                          # is nil), leave ns_prefix as-is so @__xml_ns_prefixes is not set.
+                          nil
                         end
             if ns_prefix && instance.is_a?(::Lutaml::Model::Serialize)
               # Skip Serializable attribute types (same reason as above)

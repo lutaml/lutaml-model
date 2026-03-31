@@ -21,9 +21,15 @@ module Lutaml
           # Applies when:
           # - Parent uses default format
           # - Element is in same namespace as parent (explicit OR via default)
+          # - Child does NOT have its own prefix from deserialization
+          #   (if child has its own prefix, FormatPreservationRule should handle it)
           def applies?(context)
             return false unless context.has_namespace?
             return false unless context.parent_uses_default_format?
+
+            # If child has its own used prefix from deserialization, don't inherit.
+            # Let FormatPreservationRule handle it to preserve the child's prefix.
+            return false if context.element_used_prefix
 
             # Case 1: Both parent and child have explicit namespace_class in same namespace
             return true if context.same_namespace_as_parent?
