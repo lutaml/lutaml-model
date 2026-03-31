@@ -103,4 +103,79 @@ RSpec.describe "Dual-namespace same-named elements" do
     expect(output).to include("<m:rPr")
     expect(output).to include("<w:rPr")
   end
+
+  it "round-trip preserves data integrity through parse-serialize-parse cycle" do
+    result = parent_class.from_xml(xml)
+    serialized = result.to_xml
+    reparsed = parent_class.from_xml(serialized)
+
+    expect(reparsed.math_props.script).to eq("roman")
+    expect(reparsed.word_props.fonts).to eq("Times New Roman")
+    expect(reparsed.text).to eq("hello")
+  end
+
+  it "handles nested elements within dual-namespace children" do
+    m_ns = math_ns_class
+    w_ns = wml_ns_class
+
+    child_word_with_nested = Class.new(Lutaml::Model::Serializable) do
+      attribute :fonts, :string
+      attribute :bold, :string
+      xml do
+        element "rPr"
+        namespace w_ns
+        map_attribute "ascii", to: :fonts
+        map_attribute "b", to: :bold
+      end
+    end
+
+    parent_with_nested = Class.new(Lutaml::Model::Serializable) do
+      attribute :word_props, child_word_with_nested
+      xml do
+        element "r"
+        namespace m_ns
+        map_element "rPr", to: :word_props, render_nil: false
+      end
+    end
+
+    complex_xml = <<~XML
+      <m:r xmlns:m="#{math_ns_class.uri}" xmlns:w="#{wml_ns_class.uri}">
+        <w:rPr w:ascii="Courier New" w:b="1"/>
+      </m:r>
+    XML
+
+    result = parent_with_nested.from_xml(complex_xml)
+    expect(result.word_props.fonts).to eq("Courier New")
+    expect(result.word_props.bold).to eq("1")
+
+    serialized = result.to_xml
+    expect(serialized).to include("<w:rPr")
+
+    reparsed = parent_with_nested.from_xml(serialized)
+    expect(reparsed.word_props.fonts).to eq("Courier New")
+    expect(reparsed.word_props.bold).to eq("1")
+  end
+
+  it "handles nil values gracefully in dual-namespace context" do
+    instance = parent_class.new(
+      math_props: nil,
+      word_props: nil,
+      text: "test",
+    )
+
+    output = instance.to_xml
+    expect(output).to include("<t>test</t>")
+    expect(output).to include("xmlns=\"#{math_ns_class.uri}\"")
+  end
+
+  it "does not confuse prefixes between math and word namespaces" do
+    result = parent_class.from_xml(xml)
+
+    expect(result.math_props.instance_variable_get(:@__xml_namespace_prefix)).to eq("m")
+    expect(result.word_props.instance_variable_get(:@__xml_namespace_prefix)).to eq("w")
+
+    serialized = result.to_xml
+    expect(serialized.scan("<m:rPr").count).to eq(1)
+    expect(serialized.scan("<w:rPr").count).to eq(1)
+  end
 end
