@@ -12,16 +12,16 @@ module Lutaml
     #   end
     #
     class Configuration
-      AVAILABLE_FORMATS = %i[xml json jsonl yaml toml hash].freeze
-      KEY_VALUE_FORMATS = AVAILABLE_FORMATS - %i[xml]
+      # Bootstrap format list for key-value adapters.
+      # NOTE: XML is NOT listed here — it registers dynamically via FormatRegistry.
+      AVAILABLE_FORMATS = %i[json jsonl yaml toml hash].freeze
+      KEY_VALUE_FORMATS = AVAILABLE_FORMATS
 
-      # Available formats and their adapters
+      # Available key-value formats and their adapters.
+      # XML adapter metadata is registered dynamically via FormatRegistry
+      # when `require "lutaml/xml"` is called.
       ADAPTERS = begin
         h = {
-          xml: {
-            available: %i[nokogiri ox oga rexml],
-            default: :nokogiri,
-          },
           json: {
             available: %i[standard standard_json multi_json oj],
             default: :standard,
@@ -161,10 +161,15 @@ module Lutaml
 
       private
 
-      # Validate that the adapter is available for the format
+      # Validate that the adapter is available for the format.
+      # Checks both static ADAPTERS hash and FormatRegistry for dynamically
+      # registered formats (e.g., XML).
       def validate_adapter!(format, adapter_type)
-        unless ADAPTERS.key?(format)
-          available_formats = ADAPTERS.keys.map { |f| "`:#{f}`" }.join(", ")
+        adapter_config = ADAPTERS[format] || FormatRegistry.adapter_options_for(format)
+
+        unless adapter_config
+          all_formats = (ADAPTERS.keys + FormatRegistry.formats).uniq
+          available_formats = all_formats.map { |f| "`:#{f}`" }.join(", ")
           raise ArgumentError,
                 "Unknown format: `:#{format}`. Available formats: #{available_formats}."
         end
@@ -176,7 +181,8 @@ module Lutaml
                 "segmentation fault issues. Please use `:toml_rb` instead."
         end
 
-        available = ADAPTERS[format][:available]
+        available = adapter_config[:available]
+        return unless available
         return if available.include?(adapter_type)
 
         available_list = available.map { |a| "`:#{a}`" }.join(", ")
@@ -228,16 +234,15 @@ module Lutaml
       end
 
       def load_moxml_adapter(type_name, adapter_name)
-        # Check FormatRegistry for a custom adapter loader
+        # Delegate to FormatRegistry adapter loader if available
         loader = FormatRegistry.adapter_loader_for(adapter_name)
         if loader.respond_to?(:load_moxml_adapter)
           loader.load_moxml_adapter(type_name, adapter_name)
           return
         end
 
-        return if KEY_VALUE_FORMATS.include?(adapter_name)
-
-        Moxml::Adapter.load(type_name)
+        # Key-value formats don't need moxml loading
+        # Non-key-value formats without a registered loader are no-ops
       end
 
       def class_for(adapter, type)

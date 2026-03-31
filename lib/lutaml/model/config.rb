@@ -6,10 +6,12 @@ module Lutaml
     module Config
       extend self
 
-      # Bootstrap format lists for adapter method definition.
+      # Bootstrap format lists for key-value adapter method definition.
       # At runtime, prefer FormatRegistry.formats for dynamic format discovery.
-      AVAILABLE_FORMATS = %i[xml json jsonl yaml toml hash].freeze
-      KEY_VALUE_FORMATS = (AVAILABLE_FORMATS - %i[xml]).freeze
+      # NOTE: XML is NOT listed here — it registers dynamically via FormatRegistry
+      # when `require "lutaml/xml"` is called.
+      AVAILABLE_FORMATS = %i[json jsonl yaml toml hash].freeze
+      KEY_VALUE_FORMATS = AVAILABLE_FORMATS
 
       # Dynamic format discovery from FormatRegistry
       def available_formats

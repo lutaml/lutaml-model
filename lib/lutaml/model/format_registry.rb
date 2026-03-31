@@ -31,7 +31,7 @@ module Lutaml
         # @raise [ArgumentError] if format is invalid or required params missing
         # @return [Hash] the registered format configuration
         # @param adapter_loader [Module, nil] optional module with load_adapter_file and class_for methods
-        def register(format, mapping_class:, adapter_class:, transformer:, adapter_loader: nil, castable_type: nil, key_value: nil, error_types: nil)
+        def register(format, mapping_class:, adapter_class:, transformer:, adapter_loader: nil, castable_type: nil, key_value: nil, error_types: nil, adapter_options: nil)
           validate_registration!(format, mapping_class, transformer)
 
           registered_formats[format] = {
@@ -42,6 +42,7 @@ module Lutaml
             castable_type: castable_type,
             key_value: key_value,
             error_types: error_types,
+            adapter_options: adapter_options,
             registered_at: Time.now,
           }
 
@@ -55,7 +56,7 @@ module Lutaml
 
           Lutaml::Model::Config.set_adapter_for(format, adapter_class)
 
-          # Always define adapter methods (even if adapter_class is nil)
+          # Define raw adapter getter/setter on Config module
           Lutaml::Model::Config.define_singleton_method(:"#{format}_adapter") do
             @adapters[format] || adapter_class
           end
@@ -64,6 +65,18 @@ module Lutaml
             @adapters ||= {}
             @adapters[format] = adapter_klass
           end
+
+          # Define _type suffixed methods on Config module (delegate to Configuration#set_adapter)
+          Lutaml::Model::Config.define_singleton_method(:"#{format}_adapter_type=") do |type_name|
+            instance.set_adapter(format, type_name)
+          end
+
+          Lutaml::Model::Config.define_singleton_method(:"#{format}_adapter_type") do
+            instance.adapter_for(format)
+          end
+
+          # Define adapter methods on Configuration class for this format
+          define_configuration_adapter_methods(format, adapter_options)
 
           registered_formats[format]
         end
@@ -114,6 +127,14 @@ module Lutaml
         # @return [Module, nil] the adapter loader or nil
         def adapter_loader_for(format)
           registered_formats.dig(format, :adapter_loader)
+        end
+
+        # Get the adapter options for a format
+        #
+        # @param format [Symbol] the format name
+        # @return [Hash, nil] { available: [...], default: :name } or nil
+        def adapter_options_for(format)
+          registered_formats.dig(format, :adapter_options)
         end
 
         # Get the castable type for a format
@@ -190,6 +211,29 @@ module Lutaml
         # @return [Hash]
         def registered_formats
           @registered_formats ||= {}
+        end
+
+        # Define adapter getter/setter methods on Configuration class
+        # for a dynamically registered format.
+        #
+        # @param format [Symbol] the format name
+        # @param adapter_options [Hash, nil] { available: [...], default: :name }
+        def define_configuration_adapter_methods(format, adapter_options)
+          cfg = ::Lutaml::Model::Configuration
+          return if cfg.method_defined?(:"#{format}_adapter")
+
+          default_adapter = adapter_options&.dig(:default)
+
+          cfg.define_method(:"#{format}_adapter") do
+            @adapter_types[format] || default_adapter
+          end
+
+          cfg.define_method(:"#{format}_adapter=") do |adapter_type|
+            set_adapter(format, adapter_type)
+          end
+
+          cfg.send(:alias_method, :"#{format}_adapter_type=", :"#{format}_adapter=")
+          cfg.send(:alias_method, :"#{format}_adapter_type", :"#{format}_adapter")
         end
 
         # Validate registration parameters

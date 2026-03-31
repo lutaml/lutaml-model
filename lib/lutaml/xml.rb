@@ -8,6 +8,9 @@
 # Ensure base model is loaded
 require_relative "model"
 
+# XML requires moxml for parsing
+require "moxml"
+
 module Lutaml
   module Xml
     # Error module for XML-specific errors
@@ -169,6 +172,10 @@ Lutaml::Model::FormatRegistry.register(
     Ox::ParseError
     REXML::ParseException
   ],
+  adapter_options: {
+    available: %i[nokogiri ox oga rexml],
+    default: :nokogiri,
+  },
 )
 
 # Register XML transformation builder
@@ -228,6 +235,9 @@ end
 Lutaml::Model::GlobalContext.register_format_registry(
   :xml, Lutaml::Xml::NamespaceClassRegistry.new
 )
+
+# Eagerly load W3C namespace definitions (has registration side effects)
+require_relative "xml/w3c"
 
 # Auto-detect and set default XML adapter
 if (adapter = Lutaml::Xml.detect_xml_adapter)

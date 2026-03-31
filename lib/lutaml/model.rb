@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require "moxml"
-
 module Lutaml
   module Model
     # Autoloads for lazy loading - set up BEFORE any requires
@@ -193,14 +191,8 @@ end
 # Required files - these have side effects or are needed immediately
 # Format files register DSL methods, so must be required
 
-# XML format - loaded conditionally to allow core to work without XML
-begin
-  require "#{__dir__}/xml/data_model"
-  require "#{__dir__}/xml"
-  require "#{__dir__}/xml/w3c"
-rescue LoadError
-  # XML format not available - core works without it
-end
+# XML format is NOT loaded here - it self-registers when
+# the user does: require "lutaml/xml"
 
 require "#{__dir__}/key_value"
 require "#{__dir__}/model/json"

@@ -73,7 +73,7 @@ module Lutaml
         # @param model [Class] The model to import from
         # @param register_id [Symbol, nil] The register context
         def import_model_mappings(model, register_id = nil)
-          Lutaml::Model::Config::AVAILABLE_FORMATS.each do |format|
+          Lutaml::Model::FormatRegistry.formats.each do |format|
             next unless model.mappings.key?(format)
 
             klass = ::Lutaml::Model::Config.mappings_class_for(format)

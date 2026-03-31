@@ -20,9 +20,9 @@ module Lutaml
       # @param namespace_class [Class] An XmlNamespace subclass defining the namespace
       # @param location [String] The URL or path to the schema definition
       def initialize(namespace_class:, location:)
-        unless namespace_class.is_a?(Class) && namespace_class < Lutaml::Model::XmlNamespace
+        unless namespace_class.is_a?(Class) && namespace_class < Lutaml::Xml::Namespace
           raise ArgumentError,
-                "namespace_class must be an XmlNamespace subclass, got #{namespace_class.class}. " \
+                "namespace_class must be an Xml::Namespace subclass, got #{namespace_class.class}. " \
                 "String namespace URIs are no longer supported."
         end
 
