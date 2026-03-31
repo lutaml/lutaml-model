@@ -8,11 +8,11 @@ module Lutaml
     module DeclarationHandler
       # Extract XML declaration information from input string
       #
-      # Detects if input had an XML declaration and extracts version/encoding.
+      # Detects if input had an XML declaration and extracts version/encoding/standalone.
       # This is used for round-trip preservation of declarations.
       #
       # @param xml [String] the XML string to parse
-      # @return [Hash] declaration info { version:, encoding:, had_declaration: }
+      # @return [Hash] declaration info { version:, encoding:, standalone:, had_declaration: }
       def self.extract_xml_declaration(xml)
         # Use string operations instead of regex to avoid ReDoS vulnerability
         # This approach is O(n) with no backtracking
@@ -38,9 +38,13 @@ module Lutaml
         # Extract encoding (may be absent)
         encoding = extract_attribute(decl_content, "encoding")
 
+        # Extract standalone (may be absent)
+        standalone = extract_attribute(decl_content, "standalone")
+
         {
           version: version,
           encoding: encoding,
+          standalone: standalone,
           had_declaration: true,
         }
       end
@@ -118,11 +122,12 @@ module Lutaml
       # Generate XML declaration string
       #
       # Uses stored declaration info if available, otherwise uses defaults.
-      # Supports custom version strings and encoding options.
+      # Supports custom version strings, encoding, and standalone options.
       #
       # @param options [Hash] serialization options
       #   - :declaration => String for custom version, true for default
       #   - :encoding => String or true for UTF-8
+      #   - :standalone => String ("yes"/"no"), true ("yes"), false ("no"), :preserve
       # @param xml_declaration [Hash] extracted declaration info from input
       # @return [String] the XML declaration (includes trailing newline)
       def generate_declaration(options, xml_declaration = nil)
@@ -157,8 +162,27 @@ module Lutaml
                      xml_declaration[:encoding]
                    end
 
+        # Determine standalone
+        # Priority: explicit standalone option > input standalone > none
+        # Supported values: "yes", "no", true ("yes"), false ("no"), :preserve
+        standalone = if options.key?(:standalone)
+                       case options[:standalone]
+                       when String
+                         options[:standalone]
+                       when true
+                         "yes"
+                       when false
+                         "no"
+                       when :preserve
+                         xml_declaration&.dig(:standalone)
+                       end
+                     elsif xml_declaration&.dig(:standalone)
+                       xml_declaration[:standalone]
+                     end
+
         declaration = "<?xml version=\"#{version}\""
         declaration += " encoding=\"#{encoding}\"" if encoding
+        declaration += " standalone=\"#{standalone}\"" if standalone
         declaration += "?>\n"
         declaration
       end

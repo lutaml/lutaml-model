@@ -176,6 +176,51 @@ RSpec.describe "XML Declaration Preservation" do
           expect(xml_out).to start_with("<?xml version=\"1.0\"?>")
           expect(xml_out).not_to include("encoding=")
         end
+
+        it "preserves standalone=yes from input" do
+          xml_in = <<~XML
+            <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <simple>
+              <name>Test</name>
+              <value>42</value>
+            </simple>
+          XML
+
+          doc = Lutaml::Xml::Adapter::NokogiriAdapter.parse(xml_in)
+          xml_out = doc.to_xml
+
+          expect(xml_out).to include('standalone="yes"')
+        end
+
+        it "preserves standalone=no from input" do
+          xml_in = <<~XML
+            <?xml version="1.0" standalone="no"?>
+            <simple>
+              <name>Test</name>
+              <value>42</value>
+            </simple>
+          XML
+
+          doc = Lutaml::Xml::Adapter::NokogiriAdapter.parse(xml_in)
+          xml_out = doc.to_xml
+
+          expect(xml_out).to include('standalone="no"')
+        end
+
+        it "preserves standalone when used with model round-trip" do
+          xml_in = <<~XML
+            <?xml version="1.0" standalone="yes"?>
+            <simple>
+              <name>Test</name>
+              <value>42</value>
+            </simple>
+          XML
+
+          model = XmlDeclarationSpec::XmlDeclModel.from_xml(xml_in)
+          xml_out = model.to_xml
+
+          expect(xml_out).to include('standalone="yes"')
+        end
       end
 
       context "when input had no declaration" do
@@ -343,6 +388,110 @@ RSpec.describe "XML Declaration Preservation" do
       end
     end
 
+    describe "standalone option" do
+      it "accepts standalone: 'yes' string option" do
+        xml_in = "<simple><name>Test</name><value>42</value></simple>"
+
+        model = XmlDeclarationSpec::XmlDeclModel.from_xml(xml_in)
+        xml_out = model.to_xml(declaration: true, standalone: "yes")
+
+        expect(xml_out).to include('standalone="yes"')
+      end
+
+      it "accepts standalone: 'no' string option" do
+        xml_in = "<simple><name>Test</name><value>42</value></simple>"
+
+        model = XmlDeclarationSpec::XmlDeclModel.from_xml(xml_in)
+        xml_out = model.to_xml(declaration: true, standalone: "no")
+
+        expect(xml_out).to include('standalone="no"')
+      end
+
+      it "accepts standalone: true option as yes" do
+        xml_in = "<simple><name>Test</name><value>42</value></simple>"
+
+        model = XmlDeclarationSpec::XmlDeclModel.from_xml(xml_in)
+        xml_out = model.to_xml(declaration: true, standalone: true)
+
+        expect(xml_out).to include('standalone="yes"')
+      end
+
+      it "accepts standalone: false option as no" do
+        xml_in = "<simple><name>Test</name><value>42</value></simple>"
+
+        model = XmlDeclarationSpec::XmlDeclModel.from_xml(xml_in)
+        xml_out = model.to_xml(declaration: true, standalone: false)
+
+        expect(xml_out).to include('standalone="no"')
+      end
+
+      it "accepts standalone: :preserve option" do
+        xml_in = <<~XML
+          <?xml version="1.0" standalone="yes"?>
+          <simple>
+            <name>Test</name>
+            <value>42</value>
+          </simple>
+        XML
+
+        model = XmlDeclarationSpec::XmlDeclModel.from_xml(xml_in)
+        xml_out = model.to_xml(standalone: :preserve)
+
+        expect(xml_out).to include('standalone="yes"')
+      end
+
+      it "omits standalone when :preserve and input had none" do
+        xml_in = "<?xml version=\"1.0\"?><simple><name>Test</name><value>42</value></simple>"
+
+        doc = Lutaml::Xml::Adapter::NokogiriAdapter.parse(xml_in)
+        xml_out = doc.to_xml(standalone: :preserve)
+
+        expect(xml_out).not_to include("standalone=")
+      end
+
+      it "explicit standalone overrides input standalone" do
+        xml_in = <<~XML
+          <?xml version="1.0" standalone="yes"?>
+          <simple>
+            <name>Test</name>
+            <value>42</value>
+          </simple>
+        XML
+
+        model = XmlDeclarationSpec::XmlDeclModel.from_xml(xml_in)
+        xml_out = model.to_xml(standalone: "no")
+
+        expect(xml_out).to include('standalone="no"')
+        expect(xml_out).not_to include('standalone="yes"')
+      end
+
+      it "standalone option works with declaration: true" do
+        xml_in = "<simple><name>Test</name><value>42</value></simple>"
+
+        model = XmlDeclarationSpec::XmlDeclModel.from_xml(xml_in)
+        xml_out = model.to_xml(declaration: true, standalone: "yes")
+
+        expect(xml_out).to start_with('<?xml version="1.0"')
+        expect(xml_out).to include('standalone="yes"')
+      end
+
+      it "standalone option works with declaration: false" do
+        xml_in = <<~XML
+          <?xml version="1.0" standalone="yes"?>
+          <simple>
+            <name>Test</name>
+            <value>42</value>
+          </simple>
+        XML
+
+        model = XmlDeclarationSpec::XmlDeclModel.from_xml(xml_in)
+        xml_out = model.to_xml(declaration: false, standalone: "yes")
+
+        expect(xml_out).not_to start_with("<?xml")
+        expect(xml_out).not_to include("standalone=")
+      end
+    end
+
     describe "edge cases" do
       it "handles declaration with single quotes" do
         xml = "<?xml version='1.0' encoding='UTF-8'?><simple><name>Test</name><value>42</value></simple>"
@@ -367,6 +516,14 @@ RSpec.describe "XML Declaration Preservation" do
         expect(doc.xml_declaration[:had_declaration]).to be true
         expect(doc.xml_declaration[:version]).to eq("1.0")
         expect(doc.xml_declaration[:encoding]).to eq("UTF-8")
+        expect(doc.xml_declaration[:standalone]).to eq("yes")
+      end
+
+      it "detects standalone=no attribute" do
+        xml = "<?xml version=\"1.0\" standalone=\"no\"?><simple><name>Test</name><value>42</value></simple>"
+
+        doc = Lutaml::Xml::Adapter::NokogiriAdapter.parse(xml)
+        expect(doc.xml_declaration[:standalone]).to eq("no")
       end
     end
 
