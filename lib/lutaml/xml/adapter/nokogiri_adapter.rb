@@ -95,12 +95,15 @@ module Lutaml
               # Collect original namespace URIs for namespace alias support.
               # This enables round-trip fidelity when XML uses alias URIs.
               original_ns_uris = {}
+              stored_plan = nil
               if original_model
                 # Case C: Model instance was transformed to XmlElement
                 mapping_for_original = options[:mapper_class]&.mappings_for(:xml) || original_model.class.mappings_for(:xml)
                 original_ns_uris = collect_original_namespace_uris(
                   original_model, mapping_for_original
                 )
+                # Get stored xml_declaration_plan from model for PRESERVATION phase
+                stored_plan = original_model.xml_declaration_plan if original_model.respond_to?(:xml_declaration_plan)
               elsif xml_element.is_a?(Lutaml::Xml::DataModel::XmlElement)
                 # Case B: XmlElement from transformation may have @__xml_original_namespace_uri
                 original_ns_uri = xml_element.instance_variable_get(:@__xml_original_namespace_uri)
@@ -122,6 +125,7 @@ module Lutaml
                 end
               end
               options_with_original_ns = options.merge(__original_namespace_uris: original_ns_uris)
+              options_with_original_ns[:stored_xml_declaration_plan] = stored_plan if stored_plan
 
               mapper_class = options[:mapper_class] || xml_element.class
               mapping = mapper_class.mappings_for(:xml)

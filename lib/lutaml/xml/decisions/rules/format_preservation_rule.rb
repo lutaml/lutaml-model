@@ -20,12 +20,12 @@ module Lutaml
             return false unless context.has_namespace?
             return false if context.preserved_input_format.nil?
 
-            # Original logic: Don't preserve input format when element has its OWN
-            # namespace that differs from parent's namespace.
-            # When a child element declares its own namespace (not inherited),
-            # it should use default format (W3C minimal-subtree principle).
-            # Format preservation is mainly for root elements or elements that
-            # share namespace with parent.
+            # When a child element has its own namespace that differs from the
+            # parent's, preserving the input format is critical for round-trip
+            # fidelity. Using prefix format (xmlns:prefix="uri") preserves the
+            # parent's default namespace scope, while switching to default format
+            # (xmlns="uri") would override it, changing the namespace context for
+            # the element and its descendants.
             #
             # Skip this check for root elements - they should always preserve format
             if !context.root? && context.namespace_class
@@ -35,11 +35,6 @@ module Lutaml
               # Check both nil and empty URI
               parent_ns_uri = parent_ns&.uri
               if parent_ns.nil? || parent_ns_uri.nil? || parent_ns_uri.empty?
-                return false
-              end
-              # If child's namespace differs from parent's namespace,
-              # don't preserve format - use default format
-              if context.namespace_class.uri != parent_ns_uri
                 return false
               end
             end
