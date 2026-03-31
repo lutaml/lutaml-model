@@ -370,7 +370,8 @@ child_transformation)
           # serialization, even when using fallback element creation.
           if value.is_a?(::Lutaml::Model::Serialize)
             model_ns_prefix = value.instance_variable_get(:@__xml_namespace_prefix)
-            element.instance_variable_set(:@__xml_namespace_prefix, model_ns_prefix)
+            element.instance_variable_set(:@__xml_namespace_prefix,
+                                          model_ns_prefix)
           end
 
           element.form = rule.form if rule.form
@@ -432,7 +433,7 @@ register_id)
             # If prefixes.key?(attr.name) is false, the child's XmlElement was not explicit
             # (inherited namespace), so @__xml_ns_prefixes was not set and we should NOT
             # use the fallback to parent's @__xml_namespace_prefix.
-            if prefixes && prefixes.key?(rule.attribute_name)
+            if prefixes&.key?(rule.attribute_name)
               ns_prefix = prefixes[rule.attribute_name]
             end
 
@@ -442,7 +443,7 @@ register_id)
             # namespace URI matches the child's expected URI. This ensures prefix propagation
             # for nested models that share the parent's namespace.
             # Only use this fallback when @__xml_ns_prefixes was set (child's XmlElement was explicit).
-            if ns_prefix.nil? && same_uri && prefixes && prefixes.key?(rule.attribute_name)
+            if ns_prefix.nil? && same_uri && prefixes&.key?(rule.attribute_name)
               parent_prefix = parent_model.instance_variable_get(:@__xml_namespace_prefix)
               ns_prefix = parent_prefix if parent_prefix && !parent_prefix.empty?
             end

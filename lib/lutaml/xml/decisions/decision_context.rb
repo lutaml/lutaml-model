@@ -129,7 +129,7 @@ module Lutaml
 
             # Fall back to original XmlElement wrapper if available
             original = @element.instance_variable_get(:@__original_xml_element)
-            if original && original.respond_to?(:namespace_prefix)
+            if original.respond_to?(:namespace_prefix)
               return original.namespace_prefix
             end
 
