@@ -16,7 +16,7 @@ module Lutaml
     # - Manages named contexts via ContextRegistry
     # - Provides type resolution via CachedTypeResolver
     # - Manages imports via ImportRegistry
-    # - Manages XML namespace registry
+    # - Manages format-specific registries (e.g., XML namespace registry)
     # - Provides `reset!` for test isolation
     # - Provides `with_context` for scoped operations
     #
@@ -43,14 +43,14 @@ module Lutaml
       # @return [ImportRegistry] The import registry
       attr_reader :imports
 
-      # @return [Lutaml::Xml::NamespaceClassRegistry] The XML namespace class registry
-      attr_reader :xml_namespace_registry
-
       # @return [Symbol] The current default context ID
       attr_reader :default_context_id
 
       # @return [Hash{String => Symbol}] Namespace URI to register ID mapping
       attr_reader :namespace_register_map
+
+      # @return [Hash{Symbol => Object}] Format-specific registries
+      attr_reader :format_registries
 
       # Thread-local storage for context switching
       THREAD_CONTEXT_KEY = :lutaml_model_context
@@ -60,7 +60,7 @@ module Lutaml
         @registry = ContextRegistry.new
         @resolver = CachedTypeResolver.new(delegate: TypeResolver)
         @imports = ImportRegistry.new
-        @xml_namespace_registry = create_xml_namespace_registry
+        @format_registries = {}
         @default_context_id = :default
         @namespace_register_map = {} # namespace_uri => register_id
         @mutex = Mutex.new
@@ -171,7 +171,7 @@ module Lutaml
       # - All non-default contexts
       # - All type resolution caches
       # - All pending imports
-      # - All XML namespace class registry entries
+      # - All format-specific registries
       # - All namespace-register mappings
       #
       # @return [void]
@@ -180,8 +180,9 @@ module Lutaml
           @registry.clear
           @resolver.clear_all_caches
           @imports.reset!
-          @xml_namespace_registry&.clear!
-          @xml_namespace_registry = create_xml_namespace_registry
+          @format_registries.each_value do |reg|
+            reg.clear! if reg.respond_to?(:clear!)
+          end
           @namespace_register_map.clear
           @default_context_id = :default
         end
@@ -194,11 +195,52 @@ module Lutaml
         @resolver.clear_all_caches
       end
 
-      # Clear XML namespace registry (for testing).
+      # =====================================================================
+      # Generic Format Registry Methods
+      # =====================================================================
+
+      # Register a format-specific registry.
+      # Format plugins call this at load time to register their registries.
+      #
+      # @param format [Symbol] The format (e.g., :xml)
+      # @param registry [Object] The registry instance (must respond to #clear!)
+      # @return [void]
+      def register_format_registry(format, registry)
+        @mutex.synchronize do
+          @format_registries[format] = registry
+        end
+      end
+
+      # Get a format-specific registry.
+      #
+      # @param format [Symbol] The format
+      # @return [Object, nil] The registry or nil if not registered
+      def format_registry_for(format)
+        @format_registries[format]
+      end
+
+      # Clear a specific format registry.
+      #
+      # @param format [Symbol] The format
+      # @return [void]
+      def clear_format_registry!(format)
+        reg = @format_registries[format]
+        reg&.clear! if reg.respond_to?(:clear!)
+      end
+
+      # Backward-compatible accessor for XML namespace registry.
+      # Delegates to the generic format_registries hash.
+      #
+      # @return [Object, nil] The XML namespace class registry
+      def xml_namespace_registry
+        @format_registries[:xml]
+      end
+
+      # Backward-compatible clear for XML namespace registry.
       #
       # @return [void]
       def clear_xml_namespace_registry!
-        @xml_namespace_registry&.clear!
+        clear_format_registry!(:xml)
       end
 
       # Get statistics about the global context.
@@ -210,7 +252,7 @@ module Lutaml
           default_context_id: @default_context_id,
           resolver_cache_size: @resolver.cache_stats[:size],
           imports: @imports.stats,
-          xml_namespace_registry: "managed",
+          format_registries: @format_registries.keys,
           namespace_register_map_size: @namespace_register_map.size,
         }
       end
@@ -279,20 +321,6 @@ context_id = nil)
         resolve_type(type_name, context_id)
       end
 
-      private
-
-      # Create a new XML namespace class registry.
-      #
-      # Lazy load to avoid circular dependencies.
-      # Returns nil if Lutaml::Xml is not loaded.
-      #
-      # @return [Lutaml::Xml::NamespaceClassRegistry, nil] The registry or nil
-      def create_xml_namespace_registry
-        return nil unless defined?(::Lutaml::Xml::NamespaceClassRegistry)
-
-        ::Lutaml::Xml::NamespaceClassRegistry.new
-      end
-
       class << self
         # Performance: Define delegation methods without closures
         # Using class_eval with string avoids closure allocation per call
@@ -308,6 +336,10 @@ context_id = nil)
 
           def imports
             instance.imports
+          end
+
+          def format_registries
+            instance.format_registries
           end
 
           def xml_namespace_registry
@@ -368,6 +400,18 @@ context_id = nil)
 
           def with_context(ctx_id)
             instance.with_context(ctx_id) { yield }
+          end
+
+          def register_format_registry(format, registry)
+            instance.register_format_registry(format, registry)
+          end
+
+          def format_registry_for(format)
+            instance.format_registry_for(format)
+          end
+
+          def clear_format_registry!(format)
+            instance.clear_format_registry!(format)
           end
 
           # Namespace-register mapping methods

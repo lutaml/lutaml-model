@@ -6,8 +6,20 @@ module Lutaml
     module Config
       extend self
 
+      # Bootstrap format lists for adapter method definition.
+      # At runtime, prefer FormatRegistry.formats for dynamic format discovery.
       AVAILABLE_FORMATS = %i[xml json jsonl yaml toml hash].freeze
-      KEY_VALUE_FORMATS = AVAILABLE_FORMATS - %i[xml]
+      KEY_VALUE_FORMATS = (AVAILABLE_FORMATS - %i[xml]).freeze
+
+      # Dynamic format discovery from FormatRegistry
+      def available_formats
+        FormatRegistry.formats
+      end
+
+      # Dynamic key-value format discovery from FormatRegistry
+      def key_value_formats
+        FormatRegistry.key_value_formats
+      end
 
       # Singleton Configuration instance
       def instance

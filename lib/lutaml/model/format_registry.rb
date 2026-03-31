@@ -31,7 +31,7 @@ module Lutaml
         # @raise [ArgumentError] if format is invalid or required params missing
         # @return [Hash] the registered format configuration
         # @param adapter_loader [Module, nil] optional module with load_adapter_file and class_for methods
-        def register(format, mapping_class:, adapter_class:, transformer:, adapter_loader: nil, castable_type: nil)
+        def register(format, mapping_class:, adapter_class:, transformer:, adapter_loader: nil, castable_type: nil, key_value: nil, error_types: nil)
           validate_registration!(format, mapping_class, transformer)
 
           registered_formats[format] = {
@@ -40,6 +40,8 @@ module Lutaml
             adapter_class: adapter_class,
             adapter_loader: adapter_loader,
             castable_type: castable_type,
+            key_value: key_value,
+            error_types: error_types,
             registered_at: Time.now,
           }
 
@@ -47,6 +49,9 @@ module Lutaml
           ::Lutaml::Model::Serialize.register_format_mapping_method(format)
           ::Lutaml::Model::Serialize.register_from_format_method(format)
           ::Lutaml::Model::Serialize.register_to_format_method(format)
+
+          # Push format-specific serialization method name to warn list
+          ::Lutaml::Model::Attribute.format_specific_warn_names.push(:"to_#{format}")
 
           Lutaml::Model::Config.set_adapter_for(format, adapter_class)
 
@@ -124,6 +129,36 @@ module Lutaml
         # @return [Array<Symbol>]
         def formats
           registered_formats.keys
+        end
+
+        # Get all key-value format names (non-XML formats)
+        #
+        # @return [Array<Symbol>]
+        def key_value_formats
+          registered_formats.select { |_, info| info[:key_value] }.keys
+        end
+
+        # Check if a format is a key-value format
+        #
+        # @param format [Symbol] the format name
+        # @return [Boolean]
+        def key_value?(format)
+          registered_formats.dig(format, :key_value) == true
+        end
+
+        # Get format-specific error types
+        #
+        # @param format [Symbol] the format name
+        # @return [Array<Class>, nil] error types for this format
+        def error_types_for(format)
+          registered_formats.dig(format, :error_types)
+        end
+
+        # Get all registered error types across all formats
+        #
+        # @return [Array<Class>]
+        def all_error_types
+          registered_formats.values.filter_map { |info| info[:error_types] }.flatten.compact
         end
 
         # Get registration info for a format

@@ -26,22 +26,6 @@ module Lutaml
           "xs:boolean"
         end
 
-        # Format-specific serialization methods
-        def to_xml
-          value.to_s
-        end
-
-        def to_json(*_args)
-          value
-        end
-
-        def to_yaml
-          value
-        end
-
-        def to_toml
-          value.to_s
-        end
       end
     end
   end

@@ -26,4 +26,9 @@ Lutaml::Model::FormatRegistry.register(
   mapping_class: Lutaml::Json::Mapping,
   adapter_class: Lutaml::Json::Adapter::StandardAdapter,
   transformer: Lutaml::Json::Transform,
+  key_value: true,
 )
+
+# Register JSON type serializers
+require_relative "../json/type/serializers"
+Lutaml::Json::Type::Serializers.register_all!

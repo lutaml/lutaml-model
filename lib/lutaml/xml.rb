@@ -79,6 +79,8 @@ module Lutaml
     end
 
     # Autoload core classes
+    autoload :Location, "#{__dir__}/xml/schema_location"
+    autoload :SchemaLocation, "#{__dir__}/xml/schema_location"
     autoload :Namespace, "#{__dir__}/xml/namespace"
     autoload :Mapping, "#{__dir__}/xml/mapping"
     autoload :MappingRule, "#{__dir__}/xml/mapping_rule"
@@ -161,6 +163,12 @@ Lutaml::Model::FormatRegistry.register(
   transformer: Lutaml::Xml::Transform,
   adapter_loader: Lutaml::Xml::AdapterLoader,
   castable_type: Lutaml::Xml::XmlElement,
+  key_value: false,
+  error_types: %w[
+    Nokogiri::XML::SyntaxError
+    Ox::ParseError
+    REXML::ParseException
+  ],
 )
 
 # Register XML transformation builder
@@ -195,6 +203,30 @@ Lutaml::Model::Attribute.format_specific_warn_names.push(:element_order, :schema
 require_relative "xml/serialization/collection_ext"
 Lutaml::Model::Collection.singleton_class.prepend(
   Lutaml::Xml::Serialization::CollectionExt,
+)
+
+# Register XML type serializers
+require_relative "xml/type/serializers"
+Lutaml::Xml::Type::Serializers.register_all!
+
+# Register XML schema methods
+Lutaml::Model::Schema.register_method(:to_xsd) do |klass, options = {}|
+  require_relative "xml/schema/xsd_schema"
+  Lutaml::Xml::Schema::XsdSchema.generate(klass, options)
+end
+
+Lutaml::Model::Schema.register_method(:to_relaxng) do |klass, options = {}|
+  require_relative "xml/schema/relaxng_schema"
+  Lutaml::Xml::Schema::RelaxngSchema.generate(klass, options)
+end
+
+Lutaml::Model::Schema.register_method(:from_xml) do |xml, options = {}|
+  Lutaml::Model::Schema::XmlCompiler.to_models(xml, options)
+end
+
+# Register XML namespace registry with GlobalContext
+Lutaml::Model::GlobalContext.register_format_registry(
+  :xml, Lutaml::Xml::NamespaceClassRegistry.new
 )
 
 # Auto-detect and set default XML adapter

@@ -62,20 +62,6 @@ module Lutaml
 
         private_class_method :unwrap_symbol_string
 
-        def to_xml
-          # For XML, we use the :symbol: format to distinguish from strings
-          ":#{value}:"
-        end
-
-        def to_json(*_args)
-          # For JSON, we use the :symbol: format since JSON doesn't support symbols
-          ":#{value}:"
-        end
-
-        def to_toml
-          # For TOML, we use the :symbol: format since TOML doesn't support symbols
-          ":#{value}:"
-        end
       end
     end
   end

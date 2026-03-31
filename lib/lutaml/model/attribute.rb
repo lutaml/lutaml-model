@@ -37,6 +37,8 @@ module Lutaml
 
       # Methods where accidental override is likely to cause issues
       # All names are allowed - this list only controls which ones get a warning
+      # Format-specific serialization methods (to_xml, to_json, etc.) are pushed
+      # by each format plugin at load time via format_specific_warn_names.
       WARN_ON_OVERRIDE = %i[
         # Ruby core - overriding breaks fundamental behavior
         hash object_id class send method
@@ -45,7 +47,7 @@ module Lutaml
         initialize
 
         # Serialization methods - overriding breaks serialization
-        to_xml to_json to_yaml to_toml to_hash to_format
+        to_format
 
         # Internal helpers - overriding breaks internal logic
         attr_value attribute_exist? key_exist? key_value

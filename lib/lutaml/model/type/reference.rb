@@ -46,46 +46,6 @@ module Lutaml
           end
         end
 
-        def to_xml
-          key&.to_s
-        end
-
-        def to_json(*_args)
-          key
-        end
-
-        def to_yaml
-          key
-        end
-
-        def to_hash
-          key
-        end
-
-        def to_toml
-          key&.to_s
-        end
-
-        def self.from_xml(value)
-          cast(value)
-        end
-
-        def self.from_json(value)
-          cast(value)
-        end
-
-        def self.from_yaml(value)
-          cast(value)
-        end
-
-        def self.from_hash(value)
-          cast(value)
-        end
-
-        def self.from_toml(value)
-          cast(value)
-        end
-
         # XSD type for Reference
         #
         # Returns xs:IDREF if the target uses xs:ID, otherwise xs:string.

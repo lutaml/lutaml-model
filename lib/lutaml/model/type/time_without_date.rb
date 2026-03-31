@@ -38,23 +38,6 @@ module Lutaml
           value.strftime("%H:%M:%S") # Format as HH:MM:SS
         end
 
-        # Instance methods for format-specific serialization
-        def to_xml
-          self.class.serialize(value)
-        end
-
-        def to_json(*_args)
-          self.class.serialize(value)
-        end
-
-        def to_yaml
-          value&.strftime("%H:%M:%S").to_s
-        end
-
-        def to_toml
-          value.strftime("%H:%M:%S.%L") # Include milliseconds for TOML
-        end
-
         # XSD type for TimeWithoutDate
         #
         # @return [String] xs:time

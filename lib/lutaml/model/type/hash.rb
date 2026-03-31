@@ -43,23 +43,6 @@ module Lutaml
           value.respond_to?(:to_h) ? value.to_h : Hash(value)
         end
 
-        # Format-specific serialization methods
-        def to_xml
-          value
-        end
-
-        def to_json(*_args)
-          value
-        end
-
-        def to_yaml
-          value
-        end
-
-        def to_toml
-          value
-        end
-
         # XSD type for Hash
         #
         # @return [String] xs:anyType

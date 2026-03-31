@@ -24,4 +24,9 @@ Lutaml::Model::FormatRegistry.register(
   mapping_class: Lutaml::Yaml::Adapter::Mapping,
   adapter_class: Lutaml::Yaml::Adapter::StandardAdapter,
   transformer: Lutaml::Yaml::Adapter::Transform,
+  key_value: true,
 )
+
+# Register YAML type serializers
+require_relative "../yaml/type/serializers"
+Lutaml::Yaml::Type::Serializers.register_all!

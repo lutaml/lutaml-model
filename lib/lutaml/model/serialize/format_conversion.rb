@@ -71,7 +71,9 @@ module Lutaml
           # No-op by default; XML overrides via prepend
         end
 
-        # Get list of error types that can be raised during format parsing
+        # Get list of error types that can be raised during format parsing.
+        # Core errors are always included; format-specific errors come from
+        # FormatRegistry registrations.
         #
         # @return [Array<Class>] List of error classes
         def format_error_types
@@ -83,10 +85,18 @@ module Lutaml
             ArgumentError,
           ]
 
+          # Collect format-specific error types from FormatRegistry
+          FormatRegistry.all.each_value do |info|
+            next unless info[:error_types]
+
+            info[:error_types].each do |error_class|
+              cls = error_class.is_a?(String) ? safe_get_const(error_class) : error_class
+              errors << cls
+            end
+          end
+
+          # Legacy TOML error types (key-value formats without explicit registration)
           %w[
-            Nokogiri::XML::SyntaxError
-            Ox::ParseError
-            REXML::ParseException
             TomlRB::ParseError
             Tomlib::ParseError
           ].each do |error_class|
@@ -210,11 +220,19 @@ module Lutaml
           # No-op by default; XML overrides via prepend
         end
 
-        # Define key-value mappings for multiple formats
+        # Define key-value mappings for multiple formats.
+        # Uses FormatRegistry to discover key-value formats dynamically,
+        # falling back to Config::KEY_VALUE_FORMATS for bootstrap.
         #
         # @param block [Proc] The DSL block
         def key_value(&block)
-          Lutaml::Model::Config::KEY_VALUE_FORMATS.each do |format|
+          formats = if FormatRegistry.formats.any?
+                      FormatRegistry.key_value_formats
+                    else
+                      Lutaml::Model::Config::KEY_VALUE_FORMATS
+                    end
+
+          formats.each do |format|
             mappings[format] ||= Lutaml::KeyValue::Mapping.new(format)
             mappings[format].instance_eval(&block)
             mappings[format].finalize(self)

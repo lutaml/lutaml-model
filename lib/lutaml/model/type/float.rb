@@ -21,20 +21,6 @@ module Lutaml
           cast(value)
         end
 
-        # Instance methods for specific formats
-        # xs:float format
-        def to_xml
-          value.to_s
-        end
-
-        def to_yaml
-          value
-        end
-
-        def to_json(*_args)
-          value
-        end
-
         # XSD type for Float
         #
         # @return [String] xs:float
