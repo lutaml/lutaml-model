@@ -20,7 +20,7 @@ module Lutaml
             return false unless context.has_namespace?
             return false if context.preserved_input_format.nil?
 
-            # CRITICAL: Don't preserve input format when element has its OWN
+            # Original logic: Don't preserve input format when element has its OWN
             # namespace that differs from parent's namespace.
             # When a child element declares its own namespace (not inherited),
             # it should use default format (W3C minimal-subtree principle).
