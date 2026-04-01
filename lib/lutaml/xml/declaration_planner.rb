@@ -1579,7 +1579,12 @@ module Lutaml
             end
             # Namespaces in root's hoisted but NOT in any child path were actually at root
             root_level_namespaces&.each do |prefix, uri|
-              input_root_ns[prefix] = uri if prefix != :not_root && !child_ns.key?([prefix, uri])
+              if prefix != :not_root && !child_ns.key?([
+                                                         prefix, uri
+                                                       ])
+                input_root_ns[prefix] =
+                  uri
+              end
             end
           end
 
