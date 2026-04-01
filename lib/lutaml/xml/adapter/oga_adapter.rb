@@ -11,6 +11,8 @@ module Lutaml
         TEXT_CLASSES = [Moxml::Text, Moxml::Cdata].freeze
 
         def self.parse(xml, options = {})
+          enc = encoding(xml, options)
+          xml = sanitize_xml_for_entities(xml, enc)
           parsed = Moxml::Adapter::Oga.parse(xml)
           root_element = parsed.children.find { |child| child.is_a?(Moxml::Element) }
 

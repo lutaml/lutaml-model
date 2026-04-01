@@ -1,3 +1,5 @@
+require "htmlentities"
+
 module Lutaml
   module Xml
     class Document
@@ -32,6 +34,13 @@ module Lutaml
           options[:encoding]
         else
           xml.encoding.to_s
+        end
+      end
+
+      def self.sanitize_xml_for_entities(xml, encoding = "UTF-8")
+        coder = ::HTMLEntities.new(:expanded)
+        xml.gsub(/&(\w+);/) do |char|
+          "&##{coder.decode(char).ord};".force_encoding(encoding)
         end
       end
 

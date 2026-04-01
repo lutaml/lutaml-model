@@ -156,7 +156,7 @@ RSpec.describe "XML Entity Fragmentation Issue #5" do
       XML
 
       instance = model_class.from_xml(xml.strip)
-      expect(instance.statement).to eq("Can't stop — won't stop")
+      expect(instance.statement).to eq("Can\u2019t stop — won\u2019t stop")
     end
   end
 
@@ -197,10 +197,10 @@ RSpec.describe "XML Entity Fragmentation Issue #5" do
       "trade" => "™",
       "mdash" => "—",
       "ndash" => "–",
-      "rsquo" => "'",
-      "lsquo" => "'",
-      "rdquo" => '"',
-      "ldquo" => '"',
+      "rsquo" => "\u2019",
+      "lsquo" => "\u2018",
+      "rdquo" => "\u201D",
+      "ldquo" => "\u201C",
       "hellip" => "…",
       "nbsp" => "\u00A0",
       "amp" => "&",
@@ -282,7 +282,7 @@ RSpec.describe "XML Entity Fragmentation Issue #5" do
       doc = Lutaml::Xml::Adapter::NokogiriAdapter.parse(xml.strip)
       text = doc.root.text
 
-      expect(text).to eq("Can't Help Loving That Man")
+      expect(text).to eq("Can\u2019t Help Loving That Man")
     end
   end
 

@@ -10,7 +10,8 @@ module Lutaml
           # This prevents Nokogiri from dropping data after invalid entities
           xml = escape_unescaped_ampersands(xml)
 
-          parsed = ::Nokogiri::XML(xml, nil, encoding(xml, options))
+          enc = encoding(xml, options)
+          parsed = ::Nokogiri::XML(sanitize_xml_for_entities(xml, enc), nil, enc)
 
           # Validate that we have a root element
           if parsed.root.nil?

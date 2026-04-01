@@ -31,6 +31,7 @@ Gem::Specification.new do |spec|
   spec.executables = spec.files.grep(%r{^exe/}) { |f| File.basename(f) }
 
   spec.add_dependency "activesupport"
+  spec.add_dependency "htmlentities"
   # required for liquid
   spec.add_dependency "base64"
   spec.add_dependency "liquid", "~> 5.0"

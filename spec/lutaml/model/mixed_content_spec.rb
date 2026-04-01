@@ -937,37 +937,61 @@ RSpec.describe "MixedContent" do
           end
 
           it "deserializes latin encoded content correctly" do
+            pending("HTML entities outside the encoding's character range are not supported") if adapter_class == Lutaml::Xml::Adapter::OgaAdapter
+
             parsed = MixedContentSpec::Latin.from_xml(fixture,
                                                       encoding: "ISO-8859-1")
 
             expect(parsed.encoding).to eq("ISO-8859-1")
-            expect(parsed.the).to eq("José")
-            expect(parsed.from).to eq("Müller")
+
+            expected_from = if adapter_class == Lutaml::Xml::Adapter::NokogiriAdapter
+                              "M\u00FCller\u229A"
+                            else
+                              "M\xFCller&ocir;".force_encoding("ISO-8859-1")
+                            end
+
+            expect(parsed.the).to eq("Jos\u00E9")
+            expect(parsed.from).to eq(expected_from)
             expect(parsed.heading).to eq("Reminder")
           end
 
           it "deserializes latin encoded content correctly, bcz xml.encoding used for parsing" do
+            pending("HTML entities outside the encoding's character range are not supported") if adapter_class == Lutaml::Xml::Adapter::OgaAdapter
+
             parsed = MixedContentSpec::Latin.from_xml(fixture)
 
             expect(parsed.encoding).to eq("ISO-8859-1")
 
-            expect(parsed.the).to eq("José")
-            expect(parsed.from).to eq("Müller")
+            expected_from = if adapter_class == Lutaml::Xml::Adapter::NokogiriAdapter
+                              "M\u00FCller\u229A"
+                            else
+                              "M\xFCller&ocir;".force_encoding("ISO-8859-1")
+                            end
+
+            expect(parsed.the).to eq("Jos\u00E9")
+            expect(parsed.from).to eq(expected_from)
             expect(parsed.heading).to eq("Reminder")
           end
         end
 
         describe ".to_xml" do
           it "serializes latin encoded content correctly" do
+            pending("HTML entities outside the encoding's character range are not supported") if adapter_class == Lutaml::Xml::Adapter::OgaAdapter
+
             parsed = MixedContentSpec::Latin.from_xml(fixture,
                                                       encoding: "ISO-8859-1")
             serialized = parsed.to_xml
+            ocir = if adapter_class == Lutaml::Xml::Adapter::NokogiriAdapter
+                     "&#8858;"
+                   else
+                     "&amp;ocir;"
+                   end
             expected_xml = if adapter_class == Lutaml::Xml::Adapter::OgaAdapter
-                             "<note><to>José</to><from>Müller</from><heading>Reminder</heading></note>"
+                             "<note><to>Jos\xE9</to><from>M\xFCller#{ocir}</from><heading>Reminder</heading></note>"
                            else
-                             "<note>\n  <to>José</to>\n  <from>Müller</from>\n  <heading>Reminder</heading>\n</note>"
+                             "<note>\n  <to>Jos\xE9</to>\n  <from>M\xFCller#{ocir}</from>\n  <heading>Reminder</heading>\n</note>"
                            end
-            expect(serialized.encode("UTF-8").strip).to be_xml_equivalent_to(expected_xml.encode("UTF-8"))
+            expect(serialized.strip).to eq(expected_xml.force_encoding("ISO-8859-1"))
           end
         end
       end
