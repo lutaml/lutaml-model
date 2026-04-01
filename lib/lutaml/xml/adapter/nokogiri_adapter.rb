@@ -125,7 +125,10 @@ module Lutaml
                 end
               end
               options_with_original_ns = options.merge(__original_namespace_uris: original_ns_uris)
-              options_with_original_ns[:stored_xml_declaration_plan] = stored_plan if stored_plan
+              if stored_plan
+                options_with_original_ns[:stored_xml_declaration_plan] =
+                  stored_plan
+              end
 
               mapper_class = options[:mapper_class] || xml_element.class
               mapping = mapper_class.mappings_for(:xml)
