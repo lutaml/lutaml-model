@@ -835,23 +835,13 @@ RSpec.describe Lutaml::Xml::Mapping do
           # WithoutNamespaceElement has no namespace declaration, so it inherits.
           # Round-trip fidelity: child elements preserve the prefix format from input
           # cn:WithNamespace uses PREFIX format to preserve parent's default namespace context
-          expected_xml = if adapter_class == Lutaml::Xml::Adapter::OgaAdapter
-                           <<~XML.strip
-                             <WithChildExplicitNamespaceNil xmlns="http://parent-namespace">
-                               <DefaultNamespace>default namespace text</DefaultNamespace>
-                               <cn:WithNamespace xmlns:cn="http://child-namespace">explicit namespace text</cn:WithNamespace>
-                               <WithoutNamespace>without namespace text</WithoutNamespace>
-                             </WithChildExplicitNamespaceNil>
-                           XML
-                         else
-                           <<~XML.strip
-                             <WithChildExplicitNamespaceNil xmlns="http://parent-namespace">
-                               <DefaultNamespace>default namespace text</DefaultNamespace>
-                               <cn:WithNamespace xmlns:cn="http://child-namespace">explicit namespace text</cn:WithNamespace>
-                               <WithoutNamespace>without namespace text</WithoutNamespace>
-                             </WithChildExplicitNamespaceNil>
-                           XML
-                         end
+          expected_xml = <<~XML.strip
+            <WithChildExplicitNamespaceNil xmlns="http://parent-namespace">
+              <DefaultNamespace>default namespace text</DefaultNamespace>
+              <cn:WithNamespace xmlns:cn="http://child-namespace">explicit namespace text</cn:WithNamespace>
+              <WithoutNamespace>without namespace text</WithoutNamespace>
+            </WithChildExplicitNamespaceNil>
+          XML
           expect(serialized).to be_xml_equivalent_to(expected_xml)
         end
       end
