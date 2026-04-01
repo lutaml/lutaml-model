@@ -1,5 +1,3 @@
-require "htmlentities"
-
 module Lutaml
   module Xml
     class Document
@@ -34,24 +32,6 @@ module Lutaml
           options[:encoding]
         else
           xml.encoding.to_s
-        end
-      end
-
-      STANDARD_XML_ENTITIES = %w[amp lt gt quot apos].freeze
-
-      def self.sanitize_xml_for_entities(xml, _encoding = "UTF-8")
-        coder = ::HTMLEntities.new(:expanded)
-        xml.gsub(/&(\w+);/) do
-          entity_name = $1
-          # Standard XML entities are already valid — leave them untouched
-          next $& if STANDARD_XML_ENTITIES.include?(entity_name)
-
-          decoded = coder.decode($&)
-          # Skip if entity was not recognized (returned as-is) or
-          # decoded to something other than a single character
-          next $& if decoded == $& || decoded.length != 1
-
-          "&##{decoded.ord};"
         end
       end
 

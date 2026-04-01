@@ -12,7 +12,6 @@ module Lutaml
 
         def self.parse(xml, options = {})
           enc = encoding(xml, options)
-          xml = sanitize_xml_for_entities(xml, enc)
           # Oga requires UTF-8 encoded input; convert from other encodings
           xml = xml.encode("UTF-8") unless xml.encoding == Encoding::UTF_8
           parsed = Moxml::Adapter::Oga.parse(xml)
