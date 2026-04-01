@@ -661,7 +661,7 @@ module Lutaml
               if element.cdata
                 inner_xml.cdata(element.text_content)
               else
-                inner_xml.text(element.text_content)
+                add_text_with_entities(inner_xml.xml.parent, element.text_content, xml.doc)
               end
             end
 
@@ -696,6 +696,29 @@ module Lutaml
         end
 
         private
+
+        # Add text content to a Nokogiri element, preserving entity reference patterns.
+        # Splits text on entity patterns (&name;, &#dec;, &#xhex;) and creates
+        # EntityReference nodes for each, with regular Text nodes for other content.
+        #
+        # @param element [Nokogiri::XML::Element] parent element to add text to
+        # @param text [String] text content (may contain entity patterns)
+        # @param doc [Nokogiri::XML::Document] document for node creation
+        def add_text_with_entities(element, text, doc)
+          entity_pattern = /(&(?:\w+|#\d+|#x[\da-fA-F]+);)/
+          parts = text.to_s.split(entity_pattern, -1)
+          parts.each do |part|
+            next if part.empty?
+            if part.match?(/\A&(\w+|#\d+|#x[\da-fA-F]+);\z/)
+              entity_name = part[1..-2]
+              ent = ::Nokogiri::XML::EntityReference.new(doc, entity_name)
+              element.add_child(ent)
+            else
+              text_node = ::Nokogiri::XML::Text.new(part, doc)
+              element.add_child(text_node)
+            end
+          end
+        end
 
         # Recursively build Nokogiri::XML::Node tree manually
         #
@@ -960,10 +983,7 @@ module Lutaml
                                                       xml_element.text_content.to_s)
               element.add_child(cdata_node)
             else
-              text_node = ::Nokogiri::XML::Text.new(
-                xml_element.text_content.to_s, doc
-              )
-              element.add_child(text_node)
+              add_text_with_entities(element, xml_element.text_content, doc)
             end
           end
 
