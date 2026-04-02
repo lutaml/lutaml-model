@@ -158,7 +158,10 @@ module Lutaml
           namespace_attrs = {}
 
           node.own_namespaces.each_value do |namespace|
-            namespace_attrs[namespace.attr_name] = namespace.uri
+            uri = namespace.uri
+            # Convert FPI to URN per RFC 3151 (Oga requires valid namespace URIs)
+            uri = XmlElement.fpi_to_urn(uri) if XmlElement.fpi?(uri)
+            namespace_attrs[namespace.attr_name] = uri
           end
 
           node.children.each do |child|
