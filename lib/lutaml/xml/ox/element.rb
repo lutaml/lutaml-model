@@ -134,7 +134,10 @@ module Lutaml
         attrs = node.attributes.transform_values(&:value)
 
         node.own_namespaces.each_value do |namespace|
-          attrs[namespace.attr_name] = namespace.uri
+          uri = namespace.uri
+          # Convert FPI to URN per RFC 3151 (Ox requires valid namespace URIs)
+          uri = XmlElement.fpi_to_urn(uri) if XmlElement.fpi?(uri)
+          attrs[namespace.attr_name] = uri
         end
 
         attrs

@@ -5821,6 +5821,26 @@ puts person.to_xml
 ----
 ====
 
+==== Invalid namespace handling (Formal Public Identifiers)
+
+Some legacy XML documents use Formal Public Identifiers (FPIs) as namespace URIs.
+FPIs are SGML-era identifiers like `-//OASIS//DTD XML Exchange Table Model 19990315//EN`
+and are NOT valid namespace URIs per the W3C XML Namespace specification. XML
+namespaces must be absolute URIs.
+
+Lutaml::Model can parse XML with FPI namespace URIs, but on serialization converts
+them to valid URNs using the `urn:publicid:` namespace per
+https://www.rfc-editor.org/rfc/rfc3151[RFC 3151]. For example:
+
+* FPI: `-//OASIS//DTD XML Exchange Table Model 19990315//EN`
+* URN: `urn:publicid:-//OASIS//DTD+XML+Exchange+Table+Model+19990315//EN`
+
+NOTE: True round-trip is NOT possible for FPI namespaces because the input is
+invalid XML. Lutaml::Model will produce valid XML output with the converted URN.
+
+NOTE: DOCTYPE PUBLIC identifiers (used in `<!DOCTYPE>` declarations) are a
+separate concept and are preserved correctly during round-tripping.
+
 ==== W3C standard namespace support
 
 Lutaml::Model provides built-in support for W3C-defined standard namespaces:

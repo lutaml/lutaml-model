@@ -2444,6 +2444,100 @@ model definitions. The system tracks which prefix was used for each element duri
 and preserves it during serialization.
 
 
+== Invalid Namespace Handling (Formal Public Identifiers)
+
+=== The Problem
+
+Some legacy XML documents use Formal Public Identifiers (FPIs) in namespace positions.
+FPIs are SGML-era identifiers like `-//OASIS//DTD XML Exchange Table Model 19990315//EN`
+used in DOCTYPE declarations, not valid XML namespace URIs.
+
+WARNING: Using FPIs as namespace URIs is **invalid according to W3C XML Namespaces specification**.
+XML namespaces must be valid URIs - FPIs are not valid URIs and cannot be used in `xmlns:`
+declarations.
+
+=== What Happens
+
+When you parse XML that has an FPI in a namespace position, the parsing will succeed
+because the underlying XML parser can store the value. However, when serializing back to XML,
+the underlying parser (Nokogiri, Oga, Ox, REXML) will reject the FPI as an invalid
+namespace URI:
+
+[source]
+----
+Canon::Error: Relative namespace URI not allowed: -//OASIS//DTD XML Exchange Table Model 19990315//EN
+----
+
+=== How Lutaml::Model Handles This
+
+Lutaml::Model automatically converts FPIs to valid URNs per RFC 3151 during serialization.
+This allows you to parse and serialize XML that contains FPI namespaces, even though the
+original XML is technically invalid.
+
+==== FPI to URN Conversion
+
+FPIs are converted to `urn:publicid:` URNs following RFC 3151:
+
+[source]
+----
+FPI:  -//OASIS//DTD XML Exchange Table Model 19990315//EN
+URN:  urn:publicid:-//OASIS//DTD+XML+Exchange+Table+Model+19990315//EN
+----
+
+Conversion rules:
+
+1. Replace spaces with `+`
+2. Replace `//` with `:/` in the FPI body (after the leading `-//` or `+//`)
+3. Prepend `urn:publicid:`
+
+==== Example
+
+[source,ruby]
+----
+# XML with FPI namespace (invalid but parseable)
+xml = <<~XML
+  <table xmlns="-//OASIS//DTD XML Exchange Table Model 19990315//EN">
+    <entry>Data</entry>
+  </table>
+XML
+
+# Parsing succeeds
+model = Table.from_xml(xml)
+
+# Serialization converts FPI to URN
+model.to_xml
+# => <table xmlns="urn:publicid:-//OASIS//DTD+XML+Exchange+Table+Model+19990315//EN">
+#      <entry>Data</entry>
+#    </table>
+----
+
+=== Round-Trip Is Not Possible
+
+Since FPIs in namespace positions are invalid XML, true round-trip (input = output) is
+**not possible**. The output will always use the URN form because:
+
+1. The original FPI is not a valid namespace URI
+2. XML parsers reject FPIs during serialization
+3. The URN form is the valid representation of the FPI
+
+This is expected behavior - the library converts invalid input to valid output.
+
+=== DOCTYPE PUBLIC Identifiers Are Separate
+
+Note that FPI handling is separate from DOCTYPE `PUBLIC` identifiers. The PUBLIC identifier
+in a DOCTYPE declaration correctly uses FPIs and is properly preserved during round-trip:
+
+[source,xml]
+----
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+                      "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+----
+
+The FPI `-//W3C//DTD XHTML 1.0 Transitional//EN` belongs in the DOCTYPE `PUBLIC` field,
+not in namespace declarations. Lutaml::Model correctly handles DOCTYPE preservation
+separately from namespace handling.
+
+
 == Deprecated ways of working with namespaces
 
 

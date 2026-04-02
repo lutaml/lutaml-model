@@ -733,8 +733,12 @@ module Lutaml
           element_node.hoisted_declarations.each do |key, uri|
             next if uri == "http://www.w3.org/XML/1998/namespace"
 
-            # Use original alias URI if available (for namespace alias round-trip fidelity)
-            effective_uri = original_ns_uris[uri] || uri
+            # Convert FPI to URN if necessary (Nokogiri requires valid URI)
+            effective_uri = if self.class.fpi?(uri)
+                              self.class.fpi_to_urn(uri)
+                            else
+                              original_ns_uris[uri] || uri
+                            end
 
             if key.nil?
               # Default namespace (xmlns="uri")
