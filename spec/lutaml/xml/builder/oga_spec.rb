@@ -15,7 +15,7 @@ RSpec.describe Lutaml::Xml::Builder::Oga do
       root = builder.document.children.first
       comment = root.children.first
 
-      expect(comment).to be_a(::Oga::XML::Comment)
+      expect(comment).to be_a(Oga::XML::Comment)
       expect(comment.text).to eq("a comment")
       expect(builder.document.to_xml).to include("<!--a comment-->")
     end
@@ -29,7 +29,7 @@ RSpec.describe Lutaml::Xml::Builder::Oga do
       root = builder.document.children.first
       comment = root.children.first
 
-      expect(comment).to be_a(::Oga::XML::Comment)
+      expect(comment).to be_a(Oga::XML::Comment)
       expect(comment.text).to eq("a comment")
     end
   end
