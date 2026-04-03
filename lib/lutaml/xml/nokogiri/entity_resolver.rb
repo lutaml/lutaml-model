@@ -8,8 +8,8 @@ module Lutaml
       # "&name;" text so they survive round-trips. Resolution is the job
       # of the XML parser, not the data model.
       module EntityResolver
-        # Consolidate adjacent text, CDATA, and entity reference nodes into
-        # single text nodes, preserving entity references as literal "&name;" text.
+        # Consolidate adjacent text and CDATA nodes into single text nodes.
+        # EntityReference nodes are kept as separate nodes to preserve entity syntax.
         #
         # @param nodes [Nokogiri::XML::NodeSet] the child nodes to consolidate
         # @return [Array<Nokogiri::XML::Node>] consolidated nodes with merged text
@@ -20,13 +20,23 @@ module Lutaml
           return result if nodes.nil? || nodes.empty?
 
           nodes.each do |child|
-            if text_like_node?(child)
-              text_buffer << if child.is_a?(::Nokogiri::XML::EntityReference)
-                               "&#{child.name};"
-                             else
-                               child.text
-                             end
+            if child.is_a?(::Nokogiri::XML::EntityReference)
+              # Flush any pending text first - EntityReference stays as separate node
+              unless text_buffer.empty?
+                document = nodes.first&.document
+                if document
+                  result << create_consolidated_text_node(document,
+                                                      text_buffer.join)
+                end
+                text_buffer.clear
+              end
+              # Keep EntityReference as separate node - do NOT merge into text
+              result << child
+            elsif text_like_node?(child)
+              # Only consolidate Text/CDATA nodes, not EntityReference
+              text_buffer << child.text
             else
+              # Non-text node - flush pending text first
               unless text_buffer.empty?
                 document = nodes.first&.document
                 if document

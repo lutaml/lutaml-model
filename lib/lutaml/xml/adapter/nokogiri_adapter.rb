@@ -6,10 +6,6 @@ module Lutaml
     module Adapter
       class NokogiriAdapter < BaseAdapter
         def self.parse(xml, options = {})
-          # Pre-process XML to escape unescaped & characters
-          # This prevents Nokogiri from dropping data after invalid entities
-          xml = escape_unescaped_ampersands(xml)
-
           parsed = ::Nokogiri::XML(xml, nil, encoding(xml, options))
 
           # Validate that we have a root element
@@ -42,22 +38,6 @@ module Lutaml
               parsed_doc: parsed,
               doctype: doctype_info,
               xml_declaration: xml_decl_info)
-        end
-
-        # Escape unescaped ampersands in XML
-        # Only escapes & that are NOT part of valid entities (including HTML entities)
-        # Valid entities: &xxx; where xxx is alphanumeric, #digits, or #xhex
-        def self.escape_unescaped_ampersands(xml)
-          # Match bare & (not part of a valid XML entity) and escape it.
-          # Valid entity patterns:
-          #   Named:    &name;     (e.g. &amp; &lt; &#x1F4A9;)
-          #   Decimal: &#nnn;     (e.g. &#65;)
-          #   Hex:     &#xHHH;    (e.g. &#x41;)
-          #
-          # Use alternation instead of a quantifier in lookahead to avoid
-          # polynomial backtracking on crafted input (CodeQL ReDoS).
-          xml.gsub(/&(?!(?:[a-zA-Z][a-zA-Z0-9]*|#(?:[0-9]+|x[0-9A-Fa-f]+));)/,
-                   "&amp;")
         end
 
         def to_xml(options = {})
@@ -661,7 +641,7 @@ module Lutaml
               if element.cdata
                 inner_xml.cdata(element.text_content)
               else
-                add_text_with_entities(inner_xml.xml.parent, element.text_content, xml.doc)
+                add_text_with_entities(inner_xml.parent, element.text_content.to_s, inner_xml.doc)
               end
             end
 
@@ -696,29 +676,6 @@ module Lutaml
         end
 
         private
-
-        # Add text content to a Nokogiri element, preserving entity reference patterns.
-        # Splits text on entity patterns (&name;, &#dec;, &#xhex;) and creates
-        # EntityReference nodes for each, with regular Text nodes for other content.
-        #
-        # @param element [Nokogiri::XML::Element] parent element to add text to
-        # @param text [String] text content (may contain entity patterns)
-        # @param doc [Nokogiri::XML::Document] document for node creation
-        def add_text_with_entities(element, text, doc)
-          entity_pattern = /(&(?:\w+|#\d+|#x[\da-fA-F]+);)/
-          parts = text.to_s.split(entity_pattern, -1)
-          parts.each do |part|
-            next if part.empty?
-            if part.match?(/\A&(\w+|#\d+|#x[\da-fA-F]+);\z/)
-              entity_name = part[1..-2]
-              ent = ::Nokogiri::XML::EntityReference.new(doc, entity_name)
-              element.add_child(ent)
-            else
-              text_node = ::Nokogiri::XML::Text.new(part, doc)
-              element.add_child(text_node)
-            end
-          end
-        end
 
         # Recursively build Nokogiri::XML::Node tree manually
         #
@@ -947,7 +904,15 @@ module Lutaml
           child_element_index = 0
           previous_sibling_had_xmlns_blank = false
           xml_element.children.each do |xml_child|
-            if xml_child.is_a?(Lutaml::Xml::DataModel::XmlElement)
+            # Handle EntityReference nodes directly - they have no children
+            # and should preserve their entity syntax (e.g., &nbsp;) in round-trips
+            if xml_child.is_a?(Lutaml::Xml::NokogiriElement) &&
+               xml_child.adapter_node.is_a?(::Nokogiri::XML::EntityReference)
+              entity_node = ::Nokogiri::XML::EntityReference.new(doc,
+                                                                 xml_child.adapter_node.name)
+              element.add_child(entity_node)
+              next
+            elsif xml_child.is_a?(Lutaml::Xml::DataModel::XmlElement)
               child_node = element_node.element_nodes[child_element_index]
               child_element_index += 1
 
@@ -983,11 +948,37 @@ module Lutaml
                                                       xml_element.text_content.to_s)
               element.add_child(cdata_node)
             else
-              add_text_with_entities(element, xml_element.text_content, doc)
+              add_text_with_entities(element, xml_element.text_content.to_s, doc)
             end
           end
 
           element
+        end
+
+        # Add text content to a Nokogiri element, preserving entity reference patterns.
+        # This is used during SERIALIZATION of model attributes that contain user-provided
+        # strings. The regex detects entity patterns so they can be preserved as
+        # EntityReference nodes rather than being escaped.
+        #
+        # During PARSING, we do NOT use regex - we rely on Nokogiri's EntityReference nodes.
+        #
+        # @param element [Nokogiri::XML::Element] parent element to add text to
+        # @param text [String] text content (may contain entity patterns from user input)
+        # @param doc [Nokogiri::XML::Document] document for node creation
+        def add_text_with_entities(element, text, doc)
+          entity_pattern = /(&(?:\w+|#\d+|#x[\da-fA-F]+);)/
+          parts = text.to_s.split(entity_pattern, -1)
+          parts.each do |part|
+            next if part.empty?
+            if part.match?(/\A&(\w+|#\d+|#x[\da-fA-F]+);\z/)
+              entity_name = part[1..-2]
+              ent = ::Nokogiri::XML::EntityReference.new(doc, entity_name)
+              element.add_child(ent)
+            else
+              text_node = ::Nokogiri::XML::Text.new(part, doc)
+              element.add_child(text_node)
+            end
+          end
         end
 
         # Check if parent already has a namespace declaration matching the target URI,

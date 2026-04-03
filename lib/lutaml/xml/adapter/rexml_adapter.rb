@@ -15,7 +15,7 @@ module Lutaml
           xml = normalize_xml_for_rexml(xml)
 
           parsed = Moxml::Adapter::Rexml.parse(xml)
-          root_element = parsed.root || parse_with_escaped_ampersands(xml)
+          root_element = parsed.root
 
           if root_element.nil?
             raise REXML::ParseException.new(
@@ -258,14 +258,6 @@ global_registry, plan)
           return xml unless xml.is_a?(String) && xml.encoding.to_s != "UTF-8"
 
           xml.encode("UTF-8")
-        end
-
-        def self.parse_with_escaped_ampersands(xml)
-          return nil unless xml.is_a?(String)
-
-          escaped_xml = xml.gsub(/&(?![a-zA-Z]+;|#[0-9]+;|#x[0-9a-fA-F]+;)/,
-                                 "&amp;")
-          Moxml::Adapter::Rexml.parse(escaped_xml).root
         end
 
         def build_element_with_plan(xml, element, plan, options = {})
