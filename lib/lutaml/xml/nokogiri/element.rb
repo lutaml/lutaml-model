@@ -128,13 +128,13 @@ module Lutaml
         end
       end
 
-      # Override cdata to ensure it always returns a String, not an Array
-      # The base XmlElement.cdata has a bug where it returns
-      # cdata_children.map(&:text) when children.count > 1 (Array instead of joined String)
+      # Override cdata to handle EntityReference properly.
+      # When there are EntityReference children, they should not affect
+      # CDATA content (CDATA is text wrapped in <![CDATA[...]]> tags).
+      # Always returns a String for compatibility with text concatenation.
       def cdata
         return @text if children.empty?
 
-        # Always join to ensure we return a String, not an Array
         cdata_children.map(&:text).join
       end
 
