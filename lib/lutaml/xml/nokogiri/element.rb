@@ -89,6 +89,10 @@ module Lutaml
       # Override text to handle EntityReference specially.
       # EntityReference.text returns "", but we need the entity syntax
       # (e.g., "&nbsp;") for proper text aggregation.
+      #
+      # Return type matches base class contract:
+      # - Array when element has mixed content (element + text children)
+      # - String when element has only text/entity children
       def text
         if @adapter_node.is_a?(::Nokogiri::XML::EntityReference)
           return "&#{@adapter_node.name};"
@@ -96,16 +100,23 @@ module Lutaml
 
         return @text if children.empty?
 
-        # Handle multiple children case specially to include EntityReference content
         if children.count > 1
-          return children.map do |child|
+          text_parts = text_children.map do |child|
             if child.is_a?(Lutaml::Xml::NokogiriElement) &&
                 child.adapter_node.is_a?(::Nokogiri::XML::EntityReference)
               "&#{child.adapter_node.name};"
             else
               child.text
             end
-          end.join
+          end
+
+          # Mixed content (has element children): return Array for content mapping
+          # Text-only (all children are text/entity): join to String
+          has_element_children = children.any? do |c|
+            !c.text? && !(c.is_a?(Lutaml::Xml::NokogiriElement) &&
+                          c.adapter_node.is_a?(::Nokogiri::XML::EntityReference))
+          end
+          return has_element_children ? text_parts : text_parts.join
         end
 
         # Single child - check if it's an EntityReference
@@ -128,14 +139,25 @@ module Lutaml
         end
       end
 
-      # Override cdata to ensure it always returns a String, not an Array
-      # The base XmlElement.cdata has a bug where it returns
-      # cdata_children.map(&:text) when children.count > 1 (Array instead of joined String)
+      # Override cdata matching base class contract:
+      # - Array when element has mixed content (element + cdata children)
+      # - String when element has only cdata children
       def cdata
         return @text if children.empty?
 
-        # Always join to ensure we return a String, not an Array
-        cdata_children.map(&:text).join
+        cdata_nodes = cdata_children
+        return "" if cdata_nodes.empty?
+
+        if children.count > 1
+          has_element_children = children.any? do |c|
+            !c.text? && !(c.is_a?(Lutaml::Xml::NokogiriElement) &&
+                          c.adapter_node.is_a?(::Nokogiri::XML::EntityReference))
+          end
+          parts = cdata_nodes.map(&:text)
+          return has_element_children ? parts : parts.join
+        end
+
+        cdata_nodes.map(&:text).join
       end
 
       # Performance: Build attributes hash, return frozen empty when no attributes
