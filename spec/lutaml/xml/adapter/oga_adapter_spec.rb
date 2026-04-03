@@ -65,6 +65,42 @@ RSpec.describe Lutaml::Xml::Adapter::OgaAdapter, :oga_adapter do
     end
   end
 
+  context "when parsing XML with comments" do
+    let(:xml_with_comment) do
+      <<~XML
+        <root>
+          <child>text</child>
+          <!-- a comment -->
+        </root>
+      XML
+    end
+
+    let(:doc_with_comment) { described_class.parse(xml_with_comment) }
+
+    let(:moxml_comment) do
+      ctx = Moxml.new(:oga)
+      doc = ctx.parse(xml_with_comment)
+      doc.root.children.find { |n| n.is_a?(Moxml::Comment) }
+    end
+
+    it "returns 'comment' for Moxml::Comment nodes via name_of" do
+      expect(described_class.name_of(moxml_comment)).to eq("comment")
+    end
+
+    it "parses comment nodes with the correct node type" do
+      comment = doc_with_comment.root.children.find(&:comment?)
+
+      expect(comment).not_to be_nil
+      expect(comment.name).to eq("comment")
+      expect(comment.node_type).to eq(:comment)
+      expect(comment.text).to eq(" a comment ")
+    end
+
+    it "serializes parsed comments back to XML comments" do
+      expect(doc_with_comment.root.to_xml).to include("<!-- a comment -->")
+    end
+  end
+
   context "when generating XML with namespaces" do
     it "generates XML with namespaces correctly" do
       xml_output = document.root.to_xml

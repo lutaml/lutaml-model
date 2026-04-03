@@ -30,6 +30,8 @@ module Lutaml
             "#cdata-section"
           when Moxml::ProcessingInstruction
             "processing_instruction"
+          when Moxml::Comment
+            "comment"
           else
             element.name
           end
@@ -52,6 +54,8 @@ module Lutaml
             :cdata
           when Moxml::ProcessingInstruction
             :processing_instruction
+          when Moxml::Comment
+            :comment
           else
             :element
           end

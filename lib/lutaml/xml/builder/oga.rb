@@ -142,6 +142,15 @@ module Lutaml
           end
         end
 
+        def add_comment(element, value)
+          oga_comment = ::Oga::XML::Comment.new(text: value.to_s)
+          if element.is_a?(Xml::Oga::Document)
+            element.children.last.children << oga_comment
+          else
+            element.children << oga_comment
+          end
+        end
+
         def add_namespace_prefix(prefix)
           @current_namespace = prefix
           self
