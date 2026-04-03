@@ -89,6 +89,9 @@ module Lutaml
       # Override text to handle EntityReference specially.
       # EntityReference.text returns "", but we need the entity syntax
       # (e.g., "&nbsp;") for proper text aggregation.
+      #
+      # Returns an Array when there are actual element children (mixed content)
+      # to be consistent with Document.text behavior.
       def text
         if @adapter_node.is_a?(::Nokogiri::XML::EntityReference)
           return "&#{@adapter_node.name};"
@@ -96,16 +99,27 @@ module Lutaml
 
         return @text if children.empty?
 
-        # Handle multiple children case specially to include EntityReference content
+        # Handle multiple children case - return joined String for simple content,
+        # Array for mixed content (has actual element children)
         if children.count > 1
-          return children.map do |child|
-            if child.is_a?(Lutaml::Xml::NokogiriElement) &&
-                child.adapter_node.is_a?(::Nokogiri::XML::EntityReference)
-              "&#{child.adapter_node.name};"
-            else
-              child.text
-            end
-          end.join
+          # Check if there are actual element children (mixed content)
+          has_element_children = children.any? do |child|
+            !child.text? && !child.adapter_node.is_a?(::Nokogiri::XML::EntityReference)
+          end
+
+          if has_element_children
+            # Mixed content - return Array to be consistent with Document.text
+            return text_children.map(&:text)
+          else
+            # Simple content (text + entities) - map over all children to include entity syntax
+            return children.map do |child|
+              if child.adapter_node.is_a?(::Nokogiri::XML::EntityReference)
+                "&#{child.adapter_node.name};"
+              else
+                child.text
+              end
+            end.join
+          end
         end
 
         # Single child - check if it's an EntityReference
@@ -131,11 +145,23 @@ module Lutaml
       # Override cdata to handle EntityReference properly.
       # When there are EntityReference children, they should not affect
       # CDATA content (CDATA is text wrapped in <![CDATA[...]]> tags).
-      # Always returns a String for compatibility with text concatenation.
+      # Returns an Array for mixed content (has actual element children) to be
+      # consistent with text behavior.
       def cdata
         return @text if children.empty?
 
-        cdata_children.map(&:text).join
+        # Check if there are actual element children (mixed content)
+        has_element_children = children.any? do |child|
+          !child.text? && !child.adapter_node.is_a?(::Nokogiri::XML::EntityReference)
+        end
+
+        if has_element_children
+          # Mixed content - return Array of CDATA segments
+          cdata_children.map(&:text)
+        else
+          # Simple content - return joined String
+          cdata_children.map(&:text).join
+        end
       end
 
       # Performance: Build attributes hash, return frozen empty when no attributes

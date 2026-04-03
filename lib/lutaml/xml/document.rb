@@ -231,9 +231,15 @@ module Lutaml
       end
 
       def text
-        return @root.text_children.map(&:text) if @root.children.count > 1
+        # Return Array only if there are actual element children (mixed content).
+        # EntityReference nodes are text-like and should not trigger Array return.
+        # For text + entity without elements, return joined String.
+        has_element_children = @root.children.any? do |child|
+          !child.text? && !entity_reference_node?(child)
+        end
+        return @root.text_children.map(&:text) if has_element_children
 
-        @root.text
+        @root.text_children.map(&:text).join
       end
 
       def cdata
@@ -241,6 +247,12 @@ module Lutaml
       end
 
       private
+
+      # Check if a child node is an EntityReference
+      def entity_reference_node?(child)
+        child.is_a?(Lutaml::Xml::NokogiriElement) &&
+          child.adapter_node.is_a?(::Nokogiri::XML::EntityReference)
+      end
 
       def setup_register(register)
         return register if register.is_a?(Symbol)
