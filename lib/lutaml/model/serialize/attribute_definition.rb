@@ -52,7 +52,7 @@ module Lutaml
           end
 
           key_method_name = if attr.options[:collection]
-                              attr.options[:ref_key_attribute].to_s.pluralize
+                              Utils.pluralize(attr.options[:ref_key_attribute].to_s)
                             else
                               attr.options[:ref_key_attribute]
                             end
