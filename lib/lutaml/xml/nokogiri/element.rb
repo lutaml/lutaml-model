@@ -100,7 +100,7 @@ module Lutaml
         if children.count > 1
           return children.map do |child|
             if child.is_a?(Lutaml::Xml::NokogiriElement) &&
-               child.adapter_node.is_a?(::Nokogiri::XML::EntityReference)
+                child.adapter_node.is_a?(::Nokogiri::XML::EntityReference)
               "&#{child.adapter_node.name};"
             else
               child.text
@@ -111,7 +111,7 @@ module Lutaml
         # Single child - check if it's an EntityReference
         child = children.first
         if child.is_a?(Lutaml::Xml::NokogiriElement) &&
-           child.adapter_node.is_a?(::Nokogiri::XML::EntityReference)
+            child.adapter_node.is_a?(::Nokogiri::XML::EntityReference)
           return "&#{child.adapter_node.name};"
         end
 
@@ -133,6 +133,7 @@ module Lutaml
       # cdata_children.map(&:text) when children.count > 1 (Array instead of joined String)
       def cdata
         return @text if children.empty?
+
         # Always join to ensure we return a String, not an Array
         cdata_children.map(&:text).join
       end
@@ -174,7 +175,7 @@ module Lutaml
       def inner_xml
         children.map do |child|
           if child.is_a?(Lutaml::Xml::NokogiriElement) &&
-             child.adapter_node.is_a?(::Nokogiri::XML::EntityReference)
+              child.adapter_node.is_a?(::Nokogiri::XML::EntityReference)
             # For EntityReference children, use native to_xml which returns entity syntax
             child.adapter_node.to_xml
           else
@@ -188,7 +189,8 @@ module Lutaml
 
         if @adapter_node.is_a?(::Nokogiri::XML::EntityReference)
           # EntityReference - create and add to parent
-          entity_node = ::Nokogiri::XML::EntityReference.new(builder.doc, @adapter_node.name)
+          entity_node = ::Nokogiri::XML::EntityReference.new(builder.doc,
+                                                             @adapter_node.name)
           builder.parent.add_child(entity_node)
         elsif cdata?
           # CDATA sections are handled differently

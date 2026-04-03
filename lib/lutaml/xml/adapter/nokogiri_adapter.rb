@@ -641,7 +641,8 @@ module Lutaml
               if element.cdata
                 inner_xml.cdata(element.text_content)
               else
-                add_text_with_entities(inner_xml.parent, element.text_content.to_s, inner_xml.doc)
+                add_text_with_entities(inner_xml.parent,
+                                       element.text_content.to_s, inner_xml.doc)
               end
             end
 
@@ -907,7 +908,7 @@ module Lutaml
             # Handle EntityReference nodes directly - they have no children
             # and should preserve their entity syntax (e.g., &nbsp;) in round-trips
             if xml_child.is_a?(Lutaml::Xml::NokogiriElement) &&
-               xml_child.adapter_node.is_a?(::Nokogiri::XML::EntityReference)
+                xml_child.adapter_node.is_a?(::Nokogiri::XML::EntityReference)
               entity_node = ::Nokogiri::XML::EntityReference.new(doc,
                                                                  xml_child.adapter_node.name)
               element.add_child(entity_node)
@@ -948,7 +949,8 @@ module Lutaml
                                                       xml_element.text_content.to_s)
               element.add_child(cdata_node)
             else
-              add_text_with_entities(element, xml_element.text_content.to_s, doc)
+              add_text_with_entities(element, xml_element.text_content.to_s,
+                                     doc)
             end
           end
 
@@ -970,6 +972,7 @@ module Lutaml
           parts = text.to_s.split(entity_pattern, -1)
           parts.each do |part|
             next if part.empty?
+
             if part.match?(/\A&(\w+|#\d+|#x[\da-fA-F]+);\z/)
               entity_name = part[1..-2]
               ent = ::Nokogiri::XML::EntityReference.new(doc, entity_name)

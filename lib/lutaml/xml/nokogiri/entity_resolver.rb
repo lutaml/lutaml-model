@@ -26,7 +26,7 @@ module Lutaml
                 document = nodes.first&.document
                 if document
                   result << create_consolidated_text_node(document,
-                                                      text_buffer.join)
+                                                          text_buffer.join)
                 end
                 text_buffer.clear
               end
