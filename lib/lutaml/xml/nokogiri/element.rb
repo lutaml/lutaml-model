@@ -86,6 +86,57 @@ module Lutaml
         @node_type == :text || @node_type == :cdata
       end
 
+      # Override text to handle EntityReference specially.
+      # EntityReference.text returns "", but we need the entity syntax
+      # (e.g., "&nbsp;") for proper text aggregation.
+      def text
+        if @adapter_node.is_a?(::Nokogiri::XML::EntityReference)
+          return "&#{@adapter_node.name};"
+        end
+
+        return @text if children.empty?
+
+        # Handle multiple children case specially to include EntityReference content
+        if children.count > 1
+          return children.map do |child|
+            if child.is_a?(Lutaml::Xml::NokogiriElement) &&
+               child.adapter_node.is_a?(::Nokogiri::XML::EntityReference)
+              "&#{child.adapter_node.name};"
+            else
+              child.text
+            end
+          end.join
+        end
+
+        # Single child - check if it's an EntityReference
+        child = children.first
+        if child.is_a?(Lutaml::Xml::NokogiriElement) &&
+           child.adapter_node.is_a?(::Nokogiri::XML::EntityReference)
+          return "&#{child.adapter_node.name};"
+        end
+
+        text_children.map(&:text).join
+      end
+
+      # Override text_children to include EntityReference nodes.
+      # EntityReference nodes should be treated as text-like for aggregation.
+      def text_children
+        children.select do |child|
+          (child.text? && !child.cdata?) ||
+            (child.is_a?(Lutaml::Xml::NokogiriElement) &&
+             child.adapter_node.is_a?(::Nokogiri::XML::EntityReference))
+        end
+      end
+
+      # Override cdata to ensure it always returns a String, not an Array
+      # The base XmlElement.cdata has a bug where it returns
+      # cdata_children.map(&:text) when children.count > 1 (Array instead of joined String)
+      def cdata
+        return @text if children.empty?
+        # Always join to ensure we return a String, not an Array
+        cdata_children.map(&:text).join
+      end
+
       # Performance: Build attributes hash, return frozen empty when no attributes
       def build_attributes_hash(node)
         return EMPTY_ATTRIBUTES if node.attribute_nodes.empty?
@@ -109,6 +160,10 @@ module Lutaml
       end
 
       def to_xml
+        # For text/cdata nodes and EntityReference, use the native Nokogiri
+        # serialization which properly returns entity syntax
+        return @adapter_node.to_xml if @adapter_node.is_a?(::Nokogiri::XML::EntityReference)
+
         # For text/cdata nodes, use the native Nokogiri serialization
         # which properly escapes entities
         return @adapter_node.to_xml if text? && @adapter_node.respond_to?(:to_xml)
@@ -117,13 +172,25 @@ module Lutaml
       end
 
       def inner_xml
-        children.map(&:to_xml).join
+        children.map do |child|
+          if child.is_a?(Lutaml::Xml::NokogiriElement) &&
+             child.adapter_node.is_a?(::Nokogiri::XML::EntityReference)
+            # For EntityReference children, use native to_xml which returns entity syntax
+            child.adapter_node.to_xml
+          else
+            child.to_xml
+          end
+        end.join
       end
 
       def build_xml(builder = nil)
         builder ||= Builder::Nokogiri.build
 
-        if cdata?
+        if @adapter_node.is_a?(::Nokogiri::XML::EntityReference)
+          # EntityReference - create and add to parent
+          entity_node = ::Nokogiri::XML::EntityReference.new(builder.doc, @adapter_node.name)
+          builder.parent.add_child(entity_node)
+        elsif cdata?
           # CDATA sections are handled differently
           # For now, treat them as text since Nokogiri builder handles CDATA
           builder.text(text)
