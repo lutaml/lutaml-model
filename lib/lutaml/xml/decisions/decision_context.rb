@@ -105,9 +105,17 @@ module Lutaml
           input_prefix_formats = @options[:stored_xml_declaration_plan]&.input_prefix_formats
           return nil unless input_prefix_formats
 
-          # Look up prefix:uri format
-          key = "#{prefix}:#{@namespace_uri}"
-          input_prefix_formats[key]
+          # Look up prefix:uri format, trying all URIs (canonical + aliases)
+          # This handles the case where input XML used an alias URI but the model
+          # uses canonical URI (or vice versa).
+          all_uris = @namespace_class&.all_uris || [@namespace_uri]
+          all_uris.each do |uri|
+            key = "#{prefix}:#{uri}"
+            format = input_prefix_formats[key]
+            return format if format
+          end
+
+          nil
         end
 
         # Get the namespace prefix from the element
