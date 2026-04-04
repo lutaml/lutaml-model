@@ -711,14 +711,21 @@ module Lutaml
           # This ensures the element's own namespace is declared before it can inherit parent's
           # Keys: nil = default namespace, "prefix" = prefixed namespace
           original_ns_uris = plan&.original_namespace_uris || {}
+          use_prefix_option = options[:use_prefix]
           element_node.hoisted_declarations.each do |key, uri|
             next if uri == "http://www.w3.org/XML/1998/namespace"
 
             # Convert FPI to URN if necessary (Nokogiri requires valid URI)
+            # Only apply original_ns_uris conversion when preserving original format.
+            # When use_prefix is explicitly set, we're using system's format preferences.
             effective_uri = if self.class.fpi?(uri)
                               self.class.fpi_to_urn(uri)
-                            else
+                            elsif use_prefix_option.nil?
+                              # Preserving original format - use alias URIs from original
                               original_ns_uris[uri] || uri
+                            else
+                              # Using explicit format preference - use canonical URIs
+                              uri
                             end
 
             if key.nil?
@@ -754,11 +761,26 @@ module Lutaml
           # and don't fall back to anything (no default namespace_class)
 
           if target_namespace_class && target_namespace_class != :blank
-            target_uri = target_namespace_class.uri
-            ns = element.namespace_scopes.find { |n| n.href == target_uri }
+            # Use the prefix to find the namespace when available.
+            # This is more reliable than matching by URI because hoisted_declarations
+            # may contain canonical URIs while the actual namespace was added using
+            # alias URIs (via original_ns_uris conversion).
+            target_prefix = element_node.use_prefix
+            if target_prefix
+              # Find namespace by prefix (most reliable - prefix is unique per element)
+              ns = element.namespace_scopes.find do |n|
+                n.prefix == target_prefix
+              end
+            else
+              # Fall back to URI-based lookup for default namespace
+              target_uri = target_namespace_class.uri
+              ns = element.namespace_scopes.find do |n|
+                n.href == target_uri && n.prefix.nil?
+              end
+            end
             if ns
               element.namespace = ns
-            else
+            elsif target_prefix
               # CRITICAL FIX: Check if namespace is declared on parent before adding locally
               # When parent declares the namespace with the SAME format (prefix or default),
               # child should use parent's namespace declaration without re-declaring it.

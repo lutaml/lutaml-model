@@ -146,7 +146,7 @@ module Lutaml
               when String
                 # Use specific custom prefix
                 options[:use_prefix] = prefix_option
-              when false
+              when false, :default
                 # Explicitly force default format (disable format preservation)
                 options[:use_prefix] = false
               end

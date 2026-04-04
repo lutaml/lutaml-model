@@ -1148,14 +1148,33 @@ module Lutaml
           # namespace_locations is keyed by element path (e.g., "child/grandchild")
           # matching the key format from collect_element_namespaces in model_transform.rb.
           # Use element_path for lookup, not xml_element.name (which is just the local name).
+          #
+          # CRITICAL: Only use alias URI for format preservation (no explicit prefix option).
+          # When user explicitly requests prefix format (use_prefix: true/string), use canonical URI.
           stored_plan = options[:stored_xml_declaration_plan]
-          if stored_plan && !is_root && element_path.any?
+          use_alias_uri = options[:use_prefix].nil? && stored_plan
+          if stored_plan && element_path.any? && use_alias_uri
+            # For child elements, look up by element path
+            # For root elements (empty path), use namespaces_at_path([]) to get root declarations
             loc_key = element_path.join("/")
-            element_ns_loc = stored_plan.namespace_locations&.dig(loc_key)
+            element_ns_loc = if is_root
+                               stored_plan.namespaces_at_path([])
+                             else
+                               stored_plan.namespace_locations&.dig(loc_key)
+                             end
             # Check if any URI in the stored location is an alias of the canonical URI
             element_ns_loc&.each_value do |stored_uri|
               if ns_class.is_alias?(stored_uri)
                 # Use the original alias URI instead of canonical
+                ns_uri = stored_uri
+                break
+              end
+            end
+          elsif stored_plan && is_root && use_alias_uri
+            # Root element: check root's hoisted declarations for alias URI
+            root_ns = stored_plan.namespaces_at_path([])
+            root_ns&.each_value do |stored_uri|
+              if ns_class.is_alias?(stored_uri)
                 ns_uri = stored_uri
                 break
               end
