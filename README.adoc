@@ -8324,16 +8324,30 @@ The `prefix:` option accepts the following values:
 |===
 | Value | Behavior
 
-| (not specified) or `nil` or `false`
-| Use default namespace (xmlns="...") with no prefix. This is the default behavior.
+| `nil` (not specified)
+| *Round-trip mode* (default): Preserve input format. If the original XML used a prefix, the output will use a prefix. If the original XML used default namespace, the output will use default namespace.
+
+| `false`
+| Force default namespace (xmlns="...") with no prefix on the element. Disables format preservation.
 
 | `true`
-| Use `prefix_default` from XmlNamespace class
+| Force prefix format using `prefix_default` from the XmlNamespace class. Uses the namespace's defined default prefix.
+
+| `:default`
+| Explicitly force default namespace format (xmlns="...") with no prefix. Same as `false` but more semantic.
 
 | `"string"`
-| Use the provided custom prefix string
+| Use a custom prefix string (e.g., `"custom"`). Overrides both `prefix_default` and any input format.
 
 |===
+
+
+[NOTE]
+====
+*Round-trip fidelity:* When no `prefix:` option is specified (or `nil`), the serializer preserves the original namespace format from parsed input. The original namespace URI (canonical or alias) is also preserved for systems that use URI aliases.
+
+*URI preservation:* When using `prefix: true`, `prefix: :default`, or `prefix: "custom"`, the original namespace URI (alias or canonical) from the input is still preserved for round-trip fidelity. The `prefix:` option only controls the *format* (prefix vs default), not the *URI*.
+====
 
 
 

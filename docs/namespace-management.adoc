@@ -26,6 +26,74 @@ XML namespaces provide a method to avoid element name conflicts by qualifying na
 </element>
 ```
 
+=== The `prefix:` Serialization Option
+
+When serializing a model to XML using `to_xml`, you can control how the root element's namespace is rendered using the `prefix:` option. This is a _serialization-time decision_ that allows the same model to output clean W3C-compliant XML (default namespace) or prefixed XML for legacy system compatibility.
+
+==== Prefix Option Values
+
+[cols="1,3"]
+|===
+| Value | Behavior
+
+| `nil` (not specified) - *Round-trip mode*
+| Preserve input format during serialization. If the original XML used a prefix (e.g., `<oasis:table xmlns:oasis="urn:alias">`), the output will use a prefix. If the original XML used default namespace, the output will use default namespace. The original namespace URI (canonical or alias) is also preserved.
+
+| `false`
+| Force default namespace (xmlns="...") with no prefix on the element. Disables format preservation.
+
+| `true`
+| Force prefix format using `prefix_default` from the XmlNamespace class. Uses the namespace's defined default prefix (e.g., `"oasis"`).
+
+| `:default`
+| Explicitly force default namespace format (xmlns="...") with no prefix. Same as `false` but more semantic. Use this when you explicitly want default format override.
+
+| `"string"`
+| Use a custom prefix string (e.g., `"custom"`). Overrides both `prefix_default` and any input format. Useful when a legacy system requires a specific prefix.
+
+|===
+
+==== Round-trip Fidelity
+
+For round-trip fidelity (parsing XML and re-serializing), the serializer preserves both the namespace format and the exact namespace URI from the original input:
+
+* If the input XML used an alias URI (e.g., `urn:oasis:names:tc:xml:table`), the output will use that alias URI
+* If the input XML used a canonical URI, the output will use the canonical URI
+* The `prefix:` option only controls whether to use prefix format or default format, NOT which URI to use
+
+[NOTE]
+====
+When using namespaces with `uri_aliases`, the system maintains a mapping between canonical URIs and their aliases. For example, a namespace might have:
+
+* Canonical URI: `http://docs.oasis-open.org/ns/oasis-exchange/table`
+* Alias URI: `urn:oasis:names:tc:xml:table`
+
+When round-tripping, the original URI (alias or canonical) is preserved regardless of the `prefix:` option.
+====
+
+==== Examples
+
+[source,ruby]
+----
+# Input: <oasis:table xmlns:oasis="urn:oasis:names:tc:xml:table">
+
+# Round-trip: preserve input format (prefix + alias URI)
+model.to_xml
+# => <oasis:table xmlns:oasis="urn:oasis:names:tc:xml:table"/>
+
+# Force prefix: use prefix_default but preserve alias URI
+model.to_xml(prefix: true)
+# => <oasis:table xmlns:oasis="urn:oasis:names:tc:xml:table"/>
+
+# Force default: use default namespace but preserve alias URI
+model.to_xml(prefix: :default)
+# => <table xmlns="urn:oasis:names:tc:xml:table"/>
+
+# Custom prefix: use custom prefix but preserve alias URI
+model.to_xml(prefix: "custom")
+# => <custom:table xmlns:custom="urn:oasis:names:tc:xml:table"/>
+----
+
 == The namespace_scope Directive
 
 === General
