@@ -346,6 +346,17 @@ module Lutaml
         self.class.as_yaml(self)
       end
 
+      # Serialize to a specific format
+      #
+      # @param format [Symbol] The format to serialize to (:xml, :json, :yaml, :toml, :hash)
+      # @param options [Hash] Serialization options
+      # @option options [Symbol, String, Boolean] :prefix XML namespace prefix control
+      #   - nil (default): Preserve input format during round-trip
+      #   - true: Force prefix format using namespace's prefix_default
+      #   - :default: Force default namespace format (no prefix on element)
+      #   - String: Use custom prefix string (e.g., 'custom')
+      #   For round-trip fidelity, the original namespace URI (alias or canonical)
+      #   is always preserved when available, regardless of this option.
       def to_format(format, options = {})
         validate_root_mapping!(format, options)
 

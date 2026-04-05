@@ -25,13 +25,25 @@ RSpec.describe "Namespace prefix with uri_aliases" do
 
   let(:table_class) do
     ns = oasis_ns
-    Class.new(Lutaml::Model::Serializable) do
+    tgroupClass = Class.new(Lutaml::Model::Serializable) do
       attribute :cols, :integer
-
       xml do
-        root "table"
+        element "tgroup"
         namespace ns
         map_attribute "cols", to: :cols
+      end
+    end
+
+    Class.new(Lutaml::Model::Serializable) do
+      attribute :cols, :integer
+      attribute :tgroup, tgroupClass
+
+      xml do
+        element "table"
+        namespace ns
+
+        map_attribute "cols", to: :cols
+        map_element "tgroup", to: :tgroup
       end
     end
   end
@@ -45,40 +57,44 @@ RSpec.describe "Namespace prefix with uri_aliases" do
     XML
   end
 
-  describe "root element prefix behavior" do
+  describe "root element prefix behavior with alias URI" do
+    let(:parsed_model) { table_class.from_xml(isosts_xml) }
+
     context "when input XML uses alias URI with prefix" do
-      let(:parsed_model) { table_class.from_xml(isosts_xml) }
-
-      # Scenario 1: No prefix option → preserve input format
-      it "generates XML with prefix preserved when no prefix option specified" do
-        xml = parsed_model.to_xml
-        # Should preserve the original prefix since input had a prefix
-        expect(xml).to include("<oasis:table")
-        expect(xml).to include('xmlns:oasis="urn:oasis:names:tc:xml:table"')
+      it "generates XML with prefix and alias URI preserved when no prefix option specified" do
+        expected_xml = <<~XML
+          <oasis:table xmlns:oasis="urn:oasis:names:tc:xml:table" cols="2">
+            <oasis:tgroup cols="2"/>
+          </oasis:table>
+        XML
+        expect(parsed_model.to_xml).to be_xml_equivalent_to(expected_xml)
       end
 
-      # Scenario 2: prefix: true → use namespace's prefix_default
-      it "generates XML with prefix_default when prefix: true is specified" do
-        xml = parsed_model.to_xml(prefix: true)
-        # Should use namespace's prefix_default which is "oasis"
-        expect(xml).to include("<oasis:table")
-        expect(xml).to include('xmlns:oasis="http://docs.oasis-open.org/ns/oasis-exchange/table"')
+      it "generates XML with prefix_default and alias URI when prefix: true is specified" do
+        expected_xml = <<~XML
+          <oasis:table xmlns:oasis="urn:oasis:names:tc:xml:table" cols="2">
+            <oasis:tgroup cols="2"/>
+          </oasis:table>
+        XML
+        expect(parsed_model.to_xml(prefix: true)).to be_xml_equivalent_to(expected_xml)
       end
 
-      # Scenario 3: prefix: :default → use default namespace format
-      it "generates XML without prefix when prefix: :default is specified" do
-        xml = parsed_model.to_xml(prefix: :default)
-        # Should use default namespace format (no prefix on element)
-        expect(xml).to include("<table xmlns=")
-        expect(xml).to include('xmlns="http://docs.oasis-open.org/ns/oasis-exchange/table"')
+      it "generates XML without prefix but with alias URI when prefix: :default is specified" do
+        expected_xml = <<~XML
+          <table xmlns="urn:oasis:names:tc:xml:table" cols="2">
+            <tgroup cols="2"/>
+          </table>
+        XML
+        expect(parsed_model.to_xml(prefix: :default)).to be_xml_equivalent_to(expected_xml)
       end
 
-      # Scenario 4: prefix: 'custom' → use custom prefix
-      it "generates XML with custom prefix when prefix: 'custom' is specified" do
-        xml = parsed_model.to_xml(prefix: "custom")
-        # Should use the custom prefix
-        expect(xml).to include("<custom:table")
-        expect(xml).to include('xmlns:custom="http://docs.oasis-open.org/ns/oasis-exchange/table"')
+      it "generates XML with custom prefix and alias URI when prefix: 'custom' is specified" do
+        expected_xml = <<~XML
+          <custom:table xmlns:custom="urn:oasis:names:tc:xml:table" cols="2">
+            <custom:tgroup cols="2"/>
+          </custom:table>
+        XML
+        expect(parsed_model.to_xml(prefix: "custom")).to be_xml_equivalent_to(expected_xml)
       end
     end
 
@@ -92,16 +108,22 @@ RSpec.describe "Namespace prefix with uri_aliases" do
       end
       let(:parsed_model) { table_class.from_xml(canonical_xml) }
 
-      it "generates XML with prefix when prefix: true is specified" do
-        xml = parsed_model.to_xml(prefix: true)
-        expect(xml).to include("<oasis:table")
-        expect(xml).to include('xmlns:oasis="http://docs.oasis-open.org/ns/oasis-exchange/table"')
+      it "generates XML with prefix and canonical URI when prefix: true is specified" do
+        expected_xml = <<~XML
+          <oasis:table xmlns:oasis="http://docs.oasis-open.org/ns/oasis-exchange/table" cols="2">
+            <oasis:tgroup cols="2"/>
+          </oasis:table>
+        XML
+        expect(parsed_model.to_xml(prefix: true)).to be_xml_equivalent_to(expected_xml)
       end
 
-      it "generates XML without prefix when prefix: :default is specified" do
-        xml = parsed_model.to_xml(prefix: :default)
-        expect(xml).to include("<table xmlns=")
-        expect(xml).to include('xmlns="http://docs.oasis-open.org/ns/oasis-exchange/table"')
+      it "generates XML without prefix but with canonical URI when prefix: :default is specified" do
+        expected_xml = <<~XML
+          <table xmlns="http://docs.oasis-open.org/ns/oasis-exchange/table" cols="2">
+            <tgroup cols="2"/>
+          </table>
+        XML
+        expect(parsed_model.to_xml(prefix: :default)).to be_xml_equivalent_to(expected_xml)
       end
     end
   end
