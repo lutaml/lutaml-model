@@ -61,7 +61,6 @@ module Lutaml
         end
 
         private_class_method :unwrap_symbol_string
-
       end
     end
   end

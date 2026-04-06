@@ -70,7 +70,7 @@ module Lutaml
           # Hash — value (pass-through)
           v.register_format_type_serializer(
             :xml, Lutaml::Model::Type::Hash,
-            to: ->(inst) { inst.value }
+            to: lambda(&:value)
           )
 
           # Reference — key&.to_s

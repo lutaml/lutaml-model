@@ -14,7 +14,7 @@ module Lutaml
           # Reference — key for to_hash, cast for from_hash
           v.register_format_type_serializer(
             :hash, Lutaml::Model::Type::Reference,
-            to: ->(inst) { inst.key },
+            to: lambda(&:key),
             from: ->(val) { Lutaml::Model::Type::Reference.cast(val) }
           )
         end

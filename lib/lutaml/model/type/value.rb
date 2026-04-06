@@ -37,6 +37,7 @@ module Lutaml
             while klass && klass <= Value
               s = @format_type_serializers[[format, klass]]
               return s if s
+
               klass = klass.superclass
             end
             nil

@@ -46,15 +46,15 @@ module Lutaml
       # XML-specific methods (to_xsd, to_relaxng, from_xml) are registered
       # by Lutaml::Xml at load time via register_method.
       # If called without XML loaded, raise a helpful error.
-      def self.to_xsd(klass, options = {})
+      def self.to_xsd(_klass, _options = {})
         raise "XSD schema generation requires lutaml-xml. Add it to your Gemfile."
       end
 
-      def self.to_relaxng(klass, options = {})
+      def self.to_relaxng(_klass, _options = {})
         raise "RELAX NG schema generation requires lutaml-xml. Add it to your Gemfile."
       end
 
-      def self.from_xml(xml, options = {})
+      def self.from_xml(_xml, _options = {})
         raise "XML schema compilation requires lutaml-xml. Add it to your Gemfile."
       end
     end

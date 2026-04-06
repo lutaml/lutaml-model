@@ -25,7 +25,6 @@ module Lutaml
         def self.default_xsd_type
           "xs:boolean"
         end
-
       end
     end
   end

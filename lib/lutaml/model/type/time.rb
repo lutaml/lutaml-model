@@ -40,7 +40,6 @@ module Lutaml
         def self.default_xsd_type
           "xs:time"
         end
-
       end
     end
   end

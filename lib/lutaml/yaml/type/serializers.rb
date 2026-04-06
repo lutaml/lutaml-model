@@ -50,7 +50,7 @@ module Lutaml
           # Reference — key
           v.register_format_type_serializer(
             :yaml, Lutaml::Model::Type::Reference,
-            to: ->(inst) { inst.key },
+            to: lambda(&:key),
             from: ->(val) { Lutaml::Model::Type::Reference.cast(val) }
           )
         end

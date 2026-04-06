@@ -238,7 +238,7 @@ module Lutaml
         loader = FormatRegistry.adapter_loader_for(adapter_name)
         if loader.respond_to?(:load_moxml_adapter)
           loader.load_moxml_adapter(type_name, adapter_name)
-          return
+          nil
         end
 
         # Key-value formats don't need moxml loading

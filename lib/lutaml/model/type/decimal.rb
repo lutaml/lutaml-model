@@ -50,7 +50,6 @@ module Lutaml
             raise TypeNotEnabledError.new("Decimal", value)
           end
         end
-
       end
     end
   end
