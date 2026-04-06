@@ -191,9 +191,6 @@ end
 # Required files - these have side effects or are needed immediately
 # Format files register DSL methods, so must be required
 
-# XML format is NOT loaded here - it self-registers when
-# the user does: require "lutaml/xml"
-
 require "#{__dir__}/key_value"
 require "#{__dir__}/model/json"
 require "#{__dir__}/model/yaml"
@@ -201,3 +198,4 @@ require "#{__dir__}/model/toml"
 require "#{__dir__}/model/hash"
 require "#{__dir__}/model/jsonl"
 require "#{__dir__}/model/yamls"
+require "#{__dir__}/xml"
