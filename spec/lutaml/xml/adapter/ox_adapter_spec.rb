@@ -29,7 +29,7 @@ RSpec.describe Lutaml::Xml::Adapter::OxAdapter, :ox_adapter do
     end
 
     it "parses comment" do
-      expect(document.root.nodes.last.text).to eq("just-a-comment")
+      expect(document.root.children.last.text).to eq("just-a-comment")
     end
 
     it "parses attributes with and without namespaces" do

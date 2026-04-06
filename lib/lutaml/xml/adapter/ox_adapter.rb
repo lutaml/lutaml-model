@@ -1,23 +1,27 @@
 require "ox"
+require "moxml/adapter/ox"
 
 module Lutaml
   module Xml
     module Adapter
       class OxAdapter < BaseAdapter
         extend DocTypeExtractor
+        extend AdapterHelpers
+
+        TEXT_CLASSES = [Moxml::Text, Moxml::Cdata].freeze
 
         def self.parse(xml, options = {})
-          Ox.default_options = Ox.default_options.merge(encoding: encoding(xml,
-                                                                           options))
+          enc = encoding(xml, options)
 
-          parsed = Ox.parse(xml)
-          # Ox.parse returns Ox::Document if XML has declaration, Ox::Element otherwise
-          # Skip Ox::DocType nodes to get the actual root element
-          root_element = if parsed.is_a?(::Ox::Document)
-                           parsed.nodes.find { |node| node.is_a?(::Ox::Element) }
-                         else
-                           parsed
-                         end
+          parsed = begin
+            Moxml::Adapter::Ox.parse(xml)
+          rescue Moxml::ParseError => e
+            raise Lutaml::Model::InvalidFormatError.new(
+              :xml,
+              e.message,
+            )
+          end
+          root_element = parsed.children.find { |child| child.is_a?(Moxml::Element) }
 
           # Validate that we have a root element
           if root_element.nil?
@@ -30,11 +34,11 @@ module Lutaml
           end
 
           # Extract DOCTYPE information if present
-          # Ox doesn't directly expose DOCTYPE, so we need to parse it from the original XML
+          # Moxml/Ox doesn't directly expose DOCTYPE, extract from raw XML
           doctype_info = extract_doctype_from_xml(xml)
 
-          @root = OxElement.new(root_element)
-          new(@root, Ox.default_options[:encoding], doctype: doctype_info)
+          @root = Ox::Element.new(root_element)
+          new(@root, enc, doctype: doctype_info)
         end
 
         def to_xml(options = {})
@@ -51,8 +55,8 @@ module Lutaml
           # for full control over format preservation and to avoid duplicates.
           # The Ox builder already has effort: :no_decl set to prevent auto-declaration.
 
-          if @root.is_a?(Lutaml::Xml::OxElement)
-            # Case A: Old parsed XML (from OxElement) - use build_xml
+          if @root.is_a?(Ox::Element)
+            # Case A: Old parsed XML (from Ox::Element) - use build_xml
             @root.build_xml(builder)
           else
             # Cases B & C: XmlElement or Model instance
@@ -125,7 +129,7 @@ module Lutaml
           # Strip the leading newline to produce clean XML output
           # We handle declarations manually with generate_declaration() for full control
           xml_data = builder.xml.to_s
-          xml_data = xml_data.delete_prefix("\n") # Remove leading newline from Ox output
+          xml_data = xml_data.delete_prefix("\n").chomp # Remove leading/trailing newlines from Ox output
 
           result = ""
           # Use DeclarationHandler methods instead of Document#declaration
@@ -257,13 +261,82 @@ plan: nil)
           xml_mapping = mapper_class.mappings_for(:xml)
           return xml unless xml_mapping
 
-          # Use xmlns declarations from plan
-          attributes = {}
+          # TYPE-ONLY MODELS: No element wrapper, serialize children directly
+          # BUT if we have a tag_name in options, that means parent wants a wrapper
           plan ||= {
             namespaces: {},
             children_plans: {},
             type_namespaces: {},
           }
+
+          if xml_mapping.no_element?
+            # If parent provided a tag_name, create that wrapper first
+            if options[:tag_name]
+              xml.create_and_add_element(options[:tag_name]) do |inner_xml|
+                # Serialize type-only model's children inside parent's wrapper
+                xml_mapping.elements.each do |element_rule|
+                  next if options[:except]&.include?(element_rule.to)
+
+                  attribute_def = mapper_class.attributes[element_rule.to]
+                  next unless attribute_def
+
+                  value = element.send(element_rule.to)
+                  next unless element_rule.render?(value, element)
+
+                  # For type-only models, children plans may not be available
+                  # Serialize children directly
+                  if value && attribute_def.type(register)&.<=(Lutaml::Model::Serialize)
+                    # Nested model - recursively build it
+                    child_plan = plan.child_plan(element_rule.to) || DeclarationPlan.empty
+                    build_element_with_plan(
+                      inner_xml,
+                      value,
+                      child_plan,
+                      { mapper_class: attribute_def.type(register),
+                        tag_name: element_rule.name },
+                    )
+                  else
+                    # Simple value - create element directly
+                    inner_xml.create_and_add_element(element_rule.name) do
+                      add_value(inner_xml, value, attribute_def,
+                                cdata: element_rule.cdata)
+                    end
+                  end
+                end
+              end
+            else
+              # No wrapper at all - serialize children directly (for root-level type-only)
+              xml_mapping.elements.each do |element_rule|
+                next if options[:except]&.include?(element_rule.to)
+
+                attribute_def = mapper_class.attributes[element_rule.to]
+                next unless attribute_def
+
+                value = element.send(element_rule.to)
+                next unless element_rule.render?(value, element)
+
+                child_plan = plan.child_plan(element_rule.to)
+
+                if value && attribute_def.type(register)&.<=(Lutaml::Model::Serialize)
+                  handle_nested_elements_with_plan(
+                    xml,
+                    value,
+                    element_rule,
+                    attribute_def,
+                    child_plan,
+                    options,
+                  )
+                else
+                  add_simple_value(xml, element_rule, value, attribute_def,
+                                   plan: plan, mapping: xml_mapping, options: options)
+                end
+              end
+            end
+            return xml
+          end
+
+          # Use xmlns declarations from plan
+          attributes = {}
 
           # Apply namespace declarations from plan using extracted module
           attributes.merge!(NamespaceDeclarationBuilder.build_xmlns_attributes(plan))
@@ -530,31 +603,6 @@ plan: nil)
               end
             end
           end
-        end
-
-        # Collect all namespace classes used in the XmlElement tree
-        #
-        # @param element [XmlDataModel::XmlElement] the root element
-        # @return [Set] set of namespace classes used in tree
-        def collect_namespaces_from_tree(element)
-          namespaces = Set.new
-
-          # Add this element's namespace
-          namespaces.add(element.namespace_class) if element.namespace_class
-
-          # Add attribute namespaces
-          element.attributes.each do |attr|
-            namespaces.add(attr.namespace_class) if attr.namespace_class
-          end
-
-          # Recursively collect from children
-          element.children.each do |child|
-            if child.is_a?(Lutaml::Xml::DataModel::XmlElement)
-              namespaces.merge(collect_namespaces_from_tree(child))
-            end
-          end
-
-          namespaces
         end
 
         # NOTE: build_unordered_children_with_plan and build_ordered_element_with_plan
@@ -829,31 +877,49 @@ plan: nil)
           end
         end
 
-        private
+        def attributes_hash(element)
+          result = Lutaml::Model::MappingHash.new
 
-        # Helper method to recursively add Ox element to parent
-        #
-        # @param parent [Ox::Element] Parent Ox element
-        # @param ox_element [Ox::Element] Child Ox element to add
-        def add_ox_element_to_parent(parent, ox_element)
-          # Create new Ox element on parent
-          parent.element(ox_element.name) do |child|
-            # Add attributes
-            ox_element.attributes.each do |attr_name, attr_value|
-              child[attr_name] = attr_value
+          element.attributes.each_value do |attr|
+            if attr.unprefixed_name == "schemaLocation"
+              result["__schema_location"] = {
+                namespace: attr.namespace,
+                prefix: attr.namespace_prefix,
+                schema_location: attr.value,
+              }
+            else
+              result[attr.namespaced_name] = attr.value
             end
+          end
 
-            # Add children recursively
-            if ox_element.respond_to?(:nodes)
-              ox_element.nodes.each do |node|
-                if node.is_a?(::Ox::Element)
-                  add_ox_element_to_parent(child, node)
-                elsif node.respond_to?(:value)
-                  # Text node
-                  child.text(node.value)
-                end
-              end
+          result
+        end
+
+        # NOTE: name_of, prefixed_name_of, namespaced_attr_name, namespaced_name_of
+        # are provided by AdapterHelpers module via extend
+
+        def self.text_of(element)
+          element.text
+        end
+
+        def order
+          children.map do |child|
+            if child.text?
+              Element.new("Text", "text", text_content: child.text)
+            else
+              Element.new("Element", child.unprefixed_name)
             end
+          end
+        end
+
+        def self.order_of(element)
+          element.children.map do |child|
+            instance_args = if TEXT_CLASSES.include?(child.class)
+                              ["Text", "text"]
+                            else
+                              ["Element", name_of(child)]
+                            end
+            Element.new(*instance_args)
           end
         end
       end
