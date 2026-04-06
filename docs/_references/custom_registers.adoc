@@ -40,6 +40,32 @@ When looking up a class, the class is returned without looking up in the registr
 Lutaml::Model::Type.lookup(Lutaml::Model::Type::CustomString) # returns Lutaml::Model::Type::CustomString even if it's not registered in the registry
 ```
 
+==== Lazy type registration with Ruby autoload
+
+For large schema libraries with many model classes, you can defer loading until a type is actually needed by registering a *Proc* instead of a class. The Proc is resolved on first `lookup`, and Ruby's `autoload` triggers the file load at that point.
+
+```ruby
+# Declare autoload so Ruby loads the file when the constant is first referenced
+autoload :Divergence, "mml/v3/vector_calculus"
+
+# Register a Proc — the file is NOT loaded yet
+Lutaml::Model::Type.register(:divergence, -> { Mml::V3::Divergence })
+
+# The first lookup triggers autoload and resolves the class
+Lutaml::Model::Type.lookup(:divergence)
+# => Mml::V3::Divergence (file loaded now, Proc result cached)
+
+# Subsequent lookups return the cached class directly
+Lutaml::Model::Type.lookup(:divergence)
+# => Mml::V3::Divergence (no Proc call)
+```
+
+Why a Proc and not a bare Symbol? A Symbol (`:Divergence`) has no namespace context. A Proc captures the full constant path (`Mml::V3::Divergence`) and triggers `autoload` when called.
+
+This pattern is especially useful in library entry points where you declare many types but only a subset is used at runtime. It pairs naturally with Ruby's built-in `autoload` for lazy file loading.
+
+If the Proc raises (e.g., `NameError` from a missing constant), the error propagates naturally and the registry is not mutated, so a retry is possible after the autoload path is configured.
+
 === ModelRegister
 
 The *ModelRegister* is a registry class that registers and looks up the `Lutaml::Model::Registrable` classes (by default, `Lutaml::Model::Serializable` classes are `Registrable` classes). For consistency, the `Lutaml::Model::Type::Value` classes are registered similarly, but within the TypeRegister registry, as referenced in the <<TypeRegister, previous section>>.

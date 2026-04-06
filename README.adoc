@@ -1389,6 +1389,34 @@ currency_type = Lutaml::Model::Type.lookup(:currency)
 # => Currency
 ----
 
+===== Lazy type registration with Ruby autoload
+
+For large schema libraries with many model classes, you can defer loading until
+a type is actually needed by registering a **Proc** instead of a class. The Proc
+is resolved on first `lookup`, and Ruby's `autoload` triggers the file load at
+that point:
+
+[source,ruby]
+----
+# Declare autoload so Ruby loads the file when the constant is first referenced
+autoload :Divergence, "mml/v3/vector_calculus"
+
+# Register a Proc — the file is NOT loaded yet
+Lutaml::Model::Type.register(:divergence, -> { Mml::V3::Divergence })
+
+# The first lookup triggers autoload and resolves the class
+Lutaml::Model::Type.lookup(:divergence)
+# => Mml::V3::Divergence (file loaded now, Proc result cached)
+
+# Subsequent lookups return the cached class directly
+Lutaml::Model::Type.lookup(:divergence)
+# => Mml::V3::Divergence (no Proc call)
+----
+
+This pattern is especially useful in library entry points where you declare many
+types but only a subset is used at runtime. It pairs naturally with Ruby's
+built-in `autoload` for lazy file loading.
+
 ==== Handling special values
 
 Custom types automatically handle special sentinel values via the
