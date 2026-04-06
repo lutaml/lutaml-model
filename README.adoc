@@ -1389,6 +1389,34 @@ currency_type = Lutaml::Model::Type.lookup(:currency)
 # => Currency
 ----
 
+===== Lazy type registration with Ruby autoload
+
+For large schema libraries with many model classes, you can defer loading until
+a type is actually needed by registering a **Proc** instead of a class. The Proc
+is resolved on first `lookup`, and Ruby's `autoload` triggers the file load at
+that point:
+
+[source,ruby]
+----
+# Declare autoload so Ruby loads the file when the constant is first referenced
+autoload :Divergence, "mml/v3/vector_calculus"
+
+# Register a Proc — the file is NOT loaded yet
+Lutaml::Model::Type.register(:divergence, -> { Mml::V3::Divergence })
+
+# The first lookup triggers autoload and resolves the class
+Lutaml::Model::Type.lookup(:divergence)
+# => Mml::V3::Divergence (file loaded now, Proc result cached)
+
+# Subsequent lookups return the cached class directly
+Lutaml::Model::Type.lookup(:divergence)
+# => Mml::V3::Divergence (no Proc call)
+----
+
+This pattern is especially useful in library entry points where you declare many
+types but only a subset is used at runtime. It pairs naturally with Ruby's
+built-in `autoload` for lazy file loading.
+
 ==== Handling special values
 
 Custom types automatically handle special sentinel values via the
@@ -5821,6 +5849,26 @@ puts person.to_xml
 ----
 ====
 
+==== Invalid namespace handling (Formal Public Identifiers)
+
+Some legacy XML documents use Formal Public Identifiers (FPIs) as namespace URIs.
+FPIs are SGML-era identifiers like `-//OASIS//DTD XML Exchange Table Model 19990315//EN`
+and are NOT valid namespace URIs per the W3C XML Namespace specification. XML
+namespaces must be absolute URIs.
+
+Lutaml::Model can parse XML with FPI namespace URIs, but on serialization converts
+them to valid URNs using the `urn:publicid:` namespace per
+https://www.rfc-editor.org/rfc/rfc3151[RFC 3151]. For example:
+
+* FPI: `-//OASIS//DTD XML Exchange Table Model 19990315//EN`
+* URN: `urn:publicid:-//OASIS//DTD+XML+Exchange+Table+Model+19990315//EN`
+
+NOTE: True round-trip is NOT possible for FPI namespaces because the input is
+invalid XML. Lutaml::Model will produce valid XML output with the converted URN.
+
+NOTE: DOCTYPE PUBLIC identifiers (used in `<!DOCTYPE>` declarations) are a
+separate concept and are preserved correctly during round-tripping.
+
 ==== W3C standard namespace support
 
 Lutaml::Model provides built-in support for W3C-defined standard namespaces:
@@ -8304,16 +8352,30 @@ The `prefix:` option accepts the following values:
 |===
 | Value | Behavior
 
-| (not specified) or `nil` or `false`
-| Use default namespace (xmlns="...") with no prefix. This is the default behavior.
+| `nil` (not specified)
+| *Round-trip mode* (default): Preserve input format. If the original XML used a prefix, the output will use a prefix. If the original XML used default namespace, the output will use default namespace.
+
+| `false`
+| Force default namespace (xmlns="...") with no prefix on the element. Disables format preservation.
 
 | `true`
-| Use `prefix_default` from XmlNamespace class
+| Force prefix format using `prefix_default` from the XmlNamespace class. Uses the namespace's defined default prefix.
+
+| `:default`
+| Explicitly force default namespace format (xmlns="...") with no prefix. Same as `false` but more semantic.
 
 | `"string"`
-| Use the provided custom prefix string
+| Use a custom prefix string (e.g., `"custom"`). Overrides both `prefix_default` and any input format.
 
 |===
+
+
+[NOTE]
+====
+*Round-trip fidelity:* When no `prefix:` option is specified (or `nil`), the serializer preserves the original namespace format from parsed input. The original namespace URI (canonical or alias) is also preserved for systems that use URI aliases.
+
+*URI preservation:* When using `prefix: true`, `prefix: :default`, or `prefix: "custom"`, the original namespace URI (alias or canonical) from the input is still preserved for round-trip fidelity. The `prefix:` option only controls the *format* (prefix vs default), not the *URI*.
+====
 
 
 

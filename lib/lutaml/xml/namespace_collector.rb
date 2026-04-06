@@ -369,16 +369,25 @@ module Lutaml
             attr_def = attributes[elem_rule.to]
             next unless attr_def
 
+            child_type = attr_def.type(@register)
+            next unless child_type
+
+            # Get child instance BEFORE adding Type ref
+            child_instance = if element.respond_to?(elem_rule.to)
+                               element.send(elem_rule.to)
+                             end
+
             # TYPE NAMESPACE INTEGRATION
-            # Store TypeNamespace::Reference for lazy resolution
-            if attr_def
+            # Only track type namespace if child instance is present (not nil)
+            # This prevents hoisting namespace declarations for absent optional elements.
+            # When element is nil (mapping analysis), always create type refs
+            # to discover structural namespace requirements.
+            if element.nil? || child_instance
               ref = TypeNamespace::Reference.new(attr_def, elem_rule,
                                                  :element)
               needs.add_type_ref(ref)
             end
 
-            child_type = attr_def.type(@register)
-            next unless child_type
             next unless child_type.respond_to?(:<) &&
               child_type < Lutaml::Model::Serialize
 
@@ -386,11 +395,6 @@ module Lutaml
             child_mapping = child_type.mappings_for(:xml)
             next unless child_mapping
             next unless child_mapping.mappings_imported
-
-            # Get child instance
-            child_instance = if element.respond_to?(elem_rule.to)
-                               element.send(elem_rule.to)
-                             end
 
             # NEW: Extract namespace prefix from model instance (set during deserialization).
             # This preserves the original prefix used in the input XML for doubly-defined
@@ -418,8 +422,10 @@ module Lutaml
                 merged_needs.merge(item_needs)
               end
               child_needs = merged_needs
+            elsif child_instance.nil?
+              # Single instance - skip if nil (no value to serialize)
+              child_needs = NamespaceNeeds.new
             else
-              # Single instance - collect normally
               child_options = {
                 mapper_class: child_type,
                 __xml_namespace_prefix: child_ns_prefix,
@@ -509,8 +515,13 @@ module Lutaml
             end
           end
 
-          # Collect Type refs for XML elements (always collect for structure)
+          # Collect Type refs for XML elements (only for present elements)
+          # Get actual element names from XmlElement children
+          actual_elem_names = Set.new(element.children.grep(Lutaml::Xml::DataModel::XmlElement).map(&:name))
           mapping.elements.each do |elem_rule|
+            # Skip if element not present in XmlElement tree
+            next unless actual_elem_names.include?(elem_rule.name.to_s)
+
             attr_def = attributes[elem_rule.to]
             if attr_def
               # Add Type ref for this element

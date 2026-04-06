@@ -15,16 +15,20 @@ module Lutaml
                     :is_root,
                     :parent_format,
                     :parent_namespace_class,
+                    :parent_namespace_prefix,
                     :parent_hoisted,
                     :namespace_class,
                     :namespace_uri,
-                    :namespace_key
+                    :namespace_key,
+                    :element_used_prefix
 
         def initialize(element:, mapping:, needs:, options: {},
                        is_root: false,
                        parent_format: nil,
                        parent_namespace_class: nil,
-                       parent_hoisted: {})
+                       parent_namespace_prefix: nil,
+                       parent_hoisted: {},
+                       element_used_prefix: nil)
           @element = element
           @mapping = mapping
           @needs = needs
@@ -32,7 +36,9 @@ module Lutaml
           @is_root = is_root
           @parent_format = parent_format
           @parent_namespace_class = parent_namespace_class
+          @parent_namespace_prefix = parent_namespace_prefix
           @parent_hoisted = parent_hoisted || {}
+          @element_used_prefix = element_used_prefix
 
           # Extract namespace info from element
           @namespace_class = element&.namespace_class
@@ -72,11 +78,71 @@ module Lutaml
         end
 
         # Check if input format is preserved for this namespace
+        #
+        # Checks both:
+        # 1. input_formats[uri] - namespace-level format (root-level namespaces)
+        # 2. input_prefix_formats[prefix:uri] - per-prefix format (for child element namespaces)
+        #
+        # NOTE: Only check input_prefix_formats when the element has an explicit prefix.
+        # If the element has no prefix (namespace inherited or default), use input_formats.
         def preserved_input_format
           return nil unless @namespace_uri
           return nil unless @options[:input_formats]
 
-          @options[:input_formats][@namespace_uri]
+          # First try namespace-level format (root-level)
+          format = @options[:input_formats][@namespace_uri]
+          return format if format
+
+          # Fall back to per-prefix format ONLY if this element has an explicit prefix.
+          # This handles the case where a child element declares its own namespace
+          # with a specific prefix (e.g., <xhtml:div xmlns:xhtml="...">).
+          # If the element has no explicit prefix, the namespace was either inherited
+          # from parent or declared at root level, so we should use input_formats.
+          prefix = element_namespace_prefix
+          return nil unless prefix && !prefix.empty?
+
+          # Look up input_prefix_formats directly from stored plan
+          input_prefix_formats = @options[:stored_xml_declaration_plan]&.input_prefix_formats
+          return nil unless input_prefix_formats
+
+          # Look up prefix:uri format, trying all URIs (canonical + aliases)
+          # This handles the case where input XML used an alias URI but the model
+          # uses canonical URI (or vice versa).
+          all_uris = @namespace_class&.all_uris || [@namespace_uri]
+          all_uris.each do |uri|
+            key = "#{prefix}:#{uri}"
+            format = input_prefix_formats[key]
+            return format if format
+          end
+
+          nil
+        end
+
+        # Get the namespace prefix from the element
+        # Works for both Lutaml::Xml::XmlElement (from parsed XML) and
+        # DataModel::XmlElement (from serialization transform)
+        #
+        # For DataModel::XmlElement, first checks @__xml_namespace_prefix.
+        # If not set, falls back to checking @__original_xml_element which
+        # preserves the original Lutaml::Xml::XmlElement wrapper from parsing.
+        def element_namespace_prefix
+          return nil unless @element
+
+          if @element.is_a?(Lutaml::Xml::XmlElement)
+            @element.namespace_prefix if @element.respond_to?(:namespace_prefix)
+          else
+            # For DataModel::XmlElement, check @__xml_namespace_prefix first
+            prefix = @element.instance_variable_get(:@__xml_namespace_prefix)
+            return prefix if prefix && !prefix.empty?
+
+            # Fall back to original XmlElement wrapper if available
+            original = @element.instance_variable_get(:@__original_xml_element)
+            if original.respond_to?(:namespace_prefix)
+              return original.namespace_prefix
+            end
+
+            nil
+          end
         end
 
         # Check if explicit prefix option is set

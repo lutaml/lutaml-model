@@ -65,6 +65,27 @@ module Lutaml
           element.order
         end
 
+        # Convert a Formal Public Identifier (FPI) to a URN per RFC 3151.
+        # FPI examples: "-//OASIS//DTD XML Exchange Table Model 19990315//EN"
+        # Returns nil if the string is not an FPI.
+        #
+        # RFC 3151 format: urn:publicid:prefix:+/-//registrant//description//language//
+        # Conversion: replace spaces with +, prepend "urn:publicid:"
+        def self.fpi_to_urn(fpi)
+          return nil unless fpi.is_a?(String) && fpi.start_with?("-//", "+//")
+
+          # Replace spaces with + per RFC 3151
+          normalized = fpi.gsub(" ", "+")
+
+          "urn:publicid:#{normalized}"
+        end
+
+        # Detect if a string is an FPI (Formal Public Identifier), not a valid namespace URI.
+        # FPIs start with -// or +// (SGML-style, not a URI scheme).
+        def self.fpi?(uri)
+          uri.is_a?(String) && uri.start_with?("-//", "+//")
+        end
+
         # Build a namespaced attribute name
         #
         # @param prefix [String, nil] the namespace prefix

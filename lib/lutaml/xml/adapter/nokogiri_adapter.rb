@@ -6,10 +6,6 @@ module Lutaml
     module Adapter
       class NokogiriAdapter < BaseAdapter
         def self.parse(xml, options = {})
-          # Pre-process XML to escape unescaped & characters
-          # This prevents Nokogiri from dropping data after invalid entities
-          xml = escape_unescaped_ampersands(xml)
-
           parsed = ::Nokogiri::XML(xml, nil, encoding(xml, options))
 
           # Validate that we have a root element
@@ -42,22 +38,6 @@ module Lutaml
               parsed_doc: parsed,
               doctype: doctype_info,
               xml_declaration: xml_decl_info)
-        end
-
-        # Escape unescaped ampersands in XML
-        # Only escapes & that are NOT part of valid entities (including HTML entities)
-        # Valid entities: &xxx; where xxx is alphanumeric, #digits, or #xhex
-        def self.escape_unescaped_ampersands(xml)
-          # Match bare & (not part of a valid XML entity) and escape it.
-          # Valid entity patterns:
-          #   Named:    &name;     (e.g. &amp; &lt; &#x1F4A9;)
-          #   Decimal: &#nnn;     (e.g. &#65;)
-          #   Hex:     &#xHHH;    (e.g. &#x41;)
-          #
-          # Use alternation instead of a quantifier in lookahead to avoid
-          # polynomial backtracking on crafted input (CodeQL ReDoS).
-          xml.gsub(/&(?!(?:[a-zA-Z][a-zA-Z0-9]*|#(?:[0-9]+|x[0-9A-Fa-f]+));)/,
-                   "&amp;")
         end
 
         def to_xml(options = {})
@@ -95,12 +75,15 @@ module Lutaml
               # Collect original namespace URIs for namespace alias support.
               # This enables round-trip fidelity when XML uses alias URIs.
               original_ns_uris = {}
+              stored_plan = nil
               if original_model
                 # Case C: Model instance was transformed to XmlElement
                 mapping_for_original = options[:mapper_class]&.mappings_for(:xml) || original_model.class.mappings_for(:xml)
                 original_ns_uris = collect_original_namespace_uris(
                   original_model, mapping_for_original
                 )
+                # Get stored xml_declaration_plan from model for PRESERVATION phase
+                stored_plan = original_model.xml_declaration_plan if original_model.respond_to?(:xml_declaration_plan)
               elsif xml_element.is_a?(Lutaml::Xml::DataModel::XmlElement)
                 # Case B: XmlElement from transformation may have @__xml_original_namespace_uri
                 original_ns_uri = xml_element.instance_variable_get(:@__xml_original_namespace_uri)
@@ -122,6 +105,10 @@ module Lutaml
                 end
               end
               options_with_original_ns = options.merge(__original_namespace_uris: original_ns_uris)
+              if stored_plan
+                options_with_original_ns[:stored_xml_declaration_plan] =
+                  stored_plan
+              end
 
               mapper_class = options[:mapper_class] || xml_element.class
               mapping = mapper_class.mappings_for(:xml)
@@ -654,7 +641,8 @@ module Lutaml
               if element.cdata
                 inner_xml.cdata(element.text_content)
               else
-                inner_xml.text(element.text_content)
+                add_text_with_entities(inner_xml.parent,
+                                       element.text_content.to_s, inner_xml.doc)
               end
             end
 
@@ -723,11 +711,22 @@ module Lutaml
           # This ensures the element's own namespace is declared before it can inherit parent's
           # Keys: nil = default namespace, "prefix" = prefixed namespace
           original_ns_uris = plan&.original_namespace_uris || {}
+          use_prefix_option = options[:use_prefix]
           element_node.hoisted_declarations.each do |key, uri|
             next if uri == "http://www.w3.org/XML/1998/namespace"
 
-            # Use original alias URI if available (for namespace alias round-trip fidelity)
-            effective_uri = original_ns_uris[uri] || uri
+            # Convert FPI to URN if necessary (Nokogiri requires valid URI)
+            # Only apply original_ns_uris conversion when preserving original format.
+            # When use_prefix is explicitly set, we're using system's format preferences.
+            effective_uri = if self.class.fpi?(uri)
+                              self.class.fpi_to_urn(uri)
+                            elsif use_prefix_option.nil?
+                              # Preserving original format - use alias URIs from original
+                              original_ns_uris[uri] || uri
+                            else
+                              # Using explicit format preference - use canonical URIs
+                              uri
+                            end
 
             if key.nil?
               # Default namespace (xmlns="uri")
@@ -762,30 +761,51 @@ module Lutaml
           # and don't fall back to anything (no default namespace_class)
 
           if target_namespace_class && target_namespace_class != :blank
-            target_uri = target_namespace_class.uri
-            ns = element.namespace_scopes.find { |n| n.href == target_uri }
+            # Use the prefix to find the namespace when available.
+            # This is more reliable than matching by URI because hoisted_declarations
+            # may contain canonical URIs while the actual namespace was added using
+            # alias URIs (via original_ns_uris conversion).
+            target_prefix = element_node.use_prefix
+            if target_prefix
+              # Find namespace by prefix (most reliable - prefix is unique per element)
+              ns = element.namespace_scopes.find do |n|
+                n.prefix == target_prefix
+              end
+            else
+              # Fall back to URI-based lookup for default namespace
+              target_uri = target_namespace_class.uri
+              ns = element.namespace_scopes.find do |n|
+                n.href == target_uri && n.prefix.nil?
+              end
+            end
             if ns
               element.namespace = ns
-            else
+            elsif target_prefix
               # CRITICAL FIX: Check if namespace is declared on parent before adding locally
               # When parent declares the namespace with the SAME format (prefix or default),
-              # child should use parent's namespace declaration without re-declaring it
+              # child should use parent's namespace declaration without re-declaring it.
+              # Also check namespace aliases: if parent declared alias URI and child uses
+              # canonical URI (or vice versa), the namespace is already established on parent.
               target_prefix = element_node.use_prefix
-              parent_has_namespace = parent&.namespace_scopes&.any? do |n|
-                n.href == target_uri
-              end
+              parent_has_namespace = parent_has_matching_namespace?(parent, target_uri,
+                                                                    target_namespace_class)
 
               if parent_has_namespace
-                # Parent has the namespace declared - check if it's using the SAME format
+                # Parent has the namespace declared - find the matching namespace object
+                # Must check all URIs (canonical + aliases) since parent may have declared
+                # with an alias URI while child uses canonical (or vice versa)
+                matching_uris = if target_namespace_class.respond_to?(:all_uris)
+                                  target_namespace_class.all_uris
+                                else
+                                  [target_uri]
+                                end
                 parent_ns = if target_prefix
-                              # Child wants prefix format - check if parent has prefix declaration
                               parent.namespace_scopes.find do |n|
-                                n.href == target_uri && n.prefix == target_prefix
+                                matching_uris.include?(n.href) && n.prefix == target_prefix
                               end
                             else
-                              # Child wants default format - check if parent has default declaration
                               parent.namespace_scopes.find do |n|
-                                n.href == target_uri && n.prefix.nil?
+                                matching_uris.include?(n.href) && n.prefix.nil?
                               end
                             end
 
@@ -920,7 +940,15 @@ module Lutaml
           child_element_index = 0
           previous_sibling_had_xmlns_blank = false
           xml_element.children.each do |xml_child|
-            if xml_child.is_a?(Lutaml::Xml::DataModel::XmlElement)
+            # Handle EntityReference nodes directly - they have no children
+            # and should preserve their entity syntax (e.g., &nbsp;) in round-trips
+            if xml_child.is_a?(Lutaml::Xml::NokogiriElement) &&
+                xml_child.adapter_node.is_a?(::Nokogiri::XML::EntityReference)
+              entity_node = ::Nokogiri::XML::EntityReference.new(doc,
+                                                                 xml_child.adapter_node.name)
+              element.add_child(entity_node)
+              next
+            elsif xml_child.is_a?(Lutaml::Xml::DataModel::XmlElement)
               child_node = element_node.element_nodes[child_element_index]
               child_element_index += 1
 
@@ -956,14 +984,66 @@ module Lutaml
                                                       xml_element.text_content.to_s)
               element.add_child(cdata_node)
             else
-              text_node = ::Nokogiri::XML::Text.new(
-                xml_element.text_content.to_s, doc
-              )
-              element.add_child(text_node)
+              add_text_with_entities(element, xml_element.text_content.to_s,
+                                     doc)
             end
           end
 
           element
+        end
+
+        # Add text content to a Nokogiri element, preserving entity reference patterns.
+        # This is used during SERIALIZATION of model attributes that contain user-provided
+        # strings. The regex detects entity patterns so they can be preserved as
+        # EntityReference nodes rather than being escaped.
+        #
+        # During PARSING, we do NOT use regex - we rely on Nokogiri's EntityReference nodes.
+        #
+        # @param element [Nokogiri::XML::Element] parent element to add text to
+        # @param text [String] text content (may contain entity patterns from user input)
+        # @param doc [Nokogiri::XML::Document] document for node creation
+        def add_text_with_entities(element, text, doc)
+          entity_pattern = /(&(?:\w+|#\d+|#x[\da-fA-F]+);)/
+          parts = text.to_s.split(entity_pattern, -1)
+          parts.each do |part|
+            next if part.empty?
+
+            if part.match?(/\A&(\w+|#\d+|#x[\da-fA-F]+);\z/)
+              entity_name = part[1..-2]
+              ent = ::Nokogiri::XML::EntityReference.new(doc, entity_name)
+              element.add_child(ent)
+            else
+              text_node = ::Nokogiri::XML::Text.new(part, doc)
+              element.add_child(text_node)
+            end
+          end
+        end
+
+        # Check if parent already has a namespace declaration matching the target URI,
+        # including namespace aliases. If parent declared an alias URI and child uses
+        # the canonical URI (or another alias of the same namespace), the namespace
+        # is already established on parent and child should not re-declare.
+        #
+        # @param parent [Nokogiri::XML::Element, nil] Parent element
+        # @param target_uri [String] The canonical URI the child wants to use
+        # @param target_namespace_class [Class] The namespace class with uri_aliases
+        # @return [Boolean] true if parent already declares this namespace (exact or alias)
+        def parent_has_matching_namespace?(parent, target_uri,
+target_namespace_class)
+          return false unless parent
+
+          parent_uris = parent.namespace_scopes.map(&:href)
+
+          # Check exact match first
+          return true if parent_uris.include?(target_uri)
+
+          # Check if parent declared an alias URI for the same namespace
+          if target_namespace_class.respond_to?(:all_uris)
+            all_ns_uris = target_namespace_class.all_uris
+            return parent_uris.any? { |href| all_ns_uris.include?(href) }
+          end
+
+          false
         end
 
         # Post-process XML string to fix OOXML format issues.

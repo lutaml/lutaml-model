@@ -236,4 +236,76 @@ RSpec.describe Lutaml::Model::TypeRegistry do
       expect(registry.lookup(:boolean)).to eq(Lutaml::Model::Type::Boolean)
     end
   end
+
+  describe "lazy registration with Proc" do
+    it "resolves a Proc on first lookup" do
+      klass = Class.new
+      registry.register(:lazy_type, -> { klass })
+
+      expect(registry.lookup(:lazy_type)).to eq(klass)
+    end
+
+    it "caches the resolved class after first lookup" do
+      call_count = 0
+      klass = Class.new
+      registry.register(:lazy_type, -> {
+        call_count += 1
+        klass
+      })
+
+      registry.lookup(:lazy_type)
+      registry.lookup(:lazy_type)
+
+      expect(call_count).to eq(1)
+    end
+
+    it "returns nil for unregistered lazy types" do
+      expect(registry.lookup(:unknown)).to be_nil
+    end
+
+    it "preserves lazy behavior after dup" do
+      klass = Class.new
+      registry.register(:lazy_type, -> { klass })
+
+      copy = registry.dup
+      expect(copy.lookup(:lazy_type)).to eq(klass)
+    end
+
+    it "does not regress when registering a Class directly" do
+      klass = Class.new
+      registry.register(:eager_type, klass)
+
+      expect(registry.lookup(:eager_type)).to eq(klass)
+    end
+
+    it "works with merge!" do
+      klass = Class.new
+      other = described_class.new
+      other.register(:lazy_type, -> { klass })
+
+      registry.merge!(other)
+      expect(registry.lookup(:lazy_type)).to eq(klass)
+    end
+
+    it "raises if Proc raises" do
+      registry.register(:bad_type, -> { raise NameError, "uninitialized constant" })
+
+      expect { registry.lookup(:bad_type) }.to raise_error(NameError)
+    end
+
+    it "does not mutate @types when Proc raises" do
+      call_count = 0
+      registry.register(:bad_type, -> {
+        call_count += 1
+        raise NameError, "uninitialized constant"
+      })
+
+      expect { registry.lookup(:bad_type) }.to raise_error(NameError)
+      expect(call_count).to eq(1)
+
+      # Retry should call the Proc again
+      registry.register(:bad_type, -> { Class.new })
+      expect(registry.lookup(:bad_type)).to be_a(Class)
+    end
+  end
 end

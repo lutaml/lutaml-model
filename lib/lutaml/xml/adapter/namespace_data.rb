@@ -48,7 +48,13 @@ module Lutaml
         end
 
         def normalize_prefix(prefix)
-          normalized_prefix = prefix.to_s.gsub(/xmlns:?/, "")
+          # Only strip "xmlns:" prefix (e.g., "xmlns:foo" → "foo").
+          # Do NOT strip "xmlns" from prefixes like "xmlns_1.0" (valid NCName).
+          # Bare "xmlns" (no colon) represents the default namespace → return nil.
+          prefix_str = prefix.to_s
+          return nil if prefix_str == "xmlns"
+
+          normalized_prefix = prefix_str.sub(/^xmlns:/, "")
           return if normalized_prefix.empty?
 
           normalized_prefix

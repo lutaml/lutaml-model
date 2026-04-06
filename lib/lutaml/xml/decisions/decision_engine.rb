@@ -47,6 +47,7 @@ module Lutaml
         def self.default
           rules = [
             Rules::InheritFromParentRule.new,
+            Rules::UsedPrefixRule.new,
             Rules::ElementFormDefaultUnqualifiedRule.new,
             Rules::HoistedOnParentRule.new,
             Rules::ElementFormOptionRule.new,

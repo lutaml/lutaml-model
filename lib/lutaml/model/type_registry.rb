@@ -31,19 +31,25 @@ module Lutaml
         @types = {}
       end
 
-      # Register a type class with a given name
+      # Register a type class with a given name.
+      # Accepts a Class for eager registration or a Proc for lazy registration.
       #
       # @param name [Symbol, String] The name to register the type under
-      # @param klass [Class] The type class to register
-      # @return [Class] The registered class
+      # @param klass [Class, Proc] The type class, or a Proc returning it lazily
+      # @return [Class, Proc] The registered value
       #
-      # @example
+      # @example Eager registration
       #   registry.register(:custom_text, MyCustomText)
+      #
+      # @example Lazy registration with Proc
+      #   autoload :Divergence, "mml/v3/vector_calculus"
+      #   registry.register(:divergence, -> { Mml::V3::Divergence })
       def register(name, klass)
         @types[name.to_sym] = klass
       end
 
-      # Look up a type class by name
+      # Look up a type class by name. If the type was registered as a Proc
+      # (lazy registration), the Proc is called and the result is cached.
       #
       # @param name [Symbol, String] The name of the type to look up
       # @return [Class, nil] The type class, or nil if not found
@@ -52,7 +58,16 @@ module Lutaml
       #   registry.lookup(:string) #=> Lutaml::Model::Type::String
       #   registry.lookup(:unknown) #=> nil
       def lookup(name)
-        @types[name.to_sym]
+        key = name.to_sym
+        value = @types[key]
+
+        if value.is_a?(Proc)
+          resolved = value.call
+          @types[key] = resolved
+          resolved
+        else
+          value
+        end
       end
 
       # Check if a type is registered

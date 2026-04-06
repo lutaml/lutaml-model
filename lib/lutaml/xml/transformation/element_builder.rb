@@ -209,7 +209,10 @@ child_transformation)
           parent_ns_class = options[:parent_namespace_class]
           parent_element_form_default = options[:parent_element_form_default]
           parent_uses_default_ns = parent_ns_class && parent_element_form_default == :qualified
-          child_options = options.merge(parent_uses_default_ns: parent_uses_default_ns)
+          child_options = options.merge(
+            parent_uses_default_ns: parent_uses_default_ns,
+            parent_namespace_class: parent_ns_class,
+          )
 
           # For doubly-defined namespace support: propagate namespace prefix to child model instance.
           # Check @__xml_ns_prefixes (populated during deserialization for ALL attributes).
@@ -235,9 +238,32 @@ child_transformation)
           child_self_declared_ns = child_ns_class &&
             parent_ns_class &&
             child_ns_class != parent_ns_class
+          # ns_prefix_valid: check if ns_prefix from @__xml_ns_prefixes actually matches
+          # what the child's namespace class expects. This prevents stale prefixes from
+          # deserialization (e.g., parent's dcterms prefix) from being applied to children
+          # that don't expect that prefix.
+          ns_prefix_valid = if ns_prefix && !ns_prefix.empty? && child_ns_class
+                              child_ns_class.prefix_default == ns_prefix ||
+                                namespace_prefix_valid_for_class(ns_prefix,
+                                                                 child_ns_class)
+                            else
+                              false
+                            end
+          # Dual-namespace case: when child has a different namespace URI than parent,
+          # only use ns_prefix if it actually matches the child's expected prefix.
+          # This preserves the dual-namespace behavior (w:rPr inside m:r) while preventing
+          # stale prefixes (dcterms prefix leaking to children that should use default ns).
+          dual_namespace_applies = child_self_declared_ns && ns_prefix_valid
           # Parent has no ns OR child shares parent's URI (and child doesn't self-declare ns)
-          if (parent_ns_class.nil? || (child_ns_class && child_ns_class.uri == parent_ns_class.uri)) &&
+          # OR dual-namespace case where child's ns_prefix matches its namespace expectation
+          if (parent_ns_class.nil? || (child_ns_class && child_ns_class.uri == parent_ns_class.uri) ||
+              dual_namespace_applies) &&
               !child_self_declared_ns && ns_prefix && !ns_prefix.empty?
+            value.instance_variable_set(:@__xml_namespace_prefix, ns_prefix)
+          end
+          # For dual-namespace case: set @__xml_namespace_prefix on model so it can be
+          # transferred to XmlElement at lines 282-289 for prefix preservation.
+          if dual_namespace_applies && ns_prefix && !ns_prefix.empty?
             value.instance_variable_set(:@__xml_namespace_prefix, ns_prefix)
           end
 
@@ -255,6 +281,22 @@ child_transformation)
 
           child_element = child_transformation.transform(value, child_options)
 
+          # Dual-namespace support: when the child model was deserialized from an element
+          # with a different namespace than the parent (e.g., w:rPr child of m:r),
+          # transfer the model's @__xml_namespace_prefix to the child XmlElement so the
+          # NamespaceCollector and DeclarationPlanner can use the correct prefix.
+          # The transformation.rb only sets this when parent and child share a namespace,
+          # but for dual-namespace elements we need the child's prefix preserved.
+          if child_ns_class && parent_ns_class &&
+              child_ns_class != parent_ns_class &&
+              child_element.instance_variable_get(:@__xml_namespace_prefix).nil?
+            model_prefix = value.instance_variable_get(:@__xml_namespace_prefix)
+            if model_prefix && !model_prefix.empty?
+              child_element.instance_variable_set(:@__xml_namespace_prefix,
+                                                  model_prefix)
+            end
+          end
+
           # For mixed content support: clear @__xml_namespace_prefix on child XmlElement
           # when the parent XmlElement has an explicit namespace prefix.
           # This ensures:
@@ -262,10 +304,14 @@ child_transformation)
           #   (preserve the XmlElement's prefix for NamespaceCollector to read)
           # - Mixed content (parent XmlElement has explicit prefix): CLEAR
           #   (child should use its own namespace's default prefix, not parent's deserialization prefix)
+          # CRITICAL: Only clear when child's namespace URI matches parent's namespace URI.
+          # For dual-namespace (different URIs), the child's prefix was set from input XML
+          # and must be preserved for round-trip fidelity.
           parent_element = options[:parent_element]
           parent_has_prefix = parent_element &&
             !parent_element.instance_variable_get(:@__xml_namespace_prefix).to_s.empty?
           if parent_ns_class && child_ns_class && parent_has_prefix &&
+              child_ns_class.uri == parent_ns_class.uri &&
               child_element.instance_variable_get(:@__xml_namespace_prefix)
             child_element.instance_variable_set(:@__xml_namespace_prefix, nil)
           end
@@ -288,6 +334,19 @@ child_transformation)
           child_element
         end
 
+        # Check if a prefix is valid for a namespace class by verifying it maps to the same URI.
+        # This ensures we only use ns_prefix from @__xml_ns_prefixes when it actually matches
+        # the child's expected namespace prefix.
+        #
+        # @param prefix [String, nil] The prefix to check
+        # @param ns_class [Class] The namespace class
+        # @return [Boolean] True if prefix is valid for this namespace class
+        def namespace_prefix_valid_for_class(prefix, ns_class)
+          return false unless prefix && ns_class
+
+          ns_class.prefix_default == prefix
+        end
+
         # Create fallback nested element when no transformation available
         #
         # @param rule [CompiledRule] The rule
@@ -305,6 +364,15 @@ child_transformation)
             rule.serialized_name,
             element_namespace_class,
           )
+
+          # Transfer @__xml_namespace_prefix from model to element for round-trip support.
+          # This ensures the original prefix from deserialization is preserved during
+          # serialization, even when using fallback element creation.
+          if value.is_a?(::Lutaml::Model::Serialize)
+            model_ns_prefix = value.instance_variable_get(:@__xml_namespace_prefix)
+            element.instance_variable_set(:@__xml_namespace_prefix,
+                                          model_ns_prefix)
+          end
 
           element.form = rule.form if rule.form
           text = serialize_value(value, rule, rule.attribute_type, nil)
@@ -360,17 +428,33 @@ register_id)
           ns_prefix = nil
           if options[:use_prefix] != false && parent_model.is_a?(::Lutaml::Model::Serialize)
             prefixes = parent_model.instance_variable_get(:@__xml_ns_prefixes)
-            ns_prefix = prefixes[rule.attribute_name] if prefixes
+
+            # Only use @__xml_ns_prefixes lookup when the child's XmlElement was explicit.
+            # If prefixes.key?(attr.name) is false, the child's XmlElement was not explicit
+            # (inherited namespace), so @__xml_ns_prefixes was not set and we should NOT
+            # use the fallback to parent's @__xml_namespace_prefix.
+            if prefixes&.key?(rule.attribute_name)
+              ns_prefix = prefixes[rule.attribute_name]
+            end
 
             # Fallback for nested Serializable models: @__xml_ns_prefixes is only set for
             # non-Serializable attribute types. For Serializable types (e.g., nested model
             # elements), we fall back to the parent's @__xml_namespace_prefix when the parent's
             # namespace URI matches the child's expected URI. This ensures prefix propagation
             # for nested models that share the parent's namespace.
-            # Only use this fallback when @__xml_ns_prefixes doesn't have the attribute name.
-            if ns_prefix.nil? && same_uri
+            # Only use this fallback when @__xml_ns_prefixes was set (child's XmlElement was explicit).
+            if ns_prefix.nil? && same_uri && prefixes&.key?(rule.attribute_name)
               parent_prefix = parent_model.instance_variable_get(:@__xml_namespace_prefix)
               ns_prefix = parent_prefix if parent_prefix && !parent_prefix.empty?
+            end
+
+            # Dual-namespace fallback: when the child model has a different namespace from
+            # the parent (same_uri is false), check the child model instance's own
+            # @__xml_namespace_prefix. This handles the case where a child Serializable was
+            # deserialized from a differently-namespaced element (e.g., w:rPr child of m:r).
+            if ns_prefix.nil? && value.is_a?(::Lutaml::Model::Serialize)
+              child_own_prefix = value.instance_variable_get(:@__xml_namespace_prefix)
+              ns_prefix = child_own_prefix if child_own_prefix && !child_own_prefix.empty?
             end
           end
 

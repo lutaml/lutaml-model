@@ -156,6 +156,13 @@ module Lutaml
         # @param format [Symbol] The format to serialize to
         # @param instance [Object] The model instance
         # @param options [Hash] Additional options
+        # @option options [Symbol, String, Boolean] :prefix XML namespace prefix control
+        #   - nil (default): Preserve input format during round-trip
+        #   - true: Force prefix format using namespace's prefix_default
+        #   - :default: Force default namespace format (no prefix on element)
+        #   - String: Use custom prefix string (e.g., 'custom')
+        #   For round-trip fidelity, the original namespace URI (alias or canonical)
+        #   is always preserved when available, regardless of this option.
         # @return [String] The serialized output
         def to(format, instance, options = {})
           Instrumentation.instrument(:to, model: name, format: format) do

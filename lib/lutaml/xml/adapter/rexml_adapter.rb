@@ -15,7 +15,7 @@ module Lutaml
           xml = normalize_xml_for_rexml(xml)
 
           parsed = Moxml::Adapter::Rexml.parse(xml)
-          root_element = parsed.root || parse_with_escaped_ampersands(xml)
+          root_element = parsed.root
 
           if root_element.nil?
             raise REXML::ParseException.new(
@@ -145,8 +145,12 @@ global_registry, plan)
           element_node.hoisted_declarations.each do |key, uri|
             next if uri == "http://www.w3.org/XML/1998/namespace"
 
-            # Use original alias URI if available (for namespace alias round-trip fidelity)
-            effective_uri = original_ns_uris[uri] || uri
+            # Convert FPI to URN if necessary (REXML requires valid URI)
+            effective_uri = if self.class.fpi?(uri)
+                              self.class.fpi_to_urn(uri)
+                            else
+                              original_ns_uris[uri] || uri
+                            end
             xmlns_name = key ? "xmlns:#{key}" : "xmlns"
             attributes[xmlns_name] = effective_uri
           end
@@ -254,14 +258,6 @@ global_registry, plan)
           return xml unless xml.is_a?(String) && xml.encoding.to_s != "UTF-8"
 
           xml.encode("UTF-8")
-        end
-
-        def self.parse_with_escaped_ampersands(xml)
-          return nil unless xml.is_a?(String)
-
-          escaped_xml = xml.gsub(/&(?![a-zA-Z]+;|#[0-9]+;|#x[0-9a-fA-F]+;)/,
-                                 "&amp;")
-          Moxml::Adapter::Rexml.parse(escaped_xml).root
         end
 
         def build_element_with_plan(xml, element, plan, options = {})

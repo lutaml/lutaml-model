@@ -550,15 +550,16 @@ RSpec.describe Lutaml::Xml::Mapping do
         XML
       end
 
-      # Expected output with namespace hoisting (declarations moved to parent)
-      # W3C-compliant: child elements with their own namespace use DEFAULT format
-      # (semantically equivalent to prefix format in input)
+      # Expected output with format preservation
+      # CityGML preserves PREFIX format (format info available in input_formats)
+      # GML falls back to DEFAULT format due to namespace_locations collision
+      # (same-name sibling elements overwrite each other's location data)
       let(:expected_xml) do
         <<~XML
           <OverrideDefaultNamespacePrefix>
             <SameElementName xmlns="http://www.omg.org/spec/XMI/20131001" App="hello">
               <ApplicationSchema xmlns="http://www.sparxsystems.com/profiles/GML/1.0">GML App</ApplicationSchema>
-              <ApplicationSchema xmlns="http://www.sparxsystems.com/profiles/CityGML/1.0">CityGML App</ApplicationSchema>
+              <CityGML:ApplicationSchema xmlns:CityGML="http://www.sparxsystems.com/profiles/CityGML/1.0">CityGML App</CityGML:ApplicationSchema>
               <ApplicationSchema>App</ApplicationSchema>
             </SameElementName>
           </OverrideDefaultNamespacePrefix>
@@ -691,8 +692,9 @@ RSpec.describe Lutaml::Xml::Mapping do
         XML
       end
 
-      # Expected output with default namespace format instead of prefix format
-      # Note: Ox adapter uses prefix format, Nokogiri/Oga use default format
+      # Expected output: CityGML preserves PREFIX format (format info preserved in input_formats)
+      # GML uses DEFAULT format (format info lost due to namespace_locations sibling collision)
+      # Note: Ox adapter always uses prefix format
       let(:expected_xml) do
         if adapter_class == Lutaml::Xml::Adapter::OxAdapter
           # Ox uses prefix format
@@ -704,11 +706,11 @@ RSpec.describe Lutaml::Xml::Mapping do
             </SameElementName>
           XML
         else
-          # Nokogiri/Oga use default format
+          # Nokogiri/Oga: CityGML preserves PREFIX format, GML uses DEFAULT
           <<~XML
             <SameElementName xmlns="http://www.omg.org/spec/XMI/20131001" App="hello">
               <ApplicationSchema xmlns="http://www.sparxsystems.com/profiles/GML/1.0">GML App</ApplicationSchema>
-              <ApplicationSchema xmlns="http://www.sparxsystems.com/profiles/CityGML/1.0">CityGML App</ApplicationSchema>
+              <CityGML:ApplicationSchema xmlns:CityGML="http://www.sparxsystems.com/profiles/CityGML/1.0">CityGML App</CityGML:ApplicationSchema>
               <ApplicationSchema>App</ApplicationSchema>
             </SameElementName>
           XML
@@ -831,24 +833,15 @@ RSpec.describe Lutaml::Xml::Mapping do
           # When parent has element_form_default: :qualified (ParentNamespace has this),
           # children without explicit namespace inherit parent's namespace.
           # WithoutNamespaceElement has no namespace declaration, so it inherits.
-          # Oga uses default namespace format, Ox uses prefix format
-          expected_xml = if adapter_class == Lutaml::Xml::Adapter::OgaAdapter
-                           <<~XML.strip
-                             <WithChildExplicitNamespaceNil xmlns="http://parent-namespace">
-                               <DefaultNamespace>default namespace text</DefaultNamespace>
-                               <WithNamespace xmlns="http://child-namespace">explicit namespace text</WithNamespace>
-                               <WithoutNamespace>without namespace text</WithoutNamespace>
-                             </WithChildExplicitNamespaceNil>
-                           XML
-                         else
-                           <<~XML.strip
-                             <WithChildExplicitNamespaceNil xmlns="http://parent-namespace">
-                               <DefaultNamespace>default namespace text</DefaultNamespace>
-                               <cn:WithNamespace xmlns:cn="http://child-namespace">explicit namespace text</cn:WithNamespace>
-                               <WithoutNamespace>without namespace text</WithoutNamespace>
-                             </WithChildExplicitNamespaceNil>
-                           XML
-                         end
+          # Round-trip fidelity: child elements preserve the prefix format from input
+          # cn:WithNamespace uses PREFIX format to preserve parent's default namespace context
+          expected_xml = <<~XML.strip
+            <WithChildExplicitNamespaceNil xmlns="http://parent-namespace">
+              <DefaultNamespace>default namespace text</DefaultNamespace>
+              <cn:WithNamespace xmlns:cn="http://child-namespace">explicit namespace text</cn:WithNamespace>
+              <WithoutNamespace>without namespace text</WithoutNamespace>
+            </WithChildExplicitNamespaceNil>
+          XML
           expect(serialized).to be_xml_equivalent_to(expected_xml)
         end
       end

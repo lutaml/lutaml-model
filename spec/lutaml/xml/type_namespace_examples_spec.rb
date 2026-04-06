@@ -438,15 +438,14 @@ RSpec.describe "Type Namespace Examples" do
       expect(serialized).to include("<cp:lastModifiedBy>")
       expect(serialized).to include("<cp:revision>")
 
-      # W3C-compliant: dcterms elements use DEFAULT namespace format
-      # (semantically equivalent to prefix format in input)
-      # These are Serializable models with element-level namespace, not Type namespaces
-      expect(serialized).to include("<created xmlns=\"http://purl.org/dc/terms/\"")
-      expect(serialized).to include("<modified xmlns=\"http://purl.org/dc/terms/\"")
+      # Round-trip fidelity: dcterms elements preserve PREFIX format from input
+      # Using prefix format preserves the parent's default namespace context
+      expect(serialized).to include("<dcterms:created xmlns:dcterms=\"http://purl.org/dc/terms/\"")
+      expect(serialized).to include("<dcterms:modified xmlns:dcterms=\"http://purl.org/dc/terms/\"")
       expect(serialized).to include('xsi:type="dcterms:W3CDTF"')
 
-      # Verify dcterms namespace is declared locally on elements (W3C minimal-subtree)
-      expect(serialized).to include("xmlns=\"http://purl.org/dc/terms/\"")
+      # Verify dcterms namespace is declared with prefix on elements
+      expect(serialized).to include("xmlns:dcterms=\"http://purl.org/dc/terms/\"")
     end
 
     it "verifies Type namespace application to attributes" do

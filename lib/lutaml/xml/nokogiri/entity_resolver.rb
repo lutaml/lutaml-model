@@ -1,41 +1,15 @@
 module Lutaml
   module Xml
     module Nokogiri
-      # EntityResolver provides HTML entity resolution functionality
-      # for the Nokogiri adapter.
+      # EntityResolver handles EntityReference nodes produced by Nokogiri
+      # when parsing XML with undefined entities (e.g. &nbsp;, &copy;).
       #
-      # This module handles Issue #5: HTML entity fragmentation in mixed content.
-      # When Nokogiri parses entities like &copy;, it creates EntityReference nodes
-      # that fragment text content. This module consolidates them back together.
+      # We do NOT resolve these entities — we pass them through as literal
+      # "&name;" text so they survive round-trips. Resolution is the job
+      # of the XML parser, not the data model.
       module EntityResolver
-        # HTML entity map for resolving entity references
-        #
-        # Maps entity names to their Unicode characters.
-        # Covers common HTML entities used in documents.
-        HTML_ENTITIES = {
-          "copy" => "©",
-          "reg" => "®",
-          "trade" => "™",
-          "mdash" => "—",
-          "ndash" => "–",
-          "rsquo" => "'",
-          "lsquo" => "'",
-          "rdquo" => '"',
-          "ldquo" => '"',
-          "hellip" => "…",
-          "nbsp" => "\u00A0",
-          "amp" => "&",
-          "lt" => "<",
-          "gt" => ">",
-          "quot" => '"',
-          "apos" => "'",
-        }.freeze
-
-        # Consolidate adjacent text, CDATA, and entity reference nodes into single text node
-        #
-        # This fixes Issue #5: HTML entity fragmentation in mixed content.
-        # When Nokogiri parses entities like &copy;, it creates EntityReference nodes
-        # that fragment the text content. This method consolidates them back together.
+        # Consolidate adjacent text and CDATA nodes into single text nodes.
+        # EntityReference nodes are kept as separate nodes to preserve entity syntax.
         #
         # @param nodes [Nokogiri::XML::NodeSet] the child nodes to consolidate
         # @return [Array<Nokogiri::XML::Node>] consolidated nodes with merged text
@@ -43,24 +17,27 @@ module Lutaml
           result = []
           text_buffer = []
 
-          # Early return if no nodes to process
           return result if nodes.nil? || nodes.empty?
 
           nodes.each do |child|
-            if text_like_node?(child)
-              # Accumulate text content, resolving entities
-              text_buffer << if child.is_a?(::Nokogiri::XML::EntityReference)
-                               # Resolve entity reference to character
-                               resolve_entity(child)
-                             else
-                               # Regular text or CDATA node
-                               child.text
-                             end
-            else
-              # Non-text node encountered
+            if child.is_a?(::Nokogiri::XML::EntityReference)
+              # Flush any pending text first - EntityReference stays as separate node
               unless text_buffer.empty?
-                # Create single text node from accumulated text
-                # Use first non-nil node's document, or find document from nodes
+                document = nodes.first&.document
+                if document
+                  result << create_consolidated_text_node(document,
+                                                          text_buffer.join)
+                end
+                text_buffer.clear
+              end
+              # Keep EntityReference as separate node - do NOT merge into text
+              result << child
+            elsif text_like_node?(child)
+              # Only consolidate Text/CDATA nodes, not EntityReference
+              text_buffer << child.text
+            else
+              # Non-text node - flush pending text first
+              unless text_buffer.empty?
                 document = nodes.first&.document
                 if document
                   result << create_consolidated_text_node(document,
@@ -72,7 +49,6 @@ module Lutaml
             end
           end
 
-          # Flush any remaining text
           unless text_buffer.empty?
             document = nodes.first&.document
             if document
@@ -84,37 +60,10 @@ module Lutaml
           result
         end
 
-        # Resolve an entity reference to its character
-        #
-        # @param entity_ref [::Nokogiri::XML::EntityReference] the entity reference node
-        # @return [String] the resolved character or original entity if unknown
-        def resolve_entity(entity_ref)
-          entity_name = entity_ref.name
-
-          # Check if it's a numeric character reference (#xxx or #xHH)
-          if entity_name.start_with?("#")
-            # Numeric character reference
-            code = if entity_name.start_with?("#x")
-                     # Hexadecimal
-                     entity_name[2..].to_i(16)
-                   else
-                     # Decimal
-                     entity_name[1..].to_i
-                   end
-            return [code].pack("U")
-          end
-
-          # Look up in HTML entities map
-          HTML_ENTITIES[entity_name] || "&#{entity_name};"
-        end
-
         # Check if node should be consolidated with adjacent text
         #
-        # Only text nodes and entity references should be consolidated.
-        # CDATA nodes must remain separate to preserve their special semantics.
-        #
         # @param node [::Nokogiri::XML::Node] the node to check
-        # @return [Boolean] true if node is text or entity reference (NOT CDATA)
+        # @return [Boolean] true if node is text or entity reference
         def text_like_node?(node)
           node.text? || node.is_a?(::Nokogiri::XML::EntityReference)
         end

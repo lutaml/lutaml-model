@@ -75,6 +75,37 @@ RSpec.describe "Doubly-defined namespace prefixes" do
       expect(output).to include('xmlns:a="http://example.com/items"')
       expect(output).to include("<a:item>hello</a:item>")
     end
+
+    it "round-trips doubly-defined: default ns + prefixed child on root" do
+      xml = <<~XML
+        <root xmlns="http://example.com/items" xmlns:b="http://example.com/items">
+          <b:item>hello</b:item>
+        </root>
+      XML
+
+      model = model_class.from_xml(xml)
+      expect(model.item).to eq("hello")
+
+      output = model.to_xml
+      expect(output).to include('xmlns="http://example.com/items"')
+      expect(output).to include('xmlns:b="http://example.com/items"')
+      expect(output).to include("<b:item>hello</b:item>")
+    end
+
+    it "round-trips doubly-defined: only prefixed ns on root" do
+      xml = <<~XML
+        <root xmlns:c="http://example.com/items">
+          <c:item>hello</c:item>
+        </root>
+      XML
+
+      model = model_class.from_xml(xml)
+      expect(model.item).to eq("hello")
+
+      output = model.to_xml
+      expect(output).to include('xmlns:c="http://example.com/items"')
+      expect(output).to include("<c:item>hello</c:item>")
+    end
   end
 
   describe "cross-parse: explicit format override" do
@@ -173,9 +204,24 @@ RSpec.describe "Doubly-defined namespace prefixes" do
 
       output = model.to_xml
       expect(output).to include('xmlns:xyzabc="http://example.com/items"')
-      # Note: Inner has attributes, so no ">" immediately after the tag name
-      expect(output).to include("<xyzabc:Inner ")
+      expect(output).to include("<xyzabc:Inner>")
       expect(output).to include("<xyzabc:name>from xyzabc</xyzabc:name>")
+    end
+
+    it "round-trips doubly-defined: default ns on outer, prefixed child" do
+      xml = <<~XML
+        <Outer xmlns="http://example.com/items" xmlns:d="http://example.com/items">
+          <d:Inner><d:name>from d</d:name></d:Inner>
+        </Outer>
+      XML
+
+      model = outer_class.from_xml(xml)
+      expect(model.child.name).to eq("from d")
+
+      output = model.to_xml
+      expect(output).to include('xmlns:d="http://example.com/items"')
+      expect(output).to include("<d:Inner>")
+      expect(output).to include("<d:name>from d</d:name>")
     end
   end
 
@@ -193,6 +239,98 @@ RSpec.describe "Doubly-defined namespace prefixes" do
       # Should preserve prefix format (from input_prefix_formats)
       expect(output).to include('xmlns:xyzabc="http://example.com/items"')
       expect(output).to include("<xyzabc:item>value</xyzabc:item>")
+    end
+  end
+
+  describe "child element with foreign namespace preserves prefix format" do
+    # Regression test: child element in a different namespace from parent
+    # must preserve its prefix format during round-trip. Using default format
+    # (xmlns="child-uri") would override the parent's default namespace scope,
+    # losing namespace context for descendants.
+    let(:parent_ns) do
+      Class.new(Lutaml::Xml::W3c::XmlNamespace) do
+        uri "http://example.com/parent"
+        prefix_default "p"
+        element_form_default :qualified
+      end
+    end
+
+    let(:child_ns) do
+      Class.new(Lutaml::Xml::W3c::XmlNamespace) do
+        uri "http://example.com/child"
+        prefix_default "c"
+        element_form_default :qualified
+      end
+    end
+
+    let(:child_model) do
+      ns = child_ns
+      Class.new(Lutaml::Model::Serializable) do
+        attribute :value, :string
+
+        xml do
+          root "child"
+          namespace ns
+          map_content to: :value
+        end
+      end
+    end
+
+    let(:parent_model) do
+      ns = parent_ns
+      cm = child_model
+      Class.new(Lutaml::Model::Serializable) do
+        attribute :name, :string
+        attribute :child, cm
+
+        xml do
+          root "parent"
+          namespace ns
+          map_element "name", to: :name
+          map_element "child", to: :child
+        end
+      end
+    end
+
+    it "preserves child element prefix when child namespace differs from parent" do
+      xml = <<~XML
+        <parent xmlns="http://example.com/parent">
+          <name>test</name>
+          <c:child xmlns:c="http://example.com/child">child value</c:child>
+        </parent>
+      XML
+
+      model = parent_model.from_xml(xml)
+      expect(model.name).to eq("test")
+      expect(model.child.value).to eq("child value")
+
+      output = model.to_xml
+
+      # Child element must use PREFIX format to preserve parent's default namespace
+      expect(output).to include('xmlns:c="http://example.com/child"')
+      expect(output).to include("<c:child")
+      # Parent's default namespace must NOT be overridden by child
+      expect(output).to include('xmlns="http://example.com/parent"')
+    end
+
+    it "does not hoist child namespace to root when declared only on child element" do
+      xml = <<~XML
+        <parent xmlns="http://example.com/parent">
+          <name>test</name>
+          <c:child xmlns:c="http://example.com/child">child value</c:child>
+        </parent>
+      XML
+
+      model = parent_model.from_xml(xml)
+
+      expected = <<~XML.strip
+        <parent xmlns="http://example.com/parent">
+          <name>test</name>
+          <c:child xmlns:c="http://example.com/child">child value</c:child>
+        </parent>
+      XML
+
+      expect(model.to_xml).to be_xml_equivalent_to(expected)
     end
   end
 end
