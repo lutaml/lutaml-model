@@ -6329,6 +6329,20 @@ parsed = RichText.from_xml(xml_input)
 ----
 ====
 
+To iterate over mixed content in document order, use the `each_mixed_content` method:
+
+[source,ruby]
+----
+parsed.each_mixed_content do |node|
+  case node
+  when String
+    puts "Text: #{node}"
+  when MyInlineElement
+    puts "Element: #{node.some_attribute}"
+  end
+end
+----
+
 ==== (DEPRECATED) Mixed content declaration (`root` method with `mixed:`)
 
 To map this to Lutaml::Model we can use the `mixed` option in either way:
