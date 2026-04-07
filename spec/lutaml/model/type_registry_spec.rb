@@ -288,7 +288,9 @@ RSpec.describe Lutaml::Model::TypeRegistry do
     end
 
     it "raises if Proc raises" do
-      registry.register(:bad_type, -> { raise NameError, "uninitialized constant" })
+      registry.register(:bad_type, -> {
+        raise NameError, "uninitialized constant"
+      })
 
       expect { registry.lookup(:bad_type) }.to raise_error(NameError)
     end
