@@ -741,7 +741,7 @@ RSpec.describe Lutaml::Xml::Mapping do
                                                 ])
 
         {
-          Lutaml::Xml::Adapter::NokogiriAdapter => nokogiri_pattern,
+          Lutaml::Xml::Adapter::NokogiriAdapter => oga_ox_pattern,
           Lutaml::Xml::Adapter::OxAdapter => oga_ox_pattern,
           Lutaml::Xml::Adapter::OgaAdapter => oga_ox_pattern,
           Lutaml::Xml::Adapter::RexmlAdapter => oga_ox_pattern,

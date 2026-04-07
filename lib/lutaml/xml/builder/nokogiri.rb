@@ -1,6 +1,10 @@
 module Lutaml
   module Xml
     module Builder
+      # TODO: Replace with Moxml::Builder once build_element_with_plan is
+      # migrated to use Moxml DOM API. Native ::Nokogiri::XML::Builder,
+      # ::Nokogiri::XML::Text, ::Nokogiri::XML::CDATA, and
+      # ::Nokogiri::XML::DocumentFragment are used throughout.
       class Nokogiri
         def self.build(options = {})
           if block_given?

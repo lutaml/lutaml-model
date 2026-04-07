@@ -1,15 +1,67 @@
-require "nokogiri"
+require "moxml"
+require "moxml/adapter/nokogiri"
 require_relative "base_adapter"
 
 module Lutaml
   module Xml
     module Adapter
       class NokogiriAdapter < BaseAdapter
+        extend DocTypeExtractor
+        extend AdapterHelpers
+
+        TEXT_CLASSES = [Moxml::Text, Moxml::Cdata].freeze
+
+        # Two-character sentinel for entity reference preservation.
+        # U+FFFC + U+FEFF (OBJECT REPLACEMENT + BOM) is used because this
+        # pair does not appear in valid XML content. U+FFFC alone can appear
+        # in OOXML documents for inline objects, so a single character is
+        # not safe.
+        #
+        # Non-standard entity references like &copy; are converted to this
+        # sentinel before Moxml parsing (which would otherwise drop them),
+        # then restored in NokogiriElement text accessors.
+        #
+        # Standard XML entities (&amp; &lt; &gt; &quot; &apos;) are NOT
+        # converted — they are resolved by the XML parser itself. Numeric
+        # character references (&#169; &#xa9;) are also left untouched.
+        #
+        # TODO: Remove once Moxml adds Moxml::EntityReference node type.
+        ENTITY_MARKER = "\u{FFFC}\u{FEFF}".freeze
+        ENTITY_MARKER_RE = /\u{FFFC}\u{FEFF}(\w+);/
+        STANDARD_ENTITIES = %w[amp lt gt quot apos].freeze
+
+        def self.preprocess_entities(xml)
+          # Ensure UTF-8 compatible string for regex matching.
+          # BINARY strings are relabeled (not transcoded) since they are
+          # typically UTF-8 bytes without an explicit encoding tag.
+          # Non-UTF-8 encoded strings (Shift_JIS, ISO-8859-1, etc.) are
+          # left as-is — the XML parser handles their encoding.
+          str = if xml.encoding == Encoding::BINARY
+                  xml.dup.force_encoding("UTF-8")
+                elsif xml.encoding == Encoding::UTF_8
+                  xml
+                else
+                  return xml # Non-UTF-8: skip entity preprocessing, parser handles encoding
+                end
+          str.gsub(/&([a-zA-Z]\w*);/) do |match|
+            STANDARD_ENTITIES.include?(::Regexp.last_match(1)) ? match : "#{ENTITY_MARKER}#{::Regexp.last_match(1)};"
+          end
+        end
+
+        def self.restore_entities(text)
+          return text unless text.is_a?(String)
+
+          text.gsub(ENTITY_MARKER_RE, '&\1;')
+        end
+
         def self.parse(xml, options = {})
-          parsed = ::Nokogiri::XML(xml, nil, encoding(xml, options))
+          enc = encoding(xml, options)
+          processed_xml = preprocess_entities(xml)
+          parsed = Moxml::Adapter::Nokogiri.parse(processed_xml, encoding: enc)
+          root_element = parsed.root
 
           # Validate that we have a root element
-          if parsed.root.nil?
+          if root_element.nil?
             raise Lutaml::Model::InvalidFormatError.new(
               :xml,
               "Document has no root element. " \
@@ -18,26 +70,16 @@ module Lutaml
             )
           end
 
-          # Extract DOCTYPE information for model serialization
-          doctype_info = if parsed.internal_subset
-                           {
-                             name: parsed.internal_subset.name,
-                             public_id: parsed.internal_subset.external_id,
-                             system_id: parsed.internal_subset.system_id,
-                           }
-                         end
+          # Extract DOCTYPE information from raw XML
+          # (Moxml doesn't directly expose DOCTYPE)
+          doctype_info = extract_doctype_from_xml(xml)
 
-          # Extract XML declaration for Issue #1: XML Declaration Preservation
-          # Detect if input had declaration and extract version/encoding
+          # Extract XML declaration for preservation
           xml_decl_info = DeclarationHandler.extract_xml_declaration(xml)
 
-          # Store both parsed document (for native DOCTYPE) and extracted info (for model)
-          @parsed_doc = parsed
-          @root = NokogiriElement.new(parsed.root)
-          new(@root, parsed.encoding,
-              parsed_doc: parsed,
-              doctype: doctype_info,
-              xml_declaration: xml_decl_info)
+          @root = NokogiriElement.new(root_element)
+          new(@root, enc, doctype: doctype_info,
+                          xml_declaration: xml_decl_info)
         end
 
         def to_xml(options = {})
@@ -133,9 +175,9 @@ module Lutaml
           end
 
           xml_options = {}
-          # CRITICAL: Explicitly tell Nokogiri NOT to add XML declaration
-          # We handle declarations manually with generate_declaration() for full control
-          # This ensures no duplicate declarations and proper preservation of input format
+          # TODO: Replace with Moxml's to_xml(no_declaration: true, indent: N)
+          # once build_nokogiri_node is rewritten to output Moxml nodes.
+          # Requires Moxml::Element#namespace_scopes (moxml issue pending).
           save_options = ::Nokogiri::XML::Node::SaveOptions::NO_DECLARATION |
             ::Nokogiri::XML::Node::SaveOptions::AS_XML
 
@@ -166,12 +208,10 @@ module Lutaml
             result += generate_declaration(options)
           end
 
-          # Use native Nokogiri DOCTYPE from parsed document if available
-          if @parsed_doc&.internal_subset && !options[:omit_doctype]
-            result += "#{@parsed_doc.internal_subset}\n"
-          elsif options[:doctype] && !options[:omit_doctype]
-            # Fallback for model serialization with stored doctype
-            result += generate_doctype_declaration(options[:doctype])
+          # Add DOCTYPE if present - use DeclarationHandler method
+          doctype_to_use = options[:doctype] || @doctype
+          if doctype_to_use && !options[:omit_doctype]
+            result += generate_doctype_declaration(doctype_to_use)
           end
 
           result += xml_data
@@ -180,6 +220,50 @@ module Lutaml
           result = fix_ooxml_format(result) if options[:fix_boolean_elements]
 
           result
+        end
+
+        def attributes_hash(element)
+          result = Lutaml::Model::MappingHash.new
+
+          element.attributes_each_value do |attr|
+            if attr.name == "schemaLocation"
+              result["__schema_location"] = {
+                namespace: attr.namespace,
+                prefix: attr.namespace.prefix,
+                schema_location: attr.value,
+              }
+            else
+              result[self.class.namespaced_attr_name(attr)] = attr.value
+            end
+          end
+
+          result
+        end
+
+        # NOTE: name_of, prefixed_name_of, namespaced_attr_name, namespaced_name_of
+        # are provided by AdapterHelpers module via extend
+
+        def self.text_of(element)
+          element.text
+        end
+
+        def order
+          children.map do |child|
+            if child.text?
+              Element.new("Text", "text", text_content: child.text)
+            else
+              Element.new("Element", child.unprefixed_name)
+            end
+          end
+        end
+
+        def self.order_of(element)
+          element.children.each do |node|
+            if node.is_a?(Moxml::ProcessingInstruction)
+              return [Element.new("ProcessingInstruction", node.name)]
+            end
+          end
+          super
         end
 
         # Build element using prepared namespace declaration plan
@@ -678,7 +762,12 @@ module Lutaml
 
         private
 
-        # Recursively build Nokogiri::XML::Node tree manually
+        # TODO: Rewrite to use Moxml DOM API (create_element, create_text,
+        # create_cdata, add_child, add_namespace, namespace=) instead of
+        # native ::Nokogiri::XML::* nodes. Blocked by Moxml missing
+        # Element#namespace_scopes (in-scope namespace query). Same pattern
+        # as Oga's build_oga_node which also uses native ::Oga::XML::* nodes.
+        # Moxml issue: https://github.com/lutaml/moxml/issues/TBD
         #
         # @param xml_element [XmlDataModel::XmlElement] Content
         # @param element_node [ElementNode] Decisions
@@ -704,7 +793,7 @@ module Lutaml
             local_name = qualified_name
           end
 
-          # Create element with LOCAL NAME ONLY (no prefix in element name)
+          # TODO: Replace with moxml_doc.create_element(local_name)
           element = ::Nokogiri::XML::Element.new(local_name, doc)
 
           # Add xmlns declarations FIRST (before adding to parent!)
@@ -926,7 +1015,8 @@ module Lutaml
           if xml_element.respond_to?(:raw_content)
             raw_content = xml_element.raw_content
             if raw_content && !raw_content.to_s.empty?
-              # Parse raw content as XML fragment and add children
+              # TODO: Replace with Moxml::Context.parse(xml, fragment: true)
+              # once this method operates on Moxml nodes.
               fragment = ::Nokogiri::XML.fragment(raw_content.to_s)
               fragment.children.each do |child_node|
                 element.add_child(child_node)
@@ -940,8 +1030,9 @@ module Lutaml
           child_element_index = 0
           previous_sibling_had_xmlns_blank = false
           xml_element.children.each do |xml_child|
-            # Handle EntityReference nodes directly - they have no children
-            # and should preserve their entity syntax (e.g., &nbsp;) in round-trips
+            # TODO: Replace with Moxml::EntityReference checks and
+            # moxml_doc.create_entity_reference(name) once Moxml adds
+            # EntityReference node type.
             if xml_child.is_a?(Lutaml::Xml::NokogiriElement) &&
                 xml_child.adapter_node.is_a?(::Nokogiri::XML::EntityReference)
               entity_node = ::Nokogiri::XML::EntityReference.new(doc,
@@ -963,8 +1054,7 @@ module Lutaml
                 previous_sibling_had_xmlns_blank = true
               end
             elsif xml_child.is_a?(String)
-              # Check if parent element has CDATA flag set (for mixed content)
-              # Only wrap non-whitespace content in CDATA to avoid extra CDATA sections
+              # TODO: Replace with moxml_doc.create_cdata / moxml_doc.create_text
               if xml_element.cdata && !xml_child.strip.empty?
                 cdata_node = ::Nokogiri::XML::CDATA.new(doc, xml_child)
                 element.add_child(cdata_node)
@@ -975,9 +1065,8 @@ module Lutaml
           end
 
           # Add text content AFTER child elements
-          # This ensures mixed content order matches the mapping order
+          # TODO: Replace with moxml_doc.create_cdata / moxml_doc.create_text
           if xml_element.text_content
-            # Check if content should be wrapped in CDATA
             if xml_element.cdata
               cdata_node = ::Nokogiri::XML::CDATA.new(doc,
                                                       xml_element.text_content.to_s)
@@ -996,11 +1085,9 @@ module Lutaml
         # strings. The regex detects entity patterns so they can be preserved as
         # EntityReference nodes rather than being escaped.
         #
-        # During PARSING, we do NOT use regex - we rely on Nokogiri's EntityReference nodes.
-        #
-        # @param element [Nokogiri::XML::Element] parent element to add text to
-        # @param text [String] text content (may contain entity patterns from user input)
-        # @param doc [Nokogiri::XML::Document] document for node creation
+        # TODO: Replace ::Nokogiri::XML::EntityReference.new with
+        # moxml_doc.create_entity_reference(name) and ::Nokogiri::XML::Text.new
+        # with moxml_doc.create_text(content) once Moxml adds EntityReference.
         def add_text_with_entities(element, text, doc)
           entity_pattern = /(&(?:\w+|#\d+|#x[\da-fA-F]+);)/
           parts = text.to_s.split(entity_pattern, -1)
@@ -1018,15 +1105,8 @@ module Lutaml
           end
         end
 
-        # Check if parent already has a namespace declaration matching the target URI,
-        # including namespace aliases. If parent declared an alias URI and child uses
-        # the canonical URI (or another alias of the same namespace), the namespace
-        # is already established on parent and child should not re-declare.
-        #
-        # @param parent [Nokogiri::XML::Element, nil] Parent element
-        # @param target_uri [String] The canonical URI the child wants to use
-        # @param target_namespace_class [Class] The namespace class with uri_aliases
-        # @return [Boolean] true if parent already declares this namespace (exact or alias)
+        # TODO: Replace parent.namespace_scopes (native Nokogiri) with
+        # moxml_parent.namespace_scopes once Moxml adds Element#namespace_scopes.
         def parent_has_matching_namespace?(parent, target_uri,
 target_namespace_class)
           return false unless parent
