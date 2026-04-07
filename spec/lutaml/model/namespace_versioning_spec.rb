@@ -311,10 +311,12 @@ RSpec.describe "Context Propagation for Mixed Schema Types" do
 
   # Child model class registered in custom context
   let(:child_model_class) do
-    custom_register = Lutaml::Model::Register.new(:custom_schema_context_test, fallback: [:default])
+    custom_register = Lutaml::Model::Register.new(:custom_schema_context_test,
+                                                  fallback: [:default])
     Lutaml::Model::GlobalRegister.register(custom_register)
 
-    custom_register.register_model(custom_type_class, id: :custom_type_for_context)
+    custom_register.register_model(custom_type_class,
+                                   id: :custom_type_for_context)
 
     klass = Class.new(Lutaml::Model::Serializable) do
       attribute :custom_field, :custom_type_for_context
