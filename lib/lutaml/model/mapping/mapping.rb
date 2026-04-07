@@ -94,7 +94,11 @@ module Lutaml
 
       def register(register_id = nil)
         register_id ||= Lutaml::Model::Config.default_register
-        Lutaml::Model::GlobalRegister.lookup(register_id)
+        if register = Lutaml::Model::GlobalRegister.lookup(register_id)
+          register
+        else
+          Lutaml::Model::GlobalContext.context(register_id)
+        end
       end
 
       def model_importable?(model)
