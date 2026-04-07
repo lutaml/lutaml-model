@@ -79,6 +79,10 @@ module Lutaml
         @models[model_id.to_sym] = klass
         @models[klass.to_s] = klass
 
+        # Set @register on the class so instances know their context
+        # This ensures proper OOP context propagation during serialization
+        klass.set_register_context(@id) if klass.respond_to?(:set_register_context)
+
         # Register in GlobalContext
         ctx = global_context
         if ctx && !ctx.registry.registered?(model_id)
@@ -128,11 +132,10 @@ module Lutaml
       def get_class(klass_name)
         expected_class = get_class_without_register(klass_name)
 
-        # Only set @register if it's not already set
-        if !(expected_class < Lutaml::Model::Type::Value) &&
-            !expected_class.instance_variable_defined?(:@register)
-          expected_class.instance_variable_set(:@register, id)
-        end
+        # Set register context using proper OOP method
+        expected_class.set_register_context(id) if
+          !(expected_class < Lutaml::Model::Type::Value) &&
+            expected_class.respond_to?(:set_register_context)
 
         expected_class
       end

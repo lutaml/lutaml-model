@@ -355,6 +355,10 @@ context_id = nil)
             instance.create_context(**kwargs)
           end
 
+          def context_ids
+            instance.instance_variable_get(:@registry).context_ids
+          end
+
           def resolve_type(name, ctx = nil)
             instance.resolve_type(name, ctx)
           end

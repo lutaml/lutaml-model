@@ -78,6 +78,18 @@ module Lutaml
         type = Type.lookup_ignoring_fallback(type_name)
         return apply_substitutions(type, context) if type
 
+        # 3.5. Check all registered contexts (for cross-context type resolution)
+        # This enables types from different contexts (e.g., MathML in mml_v2)
+        # to be found when used in classes registered in the default context.
+        # Requires mml gem to register its context in GlobalContext via:
+        # Lutaml::Model::GlobalContext.register_context(Mml::V2::Configuration.context)
+        GlobalContext.context_ids.each do |ctx_id|
+          next if ctx_id == context.id
+          ctx = GlobalContext.context(ctx_id)
+          type = ctx.lookup_local(type_name)
+          return apply_substitutions(type, context) if type
+        end
+
         # 4. Try Type.const_get for CamelCase type names (e.g., "Decimal" -> Type::Decimal)
         # This maintains backward compatibility with old Register behavior
         if name.is_a?(String)
