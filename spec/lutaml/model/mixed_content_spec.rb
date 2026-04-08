@@ -433,6 +433,10 @@ RSpec.describe "MixedContent" do
           ".\n    Ain't that ",
           "?\n  ",
         ]
+        expected_nokogiri_content = "\n    The Earth's Moon rings like a bell when struck by\n" \
+                                    "    meteroids. Distanced from the Earth by 384,400 km,\n" \
+                                    "    its surface is covered in craters.\n" \
+                                    "    Ain't that cool?\n  "
 
         expect(parsed.id).to eq("outer123")
         expect(parsed.sup).to eq(["1", "2"])
@@ -442,16 +446,20 @@ RSpec.describe "MixedContent" do
         expect(parsed.content.italic).to eq(["384,400 km"])
         expect(parsed.content.underline).to eq("craters")
 
-        parsed.content.content.each_with_index do |content, index|
-          expected_output = expected_content[index]
+        if parsed.content.content.is_a?(Array)
+          parsed.content.content.each_with_index do |content, index|
+            expected_output = expected_content[index]
 
-          # due to the difference in capturing
-          # newlines in ox and nokogiri adapters
-          if adapter_class == Lutaml::Xml::Adapter::OxAdapter
-            expected_output = expected_output.gsub(/\n\s*/, " ")
+            # due to the difference in capturing
+            # newlines in ox and nokogiri adapters
+            if adapter_class == Lutaml::Xml::Adapter::OxAdapter
+              expected_output = expected_output.gsub(/\n\s*/, " ")
+            end
+
+            expect(content).to eq(expected_output)
           end
-
-          expect(content).to eq(expected_output)
+        else
+          expect(parsed.content.content).to eq(expected_nokogiri_content)
         end
         serialized = parsed.to_xml
 
@@ -501,6 +509,15 @@ RSpec.describe "MixedContent" do
           "?\n    ",
           "\n    NOTE: The above model content is to be formatted as a table.\n  ",
         ]
+        expected_nokogiri_content = "\n    The Earth's Moon rings like a bell when struck by\n" \
+                                    "    meteroids. Distanced from the Earth by 384,400 km,\n" \
+                                    "    its surface is covered in craters.\n" \
+                                    "    Ain't that cool?\n" \
+                                    "    \n" \
+                                    "      Moon\n" \
+                                    "      384400\n" \
+                                    "    \n" \
+                                    "    NOTE: The above model content is to be formatted as a table.\n  "
 
         expect(parsed.id).to eq("outer123")
         expect(parsed.sup).to eq(["1", "2"])
@@ -510,16 +527,20 @@ RSpec.describe "MixedContent" do
         expect(parsed.content.italic).to eq(["384,400 km"])
         expect(parsed.content.underline).to eq("craters")
 
-        parsed.content.content.each_with_index do |content, index|
-          expected_output = expected_content[index]
+        if parsed.content.content.is_a?(Array)
+          parsed.content.content.each_with_index do |content, index|
+            expected_output = expected_content[index]
 
-          # due to the difference in capturing
-          # newlines in ox and nokogiri adapters
-          if adapter_class == Lutaml::Xml::Adapter::OxAdapter
-            expected_output = expected_output.gsub(/\n\s*/, " ")
+            # due to the difference in capturing
+            # newlines in ox and nokogiri adapters
+            if adapter_class == Lutaml::Xml::Adapter::OxAdapter
+              expected_output = expected_output.gsub(/\n\s*/, " ")
+            end
+
+            expect(content).to eq(expected_output)
           end
-
-          expect(content).to eq(expected_output)
+        else
+          expect(parsed.content.content).to eq(expected_nokogiri_content)
         end
 
         expect(parsed.content.planetary_body.name).to eq("Moon")
