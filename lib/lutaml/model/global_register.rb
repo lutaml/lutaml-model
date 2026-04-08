@@ -45,14 +45,34 @@ module Lutaml
 
       # Look up a register by ID.
       #
+      # Falls back to creating a Register from GlobalContext if a context
+      # exists with the given ID but no Register was explicitly registered.
+      #
       # @param id [Symbol, Register] The register ID or Register instance
       # @return [Register, nil] The register or nil
       def lookup(id)
         # Handle both Register instances and symbol/string IDs
         id = id.id if id.is_a?(Register)
+        sym_id = id.to_sym
 
-        @registers[id.to_sym]
+        @registers[sym_id] || register_from_context(sym_id)
       end
+
+      private
+
+      # Create and cache a Register from an existing GlobalContext context.
+      #
+      # @param id [Symbol] The context ID
+      # @return [Register, nil] The created register or nil
+      def register_from_context(id)
+        return nil unless GlobalContext.context(id)
+
+        new_register = Register.new(id)
+        @registers[id] = new_register
+        new_register
+      end
+
+      public
 
       # Remove a register by ID.
       #

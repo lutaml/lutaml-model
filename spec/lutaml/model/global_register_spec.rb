@@ -68,6 +68,50 @@ RSpec.describe Lutaml::Model::GlobalRegister do
     it "converts string id to symbol" do
       expect(described_class.instance.lookup("v1_lookup_test")).not_to be_nil
     end
+
+    context "when context exists in GlobalContext but no Register was registered" do
+      let(:context_id) { :context_only_test }
+
+      before do
+        Lutaml::Model::GlobalContext.create_context(
+          id: context_id,
+          fallback_to: [:default],
+        )
+      end
+
+      after do
+        described_class.remove(context_id) if described_class.lookup(context_id)
+        Lutaml::Model::GlobalContext.unregister_context(context_id)
+      end
+
+      it "creates a Register from the context and returns it" do
+        result = described_class.lookup(context_id)
+        expect(result).to be_a(Lutaml::Model::Register)
+        expect(result.id).to eq(context_id)
+      end
+
+      it "caches the created Register for subsequent lookups" do
+        first_result = described_class.lookup(context_id)
+        second_result = described_class.lookup(context_id)
+        expect(first_result).to be(second_result)
+      end
+
+      it "resolves types registered in the context through the created Register" do
+        custom_class = Class.new(Lutaml::Model::Type::Value)
+        ctx = Lutaml::Model::GlobalContext.context(context_id)
+        ctx.registry.register(:custom_type, custom_class)
+
+        register = described_class.lookup(context_id)
+        resolved = Lutaml::Model::GlobalContext.resolve_type(:custom_type, context_id)
+        expect(resolved).to eq(custom_class)
+      end
+
+      it "resolves built-in types via fallback to default context" do
+        register = described_class.lookup(context_id)
+        result = register.get_class_without_register(:string)
+        expect(result).to eq(Lutaml::Model::Type::String)
+      end
+    end
   end
 
   describe ".lookup" do
@@ -119,6 +163,62 @@ RSpec.describe Lutaml::Model::GlobalRegister do
 
     it "does nothing when the specified register does not exist" do
       expect { described_class.remove(:non_existent) }.not_to raise_error
+    end
+  end
+
+  describe "GlobalContext fallback integration" do
+    let(:context_id) { :fallback_integration_test }
+
+    after do
+      described_class.remove(context_id) if described_class.lookup(context_id)
+      Lutaml::Model::GlobalContext.unregister_context(context_id)
+    end
+
+    context "when a model is registered only via GlobalContext" do
+      let(:test_model) do
+        klass = Class.new(Lutaml::Model::Serializable) do
+          attribute :name, :string
+
+          json do
+            map "name", to: :name
+          end
+        end
+        # Stub a name so type resolution works
+        stub_const("FallbackTestModel", klass)
+        klass
+      end
+
+      before do
+        registry = Lutaml::Model::TypeRegistry.new
+        registry.register(:fallback_test_model, test_model)
+
+        Lutaml::Model::GlobalContext.create_context(
+          id: context_id,
+          registry: registry,
+          fallback_to: [:default],
+        )
+      end
+
+      it "looks up the register via GlobalRegister and resolves the model" do
+        register = described_class.lookup(context_id)
+        expect(register).to be_a(Lutaml::Model::Register)
+
+        result = register.get_class_without_register(:fallback_test_model)
+        expect(result).to eq(test_model)
+      end
+
+      it "mapping register resolution finds the context-only register" do
+        mapping = Lutaml::Model::Mapping.new
+        register = mapping.send(:register, context_id)
+        expect(register).to be_a(Lutaml::Model::Register)
+        expect(register.id).to eq(context_id)
+      end
+    end
+
+    context "when context does not exist in either GlobalRegister or GlobalContext" do
+      it "returns nil" do
+        expect(described_class.lookup(:totally_nonexistent)).to be_nil
+      end
     end
   end
 end
