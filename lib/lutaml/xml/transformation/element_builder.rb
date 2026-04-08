@@ -564,7 +564,7 @@ register_id)
           to_map = value_map[:to] || value_map
 
           if render_nil == :as_nil || render_empty == :as_nil || to_map[:nil] == :nil
-            element.instance_variable_set(:@is_nil, true)
+            element.xsi_nil = true
           end
         end
 
@@ -573,7 +573,7 @@ register_id)
           value_map = rule.option(:value_map) || {}
           to_map = value_map[:to] || value_map
           if to_map[:omitted] == :nil
-            element.instance_variable_set(:@is_nil, true)
+            element.xsi_nil = true
           end
         end
 
@@ -582,7 +582,7 @@ register_id)
           value_map = rule.option(:value_map) || {}
           to_map = value_map[:to] || value_map
           if to_map[:empty] == :nil
-            element.instance_variable_set(:@is_nil, true)
+            element.xsi_nil = true
           end
         end
 
@@ -594,7 +594,7 @@ register_id)
         def apply_element_content(element, text, rule)
           if rule.raw
             # Store as raw content for adapter serialization
-            element.instance_variable_set(:@raw_content, text.to_s)
+            element.raw_content = text.to_s
           else
             # Normal text content - will be escaped by adapter
             element.text_content = text

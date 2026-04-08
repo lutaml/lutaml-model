@@ -403,7 +403,7 @@ module Lutaml
 
           # Check if element was created from nil value with render_nil option
           # Add xsi:nil="true" attribute for W3C compliance
-          if element.instance_variable_defined?(:@is_nil) && element.instance_variable_get(:@is_nil)
+          if element.respond_to?(:xsi_nil) && element.xsi_nil
             attributes["xsi:nil"] = true
           end
 
@@ -413,8 +413,8 @@ module Lutaml
             # Handle raw content (map_all directive)
             # If @raw_content exists, add as raw XML
             has_raw_content = false
-            if element.instance_variable_defined?(:@raw_content)
-              raw_content = element.instance_variable_get(:@raw_content)
+            if element.respond_to?(:raw_content)
+              raw_content = element.raw_content
               if raw_content && !raw_content.to_s.empty?
                 # For Oga, use xml method to add unescaped content
                 inner_xml.xml(raw_content.to_s)
@@ -450,124 +450,94 @@ module Lutaml
 
         # Build XML from XmlDataModel::XmlElement using DeclarationPlan tree (PARALLEL TRAVERSAL)
         #
-        # Manually constructs Oga::XML::Element tree to avoid Builder namespace bugs.
+        # Uses moxml APIs exclusively — no native ::Oga::XML::* classes.
         #
         # @param xml [Builder] XML builder (provides document access)
         # @param xml_element [XmlDataModel::XmlElement] Element content
         # @param plan [DeclarationPlan] Declaration plan with tree structure
         # @param options [Hash] Serialization options
         def build_xml_element_with_plan(xml, xml_element, plan, _options = {})
-          root_element = build_oga_node(xml_element, plan.root_node,
-                                        plan.global_prefix_registry, plan: plan)
-          xml.document.children << root_element
+          moxml_doc = xml.document.moxml_doc
+          root_element = build_moxml_node(xml_element, plan.root_node,
+                                          plan.global_prefix_registry,
+                                          moxml_doc, plan: plan)
+          xml.document.add_child(root_element)
         end
 
         private
 
-        # Recursively build Oga::XML::Element tree manually
+        # Recursively build moxml element tree using moxml APIs exclusively.
         #
         # @param xml_element [XmlDataModel::XmlElement] Content
         # @param element_node [ElementNode] Decisions
         # @param global_registry [Hash] Global prefix registry (URI => prefix)
-        # @param parent [Oga::XML::Element, nil] Parent element for xmlns deduplication
+        # @param moxml_doc [Moxml::Document] Document for creating nodes
+        # @param parent [Moxml::Element, nil] Parent element for xmlns deduplication
         # @param plan [DeclarationPlan] Declaration plan with original namespace URIs
-        # @return [Oga::XML::Element] Created node
-        def build_oga_node(xml_element, element_node, global_registry,
-    parent = nil, plan: nil)
+        # @return [Moxml::Element] Created node
+        def build_moxml_node(xml_element, element_node, global_registry,
+    moxml_doc, parent = nil, plan: nil)
           qualified_name = element_node.qualified_name
 
-          # 1. Create attributes array for xmlns and regular attributes
-          attributes = []
+          # 1. Create moxml element
+          element = moxml_doc.create_element(qualified_name)
 
-          # 2. Add hoisted xmlns declarations (Session 197: filter duplicates from parent)
-          # CRITICAL: Only add xmlns if this element is supposed to declare it
-          # (not if parent already has it)
+          # 2. Add hoisted xmlns declarations (filter duplicates from parent)
           original_ns_uris = plan&.original_namespace_uris || {}
           element_node.hoisted_declarations.each do |key, uri|
             next if uri == "http://www.w3.org/XML/1998/namespace"
 
-            # Convert FPI to URN if necessary (Oga requires valid URI)
             effective_uri = if self.class.fpi?(uri)
                               self.class.fpi_to_urn(uri)
                             else
                               original_ns_uris[uri] || uri
                             end
 
-            # Check if parent already has this xmlns (Oga-specific deduplication)
             prefix = key
             next if parent && parent_has_xmlns_in_chain?(parent, prefix,
                                                          effective_uri)
 
             xmlns_name = prefix ? "xmlns:#{prefix}" : "xmlns"
-            attributes << ::Oga::XML::Attribute.new(
-              name: xmlns_name,
-              value: effective_uri,
-            )
+            element[xmlns_name] = effective_uri
           end
 
           # 3. Add regular attributes by INDEX (PARALLEL TRAVERSAL)
           xml_element.attributes.each_with_index do |xml_attr, idx|
             attr_node = element_node.attribute_nodes[idx]
-            attributes << ::Oga::XML::Attribute.new(
-              name: attr_node.qualified_name,
-              value: xml_attr.value.to_s,
-            )
+            element[attr_node.qualified_name] = xml_attr.value.to_s
           end
 
-          # Check if element was created from nil value with render_nil option
-          # Add xsi:nil="true" attribute for W3C compliance
-          if xml_element.instance_variable_defined?(:@is_nil) && xml_element.instance_variable_get(:@is_nil)
-            attributes << ::Oga::XML::Attribute.new(
-              name: "xsi:nil",
-              value: "true",
-            )
+          # xsi:nil attribute for W3C compliance
+          if xml_element.respond_to?(:xsi_nil) && xml_element.xsi_nil
+            element["xsi:nil"] = "true"
           end
 
-          # Add schema_location attribute from ElementNode if present
+          # schema_location attribute from ElementNode
           element_node.schema_location_attr&.each do |attr_name, attr_value|
-            attributes << ::Oga::XML::Attribute.new(
-              name: attr_name,
-              value: attr_value,
-            )
+            element[attr_name] = attr_value
           end
 
-          # 4. Create Oga element with qualified name
-          # CRITICAL: Oga accepts qualified names directly (e.g., "dc:title")
-          # The qualified_name from ElementNode already includes prefix if needed
-          element = ::Oga::XML::Element.new(
-            name: qualified_name, # Already qualified by planner (e.g., "dc:title" or "title")
-            attributes: attributes,
-          )
-
-          # 4.1 W3C Compliance: Add xmlns="" if element is in blank namespace
-          # and needs to opt out of parent's default namespace
+          # W3C Compliance: xmlns="" for blank namespace opt-out
           if element_node.needs_xmlns_blank
-            xmlns_blank = ::Oga::XML::Attribute.new(
-              name: "xmlns",
-              value: "",
-            )
-            element.attributes << xmlns_blank
+            element["xmlns"] = ""
           end
 
-          # 4.2 Handle raw content (map_all directive)
-          # If @raw_content exists, parse and add as XML fragment
-          if xml_element.instance_variable_defined?(:@raw_content)
-            raw_content = xml_element.instance_variable_get(:@raw_content)
+          # Handle raw content (map_all directive)
+          if xml_element.respond_to?(:raw_content)
+            raw_content = xml_element.raw_content
             if raw_content && !raw_content.to_s.empty?
-              # Parse raw content as XML fragment and add children
-              fragment = ::Oga.parse_xml("<wrapper>#{raw_content}</wrapper>")
-              wrapper = fragment.children.find { |n| n.is_a?(::Oga::XML::Element) }
-              wrapper&.children&.each do |child_node|
-                element.children << child_node
+              parsed_fragment = moxml_doc.context.parse("<wrapper>#{raw_content}</wrapper>")
+              parsed_fragment.root&.children&.each do |child_node|
+                element.add_child(child_node)
               end
-              return element # Skip text content and children processing
+              return element
             end
           end
 
           # 5. Add text content if present
           if xml_element.text_content
-            text_node = ::Oga::XML::Text.new(text: xml_element.text_content.to_s)
-            element.children << text_node
+            text_node = moxml_doc.create_text(xml_element.text_content.to_s)
+            element.add_child(text_node)
           end
 
           # 6. Recursively build children by INDEX (PARALLEL TRAVERSAL)
@@ -577,13 +547,13 @@ module Lutaml
               child_node = element_node.element_nodes[child_element_index]
               child_element_index += 1
 
-              # Recurse - pass THIS element as parent for xmlns deduplication
-              child_element = build_oga_node(xml_child, child_node,
-                                             global_registry, element, plan: plan)
-              element.children << child_element
+              child_element = build_moxml_node(xml_child, child_node,
+                                               global_registry, moxml_doc,
+                                               element, plan: plan)
+              element.add_child(child_element)
             elsif xml_child.is_a?(String)
-              text_node = ::Oga::XML::Text.new(text: xml_child)
-              element.children << text_node
+              text_node = moxml_doc.create_text(xml_child)
+              element.add_child(text_node)
             end
           end
 
@@ -591,9 +561,8 @@ module Lutaml
         end
 
         # Check if immediate parent element has xmlns declaration
-        # (Session 197: Oga-specific xmlns deduplication)
         #
-        # @param element [Oga::XML::Element] parent element to check
+        # @param element [Moxml::Element] parent element to check
         # @param prefix [String, nil] namespace prefix (nil for default namespace)
         # @param uri [String] namespace URI
         # @return [Boolean] true if immediate parent has matching xmlns
@@ -855,13 +824,7 @@ module Lutaml
           end
         end
 
-        def self.order_of(element)
-          element.child.all do |node|
-            [Element.new("ProcessingInstruction", node.name)] if node.is_a?(Moxml::ProcessingInstruction)
-          end
-            .flatten
-          super
-        end
+        # order_of is inherited from BaseAdapter (delegates to element.order)
       end
     end
   end

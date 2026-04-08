@@ -162,8 +162,7 @@ global_registry, plan)
           end
 
           # 4. Add xsi:nil if needed
-          if xml_element.instance_variable_defined?(:@is_nil) &&
-              xml_element.instance_variable_get(:@is_nil)
+          if xml_element.respond_to?(:xsi_nil) && xml_element.xsi_nil
             attributes["xsi:nil"] = "true"
           end
 
@@ -179,8 +178,8 @@ global_registry, plan)
           xml.create_and_add_element(qualified_name,
                                      attributes: attributes) do |inner_xml|
             # 7. Handle raw content (map_all directive)
-            if xml_element.instance_variable_defined?(:@raw_content)
-              raw_content = xml_element.instance_variable_get(:@raw_content)
+            if xml_element.respond_to?(:raw_content)
+              raw_content = xml_element.raw_content
               if raw_content && !raw_content.to_s.empty?
                 inner_xml.add_text(inner_xml, raw_content.to_s, cdata: false)
                 return

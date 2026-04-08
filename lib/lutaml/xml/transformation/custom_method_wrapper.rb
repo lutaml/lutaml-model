@@ -83,13 +83,8 @@ module Lutaml
             add_nokogiri_children_to_parent(fragment, parent)
           rescue StandardError
             # Fallback: if parsing fails, store as raw content
-            existing_raw = parent.instance_variable_get(:@raw_content)
-            if existing_raw
-              parent.instance_variable_set(:@raw_content,
-                                           existing_raw + element_or_string)
-            else
-              parent.instance_variable_set(:@raw_content, element_or_string)
-            end
+            existing_raw = parent.raw_content
+            parent.raw_content = existing_raw ? existing_raw + element_or_string : element_or_string
           end
         else
           # Add as child element

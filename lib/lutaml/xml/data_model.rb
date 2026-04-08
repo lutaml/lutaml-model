@@ -35,6 +35,12 @@ module Lutaml
         # @return [Boolean] Whether element needs xmlns="" declaration
         attr_accessor :needs_xmlns_blank
 
+        # @return [Boolean] Whether element was created from nil value with render_nil
+        attr_accessor :xsi_nil
+
+        # @return [String, nil] Raw XML content for map_all custom methods
+        attr_accessor :raw_content
+
         # Initialize a new XML element
         #
         # @param name [String] Element local name

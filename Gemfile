@@ -5,6 +5,8 @@ source "https://rubygems.org"
 # Specify your gem's dependencies in lutaml-model.gemspec
 gemspec
 
+gem "moxml", git: "https://github.com/lutaml/moxml", branch: "oga-entities-fix"
+
 # needed for liquid with ruby 3.4
 gem "base64"
 gem "benchmark-ips"

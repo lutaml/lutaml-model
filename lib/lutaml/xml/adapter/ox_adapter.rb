@@ -196,8 +196,7 @@ plan: nil)
           end
 
           # Check for xsi:nil
-          if xml_element.instance_variable_defined?(:@is_nil) &&
-              xml_element.instance_variable_get(:@is_nil)
+          if xml_element.respond_to?(:xsi_nil) && xml_element.xsi_nil
             attributes["xsi:nil"] = "true"
           end
 
@@ -212,8 +211,8 @@ plan: nil)
           # 5. Create element with qualified name using block for proper nesting
           xml.element(qualified_name, attributes) do
             # 6. Handle raw content (map_all directive)
-            if xml_element.instance_variable_defined?(:@raw_content)
-              raw_content = xml_element.instance_variable_get(:@raw_content)
+            if xml_element.respond_to?(:raw_content)
+              raw_content = xml_element.raw_content
               if raw_content && !raw_content.to_s.empty?
                 xml.raw(raw_content.to_s)
                 return
@@ -487,7 +486,7 @@ plan: nil)
 
           # Check if element was created from nil value with render_nil option
           # Add xsi:nil="true" attribute for W3C compliance
-          if element.instance_variable_defined?(:@is_nil) && element.instance_variable_get(:@is_nil)
+          if element.respond_to?(:xsi_nil) && element.xsi_nil
             attributes["xsi:nil"] = true
           end
 
@@ -495,10 +494,9 @@ plan: nil)
           xml.create_and_add_element(tag_name, attributes: attributes,
                                                prefix: prefix) do |inner_xml|
             # Handle raw content (map_all directive)
-            # If @raw_content exists, add as raw XML
             has_raw_content = false
-            if element.instance_variable_defined?(:@raw_content)
-              raw_content = element.instance_variable_get(:@raw_content)
+            if element.respond_to?(:raw_content)
+              raw_content = element.raw_content
               if raw_content && !raw_content.to_s.empty?
                 # For Ox, use raw() method to add unescaped content
                 inner_xml.xml.raw(raw_content.to_s)

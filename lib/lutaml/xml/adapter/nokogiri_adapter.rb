@@ -628,7 +628,7 @@ module Lutaml
 
           # Check if element was created from nil value with render_nil option
           # Add xsi:nil="true" attribute for W3C compliance
-          if element.instance_variable_defined?(:@is_nil) && element.instance_variable_get(:@is_nil)
+          if element.respond_to?(:xsi_nil) && element.xsi_nil
             attributes["xsi:nil"] = true
           end
 
@@ -909,7 +909,7 @@ module Lutaml
 
           # Check if element was created from nil value with render_nil option
           # Add xsi:nil="true" attribute for W3C compliance
-          if xml_element.instance_variable_defined?(:@is_nil) && xml_element.instance_variable_get(:@is_nil)
+          if xml_element.respond_to?(:xsi_nil) && xml_element.xsi_nil
             element["xsi:nil"] = true
           end
 
@@ -923,8 +923,8 @@ module Lutaml
           # NOTE: We do NOT return early here because the element may have
           # children that also need to be processed. Raw content should be
           # added alongside children, not replace them.
-          if xml_element.instance_variable_defined?(:@raw_content)
-            raw_content = xml_element.instance_variable_get(:@raw_content)
+          if xml_element.respond_to?(:raw_content)
+            raw_content = xml_element.raw_content
             if raw_content && !raw_content.to_s.empty?
               # Parse raw content as XML fragment and add children
               fragment = ::Nokogiri::XML.fragment(raw_content.to_s)
