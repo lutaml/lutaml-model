@@ -11,11 +11,7 @@ module Lutaml
           explicit_no_namespace = false
 
           # Determine node type from Moxml classification
-          node_type = case node
-                      when Moxml::Text then :text
-                      when Moxml::Cdata then :cdata
-                      else :element
-                      end
+          node_type = Lutaml::Xml::Adapter::OgaAdapter.node_type_of(node)
 
           text = case node
                  when Moxml::Element
@@ -45,6 +41,8 @@ module Lutaml
                    EncodingNormalizer.normalize_to_utf8(node.content)
                  when Moxml::Cdata
                    EncodingNormalizer.normalize_to_utf8(node.native.text)
+                 when Moxml::Comment
+                   EncodingNormalizer.normalize_to_utf8(node.content)
                  end
 
           name = Lutaml::Xml::Adapter::OgaAdapter.name_of(node)
@@ -79,6 +77,8 @@ module Lutaml
           if cdata?
             # CDATA sections
             builder.add_text(builder.current_node, @text, cdata: true)
+          elsif comment?
+            builder.add_comment(builder.current_node, @text)
           elsif text? && !element?
             # Only actual text nodes (not elements named "text")
             builder.add_text(builder.current_node, @text)
