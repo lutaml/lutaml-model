@@ -33,6 +33,19 @@ module Lutaml
           nil
         end
 
+        # Set the register context for this Model class.
+        #
+        # This is called by Register#register_model to ensure the class
+        # knows its register context for proper instance initialization.
+        #
+        # @param register_id [Symbol] The register ID
+        # @return [void]
+        def set_register_context(register_id)
+          return if instance_variable_defined?(:@register)
+
+          @register = register_id
+        end
+
         # Handle inheritance by copying parent's configuration
         #
         # @param subclass [Class] The inheriting class

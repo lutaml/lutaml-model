@@ -289,3 +289,102 @@ RSpec.describe "Register Fallback Chain with Namespaces" do
     end
   end
 end
+
+RSpec.describe "Context Propagation for Mixed Schema Types" do
+  before do
+    Lutaml::Model::GlobalContext.reset!
+  end
+
+  after do
+    Lutaml::Model::GlobalContext.reset!
+    Lutaml::Model::GlobalRegister.unregister(:custom_schema_context_test)
+  end
+
+  # Custom type only available in a custom register
+  let(:custom_type_class) do
+    Class.new(Lutaml::Model::Type::String) do
+      def self.name
+        "CustomTypeForContext"
+      end
+    end
+  end
+
+  # Child model class registered in custom context
+  let(:child_model_class) do
+    custom_register = Lutaml::Model::Register.new(:custom_schema_context_test,
+                                                  fallback: [:default])
+    Lutaml::Model::GlobalRegister.register(custom_register)
+
+    custom_register.register_model(custom_type_class,
+                                   id: :custom_type_for_context)
+
+    klass = Class.new(Lutaml::Model::Serializable) do
+      attribute :custom_field, :custom_type_for_context
+
+      xml do
+        root "Child"
+        map_element "CustomField", to: :custom_field
+      end
+    end
+    # Set the register context on the class
+    klass.instance_variable_set(:@register, :custom_schema_context_test)
+    custom_register.register_model(klass, id: :child_model)
+    klass
+  end
+
+  describe "serializing parent with child from different context" do
+    it "uses child's native context for type resolution during serialization" do
+      child_klass = child_model_class
+
+      # Parent model in :default context with child from custom context
+      parent_model = Class.new(Lutaml::Model::Serializable) do
+        attribute :child, child_klass
+
+        xml do
+          root "Parent"
+          map_element "Child", to: :child
+        end
+      end
+
+      # Create parent instance with child
+      parent = parent_model.new
+      child = child_klass.new
+      child.custom_field = "test value"
+      parent.child = child
+
+      # Serialize to XML - this should use child's lutaml_register for type resolution
+      xml_output = parent.to_xml
+
+      # Verify the custom_field is properly serialized
+      expect(xml_output).to include("<CustomField>test value</CustomField>")
+      expect(xml_output).to include("<Child>")
+      expect(xml_output).to include("<Parent>")
+    end
+
+    it "propagates child's lutaml_register through collection attributes" do
+      child_klass = child_model_class
+
+      # Parent model with collection of children from custom context
+      parent_with_collection = Class.new(Lutaml::Model::Serializable) do
+        attribute :children, child_klass, collection: true
+
+        xml do
+          root "Parent"
+          map_element "Child", to: :children
+        end
+      end
+
+      parent = parent_with_collection.new
+      child1 = child_klass.new
+      child1.custom_field = "value1"
+      child2 = child_klass.new
+      child2.custom_field = "value2"
+      parent.children = [child1, child2]
+
+      xml_output = parent.to_xml
+
+      expect(xml_output).to include("<CustomField>value1</CustomField>")
+      expect(xml_output).to include("<CustomField>value2</CustomField>")
+    end
+  end
+end

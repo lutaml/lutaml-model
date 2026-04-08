@@ -230,11 +230,13 @@ RSpec.describe "Schema mapping integration" do
         { from: /^(smil20-.*|smil20|xml-mod|rdf)\.xsd$/,
           to: File.join(fixtures_dir, 'smil20/\1.xsd') },
 
-        # 19-20. URL mappings
+        # 19-21. URL mappings
         { from: %r{https://schemas\.isotc211\.org/(.+)},
           to: File.join(fixtures_dir, 'codesynthesis-gml-3.2.1/iso/\1') },
         { from: %r{(?:\.\./)+(\d{5}/.+\.xsd)$},
           to: File.join(fixtures_dir, 'isotc211/\1') },
+        { from: %r{https?://docs\.oasis-open\.org/election/external/(.+\.xsd)$},
+          to: File.join(fixtures_dir, 'citygml/xAL/\1') },
       ]
     end
 
@@ -611,6 +613,9 @@ RSpec.describe "Schema mapping integration" do
         # Map SMIL20 files
         { from: /^(smil20-.*|smil20|xml-mod|rdf)\.xsd$/,
           to: File.join(fixtures_dir, 'smil20/\1.xsd') },
+        # Map OASIS xAL
+        { from: %r{https?://docs\.oasis-open\.org/election/external/(.+\.xsd)$},
+          to: File.join(fixtures_dir, 'citygml/xAL/\1') },
       ]
 
       parsed = Lutaml::Xml::Schema::Xsd.parse(

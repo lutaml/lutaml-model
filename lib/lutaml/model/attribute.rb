@@ -758,7 +758,15 @@ instance_object = nil)
       end
 
       def serialize_model(value, format, register, options)
-        as_options = options.merge(register: register)
+        # Use the value's own lutaml_register if available (proper OOP - model carries its context)
+        # This ensures child models serialize using their native context, not the parent's
+        value_register = if value.is_a?(Lutaml::Model::Serializable) && value.lutaml_register
+                           value.lutaml_register
+                         else
+                           register
+                         end
+
+        as_options = options.merge(register: value_register)
         # Remove mappings from options for nested model serialization
         # Nested models should use their own format mappings
         as_options.delete(:mappings)

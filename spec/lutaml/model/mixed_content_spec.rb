@@ -1020,6 +1020,82 @@ RSpec.describe "MixedContent" do
         expect(serialized).to be_xml_equivalent_to(expected_xml)
       end
     end
+
+    describe "each_mixed_content" do
+      let(:xml) do
+        <<~XML
+          <RootMixedContent id="123">
+            Hello <bold>world</bold> and <italic>others</italic>!
+          </RootMixedContent>
+        XML
+      end
+
+      it "yields text and model objects in document order" do
+        parsed = MixedContentSpec::RootMixedContent.from_xml(xml)
+
+        results = []
+        parsed.each_mixed_content { |node| results << node }
+
+        # Should yield text and string values in order
+        # Note: RootMixedContent stores bold/italic as strings, not model objects
+        text_results = results.grep(String)
+        expect(text_results.length).to eq(5)
+        expect(text_results[0]).to include("Hello")
+        expect(text_results[1]).to eq("world")
+        expect(text_results[2]).to include("and")
+        expect(text_results[3]).to eq("others")
+        expect(text_results[4]).to include("!")
+      end
+
+      it "returns enumerator when called without block" do
+        parsed = MixedContentSpec::RootMixedContent.from_xml(xml)
+        enum = parsed.each_mixed_content
+
+        expect(enum).to be_a(Enumerator)
+      end
+
+      it "skips whitespace-only text nodes" do
+        parsed = MixedContentSpec::RootMixedContent.from_xml(xml)
+
+        results = []
+        parsed.each_mixed_content do |node|
+          results << node if node.is_a?(String) && node.strip.empty?
+        end
+
+        expect(results).to eq([])
+      end
+
+      context "with ordered-only content (no mixed)" do
+        # Test that ordered content (elements only, no text) works
+        let(:xml) do
+          <<~XML
+            <RootMixedContentNested id="outer">
+              <MixedContent id="inner">
+                <bold>first</bold><italic>second</italic>
+              </MixedContent>
+            </RootMixedContentNested>
+          XML
+        end
+
+        it "yields element objects in document order" do
+          parsed = MixedContentSpec::RootMixedContentNested.from_xml(xml)
+
+          results = []
+          parsed.content.each_mixed_content { |node| results << node }
+
+          # Should yield element objects in order (bold, italic strings)
+          string_results = results.grep(String)
+          expect(string_results.length).to eq(2)
+        end
+      end
+
+      context "with plain content (no mixed, no ordered)" do
+        it "returns empty enumerator" do
+          parsed = MixedContentSpec::Source.from_xml("<source>plain text</source>")
+          expect(parsed.each_mixed_content.to_a).to eq([])
+        end
+      end
+    end
   end
 
   describe Lutaml::Xml::Adapter::NokogiriAdapter do

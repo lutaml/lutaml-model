@@ -581,7 +581,14 @@ mixed_content_option)
           else
             return nil if rule.render_nil_as_nil? && child.nil_element?
 
-            text = child.nil_element? ? nil : (child&.text&.+ child&.cdata)
+            child_text = child.nil_element? ? nil : child&.text
+            child_cdata = child&.cdata
+            text = if child_text.is_a?(Array) || child_cdata.is_a?(Array)
+                     # Mixed content - child elements handle their own text aggregation
+                     nil
+                   else
+                     child_text&.+ child_cdata
+                   end
             values << text
 
             # Track namespace prefix for doubly-defined namespace support.

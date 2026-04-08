@@ -315,6 +315,532 @@ When serialized back, the order is preserved:
 ----
 ====
 
+=== Iterating mixed content with `each_mixed_content`
+
+When working with mixed content (text interspersed with elements) or ordered content
+(elements in a specific sequence), you often need to iterate in document order to
+process or transform the content. The `each_mixed_content` method provides an
+iterator that yields text nodes and typed model objects in their original document order.
+
+[NOTE]
+====
+`each_mixed_content` is available on any model instance that has `mixed_content` or
+`ordered` enabled in its XML mapping. It returns an empty Enumerator if neither is set.
+====
+
+.Iterating over mixed content in document order
+[example]
+====
+[source,ruby]
+----
+class Docbook::Elements::Para < Lutaml::Model::Serializable
+  attribute :content, :string
+  attribute :emphasis, :string, collection: true
+  attribute :code, :string, collection: true
+
+  xml do
+    element "para"
+    mixed_content
+    map_content to: :content
+    map_element "emphasis", to: :emphasis
+    map_element "code", to: :code
+  end
+end
+----
+
+[source,xml]
+----
+<para>Hello <emphasis role="bold">world</emphasis> and <code>example</code>!</para>
+----
+
+[source,ruby]
+----
+para = Docbook::Elements::Para.from_xml(xml)
+
+# Iterate in document order, yielding text and elements
+para.each_mixed_content do |node|
+  case node
+  when String
+    puts "Text: #{node.inspect}"
+  when String  # emphasis/code are stored as strings in this model
+    puts "Inline element content: #{node.inspect}"
+  end
+end
+# => "Text: \"Hello \""
+# => "Inline element content: \"world\""
+# => "Text: \" and \""
+# => "Inline element content: \"example\""
+# => "Text: \"!\""
+----
+====
+
+.Generating HTML from mixed content
+[example]
+====
+A common use case is converting DocBook or similar XML to HTML:
+
+[source,ruby]
+----
+class HtmlConverter
+  def convert_para(para)
+    html = "<p>"
+
+    para.each_mixed_content do |node|
+      case node
+      when String
+        html += escape_html(node)
+      when Docbook::Elements::Emphasis
+        role = node.role == "bold" ? "strong" : "em"
+        html += "<#{role}>#{escape_html(node.content)}</#{role}>"
+      end
+    end
+
+    html += "</p>"
+    html
+  end
+
+  private
+
+  def escape_html(text)
+    text.gsub("&", "&amp;")
+         .gsub("<", "&lt;")
+         .gsub(">", "&gt;")
+  end
+end
+----
+====
+
+.Return value and chaining
+
+`each_mixed_content` returns:
+
+* `self` when called with a block (for chaining)
+* An `Enumerator` when called without a block
+
+[source,ruby]
+----
+# With block
+para.each_mixed_content { |node| process(node) }
+
+# Without block - returns Enumerator
+enum = para.each_mixed_content
+enum.select { |node| node.is_a?(String) }
+enum.each { |node| process(node) }
+----
+
+[NOTE]
+====
+Whitespace-only text fragments are automatically skipped by `each_mixed_content`.
+This matches typical XML processing behavior where insignificant whitespace is ignored.
+====
+
+[IMPORTANT]
+.`each_mixed_content` is XML-specific
+====
+For JSON and YAML formats, rich text uses a *recursive tree pattern* instead of the
+mixed content model used by XML. Each node in the tree knows its type and contains
+its own children. Since the tree IS the content structure, you can iterate using
+natural tree traversal methods.
+
+See the <<Recursive tree pattern for JSON/YAML,next section>> for details.
+====
+
+[[recursive-tree-pattern]]
+=== Recursive tree pattern for JSON/YAML
+
+Unlike XML's mixed content model (which requires `each_mixed_content` to correlate
+text fragments with element collections), JSON and YAML represent rich text using a
+recursive tree structure. Each node knows its type, and container nodes hold a
+`children` array containing child nodes.
+
+[IMPORTANT]
+.These are different data models
+====
+XML mixed content and JSON/YAML recursive tree are fundamentally different data
+structures. They cannot be represented by the same Ruby model class because:
+
+* **XML**: `content` is a String, `emphasis` is a collection
+* **JSON/YAML**: `content` is a collection of nodes, each with `children`
+
+Instead, define separate models for each format family.
+====
+
+.Recursive tree structure for rich text
+[source,json]
+----
+{
+  "type": "para",
+  "content": [
+    { "type": "text", "value": "Hello " },
+    { "type": "emphasis", "role": "bold", "children": [
+      { "type": "text", "value": "world" }
+    ]},
+    { "type": "text", "value": "!" }
+  ]
+}
+----
+
+[NOTE]
+====
+In this pattern:
+- Each node has a `type` field indicating what kind of node it is
+- Container nodes (like `emphasis`) have a `children` array
+- Leaf nodes (like `text`) have a `value` field
+- The tree structure itself preserves order - no separate tracking needed
+====
+
+.XML Model (Mixed Content)
+[example]
+====
+For XML, use `mixed_content` with separate `content` attribute and element collections:
+
+[source,ruby]
+----
+class Docbook::Elements::Para < Lutaml::Model::Serializable
+  attribute :content, :string
+  attribute :emphasis, Docbook::Elements::Emphasis, collection: true
+
+  xml do
+    element "para"
+    mixed_content
+    map_content to: :content
+    map_element "emphasis", to: :emphasis
+    xml_space :preserve
+  end
+end
+
+class Docbook::Elements::Emphasis < Lutaml::Model::Serializable
+  attribute :role, :string
+  attribute :content, :string
+
+  xml do
+    element "emphasis"
+    map_attribute "role", to: :role
+    map_content to: :content
+  end
+end
+----
+
+[source,xml]
+----
+<para>Hello <emphasis role="bold">world</emphasis>!</para>
+----
+====
+
+.JSON/YAML Model (Recursive Tree)
+[example]
+====
+For JSON/YAML, use a polymorphic node structure where inline elements have `children`:
+
+[source,ruby]
+----
+# Base class for all rich text nodes
+class RichText::Node < Lutaml::Model::Serializable
+end
+
+# Leaf node for text
+class RichText::TextNode < Lutaml::Model::Serializable
+  attribute :value, :string
+
+  json do
+    map "value", to: :value
+  end
+
+  yaml do
+    map "value", to: :value
+  end
+end
+
+# Inline element with children
+class RichText::Emphasis < Lutaml::Model::Serializable
+  attribute :role, :string
+  attribute :children, RichText::Node, collection: true
+
+  json do
+    map "type", to: :type
+    map "role", to: :role
+    map "children", to: :children
+  end
+
+  yaml do
+    map "type", to: :type
+    map "role", to: :role
+    map "children", to: :children
+  end
+
+  def type
+    "emphasis"
+  end
+end
+
+# Container with content
+class RichText::Para < Lutaml::Model::Serializable
+  attribute :type, :string
+  attribute :content, RichText::Node, collection: true
+
+  json do
+    map "type", to: :type
+    map "content", to: :content
+  end
+
+  yaml do
+    map "type", to: :type
+    map "content", to: :content
+  end
+
+  def type
+    "para"
+  end
+end
+----
+
+[source,json]
+----
+{
+  "type": "para",
+  "content": [
+    { "type": "text", "value": "Hello " },
+    { "type": "emphasis", "role": "bold", "children": [
+      { "type": "text", "value": "world" }
+    ]},
+    { "type": "text", "value": "!" }
+  ]
+}
+----
+====
+
+.Processing rich text by format
+
+[source,ruby]
+----
+# XML: Use each_mixed_content
+xml_para = Docbook::Elements::Para.from_xml(xml_input)
+xml_para.each_mixed_content do |node|
+  case node
+  when String
+    print node  # Text fragments
+  when Docbook::Elements::Emphasis
+    print "<#{node.role}>#{node.content}</#{node.role}>"
+  end
+end
+
+# JSON/YAML: Use natural tree traversal
+json_para = RichText::Para.from_json(json_input)
+
+def process_node(node)
+  case node
+  when RichText::TextNode
+    print node.value
+  when RichText::Emphasis
+    print "<#{node.role}>"
+    node.children.each { |child| process_node(child) }
+    print "</#{node.role}>"
+  end
+end
+
+json_para.content.each { |node| process_node(node) }
+----
+
+.Comparison: XML vs JSON/YAML for rich text
+
+[cols="1,2,2"]
+|===
+| Aspect | XML Mixed Content | JSON/YAML Recursive Tree
+
+| Ruby model attributes
+| `content` (String), `emphasis` (collection)
+| `content` (collection of Nodes), `children` (collection)
+
+| Text storage
+| Single `content` string attribute
+| Separate `TextNode` objects with `value`
+
+| Element nesting
+| Flat - elements stored in collections
+| Recursive - elements have `children` array
+
+| Order tracking
+| Via `element_order` + `each_mixed_content`
+| Implicit in tree structure
+
+| Iteration method
+| `each_mixed_content`
+| `node.children.each { |child| ... }`
+
+| Whitespace
+| Use `xml_space :preserve`
+| Preserved naturally by tree structure
+|===
+
+.Dual-format serialization: Same content, different models
+
+These are *separate model classes* by design, not one model that does both.
+Each format family (XML vs JSON/YAML) requires a different data structure:
+
+[source,ruby]
+----
+# ============================================
+# XML MODEL: Mixed Content Pattern
+# ============================================
+# Structure: content (String) + emphasis (collection)
+# Use each_mixed_content to iterate in document order
+
+class Docbook::Elements::Para < Lutaml::Model::Serializable
+  attribute :content, :string
+  attribute :emphasis, Docbook::Elements::Emphasis, collection: true
+
+  xml do
+    element "para"
+    mixed_content
+    map_content to: :content
+    map_element "emphasis", to: :emphasis
+    xml_space :preserve
+  end
+end
+
+class Docbook::Elements::Emphasis < Lutaml::Model::Serializable
+  attribute :role, :string
+  attribute :content, :string
+
+  xml do
+    element "emphasis"
+    map_attribute "role", to: :role
+    map_content to: :content
+  end
+end
+
+# ============================================
+# JSON/YAML MODEL: Recursive Tree Pattern
+# ============================================
+# Structure: content (collection of Nodes) + children (in each node)
+# Use natural tree traversal: node.children.each { ... }
+
+class RichText::Node < Lutaml::Model::Serializable
+  # Base class for polymorphic node types
+end
+
+class RichText::TextNode < Lutaml::Model::Serializable
+  attribute :type, :string
+  attribute :value, :string
+
+  def type
+    "text"
+  end
+end
+
+class RichText::Emphasis < Lutaml::Model::Serializable
+  attribute :type, :string
+  attribute :role, :string
+  attribute :children, RichText::Node, collection: true
+
+  def type
+    "emphasis"
+  end
+end
+
+class RichText::Para < Lutaml::Model::Serializable
+  attribute :type, :string
+  attribute :content, RichText::Node, collection: true
+
+  def type
+    "para"
+  end
+end
+
+# Define JSON/YAML mappings separately
+class RichText::TextNode
+  json do map "value", to: :value end
+  yaml do map "value", to: :value end
+end
+
+class RichText::Emphasis
+  json do
+    map "type", to: :type
+    map "role", to: :role
+    map "children", to: :children
+  end
+  yaml do
+    map "type", to: :type
+    map "role", to: :role
+    map "children", to: :children
+  end
+end
+
+class RichText::Para
+  json do
+    map "type", to: :type
+    map "content", to: :content
+  end
+  yaml do
+    map "type", to: :type
+    map "content", to: :content
+  end
+end
+----
+
+.Serialization examples
+
+[source,ruby]
+----
+# XML: Build model and serialize
+xml_para = Docbook::Elements::Para.new(
+  content: "Hello ",
+  emphasis: [
+    Docbook::Elements::Emphasis.new(role: "bold", content: "world")
+  ]
+)
+xml_para.content += "!"  # Append to string
+
+puts xml_para.to_xml
+# => <para xml:space="preserve">Hello <emphasis role="bold">world</emphasis>!</para>
+
+# JSON: Build model and serialize
+json_para = RichText::Para.new(
+  content: [
+    RichText::TextNode.new(value: "Hello "),
+    RichText::Emphasis.new(
+      role: "bold",
+      children: [RichText::TextNode.new(value: "world")]
+    ),
+    RichText::TextNode.new(value: "!")
+  ]
+)
+
+puts json_para.to_json
+# => {"type":"para","content":[
+#      {"type":"text","value":"Hello "},
+#      {"type":"emphasis","role":"bold","children":[
+#        {"type":"text","value":"world"}
+#      ]},
+#      {"type":"text","value":"!"}
+#    ]}
+
+# YAML also works:
+puts json_para.to_yaml
+----
+====
+
+.Whitespace handling for XML
+
+For XML mixed content, use `xml_space :preserve` to maintain whitespace:
+
+[source,ruby]
+----
+class Docbook::Elements::Para < Lutaml::Model::Serializable
+  attribute :content, :string
+  attribute :emphasis, Docbook::Elements::Emphasis, collection: true
+
+  xml do
+    element "para"
+    mixed_content
+    xml_space :preserve  # <-- Critical for rich text
+    map_content to: :content
+    map_element "emphasis", to: :emphasis
+  end
+end
+----
+====
+
 == Sequence patterns
 
 === Basic sequence
