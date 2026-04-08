@@ -112,7 +112,7 @@ module Lutaml
         end
 
         def add_text(element, text, cdata: false)
-          text = text&.encode(encoding) if encoding && text.is_a?(String)
+          text = encode_value(text)
           return add_cdata(element, text) if cdata
 
           # Handle case where element is a Builder instance
@@ -143,6 +143,7 @@ module Lutaml
         end
 
         def add_comment(element, value)
+          value = encode_value(value)
           oga_comment = ::Oga::XML::Comment.new(text: value.to_s)
           if element.is_a?(Xml::Oga::Document)
             element.children.last.children << oga_comment
@@ -210,6 +211,12 @@ module Lutaml
         end
 
         private
+
+        def encode_value(value)
+          return value unless encoding && value.is_a?(String)
+
+          value.encode(encoding)
+        end
 
         def element_attributes(oga_element, attributes)
           return unless attributes
