@@ -28,7 +28,7 @@ module Lutaml
       }.freeze
 
       INTERNAL_ATTRIBUTES = %i[@using_default @lutaml_register @lutaml_parent @lutaml_root
-                               @register_records @xml_declaration_plan @xml_input_namespaces].freeze
+                               @register_records].freeze
 
       def self.included(base)
         base.extend(ClassMethods)
@@ -48,166 +48,11 @@ module Lutaml
         attr_accessor :choice_attributes, :mappings, :register_records
       end
 
-      # Find the nearest superclass that has an XML mapping.
-      #
-      # Checks both @xml_mapping (set by Configurable#xml) and
-      # mappings[:xml] (set by FormatConversion#process_mapping).
-      #
-      # @param klass [Class] The starting class
-      # @return [Class, nil] The superclass with XML mapping or nil
-      def self.superclass_with_xml_mapping(klass)
-        return nil unless klass.is_a?(Class)
-
-        parent = klass.superclass
-        return nil unless parent < Lutaml::Model::Serializable
-
-        # Check mappings[:xml] - this is where FormatConversion#process_mapping stores it
-        parent_mapping = parent.mappings[:xml] if parent.respond_to?(:mappings)
-        return parent if parent_mapping
-
-        superclass_with_xml_mapping(parent)
-      end
-
       def self.register_format_mapping_method(format)
         method_name = format == :hash ? :hsh : format
 
         ::Lutaml::Model::Serialize::ClassMethods.define_method(method_name) do |*args, &block|
-          # If a mapping class is passed (e.g., xml SomeMapping),
-          # inherit mappings from it directly.
-          # This supports the reusable mapping class pattern.
-          if format == :xml &&
-              args.any? &&
-              args.first.is_a?(Class) &&
-              defined?(Lutaml::Xml::Mapping) &&
-              args.first < Lutaml::Xml::Mapping
-            mapping_class = args.first
-
-            # Start with a copy of the parent class's XML mapping (if any).
-            # This ensures child classes inherit their parent's mappings.
-            parent_class = ::Lutaml::Model::Serialize.superclass_with_xml_mapping(self)
-            parent_xml_mapping = if parent_class.respond_to?(:mappings)
-                                   parent_class.mappings[:xml]
-                                 end
-            @xml_mapping = if parent_xml_mapping
-                             parent_xml_mapping.deep_dup
-                           else
-                             Lutaml::Xml::Mapping.new
-                           end
-
-            # Get the parent mapping instance (DSL already evaluated via xml_mapping_instance)
-            parent_mapping = if mapping_class.respond_to?(:xml_mapping_instance) &&
-                mapping_class.xml_mapping_instance
-                               mapping_class.xml_mapping_instance
-                             else
-                               mapping_class.new
-                             end
-
-            # --- Inherit namespaces ---
-            existing_ns = @xml_mapping.namespace_scope || []
-            parent_ns = parent_mapping.namespace_scope || []
-            all_ns = (existing_ns + parent_ns).uniq
-            @xml_mapping.namespace_scope(all_ns) if all_ns.any?
-            # Also copy namespace_scope_config if present
-            if parent_mapping.respond_to?(:namespace_scope_config) &&
-                (parent_ns_config = parent_mapping.namespace_scope_config) &&
-                parent_ns_config.any?
-              existing_ns_config = @xml_mapping.namespace_scope_config || []
-              merged_ns_config = (existing_ns_config + parent_ns_config).uniq
-              @xml_mapping.instance_variable_set(:@namespace_scope_config,
-                                                 merged_ns_config)
-            end
-
-            # --- Inherit element mappings ---
-            parent_mapping.mapping_elements_hash.each do |key, rule|
-              existing = @xml_mapping.mapping_elements_hash[key]
-              if existing.nil?
-                # No existing mapping - add parent's rule
-                @xml_mapping.instance_variable_get(:@elements)[key] =
-                  rule.deep_dup
-              elsif existing.is_a?(Array) && rule.is_a?(Array)
-                # Both arrays - merge, dedupe
-                merged = existing + rule.reject do |r|
-                  existing.any? do |e|
-                    e.eql?(r)
-                  end
-                end
-                @xml_mapping.instance_variable_get(:@elements)[key] = merged
-              elsif existing.is_a?(Array)
-                # Existing is array, parent has single
-                unless existing.any? { |e| e.eql?(rule) }
-                  existing << rule.deep_dup
-                end
-              elsif rule.is_a?(Array)
-                # Parent has array, existing is single
-                unless rule.any? { |r| r.eql?(existing) }
-                  @xml_mapping.instance_variable_get(:@elements)[key] =
-                    [existing, *rule]
-                end
-              elsif !existing.eql?(rule)
-                # Different single rules - convert to polymorphic array
-                @xml_mapping.instance_variable_get(:@elements)[key] =
-                  [existing, rule.deep_dup]
-              end
-            end
-
-            # --- Inherit attribute mappings ---
-            parent_mapping.mapping_attributes_hash.each do |key, rule|
-              existing = @xml_mapping.mapping_attributes_hash[key]
-              if existing.nil?
-                @xml_mapping.instance_variable_get(:@attributes)[key] =
-                  rule.deep_dup
-              elsif existing.is_a?(Array) && rule.is_a?(Array)
-                merged = existing + rule.reject do |r|
-                  existing.any? do |e|
-                    e.eql?(r)
-                  end
-                end
-                @xml_mapping.instance_variable_get(:@attributes)[key] = merged
-              elsif existing.is_a?(Array)
-                unless existing.any? { |e| e.eql?(rule) }
-                  existing << rule.deep_dup
-                end
-              elsif rule.is_a?(Array)
-                unless rule.any? { |r| r.eql?(existing) }
-                  @xml_mapping.instance_variable_get(:@attributes)[key] =
-                    [existing, *rule]
-                end
-              elsif !existing.eql?(rule)
-                @xml_mapping.instance_variable_get(:@attributes)[key] =
-                  [existing, rule.deep_dup]
-              end
-            end
-
-            # --- Inherit element/root configuration ---
-            if parent_mapping.element_name && !@xml_mapping.element_name
-              @xml_mapping.element(parent_mapping.element_name)
-            end
-
-            if parent_mapping.namespace_class &&
-                !@xml_mapping.instance_variable_get(:@namespace_class)
-              @xml_mapping.namespace(parent_mapping.namespace_class)
-            end
-
-            if parent_mapping.namespace_param == :inherit &&
-                !@xml_mapping.instance_variable_get(:@namespace_set)
-              @xml_mapping.namespace(:inherit)
-            end
-
-            # Store parent reference
-            @xml_mapping.inherit_from(mapping_class)
-
-            # Evaluate any additional block
-            @xml_mapping.instance_eval(&block) if block
-
-            # CRITICAL: Also store in mappings[:xml] so the transformer can find it.
-            # The mappings hash is initialized via initialize_attrs which deep-copies
-            # from the parent. We must overwrite it with our merged mapping.
-            mappings[:xml] = @xml_mapping
-
-            @xml_mapping
-          else
-            process_mapping(format, &block)
-          end
+          process_mapping(format, *args, &block)
         end
       end
 
@@ -235,18 +80,13 @@ module Lutaml
         end
       end
 
-      attr_accessor :element_order, :schema_location, :encoding, :doctype,
-                    :lutaml_register, :lutaml_parent, :lutaml_root, :xml_declaration_plan
-      attr_writer :ordered, :mixed
+      attr_accessor :lutaml_register, :lutaml_parent, :lutaml_root
 
       def initialize(attrs = {}, options = {})
         @using_default = {}
         @lutaml_register = extract_register_id(attrs, options)
         return unless self.class.attributes(@lutaml_register)
 
-        set_ordering(attrs)
-        set_schema_location(attrs)
-        set_doctype(attrs)
         initialize_attributes(attrs, options)
         define_singleton_attribute_methods
 
@@ -319,78 +159,6 @@ module Lutaml
         attr.validate_value!(value, lutaml_register, resolver)
       end
 
-      def ordered?
-        !!@ordered
-      end
-
-      def mixed?
-        !!@mixed
-      end
-
-      # Iterate over content in document order.
-      #
-      # Yields String (text nodes) and Lutaml::Model::Serializable (inline elements).
-      # Works for both:
-      #   - Mixed content: text + elements interleaved
-      #   - Ordered content: elements only, but in specific sequence
-      #
-      # Returns self when called with a block, Enumerator when called without.
-      #
-      # @example
-      #   para.each_mixed_content { |item| puts item.inspect }
-      #   # For mixed content => "Hello ", #<Emphasis>, "!"
-      #   # For ordered only => #<Item "first">, #<Item "second">
-      #
-      # @return [self, Enumerator] self if block given, Enumerator otherwise
-      def each_mixed_content
-        return to_enum(:each_mixed_content) unless block_given?
-        # Only iterate for mixed or ordered content
-        return unless element_order && (mixed? || ordered?)
-
-        # Get the XML mapping for this class
-        xml_mapping = self.class.mappings_for(:xml, lutaml_register)
-        return unless xml_mapping
-
-        # Build lookup: element name -> attribute name
-        # @elements maps namespaced names to MappingRule or Array<MappingRule>
-        # Note: rule.name is a Symbol but el.name from element_order is a String
-        # We store both to handle the mismatch
-        element_to_attr = {}
-        xml_mapping.mapping_elements_hash.each_value do |rule_or_array|
-          Array(rule_or_array).each do |rule|
-            element_to_attr[rule.name] = rule.to
-            element_to_attr[rule.name.to_s] = rule.to if rule.name.is_a?(Symbol)
-          end
-        end
-
-        # Track current index for each collection attribute
-        # Using ::Hash to avoid conflict with Lutaml::Model::Hash
-        collection_indices = ::Hash.new(0)
-
-        element_order.each do |el|
-          if el.text?
-            # Text node - yield the text content (skip whitespace-only)
-            text = el.text_content
-            yield(text) if text && !text.strip.empty?
-          elsif el.element?
-            # Element node - look up mapped collection and get next item
-            attr_name = element_to_attr[el.name]
-            next unless attr_name
-
-            collection = send(attr_name)
-            next unless collection.is_a?(Array)
-
-            index = collection_indices[attr_name]
-            collection_indices[attr_name] += 1
-
-            obj = collection[index]
-            yield(obj) if obj
-          end
-        end
-
-        self
-      end
-
       def key_exist?(hash, key)
         hash.key?(key.to_sym) || hash.key?(key.to_s)
       end
@@ -410,88 +178,39 @@ module Lutaml
         self.class.as_yaml(self)
       end
 
-      # Serialize to a specific format
-      #
-      # @param format [Symbol] The format to serialize to (:xml, :json, :yaml, :toml, :hash)
-      # @param options [Hash] Serialization options
-      # @option options [Symbol, String, Boolean] :prefix XML namespace prefix control
-      #   - nil (default): Preserve input format during round-trip
-      #   - true: Force prefix format using namespace's prefix_default
-      #   - :default: Force default namespace format (no prefix on element)
-      #   - String: Use custom prefix string (e.g., 'custom')
-      #   For round-trip fidelity, the original namespace URI (alias or canonical)
-      #   is always preserved when available, regardless of this option.
       def to_format(format, options = {})
+        # Hook for format-specific validation (e.g., XML root mapping check)
         validate_root_mapping!(format, options)
 
-        # Handle prefix option for XML (converts to use_prefix for transformation phase)
-        # This must happen BEFORE self.class.to is called so transformation sees use_prefix
-        if format == :xml && options.key?(:prefix)
-          prefix_option = options[:prefix]
-          case prefix_option
-          when true
-            options[:use_prefix] = true
-          when String
-            options[:use_prefix] = prefix_option
-          when false, :default, nil
-            options[:use_prefix] = false
-          end
-          options.delete(:prefix)
-        end
-
         # Pass instance's lutaml_register if not explicitly provided
-        # NOTE: lutaml_register is always defined on Serialize instances
         options[:register] ||= lutaml_register if lutaml_register
 
-        options[:parse_encoding] = encoding if encoding
-        options[:doctype] = doctype if format == :xml && doctype
-
-        # Pass XML declaration info for Issue #1: XML Declaration Preservation
-        if format == :xml && @xml_declaration
-          options[:xml_declaration] = @xml_declaration
-        end
-
-        # Pass input namespaces for Issue #3: Namespace Preservation
-        if format == :xml && @xml_input_namespaces&.any?
-          options[:input_namespaces] = @xml_input_namespaces
-        end
-
-        # Pass stored DeclarationPlan for format preservation
-        # NOTE: xml_declaration_plan is always defined on Serialize instances
-        if format == :xml && xml_declaration_plan
-          options[:stored_xml_declaration_plan] = xml_declaration_plan
-        end
+        # Hook for format-specific options preparation
+        # XML overrides to handle prefix, doctype, declaration, namespaces
+        prepare_instance_format_options(format, options)
 
         self.class.to(format, self, options)
       end
 
+      # Hook for format-specific instance-level options preparation.
+      # XML overrides via InstanceMethods prepend.
+      #
+      # @param _format [Symbol] The format
+      # @param _options [Hash] Options hash (modified in place)
+      def prepare_instance_format_options(_format, _options)
+        # No-op by default
+      end
+
+      # Hook for format-specific root mapping validation.
+      # XML overrides via InstanceMethods prepend.
+      #
+      # @param _format [Symbol] The format
+      # @param _options [Hash] Options hash
+      def validate_root_mapping!(_format, _options)
+        # No-op by default
+      end
+
       private
-
-      def validate_root_mapping!(format, options)
-        return if format != :xml
-        return if options[:collection] || self.class.root?(lutaml_register)
-
-        raise Lutaml::Model::NoRootMappingError.new(self.class)
-      end
-
-      def set_ordering(attrs)
-        return unless attrs.respond_to?(:ordered?)
-
-        @ordered = attrs.ordered?
-        @element_order = attrs.item_order
-      end
-
-      def set_schema_location(attrs)
-        return unless attrs.key?(:schema_location)
-
-        self.schema_location = attrs[:schema_location]
-      end
-
-      def set_doctype(attrs)
-        return unless attrs.key?(:doctype)
-
-        self.doctype = attrs[:doctype]
-      end
 
       # Define attribute accessor methods on the instance's singleton class
       # for attributes that are register-specific (not defined at class level).

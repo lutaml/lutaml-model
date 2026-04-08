@@ -8,40 +8,14 @@ module Lutaml
       # Extracted from serialize.rb to improve code organization.
       # Provides methods for class initialization and namespace handling.
       module Initialization
-        # Class-level directive to set the namespace for this Model
+        # Class-level namespace getter/setter.
         #
-        # @deprecated Class-level namespace directive is deprecated for Serializable classes.
-        #   Use namespace inside xml/json/yaml blocks instead:
-        #     xml do
-        #       namespace YourNamespace
-        #     end
+        # No-op by default. When XML format is loaded, this is overridden
+        # via prepend to provide XML namespace handling.
         #
-        # @param ns_class [Class, nil] XmlNamespace class to associate with this model
-        # @return [Class, nil] the XmlNamespace class
-        #
-        # @example INCORRECT: Class-level (deprecated, does nothing)
-        #   class CustomModel < Lutaml::Model::Serializable
-        #     namespace CustomNamespace  # Does nothing!
-        #   end
-        #
-        # @example CORRECT: Inside xml block
-        #   class CustomModel < Lutaml::Model::Serializable
-        #     xml do
-        #       namespace CustomNamespace  # Works correctly
-        #     end
-        #   end
-        def namespace(ns_class = nil)
-          if ns_class
-            unless ns_class.is_a?(Class) && ns_class < Lutaml::Xml::Namespace
-              raise ArgumentError,
-                    "namespace must be an XmlNamespace class, got #{ns_class.class}"
-            end
-
-            # Warn about class-level namespace usage for Serializable classes
-            warn_class_level_namespace_usage(ns_class)
-
-            @namespace_class = ns_class
-          end
+        # @param _ns_class [Class, nil] Namespace class (handled by format modules)
+        # @return [Class, nil] the namespace class
+        def namespace(_ns_class = nil)
           @namespace_class
         end
 
@@ -49,14 +23,14 @@ module Lutaml
         #
         # @return [String, nil] the namespace URI
         def namespace_uri
-          @namespace_class&.uri
+          nil
         end
 
         # Get the default namespace prefix for this Model
         #
         # @return [String, nil] the namespace prefix
         def namespace_prefix
-          @namespace_class&.prefix_default
+          nil
         end
 
         # Set the register context for this Model class.
@@ -151,11 +125,17 @@ module Lutaml
           ensure_model_imports!(register)
           ensure_choice_imports!(register)
           ensure_restrict_attributes!(register)
-          # REMOVED: XML mapping resolution here causes exponential cascade
-          # Mappings will be resolved lazily in mappings_for when actually needed
-          # CRITICAL: Ensure XML mapping imports are resolved (including sequence imports)
-          # This handles deferred imports inside sequence blocks
-          mappings[:xml]&.ensure_mappings_imported!(register)
+          # Hook for format-specific mapping import resolution.
+          # XML overrides this to call mappings[:xml]&.ensure_mappings_imported!(register)
+          ensure_format_mapping_imports!(register)
+        end
+
+        # Hook for format-specific mapping import resolution.
+        # Override in format modules (e.g., XML prepends to resolve XML mapping imports).
+        #
+        # @param _register [Symbol, nil] The register context
+        def ensure_format_mapping_imports!(_register = nil)
+          # No-op by default; XML overrides via prepend
         end
 
         # Clear all cached data for this model class
@@ -194,12 +174,6 @@ module Lutaml
         #
         # @param klass [Class] The model class
         def add_custom_handling_methods_to_model(klass)
-          Utils.add_boolean_accessor_if_not_defined(klass, :ordered)
-          Utils.add_boolean_accessor_if_not_defined(klass, :mixed)
-          Utils.add_accessor_if_not_defined(klass, :element_order)
-          Utils.add_accessor_if_not_defined(klass, :encoding)
-          Utils.add_accessor_if_not_defined(klass, :doctype)
-
           Utils.add_method_if_not_defined(klass,
                                           :using_default_for) do |attribute_name|
             @using_default ||= {}
@@ -217,6 +191,17 @@ module Lutaml
             @using_default ||= {}
             !!@using_default[attribute_name]
           end
+
+          # Hook for format-specific model methods (e.g., XML adds ordered, mixed, element_order)
+          add_format_specific_model_methods(klass)
+        end
+
+        # Hook for format-specific model methods.
+        # XML overrides via FormatConversion prepend to add XML accessors.
+        #
+        # @param _klass [Class] The model class
+        def add_format_specific_model_methods(_klass)
+          # No-op by default
         end
 
         # Cast a value (pass-through implementation)
@@ -232,8 +217,8 @@ module Lutaml
         # @param min [Integer] Minimum number of choices
         # @param max [Integer] Maximum number of choices
         # @param block [Proc] The choice definition block
-        def choice(min: 1, max: 1, &block)
-          @choice_attributes << Choice.new(self, min, max).tap do |c|
+        def choice(min: 1, max: 1, format: nil, &block)
+          @choice_attributes << Choice.new(self, min, max, format: format).tap do |c|
             c.instance_eval(&block)
           end
         end
@@ -262,44 +247,6 @@ module Lutaml
         # @return [Symbol] The normalized register ID
         def extract_register_id(register)
           register&.to_sym || Lutaml::Model::Config.default_register
-        end
-
-        # Issue deprecation warning for class-level namespace usage
-        #
-        # @param ns_class [Class] The namespace class
-        def warn_class_level_namespace_usage(ns_class)
-          return if @namespace_warning_issued
-
-          warn <<~WARNING
-            [Lutaml::Model] DEPRECATION WARNING: Class-level `namespace` directive is deprecated for Serializable classes.
-            Class: #{name}
-            Namespace: #{ns_class.name} (#{ns_class.uri})
-
-            The class-level namespace directive does NOT apply namespace prefixes during serialization.
-
-            INCORRECT (current usage):
-              class #{name} < Lutaml::Model::Serializable
-                namespace #{ns_class.name}  # Does nothing!
-            #{'    '}
-                xml do
-                  element "element"
-                  map_element "field", to: :field
-                end
-              end
-
-            CORRECT (use namespace inside xml block):
-              class #{name} < Lutaml::Model::Serializable
-                xml do
-                  element "element"
-                  namespace #{ns_class.name}  # Works correctly!
-                  map_element "field", to: :field
-                end
-              end
-
-            This warning will become an error in the next major release.
-          WARNING
-
-          @namespace_warning_issued = true
         end
       end
     end

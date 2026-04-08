@@ -4,17 +4,18 @@ module Lutaml
   module Model
     class Sequence
       attr_accessor :model
-      attr_reader :attributes
+      attr_reader :attributes, :format
 
-      def initialize(model)
+      def initialize(model, format: nil)
         @attributes = []
         @model = model
+        @format = format
       end
 
       # Deep copy a sequence, creating independent copies of attributes
       # The model reference is updated to point to the new parent mapping
       def deep_dup(new_model = nil)
-        dup_seq = Sequence.new(new_model || @model)
+        dup_seq = Sequence.new(new_model || @model, format: @format)
         dup_seq.instance_variable_set(:@attributes, Utils.deep_dup(@attributes))
         dup_seq
       end
@@ -47,10 +48,12 @@ module Lutaml
         # This mimics XSD where using a complexType in a sequence means
         # adopting both its structure and its serialization rules
 
-        # Import serialization mappings first (XML element names → model attributes)
+        # Import serialization mappings first (element names → model attributes)
         @model.import_model_mappings(model, register)
-        @attributes.concat(Utils.deep_dup(model.mappings_for(:xml,
-                                                             register).elements(register)))
+        if @format
+          @attributes.concat(Utils.deep_dup(model.mappings_for(@format,
+                                                               register).elements(register)))
+        end
       end
 
       def map_attribute(*)

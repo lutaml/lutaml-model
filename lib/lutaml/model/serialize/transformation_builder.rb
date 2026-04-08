@@ -40,28 +40,27 @@ module Lutaml
         # @param register_id [Symbol] The register ID
         # @return [Transformation] The transformation instance
         def build_transformation(format, register_id)
-          # Ensure mappings are imported before building transformation
-          if format == :xml && mappings[:xml]
-            mappings[:xml].ensure_mappings_imported!(register_id)
-          end
-
           # Get the mapping DSL for this format
           mapping_dsl = mappings_for(format, register_id)
 
           # Pass register_id directly (Attribute#type handles Symbol)
 
-          # Create format-specific transformation
+          # Create format-specific transformation using registered builders
+          # XML builder is registered by Lutaml::Xml at load time via
+          # TransformationRegistry.register_builder(:xml, ...)
           case format
-          when :xml
-            Lutaml::Xml::Transformation.new(self, mapping_dsl, format,
-                                            register_id)
           when :json, :yaml, :toml, :hash
             # Key-value formats use KeyValue::Transformation (symmetric OOP architecture)
             Lutaml::KeyValue::Transformation.new(self, mapping_dsl,
                                                  format, register_id)
           else
-            # For other formats, return mapping_dsl as stub for backward compatibility
-            mapping_dsl
+            # For other formats (including :xml), use registered builder or return mapping_dsl
+            builder = TransformationRegistry.builder_for(format)
+            if builder
+              builder.build(self, mapping_dsl, format, register_id)
+            else
+              mapping_dsl
+            end
           end
         end
 

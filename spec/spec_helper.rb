@@ -70,6 +70,7 @@ end
 
 # configuration example
 require_relative "../lib/lutaml/model"
+require_relative "../lib/lutaml/xml"
 require_relative "support/test_namespaces"
 require_relative "support/test_adapter_config"
 # require_relative "../lib/lutaml/xml/adapter/nokogiri_adapter"

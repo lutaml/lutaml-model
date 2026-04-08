@@ -11,8 +11,9 @@ module Lutaml
         # Process mapping DSL for a format
         #
         # @param format [Symbol] The format (:xml, :json, etc.)
+        # @param args [Array] Additional arguments (e.g., mapping class for XML)
         # @param block [Proc] The DSL block to evaluate
-        def process_mapping(format, &)
+        def process_mapping(format, *_args, &)
           klass = ::Lutaml::Model::Config.mappings_class_for(format)
           mappings[format] ||= klass.new
           mappings[format].instance_eval(&)
@@ -21,7 +22,15 @@ module Lutaml
             mappings[format].finalize(self)
           end
 
-          check_sort_configs! if format == :xml
+          post_process_mapping(format)
+        end
+
+        # Hook for format-specific post-processing after mapping DSL evaluation.
+        # XML overrides this to call check_sort_configs!.
+        #
+        # @param _format [Symbol] The format
+        def post_process_mapping(_format)
+          # No-op by default; XML overrides via prepend
         end
 
         # Deserialize from a format
@@ -36,13 +45,11 @@ module Lutaml
 
             raise Lutaml::Model::FormatAdapterNotSpecifiedError.new(format) if adapter.nil?
 
-            # CRITICAL: Resolve ALL imports at the ENTRY POINT of deserialization
-            # This ensures symbol-based imports registered after class definition are resolved
-            # before we start parsing the document
+            # Resolve imports at the entry point of deserialization
             register = options[:register] || Lutaml::Model::Config.default_register
-            if format == :xml && mappings[:xml]
-              mappings[:xml].ensure_mappings_imported!(register)
-            end
+
+            # Hook for format-specific pre-deserialization (e.g., XML mapping import resolution)
+            pre_deserialize_hook(format, register)
 
             # Recursively resolve child model imports
             # This ensures the entire model tree is finalized before parsing
@@ -55,7 +62,18 @@ module Lutaml
           raise Lutaml::Model::InvalidFormatError.new(format, e.message)
         end
 
-        # Get list of error types that can be raised during format parsing
+        # Hook for format-specific pre-deserialization logic.
+        # XML overrides to resolve XML mapping imports.
+        #
+        # @param _format [Symbol] The format
+        # @param _register [Symbol] The register
+        def pre_deserialize_hook(_format, _register)
+          # No-op by default; XML overrides via prepend
+        end
+
+        # Get list of error types that can be raised during format parsing.
+        # Core errors are always included; format-specific errors come from
+        # FormatRegistry registrations.
         #
         # @return [Array<Class>] List of error classes
         def format_error_types
@@ -67,10 +85,18 @@ module Lutaml
             ArgumentError,
           ]
 
+          # Collect format-specific error types from FormatRegistry
+          FormatRegistry.all.each_value do |info|
+            next unless info[:error_types]
+
+            info[:error_types].each do |error_class|
+              cls = error_class.is_a?(String) ? safe_get_const(error_class) : error_class
+              errors << cls
+            end
+          end
+
+          # Legacy TOML error types (key-value formats without explicit registration)
           %w[
-            Nokogiri::XML::SyntaxError
-            Ox::ParseError
-            REXML::ParseException
             TomlRB::ParseError
             Tomlib::ParseError
           ].each do |error_class|
@@ -104,20 +130,25 @@ module Lutaml
           end
 
           register = extract_register_id(options[:register])
-          if format == :xml
-            valid = root?(register) || options[:from_collection]
-            raise Lutaml::Model::NoRootMappingError.new(self) unless valid
 
-            options[:encoding] = doc.encoding
-            if doc.respond_to?(:doctype) && doc.doctype
-              options[:doctype] =
-                doc.doctype
-            end
-          end
+          # Hook for format-specific document validation (e.g., XML root/encoding/doctype)
+          validate_document(format, doc, options, register)
+
           options[:register] = register
 
           transformer = Lutaml::Model::Config.transformer_for(format)
           transformer.data_to_model(self, doc, format, options)
+        end
+
+        # Hook for format-specific document validation.
+        # XML overrides to validate root mapping and extract encoding/doctype.
+        #
+        # @param _format [Symbol] The format
+        # @param _doc [Object] The parsed document
+        # @param _options [Hash] Options hash (may be modified)
+        # @param _register [Symbol] The register
+        def validate_document(_format, _doc, _options, _register)
+          # No-op by default; XML overrides via prepend
         end
 
         # Serialize a model instance to a format
@@ -138,42 +169,8 @@ module Lutaml
             value = public_send(:"as_#{format}", instance, options)
             adapter = Lutaml::Model::Config.adapter_for(format)
 
-            options[:mapper_class] = self if format == :xml
-
-            # Handle prefix option for XML
-            if format == :xml && options.key?(:prefix)
-              prefix_option = options[:prefix]
-              mappings_for(:xml)
-
-              case prefix_option
-              when true
-                # Force prefix format for all namespaces
-                # Each namespace uses its own prefix_default
-                options[:use_prefix] = true
-              when String
-                # Use specific custom prefix
-                options[:use_prefix] = prefix_option
-              when false, :default
-                # Explicitly force default format (disable format preservation)
-                options[:use_prefix] = false
-              end
-              # If prefix_option is nil, don't set use_prefix (allow format preservation)
-              options.delete(:prefix) # Remove original option
-            end
-
-            # Apply namespace prefix overrides for XML format
-            if format == :xml && options[:namespaces]
-              options = apply_namespace_overrides(options)
-            end
-
-            # Retrieve stored declaration plan from model instance for namespace preservation.
-            # This plan captures the original namespace declarations from the parsed XML,
-            # enabling round-trip fidelity for unused namespaces (like xmlns:xi for XInclude).
-            if format == :xml && instance.respond_to?(:xml_declaration_plan) &&
-                !options.key?(:stored_xml_declaration_plan)
-              stored_plan = instance.xml_declaration_plan
-              options[:stored_xml_declaration_plan] = stored_plan if stored_plan
-            end
+            # Hook for format-specific options preparation (e.g., XML prefix/namespace/declaration)
+            options = prepare_to_options(format, instance, options)
 
             adapter.new(value, register: options[:register]).public_send(
               :"to_#{format}", options
@@ -181,31 +178,14 @@ module Lutaml
           end
         end
 
-        # Apply namespace prefix overrides for XML serialization
+        # Hook for format-specific options preparation before serialization.
+        # XML overrides to handle prefix, namespace overrides, declaration plan.
         #
+        # @param _format [Symbol] The format
+        # @param _instance [Object] The model instance
         # @param options [Hash] The options hash
         # @return [Hash] The modified options hash
-        def apply_namespace_overrides(options)
-          namespaces = options[:namespaces]
-          return options unless namespaces.is_a?(Array)
-
-          # Build a namespace URI to prefix mapping
-          ns_prefix_map = {}
-          namespaces.each do |ns_config|
-            if ns_config.is_a?(Hash)
-              ns_class = ns_config[:namespace]
-              prefix = ns_config[:prefix]
-
-              if ns_class.is_a?(Class) && ns_class < Lutaml::Xml::Namespace && prefix
-                ns_prefix_map[ns_class.uri] = prefix.to_s
-              end
-            end
-          end
-
-          unless ns_prefix_map.empty?
-            options[:namespace_prefix_map] =
-              ns_prefix_map
-          end
+        def prepare_to_options(_format, _instance, options)
           options
         end
 
@@ -225,29 +205,41 @@ module Lutaml
             raise Lutaml::Model::IncorrectModelError, msg
           end
 
-          # CRITICAL: Resolve ALL imports at the START of serialization
-          # This ensures symbol-based imports registered after class definition are resolved
-          # before we start building the document, without triggering infinite loops
+          # Resolve imports at the start of serialization
           register = options[:register] || Lutaml::Model::Config.default_register
 
-          # Resolve top-level mapping imports
-          if format == :xml && mappings[:xml]
-            mappings[:xml].ensure_mappings_imported!(register)
-          end
+          # Hook for format-specific pre-serialization (e.g., XML mapping import resolution)
+          pre_serialize_hook(format, register)
 
           # Recursively resolve child model imports
-          # This ensures the entire model tree is finalized before serialization
           ensure_child_imports_resolved!(register)
 
           transformer = Lutaml::Model::Config.transformer_for(format)
           transformer.model_to_data(self, instance, format, options)
         end
 
-        # Define key-value mappings for multiple formats
+        # Hook for format-specific pre-serialization logic.
+        # XML overrides to resolve XML mapping imports.
+        #
+        # @param _format [Symbol] The format
+        # @param _register [Symbol] The register
+        def pre_serialize_hook(_format, _register)
+          # No-op by default; XML overrides via prepend
+        end
+
+        # Define key-value mappings for multiple formats.
+        # Uses FormatRegistry to discover key-value formats dynamically,
+        # falling back to Config::KEY_VALUE_FORMATS for bootstrap.
         #
         # @param block [Proc] The DSL block
         def key_value(&block)
-          Lutaml::Model::Config::KEY_VALUE_FORMATS.each do |format|
+          formats = if FormatRegistry.formats.any?
+                      FormatRegistry.key_value_formats
+                    else
+                      Lutaml::Model::Config::KEY_VALUE_FORMATS
+                    end
+
+          formats.each do |format|
             mappings[format] ||= Lutaml::KeyValue::Mapping.new(format)
             mappings[format].instance_eval(&block)
             mappings[format].finalize(self)

@@ -27,12 +27,6 @@ module Lutaml
           value&.iso8601
         end
 
-        # This is to handle where Ruby's YAML safe_load does not handle
-        # the Date/Time classes
-        def to_yaml
-          value&.iso8601.to_s
-        end
-
         # Default XSD type for Date
         #
         # @return [String] xs:date

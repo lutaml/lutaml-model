@@ -29,19 +29,6 @@ module Lutaml
     #   TransformationRegistry.register_builder(:protobuf, ProtobufBuilder)
     class TransformationRegistry
       class << self
-        # Get default builders (lazy initialization to avoid load order issues)
-        #
-        # @return [Hash] Default builders for built-in formats
-        def default_builders
-          @default_builders ||= {
-            xml: ::Lutaml::Xml::TransformationBuilder,
-            json: ::Lutaml::KeyValue::TransformationBuilder,
-            yaml: ::Lutaml::KeyValue::TransformationBuilder,
-            toml: ::Lutaml::KeyValue::TransformationBuilder,
-            hash: ::Lutaml::KeyValue::TransformationBuilder,
-          }.freeze
-        end
-
         # Get singleton instance
         def instance
           @instance ||= new
@@ -51,6 +38,10 @@ module Lutaml
         #
         # This allows extending TransformationRegistry with new formats
         # without modifying its code (Open/Closed Principle).
+        #
+        # Builders are registered at load time by each format module:
+        # - XML: registered by lib/lutaml/xml.rb
+        # - KeyValue formats: registered by lib/lutaml/key_value.rb
         #
         # @param format [Symbol] The format to register (e.g., :protobuf)
         # @param builder [Class] A class that inherits from TransformationBuilder
@@ -64,8 +55,13 @@ module Lutaml
                   "Builder must inherit from TransformationBuilder"
           end
 
-          @builders ||= default_builders.dup
+          @builders ||= {}
           @builders[format] = builder
+
+          # Track load-time registrations so reset can restore them
+          # Only record the first registration per format as the default
+          @default_builders ||= {}
+          @default_builders[format] ||= builder
         end
 
         # Get the registered builder for a format.
@@ -73,15 +69,18 @@ module Lutaml
         # @param format [Symbol] The format
         # @return [Class, nil] The builder class or nil
         def builder_for(format)
-          @builders ||= default_builders.dup
+          @builders ||= {}
           @builders[format]
         end
 
-        # Reset builders to defaults (useful for testing)
+        # Reset builders to load-time defaults (useful for testing)
+        #
+        # Restores the builders to the set registered at load time,
+        # removing any test-specific overrides.
         #
         # @return [void]
         def reset_builders!
-          @builders = default_builders.dup
+          @builders = (@default_builders || {}).dup
         end
       end
 

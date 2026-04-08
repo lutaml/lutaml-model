@@ -24,4 +24,5 @@ Lutaml::Model::FormatRegistry.register(
   mapping_class: Lutaml::Yamls::Adapter::Mapping,
   adapter_class: Lutaml::Yamls::Adapter::StandardAdapter,
   transformer: Lutaml::Yamls::Adapter::Transform,
+  key_value: true,
 )

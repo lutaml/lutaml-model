@@ -286,19 +286,18 @@ RSpec.describe Lutaml::Xml::W3c do
     end
   end
 
-  describe "W3C types loaded with require 'lutaml/model'" do
-    # Regression test: ensure W3C types are registered when require "lutaml/model"
-    # is called, without requiring any additional explicit requires.
-    # This tests the fix for: https://github.com/riboseinc/lutaml-model/issues/XXX
+  describe "W3C types loaded with require 'lutaml/xml'" do
+    # Regression test: ensure W3C types are registered when require "lutaml/xml"
+    # is called. W3C types are XML-specific and require the XML plugin.
 
     let(:lib_path) { File.expand_path("../../../lib", __dir__) }
 
-    it "registers all W3C types in Type registry after require 'lutaml/model'" do
+    it "registers all W3C types in Type registry after require 'lutaml/xml'" do
       # Use subprocess to ensure fresh require - write code to temp file to avoid shell escaping issues
       temp_script = Tempfile.new(["w3c_test", ".rb"])
       begin
         temp_script.write(<<~RUBY)
-          require "lutaml/model"
+          require "lutaml/xml"
           types = [:xml_lang, :xml_space, :xml_base, :xml_id,
                     :xsi_type, :xsi_nil, :xsi_schema_location, :xsi_no_namespace_schema_location,
                     :xlink_href, :xlink_type, :xlink_role, :xlink_arcrole,
@@ -313,18 +312,18 @@ RSpec.describe Lutaml::Xml::W3c do
         # rubocop:enable Style/CommandLiteral
 
         expect($?.success?).to be(true),
-                               "W3C types not registered after require 'lutaml/model'. " \
+                               "W3C types not registered after require 'lutaml/xml'. " \
                                "Types should be automatically loaded. Output: #{result}"
       ensure
         temp_script.unlink
       end
     end
 
-    it "allows Type.lookup for all W3C symbols after require 'lutaml/model'" do
+    it "allows Type.lookup for all W3C symbols after require 'lutaml/xml'" do
       temp_script = Tempfile.new(["w3c_test", ".rb"])
       begin
         temp_script.write(<<~RUBY)
-          require "lutaml/model"
+          require "lutaml/xml"
           types = [:xml_lang, :xml_space, :xml_base, :xml_id,
                     :xsi_type, :xsi_nil, :xsi_schema_location, :xsi_no_namespace_schema_location,
                     :xlink_href, :xlink_type, :xlink_role, :xlink_arcrole,
@@ -341,18 +340,18 @@ RSpec.describe Lutaml::Xml::W3c do
         # rubocop:enable Style/CommandLiteral
 
         expect($?.success?).to be(true),
-                               "Type.lookup failed for W3C symbols after require 'lutaml/model'. " \
+                               "Type.lookup failed for W3C symbols after require 'lutaml/xml'. " \
                                "Output: #{result}"
       ensure
         temp_script.unlink
       end
     end
 
-    it "allows symbol-based attribute definition after require 'lutaml/model'" do
+    it "allows symbol-based attribute definition after require 'lutaml/xml'" do
       temp_script = Tempfile.new(["w3c_test", ".rb"])
       begin
         temp_script.write(<<~RUBY)
-          require "lutaml/model"
+          require "lutaml/xml"
           Class.new(Lutaml::Model::Serializable) do
             attribute :href, :xlink_href
             attribute :lang, :xml_lang
@@ -367,7 +366,7 @@ RSpec.describe Lutaml::Xml::W3c do
         # rubocop:enable Style/CommandLiteral
 
         expect($?.success?).to be(true),
-                               "Symbol-based attribute definition failed after require 'lutaml/model'. " \
+                               "Symbol-based attribute definition failed after require 'lutaml/xml'. " \
                                "Output: #{result}"
       ensure
         temp_script.unlink

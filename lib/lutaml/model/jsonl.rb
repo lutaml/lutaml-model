@@ -24,4 +24,5 @@ Lutaml::Model::FormatRegistry.register(
   mapping_class: Lutaml::Jsonl::Adapter::Mapping,
   adapter_class: Lutaml::Jsonl::Adapter::StandardAdapter,
   transformer: Lutaml::Jsonl::Adapter::Transform,
+  key_value: true,
 )

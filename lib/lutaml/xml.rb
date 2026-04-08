@@ -8,6 +8,9 @@
 # Ensure base model is loaded
 require_relative "model"
 
+# XML requires moxml for parsing
+require "moxml"
+
 module Lutaml
   module Xml
     # Error module for XML-specific errors
@@ -79,6 +82,8 @@ module Lutaml
     end
 
     # Autoload core classes
+    autoload :Location, "#{__dir__}/xml/schema_location"
+    autoload :SchemaLocation, "#{__dir__}/xml/schema_location"
     autoload :Namespace, "#{__dir__}/xml/namespace"
     autoload :Mapping, "#{__dir__}/xml/mapping"
     autoload :MappingRule, "#{__dir__}/xml/mapping_rule"
@@ -109,6 +114,7 @@ module Lutaml
              "#{__dir__}/xml/unqualified_inheritance_strategy"
     autoload :DataModel, "#{__dir__}/xml/data_model"
     autoload :TransformationBuilder, "#{__dir__}/xml/transformation_builder"
+    autoload :AdapterLoader, "#{__dir__}/xml/adapter_loader"
     autoload :Element, "#{__dir__}/xml/element"
     autoload :ModelTransform, "#{__dir__}/xml/model_transform"
     autoload :TypeNamespaceResolver, "#{__dir__}/xml/type_namespace_resolver"
@@ -158,12 +164,80 @@ Lutaml::Model::FormatRegistry.register(
   mapping_class: Lutaml::Xml::Mapping,
   adapter_class: nil,
   transformer: Lutaml::Xml::Transform,
+  adapter_loader: Lutaml::Xml::AdapterLoader,
+  castable_type: Lutaml::Xml::XmlElement,
+  key_value: false,
+  error_types: %w[
+    Nokogiri::XML::SyntaxError
+    Ox::ParseError
+    REXML::ParseException
+  ],
+  adapter_options: {
+    available: %i[nokogiri ox oga rexml],
+    default: :nokogiri,
+  },
 )
 
-# Include XML-specific serialization methods into Serialize::ClassMethods
-Lutaml::Model::Serialize::ClassMethods.include(
+# Register XML transformation builder
+Lutaml::Model::TransformationRegistry.register_builder(
+  :xml, Lutaml::Xml::TransformationBuilder
+)
+
+# Extend Type::Value with XML configuration (namespace, xsd_type, xml block)
+Lutaml::Model::Type::Value.include(Lutaml::Xml::Type::Configurable)
+
+# Prepend XML-specific serialization hooks into Serialize::ClassMethods
+# Uses prepend so XML's hook overrides (pre_deserialize_hook, validate_document, etc.)
+# take priority over core's no-op defaults.
+Lutaml::Model::Serialize::ClassMethods.prepend(
   Lutaml::Xml::Serialization::FormatConversion,
 )
+
+# Prepend XML-specific ModelImport overrides (root?, ensure_format_mapping_imports!, etc.)
+Lutaml::Model::Serialize::ModelImport.prepend(
+  Lutaml::Xml::Serialization::ModelImportExt,
+)
+
+# Prepend XML-specific instance methods (xml_declaration_plan, validate_root_mapping!, etc.)
+Lutaml::Model::Serialize.prepend(
+  Lutaml::Xml::Serialization::InstanceMethods,
+)
+
+# Register XML-specific attribute override warning names
+Lutaml::Model::Attribute.format_specific_warn_names.push(:element_order, :schema_location, :encoding, :doctype, :ordered?, :mixed?)
+
+# Prepend XML-specific Collection overrides (no_root handling for XML)
+require_relative "xml/serialization/collection_ext"
+Lutaml::Model::Collection.singleton_class.prepend(
+  Lutaml::Xml::Serialization::CollectionExt,
+)
+
+# Register XML type serializers
+require_relative "xml/type/serializers"
+Lutaml::Xml::Type::Serializers.register_all!
+
+# Register XML schema methods
+Lutaml::Model::Schema.register_method(:to_xsd) do |klass, options = {}|
+  require_relative "xml/schema/xsd_schema"
+  Lutaml::Xml::Schema::XsdSchema.generate(klass, options)
+end
+
+Lutaml::Model::Schema.register_method(:to_relaxng) do |klass, options = {}|
+  require_relative "xml/schema/relaxng_schema"
+  Lutaml::Xml::Schema::RelaxngSchema.generate(klass, options)
+end
+
+Lutaml::Model::Schema.register_method(:from_xml) do |xml, options = {}|
+  Lutaml::Model::Schema::XmlCompiler.to_models(xml, options)
+end
+
+# Register XML namespace registry with GlobalContext
+Lutaml::Model::GlobalContext.register_format_registry(
+  :xml, Lutaml::Xml::NamespaceClassRegistry.new
+)
+
+# Eagerly load W3C namespace definitions (has registration side effects)
+require_relative "xml/w3c"
 
 # Auto-detect and set default XML adapter
 if (adapter = Lutaml::Xml.detect_xml_adapter)

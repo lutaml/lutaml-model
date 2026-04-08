@@ -48,33 +48,6 @@ module Lutaml
           end
         end
 
-        # xs:dateTime format (ISO8601 with timezone, Z for UTC)
-        def to_xml
-          return nil unless value
-
-          result = self.class.format_datetime_iso8601(value)
-          value.offset.zero? ? result.sub(/\+00:00$/, "Z") : result
-        end
-
-        # RFC3339 (ISO8601 with timezone)
-        def to_json(*_args)
-          return nil unless value
-
-          self.class.format_datetime_iso8601(value)
-        end
-
-        # YAML timestamp format (native)
-        def to_yaml
-          value&.iso8601.to_s
-        end
-
-        # TOML datetime format (RFC3339)
-        def to_toml
-          return nil unless value
-
-          self.class.format_datetime_iso8601(value)
-        end
-
         # Default XSD type for DateTime
         #
         # @return [String] xs:dateTime

@@ -40,7 +40,12 @@ Lutaml::Model::FormatRegistry.register(
   mapping_class: Lutaml::Toml::Adapter::Mapping,
   adapter_class: nil,
   transformer: Lutaml::Toml::Adapter::Transform,
+  key_value: true,
 )
+
+# Register TOML type serializers
+require_relative "../toml/type/serializers"
+Lutaml::Toml::Type::Serializers.register_all!
 
 if (adapter = Lutaml::Model::Toml.detect_toml_adapter)
   Lutaml::Model::Config.toml_adapter_type = adapter

@@ -87,7 +87,7 @@ module Lutaml
           if self <= Serializable
             raise Lutaml::Model::NoAttributesDefinedLiquidError.new(name) if attributes.empty?
 
-            register_drop_method(:element_order)
+            register_drop_method(:element_order) if method_defined?(:element_order)
 
             attributes&.each_key { |attr_name| register_drop_method(attr_name) }
           end

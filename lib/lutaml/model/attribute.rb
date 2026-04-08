@@ -37,6 +37,8 @@ module Lutaml
 
       # Methods where accidental override is likely to cause issues
       # All names are allowed - this list only controls which ones get a warning
+      # Format-specific serialization methods (to_xml, to_json, etc.) are pushed
+      # by each format plugin at load time via format_specific_warn_names.
       WARN_ON_OVERRIDE = %i[
         # Ruby core - overriding breaks fundamental behavior
         hash object_id class send method
@@ -45,16 +47,25 @@ module Lutaml
         initialize
 
         # Serialization methods - overriding breaks serialization
-        to_xml to_json to_yaml to_toml to_hash to_format
+        to_format
 
         # Internal helpers - overriding breaks internal logic
         attr_value attribute_exist? key_exist? key_value
         using_default? using_default_for value_set_for
         method_missing respond_to_missing?
-
-        # XML metadata - affects XML processing
-        element_order schema_location encoding doctype ordered? mixed?
       ].freeze
+
+      # Format-specific warning names, appended at load time by format modules.
+      # Uses a class ivar instead of a constant since it's mutated at load time.
+      @format_specific_warn_names = []
+
+      def self.format_specific_warn_names
+        @format_specific_warn_names
+      end
+
+      def self.warn_on_override_names
+        WARN_ON_OVERRIDE + @format_specific_warn_names
+      end
 
       def self.cast_type!(type)
         case type
@@ -647,7 +658,9 @@ instance_object = nil)
         # Type namespaces are ONLY declared on Type::Value subclasses,
         # not on Serializable models. Serializable models have element
         # namespaces, which are handled separately.
-        resolved_type.is_a?(Class) && resolved_type <= Lutaml::Model::Type::Value ? resolved_type.namespace_class : nil
+        if resolved_type.is_a?(Class) && resolved_type <= Lutaml::Model::Type::Value
+          resolved_type.namespace_class
+        end
       end
 
       # @api public
@@ -684,7 +697,7 @@ instance_object = nil)
         # No errors - all names are allowed
         # Only warn for methods where accidental override is problematic
         return unless reserved_methods.include?(name.to_sym)
-        return unless WARN_ON_OVERRIDE.include?(name.to_sym)
+        return unless self.class.warn_on_override_names.include?(name.to_sym)
 
         warn_name_conflict(name)
       end
@@ -721,7 +734,7 @@ instance_object = nil)
 
       def castable?(value, format)
         value.is_a?(::Hash) ||
-          (format == :xml && value.is_a?(Lutaml::Xml::XmlElement))
+          ((castable_type = FormatRegistry.castable_type_for(format)) && value.is_a?(castable_type))
       end
 
       def can_serialize?(klass, value, format, options)

@@ -45,7 +45,7 @@ module Lutaml
 
             # Add W3C require for xml: attributes
             if w3c_type?(raw_type)
-              files << "require \"lutaml/model/xml/w3c\""
+              files << "require \"lutaml/xml/w3c\""
             elsif raw_type == "decimal"
               files << "require \"bigdecimal\""
             elsif !SimpleType.skippable?(raw_type)

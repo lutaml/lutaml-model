@@ -7,6 +7,7 @@ lib_path = File.expand_path(File.join(__dir__, "..", "..", "lib"))
 $LOAD_PATH.unshift(lib_path) unless $LOAD_PATH.include?(lib_path)
 
 require "lutaml/model"
+require "lutaml/xml"
 
 class BenchmarkRunner
   def initialize(run_time: nil, items: nil, format: nil, adapter: nil,

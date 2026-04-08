@@ -583,12 +583,12 @@ mixed_content_option)
 
             child_text = child.nil_element? ? nil : child&.text
             child_cdata = child&.cdata
-            if child_text.is_a?(Array) || child_cdata.is_a?(Array)
-              # Mixed content - child elements handle their own text aggregation
-              text = nil
-            else
-              text = child_text&.+ child_cdata
-            end
+            text = if child_text.is_a?(Array) || child_cdata.is_a?(Array)
+                     # Mixed content - child elements handle their own text aggregation
+                     nil
+                   else
+                     child_text&.+ child_cdata
+                   end
             values << text
 
             # Track namespace prefix for doubly-defined namespace support.

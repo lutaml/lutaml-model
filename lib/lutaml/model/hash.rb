@@ -24,4 +24,9 @@ Lutaml::Model::FormatRegistry.register(
   mapping_class: Lutaml::HashFormat::Adapter::Mapping,
   adapter_class: Lutaml::HashFormat::Adapter::StandardAdapter,
   transformer: Lutaml::HashFormat::Adapter::Transform,
+  key_value: true,
 )
+
+# Register Hash type serializers
+require_relative "../hash_format/type/serializers"
+Lutaml::HashFormat::Type::Serializers.register_all!

@@ -712,7 +712,7 @@ module Lutaml
       alias map_all_content map_all
 
       def sequence(&block)
-        @element_sequence << ::Lutaml::Model::Sequence.new(self).tap do |s|
+        @element_sequence << ::Lutaml::Model::Sequence.new(self, format: :xml).tap do |s|
           s.instance_eval(&block)
         end
       end
@@ -1112,7 +1112,7 @@ module Lutaml
       end
 
       def sequence_dup(sequence)
-        Lutaml::Model::Sequence.new(self).tap do |instance|
+        Lutaml::Model::Sequence.new(self, format: :xml).tap do |instance|
           sequence.attributes.each do |attr|
             instance.attributes << attr.deep_dup
           end

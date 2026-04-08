@@ -55,8 +55,8 @@ module Lutaml
             Nokogiri is not set as XML Adapter.
             Make sure Nokogiri is installed and set as XML Adapter eg.
             execute: gem install nokogiri
-            require 'lutaml/model/adapter/nokogiri'
-            Lutaml::Model.xml_adapter = Lutaml::Model::Adapter::Nokogiri
+            require 'lutaml/xml'
+            Lutaml::Model::Config.xml_adapter = :nokogiri
           MSG
 
           XML_DEFINED_ATTRIBUTES = {

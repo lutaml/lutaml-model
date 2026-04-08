@@ -51,7 +51,7 @@ module Lutaml
       end
 
       def validate_sequence!(errors, names, register)
-        sequences = self.class.mappings_for(:xml, register)&.element_sequence
+        sequences = format_element_sequences(register)
         return errors if names.empty? || sequences.nil?
 
         sequences.each do |sequence|
@@ -64,8 +64,17 @@ module Lutaml
         errors << e
       end
 
+      # Hook for getting format-specific element sequences for validation.
+      # XML overrides via InstanceMethods prepend.
+      #
+      # @param _register [Symbol, nil] The register context
+      # @return [Array, nil] Element sequences or nil
+      def format_element_sequences(_register)
+        nil
+      end
+
       def order_names
-        return [] unless element_order
+        return [] unless respond_to?(:element_order) && element_order
 
         element_order.each_with_object([]) do |element, arr|
           next if element.text?
