@@ -131,7 +131,8 @@ RSpec.describe "XML decoupling from core model" do
     end
 
     it "round-trips through JSON" do
-      original = key_value_only_class.new(name: "Charlie", age: 40, active: true)
+      original = key_value_only_class.new(name: "Charlie", age: 40,
+                                          active: true)
       restored = key_value_only_class.from_json(original.to_json)
 
       expect(restored.name).to eq(original.name)
@@ -385,7 +386,8 @@ RSpec.describe "XML decoupling from core model" do
 
   describe "format-specific type serialization" do
     it "serializes Time via type wrapper for XML" do
-      time_wrapper = Lutaml::Model::Type::Time.new(Time.utc(2024, 6, 15, 10, 30, 0))
+      time_wrapper = Lutaml::Model::Type::Time.new(Time.utc(2024, 6, 15, 10,
+                                                            30, 0))
       xml_result = time_wrapper.to_xml
 
       expect(xml_result).to be_a(String)
@@ -393,7 +395,8 @@ RSpec.describe "XML decoupling from core model" do
     end
 
     it "serializes Time via type wrapper for JSON" do
-      time_wrapper = Lutaml::Model::Type::Time.new(Time.utc(2024, 6, 15, 10, 30, 0))
+      time_wrapper = Lutaml::Model::Type::Time.new(Time.utc(2024, 6, 15, 10,
+                                                            30, 0))
       json_result = time_wrapper.to_json
 
       expect(json_result).to be_a(String)

@@ -16,7 +16,8 @@ module Lutaml
         adapter_path = File.join(File.dirname(__FILE__), "adapter", type)
         require adapter_path
       rescue LoadError
-        raise Lutaml::Model::UnknownAdapterTypeError.new("xml", type), cause: nil
+        raise Lutaml::Model::UnknownAdapterTypeError.new("xml", type),
+              cause: nil
       end
 
       # Load the Moxml adapter for XML

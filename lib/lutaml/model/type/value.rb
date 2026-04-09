@@ -23,8 +23,10 @@ module Lutaml
           # @param type_class [Class] the type class (must be <= Value)
           # @param to [Proc, nil] custom instance serialization proc (receives the type instance)
           # @param from [Proc, nil] custom class deserialization proc (receives the raw value)
-          def register_format_type_serializer(format, type_class, to: nil, from: nil)
-            @format_type_serializers[[format, type_class]] = { to: to, from: from }.compact
+          def register_format_type_serializer(format, type_class, to: nil,
+from: nil)
+            @format_type_serializers[[format, type_class]] =
+              { to: to, from: from }.compact
           end
 
           # Look up a format type serializer, walking the class hierarchy.

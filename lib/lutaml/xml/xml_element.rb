@@ -24,10 +24,9 @@ module Lutaml
       # - :processing_instruction - processing instruction
       NODE_TYPES = %i[element text cdata comment processing_instruction].freeze
 
-      attr_reader :children
+      attr_reader :children, :attributes, :namespace_prefix,
+                  :namespace_prefix_explicit, :parent_document, :node_type
       attr_accessor :adapter_node
-      attr_reader :attributes, :namespace_prefix, :namespace_prefix_explicit,
-                  :parent_document, :node_type
 
       # Cache for order method - invalidated when children change
       attr_writer :order_cache

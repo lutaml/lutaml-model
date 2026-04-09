@@ -160,9 +160,12 @@ module Lutaml
         # @param klass [Class] The model class
         def add_format_specific_model_methods(klass)
           super
-          Lutaml::Model::Utils.add_boolean_accessor_if_not_defined(klass, :ordered)
-          Lutaml::Model::Utils.add_boolean_accessor_if_not_defined(klass, :mixed)
-          Lutaml::Model::Utils.add_accessor_if_not_defined(klass, :element_order)
+          Lutaml::Model::Utils.add_boolean_accessor_if_not_defined(klass,
+                                                                   :ordered)
+          Lutaml::Model::Utils.add_boolean_accessor_if_not_defined(klass,
+                                                                   :mixed)
+          Lutaml::Model::Utils.add_accessor_if_not_defined(klass,
+                                                           :element_order)
           Lutaml::Model::Utils.add_accessor_if_not_defined(klass, :encoding)
           Lutaml::Model::Utils.add_accessor_if_not_defined(klass, :doctype)
         end
@@ -280,18 +283,27 @@ module Lutaml
           parent_mapping.mapping_elements_hash.each do |key, rule|
             existing = @xml_mapping.mapping_elements_hash[key]
             if existing.nil?
-              @xml_mapping.instance_variable_get(:@elements)[key] = rule.deep_dup
+              @xml_mapping.instance_variable_get(:@elements)[key] =
+                rule.deep_dup
             elsif existing.is_a?(Array) && rule.is_a?(Array)
-              merged = existing + rule.reject { |r| existing.any? { |e| e.eql?(r) } }
+              merged = existing + rule.reject do |r|
+                existing.any? do |e|
+                  e.eql?(r)
+                end
+              end
               @xml_mapping.instance_variable_get(:@elements)[key] = merged
             elsif existing.is_a?(Array)
-              existing << rule.deep_dup unless existing.any? { |e| e.eql?(rule) }
+              existing << rule.deep_dup unless existing.any? do |e|
+                e.eql?(rule)
+              end
             elsif rule.is_a?(Array)
               unless rule.any? { |r| r.eql?(existing) }
-                @xml_mapping.instance_variable_get(:@elements)[key] = [existing, *rule]
+                @xml_mapping.instance_variable_get(:@elements)[key] =
+                  [existing, *rule]
               end
             elsif !existing.eql?(rule)
-              @xml_mapping.instance_variable_get(:@elements)[key] = [existing, rule.deep_dup]
+              @xml_mapping.instance_variable_get(:@elements)[key] =
+                [existing, rule.deep_dup]
             end
           end
         end
@@ -300,18 +312,27 @@ module Lutaml
           parent_mapping.mapping_attributes_hash.each do |key, rule|
             existing = @xml_mapping.mapping_attributes_hash[key]
             if existing.nil?
-              @xml_mapping.instance_variable_get(:@attributes)[key] = rule.deep_dup
+              @xml_mapping.instance_variable_get(:@attributes)[key] =
+                rule.deep_dup
             elsif existing.is_a?(Array) && rule.is_a?(Array)
-              merged = existing + rule.reject { |r| existing.any? { |e| e.eql?(r) } }
+              merged = existing + rule.reject do |r|
+                existing.any? do |e|
+                  e.eql?(r)
+                end
+              end
               @xml_mapping.instance_variable_get(:@attributes)[key] = merged
             elsif existing.is_a?(Array)
-              existing << rule.deep_dup unless existing.any? { |e| e.eql?(rule) }
+              existing << rule.deep_dup unless existing.any? do |e|
+                e.eql?(rule)
+              end
             elsif rule.is_a?(Array)
               unless rule.any? { |r| r.eql?(existing) }
-                @xml_mapping.instance_variable_get(:@attributes)[key] = [existing, *rule]
+                @xml_mapping.instance_variable_get(:@attributes)[key] =
+                  [existing, *rule]
               end
             elsif !existing.eql?(rule)
-              @xml_mapping.instance_variable_get(:@attributes)[key] = [existing, rule.deep_dup]
+              @xml_mapping.instance_variable_get(:@attributes)[key] =
+                [existing, rule.deep_dup]
             end
           end
         end
