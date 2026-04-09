@@ -63,6 +63,12 @@ module Lutaml
           nil
         end
 
+        def method_missing(method_name, *, &)
+          return @moxml_doc.public_send(method_name, *, &) if @moxml_doc.respond_to?(method_name)
+
+          super
+        end
+
         def respond_to_missing?(method_name, include_private = false)
           @moxml_doc.respond_to?(method_name, include_private) || super
         end
