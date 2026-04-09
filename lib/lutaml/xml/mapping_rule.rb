@@ -290,19 +290,11 @@ module Lutaml
         # String URI - NOT SUPPORTED
 
         if namespace.is_a?(String)
-
           raise ArgumentError,
                 "String namespace URIs are not supported. " \
-
-
-          "Define an XmlNamespace class instead. " \
-
-
-          "See docs/_guides/xml-namespaces.adoc for migration guide. " \
-
-
-          "Got: #{namespace.inspect}"
-
+                "Define an XmlNamespace class instead. " \
+                "See docs/_guides/xml-namespaces.adoc for migration guide. " \
+                "Got: #{namespace.inspect}"
         end
 
         nil
