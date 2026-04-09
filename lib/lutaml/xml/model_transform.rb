@@ -19,7 +19,9 @@ module Lutaml
         # Use child's own default register if it has one
         # This ensures versioned schemas (e.g., MML v2 with lutaml_default_register = :mml_v2)
         # are instantiated with their native context
-        child_register = Lutaml::Model::Utils.resolve_child_register(model_class, lutaml_register)
+        child_register = Lutaml::Model::Utils.resolve_child_register(
+          model_class, lutaml_register
+        )
 
         if model_class.include?(::Lutaml::Model::Serialize)
           instance = model_class.new({ lutaml_register: child_register })
@@ -178,12 +180,12 @@ visited = Set.new)
         # This ensures versioned schemas (e.g., MML v2 with lutaml_default_register = :mml_v2)
         # use their native context for mapping resolution, not the parent's context
         effective_register = if instance.is_a?(::Lutaml::Model::Serialize) &&
-                                instance.respond_to?(:lutaml_register) &&
-                                instance.lutaml_register
-                              instance.lutaml_register
-                            else
-                              lutaml_register
-                            end
+            instance.respond_to?(:lutaml_register) &&
+            instance.lutaml_register
+                               instance.lutaml_register
+                             else
+                               lutaml_register
+                             end
 
         # Performance: Cache frequently accessed options in local variables
         # CRITICAL: Use effective_register to ensure mappings are resolved for the correct register.
@@ -265,7 +267,8 @@ visited = Set.new)
 
           from_map = rule.value_map(:from, new_opts)
           value = apply_value_map(value, from_map, attr)
-          value = normalize_xml_value(value, rule, attr, new_opts, effective_register)
+          value = normalize_xml_value(value, rule, attr, new_opts,
+                                      effective_register)
           value = rule.transform_value(attr, value, :from, :xml)
           rule.deserialize(instance, value, attributes, context)
         end
@@ -404,12 +407,12 @@ mixed_content_option)
         # This ensures versioned schemas (e.g., MML v2 with lutaml_default_register = :mml_v2)
         # use their native context for type resolution, not the parent's context
         effective_register = if instance.is_a?(::Lutaml::Model::Serialize) &&
-                                instance.respond_to?(:lutaml_register) &&
-                                instance.lutaml_register
-                              instance.lutaml_register
-                            else
-                              lutaml_register
-                            end
+            instance.respond_to?(:lutaml_register) &&
+            instance.lutaml_register
+                               instance.lutaml_register
+                             else
+                               lutaml_register
+                             end
 
         # Performance: Use cached attr from caller if available
         attr = cached_attr || attribute_for_rule(rule)
@@ -424,7 +427,8 @@ mixed_content_option)
         options[:default_namespace]
 
         # Enhanced namespace resolution with type support
-        rule_names = resolve_rule_names_with_type(rule, attr, options, effective_register)
+        rule_names = resolve_rule_names_with_type(rule, attr, options,
+                                                  effective_register)
 
         return value_for_xml_attribute(doc, rule, rule_names) if rule.attribute?
 
@@ -547,7 +551,8 @@ mixed_content_option)
               end
             end
 
-            cast_result = attr.cast(child, :xml, effective_register, cast_options)
+            cast_result = attr.cast(child, :xml, effective_register,
+                                    cast_options)
 
             # Track original namespace prefix for doubly-defined namespace support.
             # When parsing <a:item> and <b:item> (same URI, different prefixes),
@@ -667,7 +672,8 @@ mixed_content_option)
         values.is_a?(Array) ? values.first : values
       end
 
-      def normalize_xml_value(value, rule, attr, options = {}, effective_register = lutaml_register)
+      def normalize_xml_value(value, rule, attr, options = {},
+effective_register = lutaml_register)
         collection_class = attr&.collection_class || Array
         value = [value].compact if !value.nil? && attr&.collection? && !value.is_a?(collection_class)
 
