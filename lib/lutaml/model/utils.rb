@@ -180,6 +180,22 @@ module Lutaml
           instance.define_singleton_method(method_name, &)
         end
 
+        # Determines the appropriate register for a child model during deserialization.
+        # Uses the child's lutaml_default_register if available, otherwise falls back
+        # to the parent's register.
+        #
+        # @param child_class [Class] The child model class
+        # @param parent_register [Symbol] The parent's register ID
+        # @return [Symbol] The register ID to use for the child
+        def resolve_child_register(child_class, parent_register)
+          if child_class.respond_to?(:lutaml_default_register) &&
+              child_class.lutaml_default_register
+            child_class.lutaml_default_register
+          else
+            parent_register
+          end
+        end
+
         def add_method_if_not_defined(klass, method_name, &block)
           unless klass.method_defined?(method_name)
             klass.class_eval do

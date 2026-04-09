@@ -16,13 +16,19 @@ module Lutaml
         # @return [Object] The model instance with mapped values
         def apply_mappings(doc, format, options = {})
           register = options[:register] || Lutaml::Model::Config.default_register
+
+          # Use child's own default register if it has one
+          # This ensures versioned schemas (e.g., MML v2 with lutaml_default_register = :mml_v2)
+          # are instantiated with their native context
+          child_register = Utils.resolve_child_register(model, register)
+
           instance = if options.key?(:instance)
                        options[:instance]
                      elsif model.include?(Lutaml::Model::Serialize)
-                       model.new({ lutaml_register: register })
+                       model.new({ lutaml_register: child_register })
                      else
                        object = model.new
-                       register_accessor_methods_for(object, register)
+                       register_accessor_methods_for(object, child_register)
                        object
                      end
           return instance if Utils.blank?(doc)

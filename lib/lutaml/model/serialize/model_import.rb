@@ -317,12 +317,18 @@ module Lutaml
             # Mark child as visited BEFORE processing to prevent cycles
             visited.add(type_class)
 
+            # Use child's own register if it has one, otherwise use parent's register
+            # This ensures versioned schemas (e.g., MML v2 with lutaml_default_register = :mml_v2)
+            # have their imports resolved in the correct context
+            type_class_register = type_class.lutaml_default_register || register
+
             # Ensure model-level imports (attributes, choices, and format-specific mappings)
             # ensure_imports! calls ensure_format_mapping_imports! which is overridden by XML
-            type_class.ensure_imports!(register)
+            type_class.ensure_imports!(type_class_register)
 
             # Recursively process child's children, passing THE SAME visited set
-            type_class.ensure_child_imports_resolved!(register, visited)
+            type_class.ensure_child_imports_resolved!(type_class_register,
+                                                      visited)
           end
         end
       end
