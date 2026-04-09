@@ -163,6 +163,12 @@ module Lutaml
 
         # Extract register ID from various formats
         #
+        # Resolution order:
+        # 1. Explicit register parameter
+        # 2. Class instance variable @register (set by set_register_context via registration)
+        # 3. Class's lutaml_default_register (for versioned schemas)
+        # 4. Global Config.default_register
+        #
         # @param register [Symbol, Register, nil] The register
         # @return [Symbol, nil] The register ID
         def extract_register_id(register)
@@ -171,7 +177,7 @@ module Lutaml
           elsif instance_variable_defined?(:@register)
             instance_variable_get(:@register)
           else
-            Lutaml::Model::Config.default_register
+            lutaml_default_register || Lutaml::Model::Config.default_register
           end
         end
       end
