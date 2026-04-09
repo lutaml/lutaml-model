@@ -527,6 +527,164 @@ explicit `register:` options everywhere.
 thread-safe. Unlike modifying `Config.default_register` (which is global state),
 each class specifies its own default independently.
 
+[[instance-level-register-context]]
+=== Instance-level register context during XML parsing
+
+When parsing XML documents with nested elements, the parser must determine which
+register context to use for each element's type resolution. The key insight is that
+when a Serializable model instance has a `lutaml_register` (set during instantiation),
+that instance-level register is used for all child element processing.
+
+==== The problem
+
+Consider a document that embeds MathML v2 elements:
+
+[source,ruby]
+----
+class MyDocument < Lutaml::Model::Serializable
+  attribute :math, Mml::V2::Math  # Has lutaml_default_register = :mml_v2
+
+  xml do
+    root "document"
+    map_element "math", to: :math
+  end
+end
+----
+
+When parsing:
+[source,xml]
+----
+<document>
+  <math xmlns="http://www.w3.org/1998/Math/MathML">
+    <mmultiscripts><mi>x</mi></mmultiscripts>
+  </math>
+</document>
+----
+
+Without proper instance-level register context:
+
+1. `MyDocument` is in `:default` register
+2. Parser creates `Mml::V2::Math` instance with `lutaml_register = :mml_v2` (correct)
+3. When processing `<mmultiscripts>`, the parser was using `:default` (parent's register)
+4. `:mmultiscripts` only exists in `:mml_v2` → `UnknownTypeError`
+
+==== The solution: effective_register
+
+The XML parsing infrastructure uses an `effective_register` computed from the
+instance being populated, not the Transform object:
+
+[source,ruby]
+----
+effective_register = if instance.is_a?(::Lutaml::Model::Serialize) &&
+                        instance.respond_to?(:lutaml_register) &&
+                        instance.lutaml_register
+                      instance.lutaml_register
+                    else
+                      lutaml_register
+                    end
+----
+
+This `effective_register` is then used for:
+
+* Mapping resolution (`mappings_for(:xml, effective_register)`)
+* Type resolution (`attr.type(effective_register)`)
+* Nested element casting (`attr.cast(child, :xml, effective_register, options)`)
+* Namespace-aware type resolution
+
+==== Requirements
+
+For this to work correctly:
+
+1. **The child class must have `lutaml_default_register`** declared, OR
+2. **The child instance must be created with the correct `lutaml_register`**
+
+When both conditions are met, the instance's `lutaml_register` takes precedence,
+ensuring child elements are resolved in the correct context.
+
+[source,ruby]
+----
+# Versioned base class declares its default register
+module Mml
+  class V2Base < Lutaml::Model::Serializable
+    def self.lutaml_default_register
+      :mml_v2
+    end
+  end
+
+  class Math < V2Base
+    attribute :mmultiscripts_value, Mmultiscripts, collection: true
+  end
+end
+
+# When parsing, the Math instance uses its lutaml_register (:mml_v2)
+# for all child element resolution
+doc = MyDocument.from_xml(xml)
+doc.math.lutaml_register  # => :mml_v2
+doc.math.mmultiscripts_value.first.class  # => Mml::V2::Mmultiscripts
+----
+
+==== Complete example: embedding versioned schemas
+
+[source,ruby]
+----
+# 1. Define versioned base class
+module Mml
+  class V2Base < Lutaml::Model::Serializable
+    def self.lutaml_default_register
+      :mml_v2
+    end
+  end
+
+  class Mmultiscripts < V2Base
+    attribute :mi_value, :string
+
+    xml do
+      root "mmultiscripts"
+      map_element "mi", to: :mi_value
+    end
+  end
+
+  class Math < V2Base
+    attribute :mmultiscripts_value, Mmultiscripts, collection: true
+
+    xml do
+      root "math"
+      map_element "mmultiscripts", to: :mmultiscripts_value
+    end
+  end
+end
+
+# 2. Register in the versioned register
+mml_v2_register = Lutaml::Model::Register.new(:mml_v2)
+mml_v2_register.register_model_tree(Mml::Math)
+Lutaml::Model::GlobalRegister.instance.register(mml_v2_register)
+
+# 3. Use in a document with different register context
+class MyDocument < Lutaml::Model::Serializable
+  attribute :id, :string
+  attribute :math, Mml::Math
+
+  xml do
+    root "document"
+    map_attribute "id", to: :id
+    map_element "math", to: :math
+  end
+end
+
+# 4. Parse works regardless of MyDocument's register
+xml = <<~XML
+  <document id="test">
+    <math xmlns="http://www.w3.org/1998/Math/MathML">
+      <mmultiscripts><mi>x</mi></mmultiscripts>
+    </math>
+  </document>
+XML
+
+doc = MyDocument.from_xml(xml)
+doc.math.lutaml_register     # => :mml_v2 (from lutaml_default_register)
+doc.math.mmultiscripts_value.first.mi_value  # => "x"
+----
+
 [[namespace-bound-registers]]
 == Namespace-bound registers
 
