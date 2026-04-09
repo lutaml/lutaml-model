@@ -55,7 +55,10 @@ module Lutaml
           end
 
           register ||= self.register
-          Schema.reset_processed_schemas unless nested_schema
+          # Accumulate schemas across parse() calls. When parsing multiple
+          # entrypoints (e.g., urbanFunction.xsd, urbanObject.xsd), each may
+          # import shared schemas. The schema_by_location_or_instance method
+          # checks processed_schemas first, so duplicates are avoided by reuse.
 
           Glob.schema_mappings = schema_mappings
           Glob.path_or_url(location)
