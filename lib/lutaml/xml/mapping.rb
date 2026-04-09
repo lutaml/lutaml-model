@@ -712,7 +712,8 @@ module Lutaml
       alias map_all_content map_all
 
       def sequence(&block)
-        @element_sequence << ::Lutaml::Model::Sequence.new(self, format: :xml).tap do |s|
+        @element_sequence << ::Lutaml::Model::Sequence.new(self,
+                                                           format: :xml).tap do |s|
           s.instance_eval(&block)
         end
       end

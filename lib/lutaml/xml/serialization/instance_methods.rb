@@ -57,7 +57,10 @@ module Lutaml
           xml_mapping.mapping_elements_hash.each_value do |rule_or_array|
             Array(rule_or_array).each do |rule|
               element_to_attr[rule.name] = rule.to
-              element_to_attr[rule.name.to_s] = rule.to if rule.name.is_a?(Symbol)
+              if rule.name.is_a?(Symbol)
+                element_to_attr[rule.name.to_s] =
+                  rule.to
+              end
             end
           end
 

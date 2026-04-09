@@ -89,8 +89,8 @@ module Lutaml
               next unless from && to
 
               # Exact string match when pattern is not explicitly true
-              if pattern != true
-                return to if from.is_a?(String) && from == schema_location
+              if (pattern != true) && from.is_a?(String) && from == schema_location
+                return to
               end
 
               # Regex match when pattern is true or from is already a Regexp

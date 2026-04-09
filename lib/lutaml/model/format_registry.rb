@@ -31,7 +31,8 @@ module Lutaml
         # @raise [ArgumentError] if format is invalid or required params missing
         # @return [Hash] the registered format configuration
         # @param adapter_loader [Module, nil] optional module with load_adapter_file and class_for methods
-        def register(format, mapping_class:, adapter_class:, transformer:, adapter_loader: nil, castable_type: nil, key_value: nil, error_types: nil, adapter_options: nil)
+        def register(format, mapping_class:, adapter_class:, transformer:,
+adapter_loader: nil, castable_type: nil, key_value: nil, error_types: nil, adapter_options: nil)
           validate_registration!(format, mapping_class, transformer)
 
           registered_formats[format] = {
@@ -179,7 +180,9 @@ module Lutaml
         #
         # @return [Array<Class>]
         def all_error_types
-          registered_formats.values.filter_map { |info| info[:error_types] }.flatten.compact
+          registered_formats.values.filter_map do |info|
+            info[:error_types]
+          end.flatten.compact
         end
 
         # Get registration info for a format
@@ -232,8 +235,10 @@ module Lutaml
             set_adapter(format, adapter_type)
           end
 
-          cfg.send(:alias_method, :"#{format}_adapter_type=", :"#{format}_adapter=")
-          cfg.send(:alias_method, :"#{format}_adapter_type", :"#{format}_adapter")
+          cfg.send(:alias_method, :"#{format}_adapter_type=",
+                   :"#{format}_adapter=")
+          cfg.send(:alias_method, :"#{format}_adapter_type",
+                   :"#{format}_adapter")
         end
 
         # Validate registration parameters

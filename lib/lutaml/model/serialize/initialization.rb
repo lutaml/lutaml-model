@@ -242,7 +242,8 @@ module Lutaml
         # @param max [Integer] Maximum number of choices
         # @param block [Proc] The choice definition block
         def choice(min: 1, max: 1, format: nil, &block)
-          @choice_attributes << Choice.new(self, min, max, format: format).tap do |c|
+          @choice_attributes << Choice.new(self, min, max,
+                                           format: format).tap do |c|
             c.instance_eval(&block)
           end
         end
