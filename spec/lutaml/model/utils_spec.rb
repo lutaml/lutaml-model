@@ -13,6 +13,21 @@ CLASSIFY_EXAMPLES = CAMEL_CASE_EXAMPLES.merge({
                                                 "hello_world::foo_bar_baz" => "HelloWorld::FooBarBaz",
                                               }).freeze
 
+PLURALIZE_EXAMPLES = {
+  "id" => "ids",
+  "slug" => "slugs",
+  "name" => "names",
+  "status" => "statuses",
+  "address" => "addresses",
+  "category" => "categories",
+  "box" => "boxes",
+  "match" => "matches",
+  "bush" => "bushes",
+  "key" => "keys",
+  "" => "",
+  nil => "",
+}.freeze
+
 SNAKE_CASE_EXAMPLES = {
   "HelloWorld" => "hello_world",
   "FooBarBaz" => "foo_bar_baz",
@@ -39,6 +54,7 @@ RSpec.describe Lutaml::Model::Utils do
   it_behaves_like "string conversion", :camel_case, CAMEL_CASE_EXAMPLES
   it_behaves_like "string conversion", :classify, CLASSIFY_EXAMPLES
   it_behaves_like "string conversion", :snake_case, SNAKE_CASE_EXAMPLES
+  it_behaves_like "string conversion", :pluralize, PLURALIZE_EXAMPLES
 
   describe ".deep_dup" do
     let(:original_hash) do

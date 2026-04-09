@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require "active_support/inflector"
-
 module Lutaml
   module Model
     module Serialize

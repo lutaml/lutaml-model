@@ -76,6 +76,21 @@ module Lutaml
           @snake_case_cache[str] = result
         end
 
+        # Simple English pluralization for method names.
+        # Handles common cases; not a full inflector.
+        def pluralize(str)
+          str = str.to_s
+          return str if str.empty?
+
+          if str.end_with?("s", "x", "z", "ch", "sh")
+            "#{str}es"
+          elsif str.end_with?("y") && str.length > 1 && !%w[a e i o u].include?(str[-2])
+            "#{str[0..-2]}ies"
+          else
+            "#{str}s"
+          end
+        end
+
         # Extract the base name of the class
         def base_class_name(klass)
           klass.to_s.split("::").last
