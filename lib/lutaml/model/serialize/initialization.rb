@@ -46,6 +46,30 @@ module Lutaml
           @register = register_id
         end
 
+        # Get or set the default register for this Model class.
+        #
+        # Override in subclasses to specify a preferred default register context.
+        # This allows versioned schemas (e.g., MML v2, v3) to use their own
+        # register by default when instances are created without explicit register.
+        #
+        # @return [Symbol, nil] The default register ID or nil to use Config.default_register
+        #
+        # @example
+        #   module Mml
+        #     class V2Base < Lutaml::Model::Serializable
+        #       def self.lutaml_default_register
+        #         :mml_v2
+        #       end
+        #     end
+        #   end
+        #
+        #   class Mml::V2::Math < V2Base
+        #     # Mml::V2::Math.new uses :mml_v2 by default
+        #   end
+        def lutaml_default_register
+          nil
+        end
+
         # Handle inheritance by copying parent's configuration
         #
         # @param subclass [Class] The inheriting class
@@ -243,10 +267,15 @@ module Lutaml
 
         # Extract and normalize register ID with default fallback
         #
+        # Resolution order:
+        # 1. Explicit register parameter
+        # 2. Class's lutaml_default_register (for versioned schemas)
+        # 3. Global Config.default_register
+        #
         # @param register [Symbol, String, nil] The register identifier
         # @return [Symbol] The normalized register ID
         def extract_register_id(register)
-          register&.to_sym || Lutaml::Model::Config.default_register
+          register&.to_sym || lutaml_default_register || Lutaml::Model::Config.default_register
         end
       end
     end
