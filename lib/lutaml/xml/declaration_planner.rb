@@ -1131,7 +1131,6 @@ module Lutaml
         end
 
         # Check if element's namespace was already hoisted on parent (locally)
-        false
         if xml_element.namespace_class
           ns_uri = xml_element.namespace_class.uri
           parent_hoisted.value?(ns_uri)

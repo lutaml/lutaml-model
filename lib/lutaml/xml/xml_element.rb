@@ -24,7 +24,8 @@ module Lutaml
       # - :processing_instruction - processing instruction
       NODE_TYPES = %i[element text cdata comment processing_instruction].freeze
 
-      attr_accessor :children, :adapter_node
+      attr_reader :children
+      attr_accessor :adapter_node
       attr_reader :attributes, :namespace_prefix, :namespace_prefix_explicit,
                   :parent_document, :node_type
 

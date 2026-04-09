@@ -85,22 +85,19 @@ module Lutaml
             schema_mappings.each do |mapping|
               from = mapping[:from] || mapping["from"]
               to = mapping[:to] || mapping["to"]
-              pattern_flag = mapping[:pattern] || mapping["pattern"]
+              pattern = mapping[:pattern] || mapping["pattern"]
               next unless from && to
 
-              # Check for exact string match when pattern is not explicitly true
-              if pattern_flag != true
+              # Exact string match when pattern is not explicitly true
+              if pattern != true
                 return to if from.is_a?(String) && from == schema_location
               end
 
-              # Check for regex pattern match when pattern is true or from is a Regexp
-              if pattern_flag == true || from.is_a?(Regexp)
+              # Regex match when pattern is true or from is already a Regexp
+              if pattern == true || from.is_a?(Regexp)
                 regex = from.is_a?(Regexp) ? from : Regexp.new(from)
                 match = schema_location.match(regex)
                 if match
-                  # Perform regex substitution - return literal result
-                  # without platform normalization to preserve cross-platform
-                  # path patterns in schema mappings
                   return schema_location.gsub(regex, to)
                 end
               end
