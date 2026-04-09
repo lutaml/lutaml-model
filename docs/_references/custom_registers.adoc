@@ -406,6 +406,127 @@ doc = UnitsMLV0919::UnitsMLType.from_xml(xml)
 ----
 ====
 
+[[per-class-default-register]]
+== Per-class default register
+
+When using versioned schemas (e.g., MathML v2, v3, v4), each version may have its own
+register context. The `lutaml_default_register` class method allows a Serializable
+subclass to specify its preferred default register context.
+
+=== The problem
+
+Without `lutaml_default_register`, when you instantiate a class without an explicit
+`register:` option, it falls back to `Config.default_register` (`:default`):
+
+[source,ruby]
+----
+# :mml_v2 context has different type mappings than :default
+math = Mml::V2::Math.new  # Falls back to :default register
+# => UnknownTypeError because :default doesn't have MML types
+----
+
+You must explicitly pass `register: :mml_v2`:
+
+[source,ruby]
+----
+math = Mml::V2::Math.new({}, register: :mml_v2)  # Works
+----
+
+=== The solution
+
+Define `lutaml_default_register` in a base class for your version:
+
+[source,ruby]
+----
+module Mml
+  class V2Base < Lutaml::Model::Serializable
+    def self.lutaml_default_register
+      :mml_v2
+    end
+  end
+
+  class Math < V2Base
+    attribute :mrow, Mrow
+
+    xml do
+      root "math"
+    end
+  end
+end
+----
+
+Now `Mml::Math.new` automatically uses `:mml_v2` as the default register:
+
+[source,ruby]
+----
+math = Mml::Math.new  # Uses :mml_v2 by default
+math.to_xml  # Works correctly with v2 types
+----
+
+=== Resolution order
+
+The register ID is resolved in this order:
+
+1. **Explicit `register:` option** - passed to `new` or `from_xml` etc.
+2. **`lutaml_default_register`** - class method returning Symbol or nil
+3. **`@register` instance variable** - set by `register_model_tree`
+4. **`Config.default_register`** - global fallback (`:default`)
+
+[source,ruby]
+----
+# Resolution examples for a class with lutaml_default_register = :mml_v2
+math = Math.new                         # => :mml_v2 (from lutaml_default_register)
+math = Math.new({}, register: :mml_v3)  # => :mml_v3 (explicit option wins)
+math = Math.new({}, register: nil)      # => :mml_v2 (lutaml_default_register still used)
+math = Math.new({}, register: false)    # => :default (false is falsy)
+----
+
+=== Using with versioned base classes
+
+This pattern is especially useful for schema libraries with multiple versions:
+
+[source,ruby]
+----
+module Mml
+  # Base class for v2
+  class V2Base < Lutaml::Model::Serializable
+    def self.lutaml_default_register
+      :mml_v2
+    end
+  end
+
+  # Base class for v3
+  class V3Base < Lutaml::Model::Serializable
+    def self.lutaml_default_register
+      :mml_v3
+    end
+  end
+
+  # V2-specific classes
+  class V2::Math < V2Base
+    # Uses :mml_v2 by default
+  end
+
+  class V2::Factorof < V2Base
+    # Uses :mml_v2 by default
+  end
+
+  # V3-specific classes
+  class V3::Math < V3Base
+    # Uses :mml_v3 by default
+  end
+end
+----
+
+Each version's classes automatically use their correct register without requiring
+explicit `register:` options everywhere.
+
+=== Thread safety
+
+`lutaml_default_register` is a class method that returns a constant value, so it is
+thread-safe. Unlike modifying `Config.default_register` (which is global state),
+each class specifies its own default independently.
+
 [[namespace-bound-registers]]
 == Namespace-bound registers
 

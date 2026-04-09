@@ -61,6 +61,7 @@ link:docs/migration-guides/0-1-0-migrate-from-shale.adoc[Migrating from Shale to
 * Import serialization schemas to define models (<<schema-import>>)
 * Create custom adapters for additional data formats (see <<custom-adapters>>)
 * Dynamically modify model attribute types using registers (see <<custom-registers>>)
+  * Per-class default register for versioned schemas (e.g., MathML v2, v3)
 * Symmetric OOP architecture for all formats with KeyValueDataModel (see <<keyvaluedatamodel-architecture>>)
 * Parse XSD schemas into Ruby objects for inspection and manipulation (see <<xsd-schema-parsing>>)
 * Reusable XML mapping classes for sharing mappings across models
