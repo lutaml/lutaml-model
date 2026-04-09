@@ -2,11 +2,16 @@ module Lutaml
   module KeyValue
     class Transform < Lutaml::Model::Transform
       def data_to_model(data, format, options = {})
+        # Use child's own default register if it has one
+        # This ensures versioned schemas (e.g., MML v2 with lutaml_default_register = :mml_v2)
+        # are instantiated with their native context
+        child_register = Lutaml::Model::Utils.resolve_child_register(model_class, lutaml_register)
+
         if model_class.include?(Lutaml::Model::Serialize)
-          instance = model_class.new(lutaml_register: lutaml_register)
+          instance = model_class.new(lutaml_register: child_register)
         else
           instance = model_class.new
-          register_accessor_methods_for(instance, lutaml_register)
+          register_accessor_methods_for(instance, child_register)
         end
         root_and_parent_assignment(instance, options)
         mappings = extract_mappings(options, format)

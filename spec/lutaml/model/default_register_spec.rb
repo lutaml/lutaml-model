@@ -401,4 +401,135 @@ RSpec.describe "lutaml_default_register" do
       expect(instance.lutaml_register).to eq(:default)
     end
   end
+
+  describe "ensure_child_imports_resolved! with versioned schemas" do
+    let(:mml_v2_register) do
+      Lutaml::Model::Register.new(:mml_v2)
+    end
+
+    before do
+      Lutaml::Model::GlobalRegister.register(mml_v2_register)
+      Lutaml::Model::Config.default_register = :default
+      Lutaml::Model::GlobalContext.clear_caches
+    end
+
+    after do
+      Lutaml::Model::GlobalRegister.remove(:mml_v2)
+    end
+
+    it "uses child's lutaml_default_register when resolving child imports" do
+      # Define a versioned Math class in :mml_v2 context
+      v2_base = Class.new(Lutaml::Model::Serializable) do
+        # rubocop:disable Naming/PredicateName
+        def self.lutaml_default_register
+          :mml_v2
+        end
+        # rubocop:enable Naming/PredicateName
+      end
+
+      math_class = Class.new(v2_base) do
+        # Symbol-based type that is only registered in :mml_v2 context
+        attribute :mmultiscripts_value, :mmultiscripts, collection: true
+
+        xml do
+          root "math"
+          map_element "mmultiscripts", to: :mmultiscripts_value
+        end
+      end
+
+      # Register math_class in mml_v2 register
+      mml_v2_register.register_model(math_class, id: :math)
+
+      # Define MyDoc in :default context that has Math as an attribute
+      doc_class = Class.new(Lutaml::Model::Serializable) do
+        attribute :math, math_class
+
+        xml do
+          root "doc"
+          map_element "math", to: :math
+        end
+      end
+
+      # This should NOT raise UnknownTypeError
+      # Before the fix, this would fail because it tried to resolve :mmultiscripts
+      # in :default context instead of :mml_v2
+      expect {
+        doc_class.ensure_child_imports_resolved!(:default)
+      }.not_to raise_error
+
+      # Verify Math's attributes are accessible in :mml_v2 context
+      math_attrs = math_class.attributes(:mml_v2)
+      expect(math_attrs[:mmultiscripts_value]).to be_a(Lutaml::Model::Attribute)
+    end
+
+    it "uses child's lutaml_default_register during XML parsing" do
+      # Define a versioned Math class in :mml_v2 context
+      v2_base = Class.new(Lutaml::Model::Serializable) do
+        # rubocop:disable Naming/PredicateName
+        def self.lutaml_default_register
+          :mml_v2
+        end
+        # rubocop:enable Naming/PredicateName
+      end
+
+      # Create a child class for mmultiscripts
+      mmultiscripts_class = Class.new(v2_base) do
+        attribute :mi_value, :string
+
+        xml do
+          root "mmultiscripts"
+          map_element "mi", to: :mi_value
+        end
+      end
+
+      # Register mmultiscripts_class in mml_v2 register
+      mml_v2_register.register_model(mmultiscripts_class, id: :mmultiscripts)
+
+      math_class = Class.new(v2_base) do
+        # Class-based type reference (self-contained, doesn't need registry lookup)
+        attribute :mmultiscripts_value, mmultiscripts_class, collection: true
+
+        xml do
+          root "math"
+          map_element "mmultiscripts", to: :mmultiscripts_value
+        end
+      end
+
+      # Register math_class in mml_v2 register
+      mml_v2_register.register_model(math_class, id: :math)
+
+      # Define Doc in :default context that has Math as an attribute
+      doc_class = Class.new(Lutaml::Model::Serializable) do
+        attribute :id, :string
+        attribute :math, math_class
+
+        xml do
+          root "doc"
+          map_attribute "id", to: :id
+          map_element "math", to: :math
+        end
+      end
+
+      # This should NOT raise UnknownTypeError during XML parsing
+      # Before the fix, from_xml would fail because Math was instantiated
+      # with :default register instead of :mml_v2
+      xml_content = <<~XML
+        <doc id="test">
+          <math xmlns="http://www.w3.org/1998/Math/MathML">
+            <mmultiscripts><mi>x</mi></mmultiscripts>
+          </math>
+        </doc>
+      XML
+
+      expect {
+        doc_class.from_xml(xml_content)
+      }.not_to raise_error
+
+      # Verify the parsed instance uses the correct register
+      parsed_doc = doc_class.from_xml(xml_content)
+      expect(parsed_doc.id).to eq("test")
+      expect(parsed_doc.math).to be_a(math_class)
+      expect(parsed_doc.math.lutaml_register).to eq(:mml_v2)
+    end
+  end
 end

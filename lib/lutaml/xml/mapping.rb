@@ -991,8 +991,10 @@ module Lutaml
           next if model_class.nil? # Skip if not registered yet
 
           # Recursively ensure the imported model's imports are resolved
+          # Use the child class's own register if it has one
           if model_class.is_a?(Class) && model_class.include?(Lutaml::Model::Serialize)
-            model_class.ensure_imports!(register_id)
+            child_register = model_class.lutaml_default_register || register_id
+            model_class.ensure_imports!(child_register)
           end
 
           # Now import the mappings
@@ -1018,8 +1020,10 @@ module Lutaml
               next if model_class.nil?
 
               # Recursively ensure the imported model's imports are resolved
+              # Use the child class's own register if it has one
               if model_class.is_a?(Class) && model_class.include?(Lutaml::Model::Serialize)
-                model_class.ensure_imports!(register_id)
+                child_register = model_class.lutaml_default_register || register_id
+                model_class.ensure_imports!(child_register)
               end
 
               # Now import into the sequence
