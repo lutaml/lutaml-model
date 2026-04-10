@@ -196,7 +196,7 @@ register_id)
           return unless value
           return if value.to_s.empty?
 
-          parent.instance_variable_set(:@raw_content, value.to_s)
+          parent.raw_content = value.to_s
         end
 
         private

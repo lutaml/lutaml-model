@@ -58,10 +58,6 @@ RSpec.shared_examples "XML entity preservation" do |adapter_name|
   # Standard XML entities (&amp; &lt; &gt; &quot; &apos;) and numeric
   # character references (&#169; &#xa9;) are resolved by the XML parser
   # itself and remain as their character values.
-  #
-  # NOTE: Oga's parser silently drops undefined entities, producing empty
-  # strings where the entity was. This is a parser-level limitation, not
-  # something we can fix in the adapter.
 
   context "single entity with surrounding text" do
     it "preserves text before entity" do
@@ -74,13 +70,8 @@ RSpec.shared_examples "XML entity preservation" do |adapter_name|
 
       expect(text).to include("2005")
       expect(text).to include("Mulberry Technologies")
-      if adapter_name == :oga
-        # Oga drops undefined entities
-        expect(text).to eq(" 2005 Mulberry Technologies, Inc.")
-      else
-        expect(text).to include("&copy;")
-        expect(text).to eq("&copy; 2005 Mulberry Technologies, Inc.")
-      end
+      expect(text).to include("&copy;")
+      expect(text).to eq("&copy; 2005 Mulberry Technologies, Inc.")
     end
 
     it "preserves text after entity" do
@@ -91,11 +82,7 @@ RSpec.shared_examples "XML entity preservation" do |adapter_name|
       doc = adapter_class.parse(xml.strip)
       text = doc.root.text
 
-      if adapter_name == :oga
-        expect(text).to eq("Copyright  notice here")
-      else
-        expect(text).to eq("Copyright &copy; notice here")
-      end
+      expect(text).to eq("Copyright &copy; notice here")
     end
 
     it "preserves text before and after entity" do
@@ -106,11 +93,7 @@ RSpec.shared_examples "XML entity preservation" do |adapter_name|
       doc = adapter_class.parse(xml.strip)
       text = doc.root.text
 
-      if adapter_name == :oga
-        expect(text).to eq("Before  After")
-      else
-        expect(text).to eq("Before &mdash; After")
-      end
+      expect(text).to eq("Before &mdash; After")
     end
   end
 
@@ -123,11 +106,7 @@ RSpec.shared_examples "XML entity preservation" do |adapter_name|
       doc = adapter_class.parse(xml.strip)
       text = doc.root.text
 
-      if adapter_name == :oga
-        expect(text).to eq("First  second  third")
-      else
-        expect(text).to eq("First &mdash; second &ndash; third")
-      end
+      expect(text).to eq("First &mdash; second &ndash; third")
     end
 
     it "handles consecutive entities" do
@@ -138,11 +117,7 @@ RSpec.shared_examples "XML entity preservation" do |adapter_name|
       doc = adapter_class.parse(xml.strip)
       text = doc.root.text
 
-      if adapter_name == :oga
-        expect(text).to eq("")
-      else
-        expect(text).to eq("&copy;&reg;&trade;")
-      end
+      expect(text).to eq("&copy;&reg;&trade;")
     end
 
     it "handles entities with whitespace" do
@@ -153,12 +128,7 @@ RSpec.shared_examples "XML entity preservation" do |adapter_name|
       doc = adapter_class.parse(xml.strip)
       text = doc.root.text
 
-      if adapter_name == :oga
-        # Oga drops entities but preserves surrounding whitespace
-        expect(text).to eq("  ")
-      else
-        expect(text).to eq("&copy; &reg; &trade;")
-      end
+      expect(text).to eq("&copy; &reg; &trade;")
     end
   end
 
@@ -171,11 +141,7 @@ RSpec.shared_examples "XML entity preservation" do |adapter_name|
       doc = adapter_class.parse(xml.strip)
       text = doc.root.text
 
-      if adapter_name == :oga
-        expect(text).to eq(" at start")
-      else
-        expect(text).to eq("&copy; at start")
-      end
+      expect(text).to eq("&copy; at start")
     end
 
     it "handles entity at end" do
@@ -186,11 +152,7 @@ RSpec.shared_examples "XML entity preservation" do |adapter_name|
       doc = adapter_class.parse(xml.strip)
       text = doc.root.text
 
-      if adapter_name == :oga
-        expect(text).to eq("at end ")
-      else
-        expect(text).to eq("at end &copy;")
-      end
+      expect(text).to eq("at end &copy;")
     end
 
     it "handles entity alone" do
@@ -201,11 +163,7 @@ RSpec.shared_examples "XML entity preservation" do |adapter_name|
       doc = adapter_class.parse(xml.strip)
       text = doc.root.text
 
-      if adapter_name == :oga
-        expect(text).to eq("")
-      else
-        expect(text).to eq("&copy;")
-      end
+      expect(text).to eq("&copy;")
     end
   end
 
@@ -230,16 +188,12 @@ RSpec.shared_examples "XML entity preservation" do |adapter_name|
 
       instance = model_class.from_xml(xml.strip)
 
-      if adapter_name == :oga
-        expect(instance.statement).to eq(" 2005 Mulberry Technologies, Inc.")
-      else
-        expect(instance.statement).to eq("&copy; 2005 Mulberry Technologies, Inc.")
+      expect(instance.statement).to eq("&copy; 2005 Mulberry Technologies, Inc.")
 
-        output = instance.to_xml
-        # Re-parse to verify round-trip
-        reparsed = model_class.from_xml(output)
-        expect(reparsed.statement).to eq("&copy; 2005 Mulberry Technologies, Inc.")
-      end
+      output = instance.to_xml
+      # Re-parse to verify round-trip
+      reparsed = model_class.from_xml(output)
+      expect(reparsed.statement).to eq("&copy; 2005 Mulberry Technologies, Inc.")
     end
 
     it "handles multiple entities in model attribute" do
@@ -251,11 +205,7 @@ RSpec.shared_examples "XML entity preservation" do |adapter_name|
 
       instance = model_class.from_xml(xml.strip)
 
-      if adapter_name == :oga
-        expect(instance.statement).to eq("Cant stop  wont stop")
-      else
-        expect(instance.statement).to eq("Can&rsquo;t stop &mdash; won&rsquo;t stop")
-      end
+      expect(instance.statement).to eq("Can&rsquo;t stop &mdash; won&rsquo;t stop")
     end
   end
 
@@ -283,13 +233,8 @@ RSpec.shared_examples "XML entity preservation" do |adapter_name|
       instance = mixed_model_class.from_xml(xml.strip)
       full_text = instance.content.join
 
-      if adapter_name == :oga
-        expect(full_text).to include("Text before ")
-        expect(full_text).to include(" text after")
-      else
-        expect(full_text).to include("Text before &mdash; ")
-        expect(full_text).to include(" &mdash; text after")
-      end
+      expect(full_text).to include("Text before &mdash; ")
+      expect(full_text).to include(" &mdash; text after")
     end
   end
 
@@ -316,12 +261,7 @@ RSpec.shared_examples "XML entity preservation" do |adapter_name|
         doc = adapter_class.parse(xml)
         text = doc.root.text
 
-        if adapter_name == :oga
-          # Oga drops undefined entities
-          expect(text).to eq("Before  After")
-        else
-          expect(text).to eq("Before #{expected_text} After")
-        end
+        expect(text).to eq("Before #{expected_text} After")
       end
     end
   end
@@ -386,12 +326,8 @@ RSpec.shared_examples "XML entity preservation" do |adapter_name|
       doc = adapter_class.parse(xml.strip)
       text = doc.root.text
 
-      if adapter_name == :oga
-        expect(text).to eq(" 2005 Mulberry Technologies, Inc.")
-      else
-        expect(text).to eq("&copy; 2005 Mulberry Technologies, Inc.")
-        expect(text).not_to eq("&copy;") # Should NOT lose the rest
-      end
+      expect(text).to eq("&copy; 2005 Mulberry Technologies, Inc.")
+      expect(text).not_to eq("&copy;") # Should NOT lose the rest
     end
 
     it "handles mixed-citation element" do
@@ -402,11 +338,7 @@ RSpec.shared_examples "XML entity preservation" do |adapter_name|
       doc = adapter_class.parse(xml.strip)
       text = doc.root.text
 
-      if adapter_name == :oga
-        expect(text).to eq("A citation  with em-dash")
-      else
-        expect(text).to eq("A citation &mdash; with em-dash")
-      end
+      expect(text).to eq("A citation &mdash; with em-dash")
     end
 
     it "handles article-title with apostrophe" do
@@ -417,11 +349,7 @@ RSpec.shared_examples "XML entity preservation" do |adapter_name|
       doc = adapter_class.parse(xml.strip)
       text = doc.root.text
 
-      if adapter_name == :oga
-        expect(text).to eq("Cant Help Loving That Man")
-      else
-        expect(text).to eq("Can&rsquo;t Help Loving That Man")
-      end
+      expect(text).to eq("Can&rsquo;t Help Loving That Man")
     end
   end
 
@@ -450,11 +378,7 @@ RSpec.shared_examples "XML entity preservation" do |adapter_name|
       doc = adapter_class.parse(xml)
       text = doc.root.text
 
-      if adapter_name == :oga
-        expect(text).to eq("")
-      else
-        expect(text).to eq("&copy;")
-      end
+      expect(text).to eq("&copy;")
     end
 
     it "preserves significant whitespace around entities" do
@@ -463,11 +387,7 @@ RSpec.shared_examples "XML entity preservation" do |adapter_name|
       doc = adapter_class.parse(xml)
       text = doc.root.text
 
-      if adapter_name == :oga
-        expect(text).to eq("    ")
-      else
-        expect(text).to eq("  &copy;  ")
-      end
+      expect(text).to eq("  &copy;  ")
     end
   end
 
@@ -488,22 +408,16 @@ RSpec.shared_examples "XML entity preservation" do |adapter_name|
 
       parsed = EntityFragmentationSpec::OMathPara.from_xml(omml)
 
-      # &apos; is standard XML entity → resolved to ' by parser
-      # &nbsp; is non-standard → preserved as &nbsp; literal
-      if adapter_name == :oga
-        expect(parsed.r.t.content).to eq("''d")
-      else
-        expect(parsed.r.t.content).to eq("''&nbsp;d")
-      end
+      # &apos; is standard XML entity -> resolved to ' by parser
+      # &nbsp; is non-standard -> preserved as &nbsp; literal
+      expect(parsed.r.t.content).to eq("''&nbsp;d")
 
       # Round-trip must preserve &nbsp;
       output = parsed.to_xml
       reparsed = EntityFragmentationSpec::OMathPara.from_xml(output)
 
-      if adapter_name != :oga
-        expect(reparsed.r.t.content).to eq("''&nbsp;d")
-        expect(output).to include("&nbsp;")
-      end
+      expect(reparsed.r.t.content).to eq("''&nbsp;d")
+      expect(output).to include("&nbsp;")
     end
   end
 end
