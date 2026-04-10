@@ -23,7 +23,6 @@ module Lutaml
     #
     module Instrumentation
       class << self
-        attr_accessor :enabled
         attr_reader :subscribers, :events
 
         # Enable or disable instrumentation
