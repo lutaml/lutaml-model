@@ -24,10 +24,12 @@ module Lutaml
               collection: attr.options[:collection],
             )
           elsif attr.derived? && name != attr.method_name
-            define_method(name) do
-              value = public_send(attr.method_name)
-              # Cast the derived value to the specified type
-              attr.cast_element(value, register_id)
+            unless method_defined?(name, false)
+              define_method(name) do
+                value = public_send(attr.method_name)
+                # Cast the derived value to the specified type
+                attr.cast_element(value, register_id)
+              end
             end
           elsif attr.unresolved_type == Lutaml::Model::Type::Reference
             define_reference_methods(name, register_id)
@@ -47,8 +49,10 @@ module Lutaml
           register_id = register
           attr = attributes[name]
 
-          define_method("#{name}_ref") do
-            instance_variable_get(:"@#{name}_ref")
+          unless method_defined?(:"#{name}_ref", false)
+            define_method("#{name}_ref") do
+              instance_variable_get(:"@#{name}_ref")
+            end
           end
 
           key_method_name = if attr.options[:collection]
@@ -57,27 +61,33 @@ module Lutaml
                               attr.options[:ref_key_attribute]
                             end
 
-          define_method("#{name}_#{key_method_name}") do
-            ref = instance_variable_get(:"@#{name}_ref")
-            resolve_reference_key(ref)
-          end
-
-          define_method(name) do
-            ref = instance_variable_get(:"@#{name}_ref")
-            resolve_reference_value(ref)
-          end
-
-          define_method(:"#{name}=") do |value|
-            value_set_for(name)
-            casted_value = value
-            unless casted_value.is_a?(Lutaml::Model::Type::Reference)
-              casted_value = attr.cast_value(value, register_id)
+          unless method_defined?(:"#{name}_#{key_method_name}", false)
+            define_method("#{name}_#{key_method_name}") do
+              ref = instance_variable_get(:"@#{name}_ref")
+              resolve_reference_key(ref)
             end
+          end
 
-            instance_variable_set(:"@#{name}_ref", casted_value)
+          unless method_defined?(name, false)
+            define_method(name) do
+              ref = instance_variable_get(:"@#{name}_ref")
+              resolve_reference_value(ref)
+            end
+          end
 
-            resolved_reference = resolve_reference_key(casted_value)
-            instance_variable_set(:"@#{name}", resolved_reference)
+          unless method_defined?(:"#{name}=", false)
+            define_method(:"#{name}=") do |value|
+              value_set_for(name)
+              casted_value = value
+              unless casted_value.is_a?(Lutaml::Model::Type::Reference)
+                casted_value = attr.cast_value(value, register_id)
+              end
+
+              instance_variable_set(:"@#{name}_ref", casted_value)
+
+              resolved_reference = resolve_reference_key(casted_value)
+              instance_variable_set(:"@#{name}", resolved_reference)
+            end
           end
         end
 
@@ -86,14 +96,18 @@ module Lutaml
         # @param name [Symbol] The attribute name
         # @param attr [Attribute] The attribute definition
         def define_regular_attribute_methods(name, attr)
-          define_method(name) do
-            instance_variable_get(:"@#{name}")
+          unless method_defined?(name, false)
+            define_method(name) do
+              instance_variable_get(:"@#{name}")
+            end
           end
 
-          define_method(:"#{name}=") do |value|
-            value_set_for(name)
-            value = attr.cast_value(value, lutaml_register)
-            instance_variable_set(:"@#{name}", value)
+          unless method_defined?(:"#{name}=", false)
+            define_method(:"#{name}=") do |value|
+              value_set_for(name)
+              value = attr.cast_value(value, lutaml_register)
+              instance_variable_set(:"@#{name}", value)
+            end
           end
         end
 
