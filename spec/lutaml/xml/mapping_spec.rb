@@ -718,34 +718,14 @@ RSpec.describe Lutaml::Xml::Mapping do
       end
 
       let(:expected_order) do
-        nokogiri_pattern = create_pattern_mapping([
-                                                    ["Text", "text"],
-                                                    ["Element",
-                                                     "ApplicationSchema"],
-                                                    ["Text", "text"],
-                                                    ["Element",
-                                                     "ApplicationSchema"],
-                                                    ["Text", "text"],
-                                                    ["Element",
-                                                     "ApplicationSchema"],
-                                                    ["Text", "text"],
-                                                  ])
-
-        oga_ox_pattern = create_pattern_mapping([
-                                                  ["Element",
-                                                   "ApplicationSchema"],
-                                                  ["Element",
-                                                   "ApplicationSchema"],
-                                                  ["Element",
-                                                   "ApplicationSchema"],
-                                                ])
-
-        {
-          Lutaml::Xml::Adapter::NokogiriAdapter => oga_ox_pattern,
-          Lutaml::Xml::Adapter::OxAdapter => oga_ox_pattern,
-          Lutaml::Xml::Adapter::OgaAdapter => oga_ox_pattern,
-          Lutaml::Xml::Adapter::RexmlAdapter => oga_ox_pattern,
-        }
+        create_pattern_mapping([
+                                 ["Element",
+                                  "ApplicationSchema"],
+                                 ["Element",
+                                  "ApplicationSchema"],
+                                 ["Element",
+                                  "ApplicationSchema"],
+                               ])
       end
 
       let(:parsed) do
@@ -775,7 +755,15 @@ RSpec.describe Lutaml::Xml::Mapping do
       end
 
       it "element_order should be correct" do
-        expect(parsed.element_order).to eq(expected_order[adapter_class])
+        expect(parsed.element_order).to eq(expected_order)
+      end
+
+      it "element_order omits whitespace-only text nodes" do
+        # Moxml's Nokogiri adapter filters whitespace-only text nodes between
+        # elements, matching the behavior of Oga/Ox/Rexml adapters. This test
+        # locks in that behavior so a regression is detected if moxml changes.
+        text_entries = parsed.element_order.select { |e| e.type == "Text" }
+        expect(text_entries).to be_empty
       end
 
       it "to_xml should be correct" do

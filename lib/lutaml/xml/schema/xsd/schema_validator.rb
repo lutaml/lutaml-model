@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "nokogiri"
+require "moxml"
 
 module Lutaml
   module Xml
@@ -86,7 +86,7 @@ module Lutaml
           # @param content [String] XML content to analyze
           # @return [String] Detected version ("1.0" or "1.1")
           def self.detect_version(content)
-            doc = ::Nokogiri::XML(content)
+            doc = Moxml.new.parse(content)
             root = doc.root
             return "1.0" unless root
 
@@ -102,13 +102,13 @@ module Lutaml
                 "1.0"
               end
             end
-          rescue ::Nokogiri::XML::SyntaxError
+          rescue Moxml::ParseError
             "1.0" # Default to 1.0 if cannot parse
           end
 
           # Check if document has XSD 1.1 specific features
           #
-          # @param doc [Nokogiri::XML::Document] Parsed XML document
+          # @param doc [Moxml::Document] Parsed XML document
           # @return [Boolean] true if XSD 1.1 features are present
           def self.has_xsd_1_1_features?(doc)
             # Check for XSD 1.1 specific elements
@@ -149,25 +149,25 @@ module Lutaml
           # @param content [String] XML content to validate
           # @raise [SchemaValidationError] if XML syntax is invalid
           def validate_xml_syntax(content)
-            ::Nokogiri::XML(content, &:strict)
-          rescue ::Nokogiri::XML::SyntaxError => e
+            Moxml.new.parse(content, strict: true)
+          rescue Moxml::ParseError => e
             raise SchemaValidationError, "Invalid XML syntax: #{e.message}"
           end
 
           # Parse XML with error handling
           #
           # @param content [String] XML content to parse
-          # @return [::Nokogiri::XML::Document] Parsed document
+          # @return [Moxml::Document] Parsed document
           # @raise [SchemaValidationError] if parsing fails
           def parse_xml(content)
-            ::Nokogiri::XML(content)
-          rescue ::Nokogiri::XML::SyntaxError => e
+            Moxml.new.parse(content)
+          rescue Moxml::ParseError => e
             raise SchemaValidationError, "Failed to parse XML: #{e.message}"
           end
 
           # Validate that root element is xs:schema
           #
-          # @param doc [Nokogiri::XML::Document] Parsed XML document
+          # @param doc [Moxml::Document] Parsed XML document
           # @raise [SchemaValidationError] if root element is not a valid schema element
           def validate_schema_root(doc)
             root = doc.root
@@ -185,7 +185,7 @@ module Lutaml
             end
 
             # Check if root element has the correct namespace
-            namespace_uri = root.namespace&.href
+            namespace_uri = root.namespace_uri
             return if namespace_uri == XSD_NAMESPACE
 
             if namespace_uri.nil?
@@ -201,7 +201,7 @@ module Lutaml
 
           # Validate schema version compatibility
           #
-          # @param doc [Nokogiri::XML::Document] Parsed XML document
+          # @param doc [Moxml::Document] Parsed XML document
           # @raise [SchemaValidationError] if schema uses features incompatible with target version
           def validate_schema_version(doc)
             return if @version == "1.1" # 1.1 accepts all features
@@ -218,7 +218,7 @@ module Lutaml
 
           # Detect which XSD 1.1 features are present
           #
-          # @param doc [Nokogiri::XML::Document] Parsed XML document
+          # @param doc [Moxml::Document] Parsed XML document
           # @return [Array<String>] List of detected XSD 1.1 features
           def detect_1_1_features(doc)
             features = []

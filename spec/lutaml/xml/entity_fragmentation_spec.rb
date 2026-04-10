@@ -425,6 +425,67 @@ end
 RSpec.describe "XML Entity Fragmentation Issue #5" do
   describe "with Nokogiri adapter" do
     it_behaves_like "XML entity preservation", :nokogiri
+
+    # These tests exercise the adapter's to_xml path (build_xml → native
+    # Nokogiri serialization), which is distinct from NokogiriElement#to_xml.
+    context "adapter-level to_xml round-trip" do
+      let(:adapter_class) { Lutaml::Xml::Adapter::NokogiriAdapter }
+
+      it "preserves non-standard entity references" do
+        doc = adapter_class.parse("<copyright>&copy; 2005 Mulberry</copyright>")
+        output = doc.to_xml
+        expect(output).to include("&copy;")
+        expect(output).not_to include("&amp;copy;")
+      end
+
+      it "preserves double-escaped entity references" do
+        doc = adapter_class.parse("<text>&amp;copy;</text>")
+        output = doc.to_xml
+        expect(output).to include("&amp;copy;")
+        expect(output).not_to include("&amp;amp;")
+      end
+
+      it "preserves standard entities alongside non-standard" do
+        doc = adapter_class.parse("<text>a &amp; b &copy; c</text>")
+        output = doc.to_xml
+        expect(output).to include("&amp;")
+        expect(output).to include("&copy;")
+        expect(output).not_to include("&amp;copy;")
+      end
+
+      it "preserves multiple non-standard entities" do
+        doc = adapter_class.parse("<text>&copy; &mdash; &nbsp;</text>")
+        output = doc.to_xml
+        expect(output).to include("&copy;")
+        expect(output).to include("&mdash;")
+        expect(output).to include("&nbsp;")
+      end
+    end
+
+    context "entity references in attribute values" do
+      let(:adapter_class) { Lutaml::Xml::Adapter::NokogiriAdapter }
+
+      it "preserves non-standard entities in attributes via element to_xml" do
+        root = adapter_class.parse('<root attr="&copy; 2024"/>').root
+        expect(root.to_xml).to include('attr="&copy; 2024"')
+      end
+
+      it "preserves non-standard entities in attributes via adapter to_xml" do
+        doc = adapter_class.parse('<root attr="&copy; 2024"/>')
+        output = doc.to_xml
+        expect(output).to include('attr="&copy; 2024"')
+      end
+
+      it "re-escapes standard entities in attributes" do
+        root = adapter_class.parse('<root attr="a &amp; b"/>').root
+        expect(root.to_xml).to include('attr="a &amp; b"')
+      end
+
+      it "preserves double-escaped entities in attributes" do
+        root = adapter_class.parse('<root attr="&amp;copy;"/>').root
+        expect(root.to_xml).to include('attr="&amp;copy;"')
+      end
+    end
   end
 
   describe "with Oga adapter" do
