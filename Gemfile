@@ -5,7 +5,7 @@ source "https://rubygems.org"
 # Specify your gem's dependencies in lutaml-model.gemspec
 gemspec
 
-gem "moxml", git: "https://github.com/lutaml/moxml", branch: "oga-entities-fix"
+gem "moxml", git: "https://github.com/lutaml/moxml", branch: "main"
 
 # needed for liquid with ruby 3.4
 gem "base64"
