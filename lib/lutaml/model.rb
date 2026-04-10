@@ -199,3 +199,8 @@ require "#{__dir__}/model/hash"
 require "#{__dir__}/model/jsonl"
 require "#{__dir__}/model/yamls"
 require "#{__dir__}/xml"
+
+# Prepend builder interface into Serialize
+# Builder must be prepended AFTER XML so its initialize runs first
+# (Builder -> XML InstanceMethods -> Serialize)
+Lutaml::Model::Serialize.prepend(Lutaml::Model::Serialize::Builder)

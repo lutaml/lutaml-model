@@ -96,9 +96,37 @@ module Lutaml
         # @param name [Symbol] The attribute name
         # @param attr [Attribute] The attribute definition
         def define_regular_attribute_methods(name, attr)
-          unless method_defined?(name, false)
-            define_method(name) do
-              instance_variable_get(:"@#{name}")
+          # For collection attributes, the getter accepts an optional argument
+          # for builder-style syntax: g.member(item) appends to the collection
+          if attr.collection?
+            define_method(name) do |*args|
+              if args.empty?
+                instance_variable_get(:"@#{name}")
+              else
+                # Builder-style: g.member(item) appends to collection
+                value = args.first
+                current = instance_variable_get(:"@#{name}") || []
+                new_value = current.is_a?(Array) ? current + [value] : value
+                instance_variable_set(:"@#{name}", new_value)
+                # Track order for mixed_content serialization
+                track_order(name, value, nil) if @__order_tracking__
+                value
+              end
+            end
+          else
+            # For non-collection attributes, getter accepts optional argument
+            # for builder-style syntax: g.description(value) sets the value
+            define_method(name) do |*args|
+              if args.empty?
+                instance_variable_get(:"@#{name}")
+              else
+                # Builder-style: g.description(value) sets the value
+                value = args.first
+                send(:"#{name}=", value)
+                # Track order for mixed_content serialization
+                track_order(name, value, nil) if @__order_tracking__
+                value
+              end
             end
           end
 

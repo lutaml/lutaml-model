@@ -269,6 +269,115 @@ end
 > #<Paragraph @bold="John Doe", @italic="28">
 ----
 ====
+[NOTE]
+.map_content requires collection: true
+====
+For mixed content, `map_content` must be `collection: true` because XML like:
+[source,xml]
+----
+<hello><element1>hi</element1> ho <element2>he</element2>? Yes!</hello>
+----
+has multiple text segments between elements. Each segment becomes an entry in the content collection.
+
+=== Builder interface for mixed content
+
+When constructing models with `mixed_content`, the builder interface provides a DSL for
+recording insertion order. The builder tracks element order via `element_order` for
+serialization.
+
+==== Model definitions
+
+[source,ruby]
+----
+class Person < Lutaml::Model::Serializable
+  attribute :name, :string
+
+  xml do
+    element "person"
+    map_content to: :name
+  end
+end
+
+class Group < Lutaml::Model::Serializable
+  attribute :member, Person, collection: true
+  attribute :member_key, :string, collection: true
+  attribute :description, :string, collection: true
+
+  xml do
+    element "group"
+    mixed_content
+    map_element "member", to: :member
+    map_element "member_key", to: :member_key
+    map_content to: :description
+  end
+end
+----
+
+==== NO MAGIC: Explicit receiver
+
+.Builder with explicit receiver
+[example]
+====
+[source,ruby]
+----
+group = Group.new do |g|
+  members.each do |m|
+    g.member(m[:person])
+    g.member_key(m[:key])
+    g.description("\n  " + m[:description] + "\n")
+  end
+end
+----
+====
+
+==== MAGIC: instance_eval (no receiver)
+
+.Builder with instance_eval - no receiver needed
+[example]
+====
+[source,ruby]
+----
+group = Group.new do
+  members.each do |m|
+    member(m[:person])
+    member_key(m[:key])
+    description("\n  " + m[:description] + "\n")
+  end
+end
+----
+====
+
+[NOTE]
+.Both syntaxes track order identically
+====
+The `element_order` array records entries in the order they were added, preserving
+the sequence for XML serialization.
+
+==== Why whitespace is intentional content
+
+In mixed content XML, whitespace between elements *is* content:
+
+[source,xml]
+----
+<group>
+  <member>John Hodges</member>
+  <member_key>john</member_key>
+  He is a good man.
+  <member>Thomas Mellon</member>
+  <member_key>thomas</member_key>
+  He was a strong man.
+</group>
+----
+
+The builder records whitespace strings as first-class content entries:
+
+[source,ruby]
+----
+description("\n  " + m[:description] + "\n")
+#          ↑                            ↑
+#     before whitespace          after whitespace
+----
+====
 
 === Ordered content
 
