@@ -532,4 +532,174 @@ RSpec.describe "lutaml_default_register" do
       expect(parsed_doc.math.lutaml_register).to eq(:mml_v2)
     end
   end
+
+  describe "type substitution with lutaml_default_register" do
+    let(:mml_v3_context_id) { :sub_test_mml_v3 }
+
+    before do
+      # Create the base mml_v3 context
+      Lutaml::Model::GlobalContext.create_context(id: mml_v3_context_id,
+                                                  fallback_to: [:default])
+    end
+
+    after do
+      Lutaml::Model::GlobalContext.unregister_context(mml_v3_context_id)
+      Lutaml::Model::GlobalContext.unregister_context(:sub_test_custom)
+    end
+
+    # rubocop:disable Metrics/MethodLength
+    it "preserves derived context substitutions in child elements" do
+      # Define base class that sets lutaml_default_register
+      v3_base = Class.new(Lutaml::Model::Serializable) do
+        # rubocop:disable Naming/PredicateName
+        def self.lutaml_default_register
+          :sub_test_mml_v3
+        end
+        # rubocop:enable Naming/PredicateName
+      end
+
+      # Define the standard Mi class
+      standard_mi = Class.new(v3_base) do
+        attribute :value, :string
+
+        xml do
+          root "mi"
+          map_content to: :value
+        end
+      end
+
+      # Define the substitution Mi class
+      custom_mi = Class.new(v3_base) do
+        attribute :value, :string
+
+        xml do
+          root "mi"
+          map_content to: :value
+        end
+      end
+
+      # Register both types in the base context
+      ctx = Lutaml::Model::GlobalContext.context(mml_v3_context_id)
+      ctx.registry.register(:standard_mi, standard_mi)
+      ctx.registry.register(:custom_mi, custom_mi)
+
+      # Define Math container with mixed_content-like child
+      math_class = Class.new(v3_base) do
+        attribute :mi_value, standard_mi, collection: true
+
+        xml do
+          root "math"
+          map_element "mi", to: :mi_value
+        end
+      end
+
+      ctx.registry.register(:math, math_class)
+
+      # Create a derived context with substitution
+      Lutaml::Model::GlobalContext.create_context(
+        id: :sub_test_custom,
+        fallback_to: [mml_v3_context_id],
+        substitutions: [
+          { from_type: standard_mi, to_type: custom_mi },
+        ],
+      )
+
+      # Parse XML with the custom context
+      xml = '<math><mi>x</mi></math>'
+      result = math_class.from_xml(xml, register: :sub_test_custom)
+
+      # The Mi child should be the substituted type
+      expect(result.mi_value.first).to be_a(custom_mi)
+    end
+    # rubocop:enable Metrics/MethodLength
+
+    it "uses child default register when parent context is unrelated" do
+      v3_base = Class.new(Lutaml::Model::Serializable) do
+        # rubocop:disable Naming/PredicateName
+        def self.lutaml_default_register
+          :sub_test_mml_v3
+        end
+        # rubocop:enable Naming/PredicateName
+      end
+
+      mi_class = Class.new(v3_base) do
+        attribute :value, :string
+
+        xml do
+          root "mi"
+          map_content to: :value
+        end
+      end
+
+      # Pass an unrelated context (the global :default)
+      # resolve_child_register should use :sub_test_mml_v3, not :default
+      register = Lutaml::Model::Utils.resolve_child_register(mi_class, :default)
+      expect(register).to eq(:sub_test_mml_v3)
+    end
+
+    it "uses child default register when parent context is nil" do
+      v3_base = Class.new(Lutaml::Model::Serializable) do
+        # rubocop:disable Naming/PredicateName
+        def self.lutaml_default_register
+          :sub_test_mml_v3
+        end
+        # rubocop:enable Naming/PredicateName
+      end
+
+      mi_class = Class.new(v3_base) do
+        attribute :value, :string
+      end
+
+      register = Lutaml::Model::Utils.resolve_child_register(mi_class, nil)
+      expect(register).to eq(:sub_test_mml_v3)
+    end
+
+    it "preserves derived context in resolve_child_register" do
+      v3_base = Class.new(Lutaml::Model::Serializable) do
+        # rubocop:disable Naming/PredicateName
+        def self.lutaml_default_register
+          :sub_test_mml_v3
+        end
+        # rubocop:enable Naming/PredicateName
+      end
+
+      mi_class = Class.new(v3_base) do
+        attribute :value, :string
+      end
+
+      # Create a derived context that falls back to :sub_test_mml_v3
+      Lutaml::Model::GlobalContext.create_context(
+        id: :sub_test_custom,
+        fallback_to: [mml_v3_context_id],
+      )
+
+      register = Lutaml::Model::Utils.resolve_child_register(mi_class,
+                                                              :sub_test_custom)
+      expect(register).to eq(:sub_test_custom)
+    end
+
+    it "falls back to child default for unrelated parent context" do
+      # Create another unrelated context
+      Lutaml::Model::GlobalContext.create_context(id: :sub_test_unrelated,
+                                                  fallback_to: [:default])
+
+      v3_base = Class.new(Lutaml::Model::Serializable) do
+        # rubocop:disable Naming/PredicateName
+        def self.lutaml_default_register
+          :sub_test_mml_v3
+        end
+        # rubocop:enable Naming/PredicateName
+      end
+
+      mi_class = Class.new(v3_base) do
+        attribute :value, :string
+      end
+
+      register = Lutaml::Model::Utils.resolve_child_register(mi_class,
+                                                              :sub_test_unrelated)
+      expect(register).to eq(:sub_test_mml_v3)
+
+      Lutaml::Model::GlobalContext.unregister_context(:sub_test_unrelated)
+    end
+  end
 end
