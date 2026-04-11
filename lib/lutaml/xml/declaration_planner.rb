@@ -1553,11 +1553,11 @@ module Lutaml
         #
         # CRITICAL: Only preserve namespaces that were ORIGINALLY declared at root.
         # Namespaces declared on child elements in the input should remain on children.
-        # NOTE: Skip PRESERVATION when explicit format preference is set.
-        # When user specifies prefix: true/false, that overrides input format.
-        has_explicit_pref = options.key?(:prefix) || options.key?(:use_prefix)
-        if is_root && !has_explicit_pref
-          stored_plan = options[:stored_xml_declaration_plan]
+        # NOTE: PRESERVATION should always run when we have a stored plan, because
+        # unused namespaces (like xmlns:xsi for schemaLocation) should be preserved
+        # for round-trip fidelity regardless of prefix formatting options.
+        stored_plan = options[:stored_xml_declaration_plan]
+        if is_root && stored_plan
 
           # Get root-level namespaces from location tracking.
           # This properly distinguishes namespaces declared at root vs hoisted there.
