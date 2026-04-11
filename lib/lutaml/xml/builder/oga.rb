@@ -190,7 +190,8 @@ module Lutaml
 
           # Filter out duplicate xmlns declarations already on parent chain
           filtered_attributes = attributes.reject do |name, _value|
-            name.to_s.start_with?("xmlns") && parent_has_xmlns?(@current_node, name, attributes[name])
+            name.to_s.start_with?("xmlns") && parent_has_xmlns?(@current_node,
+                                                                name, attributes[name])
           end
 
           filtered_attributes.each do |name, value|
@@ -212,7 +213,9 @@ module Lutaml
 
             visited.add(current.object_id)
 
-            existing = current.attributes&.find { |attr| attr.name.to_s == xmlns_name_str && attr.value == xmlns_value }
+            existing = current.attributes&.find do |attr|
+              attr.name.to_s == xmlns_name_str && attr.value == xmlns_value
+            end
             return true if existing
 
             break unless current.respond_to?(:parent) && current.parent

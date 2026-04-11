@@ -84,7 +84,8 @@ module Lutaml
 
           if str.end_with?("s", "x", "z", "ch", "sh")
             "#{str}es"
-          elsif str.end_with?("y") && str.length > 1 && !%w[a e i o u].include?(str[-2])
+          elsif str.end_with?("y") && str.length > 1 && !%w[a e i o
+                                                            u].include?(str[-2])
             "#{str[0..-2]}ies"
           else
             "#{str}s"
@@ -181,18 +182,41 @@ module Lutaml
         end
 
         # Determines the appropriate register for a child model during deserialization.
-        # Uses the child's lutaml_default_register if available, otherwise falls back
-        # to the parent's register.
+        #
+        # When a child class defines `lutaml_default_register` (e.g., MML v3 elements
+        # default to :mml_v3), that default is used — UNLESS the parent provides an
+        # explicit register that is a *derived* context of the child's default.
+        # Derived contexts may carry substitutions that must be preserved.
         #
         # @param child_class [Class] The child model class
-        # @param parent_register [Symbol] The parent's register ID
-        # @return [Symbol] The register ID to use for the child
+        # @param parent_register [Symbol, nil] The parent's register/context ID
+        # @return [Symbol, nil] The register ID to use for the child
         def resolve_child_register(child_class, parent_register)
-          if child_class.respond_to?(:lutaml_default_register) &&
-              child_class.lutaml_default_register
-            child_class.lutaml_default_register
-          else
+          default_reg = if child_class.respond_to?(:lutaml_default_register)
+                          child_class.lutaml_default_register
+                        end
+
+          return parent_register unless default_reg
+
+          # No parent register — use child's default
+          return default_reg if parent_register.nil?
+
+          # Parent matches child's default — no conflict
+          return default_reg if parent_register == default_reg
+
+          # Parent is the global default — child's default takes precedence
+          if parent_register == Lutaml::Model::Config.default_register
+            return default_reg
+          end
+
+          # Parent provided an explicit, non-default register.
+          # Check if it's a derived context that falls back to child's default.
+          # If so, preserve it — it may carry substitutions the user configured.
+          parent_ctx = Lutaml::Model::GlobalContext.context(parent_register)
+          if parent_ctx&.fallback_ids&.include?(default_reg)
             parent_register
+          else
+            default_reg
           end
         end
 
