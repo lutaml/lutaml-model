@@ -328,6 +328,49 @@ RSpec.describe "Namespace Preservation Issue #3" do
       expect(output).to include('xmlns:mml="http://www.w3.org/1998/Math/MathML"')
     end
 
+    it "preserves unused namespace declarations with prefix: true" do
+      # Define namespace class
+      gml_ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
+        uri "http://www.opengis.net/gml/3.2"
+        prefix_default "gml"
+      end
+
+      # Define model class (similar to ogc-gml Polygon pattern)
+      polygon_class = Class.new(Lutaml::Model::Serializable) do
+        attribute :exterior, :string
+
+        xml do
+          root "Polygon"
+          namespace gml_ns
+          map_element "exterior", to: :exterior
+        end
+
+        def self.name
+          "Polygon"
+        end
+      end
+
+      # Input XML has xmlns:xsi but no attributes using it (schemaLocation stripped),
+      # so xsi namespace is truly unused by any mapped content.
+      # This mirrors the ogc-gml gmlring2.xml scenario.
+      xml_input = <<~XML
+        <?xml version="1.0"?>
+        <gml:Polygon xmlns:gml="http://www.opengis.net/gml/3.2"
+                     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+          <gml:exterior>outer</gml:exterior>
+        </gml:Polygon>
+      XML
+
+      polygon = polygon_class.from_xml(xml_input)
+      expect(polygon.exterior).to eq("outer")
+
+      # Round-trip with prefix: true — xmlns:xsi must still be preserved
+      output = polygon.to_xml(prefix: true)
+
+      expect(output).to include('xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"')
+      expect(output).to include('xmlns:gml="http://www.opengis.net/gml/3.2"')
+    end
+
     it "does not hoist child-declared namespaces to root" do
       # Define namespace classes
       child_ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
