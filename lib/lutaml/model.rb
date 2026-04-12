@@ -58,6 +58,19 @@ module Lutaml
     autoload :Validation, "#{__dir__}/model/validation"
     autoload :Choice, "#{__dir__}/model/choice"
     autoload :Sequence, "#{__dir__}/model/sequence"
+    autoload :Organization, "#{__dir__}/model/organization"
+    autoload :ConsolidationRule, "#{__dir__}/model/consolidation_rule"
+    autoload :ConsolidationMap, "#{__dir__}/model/consolidation_map"
+    autoload :GatherRule, "#{__dir__}/model/consolidation_rule/gather_rule"
+    autoload :DispatchBlock,
+             "#{__dir__}/model/consolidation_rule/dispatch_block"
+    autoload :DispatchBuilder,
+             "#{__dir__}/model/consolidation_rule/dispatch_block"
+    autoload :PatternElementRule,
+             "#{__dir__}/model/consolidation_rule/pattern_element_rule"
+    autoload :PatternContentRule,
+             "#{__dir__}/model/consolidation_rule/pattern_content_rule"
+    autoload :Consolidation, "#{__dir__}/model/consolidation/engine"
     autoload :ValueTransformer, "#{__dir__}/model/value_transformer"
     autoload :Registrable, "#{__dir__}/model/registrable"
 

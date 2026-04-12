@@ -59,6 +59,7 @@ module Lutaml
           sort_direction
           indexes
           collection_validations
+          organization
         ].freeze
 
         ALLOWED_OPTIONS = %i[polymorphic].freeze
@@ -79,7 +80,8 @@ module Lutaml
                     :sort_by_field,
                     :sort_direction,
                     :indexes,
-                    :collection_validations
+                    :collection_validations,
+                    :organization
 
         def instances(name, type, options = {}, &block)
           if (invalid_opts = options.keys - ALLOWED_OPTIONS).any?
@@ -95,6 +97,15 @@ module Lutaml
           define_method(:"#{name}=") do |collection|
             self.collection = collection
           end
+        end
+
+        # Declare that this Collection produces organized instances of a GroupClass.
+        #
+        # @param name [Symbol] attribute name on the Collection
+        # @param group_class [Class] the GroupClass type
+        def organizes(name, group_class)
+          attribute(name, group_class, collection: true)
+          @organization = Organization.new(name, group_class)
         end
 
         def sort(by:, order: :asc)

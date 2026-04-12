@@ -50,7 +50,8 @@ module Lutaml
                   :namespace_scope,
                   :namespace_scope_config,
                   :mapper_class,
-                  :xml_space
+                  :xml_space,
+                  :consolidation_maps
 
       def initialize
         super
@@ -66,6 +67,7 @@ module Lutaml
         @register_elements = ::Hash.new { |h, k| h[k] = {} }
         @register_attributes = ::Hash.new { |h, k| h[k] = {} }
         @register_element_sequences = ::Hash.new { |h, k| h[k] = [] }
+        @consolidation_maps = []
         @finalized = false
         @element_name = nil
         @namespace_class = nil
@@ -718,6 +720,23 @@ module Lutaml
         end
       end
 
+      # Declare consolidation rules for this mapping.
+      #
+      # Creates a ConsolidationMap that describes how sibling elements
+      # are grouped into structured model instances.
+      #
+      # @param by [Symbol] grouping criterion (:attr_name or :pattern)
+      # @param to [Symbol] target attribute name on the Collection
+      # @param group_class [Class] the GroupClass to instantiate (optional, resolved from Organization)
+      # @yield Builder block with gather/dispatch_by or map_element/map_content
+      # @return [ConsolidationMap]
+      def consolidate_map(by:, to:, group_class: nil, &)
+        builder = ::Lutaml::Model::ConsolidationMap::Builder.new(by, to,
+                                                                 group_class)
+        builder.instance_eval(&)
+        @consolidation_maps << builder.build
+      end
+
       # Import mappings from another model.
       # For default register: imports BOTH attributes (into @mapper_class) AND mappings.
       # For non-default register: stores mappings in register-specific storage
@@ -1184,6 +1203,7 @@ module Lutaml
           @register_element_sequences
           @mappings_imported
           @sequence_importable_mappings
+          @consolidation_maps
         ]
       end
 

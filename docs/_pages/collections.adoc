@@ -768,6 +768,12 @@ end
 ====
 
 
+=== Consolidation mapping
+
+Collections can consolidate flat sibling elements into structured group instances.
+See link:../_guides/consolidation-mapping[Consolidation Mapping] for the full guide.
+
+
 
 === Nested collections
 

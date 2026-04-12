@@ -1,0 +1,252 @@
+---
+title: Consolidation Mapping
+parent: Guides
+nav_order: 95
+---
+
+= Consolidation Mapping
+
+Consolidation mapping groups sibling XML elements into structured model instances.
+It solves the problem where multiple elements of the same name need to be
+organized by an attribute value and distributed into typed attributes on a
+group model.
+
+== The Problem
+
+ISO and other standards documents contain XML structures where multiple sibling
+elements share the same name but are distinguished by attribute values:
+
+[source,xml]
+----
+<bibdata>
+  <title lang="en" type="main">Cereals and pulses</title>
+  <title lang="en" type="title-intro">Cereals and pulses</title>
+  <title lang="en" type="title-main">Specifications</title>
+  <title lang="en" type="title-part">Rice</title>
+  <title lang="fr" type="main">Céréales et légumineuses</title>
+  <title lang="fr" type="title-intro">Céréales</title>
+  <title lang="fr" type="title-part">Riz</title>
+</bibdata>
+----
+
+You want to access these as grouped, structured objects:
+
+[source,ruby]
+----
+bibdata.titles.per_lang.find { |g| g.lang == "en" }.main_title.content
+#=> "Cereals and pulses"
+
+bibdata.titles.per_lang.find { |g| g.lang == "fr" }.title_part.content
+#=> "Riz"
+----
+
+== Concepts
+
+Consolidation mapping uses three components:
+
+[cols="1,4"]
+|===
+| Component | Purpose
+
+| `instances` | Declares the raw item type (existing Collection feature)
+| `organizes` | Declares the output group model type
+| `consolidate_map` | Declares how to group and distribute items (in format block)
+|===
+
+=== Model-level declaration
+
+On your Collection class, declare both the raw item type and the organized output:
+
+[source,ruby]
+----
+class TitleCollection < Lutaml::Model::Collection
+  instances :items, IndividualTitle        # raw parsed items
+  organizes :per_lang, PerLangTitleGroup   # organized output
+end
+----
+
+=== Format-level declaration
+
+In the Collection's format block, declare the consolidation rules:
+
+[source,ruby]
+----
+class TitleCollection < Lutaml::Model::Collection
+  instances :items, IndividualTitle
+  organizes :per_lang, PerLangTitleGroup
+
+  xml do
+    root "titles"
+    map_instances to: :items
+
+    consolidate_map by: :lang, to: :per_lang do
+      gather :lang, to: :lang
+      dispatch_by :type_of_title do
+        route "main" => :main_title
+        route "title-intro" => :title_intro
+        route "title-main" => :title_main
+        route "title-part" => :title_part
+      end
+    end
+  end
+end
+----
+
+== Complete Example
+
+=== Define the models
+
+[source,ruby]
+----
+# Raw parsed element
+class IndividualTitle < Lutaml::Model::Serializable
+  attribute :lang, :string
+  attribute :type_of_title, :string
+  attribute :content, :string
+
+  xml do
+    root "title"
+    map_attribute "lang", to: :lang
+    map_attribute "type", to: :type_of_title
+    map_content to: :content
+  end
+end
+
+# Grouped result model (plain model, no format knowledge)
+class PerLangTitleGroup < Lutaml::Model::Serializable
+  attribute :lang, :string
+  attribute :main_title, IndividualTitle
+  attribute :title_intro, IndividualTitle
+  attribute :title_main, IndividualTitle
+  attribute :title_part, IndividualTitle
+end
+
+# Collection that orchestrates consolidation
+class TitleCollection < Lutaml::Model::Collection
+  instances :items, IndividualTitle
+  organizes :per_lang, PerLangTitleGroup
+
+  xml do
+    root "titles"
+    map_instances to: :items
+
+    consolidate_map by: :lang, to: :per_lang do
+      gather :lang, to: :lang
+      dispatch_by :type_of_title do
+        route "main" => :main_title
+        route "title-intro" => :title_intro
+        route "title-main" => :title_main
+        route "title-part" => :title_part
+      end
+    end
+  end
+end
+
+# Parent model
+class Bibdata < Lutaml::Model::Serializable
+  attribute :titles, IndividualTitle, collection: TitleCollection
+
+  xml do
+    root "bibdata"
+    map_element "title", to: :titles
+  end
+end
+----
+
+=== Parse and access grouped data
+
+[source,ruby]
+----
+bibdata = Bibdata.from_xml(xml)
+
+# Access raw items
+bibdata.titles.items.size  #=> 7
+
+# Access organized groups
+bibdata.titles.per_lang.size  #=> 2
+
+en = bibdata.titles.per_lang.find { |g| g.lang == "en" }
+en.main_title.content   #=> "Cereals and pulses"
+en.title_part.content   #=> "Rice"
+
+fr = bibdata.titles.per_lang.find { |g| g.lang == "fr" }
+fr.main_title.content   #=> "Céréales et légumineuses"
+fr.title_main           #=> nil (no title-main for French)
+----
+
+=== Serialize back to XML
+
+Serialization uses the raw items to produce the original XML structure:
+
+[source,ruby]
+----
+bibdata.to_xml
+#=>
+# <bibdata>
+#   <title lang="en" type="main">Cereals and pulses</title>
+#   <title lang="en" type="title-intro">Cereals and pulses</title>
+#   ...
+# </bibdata>
+----
+
+== DSL Reference
+
+=== `organizes`
+
+Declares that a Collection produces organized instances of a GroupClass.
+
+[source,ruby]
+----
+organizes :name, GroupClass
+----
+
+Creates a collection attribute on the Collection class and stores the
+organization metadata.
+
+=== `consolidate_map`
+
+Declared inside a format block (`xml do`, `json do`). Defines how raw items
+are grouped and distributed.
+
+[source,ruby]
+----
+consolidate_map by: :attribute_name, to: :target_attribute do
+  gather :source_attr, to: :target_attr
+  dispatch_by :discriminator_attr do
+    route "value1" => :target_attr1
+    route "value2" => :target_attr2
+  end
+end
+----
+
+Parameters:
+
+[cols="1,4"]
+|===
+| Parameter | Description
+
+| `by:` | The attribute name to group by (Symbol)
+| `to:` | The target attribute on the Collection for organized output
+|===
+
+Block methods:
+
+[cols="1,4"]
+|===
+| Method | Description
+
+| `gather :source, to: :target` | Copy a shared attribute from items to the group
+| `dispatch_by :attr` | Declare which attribute discriminates items within a group
+| `route "value" => :target` | Map a discriminator value to a group attribute
+|===
+
+== Design Principles
+
+1. **Model-centric**: GroupClasses are plain models with attributes only.
+   No format-specific consolidation knowledge lives on the GroupClass.
+2. **Collection orchestrates**: All consolidation logic lives on the
+   Collection's format mapping block.
+3. **Format-agnostic model level**: `organizes` works for any format.
+   `consolidate_map` is format-specific.
+4. **Round-trip safe**: Raw items are preserved for exact XML round-tripping.
+   Organized groups are a derived view.
