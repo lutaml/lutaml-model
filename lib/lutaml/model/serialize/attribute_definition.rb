@@ -154,7 +154,7 @@ module Lutaml
           end
 
           attr = Attribute.new(name, type, options)
-          attributes[name] = attr
+          @attributes[name] = attr
           define_attribute_methods(attr)
 
           attr
