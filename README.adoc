@@ -65,6 +65,7 @@ link:docs/migration-guides/0-1-0-migrate-from-shale.adoc[Migrating from Shale to
 * Symmetric OOP architecture for all formats with KeyValueDataModel (see <<keyvaluedatamodel-architecture>>)
 * Parse XSD schemas into Ruby objects for inspection and manipulation (see <<xsd-schema-parsing>>)
 * Reusable XML mapping classes for sharing mappings across models
+* Consolidation mapping: group sibling XML elements into structured model instances (see <<consolidation-mapping>>)
 
 
 == Data modeling in a nutshell
@@ -15577,7 +15578,15 @@ and examples.
 [[schema-import]]
 == Schema import
 
-Lutaml::Model provides functionality to import schema definitions into LutaML
+[[consolidation-mapping]]
+== Consolidation mapping
+
+Consolidation mapping groups flat sibling XML elements into structured model
+instances based on attribute values. See
+link:docs/_pages/consolidation-mapping.html[Consolidation Mapping guide] for
+full documentation.
+
+.Lutaml::Model provides functionality to import schema definitions into LutaML
 models. This allows you to create models from existing schema definitions.
 
 Currently, the following schema formats are supported:

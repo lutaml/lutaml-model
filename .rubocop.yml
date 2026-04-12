@@ -12,6 +12,7 @@ AllCops:
   NewCops: enable
   Exclude:
     - 'vendor/**/*'
+    - 'tmp/**/*'
     - '**/*.adoc'
     - '**/*.md'
 
