@@ -44,10 +44,12 @@ module Lutaml
         autoload :SchemaValidator, "#{__dir__}/xsd/schema_validator"
         autoload :FileValidationResult, "#{__dir__}/xsd/file_validation_result"
         autoload :ValidationError, "#{__dir__}/xsd/validation_error"
-        autoload :NamespaceUriRemapping, "#{__dir__}/xsd/namespace_uri_remapping"
+        autoload :NamespaceUriRemapping,
+                 "#{__dir__}/xsd/namespace_uri_remapping"
         autoload :ValidationResult, "#{__dir__}/xsd/validation_result"
         autoload :Base, "#{__dir__}/xsd/base"
-        autoload :SchemaLocationMapping, "#{__dir__}/xsd/schema_location_mapping"
+        autoload :SchemaLocationMapping,
+                 "#{__dir__}/xsd/schema_location_mapping"
         autoload :NamespaceMapping, "#{__dir__}/xsd/namespace_mapping"
         autoload :TypeResolutionResult, "#{__dir__}/xsd/type_resolution_result"
         autoload :TypeIndexEntry, "#{__dir__}/xsd/type_index_entry"
@@ -66,8 +68,10 @@ module Lutaml
         autoload :Documentation, "#{__dir__}/xsd/documentation"
         autoload :Element, "#{__dir__}/xsd/element"
         autoload :Enumeration, "#{__dir__}/xsd/enumeration"
-        autoload :ExtensionComplexContent, "#{__dir__}/xsd/extension_complex_content"
-        autoload :ExtensionSimpleContent, "#{__dir__}/xsd/extension_simple_content"
+        autoload :ExtensionComplexContent,
+                 "#{__dir__}/xsd/extension_complex_content"
+        autoload :ExtensionSimpleContent,
+                 "#{__dir__}/xsd/extension_simple_content"
         autoload :Field, "#{__dir__}/xsd/field"
         autoload :FractionDigits, "#{__dir__}/xsd/fraction_digits"
         autoload :Glob, "#{__dir__}/xsd/glob"
@@ -87,9 +91,12 @@ module Lutaml
         autoload :Notation, "#{__dir__}/xsd/notation"
         autoload :Pattern, "#{__dir__}/xsd/pattern"
         autoload :Redefine, "#{__dir__}/xsd/redefine"
-        autoload :RestrictionComplexContent, "#{__dir__}/xsd/restriction_complex_content"
-        autoload :RestrictionSimpleContent, "#{__dir__}/xsd/restriction_simple_content"
-        autoload :RestrictionSimpleType, "#{__dir__}/xsd/restriction_simple_type"
+        autoload :RestrictionComplexContent,
+                 "#{__dir__}/xsd/restriction_complex_content"
+        autoload :RestrictionSimpleContent,
+                 "#{__dir__}/xsd/restriction_simple_content"
+        autoload :RestrictionSimpleType,
+                 "#{__dir__}/xsd/restriction_simple_type"
         autoload :Schema, "#{__dir__}/xsd/schema"
         autoload :Selector, "#{__dir__}/xsd/selector"
         autoload :Sequence, "#{__dir__}/xsd/sequence"
@@ -99,7 +106,8 @@ module Lutaml
         autoload :Union, "#{__dir__}/xsd/union"
         autoload :Unique, "#{__dir__}/xsd/unique"
         autoload :WhiteSpace, "#{__dir__}/xsd/white_space"
-        autoload :SchemaFileValidationResults, "#{__dir__}/xsd/schema_file_validation_results"
+        autoload :SchemaFileValidationResults,
+                 "#{__dir__}/xsd/schema_file_validation_results"
 
         module_function
 
