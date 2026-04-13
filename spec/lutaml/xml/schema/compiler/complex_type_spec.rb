@@ -109,6 +109,27 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler::ComplexType do
       expect(code).to include("mixed_content")
     end
 
+    it "renders a class with mixed content and no simple_content has collection: true" do
+      complex_type.name = "TestClass"
+      complex_type.mixed = true
+      # simple_content is nil by default, so simple_content? returns false
+      code = complex_type.to_class
+      expect(code).to include("mixed_content")
+      expect(code).to include("attribute :content, :string, collection: true")
+    end
+
+    it "renders a class with mixed content and simple_content does not have collection: true" do
+      simple_content = instance_double(simple_content_class,
+                                       base_class: "string", to_attributes: "  attribute :content, :string\n", to_xml_mapping: "  map_content to: :content\n", required_files: [])
+      complex_type.name = "TestClass"
+      complex_type.mixed = true
+      complex_type.simple_content = simple_content
+      code = complex_type.to_class
+      expect(code).to include("mixed_content")
+      expect(code).to include("attribute :content, :string")
+      expect(code).not_to include("collection: true")
+    end
+
     it "renders a class with namespace and prefix options" do
       complex_type.name = "TestClass"
       code = complex_type.to_class(options: { namespace: "http://example.com",
