@@ -542,7 +542,9 @@ mixed_content_option)
           end
         end
 
-        if rule.has_custom_method_for_deserialization? || attr_type == ::Lutaml::Model::Type::Hash
+        # Performance: Cache rule method check before loop to avoid repeated method calls
+        rule_has_custom_method = rule.has_custom_method_for_deserialization?
+        if rule_has_custom_method || attr_type == ::Lutaml::Model::Type::Hash
           return_child = attr_type == ::Lutaml::Model::Type::Hash || !attr.collection? if attr
           return return_child ? children.first : children
         end
@@ -554,22 +556,29 @@ mixed_content_option)
 
         instance.value_set_for(attr.name)
 
-        children.each do |child|
-          if !rule.has_custom_method_for_deserialization? && attr_type_is_serializable
-            cast_options = options.except(:mappings)
-            cast_options[:polymorphic] = rule.polymorphic if rule.polymorphic
-            cast_options[:register] = effective_register
-            cast_options[:lutaml_parent] = instance
-            cast_options[:lutaml_root] = instance.lutaml_root || instance
+        # Performance: Cache values before loop to avoid repeated instance variable access
+        instance_is_serializable = instance.is_a?(::Lutaml::Model::Serialize)
+        parent_ns_prefix = instance_is_serializable ? instance.instance_variable_get(:@__xml_namespace_prefix) : nil
+        parent_has_explicit_prefix = parent_ns_prefix && !parent_ns_prefix.to_s.empty?
 
-            # Namespace-aware type resolution: extract namespace URI from child
-            if child.is_a?(::Lutaml::Xml::XmlElement)
-              child_namespace_uri = child.namespace_uri
-              if child_namespace_uri
-                cast_options[:namespace_uri] =
-                  child_namespace_uri
-              end
-            end
+        # Performance: Cache options except :mappings once before loop
+        # This hash is used as a base for each child's cast_options
+        # Note: We must create a new hash for each child since attr.cast may modify it
+        base_cast_options = options.except(:mappings)
+        base_cast_options[:polymorphic] = rule.polymorphic if rule.polymorphic
+        base_cast_options[:lutaml_parent] = instance
+        base_cast_options[:lutaml_root] = instance.lutaml_root || instance
+
+        children.each do |child|
+          if !rule_has_custom_method && attr_type_is_serializable
+            # Performance: Build cast_options efficiently
+            # Note: Must create new hash each time since attr.cast may modify it
+            cast_options = if child.is_a?(::Lutaml::Xml::XmlElement) &&
+                             (child_namespace_uri = child.namespace_uri)
+                             base_cast_options.merge(namespace_uri: child_namespace_uri)
+                           else
+                             base_cast_options.merge({})
+                           end
 
             cast_result = attr.cast(child, :xml, effective_register,
                                     cast_options)
@@ -583,7 +592,7 @@ mixed_content_option)
                 child.namespace_prefix_explicit && child.namespace_prefix
                           child.namespace_prefix
                         end
-            if ns_prefix && instance.is_a?(::Lutaml::Model::Serialize)
+            if ns_prefix && instance_is_serializable
               prefixes = instance.instance_variable_get(:@__xml_ns_prefixes) || {}
               prefixes[attr.name] = ns_prefix
               instance.instance_variable_set(:@__xml_ns_prefixes, prefixes)
@@ -620,8 +629,8 @@ mixed_content_option)
               # Check if parent model has @__xml_namespace_prefix set:
               # - Nil/empty: doubly-defined case -> set @__xml_namespace_prefix on child
               # - Set: mixed content case -> don't set (child has its own namespace)
-              parent_has_explicit_prefix = instance.instance_variable_get(:@__xml_namespace_prefix)
-              if parent_has_explicit_prefix.to_s.empty?
+              # Performance: Use cached parent_ns_prefix instead of re-fetching
+              if parent_ns_prefix.nil? || parent_ns_prefix.to_s.empty?
                 cast_result.instance_variable_set(:@__xml_namespace_prefix,
                                                   ns_prefix)
               end
@@ -654,16 +663,12 @@ mixed_content_option)
                           # is nil), leave ns_prefix as-is so @__xml_ns_prefixes is not set.
                           nil
                         end
-            if ns_prefix && instance.is_a?(::Lutaml::Model::Serialize)
-              # Skip Serializable attribute types (same reason as above)
-              attr_type_class = attr.type(effective_register)
-              unless attr_type_class.is_a?(Class) &&
-                  (attr_type_class.include?(Lutaml::Model::Serialize) ||
-                   (attr_type_class.respond_to?(:<) && attr_type_class < Lutaml::Model::Serialize))
-                prefixes = instance.instance_variable_get(:@__xml_ns_prefixes) || {}
-                prefixes[attr.name] = ns_prefix
-                instance.instance_variable_set(:@__xml_ns_prefixes, prefixes)
-              end
+            if ns_prefix && instance_is_serializable
+              # Skip Serializable attribute types (already handled in Serializable branch)
+              # attr_type_is_serializable is false here, so attr_type is not Serializable
+              prefixes = instance.instance_variable_get(:@__xml_ns_prefixes) || {}
+              prefixes[attr.name] = ns_prefix
+              instance.instance_variable_set(:@__xml_ns_prefixes, prefixes)
             end
           end
         end
