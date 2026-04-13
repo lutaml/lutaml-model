@@ -555,8 +555,13 @@ instance_object = nil)
 
         # Fast path for Type::Value subclasses (String, Integer, Boolean, etc.)
         # These are never Serializable, so skip expensive can_serialize? and needs_conversion? checks
+        # Skip if type has custom from_xml/from_json methods (defined on the class itself, not inherited)
         if resolved_type.is_a?(Class) && resolved_type < Lutaml::Model::Type::Value
-          return resolved_type.cast(value)
+          has_custom_from_xml = resolved_type.respond_to?(:from_xml) &&
+            resolved_type.method(:from_xml).owner != Lutaml::Model::Type::Value
+          has_custom_from_json = resolved_type.respond_to?(:from_json) &&
+            resolved_type.method(:from_json).owner != Lutaml::Model::Type::Value
+          return resolved_type.cast(value) unless has_custom_from_xml || has_custom_from_json
         end
 
         klass = resolve_polymorphic_class(resolved_type, value, options)
