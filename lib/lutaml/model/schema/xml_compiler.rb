@@ -175,7 +175,8 @@ module Lutaml
                   XML_ADAPTER_NOT_SET_MESSAGE
           end
 
-          parsed_schema = Lutaml::Xml::Schema::Xsd.parse(schema, location: options[:location])
+          parsed_schema = Lutaml::Xml::Schema::Xsd.parse(schema,
+                                                         location: options[:location])
 
           @elements = MappingHash.new
           @attributes = MappingHash.new
@@ -567,7 +568,6 @@ compiler_complex_type)
             @namespace_classes[ns_class.class_name] = ns_class
           end
         end
-
       end
     end
   end
