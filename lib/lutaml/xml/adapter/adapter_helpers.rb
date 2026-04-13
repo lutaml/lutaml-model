@@ -28,8 +28,6 @@ module Lutaml
             "text"
           when Moxml::Cdata
             "#cdata-section"
-          when Moxml::Comment
-            "comment"
           when Moxml::ProcessingInstruction
             "processing_instruction"
           when Moxml::Comment
@@ -54,8 +52,6 @@ module Lutaml
             :text
           when Moxml::Cdata
             :cdata
-          when Moxml::Comment
-            :comment
           when Moxml::ProcessingInstruction
             :processing_instruction
           when Moxml::Comment

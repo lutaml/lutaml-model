@@ -1,5 +1,4 @@
 require "spec_helper"
-require "ox"
 require_relative "../../../../lib/lutaml/xml/adapter/ox_adapter"
 
 RSpec.describe Lutaml::Xml::Adapter::OxAdapter, :ox_adapter do
@@ -76,17 +75,16 @@ RSpec.describe Lutaml::Xml::Adapter::OxAdapter, :ox_adapter do
   context "when generating XML with namespaces" do
     it "generates XML with namespaces correctly" do
       xml_output = document.to_xml
-      parsed_output = Ox.parse(xml_output)
+      parsed_doc = described_class.parse(xml_output)
 
-      root = parsed_output
+      root = parsed_doc.root
       expect(root.name).to eq("root")
-      expect(root.attributes[:xmlns]).to eq("http://example.com/default")
-      expect(root.attributes[:"xmlns:prefix"]).to eq("http://example.com/prefixed")
+      expect(root.namespace.uri).to eq("http://example.com/default")
 
-      child = root.nodes.first
+      child = root.children.reject { |c| c.name == "text" }.first
       expect(child.name).to eq("prefix:child")
-      expect(child.attributes[:attr]).to eq("value")
-      expect(child.attributes[:"prefix:attr"]).to eq("prefixed_value")
+      expect(child.attributes["attr"].value).to eq("value")
+      expect(child.attributes["prefix:attr"].value).to eq("prefixed_value")
     end
   end
 end

@@ -1,4 +1,3 @@
-require "ox"
 require "moxml/adapter/ox"
 
 module Lutaml
@@ -125,8 +124,8 @@ module Lutaml
             end
           end
 
-          # Ox::Builder.to_s produces output with leading newline
-          # Strip the leading newline to produce clean XML output
+          # MoxmlXmlBuilder.to_s may produce output with leading newline
+          # Strip the leading/trailing newlines to produce clean XML output
           # We handle declarations manually with generate_declaration() for full control
           xml_data = builder.xml.to_s
           xml_data = xml_data.delete_prefix("\n").chomp # Remove leading/trailing newlines from Ox output
@@ -162,9 +161,9 @@ _options = {})
 
         private
 
-        # Recursively build Ox::Element tree manually (PARALLEL TRAVERSAL)
+        # Recursively build XML element tree manually (PARALLEL TRAVERSAL)
         #
-        # @param xml [Ox::Builder] XML builder
+        # @param xml [Builder::Ox::MoxmlXmlBuilder] XML builder
         # @param xml_element [XmlDataModel::XmlElement] Content
         # @param element_node [ElementNode] Decisions
         # @param global_registry [Hash] Global prefix registry (URI => prefix)
