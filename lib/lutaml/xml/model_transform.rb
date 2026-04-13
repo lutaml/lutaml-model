@@ -224,6 +224,16 @@ visited = Set.new)
         xml_mapping = mappings_for(:xml)
         namespace_uri = xml_mapping&.namespace_uri
 
+        # Performance: Pre-filter element children once per element instead of
+        # scanning all children for each rule (O(children) vs O(children * rules))
+        # Note: doc.children can contain Symbols (e.g., namespace declarations), which
+        # don't have namespaced_name method, so we filter them out
+        element_children = doc.children.reject do |child|
+          child.is_a?(String) || child.is_a?(Symbol) ||
+            (child.is_a?(::Lutaml::Xml::XmlElement) && child.text?)
+        end
+        options_with_children = options.merge(_element_children: element_children)
+
         mappings.each do |rule|
           # Performance: Cache rule properties accessed multiple times
           rule.name
@@ -241,11 +251,13 @@ visited = Set.new)
           # Performance: Only create new_opts when we need to override default_namespace
           # Avoid dup for the common case where namespace is not set
           new_opts = if rule_namespace_set && rule_namespace_param != :inherit
-                       { default_namespace: rule.namespace }
+                       { default_namespace: rule.namespace,
+                         _element_children: element_children }
                      elsif default_namespace.nil? && namespace_uri
-                       { default_namespace: namespace_uri }
+                       { default_namespace: namespace_uri,
+                         _element_children: element_children }
                      else
-                       options
+                       options_with_children
                      end
 
           value = if rule.raw_mapping?
@@ -450,13 +462,19 @@ mixed_content_option)
           type_ns_prefix_str = type_ns_class&.prefix_default&.to_s
         end
 
-        children = doc.children.select do |child|
-          next false if child.is_a?(String)
+        # Performance: Use pre-filtered element children if available via options
+        # This avoids O(children * rules) scans by pre-filtering once per element
+        # Note: doc.children can contain Symbols (e.g., namespace declarations), which
+        # don't have namespaced_name method, so we filter them out
+        element_children = options[:_element_children] || doc.children.reject do |child|
+          child.is_a?(String) || child.is_a?(Symbol) ||
+            (child.is_a?(::Lutaml::Xml::XmlElement) && child.text?)
+        end
 
-          # Handle XmlElement children with text? method
-          # Performance: All XML adapter children inherit from XmlElement
-          next false if child.is_a?(::Lutaml::Xml::XmlElement) && child.text?
+        # Early exit if no element children - avoid scanning for each rule
+        return ::Lutaml::Model::UninitializedClass.instance if element_children.empty?
 
+        children = element_children.select do |child|
           # Handle explicit namespace: nil with prefix: nil
           # When both namespace: nil and prefix: nil are set, this means "no namespace constraint"
           # The child element can declare its own namespace and should still match by local name
