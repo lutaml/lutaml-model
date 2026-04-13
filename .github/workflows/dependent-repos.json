@@ -4,14 +4,20 @@
     "glossarist/iev",
     "glossarist/termium",
     "lutaml/genericode",
+    "lutaml/hyperlang",
+    "lutaml/lutaml-hal",
     "lutaml/lutaml-xsd",
     "lutaml/metaschema",
     "lutaml/ogc-gml",
+    "lutaml/reqif",
+    "lutaml/rng",
+    "lutaml/unibuf",
     "lutaml/xmi",
     "metanorma/atmospheric",
     "metanorma/metanorma-cli",
     "metanorma/modspec-ruby",
     "metanorma/niso-jats",
+    "metanorma/prosereflect",
     "metanorma/revix",
     "metanorma/rfcxml",
     "metanorma/sts-ruby",
@@ -20,6 +26,7 @@
     "relaton/ieee-idams",
     "relaton/loc_mods",
     "relaton/w3c_api",
+    "ukiryu/ukiryu",
     "unitsml/unitsml-ruby"
   ]
 }
