@@ -109,11 +109,12 @@ module Lutaml
       def type(context_or_register = nil)
         return if unresolved_type.nil?
 
-        # Performance: Fast path for default context (most common case)
-        # Cache the result to avoid mutex overhead in CachedTypeResolver
-        if context_or_register.nil?
+        # Performance: Fast path for nil or default register (most common case during deserialization)
+        # Cache the result to avoid repeated resolver calls
+        # When context_or_register is nil or the default register, we can cache aggressively
+        if context_or_register.nil? || context_or_register == Lutaml::Model::Config.default_register
           return @cached_type_default ||= begin
-            context = normalize_context(nil)
+            context = normalize_context(context_or_register)
             GlobalContext.resolver.resolve(unresolved_type, context)
           end
         end
@@ -550,6 +551,12 @@ instance_object = nil)
         if @options[:ref_model_class] && resolved_type == Lutaml::Model::Type::Reference
           return resolved_type.cast_with_metadata(value,
                                                   @options[:ref_model_class], @options[:ref_key_attribute])
+        end
+
+        # Fast path for Type::Value subclasses (String, Integer, Boolean, etc.)
+        # These are never Serializable, so skip expensive can_serialize? and needs_conversion? checks
+        if resolved_type.is_a?(Class) && resolved_type < Lutaml::Model::Type::Value
+          return resolved_type.cast(value)
         end
 
         klass = resolve_polymorphic_class(resolved_type, value, options)

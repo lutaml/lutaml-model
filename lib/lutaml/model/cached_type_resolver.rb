@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'concurrent'
+
 module Lutaml
   module Model
     # CachedTypeResolver adds caching to any TypeResolver using the Decorator pattern.
@@ -10,8 +12,7 @@ module Lutaml
     #
     # This class:
     # - Decorates any TypeResolver-like object (duck typing)
-    # - Uses a simple hash-based cache with context-aware keys
-    # - Thread-safe with Mutex protection
+    # - Uses Concurrent::Map for lock-free, parallel-safe caching
     # - Centralized cache management - ONE place to clear ALL type caches
     #
     # @api private
@@ -34,27 +35,32 @@ module Lutaml
       # @param delegate [Object] Any object responding to #resolve(name, context)
       def initialize(delegate:)
         @delegate = delegate
-        @cache = {}
-        @mutex = Mutex.new
+        # Concurrent::Map uses CAS (compare-and-swap) operations internally
+        # No external mutex needed - fully parallel-safe
+        @cache = Concurrent::Map.new
       end
 
       # Resolve a type name to a class, using cache if available.
+      #
+      # Uses Concurrent::Map's atomic compute_if_absent for lock-free caching.
+      # Multiple threads can safely call this simultaneously without contention.
       #
       # @param name [Symbol, String, Class] The type name or class to resolve
       # @param context [TypeContext] The resolution context
       # @return [Class] The resolved type class
       # @raise [UnknownTypeError] If type cannot be resolved
       def resolve(name, context)
-        # Always delegate to allow substitution even for class types
-        # But only cache non-class results
-        if name.is_a?(Class)
-          @delegate.resolve(name, context)
-        else
-          cache_key = build_cache_key(name, context)
+        # Fast path: Class types are passed through directly (no caching needed)
+        return @delegate.resolve(name, context) if name.is_a?(Class)
 
-          @mutex.synchronize do
-            @cache[cache_key] ||= @delegate.resolve(name, context)
-          end
+        cache_key = build_cache_key(name, context)
+
+        # Concurrent::Map#compute_if_absent is atomic:
+        # - If key exists, returns cached value
+        # - If key doesn't exist, computes, stores, and returns value
+        # No mutex needed - CAS handles parallel access safely
+        @cache.compute_if_absent(cache_key) do
+          @delegate.resolve(name, context)
         end
       end
 
@@ -68,9 +74,11 @@ module Lutaml
 
         cache_key = build_cache_key(name, context)
 
-        @mutex.synchronize do
-          @cache.key?(cache_key) || @delegate.resolvable?(name, context)
-        end
+        # Check cache first (fast path)
+        return true if @cache.key?(cache_key)
+
+        # Not in cache - delegate
+        @delegate.resolvable?(name, context)
       end
 
       # Try to resolve a type, returning nil if not found.
@@ -89,9 +97,9 @@ module Lutaml
       # @param context_id [Symbol] The context ID to clear caches for
       # @return [void]
       def clear_cache(context_id)
-        @mutex.synchronize do
-          # Array keys: [context_id, type_name]
-          @cache.delete_if { |key, _| key[0] == context_id }
+        # Concurrent::Map#keys returns a snapshot - safe to iterate
+        @cache.keys.each do |key|
+          @cache.delete(key) if key[0] == context_id
         end
       end
 
@@ -99,21 +107,17 @@ module Lutaml
       #
       # @return [void]
       def clear_all_caches
-        @mutex.synchronize do
-          @cache.clear
-        end
+        @cache.clear
       end
 
       # Get cache statistics (useful for debugging/monitoring).
       #
       # @return [Hash] Cache statistics
       def cache_stats
-        @mutex.synchronize do
-          {
-            size: @cache.size,
-            keys: @cache.keys,
-          }
-        end
+        {
+          size: @cache.size,
+          keys: @cache.keys,
+        }
       end
 
       private
