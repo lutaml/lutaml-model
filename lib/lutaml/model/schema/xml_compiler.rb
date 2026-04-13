@@ -48,11 +48,14 @@ module Lutaml
           Lutaml::Model::Config.xml_adapter = :nokogiri
         MSG
 
+        # NOTE: These must be full class names (strings), not symbols like :xml_id.
+        # The type resolver looks up these strings directly in the type registry,
+        # and symbols would be interpreted as literal type names rather than W3C types.
         XML_DEFINED_ATTRIBUTES = {
-          "id" => ":xml_id",
-          "lang" => ":xml_lang",
-          "space" => ":xml_space",
-          "base" => ":xml_base",
+          "id" => "Lutaml::Xml::W3c::XmlIdType",
+          "lang" => "Lutaml::Xml::W3c::XmlLangType",
+          "space" => "Lutaml::Xml::W3c::XmlSpaceType",
+          "base" => "Lutaml::Xml::W3c::XmlBaseType",
         }.freeze
 
         def to_models(schema, options = {})

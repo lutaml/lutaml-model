@@ -13,7 +13,7 @@ module Lutaml
           SERIALIZABLE_BASE_CLASS = "Lutaml::Model::Serializable".freeze
 
           SIMPLE_CONTENT_ATTRIBUTE_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
-            <%= @indent %>attribute :content, :<%= simple_content_type %>
+            <%= @indent %>attribute :content, :<%= simple_content_type %><%= ", collection: true" if mixed && !simple_content? %>
             <%= simple_content.to_attributes(@indent) if simple_content? -%>
           TEMPLATE
 
