@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require 'concurrent'
+require "concurrent"
 
 module Lutaml
   module Model
@@ -98,7 +98,7 @@ module Lutaml
       # @return [void]
       def clear_cache(context_id)
         # Concurrent::Map#keys returns a snapshot - safe to iterate
-        @cache.keys.each do |key|
+        @cache.each_key do |key|
           @cache.delete(key) if key[0] == context_id
         end
       end
