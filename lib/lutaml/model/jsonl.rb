@@ -1,11 +1,7 @@
 # frozen_string_literal: true
 
-# JSONL format entry point
-# Provides Lutaml::Model::Jsonl namespace that delegates to Lutaml::Jsonl
+# Backward compatibility - provides Lutaml::Model::Jsonl namespace as alias to Lutaml::Jsonl
 
-require_relative "../jsonl"
-
-# Backward compatibility aliases
 module Lutaml
   module Model
     module Jsonl
@@ -17,12 +13,3 @@ module Lutaml
     end
   end
 end
-
-# Register JSONL format with the format registry
-Lutaml::Model::FormatRegistry.register(
-  :jsonl,
-  mapping_class: Lutaml::Jsonl::Adapter::Mapping,
-  adapter_class: Lutaml::Jsonl::Adapter::StandardAdapter,
-  transformer: Lutaml::Jsonl::Adapter::Transform,
-  key_value: true,
-)

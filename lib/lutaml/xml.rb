@@ -40,12 +40,7 @@ module Lutaml
     autoload :Serialization, "#{__dir__}/xml/serialization"
 
     # XML Schema modules
-    module Schema
-      autoload :XsdSchema, "#{__dir__}/xml/schema/xsd_schema"
-      autoload :RelaxngSchema, "#{__dir__}/xml/schema/relaxng_schema"
-      autoload :Builder, "#{__dir__}/xml/schema/builder"
-      autoload :BuiltinTypes, "#{__dir__}/xml/schema/builtin_types"
-    end
+    require_relative "xml/schema"
 
     # Detect available XML adapter
     # @return [Symbol, nil] :nokogiri, :ox, :oga, :rexml, or nil

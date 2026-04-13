@@ -3,31 +3,24 @@
 # YAML format module
 # Provides Lutaml::Yaml namespace for YAML serialization
 
-require_relative "key_value"
-
 module Lutaml
   module Yaml
     class Error < StandardError; end
+
+    autoload :Adapter, "#{__dir__}/yaml/adapter"
+    autoload :Schema, "#{__dir__}/yaml/schema"
   end
 end
 
-require_relative "yaml/adapter/document"
-require_relative "yaml/adapter/mapping"
-require_relative "yaml/adapter/mapping_rule"
-require_relative "yaml/adapter/transform"
-require_relative "yaml/adapter/standard_adapter"
-require_relative "yaml/schema"
+# Register YAML format with the format registry
+Lutaml::Model::FormatRegistry.register(
+  :yaml,
+  mapping_class: Lutaml::Yaml::Adapter::Mapping,
+  adapter_class: Lutaml::Yaml::Adapter::StandardAdapter,
+  transformer: Lutaml::Yaml::Adapter::Transform,
+  key_value: true,
+)
 
-module Lutaml
-  module Yaml
-    # Convenience aliases for common classes at the module level
-    # Allows Lutaml::Yaml::Mapping to resolve to Lutaml::Yaml::Adapter::Mapping
-    def self.const_missing(name)
-      if Adapter.const_defined?(name, false)
-        Adapter.const_get(name, false)
-      else
-        super
-      end
-    end
-  end
-end
+# Register YAML type serializers
+require_relative "yaml/type/serializers"
+Lutaml::Yaml::Type::Serializers.register_all!

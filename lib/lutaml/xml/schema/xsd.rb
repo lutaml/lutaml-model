@@ -1,9 +1,12 @@
 # frozen_string_literal: true
 
-require_relative "../../model"
+# NOTE: Do NOT require lutaml/model here. This file is autoloaded via
+# Lutaml::Xml::Schema::Xsd, and requiring lutaml/model creates a circular
+# dependency since lutaml/xml.rb requires lutaml/model. The adapter type
+# is already set by lutaml/xml.rb at the end.
 
 adapter = RUBY_ENGINE == "opal" ? :oga : :nokogiri
-Lutaml::Model::Config.xml_adapter_type = adapter
+Lutaml::Model::Config.xml_adapter_type = adapter unless defined?(Lutaml::Model::Config.xml_adapter_type)
 
 # Require the XsdNamespace class for XSD schema support
 require_relative "xsd_namespace"
@@ -21,6 +24,83 @@ module Lutaml
   module Xml
     module Schema
       module Xsd
+        # List of all XSD model classes that need to be autoloaded and registered.
+        # This is used in parse() to ensure all types are registered before parsing.
+        XSD_AUTOLOAD_CLASSES = %i[
+          All Annotation Any AnyAttribute Appinfo Attribute AttributeGroup
+          Choice ComplexContent ComplexType Documentation Element Enumeration
+          ExtensionComplexContent ExtensionSimpleContent Field FractionDigits
+          Glob Group Import Include Key Keyref Length List MaxExclusive
+          MaxInclusive MaxLength MinExclusive MinInclusive MinLength
+          Notation Pattern Redefine RestrictionComplexContent
+          RestrictionSimpleContent RestrictionSimpleType Schema Selector
+          Sequence SimpleContent SimpleType TotalDigits Union Unique WhiteSpace
+          SchemaFileValidationResults
+        ].freeze
+
+        # Autoload all XSD model files (lazy loading)
+        autoload :VERSION, "#{__dir__}/xsd/version"
+        autoload :Error, "#{__dir__}/xsd/errors"
+        autoload :SchemaValidator, "#{__dir__}/xsd/schema_validator"
+        autoload :FileValidationResult, "#{__dir__}/xsd/file_validation_result"
+        autoload :ValidationError, "#{__dir__}/xsd/validation_error"
+        autoload :NamespaceUriRemapping, "#{__dir__}/xsd/namespace_uri_remapping"
+        autoload :ValidationResult, "#{__dir__}/xsd/validation_result"
+        autoload :Base, "#{__dir__}/xsd/base"
+        autoload :SchemaLocationMapping, "#{__dir__}/xsd/schema_location_mapping"
+        autoload :NamespaceMapping, "#{__dir__}/xsd/namespace_mapping"
+        autoload :TypeResolutionResult, "#{__dir__}/xsd/type_resolution_result"
+        autoload :TypeIndexEntry, "#{__dir__}/xsd/type_index_entry"
+        autoload :SerializedSchema, "#{__dir__}/xsd/serialized_schema"
+        autoload :SchemaNameResolver, "#{__dir__}/xsd/schema_name_resolver"
+        autoload :All, "#{__dir__}/xsd/all"
+        autoload :Annotation, "#{__dir__}/xsd/annotation"
+        autoload :Any, "#{__dir__}/xsd/any"
+        autoload :AnyAttribute, "#{__dir__}/xsd/any_attribute"
+        autoload :Appinfo, "#{__dir__}/xsd/appinfo"
+        autoload :Attribute, "#{__dir__}/xsd/attribute"
+        autoload :AttributeGroup, "#{__dir__}/xsd/attribute_group"
+        autoload :Choice, "#{__dir__}/xsd/choice"
+        autoload :ComplexContent, "#{__dir__}/xsd/complex_content"
+        autoload :ComplexType, "#{__dir__}/xsd/complex_type"
+        autoload :Documentation, "#{__dir__}/xsd/documentation"
+        autoload :Element, "#{__dir__}/xsd/element"
+        autoload :Enumeration, "#{__dir__}/xsd/enumeration"
+        autoload :ExtensionComplexContent, "#{__dir__}/xsd/extension_complex_content"
+        autoload :ExtensionSimpleContent, "#{__dir__}/xsd/extension_simple_content"
+        autoload :Field, "#{__dir__}/xsd/field"
+        autoload :FractionDigits, "#{__dir__}/xsd/fraction_digits"
+        autoload :Glob, "#{__dir__}/xsd/glob"
+        autoload :Group, "#{__dir__}/xsd/group"
+        autoload :Import, "#{__dir__}/xsd/import"
+        autoload :Include, "#{__dir__}/xsd/include"
+        autoload :Key, "#{__dir__}/xsd/key"
+        autoload :Keyref, "#{__dir__}/xsd/keyref"
+        autoload :Length, "#{__dir__}/xsd/length"
+        autoload :List, "#{__dir__}/xsd/list"
+        autoload :MaxExclusive, "#{__dir__}/xsd/max_exclusive"
+        autoload :MaxInclusive, "#{__dir__}/xsd/max_inclusive"
+        autoload :MaxLength, "#{__dir__}/xsd/max_length"
+        autoload :MinExclusive, "#{__dir__}/xsd/min_exclusive"
+        autoload :MinInclusive, "#{__dir__}/xsd/min_inclusive"
+        autoload :MinLength, "#{__dir__}/xsd/min_length"
+        autoload :Notation, "#{__dir__}/xsd/notation"
+        autoload :Pattern, "#{__dir__}/xsd/pattern"
+        autoload :Redefine, "#{__dir__}/xsd/redefine"
+        autoload :RestrictionComplexContent, "#{__dir__}/xsd/restriction_complex_content"
+        autoload :RestrictionSimpleContent, "#{__dir__}/xsd/restriction_simple_content"
+        autoload :RestrictionSimpleType, "#{__dir__}/xsd/restriction_simple_type"
+        autoload :Schema, "#{__dir__}/xsd/schema"
+        autoload :Selector, "#{__dir__}/xsd/selector"
+        autoload :Sequence, "#{__dir__}/xsd/sequence"
+        autoload :SimpleContent, "#{__dir__}/xsd/simple_content"
+        autoload :SimpleType, "#{__dir__}/xsd/simple_type"
+        autoload :TotalDigits, "#{__dir__}/xsd/total_digits"
+        autoload :Union, "#{__dir__}/xsd/union"
+        autoload :Unique, "#{__dir__}/xsd/unique"
+        autoload :WhiteSpace, "#{__dir__}/xsd/white_space"
+        autoload :SchemaFileValidationResults, "#{__dir__}/xsd/schema_file_validation_results"
+
         module_function
 
         def register
@@ -47,6 +127,13 @@ module Lutaml
 
         def parse(xsd, location: nil, nested_schema: false, register: nil,
                   schema_mappings: nil, validate_schema: true)
+          # Trigger autoloads for all XSD model classes to ensure they are
+          # registered before parsing begins. This is necessary because
+          # type resolution during parsing looks up classes in the register.
+          # rubocop:disable Style/RedundantFetchOverride
+          XSD_AUTOLOAD_CLASSES.each { |c| const_get(c) unless c == :VERSION }
+          # rubocop:enable Style/RedundantFetchOverride
+
           # Validate XSD schema structure before parsing (unless disabled)
           if validate_schema && !nested_schema
             detected_version = SchemaValidator.detect_version(xsd)
@@ -68,66 +155,3 @@ module Lutaml
     end
   end
 end
-
-# Require all XSD model files
-require_relative "xsd/version"
-require_relative "xsd/errors"
-require_relative "xsd/schema_validator"
-require_relative "xsd/file_validation_result"
-require_relative "xsd/validation_error"
-require_relative "xsd/namespace_uri_remapping"
-require_relative "xsd/validation_result"
-require_relative "xsd/base"
-require_relative "xsd/schema_location_mapping"
-require_relative "xsd/namespace_mapping"
-require_relative "xsd/type_resolution_result"
-require_relative "xsd/type_index_entry"
-require_relative "xsd/serialized_schema"
-require_relative "xsd/schema_name_resolver"
-require_relative "xsd/all"
-require_relative "xsd/annotation"
-require_relative "xsd/any"
-require_relative "xsd/any_attribute"
-require_relative "xsd/appinfo"
-require_relative "xsd/attribute"
-require_relative "xsd/attribute_group"
-require_relative "xsd/choice"
-require_relative "xsd/complex_content"
-require_relative "xsd/complex_type"
-require_relative "xsd/documentation"
-require_relative "xsd/element"
-require_relative "xsd/enumeration"
-require_relative "xsd/extension_complex_content"
-require_relative "xsd/extension_simple_content"
-require_relative "xsd/field"
-require_relative "xsd/fraction_digits"
-require_relative "xsd/glob"
-require_relative "xsd/group"
-require_relative "xsd/import"
-require_relative "xsd/include"
-require_relative "xsd/key"
-require_relative "xsd/keyref"
-require_relative "xsd/length"
-require_relative "xsd/list"
-require_relative "xsd/max_exclusive"
-require_relative "xsd/max_inclusive"
-require_relative "xsd/max_length"
-require_relative "xsd/min_exclusive"
-require_relative "xsd/min_inclusive"
-require_relative "xsd/min_length"
-require_relative "xsd/notation"
-require_relative "xsd/pattern"
-require_relative "xsd/redefine"
-require_relative "xsd/restriction_complex_content"
-require_relative "xsd/restriction_simple_content"
-require_relative "xsd/restriction_simple_type"
-require_relative "xsd/schema"
-require_relative "xsd/selector"
-require_relative "xsd/sequence"
-require_relative "xsd/simple_content"
-require_relative "xsd/simple_type"
-require_relative "xsd/total_digits"
-require_relative "xsd/union"
-require_relative "xsd/unique"
-require_relative "xsd/white_space"
-require_relative "xsd/schema_file_validation_results"
