@@ -3,31 +3,23 @@
 # TOML format module
 # Provides Lutaml::Toml namespace for TOML serialization
 
-require_relative "key_value"
-
 module Lutaml
   module Toml
     class Error < StandardError; end
+
+    autoload :Adapter, "#{__dir__}/toml/adapter"
   end
 end
 
-require_relative "toml/adapter/document"
-require_relative "toml/adapter/mapping"
-require_relative "toml/adapter/mapping_rule"
-require_relative "toml/adapter/transform"
-require_relative "toml/adapter/toml_rb_adapter"
-require_relative "toml/adapter/tomlib_adapter"
+# Register TOML format with the format registry
+Lutaml::Model::FormatRegistry.register(
+  :toml,
+  mapping_class: Lutaml::Toml::Adapter::Mapping,
+  adapter_class: Lutaml::Toml::Adapter::TomlibAdapter,
+  transformer: Lutaml::Toml::Adapter::Transform,
+  key_value: true,
+)
 
-module Lutaml
-  module Toml
-    # Convenience aliases for common classes at the module level
-    # Allows Lutaml::Toml::Mapping to resolve to Lutaml::Toml::Adapter::Mapping
-    def self.const_missing(name)
-      if Adapter.const_defined?(name, false)
-        Adapter.const_get(name, false)
-      else
-        super
-      end
-    end
-  end
-end
+# Register TOML type serializers
+require_relative "toml/type/serializers"
+Lutaml::Toml::Type::Serializers.register_all!

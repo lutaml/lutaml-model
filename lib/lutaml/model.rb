@@ -1,6 +1,16 @@
 # frozen_string_literal: true
 
 module Lutaml
+  # Autoload top-level modules (outside Model namespace)
+  autoload :KeyValue, "#{__dir__}/key_value"
+  autoload :Json, "#{__dir__}/json"
+  autoload :Yaml, "#{__dir__}/yaml"
+  autoload :Toml, "#{__dir__}/toml"
+  autoload :HashFormat, "#{__dir__}/hash_format"
+  autoload :Jsonl, "#{__dir__}/jsonl"
+  autoload :Yamls, "#{__dir__}/yamls"
+  autoload :Xml, "#{__dir__}/xml"
+
   module Model
     # Autoloads for lazy loading - set up BEFORE any requires
     # These must be declared before files that reference these constants
@@ -73,6 +83,14 @@ module Lutaml
     autoload :Consolidation, "#{__dir__}/model/consolidation/engine"
     autoload :ValueTransformer, "#{__dir__}/model/value_transformer"
     autoload :Registrable, "#{__dir__}/model/registrable"
+
+    # Backward compatibility namespace aliases (simple aliases, no registration logic)
+    autoload :Json, "#{__dir__}/model/json"
+    autoload :Yaml, "#{__dir__}/model/yaml"
+    autoload :Toml, "#{__dir__}/model/toml"
+    autoload :Hash, "#{__dir__}/model/hash"
+    autoload :Jsonl, "#{__dir__}/model/jsonl"
+    autoload :Yamls, "#{__dir__}/model/yamls"
 
     # Services classes (defined in services/ but under Lutaml::Model namespace)
     autoload :Logger, "#{__dir__}/model/services/logger"
@@ -201,16 +219,15 @@ module Lutaml
   end
 end
 
-# Required files - these have side effects or are needed immediately
-# Format files register DSL methods, so must be required
-
+# Format files register DSL methods - use require to ensure proper loading order
+# These files set up FormatRegistry and detect/configure adapters
 require "#{__dir__}/key_value"
-require "#{__dir__}/model/json"
-require "#{__dir__}/model/yaml"
-require "#{__dir__}/model/toml"
-require "#{__dir__}/model/hash"
-require "#{__dir__}/model/jsonl"
-require "#{__dir__}/model/yamls"
+require "#{__dir__}/json"
+require "#{__dir__}/yaml"
+require "#{__dir__}/toml"
+require "#{__dir__}/hash_format"
+require "#{__dir__}/jsonl"
+require "#{__dir__}/yamls"
 require "#{__dir__}/xml"
 
 # Prepend builder interface into Serialize
