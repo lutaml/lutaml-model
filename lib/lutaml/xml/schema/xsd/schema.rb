@@ -14,6 +14,7 @@ module Lutaml
           attribute :final_default, :string
           attribute :block_default, :string
           attribute :target_namespace, :string
+          attribute :target_namespace_prefix, :string
           attribute :element_form_default, :string
           attribute :attribute_form_default, :string
           attribute :imports, :import, collection: true, initialize_empty: true
@@ -60,12 +61,21 @@ module Lutaml
 
             map_attribute :attributeFormDefault, to: :attribute_form_default
             map_attribute :elementFormDefault, to: :element_form_default
-            map_attribute :targetNamespace, to: :target_namespace
+            map_attribute :targetNamespace, to: :target_namespace,
+                                            with: { from: :target_namespace_from }
             map_attribute :finalDefault, to: :final_default
             map_attribute :blockDefault, to: :block_default
             map_attribute :version, to: :version
             map_attribute :id, to: :id
             map_attribute :lang, to: :lang
+          end
+
+          liquid do
+            map "elements_sorted_by_name", to: :elements_sorted_by_name
+            map "attributes_sorted_by_name", to: :attributes_sorted_by_name
+            map "simple_types_sorted_by_name", to: :simple_types_sorted_by_name
+            map "complex_types_sorted_by_name", to: :complex_types_sorted_by_name
+            map "attribute_groups_sorted_by_name", to: :attribute_groups_sorted_by_name
           end
 
           def import_from_schema(model, value)
@@ -107,18 +117,53 @@ module Lutaml
             end
           end
 
+          # Return global elements sorted alphabetically by name for stable
+          # Liquid iteration.
+          def elements_sorted_by_name
+            element.sort_by(&:name)
+          end
+
+          # Return global attributes sorted alphabetically by name.
+          def attributes_sorted_by_name
+            attribute.sort_by(&:name)
+          end
+
+          # Return simple types sorted alphabetically by name.
+          def simple_types_sorted_by_name
+            simple_type.sort_by(&:name)
+          end
+
+          # Return complex types sorted alphabetically by name.
+          def complex_types_sorted_by_name
+            complex_type.sort_by(&:name)
+          end
+
+          # Return attribute groups sorted alphabetically by name.
+          def attribute_groups_sorted_by_name
+            attribute_group.sort_by(&:name)
+          end
+
+          # Capture both the target namespace URI and the matching prefix
+          # discovered during XML deserialization.
+          def target_namespace_from(model, value, custom_args = {})
+            model.target_namespace = value
+            namespaces = custom_args[:namespaces] || {}
+            model.target_namespace_prefix =
+              namespaces.find { |_, namespace| namespace.uri == value }&.first
+          end
+
           # Find a type definition by local name
           # @param local_name [String] The local name of the type
           # @return [SimpleType, ComplexType, nil] The type definition or nil
           def find_type(local_name)
             return nil if local_name.nil?
 
-            # Search simple types
-            found = simple_type.find { |t| t.name == local_name }
+            # Search simple types first.
+            found = simple_type.find { |type| type.name == local_name }
             return found if found
 
-            # Search complex types
-            complex_type.find { |t| t.name == local_name }
+            # Fall back to complex types if no simple type matches.
+            complex_type.find { |type| type.name == local_name }
           end
 
           # Find an element definition by local name
@@ -127,7 +172,7 @@ module Lutaml
           def find_element(local_name)
             return nil if local_name.nil?
 
-            element.find { |e| e.name == local_name }
+            element.find { |element| element.name == local_name }
           end
 
           # Find complex type by name
@@ -136,7 +181,7 @@ module Lutaml
           def find_complex_type(name)
             return nil if name.nil?
 
-            complex_type.find { |t| t.name == name }
+            complex_type.find { |type| type.name == name }
           end
 
           # Find simple type by name
@@ -145,7 +190,7 @@ module Lutaml
           def find_simple_type(name)
             return nil if name.nil?
 
-            simple_type.find { |t| t.name == name }
+            simple_type.find { |type| type.name == name }
           end
 
           # Quick statistics about the schema
@@ -167,7 +212,7 @@ module Lutaml
           # Quick validation check
           # @return [Boolean] True if the schema has a target namespace
           def valid?
-            # Basic validation - can be enhanced
+            # Basic validation: a parsed schema should declare a target namespace.
             !target_namespace.nil? && !target_namespace.empty?
           end
 
@@ -185,12 +230,12 @@ module Lutaml
           def name
             return nil unless target_namespace
 
-            # Extract the last part of the namespace URI as the name
-            # e.g., "http://example.com/test" => "test"
+            # Extract the last segment of the namespace URI as the schema name.
+            # For example, "http://example.com/test" becomes "test".
             target_namespace.split("/").last || target_namespace
           end
 
-          # Convenience plural accessors for collections
+          # Convenience plural accessors for common schema collections.
           alias elements element
           alias complex_types complex_type
           alias simple_types simple_type
@@ -200,8 +245,9 @@ module Lutaml
           private
 
           def all_namespaces
+            # Aggregate the schema target namespace with imported namespaces.
             namespaces = [target_namespace].compact
-            import.each { |i| namespaces << i.namespace if i&.namespace }
+            import.each { |item| namespaces << item.namespace if item&.namespace }
             namespaces.uniq
           end
 

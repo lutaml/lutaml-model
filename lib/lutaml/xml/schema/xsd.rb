@@ -33,12 +33,13 @@ module Lutaml
           register.register_model(klass, id: id)
 
           # Also register in default context so XSD types can be resolved
-          # during XML parsing
+          # during XML parsing.
           default_ctx = Lutaml::Model::GlobalContext.default_context
           unless default_ctx.registry.registered?(id)
             default_ctx.registry.register(id, klass)
           end
-          # Also register by class name for string resolution
+
+          # Also register by class name for string resolution.
           klass_name = klass.to_s
           unless default_ctx.registry.registered?(klass_name.to_sym)
             default_ctx.registry.register(klass_name.to_sym, klass)
@@ -47,7 +48,8 @@ module Lutaml
 
         def parse(xsd, location: nil, nested_schema: false, register: nil,
                   schema_mappings: nil, validate_schema: true)
-          # Validate XSD schema structure before parsing (unless disabled)
+          # Validate XSD schema structure before parsing unless this is a
+          # nested import/include parse.
           if validate_schema && !nested_schema
             detected_version = SchemaValidator.detect_version(xsd)
             validator = SchemaValidator.new(version: detected_version)
@@ -62,14 +64,14 @@ module Lutaml
 
           Glob.schema_mappings = schema_mappings
           Glob.path_or_url(location)
-          Schema.from_xml(xsd, register: register)
+          Schema.from_xml(xsd, register: register).assign_root!
         end
       end
     end
   end
 end
 
-# Require all XSD model files
+# Require all XSD model files.
 require_relative "xsd/version"
 require_relative "xsd/errors"
 require_relative "xsd/schema_validator"

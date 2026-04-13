@@ -23,6 +23,13 @@ module Lutaml
             map_element :restriction, to: :restriction
           end
 
+          # Delegate attribute collection to the complex-content extension
+          # when one is present.
+          def attribute_elements(array = [])
+            extension&.attribute_elements(array)
+            array
+          end
+
           Lutaml::Xml::Schema::Xsd.register_model(self, :complex_content)
         end
       end

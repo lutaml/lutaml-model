@@ -32,11 +32,33 @@ module Lutaml
             map_element :any, to: :any
           end
 
-          # liquid do
+          liquid do
+            map "child_elements", to: :child_elements
+          end
 
-          #         map "child_elements", to: :child_elements
+          # Walk the sequence recursively and collect contained element nodes.
+          def child_elements(array = [])
+            resolved_element_order&.each do |child|
+              if child.is_a?(Element)
+                array << child
+              elsif child.respond_to?(:child_elements)
+                child.child_elements(array)
+              end
+            end
+            array
+          end
 
-          #       end
+          # Check whether the sequence references a given element name in any
+          # nested branch.
+          def find_elements_used(element_name)
+            resolved_element_order&.any? do |child|
+              if child.is_a?(Element)
+                child.ref == element_name
+              elsif child.respond_to?(:find_elements_used)
+                child.find_elements_used(element_name)
+              end
+            end || false
+          end
 
           Lutaml::Xml::Schema::Xsd.register_model(self, :sequence)
         end

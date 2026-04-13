@@ -35,6 +35,18 @@ module Lutaml
             map_element :attributeGroup, to: :attribute_group
           end
 
+          # Reuse the base complex type's flattened attribute list for this
+          # extension.
+          def attribute_elements(array = [])
+            referenced_object&.attribute_elements(array)
+            array
+          end
+
+          # Resolve the base complex type referenced by the extension.
+          def referenced_object
+            find_object(__root.complex_type, base)
+          end
+
           Lutaml::Xml::Schema::Xsd.register_model(self,
                                                   :extension_complex_content)
         end

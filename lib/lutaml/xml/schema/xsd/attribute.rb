@@ -35,17 +35,40 @@ module Lutaml
             map_element :simpleType, to: :simple_type
           end
 
-          # liquid do
+          liquid do
+            map "cardinality", to: :cardinality
+            map "referenced_name", to: :referenced_name
+            map "referenced_type", to: :referenced_type
+            map "referenced_object", to: :referenced_object
+          end
 
-          #         map "cardinality", to: :cardinality
+          # Translate XSD attribute `use` semantics into the cardinality
+          # strings expected by Liquid templates.
+          def cardinality
+            case use
+            when "required" then "1"
+            when "optional" then "0..1"
+            end
+          end
 
-          #         map "referenced_name", to: :referenced_name
+          # Resolve the effective type, following `ref` when needed.
+          def referenced_type
+            @referenced_type ||= referenced_object&.type
+          end
 
-          #         map "referenced_type", to: :referenced_type
+          # Resolve the effective attribute name, falling back to the raw
+          # `ref` when the target cannot be found.
+          def referenced_name
+            @referenced_name ||= referenced_object&.name || ref
+          end
 
-          #         map "referenced_object", to: :referenced_object
+          # Return the attribute itself when it is named, otherwise resolve
+          # the root-level attribute referenced by `ref`.
+          def referenced_object
+            return self if name
 
-          #       end
+            find_object(__root.attribute)
+          end
 
           Lutaml::Xml::Schema::Xsd.register_model(self, :attribute)
         end
