@@ -559,7 +559,6 @@ mixed_content_option)
         # Performance: Cache values before loop to avoid repeated instance variable access
         instance_is_serializable = instance.is_a?(::Lutaml::Model::Serialize)
         parent_ns_prefix = instance_is_serializable ? instance.instance_variable_get(:@__xml_namespace_prefix) : nil
-        parent_has_explicit_prefix = parent_ns_prefix && !parent_ns_prefix.to_s.empty?
 
         # Performance: Cache options except :mappings once before loop
         # This hash is used as a base for each child's cast_options
@@ -589,9 +588,9 @@ mixed_content_option)
             # Store on the PARENT model instance keyed by attribute name.
             # Set for ALL attributes (both Serializable and non-Serializable).
             ns_prefix = if child.is_a?(::Lutaml::Xml::XmlElement) &&
-                child.namespace_prefix_explicit && child.namespace_prefix
-                          child.namespace_prefix
-                        end
+                             child.namespace_prefix_explicit && child.namespace_prefix
+                             child.namespace_prefix
+                           end
             if ns_prefix && instance_is_serializable
               prefixes = instance.instance_variable_get(:@__xml_ns_prefixes) || {}
               prefixes[attr.name] = ns_prefix
@@ -616,24 +615,22 @@ mixed_content_option)
               end
             end
 
-            if cast_result.is_a?(::Lutaml::Model::Serialize) && ns_prefix
-              # Set @__xml_namespace_prefix on nested Serializable model instances
-              # for doubly-defined namespace support.
-              #
-              # Key distinction between doubly-defined and mixed content:
-              # - Doubly-defined: parent's XmlElement uses default format (no explicit prefix).
-              #   Parent's @__xml_namespace_prefix is nil. Child should use input prefix.
-              # - Mixed content: parent's XmlElement has explicit prefix (e.g., "examplecom:").
-              #   Parent's @__xml_namespace_prefix is set. Child should use its own namespace.
-              #
-              # Check if parent model has @__xml_namespace_prefix set:
-              # - Nil/empty: doubly-defined case -> set @__xml_namespace_prefix on child
-              # - Set: mixed content case -> don't set (child has its own namespace)
-              # Performance: Use cached parent_ns_prefix instead of re-fetching
-              if parent_ns_prefix.nil? || parent_ns_prefix.to_s.empty?
-                cast_result.instance_variable_set(:@__xml_namespace_prefix,
-                                                  ns_prefix)
-              end
+            # Set @__xml_namespace_prefix on nested Serializable model instances
+            # for doubly-defined namespace support.
+            #
+            # Key distinction between doubly-defined and mixed content:
+            # - Doubly-defined: parent's XmlElement uses default format (no explicit prefix).
+            #   Parent's @__xml_namespace_prefix is nil. Child should use input prefix.
+            # - Mixed content: parent's XmlElement has explicit prefix (e.g., "examplecom:").
+            #   Parent's @__xml_namespace_prefix is set. Child should use its own namespace.
+            #
+            # Check if parent model has @__xml_namespace_prefix set:
+            # - Nil/empty: doubly-defined case -> set @__xml_namespace_prefix on child
+            # - Set: mixed content case -> don't set (child has its own namespace)
+            # Performance: Use cached parent_ns_prefix instead of re-fetching
+            if cast_result.is_a?(::Lutaml::Model::Serialize) && ns_prefix && (parent_ns_prefix.nil? || parent_ns_prefix.to_s.empty?)
+              cast_result.instance_variable_set(:@__xml_namespace_prefix,
+                                                ns_prefix)
             end
 
             values << cast_result
