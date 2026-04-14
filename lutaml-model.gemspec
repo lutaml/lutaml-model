@@ -33,6 +33,7 @@ Gem::Specification.new do |spec|
   # required for liquid
   spec.add_dependency "base64"
   spec.add_dependency "bigdecimal"
+  spec.add_dependency "canon"
   spec.add_dependency "concurrent-ruby"
   spec.add_dependency "liquid", "~> 5.0"
   spec.add_dependency "moxml", ">= 0.1.16"

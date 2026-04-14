@@ -8,7 +8,10 @@ module Lutaml
       # Nokogiri and Oga. When the configured XML adapter is Ox or REXML, we
       # default to Nokogiri for schema generation.
       class Builder
-        autoload :Nokogiri, "#{__dir__}/builder/nokogiri"
+        Lutaml::Model::RuntimeCompatibility.autoload_native(
+          self,
+          Nokogiri: "#{__dir__}/builder/nokogiri",
+        )
         autoload :Oga, "#{__dir__}/builder/oga"
 
         attr_reader :builder, :adapter_type

@@ -263,4 +263,28 @@ RSpec.describe Lutaml::KeyValue::Transformation do
       expect(hash).to be_a(Hash)
     end
   end
+
+  describe "immutability" do
+    class FrozenLazyTransformation < described_class
+      private
+
+      def compile_rules(_mapping_dsl)
+        []
+      end
+    end
+
+    it "does not lazily initialize collaborators after freeze" do
+      transformation = FrozenLazyTransformation.new(
+        KVSimpleModel,
+        KVSimpleModel.mappings_for(:json),
+        :json,
+        nil,
+      )
+
+      expect(transformation).to be_frozen
+
+      rule = instance_double(Lutaml::Model::CompiledRule, attribute_name: :name)
+      expect { transformation.send(:valid_mapping?, rule, {}) }.not_to raise_error
+    end
+  end
 end

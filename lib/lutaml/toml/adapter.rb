@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "lutaml/model/runtime_compatibility"
+
 module Lutaml
   module Toml
     module Adapter
@@ -7,8 +9,11 @@ module Lutaml
       autoload :Mapping, "#{__dir__}/adapter/mapping"
       autoload :MappingRule, "#{__dir__}/adapter/mapping_rule"
       autoload :Transform, "#{__dir__}/adapter/transform"
-      autoload :TomlRbAdapter, "#{__dir__}/adapter/toml_rb_adapter"
-      autoload :TomlibAdapter, "#{__dir__}/adapter/tomlib_adapter"
+      Lutaml::Model::RuntimeCompatibility.autoload_native(
+        self,
+        TomlRbAdapter: "#{__dir__}/adapter/toml_rb_adapter",
+        TomlibAdapter: "#{__dir__}/adapter/tomlib_adapter",
+      )
     end
   end
 end

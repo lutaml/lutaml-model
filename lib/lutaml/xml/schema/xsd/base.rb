@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "canon"
+Lutaml::Model::RuntimeCompatibility.require_native("canon")
 
 module Lutaml
   module Xml
@@ -11,6 +11,11 @@ module Lutaml
           ELEMENT_ORDER_IGNORABLE = %w[import include].freeze
 
           def to_formatted_xml(except: [])
+            unless Lutaml::Model::RuntimeCompatibility.native?
+              raise NotImplementedError,
+                    "XSD formatted XML output is not available under Opal"
+            end
+
             Canon.format_xml(
               to_xml(except: except),
             ).gsub(XML_DECLARATION_REGEX, "")

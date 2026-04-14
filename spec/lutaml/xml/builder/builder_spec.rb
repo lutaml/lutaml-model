@@ -190,6 +190,24 @@ RSpec.describe "XML Builder consistency" do
 
   describe Lutaml::Xml::Builder::Oga do
     it_behaves_like "a consistent XML builder"
+
+    it "defaults namespace validation to lenient under Opal" do
+      allow(Lutaml::Model::RuntimeCompatibility).to receive(:opal?)
+        .and_return(true)
+
+      builder = described_class.build do |xml|
+        xml.create_and_add_element(
+          "root",
+          attributes: {
+            "xmlns" => "-//OASIS//DTD XML Exchange Table Model 19990315//EN",
+          },
+        )
+      end
+
+      expect(builder.to_xml).to include(
+        'xmlns="-//OASIS//DTD XML Exchange Table Model 19990315//EN"',
+      )
+    end
   end
 
   describe Lutaml::Xml::Builder::Rexml do

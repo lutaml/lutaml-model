@@ -12,6 +12,11 @@ module Lutaml
     #   end
     #
     class Configuration
+      # Static defaults captured at boot. Use RuntimeCompatibility directly for
+      # per-call runtime checks that tests may stub.
+      OPAL_RUNTIME = Lutaml::Model::RuntimeCompatibility.opal?
+      WINDOWS_PLATFORM = Lutaml::Model::RuntimeCompatibility.windows?
+
       # Bootstrap format list for key-value adapters.
       # NOTE: XML is NOT listed here — it registers dynamically via FormatRegistry.
       AVAILABLE_FORMATS = %i[json jsonl yaml toml hash].freeze
@@ -31,8 +36,14 @@ module Lutaml
             default: :standard,
           },
           toml: {
-            available: %i[tomlib toml_rb],
-            default: Gem.win_platform? ? :toml_rb : :tomlib,
+            available: OPAL_RUNTIME ? [] : %i[tomlib toml_rb],
+            default: if OPAL_RUNTIME
+                       nil
+                     elsif WINDOWS_PLATFORM
+                       :toml_rb
+                     else
+                       :tomlib
+                     end,
           },
           hash: {
             available: %i[standard standard_hash],
@@ -72,7 +83,7 @@ module Lutaml
 
       # Check if running on Windows platform
       def self.windows_platform?
-        Gem.win_platform?
+        WINDOWS_PLATFORM
       end
 
       # Dynamic accessor for adapter types
@@ -227,7 +238,11 @@ module Lutaml
         end
 
         # Default key-value adapter loading
-        adapter_path = File.join(__dir__, "../key_value/adapter", adapter, type)
+        adapter_path = if Lutaml::Model::RuntimeCompatibility.opal?
+                         "lutaml/key_value/adapter/#{adapter}/#{type}"
+                       else
+                         File.join(__dir__, "../key_value/adapter", adapter, type)
+                       end
         require adapter_path
       rescue LoadError
         raise UnknownAdapterTypeError.new(adapter, type), cause: nil

@@ -8,13 +8,94 @@ RSpec.describe Lutaml::Model::CachedTypeResolver do
   let(:custom_class) { Class.new }
   let(:resolver) { described_class.new(delegate: Lutaml::Model::TypeResolver) }
 
+  shared_examples "a resolver cache backend" do
+    let(:cache_key) { %i[test custom] }
+    let(:other_cache_key) { %i[other custom] }
+
+    it "stores and reuses cached values" do
+      expect(cache_backend.fetch_or_store(cache_key) { :first }).to eq(:first)
+      expect(cache_backend.fetch_or_store(cache_key) { :second }).to eq(:first)
+      expect(cache_backend.keys).to contain_exactly(cache_key)
+    end
+
+    it "checks whether a cache key exists" do
+      cache_backend.fetch_or_store(cache_key) { :first }
+
+      expect(cache_backend.key?(cache_key)).to be true
+      expect(cache_backend.key?(other_cache_key)).to be false
+    end
+
+    it "clears keys for a specific context" do
+      cache_backend.fetch_or_store(cache_key) { :first }
+      cache_backend.fetch_or_store(other_cache_key) { :second }
+
+      cache_backend.clear_context(:test)
+
+      expect(cache_backend.keys).to contain_exactly(other_cache_key)
+    end
+
+    it "clears all keys" do
+      cache_backend.fetch_or_store(cache_key) { :first }
+      cache_backend.fetch_or_store(other_cache_key) { :second }
+
+      cache_backend.clear
+
+      expect(cache_backend.keys).to be_empty
+    end
+
+    it "allows recursive cache population from the computed value block" do
+      result = cache_backend.fetch_or_store(cache_key) do
+        cache_backend.fetch_or_store(other_cache_key) { :nested }
+        :outer
+      end
+
+      expect(result).to eq(:outer)
+      expect(cache_backend.fetch_or_store(other_cache_key) { :other }).to eq(:nested)
+    end
+  end
+
   before do
     registry.register(:custom, custom_class)
+  end
+
+  describe described_class::ConcurrentMapCache do
+    subject(:cache_backend) { described_class.new }
+
+    it_behaves_like "a resolver cache backend"
+  end
+
+  describe described_class::MutexHashCache do
+    subject(:cache_backend) { described_class.new }
+
+    it_behaves_like "a resolver cache backend"
   end
 
   describe "#initialize" do
     it "stores the delegate resolver" do
       expect(resolver.delegate).to eq(Lutaml::Model::TypeResolver)
+    end
+
+    it "uses ConcurrentMapCache by default on native Ruby" do
+      expect(resolver.cache_backend).to be_a(described_class::ConcurrentMapCache)
+    end
+
+    it "uses MutexHashCache by default on Opal" do
+      allow(Lutaml::Model::RuntimeCompatibility).to receive(:opal?).and_return(true)
+
+      opal_resolver = described_class.new(delegate: Lutaml::Model::TypeResolver)
+
+      expect(opal_resolver.cache_backend).to be_a(described_class::MutexHashCache)
+    end
+
+    it "accepts an injected cache backend" do
+      cache_backend = described_class::MutexHashCache.new
+
+      injected_resolver = described_class.new(
+        delegate: Lutaml::Model::TypeResolver,
+        cache_backend: cache_backend,
+      )
+
+      expect(injected_resolver.cache_backend).to equal(cache_backend)
     end
   end
 
@@ -236,6 +317,42 @@ RSpec.describe Lutaml::Model::CachedTypeResolver do
       stats = resolver.cache_stats
       expect(stats[:size]).to eq(1)
       expect(stats[:keys]).to contain_exactly(%i[ctx2 custom])
+    end
+  end
+
+  describe "Opal compatibility" do
+    let(:resolver) { described_class.new(delegate: Lutaml::Model::TypeResolver) }
+
+    before do
+      allow(Lutaml::Model::RuntimeCompatibility).to receive(:opal?).and_return(true)
+    end
+
+    it "uses the MutexHashCache by default on Opal" do
+      expect(resolver.cache_backend).to be_a(described_class::MutexHashCache)
+    end
+
+    it "does not autoload the native ConcurrentMapCache on Opal" do
+      hide_const("Lutaml::Model::CachedTypeResolver::ConcurrentMapCache")
+
+      load File.expand_path("../../../lib/lutaml/model/cached_type_resolver.rb", __dir__)
+
+      expect(described_class.autoload?(:ConcurrentMapCache)).to be_nil
+    end
+
+    it "caches resolved types without Concurrent::Map" do
+      resolver.resolve(:custom, context)
+      registry.clear
+
+      expect(resolver.resolve(:custom, context)).to eq(custom_class)
+      expect(resolver.cache_stats[:keys]).to eq([%i[test custom]])
+    end
+
+    it "clears the Opal cache" do
+      resolver.resolve(:custom, context)
+
+      resolver.clear_all_caches
+
+      expect(resolver.cache_stats[:size]).to eq(0)
     end
   end
 end
