@@ -14,6 +14,7 @@ module Lutaml
   module Model
     # Autoloads for lazy loading - set up BEFORE any requires
     # These must be declared before files that reference these constants
+    autoload :RuntimeCompatibility, "#{__dir__}/model/runtime_compatibility"
     autoload :UninitializedClass, "#{__dir__}/model/uninitialized_class"
     autoload :Errors, "#{__dir__}/model/errors"
     autoload :Services, "#{__dir__}/model/services"

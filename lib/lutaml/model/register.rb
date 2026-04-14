@@ -1,5 +1,9 @@
 # frozen_string_literal: true
 
+require_relative "runtime_compatibility"
+
+Lutaml::Model::RuntimeCompatibility.require_native("concurrent")
+
 module Lutaml
   module Model
     # Register is a collection of models (types) for a specific context.
@@ -41,10 +45,14 @@ module Lutaml
       # @return [Hash{String => NamespaceBinding}] Namespace URI to binding map
       attr_reader :bound_namespaces
 
-      # Thread-safe cache for resolve_for_child results.
+      # Cache for resolve_for_child results.
       # Key: [child_class.object_id, parent_register] → Value: resolved register Symbol or nil.
       # Classes are singletons so object_id is stable for the process lifetime.
-      RESOLVE_CACHE = Concurrent::Map.new
+      RESOLVE_CACHE = if RuntimeCompatibility.opal?
+                        {}
+                      else
+                        Concurrent::Map.new
+                      end
 
       # Clear the resolve_for_child cache.
       # Called from add_fallback and GlobalContext.clear_caches.
@@ -73,8 +81,16 @@ module Lutaml
       # @return [Symbol, nil] The register ID to use for the child
       def self.resolve_for_child(child_class, parent_register)
         cache_key = [child_class.object_id, parent_register]
-        RESOLVE_CACHE.compute_if_absent(cache_key) do
-          _resolve_for_child_uncached(child_class, parent_register)
+
+        if RuntimeCompatibility.opal?
+          return RESOLVE_CACHE[cache_key] if RESOLVE_CACHE.key?(cache_key)
+
+          RESOLVE_CACHE[cache_key] =
+            _resolve_for_child_uncached(child_class, parent_register)
+        else
+          RESOLVE_CACHE.compute_if_absent(cache_key) do
+            _resolve_for_child_uncached(child_class, parent_register)
+          end
         end
       end
 

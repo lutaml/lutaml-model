@@ -10,6 +10,9 @@ module Lutaml
       class Base
         def self.build(options = {})
           context = Moxml.new(moxml_backend)
+          if Lutaml::Model::RuntimeCompatibility.opal?
+            context.config.namespace_validation_mode = :lenient
+          end
           doc = context.create_document
           instance = new(doc, context, options)
           yield(instance) if block_given?

@@ -33,25 +33,31 @@ module Lutaml
       def initialize(model_class, mapping_dsl, format, register)
         # Extract register_id before super
         register_id = extract_register_id(register)
+        transformation_factory = ->(type_class) {
+          build_child_transformation(type_class)
+        }
 
         # Set up serializers before calling super
         # The super will call compile_rules and freeze
+        @rule_compiler = RuleCompiler.new(
+          model_class: model_class,
+          register_id: register_id,
+          format: format,
+          transformation_factory: transformation_factory,
+        )
+
         @value_serializer = ValueSerializer.new(
           format: format,
           register_id: register_id,
           model_class: model_class,
-          transformation_factory: ->(type_class) {
-            build_child_transformation(type_class)
-          },
+          transformation_factory: transformation_factory,
         )
 
         @collection_serializer = CollectionSerializer.new(
           format: format,
           register_id: register_id,
           value_serializer: @value_serializer,
-          transformation_factory: ->(type_class) {
-            build_child_transformation(type_class)
-          },
+          transformation_factory: transformation_factory,
         )
 
         super
@@ -124,41 +130,21 @@ register = self.register)
       #
       # @return [RuleCompiler] The rule compiler
       def rule_compiler
-        @rule_compiler ||= RuleCompiler.new(
-          model_class: model_class,
-          register_id: register_id,
-          format: format,
-          transformation_factory: ->(type_class) {
-            build_child_transformation(type_class)
-          },
-        )
+        @rule_compiler
       end
 
       # Get the value serializer instance
       #
       # @return [ValueSerializer] The value serializer
       def value_serializer
-        @value_serializer ||= ValueSerializer.new(
-          format: format,
-          register_id: register_id,
-          transformation_factory: ->(type_class) {
-            build_child_transformation(type_class)
-          },
-        )
+        @value_serializer
       end
 
       # Get the collection serializer instance
       #
       # @return [CollectionSerializer] The collection serializer
       def collection_serializer
-        @collection_serializer ||= CollectionSerializer.new(
-          format: format,
-          register_id: register_id,
-          value_serializer: value_serializer,
-          transformation_factory: ->(type_class) {
-            build_child_transformation(type_class)
-          },
-        )
+        @collection_serializer
       end
 
       # Check if a mapping rule should be applied based on only/except options

@@ -628,10 +628,16 @@ module Lutaml
         end
 
         if name == "schemaLocation"
+          location = caller_locations(1, 1)[0]
+          caller_file = if defined?(File) && File.respond_to?(:basename)
+                          File.basename(location.path)
+                        else
+                          location.path.to_s.split("/").last
+                        end
           ::Lutaml::Model::Logger.warn_auto_handling(
             name: name,
-            caller_file: File.basename(caller_locations(1, 1)[0].path),
-            caller_line: caller_locations(1, 1)[0].lineno,
+            caller_file: caller_file,
+            caller_line: location.lineno,
           )
         end
 

@@ -69,29 +69,25 @@ module Lutaml
         parent = parent_or_element
 
         if element_or_string.is_a?(String)
-          # Parse XML string and add as child elements
-          # This handles cases like doc.add_element(parent, "<city>B</city>")
-          # We need to parse the XML and add each element as a proper child
-          # to maintain correct ordering in the output
-          begin
-            require "moxml" unless defined?(Moxml)
-            fragment_doc = Moxml.new.parse(
-              "<__wrapper__>#{element_or_string}</__wrapper__>",
-            )
-
-            # Convert each parsed element to our XmlDataModel format
-            # and add as proper children to maintain ordering
-            add_fragment_children_to_parent(fragment_doc.root, parent)
-          rescue StandardError
-            # Fallback: if parsing fails, store as raw content
-            existing_raw = parent.raw_content
-            parent.raw_content = existing_raw ? existing_raw + element_or_string : element_or_string
-          end
+          add_xml_fragment_or_raw_content(parent, element_or_string)
         else
           # Add as child element
           parent.add_child(element_or_string)
         end
         element_or_string
+      end
+
+      def add_xml_fragment_or_raw_content(parent, fragment_string)
+        require "moxml" unless defined?(Moxml)
+        fragment_doc = Moxml.new.parse(fragment_string, fragment: true)
+        add_fragment_children_to_parent(fragment_doc, parent)
+      rescue LoadError, StandardError
+        append_raw_content(parent, fragment_string)
+      end
+
+      def append_raw_content(parent, content)
+        existing_raw = parent.raw_content
+        parent.raw_content = existing_raw ? existing_raw + content : content
       end
 
       # Helper method to recursively add parsed XML nodes to parent
@@ -133,6 +129,9 @@ module Lutaml
           parent.add_child(element)
         end
       end
+      private :add_xml_fragment_or_raw_content,
+              :append_raw_content,
+              :add_fragment_children_to_parent
 
       # Add text to element (mimics old adapter API)
       #

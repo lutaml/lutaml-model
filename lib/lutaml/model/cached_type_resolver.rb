@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require "concurrent"
-
 module Lutaml
   module Model
     # CachedTypeResolver adds caching to any TypeResolver using the Decorator pattern.
@@ -12,7 +10,7 @@ module Lutaml
     #
     # This class:
     # - Decorates any TypeResolver-like object (duck typing)
-    # - Uses Concurrent::Map for lock-free, parallel-safe caching
+    # - Uses a runtime-selected cache backend
     # - Centralized cache management - ONE place to clear ALL type caches
     #
     # @api private
@@ -27,23 +25,38 @@ module Lutaml
     #   resolver.clear_all_caches          # Clear all caches
     #
     class CachedTypeResolver
+      RuntimeCompatibility.autoload_native(
+        self,
+        ConcurrentMapCache: "#{__dir__}/cached_type_resolver/concurrent_map_cache",
+      )
+      autoload :MutexHashCache,
+               "#{__dir__}/cached_type_resolver/mutex_hash_cache"
+
       # @return [Object] The delegate resolver (typically TypeResolver)
-      attr_reader :delegate
+      attr_reader :delegate, :cache_backend
+
+      def self.default_cache_backend
+        if RuntimeCompatibility.opal?
+          MutexHashCache.new
+        else
+          ConcurrentMapCache.new
+        end
+      end
 
       # Create a new CachedTypeResolver.
       #
       # @param delegate [Object] Any object responding to #resolve(name, context)
-      def initialize(delegate:)
+      # @param cache_backend [Object] Any object implementing the resolver cache
+      #   interface used internally by CachedTypeResolver
+      def initialize(delegate:, cache_backend: self.class.default_cache_backend)
         @delegate = delegate
-        # Concurrent::Map uses CAS (compare-and-swap) operations internally
-        # No external mutex needed - fully parallel-safe
-        @cache = Concurrent::Map.new
+        @cache_backend = cache_backend
       end
 
       # Resolve a type name to a class, using cache if available.
       #
-      # Uses Concurrent::Map's atomic compute_if_absent for lock-free caching.
-      # Multiple threads can safely call this simultaneously without contention.
+      # Cache backends synchronize storage, but compute outside exclusive cache
+      # updates so recursive type resolution can populate related keys.
       #
       # @param name [Symbol, String, Class] The type name or class to resolve
       # @param context [TypeContext] The resolution context
@@ -55,11 +68,7 @@ module Lutaml
 
         cache_key = build_cache_key(name, context)
 
-        # Concurrent::Map#compute_if_absent is atomic:
-        # - If key exists, returns cached value
-        # - If key doesn't exist, computes, stores, and returns value
-        # No mutex needed - CAS handles parallel access safely
-        @cache.compute_if_absent(cache_key) do
+        @cache_backend.fetch_or_store(cache_key) do
           @delegate.resolve(name, context)
         end
       end
@@ -75,7 +84,7 @@ module Lutaml
         cache_key = build_cache_key(name, context)
 
         # Check cache first (fast path)
-        return true if @cache.key?(cache_key)
+        return true if @cache_backend.key?(cache_key)
 
         # Not in cache - delegate
         @delegate.resolvable?(name, context)
@@ -97,26 +106,25 @@ module Lutaml
       # @param context_id [Symbol] The context ID to clear caches for
       # @return [void]
       def clear_cache(context_id)
-        # Concurrent::Map#keys returns a snapshot - safe to iterate
-        @cache.each_key do |key|
-          @cache.delete(key) if key[0] == context_id
-        end
+        @cache_backend.clear_context(context_id)
       end
 
       # Clear all caches.
       #
       # @return [void]
       def clear_all_caches
-        @cache.clear
+        @cache_backend.clear
       end
 
       # Get cache statistics (useful for debugging/monitoring).
       #
       # @return [Hash] Cache statistics
       def cache_stats
+        keys = @cache_backend.keys
+
         {
-          size: @cache.size,
-          keys: @cache.keys,
+          size: keys.size,
+          keys: keys,
         }
       end
 

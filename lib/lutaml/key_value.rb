@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "model"
-
 module Lutaml
   module KeyValue
     autoload :DataModel, "#{__dir__}/key_value/data_model"
@@ -15,6 +13,8 @@ module Lutaml
     autoload :Adapter, "#{__dir__}/key_value/adapter"
   end
 end
+
+require_relative "model"
 
 # Register KeyValue transformation builders for all key-value formats
 %i[json yaml toml hash].each do |format|

@@ -239,7 +239,7 @@ register_id)
         # @param model_class [Class] The model class
         # @param model_instance [Object] The model instance
         def apply_custom_method(parent, rule, model_class, model_instance)
-          wrapper = CustomMethodWrapper.new(parent, rule)
+          wrapper = ::Lutaml::Xml::CustomMethodWrapper.new(parent, rule)
           mapper_instance = model_class.new
           mapper_instance.send(rule.custom_methods[:to], model_instance,
                                parent, wrapper)

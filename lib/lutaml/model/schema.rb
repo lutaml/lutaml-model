@@ -8,7 +8,12 @@ module Lutaml
       autoload :Helpers, "#{__dir__}/schema/helpers"
       autoload :JsonSchema, "#{__dir__}/schema/json_schema"
       autoload :YamlSchema, "#{__dir__}/schema/yaml_schema"
-      autoload :XmlCompiler, "#{__dir__}/schema/xml_compiler"
+      Lutaml::Model::RuntimeCompatibility.autoload_native(
+        self,
+        {
+          XmlCompiler: "#{__dir__}/schema/xml_compiler",
+        },
+      )
       autoload :Generator, "#{__dir__}/schema/generator"
       autoload :Renderer, "#{__dir__}/schema/renderer"
       autoload :Decorators, "#{__dir__}/schema/decorators"
