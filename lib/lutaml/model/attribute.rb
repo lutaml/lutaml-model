@@ -151,6 +151,12 @@ module Lutaml
         return type(register) unless register && namespace_uri
         return if unresolved_type.nil?
 
+        # Performance: Memoize type resolution per (register, namespace_uri) pair
+        # This avoids repeated resolve_in_namespace calls for the same attribute
+        @type_with_namespace_cache ||= {}
+        cache_key = [register, namespace_uri]
+        return @type_with_namespace_cache[cache_key] if @type_with_namespace_cache.key?(cache_key)
+
         # Resolve register from symbol if needed
         actual_register = if register.is_a?(Symbol)
                             Lutaml::Model::GlobalRegister.lookup(register)
@@ -159,15 +165,14 @@ module Lutaml
                           end
 
         # If we don't have an actual Register object, fall back to standard resolution
-        return type(register) unless actual_register.respond_to?(:resolve_in_namespace)
+        result = if actual_register.respond_to?(:resolve_in_namespace)
+                   actual_register.resolve_in_namespace(unresolved_type,
+                                                       namespace_uri)
+                 end
+        result ||= type(register)
 
-        # Try namespace-aware resolution first
-        result = actual_register.resolve_in_namespace(unresolved_type,
-                                                      namespace_uri)
-        return result if result
-
-        # Fallback to standard resolution
-        type(register)
+        @type_with_namespace_cache[cache_key] = result
+        result
       end
 
       # Extract the Register from the context_or_register argument
