@@ -141,6 +141,8 @@ module Lutaml
         end
 
         def require_classes(classes_hash)
+          return if Lutaml::Model::RuntimeCompatibility.opal?
+
           Dir.mktmpdir do |dir|
             # Create subdirectory for class files (matches autoload path in registry)
             module_subdir = "generatedmodels"

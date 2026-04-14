@@ -1,5 +1,10 @@
 # frozen_string_literal: true
 
+# JSON format entry point
+# Provides Lutaml::Json namespace helpers before exposing Model aliases
+
+require_relative "../json"
+
 # Backward compatibility - provides Lutaml::Model::Json namespace as alias to Lutaml::Json
 
 module Lutaml
@@ -10,8 +15,11 @@ module Lutaml
       Mapping = ::Lutaml::Json::Adapter::Mapping
       MappingRule = ::Lutaml::Json::Adapter::MappingRule
       Transform = ::Lutaml::Json::Adapter::Transform
-      OjAdapter = ::Lutaml::Json::Adapter::OjAdapter
-      MultiJsonAdapter = ::Lutaml::Json::Adapter::MultiJsonAdapter
+      Lutaml::Model::RuntimeCompatibility.define_native_aliases(
+        self,
+        OjAdapter: "::Lutaml::Json::Adapter::OjAdapter",
+        MultiJsonAdapter: "::Lutaml::Json::Adapter::MultiJsonAdapter",
+      )
     end
   end
 end

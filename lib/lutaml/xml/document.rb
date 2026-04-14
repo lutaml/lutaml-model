@@ -264,9 +264,11 @@ module Lutaml
 
       # Check if a child node is an EntityReference
       def entity_reference_node?(child)
-        child.is_a?(Lutaml::Xml::NokogiriElement) &&
-          child.adapter_node.respond_to?(:entity_reference?) &&
-          child.adapter_node.entity_reference?
+        return false unless defined?(::Nokogiri)
+        return false unless child.is_a?(Lutaml::Xml::NokogiriElement)
+
+        node = child.adapter_node
+        node.respond_to?(:entity_reference?) && node.entity_reference?
       end
 
       def setup_register(register)

@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
-require "concurrent"
+require_relative "runtime_compatibility"
+
+Lutaml::Model::RuntimeCompatibility.require_native("concurrent")
 
 module Lutaml
   module Model
@@ -88,7 +90,11 @@ module Lutaml
 
       def initialize
         @transformations = {} # Cache for transformation instances (mutex-protected for cycle detection)
-        @mappings = Concurrent::Map.new # Lock-free cache for resolved mappings
+        @mappings = if RuntimeCompatibility.opal?
+                      {}
+                    else
+                      Concurrent::Map.new
+                    end
         @mutex = Mutex.new
         @building_threads = {} # Track which thread is building each transformation
         @condition = ConditionVariable.new
@@ -172,7 +178,7 @@ module Lutaml
         register_id = extract_register_id(register)
         key = [model_class.object_id, format, register_id]
 
-        # Fast path: Concurrent::Map#[] is thread-safe and lock-free
+        # Fast path: native Ruby uses Concurrent::Map, Opal uses Hash.
         cached = @mappings[key]
         return cached if cached
 
@@ -183,7 +189,6 @@ module Lutaml
 
         mapping.ensure_mappings_imported!(register_id)
 
-        # Concurrent::Map#[]= is thread-safe (CAS-based, no mutex)
         @mappings[key] = mapping
         mapping
       end

@@ -83,19 +83,24 @@ module Lutaml
         def format_error_types
           @format_error_types_base ||= begin
             errors = [
-              Psych::SyntaxError,
-              JSON::ParserError,
+              Lutaml::Model::RuntimeCompatibility.safe_constantize("Psych::SyntaxError"),
+              Lutaml::Model::RuntimeCompatibility.safe_constantize("JSON::ParserError"),
               NoMethodError,
               TypeError,
               ArgumentError,
             ]
 
             # Collect format-specific error types from FormatRegistry
+            compatibility = Lutaml::Model::RuntimeCompatibility
             FormatRegistry.all.each_value do |info|
               next unless info[:error_types]
 
               info[:error_types].each do |error_class|
-                cls = error_class.is_a?(String) ? safe_get_const(error_class) : error_class
+                cls = if error_class.is_a?(String)
+                        compatibility.safe_constantize(error_class)
+                      else
+                        error_class
+                      end
                 errors << cls
               end
             end
@@ -103,10 +108,11 @@ module Lutaml
             errors.compact.freeze
           end
 
-          # Legacy TOML error types (lazily loaded — must check on each call)
-          toml_errors = safe_get_const("TomlRB::ParseError")
+          # Legacy TOML error types are lazy, so check them on each call.
+          compatibility = Lutaml::Model::RuntimeCompatibility
+          toml_errors = compatibility.safe_constantize("TomlRB::ParseError")
           toml_errors = Array(toml_errors)
-          tomllib_err = safe_get_const("Tomlib::ParseError")
+          tomllib_err = compatibility.safe_constantize("Tomlib::ParseError")
           toml_errors << tomllib_err if tomllib_err
 
           @format_error_types_base + toml_errors
@@ -115,18 +121,6 @@ module Lutaml
         # Reset cached error types (for test isolation)
         def reset_format_error_types_cache!
           @format_error_types_base = nil
-        end
-
-        # Safely get a constant by name
-        #
-        # @param error_class [String] The constant name
-        # @return [Class, nil] The constant or nil if not defined
-        def safe_get_const(error_class)
-          return unless Object.const_defined?(error_class.split("::").first)
-
-          error_class.split("::").inject(Object) do |mod, part|
-            mod.const_get(part)
-          end
         end
 
         # Create a model instance from a parsed document

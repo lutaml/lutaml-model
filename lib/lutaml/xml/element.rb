@@ -18,10 +18,12 @@ module Lutaml
                      namespace_uri: nil, namespace_prefix: nil)
         @type = type # "Text" or "Element" - deprecated, kept for backward compatibility
         @name = name
-        # For text nodes, store both marker ("text") and actual content
-        @text_content = text_content || name
         # Infer node_type from type for backward compatibility if not provided
         @node_type = node_type || infer_node_type(type, name)
+        # For text nodes, store both marker ("text") and actual content.
+        # Regular element-order entries do not carry text content.
+        @text_content = text_content
+        @text_content ||= name if text? || cdata?
         @namespace_uri = namespace_uri
         @namespace_prefix = namespace_prefix
       end
