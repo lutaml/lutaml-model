@@ -37,7 +37,7 @@ module Lutaml
 
           # Return complex types that reference this attribute group.
           def used_by
-            __root.complex_type.select { |type| find_used_by(type) }
+            xsd_root.complex_type.select { |type| find_used_by(type) }
           end
 
           # Flatten nested attribute-group references into a single list of
@@ -78,7 +78,7 @@ module Lutaml
           def referenced_object
             return self if name
 
-            find_object(__root.attribute_group)
+            find_object(xsd_root.attribute_group)
           end
 
           Lutaml::Xml::Schema::Xsd.register_model(self, :attribute_group)

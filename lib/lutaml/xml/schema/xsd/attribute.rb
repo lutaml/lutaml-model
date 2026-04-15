@@ -67,7 +67,7 @@ module Lutaml
           def referenced_object
             return self if name
 
-            find_object(__root.attribute)
+            find_object(xsd_root.attribute)
           end
 
           Lutaml::Xml::Schema::Xsd.register_model(self, :attribute)

@@ -63,9 +63,9 @@ module Lutaml
           # Return root-level elements and nested child elements that refer to
           # this complex type by name.
           def used_by
-            root_complex_types = __root.complex_type.reject { |complex_type| complex_type == self }
-            raw_elements = __root.group.flat_map(&:child_elements)
-            raw_elements.concat(__root.element)
+            root_complex_types = xsd_root.complex_type.reject { |complex_type| complex_type == self }
+            raw_elements = xsd_root.group.flat_map(&:child_elements)
+            raw_elements.concat(xsd_root.element)
             raw_elements.concat(root_complex_types.flat_map(&:child_elements))
             raw_elements.select { |element| reference_matches?(name, element.type) }
           end

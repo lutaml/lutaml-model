@@ -89,7 +89,7 @@ RSpec.describe "XSD container liquid helpers" do
       __register: Lutaml::Xml::Schema::Xsd.register,
     )
     ref_group.ref = "TestGroup"
-    ref_group.__root = schema
+    ref_group.lutaml_root = schema
 
     expect(ref_group.referenced_object).to eq(group)
   end

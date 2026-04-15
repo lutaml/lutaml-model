@@ -34,7 +34,7 @@ RSpec.describe "XSD attribute-based liquid helpers" do
       __register: Lutaml::Xml::Schema::Xsd.register,
     )
     ref_attr.ref = "TestAttribute"
-    ref_attr.__root = schema
+    ref_attr.lutaml_root = schema
 
     expect(test_attr.cardinality).to eq("1")
     expect(ref_attr.referenced_name).to eq("TestAttribute")
@@ -57,7 +57,7 @@ RSpec.describe "XSD attribute-based liquid helpers" do
       __register: Lutaml::Xml::Schema::Xsd.register,
     )
     ref_group.ref = "TestAttributeGroup"
-    ref_group.__root = schema
+    ref_group.lutaml_root = schema
 
     expect(ref_group.referenced_object).to eq(attr_group)
   end

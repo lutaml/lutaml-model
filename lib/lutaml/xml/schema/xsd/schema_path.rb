@@ -8,7 +8,6 @@ module Lutaml
       module Xsd
         class SchemaPath
           URI_SCHEMES = %w[http https].freeze
-          URL_FILENAME_REGEX = %r{/[^/]+\.[^/]+$}
           WINDOWS_ABSOLUTE_PATH_REGEX = %r{\A[A-Za-z]:[\\/]}
           FORWARD_SLASH = "/"
 
@@ -164,9 +163,18 @@ module Lutaml
           end
 
           def extract_base_url(uri)
-            return uri unless uri.match?(URL_FILENAME_REGEX)
+            parsed_uri = URI.parse(uri.to_s)
+            path = parsed_uri.path.to_s
+            last_separator_index = path.rindex(FORWARD_SLASH)
+            return uri unless last_separator_index
 
-            uri.sub(URL_FILENAME_REGEX, FORWARD_SLASH)
+            last_segment = path[(last_separator_index + 1)..]
+            return uri unless last_segment&.include?(".")
+
+            parsed_uri.path = path[0..last_separator_index]
+            parsed_uri.query = nil
+            parsed_uri.fragment = nil
+            parsed_uri.to_s
           end
 
           def url_separator_present?(schema_location)

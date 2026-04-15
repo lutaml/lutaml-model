@@ -40,7 +40,7 @@ RSpec.describe Lutaml::Xml::Schema::Xsd::Element do
   let(:simple_element) { schema.element.find { |element| element.name == "SimpleElement" } }
 
   it "assigns the parsed schema as the root context" do
-    expect(root_element.__root).to eq(schema)
+    expect(root_element.lutaml_root).to eq(schema)
   end
 
   it "returns attributes from the referenced complex type" do
@@ -81,7 +81,7 @@ RSpec.describe Lutaml::Xml::Schema::Xsd::Element do
   it "resolves referenced objects and types" do
     ref_element = described_class.new(__register: Lutaml::Xml::Schema::Xsd.register)
     ref_element.ref = "ReferencedElement"
-    ref_element.__root = schema
+    ref_element.lutaml_root = schema
 
     expect(ref_element.referenced_name).to eq("ReferencedElement")
     expect(ref_element.referenced_type).to eq("xs:string")

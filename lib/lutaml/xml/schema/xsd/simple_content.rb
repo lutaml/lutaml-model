@@ -49,7 +49,7 @@ module Lutaml
           # Resolve the complex type that provides inherited attributes for
           # this simple-content definition, if one exists.
           def base_complex_type
-            find_object(__root.complex_type, base_type)
+            find_object(xsd_root.complex_type, base_type)
           end
 
           Lutaml::Xml::Schema::Xsd.register_model(self, :simple_content)

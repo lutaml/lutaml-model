@@ -68,7 +68,7 @@ module Lutaml
           # Return complex types whose nested content model references this
           # element by name.
           def used_by
-            __root.complex_type.select { |object| object.find_elements_used(name) }
+            xsd_root.complex_type.select { |object| object.find_elements_used(name) }
           end
 
           # Delegate attribute lookup to the complex type referenced by this
@@ -97,14 +97,14 @@ module Lutaml
           def referenced_object
             return self if name
 
-            find_object(__root.element)
+            find_object(xsd_root.element)
           end
 
           # Resolve the complex type referenced by the effective element type.
           def referenced_complex_type
             return complex_type if complex_type
 
-            find_object(__root.complex_type, referenced_type)
+            find_object(xsd_root.complex_type, referenced_type)
           end
 
           Lutaml::Xml::Schema::Xsd.register_model(self, :element)

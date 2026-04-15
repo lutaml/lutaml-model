@@ -10,8 +10,6 @@ module Lutaml
           XML_DECLARATION_REGEX = /<\?xml[^>]+>\s+/
           ELEMENT_ORDER_IGNORABLE = %w[import include].freeze
 
-          attr_accessor :__root
-
           def to_formatted_xml(except: [])
             Canon.format_xml(
               to_xml(except: except),
@@ -33,7 +31,7 @@ module Lutaml
             return self if seen[self]
 
             seen[self] = true
-            self.__root = root
+            self.lutaml_root = root
 
             self.class.attributes&.each_key do |attribute_name|
               assign_root_value!(public_send(attribute_name), root, seen)
@@ -96,7 +94,7 @@ module Lutaml
           end
 
           def target_prefix
-            __root&.target_namespace_prefix
+            xsd_root&.target_namespace_prefix
           end
 
           def unresolvable_items(array = [], seen = nil)
@@ -229,14 +227,14 @@ module Lutaml
           end
 
           def collection_name_for(collection)
-            return unless __root
+            return unless xsd_root
 
             %i[element complex_type simple_type attribute group attribute_group].find do |name|
-              __root.public_send(name).equal?(collection)
+              xsd_root.public_send(name).equal?(collection)
             end
           end
 
-          def related_schemas(root = __root, seen = nil)
+          def related_schemas(root = xsd_root, seen = nil)
             seen ||= {}.compare_by_identity
             return [] unless root
             return [] if seen[root]
@@ -256,6 +254,10 @@ module Lutaml
 
           def collection_for_reference(_reference)
             []
+          end
+
+          def xsd_root
+            lutaml_root || (self if is_a?(Schema))
           end
         end
       end

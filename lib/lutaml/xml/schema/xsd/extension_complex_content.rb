@@ -51,7 +51,7 @@ module Lutaml
 
           # Resolve the base complex type referenced by the extension.
           def referenced_object
-            find_object(__root.complex_type, base)
+            find_object(xsd_root.complex_type, base)
           end
 
           Lutaml::Xml::Schema::Xsd.register_model(self,
