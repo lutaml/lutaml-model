@@ -262,11 +262,7 @@ plan: nil)
 
           # TYPE-ONLY MODELS: No element wrapper, serialize children directly
           # BUT if we have a tag_name in options, that means parent wants a wrapper
-          plan ||= {
-            namespaces: {},
-            children_plans: {},
-            type_namespaces: {},
-          }
+          plan ||= DeclarationPlan.empty
 
           if xml_mapping.no_element?
             # If parent provided a tag_name, create that wrapper first
@@ -901,25 +897,8 @@ plan: nil)
           element.text
         end
 
-        def order
-          children.map do |child|
-            if child.text?
-              Element.new("Text", "text", text_content: child.text)
-            else
-              Element.new("Element", child.unprefixed_name)
-            end
-          end
-        end
-
         def self.order_of(element)
-          element.children.map do |child|
-            instance_args = if TEXT_CLASSES.include?(child.class)
-                              ["Text", "text"]
-                            else
-                              ["Element", name_of(child)]
-                            end
-            Element.new(*instance_args)
-          end
+          element.order
         end
       end
     end

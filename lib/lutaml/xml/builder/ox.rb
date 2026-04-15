@@ -42,6 +42,10 @@ module Lutaml
             @stack.last.add_child(@document.create_cdata(content.to_s))
           end
 
+          def comment(content)
+            @stack.last.add_child(@document.create_comment(content.to_s))
+          end
+
           def raw(content)
             return if content.nil? || content.to_s.empty?
 
@@ -165,6 +169,10 @@ module Lutaml
 
         def add_cdata(element, value)
           element.cdata(value)
+        end
+
+        def add_comment(content)
+          xml.comment(content)
         end
 
         # Add XML namespace to document

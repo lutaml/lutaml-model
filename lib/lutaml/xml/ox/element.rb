@@ -81,7 +81,10 @@ module Lutaml
         def build_xml(builder = nil)
           builder ||= Builder::Ox.build
 
-          if cdata?
+          if comment?
+            # Comment nodes - output as XML comments
+            builder.add_comment(@text)
+          elsif cdata?
             # CDATA sections - output as CDATA-wrapped text
             builder.add_text(builder, @text, cdata: true)
           elsif text? && !element?
