@@ -866,12 +866,18 @@ module Lutaml
                               uri
                             end
 
-            if key.nil?
-              # Default namespace (xmlns="uri")
-              element.add_namespace(nil, effective_uri)
-            else
-              # Prefixed namespace (xmlns:prefix="uri")
+            # Moxml Limitation: .native usage for non-standard namespace URIs
+            # Moxml validates URIs strictly (RFC 3986), but XML allows
+            # non-URI namespace identifiers. Use native Nokogiri API when
+            # Moxml rejects the URI.
+            begin
               element.add_namespace(key, effective_uri)
+            rescue Moxml::NamespaceError
+              if key.nil?
+                element.native.add_namespace_definition(nil, effective_uri)
+              else
+                element.native.add_namespace_definition(key, effective_uri)
+              end
             end
           end
 
@@ -1104,7 +1110,7 @@ module Lutaml
                 cdata_node = ::Nokogiri::XML::CDATA.new(native_doc, xml_child)
                 element.native.add_child(cdata_node)
               else
-                add_text_with_entities(element, xml_child, doc)
+                add_text_with_entities(element, xml_child, native_doc)
               end
             end
           end
