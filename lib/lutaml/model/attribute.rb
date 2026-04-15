@@ -167,7 +167,7 @@ module Lutaml
         # If we don't have an actual Register object, fall back to standard resolution
         result = if actual_register.respond_to?(:resolve_in_namespace)
                    actual_register.resolve_in_namespace(unresolved_type,
-                                                       namespace_uri)
+                                                        namespace_uri)
                  end
         result ||= type(register)
 

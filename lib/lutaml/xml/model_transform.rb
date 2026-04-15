@@ -573,7 +573,7 @@ mixed_content_option)
             # Performance: Build cast_options efficiently
             # Note: Must create new hash each time since attr.cast may modify it
             cast_options = if child.is_a?(::Lutaml::Xml::XmlElement) &&
-                             (child_namespace_uri = child.namespace_uri)
+                (child_namespace_uri = child.namespace_uri)
                              base_cast_options.merge(namespace_uri: child_namespace_uri)
                            else
                              base_cast_options.merge({})
@@ -588,9 +588,9 @@ mixed_content_option)
             # Store on the PARENT model instance keyed by attribute name.
             # Set for ALL attributes (both Serializable and non-Serializable).
             ns_prefix = if child.is_a?(::Lutaml::Xml::XmlElement) &&
-                             child.namespace_prefix_explicit && child.namespace_prefix
-                             child.namespace_prefix
-                           end
+                child.namespace_prefix_explicit && child.namespace_prefix
+                          child.namespace_prefix
+                        end
             if ns_prefix && instance_is_serializable
               prefixes = instance.instance_variable_get(:@__xml_ns_prefixes) || {}
               prefixes[attr.name] = ns_prefix
