@@ -109,11 +109,12 @@ module Lutaml
       def type(context_or_register = nil)
         return if unresolved_type.nil?
 
-        # Performance: Fast path for default context (most common case)
-        # Cache the result to avoid mutex overhead in CachedTypeResolver
-        if context_or_register.nil?
+        # Performance: Fast path for nil or default register (most common case during deserialization)
+        # Use symbol comparison directly instead of calling Config.default_register
+        # which involves method dispatch overhead (was 11.7M calls at 4.6s).
+        if context_or_register.nil? || context_or_register == :default
           return @cached_type_default ||= begin
-            context = normalize_context(nil)
+            context = normalize_context(context_or_register)
             GlobalContext.resolver.resolve(unresolved_type, context)
           end
         end
@@ -150,6 +151,12 @@ module Lutaml
         return type(register) unless register && namespace_uri
         return if unresolved_type.nil?
 
+        # Performance: Memoize type resolution per (register, namespace_uri) pair
+        # This avoids repeated resolve_in_namespace calls for the same attribute
+        @type_with_namespace_cache ||= {}
+        cache_key = [register, namespace_uri]
+        return @type_with_namespace_cache[cache_key] if @type_with_namespace_cache.key?(cache_key)
+
         # Resolve register from symbol if needed
         actual_register = if register.is_a?(Symbol)
                             Lutaml::Model::GlobalRegister.lookup(register)
@@ -158,15 +165,14 @@ module Lutaml
                           end
 
         # If we don't have an actual Register object, fall back to standard resolution
-        return type(register) unless actual_register.respond_to?(:resolve_in_namespace)
+        result = if actual_register.respond_to?(:resolve_in_namespace)
+                   actual_register.resolve_in_namespace(unresolved_type,
+                                                        namespace_uri)
+                 end
+        result ||= type(register)
 
-        # Try namespace-aware resolution first
-        result = actual_register.resolve_in_namespace(unresolved_type,
-                                                      namespace_uri)
-        return result if result
-
-        # Fallback to standard resolution
-        type(register)
+        @type_with_namespace_cache[cache_key] = result
+        result
       end
 
       # Extract the Register from the context_or_register argument
@@ -552,6 +558,17 @@ instance_object = nil)
                                                   @options[:ref_model_class], @options[:ref_key_attribute])
         end
 
+        # Fast path for Type::Value subclasses (String, Integer, Boolean, etc.)
+        # These are never Serializable, so skip expensive can_serialize? and needs_conversion? checks
+        # Skip if type has custom from_xml/from_json methods (defined on the class itself, not inherited)
+        if resolved_type.is_a?(Class) && resolved_type < Lutaml::Model::Type::Value
+          has_custom_from_xml = resolved_type.respond_to?(:from_xml) &&
+            resolved_type.method(:from_xml).owner != Lutaml::Model::Type::Value
+          has_custom_from_json = resolved_type.respond_to?(:from_json) &&
+            resolved_type.method(:from_json).owner != Lutaml::Model::Type::Value
+          return resolved_type.cast(value) unless has_custom_from_xml || has_custom_from_json
+        end
+
         klass = resolve_polymorphic_class(resolved_type, value, options)
         if can_serialize?(klass, value, format, options)
           klass.apply_mappings(value, format, options.merge(register: register))
@@ -566,6 +583,18 @@ instance_object = nil)
 
       def serializable?(register)
         type(register) <= Serialize
+      end
+
+      # Cached version of serializable? check for hot deserialization path
+      # Called millions of times in resolve_rule_names_with_type and value_for_rule
+      def serializable_type?(register = nil)
+        register_key = register || :default
+        return @serializable_type_cache[register_key] if defined?(@serializable_type_cache) && @serializable_type_cache&.key?(register_key)
+
+        resolved_type = type(register_key)
+        result = resolved_type.is_a?(Class) && resolved_type.include?(Serialize)
+        @serializable_type_cache ||= {}
+        @serializable_type_cache[register_key] = result
       end
 
       # resolved_collection is provided by CollectionHandler module
@@ -647,20 +676,23 @@ instance_object = nil)
       # @param register [Symbol, nil] register ID for type resolution
       # @return [Class, nil] XmlNamespace class if type has namespace
       def type_namespace_class(register = nil)
-        # NOTE: @type_namespace_cache removed - type() now uses GlobalContext.resolver
-        # which handles caching centrally. No need for scattered caching here.
+        register_key = register || :default
+        return @type_ns_class_cache[register_key] if defined?(@type_ns_class_cache) && @type_ns_class_cache&.key?(register_key)
 
         # Resolve type namespace via type() which uses GlobalContext.resolver
-        resolved_type = type(register)
-        return nil if resolved_type.nil?
+        resolved_type = type(register_key)
+        result = nil
 
         # Check if type is a Type::Value class
         # Type namespaces are ONLY declared on Type::Value subclasses,
         # not on Serializable models. Serializable models have element
         # namespaces, which are handled separately.
         if resolved_type.is_a?(Class) && resolved_type <= Lutaml::Model::Type::Value
-          resolved_type.namespace_class
+          result = resolved_type.namespace_class
         end
+
+        @type_ns_class_cache ||= {}
+        @type_ns_class_cache[register_key] = result
       end
 
       # @api public
@@ -669,7 +701,12 @@ instance_object = nil)
       # @param register [Symbol, nil] register ID for type resolution
       # @return [String, nil] namespace URI
       def type_namespace_uri(register = nil)
-        type_namespace_class(register)&.uri
+        register_key = register || :default
+        return @type_ns_uri_cache[register_key] if defined?(@type_ns_uri_cache) && @type_ns_uri_cache&.key?(register_key)
+
+        result = type_namespace_class(register_key)&.uri
+        @type_ns_uri_cache ||= {}
+        @type_ns_uri_cache[register_key] = result
       end
 
       # @api public

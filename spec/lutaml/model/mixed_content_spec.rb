@@ -250,6 +250,31 @@ module MixedContentSpec
       end
     end
   end
+
+  # Models for mutation-after-deserialization tests (issue #630)
+  class MiElement < Lutaml::Model::Serializable
+    attribute :value, :string
+    attribute :mathvariant, :string
+
+    xml do
+      root "mi"
+      mixed_content
+      map_content to: :value
+      map_attribute "mathvariant", to: :mathvariant
+    end
+  end
+
+  class ParaMixedContent < Lutaml::Model::Serializable
+    attribute :content, :string, collection: true
+    attribute :bold, :string
+
+    xml do
+      root "p"
+      mixed_content
+      map_content to: :content
+      map_element "b", to: :bold
+    end
+  end
 end
 
 RSpec.describe "MixedContent" do
@@ -1093,6 +1118,56 @@ RSpec.describe "MixedContent" do
         it "returns empty enumerator" do
           parsed = MixedContentSpec::Source.from_xml("<source>plain text</source>")
           expect(parsed.each_mixed_content.to_a).to eq([])
+        end
+      end
+    end
+
+    # Issue #630: Mutation after deserialization should update serialization output
+    context "when content-mapped attribute is mutated after deserialization" do
+      context "with single-string content attribute" do
+        it "reflects updated value in to_xml" do
+          mi = MixedContentSpec::MiElement.from_xml('<mi mathvariant="normal">m</mi>')
+          expect(mi.value).to eq("m")
+
+          mi.value = "mm"
+          xml = mi.to_xml
+          expect(xml).to include(">mm<")
+          expect(xml).not_to include(">m<")
+        end
+
+        it "preserves attributes in mutated output" do
+          mi = MixedContentSpec::MiElement.from_xml('<mi mathvariant="normal">m</mi>')
+          mi.mathvariant = "bold"
+          mi.value = "x"
+          xml = mi.to_xml
+          expect(xml).to include('mathvariant="bold"')
+          expect(xml).to include(">x<")
+        end
+
+        it "preserves round-trip when not mutated" do
+          mi = MixedContentSpec::MiElement.from_xml('<mi mathvariant="normal">m</mi>')
+          xml = mi.to_xml
+          expect(xml).to include('mathvariant="normal"')
+          expect(xml).to include(">m<")
+        end
+      end
+
+      context "with collection content attribute" do
+        it "reflects updated collection values in to_xml" do
+          para = MixedContentSpec::ParaMixedContent.from_xml("<p>Hello <b>world</b> there</p>")
+          expect(para.content).to eq(["Hello ", " there"])
+
+          para.content = ["Goodbye", "everyone"]
+          xml = para.to_xml
+          expect(xml).to include("Goodbye")
+          expect(xml).to include("everyone")
+          expect(xml).to include("<b>world</b>")
+        end
+
+        it "preserves round-trip when not mutated" do
+          xml = "<p>Hello <b>world</b> there</p>"
+          para = MixedContentSpec::ParaMixedContent.from_xml(xml)
+          expect(para.to_xml).to eq(xml)
         end
       end
     end

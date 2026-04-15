@@ -1,11 +1,7 @@
 # frozen_string_literal: true
 
-# Hash format entry point
-# Provides Lutaml::Model::Hash namespace that delegates to Lutaml::HashFormat
+# Backward compatibility - provides Lutaml::Model::Hash namespace as alias to Lutaml::HashFormat
 
-require_relative "../hash_format"
-
-# Backward compatibility aliases
 module Lutaml
   module Model
     module Hash
@@ -17,16 +13,3 @@ module Lutaml
     end
   end
 end
-
-# Register Hash format with the format registry
-Lutaml::Model::FormatRegistry.register(
-  :hash,
-  mapping_class: Lutaml::HashFormat::Adapter::Mapping,
-  adapter_class: Lutaml::HashFormat::Adapter::StandardAdapter,
-  transformer: Lutaml::HashFormat::Adapter::Transform,
-  key_value: true,
-)
-
-# Register Hash type serializers
-require_relative "../hash_format/type/serializers"
-Lutaml::HashFormat::Type::Serializers.register_all!

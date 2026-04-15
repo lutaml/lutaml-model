@@ -103,6 +103,9 @@ RSpec.describe "RegisterXmlSpec" do
           attr.instance_variable_set(:@unresolved_type,
                                      nil)
         end
+        if attr.instance_variable_defined?(:@type_with_namespace_cache)
+          attr.remove_instance_variable(:@type_with_namespace_cache)
+        end
       end
     end
 

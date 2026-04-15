@@ -92,6 +92,24 @@ module Lutaml
         register_in_reference_store
       end
 
+      # Initialize instance state for fast deserialization path.
+      # Called by allocate_for_deserialization instead of initialize.
+      # Sets @using_default to Hash.new(true) so using_default? returns
+      # true for all attributes until value_set_for is called.
+      def init_deserialization_state(register)
+        @using_default = ::Hash.new(true)
+        @lutaml_register = register
+
+        # Initialize collection attributes to avoid nil errors when code
+        # appends to collections before rule.deserialize sets them.
+        # Non-collection attributes are left nil and set by rule.deserialize.
+        self.class.attributes(register).each do |name, attr|
+          next unless attr.collection?
+
+          instance_variable_set(:"@#{name}", attr.build_collection)
+        end
+      end
+
       def extract_register_id(attrs, options)
         register = attrs&.dig(:lutaml_register) || options&.dig(:register)
         self.class.extract_register_id(register)

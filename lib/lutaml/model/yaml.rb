@@ -1,11 +1,7 @@
 # frozen_string_literal: true
 
-# YAML format entry point
-# Provides Lutaml::Model::Yaml namespace that delegates to Lutaml::Yaml
+# Backward compatibility - provides Lutaml::Model::Yaml namespace as alias to Lutaml::Yaml
 
-require_relative "../yaml"
-
-# Backward compatibility aliases
 module Lutaml
   module Model
     module Yaml
@@ -17,16 +13,3 @@ module Lutaml
     end
   end
 end
-
-# Register YAML format with the format registry
-Lutaml::Model::FormatRegistry.register(
-  :yaml,
-  mapping_class: Lutaml::Yaml::Adapter::Mapping,
-  adapter_class: Lutaml::Yaml::Adapter::StandardAdapter,
-  transformer: Lutaml::Yaml::Adapter::Transform,
-  key_value: true,
-)
-
-# Register YAML type serializers
-require_relative "../yaml/type/serializers"
-Lutaml::Yaml::Type::Serializers.register_all!

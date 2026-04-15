@@ -18,24 +18,30 @@ module Lutaml
           register = options[:register] || Lutaml::Model::Config.default_register
 
           # Use child's own default register if it has one
-          # This ensures versioned schemas (e.g., MML v2 with lutaml_default_register = :mml_v2)
-          # are instantiated with their native context
           child_register = Utils.resolve_child_register(model, register)
 
-          instance = if options.key?(:instance)
-                       options[:instance]
-                     elsif model.include?(Lutaml::Model::Serialize)
-                       model.new({ lutaml_register: child_register })
-                     else
-                       object = model.new
-                       register_accessor_methods_for(object, child_register)
-                       object
-                     end
-          return instance if Utils.blank?(doc)
+          # For blank documents, return a bare instance without going
+          # through data_to_model (which would create a duplicate instance).
+          if Utils.blank?(doc)
+            if options.key?(:instance)
+              return options[:instance]
+            elsif model.include?(Lutaml::Model::Serialize)
+              return model.new({ lutaml_register: child_register })
+            else
+              object = model.new
+              register_accessor_methods_for(object, child_register)
+              return object
+            end
+          end
 
           mappings = mappings_for(format, register)
 
           if mappings.polymorphic_mapping
+            instance = if model.include?(Lutaml::Model::Serialize)
+                         model.new({ lutaml_register: child_register })
+                       else
+                         model.new
+                       end
             return resolve_polymorphic(doc, format, mappings, instance, options)
           end
 
