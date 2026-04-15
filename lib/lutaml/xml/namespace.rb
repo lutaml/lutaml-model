@@ -109,8 +109,9 @@ module Lutaml
         # Get all URIs for this namespace (canonical + aliases)
         #
         # @return [Array<String>] Array of all URI strings
+        # Performance: Cache all_uris as frozen array (called millions of times)
         def all_uris
-          [uri].compact + uri_aliases
+          @all_uris ||= ([uri].compact + uri_aliases).freeze
         end
 
         # Get or set the schema location URL

@@ -264,6 +264,25 @@ module Lutaml
           name&.to_sym
         end
 
+        # Allocate an instance for deserialization without calling initialize.
+        #
+        # Skips the expensive initialize_attributes pass (which iterates all
+        # attributes to set defaults). The XML mapping pipeline sets values
+        # directly via rule.deserialize instead. Uses Hash.new(true) as the
+        # default for @using_default so that using_default? returns true for
+        # all attributes until value_set_for is called.
+        #
+        # @param register [Symbol, nil] The register context
+        # @return [Object] The allocated instance
+        def allocate_for_deserialization(register = nil)
+          instance = allocate
+          register_id = extract_register_id(register)
+          instance.init_deserialization_state(register_id)
+          instance.send(:define_singleton_attribute_methods)
+          instance.send(:register_in_reference_store)
+          instance
+        end
+
         private
 
         # Extract and normalize register ID with default fallback

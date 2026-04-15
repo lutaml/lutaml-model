@@ -23,6 +23,14 @@ module Lutaml
         @root.children
       end
 
+      def element_children
+        @root.element_children
+      end
+
+      def element_children_index
+        @root.element_children_index
+      end
+
       def attributes
         root.attributes
       end

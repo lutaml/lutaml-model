@@ -24,7 +24,7 @@ module Lutaml
         )
 
         if model_class.include?(::Lutaml::Model::Serialize)
-          instance = model_class.new({ lutaml_register: child_register })
+          instance = model_class.allocate_for_deserialization(child_register)
         else
           instance = model_class.new
           register_accessor_methods_for(instance, child_register)
@@ -66,11 +66,13 @@ module Lutaml
 
           # Extract namespace declarations from the parsed element tree.
           # This captures ALL xmlns declarations (including unused ones) from the input
-          # for round-trip preservation. The own_namespaces on the root element contains
-          # all namespaces declared at the root level.
-          input_declaration_plan = build_input_declaration_plan(root_element)
-          if input_declaration_plan
-            instance.xml_declaration_plan = input_declaration_plan
+          # for round-trip preservation. Only needed for root elements
+          # (no lutaml_parent in options). Child elements inherit from root.
+          unless options.key?(:lutaml_parent)
+            input_declaration_plan = build_input_declaration_plan(root_element)
+            if input_declaration_plan
+              instance.xml_declaration_plan = input_declaration_plan
+            end
           end
         end
         root_and_parent_assignment(instance, options)
@@ -189,11 +191,6 @@ visited = Set.new)
 
         # Performance: Cache frequently accessed options in local variables
         # CRITICAL: Use effective_register to ensure mappings are resolved for the correct register.
-        # When options[:register] is non-default, the imported mappings are stored in
-        # register-specific storage. Without effective_register, mappings_for(:xml) uses
-        # the default register which only has the root element, not the imported child rules.
-        # NOTE: Also pass effective_register to .mappings since it defaults to nil register,
-        # which would lose the register context and return only class-level rules.
         mappings = options[:mappings] || mappings_for(:xml,
                                                       effective_register).mappings(effective_register)
         default_namespace = options[:default_namespace]
@@ -214,25 +211,17 @@ visited = Set.new)
 
         validate_document!(doc, options)
 
+        # Performance: Cache xml_mapping once (was called twice: once here, once below)
+        xml_mapping = mappings_for(:xml)
+
         set_instance_ordering(instance, doc, ordered_option,
-                              mixed_content_option)
+                              mixed_content_option, xml_mapping)
         set_schema_location(instance, doc)
 
         defaults_used = []
 
         # Performance: Get namespace_uri once if needed for default_namespace
-        xml_mapping = mappings_for(:xml)
         namespace_uri = xml_mapping&.namespace_uri
-
-        # Performance: Pre-filter element children once per element instead of
-        # scanning all children for each rule (O(children) vs O(children * rules))
-        # Note: doc.children can contain Symbols (e.g., namespace declarations), which
-        # don't have namespaced_name method, so we filter them out
-        element_children = doc.children.reject do |child|
-          child.is_a?(String) || child.is_a?(Symbol) ||
-            (child.is_a?(::Lutaml::Xml::XmlElement) && child.text?)
-        end
-        options_with_children = options.merge(_element_children: element_children)
 
         mappings.each do |rule|
           # Performance: Cache rule properties accessed multiple times
@@ -251,13 +240,11 @@ visited = Set.new)
           # Performance: Only create new_opts when we need to override default_namespace
           # Avoid dup for the common case where namespace is not set
           new_opts = if rule_namespace_set && rule_namespace_param != :inherit
-                       { default_namespace: rule.namespace,
-                         _element_children: element_children }
+                       { default_namespace: rule.namespace }
                      elsif default_namespace.nil? && namespace_uri
-                       { default_namespace: namespace_uri,
-                         _element_children: element_children }
+                       { default_namespace: namespace_uri }
                      else
-                       options_with_children
+                       options
                      end
 
           value = if rule.raw_mapping?
@@ -283,6 +270,11 @@ visited = Set.new)
                                       effective_register)
           value = rule.transform_value(attr, value, :from, :xml)
           rule.deserialize(instance, value, attributes, context)
+
+          # Mark attribute as set from XML (not using default).
+          # Needed for instances created via allocate_for_deserialization
+          # which use Hash.new(true) as @using_default default.
+          instance.value_set_for(rule_to)
         end
 
         defaults_used.each do |attr_name|
@@ -304,12 +296,13 @@ visited = Set.new)
       end
 
       def set_instance_ordering(instance, doc, ordered_option,
-mixed_content_option)
+mixed_content_option, xml_mapping = nil)
         return unless instance.respond_to?(:ordered=)
 
         instance.element_order = doc.root.order
-        instance.ordered = mappings_for(:xml).ordered? || ordered_option
-        instance.mixed = mappings_for(:xml).mixed_content? || mixed_content_option
+        xml_mapping ||= mappings_for(:xml)
+        instance.ordered = xml_mapping.ordered? || ordered_option
+        instance.mixed = xml_mapping.mixed_content? || mixed_content_option
       end
 
       def set_schema_location(instance, doc)
@@ -462,19 +455,36 @@ mixed_content_option)
           type_ns_prefix_str = type_ns_class&.prefix_default&.to_s
         end
 
-        # Performance: Use pre-filtered element children if available via options
+        # Performance: Use cached element children from XmlElement
         # This avoids O(children * rules) scans by pre-filtering once per element
-        # Note: doc.children can contain Symbols (e.g., namespace declarations), which
-        # don't have namespaced_name method, so we filter them out
-        element_children = options[:_element_children] || doc.children.reject do |child|
-          child.is_a?(String) || child.is_a?(Symbol) ||
-            (child.is_a?(::Lutaml::Xml::XmlElement) && child.text?)
-        end
+        element_children = doc.element_children
 
         # Early exit if no element children - avoid scanning for each rule
         return ::Lutaml::Model::UninitializedClass.instance if element_children.empty?
 
-        children = element_children.select do |child|
+        # Performance: Use child index for O(1) exact matching when available.
+        # Profiling shows that when the index returns no match and no child has
+        # the same local name, the full select scan also returns empty 100% of the time.
+        child_index = doc.element_children_index
+        if child_index && !rule_namespace_set
+          indexed = rule_names.filter_map { |rn| child_index[rn] }
+          if indexed.empty?
+            # Check if any child has same local name (namespace alias case)
+            rule_local = rule_name_str
+            has_local_match = child_index.keys.any? do |k|
+              k.end_with?(":#{rule_local}") || k == rule_local
+            end
+            return ::Lutaml::Model::UninitializedClass.instance unless has_local_match
+
+            children = nil # fall through to select for alias matching
+          else
+            children = indexed.flatten(1)
+          end
+        else
+          children = nil
+        end
+
+        children ||= element_children.select do |child|
           # Handle explicit namespace: nil with prefix: nil
           # When both namespace: nil and prefix: nil are set, this means "no namespace constraint"
           # The child element can declare its own namespace and should still match by local name

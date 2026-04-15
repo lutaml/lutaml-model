@@ -96,6 +96,8 @@ module Lutaml
         @children = new_children
         @children_index = nil
         @order_cache = nil
+        remove_instance_variable(:@cached_element_children) if defined?(@cached_element_children)
+        remove_instance_variable(:@cached_element_children_index) if defined?(@cached_element_children_index)
       end
 
       # This tells which attributes to pretty print, So we remove the
@@ -139,24 +141,28 @@ module Lutaml
       end
 
       def namespaced_name
-        return @name if text?
-        # If xmlns="" was explicitly set, element has NO namespace
-        return @name if @explicit_no_namespace
+        return @namespaced_name if defined?(@namespaced_name)
 
-        # Priority order for namespace resolution:
-        # 1. If has explicit prefix, use namespaces[prefix]
-        # 2. If has @default_namespace, use it (preferred for default ns)
-        # 3. Fall back to namespaces[nil] if exists
-        # 4. Return unprefixed name
+        @namespaced_name = begin
+          return @name if text?
+          # If xmlns="" was explicitly set, element has NO namespace
+          return @name if @explicit_no_namespace
 
-        if namespace_prefix && namespaces[namespace_prefix]
-          "#{namespaces[namespace_prefix].uri}:#{@name}"
-        elsif @default_namespace
-          "#{@default_namespace}:#{@name}"
-        elsif namespaces[nil]
-          "#{namespaces[nil].uri}:#{@name}"
-        else
-          @name
+          # Priority order for namespace resolution:
+          # 1. If has explicit prefix, use namespaces[prefix]
+          # 2. If has @default_namespace, use it (preferred for default ns)
+          # 3. Fall back to namespaces[nil] if exists
+          # 4. Return unprefixed name
+          ns = namespaces
+          if namespace_prefix && ns[namespace_prefix]
+            "#{ns[namespace_prefix].uri}:#{@name}"
+          elsif @default_namespace
+            "#{@default_namespace}:#{@name}"
+          elsif ns[nil]
+            "#{ns[nil].uri}:#{@name}"
+          else
+            @name
+          end
         end
       end
 
@@ -173,6 +179,10 @@ module Lutaml
         # When @namespaces is nil or empty, fall back to parent's in-scope namespaces
         # This supports the new namespace_definitions approach where each element only
         # stores its own declarations, and child elements inherit from parent
+        #
+        # NOTE: Not cached here because Oga::Element#initialize calls this before
+        # super() sets @parent_document, which would cache an incorrect empty result.
+        # The hot path (namespaced_name) is cached separately.
         if @namespaces&.any?
           @namespaces
         else
@@ -202,8 +212,12 @@ module Lutaml
       #
       # @return [String, nil] The namespace URI or nil
       def namespace_uri
-        ns = namespace
-        ns&.uri
+        return @namespace_uri if defined?(@namespace_uri)
+
+        @namespace_uri = begin
+          ns = namespace
+          ns&.uri
+        end
       end
 
       def attribute_is_namespace?(name)
@@ -216,7 +230,12 @@ module Lutaml
       end
 
       def default_namespace
-        namespaces[nil] || @parent_document&.namespaces&.dig(nil)
+        return @default_namespace if defined?(@default_namespace)
+
+        @default_namespace = begin
+          ns = namespaces
+          ns[nil] || @parent_document&.namespaces&.dig(nil)
+        end
       end
 
       def order
@@ -279,6 +298,36 @@ module Lutaml
 
       def text_children
         children.select { |child| child.text? && !child.cdata? }
+      end
+
+      # Get child elements (excluding text, strings, and symbols)
+      # Performance: Cached to avoid repeated filtering per rule
+      def element_children
+        return @element_children if defined?(@element_children)
+
+        @element_children = children.reject do |child|
+          child.is_a?(String) || child.is_a?(Symbol) ||
+            (child.is_a?(XmlElement) && child.text?)
+        end
+      end
+
+      # Index of element children by namespaced_name for O(1) lookup
+      # Returns nil for single-child elements (not worth indexing)
+      # Performance: Cached to avoid repeated index building
+      def element_children_index
+        return @element_children_index if defined?(
+          @element_children_index
+        )
+
+        ec = element_children
+        @element_children_index = if ec.size > 1
+                                    index = {}
+                                    ec.each do |child|
+                                      key = child.namespaced_name
+                                      (index[key] ||= []) << child
+                                    end
+                                    index
+                                  end
       end
 
       def [](name)
