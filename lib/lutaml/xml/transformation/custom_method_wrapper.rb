@@ -74,13 +74,17 @@ module Lutaml
           # We need to parse the XML and add each element as a proper child
           # to maintain correct ordering in the output
           begin
-            # Use Nokogiri to parse the XML fragment
-            require "nokogiri" unless defined?(Nokogiri)
-            fragment = ::Nokogiri::XML.fragment(element_or_string)
+            # Preprocess entities before Moxml parse — Moxml rejects undefined
+            # entities like &copy; that Nokogiri::XML.fragment accepted.
+            require "moxml" unless defined?(Moxml)
+            preprocessed = Lutaml::Xml::Adapter::NokogiriAdapter.preprocess_entities(
+              "<__wrapper__>#{element_or_string}</__wrapper__>",
+            )
+            fragment_doc = Moxml.new.parse(preprocessed)
 
-            # Convert each Nokogiri element to our XmlDataModel format
+            # Convert each parsed element to our XmlDataModel format
             # and add as proper children to maintain ordering
-            add_nokogiri_children_to_parent(fragment, parent)
+            add_fragment_children_to_parent(fragment_doc.root, parent)
           rescue StandardError
             # Fallback: if parsing fails, store as raw content
             existing_raw = parent.raw_content
@@ -93,44 +97,43 @@ module Lutaml
         element_or_string
       end
 
-      # Helper method to recursively add Nokogiri nodes to parent
+      # Helper method to recursively add parsed XML nodes to parent
       #
-      # @param nokogiri_node [::Nokogiri::XML::Node] Nokogiri node
+      # @param fragment_node [Moxml::Element] Parsed Moxml node
       # @param parent [XmlDataModel::XmlElement] Parent element
-      def add_nokogiri_children_to_parent(nokogiri_node, parent)
-        nokogiri_node.children.each do |child|
-          case child
-          when ::Nokogiri::XML::Element
-            # Create XmlDataModel element for this Nokogiri element
-            element = Lutaml::Xml::DataModel::XmlElement.new(child.name)
+      def add_fragment_children_to_parent(fragment_node, parent)
+        fragment_node.children.each do |child|
+          next unless child.element?
 
-            # Check if this element has only text children (no nested elements)
-            has_nested_elements = child.children.any?(::Nokogiri::XML::Element)
+          # Create XmlDataModel element for this element
+          element = Lutaml::Xml::DataModel::XmlElement.new(child.name)
 
-            # Extract text content from direct text children
-            text_children = child.children.grep(::Nokogiri::XML::Text)
-            if text_children.any?
-              text_content = text_children.map(&:text).join
-              element.text_content = text_content unless text_content.empty?
-            end
+          # Check if this element has only text children (no nested elements)
+          has_nested_elements = child.children.any?(&:element?)
 
-            # Copy attributes
-            child.attributes.each_value do |attr|
-              xml_attr = Lutaml::Xml::DataModel::XmlAttribute.new(
-                attr.name, attr.value
-              )
-              element.add_attribute(xml_attr)
-            end
-
-            # Only recurse if there are nested elements
-            # (text content was already set above)
-            if has_nested_elements
-              add_nokogiri_children_to_parent(child, element)
-            end
-
-            # Add to parent
-            parent.add_child(element)
+          # Extract text content from direct text children
+          text_children = child.children.select(&:text?)
+          if text_children.any?
+            text_content = text_children.map(&:content).join
+            element.text_content = text_content unless text_content.empty?
           end
+
+          # Copy attributes
+          child.attributes.each do |attr|
+            xml_attr = Lutaml::Xml::DataModel::XmlAttribute.new(
+              attr.name, attr.value
+            )
+            element.add_attribute(xml_attr)
+          end
+
+          # Only recurse if there are nested elements
+          # (text content was already set above)
+          if has_nested_elements
+            add_fragment_children_to_parent(child, element)
+          end
+
+          # Add to parent
+          parent.add_child(element)
         end
       end
 

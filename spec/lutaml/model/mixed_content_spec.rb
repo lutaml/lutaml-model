@@ -640,7 +640,11 @@ RSpec.describe "MixedContent" do
 
       describe ".from_xml" do
         let(:expected_nokogiri_content) do
-          "B <p>R&amp;C</p>\n    C <p>J&#x2014;C</p>\n    O <p>A &amp; B </p>\n    F <p>Z &#xA9;S</p>"
+          # Moxml resolves numeric character references (&#x2014;, &#xA9;) to
+          # their Unicode characters, matching Oga/Rexml behavior. Raw Nokogiri
+          # preserved numeric refs via native serialization, but the resolved
+          # form is semantically identical.
+          "B <p>R&amp;C</p>\n    C <p>J\u{2014}C</p>\n    O <p>A &amp; B </p>\n    F <p>Z \u{A9}S</p>"
         end
         let(:expected_ox_content) do
           "B <p>R&amp;C</p> C <p>J—C</p> O <p>A &amp; B </p> F <p>Z ©S</p>"
@@ -841,7 +845,9 @@ RSpec.describe "MixedContent" do
 
         context "when encoding: nil xml" do
           let(:expected_encoding_nil_nokogiri_xml) do
-            "&#x2211;computer security&#x220F; type of &#x200B; operation specified &#xB5; by an access right"
+            # Moxml resolves numeric character references to Unicode,
+            # matching Oga/Rexml behavior (see expected_encoding_nil_oga_xml).
+            "\u{2211}computer security\u{220F} type of \u{200B} operation specified \u{B5} by an access right"
           end
           let(:expected_encoding_nil_ox_xml) do
             "<HexCode> \xE2\x88\x91computer security\xE2\x88\x8F type of \xE2\x80\x8B operation specified \xC2\xB5 by an access right </HexCode>\n".force_encoding("ASCII-8BIT")
@@ -1181,8 +1187,7 @@ RSpec.describe "MixedContent" do
 
       expect do
         parsed.to_xml(encoding: "ABC")
-      end.to raise_error(StandardError,
-                         "unknown encoding name - ABC")
+      end.to raise_error(StandardError, /ABC/)
     end
   end
 

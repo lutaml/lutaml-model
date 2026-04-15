@@ -1,33 +1,104 @@
+require "moxml"
+require "nokogiri"
+
 module Lutaml
   module Xml
     module Builder
+      # Moxml DOM-based builder for XML construction.
+      #
+      # Moxml Limitation: .native usage
+      # --------------------------------
+      # This builder uses .native to access underlying Nokogiri objects in
+      # several places because of two Moxml limitations:
+      #
+      # 1. Cross-document node creation: Moxml's create_element/create_text/etc.
+      #    create nodes in a fresh Nokogiri::XML::Document each time. When these
+      #    nodes are added to a different document via add_child, they silently
+      #    fail to appear in serialized output. We work around this by creating
+      #    native Nokogiri nodes directly in the builder's document.
+      #
+      # 2. namespace_scopes: Moxml does not expose Element#namespace_scopes
+      #    (the list of all in-scope namespaces including inherited ones).
+      #    We access element.native.namespace_scopes to resolve namespace
+      #    prefixes from parent declarations.
+      #
+      # 3. Namespace assignment: Moxml's Element#namespace= expects a Moxml
+      #    Namespace or Hash, but namespace_scopes returns native Nokogiri
+      #    namespace objects. We use element.native.namespace= to set them.
+      #
+      # 4. Serialization: We use .native.to_xml for consistent output format
+      #    (self-closing empty elements, character reference preservation).
+      #
+      # TODO: Remove .native usage once Moxml supports:
+      #   - Same-document node creation (create_element in owning doc)
+      #   - Element#namespace_scopes (in-scope namespace query)
+      #   - Element#namespace= accepting native namespace objects
+      #   - SaveOptions control for self-closing empty elements
       class Nokogiri
         def self.build(options = {})
-          if block_given?
-            ::Nokogiri::XML::Builder.new(options) do |xml|
-              yield(new(xml))
-            end
-          else
-            new(::Nokogiri::XML::Builder.new(options))
+          context = Moxml.new
+
+          # Use Nokogiri::XML::Builder's document as the native doc.
+          # Builder documents have special namespace inheritance behavior:
+          # add_child propagates parent namespace to children without explicit namespace.
+          # Plain Nokogiri::XML::Document.new does NOT have this behavior.
+          native_doc = ::Nokogiri::XML::Builder.new.doc
+          if options[:encoding]
+            native_doc.encoding = options[:encoding]
           end
+          doc = Moxml::Document.new(native_doc, context)
+
+          instance = new(doc, context)
+
+          if block_given?
+            yield(instance)
+          end
+
+          instance
         end
 
-        attr_reader :xml
+        attr_reader :doc
 
-        def initialize(xml)
-          @xml = xml
+        def initialize(doc, context)
+          @doc = doc
+          @context = context
+          @current_stack = [doc]
+        end
+
+        # Returns the current parent element (top of stack).
+        # Used by NokogiriElement#build_xml for text/cdata nodes.
+        def current_element
+          @current_stack.last
+        end
+
+        # Compatibility alias — NokogiriElement calls builder.xml.parent
+        # to get the current element. This shim provides that interface.
+        def xml
+          self
+        end
+
+        # Alias for current_element, used by NokogiriElement via builder.xml.parent
+        def parent
+          current_element
         end
 
         def create_element(name, attributes = {})
-          xml.doc.create_element(name, attributes)
+          # Create element in the builder's native document to avoid
+          # cross-document issues (see class comment about Moxml limitation #1).
+          native_el = ::Nokogiri::XML::Element.new(name, @doc.native)
+          el = Moxml::Element.wrap(native_el, @context)
+          attributes.each do |k, v|
+            el[k.to_s] = v.to_s
+          end
+          el
         end
 
-        def add_element(element, child)
-          element.add_child(child)
+        def add_element(parent_el, child)
+          parent_el.add_child(child)
         end
 
         def add_attribute(element, name, value)
-          element[name] = value
+          element[name.to_s] = value.to_s
         end
 
         def create_and_add_element(
@@ -37,82 +108,128 @@ module Lutaml
           attributes: {},
           blank_xmlns: false
         )
-          # CORRECT ARCHITECTURE: Don't use xml[prefix] which requires pre-registration
-          # Instead, build the prefixed element name and let xmlns attributes handle resolution
           element_name = element_name.first if element_name.is_a?(Array)
-          element_name = "#{element_name}_" if respond_to?(element_name)
 
-          # Build the fully qualified element name if prefix is provided
-          qualified_name = if !prefix_unset && prefix
-                             "#{prefix}:#{element_name}"
-                           else
-                             element_name
-                           end
+          # Create element in the builder's native document for proper namespace scoping.
+          # Use local name only — Nokogiri::XML::Element.new doesn't interpret colons
+          # as namespace separators. The namespace prefix is applied via namespace= later.
+          native_doc = @doc.native
+          native_el = ::Nokogiri::XML::Element.new(element_name, native_doc)
+          el = Moxml::Element.wrap(native_el, @context)
 
           # W3C Compliance: Add xmlns="" if needed to prevent default namespace inheritance
           attributes = attributes&.dup || {}
           attributes["xmlns"] = "" if blank_xmlns
 
-          if block_given?
-            # Capture the wrapper before entering the Nokogiri block
-            # because Nokogiri's builder changes self binding inside the block
-            wrapper = self
-            xml.public_send(qualified_name, attributes) do
-              xml.parent.namespace = nil if prefix.nil? && !prefix_unset
-              yield(wrapper)
+          attributes.each do |k, v|
+            key = k.to_s
+            if key.start_with?("xmlns:")
+              ns_prefix = key.sub("xmlns:", "")
+              el.add_namespace(ns_prefix, v.to_s)
+            elsif key == "xmlns"
+              el.add_namespace(nil, v.to_s)
+            else
+              el[key] = v.to_s
             end
-          else
-            xml.public_send(qualified_name, attributes)
           end
+
+          # Resolve element's namespace from its prefix if applicable
+          if !prefix_unset && prefix
+            # Prefixed element: find matching namespace from element's own scopes
+            ns = el.native.namespace_scopes.find { |n| n.prefix == prefix }
+            el.native.namespace = ns if ns
+          elsif !prefix_unset && prefix.nil?
+            # Explicitly no prefix (prefix: nil) — blank namespace
+            el.native.namespace = nil
+          else
+            # For unprefixed elements, check if there's a default namespace
+            default_ns = el.native.namespace_scopes.find { |n| n.prefix.nil? }
+            el.native.namespace = default_ns if default_ns
+          end
+
+          # Add to parent
+          if current_element.is_a?(Moxml::Document)
+            current_element.root = el
+          else
+            current_element.add_child(el)
+
+            # After adding to parent, resolve namespace from parent's scopes
+            # (Nokogiri builder docs automatically propagate parent namespace to children)
+            # For explicitly prefixed elements not yet resolved, try parent's scopes
+            if !prefix_unset && prefix && el.native.namespace.nil?
+              ns = el.native.namespace_scopes.find { |n| n.prefix == prefix }
+              el.native.namespace = ns if ns
+            end
+          end
+
+          if block_given?
+            @current_stack.push(el)
+            begin
+              yield(self)
+            ensure
+              @current_stack.pop
+            end
+          end
+
+          el
         end
 
         def add_xml_fragment(element, content)
-          if element.is_a?(self.class)
-            element = element.xml.parent
-          end
+          target = if element.is_a?(self.class)
+                     element.current_element
+                   else
+                     element
+                   end
 
-          fragment = ::Nokogiri::XML::DocumentFragment.parse(content)
-
-          element.add_child(fragment)
+          native_target = target.is_a?(Moxml::Node) ? target.native : target
+          fragment = ::Nokogiri::XML.fragment(content)
+          native_target.add_child(fragment)
         end
 
         def add_text(element, text, cdata: false)
           return add_cdata(element, text) if cdata
 
-          if element.is_a?(self.class)
-            element = element.xml.parent
-          end
+          target = if element.is_a?(self.class)
+                     element.current_element
+                   else
+                     element
+                   end
 
-          text_node = ::Nokogiri::XML::Text.new(text.to_s, element)
-          element.add_child(text_node)
+          # Create text node in the same native document to avoid cross-document issues
+          native_target = target.is_a?(Moxml::Node) ? target.native : target
+          text_node = ::Nokogiri::XML::Text.new(text.to_s, native_target.document)
+          native_target.add_child(text_node)
         end
 
         def add_cdata(element, value)
-          if element.is_a?(self.class)
-            element = element.xml.parent
-          end
+          target = if element.is_a?(self.class)
+                     element.current_element
+                   else
+                     element
+                   end
 
-          cdata_node = ::Nokogiri::XML::CDATA.new(element.document,
-                                                  value.to_s)
-          element.add_child(cdata_node)
+          # Create CDATA node in the same native document
+          native_target = target.is_a?(Moxml::Node) ? target.native : target
+          cdata_node = ::Nokogiri::XML::CDATA.new(native_target.document, value.to_s)
+          native_target.add_child(cdata_node)
         end
 
-        def add_namespace_prefix(prefix)
-          xml[prefix] if prefix
-
+        def add_namespace_prefix(_prefix)
+          # With Moxml, namespace prefixes are registered via add_namespace on elements.
+          # This is a no-op in the new builder; namespaces are declared via attributes.
           self
         end
 
-        def method_missing(method_name, *, &block)
-          if block
-            xml.public_send(method_name, *, &block)
-          else
-            xml.public_send(method_name, *)
-          end
+        def method_missing(method_name, *args, &)
+          # Fallback for any direct element creation calls (e.g., builder.some_element)
+          # This maintains backwards compatibility with code that uses
+          # builder method_missing for element creation.
+          attrs = args.first.is_a?(Hash) ? args.first : {}
+          create_and_add_element(method_name.to_s, attributes: attrs, &)
         end
 
-        def respond_to_missing?(method_name, include_private = false)
-          xml.respond_to?(method_name) || super
+        def respond_to_missing?(_method_name, _include_private = false)
+          true
         end
       end
     end

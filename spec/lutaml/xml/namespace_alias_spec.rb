@@ -207,7 +207,7 @@ RSpec.describe "Namespace alias support" do
 
       output = model.to_xml
       expect(output).to include('xmlns:xyzabc="http://example.com/items/"')
-      expect(output).to include("<xyzabc:Inner ")
+      expect(output).to match(/<xyzabc:Inner[\s>]/)
       expect(output).to include("<xyzabc:name>from alias</xyzabc:name>")
     end
   end

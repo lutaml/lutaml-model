@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# TODO: Replace with Moxml::Builder once all callers are migrated from
+# Nokogiri::XML::Builder's method_missing DSL (e.g., xml.schema, xml.element)
+# to Moxml's explicit element() API.
 require "nokogiri"
 
 module Lutaml

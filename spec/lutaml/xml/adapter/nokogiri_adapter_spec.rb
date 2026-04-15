@@ -14,7 +14,7 @@ RSpec.describe Lutaml::Xml::Adapter::NokogiriAdapter do
   let(:document) { described_class.parse(xml_string) }
 
   context "when parsing XML with namespaces" do
-    let(:child) { document.root.children[1] }
+    let(:child) { document.root.children.find { |c| !c.text? } }
 
     it "parses the root element with default namespace" do
       expect(document.root.name).to eq("root")

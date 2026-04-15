@@ -5,7 +5,6 @@ module Lutaml
     # Module namespace for Nokogiri adapter supporting classes
     # Note: This is Lutaml::Xml::Nokogiri, distinct from the ::Nokogiri gem
     module Nokogiri
-      autoload :EntityResolver, "#{__dir__}/nokogiri/entity_resolver"
     end
   end
 end

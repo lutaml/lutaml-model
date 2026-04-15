@@ -2,261 +2,202 @@
 
 module Lutaml
   module Xml
+    # NokogiriElement wraps Moxml nodes (Moxml::Element, Moxml::Text,
+    # Moxml::Cdata) into the XmlElement interface used by lutaml-model.
+    #
+    # Entity references (&copy;, &nbsp;, etc.) are preserved via a
+    # pre-processing marker approach in NokogiriAdapter.parse.
+    # Moxml now has Moxml::EntityReference node type, but whitespace
+    # between entity refs is not preserved by moxml's Nokogiri adapter.
+    # Once moxml fixes this, the marker approach can be replaced.
     class NokogiriElement < XmlElement
-      include Nokogiri::EntityResolver
-
-      # Performance: Frozen empty collections to reduce allocations
-      EMPTY_NAMESPACES = {}.freeze
-      EMPTY_ATTRIBUTES = {}.freeze
-
       # Use NamespaceData for adapter-internal namespace data
       NamespaceData = Lutaml::Xml::Adapter::NamespaceData
-      EMPTY_CHILDREN = [].freeze
 
-      def initialize(node, root_node: nil, default_namespace: nil,
-                     parent_document: nil)
-        # Defensive check: ensure node is not nil
-        if node.nil?
-          raise ArgumentError,
-                "Cannot create NokogiriElement from nil node. " \
-                "This usually means the XML document has no root element."
-        end
-
-        # Determine node type from Nokogiri's classification
-        # This is the authoritative source - not inferred from name
-        # IMPORTANT: Check CDATA before Text because CDATA inherits from Text
+      def initialize(node, parent: nil, default_namespace: nil)
+        # Determine node type from Moxml classification
         node_type = case node
-                    when ::Nokogiri::XML::CDATA then :cdata
-                    when ::Nokogiri::XML::Text then :text
-                    when ::Nokogiri::XML::Comment then :comment
+                    when Moxml::Cdata then :cdata
+                    when Moxml::Text then :text
+                    when Moxml::Comment then :comment
                     else :element
                     end
 
-        # Collect namespaces declared on THIS element only
-        # namespace_definitions returns only xmlns declarations on this element,
-        # unlike namespaces which returns all in-scope namespaces (including inherited)
-        #
-        # CRITICAL FIX: Previously, child elements added their namespaces to root_node,
-        # causing sibling elements to incorrectly inherit each other's namespaces.
-        # Now each element stores only its own declarations.
-        node.namespace_definitions.each do |ns_def|
-          namespace = NamespaceData.new(ns_def.href, ns_def.prefix)
-          add_namespace(namespace)
-        end
+        # Store text WITH entity markers (U+FFFC U+FEFF) so that
+        # to_xml can distinguish non-standard entity references from
+        # literal text that happens to look like an entity reference.
+        # Markers are only restored at serialization boundaries (to_xml,
+        # text accessor, build_xml).
+        text = case node
+               when Moxml::Element
+                 namespace_name = node.namespace&.prefix
 
-        # Performance: Use frozen empty hash when no attributes, otherwise build hash
-        attributes = build_attributes_hash(node)
+                 # Detect explicit xmlns="" for no namespace
+                 has_empty_xmlns = node.namespaces.any? do |ns|
+                   ns.prefix.nil? && ns.uri == ""
+                 end
 
-        # Detect if xmlns="" is explicitly set (explicit no namespace)
-        # Use shared helper method for consistency across all adapters
-        explicit_no_namespace = XmlElement.detect_explicit_no_namespace(
-          has_empty_xmlns: node.namespaces.key?("xmlns") && node.namespaces["xmlns"] == "",
-          node_namespace_nil: node.namespace.nil?,
-        )
+                 explicit_no_namespace = XmlElement.detect_explicit_no_namespace(
+                   has_empty_xmlns: has_empty_xmlns,
+                   node_namespace_nil: node.namespace.nil? || node.namespace&.uri == "",
+                 )
 
-        # Use parent_document if explicitly provided (for child elements),
-        # otherwise fall back to root_node (for root element)
-        effective_parent = parent_document || root_node
+                 add_namespaces(node, is_root: parent.nil?)
 
-        # Set default namespace for root, or inherit from parent for children
-        if !node.namespace&.prefix
-          default_namespace = node.namespace&.href ||
-            effective_parent&.instance_variable_get(:@default_namespace)
-        end
+                 if parent.nil? && !namespace_name && node.namespace&.uri &&
+                     node.namespace.uri != ""
+                   default_namespace = node.namespace.uri
+                 end
 
+                 children = parse_children(node,
+                                           default_namespace: default_namespace)
+                 attributes = node_attributes(node)
+                 @root = node
+                 EncodingNormalizer.normalize_to_utf8(node.inner_text)
+               when Moxml::Text
+                 EncodingNormalizer.normalize_to_utf8(node.content)
+               when Moxml::Cdata
+                 EncodingNormalizer.normalize_to_utf8(node.content)
+               end
+
+        name = Lutaml::Xml::Adapter::NokogiriAdapter.name_of(node)
         super(
           node,
-          attributes,
-          parse_all_children(node, root_node: root_node || self,
-                                   default_namespace: default_namespace),
-          EncodingNormalizer.normalize_to_utf8(node.text),
-          name: node.name,
-          parent_document: effective_parent,
-          namespace_prefix: node.namespace&.prefix,
+          Hash(attributes),
+          Array(children),
+          text,
+          name: name,
+          parent_document: parent,
+          namespace_prefix: namespace_name,
           default_namespace: default_namespace,
-          explicit_no_namespace: explicit_no_namespace,
+          explicit_no_namespace: explicit_no_namespace || false,
           node_type: node_type
         )
       end
 
-      # Override text? for Nokogiri-specific node type detection
-      # Only actual text/cdata nodes return true, NOT elements named "text"
-      # This fixes SVG <text> elements being incorrectly treated as text nodes
       def text?
-        @node_type == :text || @node_type == :cdata
+        %i[text cdata].include?(@node_type)
       end
 
-      # Override text to handle EntityReference specially.
-      # EntityReference.text returns "", but we need the entity syntax
-      # (e.g., "&nbsp;") for proper text aggregation.
-      #
-      # Returns an Array when there are actual element children (mixed content)
-      # to be consistent with Document.text behavior.
       def text
-        if @adapter_node.is_a?(::Nokogiri::XML::EntityReference)
-          return "&#{@adapter_node.name};"
-        end
-
-        return @text if children.empty?
-
-        # Handle multiple children case - return joined String for simple content,
-        # Array for mixed content (has actual element children)
-        if children.count > 1
-          # Check if there are actual element children (mixed content)
-          has_element_children = children.any? do |child|
-            !child.text? && !child.adapter_node.is_a?(::Nokogiri::XML::EntityReference)
-          end
-
-          if has_element_children
-            # Mixed content - return Array to be consistent with Document.text
-            return text_children.map(&:text)
-          else
-            # Simple content (text + entities) - map over all children to include entity syntax
-            return children.map do |child|
-              if child.adapter_node.is_a?(::Nokogiri::XML::EntityReference)
-                "&#{child.adapter_node.name};"
-              else
-                child.text
-              end
-            end.join
-          end
-        end
-
-        # Single child - check if it's an EntityReference
-        child = children.first
-        if child.is_a?(Lutaml::Xml::NokogiriElement) &&
-            child.adapter_node.is_a?(::Nokogiri::XML::EntityReference)
-          return "&#{child.adapter_node.name};"
-        end
-
-        text_children.map(&:text).join
-      end
-
-      # Override text_children to include EntityReference nodes.
-      # EntityReference nodes should be treated as text-like for aggregation.
-      def text_children
-        children.select do |child|
-          (child.text? && !child.cdata?) ||
-            (child.is_a?(Lutaml::Xml::NokogiriElement) &&
-             child.adapter_node.is_a?(::Nokogiri::XML::EntityReference))
-        end
-      end
-
-      # Override cdata to handle EntityReference properly.
-      # When there are EntityReference children, they should not affect
-      # CDATA content (CDATA is text wrapped in <![CDATA[...]]> tags).
-      # Returns an Array for mixed content (has actual element children) to be
-      # consistent with text behavior.
-      def cdata
-        return @text if children.empty?
-
-        # Check if there are actual element children (mixed content)
-        has_element_children = children.any? do |child|
-          !child.text? && !child.adapter_node.is_a?(::Nokogiri::XML::EntityReference)
-        end
-
-        if has_element_children
-          # Mixed content - return Array of CDATA segments
-          cdata_children.map(&:text)
+        val = super || @text
+        if val.is_a?(Array)
+          val.map { |entry| entry.is_a?(String) ? restore_entities(entry) : entry }
         else
-          # Simple content - return joined String
-          cdata_children.map(&:text).join
+          restore_entities(val)
         end
       end
 
-      # Performance: Build attributes hash, return frozen empty when no attributes
-      def build_attributes_hash(node)
-        return EMPTY_ATTRIBUTES if node.attribute_nodes.empty?
+      def to_xml(_builder = nil)
+        return "<![CDATA[#{restore_entities(@text.to_s)}]]>" if cdata?
+        return xml_escape_text(@text.to_s) if text?
 
-        attributes = {}
-        node.attribute_nodes.each do |attr|
-          name = if attr.namespace
-                   "#{attr.namespace.prefix}:#{attr.name}"
-                 else
-                   attr.name
-                 end
-
-          attributes[name] = XmlAttribute.new(
-            name,
-            attr.value,
-            namespace: attr.namespace&.href,
-            namespace_prefix: attr.namespace&.prefix,
-          )
-        end
-        attributes
-      end
-
-      def to_xml
-        # For text/cdata nodes and EntityReference, use the native Nokogiri
-        # serialization which properly returns entity syntax
-        return @adapter_node.to_xml if @adapter_node.is_a?(::Nokogiri::XML::EntityReference)
-
-        # For text/cdata nodes, use the native Nokogiri serialization
-        # which properly escapes entities
-        return @adapter_node.to_xml if text? && @adapter_node.respond_to?(:to_xml)
-
-        build_xml.doc.root.to_xml
-      end
-
-      def inner_xml
-        children.map do |child|
-          if child.is_a?(Lutaml::Xml::NokogiriElement) &&
-              child.adapter_node.is_a?(::Nokogiri::XML::EntityReference)
-            # For EntityReference children, use native to_xml which returns entity syntax
-            child.adapter_node.to_xml
-          else
-            child.to_xml
-          end
+        # Build element XML as a string to preserve entity references in text
+        # content. Rebuilding through Nokogiri's DOM would re-escape entities
+        # (e.g. &copy; -> &amp;copy;) because Nokogiri treats them as literal
+        # text. Using inner_xml (which delegates to children's to_xml) avoids
+        # this by keeping entity references as-is in the string output.
+        tag = name
+        attrs_str = build_attributes(self).map do |k, v|
+          " #{k}=\"#{xml_escape_attr(v.to_s)}\""
         end.join
+
+        content = inner_xml
+        if content.empty? && children.empty?
+          "<#{tag}#{attrs_str}/>"
+        else
+          "<#{tag}#{attrs_str}>#{content}</#{tag}>"
+        end
       end
 
       def build_xml(builder = nil)
         builder ||= Builder::Nokogiri.build
 
-        if @adapter_node.is_a?(::Nokogiri::XML::EntityReference)
-          # EntityReference - create and add to parent
-          entity_node = ::Nokogiri::XML::EntityReference.new(builder.doc,
-                                                             @adapter_node.name)
-          builder.parent.add_child(entity_node)
-        elsif cdata?
-          # CDATA sections are handled differently
-          # For now, treat them as text since Nokogiri builder handles CDATA
-          builder.text(text)
-        elsif text?
-          # Actual text nodes get text output
-          builder.text(text)
+        if cdata?
+          builder.add_cdata(builder.xml.parent, restore_entities(@text.to_s))
+        elsif text? && !element?
+          builder.add_text(builder.xml.parent, @text.to_s)
         else
-          # Regular elements (including those named "text")
-          # Handle element names that conflict with Nokogiri builder methods
-          # (e.g., "text", "cdata", "comment") by appending underscore
-          element_name = builder.respond_to?(name) ? "#{name}_" : name
-          builder.public_send(element_name, build_attributes(self)) do |xml|
-            children.each do |child|
-              child.build_xml(xml)
-            end
+          builder.create_and_add_element(name,
+                                         prefix: namespace_prefix,
+                                         attributes: build_attributes(self)) do |xml|
+            children.each { |child| child.build_xml(xml) }
           end
         end
 
         builder
       end
 
+      def inner_xml
+        children.map(&:to_xml).join
+      end
+
       private
 
-      def parse_children(node, root_node: nil)
-        node.children.select(&:element?).map do |child|
-          NokogiriElement.new(child, root_node: root_node)
+      # Escape XML special characters in text content, then restore entity
+      # markers to named entity references. The marker characters (U+FFFC
+      # U+FEFF) are not affected by XML escaping, so they survive intact and
+      # can be unambiguously converted to &name; references afterwards.
+      # This correctly handles both:
+      #   - &copy; (from marker) → marker survives escaping → &copy;
+      #   - &copy; literal text from &amp;copy; → no marker → &amp;copy;
+      def xml_escape_text(text)
+        escaped = text.gsub("&", "&amp;").gsub("<", "&lt;").gsub(">", "&gt;")
+        restore_entities(escaped)
+      end
+
+      def xml_escape_attr(value)
+        escaped = value.gsub("&", "&amp;").gsub('"', "&quot;")
+          .gsub("<", "&lt;").gsub(">", "&gt;")
+        restore_entities(escaped)
+      end
+
+      def restore_entities(text)
+        Lutaml::Xml::Adapter::NokogiriAdapter.restore_entities(text)
+      end
+
+      def node_attributes(node)
+        node.attributes.each_with_object({}) do |attr, hash|
+          next if attr_is_namespace?(attr)
+
+          attr_name = if attr.namespace
+                        "#{attr.namespace.prefix}:#{attr.name}"
+                      else
+                        attr.name
+                      end
+          hash[attr_name] = XmlAttribute.new(
+            attr_name,
+            attr.value,
+            namespace: attr.namespace&.uri,
+            namespace_prefix: attr.namespace&.prefix,
+          )
         end
       end
 
-      def parse_all_children(node, root_node: nil, default_namespace: nil)
-        # Consolidate adjacent text-like nodes to fix entity fragmentation issue
-        consolidated = consolidate_text_nodes(node.children)
+      def parse_children(node, default_namespace: nil)
+        node.children.filter_map do |child|
+          next if child.is_a?(Moxml::ProcessingInstruction)
+          next if child.is_a?(Moxml::Comment)
 
-        consolidated.map do |child|
-          NokogiriElement.new(child, root_node: root_node,
-                                     parent_document: self,
-                                     default_namespace: default_namespace)
+          self.class.new(child, parent: self,
+                                default_namespace: default_namespace)
         end
+      end
+
+      def add_namespaces(node, is_root: false)
+        has_default_xmlns = is_root || node.namespaces.any? do |ns|
+          ns.prefix.nil?
+        end
+
+        node.namespaces.each do |namespace|
+          ns = NamespaceData.new(namespace.uri, namespace.prefix)
+          add_namespace(ns) if ns.prefix || has_default_xmlns
+        end
+      end
+
+      def attr_is_namespace?(attr)
+        attribute_is_namespace?(attr.name) ||
+          namespaces[attr.name]&.uri == attr.value
       end
 
       def build_attributes(node, _options = {})
@@ -266,18 +207,15 @@ module Lutaml
       end
 
       def build_namespace_attributes(node)
-        # Performance: Use merge! to avoid creating intermediate hashes
         namespace_attrs = {}
 
         node.own_namespaces.each_value do |namespace|
           uri = namespace.uri
-          # Convert FPI to URN per RFC 3151 (Nokogiri requires valid namespace URIs)
           uri = XmlElement.fpi_to_urn(uri) if XmlElement.fpi?(uri)
           namespace_attrs[namespace.attr_name] = uri
         end
 
         node.children.each do |child|
-          # Performance: Use merge! instead of merge to avoid allocation
           build_namespace_attributes(child).each do |key, value|
             namespace_attrs[key] ||= value
           end
