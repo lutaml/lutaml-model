@@ -166,10 +166,15 @@ module Lutaml
       # @param register [Symbol, Register, nil] The register
       # @return [Mapping] The resolved mapping
       def get_or_build_mapping(model_class, format, register)
-        key = mapping_key(model_class, format, register)
+        # Performance: Use fast array key instead of symbol construction
+        # Array key avoids string building and symbol allocation overhead
+        # (was 6.9s self for 2.73M calls with symbol key)
+        register_id = extract_register_id(register)
+        key = [model_class.object_id, format, register_id]
 
         # Fast path: check if already cached
-        return @mappings[key] if @mappings.key?(key)
+        cached = @mappings[key]
+        return cached if cached
 
         # Build mapping OUTSIDE the mutex to avoid deadlock
         # (ensure_mappings_imported! may recursively call mappings_for)
@@ -177,7 +182,6 @@ module Lutaml
         mapping = mapping || model_class.send(:default_mappings, format)
 
         # Ensure mappings are imported (handles deferred symbol-based imports)
-        register_id = extract_register_id(register)
         if mapping.respond_to?(:ensure_mappings_imported!)
           mapping.ensure_mappings_imported!(register_id)
         end
@@ -255,11 +259,10 @@ module Lutaml
       # @param register [Symbol, Register, nil] The register
       # @return [Symbol] The register ID
       def extract_register_id(register)
-        if register
-          register.is_a?(Lutaml::Model::Register) ? register.id : register
-        else
-          Lutaml::Model::Config.default_register
-        end
+        # Performance: nil check is the most common case during deserialization
+        return Lutaml::Model::Config.default_register unless register
+
+        register.is_a?(Lutaml::Model::Register) ? register.id : register
       end
 
       # Build transformation instance for format using registered builder.

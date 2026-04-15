@@ -80,6 +80,10 @@ module Lutaml
         # Memoize prefixed_name at initialization for performance
         # This is safe because prefix and name are immutable after initialization
         @cached_prefixed_name = compute_prefixed_name
+
+        # Memoize castable? at initialization for performance
+        # All inputs (raw_mapping?, content_mapping?, custom_methods) are immutable
+        @cached_castable = !raw_mapping? && !name.nil? && !custom_methods[:from]
       end
 
       def namespace_set?
@@ -95,7 +99,7 @@ module Lutaml
       end
 
       def castable?
-        !raw_mapping? && !content_mapping? && !custom_methods[:from]
+        @cached_castable
       end
 
       def mixed_content?

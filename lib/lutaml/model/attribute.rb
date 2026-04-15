@@ -585,6 +585,18 @@ instance_object = nil)
         type(register) <= Serialize
       end
 
+      # Cached version of serializable? check for hot deserialization path
+      # Called millions of times in resolve_rule_names_with_type and value_for_rule
+      def serializable_type?(register = nil)
+        register_key = register || :default
+        return @serializable_type_cache[register_key] if defined?(@serializable_type_cache) && @serializable_type_cache&.key?(register_key)
+
+        resolved_type = type(register_key)
+        result = resolved_type.is_a?(Class) && resolved_type.include?(Serialize)
+        @serializable_type_cache ||= {}
+        @serializable_type_cache[register_key] = result
+      end
+
       # resolved_collection is provided by CollectionHandler module
 
       def sequenced_appearance_count(element_order, mapped_name, current_index)
@@ -664,20 +676,23 @@ instance_object = nil)
       # @param register [Symbol, nil] register ID for type resolution
       # @return [Class, nil] XmlNamespace class if type has namespace
       def type_namespace_class(register = nil)
-        # NOTE: @type_namespace_cache removed - type() now uses GlobalContext.resolver
-        # which handles caching centrally. No need for scattered caching here.
+        register_key = register || :default
+        return @type_ns_class_cache[register_key] if defined?(@type_ns_class_cache) && @type_ns_class_cache&.key?(register_key)
 
         # Resolve type namespace via type() which uses GlobalContext.resolver
-        resolved_type = type(register)
-        return nil if resolved_type.nil?
+        resolved_type = type(register_key)
+        result = nil
 
         # Check if type is a Type::Value class
         # Type namespaces are ONLY declared on Type::Value subclasses,
         # not on Serializable models. Serializable models have element
         # namespaces, which are handled separately.
         if resolved_type.is_a?(Class) && resolved_type <= Lutaml::Model::Type::Value
-          resolved_type.namespace_class
+          result = resolved_type.namespace_class
         end
+
+        @type_ns_class_cache ||= {}
+        @type_ns_class_cache[register_key] = result
       end
 
       # @api public
@@ -686,7 +701,12 @@ instance_object = nil)
       # @param register [Symbol, nil] register ID for type resolution
       # @return [String, nil] namespace URI
       def type_namespace_uri(register = nil)
-        type_namespace_class(register)&.uri
+        register_key = register || :default
+        return @type_ns_uri_cache[register_key] if defined?(@type_ns_uri_cache) && @type_ns_uri_cache&.key?(register_key)
+
+        result = type_namespace_class(register_key)&.uri
+        @type_ns_uri_cache ||= {}
+        @type_ns_uri_cache[register_key] = result
       end
 
       # @api public

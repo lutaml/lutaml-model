@@ -230,12 +230,7 @@ module Lutaml
       end
 
       def default_namespace
-        return @default_namespace if defined?(@default_namespace)
-
-        @default_namespace = begin
-          ns = namespaces
-          ns[nil] || @parent_document&.namespaces&.dig(nil)
-        end
+        namespaces[nil] || @parent_document&.namespaces&.dig(nil)
       end
 
       def order
