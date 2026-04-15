@@ -30,6 +30,9 @@ model_class, register_id)
           # Track index per element type for collection attributes
           element_indices = ::Hash.new(0)
 
+          # Track text node index for content-mapped attribute access.
+          text_node_index = 0
+
           # Track whether we processed any text nodes from element_order
           processed_text_nodes = false
 
@@ -39,14 +42,27 @@ model_class, register_id)
           end
           root.cdata = true if content_rule&.cdata
 
+          # Pre-check: can we use the content attribute for indexed text access?
+          # This requires the content array length to match the text node count
+          # in element_order. When they match, mutations to the content array
+          # are reflected in serialization. When they don't match (e.g., CDATA
+          # creates extra whitespace text nodes), we fall back to element_order.
+          text_node_count = element_order.count { |o| o.type == "Text" }
+          content_value = content_rule &&             model_instance&.public_send(content_rule.attribute_name)
+          use_content_index = content_rule && content_value.is_a?(Array) &&
+            content_value.length == text_node_count
+
           # Iterate through element_order to preserve original sequence
           element_order.each do |object|
             result = process_element_order_item(
               object, root, model_instance, options,
-              compiled_rules, mapping, element_indices
+              compiled_rules, mapping, element_indices,
+              content_rule, text_node_index, text_node_count,
+              use_content_index
             ) do |action, rule, value|
               yield(action, rule, value) if block_given?
             end
+            text_node_index += 1 if object.type == "Text"
             processed_text_nodes = true if result == :text_node
           end
 
@@ -127,10 +143,14 @@ model_class, register_id)
         end
 
         def process_element_order_item(object, root, model_instance, options,
-compiled_rules, _mapping, element_indices)
+compiled_rules, _mapping, element_indices,
+content_rule = nil, text_node_index = 0,
+text_node_count = 0, use_content_index = false)
           # For text nodes in mixed content, add them directly to preserve interleaving
           if object.type == "Text"
-            return process_text_node(object, root)
+            return process_text_node(object, root, content_rule,
+                                     model_instance, text_node_index,
+                                     text_node_count, use_content_index)
           end
 
           # Find the mapping rule for this element
@@ -165,11 +185,44 @@ compiled_rules, _mapping, element_indices)
 
         # Process text node from element_order
         #
+        # Uses the current content-mapped attribute value instead of the stale
+        # text from element_order, so mutations are reflected in serialization.
+        #
+        # Three cases:
+        # 1. Collection content with matching array/text-node count:
+        #    Each text node maps 1:1 to an array element via text_index.
+        # 2. Single-string content with exactly one text node:
+        #    The full string replaces the single text node.
+        # 3. Mismatch (e.g., CDATA creates extra whitespace nodes):
+        #    Fall back to original element_order text to preserve round-trip.
+        #
         # @param object [Object] The text node object
         # @param root [XmlElement] Root element
+        # @param content_rule [CompiledRule, nil] The content mapping rule
+        # @param model_instance [Object] The model instance
+        # @param text_index [Integer] The index of this text node among all text nodes
+        # @param text_node_count [Integer] Total text nodes in element_order
+        # @param use_content_index [Boolean] Whether indexed content access is safe
         # @return [Symbol] :text_node
-        def process_text_node(object, root)
-          text_content = object.respond_to?(:text_content) ? object.text_content : object.name
+        def process_text_node(object, root, content_rule = nil,
+                              model_instance = nil, text_index = 0,
+                              text_node_count = 0, use_content_index = false)
+          text_content = if content_rule && model_instance
+                           current = model_instance.public_send(content_rule.attribute_name)
+
+                           if use_content_index
+                             # Collection content with matching count: indexed access
+                             current[text_index].to_s
+                           elsif !current.is_a?(Array) && text_node_count <= 1
+                             # Single-string content with one text node: use current value
+                             current.to_s
+                           else
+                             # Mismatch: fall back to element_order text (preserves round-trip)
+                             object.text_content || object.name
+                           end
+                         else
+                           object.text_content || object.name
+                         end
 
           # Skip whitespace-only text nodes to avoid formatting artifacts
           if text_content && !text_content.strip.empty?
