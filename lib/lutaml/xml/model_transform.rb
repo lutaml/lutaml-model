@@ -706,6 +706,9 @@ mixed_content_option, xml_mapping = nil)
 
       def normalize_xml_value(value, rule, attr, options = {},
 effective_register = lutaml_register)
+        # Fast path: skip when value is nil, uninitialized, or already correct type
+        return value if value.nil? || ::Lutaml::Model::Utils.uninitialized?(value)
+
         collection_class = attr&.collection_class || Array
         value = [value].compact if !value.nil? && attr&.collection? && !value.is_a?(collection_class)
 
@@ -789,8 +792,7 @@ effective_register = lutaml_register)
       end
 
       def attr_type_is_serializable(attr, effective_register)
-        attr_type = attr&.type(effective_register)
-        attr_type.is_a?(Class) && attr_type.include?(::Lutaml::Model::Serialize)
+        attr&.serializable_type?(effective_register) || false
       end
 
       # Run consolidation on any Collection attributes that have organization.

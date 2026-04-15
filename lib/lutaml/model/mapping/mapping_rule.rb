@@ -302,6 +302,9 @@ module Lutaml
       end
 
       def transform_value(attribute, value, read_method, format)
+        # Fast path: no transforms at all
+        return value unless transform || attribute&.transform
+
         transformers = get_transformers(attribute)
         transformers = transformers.reverse if read_method == :to
 
@@ -364,9 +367,18 @@ module Lutaml
       end
 
       def handle_transform_method(model, value, attributes)
+        attr = attributes[to]
+        # Fast path: no transforms at all (covers 95%+ of rules)
+        # Skips ImportTransformer instantiation, get_transformers, and
+        # transformation_methods calls for rules without any transforms.
+        if !transform && !attr&.transform
+          assign_value(model, value)
+          return true
+        end
+
         # If we have class-based transformers, they were already applied in transform_value
         # Only call ImportTransformer for hash/proc-based transformers
-        transformers = get_transformers(attributes[to])
+        transformers = get_transformers(attr)
         has_class_transformer = transformers.any? { |t| t.is_a?(Class) && t < Lutaml::Model::ValueTransformer }
 
         if has_class_transformer
@@ -374,7 +386,7 @@ module Lutaml
           assign_value(model, value)
         else
           # Hash/proc transformers need ImportTransformer
-          transformed = ImportTransformer.call(value, self, attributes[to])
+          transformed = ImportTransformer.call(value, self, attr)
           assign_value(model, transformed)
         end
         true
