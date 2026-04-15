@@ -29,6 +29,8 @@ RSpec.describe "XSD simple content liquid helpers" do
           <xs:simpleContent>
             <xs:restriction base="xs:string">
               <xs:maxLength value="100"/>
+              <xs:attribute name="RestrictedAttr" type="xs:string"/>
+              <xs:attributeGroup ref="TestAttributeGroup"/>
             </xs:restriction>
           </xs:simpleContent>
         </xs:complexType>
@@ -54,5 +56,12 @@ RSpec.describe "XSD simple content liquid helpers" do
     expect(simple_content.base_type).to eq("xs:string")
     expect(with_base.simple_content.base_type).to eq("xs:int")
     expect(with_restriction.simple_content.base_type).to eq("xs:string")
+  end
+
+  it "returns attributes from simple content restrictions" do
+    with_restriction = complex_types.find { |type| type.name == "SimpleContentWithRestriction" }
+
+    expect(with_restriction.simple_content.attribute_elements.map(&:name))
+      .to include("RestrictedAttr", "GroupAttr1")
   end
 end

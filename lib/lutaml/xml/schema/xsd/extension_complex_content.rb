@@ -35,10 +35,17 @@ module Lutaml
             map_element :attributeGroup, to: :attribute_group
           end
 
-          # Reuse the base complex type's flattened attribute list for this
-          # extension.
+          liquid do
+            map "attribute_elements", to: :attribute_elements
+            map "referenced_object", to: :referenced_object
+          end
+
+          # Reuse the base complex type's flattened attribute list, then add
+          # attributes declared directly on this extension.
           def attribute_elements(array = [])
             referenced_object&.attribute_elements(array)
+            array.concat(attribute)
+            attribute_group.each { |group| group.attribute_elements(array) }
             array
           end
 

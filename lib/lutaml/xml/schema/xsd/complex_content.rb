@@ -27,6 +27,7 @@ module Lutaml
           # when one is present.
           def attribute_elements(array = [])
             extension&.attribute_elements(array)
+            restriction&.attribute_elements(array)
             array
           end
 

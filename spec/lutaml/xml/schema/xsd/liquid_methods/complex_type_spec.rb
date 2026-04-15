@@ -75,4 +75,71 @@ RSpec.describe Lutaml::Xml::Schema::Xsd::ComplexType do
     parsed = Lutaml::Xml::Schema::Xsd.parse(simple_content_schema, validate_schema: false)
     expect(parsed.complex_type.first.attribute_elements.map(&:name)).to include("ExtendedAttr")
   end
+
+  it "collects attributes from complex content extensions" do
+    complex_content_schema = <<~XML
+      <schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+        <xs:attributeGroup name="ExtendedAttributes">
+          <xs:attribute name="ExtendedGroupAttr" type="xs:string"/>
+        </xs:attributeGroup>
+
+        <xs:complexType name="BaseType">
+          <xs:sequence>
+            <xs:element name="BaseChild" type="xs:string"/>
+          </xs:sequence>
+          <xs:attribute name="BaseAttr" type="xs:string"/>
+        </xs:complexType>
+
+        <xs:complexType name="ExtendedType">
+          <xs:complexContent>
+            <xs:extension base="BaseType">
+              <xs:attribute name="ExtendedAttr" type="xs:string"/>
+              <xs:attributeGroup ref="ExtendedAttributes"/>
+            </xs:extension>
+          </xs:complexContent>
+        </xs:complexType>
+      </schema>
+    XML
+
+    parsed = Lutaml::Xml::Schema::Xsd.parse(complex_content_schema, validate_schema: false)
+    extended_type = parsed.complex_type.find { |type| type.name == "ExtendedType" }
+
+    expect(extended_type.attribute_elements.map(&:name))
+      .to include("BaseAttr", "ExtendedAttr", "ExtendedGroupAttr")
+  end
+
+  it "collects attributes from complex content restrictions" do
+    complex_content_schema = <<~XML
+      <schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+        <xs:attributeGroup name="RestrictedAttributes">
+          <xs:attribute name="RestrictedGroupAttr" type="xs:string"/>
+        </xs:attributeGroup>
+
+        <xs:complexType name="BaseType">
+          <xs:sequence>
+            <xs:element name="BaseChild" type="xs:string"/>
+          </xs:sequence>
+          <xs:attribute name="BaseAttr" type="xs:string"/>
+        </xs:complexType>
+
+        <xs:complexType name="RestrictedType">
+          <xs:complexContent>
+            <xs:restriction base="BaseType">
+              <xs:sequence>
+                <xs:element name="BaseChild" type="xs:string"/>
+              </xs:sequence>
+              <xs:attribute name="RestrictedAttr" type="xs:string"/>
+              <xs:attributeGroup ref="RestrictedAttributes"/>
+            </xs:restriction>
+          </xs:complexContent>
+        </xs:complexType>
+      </schema>
+    XML
+
+    parsed = Lutaml::Xml::Schema::Xsd.parse(complex_content_schema, validate_schema: false)
+    restricted_type = parsed.complex_type.find { |type| type.name == "RestrictedType" }
+
+    expect(restricted_type.attribute_elements.map(&:name))
+      .to include("RestrictedAttr", "RestrictedGroupAttr")
+  end
 end

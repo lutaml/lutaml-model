@@ -32,6 +32,7 @@ module Lutaml
           def attribute_elements(array = [])
             base_complex_type&.attribute_elements(array)
             extension&.attribute_elements(array)
+            restriction&.attribute_elements(array)
             array
           end
 
