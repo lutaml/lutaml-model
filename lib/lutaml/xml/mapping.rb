@@ -78,6 +78,8 @@ module Lutaml
         @mapper_class = nil
         @importing_mappings = false
         @attributes_with_methods_defined = Set.new
+        @mappings_cache = {}
+        @polymorphic_mapping_cache = nil
       end
 
       def finalize(mapper_class)
@@ -963,9 +965,13 @@ module Lutaml
       end
 
       def mappings(register_id = nil)
-        # REMOVED LAZY LOADING - imports resolved at class finalization
-        elements(register_id) + attributes(register_id) + [content_mapping,
-                                                           raw_mapping].compact
+        register_key = register_id || :default
+        cached = @mappings_cache[register_key]
+        return cached if cached
+
+        result = elements(register_key) + attributes(register_key) +
+                 [content_mapping, raw_mapping].compact
+        @mappings_cache[register_key] = result
       end
 
       def importable_mappings
@@ -1188,7 +1194,7 @@ module Lutaml
       end
 
       def polymorphic_mapping
-        mappings.find(&:polymorphic_mapping?)
+        @polymorphic_mapping_cache ||= mappings.find(&:polymorphic_mapping?)
       end
 
       def attributes_to_dup

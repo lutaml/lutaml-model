@@ -269,7 +269,14 @@ visited = Set.new)
           value = normalize_xml_value(value, rule, attr, new_opts,
                                       effective_register)
           value = rule.transform_value(attr, value, :from, :xml)
-          rule.deserialize(instance, value, attributes, context)
+
+          # Performance: Inline the fast path for rules without transforms,
+          # custom methods, or delegates. Avoids 3 method dispatches per rule.
+          if rule.needs_full_deserialize? || attr_has_transform?(attr)
+            rule.deserialize(instance, value, attributes, context)
+          else
+            instance.public_send(:"#{rule_to}=", value)
+          end
 
           # Mark attribute as set from XML (not using default).
           # Needed for instances created via allocate_for_deserialization
@@ -793,6 +800,13 @@ effective_register = lutaml_register)
 
       def attr_type_is_serializable(attr, effective_register)
         attr&.serializable_type?(effective_register) || false
+      end
+
+      def attr_has_transform?(attr)
+        return false unless attr
+        t = attr.transform
+        return false if t.nil? || (t.is_a?(Hash) && t.empty?)
+        true
       end
 
       # Run consolidation on any Collection attributes that have organization.

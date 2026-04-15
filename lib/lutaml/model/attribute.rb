@@ -103,6 +103,7 @@ module Lutaml
 
         validate_presence!(type) unless skip_validation
         @type = type
+        @default_cache = {}
         process_options! unless skip_validation
       end
 
@@ -301,7 +302,17 @@ module Lutaml
 
       def default(register = Lutaml::Model::Config.default_register,
 instance_object = nil)
-        cast_value(default_value(register, instance_object), register)
+        register_key = register || :default
+        # Cache when no instance_object — the result is deterministic
+        if instance_object.nil? && @default_cache.key?(register_key)
+          return @default_cache[register_key]
+        end
+
+        result = cast_value(default_value(register_key, instance_object), register_key)
+
+        @default_cache[register_key] = result if instance_object.nil?
+
+        result
       end
 
       def default_value(register, instance_object = nil)

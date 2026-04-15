@@ -1,6 +1,8 @@
 module Lutaml
   module Model
     class MappingRule
+      EMPTY_ARRAY = [].freeze
+
       attr_reader :name,
                   :to,
                   :to_instance,
@@ -90,6 +92,28 @@ module Lutaml
           # Complete value_map provided (e.g., from deep_dup), use it directly
           @value_map = value_map
         end
+
+        # Performance: Cache whether full deserialize path is needed
+        # These properties are immutable after initialization
+        @has_custom_deserialize = !with.empty? && !!with[:from]
+        @needs_full_deserialize = @has_custom_deserialize || !!delegate || has_transform?
+      end
+
+      # Whether this rule has a meaningful (non-empty) transform.
+      # Cached on first call — transform is immutable after initialization.
+      def has_transform?
+        @has_transform = if defined?(@has_transform)
+                           @has_transform
+                         else
+                           t = @transform
+                           if t.nil?
+                             false
+                           elsif t.is_a?(::Hash)
+                             !t.empty?
+                           else
+                             true
+                           end
+                         end
       end
 
       def default_value_map(options = {})
@@ -268,7 +292,13 @@ module Lutaml
       end
 
       def has_custom_method_for_deserialization?
-        !custom_methods.empty? && custom_methods[:from]
+        @has_custom_deserialize
+      end
+
+      # Performance: Whether this rule needs the full deserialize path
+      # (custom methods, delegate, or transforms). Cached at init.
+      def needs_full_deserialize?
+        @needs_full_deserialize
       end
 
       def multiple_mappings?
@@ -303,7 +333,7 @@ module Lutaml
 
       def transform_value(attribute, value, read_method, format)
         # Fast path: no transforms at all
-        return value unless transform || attribute&.transform
+        return value unless @has_transform || attribute&.transform
 
         transformers = get_transformers(attribute)
         transformers = transformers.reverse if read_method == :to
@@ -328,8 +358,10 @@ module Lutaml
       end
 
       def get_transformers(attribute)
-        transformers = [transform, attribute&.transform].compact
-        transformers.grep(Class)
+        # Fast path: avoid array creation when no transforms exist
+        return EMPTY_ARRAY unless @has_transform || attribute&.transform
+
+        [transform, attribute&.transform].compact.grep(Class)
       end
 
       private
@@ -371,7 +403,7 @@ module Lutaml
         # Fast path: no transforms at all (covers 95%+ of rules)
         # Skips ImportTransformer instantiation, get_transformers, and
         # transformation_methods calls for rules without any transforms.
-        if !transform && !attr&.transform
+        if !@has_transform && !attr&.transform
           assign_value(model, value)
           return true
         end
@@ -385,11 +417,25 @@ module Lutaml
           # Class transformers already applied, just assign the value
           assign_value(model, value)
         else
-          # Hash/proc transformers need ImportTransformer
-          transformed = ImportTransformer.call(value, self, attr)
+          # Inline ImportTransformer logic to avoid object allocation
+          # ImportTransformer.call would do: new(rule, attr, nil).call(value)
+          # which gets [get_transform(rule, :import), get_transform(attr, :import)].compact
+          # then reduces over them
+          rule_transform = extract_import_transform(self)
+          attr_transform = extract_import_transform(attr)
+          methods = [rule_transform, attr_transform].compact
+          transformed = methods.reduce(value) { |v, m| m.call(v) }
           assign_value(model, transformed)
         end
         true
+      end
+
+      # Extract the import transform from an object (rule or attribute)
+      # Inlined from Transformer#get_transform to avoid instantiation
+      def extract_import_transform(obj)
+        t = obj&.transform
+        return nil if t.is_a?(Class)
+        t.is_a?(::Hash) ? t[:import] : t
       end
 
       def assign_value(model, value)
