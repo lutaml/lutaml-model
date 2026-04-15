@@ -110,9 +110,9 @@ module Lutaml
         return if unresolved_type.nil?
 
         # Performance: Fast path for nil or default register (most common case during deserialization)
-        # Cache the result to avoid repeated resolver calls
-        # When context_or_register is nil or the default register, we can cache aggressively
-        if context_or_register.nil? || context_or_register == Lutaml::Model::Config.default_register
+        # Use symbol comparison directly instead of calling Config.default_register
+        # which involves method dispatch overhead (was 11.7M calls at 4.6s).
+        if context_or_register.nil? || context_or_register == :default
           return @cached_type_default ||= begin
             context = normalize_context(context_or_register)
             GlobalContext.resolver.resolve(unresolved_type, context)
