@@ -969,8 +969,7 @@ module Lutaml
                 cdata_node = ::Nokogiri::XML::CDATA.new(doc, xml_child)
                 element.add_child(cdata_node)
               else
-                text_node = ::Nokogiri::XML::Text.new(xml_child, doc)
-                element.add_child(text_node)
+                add_text_with_entities(element, xml_child, doc)
               end
             end
           end
