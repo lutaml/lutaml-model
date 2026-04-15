@@ -53,13 +53,13 @@ module Lutaml
 
           # Resolve the effective type, following `ref` when needed.
           def referenced_type
-            @referenced_type ||= referenced_object&.type
+            referenced_object&.type
           end
 
           # Resolve the effective attribute name, falling back to the raw
           # `ref` when the target cannot be found.
           def referenced_name
-            @referenced_name ||= referenced_object&.name || ref
+            referenced_object&.name || ref
           end
 
           # Return the attribute itself when it is named, otherwise resolve

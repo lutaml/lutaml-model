@@ -48,6 +48,16 @@ RSpec.describe Lutaml::Xml::Schema::Xsd::Schema do
       .to eq(%w[AlphaElement BetaElement GammaElement])
   end
 
+  it "sorts elements with nil names without raising" do
+    anonymous_element = Lutaml::Xml::Schema::Xsd::Element.new(
+      __register: Lutaml::Xml::Schema::Xsd.register,
+    )
+    schema.element << anonymous_element
+
+    expect { schema.elements_sorted_by_name }.not_to raise_error
+    expect(schema.elements_sorted_by_name.first.name).to be_nil
+  end
+
   it "sorts complex types by name" do
     expect(schema.complex_types_sorted_by_name.map(&:name))
       .to eq(%w[AlphaType BetaType WidgetType])

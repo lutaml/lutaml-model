@@ -56,7 +56,7 @@ module Lutaml
           def find_elements_used(element_name)
             resolved_element_order&.any? do |child|
               if child.is_a?(Element)
-                child.ref == element_name
+                reference_matches?(element_name, child.ref || child.name)
               elsif child.respond_to?(:find_elements_used)
                 child.find_elements_used(element_name)
               end

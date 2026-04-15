@@ -120,27 +120,27 @@ module Lutaml
           # Return global elements sorted alphabetically by name for stable
           # Liquid iteration.
           def elements_sorted_by_name
-            element.sort_by(&:name)
+            element.sort_by { |item| item.name.to_s }
           end
 
           # Return global attributes sorted alphabetically by name.
           def attributes_sorted_by_name
-            attribute.sort_by(&:name)
+            attribute.sort_by { |item| item.name.to_s }
           end
 
           # Return simple types sorted alphabetically by name.
           def simple_types_sorted_by_name
-            simple_type.sort_by(&:name)
+            simple_type.sort_by { |item| item.name.to_s }
           end
 
           # Return complex types sorted alphabetically by name.
           def complex_types_sorted_by_name
-            complex_type.sort_by(&:name)
+            complex_type.sort_by { |item| item.name.to_s }
           end
 
           # Return attribute groups sorted alphabetically by name.
           def attribute_groups_sorted_by_name
-            attribute_group.sort_by(&:name)
+            attribute_group.sort_by { |item| item.name.to_s }
           end
 
           # Capture both the target namespace URI and the matching prefix
@@ -282,16 +282,32 @@ module Lutaml
 
           def schema_by_location_or_instance(instance)
             schema_path = instance.schema_path
-            return unless schema_path && Glob.location?
+            return unless schema_path
+
+            location = Glob.location_for(schema_path) if Glob.location?
+            schema_content = if Glob.location?
+                               instance.fetch_schema
+                             else
+                               schema_path_without_base(schema_path)
+                             end
+            return unless schema_content
 
             self.class.processed_schemas[schema_path] ||
               Lutaml::Xml::Schema::Xsd.parse(
-                instance.fetch_schema,
-                location: Glob.location,
+                schema_content,
+                location: location || schema_path,
                 nested_schema: true,
                 register: Lutaml::Xml::Schema::Xsd.register.id,
                 schema_mappings: Glob.schema_mappings,
               )
+          end
+
+          def schema_path_without_base(schema_path)
+            path = SchemaPath.new(schema_path)
+            return unless path.absolute_path?(schema_path) ||
+              path.absolute_url?(schema_path)
+
+            path.include_schema(schema_path)
           end
 
           def annotation_object(instance, schema)

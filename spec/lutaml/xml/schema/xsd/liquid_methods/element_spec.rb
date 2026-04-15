@@ -51,6 +51,28 @@ RSpec.describe Lutaml::Xml::Schema::Xsd::Element do
     expect(root_element.child_elements.map(&:name)).to include("DirectChild")
   end
 
+  it "returns child data from inline anonymous complex types" do
+    inline_schema_xml = <<~XML
+      <schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+              targetNamespace="http://example.com/test">
+        <xs:element name="InlineRoot">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="InlineChild" type="xs:string"/>
+            </xs:sequence>
+            <xs:attribute name="InlineAttr" type="xs:string"/>
+          </xs:complexType>
+        </xs:element>
+      </schema>
+    XML
+
+    parsed = Lutaml::Xml::Schema::Xsd.parse(inline_schema_xml, validate_schema: false)
+    inline_root = parsed.element.find { |element| element.name == "InlineRoot" }
+
+    expect(inline_root.attributes.map(&:name)).to include("InlineAttr")
+    expect(inline_root.child_elements.map(&:name)).to include("InlineChild")
+  end
+
   it "returns nil child data when no complex type is referenced" do
     expect(simple_element.attributes).to be_nil
     expect(simple_element.child_elements).to be_nil
@@ -73,6 +95,26 @@ RSpec.describe Lutaml::Xml::Schema::Xsd::Element do
 
   it "finds complex types that use the element" do
     expect(root_element.used_by.map(&:name)).to include("UsesRootElement")
+  end
+
+  it "finds complex types that use a qualified element reference" do
+    qualified_schema_xml = <<~XML
+      <schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+              xmlns:test="http://example.com/test"
+              targetNamespace="http://example.com/test">
+        <xs:element name="QualifiedRoot" type="xs:string"/>
+        <xs:complexType name="UsesQualifiedRoot">
+          <xs:sequence>
+            <xs:element ref="test:QualifiedRoot"/>
+          </xs:sequence>
+        </xs:complexType>
+      </schema>
+    XML
+
+    parsed = Lutaml::Xml::Schema::Xsd.parse(qualified_schema_xml, validate_schema: false)
+    qualified_root = parsed.element.find { |element| element.name == "QualifiedRoot" }
+
+    expect(qualified_root.used_by.map(&:name)).to include("UsesQualifiedRoot")
   end
 
   it "exposes helper methods through Liquid" do

@@ -84,7 +84,7 @@ module Lutaml
 
           # Return the effective element name after resolving `ref`.
           def referenced_name
-            referenced_object&.name
+            referenced_object&.name || ref
           end
 
           # Return the effective element type after resolving `ref`.
@@ -102,6 +102,8 @@ module Lutaml
 
           # Resolve the complex type referenced by the effective element type.
           def referenced_complex_type
+            return complex_type if complex_type
+
             find_object(__root.complex_type, referenced_type)
           end
 

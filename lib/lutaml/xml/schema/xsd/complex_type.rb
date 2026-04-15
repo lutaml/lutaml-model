@@ -67,7 +67,7 @@ module Lutaml
             raw_elements = __root.group.flat_map(&:child_elements)
             raw_elements.concat(__root.element)
             raw_elements.concat(root_complex_types.flat_map(&:child_elements))
-            raw_elements.select { |element| element.type == name }
+            raw_elements.select { |element| reference_matches?(name, element.type) }
           end
 
           # Flatten attributes declared directly on the complex type and those
@@ -109,7 +109,7 @@ module Lutaml
           def find_elements_used(element_name)
             resolved_element_order&.any? do |child|
               if child.is_a?(Element)
-                child.ref == element_name
+                reference_matches?(element_name, child.ref || child.name)
               elsif child.respond_to?(:find_elements_used)
                 child.find_elements_used(element_name)
               end

@@ -33,9 +33,9 @@ module Lutaml
           Glob Group Import Include Key Keyref Length List MaxExclusive
           MaxInclusive MaxLength MinExclusive MinInclusive MinLength
           Notation Pattern Redefine RestrictionComplexContent
-          RestrictionSimpleContent RestrictionSimpleType Schema Selector
-          Sequence SimpleContent SimpleType TotalDigits Union Unique WhiteSpace
-          SchemaFileValidationResults
+          RestrictionSimpleContent RestrictionSimpleType Schema SchemaPath
+          Selector Sequence SimpleContent SimpleType TotalDigits Union Unique
+          WhiteSpace SchemaFileValidationResults
         ].freeze
 
         # Autoload all XSD model files (lazy loading)
@@ -75,6 +75,7 @@ module Lutaml
         autoload :Field, "#{__dir__}/xsd/field"
         autoload :FractionDigits, "#{__dir__}/xsd/fraction_digits"
         autoload :Glob, "#{__dir__}/xsd/glob"
+        autoload :SchemaPath, "#{__dir__}/xsd/schema_path"
         autoload :Group, "#{__dir__}/xsd/group"
         autoload :Import, "#{__dir__}/xsd/import"
         autoload :Include, "#{__dir__}/xsd/include"
@@ -151,14 +152,12 @@ module Lutaml
           end
 
           register ||= self.register
-          # Accumulate schemas across parse() calls. When parsing multiple
-          # entrypoints (e.g., urbanFunction.xsd, urbanObject.xsd), each may
-          # import shared schemas. The schema_by_location_or_instance method
-          # checks processed_schemas first, so duplicates are avoided by reuse.
-
           Glob.schema_mappings = schema_mappings
-          Glob.path_or_url(location)
-          Schema.from_xml(xsd, register: register).assign_root!
+          Schema.reset_processed_schemas unless nested_schema
+
+          Glob.with_location(location) do
+            Schema.from_xml(xsd, register: register).assign_root!
+          end
         end
       end
     end

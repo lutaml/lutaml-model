@@ -64,6 +64,26 @@ RSpec.describe "XSD container liquid helpers" do
     expect(group.find_elements_used("GroupElement1")).to be true
   end
 
+  it "returns missing references as unresolvable instead of raising" do
+    missing_ref_schema = <<~XML
+      <schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+              xmlns:test="http://example.com/test"
+              targetNamespace="http://example.com/test">
+        <xs:complexType name="MissingReferenceType">
+          <xs:sequence>
+            <xs:element ref="test:MissingElement"/>
+          </xs:sequence>
+        </xs:complexType>
+      </schema>
+    XML
+
+    parsed = Lutaml::Xml::Schema::Xsd.parse(missing_ref_schema, validate_schema: false)
+    missing_type = parsed.complex_type.find { |type| type.name == "MissingReferenceType" }
+
+    expect { missing_type.unresolvable_items }.not_to raise_error
+    expect(missing_type.unresolvable_items.map(&:ref)).to include("test:MissingElement")
+  end
+
   it "resolves referenced groups" do
     ref_group = Lutaml::Xml::Schema::Xsd::Group.new(
       __register: Lutaml::Xml::Schema::Xsd.register,
