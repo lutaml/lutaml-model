@@ -2,165 +2,182 @@
 
 module Lutaml
   module Xml
-    class OxElement < XmlElement
-      # Use NamespaceData for adapter-internal namespace data
-      NamespaceData = Lutaml::Xml::Adapter::NamespaceData
+    module Ox
+      class Element < XmlElement
+        # Use NamespaceData for adapter-internal namespace data
+        NamespaceData = Lutaml::Xml::Adapter::NamespaceData
 
-      def initialize(node, root_node: nil, default_namespace: nil)
-        case node
-        when String
-          super("text", {}, [], EncodingNormalizer.normalize_to_utf8(node), parent_document: root_node, name: "text", explicit_no_namespace: false, node_type: :text)
-        when Ox::Comment
-          super("comment", {}, [], EncodingNormalizer.normalize_to_utf8(node.value), parent_document: root_node, name: "comment", explicit_no_namespace: false, node_type: :comment)
-        when Ox::CData
-          super("#cdata-section", {}, [], EncodingNormalizer.normalize_to_utf8(node.value), parent_document: root_node, name: "#cdata-section", explicit_no_namespace: false, node_type: :cdata)
-        else
-          # Check for xmlns="" in node's attributes before processing
-          has_empty_xmlns = node.attributes[:xmlns] == ""
-          has_no_prefix = separate_name_and_prefix(node).first.nil?
+        def initialize(node, parent: nil, default_namespace: nil)
+          explicit_no_namespace = false
 
-          namespace_attributes(node.attributes).each do |(name, value)|
-            ns = NamespaceData.new(value, name)
+          # Determine node type from Moxml classification
+          node_type = case node
+                      when Moxml::Text then :text
+                      when Moxml::Cdata then :cdata
+                      when Moxml::Comment then :comment
+                      else :element
+                      end
 
-            if root_node && ns.prefix
-              root_node.add_namespace(ns)
-            elsif root_node.nil?
-              add_namespace(ns)
-            end
+          text = case node
+                 when Moxml::Element
+                   namespace_name = node.namespace&.prefix
 
-            # Set default_namespace from xmlns attribute (if not empty)
-            default_namespace = ns.uri if ns.prefix.nil? && value != ""
-          end
+                   # Detect explicit xmlns="" for no namespace
+                   has_empty_xmlns = node.namespaces.any? do |ns|
+                     ns.prefix.nil? && ns.uri == ""
+                   end
 
-          # Use shared helper to detect explicit no namespace
-          explicit_no_namespace = XmlElement.detect_explicit_no_namespace(
-            has_empty_xmlns: has_empty_xmlns,
-            node_namespace_nil: has_no_prefix, # Ox nodes without prefix have no namespace
-          )
+                   explicit_no_namespace = XmlElement.detect_explicit_no_namespace(
+                     has_empty_xmlns: has_empty_xmlns,
+                     node_namespace_nil: node.namespace.nil? || node.namespace&.uri == "",
+                   )
 
-          attributes = node.attributes.each_with_object({}) do |(name, value), hash|
-            next if attribute_is_namespace?(name)
+                   add_namespaces(node)
 
-            namespace_prefix = name.to_s.split(":").first
-            if (n = name.to_s.split(":")).length > 1
-              namespace = (root_node || self).namespaces[namespace_prefix]&.uri
-              namespace ||= XML_NAMESPACE_URI
-              prefix = n.first
-            end
+                   default_namespace = node.namespace&.uri if parent.nil? && !namespace_name && node.namespace&.uri != ""
 
-            hash[name.to_s] = XmlAttribute.new(
-              name.to_s,
-              value,
-              namespace: namespace,
-              namespace_prefix: prefix,
-            )
-          end
+                   children = parse_children(node,
+                                             default_namespace: default_namespace)
+                   attributes = node_attributes(node)
+                   @root = node
+                   EncodingNormalizer.normalize_to_utf8(node.inner_text)
+                 when Moxml::Text
+                   EncodingNormalizer.normalize_to_utf8(node.content)
+                 when Moxml::Cdata
+                   EncodingNormalizer.normalize_to_utf8(node.native.respond_to?(:value) ? node.native.value : node.content)
+                 when Moxml::Comment
+                   EncodingNormalizer.normalize_to_utf8(node.content)
+                 end
 
-          prefix, name = separate_name_and_prefix(node)
-
+          name = Lutaml::Xml::Adapter::OxAdapter.name_of(node)
           super(
-            node,
-            attributes,
-            parse_children(node, root_node: root_node || self,
-                                 default_namespace: default_namespace),
-            EncodingNormalizer.normalize_to_utf8(node.text),
-            parent_document: root_node,
+            name,
+            Hash(attributes),
+            Array(children),
+            text,
             name: name,
-            namespace_prefix: prefix,
+            parent_document: parent,
+            namespace_prefix: namespace_name,
             default_namespace: default_namespace,
             explicit_no_namespace: explicit_no_namespace,
-            node_type: :element
+            node_type: node_type
           )
         end
-      end
 
-      def separate_name_and_prefix(node)
-        name = node.name.to_s
-
-        return [nil, name] unless name.include?(":")
-        return [nil, name] if name.start_with?("xmlns:")
-
-        prefix, _, name = name.partition(":")
-        [prefix, name]
-      end
-
-      def to_xml
-        # For text and cdata nodes, use the native serialization
-        # which properly escapes entities
-        if text?
-          return @node.to_xml if @node.respond_to?(:to_xml)
-
-          return text
+        def text?
+          # Text nodes have node_type == :text or :cdata
+          %i[text cdata].include?(@node_type)
         end
 
-        build_xml.xml.to_s
-      end
+        def text
+          super || @text
+        end
 
-      def inner_xml
-        # Ox builder by default, adds a newline at the end, so `chomp` is used
-        children.map { |child| child.to_xml.chomp }.join
-      end
+        def to_xml(builder = nil)
+          builder ||= Builder::Ox.build
+          build_xml(builder).xml.to_s.chomp
+        end
 
-      def build_xml(builder = nil)
-        builder ||= Builder::Ox.build
-        attrs = build_attributes(self)
+        def build_xml(builder = nil)
+          builder ||= Builder::Ox.build
 
-        if cdata?
-          # CDATA sections - output as CDATA-wrapped text
-          builder.add_text(builder, text, cdata: true)
-        elsif text? && !element?
-          # Only actual text nodes (not elements named "text")
-          builder.add_text(builder, text)
-        else
-          # Regular elements (including those named "text")
-          builder.create_and_add_element(name, attributes: attrs) do |el|
-            children.each { |child| child.build_xml(el) }
+          if comment?
+            # Comment nodes - output as XML comments
+            builder.add_comment(@text)
+          elsif cdata?
+            # CDATA sections - output as CDATA-wrapped text
+            builder.add_text(builder, @text, cdata: true)
+          elsif text? && !element?
+            # Only actual text nodes (not elements named "text")
+            builder.add_text(builder, @text)
+          else
+            # Regular elements (including those named "text")
+            attrs = build_attributes(self)
+            builder.create_and_add_element(name, attributes: attrs) do |el|
+              children.each { |child| child.build_xml(el) }
+            end
+          end
+
+          builder
+        end
+
+        def inner_xml
+          children.map(&:to_xml).join
+        end
+
+        def cdata
+          super || cdata_children.first&.text
+        end
+
+        private
+
+        def node_attributes(node)
+          node.attributes.each_with_object({}) do |attr, hash|
+            next if attr_is_namespace?(attr)
+
+            ns_prefix = attr.namespace&.prefix
+            name = if ns_prefix && !ns_prefix.empty?
+                     "#{ns_prefix}:#{attr.name}"
+                   else
+                     attr.name
+                   end
+
+            # W3C: Attributes without prefix are NOT in any namespace
+            # (even if parent element has a default namespace)
+            namespace_uri = ns_prefix && !ns_prefix.empty? ? attr.namespace&.uri : nil
+
+            hash[name] = XmlAttribute.new(
+              name,
+              attr.value,
+              namespace: namespace_uri,
+              namespace_prefix: ns_prefix && !ns_prefix.empty? ? ns_prefix : nil,
+            )
           end
         end
 
-        builder
-      end
+        def parse_children(node, default_namespace: nil)
+          node.children.filter_map do |child|
+            next if child.is_a?(Moxml::ProcessingInstruction)
 
-      def namespace_attributes(attributes)
-        attributes.select { |attr| attribute_is_namespace?(attr) }
-      end
-
-      def text?
-        # Text nodes have node_type == :text or :cdata
-        %i[text cdata].include?(@node_type)
-      end
-
-      def build_attributes(node)
-        attrs = node.attributes.transform_values(&:value)
-
-        node.own_namespaces.each_value do |namespace|
-          uri = namespace.uri
-          # Convert FPI to URN per RFC 3151 (Ox requires valid namespace URIs)
-          uri = XmlElement.fpi_to_urn(uri) if XmlElement.fpi?(uri)
-          attrs[namespace.attr_name] = uri
+            self.class.new(child, parent: self,
+                                  default_namespace: default_namespace)
+          end
         end
 
-        attrs
-      end
+        def add_namespaces(node)
+          # Ox's node.namespaces returns ALL in-scope namespaces (including inherited).
+          # We only add namespaces explicitly declared on THIS element (from native
+          # attributes). The XmlElement base class handles inheritance via
+          # merge_parent_namespaces for namespace resolution.
+          return unless node.native.respond_to?(:attributes) && node.native.attributes
 
-      def nodes
-        children
-      end
+          node.native.attributes.each do |k, v|
+            key = k.to_s
+            if key == "xmlns"
+              add_namespace(NamespaceData.new(v, nil))
+            elsif key.start_with?("xmlns:")
+              prefix = key.delete_prefix("xmlns:")
+              add_namespace(NamespaceData.new(v, prefix))
+            end
+          end
+        end
 
-      def cdata
-        super || cdata_children.first&.text
-      end
+        def attr_is_namespace?(attr)
+          attribute_is_namespace?(attr.name) ||
+            namespaces[attr.name]&.uri == attr.value
+        end
 
-      def text
-        super || cdata
-      end
+        def build_attributes(node, _options = {})
+          attrs = node.attributes.transform_values(&:value)
 
-      private
+          node.own_namespaces.each_value do |namespace|
+            uri = namespace.uri
+            # Convert FPI to URN per RFC 3151 (Ox requires valid namespace URIs)
+            uri = XmlElement.fpi_to_urn(uri) if XmlElement.fpi?(uri)
+            attrs[namespace.attr_name] = uri
+          end
 
-      def parse_children(node, root_node: nil, default_namespace: nil)
-        node.nodes.map do |child|
-          OxElement.new(child, root_node: root_node,
-                               default_namespace: default_namespace)
+          attrs
         end
       end
     end

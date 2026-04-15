@@ -144,10 +144,10 @@ module Lutaml
 
     # Autoload adapter element classes (defined in subdirectories)
     autoload :NokogiriElement, "#{__dir__}/xml/nokogiri/element"
-    autoload :OxElement, "#{__dir__}/xml/ox/element"
 
     # Autoload adapter module namespaces
     autoload :Nokogiri, "#{__dir__}/xml/nokogiri"
+    autoload :Ox, "#{__dir__}/xml/ox"
     autoload :Oga, "#{__dir__}/xml/oga"
     autoload :Rexml, "#{__dir__}/xml/rexml"
   end

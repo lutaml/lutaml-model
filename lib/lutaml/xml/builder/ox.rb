@@ -2,18 +2,82 @@ module Lutaml
   module Xml
     module Builder
       class Ox
+        # Internal XML builder that uses moxml Document API instead of
+        # Ox::Builder directly. Provides the same element/text/cdata/raw/to_s
+        # interface that the wrapper and adapter code expects.
+        class MoxmlXmlBuilder
+          def initialize(_options = {})
+            @context = Moxml.new(:ox)
+            @document = @context.create_document
+            @stack = [@document]
+          end
+
+          def element(name, attributes = {})
+            el = @document.create_element(name)
+            attributes.each do |k, v|
+              key = k.to_s
+              if key == "xmlns" || key.start_with?("xmlns:")
+                prefix = key == "xmlns" ? nil : key.delete_prefix("xmlns:")
+                el.add_namespace(prefix, v.to_s)
+              else
+                el[key] = v.to_s
+              end
+            end
+            @stack.last.add_child(el)
+
+            if block_given?
+              @stack.push(el)
+              yield self
+              @stack.pop
+            end
+
+            el
+          end
+
+          def text(content)
+            @stack.last.add_child(@document.create_text(content.to_s))
+          end
+
+          def cdata(content)
+            @stack.last.add_child(@document.create_cdata(content.to_s))
+          end
+
+          def comment(content)
+            @stack.last.add_child(@document.create_comment(content.to_s))
+          end
+
+          def raw(content)
+            return if content.nil? || content.to_s.empty?
+
+            # Parse raw XML fragment wrapped in a temporary element,
+            # then move the parsed children into the current element.
+            wrapped = "<__raw__>#{content}</__raw__>"
+            temp_doc = @context.parse(wrapped)
+            temp_root = temp_doc.root
+            temp_root.children.each do |child|
+              @stack.last.add_child(child)
+            end
+          rescue Moxml::ParseError
+            # Fallback: insert as escaped text if fragment is not valid XML
+            text(content.to_s)
+          end
+
+          def to_s
+            @document.children.map do |child|
+              child.to_xml(no_declaration: true)
+            end.join
+          end
+        end
+
         def self.build(options = {})
-          # CRITICAL: Tell Ox NOT to add XML declaration
-          # We handle declarations manually with generate_declaration() for full control
-          # This ensures no duplicate declarations and proper preservation of input format
-          builder_options = options.merge(effort: :no_decl)
+          builder = MoxmlXmlBuilder.new(options)
 
           if block_given?
-            ::Ox::Builder.new(builder_options) do |xml|
-              yield(new(xml, options))
-            end
+            wrapper = new(builder, options)
+            yield(wrapper)
+            wrapper
           else
-            new(::Ox::Builder.new(builder_options), options)
+            new(builder, options)
           end
         end
 
@@ -105,6 +169,10 @@ module Lutaml
 
         def add_cdata(element, value)
           element.cdata(value)
+        end
+
+        def add_comment(content)
+          xml.comment(content)
         end
 
         # Add XML namespace to document
