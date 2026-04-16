@@ -184,8 +184,8 @@ RSpec.describe "XML Schema Instance Conformance" do
       expect(registry).to include(:xsi_no_namespace_schema_location)
     end
 
-    # XSI-REG-3: XSI types are accessible by symbol
-    it "XSI-REG-3: XSI types accessible via symbol references" do
+    # XSI-REG-3: XSI types are usable in model definitions
+    it "XSI-REG-3: XSI types usable in model attribute definitions" do
       stub_const("XsiSymbolModel", Class.new(Lutaml::Model::Serializable) do
         attribute :nil_val, Lutaml::Xml::W3c::XsiNil
         attribute :type_val, Lutaml::Xml::W3c::XsiType
@@ -201,7 +201,7 @@ RSpec.describe "XML Schema Instance Conformance" do
         nil_val: "true",
         type_val: "xs:string",
         schema_loc: "http://example.com schema.xsd",
-        no_ns_loc: "schema.xsd"
+        no_ns_loc: "schema.xsd",
       )
 
       expect(model.nil_val).to eq("true")
