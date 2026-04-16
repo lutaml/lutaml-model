@@ -1,0 +1,143 @@
+---
+title: XML Standards Conformance
+nav_order: 55
+parent: Core Topics
+---
+
+= XML Standards Conformance
+
+Lutaml::Model aims to provide correct handling of W3C XML specifications.
+This page documents our conformance status for each standard.
+
+== XML Namespaces 1.0
+
+*Spec:* https://www.w3.org/TR/xml-names/[Namespaces in XML 1.0]
+*Tests:* `spec/lutaml/xml/conformance/xml_namespaces_spec.rb`
+
+=== Supported
+
+[cols="1,4"]
+|===
+| Requirement | Status
+
+| Default namespace declaration (`xmlns="..."`)
+| Supported. Round-trip correct.
+
+| Prefixed namespace declaration (`xmlns:prefix="..."`)
+| Supported. Parsing and serialization both work.
+
+| Namespace scope (inheritance to descendants)
+| Supported. Child elements inherit parent namespace.
+
+| Namespace overriding (inner declarations)
+| Supported. Child namespaces override parent.
+
+| Undeclaring default namespace (`xmlns=""`)
+| Supported.
+
+| Reserved prefix `xml`
+| Supported. Implicitly bound, never declared as `xmlns:xml`.
+
+| Reserved prefix warning
+| Supported. Warning issued when redefining `xml`/`xsi`/`xlink`/`xs` prefixes.
+
+| Unprefixed attributes have no namespace
+| Supported. Even with default namespace, unprefixed attributes are un-namespaced.
+
+| Multiple namespace declarations
+| Supported. Different elements can use different namespaces.
+|===
+
+=== xml:* Attributes
+
+|===
+| Attribute | Type | Status
+
+| `xml:lang` | `Lutaml::Xml::W3c::XmlLangType` or `:xml_lang` | Supported. RFC 5646 language tags.
+
+| `xml:space` | `Lutaml::Xml::W3c::XmlSpaceType` or `:xml_space` | Supported. Validates `default`/`preserve`.
+
+| `xml:base` | `Lutaml::Xml::W3c::XmlBaseType` or `:xml_base` | Supported. Base URI values.
+
+| `xml:id` | `Lutaml::Xml::W3c::XmlIdType` or `:xml_id` | Supported. NCName identifiers.
+|===
+
+== XML Schema Instance
+
+*Spec:* https://www.w3.org/TR/xmlschema-1/#xsi_attrs[XML Schema Part 1, Section 2.6.3]
+*Tests:* `spec/lutaml/xml/conformance/xml_schema_instance_spec.rb`
+
+|===
+| Attribute | Type | Status | Notes
+
+| `xsi:nil` | `:xsi_nil` | Supported | Validates `true`/`false` values.
+
+| `xsi:type` | `:xsi_type` | Partial | Stored as string; **no type substitution** performed.
+
+| `xsi:schemaLocation` | `:xsi_schema_location` | Supported | Namespace/location pairs stored as string.
+
+| `xsi:noNamespaceSchemaLocation` | `:xsi_no_namespace_schema_location` | Supported | URI stored as string.
+|===
+
+[IMPORTANT]
+====
+`xsi:type` does **not** trigger runtime type substitution.
+The value is preserved as a string attribute.
+Implementations needing type-based polymorphism must handle this in application logic.
+====
+
+== XLink 1.1
+
+*Spec:* https://www.w3.org/TR/xlink11/[XML Linking Language (XLink) Version 1.1]
+*Tests:* `spec/lutaml/xml/conformance/xml_schema_instance_spec.rb` (XLINK section)
+
+|===
+| Attribute | Type | Validation
+
+| `xlink:href` | `:xlink_href` | URI value
+| `xlink:type` | `:xlink_type` | Must be `simple`, `extended`, `locator`, `arc`, `resource`, or `title`
+| `xlink:role` | `:xlink_role` | URI value
+| `xlink:arcrole` | `:xlink_arcrole` | URI value
+| `xlink:title` | `:xlink_title` | String value
+| `xlink:show` | `:xlink_show` | Must be `new`, `replace`, `embed`, `other`, or `none`
+| `xlink:actuate` | `:xlink_actuate` | Must be `onLoad`, `onRequest`, `other`, or `none`
+|===
+
+== XML Base
+
+*Spec:* https://www.w3.org/TR/xmlbase/[XML Base]
+*Status:* `xml:base` attribute is supported via the `:xml_base` type.
+Resolution of relative URIs against the base is application-level responsibility.
+
+== XML Schema Datatypes
+
+*Spec:* https://www.w3.org/TR/xmlschema-2/[XML Schema Part 2: Datatypes]
+*Status:* XSD schema validation is supported. See `Lutaml::Xml::Schema` for details.
+
+== Using W3C Types
+
+All W3C types are registered and accessible via symbol references:
+
+[source,ruby]
+----
+class MyModel < Lutaml::Model::Serializable
+  attribute :lang, :xml_lang       # xml:lang
+  attribute :space, :xml_space     # xml:space
+  attribute :base, :xml_base       # xml:base
+  attribute :nil_val, :xsi_nil     # xsi:nil
+
+  xml do
+    element "doc"
+    w3c_attributes :lang, :space   # Convenience method
+    map_attribute "nil_val", to: :nil_val
+    map_content to: :content
+  end
+end
+----
+
+== Running Conformance Tests
+
+[source,bash]
+----
+bundle exec rspec spec/lutaml/xml/conformance/ --format documentation
+----
