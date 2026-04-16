@@ -80,9 +80,7 @@ module Lutaml
             preprocessed = Lutaml::Xml::Adapter::NokogiriAdapter.preprocess_entities(
               "<__wrapper__>#{element_or_string}</__wrapper__>",
             )
-            fragment_doc = Moxml.new do |config|
-              config.namespace_uri_mode = :lenient
-            end.parse(preprocessed)
+            fragment_doc = Lutaml::Xml.moxml_context.parse(preprocessed)
 
             # Convert each parsed element to our XmlDataModel format
             # and add as proper children to maintain ordering

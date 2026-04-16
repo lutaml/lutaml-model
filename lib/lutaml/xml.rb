@@ -76,6 +76,18 @@ module Lutaml
       Lutaml::Model::Config.xml_adapter_type
     end
 
+    # Create a Moxml context with lenient namespace URI validation.
+    # XML namespace identifiers need not be valid URIs (RFC 3986),
+    # so we configure Moxml to accept any string.
+    #
+    # @param adapter [Symbol, nil] adapter name (:nokogiri, :ox, :oga, etc.)
+    # @return [Moxml::Context]
+    def self.moxml_context(adapter = nil)
+      Moxml.new(adapter) do |config|
+        config.namespace_uri_mode = :lenient
+      end
+    end
+
     # Autoload core classes
     autoload :Location, "#{__dir__}/xml/schema_location"
     autoload :SchemaLocation, "#{__dir__}/xml/schema_location"

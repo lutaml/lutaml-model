@@ -16,9 +16,7 @@ module Lutaml
         attr_reader :moxml_doc, :context
 
         def initialize(_options = {})
-          @context = Moxml.new(:oga) do |config|
-            config.namespace_uri_mode = :lenient
-          end
+          @context = Lutaml::Xml.moxml_context(:oga)
           @moxml_doc = @context.create_document
         end
 

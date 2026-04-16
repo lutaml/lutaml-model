@@ -36,9 +36,7 @@ module Lutaml
       #   - SaveOptions control for self-closing empty elements
       class Nokogiri
         def self.build(options = {})
-          context = Moxml.new do |config|
-            config.namespace_uri_mode = :lenient
-          end
+          context = Lutaml::Xml.moxml_context
 
           # Use Nokogiri::XML::Builder's document as the native doc.
           # Builder documents have special namespace inheritance behavior:
