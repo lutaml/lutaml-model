@@ -240,8 +240,9 @@ if (adapter = Lutaml::Xml.detect_xml_adapter)
   Lutaml::Model::Config.xml_adapter_type = adapter
 end
 
-# XML namespace identifiers are not required to be valid URIs (RFC 3986).
-# Configure Moxml to accept any string as a namespace URI.
+# W3C XML Namespaces require valid URIs, but lutaml-model accepts
+# non-URI namespace identifiers for compatibility. Configure Moxml
+# to be lenient about namespace URI validation.
 Moxml.configure do |config|
   config.namespace_uri_mode = :lenient
 end

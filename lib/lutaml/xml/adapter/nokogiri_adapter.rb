@@ -70,7 +70,8 @@ module Lutaml
           # If preprocessing transcoded to UTF-8 (for non-UTF-8 input with
           # entity markers), tell the parser the string is now UTF-8.
           parse_enc = processed_xml.encoding == Encoding::UTF_8 ? "UTF-8" : enc
-          parsed = Moxml::Adapter::Nokogiri.parse(processed_xml, encoding: parse_enc)
+          parsed = Moxml::Adapter::Nokogiri.parse(processed_xml,
+                                                  encoding: parse_enc)
           root_element = parsed.root
 
           # Validate that we have a root element
@@ -977,7 +978,9 @@ module Lutaml
                 # Default format: add xmlns="uri" declaration
                 element.add_namespace(nil, target_uri)
                 # Find the newly added namespace and set it
-                ns = element.native.namespace_scopes.find { |n| n.href == target_uri }
+                ns = element.native.namespace_scopes.find do |n|
+                  n.href == target_uri
+                end
                 element.native.namespace = ns if ns
               else
                 # Prefix format: add xmlns:prefix="uri" declaration
@@ -1082,7 +1085,8 @@ module Lutaml
             if xml_child.is_a?(Lutaml::Xml::NokogiriElement) &&
                 xml_child.adapter_node.respond_to?(:entity_reference?) &&
                 xml_child.adapter_node.entity_reference?
-              entity_node = ::Nokogiri::XML::EntityReference.new(native_doc, xml_child.adapter_node.name)
+              entity_node = ::Nokogiri::XML::EntityReference.new(native_doc,
+                                                                 xml_child.adapter_node.name)
               element.native.add_child(entity_node)
               next
             elsif xml_child.is_a?(Lutaml::Xml::DataModel::XmlElement)
@@ -1112,7 +1116,8 @@ module Lutaml
           # Add text content AFTER child elements
           if xml_element.text_content
             if xml_element.cdata
-              cdata_node = ::Nokogiri::XML::CDATA.new(native_doc, xml_element.text_content.to_s)
+              cdata_node = ::Nokogiri::XML::CDATA.new(native_doc,
+                                                      xml_element.text_content.to_s)
               element.native.add_child(cdata_node)
             else
               add_text_with_entities(element, xml_element.text_content.to_s,
@@ -1145,7 +1150,8 @@ module Lutaml
 
             if part.match?(/\A&(\w+|#\d+|#x[\da-fA-F]+);\z/)
               entity_name = part[1..-2]
-              ent = ::Nokogiri::XML::EntityReference.new(native_doc, entity_name)
+              ent = ::Nokogiri::XML::EntityReference.new(native_doc,
+                                                         entity_name)
               element.native.add_child(ent)
             else
               text_node = ::Nokogiri::XML::Text.new(part, native_doc)

@@ -197,7 +197,8 @@ module Lutaml
 
           # Create text node in the same native document to avoid cross-document issues
           native_target = target.is_a?(Moxml::Node) ? target.native : target
-          text_node = ::Nokogiri::XML::Text.new(text.to_s, native_target.document)
+          text_node = ::Nokogiri::XML::Text.new(text.to_s,
+                                                native_target.document)
           native_target.add_child(text_node)
         end
 
@@ -210,7 +211,8 @@ module Lutaml
 
           # Create CDATA node in the same native document
           native_target = target.is_a?(Moxml::Node) ? target.native : target
-          cdata_node = ::Nokogiri::XML::CDATA.new(native_target.document, value.to_s)
+          cdata_node = ::Nokogiri::XML::CDATA.new(native_target.document,
+                                                  value.to_s)
           native_target.add_child(cdata_node)
         end
 

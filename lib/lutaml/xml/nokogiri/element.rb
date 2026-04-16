@@ -82,7 +82,9 @@ module Lutaml
       def text
         val = super || @text
         if val.is_a?(Array)
-          val.map { |entry| entry.is_a?(String) ? restore_entities(entry) : entry }
+          val.map do |entry|
+            entry.is_a?(String) ? restore_entities(entry) : entry
+          end
         else
           restore_entities(val)
         end
