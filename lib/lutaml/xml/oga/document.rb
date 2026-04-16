@@ -16,7 +16,7 @@ module Lutaml
         attr_reader :moxml_doc, :context
 
         def initialize(_options = {})
-          @context = Lutaml::Xml.moxml_context(:oga)
+          @context = Moxml.new(:oga)
           @moxml_doc = @context.create_document
         end
 

@@ -7,7 +7,7 @@ module Lutaml
         # interface that the wrapper and adapter code expects.
         class MoxmlXmlBuilder
           def initialize(_options = {})
-            @context = Lutaml::Xml.moxml_context(:ox)
+            @context = Moxml.new(:ox)
             @document = @context.create_document
             @stack = [@document]
           end
