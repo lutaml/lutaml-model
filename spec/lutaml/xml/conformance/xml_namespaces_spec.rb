@@ -566,7 +566,7 @@ RSpec.describe "XML Namespaces 1.0 Conformance" do
       end)
 
       model = XmlMultiAttrModel.new(
-        lang: "fr", space: "preserve", id: "p1", content: "Texte"
+        lang: "fr", space: "preserve", id: "p1", content: "Texte",
       )
       xml = model.to_xml
 
