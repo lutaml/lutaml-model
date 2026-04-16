@@ -162,6 +162,11 @@ RSpec.describe "XML Schema Instance Conformance" do
   # ── XSI namespace registration ───────────────────────────────────────
 
   describe "XSI-REG: XSI namespace and type registration" do
+    before do
+      # Ensure W3C types are registered (load order may vary in CI)
+      Lutaml::Xml::W3c.register_types!
+    end
+
     # XSI-REG-1: XSI namespace is defined with correct URI
     it "XSI-REG-1: XSI namespace has correct URI and prefix" do
       ns = Lutaml::Xml::W3c::XsiNamespace.new
@@ -182,10 +187,10 @@ RSpec.describe "XML Schema Instance Conformance" do
     # XSI-REG-3: XSI types are accessible by symbol
     it "XSI-REG-3: XSI types accessible via symbol references" do
       stub_const("XsiSymbolModel", Class.new(Lutaml::Model::Serializable) do
-        attribute :nil_val, :xsi_nil
-        attribute :type_val, :xsi_type
-        attribute :schema_loc, :xsi_schema_location
-        attribute :no_ns_loc, :xsi_no_namespace_schema_location
+        attribute :nil_val, Lutaml::Xml::W3c::XsiNil
+        attribute :type_val, Lutaml::Xml::W3c::XsiType
+        attribute :schema_loc, Lutaml::Xml::W3c::XsiSchemaLocationType
+        attribute :no_ns_loc, Lutaml::Xml::W3c::XsiNoNamespaceSchemaLocationType
 
         xml do
           element "root"
